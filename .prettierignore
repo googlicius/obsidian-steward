@@ -1,0 +1,12 @@
+# Build files
+main.js
+*.js.map
+
+# Node modules
+node_modules
+
+# Package files
+package-lock.json
+
+# Other generated files
+.obsidian 
