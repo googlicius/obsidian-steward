@@ -56,6 +56,7 @@ export interface ToolSelection {
 	toolName: string;
 	firstNumber: number;
 	secondNumber: number;
+	answerTemplate: string;
 }
 
 /**
@@ -78,10 +79,15 @@ function validateToolSelection(data: any): ToolSelection {
 		throw new Error('Second number must be a valid number');
 	}
 
+	if (typeof data.answerTemplate !== 'string' || !data.answerTemplate.includes('{result}')) {
+		throw new Error('Answer template must be a string containing {result} placeholder');
+	}
+
 	return {
 		toolName: data.toolName,
 		firstNumber: data.firstNumber,
 		secondNumber: data.secondNumber,
+		answerTemplate: data.answerTemplate,
 	};
 }
 
@@ -99,7 +105,10 @@ export async function selectMathTool(userInput: string): Promise<ToolSelection> 
       You must respond with a valid JSON object containing these properties:
       - toolName: one of [${mathTools.map(t => `"${t.name}"`).join(', ')}]
       - firstNumber: the first number for the operation
-      - secondNumber: the second number for the operation`;
+      - secondNumber: the second number for the operation
+      - answerTemplate: a natural language template for the answer, using {result} as a placeholder for the calculated result
+
+      Respect user input language and style.`;
 
 		// Use ModelFusion to generate the response
 		const response = await generateText({

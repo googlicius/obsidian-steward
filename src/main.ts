@@ -1,29 +1,55 @@
-import { Editor, MarkdownView, Notice, Plugin } from 'obsidian';
+import { Editor, Notice, Plugin, TFile } from 'obsidian';
 import StewardSettingTab from './settings';
-import { MathAssistantModal } from './mathAssistantModal';
-import { COMMAND_PREFIXES, handleShiftEnter } from './cm-extensions/ConversationExtension';
 import { EditorView } from '@codemirror/view';
 import { createCommandHighlightExtension } from './cm-extensions/CommandHighlightExtension';
+import { ConversationEventHandler } from './services/ConversationEventHandler';
+import { eventEmitter, Events } from './services/EventEmitter';
+import { ObsidianAPITools } from './tools/obsidianAPITools';
+import { SearchIndexer } from './searchIndexer';
 
-// Remember to rename these classes and interfaces!
+// Supported command prefixes
+export const COMMAND_PREFIXES = ['/move', '/search', '/calc', '/me'];
 
 interface StewardPluginSettings {
 	mySetting: string;
 	openaiApiKey: string;
 	conversationFolder: string;
+	searchDbPrefix: string;
 }
 
 const DEFAULT_SETTINGS: StewardPluginSettings = {
 	mySetting: 'default',
 	openaiApiKey: '',
 	conversationFolder: 'conversations',
+	searchDbPrefix: '',
 };
+
+// Generate a random string for DB prefix
+function generateRandomDbPrefix(): string {
+	return `obsidian_steward_${Math.random().toString(36).substring(2, 10)}`;
+}
 
 export default class StewardPlugin extends Plugin {
 	settings: StewardPluginSettings;
+	obsidianAPITools: ObsidianAPITools;
+	searchIndexer: SearchIndexer;
 
 	async onload() {
 		await this.loadSettings();
+
+		// Generate DB prefix if not already set
+		if (!this.settings.searchDbPrefix) {
+			this.settings.searchDbPrefix = generateRandomDbPrefix();
+			await this.saveSettings();
+		}
+
+		// Initialize the search indexer with the stored DB prefix and conversation folder
+		this.searchIndexer = new SearchIndexer({
+			app: this.app,
+			dbName: this.settings.searchDbPrefix,
+			conversationFolder: this.settings.conversationFolder,
+		});
+		this.obsidianAPITools = new ObsidianAPITools(this.app, this.searchIndexer);
 
 		// Set OPENAI_API_KEY for ModelFusion
 		if (this.settings.openaiApiKey) {
@@ -35,61 +61,44 @@ export default class StewardPlugin extends Plugin {
 
 		console.log('Registered conversation extension');
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('calculator', 'Math Assistant', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new MathAssistantModal(this.app).open();
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('math-assistant-ribbon-class');
+		// Initialize the conversation event handler
+		new ConversationEventHandler({ plugin: this });
 
 		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
 		const statusBarItemEl = this.addStatusBarItem();
 		statusBarItemEl.setText('Math Assistant Ready');
 
-		// This adds a simple command that can be triggered anywhere
+		// Command to build search index
 		this.addCommand({
-			id: 'open-math-assistant',
-			name: 'Open Math Assistant',
-			callback: () => {
-				new MathAssistantModal(this.app).open();
-			},
-		});
-
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'insert-math-result',
-			name: 'Insert math calculation result',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				const selection = editor.getSelection();
-				if (selection) {
-					// Use the selected text as input for the math assistant
-					// For now, we'll just open the modal, but this could be enhanced to directly insert results
-					new MathAssistantModal(this.app).open();
-				} else {
-					new Notice('Please select text describing a math operation');
+			id: 'build-search-index',
+			name: 'Build Search Index',
+			callback: async () => {
+				new Notice('Building search index...');
+				try {
+					await this.searchIndexer.indexAllFiles();
+					new Notice('Search index built successfully!');
+				} catch (error) {
+					console.error('Error building search index:', error);
+					new Notice('Error building search index. Check console for details.');
 				}
 			},
 		});
 
 		// Add command to process command lines with Shift+Enter
 		this.addCommand({
-			id: 'process-command-line',
-			name: 'Process command line',
+			id: 'process-shift-enter',
+			name: 'Process Shift+Enter',
 			hotkeys: [{ modifiers: ['Shift'], key: 'Enter' }],
-			editorCallback: (
+			editorCallback: async (
 				editor: Editor & {
 					cm: EditorView;
 				},
 				view
 			) => {
-				console.log('Process command line triggered', editor, editor.cm);
-				try {
-					const result = handleShiftEnter(editor.cm);
-					console.log('handleShiftEnter result:', result);
-				} catch (error) {
-					console.error('Error in handleShiftEnter:', error);
-					new Notice(`Error processing command: ${error.message}`);
+				// If handleShiftEnter returns false, execute default Shift+Enter behavior
+				if (!(await this.handleShiftEnter(editor.cm))) {
+					// Default behavior: insert a new line
+					editor.replaceSelection('\n');
 				}
 			},
 		});
@@ -115,5 +124,316 @@ export default class StewardPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	// Function to handle the Shift+Enter key combination
+	async handleShiftEnter(view: EditorView): Promise<boolean> {
+		const { state } = view;
+		const { doc, selection } = state;
+
+		// Get current line
+		const pos = selection.main.head;
+		const line = doc.lineAt(pos);
+		const lineText = line.text;
+
+		// Check if line starts with a command prefix
+		const commandMatch = COMMAND_PREFIXES.find(prefix => lineText.trim().startsWith(prefix));
+		console.log('Command match:', commandMatch);
+
+		if (commandMatch) {
+			try {
+				// Extract the command content (everything after the prefix)
+				const commandContent = lineText.trim().substring(commandMatch.length).trim();
+				const commandType = commandMatch.substring(1); // Remove the / from the command
+
+				console.log('Command type:', commandType);
+				console.log('Command content:', commandContent);
+
+				// Look for a conversation link in the previous lines
+				const conversationLink = this.findConversationLinkAbove(view);
+
+				// Check if this is a follow-up message to an existing conversation
+				if (commandType === 'me') {
+					if (conversationLink) {
+						// Handle the follow-up message
+						this.handleFollowUpMessage(view, conversationLink, commandContent, line.from, line.to);
+						return true;
+					}
+				}
+
+				const folderPath = this.settings.conversationFolder;
+				const notePath = `${folderPath}/${conversationLink}.md`;
+
+				if (this.app.vault.getAbstractFileByPath(notePath) && conversationLink) {
+					await this.updateConversationNote(conversationLink, lineText, 'User');
+
+					// Remove the current line
+					view.dispatch({
+						changes: {
+							from: line.from,
+							to: line.to,
+							insert: '',
+						},
+					});
+
+					// Emit the conversation note updated event
+					eventEmitter.emit(Events.CONVERSATION_NOTE_UPDATED, {
+						title: conversationLink,
+						commandType,
+						commandContent,
+					});
+
+					return true;
+				}
+
+				// Create a title now so we can safely refer to it later
+				const title = `${commandType} command ${Math.random().toString(36).substring(2, 8)}`;
+
+				// Create a promise to create the conversation note
+				await this.createConversationNote(title, commandType, commandContent);
+
+				// After the note is created, insert the link on the next tick
+				setTimeout(() => {
+					// Emit the conversation note created event
+					eventEmitter.emit(Events.CONVERSATION_NOTE_CREATED, {
+						view,
+						from: line.from,
+						to: line.to,
+						title,
+						commandContent,
+						commandType,
+					});
+				}, 50);
+
+				return true;
+			} catch (error) {
+				console.error('Error in handleShiftEnter:', error);
+				new Notice(`Error processing command: ${error.message}`);
+				return false;
+			}
+		}
+
+		return false;
+	}
+
+	// Function to find a conversation link in the lines above the current cursor
+	findConversationLinkAbove(view: EditorView): string | null {
+		const { state } = view;
+		const { doc, selection } = state;
+		const currentLine = doc.lineAt(selection.main.head);
+
+		// Check up to 10 lines above the current one
+		let lineNumber = currentLine.number - 1;
+		const minLineNumber = Math.max(1, currentLine.number - 10);
+
+		while (lineNumber >= minLineNumber) {
+			const line = doc.line(lineNumber);
+			const text = line.text;
+
+			// Look for inline link format: ![[conversation title]]
+			const linkMatch = text.match(/!\[\[(.*?)\]\]/);
+			if (linkMatch && linkMatch[1]) {
+				return linkMatch[1]; // Return the conversation title
+			}
+
+			lineNumber--;
+		}
+
+		return null;
+	}
+
+	// Function to handle a follow-up message to an existing conversation
+	async handleFollowUpMessage(
+		view: EditorView,
+		conversationTitle: string,
+		content: string,
+		fromPos: number,
+		toPos: number
+	): Promise<void> {
+		try {
+			const folderPath = this.settings.conversationFolder;
+			const notePath = `${folderPath}/${conversationTitle}.md`;
+
+			// Check if the conversation note exists
+			const file = this.app.vault.getAbstractFileByPath(notePath) as TFile;
+			if (!file) {
+				new Notice(`Error: Conversation note not found: ${notePath}`);
+				return;
+			}
+
+			// Read the current content of the note
+			const fileContent = await this.app.vault.read(file);
+
+			// Append the follow-up message to the note
+			const updatedContent =
+				fileContent +
+				`\n\n**User:** /me ${content}\n\n**Steward**: Working on follow-up request...\n`;
+
+			// Update the note with the new content
+			await this.app.vault.modify(file, updatedContent);
+
+			// Replace the line with the command with an empty line
+			view.dispatch({
+				changes: {
+					from: fromPos,
+					to: toPos,
+					insert: '',
+				},
+			});
+
+			new Notice(`Added follow-up message to ${conversationTitle}`);
+		} catch (error) {
+			new Notice(`Error adding follow-up message: ${error}`);
+			console.error('Error adding follow-up message:', error);
+		}
+	}
+
+	// Helper function to create a conversation note
+	async createConversationNote(title: string, commandType: string, content: string): Promise<void> {
+		try {
+			// Get the configured folder for conversations
+			const folderPath = this.settings.conversationFolder;
+			const notePath = `${folderPath}/${title}.md`;
+
+			// Check if conversations folder exists, create if not
+			const folderExists = this.app.vault.getAbstractFileByPath(folderPath);
+			if (!folderExists) {
+				await this.app.vault.createFolder(folderPath);
+			}
+
+			// Build initial content based on command type
+			let initialContent: string;
+
+			switch (commandType) {
+				case 'move':
+					initialContent = [
+						`#gtp-4`,
+						'',
+						`/${commandType} ${content}`,
+						'',
+						`Steward: Ok I will help you move all files with tags ${content} to the`,
+						`English/Vocabulary/Nouns folder.`,
+						'',
+						`Steward: Here is the list of notes contains tag ${content} that I found:`,
+						'',
+						`- Flashcard 1`,
+						`- Flashcard 3`,
+						'',
+						`Do you want me to process moving them all now?`,
+						'',
+					].join('\n');
+					break;
+
+				case 'search':
+					initialContent = [`#gtp-4`, '', `**User:** /${commandType} ${content}`, ''].join('\n');
+
+					break;
+
+				case 'calc':
+					initialContent = `#gtp-4\n\n**User:** /${commandType} ${content}\n\n*Generating...*`;
+					break;
+
+				default:
+					initialContent = [
+						`#gtp-4`,
+						'',
+						`/${commandType} ${content}`,
+						'',
+						`**Steward**: Working on it...`,
+						'',
+					].join('\n');
+					break;
+			}
+
+			// Create the conversation note
+			await this.app.vault.create(notePath, initialContent);
+
+			new Notice(`Created conversation: ${title}`);
+		} catch (error) {
+			console.error('Error creating conversation note:', error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Inserts a conversation link into the editor
+	 * @param view - The editor view
+	 * @param from - The start position of the link
+	 * @param to - The end position of the link
+	 * @param title - The title of the conversation
+	 * @param commandType - The type of command
+	 * @param commandContent - The content of the command
+	 */
+	insertConversationLink(
+		view: EditorView,
+		from: number,
+		to: number,
+		title: string,
+		commandType: string,
+		commandContent: string
+	) {
+		const linkText = `![[${title}]]\n\n`;
+
+		view.dispatch({
+			changes: {
+				from,
+				to,
+				insert: linkText,
+			},
+		});
+
+		eventEmitter.emit(Events.CONVERSATION_LINK_INSERTED, {
+			title,
+			commandType,
+			commandContent,
+		});
+	}
+
+	/**
+	 * Updates a conversation note with the given result
+	 * @param path - The path of the conversation note
+	 * @param newContent - The new content to update in the note
+	 * @param role - The role of the note (default is 'Steward')
+	 */
+	async updateConversationNote(path: string, newContent: string, role = 'Steward'): Promise<void> {
+		try {
+			const folderPath = this.settings.conversationFolder;
+			const notePath = `${folderPath}/${path}.md`;
+
+			// Get the current content of the note
+			const file = this.app.vault.getAbstractFileByPath(notePath) as TFile;
+			if (!file) {
+				throw new Error(`Conversation note not found: ${notePath}`);
+			}
+
+			let currentContent = await this.app.vault.read(file);
+
+			// Remove the generating indicator and any trailing newlines
+			currentContent = currentContent.replace(/\*Generating\.\.\.\*\n*$/, '');
+
+			// Update the note
+			role = role ? `**${role}:** ` : '';
+			await this.app.vault.modify(file, `${currentContent}\n\n${role}${newContent}`);
+		} catch (error) {
+			console.error('Error updating conversation note:', error);
+			new Notice(`Error updating conversation: ${error.message}`);
+		}
+	}
+
+	async addGeneratingIndicator(path: string): Promise<void> {
+		const folderPath = this.settings.conversationFolder;
+		const notePath = `${folderPath}/${path}.md`;
+		const file = this.app.vault.getAbstractFileByPath(notePath) as TFile;
+		if (!file) {
+			throw new Error(`Conversation note not found: ${notePath}`);
+		}
+
+		const currentContent = await this.removeGeneratingIndicator(await this.app.vault.read(file));
+		const newContent = `${currentContent}\n\n*Generating...*`;
+		await this.app.vault.modify(file, newContent);
+	}
+
+	async removeGeneratingIndicator(content: string): Promise<string> {
+		return content.replace('*Generating...*', '');
 	}
 }
