@@ -1,96 +1,66 @@
-# Obsidian Sample Plugin
+# Obsidian Steward
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+Obsidian Steward is a plugin for [Obsidian](https://obsidian.md) that helps you communicate with an AI assistant directly from your markdown editor.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## Features
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
+- **Command-based conversations**: Start a conversation with the AI by typing special commands like `/move`, `/search`, or `/calc`
+- **Contextual AI assistance**: Get help with moving files, searching your vault, or performing calculations
+- **Persistent conversations**: All conversations are saved in a dedicated folder for future reference
+- **Follow-up queries**: Easily continue conversations with follow-up messages
 
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open Sample Modal" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+## Usage
 
-## First time developing plugins?
+1. Type one of the following commands at the beginning of a line:
+   - `/move` - Get help moving files in your vault
+   - `/search` - Search your vault with natural language
+   - `/calc` - Perform calculations with natural language
+2. Press `Shift+Enter` to execute the command and start a conversation
 
-Quick starting guide for new plugin devs:
+3. The plugin will:
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+   - Create a new note in the conversations folder
+   - Insert an inline link to that note at your current cursor position
+   - Initialize the conversation with your command
 
-## Releasing new releases
+4. To continue the conversation, type `/me <your follow-up>` below the inline link and press `Shift+Enter`
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+## Example
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+```markdown
+# Meeting Notes
 
-## Adding your plugin to the community plugin list
+Let's organize the vocabulary flashcards.
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+/move files have tag #noun to English/Vocabulary/Nouns folder
 
-## How to use
+![[move command 2h894g3]]
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
-
-## Manually installing the plugin
-
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
-
-## Improve code quality with eslint (optional)
-
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code.
-- To use eslint with this project, make sure to install eslint from terminal:
-  - `npm install -g eslint`
-- To use eslint to analyze this project use this command:
-  - `eslint main.ts`
-  - eslint will then create a report with suggestions for code improvement by file and line number.
-- If your source code is in a folder, such as `src`, you can use eslint with this command to analyze all files in that folder:
-  - `eslint .\src\`
-
-## Funding URL
-
-You can include funding URLs where people who use your plugin can financially support it.
-
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-	"fundingUrl": "https://buymeacoffee.com"
-}
+/me Thank you
 ```
 
-If you have multiple URLs, you can also do:
+## Installation
 
-```json
-{
-	"fundingUrl": {
-		"Buy Me a Coffee": "https://buymeacoffee.com",
-		"GitHub Sponsor": "https://github.com/sponsors",
-		"Patreon": "https://www.patreon.com/"
-	}
-}
-```
+1. Download the plugin from the Obsidian Community Plugins browser
+2. Enable the plugin in your Obsidian settings
+3. Configure your OpenAI API key in the plugin settings
 
-## API Documentation
+## Settings
 
-See https://github.com/obsidianmd/obsidian-api
+- **OpenAI API Key**: Your API key for accessing OpenAI services
+- **Conversation Folder**: The folder where conversation notes will be stored (default: `conversations`)
+
+## Development
+
+This plugin uses TypeScript and follows the Obsidian plugin architecture.
+
+### Building
+
+1. Clone this repository
+2. Run `npm install` to install dependencies
+3. Run `npm run dev` to start the development server
+4. Run `npm run build` to build the production version
+
+## License
+
+MIT
