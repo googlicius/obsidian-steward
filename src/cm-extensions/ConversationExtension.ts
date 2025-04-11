@@ -1,39 +1,19 @@
-import { Extension } from '@codemirror/state';
-import {
-	EditorView,
-	Decoration,
-	DecorationSet,
-	ViewPlugin,
-	ViewUpdate,
-	keymap,
-} from '@codemirror/view';
+import { EditorView } from '@codemirror/view';
 import { Notice } from 'obsidian';
 import StewardPlugin from '../main';
 
 // Supported command prefixes
-const COMMAND_PREFIXES = ['/move', '/search', '/calc', '/me'];
-
-function testCommand(): (view: EditorView) => boolean {
-	return (view: EditorView) => {
-		console.log('testCommand', view);
-		return true;
-	};
-}
+export const COMMAND_PREFIXES = ['/move', '/search', '/calc', '/me'];
 
 // Function to handle the Shift+Enter key combination
 export function handleShiftEnter(view: EditorView): boolean {
 	const { state } = view;
 	const { doc, selection } = state;
 
-	console.log('--- handleShiftEnter called ---');
-	console.log('Selection:', selection);
-
 	// Get current line
 	const pos = selection.main.head;
 	const line = doc.lineAt(pos);
 	const lineText = line.text;
-
-	console.log('Current line text:', lineText);
 
 	// Check if line starts with a command prefix
 	const commandMatch = COMMAND_PREFIXES.find(prefix => lineText.trim().startsWith(prefix));
@@ -206,8 +186,8 @@ async function createConversationNote(
 					'',
 					`Steward: Here is the list of notes contains tag ${content} that I found:`,
 					'',
-					`• Flashcard 1`,
-					`• Flashcard 3`,
+					`- Flashcard 1`,
+					`- Flashcard 3`,
 					'',
 					`Do you want me to process moving them all now?`,
 					'',
@@ -228,6 +208,7 @@ async function createConversationNote(
 					`Would you like me to show you the context of these matches?`,
 					'',
 				].join('\n');
+
 				break;
 
 			case 'calc':
@@ -286,75 +267,3 @@ function insertConversationLink(view: EditorView, from: number, to: number, titl
 		new Notice(`Error inserting link: ${error.message}`);
 	}
 }
-
-// Add syntax highlighting for command prefixes
-const commandHighlightPlugin = ViewPlugin.fromClass(
-	class {
-		decorations: DecorationSet;
-
-		constructor(view: EditorView) {
-			this.decorations = this.buildDecorations(view);
-		}
-
-		update(update: ViewUpdate) {
-			if (update.docChanged || update.viewportChanged) {
-				this.decorations = this.buildDecorations(update.view);
-			}
-		}
-
-		buildDecorations(view: EditorView) {
-			const decorations = [];
-			const { state } = view;
-			const { doc } = state;
-
-			// Iterate through each line in the document
-			for (let i = 1; i <= doc.lines; i++) {
-				const line = doc.line(i);
-				const lineText = line.text.trim();
-
-				// Check for command prefixes
-				for (const prefix of COMMAND_PREFIXES) {
-					if (lineText.startsWith(prefix)) {
-						// Create a decoration for the command prefix
-						const from = line.from + lineText.indexOf(prefix);
-						const to = from + prefix.length;
-						const commandType = prefix.substring(1); // Remove the / from the prefix
-
-						decorations.push(
-							Decoration.mark({
-								class: `conversation-command cm-conversation-command-${commandType}`,
-							}).range(from, to)
-						);
-						break;
-					}
-				}
-			}
-
-			return Decoration.set(decorations);
-		}
-	},
-	{
-		decorations: v => v.decorations,
-	}
-);
-
-// Create the conversation UI extension
-function createConversationExtension(plugin: StewardPlugin): Extension {
-	console.log('Creating conversation extension with keymap');
-
-	const keyBindings = keymap.of([
-		{
-			key: 'Shift-Alt-ArrowDown',
-			run: testCommand(),
-		},
-	]);
-
-	console.log('Keymap created:', keyBindings);
-
-	return [commandHighlightPlugin, keyBindings];
-}
-
-export const conversationExtension = (plugin: StewardPlugin): Extension => {
-	console.log('Exporting conversation extension for plugin');
-	return createConversationExtension(plugin);
-};

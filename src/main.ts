@@ -1,8 +1,9 @@
 import { Editor, MarkdownView, Notice, Plugin } from 'obsidian';
 import StewardSettingTab from './settings';
 import { MathAssistantModal } from './mathAssistantModal';
-import { conversationExtension, handleShiftEnter } from './cm-extensions/ConversationExtension';
+import { COMMAND_PREFIXES, handleShiftEnter } from './cm-extensions/ConversationExtension';
 import { EditorView } from '@codemirror/view';
+import { createCommandHighlightExtension } from './cm-extensions/CommandHighlightExtension';
 
 // Remember to rename these classes and interfaces!
 
@@ -30,7 +31,7 @@ export default class StewardPlugin extends Plugin {
 		}
 
 		// Register the conversation extension for CodeMirror
-		this.registerEditorExtension(conversationExtension(this));
+		this.registerEditorExtension([createCommandHighlightExtension(COMMAND_PREFIXES)]);
 
 		console.log('Registered conversation extension');
 
