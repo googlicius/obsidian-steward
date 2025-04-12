@@ -8,7 +8,7 @@ import { ObsidianAPITools } from './tools/obsidianAPITools';
 import { SearchIndexer } from './searchIndexer';
 
 // Supported command prefixes
-export const COMMAND_PREFIXES = ['/move', '/search', '/calc', '/me'];
+export const COMMAND_PREFIXES = ['/ ', '/move', '/search', '/calc', '/me'];
 
 interface StewardPluginSettings {
 	mySetting: string;
@@ -50,6 +50,9 @@ export default class StewardPlugin extends Plugin {
 			conversationFolder: this.settings.conversationFolder,
 		});
 		this.obsidianAPITools = new ObsidianAPITools(this.app, this.searchIndexer);
+
+		// Build the index if it's not already built
+		this.checkAndBuildIndexIfNeeded();
 
 		// Set OPENAI_API_KEY for ModelFusion
 		if (this.settings.openaiApiKey) {
@@ -325,10 +328,6 @@ export default class StewardPlugin extends Plugin {
 					break;
 
 				case 'search':
-					initialContent = [`#gtp-4`, '', `**User:** /${commandType} ${content}`, ''].join('\n');
-
-					break;
-
 				case 'calc':
 					initialContent = `#gtp-4\n\n**User:** /${commandType} ${content}\n\n*Generating...*`;
 					break;
@@ -393,9 +392,9 @@ export default class StewardPlugin extends Plugin {
 	 * Updates a conversation note with the given result
 	 * @param path - The path of the conversation note
 	 * @param newContent - The new content to update in the note
-	 * @param role - The role of the note (default is 'Steward')
+	 * @param role - The role of the note
 	 */
-	async updateConversationNote(path: string, newContent: string, role = 'Steward'): Promise<void> {
+	async updateConversationNote(path: string, newContent: string, role?: string): Promise<void> {
 		try {
 			const folderPath = this.settings.conversationFolder;
 			const notePath = `${folderPath}/${path}.md`;
@@ -411,9 +410,14 @@ export default class StewardPlugin extends Plugin {
 			// Remove the generating indicator and any trailing newlines
 			currentContent = currentContent.replace(/\*Generating\.\.\.\*\n*$/, '');
 
+			// Add a separator line if the role is User
+			if (role === 'User') {
+				currentContent = `${currentContent}\n\n---`;
+			}
+
 			// Update the note
-			role = role ? `**${role}:** ` : '';
-			await this.app.vault.modify(file, `${currentContent}\n\n${role}${newContent}`);
+			const roleText = role ? `**${role}:** ` : '';
+			await this.app.vault.modify(file, `${currentContent}\n\n${roleText}${newContent}`);
 		} catch (error) {
 			console.error('Error updating conversation note:', error);
 			new Notice(`Error updating conversation: ${error.message}`);
@@ -435,5 +439,32 @@ export default class StewardPlugin extends Plugin {
 
 	async removeGeneratingIndicator(content: string): Promise<string> {
 		return content.replace('*Generating...*', '');
+	}
+
+	/**
+	 * Check if the search index is built and build it if needed
+	 */
+	private async checkAndBuildIndexIfNeeded(): Promise<void> {
+		// Check if the index is already built
+		const isBuilt = await this.searchIndexer.isIndexBuilt();
+
+		// If the index isn't built yet, build it after a short delay
+		// to avoid blocking the UI when the plugin loads
+		if (!isBuilt) {
+			console.log('Search index not found. Will build index shortly...');
+
+			// Use setTimeout to delay the index building by 3 seconds
+			// This ensures the plugin loads smoothly before starting the index build
+			setTimeout(async () => {
+				try {
+					new Notice('Steward: Building indexes for the first time...');
+					await this.searchIndexer.indexAllFiles();
+					new Notice('Steward: Indexes built successfully!');
+				} catch (error) {
+					console.error('Error building initial indexes:', error);
+					new Notice('Steward: Error building initial indexes. Check console for details.');
+				}
+			}, 3000);
+		}
 	}
 }

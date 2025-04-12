@@ -25,7 +25,7 @@ export function createCommandHighlightExtension(commandPrefixes: string[]): Exte
 				// Iterate through each line in the document
 				for (let i = 1; i <= doc.lines; i++) {
 					const line = doc.line(i);
-					const lineText = line.text.trim();
+					const lineText = line.text;
 
 					// Check for command prefixes
 					for (const prefix of commandPrefixes) {
@@ -33,11 +33,10 @@ export function createCommandHighlightExtension(commandPrefixes: string[]): Exte
 							// Create a decoration for the command prefix
 							const from = line.from + lineText.indexOf(prefix);
 							const to = from + prefix.length;
-							const commandType = prefix.substring(1); // Remove the / from the prefix
 
 							decorations.push(
 								Decoration.mark({
-									class: `conversation-command cm-conversation-command-${commandType}`,
+									class: `conversation-command cm-conversation-command`,
 								}).range(from, to)
 							);
 							break;

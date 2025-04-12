@@ -1,5 +1,14 @@
 import { App } from 'obsidian';
 import { SearchIndexer, SearchResult } from '../searchIndexer';
+import { generateText, openai } from 'modelfusion';
+
+/**
+ * Represents the extracted search query from a natural language request
+ */
+export interface SearchQueryExtraction {
+	searchQuery: string;
+	explanation: string;
+}
 
 export class ObsidianAPITools {
 	constructor(
@@ -22,91 +31,99 @@ export class ObsidianAPITools {
 	}
 
 	/**
-	 * Move files with specific tags to a destination folder
-	 * @param tags Tags to search for
-	 * @param destination Destination folder path
+	 * Extract a search query from a natural language request using AI
+	 * @param userInput Natural language request from the user
+	 * @returns Extracted search query and explanation
 	 */
-	async moveFilesByTags(
-		tags: string[],
-		destination: string
-	): Promise<{ moved: string[]; errors: string[] }> {
-		const moved: string[] = [];
-		const errors: string[] = [];
+	async extractSearchQuery(userInput: string): Promise<SearchQueryExtraction> {
+		try {
+			const systemPrompt = `You are a helpful assistant that extracts search keywords from user queries for an Obsidian note search system.
 
-		// Ensure the destination folder exists
-		const destFolder = this.app.vault.getAbstractFileByPath(destination);
-		if (!destFolder) {
-			try {
-				await this.app.vault.createFolder(destination);
-			} catch (error) {
-				throw new Error(`Could not create destination folder: ${destination}`);
-			}
+Your job is to analyze the user's natural language request and extract the most relevant search keywords or tags.
+
+Guidelines:
+- If the user is looking for notes with specific tags, format them as "#tag1 #tag2 #tag3"
+- If the user is looking for general keywords, extract them and separate with spaces
+- Consider synonyms and related terms that might be helpful
+- Simplify complex queries into the most essential search terms
+
+You must respond with a valid JSON object containing these properties:
+- searchQuery: The extracted search query as a string (tags or keywords)
+- explanation: A brief explanation of how you interpreted the query
+
+Examples:
+1. User: "Help me find all notes with tags generated, noun, and verb"
+   Response: { "searchQuery": "#generated #noun #verb", "explanation": "Searching for notes tagged with generated, noun, and verb" }
+
+2. User: "I need to find my notes about climate change impacts on agriculture"
+   Response: { "searchQuery": "climate change agriculture impact", "explanation": "Searching for notes about climate change's impact on agriculture" }`;
+
+			// Use ModelFusion to generate the response
+			const response = await generateText({
+				model: openai.ChatTextGenerator({
+					model: 'gpt-4-turbo-preview',
+					temperature: 0.2,
+					responseFormat: { type: 'json_object' },
+				}),
+				prompt: [
+					{ role: 'system', content: systemPrompt },
+					{ role: 'user', content: userInput },
+				],
+			});
+
+			// Parse and validate the JSON response
+			const parsed = JSON.parse(response);
+			return this.validateSearchQueryExtraction(parsed);
+		} catch (error) {
+			console.error('Error extracting search query:', error);
+			throw error;
 		}
-
-		// Get all files with the specified tags
-		const files = this.app.vault.getMarkdownFiles().filter(file => {
-			const cache = this.app.metadataCache.getFileCache(file);
-			if (!cache || !cache.tags) return false;
-
-			const fileTags = cache.tags.map(t => t.tag.toLowerCase());
-			return tags.some(tag => fileTags.includes(tag.toLowerCase()));
-		});
-
-		// Move each file to the destination
-		for (const file of files) {
-			const fileName = file.name;
-			const destPath = `${destination}/${fileName}`;
-
-			try {
-				await this.app.vault.rename(file, destPath);
-				moved.push(file.path);
-			} catch (error) {
-				errors.push(file.path);
-			}
-		}
-
-		return { moved, errors };
 	}
 
 	/**
-	 * Move files that match a search query to a destination folder
-	 * @param query Search query
-	 * @param destination Destination folder path
+	 * Validate that the search query extraction contains all required fields
 	 */
-	async moveFilesBySearch(
-		query: string,
-		destination: string
-	): Promise<{ moved: string[]; errors: string[] }> {
-		const moved: string[] = [];
-		const errors: string[] = [];
-
-		// Ensure the destination folder exists
-		const destFolder = this.app.vault.getAbstractFileByPath(destination);
-		if (!destFolder) {
-			try {
-				await this.app.vault.createFolder(destination);
-			} catch (error) {
-				throw new Error(`Could not create destination folder: ${destination}`);
-			}
+	private validateSearchQueryExtraction(data: any): SearchQueryExtraction {
+		if (!data || typeof data !== 'object') {
+			throw new Error('Invalid response format');
 		}
 
-		// Search for files matching the query
-		const searchResults = await this.search(query);
-
-		// Move each file to the destination
-		for (const result of searchResults) {
-			const file = result.file;
-			const fileName = file.name;
-			const destPath = `${destination}/${fileName}`;
-
-			try {
-				await this.app.vault.rename(file, destPath);
-				moved.push(file.path);
-			} catch (error) {
-				errors.push(file.path);
-			}
+		if (typeof data.searchQuery !== 'string' || !data.searchQuery.trim()) {
+			throw new Error('Search query must be a non-empty string');
 		}
 
-		return { moved, errors };
+		if (typeof data.explanation !== 'string' || !data.explanation.trim()) {
+			throw new Error('Explanation must be a non-empty string');
+		}
+
+		return {
+			searchQuery: data.searchQuery,
+			explanation: data.explanation,
+		};
+	}
+
+	/**
+	 * Enhanced search that uses AI to extract search keywords from natural language queries
+	 * @param userQuery Natural language query from the user
+	 * @param limit Maximum number of results to return
+	 * @returns Search results and the explanation of the query interpretation
+	 */
+	async enhancedSearch(
+		userQuery: string,
+		limit = 10
+	): Promise<{
+		results: SearchResult[];
+		queryExtraction: SearchQueryExtraction;
+	}> {
+		// Extract the search query using AI
+		const queryExtraction = await this.extractSearchQuery(userQuery);
+
+		// Perform the search using the extracted query
+		const results = await this.search(queryExtraction.searchQuery, limit);
+
+		return {
+			results,
+			queryExtraction,
+		};
 	}
 }

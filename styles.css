@@ -7,77 +7,8 @@ If your plugin does not need CSS, delete this file.
 
 */
 
-/* Conversation styling */
-.conversation-link-widget {
-  display: inline-block;
-  padding: 2px 5px;
-  background-color: var(--background-secondary);
-  border-radius: 4px;
-  color: var(--text-normal);
-  font-size: 0.9em;
-}
-
-/* Add styling for command prefixes */
-.cm-line:not(.cm-active) .conversation-command {
-  color: var(--text-accent);
-  font-weight: 500;
-}
-
-/* Response styling for the Steward's responses */
-.steward-response {
-  border-left: 3px solid var(--text-accent);
-  padding-left: 8px;
-  margin-left: 8px;
-  margin-top: 4px;
-  margin-bottom: 4px;
-}
-
 /* Style for the commands when typing */
-.cm-line .cm-conversation-command-move,
-.cm-line .cm-conversation-command-search,
-.cm-line .cm-conversation-command-calc,
-.cm-line .cm-conversation-command-me {
-  color: var(--text-accent-hover);
-  font-weight: bold;
-}
-
-/* Style for the inline links to conversation notes */
-span.cm-formatting-link.cm-formatting-link-start+span.cm-formatting-link+span.cm-link+span.cm-formatting-link+span.cm-formatting-link.cm-formatting-link-end {
-  background-color: var(--background-secondary);
-  border-radius: 4px;
-  padding: 2px 4px;
-}
-
-/* Dialog styling */
-.conversation-dialog {
-  background-color: var(--background-primary);
-  border-radius: 8px;
-  border: 1px solid var(--background-modifier-border);
-  box-shadow: 0 2px 8px var(--background-modifier-box-shadow);
-  padding: 16px;
-  width: 100%;
-  max-width: 600px;
-}
-
-.conversation-dialog .dialog-title {
-  margin-top: 0;
-  color: var(--text-normal);
-  font-size: 1.2em;
-  font-weight: bold;
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--background-modifier-border);
-  padding-bottom: 8px;
-}
-
-.conversation-dialog .dialog-content {
-  margin-bottom: 16px;
-}
-
-.conversation-dialog .dialog-buttons {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.conversation-dialog .dialog-buttons button {
-  margin-left: 8px;
+.cm-line .cm-conversation-command {
+	color: var(--text-accent-hover);
+	font-weight: bold;
 }

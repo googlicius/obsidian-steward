@@ -75,7 +75,6 @@ export class ConversationEventHandler {
 
 			case 'search': {
 				await this.plugin.addGeneratingIndicator(payload.title);
-				console.log('search', payload);
 				await this.handleSearchCommand(payload.title, payload.commandContent);
 				break;
 			}
@@ -118,48 +117,26 @@ export class ConversationEventHandler {
 				.replace('{result}', result.toString())
 				.replace('{firstNumber}', firstNumber.toString())
 				.replace('{secondNumber}', secondNumber.toString());
-			await this.plugin.updateConversationNote(title, answer);
+			await this.plugin.updateConversationNote(title, answer, 'Steward');
 		} catch (error) {
-			await this.plugin.updateConversationNote(title, error.message);
+			await this.plugin.updateConversationNote(title, error.message, 'Steward');
 		}
 	}
 
 	private async handleMoveCommand(title: string, commandContent: string): Promise<void> {
-		try {
-			// Parse the command to extract source and destination
-			const { source, destination } = this.parseMoveCommand(commandContent);
-
-			if (!source || !destination) {
-				throw new Error(
-					"Could not determine source and destination from the command. Please use format: 'move [files with tag #tag] to [destination]'"
-				);
-			}
-
-			// Perform the move operation
-			let result;
-			if (source.startsWith('#')) {
-				// Move by tag
-				result = await this.plugin.obsidianAPITools.moveFilesByTags([source], destination);
-			} else {
-				// Move by search
-				result = await this.plugin.obsidianAPITools.moveFilesBySearch(source, destination);
-			}
-
-			// Format the result for the conversation
-			const response = this.formatMoveResult(result);
-			await this.plugin.updateConversationNote(title, response);
-		} catch (error) {
-			await this.plugin.updateConversationNote(title, `Error: ${error.message}`);
-		}
+		//
 	}
 
 	private async handleSearchCommand(title: string, commandContent: string): Promise<void> {
 		try {
-			// Perform the search
-			const results = await this.plugin.obsidianAPITools.search(commandContent, 10);
+			// Use the AI-enhanced search
+			const { results, queryExtraction } = await this.plugin.obsidianAPITools.enhancedSearch(
+				commandContent,
+				10
+			);
 
 			// Format the results
-			let response = `I searched your vault for "${commandContent}" and found ${results.length} results:`;
+			let response = `${queryExtraction.explanation} and used the query: "${queryExtraction.searchQuery}"\n\nI found ${results.length} results:`;
 
 			if (results.length > 0) {
 				results.forEach((result, index) => {
@@ -182,36 +159,19 @@ export class ConversationEventHandler {
 				response += '\n\nNo results found. Would you like to try a different search term?';
 			}
 
-			await this.plugin.updateConversationNote(title, response);
+			await this.plugin.updateConversationNote(title, response, 'Steward');
 		} catch (error) {
-			await this.plugin.updateConversationNote(title, `Error: ${error.message}`);
+			await this.plugin.updateConversationNote(title, `Error: ${error.message}`, 'Steward');
 		}
 	}
 
-	// Helper to parse the move command
-	private parseMoveCommand(command: string): { source: string; destination: string } {
-		// Example patterns:
-		// "move files with tag #project to Archive/2023"
-		// "move notes containing project plan to Projects/2023"
-
-		let source = '';
-		let destination = '';
-
+	// Helper to parse just the destination from the move command
+	private parseMoveDestination(command: string): string {
 		if (command.includes(' to ')) {
 			const parts = command.split(' to ');
-			destination = parts.pop()?.trim() || '';
-			const sourcePart = parts.join(' to ');
-
-			if (sourcePart.includes('tag ')) {
-				source = sourcePart.split('tag ').pop()?.trim() || '';
-			} else if (sourcePart.includes('containing ')) {
-				source = sourcePart.split('containing ').pop()?.trim() || '';
-			} else {
-				source = sourcePart;
-			}
+			return parts.pop()?.trim() || '';
 		}
-
-		return { source, destination };
+		return '';
 	}
 
 	// Format move results for display

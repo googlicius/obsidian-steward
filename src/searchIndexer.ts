@@ -307,10 +307,7 @@ export class SearchIndexer {
 
 		// Add all files to the queue, excluding conversation folder files and files with commands
 		for (const file of files) {
-			if (
-				!file.path.startsWith(this.app.vault.configDir + '/' + this.conversationFolder) &&
-				!file.path.startsWith(this.conversationFolder + '/')
-			) {
+			if (!file.path.startsWith(this.conversationFolder + '/')) {
 				try {
 					// Check if file content contains command prefixes
 					const content = await this.app.vault.read(file);
@@ -336,8 +333,6 @@ export class SearchIndexer {
 		const queryTerms = this.tokenizeContent(query).map(t => t.term);
 
 		if (queryTerms.length === 0) return [];
-
-		console.log('search-start', queryTerms);
 
 		// Get matching documents with term frequencies
 		const results = await this.db.transaction('r', [this.db.documents, this.db.terms], async () => {
@@ -450,5 +445,20 @@ export class SearchIndexer {
 
 		// Sort matches by position
 		return matches.sort((a, b) => a.position - b.position);
+	}
+
+	/**
+	 * Check if the index has been built already
+	 * @returns Promise<boolean> True if the index has at least one entry, false if empty
+	 */
+	public async isIndexBuilt(): Promise<boolean> {
+		try {
+			// Just check if at least one document exists, rather than counting all documents
+			const firstDoc = await this.db.documents.limit(1).first();
+			return firstDoc !== undefined;
+		} catch (error) {
+			console.error('Error checking if index is built:', error);
+			return false;
+		}
 	}
 }
