@@ -124,7 +124,18 @@ export class ConversationEventHandler {
 	}
 
 	private async handleMoveCommand(title: string, commandContent: string): Promise<void> {
-		//
+		try {
+			// Use the AI-enhanced move
+			const { result, queryExtraction } =
+				await this.plugin.obsidianAPITools.enhancedMove(commandContent);
+
+			// Format the results using the existing helper method
+			const response = `${queryExtraction.explanation}\n\n${this.formatMoveResult(result)}`;
+
+			await this.plugin.updateConversationNote(title, response, 'Steward');
+		} catch (error) {
+			await this.plugin.updateConversationNote(title, `Error: ${error.message}`, 'Steward');
+		}
 	}
 
 	private async handleSearchCommand(title: string, commandContent: string): Promise<void> {
