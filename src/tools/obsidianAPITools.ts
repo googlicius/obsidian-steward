@@ -1,6 +1,11 @@
 import { App } from 'obsidian';
 import { SearchIndexer, SearchResult } from '../searchIndexer';
 import { generateText, openai } from 'modelfusion';
+import {
+	moveQueryPrompt,
+	searchExtractQueryPrompt,
+	userLanguagePrompt,
+} from '../lib/modelfusion/prompts';
 
 /**
  * Represents the extracted search query from a natural language request
@@ -8,6 +13,7 @@ import { generateText, openai } from 'modelfusion';
 export interface SearchQueryExtraction {
 	searchQuery: string;
 	explanation: string;
+	lang?: string;
 }
 
 /**
@@ -17,6 +23,7 @@ export interface MoveQueryExtraction {
 	sourceQuery: string;
 	destinationFolder: string;
 	explanation: string;
+	lang?: string;
 }
 
 export class ObsidianAPITools {
@@ -89,27 +96,6 @@ export class ObsidianAPITools {
 	 */
 	async extractSearchQuery(userInput: string): Promise<SearchQueryExtraction> {
 		try {
-			const systemPrompt = `You are a helpful assistant that extracts search keywords from user queries for an Obsidian note search system.
-
-Your job is to analyze the user's natural language request and extract the most relevant search keywords or tags.
-
-Guidelines:
-- If the user is looking for notes with specific tags, format them as "#tag1 #tag2 #tag3"
-- If the user is looking for general keywords, extract them and separate with spaces
-- Consider synonyms and related terms that might be helpful
-- Simplify complex queries into the most essential search terms
-
-You must respond with a valid JSON object containing these properties:
-- searchQuery: The extracted search query as a string (tags or keywords)
-- explanation: A brief explanation of how you interpreted the query
-
-Examples:
-1. User: "Help me find all notes with tags generated, noun, and verb"
-   Response: { "searchQuery": "#generated #noun #verb", "explanation": "Searching for notes tagged with generated, noun, and verb" }
-
-2. User: "I need to find my notes about climate change impacts on agriculture"
-   Response: { "searchQuery": "climate change agriculture impact", "explanation": "Searching for notes about climate change's impact on agriculture" }`;
-
 			// Use ModelFusion to generate the response
 			const response = await generateText({
 				model: openai.ChatTextGenerator({
@@ -118,7 +104,8 @@ Examples:
 					responseFormat: { type: 'json_object' },
 				}),
 				prompt: [
-					{ role: 'system', content: systemPrompt },
+					searchExtractQueryPrompt,
+					userLanguagePrompt,
 					{ role: 'user', content: userInput },
 				],
 			});
@@ -139,42 +126,14 @@ Examples:
 	 */
 	async extractMoveQuery(userInput: string): Promise<MoveQueryExtraction> {
 		try {
-			const systemPrompt = `You are a helpful assistant that extracts move command parameters from user queries for an Obsidian note system.
-
-Your job is to analyze the user's natural language request to move files and extract:
-1. The search query to find files to move
-2. The destination folder where files should be moved to
-
-Guidelines:
-- The source query should be keywords or tags to identify files to move
-- If the user wants to move files with specific tags, format them as "#tag1 #tag2 #tag3"
-- The destination folder should be a path within the Obsidian vault
-- If the destination folder doesn't exist, it will be created
-- Ensure the destination folder starts without a slash and doesn't end with a slash
-
-You must respond with a valid JSON object containing these properties:
-- sourceQuery: The search query to find files to move
-- destinationFolder: The folder path where files should be moved to
-- explanation: A brief explanation of how you interpreted the move command
-
-Examples:
-1. User: "Move all my project notes to the Projects folder"
-   Response: { "sourceQuery": "project", "destinationFolder": "Projects", "explanation": "Moving notes about projects to the Projects folder" }
-
-2. User: "Move files tagged with #draft to my Drafts/InProgress folder"
-   Response: { "sourceQuery": "#draft", "destinationFolder": "Drafts/InProgress", "explanation": "Moving notes tagged with #draft to the Drafts/InProgress folder" }`;
-
 			// Use ModelFusion to generate the response
 			const response = await generateText({
 				model: openai.ChatTextGenerator({
 					model: 'gpt-4-turbo-preview',
-					temperature: 0.1,
+					temperature: 0.2,
 					responseFormat: { type: 'json_object' },
 				}),
-				prompt: [
-					{ role: 'system', content: systemPrompt },
-					{ role: 'user', content: userInput },
-				],
+				prompt: [moveQueryPrompt, userLanguagePrompt, { role: 'user', content: userInput }],
 			});
 
 			// Parse and validate the JSON response
@@ -206,10 +165,15 @@ Examples:
 			throw new Error('Explanation must be a non-empty string');
 		}
 
+		// Lang is optional, but if provided, must be a valid string
+		const lang =
+			data.lang && typeof data.lang === 'string' && data.lang.trim() ? data.lang.trim() : 'en';
+
 		return {
 			sourceQuery: data.sourceQuery,
 			destinationFolder: data.destinationFolder,
 			explanation: data.explanation,
+			lang,
 		};
 	}
 
@@ -229,9 +193,14 @@ Examples:
 			throw new Error('Explanation must be a non-empty string');
 		}
 
+		// Lang is optional, but if provided, must be a valid string
+		const lang =
+			data.lang && typeof data.lang === 'string' && data.lang.trim() ? data.lang.trim() : 'en';
+
 		return {
 			searchQuery: data.searchQuery,
 			explanation: data.explanation,
+			lang,
 		};
 	}
 

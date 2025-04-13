@@ -9,6 +9,7 @@ import {
 import { eventEmitter } from './EventEmitter';
 import * as mathTools from 'src/tools/mathTools';
 import StewardPlugin, { GeneratorText } from 'src/main';
+import { getTranslation } from 'src/i18n';
 
 interface Props {
 	plugin: StewardPlugin;
@@ -158,8 +159,11 @@ export class ConversationEventHandler {
 			// Use the moveByQueryExtraction method to perform the actual move
 			const result = await this.plugin.obsidianAPITools.moveByQueryExtraction(queryExtraction);
 
-			// Format the results using the existing helper method
-			const response = this.formatMoveResult(result);
+			// Format the results using the existing helper method and pass the language
+			const response = this.formatMoveResult({
+				...result,
+				lang: queryExtraction.lang || 'en',
+			});
 
 			// Update the conversation note with the results
 			await this.plugin.updateConversationNote(title, response);
@@ -176,28 +180,34 @@ export class ConversationEventHandler {
 				10
 			);
 
-			// Format the results
-			let response = `${queryExtraction.explanation} and used the query: "${queryExtraction.searchQuery}"\n\nI found ${results.length} results:`;
+			// Get translation function for the specified language
+			const t = getTranslation(queryExtraction.lang || 'en');
 
+			// Format the results
+			let response = `${queryExtraction.explanation} and used the query: "${queryExtraction.searchQuery}"\n\n`;
+
+			// Add the search results count text
 			if (results.length > 0) {
+				response += `${t('search.found', { count: results.length })}`;
+
 				results.forEach((result, index) => {
 					response += `\n\n**${index + 1}- [[${result.fileName}]]:**\n`;
 
 					if (result.matches.length > 0) {
-						response += '\nMatches:\n';
+						response += `\n${t('search.matches')}\n`;
 						result.matches.slice(0, 3).forEach(match => {
 							response += `\n> ${match.text.trim()}\n`;
 						});
 
 						if (result.matches.length > 3) {
-							response += `\n_... and ${result.matches.length - 3} more matches_`;
+							response += `\n_${t('search.moreMatches', { count: result.matches.length - 3 })}_`;
 						}
 					}
 				});
 
-				response += '\n\nWould you like me to show more details for any specific result?';
+				response += `\n\n${t('search.showMoreDetails')}`;
 			} else {
-				response += '\n\nNo results found. Would you like to try a different search term?';
+				response += `${t('search.noResults')}`;
 			}
 
 			await this.plugin.updateConversationNote(title, response, 'Steward');
@@ -220,28 +230,32 @@ export class ConversationEventHandler {
 		moved: string[];
 		errors: string[];
 		skipped: string[];
+		lang?: string;
 	}): string {
-		const { moved, errors, skipped } = result;
+		const { moved, errors, skipped, lang = 'en' } = result;
 		const totalCount = moved.length + errors.length + skipped.length;
 
-		let response = `I found ${totalCount} file${totalCount !== 1 ? 's' : ''} matching your query.`;
+		// Get translation function for the specified language
+		const t = getTranslation(lang);
+
+		let response = t('move.foundFiles', { count: totalCount });
 
 		if (moved.length > 0) {
-			response += `\n\n**Successfully moved ${moved.length} file${moved.length !== 1 ? 's' : ''}:**`;
+			response += `\n\n**${t('move.successfullyMoved', { count: moved.length })}**`;
 			moved.forEach(file => {
 				response += `\n- [[${file}]]`;
 			});
 		}
 
 		if (skipped.length > 0) {
-			response += `\n\n**Skipped ${skipped.length} file${skipped.length !== 1 ? 's' : ''} (already in destination):**`;
+			response += `\n\n**${t('move.skipped', { count: skipped.length })}**`;
 			skipped.forEach(file => {
 				response += `\n- [[${file}]]`;
 			});
 		}
 
 		if (errors.length > 0) {
-			response += `\n\n**Failed to move ${errors.length} file${errors.length !== 1 ? 's' : ''}:**`;
+			response += `\n\n**${t('move.failed', { count: errors.length })}**`;
 			errors.forEach(file => {
 				response += `\n- [[${file}]]`;
 			});

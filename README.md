@@ -61,6 +61,6 @@ MIT
 - [ ] Autocompletion.
 - [ ] Unused media actions: Remove, or moving...
 - [ ] Cache previous generated contents.
-- [ ] Respect user's language.
+- [x] Respect user's language.
 - [ ] User-defined commands and actions.
 - [ ] MCP support.
