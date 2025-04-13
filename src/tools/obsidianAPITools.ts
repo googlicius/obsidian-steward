@@ -261,26 +261,37 @@ Examples:
 	}
 
 	/**
-	 * Enhanced move that uses AI to extract move command parameters from natural language queries
-	 * @param userQuery Natural language query from the user
-	 * @returns Results of the move operation and the query extraction
+	 * Move files based on an extracted query
+	 * @param queryExtraction The extracted move query parameters
+	 * @returns Results of the move operation
 	 */
-	async enhancedMove(userQuery: string): Promise<{
-		result: { moved: string[]; errors: string[] };
-		queryExtraction: MoveQueryExtraction;
+	async moveByQueryExtraction(queryExtraction: MoveQueryExtraction): Promise<{
+		moved: string[];
+		errors: string[];
+		skipped: string[];
 	}> {
-		// Extract the move parameters using AI
-		const queryExtraction = await this.extractMoveQuery(userQuery);
-
 		// Find files matching the source query
 		const results = await this.search(queryExtraction.sourceQuery);
 
 		// Process the move operations
 		const moved: string[] = [];
 		const errors: string[] = [];
+		const skipped: string[] = [];
 
 		for (const result of results) {
 			const filePath = result.path;
+			const fileName = filePath.split('/').pop() || '';
+			const destinationPath = `${queryExtraction.destinationFolder}/${fileName}`.replace(
+				/\/+/g,
+				'/'
+			);
+
+			// Check if file is already in the destination folder
+			if (filePath === destinationPath) {
+				skipped.push(filePath);
+				continue;
+			}
+
 			const success = await this.moveFile(filePath, queryExtraction.destinationFolder);
 
 			if (success) {
@@ -290,9 +301,6 @@ Examples:
 			}
 		}
 
-		return {
-			result: { moved, errors },
-			queryExtraction,
-		};
+		return { moved, errors, skipped };
 	}
 }

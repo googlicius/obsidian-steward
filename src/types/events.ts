@@ -1,4 +1,5 @@
 import { EditorView } from '@codemirror/view';
+import { MoveQueryExtraction } from '../tools/obsidianAPITools';
 
 export enum Events {
 	CONVERSATION_NOTE_CREATED = 'CONVERSATION_NOTE_CREATED',
@@ -6,6 +7,7 @@ export enum Events {
 	CONVERSATION_LINK_INSERTED = 'CONVERSATION_LINK_INSERTED',
 	LLM_RESPONSE_RECEIVED = 'LLM_RESPONSE_RECEIVED',
 	RESPONSE_READY_TO_INSERT = 'RESPONSE_READY_TO_INSERT',
+	MOVE_QUERY_EXTRACTED = 'MOVE_QUERY_EXTRACTED',
 }
 
 export enum ErrorEvents {
@@ -46,12 +48,18 @@ export interface ErrorPayload {
 	position: number;
 }
 
+export interface MoveQueryExtractedPayload {
+	title: string;
+	queryExtraction: MoveQueryExtraction;
+}
+
 export type EventPayloadMap = {
 	[Events.CONVERSATION_NOTE_CREATED]: ConversationNoteCreatedPayload;
 	[Events.CONVERSATION_NOTE_UPDATED]: ConversationNoteUpdatedPayload;
 	[Events.LLM_RESPONSE_RECEIVED]: ResponseReadyPayload;
 	[Events.RESPONSE_READY_TO_INSERT]: ResponseReadyPayload;
 	[Events.CONVERSATION_LINK_INSERTED]: ConversationLinkInsertedPayload;
+	[Events.MOVE_QUERY_EXTRACTED]: MoveQueryExtractedPayload;
 	[ErrorEvents.MATH_PROCESSING_ERROR]: ErrorPayload;
 	[ErrorEvents.LLM_ERROR]: ErrorPayload;
 };

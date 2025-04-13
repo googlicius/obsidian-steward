@@ -24,6 +24,14 @@ const DEFAULT_SETTINGS: StewardPluginSettings = {
 	searchDbPrefix: '',
 };
 
+export enum GeneratorText {
+	Generating = 'Generating...',
+	Searching = 'Searching...',
+	Calculating = 'Calculating...',
+	Moving = 'Moving files...',
+	ExtractingMoveQuery = 'Understanding your move request...',
+}
+
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
 	return `obsidian_steward_${Math.random().toString(36).substring(2, 10)}`;
@@ -309,24 +317,6 @@ export default class StewardPlugin extends Plugin {
 
 			switch (commandType) {
 				case 'move':
-					initialContent = [
-						`#gtp-4`,
-						'',
-						`/${commandType} ${content}`,
-						'',
-						`Steward: Ok I will help you move all files with tags ${content} to the`,
-						`English/Vocabulary/Nouns folder.`,
-						'',
-						`Steward: Here is the list of notes contains tag ${content} that I found:`,
-						'',
-						`- Flashcard 1`,
-						`- Flashcard 3`,
-						'',
-						`Do you want me to process moving them all now?`,
-						'',
-					].join('\n');
-					break;
-
 				case 'search':
 				case 'calc':
 					initialContent = `#gtp-4\n\n**User:** /${commandType} ${content}\n\n*Generating...*`;
@@ -408,7 +398,7 @@ export default class StewardPlugin extends Plugin {
 			let currentContent = await this.app.vault.read(file);
 
 			// Remove the generating indicator and any trailing newlines
-			currentContent = currentContent.replace(/\*Generating\.\.\.\*\n*$/, '');
+			currentContent = this.removeGeneratingIndicator(currentContent);
 
 			// Add a separator line if the role is User
 			if (role === 'User') {
@@ -424,7 +414,7 @@ export default class StewardPlugin extends Plugin {
 		}
 	}
 
-	async addGeneratingIndicator(path: string): Promise<void> {
+	async addGeneratingIndicator(path: string, indicatorText: GeneratorText): Promise<void> {
 		const folderPath = this.settings.conversationFolder;
 		const notePath = `${folderPath}/${path}.md`;
 		const file = this.app.vault.getAbstractFileByPath(notePath) as TFile;
@@ -432,13 +422,13 @@ export default class StewardPlugin extends Plugin {
 			throw new Error(`Conversation note not found: ${notePath}`);
 		}
 
-		const currentContent = await this.removeGeneratingIndicator(await this.app.vault.read(file));
-		const newContent = `${currentContent}\n\n*Generating...*`;
+		const currentContent = this.removeGeneratingIndicator(await this.app.vault.read(file));
+		const newContent = `${currentContent}\n\n*${indicatorText}*`;
 		await this.app.vault.modify(file, newContent);
 	}
 
-	async removeGeneratingIndicator(content: string): Promise<string> {
-		return content.replace('*Generating...*', '');
+	removeGeneratingIndicator(content: string) {
+		return content.replace(/\n\n\*.*?\.\.\.\*$/, '');
 	}
 
 	/**

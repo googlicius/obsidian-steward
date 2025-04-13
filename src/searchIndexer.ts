@@ -1,29 +1,7 @@
-import Dexie, { Table } from 'dexie';
 import { App, TFile } from 'obsidian';
 import { removeStopwords } from './stopwords';
 import { COMMAND_PREFIXES } from './main';
-
-/**
- * Document in the search index
- */
-interface IndexedDocument {
-	id: string; // File path as unique ID
-	fileName: string; // File name without extension
-	path: string; // Full path to file
-	content: string; // Raw file content
-	lastModified: number; // Timestamp of last modification
-	tags: string[]; // Tags extracted from content and frontmatter
-}
-
-/**
- * Term in the inverted index
- */
-interface IndexedTerm {
-	term: string; // The indexed term
-	documentId: string; // ID of document containing the term
-	frequency: number; // Number of occurrences in the document
-	positions: number[]; // Positions in the document
-}
+import { PluginDatabase } from './database/PluginDatabase';
 
 /**
  * Search result
@@ -39,23 +17,6 @@ export interface SearchResult {
 	}[];
 }
 
-/**
- * Database class for search indexing
- */
-class SearchDatabase extends Dexie {
-	documents!: Table<IndexedDocument>;
-	terms!: Table<IndexedTerm>;
-
-	constructor(name: string) {
-		super(name);
-
-		this.version(1).stores({
-			documents: 'id, fileName, path, lastModified',
-			terms: '[term+documentId], term, documentId, frequency',
-		});
-	}
-}
-
 interface Props {
 	app: App;
 	dbName: string;
@@ -63,7 +24,7 @@ interface Props {
 }
 
 export class SearchIndexer {
-	private db: SearchDatabase;
+	private db: PluginDatabase;
 	private indexingQueue: string[] = [];
 	private isIndexing = false;
 	private app: App;
@@ -71,7 +32,7 @@ export class SearchIndexer {
 
 	constructor({ app, dbName, conversationFolder }: Props) {
 		this.app = app;
-		this.db = new SearchDatabase(dbName);
+		this.db = new PluginDatabase(dbName);
 		this.conversationFolder = conversationFolder;
 		this.setupEventListeners();
 	}
