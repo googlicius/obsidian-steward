@@ -17,11 +17,18 @@ export interface SearchQueryExtraction {
 }
 
 /**
+ * Represents a single move operation
+ */
+export interface MoveOperation {
+	sourceQuery: string;
+	destinationFolder: string;
+}
+
+/**
  * Represents the extracted move command parameters from a natural language request
  */
 export interface MoveQueryExtraction {
-	sourceQuery: string;
-	destinationFolder: string;
+	operations: MoveOperation[];
 	explanation: string;
 	lang?: string;
 }
@@ -153,12 +160,19 @@ export class ObsidianAPITools {
 			throw new Error('Invalid response format');
 		}
 
-		if (typeof data.sourceQuery !== 'string' || !data.sourceQuery.trim()) {
-			throw new Error('Source query must be a non-empty string');
+		if (!Array.isArray(data.operations) || data.operations.length === 0) {
+			throw new Error('Operations must be a non-empty array');
 		}
 
-		if (typeof data.destinationFolder !== 'string' || !data.destinationFolder.trim()) {
-			throw new Error('Destination folder must be a non-empty string');
+		// Validate each operation
+		for (const operation of data.operations) {
+			if (typeof operation.sourceQuery !== 'string' || !operation.sourceQuery.trim()) {
+				throw new Error('Source query must be a non-empty string');
+			}
+
+			if (typeof operation.destinationFolder !== 'string' || !operation.destinationFolder.trim()) {
+				throw new Error('Destination folder must be a non-empty string');
+			}
 		}
 
 		if (typeof data.explanation !== 'string' || !data.explanation.trim()) {
@@ -170,8 +184,7 @@ export class ObsidianAPITools {
 			data.lang && typeof data.lang === 'string' && data.lang.trim() ? data.lang.trim() : 'en';
 
 		return {
-			sourceQuery: data.sourceQuery,
-			destinationFolder: data.destinationFolder,
+			operations: data.operations,
 			explanation: data.explanation,
 			lang,
 		};
@@ -230,46 +243,60 @@ export class ObsidianAPITools {
 	}
 
 	/**
-	 * Move files based on an extracted query
+	 * Move files based on one or more operations
 	 * @param queryExtraction The extracted move query parameters
-	 * @returns Results of the move operation
+	 * @returns Results of the move operations
 	 */
 	async moveByQueryExtraction(queryExtraction: MoveQueryExtraction): Promise<{
-		moved: string[];
-		errors: string[];
-		skipped: string[];
+		operations: Array<{
+			sourceQuery: string;
+			destinationFolder: string;
+			moved: string[];
+			errors: string[];
+			skipped: string[];
+		}>;
 	}> {
-		// Find files matching the source query
-		const results = await this.search(queryExtraction.sourceQuery);
+		const operationResults = [];
 
-		// Process the move operations
-		const moved: string[] = [];
-		const errors: string[] = [];
-		const skipped: string[] = [];
+		// Process each operation
+		for (const operation of queryExtraction.operations) {
+			// Find files matching the source query
+			const results = await this.search(operation.sourceQuery);
 
-		for (const result of results) {
-			const filePath = result.path;
-			const fileName = filePath.split('/').pop() || '';
-			const destinationPath = `${queryExtraction.destinationFolder}/${fileName}`.replace(
-				/\/+/g,
-				'/'
-			);
+			// Process the move operations
+			const moved: string[] = [];
+			const errors: string[] = [];
+			const skipped: string[] = [];
 
-			// Check if file is already in the destination folder
-			if (filePath === destinationPath) {
-				skipped.push(filePath);
-				continue;
+			for (const result of results) {
+				const filePath = result.path;
+				const fileName = filePath.split('/').pop() || '';
+				const destinationPath = `${operation.destinationFolder}/${fileName}`.replace(/\/+/g, '/');
+
+				// Check if file is already in the destination folder
+				if (filePath === destinationPath) {
+					skipped.push(filePath);
+					continue;
+				}
+
+				const success = await this.moveFile(filePath, operation.destinationFolder);
+
+				if (success) {
+					moved.push(filePath);
+				} else {
+					errors.push(filePath);
+				}
 			}
 
-			const success = await this.moveFile(filePath, queryExtraction.destinationFolder);
-
-			if (success) {
-				moved.push(filePath);
-			} else {
-				errors.push(filePath);
-			}
+			operationResults.push({
+				sourceQuery: operation.sourceQuery,
+				destinationFolder: operation.destinationFolder,
+				moved,
+				errors,
+				skipped,
+			});
 		}
 
-		return { moved, errors, skipped };
+		return { operations: operationResults };
 	}
 }

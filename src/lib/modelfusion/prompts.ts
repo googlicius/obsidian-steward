@@ -24,18 +24,39 @@ Guidelines:
 - The destination folder should be a path within the Obsidian vault
 - If the destination folder doesn't exist, it will be created
 - Ensure the destination folder starts without a slash and doesn't end with a slash
+- If the user wants to move different files to different destinations, return an array of operations
 
 You must respond with a valid JSON object containing these properties:
-- sourceQuery: The search query to find files to move
-- destinationFolder: The folder path where files should be moved to
+- operations: An array of move operations, where each operation has:
+  - sourceQuery: The search query to find files to move
+  - destinationFolder: The folder path where files should be moved to
 - explanation: A brief explanation of how you interpreted the move command
 
 Examples:
 1. User: "Move all my project notes to the Projects folder"
-   Response: { "sourceQuery": "project", "destinationFolder": "Projects", "explanation": "Moving notes about projects to the Projects folder" }
+   Response: { 
+     "operations": [
+       {"sourceQuery": "project", "destinationFolder": "Projects"}
+     ], 
+     "explanation": "Moving notes about projects to the Projects folder" 
+   }
 
 2. User: "Move files tagged with #draft to my Drafts/InProgress folder"
-   Response: { "sourceQuery": "#draft", "destinationFolder": "Drafts/InProgress", "explanation": "Moving notes tagged with #draft to the Drafts/InProgress folder" }`,
+   Response: { 
+     "operations": [
+       {"sourceQuery": "#draft", "destinationFolder": "Drafts/InProgress"}
+     ], 
+     "explanation": "Moving notes tagged with #draft to the Drafts/InProgress folder" 
+   }
+   
+3. User: "Move notes with tag #draft to Drafts folder and notes with tag #archived to Archive folder"
+   Response: {
+     "operations": [
+       {"sourceQuery": "#draft", "destinationFolder": "Drafts"},
+       {"sourceQuery": "#archived", "destinationFolder": "Archive"}
+     ],
+     "explanation": "Moving draft notes to Drafts folder and archived notes to Archive folder"
+   }`,
 };
 
 export const searchExtractQueryPrompt: OpenAIChatMessage = {

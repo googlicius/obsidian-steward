@@ -56,11 +56,13 @@ MIT
 - [ ] The reversion of command's actions.
 - [ ] Reminder.
 - [ ] Steward can provide information about its functionalities, limitations,...
-- [ ] Traceability
 - [ ] Provide any information, usage, and guidance about Obsidian.
-- [ ] Autocompletion.
-- [ ] Unused media actions: Remove, or moving...
+- [ ] Autocompletion and automation.
+- [ ] Unused media actions: Move or remove.
 - [ ] Cache previous generated contents.
 - [x] Respect user's language.
-- [ ] User-defined commands and actions.
+- [ ] User-defined commands and actions, for example: Don't do anything if not entering the correct password.
+- [ ] User confirmation when the AI is unsure about its response.
+- [ ] User confirmation when the AI performs a large side effect action.
+- [ ] Traceability
 - [ ] MCP support.

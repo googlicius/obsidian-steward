@@ -136,7 +136,7 @@ export class ConversationEventHandler {
 			const queryExtraction = await this.plugin.obsidianAPITools.extractMoveQuery(commandContent);
 
 			// Update the conversation note with the extraction explanation
-			const initialResponse = `${queryExtraction.explanation}\n\n*${GeneratorText.Moving}*`;
+			const initialResponse = `${queryExtraction.explanation}`;
 			await this.plugin.updateConversationNote(title, initialResponse, 'Steward');
 
 			// Emit event to trigger the actual move operation
@@ -156,12 +156,15 @@ export class ConversationEventHandler {
 	private async handleMoveQueryExtracted(payload: MoveQueryExtractedPayload): Promise<void> {
 		const { title, queryExtraction } = payload;
 		try {
+			// Show the moving indicator
+			await this.plugin.addGeneratingIndicator(title, GeneratorText.Moving);
+
 			// Use the moveByQueryExtraction method to perform the actual move
 			const result = await this.plugin.obsidianAPITools.moveByQueryExtraction(queryExtraction);
 
-			// Format the results using the existing helper method and pass the language
+			// Format the results using the existing helper method
 			const response = this.formatMoveResult({
-				...result,
+				operations: result.operations,
 				lang: queryExtraction.lang || 'en',
 			});
 
@@ -227,39 +230,91 @@ export class ConversationEventHandler {
 
 	// Format move results for display
 	private formatMoveResult(result: {
-		moved: string[];
-		errors: string[];
-		skipped: string[];
+		operations: Array<{
+			sourceQuery: string;
+			destinationFolder: string;
+			moved: string[];
+			errors: string[];
+			skipped: string[];
+		}>;
 		lang?: string;
 	}): string {
-		const { moved, errors, skipped, lang = 'en' } = result;
-		const totalCount = moved.length + errors.length + skipped.length;
+		const { operations, lang = 'en' } = result;
 
 		// Get translation function for the specified language
 		const t = getTranslation(lang);
 
-		let response = t('move.foundFiles', { count: totalCount });
+		// Single operation format
+		if (operations.length === 1) {
+			const { moved, errors, skipped } = operations[0];
+			const totalCount = moved.length + errors.length + skipped.length;
 
-		if (moved.length > 0) {
-			response += `\n\n**${t('move.successfullyMoved', { count: moved.length })}**`;
-			moved.forEach(file => {
-				response += `\n- [[${file}]]`;
-			});
+			let response = t('move.foundFiles', { count: totalCount });
+
+			if (moved.length > 0) {
+				response += `\n\n**${t('move.successfullyMoved', { count: moved.length })}**`;
+				moved.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+
+			if (skipped.length > 0) {
+				response += `\n\n**${t('move.skipped', { count: skipped.length })}**`;
+				skipped.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+
+			if (errors.length > 0) {
+				response += `\n\n**${t('move.failed', { count: errors.length })}**`;
+				errors.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+
+			return response;
 		}
 
-		if (skipped.length > 0) {
-			response += `\n\n**${t('move.skipped', { count: skipped.length })}**`;
-			skipped.forEach(file => {
-				response += `\n- [[${file}]]`;
-			});
-		}
+		// Multiple operations format
+		let response = t('move.multiMoveHeader', { count: operations.length });
 
-		if (errors.length > 0) {
-			response += `\n\n**${t('move.failed', { count: errors.length })}**`;
-			errors.forEach(file => {
-				response += `\n- [[${file}]]`;
-			});
-		}
+		// For each operation, show the details
+		operations.forEach((operation, index) => {
+			const { sourceQuery, destinationFolder, moved, errors, skipped } = operation;
+			const totalCount = moved.length + errors.length + skipped.length;
+
+			response += `\n\n**${t('move.operation', {
+				num: index + 1,
+				query: sourceQuery,
+				folder: destinationFolder,
+			})}**`;
+
+			if (totalCount === 0) {
+				response += `\n\n${t('search.noResults')}`;
+				return;
+			}
+
+			if (moved.length > 0) {
+				response += `\n\n**${t('move.successfullyMoved', { count: moved.length })}**`;
+				moved.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+
+			if (skipped.length > 0) {
+				response += `\n\n**${t('move.skipped', { count: skipped.length })}**`;
+				skipped.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+
+			if (errors.length > 0) {
+				response += `\n\n**${t('move.failed', { count: errors.length })}**`;
+				errors.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+		});
 
 		return response;
 	}

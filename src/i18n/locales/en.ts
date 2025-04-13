@@ -10,6 +10,9 @@ const en = {
 			skipped_plural: 'Skipped {{count}} files (already in destination):',
 			failed: 'Failed to move {{count}} file:',
 			failed_plural: 'Failed to move {{count}} files:',
+			multiMoveHeader: 'I performed {{count}} move operation:',
+			multiMoveHeader_plural: 'I performed {{count}} move operations:',
+			operation: 'Operation {{num}}: Moving files with {{query}} to {{folder}}',
 		},
 		// Search result messages
 		search: {
