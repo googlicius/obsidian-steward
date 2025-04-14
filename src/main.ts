@@ -48,6 +48,8 @@ export default class StewardPlugin extends Plugin {
 	settings: StewardPluginSettings;
 	obsidianAPITools: ObsidianAPITools;
 	searchIndexer: SearchIndexer;
+	ribbonIcon: HTMLElement;
+	staticConversationTitle = 'Steward Chat';
 
 	get editor() {
 		return this.app.workspace.activeEditor?.editor as Editor & {
@@ -92,10 +94,13 @@ export default class StewardPlugin extends Plugin {
 			process.env.OPENAI_API_KEY = decryptedKey;
 		}
 
+		// Add ribbon icon for quick access to static conversation
+		this.ribbonIcon = this.addRibbonIcon('message-square', 'Open Steward Chat', async () => {
+			await this.openStaticConversation();
+		});
+
 		// Register the conversation extension for CodeMirror
 		this.registerEditorExtension([createCommandHighlightExtension(COMMAND_PREFIXES)]);
-
-		console.log('Registered conversation extension');
 
 		// Initialize the conversation event handler
 		new ConversationEventHandler({ plugin: this });
@@ -191,15 +196,6 @@ export default class StewardPlugin extends Plugin {
 				// Handle close command
 				if (conversationLink && commandType === ' ' && this.isCloseIntent(commandContent)) {
 					commandType = 'close';
-				}
-
-				// Check if this is a follow-up message to an existing conversation
-				if (commandType === 'me') {
-					if (conversationLink) {
-						// Handle the follow-up message
-						this.handleFollowUpMessage(view, conversationLink, commandContent, line.from, line.to);
-						return true;
-					}
 				}
 
 				const folderPath = this.settings.conversationFolder;
@@ -327,7 +323,6 @@ export default class StewardPlugin extends Plugin {
 					},
 				});
 
-				new Notice(`Closed conversation: ${conversationTitle}`);
 				return true;
 			}
 
@@ -365,52 +360,6 @@ export default class StewardPlugin extends Plugin {
 		}
 
 		return null;
-	}
-
-	// Function to handle a follow-up message to an existing conversation
-	async handleFollowUpMessage(
-		view: EditorView,
-		conversationTitle: string,
-		content: string,
-		fromPos: number,
-		toPos: number
-	): Promise<void> {
-		try {
-			const folderPath = this.settings.conversationFolder;
-			const notePath = `${folderPath}/${conversationTitle}.md`;
-
-			// Check if the conversation note exists
-			const file = this.app.vault.getAbstractFileByPath(notePath) as TFile;
-			if (!file) {
-				new Notice(`Error: Conversation note not found: ${notePath}`);
-				return;
-			}
-
-			// Read the current content of the note
-			const fileContent = await this.app.vault.read(file);
-
-			// Append the follow-up message to the note
-			const updatedContent =
-				fileContent +
-				`\n\n**User:** /me ${content}\n\n**Steward**: Working on follow-up request...\n`;
-
-			// Update the note with the new content
-			await this.app.vault.modify(file, updatedContent);
-
-			// Replace the line with the command with an empty line
-			view.dispatch({
-				changes: {
-					from: fromPos,
-					to: toPos,
-					insert: '',
-				},
-			});
-
-			new Notice(`Added follow-up message to ${conversationTitle}`);
-		} catch (error) {
-			new Notice(`Error adding follow-up message: ${error}`);
-			console.error('Error adding follow-up message:', error);
-		}
 	}
 
 	// Helper function to create a conversation note
@@ -451,8 +400,6 @@ export default class StewardPlugin extends Plugin {
 
 			// Create the conversation note
 			await this.app.vault.create(notePath, initialContent);
-
-			new Notice(`Created conversation: ${title}`);
 		} catch (error) {
 			console.error('Error creating conversation note:', error);
 			throw error;
@@ -627,6 +574,54 @@ export default class StewardPlugin extends Plugin {
 			console.error('Error encrypting API key:', error);
 			new Notice('Failed to encrypt API key. Please try again.');
 			throw error;
+		}
+	}
+
+	/**
+	 * Creates (if needed) and opens the static conversation note in the right panel
+	 */
+	async openStaticConversation(): Promise<void> {
+		try {
+			// Get the configured folder for conversations
+			const folderPath = this.settings.conversationFolder;
+			const notePath = `${folderPath}/${this.staticConversationTitle}.md`;
+
+			// Check if conversations folder exists, create if not
+			const folderExists = this.app.vault.getAbstractFileByPath(folderPath);
+			if (!folderExists) {
+				await this.app.vault.createFolder(folderPath);
+			}
+
+			// Check if the static conversation note exists, create if not
+			const noteExists = this.app.vault.getAbstractFileByPath(notePath);
+			if (!noteExists) {
+				// Build initial content
+				const initialContent = `Welcome to your always-available Steward chat. Type below to interact.\n\n/ `;
+
+				// Create the conversation note
+				await this.app.vault.create(notePath, initialContent);
+			}
+
+			// Open the note in the right panel (create a new leaf in the right sidebar if needed)
+			let leaf = this.app.workspace.getRightLeaf(false);
+
+			// If no right leaf exists, create one
+			if (!leaf) {
+				// Split the root leaf to create a right sidebar
+				leaf = this.app.workspace.getLeaf('split', 'vertical');
+			}
+
+			// Now leaf shouldn't be null, open the file
+			await leaf.setViewState({
+				type: 'markdown',
+				state: { file: notePath },
+			});
+
+			// Focus the editor
+			this.app.workspace.revealLeaf(leaf);
+		} catch (error) {
+			console.error('Error opening static conversation:', error);
+			new Notice(`Error opening static conversation: ${error.message}`);
 		}
 	}
 }
