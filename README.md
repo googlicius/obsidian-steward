@@ -50,7 +50,7 @@ MIT
 ## TODOs
 
 - [ ] Multiple lines command.
-- [ ] Moving notes to multiple destinations.
+- [x] Moving notes to multiple destinations.
 - [ ] Search in one or many specific folders.
 - [ ] Command options: `--help`, `--model`, `--explain`,...
 - [ ] The reversion of command's actions.

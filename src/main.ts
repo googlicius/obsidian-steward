@@ -7,22 +7,27 @@ import { eventEmitter, Events } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
 import { SearchIndexer } from './searchIndexer';
 import { DateTime } from 'luxon';
+import { encrypt, decrypt, generateSaltKeyId } from './utils/cryptoUtils';
 
 // Supported command prefixes
 export const COMMAND_PREFIXES = ['/ ', '/move', '/search', '/calc', '/me', '/close'];
 
 interface StewardPluginSettings {
 	mySetting: string;
-	openaiApiKey: string;
+	encryptedOpenaiApiKey: string;
+	saltKeyId: string; // Store just the key ID, not the actual salt
 	conversationFolder: string;
 	searchDbPrefix: string;
+	encryptionVersion?: number; // Track the encryption version for future migrations
 }
 
 const DEFAULT_SETTINGS: StewardPluginSettings = {
 	mySetting: 'default',
-	openaiApiKey: '',
+	encryptedOpenaiApiKey: '',
+	saltKeyId: '', // Will be generated on first load
 	conversationFolder: 'conversations',
 	searchDbPrefix: '',
+	encryptionVersion: 1, // Current version
 };
 
 export enum GeneratorText {
@@ -59,6 +64,18 @@ export default class StewardPlugin extends Plugin {
 			await this.saveSettings();
 		}
 
+		// Setup encryption salt if not already set
+		if (!this.settings.saltKeyId) {
+			this.settings.saltKeyId = generateSaltKeyId();
+			await this.saveSettings();
+		}
+
+		// Set encryption version if not already set
+		if (!this.settings.encryptionVersion) {
+			this.settings.encryptionVersion = 1;
+			await this.saveSettings();
+		}
+
 		// Initialize the search indexer with the stored DB prefix and conversation folder
 		this.searchIndexer = new SearchIndexer({
 			app: this.app,
@@ -70,9 +87,9 @@ export default class StewardPlugin extends Plugin {
 		// Build the index if it's not already built
 		this.checkAndBuildIndexIfNeeded();
 
-		// Set OPENAI_API_KEY for ModelFusion
-		if (this.settings.openaiApiKey) {
-			process.env.OPENAI_API_KEY = this.settings.openaiApiKey;
+		const decryptedKey = this.getDecryptedApiKey();
+		if (decryptedKey) {
+			process.env.OPENAI_API_KEY = decryptedKey;
 		}
 
 		// Register the conversation extension for CodeMirror
@@ -85,7 +102,6 @@ export default class StewardPlugin extends Plugin {
 
 		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
 		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Math Assistant Ready');
 
 		// Command to build search index
 		this.addCommand({
@@ -94,8 +110,9 @@ export default class StewardPlugin extends Plugin {
 			callback: async () => {
 				new Notice('Building search index...');
 				try {
+					statusBarItemEl.setText('Steward: Building indexes...');
 					await this.searchIndexer.indexAllFiles();
-					new Notice('Search index built successfully!');
+					statusBarItemEl.setText('');
 				} catch (error) {
 					console.error('Error building search index:', error);
 					new Notice('Error building search index. Check console for details.');
@@ -548,14 +565,68 @@ export default class StewardPlugin extends Plugin {
 			// This ensures the plugin loads smoothly before starting the index build
 			setTimeout(async () => {
 				try {
-					new Notice('Steward: Building indexes for the first time...');
+					const statusBarItemEl = this.addStatusBarItem();
+					statusBarItemEl.setText('Steward: Building indexes...');
 					await this.searchIndexer.indexAllFiles();
-					new Notice('Steward: Indexes built successfully!');
+					statusBarItemEl.setText('');
 				} catch (error) {
 					console.error('Error building initial indexes:', error);
 					new Notice('Steward: Error building initial indexes. Check console for details.');
 				}
 			}, 3000);
+		}
+	}
+
+	/**
+	 * Securely get the decrypted OpenAI API key
+	 * @returns The decrypted API key or empty string if not set
+	 */
+	getDecryptedApiKey(): string {
+		if (!this.settings.encryptedOpenaiApiKey || !this.settings.saltKeyId) {
+			return '';
+		}
+
+		try {
+			const decryptedKey = decrypt(this.settings.encryptedOpenaiApiKey, this.settings.saltKeyId);
+			return decryptedKey;
+		} catch (error) {
+			console.error('Error decrypting API key:', error);
+			// Throw the error so callers can handle it
+			throw new Error('Failed to decrypt API key. Please re-enter it in settings.');
+		}
+	}
+
+	/**
+	 * Securely set and encrypt the OpenAI API key
+	 * @param apiKey - The API key to encrypt and store
+	 */
+	async setEncryptedApiKey(apiKey: string): Promise<void> {
+		try {
+			// If no key provided, clear the encrypted key
+			if (!apiKey) {
+				this.settings.encryptedOpenaiApiKey = '';
+			} else {
+				// Ensure we have a salt key ID
+				if (!this.settings.saltKeyId) {
+					this.settings.saltKeyId = generateSaltKeyId();
+				}
+
+				// Encrypt and store the API key
+				this.settings.encryptedOpenaiApiKey = encrypt(apiKey, this.settings.saltKeyId);
+
+				// Set the latest encryption version
+				this.settings.encryptionVersion = 1;
+			}
+
+			// Update environment variable
+			process.env.OPENAI_API_KEY = apiKey;
+
+			// Save settings
+			await this.saveSettings();
+		} catch (error) {
+			console.error('Error encrypting API key:', error);
+			new Notice('Failed to encrypt API key. Please try again.');
+			throw error;
 		}
 	}
 }

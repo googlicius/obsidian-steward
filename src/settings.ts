@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import StewardPlugin from './main';
 
 export default class StewardSettingTab extends PluginSettingTab {
@@ -16,30 +16,117 @@ export default class StewardSettingTab extends PluginSettingTab {
 
 		containerEl.createEl('h2', { text: 'Steward Plugin Settings' });
 
+		// OpenAI API Key setting with encryption
 		new Setting(containerEl)
 			.setName('OpenAI API Key')
-			.setDesc('Your OpenAI API key for using the Math Assistant')
-			.addText(text =>
-				text
-					.setPlaceholder('Enter your API key')
-					.setValue(this.plugin.settings.openaiApiKey)
-					.onChange(async value => {
-						this.plugin.settings.openaiApiKey = value;
-						await this.plugin.saveSettings();
+			.setDesc('Your OpenAI API key (stored with encryption)')
+			.addText(text => {
+				// Get the current API key (decrypted) with error handling
+				let placeholder = 'Enter your API key';
+				try {
+					const currentKey = this.plugin.getDecryptedApiKey();
+					if (currentKey) {
+						placeholder = '••••••••••••••••••••••';
+					}
+				} catch (error) {
+					// If decryption fails, we'll show a special message
+					placeholder = 'Error: Click to re-enter key';
+					console.error('Error decrypting API key in settings:', error);
+				}
 
-						// Update the environment variable immediately
+				text
+					.setPlaceholder(placeholder)
+					// Only show value if editing
+					.setValue('')
+					.onChange(async value => {
 						if (value) {
-							process.env.OPENAI_API_KEY = value;
+							try {
+								// If a value is entered, encrypt and save it
+								await this.plugin.setEncryptedApiKey(value);
+
+								// Update the placeholder to show that a key is saved
+								text.setPlaceholder('••••••••••••••••••••••');
+								// Clear the input field for security
+								text.setValue('');
+
+								new Notice('API key saved successfully');
+							} catch (error) {
+								new Notice('Failed to save API key. Please try again.');
+								console.error('Error setting API key:', error);
+							}
 						}
-					})
-					// Add password type to protect API key
-					.inputEl.setAttribute('type', 'password')
-			);
+					});
+
+				// Add password type to protect API key
+				text.inputEl.setAttribute('type', 'password');
+			})
+			.addExtraButton(button => {
+				button
+					.setIcon('cross')
+					.setTooltip('Clear API Key')
+					.onClick(async () => {
+						try {
+							await this.plugin.setEncryptedApiKey('');
+							new Notice('API key cleared');
+							// Force refresh of the settings
+							this.display();
+						} catch (error) {
+							new Notice('Failed to clear API key. Please try again.');
+							console.error('Error clearing API key:', error);
+						}
+					});
+			})
+			.addExtraButton(button => {
+				button
+					.setIcon('reset')
+					.setTooltip('Reset Encryption')
+					.onClick(async () => {
+						try {
+							// Get the current key if possible
+							let currentKey = '';
+							try {
+								currentKey = this.plugin.getDecryptedApiKey();
+							} catch (e) {
+								// If we can't decrypt, we'll start fresh
+							}
+
+							// Generate a new salt key ID
+							this.plugin.settings.saltKeyId = '';
+							this.plugin.settings.encryptedOpenaiApiKey = '';
+							await this.plugin.saveSettings();
+
+							// Force reload of the plugin to re-initialize encryption
+							this.display();
+
+							// If we had a key before, prompt user to re-enter it
+							if (currentKey) {
+								new Notice('Encryption reset. Please re-enter your API key.');
+							} else {
+								new Notice('Encryption reset successfully.');
+							}
+						} catch (error) {
+							new Notice('Failed to reset encryption. Please try again.');
+							console.error('Error resetting encryption:', error);
+						}
+					});
+			});
 
 		containerEl.createEl('div', {
-			text: 'Note: You need to provide your own OpenAI API key to use the AI-powered math assistant.',
+			text: 'Note: You need to provide your own OpenAI API key to use the AI-powered assistant.',
 			cls: 'setting-item-description',
 		});
+
+		// If we have encryption issues, show instructions for resetting
+		if (this.plugin.settings.encryptedOpenaiApiKey) {
+			try {
+				this.plugin.getDecryptedApiKey();
+			} catch (error) {
+				containerEl.createEl('div', {
+					text: 'If you are seeing decryption errors, please use the "Reset Encryption" button and re-enter your API key.',
+					cls: 'setting-item-description mod-warning',
+				});
+			}
+		}
 
 		// Add setting for conversation folder
 		new Setting(containerEl)
@@ -54,15 +141,5 @@ export default class StewardSettingTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
-
-		containerEl.createEl('h3', { text: 'Math Assistant' });
-		containerEl.createEl('p', {
-			text: 'The Math Assistant provides natural language processing for math operations. Simply describe what calculation you want to perform, and the AI will select the appropriate operation and numbers.',
-		});
-
-		containerEl.createEl('div', {
-			cls: 'math-assistant-example',
-			text: 'Examples: "Add 5 and 3", "What is 10 minus 7?", "Multiply 4 by 6", "Divide 20 by 5"',
-		});
 	}
 }
