@@ -21,6 +21,11 @@ const vi = {
 			moreMatches_plural: '... và {{count}} kết quả khác',
 			showMoreDetails: 'Bạn có muốn xem thêm chi tiết về kết quả cụ thể nào không?',
 		},
+		// Close command messages
+		close: {
+			instruction: 'Để đóng cuộc hội thoại này, sử dụng lệnh /close trong ghi chú của bạn.',
+			completed: 'Cuộc hội thoại đã được đóng.',
+		},
 	},
 };
 

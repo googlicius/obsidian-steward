@@ -8,6 +8,7 @@ export enum Events {
 	LLM_RESPONSE_RECEIVED = 'LLM_RESPONSE_RECEIVED',
 	RESPONSE_READY_TO_INSERT = 'RESPONSE_READY_TO_INSERT',
 	MOVE_QUERY_EXTRACTED = 'MOVE_QUERY_EXTRACTED',
+	COMMAND_INTENT_EXTRACTED = 'COMMAND_INTENT_EXTRACTED',
 }
 
 export enum ErrorEvents {
@@ -22,18 +23,21 @@ export interface ConversationNoteCreatedPayload {
 	title: string;
 	commandType: string;
 	commandContent: string;
+	lang?: string;
 }
 
 export interface ConversationNoteUpdatedPayload {
 	title: string;
 	commandType: string;
 	commandContent: string;
+	lang?: string;
 }
 
 export interface ConversationLinkInsertedPayload {
 	title: string;
 	commandType: string;
 	commandContent: string;
+	lang?: string;
 }
 
 export interface ResponseReadyPayload {
@@ -53,6 +57,19 @@ export interface MoveQueryExtractedPayload {
 	queryExtraction: MoveQueryExtraction;
 }
 
+export interface CommandIntentExtractedPayload {
+	title: string;
+	intentExtraction: CommandIntentExtraction;
+}
+
+export interface CommandIntentExtraction {
+	commandType: 'search' | 'move' | 'calc' | 'close';
+	content: string;
+	explanation: string;
+	confidence: number;
+	lang?: string;
+}
+
 export type EventPayloadMap = {
 	[Events.CONVERSATION_NOTE_CREATED]: ConversationNoteCreatedPayload;
 	[Events.CONVERSATION_NOTE_UPDATED]: ConversationNoteUpdatedPayload;
@@ -60,6 +77,7 @@ export type EventPayloadMap = {
 	[Events.RESPONSE_READY_TO_INSERT]: ResponseReadyPayload;
 	[Events.CONVERSATION_LINK_INSERTED]: ConversationLinkInsertedPayload;
 	[Events.MOVE_QUERY_EXTRACTED]: MoveQueryExtractedPayload;
+	[Events.COMMAND_INTENT_EXTRACTED]: CommandIntentExtractedPayload;
 	[ErrorEvents.MATH_PROCESSING_ERROR]: ErrorPayload;
 	[ErrorEvents.LLM_ERROR]: ErrorPayload;
 };

@@ -21,6 +21,11 @@ const ja = {
 			moreMatches_plural: '... その他{{count}}件の一致項目',
 			showMoreDetails: '特定の結果の詳細を表示しますか？',
 		},
+		// Close command messages
+		close: {
+			instruction: 'この会話を閉じるには、ノートで /close コマンドを使用してください。',
+			completed: '会話が閉じられました。',
+		},
 	},
 };
 

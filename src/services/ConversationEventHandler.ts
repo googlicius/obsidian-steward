@@ -5,6 +5,7 @@ import {
 	ConversationLinkInsertedPayload,
 	ConversationNoteUpdatedPayload,
 	MoveQueryExtractedPayload,
+	CommandIntentExtractedPayload,
 } from '../types/events';
 import { eventEmitter } from './EventEmitter';
 import * as mathTools from 'src/tools/mathTools';
@@ -47,6 +48,11 @@ export class ConversationEventHandler {
 			this.handleMoveQueryExtracted(payload);
 		});
 
+		// Listen for command intent extracted
+		eventEmitter.on(Events.COMMAND_INTENT_EXTRACTED, (payload: CommandIntentExtractedPayload) => {
+			this.handleCommandIntentExtracted(payload);
+		});
+
 		// Listen for errors
 		eventEmitter.on(ErrorEvents.MATH_PROCESSING_ERROR, payload => {
 			this.handleError(payload);
@@ -60,29 +66,45 @@ export class ConversationEventHandler {
 			payload.to,
 			payload.title,
 			payload.commandType,
-			payload.commandContent
+			payload.commandContent,
+			payload.lang
 		);
 	}
 
 	private async handleConversationNoteUpdated(
 		payload: ConversationNoteUpdatedPayload
 	): Promise<void> {
+		// We no longer need to check for the prefix since we've already displayed
+		// the explanation in the handleCommandIntentExtracted function
+		const commandContent = payload.commandContent;
+
 		switch (payload.commandType) {
 			case 'calc': {
 				await this.plugin.addGeneratingIndicator(payload.title, GeneratorText.Calculating);
-				await this.handleMathCalculation(payload.title, payload.commandContent);
+				await this.handleMathCalculation(payload.title, commandContent);
 				break;
 			}
 
 			case 'move': {
 				await this.plugin.addGeneratingIndicator(payload.title, GeneratorText.ExtractingMoveQuery);
-				await this.handleMoveCommand(payload.title, payload.commandContent);
+				await this.handleMoveCommand(payload.title, commandContent);
 				break;
 			}
 
 			case 'search': {
 				await this.plugin.addGeneratingIndicator(payload.title, GeneratorText.Searching);
-				await this.handleSearchCommand(payload.title, payload.commandContent);
+				await this.handleSearchCommand(payload.title, commandContent);
+				break;
+			}
+
+			case 'close': {
+				await this.handleCloseCommand(payload.title);
+				break;
+			}
+
+			case ' ': {
+				await this.plugin.addGeneratingIndicator(payload.title, GeneratorText.ExtractingIntent);
+				await this.handleGeneralCommand(payload.title, commandContent);
 				break;
 			}
 
@@ -107,6 +129,16 @@ export class ConversationEventHandler {
 
 			case 'search': {
 				await this.handleSearchCommand(payload.title, payload.commandContent);
+				break;
+			}
+
+			case 'close': {
+				await this.handleCloseCommand(payload.title);
+				break;
+			}
+
+			case ' ': {
+				await this.handleGeneralCommand(payload.title, payload.commandContent);
 				break;
 			}
 
@@ -216,6 +248,72 @@ export class ConversationEventHandler {
 			await this.plugin.updateConversationNote(title, response, 'Steward');
 		} catch (error) {
 			await this.plugin.updateConversationNote(title, `Error: ${error.message}`, 'Steward');
+		}
+	}
+
+	/**
+	 * Handles the general command by extracting the intent and routing to the appropriate handler
+	 * @param title The conversation title
+	 * @param commandContent The command content
+	 */
+	private async handleGeneralCommand(title: string, commandContent: string): Promise<void> {
+		try {
+			// Extract the command intent using AI
+			const intentExtraction =
+				await this.plugin.obsidianAPITools.extractCommandIntent(commandContent);
+
+			// Emit event to trigger the appropriate command handler
+			eventEmitter.emit(Events.COMMAND_INTENT_EXTRACTED, {
+				title,
+				intentExtraction,
+			});
+		} catch (error) {
+			await this.plugin.updateConversationNote(title, `Error: ${error.message}`, 'Steward');
+		}
+	}
+
+	/**
+	 * Handles the closing of a conversation based on title
+	 * @param title The title of the conversation
+	 * @param lang Optional language code for the response
+	 */
+	private async handleCloseCommand(title: string): Promise<void> {
+		try {
+			// Directly close the conversation without updating the note
+			await this.plugin.closeConversation(title);
+		} catch (error) {
+			console.error('Error closing conversation:', error);
+		}
+	}
+
+	/**
+	 * Handles the command intent extracted event
+	 * @param payload The event payload containing the command intent extraction
+	 */
+	private async handleCommandIntentExtracted(
+		payload: CommandIntentExtractedPayload
+	): Promise<void> {
+		const { title, intentExtraction } = payload;
+
+		try {
+			// For low confidence intents, just show the explanation without further action
+			if (intentExtraction.confidence <= 0.7) {
+				await this.plugin.updateConversationNote(title, intentExtraction.explanation, 'Steward');
+				return;
+			}
+
+			// For confident intents, route to the appropriate handler
+			eventEmitter.emit(Events.CONVERSATION_NOTE_UPDATED, {
+				title,
+				commandType: intentExtraction.commandType,
+				commandContent: intentExtraction.content,
+				lang: intentExtraction.lang,
+			});
+		} catch (error) {
+			await this.plugin.updateConversationNote(
+				title,
+				`Error processing your request: ${error.message}`
+			);
 		}
 	}
 

@@ -24,6 +24,11 @@ const en = {
 			moreMatches_plural: '... and {{count}} more matches',
 			showMoreDetails: 'Would you like me to show more details for any specific result?',
 		},
+		// Close command messages
+		close: {
+			instruction: 'To close this conversation, use the /close command in your note.',
+			completed: 'Conversation has been closed.',
+		},
 	},
 };
 

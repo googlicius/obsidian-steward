@@ -226,11 +226,15 @@ export class SearchIndexer {
 	 * Tokenize content into terms with positions
 	 */
 	private tokenizeContent(content: string): { term: string; count: number; positions: number[] }[] {
-		// Normalize content - lowercase and remove special characters
-		const normalizedContent = content.toLowerCase().replace(/[^\w\s#]/g, ' ');
+		// Normalize content - lowercase but preserve apostrophes and Unicode characters
+		const normalizedContent = content.toLowerCase();
 
-		// Split into words
-		const words = normalizedContent.split(/\s+/).filter(Boolean);
+		// Use a regex that keeps apostrophes within words and Unicode characters
+		// This preserves contractions like "I'm" and non-English characters
+		const words = normalizedContent
+			.replace(/[^\p{L}\p{N}'\u2019\s#_-]/gu, ' ') // Keep letters, numbers, apostrophes, hashtags, underscores, hyphens
+			.split(/\s+/)
+			.filter(Boolean);
 
 		// Remove stopwords
 		const filteredWords = removeStopwords(words);
@@ -293,6 +297,8 @@ export class SearchIndexer {
 		// Normalize and tokenize the query
 		const queryTerms = this.tokenizeContent(query).map(t => t.term);
 
+		console.log('queryTerms', queryTerms);
+
 		if (queryTerms.length === 0) return [];
 
 		// Get matching documents with term frequencies
@@ -323,6 +329,8 @@ export class SearchIndexer {
 					termMatches.get(documentId)?.set(queryTerm, positions);
 				});
 			});
+
+			console.log('documentScores', documentScores);
 
 			// Get document details and build results
 			const documentIds = Array.from(documentScores.keys());

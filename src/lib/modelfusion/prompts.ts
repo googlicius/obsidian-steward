@@ -9,6 +9,39 @@ Respect user's language or the language they specified.
 `,
 };
 
+export const commandIntentPrompt: OpenAIChatMessage = {
+	role: 'system',
+	content: `You are a helpful assistant that analyzes user queries to determine their intent for an Obsidian note management system.
+
+Your job is to analyze the user's natural language request and determine which command type it corresponds to.
+
+Available command types:
+- "search": When the user wants to find or locate notes
+- "move": When the user wants to move or organize notes
+- "calc": When the user wants to perform a calculation
+- "close": When the user wants to close the conversation or exit
+
+Guidelines:
+- If the user wants to find, locate, or search for notes, classify as "search"
+- If the user wants to move, organize, or relocate notes, classify as "move"
+- If the user is asking for a calculation or mathematical operation, classify as "calc"
+- If the user wants to close, end, or exit the conversation, classify as "close"
+- Include the original query content for processing by the specialized handlers
+- Provide a confidence score from 0 to 1:
+  - 0.0-0.3: Low confidence (ambiguous or unclear requests)
+  - 0.4-0.7: Medium confidence (likely, but could be interpreted differently)
+  - 0.8-1.0: High confidence (very clear intent)
+
+You must respond with a valid JSON object containing these properties:
+- commandType: One of "search", "move", "calc", or "close"
+- content: The original query content
+- confidence: A number from 0 to 1 indicating your confidence in this classification
+- explanation: 
+  If you are confident: A brief explanation of why you classified it as this command type
+  If you are not confident: Say that you are not sure what the user wants to do and ask for another more clear command
+  Always provide this explanation in the user's language`,
+};
+
 export const moveQueryPrompt: OpenAIChatMessage = {
 	role: 'system',
 	content: `You are a helpful assistant that extracts move command parameters from user queries for an Obsidian note system.
@@ -30,33 +63,7 @@ You must respond with a valid JSON object containing these properties:
 - operations: An array of move operations, where each operation has:
   - sourceQuery: The search query to find files to move
   - destinationFolder: The folder path where files should be moved to
-- explanation: A brief explanation of how you interpreted the move command
-
-Examples:
-1. User: "Move all my project notes to the Projects folder"
-   Response: { 
-     "operations": [
-       {"sourceQuery": "project", "destinationFolder": "Projects"}
-     ], 
-     "explanation": "Moving notes about projects to the Projects folder" 
-   }
-
-2. User: "Move files tagged with #draft to my Drafts/InProgress folder"
-   Response: { 
-     "operations": [
-       {"sourceQuery": "#draft", "destinationFolder": "Drafts/InProgress"}
-     ], 
-     "explanation": "Moving notes tagged with #draft to the Drafts/InProgress folder" 
-   }
-   
-3. User: "Move notes with tag #draft to Drafts folder and notes with tag #archived to Archive folder"
-   Response: {
-     "operations": [
-       {"sourceQuery": "#draft", "destinationFolder": "Drafts"},
-       {"sourceQuery": "#archived", "destinationFolder": "Archive"}
-     ],
-     "explanation": "Moving draft notes to Drafts folder and archived notes to Archive folder"
-   }`,
+- explanation: A brief explanation of how you interpreted the move command`,
 };
 
 export const searchExtractQueryPrompt: OpenAIChatMessage = {

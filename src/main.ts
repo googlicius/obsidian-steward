@@ -6,9 +6,10 @@ import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter, Events } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
 import { SearchIndexer } from './searchIndexer';
+import { DateTime } from 'luxon';
 
 // Supported command prefixes
-export const COMMAND_PREFIXES = ['/ ', '/move', '/search', '/calc', '/me'];
+export const COMMAND_PREFIXES = ['/ ', '/move', '/search', '/calc', '/me', '/close'];
 
 interface StewardPluginSettings {
 	mySetting: string;
@@ -30,6 +31,7 @@ export enum GeneratorText {
 	Calculating = 'Calculating...',
 	Moving = 'Moving files...',
 	ExtractingMoveQuery = 'Understanding your move request...',
+	ExtractingIntent = 'Understanding your request...',
 }
 
 // Generate a random string for DB prefix
@@ -41,6 +43,12 @@ export default class StewardPlugin extends Plugin {
 	settings: StewardPluginSettings;
 	obsidianAPITools: ObsidianAPITools;
 	searchIndexer: SearchIndexer;
+
+	get editor() {
+		return this.app.workspace.activeEditor?.editor as Editor & {
+			cm: EditorView;
+		};
+	}
 
 	async onload() {
 		await this.loadSettings();
@@ -155,13 +163,18 @@ export default class StewardPlugin extends Plugin {
 			try {
 				// Extract the command content (everything after the prefix)
 				const commandContent = lineText.trim().substring(commandMatch.length).trim();
-				const commandType = commandMatch.substring(1); // Remove the / from the command
+				let commandType = commandMatch.substring(1); // Remove the / from the command
 
 				console.log('Command type:', commandType);
 				console.log('Command content:', commandContent);
 
 				// Look for a conversation link in the previous lines
 				const conversationLink = this.findConversationLinkAbove(view);
+
+				// Handle close command
+				if (conversationLink && commandType === ' ' && this.isCloseIntent(commandContent)) {
+					commandType = 'close';
+				}
 
 				// Check if this is a follow-up message to an existing conversation
 				if (commandType === 'me') {
@@ -192,13 +205,16 @@ export default class StewardPlugin extends Plugin {
 						title: conversationLink,
 						commandType,
 						commandContent,
+						// We don't know the language here, so we'll rely on automatic detection
 					});
 
 					return true;
 				}
 
 				// Create a title now so we can safely refer to it later
-				const title = `${commandType} command ${Math.random().toString(36).substring(2, 8)}`;
+				const now = DateTime.now();
+				const formattedDate = now.toFormat('yyyy-MM-dd_HH-mm-ss');
+				const title = `${commandType.trim() || 'General'} command ${formattedDate}`;
 
 				// Create a promise to create the conversation note
 				await this.createConversationNote(title, commandType, commandContent);
@@ -213,6 +229,7 @@ export default class StewardPlugin extends Plugin {
 						title,
 						commandContent,
 						commandType,
+						// We don't know the language here, so we'll rely on automatic detection
 					});
 				}, 50);
 
@@ -225,6 +242,86 @@ export default class StewardPlugin extends Plugin {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Checks if the command content explicitly indicates a close intent
+	 * @param content The command content to check
+	 * @returns True if the content explicitly indicates a close intent
+	 */
+	isCloseIntent(content: string): boolean {
+		const normalizedContent = content.toLowerCase().trim();
+
+		// Simple hardcoded list of close commands
+		const closeCommands = [
+			'close',
+			'close this',
+			'close conversation',
+			'end',
+			'exit',
+			'đóng',
+			'kết thúc',
+			'閉じる',
+			'終了',
+		];
+
+		// Check for exact match or starts with
+		return closeCommands.some(command => normalizedContent === command);
+	}
+
+	/**
+	 * Handles a command to close the current conversation
+	 * @param conversationTitle The title of the conversation to close
+	 * @returns True if the command was handled successfully
+	 */
+	async closeConversation(conversationTitle: string): Promise<boolean> {
+		try {
+			if (!this.editor) {
+				new Notice(`No active editor to close conversation: ${conversationTitle}`);
+				return false;
+			}
+
+			const editorView = this.editor.cm;
+			const { state } = editorView;
+			const { doc } = state;
+
+			// Find the line containing the conversation link
+			let linkFrom = -1;
+			let linkTo = -1;
+
+			// Find the line containing the conversation link
+			for (let i = 1; i <= doc.lines; i++) {
+				const line = doc.line(i);
+				const linkMatch = line.text.match(new RegExp(`!\\[\\[${conversationTitle}\\]\\]`));
+				if (linkMatch) {
+					linkFrom = line.from;
+					linkTo = line.to;
+					break;
+				}
+			}
+
+			if (linkFrom !== -1) {
+				// Remove the conversation link
+				editorView.dispatch({
+					changes: {
+						from: linkFrom,
+						to: linkTo + 1, // +1 to include the newline
+						insert: '',
+					},
+				});
+
+				new Notice(`Closed conversation: ${conversationTitle}`);
+				return true;
+			}
+
+			// If we get here, we couldn't find the conversation link
+			new Notice(`Could not locate the conversation link for ${conversationTitle}`);
+			return false;
+		} catch (error) {
+			console.error('Error closing conversation:', error);
+			new Notice(`Error closing conversation: ${error.message}`);
+			return false;
+		}
 	}
 
 	// Function to find a conversation link in the lines above the current cursor
@@ -319,14 +416,15 @@ export default class StewardPlugin extends Plugin {
 				case 'move':
 				case 'search':
 				case 'calc':
-					initialContent = `#gtp-4\n\n**User:** /${commandType} ${content}\n\n*Generating...*`;
+				case ' ':
+					initialContent = `#gtp-4\n\n**User:** /${commandType.trim()} ${content}\n\n*Generating...*`;
 					break;
 
 				default:
 					initialContent = [
 						`#gtp-4`,
 						'',
-						`/${commandType} ${content}`,
+						`/${commandType.trim()} ${content}`,
 						'',
 						`**Steward**: Working on it...`,
 						'',
@@ -352,6 +450,7 @@ export default class StewardPlugin extends Plugin {
 	 * @param title - The title of the conversation
 	 * @param commandType - The type of command
 	 * @param commandContent - The content of the command
+	 * @param lang - Optional language code for the response
 	 */
 	insertConversationLink(
 		view: EditorView,
@@ -359,7 +458,8 @@ export default class StewardPlugin extends Plugin {
 		to: number,
 		title: string,
 		commandType: string,
-		commandContent: string
+		commandContent: string,
+		lang?: string
 	) {
 		const linkText = `![[${title}]]\n\n`;
 
@@ -375,6 +475,7 @@ export default class StewardPlugin extends Plugin {
 			title,
 			commandType,
 			commandContent,
+			lang,
 		});
 	}
 
