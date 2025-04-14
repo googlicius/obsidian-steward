@@ -1,4 +1,4 @@
-import { Editor, Notice, Plugin, TFile } from 'obsidian';
+import { Editor, Notice, Plugin, TFile, WorkspaceLeaf } from 'obsidian';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
 import { createCommandHighlightExtension } from './cm-extensions/CommandHighlightExtension';
@@ -19,6 +19,7 @@ interface StewardPluginSettings {
 	conversationFolder: string;
 	searchDbPrefix: string;
 	encryptionVersion?: number; // Track the encryption version for future migrations
+	staticConversationLeafId?: string; // ID of the leaf containing the static conversation
 }
 
 const DEFAULT_SETTINGS: StewardPluginSettings = {
@@ -28,6 +29,7 @@ const DEFAULT_SETTINGS: StewardPluginSettings = {
 	conversationFolder: 'conversations',
 	searchDbPrefix: '',
 	encryptionVersion: 1, // Current version
+	staticConversationLeafId: undefined,
 };
 
 export enum GeneratorText {
@@ -283,10 +285,75 @@ export default class StewardPlugin extends Plugin {
 	}
 
 	/**
-	 * Handles a command to close the current conversation
-	 * @param conversationTitle The title of the conversation to close
-	 * @returns True if the command was handled successfully
+	 * Gets or creates the leaf for the static conversation
+	 * @returns The leaf containing the static conversation
 	 */
+	private getStaticConversationLeaf(): WorkspaceLeaf {
+		// Try to find existing leaf by ID first
+		let leaf = this.settings.staticConversationLeafId
+			? this.app.workspace.getLeafById(this.settings.staticConversationLeafId)
+			: null;
+
+		// If no leaf found by ID, create a new one
+		if (!leaf) {
+			leaf = this.app.workspace.getRightLeaf(false);
+			if (leaf) {
+				// Store the leaf ID for future reference
+				// @ts-ignore - leaf.id exists but TypeScript doesn't know about it
+				this.settings.staticConversationLeafId = leaf.id;
+				this.saveSettings();
+			}
+		}
+
+		if (!leaf) {
+			throw new Error('Failed to create or find a leaf for the static conversation');
+		}
+
+		return leaf;
+	}
+
+	/**
+	 * Creates (if needed) and opens the static conversation note in the right panel
+	 */
+	async openStaticConversation(): Promise<void> {
+		try {
+			// Get the configured folder for conversations
+			const folderPath = this.settings.conversationFolder;
+			const notePath = `${folderPath}/${this.staticConversationTitle}.md`;
+
+			// Check if conversations folder exists, create if not
+			const folderExists = this.app.vault.getAbstractFileByPath(folderPath);
+			if (!folderExists) {
+				await this.app.vault.createFolder(folderPath);
+			}
+
+			// Check if the static conversation note exists, create if not
+			const noteExists = this.app.vault.getAbstractFileByPath(notePath);
+			if (!noteExists) {
+				// Build initial content
+				const initialContent = `Welcome to your always-available Steward chat. Type below to interact.\n\n/ `;
+
+				// Create the conversation note
+				await this.app.vault.create(notePath, initialContent);
+			}
+
+			// Get or create the leaf for the static conversation
+			const leaf = this.getStaticConversationLeaf();
+
+			// Open the note in the leaf
+			await leaf.setViewState({
+				type: 'markdown',
+				state: { file: notePath },
+			});
+
+			// Focus the editor
+			this.app.workspace.revealLeaf(leaf);
+		} catch (error) {
+			console.error('Error opening static conversation:', error);
+			new Notice(`Error opening static conversation: ${error.message}`);
+		}
+	}
+
 	async closeConversation(conversationTitle: string): Promise<boolean> {
 		try {
 			if (!this.editor) {
@@ -313,22 +380,31 @@ export default class StewardPlugin extends Plugin {
 				}
 			}
 
-			if (linkFrom !== -1) {
-				// Remove the conversation link
-				editorView.dispatch({
-					changes: {
-						from: linkFrom,
-						to: linkTo + 1, // +1 to include the newline
-						insert: '',
-					},
-				});
-
-				return true;
+			if (linkFrom === -1) {
+				new Notice(`Could not locate the conversation link for ${conversationTitle}`);
+				return false;
 			}
 
-			// If we get here, we couldn't find the conversation link
-			new Notice(`Could not locate the conversation link for ${conversationTitle}`);
-			return false;
+			// Remove the conversation link
+			editorView.dispatch({
+				changes: {
+					from: linkFrom,
+					to: linkTo + 1, // +1 to include the newline
+					insert: '',
+				},
+			});
+
+			// Check if we're trying to close the static conversation
+			const activeFile = this.app.workspace.getActiveFile();
+			if (activeFile && activeFile.name.startsWith(this.staticConversationTitle)) {
+				// Find and click the right sidebar toggle button
+				const toggleButton = document.querySelector('.sidebar-toggle-button.mod-right');
+				if (toggleButton instanceof HTMLElement) {
+					toggleButton.click();
+				}
+			}
+
+			return true;
 		} catch (error) {
 			console.error('Error closing conversation:', error);
 			new Notice(`Error closing conversation: ${error.message}`);
@@ -574,54 +650,6 @@ export default class StewardPlugin extends Plugin {
 			console.error('Error encrypting API key:', error);
 			new Notice('Failed to encrypt API key. Please try again.');
 			throw error;
-		}
-	}
-
-	/**
-	 * Creates (if needed) and opens the static conversation note in the right panel
-	 */
-	async openStaticConversation(): Promise<void> {
-		try {
-			// Get the configured folder for conversations
-			const folderPath = this.settings.conversationFolder;
-			const notePath = `${folderPath}/${this.staticConversationTitle}.md`;
-
-			// Check if conversations folder exists, create if not
-			const folderExists = this.app.vault.getAbstractFileByPath(folderPath);
-			if (!folderExists) {
-				await this.app.vault.createFolder(folderPath);
-			}
-
-			// Check if the static conversation note exists, create if not
-			const noteExists = this.app.vault.getAbstractFileByPath(notePath);
-			if (!noteExists) {
-				// Build initial content
-				const initialContent = `Welcome to your always-available Steward chat. Type below to interact.\n\n/ `;
-
-				// Create the conversation note
-				await this.app.vault.create(notePath, initialContent);
-			}
-
-			// Open the note in the right panel (create a new leaf in the right sidebar if needed)
-			let leaf = this.app.workspace.getRightLeaf(false);
-
-			// If no right leaf exists, create one
-			if (!leaf) {
-				// Split the root leaf to create a right sidebar
-				leaf = this.app.workspace.getLeaf('split', 'vertical');
-			}
-
-			// Now leaf shouldn't be null, open the file
-			await leaf.setViewState({
-				type: 'markdown',
-				state: { file: notePath },
-			});
-
-			// Focus the editor
-			this.app.workspace.revealLeaf(leaf);
-		} catch (error) {
-			console.error('Error opening static conversation:', error);
-			new Notice(`Error opening static conversation: ${error.message}`);
 		}
 	}
 }
