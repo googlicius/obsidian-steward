@@ -1,5 +1,6 @@
 import { EditorView } from '@codemirror/view';
 import { MoveQueryExtraction } from '../tools/obsidianAPITools';
+import { SearchResult } from '../searchIndexer';
 
 export enum Events {
 	CONVERSATION_NOTE_CREATED = 'CONVERSATION_NOTE_CREATED',
@@ -57,6 +58,7 @@ export interface ErrorPayload {
 export interface MoveQueryExtractedPayload {
 	title: string;
 	queryExtraction: MoveQueryExtraction;
+	filesByOperation?: Map<number, SearchResult[]>;
 }
 
 export interface CommandIntentExtractedPayload {

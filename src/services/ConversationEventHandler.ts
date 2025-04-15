@@ -177,12 +177,14 @@ export class ConversationEventHandler {
 			// Extract the move query
 			const queryExtraction = await this.plugin.obsidianAPITools.extractMoveQuery(commandContent);
 
-			// First check if there are any files matching the source queries
+			// Get all files matching the source queries using the new function
+			const filesByOperation = await this.plugin.obsidianAPITools.getFilesByMoveQueryExtraction(queryExtraction);
+
+			// Count total files to move
 			let totalFilesToMove = 0;
-			for (const operation of queryExtraction.operations) {
-				const results = await this.plugin.obsidianAPITools.search(operation.sourceQuery);
-				totalFilesToMove += results.length;
-			}
+			filesByOperation.forEach(files => {
+				totalFilesToMove += files.length;
+			});
 
 			// If no files match, inform the user without asking for confirmation
 			if (totalFilesToMove === 0) {
@@ -212,16 +214,18 @@ export class ConversationEventHandler {
 				message += '\nWould you like me to create these folders?';
 
 				// Request confirmation with event to trigger after confirmation
+				// Include filesByOperation in the context to avoid redundant queries
 				await this.plugin.confirmationManager.requestConfirmation(
 					title,
 					'move-folders',
 					message,
-					{ missingFolders, queryExtraction },
+					{ missingFolders, queryExtraction, filesByOperation },
 					{
 						eventType: Events.MOVE_QUERY_EXTRACTED,
 						payload: {
 							title,
 							queryExtraction,
+							filesByOperation, // Pass the retrieved files to avoid redundant queries
 						},
 					}
 				);
@@ -233,6 +237,7 @@ export class ConversationEventHandler {
 			eventEmitter.emit(Events.MOVE_QUERY_EXTRACTED, {
 				title,
 				queryExtraction,
+				filesByOperation, // Pass the retrieved files to avoid redundant queries
 			});
 		} catch (error) {
 			await this.plugin.updateConversationNote(
@@ -245,17 +250,17 @@ export class ConversationEventHandler {
 
 	/**
 	 * Handles the move query extracted event
-	 * @param payload The event payload containing the move query extraction
+	 * @param payload The event payload containing the move query extraction and optionally the files by operation
 	 */
 	private async handleMoveQueryExtracted(payload: MoveQueryExtractedPayload): Promise<void> {
-		const { title, queryExtraction } = payload;
+		const { title, queryExtraction, filesByOperation } = payload;
 
 		try {
 			// Add generating indicator
 			await this.plugin.addGeneratingIndicator(title, GeneratorText.Moving);
 
-			// Perform the move operations
-			const result = await this.plugin.obsidianAPITools.moveByQueryExtraction(queryExtraction);
+			// Perform the move operations, passing the files if available to avoid redundant queries
+			const result = await this.plugin.obsidianAPITools.moveByQueryExtraction(queryExtraction, filesByOperation);
 
 			// Format the results using the existing helper method
 			const response = this.formatMoveResult({

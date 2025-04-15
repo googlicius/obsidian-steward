@@ -20,7 +20,7 @@ interface PendingConfirmation {
 	};
 }
 
-export class ConfirmationManager {
+export class ConfirmationEventHandler {
 	private plugin: StewardPlugin;
 	private pendingConfirmations: Map<string, PendingConfirmation> = new Map();
 

@@ -255,11 +255,40 @@ export class ObsidianAPITools {
 	}
 
 	/**
+	 * Get files matching a query
+	 * @param query The search query
+	 * @returns Array of search results
+	 */
+	async getFilesByQuery(query: string): Promise<SearchResult[]> {
+		return await this.search(query);
+	}
+
+	/**
+	 * Get files for all operations in a move query extraction
+	 * @param queryExtraction The extracted move query parameters
+	 * @returns Map of operation index to array of search results
+	 */
+	async getFilesByMoveQueryExtraction(queryExtraction: MoveQueryExtraction): Promise<Map<number, SearchResult[]>> {
+		const filesByOperation = new Map<number, SearchResult[]>();
+		
+		// Process each operation
+		for (let i = 0; i < queryExtraction.operations.length; i++) {
+			const operation = queryExtraction.operations[i];
+			// Find files matching the source query
+			const results = await this.getFilesByQuery(operation.sourceQuery);
+			filesByOperation.set(i, results);
+		}
+		
+		return filesByOperation;
+	}
+
+	/**
 	 * Move files based on one or more operations
 	 * @param queryExtraction The extracted move query parameters
+	 * @param filesByOperation Optional map of operation index to files, to avoid redundant queries
 	 * @returns Results of the move operations
 	 */
-	async moveByQueryExtraction(queryExtraction: MoveQueryExtraction): Promise<{
+	async moveByQueryExtraction(queryExtraction: MoveQueryExtraction, filesByOperation?: Map<number, SearchResult[]>): Promise<{
 		operations: Array<{
 			sourceQuery: string;
 			destinationFolder: string;
@@ -271,9 +300,11 @@ export class ObsidianAPITools {
 		const operationResults = [];
 
 		// Process each operation
-		for (const operation of queryExtraction.operations) {
-			// Find files matching the source query
-			const results = await this.search(operation.sourceQuery);
+		for (let i = 0; i < queryExtraction.operations.length; i++) {
+			const operation = queryExtraction.operations[i];
+			
+			// Use provided files or query for them
+			const results = filesByOperation?.get(i) || await this.getFilesByQuery(operation.sourceQuery);
 
 			// Process the move operations
 			const moved: string[] = [];
