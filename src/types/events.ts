@@ -9,6 +9,8 @@ export enum Events {
 	RESPONSE_READY_TO_INSERT = 'RESPONSE_READY_TO_INSERT',
 	MOVE_QUERY_EXTRACTED = 'MOVE_QUERY_EXTRACTED',
 	COMMAND_INTENT_EXTRACTED = 'COMMAND_INTENT_EXTRACTED',
+	CONFIRMATION_REQUESTED = 'CONFIRMATION_REQUESTED',
+	CONFIRMATION_RESPONDED = 'CONFIRMATION_RESPONDED',
 }
 
 export enum ErrorEvents {
@@ -63,11 +65,25 @@ export interface CommandIntentExtractedPayload {
 }
 
 export interface CommandIntentExtraction {
-	commandType: 'search' | 'move' | 'calc' | 'close';
+	commandType: string;
 	content: string;
 	explanation: string;
 	confidence: number;
 	lang?: string;
+}
+
+export interface ConfirmationRequestPayload {
+	id: string;
+	conversationTitle: string;
+	message: string;
+	type: string;
+	context: any;
+}
+
+export interface ConfirmationResponsePayload {
+	id: string;
+	confirmed: boolean;
+	conversationTitle: string;
 }
 
 export type EventPayloadMap = {
@@ -78,6 +94,8 @@ export type EventPayloadMap = {
 	[Events.CONVERSATION_LINK_INSERTED]: ConversationLinkInsertedPayload;
 	[Events.MOVE_QUERY_EXTRACTED]: MoveQueryExtractedPayload;
 	[Events.COMMAND_INTENT_EXTRACTED]: CommandIntentExtractedPayload;
+	[Events.CONFIRMATION_REQUESTED]: ConfirmationRequestPayload;
+	[Events.CONFIRMATION_RESPONDED]: ConfirmationResponsePayload;
 	[ErrorEvents.MATH_PROCESSING_ERROR]: ErrorPayload;
 	[ErrorEvents.LLM_ERROR]: ErrorPayload;
 };

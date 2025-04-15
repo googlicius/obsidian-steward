@@ -102,6 +102,11 @@ export class ConversationEventHandler {
 				break;
 			}
 
+			case 'confirm': {
+				await this.handleConfirmCommand(payload.title, commandContent);
+				break;
+			}
+
 			case ' ': {
 				await this.plugin.addGeneratingIndicator(payload.title, GeneratorText.ExtractingIntent);
 				await this.handleGeneralCommand(payload.title, commandContent);
@@ -137,6 +142,11 @@ export class ConversationEventHandler {
 				break;
 			}
 
+			case 'confirm': {
+				await this.handleConfirmCommand(payload.title, payload.commandContent);
+				break;
+			}
+
 			case ' ': {
 				await this.handleGeneralCommand(payload.title, payload.commandContent);
 				break;
@@ -164,34 +174,87 @@ export class ConversationEventHandler {
 
 	private async handleMoveCommand(title: string, commandContent: string): Promise<void> {
 		try {
-			// Extract the move query using AI
+			// Extract the move query
 			const queryExtraction = await this.plugin.obsidianAPITools.extractMoveQuery(commandContent);
 
-			// Update the conversation note with the extraction explanation
-			const initialResponse = `${queryExtraction.explanation}`;
-			await this.plugin.updateConversationNote(title, initialResponse, 'Steward');
+			// First check if there are any files matching the source queries
+			let totalFilesToMove = 0;
+			for (const operation of queryExtraction.operations) {
+				const results = await this.plugin.obsidianAPITools.search(operation.sourceQuery);
+				totalFilesToMove += results.length;
+			}
 
-			// Emit event to trigger the actual move operation
+			// If no files match, inform the user without asking for confirmation
+			if (totalFilesToMove === 0) {
+				await this.plugin.updateConversationNote(
+					title,
+					`I couldn't find any files matching your query. Please try a different search term.`,
+					'Steward'
+				);
+				return;
+			}
+
+			// Check all destination folders
+			const missingFolders = [];
+			for (const operation of queryExtraction.operations) {
+				if (!this.plugin.app.vault.getAbstractFileByPath(operation.destinationFolder)) {
+					missingFolders.push(operation.destinationFolder);
+				}
+			}
+
+			// If there are missing folders, request confirmation
+			if (missingFolders.length > 0) {
+				// Create confirmation message
+				let message = 'I need to create the following folders before moving files:\n';
+				missingFolders.forEach(folder => {
+					message += `- \`${folder}\`\n`;
+				});
+				message += '\nWould you like me to create these folders?';
+
+				// Request confirmation with event to trigger after confirmation
+				await this.plugin.confirmationManager.requestConfirmation(
+					title,
+					'move-folders',
+					message,
+					{ missingFolders, queryExtraction },
+					{
+						eventType: Events.MOVE_QUERY_EXTRACTED,
+						payload: {
+							title,
+							queryExtraction,
+						},
+					}
+				);
+
+				return; // Exit early, will resume when user responds
+			}
+
+			// All folders exist, continue with move
 			eventEmitter.emit(Events.MOVE_QUERY_EXTRACTED, {
 				title,
 				queryExtraction,
 			});
 		} catch (error) {
-			await this.plugin.updateConversationNote(title, `Error: ${error.message}`, 'Steward');
+			await this.plugin.updateConversationNote(
+				title,
+				`Error extracting move query: ${error.message}`,
+				'Steward'
+			);
 		}
 	}
 
 	/**
 	 * Handles the move query extracted event
-	 * @param payload The event payload containing the query extraction
+	 * @param payload The event payload containing the move query extraction
 	 */
 	private async handleMoveQueryExtracted(payload: MoveQueryExtractedPayload): Promise<void> {
 		const { title, queryExtraction } = payload;
+
 		try {
-			// Show the moving indicator
+			// Add generating indicator
 			await this.plugin.addGeneratingIndicator(title, GeneratorText.Moving);
 
-			// Use the moveByQueryExtraction method to perform the actual move
+			// Perform the move operations
 			const result = await this.plugin.obsidianAPITools.moveByQueryExtraction(queryExtraction);
 
 			// Format the results using the existing helper method
@@ -200,10 +263,15 @@ export class ConversationEventHandler {
 				lang: queryExtraction.lang || 'en',
 			});
 
-			// Update the conversation note with the results
+			// Update the conversation with the results
 			await this.plugin.updateConversationNote(title, response);
 		} catch (error) {
-			await this.plugin.updateConversationNote(title, `Error while moving files: ${error.message}`);
+			console.error('Error handling move query:', error);
+			await this.plugin.updateConversationNote(
+				title,
+				`Error moving files: ${error.message}`,
+				'Steward'
+			);
 		}
 	}
 
@@ -313,6 +381,49 @@ export class ConversationEventHandler {
 			await this.plugin.updateConversationNote(
 				title,
 				`Error processing your request: ${error.message}`
+			);
+		}
+	}
+
+	/**
+	 * Handle a direct confirmation command from the user
+	 * @param title The conversation title
+	 * @param commandContent The confirmation content
+	 */
+	private async handleConfirmCommand(title: string, commandContent: string): Promise<void> {
+		// First check if the message is a clear confirmation response
+		const response = this.plugin.confirmationManager.isConfirmationResponse(commandContent);
+
+		// Find confirmations for this conversation
+		const confirmationsForConversation =
+			this.plugin.confirmationManager.getPendingConfirmationsForConversation(title);
+
+		if (confirmationsForConversation.length === 0) {
+			// No pending confirmations for this conversation
+			await this.plugin.updateConversationNote(
+				title,
+				'There are no pending confirmations to respond to.',
+				'Steward'
+			);
+			return;
+		}
+
+		// Get the oldest confirmation for this conversation
+		const confirmation = confirmationsForConversation.sort((a, b) => a.createdAt - b.createdAt)[0];
+
+		if (response) {
+			// If it's a clear confirmation response, emit the event
+			eventEmitter.emit(Events.CONFIRMATION_RESPONDED, {
+				id: confirmation.id,
+				confirmed: response.isAffirmative,
+				conversationTitle: title,
+			});
+		} else {
+			// If it's not a clear confirmation, let the user know
+			await this.plugin.updateConversationNote(
+				title,
+				`I didn't understand your response. Please respond with 'yes' or 'no'.`,
+				'Steward'
 			);
 		}
 	}

@@ -8,9 +8,11 @@ import { ObsidianAPITools } from './tools/obsidianAPITools';
 import { SearchIndexer } from './searchIndexer';
 import { DateTime } from 'luxon';
 import { encrypt, decrypt, generateSaltKeyId } from './utils/cryptoUtils';
+import { WorkflowManager } from './workflows/WorkflowManager';
+import { ConfirmationManager } from './services/ConfirmationManager';
 
 // Supported command prefixes
-export const COMMAND_PREFIXES = ['/ ', '/move', '/search', '/calc', '/me', '/close'];
+export const COMMAND_PREFIXES = ['/ ', '/move', '/search', '/calc', '/me', '/close', '/confirm'];
 
 interface StewardPluginSettings {
 	mySetting: string;
@@ -52,6 +54,8 @@ export default class StewardPlugin extends Plugin {
 	searchIndexer: SearchIndexer;
 	ribbonIcon: HTMLElement;
 	staticConversationTitle = 'Steward Chat';
+	workflowManager: WorkflowManager;
+	confirmationManager: ConfirmationManager;
 
 	get editor() {
 		return this.app.workspace.activeEditor?.editor as Editor & {
@@ -149,14 +153,22 @@ export default class StewardPlugin extends Plugin {
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new StewardSettingTab(this.app, this));
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
+		this.registerDomEvent(
+			document,
+			'click',
+			this.handleLinkClickOnStaticConversation.bind(this),
+			true
+		);
 
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
 		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
+
+		// Initialize the confirmation manager
+		this.confirmationManager = new ConfirmationManager(this);
+
+		// Initialize the workflow manager
+		this.workflowManager = new WorkflowManager(this.app, this);
 	}
 
 	onunload() {}
@@ -196,8 +208,8 @@ export default class StewardPlugin extends Plugin {
 				const conversationLink = this.findConversationLinkAbove(view);
 
 				// Handle close command
-				if (conversationLink && commandType === ' ' && this.isCloseIntent(commandContent)) {
-					commandType = 'close';
+				if (conversationLink && commandType === ' ') {
+					commandType = await this.getCommandTypeOnClient(conversationLink, commandContent);
 				}
 
 				const folderPath = this.settings.conversationFolder;
@@ -282,6 +294,26 @@ export default class StewardPlugin extends Plugin {
 
 		// Check for exact match or starts with
 		return closeCommands.some(command => normalizedContent === command);
+	}
+
+	/**
+	 * Gets the command type on the client side
+	 * @param title The title of the conversation
+	 * @param commandContent The command content to check
+	 * @returns The command type
+	 */
+	private async getCommandTypeOnClient(title: string, commandContent: string): Promise<string> {
+		if (this.isCloseIntent(commandContent)) {
+			return 'close';
+		}
+
+		// Check if this is a confirmation response without processing it
+		const confirmationResponse = this.confirmationManager.isConfirmationResponse(commandContent);
+		if (confirmationResponse) {
+			return 'confirm';
+		}
+
+		return ' ';
 	}
 
 	/**
@@ -650,6 +682,22 @@ export default class StewardPlugin extends Plugin {
 			console.error('Error encrypting API key:', error);
 			new Notice('Failed to encrypt API key. Please try again.');
 			throw error;
+		}
+	}
+
+	private handleLinkClickOnStaticConversation(event: MouseEvent) {
+		console.log('click', event);
+		const target = event.target as HTMLElement;
+
+		const isLink =
+			target.classList.contains('internal-link') || target.closest('.cm-hmd-internal-link');
+		if (isLink) {
+			const activeFile = this.app.workspace.getActiveFile() as TFile;
+
+			if (activeFile.name.startsWith(this.staticConversationTitle)) {
+				event.preventDefault();
+				event.stopPropagation();
+			}
 		}
 	}
 }

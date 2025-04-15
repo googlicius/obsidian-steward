@@ -38,7 +38,7 @@ export interface MoveQueryExtraction {
  * Represents the extracted command intent from a general query
  */
 export interface CommandIntentExtraction {
-	commandType: 'search' | 'move' | 'calc' | 'close';
+	commandType: string;
 	content: string;
 	explanation: string;
 	confidence: number;
@@ -346,7 +346,7 @@ export class ObsidianAPITools {
 			throw new Error('Invalid response format');
 		}
 
-		if (!['search', 'move', 'calc', 'close'].includes(data.commandType)) {
+		if (!['search', 'move', 'calc', 'close', 'confirm'].includes(data.commandType)) {
 			throw new Error('Command type must be one of: search, move, calc, close');
 		}
 

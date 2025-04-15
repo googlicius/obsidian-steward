@@ -20,12 +20,14 @@ Available command types:
 - "move": When the user wants to move or organize notes
 - "calc": When the user wants to perform a calculation
 - "close": When the user wants to close the conversation or exit
+- "confirm": When the user is responding to a confirmation request (yes/no, approve/deny)
 
 Guidelines:
 - If the user wants to find, locate, or search for notes, classify as "search"
 - If the user wants to move, organize, or relocate notes, classify as "move"
 - If the user is asking for a calculation or mathematical operation, classify as "calc"
 - If the user wants to close, end, or exit the conversation, classify as "close"
+- If the user is responding with yes/no, approve/deny, or similar confirmation language, classify as "confirm"
 - Include the original query content for processing by the specialized handlers
 - Provide a confidence score from 0 to 1:
   - 0.0-0.3: Low confidence (ambiguous or unclear requests)
@@ -33,7 +35,7 @@ Guidelines:
   - 0.8-1.0: High confidence (very clear intent)
 
 You must respond with a valid JSON object containing these properties:
-- commandType: One of "search", "move", "calc", or "close"
+- commandType: One of "search", "move", "calc", "close", or "confirm"
 - content: The original query content
 - confidence: A number from 0 to 1 indicating your confidence in this classification
 - explanation: 
