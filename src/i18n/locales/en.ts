@@ -13,6 +13,10 @@ const en = {
 			multiMoveHeader: 'I performed {{count}} move operation:',
 			multiMoveHeader_plural: 'I performed {{count}} move operations:',
 			operation: 'Operation {{num}}: Moving files with {{query}} to {{folder}}',
+			noFilesFound:
+				"I couldn't find any files matching your query. Please try a different search term.",
+			createFoldersHeader: 'I need to create the following folders before moving files:',
+			createFoldersQuestion: 'Would you like me to create these folders?',
 		},
 		// Search result messages
 		search: {
@@ -28,6 +32,34 @@ const en = {
 		close: {
 			instruction: 'To close this conversation, use the /close command in your note.',
 			completed: 'Conversation has been closed.',
+		},
+		// Confirmation messages
+		confirmation: {
+			notUnderstood: "I didn't understand your response. Please respond with 'yes' or 'no'.",
+			noPending: 'There are no pending confirmations to respond to.',
+		},
+		// UI elements
+		ui: {
+			openStewardChat: 'Open Steward Chat',
+			buildingSearchIndex: 'Building search index...',
+			errorBuildingSearchIndex: 'Error building search index. Check console for details.',
+			buildingIndexes: 'Steward: Building indexes...',
+			noActiveEditor: 'No active editor to close conversation: {{conversationTitle}}',
+			conversationLinkNotFound: 'Could not locate the conversation link for {{conversationTitle}}',
+			errorClosingConversation: 'Error closing conversation: {{errorMessage}}',
+			errorCreatingNote: 'Error creating conversation note: {{errorMessage}}',
+			noteNotFound: 'Conversation note not found: {{notePath}}',
+			errorUpdatingConversation: 'Error updating conversation: {{errorMessage}}',
+			searchIndexNotFound: 'Search index not found. Will build index shortly...',
+			errorBuildingInitialIndexes: 'Steward: Error building initial indexes. Check console for details.',
+			decryptionError: 'Failed to decrypt API key. Please re-enter it in settings.',
+			encryptionError: 'Failed to encrypt API key. Please try again.',
+			welcomeMessage: 'Welcome to your always-available Steward chat. Type below to interact.',
+		},
+		// Conversation states
+		conversation: {
+			workingOnIt: 'Working on it...',
+			generating: 'Generating...',
 		},
 	},
 };

@@ -1,4 +1,5 @@
 import { Editor, Notice, Plugin, TFile, WorkspaceLeaf, addIcon } from 'obsidian';
+import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
 import { createCommandHighlightExtension } from './cm-extensions/CommandHighlightExtension';
@@ -101,17 +102,20 @@ export default class StewardPlugin extends Plugin {
 		if (decryptedKey) {
 			process.env.OPENAI_API_KEY = decryptedKey;
 		}
-		
+
 		// Register custom icon
-		addIcon(SMILE_CHAT_ICON_ID, `<svg fill="currentColor" viewBox="0 0 32 32" id="icon" xmlns="http://www.w3.org/2000/svg">
+		addIcon(
+			SMILE_CHAT_ICON_ID,
+			`<svg fill="currentColor" viewBox="0 0 32 32" id="icon" xmlns="http://www.w3.org/2000/svg">
 			<path d="M16,19a6.9908,6.9908,0,0,1-5.833-3.1287l1.666-1.1074a5.0007,5.0007,0,0,0,8.334,0l1.666,1.1074A6.9908,6.9908,0,0,1,16,19Z"/>
 			<path d="M20,8a2,2,0,1,0,2,2A1.9806,1.9806,0,0,0,20,8Z"/>
 			<path d="M12,8a2,2,0,1,0,2,2A1.9806,1.9806,0,0,0,12,8Z"/>
 			<path d="M17.7358,30,16,29l4-7h6a1.9966,1.9966,0,0,0,2-2V6a1.9966,1.9966,0,0,0-2-2H6A1.9966,1.9966,0,0,0,4,6V20a1.9966,1.9966,0,0,0,2,2h9v2H6a3.9993,3.9993,0,0,1-4-4V6A3.9988,3.9988,0,0,1,6,2H26a3.9988,3.9988,0,0,1,4,4V20a3.9993,3.9993,0,0,1-4,4H21.1646Z"/>
-		</svg>`);
-		
+		</svg>`
+		);
+
 		// Add ribbon icon with custom icon
-		this.ribbonIcon = this.addRibbonIcon(SMILE_CHAT_ICON_ID, 'Open Steward Chat', async () => {
+		this.ribbonIcon = this.addRibbonIcon(SMILE_CHAT_ICON_ID, i18next.t('ui.openStewardChat'), async () => {
 			await this.openStaticConversation();
 		});
 
@@ -129,14 +133,14 @@ export default class StewardPlugin extends Plugin {
 			id: 'build-search-index',
 			name: 'Build Search Index',
 			callback: async () => {
-				new Notice('Building search index...');
+				new Notice(i18next.t('ui.buildingSearchIndex'));
 				try {
-					statusBarItemEl.setText('Steward: Building indexes...');
+					statusBarItemEl.setText(i18next.t('ui.buildingIndexes'));
 					await this.searchIndexer.indexAllFiles();
 					statusBarItemEl.setText('');
 				} catch (error) {
 					console.error('Error building search index:', error);
-					new Notice('Error building search index. Check console for details.');
+					new Notice(i18next.t('ui.errorBuildingSearchIndex'));
 				}
 			},
 		});
@@ -317,7 +321,7 @@ export default class StewardPlugin extends Plugin {
 		}
 
 		// Check if this is a confirmation response without processing it
-		if (this.confirmationEventHandler.isConfirmationResponse(commandContent)) {
+		if (this.confirmationEventHandler.isConfirmIntent(commandContent)) {
 			return 'confirm';
 		}
 
@@ -371,7 +375,7 @@ export default class StewardPlugin extends Plugin {
 			const noteExists = this.app.vault.getAbstractFileByPath(notePath);
 			if (!noteExists) {
 				// Build initial content
-				const initialContent = `Welcome to your always-available Steward chat. Type below to interact.\n\n/ `;
+				const initialContent = `${i18next.t('ui.welcomeMessage')}\n\n/ `;
 
 				// Create the conversation note
 				await this.app.vault.create(notePath, initialContent);
@@ -397,7 +401,7 @@ export default class StewardPlugin extends Plugin {
 	async closeConversation(conversationTitle: string): Promise<boolean> {
 		try {
 			if (!this.editor) {
-				new Notice(`No active editor to close conversation: ${conversationTitle}`);
+				new Notice(i18next.t('ui.noActiveEditor', { conversationTitle }));
 				return false;
 			}
 
@@ -421,7 +425,7 @@ export default class StewardPlugin extends Plugin {
 			}
 
 			if (linkFrom === -1) {
-				new Notice(`Could not locate the conversation link for ${conversationTitle}`);
+				new Notice(i18next.t('ui.conversationLinkNotFound', { conversationTitle }));
 				return false;
 			}
 
@@ -447,7 +451,7 @@ export default class StewardPlugin extends Plugin {
 			return true;
 		} catch (error) {
 			console.error('Error closing conversation:', error);
-			new Notice(`Error closing conversation: ${error.message}`);
+			new Notice(i18next.t('ui.errorClosingConversation', { errorMessage: error.message }));
 			return false;
 		}
 	}
@@ -499,7 +503,7 @@ export default class StewardPlugin extends Plugin {
 				case 'search':
 				case 'calc':
 				case ' ':
-					initialContent = `#gtp-4\n\n**User:** /${commandType.trim()} ${content}\n\n*Generating...*`;
+					initialContent = `#gtp-4\n\n**User:** /${commandType.trim()} ${content}\n\n*${i18next.t('conversation.generating')}*`;
 					break;
 
 				default:
@@ -508,7 +512,7 @@ export default class StewardPlugin extends Plugin {
 						'',
 						`/${commandType.trim()} ${content}`,
 						'',
-						`**Steward**: Working on it...`,
+						`**Steward**: ${i18next.t('conversation.workingOnIt')}`,
 						'',
 					].join('\n');
 					break;
@@ -518,6 +522,7 @@ export default class StewardPlugin extends Plugin {
 			await this.app.vault.create(notePath, initialContent);
 		} catch (error) {
 			console.error('Error creating conversation note:', error);
+			new Notice(i18next.t('ui.errorCreatingNote', { errorMessage: error.message }));
 			throw error;
 		}
 	}
@@ -573,7 +578,7 @@ export default class StewardPlugin extends Plugin {
 			// Get the current content of the note
 			const file = this.app.vault.getAbstractFileByPath(notePath) as TFile;
 			if (!file) {
-				throw new Error(`Conversation note not found: ${notePath}`);
+				throw new Error(i18next.t('ui.noteNotFound', { notePath }));
 			}
 
 			let currentContent = await this.app.vault.read(file);
@@ -591,7 +596,7 @@ export default class StewardPlugin extends Plugin {
 			await this.app.vault.modify(file, `${currentContent}\n\n${roleText}${newContent}`);
 		} catch (error) {
 			console.error('Error updating conversation note:', error);
-			new Notice(`Error updating conversation: ${error.message}`);
+			new Notice(i18next.t('ui.errorUpdatingConversation', { errorMessage: error.message }));
 		}
 	}
 
@@ -600,7 +605,7 @@ export default class StewardPlugin extends Plugin {
 		const notePath = `${folderPath}/${path}.md`;
 		const file = this.app.vault.getAbstractFileByPath(notePath) as TFile;
 		if (!file) {
-			throw new Error(`Conversation note not found: ${notePath}`);
+			throw new Error(i18next.t('ui.noteNotFound', { notePath }));
 		}
 
 		const currentContent = this.removeGeneratingIndicator(await this.app.vault.read(file));
@@ -622,19 +627,19 @@ export default class StewardPlugin extends Plugin {
 		// If the index isn't built yet, build it after a short delay
 		// to avoid blocking the UI when the plugin loads
 		if (!isBuilt) {
-			console.log('Search index not found. Will build index shortly...');
+			console.log(i18next.t('ui.searchIndexNotFound'));
 
 			// Use setTimeout to delay the index building by 3 seconds
 			// This ensures the plugin loads smoothly before starting the index build
 			setTimeout(async () => {
 				try {
 					const statusBarItemEl = this.addStatusBarItem();
-					statusBarItemEl.setText('Steward: Building indexes...');
+					statusBarItemEl.setText(i18next.t('ui.buildingIndexes'));
 					await this.searchIndexer.indexAllFiles();
 					statusBarItemEl.setText('');
 				} catch (error) {
 					console.error('Error building initial indexes:', error);
-					new Notice('Steward: Error building initial indexes. Check console for details.');
+					new Notice(i18next.t('ui.errorBuildingInitialIndexes'));
 				}
 			}, 3000);
 		}
@@ -655,7 +660,7 @@ export default class StewardPlugin extends Plugin {
 		} catch (error) {
 			console.error('Error decrypting API key:', error);
 			// Throw the error so callers can handle it
-			throw new Error('Failed to decrypt API key. Please re-enter it in settings.');
+			throw new Error(i18next.t('ui.decryptionError'));
 		}
 	}
 
@@ -688,7 +693,7 @@ export default class StewardPlugin extends Plugin {
 			await this.saveSettings();
 		} catch (error) {
 			console.error('Error encrypting API key:', error);
-			new Notice('Failed to encrypt API key. Please try again.');
+			new Notice(i18next.t('ui.encryptionError'));
 			throw error;
 		}
 	}

@@ -8,9 +8,10 @@ import {
 	CommandIntentExtractedPayload,
 } from '../types/events';
 import { eventEmitter } from './EventEmitter';
-import * as mathTools from 'src/tools/mathTools';
-import StewardPlugin, { GeneratorText } from 'src/main';
-import { getTranslation } from 'src/i18n';
+import * as mathTools from '../tools/mathTools';
+import StewardPlugin, { GeneratorText } from '../main';
+import { getTranslation } from '../i18n';
+import { getObsidianLanguage } from '../utils/getObsidianLanguage';
 
 interface Props {
 	plugin: StewardPlugin;
@@ -74,8 +75,6 @@ export class ConversationEventHandler {
 	private async handleConversationNoteUpdated(
 		payload: ConversationNoteUpdatedPayload
 	): Promise<void> {
-		// We no longer need to check for the prefix since we've already displayed
-		// the explanation in the handleCommandIntentExtracted function
 		const commandContent = payload.commandContent;
 
 		switch (payload.commandType) {
@@ -103,7 +102,7 @@ export class ConversationEventHandler {
 			}
 
 			case 'confirm': {
-				await this.handleConfirmCommand(payload.title, commandContent);
+				await this.handleConfirmCommand(payload.title, commandContent, payload.lang);
 				break;
 			}
 
@@ -143,7 +142,7 @@ export class ConversationEventHandler {
 			}
 
 			case 'confirm': {
-				await this.handleConfirmCommand(payload.title, payload.commandContent);
+				await this.handleConfirmCommand(payload.title, payload.commandContent, payload.lang);
 				break;
 			}
 
@@ -178,7 +177,8 @@ export class ConversationEventHandler {
 			const queryExtraction = await this.plugin.obsidianAPITools.extractMoveQuery(commandContent);
 
 			// Get all files matching the source queries using the new function
-			const filesByOperation = await this.plugin.obsidianAPITools.getFilesByMoveQueryExtraction(queryExtraction);
+			const filesByOperation =
+				await this.plugin.obsidianAPITools.getFilesByMoveQueryExtraction(queryExtraction);
 
 			// Count total files to move
 			let totalFilesToMove = 0;
@@ -186,13 +186,12 @@ export class ConversationEventHandler {
 				totalFilesToMove += files.length;
 			});
 
+			// Get translation function for the specified language
+			const t = getTranslation(queryExtraction.lang || getObsidianLanguage());
+
 			// If no files match, inform the user without asking for confirmation
 			if (totalFilesToMove === 0) {
-				await this.plugin.updateConversationNote(
-					title,
-					`I couldn't find any files matching your query. Please try a different search term.`,
-					'Steward'
-				);
+				await this.plugin.updateConversationNote(title, t('move.noFilesFound'), 'Steward');
 				return;
 			}
 
@@ -207,15 +206,14 @@ export class ConversationEventHandler {
 			// If there are missing folders, request confirmation
 			if (missingFolders.length > 0) {
 				// Create confirmation message
-				let message = 'I need to create the following folders before moving files:\n';
+				let message = t('move.createFoldersHeader') + '\n';
 				missingFolders.forEach(folder => {
 					message += `- \`${folder}\`\n`;
 				});
-				message += '\nWould you like me to create these folders?';
+				message += '\n' + t('move.createFoldersQuestion');
 
-				// Request confirmation with event to trigger after confirmation
 				// Include filesByOperation in the context to avoid redundant queries
-				await this.plugin.confirmationManager.requestConfirmation(
+				await this.plugin.confirmationEventHandler.requestConfirmation(
 					title,
 					'move-folders',
 					message,
@@ -260,12 +258,15 @@ export class ConversationEventHandler {
 			await this.plugin.addGeneratingIndicator(title, GeneratorText.Moving);
 
 			// Perform the move operations, passing the files if available to avoid redundant queries
-			const result = await this.plugin.obsidianAPITools.moveByQueryExtraction(queryExtraction, filesByOperation);
+			const result = await this.plugin.obsidianAPITools.moveByQueryExtraction(
+				queryExtraction,
+				filesByOperation
+			);
 
 			// Format the results using the existing helper method
 			const response = this.formatMoveResult({
 				operations: result.operations,
-				lang: queryExtraction.lang || 'en',
+				lang: queryExtraction.lang || getObsidianLanguage(),
 			});
 
 			// Update the conversation with the results
@@ -289,7 +290,7 @@ export class ConversationEventHandler {
 			);
 
 			// Get translation function for the specified language
-			const t = getTranslation(queryExtraction.lang || 'en');
+			const t = getTranslation(queryExtraction.lang || getObsidianLanguage());
 
 			// Format the results
 			let response = `${queryExtraction.explanation} and used the query: "${queryExtraction.searchQuery}"\n\n`;
@@ -394,43 +395,43 @@ export class ConversationEventHandler {
 	 * Handle a direct confirmation command from the user
 	 * @param title The conversation title
 	 * @param commandContent The confirmation content
+	 * @param lang The language code (optional)
 	 */
-	private async handleConfirmCommand(title: string, commandContent: string): Promise<void> {
+	private async handleConfirmCommand(
+		title: string,
+		commandContent: string,
+		lang?: string
+	): Promise<void> {
+		// Get the appropriate translation function, using the provided language or defaulting to English
+		const t = getTranslation(lang || getObsidianLanguage());
+
 		// First check if the message is a clear confirmation response
-		const response = this.plugin.confirmationManager.isConfirmationResponse(commandContent);
+		const isConfirmation = this.plugin.confirmationEventHandler.isConfirmIntent(commandContent);
+		if (!isConfirmation) {
+			// If it's not a clear confirmation, let the user know
+			await this.plugin.updateConversationNote(title, t('confirmation.notUnderstood'), 'Steward');
+			return;
+		}
 
 		// Find confirmations for this conversation
 		const confirmationsForConversation =
-			this.plugin.confirmationManager.getPendingConfirmationsForConversation(title);
+			this.plugin.confirmationEventHandler.getPendingConfirmationsForConversation(title);
 
 		if (confirmationsForConversation.length === 0) {
 			// No pending confirmations for this conversation
-			await this.plugin.updateConversationNote(
-				title,
-				'There are no pending confirmations to respond to.',
-				'Steward'
-			);
+			await this.plugin.updateConversationNote(title, t('confirmation.noPending'), 'Steward');
 			return;
 		}
 
 		// Get the oldest confirmation for this conversation
 		const confirmation = confirmationsForConversation.sort((a, b) => a.createdAt - b.createdAt)[0];
 
-		if (response) {
-			// If it's a clear confirmation response, emit the event
-			eventEmitter.emit(Events.CONFIRMATION_RESPONDED, {
-				id: confirmation.id,
-				confirmed: response.isAffirmative,
-				conversationTitle: title,
-			});
-		} else {
-			// If it's not a clear confirmation, let the user know
-			await this.plugin.updateConversationNote(
-				title,
-				`I didn't understand your response. Please respond with 'yes' or 'no'.`,
-				'Steward'
-			);
-		}
+		// If it's a clear confirmation response, emit the event
+		eventEmitter.emit(Events.CONFIRMATION_RESPONDED, {
+			id: confirmation.id,
+			confirmed: isConfirmation.isAffirmative,
+			conversationTitle: title,
+		});
 	}
 
 	// Helper to parse just the destination from the move command
@@ -453,7 +454,7 @@ export class ConversationEventHandler {
 		}>;
 		lang?: string;
 	}): string {
-		const { operations, lang = 'en' } = result;
+		const { operations, lang = getObsidianLanguage() } = result;
 
 		// Get translation function for the specified language
 		const t = getTranslation(lang);

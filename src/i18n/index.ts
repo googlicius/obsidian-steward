@@ -2,10 +2,16 @@ import i18next from 'i18next';
 import en from './locales/en';
 import vi from './locales/vi';
 import ja from './locales/ja';
+import { getObsidianLanguage } from '../utils/getObsidianLanguage';
+
+// Get the default language from Obsidian
+const obsidianLang = getObsidianLanguage();
+// Map Obsidian language to our supported languages or fallback to English
+const defaultLang = ['en', 'vi', 'ja'].includes(obsidianLang) ? obsidianLang : 'en';
 
 // Initialize i18next
 i18next.init({
-	lng: 'en', // Default language
+	lng: defaultLang, // Use Obsidian's language if supported, otherwise English
 	fallbackLng: 'en',
 	resources: {
 		en,

@@ -40,7 +40,8 @@ You must respond with a valid JSON object containing these properties:
 - confidence: A number from 0 to 1 indicating your confidence in this classification
 - explanation: 
   If you are confident: A brief explanation of why you classified it as this command type
-  If you are not confident: Say that you are not sure what the user wants to do and ask for another more clear command
+  If you are not quite sure (The confidence from 0.5 to 0.7): Say that you are not sure what the user wants to do and ask for another more clear command
+  If the confidence is low (The confidence from 0.0 to 0.5):  The user may want to ask something differently. In this case, you can provide your answer directly and support the user query.
   Always provide this explanation in the user's language`,
 };
 

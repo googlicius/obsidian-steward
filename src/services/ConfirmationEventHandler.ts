@@ -160,13 +160,19 @@ export class ConfirmationEventHandler {
 	 * @param message The message to check
 	 * @returns An object with the response type or null if not a clear response
 	 */
-	isConfirmationResponse(
-		message: string
-	): { isConfirmation: boolean; isAffirmative: boolean } | null {
+	isConfirmIntent(message: string): { isConfirmation: boolean; isAffirmative: boolean } | null {
+		if (!message) {
+			return {
+				isAffirmative: true,
+				isConfirmation: true,
+			};
+		}
+
 		// Parse the user's response
 		const normalized = message.toLowerCase().trim();
 
 		const isAffirmative = [
+			// English affirmative terms
 			'yes',
 			'y',
 			'sure',
@@ -176,22 +182,43 @@ export class ConfirmationEventHandler {
 			'create',
 			'confirm',
 			'proceed',
-		].some(term => normalized === term || normalized.includes(term));
+			// Vietnamese affirmative terms
+			'có',
+			'có nha',
+			'đồng ý',
+			'vâng',
+			'ừ',
+			'tạo',
+			'tiếp tục',
+		].some(term => normalized === term);
 
-		const isNegative = ['no', 'n', 'nope', "don't", 'dont', 'cancel', 'stop'].some(
-			term => normalized === term || normalized.includes(term)
-		);
+		const isNegative = [
+			// English negative terms
+			'no',
+			'n',
+			'nope',
+			"don't",
+			'dont',
+			'cancel',
+			'stop',
+			// Vietnamese negative terms
+			'không',
+			'không nha',
+			'đừng',
+			'hủy',
+			'dừng lại',
+		].some(term => normalized === term);
 
-		// If not a clear response, return null
-		if (!isAffirmative && !isNegative) {
-			return null;
+		// If it matches either pattern, it's a confirmation
+		if (isAffirmative || isNegative) {
+			return {
+				isConfirmation: true,
+				isAffirmative: isAffirmative,
+			};
 		}
 
-		// Return the confirmation type
-		return {
-			isConfirmation: true,
-			isAffirmative,
-		};
+		// If not a clear response, return null
+		return null;
 	}
 
 	/**

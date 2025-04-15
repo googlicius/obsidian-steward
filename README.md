@@ -66,3 +66,4 @@ MIT
 - [ ] User confirmation when the AI performs a large side effect action.
 - [ ] Traceability
 - [ ] MCP support.
+- [ ] Build more sophisticated commands make it able to users to modify even predefined commands the way they want.
