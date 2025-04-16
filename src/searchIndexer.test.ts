@@ -56,10 +56,22 @@ const mockApp = {
 	},
 };
 
-// Create a helper to expose the private tokenizeContent method for testing
+// Create a helper to expose the private methods for testing
 class TestableSearchIndexer extends SearchIndexer {
 	public exposedTokenizeContent(content: string) {
 		return this['tokenizeContent'](content);
+	}
+	
+	public exposedCalculateTF(termFreq: number, docLength: number) {
+		return this['calculateTF'](termFreq, docLength);
+	}
+	
+	public exposedCalculateIDF(totalDocs: number, docsWithTerm: number) {
+		return this['calculateIDF'](totalDocs, docsWithTerm);
+	}
+	
+	public exposedGetDocumentLength(content: string) {
+		return this['getDocumentLength'](content);
 	}
 }
 
@@ -155,6 +167,35 @@ describe('SearchIndexer', () => {
 			const terms = result.map(t => t.term);
 			expect(terms).toContain('#hashtags');
 			expect(terms).toContain('#multiple-tags');
+		});
+	});
+	
+	describe('TF-IDF scoring', () => {
+		it('should correctly calculate Term Frequency (TF)', () => {
+			// TF = term frequency in document / total terms in document
+			expect(searchIndexer.exposedCalculateTF(5, 100)).toBeCloseTo(0.05);
+			expect(searchIndexer.exposedCalculateTF(10, 100)).toBeCloseTo(0.1);
+			expect(searchIndexer.exposedCalculateTF(0, 100)).toBeCloseTo(0);
+			expect(searchIndexer.exposedCalculateTF(5, 0)).toBeCloseTo(0); // Handle division by zero
+		});
+		
+		it('should correctly calculate Inverse Document Frequency (IDF)', () => {
+			// IDF = log(total documents / documents containing term)
+			expect(searchIndexer.exposedCalculateIDF(1000, 10)).toBeCloseTo(Math.log(100));
+			expect(searchIndexer.exposedCalculateIDF(1000, 1)).toBeCloseTo(Math.log(1000));
+			expect(searchIndexer.exposedCalculateIDF(1000, 1000)).toBeCloseTo(Math.log(1));
+			expect(searchIndexer.exposedCalculateIDF(1000, 0)).toBeCloseTo(0); // Handle division by zero
+		});
+		
+		it('should correctly calculate document length', () => {
+			const content = 'This is a test document with ten words in it.';
+			expect(searchIndexer.exposedGetDocumentLength(content)).toBe(10);
+			
+			const emptyContent = '';
+			expect(searchIndexer.exposedGetDocumentLength(emptyContent)).toBe(0);
+			
+			const multilineContent = 'This is\na multiline\ndocument with\nseveral words.';
+			expect(searchIndexer.exposedGetDocumentLength(multilineContent)).toBe(8);
 		});
 	});
 });

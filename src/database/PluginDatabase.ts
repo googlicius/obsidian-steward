@@ -10,6 +10,7 @@ export interface IndexedDocument {
 	content: string; // Raw file content
 	lastModified: number; // Timestamp of last modification
 	tags: string[]; // Tags extracted from content and frontmatter
+	tokenCount?: number; // Total number of tokens in the document for TF-IDF scoring
 }
 
 /**
