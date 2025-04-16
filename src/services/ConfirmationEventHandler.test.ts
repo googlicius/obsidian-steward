@@ -12,6 +12,24 @@ jest.mock('./EventEmitter', () => ({
 	},
 }));
 
+// Mock getObsidianLanguage to fix localStorage not defined error
+jest.mock('../utils/getObsidianLanguage', () => ({
+	getObsidianLanguage: jest.fn().mockReturnValue('en'),
+}));
+
+// Mock i18n module
+jest.mock('../i18n', () => ({
+	getTranslation: jest.fn().mockImplementation(() => {
+		return (key: string) => `translated_${key}`;
+	}),
+	__esModule: true,
+	default: {
+		t: jest.fn().mockImplementation((key: string) => `translated_${key}`),
+		language: 'en',
+		changeLanguage: jest.fn(),
+	},
+}));
+
 // Mock StewardPlugin
 const mockPlugin = {
 	updateConversationNote: jest.fn(),

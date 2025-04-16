@@ -115,9 +115,13 @@ export default class StewardPlugin extends Plugin {
 		);
 
 		// Add ribbon icon with custom icon
-		this.ribbonIcon = this.addRibbonIcon(SMILE_CHAT_ICON_ID, i18next.t('ui.openStewardChat'), async () => {
-			await this.openStaticConversation();
-		});
+		this.ribbonIcon = this.addRibbonIcon(
+			SMILE_CHAT_ICON_ID,
+			i18next.t('ui.openStewardChat'),
+			async () => {
+				await this.openStaticConversation();
+			}
+		);
 
 		// Register the conversation extension for CodeMirror
 		this.registerEditorExtension([createCommandHighlightExtension(COMMAND_PREFIXES)]);
@@ -133,11 +137,12 @@ export default class StewardPlugin extends Plugin {
 			id: 'build-search-index',
 			name: 'Build Search Index',
 			callback: async () => {
-				new Notice(i18next.t('ui.buildingSearchIndex'));
+				new Notice('Building index...');
 				try {
 					statusBarItemEl.setText(i18next.t('ui.buildingIndexes'));
 					await this.searchIndexer.indexAllFiles();
 					statusBarItemEl.setText('');
+					new Notice('Building Search Index completed!');
 				} catch (error) {
 					console.error('Error building search index:', error);
 					new Notice(i18next.t('ui.errorBuildingSearchIndex'));

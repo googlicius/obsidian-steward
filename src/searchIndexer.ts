@@ -192,6 +192,10 @@ export class SearchIndexer {
 				// First remove old terms for this document
 				await this.db.terms.where('documentId').equals(file.path).delete();
 
+				// Tokenize content and calculate document length
+				const terms = this.tokenizeContent(content);
+				const tokenCount = content.split(/\s+/).length;
+
 				// Create or update document
 				await this.db.documents.put({
 					id: file.path,
@@ -200,10 +204,8 @@ export class SearchIndexer {
 					content,
 					lastModified: file.stat.mtime,
 					tags: [...new Set(tags)], // Deduplicate tags
+					tokenCount: tokenCount, // Store token count for TF calculation
 				});
-
-				// Tokenize and index content
-				const terms = this.tokenizeContent(content);
 
 				// Batch add terms
 				const termBatch = terms.map(term => {
@@ -220,6 +222,40 @@ export class SearchIndexer {
 		} catch (error) {
 			console.error(`Error indexing file ${file.path}:`, error);
 		}
+	}
+
+	/**
+	 * Calculate TF (Term Frequency) score with sub-linear scaling
+	 * This uses 1 + log(tf) scaling to prevent bias against longer documents
+	 */
+	private calculateTF(termFreq: number, docLength: number): number {
+		if (docLength === 0 || termFreq === 0) return 0;
+
+		// Use sub-linear scaling: 1 + log(tf)
+		// This reduces the impact of high frequency terms in long documents
+		return (1 + Math.log10(termFreq)) / Math.log10(1 + docLength);
+	}
+
+	/**
+	 * Calculate IDF (Inverse Document Frequency) score
+	 * IDF = log(Total number of documents / Number of documents containing term t)
+	 */
+	private calculateIDF(totalDocs: number, docsWithTerm: number): number {
+		if (docsWithTerm === 0) return 0;
+		return Math.log(totalDocs / docsWithTerm);
+	}
+
+	/**
+	 * Get approximate document length
+	 * This is a quick estimation based on content length divided by average word length
+	 */
+	private getDocumentLength(content: string): number {
+		// A more accurate approach would be to count tokens from tokenizeContent
+		// But this is faster for a quick approximation
+		if (!content || content.trim() === '') {
+			return 0;
+		}
+		return content.split(/\s+/).filter(Boolean).length;
 	}
 
 	/**
@@ -291,7 +327,7 @@ export class SearchIndexer {
 	}
 
 	/**
-	 * Search the index for a query
+	 * Search the index for a query using TF-IDF scoring
 	 */
 	public async search(query: string, limit = 10): Promise<SearchResult[]> {
 		// Normalize and tokenize the query
@@ -303,38 +339,91 @@ export class SearchIndexer {
 
 		// Get matching documents with term frequencies
 		const results = await this.db.transaction('r', [this.db.documents, this.db.terms], async () => {
-			const termResults = await Promise.all(
-				queryTerms.map(term => this.db.terms.where('term').equals(term).toArray())
-			);
+			// Get total document count for IDF calculation
+			const totalDocuments = await this.db.documents.count();
 
-			// Flatten results and group by document
+			// Get term results with document frequency information
+			const termResultPromises = queryTerms.map(async term => {
+				const results = await this.db.terms.where('term').equals(term).toArray();
+				// Count unique documents containing this term
+				const docsWithTerm = new Set(results.map(r => r.documentId)).size;
+				// Calculate IDF for this term
+				const idf = this.calculateIDF(totalDocuments, docsWithTerm);
+				return { term, results, idf };
+			});
+
+			const termResults = await Promise.all(termResultPromises);
+
+			// Flatten results and calculate TF-IDF scores for each document
 			const documentScores = new Map<string, number>();
 			const termMatches = new Map<string, Map<string, number[]>>();
+			const documentLengths = new Map<string, number>();
+			const documentMatchedTerms = new Map<string, Set<string>>();
 
-			termResults.forEach((results, i) => {
-				const queryTerm = queryTerms[i];
+			// First pass: collect document information and term positions
+			for (const { term, results } of termResults) {
+				for (const result of results) {
+					const { documentId, positions } = result;
 
-				results.forEach(result => {
-					const { documentId, frequency, positions } = result;
-
-					// Add to document scores
-					const currentScore = documentScores.get(documentId) || 0;
-					documentScores.set(documentId, currentScore + frequency);
+					// Track which terms match in each document
+					if (!documentMatchedTerms.has(documentId)) {
+						documentMatchedTerms.set(documentId, new Set());
+					}
+					documentMatchedTerms.get(documentId)?.add(term);
 
 					// Track term positions for highlighting
 					if (!termMatches.has(documentId)) {
 						termMatches.set(documentId, new Map());
 					}
+					termMatches.get(documentId)?.set(term, positions);
+				}
+			}
 
-					termMatches.get(documentId)?.set(queryTerm, positions);
-				});
-			});
-
-			console.log('documentScores', documentScores);
-
-			// Get document details and build results
-			const documentIds = Array.from(documentScores.keys());
+			// Get document details for TF calculation
+			const documentIds = Array.from(termMatches.keys());
 			const documents = await this.db.documents.where('id').anyOf(documentIds).toArray();
+
+			// Calculate document lengths and store for TF calculation
+			for (const doc of documents) {
+				documentLengths.set(doc.id, doc.tokenCount || this.getDocumentLength(doc.content));
+			}
+
+			// Second pass: calculate TF-IDF scores
+			for (const { results, idf } of termResults) {
+				for (const result of results) {
+					const { documentId, frequency } = result;
+					const docLength = documentLengths.get(documentId) || 1;
+
+					// Calculate TF for this term in this document
+					const tf = this.calculateTF(frequency, docLength);
+
+					// Calculate TF-IDF score
+					const tfIdfScore = tf * idf;
+
+					// Add to document scores
+					const currentScore = documentScores.get(documentId) || 0;
+					documentScores.set(documentId, currentScore + tfIdfScore);
+				}
+			}
+
+			// Apply bonus for documents matching all query terms
+			for (const [documentId, matchedTerms] of documentMatchedTerms.entries()) {
+				if (matchedTerms.size === queryTerms.length) {
+					// Document matches all query terms, apply a bonus
+					const currentScore = documentScores.get(documentId) || 0;
+					const allTermsBonus = 0.5; // Adjust this value as needed
+					documentScores.set(documentId, currentScore * (1 + allTermsBonus));
+					console.log(
+						`Document ${documentId} matched all ${queryTerms.length} terms. Applied bonus. New score: ${documentScores.get(documentId)}`
+					);
+				} else {
+					console.log(
+						`Document ${documentId} matched ${matchedTerms.size}/${queryTerms.length} terms.`
+					);
+				}
+			}
+
+			console.log('TF-IDF documentScores', documentScores);
 
 			// Sort documents by score
 			return documents

@@ -20,3 +20,21 @@ if (typeof global.process === 'undefined') {
 if (typeof window === 'undefined') {
 	(global as any).window = {};
 }
+
+// Global mock for getObsidianLanguage
+jest.mock('./utils/getObsidianLanguage', () => ({
+	getObsidianLanguage: jest.fn().mockReturnValue('en'),
+}));
+
+// Global mock for i18n module
+jest.mock('./i18n', () => ({
+	getTranslation: jest.fn().mockImplementation(() => {
+		return (key: string) => `translated_${key}`;
+	}),
+	__esModule: true,
+	default: {
+		t: jest.fn().mockImplementation((key: string) => `translated_${key}`),
+		language: 'en',
+		changeLanguage: jest.fn(),
+	},
+}));

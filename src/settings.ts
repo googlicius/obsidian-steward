@@ -48,8 +48,6 @@ export default class StewardSettingTab extends PluginSettingTab {
 								text.setPlaceholder('••••••••••••••••••••••');
 								// Clear the input field for security
 								text.setValue('');
-
-								new Notice('API key saved successfully');
 							} catch (error) {
 								new Notice('Failed to save API key. Please try again.');
 								console.error('Error setting API key:', error);
@@ -67,7 +65,6 @@ export default class StewardSettingTab extends PluginSettingTab {
 					.onClick(async () => {
 						try {
 							await this.plugin.setEncryptedApiKey('');
-							new Notice('API key cleared');
 							// Force refresh of the settings
 							this.display();
 						} catch (error) {
@@ -137,7 +134,7 @@ export default class StewardSettingTab extends PluginSettingTab {
 					.setPlaceholder('conversations')
 					.setValue(this.plugin.settings.conversationFolder)
 					.onChange(async value => {
-						this.plugin.settings.conversationFolder = value || 'conversations';
+						this.plugin.settings.conversationFolder = value || 'Steward/Conversations';
 						await this.plugin.saveSettings();
 					})
 			);

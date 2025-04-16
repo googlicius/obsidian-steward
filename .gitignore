@@ -18,5 +18,5 @@ data.json
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
 
-# Exclude the copy-plugin.sh file
-copy-plugin.sh
+# Exclude the copy-plugin files
+copy-plugin*.sh
