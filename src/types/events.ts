@@ -86,6 +86,7 @@ export interface ConfirmationResponsePayload {
 	id: string;
 	confirmed: boolean;
 	conversationTitle: string;
+	context?: any; // Additional context data, such as language preference
 }
 
 export type EventPayloadMap = {

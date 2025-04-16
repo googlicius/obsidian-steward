@@ -11,7 +11,6 @@ import { eventEmitter } from './EventEmitter';
 import * as mathTools from '../tools/mathTools';
 import StewardPlugin, { GeneratorText } from '../main';
 import { getTranslation } from '../i18n';
-import { getObsidianLanguage } from '../utils/getObsidianLanguage';
 
 interface Props {
 	plugin: StewardPlugin;
@@ -187,7 +186,7 @@ export class ConversationEventHandler {
 			});
 
 			// Get translation function for the specified language
-			const t = getTranslation(queryExtraction.lang || getObsidianLanguage());
+			const t = getTranslation(queryExtraction.lang);
 
 			// If no files match, inform the user without asking for confirmation
 			if (totalFilesToMove === 0) {
@@ -212,17 +211,22 @@ export class ConversationEventHandler {
 				});
 				message += '\n' + t('move.createFoldersQuestion');
 
-				// Include filesByOperation in the context to avoid redundant queries
+				// Include filesByOperation and language in the context to avoid redundant queries
 				await this.plugin.confirmationEventHandler.requestConfirmation(
 					title,
 					'move-folders',
 					message,
-					{ missingFolders, queryExtraction, filesByOperation },
+					{
+						missingFolders,
+						queryExtraction,
+						filesByOperation,
+						lang: queryExtraction.lang,
+					},
 					{
 						eventType: Events.MOVE_QUERY_EXTRACTED,
 						payload: {
 							title,
-							queryExtraction,
+							queryExtraction, // This already contains the lang property if it was set
 							filesByOperation, // Pass the retrieved files to avoid redundant queries
 						},
 					}
@@ -266,7 +270,7 @@ export class ConversationEventHandler {
 			// Format the results using the existing helper method
 			const response = this.formatMoveResult({
 				operations: result.operations,
-				lang: queryExtraction.lang || getObsidianLanguage(),
+				lang: queryExtraction.lang,
 			});
 
 			// Update the conversation with the results
@@ -290,7 +294,7 @@ export class ConversationEventHandler {
 			);
 
 			// Get translation function for the specified language
-			const t = getTranslation(queryExtraction.lang || getObsidianLanguage());
+			const t = getTranslation(queryExtraction.lang);
 
 			// Format the results
 			let response = `${queryExtraction.explanation} and used the query: "${queryExtraction.searchQuery}"\n\n`;
@@ -403,11 +407,11 @@ export class ConversationEventHandler {
 		lang?: string
 	): Promise<void> {
 		// Get the appropriate translation function, using the provided language or defaulting to English
-		const t = getTranslation(lang || getObsidianLanguage());
+		const t = getTranslation(lang);
 
 		// First check if the message is a clear confirmation response
-		const isConfirmation = this.plugin.confirmationEventHandler.isConfirmIntent(commandContent);
-		if (!isConfirmation) {
+		const confirmationIntent = this.plugin.confirmationEventHandler.isConfirmIntent(commandContent);
+		if (!confirmationIntent) {
 			// If it's not a clear confirmation, let the user know
 			await this.plugin.updateConversationNote(title, t('confirmation.notUnderstood'), 'Steward');
 			return;
@@ -429,7 +433,7 @@ export class ConversationEventHandler {
 		// If it's a clear confirmation response, emit the event
 		eventEmitter.emit(Events.CONFIRMATION_RESPONDED, {
 			id: confirmation.id,
-			confirmed: isConfirmation.isAffirmative,
+			confirmed: confirmationIntent.isAffirmative,
 			conversationTitle: title,
 		});
 	}
@@ -454,7 +458,7 @@ export class ConversationEventHandler {
 		}>;
 		lang?: string;
 	}): string {
-		const { operations, lang = getObsidianLanguage() } = result;
+		const { operations, lang } = result;
 
 		// Get translation function for the specified language
 		const t = getTranslation(lang);

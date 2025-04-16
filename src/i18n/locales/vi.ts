@@ -37,6 +37,8 @@ const vi = {
 		confirmation: {
 			notUnderstood: "Tôi không hiểu phản hồi của bạn. Vui lòng trả lời 'có' hoặc 'không'.",
 			noPending: 'Không có yêu cầu xác nhận nào đang chờ phản hồi.',
+			operationCancelled: 'Thao tác đã bị hủy bỏ.',
+			errorProcessing: 'Lỗi khi xử lý xác nhận: {{errorMessage}}',
 		},
 		// UI elements
 		ui: {

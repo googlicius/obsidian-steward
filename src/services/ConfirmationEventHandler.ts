@@ -5,13 +5,15 @@ import {
 	EventPayloadMap,
 } from '../types/events';
 import StewardPlugin from '../main';
+import { getTranslation } from '../i18n';
+import { getObsidianLanguage } from '../utils/getObsidianLanguage';
 
 interface PendingConfirmation {
 	id: string;
 	type: string; // Descriptive type (e.g., 'move-folders')
 	conversationTitle: string;
 	message: string;
-	context: any;
+	context: any; // Contains any additional data including language preference
 	createdAt: number;
 	// Event to trigger when confirmed
 	onConfirmEvent?: {
@@ -47,7 +49,7 @@ export class ConfirmationEventHandler {
 	 */
 	private async handleConfirmationRequest(payload: ConfirmationRequestPayload): Promise<void> {
 		// Extract onConfirmEvent from context if present
-		const { onConfirmEvent, ...restContext } = payload.context || {};
+		const { onConfirmEvent, ...restOfContext } = payload.context || {};
 
 		// Store the confirmation in memory
 		const confirmation: PendingConfirmation = {
@@ -55,7 +57,7 @@ export class ConfirmationEventHandler {
 			type: payload.type,
 			conversationTitle: payload.conversationTitle,
 			message: payload.message,
-			context: restContext, // Store the original context without the internal properties
+			context: restOfContext,
 			createdAt: Date.now(),
 		};
 
@@ -120,12 +122,17 @@ export class ConfirmationEventHandler {
 		// Remove it from pending
 		this.pendingConfirmations.delete(id);
 
+		// Get translation function using the language from the context or default
+		const lang = confirmation.context?.lang || getObsidianLanguage();
+		const t = getTranslation(lang);
+
 		try {
 			// Handle based on user's response
 			if (confirmed) {
 				// If there's an event to trigger, emit it
 				if (confirmation.onConfirmEvent) {
 					const { eventType, payload } = confirmation.onConfirmEvent;
+					// Simply emit the event with the original payload
 					eventEmitter.emit(eventType, payload);
 				} else {
 					// No event defined, just acknowledge
@@ -139,7 +146,7 @@ export class ConfirmationEventHandler {
 				// User declined
 				await this.plugin.updateConversationNote(
 					conversationTitle,
-					`Operation cancelled.`,
+					t('confirmation.operationCancelled'),
 					'Steward'
 				);
 			}
@@ -147,7 +154,7 @@ export class ConfirmationEventHandler {
 			// Handle any errors during confirmation handling
 			await this.plugin.updateConversationNote(
 				conversationTitle,
-				`Error processing confirmation: ${error.message}`,
+				t('confirmation.errorProcessing', { errorMessage: error.message }),
 				'Steward'
 			);
 		}

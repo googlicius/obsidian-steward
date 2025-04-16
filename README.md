@@ -67,3 +67,4 @@ MIT
 - [ ] Traceability
 - [ ] MCP support.
 - [ ] Build more sophisticated commands make it able to users to modify even predefined commands the way they want.
+- [ ] Remember user's intent.

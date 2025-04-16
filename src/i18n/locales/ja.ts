@@ -36,6 +36,8 @@ const ja = {
 		confirmation: {
 			notUnderstood: '応答が理解できませんでした。「はい」または「いいえ」で応答してください。',
 			noPending: '応答待ちの確認は現在ありません。',
+			operationCancelled: '操作がキャンセルされました。',
+			errorProcessing: '確認処理中にエラーが発生しました：{{errorMessage}}',
 		},
 		// UI elements
 		ui: {

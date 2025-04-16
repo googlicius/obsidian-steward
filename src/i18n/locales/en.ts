@@ -37,6 +37,8 @@ const en = {
 		confirmation: {
 			notUnderstood: "I didn't understand your response. Please respond with 'yes' or 'no'.",
 			noPending: 'There are no pending confirmations to respond to.',
+			operationCancelled: 'Operation cancelled.',
+			errorProcessing: 'Error processing confirmation: {{errorMessage}}',
 		},
 		// UI elements
 		ui: {
