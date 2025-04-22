@@ -26,7 +26,7 @@ const en = {
 			matches: 'Matches:',
 			moreMatches: '... and {{count}} more match',
 			moreMatches_plural: '... and {{count}} more matches',
-			showMoreDetails: 'Would you like me to show more details for any specific result?',
+			showMoreDetails: 'Type `/more` to show the next 10 results.',
 		},
 		// Close command messages
 		close: {
@@ -53,15 +53,20 @@ const en = {
 			noteNotFound: 'Conversation note not found: {{notePath}}',
 			errorUpdatingConversation: 'Error updating conversation: {{errorMessage}}',
 			searchIndexNotFound: 'Search index not found. Will build index shortly...',
-			errorBuildingInitialIndexes: 'Steward: Error building initial indexes. Check console for details.',
+			errorBuildingInitialIndexes:
+				'Steward: Error building initial indexes. Check console for details.',
 			decryptionError: 'Failed to decrypt API key. Please re-enter it in settings.',
 			encryptionError: 'Failed to encrypt API key. Please try again.',
 			welcomeMessage: 'Welcome to your always-available Steward chat. Type below to interact.',
+			commandPlaceholder: 'Press Shift+Enter to send',
 		},
 		// Conversation states
 		conversation: {
 			workingOnIt: 'Working on it...',
 			generating: 'Generating...',
+			moving: 'Moving...',
+			searching: 'Searching...',
+			calculating: 'Calculating...',
 		},
 	},
 };

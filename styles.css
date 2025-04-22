@@ -12,3 +12,27 @@ If your plugin does not need CSS, delete this file.
 	color: var(--text-accent-hover);
 	font-weight: bold;
 }
+
+.cm-line .cm-conversation-command[has-placeholder='1']:after {
+	content: var(--steward-placeholder-text, 'Press Shift+Enter to send');
+	position: absolute;
+	font-style: italic;
+	color: #888;
+	margin-left: 0.5em;
+	opacity: 0.7;
+	font-weight: normal;
+	background: none;
+	-webkit-text-fill-color: #888;
+}
+
+.cm-line .cm-conversation-command.general[has-placeholder='1']:after {
+	margin-left: 0;
+}
+
+.steward-conversation-wrapper .inline-embed .markdown-embed-content {
+	max-height: none;
+}
+
+.steward-conversation-wrapper .markdown-embed {
+	padding: 0 0 0 15px;
+}

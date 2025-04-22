@@ -35,6 +35,37 @@ const STOPWORDS = new Set([
 	'was',
 	'will',
 	'with',
+
+	// Some specific markdown formatting words
+	'*',
+	'**',
+	'***',
+	'---',
+	'```',
+	'#',
+	'##',
+	'###',
+	'####',
+	'#####',
+	'######',
+
+	// Some specific characters
+	'-',
+	'_',
+	'`',
+	'~',
+	'|',
+	'{',
+	'}',
+	'[',
+	']',
+	'(',
+	')',
+	'"',
+	"'",
+	'\\',
+	'/',
+	'@',
 ]);
 
 /**

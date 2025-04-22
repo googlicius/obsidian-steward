@@ -3,14 +3,16 @@ import {
 	ErrorEvents,
 	ConversationNoteCreatedPayload,
 	ConversationLinkInsertedPayload,
-	ConversationNoteUpdatedPayload,
+	ConversationCommandReceivedPayload,
 	MoveQueryExtractedPayload,
 	CommandIntentExtractedPayload,
 } from '../types/events';
 import { eventEmitter } from './EventEmitter';
 import * as mathTools from '../tools/mathTools';
 import StewardPlugin, { GeneratorText } from '../main';
-import { getTranslation } from '../i18n';
+import i18next, { getTranslation } from '../i18n';
+import { highlightKeywords } from '../utils/highlightKeywords';
+import { extractSearchQueryV2 } from 'src/lib/modelfusion';
 
 interface Props {
 	plugin: StewardPlugin;
@@ -30,10 +32,13 @@ export class ConversationEventHandler {
 			this.handleNewConversation(payload);
 		});
 
-		// Listen for conversation note updated
-		eventEmitter.on(Events.CONVERSATION_NOTE_UPDATED, (payload: ConversationNoteUpdatedPayload) => {
-			this.handleConversationNoteUpdated(payload);
-		});
+		// Listen for user commands in conversation
+		eventEmitter.on(
+			Events.CONVERSATION_COMMAND_RECEIVED,
+			(payload: ConversationCommandReceivedPayload) => {
+				this.handleConversationCommand(payload);
+			}
+		);
 
 		// Listen for conversation link inserted
 		eventEmitter.on(
@@ -71,26 +76,32 @@ export class ConversationEventHandler {
 		);
 	}
 
-	private async handleConversationNoteUpdated(
-		payload: ConversationNoteUpdatedPayload
+	private async handleConversationCommand(
+		payload: ConversationCommandReceivedPayload
 	): Promise<void> {
 		const commandContent = payload.commandContent;
 
 		switch (payload.commandType) {
 			case 'calc': {
-				await this.plugin.addGeneratingIndicator(payload.title, GeneratorText.Calculating);
+				await this.plugin.addGeneratingIndicator(
+					payload.title,
+					i18next.t('conversation.calculating')
+				);
 				await this.handleMathCalculation(payload.title, commandContent);
 				break;
 			}
 
 			case 'move': {
-				await this.plugin.addGeneratingIndicator(payload.title, GeneratorText.ExtractingMoveQuery);
+				await this.plugin.addGeneratingIndicator(payload.title, i18next.t('conversation.moving'));
 				await this.handleMoveCommand(payload.title, commandContent);
 				break;
 			}
 
 			case 'search': {
-				await this.plugin.addGeneratingIndicator(payload.title, GeneratorText.Searching);
+				await this.plugin.addGeneratingIndicator(
+					payload.title,
+					i18next.t('conversation.searching')
+				);
 				await this.handleSearchCommand(payload.title, commandContent);
 				break;
 			}
@@ -174,6 +185,9 @@ export class ConversationEventHandler {
 		try {
 			// Extract the move query
 			const queryExtraction = await this.plugin.obsidianAPITools.extractMoveQuery(commandContent);
+			// const extractedMoveQuery = await extractMoveQueryV2(commandContent);
+
+			// console.log('extractedMoveQuery', extractedMoveQuery);
 
 			// Get all files matching the source queries using the new function
 			const filesByOperation =
@@ -287,36 +301,57 @@ export class ConversationEventHandler {
 
 	private async handleSearchCommand(title: string, commandContent: string): Promise<void> {
 		try {
-			// Use the AI-enhanced search
-			const { results, queryExtraction } = await this.plugin.obsidianAPITools.enhancedSearch(
-				commandContent,
-				10
-			);
+			const queryExtraction = await extractSearchQueryV2(commandContent);
+
+			const results = await this.plugin.searchIndexer.searchV2(queryExtraction.operations);
 
 			// Get translation function for the specified language
 			const t = getTranslation(queryExtraction.lang);
 
 			// Format the results
-			let response = `${queryExtraction.explanation} and used the query: "${queryExtraction.searchQuery}"\n\n`;
+			let response = `${queryExtraction.explanation}\n\n`;
 
 			// Add the search results count text
-			if (results.length > 0) {
-				response += `${t('search.found', { count: results.length })}`;
+			if (results.totalCount > 0) {
+				response += `${t('search.found', { count: results.totalCount })}`;
 
-				results.forEach((result, index) => {
-					response += `\n\n**${index + 1}- [[${result.fileName}]]:**\n`;
+				// List the search results
+				for (let index = 0; index < results.documents.length; index++) {
+					const result = results.documents[index];
+					response += `\n\n**${index + 1}.** [[${result.fileName}]]:\n`;
 
-					if (result.matches.length > 0) {
-						response += `\n${t('search.matches')}\n`;
-						result.matches.slice(0, 3).forEach(match => {
-							response += `\n> ${match.text.trim()}\n`;
-						});
+					// Get the file content directly instead of using result.matches
+					const file = this.plugin.getFileByNameOrPath(result.fileName);
 
-						if (result.matches.length > 3) {
-							response += `\n_${t('search.moreMatches', { count: result.matches.length - 3 })}_`;
+					if (file && 'keywordsMatched' in result) {
+						try {
+							const fileContent = await this.plugin.app.vault.read(file);
+
+							// Get highlighted matches from the entire file content
+							const highlightedMatches = highlightKeywords(result.keywordsMatched, fileContent);
+
+							// Show up to 3 highlighted matches
+							const matchesToShow = Math.min(3, highlightedMatches.length);
+
+							if (matchesToShow > 0) {
+								// Add each highlighted match to the response
+								for (let i = 0; i < matchesToShow; i++) {
+									response += `\n${highlightedMatches[i]}\n`;
+								}
+
+								// Show a message for additional matches
+								if (highlightedMatches.length > 3) {
+									response += `\n_${t('search.moreMatches', { count: highlightedMatches.length - 3 })}_`;
+								}
+							} else {
+								// No highlights found in the file content
+								response += `\n${t('search.noMatchesInFile')}\n`;
+							}
+						} catch (error) {
+							console.error('Error reading file:', error);
 						}
 					}
-				});
+				}
 
 				response += `\n\n${t('search.showMoreDetails')}`;
 			} else {
@@ -381,7 +416,7 @@ export class ConversationEventHandler {
 			}
 
 			// For confident intents, route to the appropriate handler
-			eventEmitter.emit(Events.CONVERSATION_NOTE_UPDATED, {
+			eventEmitter.emit(Events.CONVERSATION_COMMAND_RECEIVED, {
 				title,
 				commandType: intentExtraction.commandType,
 				commandContent: intentExtraction.content,

@@ -1,21 +1,10 @@
 import { App } from 'obsidian';
-import { SearchIndexer, SearchResult } from '../searchIndexer';
+import { SearchResult } from '../searchIndexer';
 import { generateText, openai } from 'modelfusion';
-import {
-	moveQueryPrompt,
-	searchExtractQueryPrompt,
-	userLanguagePrompt,
-	commandIntentPrompt,
-} from '../lib/modelfusion/prompts';
-
-/**
- * Represents the extracted search query from a natural language request
- */
-export interface SearchQueryExtraction {
-	searchQuery: string;
-	explanation: string;
-	lang?: string;
-}
+import { moveQueryPrompt } from '../lib/modelfusion/prompts';
+import { userLanguagePrompt } from '../lib/modelfusion/prompts/languagePrompt';
+import { SearchTool } from './searchTools';
+import { CommandIntentExtraction, extractCommandIntent } from '../lib/modelfusion/intentExtraction';
 
 /**
  * Represents a single move operation
@@ -34,21 +23,10 @@ export interface MoveQueryExtraction {
 	lang?: string;
 }
 
-/**
- * Represents the extracted command intent from a general query
- */
-export interface CommandIntentExtraction {
-	commandType: string;
-	content: string;
-	explanation: string;
-	confidence: number;
-	lang?: string;
-}
-
 export class ObsidianAPITools {
 	constructor(
 		private readonly app: App,
-		private searchIndexer: SearchIndexer
+		private readonly searchTool: SearchTool
 	) {}
 
 	async createNewFile(title: string, content: string) {
@@ -97,45 +75,6 @@ export class ObsidianAPITools {
 
 		// Create the folder
 		await this.app.vault.createFolder(folderPath);
-	}
-
-	/**
-	 * Search for files containing the query term
-	 * @param query Search query
-	 * @param limit Maximum number of results to return
-	 */
-	async search(query: string, limit = 10): Promise<SearchResult[]> {
-		return this.searchIndexer.search(query, limit);
-	}
-
-	/**
-	 * Extract a search query from a natural language request using AI
-	 * @param userInput Natural language request from the user
-	 * @returns Extracted search query and explanation
-	 */
-	async extractSearchQuery(userInput: string): Promise<SearchQueryExtraction> {
-		try {
-			// Use ModelFusion to generate the response
-			const response = await generateText({
-				model: openai.ChatTextGenerator({
-					model: 'gpt-4-turbo-preview',
-					temperature: 0.2,
-					responseFormat: { type: 'json_object' },
-				}),
-				prompt: [
-					userLanguagePrompt,
-					searchExtractQueryPrompt,
-					{ role: 'user', content: userInput },
-				],
-			});
-
-			// Parse and validate the JSON response
-			const parsed = JSON.parse(response);
-			return this.validateSearchQueryExtraction(parsed);
-		} catch (error) {
-			console.error('Error extracting search query:', error);
-			throw error;
-		}
 	}
 
 	/**
@@ -203,82 +142,24 @@ export class ObsidianAPITools {
 	}
 
 	/**
-	 * Validate that the search query extraction contains all required fields
-	 */
-	private validateSearchQueryExtraction(data: any): SearchQueryExtraction {
-		if (!data || typeof data !== 'object') {
-			throw new Error('Invalid response format');
-		}
-
-		if (typeof data.searchQuery !== 'string' || !data.searchQuery.trim()) {
-			throw new Error('Search query must be a non-empty string');
-		}
-
-		if (typeof data.explanation !== 'string' || !data.explanation.trim()) {
-			throw new Error('Explanation must be a non-empty string');
-		}
-
-		// Lang is optional, but if provided, must be a valid string
-		const lang =
-			data.lang && typeof data.lang === 'string' && data.lang.trim() ? data.lang.trim() : 'en';
-
-		return {
-			searchQuery: data.searchQuery,
-			explanation: data.explanation,
-			lang,
-		};
-	}
-
-	/**
-	 * Enhanced search that uses AI to extract search keywords from natural language queries
-	 * @param userQuery Natural language query from the user
-	 * @param limit Maximum number of results to return
-	 * @returns Search results and the explanation of the query interpretation
-	 */
-	async enhancedSearch(
-		userQuery: string,
-		limit = 10
-	): Promise<{
-		results: SearchResult[];
-		queryExtraction: SearchQueryExtraction;
-	}> {
-		// Extract the search query using AI
-		const queryExtraction = await this.extractSearchQuery(userQuery);
-
-		// Perform the search using the extracted query
-		const results = await this.search(queryExtraction.searchQuery, limit);
-
-		return {
-			results,
-			queryExtraction,
-		};
-	}
-
-	/**
-	 * Get files matching a query
-	 * @param query The search query
-	 * @returns Array of search results
-	 */
-	async getFilesByQuery(query: string): Promise<SearchResult[]> {
-		return await this.search(query);
-	}
-
-	/**
 	 * Get files for all operations in a move query extraction
 	 * @param queryExtraction The extracted move query parameters
 	 * @returns Map of operation index to array of search results
 	 */
-	async getFilesByMoveQueryExtraction(queryExtraction: MoveQueryExtraction): Promise<Map<number, SearchResult[]>> {
+	async getFilesByMoveQueryExtraction(
+		queryExtraction: MoveQueryExtraction
+	): Promise<Map<number, SearchResult[]>> {
 		const filesByOperation = new Map<number, SearchResult[]>();
-		
+
 		// Process each operation
 		for (let i = 0; i < queryExtraction.operations.length; i++) {
 			const operation = queryExtraction.operations[i];
 			// Find files matching the source query
-			const results = await this.getFilesByQuery(operation.sourceQuery);
+			// const results = await this.searchTool.getFilesByQuery(operation.sourceQuery);
+			const results: SearchResult[] = [];
 			filesByOperation.set(i, results);
 		}
-		
+
 		return filesByOperation;
 	}
 
@@ -288,7 +169,10 @@ export class ObsidianAPITools {
 	 * @param filesByOperation Optional map of operation index to files, to avoid redundant queries
 	 * @returns Results of the move operations
 	 */
-	async moveByQueryExtraction(queryExtraction: MoveQueryExtraction, filesByOperation?: Map<number, SearchResult[]>): Promise<{
+	async moveByQueryExtraction(
+		queryExtraction: MoveQueryExtraction,
+		filesByOperation?: Map<number, SearchResult[]>
+	): Promise<{
 		operations: Array<{
 			sourceQuery: string;
 			destinationFolder: string;
@@ -302,9 +186,9 @@ export class ObsidianAPITools {
 		// Process each operation
 		for (let i = 0; i < queryExtraction.operations.length; i++) {
 			const operation = queryExtraction.operations[i];
-			
+
 			// Use provided files or query for them
-			const results = filesByOperation?.get(i) || await this.getFilesByQuery(operation.sourceQuery);
+			const results = filesByOperation?.get(i) || [];
 
 			// Process the move operations
 			const moved: string[] = [];
@@ -349,60 +233,6 @@ export class ObsidianAPITools {
 	 * @returns Extracted command type, content, and explanation
 	 */
 	async extractCommandIntent(userInput: string): Promise<CommandIntentExtraction> {
-		try {
-			// Use ModelFusion to generate the response
-			const response = await generateText({
-				model: openai.ChatTextGenerator({
-					model: 'gpt-4-turbo-preview',
-					temperature: 0.2,
-					responseFormat: { type: 'json_object' },
-				}),
-				prompt: [userLanguagePrompt, commandIntentPrompt, { role: 'user', content: userInput }],
-			});
-
-			// Parse and validate the JSON response
-			const parsed = JSON.parse(response);
-			return this.validateCommandIntentExtraction(parsed);
-		} catch (error) {
-			console.error('Error extracting command intent:', error);
-			throw error;
-		}
-	}
-
-	/**
-	 * Validate that the command intent extraction contains all required fields
-	 */
-	private validateCommandIntentExtraction(data: any): CommandIntentExtraction {
-		if (!data || typeof data !== 'object') {
-			throw new Error('Invalid response format');
-		}
-
-		if (!['search', 'move', 'calc', 'close', 'confirm'].includes(data.commandType)) {
-			throw new Error('Command type must be one of: search, move, calc, close');
-		}
-
-		if (typeof data.content !== 'string' || !data.content.trim()) {
-			throw new Error('Content must be a non-empty string');
-		}
-
-		if (typeof data.explanation !== 'string' || !data.explanation.trim()) {
-			throw new Error('Explanation must be a non-empty string');
-		}
-
-		if (typeof data.confidence !== 'number' || data.confidence < 0 || data.confidence > 1) {
-			throw new Error('Confidence must be a number between 0 and 1');
-		}
-
-		// Lang is optional, but if provided, must be a valid string
-		const lang =
-			data.lang && typeof data.lang === 'string' && data.lang.trim() ? data.lang.trim() : 'en';
-
-		return {
-			commandType: data.commandType,
-			content: data.content,
-			explanation: data.explanation,
-			confidence: data.confidence,
-			lang,
-		};
+		return extractCommandIntent(userInput);
 	}
 }

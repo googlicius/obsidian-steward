@@ -1,10 +1,11 @@
 import { EditorView } from '@codemirror/view';
 import { MoveQueryExtraction } from '../tools/obsidianAPITools';
 import { SearchResult } from '../searchIndexer';
+import { CommandIntentExtraction } from '../lib/modelfusion/intentExtraction';
 
 export enum Events {
 	CONVERSATION_NOTE_CREATED = 'CONVERSATION_NOTE_CREATED',
-	CONVERSATION_NOTE_UPDATED = 'CONVERSATION_NOTE_UPDATED',
+	CONVERSATION_COMMAND_RECEIVED = 'CONVERSATION_COMMAND_RECEIVED',
 	CONVERSATION_LINK_INSERTED = 'CONVERSATION_LINK_INSERTED',
 	LLM_RESPONSE_RECEIVED = 'LLM_RESPONSE_RECEIVED',
 	RESPONSE_READY_TO_INSERT = 'RESPONSE_READY_TO_INSERT',
@@ -29,7 +30,7 @@ export interface ConversationNoteCreatedPayload {
 	lang?: string;
 }
 
-export interface ConversationNoteUpdatedPayload {
+export interface ConversationCommandReceivedPayload {
 	title: string;
 	commandType: string;
 	commandContent: string;
@@ -66,14 +67,6 @@ export interface CommandIntentExtractedPayload {
 	intentExtraction: CommandIntentExtraction;
 }
 
-export interface CommandIntentExtraction {
-	commandType: string;
-	content: string;
-	explanation: string;
-	confidence: number;
-	lang?: string;
-}
-
 export interface ConfirmationRequestPayload {
 	id: string;
 	conversationTitle: string;
@@ -91,7 +84,7 @@ export interface ConfirmationResponsePayload {
 
 export type EventPayloadMap = {
 	[Events.CONVERSATION_NOTE_CREATED]: ConversationNoteCreatedPayload;
-	[Events.CONVERSATION_NOTE_UPDATED]: ConversationNoteUpdatedPayload;
+	[Events.CONVERSATION_COMMAND_RECEIVED]: ConversationCommandReceivedPayload;
 	[Events.LLM_RESPONSE_RECEIVED]: ResponseReadyPayload;
 	[Events.RESPONSE_READY_TO_INSERT]: ResponseReadyPayload;
 	[Events.CONVERSATION_LINK_INSERTED]: ConversationLinkInsertedPayload;

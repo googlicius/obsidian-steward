@@ -2,7 +2,7 @@ import { Editor, Notice, Plugin, TFile, WorkspaceLeaf, addIcon } from 'obsidian'
 import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
-import { createCommandHighlightExtension } from './cm-extensions/CommandHighlightExtension';
+import { createCommandHighlightExtension } from './cm/extensions/CommandHighlightExtension';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter, Events } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -11,6 +11,7 @@ import { DateTime } from 'luxon';
 import { encrypt, decrypt, generateSaltKeyId } from './utils/cryptoUtils';
 import { WorkflowManager } from './workflows/WorkflowManager';
 import { ConfirmationEventHandler } from './services/ConfirmationEventHandler';
+import { SearchTool } from './tools/searchTools';
 
 // Supported command prefixes
 export const COMMAND_PREFIXES = ['/ ', '/move', '/search', '/calc', '/me', '/close', '/confirm'];
@@ -25,6 +26,7 @@ interface StewardPluginSettings {
 	searchDbPrefix: string;
 	encryptionVersion?: number; // Track the encryption version for future migrations
 	staticConversationLeafId?: string; // ID of the leaf containing the static conversation
+	excludedFolders: string[]; // Folders to exclude from Obsidian search
 }
 
 const DEFAULT_SETTINGS: StewardPluginSettings = {
@@ -35,6 +37,7 @@ const DEFAULT_SETTINGS: StewardPluginSettings = {
 	searchDbPrefix: '',
 	encryptionVersion: 1, // Current version
 	staticConversationLeafId: undefined,
+	excludedFolders: ['node_modules', 'src', '.git', 'dist'], // Default development folders to exclude
 };
 
 export enum GeneratorText {
@@ -55,6 +58,7 @@ export default class StewardPlugin extends Plugin {
 	settings: StewardPluginSettings;
 	obsidianAPITools: ObsidianAPITools;
 	searchIndexer: SearchIndexer;
+	searchTool: SearchTool;
 	ribbonIcon: HTMLElement;
 	staticConversationTitle = 'Steward Chat';
 	workflowManager: WorkflowManager;
@@ -68,6 +72,15 @@ export default class StewardPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+
+		// Exclude development-related folders from search
+		this.excludeFoldersFromSearch(['Steward/']);
+
+		// Set the placeholder text based on the current language
+		document.documentElement.style.setProperty(
+			'--steward-placeholder-text',
+			`'${i18next.t('ui.commandPlaceholder')}'`
+		);
 
 		// Generate DB prefix if not already set
 		if (!this.settings.searchDbPrefix) {
@@ -93,7 +106,12 @@ export default class StewardPlugin extends Plugin {
 			dbName: this.settings.searchDbPrefix,
 			conversationFolder: this.settings.conversationFolder,
 		});
-		this.obsidianAPITools = new ObsidianAPITools(this.app, this.searchIndexer);
+
+		// Initialize the SearchTool
+		this.searchTool = new SearchTool(this.app, this.searchIndexer);
+
+		// Initialize the ObsidianAPITools with the SearchTool
+		this.obsidianAPITools = new ObsidianAPITools(this.app, this.searchTool);
 
 		// Build the index if it's not already built
 		this.checkAndBuildIndexIfNeeded();
@@ -119,7 +137,7 @@ export default class StewardPlugin extends Plugin {
 			SMILE_CHAT_ICON_ID,
 			i18next.t('ui.openStewardChat'),
 			async () => {
-				await this.openStaticConversation();
+				await this.toggleStaticConversation();
 			}
 		);
 
@@ -172,7 +190,6 @@ export default class StewardPlugin extends Plugin {
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new StewardSettingTab(this.app, this));
 
-		// Using this function will automatically remove the event listener when this plugin is disabled.
 		this.registerDomEvent(
 			document,
 			'click',
@@ -212,7 +229,6 @@ export default class StewardPlugin extends Plugin {
 
 		// Check if line starts with a command prefix
 		const commandMatch = COMMAND_PREFIXES.find(prefix => lineText.trim().startsWith(prefix));
-		console.log('Command match:', commandMatch);
 
 		if (commandMatch) {
 			try {
@@ -247,7 +263,7 @@ export default class StewardPlugin extends Plugin {
 					});
 
 					// Emit the conversation note updated event
-					eventEmitter.emit(Events.CONVERSATION_NOTE_UPDATED, {
+					eventEmitter.emit(Events.CONVERSATION_COMMAND_RECEIVED, {
 						title: conversationLink,
 						commandType,
 						commandContent,
@@ -361,10 +377,7 @@ export default class StewardPlugin extends Plugin {
 		return leaf;
 	}
 
-	/**
-	 * Creates (if needed) and opens the static conversation note in the right panel
-	 */
-	async openStaticConversation(): Promise<void> {
+	async toggleStaticConversation(): Promise<void> {
 		try {
 			// Get the configured folder for conversations
 			const folderPath = this.settings.conversationFolder;
@@ -388,6 +401,8 @@ export default class StewardPlugin extends Plugin {
 
 			// Get or create the leaf for the static conversation
 			const leaf = this.getStaticConversationLeaf();
+
+			leaf.view.containerEl.classList.add('steward-conversation-wrapper');
 
 			// Open the note in the leaf
 			await leaf.setViewState({
@@ -501,14 +516,20 @@ export default class StewardPlugin extends Plugin {
 			}
 
 			// Build initial content based on command type
-			let initialContent: string;
+			let initialContent = `#gtp-4\n##### **User:** /${commandType.trim()} ${content}\n\n`;
 
 			switch (commandType) {
 				case 'move':
+					initialContent += `*${i18next.t('conversation.moving')}*`;
+					break;
 				case 'search':
+					initialContent += `*${i18next.t('conversation.searching')}*`;
+					break;
 				case 'calc':
+					initialContent += `*${i18next.t('conversation.calculating')}*`;
+					break;
 				case ' ':
-					initialContent = `#gtp-4\n\n**User:** /${commandType.trim()} ${content}\n\n*${i18next.t('conversation.generating')}*`;
+					initialContent += `*${i18next.t('conversation.generating')}*`;
 					break;
 
 				default:
@@ -590,15 +611,17 @@ export default class StewardPlugin extends Plugin {
 
 			// Remove the generating indicator and any trailing newlines
 			currentContent = this.removeGeneratingIndicator(currentContent);
+			let heading = '';
 
 			// Add a separator line if the role is User
 			if (role === 'User') {
 				currentContent = `${currentContent}\n\n---`;
+				heading = '##### ';
 			}
 
 			// Update the note
 			const roleText = role ? `**${role}:** ` : '';
-			await this.app.vault.modify(file, `${currentContent}\n\n${roleText}${newContent}`);
+			await this.app.vault.modify(file, `${currentContent}\n\n${heading}${roleText}${newContent}`);
 		} catch (error) {
 			console.error('Error updating conversation note:', error);
 			new Notice(i18next.t('ui.errorUpdatingConversation', { errorMessage: error.message }));
@@ -703,6 +726,10 @@ export default class StewardPlugin extends Plugin {
 		}
 	}
 
+	/**
+	 * Open the link in the main leaf when clicking links in the chat.
+	 * @param event
+	 */
 	private handleLinkClickOnStaticConversation(event: MouseEvent) {
 		const target = event.target as HTMLElement;
 
@@ -714,7 +741,89 @@ export default class StewardPlugin extends Plugin {
 			if (activeFile.name.startsWith(this.staticConversationTitle)) {
 				event.preventDefault();
 				event.stopPropagation();
+
+				const nameOrPath = target.textContent;
+				let mainLeaf: WorkspaceLeaf;
+
+				this.app.workspace.iterateRootLeaves(leaf => {
+					mainLeaf = leaf;
+				});
+
+				if (nameOrPath) {
+					setTimeout(() => {
+						const file = this.getFileByNameOrPath(nameOrPath);
+						if (!file) return;
+
+						mainLeaf.openFile(file);
+					});
+				}
 			}
+		}
+	}
+
+	/**
+	 * Find a file by name or path
+	 * @param nameOrPath - File name or path (with or without .md extension)
+	 * @returns The found TFile or null if not found
+	 */
+	getFileByNameOrPath(nameOrPath: string): TFile | null {
+		// Add .md extension if missing
+		const hasExtension = nameOrPath.endsWith('.md');
+		const nameOrPathWithExt = hasExtension ? nameOrPath : `${nameOrPath}.md`;
+
+		// If it's a path (contains '/')
+		if (nameOrPathWithExt.includes('/')) {
+			// First try to get the file directly by path
+			const fileByPath = this.app.vault.getAbstractFileByPath(nameOrPathWithExt);
+			if (fileByPath instanceof TFile) {
+				return fileByPath;
+			}
+
+			// If no file found, extract the filename from the path
+			nameOrPath = nameOrPathWithExt.split('/').pop() || nameOrPathWithExt;
+		} else {
+			nameOrPath = nameOrPathWithExt;
+		}
+
+		// Search for the file by name among all markdown files
+		const allFiles = this.app.vault.getMarkdownFiles();
+		for (const file of allFiles) {
+			if (file.name === nameOrPath) {
+				return file;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Excludes specified folders from Obsidian search
+	 * @param foldersToExclude - Array of folder names to exclude from search
+	 */
+	async excludeFoldersFromSearch(foldersToExclude: string[]): Promise<void> {
+		try {
+			// Get the app's config
+			// @ts-ignore - Accessing internal Obsidian API
+			const appConfig = this.app.vault.config || {};
+
+			// Try to use the "Files & Links" > "Excluded files" setting which is the user-facing configuration
+			if (!appConfig.userIgnoreFilters) {
+				appConfig.userIgnoreFilters = [];
+			}
+
+			// Add each folder to the excluded lists if not already present
+			for (const folder of foldersToExclude) {
+				// User-facing exclude patterns (Files & Links > Excluded files)
+				if (!appConfig.userIgnoreFilters.includes(folder)) {
+					appConfig.userIgnoreFilters.push(folder);
+				}
+			}
+
+			// Save the updated config
+			// @ts-ignore - Accessing internal Obsidian API
+			this.app.vault.saveConfig();
+		} catch (error) {
+			console.error('Failed to exclude folders from search:', error);
 		}
 	}
 }

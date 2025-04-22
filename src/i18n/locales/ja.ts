@@ -25,7 +25,7 @@ const ja = {
 			matches: '一致項目：',
 			moreMatches: '... その他{{count}}件の一致項目',
 			moreMatches_plural: '... その他{{count}}件の一致項目',
-			showMoreDetails: '特定の結果の詳細を表示しますか？',
+			showMoreDetails: '`/more` を入力して次の10件の結果を表示します。',
 		},
 		// Close command messages
 		close: {
@@ -43,7 +43,8 @@ const ja = {
 		ui: {
 			openStewardChat: 'スチュワードチャットを開く',
 			buildingSearchIndex: '検索インデックスを構築中...',
-			errorBuildingSearchIndex: '検索インデックスの構築中にエラーが発生しました。詳細はコンソールを確認してください。',
+			errorBuildingSearchIndex:
+				'検索インデックスの構築中にエラーが発生しました。詳細はコンソールを確認してください。',
 			buildingIndexes: 'スチュワード：インデックスを構築中...',
 			noActiveEditor: 'アクティブなエディタがありません：{{conversationTitle}}',
 			conversationLinkNotFound: '{{conversationTitle}}の会話リンクが見つかりませんでした',
@@ -52,15 +53,21 @@ const ja = {
 			noteNotFound: '会話ノートが見つかりません：{{notePath}}',
 			errorUpdatingConversation: '会話の更新中にエラーが発生しました：{{errorMessage}}',
 			searchIndexNotFound: '検索インデックスが見つかりません。まもなくインデックスを構築します...',
-			errorBuildingInitialIndexes: 'スチュワード：初期インデックスの構築中にエラーが発生しました。詳細はコンソールを確認してください。',
+			errorBuildingInitialIndexes:
+				'スチュワード：初期インデックスの構築中にエラーが発生しました。詳細はコンソールを確認してください。',
 			decryptionError: 'APIキーの復号化に失敗しました。設定で再入力してください。',
 			encryptionError: 'APIキーの暗号化に失敗しました。もう一度お試しください。',
-			welcomeMessage: 'いつでも利用可能なスチュワードチャットへようこそ。以下に入力して対話してください。',
+			welcomeMessage:
+				'いつでも利用可能なスチュワードチャットへようこそ。以下に入力して対話してください。',
+			commandPlaceholder: 'Shift+Enterを押して送信',
 		},
 		// Conversation states
 		conversation: {
 			workingOnIt: '処理中...',
 			generating: '生成中...',
+			moving: '移動中...',
+			searching: '検索中...',
+			calculating: '計算中...',
 		},
 	},
 };

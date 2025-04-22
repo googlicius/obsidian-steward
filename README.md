@@ -62,7 +62,7 @@ MIT
 - [ ] Cache previous generated contents.
 - [x] Respect user's language.
 - [ ] User-defined commands and actions, for example: Don't do anything if not entering the correct password.
-- [ ] User confirmation when the AI is unsure about its response.
+- [x] User confirmation or clarify when the AI is unsure about its response.
 - [ ] User confirmation when the AI performs a large side effect action.
 - [ ] Traceability
 - [ ] MCP support.

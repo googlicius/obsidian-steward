@@ -34,9 +34,16 @@ export function createCommandHighlightExtension(commandPrefixes: string[]): Exte
 							const from = line.from + lineText.indexOf(prefix);
 							const to = from + prefix.length;
 
+							const command = prefix === '/ ' ? 'general' : prefix.replace('/', '');
+							const hasPlaceholder =
+								command === 'general' ? lineText === prefix : lineText.trim() === prefix;
+
 							decorations.push(
 								Decoration.mark({
-									class: `conversation-command cm-conversation-command`,
+									class: `conversation-command cm-conversation-command ${command}`,
+									...(hasPlaceholder && {
+										attributes: { 'has-placeholder': '1' },
+									}),
 								}).range(from, to)
 							);
 							break;

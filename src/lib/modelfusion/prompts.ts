@@ -1,14 +1,5 @@
 import { OpenAIChatMessage } from 'modelfusion';
 
-export const userLanguagePrompt: OpenAIChatMessage = {
-	role: 'system',
-	content: `
-Respect user's language or the language they specified.
-- Add a property called "lang" to the response JSON object.
-- The language should be a valid language code: en, vi, etc.
-`,
-};
-
 export const commandIntentPrompt: OpenAIChatMessage = {
 	role: 'system',
 	content: `You are a helpful assistant that analyzes user queries to determine their intent for an Obsidian note management system.
@@ -77,7 +68,7 @@ Your job is to analyze the user's natural language request and extract the most 
 
 Guidelines:
 - If the user is looking for notes with specific tags, format them as "#tag1 #tag2 #tag3"
-- If the user is looking for general keywords, extract them and separate with spaces
+- If the user is looking for keywords, extract them and don't add or remove any words they are mentioning
 - Consider synonyms and related terms that might be helpful
 - Simplify complex queries into the most essential search terms
 
@@ -89,6 +80,6 @@ Examples:
 1. User: "Help me find all notes with tags generated, noun, and verb"
    Response: { "searchQuery": "#generated #noun #verb", "explanation": "Searching for notes tagged with generated, noun, and verb" }
 
-2. User: "I need to find my notes about climate change impacts on agriculture"
-   Response: { "searchQuery": "climate change agriculture impact", "explanation": "Searching for notes about climate change's impact on agriculture" }`,
+2. User: "Find notes with keyword: Group that has an outbound internet"
+   Response: { "searchQuery": "Group that has an outbound internet", "explanation": "Searching for notes with the keyword 'Group that has an outbound internet'" }`,
 };
