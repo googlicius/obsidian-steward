@@ -1,5 +1,6 @@
 import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import StewardPlugin from './main';
+import { logger } from './utils/logger';
 
 export default class StewardSettingTab extends PluginSettingTab {
 	plugin: StewardPlugin;
@@ -137,6 +138,18 @@ export default class StewardSettingTab extends PluginSettingTab {
 						this.plugin.settings.conversationFolder = value || 'Steward/Conversations';
 						await this.plugin.saveSettings();
 					})
+			);
+
+		// Add debug mode toggle
+		new Setting(containerEl)
+			.setName('Debug Mode')
+			.setDesc('Enable detailed logging in the console for debugging')
+			.addToggle(toggle =>
+				toggle.setValue(this.plugin.settings.debug).onChange(async value => {
+					this.plugin.settings.debug = value;
+					await this.plugin.saveSettings();
+					logger.setDebug(value);
+				})
 			);
 	}
 }

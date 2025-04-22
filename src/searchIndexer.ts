@@ -1,4 +1,4 @@
-import { App, TFile } from 'obsidian';
+import { App, EventRef, TFile, MarkdownView } from 'obsidian';
 import { removeStopwords } from './stopwords';
 import { COMMAND_PREFIXES } from './main';
 import {
@@ -9,6 +9,7 @@ import {
 	TermSource,
 } from './database/PluginDatabase';
 import { SearchOperationV2 } from './lib/modelfusion';
+import { logger } from './utils/logger';
 
 interface ScoredDocument extends IndexedDocument {
 	score: number;
@@ -61,12 +62,14 @@ export class SearchIndexer {
 	private app: App;
 	private conversationFolder: string;
 	private static readonly TERM_MATCH_THRESHOLD = 0.7;
+	// Simple cache for current note
+	private cachedNotePath: string | null = null;
+	private cachedNoteTermsCount = 0;
 
 	constructor({ app, dbName, conversationFolder }: Props) {
 		this.app = app;
 		this.db = new PluginDatabase(dbName);
 		this.conversationFolder = conversationFolder;
-		this.setupEventListeners();
 	}
 
 	/**
@@ -83,54 +86,146 @@ export class SearchIndexer {
 	/**
 	 * Set up event listeners for file changes
 	 */
-	private setupEventListeners() {
-		// Listen for file modifications
-		this.app.vault.on('modify', async file => {
-			if (file instanceof TFile && file.extension === 'md') {
-				// Skip files in the conversation folder
-				if (
-					!file.path.startsWith(this.app.vault.configDir + '/' + this.conversationFolder) &&
-					!file.path.startsWith(this.conversationFolder + '/')
-				) {
-					// Check if file content contains command prefixes before indexing
-					const content = await this.app.vault.read(file);
+	public setupEventListeners(): EventRef[] {
+		const eventRefs: EventRef[] = [];
 
-					if (!this.containsCommandPrefix(content)) {
-						this.queueFileForIndexing(file.path);
+		// Listen for active leaf changes to update the cache
+		eventRefs.push(
+			this.app.workspace.on('active-leaf-change', async leaf => {
+				const view = leaf?.view;
+				if (view instanceof MarkdownView && view.file) {
+					const file = view.file;
+					// Skip files in the conversation folder
+					if (
+						!file.path.startsWith(this.app.vault.configDir + '/' + this.conversationFolder) &&
+						!file.path.startsWith(this.conversationFolder + '/')
+					) {
+						await this.updateCachedNote(file);
 					} else {
-						// Remove from index if it contains commands
-						this.removeFromIndex(file.path);
+						// Clear cache if in conversation folder
+						this.clearCachedNote();
 					}
 				}
-			}
-		});
+			})
+		);
 
-		// Listen for file deletions
-		this.app.vault.on('delete', file => {
-			if (file instanceof TFile && file.extension === 'md') {
-				this.removeFromIndex(file.path);
-			}
-		});
+		eventRefs.push(
+			// Listen for file modifications
+			this.app.vault.on('modify', async file => {
+				if (file instanceof TFile && file.extension === 'md') {
+					// Skip files in the conversation folder
+					if (
+						!file.path.startsWith(this.app.vault.configDir + '/' + this.conversationFolder) &&
+						!file.path.startsWith(this.conversationFolder + '/')
+					) {
+						// Check if file content contains command prefixes before indexing
+						const content = await this.app.vault.read(file);
 
-		// Listen for file renames
-		this.app.vault.on('rename', async (file, oldPath: string) => {
-			if (file instanceof TFile && file.extension === 'md') {
-				this.removeFromIndex(oldPath);
+						if (!this.containsCommandPrefix(content)) {
+							// Check if this is the cached note
+							if (this.cachedNotePath === file.path) {
+								// Get new terms count
+								const newTerms = this.tokenizeContent(content);
+								const newTermsCount = newTerms.length;
 
-				// Skip files in the conversation folder
-				if (
-					!file.path.startsWith(this.app.vault.configDir + '/' + this.conversationFolder) &&
-					!file.path.startsWith(this.conversationFolder + '/')
-				) {
-					// Check if file content contains command prefixes before indexing
-					const content = await this.app.vault.read(file);
+								// If terms count differs, reindex
+								if (this.cachedNoteTermsCount !== newTermsCount) {
+									logger.log(
+										`Terms count changed for ${file.path}: ${this.cachedNoteTermsCount} -> ${newTermsCount}`
+									);
+									this.queueFileForIndexing(file.path);
 
-					if (!this.containsCommandPrefix(content)) {
-						this.queueFileForIndexing(file.path);
+									// Update cache with new terms count
+									this.cachedNoteTermsCount = newTermsCount;
+								} else {
+									logger.log(`Terms count unchanged for ${file.path}, skipping indexing`);
+								}
+							} else {
+								// Not the cached note, proceed with normal indexing
+								this.queueFileForIndexing(file.path);
+							}
+						} else {
+							// Remove from index if it contains commands
+							// this.removeFromIndex(file.path);
+
+							// Clear cache if this was the cached note
+							if (this.cachedNotePath === file.path) {
+								this.clearCachedNote();
+							}
+						}
 					}
 				}
+			}),
+			// Listen for file deletions
+			this.app.vault.on('delete', file => {
+				if (file instanceof TFile && file.extension === 'md') {
+					this.removeFromIndex(file.path);
+
+					// Clear cache if this was the cached note
+					if (this.cachedNotePath === file.path) {
+						this.clearCachedNote();
+					}
+				}
+			}),
+			// Listen for file renames
+			this.app.vault.on('rename', async (file, oldPath: string) => {
+				if (file instanceof TFile && file.extension === 'md') {
+					this.removeFromIndex(oldPath);
+
+					// Update cache if this was the cached note
+					if (this.cachedNotePath === oldPath) {
+						this.cachedNotePath = file.path;
+					}
+
+					// Skip files in the conversation folder
+					if (
+						!file.path.startsWith(this.app.vault.configDir + '/' + this.conversationFolder) &&
+						!file.path.startsWith(this.conversationFolder + '/')
+					) {
+						// Check if file content contains command prefixes before indexing
+						const content = await this.app.vault.read(file);
+
+						if (!this.containsCommandPrefix(content)) {
+							this.queueFileForIndexing(file.path);
+						}
+					}
+				}
+			})
+		);
+
+		return eventRefs;
+	}
+
+	/**
+	 * Update the cached note terms count
+	 */
+	private async updateCachedNote(file: TFile): Promise<void> {
+		try {
+			const content = await this.app.vault.read(file);
+
+			// Skip files with command prefixes
+			if (this.containsCommandPrefix(content)) {
+				this.clearCachedNote();
+				return;
 			}
-		});
+
+			// Update cache
+			this.cachedNotePath = file.path;
+			this.cachedNoteTermsCount = this.tokenizeContent(content).length;
+
+			logger.log(`Updated cached note: ${file.path} with ${this.cachedNoteTermsCount} terms`);
+		} catch (error) {
+			logger.error(`Error updating cached note ${file.path}:`, error);
+			this.clearCachedNote();
+		}
+	}
+
+	/**
+	 * Clear the cached note data
+	 */
+	private clearCachedNote(): void {
+		this.cachedNotePath = null;
+		this.cachedNoteTermsCount = 0;
 	}
 
 	/**
@@ -160,7 +255,7 @@ export class SearchIndexer {
 				await this.indexFile(file);
 			}
 		} catch (error) {
-			console.error('Error processing indexing queue:', error);
+			logger.error('Error processing indexing queue:', error);
 		} finally {
 			this.isIndexing = false;
 			// Continue processing if there are more files
@@ -271,7 +366,7 @@ export class SearchIndexer {
 				}
 			);
 		} catch (error) {
-			console.error(`Error indexing file ${file.path}:`, error);
+			logger.error(`Error indexing file ${file.path}:`, error);
 		}
 	}
 
@@ -483,7 +578,7 @@ export class SearchIndexer {
 						this.removeFromIndex(file.path);
 					}
 				} catch (error) {
-					console.error(`Error checking file ${file.path}:`, error);
+					logger.error(`Error checking file ${file.path}:`, error);
 				}
 			}
 		}
@@ -668,7 +763,7 @@ export class SearchIndexer {
 
 			return [];
 		} catch (error) {
-			console.error('Error retrieving documents:', error);
+			logger.error('Error retrieving documents:', error);
 			return [];
 		}
 	}
@@ -1090,7 +1185,7 @@ export class SearchIndexer {
 			const firstDoc = await this.db.documents.limit(1).first();
 			return firstDoc !== undefined;
 		} catch (error) {
-			console.error('Error checking if index is built:', error);
+			logger.error('Error checking if index is built:', error);
 			return false;
 		}
 	}

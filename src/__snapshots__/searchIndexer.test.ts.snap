@@ -1,0 +1,27 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`SearchIndexer tokenizeContent should correctly tokenize English text 1`] = `
+[
+  {
+    "count": 1,
+    "positions": [
+      0,
+    ],
+    "term": "sample",
+  },
+  {
+    "count": 1,
+    "positions": [
+      1,
+    ],
+    "term": "text",
+  },
+  {
+    "count": 1,
+    "positions": [
+      2,
+    ],
+    "term": "testing",
+  },
+]
+`;

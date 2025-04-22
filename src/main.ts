@@ -12,6 +12,7 @@ import { encrypt, decrypt, generateSaltKeyId } from './utils/cryptoUtils';
 import { WorkflowManager } from './workflows/WorkflowManager';
 import { ConfirmationEventHandler } from './services/ConfirmationEventHandler';
 import { SearchTool } from './tools/searchTools';
+import { logger } from './utils/logger';
 
 // Supported command prefixes
 export const COMMAND_PREFIXES = ['/ ', '/move', '/search', '/calc', '/me', '/close', '/confirm'];
@@ -27,6 +28,7 @@ interface StewardPluginSettings {
 	encryptionVersion?: number; // Track the encryption version for future migrations
 	staticConversationLeafId?: string; // ID of the leaf containing the static conversation
 	excludedFolders: string[]; // Folders to exclude from Obsidian search
+	debug: boolean; // Enable debug logging
 }
 
 const DEFAULT_SETTINGS: StewardPluginSettings = {
@@ -38,6 +40,7 @@ const DEFAULT_SETTINGS: StewardPluginSettings = {
 	encryptionVersion: 1, // Current version
 	staticConversationLeafId: undefined,
 	excludedFolders: ['node_modules', 'src', '.git', 'dist'], // Default development folders to exclude
+	debug: false, // Debug logging disabled by default
 };
 
 export enum GeneratorText {
@@ -107,6 +110,11 @@ export default class StewardPlugin extends Plugin {
 			conversationFolder: this.settings.conversationFolder,
 		});
 
+		const eventRefs = this.searchIndexer.setupEventListeners();
+		for (const eventRef of eventRefs) {
+			this.registerEvent(eventRef);
+		}
+
 		// Initialize the SearchTool
 		this.searchTool = new SearchTool(this.app, this.searchIndexer);
 
@@ -162,7 +170,7 @@ export default class StewardPlugin extends Plugin {
 					statusBarItemEl.setText('');
 					new Notice('Building Search Index completed!');
 				} catch (error) {
-					console.error('Error building search index:', error);
+					logger.error('Error building search index:', error);
 					new Notice(i18next.t('ui.errorBuildingSearchIndex'));
 				}
 			},
@@ -184,6 +192,18 @@ export default class StewardPlugin extends Plugin {
 					// Default behavior: insert a new line
 					editor.replaceSelection('\n');
 				}
+			},
+		});
+
+		// Command to toggle debug mode
+		this.addCommand({
+			id: 'toggle-debug-mode',
+			name: 'Toggle Debug Mode',
+			callback: async () => {
+				this.settings.debug = !this.settings.debug;
+				logger.setDebug(this.settings.debug);
+				await this.saveSettings();
+				new Notice(`Debug mode ${this.settings.debug ? 'enabled' : 'disabled'}`);
 			},
 		});
 
@@ -211,6 +231,9 @@ export default class StewardPlugin extends Plugin {
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+
+		// Update logger debug setting
+		logger.setDebug(this.settings.debug);
 	}
 
 	async saveSettings() {
@@ -236,8 +259,8 @@ export default class StewardPlugin extends Plugin {
 				const commandContent = lineText.trim().substring(commandMatch.length).trim();
 				let commandType = commandMatch.substring(1); // Remove the / from the command
 
-				console.log('Command type:', commandType);
-				console.log('Command content:', commandContent);
+				logger.log('Command type:', commandType);
+				logger.log('Command content:', commandContent);
 
 				// Look for a conversation link in the previous lines
 				const conversationLink = this.findConversationLinkAbove(view);
@@ -297,7 +320,7 @@ export default class StewardPlugin extends Plugin {
 
 				return true;
 			} catch (error) {
-				console.error('Error in handleShiftEnter:', error);
+				logger.error('Error in handleShiftEnter:', error);
 				new Notice(`Error processing command: ${error.message}`);
 				return false;
 			}
