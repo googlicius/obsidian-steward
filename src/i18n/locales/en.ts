@@ -42,7 +42,7 @@ const en = {
 		},
 		// UI elements
 		ui: {
-			openStewardChat: 'Open Steward Chat',
+			openStewardChat: 'Open Steward Chat (Ctrl+Shift+L)',
 			buildingSearchIndex: 'Building search index...',
 			errorBuildingSearchIndex: 'Error building search index. Check console for details.',
 			buildingIndexes: 'Steward: Building indexes...',

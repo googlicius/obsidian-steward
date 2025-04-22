@@ -42,7 +42,7 @@ const vi = {
 		},
 		// UI elements
 		ui: {
-			openStewardChat: 'Mở Trò Chuyện Steward',
+			openStewardChat: 'Mở Trò Chuyện Steward (Ctrl+Shift+L)',
 			buildingSearchIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
 			errorBuildingSearchIndex:
 				'Lỗi khi xây dựng chỉ mục tìm kiếm. Kiểm tra bảng điều khiển để biết chi tiết.',

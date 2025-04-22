@@ -145,9 +145,25 @@ export default class StewardPlugin extends Plugin {
 			SMILE_CHAT_ICON_ID,
 			i18next.t('ui.openStewardChat'),
 			async () => {
-				await this.toggleStaticConversation();
+				await this.openStaticConversation();
 			}
 		);
+
+		// Add command for toggling Steward chat with hotkey
+		this.addCommand({
+			id: 'toggle-steward-chat',
+			name: 'Toggle Steward Chat',
+			hotkeys: [{ modifiers: ['Ctrl', 'Shift'], key: 'l' }],
+			callback: async () => {
+				const activeFile = this.app.workspace.getActiveFile();
+
+				if (activeFile && activeFile.name.startsWith(this.staticConversationTitle)) {
+					this.toggleStaticConversation();
+				} else {
+					this.openStaticConversation();
+				}
+			},
+		});
 
 		// Register the conversation extension for CodeMirror
 		this.registerEditorExtension([createCommandHighlightExtension(COMMAND_PREFIXES)]);
@@ -400,7 +416,9 @@ export default class StewardPlugin extends Plugin {
 		return leaf;
 	}
 
-	async toggleStaticConversation(): Promise<void> {
+	async openStaticConversation({
+		revealLeaf = true,
+	}: { revealLeaf?: boolean } = {}): Promise<void> {
 		try {
 			// Get the configured folder for conversations
 			const folderPath = this.settings.conversationFolder;
@@ -433,10 +451,13 @@ export default class StewardPlugin extends Plugin {
 				state: { file: notePath },
 			});
 
-			// Focus the editor
-			this.app.workspace.revealLeaf(leaf);
+			if (revealLeaf) {
+				// Focus the editor
+				this.app.workspace.revealLeaf(leaf);
+				this.app.workspace.setActiveLeaf(leaf, { focus: true });
+			}
 		} catch (error) {
-			console.error('Error opening static conversation:', error);
+			logger.error('Error opening static conversation:', error);
 			new Notice(`Error opening static conversation: ${error.message}`);
 		}
 	}
@@ -484,11 +505,7 @@ export default class StewardPlugin extends Plugin {
 			// Check if we're trying to close the static conversation
 			const activeFile = this.app.workspace.getActiveFile();
 			if (activeFile && activeFile.name.startsWith(this.staticConversationTitle)) {
-				// Find and click the right sidebar toggle button
-				const toggleButton = document.querySelector('.sidebar-toggle-button.mod-right');
-				if (toggleButton instanceof HTMLElement) {
-					toggleButton.click();
-				}
+				this.toggleStaticConversation();
 			}
 
 			return true;
@@ -497,6 +514,25 @@ export default class StewardPlugin extends Plugin {
 			new Notice(i18next.t('ui.errorClosingConversation', { errorMessage: error.message }));
 			return false;
 		}
+	}
+
+	/**
+	 * Toggles the static conversation sidebar open or closed
+	 */
+	private async toggleStaticConversation(): Promise<void> {
+		// Find and click the right sidebar toggle button
+		const toggleButton = document.querySelector('.sidebar-toggle-button.mod-right');
+		if (toggleButton instanceof HTMLElement) {
+			toggleButton.click();
+		}
+	}
+
+	/**
+	 * Checks if a leaf is currently visible in the workspace
+	 * @deprecated Use the check in toggleStaticConversation instead
+	 */
+	private isLeafVisible(leaf: WorkspaceLeaf): boolean {
+		return leaf !== null;
 	}
 
 	// Function to find a conversation link in the lines above the current cursor
