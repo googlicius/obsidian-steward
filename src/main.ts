@@ -3,6 +3,7 @@ import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
 import { createCommandHighlightExtension } from './cm/extensions/CommandHighlightExtension';
+import { createTripleBlockExtension } from './cm/extensions/TripleBlockExtension';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter, Events } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -166,7 +167,10 @@ export default class StewardPlugin extends Plugin {
 		});
 
 		// Register the conversation extension for CodeMirror
-		this.registerEditorExtension([createCommandHighlightExtension(COMMAND_PREFIXES)]);
+		this.registerEditorExtension([
+			createCommandHighlightExtension(COMMAND_PREFIXES),
+			createTripleBlockExtension(),
+		]);
 
 		// Initialize the conversation event handler
 		new ConversationEventHandler({ plugin: this });
