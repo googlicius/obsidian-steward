@@ -13,7 +13,6 @@ import { ObsidianAPITools } from './tools/obsidianAPITools';
 import { SearchIndexer } from './searchIndexer';
 import { DateTime } from 'luxon';
 import { encrypt, decrypt, generateSaltKeyId } from './utils/cryptoUtils';
-import { WorkflowManager } from './workflows/WorkflowManager';
 import { ConfirmationEventHandler } from './services/ConfirmationEventHandler';
 import { SearchTool } from './tools/searchTools';
 import { logger } from './utils/logger';
@@ -68,7 +67,6 @@ export default class StewardPlugin extends Plugin {
 	searchTool: SearchTool;
 	ribbonIcon: HTMLElement;
 	staticConversationTitle = 'Steward Chat';
-	workflowManager: WorkflowManager;
 	confirmationEventHandler: ConfirmationEventHandler;
 
 	get editor() {
@@ -247,9 +245,6 @@ export default class StewardPlugin extends Plugin {
 
 		// Initialize the confirmation event handler
 		this.confirmationEventHandler = new ConfirmationEventHandler(this);
-
-		// Initialize the workflow manager
-		this.workflowManager = new WorkflowManager(this.app, this);
 	}
 
 	onunload() {}
