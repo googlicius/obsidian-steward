@@ -106,48 +106,32 @@ export function createTripleBlockPostProcessor(): MarkdownPostProcessor {
 
 		// Check if this element contains a triple quote marker
 		if (text.includes('"""')) {
-			// Count instances of triple quotes to handle complex cases
-			// where an element might contain both opening and closing markers
-			const matches = text.match(/"""/g) || [];
-			const tripleQuoteCount = matches.length;
+			el.classList.add('st-triple-block');
 
 			// If the element consists of only """, possibly with whitespace
 			if (text === '"""' || /^\s*"""\s*$/.test(text)) {
 				if (!inBlock) {
-					// Start of block
-					el.classList.add('st-triple-block');
 					el.classList.add('st-triple-block-start');
 					inBlock = true;
 				} else {
-					// End of block
-					el.classList.add('st-triple-block');
 					el.classList.add('st-triple-block-end');
 					inBlock = false;
 				}
+				el.textContent = '';
 			} else {
-				// Element contains triple quotes and other content
-				el.classList.add('st-triple-block');
-
 				// Check if this element starts with triple quotes (ignoring whitespace)
 				if (/^\s*"""/.test(text)) {
 					el.classList.add('st-triple-block-start');
 					inBlock = true;
+
+					removeTripleQuotes(el, 'start');
 				}
 
 				// Check if this element ends with triple quotes (ignoring whitespace)
 				if (/"""\s*$/.test(text)) {
 					el.classList.add('st-triple-block-end');
 					inBlock = false;
-				}
-
-				// Handle multiple triple quotes in a single element
-				// If there's an even number, this element is self-contained
-				if (tripleQuoteCount > 1 && tripleQuoteCount % 2 === 0) {
-					// Element has matching pairs, add both classes
-					el.classList.add('st-triple-block-start');
-					el.classList.add('st-triple-block-end');
-					// inBlock state remains unchanged after this element
-					inBlock = false;
+					removeTripleQuotes(el, 'end');
 				}
 			}
 		} else if (inBlock) {
@@ -155,4 +139,36 @@ export function createTripleBlockPostProcessor(): MarkdownPostProcessor {
 			el.classList.add('st-triple-block');
 		}
 	};
+}
+
+function removeTripleQuotes(el: HTMLElement, position: 'start' | 'end') {
+	const p = el.querySelector('p');
+	if (!p) return;
+
+	if (position === 'start') {
+		const firstChild = p.childNodes[0];
+		const secondChild = p.childNodes[1];
+
+		if (
+			firstChild?.nodeType === Node.TEXT_NODE &&
+			firstChild.textContent?.trim() === '"""' &&
+			secondChild?.nodeName === 'BR'
+		) {
+			// Remove the """ text node and the <br> tag
+			p.removeChild(firstChild);
+			p.removeChild(secondChild);
+		}
+	} else {
+		const lastChild = p.childNodes[p.childNodes.length - 1];
+		const secondToLastChild = p.childNodes[p.childNodes.length - 2];
+
+		if (
+			lastChild?.nodeType === Node.TEXT_NODE &&
+			lastChild.textContent?.trim() === '"""' &&
+			secondToLastChild?.nodeName === 'BR'
+		) {
+			p.removeChild(secondToLastChild);
+			p.removeChild(lastChild);
+		}
+	}
 }

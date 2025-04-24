@@ -336,7 +336,7 @@ export class ConversationEventHandler {
 							if (matchesToShow > 0) {
 								// Add each highlighted match to the response
 								for (let i = 0; i < matchesToShow; i++) {
-									response += `\n${highlightedMatches[i]}\n`;
+									response += `\n"""\n${highlightedMatches[i]}\n"""\n`;
 								}
 
 								// Show a message for additional matches

@@ -792,6 +792,8 @@ export class SearchIndexer {
 			// Get qualified document IDs for this keyword
 			const keywordDocIds = this.getQualifiedDocumentIds(documentTermMap, terms);
 
+			console.log('TERMS', terms);
+			console.log('KEYWORD DOC IDS', keywordDocIds);
 			if (keywordDocIds.length === 0) {
 				continue;
 			}
@@ -818,6 +820,8 @@ export class SearchIndexer {
 				}
 			}
 		}
+
+		console.log('DOCUMENTS', documentsMap.values());
 
 		// Convert map values to array and return
 		return Array.from(documentsMap.values());

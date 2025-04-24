@@ -3,7 +3,10 @@ import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
 import { createCommandHighlightExtension } from './cm/extensions/CommandHighlightExtension';
-import { createTripleBlockExtension } from './cm/extensions/TripleBlockExtension';
+import {
+	createTripleBlockExtension,
+	createTripleBlockPostProcessor,
+} from './cm/extensions/TripleBlockExtension';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter, Events } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -171,6 +174,8 @@ export default class StewardPlugin extends Plugin {
 			createCommandHighlightExtension(COMMAND_PREFIXES),
 			createTripleBlockExtension(),
 		]);
+
+		this.registerMarkdownPostProcessor(createTripleBlockPostProcessor());
 
 		// Initialize the conversation event handler
 		new ConversationEventHandler({ plugin: this });
@@ -579,7 +584,7 @@ export default class StewardPlugin extends Plugin {
 			}
 
 			// Build initial content based on command type
-			let initialContent = `#gtp-4\n##### **User:** /${commandType.trim()} ${content}\n\n`;
+			let initialContent = `##### **User:** /${commandType.trim()} ${content}\n\n`;
 
 			switch (commandType) {
 				case 'move':
