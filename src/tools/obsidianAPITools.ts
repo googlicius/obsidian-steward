@@ -5,6 +5,8 @@ import { moveQueryPrompt } from '../lib/modelfusion/prompts';
 import { userLanguagePrompt } from '../lib/modelfusion/prompts/languagePrompt';
 import { SearchTool } from './searchTools';
 import { CommandIntentExtraction, extractCommandIntent } from '../lib/modelfusion/intentExtraction';
+import { MoveQueryExtractionV2, SearchQueryExtractionV2 } from 'src/lib/modelfusion';
+import { IndexedDocument } from 'src/database/PluginDatabase';
 
 /**
  * Represents a single move operation
@@ -170,8 +172,8 @@ export class ObsidianAPITools {
 	 * @returns Results of the move operations
 	 */
 	async moveByQueryExtraction(
-		queryExtraction: MoveQueryExtraction,
-		filesByOperation?: Map<number, SearchResult[]>
+		queryExtraction: MoveQueryExtractionV2,
+		filesByOperation?: Map<number, IndexedDocument[]>
 	): Promise<{
 		operations: Array<{
 			sourceQuery: string;
@@ -216,7 +218,7 @@ export class ObsidianAPITools {
 			}
 
 			operationResults.push({
-				sourceQuery: operation.sourceQuery,
+				sourceQuery: operation.keywords.join(', '),
 				destinationFolder: operation.destinationFolder,
 				moved,
 				errors,

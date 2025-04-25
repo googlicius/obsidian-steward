@@ -12,7 +12,8 @@ import * as mathTools from '../tools/mathTools';
 import StewardPlugin, { GeneratorText } from '../main';
 import i18next, { getTranslation } from '../i18n';
 import { highlightKeywords } from '../utils/highlightKeywords';
-import { extractSearchQueryV2 } from 'src/lib/modelfusion';
+import { extractMoveQueryV2, extractSearchQueryV2 } from '../lib/modelfusion';
+import { IndexedDocument } from '../database/PluginDatabase';
 
 interface Props {
 	plugin: StewardPlugin;
@@ -94,6 +95,12 @@ export class ConversationEventHandler {
 			case 'move': {
 				await this.plugin.addGeneratingIndicator(payload.title, i18next.t('conversation.moving'));
 				await this.handleMoveCommand(payload.title, commandContent);
+				break;
+			}
+
+			case 'move_from_search': {
+				await this.plugin.addGeneratingIndicator(payload.title, i18next.t('conversation.moving'));
+				// await this.handleMoveCommand(payload.title, commandContent);
 				break;
 			}
 
@@ -184,14 +191,20 @@ export class ConversationEventHandler {
 	private async handleMoveCommand(title: string, commandContent: string): Promise<void> {
 		try {
 			// Extract the move query
-			const queryExtraction = await this.plugin.obsidianAPITools.extractMoveQuery(commandContent);
-			// const extractedMoveQuery = await extractMoveQueryV2(commandContent);
-
-			// console.log('extractedMoveQuery', extractedMoveQuery);
+			// const queryExtraction = await this.plugin.obsidianAPITools.extractMoveQuery(commandContent);
+			const queryExtraction = await extractMoveQueryV2(commandContent);
+			// const results = await this.plugin.searchIndexer.searchV2(queryExtraction.operations);
 
 			// Get all files matching the source queries using the new function
-			const filesByOperation =
-				await this.plugin.obsidianAPITools.getFilesByMoveQueryExtraction(queryExtraction);
+			// const filesByOperation =
+			// 	await this.plugin.obsidianAPITools.getFilesByMoveQueryExtraction(queryExtraction);
+
+			const filesByOperation = new Map<number, IndexedDocument[]>();
+			for (let i = 0; i < queryExtraction.operations.length; i++) {
+				const operation = queryExtraction.operations[i];
+				const docs = await this.plugin.searchIndexer.searchV2([operation]);
+				filesByOperation.set(i, docs);
+			}
 
 			// Count total files to move
 			let totalFilesToMove = 0;
@@ -211,7 +224,10 @@ export class ConversationEventHandler {
 			// Check all destination folders
 			const missingFolders = [];
 			for (const operation of queryExtraction.operations) {
-				if (!this.plugin.app.vault.getAbstractFileByPath(operation.destinationFolder)) {
+				if (
+					operation.destinationFolder &&
+					!this.plugin.app.vault.getAbstractFileByPath(operation.destinationFolder)
+				) {
 					missingFolders.push(operation.destinationFolder);
 				}
 			}
@@ -303,7 +319,9 @@ export class ConversationEventHandler {
 		try {
 			const queryExtraction = await extractSearchQueryV2(commandContent);
 
-			const results = await this.plugin.searchIndexer.searchV2(queryExtraction.operations);
+			const docs = await this.plugin.searchIndexer.searchV2(queryExtraction.operations);
+
+			const paginatedDocs = this.plugin.searchIndexer.paginateResults(docs);
 
 			// Get translation function for the specified language
 			const t = getTranslation(queryExtraction.lang);
@@ -312,12 +330,12 @@ export class ConversationEventHandler {
 			let response = `${queryExtraction.explanation}\n\n`;
 
 			// Add the search results count text
-			if (results.totalCount > 0) {
-				response += `${t('search.found', { count: results.totalCount })}`;
+			if (paginatedDocs.totalCount > 0) {
+				response += `${t('search.found', { count: paginatedDocs.totalCount })}`;
 
 				// List the search results
-				for (let index = 0; index < results.documents.length; index++) {
-					const result = results.documents[index];
+				for (let index = 0; index < paginatedDocs.documents.length; index++) {
+					const result = paginatedDocs.documents[index];
 					response += `\n\n**${index + 1}.** [[${result.fileName}]]:\n`;
 
 					// Get the file content directly instead of using result.matches

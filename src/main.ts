@@ -16,6 +16,7 @@ import { encrypt, decrypt, generateSaltKeyId } from './utils/cryptoUtils';
 import { ConfirmationEventHandler } from './services/ConfirmationEventHandler';
 import { SearchTool } from './tools/searchTools';
 import { logger } from './utils/logger';
+import { ConversationContextManager, CommandFactory } from './solutions/command-chaining';
 
 // Supported command prefixes
 export const COMMAND_PREFIXES = ['/ ', '/move', '/search', '/calc', '/me', '/close', '/confirm'];
@@ -68,6 +69,9 @@ export default class StewardPlugin extends Plugin {
 	ribbonIcon: HTMLElement;
 	staticConversationTitle = 'Steward Chat';
 	confirmationEventHandler: ConfirmationEventHandler;
+	// Command chaining components (not integrated yet)
+	contextManager: ConversationContextManager;
+	commandFactory: CommandFactory;
 
 	get editor() {
 		return this.app.workspace.activeEditor?.editor as Editor & {
@@ -245,6 +249,11 @@ export default class StewardPlugin extends Plugin {
 
 		// Initialize the confirmation event handler
 		this.confirmationEventHandler = new ConfirmationEventHandler(this);
+
+		// Initialize command chaining components (not integrated yet)
+		this.contextManager = new ConversationContextManager();
+		this.commandFactory = new CommandFactory(this);
+		logger.log('Command chaining solution initialized but not integrated');
 	}
 
 	onunload() {}

@@ -123,7 +123,6 @@ export function createTripleBlockPostProcessor(): MarkdownPostProcessor {
 				if (/^\s*"""/.test(text)) {
 					el.classList.add('st-triple-block-start');
 					inBlock = true;
-
 					removeTripleQuotes(el, 'start');
 				}
 

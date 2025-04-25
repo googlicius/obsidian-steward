@@ -657,21 +657,32 @@ export class SearchIndexer {
 		return maxProximityBonus * proximityScore;
 	}
 
+	public paginateResults(
+		results: (IndexedDocument | ScoredKeywordsMatchedDoc)[],
+		page = 1,
+		limit = 20
+	): PaginatedSearchResultV2 {
+		const startIndex = (page - 1) * limit;
+		const endIndex = startIndex + limit;
+		return {
+			documents: results.slice(startIndex, endIndex),
+			totalCount: results.length,
+			page,
+			limit,
+			totalPages: Math.ceil(results.length / limit),
+		};
+	}
+
 	public async searchV2(
 		operations: SearchOperationV2[],
-		options: { page?: number; limit?: number } = {}
-	): Promise<PaginatedSearchResultV2> {
-		const page = options.page || 1;
-		const limit = options.limit || 10;
+		options: { calculateScores?: boolean } = {}
+	): Promise<(IndexedDocument | ScoredKeywordsMatchedDoc)[]> {
+		// const page = options.page || 1;
+		// const limit = options.limit || 10;
+		const calculateScores = options.calculateScores || true;
 
 		if (operations.length === 0) {
-			return {
-				documents: [],
-				totalCount: 0,
-				page,
-				limit,
-				totalPages: 0,
-			};
+			return [];
 		}
 
 		const documentsAcrossOperations: (IndexedDocument | ScoredKeywordsMatchedDoc)[] = [];
@@ -714,17 +725,19 @@ export class SearchIndexer {
 			return scoreB - scoreA;
 		});
 
-		const startIndex = (page - 1) * limit;
-		const endIndex = startIndex + limit;
-		const paginatedDocuments = documentsAcrossOperations.slice(startIndex, endIndex);
+		// const startIndex = (page - 1) * limit;
+		// const endIndex = startIndex + limit;
+		// const paginatedDocuments = documentsAcrossOperations.slice(startIndex, endIndex);
 
-		return {
-			documents: paginatedDocuments,
-			totalCount: documentsAcrossOperations.length,
-			page,
-			limit,
-			totalPages: Math.ceil(documentsAcrossOperations.length / limit),
-		};
+		// return {
+		// 	documents: paginatedDocuments,
+		// 	totalCount: documentsAcrossOperations.length,
+		// 	page,
+		// 	limit,
+		// 	totalPages: Math.ceil(documentsAcrossOperations.length / limit),
+		// };
+
+		return documentsAcrossOperations;
 	}
 
 	/**

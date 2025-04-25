@@ -1,7 +1,7 @@
 import { EditorView } from '@codemirror/view';
-import { MoveQueryExtraction } from '../tools/obsidianAPITools';
-import { SearchResult } from '../searchIndexer';
 import { CommandIntentExtraction } from '../lib/modelfusion/intentExtraction';
+import { MoveQueryExtractionV2 } from '../lib/modelfusion';
+import { IndexedDocument } from '../database/PluginDatabase';
 
 export enum Events {
 	CONVERSATION_NOTE_CREATED = 'CONVERSATION_NOTE_CREATED',
@@ -58,8 +58,8 @@ export interface ErrorPayload {
 
 export interface MoveQueryExtractedPayload {
 	title: string;
-	queryExtraction: MoveQueryExtraction;
-	filesByOperation?: Map<number, SearchResult[]>;
+	queryExtraction: MoveQueryExtractionV2;
+	filesByOperation?: Map<number, IndexedDocument[]>;
 }
 
 export interface CommandIntentExtractedPayload {

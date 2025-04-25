@@ -1,9 +1,9 @@
 import { generateText, openai } from 'modelfusion';
-import { moveQueryPromptV2 } from './prompts/movePromptV2';
 import { confidenceScorePrompt } from './prompts/confidenceScorePrompt';
 import { validateLanguage, validateConfidence } from './validators';
-import { SearchOperationV2, extractSearchQueryV2 } from './searchExtraction';
+import { SearchOperationV2 } from './searchExtraction';
 import { userLanguagePrompt } from './prompts/languagePrompt';
+import { searchPromptV2 } from './prompts/searchPromptV2';
 
 /**
  * Represents a single move operation with v2 parameters
@@ -31,7 +31,7 @@ export interface MoveQueryExtractionV2 {
 export async function extractMoveQueryV2(userInput: string): Promise<MoveQueryExtractionV2> {
 	try {
 		// First, extract the search parameters
-		const searchParams = await extractSearchQueryV2(userInput);
+		// const searchParams = await extractSearchQueryV2(userInput);
 
 		// Then, use ModelFusion to add the move parameters
 		const response = await generateText({
@@ -42,11 +42,12 @@ export async function extractMoveQueryV2(userInput: string): Promise<MoveQueryEx
 			}),
 			prompt: [
 				userLanguagePrompt,
-				moveQueryPromptV2,
+				searchPromptV2,
 				confidenceScorePrompt,
 				{
 					role: 'user',
-					content: JSON.stringify(searchParams) + '\n\nUser query: ' + userInput,
+					// content: JSON.stringify(searchParams) + '\n\nUser query: ' + userInput,
+					content: userInput,
 				},
 			],
 		});
