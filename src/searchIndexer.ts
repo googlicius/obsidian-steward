@@ -725,18 +725,6 @@ export class SearchIndexer {
 			return scoreB - scoreA;
 		});
 
-		// const startIndex = (page - 1) * limit;
-		// const endIndex = startIndex + limit;
-		// const paginatedDocuments = documentsAcrossOperations.slice(startIndex, endIndex);
-
-		// return {
-		// 	documents: paginatedDocuments,
-		// 	totalCount: documentsAcrossOperations.length,
-		// 	page,
-		// 	limit,
-		// 	totalPages: Math.ceil(documentsAcrossOperations.length / limit),
-		// };
-
 		return documentsAcrossOperations;
 	}
 

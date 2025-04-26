@@ -6,14 +6,22 @@ import {
 	ConversationCommandReceivedPayload,
 	MoveQueryExtractedPayload,
 	CommandIntentExtractedPayload,
+	MoveFromSearchResultConfirmedPayload,
 } from '../types/events';
 import { eventEmitter } from './EventEmitter';
 import * as mathTools from '../tools/mathTools';
 import StewardPlugin, { GeneratorText } from '../main';
 import i18next, { getTranslation } from '../i18n';
 import { highlightKeywords } from '../utils/highlightKeywords';
-import { extractMoveQueryV2, extractSearchQueryV2 } from '../lib/modelfusion';
+import { extractMoveQueryV2, extractSearchQueryV2, MoveOperationV2 } from '../lib/modelfusion';
 import { IndexedDocument } from '../database/PluginDatabase';
+import { ConversationRenderer } from './ConversationRenderer';
+import {
+	ArtifactType,
+	ConversationArtifactManager,
+	SearchResultsArtifact,
+} from './ConversationArtifactManager';
+import { extractMoveFromSearchResult } from '../lib/modelfusion';
 
 interface Props {
 	plugin: StewardPlugin;
@@ -21,9 +29,13 @@ interface Props {
 
 export class ConversationEventHandler {
 	private readonly plugin: StewardPlugin;
+	private readonly renderer: ConversationRenderer;
+	private readonly artifactManager: ConversationArtifactManager;
 
 	constructor(props: Props) {
 		this.plugin = props.plugin;
+		this.renderer = new ConversationRenderer(this.plugin);
+		this.artifactManager = ConversationArtifactManager.getInstance();
 		this.setupListeners();
 	}
 
@@ -51,8 +63,16 @@ export class ConversationEventHandler {
 
 		// Listen for move query extracted
 		eventEmitter.on(Events.MOVE_QUERY_EXTRACTED, (payload: MoveQueryExtractedPayload) => {
-			this.handleMoveQueryExtracted(payload);
+			this.handleMoveOperation(payload);
 		});
+
+		// Listen for move from search result confirmed
+		eventEmitter.on(
+			Events.MOVE_FROM_SEARCH_RESULT_CONFIRMED,
+			(payload: MoveFromSearchResultConfirmedPayload) => {
+				this.handleMoveOperation(payload);
+			}
+		);
 
 		// Listen for command intent extracted
 		eventEmitter.on(Events.COMMAND_INTENT_EXTRACTED, (payload: CommandIntentExtractedPayload) => {
@@ -84,7 +104,7 @@ export class ConversationEventHandler {
 
 		switch (payload.commandType) {
 			case 'calc': {
-				await this.plugin.addGeneratingIndicator(
+				await this.renderer.addGeneratingIndicator(
 					payload.title,
 					i18next.t('conversation.calculating')
 				);
@@ -93,23 +113,28 @@ export class ConversationEventHandler {
 			}
 
 			case 'move': {
-				await this.plugin.addGeneratingIndicator(payload.title, i18next.t('conversation.moving'));
+				await this.renderer.addGeneratingIndicator(payload.title, i18next.t('conversation.moving'));
 				await this.handleMoveCommand(payload.title, commandContent);
 				break;
 			}
 
-			case 'move_from_search': {
-				await this.plugin.addGeneratingIndicator(payload.title, i18next.t('conversation.moving'));
-				// await this.handleMoveCommand(payload.title, commandContent);
+			case 'move_from_search_result': {
+				await this.renderer.addGeneratingIndicator(payload.title, i18next.t('conversation.moving'));
+				await this.handleMoveFromSearchResultCommand(payload.title, commandContent);
 				break;
 			}
 
 			case 'search': {
-				await this.plugin.addGeneratingIndicator(
+				await this.renderer.addGeneratingIndicator(
 					payload.title,
 					i18next.t('conversation.searching')
 				);
 				await this.handleSearchCommand(payload.title, commandContent);
+				break;
+			}
+
+			case 'more': {
+				await this.handleShowMore(payload.title);
 				break;
 			}
 
@@ -124,7 +149,7 @@ export class ConversationEventHandler {
 			}
 
 			case ' ': {
-				await this.plugin.addGeneratingIndicator(payload.title, GeneratorText.ExtractingIntent);
+				await this.renderer.addGeneratingIndicator(payload.title, GeneratorText.ExtractingIntent);
 				await this.handleGeneralCommand(payload.title, commandContent);
 				break;
 			}
@@ -148,8 +173,18 @@ export class ConversationEventHandler {
 				break;
 			}
 
+			case 'move_from_search_result': {
+				await this.handleMoveFromSearchResultCommand(payload.title, payload.commandContent);
+				break;
+			}
+
 			case 'search': {
 				await this.handleSearchCommand(payload.title, payload.commandContent);
+				break;
+			}
+
+			case 'more': {
+				await this.handleShowMore(payload.title);
 				break;
 			}
 
@@ -182,22 +217,24 @@ export class ConversationEventHandler {
 				.replace('{result}', result.toString())
 				.replace('{firstNumber}', firstNumber.toString())
 				.replace('{secondNumber}', secondNumber.toString());
-			await this.plugin.updateConversationNote(title, answer, 'Steward');
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: answer,
+				role: 'Steward',
+				command: 'calc',
+			});
 		} catch (error) {
-			await this.plugin.updateConversationNote(title, error.message, 'Steward');
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: error.message,
+			});
 		}
 	}
 
 	private async handleMoveCommand(title: string, commandContent: string): Promise<void> {
 		try {
 			// Extract the move query
-			// const queryExtraction = await this.plugin.obsidianAPITools.extractMoveQuery(commandContent);
 			const queryExtraction = await extractMoveQueryV2(commandContent);
-			// const results = await this.plugin.searchIndexer.searchV2(queryExtraction.operations);
-
-			// Get all files matching the source queries using the new function
-			// const filesByOperation =
-			// 	await this.plugin.obsidianAPITools.getFilesByMoveQueryExtraction(queryExtraction);
 
 			const filesByOperation = new Map<number, IndexedDocument[]>();
 			for (let i = 0; i < queryExtraction.operations.length; i++) {
@@ -217,7 +254,12 @@ export class ConversationEventHandler {
 
 			// If no files match, inform the user without asking for confirmation
 			if (totalFilesToMove === 0) {
-				await this.plugin.updateConversationNote(title, t('move.noFilesFound'), 'Steward');
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: t('move.noFilesFound'),
+					role: 'Steward',
+					command: 'move',
+				});
 				return;
 			}
 
@@ -256,8 +298,8 @@ export class ConversationEventHandler {
 						eventType: Events.MOVE_QUERY_EXTRACTED,
 						payload: {
 							title,
-							queryExtraction, // This already contains the lang property if it was set
-							filesByOperation, // Pass the retrieved files to avoid redundant queries
+							queryExtraction,
+							filesByOperation,
 						},
 					}
 				);
@@ -265,53 +307,120 @@ export class ConversationEventHandler {
 				return; // Exit early, will resume when user responds
 			}
 
-			// All folders exist, continue with move
-			eventEmitter.emit(Events.MOVE_QUERY_EXTRACTED, {
+			// If all folders exist, handle the move operation directly
+			const payload: MoveQueryExtractedPayload = {
 				title,
 				queryExtraction,
-				filesByOperation, // Pass the retrieved files to avoid redundant queries
-			});
+				filesByOperation,
+			};
+
+			// Handle the move operation directly
+			this.handleMoveOperation(payload);
 		} catch (error) {
-			await this.plugin.updateConversationNote(
-				title,
-				`Error extracting move query: ${error.message}`,
-				'Steward'
-			);
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*Error extracting move query: ${error.message}*`,
+				role: 'Steward',
+			});
 		}
 	}
 
 	/**
-	 * Handles the move query extracted event
-	 * @param payload The event payload containing the move query extraction and optionally the files by operation
+	 * Handles the move operations from both query extraction and search results
+	 * @param payload The event payload containing either move query extraction or search results
 	 */
-	private async handleMoveQueryExtracted(payload: MoveQueryExtractedPayload): Promise<void> {
-		const { title, queryExtraction, filesByOperation } = payload;
-
+	private async handleMoveOperation(
+		payload: MoveQueryExtractedPayload | MoveFromSearchResultConfirmedPayload
+	): Promise<void> {
 		try {
 			// Add generating indicator
-			await this.plugin.addGeneratingIndicator(title, GeneratorText.Moving);
+			await this.renderer.addGeneratingIndicator(payload.title, GeneratorText.Moving);
 
-			// Perform the move operations, passing the files if available to avoid redundant queries
-			const result = await this.plugin.obsidianAPITools.moveByQueryExtraction(
-				queryExtraction,
+			// Create operations array and filesByOperation map based on payload type
+			const operations: MoveOperationV2[] = [];
+
+			const filesByOperation = new Map<number, IndexedDocument[]>();
+
+			// Handle based on the payload type
+			if ('queryExtraction' in payload) {
+				// It's a MoveQueryExtractedPayload
+				const { queryExtraction, filesByOperation: existingFiles } = payload;
+
+				// If we have files by operation, use them
+				if (existingFiles) {
+					// Add each operation from the query extraction
+					operations.push(...queryExtraction.operations);
+
+					// Copy the files for each operation
+					queryExtraction.operations.forEach((_, index) => {
+						const files = existingFiles.get(index) || [];
+						filesByOperation.set(index, files);
+					});
+				} else {
+					// Need to search for files first
+					for (let i = 0; i < queryExtraction.operations.length; i++) {
+						operations.push(queryExtraction.operations[i]);
+
+						// Search for files matching this operation
+						const docs = await this.plugin.searchIndexer.searchV2([queryExtraction.operations[i]]);
+						filesByOperation.set(i, docs);
+					}
+				}
+			} else {
+				// It's a MoveFromSearchResultConfirmedPayload
+				const { destinationFolder, searchResults, explanation } = payload;
+
+				// Create a single operation
+				operations.push({
+					keywords: [explanation],
+					tags: [],
+					filenames: [],
+					folders: [],
+					destinationFolder,
+				});
+
+				// Set the files for this operation
+				filesByOperation.set(0, searchResults);
+			}
+
+			// If there are no operations, return
+			if (operations.length === 0) {
+				await this.renderer.updateConversationNote({
+					path: payload.title,
+					newContent: 'No files to move',
+					role: 'Steward',
+				});
+				return;
+			}
+
+			// Perform the move operations
+			const result = await this.plugin.obsidianAPITools.moveByOperations(
+				operations,
 				filesByOperation
 			);
 
-			// Format the results using the existing helper method
+			// Get the language from the payload if available
+			const lang = 'queryExtraction' in payload ? payload.queryExtraction.lang : undefined;
+
+			// Format the results
 			const response = this.formatMoveResult({
 				operations: result.operations,
-				lang: queryExtraction.lang,
+				lang,
 			});
 
 			// Update the conversation with the results
-			await this.plugin.updateConversationNote(title, response);
+			await this.renderer.updateConversationNote({
+				path: payload.title,
+				newContent: response,
+				role: 'Steward',
+			});
 		} catch (error) {
-			console.error('Error handling move query:', error);
-			await this.plugin.updateConversationNote(
-				title,
-				`Error moving files: ${error.message}`,
-				'Steward'
-			);
+			console.error('Error handling move operation:', error);
+			await this.renderer.updateConversationNote({
+				path: payload.title,
+				newContent: `*Error moving files: ${error.message}*`,
+				role: 'Steward',
+			});
 		}
 	}
 
@@ -319,9 +428,11 @@ export class ConversationEventHandler {
 		try {
 			const queryExtraction = await extractSearchQueryV2(commandContent);
 
+			// Get the search results
 			const docs = await this.plugin.searchIndexer.searchV2(queryExtraction.operations);
 
-			const paginatedDocs = this.plugin.searchIndexer.paginateResults(docs);
+			// Paginate the results for display (first page)
+			const paginatedDocs = this.plugin.searchIndexer.paginateResults(docs, 1, 10);
 
 			// Get translation function for the specified language
 			const t = getTranslation(queryExtraction.lang);
@@ -343,7 +454,7 @@ export class ConversationEventHandler {
 
 					if (file && 'keywordsMatched' in result) {
 						try {
-							const fileContent = await this.plugin.app.vault.read(file);
+							const fileContent = await this.plugin.app.vault.cachedRead(file);
 
 							// Get highlighted matches from the entire file content
 							const highlightedMatches = highlightKeywords(result.keywordsMatched, fileContent);
@@ -371,14 +482,157 @@ export class ConversationEventHandler {
 					}
 				}
 
-				response += `\n\n${t('search.showMoreDetails')}`;
+				// Add pagination information and more command if there are more results
+				if (paginatedDocs.totalPages > 1) {
+					response += `\n\n${t('search.useMoreCommand')}`;
+				}
 			} else {
 				response += `${t('search.noResults')}`;
 			}
 
-			await this.plugin.updateConversationNote(title, response, 'Steward');
+			// Update the conversation note and get the message ID
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: response,
+				role: 'Steward',
+			});
+
+			const userSearchMetadata = await this.renderer.findMostRecentMessageMetadata(
+				title,
+				'search',
+				'user'
+			);
+
+			// Store the search results in the artifact manager
+			if (userSearchMetadata) {
+				this.artifactManager.storeArtifact(title, userSearchMetadata.ID, {
+					type: ArtifactType.SEARCH_RESULTS,
+					originalResults: docs,
+				});
+			}
 		} catch (error) {
-			await this.plugin.updateConversationNote(title, `Error: ${error.message}`, 'Steward');
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*Error: ${error.message}*`,
+			});
+		}
+	}
+
+	private async handleShowMore(path: string): Promise<void> {
+		try {
+			const userSearchMetadata = await this.renderer.findMostRecentMessageMetadata(
+				path,
+				'search',
+				'user'
+			);
+
+			if (!userSearchMetadata) {
+				await this.renderer.updateConversationNote({
+					path,
+					newContent: i18next.t('search.noRecentSearch'),
+				});
+				return;
+			}
+
+			const moreCommandMetadata = await this.renderer.findMostRecentMessageMetadata(
+				path,
+				'more',
+				'user'
+			);
+
+			// Default to page 2 if this is the first "more" command
+			const page = moreCommandMetadata ? parseInt(moreCommandMetadata.PAGE) : 2;
+
+			// Retrieve the search results from the artifact manager
+			const searchArtifact = this.artifactManager.getArtifact<SearchResultsArtifact>(
+				path,
+				userSearchMetadata.ID
+			);
+
+			if (!searchArtifact || searchArtifact.type !== ArtifactType.SEARCH_RESULTS) {
+				await this.renderer.updateConversationNote({
+					path,
+					newContent: i18next.t('search.noRecentSearch'),
+				});
+				return;
+			}
+
+			// Get paginated results for the current page
+			const paginatedDocs = this.plugin.searchIndexer.paginateResults(
+				searchArtifact.originalResults,
+				page,
+				10
+			);
+
+			// If we're past the last page, inform the user
+			if (page > paginatedDocs.totalPages) {
+				await this.renderer.updateConversationNote({
+					path,
+					newContent: i18next.t('search.noMoreResults'),
+					role: 'Steward',
+				});
+				return;
+			}
+
+			// Format the results
+			const t = getTranslation();
+			let response = `${t('search.showingPage', { page, total: paginatedDocs.totalPages })}\n\n`;
+
+			// List the search results
+			for (let index = 0; index < paginatedDocs.documents.length; index++) {
+				const result = paginatedDocs.documents[index];
+				const displayIndex = (page - 1) * 10 + index + 1;
+				response += `\n\n**${displayIndex}.** [[${result.fileName}]]:\n`;
+
+				// Get the file content directly instead of using result.matches
+				const file = this.plugin.getFileByNameOrPath(result.fileName);
+
+				if (file && 'keywordsMatched' in result) {
+					try {
+						const fileContent = await this.plugin.app.vault.cachedRead(file);
+
+						// Get highlighted matches from the entire file content
+						const highlightedMatches = highlightKeywords(result.keywordsMatched, fileContent);
+
+						// Show up to 3 highlighted matches
+						const matchesToShow = Math.min(3, highlightedMatches.length);
+
+						if (matchesToShow > 0) {
+							// Add each highlighted match to the response
+							for (let i = 0; i < matchesToShow; i++) {
+								response += `\n"""\n${highlightedMatches[i]}\n"""\n`;
+							}
+
+							// Show a message for additional matches
+							if (highlightedMatches.length > 3) {
+								response += `\n_${t('search.moreMatches', { count: highlightedMatches.length - 3 })}_`;
+							}
+						} else {
+							// No highlights found in the file content
+							response += `\n${t('search.noMatchesInFile')}\n`;
+						}
+					} catch (error) {
+						console.error('Error reading file:', error);
+					}
+				}
+			}
+
+			// Add pagination footer if there are more pages
+			if (page < paginatedDocs.totalPages) {
+				response += `\n\n${t('search.useMoreCommand')}`;
+			}
+
+			// Update the conversation with the results
+			await this.renderer.updateConversationNote({
+				path,
+				newContent: response,
+				role: 'Steward',
+			});
+		} catch (error) {
+			await this.renderer.updateConversationNote({
+				path,
+				newContent: `*Error: ${error.message}*`,
+			});
 		}
 	}
 
@@ -399,7 +653,10 @@ export class ConversationEventHandler {
 				intentExtraction,
 			});
 		} catch (error) {
-			await this.plugin.updateConversationNote(title, `Error: ${error.message}`, 'Steward');
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*Error: ${error.message}*`,
+			});
 		}
 	}
 
@@ -429,9 +686,16 @@ export class ConversationEventHandler {
 		try {
 			// For low confidence intents, just show the explanation without further action
 			if (intentExtraction.confidence <= 0.7) {
-				await this.plugin.updateConversationNote(title, intentExtraction.explanation, 'Steward');
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: intentExtraction.explanation,
+					role: 'Steward',
+				});
 				return;
 			}
+
+			// Update the command in the last user message comment block before routing
+			await this.renderer.updateLastUserMessageCommand(title, intentExtraction.commandType);
 
 			// For confident intents, route to the appropriate handler
 			eventEmitter.emit(Events.CONVERSATION_COMMAND_RECEIVED, {
@@ -441,10 +705,10 @@ export class ConversationEventHandler {
 				lang: intentExtraction.lang,
 			});
 		} catch (error) {
-			await this.plugin.updateConversationNote(
-				title,
-				`Error processing your request: ${error.message}`
-			);
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*Error processing your request: ${error.message}*`,
+			});
 		}
 	}
 
@@ -466,7 +730,12 @@ export class ConversationEventHandler {
 		const confirmationIntent = this.plugin.confirmationEventHandler.isConfirmIntent(commandContent);
 		if (!confirmationIntent) {
 			// If it's not a clear confirmation, let the user know
-			await this.plugin.updateConversationNote(title, t('confirmation.notUnderstood'), 'Steward');
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: t('confirmation.notUnderstood'),
+				role: 'Steward',
+				command: 'confirm',
+			});
 			return;
 		}
 
@@ -476,7 +745,12 @@ export class ConversationEventHandler {
 
 		if (confirmationsForConversation.length === 0) {
 			// No pending confirmations for this conversation
-			await this.plugin.updateConversationNote(title, t('confirmation.noPending'), 'Steward');
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: t('confirmation.noPending'),
+				role: 'Steward',
+				command: 'confirm',
+			});
 			return;
 		}
 
@@ -596,9 +870,91 @@ export class ConversationEventHandler {
 		// TODO: Implement error handling UI feedback
 	}
 
-	private isMathExpression(content: string): boolean {
-		// TODO: Implement more sophisticated math detection
-		// For now, just check if it contains numbers and operators
-		return /[\d+\-*/]/.test(content);
+	/**
+	 * Handles the move_from_search_result command to move files from recent search results
+	 * @param title The conversation title
+	 * @param commandContent The command content containing the destination folder
+	 */
+	private async handleMoveFromSearchResultCommand(
+		title: string,
+		commandContent: string
+	): Promise<void> {
+		try {
+			// Extract the destination folder from the command
+			const extraction = await extractMoveFromSearchResult(commandContent);
+
+			// Get translation function
+			const t = getTranslation();
+
+			// Retrieve the most recent search results artifact
+			const searchArtifact =
+				this.artifactManager.getMostRecentArtifactByType<SearchResultsArtifact>(
+					title,
+					ArtifactType.SEARCH_RESULTS
+				);
+
+			if (!searchArtifact || searchArtifact.type !== ArtifactType.SEARCH_RESULTS) {
+				// No search results available
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: t('search.noRecentSearch'),
+					role: 'Steward',
+					command: 'move_from_search_result',
+				});
+				return;
+			}
+
+			// Check if the destination folder exists
+			const destinationFolder = extraction.destinationFolder;
+			const folderExists = this.plugin.app.vault.getAbstractFileByPath(destinationFolder);
+
+			if (!folderExists) {
+				// Request confirmation to create the folder
+				let message = t('move.createFoldersHeader') + '\n';
+				message += `- \`${destinationFolder}\`\n`;
+				message += '\n' + t('move.createFoldersQuestion');
+
+				// Create context with information needed to perform the move after confirmation
+				await this.plugin.confirmationEventHandler.requestConfirmation(
+					title,
+					'move-folder-from-search',
+					message,
+					{
+						missingFolder: destinationFolder,
+						searchResults: searchArtifact.originalResults,
+						explanation: extraction.explanation,
+					},
+					{
+						eventType: Events.MOVE_FROM_SEARCH_RESULT_CONFIRMED,
+						payload: {
+							title,
+							destinationFolder,
+							searchResults: searchArtifact.originalResults,
+							explanation: extraction.explanation,
+						},
+					}
+				);
+
+				return; // Wait for confirmation
+			}
+
+			// Folder exists, create the payload and trigger the event directly
+			const payload: MoveFromSearchResultConfirmedPayload = {
+				title,
+				destinationFolder,
+				searchResults: searchArtifact.originalResults,
+				explanation: extraction.explanation,
+			};
+
+			// Handle the move operation directly instead of emitting an event
+			this.handleMoveOperation(payload);
+		} catch (error) {
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*Error extracting destination: ${error.message}*`,
+				role: 'Steward',
+				command: 'move_from_search_result',
+			});
+		}
 	}
 }

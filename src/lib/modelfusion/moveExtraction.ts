@@ -30,10 +30,7 @@ export interface MoveQueryExtractionV2 {
  */
 export async function extractMoveQueryV2(userInput: string): Promise<MoveQueryExtractionV2> {
 	try {
-		// First, extract the search parameters
-		// const searchParams = await extractSearchQueryV2(userInput);
-
-		// Then, use ModelFusion to add the move parameters
+		// Use ModelFusion to add the move parameters
 		const response = await generateText({
 			model: openai.ChatTextGenerator({
 				model: 'gpt-4-turbo-preview',
@@ -46,7 +43,6 @@ export async function extractMoveQueryV2(userInput: string): Promise<MoveQueryEx
 				confidenceScorePrompt,
 				{
 					role: 'user',
-					// content: JSON.stringify(searchParams) + '\n\nUser query: ' + userInput,
 					content: userInput,
 				},
 			],

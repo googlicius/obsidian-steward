@@ -69,7 +69,12 @@ export class ConfirmationEventHandler {
 		this.pendingConfirmations.set(payload.id, confirmation);
 
 		// Update the conversation with the confirmation message
-		await this.plugin.updateConversationNote(payload.conversationTitle, payload.message, 'Steward');
+		await this.plugin.updateConversationNote({
+			path: payload.conversationTitle,
+			newContent: payload.message,
+			role: 'Steward',
+			command: 'confirm',
+		});
 	}
 
 	/**
@@ -136,27 +141,30 @@ export class ConfirmationEventHandler {
 					eventEmitter.emit(eventType, payload);
 				} else {
 					// No event defined, just acknowledge
-					await this.plugin.updateConversationNote(
-						conversationTitle,
-						`Confirmation received for "${confirmation.type}".`,
-						'Steward'
-					);
+					await this.plugin.updateConversationNote({
+						path: conversationTitle,
+						newContent: `Confirmation received for "${confirmation.type}".`,
+						role: 'Steward',
+						command: 'confirm',
+					});
 				}
 			} else {
 				// User declined
-				await this.plugin.updateConversationNote(
-					conversationTitle,
-					t('confirmation.operationCancelled'),
-					'Steward'
-				);
+				await this.plugin.updateConversationNote({
+					path: conversationTitle,
+					newContent: t('confirmation.operationCancelled'),
+					role: 'Steward',
+					command: 'confirm',
+				});
 			}
 		} catch (error) {
 			// Handle any errors during confirmation handling
-			await this.plugin.updateConversationNote(
-				conversationTitle,
-				t('confirmation.errorProcessing', { errorMessage: error.message }),
-				'Steward'
-			);
+			await this.plugin.updateConversationNote({
+				path: conversationTitle,
+				newContent: t('confirmation.errorProcessing', { errorMessage: error.message }),
+				role: 'Steward',
+				command: 'error',
+			});
 		}
 
 		return true;

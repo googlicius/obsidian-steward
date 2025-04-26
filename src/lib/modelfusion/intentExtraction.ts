@@ -47,8 +47,14 @@ function validateCommandIntentExtraction(data: any): CommandIntentExtraction {
 		throw new Error('Invalid response format');
 	}
 
-	if (!['search', 'move', 'calc', 'close', 'confirm'].includes(data.commandType)) {
-		throw new Error('Command type must be one of: search, move, calc, close, confirm');
+	if (
+		!['search', 'move', 'move_from_search_result', 'calc', 'close', 'confirm'].includes(
+			data.commandType
+		)
+	) {
+		throw new Error(
+			'Command type must be one of: search, move, move_from_search_result, calc, close, confirm'
+		);
 	}
 
 	if (typeof data.content !== 'string' || !data.content.trim()) {

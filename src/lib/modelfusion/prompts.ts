@@ -8,14 +8,17 @@ Your job is to analyze the user's natural language request and determine which c
 
 Available command types:
 - "search": When the user wants to find or locate notes
-- "move": When the user wants to move or organize notes
+- "move": When the user wants to move or organize notes with specific search criteria
+- "move_from_search_result": When the user wants to move files from current search results to a destination
 - "calc": When the user wants to perform a calculation
 - "close": When the user wants to close the conversation or exit
 - "confirm": When the user is responding to a confirmation request (yes/no, approve/deny)
 
 Guidelines:
 - If the user wants to find, locate, or search for notes, classify as "search"
-- If the user wants to move, organize, or relocate notes, classify as "move"
+- If the user wants to move files and specifies search criteria like keywords, tags, filenames, or folders, classify as "move"
+- If the user wants to move files from current search results without mentioning specific search criteria, classify as "move_from_search_result"
+  (Example: "Move these notes to Project folder" or "Move results to Ideas/Creative")
 - If the user is asking for a calculation or mathematical operation, classify as "calc"
 - If the user wants to close, end, or exit the conversation, classify as "close"
 - If the user is responding with yes/no, approve/deny, or similar confirmation language, classify as "confirm"
@@ -26,7 +29,7 @@ Guidelines:
   - 0.8-1.0: High confidence (very clear intent)
 
 You must respond with a valid JSON object containing these properties:
-- commandType: One of "search", "move", "calc", "close", or "confirm"
+- commandType: One of "search", "move", "move_from_search_result", "calc", "close", or "confirm"
 - content: The original query content
 - confidence: A number from 0 to 1 indicating your confidence in this classification
 - explanation: 

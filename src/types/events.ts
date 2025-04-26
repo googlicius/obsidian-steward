@@ -13,6 +13,7 @@ export enum Events {
 	COMMAND_INTENT_EXTRACTED = 'COMMAND_INTENT_EXTRACTED',
 	CONFIRMATION_REQUESTED = 'CONFIRMATION_REQUESTED',
 	CONFIRMATION_RESPONDED = 'CONFIRMATION_RESPONDED',
+	MOVE_FROM_SEARCH_RESULT_CONFIRMED = 'MOVE_FROM_SEARCH_RESULT_CONFIRMED',
 }
 
 export enum ErrorEvents {
@@ -62,6 +63,13 @@ export interface MoveQueryExtractedPayload {
 	filesByOperation?: Map<number, IndexedDocument[]>;
 }
 
+export interface MoveFromSearchResultConfirmedPayload {
+	title: string;
+	destinationFolder: string;
+	searchResults: IndexedDocument[];
+	explanation: string;
+}
+
 export interface CommandIntentExtractedPayload {
 	title: string;
 	intentExtraction: CommandIntentExtraction;
@@ -92,6 +100,7 @@ export type EventPayloadMap = {
 	[Events.COMMAND_INTENT_EXTRACTED]: CommandIntentExtractedPayload;
 	[Events.CONFIRMATION_REQUESTED]: ConfirmationRequestPayload;
 	[Events.CONFIRMATION_RESPONDED]: ConfirmationResponsePayload;
+	[Events.MOVE_FROM_SEARCH_RESULT_CONFIRMED]: MoveFromSearchResultConfirmedPayload;
 	[ErrorEvents.MATH_PROCESSING_ERROR]: ErrorPayload;
 	[ErrorEvents.LLM_ERROR]: ErrorPayload;
 };

@@ -5,7 +5,7 @@ import { moveQueryPrompt } from '../lib/modelfusion/prompts';
 import { userLanguagePrompt } from '../lib/modelfusion/prompts/languagePrompt';
 import { SearchTool } from './searchTools';
 import { CommandIntentExtraction, extractCommandIntent } from '../lib/modelfusion/intentExtraction';
-import { MoveQueryExtractionV2, SearchQueryExtractionV2 } from 'src/lib/modelfusion';
+import { MoveQueryExtractionV2, MoveOperationV2 } from 'src/lib/modelfusion';
 import { IndexedDocument } from 'src/database/PluginDatabase';
 
 /**
@@ -155,7 +155,6 @@ export class ObsidianAPITools {
 
 		// Process each operation
 		for (let i = 0; i < queryExtraction.operations.length; i++) {
-			const operation = queryExtraction.operations[i];
 			// Find files matching the source query
 			// const results = await this.searchTool.getFilesByQuery(operation.sourceQuery);
 			const results: SearchResult[] = [];
@@ -166,14 +165,14 @@ export class ObsidianAPITools {
 	}
 
 	/**
-	 * Move files based on one or more operations
-	 * @param queryExtraction The extracted move query parameters
-	 * @param filesByOperation Optional map of operation index to files, to avoid redundant queries
+	 * Move files based on operations and search results
+	 * @param operations Array of MoveOperationV2 objects containing destination folders and keywords
+	 * @param filesByOperation Map of operation index to files to move
 	 * @returns Results of the move operations
 	 */
-	async moveByQueryExtraction(
-		queryExtraction: MoveQueryExtractionV2,
-		filesByOperation?: Map<number, IndexedDocument[]>
+	async moveByOperations(
+		operations: MoveOperationV2[],
+		filesByOperation: Map<number, IndexedDocument[]>
 	): Promise<{
 		operations: Array<{
 			sourceQuery: string;
@@ -186,11 +185,11 @@ export class ObsidianAPITools {
 		const operationResults = [];
 
 		// Process each operation
-		for (let i = 0; i < queryExtraction.operations.length; i++) {
-			const operation = queryExtraction.operations[i];
+		for (let i = 0; i < operations.length; i++) {
+			const operation = operations[i];
 
-			// Use provided files or query for them
-			const results = filesByOperation?.get(i) || [];
+			// Get the files for this operation
+			const results = filesByOperation.get(i) || [];
 
 			// Process the move operations
 			const moved: string[] = [];
@@ -199,6 +198,8 @@ export class ObsidianAPITools {
 
 			for (const result of results) {
 				const filePath = result.path;
+				if (!filePath) continue;
+
 				const fileName = filePath.split('/').pop() || '';
 				const destinationPath = `${operation.destinationFolder}/${fileName}`.replace(/\/+/g, '/');
 
@@ -218,7 +219,7 @@ export class ObsidianAPITools {
 			}
 
 			operationResults.push({
-				sourceQuery: operation.keywords.join(', '),
+				sourceQuery: operation.keywords ? operation.keywords.join(', ') : 'Search results',
 				destinationFolder: operation.destinationFolder,
 				moved,
 				errors,

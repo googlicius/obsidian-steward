@@ -16,10 +16,20 @@ import { encrypt, decrypt, generateSaltKeyId } from './utils/cryptoUtils';
 import { ConfirmationEventHandler } from './services/ConfirmationEventHandler';
 import { SearchTool } from './tools/searchTools';
 import { logger } from './utils/logger';
-import { ConversationContextManager, CommandFactory } from './solutions/command-chaining';
+import { ConversationRenderer } from './services/ConversationRenderer';
+import { ConversationArtifactManager } from './services/ConversationArtifactManager';
 
 // Supported command prefixes
-export const COMMAND_PREFIXES = ['/ ', '/move', '/search', '/calc', '/me', '/close', '/confirm'];
+export const COMMAND_PREFIXES = [
+	'/ ',
+	'/move',
+	'/search',
+	'/more',
+	'/calc',
+	'/me',
+	'/close',
+	'/confirm',
+];
 // Define custom icon ID
 const SMILE_CHAT_ICON_ID = 'smile-chat-icon';
 
@@ -69,9 +79,9 @@ export default class StewardPlugin extends Plugin {
 	ribbonIcon: HTMLElement;
 	staticConversationTitle = 'Steward Chat';
 	confirmationEventHandler: ConfirmationEventHandler;
+	artifactManager: ConversationArtifactManager;
 	// Command chaining components (not integrated yet)
-	contextManager: ConversationContextManager;
-	commandFactory: CommandFactory;
+	conversationRenderer: ConversationRenderer;
 
 	get editor() {
 		return this.app.workspace.activeEditor?.editor as Editor & {
@@ -250,10 +260,11 @@ export default class StewardPlugin extends Plugin {
 		// Initialize the confirmation event handler
 		this.confirmationEventHandler = new ConfirmationEventHandler(this);
 
-		// Initialize command chaining components (not integrated yet)
-		this.contextManager = new ConversationContextManager();
-		this.commandFactory = new CommandFactory(this);
-		logger.log('Command chaining solution initialized but not integrated');
+		// Initialize the ConversationRenderer
+		this.conversationRenderer = new ConversationRenderer(this);
+
+		// Initialize the ConversationArtifactManager
+		this.artifactManager = ConversationArtifactManager.getInstance();
 	}
 
 	onunload() {}
@@ -303,7 +314,12 @@ export default class StewardPlugin extends Plugin {
 				const notePath = `${folderPath}/${conversationLink}.md`;
 
 				if (this.app.vault.getAbstractFileByPath(notePath) && conversationLink) {
-					await this.updateConversationNote(conversationLink, lineText, 'User');
+					await this.updateConversationNote({
+						path: conversationLink,
+						newContent: lineText,
+						role: 'User',
+						command: commandType,
+					});
 
 					// Remove the current line
 					view.dispatch({
@@ -576,53 +592,7 @@ export default class StewardPlugin extends Plugin {
 
 	// Helper function to create a conversation note
 	async createConversationNote(title: string, commandType: string, content: string): Promise<void> {
-		try {
-			// Get the configured folder for conversations
-			const folderPath = this.settings.conversationFolder;
-			const notePath = `${folderPath}/${title}.md`;
-
-			// Check if conversations folder exists, create if not
-			const folderExists = this.app.vault.getAbstractFileByPath(folderPath);
-			if (!folderExists) {
-				await this.app.vault.createFolder(folderPath);
-			}
-
-			// Build initial content based on command type
-			let initialContent = `##### **User:** /${commandType.trim()} ${content}\n\n`;
-
-			switch (commandType) {
-				case 'move':
-					initialContent += `*${i18next.t('conversation.moving')}*`;
-					break;
-				case 'search':
-					initialContent += `*${i18next.t('conversation.searching')}*`;
-					break;
-				case 'calc':
-					initialContent += `*${i18next.t('conversation.calculating')}*`;
-					break;
-				case ' ':
-					initialContent += `*${i18next.t('conversation.generating')}*`;
-					break;
-
-				default:
-					initialContent = [
-						`#gtp-4`,
-						'',
-						`/${commandType.trim()} ${content}`,
-						'',
-						`**Steward**: ${i18next.t('conversation.workingOnIt')}`,
-						'',
-					].join('\n');
-					break;
-			}
-
-			// Create the conversation note
-			await this.app.vault.create(notePath, initialContent);
-		} catch (error) {
-			console.error('Error creating conversation note:', error);
-			new Notice(i18next.t('ui.errorCreatingNote', { errorMessage: error.message }));
-			throw error;
-		}
+		return this.conversationRenderer.createConversationNote(title, commandType, content);
 	}
 
 	/**
@@ -664,57 +634,22 @@ export default class StewardPlugin extends Plugin {
 
 	/**
 	 * Updates a conversation note with the given result
-	 * @param path - The path of the conversation note
-	 * @param newContent - The new content to update in the note
-	 * @param role - The role of the note
 	 */
-	async updateConversationNote(path: string, newContent: string, role?: string): Promise<void> {
-		try {
-			const folderPath = this.settings.conversationFolder;
-			const notePath = `${folderPath}/${path}.md`;
-
-			// Get the current content of the note
-			const file = this.app.vault.getAbstractFileByPath(notePath) as TFile;
-			if (!file) {
-				throw new Error(i18next.t('ui.noteNotFound', { notePath }));
-			}
-
-			let currentContent = await this.app.vault.read(file);
-
-			// Remove the generating indicator and any trailing newlines
-			currentContent = this.removeGeneratingIndicator(currentContent);
-			let heading = '';
-
-			// Add a separator line if the role is User
-			if (role === 'User') {
-				currentContent = `${currentContent}\n\n---`;
-				heading = '##### ';
-			}
-
-			// Update the note
-			const roleText = role ? `**${role}:** ` : '';
-			await this.app.vault.modify(file, `${currentContent}\n\n${heading}${roleText}${newContent}`);
-		} catch (error) {
-			console.error('Error updating conversation note:', error);
-			new Notice(i18next.t('ui.errorUpdatingConversation', { errorMessage: error.message }));
-		}
+	async updateConversationNote(params: {
+		path: string;
+		newContent: string;
+		command?: string;
+		role?: string;
+	}) {
+		return this.conversationRenderer.updateConversationNote(params);
 	}
 
 	async addGeneratingIndicator(path: string, indicatorText: GeneratorText): Promise<void> {
-		const folderPath = this.settings.conversationFolder;
-		const notePath = `${folderPath}/${path}.md`;
-		const file = this.app.vault.getAbstractFileByPath(notePath) as TFile;
-		if (!file) {
-			throw new Error(i18next.t('ui.noteNotFound', { notePath }));
-		}
-
-		const currentContent = this.removeGeneratingIndicator(await this.app.vault.read(file));
-		const newContent = `${currentContent}\n\n*${indicatorText}*`;
-		await this.app.vault.modify(file, newContent);
+		return this.conversationRenderer.addGeneratingIndicator(path, indicatorText);
 	}
 
-	removeGeneratingIndicator(content: string) {
-		return content.replace(/\n\n\*.*?\.\.\.\*$/, '');
+	removeGeneratingIndicator(content: string): string {
+		return this.conversationRenderer.removeGeneratingIndicator(content);
 	}
 
 	/**
