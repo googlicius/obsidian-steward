@@ -53,7 +53,7 @@ export class ConversationArtifactManager {
 	 * @returns The artifact, or undefined if not found
 	 */
 	public getArtifact<T>(conversationTitle: string, artifactId: string): T | undefined {
-		return this.artifacts.get(conversationTitle)?.get(artifactId) as T | undefined;
+		return this.artifacts.get(conversationTitle)?.get(artifactId);
 	}
 
 	/**
@@ -91,12 +91,17 @@ export class ConversationArtifactManager {
 		const artifactsOfType: T[] = [];
 		conversationArtifacts.forEach(artifact => {
 			if (artifact.type === type) {
-				artifactsOfType.push(artifact as T);
+				artifactsOfType.push(artifact);
 			}
 		});
 
 		// Return the most recent one (assuming it's the last one added)
 		return artifactsOfType.length > 0 ? artifactsOfType[artifactsOfType.length - 1] : undefined;
+	}
+
+	public deleteArtifact(conversationTitle: string, messageId: string): boolean {
+		const conversationArtifacts = this.artifacts.get(conversationTitle);
+		return conversationArtifacts ? conversationArtifacts?.delete(messageId) : true;
 	}
 
 	/**

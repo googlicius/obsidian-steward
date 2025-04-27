@@ -29,6 +29,8 @@ export const COMMAND_PREFIXES = [
 	'/me',
 	'/close',
 	'/confirm',
+	'/yes',
+	'/no',
 ];
 // Define custom icon ID
 const SMILE_CHAT_ICON_ID = 'smile-chat-icon';

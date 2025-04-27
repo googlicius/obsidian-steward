@@ -20,7 +20,7 @@ Guidelines:
 - If the user wants to search/move with different criteria in different locations, return an array of operations
 - For move operations:
   - A destinationFolder is required (the folder path where files should be moved to)
-  - Ensure the destination folder starts without a slash and doesn't end with a slash
+  - Ensure the destination folder starts without a slash and doesn't end with a slash, EXCEPT for the root folder: /
   - If the destination folder doesn't exist, it will be created
 - Consider synonyms and related terms that might be helpful
 

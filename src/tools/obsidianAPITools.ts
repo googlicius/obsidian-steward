@@ -5,7 +5,7 @@ import { moveQueryPrompt } from '../lib/modelfusion/prompts';
 import { userLanguagePrompt } from '../lib/modelfusion/prompts/languagePrompt';
 import { SearchTool } from './searchTools';
 import { CommandIntentExtraction, extractCommandIntent } from '../lib/modelfusion/intentExtraction';
-import { MoveQueryExtractionV2, MoveOperationV2 } from 'src/lib/modelfusion';
+import { MoveOperationV2 } from 'src/lib/modelfusion';
 import { IndexedDocument } from 'src/database/PluginDatabase';
 
 /**

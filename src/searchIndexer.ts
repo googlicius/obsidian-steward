@@ -10,6 +10,7 @@ import {
 } from './database/PluginDatabase';
 import { SearchOperationV2 } from './lib/modelfusion';
 import { logger } from './utils/logger';
+import { similarity } from './utils/similarity';
 
 interface ScoredDocument extends IndexedDocument {
 	score: number;
@@ -679,7 +680,8 @@ export class SearchIndexer {
 	): Promise<(IndexedDocument | ScoredKeywordsMatchedDoc)[]> {
 		// const page = options.page || 1;
 		// const limit = options.limit || 10;
-		const calculateScores = options.calculateScores || true;
+		// Remove unused variable
+		// const calculateScores = options.calculateScores || true;
 
 		if (operations.length === 0) {
 			return [];
@@ -694,10 +696,15 @@ export class SearchIndexer {
 
 			if (folders.length > 0) {
 				matchedFolders = await this.getFoldersByNames(folders);
+				if (matchedFolders.length === 0) {
+					logger.warn('No folders found with these names, skipped', folders);
+					continue;
+				}
 			}
 
 			if (filenames.length > 0) {
 				matchedFilenameDocuments = await this.getDocumentsByNames(filenames);
+				logger.log('matchedFilenameDocuments', matchedFilenameDocuments, filenames);
 			}
 
 			const keywords = [];
@@ -746,6 +753,7 @@ export class SearchIndexer {
 
 			// If all parameters are empty, return empty array early
 			if (keywords.length === 0 && scopedDocuments.length === 0 && folders.length === 0) {
+				logger.warn('All parameters are empty');
 				return [];
 			}
 
@@ -872,8 +880,12 @@ export class SearchIndexer {
 		// Convert to Set to remove duplicates
 		const documentIds = new Set(termEntries.map(entry => entry.documentId));
 
+		console.log('getDocumentsFromFolders', folders);
+		console.log('documentIds', documentIds);
+
 		// Return empty array if no matching documents
 		if (documentIds.size === 0) {
+			logger.log(`No documents found in these folders`, folders);
 			return [];
 		}
 
@@ -973,7 +985,10 @@ export class SearchIndexer {
 		allFolders.push(this.getRootFolder());
 
 		for (const name of names) {
-			const matches = allFolders.filter(folder => new RegExp(name, 'i').test(folder.name));
+			const matches = allFolders.filter(folder => {
+				const nameReg = new RegExp(name, 'i');
+				return nameReg.test(folder.name) || nameReg.test(folder.path);
+			});
 
 			// Only accept if exactly one match
 			if (matches.length > 0) {
@@ -985,38 +1000,42 @@ export class SearchIndexer {
 	}
 
 	/**
-	 * Get documents by (partial) names
-	 * @param names Array of name patterns to match
+	 * Get documents by names using similarity matching
+	 * @param names Array of name patterns to match with similarity of at least 70%
 	 * @returns Array of matched documents
 	 */
-	private async getDocumentsByNames(names: string[]) {
+	private async getDocumentsByNames(names: string[]): Promise<IndexedDocument[]> {
 		if (names.length === 0) return [];
 		const matchedDocuments: IndexedDocument[] = [];
+		const SIMILARITY_THRESHOLD = 0.7; // 70% similarity threshold
 
 		for (const name of names) {
 			const terms = this.tokenizeContent(name).map(t => t.term);
 			if (terms.length === 0) continue;
 
-			const documentIdSets: Set<number>[] = [];
+			// Get document IDs from term entries
 			const termEntries = await this.db.terms
 				.where('term')
 				.anyOf(terms)
 				.and(item => item.source === TermSource.Filename)
 				.toArray();
-			const ids = new Set(termEntries.map(entry => entry.documentId));
-			documentIdSets.push(ids);
 
-			// Find intersection of all sets (documents that have all terms in filename)
-			let commonIds = documentIdSets[0];
-			for (let i = 1; i < documentIdSets.length; i++) {
-				commonIds = new Set([...commonIds].filter(id => documentIdSets[i].has(id)));
-			}
+			// Extract unique document IDs from term entries
+			const documentIds = [...new Set(termEntries.map(entry => entry.documentId))];
 
-			// Only accept if exactly one document matches all terms
-			if (commonIds.size === 1) {
-				const docId = [...commonIds][0];
-				const doc = await this.db.documents.get(docId);
-				if (doc) {
+			// If no matching documents found, continue to next name
+			if (documentIds.length === 0) continue;
+
+			// Fetch the documents for these IDs
+			const documents = await this.db.documents.where('id').anyOf(documentIds).toArray();
+
+			// Filter documents by similarity score
+			for (const doc of documents) {
+				// Calculate similarity between search name and document name
+				const similarityScore = similarity(name, doc.fileName);
+
+				// If similarity is above threshold, add to matched documents
+				if (similarityScore >= SIMILARITY_THRESHOLD) {
 					matchedDocuments.push(doc);
 				}
 			}

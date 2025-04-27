@@ -8,6 +8,7 @@ import { userLanguagePrompt } from './prompts/languagePrompt';
 export interface MoveFromSearchResultExtraction {
 	destinationFolder: string;
 	explanation: string;
+	lang?: string;
 }
 
 /**
@@ -58,11 +59,9 @@ function validateMoveFromSearchResultExtraction(data: any): MoveFromSearchResult
 		throw new Error('Explanation must be a non-empty string');
 	}
 
-	// Remove leading or trailing slashes from destination folder
-	const destinationFolder = data.destinationFolder.trim().replace(/^\/+/, '').replace(/\/+$/, '');
-
 	return {
-		destinationFolder,
+		destinationFolder: data.destinationFolder.trim(),
 		explanation: data.explanation.trim(),
+		lang: data.lang,
 	};
 }

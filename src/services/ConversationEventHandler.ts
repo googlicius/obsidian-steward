@@ -22,6 +22,8 @@ import {
 	SearchResultsArtifact,
 } from './ConversationArtifactManager';
 import { extractMoveFromSearchResult } from '../lib/modelfusion';
+import { PaginatedSearchResultV2 } from '../searchIndexer';
+import { logger } from 'src/utils/logger';
 
 interface Props {
 	plugin: StewardPlugin;
@@ -148,6 +150,16 @@ export class ConversationEventHandler {
 				break;
 			}
 
+			case 'yes': {
+				await this.handleConfirmCommand(payload.title, 'Yes', payload.lang);
+				break;
+			}
+
+			case 'no': {
+				await this.handleConfirmCommand(payload.title, 'No', payload.lang);
+				break;
+			}
+
 			case ' ': {
 				await this.renderer.addGeneratingIndicator(payload.title, GeneratorText.ExtractingIntent);
 				await this.handleGeneralCommand(payload.title, commandContent);
@@ -235,6 +247,12 @@ export class ConversationEventHandler {
 		try {
 			// Extract the move query
 			const queryExtraction = await extractMoveQueryV2(commandContent);
+
+			// Explain the move query to the user
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*${queryExtraction.explanation}*`,
+			});
 
 			const filesByOperation = new Map<number, IndexedDocument[]>();
 			for (let i = 0; i < queryExtraction.operations.length; i++) {
@@ -399,6 +417,20 @@ export class ConversationEventHandler {
 				filesByOperation
 			);
 
+			// Delete the search artifact (if any) after moving.
+			const lastSearchMetadata = await this.renderer.findMostRecentMessageMetadata(
+				payload.title,
+				'search',
+				'user'
+			);
+
+			if (
+				lastSearchMetadata &&
+				this.artifactManager.deleteArtifact(payload.title, lastSearchMetadata.ID)
+			) {
+				logger.log('Search results artifact deleted successfully.');
+			}
+
 			// Get the language from the payload if available
 			const lang = 'queryExtraction' in payload ? payload.queryExtraction.lang : undefined;
 
@@ -413,6 +445,7 @@ export class ConversationEventHandler {
 				path: payload.title,
 				newContent: response,
 				role: 'Steward',
+				command: 'move',
 			});
 		} catch (error) {
 			console.error('Error handling move operation:', error);
@@ -422,6 +455,94 @@ export class ConversationEventHandler {
 				role: 'Steward',
 			});
 		}
+	}
+
+	/**
+	 * Format search results into a markdown string for display
+	 * @param options Options for formatting search results
+	 * @returns Formatted search results as a string
+	 */
+	private async formatSearchResults(options: {
+		paginatedDocs: PaginatedSearchResultV2;
+		page?: number;
+		headerText?: string;
+		lang?: string;
+	}): Promise<string> {
+		const { paginatedDocs, headerText, lang } = options;
+		const page = options.page || 1;
+
+		// Get translation function using the provided language or default
+		const t = getTranslation(lang);
+
+		let response = '';
+
+		// Add header text if provided
+		if (headerText) {
+			response += `${headerText}\n\n`;
+		}
+
+		// Add specific header based on page (first page vs pagination)
+		if (page === 1) {
+			// First page header (search results count)
+			if (paginatedDocs.totalCount > 0) {
+				response += `${t('search.found', { count: paginatedDocs.totalCount })}`;
+			} else {
+				response += `${t('search.noResults')}`;
+				return response; // Return early if no results
+			}
+		} else {
+			// Pagination header for subsequent pages
+			response += `${t('search.showingPage', { page, total: paginatedDocs.totalPages })}\n\n`;
+		}
+
+		// List the search results
+		for (let index = 0; index < paginatedDocs.documents.length; index++) {
+			const result = paginatedDocs.documents[index];
+			const displayIndex = (page - 1) * 10 + index + 1;
+			response += `\n\n**${displayIndex}.** [[${result.fileName}]]:\n`;
+
+			// Get the file content directly
+			const file = this.plugin.getFileByNameOrPath(result.fileName);
+
+			if (file && 'keywordsMatched' in result) {
+				try {
+					const fileContent = await this.plugin.app.vault.cachedRead(file);
+
+					// Get highlighted matches from the entire file content
+					const highlightedMatches = highlightKeywords(
+						result.keywordsMatched as string[],
+						fileContent
+					);
+
+					// Show up to 3 highlighted matches
+					const matchesToShow = Math.min(3, highlightedMatches.length);
+
+					if (matchesToShow > 0) {
+						// Add each highlighted match to the response
+						for (let i = 0; i < matchesToShow; i++) {
+							response += `\n"""\n${highlightedMatches[i]}\n"""\n`;
+						}
+
+						// Show a message for additional matches
+						if (highlightedMatches.length > 3) {
+							response += `\n_${t('search.moreMatches', { count: highlightedMatches.length - 3 })}_`;
+						}
+					} else {
+						// No highlights found in the file content
+						response += `\n${t('search.noMatchesInFile')}\n`;
+					}
+				} catch (error) {
+					console.error('Error reading file:', error);
+				}
+			}
+		}
+
+		// Add pagination footer if there are more pages
+		if (page < paginatedDocs.totalPages) {
+			response += `\n\n${t('search.useMoreCommand')}`;
+		}
+
+		return response;
 	}
 
 	private async handleSearchCommand(title: string, commandContent: string): Promise<void> {
@@ -434,61 +555,12 @@ export class ConversationEventHandler {
 			// Paginate the results for display (first page)
 			const paginatedDocs = this.plugin.searchIndexer.paginateResults(docs, 1, 10);
 
-			// Get translation function for the specified language
-			const t = getTranslation(queryExtraction.lang);
-
-			// Format the results
-			let response = `${queryExtraction.explanation}\n\n`;
-
-			// Add the search results count text
-			if (paginatedDocs.totalCount > 0) {
-				response += `${t('search.found', { count: paginatedDocs.totalCount })}`;
-
-				// List the search results
-				for (let index = 0; index < paginatedDocs.documents.length; index++) {
-					const result = paginatedDocs.documents[index];
-					response += `\n\n**${index + 1}.** [[${result.fileName}]]:\n`;
-
-					// Get the file content directly instead of using result.matches
-					const file = this.plugin.getFileByNameOrPath(result.fileName);
-
-					if (file && 'keywordsMatched' in result) {
-						try {
-							const fileContent = await this.plugin.app.vault.cachedRead(file);
-
-							// Get highlighted matches from the entire file content
-							const highlightedMatches = highlightKeywords(result.keywordsMatched, fileContent);
-
-							// Show up to 3 highlighted matches
-							const matchesToShow = Math.min(3, highlightedMatches.length);
-
-							if (matchesToShow > 0) {
-								// Add each highlighted match to the response
-								for (let i = 0; i < matchesToShow; i++) {
-									response += `\n"""\n${highlightedMatches[i]}\n"""\n`;
-								}
-
-								// Show a message for additional matches
-								if (highlightedMatches.length > 3) {
-									response += `\n_${t('search.moreMatches', { count: highlightedMatches.length - 3 })}_`;
-								}
-							} else {
-								// No highlights found in the file content
-								response += `\n${t('search.noMatchesInFile')}\n`;
-							}
-						} catch (error) {
-							console.error('Error reading file:', error);
-						}
-					}
-				}
-
-				// Add pagination information and more command if there are more results
-				if (paginatedDocs.totalPages > 1) {
-					response += `\n\n${t('search.useMoreCommand')}`;
-				}
-			} else {
-				response += `${t('search.noResults')}`;
-			}
+			// Format the search results
+			const response = await this.formatSearchResults({
+				paginatedDocs,
+				headerText: queryExtraction.explanation,
+				lang: queryExtraction.lang,
+			});
 
 			// Update the conversation note and get the message ID
 			await this.renderer.updateConversationNote({
@@ -575,52 +647,10 @@ export class ConversationEventHandler {
 			}
 
 			// Format the results
-			const t = getTranslation();
-			let response = `${t('search.showingPage', { page, total: paginatedDocs.totalPages })}\n\n`;
-
-			// List the search results
-			for (let index = 0; index < paginatedDocs.documents.length; index++) {
-				const result = paginatedDocs.documents[index];
-				const displayIndex = (page - 1) * 10 + index + 1;
-				response += `\n\n**${displayIndex}.** [[${result.fileName}]]:\n`;
-
-				// Get the file content directly instead of using result.matches
-				const file = this.plugin.getFileByNameOrPath(result.fileName);
-
-				if (file && 'keywordsMatched' in result) {
-					try {
-						const fileContent = await this.plugin.app.vault.cachedRead(file);
-
-						// Get highlighted matches from the entire file content
-						const highlightedMatches = highlightKeywords(result.keywordsMatched, fileContent);
-
-						// Show up to 3 highlighted matches
-						const matchesToShow = Math.min(3, highlightedMatches.length);
-
-						if (matchesToShow > 0) {
-							// Add each highlighted match to the response
-							for (let i = 0; i < matchesToShow; i++) {
-								response += `\n"""\n${highlightedMatches[i]}\n"""\n`;
-							}
-
-							// Show a message for additional matches
-							if (highlightedMatches.length > 3) {
-								response += `\n_${t('search.moreMatches', { count: highlightedMatches.length - 3 })}_`;
-							}
-						} else {
-							// No highlights found in the file content
-							response += `\n${t('search.noMatchesInFile')}\n`;
-						}
-					} catch (error) {
-						console.error('Error reading file:', error);
-					}
-				}
-			}
-
-			// Add pagination footer if there are more pages
-			if (page < paginatedDocs.totalPages) {
-				response += `\n\n${t('search.useMoreCommand')}`;
-			}
+			const response = await this.formatSearchResults({
+				paginatedDocs,
+				page,
+			});
 
 			// Update the conversation with the results
 			await this.renderer.updateConversationNote({
@@ -734,7 +764,6 @@ export class ConversationEventHandler {
 				path: title,
 				newContent: t('confirmation.notUnderstood'),
 				role: 'Steward',
-				command: 'confirm',
 			});
 			return;
 		}
@@ -884,7 +913,7 @@ export class ConversationEventHandler {
 			const extraction = await extractMoveFromSearchResult(commandContent);
 
 			// Get translation function
-			const t = getTranslation();
+			const t = getTranslation(extraction.lang);
 
 			// Retrieve the most recent search results artifact
 			const searchArtifact =
@@ -899,7 +928,6 @@ export class ConversationEventHandler {
 					path: title,
 					newContent: t('search.noRecentSearch'),
 					role: 'Steward',
-					command: 'move_from_search_result',
 				});
 				return;
 			}
@@ -907,6 +935,8 @@ export class ConversationEventHandler {
 			// Check if the destination folder exists
 			const destinationFolder = extraction.destinationFolder;
 			const folderExists = this.plugin.app.vault.getAbstractFileByPath(destinationFolder);
+
+			console.log('destinationFolder', destinationFolder, folderExists);
 
 			if (!folderExists) {
 				// Request confirmation to create the folder
@@ -951,9 +981,8 @@ export class ConversationEventHandler {
 		} catch (error) {
 			await this.renderer.updateConversationNote({
 				path: title,
-				newContent: `*Error extracting destination: ${error.message}*`,
+				newContent: `Error extracting destination: ${error.message}`,
 				role: 'Steward',
-				command: 'move_from_search_result',
 			});
 		}
 	}

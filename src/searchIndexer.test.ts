@@ -682,7 +682,7 @@ describe('SearchIndexer', () => {
 				{ id: 2, name: 'testFolder B', path: 'path/to/testFolder B' },
 			]);
 
-			const result = await searchIndexer.exposedGetFoldersByNames(['testFolder']);
+			const result = await searchIndexer.exposedGetFoldersByNames(['^testFolder$']);
 			expect(result).toEqual([]);
 		});
 
@@ -722,6 +722,19 @@ describe('SearchIndexer', () => {
 			const result = await searchIndexer.exposedGetFoldersByNames(['^test$']);
 			expect(result).toHaveLength(1);
 			expect(result[0].id).toEqual(2);
+		});
+
+		it('should return one when matching folder path', async () => {
+			const mockDb = (searchIndexer as any).db;
+
+			mockDb.folders.toArray.mockResolvedValueOnce([
+				{ id: 1, name: 'testFolder', path: 'path/to/testFolder' },
+				{ id: 2, name: 'test', path: 'path/to/anotherFolder' },
+			]);
+
+			const result = await searchIndexer.exposedGetFoldersByNames(['path/to/testFolder']);
+			expect(result).toHaveLength(1);
+			expect(result[0].id).toEqual(1);
 		});
 
 		it('should handle folder start with matches correctly', async () => {
