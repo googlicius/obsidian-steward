@@ -440,6 +440,12 @@ export class ConversationEventHandler {
 				lang,
 			});
 
+			// Emit the move operation completed event after the operation is done
+			eventEmitter.emit(Events.MOVE_OPERATION_COMPLETED, {
+				title: payload.title,
+				operations: result.operations,
+			});
+
 			// Update the conversation with the results
 			await this.renderer.updateConversationNote({
 				path: payload.title,
