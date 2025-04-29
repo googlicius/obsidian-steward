@@ -7,6 +7,7 @@
 - [ ] Reduce prompt repeating, for example in the move prompt still including some parts of the search prompt.
 - [ ] Build more sophisticated commands make it able to users to modify even predefined commands the way they want.
 - [ ] Add more Obsidian tools: creation, modification, end deletion of notes
+- [ ] Agent: Give the AI set of tools, and it will automatically pick appropriate tools to perform its tasks.
 
 #### Move from search
 

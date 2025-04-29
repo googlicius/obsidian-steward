@@ -75,6 +75,9 @@ const en = {
 			moving: 'Moving...',
 			searching: 'Searching...',
 			calculating: 'Calculating...',
+			reverting: 'Reverting changes...',
+			revertSuccess: 'Successfully reverted the last change.',
+			revertFailed: 'Failed to revert changes. No previous changes to revert to.',
 		},
 	},
 };

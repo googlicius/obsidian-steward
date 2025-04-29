@@ -68,6 +68,9 @@ const ja = {
 			moving: '移動中...',
 			searching: '検索中...',
 			calculating: '計算中...',
+			reverting: '変更を元に戻しています...',
+			revertSuccess: '最後の変更を正常に元に戻しました。',
+			revertFailed: '変更を元に戻せませんでした。元に戻す前の変更がありません。',
 		},
 	},
 };

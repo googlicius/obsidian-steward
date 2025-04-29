@@ -53,7 +53,7 @@ MIT
 - [x] Moving notes to multiple destinations.
 - [ ] Search in one or many specific folders.
 - [ ] Command options: `--help`, `--model`, `--explain`,...
-- [ ] The reversion of command's actions.
+- [x] The reversion of command's actions.
 - [ ] Reminder.
 - [ ] Steward can provide information about its functionalities, limitations,...
 - [ ] Provide any information, usage, and guidance about Obsidian.

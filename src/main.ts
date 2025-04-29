@@ -18,6 +18,7 @@ import { SearchTool } from './tools/searchTools';
 import { logger } from './utils/logger';
 import { ConversationRenderer } from './services/ConversationRenderer';
 import { ConversationArtifactManager } from './services/ConversationArtifactManager';
+import { GitEventHandler } from './solutions/git/GitEventHandler';
 
 // Supported command prefixes
 export const COMMAND_PREFIXES = [
@@ -84,6 +85,8 @@ export default class StewardPlugin extends Plugin {
 	artifactManager: ConversationArtifactManager;
 	// Command chaining components (not integrated yet)
 	conversationRenderer: ConversationRenderer;
+	// Git integration
+	gitEventHandler: GitEventHandler;
 
 	get editor() {
 		return this.app.workspace.activeEditor?.editor as Editor & {
@@ -246,6 +249,26 @@ export default class StewardPlugin extends Plugin {
 			},
 		});
 
+		// Command to revert the last operation
+		this.addCommand({
+			id: 'revert-last-operation',
+			name: 'Revert Last Operation',
+			callback: async () => {
+				try {
+					// Get confirmation
+					const result = await this.gitEventHandler.revertLastOperation();
+					if (result) {
+						new Notice('Last operation reverted successfully.');
+					} else {
+						new Notice('Failed to revert last operation. Check console for details.');
+					}
+				} catch (error) {
+					logger.error('Error reverting last operation:', error);
+					new Notice(`Error reverting operation: ${error.message}`);
+				}
+			},
+		});
+
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new StewardSettingTab(this.app, this));
 
@@ -267,6 +290,9 @@ export default class StewardPlugin extends Plugin {
 
 		// Initialize the ConversationArtifactManager
 		this.artifactManager = ConversationArtifactManager.getInstance();
+
+		// Initialize Git event handler for tracking and reverting changes
+		this.gitEventHandler = new GitEventHandler(this.app, this);
 	}
 
 	onunload() {}

@@ -150,6 +150,15 @@ export class ConversationEventHandler {
 				break;
 			}
 
+			case 'revert': {
+				await this.renderer.addGeneratingIndicator(
+					payload.title,
+					i18next.t('conversation.reverting')
+				);
+				await this.handleRevertCommand(payload.title);
+				break;
+			}
+
 			case 'yes': {
 				await this.handleConfirmCommand(payload.title, 'Yes', payload.lang);
 				break;
@@ -438,6 +447,12 @@ export class ConversationEventHandler {
 			const response = this.formatMoveResult({
 				operations: result.operations,
 				lang,
+			});
+
+			// Emit the move operation completed event after the operation is done
+			eventEmitter.emit(Events.MOVE_OPERATION_COMPLETED, {
+				title: payload.title,
+				operations: result.operations,
 			});
 
 			// Update the conversation with the results
@@ -982,6 +997,41 @@ export class ConversationEventHandler {
 			await this.renderer.updateConversationNote({
 				path: title,
 				newContent: `Error extracting destination: ${error.message}`,
+				role: 'Steward',
+			});
+		}
+	}
+
+	/**
+	 * Handle the revert command
+	 * @param title The conversation title
+	 */
+	private async handleRevertCommand(title: string): Promise<void> {
+		try {
+			// Get the GitEventHandler instance
+			const gitEventHandler = this.plugin.gitEventHandler;
+
+			// Revert the last operation
+			const success = await gitEventHandler.revertLastOperation();
+
+			// Update the conversation with the result
+			if (success) {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: i18next.t('conversation.revertSuccess'),
+					role: 'Steward',
+				});
+			} else {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: i18next.t('conversation.revertFailed'),
+					role: 'Steward',
+				});
+			}
+		} catch (error) {
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*Error reverting changes: ${error.message}*`,
 				role: 'Steward',
 			});
 		}

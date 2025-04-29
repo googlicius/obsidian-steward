@@ -70,6 +70,9 @@ const vi = {
 			moving: 'Đang di chuyển...',
 			searching: 'Đang tìm kiếm...',
 			calculating: 'Đang tính toán...',
+			reverting: 'Đang hoàn tác thay đổi...',
+			revertSuccess: 'Đã hoàn tác thay đổi cuối cùng thành công.',
+			revertFailed: 'Không thể hoàn tác thay đổi. Không có thay đổi nào trước đó để hoàn tác.',
 		},
 	},
 };

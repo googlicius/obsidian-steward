@@ -13,6 +13,7 @@ Available command types:
 - "calc": When the user wants to perform a calculation
 - "close": When the user wants to close the conversation or exit
 - "confirm": When the user is responding to a confirmation request (yes/no, approve/deny)
+- "revert": When the user wants to undo the last change or revert to a previous state
 
 Guidelines:
 - If the user wants to find, locate, or search for notes, classify as "search"
@@ -22,6 +23,7 @@ Guidelines:
 - If the user is asking for a calculation or mathematical operation, classify as "calc"
 - If the user wants to close, end, or exit the conversation, classify as "close"
 - If the user is responding with yes/no, approve/deny, or similar confirmation language, classify as "confirm"
+- If the user wants to undo changes, revert to a previous state, or go back to a previous version, classify as "revert"
 - Include the original query content for processing by the specialized handlers
 - Provide a confidence score from 0 to 1:
   - 0.0-0.3: Low confidence (ambiguous or unclear requests)
@@ -29,7 +31,7 @@ Guidelines:
   - 0.8-1.0: High confidence (very clear intent)
 
 You must respond with a valid JSON object containing these properties:
-- commandType: One of "search", "move", "move_from_search_result", "calc", "close", or "confirm"
+- commandType: One of "search", "move", "move_from_search_result", "calc", "close", "confirm", or "revert"
 - content: The original query content
 - confidence: A number from 0 to 1 indicating your confidence in this classification
 - explanation: 

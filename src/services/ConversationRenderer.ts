@@ -191,7 +191,7 @@ export class ConversationRenderer {
 
 				// Parse all metadata fields
 				const metadataObject: Record<string, string> = {};
-				const metadataRegex = /([A-Z]+):([^,>]+)/gi;
+				const metadataRegex = /([A-Z]+):([^,]+)(?=,|-->)/gi;
 				let metadataMatch;
 
 				while ((metadataMatch = metadataRegex.exec(fullComment)) !== null) {
@@ -294,6 +294,114 @@ export class ConversationRenderer {
 		} catch (error) {
 			console.error('Error creating conversation note:', error);
 			throw error;
+		}
+	}
+
+	/**
+	 * Find message metadata by ID
+	 * @param conversationTitle The conversation title
+	 * @param messageId The message ID
+	 * @returns The message metadata, or null if not found
+	 */
+	public async findMessageMetadataById(
+		conversationTitle: string,
+		messageId: string
+	): Promise<Record<string, string> | null> {
+		try {
+			// Get the conversation file
+			const folderPath = this.plugin.settings.conversationFolder;
+			const notePath = `${folderPath}/${conversationTitle}.md`;
+			const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
+
+			if (!file) {
+				throw new Error(`Note not found: ${notePath}`);
+			}
+
+			// Read the content
+			const content = await this.plugin.app.vault.cachedRead(file as TFile);
+
+			// Find the comment block with the given ID
+			const idPattern = `ID:${messageId}`;
+			const commentBlockRegex = new RegExp(`<!--${idPattern}.*?-->`, 'gi');
+			const matches = Array.from(content.matchAll(commentBlockRegex));
+
+			// If a match is found, parse it into an object
+			if (matches.length > 0) {
+				const fullComment = matches[0][0];
+
+				// Parse all metadata fields
+				const metadataObject: Record<string, string> = {};
+				const metadataRegex = /([A-Z]+):([^,]+)(?=,|-->)/gi;
+				let metadataMatch;
+
+				while ((metadataMatch = metadataRegex.exec(fullComment)) !== null) {
+					const [, key, value] = metadataMatch;
+					metadataObject[key] = value;
+				}
+
+				return metadataObject;
+			}
+
+			return null;
+		} catch (error) {
+			console.error('Error finding message metadata by ID:', error);
+			return null;
+		}
+	}
+
+	/**
+	 * Update the metadata for a message
+	 * @param conversationTitle The conversation title
+	 * @param messageId The message ID
+	 * @param newMetadata The updated metadata
+	 */
+	public async updateMessageMetadata(
+		conversationTitle: string,
+		messageId: string,
+		newMetadata: Record<string, string>
+	): Promise<boolean> {
+		try {
+			// Get the conversation file
+			const folderPath = this.plugin.settings.conversationFolder;
+			const notePath = `${folderPath}/${conversationTitle}.md`;
+			const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
+
+			if (!file) {
+				throw new Error(`Note not found: ${notePath}`);
+			}
+
+			// Read the current content
+			let content = await this.plugin.app.vault.read(file);
+
+			// Find the comment block with the given ID
+			const idPattern = `ID:${messageId}`;
+			const commentBlockRegex = new RegExp(`<!--${idPattern}.*?-->`, 'gi');
+			const matches = Array.from(content.matchAll(commentBlockRegex));
+
+			if (matches.length > 0) {
+				// Get the existing comment block
+				const originalCommentBlock = matches[0][0];
+
+				// Create the updated comment block
+				let updatedCommentBlock = '<!--';
+				for (const [key, value] of Object.entries(newMetadata)) {
+					updatedCommentBlock += `${key}:${value},`;
+				}
+				// Remove trailing comma and close comment
+				updatedCommentBlock = updatedCommentBlock.slice(0, -1) + '-->';
+
+				// Replace the comment block in the content
+				content = content.replace(originalCommentBlock, updatedCommentBlock);
+
+				// Update the file
+				await this.plugin.app.vault.modify(file, content);
+				return true;
+			}
+
+			return false;
+		} catch (error) {
+			console.error('Error updating message metadata:', error);
+			return false;
 		}
 	}
 }
