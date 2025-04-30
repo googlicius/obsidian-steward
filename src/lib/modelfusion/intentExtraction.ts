@@ -48,12 +48,20 @@ function validateCommandIntentExtraction(data: any): CommandIntentExtraction {
 	}
 
 	if (
-		!['search', 'move', 'move_from_search_result', 'calc', 'close', 'confirm', 'revert'].includes(
-			data.commandType
-		)
+		![
+			'search',
+			'move',
+			'copy',
+			'delete',
+			'move_from_search_result',
+			'calc',
+			'close',
+			'confirm',
+			'revert',
+		].includes(data.commandType)
 	) {
 		throw new Error(
-			'Command type must be one of: search, move, move_from_search_result, calc, close, confirm, revert'
+			'Command type must be one of: search, move, copy, delete, move_from_search_result, calc, close, confirm, revert'
 		);
 	}
 

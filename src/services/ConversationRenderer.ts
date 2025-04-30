@@ -268,6 +268,12 @@ export class ConversationRenderer {
 				case 'move_from_search_result':
 					initialContent += `*${t('conversation.moving')}*`;
 					break;
+				case 'delete':
+					initialContent += `*${t('conversation.deleting')}*`;
+					break;
+				case 'copy':
+					initialContent += `*${t('conversation.copying')}*`;
+					break;
 				case 'search':
 					initialContent += `*${t('conversation.searching')}*`;
 					break;

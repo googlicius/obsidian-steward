@@ -1,5 +1,9 @@
 const vi = {
 	translation: {
+		common: {
+			noFilesFound:
+				'Tôi không tìm thấy tập tin nào phù hợp với truy vấn của bạn. Vui lòng thử từ khóa tìm kiếm khác.',
+		},
 		// Move result messages
 		move: {
 			foundFiles: 'Tôi đã tìm thấy {{count}} tập tin khớp với truy vấn của bạn.',
@@ -13,10 +17,37 @@ const vi = {
 			multiMoveHeader: 'Tôi đã thực hiện {{count}} thao tác di chuyển:',
 			multiMoveHeader_plural: 'Tôi đã thực hiện {{count}} thao tác di chuyển:',
 			operation: 'Thao tác {{num}}: Di chuyển các tập tin với {{query}} đến {{folder}}',
-			noFilesFound:
-				'Tôi không tìm thấy tập tin nào phù hợp với truy vấn của bạn. Vui lòng thử từ khóa tìm kiếm khác.',
 			createFoldersHeader: 'Tôi cần tạo các thư mục sau trước khi di chuyển tập tin:',
 			createFoldersQuestion: 'Bạn có muốn tôi tạo các thư mục này không?',
+		},
+		// Copy result messages
+		copy: {
+			foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để sao chép.',
+			foundFiles_plural: 'Tôi đã tìm thấy {{count}} tập tin để sao chép.',
+			successfullyCopied: 'Đã sao chép thành công {{count}} tập tin:',
+			successfullyCopied_plural: 'Đã sao chép thành công {{count}} tập tin:',
+			skipped: 'Đã bỏ qua {{count}} tập tin (đã có trong thư mục đích):',
+			skipped_plural: 'Đã bỏ qua {{count}} tập tin (đã có trong thư mục đích):',
+			failed: 'Không thể sao chép {{count}} tập tin:',
+			failed_plural: 'Không thể sao chép {{count}} tập tin:',
+			multiCopyHeader: 'Tôi đã thực hiện {{count}} thao tác sao chép:',
+			multiCopyHeader_plural: 'Tôi đã thực hiện {{count}} thao tác sao chép:',
+			operation: 'Thao tác {{num}}: Sao chép các tập tin với {{query}} đến {{folder}}',
+			noDestination: 'Vui lòng chỉ định thư mục đích cho thao tác sao chép.',
+			createFoldersHeader: 'Tôi cần tạo các thư mục sau trước khi sao chép tập tin:',
+			createFoldersQuestion: 'Bạn có muốn tôi tạo các thư mục này không?',
+		},
+		// Delete result messages
+		delete: {
+			foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để xóa.',
+			foundFiles_plural: 'Tôi đã tìm thấy {{count}} tập tin để xóa.',
+			successfullyDeleted: 'Đã xóa thành công {{count}} tập tin:',
+			successfullyDeleted_plural: 'Đã xóa thành công {{count}} tập tin:',
+			failed: 'Không thể xóa {{count}} tập tin:',
+			failed_plural: 'Không thể xóa {{count}} tập tin:',
+			multiDeleteHeader: 'Tôi đã thực hiện {{count}} thao tác xóa:',
+			multiDeleteHeader_plural: 'Tôi đã thực hiện {{count}} thao tác xóa:',
+			operation: 'Thao tác {{num}}: Xóa các tập tin với {{query}}',
 		},
 		// Search result messages
 		search: {
@@ -27,6 +58,14 @@ const vi = {
 			moreMatches: '... và {{count}} kết quả khác',
 			moreMatches_plural: '... và {{count}} kết quả khác',
 			showMoreDetails: 'Nhập `/more` để xem thêm 10 kết quả tiếp theo.',
+			noMatchesInFile: 'Không tìm thấy kết quả phù hợp với từ khóa trong nội dung tập tin này.',
+			pagination: 'Trang {{current}}/{{total}}',
+			useMoreCommand: 'Nhập `/more` để xem trang kết quả tiếp theo.',
+			noMoreResults: 'Không còn kết quả tìm kiếm nào để hiển thị.',
+			noRecentSearch: 'Không tìm thấy tìm kiếm gần đây. Vui lòng thực hiện lệnh tìm kiếm trước.',
+			moreResults: 'Đây là thêm kết quả tìm kiếm:',
+			paginationStatus: 'Trang {{current}}/{{total}} (tổng {{count}} kết quả)',
+			noMorePages: 'Đây là trang cuối cùng của kết quả.',
 		},
 		// Close command messages
 		close: {
@@ -73,6 +112,8 @@ const vi = {
 			reverting: 'Đang hoàn tác thay đổi...',
 			revertSuccess: 'Đã hoàn tác thay đổi cuối cùng thành công.',
 			revertFailed: 'Không thể hoàn tác thay đổi. Không có thay đổi nào trước đó để hoàn tác.',
+			copying: 'Đang sao chép...',
+			deleting: 'Đang xóa...',
 		},
 	},
 };

@@ -231,6 +231,82 @@ export class ObsidianAPITools {
 	}
 
 	/**
+	 * Copy files based on operations and search results
+	 * @param operations Array of MoveOperationV2 objects containing destination folders and keywords
+	 * @param filesByOperation Map of operation index to files to copy
+	 * @returns Results of the copy operations
+	 */
+	async copyByOperations(
+		operations: MoveOperationV2[],
+		filesByOperation: Map<number, IndexedDocument[]>
+	): Promise<{
+		operations: Array<{
+			sourceQuery: string;
+			destinationFolder: string;
+			copied: string[];
+			errors: string[];
+			skipped: string[];
+		}>;
+	}> {
+		const operationResults = [];
+
+		// Process each operation
+		for (let i = 0; i < operations.length; i++) {
+			const operation = operations[i];
+
+			// Get the files for this operation
+			const results = filesByOperation.get(i) || [];
+
+			// Process the copy operations
+			const copied: string[] = [];
+			const errors: string[] = [];
+			const skipped: string[] = [];
+
+			for (const result of results) {
+				const filePath = result.path;
+				if (!filePath) continue;
+
+				const fileName = filePath.split('/').pop() || '';
+				const destinationPath = `${operation.destinationFolder}/${fileName}`.replace(/\/+/g, '/');
+
+				// Check if file is already in the destination folder
+				if (filePath === destinationPath) {
+					skipped.push(filePath);
+					continue;
+				}
+
+				try {
+					// Get the source file
+					const sourceFile = this.app.vault.getAbstractFileByPath(filePath);
+					if (!sourceFile) {
+						errors.push(filePath);
+						continue;
+					}
+
+					// Ensure the destination folder exists
+					await this.ensureFolderExists(operation.destinationFolder);
+
+					// Copy the file
+					await this.app.vault.copy(sourceFile, destinationPath);
+					copied.push(filePath);
+				} catch (error) {
+					errors.push(filePath);
+				}
+			}
+
+			operationResults.push({
+				sourceQuery: operation.keywords ? operation.keywords.join(', ') : 'Search results',
+				destinationFolder: operation.destinationFolder,
+				copied,
+				errors,
+				skipped,
+			});
+		}
+
+		return { operations: operationResults };
+	}
+
+	/**
 	 * Extract command intent from a general query using AI
 	 * @param userInput Natural language request from the user
 	 * @returns Extracted command type, content, and explanation

@@ -1,25 +1,28 @@
 import { EditorView } from '@codemirror/view';
 import { CommandIntentExtraction } from '../lib/modelfusion/intentExtraction';
-import { MoveQueryExtractionV2 } from '../lib/modelfusion';
+import { MoveQueryExtractionV2, SearchQueryExtractionV2 } from '../lib/modelfusion';
 import { IndexedDocument } from '../database/PluginDatabase';
 import { GitOperation } from '../solutions/git/GitService';
 
 export enum Events {
-	CONVERSATION_NOTE_CREATED = 'CONVERSATION_NOTE_CREATED',
-	CONVERSATION_COMMAND_RECEIVED = 'CONVERSATION_COMMAND_RECEIVED',
-	CONVERSATION_LINK_INSERTED = 'CONVERSATION_LINK_INSERTED',
+	CONVERSATION_NOTE_CREATED = 'conversation-note-created',
+	CONVERSATION_COMMAND_RECEIVED = 'conversation-command-received',
+	CONVERSATION_LINK_INSERTED = 'conversation-link-inserted',
 	LLM_RESPONSE_RECEIVED = 'LLM_RESPONSE_RECEIVED',
 	RESPONSE_READY_TO_INSERT = 'RESPONSE_READY_TO_INSERT',
-	MOVE_QUERY_EXTRACTED = 'MOVE_QUERY_EXTRACTED',
-	COMMAND_INTENT_EXTRACTED = 'COMMAND_INTENT_EXTRACTED',
-	CONFIRMATION_REQUESTED = 'CONFIRMATION_REQUESTED',
-	CONFIRMATION_RESPONDED = 'CONFIRMATION_RESPONDED',
-	MOVE_FROM_SEARCH_RESULT_CONFIRMED = 'MOVE_FROM_SEARCH_RESULT_CONFIRMED',
+	MOVE_QUERY_EXTRACTED = 'move-query-extracted',
+	MOVE_FROM_SEARCH_RESULT_CONFIRMED = 'move-from-search-result-confirmed',
+	DELETE_OPERATION_CONFIRMED = 'delete-operation-confirmed',
+	COPY_OPERATION_CONFIRMED = 'copy-operation-confirmed',
+	COMMAND_INTENT_EXTRACTED = 'command-intent-extracted',
+	MOVE_OPERATION_COMPLETED = 'move-operation-completed',
+	DELETE_OPERATION_COMPLETED = 'delete-operation-completed',
+	COPY_OPERATION_COMPLETED = 'copy-operation-completed',
+	CONFIRMATION_REQUESTED = 'confirmation-requested',
+	CONFIRMATION_RESPONDED = 'confirmation-responded',
 	// Git related events
 	GIT_OPERATION_PERFORMED = 'GIT_OPERATION_PERFORMED',
 	GIT_OPERATION_REVERTED = 'GIT_OPERATION_REVERTED',
-	// Operation completion events
-	MOVE_OPERATION_COMPLETED = 'MOVE_OPERATION_COMPLETED',
 }
 
 export enum ErrorEvents {
@@ -123,6 +126,38 @@ export interface MoveOperationCompletedPayload {
 	}>;
 }
 
+export interface DeleteOperationConfirmedPayload {
+	title: string;
+	queryExtraction: SearchQueryExtractionV2;
+	docs: IndexedDocument[];
+}
+
+export interface CopyOperationConfirmedPayload {
+	title: string;
+	queryExtraction: SearchQueryExtractionV2;
+	docs: IndexedDocument[];
+}
+
+export interface CopyOperationCompletedPayload {
+	title: string;
+	operations: Array<{
+		sourceQuery: string;
+		destinationFolder: string;
+		copied: string[];
+		errors: string[];
+		skipped: string[];
+	}>;
+}
+
+export interface DeleteOperationCompletedPayload {
+	title: string;
+	operations: Array<{
+		sourceQuery: string;
+		deleted: string[];
+		errors: string[];
+	}>;
+}
+
 export type EventPayloadMap = {
 	[Events.CONVERSATION_NOTE_CREATED]: ConversationNoteCreatedPayload;
 	[Events.CONVERSATION_COMMAND_RECEIVED]: ConversationCommandReceivedPayload;
@@ -140,4 +175,8 @@ export type EventPayloadMap = {
 	[ErrorEvents.MATH_PROCESSING_ERROR]: ErrorPayload;
 	[ErrorEvents.LLM_ERROR]: ErrorPayload;
 	[ErrorEvents.GIT_ERROR]: GitErrorPayload;
+	[Events.DELETE_OPERATION_CONFIRMED]: DeleteOperationConfirmedPayload;
+	[Events.COPY_OPERATION_CONFIRMED]: CopyOperationConfirmedPayload;
+	[Events.DELETE_OPERATION_COMPLETED]: DeleteOperationCompletedPayload;
+	[Events.COPY_OPERATION_COMPLETED]: CopyOperationCompletedPayload;
 };

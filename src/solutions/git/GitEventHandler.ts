@@ -4,6 +4,8 @@ import {
 	GitOperationPerformedPayload,
 	GitOperationRevertedPayload,
 	MoveOperationCompletedPayload,
+	CopyOperationCompletedPayload,
+	DeleteOperationCompletedPayload,
 } from '../../types/events';
 import { GitOperation, GitService } from './GitService';
 import { ConversationRenderer } from '../../services/ConversationRenderer';
@@ -36,6 +38,15 @@ export class GitEventHandler {
 
 		// Listen for move operations AFTER they've been completed
 		eventEmitter.on(Events.MOVE_OPERATION_COMPLETED, this.handleMoveOperationCompleted.bind(this));
+
+		// Listen for copy operations AFTER they've been completed
+		eventEmitter.on(Events.COPY_OPERATION_COMPLETED, this.handleCopyOperationCompleted.bind(this));
+
+		// Listen for delete operations AFTER they've been completed
+		eventEmitter.on(
+			Events.DELETE_OPERATION_COMPLETED,
+			this.handleDeleteOperationCompleted.bind(this)
+		);
 
 		// Listen for Git operations performed
 		eventEmitter.on(Events.GIT_OPERATION_PERFORMED, this.handleGitOperationPerformed.bind(this));
@@ -83,7 +94,6 @@ export class GitEventHandler {
 			const commitHash = await this.gitService.trackOperation(operation);
 
 			if (commitHash) {
-				// Emit event for successful Git operation
 				eventEmitter.emit(Events.GIT_OPERATION_PERFORMED, {
 					operation,
 					commitHash,
@@ -94,7 +104,7 @@ export class GitEventHandler {
 					const messageMetadata = await this.renderer.findMostRecentMessageMetadata(
 						payload.title,
 						'move',
-						'steward' // lowercase to match how it's stored
+						'steward'
 					);
 
 					if (messageMetadata && messageMetadata.ID) {
@@ -111,22 +121,67 @@ export class GitEventHandler {
 	}
 
 	/**
+	 * Handle copy operations after they've been completed
+	 * @param payload The payload from the copy operation completed event
+	 */
+	private async handleCopyOperationCompleted(payload: CopyOperationCompletedPayload) {
+		const description = payload.operations
+			.map(op => {
+				const copied = op.copied.map(f => `- ${f}`).join('\n');
+				return `Copied files from "${op.sourceQuery}" to "${op.destinationFolder}":\n${copied}`;
+			})
+			.join('\n\n');
+
+		const commitHash = await this.trackOperationInGit('copy', description);
+
+		if (commitHash && payload.title) {
+			const messageMetadata = await this.renderer.findMostRecentMessageMetadata(
+				payload.title,
+				'copy',
+				'steward'
+			);
+
+			if (messageMetadata?.ID) {
+				await this.addCommitHashToMetadata(payload.title, messageMetadata.ID, commitHash);
+			}
+		}
+	}
+
+	/**
+	 * Handle delete operations after they've been completed
+	 * @param payload The payload from the delete operation completed event
+	 */
+	private async handleDeleteOperationCompleted(payload: DeleteOperationCompletedPayload) {
+		const description = payload.operations
+			.map(op => {
+				const deleted = op.deleted.map(f => `- ${f}`).join('\n');
+				return `Deleted files matching "${op.sourceQuery}":\n${deleted}`;
+			})
+			.join('\n\n');
+
+		const commitHash = await this.trackOperationInGit('delete', description);
+
+		if (commitHash && payload.title) {
+			const messageMetadata = await this.renderer.findMostRecentMessageMetadata(
+				payload.title,
+				'delete',
+				'steward'
+			);
+
+			if (messageMetadata?.ID) {
+				await this.addCommitHashToMetadata(payload.title, messageMetadata.ID, commitHash);
+			}
+		}
+	}
+
+	/**
 	 * Handle Git operation performed event - update conversation metadata
 	 * @param payload The Git operation performed payload
 	 */
-	private async handleGitOperationPerformed(payload: GitOperationPerformedPayload): Promise<void> {
-		try {
-			// Find the conversation that triggered the operation
-			// This could be expanded to handle other types of operations
-			// For now, we're just adding commit hashes to conversation metadata
-			if (payload.operation.type === 'move') {
-				// Add commit hash to conversation metadata
-				// In a real implementation, you'd need to find the relevant conversation
-				// For now, this is left as a demonstration
-				logger.log(`Operation performed and committed: ${payload.commitHash}`);
-			}
-		} catch (error) {
-			logger.error('Error handling Git operation performed:', error);
+	private async handleGitOperationPerformed(payload: GitOperationPerformedPayload) {
+		const { operation, commitHash } = payload;
+		if (operation.type === 'move' || operation.type === 'delete') {
+			logger.log(`Git operation ${operation.type} completed with commit hash: ${commitHash}`);
 		}
 	}
 
@@ -135,7 +190,6 @@ export class GitEventHandler {
 	 * @param payload The Git operation reverted payload
 	 */
 	private async handleGitOperationReverted(payload: GitOperationRevertedPayload): Promise<void> {
-		// This could show a notification or update UI elements
 		if (payload.success) {
 			logger.log(`Successfully reverted to commit: ${payload.commitHash}`);
 		} else {
@@ -180,7 +234,7 @@ export class GitEventHandler {
 			// Find the message metadata
 			const metadata = await this.renderer.findMessageMetadataById(conversationTitle, messageId);
 
-			if (metadata && metadata.COMMIT) {
+			if (metadata && typeof metadata.COMMIT === 'string') {
 				// Revert to the commit
 				const success = await this.gitService.revertToCommit(metadata.COMMIT);
 
@@ -221,6 +275,38 @@ export class GitEventHandler {
 			logger.error('Error reverting last operation:', error);
 			new Notice(`Failed to revert last operation: ${error.message}`);
 			return false;
+		}
+	}
+
+	private async trackOperationInGit(
+		type: 'move' | 'delete' | 'copy',
+		description: string
+	): Promise<string | undefined> {
+		try {
+			const operation: GitOperation = {
+				type,
+				affectedFiles: [],
+				description,
+				timestamp: Date.now(),
+			};
+
+			const commitHash = await this.gitService.trackOperation(operation);
+
+			if (commitHash) {
+				eventEmitter.emit(Events.GIT_OPERATION_PERFORMED, {
+					operation,
+					commitHash,
+				});
+				return commitHash;
+			}
+
+			return undefined;
+		} catch (error) {
+			logger.error(`Error tracking ${type} operation in Git:`, error);
+			eventEmitter.emit(ErrorEvents.GIT_ERROR, {
+				error: error as Error,
+			});
+			return undefined;
 		}
 	}
 }

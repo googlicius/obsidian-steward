@@ -1,5 +1,9 @@
 const en = {
 	translation: {
+		common: {
+			noFilesFound:
+				"I couldn't find any files matching your query. Please try a different search term.",
+		},
 		// Move result messages
 		move: {
 			foundFiles: 'I found {{count}} file matching your query.',
@@ -13,10 +17,39 @@ const en = {
 			multiMoveHeader: 'I performed {{count}} move operation:',
 			multiMoveHeader_plural: 'I performed {{count}} move operations:',
 			operation: 'Operation {{num}}: Moving files with {{query}} to {{folder}}',
-			noFilesFound:
-				"I couldn't find any files matching your query. Please try a different search term.",
 			createFoldersHeader: 'I need to create the following folders before moving files:',
 			createFoldersQuestion: 'Would you like me to create these folders?',
+		},
+		// Copy result messages
+		copy: {
+			foundFiles: 'I found {{count}} file to copy.',
+			foundFiles_plural: 'I found {{count}} files to copy.',
+			successfullyCopied: 'Successfully copied {{count}} file:',
+			successfullyCopied_plural: 'Successfully copied {{count}} files:',
+			skipped: 'Skipped {{count}} file (already exists in destination):',
+			skipped_plural: 'Skipped {{count}} files (already exist in destination):',
+			failed: 'Failed to copy {{count}} file:',
+			failed_plural: 'Failed to copy {{count}} files:',
+			multiCopyHeader: 'I performed {{count}} copy operation:',
+			multiCopyHeader_plural: 'I performed {{count}} copy operations:',
+			operation: 'Operation {{num}}: Copying files with {{query}} to {{folder}}',
+			noDestination: 'Please specify a destination folder for the copy operation.',
+			createFoldersHeader: 'I need to create the following folders before copying files:',
+			createFoldersQuestion: 'Would you like me to create these folders?',
+		},
+		// Delete result messages
+		delete: {
+			foundFiles: 'I found {{count}} file to delete.',
+			foundFiles_plural: 'I found {{count}} files to delete.',
+			successfullyDeleted: 'Successfully deleted {{count}} file:',
+			successfullyDeleted_plural: 'Successfully deleted {{count}} files:',
+			failed: 'Failed to delete {{count}} file:',
+			failed_plural: 'Failed to delete {{count}} files:',
+			multiDeleteHeader: 'I performed {{count}} delete operation:',
+			multiDeleteHeader_plural: 'I performed {{count}} delete operations:',
+			operation: 'Operation {{num}}: Deleting files with {{query}}',
+			confirmHeader: 'I found the following files to delete:',
+			confirmQuestion: 'Are you sure you want to delete these files? This action cannot be undone.',
 		},
 		// Search result messages
 		search: {
@@ -78,6 +111,8 @@ const en = {
 			reverting: 'Reverting changes...',
 			revertSuccess: 'Successfully reverted the last change.',
 			revertFailed: 'Failed to revert changes. No previous changes to revert to.',
+			copying: 'Copying...',
+			deleting: 'Deleting...',
 		},
 	},
 };

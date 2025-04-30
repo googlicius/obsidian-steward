@@ -7,7 +7,7 @@ import { logger } from '../../utils/logger';
  * Represents a Git operation that can be tracked and reverted
  */
 export interface GitOperation {
-	type: 'create' | 'modify' | 'delete' | 'move' | 'bulk';
+	type: 'create' | 'modify' | 'delete' | 'move' | 'copy' | 'bulk';
 	affectedFiles: string[]; // Paths of affected files
 	description: string; // Human-readable description of the operation
 	timestamp: number; // When the operation occurred

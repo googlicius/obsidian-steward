@@ -126,6 +126,24 @@ export class ConversationEventHandler {
 				break;
 			}
 
+			case 'delete': {
+				await this.renderer.addGeneratingIndicator(
+					payload.title,
+					i18next.t('conversation.deleting')
+				);
+				await this.handleDeleteCommand(payload.title, commandContent);
+				break;
+			}
+
+			case 'copy': {
+				await this.renderer.addGeneratingIndicator(
+					payload.title,
+					i18next.t('conversation.copying')
+				);
+				await this.handleCopyCommand(payload.title, commandContent);
+				break;
+			}
+
 			case 'search': {
 				await this.renderer.addGeneratingIndicator(
 					payload.title,
@@ -224,6 +242,16 @@ export class ConversationEventHandler {
 				break;
 			}
 
+			case 'delete': {
+				await this.handleDeleteCommand(payload.title, payload.commandContent);
+				break;
+			}
+
+			case 'copy': {
+				await this.handleCopyCommand(payload.title, payload.commandContent);
+				break;
+			}
+
 			default:
 				break;
 		}
@@ -283,7 +311,7 @@ export class ConversationEventHandler {
 			if (totalFilesToMove === 0) {
 				await this.renderer.updateConversationNote({
 					path: title,
-					newContent: t('move.noFilesFound'),
+					newContent: t('common.noFilesFound'),
 					role: 'Steward',
 					command: 'move',
 				});
@@ -1035,5 +1063,312 @@ export class ConversationEventHandler {
 				role: 'Steward',
 			});
 		}
+	}
+
+	/**
+	 * Handles the delete command to delete files matching search criteria
+	 * @param title The conversation title
+	 * @param commandContent The command content
+	 */
+	private async handleDeleteCommand(title: string, commandContent: string): Promise<void> {
+		try {
+			// Extract the search query
+			const queryExtraction = await extractSearchQueryV2(commandContent);
+
+			// Explain the search query to the user
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*${queryExtraction.explanation}*`,
+			});
+
+			// Get translation function
+			const t = getTranslation(queryExtraction.lang);
+
+			// Search for files matching the criteria
+			const docs = await this.plugin.searchIndexer.searchV2(queryExtraction.operations);
+
+			// If no files match, inform the user
+			if (docs.length === 0) {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: t('common.noFilesFound'),
+					role: 'Steward',
+					command: 'delete',
+				});
+				return;
+			}
+
+			// Delete the files directly
+			const deletedFiles: string[] = [];
+			const failedFiles: string[] = [];
+
+			for (const doc of docs) {
+				try {
+					const file = this.plugin.app.vault.getAbstractFileByPath(doc.path);
+					if (file) {
+						await this.plugin.app.vault.delete(file);
+						deletedFiles.push(doc.path);
+					}
+				} catch (error) {
+					failedFiles.push(doc.path);
+				}
+			}
+
+			// Format the results
+			let response = t('delete.foundFiles', { count: docs.length });
+
+			if (deletedFiles.length > 0) {
+				response += `\n\n**${t('delete.successfullyDeleted', { count: deletedFiles.length })}**`;
+				deletedFiles.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+
+			if (failedFiles.length > 0) {
+				response += `\n\n**${t('delete.failed', { count: failedFiles.length })}**`;
+				failedFiles.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+
+			// Update the conversation with the results
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: response,
+				role: 'Steward',
+				command: 'delete',
+			});
+
+			// Emit the delete operation completed event
+			eventEmitter.emit(Events.DELETE_OPERATION_COMPLETED, {
+				title,
+				operations: [
+					{
+						sourceQuery: commandContent,
+						deleted: deletedFiles,
+						errors: failedFiles,
+					},
+				],
+			});
+		} catch (error) {
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*Error extracting delete query: ${error.message}*`,
+				role: 'Steward',
+			});
+		}
+	}
+
+	/**
+	 * Handles the copy command to copy files matching search criteria to a destination
+	 * @param title The conversation title
+	 * @param commandContent The command content
+	 */
+	private async handleCopyCommand(title: string, commandContent: string): Promise<void> {
+		try {
+			// Extract the search query and destination
+			const queryExtraction = await extractSearchQueryV2(commandContent);
+
+			// Explain the search query to the user
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*${queryExtraction.explanation}*`,
+			});
+
+			// Get translation function
+			const t = getTranslation(queryExtraction.lang);
+
+			// Search for files matching the criteria
+			const docs = await this.plugin.searchIndexer.searchV2(queryExtraction.operations);
+
+			// If no files match, inform the user
+			if (docs.length === 0) {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: t('common.noFilesFound'),
+					role: 'Steward',
+					command: 'copy',
+				});
+				return;
+			}
+
+			// Convert search operations to move operations for copying
+			const moveOperations: MoveOperationV2[] = queryExtraction.operations.map(op => ({
+				...op,
+				destinationFolder: (op as any).destinationFolder || '',
+			}));
+
+			// Check if the destination folder exists
+			const destinationFolder = moveOperations[0].destinationFolder;
+			if (!destinationFolder) {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: i18next.t('copy.noDestination'),
+					role: 'Steward',
+					command: 'copy',
+				});
+				return;
+			}
+
+			const folderExists = this.plugin.app.vault.getAbstractFileByPath(destinationFolder);
+
+			if (!folderExists) {
+				// Request confirmation to create the folder
+				let message = i18next.t('copy.createFoldersHeader') + '\n';
+				message += `- \`${destinationFolder}\`\n`;
+				message += '\n' + i18next.t('copy.createFoldersQuestion');
+
+				// Request confirmation
+				await this.plugin.confirmationEventHandler.requestConfirmation(
+					title,
+					'copy-folder',
+					message,
+					{
+						missingFolder: destinationFolder,
+						queryExtraction,
+						docs,
+					},
+					{
+						eventType: Events.COPY_OPERATION_CONFIRMED,
+						payload: {
+							title,
+							queryExtraction,
+							docs,
+						},
+					}
+				);
+
+				return; // Wait for confirmation
+			}
+
+			// Create a map of files by operation
+			const filesByOperation = new Map<number, IndexedDocument[]>();
+			filesByOperation.set(0, docs);
+
+			// Perform the copy operation
+			const result = await this.plugin.obsidianAPITools.copyByOperations(
+				moveOperations,
+				filesByOperation
+			);
+
+			// Format the results
+			const response = this.formatCopyResult({
+				operations: result.operations,
+				lang: queryExtraction.lang,
+			});
+
+			// Update the conversation with the results
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: response,
+				role: 'Steward',
+				command: 'copy',
+			});
+
+			// Emit the copy operation completed event
+			eventEmitter.emit(Events.COPY_OPERATION_COMPLETED, {
+				title,
+				operations: result.operations,
+			});
+		} catch (error) {
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*Error extracting copy query: ${error.message}*`,
+				role: 'Steward',
+			});
+		}
+	}
+
+	/**
+	 * Format copy results for display
+	 */
+	private formatCopyResult(result: {
+		operations: Array<{
+			sourceQuery: string;
+			destinationFolder: string;
+			copied: string[];
+			errors: string[];
+			skipped: string[];
+		}>;
+		lang?: string;
+	}): string {
+		const { operations, lang } = result;
+
+		// Get translation function for the specified language
+		const t = getTranslation(lang);
+
+		// Single operation format
+		if (operations.length === 1) {
+			const { copied, errors, skipped } = operations[0];
+			const totalCount = copied.length + errors.length + skipped.length;
+
+			let response = t('copy.foundFiles', { count: totalCount });
+
+			if (copied.length > 0) {
+				response += `\n\n**${t('copy.successfullyCopied', { count: copied.length })}**`;
+				copied.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+
+			if (skipped.length > 0) {
+				response += `\n\n**${t('copy.skipped', { count: skipped.length })}**`;
+				skipped.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+
+			if (errors.length > 0) {
+				response += `\n\n**${t('copy.failed', { count: errors.length })}**`;
+				errors.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+
+			return response;
+		}
+
+		// Multiple operations format
+		let response = t('copy.multiCopyHeader', { count: operations.length });
+
+		// For each operation, show the details
+		operations.forEach((operation, index) => {
+			const { sourceQuery, destinationFolder, copied, errors, skipped } = operation;
+			const totalCount = copied.length + errors.length + skipped.length;
+
+			response += `\n\n**${t('copy.operation', {
+				num: index + 1,
+				query: sourceQuery,
+				folder: destinationFolder,
+			})}**`;
+
+			if (totalCount === 0) {
+				response += `\n\n${t('search.noResults')}`;
+				return;
+			}
+
+			if (copied.length > 0) {
+				response += `\n\n**${t('copy.successfullyCopied', { count: copied.length })}**`;
+				copied.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+
+			if (skipped.length > 0) {
+				response += `\n\n**${t('copy.skipped', { count: skipped.length })}**`;
+				skipped.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+
+			if (errors.length > 0) {
+				response += `\n\n**${t('copy.failed', { count: errors.length })}**`;
+				errors.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+		});
+
+		return response;
 	}
 }
