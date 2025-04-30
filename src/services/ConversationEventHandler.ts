@@ -173,7 +173,7 @@ export class ConversationEventHandler {
 					payload.title,
 					i18next.t('conversation.reverting')
 				);
-				await this.handleRevertCommand(payload.title);
+				await this.handleRevertCommand(payload.title, payload.lang);
 				break;
 			}
 
@@ -1034,10 +1034,10 @@ export class ConversationEventHandler {
 	 * Handle the revert command
 	 * @param title The conversation title
 	 */
-	private async handleRevertCommand(title: string): Promise<void> {
+	private async handleRevertCommand(title: string, lang?: string): Promise<void> {
 		try {
-			// Get the GitEventHandler instance
 			const gitEventHandler = this.plugin.gitEventHandler;
+			const t = getTranslation(lang);
 
 			// Revert the last operation
 			const success = await gitEventHandler.revertLastOperation();
@@ -1046,13 +1046,13 @@ export class ConversationEventHandler {
 			if (success) {
 				await this.renderer.updateConversationNote({
 					path: title,
-					newContent: i18next.t('conversation.revertSuccess'),
+					newContent: t('conversation.revertSuccess'),
 					role: 'Steward',
 				});
 			} else {
 				await this.renderer.updateConversationNote({
 					path: title,
-					newContent: i18next.t('conversation.revertFailed'),
+					newContent: t('conversation.revertFailed'),
 					role: 'Steward',
 				});
 			}

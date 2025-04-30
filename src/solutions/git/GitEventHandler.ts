@@ -10,7 +10,7 @@ import {
 import { GitOperation, GitService } from './GitService';
 import { ConversationRenderer } from '../../services/ConversationRenderer';
 import { logger } from '../../utils/logger';
-import StewardPlugin from '../../main';
+import type StewardPlugin from '../../main';
 
 /**
  * Handler for Git-related events to enable tracking and reverting changes
@@ -21,8 +21,7 @@ export class GitEventHandler {
 
 	constructor(app: App, plugin: StewardPlugin) {
 		this.gitService = GitService.getInstance(app);
-
-		this.renderer = new ConversationRenderer(plugin);
+		this.renderer = plugin.conversationRenderer;
 
 		this.setupListeners();
 	}
@@ -85,7 +84,7 @@ export class GitEventHandler {
 			// Create the Git operation
 			const operation: GitOperation = {
 				type: 'move',
-				affectedFiles,
+				// affectedFiles,
 				description,
 				timestamp: Date.now(),
 			};
@@ -132,7 +131,12 @@ export class GitEventHandler {
 			})
 			.join('\n\n');
 
-		const commitHash = await this.trackOperationInGit('copy', description);
+		const commitHash = await this.trackOperationInGit({
+			type: 'copy',
+			description,
+			// affectedFiles: payload.operations.flatMap(op => op.copied),
+			timestamp: Date.now(),
+		});
 
 		if (commitHash && payload.title) {
 			const messageMetadata = await this.renderer.findMostRecentMessageMetadata(
@@ -159,7 +163,12 @@ export class GitEventHandler {
 			})
 			.join('\n\n');
 
-		const commitHash = await this.trackOperationInGit('delete', description);
+		const commitHash = await this.trackOperationInGit({
+			type: 'delete',
+			description,
+			// affectedFiles: payload.operations.flatMap(op => op.deleted),
+			timestamp: Date.now(),
+		});
 
 		if (commitHash && payload.title) {
 			const messageMetadata = await this.renderer.findMostRecentMessageMetadata(
@@ -278,18 +287,8 @@ export class GitEventHandler {
 		}
 	}
 
-	private async trackOperationInGit(
-		type: 'move' | 'delete' | 'copy',
-		description: string
-	): Promise<string | undefined> {
+	private async trackOperationInGit(operation: GitOperation): Promise<string | undefined> {
 		try {
-			const operation: GitOperation = {
-				type,
-				affectedFiles: [],
-				description,
-				timestamp: Date.now(),
-			};
-
 			const commitHash = await this.gitService.trackOperation(operation);
 
 			if (commitHash) {
@@ -302,7 +301,7 @@ export class GitEventHandler {
 
 			return undefined;
 		} catch (error) {
-			logger.error(`Error tracking ${type} operation in Git:`, error);
+			logger.error(`Error tracking ${operation.type} operation in Git:`, error);
 			eventEmitter.emit(ErrorEvents.GIT_ERROR, {
 				error: error as Error,
 			});

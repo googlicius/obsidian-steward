@@ -1,6 +1,7 @@
 import { generateText, openai } from 'modelfusion';
 import { commandIntentPrompt } from './prompts';
 import { userLanguagePrompt } from './prompts/languagePrompt';
+import { LLMCacheService } from '../../solutions/cache/LLMCacheService';
 
 /**
  * Represents the extracted command intent from a general query
@@ -13,6 +14,9 @@ export interface CommandIntentExtraction {
 	lang?: string;
 }
 
+// Create a singleton instance of the cache service
+const cacheService = new LLMCacheService();
+
 /**
  * Extract command intent from a general query using AI
  * @param userInput Natural language request from the user
@@ -20,6 +24,13 @@ export interface CommandIntentExtraction {
  */
 export async function extractCommandIntent(userInput: string): Promise<CommandIntentExtraction> {
 	try {
+		// First check if we have a cached response
+		const cachedResponse = await cacheService.getCachedResponse(userInput);
+		if (cachedResponse) {
+			const parsed = JSON.parse(cachedResponse);
+			return validateCommandIntentExtraction(parsed);
+		}
+
 		// Use ModelFusion to generate the response
 		const response = await generateText({
 			model: openai.ChatTextGenerator({
@@ -32,7 +43,12 @@ export async function extractCommandIntent(userInput: string): Promise<CommandIn
 
 		// Parse and validate the JSON response
 		const parsed = JSON.parse(response);
-		return validateCommandIntentExtraction(parsed);
+		const validatedResult = validateCommandIntentExtraction(parsed);
+
+		// Cache the response with the validated command type
+		await cacheService.cacheResponse(userInput, response, validatedResult.commandType);
+
+		return validatedResult;
 	} catch (error) {
 		console.error('Error extracting command intent:', error);
 		throw error;

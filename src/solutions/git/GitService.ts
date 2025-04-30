@@ -8,7 +8,7 @@ import { logger } from '../../utils/logger';
  */
 export interface GitOperation {
 	type: 'create' | 'modify' | 'delete' | 'move' | 'copy' | 'bulk';
-	affectedFiles: string[]; // Paths of affected files
+	affectedFiles?: string[]; // Paths of affected files
 	description: string; // Human-readable description of the operation
 	timestamp: number; // When the operation occurred
 }
@@ -23,6 +23,7 @@ export class GitService {
 	private initialized = false;
 	private gitDir: string;
 	private vaultPath: string;
+	private readonly DEFAULT_BRANCH = 'steward';
 	private author = { name: 'Obsidian Steward', email: 'steward@obsidian.md' };
 
 	private constructor(app: App) {
@@ -44,6 +45,105 @@ export class GitService {
 			GitService.instance = new GitService(app);
 		}
 		return GitService.instance;
+	}
+
+	/**
+	 * Ensure we're on the default branch
+	 */
+	private async ensureDefaultBranch(): Promise<void> {
+		try {
+			// Check if our target branch exists
+			let branchExists = false;
+			try {
+				await git.resolveRef({
+					fs: this.fs,
+					dir: this.vaultPath,
+					ref: `refs/heads/${this.DEFAULT_BRANCH}`,
+				});
+				branchExists = true;
+			} catch (error) {
+				// Branch doesn't exist, check for common default branches
+				logger.log(`Branch ${this.DEFAULT_BRANCH} doesn't exist, checking for default branches...`);
+			}
+
+			if (!branchExists) {
+				// Check for common default branches
+				const commonBranches = ['main', 'master'];
+				let baseBranch = null;
+				let baseCommit = null;
+
+				for (const branch of commonBranches) {
+					try {
+						baseCommit = await git.resolveRef({
+							fs: this.fs,
+							dir: this.vaultPath,
+							ref: `refs/heads/${branch}`,
+						});
+						baseBranch = branch;
+						break;
+					} catch (error) {
+						// Branch doesn't exist, continue checking
+						continue;
+					}
+				}
+
+				if (baseBranch && baseCommit) {
+					// Create our branch from the existing default branch
+					logger.log(`Creating ${this.DEFAULT_BRANCH} from ${baseBranch}...`);
+					await git.writeRef({
+						fs: this.fs,
+						dir: this.vaultPath,
+						ref: `refs/heads/${this.DEFAULT_BRANCH}`,
+						value: baseCommit,
+					});
+				} else {
+					// No existing branches found, create a new one with initial commit
+					logger.log('No default branch found, creating new branch with initial commit...');
+					// Create an empty tree
+					const sha = await git.writeTree({
+						fs: this.fs,
+						dir: this.vaultPath,
+						tree: [],
+					});
+
+					// Create initial commit
+					const commitSha = await git.commit({
+						fs: this.fs,
+						dir: this.vaultPath,
+						message: 'Initial commit',
+						tree: sha,
+						author: this.author,
+					});
+
+					// Create the branch pointing to this commit
+					await git.writeRef({
+						fs: this.fs,
+						dir: this.vaultPath,
+						ref: `refs/heads/${this.DEFAULT_BRANCH}`,
+						value: commitSha,
+					});
+				}
+			}
+
+			// Get current branch
+			const currentBranch = await git.currentBranch({
+				fs: this.fs,
+				dir: this.vaultPath,
+			});
+
+			// Switch to default branch if we're not on it
+			if (currentBranch !== this.DEFAULT_BRANCH) {
+				await git.checkout({
+					fs: this.fs,
+					dir: this.vaultPath,
+					ref: this.DEFAULT_BRANCH,
+					force: true,
+				});
+				logger.log(`Switched to ${this.DEFAULT_BRANCH} branch`);
+			}
+		} catch (error) {
+			logger.error('Failed to ensure default branch:', error);
+		}
 	}
 
 	private async createGitignore(): Promise<void> {
@@ -100,17 +200,20 @@ export class GitService {
 					fs: this.fs,
 					dir: this.vaultPath,
 					gitdir: this.gitDir,
-					defaultBranch: 'steward',
+					defaultBranch: this.DEFAULT_BRANCH,
 				});
 				logger.log('Git repository initialized');
 
 				this.initialized = true;
 
 				// Make initial commit
-				this.commitChanges('Initial commit', true);
+				await this.commitChanges('Initial commit', { initialCommit: true });
+			} else {
+				this.initialized = true;
+				// Ensure we're on the default branch
+				await this.ensureDefaultBranch();
 			}
 
-			this.initialized = true;
 			return true;
 		} catch (error) {
 			logger.error('Failed to initialize Git repository', error);
@@ -124,12 +227,21 @@ export class GitService {
 	 * @param initialCommit Whether this is the initial commit
 	 * @returns The commit hash if successful
 	 */
-	public async commitChanges(message: string, initialCommit = false): Promise<string | null> {
+	public async commitChanges(
+		message: string,
+		{
+			initialCommit = false,
+			affectedFiles = [],
+		}: { initialCommit?: boolean; affectedFiles?: string[] } = {}
+	): Promise<string | null> {
 		try {
 			if (!this.initialized) {
 				logger.error('Git repository not initialized');
 				return null;
 			}
+
+			// Ensure we're on the default branch
+			await this.ensureDefaultBranch();
 
 			// If initial commit, add all files
 			if (initialCommit) {
@@ -142,9 +254,17 @@ export class GitService {
 					await git.add({ fs: this.fs, dir: this.vaultPath, filepath: file.path });
 				}
 			} else {
+				const affectedFilesMap = new Map<string, number>();
+				for (const filepath of affectedFiles) {
+					affectedFilesMap.set(filepath, 1);
+				}
+
 				// Stage all changes
 				const status = await git.statusMatrix({ fs: this.fs, dir: this.vaultPath });
 				for (const [filepath, , worktreeStatus] of status) {
+					if (!affectedFilesMap.has(filepath)) {
+						continue;
+					}
 					if (worktreeStatus === 0) {
 						logger.log(`Removing file: ${filepath}`);
 						await git.remove({ fs: this.fs, dir: this.vaultPath, filepath });
@@ -183,6 +303,9 @@ export class GitService {
 				return null;
 			}
 
+			// Ensure we're on the default branch
+			await this.ensureDefaultBranch();
+
 			// Build a descriptive commit message
 			const commitMessage = `${operation.type}: ${operation.description}`;
 
@@ -207,23 +330,56 @@ export class GitService {
 				return false;
 			}
 
-			// Create a new commit that reverts to the specified state
-			await git.checkout({
+			// Ensure we're on the default branch
+			await this.ensureDefaultBranch();
+
+			// Get the commit we want to revert to
+			const targetCommit = await git.readCommit({
 				fs: this.fs,
 				dir: this.vaultPath,
-				ref: commitHash,
+				oid: commitHash,
+			});
+
+			// Get the current HEAD commit
+			const HEAD = await git.resolveRef({
+				fs: this.fs,
+				dir: this.vaultPath,
+				ref: 'HEAD',
+			});
+
+			// Create a revert commit that points to the target tree but keeps history
+			const sha = await git.commit({
+				fs: this.fs,
+				dir: this.vaultPath,
+				message: `Revert to ${commitHash.substring(0, 7)}`,
+				author: this.author,
+				tree: targetCommit.commit.tree,
+				parent: [HEAD], // This ensures we add on top of current history
+			});
+
+			// Update the current branch to point to the new commit
+			await git.writeRef({
+				fs: this.fs,
+				dir: this.vaultPath,
+				ref: `refs/heads/${this.DEFAULT_BRANCH}`,
+				value: sha,
 				force: true,
 			});
 
-			// Notify about successful revert
-			new Notice(`Successfully reverted changes to commit ${commitHash.substring(0, 7)}`);
+			// Checkout the working directory to match the new state
+			await git.checkout({
+				fs: this.fs,
+				dir: this.vaultPath,
+				ref: this.DEFAULT_BRANCH,
+				force: true,
+			});
 
 			// Reload the vault to reflect the changes
 			this.reloadVault();
 
 			return true;
 		} catch (error) {
-			logger.error('Failed to revert to commit', error);
+			logger.error('Failed to revert to commit:', error);
 			new Notice(`Failed to revert changes: ${error.message}`);
 			return false;
 		}
@@ -238,6 +394,9 @@ export class GitService {
 			if (!this.initialized) {
 				return false;
 			}
+
+			// Ensure we're on the default branch
+			await this.ensureDefaultBranch();
 
 			// Get the last two commits (HEAD and HEAD~1)
 			const commits = await git.log({

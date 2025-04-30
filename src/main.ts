@@ -279,9 +279,6 @@ export default class StewardPlugin extends Plugin {
 			true
 		);
 
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-
 		// Initialize the confirmation event handler
 		this.confirmationEventHandler = new ConfirmationEventHandler(this);
 

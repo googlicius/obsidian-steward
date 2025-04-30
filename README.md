@@ -51,7 +51,7 @@ MIT
 
 - [ ] Multiple lines command.
 - [x] Moving notes to multiple destinations.
-- [ ] Search in one or many specific folders.
+- [x] Search in one or many specific folders.
 - [ ] Command options: `--help`, `--model`, `--explain`,...
 - [x] The reversion of command's actions.
 - [ ] Reminder.
@@ -66,4 +66,4 @@ MIT
 - [ ] User confirmation when the AI performs a large side effect action.
 - [ ] Traceability
 - [ ] MCP support.
-- [ ] Remember user's intent.
+- [x] Remember user's intent.
