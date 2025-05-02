@@ -31,27 +31,17 @@ export class GitEventHandler {
 	 */
 	private setupListeners(): void {
 		// Initialize Git service
-		this.gitService.initialize().catch(error => {
-			logger.error('Failed to initialize Git service', error);
-		});
-
-		// Listen for move operations AFTER they've been completed
-		eventEmitter.on(Events.MOVE_OPERATION_COMPLETED, this.handleMoveOperationCompleted.bind(this));
-
-		// Listen for copy operations AFTER they've been completed
-		eventEmitter.on(Events.COPY_OPERATION_COMPLETED, this.handleCopyOperationCompleted.bind(this));
-
-		// Listen for delete operations AFTER they've been completed
-		eventEmitter.on(
-			Events.DELETE_OPERATION_COMPLETED,
-			this.handleDeleteOperationCompleted.bind(this)
-		);
-
-		// Listen for Git operations performed
-		eventEmitter.on(Events.GIT_OPERATION_PERFORMED, this.handleGitOperationPerformed.bind(this));
-
-		// Listen for Git operations reverted
-		eventEmitter.on(Events.GIT_OPERATION_REVERTED, this.handleGitOperationReverted.bind(this));
+		// this.gitService.initialize().catch(error => {
+		// 	logger.error('Failed to initialize Git service', error);
+		// });
+		// eventEmitter.on(Events.MOVE_OPERATION_COMPLETED, this.handleMoveOperationCompleted.bind(this));
+		// eventEmitter.on(Events.COPY_OPERATION_COMPLETED, this.handleCopyOperationCompleted.bind(this));
+		// eventEmitter.on(
+		// 	Events.DELETE_OPERATION_COMPLETED,
+		// 	this.handleDeleteOperationCompleted.bind(this)
+		// );
+		// eventEmitter.on(Events.GIT_OPERATION_PERFORMED, this.handleGitOperationPerformed.bind(this));
+		// eventEmitter.on(Events.GIT_OPERATION_REVERTED, this.handleGitOperationReverted.bind(this));
 	}
 
 	/**

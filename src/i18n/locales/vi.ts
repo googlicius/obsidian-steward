@@ -58,7 +58,6 @@ const vi = {
 			moreMatches: '... và {{count}} kết quả khác',
 			moreMatches_plural: '... và {{count}} kết quả khác',
 			showMoreDetails: 'Nhập `/more` để xem thêm 10 kết quả tiếp theo.',
-			noMatchesInFile: 'Không tìm thấy kết quả phù hợp với từ khóa trong nội dung tập tin này.',
 			pagination: 'Trang {{current}}/{{total}}',
 			useMoreCommand: 'Nhập `/more` để xem trang kết quả tiếp theo.',
 			noMoreResults: 'Không còn kết quả tìm kiếm nào để hiển thị.',

@@ -285,11 +285,23 @@ export class ConversationEventHandler {
 			// Extract the move query
 			const queryExtraction = await extractMoveQueryV2(commandContent);
 
+			// Get translation function for the specified language
+			const t = getTranslation(queryExtraction.lang);
+
 			// Explain the move query to the user
 			await this.renderer.updateConversationNote({
 				path: title,
 				newContent: `*${queryExtraction.explanation}*`,
 			});
+
+			if (queryExtraction.confidence < 0.7) {
+				// await this.renderer.updateConversationNote({
+				// 	path: title,
+				// 	newContent: t('common.lowConfidence'),
+				// 	role: 'Steward',
+				// });
+				return;
+			}
 
 			const filesByOperation = new Map<number, IndexedDocument[]>();
 			for (let i = 0; i < queryExtraction.operations.length; i++) {
@@ -303,9 +315,6 @@ export class ConversationEventHandler {
 			filesByOperation.forEach(files => {
 				totalFilesToMove += files.length;
 			});
-
-			// Get translation function for the specified language
-			const t = getTranslation(queryExtraction.lang);
 
 			// If no files match, inform the user without asking for confirmation
 			if (totalFilesToMove === 0) {
@@ -570,9 +579,6 @@ export class ConversationEventHandler {
 						if (highlightedMatches.length > 3) {
 							response += `\n_${t('search.moreMatches', { count: highlightedMatches.length - 3 })}_`;
 						}
-					} else {
-						// No highlights found in the file content
-						response += `\n${t('search.noMatchesInFile')}\n`;
 					}
 				} catch (error) {
 					console.error('Error reading file:', error);

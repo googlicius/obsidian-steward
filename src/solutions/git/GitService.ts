@@ -191,10 +191,10 @@ export class GitService {
 				.then(() => true)
 				.catch(() => false);
 
-			if (!dotGitExists) {
-				// Create .gitignore first
-				await this.createGitignore();
+			// Create .gitignore first
+			await this.createGitignore();
 
+			if (!dotGitExists) {
 				// Initialize git repository
 				await git.init({
 					fs: this.fs,

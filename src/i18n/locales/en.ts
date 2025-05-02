@@ -60,7 +60,6 @@ const en = {
 			moreMatches: '... and {{count}} more match',
 			moreMatches_plural: '... and {{count}} more matches',
 			showMoreDetails: 'Type `/more` to show the next 10 results.',
-			noMatchesInFile: 'No keyword matches found in this file content.',
 			pagination: 'Page {{current}} of {{total}}',
 			useMoreCommand: 'Type `/more` to see the next page of results.',
 			noMoreResults: 'No more search results to show.',

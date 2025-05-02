@@ -60,7 +60,6 @@ const ja = {
 			moreMatches: '... 他に{{count}}件の一致',
 			moreMatches_plural: '... 他に{{count}}件の一致',
 			showMoreDetails: '次の10件の結果を表示するには `/more` と入力してください。',
-			noMatchesInFile: 'このファイルの内容にキーワードの一致は見つかりませんでした。',
 			pagination: '{{current}}/{{total}}ページ',
 			useMoreCommand: '次のページを表示するには `/more` と入力してください。',
 			noMoreResults: 'これ以上の検索結果はありません。',

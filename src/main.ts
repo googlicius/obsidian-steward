@@ -14,7 +14,6 @@ import { SearchIndexer } from './searchIndexer';
 import { DateTime } from 'luxon';
 import { encrypt, decrypt, generateSaltKeyId } from './utils/cryptoUtils';
 import { ConfirmationEventHandler } from './services/ConfirmationEventHandler';
-import { SearchTool } from './tools/searchTools';
 import { logger } from './utils/logger';
 import { ConversationRenderer } from './services/ConversationRenderer';
 import { ConversationArtifactManager } from './services/ConversationArtifactManager';
@@ -78,7 +77,6 @@ export default class StewardPlugin extends Plugin {
 	settings: StewardPluginSettings;
 	obsidianAPITools: ObsidianAPITools;
 	searchIndexer: SearchIndexer;
-	searchTool: SearchTool;
 	ribbonIcon: HTMLElement;
 	staticConversationTitle = 'Steward Chat';
 	confirmationEventHandler: ConfirmationEventHandler;
@@ -136,11 +134,8 @@ export default class StewardPlugin extends Plugin {
 			this.registerEvent(eventRef);
 		}
 
-		// Initialize the SearchTool
-		this.searchTool = new SearchTool(this.app, this.searchIndexer);
-
 		// Initialize the ObsidianAPITools with the SearchTool
-		this.obsidianAPITools = new ObsidianAPITools(this.app, this.searchTool);
+		this.obsidianAPITools = new ObsidianAPITools(this.app);
 
 		// Build the index if it's not already built
 		this.checkAndBuildIndexIfNeeded();
@@ -470,6 +465,23 @@ export default class StewardPlugin extends Plugin {
 		return leaf;
 	}
 
+	/**
+	 * Scroll the cursor position into view
+	 */
+	private scrollCursorIntoView() {
+		if (this.editor?.cm) {
+			const view = this.editor.cm;
+			const pos = view.state.selection.main.head;
+
+			view.dispatch({
+				effects: EditorView.scrollIntoView(pos, {
+					y: 'center',
+					yMargin: 50,
+				}),
+			});
+		}
+	}
+
 	async openStaticConversation({
 		revealLeaf = true,
 	}: { revealLeaf?: boolean } = {}): Promise<void> {
@@ -509,6 +521,7 @@ export default class StewardPlugin extends Plugin {
 				// Focus the editor
 				this.app.workspace.revealLeaf(leaf);
 				this.app.workspace.setActiveLeaf(leaf, { focus: true });
+				this.scrollCursorIntoView();
 			}
 		} catch (error) {
 			logger.error('Error opening static conversation:', error);

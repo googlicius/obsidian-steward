@@ -1,9 +1,4 @@
 import { App } from 'obsidian';
-import { SearchResult } from '../searchIndexer';
-import { generateText, openai } from 'modelfusion';
-import { moveQueryPrompt } from '../lib/modelfusion/prompts';
-import { userLanguagePrompt } from '../lib/modelfusion/prompts/languagePrompt';
-import { SearchTool } from './searchTools';
 import { CommandIntentExtraction, extractCommandIntent } from '../lib/modelfusion/intentExtraction';
 import { MoveOperationV2 } from 'src/lib/modelfusion';
 import { IndexedDocument } from 'src/database/PluginDatabase';
@@ -26,10 +21,7 @@ export interface MoveQueryExtraction {
 }
 
 export class ObsidianAPITools {
-	constructor(
-		private readonly app: App,
-		private readonly searchTool: SearchTool
-	) {}
+	constructor(private readonly app: App) {}
 
 	async createNewFile(title: string, content: string) {
 		const file = await this.app.vault.create(`${title}.md`, content);
@@ -77,91 +69,6 @@ export class ObsidianAPITools {
 
 		// Create the folder
 		await this.app.vault.createFolder(folderPath);
-	}
-
-	/**
-	 * Extract move command parameters from a natural language request using AI
-	 * @param userInput Natural language request from the user
-	 * @returns Extracted source query, destination folder, and explanation
-	 */
-	async extractMoveQuery(userInput: string): Promise<MoveQueryExtraction> {
-		try {
-			// Use ModelFusion to generate the response
-			const response = await generateText({
-				model: openai.ChatTextGenerator({
-					model: 'gpt-4-turbo-preview',
-					temperature: 0.2,
-					responseFormat: { type: 'json_object' },
-				}),
-				prompt: [userLanguagePrompt, moveQueryPrompt, { role: 'user', content: userInput }],
-			});
-
-			// Parse and validate the JSON response
-			const parsed = JSON.parse(response);
-			return this.validateMoveQueryExtraction(parsed);
-		} catch (error) {
-			console.error('Error extracting move query:', error);
-			throw error;
-		}
-	}
-
-	/**
-	 * Validate that the move query extraction contains all required fields
-	 */
-	private validateMoveQueryExtraction(data: any): MoveQueryExtraction {
-		if (!data || typeof data !== 'object') {
-			throw new Error('Invalid response format');
-		}
-
-		if (!Array.isArray(data.operations) || data.operations.length === 0) {
-			throw new Error('Operations must be a non-empty array');
-		}
-
-		// Validate each operation
-		for (const operation of data.operations) {
-			if (typeof operation.sourceQuery !== 'string' || !operation.sourceQuery.trim()) {
-				throw new Error('Source query must be a non-empty string');
-			}
-
-			if (typeof operation.destinationFolder !== 'string' || !operation.destinationFolder.trim()) {
-				throw new Error('Destination folder must be a non-empty string');
-			}
-		}
-
-		if (typeof data.explanation !== 'string' || !data.explanation.trim()) {
-			throw new Error('Explanation must be a non-empty string');
-		}
-
-		// Lang is optional, but if provided, must be a valid string
-		const lang =
-			data.lang && typeof data.lang === 'string' && data.lang.trim() ? data.lang.trim() : 'en';
-
-		return {
-			operations: data.operations,
-			explanation: data.explanation,
-			lang,
-		};
-	}
-
-	/**
-	 * Get files for all operations in a move query extraction
-	 * @param queryExtraction The extracted move query parameters
-	 * @returns Map of operation index to array of search results
-	 */
-	async getFilesByMoveQueryExtraction(
-		queryExtraction: MoveQueryExtraction
-	): Promise<Map<number, SearchResult[]>> {
-		const filesByOperation = new Map<number, SearchResult[]>();
-
-		// Process each operation
-		for (let i = 0; i < queryExtraction.operations.length; i++) {
-			// Find files matching the source query
-			// const results = await this.searchTool.getFilesByQuery(operation.sourceQuery);
-			const results: SearchResult[] = [];
-			filesByOperation.set(i, results);
-		}
-
-		return filesByOperation;
 	}
 
 	/**
