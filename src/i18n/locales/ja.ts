@@ -106,6 +106,8 @@ const ja = {
 		conversation: {
 			workingOnIt: '処理中...',
 			generating: '生成中...',
+			generatingImage: '画像を生成中...',
+			generatingAudio: '音声を生成中...',
 			moving: '移動中...',
 			searching: '検索中...',
 			calculating: '計算中...',

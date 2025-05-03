@@ -16,6 +16,8 @@ Available command types:
 - "close": When the user wants to close the conversation or exit
 - "confirm": When the user is responding to a confirmation request (yes/no, approve/deny)
 - "revert": When the user wants to undo the last change or revert to a previous state
+- "image": When the user wants to generate an image
+- "audio": When the user wants to generate audio
 
 Guidelines:
 - If the user wants to find, locate, or search for notes, classify as "search"
@@ -28,6 +30,8 @@ Guidelines:
 - If the user wants to close, end, or exit the conversation, classify as "close"
 - If the user is responding with yes/no, approve/deny, or similar confirmation language, classify as "confirm"
 - If the user wants to undo changes, revert to a previous state, or go back to a previous version, classify as "revert"
+- If the user wants to generate an image, classify as "image"
+- If the user wants to generate audio, classify as "audio"
 - Include the original query content for processing by the specialized handlers
 - Provide a confidence score from 0 to 1:
   - 0.0-0.3: Low confidence (ambiguous or unclear requests)
@@ -35,7 +39,7 @@ Guidelines:
   - 0.8-1.0: High confidence (very clear intent)
 
 You must respond with a valid JSON object containing these properties:
-- commandType: One of "search", "move", "move_from_search_result", "delete", "copy", "calc", "close", "confirm", or "revert"
+- commandType: One of "search", "move", "move_from_search_result", "delete", "copy", "calc", "close", "confirm", "revert", "image", or "audio"
 - content: The original query content
 - confidence: A number from 0 to 1 indicating your confidence in this classification
 - explanation: 

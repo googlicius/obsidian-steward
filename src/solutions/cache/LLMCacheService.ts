@@ -95,7 +95,16 @@ export class LLMCacheService {
 	 * @returns 'exact' or 'similarity'
 	 */
 	private determineMatchType(commandType: string): 'exact' | 'similarity' {
-		const exactMatchTypes = ['search', 'move', 'move_from_search_result', 'copy', 'delete', 'calc'];
+		const exactMatchTypes = [
+			'search',
+			'move',
+			'move_from_search_result',
+			'copy',
+			'delete',
+			'calc',
+			'image',
+			'audio',
+		];
 		return exactMatchTypes.includes(commandType) ? 'exact' : 'similarity';
 	}
 

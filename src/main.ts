@@ -18,6 +18,7 @@ import { logger } from './utils/logger';
 import { ConversationRenderer } from './services/ConversationRenderer';
 import { ConversationArtifactManager } from './services/ConversationArtifactManager';
 import { GitEventHandler } from './solutions/git/GitEventHandler';
+import { MediaGenerationService } from './services/MediaGenerationService';
 
 // Supported command prefixes
 export const COMMAND_PREFIXES = [
@@ -31,6 +32,8 @@ export const COMMAND_PREFIXES = [
 	'/confirm',
 	'/yes',
 	'/no',
+	'/image',
+	'/audio',
 ];
 // Define custom icon ID
 const SMILE_CHAT_ICON_ID = 'smile-chat-icon';
@@ -45,6 +48,9 @@ interface StewardPluginSettings {
 	staticConversationLeafId?: string; // ID of the leaf containing the static conversation
 	excludedFolders: string[]; // Folders to exclude from Obsidian search
 	debug: boolean; // Enable debug logging
+	audio: {
+		voice: string;
+	};
 }
 
 const DEFAULT_SETTINGS: StewardPluginSettings = {
@@ -57,16 +63,10 @@ const DEFAULT_SETTINGS: StewardPluginSettings = {
 	staticConversationLeafId: undefined,
 	excludedFolders: ['node_modules', 'src', '.git', 'dist'], // Default development folders to exclude
 	debug: false, // Debug logging disabled by default
+	audio: {
+		voice: 'alloy', // Default voice
+	},
 };
-
-export enum GeneratorText {
-	Generating = 'Generating...',
-	Searching = 'Searching...',
-	Calculating = 'Calculating...',
-	Moving = 'Moving files...',
-	ExtractingMoveQuery = 'Understanding your move request...',
-	ExtractingIntent = 'Understanding your request...',
-}
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -85,6 +85,7 @@ export default class StewardPlugin extends Plugin {
 	conversationRenderer: ConversationRenderer;
 	// Git integration
 	gitEventHandler: GitEventHandler;
+	mediaGenerationService: MediaGenerationService;
 
 	get editor() {
 		return this.app.workspace.activeEditor?.editor as Editor & {
@@ -128,6 +129,9 @@ export default class StewardPlugin extends Plugin {
 			dbName: this.settings.searchDbPrefix,
 			conversationFolder: this.settings.conversationFolder,
 		});
+
+		// Initialize the media generation service
+		this.mediaGenerationService = new MediaGenerationService(this);
 
 		const eventRefs = this.searchIndexer.setupEventListeners();
 		for (const eventRef of eventRefs) {
@@ -682,7 +686,7 @@ export default class StewardPlugin extends Plugin {
 		return this.conversationRenderer.updateConversationNote(params);
 	}
 
-	async addGeneratingIndicator(path: string, indicatorText: GeneratorText): Promise<void> {
+	async addGeneratingIndicator(path: string, indicatorText: string): Promise<void> {
 		return this.conversationRenderer.addGeneratingIndicator(path, indicatorText);
 	}
 

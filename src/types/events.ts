@@ -23,6 +23,10 @@ export enum Events {
 	// Git related events
 	GIT_OPERATION_PERFORMED = 'GIT_OPERATION_PERFORMED',
 	GIT_OPERATION_REVERTED = 'GIT_OPERATION_REVERTED',
+	// Media generation events
+	MEDIA_GENERATION_STARTED = 'media-generation-started',
+	MEDIA_GENERATION_COMPLETED = 'media-generation-completed',
+	MEDIA_GENERATION_FAILED = 'media-generation-failed',
 }
 
 export enum ErrorEvents {
@@ -158,6 +162,26 @@ export interface DeleteOperationCompletedPayload {
 	}>;
 }
 
+export interface MediaGenerationStartedPayload {
+	type: 'image' | 'audio';
+	prompt: string;
+}
+
+export interface MediaGenerationCompletedPayload {
+	type: 'image' | 'audio';
+	filePath: string;
+	metadata: {
+		model: string;
+		prompt: string;
+		timestamp: number;
+	};
+}
+
+export interface MediaGenerationFailedPayload {
+	type: 'image' | 'audio';
+	error: string;
+}
+
 export type EventPayloadMap = {
 	[Events.CONVERSATION_NOTE_CREATED]: ConversationNoteCreatedPayload;
 	[Events.CONVERSATION_COMMAND_RECEIVED]: ConversationCommandReceivedPayload;
@@ -179,4 +203,7 @@ export type EventPayloadMap = {
 	[Events.COPY_OPERATION_CONFIRMED]: CopyOperationConfirmedPayload;
 	[Events.DELETE_OPERATION_COMPLETED]: DeleteOperationCompletedPayload;
 	[Events.COPY_OPERATION_COMPLETED]: CopyOperationCompletedPayload;
+	[Events.MEDIA_GENERATION_STARTED]: MediaGenerationStartedPayload;
+	[Events.MEDIA_GENERATION_COMPLETED]: MediaGenerationCompletedPayload;
+	[Events.MEDIA_GENERATION_FAILED]: MediaGenerationFailedPayload;
 };

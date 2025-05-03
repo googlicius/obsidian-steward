@@ -1,6 +1,9 @@
 // Export intent extraction
 export * from './intentExtraction';
 
+// Export media extraction
+export * from './mediaExtraction';
+
 // Export search extraction V2
 export * from './searchExtraction';
 

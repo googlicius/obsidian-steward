@@ -4,6 +4,12 @@ const en = {
 			noFilesFound:
 				"I couldn't find any files matching your query. Please try a different search term.",
 		},
+		// Media generation messages
+		media: {
+			invalidCommand: 'Invalid media generation command',
+			generationFailed: 'Failed to generate {{type}}: {{error}}',
+			generationError: 'Error generating media: {{error}}',
+		},
 		// Move result messages
 		move: {
 			foundFiles: 'I found {{count}} file matching your query.',
@@ -104,6 +110,8 @@ const en = {
 		conversation: {
 			workingOnIt: 'Working on it...',
 			generating: 'Generating...',
+			generatingImage: 'Generating image...',
+			generatingAudio: 'Generating audio...',
 			moving: 'Moving...',
 			searching: 'Searching...',
 			calculating: 'Calculating...',

@@ -1,6 +1,6 @@
 import { TFile } from 'obsidian';
 import { uniqueID } from '../utils/uniqueID';
-import StewardPlugin, { GeneratorText } from '../main';
+import StewardPlugin from '../main';
 import { getTranslation } from '../i18n';
 
 export class ConversationRenderer {
@@ -212,7 +212,7 @@ export class ConversationRenderer {
 	/**
 	 * Adds a generating indicator to a conversation note
 	 */
-	public async addGeneratingIndicator(path: string, indicatorText: GeneratorText): Promise<void> {
+	public async addGeneratingIndicator(path: string, indicatorText: string): Promise<void> {
 		const folderPath = this.plugin.settings.conversationFolder;
 		const notePath = `${folderPath}/${path}.md`;
 		const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
@@ -279,6 +279,12 @@ export class ConversationRenderer {
 					break;
 				case 'calc':
 					initialContent += `*${t('conversation.calculating')}*`;
+					break;
+				case 'image':
+					initialContent += `*${t('conversation.generatingImage')}*`;
+					break;
+				case 'audio':
+					initialContent += `*${t('conversation.generatingAudio')}*`;
 					break;
 				case ' ':
 					initialContent += `*${t('conversation.generating')}*`;

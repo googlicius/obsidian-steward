@@ -74,6 +74,8 @@ function validateCommandIntentExtraction(data: any): CommandIntentExtraction {
 			'close',
 			'confirm',
 			'revert',
+			'image',
+			'audio',
 		].includes(data.commandType)
 	) {
 		throw new Error(

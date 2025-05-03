@@ -10,7 +10,7 @@ import {
 } from '../types/events';
 import { eventEmitter } from './EventEmitter';
 import * as mathTools from '../tools/mathTools';
-import StewardPlugin, { GeneratorText } from '../main';
+import StewardPlugin from '../main';
 import i18next, { getTranslation } from '../i18n';
 import { highlightKeywords } from '../utils/highlightKeywords';
 import { extractMoveQueryV2, extractSearchQueryV2, MoveOperationV2 } from '../lib/modelfusion';
@@ -33,11 +33,13 @@ export class ConversationEventHandler {
 	private readonly plugin: StewardPlugin;
 	private readonly renderer: ConversationRenderer;
 	private readonly artifactManager: ConversationArtifactManager;
+	private readonly mediaGenerationService: StewardPlugin['mediaGenerationService'];
 
 	constructor(props: Props) {
 		this.plugin = props.plugin;
 		this.renderer = new ConversationRenderer(this.plugin);
 		this.artifactManager = ConversationArtifactManager.getInstance();
+		this.mediaGenerationService = this.plugin.mediaGenerationService;
 		this.setupListeners();
 	}
 
@@ -111,6 +113,32 @@ export class ConversationEventHandler {
 					i18next.t('conversation.calculating')
 				);
 				await this.handleMathCalculation(payload.title, commandContent);
+				break;
+			}
+
+			case 'image': {
+				await this.renderer.addGeneratingIndicator(
+					payload.title,
+					i18next.t('conversation.generatingImage')
+				);
+				await this.mediaGenerationService.handleMediaCommand({
+					title: payload.title,
+					commandContent,
+					commandType: 'image',
+				});
+				break;
+			}
+
+			case 'audio': {
+				await this.renderer.addGeneratingIndicator(
+					payload.title,
+					i18next.t('conversation.generatingAudio')
+				);
+				await this.mediaGenerationService.handleMediaCommand({
+					title: payload.title,
+					commandContent,
+					commandType: 'audio',
+				});
 				break;
 			}
 
@@ -188,7 +216,10 @@ export class ConversationEventHandler {
 			}
 
 			case ' ': {
-				await this.renderer.addGeneratingIndicator(payload.title, GeneratorText.ExtractingIntent);
+				await this.renderer.addGeneratingIndicator(
+					payload.title,
+					i18next.t('conversation.workingOnIt')
+				);
 				await this.handleGeneralCommand(payload.title, commandContent);
 				break;
 			}
@@ -204,6 +235,24 @@ export class ConversationEventHandler {
 		switch (payload.commandType) {
 			case 'calc': {
 				await this.handleMathCalculation(payload.title, payload.commandContent);
+				break;
+			}
+
+			case 'image': {
+				await this.mediaGenerationService.handleMediaCommand({
+					title: payload.title,
+					commandContent: payload.commandContent,
+					commandType: 'image',
+				});
+				break;
+			}
+
+			case 'audio': {
+				await this.mediaGenerationService.handleMediaCommand({
+					title: payload.title,
+					commandContent: payload.commandContent,
+					commandType: 'audio',
+				});
 				break;
 			}
 
@@ -398,7 +447,7 @@ export class ConversationEventHandler {
 	): Promise<void> {
 		try {
 			// Add generating indicator
-			await this.renderer.addGeneratingIndicator(payload.title, GeneratorText.Moving);
+			await this.renderer.addGeneratingIndicator(payload.title, i18next.t('conversation.moving'));
 
 			// Create operations array and filesByOperation map based on payload type
 			const operations: MoveOperationV2[] = [];

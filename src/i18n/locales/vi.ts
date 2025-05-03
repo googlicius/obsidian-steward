@@ -105,6 +105,8 @@ const vi = {
 		conversation: {
 			workingOnIt: 'Đang xử lý...',
 			generating: 'Đang tạo...',
+			generatingImage: 'Đang tạo hình ảnh...',
+			generatingAudio: 'Đang tạo âm thanh...',
 			moving: 'Đang di chuyển...',
 			searching: 'Đang tìm kiếm...',
 			calculating: 'Đang tính toán...',
