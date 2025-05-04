@@ -25,7 +25,7 @@ export default class StewardSettingTab extends PluginSettingTab {
 				// Get the current API key (decrypted) with error handling
 				let placeholder = 'Enter your API key';
 				try {
-					const currentKey = this.plugin.getDecryptedApiKey();
+					const currentKey = this.plugin.getDecryptedApiKey('openai');
 					if (currentKey) {
 						placeholder = '••••••••••••••••••••••';
 					}
@@ -43,7 +43,7 @@ export default class StewardSettingTab extends PluginSettingTab {
 						if (value) {
 							try {
 								// If a value is entered, encrypt and save it
-								await this.plugin.setEncryptedApiKey(value);
+								await this.plugin.setEncryptedApiKey('openai', value);
 
 								// Update the placeholder to show that a key is saved
 								text.setPlaceholder('••••••••••••••••••••••');
@@ -65,7 +65,7 @@ export default class StewardSettingTab extends PluginSettingTab {
 					.setTooltip('Clear API Key')
 					.onClick(async () => {
 						try {
-							await this.plugin.setEncryptedApiKey('');
+							await this.plugin.setEncryptedApiKey('openai', '');
 							// Force refresh of the settings
 							this.display();
 						} catch (error) {
@@ -80,25 +80,30 @@ export default class StewardSettingTab extends PluginSettingTab {
 					.setTooltip('Reset Encryption')
 					.onClick(async () => {
 						try {
-							// Get the current key if possible
-							let currentKey = '';
+							// Get the current keys if possible
+							let openaiKey = '';
+							let elevenlabsKey = '';
 							try {
-								currentKey = this.plugin.getDecryptedApiKey();
+								openaiKey = this.plugin.getDecryptedApiKey('openai');
+								elevenlabsKey = this.plugin.getDecryptedApiKey('elevenlabs');
 							} catch (e) {
 								// If we can't decrypt, we'll start fresh
 							}
 
 							// Generate a new salt key ID
 							this.plugin.settings.saltKeyId = '';
-							this.plugin.settings.encryptedOpenaiApiKey = '';
+							this.plugin.settings.apiKeys = {
+								openai: '',
+								elevenlabs: '',
+							};
 							await this.plugin.saveSettings();
 
 							// Force reload of the plugin to re-initialize encryption
 							this.display();
 
-							// If we had a key before, prompt user to re-enter it
-							if (currentKey) {
-								new Notice('Encryption reset. Please re-enter your API key.');
+							// If we had keys before, prompt user to re-enter them
+							if (openaiKey || elevenlabsKey) {
+								new Notice('Encryption reset. Please re-enter your API keys.');
 							} else {
 								new Notice('Encryption reset successfully.');
 							}
@@ -109,18 +114,77 @@ export default class StewardSettingTab extends PluginSettingTab {
 					});
 			});
 
+		// ElevenLabs API Key setting with encryption
+		new Setting(containerEl)
+			.setName('ElevenLabs API Key')
+			.setDesc('Your ElevenLabs API key (stored with encryption)')
+			.addText(text => {
+				// Get the current API key (decrypted) with error handling
+				let placeholder = 'Enter your API key';
+				try {
+					const currentKey = this.plugin.getDecryptedApiKey('elevenlabs');
+					if (currentKey) {
+						placeholder = '••••••••••••••••••••••';
+					}
+				} catch (error) {
+					// If decryption fails, we'll show a special message
+					placeholder = 'Error: Click to re-enter key';
+					console.error('Error decrypting API key in settings:', error);
+				}
+
+				text
+					.setPlaceholder(placeholder)
+					// Only show value if editing
+					.setValue('')
+					.onChange(async value => {
+						if (value) {
+							try {
+								// If a value is entered, encrypt and save it
+								await this.plugin.setEncryptedApiKey('elevenlabs', value);
+
+								// Update the placeholder to show that a key is saved
+								text.setPlaceholder('••••••••••••••••••••••');
+								// Clear the input field for security
+								text.setValue('');
+							} catch (error) {
+								new Notice('Failed to save API key. Please try again.');
+								console.error('Error setting API key:', error);
+							}
+						}
+					});
+
+				// Add password type to protect API key
+				text.inputEl.setAttribute('type', 'password');
+			})
+			.addExtraButton(button => {
+				button
+					.setIcon('cross')
+					.setTooltip('Clear API Key')
+					.onClick(async () => {
+						try {
+							await this.plugin.setEncryptedApiKey('elevenlabs', '');
+							// Force refresh of the settings
+							this.display();
+						} catch (error) {
+							new Notice('Failed to clear API key. Please try again.');
+							console.error('Error clearing API key:', error);
+						}
+					});
+			});
+
 		containerEl.createEl('div', {
-			text: 'Note: You need to provide your own OpenAI API key to use the AI-powered assistant.',
+			text: 'Note: You need to provide your own API keys to use the AI-powered assistant.',
 			cls: 'setting-item-description',
 		});
 
 		// If we have encryption issues, show instructions for resetting
-		if (this.plugin.settings.encryptedOpenaiApiKey) {
+		if (this.plugin.settings.apiKeys.openai || this.plugin.settings.apiKeys.elevenlabs) {
 			try {
-				this.plugin.getDecryptedApiKey();
+				this.plugin.getDecryptedApiKey('openai');
+				this.plugin.getDecryptedApiKey('elevenlabs');
 			} catch (error) {
 				containerEl.createEl('div', {
-					text: 'If you are seeing decryption errors, please use the "Reset Encryption" button and re-enter your API key.',
+					text: 'If you are seeing decryption errors, please use the "Reset Encryption" button and re-enter your API keys.',
 					cls: 'setting-item-description mod-warning',
 				});
 			}

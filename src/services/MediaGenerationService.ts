@@ -14,6 +14,53 @@ export class MediaGenerationService {
 		this.mediaTools = new MediaTools(plugin.app);
 		this.renderer = new ConversationRenderer(plugin);
 		this.plugin = plugin;
+		this.setupEventListeners();
+	}
+
+	/**
+	 * Set up event listeners for media generation events
+	 */
+	private setupEventListeners(): void {
+		eventEmitter.on(
+			Events.MEDIA_GENERATION_COMPLETED,
+			this.handleMediaGenerationCompleted.bind(this)
+		);
+	}
+
+	/**
+	 * Handle successful media generation
+	 */
+	private async handleMediaGenerationCompleted(data: {
+		type: 'image' | 'audio';
+		filePath: string;
+		metadata: {
+			model?: string;
+			prompt: string;
+			timestamp: number;
+			voice?: string;
+		};
+	}): Promise<void> {
+		try {
+			// Only update settings for audio generation
+			if (data.type === 'audio') {
+				const currentModel = this.plugin.settings.audio.model;
+
+				if (data.metadata.model && data.metadata.model !== this.plugin.settings.audio.model) {
+					this.plugin.settings.audio.model = data.metadata.model;
+				}
+
+				if (
+					data.metadata.voice &&
+					data.metadata.voice !== this.plugin.settings.audio.voices[currentModel]
+				) {
+					this.plugin.settings.audio.voices[currentModel] = data.metadata.voice;
+				}
+
+				await this.plugin.saveSettings();
+			}
+		} catch (error) {
+			logger.error('Error handling media generation completion:', error);
+		}
 	}
 
 	/**
@@ -32,21 +79,13 @@ export class MediaGenerationService {
 			// Extract media command parameters
 			const extraction = await extractMediaCommand(commandContent, commandType);
 
-			// For audio commands, update the voice setting if it's different
-			if (
-				commandType === 'audio' &&
-				extraction.voice &&
-				extraction.voice !== this.plugin.settings.audio.voice
-			) {
-				this.plugin.settings.audio.voice = extraction.voice;
-				await this.plugin.saveSettings();
-			}
-
 			// Emit event to show generating indicator
 			eventEmitter.emit(Events.MEDIA_GENERATION_STARTED, {
 				type: commandType,
 				prompt: extraction.text,
 			});
+
+			const model = extraction.model || this.plugin.settings.audio.model;
 
 			// Generate the media with supported options
 			const result = await this.mediaTools.generateMedia({
@@ -54,11 +93,8 @@ export class MediaGenerationService {
 				prompt: extraction.text,
 				size: extraction.size,
 				quality: extraction.quality,
-				model: commandType === 'audio' && extraction.voice ? 'tts-1' : undefined,
-				voice:
-					commandType === 'audio'
-						? extraction.voice || this.plugin.settings.audio.voice
-						: undefined,
+				model,
+				voice: extraction.voice || this.plugin.settings.audio.voices[model],
 			});
 
 			if (result.success && result.filePath) {
@@ -66,10 +102,11 @@ export class MediaGenerationService {
 				eventEmitter.emit(Events.MEDIA_GENERATION_COMPLETED, {
 					type: commandType,
 					filePath: result.filePath,
-					metadata: result.metadata || {
-						model: 'default',
+					metadata: {
+						model: extraction.model,
 						prompt: extraction.text,
 						timestamp: Date.now(),
+						voice: extraction.voice,
 					},
 				});
 
@@ -100,7 +137,7 @@ export class MediaGenerationService {
 
 			// Update the conversation with the error message
 			await this.renderer.updateConversationNote({
-				path: this.plugin.staticConversationTitle,
+				path: title,
 				newContent: `Error generating media: ${error.message}`,
 				role: 'Steward',
 				command: 'media',

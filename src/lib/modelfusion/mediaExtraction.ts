@@ -11,9 +11,10 @@ import { getObsidianLanguage } from '../../utils/getObsidianLanguage';
 export interface MediaCommandExtraction {
 	type?: 'image' | 'audio';
 	text: string;
+	voice?: string;
+	model?: string;
 	size?: string;
 	quality?: 'standard' | 'hd';
-	voice?: string;
 	explanation: string;
 	lang?: string;
 	confidence: number;
@@ -94,12 +95,18 @@ function validateMediaCommandExtraction(data: any): MediaCommandExtraction {
 		if (data.quality && data.quality !== 'standard' && data.quality !== 'hd') {
 			throw new Error('Quality must be either "standard" or "hd"');
 		}
+		if (data.model && !['dall-e-2', 'dall-e-3'].includes(data.model)) {
+			throw new Error('Model must be either "dall-e-2" or "dall-e-3"');
+		}
 	}
 
 	// Validate audio-specific fields
 	if (data.type === 'audio') {
 		if (data.voice && typeof data.voice !== 'string') {
 			throw new Error('Voice must be a string');
+		}
+		if (data.model && !['openai', 'elevenlabs'].includes(data.model)) {
+			throw new Error('Model must be either "openai" or "elevenlabs"');
 		}
 	}
 
@@ -116,6 +123,7 @@ function validateMediaCommandExtraction(data: any): MediaCommandExtraction {
 		size: data.size,
 		quality: data.quality,
 		voice: data.voice,
+		model: data.model,
 		explanation: data.explanation.trim(),
 		lang,
 		confidence,

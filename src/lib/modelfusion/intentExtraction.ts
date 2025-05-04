@@ -1,5 +1,5 @@
 import { generateText, openai } from 'modelfusion';
-import { commandIntentPrompt } from './prompts';
+import { commandIntentPrompt } from './prompts/commandIntentPrompt';
 import { userLanguagePrompt } from './prompts/languagePrompt';
 import { LLMCacheService } from '../../solutions/cache/LLMCacheService';
 

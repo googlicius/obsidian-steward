@@ -1,12 +1,6 @@
 import { App, TFile } from 'obsidian';
 import { logger } from '../utils/logger';
-import {
-	generateImage,
-	generateSpeech,
-	openai,
-	OpenAISpeechModelType,
-	OpenAISpeechVoice,
-} from 'modelfusion';
+import { generateImage, generateSpeech, openai, OpenAISpeechVoice, elevenlabs } from 'modelfusion';
 
 export interface MediaGenerationOptions {
 	prompt: string;
@@ -29,14 +23,26 @@ export interface MediaGenerationResult {
 	};
 }
 
+type AudioModelType = 'openai' | 'elevenlabs';
+const audioModels: Record<AudioModelType, (voice: string) => any> = {
+	openai: (voice: string) =>
+		openai.SpeechGenerator({
+			model: 'tts-1',
+			voice: voice as OpenAISpeechVoice,
+		}),
+	elevenlabs: (voice: string) =>
+		elevenlabs.SpeechGenerator({
+			model: 'eleven_turbo_v2',
+			voice,
+			// Add any ElevenLabs specific options here
+		}),
+};
+
 export class MediaTools {
-	private readonly app: App;
 	private readonly mediaFolder: string;
 
-	constructor(app: App, mediaFolder?: string) {
-		this.app = app;
-		// Use the attachments folder path from Obsidian settings if no mediaFolder is provided
-		this.mediaFolder = mediaFolder || this.getAttachmentsFolderPath();
+	constructor(private readonly app: App) {
+		this.mediaFolder = this.getAttachmentsFolderPath();
 	}
 
 	/**
@@ -171,17 +177,21 @@ export class MediaTools {
 	}
 
 	/**
-	 * Generate audio using OpenAI TTS
+	 * Generate audio using OpenAI TTS or ElevenLabs
 	 */
 	private async generateAudio(
 		options: MediaGenerationOptions
 	): Promise<{ success: boolean; data?: ArrayBuffer; error?: string }> {
 		try {
+			const modelType = (options.model || 'openai') as AudioModelType;
+			const generatorFactory = audioModels[modelType];
+
+			if (!generatorFactory) {
+				throw new Error(`Unsupported audio model: ${modelType}`);
+			}
+
 			const response = await generateSpeech({
-				model: openai.SpeechGenerator({
-					model: (options.model || 'tts-1') as OpenAISpeechModelType,
-					voice: (options.voice || 'alloy') as OpenAISpeechVoice,
-				}),
+				model: generatorFactory(options.voice || 'alloy'),
 				text: options.prompt,
 			});
 

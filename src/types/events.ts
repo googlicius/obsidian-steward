@@ -171,9 +171,10 @@ export interface MediaGenerationCompletedPayload {
 	type: 'image' | 'audio';
 	filePath: string;
 	metadata: {
-		model: string;
+		model?: string;
 		prompt: string;
 		timestamp: number;
+		voice?: string;
 	};
 }
 

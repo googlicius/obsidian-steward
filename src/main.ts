@@ -40,7 +40,10 @@ const SMILE_CHAT_ICON_ID = 'smile-chat-icon';
 
 interface StewardPluginSettings {
 	mySetting: string;
-	encryptedOpenaiApiKey: string;
+	apiKeys: {
+		openai: string;
+		elevenlabs: string;
+	};
 	saltKeyId: string; // Store just the key ID, not the actual salt
 	conversationFolder: string;
 	searchDbPrefix: string;
@@ -49,13 +52,17 @@ interface StewardPluginSettings {
 	excludedFolders: string[]; // Folders to exclude from Obsidian search
 	debug: boolean; // Enable debug logging
 	audio: {
-		voice: string;
+		model: string;
+		voices: Record<string, string>;
 	};
 }
 
 const DEFAULT_SETTINGS: StewardPluginSettings = {
 	mySetting: 'default',
-	encryptedOpenaiApiKey: '',
+	apiKeys: {
+		openai: '',
+		elevenlabs: '',
+	},
 	saltKeyId: '', // Will be generated on first load
 	conversationFolder: 'conversations',
 	searchDbPrefix: '',
@@ -64,7 +71,11 @@ const DEFAULT_SETTINGS: StewardPluginSettings = {
 	excludedFolders: ['node_modules', 'src', '.git', 'dist'], // Default development folders to exclude
 	debug: false, // Debug logging disabled by default
 	audio: {
-		voice: 'alloy', // Default voice
+		model: 'openai', // Default model
+		voices: {
+			openai: 'alloy',
+			elevenlabs: 'pNInz6obpgDQGcFmaJgB',
+		},
 	},
 };
 
@@ -130,9 +141,6 @@ export default class StewardPlugin extends Plugin {
 			conversationFolder: this.settings.conversationFolder,
 		});
 
-		// Initialize the media generation service
-		this.mediaGenerationService = new MediaGenerationService(this);
-
 		const eventRefs = this.searchIndexer.setupEventListeners();
 		for (const eventRef of eventRefs) {
 			this.registerEvent(eventRef);
@@ -144,10 +152,18 @@ export default class StewardPlugin extends Plugin {
 		// Build the index if it's not already built
 		this.checkAndBuildIndexIfNeeded();
 
-		const decryptedKey = this.getDecryptedApiKey();
-		if (decryptedKey) {
-			process.env.OPENAI_API_KEY = decryptedKey;
+		const decryptedOpenAIKey = this.getDecryptedApiKey('openai');
+		if (decryptedOpenAIKey) {
+			process.env.OPENAI_API_KEY = decryptedOpenAIKey;
 		}
+
+		const decryptedElevenLabsKey = this.getDecryptedApiKey('elevenlabs');
+		if (decryptedElevenLabsKey) {
+			process.env.ELEVENLABS_API_KEY = decryptedElevenLabsKey;
+		}
+
+		// Initialize the media generation service
+		this.mediaGenerationService = new MediaGenerationService(this);
 
 		// Register custom icon
 		addIcon(
@@ -723,33 +739,35 @@ export default class StewardPlugin extends Plugin {
 	}
 
 	/**
-	 * Securely get the decrypted OpenAI API key
+	 * Securely get the decrypted API key for a specific service
+	 * @param service - The service to get the API key for (e.g., 'openai', 'elevenlabs')
 	 * @returns The decrypted API key or empty string if not set
 	 */
-	getDecryptedApiKey(): string {
-		if (!this.settings.encryptedOpenaiApiKey || !this.settings.saltKeyId) {
+	getDecryptedApiKey(service: 'openai' | 'elevenlabs'): string {
+		if (!this.settings.apiKeys[service] || !this.settings.saltKeyId) {
 			return '';
 		}
 
 		try {
-			const decryptedKey = decrypt(this.settings.encryptedOpenaiApiKey, this.settings.saltKeyId);
+			const decryptedKey = decrypt(this.settings.apiKeys[service], this.settings.saltKeyId);
 			return decryptedKey;
 		} catch (error) {
-			console.error('Error decrypting API key:', error);
+			console.error(`Error decrypting ${service} API key:`, error);
 			// Throw the error so callers can handle it
 			throw new Error(i18next.t('ui.decryptionError'));
 		}
 	}
 
 	/**
-	 * Securely set and encrypt the OpenAI API key
+	 * Securely set and encrypt an API key for a specific service
+	 * @param service - The service to set the API key for (e.g., 'openai', 'elevenlabs')
 	 * @param apiKey - The API key to encrypt and store
 	 */
-	async setEncryptedApiKey(apiKey: string): Promise<void> {
+	async setEncryptedApiKey(service: 'openai' | 'elevenlabs', apiKey: string): Promise<void> {
 		try {
 			// If no key provided, clear the encrypted key
 			if (!apiKey) {
-				this.settings.encryptedOpenaiApiKey = '';
+				this.settings.apiKeys[service] = '';
 			} else {
 				// Ensure we have a salt key ID
 				if (!this.settings.saltKeyId) {
@@ -757,19 +775,21 @@ export default class StewardPlugin extends Plugin {
 				}
 
 				// Encrypt and store the API key
-				this.settings.encryptedOpenaiApiKey = encrypt(apiKey, this.settings.saltKeyId);
+				this.settings.apiKeys[service] = encrypt(apiKey, this.settings.saltKeyId);
 
 				// Set the latest encryption version
 				this.settings.encryptionVersion = 1;
 			}
 
-			// Update environment variable
-			process.env.OPENAI_API_KEY = apiKey;
+			// Update environment variable if it's OpenAI
+			if (service === 'openai') {
+				process.env.OPENAI_API_KEY = apiKey;
+			}
 
 			// Save settings
 			await this.saveSettings();
 		} catch (error) {
-			console.error('Error encrypting API key:', error);
+			console.error(`Error encrypting ${service} API key:`, error);
 			new Notice(i18next.t('ui.encryptionError'));
 			throw error;
 		}
