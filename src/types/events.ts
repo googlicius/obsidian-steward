@@ -27,6 +27,7 @@ export enum Events {
 	MEDIA_GENERATION_STARTED = 'media-generation-started',
 	MEDIA_GENERATION_COMPLETED = 'media-generation-completed',
 	MEDIA_GENERATION_FAILED = 'media-generation-failed',
+	UPDATE_OPERATION_COMPLETED = 'update_operation_completed',
 }
 
 export enum ErrorEvents {
@@ -183,6 +184,16 @@ export interface MediaGenerationFailedPayload {
 	error: string;
 }
 
+export interface UpdateOperationCompletedPayload {
+	title: string;
+	operations: Array<{
+		updateInstruction: string;
+		updated: string[];
+		skipped: string[];
+		errors: string[];
+	}>;
+}
+
 export type EventPayloadMap = {
 	[Events.CONVERSATION_NOTE_CREATED]: ConversationNoteCreatedPayload;
 	[Events.CONVERSATION_COMMAND_RECEIVED]: ConversationCommandReceivedPayload;
@@ -207,4 +218,5 @@ export type EventPayloadMap = {
 	[Events.MEDIA_GENERATION_STARTED]: MediaGenerationStartedPayload;
 	[Events.MEDIA_GENERATION_COMPLETED]: MediaGenerationCompletedPayload;
 	[Events.MEDIA_GENERATION_FAILED]: MediaGenerationFailedPayload;
+	[Events.UPDATE_OPERATION_COMPLETED]: UpdateOperationCompletedPayload;
 };

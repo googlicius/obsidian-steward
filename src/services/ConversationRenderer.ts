@@ -286,6 +286,9 @@ export class ConversationRenderer {
 				case 'audio':
 					initialContent += `*${t('conversation.generatingAudio')}*`;
 					break;
+				case 'update':
+					initialContent += `*${t('conversation.updating')}*`;
+					break;
 				case ' ':
 					initialContent += `*${t('conversation.generating')}*`;
 					break;

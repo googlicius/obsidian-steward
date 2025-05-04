@@ -37,6 +37,12 @@ const vi = {
 			createFoldersHeader: 'Tôi cần tạo các thư mục sau trước khi sao chép tập tin:',
 			createFoldersQuestion: 'Bạn có muốn tôi tạo các thư mục này không?',
 		},
+		// Update result messages
+		update: {
+			failed: 'Không thể cập nhật {{count}} tập tin:',
+			successfullyUpdated: 'Đã cập nhật thành công {{count}} tập tin:',
+			foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để cập nhật.',
+		},
 		// Delete result messages
 		delete: {
 			foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để xóa.',
@@ -65,6 +71,8 @@ const vi = {
 			moreResults: 'Đây là thêm kết quả tìm kiếm:',
 			paginationStatus: 'Trang {{current}}/{{total}} (tổng {{count}} kết quả)',
 			noMorePages: 'Đây là trang cuối cùng của kết quả.',
+			searchingFor: 'Đang tìm kiếm "{{searchTerm}}"',
+			searchingForTags: 'Đang tìm kiếm các tag: {{tags}}',
 		},
 		// Close command messages
 		close: {
@@ -115,6 +123,7 @@ const vi = {
 			revertFailed: 'Không thể hoàn tác thay đổi. Không có thay đổi nào trước đó để hoàn tác.',
 			copying: 'Đang sao chép...',
 			deleting: 'Đang xóa...',
+			updating: 'Đang cập nhật...',
 		},
 	},
 };

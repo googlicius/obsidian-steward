@@ -1,7 +1,11 @@
 import { App } from 'obsidian';
-import { CommandIntentExtraction, extractCommandIntent } from '../lib/modelfusion/intentExtraction';
 import { MoveOperationV2 } from 'src/lib/modelfusion';
 import { IndexedDocument } from 'src/database/PluginDatabase';
+import {
+	UpdateInstruction,
+	ReplaceInstruction,
+	AddInstruction,
+} from '../lib/modelfusion/updateFromSearchResultExtraction';
 
 /**
  * Represents a single move operation
@@ -214,11 +218,48 @@ export class ObsidianAPITools {
 	}
 
 	/**
-	 * Extract command intent from a general query using AI
-	 * @param userInput Natural language request from the user
-	 * @returns Extracted command type, content, and explanation
+	 * Applies an update instruction to the given content
 	 */
-	async extractCommandIntent(userInput: string): Promise<CommandIntentExtraction> {
-		return extractCommandIntent(userInput);
+	async applyUpdateInstruction(
+		content: string,
+		updateInstruction: UpdateInstruction
+	): Promise<string> {
+		let lines = content.split('\n');
+
+		switch (updateInstruction.type) {
+			case 'replace': {
+				const replaceInstruction = updateInstruction as ReplaceInstruction;
+				content = content.replace(replaceInstruction.old, replaceInstruction.new);
+				break;
+			}
+			case 'add': {
+				const addInstruction = updateInstruction as AddInstruction;
+				if (addInstruction.position === 'beginning') {
+					return addInstruction.content + ' ' + content;
+				} else if (addInstruction.position === 'end') {
+					return content + '\n' + addInstruction.content;
+				} else if (typeof addInstruction.position === 'number') {
+					const position = Math.max(0, Math.min(addInstruction.position, lines.length));
+					lines.splice(position, 0, addInstruction.content);
+					return lines.join('\n');
+				} else {
+					throw new Error('Invalid position value for add instruction');
+				}
+			}
+			default: {
+				throw new Error(`Unsupported update type: ${(updateInstruction as any).type}`);
+			}
+		}
+
+		lines = content.trim().split('\n');
+
+		// Remove empty trailing and leading lines, and add a newline to the end of the content
+		while (lines[0].trim() === '') {
+			lines.shift();
+		}
+		while (lines[lines.length - 1].trim() === '') {
+			lines.pop();
+		}
+		return lines.join('\n') + '\n';
 	}
 }

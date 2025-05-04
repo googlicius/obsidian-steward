@@ -12,6 +12,8 @@ Available command types:
 - "move_from_search_result": When the user wants to move files from current search results to a destination
 - "delete": When the user wants to delete or remove notes with specific search criteria
 - "copy": When the user wants to copy notes with specific search criteria to a destination
+- "update": When the user wants to update notes with specific search criteria
+- "update_from_search_result": When the user wants to update files from current search results
 - "calc": When the user wants to perform a calculation
 - "close": When the user wants to close the conversation or exit
 - "confirm": When the user is responding to a confirmation request (yes/no, approve/deny)
@@ -26,6 +28,9 @@ Guidelines:
   (Example: "Move these notes to Project folder" or "Move results to Ideas/Creative")
 - If the user wants to delete or remove files with specific search criteria, classify as "delete"
 - If the user wants to copy files with specific search criteria to a destination, classify as "copy"
+- If the user wants to update files with specific search criteria, classify as "update"
+- If the user wants to update files from current search results without mentioning specific search criteria, classify as "update_from_search_result"
+  (Example: "Update the tag from #04_2024 to #2024_04 in these results")
 - If the user is asking for a calculation or mathematical operation, classify as "calc"
 - If the user wants to close, end, or exit the conversation, classify as "close"
 - If the user is responding with yes/no, approve/deny, or similar confirmation language, classify as "confirm"
@@ -39,7 +44,7 @@ Guidelines:
   - 0.8-1.0: High confidence (very clear intent)
 
 You must respond with a valid JSON object containing these properties:
-- commandType: One of "search", "move", "move_from_search_result", "delete", "copy", "calc", "close", "confirm", "revert", "image", or "audio"
+- commandType: One of "search", "move", "move_from_search_result", "delete", "copy", "update", "update_from_search_result", "calc", "close", "confirm", "revert", "image", or "audio"
 - content: The original query content
 - confidence: A number from 0 to 1 indicating your confidence in this classification
 - explanation: 

@@ -4,6 +4,8 @@ import { searchPromptV2 } from './prompts/searchPromptV2';
 import { confidenceScorePrompt } from './prompts/confidenceScorePrompt';
 import { validateLanguage, validateConfidence } from './validators';
 import { getObsidianLanguage } from '../../utils/getObsidianLanguage';
+import { logger } from '../../utils/logger';
+import { getTranslation } from '../../i18n';
 
 /**
  * Represents a single search operation with v2 parameters
@@ -28,12 +30,18 @@ export interface SearchQueryExtractionV2 {
 /**
  * Extract search parameters from a natural language request using AI (v2)
  * @param userInput Natural language request from the user
+ * @param lang The language of the user
  * @returns Extracted search parameters and explanation
  */
-export async function extractSearchQueryV2(userInput: string): Promise<SearchQueryExtractionV2> {
+export async function extractSearchQueryV2(
+	userInput: string,
+	lang?: string
+): Promise<SearchQueryExtractionV2> {
 	// Check if input is wrapped in quotation marks for direct search
 	const quotedRegex = /^["'](.+)["']$/;
 	const match = userInput.trim().match(quotedRegex);
+
+	const t = getTranslation(lang);
 
 	if (match) {
 		const searchTerm = match[1];
@@ -46,8 +54,8 @@ export async function extractSearchQueryV2(userInput: string): Promise<SearchQue
 					folders: [],
 				},
 			],
-			explanation: `Searching for "${searchTerm}"`,
-			lang: getObsidianLanguage(),
+			explanation: t('search.searchingFor', { searchTerm }),
+			lang: lang || getObsidianLanguage(),
 			confidence: 1,
 		};
 	}
@@ -68,8 +76,10 @@ export async function extractSearchQueryV2(userInput: string): Promise<SearchQue
 					folders: [],
 				},
 			],
-			explanation: `Searching for tags: ${tags.map(tag => `#${tag}`).join(', ')}`,
-			lang: getObsidianLanguage(),
+			explanation: t('search.searchingForTags', {
+				tags: tags.map(tag => `#${tag}`).join(', '),
+			}),
+			lang: lang || getObsidianLanguage(),
 			confidence: 1,
 		};
 	}
@@ -114,16 +124,20 @@ function validateSearchQueryExtractionV2(data: any): SearchQueryExtractionV2 {
 	// Validate each operation
 	data.operations.forEach((op: any, index: number) => {
 		if (!Array.isArray(op.keywords)) {
-			throw new Error(`Operation ${index}: keywords must be an array`);
+			logger.error(`Operation ${index}: keywords must be an array`);
+			op.keywords = [];
 		}
 		if (!Array.isArray(op.tags)) {
-			throw new Error(`Operation ${index}: tags must be an array`);
+			logger.error(`Operation ${index}: tags must be an array`);
+			op.tags = [];
 		}
 		if (!Array.isArray(op.filenames)) {
-			throw new Error(`Operation ${index}: filenames must be an array`);
+			logger.error(`Operation ${index}: filenames must be an array`);
+			op.filenames = [];
 		}
 		if (!Array.isArray(op.folders)) {
-			throw new Error(`Operation ${index}: folders must be an array`);
+			logger.error(`Operation ${index}: folders must be an array`);
+			op.folders = [];
 		}
 	});
 

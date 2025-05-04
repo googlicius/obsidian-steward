@@ -37,6 +37,12 @@ const ja = {
 			createFoldersHeader: 'ファイルをコピーする前に以下のフォルダを作成する必要があります：',
 			createFoldersQuestion: 'これらのフォルダを作成しますか？',
 		},
+		// Update result messages
+		update: {
+			failed: '{{count}}件のファイルの更新に失敗しました：',
+			successfullyUpdated: '{{count}}件のファイルを更新しました：',
+			foundFiles: '{{count}}件のファイルを更新します。',
+		},
 		// Delete result messages
 		delete: {
 			foundFiles: '{{count}}件のファイルを削除します。',
@@ -67,6 +73,8 @@ const ja = {
 			moreResults: '追加の検索結果：',
 			paginationStatus: '{{current}}/{{total}}ページ（全{{count}}件）',
 			noMorePages: 'これが最後のページです。',
+			searchingFor: '「{{searchTerm}}」を検索しています',
+			searchingForTags: 'タグ: {{tags}}',
 		},
 		// Close command messages
 		close: {
@@ -116,6 +124,7 @@ const ja = {
 			revertFailed: '変更を元に戻せませんでした。元に戻す前の変更がありません。',
 			copying: 'コピー中...',
 			deleting: '削除中...',
+			updating: '更新中...',
 		},
 	},
 };

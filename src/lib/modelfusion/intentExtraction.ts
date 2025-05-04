@@ -76,6 +76,8 @@ function validateCommandIntentExtraction(data: any): CommandIntentExtraction {
 			'revert',
 			'image',
 			'audio',
+			'update',
+			'update_from_search_result',
 		].includes(data.commandType)
 	) {
 		throw new Error(

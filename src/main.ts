@@ -34,6 +34,7 @@ export const COMMAND_PREFIXES = [
 	'/no',
 	'/image',
 	'/audio',
+	'/update',
 ];
 // Define custom icon ID
 const SMILE_CHAT_ICON_ID = 'smile-chat-icon';
@@ -64,7 +65,7 @@ const DEFAULT_SETTINGS: StewardPluginSettings = {
 		elevenlabs: '',
 	},
 	saltKeyId: '', // Will be generated on first load
-	conversationFolder: 'conversations',
+	conversationFolder: 'Steward/Conversations',
 	searchDbPrefix: '',
 	encryptionVersion: 1, // Current version
 	staticConversationLeafId: undefined,

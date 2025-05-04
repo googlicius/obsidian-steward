@@ -13,7 +13,12 @@ import * as mathTools from '../tools/mathTools';
 import StewardPlugin from '../main';
 import i18next, { getTranslation } from '../i18n';
 import { highlightKeywords } from '../utils/highlightKeywords';
-import { extractMoveQueryV2, extractSearchQueryV2, MoveOperationV2 } from '../lib/modelfusion';
+import {
+	extractCommandIntent,
+	extractMoveQueryV2,
+	extractSearchQueryV2,
+	MoveOperationV2,
+} from '../lib/modelfusion';
 import { IndexedDocument } from '../database/PluginDatabase';
 import { ConversationRenderer } from './ConversationRenderer';
 import {
@@ -24,6 +29,12 @@ import {
 import { extractMoveFromSearchResult } from '../lib/modelfusion';
 import { PaginatedSearchResultV2 } from '../searchIndexer';
 import { logger } from 'src/utils/logger';
+import { TFile } from 'obsidian';
+import {
+	extractUpdateFromSearchResult,
+	UpdateInstruction,
+} from 'src/lib/modelfusion/updateFromSearchResultExtraction';
+import { extractUpdateCommand } from 'src/lib/modelfusion/updateExtraction';
 
 interface Props {
 	plugin: StewardPlugin;
@@ -224,6 +235,24 @@ export class ConversationEventHandler {
 				break;
 			}
 
+			case 'update': {
+				await this.renderer.addGeneratingIndicator(
+					payload.title,
+					i18next.t('conversation.updating')
+				);
+				await this.handleUpdateCommand(payload.title, commandContent);
+				break;
+			}
+
+			case 'update_from_search_result': {
+				await this.renderer.addGeneratingIndicator(
+					payload.title,
+					i18next.t('conversation.updating')
+				);
+				await this.handleUpdateFromSearchResultCommand(payload.title, commandContent);
+				break;
+			}
+
 			default:
 				break;
 		}
@@ -301,6 +330,16 @@ export class ConversationEventHandler {
 				break;
 			}
 
+			case 'update': {
+				await this.handleUpdateCommand(payload.title, payload.commandContent);
+				break;
+			}
+
+			case 'update_from_search_result': {
+				await this.handleUpdateFromSearchResultCommand(payload.title, payload.commandContent);
+				break;
+			}
+
 			default:
 				break;
 		}
@@ -344,11 +383,6 @@ export class ConversationEventHandler {
 			});
 
 			if (queryExtraction.confidence < 0.7) {
-				// await this.renderer.updateConversationNote({
-				// 	path: title,
-				// 	newContent: t('common.lowConfidence'),
-				// 	role: 'Steward',
-				// });
 				return;
 			}
 
@@ -643,9 +677,13 @@ export class ConversationEventHandler {
 		return response;
 	}
 
-	private async handleSearchCommand(title: string, commandContent: string): Promise<void> {
+	private async handleSearchCommand(
+		title: string,
+		commandContent: string,
+		lang?: string
+	): Promise<boolean> {
 		try {
-			const queryExtraction = await extractSearchQueryV2(commandContent);
+			const queryExtraction = await extractSearchQueryV2(commandContent, lang);
 
 			// Get the search results
 			const docs = await this.plugin.searchIndexer.searchV2(queryExtraction.operations);
@@ -665,26 +703,31 @@ export class ConversationEventHandler {
 				path: title,
 				newContent: response,
 				role: 'Steward',
+				command: 'search',
 			});
 
-			const userSearchMetadata = await this.renderer.findMostRecentMessageMetadata(
+			const stewardSearchMetadata = await this.renderer.findMostRecentMessageMetadata(
 				title,
 				'search',
-				'user'
+				'steward'
 			);
 
 			// Store the search results in the artifact manager
-			if (userSearchMetadata) {
-				this.artifactManager.storeArtifact(title, userSearchMetadata.ID, {
+			if (stewardSearchMetadata) {
+				this.artifactManager.storeArtifact(title, stewardSearchMetadata.ID, {
 					type: ArtifactType.SEARCH_RESULTS,
 					originalResults: docs,
 				});
 			}
+
+			return true;
 		} catch (error) {
 			await this.renderer.updateConversationNote({
 				path: title,
 				newContent: `*Error: ${error.message}*`,
 			});
+
+			return false;
 		}
 	}
 
@@ -772,8 +815,7 @@ export class ConversationEventHandler {
 	private async handleGeneralCommand(title: string, commandContent: string): Promise<void> {
 		try {
 			// Extract the command intent using AI
-			const intentExtraction =
-				await this.plugin.obsidianAPITools.extractCommandIntent(commandContent);
+			const intentExtraction = await extractCommandIntent(commandContent);
 
 			// Emit event to trigger the appropriate command handler
 			eventEmitter.emit(Events.COMMAND_INTENT_EXTRACTED, {
@@ -1425,5 +1467,193 @@ export class ConversationEventHandler {
 		});
 
 		return response;
+	}
+
+	private async handleUpdateCommand(title: string, commandContent: string): Promise<void> {
+		try {
+			// Extract the sequence of commands needed
+			const extraction = await extractUpdateCommand(commandContent);
+
+			const t = getTranslation(extraction.lang);
+
+			// Process each command in sequence
+			for (const command of extraction.commands) {
+				switch (command.type) {
+					case 'search': {
+						await this.renderer.addGeneratingIndicator(title, t('conversation.searching'));
+						if (!(await this.handleSearchCommand(title, command.content, extraction.lang))) {
+							return;
+						}
+						break;
+					}
+					case 'update_from_search_result': {
+						await this.renderer.addGeneratingIndicator(title, t('conversation.updating'));
+						await this.handleUpdateFromSearchResultCommand(title, command.content, extraction.lang);
+						break;
+					}
+				}
+			}
+		} catch (error) {
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*Error extracting update command: ${error.message}*`,
+			});
+		}
+	}
+
+	private async handleUpdateFromSearchResultCommand(
+		title: string,
+		commandContent: string,
+		lang?: string
+	): Promise<void> {
+		try {
+			const t = getTranslation(lang);
+			// Retrieve the most recent search results artifact
+			const searchArtifact =
+				this.artifactManager.getMostRecentArtifactByType<SearchResultsArtifact>(
+					title,
+					ArtifactType.SEARCH_RESULTS
+				);
+
+			if (!searchArtifact || searchArtifact.type !== ArtifactType.SEARCH_RESULTS) {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: t('search.noRecentSearch'),
+					role: 'Steward',
+				});
+				return;
+			}
+
+			// Extract the update instruction
+			const extraction = await extractUpdateFromSearchResult(commandContent);
+
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*${extraction.explanation}*`,
+			});
+
+			if (extraction.confidence <= 0.7) {
+				return;
+			}
+
+			// Perform the update
+			await this.handleUpdateFromSearchResult(title, extraction.updateInstruction, extraction.lang);
+		} catch (error) {
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `Error extracting update instruction: ${error.message}`,
+				role: 'Steward',
+			});
+		}
+	}
+
+	private async handleUpdateFromSearchResult(
+		title: string,
+		updateInstruction: UpdateInstruction,
+		lang?: string
+	): Promise<void> {
+		try {
+			// Get translation function
+			const t = getTranslation(lang);
+
+			// Retrieve the most recent search results artifact
+			const searchArtifact =
+				this.artifactManager.getMostRecentArtifactByType<SearchResultsArtifact>(
+					title,
+					ArtifactType.SEARCH_RESULTS
+				);
+
+			if (!searchArtifact || searchArtifact.type !== ArtifactType.SEARCH_RESULTS) {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: t('search.noRecentSearch'),
+					role: 'Steward',
+				});
+				return;
+			}
+
+			// Perform the updates
+			const updatedFiles: string[] = [];
+			const failedFiles: string[] = [];
+			const skippedFiles: string[] = [];
+
+			for (const doc of searchArtifact.originalResults) {
+				try {
+					const file = this.plugin.app.vault.getAbstractFileByPath(doc.path);
+					if (file && file instanceof TFile) {
+						// Read the file content
+						const content = await this.plugin.app.vault.read(file);
+
+						// Apply the update instruction
+						const updatedContent = await this.plugin.obsidianAPITools.applyUpdateInstruction(
+							content,
+							updateInstruction
+						);
+
+						if (updatedContent === content) {
+							skippedFiles.push(doc.path);
+							continue;
+						}
+
+						// Write the updated content back
+						await this.plugin.app.vault.modify(file, updatedContent);
+						updatedFiles.push(doc.path);
+					}
+				} catch (error) {
+					failedFiles.push(doc.path);
+				}
+			}
+
+			// Format the results
+			let response = t('update.foundFiles', { count: searchArtifact.originalResults.length });
+
+			if (updatedFiles.length > 0) {
+				response += `\n\n**${t('update.successfullyUpdated', { count: updatedFiles.length })}**`;
+				updatedFiles.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+
+			if (skippedFiles.length > 0) {
+				response += `\n\n**${t('update.skipped', { count: skippedFiles.length })}**`;
+				skippedFiles.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+
+			if (failedFiles.length > 0) {
+				response += `\n\n**${t('update.failed', { count: failedFiles.length })}**`;
+				failedFiles.forEach(file => {
+					response += `\n- [[${file}]]`;
+				});
+			}
+
+			// Update the conversation with the results
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: response,
+				role: 'Steward',
+				command: 'update',
+			});
+
+			// Emit the update operation completed event
+			eventEmitter.emit(Events.UPDATE_OPERATION_COMPLETED, {
+				title,
+				operations: [
+					{
+						updateInstruction: JSON.stringify(updateInstruction),
+						updated: updatedFiles,
+						skipped: skippedFiles,
+						errors: failedFiles,
+					},
+				],
+			});
+		} catch (error) {
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*Error updating files: ${error.message}*`,
+				role: 'Steward',
+			});
+		}
 	}
 }
