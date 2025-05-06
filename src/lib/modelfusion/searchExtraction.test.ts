@@ -20,7 +20,13 @@ describe('extractSearchQueryV2', () => {
 
 	it('should handle quoted keyword input directly without LLM', async () => {
 		// Test with double quotes
-		const result1 = await extractSearchQueryV2('"project notes"');
+		const result1 = await extractSearchQueryV2({
+			userInput: '"project notes"',
+			llmConfig: {
+				model: 'gpt-4-turbo-preview',
+				temperature: 0.2,
+			},
+		});
 
 		expect(result1).toEqual({
 			operations: [
@@ -31,13 +37,19 @@ describe('extractSearchQueryV2', () => {
 					folders: [],
 				},
 			],
-			explanation: 'Searching for "project notes"',
+			explanation: 'translated_search.searchingFor',
 			lang: 'en',
 			confidence: 1,
 		});
 
 		// Test with single quotes
-		const result2 = await extractSearchQueryV2("'meeting minutes'");
+		const result2 = await extractSearchQueryV2({
+			userInput: "'meeting minutes'",
+			llmConfig: {
+				model: 'gpt-4-turbo-preview',
+				temperature: 0.2,
+			},
+		});
 
 		expect(result2).toEqual({
 			operations: [
@@ -48,7 +60,7 @@ describe('extractSearchQueryV2', () => {
 					folders: [],
 				},
 			],
-			explanation: 'Searching for "meeting minutes"',
+			explanation: 'translated_search.searchingFor',
 			lang: 'en',
 			confidence: 1,
 		});
@@ -56,7 +68,13 @@ describe('extractSearchQueryV2', () => {
 
 	it('should handle tag-only input directly without LLM', async () => {
 		// Test with multiple tags
-		const result = await extractSearchQueryV2('#project #work #important');
+		const result = await extractSearchQueryV2({
+			userInput: '#project #work #important',
+			llmConfig: {
+				model: 'gpt-4-turbo-preview',
+				temperature: 0.2,
+			},
+		});
 
 		expect(result).toEqual({
 			operations: [
@@ -67,13 +85,19 @@ describe('extractSearchQueryV2', () => {
 					folders: [],
 				},
 			],
-			explanation: 'Searching for tags: #project, #work, #important',
+			explanation: 'translated_search.searchingForTags',
 			lang: 'en',
 			confidence: 1,
 		});
 
 		// Test with a single tag
-		const singleTagResult = await extractSearchQueryV2('#urgent');
+		const singleTagResult = await extractSearchQueryV2({
+			userInput: '#urgent',
+			llmConfig: {
+				model: 'gpt-4-turbo-preview',
+				temperature: 0.2,
+			},
+		});
 
 		expect(singleTagResult).toEqual({
 			operations: [
@@ -84,7 +108,7 @@ describe('extractSearchQueryV2', () => {
 					folders: [],
 				},
 			],
-			explanation: 'Searching for tags: #urgent',
+			explanation: 'translated_search.searchingForTags',
 			lang: 'en',
 			confidence: 1,
 		});

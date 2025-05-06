@@ -1,7 +1,9 @@
-import { generateText, openai } from 'modelfusion';
+import { generateText } from 'modelfusion';
+import { createLLMGenerator } from './llmConfig';
 import { commandIntentPrompt } from './prompts/commandIntentPrompt';
 import { userLanguagePrompt } from './prompts/languagePrompt';
 import { LLMCacheService } from '../../solutions/cache/LLMCacheService';
+import { StewardPluginSettings } from '../../types/interfaces';
 
 /**
  * Represents the extracted command intent from a general query
@@ -20,9 +22,13 @@ const cacheService = new LLMCacheService();
 /**
  * Extract command intent from a general query using AI
  * @param userInput Natural language request from the user
+ * @param llmConfig LLM configuration settings
  * @returns Extracted command type, content, and explanation
  */
-export async function extractCommandIntent(userInput: string): Promise<CommandIntentExtraction> {
+export async function extractCommandIntent(
+	userInput: string,
+	llmConfig: StewardPluginSettings['llm']
+): Promise<CommandIntentExtraction> {
 	try {
 		// First check if we have a cached response
 		const cachedResponse = await cacheService.getCachedResponse(userInput);
@@ -31,13 +37,9 @@ export async function extractCommandIntent(userInput: string): Promise<CommandIn
 			return validateCommandIntentExtraction(parsed);
 		}
 
-		// Use ModelFusion to generate the response
+		// Use ModelFusion to generate the response with configured model
 		const response = await generateText({
-			model: openai.ChatTextGenerator({
-				model: 'gpt-4-turbo-preview',
-				temperature: 0.2,
-				responseFormat: { type: 'json_object' },
-			}),
+			model: createLLMGenerator(llmConfig),
 			prompt: [userLanguagePrompt, commandIntentPrompt, { role: 'user', content: userInput }],
 		});
 

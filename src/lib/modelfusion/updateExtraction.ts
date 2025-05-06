@@ -1,12 +1,22 @@
-import { generateText, openai } from 'modelfusion';
+import { generateText } from 'modelfusion';
 import { updateCommandPrompt } from './prompts/updateCommandPrompt';
 import { userLanguagePrompt } from './prompts/languagePrompt';
 import { confidenceScorePrompt } from './prompts/confidenceScorePrompt';
+import { StewardPluginSettings } from '../../types/interfaces';
+import { createLLMGenerator } from './llmConfig';
 
 /**
  * Extracts the sequence of commands needed for an update operation
  */
-export async function extractUpdateCommand(commandContent: string): Promise<{
+export async function extractUpdateCommand({
+	userInput,
+	llmConfig,
+	lang,
+}: {
+	userInput: string;
+	llmConfig: StewardPluginSettings['llm'];
+	lang?: string;
+}): Promise<{
 	commands: Array<{
 		type: 'search' | 'update_from_search_result';
 		content: string;
@@ -15,16 +25,12 @@ export async function extractUpdateCommand(commandContent: string): Promise<{
 	lang?: string;
 }> {
 	const response = await generateText({
-		model: openai.ChatTextGenerator({
-			model: 'gpt-4-turbo-preview',
-			temperature: 0.2,
-			responseFormat: { type: 'json_object' },
-		}),
+		model: createLLMGenerator(llmConfig),
 		prompt: [
 			userLanguagePrompt,
 			updateCommandPrompt,
 			confidenceScorePrompt,
-			{ role: 'user', content: commandContent },
+			{ role: 'user', content: userInput },
 		],
 	});
 	const result = JSON.parse(response);

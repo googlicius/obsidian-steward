@@ -1,9 +1,11 @@
-import { generateText, openai } from 'modelfusion';
+import { generateText } from 'modelfusion';
 import { confidenceScorePrompt } from './prompts/confidenceScorePrompt';
 import { validateLanguage, validateConfidence } from './validators';
 import { SearchOperationV2 } from './searchExtraction';
 import { userLanguagePrompt } from './prompts/languagePrompt';
 import { searchPromptV2 } from './prompts/searchPromptV2';
+import { StewardPluginSettings } from '../../types/interfaces';
+import { createLLMGenerator } from './llmConfig';
 
 /**
  * Represents a single move operation with v2 parameters
@@ -24,19 +26,20 @@ export interface MoveQueryExtractionV2 {
 
 /**
  * Extract move parameters from a natural language request using AI (v2)
- * This combines the search v2 extraction with the move v2 prompt to get comprehensive parameters
- * @param userInput Natural language request from the user
- * @returns Extracted move parameters and explanation
  */
-export async function extractMoveQueryV2(userInput: string): Promise<MoveQueryExtractionV2> {
+export async function extractMoveQueryV2({
+	userInput,
+	llmConfig,
+	lang,
+}: {
+	userInput: string;
+	llmConfig: StewardPluginSettings['llm'];
+	lang?: string;
+}): Promise<MoveQueryExtractionV2> {
 	try {
 		// Use ModelFusion to add the move parameters
 		const response = await generateText({
-			model: openai.ChatTextGenerator({
-				model: 'gpt-4-turbo-preview',
-				temperature: 0.2,
-				responseFormat: { type: 'json_object' },
-			}),
+			model: createLLMGenerator(llmConfig),
 			prompt: [
 				userLanguagePrompt,
 				searchPromptV2,

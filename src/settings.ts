@@ -215,5 +215,78 @@ export default class StewardSettingTab extends PluginSettingTab {
 					logger.setDebug(value);
 				})
 			);
+
+		// Add LLM settings section
+		containerEl.createEl('h3', { text: 'LLM Settings' });
+
+		// Model selection with provider automatically determined
+		new Setting(containerEl)
+			.setName('Model')
+			.setDesc('Select the AI model to use')
+			.addDropdown(dropdown => {
+				// OpenAI Models
+				dropdown.addOption('gpt-4-turbo-preview', 'GPT-4 Turbo (OpenAI)');
+				dropdown.addOption('gpt-4-0125-preview', 'GPT-4 0125 (OpenAI)');
+				dropdown.addOption('gpt-4-vision-preview', 'GPT-4 Vision (OpenAI)');
+				dropdown.addOption('gpt-3.5-turbo', 'GPT-3.5 Turbo (OpenAI)');
+
+				// Ollama Models
+				dropdown.addOption('deepseek-r1', 'DeepSeek R1 (Ollama)');
+				dropdown.addOption('llama3:latest', 'Llama 3 8B (Ollama)');
+				dropdown.addOption('llama3.1:latest', 'Llama 3.1 8B (Ollama)');
+				dropdown.addOption('llama3.2:latest', 'Llama 3.2 (Ollama)');
+				dropdown.addOption('mistral:latest', 'Mistral (Ollama)');
+				dropdown.addOption('mixtral:latest', 'Mixtral (Ollama)');
+
+				dropdown.setValue(this.plugin.settings.llm.model).onChange(async value => {
+					this.plugin.settings.llm.model = value;
+					await this.plugin.saveSettings();
+
+					// Update Ollama settings visibility based on selected model
+					updateOllamaSettingsVisibility();
+				});
+			});
+
+		// Temperature setting
+		new Setting(containerEl)
+			.setName('Temperature')
+			.setDesc('Controls randomness in the output (0.0 to 1.0)')
+			.addSlider(slider => {
+				slider
+					.setLimits(0, 1, 0.1)
+					.setValue(this.plugin.settings.llm.temperature)
+					.setDynamicTooltip()
+					.onChange(async value => {
+						this.plugin.settings.llm.temperature = value;
+						await this.plugin.saveSettings();
+					});
+			});
+
+		// Ollama Base URL setting (only shown when Ollama model is selected)
+		const ollamaBaseUrlSetting = new Setting(containerEl)
+			.setName('Ollama Base URL')
+			.setDesc('The base URL for Ollama API (default: http://localhost:11434)')
+			.addText(text =>
+				text
+					.setPlaceholder('http://localhost:11434')
+					.setValue(this.plugin.settings.llm.ollamaBaseUrl || '')
+					.onChange(async value => {
+						this.plugin.settings.llm.ollamaBaseUrl = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		// Show/hide Ollama settings based on selected model
+		const updateOllamaSettingsVisibility = () => {
+			const isOllamaModel =
+				this.plugin.settings.llm.model.includes('llama') ||
+				this.plugin.settings.llm.model.includes('mistral') ||
+				this.plugin.settings.llm.model.includes('mixtral');
+
+			ollamaBaseUrlSetting.settingEl.style.display = isOllamaModel ? 'flex' : 'none';
+		};
+
+		// Initial visibility
+		updateOllamaSettingsVisibility();
 	}
 }

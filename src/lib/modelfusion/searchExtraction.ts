@@ -1,4 +1,4 @@
-import { generateText, openai } from 'modelfusion';
+import { generateText } from 'modelfusion';
 import { userLanguagePrompt } from './prompts/languagePrompt';
 import { searchPromptV2 } from './prompts/searchPromptV2';
 import { confidenceScorePrompt } from './prompts/confidenceScorePrompt';
@@ -6,6 +6,8 @@ import { validateLanguage, validateConfidence } from './validators';
 import { getObsidianLanguage } from '../../utils/getObsidianLanguage';
 import { logger } from '../../utils/logger';
 import { getTranslation } from '../../i18n';
+import { StewardPluginSettings } from '../../types/interfaces';
+import { createLLMGenerator } from './llmConfig';
 
 /**
  * Represents a single search operation with v2 parameters
@@ -30,13 +32,19 @@ export interface SearchQueryExtractionV2 {
 /**
  * Extract search parameters from a natural language request using AI (v2)
  * @param userInput Natural language request from the user
+ * @param llmConfig LLM configuration settings
  * @param lang The language of the user
  * @returns Extracted search parameters and explanation
  */
-export async function extractSearchQueryV2(
-	userInput: string,
-	lang?: string
-): Promise<SearchQueryExtractionV2> {
+export async function extractSearchQueryV2({
+	userInput,
+	llmConfig,
+	lang,
+}: {
+	userInput: string;
+	llmConfig: StewardPluginSettings['llm'];
+	lang?: string;
+}): Promise<SearchQueryExtractionV2> {
 	// Check if input is wrapped in quotation marks for direct search
 	const quotedRegex = /^["'](.+)["']$/;
 	const match = userInput.trim().match(quotedRegex);
@@ -87,11 +95,7 @@ export async function extractSearchQueryV2(
 	try {
 		// Use ModelFusion to generate the response
 		const response = await generateText({
-			model: openai.ChatTextGenerator({
-				model: 'gpt-4-turbo-preview',
-				temperature: 0.2,
-				responseFormat: { type: 'json_object' },
-			}),
+			model: createLLMGenerator(llmConfig),
 			prompt: [
 				userLanguagePrompt,
 				searchPromptV2,

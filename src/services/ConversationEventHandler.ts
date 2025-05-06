@@ -371,7 +371,10 @@ export class ConversationEventHandler {
 	private async handleMoveCommand(title: string, commandContent: string): Promise<void> {
 		try {
 			// Extract the move query
-			const queryExtraction = await extractMoveQueryV2(commandContent);
+			const queryExtraction = await extractMoveQueryV2({
+				userInput: commandContent,
+				llmConfig: this.plugin.settings.llm,
+			});
 
 			// Get translation function for the specified language
 			const t = getTranslation(queryExtraction.lang);
@@ -683,7 +686,11 @@ export class ConversationEventHandler {
 		lang?: string
 	): Promise<boolean> {
 		try {
-			const queryExtraction = await extractSearchQueryV2(commandContent, lang);
+			const queryExtraction = await extractSearchQueryV2({
+				userInput: commandContent,
+				llmConfig: this.plugin.settings.llm,
+				lang,
+			});
 
 			// Get the search results
 			const docs = await this.plugin.searchIndexer.searchV2(queryExtraction.operations);
@@ -815,7 +822,9 @@ export class ConversationEventHandler {
 	private async handleGeneralCommand(title: string, commandContent: string): Promise<void> {
 		try {
 			// Extract the command intent using AI
-			const intentExtraction = await extractCommandIntent(commandContent);
+			const intentExtraction = await extractCommandIntent(commandContent, {
+				...this.plugin.settings.llm,
+			});
 
 			// Emit event to trigger the appropriate command handler
 			eventEmitter.emit(Events.COMMAND_INTENT_EXTRACTED, {
@@ -1170,7 +1179,10 @@ export class ConversationEventHandler {
 	private async handleDeleteCommand(title: string, commandContent: string): Promise<void> {
 		try {
 			// Extract the search query
-			const queryExtraction = await extractSearchQueryV2(commandContent);
+			const queryExtraction = await extractSearchQueryV2({
+				userInput: commandContent,
+				llmConfig: this.plugin.settings.llm,
+			});
 
 			// Explain the search query to the user
 			await this.renderer.updateConversationNote({
@@ -1264,7 +1276,10 @@ export class ConversationEventHandler {
 	private async handleCopyCommand(title: string, commandContent: string): Promise<void> {
 		try {
 			// Extract the search query and destination
-			const queryExtraction = await extractSearchQueryV2(commandContent);
+			const queryExtraction = await extractSearchQueryV2({
+				userInput: commandContent,
+				llmConfig: this.plugin.settings.llm,
+			});
 
 			// Explain the search query to the user
 			await this.renderer.updateConversationNote({
@@ -1472,7 +1487,10 @@ export class ConversationEventHandler {
 	private async handleUpdateCommand(title: string, commandContent: string): Promise<void> {
 		try {
 			// Extract the sequence of commands needed
-			const extraction = await extractUpdateCommand(commandContent);
+			const extraction = await extractUpdateCommand({
+				userInput: commandContent,
+				llmConfig: this.plugin.settings.llm,
+			});
 
 			const t = getTranslation(extraction.lang);
 
@@ -1525,7 +1543,10 @@ export class ConversationEventHandler {
 			}
 
 			// Extract the update instruction
-			const extraction = await extractUpdateFromSearchResult(commandContent);
+			const extraction = await extractUpdateFromSearchResult({
+				userInput: commandContent,
+				llmConfig: this.plugin.settings.llm,
+			});
 
 			await this.renderer.updateConversationNote({
 				path: title,

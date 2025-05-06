@@ -104,6 +104,8 @@ export class LLMCacheService {
 			'calc',
 			'image',
 			'audio',
+			'update',
+			'update_from_search_result',
 		];
 		return exactMatchTypes.includes(commandType) ? 'exact' : 'similarity';
 	}

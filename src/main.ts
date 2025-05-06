@@ -19,6 +19,7 @@ import { ConversationRenderer } from './services/ConversationRenderer';
 import { ConversationArtifactManager } from './services/ConversationArtifactManager';
 import { GitEventHandler } from './solutions/git/GitEventHandler';
 import { MediaGenerationService } from './services/MediaGenerationService';
+import { StewardPluginSettings } from './types/interfaces';
 
 // Supported command prefixes
 export const COMMAND_PREFIXES = [
@@ -39,25 +40,6 @@ export const COMMAND_PREFIXES = [
 // Define custom icon ID
 const SMILE_CHAT_ICON_ID = 'smile-chat-icon';
 
-interface StewardPluginSettings {
-	mySetting: string;
-	apiKeys: {
-		openai: string;
-		elevenlabs: string;
-	};
-	saltKeyId: string; // Store just the key ID, not the actual salt
-	conversationFolder: string;
-	searchDbPrefix: string;
-	encryptionVersion?: number; // Track the encryption version for future migrations
-	staticConversationLeafId?: string; // ID of the leaf containing the static conversation
-	excludedFolders: string[]; // Folders to exclude from Obsidian search
-	debug: boolean; // Enable debug logging
-	audio: {
-		model: string;
-		voices: Record<string, string>;
-	};
-}
-
 const DEFAULT_SETTINGS: StewardPluginSettings = {
 	mySetting: 'default',
 	apiKeys: {
@@ -77,6 +59,11 @@ const DEFAULT_SETTINGS: StewardPluginSettings = {
 			openai: 'alloy',
 			elevenlabs: 'pNInz6obpgDQGcFmaJgB',
 		},
+	},
+	llm: {
+		model: 'gpt-4-turbo-preview',
+		temperature: 0.2,
+		ollamaBaseUrl: 'http://localhost:11434',
 	},
 };
 
