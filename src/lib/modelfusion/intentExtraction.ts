@@ -1,9 +1,10 @@
-import { generateText } from 'modelfusion';
+import { generateText, classify } from 'modelfusion';
 import { createLLMGenerator } from './llmConfig';
 import { commandIntentPrompt } from './prompts/commandIntentPrompt';
 import { userLanguagePrompt } from './prompts/languagePrompt';
-import { LLMCacheService } from '../../solutions/cache/LLMCacheService';
 import { StewardPluginSettings } from '../../types/interfaces';
+import { intentClassifier } from './classifiers/intent';
+import { logger } from 'src/utils/logger';
 
 /**
  * Represents the extracted command intent from a general query
@@ -16,9 +17,6 @@ export interface CommandIntentExtraction {
 	lang?: string;
 }
 
-// Create a singleton instance of the cache service
-const cacheService = new LLMCacheService();
-
 /**
  * Extract command intent from a general query using AI
  * @param userInput Natural language request from the user
@@ -30,14 +28,39 @@ export async function extractCommandIntent(
 	llmConfig: StewardPluginSettings['llm']
 ): Promise<CommandIntentExtraction> {
 	try {
-		// First check if we have a cached response
-		const cachedResponse = await cacheService.getCachedResponse(userInput);
-		if (cachedResponse) {
-			const parsed = JSON.parse(cachedResponse);
-			return validateCommandIntentExtraction(parsed);
+		let classificationResult = null;
+		try {
+			// Race between classification and timeout
+			classificationResult = await Promise.race([
+				classify({
+					model: intentClassifier,
+					value: userInput,
+				}),
+				new Promise<null>(resolve => {
+					setTimeout(() => resolve(null), 2000);
+				}),
+			]);
+
+			if (classificationResult) {
+				logger.log(`The user input was classified as "${classificationResult}"`);
+
+				// Create a formatted response based on the classification
+				const result: CommandIntentExtraction = {
+					commandType: classificationResult,
+					content: userInput,
+					explanation: `Classified as ${classificationResult} command based on semantic similarity.`,
+					confidence: 0.8,
+					lang: 'en',
+				};
+
+				return result;
+			}
+		} catch (error) {
+			logger.log('Classification unavailable, continuing with LLM generation:', error);
 		}
 
-		// Use ModelFusion to generate the response with configured model
+		// Proceed with LLM-based intent extraction
+		logger.log('Using LLM for intent extraction');
 		const response = await generateText({
 			model: createLLMGenerator(llmConfig),
 			prompt: [userLanguagePrompt, commandIntentPrompt, { role: 'user', content: userInput }],
@@ -46,9 +69,6 @@ export async function extractCommandIntent(
 		// Parse and validate the JSON response
 		const parsed = JSON.parse(response);
 		const validatedResult = validateCommandIntentExtraction(parsed);
-
-		// Cache the response with the validated command type
-		await cacheService.cacheResponse(userInput, response, validatedResult.commandType);
 
 		return validatedResult;
 	} catch (error) {

@@ -1,17 +1,21 @@
 import { openai, ollama } from 'modelfusion';
 
 // Function to determine provider from model name
-function getProviderFromModel(modelName: string): 'openai' | 'ollama' {
+function getProviderFromModel(modelName: string): 'openai' | 'ollama' | 'deepseek' {
 	// Check if it's an Ollama model
 	if (
 		modelName.includes('llama') ||
 		modelName.includes('mistral') ||
 		modelName.includes('mixtral') ||
 		modelName.includes('phi') ||
-		modelName.includes('gemma') ||
-		modelName.includes('deepseek')
+		modelName.includes('gemma')
 	) {
 		return 'ollama';
+	}
+
+	// Check if it's a DeepSeek model
+	if (modelName.startsWith('deepseek')) {
+		return 'deepseek';
 	}
 
 	// Default to OpenAI
@@ -33,6 +37,15 @@ export function createLLMGenerator(config: {
 				model: config.model as any, // Type assertion needed as model names are not properly typed
 				temperature: config.temperature,
 				responseFormat: { type: 'json_object' },
+			});
+		case 'deepseek':
+			return openai.ChatTextGenerator({
+				model: config.model as any,
+				temperature: config.temperature,
+				responseFormat: { type: 'json_object' },
+				api: openai.Api({
+					baseUrl: 'https://api.deepseek.com/v1',
+				}),
 			});
 		case 'ollama':
 			return ollama.ChatTextGenerator({

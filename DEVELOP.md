@@ -11,3 +11,4 @@
 
 - [ ] Commit only files affected by the current actions.
 - [ ] Move folder(s) into another folder
+- [x] Clustering user's queries based on LLM extraction, so the next similar queries will be classified without LLM helps.

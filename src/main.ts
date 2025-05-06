@@ -45,6 +45,7 @@ const DEFAULT_SETTINGS: StewardPluginSettings = {
 	apiKeys: {
 		openai: '',
 		elevenlabs: '',
+		deepseek: '',
 	},
 	saltKeyId: '', // Will be generated on first load
 	conversationFolder: 'Steward/Conversations',
@@ -148,6 +149,11 @@ export default class StewardPlugin extends Plugin {
 		const decryptedElevenLabsKey = this.getDecryptedApiKey('elevenlabs');
 		if (decryptedElevenLabsKey) {
 			process.env.ELEVENLABS_API_KEY = decryptedElevenLabsKey;
+		}
+
+		const decryptedDeepSeekKey = this.getDecryptedApiKey('deepseek');
+		if (decryptedDeepSeekKey) {
+			process.env.DEEPSEEK_API_KEY = decryptedDeepSeekKey;
 		}
 
 		// Initialize the media generation service
@@ -325,18 +331,13 @@ export default class StewardPlugin extends Plugin {
 			try {
 				// Extract the command content (everything after the prefix)
 				const commandContent = lineText.trim().substring(commandMatch.length).trim();
-				let commandType = commandMatch.substring(1); // Remove the / from the command
+				const commandType = commandMatch.substring(1); // Remove the / from the command
 
 				logger.log('Command type:', commandType);
 				logger.log('Command content:', commandContent);
 
 				// Look for a conversation link in the previous lines
 				const conversationLink = this.findConversationLinkAbove(view);
-
-				// Get the command type on the client side
-				if (conversationLink && commandType === ' ') {
-					commandType = await this.getCommandTypeOnClient(commandContent);
-				}
 
 				const folderPath = this.settings.conversationFolder;
 				const notePath = `${folderPath}/${conversationLink}.md`;
@@ -400,49 +401,6 @@ export default class StewardPlugin extends Plugin {
 		}
 
 		return false;
-	}
-
-	/**
-	 * Checks if the command content explicitly indicates a close intent
-	 * @param content The command content to check
-	 * @returns True if the content explicitly indicates a close intent
-	 */
-	isCloseIntent(content: string): boolean {
-		const normalizedContent = content.toLowerCase().trim();
-
-		// Simple hardcoded list of close commands
-		const closeCommands = [
-			'close',
-			'close this',
-			'close conversation',
-			'end',
-			'exit',
-			'đóng',
-			'kết thúc',
-			'閉じる',
-			'終了',
-		];
-
-		// Check for exact match or starts with
-		return closeCommands.some(command => normalizedContent === command);
-	}
-
-	/**
-	 * Gets the command type on the client side
-	 * @param commandContent The command content to check
-	 * @returns The command type
-	 */
-	private async getCommandTypeOnClient(commandContent: string): Promise<string> {
-		if (this.isCloseIntent(commandContent)) {
-			return 'close';
-		}
-
-		// Check if this is a confirmation response without processing it
-		if (this.confirmationEventHandler.isConfirmIntent(commandContent)) {
-			return 'confirm';
-		}
-
-		return ' ';
 	}
 
 	/**
@@ -731,18 +689,18 @@ export default class StewardPlugin extends Plugin {
 	 * @param service - The service to get the API key for (e.g., 'openai', 'elevenlabs')
 	 * @returns The decrypted API key or empty string if not set
 	 */
-	getDecryptedApiKey(service: 'openai' | 'elevenlabs'): string {
-		if (!this.settings.apiKeys[service] || !this.settings.saltKeyId) {
+	getDecryptedApiKey(service: 'openai' | 'elevenlabs' | 'deepseek'): string {
+		const encryptedKey = this.settings.apiKeys[service];
+
+		if (!encryptedKey) {
 			return '';
 		}
 
 		try {
-			const decryptedKey = decrypt(this.settings.apiKeys[service], this.settings.saltKeyId);
-			return decryptedKey;
+			return decrypt(encryptedKey, this.settings.saltKeyId);
 		} catch (error) {
-			console.error(`Error decrypting ${service} API key:`, error);
-			// Throw the error so callers can handle it
-			throw new Error(i18next.t('ui.decryptionError'));
+			logger.error(`Error decrypting ${service} API key:`, error);
+			throw new Error(`Could not decrypt ${service} API key`);
 		}
 	}
 
@@ -751,35 +709,31 @@ export default class StewardPlugin extends Plugin {
 	 * @param service - The service to set the API key for (e.g., 'openai', 'elevenlabs')
 	 * @param apiKey - The API key to encrypt and store
 	 */
-	async setEncryptedApiKey(service: 'openai' | 'elevenlabs', apiKey: string): Promise<void> {
+	async setEncryptedApiKey(
+		service: 'openai' | 'elevenlabs' | 'deepseek',
+		apiKey: string
+	): Promise<void> {
 		try {
-			// If no key provided, clear the encrypted key
-			if (!apiKey) {
-				this.settings.apiKeys[service] = '';
-			} else {
-				// Ensure we have a salt key ID
-				if (!this.settings.saltKeyId) {
-					this.settings.saltKeyId = generateSaltKeyId();
-				}
+			// First encrypt the API key
+			const encryptedKey = apiKey ? encrypt(apiKey, this.settings.saltKeyId) : '';
 
-				// Encrypt and store the API key
-				this.settings.apiKeys[service] = encrypt(apiKey, this.settings.saltKeyId);
+			// Update our settings
+			this.settings.apiKeys[service] = encryptedKey;
 
-				// Set the latest encryption version
-				this.settings.encryptionVersion = 1;
-			}
+			// Save the settings
+			await this.saveSettings();
 
-			// Update environment variable if it's OpenAI
+			// Put the API key in the environment variable
 			if (service === 'openai') {
 				process.env.OPENAI_API_KEY = apiKey;
+			} else if (service === 'elevenlabs') {
+				process.env.ELEVENLABS_API_KEY = apiKey;
+			} else if (service === 'deepseek') {
+				process.env.DEEPSEEK_API_KEY = apiKey;
 			}
-
-			// Save settings
-			await this.saveSettings();
 		} catch (error) {
-			console.error(`Error encrypting ${service} API key:`, error);
-			new Notice(i18next.t('ui.encryptionError'));
-			throw error;
+			logger.error(`Error encrypting ${service} API key:`, error);
+			throw new Error(`Could not encrypt ${service} API key`);
 		}
 	}
 

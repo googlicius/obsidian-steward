@@ -83,9 +83,11 @@ export default class StewardSettingTab extends PluginSettingTab {
 							// Get the current keys if possible
 							let openaiKey = '';
 							let elevenlabsKey = '';
+							let deepseekKey = '';
 							try {
 								openaiKey = this.plugin.getDecryptedApiKey('openai');
 								elevenlabsKey = this.plugin.getDecryptedApiKey('elevenlabs');
+								deepseekKey = this.plugin.getDecryptedApiKey('deepseek');
 							} catch (e) {
 								// If we can't decrypt, we'll start fresh
 							}
@@ -95,6 +97,7 @@ export default class StewardSettingTab extends PluginSettingTab {
 							this.plugin.settings.apiKeys = {
 								openai: '',
 								elevenlabs: '',
+								deepseek: '',
 							};
 							await this.plugin.saveSettings();
 
@@ -102,7 +105,7 @@ export default class StewardSettingTab extends PluginSettingTab {
 							this.display();
 
 							// If we had keys before, prompt user to re-enter them
-							if (openaiKey || elevenlabsKey) {
+							if (openaiKey || elevenlabsKey || deepseekKey) {
 								new Notice('Encryption reset. Please re-enter your API keys.');
 							} else {
 								new Notice('Encryption reset successfully.');
@@ -172,16 +175,79 @@ export default class StewardSettingTab extends PluginSettingTab {
 					});
 			});
 
+		// DeepSeek API Key setting with encryption
+		new Setting(containerEl)
+			.setName('DeepSeek API Key')
+			.setDesc('Your DeepSeek API key (stored with encryption)')
+			.addText(text => {
+				// Get the current API key (decrypted) with error handling
+				let placeholder = 'Enter your API key';
+				try {
+					const currentKey = this.plugin.getDecryptedApiKey('deepseek');
+					if (currentKey) {
+						placeholder = '••••••••••••••••••••••';
+					}
+				} catch (error) {
+					// If decryption fails, we'll show a special message
+					placeholder = 'Error: Click to re-enter key';
+					console.error('Error decrypting API key in settings:', error);
+				}
+
+				text
+					.setPlaceholder(placeholder)
+					// Only show value if editing
+					.setValue('')
+					.onChange(async value => {
+						if (value) {
+							try {
+								// If a value is entered, encrypt and save it
+								await this.plugin.setEncryptedApiKey('deepseek', value);
+
+								// Update the placeholder to show that a key is saved
+								text.setPlaceholder('••••••••••••••••••••••');
+								// Clear the input field for security
+								text.setValue('');
+							} catch (error) {
+								new Notice('Failed to save API key. Please try again.');
+								console.error('Error setting API key:', error);
+							}
+						}
+					});
+
+				// Add password type to protect API key
+				text.inputEl.setAttribute('type', 'password');
+			})
+			.addExtraButton(button => {
+				button
+					.setIcon('cross')
+					.setTooltip('Clear API Key')
+					.onClick(async () => {
+						try {
+							await this.plugin.setEncryptedApiKey('deepseek', '');
+							// Force refresh of the settings
+							this.display();
+						} catch (error) {
+							new Notice('Failed to clear API key. Please try again.');
+							console.error('Error clearing API key:', error);
+						}
+					});
+			});
+
 		containerEl.createEl('div', {
 			text: 'Note: You need to provide your own API keys to use the AI-powered assistant.',
 			cls: 'setting-item-description',
 		});
 
 		// If we have encryption issues, show instructions for resetting
-		if (this.plugin.settings.apiKeys.openai || this.plugin.settings.apiKeys.elevenlabs) {
+		if (
+			this.plugin.settings.apiKeys.openai ||
+			this.plugin.settings.apiKeys.elevenlabs ||
+			this.plugin.settings.apiKeys.deepseek
+		) {
 			try {
 				this.plugin.getDecryptedApiKey('openai');
 				this.plugin.getDecryptedApiKey('elevenlabs');
+				this.plugin.getDecryptedApiKey('deepseek');
 			} catch (error) {
 				containerEl.createEl('div', {
 					text: 'If you are seeing decryption errors, please use the "Reset Encryption" button and re-enter your API keys.',
@@ -230,8 +296,10 @@ export default class StewardSettingTab extends PluginSettingTab {
 				dropdown.addOption('gpt-4-vision-preview', 'GPT-4 Vision (OpenAI)');
 				dropdown.addOption('gpt-3.5-turbo', 'GPT-3.5 Turbo (OpenAI)');
 
+				// DeepSeek Models
+				dropdown.addOption('deepseek-chat', 'DeepSeek Chat (DeepSeek)');
+
 				// Ollama Models
-				dropdown.addOption('deepseek-r1', 'DeepSeek R1 (Ollama)');
 				dropdown.addOption('llama3:latest', 'Llama 3 8B (Ollama)');
 				dropdown.addOption('llama3.1:latest', 'Llama 3.1 8B (Ollama)');
 				dropdown.addOption('llama3.2:latest', 'Llama 3.2 (Ollama)');

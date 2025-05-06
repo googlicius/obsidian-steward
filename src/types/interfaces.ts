@@ -3,6 +3,7 @@ export interface StewardPluginSettings {
 	apiKeys: {
 		openai: string;
 		elevenlabs: string;
+		deepseek: string;
 	};
 	saltKeyId: string; // Store just the key ID, not the actual salt
 	conversationFolder: string;

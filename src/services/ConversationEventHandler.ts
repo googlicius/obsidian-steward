@@ -865,6 +865,7 @@ export class ConversationEventHandler {
 		try {
 			// For low confidence intents, just show the explanation without further action
 			if (intentExtraction.confidence <= 0.7) {
+				logger.log('low confidence intent', intentExtraction);
 				await this.renderer.updateConversationNote({
 					path: title,
 					newContent: intentExtraction.explanation,
@@ -1084,8 +1085,6 @@ export class ConversationEventHandler {
 			// Check if the destination folder exists
 			const destinationFolder = extraction.destinationFolder;
 			const folderExists = this.plugin.app.vault.getAbstractFileByPath(destinationFolder);
-
-			console.log('destinationFolder', destinationFolder, folderExists);
 
 			if (!folderExists) {
 				// Request confirmation to create the folder
