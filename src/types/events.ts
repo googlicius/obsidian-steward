@@ -1,6 +1,6 @@
 import { EditorView } from '@codemirror/view';
-import { CommandIntentExtraction } from '../lib/modelfusion/intentExtraction';
-import { MoveQueryExtractionV2, SearchQueryExtractionV2 } from '../lib/modelfusion';
+import { CommandIntent, CommandIntentExtraction } from '../lib/modelfusion/intentExtraction';
+import { SearchQueryExtractionV2 } from '../lib/modelfusion';
 import { IndexedDocument } from '../database/PluginDatabase';
 import { GitOperation } from '../solutions/git/GitService';
 
@@ -48,8 +48,7 @@ export interface ConversationNoteCreatedPayload {
 
 export interface ConversationCommandReceivedPayload {
 	title: string;
-	commandType: string;
-	commandContent: string;
+	commands: CommandIntent[];
 	lang?: string;
 }
 
@@ -70,12 +69,6 @@ export interface ErrorPayload {
 	notePath: string;
 	error: Error;
 	position: number;
-}
-
-export interface MoveQueryExtractedPayload {
-	title: string;
-	queryExtraction: MoveQueryExtractionV2;
-	filesByOperation?: Map<number, IndexedDocument[]>;
 }
 
 export interface MoveFromSearchResultConfirmedPayload {
@@ -200,7 +193,6 @@ export type EventPayloadMap = {
 	[Events.LLM_RESPONSE_RECEIVED]: ResponseReadyPayload;
 	[Events.RESPONSE_READY_TO_INSERT]: ResponseReadyPayload;
 	[Events.CONVERSATION_LINK_INSERTED]: ConversationLinkInsertedPayload;
-	[Events.MOVE_QUERY_EXTRACTED]: MoveQueryExtractedPayload;
 	[Events.COMMAND_INTENT_EXTRACTED]: CommandIntentExtractedPayload;
 	[Events.CONFIRMATION_REQUESTED]: ConfirmationRequestPayload;
 	[Events.CONFIRMATION_RESPONDED]: ConfirmationResponsePayload;

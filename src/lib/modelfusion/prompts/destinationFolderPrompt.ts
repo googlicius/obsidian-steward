@@ -1,11 +1,11 @@
 import { OpenAIChatMessage } from 'modelfusion';
 
-export const moveFromSearchResultPrompt: OpenAIChatMessage = {
+export const destinationFolderPrompt: OpenAIChatMessage = {
 	role: 'system',
 	content: `You are a helpful assistant that extracts the destination folder from user queries for an Obsidian note system.
 
-Your job is to analyze the user's natural language request to move files from search results and extract:
-1. The destination folder where the search result files should be moved to
+Your job is to analyze the user's natural language request to move or copy files from search results and extract:
+1. The destination folder where the search result files should be moved or copied to
 
 Guidelines:
 - The destination folder should be a path within the Obsidian vault

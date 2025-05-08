@@ -68,6 +68,18 @@ export class EmbeddingsDatabase extends Dexie {
 			.toArray();
 	}
 
+	async getEmbeddingByValue(
+		modelName: string,
+		clusterName: string,
+		value: string
+	): Promise<EmbeddingEntry | undefined> {
+		return this.embeddings
+			.where('[modelName+clusterName]')
+			.equals([modelName, clusterName])
+			.and(entry => entry.valueText === value)
+			.first();
+	}
+
 	/**
 	 * Clear all embeddings for a specific model
 	 * @param modelName Name of the embedding model

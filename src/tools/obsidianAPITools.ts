@@ -1,11 +1,18 @@
 import { App } from 'obsidian';
-import { MoveOperationV2 } from 'src/lib/modelfusion';
 import { IndexedDocument } from 'src/database/PluginDatabase';
 import {
 	UpdateInstruction,
 	ReplaceInstruction,
 	AddInstruction,
 } from '../lib/modelfusion/updateFromSearchResultExtraction';
+import { SearchOperationV2 } from 'src/lib/modelfusion';
+
+/**
+ * Represents a single move operation with v2 parameters
+ */
+export interface MoveOperationV2 extends SearchOperationV2 {
+	destinationFolder: string;
+}
 
 /**
  * Represents a single move operation
@@ -235,16 +242,19 @@ export class ObsidianAPITools {
 			case 'add': {
 				const addInstruction = updateInstruction as AddInstruction;
 				if (addInstruction.position === 'beginning') {
-					return addInstruction.content + ' ' + content;
+					content = addInstruction.content + ' ' + content;
 				} else if (addInstruction.position === 'end') {
-					return content + '\n' + addInstruction.content;
+					content = content.endsWith('\n')
+						? content + addInstruction.content
+						: content + '\n' + addInstruction.content;
 				} else if (typeof addInstruction.position === 'number') {
 					const position = Math.max(0, Math.min(addInstruction.position, lines.length));
 					lines.splice(position, 0, addInstruction.content);
-					return lines.join('\n');
+					content = lines.join('\n');
 				} else {
 					throw new Error('Invalid position value for add instruction');
 				}
+				break;
 			}
 			default: {
 				throw new Error(`Unsupported update type: ${(updateInstruction as any).type}`);

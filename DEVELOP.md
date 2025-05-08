@@ -12,3 +12,9 @@
 - [ ] Commit only files affected by the current actions.
 - [ ] Move folder(s) into another folder
 - [x] Clustering user's queries based on LLM extraction, so the next similar queries will be classified without LLM helps.
+- [ ] Extract user's intent correctly based on the context
+      Given a query: "I made a mistake, please help me delete it"
+      If the PREVIOUS command is "Adding a tag to notes", Then this will NOT be classified as "delete_from_search_result"
+- [ ] Recommendation, based on recently activities.
+- [ ] Maintain a classify_reliably score (start with a moderate score) to mitigate classification mistakes.
+      And this score is increase over time. Classified scores from user's queries is used for intent extraction until it reaches a high score.

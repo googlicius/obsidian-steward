@@ -51,6 +51,8 @@ const en = {
 			successfullyUpdated_other: 'Successfully updated {{count}} files:',
 			foundFiles_one: 'I found {{count}} file to update.',
 			foundFiles_other: 'I found {{count}} files to update.',
+			skipped_one: 'Skipped {{count}} file:',
+			skipped_other: 'Skipped {{count}} files:',
 		},
 		// Delete result messages
 		delete: {

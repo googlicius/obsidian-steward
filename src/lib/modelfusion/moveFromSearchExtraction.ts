@@ -1,5 +1,5 @@
 import { generateText, openai } from 'modelfusion';
-import { moveFromSearchResultPrompt } from './prompts/moveFromSearchResultPrompt';
+import { destinationFolderPrompt } from './prompts/destinationFolderPrompt';
 import { userLanguagePrompt } from './prompts/languagePrompt';
 
 /**
@@ -27,11 +27,7 @@ export async function extractMoveFromSearchResult(
 				temperature: 0.2,
 				responseFormat: { type: 'json_object' },
 			}),
-			prompt: [
-				userLanguagePrompt,
-				moveFromSearchResultPrompt,
-				{ role: 'user', content: userInput },
-			],
+			prompt: [userLanguagePrompt, destinationFolderPrompt, { role: 'user', content: userInput }],
 		});
 
 		// Parse and validate the JSON response

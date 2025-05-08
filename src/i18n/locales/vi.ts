@@ -42,6 +42,8 @@ const vi = {
 			failed: 'Không thể cập nhật {{count}} tập tin:',
 			successfullyUpdated: 'Đã cập nhật thành công {{count}} tập tin:',
 			foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để cập nhật.',
+			skipped_one: 'Đã bỏ qua {{count}} tập tin:',
+			skipped_other: 'Đã bỏ qua {{count}} tập tin:',
 		},
 		// Delete result messages
 		delete: {

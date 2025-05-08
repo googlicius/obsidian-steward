@@ -4,7 +4,6 @@ import {
 	ConversationNoteCreatedPayload,
 	ConversationLinkInsertedPayload,
 	ConversationCommandReceivedPayload,
-	MoveQueryExtractedPayload,
 	CommandIntentExtractedPayload,
 	MoveFromSearchResultConfirmedPayload,
 } from '../types/events';
@@ -13,12 +12,7 @@ import * as mathTools from '../tools/mathTools';
 import StewardPlugin from '../main';
 import i18next, { getTranslation } from '../i18n';
 import { highlightKeywords } from '../utils/highlightKeywords';
-import {
-	extractCommandIntent,
-	extractMoveQueryV2,
-	extractSearchQueryV2,
-	MoveOperationV2,
-} from '../lib/modelfusion';
+import { extractCommandIntent, extractSearchQueryV2 } from '../lib/modelfusion';
 import { IndexedDocument } from '../database/PluginDatabase';
 import { ConversationRenderer } from './ConversationRenderer';
 import {
@@ -34,7 +28,8 @@ import {
 	extractUpdateFromSearchResult,
 	UpdateInstruction,
 } from 'src/lib/modelfusion/updateFromSearchResultExtraction';
-import { extractUpdateCommand } from 'src/lib/modelfusion/updateExtraction';
+import { extractDestinationFolder } from 'src/lib/modelfusion/destinationFolderExtraction';
+import { MoveOperationV2 } from 'src/tools/obsidianAPITools';
 
 interface Props {
 	plugin: StewardPlugin;
@@ -76,11 +71,6 @@ export class ConversationEventHandler {
 			}
 		);
 
-		// Listen for move query extracted
-		eventEmitter.on(Events.MOVE_QUERY_EXTRACTED, (payload: MoveQueryExtractedPayload) => {
-			this.handleMoveOperation(payload);
-		});
-
 		// Listen for move from search result confirmed
 		eventEmitter.on(
 			Events.MOVE_FROM_SEARCH_RESULT_CONFIRMED,
@@ -115,146 +105,138 @@ export class ConversationEventHandler {
 	private async handleConversationCommand(
 		payload: ConversationCommandReceivedPayload
 	): Promise<void> {
-		const commandContent = payload.commandContent;
+		for (const command of payload.commands) {
+			switch (command.commandType) {
+				case 'calc': {
+					await this.renderer.addGeneratingIndicator(
+						payload.title,
+						i18next.t('conversation.calculating')
+					);
+					await this.handleMathCalculation(payload.title, command.content);
+					break;
+				}
 
-		switch (payload.commandType) {
-			case 'calc': {
-				await this.renderer.addGeneratingIndicator(
-					payload.title,
-					i18next.t('conversation.calculating')
-				);
-				await this.handleMathCalculation(payload.title, commandContent);
-				break;
+				case 'image': {
+					await this.renderer.addGeneratingIndicator(
+						payload.title,
+						i18next.t('conversation.generatingImage')
+					);
+					await this.mediaGenerationService.handleMediaCommand({
+						title: payload.title,
+						commandContent: command.content,
+						commandType: 'image',
+					});
+					break;
+				}
+
+				case 'audio': {
+					await this.renderer.addGeneratingIndicator(
+						payload.title,
+						i18next.t('conversation.generatingAudio')
+					);
+					await this.mediaGenerationService.handleMediaCommand({
+						title: payload.title,
+						commandContent: command.content,
+						commandType: 'audio',
+					});
+					break;
+				}
+
+				case 'move_from_search_result': {
+					await this.renderer.addGeneratingIndicator(
+						payload.title,
+						i18next.t('conversation.moving')
+					);
+					await this.handleMoveFromSearchResultCommand(payload.title, command.content);
+					break;
+				}
+
+				case 'delete_from_search_result': {
+					await this.renderer.addGeneratingIndicator(
+						payload.title,
+						i18next.t('conversation.deleting')
+					);
+					await this.handleDeleteCommand(payload.title, command.content);
+					break;
+				}
+
+				case 'copy_from_search_result': {
+					await this.renderer.addGeneratingIndicator(
+						payload.title,
+						i18next.t('conversation.copying')
+					);
+					await this.handleCopyCommand(payload.title, command.content);
+					break;
+				}
+
+				case 'search': {
+					await this.renderer.addGeneratingIndicator(
+						payload.title,
+						i18next.t('conversation.searching')
+					);
+					await this.handleSearchCommand(payload.title, command.content);
+					break;
+				}
+
+				case 'more': {
+					await this.handleShowMore(payload.title);
+					break;
+				}
+
+				case 'close': {
+					await this.handleCloseCommand(payload.title);
+					break;
+				}
+
+				case 'confirm': {
+					await this.handleConfirmCommand(payload.title, command.content, payload.lang);
+					break;
+				}
+
+				case 'revert': {
+					await this.renderer.addGeneratingIndicator(
+						payload.title,
+						i18next.t('conversation.reverting')
+					);
+					await this.handleRevertCommand(payload.title, payload.lang);
+					break;
+				}
+
+				case 'yes': {
+					await this.handleConfirmCommand(payload.title, 'Yes', payload.lang);
+					break;
+				}
+
+				case 'no': {
+					await this.handleConfirmCommand(payload.title, 'No', payload.lang);
+					break;
+				}
+
+				case ' ': {
+					await this.renderer.addGeneratingIndicator(
+						payload.title,
+						i18next.t('conversation.workingOnIt')
+					);
+					await this.handleGeneralCommand(payload.title, command.content);
+					break;
+				}
+
+				case 'update_from_search_result': {
+					await this.renderer.addGeneratingIndicator(
+						payload.title,
+						i18next.t('conversation.updating')
+					);
+					await this.handleUpdateFromSearchResultCommand(
+						payload.title,
+						command.content,
+						payload.lang
+					);
+					break;
+				}
+
+				default:
+					break;
 			}
-
-			case 'image': {
-				await this.renderer.addGeneratingIndicator(
-					payload.title,
-					i18next.t('conversation.generatingImage')
-				);
-				await this.mediaGenerationService.handleMediaCommand({
-					title: payload.title,
-					commandContent,
-					commandType: 'image',
-				});
-				break;
-			}
-
-			case 'audio': {
-				await this.renderer.addGeneratingIndicator(
-					payload.title,
-					i18next.t('conversation.generatingAudio')
-				);
-				await this.mediaGenerationService.handleMediaCommand({
-					title: payload.title,
-					commandContent,
-					commandType: 'audio',
-				});
-				break;
-			}
-
-			case 'move': {
-				await this.renderer.addGeneratingIndicator(payload.title, i18next.t('conversation.moving'));
-				await this.handleMoveCommand(payload.title, commandContent);
-				break;
-			}
-
-			case 'move_from_search_result': {
-				await this.renderer.addGeneratingIndicator(payload.title, i18next.t('conversation.moving'));
-				await this.handleMoveFromSearchResultCommand(payload.title, commandContent);
-				break;
-			}
-
-			case 'delete': {
-				await this.renderer.addGeneratingIndicator(
-					payload.title,
-					i18next.t('conversation.deleting')
-				);
-				await this.handleDeleteCommand(payload.title, commandContent);
-				break;
-			}
-
-			case 'copy': {
-				await this.renderer.addGeneratingIndicator(
-					payload.title,
-					i18next.t('conversation.copying')
-				);
-				await this.handleCopyCommand(payload.title, commandContent);
-				break;
-			}
-
-			case 'search': {
-				await this.renderer.addGeneratingIndicator(
-					payload.title,
-					i18next.t('conversation.searching')
-				);
-				await this.handleSearchCommand(payload.title, commandContent);
-				break;
-			}
-
-			case 'more': {
-				await this.handleShowMore(payload.title);
-				break;
-			}
-
-			case 'close': {
-				await this.handleCloseCommand(payload.title);
-				break;
-			}
-
-			case 'confirm': {
-				await this.handleConfirmCommand(payload.title, commandContent, payload.lang);
-				break;
-			}
-
-			case 'revert': {
-				await this.renderer.addGeneratingIndicator(
-					payload.title,
-					i18next.t('conversation.reverting')
-				);
-				await this.handleRevertCommand(payload.title, payload.lang);
-				break;
-			}
-
-			case 'yes': {
-				await this.handleConfirmCommand(payload.title, 'Yes', payload.lang);
-				break;
-			}
-
-			case 'no': {
-				await this.handleConfirmCommand(payload.title, 'No', payload.lang);
-				break;
-			}
-
-			case ' ': {
-				await this.renderer.addGeneratingIndicator(
-					payload.title,
-					i18next.t('conversation.workingOnIt')
-				);
-				await this.handleGeneralCommand(payload.title, commandContent);
-				break;
-			}
-
-			case 'update': {
-				await this.renderer.addGeneratingIndicator(
-					payload.title,
-					i18next.t('conversation.updating')
-				);
-				await this.handleUpdateCommand(payload.title, commandContent);
-				break;
-			}
-
-			case 'update_from_search_result': {
-				await this.renderer.addGeneratingIndicator(
-					payload.title,
-					i18next.t('conversation.updating')
-				);
-				await this.handleUpdateFromSearchResultCommand(payload.title, commandContent);
-				break;
-			}
-
-			default:
-				break;
 		}
 	}
 
@@ -285,16 +267,6 @@ export class ConversationEventHandler {
 				break;
 			}
 
-			case 'move': {
-				await this.handleMoveCommand(payload.title, payload.commandContent);
-				break;
-			}
-
-			case 'move_from_search_result': {
-				await this.handleMoveFromSearchResultCommand(payload.title, payload.commandContent);
-				break;
-			}
-
 			case 'search': {
 				await this.handleSearchCommand(payload.title, payload.commandContent);
 				break;
@@ -317,26 +289,6 @@ export class ConversationEventHandler {
 
 			case ' ': {
 				await this.handleGeneralCommand(payload.title, payload.commandContent);
-				break;
-			}
-
-			case 'delete': {
-				await this.handleDeleteCommand(payload.title, payload.commandContent);
-				break;
-			}
-
-			case 'copy': {
-				await this.handleCopyCommand(payload.title, payload.commandContent);
-				break;
-			}
-
-			case 'update': {
-				await this.handleUpdateCommand(payload.title, payload.commandContent);
-				break;
-			}
-
-			case 'update_from_search_result': {
-				await this.handleUpdateFromSearchResultCommand(payload.title, payload.commandContent);
 				break;
 			}
 
@@ -368,119 +320,13 @@ export class ConversationEventHandler {
 		}
 	}
 
-	private async handleMoveCommand(title: string, commandContent: string): Promise<void> {
-		try {
-			// Extract the move query
-			const queryExtraction = await extractMoveQueryV2({
-				userInput: commandContent,
-				llmConfig: this.plugin.settings.llm,
-			});
-
-			// Get translation function for the specified language
-			const t = getTranslation(queryExtraction.lang);
-
-			// Explain the move query to the user
-			await this.renderer.updateConversationNote({
-				path: title,
-				newContent: `*${queryExtraction.explanation}*`,
-			});
-
-			if (queryExtraction.confidence < 0.7) {
-				return;
-			}
-
-			const filesByOperation = new Map<number, IndexedDocument[]>();
-			for (let i = 0; i < queryExtraction.operations.length; i++) {
-				const operation = queryExtraction.operations[i];
-				const docs = await this.plugin.searchIndexer.searchV2([operation]);
-				filesByOperation.set(i, docs);
-			}
-
-			// Count total files to move
-			let totalFilesToMove = 0;
-			filesByOperation.forEach(files => {
-				totalFilesToMove += files.length;
-			});
-
-			// If no files match, inform the user without asking for confirmation
-			if (totalFilesToMove === 0) {
-				await this.renderer.updateConversationNote({
-					path: title,
-					newContent: t('common.noFilesFound'),
-					role: 'Steward',
-					command: 'move',
-				});
-				return;
-			}
-
-			// Check all destination folders
-			const missingFolders = [];
-			for (const operation of queryExtraction.operations) {
-				if (
-					operation.destinationFolder &&
-					!this.plugin.app.vault.getAbstractFileByPath(operation.destinationFolder)
-				) {
-					missingFolders.push(operation.destinationFolder);
-				}
-			}
-
-			// If there are missing folders, request confirmation
-			if (missingFolders.length > 0) {
-				// Create confirmation message
-				let message = t('move.createFoldersHeader') + '\n';
-				missingFolders.forEach(folder => {
-					message += `- \`${folder}\`\n`;
-				});
-				message += '\n' + t('move.createFoldersQuestion');
-
-				// Include filesByOperation and language in the context to avoid redundant queries
-				await this.plugin.confirmationEventHandler.requestConfirmation(
-					title,
-					'move-folders',
-					message,
-					{
-						missingFolders,
-						queryExtraction,
-						filesByOperation,
-						lang: queryExtraction.lang,
-					},
-					{
-						eventType: Events.MOVE_QUERY_EXTRACTED,
-						payload: {
-							title,
-							queryExtraction,
-							filesByOperation,
-						},
-					}
-				);
-
-				return; // Exit early, will resume when user responds
-			}
-
-			// If all folders exist, handle the move operation directly
-			const payload: MoveQueryExtractedPayload = {
-				title,
-				queryExtraction,
-				filesByOperation,
-			};
-
-			// Handle the move operation directly
-			this.handleMoveOperation(payload);
-		} catch (error) {
-			await this.renderer.updateConversationNote({
-				path: title,
-				newContent: `*Error extracting move query: ${error.message}*`,
-				role: 'Steward',
-			});
-		}
-	}
-
 	/**
 	 * Handles the move operations from both query extraction and search results
 	 * @param payload The event payload containing either move query extraction or search results
 	 */
 	private async handleMoveOperation(
-		payload: MoveQueryExtractedPayload | MoveFromSearchResultConfirmedPayload
+		payload: MoveFromSearchResultConfirmedPayload,
+		lang?: string
 	): Promise<void> {
 		try {
 			// Add generating indicator
@@ -491,47 +337,19 @@ export class ConversationEventHandler {
 
 			const filesByOperation = new Map<number, IndexedDocument[]>();
 
-			// Handle based on the payload type
-			if ('queryExtraction' in payload) {
-				// It's a MoveQueryExtractedPayload
-				const { queryExtraction, filesByOperation: existingFiles } = payload;
+			const { destinationFolder, searchResults, explanation } = payload;
 
-				// If we have files by operation, use them
-				if (existingFiles) {
-					// Add each operation from the query extraction
-					operations.push(...queryExtraction.operations);
+			// Create a single operation
+			operations.push({
+				keywords: [explanation],
+				tags: [],
+				filenames: [],
+				folders: [],
+				destinationFolder,
+			});
 
-					// Copy the files for each operation
-					queryExtraction.operations.forEach((_, index) => {
-						const files = existingFiles.get(index) || [];
-						filesByOperation.set(index, files);
-					});
-				} else {
-					// Need to search for files first
-					for (let i = 0; i < queryExtraction.operations.length; i++) {
-						operations.push(queryExtraction.operations[i]);
-
-						// Search for files matching this operation
-						const docs = await this.plugin.searchIndexer.searchV2([queryExtraction.operations[i]]);
-						filesByOperation.set(i, docs);
-					}
-				}
-			} else {
-				// It's a MoveFromSearchResultConfirmedPayload
-				const { destinationFolder, searchResults, explanation } = payload;
-
-				// Create a single operation
-				operations.push({
-					keywords: [explanation],
-					tags: [],
-					filenames: [],
-					folders: [],
-					destinationFolder,
-				});
-
-				// Set the files for this operation
-				filesByOperation.set(0, searchResults);
-			}
+			// Set the files for this operation
+			filesByOperation.set(0, searchResults);
 
 			// If there are no operations, return
 			if (operations.length === 0) {
@@ -562,9 +380,6 @@ export class ConversationEventHandler {
 			) {
 				logger.log('Search results artifact deleted successfully.');
 			}
-
-			// Get the language from the payload if available
-			const lang = 'queryExtraction' in payload ? payload.queryExtraction.lang : undefined;
 
 			// Format the results
 			const response = this.formatMoveResult({
@@ -874,14 +689,10 @@ export class ConversationEventHandler {
 				return;
 			}
 
-			// Update the command in the last user message comment block before routing
-			await this.renderer.updateLastUserMessageCommand(title, intentExtraction.commandType);
-
 			// For confident intents, route to the appropriate handler
 			eventEmitter.emit(Events.CONVERSATION_COMMAND_RECEIVED, {
 				title,
-				commandType: intentExtraction.commandType,
-				commandContent: intentExtraction.content,
+				commands: intentExtraction.commands,
 				lang: intentExtraction.lang,
 			});
 		} catch (error) {
@@ -1175,25 +986,30 @@ export class ConversationEventHandler {
 	 * @param title The conversation title
 	 * @param commandContent The command content
 	 */
-	private async handleDeleteCommand(title: string, commandContent: string): Promise<void> {
+	private async handleDeleteCommand(
+		title: string,
+		commandContent: string,
+		lang?: string
+	): Promise<void> {
 		try {
-			// Extract the search query
-			const queryExtraction = await extractSearchQueryV2({
-				userInput: commandContent,
-				llmConfig: this.plugin.settings.llm,
-			});
+			const t = getTranslation(lang);
+			// Retrieve the most recent search results artifact
+			const searchArtifact =
+				this.artifactManager.getMostRecentArtifactByType<SearchResultsArtifact>(
+					title,
+					ArtifactType.SEARCH_RESULTS
+				);
 
-			// Explain the search query to the user
-			await this.renderer.updateConversationNote({
-				path: title,
-				newContent: `*${queryExtraction.explanation}*`,
-			});
+			if (!searchArtifact || searchArtifact.type !== ArtifactType.SEARCH_RESULTS) {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: t('search.noRecentSearch'),
+					role: 'Steward',
+				});
+				return;
+			}
 
-			// Get translation function
-			const t = getTranslation(queryExtraction.lang);
-
-			// Search for files matching the criteria
-			const docs = await this.plugin.searchIndexer.searchV2(queryExtraction.operations);
+			const docs = searchArtifact.originalResults;
 
 			// If no files match, inform the user
 			if (docs.length === 0) {
@@ -1244,7 +1060,7 @@ export class ConversationEventHandler {
 				path: title,
 				newContent: response,
 				role: 'Steward',
-				command: 'delete',
+				command: 'delete_from_search_result',
 			});
 
 			// Emit the delete operation completed event
@@ -1272,25 +1088,30 @@ export class ConversationEventHandler {
 	 * @param title The conversation title
 	 * @param commandContent The command content
 	 */
-	private async handleCopyCommand(title: string, commandContent: string): Promise<void> {
+	private async handleCopyCommand(
+		title: string,
+		commandContent: string,
+		lang?: string
+	): Promise<void> {
 		try {
-			// Extract the search query and destination
-			const queryExtraction = await extractSearchQueryV2({
-				userInput: commandContent,
-				llmConfig: this.plugin.settings.llm,
-			});
+			const t = getTranslation(lang);
+			// Retrieve the most recent search results artifact
+			const searchArtifact =
+				this.artifactManager.getMostRecentArtifactByType<SearchResultsArtifact>(
+					title,
+					ArtifactType.SEARCH_RESULTS
+				);
 
-			// Explain the search query to the user
-			await this.renderer.updateConversationNote({
-				path: title,
-				newContent: `*${queryExtraction.explanation}*`,
-			});
+			if (!searchArtifact || searchArtifact.type !== ArtifactType.SEARCH_RESULTS) {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: t('search.noRecentSearch'),
+					role: 'Steward',
+				});
+				return;
+			}
 
-			// Get translation function
-			const t = getTranslation(queryExtraction.lang);
-
-			// Search for files matching the criteria
-			const docs = await this.plugin.searchIndexer.searchV2(queryExtraction.operations);
+			const docs = searchArtifact.originalResults;
 
 			// If no files match, inform the user
 			if (docs.length === 0) {
@@ -1298,15 +1119,17 @@ export class ConversationEventHandler {
 					path: title,
 					newContent: t('common.noFilesFound'),
 					role: 'Steward',
-					command: 'copy',
+					command: 'delete',
 				});
 				return;
 			}
 
+			const extraction = await extractDestinationFolder(commandContent, this.plugin.settings.llm);
+
 			// Convert search operations to move operations for copying
-			const moveOperations: MoveOperationV2[] = queryExtraction.operations.map(op => ({
-				...op,
-				destinationFolder: (op as any).destinationFolder || '',
+			const moveOperations: MoveOperationV2[] = docs.map(doc => ({
+				...doc,
+				destinationFolder: extraction.destinationFolder,
 			}));
 
 			// Check if the destination folder exists
@@ -1336,14 +1159,14 @@ export class ConversationEventHandler {
 					message,
 					{
 						missingFolder: destinationFolder,
-						queryExtraction,
+						queryExtraction: extraction,
 						docs,
 					},
 					{
 						eventType: Events.COPY_OPERATION_CONFIRMED,
 						payload: {
 							title,
-							queryExtraction,
+							queryExtraction: extraction,
 							docs,
 						},
 					}
@@ -1365,7 +1188,7 @@ export class ConversationEventHandler {
 			// Format the results
 			const response = this.formatCopyResult({
 				operations: result.operations,
-				lang: queryExtraction.lang,
+				lang: extraction.lang,
 			});
 
 			// Update the conversation with the results
@@ -1483,41 +1306,6 @@ export class ConversationEventHandler {
 		return response;
 	}
 
-	private async handleUpdateCommand(title: string, commandContent: string): Promise<void> {
-		try {
-			// Extract the sequence of commands needed
-			const extraction = await extractUpdateCommand({
-				userInput: commandContent,
-				llmConfig: this.plugin.settings.llm,
-			});
-
-			const t = getTranslation(extraction.lang);
-
-			// Process each command in sequence
-			for (const command of extraction.commands) {
-				switch (command.type) {
-					case 'search': {
-						await this.renderer.addGeneratingIndicator(title, t('conversation.searching'));
-						if (!(await this.handleSearchCommand(title, command.content, extraction.lang))) {
-							return;
-						}
-						break;
-					}
-					case 'update_from_search_result': {
-						await this.renderer.addGeneratingIndicator(title, t('conversation.updating'));
-						await this.handleUpdateFromSearchResultCommand(title, command.content, extraction.lang);
-						break;
-					}
-				}
-			}
-		} catch (error) {
-			await this.renderer.updateConversationNote({
-				path: title,
-				newContent: `*Error extracting update command: ${error.message}*`,
-			});
-		}
-	}
-
 	private async handleUpdateFromSearchResultCommand(
 		title: string,
 		commandContent: string,
@@ -1541,7 +1329,7 @@ export class ConversationEventHandler {
 				return;
 			}
 
-			// Extract the update instruction
+			// Extract the update instructions
 			const extraction = await extractUpdateFromSearchResult({
 				userInput: commandContent,
 				llmConfig: this.plugin.settings.llm,
@@ -1556,12 +1344,16 @@ export class ConversationEventHandler {
 				return;
 			}
 
-			// Perform the update
-			await this.handleUpdateFromSearchResult(title, extraction.updateInstruction, extraction.lang);
+			// Perform the updates
+			await this.handleUpdateFromSearchResult(
+				title,
+				extraction.updateInstructions,
+				extraction.lang
+			);
 		} catch (error) {
 			await this.renderer.updateConversationNote({
 				path: title,
-				newContent: `Error extracting update instruction: ${error.message}`,
+				newContent: `Error extracting update instructions: ${error.message}`,
 				role: 'Steward',
 			});
 		}
@@ -1569,7 +1361,7 @@ export class ConversationEventHandler {
 
 	private async handleUpdateFromSearchResult(
 		title: string,
-		updateInstruction: UpdateInstruction,
+		updateInstructions: UpdateInstruction[],
 		lang?: string
 	): Promise<void> {
 		try {
@@ -1584,11 +1376,6 @@ export class ConversationEventHandler {
 				);
 
 			if (!searchArtifact || searchArtifact.type !== ArtifactType.SEARCH_RESULTS) {
-				await this.renderer.updateConversationNote({
-					path: title,
-					newContent: t('search.noRecentSearch'),
-					role: 'Steward',
-				});
 				return;
 			}
 
@@ -1602,21 +1389,29 @@ export class ConversationEventHandler {
 					const file = this.plugin.app.vault.getAbstractFileByPath(doc.path);
 					if (file && file instanceof TFile) {
 						// Read the file content
-						const content = await this.plugin.app.vault.read(file);
+						let content = await this.plugin.app.vault.read(file);
+						let contentChanged = false;
 
-						// Apply the update instruction
-						const updatedContent = await this.plugin.obsidianAPITools.applyUpdateInstruction(
-							content,
-							updateInstruction
-						);
+						// Apply each update instruction in sequence
+						for (const instruction of updateInstructions) {
+							const updatedContent = await this.plugin.obsidianAPITools.applyUpdateInstruction(
+								content,
+								instruction
+							);
 
-						if (updatedContent === content) {
+							if (updatedContent !== content) {
+								content = updatedContent;
+								contentChanged = true;
+							}
+						}
+
+						if (!contentChanged) {
 							skippedFiles.push(doc.path);
 							continue;
 						}
 
 						// Write the updated content back
-						await this.plugin.app.vault.modify(file, updatedContent);
+						await this.plugin.app.vault.modify(file, content);
 						updatedFiles.push(doc.path);
 					}
 				} catch (error) {
@@ -1661,7 +1456,7 @@ export class ConversationEventHandler {
 				title,
 				operations: [
 					{
-						updateInstruction: JSON.stringify(updateInstruction),
+						updateInstruction: JSON.stringify(updateInstructions),
 						updated: updatedFiles,
 						skipped: skippedFiles,
 						errors: failedFiles,

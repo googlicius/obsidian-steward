@@ -200,6 +200,26 @@ export class PersistentEmbeddingSimilarityClassifier<
 				return { embeddings: [], changedClusters };
 			}
 
+			const embeddingsOfModel = await this.db.getEmbeddingsForModel(modelName);
+
+			const clustersMap = this.settings.clusters.reduce(
+				(acc, cluster) => {
+					acc[cluster.name] = 1;
+					return acc;
+				},
+				{} as Record<string, number>
+			);
+
+			const embeddingsForDynamicCluster = embeddingsOfModel
+				.filter(item => clustersMap[item.clusterName] === undefined)
+				.map(embedding => ({
+					embedding: embedding.embedding,
+					clusterValue: embedding.valueText as VALUE,
+					clusterName: embedding.clusterName,
+				}));
+
+			embeddings.push(...embeddingsForDynamicCluster);
+
 			// If some clusters changed, load embeddings for unchanged clusters
 			for (const cluster of this.settings.clusters) {
 				// Skip clusters that need refresh
@@ -208,7 +228,9 @@ export class PersistentEmbeddingSimilarityClassifier<
 				}
 
 				// Load embeddings for this unchanged cluster
-				const clusterEmbeddings = await this.db.getEmbeddingsForCluster(modelName, cluster.name);
+				const clusterEmbeddings = embeddingsOfModel.filter(
+					embedding => embedding.clusterName === cluster.name
+				);
 
 				// If for some reason we don't have embeddings for this cluster, mark it for refresh
 				if (!clusterEmbeddings || clusterEmbeddings.length === 0) {
@@ -393,23 +415,31 @@ export class PersistentEmbeddingSimilarityClassifier<
 	 */
 	async saveEmbedding(value: string, clusterName: string): Promise<void> {
 		try {
+			const modelName = this.getModelStorageName();
+
+			// Check if the value already exists in the database
+			const existingEmbedding = await this.db.getEmbeddingByValue(modelName, clusterName, value);
+			if (existingEmbedding) {
+				logger.log(`Embedding for value "${value}" under cluster "${clusterName}" already exists`);
+				return;
+			}
+
 			// Generate embedding for the value
 			const embedding = await embed({
 				model: this.settings.embeddingModel,
 				value,
 			});
 
-			const modelName = this.getModelStorageName();
-			const entry = {
-				modelName,
-				clusterName,
-				valueText: value,
-				embedding,
-				createdAt: Date.now(),
-			};
-
 			// Save the embedding to database
-			await this.db.storeEmbeddings([entry]);
+			await this.db.storeEmbeddings([
+				{
+					modelName,
+					clusterName,
+					valueText: value,
+					embedding,
+					createdAt: Date.now(),
+				},
+			]);
 
 			// Update in-memory embeddings if they exist
 			if (this.embeddings) {
@@ -434,7 +464,20 @@ export class PersistentEmbeddingSimilarityClassifier<
 			...options,
 		});
 
-		const clusterEmbeddings = await this.getEmbeddings(options);
+		// Race between getEmbeddings and timeout
+		const clusterEmbeddings = await Promise.race([
+			this.getEmbeddings(options),
+			new Promise<null>(resolve => {
+				setTimeout(() => resolve(null), 2000);
+			}),
+		]);
+
+		if (!clusterEmbeddings) {
+			return {
+				class: null,
+				rawResponse: undefined,
+			};
+		}
 
 		const allMatches: Array<{
 			similarity: number;
@@ -456,6 +499,17 @@ export class PersistentEmbeddingSimilarityClassifier<
 
 		// sort (highest similarity first)
 		allMatches.sort((a, b) => b.similarity - a.similarity);
+
+		console.log('allMatches', allMatches);
+		const countClusterNames = new Set(allMatches.map(m => m.clusterName));
+
+		// If there are multiple clusters, and the highest similarity is less than 0.99, return null
+		if (countClusterNames.size > 1 && allMatches[0].similarity < 0.99) {
+			return {
+				class: null,
+				rawResponse: undefined,
+			};
+		}
 
 		return {
 			class:

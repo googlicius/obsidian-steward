@@ -42,6 +42,8 @@ const ja = {
 			failed: '{{count}}件のファイルの更新に失敗しました：',
 			successfullyUpdated: '{{count}}件のファイルを更新しました：',
 			foundFiles: '{{count}}件のファイルを更新します。',
+			skipped_one: '{{count}}件のファイルをスキップしました：',
+			skipped_other: '{{count}}件のファイルをスキップしました：',
 		},
 		// Delete result messages
 		delete: {

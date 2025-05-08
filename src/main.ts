@@ -22,21 +22,7 @@ import { MediaGenerationService } from './services/MediaGenerationService';
 import { StewardPluginSettings } from './types/interfaces';
 
 // Supported command prefixes
-export const COMMAND_PREFIXES = [
-	'/ ',
-	'/move',
-	'/search',
-	'/more',
-	'/calc',
-	'/me',
-	'/close',
-	'/confirm',
-	'/yes',
-	'/no',
-	'/image',
-	'/audio',
-	'/update',
-];
+export const COMMAND_PREFIXES = ['/ ', '/more', '/close', '/yes', '/no', '/image', '/audio'];
 // Define custom icon ID
 const SMILE_CHAT_ICON_ID = 'smile-chat-icon';
 
@@ -362,8 +348,12 @@ export default class StewardPlugin extends Plugin {
 					// Emit the conversation note updated event
 					eventEmitter.emit(Events.CONVERSATION_COMMAND_RECEIVED, {
 						title: conversationLink,
-						commandType,
-						commandContent,
+						commands: [
+							{
+								commandType,
+								content: commandContent,
+							},
+						],
 						// We don't know the language here, so we'll rely on automatic detection
 					});
 
