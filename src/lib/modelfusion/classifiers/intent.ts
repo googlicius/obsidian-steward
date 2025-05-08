@@ -1,7 +1,6 @@
 import { classify, openai } from 'modelfusion';
 import { PersistentEmbeddingSimilarityClassifier } from '../classify/PersistentEmbeddingSimilarityClassifier';
-import { executeWithInitialDelay, withApiRetry } from 'src/utils/retryUtils';
-import { logger } from 'src/utils/logger';
+import { retry } from 'src/utils/retry';
 
 /**
  * The intent classifier instance
@@ -16,7 +15,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 	modelName: 'steward-intent-classifier',
 
 	// the threshold for the distance between the value and the cluster values:
-	similarityThreshold: 0.8,
+	similarityThreshold: 0.9,
 
 	clusters: [
 		{
@@ -29,19 +28,30 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 				'search notes with a specific tag',
 				'find notes created last week',
 				'search for notes within a specific folder',
+				'Search "keyword"',
 			],
 		},
 		{
 			name: 'move' as const,
 			values: [
-				'move notes about project to folder',
-				'organize files with tag into directory',
-				'move documents containing keyword to',
-				'reorganize notes with topic into folder',
-				'move all files with tag to directory',
-				'relocate notes containing text to folder',
-				'move files created last week to directory',
-				'organize documents by moving them to folder',
+				'move a specific note name into a specific folder',
+				'move documents containing specific keywords to a specific folder',
+				'move notes with specific tags to a specific folder',
+				'move notes with a specific tag to a specific folder',
+				'move notes containing specific keywords to a specific folder',
+				'move notes created last week to a specific folder',
+				'organize documents by moving them to a specific folder',
+			],
+		},
+		{
+			name: 'move_from_search_result' as const,
+			values: [
+				'move results to a specific directory',
+				'move these notes to a specific folder',
+				'move them to a specific directory',
+				'move these notes to a specific folder',
+				'move it to a specific folder',
+				'move all to a specific folder',
 			],
 		},
 		{
@@ -59,27 +69,18 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 		},
 		{
 			name: 'delete' as const,
-			values: [
-				'delete notes about project',
-				'remove files with tag',
-				'delete documents containing keyword',
-				'remove notes with topic',
-				'delete all files with tag',
-				'remove notes containing text',
-				'delete files created last week',
-				'remove empty documents',
-			],
+			values: ['delete notes in the Trash folder'],
 		},
 		{
-			name: 'move_from_search_result' as const,
+			name: 'delete_from_search_result' as const,
 			values: [
-				'move these notes to folder',
-				'move results to directory',
-				'move these files to folder',
-				'organize these search results into folder',
-				'move these documents to directory',
-				'relocate these search results to folder',
-				'move these notes into archive',
+				'Delete them',
+				'Delete it',
+				'Delete all',
+				'Remove them',
+				'Remove it',
+				'Remove all',
+				'Delete the search results',
 			],
 		},
 		{
@@ -95,6 +96,8 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 				'update metadata in files created last week',
 				'change formatting in documents with tag',
 				'remove specific tags from specific notes or files',
+				'search all notes with a specific keyword and update them by adding, removing, or replacing specific tags, or keywords',
+				'search all notes with a specific tag and update them by adding, removing, or replacing specific tags, or keywords',
 			],
 		},
 		{
@@ -206,36 +209,14 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 	],
 });
 
-// Initialize embeddings with retries and a delay to ensure API keys are loaded
-executeWithInitialDelay(
+// Initialize embeddings
+retry(
 	() =>
-		withApiRetry(
-			async () => {
-				logger.log('Background: Starting embeddings generation');
-				await classify({
-					model: intentClassifier,
-					value: 'initialize embeddings', // Simple text to trigger embeddings generation
-				});
-				logger.log('Background: Embeddings generation completed');
-				return true;
-			},
-			{
-				maxAttempts: 5,
-				initialDelayMs: 3000,
-				onRetry: (error, attemptNumber, delayMs) => {
-					logger.log(
-						`Embeddings generation attempt ${attemptNumber} failed. Retrying in ${delayMs}ms. Error: ${error?.message || error}`
-					);
-				},
-				onSuccess: () => {
-					// Do nothing
-				},
-			}
-		),
-	1000, // Initial delay of 1 second to ensure API keys are loaded
+		classify({
+			model: intentClassifier,
+			value: 'initialize',
+		}),
 	{
-		onFailure: error => {
-			logger.error('Failed to initialize embeddings after multiple attempts:', error);
-		},
+		initialDelay: 500,
 	}
 );

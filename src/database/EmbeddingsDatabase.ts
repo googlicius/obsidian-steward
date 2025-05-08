@@ -152,4 +152,16 @@ export class EmbeddingsDatabase extends Dexie {
 
 		return versionMap;
 	}
+
+	/**
+	 * Remove the version entry for a specific cluster
+	 * @param modelName Name of the model
+	 * @param clusterName Name of the cluster
+	 */
+	async removeClusterVersion(modelName: string, clusterName: string): Promise<void> {
+		await this.clusterVersions
+			.where('[modelName+clusterName]')
+			.equals([modelName, clusterName])
+			.delete();
+	}
 }

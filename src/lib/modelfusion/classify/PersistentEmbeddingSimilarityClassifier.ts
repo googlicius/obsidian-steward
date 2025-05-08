@@ -74,7 +74,7 @@ export class PersistentEmbeddingSimilarityClassifier<
 	/**
 	 * Get model name used for storage
 	 */
-	private getModelStorageName(): string {
+	getModelStorageName(): string {
 		return (
 			this.settings.modelName ||
 			`${this.settings.embeddingModel.modelInformation.provider}-${this.settings.embeddingModel.modelInformation.modelName}`
@@ -136,6 +136,16 @@ export class PersistentEmbeddingSimilarityClassifier<
 				}
 			}
 
+			// Check for deleted clusters
+			const currentClusterNames = new Set(this.settings.clusters.map(c => c.name));
+			for (const [storedClusterName] of storedVersions) {
+				if (!currentClusterNames.has(storedClusterName)) {
+					// This cluster no longer exists in settings, remove its embeddings
+					await this.removeClusterEmbeddings(storedClusterName);
+					logger.log(`Removed embeddings for deleted cluster "${storedClusterName}"`);
+				}
+			}
+
 			return changedClusters;
 		} catch (error) {
 			logger.error('Error detecting changed clusters:', error);
@@ -145,6 +155,19 @@ export class PersistentEmbeddingSimilarityClassifier<
 				allClusters.set(cluster.name, cluster);
 			}
 			return allClusters;
+		}
+	}
+
+	/**
+	 * Remove embeddings for a specific cluster
+	 */
+	private async removeClusterEmbeddings(clusterName: string): Promise<void> {
+		try {
+			const modelName = this.getModelStorageName();
+			await this.db.clearEmbeddingsForCluster(modelName, clusterName);
+			await this.db.removeClusterVersion(modelName, clusterName);
+		} catch (error) {
+			logger.error(`Error removing embeddings for cluster "${clusterName}":`, error);
 		}
 	}
 
@@ -359,6 +382,48 @@ export class PersistentEmbeddingSimilarityClassifier<
 			logger.log(
 				`Set to regenerate all embeddings on next use for model ${this.getModelStorageName()}`
 			);
+		}
+	}
+
+	/**
+	 * Save the embedding of a value to the database under a specific cluster
+	 * and update in-memory embeddings
+	 * @param value The value to embed
+	 * @param clusterName The cluster name to save the embedding under
+	 */
+	async saveEmbedding(value: string, clusterName: string): Promise<void> {
+		try {
+			// Generate embedding for the value
+			const embedding = await embed({
+				model: this.settings.embeddingModel,
+				value,
+			});
+
+			const modelName = this.getModelStorageName();
+			const entry = {
+				modelName,
+				clusterName,
+				valueText: value,
+				embedding,
+				createdAt: Date.now(),
+			};
+
+			// Save the embedding to database
+			await this.db.storeEmbeddings([entry]);
+
+			// Update in-memory embeddings if they exist
+			if (this.embeddings) {
+				this.embeddings.push({
+					embedding,
+					clusterValue: value as VALUE,
+					clusterName,
+				});
+			}
+
+			logger.log(`Saved embedding for value under cluster "${clusterName}"`);
+		} catch (error) {
+			logger.error('Failed to save embedding:', error);
+			throw error;
 		}
 	}
 

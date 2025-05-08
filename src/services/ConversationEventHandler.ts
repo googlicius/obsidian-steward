@@ -740,13 +740,13 @@ export class ConversationEventHandler {
 
 	private async handleShowMore(path: string): Promise<void> {
 		try {
-			const userSearchMetadata = await this.renderer.findMostRecentMessageMetadata(
+			const stewardSearchMetadata = await this.renderer.findMostRecentMessageMetadata(
 				path,
 				'search',
-				'user'
+				'steward'
 			);
 
-			if (!userSearchMetadata) {
+			if (!stewardSearchMetadata) {
 				await this.renderer.updateConversationNote({
 					path,
 					newContent: i18next.t('search.noRecentSearch'),
@@ -766,7 +766,7 @@ export class ConversationEventHandler {
 			// Retrieve the search results from the artifact manager
 			const searchArtifact = this.artifactManager.getArtifact<SearchResultsArtifact>(
 				path,
-				userSearchMetadata.ID
+				stewardSearchMetadata.ID
 			);
 
 			if (!searchArtifact || searchArtifact.type !== ArtifactType.SEARCH_RESULTS) {

@@ -70,6 +70,14 @@ export async function extractCommandIntent(
 		const parsed = JSON.parse(response);
 		const validatedResult = validateCommandIntentExtraction(parsed);
 
+		if (validatedResult.confidence > 0.8) {
+			try {
+				await intentClassifier.saveEmbedding(userInput, validatedResult.commandType);
+			} catch (error) {
+				logger.error('Failed to save query embedding:', error);
+			}
+		}
+
 		return validatedResult;
 	} catch (error) {
 		console.error('Error extracting command intent:', error);
