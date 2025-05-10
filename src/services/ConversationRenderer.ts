@@ -289,9 +289,15 @@ export class ConversationRenderer {
 				case 'update':
 					initialContent += `*${t('conversation.updating')}*`;
 					break;
-				case ' ':
+				case ' ': {
 					initialContent += `*${t('conversation.generating')}*`;
 					break;
+				}
+
+				case 'prompt': {
+					initialContent += `*${t('conversation.creatingPrompt')}*`;
+					break;
+				}
 
 				default:
 					initialContent = [

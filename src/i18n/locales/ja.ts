@@ -127,6 +127,7 @@ const ja = {
 			copying: 'コピー中...',
 			deleting: '削除中...',
 			updating: '更新中...',
+			creatingPrompt: 'カスタムプロンプトを作成中...',
 		},
 	},
 };

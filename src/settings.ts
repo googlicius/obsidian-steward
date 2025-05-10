@@ -17,6 +17,9 @@ export default class StewardSettingTab extends PluginSettingTab {
 
 		containerEl.createEl('h2', { text: 'Steward Plugin Settings' });
 
+		// Create API Keys section
+		containerEl.createEl('h3', { text: 'API Keys' });
+
 		// OpenAI API Key setting with encryption
 		new Setting(containerEl)
 			.setName('OpenAI API Key')
@@ -71,48 +74,6 @@ export default class StewardSettingTab extends PluginSettingTab {
 						} catch (error) {
 							new Notice('Failed to clear API key. Please try again.');
 							console.error('Error clearing API key:', error);
-						}
-					});
-			})
-			.addExtraButton(button => {
-				button
-					.setIcon('reset')
-					.setTooltip('Reset Encryption')
-					.onClick(async () => {
-						try {
-							// Get the current keys if possible
-							let openaiKey = '';
-							let elevenlabsKey = '';
-							let deepseekKey = '';
-							try {
-								openaiKey = this.plugin.getDecryptedApiKey('openai');
-								elevenlabsKey = this.plugin.getDecryptedApiKey('elevenlabs');
-								deepseekKey = this.plugin.getDecryptedApiKey('deepseek');
-							} catch (e) {
-								// If we can't decrypt, we'll start fresh
-							}
-
-							// Generate a new salt key ID
-							this.plugin.settings.saltKeyId = '';
-							this.plugin.settings.apiKeys = {
-								openai: '',
-								elevenlabs: '',
-								deepseek: '',
-							};
-							await this.plugin.saveSettings();
-
-							// Force reload of the plugin to re-initialize encryption
-							this.display();
-
-							// If we had keys before, prompt user to re-enter them
-							if (openaiKey || elevenlabsKey || deepseekKey) {
-								new Notice('Encryption reset. Please re-enter your API keys.');
-							} else {
-								new Notice('Encryption reset successfully.');
-							}
-						} catch (error) {
-							new Notice('Failed to reset encryption. Please try again.');
-							console.error('Error resetting encryption:', error);
 						}
 					});
 			});
@@ -285,10 +246,10 @@ export default class StewardSettingTab extends PluginSettingTab {
 		// Add LLM settings section
 		containerEl.createEl('h3', { text: 'LLM Settings' });
 
-		// Model selection with provider automatically determined
+		// Chat Model selection with provider automatically determined
 		new Setting(containerEl)
-			.setName('Model')
-			.setDesc('Select the AI model to use')
+			.setName('Chat Model')
+			.setDesc('Select the AI model to use for chat')
 			.addDropdown(dropdown => {
 				// OpenAI Models
 				dropdown.addOption('gpt-4-turbo-preview', 'GPT-4 Turbo (OpenAI)');
@@ -313,6 +274,14 @@ export default class StewardSettingTab extends PluginSettingTab {
 					// Update Ollama settings visibility based on selected model
 					updateOllamaSettingsVisibility();
 				});
+			});
+
+		// Embedding Model setting (hard-coded to GPT-4)
+		new Setting(containerEl)
+			.setName('Embedding Model')
+			.setDesc('Model used for text embeddings (currently fixed to GPT-4)')
+			.addText(text => {
+				text.setValue('GPT-4').setDisabled(true);
 			});
 
 		// Temperature setting

@@ -16,5 +16,6 @@
       Given a query: "I made a mistake, please help me delete it"
       If the PREVIOUS command is "Adding a tag to notes", Then this will NOT be classified as "delete_from_search_result"
 - [ ] Recommendation, based on recently activities.
+- [ ] Understanding the current user intent, for example: If user updating a bulleted list to a numbered list, suggest to update the whole list.
 - [ ] Maintain a classify_reliably score (start with a moderate score) to mitigate classification mistakes.
       And this score is increase over time. Classified scores from user's queries is used for intent extraction until it reaches a high score.

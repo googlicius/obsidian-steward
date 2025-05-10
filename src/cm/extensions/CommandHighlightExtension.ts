@@ -40,7 +40,7 @@ export function createCommandHighlightExtension(commandPrefixes: string[]): Exte
 
 							decorations.push(
 								Decoration.mark({
-									class: `conversation-command cm-conversation-command ${command}`,
+									class: `conversation-command cm-conversation-command conversation-command-${command}`,
 									...(hasPlaceholder && {
 										attributes: { 'has-placeholder': '1' },
 									}),

@@ -134,6 +134,7 @@ const en = {
 			copying: 'Copying...',
 			deleting: 'Deleting...',
 			updating: 'Updating...',
+			creatingPrompt: 'Creating custom prompt...',
 		},
 	},
 };

@@ -22,7 +22,16 @@ import { MediaGenerationService } from './services/MediaGenerationService';
 import { StewardPluginSettings } from './types/interfaces';
 
 // Supported command prefixes
-export const COMMAND_PREFIXES = ['/ ', '/more', '/close', '/yes', '/no', '/image', '/audio'];
+export const COMMAND_PREFIXES = [
+	'/ ',
+	'/more',
+	'/close',
+	'/yes',
+	'/no',
+	'/image',
+	'/audio',
+	'/prompt',
+];
 // Define custom icon ID
 const SMILE_CHAT_ICON_ID = 'smile-chat-icon';
 

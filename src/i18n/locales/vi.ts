@@ -126,6 +126,7 @@ const vi = {
 			copying: 'Đang sao chép...',
 			deleting: 'Đang xóa...',
 			updating: 'Đang cập nhật...',
+			creatingPrompt: 'Đang tạo gợi ý tùy chỉnh...',
 		},
 	},
 };

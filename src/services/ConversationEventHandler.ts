@@ -30,6 +30,7 @@ import {
 } from 'src/lib/modelfusion/updateFromSearchResultExtraction';
 import { extractDestinationFolder } from 'src/lib/modelfusion/destinationFolderExtraction';
 import { MoveOperationV2 } from 'src/tools/obsidianAPITools';
+import { extractPromptCreation } from '../lib/modelfusion/promptCreationExtraction';
 
 interface Props {
 	plugin: StewardPlugin;
@@ -234,6 +235,15 @@ export class ConversationEventHandler {
 					break;
 				}
 
+				case 'prompt': {
+					await this.renderer.addGeneratingIndicator(
+						payload.title,
+						i18next.t('conversation.creatingPrompt')
+					);
+					await this.handlePromptCommand(payload.title, command.content, payload.lang);
+					break;
+				}
+
 				default:
 					break;
 			}
@@ -284,6 +294,11 @@ export class ConversationEventHandler {
 
 			case 'confirm': {
 				await this.handleConfirmCommand(payload.title, payload.commandContent, payload.lang);
+				break;
+			}
+
+			case 'prompt': {
+				await this.handlePromptCommand(payload.title, payload.commandContent, payload.lang);
 				break;
 			}
 
@@ -1467,6 +1482,59 @@ export class ConversationEventHandler {
 			await this.renderer.updateConversationNote({
 				path: title,
 				newContent: `*Error updating files: ${error.message}*`,
+				role: 'Steward',
+			});
+		}
+	}
+
+	/**
+	 * Handle the prompt creation command
+	 * @param title The conversation title
+	 * @param commandContent The command content
+	 * @param lang Optional language code for the response
+	 */
+	private async handlePromptCommand(
+		title: string,
+		commandContent: string,
+		lang?: string
+	): Promise<void> {
+		try {
+			const t = getTranslation(lang);
+
+			// Extract the prompt creation using the LLM
+			const prompt = await extractPromptCreation(commandContent, this.plugin.settings.llm);
+
+			// Format the response
+			const response = [
+				`**${t('prompt.created')}**`,
+				'',
+				`**${t('prompt.commandName')}**: ${prompt.commandName}`,
+				`**${t('prompt.description')}**: ${prompt.description}`,
+				'',
+				`**${t('prompt.content')}**:`,
+				'',
+				prompt.content,
+				'',
+			];
+
+			if (prompt.examples && prompt.examples.length > 0) {
+				response.push('', `**${t('prompt.examples')}**:`);
+				prompt.examples.forEach((example: string) => {
+					response.push(`- ${example}`);
+				});
+			}
+
+			// Update the conversation with the results
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: response.join('\n'),
+				role: 'Steward',
+				command: 'prompt',
+			});
+		} catch (error) {
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*Error creating prompt: ${error.message}*`,
 				role: 'Steward',
 			});
 		}
