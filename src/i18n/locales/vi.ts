@@ -37,6 +37,10 @@ const vi = {
 			createFoldersHeader: 'Tôi cần tạo các thư mục sau trước khi sao chép tập tin:',
 			createFoldersQuestion: 'Bạn có muốn tôi tạo các thư mục này không?',
 		},
+		create: {
+			success: 'Đã tạo thành công',
+			creatingNote: 'Đang tạo ghi chú: [[{{noteName}}]]',
+		},
 		// Update result messages
 		update: {
 			failed: 'Không thể cập nhật {{count}} tập tin:',
@@ -127,6 +131,7 @@ const vi = {
 			deleting: 'Đang xóa...',
 			updating: 'Đang cập nhật...',
 			creatingPrompt: 'Đang tạo gợi ý tùy chỉnh...',
+			creating: 'Đang tạo...',
 		},
 	},
 };

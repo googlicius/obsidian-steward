@@ -151,6 +151,7 @@ function validateCommandIntentExtraction(data: any): CommandIntentExtraction {
 		'image',
 		'audio',
 		'update_from_search_result',
+		'create',
 	];
 
 	// Validate each command in the sequence

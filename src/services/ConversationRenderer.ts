@@ -113,6 +113,70 @@ export class ConversationRenderer {
 		}
 	}
 
+	/**
+	 * Streams content to a conversation note
+	 * @param options Options for streaming content
+	 * @returns The message ID for referencing
+	 */
+	public async streamConversationNote({
+		path,
+		stream,
+		command,
+		position,
+	}: {
+		path: string;
+		stream: AsyncIterable<string>;
+		command?: string;
+		position?: number;
+	}): Promise<string | undefined> {
+		try {
+			const folderPath = this.plugin.settings.conversationFolder;
+			const notePath = `${folderPath}/${path}.md`;
+
+			// Get the current content of the note
+			const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
+			if (!file) {
+				throw new Error(`Note not found: ${notePath}`);
+			}
+
+			let currentContent = await this.plugin.app.vault.read(file);
+
+			// Remove the generating indicator and any trailing newlines
+			currentContent = this.removeGeneratingIndicator(currentContent);
+
+			const { messageId, comment } = await this.buildMessageMetadata(path, {
+				role: 'Steward',
+				command,
+			});
+
+			// Prepare the initial content with metadata
+			const initialContent = `${currentContent}\n\n${comment}\n**Steward:** `;
+
+			// If position is provided, insert at that position
+			// Otherwise, append to the end
+			const contentToModify =
+				position !== undefined
+					? currentContent.slice(0, position) + initialContent + currentContent.slice(position)
+					: initialContent;
+
+			// Write the initial content
+			await this.plugin.app.vault.modify(file, contentToModify);
+
+			// Stream the content
+			let accumulatedContent = '';
+			for await (const chunk of stream) {
+				accumulatedContent += chunk;
+				await this.plugin.app.vault.modify(file, contentToModify + accumulatedContent);
+			}
+
+			// Return the message ID for referencing
+			return messageId;
+		} catch (error) {
+			console.error('Error streaming to conversation note:', error);
+			return undefined;
+		}
+	}
+
 	private async buildMessageMetadata(
 		title: string,
 		{ role, command }: { role?: string; command?: string } = {}
@@ -284,6 +348,7 @@ export class ConversationRenderer {
 					initialContent += `*${t('conversation.generatingImage')}*`;
 					break;
 				case 'audio':
+				case 'speak':
 					initialContent += `*${t('conversation.generatingAudio')}*`;
 					break;
 				case 'update':

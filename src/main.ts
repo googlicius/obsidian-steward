@@ -24,13 +24,16 @@ import { StewardPluginSettings } from './types/interfaces';
 // Supported command prefixes
 export const COMMAND_PREFIXES = [
 	'/ ',
+	'/search',
 	'/more',
 	'/close',
 	'/yes',
 	'/no',
 	'/image',
 	'/audio',
+	'/speak',
 	'/prompt',
+	'/create',
 ];
 // Define custom icon ID
 const SMILE_CHAT_ICON_ID = 'smile-chat-icon';

@@ -17,6 +17,30 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 	// the threshold for the distance between the value and the cluster values:
 	similarityThreshold: 0.82,
 
+	// Static cluster values that aren't need to be embedded
+	staticClusterValues: [
+		{
+			name: 'delete_from_search_result' as const,
+			values: [
+				'delete them',
+				'delete it',
+				'delete all',
+				'remove them',
+				'remove it',
+				'remove all',
+				'delete the search results',
+				'delete all notes above',
+			],
+		},
+	],
+
+	prefixedClusterValue: [
+		{
+			name: 'audio' as const,
+			values: ['speak this', 'speak this word', 'speak this phrase', 'speak this sentence'],
+		},
+	],
+
 	clusters: [
 		{
 			name: 'search' as const,
@@ -56,19 +80,6 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 				'copy it to folder f',
 				'copy all to folder f',
 				'copy all notes above to folder f',
-			],
-		},
-		{
-			name: 'delete_from_search_result' as const,
-			values: [
-				'Delete them',
-				'Delete it',
-				'Delete all',
-				'Remove them',
-				'Remove it',
-				'Remove all',
-				'Delete the search results',
-				'Delete all notes above',
 			],
 		},
 		{
@@ -182,6 +193,21 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 				'create prompt template for x',
 				'add prompt command for x',
 				'create new command prompt for x',
+			],
+		},
+		{
+			name: 'create' as const,
+			values: [
+				'create a new note about x',
+				'make a note for x',
+				'create a note titled x',
+				'write a new note about x',
+				'create a new file for x',
+				'make a new note with x',
+				'create a note with content x',
+				'write a note about x',
+				'create a new document about x',
+				'start a new note for x',
 			],
 		},
 	],
