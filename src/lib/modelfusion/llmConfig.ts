@@ -22,6 +22,7 @@ export function createLLMGenerator(config: {
 	model: string;
 	temperature?: number;
 	ollamaBaseUrl?: string;
+	responseFormat?: 'json_object' | 'text';
 }) {
 	const provider = getProviderFromModel(config.model);
 
@@ -30,7 +31,7 @@ export function createLLMGenerator(config: {
 			return openai.ChatTextGenerator({
 				model: config.model as any,
 				temperature: config.temperature,
-				responseFormat: { type: 'json_object' },
+				responseFormat: { type: config.responseFormat || 'json_object' },
 			});
 		case 'deepseek':
 			return openai.ChatTextGenerator({

@@ -43,6 +43,10 @@ const en = {
 			createFoldersHeader: 'I need to create the following folders before copying files:',
 			createFoldersQuestion: 'Would you like me to create these folders?',
 		},
+		create: {
+			success: 'Successfully created',
+			creatingNote: 'Creating note: {{noteName}}',
+		},
 		// Update result messages
 		update: {
 			failed_one: 'Failed to update {{count}} file:',
@@ -135,6 +139,7 @@ const en = {
 			deleting: 'Deleting...',
 			updating: 'Updating...',
 			creatingPrompt: 'Creating custom prompt...',
+			creating: 'Creating...',
 		},
 	},
 };

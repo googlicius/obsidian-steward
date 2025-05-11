@@ -22,6 +22,7 @@ export interface PersistentEmbeddingSimilarityClassifierSettings<
 	VALUE extends string,
 	CLUSTERS extends Array<ValueCluster<VALUE, string>>,
 > extends ClassifierSettings {
+	staticClusterValues?: CLUSTERS;
 	clusters: CLUSTERS;
 	embeddingModel: EmbeddingModel<VALUE>;
 	similarityThreshold: number;
@@ -458,6 +459,17 @@ export class PersistentEmbeddingSimilarityClassifier<
 	}
 
 	async doClassify(value: VALUE, options: FunctionCallOptions) {
+		if (this.settings.staticClusterValues) {
+			for (const cluster of this.settings.staticClusterValues) {
+				if (cluster.values.includes(value.toLowerCase() as VALUE)) {
+					return {
+						class: cluster.name as unknown as ClusterNames<CLUSTERS>,
+						rawResponse: undefined,
+					};
+				}
+			}
+		}
+
 		const valueEmbedding = await embed({
 			model: this.settings.embeddingModel,
 			value,
@@ -500,7 +512,7 @@ export class PersistentEmbeddingSimilarityClassifier<
 		// sort (highest similarity first)
 		allMatches.sort((a, b) => b.similarity - a.similarity);
 
-		console.log('allMatches', allMatches);
+		logger.log('All matches', allMatches);
 		const countClusterNames = new Set(allMatches.map(m => m.clusterName));
 
 		// If there are multiple clusters, and the highest similarity is less than 0.99, return null

@@ -17,6 +17,7 @@ Available command types:
 - "revert": When the user wants to undo the last change or revert to a previous state
 - "image": When the user wants to generate an image
 - "audio": When the user wants to generate audio
+- "create": When the user wants to create a new note
 
 Guidelines:
 - Analyze the query for multiple commands that should be executed in sequence
@@ -32,6 +33,7 @@ Guidelines:
 - If the user wants to undo changes, include "revert" command
 - If the user wants to generate an image, include "image" command
 - If the user wants to generate audio, include "audio" command
+- If the user wants to create a new note, include "create" command
 
 Provide a confidence score from 0 to 1 for the overall sequence:
 - 0.0-0.3: Low confidence (ambiguous or unclear requests)

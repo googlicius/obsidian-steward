@@ -37,6 +37,10 @@ const ja = {
 			createFoldersHeader: 'ファイルをコピーする前に以下のフォルダを作成する必要があります：',
 			createFoldersQuestion: 'これらのフォルダを作成しますか？',
 		},
+		create: {
+			success: '作成に成功しました',
+			creatingNote: 'ノートを作成中: [[{{noteName}}]]',
+		},
 		// Update result messages
 		update: {
 			failed: '{{count}}件のファイルの更新に失敗しました：',
@@ -128,6 +132,7 @@ const ja = {
 			deleting: '削除中...',
 			updating: '更新中...',
 			creatingPrompt: 'カスタムプロンプトを作成中...',
+			creating: '作成中...',
 		},
 	},
 };
