@@ -21,7 +21,7 @@ import {
 	SearchResultsArtifact,
 } from './ConversationArtifactManager';
 import { extractMoveFromSearchResult } from '../lib/modelfusion';
-import { PaginatedSearchResultV2 } from '../searchIndexer';
+import { PaginatedSearchResultV2 } from '../solutions/search';
 import { logger } from 'src/utils/logger';
 import { TFile } from 'obsidian';
 import {
@@ -539,10 +539,12 @@ export class ConversationEventHandler {
 			});
 
 			// Get the search results
-			const docs = await this.plugin.searchIndexer.searchV2(queryExtraction.operations);
+			const docs = await this.plugin.searchService.searchEngine.searchV2(
+				queryExtraction.operations
+			);
 
 			// Paginate the results for display (first page)
-			const paginatedDocs = this.plugin.searchIndexer.paginateResults(docs, 1, 10);
+			const paginatedDocs = this.plugin.searchService.searchEngine.paginateResults(docs, 1, 10);
 
 			// Format the search results
 			const response = await this.formatSearchResults({
@@ -624,7 +626,7 @@ export class ConversationEventHandler {
 			}
 
 			// Get paginated results for the current page
-			const paginatedDocs = this.plugin.searchIndexer.paginateResults(
+			const paginatedDocs = this.plugin.searchService.searchEngine.paginateResults(
 				searchArtifact.originalResults,
 				page,
 				10

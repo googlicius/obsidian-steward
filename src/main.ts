@@ -10,7 +10,7 @@ import {
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter, Events } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
-import { SearchIndexer } from './searchIndexer';
+import { SearchService } from './solutions/search';
 import { DateTime } from 'luxon';
 import { encrypt, decrypt, generateSaltKeyId } from './utils/cryptoUtils';
 import { ConfirmationEventHandler } from './services/ConfirmationEventHandler';
@@ -74,7 +74,7 @@ function generateRandomDbPrefix(): string {
 export default class StewardPlugin extends Plugin {
 	settings: StewardPluginSettings;
 	obsidianAPITools: ObsidianAPITools;
-	searchIndexer: SearchIndexer;
+	searchService: SearchService;
 	ribbonIcon: HTMLElement;
 	staticConversationTitle = 'Steward Chat';
 	confirmationEventHandler: ConfirmationEventHandler;
@@ -121,17 +121,15 @@ export default class StewardPlugin extends Plugin {
 			await this.saveSettings();
 		}
 
-		// Initialize the search indexer with the stored DB prefix and conversation folder
-		this.searchIndexer = new SearchIndexer({
+		// Initialize the search service with the stored DB prefix and exclude folders
+		this.searchService = SearchService.getInstance({
 			app: this.app,
 			dbName: this.settings.searchDbPrefix,
-			conversationFolder: this.settings.conversationFolder,
+			excludeFolders: [...this.settings.excludedFolders, 'Steward/'],
 		});
 
-		const eventRefs = this.searchIndexer.setupEventListeners();
-		for (const eventRef of eventRefs) {
-			this.registerEvent(eventRef);
-		}
+		// Initialize the search service
+		await this.searchService.initialize();
 
 		// Initialize the ObsidianAPITools with the SearchTool
 		this.obsidianAPITools = new ObsidianAPITools(this.app);
@@ -215,7 +213,7 @@ export default class StewardPlugin extends Plugin {
 				new Notice('Building index...');
 				try {
 					statusBarItemEl.setText(i18next.t('ui.buildingIndexes'));
-					await this.searchIndexer.indexAllFiles();
+					await this.searchService.indexer.indexAllFiles();
 					statusBarItemEl.setText('');
 					new Notice('Building Search Index completed!');
 				} catch (error) {
@@ -299,7 +297,10 @@ export default class StewardPlugin extends Plugin {
 		this.gitEventHandler = new GitEventHandler(this.app, this);
 	}
 
-	onunload() {}
+	onunload() {
+		// Unload the search service
+		this.searchService.unload();
+	}
 
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -662,27 +663,14 @@ export default class StewardPlugin extends Plugin {
 	 * Check if the search index is built and build it if needed
 	 */
 	private async checkAndBuildIndexIfNeeded(): Promise<void> {
-		// Check if the index is already built
-		const isBuilt = await this.searchIndexer.isIndexBuilt();
-
-		// If the index isn't built yet, build it after a short delay
-		// to avoid blocking the UI when the plugin loads
-		if (!isBuilt) {
-			console.log(i18next.t('ui.searchIndexNotFound'));
-
-			// Use setTimeout to delay the index building by 3 seconds
-			// This ensures the plugin loads smoothly before starting the index build
-			setTimeout(async () => {
-				try {
-					const statusBarItemEl = this.addStatusBarItem();
-					statusBarItemEl.setText(i18next.t('ui.buildingIndexes'));
-					await this.searchIndexer.indexAllFiles();
-					statusBarItemEl.setText('');
-				} catch (error) {
-					console.error('Error building initial indexes:', error);
-					new Notice(i18next.t('ui.errorBuildingInitialIndexes'));
-				}
-			}, 3000);
+		try {
+			const isIndexBuilt = await this.searchService.documentStore.isIndexBuilt();
+			if (!isIndexBuilt) {
+				// Build the index if it's not already built
+				await this.searchService.indexer.indexAllFiles();
+			}
+		} catch (error) {
+			logger.error('Error checking or building index:', error);
 		}
 	}
 
@@ -810,7 +798,7 @@ export default class StewardPlugin extends Plugin {
 	}
 
 	/**
-	 * Excludes specified folders from Obsidian search
+	 * Excludes specified folders from Obsidian search and updates the SearchService
 	 * @param foldersToExclude - Array of folder names to exclude from search
 	 */
 	async excludeFoldersFromSearch(foldersToExclude: string[]): Promise<void> {
@@ -835,6 +823,14 @@ export default class StewardPlugin extends Plugin {
 			// Save the updated config
 			// @ts-ignore - Accessing internal Obsidian API
 			this.app.vault.saveConfig();
+
+			// Update the SearchService excludeFolders if it's initialized
+			if (this.searchService) {
+				this.searchService.updateExcludeFolders([
+					...this.settings.excludedFolders,
+					...appConfig.userIgnoreFilters,
+				]);
+			}
 		} catch (error) {
 			console.error('Failed to exclude folders from search:', error);
 		}

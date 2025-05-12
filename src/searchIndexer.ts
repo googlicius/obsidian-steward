@@ -518,6 +518,7 @@ export class SearchIndexer {
 		// Use a regex that keeps apostrophes within words and Unicode characters
 		// This preserves contractions like "I'm" and non-English characters
 		// Filter out consecutive special characters (2 or more)
+		// /[^\p{L}\p{N}'\u2019#_-\s]
 		const words = normalizedContent
 			.replace(/[^\p{L}\p{N}'\u2019\s#_-]/gu, ' ') // Keep letters, numbers, apostrophes, hashtags, underscores, hyphens
 			.replace(/[#_-]{2,}/g, ' ') // Filter out 2+ consecutive special characters

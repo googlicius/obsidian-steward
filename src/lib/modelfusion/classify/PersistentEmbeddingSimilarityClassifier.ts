@@ -452,6 +452,24 @@ export class PersistentEmbeddingSimilarityClassifier<
 				});
 			}
 
+			// Find the cluster and update its version hash
+			const cluster = this.settings.clusters.find(c => c.name === clusterName);
+			if (cluster) {
+				// Check if the value already exists in the cluster values
+				if (!cluster.values.includes(value as VALUE)) {
+					// Add the value to the cluster's values array to properly track it
+					cluster.values.push(value as VALUE);
+
+					// Generate and store the updated version hash
+					const versionHash = this.generateClusterHash(cluster);
+					await this.db.storeClusterVersion(modelName, clusterName, versionHash);
+
+					logger.log(`Updated version hash for cluster "${clusterName}" after adding new value`);
+				}
+			} else {
+				logger.warn(`Saved embedding for value under non-existent cluster "${clusterName}"`);
+			}
+
 			logger.log(`Saved embedding for value under cluster "${clusterName}"`);
 		} catch (error) {
 			logger.error('Failed to save embedding:', error);

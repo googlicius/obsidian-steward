@@ -56,7 +56,7 @@ export async function extractSearchQueryV2({
 		return {
 			operations: [
 				{
-					keywords: [searchTerm],
+					keywords: [`"${searchTerm}"`],
 					tags: [],
 					filenames: [],
 					folders: [],

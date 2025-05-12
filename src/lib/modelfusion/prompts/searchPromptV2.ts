@@ -9,6 +9,8 @@ Your job is to analyze the user's natural language request and extract the relev
 Guidelines:
 - Break down the query into specific components:
   - keywords: General terms or concepts to search for in file content
+    - IMPORTANT: If a term or phrase is wrapped in quotation marks (e.g., "cat or dog"), preserve the quotes in the keyword exactly as is. These quoted phrases indicate exact match queries.
+    - Example: If user input contains "cat or dog", the keywords array should include the string: "cat or dog" (with the quotes)
   - tags: Obsidian tags that identify files (formatted as an array without the # symbol)
   - filenames: Specific file names to search for (without .md extension)
   - folders:
@@ -22,6 +24,7 @@ Guidelines:
 You must respond with a valid JSON object containing these properties:
 - operations: An array of operations, where each operation has:
   - keywords: Array of keywords to search for in file content (or empty array if none)
+    - Remember to preserve quotation marks for exact phrase matching
   - tags: Array of tags without the # symbol (or empty array if none)
   - filenames: Array of filenames or partial filenames (or empty array if none)
   - folders: Array of source folder paths to search within (or empty array if none)
