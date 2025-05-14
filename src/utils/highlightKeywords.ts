@@ -53,6 +53,7 @@ export function highlightKeywords(
 interface Match {
 	text: string;
 	index: number;
+	isInLink?: boolean;
 }
 
 // Export for testing purposes
@@ -92,14 +93,44 @@ function findMatches(content: string, terms: string[]): Match[] {
 	const matches: Match[] = [];
 	const lowerContent = content.toLowerCase();
 
+	// Regex to find all markdown links in the content
+	const linkRegex = /\[([^\]]+)\]\([^)]+\)/g;
+	const links: { start: number; end: number }[] = [];
+
+	// Find all links in the content
+	let linkMatch;
+	while ((linkMatch = linkRegex.exec(content)) !== null) {
+		links.push({
+			start: linkMatch.index,
+			end: linkMatch.index + linkMatch[0].length,
+		});
+	}
+
+	// Also find wiki links [[link]]
+	const wikiLinkRegex = /\[\[([^\]]+)\]\]/g;
+	while ((linkMatch = wikiLinkRegex.exec(content)) !== null) {
+		links.push({
+			start: linkMatch.index,
+			end: linkMatch.index + linkMatch[0].length,
+		});
+	}
+
 	for (const term of terms) {
 		const lowerTerm = term.toLowerCase();
 		let index = 0;
 
 		while ((index = lowerContent.indexOf(lowerTerm, index)) !== -1) {
+			// Check if this match is inside a link
+			const isInLink = links.some(
+				link =>
+					(index >= link.start && index < link.end) ||
+					(index + term.length > link.start && index < link.end)
+			);
+
 			matches.push({
 				text: content.substring(index, index + term.length),
 				index,
+				isInLink,
 			});
 			index += 1; // Move forward to find next occurrence
 		}
@@ -134,24 +165,64 @@ function generateHighlightedResults(
 	if (matches.length === 0) return [];
 
 	const highlights: string[] = [];
+	const lines = content.split('\n');
 
+	// Create a map of line numbers to match indices for fast lookup
+	const lineMap: { [lineIndex: number]: Match[] } = {};
+
+	// Find which line each match belongs to
 	for (const match of matches) {
-		const matchText = match.text;
-		const matchIndex = match.index;
+		let charCount = 0;
+		let lineIndex = 0;
 
-		// Calculate start and end of context
-		const contextStart = Math.max(0, matchIndex - options.contextChars);
-		const contextEnd = Math.min(
-			content.length,
-			matchIndex + matchText.length + options.contextChars
-		);
+		// Find the line number for this match
+		while (lineIndex < lines.length) {
+			const lineLength = lines[lineIndex].length + 1; // +1 for the newline
+			if (charCount <= match.index && match.index < charCount + lineLength) {
+				// This match is on this line
+				if (!lineMap[lineIndex]) {
+					lineMap[lineIndex] = [];
+				}
+				lineMap[lineIndex].push({
+					...match,
+					index: match.index - charCount, // adjust index to be relative to line start
+				});
+				break;
+			}
+			charCount += lineLength;
+			lineIndex++;
+		}
+	}
 
-		// Get context with highlight
-		const before = content.substring(contextStart, matchIndex);
-		const highlighted = options.beforeMark + matchText + options.afterMark;
-		const after = content.substring(matchIndex + matchText.length, contextEnd);
+	// Process each line that has matches
+	for (const lineIndex in lineMap) {
+		const lineMatches = lineMap[lineIndex];
+		const line = lines[parseInt(lineIndex)];
 
-		const result = before + highlighted + after;
+		// Sort matches by position in the line
+		lineMatches.sort((a, b) => a.index - b.index);
+
+		// Build the highlighted line
+		let result = '';
+		let lastEnd = 0;
+
+		for (const match of lineMatches) {
+			// Add text before the match
+			result += line.substring(lastEnd, match.index);
+
+			// Add the match, with highlighting if not in a link
+			if (match.isInLink) {
+				result += match.text; // No highlight if in a link
+			} else {
+				result += options.beforeMark + match.text + options.afterMark;
+			}
+
+			lastEnd = match.index + match.text.length;
+		}
+
+		// Add the rest of the line
+		result += line.substring(lastEnd);
+
 		highlights.push(result);
 	}
 

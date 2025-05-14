@@ -121,7 +121,7 @@ const en = {
 			decryptionError: 'Failed to decrypt API key. Please re-enter it in settings.',
 			encryptionError: 'Failed to encrypt API key. Please try again.',
 			welcomeMessage: 'Welcome to your always-available Steward chat. Type below to interact.',
-			commandPlaceholder: 'Press Shift+Enter to send',
+			commandPlaceholder: 'Press Enter to send',
 		},
 		// Conversation states
 		conversation: {

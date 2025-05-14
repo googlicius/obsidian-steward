@@ -1,7 +1,7 @@
 import { Editor, Notice, Plugin, TFile, WorkspaceLeaf, addIcon } from 'obsidian';
 import i18next from './i18n';
 import StewardSettingTab from './settings';
-import { EditorView } from '@codemirror/view';
+import { EditorView, keymap } from '@codemirror/view';
 import { createCommandHighlightExtension } from './cm/extensions/CommandHighlightExtension';
 import {
 	createTripleBlockExtension,
@@ -20,6 +20,7 @@ import { ConversationArtifactManager } from './services/ConversationArtifactMana
 import { GitEventHandler } from './solutions/git/GitEventHandler';
 import { MediaGenerationService } from './services/MediaGenerationService';
 import { StewardPluginSettings } from './types/interfaces';
+import { Prec } from '@codemirror/state';
 
 // Supported command prefixes
 export const COMMAND_PREFIXES = [
@@ -195,6 +196,14 @@ export default class StewardPlugin extends Plugin {
 		this.registerEditorExtension([
 			createCommandHighlightExtension(COMMAND_PREFIXES),
 			createTripleBlockExtension(),
+			Prec.high(
+				keymap.of([
+					{
+						key: 'Enter',
+						run: this.handleEnter.bind(this),
+					},
+				])
+			),
 		]);
 
 		this.registerMarkdownPostProcessor(createTripleBlockPostProcessor());
@@ -223,25 +232,6 @@ export default class StewardPlugin extends Plugin {
 			},
 		});
 
-		// Add command to process command lines with Shift+Enter
-		this.addCommand({
-			id: 'process-shift-enter',
-			name: 'Process Shift+Enter',
-			hotkeys: [{ modifiers: ['Shift'], key: 'Enter' }],
-			editorCallback: async (
-				editor: Editor & {
-					cm: EditorView;
-				},
-				view
-			) => {
-				// If handleShiftEnter returns false, execute default Shift+Enter behavior
-				if (!(await this.handleShiftEnter(editor.cm))) {
-					// Default behavior: insert a new line
-					editor.replaceSelection('\n');
-				}
-			},
-		});
-
 		// Command to toggle debug mode
 		this.addCommand({
 			id: 'toggle-debug-mode',
@@ -251,26 +241,6 @@ export default class StewardPlugin extends Plugin {
 				logger.setDebug(this.settings.debug);
 				await this.saveSettings();
 				new Notice(`Debug mode ${this.settings.debug ? 'enabled' : 'disabled'}`);
-			},
-		});
-
-		// Command to revert the last operation
-		this.addCommand({
-			id: 'revert-last-operation',
-			name: 'Revert Last Operation',
-			callback: async () => {
-				try {
-					// Get confirmation
-					const result = await this.gitEventHandler.revertLastOperation();
-					if (result) {
-						new Notice('Last operation reverted successfully.');
-					} else {
-						new Notice('Failed to revert last operation. Check console for details.');
-					}
-				} catch (error) {
-					logger.error('Error reverting last operation:', error);
-					new Notice(`Error reverting operation: ${error.message}`);
-				}
 			},
 		});
 
@@ -314,7 +284,7 @@ export default class StewardPlugin extends Plugin {
 	}
 
 	// Function to handle the Shift+Enter key combination
-	async handleShiftEnter(view: EditorView): Promise<boolean> {
+	private handleEnter(view: EditorView): boolean {
 		const { state } = view;
 		const { doc, selection } = state;
 
@@ -326,7 +296,11 @@ export default class StewardPlugin extends Plugin {
 		// Check if line starts with a command prefix
 		const commandMatch = COMMAND_PREFIXES.find(prefix => lineText.trim().startsWith(prefix));
 
-		if (commandMatch) {
+		if (!commandMatch) {
+			return false;
+		}
+
+		(async () => {
 			try {
 				// Extract the command content (everything after the prefix)
 				const commandContent = lineText.trim().substring(commandMatch.length).trim();
@@ -401,9 +375,9 @@ export default class StewardPlugin extends Plugin {
 				new Notice(`Error processing command: ${error.message}`);
 				return false;
 			}
-		}
+		})();
 
-		return false;
+		return true;
 	}
 
 	/**

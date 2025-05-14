@@ -114,7 +114,7 @@ const ja = {
 			encryptionError: 'APIキーの暗号化に失敗しました。もう一度お試しください。',
 			welcomeMessage:
 				'いつでも利用可能なStewardチャットへようこそ。以下に入力して対話してください。',
-			commandPlaceholder: '送信するにはShift+Enterを押してください',
+			commandPlaceholder: '送信するにはEnterを押してください',
 		},
 		// Conversation states
 		conversation: {

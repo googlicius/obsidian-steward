@@ -14,7 +14,7 @@ If your plugin does not need CSS, delete this file.
 }
 
 .cm-line .cm-conversation-command[has-placeholder='1']:after {
-	content: var(--steward-placeholder-text, 'Press Shift+Enter to send');
+	content: var(--steward-placeholder-text, 'Press Enter to send');
 	position: absolute;
 	font-style: italic;
 	color: #888;

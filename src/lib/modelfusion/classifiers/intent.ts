@@ -32,6 +32,10 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 				'delete all notes above',
 			],
 		},
+		{
+			name: 'confirm' as const,
+			values: ['yes', 'no', 'confirm', 'ok', 'go ahead', 'approve', 'reject', 'proceed', 'cancel'],
+		},
 	],
 
 	prefixedClusterValue: [

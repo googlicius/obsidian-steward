@@ -113,7 +113,7 @@ const vi = {
 			encryptionError: 'Không thể mã hóa khóa API. Vui lòng thử lại.',
 			welcomeMessage:
 				'Chào mừng đến với trò chuyện Steward luôn sẵn sàng. Gõ bên dưới để tương tác.',
-			commandPlaceholder: 'Nhấn Shift+Enter để gửi',
+			commandPlaceholder: 'Nhấn Enter để gửi',
 		},
 		// Conversation states
 		conversation: {
