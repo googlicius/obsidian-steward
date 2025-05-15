@@ -19,6 +19,18 @@ export class DocumentStore {
 		this.excludeFolders = excludeFolders || [];
 	}
 
+	get terms() {
+		return this.db.terms;
+	}
+
+	get documents() {
+		return this.db.documents;
+	}
+
+	get folders() {
+		return this.db.folders;
+	}
+
 	/**
 	 * Update exclude folders
 	 */

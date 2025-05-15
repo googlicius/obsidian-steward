@@ -483,7 +483,7 @@ export class ConversationEventHandler {
 		for (let index = 0; index < paginatedDocs.documents.length; index++) {
 			const result = paginatedDocs.documents[index];
 			const displayIndex = (page - 1) * 10 + index + 1;
-			response += `\n\n**${displayIndex}.** [[${result.fileName}]]:\n`;
+			response += `\n\n**${displayIndex}.** [[${result.path}]]:\n`;
 
 			// Get the file content directly
 			const file = this.plugin.getFileByNameOrPath(result.fileName);
@@ -504,7 +504,7 @@ export class ConversationEventHandler {
 					if (matchesToShow > 0) {
 						// Add each highlighted match to the response
 						for (let i = 0; i < matchesToShow; i++) {
-							response += `\n"""\n${highlightedMatches[i]}\n"""\n`;
+							response += `\n>[!search-result]\n>${highlightedMatches[i]}\n`;
 						}
 
 						// Show a message for additional matches

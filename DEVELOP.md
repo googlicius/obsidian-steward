@@ -19,3 +19,6 @@
 - [ ] Understanding the current user intent, for example: If user updating a bulleted list to a numbered list, suggest to update the whole list.
 - [ ] Maintain a classify_reliably score (start with a moderate score) to mitigate classification mistakes.
       And this score is increase over time. Classified scores from user's queries is used for intent extraction until it reaches a high score.
+- [ ] Rename those commands move, copy, etc from the search results to "from the artifact"
+- [ ] Add a post-processor to build the custom callout HTML data properties from the HTML comment in the callout:
+      `>[!search-result] <!--DATA:line:4,pos:0-->`

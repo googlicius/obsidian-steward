@@ -36,6 +36,10 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 			name: 'confirm' as const,
 			values: ['yes', 'no', 'confirm', 'ok', 'go ahead', 'approve', 'reject', 'proceed', 'cancel'],
 		},
+		{
+			name: 'close' as const,
+			values: ['close', 'end', 'exit', 'close the chat', 'quit'],
+		},
 	],
 
 	prefixedClusterValue: [
@@ -65,13 +69,17 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 		{
 			name: 'move_from_search_result' as const,
 			values: [
-				'move results to the folder f',
-				'move these notes to the folder f',
-				'move them to the folder f',
-				'move these notes to the folder f',
-				'move it to the folder f',
-				'move all to the folder f',
-				'move all notes above to the folder f',
+				'move results to the f folder',
+				'move the results into the f folder',
+				'move these notes to the f folder',
+				'move them to the f folder',
+				'move them into the f folder',
+				'move these notes to the f folder',
+				'move it to the f folder',
+				'move it into the f folder',
+				'move all to the f folder',
+				'move all into the f folder',
+				'move all notes above to the f folder',
 			],
 		},
 		{

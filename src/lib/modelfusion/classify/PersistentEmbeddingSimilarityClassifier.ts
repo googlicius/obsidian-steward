@@ -542,13 +542,13 @@ export class PersistentEmbeddingSimilarityClassifier<
 		}
 
 		// sort (highest similarity first)
-		allMatches.sort((a, b) => b.similarity - a.similarity);
+		const firstFiveMatches = allMatches.sort((a, b) => b.similarity - a.similarity).slice(0, 5);
 
-		logger.log('All matches', allMatches);
-		const countClusterNames = new Set(allMatches.map(m => m.clusterName));
+		logger.log('First 5 matches', firstFiveMatches);
+		const countClusterNames = new Set(firstFiveMatches.map(m => m.clusterName));
 
 		// If there are multiple clusters, and the highest similarity is less than 0.99, return null
-		if (countClusterNames.size > 1 && allMatches[0].similarity < 0.99) {
+		if (countClusterNames.size > 1 && firstFiveMatches[0].similarity < 0.99) {
 			return {
 				class: null,
 				rawResponse: undefined,
@@ -557,8 +557,8 @@ export class PersistentEmbeddingSimilarityClassifier<
 
 		return {
 			class:
-				allMatches.length > 0
-					? (allMatches[0].clusterName as unknown as ClusterNames<CLUSTERS>)
+				firstFiveMatches.length > 0
+					? (firstFiveMatches[0].clusterName as unknown as ClusterNames<CLUSTERS>)
 					: null,
 			rawResponse: undefined,
 		};

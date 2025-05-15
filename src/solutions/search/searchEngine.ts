@@ -410,7 +410,11 @@ export class SearchEngine {
 		const documentIdArray = scopedDocuments.map(doc => doc.id as number);
 		const folderIdArray = folders.map(folder => folder.id as number);
 
-		const termEntries = await this.documentStore.getTermsByValue([]);
+		const termEntries = await this.documentStore.terms
+			.where('documentId')
+			.anyOf(documentIdArray)
+			.and(item => this.isFolderMatch(item.folderId, folderIdArray, folders.length))
+			.toArray();
 		const filteredEntries = termEntries.filter(
 			item =>
 				documentIdArray.includes(item.documentId) &&
@@ -435,7 +439,10 @@ export class SearchEngine {
 	private async getDocumentsFromFolders(folders: IndexedFolder[]): Promise<IndexedDocument[]> {
 		const folderIdArray = folders.map(folder => folder.id as number);
 
-		const termEntries = await this.documentStore.getTermsByValue([]);
+		const termEntries = await this.documentStore.terms
+			.where('folderId')
+			.anyOf(folderIdArray)
+			.toArray();
 		const filteredEntries = termEntries.filter(item => folderIdArray.includes(item.folderId));
 
 		// Convert to Set to remove duplicates
@@ -459,28 +466,18 @@ export class SearchEngine {
 		scopedDocuments: IndexedDocument[],
 		folders: IndexedFolder[]
 	): Promise<IndexedTerm[]> {
-		// Get term entries without filtering first
-		const termEntries = await this.documentStore.getTermsByValue(terms);
-
-		// If no scope is provided, return all term entries
-		if (scopedDocuments.length === 0 && folders.length === 0) {
-			return termEntries;
-		}
-
 		// Pre-compute arrays for better performance
 		const documentIdArray = scopedDocuments.map(doc => doc.id as number);
 		const folderIdArray = folders.map(folder => folder.id as number);
 
 		// Apply filtering
-		return termEntries.filter(
-			item =>
-				// Only consider content terms (not filename terms)
-				item.source === TermSource.Content &&
-				// Filter by document IDs if scopedDocuments is provided
-				this.isDocumentMatch(item.documentId, documentIdArray, scopedDocuments.length) &&
-				// Filter by folder IDs if folders is provided
-				this.isFolderMatch(item.folderId, folderIdArray, folders.length)
-		);
+		return this.documentStore.terms
+			.where('term')
+			.anyOf(terms)
+			.and(item => item.source === TermSource.Content)
+			.and(item => this.isDocumentMatch(item.documentId, documentIdArray, scopedDocuments.length))
+			.and(item => this.isFolderMatch(item.folderId, folderIdArray, folders.length))
+			.toArray();
 	}
 
 	/**
@@ -602,6 +599,8 @@ export class SearchEngine {
 				scopedDocuments: matchedFilenameDocuments,
 				folders: matchedFolders,
 			});
+
+			console.log('documents', documents);
 
 			documentsAcrossOperations.push(...documents);
 		}

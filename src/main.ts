@@ -294,21 +294,26 @@ export default class StewardPlugin extends Plugin {
 		const lineText = line.text;
 
 		// Check if line starts with a command prefix
-		const commandMatch = COMMAND_PREFIXES.find(prefix => lineText.trim().startsWith(prefix));
+		const commandMatch = COMMAND_PREFIXES.find(prefix => lineText.startsWith(prefix));
 
 		if (!commandMatch) {
 			return false;
 		}
 
+		// Extract the command content (everything after the prefix)
+		const commandContent = lineText.trim().substring(commandMatch.length).trim();
+		const commandType = commandMatch.substring(1); // Remove the / from the command
+
+		logger.log('Command type:', commandType === ' ' ? 'general' : commandType);
+		logger.log('Command content:', commandContent);
+
+		if (!this.validateCommandContent(commandType, commandContent)) {
+			logger.log('Command content is required for this command');
+			return true;
+		}
+
 		(async () => {
 			try {
-				// Extract the command content (everything after the prefix)
-				const commandContent = lineText.trim().substring(commandMatch.length).trim();
-				const commandType = commandMatch.substring(1); // Remove the / from the command
-
-				logger.log('Command type:', commandType);
-				logger.log('Command content:', commandContent);
-
 				// Look for a conversation link in the previous lines
 				const conversationLink = this.findConversationLinkAbove(view);
 
@@ -378,6 +383,19 @@ export default class StewardPlugin extends Plugin {
 		})();
 
 		return true;
+	}
+
+	private validateCommandContent(commandType: string, commandContent: string): boolean {
+		switch (commandType) {
+			case ' ':
+			case 'search':
+			case 'image':
+			case 'audio':
+				return commandContent.trim() !== '';
+
+			default:
+				return true;
+		}
 	}
 
 	/**
