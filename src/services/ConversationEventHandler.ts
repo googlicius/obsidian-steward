@@ -483,10 +483,10 @@ export class ConversationEventHandler {
 		for (let index = 0; index < paginatedDocs.documents.length; index++) {
 			const result = paginatedDocs.documents[index];
 			const displayIndex = (page - 1) * 10 + index + 1;
-			response += `\n\n**${displayIndex}.** [[${result.path}]]:\n`;
+			response += `\n\n**${displayIndex}.** [[${result.path}]]\n`;
 
 			// Get the file content directly
-			const file = this.plugin.getFileByNameOrPath(result.fileName);
+			const file = this.plugin.getFileByNameOrPath(result.path);
 
 			if (file && 'keywordsMatched' in result) {
 				try {
@@ -504,7 +504,10 @@ export class ConversationEventHandler {
 					if (matchesToShow > 0) {
 						// Add each highlighted match to the response
 						for (let i = 0; i < matchesToShow; i++) {
-							response += `\n>[!search-result]\n>${highlightedMatches[i]}\n`;
+							// Format as a search-result callout with position data
+							const match = highlightedMatches[i];
+							const callout = `>[!search-result] line:${match.lineNumber},start:${match.start},end:${match.end},path:${result.path}\n>${match.text}`;
+							response += `\n${callout}\n`;
 						}
 
 						// Show a message for additional matches

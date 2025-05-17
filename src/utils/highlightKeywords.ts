@@ -5,11 +5,18 @@ interface HighlightOptions {
 	minMatchLength: number;
 }
 
+interface HighlightResult {
+	text: string;
+	lineNumber: number;
+	start: number;
+	end: number;
+}
+
 export function highlightKeywords(
 	keywords: string[],
 	content: string,
 	options: Partial<HighlightOptions> = {}
-): string[] {
+): HighlightResult[] {
 	// Default options
 	const defaultOptions: HighlightOptions = {
 		beforeMark: '==',
@@ -161,10 +168,10 @@ function generateHighlightedResults(
 	content: string,
 	matches: Match[],
 	options: HighlightOptions
-): string[] {
+): HighlightResult[] {
 	if (matches.length === 0) return [];
 
-	const highlights: string[] = [];
+	const highlights: HighlightResult[] = [];
 	const lines = content.split('\n');
 
 	// Create a map of line numbers to match indices for fast lookup
@@ -206,7 +213,15 @@ function generateHighlightedResults(
 		let result = '';
 		let lastEnd = 0;
 
+		// Initialize an object to store position data
+		const positions: { start: number; end: number } = { start: -1, end: -1 };
+
 		for (const match of lineMatches) {
+			// Track the start of first match in this line
+			if (positions.start === -1) {
+				positions.start = match.index;
+			}
+
 			// Add text before the match
 			result += line.substring(lastEnd, match.index);
 
@@ -218,12 +233,19 @@ function generateHighlightedResults(
 			}
 
 			lastEnd = match.index + match.text.length;
+			positions.end = lastEnd; // Update the end position to the last match
 		}
 
 		// Add the rest of the line
 		result += line.substring(lastEnd);
 
-		highlights.push(result);
+		// Add position data to the highlighted result
+		highlights.push({
+			text: result,
+			lineNumber: parseInt(lineIndex) + 1, // Make line numbers 1-based
+			start: positions.start,
+			end: positions.end,
+		});
 	}
 
 	return highlights;

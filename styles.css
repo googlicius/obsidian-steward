@@ -100,6 +100,15 @@ If your plugin does not need CSS, delete this file.
 .callout[data-callout='search-result'] {
 	--callout-color: var(--callout-success);
 	padding-left: 12px;
+	cursor: pointer;
+	transition:
+		background-color 0.2s ease,
+		transform 0.1s ease;
+	margin-bottom: 10px !important;
+}
+
+.callout[data-callout='search-result']:active {
+	transform: translateX(2px);
 }
 
 .callout[data-callout='search-result'] .callout-title {

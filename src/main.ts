@@ -3,10 +3,7 @@ import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView, keymap } from '@codemirror/view';
 import { createCommandHighlightExtension } from './cm/extensions/CommandHighlightExtension';
-import {
-	createTripleBlockExtension,
-	createTripleBlockPostProcessor,
-} from './cm/extensions/TripleBlockExtension';
+import { createCalloutDataPostProcessor } from './cm/extensions/CalloutDataPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter, Events } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -21,6 +18,7 @@ import { GitEventHandler } from './solutions/git/GitEventHandler';
 import { MediaGenerationService } from './services/MediaGenerationService';
 import { StewardPluginSettings } from './types/interfaces';
 import { Prec } from '@codemirror/state';
+import { STW_CONVERSATION_VIEW_CONFIG } from './constants';
 
 // Supported command prefixes
 export const COMMAND_PREFIXES = [
@@ -195,7 +193,6 @@ export default class StewardPlugin extends Plugin {
 		// Register the conversation extension for CodeMirror
 		this.registerEditorExtension([
 			createCommandHighlightExtension(COMMAND_PREFIXES),
-			createTripleBlockExtension(),
 			Prec.high(
 				keymap.of([
 					{
@@ -206,7 +203,13 @@ export default class StewardPlugin extends Plugin {
 			),
 		]);
 
-		this.registerMarkdownPostProcessor(createTripleBlockPostProcessor());
+		this.registerMarkdownPostProcessor(
+			createCalloutDataPostProcessor({
+				handleClick: event => {
+					this.handleSearchResultCalloutClick(event);
+				},
+			})
+		);
 
 		// Initialize the conversation event handler
 		new ConversationEventHandler({ plugin: this });
@@ -247,6 +250,7 @@ export default class StewardPlugin extends Plugin {
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new StewardSettingTab(this.app, this));
 
+		// Register event handler for links in static conversation
 		this.registerDomEvent(
 			document,
 			'click',
@@ -474,8 +478,8 @@ export default class StewardPlugin extends Plugin {
 
 			// Open the note in the leaf
 			await leaf.setViewState({
-				type: 'markdown',
-				state: { file: notePath },
+				type: STW_CONVERSATION_VIEW_CONFIG.type,
+				// state: { file: notePath },
 			});
 
 			if (revealLeaf) {
@@ -553,14 +557,6 @@ export default class StewardPlugin extends Plugin {
 		if (toggleButton instanceof HTMLElement) {
 			toggleButton.click();
 		}
-	}
-
-	/**
-	 * Checks if a leaf is currently visible in the workspace
-	 * @deprecated Use the check in toggleStaticConversation instead
-	 */
-	private isLeafVisible(leaf: WorkspaceLeaf): boolean {
-		return leaf !== null;
 	}
 
 	// Function to find a conversation link in the lines above the current cursor
@@ -735,7 +731,7 @@ export default class StewardPlugin extends Plugin {
 				event.preventDefault();
 				event.stopPropagation();
 
-				const nameOrPath = target.textContent;
+				const nameOrPath = target.dataset.href;
 				let mainLeaf: WorkspaceLeaf;
 
 				this.app.workspace.iterateRootLeaves(leaf => {
@@ -748,10 +744,101 @@ export default class StewardPlugin extends Plugin {
 						if (!file) return;
 
 						mainLeaf.openFile(file);
+						this.app.workspace.revealLeaf(mainLeaf);
 					});
 				}
 			}
 		}
+	}
+
+	/**
+	 * Handle clicks on search-result callouts to navigate to the exact match position
+	 * @param event Mouse event
+	 */
+	private async handleSearchResultCalloutClick(event: MouseEvent) {
+		const target = event.target as HTMLElement;
+		if (target.tagName === 'A') {
+			logger.log('Click on a link, skipping', target);
+			return;
+		}
+
+		const calloutEl = target.closest('.callout[data-callout="search-result"]') as HTMLElement;
+
+		// We only handle search result callouts that have position data
+		const { line, start, end, path } = calloutEl.dataset;
+
+		// Make sure we have all the necessary data
+		if (!path || !line || !start || !end) return;
+
+		event.preventDefault();
+		event.stopPropagation();
+
+		// Get the main leaf for opening the file
+		const mainLeaf = await this.getMainLeaf();
+
+		const file = this.getFileByNameOrPath(path);
+		if (!file) return;
+
+		// Open the file and scroll to the position
+		await mainLeaf.openFile(file);
+
+		const lineNum = parseInt(line);
+		const startPos = parseInt(start);
+		const endPos = parseInt(end);
+
+		// Add a longer delay to make sure the file is fully loaded and active
+		setTimeout(() => {
+			// Make sure the leaf is active and focused
+			this.app.workspace.setActiveLeaf(mainLeaf, { focus: true });
+			this.app.workspace.revealLeaf(mainLeaf);
+
+			// Get the editor from the file view directly
+			const view = mainLeaf.view;
+			// @ts-ignore - Access the editor property which exists on MarkdownView but might not be in types
+			const editor = view.editor as Editor & {
+				cm: EditorView;
+			};
+
+			if (!editor) return;
+
+			try {
+				// Set cursor and selection first
+				editor.setCursor({ line: lineNum - 1, ch: 0 });
+
+				// Highlight the text if we have start and end positions
+				if (!isNaN(startPos) && !isNaN(endPos)) {
+					const from = { line: lineNum - 1, ch: startPos };
+					const to = { line: lineNum - 1, ch: endPos };
+
+					// Select the text
+					editor.setSelection(from, to);
+				}
+
+				// Use CM6 scrolling for precise positioning
+				if (editor.cm) {
+					const linePosition = { line: lineNum - 1, ch: startPos || 0 };
+					const offset = editor.posToOffset(linePosition);
+
+					// Dispatch a scrolling effect to center the cursor
+					editor.cm.dispatch({
+						effects: EditorView.scrollIntoView(offset, {
+							y: 'center',
+							yMargin: 50,
+						}),
+					});
+				}
+			} catch (error) {
+				console.error('Error navigating to line:', error);
+			}
+		});
+	}
+
+	private async getMainLeaf(): Promise<WorkspaceLeaf> {
+		return new Promise(resolve => {
+			this.app.workspace.iterateRootLeaves(leaf => {
+				resolve(leaf);
+			});
+		});
 	}
 
 	/**

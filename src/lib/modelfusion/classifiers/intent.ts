@@ -40,6 +40,10 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 			name: 'close' as const,
 			values: ['close', 'end', 'exit', 'close the chat', 'quit'],
 		},
+		{
+			name: 'more' as const,
+			values: ['more', 'show more'],
+		},
 	],
 
 	prefixedClusterValue: [

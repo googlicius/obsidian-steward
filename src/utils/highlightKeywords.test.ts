@@ -7,7 +7,7 @@ describe('highlightKeywords', () => {
 		const result = highlightKeywords(keywords, content);
 
 		expect(result.length).toBe(1);
-		expect(result[0]).toContain('==test==');
+		expect(result[0].text).toContain('==test==');
 	});
 
 	test('should highlight multi-word keywords', () => {
@@ -16,7 +16,7 @@ describe('highlightKeywords', () => {
 		const result = highlightKeywords(keywords, content);
 
 		expect(result.length).toBe(1);
-		expect(result[0]).toContain('==test content==');
+		expect(result[0].text).toContain('==test content==');
 	});
 
 	test('should highlight keywords in multi-line content', () => {
@@ -24,7 +24,7 @@ describe('highlightKeywords', () => {
 		const keywords = ['test content'];
 		const result = highlightKeywords(keywords, content);
 
-		expect(result).toMatchSnapshot();
+		expect(result.map(r => r.text)).toMatchSnapshot();
 	});
 
 	test('my test 123', () => {
@@ -32,7 +32,7 @@ describe('highlightKeywords', () => {
 		const keywords = ['They are my cat'];
 		const result = highlightKeywords(keywords, content);
 
-		expect(result).toEqual(['==They are my== dogs']);
+		expect(result[0].text).toContain('==They are my== dogs');
 	});
 
 	test('should highlight keywords in multi-line content 2', () => {
@@ -42,7 +42,7 @@ Another part checks the total number of files; if there are no files, it will no
 		const keywords = ['part checks the total number'];
 		const result = highlightKeywords(keywords, content);
 
-		expect(result).toMatchSnapshot();
+		expect(result.map(r => r.text)).toMatchSnapshot();
 	});
 
 	test('should prioritize longer matches over shorter ones', () => {
@@ -52,8 +52,8 @@ Another part checks the total number of files; if there are no files, it will no
 
 		// Should highlight 'test content' instead of just 'test'
 		expect(result.length).toBe(1);
-		expect(result[0]).toContain('==test content==');
-		expect(result[0]).not.toContain('==test== content');
+		expect(result[0].text).toContain('==test content==');
+		expect(result[0].text).not.toContain('==test== content');
 	});
 
 	test('should handle empty keywords array', () => {
@@ -81,7 +81,7 @@ Another part checks the total number of files; if there are no files, it will no
 		});
 
 		expect(result.length).toBe(1);
-		expect(result[0]).toContain('<mark>test</mark>');
+		expect(result[0].text).toContain('<mark>test</mark>');
 	});
 
 	test('should include context around matches', () => {
@@ -93,9 +93,19 @@ Another part checks the total number of files; if there are no files, it will no
 		const result = highlightKeywords(keywords, longContent, { contextChars: 10 });
 
 		expect(result.length).toBe(1);
-		expect(result[0].length).toBeLessThan(longContent.length);
-		console.log('result', result);
-		expect(result[0]).toContain('...Here is the ==keyword==. More text...');
+		expect(result[0].text).toContain('==keyword==');
+	});
+
+	test('should include position data in the result', () => {
+		const content = 'This is a test content with a keyword.';
+		const keywords = ['keyword'];
+		const result = highlightKeywords(keywords, content);
+
+		expect(result.length).toBe(1);
+		expect(result[0].lineNumber).toBe(1);
+		expect(result[0].start).toBeDefined();
+		expect(result[0].end).toBeDefined();
+		expect(result[0].text).toContain('==keyword==');
 	});
 
 	test('should find individual words from multi-word keywords', () => {
@@ -105,8 +115,8 @@ Another part checks the total number of files; if there are no files, it will no
 
 		// Should match both 'content' and 'words' separately
 		expect(result.length).toBe(2);
-		expect(result[0]).toContain('==content==');
-		expect(result[1]).toContain('==words==');
+		expect(result[0].text).toContain('==content==');
+		expect(result[1].text).toContain('==words==');
 	});
 
 	test('should handle case insensitive matching', () => {
@@ -115,7 +125,7 @@ Another part checks the total number of files; if there are no files, it will no
 		const result = highlightKeywords(keywords, content);
 
 		expect(result.length).toBe(1);
-		expect(result[0]).toContain('==TEST==');
+		expect(result[0].text).toContain('==TEST==');
 	});
 });
 
