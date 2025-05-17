@@ -4,6 +4,12 @@ const ja = {
 			noFilesFound:
 				'検索条件に一致するファイルが見つかりませんでした。別の検索語をお試しください。',
 		},
+		// Chat UI elements
+		chat: {
+			newChat: '新しいチャット',
+			history: '履歴',
+			closeChat: 'チャットを閉じる',
+		},
 		// Move result messages
 		move: {
 			foundFiles: '{{count}}件のファイルが見つかりました。',

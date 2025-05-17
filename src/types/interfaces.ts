@@ -9,7 +9,6 @@ export interface StewardPluginSettings {
 	conversationFolder: string;
 	searchDbPrefix: string;
 	encryptionVersion?: number; // Track the encryption version for future migrations
-	staticConversationLeafId?: string; // ID of the leaf containing the static conversation
 	excludedFolders: string[]; // Folders to exclude from Obsidian search
 	debug: boolean; // Enable debug logging
 	audio: {

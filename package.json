@@ -16,6 +16,7 @@
 	"author": "",
 	"license": "MIT",
 	"devDependencies": {
+		"@codemirror/autocomplete": "github:codemirror/autocomplete",
 		"@codemirror/language": "^6.11.0",
 		"@types/crypto-js": "^4.2.2",
 		"@types/jest": "^29.5.12",

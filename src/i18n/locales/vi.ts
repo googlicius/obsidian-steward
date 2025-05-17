@@ -4,6 +4,12 @@ const vi = {
 			noFilesFound:
 				'Tôi không tìm thấy tập tin nào phù hợp với truy vấn của bạn. Vui lòng thử từ khóa tìm kiếm khác.',
 		},
+		// Chat UI elements
+		chat: {
+			newChat: 'Cuộc Trò Chuyện Mới',
+			history: 'Lịch Sử',
+			closeChat: 'Đóng Trò Chuyện',
+		},
 		// Move result messages
 		move: {
 			foundFiles: 'Tôi đã tìm thấy {{count}} tập tin khớp với truy vấn của bạn.',

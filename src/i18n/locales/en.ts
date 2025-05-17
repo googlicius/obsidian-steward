@@ -4,6 +4,12 @@ const en = {
 			noFilesFound:
 				"I couldn't find any files matching your query. Please try a different search term.",
 		},
+		// Chat UI elements
+		chat: {
+			newChat: 'New Chat',
+			history: 'History',
+			closeChat: 'Close Chat',
+		},
 		// Media generation messages
 		media: {
 			invalidCommand: 'Invalid media generation command',

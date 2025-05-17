@@ -1,8 +1,15 @@
 import { EditorView, Decoration, DecorationSet, ViewPlugin, ViewUpdate } from '@codemirror/view';
 import { Extension } from '@codemirror/state';
+import { autocompletion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
+import { capitalizeString } from 'src/utils/capitalizeString';
 
-export function createCommandHighlightExtension(commandPrefixes: string[]): Extension {
-	// Add syntax highlighting for command prefixes
+export function createCommandHighlightExtension(commandPrefixes: string[]): Extension[] {
+	// Return an array of extensions: one for highlighting and one for autocomplete
+	return [createHighlightExtension(commandPrefixes), createAutocompleteExtension(commandPrefixes)];
+}
+
+// Add syntax highlighting for command prefixes
+function createHighlightExtension(commandPrefixes: string[]): Extension {
 	return ViewPlugin.fromClass(
 		class {
 			decorations: DecorationSet;
@@ -58,4 +65,62 @@ export function createCommandHighlightExtension(commandPrefixes: string[]): Exte
 			decorations: v => v.decorations,
 		}
 	);
+}
+
+// Add autocomplete functionality for command prefixes
+function createAutocompleteExtension(commandPrefixes: string[]): Extension {
+	// Create a mapping of command prefixes to their types for easier lookup
+	const commandTypes = commandPrefixes.map(prefix => {
+		// Remove the slash and trim whitespace
+		const type = prefix === '/ ' ? 'general' : prefix.replace('/', '');
+		return { prefix, type };
+	});
+
+	return autocompletion({
+		// Only activate when typing after a slash at the beginning of a line
+		activateOnTyping: true,
+		override: [
+			(context: CompletionContext): CompletionResult | null => {
+				// Get current line
+				const { state, pos } = context;
+				const line = state.doc.lineAt(pos);
+				const lineText = line.text;
+
+				// Only show autocomplete when cursor is at beginning of line with a slash
+				if (!lineText.startsWith('/')) return null;
+
+				// Only show when user types a character after the "/"
+				if (lineText === '/ ' || lineText === '/') return null;
+
+				// Make sure we're at the beginning of the line
+				if (line.from !== pos - lineText.length && pos !== line.from + lineText.length) return null;
+
+				// Get the current word (which starts with /)
+				const word = lineText.trim();
+
+				const options = commandTypes
+					.filter(cmd => cmd.prefix.startsWith(word) && cmd.prefix !== word)
+					.map(cmd => ({
+						label: cmd.prefix,
+						type: 'keyword',
+						detail: `${capitalizeString(cmd.type)} command`,
+						apply: cmd.prefix + ' ',
+					}));
+
+				if (options.length === 0) return null;
+
+				return {
+					from: line.from,
+					options,
+					validFor: text => {
+						// If text matches an exact command, return false
+						if (commandPrefixes.some(cmd => cmd === text)) return false;
+
+						// Otherwise, validate if it starts with a slash followed by word characters
+						return /^\/\w*$/.test(text);
+					},
+				};
+			},
+		],
+	});
 }

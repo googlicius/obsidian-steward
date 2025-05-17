@@ -18,52 +18,13 @@ import { GitEventHandler } from './solutions/git/GitEventHandler';
 import { MediaGenerationService } from './services/MediaGenerationService';
 import { StewardPluginSettings } from './types/interfaces';
 import { Prec } from '@codemirror/state';
-import { STW_CONVERSATION_VIEW_CONFIG } from './constants';
-
-// Supported command prefixes
-export const COMMAND_PREFIXES = [
-	'/ ',
-	'/search',
-	'/more',
-	'/close',
-	'/yes',
-	'/no',
-	'/image',
-	'/audio',
-	'/speak',
-	'/prompt',
-	'/create',
-];
-// Define custom icon ID
-const SMILE_CHAT_ICON_ID = 'smile-chat-icon';
-
-const DEFAULT_SETTINGS: StewardPluginSettings = {
-	mySetting: 'default',
-	apiKeys: {
-		openai: '',
-		elevenlabs: '',
-		deepseek: '',
-	},
-	saltKeyId: '', // Will be generated on first load
-	conversationFolder: 'Steward/Conversations',
-	searchDbPrefix: '',
-	encryptionVersion: 1, // Current version
-	staticConversationLeafId: undefined,
-	excludedFolders: ['node_modules', 'src', '.git', 'dist'], // Default development folders to exclude
-	debug: false, // Debug logging disabled by default
-	audio: {
-		model: 'openai', // Default model
-		voices: {
-			openai: 'alloy',
-			elevenlabs: 'pNInz6obpgDQGcFmaJgB',
-		},
-	},
-	llm: {
-		model: 'gpt-4-turbo-preview',
-		temperature: 0.2,
-		ollamaBaseUrl: 'http://localhost:11434',
-	},
-};
+import {
+	COMMAND_PREFIXES,
+	DEFAULT_SETTINGS,
+	SMILE_CHAT_ICON_ID,
+	STW_CONVERSATION_VIEW_CONFIG,
+} from './constants';
+import { StewardConversationView } from './views/StewardConversationView';
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -192,7 +153,7 @@ export default class StewardPlugin extends Plugin {
 
 		// Register the conversation extension for CodeMirror
 		this.registerEditorExtension([
-			createCommandHighlightExtension(COMMAND_PREFIXES),
+			...createCommandHighlightExtension(COMMAND_PREFIXES),
 			Prec.high(
 				keymap.of([
 					{
@@ -250,14 +211,6 @@ export default class StewardPlugin extends Plugin {
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new StewardSettingTab(this.app, this));
 
-		// Register event handler for links in static conversation
-		this.registerDomEvent(
-			document,
-			'click',
-			this.handleLinkClickOnStaticConversation.bind(this),
-			true
-		);
-
 		// Initialize the confirmation event handler
 		this.confirmationEventHandler = new ConfirmationEventHandler(this);
 
@@ -269,6 +222,9 @@ export default class StewardPlugin extends Plugin {
 
 		// Initialize Git event handler for tracking and reverting changes
 		this.gitEventHandler = new GitEventHandler(this.app, this);
+
+		// Register the custom view type
+		this.registerView(STW_CONVERSATION_VIEW_CONFIG.type, leaf => new StewardConversationView(leaf));
 	}
 
 	onunload() {
@@ -407,21 +363,16 @@ export default class StewardPlugin extends Plugin {
 	 * @returns The leaf containing the static conversation
 	 */
 	private getStaticConversationLeaf(): WorkspaceLeaf {
-		// Try to find existing leaf by ID first
-		let leaf = this.settings.staticConversationLeafId
-			? this.app.workspace.getLeafById(this.settings.staticConversationLeafId)
-			: null;
+		// Try to find existing leaf by view type
+		const leaves = this.app.workspace.getLeavesOfType(STW_CONVERSATION_VIEW_CONFIG.type);
 
-		// If no leaf found by ID, create a new one
-		if (!leaf) {
-			leaf = this.app.workspace.getRightLeaf(false);
-			if (leaf) {
-				// Store the leaf ID for future reference
-				// @ts-ignore - leaf.id exists but TypeScript doesn't know about it
-				this.settings.staticConversationLeafId = leaf.id;
-				this.saveSettings();
-			}
+		// Use the first leaf if available
+		if (leaves.length > 0) {
+			return leaves[0];
 		}
+
+		// If no leaf found, create a new one
+		const leaf = this.app.workspace.getRightLeaf(false);
 
 		if (!leaf) {
 			throw new Error('Failed to create or find a leaf for the static conversation');
@@ -474,19 +425,16 @@ export default class StewardPlugin extends Plugin {
 			// Get or create the leaf for the static conversation
 			const leaf = this.getStaticConversationLeaf();
 
-			leaf.view.containerEl.classList.add('steward-conversation-wrapper');
-
-			// Open the note in the leaf
+			// Use our custom view
 			await leaf.setViewState({
 				type: STW_CONVERSATION_VIEW_CONFIG.type,
-				// state: { file: notePath },
+				state: { file: notePath },
 			});
 
 			if (revealLeaf) {
 				// Focus the editor
 				this.app.workspace.revealLeaf(leaf);
 				this.app.workspace.setActiveLeaf(leaf, { focus: true });
-				this.scrollCursorIntoView();
 			}
 		} catch (error) {
 			logger.error('Error opening static conversation:', error);
@@ -712,42 +660,6 @@ export default class StewardPlugin extends Plugin {
 		} catch (error) {
 			logger.error(`Error encrypting ${service} API key:`, error);
 			throw new Error(`Could not encrypt ${service} API key`);
-		}
-	}
-
-	/**
-	 * Open the link in the main leaf when clicking links in the chat.
-	 * @param event
-	 */
-	private handleLinkClickOnStaticConversation(event: MouseEvent) {
-		const target = event.target as HTMLElement;
-
-		const isLink =
-			target.classList.contains('internal-link') || target.closest('.cm-hmd-internal-link');
-		if (isLink) {
-			const activeFile = this.app.workspace.getActiveFile() as TFile;
-
-			if (activeFile.name.startsWith(this.staticConversationTitle)) {
-				event.preventDefault();
-				event.stopPropagation();
-
-				const nameOrPath = target.dataset.href;
-				let mainLeaf: WorkspaceLeaf;
-
-				this.app.workspace.iterateRootLeaves(leaf => {
-					mainLeaf = leaf;
-				});
-
-				if (nameOrPath) {
-					setTimeout(() => {
-						const file = this.getFileByNameOrPath(nameOrPath);
-						if (!file) return;
-
-						mainLeaf.openFile(file);
-						this.app.workspace.revealLeaf(mainLeaf);
-					});
-				}
-			}
 		}
 	}
 

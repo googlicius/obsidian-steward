@@ -1,6 +1,5 @@
 import { App, EventRef, TFile, MarkdownView } from 'obsidian';
 import { removeStopwords } from './stopwords';
-import { COMMAND_PREFIXES } from './main';
 import {
 	IndexedDocument,
 	IndexedFolder,
@@ -11,6 +10,7 @@ import {
 import { SearchOperationV2 } from './lib/modelfusion';
 import { logger } from './utils/logger';
 import { similarity } from './utils/similarity';
+import { COMMAND_PREFIXES } from './constants';
 
 interface ScoredDocument extends IndexedDocument {
 	score: number;
