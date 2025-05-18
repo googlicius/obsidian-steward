@@ -1,37 +1,55 @@
 # Obsidian Steward
 
-Obsidian Steward is a plugin for [Obsidian](https://obsidian.md) that helps you communicate with an AI assistant directly from your markdown editor.
+Obsidian Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It provides building block commands like search, move, copy, create, and more, allowing you to build sophisticated custom prompts, prompt chaining, and automation for your specific tasks.
 
 ## Features
 
-- **Command-based conversations**: Start a conversation with the AI by typing special commands like `/move`, `/search`, or `/calc`
-- **Contextual AI assistance**: Get help with moving files, searching your vault, or performing calculations
-- **Persistent conversations**: All conversations are saved in a dedicated folder for future reference
-- **Follow-up queries**: Easily continue conversations with follow-up messages
+- **Built-in Search Engine**: Powerful TF-IDF based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search
+- **Command-based Interaction**: Support for commands like search, create, update, delete, move, audio, and image generation
+- **Multi-language Support**: Use Steward in your preferred language
+- **Privacy-focused**: Most actions are executed in the front-end using Obsidian API to avoid exposing your data to LLMs (except for your queries)
+- **Beautiful Chat UI**: Interactive chat interface that leverages Obsidian's editor support
+- **Model Flexibility**: Use your favorite AI models including OpenAI, DeepSeek, and Ollama local models
+- **Intent Caching**: Utilizes embeddings to cache similar queries so subsequent requests don't require LLM processing
+
+## Development Status
+
+🚧 **Active Development** 🚧
+
+This plugin is currently under active development. New features and improvements are being added regularly. While the core functionality is stable, you might encounter occasional issues or changes as development progresses. Feedback and bug reports are welcome!
 
 ## Usage
 
-1. Type one of the following commands at the beginning of a line:
-   - `/move` - Get help moving files in your vault
-   - `/search` - Search your vault with natural language
-2. Press `Shift+Enter` to execute the command and start a conversation
+Steward can be used through the command palette or by opening the chat interface. Here are some example commands:
 
-3. The plugin will:
-
-   - Create a new note in the conversations folder
-   - Insert an inline link to that note at your current cursor position
-   - Initialize the conversation with your command
+- `Search for notes about project management`
+- `Create a new note about quantum physics`
+- `Move the search results to the Projects folder`
+- `Generate an image of a mountain landscape`
+- `Create an audio summary of the selected text`
 
 ## Installation
 
 1. Download the plugin from the Obsidian Community Plugins browser
 2. Enable the plugin in your Obsidian settings
-3. Configure your OpenAI API key in the plugin settings
+3. Configure your API keys in the plugin settings
 
 ## Settings
 
-- **OpenAI API Key**: Your API key for accessing OpenAI services
-- **Conversation Folder**: The folder where conversation notes will be stored (default: `steward/conversations`)
+- **API Keys**:
+
+  - OpenAI API Key (for OpenAI models and embeddings)
+  - ElevenLabs API Key (for audio generation)
+  - DeepSeek API Key (for DeepSeek models)
+
+- **LLM Settings**:
+
+  - Chat Model: Choose between various models from OpenAI, DeepSeek, or Ollama
+  - Temperature: Controls randomness in the output (0.0 to 1.0)
+  - Ollama Base URL: For local Ollama models (default: http://localhost:11434)
+
+- **Conversation Folder**: The folder where conversation notes will be stored (default: `Steward/Conversations`)
+- **Debug Mode**: Enable detailed logging for troubleshooting
 
 ## Development
 

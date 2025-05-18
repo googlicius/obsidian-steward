@@ -153,7 +153,7 @@ export default class StewardPlugin extends Plugin {
 
 		// Register the conversation extension for CodeMirror
 		this.registerEditorExtension([
-			...createCommandHighlightExtension(COMMAND_PREFIXES),
+			createCommandHighlightExtension(COMMAND_PREFIXES),
 			Prec.high(
 				keymap.of([
 					{

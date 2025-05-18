@@ -3,8 +3,7 @@ import { Extension } from '@codemirror/state';
 import { autocompletion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { capitalizeString } from 'src/utils/capitalizeString';
 
-export function createCommandHighlightExtension(commandPrefixes: string[]): Extension[] {
-	// Return an array of extensions: one for highlighting and one for autocomplete
+export function createCommandHighlightExtension(commandPrefixes: string[]): Extension {
 	return [createHighlightExtension(commandPrefixes), createAutocompleteExtension(commandPrefixes)];
 }
 
@@ -29,21 +28,29 @@ function createHighlightExtension(commandPrefixes: string[]): Extension {
 				const { state } = view;
 				const { doc } = state;
 
-				// Iterate through each line in the document
-				for (let i = 1; i <= doc.lines; i++) {
-					const line = doc.line(i);
+				// Get visible range instead of processing the entire document
+				const { from, to } = view.viewport;
+
+				// Process only the visible lines
+				let pos = from;
+				while (pos <= to) {
+					const line = doc.lineAt(pos);
 					const lineText = line.text;
 
-					// Check for command prefixes
-					for (const prefix of commandPrefixes) {
-						if (lineText.startsWith(prefix)) {
-							// Create a decoration for the command prefix
-							const from = line.from + lineText.indexOf(prefix);
-							const to = from + prefix.length;
+					// Fast check for any command prefix
+					if (lineText.startsWith('/')) {
+						// Find the matching prefix (if any)
+						const matchedPrefix = commandPrefixes.find(prefix => lineText.startsWith(prefix));
 
-							const command = prefix === '/ ' ? 'general' : prefix.replace('/', '');
+						if (matchedPrefix) {
+							const from = line.from + lineText.indexOf(matchedPrefix);
+							const to = from + matchedPrefix.length;
+
+							const command = matchedPrefix === '/ ' ? 'general' : matchedPrefix.replace('/', '');
 							const hasPlaceholder =
-								command === 'general' ? lineText === prefix : lineText.trim() === prefix;
+								command === 'general'
+									? lineText === matchedPrefix
+									: lineText.trim() === matchedPrefix;
 
 							decorations.push(
 								Decoration.mark({
@@ -53,9 +60,11 @@ function createHighlightExtension(commandPrefixes: string[]): Extension {
 									}),
 								}).range(from, to)
 							);
-							break;
 						}
 					}
+
+					// Move to the next line
+					pos = line.to + 1;
 				}
 
 				return Decoration.set(decorations);
