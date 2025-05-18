@@ -10,7 +10,7 @@ Available commands:
 - "search": When the user wants to find notes to update
   - The content should be the exact search query from the user's request
   - For example, if user says "find all notes with #project tag", the content should be "#project"
-- "update_from_search_result": When the user wants to update files from search results
+- "update_from_artifact": When the user wants to update files from search results
   - The content should be the exact update instruction from the user's request
   - For example, if user says "add #completed tag", the content should be "add #completed tag"
 
@@ -24,7 +24,7 @@ Guidelines:
 
 You must respond with a valid JSON object containing these properties:
 - commands: An array of command objects, each containing:
-  - type: One of "search" or "update_from_search_result"
+  - type: One of "search" or "update_from_artifact"
   - content: The exact content from the user's request for that command
 - explanation: A brief explanation of how you interpreted the update request`,
 };

@@ -5,7 +5,7 @@ import {
 	ConversationLinkInsertedPayload,
 	ConversationCommandReceivedPayload,
 	CommandIntentExtractedPayload,
-	MoveFromSearchResultConfirmedPayload,
+	MoveFromArtifactConfirmedPayload,
 } from '../types/events';
 import { eventEmitter } from './EventEmitter';
 import * as mathTools from '../tools/mathTools';
@@ -15,11 +15,7 @@ import { highlightKeywords } from '../utils/highlightKeywords';
 import { extractCommandIntent, extractSearchQueryV2 } from '../lib/modelfusion';
 import { IndexedDocument } from '../database/PluginDatabase';
 import { ConversationRenderer } from './ConversationRenderer';
-import {
-	ArtifactType,
-	ConversationArtifactManager,
-	SearchResultsArtifact,
-} from './ConversationArtifactManager';
+import { ArtifactType, ConversationArtifactManager } from './ConversationArtifactManager';
 import { extractMoveFromSearchResult } from '../lib/modelfusion';
 import { PaginatedSearchResultV2 } from '../solutions/search';
 import { logger } from 'src/utils/logger';
@@ -79,8 +75,8 @@ export class ConversationEventHandler {
 
 		// Listen for move from search result confirmed
 		eventEmitter.on(
-			Events.MOVE_FROM_SEARCH_RESULT_CONFIRMED,
-			(payload: MoveFromSearchResultConfirmedPayload) => {
+			Events.MOVE_FROM_ARTIFACT_CONFIRMED,
+			(payload: MoveFromArtifactConfirmedPayload) => {
 				this.handleMoveOperation(payload);
 			}
 		);
@@ -149,25 +145,25 @@ export class ConversationEventHandler {
 					break;
 				}
 
-				case 'move_from_search_result': {
+				case 'move_from_artifact': {
 					await this.renderer.addGeneratingIndicator(
 						payload.title,
 						i18next.t('conversation.moving')
 					);
-					await this.handleMoveFromSearchResultCommand(payload.title, command.content);
+					await this.handleMoveFromArtifactCommand(payload.title, command.content);
 					break;
 				}
 
-				case 'delete_from_search_result': {
+				case 'delete_from_artifact': {
 					await this.renderer.addGeneratingIndicator(
 						payload.title,
 						i18next.t('conversation.deleting')
 					);
-					await this.handleDeleteCommand(payload.title, command.content);
+					await this.handleDeleteCommand(payload.title, command.content, payload.lang);
 					break;
 				}
 
-				case 'copy_from_search_result': {
+				case 'copy_from_artifact': {
 					await this.renderer.addGeneratingIndicator(
 						payload.title,
 						i18next.t('conversation.copying')
@@ -228,16 +224,12 @@ export class ConversationEventHandler {
 					break;
 				}
 
-				case 'update_from_search_result': {
+				case 'update_from_artifact': {
 					await this.renderer.addGeneratingIndicator(
 						payload.title,
 						i18next.t('conversation.updating')
 					);
-					await this.handleUpdateFromSearchResultCommand(
-						payload.title,
-						command.content,
-						payload.lang
-					);
+					await this.handleUpdateFromArtifactCommand(payload.title, command.content, payload.lang);
 					break;
 				}
 
@@ -356,7 +348,7 @@ export class ConversationEventHandler {
 	 * @param payload The event payload containing either move query extraction or search results
 	 */
 	private async handleMoveOperation(
-		payload: MoveFromSearchResultConfirmedPayload,
+		payload: MoveFromArtifactConfirmedPayload,
 		lang?: string
 	): Promise<void> {
 		try {
@@ -368,7 +360,7 @@ export class ConversationEventHandler {
 
 			const filesByOperation = new Map<number, IndexedDocument[]>();
 
-			const { destinationFolder, searchResults, explanation } = payload;
+			const { destinationFolder, docs, explanation } = payload;
 
 			// Create a single operation
 			operations.push({
@@ -380,7 +372,7 @@ export class ConversationEventHandler {
 			});
 
 			// Set the files for this operation
-			filesByOperation.set(0, searchResults);
+			filesByOperation.set(0, docs);
 
 			// If there are no operations, return
 			if (operations.length === 0) {
@@ -398,18 +390,15 @@ export class ConversationEventHandler {
 				filesByOperation
 			);
 
-			// Delete the search artifact (if any) after moving.
-			const lastSearchMetadata = await this.renderer.findMostRecentMessageMetadata(
-				payload.title,
-				'search',
-				'user'
-			);
+			// Delete the most recent artifact (if any) after moving.
+			const artifact = this.artifactManager.getMostRecentArtifact(payload.title);
 
-			if (
-				lastSearchMetadata &&
-				this.artifactManager.deleteArtifact(payload.title, lastSearchMetadata.ID)
-			) {
-				logger.log('Search results artifact deleted successfully.');
+			if (artifact && artifact.id) {
+				if (this.artifactManager.deleteArtifact(payload.title, artifact.id)) {
+					logger.log(
+						`Artifact of type ${artifact.type} deleted successfully (created ${new Date(artifact.createdAt).toLocaleString()}).`
+					);
+				}
 			}
 
 			// Format the results
@@ -615,10 +604,7 @@ export class ConversationEventHandler {
 			const page = moreCommandMetadata ? parseInt(moreCommandMetadata.PAGE) : 2;
 
 			// Retrieve the search results from the artifact manager
-			const searchArtifact = this.artifactManager.getArtifact<SearchResultsArtifact>(
-				path,
-				stewardSearchMetadata.ID
-			);
+			const searchArtifact = this.artifactManager.getArtifact(path, stewardSearchMetadata.ID);
 
 			if (!searchArtifact || searchArtifact.type !== ArtifactType.SEARCH_RESULTS) {
 				await this.renderer.updateConversationNote({
@@ -897,33 +883,41 @@ export class ConversationEventHandler {
 	}
 
 	/**
-	 * Handles the move_from_search_result command to move files from recent search results
+	 * Handles the move_from_artifact command to move files from recent search results or created notes
 	 * @param title The conversation title
 	 * @param commandContent The command content containing the destination folder
 	 */
-	private async handleMoveFromSearchResultCommand(
+	private async handleMoveFromArtifactCommand(
 		title: string,
 		commandContent: string
 	): Promise<void> {
 		try {
-			// Extract the destination folder from the command
 			const extraction = await extractMoveFromSearchResult(commandContent);
 
-			// Get translation function
 			const t = getTranslation(extraction.lang);
 
-			// Retrieve the most recent search results artifact
-			const searchArtifact =
-				this.artifactManager.getMostRecentArtifactByType<SearchResultsArtifact>(
-					title,
-					ArtifactType.SEARCH_RESULTS
-				);
+			const artifact = this.artifactManager.getMostRecentArtifact(title);
 
-			if (!searchArtifact || searchArtifact.type !== ArtifactType.SEARCH_RESULTS) {
-				// No search results available
+			if (!artifact) {
 				await this.renderer.updateConversationNote({
 					path: title,
-					newContent: t('search.noRecentSearch'),
+					newContent: t('common.noRecentOperations'),
+					role: 'Steward',
+				});
+				return;
+			}
+
+			// Handle different artifact types
+			let docs: any[] = [];
+
+			if (artifact.type === ArtifactType.SEARCH_RESULTS) {
+				docs = artifact.originalResults;
+			} else if (artifact.type === ArtifactType.CREATED_NOTE) {
+				docs = [{ path: artifact.path }];
+			} else {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: t('common.cannotMoveThisType'),
 					role: 'Steward',
 				});
 				return;
@@ -942,19 +936,19 @@ export class ConversationEventHandler {
 				// Create context with information needed to perform the move after confirmation
 				await this.plugin.confirmationEventHandler.requestConfirmation(
 					title,
-					'move-folder-from-search',
+					'move-from-artifact',
 					message,
 					{
 						missingFolder: destinationFolder,
-						searchResults: searchArtifact.originalResults,
+						docs,
 						explanation: extraction.explanation,
 					},
 					{
-						eventType: Events.MOVE_FROM_SEARCH_RESULT_CONFIRMED,
+						eventType: Events.MOVE_FROM_ARTIFACT_CONFIRMED,
 						payload: {
 							title,
 							destinationFolder,
-							searchResults: searchArtifact.originalResults,
+							docs,
 							explanation: extraction.explanation,
 						},
 					}
@@ -964,10 +958,10 @@ export class ConversationEventHandler {
 			}
 
 			// Folder exists, create the payload and trigger the event directly
-			const payload: MoveFromSearchResultConfirmedPayload = {
+			const payload: MoveFromArtifactConfirmedPayload = {
 				title,
 				destinationFolder,
-				searchResults: searchArtifact.originalResults,
+				docs,
 				explanation: extraction.explanation,
 			};
 
@@ -1029,23 +1023,33 @@ export class ConversationEventHandler {
 	): Promise<void> {
 		try {
 			const t = getTranslation(lang);
-			// Retrieve the most recent search results artifact
-			const searchArtifact =
-				this.artifactManager.getMostRecentArtifactByType<SearchResultsArtifact>(
-					title,
-					ArtifactType.SEARCH_RESULTS
-				);
+			// Retrieve the most recent artifact regardless of type
+			const artifact = this.artifactManager.getMostRecentArtifact(title);
 
-			if (!searchArtifact || searchArtifact.type !== ArtifactType.SEARCH_RESULTS) {
+			if (!artifact) {
 				await this.renderer.updateConversationNote({
 					path: title,
-					newContent: t('search.noRecentSearch'),
+					newContent: t('common.noRecentOperations'),
 					role: 'Steward',
 				});
 				return;
 			}
 
-			const docs = searchArtifact.originalResults;
+			// Handle different artifact types
+			let docs: any[] = [];
+
+			if (artifact.type === ArtifactType.SEARCH_RESULTS) {
+				docs = artifact.originalResults;
+			} else if (artifact.type === ArtifactType.CREATED_NOTE) {
+				docs = [{ path: artifact.path }];
+			} else {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: t('common.cannotDeleteThisType'),
+					role: 'Steward',
+				});
+				return;
+			}
 
 			// If no files match, inform the user
 			if (docs.length === 0) {
@@ -1096,7 +1100,7 @@ export class ConversationEventHandler {
 				path: title,
 				newContent: response,
 				role: 'Steward',
-				command: 'delete_from_search_result',
+				command: 'delete_from_artifact',
 			});
 
 			// Emit the delete operation completed event
@@ -1110,10 +1114,13 @@ export class ConversationEventHandler {
 					},
 				],
 			});
+
+			// Delete the artifact
+			this.artifactManager.deleteArtifact(title, artifact.id);
 		} catch (error) {
 			await this.renderer.updateConversationNote({
 				path: title,
-				newContent: `*Error extracting delete query: ${error.message}*`,
+				newContent: `*Error deleting files: ${error.message}*`,
 				role: 'Steward',
 			});
 		}
@@ -1131,23 +1138,33 @@ export class ConversationEventHandler {
 	): Promise<void> {
 		try {
 			const t = getTranslation(lang);
-			// Retrieve the most recent search results artifact
-			const searchArtifact =
-				this.artifactManager.getMostRecentArtifactByType<SearchResultsArtifact>(
-					title,
-					ArtifactType.SEARCH_RESULTS
-				);
+			// Retrieve the most recent artifact regardless of type
+			const artifact = this.artifactManager.getMostRecentArtifact(title);
 
-			if (!searchArtifact || searchArtifact.type !== ArtifactType.SEARCH_RESULTS) {
+			if (!artifact) {
 				await this.renderer.updateConversationNote({
 					path: title,
-					newContent: t('search.noRecentSearch'),
+					newContent: t('common.noRecentOperations'),
 					role: 'Steward',
 				});
 				return;
 			}
 
-			const docs = searchArtifact.originalResults;
+			// Handle different artifact types
+			let docs: any[] = [];
+
+			if (artifact.type === ArtifactType.SEARCH_RESULTS) {
+				docs = artifact.originalResults;
+			} else if (artifact.type === ArtifactType.CREATED_NOTE) {
+				docs = [{ path: artifact.path }];
+			} else {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: t('common.cannotCopyThisType'),
+					role: 'Steward',
+				});
+				return;
+			}
 
 			// If no files match, inform the user
 			if (docs.length === 0) {
@@ -1155,7 +1172,7 @@ export class ConversationEventHandler {
 					path: title,
 					newContent: t('common.noFilesFound'),
 					role: 'Steward',
-					command: 'delete',
+					command: 'copy',
 				});
 				return;
 			}
@@ -1243,7 +1260,7 @@ export class ConversationEventHandler {
 		} catch (error) {
 			await this.renderer.updateConversationNote({
 				path: title,
-				newContent: `*Error extracting copy query: ${error.message}*`,
+				newContent: `*Error copying files: ${error.message}*`,
 				role: 'Steward',
 			});
 		}
@@ -1342,24 +1359,33 @@ export class ConversationEventHandler {
 		return response;
 	}
 
-	private async handleUpdateFromSearchResultCommand(
+	private async handleUpdateFromArtifactCommand(
 		title: string,
 		commandContent: string,
 		lang?: string
 	): Promise<void> {
 		try {
 			const t = getTranslation(lang);
-			// Retrieve the most recent search results artifact
-			const searchArtifact =
-				this.artifactManager.getMostRecentArtifactByType<SearchResultsArtifact>(
-					title,
-					ArtifactType.SEARCH_RESULTS
-				);
+			// Retrieve the most recent artifact regardless of type
+			const artifact = this.artifactManager.getMostRecentArtifact(title);
 
-			if (!searchArtifact || searchArtifact.type !== ArtifactType.SEARCH_RESULTS) {
+			if (!artifact) {
 				await this.renderer.updateConversationNote({
 					path: title,
-					newContent: t('search.noRecentSearch'),
+					newContent: t('common.noRecentOperations'),
+					role: 'Steward',
+				});
+				return;
+			}
+
+			// Handle different artifact types
+			if (
+				artifact.type !== ArtifactType.SEARCH_RESULTS &&
+				artifact.type !== ArtifactType.CREATED_NOTE
+			) {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: t('common.cannotUpdateThisType'),
 					role: 'Steward',
 				});
 				return;
@@ -1381,11 +1407,7 @@ export class ConversationEventHandler {
 			}
 
 			// Perform the updates
-			await this.handleUpdateFromSearchResult(
-				title,
-				extraction.updateInstructions,
-				extraction.lang
-			);
+			await this.handleUpdateFromArtifact(title, extraction.updateInstructions, extraction.lang);
 		} catch (error) {
 			await this.renderer.updateConversationNote({
 				path: title,
@@ -1395,7 +1417,7 @@ export class ConversationEventHandler {
 		}
 	}
 
-	private async handleUpdateFromSearchResult(
+	private async handleUpdateFromArtifact(
 		title: string,
 		updateInstructions: UpdateInstruction[],
 		lang?: string
@@ -1404,14 +1426,31 @@ export class ConversationEventHandler {
 			// Get translation function
 			const t = getTranslation(lang);
 
-			// Retrieve the most recent search results artifact
-			const searchArtifact =
-				this.artifactManager.getMostRecentArtifactByType<SearchResultsArtifact>(
-					title,
-					ArtifactType.SEARCH_RESULTS
-				);
+			// Retrieve the most recent artifact regardless of type
+			const artifact = this.artifactManager.getMostRecentArtifact(title);
 
-			if (!searchArtifact || searchArtifact.type !== ArtifactType.SEARCH_RESULTS) {
+			if (!artifact) {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: t('common.noRecentOperations'),
+					role: 'Steward',
+				});
+				return;
+			}
+
+			// Handle different artifact types
+			let docs: any[] = [];
+
+			if (artifact.type === ArtifactType.SEARCH_RESULTS) {
+				docs = artifact.originalResults;
+			} else if (artifact.type === ArtifactType.CREATED_NOTE) {
+				docs = [{ path: artifact.path }];
+			} else {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: t('common.cannotUpdateThisType'),
+					role: 'Steward',
+				});
 				return;
 			}
 
@@ -1420,7 +1459,7 @@ export class ConversationEventHandler {
 			const failedFiles: string[] = [];
 			const skippedFiles: string[] = [];
 
-			for (const doc of searchArtifact.originalResults) {
+			for (const doc of docs) {
 				try {
 					const file = this.plugin.app.vault.getAbstractFileByPath(doc.path);
 					if (file && file instanceof TFile) {
@@ -1456,7 +1495,7 @@ export class ConversationEventHandler {
 			}
 
 			// Format the results
-			let response = t('update.foundFiles', { count: searchArtifact.originalResults.length });
+			let response = t('update.foundFiles', { count: docs.length });
 
 			if (updatedFiles.length > 0) {
 				response += `\n\n**${t('update.successfullyUpdated', { count: updatedFiles.length })}**`;
@@ -1593,12 +1632,21 @@ export class ConversationEventHandler {
 				await this.plugin.app.vault.create(newNotePath, '');
 
 				// Add a link to the conversation note
-				await this.renderer.updateConversationNote({
+				const messageId = await this.renderer.updateConversationNote({
 					path: title,
 					newContent: t('create.creatingNote', { noteName: `[[${newNotePath}]]` }),
 					role: 'Steward',
 					command: 'create',
 				});
+
+				// Store the created note as an artifact for future operations
+				if (messageId) {
+					this.artifactManager.storeArtifact(title, messageId, {
+						type: ArtifactType.CREATED_NOTE,
+						path: newNotePath,
+						createdAt: Date.now(),
+					});
+				}
 			}
 
 			if (extraction.contentSource === 'user-given') {
@@ -1608,6 +1656,11 @@ export class ConversationEventHandler {
 						this.plugin.app.vault.getAbstractFileByPath(newNotePath) as TFile,
 						extraction.content
 					);
+					// Update the conversation with the results
+					await this.renderer.updateConversationNote({
+						path: title,
+						newContent: `*${t('create.success', { noteName: newNotePath })}*`,
+					});
 				} else {
 					await this.renderer.updateConversationNote({
 						path: title,

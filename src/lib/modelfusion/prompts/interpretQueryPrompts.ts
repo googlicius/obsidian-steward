@@ -18,20 +18,20 @@ When interpreting search commands, you must:
    - Preserve the original wording and context`,
 };
 
-export const interpretDeleteFromSearchResultPrompt: OpenAIChatMessage = {
+export const interpretDeleteFromArtifactPrompt: OpenAIChatMessage = {
 	role: 'system',
-	content: `You are a helpful assistant that interprets delete_from_search_result commands in natural language queries.
+	content: `You are a helpful assistant that interprets delete_from_artifact commands in natural language queries.
 
-When interpreting delete_from_search_result commands:
+When interpreting delete_from_artifact commands:
 - It always follows a search command
 - The content always be: "Delete all notes in the search result."`,
 };
 
-export const interpretUpdateFromSearchResultPrompt: OpenAIChatMessage = {
+export const interpretUpdateFromArtifactPrompt: OpenAIChatMessage = {
 	role: 'system',
-	content: `You are a helpful assistant that interprets update_from_search_result commands in natural language queries.
+	content: `You are a helpful assistant that interprets update_from_artifact commands in natural language queries.
 
-When interpreting update_from_search_result commands:
+When interpreting update_from_artifact commands:
 - It always follows a search command, even the user mentions a specific file or note name
 - If the user mentions anything about the content of the note, it should be added to the search query`,
 };

@@ -3,12 +3,14 @@ const en = {
 		common: {
 			noFilesFound:
 				"I couldn't find any files matching your query. Please try a different search term.",
+			noRecentOperations: 'No recent operations found.',
 		},
 		// Chat UI elements
 		chat: {
 			newChat: 'New Chat',
 			history: 'History',
 			closeChat: 'Close Chat',
+			stewardChat: 'Steward Chat',
 		},
 		// Media generation messages
 		media: {

@@ -4,8 +4,6 @@ import { logger } from 'src/utils/logger';
 import i18next from 'i18next';
 
 export class StewardConversationView extends MarkdownView {
-	private markdownEmbedObserver: MutationObserver | null = null;
-
 	constructor(leaf: WorkspaceLeaf) {
 		super(leaf);
 
@@ -18,7 +16,7 @@ export class StewardConversationView extends MarkdownView {
 	}
 
 	getDisplayText(): string {
-		return 'Steward Chat';
+		return i18next.t('chat.stewardChat');
 	}
 
 	getIcon(): string {
@@ -34,12 +32,6 @@ export class StewardConversationView extends MarkdownView {
 	}
 
 	async onClose(): Promise<void> {
-		// Disconnect the observer when view is closed
-		if (this.markdownEmbedObserver) {
-			this.markdownEmbedObserver.disconnect();
-			this.markdownEmbedObserver = null;
-		}
-
 		return super.onClose();
 	}
 

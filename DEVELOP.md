@@ -23,3 +23,4 @@
 - [x] Add a post-processor to build the custom callout HTML data properties from the HTML comment in the callout:
       `>[!search-result] line:4,pos:0`
 - [ ] Refactor the handleConversationCommand to be able to handle confirmation when there are multiple commands
+- [ ] Search words start with a keyword: If user search for "teem", should be returned "teeming"

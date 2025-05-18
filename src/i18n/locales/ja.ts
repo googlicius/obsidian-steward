@@ -3,12 +3,14 @@ const ja = {
 		common: {
 			noFilesFound:
 				'検索条件に一致するファイルが見つかりませんでした。別の検索語をお試しください。',
+			noRecentOperations: '最近の操作が見つかりませんでした。最初にコマンドを実行してください。',
 		},
 		// Chat UI elements
 		chat: {
 			newChat: '新しいチャット',
 			history: '履歴',
 			closeChat: 'チャットを閉じる',
+			stewardChat: 'Stewardチャット',
 		},
 		// Move result messages
 		move: {

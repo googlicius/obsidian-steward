@@ -5,22 +5,42 @@ export enum ArtifactType {
 	SEARCH_RESULTS = 'search_results',
 	MOVE_RESULTS = 'move_results',
 	CALCULATION_RESULTS = 'calculation_results',
+	CREATED_NOTE = 'created_note',
+}
+
+/**
+ * Base interface for all artifacts
+ */
+export interface BaseArtifact {
+	type: ArtifactType;
+	createdAt: number; // Timestamp when the artifact was created
+	id: string; // ID of the artifact (usually the message ID that created it)
 }
 
 /**
  * Search results artifact
  */
-export interface SearchResultsArtifact {
+export interface SearchResultsArtifact extends BaseArtifact {
 	type: ArtifactType.SEARCH_RESULTS;
 	originalResults: any[]; // The original, unpaginated results
 }
+
+/**
+ * Created note artifact
+ */
+export interface CreatedNoteArtifact extends BaseArtifact {
+	type: ArtifactType.CREATED_NOTE;
+	path: string; // Path to the created note
+}
+
+export type Artifact = SearchResultsArtifact | CreatedNoteArtifact;
 
 /**
  * Manages the storage and retrieval of conversation artifacts
  */
 export class ConversationArtifactManager {
 	private static instance: ConversationArtifactManager;
-	private artifacts: Map<string, Map<string, any>> = new Map();
+	private artifacts: Map<string, Map<string, Artifact>> = new Map();
 
 	/**
 	 * Get the singleton instance
@@ -38,12 +58,26 @@ export class ConversationArtifactManager {
 	 * @param artifactId The ID of the artifact (usually a message ID)
 	 * @param artifact The artifact to store
 	 */
-	public storeArtifact(conversationTitle: string, artifactId: string, artifact: any): void {
+	public storeArtifact(
+		conversationTitle: string,
+		artifactId: string,
+		artifact: Partial<Artifact>
+	): void {
 		if (!this.artifacts.has(conversationTitle)) {
 			this.artifacts.set(conversationTitle, new Map());
 		}
 
-		this.artifacts.get(conversationTitle)?.set(artifactId, artifact);
+		// Ensure all artifacts have a createdAt timestamp
+		if (!('createdAt' in artifact)) {
+			artifact.createdAt = Date.now();
+		}
+
+		// Ensure all artifacts have an id
+		if (!('id' in artifact)) {
+			artifact.id = artifactId;
+		}
+
+		this.artifacts.get(conversationTitle)?.set(artifactId, artifact as Artifact);
 	}
 
 	/**
@@ -52,7 +86,7 @@ export class ConversationArtifactManager {
 	 * @param artifactId The ID of the artifact
 	 * @returns The artifact, or undefined if not found
 	 */
-	public getArtifact<T>(conversationTitle: string, artifactId: string): T | undefined {
+	public getArtifact(conversationTitle: string, artifactId: string): Artifact | undefined {
 		return this.artifacts.get(conversationTitle)?.get(artifactId);
 	}
 
@@ -67,6 +101,8 @@ export class ConversationArtifactManager {
 		const artifact: SearchResultsArtifact = {
 			type: ArtifactType.SEARCH_RESULTS,
 			originalResults,
+			createdAt: Date.now(),
+			id: messageId,
 		};
 
 		this.storeArtifact(conversationTitle, messageId, artifact);
@@ -78,27 +114,120 @@ export class ConversationArtifactManager {
 	 * @param type The type of artifact to get
 	 * @returns The most recent artifact, or undefined if none found
 	 */
-	public getMostRecentArtifactByType<T>(
+	public getMostRecentArtifactByType(
 		conversationTitle: string,
 		type: ArtifactType
-	): T | undefined {
+	): Artifact | undefined {
 		const conversationArtifacts = this.artifacts.get(conversationTitle);
 		if (!conversationArtifacts) {
 			return undefined;
 		}
 
-		// Get all artifacts of the specified type
-		const artifactsOfType: T[] = [];
-		conversationArtifacts.forEach(artifact => {
+		// Find the most recent artifact of the specified type by timestamp
+		let latestArtifact: Artifact | undefined = undefined;
+		let latestTimestamp = 0;
+
+		conversationArtifacts.forEach((artifact, id) => {
 			if (artifact.type === type) {
-				artifactsOfType.push(artifact);
+				const timestamp = artifact.createdAt || 0;
+				if (!latestArtifact || timestamp > latestTimestamp) {
+					latestArtifact = artifact;
+					latestTimestamp = timestamp;
+				}
 			}
 		});
 
-		// Return the most recent one (assuming it's the last one added)
-		return artifactsOfType.length > 0 ? artifactsOfType[artifactsOfType.length - 1] : undefined;
+		return latestArtifact;
 	}
 
+	/**
+	 * Get the most recent artifact of any type for a conversation
+	 * @param conversationTitle The title of the conversation
+	 * @returns The most recent artifact, or undefined if none found
+	 */
+	public getMostRecentArtifact(conversationTitle: string): Artifact | undefined {
+		const conversationArtifacts = this.artifacts.get(conversationTitle);
+		if (!conversationArtifacts || conversationArtifacts.size === 0) {
+			return undefined;
+		}
+
+		// Get all artifacts and find the most recent one by timestamp
+		let latestArtifact: Artifact | undefined = undefined;
+		let latestTimestamp = 0;
+
+		conversationArtifacts.forEach((artifact, id) => {
+			const timestamp = artifact.createdAt || 0;
+			if (!latestArtifact || timestamp > latestTimestamp) {
+				latestArtifact = artifact;
+				latestTimestamp = timestamp;
+			}
+		});
+
+		return latestArtifact;
+	}
+
+	/**
+	 * Get the ID of the most recent artifact for a conversation
+	 * @param conversationTitle The title of the conversation
+	 * @returns The ID of the most recent artifact, or undefined if none found
+	 */
+	public getMostRecentArtifactId(conversationTitle: string): string | undefined {
+		const conversationArtifacts = this.artifacts.get(conversationTitle);
+		if (!conversationArtifacts || conversationArtifacts.size === 0) {
+			return undefined;
+		}
+
+		let latestId = '';
+		let latestTimestamp = 0;
+
+		conversationArtifacts.forEach((artifact, id) => {
+			const timestamp = artifact.createdAt || 0;
+			if (!latestId || timestamp > latestTimestamp) {
+				latestId = id;
+				latestTimestamp = timestamp;
+			}
+		});
+
+		return latestId;
+	}
+
+	/**
+	 * Get the ID of the most recent artifact of a specific type for a conversation
+	 * @param conversationTitle The title of the conversation
+	 * @param type The type of artifact to get
+	 * @returns The ID of the most recent artifact, or undefined if none found
+	 */
+	public getMostRecentArtifactIdByType(
+		conversationTitle: string,
+		type: ArtifactType
+	): string | undefined {
+		const conversationArtifacts = this.artifacts.get(conversationTitle);
+		if (!conversationArtifacts || conversationArtifacts.size === 0) {
+			return undefined;
+		}
+
+		let latestId = '';
+		let latestTimestamp = 0;
+
+		conversationArtifacts.forEach((artifact, id) => {
+			if (artifact.type === type) {
+				const timestamp = artifact.createdAt || 0;
+				if (!latestId || timestamp > latestTimestamp) {
+					latestId = id;
+					latestTimestamp = timestamp;
+				}
+			}
+		});
+
+		return latestId;
+	}
+
+	/**
+	 * Delete an artifact for a conversation
+	 * @param conversationTitle The title of the conversation
+	 * @param messageId The ID of the artifact to delete
+	 * @returns True if the artifact was deleted, false otherwise
+	 */
 	public deleteArtifact(conversationTitle: string, messageId: string): boolean {
 		const conversationArtifacts = this.artifacts.get(conversationTitle);
 		return conversationArtifacts ? conversationArtifacts?.delete(messageId) : true;

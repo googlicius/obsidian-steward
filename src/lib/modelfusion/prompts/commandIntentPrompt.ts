@@ -8,10 +8,10 @@ Your job is to analyze the user's natural language request and determine which s
 
 Available command types:
 - "search": When the user wants to find or locate notes
-- "move_from_search_result": When the user wants to move notes from the search results to a destination
-- "copy_from_search_result": When the user wants to copy notes from the search results to a destination
-- "update_from_search_result": When the user wants to update notes from the search results
-- "delete_from_search_result": When the user wants to delete notes from the search results
+- "move_from_artifact": When the user wants to move notes from the search results to a destination
+- "copy_from_artifact": When the user wants to copy notes from the search results to a destination
+- "update_from_artifact": When the user wants to update notes from the search results
+- "delete_from_artifact": When the user wants to delete notes from the search results
 - "close": When the user wants to close the conversation or exit
 - "confirm": When the user is responding to a confirmation request (yes/no, approve/deny)
 - "revert": When the user wants to undo the last change or revert to a previous state
@@ -24,10 +24,10 @@ Guidelines:
 - Each command in the sequence should have its own content that will be processed by specialized handlers
 - If the user wants to find, locate, or search for notes (and doesn't mention existing search results), include "search" command
 - If the user mentions "search results", "notes above", or refers to previously found notes, do NOT include a "search" command as the results are already available
-- If the user wants to move notes from the search results, include "move_from_search_result" command
-- If the user wants to delete notes from the search results, include "delete_from_search_result" command
-- If the user wants to copy notes from the search results, include "copy_from_search_result" command
-- If the user wants to update notes from the search results, include "update_from_search_result" command
+- If the user wants to move notes from the search results, include "move_from_artifact" command
+- If the user wants to delete notes from the search results, include "delete_from_artifact" command
+- If the user wants to copy notes from the search results, include "copy_from_artifact" command
+- If the user wants to update notes from the search results, include "update_from_artifact" command
 - If the user wants to close the conversation, include "close" command
 - If the user is responding with confirmation language, include "confirm" command
 - If the user wants to undo changes, include "revert" command

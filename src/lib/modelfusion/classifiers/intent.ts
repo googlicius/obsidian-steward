@@ -20,7 +20,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 	// Static cluster values that aren't need to be embedded
 	staticClusterValues: [
 		{
-			name: 'delete_from_search_result' as const,
+			name: 'delete_from_artifact' as const,
 			values: [
 				'delete them',
 				'delete it',
@@ -71,7 +71,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 			],
 		},
 		{
-			name: 'move_from_search_result' as const,
+			name: 'move_from_artifact' as const,
 			values: [
 				'move results to the f folder',
 				'move the results into the f folder',
@@ -87,7 +87,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 			],
 		},
 		{
-			name: 'copy_from_search_result' as const,
+			name: 'copy_from_artifact' as const,
 			values: [
 				'copy results to the folder f',
 				'copy these notes to the folder f',
@@ -98,7 +98,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 			],
 		},
 		{
-			name: 'update_from_search_result' as const,
+			name: 'update_from_artifact' as const,
 			values: [
 				'update the tag y to y',
 				'remove the tag y',

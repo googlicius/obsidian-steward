@@ -100,7 +100,7 @@ describe('LLMCacheService', () => {
 
 	describe('determineMatchType', () => {
 		it('should return exact for search, move, delete, calc', () => {
-			const exactTypes = ['search', 'move', 'move_from_search_result', 'copy', 'delete', 'calc'];
+			const exactTypes = ['search', 'move', 'move_from_artifact', 'copy', 'delete', 'calc'];
 			exactTypes.forEach(type => {
 				expect((cacheService as any).determineMatchType(type)).toBe('exact');
 			});

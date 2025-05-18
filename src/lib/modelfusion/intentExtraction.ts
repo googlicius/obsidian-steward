@@ -6,9 +6,9 @@ import { StewardPluginSettings } from '../../types/interfaces';
 import { intentClassifier } from './classifiers/intent';
 import { logger } from 'src/utils/logger';
 import {
-	interpretDeleteFromSearchResultPrompt,
+	interpretDeleteFromArtifactPrompt,
 	interpretSearchContentPrompt,
-	interpretUpdateFromSearchResultPrompt,
+	interpretUpdateFromArtifactPrompt,
 } from './prompts/interpretQueryPrompts';
 import { destinationFolderPrompt } from './prompts/destinationFolderPrompt';
 
@@ -59,17 +59,17 @@ export async function extractCommandIntent(
 				if (clusterNames.includes('search')) {
 					additionalPrompts.push(interpretSearchContentPrompt);
 				}
-				if (clusterNames.includes('delete_from_search_result')) {
-					additionalPrompts.push(interpretDeleteFromSearchResultPrompt);
+				if (clusterNames.includes('delete_from_artifact')) {
+					additionalPrompts.push(interpretDeleteFromArtifactPrompt);
 				}
 				if (
-					clusterNames.includes('copy_from_search_result') ||
-					clusterNames.includes('move_from_search_result')
+					clusterNames.includes('copy_from_artifact') ||
+					clusterNames.includes('move_from_artifact')
 				) {
 					additionalPrompts.push(destinationFolderPrompt);
 				}
-				if (clusterNames.includes('update_from_search_result')) {
-					additionalPrompts.push(interpretUpdateFromSearchResultPrompt);
+				if (clusterNames.includes('update_from_artifact')) {
+					additionalPrompts.push(interpretUpdateFromArtifactPrompt);
 				}
 			} else {
 				// Create a formatted response based on the classification
@@ -142,15 +142,15 @@ function validateCommandIntentExtraction(data: any): CommandIntentExtraction {
 		'search',
 		'move',
 		'copy',
-		'move_from_search_result',
-		'delete_from_search_result',
+		'move_from_artifact',
+		'delete_from_artifact',
 		'calc',
 		'close',
 		'confirm',
 		'revert',
 		'image',
 		'audio',
-		'update_from_search_result',
+		'update_from_artifact',
 		'create',
 	];
 

@@ -329,7 +329,7 @@ export class ConversationRenderer {
 				case 'move':
 					initialContent += `*${t('conversation.moving')}*`;
 					break;
-				case 'move_from_search_result':
+				case 'move_from_artifact':
 					initialContent += `*${t('conversation.moving')}*`;
 					break;
 				case 'delete':

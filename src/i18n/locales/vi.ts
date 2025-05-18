@@ -3,12 +3,14 @@ const vi = {
 		common: {
 			noFilesFound:
 				'Tôi không tìm thấy tập tin nào phù hợp với truy vấn của bạn. Vui lòng thử từ khóa tìm kiếm khác.',
+			noRecentOperations: 'Không có thao tác gần đây được tìm thấy.',
 		},
 		// Chat UI elements
 		chat: {
 			newChat: 'Cuộc Trò Chuyện Mới',
 			history: 'Lịch Sử',
 			closeChat: 'Đóng Trò Chuyện',
+			stewardChat: 'Trò Chuyện Steward',
 		},
 		// Move result messages
 		move: {

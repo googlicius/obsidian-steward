@@ -98,14 +98,14 @@ export class LLMCacheService {
 		const exactMatchTypes = [
 			'search',
 			'move',
-			'move_from_search_result',
+			'move_from_artifact',
 			'copy',
 			'delete',
 			'calc',
 			'image',
 			'audio',
 			'update',
-			'update_from_search_result',
+			'update_from_artifact',
 		];
 		return exactMatchTypes.includes(commandType) ? 'exact' : 'similarity';
 	}

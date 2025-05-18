@@ -11,7 +11,7 @@ export enum Events {
 	LLM_RESPONSE_RECEIVED = 'LLM_RESPONSE_RECEIVED',
 	RESPONSE_READY_TO_INSERT = 'RESPONSE_READY_TO_INSERT',
 	MOVE_QUERY_EXTRACTED = 'move-query-extracted',
-	MOVE_FROM_SEARCH_RESULT_CONFIRMED = 'move-from-search-result-confirmed',
+	MOVE_FROM_ARTIFACT_CONFIRMED = 'move-from-artifact-confirmed',
 	DELETE_OPERATION_CONFIRMED = 'delete-operation-confirmed',
 	COPY_OPERATION_CONFIRMED = 'copy-operation-confirmed',
 	COMMAND_INTENT_EXTRACTED = 'command-intent-extracted',
@@ -71,10 +71,10 @@ export interface ErrorPayload {
 	position: number;
 }
 
-export interface MoveFromSearchResultConfirmedPayload {
+export interface MoveFromArtifactConfirmedPayload {
 	title: string;
 	destinationFolder: string;
-	searchResults: IndexedDocument[];
+	docs: IndexedDocument[];
 	explanation: string;
 }
 
@@ -196,7 +196,7 @@ export type EventPayloadMap = {
 	[Events.COMMAND_INTENT_EXTRACTED]: CommandIntentExtractedPayload;
 	[Events.CONFIRMATION_REQUESTED]: ConfirmationRequestPayload;
 	[Events.CONFIRMATION_RESPONDED]: ConfirmationResponsePayload;
-	[Events.MOVE_FROM_SEARCH_RESULT_CONFIRMED]: MoveFromSearchResultConfirmedPayload;
+	[Events.MOVE_FROM_ARTIFACT_CONFIRMED]: MoveFromArtifactConfirmedPayload;
 	[Events.GIT_OPERATION_PERFORMED]: GitOperationPerformedPayload;
 	[Events.GIT_OPERATION_REVERTED]: GitOperationRevertedPayload;
 	[Events.MOVE_OPERATION_COMPLETED]: MoveOperationCompletedPayload;

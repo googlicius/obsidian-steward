@@ -118,7 +118,6 @@ If your plugin does not need CSS, delete this file.
 	gap: 4px;
 	padding: 4px;
 	justify-content: flex-end;
-	background-color: var(--background-primary);
 }
 
 .steward-header-button {
