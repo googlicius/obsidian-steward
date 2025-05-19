@@ -24,3 +24,4 @@
       `>[!search-result] line:4,pos:0`
 - [ ] Refactor the handleConversationCommand to be able to handle confirmation when there are multiple commands
 - [ ] Search words start with a keyword: If user search for "teem", should be returned "teeming"
+- [ ] The "create" command should be able to handle creating multiple notes.

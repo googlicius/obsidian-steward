@@ -30,8 +30,8 @@ import { extractPromptCreation } from '../lib/modelfusion/promptCreationExtracti
 import { extractNoteCreation } from '../lib/modelfusion/noteCreationExtraction';
 import { streamText } from 'modelfusion';
 import { createLLMGenerator } from '../lib/modelfusion/llmConfig';
-import { WorkspaceLeaf } from 'obsidian';
 import { userLanguagePromptText } from 'src/lib/modelfusion/prompts/languagePrompt';
+import { extractNoteGeneration } from '../lib/modelfusion/noteGenerationExtraction';
 
 interface Props {
 	plugin: StewardPlugin;
@@ -248,6 +248,15 @@ export class ConversationEventHandler {
 						i18next.t('conversation.creating')
 					);
 					await this.handleCreateCommand(payload.title, command.content, payload.lang);
+					break;
+				}
+
+				case 'generate': {
+					await this.renderer.addGeneratingIndicator(
+						payload.title,
+						i18next.t('conversation.generating')
+					);
+					await this.handleGenerateCommand(payload.title, command.content, payload.lang);
 					break;
 				}
 
@@ -912,8 +921,8 @@ export class ConversationEventHandler {
 
 			if (artifact.type === ArtifactType.SEARCH_RESULTS) {
 				docs = artifact.originalResults;
-			} else if (artifact.type === ArtifactType.CREATED_NOTE) {
-				docs = [{ path: artifact.path }];
+			} else if (artifact.type === ArtifactType.CREATED_NOTES) {
+				docs = artifact.paths.map(path => ({ path }));
 			} else {
 				await this.renderer.updateConversationNote({
 					path: title,
@@ -1040,8 +1049,8 @@ export class ConversationEventHandler {
 
 			if (artifact.type === ArtifactType.SEARCH_RESULTS) {
 				docs = artifact.originalResults;
-			} else if (artifact.type === ArtifactType.CREATED_NOTE) {
-				docs = [{ path: artifact.path }];
+			} else if (artifact.type === ArtifactType.CREATED_NOTES) {
+				docs = artifact.paths.map(path => ({ path }));
 			} else {
 				await this.renderer.updateConversationNote({
 					path: title,
@@ -1155,8 +1164,8 @@ export class ConversationEventHandler {
 
 			if (artifact.type === ArtifactType.SEARCH_RESULTS) {
 				docs = artifact.originalResults;
-			} else if (artifact.type === ArtifactType.CREATED_NOTE) {
-				docs = [{ path: artifact.path }];
+			} else if (artifact.type === ArtifactType.CREATED_NOTES) {
+				docs = artifact.paths.map(path => ({ path }));
 			} else {
 				await this.renderer.updateConversationNote({
 					path: title,
@@ -1190,7 +1199,7 @@ export class ConversationEventHandler {
 			if (!destinationFolder) {
 				await this.renderer.updateConversationNote({
 					path: title,
-					newContent: i18next.t('copy.noDestination'),
+					newContent: t('copy.noDestination'),
 					role: 'Steward',
 					command: 'copy',
 				});
@@ -1201,9 +1210,9 @@ export class ConversationEventHandler {
 
 			if (!folderExists) {
 				// Request confirmation to create the folder
-				let message = i18next.t('copy.createFoldersHeader') + '\n';
+				let message = t('copy.createFoldersHeader') + '\n';
 				message += `- \`${destinationFolder}\`\n`;
-				message += '\n' + i18next.t('copy.createFoldersQuestion');
+				message += '\n' + t('copy.createFoldersQuestion');
 
 				// Request confirmation
 				await this.plugin.confirmationEventHandler.requestConfirmation(
@@ -1281,7 +1290,6 @@ export class ConversationEventHandler {
 	}): string {
 		const { operations, lang } = result;
 
-		// Get translation function for the specified language
 		const t = getTranslation(lang);
 
 		// Single operation format
@@ -1381,7 +1389,7 @@ export class ConversationEventHandler {
 			// Handle different artifact types
 			if (
 				artifact.type !== ArtifactType.SEARCH_RESULTS &&
-				artifact.type !== ArtifactType.CREATED_NOTE
+				artifact.type !== ArtifactType.CREATED_NOTES
 			) {
 				await this.renderer.updateConversationNote({
 					path: title,
@@ -1423,7 +1431,6 @@ export class ConversationEventHandler {
 		lang?: string
 	): Promise<void> {
 		try {
-			// Get translation function
 			const t = getTranslation(lang);
 
 			// Retrieve the most recent artifact regardless of type
@@ -1443,8 +1450,8 @@ export class ConversationEventHandler {
 
 			if (artifact.type === ArtifactType.SEARCH_RESULTS) {
 				docs = artifact.originalResults;
-			} else if (artifact.type === ArtifactType.CREATED_NOTE) {
-				docs = [{ path: artifact.path }];
+			} else if (artifact.type === ArtifactType.CREATED_NOTES) {
+				docs = artifact.paths.map(path => ({ path }));
 			} else {
 				await this.renderer.updateConversationNote({
 					path: title,
@@ -1627,109 +1634,216 @@ export class ConversationEventHandler {
 				return;
 			}
 
-			const newNotePath = extraction.noteName ? `${extraction.noteName}.md` : '';
-			if (newNotePath) {
-				await this.plugin.app.vault.create(newNotePath, '');
+			if (extraction.notes.length === 0) {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: '*No notes were specified for creation*',
+					role: 'Steward',
+					command: 'create',
+				});
+				return;
+			}
 
-				// Add a link to the conversation note
+			// Track successfully created notes
+			const createdNotes: string[] = [];
+			const createdNoteLinks: string[] = [];
+			const errors: string[] = [];
+
+			// Process each note
+			for (const note of extraction.notes) {
+				const newNotePath = note.noteName ? `${note.noteName}.md` : '';
+				if (!newNotePath) {
+					errors.push('Note name is missing');
+					continue;
+				}
+
+				try {
+					// Create the note
+					await this.plugin.app.vault.create(newNotePath, '');
+					createdNotes.push(newNotePath);
+					createdNoteLinks.push(`[[${newNotePath}]]`);
+
+					// Write the user-provided content to the note if available
+					if (note.content) {
+						await this.plugin.app.vault.modify(
+							this.plugin.app.vault.getAbstractFileByPath(newNotePath) as TFile,
+							note.content
+						);
+					}
+				} catch (noteError) {
+					errors.push(`Failed to create ${newNotePath}: ${noteError.message}`);
+				}
+			}
+
+			// Store created notes as an artifact for future operations (if any were created)
+			if (createdNotes.length > 0) {
 				const messageId = await this.renderer.updateConversationNote({
 					path: title,
-					newContent: t('create.creatingNote', { noteName: `[[${newNotePath}]]` }),
+					newContent: t('create.creatingNote', { noteName: createdNoteLinks.join(', ') }),
 					role: 'Steward',
 					command: 'create',
 				});
 
-				// Store the created note as an artifact for future operations
 				if (messageId) {
 					this.artifactManager.storeArtifact(title, messageId, {
-						type: ArtifactType.CREATED_NOTE,
-						path: newNotePath,
+						type: ArtifactType.CREATED_NOTES,
+						paths: createdNotes,
 						createdAt: Date.now(),
 					});
 				}
 			}
 
-			if (extraction.contentSource === 'user-given') {
-				if (newNotePath) {
-					// For user-given content, write the extracted content directly to the note
-					await this.plugin.app.vault.modify(
-						this.plugin.app.vault.getAbstractFileByPath(newNotePath) as TFile,
-						extraction.content
-					);
-					// Update the conversation with the results
-					await this.renderer.updateConversationNote({
-						path: title,
-						newContent: `*${t('create.success', { noteName: newNotePath })}*`,
-					});
-				} else {
-					await this.renderer.updateConversationNote({
-						path: title,
-						newContent: '*Note name is missing*',
-						role: 'Steward',
-						command: 'create',
-					});
-				}
-			} else {
-				// For generated content, stream the content generation
-				const stream = await streamText({
-					model: createLLMGenerator({ ...this.plugin.settings.llm, responseFormat: 'text' }),
-					prompt: [
-						{
-							role: 'system',
-							content: `You are a helpful assistant that generates content for Obsidian notes. Generate detailed, well-structured content. Format the content in Markdown.							`,
-						},
-						{
-							role: 'system',
-							content: `The content should not include the big heading on the top.`,
-						},
-						userLanguagePromptText,
-						{
-							role: 'user',
-							content: extraction.content,
-						},
-					],
-				});
-
-				if (newNotePath) {
-					// Get the main leaf
-					let mainLeaf: WorkspaceLeaf | undefined;
-					this.plugin.app.workspace.iterateRootLeaves(leaf => {
-						mainLeaf = leaf;
-					});
-
-					// Get the file reference
-					const file = this.plugin.app.vault.getAbstractFileByPath(newNotePath) as TFile;
-
-					// Open the file in the main leaf
-					if (mainLeaf && file) {
-						mainLeaf.openFile(file);
-					}
-
-					// Stream the content to the note
-					let accumulatedContent = '';
-					for await (const chunk of stream) {
-						accumulatedContent += chunk;
-						await this.plugin.app.vault.modify(file, accumulatedContent);
-					}
-
-					// Update the conversation with the results
-					await this.renderer.updateConversationNote({
-						path: title,
-						newContent: `*${t('create.success', { noteName: extraction.noteName })}*`,
-					});
-				} else {
-					// If noteName is missing, stream content to current conversation
-					await this.renderer.streamConversationNote({
-						path: title,
-						stream,
-						command: 'create',
-					});
-				}
+			// Create the result message
+			let resultMessage = '';
+			if (createdNotes.length > 0) {
+				resultMessage = `*${t('create.success', {
+					count: createdNotes.length,
+					noteName: createdNotes.join(', '),
+				})}*`;
 			}
+
+			if (errors.length > 0) {
+				if (resultMessage) resultMessage += '\n\n';
+				resultMessage += `*Errors:*\n${errors.map(e => `- ${e}`).join('\n')}`;
+			}
+
+			// Update the conversation with the results
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: resultMessage,
+			});
 		} catch (error) {
 			await this.renderer.updateConversationNote({
 				path: title,
-				newContent: `*Error creating note: ${error.message}*`,
+				newContent: `*Error creating notes: ${error.message}*`,
+				role: 'Steward',
+			});
+		}
+	}
+
+	/**
+	 * Handle the content generation command
+	 * @param title The conversation title
+	 * @param commandContent The command content
+	 * @param lang Optional language code for the response
+	 */
+	private async handleGenerateCommand(
+		title: string,
+		commandContent: string,
+		lang?: string
+	): Promise<void> {
+		try {
+			const t = getTranslation(lang);
+
+			// Check if there's a recently created note artifact
+			let recentlyCreatedNote = '';
+			const createdNotesArtifact = this.artifactManager.getMostRecentArtifactByType(
+				title,
+				ArtifactType.CREATED_NOTES
+			);
+
+			if (createdNotesArtifact && createdNotesArtifact.type === ArtifactType.CREATED_NOTES) {
+				// Use the first note path if available
+				recentlyCreatedNote = createdNotesArtifact.paths[0] || '';
+			}
+
+			// Extract the content generation details using the LLM
+			const extraction = await extractNoteGeneration(
+				commandContent,
+				this.plugin.settings.llm,
+				recentlyCreatedNote
+			);
+
+			// For low confidence extractions, just show the explanation
+			if (extraction.confidence <= 0.7) {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: extraction.explanation,
+					role: 'Steward',
+				});
+				return;
+			}
+
+			// Prepare for content generation
+			const stream = await streamText({
+				model: createLLMGenerator({ ...this.plugin.settings.llm, responseFormat: 'text' }),
+				prompt: [
+					{
+						role: 'system',
+						content: `You are a helpful assistant that generates content for Obsidian notes. Generate detailed, well-structured content. Format the content in Markdown.`,
+					},
+					{
+						role: 'system',
+						content: `The content should not include the big heading on the top.`,
+					},
+					extraction.style
+						? {
+								role: 'system',
+								content: `Style preference: ${extraction.style}`,
+							}
+						: null,
+					userLanguagePromptText,
+					{
+						role: 'user',
+						content: extraction.instructions,
+					},
+				].filter(Boolean),
+			});
+
+			if (!extraction.noteName) {
+				// If no note name is provided, stream content to current conversation
+				await this.renderer.streamConversationNote({
+					path: title,
+					stream,
+					command: 'generate',
+				});
+				return;
+			}
+
+			// Check if the note exists
+			const notePath = extraction.noteName.endsWith('.md')
+				? extraction.noteName
+				: `${extraction.noteName}.md`;
+
+			const file = (this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile) || null;
+
+			if (!file) {
+				// If file doesn't exist, inform the user
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent:
+						t('generate.fileNotFound', { noteName: notePath }) ||
+						`*The note "${notePath}" does not exist. Please create it first or generate content in the conversation.*`,
+					role: 'Steward',
+					command: 'generate',
+				});
+				return;
+			}
+
+			const mainLeaf = await this.plugin.getMainLeaf();
+
+			// Open the file in the main leaf
+			if (mainLeaf && file) {
+				mainLeaf.openFile(file);
+				await this.plugin.app.workspace.revealLeaf(mainLeaf);
+			}
+
+			// Stream the content to the note
+			let accumulatedContent = '';
+			for await (const chunk of stream) {
+				accumulatedContent += chunk;
+				await this.plugin.app.vault.modify(file, accumulatedContent);
+			}
+
+			// Update the conversation with the results
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*${t('generate.success', { noteName: extraction.noteName })}*`,
+			});
+		} catch (error) {
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*Error generating content: ${error.message}*`,
 				role: 'Steward',
 			});
 		}

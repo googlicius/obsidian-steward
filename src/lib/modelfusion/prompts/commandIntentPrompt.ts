@@ -17,7 +17,8 @@ Available command types:
 - "revert": When the user wants to undo the last change or revert to a previous state
 - "image": When the user wants to generate an image
 - "audio": When the user wants to generate audio
-- "create": When the user wants to create a new note or generate content
+- "create": When the user wants to create a new note with their own content
+- "generate": When the user wants AI to generate content (either in a new note or in the conversation)
 
 Guidelines:
 - Analyze the query for multiple commands that should be executed in sequence
@@ -33,7 +34,8 @@ Guidelines:
 - If the user wants to undo changes, include "revert" command
 - If the user wants to generate an image, include "image" command
 - If the user wants to generate audio, include "audio" command
-- If the user wants to create a new note or wants you to generate content, include "create" command
+- If the user wants to create a new note, include "create" command with content that clearly specifies the note name (e.g., "Note name: Hello Kitty")
+- If the user wants AI to generate content (either in a new note or the conversation), include "generate" command
 
 Provide a confidence score from 0 to 1 for the overall sequence:
 - 0.0-0.3: Low confidence (ambiguous or unclear requests)
@@ -43,7 +45,7 @@ Provide a confidence score from 0 to 1 for the overall sequence:
 You must respond with a valid JSON object containing these properties:
 - commands: An array of objects, each containing:
   * commandType: One of the available command types
-  * content: The specific content for this command in the sequence
+  * content: The specific content for this command in the sequence, MUST be a string
 - confidence: A number from 0 to 1 indicating your confidence in this sequence classification
 - explanation: 
   If you are confident: A brief explanation of the sequence of commands and why they should be executed in this order

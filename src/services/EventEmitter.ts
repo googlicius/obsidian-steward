@@ -40,4 +40,3 @@ class EventEmitter {
 }
 
 export const eventEmitter = EventEmitter.getInstance();
-export { Events, ErrorEvents };

@@ -5,7 +5,7 @@ export enum ArtifactType {
 	SEARCH_RESULTS = 'search_results',
 	MOVE_RESULTS = 'move_results',
 	CALCULATION_RESULTS = 'calculation_results',
-	CREATED_NOTE = 'created_note',
+	CREATED_NOTES = 'created_notes',
 }
 
 /**
@@ -26,14 +26,14 @@ export interface SearchResultsArtifact extends BaseArtifact {
 }
 
 /**
- * Created note artifact
+ * Created notes artifact
  */
-export interface CreatedNoteArtifact extends BaseArtifact {
-	type: ArtifactType.CREATED_NOTE;
-	path: string; // Path to the created note
+export interface CreatedNotesArtifact extends BaseArtifact {
+	type: ArtifactType.CREATED_NOTES;
+	paths: string[];
 }
 
-export type Artifact = SearchResultsArtifact | CreatedNoteArtifact;
+export type Artifact = SearchResultsArtifact | CreatedNotesArtifact;
 
 /**
  * Manages the storage and retrieval of conversation artifacts

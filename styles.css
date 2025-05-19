@@ -118,6 +118,7 @@ If your plugin does not need CSS, delete this file.
 	gap: 4px;
 	padding: 4px;
 	justify-content: flex-end;
+	background-color: var(--color-base-20);
 }
 
 .steward-header-button {
@@ -137,6 +138,7 @@ If your plugin does not need CSS, delete this file.
 
 .steward-conversation-wrapper .markdown-embed {
 	padding: 0 0 15px 0;
-	border-left: 0;
+	border: 0;
 	border-bottom: 1px solid var(--background-modifier-border);
+	background-color: transparent;
 }

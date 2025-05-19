@@ -1,8 +1,9 @@
-import { eventEmitter, Events } from './EventEmitter';
+import { eventEmitter } from './EventEmitter';
 import {
 	ConfirmationRequestPayload,
 	ConfirmationResponsePayload,
 	EventPayloadMap,
+	Events,
 } from '../types/events';
 import StewardPlugin from '../main';
 import { getTranslation } from '../i18n';

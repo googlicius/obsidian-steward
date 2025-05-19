@@ -29,6 +29,7 @@ export class StewardConversationView extends MarkdownView {
 		this.containerEl.classList.add('steward-conversation-wrapper');
 
 		this.createHeader();
+		this.disableTitleEditing();
 	}
 
 	async onClose(): Promise<void> {
@@ -41,6 +42,16 @@ export class StewardConversationView extends MarkdownView {
 	 */
 	canAcceptExtension(extension: string): boolean {
 		return false;
+	}
+
+	/**
+	 * Disables editing of the title element by setting contenteditable to false
+	 */
+	private disableTitleEditing(): void {
+		const titleEl = this.containerEl.querySelector('.inline-title');
+		if (titleEl instanceof HTMLElement) {
+			titleEl.contentEditable = 'false';
+		}
 	}
 
 	/**
@@ -121,7 +132,6 @@ export class StewardConversationView extends MarkdownView {
 	 * Toggles the static conversation sidebar open or closed
 	 */
 	private async toggleStaticConversation(): Promise<void> {
-		// Find and click the right sidebar toggle button
 		const toggleButton = document.querySelector('.sidebar-toggle-button.mod-right');
 		if (toggleButton instanceof HTMLElement) {
 			toggleButton.click();

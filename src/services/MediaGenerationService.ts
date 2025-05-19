@@ -1,9 +1,10 @@
 import { MediaTools } from '../tools/mediaTools';
 import { logger } from '../utils/logger';
-import { eventEmitter, Events } from './EventEmitter';
+import { eventEmitter } from './EventEmitter';
 import { ConversationRenderer } from './ConversationRenderer';
 import StewardPlugin from '../main';
 import { extractMediaCommand } from '../lib/modelfusion/mediaExtraction';
+import { Events } from '../types/events';
 
 export class MediaGenerationService {
 	private mediaTools: MediaTools;

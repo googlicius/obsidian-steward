@@ -5,10 +5,13 @@ import { userLanguagePrompt } from './prompts/languagePrompt';
 import { confidenceScorePrompt } from './prompts/confidenceScorePrompt';
 import { StewardPluginSettings } from '../../types/interfaces';
 
-export interface NoteCreationExtraction {
-	noteName?: string;
+export interface NoteDetails {
+	noteName: string;
 	content: string;
-	contentSource: 'user-given' | 'generated';
+}
+
+export interface NoteCreationExtraction {
+	notes: NoteDetails[];
 	explanation: string;
 	confidence: number;
 }
@@ -17,7 +20,7 @@ export interface NoteCreationExtraction {
  * Extract note creation details from a user query
  * @param userInput Natural language request from the user
  * @param llmConfig LLM configuration settings
- * @returns Extracted note name, content, content source, and explanation
+ * @returns Extracted note details, explanation, and confidence
  */
 export async function extractNoteCreation(
 	userInput: string,
@@ -51,17 +54,29 @@ function validateNoteCreationExtraction(data: any): NoteCreationExtraction {
 		throw new Error('Invalid response format');
 	}
 
-	// noteName can be empty string if user doesn't intend to create a note
-	if (typeof data.noteName !== 'string') {
-		throw new Error('Note name must be a string');
+	if (!Array.isArray(data.notes)) {
+		throw new Error('Notes must be an array');
 	}
 
-	if (typeof data.content !== 'string' || !data.content.trim()) {
-		throw new Error('Content must be a non-empty string');
+	if (data.notes.length === 0) {
+		throw new Error('At least one note must be specified');
 	}
 
-	if (data.contentSource !== 'user-given' && data.contentSource !== 'generated') {
-		throw new Error('Content source must be either "user-given" or "generated"');
+	// Validate each note in the array
+	for (const note of data.notes) {
+		if (!note || typeof note !== 'object') {
+			throw new Error('Each note must be an object');
+		}
+
+		// noteName is required for note creation
+		if (typeof note.noteName !== 'string' || !note.noteName.trim()) {
+			throw new Error('Note name must be a non-empty string');
+		}
+
+		// content is optional for note creation (can be empty string)
+		if (typeof note.content !== 'string') {
+			throw new Error('Content must be a string');
+		}
 	}
 
 	if (typeof data.explanation !== 'string' || !data.explanation.trim()) {
@@ -73,9 +88,7 @@ function validateNoteCreationExtraction(data: any): NoteCreationExtraction {
 	}
 
 	return {
-		noteName: data.noteName,
-		content: data.content,
-		contentSource: data.contentSource,
+		notes: data.notes,
 		explanation: data.explanation,
 		confidence: data.confidence,
 	};

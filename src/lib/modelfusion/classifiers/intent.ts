@@ -68,6 +68,8 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 				'search for notes under the folder f',
 				'Search notes containing the keyword x',
 				'Search for x',
+				'search note name x',
+				'find note name x',
 			],
 		},
 		{
@@ -213,16 +215,14 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 		{
 			name: 'create' as const,
 			values: [
-				'create a new note about x',
-				'make a note for x',
 				'create a note titled x',
 				'write a new note about x',
-				'create a new file for x',
-				'make a new note with x',
 				'create a note with content x',
 				'write a note about x',
 				'create a new document about x',
 				'start a new note for x',
+				'create a new note named x',
+				'create a new note titled x',
 			],
 		},
 	],

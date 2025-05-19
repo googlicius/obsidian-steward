@@ -452,24 +452,6 @@ export class PersistentEmbeddingSimilarityClassifier<
 				});
 			}
 
-			// Find the cluster and update its version hash
-			const cluster = this.settings.clusters.find(c => c.name === clusterName);
-			if (cluster) {
-				// Check if the value already exists in the cluster values
-				if (!cluster.values.includes(value as VALUE)) {
-					// Add the value to the cluster's values array to properly track it
-					cluster.values.push(value as VALUE);
-
-					// Generate and store the updated version hash
-					const versionHash = this.generateClusterHash(cluster);
-					await this.db.storeClusterVersion(modelName, clusterName, versionHash);
-
-					logger.log(`Updated version hash for cluster "${clusterName}" after adding new value`);
-				}
-			} else {
-				logger.warn(`Saved embedding for value under non-existent cluster "${clusterName}"`);
-			}
-
 			logger.log(`Saved embedding for value under cluster "${clusterName}"`);
 		} catch (error) {
 			logger.error('Failed to save embedding:', error);
@@ -544,15 +526,12 @@ export class PersistentEmbeddingSimilarityClassifier<
 		// sort (highest similarity first)
 		const firstFiveMatches = allMatches.sort((a, b) => b.similarity - a.similarity).slice(0, 5);
 
-		logger.log('First 5 matches', firstFiveMatches);
+		logger.log(`First ${firstFiveMatches.length} matches`, firstFiveMatches);
 		const countClusterNames = new Set(firstFiveMatches.map(m => m.clusterName));
 
-		// If there are multiple clusters, and the highest similarity is less than 0.99, return null
+		// If there are multiple clusters with similar matches
 		if (countClusterNames.size > 1 && firstFiveMatches[0].similarity < 0.99) {
-			return {
-				class: null,
-				rawResponse: undefined,
-			};
+			return this.findDominantCluster(firstFiveMatches);
 		}
 
 		return {
@@ -560,6 +539,56 @@ export class PersistentEmbeddingSimilarityClassifier<
 				firstFiveMatches.length > 0
 					? (firstFiveMatches[0].clusterName as unknown as ClusterNames<CLUSTERS>)
 					: null,
+			rawResponse: undefined,
+		};
+	}
+
+	/**
+	 * Analyzes match results and finds the dominant cluster if one exists
+	 * @param matches Array of matches with similarity scores and cluster names
+	 * @returns Classification result with either the dominant cluster or null
+	 */
+	private findDominantCluster(
+		matches: Array<{
+			similarity: number;
+			clusterValue: VALUE;
+			clusterName: string;
+		}>
+	) {
+		// Count matches per cluster
+		const clusterCounts: Record<string, number> = {};
+		for (const match of matches) {
+			clusterCounts[match.clusterName] = (clusterCounts[match.clusterName] || 0) + 1;
+		}
+
+		// Find the cluster with the most matches
+		let maxCount = 0;
+		let dominantCluster = '';
+		for (const [cluster, count] of Object.entries(clusterCounts)) {
+			if (count > maxCount) {
+				maxCount = count;
+				dominantCluster = cluster;
+			}
+		}
+
+		// Calculate the percentage of the dominant cluster
+		const dominantPercentage = (maxCount / matches.length) * 100;
+
+		logger.log(
+			`Dominant cluster "${dominantCluster}" has ${dominantPercentage.toFixed(2)}% of matches`
+		);
+
+		// If dominant cluster has more than 80% of matches, return it
+		if (dominantPercentage >= 80) {
+			return {
+				class: dominantCluster as unknown as ClusterNames<CLUSTERS>,
+				rawResponse: undefined,
+			};
+		}
+
+		// Otherwise still return null
+		return {
+			class: null,
 			rawResponse: undefined,
 		};
 	}

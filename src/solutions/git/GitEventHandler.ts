@@ -1,5 +1,5 @@
 import { App, Notice } from 'obsidian';
-import { eventEmitter, Events, ErrorEvents } from '../../services/EventEmitter';
+import { eventEmitter } from '../../services/EventEmitter';
 import {
 	GitOperationPerformedPayload,
 	GitOperationRevertedPayload,
@@ -11,6 +11,7 @@ import { GitOperation, GitService } from './GitService';
 import { ConversationRenderer } from '../../services/ConversationRenderer';
 import { logger } from '../../utils/logger';
 import type StewardPlugin from '../../main';
+import { Events, ErrorEvents } from '../../types/events';
 
 /**
  * Handler for Git-related events to enable tracking and reverting changes

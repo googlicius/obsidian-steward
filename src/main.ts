@@ -5,7 +5,7 @@ import { EditorView, keymap } from '@codemirror/view';
 import { createCommandHighlightExtension } from './cm/extensions/CommandHighlightExtension';
 import { createCalloutDataPostProcessor } from './cm/extensions/CalloutDataPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
-import { eventEmitter, Events } from './services/EventEmitter';
+import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
 import { SearchService } from './solutions/search';
 import { DateTime } from 'luxon';
@@ -25,6 +25,7 @@ import {
 	STW_CONVERSATION_VIEW_CONFIG,
 } from './constants';
 import { StewardConversationView } from './views/StewardConversationView';
+import { Events } from './types/events';
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -745,7 +746,7 @@ export default class StewardPlugin extends Plugin {
 		});
 	}
 
-	private async getMainLeaf(): Promise<WorkspaceLeaf> {
+	async getMainLeaf(): Promise<WorkspaceLeaf> {
 		return new Promise(resolve => {
 			this.app.workspace.iterateRootLeaves(leaf => {
 				resolve(leaf);

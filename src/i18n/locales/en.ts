@@ -52,8 +52,12 @@ const en = {
 			createFoldersQuestion: 'Would you like me to create these folders?',
 		},
 		create: {
-			success: 'Successfully created',
+			success_one: 'Successfully created {{noteName}}',
+			success_other: 'Successfully created {{count}} notes: {{noteNames}}',
 			creatingNote: 'Creating note: {{noteName}}',
+		},
+		generate: {
+			success: 'Successfully generated',
 		},
 		// Update result messages
 		update: {
@@ -98,6 +102,7 @@ const en = {
 			noMorePages: 'This is the last page of results.',
 			searchingFor: 'Searching for "{{searchTerm}}"',
 			searchingForTags: 'Searching for tags: {{tags}}',
+			showingPage: 'Showing page {{page}} of {{total}}',
 		},
 		// Close command messages
 		close: {

@@ -152,7 +152,13 @@ function validateCommandIntentExtraction(data: any): CommandIntentExtraction {
 		'audio',
 		'update_from_artifact',
 		'create',
+		'generate',
 	];
+
+	// Check if there are too many commands
+	if (data.commands.length > 20) {
+		throw new Error(`Too many commands: ${data.commands.length}. Maximum allowed is 20.`);
+	}
 
 	// Validate each command in the sequence
 	const validatedCommands = data.commands.map((cmd: any, index: number) => {

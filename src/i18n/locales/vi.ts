@@ -46,8 +46,12 @@ const vi = {
 			createFoldersQuestion: 'Bạn có muốn tôi tạo các thư mục này không?',
 		},
 		create: {
-			success: 'Đã tạo thành công',
+			success_one: 'Đã tạo thành công {{noteName}}',
+			success_other: 'Đã tạo thành công {{count}} ghi chú: {{noteNames}}',
 			creatingNote: 'Đang tạo ghi chú: [[{{noteName}}]]',
+		},
+		generate: {
+			success: 'Đã tạo thành công',
 		},
 		// Update result messages
 		update: {
@@ -87,6 +91,7 @@ const vi = {
 			noMorePages: 'Đây là trang cuối cùng của kết quả.',
 			searchingFor: 'Đang tìm kiếm "{{searchTerm}}"',
 			searchingForTags: 'Đang tìm kiếm các tag: {{tags}}',
+			showingPage: 'Trang {{page}} của {{total}}',
 		},
 		// Close command messages
 		close: {

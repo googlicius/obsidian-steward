@@ -46,8 +46,12 @@ const ja = {
 			createFoldersQuestion: 'これらのフォルダを作成しますか？',
 		},
 		create: {
-			success: '作成に成功しました',
+			success_one: '{{noteName}}を作成しました',
+			success_other: '{{count}}件のノートを作成しました: {{noteNames}}',
 			creatingNote: 'ノートを作成中: [[{{noteName}}]]',
+		},
+		generate: {
+			success: '生成に成功しました',
 		},
 		// Update result messages
 		update: {
@@ -89,6 +93,7 @@ const ja = {
 			noMorePages: 'これが最後のページです。',
 			searchingFor: '「{{searchTerm}}」を検索しています',
 			searchingForTags: 'タグ: {{tags}}',
+			showingPage: '{{page}}ページ目の{{total}}ページ目',
 		},
 		// Close command messages
 		close: {
