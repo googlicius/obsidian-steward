@@ -600,7 +600,7 @@ export class SearchEngine {
 				folders: matchedFolders,
 			});
 
-			console.log('documents', documents);
+			logger.log('documents', documents);
 
 			documentsAcrossOperations.push(...documents);
 		}

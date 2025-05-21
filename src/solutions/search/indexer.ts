@@ -55,42 +55,34 @@ export class Indexer {
 			this.app.vault.on('modify', async file => {
 				if (file instanceof TFile && file.extension === 'md') {
 					// Skip files in excluded folders
-					if (!this.documentStore.isExcluded(file.path)) {
-						// Check if file content contains command prefixes before indexing
-						const content = await this.app.vault.read(file);
+					if (this.documentStore.isExcluded(file.path)) {
+						return;
+					}
 
-						if (!this.containsCommandPrefix(content)) {
-							// Check if this is the cached note
-							if (this.cachedNotePath === file.path) {
-								// Get new terms count
-								const newTerms = this.tokenizer.tokenize(content);
-								const newTermsCount = newTerms.length;
+					// Check if file content contains command prefixes before indexing
+					const content = await this.app.vault.read(file);
 
-								// If terms count differs, reindex
-								if (this.cachedNoteTermsCount !== newTermsCount) {
-									logger.log(
-										`Terms count changed for ${file.path}: ${this.cachedNoteTermsCount} -> ${newTermsCount}`
-									);
-									this.queueFileForIndexing(file.path);
+					// Check if this is the cached note
+					if (this.cachedNotePath === file.path) {
+						// Get new terms count
+						const newTerms = this.tokenizer.tokenize(content);
+						const newTermsCount = newTerms.length;
 
-									// Update cache with new terms count
-									this.cachedNoteTermsCount = newTermsCount;
-								} else {
-									logger.log(`Terms count unchanged for ${file.path}, skipping indexing`);
-								}
-							} else {
-								// Not the cached note, proceed with normal indexing
-								this.queueFileForIndexing(file.path);
-							}
+						// If terms count differs, reindex
+						if (this.cachedNoteTermsCount !== newTermsCount) {
+							logger.log(
+								`Terms count changed for ${file.path}: ${this.cachedNoteTermsCount} -> ${newTermsCount}`
+							);
+							this.queueFileForIndexing(file.path);
+
+							// Update cache with new terms count
+							this.cachedNoteTermsCount = newTermsCount;
 						} else {
-							// Remove from index if it contains commands
-							this.removeFromIndex(file.path);
-
-							// Clear cache if this was the cached note
-							if (this.cachedNotePath === file.path) {
-								this.clearCachedNote();
-							}
+							logger.log(`Terms count unchanged for ${file.path}, skipping indexing`);
 						}
+					} else {
+						// Not the cached note, proceed with normal indexing
+						this.queueFileForIndexing(file.path);
 					}
 				}
 			}),
@@ -116,14 +108,11 @@ export class Indexer {
 					}
 
 					// Skip files in excluded folders
-					if (!this.documentStore.isExcluded(file.path)) {
-						// Check if file content contains command prefixes before indexing
-						const content = await this.app.vault.read(file);
-
-						if (!this.containsCommandPrefix(content)) {
-							this.queueFileForIndexing(file.path);
-						}
+					if (this.documentStore.isExcluded(file.path)) {
+						return;
 					}
+
+					this.queueFileForIndexing(file.path);
 				}
 			})
 		);
@@ -366,15 +355,7 @@ export class Indexer {
 		for (const file of files) {
 			if (!this.documentStore.isExcluded(file.path)) {
 				try {
-					// Check if file content contains command prefixes
-					const content = await this.documentStore.readFile(file);
-
-					if (!this.containsCommandPrefix(content)) {
-						this.queueFileForIndexing(file.path);
-					} else {
-						// Remove from index if it contains commands
-						this.removeFromIndex(file.path);
-					}
+					this.queueFileForIndexing(file.path);
 				} catch (error) {
 					logger.error(`Error checking file ${file.path}:`, error);
 				}
@@ -388,12 +369,6 @@ export class Indexer {
 	private async updateCachedNote(file: TFile): Promise<void> {
 		try {
 			const content = await this.app.vault.read(file);
-
-			// Skip files with command prefixes
-			if (this.containsCommandPrefix(content)) {
-				this.clearCachedNote();
-				return;
-			}
 
 			// Update cache
 			this.cachedNotePath = file.path;
