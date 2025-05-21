@@ -15,7 +15,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 	modelName: 'steward-intent-classifier',
 
 	// the threshold for the distance between the value and the cluster values:
-	similarityThreshold: 0.82,
+	similarityThreshold: 0.84,
 
 	// Static cluster values that aren't need to be embedded
 	staticClusterValues: [

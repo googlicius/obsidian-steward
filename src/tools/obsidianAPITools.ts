@@ -118,8 +118,10 @@ export class ObsidianAPITools {
 				const filePath = result.path;
 				if (!filePath) continue;
 
-				const fileName = filePath.split('/').pop() || '';
-				const destinationPath = `${operation.destinationFolder}/${fileName}`.replace(/\/+/g, '/');
+				const destinationPath = `${operation.destinationFolder}/${result.fileName}`.replace(
+					/\/+/g,
+					'/'
+				);
 
 				// Check if file is already in the destination folder
 				if (filePath === destinationPath) {
@@ -130,7 +132,7 @@ export class ObsidianAPITools {
 				const success = await this.moveFile(filePath, operation.destinationFolder);
 
 				if (success) {
-					moved.push(filePath);
+					moved.push(destinationPath);
 				} else {
 					errors.push(filePath);
 				}

@@ -7,6 +7,11 @@ export const STW_CONVERSATION_VIEW_CONFIG = {
 	icon: SMILE_CHAT_ICON_ID,
 };
 
+export const STW_EMBEDDED_CONVERSATION_VIEW_CONFIG = {
+	type: 'embedded-conversation',
+	icon: 'message-square',
+};
+
 // Supported command prefixes
 export const COMMAND_PREFIXES = [
 	'/ ',
@@ -30,7 +35,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
 		deepseek: '',
 	},
 	saltKeyId: '', // Will be generated on first load
-	conversationFolder: 'Steward/Conversations',
+	stewardFolder: 'Steward',
 	searchDbPrefix: '',
 	encryptionVersion: 1, // Current version
 	excludedFolders: ['node_modules', 'src', '.git', 'dist'], // Default development folders to exclude

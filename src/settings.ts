@@ -219,14 +219,14 @@ export default class StewardSettingTab extends PluginSettingTab {
 
 		// Add setting for conversation folder
 		new Setting(containerEl)
-			.setName('Conversation Folder')
-			.setDesc('Folder where conversation notes will be stored')
+			.setName('Steward Folder')
+			.setDesc('Base folder where Steward data will be stored')
 			.addText(text =>
 				text
-					.setPlaceholder('conversations')
-					.setValue(this.plugin.settings.conversationFolder)
+					.setPlaceholder('Steward')
+					.setValue(this.plugin.settings.stewardFolder)
 					.onChange(async value => {
-						this.plugin.settings.conversationFolder = value || 'Steward/Conversations';
+						this.plugin.settings.stewardFolder = value || 'Steward';
 						await this.plugin.saveSettings();
 					})
 			);

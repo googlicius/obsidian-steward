@@ -25,10 +25,15 @@ export async function extractPromptCreation(
 	llmConfig: StewardPluginSettings['llm']
 ): Promise<CustomPrompt> {
 	try {
-		logger.log('Using LLM for prompt creation extraction');
 		const response = await generateText({
 			model: createLLMGenerator(llmConfig),
-			prompt: [promptCreationPrompt, { role: 'user', content: userInput }],
+			prompt: [
+				promptCreationPrompt,
+				{
+					role: 'user',
+					content: userInput,
+				},
+			],
 		});
 
 		// Parse and validate the JSON response

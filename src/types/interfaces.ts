@@ -6,7 +6,7 @@ export interface StewardPluginSettings {
 		deepseek: string;
 	};
 	saltKeyId: string; // Store just the key ID, not the actual salt
-	conversationFolder: string;
+	stewardFolder: string;
 	searchDbPrefix: string;
 	encryptionVersion?: number; // Track the encryption version for future migrations
 	excludedFolders: string[]; // Folders to exclude from Obsidian search

@@ -18,7 +18,7 @@ export class ConversationRenderer {
 	public async updateLastUserMessageCommand(title: string, commandType: string): Promise<void> {
 		try {
 			// Get the conversation file
-			const folderPath = this.plugin.settings.conversationFolder;
+			const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
 			const notePath = `${folderPath}/${title}.md`;
 			const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
 
@@ -75,7 +75,7 @@ export class ConversationRenderer {
 		role?: string;
 	}): Promise<string | undefined> {
 		try {
-			const folderPath = this.plugin.settings.conversationFolder;
+			const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
 			const notePath = `${folderPath}/${path}.md`;
 
 			// Get the current content of the note
@@ -130,7 +130,7 @@ export class ConversationRenderer {
 		position?: number;
 	}): Promise<string | undefined> {
 		try {
-			const folderPath = this.plugin.settings.conversationFolder;
+			const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
 			const notePath = `${folderPath}/${path}.md`;
 
 			// Get the current content of the note
@@ -226,7 +226,7 @@ export class ConversationRenderer {
 	): Promise<Record<string, string> | null> {
 		try {
 			// Get the conversation file
-			const folderPath = this.plugin.settings.conversationFolder;
+			const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
 			const notePath = `${folderPath}/${conversationTitle}.md`;
 			const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
 
@@ -277,7 +277,7 @@ export class ConversationRenderer {
 	 * Adds a generating indicator to a conversation note
 	 */
 	public async addGeneratingIndicator(path: string, indicatorText: string): Promise<void> {
-		const folderPath = this.plugin.settings.conversationFolder;
+		const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
 		const notePath = `${folderPath}/${path}.md`;
 		const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
 		if (!file) {
@@ -307,7 +307,7 @@ export class ConversationRenderer {
 	): Promise<void> {
 		try {
 			// Get the configured folder for conversations
-			const folderPath = this.plugin.settings.conversationFolder;
+			const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
 			const notePath = `${folderPath}/${title}.md`;
 
 			// Check if conversations folder exists, create if not
@@ -395,7 +395,7 @@ export class ConversationRenderer {
 	): Promise<Record<string, string> | null> {
 		try {
 			// Get the conversation file
-			const folderPath = this.plugin.settings.conversationFolder;
+			const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
 			const notePath = `${folderPath}/${conversationTitle}.md`;
 			const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
 
@@ -448,7 +448,7 @@ export class ConversationRenderer {
 	): Promise<boolean> {
 		try {
 			// Get the conversation file
-			const folderPath = this.plugin.settings.conversationFolder;
+			const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
 			const notePath = `${folderPath}/${conversationTitle}.md`;
 			const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
 

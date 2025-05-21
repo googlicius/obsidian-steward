@@ -35,3 +35,13 @@ When interpreting update_from_artifact commands:
 - It always follows a search command, even the user mentions a specific file or note name
 - If the user mentions anything about the content of the note, it should be added to the search query`,
 };
+
+export const interpretDestinationFolderPrompt: OpenAIChatMessage = {
+	role: 'system',
+	content: `You are a helpful assistant that interprets destination folder commands in natural language queries.
+
+When interpreting move_from_artifact or copy_from_artifact commands:
+- It always follows a search command
+- The content MUST include the destination folder
+- Don't include the original folder, it should be belong to the search interpretation`,
+};

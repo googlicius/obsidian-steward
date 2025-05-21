@@ -3,7 +3,7 @@ import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView, keymap } from '@codemirror/view';
 import { createCommandHighlightExtension } from './cm/extensions/CommandHighlightExtension';
-import { createCalloutDataPostProcessor } from './cm/extensions/CalloutDataPostProcessor';
+import { createCalloutSearchResultPostProcessor } from './cm/post-processors/CalloutSearchResultPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -17,7 +17,7 @@ import { ConversationArtifactManager } from './services/ConversationArtifactMana
 import { GitEventHandler } from './solutions/git/GitEventHandler';
 import { MediaGenerationService } from './services/MediaGenerationService';
 import { StewardPluginSettings } from './types/interfaces';
-import { Prec } from '@codemirror/state';
+import { Line, Prec, Text } from '@codemirror/state';
 import {
 	COMMAND_PREFIXES,
 	DEFAULT_SETTINGS,
@@ -26,6 +26,7 @@ import {
 } from './constants';
 import { StewardConversationView } from './views/StewardConversationView';
 import { Events } from './types/events';
+import { createStewardConversationProcessor } from './cm/post-processors/StewardConversationProcessor';
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -56,7 +57,7 @@ export default class StewardPlugin extends Plugin {
 		await this.loadSettings();
 
 		// Exclude development-related folders from search
-		this.excludeFoldersFromSearch(['Steward/']);
+		this.excludeFoldersFromSearch([`${this.settings.stewardFolder}/`]);
 
 		// Set the placeholder text based on the current language
 		document.documentElement.style.setProperty(
@@ -86,7 +87,7 @@ export default class StewardPlugin extends Plugin {
 		this.searchService = SearchService.getInstance({
 			app: this.app,
 			dbName: this.settings.searchDbPrefix,
-			excludeFolders: [...this.settings.excludedFolders, 'Steward/'],
+			excludeFolders: [...this.settings.excludedFolders, `${this.settings.stewardFolder}/`],
 		});
 
 		// Initialize the search service
@@ -166,9 +167,20 @@ export default class StewardPlugin extends Plugin {
 		]);
 
 		this.registerMarkdownPostProcessor(
-			createCalloutDataPostProcessor({
+			createCalloutSearchResultPostProcessor({
 				handleClick: event => {
 					this.handleSearchResultCalloutClick(event);
+				},
+			})
+		);
+
+		this.registerMarkdownPostProcessor(
+			createStewardConversationProcessor({
+				conversationFolder: `${this.settings.stewardFolder}/Conversations`,
+				handleCloseButtonClick: (event: MouseEvent, conversationPath: string) => {
+					conversationPath = conversationPath.replace('.md', '');
+					const conversationTitle = conversationPath.split('/').pop();
+					this.closeConversation(conversationTitle as string);
 				},
 			})
 		);
@@ -278,7 +290,7 @@ export default class StewardPlugin extends Plugin {
 				// Look for a conversation link in the previous lines
 				const conversationLink = this.findConversationLinkAbove(view);
 
-				const folderPath = this.settings.conversationFolder;
+				const folderPath = `${this.settings.stewardFolder}/Conversations`;
 				const notePath = `${folderPath}/${conversationLink}.md`;
 
 				if (this.app.vault.getAbstractFileByPath(notePath) && conversationLink) {
@@ -318,8 +330,7 @@ export default class StewardPlugin extends Plugin {
 				const formattedDate = now.toFormat('yyyy-MM-dd_HH-mm-ss');
 				const title = `${commandType.trim() || 'General'} command ${formattedDate}`;
 
-				// Create a promise to create the conversation note
-				await this.createConversationNote(title, commandType, commandContent);
+				await this.conversationRenderer.createConversationNote(title, commandType, commandContent);
 
 				// After the note is created, insert the link on the next tick
 				setTimeout(() => {
@@ -337,7 +348,7 @@ export default class StewardPlugin extends Plugin {
 
 				return true;
 			} catch (error) {
-				logger.error('Error in handleShiftEnter:', error);
+				logger.error('Error in handleEnter:', error);
 				new Notice(`Error processing command: ${error.message}`);
 				return false;
 			}
@@ -404,7 +415,7 @@ export default class StewardPlugin extends Plugin {
 	}: { revealLeaf?: boolean } = {}): Promise<void> {
 		try {
 			// Get the configured folder for conversations
-			const folderPath = this.settings.conversationFolder;
+			const folderPath = `${this.settings.stewardFolder}/Conversations`;
 			const notePath = `${folderPath}/${this.staticConversationTitle}.md`;
 
 			// Check if conversations folder exists, create if not
@@ -443,6 +454,25 @@ export default class StewardPlugin extends Plugin {
 		}
 	}
 
+	/**
+	 * Check if a position points to an empty line in the document
+	 * @param doc - The document to check
+	 * @param pos - The position to check
+	 * @returns The line if it is empty or null if it is not
+	 */
+	private emptyLine(doc: Text, pos: number): Line | null {
+		// Check if position is within document bounds
+		if (pos > doc.length) return null;
+
+		const line = doc.lineAt(pos);
+
+		if (line.text.trim() === '') {
+			return line;
+		}
+
+		return null;
+	}
+
 	async closeConversation(conversationTitle: string): Promise<boolean> {
 		try {
 			if (!this.editor) {
@@ -454,19 +484,38 @@ export default class StewardPlugin extends Plugin {
 			const { state } = editorView;
 			const { doc } = state;
 
-			// Find the line containing the conversation link
+			// Get the current viewport lines rather than iterating the whole document
+			const { from, to } = editorView.viewport;
+
+			// Find the line containing the conversation link within the viewport
 			let linkFrom = -1;
 			let linkTo = -1;
 
-			// Find the line containing the conversation link
-			for (let i = 1; i <= doc.lines; i++) {
-				const line = doc.line(i);
+			// Get the line at the start of the viewport
+			let pos = from;
+			while (pos <= to) {
+				const line = doc.lineAt(pos);
 				const linkMatch = line.text.match(new RegExp(`!\\[\\[${conversationTitle}\\]\\]`));
 				if (linkMatch) {
 					linkFrom = line.from;
 					linkTo = line.to;
+
+					// Check first empty line
+					const firstLine = this.emptyLine(doc, linkTo + 1);
+					if (firstLine) {
+						linkTo = firstLine.to;
+
+						// Check second empty line
+						const secondLine = this.emptyLine(doc, linkTo + 1);
+						if (secondLine) {
+							linkTo = secondLine.to;
+						}
+					}
+
 					break;
 				}
+				// Move to the next line
+				pos = line.to + 1;
 			}
 
 			if (linkFrom === -1) {
@@ -478,16 +527,10 @@ export default class StewardPlugin extends Plugin {
 			editorView.dispatch({
 				changes: {
 					from: linkFrom,
-					to: linkTo + 1, // +1 to include the newline
+					to: linkTo,
 					insert: '',
 				},
 			});
-
-			// Check if we're trying to close the static conversation
-			const activeFile = this.app.workspace.getActiveFile();
-			if (activeFile && activeFile.name.startsWith(this.staticConversationTitle)) {
-				this.toggleStaticConversation();
-			}
 
 			return true;
 		} catch (error) {
@@ -532,11 +575,6 @@ export default class StewardPlugin extends Plugin {
 		}
 
 		return null;
-	}
-
-	// Helper function to create a conversation note
-	async createConversationNote(title: string, commandType: string, content: string): Promise<void> {
-		return this.conversationRenderer.createConversationNote(title, commandType, content);
 	}
 
 	/**

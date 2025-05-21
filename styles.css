@@ -48,10 +48,6 @@ If your plugin does not need CSS, delete this file.
 	border-bottom: 1px solid var(--background-modifier-border-hover);
 }
 
-.cm-tooltip.cm-tooltip-autocomplete > ul > li:last-child {
-	border-bottom: none;
-}
-
 .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
 	background-color: var(--background-modifier-hover);
 }
@@ -67,17 +63,15 @@ If your plugin does not need CSS, delete this file.
 	margin-left: 8px;
 }
 
-/* Hide completion icons */
-.cm-tooltip.cm-tooltip-autocomplete > ul .cm-completionIcon {
-	display: none;
-}
-
 .steward-conversation-wrapper .inline-embed .markdown-embed-content {
 	max-height: none;
 }
 
 .steward-conversation-wrapper .markdown-embed {
-	padding: 0 0 0 15px;
+	padding: 0 0 15px 0;
+	border: 0;
+	border-bottom: 1px solid var(--background-modifier-border);
+	background-color: transparent;
 }
 
 .callout[data-callout='search-result'] {
@@ -94,7 +88,7 @@ If your plugin does not need CSS, delete this file.
 	transform: translateX(2px);
 }
 
-.callout[data-callout='search-result'] .callout-title {
+.callout[data-callout='search-result'] > .callout-title {
 	display: none;
 }
 
@@ -134,11 +128,4 @@ If your plugin does not need CSS, delete this file.
 
 .steward-header-button:hover {
 	color: var(--text-normal);
-}
-
-.steward-conversation-wrapper .markdown-embed {
-	padding: 0 0 15px 0;
-	border: 0;
-	border-bottom: 1px solid var(--background-modifier-border);
-	background-color: transparent;
 }

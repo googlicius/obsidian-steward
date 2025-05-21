@@ -1,6 +1,10 @@
-import { generateText, openai } from 'modelfusion';
+import { generateText } from 'modelfusion';
 import { destinationFolderPrompt } from './prompts/destinationFolderPrompt';
 import { userLanguagePrompt } from './prompts/languagePrompt';
+import { StewardPluginSettings } from 'src/types/interfaces';
+import { createLLMGenerator } from './llmConfig';
+import { confidenceScorePrompt } from './prompts/confidenceScorePrompt';
+import { validateConfidence, validateLanguage } from './validators';
 
 /**
  * Represents the extracted move from search results parameters
@@ -8,6 +12,7 @@ import { userLanguagePrompt } from './prompts/languagePrompt';
 export interface MoveFromSearchResultExtraction {
 	destinationFolder: string;
 	explanation: string;
+	confidence: number;
 	lang?: string;
 }
 
@@ -17,17 +22,21 @@ export interface MoveFromSearchResultExtraction {
  * @returns Extracted destination folder
  */
 export async function extractMoveFromSearchResult(
-	userInput: string
+	userInput: string,
+	llmConfig: StewardPluginSettings['llm']
 ): Promise<MoveFromSearchResultExtraction> {
 	try {
-		// Use ModelFusion to generate the response
 		const response = await generateText({
-			model: openai.ChatTextGenerator({
-				model: 'gpt-4-turbo-preview',
-				temperature: 0.2,
-				responseFormat: { type: 'json_object' },
-			}),
-			prompt: [userLanguagePrompt, destinationFolderPrompt, { role: 'user', content: userInput }],
+			model: createLLMGenerator(llmConfig),
+			prompt: [
+				userLanguagePrompt,
+				destinationFolderPrompt,
+				confidenceScorePrompt,
+				{
+					role: 'user',
+					content: userInput,
+				},
+			],
 		});
 
 		// Parse and validate the JSON response
@@ -55,9 +64,13 @@ function validateMoveFromSearchResultExtraction(data: any): MoveFromSearchResult
 		throw new Error('Explanation must be a non-empty string');
 	}
 
+	const confidence = validateConfidence(data.confidence);
+	const lang = validateLanguage(data.lang);
+
 	return {
 		destinationFolder: data.destinationFolder.trim(),
 		explanation: data.explanation.trim(),
-		lang: data.lang,
+		confidence,
+		lang,
 	};
 }

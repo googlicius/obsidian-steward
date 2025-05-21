@@ -14,7 +14,7 @@ type Params = {
  *
  * This processor only works for search-result callouts, where the title is hidden via CSS.
  */
-export function createCalloutDataPostProcessor(params: Params): MarkdownPostProcessor {
+export function createCalloutSearchResultPostProcessor(params: Params): MarkdownPostProcessor {
 	return (el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
 		try {
 			// Find all search-result callouts in the current element

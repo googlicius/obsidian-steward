@@ -7,10 +7,10 @@ import { intentClassifier } from './classifiers/intent';
 import { logger } from 'src/utils/logger';
 import {
 	interpretDeleteFromArtifactPrompt,
+	interpretDestinationFolderPrompt,
 	interpretSearchContentPrompt,
 	interpretUpdateFromArtifactPrompt,
 } from './prompts/interpretQueryPrompts';
-import { destinationFolderPrompt } from './prompts/destinationFolderPrompt';
 
 /**
  * Represents a single command in a sequence
@@ -54,20 +54,23 @@ export async function extractCommandIntent(
 
 			const clusterNames = clusterName.split(':');
 
+			// Add some additional prompts to extract multiple intents
+			if (clusterNames.includes('search')) {
+				additionalPrompts.push(interpretSearchContentPrompt);
+			}
+
 			if (clusterNames.length > 1) {
-				// Add some additional prompts to extract multiple intents
-				if (clusterNames.includes('search')) {
-					additionalPrompts.push(interpretSearchContentPrompt);
-				}
 				if (clusterNames.includes('delete_from_artifact')) {
 					additionalPrompts.push(interpretDeleteFromArtifactPrompt);
 				}
+
 				if (
 					clusterNames.includes('copy_from_artifact') ||
 					clusterNames.includes('move_from_artifact')
 				) {
-					additionalPrompts.push(destinationFolderPrompt);
+					additionalPrompts.push(interpretDestinationFolderPrompt);
 				}
+
 				if (clusterNames.includes('update_from_artifact')) {
 					additionalPrompts.push(interpretUpdateFromArtifactPrompt);
 				}
@@ -144,7 +147,6 @@ function validateCommandIntentExtraction(data: any): CommandIntentExtraction {
 		'copy',
 		'move_from_artifact',
 		'delete_from_artifact',
-		'calc',
 		'close',
 		'confirm',
 		'revert',

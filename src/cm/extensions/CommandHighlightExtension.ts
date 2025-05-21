@@ -88,6 +88,7 @@ function createAutocompleteExtension(commandPrefixes: string[]): Extension {
 	return autocompletion({
 		// Only activate when typing after a slash at the beginning of a line
 		activateOnTyping: true,
+		icons: false,
 		override: [
 			(context: CompletionContext): CompletionResult | null => {
 				// Get current line

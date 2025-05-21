@@ -8,7 +8,6 @@ import {
 	MoveFromArtifactConfirmedPayload,
 } from '../types/events';
 import { eventEmitter } from './EventEmitter';
-import * as mathTools from '../tools/mathTools';
 import StewardPlugin from '../main';
 import i18next, { getTranslation } from '../i18n';
 import { highlightKeywords } from '../utils/highlightKeywords';
@@ -109,15 +108,6 @@ export class ConversationEventHandler {
 	): Promise<void> {
 		for (const command of payload.commands) {
 			switch (command.commandType) {
-				case 'calc': {
-					await this.renderer.addGeneratingIndicator(
-						payload.title,
-						i18next.t('conversation.calculating')
-					);
-					await this.handleMathCalculation(payload.title, command.content);
-					break;
-				}
-
 				case 'image': {
 					await this.renderer.addGeneratingIndicator(
 						payload.title,
@@ -145,6 +135,7 @@ export class ConversationEventHandler {
 					break;
 				}
 
+				case 'move':
 				case 'move_from_artifact': {
 					await this.renderer.addGeneratingIndicator(
 						payload.title,
@@ -154,6 +145,7 @@ export class ConversationEventHandler {
 					break;
 				}
 
+				case 'delete':
 				case 'delete_from_artifact': {
 					await this.renderer.addGeneratingIndicator(
 						payload.title,
@@ -270,11 +262,6 @@ export class ConversationEventHandler {
 		payload: ConversationLinkInsertedPayload
 	): Promise<void> {
 		switch (payload.commandType) {
-			case 'calc': {
-				await this.handleMathCalculation(payload.title, payload.commandContent);
-				break;
-			}
-
 			case 'image': {
 				await this.mediaGenerationService.handleMediaCommand({
 					title: payload.title,
@@ -326,29 +313,6 @@ export class ConversationEventHandler {
 
 			default:
 				break;
-		}
-	}
-
-	private async handleMathCalculation(title: string, commandContent: string): Promise<void> {
-		try {
-			const { toolName, firstNumber, secondNumber, answerTemplate } =
-				await mathTools.selectMathTool(commandContent);
-			const result = mathTools.executeToolByName(toolName, firstNumber, secondNumber);
-			const answer = answerTemplate
-				.replace('{result}', result.toString())
-				.replace('{firstNumber}', firstNumber.toString())
-				.replace('{secondNumber}', secondNumber.toString());
-			await this.renderer.updateConversationNote({
-				path: title,
-				newContent: answer,
-				role: 'Steward',
-				command: 'calc',
-			});
-		} catch (error) {
-			await this.renderer.updateConversationNote({
-				path: title,
-				newContent: error.message,
-			});
 		}
 	}
 
@@ -692,7 +656,6 @@ export class ConversationEventHandler {
 	 */
 	private async handleCloseCommand(title: string): Promise<void> {
 		try {
-			// Directly close the conversation without updating the note
 			await this.plugin.closeConversation(title);
 		} catch (error) {
 			console.error('Error closing conversation:', error);
@@ -901,7 +864,10 @@ export class ConversationEventHandler {
 		commandContent: string
 	): Promise<void> {
 		try {
-			const extraction = await extractMoveFromSearchResult(commandContent);
+			const extraction = await extractMoveFromSearchResult(
+				commandContent,
+				this.plugin.settings.llm
+			);
 
 			const t = getTranslation(extraction.lang);
 
