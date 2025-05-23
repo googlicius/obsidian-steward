@@ -11,6 +11,7 @@ const en = {
 			history: 'History',
 			closeChat: 'Close Chat',
 			stewardChat: 'Steward Chat',
+			closeConversation: 'Close Conversation',
 		},
 		// Media generation messages
 		media: {

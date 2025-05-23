@@ -11,6 +11,7 @@ const vi = {
 			history: 'Lịch Sử',
 			closeChat: 'Đóng Trò Chuyện',
 			stewardChat: 'Trò Chuyện Steward',
+			closeConversation: 'Đóng Cuộc Trò Chuyện',
 		},
 		// Move result messages
 		move: {

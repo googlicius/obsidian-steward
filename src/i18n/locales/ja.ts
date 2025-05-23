@@ -11,6 +11,7 @@ const ja = {
 			history: '履歴',
 			closeChat: 'チャットを閉じる',
 			stewardChat: 'Stewardチャット',
+			closeConversation: '会話を閉じる',
 		},
 		// Move result messages
 		move: {

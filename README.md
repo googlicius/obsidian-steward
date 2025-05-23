@@ -8,7 +8,7 @@ Obsidian Steward is a plugin that utilizes Large Language Models (LLMs) to inter
 - **Command-based Interaction**: Support for commands like search, create, update, delete, move, audio, and image generation
 - **Multi-language Support**: Use Steward in your preferred language
 - **Privacy-focused**: Most actions are executed in the front-end using Obsidian API to avoid exposing your data to LLMs (except for your queries)
-- **Beautiful Chat UI**: Interactive chat interface that leverages Obsidian's editor support
+- **Interactive Chat UI**: Interactive chat interface that leverages Obsidian's editor support
 - **Model Flexibility**: Use your favorite AI models including OpenAI, DeepSeek, and Ollama local models
 - **Intent Caching**: Utilizes embeddings to cache similar queries so subsequent requests don't require LLM processing
 

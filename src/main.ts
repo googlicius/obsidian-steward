@@ -181,6 +181,7 @@ export default class StewardPlugin extends Plugin {
 					conversationPath = conversationPath.replace('.md', '');
 					const conversationTitle = conversationPath.split('/').pop();
 					this.closeConversation(conversationTitle as string);
+					this.editor.focus();
 				},
 			})
 		);
@@ -415,7 +416,7 @@ export default class StewardPlugin extends Plugin {
 	}: { revealLeaf?: boolean } = {}): Promise<void> {
 		try {
 			// Get the configured folder for conversations
-			const folderPath = `${this.settings.stewardFolder}/Conversations`;
+			const folderPath = this.settings.stewardFolder;
 			const notePath = `${folderPath}/${this.staticConversationTitle}.md`;
 
 			// Check if conversations folder exists, create if not
@@ -447,6 +448,11 @@ export default class StewardPlugin extends Plugin {
 				// Focus the editor
 				this.app.workspace.revealLeaf(leaf);
 				this.app.workspace.setActiveLeaf(leaf, { focus: true });
+				// Set the cursor to the last line
+				this.editor.setCursor({
+					line: this.editor.lineCount() - 1,
+					ch: this.editor.getLine(this.editor.lineCount() - 1).length,
+				});
 			}
 		} catch (error) {
 			logger.error('Error opening static conversation:', error);

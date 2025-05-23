@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { MarkdownPostProcessor, setIcon } from 'obsidian';
 
 export function createStewardConversationProcessor({
@@ -37,6 +38,7 @@ export function createStewardConversationProcessor({
 				// Add close button
 				const closeButton = document.createElement('div');
 				closeButton.classList.add('markdown-embed-link');
+				closeButton.title = i18next.t('chat.closeConversation');
 				setIcon(closeButton, 'x');
 				closeButton.addEventListener('click', (event: MouseEvent) => {
 					event.preventDefault();
