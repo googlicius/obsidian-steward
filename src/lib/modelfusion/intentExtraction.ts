@@ -10,6 +10,7 @@ import {
 	interpretDestinationFolderPrompt,
 	interpretSearchContentPrompt,
 	interpretUpdateFromArtifactPrompt,
+	interpretReadContentPrompt,
 } from './prompts/interpretQueryPrompts';
 
 /**
@@ -73,6 +74,10 @@ export async function extractCommandIntent(
 
 				if (clusterNames.includes('update_from_artifact')) {
 					additionalPrompts.push(interpretUpdateFromArtifactPrompt);
+				}
+
+				if (clusterNames.includes('read')) {
+					additionalPrompts.push(interpretReadContentPrompt);
 				}
 			} else {
 				// Create a formatted response based on the classification
@@ -155,6 +160,7 @@ function validateCommandIntentExtraction(data: any): CommandIntentExtraction {
 		'update_from_artifact',
 		'create',
 		'generate',
+		'read',
 	];
 
 	// Check if there are too many commands

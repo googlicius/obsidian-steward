@@ -16,6 +16,7 @@ import { ConversationRenderer } from './services/ConversationRenderer';
 import { ConversationArtifactManager } from './services/ConversationArtifactManager';
 import { GitEventHandler } from './solutions/git/GitEventHandler';
 import { MediaGenerationService } from './services/MediaGenerationService';
+import { ContentReadingService } from './services/ContentReadingService';
 import { StewardPluginSettings } from './types/interfaces';
 import { Line, Prec, Text } from '@codemirror/state';
 import {
@@ -27,6 +28,8 @@ import {
 import { StewardConversationView } from './views/StewardConversationView';
 import { Events } from './types/events';
 import { createStewardConversationProcessor } from './cm/post-processors/StewardConversationProcessor';
+import { ObsidianEditor } from './types/types';
+import { isConversationLink, extractConversationTitle } from './utils/conversationUtils';
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -37,7 +40,6 @@ export default class StewardPlugin extends Plugin {
 	settings: StewardPluginSettings;
 	obsidianAPITools: ObsidianAPITools;
 	searchService: SearchService;
-	ribbonIcon: HTMLElement;
 	staticConversationTitle = 'Steward Chat';
 	confirmationEventHandler: ConfirmationEventHandler;
 	artifactManager: ConversationArtifactManager;
@@ -46,11 +48,11 @@ export default class StewardPlugin extends Plugin {
 	// Git integration
 	gitEventHandler: GitEventHandler;
 	mediaGenerationService: MediaGenerationService;
+	// Content reading service
+	contentReadingService: ContentReadingService;
 
-	get editor() {
-		return this.app.workspace.activeEditor?.editor as Editor & {
-			cm: EditorView;
-		};
+	get editor(): ObsidianEditor {
+		return this.app.workspace.activeEditor?.editor as ObsidianEditor;
 	}
 
 	async onload() {
@@ -117,6 +119,9 @@ export default class StewardPlugin extends Plugin {
 		// Initialize the media generation service
 		this.mediaGenerationService = new MediaGenerationService(this);
 
+		// Initialize the content reading service
+		this.contentReadingService = new ContentReadingService(this);
+
 		// Register custom icon
 		addIcon(
 			SMILE_CHAT_ICON_ID,
@@ -129,13 +134,9 @@ export default class StewardPlugin extends Plugin {
 		);
 
 		// Add ribbon icon with custom icon
-		this.ribbonIcon = this.addRibbonIcon(
-			SMILE_CHAT_ICON_ID,
-			i18next.t('ui.openStewardChat'),
-			async () => {
-				await this.openStaticConversation();
-			}
-		);
+		this.addRibbonIcon(SMILE_CHAT_ICON_ID, i18next.t('ui.openStewardChat'), async () => {
+			await this.openStaticConversation();
+		});
 
 		// Add command for toggling Steward chat with hotkey
 		this.addCommand({
@@ -186,9 +187,6 @@ export default class StewardPlugin extends Plugin {
 			})
 		);
 
-		// Initialize the conversation event handler
-		new ConversationEventHandler({ plugin: this });
-
 		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
 		const statusBarItemEl = this.addStatusBarItem();
 
@@ -233,6 +231,9 @@ export default class StewardPlugin extends Plugin {
 
 		// Initialize the ConversationArtifactManager
 		this.artifactManager = ConversationArtifactManager.getInstance();
+
+		// Initialize the conversation event handler
+		new ConversationEventHandler({ plugin: this });
 
 		// Initialize Git event handler for tracking and reverting changes
 		this.gitEventHandler = new GitEventHandler(this.app, this);
@@ -501,8 +502,14 @@ export default class StewardPlugin extends Plugin {
 			let pos = from;
 			while (pos <= to) {
 				const line = doc.lineAt(pos);
-				const linkMatch = line.text.match(new RegExp(`!\\[\\[${conversationTitle}\\]\\]`));
-				if (linkMatch) {
+
+				// Match both simple links ![[title]] and full path links ![[folder/Conversations/title]]
+				const exactTitlePattern = new RegExp(`!\\[\\[${conversationTitle}\\]\\]`);
+				const pathPattern = new RegExp(
+					`!\\[\\[${this.settings.stewardFolder}\\/Conversations\\/${conversationTitle}\\]\\]`
+				);
+
+				if (pathPattern.test(line.text) || exactTitlePattern.test(line.text)) {
 					linkFrom = line.from;
 					linkTo = line.to;
 
@@ -571,10 +578,10 @@ export default class StewardPlugin extends Plugin {
 			const line = doc.line(lineNumber);
 			const text = line.text;
 
-			// Look for inline link format: ![[conversation title]]
-			const linkMatch = text.match(/!\[\[(.*?)\]\]/);
-			if (linkMatch && linkMatch[1]) {
-				return linkMatch[1]; // Return the conversation title
+			// Check if this line contains a conversation link
+			if (isConversationLink(text, this.settings.stewardFolder)) {
+				// Extract the conversation title
+				return extractConversationTitle(text);
 			}
 
 			lineNumber--;
@@ -602,7 +609,7 @@ export default class StewardPlugin extends Plugin {
 		commandContent: string,
 		lang?: string
 	) {
-		const linkText = `![[${title}]]\n\n`;
+		const linkText = `![[${this.settings.stewardFolder}/Conversations/${title}]]\n\n`;
 
 		view.dispatch({
 			changes: {

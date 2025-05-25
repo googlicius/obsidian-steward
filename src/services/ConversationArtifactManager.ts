@@ -6,6 +6,7 @@ export enum ArtifactType {
 	MOVE_RESULTS = 'move_results',
 	CALCULATION_RESULTS = 'calculation_results',
 	CREATED_NOTES = 'created_notes',
+	READ_CONTENT = 'read_content',
 }
 
 /**
@@ -33,7 +34,18 @@ export interface CreatedNotesArtifact extends BaseArtifact {
 	paths: string[];
 }
 
-export type Artifact = SearchResultsArtifact | CreatedNotesArtifact;
+/**
+ * Read content artifact
+ */
+export interface ReadContentArtifact extends BaseArtifact {
+	type: ArtifactType.READ_CONTENT;
+	content: string;
+	source: string;
+	file?: string;
+	elementType?: string;
+}
+
+export type Artifact = SearchResultsArtifact | CreatedNotesArtifact | ReadContentArtifact;
 
 /**
  * Manages the storage and retrieval of conversation artifacts

@@ -147,6 +147,7 @@ const ja = {
 			updating: '更新中...',
 			creatingPrompt: 'カスタムプロンプトを作成中...',
 			creating: '作成中...',
+			readingContent: '内容を読み込んでいます...',
 		},
 	},
 };

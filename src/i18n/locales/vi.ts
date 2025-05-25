@@ -146,6 +146,7 @@ const vi = {
 			updating: 'Đang cập nhật...',
 			creatingPrompt: 'Đang tạo gợi ý tùy chỉnh...',
 			creating: 'Đang tạo...',
+			readingContent: 'Đang đọc nội dung...',
 		},
 	},
 };

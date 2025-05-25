@@ -154,6 +154,7 @@ const en = {
 			updating: 'Updating...',
 			creatingPrompt: 'Creating custom prompt...',
 			creating: 'Creating...',
+			readingContent: 'Reading content...',
 		},
 	},
 };

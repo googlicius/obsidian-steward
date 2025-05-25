@@ -19,6 +19,7 @@ Available command types:
 - "audio": When the user wants to generate audio
 - "create": When the user wants to create a new note with their own content
 - "generate": When the user wants AI to generate content (either in a new note or in the conversation)
+- "read": When the user implicitly or explicitly wants to use content from their note as context (e.g., "help with this table", "fix the code above")
 
 Guidelines:
 - Analyze the query for multiple commands that should be executed in sequence
@@ -36,6 +37,7 @@ Guidelines:
 - If the user wants to generate audio, include "audio" command
 - If the user wants to create a new note, include "create" command with content that clearly specifies the note name (e.g., "Note name: Hello Kitty")
 - If the user wants AI to generate content (either in a new note or the conversation), include "generate" command
+- If the user refers to content in their current note (using words like "this", "above", "below", "here", "table", "content", "code", "fix", etc.), include "read" command first, followed by the appropriate action command
 
 Provide a confidence score from 0 to 1 for the overall sequence:
 - 0.0-0.3: Low confidence (ambiguous or unclear requests)

@@ -31,6 +31,7 @@ import { streamText } from 'modelfusion';
 import { createLLMGenerator } from '../lib/modelfusion/llmConfig';
 import { userLanguagePromptText } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { extractNoteGeneration } from '../lib/modelfusion/noteGenerationExtraction';
+import { extractContentReading } from '../lib/modelfusion/contentReadingExtraction';
 
 interface Props {
 	plugin: StewardPlugin;
@@ -41,12 +42,14 @@ export class ConversationEventHandler {
 	private readonly renderer: ConversationRenderer;
 	private readonly artifactManager: ConversationArtifactManager;
 	private readonly mediaGenerationService: StewardPlugin['mediaGenerationService'];
+	private readonly contentReadingService: StewardPlugin['contentReadingService'];
 
 	constructor(props: Props) {
 		this.plugin = props.plugin;
-		this.renderer = new ConversationRenderer(this.plugin);
-		this.artifactManager = ConversationArtifactManager.getInstance();
+		this.renderer = this.plugin.conversationRenderer;
+		this.artifactManager = this.plugin.artifactManager;
 		this.mediaGenerationService = this.plugin.mediaGenerationService;
+		this.contentReadingService = this.plugin.contentReadingService;
 		this.setupListeners();
 	}
 
@@ -249,6 +252,15 @@ export class ConversationEventHandler {
 						i18next.t('conversation.generating')
 					);
 					await this.handleGenerateCommand(payload.title, command.content, payload.lang);
+					break;
+				}
+
+				case 'read': {
+					await this.renderer.addGeneratingIndicator(
+						payload.title,
+						i18next.t('conversation.readingContent')
+					);
+					await this.handleReadCommand(payload.title, command.content, payload.lang);
 					break;
 				}
 
@@ -1355,7 +1367,8 @@ export class ConversationEventHandler {
 			// Handle different artifact types
 			if (
 				artifact.type !== ArtifactType.SEARCH_RESULTS &&
-				artifact.type !== ArtifactType.CREATED_NOTES
+				artifact.type !== ArtifactType.CREATED_NOTES &&
+				artifact.type !== ArtifactType.READ_CONTENT
 			) {
 				await this.renderer.updateConversationNote({
 					path: title,
@@ -1381,11 +1394,103 @@ export class ConversationEventHandler {
 			}
 
 			// Perform the updates
-			await this.handleUpdateFromArtifact(title, extraction.updateInstructions, extraction.lang);
+			if (artifact.type === ArtifactType.READ_CONTENT) {
+				await this.handleUpdateFromReadContent(
+					title,
+					extraction.updateInstructions,
+					extraction.lang,
+					artifact
+				);
+			} else {
+				await this.handleUpdateFromArtifact(title, extraction.updateInstructions, extraction.lang);
+			}
 		} catch (error) {
 			await this.renderer.updateConversationNote({
 				path: title,
 				newContent: `Error extracting update instructions: ${error.message}`,
+				role: 'Steward',
+			});
+		}
+	}
+
+	/**
+	 * Handles updating content based on read content artifact
+	 * @param title The conversation title
+	 * @param updateInstructions The update instructions
+	 * @param lang The language code
+	 * @param artifact The read content artifact
+	 */
+	private async handleUpdateFromReadContent(
+		title: string,
+		updateInstructions: UpdateInstruction[],
+		lang?: string,
+		artifact?: any
+	): Promise<void> {
+		try {
+			if (!artifact || artifact.type !== ArtifactType.READ_CONTENT) {
+				throw new Error('Invalid artifact for content update');
+			}
+
+			const t = getTranslation(lang);
+
+			// First update the conversation to let the user know we're working on it
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*${t('update.processingContent') || 'Processing content update...'}*`,
+				role: 'Steward',
+			});
+
+			// Format update instructions for the user prompt
+			const formatInstruction = (instr: UpdateInstruction): string => {
+				if (instr.type === 'replace') {
+					return `Replace "${instr.old}" with "${instr.new}"`;
+				} else if (instr.type === 'add') {
+					const position =
+						typeof instr.position === 'number'
+							? `at position ${instr.position}`
+							: `at the ${instr.position}`;
+					return `Add "${instr.content}" ${position}`;
+				}
+				return '';
+			};
+
+			// Generate a structured response for the user with the content and proposed changes
+			const stream = await streamText({
+				model: createLLMGenerator({ ...this.plugin.settings.llm, responseFormat: 'text' }),
+				prompt: [
+					{
+						role: 'system',
+						content: `You are a helpful assistant that suggests edits to content. You'll be given:
+						1. Original content from a note
+						2. Update instructions
+						
+						Your task is to:
+						1. Analyze the content
+						2. Apply the update instructions to the content
+						3. Provide a helpful, clear response showing how to improve the content
+						
+						Format your response in a clear, helpful way. Focus on direct, actionable suggestions.`,
+					},
+					userLanguagePromptText,
+					{
+						role: 'user',
+						content: `Original Content:\n\n${artifact.content}\n\nUpdate Instructions:\n${updateInstructions
+							.map(instr => `- ${formatInstruction(instr)}`)
+							.join('\n')}`,
+					},
+				].filter(Boolean),
+			});
+
+			// Stream the response to the conversation
+			await this.renderer.streamConversationNote({
+				path: title,
+				stream,
+				command: 'update_from_artifact',
+			});
+		} catch (error) {
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*Error updating content: ${error.message}*`,
 				role: 'Steward',
 			});
 		}
@@ -1810,6 +1915,74 @@ export class ConversationEventHandler {
 			await this.renderer.updateConversationNote({
 				path: title,
 				newContent: `*Error generating content: ${error.message}*`,
+				role: 'Steward',
+			});
+		}
+	}
+
+	/**
+	 * Handle the read command
+	 * @param title The conversation title
+	 * @param commandContent The command content
+	 * @param lang Optional language code for the response
+	 */
+	private async handleReadCommand(
+		title: string,
+		commandContent: string,
+		lang?: string
+	): Promise<void> {
+		try {
+			const t = getTranslation(lang);
+
+			// Extract the reading instructions using LLM
+			const extraction = await extractContentReading(commandContent, this.plugin.settings.llm);
+
+			// Read the content from the editor
+			const readingResult = await this.contentReadingService.readContent(extraction);
+
+			if (!readingResult) {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: `*${t('read.unableToReadContent') || 'Unable to read content from the editor. Please make sure you have an open note.'}*`,
+					role: 'Steward',
+					command: 'read',
+				});
+				return;
+			}
+
+			// Update the conversation with the results
+			const stewardReadMetadata = await this.renderer.updateConversationNote({
+				path: title,
+				newContent: extraction.explanation,
+				role: 'Steward',
+				command: 'read',
+			});
+
+			// Display the actual content that was read (for testing purposes)
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `\n>[!search-result]\n${readingResult.content
+					.split('\n')
+					.map(item => '>' + item)
+					.join('\n')}`,
+			});
+
+			// Store the read content in the artifact manager
+			if (stewardReadMetadata) {
+				this.artifactManager.storeArtifact(title, stewardReadMetadata, {
+					type: ArtifactType.READ_CONTENT,
+					content: readingResult.content,
+					source: readingResult.source,
+					file: readingResult.file ? readingResult.file.path : undefined,
+					elementType: readingResult.elementType,
+				});
+
+				logger.log('Stored read content in artifact manager');
+			}
+		} catch (error) {
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*Error reading content: ${error.message}*`,
 				role: 'Steward',
 			});
 		}

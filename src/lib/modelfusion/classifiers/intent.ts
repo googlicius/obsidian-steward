@@ -225,6 +225,23 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 				'create a new note titled x',
 			],
 		},
+		{
+			name: 'read' as const,
+			values: [
+				'read this content',
+				'read this code block',
+				'read this table',
+				'read this list',
+				'read this paragraph',
+				'read the selected content',
+				'read the table above',
+				'read the text above',
+				'read the code block above',
+				'read the list above',
+				'read the paragraph above',
+				'read the entire content',
+			],
+		},
 	],
 });
 

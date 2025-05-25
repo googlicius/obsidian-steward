@@ -45,3 +45,12 @@ When interpreting move_from_artifact or copy_from_artifact commands:
 - The content MUST include the destination folder
 - Don't include the original folder, it should be belong to the search interpretation`,
 };
+
+export const interpretReadContentPrompt: OpenAIChatMessage = {
+	role: 'system',
+	content: `You are a helpful assistant that interprets read commands in natural language queries.
+
+Content Context Reading Guidelines:
+- The "read" command should typically be followed by another command that processes that content
+- When user explicitly or implicitly refers to content in their current note (e.g., "Help me fix this code", "Add a column to this table", "Summarize the text above"), the command sequence should start with "read"`,
+};
