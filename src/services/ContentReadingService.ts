@@ -18,11 +18,12 @@ export interface ContentReadingResult {
 
 /**
  * Represents a block of content in the editor
+ * A block can have multiple types if it contains mixed content (e.g., a paragraph with a list and code)
  */
 interface ContentBlock {
 	startLine: number;
 	endLine: number;
-	type: 'paragraph' | 'code' | 'list' | 'table' | 'blockquote' | 'heading' | 'other';
+	types: string[]; // Array of types present in this block
 	content: string;
 }
 
@@ -120,7 +121,9 @@ export class ContentReadingService {
 	 * @param editor The editor
 	 * @param file The active file
 	 * @param blocksToRead Number of blocks to read
-	 * @param elementType Optional element type to look for
+	 * @param elementType Element type to look for. Supports AND/OR conditions:
+	 *  - For OR conditions, use comma-separated values (e.g., "table, code")
+	 *  - For AND conditions, use "+" between types (e.g., "paragraph+list")
 	 * @returns Content above the cursor
 	 */
 	private readBlocksAboveCursor(
@@ -178,7 +181,9 @@ export class ContentReadingService {
 	 * @param editor The editor
 	 * @param file The active file
 	 * @param blocksToRead Number of blocks to read
-	 * @param elementType Optional element type to look for
+	 * @param elementType Element type to look for. Supports AND/OR conditions:
+	 *  - For OR conditions, use comma-separated values (e.g., "table, code")
+	 *  - For AND conditions, use "+" between types (e.g., "paragraph+list")
 	 * @returns Content below the cursor
 	 */
 	private readBlocksBelowCursor(
@@ -274,7 +279,7 @@ export class ContentReadingService {
 
 					if (block) {
 						// Skip if we're looking for a specific element type and it doesn't match
-						if (elementType && !this.matchesElementType(block.type, elementType)) {
+						if (elementType && !this.matchesElementType(block.types, elementType)) {
 							// Move to the line before this block
 							currentLine = block.startLine - 1;
 							continue;
@@ -298,7 +303,7 @@ export class ContentReadingService {
 
 					if (block) {
 						// Skip if we're looking for a specific element type and it doesn't match
-						if (elementType && !this.matchesElementType(block.type, elementType)) {
+						if (elementType && !this.matchesElementType(block.types, elementType)) {
 							// Move to the line after this block
 							currentLine = block.endLine + 1;
 							continue;
@@ -314,6 +319,15 @@ export class ContentReadingService {
 						currentLine++;
 					}
 				}
+			}
+
+			// Checking AND condition
+			if (
+				elementType &&
+				this.isANDCondition(elementType) &&
+				!this.blocksMatchANDCondition(blocks, elementType)
+			) {
+				return [];
 			}
 
 			return blocks;
@@ -416,17 +430,26 @@ export class ContentReadingService {
 				return null;
 			}
 
-			// Detect block type
-			const blockType = this.detectBlockType(line);
-			let inCodeBlock = blockType === 'code';
+			// Get initial block type and start collecting types
+			const initialBlockType = this.detectBlockType(line);
+			const types = new Set<string>([initialBlockType]);
+
+			let inCodeBlock = initialBlockType === 'code';
 			let startLine = lineNumber;
 			let endLine = lineNumber;
 
 			// Find the start of the block (search upward)
 			while (startLine > 0) {
 				const prevLine = editor.getLine(startLine - 1).trim();
-				if (inCodeBlock && this.detectBlockType(prevLine) === 'code') {
+				const prevLineType = this.detectBlockType(prevLine);
+
+				if (inCodeBlock && prevLineType === 'code') {
 					inCodeBlock = false;
+				}
+
+				// Collect type if line isn't empty
+				if (prevLine !== '') {
+					types.add(prevLineType);
 				}
 
 				// Check if the previous line is empty (except for code blocks)
@@ -442,8 +465,15 @@ export class ContentReadingService {
 			// Find the end of the block (search downward)
 			while (endLine < lineCount - 1) {
 				const nextLine = editor.getLine(endLine + 1).trim();
-				if (inCodeBlock && this.detectBlockType(nextLine) === 'code') {
+				const nextLineType = this.detectBlockType(nextLine);
+
+				if (inCodeBlock && nextLineType === 'code') {
 					inCodeBlock = false;
+				}
+
+				// Collect type if line isn't empty
+				if (nextLine !== '') {
+					types.add(nextLineType);
 				}
 
 				// Check if the next line is empty (except for code blocks)
@@ -465,7 +495,7 @@ export class ContentReadingService {
 			return {
 				startLine,
 				endLine,
-				type: blockType,
+				types: Array.from(types),
 				content,
 			};
 		} catch (error) {
@@ -477,9 +507,9 @@ export class ContentReadingService {
 	/**
 	 * Detect the type of a block based on its first line
 	 * @param line The line to analyze
-	 * @returns The detected block type
+	 * @returns The detected block type as a string (one of: 'paragraph', 'code', 'list', 'table', 'blockquote', 'heading', 'other')
 	 */
-	private detectBlockType(line: string): ContentBlock['type'] {
+	private detectBlockType(line: string): string {
 		line = line.trim();
 
 		// Check for headings
@@ -532,67 +562,104 @@ export class ContentReadingService {
 	}
 
 	/**
-	 * Check if a block type matches the requested element type
-	 * @param blockType The block type
-	 * @param elementType The requested element type
+	 * Check if a block's types match the requested element type
+	 * @param blockTypes The block types
+	 * @param elementType The requested element type with possible AND/OR conditions
 	 * @returns True if they match
 	 */
-	private matchesElementType(blockType: string, elementType: string): boolean {
+	private matchesElementType(blockTypes: string[], elementType: string): boolean {
 		// Handle common synonyms and variations
-		const normalizedElementType = elementType.toLowerCase();
+		const normalizedElementType = elementType.toLowerCase().trim();
 
-		if (
-			blockType === 'code' &&
-			(normalizedElementType.includes('code') ||
-				normalizedElementType.includes('script') ||
-				normalizedElementType.includes('function'))
-		) {
-			return true;
+		// Check for OR conditions (comma-separated values)
+		if (this.isORCondition(normalizedElementType)) {
+			const types = normalizedElementType.split(',').map(type => type.trim());
+			return types.some(type => this.matchesElementType(blockTypes, type));
 		}
 
-		if (
-			blockType === 'table' &&
-			(normalizedElementType.includes('table') ||
-				normalizedElementType.includes('grid') ||
-				normalizedElementType.includes('column'))
-		) {
-			return true;
+		// Single element type check (this is a base case for the recursion)
+		for (const blockType of blockTypes) {
+			if (
+				blockType === 'code' &&
+				(normalizedElementType.includes('code') ||
+					normalizedElementType.includes('script') ||
+					normalizedElementType.includes('function'))
+			) {
+				return true;
+			}
+
+			if (
+				blockType === 'table' &&
+				(normalizedElementType.includes('table') ||
+					normalizedElementType.includes('grid') ||
+					normalizedElementType.includes('column'))
+			) {
+				return true;
+			}
+
+			if (
+				blockType === 'list' &&
+				(normalizedElementType.includes('list') ||
+					normalizedElementType.includes('bullet') ||
+					normalizedElementType.includes('item'))
+			) {
+				return true;
+			}
+
+			if (
+				blockType === 'paragraph' &&
+				(normalizedElementType.includes('paragraph') || normalizedElementType.includes('text'))
+			) {
+				return true;
+			}
+
+			if (
+				blockType === 'heading' &&
+				(normalizedElementType.includes('heading') ||
+					normalizedElementType.includes('header') ||
+					normalizedElementType.includes('title'))
+			) {
+				return true;
+			}
+
+			if (
+				blockType === 'blockquote' &&
+				(normalizedElementType.includes('quote') ||
+					normalizedElementType.includes('blockquote') ||
+					normalizedElementType.includes('callout'))
+			) {
+				return true;
+			}
+
+			if (blockType === normalizedElementType) {
+				return true;
+			}
 		}
 
-		if (
-			blockType === 'list' &&
-			(normalizedElementType.includes('list') ||
-				normalizedElementType.includes('bullet') ||
-				normalizedElementType.includes('item'))
-		) {
-			return true;
+		return false;
+	}
+
+	private isANDCondition(elementType: string): boolean {
+		return elementType.includes('+');
+	}
+
+	private isORCondition(elementType: string): boolean {
+		return elementType.includes(',');
+	}
+
+	private blocksMatchANDCondition(blocks: ContentBlock[], elementType: string): boolean {
+		const types = elementType.split('+');
+
+		for (const type of types) {
+			const atLeastOneBlockMatches = blocks.some(block =>
+				this.matchesElementType(block.types, type)
+			);
+
+			if (!atLeastOneBlockMatches) {
+				return false;
+			}
 		}
 
-		if (
-			blockType === 'paragraph' &&
-			(normalizedElementType.includes('paragraph') || normalizedElementType.includes('text'))
-		) {
-			return true;
-		}
-
-		if (
-			blockType === 'heading' &&
-			(normalizedElementType.includes('heading') ||
-				normalizedElementType.includes('header') ||
-				normalizedElementType.includes('title'))
-		) {
-			return true;
-		}
-
-		if (
-			blockType === 'blockquote' &&
-			(normalizedElementType.includes('quote') ||
-				normalizedElementType.includes('blockquote') ||
-				normalizedElementType.includes('callout'))
-		) {
-			return true;
-		}
-
-		return blockType === normalizedElementType;
+		return true;
 	}
 }

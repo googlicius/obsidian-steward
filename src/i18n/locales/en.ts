@@ -137,6 +137,9 @@ const en = {
 			welcomeMessage: 'Welcome to your always-available Steward chat. Type below to interact.',
 			commandPlaceholder: 'Press Enter to send',
 		},
+		read: {
+			noContentFound: 'No such content found in the editor.',
+		},
 		// Conversation states
 		conversation: {
 			workingOnIt: 'Working on it...',

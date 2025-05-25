@@ -10,6 +10,12 @@ import { logger } from '../../utils/logger';
  */
 export interface ContentReadingExtraction {
 	readType: 'selected' | 'above' | 'below' | 'entire';
+	/**
+	 * Element type to look for. Supports AND/OR conditions:
+	 *  - For OR conditions, use comma-separated values (e.g., "table, code")
+	 *  - For AND conditions, use "+" between types (e.g., "paragraph+list")
+	 *  - Can combine both: "paragraph+list, code+table" means (paragraph AND list) OR (code AND table)
+	 */
 	elementType: string | null;
 	blocksToRead: number;
 	confidence: number;

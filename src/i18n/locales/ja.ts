@@ -130,6 +130,9 @@ const ja = {
 				'いつでも利用可能なStewardチャットへようこそ。以下に入力して対話してください。',
 			commandPlaceholder: '送信するにはEnterを押してください',
 		},
+		read: {
+			noContentFound: 'エディタにそのような内容が見つかりませんでした。',
+		},
 		// Conversation states
 		conversation: {
 			workingOnIt: '処理中...',

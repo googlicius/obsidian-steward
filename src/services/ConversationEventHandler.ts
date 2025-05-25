@@ -1958,6 +1958,18 @@ export class ConversationEventHandler {
 				command: 'read',
 			});
 
+			if (extraction.confidence <= 0.7) {
+				return;
+			}
+
+			if (readingResult.content.length === 0 || readingResult.elementType === 'unknown') {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: `*${t('read.noContentFound')}*`,
+				});
+				return;
+			}
+
 			// Display the actual content that was read (for testing purposes)
 			await this.renderer.updateConversationNote({
 				path: title,

@@ -129,6 +129,9 @@ const vi = {
 				'Chào mừng đến với trò chuyện Steward luôn sẵn sàng. Gõ bên dưới để tương tác.',
 			commandPlaceholder: 'Nhấn Enter để gửi',
 		},
+		read: {
+			noContentFound: 'Không tìm thấy nội dung như vậy trong trình soạn thảo.',
+		},
 		// Conversation states
 		conversation: {
 			workingOnIt: 'Đang xử lý...',
