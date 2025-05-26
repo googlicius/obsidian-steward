@@ -17,6 +17,7 @@ import { ConversationArtifactManager } from './services/ConversationArtifactMana
 import { GitEventHandler } from './solutions/git/GitEventHandler';
 import { MediaGenerationService } from './services/MediaGenerationService';
 import { ContentReadingService } from './services/ContentReadingService';
+import { ContentGenerationService } from './services/ContentGenerationService';
 import { StewardPluginSettings } from './types/interfaces';
 import { Line, Prec, Text } from '@codemirror/state';
 import {
@@ -50,6 +51,8 @@ export default class StewardPlugin extends Plugin {
 	mediaGenerationService: MediaGenerationService;
 	// Content reading service
 	contentReadingService: ContentReadingService;
+	// Content generation service
+	contentGenerationService: ContentGenerationService;
 
 	get editor(): ObsidianEditor {
 		return this.app.workspace.activeEditor?.editor as ObsidianEditor;
@@ -121,6 +124,9 @@ export default class StewardPlugin extends Plugin {
 
 		// Initialize the content reading service
 		this.contentReadingService = new ContentReadingService(this);
+
+		// Initialize the content generation service
+		this.contentGenerationService = new ContentGenerationService(this);
 
 		// Register custom icon
 		addIcon(

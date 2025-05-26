@@ -1,0 +1,94 @@
+import { generateText } from 'modelfusion';
+import { createLLMGenerator } from './llmConfig';
+import { contentUpdatePrompt } from './prompts/contentUpdatePrompt';
+import { userLanguagePrompt } from './prompts/languagePrompt';
+import { StewardPluginSettings } from '../../types/interfaces';
+import { logger } from '../../utils/logger';
+
+export interface ContentUpdate {
+	updatedContent: string;
+	originalContent: string;
+}
+
+export interface ContentUpdateExtraction {
+	updates: ContentUpdate[];
+	explanation: string;
+	confidence: number;
+}
+
+/**
+ * Extract content update details from a user query
+ * @param userInput Natural language request from the user
+ * @param originalContents Array of original content blocks to be updated
+ * @param llmConfig LLM configuration settings
+ * @returns Extracted updated contents, explanation, and confidence
+ */
+export async function extractContentUpdate(
+	userInput: string,
+	llmConfig: StewardPluginSettings['llm']
+): Promise<ContentUpdateExtraction> {
+	try {
+		logger.log('Extracting content update from user input');
+
+		const response = await generateText({
+			model: createLLMGenerator(llmConfig),
+			prompt: [
+				userLanguagePrompt,
+				contentUpdatePrompt,
+				{
+					role: 'user',
+					content: userInput,
+				},
+			],
+		});
+
+		// Parse and validate the JSON response
+		const parsed = JSON.parse(response);
+		return validateContentUpdateExtraction(parsed);
+	} catch (error) {
+		logger.error('Error extracting content update details:', error);
+		throw error;
+	}
+}
+
+/**
+ * Validate that the content update extraction contains all required fields
+ */
+function validateContentUpdateExtraction(data: any): ContentUpdateExtraction {
+	if (!data || typeof data !== 'object') {
+		throw new Error('Invalid response format');
+	}
+
+	if (!Array.isArray(data.updates)) {
+		throw new Error('Updates must be an array');
+	}
+
+	// Validate each update in the array
+	for (const update of data.updates) {
+		if (typeof update !== 'object') {
+			throw new Error('Each update must be an object');
+		}
+
+		if (typeof update.updatedContent !== 'string') {
+			throw new Error('Updated content must be a string');
+		}
+
+		if (typeof update.originalContent !== 'string') {
+			throw new Error('Original content must be a string');
+		}
+	}
+
+	if (typeof data.explanation !== 'string' || !data.explanation.trim()) {
+		throw new Error('Explanation must be a non-empty string');
+	}
+
+	if (typeof data.confidence !== 'number' || data.confidence < 0 || data.confidence > 1) {
+		throw new Error('Confidence must be a number between 0 and 1');
+	}
+
+	return {
+		updates: data.updates,
+		explanation: data.explanation,
+		confidence: data.confidence,
+	};
+}

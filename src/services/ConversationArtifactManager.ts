@@ -1,3 +1,7 @@
+import { ContentReadingResult } from './ContentReadingService';
+import { ContentUpdateExtraction } from '../lib/modelfusion/contentUpdateExtraction';
+import { logger } from 'src/utils/logger';
+
 /**
  * Types of artifacts that can be stored for conversations
  */
@@ -7,6 +11,7 @@ export enum ArtifactType {
 	CALCULATION_RESULTS = 'calculation_results',
 	CREATED_NOTES = 'created_notes',
 	READ_CONTENT = 'read_content',
+	CONTENT_UPDATE = 'content_update',
 }
 
 /**
@@ -39,13 +44,30 @@ export interface CreatedNotesArtifact extends BaseArtifact {
  */
 export interface ReadContentArtifact extends BaseArtifact {
 	type: ArtifactType.READ_CONTENT;
-	content: string;
-	source: string;
-	file?: string;
-	elementType?: string;
+	readingResult: ContentReadingResult;
 }
 
-export type Artifact = SearchResultsArtifact | CreatedNotesArtifact | ReadContentArtifact;
+/**
+ * Content update artifact
+ */
+export interface ContentUpdateArtifact extends BaseArtifact {
+	type: ArtifactType.CONTENT_UPDATE;
+	path: string;
+	updateExtraction: ContentUpdateExtraction;
+}
+
+export type Artifact =
+	| SearchResultsArtifact
+	| CreatedNotesArtifact
+	| ReadContentArtifact
+	| ContentUpdateArtifact;
+
+type ArtifactMap = {
+	[ArtifactType.SEARCH_RESULTS]: SearchResultsArtifact;
+	[ArtifactType.CREATED_NOTES]: CreatedNotesArtifact;
+	[ArtifactType.READ_CONTENT]: ReadContentArtifact;
+	[ArtifactType.CONTENT_UPDATE]: ContentUpdateArtifact;
+};
 
 /**
  * Manages the storage and retrieval of conversation artifacts
@@ -90,6 +112,8 @@ export class ConversationArtifactManager {
 		}
 
 		this.artifacts.get(conversationTitle)?.set(artifactId, artifact as Artifact);
+
+		logger.log('Stored artifact in artifact manager', artifact);
 	}
 
 	/**
@@ -126,20 +150,20 @@ export class ConversationArtifactManager {
 	 * @param type The type of artifact to get
 	 * @returns The most recent artifact, or undefined if none found
 	 */
-	public getMostRecentArtifactByType(
+	public getMostRecentArtifactByType<T extends keyof ArtifactMap>(
 		conversationTitle: string,
-		type: ArtifactType
-	): Artifact | undefined {
+		type: T
+	): ArtifactMap[T] | undefined {
 		const conversationArtifacts = this.artifacts.get(conversationTitle);
 		if (!conversationArtifacts) {
 			return undefined;
 		}
 
 		// Find the most recent artifact of the specified type by timestamp
-		let latestArtifact: Artifact | undefined = undefined;
+		let latestArtifact: Artifact | undefined;
 		let latestTimestamp = 0;
 
-		conversationArtifacts.forEach((artifact, id) => {
+		conversationArtifacts.forEach(artifact => {
 			if (artifact.type === type) {
 				const timestamp = artifact.createdAt || 0;
 				if (!latestArtifact || timestamp > latestTimestamp) {
@@ -149,7 +173,7 @@ export class ConversationArtifactManager {
 			}
 		});
 
-		return latestArtifact;
+		return latestArtifact as ArtifactMap[T];
 	}
 
 	/**

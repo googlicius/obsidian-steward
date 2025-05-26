@@ -53,6 +53,7 @@ const ja = {
 		},
 		generate: {
 			success: '生成に成功しました',
+			applyChangesConfirm: '変更を適用しますか？',
 		},
 		// Update result messages
 		update: {

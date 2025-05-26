@@ -6,42 +6,48 @@ export const commandIntentPrompt: OpenAIChatMessage = {
 
 Your job is to analyze the user's natural language request and determine which sequence of commands it corresponds to. A single query may contain multiple commands that should be executed in sequence.
 
-Available command types:
-- "search": When the user wants to find or locate notes
-- "move_from_artifact": When the user wants to move notes from the search results to a destination
-- "copy_from_artifact": When the user wants to copy notes from the search results to a destination
-- "update_from_artifact": When the user wants to update notes from the search results
-- "delete_from_artifact": When the user wants to delete notes from the search results
-- "close": When the user wants to close the conversation or exit
-- "confirm": When the user is responding to a confirmation request (yes/no, approve/deny)
-- "revert": When the user wants to undo the last change or revert to a previous state
-- "image": When the user wants to generate an image
-- "audio": When the user wants to generate audio
-- "create": When the user wants to create a new note with their own content
-- "generate": When the user wants AI to generate content (either in a new note or in the conversation)
-- "read": When the user implicitly or explicitly wants to use content from their note as context (e.g., "help with this table", "fix the code above")
+Available commands:
+- "search": Find notes
+- "move_from_artifact": Move notes from the artifact to a destination
+- "copy_from_artifact": Copy notes from the artifact to a destination
+- "update_from_artifact": Update notes from the artifact
+- "delete_from_artifact": Delete notes from the artifact
+- "close": Close the conversation or exit
+- "confirm": Respond to a confirmation request (yes/no, approve/deny)
+- "revert": Undo the last change or revert to a previous state
+- "image": Generate an image
+- "audio": Generate audio
+- "create": Create a new note with their own content
+- "generate": Generate content with the LLM help (either in a new note or in the conversation)
+- "read": Use content from the current note as context (e.g., "help with this table", "fix the code above")
 
 Guidelines:
 - Analyze the query for multiple commands that should be executed in sequence
 - Each command in the sequence should have its own content that will be processed by specialized handlers
-- If the user wants to find, locate, or search for notes (and doesn't mention existing search results), include "search" command
 - If the user mentions "search results", "notes above", or refers to previously found notes, do NOT include a "search" command as the results are already available
-- If the user wants to move notes from the search results, include "move_from_artifact" command
-- If the user wants to delete notes from the search results, include "delete_from_artifact" command
-- If the user wants to copy notes from the search results, include "copy_from_artifact" command
-- If the user wants to update notes from the search results, include "update_from_artifact" command
-- If the user wants to close the conversation, include "close" command
-- If the user is responding with confirmation language, include "confirm" command
-- If the user wants to undo changes, include "revert" command
-- If the user wants to generate an image, include "image" command
-- If the user wants to generate audio, include "audio" command
-- If the user wants to create a new note, include "create" command with content that clearly specifies the note name (e.g., "Note name: Hello Kitty")
-- If the user wants AI to generate content (either in a new note or the conversation), include "generate" command
-- If the user refers to content in their current note, include "read" command
+- If the user wants to:
+  - Search for notes (and doesn't mention existing search results), include "search"
+  - Move notes from the artifact, include "move_from_artifact"
+  - Delete notes from the artifact, include "delete_from_artifact"
+  - Copy notes from the artifact, include "copy_from_artifact"
+  - Update notes from the artifact, include "update_from_artifact"
+  - Close the conversation, include "close"
+  - Confirm or approve something, include "confirm"
+  - Undo changes, include "revert"
+  - Generate an image, include "image"
+  - Generate audio, include "audio"
+  - Create a new note, include "create" command with content that clearly specifies the note name (e.g., "Note name: Hello Kitty")
+  - Generate content by the LLM (either in a new note or the conversation), include "generate"
+  - Ask something about the content of the current note, include "read" and "generate"
+  - Update something about the content of the current note, include "read", "generate" and "update_from_artifact"
+- If the user refers to content in their current note, include "read"
 
 Additional guidelines:
-- There is another prompt that will handle the query, retain the user's query in the "content" field of the JSON response, if the following commands are included:
-  - "read"
+- There are other subsequent prompts that will handle the user's query, retain the user's query in the "content" field of the JSON response
+- If the "read" and "generate" are included, you must include all the elements mentioned in the user's query in the "content" field of the "read" command
+
+Additional notes:
+- Artifact is the local storage to store the result of a specific command like "search", "generate", etc. For the next command refers to.
 
 Provide a confidence score from 0 to 1 for the overall sequence:
 - 0.0-0.3: Low confidence (ambiguous or unclear requests)

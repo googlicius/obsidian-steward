@@ -11,7 +11,7 @@ import { eventEmitter } from './EventEmitter';
 import StewardPlugin from '../main';
 import i18next, { getTranslation } from '../i18n';
 import { highlightKeywords } from '../utils/highlightKeywords';
-import { extractCommandIntent, extractSearchQueryV2 } from '../lib/modelfusion';
+import { CommandIntent, extractCommandIntent, extractSearchQueryV2 } from '../lib/modelfusion';
 import { IndexedDocument } from '../database/PluginDatabase';
 import { ConversationRenderer } from './ConversationRenderer';
 import { ArtifactType, ConversationArtifactManager } from './ConversationArtifactManager';
@@ -27,11 +27,10 @@ import { extractDestinationFolder } from 'src/lib/modelfusion/destinationFolderE
 import { MoveOperationV2 } from 'src/tools/obsidianAPITools';
 import { extractPromptCreation } from '../lib/modelfusion/promptCreationExtraction';
 import { extractNoteCreation } from '../lib/modelfusion/noteCreationExtraction';
-import { streamText } from 'modelfusion';
-import { createLLMGenerator } from '../lib/modelfusion/llmConfig';
-import { userLanguagePromptText } from 'src/lib/modelfusion/prompts/languagePrompt';
-import { extractNoteGeneration } from '../lib/modelfusion/noteGenerationExtraction';
 import { extractContentReading } from '../lib/modelfusion/contentReadingExtraction';
+import { ContentGenerationService } from './ContentGenerationService';
+import { ContentReadingService } from './ContentReadingService';
+import { MediaGenerationService } from './MediaGenerationService';
 
 interface Props {
 	plugin: StewardPlugin;
@@ -41,8 +40,9 @@ export class ConversationEventHandler {
 	private readonly plugin: StewardPlugin;
 	private readonly renderer: ConversationRenderer;
 	private readonly artifactManager: ConversationArtifactManager;
-	private readonly mediaGenerationService: StewardPlugin['mediaGenerationService'];
-	private readonly contentReadingService: StewardPlugin['contentReadingService'];
+	private readonly mediaGenerationService: MediaGenerationService;
+	private readonly contentReadingService: ContentReadingService;
+	private readonly contentGenerationService: ContentGenerationService;
 
 	constructor(props: Props) {
 		this.plugin = props.plugin;
@@ -50,6 +50,7 @@ export class ConversationEventHandler {
 		this.artifactManager = this.plugin.artifactManager;
 		this.mediaGenerationService = this.plugin.mediaGenerationService;
 		this.contentReadingService = this.plugin.contentReadingService;
+		this.contentGenerationService = this.plugin.contentGenerationService;
 		this.setupListeners();
 	}
 
@@ -109,7 +110,11 @@ export class ConversationEventHandler {
 	private async handleConversationCommand(
 		payload: ConversationCommandReceivedPayload
 	): Promise<void> {
-		for (const command of payload.commands) {
+		for (let i = 0; i < payload.commands.length; i++) {
+			const command = payload.commands[i];
+			const prevCommand = payload.commands[i - 1];
+			const nextCommand = payload.commands[i + 1];
+
 			switch (command.commandType) {
 				case 'image': {
 					await this.renderer.addGeneratingIndicator(
@@ -251,7 +256,13 @@ export class ConversationEventHandler {
 						payload.title,
 						i18next.t('conversation.generating')
 					);
-					await this.handleGenerateCommand(payload.title, command.content, payload.lang);
+					await this.handleGenerateCommand({
+						title: payload.title,
+						commandContent: command.content,
+						prevCommand,
+						nextCommand,
+						lang: payload.lang,
+					});
 					break;
 				}
 
@@ -260,7 +271,7 @@ export class ConversationEventHandler {
 						payload.title,
 						i18next.t('conversation.readingContent')
 					);
-					await this.handleReadCommand(payload.title, command.content, payload.lang);
+					await this.handleReadCommand(payload.title, command.content, nextCommand, payload.lang);
 					break;
 				}
 
@@ -901,6 +912,14 @@ export class ConversationEventHandler {
 				docs = artifact.originalResults;
 			} else if (artifact.type === ArtifactType.CREATED_NOTES) {
 				docs = artifact.paths.map(path => ({ path }));
+			} else if (artifact.type === ArtifactType.READ_CONTENT) {
+				// For read content, get the file from the reading result
+				const file = artifact.readingResult.file;
+				// File should almost always be present, but handle the edge case
+				if (!file) {
+					logger.warn('File not found in read content artifact');
+				}
+				docs = file ? [{ path: file.path }] : [];
 			} else {
 				await this.renderer.updateConversationNote({
 					path: title,
@@ -1368,7 +1387,8 @@ export class ConversationEventHandler {
 			if (
 				artifact.type !== ArtifactType.SEARCH_RESULTS &&
 				artifact.type !== ArtifactType.CREATED_NOTES &&
-				artifact.type !== ArtifactType.READ_CONTENT
+				artifact.type !== ArtifactType.READ_CONTENT &&
+				artifact.type !== ArtifactType.CONTENT_UPDATE
 			) {
 				await this.renderer.updateConversationNote({
 					path: title,
@@ -1378,7 +1398,21 @@ export class ConversationEventHandler {
 				return;
 			}
 
-			// Extract the update instructions
+			// If we have a content update artifact, we can use it directly
+			if (artifact.type === ArtifactType.CONTENT_UPDATE) {
+				// Convert the updates in the extraction to UpdateInstruction objects
+				const updateInstructions = artifact.updateExtraction.updates.map(update => ({
+					type: 'replace' as const,
+					old: update.originalContent,
+					new: update.updatedContent,
+				}));
+
+				// Perform the updates
+				await this.performUpdateFromArtifact(title, updateInstructions, lang);
+				return;
+			}
+
+			// For other artifact types, extract the update instructions
 			const extraction = await extractUpdateFromSearchResult({
 				userInput: commandContent,
 				llmConfig: this.plugin.settings.llm,
@@ -1394,16 +1428,7 @@ export class ConversationEventHandler {
 			}
 
 			// Perform the updates
-			if (artifact.type === ArtifactType.READ_CONTENT) {
-				await this.handleUpdateFromReadContent(
-					title,
-					extraction.updateInstructions,
-					extraction.lang,
-					artifact
-				);
-			} else {
-				await this.handleUpdateFromArtifact(title, extraction.updateInstructions, extraction.lang);
-			}
+			await this.performUpdateFromArtifact(title, extraction.updateInstructions, extraction.lang);
 		} catch (error) {
 			await this.renderer.updateConversationNote({
 				path: title,
@@ -1413,90 +1438,7 @@ export class ConversationEventHandler {
 		}
 	}
 
-	/**
-	 * Handles updating content based on read content artifact
-	 * @param title The conversation title
-	 * @param updateInstructions The update instructions
-	 * @param lang The language code
-	 * @param artifact The read content artifact
-	 */
-	private async handleUpdateFromReadContent(
-		title: string,
-		updateInstructions: UpdateInstruction[],
-		lang?: string,
-		artifact?: any
-	): Promise<void> {
-		try {
-			if (!artifact || artifact.type !== ArtifactType.READ_CONTENT) {
-				throw new Error('Invalid artifact for content update');
-			}
-
-			const t = getTranslation(lang);
-
-			// First update the conversation to let the user know we're working on it
-			await this.renderer.updateConversationNote({
-				path: title,
-				newContent: `*${t('update.processingContent') || 'Processing content update...'}*`,
-				role: 'Steward',
-			});
-
-			// Format update instructions for the user prompt
-			const formatInstruction = (instr: UpdateInstruction): string => {
-				if (instr.type === 'replace') {
-					return `Replace "${instr.old}" with "${instr.new}"`;
-				} else if (instr.type === 'add') {
-					const position =
-						typeof instr.position === 'number'
-							? `at position ${instr.position}`
-							: `at the ${instr.position}`;
-					return `Add "${instr.content}" ${position}`;
-				}
-				return '';
-			};
-
-			// Generate a structured response for the user with the content and proposed changes
-			const stream = await streamText({
-				model: createLLMGenerator({ ...this.plugin.settings.llm, responseFormat: 'text' }),
-				prompt: [
-					{
-						role: 'system',
-						content: `You are a helpful assistant that suggests edits to content. You'll be given:
-						1. Original content from a note
-						2. Update instructions
-						
-						Your task is to:
-						1. Analyze the content
-						2. Apply the update instructions to the content
-						3. Provide a helpful, clear response showing how to improve the content
-						
-						Format your response in a clear, helpful way. Focus on direct, actionable suggestions.`,
-					},
-					userLanguagePromptText,
-					{
-						role: 'user',
-						content: `Original Content:\n\n${artifact.content}\n\nUpdate Instructions:\n${updateInstructions
-							.map(instr => `- ${formatInstruction(instr)}`)
-							.join('\n')}`,
-					},
-				].filter(Boolean),
-			});
-
-			// Stream the response to the conversation
-			await this.renderer.streamConversationNote({
-				path: title,
-				stream,
-				command: 'update_from_artifact',
-			});
-		} catch (error) {
-			await this.renderer.updateConversationNote({
-				path: title,
-				newContent: `*Error updating content: ${error.message}*`,
-				role: 'Steward',
-			});
-		}
-	}
-
-	private async handleUpdateFromArtifact(
+	private async performUpdateFromArtifact(
 		title: string,
 		updateInstructions: UpdateInstruction[],
 		lang?: string
@@ -1523,10 +1465,12 @@ export class ConversationEventHandler {
 				docs = artifact.originalResults;
 			} else if (artifact.type === ArtifactType.CREATED_NOTES) {
 				docs = artifact.paths.map(path => ({ path }));
+			} else if (artifact.type === ArtifactType.CONTENT_UPDATE) {
+				docs = [{ path: artifact.path }];
 			} else {
 				await this.renderer.updateConversationNote({
 					path: title,
-					newContent: t('common.cannotUpdateThisType'),
+					newContent: t('common.noFilesFound'),
 					role: 'Steward',
 				});
 				return;
@@ -1798,119 +1742,35 @@ export class ConversationEventHandler {
 	 * @param commandContent The command content
 	 * @param lang Optional language code for the response
 	 */
-	private async handleGenerateCommand(
-		title: string,
-		commandContent: string,
-		lang?: string
-	): Promise<void> {
+	private async handleGenerateCommand(params: {
+		title: string;
+		commandContent: string;
+		prevCommand: CommandIntent;
+		nextCommand: CommandIntent;
+		lang?: string;
+	}): Promise<void> {
+		const { title, commandContent, prevCommand, nextCommand, lang } = params;
+
 		try {
-			const t = getTranslation(lang);
+			switch (prevCommand.commandType) {
+				case 'read':
+					await this.contentGenerationService.generateFromReadArtifact(
+						title,
+						commandContent,
+						nextCommand,
+						lang
+					);
+					break;
 
-			// Check if there's a recently created note artifact
-			let recentlyCreatedNote = '';
-			const createdNotesArtifact = this.artifactManager.getMostRecentArtifactByType(
-				title,
-				ArtifactType.CREATED_NOTES
-			);
-
-			if (createdNotesArtifact && createdNotesArtifact.type === ArtifactType.CREATED_NOTES) {
-				// Use the first note path if available
-				recentlyCreatedNote = createdNotesArtifact.paths[0] || '';
+				case 'create':
+				default:
+					await this.contentGenerationService.generateFromCreateOrDefault(
+						title,
+						commandContent,
+						lang
+					);
+					break;
 			}
-
-			// Extract the content generation details using the LLM
-			const extraction = await extractNoteGeneration(
-				commandContent,
-				this.plugin.settings.llm,
-				recentlyCreatedNote
-			);
-
-			// For low confidence extractions, just show the explanation
-			if (extraction.confidence <= 0.7) {
-				await this.renderer.updateConversationNote({
-					path: title,
-					newContent: extraction.explanation,
-					role: 'Steward',
-				});
-				return;
-			}
-
-			// Prepare for content generation
-			const stream = await streamText({
-				model: createLLMGenerator({ ...this.plugin.settings.llm, responseFormat: 'text' }),
-				prompt: [
-					{
-						role: 'system',
-						content: `You are a helpful assistant that generates content for Obsidian notes. Generate detailed, well-structured content. Format the content in Markdown.`,
-					},
-					{
-						role: 'system',
-						content: `The content should not include the big heading on the top.`,
-					},
-					extraction.style
-						? {
-								role: 'system',
-								content: `Style preference: ${extraction.style}`,
-							}
-						: null,
-					userLanguagePromptText,
-					{
-						role: 'user',
-						content: extraction.instructions,
-					},
-				].filter(Boolean),
-			});
-
-			if (!extraction.noteName) {
-				// If no note name is provided, stream content to current conversation
-				await this.renderer.streamConversationNote({
-					path: title,
-					stream,
-					command: 'generate',
-				});
-				return;
-			}
-
-			// Check if the note exists
-			const notePath = extraction.noteName.endsWith('.md')
-				? extraction.noteName
-				: `${extraction.noteName}.md`;
-
-			const file = (this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile) || null;
-
-			if (!file) {
-				// If file doesn't exist, inform the user
-				await this.renderer.updateConversationNote({
-					path: title,
-					newContent:
-						t('generate.fileNotFound', { noteName: notePath }) ||
-						`*The note "${notePath}" does not exist. Please create it first or generate content in the conversation.*`,
-					role: 'Steward',
-					command: 'generate',
-				});
-				return;
-			}
-
-			const mainLeaf = await this.plugin.getMainLeaf();
-
-			// Open the file in the main leaf
-			if (mainLeaf && file) {
-				mainLeaf.openFile(file);
-				await this.plugin.app.workspace.revealLeaf(mainLeaf);
-			}
-
-			// Stream the content to the note
-			let accumulatedContent = '';
-			for await (const chunk of stream) {
-				accumulatedContent += chunk;
-				await this.plugin.app.vault.modify(file, accumulatedContent);
-			}
-
-			// Update the conversation with the results
-			await this.renderer.updateConversationNote({
-				path: title,
-				newContent: `*${t('generate.success', { noteName: extraction.noteName })}*`,
-			});
 		} catch (error) {
 			await this.renderer.updateConversationNote({
 				path: title,
@@ -1929,6 +1789,7 @@ export class ConversationEventHandler {
 	private async handleReadCommand(
 		title: string,
 		commandContent: string,
+		nextCommand: CommandIntent,
 		lang?: string
 	): Promise<void> {
 		try {
@@ -1950,7 +1811,6 @@ export class ConversationEventHandler {
 				return;
 			}
 
-			// Update the conversation with the results
 			const stewardReadMetadata = await this.renderer.updateConversationNote({
 				path: title,
 				newContent: extraction.explanation,
@@ -1962,7 +1822,7 @@ export class ConversationEventHandler {
 				return;
 			}
 
-			if (readingResult.content.length === 0 || readingResult.elementType === 'unknown') {
+			if (readingResult.blocks.length === 0 || readingResult.elementType === 'unknown') {
 				await this.renderer.updateConversationNote({
 					path: title,
 					newContent: `*${t('read.noContentFound')}*`,
@@ -1970,26 +1830,34 @@ export class ConversationEventHandler {
 				return;
 			}
 
-			// Display the actual content that was read (for testing purposes)
+			// Show the user the number of blocks found
 			await this.renderer.updateConversationNote({
 				path: title,
-				newContent: `\n>[!search-result]\n${readingResult.content
-					.split('\n')
-					.map(item => '>' + item)
-					.join('\n')}`,
+				newContent: extraction.foundPlaceholder.replace(
+					'{{number}}',
+					readingResult.blocks.length.toString()
+				),
 			});
+
+			// If there is no next command, show the read results
+			if (!nextCommand) {
+				for (const block of readingResult.blocks) {
+					await this.renderer.updateConversationNote({
+						path: title,
+						newContent: `\n>[!search-result]\n${block.content
+							.split('\n')
+							.map(item => '>' + item)
+							.join('\n')}\n\n`,
+					});
+				}
+			}
 
 			// Store the read content in the artifact manager
 			if (stewardReadMetadata) {
 				this.artifactManager.storeArtifact(title, stewardReadMetadata, {
 					type: ArtifactType.READ_CONTENT,
-					content: readingResult.content,
-					source: readingResult.source,
-					file: readingResult.file ? readingResult.file.path : undefined,
-					elementType: readingResult.elementType,
+					readingResult,
 				});
-
-				logger.log('Stored read content in artifact manager');
 			}
 		} catch (error) {
 			await this.renderer.updateConversationNote({

@@ -9,7 +9,7 @@ import { isConversationLink } from '../utils/conversationUtils';
  * Result of a content reading operation
  */
 export interface ContentReadingResult {
-	content: string;
+	blocks: ContentBlock[];
 	source: 'selected' | 'cursor' | 'element' | 'entire' | 'unknown';
 	elementType?: string;
 	file?: TFile;
@@ -20,7 +20,7 @@ export interface ContentReadingResult {
  * Represents a block of content in the editor
  * A block can have multiple types if it contains mixed content (e.g., a paragraph with a list and code)
  */
-interface ContentBlock {
+export interface ContentBlock {
 	startLine: number;
 	endLine: number;
 	types: string[]; // Array of types present in this block
@@ -47,7 +47,7 @@ export class ContentReadingService {
 	/**
 	 * Read content from the editor based on extraction parameters
 	 * @param extraction Content reading extraction parameters
-	 * @returns The read content, or null if unable to read
+	 * @returns The read blocks, or null if unable to read
 	 */
 	async readContent(extraction: ContentReadingExtraction): Promise<ContentReadingResult | null> {
 		// Get the active editor
@@ -95,7 +95,7 @@ export class ContentReadingService {
 	 * Read selected content from the editor
 	 * @param editor The editor
 	 * @param file The active file
-	 * @returns Selected content
+	 * @returns Selected content as a block
 	 */
 	private readSelectedContent(editor: ObsidianEditor, file: TFile): ContentReadingResult {
 		const selection = editor.getSelection();
@@ -108,8 +108,16 @@ export class ContentReadingService {
 		const from = editor.offsetToPos(editor.posToOffset(editor.getCursor('from')));
 		const to = editor.offsetToPos(editor.posToOffset(editor.getCursor('to')));
 
-		return {
+		// Create a single block from the selection
+		const block: ContentBlock = {
+			startLine: from.line,
+			endLine: to.line,
+			types: ['selected'],
 			content: selection,
+		};
+
+		return {
+			blocks: [block],
 			source: 'selected',
 			file,
 			range: { from, to },
@@ -124,7 +132,7 @@ export class ContentReadingService {
 	 * @param elementType Element type to look for. Supports AND/OR conditions:
 	 *  - For OR conditions, use comma-separated values (e.g., "table, code")
 	 *  - For AND conditions, use "+" between types (e.g., "paragraph+list")
-	 * @returns Content above the cursor
+	 * @returns Blocks above the cursor
 	 */
 	private readBlocksAboveCursor(
 		editor: ObsidianEditor,
@@ -143,7 +151,7 @@ export class ContentReadingService {
 		// If no blocks are found, return an empty result with clear indication
 		if (blocks.length === 0) {
 			return {
-				content: '',
+				blocks: [],
 				source: 'unknown',
 				file,
 				elementType: elementType || undefined,
@@ -154,18 +162,12 @@ export class ContentReadingService {
 			};
 		}
 
-		// Get the earliest block's start line and the last block's end line
+		// Get the earliest block's start line and the last block's end line for the range
 		const startLine = blocks[0].startLine;
 		const endLine = blocks[blocks.length - 1].endLine;
 
-		// Get the content from start line to end line
-		const content = editor.getRange(
-			{ line: startLine, ch: 0 },
-			{ line: endLine, ch: editor.getLine(endLine).length }
-		);
-
 		return {
-			content,
+			blocks,
 			source: elementType ? 'element' : 'cursor',
 			file,
 			elementType: elementType || undefined,
@@ -184,7 +186,7 @@ export class ContentReadingService {
 	 * @param elementType Element type to look for. Supports AND/OR conditions:
 	 *  - For OR conditions, use comma-separated values (e.g., "table, code")
 	 *  - For AND conditions, use "+" between types (e.g., "paragraph+list")
-	 * @returns Content below the cursor
+	 * @returns Blocks below the cursor
 	 */
 	private readBlocksBelowCursor(
 		editor: ObsidianEditor,
@@ -203,7 +205,7 @@ export class ContentReadingService {
 		// If no blocks are found, return an empty result with clear indication
 		if (blocks.length === 0) {
 			return {
-				content: '',
+				blocks: [],
 				source: 'unknown',
 				file,
 				elementType: elementType || undefined,
@@ -214,18 +216,12 @@ export class ContentReadingService {
 			};
 		}
 
-		// Get the cursor line and the last block's end line
+		// Get the cursor line and the last block's end line for the range
 		const startLine = cursor.line;
 		const endLine = blocks[blocks.length - 1].endLine;
 
-		// Get the content from cursor line to end line
-		const content = editor.getRange(
-			{ line: startLine, ch: 0 },
-			{ line: endLine, ch: editor.getLine(endLine).length }
-		);
-
 		return {
-			content,
+			blocks,
 			source: elementType ? 'element' : 'cursor',
 			file,
 			elementType: elementType || undefined,
@@ -239,13 +235,21 @@ export class ContentReadingService {
 	/**
 	 * Read the entire content of a file
 	 * @param file The file to read
-	 * @returns The entire file content
+	 * @returns The entire file content as a single block
 	 */
 	private async readEntireContent(file: TFile): Promise<ContentReadingResult> {
 		const content = await this.plugin.app.vault.read(file);
 
-		return {
+		// Create a single block containing the entire file
+		const block: ContentBlock = {
+			startLine: 0,
+			endLine: content.split('\n').length - 1,
+			types: ['entire'],
 			content,
+		};
+
+		return {
+			blocks: [block],
 			source: 'entire',
 			file,
 		};

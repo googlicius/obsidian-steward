@@ -59,6 +59,7 @@ const en = {
 		},
 		generate: {
 			success: 'Successfully generated',
+			applyChangesConfirm: 'Would you like me to apply the changes?',
 		},
 		// Update result messages
 		update: {

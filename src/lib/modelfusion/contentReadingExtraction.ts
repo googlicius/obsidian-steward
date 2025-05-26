@@ -18,6 +18,7 @@ export interface ContentReadingExtraction {
 	 */
 	elementType: string | null;
 	blocksToRead: number;
+	foundPlaceholder: string;
 	confidence: number;
 	explanation: string;
 	lang?: string;
@@ -31,7 +32,8 @@ export interface ContentReadingExtraction {
  */
 export async function extractContentReading(
 	userInput: string,
-	llmConfig: StewardPluginSettings['llm']
+	llmConfig: StewardPluginSettings['llm'],
+	lang?: string
 ): Promise<ContentReadingExtraction> {
 	try {
 		logger.log('Extracting content reading from user input');
@@ -50,6 +52,7 @@ export async function extractContentReading(
 			readType: validateReadType(parsed.readType),
 			elementType: parsed.elementType,
 			blocksToRead: validateBlocksToRead(parsed.blocksToRead),
+			foundPlaceholder: parsed.foundPlaceholder,
 			confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5,
 			explanation: parsed.explanation || 'Content reading extraction',
 			lang: parsed.lang,
@@ -64,6 +67,7 @@ export async function extractContentReading(
 			readType: 'above',
 			elementType: null,
 			blocksToRead: 1,
+			foundPlaceholder: '',
 			confidence: 0.5,
 			explanation: 'Failed to extract content reading instructions',
 		};

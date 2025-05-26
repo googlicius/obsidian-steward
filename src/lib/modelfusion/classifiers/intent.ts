@@ -242,6 +242,10 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 				'read the entire content',
 			],
 		},
+		{
+			name: 'read:generate:update_from_artifact' as const,
+			values: ['update the list above to numbered list', 'update the list above to bullet list'],
+		},
 	],
 });
 

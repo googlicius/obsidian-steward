@@ -53,6 +53,7 @@ const vi = {
 		},
 		generate: {
 			success: 'Đã tạo thành công',
+			applyChangesConfirm: 'Bạn có muốn áp dụng các thay đổi này không?',
 		},
 		// Update result messages
 		update: {
