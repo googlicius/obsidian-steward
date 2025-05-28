@@ -100,8 +100,8 @@ function validateReadType(readType: string): ContentReadingExtraction['readType'
  * @returns A valid blocks count
  */
 function validateBlocksToRead(blocksToRead: any): number {
-	if (typeof blocksToRead === 'number' && blocksToRead > 0) {
-		return Math.min(Math.round(blocksToRead), 20); // Cap at 20 blocks for safety
+	if (typeof blocksToRead === 'number' && blocksToRead >= -1) {
+		return blocksToRead;
 	}
 	return 1; // Default to 1 block
 }

@@ -276,8 +276,13 @@ export class ContentReadingService {
 
 			// For 'above' direction, we need to scan backward
 			if (direction === 'above') {
-				// Process each line going upward until we have enough blocks or reach the start
-				while (blocks.length < maxBlocks && currentLine >= 0) {
+				// Process each line going upward until we reach the start
+				while (currentLine >= 0) {
+					// If we have reached the maximum number of blocks, stop
+					if (maxBlocks !== -1 && blocks.length >= maxBlocks) {
+						break;
+					}
+
 					// Find the block that contains the current line
 					const block = this.findBlockContainingLine(editor, currentLine, 'above');
 
@@ -301,7 +306,12 @@ export class ContentReadingService {
 				}
 			} else {
 				// For 'below' direction, we scan forward
-				while (blocks.length < maxBlocks && currentLine < lineCount) {
+				while (currentLine < lineCount) {
+					// If we have reached the maximum number of blocks, stop
+					if (maxBlocks !== -1 && blocks.length >= maxBlocks) {
+						break;
+					}
+
 					// Find the block that contains or starts at the current line
 					const block = this.findBlockContainingLine(editor, currentLine, 'below');
 

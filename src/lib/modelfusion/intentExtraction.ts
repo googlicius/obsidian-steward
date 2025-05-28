@@ -32,6 +32,44 @@ export interface CommandIntentExtraction {
 	queryTemplate?: string;
 }
 
+function extractReadGenerate(userInput: string): CommandIntentExtraction {
+	return {
+		commands: [
+			{
+				commandType: 'read',
+				content: userInput,
+			},
+			{
+				commandType: 'generate',
+				content: userInput,
+			},
+		],
+		explanation: `Classified as "read:generate" command based on semantic similarity.`,
+		confidence: 0.8,
+	};
+}
+
+function extractReadGenerateUpdateFromArtifact(userInput: string): CommandIntentExtraction {
+	return {
+		commands: [
+			{
+				commandType: 'read',
+				content: userInput,
+			},
+			{
+				commandType: 'generate',
+				content: userInput,
+			},
+			{
+				commandType: 'update_from_artifact',
+				content: '',
+			},
+		],
+		explanation: `Classified as "read:generate:update_from_artifact" command based on semantic similarity.`,
+		confidence: 0.8,
+	};
+}
+
 /**
  * Extract command intents from a general query using AI
  * @param userInput Natural language request from the user
@@ -52,6 +90,14 @@ export async function extractCommandIntent(
 
 		if (clusterName) {
 			logger.log(`The user input was classified as "${clusterName}"`);
+
+			if ((clusterName as string) === 'read:generate') {
+				return extractReadGenerate(userInput);
+			}
+
+			if ((clusterName as string) === 'read:generate:update_from_artifact') {
+				return extractReadGenerateUpdateFromArtifact(userInput);
+			}
 
 			const clusterNames = clusterName.split(':');
 

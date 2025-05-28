@@ -6,7 +6,7 @@
   - [ ] Get the artifact automatically, for example, after restart the app, users ask "Move them to the Done folder". It should be able to search again based on the previous search query (if any) and then move "them" to the destination.
 - [x] Reduce prompt repeating, for example in the move prompt still including some parts of the search prompt.
 - [ ] Build more sophisticated commands make it able to users to modify even predefined commands the way they want.
-- [ ] Add more Obsidian tools: creation, modification, and deletion of notes
+- [x] Add more Obsidian tools: creation, modification, and deletion of notes
 - [ ] Agent: Give the AI set of tools, and it will automatically pick appropriate tools to perform its tasks.
 
 - [ ] Commit only files affected by the current actions.
@@ -19,10 +19,12 @@
 - [ ] Understanding the current user intent, for example: If user updating a bulleted list to a numbered list, suggest to update the whole list.
 - [ ] Maintain a classify_reliably score (start with a moderate score) to mitigate classification mistakes.
       And this score is increase over time. Classified scores from user's queries is used for intent extraction until it reaches a high score.
-- [ ] Rename those commands move, copy, etc from the search results to "from the artifact"
+- [x] Rename those commands move, copy, etc from the search results to "from the artifact"
 - [x] Add a post-processor to build the custom callout HTML data properties from the HTML comment in the callout:
       `>[!search-result] line:4,pos:0`
-- [ ] Refactor the handleConversationCommand to be able to handle confirmation when there are multiple commands
+- [ ] Refactor the handleConversationCommand to be able to handle a confirmation in the between or stop immediately if errors happen when there are multiple commands
 - [ ] Search words start with a keyword: If user search for "teem", should be returned "teeming"
 - [x] The "create" command should be able to handle creating multiple notes.
 - [ ] If the user wants to read a file entirely at the first time, let them know about the potential high cost by a confirmation.
+- [ ] The user can suggest their name or nickname to Steward to display it in the chat instead of "User"
+- [ ] Add read_history command when LLM wants to know more about the current context

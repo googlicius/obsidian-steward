@@ -5,12 +5,8 @@ import { userLanguagePrompt } from './prompts/languagePrompt';
 import { StewardPluginSettings } from '../../types/interfaces';
 import { logger } from '../../utils/logger';
 
-export interface ContentGeneration {
-	generatedContent: string;
-}
-
 export interface ContentGenerationExtraction {
-	responses: ContentGeneration[];
+	responses: string[];
 	explanation: string;
 	confidence: number;
 }
@@ -63,11 +59,7 @@ function validateContentGenerationExtraction(data: any): ContentGenerationExtrac
 
 	// Validate each response in the array
 	for (const response of data.responses) {
-		if (typeof response !== 'object') {
-			throw new Error('Each response must be an object');
-		}
-
-		if (typeof response.generatedContent !== 'string') {
+		if (typeof response !== 'string') {
 			throw new Error('Generated content must be a string');
 		}
 	}

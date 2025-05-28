@@ -490,4 +490,32 @@ export class ConversationRenderer {
 			return false;
 		}
 	}
+
+	/**
+	 * Formats content as a callout block with the specified type and optional metadata
+	 * @param content The content to format in a callout
+	 * @param type The callout type (e.g., 'note', 'warning', 'info', 'search-result')
+	 * @param metadata Optional metadata to include in the callout header
+	 * @returns The formatted callout block
+	 */
+	public formatCallout(
+		content: string,
+		type = 'search-result',
+		metadata?: { [key: string]: any }
+	): string {
+		let metadataStr = '';
+
+		if (metadata && Object.keys(metadata).length > 0) {
+			metadataStr =
+				' ' +
+				Object.entries(metadata)
+					.map(([key, value]) => `${key}:${value}`)
+					.join(',');
+		}
+
+		return `\n>[!${type}]${metadataStr}\n${content
+			.split('\n')
+			.map(item => '>' + item)
+			.join('\n')}\n\n`;
+	}
 }

@@ -491,8 +491,13 @@ export class ConversationEventHandler {
 						for (let i = 0; i < matchesToShow; i++) {
 							// Format as a search-result callout with position data
 							const match = highlightedMatches[i];
-							const callout = `>[!search-result] line:${match.lineNumber},start:${match.start},end:${match.end},path:${result.path}\n>${match.text}`;
-							response += `\n${callout}\n`;
+							const callout = this.renderer.formatCallout(match.text, 'search-result', {
+								line: match.lineNumber,
+								start: match.start,
+								end: match.end,
+								path: result.path,
+							});
+							response += callout;
 						}
 
 						// Show a message for additional matches
@@ -1844,10 +1849,7 @@ export class ConversationEventHandler {
 				for (const block of readingResult.blocks) {
 					await this.renderer.updateConversationNote({
 						path: title,
-						newContent: `\n>[!search-result]\n${block.content
-							.split('\n')
-							.map(item => '>' + item)
-							.join('\n')}\n\n`,
+						newContent: this.renderer.formatCallout(block.content, 'search-result'),
 					});
 				}
 			}

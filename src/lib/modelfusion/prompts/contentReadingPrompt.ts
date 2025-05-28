@@ -33,6 +33,7 @@ Guidelines:
   - Use "+" for AND conditions (e.g., "paragraph+list" means content that contains BOTH paragraph AND list elements)
   - You can combine these (e.g., "paragraph+list, code+table" means (paragraph AND list) OR (code AND table))
 - blocksToRead: Number of blocks to read (paragraphs, tables, code blocks, etc.), default is 1
+  * If the user mentions all (above, below, entire) the content, set to -1
 - foundPlaceholder: A short text to indicate that the content was found. Put {{number}} as the number of blocks found.
 - explanation: Speak directly to the user what you are doing (e.g., "I'll help you with...")
 ${confidenceFragment}

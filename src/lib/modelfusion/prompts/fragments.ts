@@ -1,5 +1,5 @@
 export const explanationFragment = `- explanation:
-  - Speak directly to the user (e.g., "I've updated your table format", "I've corrected the grammar errors in your text")
+  - Speak directly to the user (e.g., "I've updated...", "I'll help you with...")
   - Keep it concise and descriptive
   - Use first-person perspective ("I") when referring to yourself`;
 

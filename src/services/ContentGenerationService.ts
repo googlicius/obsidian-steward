@@ -9,12 +9,17 @@ import { ArtifactType } from './ConversationArtifactManager';
 import StewardPlugin from '../main';
 import { CommandIntent } from '../lib/modelfusion/intentExtraction';
 import { extractContentGeneration } from '../lib/modelfusion/contentGenerationExtraction';
+import { ConversationRenderer } from './ConversationRenderer';
 
 /**
  * Service for generating content in Obsidian notes
  */
 export class ContentGenerationService {
 	private readonly plugin: StewardPlugin;
+
+	get renderer(): ConversationRenderer {
+		return this.plugin.conversationRenderer;
+	}
 
 	constructor(plugin: StewardPlugin) {
 		this.plugin = plugin;
@@ -41,7 +46,7 @@ export class ContentGenerationService {
 		);
 
 		if (!readArtifact) {
-			await this.plugin.conversationRenderer.updateConversationNote({
+			await this.renderer.updateConversationNote({
 				path: title,
 				newContent: `*No read content found*`,
 			});
@@ -67,7 +72,7 @@ export class ContentGenerationService {
 			return;
 		}
 
-		const messageId = await this.plugin.conversationRenderer.updateConversationNote({
+		const messageId = await this.renderer.updateConversationNote({
 			path: title,
 			newContent: extraction.explanation,
 		});
@@ -88,17 +93,14 @@ export class ContentGenerationService {
 			}
 
 			for (const update of extraction.updates) {
-				await this.plugin.conversationRenderer.updateConversationNote({
+				await this.renderer.updateConversationNote({
 					path: title,
-					newContent: `\n>[!search-result]\n${update.updatedContent
-						.split('\n')
-						.map(item => '>' + item)
-						.join('\n')}\n\n`,
+					newContent: this.renderer.formatCallout(update.updatedContent),
 				});
 			}
 
 			// A confirmation if the user wants to apply the changes
-			await this.plugin.conversationRenderer.updateConversationNote({
+			await this.renderer.updateConversationNote({
 				path: title,
 				newContent: t('generate.applyChangesConfirm'),
 			});
@@ -108,12 +110,9 @@ export class ContentGenerationService {
 			}
 
 			for (const response of extraction.responses) {
-				await this.plugin.conversationRenderer.updateConversationNote({
+				await this.renderer.updateConversationNote({
 					path: title,
-					newContent: `\n>[!search-result]\n${response.generatedContent
-						.split('\n')
-						.map(item => '>' + item)
-						.join('\n')}\n\n`,
+					newContent: this.renderer.formatCallout(response),
 				});
 			}
 		}
@@ -153,7 +152,7 @@ export class ContentGenerationService {
 
 		// For low confidence extractions, just show the explanation
 		if (extraction.confidence <= 0.7) {
-			await this.plugin.conversationRenderer.updateConversationNote({
+			await this.renderer.updateConversationNote({
 				path: title,
 				newContent: extraction.explanation,
 				role: 'Steward',
@@ -189,7 +188,7 @@ export class ContentGenerationService {
 
 		if (!extraction.noteName) {
 			// If no note name is provided, stream content to current conversation
-			await this.plugin.conversationRenderer.streamConversationNote({
+			await this.renderer.streamConversationNote({
 				path: title,
 				stream,
 				command: 'generate',
@@ -206,11 +205,9 @@ export class ContentGenerationService {
 
 		if (!file) {
 			// If file doesn't exist, inform the user
-			await this.plugin.conversationRenderer.updateConversationNote({
+			await this.renderer.updateConversationNote({
 				path: title,
-				newContent:
-					t('generate.fileNotFound', { noteName: notePath }) ||
-					`*The note "${notePath}" does not exist. Please create it first or generate content in the conversation.*`,
+				newContent: t('generate.fileNotFound', { noteName: notePath }),
 				role: 'Steward',
 				command: 'generate',
 			});
@@ -233,7 +230,7 @@ export class ContentGenerationService {
 		}
 
 		// Update the conversation with the results
-		await this.plugin.conversationRenderer.updateConversationNote({
+		await this.renderer.updateConversationNote({
 			path: title,
 			newContent: `*${t('generate.success', { noteName: extraction.noteName })}*`,
 		});

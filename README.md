@@ -1,6 +1,6 @@
 # Obsidian Steward
 
-Obsidian Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It provides building block commands like search, move, copy, create, and more, allowing you to build sophisticated custom prompts, prompt chaining, and automation for your specific tasks.
+Obsidian Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It provides building block commands like search, move, copy, create, and more, allowing you to build sophisticated custom prompts, commands, prompt chaining, and automation for your specific tasks.
 
 ## Features
 
@@ -8,7 +8,7 @@ Obsidian Steward is a plugin that utilizes Large Language Models (LLMs) to inter
 - **Command-based Interaction**: Support for commands like search, create, update, delete, move, audio, and image generation
 - **Multi-language Support**: Use Steward in your preferred language
 - **Privacy-focused**: Most actions are executed in the front-end using Obsidian API to avoid exposing your data to LLMs (except for your queries)
-- **Interactive Chat UI**: Interactive chat interface that leverages Obsidian's editor support
+- **Interactive Chat UI**: An interactive chat interface using your current theme that leverages Obsidian's editor features to input any supported Markdown syntax. You can start a conversation, whether in the Chat sidebar or directly in the current editor.
 - **Model Flexibility**: Use your favorite AI models including OpenAI, DeepSeek, and Ollama local models
 - **Intent Caching**: Utilizes embeddings to cache similar queries so subsequent requests don't require LLM processing
 
@@ -27,6 +27,12 @@ Steward can be used through the command palette or by opening the chat interface
 - `Move the search results to the Projects folder`
 - `Generate an image of a mountain landscape`
 - `Create an audio summary of the selected text`
+
+## Tips to reduce the number of input tokens
+
+- Use a specific command directly instead of a general command, e.g, `/search`, `/audio`, etc.
+- For the `/search` command, wrap the keyword in quotation marks for searching the vault without the LLM's help, e.g, `/search "my cat"`
+- Provide feedback by clicking thumbs up or down on any Steward's answer to help it classify accurately.
 
 ## Installation
 

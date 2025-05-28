@@ -1,4 +1,5 @@
 import { OpenAIChatMessage } from 'modelfusion';
+import { explanationFragment } from './fragments';
 
 export const searchPromptV2: OpenAIChatMessage = {
 	role: 'system',
@@ -21,13 +22,13 @@ Guidelines:
 - If the user query has a term prefixed with #, it's a tag, for example: #cat
 - If the user wants to search with different criteria in different locations, return an array of operations
 - Consider synonyms and related terms that might be helpful
+${explanationFragment}
 
 You must respond with a valid JSON object containing these properties:
 - operations: An array of operations, where each operation has:
-  - keywords: Array of keywords to search for in file content (or empty array if none)
-    - Remember to preserve quotation marks for exact phrase matching
-  - tags: Array of tags without the # symbol (or empty array if none)
+  - keywords: Array of keywords to search (or empty array if none)
+  - tags: Array of tags (or empty array if none)
   - filenames: Array of filenames or partial filenames (or empty array if none)
   - folders: Array of source folder paths to search within (or empty array if none)
-- explanation: A brief explanation of how you interpreted the query, don't mention any empty properties`,
+- explanation`,
 };
