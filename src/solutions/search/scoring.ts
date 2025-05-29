@@ -1,4 +1,4 @@
-import { IndexedDocument, TermSource } from '../../database/PluginDatabase';
+import { IndexedDocument, TermSource } from '../../database/SearchDatabase';
 import { DocumentStore } from './documentStore';
 
 export interface ScoredDocument extends IndexedDocument {

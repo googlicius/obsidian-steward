@@ -10,7 +10,7 @@ import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { Events } from 'src/types/events';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { extractDestinationFolder } from 'src/lib/modelfusion/destinationFolderExtraction';
-import { IndexedDocument } from 'src/database/PluginDatabase';
+import { IndexedDocument } from 'src/database/SearchDatabase';
 import { MoveOperationV2 } from 'src/tools/obsidianAPITools';
 
 export class CopyCommandHandler extends CommandHandler {

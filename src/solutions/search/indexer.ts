@@ -1,7 +1,7 @@
 import { App, TFile, EventRef, MarkdownView } from 'obsidian';
 import { DocumentStore } from './documentStore';
 import { Tokenizer } from './tokenizer';
-import { TermSource } from '../../database/PluginDatabase';
+import { TermSource } from '../../database/SearchDatabase';
 import { logger } from '../../utils/logger';
 import { COMMAND_PREFIXES } from '../../constants';
 

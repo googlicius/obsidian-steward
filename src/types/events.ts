@@ -1,7 +1,7 @@
 import { EditorView } from '@codemirror/view';
 import { CommandIntent, CommandIntentExtraction } from '../lib/modelfusion/intentExtraction';
 import { SearchQueryExtractionV2 } from '../lib/modelfusion';
-import { IndexedDocument } from '../database/PluginDatabase';
+import { IndexedDocument } from '../database/SearchDatabase';
 import { GitOperation } from '../solutions/git/GitService';
 
 export enum Events {

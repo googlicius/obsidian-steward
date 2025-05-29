@@ -1,11 +1,11 @@
 {
-	"id": "obsidian-steward",
+	"id": "steward",
 	"name": "Steward",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
 	"description": "A plugin for Obsidian that helps you manage your notes with AI.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"author": "dang.nguyen",
+	"authorUrl": "https://github.com/googlicius",
+	"fundingUrl": "",
 	"isDesktopOnly": false
 }

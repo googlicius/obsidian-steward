@@ -1,6 +1,6 @@
 import { App, TFile } from 'obsidian';
-import { PluginDatabase } from '../../database/PluginDatabase';
-import { IndexedDocument, IndexedFolder, IndexedTerm } from '../../database/PluginDatabase';
+import { SearchDatabase } from '../../database/SearchDatabase';
+import { IndexedDocument, IndexedFolder, IndexedTerm } from '../../database/SearchDatabase';
 
 export interface DocumentStoreConfig {
 	app: App;
@@ -9,13 +9,13 @@ export interface DocumentStoreConfig {
 }
 
 export class DocumentStore {
-	private db: PluginDatabase;
+	private db: SearchDatabase;
 	private app: App;
 	private excludeFolders: string[];
 
 	constructor({ app, dbName, excludeFolders }: DocumentStoreConfig) {
 		this.app = app;
-		this.db = new PluginDatabase(dbName);
+		this.db = new SearchDatabase(dbName);
 		this.excludeFolders = excludeFolders || [];
 	}
 

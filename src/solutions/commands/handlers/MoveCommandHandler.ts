@@ -8,7 +8,7 @@ import { extractMoveFromSearchResult } from 'src/lib/modelfusion';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
-import { IndexedDocument } from 'src/database/PluginDatabase';
+import { IndexedDocument } from 'src/database/SearchDatabase';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
 import StewardPlugin from 'src/main';

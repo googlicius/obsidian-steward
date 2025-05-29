@@ -27,14 +27,7 @@ export class EmbeddingsDatabase extends Dexie {
 	constructor() {
 		super('embeddings-cache');
 
-		// Version 1 had missing compound indexes
 		this.version(1).stores({
-			embeddings: '++id, modelName, clusterName, valueText, createdAt',
-			clusterVersions: '++id, modelName, clusterName, version, updatedAt',
-		});
-
-		// Version 2 adds the compound indexes
-		this.version(2).stores({
 			embeddings: '++id, modelName, clusterName, valueText, createdAt, [modelName+clusterName]',
 			clusterVersions: '++id, modelName, clusterName, version, updatedAt, [modelName+clusterName]',
 		});

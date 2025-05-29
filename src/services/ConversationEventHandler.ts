@@ -12,7 +12,7 @@ import StewardPlugin from '../main';
 import i18next, { getTranslation } from '../i18n';
 import { highlightKeywords } from '../utils/highlightKeywords';
 import { CommandIntent, extractCommandIntent, extractSearchQueryV2 } from '../lib/modelfusion';
-import { IndexedDocument } from '../database/PluginDatabase';
+import { IndexedDocument } from '../database/SearchDatabase';
 import { ConversationRenderer } from './ConversationRenderer';
 import { ArtifactType, ConversationArtifactManager } from './ConversationArtifactManager';
 import { extractMoveFromSearchResult } from '../lib/modelfusion';

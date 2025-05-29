@@ -7,7 +7,7 @@ import {
 	IndexedFolder,
 	IndexedTerm,
 	TermSource,
-} from '../../database/PluginDatabase';
+} from '../../database/SearchDatabase';
 import { SearchOperationV2 } from '../../lib/modelfusion';
 import { logger } from '../../utils/logger';
 import { similarity } from '../../utils/similarity';

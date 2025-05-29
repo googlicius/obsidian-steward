@@ -1,5 +1,5 @@
 import { App } from 'obsidian';
-import { IndexedDocument } from 'src/database/PluginDatabase';
+import { IndexedDocument } from 'src/database/SearchDatabase';
 import {
 	UpdateInstruction,
 	ReplaceInstruction,

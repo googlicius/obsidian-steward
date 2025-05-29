@@ -41,7 +41,7 @@ export interface IndexedFolder {
 /**
  * Database class for the Obsidian Steward plugin
  */
-export class PluginDatabase extends Dexie {
+export class SearchDatabase extends Dexie {
 	documents!: Table<IndexedDocument>;
 	terms!: Table<IndexedTerm>;
 	folders!: Table<IndexedFolder>;

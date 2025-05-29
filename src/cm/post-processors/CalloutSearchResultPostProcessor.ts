@@ -1,5 +1,4 @@
 import { MarkdownPostProcessor, MarkdownPostProcessorContext } from 'obsidian';
-import { logger } from '../../utils/logger';
 
 type Params = {
 	handleClick: (event: MouseEvent) => void;
@@ -16,36 +15,32 @@ type Params = {
  */
 export function createCalloutSearchResultPostProcessor(params: Params): MarkdownPostProcessor {
 	return (el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
-		try {
-			// Find all search-result callouts in the current element
-			const callouts = el.querySelectorAll('.callout[data-callout="search-result"]');
+		// Find all search-result callouts in the current element
+		const callouts = el.querySelectorAll('.callout[data-callout="search-result"]');
 
-			if (!callouts.length) return;
+		if (!callouts.length) return;
 
-			for (let i = 0; i < callouts.length; i++) {
-				const callout = callouts[i] as HTMLElement;
-				// Get the callout title element
-				const titleEl = callout.querySelector('.callout-title-inner');
-				if (!titleEl) return;
+		for (let i = 0; i < callouts.length; i++) {
+			const callout = callouts[i] as HTMLElement;
+			// Get the callout title element
+			const titleEl = callout.querySelector('.callout-title-inner');
+			if (!titleEl) return;
 
-				const titleText = titleEl.textContent?.trim() || '';
-				if (!titleText) return;
+			const titleText = titleEl.textContent?.trim() || '';
+			if (!titleText) return;
 
-				// Register a click event listener on the callout element
-				callout.addEventListener('click', params.handleClick);
+			// Register a click event listener on the callout element
+			callout.addEventListener('click', params.handleClick);
 
-				const dataPairs = titleText.split(',');
+			const dataPairs = titleText.split(',');
 
-				// Process each key-value pair
-				for (const pair of dataPairs) {
-					const [key, value] = pair.split(':').map(s => s.trim());
-					if (key && value) {
-						callout.dataset[key] = value;
-					}
+			// Process each key-value pair
+			for (const pair of dataPairs) {
+				const [key, value] = pair.split(':').map(s => s.trim());
+				if (key && value) {
+					callout.dataset[key] = value;
 				}
 			}
-		} catch (error) {
-			logger.error('Error in callout data post-processor', error);
 		}
 	};
 }
