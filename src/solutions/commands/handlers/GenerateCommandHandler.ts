@@ -1,28 +1,64 @@
+import {
+	CommandHandler,
+	CommandHandlerParams,
+	CommandResult,
+	CommandResultStatus,
+} from '../CommandHandler';
+import { getTranslation } from 'src/i18n';
+import StewardPlugin from 'src/main';
+import { CommandIntent } from 'src/lib/modelfusion/intentExtraction';
+import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { extractContentGeneration } from 'src/lib/modelfusion/contentGenerationExtraction';
+import { extractContentUpdate } from 'src/lib/modelfusion/contentUpdateExtraction';
+import { extractNoteGeneration } from 'src/lib/modelfusion/noteGenerationExtraction';
 import { TFile } from 'obsidian';
 import { streamText } from 'modelfusion';
-import { createLLMGenerator } from '../lib/modelfusion/llmConfig';
-import { userLanguagePromptText } from '../lib/modelfusion/prompts/languagePrompt';
-import { extractNoteGeneration } from '../lib/modelfusion/noteGenerationExtraction';
-import { extractContentUpdate } from '../lib/modelfusion/contentUpdateExtraction';
-import { getTranslation } from '../i18n';
-import { ArtifactType } from './ConversationArtifactManager';
-import StewardPlugin from '../main';
-import { CommandIntent } from '../lib/modelfusion/intentExtraction';
-import { extractContentGeneration } from '../lib/modelfusion/contentGenerationExtraction';
-import { ConversationRenderer } from './ConversationRenderer';
+import { createLLMGenerator } from 'src/lib/modelfusion/llmConfig';
+import { userLanguagePromptText } from 'src/lib/modelfusion/prompts/languagePrompt';
 
-/**
- * Service for generating content in Obsidian notes
- */
-export class ContentGenerationService {
-	private readonly plugin: StewardPlugin;
-
-	get renderer(): ConversationRenderer {
-		return this.plugin.conversationRenderer;
+export class GenerateCommandHandler extends CommandHandler {
+	constructor(public readonly plugin: StewardPlugin) {
+		super();
 	}
 
-	constructor(plugin: StewardPlugin) {
-		this.plugin = plugin;
+	/**
+	 * Render the loading indicator for the generate command
+	 */
+	public async renderIndicator(title: string, lang?: string): Promise<void> {
+		const t = getTranslation(lang);
+		await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
+	}
+
+	/**
+	 * Handle a generate command
+	 */
+	public async handle(params: CommandHandlerParams): Promise<CommandResult> {
+		const { title, command, prevCommand, nextCommand, lang } = params;
+
+		try {
+			if (prevCommand && prevCommand.commandType === 'read') {
+				// Generate content from a read artifact
+				await this.generateFromReadArtifact(title, command.content, nextCommand, lang);
+			} else {
+				// Default generation (including after create)
+				await this.generateFromCreateOrDefault(title, command.content, lang);
+			}
+
+			return {
+				status: CommandResultStatus.SUCCESS,
+			};
+		} catch (error) {
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: `*Error generating content: ${error.message}*`,
+				role: 'Steward',
+			});
+
+			return {
+				status: CommandResultStatus.ERROR,
+				error,
+			};
+		}
 	}
 
 	/**
@@ -32,15 +68,13 @@ export class ContentGenerationService {
 	 * @param nextCommand The next command (optional)
 	 * @param lang Optional language code for the response
 	 */
-	async generateFromReadArtifact(
+	private async generateFromReadArtifact(
 		title: string,
 		commandContent: string,
 		nextCommand?: CommandIntent,
 		lang?: string
 	): Promise<void> {
-		const t = getTranslation(lang);
-
-		const readArtifact = this.plugin.artifactManager.getMostRecentArtifactByType(
+		const readArtifact = this.artifactManager.getMostRecentArtifactByType(
 			title,
 			ArtifactType.READ_CONTENT
 		);
@@ -59,14 +93,8 @@ export class ContentGenerationService {
 
 		const extraction =
 			nextCommand && nextCommand.commandType === 'update_from_artifact'
-				? await extractContentUpdate(
-						`${contentsStr}\n\n${commandContent}`,
-						this.plugin.settings.llm
-					)
-				: await extractContentGeneration(
-						`${contentsStr}\n\n${commandContent}`,
-						this.plugin.settings.llm
-					);
+				? await extractContentUpdate(`${contentsStr}\n\n${commandContent}`, this.settings.llm)
+				: await extractContentGeneration(`${contentsStr}\n\n${commandContent}`, this.settings.llm);
 
 		if (extraction.confidence <= 0.7) {
 			return;
@@ -84,11 +112,11 @@ export class ContentGenerationService {
 
 			// Store the content update extraction as an artifact
 			if (messageId) {
-				this.plugin.artifactManager.storeArtifact(title, messageId, {
+				this.artifactManager.storeArtifact(title, messageId, {
 					type: ArtifactType.CONTENT_UPDATE,
 					updateExtraction: extraction,
 					// Current path is active editing
-					path: this.plugin.app.workspace.getActiveFile()?.path || '',
+					path: this.app.workspace.getActiveFile()?.path || '',
 				});
 			}
 
@@ -98,12 +126,6 @@ export class ContentGenerationService {
 					newContent: this.renderer.formatCallout(update.updatedContent),
 				});
 			}
-
-			// A confirmation if the user wants to apply the changes
-			await this.renderer.updateConversationNote({
-				path: title,
-				newContent: t('generate.applyChangesConfirm'),
-			});
 		} else {
 			if (extraction.responses.length === 0) {
 				return;
@@ -124,7 +146,7 @@ export class ContentGenerationService {
 	 * @param commandContent The command content
 	 * @param lang Optional language code for the response
 	 */
-	async generateFromCreateOrDefault(
+	private async generateFromCreateOrDefault(
 		title: string,
 		commandContent: string,
 		lang?: string
@@ -133,7 +155,7 @@ export class ContentGenerationService {
 
 		// Check if there's a recently created note artifact
 		let recentlyCreatedNote = '';
-		const createdNotesArtifact = this.plugin.artifactManager.getMostRecentArtifactByType(
+		const createdNotesArtifact = this.artifactManager.getMostRecentArtifactByType(
 			title,
 			ArtifactType.CREATED_NOTES
 		);
@@ -146,7 +168,7 @@ export class ContentGenerationService {
 		// Extract the content generation details using the LLM
 		const extraction = await extractNoteGeneration(
 			commandContent,
-			this.plugin.settings.llm,
+			this.settings.llm,
 			recentlyCreatedNote
 		);
 
@@ -162,7 +184,7 @@ export class ContentGenerationService {
 
 		// Prepare for content generation
 		const stream = await streamText({
-			model: createLLMGenerator({ ...this.plugin.settings.llm, responseFormat: 'text' }),
+			model: createLLMGenerator({ ...this.settings.llm, responseFormat: 'text' }),
 			prompt: [
 				{
 					role: 'system',
@@ -201,7 +223,7 @@ export class ContentGenerationService {
 			? extraction.noteName
 			: `${extraction.noteName}.md`;
 
-		const file = (this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile) || null;
+		const file = (this.app.vault.getAbstractFileByPath(notePath) as TFile) || null;
 
 		if (!file) {
 			// If file doesn't exist, inform the user
@@ -219,14 +241,14 @@ export class ContentGenerationService {
 		// Open the file in the main leaf
 		if (mainLeaf && file) {
 			mainLeaf.openFile(file);
-			await this.plugin.app.workspace.revealLeaf(mainLeaf);
+			await this.app.workspace.revealLeaf(mainLeaf);
 		}
 
 		// Stream the content to the note
 		let accumulatedContent = '';
 		for await (const chunk of stream) {
 			accumulatedContent += chunk;
-			await this.plugin.app.vault.modify(file, accumulatedContent);
+			await this.app.vault.modify(file, accumulatedContent);
 		}
 
 		// Update the conversation with the results

@@ -53,7 +53,6 @@ const vi = {
 		},
 		generate: {
 			success: 'Đã tạo thành công',
-			applyChangesConfirm: 'Bạn có muốn áp dụng các thay đổi này không?',
 		},
 		// Update result messages
 		update: {
@@ -62,6 +61,7 @@ const vi = {
 			foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để cập nhật.',
 			skipped_one: 'Đã bỏ qua {{count}} tập tin:',
 			skipped_other: 'Đã bỏ qua {{count}} tập tin:',
+			applyChangesConfirm: 'Bạn có muốn áp dụng các thay đổi này không?',
 		},
 		// Delete result messages
 		delete: {

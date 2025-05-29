@@ -31,6 +31,7 @@ import { Events } from './types/events';
 import { createStewardConversationProcessor } from './cm/post-processors/StewardConversationProcessor';
 import { ObsidianEditor } from './types/types';
 import { isConversationLink, extractConversationTitle } from './utils/conversationUtils';
+import { CommandProcessorService } from './services/CommandProcessorService';
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -44,15 +45,12 @@ export default class StewardPlugin extends Plugin {
 	staticConversationTitle = 'Steward Chat';
 	confirmationEventHandler: ConfirmationEventHandler;
 	artifactManager: ConversationArtifactManager;
-	// Command chaining components (not integrated yet)
 	conversationRenderer: ConversationRenderer;
-	// Git integration
 	gitEventHandler: GitEventHandler;
 	mediaGenerationService: MediaGenerationService;
-	// Content reading service
 	contentReadingService: ContentReadingService;
-	// Content generation service
 	contentGenerationService: ContentGenerationService;
+	commandProcessorService: CommandProcessorService;
 
 	get editor(): ObsidianEditor {
 		return this.app.workspace.activeEditor?.editor as ObsidianEditor;
@@ -246,6 +244,9 @@ export default class StewardPlugin extends Plugin {
 
 		// Register the custom view type
 		this.registerView(STW_CONVERSATION_VIEW_CONFIG.type, leaf => new StewardConversationView(leaf));
+
+		// Initialize the CommandProcessorService
+		this.commandProcessorService = new CommandProcessorService(this);
 	}
 
 	onunload() {

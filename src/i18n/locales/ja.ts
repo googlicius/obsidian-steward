@@ -53,7 +53,6 @@ const ja = {
 		},
 		generate: {
 			success: '生成に成功しました',
-			applyChangesConfirm: '変更を適用しますか？',
 		},
 		// Update result messages
 		update: {
@@ -62,6 +61,7 @@ const ja = {
 			foundFiles: '{{count}}件のファイルを更新します。',
 			skipped_one: '{{count}}件のファイルをスキップしました：',
 			skipped_other: '{{count}}件のファイルをスキップしました：',
+			applyChangesConfirm: '変更を適用しますか？',
 		},
 		// Delete result messages
 		delete: {

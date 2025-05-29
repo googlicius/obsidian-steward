@@ -22,7 +22,7 @@
 - [x] Rename those commands move, copy, etc from the search results to "from the artifact"
 - [x] Add a post-processor to build the custom callout HTML data properties from the HTML comment in the callout:
       `>[!search-result] line:4,pos:0`
-- [ ] Refactor the handleConversationCommand to be able to handle a confirmation in the between or stop immediately if errors happen when there are multiple commands
+- [x] Refactor the handleConversationCommand to be able to handle a confirmation in the between or stop immediately if errors happen when there are multiple commands
 - [ ] Search words start with a keyword: If user search for "teem", should be returned "teeming"
 - [x] The "create" command should be able to handle creating multiple notes.
 - [ ] If the user wants to read a file entirely at the first time, let them know about the potential high cost by a confirmation.

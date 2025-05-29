@@ -59,7 +59,6 @@ const en = {
 		},
 		generate: {
 			success: 'Successfully generated',
-			applyChangesConfirm: 'Would you like me to apply the changes?',
 		},
 		// Update result messages
 		update: {
@@ -71,6 +70,7 @@ const en = {
 			foundFiles_other: 'I found {{count}} files to update.',
 			skipped_one: 'Skipped {{count}} file:',
 			skipped_other: 'Skipped {{count}} files:',
+			applyChangesConfirm: 'Would you like me to apply the changes?',
 		},
 		// Delete result messages
 		delete: {

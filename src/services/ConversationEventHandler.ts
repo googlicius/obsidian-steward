@@ -110,233 +110,25 @@ export class ConversationEventHandler {
 	private async handleConversationCommand(
 		payload: ConversationCommandReceivedPayload
 	): Promise<void> {
-		for (let i = 0; i < payload.commands.length; i++) {
-			const command = payload.commands[i];
-			const prevCommand = payload.commands[i - 1];
-			const nextCommand = payload.commands[i + 1];
-
-			switch (command.commandType) {
-				case 'image': {
-					await this.renderer.addGeneratingIndicator(
-						payload.title,
-						i18next.t('conversation.generatingImage')
-					);
-					await this.mediaGenerationService.handleMediaCommand({
-						title: payload.title,
-						commandContent: command.content,
-						commandType: 'image',
-					});
-					break;
-				}
-
-				case 'audio':
-				case 'speak': {
-					await this.renderer.addGeneratingIndicator(
-						payload.title,
-						i18next.t('conversation.generatingAudio')
-					);
-					await this.mediaGenerationService.handleMediaCommand({
-						title: payload.title,
-						commandContent: command.content,
-						commandType: 'audio',
-					});
-					break;
-				}
-
-				case 'move':
-				case 'move_from_artifact': {
-					await this.renderer.addGeneratingIndicator(
-						payload.title,
-						i18next.t('conversation.moving')
-					);
-					await this.handleMoveFromArtifactCommand(payload.title, command.content);
-					break;
-				}
-
-				case 'delete':
-				case 'delete_from_artifact': {
-					await this.renderer.addGeneratingIndicator(
-						payload.title,
-						i18next.t('conversation.deleting')
-					);
-					await this.handleDeleteCommand(payload.title, command.content, payload.lang);
-					break;
-				}
-
-				case 'copy_from_artifact': {
-					await this.renderer.addGeneratingIndicator(
-						payload.title,
-						i18next.t('conversation.copying')
-					);
-					await this.handleCopyCommand(payload.title, command.content);
-					break;
-				}
-
-				case 'search': {
-					await this.renderer.addGeneratingIndicator(
-						payload.title,
-						i18next.t('conversation.searching')
-					);
-					await this.handleSearchCommand(payload.title, command.content);
-					break;
-				}
-
-				case 'more': {
-					await this.handleShowMore(payload.title);
-					break;
-				}
-
-				case 'close': {
-					await this.handleCloseCommand(payload.title);
-					break;
-				}
-
-				case 'confirm': {
-					await this.handleConfirmCommand(payload.title, command.content, payload.lang);
-					break;
-				}
-
-				case 'revert': {
-					await this.renderer.addGeneratingIndicator(
-						payload.title,
-						i18next.t('conversation.reverting')
-					);
-					await this.handleRevertCommand(payload.title, payload.lang);
-					break;
-				}
-
-				case 'yes': {
-					await this.handleConfirmCommand(payload.title, 'Yes', payload.lang);
-					break;
-				}
-
-				case 'no': {
-					await this.handleConfirmCommand(payload.title, 'No', payload.lang);
-					break;
-				}
-
-				case ' ': {
-					await this.renderer.addGeneratingIndicator(
-						payload.title,
-						i18next.t('conversation.workingOnIt')
-					);
-					await this.handleGeneralCommand(payload.title, command.content);
-					break;
-				}
-
-				case 'update_from_artifact': {
-					await this.renderer.addGeneratingIndicator(
-						payload.title,
-						i18next.t('conversation.updating')
-					);
-					await this.handleUpdateFromArtifactCommand(payload.title, command.content, payload.lang);
-					break;
-				}
-
-				case 'prompt': {
-					await this.renderer.addGeneratingIndicator(
-						payload.title,
-						i18next.t('conversation.creatingPrompt')
-					);
-					await this.handlePromptCommand(payload.title, command.content, payload.lang);
-					break;
-				}
-
-				case 'create': {
-					await this.renderer.addGeneratingIndicator(
-						payload.title,
-						i18next.t('conversation.creating')
-					);
-					await this.handleCreateCommand(payload.title, command.content, payload.lang);
-					break;
-				}
-
-				case 'generate': {
-					await this.renderer.addGeneratingIndicator(
-						payload.title,
-						i18next.t('conversation.generating')
-					);
-					await this.handleGenerateCommand({
-						title: payload.title,
-						commandContent: command.content,
-						prevCommand,
-						nextCommand,
-						lang: payload.lang,
-					});
-					break;
-				}
-
-				case 'read': {
-					await this.renderer.addGeneratingIndicator(
-						payload.title,
-						i18next.t('conversation.readingContent')
-					);
-					await this.handleReadCommand(payload.title, command.content, nextCommand, payload.lang);
-					break;
-				}
-
-				default:
-					break;
-			}
-		}
+		await this.plugin.commandProcessorService.processCommands(payload);
 	}
 
 	private async handleConversationLinkInserted(
 		payload: ConversationLinkInsertedPayload
 	): Promise<void> {
-		switch (payload.commandType) {
-			case 'image': {
-				await this.mediaGenerationService.handleMediaCommand({
-					title: payload.title,
-					commandContent: payload.commandContent,
-					commandType: 'image',
-				});
-				break;
-			}
-
-			case 'audio':
-			case 'speak': {
-				await this.mediaGenerationService.handleMediaCommand({
-					title: payload.title,
-					commandContent: payload.commandContent,
-					commandType: 'audio',
-				});
-				break;
-			}
-
-			case 'search': {
-				await this.handleSearchCommand(payload.title, payload.commandContent);
-				break;
-			}
-
-			case 'more': {
-				await this.handleShowMore(payload.title);
-				break;
-			}
-
-			case 'close': {
-				await this.handleCloseCommand(payload.title);
-				break;
-			}
-
-			case 'confirm': {
-				await this.handleConfirmCommand(payload.title, payload.commandContent, payload.lang);
-				break;
-			}
-
-			case 'prompt': {
-				await this.handlePromptCommand(payload.title, payload.commandContent, payload.lang);
-				break;
-			}
-
-			case ' ': {
-				await this.handleGeneralCommand(payload.title, payload.commandContent);
-				break;
-			}
-
-			default:
-				break;
-		}
+		await this.plugin.commandProcessorService.processCommands(
+			{
+				title: payload.title,
+				commands: [
+					{
+						commandType: payload.commandType,
+						content: payload.commandContent,
+					},
+				],
+				lang: payload.lang,
+			},
+			{ skipIndicators: true }
+		);
 	}
 
 	/**
