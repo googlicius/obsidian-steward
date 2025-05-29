@@ -92,13 +92,6 @@ export class ConfirmCommandHandler extends CommandHandler {
 	static isConfirmIntent(
 		command: CommandIntent
 	): { isConfirmation: boolean; isAffirmative: boolean } | null {
-		if (!command.content) {
-			return {
-				isAffirmative: true,
-				isConfirmation: true,
-			};
-		}
-
 		let commandContent = command.content;
 
 		switch (command.commandType) {
@@ -108,6 +101,13 @@ export class ConfirmCommandHandler extends CommandHandler {
 			case 'no':
 				commandContent = 'no';
 				break;
+		}
+
+		if (!commandContent) {
+			return {
+				isAffirmative: true,
+				isConfirmation: true,
+			};
 		}
 
 		// Parse the user's response

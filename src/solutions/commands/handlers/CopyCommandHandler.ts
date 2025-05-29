@@ -9,7 +9,10 @@ import StewardPlugin from 'src/main';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { Events } from 'src/types/events';
 import { eventEmitter } from 'src/services/EventEmitter';
-import { extractDestinationFolder } from 'src/lib/modelfusion/destinationFolderExtraction';
+import {
+	DestinationFolderExtraction,
+	extractDestinationFolder,
+} from 'src/lib/modelfusion/destinationFolderExtraction';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 import { MoveOperationV2 } from 'src/tools/obsidianAPITools';
 
@@ -29,7 +32,13 @@ export class CopyCommandHandler extends CommandHandler {
 	/**
 	 * Handle a copy command
 	 */
-	public async handle(params: CommandHandlerParams): Promise<CommandResult> {
+	public async handle(
+		params: CommandHandlerParams,
+		options: {
+			extraction?: DestinationFolderExtraction;
+			folderExistsConfirmed?: boolean;
+		} = {}
+	): Promise<CommandResult> {
 		const { title, command, lang } = params;
 		const t = getTranslation(lang);
 
@@ -85,7 +94,8 @@ export class CopyCommandHandler extends CommandHandler {
 				};
 			}
 
-			const extraction = await extractDestinationFolder(command.content, this.settings.llm);
+			const extraction =
+				options.extraction || (await extractDestinationFolder(command.content, this.settings.llm));
 
 			// Convert search operations to move operations for copying
 			const copyOperations: MoveOperationV2[] = [
@@ -100,7 +110,7 @@ export class CopyCommandHandler extends CommandHandler {
 
 			const folderExists = this.app.vault.getAbstractFileByPath(extraction.destinationFolder);
 
-			if (!folderExists) {
+			if (!folderExists && !options.folderExistsConfirmed) {
 				// Request confirmation to create the folder
 				let message = t('copy.createFoldersHeader') + '\n';
 				message += `- \`${extraction.destinationFolder}\`\n`;
@@ -116,7 +126,7 @@ export class CopyCommandHandler extends CommandHandler {
 					status: CommandResultStatus.NEEDS_CONFIRMATION,
 					confirmationMessage: message,
 					onConfirmation: async () => {
-						this.performCopyOperation(title, docs, copyOperations, extraction.lang);
+						await this.handle(params, { extraction, folderExistsConfirmed: true });
 					},
 					onRejection: async () => {
 						this.artifactManager.deleteArtifact(title, artifact.id);

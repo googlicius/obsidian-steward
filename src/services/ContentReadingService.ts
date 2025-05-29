@@ -449,12 +449,12 @@ export class ContentReadingService {
 			const types = new Set<string>([initialBlockType]);
 
 			let inCodeBlock = initialBlockType === 'code';
-			let startLine = lineNumber;
-			let endLine = lineNumber;
+			let startLineNum = lineNumber;
+			let endLineNum = lineNumber;
 
 			// Find the start of the block (search upward)
-			while (startLine > 0) {
-				const prevLine = editor.getLine(startLine - 1).trim();
+			while (startLineNum > 0) {
+				const prevLine = editor.getLine(startLineNum - 1).trim();
 				const prevLineType = this.detectBlockType(prevLine);
 
 				if (inCodeBlock && prevLineType === 'code') {
@@ -466,21 +466,22 @@ export class ContentReadingService {
 					types.add(prevLineType);
 				}
 
-				// Check if the previous line is empty (except for code blocks)
+				// Check if the previous line is empty
 				if (prevLine === '') {
 					if (!inCodeBlock) {
 						break;
 					}
 				}
 
-				startLine--;
+				startLineNum--;
 			}
 
 			// Find the end of the block (search downward)
-			while (endLine < lineCount - 1) {
-				const nextLine = editor.getLine(endLine + 1).trim();
+			while (endLineNum < lineCount - 1) {
+				const nextLine = editor.getLine(endLineNum + 1).trim();
 				const nextLineType = this.detectBlockType(nextLine);
 
+				// End code block detection
 				if (inCodeBlock && nextLineType === 'code') {
 					inCodeBlock = false;
 				}
@@ -490,25 +491,25 @@ export class ContentReadingService {
 					types.add(nextLineType);
 				}
 
-				// Check if the next line is empty (except for code blocks)
+				// Check if the next line is empty
 				if (nextLine === '') {
 					if (!inCodeBlock) {
 						break;
 					}
 				}
 
-				endLine++;
+				endLineNum++;
 			}
 
 			// Get the content of the block
 			const content = editor.getRange(
-				{ line: startLine, ch: 0 },
-				{ line: endLine, ch: editor.getLine(endLine).length }
+				{ line: startLineNum, ch: 0 },
+				{ line: endLineNum, ch: editor.getLine(endLineNum).length }
 			);
 
 			return {
-				startLine,
-				endLine,
+				startLine: startLineNum,
+				endLine: endLineNum,
 				types: Array.from(types),
 				content,
 			};

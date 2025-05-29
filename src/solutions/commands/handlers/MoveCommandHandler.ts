@@ -4,7 +4,7 @@ import {
 	CommandResult,
 	CommandResultStatus,
 } from '../CommandHandler';
-import { extractMoveFromSearchResult } from 'src/lib/modelfusion';
+import { extractMoveFromSearchResult, MoveFromSearchResultExtraction } from 'src/lib/modelfusion';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
@@ -29,13 +29,21 @@ export class MoveCommandHandler extends CommandHandler {
 	/**
 	 * Handle a move command
 	 */
-	public async handle(params: CommandHandlerParams): Promise<CommandResult> {
+	public async handle(
+		params: CommandHandlerParams,
+		options: {
+			extraction?: MoveFromSearchResultExtraction;
+			folderExistsConfirmed?: boolean;
+		} = {}
+	): Promise<CommandResult> {
 		const { title, command, lang } = params;
 		const t = getTranslation(lang);
 
 		try {
 			// Extract move details from command content
-			const extraction = await extractMoveFromSearchResult(command.content, this.settings.llm);
+			const extraction =
+				options.extraction ||
+				(await extractMoveFromSearchResult(command.content, this.settings.llm));
 
 			// Get the most recent artifact
 			const artifact = this.artifactManager.getMostRecentArtifact(title);
@@ -96,7 +104,7 @@ export class MoveCommandHandler extends CommandHandler {
 			const destinationFolder = extraction.destinationFolder;
 			const folderExists = this.app.vault.getAbstractFileByPath(destinationFolder);
 
-			if (!folderExists) {
+			if (!folderExists && !options.folderExistsConfirmed) {
 				// Request confirmation to create the folder
 				let message = t('move.createFoldersHeader') + '\n';
 				message += `- \`${destinationFolder}\`\n`;
@@ -111,17 +119,8 @@ export class MoveCommandHandler extends CommandHandler {
 				// Store context in the result for CommandProcessor to use
 				return {
 					status: CommandResultStatus.NEEDS_CONFIRMATION,
-					confirmationMessage: message,
 					onConfirmation: () => {
-						this.performMoveOperation(
-							title,
-							{
-								destinationFolder,
-								docs,
-								explanation: extraction.explanation,
-							},
-							lang
-						);
+						this.handle(params, { extraction, folderExistsConfirmed: true });
 					},
 					onRejection: () => {
 						this.artifactManager.deleteArtifact(title, artifact.id);

@@ -91,7 +91,7 @@ export class CommandProcessorService {
 	}
 
 	/**
-	 * Process commands - public method that can be called from the ConversationEventHandler
+	 * Process commands
 	 */
 	public async processCommands(
 		payload: ConversationCommandReceivedPayload,

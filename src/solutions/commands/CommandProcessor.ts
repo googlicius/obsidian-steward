@@ -205,7 +205,6 @@ export class CommandProcessor {
 	public setCurrentIndex(title: string, index: number): void {
 		const pendingCommand = this.pendingCommands.get(title);
 		if (pendingCommand) {
-			console.log('setting current index', index);
 			this.pendingCommands.set(title, {
 				...pendingCommand,
 				currentIndex: index,

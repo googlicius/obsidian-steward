@@ -1,4 +1,4 @@
-import { App, TFile } from 'obsidian';
+import { TFile } from 'obsidian';
 import { DocumentStore } from './documentStore';
 import { Tokenizer } from './tokenizer';
 import { Scoring, ScoredKeywordsMatchedDoc } from './scoring';
@@ -42,7 +42,6 @@ export interface PaginatedSearchResultV2 {
 }
 
 export interface SearchEngineConfig {
-	app: App;
 	documentStore: DocumentStore;
 	tokenizer: Tokenizer;
 	scoring: Scoring;
@@ -51,7 +50,6 @@ export interface SearchEngineConfig {
 }
 
 export class SearchEngine {
-	private app: App;
 	private documentStore: DocumentStore;
 	private tokenizer: Tokenizer;
 	private scoring: Scoring;
@@ -59,14 +57,12 @@ export class SearchEngine {
 	private readonly SIMILARITY_THRESHOLD: number;
 
 	constructor({
-		app,
 		documentStore,
 		tokenizer,
 		scoring,
 		termMatchThreshold = 0.7,
 		similarityThreshold = 0.7,
 	}: SearchEngineConfig) {
-		this.app = app;
 		this.documentStore = documentStore;
 		this.tokenizer = tokenizer;
 		this.scoring = scoring;

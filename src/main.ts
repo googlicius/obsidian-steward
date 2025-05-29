@@ -10,14 +10,12 @@ import { ObsidianAPITools } from './tools/obsidianAPITools';
 import { SearchService } from './solutions/search';
 import { DateTime } from 'luxon';
 import { encrypt, decrypt, generateSaltKeyId } from './utils/cryptoUtils';
-import { ConfirmationEventHandler } from './services/ConfirmationEventHandler';
 import { logger } from './utils/logger';
 import { ConversationRenderer } from './services/ConversationRenderer';
 import { ConversationArtifactManager } from './services/ConversationArtifactManager';
 import { GitEventHandler } from './solutions/git/GitEventHandler';
 import { MediaGenerationService } from './services/MediaGenerationService';
 import { ContentReadingService } from './services/ContentReadingService';
-import { ContentGenerationService } from './services/ContentGenerationService';
 import { StewardPluginSettings } from './types/interfaces';
 import { Line, Prec, Text } from '@codemirror/state';
 import {
@@ -43,13 +41,11 @@ export default class StewardPlugin extends Plugin {
 	obsidianAPITools: ObsidianAPITools;
 	searchService: SearchService;
 	staticConversationTitle = 'Steward Chat';
-	confirmationEventHandler: ConfirmationEventHandler;
 	artifactManager: ConversationArtifactManager;
 	conversationRenderer: ConversationRenderer;
 	gitEventHandler: GitEventHandler;
 	mediaGenerationService: MediaGenerationService;
 	contentReadingService: ContentReadingService;
-	contentGenerationService: ContentGenerationService;
 	commandProcessorService: CommandProcessorService;
 
 	get editor(): ObsidianEditor {
@@ -122,9 +118,6 @@ export default class StewardPlugin extends Plugin {
 
 		// Initialize the content reading service
 		this.contentReadingService = new ContentReadingService(this);
-
-		// Initialize the content generation service
-		this.contentGenerationService = new ContentGenerationService(this);
 
 		// Register custom icon
 		addIcon(
@@ -226,9 +219,6 @@ export default class StewardPlugin extends Plugin {
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new StewardSettingTab(this.app, this));
-
-		// Initialize the confirmation event handler
-		this.confirmationEventHandler = new ConfirmationEventHandler(this);
 
 		// Initialize the ConversationRenderer
 		this.conversationRenderer = new ConversationRenderer(this);
@@ -736,10 +726,12 @@ export default class StewardPlugin extends Plugin {
 		const calloutEl = target.closest('.callout[data-callout="search-result"]') as HTMLElement;
 
 		// We only handle search result callouts that have position data
-		const { line, start, end, path } = calloutEl.dataset;
+		const { line, startLine, endLine, start, end, path } = calloutEl.dataset;
 
-		// Make sure we have all the necessary data
-		if (!path || !line || !start || !end) return;
+		// Make sure we have the line data at minimum
+		if ((!line && (!startLine || !endLine)) || !start || !end) {
+			return;
+		}
 
 		event.preventDefault();
 		event.stopPropagation();
@@ -747,13 +739,27 @@ export default class StewardPlugin extends Plugin {
 		// Get the main leaf for opening the file
 		const mainLeaf = await this.getMainLeaf();
 
-		const file = this.getFileByNameOrPath(path);
-		if (!file) return;
+		let file: TFile | null = null;
+
+		// If path is provided, get that file
+		if (path) {
+			file = this.getFileByNameOrPath(path);
+		}
+
+		// If no path or file not found, use current active file
+		if (!file) {
+			file = this.app.workspace.getActiveFile();
+
+			if (!file) {
+				return;
+			}
+		}
 
 		// Open the file and scroll to the position
 		await mainLeaf.openFile(file);
 
-		const lineNum = parseInt(line);
+		const startLineNum = parseInt((startLine || line) as string);
+		const endLineNum = parseInt((endLine || line) as string);
 		const startPos = parseInt(start);
 		const endPos = parseInt(end);
 
@@ -773,13 +779,13 @@ export default class StewardPlugin extends Plugin {
 			if (!editor) return;
 
 			try {
-				// Set cursor and selection first
-				editor.setCursor({ line: lineNum - 1, ch: 0 });
+				// Set cursor position first
+				editor.setCursor({ line: startLineNum - 1, ch: 0 });
 
-				// Highlight the text if we have start and end positions
-				if (!isNaN(startPos) && !isNaN(endPos)) {
-					const from = { line: lineNum - 1, ch: startPos };
-					const to = { line: lineNum - 1, ch: endPos };
+				// Handle text selection - now supporting multiple lines
+				if (!isNaN(startLineNum) && !isNaN(endLineNum)) {
+					const from = { line: startLineNum - 1, ch: startPos };
+					const to = { line: endLineNum - 1, ch: endPos };
 
 					// Select the text
 					editor.setSelection(from, to);
@@ -787,7 +793,7 @@ export default class StewardPlugin extends Plugin {
 
 				// Use CM6 scrolling for precise positioning
 				if (editor.cm) {
-					const linePosition = { line: lineNum - 1, ch: startPos || 0 };
+					const linePosition = { line: startLineNum - 1, ch: startPos || 0 };
 					const offset = editor.posToOffset(linePosition);
 
 					// Dispatch a scrolling effect to center the cursor

@@ -52,6 +52,7 @@ const en = {
 			noDestination: 'Please specify a destination folder for the copy operation.',
 			createFoldersHeader: 'I need to create the following folders before copying files:',
 			createFoldersQuestion: 'Would you like me to create these folders?',
+			tooManyFilesConfirm: 'I am about to copy {{count}} files. Are you sure you want to proceed?',
 		},
 		create: {
 			success_one: 'Successfully created {{noteName}}',

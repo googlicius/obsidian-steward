@@ -46,6 +46,7 @@ const vi = {
 			noDestination: 'Vui lòng chỉ định thư mục đích cho thao tác sao chép.',
 			createFoldersHeader: 'Tôi cần tạo các thư mục sau trước khi sao chép tập tin:',
 			createFoldersQuestion: 'Bạn có muốn tôi tạo các thư mục này không?',
+			tooManyFilesConfirm: 'Tôi đang sao chép {{count}} ghi chú. Bạn có muốn tiếp tục không?',
 		},
 		create: {
 			success_one: 'Đã tạo thành công {{noteName}}',

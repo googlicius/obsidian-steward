@@ -9,9 +9,6 @@ import { StewardPluginSettings } from 'src/types/interfaces';
 export enum CommandResultStatus {
 	SUCCESS = 'success',
 	ERROR = 'error',
-	/**
-	 * Commands should now handle their own confirmation logic or return SUCCESS or ERROR.
-	 */
 	NEEDS_CONFIRMATION = 'needs_confirmation',
 }
 

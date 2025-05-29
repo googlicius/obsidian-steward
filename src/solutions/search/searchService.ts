@@ -50,7 +50,6 @@ export class SearchService {
 		});
 		this.scoring = new Scoring(this.documentStore);
 		this.searchEngine = new SearchEngine({
-			app: this.app,
 			documentStore: this.documentStore,
 			tokenizer: this.tokenizer,
 			scoring: this.scoring,

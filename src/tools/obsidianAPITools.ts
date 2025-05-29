@@ -34,18 +34,13 @@ export interface MoveQueryExtraction {
 export class ObsidianAPITools {
 	constructor(private readonly app: App) {}
 
-	async createNewFile(title: string, content: string) {
-		const file = await this.app.vault.create(`${title}.md`, content);
-		return file;
-	}
-
 	/**
 	 * Move a file to a different location in the vault
 	 * @param filePath Current path of the file
 	 * @param newFolderPath Destination folder path
 	 * @returns Success or failure
 	 */
-	async moveFile(filePath: string, newFolderPath: string): Promise<boolean> {
+	private async moveFile(filePath: string, newFolderPath: string): Promise<boolean> {
 		try {
 			const file = this.app.vault.getAbstractFileByPath(filePath);
 			if (!file) {

@@ -129,3 +129,9 @@ If your plugin does not need CSS, delete this file.
 .steward-header-button:hover {
 	color: var(--text-normal);
 }
+
+.stw-conversation .callout-content :is(ul, p, ol) {
+	margin: 6px 0;
+	line-height: 1.4em;
+	overflow: hidden;
+}

@@ -13,8 +13,6 @@ import {
 } from 'src/lib/modelfusion/contentReadingExtraction';
 import { CommandProcessor } from '../CommandProcessor';
 
-let readEntireContent = false;
-
 export class ReadCommandHandler extends CommandHandler {
 	constructor(
 		public readonly plugin: StewardPlugin,
@@ -36,7 +34,7 @@ export class ReadCommandHandler extends CommandHandler {
 	 */
 	public async handle(
 		params: CommandHandlerParams,
-		options: { extraction?: ContentReadingExtraction } = {}
+		options: { extraction?: ContentReadingExtraction; readEntireContent?: boolean } = {}
 	): Promise<CommandResult> {
 		const { title, command, nextCommand, lang } = params;
 		const t = getTranslation(lang);
@@ -46,7 +44,7 @@ export class ReadCommandHandler extends CommandHandler {
 			const extraction =
 				options.extraction || (await extractContentReading(command.content, this.settings.llm));
 
-			if (extraction.readType === 'entire' && !readEntireContent) {
+			if (extraction.readType === 'entire' && !options.readEntireContent) {
 				await this.renderer.updateConversationNote({
 					path: title,
 					newContent:
@@ -58,8 +56,7 @@ export class ReadCommandHandler extends CommandHandler {
 				return {
 					status: CommandResultStatus.NEEDS_CONFIRMATION,
 					onConfirmation: async () => {
-						readEntireContent = true;
-						await this.handle(params, { extraction });
+						await this.handle(params, { extraction, readEntireContent: true });
 					},
 				};
 			}
@@ -119,9 +116,17 @@ export class ReadCommandHandler extends CommandHandler {
 			// If there is no next command, show the read results
 			if (!nextCommand) {
 				for (const block of readingResult.blocks) {
+					console.log('block', block);
+					const endLine = this.plugin.editor.getLine(block.endLine);
 					await this.renderer.updateConversationNote({
 						path: title,
-						newContent: this.renderer.formatCallout(block.content, 'search-result'),
+						newContent: this.renderer.formatCallout(block.content, 'search-result', {
+							startLine: block.startLine,
+							endLine: block.endLine,
+							start: 0,
+							end: endLine.length,
+							path: this.plugin.app.workspace.getActiveFile()?.path,
+						}),
 					});
 				}
 			}

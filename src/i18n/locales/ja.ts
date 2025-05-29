@@ -46,6 +46,7 @@ const ja = {
 			noDestination: 'コピー操作の移動先フォルダを指定してください。',
 			createFoldersHeader: 'ファイルをコピーする前に以下のフォルダを作成する必要があります：',
 			createFoldersQuestion: 'これらのフォルダを作成しますか？',
+			tooManyFilesConfirm: '{{count}}件のファイルをコピーします。よろしいですか？',
 		},
 		create: {
 			success_one: '{{noteName}}を作成しました',
