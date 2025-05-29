@@ -12,6 +12,7 @@ const ja = {
 			closeChat: 'チャットを閉じる',
 			stewardChat: 'Stewardチャット',
 			closeConversation: '会話を閉じる',
+			conversationClosed: '会話を閉じました',
 		},
 		// Move result messages
 		move: {

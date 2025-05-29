@@ -7,10 +7,19 @@ import {
 import { getTranslation } from 'src/i18n';
 import StewardPlugin from 'src/main';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-import { extractContentReading } from 'src/lib/modelfusion/contentReadingExtraction';
+import {
+	ContentReadingExtraction,
+	extractContentReading,
+} from 'src/lib/modelfusion/contentReadingExtraction';
+import { CommandProcessor } from '../CommandProcessor';
+
+let readEntireContent = false;
 
 export class ReadCommandHandler extends CommandHandler {
-	constructor(public readonly plugin: StewardPlugin) {
+	constructor(
+		public readonly plugin: StewardPlugin,
+		public readonly commandProcessor: CommandProcessor
+	) {
 		super();
 	}
 
@@ -25,13 +34,35 @@ export class ReadCommandHandler extends CommandHandler {
 	/**
 	 * Handle a read command
 	 */
-	public async handle(params: CommandHandlerParams): Promise<CommandResult> {
+	public async handle(
+		params: CommandHandlerParams,
+		options: { extraction?: ContentReadingExtraction } = {}
+	): Promise<CommandResult> {
 		const { title, command, nextCommand, lang } = params;
 		const t = getTranslation(lang);
 
 		try {
 			// Extract the reading instructions using LLM
-			const extraction = await extractContentReading(command.content, this.settings.llm);
+			const extraction =
+				options.extraction || (await extractContentReading(command.content, this.settings.llm));
+
+			if (extraction.readType === 'entire' && !readEntireContent) {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent:
+						'I am about to read the entire content of the note. Are you sure you want to proceed?',
+					role: 'Steward',
+					command: 'read',
+				});
+
+				return {
+					status: CommandResultStatus.NEEDS_CONFIRMATION,
+					onConfirmation: async () => {
+						readEntireContent = true;
+						await this.handle(params, { extraction });
+					},
+				};
+			}
 
 			// Read the content from the editor
 			const readingResult = await this.plugin.contentReadingService.readContent(extraction);

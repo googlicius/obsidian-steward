@@ -12,6 +12,7 @@ const vi = {
 			closeChat: 'Đóng Trò Chuyện',
 			stewardChat: 'Trò Chuyện Steward',
 			closeConversation: 'Đóng Cuộc Trò Chuyện',
+			conversationClosed: 'Cuộc Trò Chuyện Đã Được Đóng',
 		},
 		// Move result messages
 		move: {

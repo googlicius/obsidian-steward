@@ -7,6 +7,7 @@ import {
 import { getTranslation } from 'src/i18n';
 import StewardPlugin from 'src/main';
 import { CommandProcessor } from '../CommandProcessor';
+import { CommandIntent } from 'src/lib/modelfusion';
 
 export class ConfirmCommandHandler extends CommandHandler {
 	constructor(
@@ -23,18 +24,7 @@ export class ConfirmCommandHandler extends CommandHandler {
 		const { title, command, lang } = params;
 		const t = getTranslation(lang);
 
-		let commandContent = command.content;
-
-		switch (command.commandType) {
-			case 'yes':
-				commandContent = 'yes';
-				break;
-			case 'no':
-				commandContent = 'no';
-				break;
-		}
-
-		const confirmationIntent = this.isConfirmIntent(commandContent);
+		const confirmationIntent = ConfirmCommandHandler.isConfirmIntent(command);
 
 		if (!confirmationIntent) {
 			// If it's not a clear confirmation, let the user know
@@ -99,18 +89,29 @@ export class ConfirmCommandHandler extends CommandHandler {
 	 * @param message The message to check
 	 * @returns An object with the response type or null if not a clear response
 	 */
-	private isConfirmIntent(
-		message: string
+	static isConfirmIntent(
+		command: CommandIntent
 	): { isConfirmation: boolean; isAffirmative: boolean } | null {
-		if (!message) {
+		if (!command.content) {
 			return {
 				isAffirmative: true,
 				isConfirmation: true,
 			};
 		}
 
+		let commandContent = command.content;
+
+		switch (command.commandType) {
+			case 'yes':
+				commandContent = 'yes';
+				break;
+			case 'no':
+				commandContent = 'no';
+				break;
+		}
+
 		// Parse the user's response
-		const normalized = message.toLowerCase().trim();
+		const normalized = commandContent.toLowerCase().trim();
 
 		const isAffirmative = [
 			// English affirmative terms

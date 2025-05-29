@@ -1,3 +1,4 @@
+import { getTranslation } from 'src/i18n';
 import {
 	CommandHandler,
 	CommandHandlerParams,
@@ -16,17 +17,11 @@ export class CloseCommandHandler extends CommandHandler {
 	}
 
 	/**
-	 * No loading indicator needed for close command since it's instantaneous
-	 */
-	public async renderIndicator(): Promise<void> {
-		// No loading indicator needed for close
-	}
-
-	/**
 	 * Handle a close command
 	 */
 	public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-		const { title } = params;
+		const { title, lang } = params;
+		const t = getTranslation(lang);
 
 		try {
 			const success = await this.plugin.closeConversation(title);
@@ -37,6 +32,12 @@ export class CloseCommandHandler extends CommandHandler {
 					error: new Error('Failed to close conversation'),
 				};
 			}
+
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: t('chat.conversationClosed'),
+				role: 'Steward',
+			});
 
 			return {
 				status: CommandResultStatus.SUCCESS,

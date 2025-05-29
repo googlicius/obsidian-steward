@@ -15,8 +15,6 @@ export class CommandProcessor {
 
 	private commandHandlers: Map<string, CommandHandler> = new Map();
 
-	constructor() {}
-
 	/**
 	 * Register a command handler for a specific command type
 	 */
@@ -34,12 +32,7 @@ export class CommandProcessor {
 		const { title, commands } = payload;
 
 		// Check if this is a confirmation command
-		const isConfirmation = commands.some(
-			cmd => cmd.commandType === 'confirm' || cmd.commandType === 'yes' || cmd.commandType === 'no'
-		);
-
-		if (isConfirmation && this.pendingCommands.has(title)) {
-			// Process confirmation commands separately without resetting pending commands
+		if (this.isConfirmation(commands) && this.pendingCommands.has(title)) {
 			await this.processConfirmation(payload, options);
 			return;
 		}
@@ -52,6 +45,12 @@ export class CommandProcessor {
 		});
 
 		await this.continueProcessing(title, options);
+	}
+
+	private isConfirmation(commands: CommandIntent[]): boolean {
+		return commands.some(
+			cmd => cmd.commandType === 'confirm' || cmd.commandType === 'yes' || cmd.commandType === 'no'
+		);
 	}
 
 	/**

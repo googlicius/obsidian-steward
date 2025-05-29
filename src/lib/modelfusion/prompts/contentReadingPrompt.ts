@@ -28,6 +28,7 @@ Contextual clues that indicate what content to read:
 Guidelines:
 - readType: One of "selected", "above", "below", "entire"
   - If the user doesn't specify where to read from, set to "above".
+  - If the user's query is empty, set to "entire"
 - elementType: Specify element types with AND/OR conditions:
   - Use comma-separated values for OR conditions (e.g., "code, table" means either code OR table)
   - Use "+" for AND conditions (e.g., "paragraph+list" means content that contains BOTH paragraph AND list elements)

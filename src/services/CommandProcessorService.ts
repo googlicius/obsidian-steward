@@ -78,7 +78,7 @@ export class CommandProcessorService {
 		this.commandProcessor.registerHandler('create', createHandler);
 
 		// Register the read command handler
-		const readHandler = new ReadCommandHandler(this.plugin);
+		const readHandler = new ReadCommandHandler(this.plugin, this.commandProcessor);
 		this.commandProcessor.registerHandler('read', readHandler);
 
 		// Register the generate command handler

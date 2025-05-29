@@ -112,7 +112,6 @@ export class CopyCommandHandler extends CommandHandler {
 					role: 'Steward',
 				});
 
-				// Return NEEDS_CONFIRMATION status with context
 				return {
 					status: CommandResultStatus.NEEDS_CONFIRMATION,
 					confirmationMessage: message,
