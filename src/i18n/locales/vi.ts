@@ -56,6 +56,12 @@ const vi = {
 		generate: {
 			success: 'Đã tạo thành công',
 		},
+		stop: {
+			stopped: 'Đã dừng tạo.',
+			stoppedWithCount_one: 'Đã dừng {{count}} thao tác.',
+			stoppedWithCount_other: 'Đã dừng {{count}} thao tác.',
+			noActiveOperations: 'Không có thao tác đang chạy để dừng.',
+		},
 		// Update result messages
 		update: {
 			failed: 'Không thể cập nhật {{count}} tập tin:',
@@ -134,6 +140,8 @@ const vi = {
 		},
 		read: {
 			noContentFound: 'Không tìm thấy nội dung như vậy trong trình soạn thảo.',
+			readEntireContentConfirmation:
+				'Tôi đang đọc toàn bộ nội dung của ghi chú. Bạn có muốn tiếp tục không?',
 		},
 		// Conversation states
 		conversation: {

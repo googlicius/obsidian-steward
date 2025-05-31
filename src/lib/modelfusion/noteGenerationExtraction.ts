@@ -4,7 +4,9 @@ import { noteGenerationPrompt } from './prompts/noteGenerationPrompt';
 import { userLanguagePrompt } from './prompts/languagePrompt';
 import { confidenceScorePrompt } from './prompts/confidenceScorePrompt';
 import { StewardPluginSettings } from '../../types/interfaces';
+import { AbortService } from '../../services/AbortService';
 
+const abortService = AbortService.getInstance();
 export interface NoteGenerationExtraction {
 	noteName?: string;
 	instructions: string;
@@ -28,6 +30,7 @@ export async function extractNoteGeneration(
 	try {
 		const response = await generateText({
 			model: createLLMGenerator(llmConfig),
+			run: { abortSignal: abortService.createAbortController('note-generation') },
 			prompt: [
 				userLanguagePrompt,
 				confidenceScorePrompt,

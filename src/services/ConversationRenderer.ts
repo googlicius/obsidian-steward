@@ -72,7 +72,7 @@ export class ConversationRenderer {
 		path: string;
 		newContent: string;
 		command?: string;
-		role?: string;
+		role?: 'User' | 'Steward';
 	}): Promise<string | undefined> {
 		try {
 			const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;

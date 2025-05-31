@@ -62,6 +62,13 @@ const en = {
 		generate: {
 			success: 'Successfully generated',
 		},
+		// Command-specific messages
+		stop: {
+			stopped: 'Generation stopped.',
+			stoppedWithCount_one: 'Stopped {{count}} active operation.',
+			stoppedWithCount_other: 'Stopped {{count}} active operations.',
+			noActiveOperations: 'No active operations to stop.',
+		},
 		// Update result messages
 		update: {
 			failed_one: 'Failed to update {{count}} file:',
@@ -142,6 +149,8 @@ const en = {
 		},
 		read: {
 			noContentFound: 'No such content found in the editor.',
+			readEntireContentConfirmation:
+				'I am about to read the entire content of the note. Are you sure you want to proceed?',
 		},
 		// Conversation states
 		conversation: {

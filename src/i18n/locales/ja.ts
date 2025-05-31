@@ -56,6 +56,12 @@ const ja = {
 		generate: {
 			success: '生成に成功しました',
 		},
+		stop: {
+			stopped: '生成を停止しました。',
+			stoppedWithCount_one: '{{count}}件のアクティブな操作を停止しました。',
+			stoppedWithCount_other: '{{count}}件のアクティブな操作を停止しました。',
+			noActiveOperations: '停止するアクティブな操作がありません。',
+		},
 		// Update result messages
 		update: {
 			failed: '{{count}}件のファイルの更新に失敗しました：',
@@ -135,6 +141,8 @@ const ja = {
 		},
 		read: {
 			noContentFound: 'エディタにそのような内容が見つかりませんでした。',
+			readEntireContentConfirmation:
+				'このノートの内容をすべて読み込もうとしています。続行しますか？',
 		},
 		// Conversation states
 		conversation: {

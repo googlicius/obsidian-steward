@@ -135,3 +135,38 @@ If your plugin does not need CSS, delete this file.
 	line-height: 1.4em;
 	overflow: hidden;
 }
+
+/* Command toolbar styling */
+.command-toolbar {
+	position: absolute;
+	margin-top: 5px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 4px 8px;
+	background-color: var(--color-base-20);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 4px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+	z-index: 10;
+	width: 100%;
+	max-width: 500px;
+}
+
+.command-toolbar .clickable-icon {
+	cursor: pointer;
+}
+
+.command-toolbar-buttons {
+	display: flex;
+	gap: 4px;
+}
+
+.model-selector {
+	font-size: 0.85em;
+	padding: 4px 8px;
+	border-radius: 4px;
+	box-shadow: none;
+	color: var(--text-normal);
+	background-color: inherit;
+}

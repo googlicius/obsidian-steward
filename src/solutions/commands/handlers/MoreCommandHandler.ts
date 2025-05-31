@@ -39,7 +39,7 @@ export class MoreCommandHandler extends CommandHandler {
 
 				return {
 					status: CommandResultStatus.ERROR,
-					error: new Error('No recent search found'),
+					error: 'No recent search found',
 				};
 			}
 
@@ -65,7 +65,7 @@ export class MoreCommandHandler extends CommandHandler {
 
 				return {
 					status: CommandResultStatus.ERROR,
-					error: new Error('No search results artifact found'),
+					error: 'No search results artifact found',
 				};
 			}
 

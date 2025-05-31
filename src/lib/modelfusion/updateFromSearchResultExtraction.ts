@@ -4,6 +4,9 @@ import { userLanguagePrompt } from './prompts/languagePrompt';
 import { confidenceScorePrompt } from './prompts/confidenceScorePrompt';
 import { StewardPluginSettings } from '../../types/interfaces';
 import { createLLMGenerator } from './llmConfig';
+import { AbortService } from '../../services/AbortService';
+
+const abortService = AbortService.getInstance();
 
 export interface ReplaceInstruction {
 	type: 'replace';
@@ -40,6 +43,7 @@ export async function extractUpdateFromSearchResult({
 }): Promise<UpdateFromSearchResultExtraction> {
 	const response = await generateText({
 		model: createLLMGenerator(llmConfig),
+		run: { abortSignal: abortService.createAbortController('update-from-artifact') },
 		prompt: [
 			userLanguagePrompt,
 			updateFromSearchResultPrompt,

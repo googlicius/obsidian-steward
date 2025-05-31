@@ -47,8 +47,7 @@ export class ReadCommandHandler extends CommandHandler {
 			if (extraction.readType === 'entire' && !options.readEntireContent) {
 				await this.renderer.updateConversationNote({
 					path: title,
-					newContent:
-						'I am about to read the entire content of the note. Are you sure you want to proceed?',
+					newContent: t('read.readEntireContentConfirmation'),
 					role: 'Steward',
 					command: 'read',
 				});
@@ -67,7 +66,7 @@ export class ReadCommandHandler extends CommandHandler {
 			if (!readingResult) {
 				await this.renderer.updateConversationNote({
 					path: title,
-					newContent: `*${t('read.unableToReadContent') || 'Unable to read content from the editor. Please make sure you have an open note.'}*`,
+					newContent: `*${t('read.unableToReadContent')}*`,
 					role: 'Steward',
 					command: 'read',
 				});

@@ -4,6 +4,9 @@ import { contentUpdatePrompt } from './prompts/contentUpdatePrompt';
 import { userLanguagePrompt } from './prompts/languagePrompt';
 import { StewardPluginSettings } from '../../types/interfaces';
 import { logger } from '../../utils/logger';
+import { AbortService } from '../../services/AbortService';
+
+const abortService = AbortService.getInstance();
 
 export interface ContentUpdate {
 	updatedContent: string;
@@ -32,6 +35,7 @@ export async function extractContentUpdate(
 
 		const response = await generateText({
 			model: createLLMGenerator(llmConfig),
+			run: { abortSignal: abortService.createAbortController('content-update') },
 			prompt: [
 				userLanguagePrompt,
 				contentUpdatePrompt,

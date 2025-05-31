@@ -8,6 +8,9 @@ import { logger } from '../../utils/logger';
 import { getTranslation } from '../../i18n';
 import { StewardPluginSettings } from '../../types/interfaces';
 import { createLLMGenerator } from './llmConfig';
+import { AbortService } from '../../services/AbortService';
+
+const abortService = AbortService.getInstance();
 
 /**
  * Represents a single search operation with v2 parameters
@@ -96,6 +99,7 @@ export async function extractSearchQueryV2({
 		// Use ModelFusion to generate the response
 		const response = await generateText({
 			model: createLLMGenerator(llmConfig),
+			run: { abortSignal: abortService.createAbortController('search-query-v2') },
 			prompt: [
 				userLanguagePrompt,
 				searchPromptV2,

@@ -2,7 +2,6 @@ import { TFile, EditorRange, EditorPosition } from 'obsidian';
 import { ContentReadingExtraction } from '../lib/modelfusion/contentReadingExtraction';
 import { logger } from '../utils/logger';
 import StewardPlugin from '../main';
-import { ObsidianEditor } from '../types/types';
 import { isConversationLink } from '../utils/conversationUtils';
 
 /**
@@ -31,7 +30,6 @@ export interface ContentBlock {
  * Parameters for identifying blocks
  */
 interface IdentifyBlocksParams {
-	editor: ObsidianEditor;
 	cursor?: EditorPosition;
 	maxBlocks: number;
 	direction: 'above' | 'below';
@@ -42,6 +40,10 @@ interface IdentifyBlocksParams {
  * Service for reading content from the editor
  */
 export class ContentReadingService {
+	private get editor() {
+		return this.plugin.editor;
+	}
+
 	constructor(private plugin: StewardPlugin) {}
 
 	/**
@@ -50,9 +52,6 @@ export class ContentReadingService {
 	 * @returns The read blocks, or null if unable to read
 	 */
 	async readContent(extraction: ContentReadingExtraction): Promise<ContentReadingResult | null> {
-		// Get the active editor
-		const editor = this.plugin.editor;
-
 		// Get the active file
 		const file = this.plugin.app.workspace.getActiveFile();
 		if (!file) {
@@ -63,27 +62,17 @@ export class ContentReadingService {
 		try {
 			switch (extraction.readType) {
 				case 'selected':
-					return this.readSelectedContent(editor, file);
+					return this.readSelectedContent(file);
 
 				case 'entire':
 					return this.readEntireContent(file);
 
 				case 'below':
-					return this.readBlocksBelowCursor(
-						editor,
-						file,
-						extraction.blocksToRead,
-						extraction.elementType
-					);
+					return this.readBlocksBelowCursor(file, extraction.blocksToRead, extraction.elementType);
 
 				case 'above':
 				default:
-					return this.readBlocksAboveCursor(
-						editor,
-						file,
-						extraction.blocksToRead,
-						extraction.elementType
-					);
+					return this.readBlocksAboveCursor(file, extraction.blocksToRead, extraction.elementType);
 			}
 		} catch (error) {
 			logger.error('Error reading content:', error);
@@ -93,20 +82,19 @@ export class ContentReadingService {
 
 	/**
 	 * Read selected content from the editor
-	 * @param editor The editor
 	 * @param file The active file
 	 * @returns Selected content as a block
 	 */
-	private readSelectedContent(editor: ObsidianEditor, file: TFile): ContentReadingResult {
-		const selection = editor.getSelection();
+	private readSelectedContent(file: TFile): ContentReadingResult {
+		const selection = this.editor.getSelection();
 		if (!selection) {
 			// If no selection, fall back to content above cursor
-			return this.readBlocksAboveCursor(editor, file, 1);
+			return this.readBlocksAboveCursor(file, 1);
 		}
 
 		// Get the selection range
-		const from = editor.offsetToPos(editor.posToOffset(editor.getCursor('from')));
-		const to = editor.offsetToPos(editor.posToOffset(editor.getCursor('to')));
+		const from = this.editor.offsetToPos(this.editor.posToOffset(this.editor.getCursor('from')));
+		const to = this.editor.offsetToPos(this.editor.posToOffset(this.editor.getCursor('to')));
 
 		// Create a single block from the selection
 		const block: ContentBlock = {
@@ -126,7 +114,6 @@ export class ContentReadingService {
 
 	/**
 	 * Read blocks above the cursor using line-based detection
-	 * @param editor The editor
 	 * @param file The active file
 	 * @param blocksToRead Number of blocks to read
 	 * @param elementType Element type to look for. Supports AND/OR conditions:
@@ -135,14 +122,12 @@ export class ContentReadingService {
 	 * @returns Blocks above the cursor
 	 */
 	private readBlocksAboveCursor(
-		editor: ObsidianEditor,
 		file: TFile,
 		blocksToRead: number,
 		elementType: string | null = null
 	): ContentReadingResult {
-		const cursor = editor.getCursor();
+		const cursor = this.editor.getCursor();
 		const blocks = this.identifyBlocksUsingLines({
-			editor,
 			maxBlocks: blocksToRead,
 			direction: 'above',
 			elementType,
@@ -173,14 +158,13 @@ export class ContentReadingService {
 			elementType: elementType || undefined,
 			range: {
 				from: { line: startLine, ch: 0 },
-				to: { line: endLine, ch: editor.getLine(endLine).length },
+				to: { line: endLine, ch: this.editor.getLine(endLine).length },
 			},
 		};
 	}
 
 	/**
 	 * Read blocks below the cursor using line-based detection
-	 * @param editor The editor
 	 * @param file The active file
 	 * @param blocksToRead Number of blocks to read
 	 * @param elementType Element type to look for. Supports AND/OR conditions:
@@ -189,14 +173,12 @@ export class ContentReadingService {
 	 * @returns Blocks below the cursor
 	 */
 	private readBlocksBelowCursor(
-		editor: ObsidianEditor,
 		file: TFile,
 		blocksToRead: number,
 		elementType: string | null = null
 	): ContentReadingResult {
-		const cursor = editor.getCursor();
+		const cursor = this.editor.getCursor();
 		const blocks = this.identifyBlocksUsingLines({
-			editor,
 			maxBlocks: blocksToRead,
 			direction: 'below',
 			elementType,
@@ -227,7 +209,7 @@ export class ContentReadingService {
 			elementType: elementType || undefined,
 			range: {
 				from: { line: startLine, ch: 0 },
-				to: { line: endLine, ch: editor.getLine(endLine).length },
+				to: { line: endLine, ch: this.editor.getLine(endLine).length },
 			},
 		};
 	}
@@ -261,15 +243,14 @@ export class ContentReadingService {
 	 * @returns Array of identified blocks
 	 */
 	private identifyBlocksUsingLines({
-		editor,
-		cursor = editor.getCursor(),
+		cursor = this.editor.getCursor(),
 		maxBlocks,
 		direction,
 		elementType = null,
 	}: IdentifyBlocksParams): ContentBlock[] {
 		try {
 			const blocks: ContentBlock[] = [];
-			const lineCount = editor.lineCount();
+			const lineCount = this.editor.lineCount();
 
 			// Start from the cursor line
 			let currentLine = cursor.line;
@@ -284,7 +265,7 @@ export class ContentReadingService {
 					}
 
 					// Find the block that contains the current line
-					const block = this.findBlockContainingLine(editor, currentLine, 'above');
+					const block = this.findBlockContainingLine(currentLine, 'above');
 
 					if (block) {
 						// Skip if we're looking for a specific element type and it doesn't match
@@ -313,7 +294,7 @@ export class ContentReadingService {
 					}
 
 					// Find the block that contains or starts at the current line
-					const block = this.findBlockContainingLine(editor, currentLine, 'below');
+					const block = this.findBlockContainingLine(currentLine, 'below');
 
 					if (block) {
 						// Skip if we're looking for a specific element type and it doesn't match
@@ -353,19 +334,17 @@ export class ContentReadingService {
 
 	/**
 	 * Find a content block that contains the specified line
-	 * @param editor The editor
 	 * @param lineNumber The line number to check
 	 * @param direction Search direction ('above' or 'below')
 	 * @returns The content block, or null if none found
 	 */
 	private findBlockContainingLine(
-		editor: ObsidianEditor,
 		lineNumber: number,
 		direction: 'above' | 'below'
 	): ContentBlock | null {
 		try {
 			// Get the total number of lines in the editor
-			const lineCount = editor.lineCount();
+			const lineCount = this.editor.lineCount();
 
 			// Check if the line number is valid
 			if (lineNumber < 0 || lineNumber >= lineCount) {
@@ -376,11 +355,11 @@ export class ContentReadingService {
 			let currentLine = lineNumber;
 
 			// Handle the current line first - we'll check for conversation links in identifyBlockFromLine
-			let lineText = editor.getLine(currentLine).trim();
+			let lineText = this.editor.getLine(currentLine).trim();
 
 			// If the current line is non-empty, try to identify its block
 			if (lineText !== '') {
-				const block = this.identifyBlockFromLine(editor, currentLine);
+				const block = this.identifyBlockFromLine(currentLine);
 				if (block) {
 					return block;
 				}
@@ -406,9 +385,9 @@ export class ContentReadingService {
 				}
 
 				// Check if the current line is non-empty
-				lineText = editor.getLine(currentLine).trim();
+				lineText = this.editor.getLine(currentLine).trim();
 				if (lineText !== '') {
-					const block = this.identifyBlockFromLine(editor, currentLine);
+					const block = this.identifyBlockFromLine(currentLine);
 					if (block) {
 						return block;
 					}
@@ -425,14 +404,12 @@ export class ContentReadingService {
 
 	/**
 	 * Identify a content block from a specific line
-	 * @param editor The editor
 	 * @param lineNumber The line number to start from
 	 * @returns The identified content block, or null if none found
 	 */
-	private identifyBlockFromLine(editor: ObsidianEditor, lineNumber: number): ContentBlock | null {
+	private identifyBlockFromLine(lineNumber: number): ContentBlock | null {
 		try {
-			const lineCount = editor.lineCount();
-			const line = editor.getLine(lineNumber).trim();
+			const line = this.editor.getLine(lineNumber).trim();
 
 			// Skip empty lines
 			if (line === '') {
@@ -444,73 +421,45 @@ export class ContentReadingService {
 				return null;
 			}
 
-			// Get initial block type and start collecting types
+			// Get initial block type
 			const initialBlockType = this.detectBlockType(line);
-			const types = new Set<string>([initialBlockType]);
-
-			let inCodeBlock = initialBlockType === 'code';
-			let startLineNum = lineNumber;
-			let endLineNum = lineNumber;
 
 			// Find the start of the block (search upward)
-			while (startLineNum > 0) {
-				const prevLine = editor.getLine(startLineNum - 1).trim();
-				const prevLineType = this.detectBlockType(prevLine);
-
-				if (inCodeBlock && prevLineType === 'code') {
-					inCodeBlock = false;
-				}
-
-				// Collect type if line isn't empty
-				if (prevLine !== '') {
-					types.add(prevLineType);
-				}
-
-				// Check if the previous line is empty
-				if (prevLine === '') {
-					if (!inCodeBlock) {
-						break;
-					}
-				}
-
-				startLineNum--;
-			}
+			const {
+				lineNumber: startLineNum,
+				types: startTypes,
+				inList,
+				inCodeBlock,
+			} = this.findBlockBoundary({
+				startingLine: lineNumber,
+				direction: 'above',
+				initialBlockType,
+				inList: initialBlockType === 'list',
+				inCodeBlock: initialBlockType === 'code',
+			});
 
 			// Find the end of the block (search downward)
-			while (endLineNum < lineCount - 1) {
-				const nextLine = editor.getLine(endLineNum + 1).trim();
-				const nextLineType = this.detectBlockType(nextLine);
+			const { lineNumber: endLineNum, types: endTypes } = this.findBlockBoundary({
+				startingLine: lineNumber,
+				direction: 'below',
+				initialBlockType,
+				inList,
+				inCodeBlock,
+			});
 
-				// End code block detection
-				if (inCodeBlock && nextLineType === 'code') {
-					inCodeBlock = false;
-				}
-
-				// Collect type if line isn't empty
-				if (nextLine !== '') {
-					types.add(nextLineType);
-				}
-
-				// Check if the next line is empty
-				if (nextLine === '') {
-					if (!inCodeBlock) {
-						break;
-					}
-				}
-
-				endLineNum++;
-			}
+			// Combine all collected types
+			const allTypes = new Set([...startTypes, ...endTypes]);
 
 			// Get the content of the block
-			const content = editor.getRange(
+			const content = this.editor.getRange(
 				{ line: startLineNum, ch: 0 },
-				{ line: endLineNum, ch: editor.getLine(endLineNum).length }
+				{ line: endLineNum, ch: this.editor.getLine(endLineNum).length }
 			);
 
 			return {
 				startLine: startLineNum,
 				endLine: endLineNum,
-				types: Array.from(types),
+				types: Array.from(allTypes),
 				content,
 			};
 		} catch (error) {
@@ -554,6 +503,109 @@ export class ContentReadingService {
 
 		// Default to paragraph
 		return 'paragraph';
+	}
+
+	/**
+	 * Detect the type of the next block in a specified direction
+	 * @param lineNumber The current line number
+	 * @param direction The direction to look ('above' or 'below')
+	 * @returns The detected block type or null if no valid block found
+	 */
+	private detectNextBlockType(lineNumber: number, direction: 'above' | 'below'): string | null {
+		try {
+			const lineCount = this.editor.lineCount();
+
+			// Determine which line to check based on direction
+			const nextLineNumber = direction === 'above' ? lineNumber - 1 : lineNumber + 1;
+
+			// Check if we're at the boundaries of the document
+			if (nextLineNumber < 0 || nextLineNumber >= lineCount) {
+				return null;
+			}
+
+			// Get the next line and check if it's empty
+			const nextLine = this.editor.getLine(nextLineNumber).trim();
+			if (nextLine === '') {
+				// If empty, recursively check the next line in the same direction
+				return this.detectNextBlockType(nextLineNumber, direction);
+			}
+
+			// Skip conversation links
+			if (isConversationLink(nextLine, this.plugin.settings.stewardFolder)) {
+				return this.detectNextBlockType(nextLineNumber, direction);
+			}
+
+			// Detect and return the block type
+			return this.detectBlockType(nextLine);
+		} catch (error) {
+			logger.error('Error detecting next block type:', error);
+			return null;
+		}
+	}
+
+	/**
+	 * Find a block boundary in a specified direction
+	 */
+	private findBlockBoundary(params: {
+		startingLine: number;
+		direction: 'above' | 'below';
+		initialBlockType: string;
+		inList: boolean;
+		inCodeBlock: boolean;
+	}): { lineNumber: number; types: Set<string>; inList: boolean; inCodeBlock: boolean } {
+		const { startingLine, direction, initialBlockType } = params;
+		let { inList, inCodeBlock } = params;
+		const lineCount = this.editor.lineCount();
+		const types = new Set<string>([initialBlockType]);
+		let currentLine = startingLine;
+
+		// Determine boundary conditions and line increment based on direction
+		const atBoundary = () =>
+			direction === 'above' ? currentLine <= 0 : currentLine >= lineCount - 1;
+
+		const increment = direction === 'above' ? -1 : 1;
+
+		// Keep track of whether we can continue searching
+		// let canContinue = true;
+
+		while (!atBoundary()) {
+			// Get the next line in the specified direction
+			const nextLineNumber = currentLine + increment;
+			const nextLine = this.editor.getLine(nextLineNumber).trim();
+			const nextLineType = this.detectBlockType(nextLine);
+
+			// Handle code block boundaries
+			if (inCodeBlock && nextLineType === 'code') {
+				inCodeBlock = false;
+			}
+
+			// Handle list boundaries
+			if (inList && nextLine === '') {
+				const adjacentBlockType = this.detectNextBlockType(currentLine, direction);
+				if (adjacentBlockType !== 'list') {
+					inList = false;
+				}
+			}
+
+			// Collect type if line isn't empty
+			if (nextLine !== '') {
+				types.add(nextLineType);
+			}
+
+			// Check if the next line is empty
+			if (nextLine === '') {
+				if (!inCodeBlock && !inList) {
+					// canContinue = false;
+					// continue;
+					break;
+				}
+			}
+
+			// Move to the next line
+			currentLine = nextLineNumber;
+		}
+
+		return { lineNumber: currentLine, types, inList, inCodeBlock };
 	}
 
 	/**

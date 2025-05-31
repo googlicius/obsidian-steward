@@ -5,6 +5,9 @@ import { StewardPluginSettings } from 'src/types/interfaces';
 import { createLLMGenerator } from './llmConfig';
 import { confidenceScorePrompt } from './prompts/confidenceScorePrompt';
 import { validateConfidence, validateLanguage } from './validators';
+import { AbortService } from '../../services/AbortService';
+
+const abortService = AbortService.getInstance();
 
 /**
  * Represents the extracted move from search results parameters
@@ -28,6 +31,7 @@ export async function extractMoveFromSearchResult(
 	try {
 		const response = await generateText({
 			model: createLLMGenerator(llmConfig),
+			run: { abortSignal: abortService.createAbortController('move-from-artifact') },
 			prompt: [
 				userLanguagePrompt,
 				destinationFolderPrompt,

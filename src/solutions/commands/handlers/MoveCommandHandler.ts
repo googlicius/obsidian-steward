@@ -116,7 +116,6 @@ export class MoveCommandHandler extends CommandHandler {
 					role: 'Steward',
 				});
 
-				// Store context in the result for CommandProcessor to use
 				return {
 					status: CommandResultStatus.NEEDS_CONFIRMATION,
 					onConfirmation: () => {
@@ -128,7 +127,6 @@ export class MoveCommandHandler extends CommandHandler {
 				};
 			}
 
-			// Folder exists, perform the move operation
 			return this.performMoveOperation(
 				title,
 				{

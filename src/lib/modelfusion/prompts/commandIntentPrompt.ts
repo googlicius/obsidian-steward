@@ -57,7 +57,9 @@ Provide a confidence score from 0 to 1 for the overall sequence:
 You must respond with a valid JSON object containing these properties:
 - commands: An array of objects, each containing:
   - commandType: One of the available command types
-  - content: The specific content for this command in the sequence, MUST be a string
+  - content: 
+    * The specific content for this command in the sequence, MUST be a string
+    * If the command is "read", keep the original user's query
 - queryTemplate: A template version of the query where specific elements (tags, keywords, filenames, folders) are replaced with generic placeholders (x, y, z, f). This helps identify similar query patterns for caching purposes.
 - confidence
 - explanation`,

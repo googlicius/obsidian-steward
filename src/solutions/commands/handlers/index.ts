@@ -11,3 +11,4 @@ export * from './GenerateCommandHandler';
 export * from './GeneralCommandHandler';
 export * from './CloseCommandHandler';
 export * from './ConfirmCommandHandler';
+export * from './StopCommandHandler';

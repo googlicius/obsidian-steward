@@ -1,14 +1,111 @@
-import { EditorView, Decoration, DecorationSet, ViewPlugin, ViewUpdate } from '@codemirror/view';
+import {
+	EditorView,
+	Decoration,
+	DecorationSet,
+	ViewPlugin,
+	ViewUpdate,
+	WidgetType,
+} from '@codemirror/view';
 import { Extension } from '@codemirror/state';
 import { autocompletion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { capitalizeString } from 'src/utils/capitalizeString';
+import { setIcon } from 'obsidian';
+import { LLM_MODELS } from 'src/constants';
+import { AbortService } from 'src/services/AbortService';
 
-export function createCommandHighlightExtension(commandPrefixes: string[]): Extension {
-	return [createHighlightExtension(commandPrefixes), createAutocompleteExtension(commandPrefixes)];
+export function createCommandInputExtension(commandPrefixes: string[]): Extension {
+	return [createInputExtension(commandPrefixes), createAutocompleteExtension(commandPrefixes)];
 }
 
-// Add syntax highlighting for command prefixes
-function createHighlightExtension(commandPrefixes: string[]): Extension {
+// Toolbar widget that will be displayed below command inputs
+// Note: This class is currently not used but implemented for future use
+// The usage is commented out in buildDecorations method below
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+class CommandToolbarWidget extends WidgetType {
+	private command: string;
+	private isGenerating: boolean;
+	private abortService: AbortService;
+
+	constructor(command: string) {
+		super();
+		this.command = command;
+		this.abortService = AbortService.getInstance();
+	}
+
+	toDOM() {
+		const toolbar = document.createElement('div');
+		toolbar.className = 'command-toolbar';
+		toolbar.dataset.command = this.command;
+
+		// Add model selector
+		const modelSelector = document.createElement('select');
+		modelSelector.className = 'model-selector';
+
+		LLM_MODELS.forEach(model => {
+			const option = document.createElement('option');
+			option.value = model.id;
+			option.textContent = model.name;
+			// if (model.id === this.modelService.getCurrentModel()) {
+			// 	option.selected = true;
+			// }
+			modelSelector.appendChild(option);
+		});
+
+		// Add event listener to handle model changes
+		modelSelector.addEventListener('change', e => {
+			// const select = e.target as HTMLSelectElement;
+			// this.modelService.setCurrentModel(select.value);
+		});
+
+		// Create a container for the buttons on the right
+		const buttonContainer = document.createElement('div');
+		buttonContainer.className = 'command-toolbar-buttons';
+
+		// Add stop button (only visible during generation)
+		const stopButton = document.createElement('button');
+		stopButton.classList.add('clickable-icon');
+		stopButton.textContent = 'Stop';
+		setIcon(stopButton, 'x');
+		stopButton.addEventListener('click', (e: MouseEvent) => {
+			e.preventDefault();
+			e.stopPropagation();
+
+			// Directly call abort on all operations
+			this.abortService.abortAllOperations();
+		});
+
+		// Add send button
+		const sendButton = document.createElement('button');
+		sendButton.classList.add('clickable-icon');
+		sendButton.textContent = 'Send';
+		setIcon(sendButton, 'send-horizontal');
+		sendButton.addEventListener('click', (e: MouseEvent) => {
+			e.preventDefault();
+			e.stopPropagation();
+			// this.modelService.sendCommand();
+		});
+
+		// Add buttons to the button container
+		buttonContainer.appendChild(stopButton);
+		buttonContainer.appendChild(sendButton);
+
+		// Add elements to toolbar
+		toolbar.appendChild(modelSelector);
+		toolbar.appendChild(buttonContainer);
+		return toolbar;
+	}
+
+	eq(other: CommandToolbarWidget) {
+		return this.command === other.command && this.isGenerating === other.isGenerating;
+	}
+
+	ignoreEvent() {
+		return false; // Allow events to be handled by the widget
+	}
+}
+
+// Add syntax highlighting for command prefixes and toolbar for command inputs
+function createInputExtension(commandPrefixes: string[]): Extension {
 	return ViewPlugin.fromClass(
 		class {
 			decorations: DecorationSet;
@@ -52,6 +149,7 @@ function createHighlightExtension(commandPrefixes: string[]): Extension {
 									? lineText === matchedPrefix
 									: lineText.trim() === matchedPrefix;
 
+							// Add decoration for the command prefix
 							decorations.push(
 								Decoration.mark({
 									class: `conversation-command cm-conversation-command conversation-command-${command}`,
@@ -60,6 +158,14 @@ function createHighlightExtension(commandPrefixes: string[]): Extension {
 									}),
 								}).range(from, to)
 							);
+
+							// Add toolbar widget at the end of the line
+							// decorations.push(
+							// 	Decoration.widget({
+							// 		widget: new CommandToolbarWidget(command),
+							// 		side: 1,
+							// 	}).range(line.to)
+							// );
 						}
 					}
 

@@ -2,7 +2,7 @@ import { Editor, Notice, Plugin, TFile, WorkspaceLeaf, addIcon } from 'obsidian'
 import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView, keymap } from '@codemirror/view';
-import { createCommandHighlightExtension } from './cm/extensions/CommandHighlightExtension';
+import { createCommandInputExtension } from './cm/extensions/CommandInputExtension';
 import { createCalloutSearchResultPostProcessor } from './cm/post-processors/CalloutSearchResultPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
@@ -153,7 +153,7 @@ export default class StewardPlugin extends Plugin {
 
 		// Register the conversation extension for CodeMirror
 		this.registerEditorExtension([
-			createCommandHighlightExtension(COMMAND_PREFIXES),
+			createCommandInputExtension(COMMAND_PREFIXES),
 			Prec.high(
 				keymap.of([
 					{
@@ -631,7 +631,7 @@ export default class StewardPlugin extends Plugin {
 		path: string;
 		newContent: string;
 		command?: string;
-		role?: string;
+		role?: 'User' | 'Steward';
 	}) {
 		return this.conversationRenderer.updateConversationNote(params);
 	}

@@ -4,6 +4,9 @@ import { createLLMGenerator } from './llmConfig';
 import { contentReadingPrompt } from './prompts/contentReadingPrompt';
 import { userLanguagePrompt } from './prompts/languagePrompt';
 import { logger } from '../../utils/logger';
+import { AbortService } from '../../services/AbortService';
+
+const abortService = AbortService.getInstance();
 
 /**
  * Content reading extraction result
@@ -41,6 +44,7 @@ export async function extractContentReading(
 		// Generate the response using the LLM
 		const response = await generateText({
 			model: createLLMGenerator(llmConfig),
+			run: { abortSignal: abortService.createAbortController('content-reading') },
 			prompt: [userLanguagePrompt, contentReadingPrompt, { role: 'user', content: userInput }],
 		});
 

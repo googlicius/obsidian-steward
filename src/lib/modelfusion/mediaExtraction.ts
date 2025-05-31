@@ -4,6 +4,11 @@ import { userLanguagePrompt } from './prompts/languagePrompt';
 import { confidenceScorePrompt } from './prompts/confidenceScorePrompt';
 import { validateLanguage, validateConfidence } from './validators';
 import { getObsidianLanguage } from '../../utils/getObsidianLanguage';
+import { AbortService } from '../../services/AbortService';
+import { logger } from '../../utils/logger';
+
+// Get the singleton instance of AbortService
+const abortService = AbortService.getInstance();
 
 /**
  * Represents the extracted media generation parameters
@@ -47,6 +52,9 @@ export async function extractMediaCommand(
 	userInput = type ? `/${type} ${userInput}` : userInput;
 
 	try {
+		// Create an operation-specific abort signal
+		const abortSignal = abortService.createAbortController('media-extraction');
+
 		// Use ModelFusion to generate the response
 		const response = await generateText({
 			model: openai.ChatTextGenerator({
@@ -54,6 +62,7 @@ export async function extractMediaCommand(
 				temperature: 0.2,
 				responseFormat: { type: 'json_object' },
 			}),
+			run: { abortSignal },
 			prompt: [
 				userLanguagePrompt,
 				mediaCommandPrompt,
@@ -66,6 +75,17 @@ export async function extractMediaCommand(
 		const parsed = JSON.parse(response);
 		return validateMediaCommandExtraction(parsed);
 	} catch (error) {
+		// Check if this is an AbortError
+		if (error.name === 'AbortError') {
+			logger.log('Media command extraction was aborted');
+			return {
+				text: '',
+				explanation: 'The operation was cancelled.',
+				confidence: 0,
+				lang: getObsidianLanguage(),
+			};
+		}
+
 		console.error('Error extracting media command:', error);
 		throw error;
 	}

@@ -3,6 +3,9 @@ import { createLLMGenerator } from './llmConfig';
 import { destinationFolderPrompt } from './prompts/destinationFolderPrompt';
 import { userLanguagePrompt } from './prompts/languagePrompt';
 import { StewardPluginSettings } from '../../types/interfaces';
+import { AbortService } from '../../services/AbortService';
+
+const abortService = AbortService.getInstance();
 
 /**
  * Represents the extracted destination folder parameters
@@ -27,6 +30,7 @@ export async function extractDestinationFolder(
 		// Use ModelFusion to generate the response
 		const response = await generateText({
 			model: createLLMGenerator(llmConfig),
+			run: { abortSignal: abortService.createAbortController('destination-folder') },
 			prompt: [userLanguagePrompt, destinationFolderPrompt, { role: 'user', content: userInput }],
 		});
 

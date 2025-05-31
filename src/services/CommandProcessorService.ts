@@ -16,6 +16,7 @@ import {
 	GeneralCommandHandler,
 	CloseCommandHandler,
 	ConfirmCommandHandler,
+	StopCommandHandler,
 } from '../solutions/commands/handlers';
 
 export class CommandProcessorService {
@@ -84,6 +85,10 @@ export class CommandProcessorService {
 		// Register the generate command handler
 		const generateHandler = new GenerateCommandHandler(this.plugin);
 		this.commandProcessor.registerHandler('generate', generateHandler);
+
+		// Register the stop command handler
+		const stopHandler = new StopCommandHandler(this.plugin);
+		this.commandProcessor.registerHandler('stop', stopHandler);
 
 		// Register the general command handler (space)
 		const generalHandler = new GeneralCommandHandler(this.plugin);

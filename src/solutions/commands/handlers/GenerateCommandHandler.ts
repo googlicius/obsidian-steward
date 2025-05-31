@@ -15,6 +15,9 @@ import { TFile } from 'obsidian';
 import { streamText } from 'modelfusion';
 import { createLLMGenerator } from 'src/lib/modelfusion/llmConfig';
 import { userLanguagePromptText } from 'src/lib/modelfusion/prompts/languagePrompt';
+import { AbortService } from 'src/services/AbortService';
+
+const abortService = AbortService.getInstance();
 
 export class GenerateCommandHandler extends CommandHandler {
 	constructor(public readonly plugin: StewardPlugin) {
@@ -185,6 +188,7 @@ export class GenerateCommandHandler extends CommandHandler {
 		// Prepare for content generation
 		const stream = await streamText({
 			model: createLLMGenerator({ ...this.settings.llm, responseFormat: 'text' }),
+			run: { abortSignal: abortService.createAbortController('generate') },
 			prompt: [
 				{
 					role: 'system',

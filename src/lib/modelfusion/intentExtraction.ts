@@ -5,6 +5,7 @@ import { userLanguagePrompt } from './prompts/languagePrompt';
 import { StewardPluginSettings } from '../../types/interfaces';
 import { intentClassifier } from './classifiers/intent';
 import { logger } from 'src/utils/logger';
+import { AbortService } from 'src/services/AbortService';
 import {
 	interpretDeleteFromArtifactPrompt,
 	interpretDestinationFolderPrompt,
@@ -12,6 +13,9 @@ import {
 	interpretUpdateFromArtifactPrompt,
 	interpretReadContentPrompt,
 } from './prompts/interpretQueryPrompts';
+
+// Use AbortService instead of a local controller
+const abortService = AbortService.getInstance();
 
 /**
  * Represents a single command in a sequence
@@ -80,104 +84,104 @@ export async function extractCommandIntent(
 	userInput: string,
 	llmConfig: StewardPluginSettings['llm']
 ): Promise<CommandIntentExtraction> {
-	try {
-		const clusterName = await classify({
-			model: intentClassifier,
-			value: userInput,
-		});
+	const clusterName = await classify({
+		model: intentClassifier,
+		value: userInput,
+	});
 
-		const additionalPrompts: OpenAIChatMessage[] = [];
+	const additionalPrompts: OpenAIChatMessage[] = [];
 
-		if (clusterName) {
-			logger.log(`The user input was classified as "${clusterName}"`);
+	if (clusterName) {
+		logger.log(`The user input was classified as "${clusterName}"`);
 
-			if ((clusterName as string) === 'read:generate') {
-				return extractReadGenerate(userInput);
-			}
-
-			if ((clusterName as string) === 'read:generate:update_from_artifact') {
-				return extractReadGenerateUpdateFromArtifact(userInput);
-			}
-
-			const clusterNames = clusterName.split(':');
-
-			// Add some additional prompts to extract multiple intents
-			if (clusterNames.includes('search')) {
-				additionalPrompts.push(interpretSearchContentPrompt);
-			}
-
-			if (clusterNames.length > 1) {
-				if (clusterNames.includes('delete_from_artifact')) {
-					additionalPrompts.push(interpretDeleteFromArtifactPrompt);
-				}
-
-				if (
-					clusterNames.includes('copy_from_artifact') ||
-					clusterNames.includes('move_from_artifact')
-				) {
-					additionalPrompts.push(interpretDestinationFolderPrompt);
-				}
-
-				if (clusterNames.includes('update_from_artifact')) {
-					additionalPrompts.push(interpretUpdateFromArtifactPrompt);
-				}
-
-				if (clusterNames.includes('read')) {
-					additionalPrompts.push(interpretReadContentPrompt);
-				}
-			} else {
-				// Create a formatted response based on the classification
-				const result: CommandIntentExtraction = {
-					commands: [
-						{
-							commandType: clusterName,
-							content: userInput,
-						},
-					],
-					explanation: `Classified as ${clusterName} command based on semantic similarity.`,
-					confidence: 0.8,
-					lang: 'en',
-				};
-
-				return result;
-			}
+		if ((clusterName as string) === 'read:generate') {
+			return extractReadGenerate(userInput);
 		}
 
-		// Proceed with LLM-based intent extraction
-		logger.log('Using LLM for intent extraction');
-		const response = await generateText({
-			model: createLLMGenerator(llmConfig),
-			prompt: [
-				userLanguagePrompt,
-				commandIntentPrompt,
-				...additionalPrompts,
-				{ role: 'user', content: userInput },
-			],
-		});
-
-		// Parse and validate the JSON response
-		const parsed = JSON.parse(response);
-		const validatedResult = validateCommandIntentExtraction(parsed);
-
-		// Save the embeddings
-		if (validatedResult.confidence >= 0.9 && validatedResult.queryTemplate) {
-			try {
-				const newClusterName = [
-					...new Set(validatedResult.commands.map(cmd => cmd.commandType)),
-				].reduce((acc, curVal) => {
-					return acc ? `${acc}:${curVal}` : curVal;
-				}, '');
-				await intentClassifier.saveEmbedding(validatedResult.queryTemplate, newClusterName);
-			} catch (error) {
-				logger.error('Failed to save query embedding:', error);
-			}
+		if ((clusterName as string) === 'read:generate:update_from_artifact') {
+			return extractReadGenerateUpdateFromArtifact(userInput);
 		}
 
-		return validatedResult;
-	} catch (error) {
-		console.error('Error extracting command intent:', error);
-		throw error;
+		const clusterNames = clusterName.split(':');
+
+		// Add some additional prompts to extract multiple intents
+		if (clusterNames.includes('search')) {
+			additionalPrompts.push(interpretSearchContentPrompt);
+		}
+
+		if (clusterNames.length > 1) {
+			if (clusterNames.includes('delete_from_artifact')) {
+				additionalPrompts.push(interpretDeleteFromArtifactPrompt);
+			}
+
+			if (
+				clusterNames.includes('copy_from_artifact') ||
+				clusterNames.includes('move_from_artifact')
+			) {
+				additionalPrompts.push(interpretDestinationFolderPrompt);
+			}
+
+			if (clusterNames.includes('update_from_artifact')) {
+				additionalPrompts.push(interpretUpdateFromArtifactPrompt);
+			}
+
+			if (clusterNames.includes('read')) {
+				additionalPrompts.push(interpretReadContentPrompt);
+			}
+		} else {
+			// Create a formatted response based on the classification
+			const result: CommandIntentExtraction = {
+				commands: [
+					{
+						commandType: clusterName,
+						content: userInput,
+					},
+				],
+				explanation: `Classified as ${clusterName} command based on semantic similarity.`,
+				confidence: 0.8,
+				lang: 'en',
+			};
+
+			return result;
+		}
 	}
+
+	// Proceed with LLM-based intent extraction
+	logger.log('Using LLM for intent extraction');
+
+	// Create an operation-specific abort signal
+	const abortSignal = abortService.createAbortController('intent-extraction');
+
+	const response = await generateText({
+		model: createLLMGenerator(llmConfig),
+		run: { abortSignal },
+		prompt: [
+			userLanguagePrompt,
+			commandIntentPrompt,
+			...additionalPrompts,
+			{ role: 'user', content: userInput },
+		],
+	});
+
+	// Parse and validate the JSON response
+	const parsed = JSON.parse(response);
+	const validatedResult = validateCommandIntentExtraction(parsed);
+
+	// Save the embeddings
+	if (validatedResult.confidence >= 0.9 && validatedResult.queryTemplate) {
+		try {
+			const newClusterName = [
+				...new Set(validatedResult.commands.map(cmd => cmd.commandType)),
+			].reduce((acc, curVal) => {
+				return acc ? `${acc}:${curVal}` : curVal;
+			}, '');
+			await intentClassifier.saveEmbedding(validatedResult.queryTemplate, newClusterName);
+		} catch (error) {
+			logger.error('Failed to save query embedding:', error);
+		}
+	}
+
+	return validatedResult;
 }
 
 /**
@@ -207,6 +211,7 @@ function validateCommandIntentExtraction(data: any): CommandIntentExtraction {
 		'create',
 		'generate',
 		'read',
+		'stop',
 	];
 
 	// Check if there are too many commands

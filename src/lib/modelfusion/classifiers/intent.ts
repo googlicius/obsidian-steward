@@ -44,6 +44,10 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 			name: 'more' as const,
 			values: ['more', 'show more'],
 		},
+		{
+			name: 'stop' as const,
+			values: ['stop', 'abort'],
+		},
 	],
 
 	prefixedClusterValue: [
@@ -240,6 +244,14 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 				'read the list above',
 				'read the paragraph above',
 				'read the entire content',
+			],
+		},
+		{
+			name: 'read:generate' as const,
+			values: [
+				'What is this note about?',
+				'help me summarize this note',
+				'read the text above, and help me some sentences include the word "x"',
 			],
 		},
 		{

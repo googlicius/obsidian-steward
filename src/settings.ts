@@ -1,6 +1,7 @@
 import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import StewardPlugin from './main';
 import { logger } from './utils/logger';
+import { LLM_MODELS } from './constants';
 
 export default class StewardSettingTab extends PluginSettingTab {
 	plugin: StewardPlugin;
@@ -251,21 +252,10 @@ export default class StewardSettingTab extends PluginSettingTab {
 			.setName('Chat Model')
 			.setDesc('Select the AI model to use for chat')
 			.addDropdown(dropdown => {
-				// OpenAI Models
-				dropdown.addOption('gpt-4-turbo-preview', 'GPT-4 Turbo (OpenAI)');
-				dropdown.addOption('gpt-4-0125-preview', 'GPT-4 0125 (OpenAI)');
-				dropdown.addOption('gpt-4-vision-preview', 'GPT-4 Vision (OpenAI)');
-				dropdown.addOption('gpt-3.5-turbo', 'GPT-3.5 Turbo (OpenAI)');
-
-				// DeepSeek Models
-				dropdown.addOption('deepseek-chat', 'DeepSeek Chat (DeepSeek)');
-
-				// Ollama Models
-				dropdown.addOption('llama3:latest', 'Llama 3 8B (Ollama)');
-				dropdown.addOption('llama3.1:latest', 'Llama 3.1 8B (Ollama)');
-				dropdown.addOption('llama3.2:latest', 'Llama 3.2 (Ollama)');
-				dropdown.addOption('mistral:latest', 'Mistral (Ollama)');
-				dropdown.addOption('mixtral:latest', 'Mixtral (Ollama)');
+				// Add all models from the constants
+				LLM_MODELS.forEach(model => {
+					dropdown.addOption(model.id, `${model.name} (${model.provider})`);
+				});
 
 				dropdown.setValue(this.plugin.settings.llm.model).onChange(async value => {
 					this.plugin.settings.llm.model = value;
@@ -316,9 +306,8 @@ export default class StewardSettingTab extends PluginSettingTab {
 		// Show/hide Ollama settings based on selected model
 		const updateOllamaSettingsVisibility = () => {
 			const isOllamaModel =
-				this.plugin.settings.llm.model.includes('llama') ||
-				this.plugin.settings.llm.model.includes('mistral') ||
-				this.plugin.settings.llm.model.includes('mixtral');
+				LLM_MODELS.find(model => model.id === this.plugin.settings.llm.model)?.provider ===
+				'ollama';
 
 			ollamaBaseUrlSetting.settingEl.style.display = isOllamaModel ? 'flex' : 'none';
 		};

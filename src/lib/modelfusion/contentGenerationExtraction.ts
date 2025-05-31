@@ -4,6 +4,10 @@ import { contentGenerationPrompt } from './prompts/contentGenerationPrompt';
 import { userLanguagePrompt } from './prompts/languagePrompt';
 import { StewardPluginSettings } from '../../types/interfaces';
 import { logger } from '../../utils/logger';
+import { AbortService } from '../../services/AbortService';
+
+// Get the singleton instance of AbortService
+const abortService = AbortService.getInstance();
 
 export interface ContentGenerationExtraction {
 	responses: string[];
@@ -24,8 +28,12 @@ export async function extractContentGeneration(
 	try {
 		logger.log('Extracting content generation from user input');
 
+		// Create an operation-specific abort signal
+		const abortSignal = abortService.createAbortController('content-generation');
+
 		const response = await generateText({
 			model: createLLMGenerator(llmConfig),
+			run: { abortSignal },
 			prompt: [
 				userLanguagePrompt,
 				contentGenerationPrompt,
@@ -40,6 +48,16 @@ export async function extractContentGeneration(
 		const parsed = JSON.parse(response);
 		return validateContentGenerationExtraction(parsed);
 	} catch (error) {
+		// Check if this is an AbortError
+		if (error.name === 'AbortError') {
+			logger.log('Content generation was aborted');
+			return {
+				responses: [],
+				explanation: 'The operation was cancelled.',
+				confidence: 0,
+			};
+		}
+
 		logger.error('Error extracting content generation details:', error);
 		throw error;
 	}
