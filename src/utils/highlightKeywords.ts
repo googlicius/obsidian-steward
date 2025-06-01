@@ -12,8 +12,8 @@ interface HighlightResult {
 	end: number;
 }
 
-export function highlightKeywords(
-	keywords: string[],
+export function highlightKeyword(
+	keyword: string,
 	content: string,
 	options: Partial<HighlightOptions> = {}
 ): HighlightResult[] {
@@ -27,15 +27,12 @@ export function highlightKeywords(
 
 	const opts = { ...defaultOptions, ...options };
 
-	// Filter out empty keywords
-	const filteredKeywords = keywords.filter(keyword => keyword.trim().length > 0);
-
-	if (filteredKeywords.length === 0 || !content) {
+	if (!keyword || !content) {
 		return [];
 	}
 
-	// Generate all possible n-grams from the keywords
-	const ngrams = generateNgrams(filteredKeywords);
+	// Generate all possible n-grams from the keyword
+	const ngrams = generateNgrams(keyword);
 
 	// Find all matches in the content
 	const matches = findMatches(content, ngrams);
@@ -63,29 +60,38 @@ interface Match {
 	isInLink?: boolean;
 }
 
-// Export for testing purposes
-export function generateNgrams(keywords: string[]): string[] {
+/**
+ * Generate ngrams for a keyword
+ * @returns The generated ngrams
+ */
+export function generateNgrams(keyword: string, options: { threshold?: number } = {}): string[] {
+	const { threshold = 0.7 } = options;
 	const ngrams: Set<string> = new Set();
+	const minLength = Math.floor(keyword.length * threshold);
 
-	for (const keyword of keywords) {
-		// Add the full keyword
-		ngrams.add(keyword);
+	if (keyword.length === 0) {
+		return [];
+	}
 
-		// Generate smaller n-grams for keywords with multiple words
-		const words = keyword.split(/\s+/).filter(word => word.length > 0);
-		if (words.length > 1) {
-			// Add individual words (1-grams)
-			for (const word of words) {
-				if (word.length > 0) {
-					ngrams.add(word);
-				}
+	// Add the full keyword
+	ngrams.add(keyword);
+
+	// Generate smaller n-grams for keywords with multiple words
+	const words = keyword.split(/\s+/).filter(word => word.length > 0);
+	if (words.length > 1) {
+		// Add individual words (1-grams)
+		for (const word of words) {
+			if (word.length >= minLength) {
+				ngrams.add(word);
 			}
+		}
 
-			// Generate all possible n-grams of lengths 2 to words.length-1
-			for (let n = 2; n < words.length; n++) {
-				// For each possible starting position
-				for (let i = 0; i <= words.length - n; i++) {
-					const nGram = words.slice(i, i + n).join(' ');
+		// Generate all possible n-grams of lengths 2 to words.length-1
+		for (let n = 2; n < words.length; n++) {
+			// For each possible starting position
+			for (let i = 0; i <= words.length - n; i++) {
+				const nGram = words.slice(i, i + n).join(' ');
+				if (nGram.length >= minLength) {
 					ngrams.add(nGram);
 				}
 			}
@@ -96,6 +102,10 @@ export function generateNgrams(keywords: string[]): string[] {
 	return Array.from(ngrams).sort((a, b) => b.length - a.length);
 }
 
+/**
+ * Find all matches of the keyword in the content
+ * @returns The matches
+ */
 function findMatches(content: string, terms: string[]): Match[] {
 	const matches: Match[] = [];
 	const lowerContent = content.toLowerCase();

@@ -260,5 +260,8 @@ export class GenerateCommandHandler extends CommandHandler {
 			path: title,
 			newContent: `*${t('generate.success', { noteName: extraction.noteName })}*`,
 		});
+
+		// Delete artifact
+		this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
 	}
 }

@@ -8,7 +8,10 @@ import { getTranslation } from 'src/i18n';
 import StewardPlugin from 'src/main';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { TFile } from 'obsidian';
-import { extractNoteCreation } from 'src/lib/modelfusion/noteCreationExtraction';
+import {
+	extractNoteCreation,
+	NoteCreationExtraction,
+} from 'src/lib/modelfusion/noteCreationExtraction';
 
 export class CreateCommandHandler extends CommandHandler {
 	constructor(public readonly plugin: StewardPlugin) {
@@ -26,13 +29,20 @@ export class CreateCommandHandler extends CommandHandler {
 	/**
 	 * Handle a create command
 	 */
-	public async handle(params: CommandHandlerParams): Promise<CommandResult> {
+	public async handle(
+		params: CommandHandlerParams,
+		options: {
+			extraction?: NoteCreationExtraction;
+			confirmed?: boolean;
+		} = {}
+	): Promise<CommandResult> {
 		const { title, command, lang } = params;
 		const t = getTranslation(lang);
 
 		try {
-			// Extract the note creation details using the LLM
-			const extraction = await extractNoteCreation(command.content, this.settings.llm);
+			// If we have a cached extraction from confirmation, use it
+			const extraction =
+				options.extraction || (await extractNoteCreation(command.content, this.settings.llm));
 
 			// For low confidence extractions, just show the explanation
 			if (extraction.confidence <= 0.7) {
@@ -59,6 +69,38 @@ export class CreateCommandHandler extends CommandHandler {
 				return {
 					status: CommandResultStatus.ERROR,
 					error: new Error('No notes specified for creation'),
+				};
+			}
+
+			// Ask for confirmation before creating notes
+			if (!options.confirmed) {
+				let message = `${t('create.confirmMessage', { count: extraction.notes.length })}\n`;
+
+				// List notes to be created
+				for (const note of extraction.notes) {
+					const noteName = note.noteName ? `${note.noteName}.md` : '';
+					if (noteName) {
+						message += `- \`${noteName}\`\n`;
+					}
+				}
+
+				message += `\n${t('create.confirmPrompt')}`;
+
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: message,
+					role: 'Steward',
+					command: 'create',
+				});
+
+				return {
+					status: CommandResultStatus.NEEDS_CONFIRMATION,
+					confirmationMessage: message,
+					onConfirmation: async () => {
+						// When confirmed, call this handler again with the confirmed flag
+						await this.handle(params, { extraction, confirmed: true });
+					},
+					onRejection: async () => {},
 				};
 			}
 

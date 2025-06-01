@@ -58,6 +58,9 @@ const en = {
 			success_one: 'Successfully created {{noteName}}',
 			success_other: 'Successfully created {{count}} notes: {{noteNames}}',
 			creatingNote: 'Creating note: {{noteName}}',
+			confirmMessage_one: 'I will create the following note:',
+			confirmMessage_other: 'I will create the following notes:',
+			confirmPrompt: 'Do you want to proceed?',
 		},
 		generate: {
 			success: 'Successfully generated',

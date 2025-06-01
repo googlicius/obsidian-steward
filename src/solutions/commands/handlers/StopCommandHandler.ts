@@ -37,13 +37,13 @@ export class StopCommandHandler extends CommandHandler {
 		logger.log(`Stop command received - aborted all operations (${activeOperationsCount} active)`);
 
 		// Prepare the response message
-		let responseMessage = t('commands.stop.stopped');
+		let responseMessage = t('stop.stopped');
 
 		// Add count of operations if there were any
 		if (activeOperationsCount > 0) {
-			responseMessage = t('commands.stop.stoppedWithCount', { count: activeOperationsCount });
+			responseMessage = t('stop.stoppedWithCount', { count: activeOperationsCount });
 		} else {
-			responseMessage = t('commands.stop.noActiveOperations');
+			responseMessage = t('stop.noActiveOperations');
 		}
 
 		await delay(200);

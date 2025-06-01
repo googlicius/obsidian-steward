@@ -9,7 +9,7 @@ import { logger } from 'src/utils/logger';
 import StewardPlugin from 'src/main';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { extractSearchQueryV2 } from 'src/lib/modelfusion';
-import { highlightKeywords } from 'src/utils/highlightKeywords';
+import { highlightKeyword } from 'src/utils/highlightKeywords';
 import { PaginatedSearchResultV2 } from 'src/solutions/search';
 
 export class SearchCommandHandler extends CommandHandler {
@@ -151,10 +151,9 @@ export class SearchCommandHandler extends CommandHandler {
 					const fileContent = await this.plugin.app.vault.cachedRead(file);
 
 					// Get highlighted matches from the entire file content
-					const highlightedMatches = highlightKeywords(
-						result.keywordsMatched as string[],
-						fileContent
-					);
+					const highlightedMatches = result.keywordsMatched.reduce((acc, keyword) => {
+						return [...acc, ...highlightKeyword(keyword, fileContent)];
+					}, []);
 
 					// Show up to 3 highlighted matches
 					const matchesToShow = Math.min(3, highlightedMatches.length);

@@ -115,7 +115,6 @@ export class ReadCommandHandler extends CommandHandler {
 			// If there is no next command, show the read results
 			if (!nextCommand) {
 				for (const block of readingResult.blocks) {
-					console.log('block', block);
 					const endLine = this.plugin.editor.getLine(block.endLine);
 					await this.renderer.updateConversationNote({
 						path: title,
