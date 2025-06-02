@@ -307,11 +307,6 @@ export default class StewardPlugin extends Plugin {
 						},
 					});
 
-					this.editor.setCursor({
-						line: line.number,
-						ch: 1,
-					});
-
 					// Emit the conversation note updated event
 					eventEmitter.emit(Events.CONVERSATION_COMMAND_RECEIVED, {
 						title: conversationLink,
@@ -339,8 +334,7 @@ export default class StewardPlugin extends Plugin {
 					// Emit the conversation note created event
 					eventEmitter.emit(Events.CONVERSATION_NOTE_CREATED, {
 						view,
-						from: line.from,
-						to: line.to,
+						line,
 						title,
 						commandContent,
 						commandType,
@@ -602,8 +596,7 @@ export default class StewardPlugin extends Plugin {
 	 */
 	insertConversationLink(
 		view: EditorView,
-		from: number,
-		to: number,
+		line: Line,
 		title: string,
 		commandType: string,
 		commandContent: string,
@@ -613,15 +606,15 @@ export default class StewardPlugin extends Plugin {
 
 		view.dispatch({
 			changes: {
-				from,
-				to,
+				from: line.from,
+				to: line.to,
 				insert: linkText + '/ ',
 			},
 		});
 
 		this.editor.setCursor({
-			line: to,
-			ch: 1,
+			line: line.number,
+			ch: 3,
 		});
 
 		eventEmitter.emit(Events.CONVERSATION_LINK_INSERTED, {

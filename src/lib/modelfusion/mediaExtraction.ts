@@ -1,11 +1,12 @@
-import { generateText, openai } from 'modelfusion';
+import { generateText } from 'modelfusion';
 import { mediaCommandPrompt } from './prompts/mediaCommandPrompt';
 import { userLanguagePrompt } from './prompts/languagePrompt';
 import { confidenceScorePrompt } from './prompts/confidenceScorePrompt';
 import { validateLanguage, validateConfidence } from './validators';
 import { getObsidianLanguage } from '../../utils/getObsidianLanguage';
 import { AbortService } from '../../services/AbortService';
-import { logger } from '../../utils/logger';
+import { StewardPluginSettings } from 'src/types/interfaces';
+import { createLLMGenerator } from './llmConfig';
 
 // Get the singleton instance of AbortService
 const abortService = AbortService.getInstance();
@@ -32,6 +33,7 @@ export interface MediaCommandExtraction {
  */
 export async function extractMediaCommand(
 	userInput: string,
+	llmConfig: StewardPluginSettings['llm'],
 	type?: 'image' | 'audio'
 ): Promise<MediaCommandExtraction> {
 	// Check if input is wrapped in quotation marks for direct extraction
@@ -57,11 +59,7 @@ export async function extractMediaCommand(
 
 		// Use ModelFusion to generate the response
 		const response = await generateText({
-			model: openai.ChatTextGenerator({
-				model: 'gpt-4-turbo-preview',
-				temperature: 0.2,
-				responseFormat: { type: 'json_object' },
-			}),
+			model: createLLMGenerator(llmConfig),
 			run: { abortSignal },
 			prompt: [
 				userLanguagePrompt,
@@ -75,17 +73,6 @@ export async function extractMediaCommand(
 		const parsed = JSON.parse(response);
 		return validateMediaCommandExtraction(parsed);
 	} catch (error) {
-		// Check if this is an AbortError
-		if (error.name === 'AbortError') {
-			logger.log('Media command extraction was aborted');
-			return {
-				text: '',
-				explanation: 'The operation was cancelled.',
-				confidence: 0,
-				lang: getObsidianLanguage(),
-			};
-		}
-
 		console.error('Error extracting media command:', error);
 		throw error;
 	}

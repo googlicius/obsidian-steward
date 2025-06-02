@@ -1,4 +1,5 @@
 import { EditorView } from '@codemirror/view';
+import { Line } from '@codemirror/state';
 import { CommandIntent } from '../lib/modelfusion/intentExtraction';
 import { SearchQueryExtractionV2 } from '../lib/modelfusion';
 import { IndexedDocument } from '../database/SearchDatabase';
@@ -37,8 +38,7 @@ export enum ErrorEvents {
 
 export interface ConversationNoteCreatedPayload {
 	view: EditorView;
-	from: number;
-	to: number;
+	line: Line;
 	title: string;
 	commandType: string;
 	commandContent: string;

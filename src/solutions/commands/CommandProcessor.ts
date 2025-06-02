@@ -10,6 +10,12 @@ interface PendingCommand {
 	lastCommandResult?: CommandResult;
 }
 
+interface ProcessCommandsOptions {
+	skipIndicators?: boolean;
+	skipGeneralCommandCheck?: boolean;
+	skipConfirmationCheck?: boolean;
+}
+
 export class CommandProcessor {
 	private pendingCommands: Map<string, PendingCommand> = new Map();
 
@@ -27,25 +33,27 @@ export class CommandProcessor {
 	 */
 	public async processCommands(
 		payload: ConversationCommandReceivedPayload,
-		options: { skipIndicators?: boolean; skipGeneralCommandCheck?: boolean } = {}
+		options: ProcessCommandsOptions = {}
 	): Promise<void> {
 		const { title, commands } = payload;
 
 		// Special handling for general commands
 		// This prevents accidentally resetting pending commands when a general command
 		// might actually be a confirmation command
-		if (
-			!options.skipGeneralCommandCheck &&
-			commands.length === 1 &&
-			commands[0].commandType === ' '
-		) {
-			await this.processGeneralCommand(payload, options);
+		if (this.isGeneralCommand(commands) && !options.skipGeneralCommandCheck) {
+			await this.processSingleCommand(payload, commands[0].commandType, {
+				...options,
+				skipGeneralCommandCheck: true,
+			});
 			return;
 		}
 
 		// Check if this is a confirmation command
-		if (this.isConfirmation(commands) && this.pendingCommands.has(title)) {
-			await this.processConfirmation(payload, options);
+		if (this.isConfirmation(commands) && !options.skipConfirmationCheck) {
+			await this.processSingleCommand(payload, commands[0].commandType, {
+				...options,
+				skipConfirmationCheck: true,
+			});
 			return;
 		}
 
@@ -60,104 +68,43 @@ export class CommandProcessor {
 	}
 
 	/**
-	 * Process a general command with a temporary CommandProcessor
+	 * Process a single command with a temporary CommandProcessor
 	 * This allows processing the command without interfering with pending commands
 	 */
-	private async processGeneralCommand(
+	private async processSingleCommand(
 		payload: ConversationCommandReceivedPayload,
-		options: { skipIndicators?: boolean } = {}
+		commandType: string,
+		options: ProcessCommandsOptions = {}
 	): Promise<void> {
 		const tempProcessor = new CommandProcessor();
 
-		const generalHandler = this.commandHandlers.get(' ');
-		if (generalHandler) {
-			tempProcessor.registerHandler(' ', generalHandler);
+		const handler = this.commandHandlers.get(commandType);
+		if (handler) {
+			tempProcessor.registerHandler(commandType, handler);
 		} else {
-			logger.warn('No general command handler found');
+			logger.warn(`No command handler found for command type: ${commandType}`);
 			return;
 		}
 
-		await tempProcessor.processCommands(payload, {
-			...options,
-			skipGeneralCommandCheck: true,
-		});
+		await tempProcessor.processCommands(payload, options);
 	}
 
 	private isConfirmation(commands: CommandIntent[]): boolean {
-		return commands.some(
-			cmd => cmd.commandType === 'confirm' || cmd.commandType === 'yes' || cmd.commandType === 'no'
-		);
+		const cmd = commands[0];
+
+		if (!cmd) return false;
+
+		return cmd.commandType === 'confirm' || cmd.commandType === 'yes' || cmd.commandType === 'no';
 	}
 
-	/**
-	 * Process a confirmation command for a pending command
-	 */
-	private async processConfirmation(
-		payload: ConversationCommandReceivedPayload,
-		options: { skipIndicators?: boolean } = {}
-	): Promise<void> {
-		const { title, commands } = payload;
-
-		// There should be only one confirmation command
-		if (commands.length !== 1) {
-			logger.warn('Expected a single confirmation command, got', commands.length);
-		}
-
-		const confirmCommand = commands[0];
-
-		// Get the handler for this command type
-		const handler = this.commandHandlers.get(confirmCommand.commandType);
-		if (!handler) {
-			logger.warn(`No handler for confirmation command type: ${confirmCommand.commandType}`);
-			return;
-		}
-
-		// Show indicator if not skipped and handler has renderIndicator method
-		if (!options.skipIndicators && handler.renderIndicator) {
-			await handler.renderIndicator(title, payload.lang);
-		}
-
-		try {
-			// Execute the confirmation command
-			const pendingCommand = this.pendingCommands.get(title);
-			if (!pendingCommand) {
-				logger.warn('No pending command found for confirmation');
-				return;
-			}
-
-			// Get previous command and next command
-			const { currentIndex } = pendingCommand;
-			const prevCommand = pendingCommand.commands[currentIndex];
-
-			// Execute the confirmation command with context
-			const result = await handler.handle({
-				title,
-				command: confirmCommand,
-				prevCommand,
-				lang: payload.lang,
-			});
-
-			// After confirmation is processed, continue with command processing
-			if (result.status === CommandResultStatus.SUCCESS) {
-				// Continue processing remaining commands
-				await this.continueProcessing(title, options);
-			} else if (result.status === CommandResultStatus.ERROR) {
-				// If there was an error, log it but don't delete pending commands
-				// This allows retrying the confirmation
-				logger.error(`Confirmation command failed: ${confirmCommand.commandType}`, result.error);
-			}
-		} catch (error) {
-			logger.error(
-				`Unexpected error in confirmation command: ${confirmCommand.commandType}`,
-				error
-			);
-		}
+	private isGeneralCommand(commands: CommandIntent[]): boolean {
+		return commands.length === 1 && commands[0].commandType === ' ';
 	}
 
 	/**
 	 * Continue processing commands from the current index
 	 */
-	private async continueProcessing(
+	public async continueProcessing(
 		title: string,
 		options: { skipIndicators?: boolean } = {}
 	): Promise<void> {

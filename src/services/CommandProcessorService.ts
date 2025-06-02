@@ -6,7 +6,6 @@ import {
 	MoveCommandHandler,
 	SearchCommandHandler,
 	MoreCommandHandler,
-	MediaCommandHandler,
 	DeleteCommandHandler,
 	CopyCommandHandler,
 	UpdateCommandHandler,
@@ -17,6 +16,8 @@ import {
 	CloseCommandHandler,
 	ConfirmCommandHandler,
 	StopCommandHandler,
+	AudioCommandHandler,
+	ImageCommandHandler,
 } from '../solutions/commands/handlers';
 
 export class CommandProcessorService {
@@ -55,11 +56,14 @@ export class CommandProcessorService {
 		const moreHandler = new MoreCommandHandler(this.plugin);
 		this.commandProcessor.registerHandler('more', moreHandler);
 
-		// Register the media command handler
-		const mediaHandler = new MediaCommandHandler(this.plugin);
-		this.commandProcessor.registerHandler('image', mediaHandler);
-		this.commandProcessor.registerHandler('audio', mediaHandler);
-		this.commandProcessor.registerHandler('speak', mediaHandler);
+		// Register the image command handler
+		const imageHandler = new ImageCommandHandler(this.plugin);
+		this.commandProcessor.registerHandler('image', imageHandler);
+
+		// Register the audio command handler
+		const audioHandler = new AudioCommandHandler(this.plugin);
+		this.commandProcessor.registerHandler('audio', audioHandler);
+		this.commandProcessor.registerHandler('speak', audioHandler);
 
 		// Register the delete command handler
 		const deleteHandler = new DeleteCommandHandler(this.plugin);
@@ -89,6 +93,7 @@ export class CommandProcessorService {
 		// Register the stop command handler
 		const stopHandler = new StopCommandHandler(this.plugin);
 		this.commandProcessor.registerHandler('stop', stopHandler);
+		this.commandProcessor.registerHandler('abort', stopHandler);
 
 		// Register the general command handler (space)
 		const generalHandler = new GeneralCommandHandler(this.plugin, this.commandProcessor);

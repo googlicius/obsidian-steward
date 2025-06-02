@@ -12,3 +12,5 @@ export * from './GeneralCommandHandler';
 export * from './CloseCommandHandler';
 export * from './ConfirmCommandHandler';
 export * from './StopCommandHandler';
+export * from './AudioCommandHandler';
+export * from './ImageCommandHandler';

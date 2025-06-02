@@ -24,7 +24,7 @@ export class ConfirmCommandHandler extends CommandHandler {
 		const { title, command, lang } = params;
 		const t = getTranslation(lang);
 
-		const confirmationIntent = ConfirmCommandHandler.isConfirmIntent(command);
+		const confirmationIntent = this.isConfirmIntent(command);
 
 		if (!confirmationIntent) {
 			// If it's not a clear confirmation, let the user know
@@ -79,6 +79,8 @@ export class ConfirmCommandHandler extends CommandHandler {
 			});
 		}
 
+		await this.commandProcessor.continueProcessing(title);
+
 		return {
 			status: CommandResultStatus.SUCCESS,
 		};
@@ -89,7 +91,7 @@ export class ConfirmCommandHandler extends CommandHandler {
 	 * @param message The message to check
 	 * @returns An object with the response type or null if not a clear response
 	 */
-	static isConfirmIntent(
+	private isConfirmIntent(
 		command: CommandIntent
 	): { isConfirmation: boolean; isAffirmative: boolean } | null {
 		let commandContent = command.content;

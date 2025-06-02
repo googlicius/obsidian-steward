@@ -48,8 +48,7 @@ export class ConversationEventHandler {
 	private async handleNewConversation(payload: ConversationNoteCreatedPayload): Promise<void> {
 		this.plugin.insertConversationLink(
 			payload.view,
-			payload.from,
-			payload.to,
+			payload.line,
 			payload.title,
 			payload.commandType,
 			payload.commandContent,

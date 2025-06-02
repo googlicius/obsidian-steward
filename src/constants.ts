@@ -26,6 +26,7 @@ export const COMMAND_PREFIXES = [
 	'/prompt',
 	'/create',
 	'/stop',
+	'/abort',
 ];
 
 export const DEFAULT_SETTINGS: StewardPluginSettings = {

@@ -34,7 +34,6 @@ export function createCommandInputExtension(
 				{
 					key: 'Enter',
 					run: view => {
-						// If a callback is provided, use it
 						if (options.onEnter) {
 							return options.onEnter(view);
 						}

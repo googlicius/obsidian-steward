@@ -78,7 +78,11 @@ export class MediaGenerationService {
 	}): Promise<void> {
 		try {
 			// Extract media command parameters
-			const extraction = await extractMediaCommand(commandContent, commandType);
+			const extraction = await extractMediaCommand(
+				commandContent,
+				this.plugin.settings.llm,
+				commandType
+			);
 
 			// Emit event to show generating indicator
 			eventEmitter.emit(Events.MEDIA_GENERATION_STARTED, {
