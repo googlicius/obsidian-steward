@@ -3,12 +3,10 @@ import {
 	ConversationNoteCreatedPayload,
 	ConversationLinkInsertedPayload,
 	ConversationCommandReceivedPayload,
-	CommandIntentExtractedPayload,
 } from '../types/events';
 import { eventEmitter } from './EventEmitter';
 import StewardPlugin from '../main';
 import { ConversationRenderer } from './ConversationRenderer';
-import { logger } from 'src/utils/logger';
 
 interface Props {
 	plugin: StewardPlugin;
@@ -45,11 +43,6 @@ export class ConversationEventHandler {
 				this.handleConversationLinkInserted(payload);
 			}
 		);
-
-		// Listen for command intent extracted
-		eventEmitter.on(Events.COMMAND_INTENT_EXTRACTED, (payload: CommandIntentExtractedPayload) => {
-			this.handleCommandIntentExtracted(payload);
-		});
 	}
 
 	private async handleNewConversation(payload: ConversationNoteCreatedPayload): Promise<void> {
@@ -86,40 +79,5 @@ export class ConversationEventHandler {
 			},
 			{ skipIndicators: true }
 		);
-	}
-
-	/**
-	 * Handles the command intent extracted event
-	 * @param payload The event payload containing the command intent extraction
-	 */
-	private async handleCommandIntentExtracted(
-		payload: CommandIntentExtractedPayload
-	): Promise<void> {
-		const { title, intentExtraction } = payload;
-
-		try {
-			// For low confidence intents, just show the explanation without further action
-			if (intentExtraction.confidence <= 0.7) {
-				logger.log('low confidence intent', intentExtraction);
-				await this.renderer.updateConversationNote({
-					path: title,
-					newContent: intentExtraction.explanation,
-					role: 'Steward',
-				});
-				return;
-			}
-
-			// For confident intents, route to the appropriate handler
-			eventEmitter.emit(Events.CONVERSATION_COMMAND_RECEIVED, {
-				title,
-				commands: intentExtraction.commands,
-				lang: intentExtraction.lang,
-			});
-		} catch (error) {
-			await this.renderer.updateConversationNote({
-				path: title,
-				newContent: `*Error processing your request: ${error.message}*`,
-			});
-		}
 	}
 }

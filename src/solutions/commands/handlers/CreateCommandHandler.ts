@@ -12,9 +12,13 @@ import {
 	extractNoteCreation,
 	NoteCreationExtraction,
 } from 'src/lib/modelfusion/noteCreationExtraction';
+import { CommandProcessor } from '../CommandProcessor';
 
 export class CreateCommandHandler extends CommandHandler {
-	constructor(public readonly plugin: StewardPlugin) {
+	constructor(
+		public readonly plugin: StewardPlugin,
+		public readonly commandProcessor: CommandProcessor
+	) {
 		super();
 	}
 
@@ -36,7 +40,7 @@ export class CreateCommandHandler extends CommandHandler {
 			confirmed?: boolean;
 		} = {}
 	): Promise<CommandResult> {
-		const { title, command, lang } = params;
+		const { title, command, nextCommand, lang } = params;
 		const t = getTranslation(lang);
 
 		try {
@@ -100,7 +104,12 @@ export class CreateCommandHandler extends CommandHandler {
 						// When confirmed, call this handler again with the confirmed flag
 						await this.handle(params, { extraction, confirmed: true });
 					},
-					onRejection: async () => {},
+					onRejection: async () => {
+						// Delete the next command if it is a generate command
+						if (nextCommand && nextCommand.commandType === 'generate') {
+							this.commandProcessor.deleteNextPendingCommand(title);
+						}
+					},
 				};
 			}
 

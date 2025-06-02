@@ -112,9 +112,10 @@ export class StewardConversationView extends MarkdownView {
 			this.app.workspace.setActiveLeaf(this.leaf, { focus: true });
 
 			// Set the cursor to the last line
+			const lastLineNum = this.editor.lineCount() - 1;
 			this.editor.setCursor({
-				line: this.editor.lineCount() - 1,
-				ch: this.editor.getLine(this.editor.lineCount() - 1).length,
+				line: lastLineNum,
+				ch: this.editor.getLine(lastLineNum).length,
 			});
 		});
 	}

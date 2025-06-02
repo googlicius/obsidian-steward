@@ -1,5 +1,5 @@
 import { EditorView } from '@codemirror/view';
-import { CommandIntent, CommandIntentExtraction } from '../lib/modelfusion/intentExtraction';
+import { CommandIntent } from '../lib/modelfusion/intentExtraction';
 import { SearchQueryExtractionV2 } from '../lib/modelfusion';
 import { IndexedDocument } from '../database/SearchDatabase';
 import { GitOperation } from '../solutions/git/GitService';
@@ -14,7 +14,6 @@ export enum Events {
 	MOVE_FROM_ARTIFACT_CONFIRMED = 'move-from-artifact-confirmed',
 	DELETE_OPERATION_CONFIRMED = 'delete-operation-confirmed',
 	COPY_OPERATION_CONFIRMED = 'copy-operation-confirmed',
-	COMMAND_INTENT_EXTRACTED = 'command-intent-extracted',
 	MOVE_OPERATION_COMPLETED = 'move-operation-completed',
 	DELETE_OPERATION_COMPLETED = 'delete-operation-completed',
 	COPY_OPERATION_COMPLETED = 'copy-operation-completed',
@@ -76,11 +75,6 @@ export interface MoveFromArtifactConfirmedPayload {
 	destinationFolder: string;
 	docs: IndexedDocument[];
 	explanation: string;
-}
-
-export interface CommandIntentExtractedPayload {
-	title: string;
-	intentExtraction: CommandIntentExtraction;
 }
 
 export interface ConfirmationRequestPayload {
@@ -193,7 +187,6 @@ export type EventPayloadMap = {
 	[Events.LLM_RESPONSE_RECEIVED]: ResponseReadyPayload;
 	[Events.RESPONSE_READY_TO_INSERT]: ResponseReadyPayload;
 	[Events.CONVERSATION_LINK_INSERTED]: ConversationLinkInsertedPayload;
-	[Events.COMMAND_INTENT_EXTRACTED]: CommandIntentExtractedPayload;
 	[Events.CONFIRMATION_REQUESTED]: ConfirmationRequestPayload;
 	[Events.CONFIRMATION_RESPONDED]: ConfirmationResponsePayload;
 	[Events.MOVE_FROM_ARTIFACT_CONFIRMED]: MoveFromArtifactConfirmedPayload;

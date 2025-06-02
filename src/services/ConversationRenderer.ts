@@ -150,7 +150,7 @@ export class ConversationRenderer {
 			});
 
 			// Prepare the initial content with metadata
-			const initialContent = `${currentContent}\n\n${comment}\n**Steward:** `;
+			const initialContent = `${currentContent}\n\n${comment}\n`;
 
 			// If position is provided, insert at that position
 			// Otherwise, append to the end
@@ -294,6 +294,21 @@ export class ConversationRenderer {
 	 */
 	public removeGeneratingIndicator(content: string): string {
 		return content.replace(/\n\n\*.*?\.\.\.\*$/, '');
+	}
+
+	public async removeGeneratingIndicatorByPath(path: string): Promise<void> {
+		const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+		const notePath = `${folderPath}/${path}.md`;
+
+		// Get the current content of the note
+		const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
+		if (!file) {
+			throw new Error(`Note not found: ${notePath}`);
+		}
+
+		let currentContent = await this.plugin.app.vault.read(file);
+		currentContent = this.removeGeneratingIndicator(currentContent);
+		await this.plugin.app.vault.modify(file, currentContent);
 	}
 
 	/**

@@ -7,11 +7,13 @@ import {
 import { getTranslation } from 'src/i18n';
 import StewardPlugin from 'src/main';
 import { extractCommandIntent } from 'src/lib/modelfusion';
-import { Events } from 'src/types/events';
-import { eventEmitter } from 'src/services/EventEmitter';
+import { CommandProcessor } from '../CommandProcessor';
 
 export class GeneralCommandHandler extends CommandHandler {
-	constructor(public readonly plugin: StewardPlugin) {
+	constructor(
+		public readonly plugin: StewardPlugin,
+		private readonly commandProcessor: CommandProcessor
+	) {
 		super();
 	}
 
@@ -48,10 +50,10 @@ export class GeneralCommandHandler extends CommandHandler {
 				};
 			}
 
-			// For confident intents, emit an event to trigger appropriate command handlers
-			eventEmitter.emit(Events.COMMAND_INTENT_EXTRACTED, {
+			await this.commandProcessor.processCommands({
 				title,
-				intentExtraction,
+				commands: intentExtraction.commands,
+				lang: intentExtraction.lang,
 			});
 
 			return {

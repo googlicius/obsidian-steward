@@ -1,4 +1,5 @@
 import { OpenAIChatMessage } from 'modelfusion';
+import { explanationFragment } from './fragments';
 
 export const noteGenerationPrompt: OpenAIChatMessage = {
 	role: 'system',
@@ -6,21 +7,19 @@ export const noteGenerationPrompt: OpenAIChatMessage = {
 
 Your job is to analyze the user's natural language request and extract the necessary information for generating content.
 
+Extract the user's query following the guidelines below.
+
 Guidelines:
-- Extract the note name/title from the user's request (OPTIONAL)
+- noteName: The note name/title from the user's request (OPTIONAL)
   - If the user wants to generate content in a specific note, extract that note name
-  - If no note name is provided, the content will be generated in the conversation or the most recently created note
-  - Ensure the name is valid for a file system (no special characters)
-- Extract the generation instructions from the user's request (REQUIRED)
-  - Extract the specific instructions for content generation (e.g., "generate a poem about Angular")
-  - The instructions should capture the user's intent about what they want to generate
-- Extract any style preferences or specific requirements for the generation
-- Generate a brief explanation of how you interpreted the request
+- instructions: (REQUIRED)
+  - The generation instructions from the user's request that will be fed to a sub-prompt for actual generating content
+  - The instructions should capture the user's intent (e.g., a request for generating or consulting, a question, etc.)
+${explanationFragment}
 
 You must respond with a valid JSON object containing these properties:
-- noteName: The name/title for the note to generate content in (OPTIONAL, empty string if not specified)
-- instructions: The detailed instructions for content generation (REQUIRED)
-- style: Any style preferences or specific requirements (OPTIONAL, empty string if not specified)
-- explanation: A brief explanation of how you interpreted the request
+- noteName
+- instructions
+- explanation
 - confidence: A number from 0 to 1 indicating your confidence in this interpretation`,
 };

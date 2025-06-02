@@ -13,6 +13,12 @@ describe('generateNgrams', () => {
 		expect(result).toEqual(['test']);
 	});
 
+	it('should trim whitespace from the keyword', () => {
+		const keyword = '  test  ';
+		const result = generateNgrams(keyword);
+		expect(result).toEqual(['test']);
+	});
+
 	it('should generate all possible n-grams for a multi-word keyword', () => {
 		const keyword = 'hello world';
 		const result = generateNgrams(keyword);

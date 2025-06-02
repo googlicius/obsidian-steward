@@ -35,10 +35,11 @@ Guidelines:
   - Generate an image, include "image"
   - Generate audio, include "audio"
   - Create a new note, include "create" command with content that clearly specifies the note name (e.g., "Note name: Hello Kitty")
-  - Generate content by the LLM (either in a new note or the conversation), include "generate"
+  - Generate content with the LLM help in a sub-prompt (either in a new note or the conversation), include "generate"
   - Read or Find content based on a specific pattern in their current note, include "read"
   - Ask something about the content of the current note, include "read" and "generate"
   - Update something about the content of the current note, include "read", "generate" and "update_from_artifact"
+  - Generate or write something into a mentioned note, include "create" and "generate"
   - If the "read" and "generate" are included, you must extract all the elements mentioned in the user's query in the "content" field of the "read" command
 
 Response guidelines:

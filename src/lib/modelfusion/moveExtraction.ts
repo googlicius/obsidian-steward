@@ -3,39 +3,38 @@ import { destinationFolderPrompt } from './prompts/destinationFolderPrompt';
 import { userLanguagePrompt } from './prompts/languagePrompt';
 import { StewardPluginSettings } from 'src/types/interfaces';
 import { createLLMGenerator } from './llmConfig';
-import { confidenceScorePrompt } from './prompts/confidenceScorePrompt';
 import { validateConfidence, validateLanguage } from './validators';
 import { AbortService } from '../../services/AbortService';
 
 const abortService = AbortService.getInstance();
 
 /**
- * Represents the extracted move from search results parameters
+ * Represents the extracted move details
  */
-export interface MoveFromSearchResultExtraction {
+export interface MoveExtraction {
 	destinationFolder: string;
 	explanation: string;
+	context: string;
 	confidence: number;
 	lang?: string;
 }
 
 /**
- * Extract destination folder from a user query for moving search results
- * @param userInput Natural language request to move files from search results
- * @returns Extracted destination folder
+ * Extract move details from a user query
+ * @param userInput Natural language request to move files
+ * @returns Extracted move details
  */
-export async function extractMoveFromSearchResult(
+export async function extractMoveQuery(
 	userInput: string,
 	llmConfig: StewardPluginSettings['llm']
-): Promise<MoveFromSearchResultExtraction> {
+): Promise<MoveExtraction> {
 	try {
 		const response = await generateText({
 			model: createLLMGenerator(llmConfig),
-			run: { abortSignal: abortService.createAbortController('move-from-artifact') },
+			run: { abortSignal: abortService.createAbortController('move') },
 			prompt: [
 				userLanguagePrompt,
 				destinationFolderPrompt,
-				confidenceScorePrompt,
 				{
 					role: 'user',
 					content: userInput,
@@ -55,13 +54,17 @@ export async function extractMoveFromSearchResult(
 /**
  * Validate that the move from search results extraction contains all required fields
  */
-function validateMoveFromSearchResultExtraction(data: any): MoveFromSearchResultExtraction {
+function validateMoveFromSearchResultExtraction(data: any): MoveExtraction {
 	if (!data || typeof data !== 'object') {
 		throw new Error('Invalid response format');
 	}
 
 	if (typeof data.destinationFolder !== 'string' || !data.destinationFolder.trim()) {
 		throw new Error('Destination folder must be a non-empty string');
+	}
+
+	if (typeof data.context !== 'string' || !data.context.trim()) {
+		throw new Error('Context must be a non-empty string');
 	}
 
 	if (typeof data.explanation !== 'string' || !data.explanation.trim()) {
@@ -74,6 +77,7 @@ function validateMoveFromSearchResultExtraction(data: any): MoveFromSearchResult
 	return {
 		destinationFolder: data.destinationFolder.trim(),
 		explanation: data.explanation.trim(),
+		context: data.context.trim(),
 		confidence,
 		lang,
 	};

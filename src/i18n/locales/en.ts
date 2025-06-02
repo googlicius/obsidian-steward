@@ -4,6 +4,7 @@ const en = {
 			noFilesFound:
 				"I couldn't find any files matching your query. Please try a different search term.",
 			noRecentOperations: 'No recent operations found.',
+			abortedByLowConfidence: 'Aborted by low confidence.',
 		},
 		// Chat UI elements
 		chat: {

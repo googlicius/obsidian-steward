@@ -7,8 +7,8 @@ export * from './mediaExtraction';
 // Export search extraction V2
 export * from './searchExtraction';
 
-// Export move from search result extraction
-export * from './moveFromSearchExtraction';
+// Export move extraction
+export * from './moveExtraction';
 
 // Export note creation and generation
 export * from './noteCreationExtraction';

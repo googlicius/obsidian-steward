@@ -4,8 +4,8 @@ import {
 	CommandResult,
 	CommandResultStatus,
 } from '../CommandHandler';
-import { extractMoveFromSearchResult, MoveFromSearchResultExtraction } from 'src/lib/modelfusion';
-import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { extractMoveQuery, MoveExtraction } from 'src/lib/modelfusion';
+import { Artifact, ArtifactType } from 'src/services/ConversationArtifactManager';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { IndexedDocument } from 'src/database/SearchDatabase';
@@ -32,7 +32,7 @@ export class MoveCommandHandler extends CommandHandler {
 	public async handle(
 		params: CommandHandlerParams,
 		options: {
-			extraction?: MoveFromSearchResultExtraction;
+			extraction?: MoveExtraction;
 			folderExistsConfirmed?: boolean;
 		} = {}
 	): Promise<CommandResult> {
@@ -42,48 +42,69 @@ export class MoveCommandHandler extends CommandHandler {
 		try {
 			// Extract move details from command content
 			const extraction =
-				options.extraction ||
-				(await extractMoveFromSearchResult(command.content, this.settings.llm));
+				options.extraction || (await extractMoveQuery(command.content, this.settings.llm));
 
-			// Get the most recent artifact
-			const artifact = this.artifactManager.getMostRecentArtifact(title);
+			await this.renderer.updateConversationNote({
+				path: title,
+				newContent: extraction.explanation,
+				role: 'Steward',
+			});
 
-			if (!artifact) {
+			if (extraction.confidence <= 0.7) {
 				await this.renderer.updateConversationNote({
 					path: title,
-					newContent: t('common.noRecentOperations'),
-					role: 'Steward',
+					newContent: `*${t('common.abortedByLowConfidence')}*`,
 				});
 
 				return {
 					status: CommandResultStatus.ERROR,
-					error: new Error('No recent operations found'),
+					error: t('common.abortedByLowConfidence'),
 				};
 			}
 
-			// Handle different artifact types
 			let docs: any[] = [];
+			let artifact: Artifact | undefined;
 
-			if (artifact.type === ArtifactType.SEARCH_RESULTS) {
-				docs = artifact.originalResults;
-			} else if (artifact.type === ArtifactType.CREATED_NOTES) {
-				// Convert string paths to IndexedDocument objects
-				docs = artifact.paths.map(path => ({ path }));
-			} else if (artifact.type === ArtifactType.READ_CONTENT) {
-				// For read content, get the file from the reading result
-				const file = artifact.readingResult.file;
-				docs = file ? [{ path: file.path }] : [];
+			if (extraction.context === 'artifact') {
+				// Get the most recent artifact
+				artifact = this.artifactManager.getMostRecentArtifact(title);
+
+				if (!artifact) {
+					await this.renderer.updateConversationNote({
+						path: title,
+						newContent: t('common.noRecentOperations'),
+					});
+
+					return {
+						status: CommandResultStatus.ERROR,
+						error: new Error('No recent operations found'),
+					};
+				}
+
+				if (artifact.type === ArtifactType.SEARCH_RESULTS) {
+					docs = artifact.originalResults;
+				} else if (artifact.type === ArtifactType.CREATED_NOTES) {
+					// Convert string paths to IndexedDocument objects
+					docs = artifact.paths.map(path => ({ path }));
+				} else if (artifact.type === ArtifactType.READ_CONTENT) {
+					// For read content, get the file from the reading result
+					const file = artifact.readingResult.file;
+					docs = file ? [{ path: file.path }] : [];
+				} else {
+					await this.renderer.updateConversationNote({
+						path: title,
+						newContent: t('common.cannotMoveThisType'),
+						role: 'Steward',
+					});
+
+					return {
+						status: CommandResultStatus.ERROR,
+						error: new Error('Cannot move this type of artifact'),
+					};
+				}
 			} else {
-				await this.renderer.updateConversationNote({
-					path: title,
-					newContent: t('common.cannotMoveThisType'),
-					role: 'Steward',
-				});
-
-				return {
-					status: CommandResultStatus.ERROR,
-					error: new Error('Cannot move this type of artifact'),
-				};
+				const activeFile = this.app.workspace.getActiveFile();
+				docs = activeFile ? [{ path: activeFile.path }] : [];
 			}
 
 			// Check if docs were found
@@ -122,7 +143,9 @@ export class MoveCommandHandler extends CommandHandler {
 						this.handle(params, { extraction, folderExistsConfirmed: true });
 					},
 					onRejection: () => {
-						this.artifactManager.deleteArtifact(title, artifact.id);
+						if (artifact) {
+							this.artifactManager.deleteArtifact(title, artifact.id);
+						}
 					},
 				};
 			}

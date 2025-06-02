@@ -68,6 +68,7 @@ export function generateNgrams(keyword: string, options: { threshold?: number } 
 	const { threshold = 0.7 } = options;
 	const ngrams: Set<string> = new Set();
 	const minLength = Math.floor(keyword.length * threshold);
+	keyword = keyword.trim();
 
 	if (keyword.length === 0) {
 		return [];

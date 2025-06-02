@@ -75,7 +75,7 @@ export class CommandProcessorService {
 		this.commandProcessor.registerHandler('update_from_artifact', updateHandler);
 
 		// Register the create command handler
-		const createHandler = new CreateCommandHandler(this.plugin);
+		const createHandler = new CreateCommandHandler(this.plugin, this.commandProcessor);
 		this.commandProcessor.registerHandler('create', createHandler);
 
 		// Register the read command handler
@@ -91,7 +91,7 @@ export class CommandProcessorService {
 		this.commandProcessor.registerHandler('stop', stopHandler);
 
 		// Register the general command handler (space)
-		const generalHandler = new GeneralCommandHandler(this.plugin);
+		const generalHandler = new GeneralCommandHandler(this.plugin, this.commandProcessor);
 		this.commandProcessor.registerHandler(' ', generalHandler);
 	}
 

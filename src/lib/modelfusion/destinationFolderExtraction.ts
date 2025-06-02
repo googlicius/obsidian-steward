@@ -13,6 +13,7 @@ const abortService = AbortService.getInstance();
 export interface DestinationFolderExtraction {
 	destinationFolder: string;
 	explanation: string;
+	context: string;
 	lang?: string;
 }
 
@@ -53,6 +54,10 @@ function validateDestinationFolderExtraction(extraction: any): DestinationFolder
 		throw new Error('Invalid destination folder extraction: missing or invalid destinationFolder');
 	}
 
+	if (!extraction.context || typeof extraction.context !== 'string') {
+		throw new Error('Invalid destination folder extraction: missing or invalid context');
+	}
+
 	if (!extraction.explanation || typeof extraction.explanation !== 'string') {
 		throw new Error('Invalid destination folder extraction: missing or invalid explanation');
 	}
@@ -60,6 +65,7 @@ function validateDestinationFolderExtraction(extraction: any): DestinationFolder
 	return {
 		destinationFolder: extraction.destinationFolder,
 		explanation: extraction.explanation,
+		context: extraction.context,
 		lang: extraction.lang,
 	};
 }

@@ -1,18 +1,30 @@
 import { OpenAIChatMessage } from 'modelfusion';
+import { confidenceFragment, explanationFragment } from './fragments';
 
 export const destinationFolderPrompt: OpenAIChatMessage = {
 	role: 'system',
-	content: `You are a helpful assistant that extracts the destination folder from user queries for an Obsidian note system.
+	content: `You are a helpful assistant that extracts the move or copy command from user queries for an Obsidian note system.
 
-Your job is to analyze the user's natural language request to move or copy files from search results and extract:
-1. The destination folder where the search result files should be moved or copied to
+Your job is to analyze the user's request to move or copy notes and extract based on the following guidelines:
 
 Guidelines:
-- The destination folder should be a path within the Obsidian vault
-- If the destination folder doesn't exist, it will be created
-- Be precise about identifying the destination folder in the user's request
+- destinationFolder: Where the notes should be moved or copied to
+	* Should be a path within the Obsidian vault
+	* Be precise about identifying the destination folder in the user's request
+- context: The origin of the notes
+	* One of "artifact", "currentNote"
+	* If the user mentions about this note, use "currentNote"
+	* Otherwise, use "artifact"
+${explanationFragment}
+${confidenceFragment}
+
+Knowledge:
+- Artifacts are set of notes that already identified (e.g. a search result, created note, etc.)
+	So if the user says (it, them, this, all, etc.) or not clearly mentioning, they implicitly mean the existing artifacts
 
 You must respond with a valid JSON object containing these properties:
-- destinationFolder: The folder path where files should be moved to
-- explanation: A brief explanation of how you interpreted the move command`,
+- context
+- destinationFolder
+- confidence
+- explanation`,
 };

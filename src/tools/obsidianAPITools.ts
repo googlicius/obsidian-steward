@@ -35,6 +35,17 @@ export class ObsidianAPITools {
 	constructor(private readonly app: App) {}
 
 	/**
+	 * Get the new path for a file
+	 * @param filePath Current path of the file
+	 * @param newFolderPath Destination folder path
+	 * @returns New path
+	 */
+	private getNewPath(filePath: string, newFolderPath: string): string {
+		const fileName = filePath.split('/').pop();
+		return `${newFolderPath}/${fileName}`.replace(/\/+/g, '/');
+	}
+
+	/**
 	 * Move a file to a different location in the vault
 	 * @param filePath Current path of the file
 	 * @param newFolderPath Destination folder path
@@ -51,8 +62,7 @@ export class ObsidianAPITools {
 			await this.ensureFolderExists(newFolderPath);
 
 			// Create the new path (keep the same filename)
-			const fileName = filePath.split('/').pop();
-			const newPath = `${newFolderPath}/${fileName}`.replace(/\/+/g, '/');
+			const newPath = this.getNewPath(filePath, newFolderPath);
 
 			// Move the file
 			await this.app.fileManager.renameFile(file, newPath);
@@ -113,10 +123,7 @@ export class ObsidianAPITools {
 				const filePath = result.path;
 				if (!filePath) continue;
 
-				const destinationPath = `${operation.destinationFolder}/${result.fileName}`.replace(
-					/\/+/g,
-					'/'
-				);
+				const destinationPath = this.getNewPath(filePath, operation.destinationFolder);
 
 				// Check if file is already in the destination folder
 				if (filePath === destinationPath) {

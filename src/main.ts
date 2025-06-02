@@ -1,7 +1,7 @@
 import { Editor, Notice, Plugin, TFile, WorkspaceLeaf, addIcon } from 'obsidian';
 import i18next from './i18n';
 import StewardSettingTab from './settings';
-import { EditorView, keymap } from '@codemirror/view';
+import { EditorView } from '@codemirror/view';
 import { createCommandInputExtension } from './cm/extensions/CommandInputExtension';
 import { createCalloutSearchResultPostProcessor } from './cm/post-processors/CalloutSearchResultPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
@@ -17,7 +17,7 @@ import { GitEventHandler } from './solutions/git/GitEventHandler';
 import { MediaGenerationService } from './services/MediaGenerationService';
 import { ContentReadingService } from './services/ContentReadingService';
 import { StewardPluginSettings } from './types/interfaces';
-import { Line, Prec, Text } from '@codemirror/state';
+import { Line, Text } from '@codemirror/state';
 import {
 	COMMAND_PREFIXES,
 	DEFAULT_SETTINGS,
@@ -153,15 +153,9 @@ export default class StewardPlugin extends Plugin {
 
 		// Register the conversation extension for CodeMirror
 		this.registerEditorExtension([
-			createCommandInputExtension(COMMAND_PREFIXES),
-			Prec.high(
-				keymap.of([
-					{
-						key: 'Enter',
-						run: this.handleEnter.bind(this),
-					},
-				])
-			),
+			createCommandInputExtension(COMMAND_PREFIXES, {
+				onEnter: this.handleEnter.bind(this),
+			}),
 		]);
 
 		this.registerMarkdownPostProcessor(
@@ -255,7 +249,11 @@ export default class StewardPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	// Function to handle the Shift+Enter key combination
+	/**
+	 * Handle the Enter key combination
+	 * @param view - The editor view
+	 * @returns True if the command was processed, false otherwise
+	 */
 	private handleEnter(view: EditorView): boolean {
 		const { state } = view;
 		const { doc, selection } = state;
@@ -300,13 +298,18 @@ export default class StewardPlugin extends Plugin {
 						command: commandType,
 					});
 
-					// Remove the current line
+					// Insert a general command line
 					view.dispatch({
 						changes: {
 							from: line.from,
 							to: line.to,
-							insert: '',
+							insert: '/ ',
 						},
+					});
+
+					this.editor.setCursor({
+						line: line.number,
+						ch: 1,
 					});
 
 					// Emit the conversation note updated event
@@ -459,7 +462,7 @@ export default class StewardPlugin extends Plugin {
 	}
 
 	/**
-	 * Check if a position points to an empty line in the document
+	 * Check if a position points to an empty line or an empty general command line in the document
 	 * @param doc - The document to check
 	 * @param pos - The position to check
 	 * @returns The line if it is empty or null if it is not
@@ -470,7 +473,7 @@ export default class StewardPlugin extends Plugin {
 
 		const line = doc.lineAt(pos);
 
-		if (line.text.trim() === '') {
+		if (line.text.trim() === '' || line.text === '/ ') {
 			return line;
 		}
 
@@ -612,8 +615,13 @@ export default class StewardPlugin extends Plugin {
 			changes: {
 				from,
 				to,
-				insert: linkText,
+				insert: linkText + '/ ',
 			},
+		});
+
+		this.editor.setCursor({
+			line: to,
+			ch: 1,
 		});
 
 		eventEmitter.emit(Events.CONVERSATION_LINK_INSERTED, {

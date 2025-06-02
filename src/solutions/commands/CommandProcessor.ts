@@ -27,9 +27,21 @@ export class CommandProcessor {
 	 */
 	public async processCommands(
 		payload: ConversationCommandReceivedPayload,
-		options: { skipIndicators?: boolean } = {}
+		options: { skipIndicators?: boolean; skipGeneralCommandCheck?: boolean } = {}
 	): Promise<void> {
 		const { title, commands } = payload;
+
+		// Special handling for general commands
+		// This prevents accidentally resetting pending commands when a general command
+		// might actually be a confirmation command
+		if (
+			!options.skipGeneralCommandCheck &&
+			commands.length === 1 &&
+			commands[0].commandType === ' '
+		) {
+			await this.processGeneralCommand(payload, options);
+			return;
+		}
 
 		// Check if this is a confirmation command
 		if (this.isConfirmation(commands) && this.pendingCommands.has(title)) {
@@ -45,6 +57,30 @@ export class CommandProcessor {
 		});
 
 		await this.continueProcessing(title, options);
+	}
+
+	/**
+	 * Process a general command with a temporary CommandProcessor
+	 * This allows processing the command without interfering with pending commands
+	 */
+	private async processGeneralCommand(
+		payload: ConversationCommandReceivedPayload,
+		options: { skipIndicators?: boolean } = {}
+	): Promise<void> {
+		const tempProcessor = new CommandProcessor();
+
+		const generalHandler = this.commandHandlers.get(' ');
+		if (generalHandler) {
+			tempProcessor.registerHandler(' ', generalHandler);
+		} else {
+			logger.warn('No general command handler found');
+			return;
+		}
+
+		await tempProcessor.processCommands(payload, {
+			...options,
+			skipGeneralCommandCheck: true,
+		});
 	}
 
 	private isConfirmation(commands: CommandIntent[]): boolean {
@@ -190,6 +226,16 @@ export class CommandProcessor {
 
 		// All commands processed successfully
 		this.pendingCommands.delete(title);
+	}
+
+	/**
+	 * Delete the next pending command
+	 */
+	public deleteNextPendingCommand(title: string): void {
+		const pendingCommand = this.pendingCommands.get(title);
+		if (pendingCommand) {
+			pendingCommand.commands.splice(pendingCommand.currentIndex, 1);
+		}
 	}
 
 	/**

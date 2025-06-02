@@ -176,11 +176,16 @@ export class GenerateCommandHandler extends CommandHandler {
 		);
 
 		// For low confidence extractions, just show the explanation
-		if (extraction.confidence <= 0.7) {
+		await this.renderer.updateConversationNote({
+			path: title,
+			newContent: extraction.explanation,
+			role: 'Steward',
+		});
+
+		if (extraction.confidence < 0.7) {
 			await this.renderer.updateConversationNote({
 				path: title,
-				newContent: extraction.explanation,
-				role: 'Steward',
+				newContent: '*Low confidence extraction, skipping*',
 			});
 			return;
 		}
@@ -198,12 +203,6 @@ export class GenerateCommandHandler extends CommandHandler {
 					role: 'system',
 					content: `The content should not include the big heading on the top.`,
 				},
-				extraction.style
-					? {
-							role: 'system',
-							content: `Style preference: ${extraction.style}`,
-						}
-					: null,
 				userLanguagePromptText,
 				{
 					role: 'user',

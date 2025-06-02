@@ -5,16 +5,45 @@ import {
 	ViewPlugin,
 	ViewUpdate,
 	WidgetType,
+	keymap,
 } from '@codemirror/view';
-import { Extension } from '@codemirror/state';
+import { Extension, Prec } from '@codemirror/state';
 import { autocompletion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { capitalizeString } from 'src/utils/capitalizeString';
 import { setIcon } from 'obsidian';
 import { LLM_MODELS } from 'src/constants';
 import { AbortService } from 'src/services/AbortService';
 
-export function createCommandInputExtension(commandPrefixes: string[]): Extension {
-	return [createInputExtension(commandPrefixes), createAutocompleteExtension(commandPrefixes)];
+export interface CommandInputOptions {
+	/**
+	 * The callback function to call when Enter is pressed on a command line
+	 */
+	onEnter?: (view: EditorView) => boolean;
+}
+
+export function createCommandInputExtension(
+	commandPrefixes: string[],
+	options: CommandInputOptions = {}
+): Extension {
+	return [
+		createInputExtension(commandPrefixes),
+		createAutocompleteExtension(commandPrefixes),
+		// Add keymap with high precedence
+		Prec.high(
+			keymap.of([
+				{
+					key: 'Enter',
+					run: view => {
+						// If a callback is provided, use it
+						if (options.onEnter) {
+							return options.onEnter(view);
+						}
+						return false;
+					},
+				},
+			])
+		),
+	];
 }
 
 // Toolbar widget that will be displayed below command inputs

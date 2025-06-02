@@ -74,11 +74,20 @@ export class UpdateCommandHandler extends CommandHandler {
 			// If we have a content update artifact, we can use it directly
 			if (artifact.type === ArtifactType.CONTENT_UPDATE) {
 				// Convert the updates in the extraction to UpdateInstruction objects
-				const updateInstructions = artifact.updateExtraction.updates.map(update => ({
-					type: 'replace' as const,
-					old: update.originalContent,
-					new: update.updatedContent,
-				}));
+				const updateInstructions = artifact.updateExtraction.updates
+					.filter(update => update.updatedContent !== update.originalContent)
+					.map(update => ({
+						type: 'replace' as const,
+						old: update.originalContent,
+						new: update.updatedContent,
+					}));
+
+				if (updateInstructions.length === 0) {
+					this.renderer.removeGeneratingIndicatorByPath(title);
+					return {
+						status: CommandResultStatus.SUCCESS,
+					};
+				}
 
 				await this.renderer.updateConversationNote({
 					path: title,
