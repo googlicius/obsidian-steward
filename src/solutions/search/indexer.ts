@@ -51,6 +51,12 @@ export class Indexer {
 		);
 
 		eventRefs.push(
+			// Listen for file creations
+			this.app.vault.on('create', async file => {
+				if (file instanceof TFile && file.extension === 'md') {
+					this.queueFileForIndexing(file.path);
+				}
+			}),
 			// Listen for file modifications
 			this.app.vault.on('modify', async file => {
 				if (file instanceof TFile && file.extension === 'md') {

@@ -7,6 +7,7 @@ export const audioCommandPrompt: OpenAIChatMessage = {
 
 Guidelines:
 - text: The text to convert to speech
+	* Focus on the pronunciation not explanation.
 - voice: The voice to use for speech generation if specified (e.g., "alloy", "echo", "fable", "onyx", "nova", "shimmer", etc.)
 - model: One of "openai", "elevenlabs". The model to use for speech generation if specified
 ${explanationFragment}

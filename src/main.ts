@@ -456,10 +456,12 @@ export default class StewardPlugin extends Plugin {
 		}
 	}
 
-	public setCursorToEndOfFile() {
-		this.editor.setCursor({
-			line: this.editor.lineCount() - 1,
-			ch: this.editor.getLine(this.editor.lineCount() - 1).length,
+	public setCursorToEndOfFile(editor = this.editor) {
+		const lineNumber = editor.lineCount() - 1;
+		const line = editor.getLine(lineNumber);
+		editor.setCursor({
+			line: lineNumber,
+			ch: line.length,
 		});
 	}
 

@@ -582,15 +582,12 @@ export class ContentReadingService {
 				inCodeBlock = false;
 			}
 
-			console.log('inList', inList);
-			console.log('nextLine:', nextLine, 'isIgnoredLine:', this.isIgnoredLine(nextLineNumber));
 			// Handle list boundaries
 			if (inList && this.isIgnoredLine(nextLineNumber)) {
 				if (currentLineType !== 'list') {
 					inList = false;
 				} else {
 					const adjacentBlockType = this.detectNextBlockType(currentLineNumber, direction);
-					console.log('adjacentBlockType:', adjacentBlockType);
 					if (adjacentBlockType !== 'list') {
 						inList = false;
 					}

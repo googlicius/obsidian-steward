@@ -1,6 +1,59 @@
 import { delay } from './delay';
 
 /**
+ * Checks if a chunk boundary would split special Markdown elements
+ * and adjusts the boundary to maintain their integrity
+ * @param text The full text being processed
+ * @param position Current position in the text
+ * @param proposedEnd Proposed end position for the current chunk
+ * @returns Adjusted end position that won't split special elements
+ */
+function adjustChunkBoundary(text: string, position: number, proposedEnd: number): number {
+	let adjustedEnd = proposedEnd;
+
+	// Check for Markdown links [[...]]
+	adjustedEnd = checkAndAdjustForMarkdownLinks(text, position, adjustedEnd);
+
+	// Additional checks can be added here in the future
+
+	return adjustedEnd;
+}
+
+/**
+ * Checks and adjusts chunk boundaries to prevent splitting Markdown links
+ * @param text The full text being processed
+ * @param position Current position in the text
+ * @param proposedEnd Proposed end position for the current chunk
+ * @returns Adjusted end position that won't split Markdown links
+ */
+function checkAndAdjustForMarkdownLinks(
+	text: string,
+	position: number,
+	proposedEnd: number
+): number {
+	// Check if we're in the middle of a Markdown link
+	const linkStartPos = text.lastIndexOf('[[', proposedEnd);
+	const linkEndPos = text.indexOf(']]', linkStartPos);
+
+	if (
+		linkStartPos !== -1 &&
+		linkStartPos < proposedEnd &&
+		(linkEndPos === -1 || linkEndPos >= proposedEnd)
+	) {
+		// We're about to split a link, so adjust the end position
+		if (linkStartPos > position) {
+			// Cut before the link starts
+			return linkStartPos;
+		} else if (linkEndPos !== -1) {
+			// Include the entire link
+			return linkEndPos + 2;
+		}
+	}
+
+	return proposedEnd;
+}
+
+/**
  * Creates an async generator that simulates streaming text by yielding chunks
  * with configurable delay and chunk size
  * @param text The full text to stream
@@ -36,22 +89,10 @@ export async function* createTextStream(
 			: delayMs;
 
 		// Get the next chunk end position
-		let end = Math.min(position + currentChunkSize, text.length);
+		const proposedEnd = Math.min(position + currentChunkSize, text.length);
 
-		// Check if we're in the middle of a Markdown link
-		const linkStartPos = text.lastIndexOf('[[', end);
-		const linkEndPos = text.indexOf(']]', linkStartPos);
-
-		if (linkStartPos !== -1 && linkStartPos < end && (linkEndPos === -1 || linkEndPos >= end)) {
-			// We're about to split a link, so adjust the end position
-			if (linkStartPos > position) {
-				// Cut before the link starts
-				end = linkStartPos;
-			} else if (linkEndPos !== -1) {
-				// Include the entire link
-				end = linkEndPos + 2;
-			}
-		}
+		// Adjust chunk boundary to avoid splitting special elements
+		const end = adjustChunkBoundary(text, position, proposedEnd);
 
 		// Get the chunk
 		const chunk = text.substring(position, end);

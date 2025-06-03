@@ -1,10 +1,10 @@
 # Obsidian Steward
 
-Obsidian Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It provides building block commands like search, move, copy, create, and more, allowing you to build sophisticated custom prompts, commands, prompt chaining, and automation for your specific tasks.
+Obsidian Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It provides commands like `search`, `move`, `copy`, `create`, etc, as building blocks for building your own sophisticated commands, prompt chaining, and automation for your specific tasks.
 
 ## Features
 
-- **Built-in Search Engine**: Powerful TF-IDF based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search
+- **Built-in Search Engine**: A TF-IDF based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search
 - **Command-based Interaction**: Support for commands like search, create, update, delete, move, audio, and image generation
 - **Multi-language Support**: Use Steward in your preferred language
 - **Privacy-focused**: Most actions are executed in the front-end using Obsidian API to avoid exposing your data to LLMs (except for your queries)
@@ -20,19 +20,26 @@ This plugin is currently under active development. New features and improvements
 
 ## Usage
 
-Steward can be used through the command palette or by opening the chat interface. Here are some example commands:
+Steward can be used through the command palette directly in the editor or by opening the chat interface. Here are some example commands:
 
-- `Search for notes about project management`
-- `Create a new note about quantum physics`
-- `Move the search results to the Projects folder`
-- `Generate an image of a mountain landscape`
-- `Create an audio summary of the selected text`
+- **/search** Notes tagged #Todo in the root folder
+- / Add tag #Done to all notes of the search results and move them to the Archived folder
+- / Write a poem about Angular in a new note then move it to the Generated folder
+- / Update the list above to a numbered list
+- **/audio** "project" as a noun and a verb using 11Labs
+- / I don't like your name, you are "Joe" from now on
+
+**Your commands (Not implemented yet):**
+
+Load one or more custom prompts by adding tags to the command:
+
+- / `#tagRelatedToAPrompt` Finish this
 
 ## Tips to reduce the number of input tokens
 
-- Use a specific command directly instead of a general command, e.g, `/search`, `/audio`, etc.
+- Use a specific command directly instead of a general command (`/ `), e.g, `/search`, `/audio`, etc.
 - For the `/search` command, wrap the keyword in quotation marks for searching the vault without the LLM's help, e.g, `/search "my cat"`
-- Provide feedback by clicking thumbs up or down on any Steward's answer to help it classify accurately.
+- Provide feedback by clicking thumbs up or down on any Steward's answer to help it classify accurately #Todo.
 
 ## Installation
 
@@ -54,7 +61,7 @@ Steward can be used through the command palette or by opening the chat interface
   - Temperature: Controls randomness in the output (0.0 to 1.0)
   - Ollama Base URL: For local Ollama models (default: http://localhost:11434)
 
-- **Conversation Folder**: The folder where conversation notes will be stored (default: `Steward/Conversations`)
+- **Steward Folder**: The folder where Steward' related notes will be stored (default: `Steward`)
 - **Debug Mode**: Enable detailed logging for troubleshooting
 
 ## Development

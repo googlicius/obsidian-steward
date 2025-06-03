@@ -77,7 +77,9 @@ export class ConversationEventHandler {
 				const streamContent = newlyCreated
 					? `${i18next.t('ui.welcomeMessage')}\n\n[[${this.plugin.settings.stewardFolder}/Welcome to Steward|Introduction]]\n\n/ `
 					: `${i18next.t('ui.welcomeMessage')}\n\n/ `;
-				this.renderer.streamFile(file, createMockStreamResponse(streamContent));
+				await this.renderer.streamFile(file, createMockStreamResponse(streamContent));
+
+				this.plugin.setCursorToEndOfFile();
 			}
 		}
 	}

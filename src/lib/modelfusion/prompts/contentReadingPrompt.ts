@@ -21,18 +21,15 @@ Contextual clues that indicate what content to read:
 - "correct this paragraph" → read above with elementType "paragraph"
 - "help me with this list" → read above with elementType "list"
 - "explain this blockquote" → read above with elementType "blockquote"
-- "fix this paragraph with a list" → read above with elementType "paragraph+list"
-- "help me with either the table or code" → read above with elementType "table, code"
-- "help me with the table and code" → read above with elementType "table+code"
 
 Guidelines:
 - readType: One of "selected", "above", "below", "entire"
   - If the user doesn't specify where to read from, set to "above".
   - If the user's query is empty, set to "entire"
 - elementType: Specify element types with AND/OR conditions:
-  - Use comma-separated values for OR conditions (e.g., "code, table" means either code OR table)
-  - Use "+" for AND conditions (e.g., "paragraph+list" means content that contains BOTH paragraph AND list elements)
-  - You can combine these (e.g., "paragraph+list, code+table" means (paragraph AND list) OR (code AND table))
+  - If the user doesn't explicitly specify, use "paragraph"
+  - Use comma-separated values for OR conditions (e.g., "<elementType1>, <elementType2>")
+  - Use "+" for AND conditions (e.g., "<elementType1>+<elementType2>")
 - blocksToRead: Number of blocks to read (paragraphs, tables, code blocks, etc.), default is 1
   * If the user mentions all (above, below, entire) the content, set to -1
 - foundPlaceholder: A short text to indicate that the content was found. Put {{number}} as the number of blocks found.
