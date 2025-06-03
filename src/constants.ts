@@ -80,3 +80,50 @@ export const LLM_MODELS: ModelOption[] = [
 	{ id: 'mistral:latest', name: 'Mistral', provider: 'ollama' },
 	{ id: 'mixtral:latest', name: 'Mixtral', provider: 'ollama' },
 ];
+
+/**
+ * Introduction text for Steward that will be streamed to the Introduction file
+ */
+export const STEWARD_INTRODUCTION = `Steward is your intelligent assistant for Obsidian note management. I'm here to help you organize, search, and manipulate your notes with natural language commands.
+
+## What I Can Do
+
+- **Search** for notes using natural language queries
+- **Move, copy, and delete** notes from search results
+- **Create** new notes with custom content
+- **Generate** content with AI assistance
+- **Update** existing notes
+- **Generate images** to enhance your notes
+- **Generate audio** from text
+- **Read** content from your current note to provide context-aware help
+
+## How to Use Me
+
+Start by typing a slash command (/) or simply ask a question in natural language. Here are some examples:
+
+- **/search** - Find notes matching criteria (e.g., "/search notes tagged #todo in the root folder")
+- **/create** - Create a new note (e.g., "/create Note name: Project Ideas")
+- **/image** - Generate an image (e.g., "/image a cat sitting on a bookshelf")
+- **/audio** - Generate audio from text (e.g., "/audio This is a test")
+- **/close** - Close the current conversation
+- **/stop** or **/abort** - Stop an ongoing generation process
+
+You can also:
+- Ask me to help with content in your current note ("help with this table")
+- Request to move or modify search results
+- Generate content based on your specific needs
+
+## Starting a Conversation
+
+You can start a conversation with Steward in two ways:
+1. Use the dedicated Steward chat interface
+2. Type slash commands directly in any note editor to get inline assistance
+
+## Advanced Features
+
+- **Multiple commands** can be executed in sequence
+- **Context-aware assistance** based on your current note
+- **Undo changes** with the /revert command
+- **Stop ongoing generations** at any time with /stop or /abort
+
+Feel free to explore and let me know how I can assist you with your knowledge management in Obsidian!`;

@@ -7,6 +7,10 @@ import {
 import { eventEmitter } from './EventEmitter';
 import StewardPlugin from '../main';
 import { ConversationRenderer } from './ConversationRenderer';
+import { EventRef, TFile } from 'obsidian';
+import { createMockStreamResponse } from '../utils/textStreamer';
+import { STEWARD_INTRODUCTION } from '../constants';
+import i18next from 'i18next';
 
 interface Props {
 	plugin: StewardPlugin;
@@ -15,6 +19,7 @@ interface Props {
 export class ConversationEventHandler {
 	private readonly plugin: StewardPlugin;
 	private readonly renderer: ConversationRenderer;
+	private eventRefs: EventRef[] = [];
 
 	constructor(props: Props) {
 		this.plugin = props.plugin;
@@ -23,6 +28,20 @@ export class ConversationEventHandler {
 	}
 
 	private setupListeners(): void {
+		this.eventRefs.push(
+			// Listen for file modifications
+			this.plugin.app.vault.on('modify', async file => {
+				this.initializeChat(file as TFile);
+				this.initializeIntroduction(file as TFile);
+			}),
+
+			// Listen for file creations
+			this.plugin.app.vault.on('create', async file => {
+				this.initializeChat(file as TFile, true);
+				this.initializeIntroduction(file as TFile);
+			})
+		);
+
 		// Listen for new conversation notes
 		eventEmitter.on(Events.CONVERSATION_NOTE_CREATED, (payload: ConversationNoteCreatedPayload) => {
 			this.handleNewConversation(payload);
@@ -43,6 +62,33 @@ export class ConversationEventHandler {
 				this.handleConversationLinkInserted(payload);
 			}
 		);
+	}
+
+	unload(): void {
+		this.eventRefs.forEach(ref => this.plugin.app.workspace.offref(ref));
+		this.eventRefs = [];
+	}
+
+	private async initializeChat(file: TFile, newlyCreated = false): Promise<void> {
+		if (file.name.startsWith('Steward Chat')) {
+			const content = await this.plugin.app.vault.cachedRead(file);
+
+			if (!content) {
+				const streamContent = newlyCreated
+					? `${i18next.t('ui.welcomeMessage')}\n\n[[${this.plugin.settings.stewardFolder}/Welcome to Steward|Introduction]]\n\n/ `
+					: `${i18next.t('ui.welcomeMessage')}\n\n/ `;
+				this.renderer.streamFile(file, createMockStreamResponse(streamContent));
+			}
+		}
+	}
+
+	private async initializeIntroduction(file: TFile): Promise<void> {
+		if (file.path === `${this.plugin.settings.stewardFolder}/Welcome to Steward.md`) {
+			const content = await this.plugin.app.vault.cachedRead(file);
+			if (!content.trim()) {
+				this.renderer.streamFile(file, createMockStreamResponse(STEWARD_INTRODUCTION));
+			}
+		}
 	}
 
 	private async handleNewConversation(payload: ConversationNoteCreatedPayload): Promise<void> {

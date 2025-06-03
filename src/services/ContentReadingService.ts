@@ -412,12 +412,7 @@ export class ContentReadingService {
 			const line = this.editor.getLine(lineNumber).trim();
 
 			// Skip empty lines
-			if (line === '') {
-				return null;
-			}
-
-			// Skip conversation links - they're not content blocks
-			if (isConversationLink(line, this.plugin.settings.stewardFolder)) {
+			if (this.isIgnoredLine(lineNumber)) {
 				return null;
 			}
 
@@ -523,15 +518,10 @@ export class ContentReadingService {
 				return null;
 			}
 
-			// Get the next line and check if it's empty
+			// Get the next line and check if it's ignored
 			const nextLine = this.editor.getLine(nextLineNumber).trim();
-			if (nextLine === '') {
-				// If empty, recursively check the next line in the same direction
-				return this.detectNextBlockType(nextLineNumber, direction);
-			}
-
-			// Skip conversation links
-			if (isConversationLink(nextLine, this.plugin.settings.stewardFolder)) {
+			if (this.isIgnoredLine(nextLineNumber)) {
+				// Recursively check the next line in the same direction
 				return this.detectNextBlockType(nextLineNumber, direction);
 			}
 
@@ -541,6 +531,18 @@ export class ContentReadingService {
 			logger.error('Error detecting next block type:', error);
 			return null;
 		}
+	}
+
+	/**
+	 * Ignores if a line is empty, conversation link, or general command
+	 */
+	private isIgnoredLine(lineNumber: number): boolean {
+		const line = this.editor.getLine(lineNumber);
+		return (
+			line.trim() === '' ||
+			line === '/ ' ||
+			isConversationLink(line, this.plugin.settings.stewardFolder)
+		);
 	}
 
 	/**
@@ -557,11 +559,11 @@ export class ContentReadingService {
 		let { inList, inCodeBlock } = params;
 		const lineCount = this.editor.lineCount();
 		const types = new Set<string>([initialBlockType]);
-		let currentLine = startingLine;
+		let currentLineNumber = startingLine;
 
 		// Determine boundary conditions and line increment based on direction
 		const atBoundary = () =>
-			direction === 'above' ? currentLine <= 0 : currentLine >= lineCount - 1;
+			direction === 'above' ? currentLineNumber <= 0 : currentLineNumber >= lineCount - 1;
 
 		const increment = direction === 'above' ? -1 : 1;
 
@@ -569,31 +571,39 @@ export class ContentReadingService {
 		// let canContinue = true;
 
 		while (!atBoundary()) {
-			// Get the next line in the specified direction
-			const nextLineNumber = currentLine + increment;
+			const nextLineNumber = currentLineNumber + increment;
 			const nextLine = this.editor.getLine(nextLineNumber).trim();
+			const currentLine = this.editor.getLine(currentLineNumber).trim();
 			const nextLineType = this.detectBlockType(nextLine);
+			const currentLineType = this.detectBlockType(currentLine);
 
 			// Handle code block boundaries
 			if (inCodeBlock && nextLineType === 'code') {
 				inCodeBlock = false;
 			}
 
+			console.log('inList', inList);
+			console.log('nextLine:', nextLine, 'isIgnoredLine:', this.isIgnoredLine(nextLineNumber));
 			// Handle list boundaries
-			if (inList && nextLine === '') {
-				const adjacentBlockType = this.detectNextBlockType(currentLine, direction);
-				if (adjacentBlockType !== 'list') {
+			if (inList && this.isIgnoredLine(nextLineNumber)) {
+				if (currentLineType !== 'list') {
 					inList = false;
+				} else {
+					const adjacentBlockType = this.detectNextBlockType(currentLineNumber, direction);
+					console.log('adjacentBlockType:', adjacentBlockType);
+					if (adjacentBlockType !== 'list') {
+						inList = false;
+					}
 				}
 			}
 
 			// Collect type if line isn't empty
-			if (nextLine !== '') {
+			if (!this.isIgnoredLine(nextLineNumber)) {
 				types.add(nextLineType);
 			}
 
 			// Check if the next line is empty
-			if (nextLine === '') {
+			if (this.isIgnoredLine(nextLineNumber)) {
 				if (!inCodeBlock && !inList) {
 					// canContinue = false;
 					// continue;
@@ -602,10 +612,10 @@ export class ContentReadingService {
 			}
 
 			// Move to the next line
-			currentLine = nextLineNumber;
+			currentLineNumber = nextLineNumber;
 		}
 
-		return { lineNumber: currentLine, types, inList, inCodeBlock };
+		return { lineNumber: currentLineNumber, types, inList, inCodeBlock };
 	}
 
 	/**

@@ -47,6 +47,7 @@ export default class StewardPlugin extends Plugin {
 	mediaGenerationService: MediaGenerationService;
 	contentReadingService: ContentReadingService;
 	commandProcessorService: CommandProcessorService;
+	conversationEventHandler: ConversationEventHandler;
 
 	get editor(): ObsidianEditor {
 		return this.app.workspace.activeEditor?.editor as ObsidianEditor;
@@ -221,7 +222,7 @@ export default class StewardPlugin extends Plugin {
 		this.artifactManager = ConversationArtifactManager.getInstance();
 
 		// Initialize the conversation event handler
-		new ConversationEventHandler({ plugin: this });
+		this.conversationEventHandler = new ConversationEventHandler({ plugin: this });
 
 		// Initialize Git event handler for tracking and reverting changes
 		this.gitEventHandler = new GitEventHandler(this.app, this);
@@ -236,6 +237,9 @@ export default class StewardPlugin extends Plugin {
 	onunload() {
 		// Unload the search service
 		this.searchService.unload();
+
+		// Unload the conversation event handler
+		this.conversationEventHandler.unload();
 	}
 
 	async loadSettings() {
@@ -424,7 +428,7 @@ export default class StewardPlugin extends Plugin {
 			const noteExists = this.app.vault.getAbstractFileByPath(notePath);
 			if (!noteExists) {
 				// Build initial content
-				const initialContent = `${i18next.t('ui.welcomeMessage')}\n\n/ `;
+				const initialContent = '';
 
 				// Create the conversation note
 				await this.app.vault.create(notePath, initialContent);
@@ -444,15 +448,19 @@ export default class StewardPlugin extends Plugin {
 				this.app.workspace.revealLeaf(leaf);
 				this.app.workspace.setActiveLeaf(leaf, { focus: true });
 				// Set the cursor to the last line
-				this.editor.setCursor({
-					line: this.editor.lineCount() - 1,
-					ch: this.editor.getLine(this.editor.lineCount() - 1).length,
-				});
+				this.setCursorToEndOfFile();
 			}
 		} catch (error) {
 			logger.error('Error opening static conversation:', error);
 			new Notice(`Error opening static conversation: ${error.message}`);
 		}
+	}
+
+	public setCursorToEndOfFile() {
+		this.editor.setCursor({
+			line: this.editor.lineCount() - 1,
+			ch: this.editor.getLine(this.editor.lineCount() - 1).length,
+		});
 	}
 
 	/**

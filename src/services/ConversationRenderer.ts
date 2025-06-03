@@ -120,18 +120,20 @@ export class ConversationRenderer {
 	 */
 	public async streamConversationNote({
 		path,
+		folderPath = `${this.plugin.settings.stewardFolder}/Conversations`,
 		stream,
 		command,
 		position,
 	}: {
 		path: string;
 		stream: AsyncIterable<string>;
+		folderPath?: string;
 		command?: string;
 		position?: number;
 	}): Promise<string | undefined> {
 		try {
-			const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
-			const notePath = `${folderPath}/${path}.md`;
+			path = path.endsWith('.md') ? path : `${path}.md`;
+			const notePath = `${folderPath}/${path}`;
 
 			// Get the current content of the note
 			const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
@@ -163,17 +165,21 @@ export class ConversationRenderer {
 			await this.plugin.app.vault.modify(file, contentToModify);
 
 			// Stream the content
-			let accumulatedContent = '';
-			for await (const chunk of stream) {
-				accumulatedContent += chunk;
-				await this.plugin.app.vault.modify(file, contentToModify + accumulatedContent);
-			}
+			this.streamFile(file, stream, contentToModify);
 
 			// Return the message ID for referencing
 			return messageId;
 		} catch (error) {
 			console.error('Error streaming to conversation note:', error);
 			return undefined;
+		}
+	}
+
+	public async streamFile(file: TFile, stream: AsyncIterable<string>, initialContent = '') {
+		let accumulatedContent = '';
+		for await (const chunk of stream) {
+			accumulatedContent += chunk;
+			await this.plugin.app.vault.modify(file, initialContent + accumulatedContent);
 		}
 	}
 
