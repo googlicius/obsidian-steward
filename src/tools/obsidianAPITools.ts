@@ -4,7 +4,7 @@ import {
 	UpdateInstruction,
 	ReplaceInstruction,
 	AddInstruction,
-} from '../lib/modelfusion/updateFromSearchResultExtraction';
+} from '../lib/modelfusion/extractions';
 import { SearchOperationV2 } from 'src/lib/modelfusion';
 
 /**

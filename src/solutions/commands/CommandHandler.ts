@@ -1,5 +1,5 @@
 import { ConversationRenderer } from 'src/services/ConversationRenderer';
-import { CommandIntent } from '../../lib/modelfusion/intentExtraction';
+import { CommandIntent } from '../../lib/modelfusion/extractions';
 import StewardPlugin from '../../main';
 import { ObsidianAPITools } from 'src/tools/obsidianAPITools';
 import { ConversationArtifactManager } from 'src/services/ConversationArtifactManager';

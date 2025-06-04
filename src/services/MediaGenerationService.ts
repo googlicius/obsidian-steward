@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 import { eventEmitter } from './EventEmitter';
 import { ConversationRenderer } from './ConversationRenderer';
 import StewardPlugin from '../main';
-import { extractMediaCommand } from '../lib/modelfusion/mediaExtraction';
+import { extractMediaCommand } from '../lib/modelfusion/extractions';
 import { Events } from '../types/events';
 
 export class MediaGenerationService {

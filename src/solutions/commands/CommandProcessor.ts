@@ -1,7 +1,7 @@
 import { ConversationCommandReceivedPayload } from '../../types/events';
 import { CommandResultStatus, CommandHandler, CommandResult } from './CommandHandler';
 import { logger } from '../../utils/logger';
-import { CommandIntent } from '../../lib/modelfusion/intentExtraction';
+import { CommandIntent } from '../../lib/modelfusion/extractions';
 
 interface PendingCommand {
 	commands: CommandIntent[];

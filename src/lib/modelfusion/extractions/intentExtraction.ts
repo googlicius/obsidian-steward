@@ -1,9 +1,9 @@
 import { generateText, classify, OpenAIChatMessage } from 'modelfusion';
-import { createLLMGenerator } from './llmConfig';
-import { commandIntentPrompt } from './prompts/commandIntentPrompt';
-import { userLanguagePrompt } from './prompts/languagePrompt';
-import { StewardPluginSettings } from '../../types/interfaces';
-import { intentClassifier } from './classifiers/intent';
+import { createLLMGenerator } from '../llmConfig';
+import { commandIntentPrompt } from '../prompts/commandIntentPrompt';
+import { userLanguagePrompt } from '../prompts/languagePrompt';
+import { StewardPluginSettings } from 'src/types/interfaces';
+import { intentClassifier } from '../classifiers/intent';
 import { logger } from 'src/utils/logger';
 import { AbortService } from 'src/services/AbortService';
 import {
@@ -12,7 +12,7 @@ import {
 	interpretSearchContentPrompt,
 	interpretUpdateFromArtifactPrompt,
 	interpretReadContentPrompt,
-} from './prompts/interpretQueryPrompts';
+} from '../prompts/interpretQueryPrompts';
 
 // Use AbortService instead of a local controller
 const abortService = AbortService.getInstance();

@@ -1,14 +1,14 @@
 import { generateText } from 'modelfusion';
-import { userLanguagePrompt } from './prompts/languagePrompt';
-import { searchPromptV2 } from './prompts/searchPromptV2';
-import { confidenceScorePrompt } from './prompts/confidenceScorePrompt';
-import { validateLanguage, validateConfidence } from './validators';
-import { getObsidianLanguage } from '../../utils/getObsidianLanguage';
-import { logger } from '../../utils/logger';
-import { getTranslation } from '../../i18n';
-import { StewardPluginSettings } from '../../types/interfaces';
-import { createLLMGenerator } from './llmConfig';
-import { AbortService } from '../../services/AbortService';
+import { userLanguagePrompt } from '../prompts/languagePrompt';
+import { searchPromptV2 } from '../prompts/searchPromptV2';
+import { confidenceScorePrompt } from '../prompts/confidenceScorePrompt';
+import { validateLanguage, validateConfidence } from '../validators';
+import { getObsidianLanguage } from 'src/utils/getObsidianLanguage';
+import { logger } from 'src/utils/logger';
+import { getTranslation } from 'src/i18n';
+import { StewardPluginSettings } from 'src/types/interfaces';
+import { createLLMGenerator } from '../llmConfig';
+import { AbortService } from 'src/services/AbortService';
 
 const abortService = AbortService.getInstance();
 

@@ -1,12 +1,12 @@
 import { generateText } from 'modelfusion';
-import { mediaCommandPrompt } from './prompts/mediaCommandPrompt';
-import { userLanguagePrompt } from './prompts/languagePrompt';
-import { confidenceScorePrompt } from './prompts/confidenceScorePrompt';
-import { validateLanguage, validateConfidence } from './validators';
-import { getObsidianLanguage } from '../../utils/getObsidianLanguage';
-import { AbortService } from '../../services/AbortService';
+import { mediaCommandPrompt } from '../prompts/mediaCommandPrompt';
+import { userLanguagePrompt } from '../prompts/languagePrompt';
+import { confidenceScorePrompt } from '../prompts/confidenceScorePrompt';
+import { validateLanguage, validateConfidence } from '../validators';
+import { getObsidianLanguage } from 'src/utils/getObsidianLanguage';
+import { AbortService } from 'src/services/AbortService';
 import { StewardPluginSettings } from 'src/types/interfaces';
-import { createLLMGenerator } from './llmConfig';
+import { createLLMGenerator } from '../llmConfig';
 
 // Get the singleton instance of AbortService
 const abortService = AbortService.getInstance();

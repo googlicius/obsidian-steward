@@ -8,7 +8,7 @@ import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import StewardPlugin from 'src/main';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-import { extractSearchQueryV2 } from 'src/lib/modelfusion';
+import { extractSearchQueryV2 } from 'src/lib/modelfusion/extractions';
 import { highlightKeyword } from 'src/utils/highlightKeywords';
 import { PaginatedSearchResultV2 } from 'src/solutions/search';
 

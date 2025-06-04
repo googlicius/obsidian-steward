@@ -1,5 +1,5 @@
 import { ContentReadingResult } from './ContentReadingService';
-import { ContentUpdateExtraction } from '../lib/modelfusion/contentUpdateExtraction';
+import { ContentUpdateExtraction } from '../lib/modelfusion/extractions';
 import { logger } from 'src/utils/logger';
 
 /**

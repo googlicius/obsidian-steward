@@ -6,11 +6,13 @@ import {
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import StewardPlugin from 'src/main';
-import { CommandIntent } from 'src/lib/modelfusion/intentExtraction';
+import {
+	CommandIntent,
+	extractContentGeneration,
+	extractContentUpdate,
+	extractNoteGeneration,
+} from 'src/lib/modelfusion/extractions';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-import { extractContentGeneration } from 'src/lib/modelfusion/contentGenerationExtraction';
-import { extractContentUpdate } from 'src/lib/modelfusion/contentUpdateExtraction';
-import { extractNoteGeneration } from 'src/lib/modelfusion/noteGenerationExtraction';
 import { TFile } from 'obsidian';
 import { streamText } from 'modelfusion';
 import { createLLMGenerator } from 'src/lib/modelfusion/llmConfig';

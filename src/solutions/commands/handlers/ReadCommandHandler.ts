@@ -7,10 +7,7 @@ import {
 import { getTranslation } from 'src/i18n';
 import StewardPlugin from 'src/main';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-import {
-	ContentReadingExtraction,
-	extractContentReading,
-} from 'src/lib/modelfusion/contentReadingExtraction';
+import { ContentReadingExtraction, extractContentReading } from 'src/lib/modelfusion/extractions';
 import { CommandProcessor } from '../CommandProcessor';
 
 export class ReadCommandHandler extends CommandHandler {

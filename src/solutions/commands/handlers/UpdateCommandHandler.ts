@@ -10,10 +10,7 @@ import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { Events } from 'src/types/events';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { TFile } from 'obsidian';
-import {
-	extractUpdateFromSearchResult,
-	UpdateInstruction,
-} from 'src/lib/modelfusion/updateFromSearchResultExtraction';
+import { extractUpdateFromSearchResult, UpdateInstruction } from 'src/lib/modelfusion/extractions';
 
 export class UpdateCommandHandler extends CommandHandler {
 	constructor(public readonly plugin: StewardPlugin) {

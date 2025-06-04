@@ -12,7 +12,7 @@ import { eventEmitter } from 'src/services/EventEmitter';
 import {
 	DestinationFolderExtraction,
 	extractDestinationFolder,
-} from 'src/lib/modelfusion/destinationFolderExtraction';
+} from 'src/lib/modelfusion/extractions';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 import { MoveOperationV2 } from 'src/tools/obsidianAPITools';
 

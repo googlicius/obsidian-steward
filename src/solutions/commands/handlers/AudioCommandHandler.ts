@@ -6,7 +6,7 @@ import {
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import StewardPlugin from 'src/main';
-import { extractAudioQuery } from 'src/lib/modelfusion/audioExtraction';
+import { extractAudioQuery } from 'src/lib/modelfusion/extractions';
 import { MediaTools } from 'src/tools/mediaTools';
 
 export class AudioCommandHandler extends CommandHandler {

@@ -6,7 +6,7 @@ import {
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import StewardPlugin from 'src/main';
-import { extractImageQuery } from 'src/lib/modelfusion/imageExtraction';
+import { extractImageQuery } from 'src/lib/modelfusion/extractions';
 import { MediaTools } from 'src/tools/mediaTools';
 
 export class ImageCommandHandler extends CommandHandler {

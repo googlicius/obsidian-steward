@@ -1,10 +1,10 @@
 import { generateText } from 'modelfusion';
-import { StewardPluginSettings } from '../../types/interfaces';
-import { createLLMGenerator } from './llmConfig';
-import { contentReadingPrompt } from './prompts/contentReadingPrompt';
-import { userLanguagePrompt } from './prompts/languagePrompt';
-import { logger } from '../../utils/logger';
-import { AbortService } from '../../services/AbortService';
+import { StewardPluginSettings } from 'src/types/interfaces';
+import { createLLMGenerator } from '../llmConfig';
+import { contentReadingPrompt } from '../prompts/contentReadingPrompt';
+import { userLanguagePrompt } from '../prompts/languagePrompt';
+import { logger } from 'src/utils/logger';
+import { AbortService } from 'src/services/AbortService';
 
 const abortService = AbortService.getInstance();
 

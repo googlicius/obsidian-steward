@@ -1,6 +1,6 @@
 import { EditorView } from '@codemirror/view';
 import { Line } from '@codemirror/state';
-import { CommandIntent } from '../lib/modelfusion/intentExtraction';
+import { CommandIntent } from '../lib/modelfusion/extractions';
 import { SearchQueryExtractionV2 } from '../lib/modelfusion';
 import { IndexedDocument } from '../database/SearchDatabase';
 import { GitOperation } from '../solutions/git/GitService';

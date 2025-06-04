@@ -6,7 +6,7 @@ import {
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import StewardPlugin from 'src/main';
-import { extractCommandIntent } from 'src/lib/modelfusion';
+import { extractCommandIntent } from 'src/lib/modelfusion/extractions';
 import { CommandProcessor } from '../CommandProcessor';
 
 export class GeneralCommandHandler extends CommandHandler {

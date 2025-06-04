@@ -1,5 +1,5 @@
 import { TFile, EditorRange, EditorPosition } from 'obsidian';
-import { ContentReadingExtraction } from '../lib/modelfusion/contentReadingExtraction';
+import { ContentReadingExtraction } from '../lib/modelfusion/extractions';
 import { logger } from '../utils/logger';
 import StewardPlugin from '../main';
 import { isConversationLink } from '../utils/conversationUtils';

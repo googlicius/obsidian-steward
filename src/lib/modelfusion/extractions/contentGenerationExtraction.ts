@@ -1,10 +1,10 @@
 import { generateText } from 'modelfusion';
-import { createLLMGenerator } from './llmConfig';
-import { contentGenerationPrompt } from './prompts/contentGenerationPrompt';
-import { userLanguagePrompt } from './prompts/languagePrompt';
-import { StewardPluginSettings } from '../../types/interfaces';
-import { logger } from '../../utils/logger';
-import { AbortService } from '../../services/AbortService';
+import { createLLMGenerator } from '../llmConfig';
+import { contentGenerationPrompt } from '../prompts/contentGenerationPrompt';
+import { userLanguagePrompt } from '../prompts/languagePrompt';
+import { StewardPluginSettings } from 'src/types/interfaces';
+import { logger } from 'src/utils/logger';
+import { AbortService } from 'src/services/AbortService';
 
 // Get the singleton instance of AbortService
 const abortService = AbortService.getInstance();

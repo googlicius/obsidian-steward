@@ -1,10 +1,10 @@
 import { generateText } from 'modelfusion';
-import { audioCommandPrompt } from './prompts/audioCommandPrompt';
+import { audioCommandPrompt } from '../prompts/audioCommandPrompt';
 import { StewardPluginSettings } from 'src/types/interfaces';
-import { createLLMGenerator } from './llmConfig';
-import { validateConfidence, validateLanguage } from './validators';
-import { AbortService } from '../../services/AbortService';
-import { userLanguagePrompt } from './prompts/languagePrompt';
+import { createLLMGenerator } from '../llmConfig';
+import { validateConfidence, validateLanguage } from '../validators';
+import { AbortService } from 'src/services/AbortService';
+import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { getObsidianLanguage } from 'src/utils/getObsidianLanguage';
 
 const abortService = AbortService.getInstance();

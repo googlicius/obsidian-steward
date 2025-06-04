@@ -8,10 +8,7 @@ import { getTranslation } from 'src/i18n';
 import StewardPlugin from 'src/main';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { TFile } from 'obsidian';
-import {
-	extractNoteCreation,
-	NoteCreationExtraction,
-} from 'src/lib/modelfusion/noteCreationExtraction';
+import { extractNoteCreation, NoteCreationExtraction } from 'src/lib/modelfusion/extractions';
 import { CommandProcessor } from '../CommandProcessor';
 
 export class CreateCommandHandler extends CommandHandler {

@@ -1,8 +1,8 @@
 import { generateText } from 'modelfusion';
-import { createLLMGenerator } from './llmConfig';
-import { promptCreationPrompt } from './prompts/promptCreationPrompt';
-import { StewardPluginSettings } from '../../types/interfaces';
-import { logger } from '../../utils/logger';
+import { createLLMGenerator } from '../llmConfig';
+import { promptCreationPrompt } from '../prompts/promptCreationPrompt';
+import { StewardPluginSettings } from 'src/types/interfaces';
+import { logger } from 'src/utils/logger';
 
 /**
  * Represents a custom prompt structure
