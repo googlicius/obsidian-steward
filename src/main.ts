@@ -152,7 +152,7 @@ export default class StewardPlugin extends Plugin {
 			},
 		});
 
-		// Register the conversation extension for CodeMirror
+		// Register extensions for CodeMirror
 		this.registerEditorExtension([
 			createCommandInputExtension(COMMAND_PREFIXES, {
 				onEnter: this.handleEnter.bind(this),

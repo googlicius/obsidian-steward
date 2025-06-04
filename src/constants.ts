@@ -53,6 +53,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
 		model: 'gpt-4-turbo-preview',
 		temperature: 0.2,
 		ollamaBaseUrl: 'http://localhost:11434',
+		maxGenerationTokens: 2048, // Default max tokens for generation
 	},
 };
 

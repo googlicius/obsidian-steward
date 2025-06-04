@@ -1,6 +1,6 @@
-# Obsidian Steward
+# Steward
 
-Obsidian Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It provides commands like `search`, `move`, `copy`, `create`, etc, as building blocks for building your own sophisticated commands, prompt chaining, and automation for your specific tasks.
+Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It provides commands like `search`, `move`, `copy`, `create`, etc, as building blocks for building your own sophisticated commands, prompt chaining, and automation for your specific tasks.
 
 ## Features
 

@@ -354,11 +354,8 @@ export class ContentReadingService {
 			// Start from the given line and find a suitable non-empty line
 			let currentLine = lineNumber;
 
-			// Handle the current line first - we'll check for conversation links in identifyBlockFromLine
-			let lineText = this.editor.getLine(currentLine).trim();
-
 			// If the current line is non-empty, try to identify its block
-			if (lineText !== '') {
+			if (!this.isIgnoredLine(currentLine)) {
 				const block = this.identifyBlockFromLine(currentLine);
 				if (block) {
 					return block;
@@ -385,8 +382,7 @@ export class ContentReadingService {
 				}
 
 				// Check if the current line is non-empty
-				lineText = this.editor.getLine(currentLine).trim();
-				if (lineText !== '') {
+				if (!this.isIgnoredLine(currentLine)) {
 					const block = this.identifyBlockFromLine(currentLine);
 					if (block) {
 						return block;

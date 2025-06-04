@@ -29,3 +29,4 @@
 - [ ] The user can suggest their name or nickname to Steward to display it in the chat instead of "User"
 - [ ] Add read_history command when LLM wants to know more about the current context
 - [ ] Settings with the LLM helps: audio generation model, text generation model, names, and temperature
+- [ ] Remove MediaGenerationService

@@ -22,31 +22,37 @@ export function createLLMGenerator(config: {
 	model: string;
 	temperature?: number;
 	ollamaBaseUrl?: string;
+	maxGenerationTokens?: number;
 	responseFormat?: 'json_object' | 'text';
 }) {
 	const provider = getProviderFromModel(config.model);
+	const { model, temperature, maxGenerationTokens, responseFormat = 'json_object' } = config;
 
 	switch (provider) {
 		case 'openai':
 			return openai.ChatTextGenerator({
-				model: config.model as any,
-				temperature: config.temperature,
-				responseFormat: { type: config.responseFormat || 'json_object' },
+				model: model as any,
+				temperature,
+				maxGenerationTokens,
+				// topP: config.topP,
+				responseFormat: { type: responseFormat },
 			});
 		case 'deepseek':
 			return openai.ChatTextGenerator({
-				model: config.model as any,
-				temperature: config.temperature,
-				responseFormat: { type: 'json_object' },
+				model: model as any,
+				temperature,
+				maxGenerationTokens,
+				responseFormat: { type: responseFormat },
 				api: openai.Api({
 					baseUrl: 'https://api.deepseek.com/v1',
 				}),
 			});
 		case 'ollama':
 			return ollama.ChatTextGenerator({
-				model: config.model,
-				temperature: config.temperature,
-				format: 'json',
+				model,
+				temperature,
+				maxGenerationTokens,
+				format: responseFormat === 'json_object' ? 'json' : undefined,
 			});
 		default:
 			throw new Error(`Unsupported LLM provider: ${provider}`);

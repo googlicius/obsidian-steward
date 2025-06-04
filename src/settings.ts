@@ -289,6 +289,30 @@ export default class StewardSettingTab extends PluginSettingTab {
 					});
 			});
 
+		// Max Generation Tokens setting
+		new Setting(containerEl)
+			.setName('Max Generation Tokens')
+			.setDesc(
+				'Maximum number of tokens to generate in response (higher values may increase API costs)'
+			)
+			.addText(text => {
+				text
+					.setPlaceholder('2048')
+					.setValue(String(this.plugin.settings.llm.maxGenerationTokens || 2048))
+					.onChange(async value => {
+						// Convert to number and validate
+						const numValue = Number(value);
+						if (!isNaN(numValue) && numValue > 0) {
+							this.plugin.settings.llm.maxGenerationTokens = numValue;
+							await this.plugin.saveSettings();
+						}
+					});
+
+				// Set input type to number
+				text.inputEl.setAttribute('type', 'number');
+				text.inputEl.setAttribute('min', '1');
+			});
+
 		// Ollama Base URL setting (only shown when Ollama model is selected)
 		const ollamaBaseUrlSetting = new Setting(containerEl)
 			.setName('Ollama Base URL')

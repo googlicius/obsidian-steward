@@ -19,5 +19,6 @@ export interface StewardPluginSettings {
 		model: string; // The model name (e.g., gpt-4-turbo-preview, llama3.2)
 		temperature: number;
 		ollamaBaseUrl?: string;
+		maxGenerationTokens?: number; // Maximum number of tokens to generate in response
 	};
 }

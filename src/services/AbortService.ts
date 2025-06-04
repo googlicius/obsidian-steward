@@ -79,8 +79,6 @@ export class AbortService {
 	 * Abort all ongoing operations
 	 */
 	public abortAllOperations(): void {
-		logger.log(`Aborting all operations (${this.abortControllers.size} active)`);
-
 		// Create a copy of the keys to avoid modification during iteration
 		const operationIds = Array.from(this.abortControllers.keys());
 
