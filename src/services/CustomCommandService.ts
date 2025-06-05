@@ -1,0 +1,237 @@
+import { TFile, TFolder } from 'obsidian';
+import StewardPlugin from 'src/main';
+import { logger } from 'src/utils/logger';
+import { CommandIntent } from 'src/lib/modelfusion/extractions';
+
+/**
+ * Represents a command within a custom command sequence
+ */
+interface CustomCommandStep {
+	name: string;
+	system_prompt?: string[];
+	query: string;
+}
+
+/**
+ * Represents a custom command definition
+ */
+export interface CustomCommand {
+	command_name: string;
+	description?: string;
+	query_required?: boolean;
+	commands: CustomCommandStep[];
+}
+
+export class CustomCommandService {
+	public customCommands: Map<string, CustomCommand> = new Map();
+	private commandFolder: string;
+
+	constructor(private plugin: StewardPlugin) {
+		this.commandFolder = `${this.plugin.settings.stewardFolder}/Commands`;
+		this.initialize();
+	}
+
+	/**
+	 * Initialize the custom command service
+	 */
+	private async initialize(): Promise<void> {
+		try {
+			// Create the commands folder if it doesn't exist
+			// const folderExists = this.plugin.app.vault.getAbstractFileByPath(this.commandFolder);
+			// if (!folderExists) {
+			// 	await this.plugin.app.vault.createFolder(this.commandFolder);
+			// }
+
+			// Load all command definitions
+			await this.loadAllCommands();
+
+			// Watch for changes to command files
+			this.plugin.registerEvent(
+				this.plugin.app.vault.on('modify', file => this.handleFileModification(file as TFile))
+			);
+			this.plugin.registerEvent(
+				this.plugin.app.vault.on('create', file => this.handleFileCreation(file as TFile))
+			);
+			this.plugin.registerEvent(
+				this.plugin.app.vault.on('delete', file => this.handleFileDeletion(file as TFile))
+			);
+		} catch (error) {
+			logger.error('Error initializing CustomCommandService:', error);
+		}
+	}
+
+	/**
+	 * Load all command definitions from the Commands folder
+	 */
+	private async loadAllCommands(): Promise<void> {
+		const folder = this.plugin.app.vault.getAbstractFileByPath(this.commandFolder);
+
+		if (!(folder instanceof TFolder)) {
+			return;
+		}
+
+		// Clear existing commands
+		this.customCommands.clear();
+
+		// Process all files in the folder
+		for (const file of folder.children) {
+			if (file instanceof TFile && file.extension === 'md') {
+				await this.loadCommandFromFile(file);
+			}
+		}
+
+		logger.log(`Loaded ${this.customCommands.size} custom commands`);
+	}
+
+	/**
+	 * Load command definition from a file
+	 */
+	private async loadCommandFromFile(file: TFile): Promise<void> {
+		try {
+			const content = await this.plugin.app.vault.read(file);
+
+			// Extract JSON blocks from the content
+			const jsonBlocks = this.extractJsonBlocks(content);
+
+			for (const jsonContent of jsonBlocks) {
+				try {
+					const commandDefinition = JSON.parse(jsonContent) as CustomCommand;
+
+					if (this.validateCommandDefinition(commandDefinition)) {
+						this.customCommands.set(commandDefinition.command_name, commandDefinition);
+						logger.log(`Loaded custom command: ${commandDefinition.command_name}`);
+					}
+				} catch (jsonError) {
+					logger.error(`Invalid JSON in file ${file.path}:`, jsonError);
+				}
+			}
+		} catch (error) {
+			logger.error(`Error loading command from file ${file.path}:`, error);
+		}
+	}
+
+	/**
+	 * Extract JSON blocks from markdown content
+	 */
+	private extractJsonBlocks(content: string): string[] {
+		const jsonBlocks: string[] = [];
+		const jsonRegex = /```json\s*([\s\S]*?)\s*```/gi;
+
+		let match;
+		while ((match = jsonRegex.exec(content)) !== null) {
+			if (match[1]) {
+				jsonBlocks.push(match[1]);
+			}
+		}
+
+		return jsonBlocks;
+	}
+
+	/**
+	 * Validate a command definition
+	 */
+	private validateCommandDefinition(command: CustomCommand): boolean {
+		if (!command.command_name || typeof command.command_name !== 'string') {
+			logger.error('Invalid command: missing or invalid command_name');
+			return false;
+		}
+
+		if (!Array.isArray(command.commands) || command.commands.length === 0) {
+			logger.error(`Invalid command ${command.command_name}: missing or empty commands array`);
+			return false;
+		}
+
+		if ('query_required' in command && typeof command.query_required !== 'boolean') {
+			logger.error(`Invalid command ${command.command_name}: query_required must be a boolean`);
+			return false;
+		}
+
+		for (const step of command.commands) {
+			if (!step.name || typeof step.name !== 'string') {
+				logger.error(`Invalid command ${command.command_name}: step missing name`);
+				return false;
+			}
+
+			if (!step.query || typeof step.query !== 'string') {
+				logger.error(`Invalid command ${command.command_name}: step missing query`);
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Handle file modification events
+	 */
+	private async handleFileModification(file: TFile): Promise<void> {
+		if (this.isCommandFile(file)) {
+			console.log('handleFileModification', file.path);
+			await this.loadCommandFromFile(file);
+		}
+	}
+
+	/**
+	 * Handle file creation events
+	 */
+	private async handleFileCreation(file: TFile): Promise<void> {
+		if (this.isCommandFile(file)) {
+			await this.loadCommandFromFile(file);
+		}
+	}
+
+	/**
+	 * Handle file deletion events
+	 */
+	private handleFileDeletion(file: TFile): void {
+		if (this.isCommandFile(file)) {
+			// Find and remove any commands from this file
+			// Since we can't easily determine which command was in this file,
+			// we'll reload all commands
+			this.loadAllCommands();
+		}
+	}
+
+	/**
+	 * Check if a file is a command file
+	 */
+	private isCommandFile(file: TFile): boolean {
+		return file.path.startsWith(this.commandFolder) && file.extension === 'md';
+	}
+
+	/**
+	 * Get all custom command names for autocomplete
+	 */
+	public getCommandNames(): string[] {
+		return Array.from(this.customCommands.keys());
+	}
+
+	/**
+	 * Process a custom command with user input
+	 */
+	public processCustomCommand(commandName: string, userInput: string): CommandIntent[] | null {
+		const command = this.customCommands.get(commandName);
+
+		if (!command) {
+			return null;
+		}
+
+		// Convert the custom command steps to CommandIntent objects
+		return command.commands.map(step => {
+			// Replace $from_user placeholder with actual user input
+			const content = step.query.replace('$from_user', userInput.trim());
+
+			return {
+				commandType: step.name,
+				content: content,
+			};
+		});
+	}
+
+	/**
+	 * Check if a command name exists
+	 */
+	public hasCommand(commandName: string): boolean {
+		return this.customCommands.has(commandName);
+	}
+}

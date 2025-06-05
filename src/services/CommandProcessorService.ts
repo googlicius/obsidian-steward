@@ -19,9 +19,11 @@ import {
 	AudioCommandHandler,
 	ImageCommandHandler,
 } from '../solutions/commands/handlers';
+import { CustomCommandHandler } from '../solutions/commands/handlers/CustomCommandHandler';
 
 export class CommandProcessorService {
 	private readonly commandProcessor: CommandProcessor;
+	private customCommandHandler: CustomCommandHandler;
 
 	constructor(private readonly plugin: StewardPlugin) {
 		this.commandProcessor = new CommandProcessor();
@@ -98,6 +100,11 @@ export class CommandProcessorService {
 		// Register the general command handler (space)
 		const generalHandler = new GeneralCommandHandler(this.plugin, this.commandProcessor);
 		this.commandProcessor.registerHandler(' ', generalHandler);
+
+		// Register the custom command handler
+		// We register this to handle all custom commands dynamically
+		this.customCommandHandler = new CustomCommandHandler(this.plugin, this.commandProcessor);
+		this.commandProcessor.registerCustomCommandHandler(this.customCommandHandler);
 	}
 
 	/**
@@ -114,5 +121,23 @@ export class CommandProcessorService {
 			logger.error('Error processing commands:', error);
 			return false;
 		}
+	}
+
+	/**
+	 * Validate if the command content is required for a specific command type
+	 */
+	public validateCommandContent(commandType: string, commandContent: string): boolean {
+		const handler = this.commandProcessor.getCommandHandler(commandType);
+		if (!handler) return true;
+
+		if (typeof handler.isContentRequired === 'function') {
+			return handler.isContentRequired(commandType) ? commandContent.trim() !== '' : true;
+		}
+
+		if (typeof handler.isContentRequired === 'boolean') {
+			return handler.isContentRequired ? commandContent.trim() !== '' : true;
+		}
+		// Default: allow
+		return true;
 	}
 }

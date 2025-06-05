@@ -30,6 +30,7 @@ import { createStewardConversationProcessor } from './cm/post-processors/Steward
 import { ObsidianEditor } from './types/types';
 import { isConversationLink, extractConversationTitle } from './utils/conversationUtils';
 import { CommandProcessorService } from './services/CommandProcessorService';
+import { CustomCommandService } from './services/CustomCommandService';
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -47,6 +48,7 @@ export default class StewardPlugin extends Plugin {
 	mediaGenerationService: MediaGenerationService;
 	contentReadingService: ContentReadingService;
 	commandProcessorService: CommandProcessorService;
+	customCommandService: CustomCommandService;
 	conversationEventHandler: ConversationEventHandler;
 
 	get editor(): ObsidianEditor {
@@ -56,8 +58,11 @@ export default class StewardPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		// Exclude development-related folders from search
-		this.excludeFoldersFromSearch([`${this.settings.stewardFolder}/`]);
+		// Exclude steward folders from search
+		this.excludeFoldersFromSearch([
+			`${this.settings.stewardFolder}/Conversations`,
+			`${this.settings.stewardFolder}/Commands`,
+		]);
 
 		// Set the placeholder text based on the current language
 		document.documentElement.style.setProperty(
@@ -87,7 +92,10 @@ export default class StewardPlugin extends Plugin {
 		this.searchService = SearchService.getInstance({
 			app: this.app,
 			dbName: this.settings.searchDbPrefix,
-			excludeFolders: [...this.settings.excludedFolders, `${this.settings.stewardFolder}/`],
+			excludeFolders: [
+				...this.settings.excludedFolders,
+				`${this.settings.stewardFolder}/Conversations`,
+			],
 		});
 
 		// Initialize the search service
@@ -119,6 +127,9 @@ export default class StewardPlugin extends Plugin {
 
 		// Initialize the content reading service
 		this.contentReadingService = new ContentReadingService(this);
+
+		// Initialize the CustomCommandService
+		this.customCommandService = new CustomCommandService(this);
 
 		// Register custom icon
 		addIcon(
@@ -156,6 +167,7 @@ export default class StewardPlugin extends Plugin {
 		this.registerEditorExtension([
 			createCommandInputExtension(COMMAND_PREFIXES, {
 				onEnter: this.handleEnter.bind(this),
+				customCommandService: this.customCommandService,
 			}),
 		]);
 
@@ -267,22 +279,49 @@ export default class StewardPlugin extends Plugin {
 		const line = doc.lineAt(pos);
 		const lineText = line.text;
 
-		// Check if line starts with a command prefix
-		const commandMatch = COMMAND_PREFIXES.find(prefix => lineText.startsWith(prefix));
+		// Exit early if line doesn't start with '/'
+		if (!lineText.startsWith('/')) {
+			return false;
+		}
 
-		if (!commandMatch) {
+		// Create an extended set of prefixes including custom commands
+		const extendedPrefixes = [...COMMAND_PREFIXES];
+
+		// Add custom command prefixes if available
+		if (this.customCommandService) {
+			const customCommands = this.customCommandService.getCommandNames();
+			customCommands.forEach(cmd => {
+				extendedPrefixes.push('/' + cmd);
+			});
+		}
+
+		// Sort prefixes by length (longest first) to ensure we match the most specific command
+		extendedPrefixes.sort((a, b) => b.length - a.length);
+
+		// Find the matching prefix (if any)
+		const matchedPrefix = extendedPrefixes.find(prefix => lineText.startsWith(prefix));
+
+		if (!matchedPrefix) {
 			return false;
 		}
 
 		// Extract the command content (everything after the prefix)
-		const commandContent = lineText.trim().substring(commandMatch.length).trim();
-		const commandType = commandMatch.substring(1); // Remove the / from the command
+		const commandContent = lineText.trim().substring(matchedPrefix.length).trim();
+
+		// Determine command type based on the prefix
+		let commandType = matchedPrefix.substring(1); // Remove the / from the command
+
+		// Handle special case for general command
+		if (matchedPrefix === '/ ') {
+			commandType = ' ';
+		}
 
 		logger.log('Command type:', commandType === ' ' ? 'general' : commandType);
 		logger.log('Command content:', commandContent);
+		// this.commandProcessorService
 
-		if (!this.validateCommandContent(commandType, commandContent)) {
-			logger.log('Command content is required for this command');
+		if (!this.commandProcessorService.validateCommandContent(commandType, commandContent)) {
+			logger.log(`Command content is required for ${commandType} command`);
 			return true;
 		}
 
@@ -355,19 +394,6 @@ export default class StewardPlugin extends Plugin {
 		})();
 
 		return true;
-	}
-
-	private validateCommandContent(commandType: string, commandContent: string): boolean {
-		switch (commandType) {
-			case ' ':
-			case 'search':
-			case 'image':
-			case 'audio':
-				return commandContent.trim() !== '';
-
-			default:
-				return true;
-		}
 	}
 
 	/**

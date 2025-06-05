@@ -18,9 +18,11 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 
 This plugin is currently under active development. New features and improvements are being added regularly. While the core functionality is stable, you might encounter occasional issues or changes as development progresses. Feedback and bug reports are welcome!
 
-## Usage
+## Standard (Built-In) Commands
 
 Steward can be used through the command palette directly in the editor or by opening the chat interface. Here are some example commands:
+
+### Usage
 
 - **/search** Notes tagged #Todo in the root folder
 - / Add tag #Done to all notes of the search results and move them to the Archived folder
@@ -29,11 +31,63 @@ Steward can be used through the command palette directly in the editor or by ope
 - **/audio** "project" as a noun and a verb using 11Labs
 - / I don't like your name, you are "Joe" from now on
 
-**Your commands (Not implemented yet):**
+## User-Defined Commands
 
-Load one or more custom prompts by adding tags to the command:
+You can create your own **User-Defined Commands** to automate workflows and combine multiple built-in or other User-Defined commands into a single, reusable command.
 
-- / `#tagRelatedToAPrompt` Finish this
+### How It Works
+
+- User-Defined Commands are defined as JSON blocks in markdown files inside the `Steward/Commands` folder.
+- Each command can specify a sequence of built-in commands to execute.
+- You can specify if user input is required for your command using the `query_required` field.
+- These commands are available with autocomplete and are processed just like built-in commands.
+
+### Example: User-Defined Command JSON
+
+```json
+{
+	"command_name": "clean_up",
+	"description": "Clean up the vault",
+	"query_required": false,
+	"commands": [
+		{
+			"name": "search",
+			"system_prompt": ["Notes in the root folder"],
+			"query": "Notes name start with Untitled"
+		},
+		{
+			"name": "delete_from_artifact",
+			"query": "Delete them"
+		}
+	]
+}
+```
+
+- `command_name`: The name you will use to invoke the command (e.g., `/clean_up`)
+- `query_required`: (optional, boolean) If true, the command requires user input after the prefix
+- `commands`: The sequence of built-in or user-defined commands to execute
+  - `system_prompt`: The system prompts that allows to add additional guidelines to the current command
+
+### Usage
+
+1. Create a note in `Steward/Commands` and add your command JSON in a code block.
+2. In any note or the Chat, type your command (e.g., `/clean_up #Todo`) and press Enter.
+3. The command will execute the defined sequence, using your input if required.
+
+### Validation
+
+- The system validates your User-Defined Command JSON:
+  - `command_name` must be a string
+  - `commands` must be a non-empty array
+  - If present, `query_required` must be a boolean
+  - Each command step must have a `name` (string) and `query` (string)
+- If validation fails, the command will not be loaded and an error will be logged.
+
+### Why User-Defined Commands?
+
+- Automate repetitive tasks
+- Create macros for your workflow
+- Share and reuse command sequences
 
 ## Tips to reduce the number of input tokens
 

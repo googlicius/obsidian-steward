@@ -31,6 +31,11 @@ export interface CommandHandlerParams {
 export abstract class CommandHandler {
 	readonly plugin: StewardPlugin;
 
+	/**
+	 * Optional: Whether this command requires content (boolean or function for dynamic check)
+	 */
+	isContentRequired?: boolean | ((commandType: string) => boolean);
+
 	get renderer(): ConversationRenderer {
 		return this.plugin.conversationRenderer;
 	}

@@ -11,6 +11,8 @@ import { MediaTools } from 'src/tools/mediaTools';
 
 export class ImageCommandHandler extends CommandHandler {
 	private mediaTools: MediaTools;
+	isContentRequired = true;
+
 	constructor(public readonly plugin: StewardPlugin) {
 		super();
 		this.mediaTools = new MediaTools(plugin.app);

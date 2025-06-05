@@ -7,18 +7,37 @@ import {
 	WidgetType,
 	keymap,
 } from '@codemirror/view';
-import { Extension, Prec } from '@codemirror/state';
-import { autocompletion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
+import { Extension, Line, Prec } from '@codemirror/state';
+import {
+	autocompletion,
+	CompletionContext,
+	CompletionResult,
+	Completion,
+} from '@codemirror/autocomplete';
 import { capitalizeString } from 'src/utils/capitalizeString';
 import { setIcon } from 'obsidian';
 import { LLM_MODELS } from 'src/constants';
 import { AbortService } from 'src/services/AbortService';
+import { CustomCommandService } from 'src/services/CustomCommandService';
 
 export interface CommandInputOptions {
 	/**
 	 * The callback function to call when Enter is pressed on a command line
 	 */
 	onEnter?: (view: EditorView) => boolean;
+
+	/**
+	 * The custom command service instance
+	 */
+	customCommandService?: CustomCommandService;
+}
+
+/**
+ * Determines if a command line should show a placeholder
+ */
+function hasCommandPlaceholder(line: Line, matchedPrefix: string): boolean {
+	const command = matchedPrefix === '/ ' ? 'general' : matchedPrefix.replace('/', '');
+	return command === 'general' ? line.text === matchedPrefix : line.text.trim() === matchedPrefix;
 }
 
 export function createCommandInputExtension(
@@ -26,8 +45,8 @@ export function createCommandInputExtension(
 	options: CommandInputOptions = {}
 ): Extension {
 	return [
-		createInputExtension(commandPrefixes),
-		createAutocompleteExtension(commandPrefixes),
+		createInputExtension(commandPrefixes, options),
+		createAutocompleteExtension(commandPrefixes, options),
 		// Add keymap with high precedence
 		Prec.high(
 			keymap.of([
@@ -132,8 +151,13 @@ class CommandToolbarWidget extends WidgetType {
 	}
 }
 
+const commandInputLineDecor = Decoration.line({ class: 'conversation-command-line' });
+
 // Add syntax highlighting for command prefixes and toolbar for command inputs
-function createInputExtension(commandPrefixes: string[]): Extension {
+function createInputExtension(
+	commandPrefixes: string[],
+	options: CommandInputOptions = {}
+): Extension {
 	return ViewPlugin.fromClass(
 		class {
 			decorations: DecorationSet;
@@ -156,6 +180,20 @@ function createInputExtension(commandPrefixes: string[]): Extension {
 				// Get visible range instead of processing the entire document
 				const { from, to } = view.viewport;
 
+				// Create an extended set of prefixes including custom commands
+				const extendedPrefixes = [...commandPrefixes];
+
+				// Add custom command prefixes if available
+				if (options.customCommandService) {
+					const customCommands = options.customCommandService.getCommandNames();
+					customCommands.forEach(cmd => {
+						extendedPrefixes.push('/' + cmd);
+					});
+				}
+
+				// Sort prefixes by length (longest first) to ensure we match the most specific command
+				extendedPrefixes.sort((a, b) => b.length - a.length);
+
 				// Process only the visible lines
 				let pos = from;
 				while (pos <= to) {
@@ -165,20 +203,20 @@ function createInputExtension(commandPrefixes: string[]): Extension {
 					// Fast check for any command prefix
 					if (lineText.startsWith('/')) {
 						// Find the matching prefix (if any)
-						const matchedPrefix = commandPrefixes.find(prefix => lineText.startsWith(prefix));
+						const matchedPrefix = extendedPrefixes.find(prefix => lineText.startsWith(prefix));
 
 						if (matchedPrefix) {
 							const from = line.from + lineText.indexOf(matchedPrefix);
 							const to = from + matchedPrefix.length;
 
 							const command = matchedPrefix === '/ ' ? 'general' : matchedPrefix.replace('/', '');
-							const hasPlaceholder =
-								command === 'general'
-									? lineText === matchedPrefix
-									: lineText.trim() === matchedPrefix;
+							const hasPlaceholder = hasCommandPlaceholder(line, matchedPrefix);
 
-							// Add decoration for the command prefix
 							decorations.push(
+								// Add decoration for the entire line
+								commandInputLineDecor.range(line.from),
+
+								// Add decoration for the command prefix
 								Decoration.mark({
 									class: `conversation-command cm-conversation-command conversation-command-${command}`,
 									...(hasPlaceholder && {
@@ -186,14 +224,6 @@ function createInputExtension(commandPrefixes: string[]): Extension {
 									}),
 								}).range(from, to)
 							);
-
-							// Add toolbar widget at the end of the line
-							// decorations.push(
-							// 	Decoration.widget({
-							// 		widget: new CommandToolbarWidget(command),
-							// 		side: 1,
-							// 	}).range(line.to)
-							// );
 						}
 					}
 
@@ -211,7 +241,10 @@ function createInputExtension(commandPrefixes: string[]): Extension {
 }
 
 // Add autocomplete functionality for command prefixes
-function createAutocompleteExtension(commandPrefixes: string[]): Extension {
+function createAutocompleteExtension(
+	commandPrefixes: string[],
+	options: CommandInputOptions = {}
+): Extension {
 	// Create a mapping of command prefixes to their types for easier lookup
 	const commandTypes = commandPrefixes.map(prefix => {
 		// Remove the slash and trim whitespace
@@ -242,7 +275,8 @@ function createAutocompleteExtension(commandPrefixes: string[]): Extension {
 				// Get the current word (which starts with /)
 				const word = lineText.trim();
 
-				const options = commandTypes
+				// Get built-in command options
+				const builtInOptions: Completion[] = commandTypes
 					.filter(cmd => cmd.prefix.startsWith(word) && cmd.prefix !== word)
 					.map(cmd => ({
 						label: cmd.prefix,
@@ -251,11 +285,37 @@ function createAutocompleteExtension(commandPrefixes: string[]): Extension {
 						apply: cmd.prefix + ' ',
 					}));
 
-				if (options.length === 0) return null;
+				// Get custom command options
+				const customOptions: Completion[] = [];
+
+				// Add custom command options if available
+				if (options.customCommandService) {
+					const customCommands = options.customCommandService.getCommandNames();
+
+					// Filter custom commands based on current input
+					const filteredCustomCommands = customCommands.filter(
+						(cmd: string) => ('/' + cmd).startsWith(word) && '/' + cmd !== word
+					);
+
+					// Add to options
+					filteredCustomCommands.forEach((cmd: string) => {
+						customOptions.push({
+							label: '/' + cmd,
+							type: 'keyword',
+							detail: 'Custom command',
+							apply: '/' + cmd + ' ',
+						});
+					});
+				}
+
+				// Combine built-in and custom options
+				const completionOptions = [...builtInOptions, ...customOptions];
+
+				if (completionOptions.length === 0) return null;
 
 				return {
 					from: line.from,
-					options,
+					options: completionOptions,
 					validFor: text => {
 						// If text matches an exact command, return false
 						if (commandPrefixes.some(cmd => cmd === text)) return false;

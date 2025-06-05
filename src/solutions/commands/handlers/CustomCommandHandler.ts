@@ -6,11 +6,13 @@ import {
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import StewardPlugin from 'src/main';
-import { extractCommandIntent } from 'src/lib/modelfusion/extractions';
 import { CommandProcessor } from '../CommandProcessor';
 
-export class GeneralCommandHandler extends CommandHandler {
-	isContentRequired = true;
+export class CustomCommandHandler extends CommandHandler {
+	isContentRequired = (commandType: string): boolean => {
+		const customCommand = this.plugin.customCommandService?.customCommands.get(commandType);
+		return !!(customCommand && customCommand.query_required);
+	};
 
 	constructor(
 		public readonly plugin: StewardPlugin,
@@ -20,42 +22,44 @@ export class GeneralCommandHandler extends CommandHandler {
 	}
 
 	/**
-	 * Render the loading indicator for the general command
+	 * Render the loading indicator for custom commands
 	 */
 	public async renderIndicator(title: string, lang?: string): Promise<void> {
 		const t = getTranslation(lang);
-		await this.renderer.addGeneratingIndicator(title, t('conversation.workingOnIt'));
+		await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
 	}
 
 	/**
-	 * Handle a general command (space)
+	 * Handle a custom command
 	 */
 	public async handle(params: CommandHandlerParams): Promise<CommandResult> {
 		const { title, command } = params;
 
 		try {
-			// Extract the command intent using AI
-			const intentExtraction = await extractCommandIntent(command.content, {
-				...this.settings.llm,
-			});
+			// Get the custom command definition
+			const commandIntents = this.plugin.customCommandService.processCustomCommand(
+				command.commandType,
+				command.content
+			);
 
-			// For low confidence intents, just show the explanation without further action
-			if (intentExtraction.confidence <= 0.7) {
+			if (!commandIntents) {
 				await this.renderer.updateConversationNote({
 					path: title,
-					newContent: intentExtraction.explanation,
+					newContent: `*Error: Custom command '${command.commandType}' not found*`,
 					role: 'Steward',
 				});
 
 				return {
-					status: CommandResultStatus.SUCCESS,
+					status: CommandResultStatus.ERROR,
+					error: new Error(`Custom command '${command.commandType}' not found`),
 				};
 			}
 
+			// Process the commands
 			await this.commandProcessor.processCommands({
 				title,
-				commands: intentExtraction.commands,
-				lang: intentExtraction.lang,
+				commands: commandIntents,
+				lang: params.lang,
 			});
 
 			return {
@@ -64,7 +68,8 @@ export class GeneralCommandHandler extends CommandHandler {
 		} catch (error) {
 			await this.renderer.updateConversationNote({
 				path: title,
-				newContent: `*Error processing your request: ${error.message}*`,
+				newContent: `*Error processing custom command: ${error.message}*`,
+				role: 'Steward',
 			});
 
 			return {

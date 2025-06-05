@@ -29,6 +29,12 @@ If your plugin does not need CSS, delete this file.
 	margin-left: 0;
 }
 
+.conversation-command-line {
+	background-color: rgba(255, 255, 255, 0.1);
+	padding-top: 5px !important;
+	padding-bottom: 5px !important;
+}
+
 /* Command Autocomplete styling */
 .cm-tooltip.cm-tooltip-autocomplete {
 	border: 1px solid var(--background-modifier-border);

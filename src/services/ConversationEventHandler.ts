@@ -7,7 +7,7 @@ import {
 import { eventEmitter } from './EventEmitter';
 import StewardPlugin from '../main';
 import { ConversationRenderer } from './ConversationRenderer';
-import { EventRef, TFile } from 'obsidian';
+import { TFile } from 'obsidian';
 import { createMockStreamResponse } from '../utils/textStreamer';
 import { STEWARD_INTRODUCTION } from '../constants';
 import i18next from 'i18next';
@@ -19,7 +19,6 @@ interface Props {
 export class ConversationEventHandler {
 	private readonly plugin: StewardPlugin;
 	private readonly renderer: ConversationRenderer;
-	private eventRefs: EventRef[] = [];
 
 	constructor(props: Props) {
 		this.plugin = props.plugin;
@@ -28,13 +27,15 @@ export class ConversationEventHandler {
 	}
 
 	private setupListeners(): void {
-		this.eventRefs.push(
+		this.plugin.registerEvent(
 			// Listen for file modifications
 			this.plugin.app.vault.on('modify', async file => {
 				this.initializeChat(file as TFile);
 				this.initializeIntroduction(file as TFile);
-			}),
+			})
+		);
 
+		this.plugin.registerEvent(
 			// Listen for file creations
 			this.plugin.app.vault.on('create', async file => {
 				this.initializeChat(file as TFile, true);
@@ -65,8 +66,7 @@ export class ConversationEventHandler {
 	}
 
 	unload(): void {
-		this.eventRefs.forEach(ref => this.plugin.app.workspace.offref(ref));
-		this.eventRefs = [];
+		//
 	}
 
 	private async initializeChat(file: TFile, newlyCreated = false): Promise<void> {

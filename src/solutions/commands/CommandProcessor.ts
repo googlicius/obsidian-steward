@@ -20,12 +20,28 @@ export class CommandProcessor {
 	private pendingCommands: Map<string, PendingCommand> = new Map();
 
 	private commandHandlers: Map<string, CommandHandler> = new Map();
+	private customCommandHandler: CommandHandler | null = null;
 
 	/**
 	 * Register a command handler for a specific command type
 	 */
 	public registerHandler(commandType: string, handler: CommandHandler): void {
 		this.commandHandlers.set(commandType, handler);
+	}
+
+	/**
+	 * Register a custom command handler for handling user-defined commands
+	 */
+	public registerCustomCommandHandler(handler: CommandHandler): void {
+		this.customCommandHandler = handler;
+	}
+
+	/**
+	 * Check if a command is a custom command that should be handled by the custom handler
+	 */
+	private isCustomCommand(commandType: string): boolean {
+		// If we have a custom command handler and the command is not a built-in one
+		return this.customCommandHandler !== null && !this.commandHandlers.has(commandType);
 	}
 
 	/**
@@ -124,7 +140,13 @@ export class CommandProcessor {
 			const nextIndex = i + 1;
 
 			// Find the appropriate handler
-			const handler = this.commandHandlers.get(command.commandType);
+			let handler = this.commandHandlers.get(command.commandType);
+
+			// If no handler found and we have a custom command handler, use it
+			if (!handler && this.customCommandHandler && this.isCustomCommand(command.commandType)) {
+				handler = this.customCommandHandler;
+			}
+
 			if (!handler) {
 				logger.warn(`No handler for command type: ${command.commandType}`);
 				// Continue to the next command instead of stopping
@@ -203,5 +225,9 @@ export class CommandProcessor {
 				currentIndex: index,
 			});
 		}
+	}
+
+	public getCommandHandler(commandType: string): CommandHandler | null {
+		return this.commandHandlers.get(commandType) || this.customCommandHandler;
 	}
 }

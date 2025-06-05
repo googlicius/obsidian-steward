@@ -11,6 +11,7 @@ import { MediaTools } from 'src/tools/mediaTools';
 
 export class AudioCommandHandler extends CommandHandler {
 	private mediaTools: MediaTools;
+	isContentRequired = true;
 
 	constructor(public readonly plugin: StewardPlugin) {
 		super();

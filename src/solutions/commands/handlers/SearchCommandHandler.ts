@@ -13,6 +13,8 @@ import { highlightKeyword } from 'src/utils/highlightKeywords';
 import { PaginatedSearchResultV2 } from 'src/solutions/search';
 
 export class SearchCommandHandler extends CommandHandler {
+	isContentRequired = true;
+
 	private static instance: SearchCommandHandler | null = null;
 
 	constructor(public readonly plugin: StewardPlugin) {
