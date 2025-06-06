@@ -5,7 +5,7 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 ## Features
 
 - **Built-in Search Engine**: A TF-IDF based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search
-- **Command-based Interaction**: Support for commands like search, create, update, delete, move, audio, and image generation
+- **Command-based Interaction**: Support for standard commands like search, create, update, delete, move, audio, image generation, and user-defined commands
 - **Multi-language Support**: Use Steward in your preferred language
 - **Privacy-focused**: Most actions are executed in the front-end using Obsidian API to avoid exposing your data to LLMs (except for your queries)
 - **Interactive Chat UI**: An interactive chat interface using your current theme that leverages Obsidian's editor features to input any supported Markdown syntax. You can start a conversation, whether in the Chat sidebar or directly in the current editor.
@@ -31,6 +31,12 @@ Steward can be used through the command palette directly in the editor or by ope
 - **/audio** "project" as a noun and a verb using 11Labs
 - / I don't like your name, you are "Joe" from now on
 
+### Tips to reduce the number of input tokens
+
+- Use a specific command directly instead of a general command (`/ `), e.g, `/search`, `/audio`, etc.
+- For the `/search` command, wrap the keyword in quotation marks for searching the vault without the LLM's help, e.g, `/search "my cat"`
+- Provide feedback by clicking thumbs up or down on any Steward's answer to help it classify accurately #Todo.
+
 ## User-Defined Commands
 
 You can create your own **User-Defined Commands** to automate workflows and combine multiple built-in or other User-Defined commands into a single, reusable command.
@@ -38,7 +44,7 @@ You can create your own **User-Defined Commands** to automate workflows and comb
 ### How It Works
 
 - User-Defined Commands are defined as JSON blocks in markdown files inside the `Steward/Commands` folder.
-- Each command can specify a sequence of built-in commands to execute.
+- Each command can specify a sequence of built-in or user-defined commands to execute.
 - You can specify if user input is required for your command using the `query_required` field.
 - These commands are available with autocomplete and are processed just like built-in commands.
 
@@ -66,7 +72,8 @@ You can create your own **User-Defined Commands** to automate workflows and comb
 - `command_name`: The name you will use to invoke the command (e.g., `/clean_up`)
 - `query_required`: (optional, boolean) If true, the command requires user input after the prefix
 - `commands`: The sequence of built-in or user-defined commands to execute
-  - `system_prompt`: The system prompts that allows to add additional guidelines to the current command
+  - `system_prompt`: The system prompts that allows to add additional guidelines to LLMs to the current command
+  - `query`: (required if the `query_required` is true, string) The query to send to LLMs, put the `$from_user` as a placeholder for your input
 
 ### Usage
 
@@ -88,12 +95,6 @@ You can create your own **User-Defined Commands** to automate workflows and comb
 - Automate repetitive tasks
 - Create macros for your workflow
 - Share and reuse command sequences
-
-## Tips to reduce the number of input tokens
-
-- Use a specific command directly instead of a general command (`/ `), e.g, `/search`, `/audio`, etc.
-- For the `/search` command, wrap the keyword in quotation marks for searching the vault without the LLM's help, e.g, `/search "my cat"`
-- Provide feedback by clicking thumbs up or down on any Steward's answer to help it classify accurately #Todo.
 
 ## Installation
 

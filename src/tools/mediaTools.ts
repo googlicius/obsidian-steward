@@ -1,9 +1,18 @@
 import { App, TFile } from 'obsidian';
 import { logger } from '../utils/logger';
-import { generateImage, generateSpeech, openai, OpenAISpeechVoice, elevenlabs } from 'modelfusion';
+import {
+	generateImage,
+	generateSpeech,
+	openai,
+	OpenAISpeechVoice,
+	elevenlabs,
+	SpeechGenerationModel,
+} from 'modelfusion';
+import { OpenAISpeechModel } from 'src/lib/modelfusion/overriden/OpenAISpeechModel';
 
 export interface MediaGenerationOptions {
 	prompt: string;
+	instructions?: string;
 	type: 'image' | 'audio';
 	model?: string;
 	size?: string;
@@ -24,9 +33,9 @@ export interface MediaGenerationResult {
 }
 
 type AudioModelType = 'openai' | 'elevenlabs';
-const audioModels: Record<AudioModelType, (voice: string) => any> = {
+const audioModels: Record<AudioModelType, (voice: string) => SpeechGenerationModel> = {
 	openai: (voice: string) =>
-		openai.SpeechGenerator({
+		new OpenAISpeechModel({
 			model: 'tts-1',
 			voice: voice as OpenAISpeechVoice,
 		}),
@@ -191,7 +200,11 @@ export class MediaTools {
 			}
 
 			const response = await generateSpeech({
-				model: generatorFactory(options.voice || 'alloy'),
+				model: generatorFactory(options.voice || 'alloy').withSettings({
+					...(options.instructions && {
+						instructions: options.instructions,
+					}),
+				} as any),
 				text: options.prompt,
 			});
 

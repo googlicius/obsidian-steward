@@ -17,16 +17,16 @@ export interface NoteGenerationExtraction {
 
 /**
  * Extract note generation details from a user query
- * @param userInput Natural language request from the user
- * @param llmConfig LLM configuration settings
- * @param recentlyCreatedNote Optional path of a recently created note to use as default
+ * @param params Parameters for the note generation extraction
  * @returns Extracted note name, instructions, style preferences, and explanation
  */
-export async function extractNoteGeneration(
-	userInput: string,
-	llmConfig: StewardPluginSettings['llm'],
-	recentlyCreatedNote?: string
-): Promise<NoteGenerationExtraction> {
+export async function extractNoteGeneration(params: {
+	userInput: string;
+	systemPrompts?: string[];
+	llmConfig: StewardPluginSettings['llm'];
+	recentlyCreatedNote?: string;
+}): Promise<NoteGenerationExtraction> {
+	const { userInput, systemPrompts = [], llmConfig, recentlyCreatedNote } = params;
 	try {
 		const response = await generateText({
 			model: createLLMGenerator(llmConfig),
@@ -35,6 +35,7 @@ export async function extractNoteGeneration(
 				userLanguagePrompt,
 				confidenceScorePrompt,
 				noteGenerationPrompt,
+				...systemPrompts.map(prompt => ({ role: 'system', content: prompt })),
 				{
 					role: 'system',
 					content: recentlyCreatedNote

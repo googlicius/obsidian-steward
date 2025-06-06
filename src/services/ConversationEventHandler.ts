@@ -70,26 +70,32 @@ export class ConversationEventHandler {
 	}
 
 	private async initializeChat(file: TFile, newlyCreated = false): Promise<void> {
-		if (file.name.startsWith('Steward Chat')) {
-			const content = await this.plugin.app.vault.cachedRead(file);
-
-			if (!content) {
-				const streamContent = newlyCreated
-					? `${i18next.t('ui.welcomeMessage')}\n\n[[${this.plugin.settings.stewardFolder}/Welcome to Steward|Introduction]]\n\n/ `
-					: `${i18next.t('ui.welcomeMessage')}\n\n/ `;
-				await this.renderer.streamFile(file, createMockStreamResponse(streamContent));
-
-				this.plugin.setCursorToEndOfFile();
-			}
+		if (!file.name.startsWith('Steward Chat')) {
+			return;
 		}
+
+		const content = await this.plugin.app.vault.cachedRead(file);
+
+		if (content) {
+			return;
+		}
+
+		const streamContent = newlyCreated
+			? `${i18next.t('ui.welcomeMessage')}\n\n[[${this.plugin.settings.stewardFolder}/Welcome to Steward|Introduction]]\n\n/ `
+			: `${i18next.t('ui.welcomeMessage')}\n\n/ `;
+		await this.renderer.streamFile(file, createMockStreamResponse(streamContent));
+
+		this.plugin.setCursorToEndOfFile();
 	}
 
 	private async initializeIntroduction(file: TFile): Promise<void> {
-		if (file.path === `${this.plugin.settings.stewardFolder}/Welcome to Steward.md`) {
-			const content = await this.plugin.app.vault.cachedRead(file);
-			if (!content.trim()) {
-				this.renderer.streamFile(file, createMockStreamResponse(STEWARD_INTRODUCTION));
-			}
+		if (file.path !== `${this.plugin.settings.stewardFolder}/Welcome to Steward.md`) {
+			return;
+		}
+
+		const content = await this.plugin.app.vault.cachedRead(file);
+		if (!content.trim()) {
+			this.renderer.streamFile(file, createMockStreamResponse(STEWARD_INTRODUCTION));
 		}
 	}
 

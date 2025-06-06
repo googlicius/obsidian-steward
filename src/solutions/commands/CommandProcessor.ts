@@ -37,14 +37,6 @@ export class CommandProcessor {
 	}
 
 	/**
-	 * Check if a command is a custom command that should be handled by the custom handler
-	 */
-	private isCustomCommand(commandType: string): boolean {
-		// If we have a custom command handler and the command is not a built-in one
-		return this.customCommandHandler !== null && !this.commandHandlers.has(commandType);
-	}
-
-	/**
 	 * Process a list of commands
 	 */
 	public async processCommands(
@@ -115,6 +107,14 @@ export class CommandProcessor {
 
 	private isGeneralCommand(commands: CommandIntent[]): boolean {
 		return commands.length === 1 && commands[0].commandType === ' ';
+	}
+
+	/**
+	 * Check if a command is a custom command that should be handled by the custom handler
+	 */
+	private isCustomCommand(commandType: string): boolean {
+		// If we have a custom command handler and the command is not a built-in one
+		return this.customCommandHandler !== null && !this.commandHandlers.has(commandType);
 	}
 
 	/**

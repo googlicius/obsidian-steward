@@ -43,10 +43,10 @@ export class GenerateCommandHandler extends CommandHandler {
 		try {
 			if (prevCommand && prevCommand.commandType === 'read') {
 				// Generate content from a read artifact
-				await this.generateFromReadArtifact(title, command.content, nextCommand, lang);
+				await this.generateFromReadArtifact(title, command, nextCommand, lang);
 			} else {
 				// Default generation (including after create)
-				await this.generateFromCreateOrDefault(title, command.content, lang);
+				await this.generateFromCreateOrDefault(title, command, lang);
 			}
 
 			return {
@@ -69,13 +69,13 @@ export class GenerateCommandHandler extends CommandHandler {
 	/**
 	 * Generate content based on previously read content
 	 * @param title The conversation title
-	 * @param commandContent The command content
+	 * @param command The current command
 	 * @param nextCommand The next command (optional)
 	 * @param lang Optional language code for the response
 	 */
 	private async generateFromReadArtifact(
 		title: string,
-		commandContent: string,
+		command: CommandIntent,
 		nextCommand?: CommandIntent,
 		lang?: string
 	): Promise<void> {
@@ -98,8 +98,16 @@ export class GenerateCommandHandler extends CommandHandler {
 
 		const extraction =
 			nextCommand && nextCommand.commandType === 'update_from_artifact'
-				? await extractContentUpdate(`${contentsStr}\n\n${commandContent}`, this.settings.llm)
-				: await extractContentGeneration(`${contentsStr}\n\n${commandContent}`, this.settings.llm);
+				? await extractContentUpdate({
+						userInput: `${contentsStr}\n\n${command.content}`,
+						systemPrompts: command.systemPrompts,
+						llmConfig: this.settings.llm,
+					})
+				: await extractContentGeneration({
+						userInput: `${contentsStr}\n\n${command.content}`,
+						systemPrompts: command.systemPrompts,
+						llmConfig: this.settings.llm,
+					});
 
 		if (extraction.confidence <= 0.7) {
 			return;
@@ -148,12 +156,12 @@ export class GenerateCommandHandler extends CommandHandler {
 	/**
 	 * Generate content for a note or conversation
 	 * @param title The conversation title
-	 * @param commandContent The command content
+	 * @param command The current command
 	 * @param lang Optional language code for the response
 	 */
 	private async generateFromCreateOrDefault(
 		title: string,
-		commandContent: string,
+		command: CommandIntent,
 		lang?: string
 	): Promise<void> {
 		const t = getTranslation(lang);
@@ -171,11 +179,12 @@ export class GenerateCommandHandler extends CommandHandler {
 		}
 
 		// Extract the content generation details using the LLM
-		const extraction = await extractNoteGeneration(
-			commandContent,
-			this.settings.llm,
-			recentlyCreatedNote
-		);
+		const extraction = await extractNoteGeneration({
+			userInput: command.content,
+			systemPrompts: command.systemPrompts,
+			llmConfig: this.settings.llm,
+			recentlyCreatedNote,
+		});
 
 		// For low confidence extractions, just show the explanation
 		await this.renderer.updateConversationNote({

@@ -350,49 +350,47 @@ export class ConversationRenderer {
 				case 'move':
 					initialContent += `*${t('conversation.moving')}*`;
 					break;
+
 				case 'move_from_artifact':
 					initialContent += `*${t('conversation.moving')}*`;
 					break;
+
 				case 'delete':
 					initialContent += `*${t('conversation.deleting')}*`;
 					break;
+
 				case 'copy':
 					initialContent += `*${t('conversation.copying')}*`;
 					break;
+
 				case 'search':
 					initialContent += `*${t('conversation.searching')}*`;
 					break;
+
 				case 'calc':
 					initialContent += `*${t('conversation.calculating')}*`;
 					break;
+
 				case 'image':
 					initialContent += `*${t('conversation.generatingImage')}*`;
 					break;
+
 				case 'audio':
 				case 'speak':
 					initialContent += `*${t('conversation.generatingAudio')}*`;
 					break;
+
 				case 'update':
 					initialContent += `*${t('conversation.updating')}*`;
 					break;
-				case ' ': {
-					initialContent += `*${t('conversation.generating')}*`;
-					break;
-				}
 
-				case 'prompt': {
+				case 'prompt':
 					initialContent += `*${t('conversation.creatingPrompt')}*`;
 					break;
-				}
 
+				case ' ':
 				default:
-					initialContent = [
-						`<!--STW:ID:${messageId},ROLE:user,COMMAND:${commandType}-->`,
-						`/${commandType.trim()} ${content}`,
-						'',
-						`**Steward**: ${t('conversation.workingOnIt')}`,
-						'',
-					].join('\n');
+					initialContent += `*${t('conversation.generating')}*`;
 					break;
 			}
 

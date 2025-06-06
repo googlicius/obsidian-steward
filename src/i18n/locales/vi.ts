@@ -16,6 +16,7 @@ const vi = {
 		},
 		// Move result messages
 		move: {
+			noSearchResultsFoundAbortMove: 'Không tìm thấy kết quả tìm kiếm. Hủy thao tác di chuyển.',
 			foundFiles: 'Tôi đã tìm thấy {{count}} tập tin khớp với truy vấn của bạn.',
 			foundFiles_plural: 'Tôi đã tìm thấy {{count}} tập tin khớp với truy vấn của bạn.',
 			successfullyMoved: 'Đã di chuyển thành công {{count}} tập tin:',
@@ -32,6 +33,7 @@ const vi = {
 		},
 		// Copy result messages
 		copy: {
+			noSearchResultsFoundAbortCopy: 'Không tìm thấy kết quả tìm kiếm. Hủy thao tác sao chép.',
 			foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để sao chép.',
 			foundFiles_plural: 'Tôi đã tìm thấy {{count}} tập tin để sao chép.',
 			successfullyCopied: 'Đã sao chép thành công {{count}} tập tin:',

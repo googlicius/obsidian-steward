@@ -30,3 +30,4 @@
 - [ ] Add read_history command when LLM wants to know more about the current context
 - [ ] Settings with the LLM helps: audio generation model, text generation model, names, and temperature
 - [ ] Remove MediaGenerationService
+- [ ] Add `command_builder` command to help users build user-defined commands

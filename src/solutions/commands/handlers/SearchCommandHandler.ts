@@ -49,6 +49,7 @@ export class SearchCommandHandler extends CommandHandler {
 			// Extract search parameters from the command content
 			const queryExtraction = await extractSearchQueryV2({
 				userInput: command.content,
+				systemPrompts: command.systemPrompts,
 				llmConfig: this.plugin.settings.llm,
 				lang,
 			});

@@ -152,6 +152,11 @@ export class CustomCommandService {
 				return false;
 			}
 
+			if ('system_prompt' in step && !Array.isArray(step.system_prompt)) {
+				logger.error(`Invalid command ${command.command_name}: system_prompt must be an array`);
+				return false;
+			}
+
 			if (!step.query || typeof step.query !== 'string') {
 				logger.error(`Invalid command ${command.command_name}: step missing query`);
 				return false;
@@ -166,7 +171,6 @@ export class CustomCommandService {
 	 */
 	private async handleFileModification(file: TFile): Promise<void> {
 		if (this.isCommandFile(file)) {
-			console.log('handleFileModification', file.path);
 			await this.loadCommandFromFile(file);
 		}
 	}
@@ -223,7 +227,8 @@ export class CustomCommandService {
 
 			return {
 				commandType: step.name,
-				content: content,
+				systemPrompts: step.system_prompt,
+				content,
 			};
 		});
 	}

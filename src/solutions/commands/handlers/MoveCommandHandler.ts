@@ -36,8 +36,26 @@ export class MoveCommandHandler extends CommandHandler {
 			folderExistsConfirmed?: boolean;
 		} = {}
 	): Promise<CommandResult> {
-		const { title, command, lang } = params;
+		const { title, command, prevCommand, lang } = params;
 		const t = getTranslation(lang);
+
+		// Check the search result of the previous command
+		if (prevCommand && prevCommand.commandType === 'search') {
+			const artifact = this.artifactManager.getMostRecentArtifact(title);
+
+			if (artifact && artifact.type === ArtifactType.SEARCH_RESULTS) {
+				if (artifact.originalResults.length === 0) {
+					await this.renderer.updateConversationNote({
+						path: title,
+						newContent: `*${t('move.noSearchResultsFoundAbortMove')}*`,
+					});
+
+					return {
+						status: CommandResultStatus.SUCCESS,
+					};
+				}
+			}
+		}
 
 		try {
 			// Extract move details from command content

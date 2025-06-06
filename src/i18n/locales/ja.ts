@@ -16,6 +16,7 @@ const ja = {
 		},
 		// Move result messages
 		move: {
+			noSearchResultsFoundAbortMove: '検索結果が見つかりませんでした。移動コマンドを中止します。',
 			foundFiles: '{{count}}件のファイルが見つかりました。',
 			foundFiles_plural: '{{count}}件のファイルが見つかりました。',
 			successfullyMoved: '{{count}}件のファイルを移動しました：',
@@ -32,6 +33,7 @@ const ja = {
 		},
 		// Copy result messages
 		copy: {
+			noSearchResultsFoundAbortCopy: '検索結果が見つかりませんでした。コピーコマンドを中止します。',
 			foundFiles: '{{count}}件のファイルをコピーします。',
 			foundFiles_plural: '{{count}}件のファイルをコピーします。',
 			successfullyCopied: '{{count}}件のファイルをコピーしました：',

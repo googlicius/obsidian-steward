@@ -35,7 +35,11 @@ export class AudioCommandHandler extends CommandHandler {
 		const t = getTranslation(lang);
 
 		try {
-			const extraction = await extractAudioQuery(command.content, this.plugin.settings.llm);
+			const extraction = await extractAudioQuery({
+				userInput: command.content,
+				systemPrompts: command.systemPrompts,
+				llmConfig: this.plugin.settings.llm,
+			});
 
 			await this.renderer.updateConversationNote({
 				path: title,
@@ -51,6 +55,7 @@ export class AudioCommandHandler extends CommandHandler {
 			const result = await this.mediaTools.generateMedia({
 				type: 'audio',
 				prompt: extraction.text,
+				instructions: command.systemPrompts?.join('\n'),
 				model,
 				voice: extraction.voice || this.plugin.settings.audio.voices[model],
 			});

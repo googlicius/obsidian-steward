@@ -14,17 +14,18 @@ export interface ContentGenerationExtraction {
 	explanation: string;
 	confidence: number;
 }
-
 /**
  * Extract content generation details from a user query
- * @param userInput Natural language request from the user
- * @param llmConfig LLM configuration settings
+ * @param params Parameters for content generation extraction
  * @returns Extracted generated content, explanation, and confidence
  */
-export async function extractContentGeneration(
-	userInput: string,
-	llmConfig: StewardPluginSettings['llm']
-): Promise<ContentGenerationExtraction> {
+export async function extractContentGeneration(params: {
+	userInput: string;
+	systemPrompts?: string[];
+	llmConfig: StewardPluginSettings['llm'];
+}): Promise<ContentGenerationExtraction> {
+	const { userInput, systemPrompts = [], llmConfig } = params;
+
 	try {
 		logger.log('Extracting content generation from user input');
 
@@ -37,6 +38,7 @@ export async function extractContentGeneration(
 			prompt: [
 				userLanguagePrompt,
 				contentGenerationPrompt,
+				...systemPrompts.map(prompt => ({ role: 'system', content: prompt })),
 				{
 					role: 'user',
 					content: userInput,

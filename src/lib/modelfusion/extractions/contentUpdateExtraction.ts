@@ -21,15 +21,16 @@ export interface ContentUpdateExtraction {
 
 /**
  * Extract content update details from a user query
- * @param userInput Natural language request from the user
- * @param originalContents Array of original content blocks to be updated
- * @param llmConfig LLM configuration settings
+ * @param params Parameters for content update extraction
  * @returns Extracted updated contents, explanation, and confidence
  */
-export async function extractContentUpdate(
-	userInput: string,
-	llmConfig: StewardPluginSettings['llm']
-): Promise<ContentUpdateExtraction> {
+export async function extractContentUpdate(params: {
+	userInput: string;
+	systemPrompts?: string[];
+	llmConfig: StewardPluginSettings['llm'];
+}): Promise<ContentUpdateExtraction> {
+	const { userInput, systemPrompts = [], llmConfig } = params;
+
 	try {
 		logger.log('Extracting content update from user input');
 
@@ -39,6 +40,7 @@ export async function extractContentUpdate(
 			prompt: [
 				userLanguagePrompt,
 				contentUpdatePrompt,
+				...systemPrompts.map(prompt => ({ role: 'system', content: prompt })),
 				{
 					role: 'user',
 					content: userInput,

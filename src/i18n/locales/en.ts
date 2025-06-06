@@ -23,6 +23,7 @@ const en = {
 		},
 		// Move result messages
 		move: {
+			noSearchResultsFoundAbortMove: 'No search results found, aborting move command',
 			foundFiles_one: 'I found {{count}} file matching your query.',
 			foundFiles_other: 'I found {{count}} files matching your query.',
 			successfullyMoved_one: 'Successfully moved {{count}} file:',
@@ -39,6 +40,7 @@ const en = {
 		},
 		// Copy result messages
 		copy: {
+			noSearchResultsFoundAbortCopy: 'No search results found, aborting copy command',
 			foundFiles_one: 'I found {{count}} file to copy.',
 			foundFiles_other: 'I found {{count}} files to copy.',
 			successfullyCopied_one: 'Successfully copied {{count}} file:',

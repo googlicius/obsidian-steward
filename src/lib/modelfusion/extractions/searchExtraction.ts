@@ -36,16 +36,19 @@ export interface SearchQueryExtractionV2 {
  * Extract search parameters from a natural language request using AI (v2)
  * @param userInput Natural language request from the user
  * @param llmConfig LLM configuration settings
+ * @param systemPrompts System prompts to add to the prompt
  * @param lang The language of the user
  * @returns Extracted search parameters and explanation
  */
 export async function extractSearchQueryV2({
 	userInput,
+	systemPrompts = [],
 	llmConfig,
 	lang,
 }: {
 	userInput: string;
 	llmConfig: StewardPluginSettings['llm'];
+	systemPrompts?: string[];
 	lang?: string;
 }): Promise<SearchQueryExtractionV2> {
 	// Check if input is wrapped in quotation marks for direct search
@@ -103,6 +106,7 @@ export async function extractSearchQueryV2({
 			prompt: [
 				userLanguagePrompt,
 				searchPromptV2,
+				...systemPrompts.map(prompt => ({ role: 'system', content: prompt })),
 				confidenceScorePrompt,
 				{ role: 'user', content: userInput },
 			],

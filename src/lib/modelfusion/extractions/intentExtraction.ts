@@ -23,6 +23,7 @@ const abortService = AbortService.getInstance();
 export interface CommandIntent {
 	commandType: string;
 	content: string;
+	systemPrompts?: string[];
 }
 
 /**

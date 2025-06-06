@@ -23,13 +23,16 @@ export interface AudioExtraction {
 
 /**
  * Extract audio generation details from a user query
- * @param userInput Natural language request for audio generation
+ * @param params Parameters for audio extraction
  * @returns Extracted audio generation details
  */
-export async function extractAudioQuery(
-	userInput: string,
-	llmConfig: StewardPluginSettings['llm']
-): Promise<AudioExtraction> {
+export async function extractAudioQuery(params: {
+	userInput: string;
+	systemPrompts?: string[];
+	llmConfig: StewardPluginSettings['llm'];
+}): Promise<AudioExtraction> {
+	const { userInput, systemPrompts = [], llmConfig } = params;
+
 	try {
 		// Check if input is wrapped in quotation marks for direct extraction
 		const quotedRegex = /^["'](.+)["']$/;
@@ -52,6 +55,7 @@ export async function extractAudioQuery(
 			prompt: [
 				userLanguagePrompt,
 				audioCommandPrompt,
+				...systemPrompts.map(prompt => ({ role: 'system', content: prompt })),
 				{
 					role: 'user',
 					content: userInput,
