@@ -75,6 +75,31 @@ You can create your own **User-Defined Commands** to automate workflows and comb
   - `system_prompt`: The system prompts that allows to add additional guidelines to LLMs to the current command
   - `query`: (required if the `query_required` is true, string) The query to send to LLMs, put the `$from_user` as a placeholder for your input
 
+### Using Links in System Prompts
+
+You can reference the content of other notes in your vault by using Obsidian links in the `system_prompt` array:
+
+```json
+{
+	"command_name": "search_with_context",
+	"description": "Search with predefined context",
+	"query_required": true,
+	"commands": [
+		{
+			"name": "search",
+			"system_prompt": ["[[My Context Note]]", "Additional instructions"],
+			"query": "$from_user"
+		}
+	]
+}
+```
+
+When the command is executed:
+
+1. The link `[[My Context Note]]` will be replaced with the actual content of that note
+2. This allows you to maintain complex prompts or contexts in separate notes
+3. You can update the linked notes independently of your command definition
+
 ### Usage
 
 1. Create a note in `Steward/Commands` and add your command JSON in a code block.

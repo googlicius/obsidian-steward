@@ -8,10 +8,11 @@ import { getTranslation } from 'src/i18n';
 import StewardPlugin from 'src/main';
 import { CommandProcessor } from '../CommandProcessor';
 
-export class CustomCommandHandler extends CommandHandler {
+export class UserDefinedCommandHandler extends CommandHandler {
 	isContentRequired = (commandType: string): boolean => {
-		const customCommand = this.plugin.customCommandService?.customCommands.get(commandType);
-		return !!(customCommand && customCommand.query_required);
+		const userDefinedCommand =
+			this.plugin.userDefinedCommandService?.userDefinedCommands.get(commandType);
+		return !!(userDefinedCommand && userDefinedCommand.query_required);
 	};
 
 	constructor(
@@ -22,7 +23,7 @@ export class CustomCommandHandler extends CommandHandler {
 	}
 
 	/**
-	 * Render the loading indicator for custom commands
+	 * Render the loading indicator for user-defined commands
 	 */
 	public async renderIndicator(title: string, lang?: string): Promise<void> {
 		const t = getTranslation(lang);
@@ -30,14 +31,14 @@ export class CustomCommandHandler extends CommandHandler {
 	}
 
 	/**
-	 * Handle a custom command
+	 * Handle a user-defined command
 	 */
 	public async handle(params: CommandHandlerParams): Promise<CommandResult> {
 		const { title, command } = params;
 
 		try {
-			// Get the custom command definition
-			const commandIntents = this.plugin.customCommandService.processCustomCommand(
+			// Get the user-defined command definition
+			const commandIntents = this.plugin.userDefinedCommandService.processUserDefinedCommand(
 				command.commandType,
 				command.content
 			);
@@ -45,13 +46,13 @@ export class CustomCommandHandler extends CommandHandler {
 			if (!commandIntents) {
 				await this.renderer.updateConversationNote({
 					path: title,
-					newContent: `*Error: Custom command '${command.commandType}' not found*`,
+					newContent: `*Error: User-defined command '${command.commandType}' not found*`,
 					role: 'Steward',
 				});
 
 				return {
 					status: CommandResultStatus.ERROR,
-					error: new Error(`Custom command '${command.commandType}' not found`),
+					error: new Error(`User-defined command '${command.commandType}' not found`),
 				};
 			}
 
@@ -68,7 +69,7 @@ export class CustomCommandHandler extends CommandHandler {
 		} catch (error) {
 			await this.renderer.updateConversationNote({
 				path: title,
-				newContent: `*Error processing custom command: ${error.message}*`,
+				newContent: `*Error processing user-defined command: ${error.message}*`,
 				role: 'Steward',
 			});
 

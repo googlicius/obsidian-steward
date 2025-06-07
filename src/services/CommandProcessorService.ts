@@ -18,12 +18,12 @@ import {
 	StopCommandHandler,
 	AudioCommandHandler,
 	ImageCommandHandler,
+	UserDefinedCommandHandler,
 } from '../solutions/commands/handlers';
-import { CustomCommandHandler } from '../solutions/commands/handlers/CustomCommandHandler';
 
 export class CommandProcessorService {
 	private readonly commandProcessor: CommandProcessor;
-	private customCommandHandler: CustomCommandHandler;
+	private userDefinedCommandHandler: UserDefinedCommandHandler;
 
 	constructor(private readonly plugin: StewardPlugin) {
 		this.commandProcessor = new CommandProcessor();
@@ -101,10 +101,12 @@ export class CommandProcessorService {
 		const generalHandler = new GeneralCommandHandler(this.plugin, this.commandProcessor);
 		this.commandProcessor.registerHandler(' ', generalHandler);
 
-		// Register the custom command handler
-		// We register this to handle all custom commands dynamically
-		this.customCommandHandler = new CustomCommandHandler(this.plugin, this.commandProcessor);
-		this.commandProcessor.registerCustomCommandHandler(this.customCommandHandler);
+		// Register the user-defined command handler
+		this.userDefinedCommandHandler = new UserDefinedCommandHandler(
+			this.plugin,
+			this.commandProcessor
+		);
+		this.commandProcessor.registerUserDefinedCommandHandler(this.userDefinedCommandHandler);
 	}
 
 	/**

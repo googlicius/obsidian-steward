@@ -14,3 +14,4 @@ export * from './ConfirmCommandHandler';
 export * from './StopCommandHandler';
 export * from './AudioCommandHandler';
 export * from './ImageCommandHandler';
+export * from './UserDefinedCommandHandler';

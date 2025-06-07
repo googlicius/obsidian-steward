@@ -30,7 +30,7 @@ import { createStewardConversationProcessor } from './cm/post-processors/Steward
 import { ObsidianEditor } from './types/types';
 import { isConversationLink, extractConversationTitle } from './utils/conversationUtils';
 import { CommandProcessorService } from './services/CommandProcessorService';
-import { CustomCommandService } from './services/CustomCommandService';
+import { UserDefinedCommandService } from './services/UserDefinedCommandService';
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -48,7 +48,7 @@ export default class StewardPlugin extends Plugin {
 	mediaGenerationService: MediaGenerationService;
 	contentReadingService: ContentReadingService;
 	commandProcessorService: CommandProcessorService;
-	customCommandService: CustomCommandService;
+	userDefinedCommandService: UserDefinedCommandService;
 	conversationEventHandler: ConversationEventHandler;
 
 	get editor(): ObsidianEditor {
@@ -128,8 +128,8 @@ export default class StewardPlugin extends Plugin {
 		// Initialize the content reading service
 		this.contentReadingService = new ContentReadingService(this);
 
-		// Initialize the CustomCommandService
-		this.customCommandService = new CustomCommandService(this);
+		// Initialize the UserDefinedCommandService
+		this.userDefinedCommandService = new UserDefinedCommandService(this);
 
 		// Register custom icon
 		addIcon(
@@ -167,7 +167,7 @@ export default class StewardPlugin extends Plugin {
 		this.registerEditorExtension([
 			createCommandInputExtension(COMMAND_PREFIXES, {
 				onEnter: this.handleEnter.bind(this),
-				customCommandService: this.customCommandService,
+				customCommandService: this.userDefinedCommandService,
 			}),
 		]);
 
@@ -288,8 +288,8 @@ export default class StewardPlugin extends Plugin {
 		const extendedPrefixes = [...COMMAND_PREFIXES];
 
 		// Add custom command prefixes if available
-		if (this.customCommandService) {
-			const customCommands = this.customCommandService.getCommandNames();
+		if (this.userDefinedCommandService) {
+			const customCommands = this.userDefinedCommandService.getCommandNames();
 			customCommands.forEach(cmd => {
 				extendedPrefixes.push('/' + cmd);
 			});

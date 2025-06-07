@@ -20,7 +20,7 @@ export class CommandProcessor {
 	private pendingCommands: Map<string, PendingCommand> = new Map();
 
 	private commandHandlers: Map<string, CommandHandler> = new Map();
-	private customCommandHandler: CommandHandler | null = null;
+	private userDefinedCommandHandler: CommandHandler | null = null;
 
 	/**
 	 * Register a command handler for a specific command type
@@ -30,10 +30,10 @@ export class CommandProcessor {
 	}
 
 	/**
-	 * Register a custom command handler for handling user-defined commands
+	 * Register a user-defined command handler for handling user-defined commands
 	 */
-	public registerCustomCommandHandler(handler: CommandHandler): void {
-		this.customCommandHandler = handler;
+	public registerUserDefinedCommandHandler(handler: CommandHandler): void {
+		this.userDefinedCommandHandler = handler;
 	}
 
 	/**
@@ -110,11 +110,11 @@ export class CommandProcessor {
 	}
 
 	/**
-	 * Check if a command is a custom command that should be handled by the custom handler
+	 * Check if a command is a user-defined command that should be handled by the user-defined handler
 	 */
 	private isCustomCommand(commandType: string): boolean {
-		// If we have a custom command handler and the command is not a built-in one
-		return this.customCommandHandler !== null && !this.commandHandlers.has(commandType);
+		// If we have a user-defined command handler and the command is not a built-in one
+		return this.userDefinedCommandHandler !== null && !this.commandHandlers.has(commandType);
 	}
 
 	/**
@@ -142,9 +142,9 @@ export class CommandProcessor {
 			// Find the appropriate handler
 			let handler = this.commandHandlers.get(command.commandType);
 
-			// If no handler found and we have a custom command handler, use it
-			if (!handler && this.customCommandHandler && this.isCustomCommand(command.commandType)) {
-				handler = this.customCommandHandler;
+			// If no handler found and we have a user-defined command handler, use it
+			if (!handler && this.userDefinedCommandHandler && this.isCustomCommand(command.commandType)) {
+				handler = this.userDefinedCommandHandler;
 			}
 
 			if (!handler) {
@@ -198,17 +198,22 @@ export class CommandProcessor {
 	}
 
 	/**
-	 * Delete the next pending command
+	 * Delete the next pending command for a conversation
 	 */
 	public deleteNextPendingCommand(title: string): void {
 		const pendingCommand = this.pendingCommands.get(title);
-		if (pendingCommand) {
-			pendingCommand.commands.splice(pendingCommand.currentIndex, 1);
-		}
+		if (!pendingCommand) return;
+
+		// Set index to skip the next command
+		const nextIndex = pendingCommand.currentIndex + 1;
+		this.pendingCommands.set(title, {
+			...pendingCommand,
+			currentIndex: nextIndex,
+		});
 	}
 
 	/**
-	 * Get the pending command data for a conversation
+	 * Get pending command for a conversation
 	 */
 	public getPendingCommand(title: string): PendingCommand | undefined {
 		return this.pendingCommands.get(title);
@@ -227,7 +232,10 @@ export class CommandProcessor {
 		}
 	}
 
+	/**
+	 * Get the command handler for a specific command type
+	 */
 	public getCommandHandler(commandType: string): CommandHandler | null {
-		return this.commandHandlers.get(commandType) || this.customCommandHandler;
+		return this.commandHandlers.get(commandType) || this.userDefinedCommandHandler;
 	}
 }

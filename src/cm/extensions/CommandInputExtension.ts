@@ -18,7 +18,7 @@ import { capitalizeString } from 'src/utils/capitalizeString';
 import { setIcon } from 'obsidian';
 import { LLM_MODELS } from 'src/constants';
 import { AbortService } from 'src/services/AbortService';
-import { CustomCommandService } from 'src/services/CustomCommandService';
+import { UserDefinedCommandService } from 'src/services/UserDefinedCommandService';
 
 export interface CommandInputOptions {
 	/**
@@ -27,9 +27,9 @@ export interface CommandInputOptions {
 	onEnter?: (view: EditorView) => boolean;
 
 	/**
-	 * The custom command service instance
+	 * The user-defined command service instance
 	 */
-	customCommandService?: CustomCommandService;
+	customCommandService?: UserDefinedCommandService;
 }
 
 /**
