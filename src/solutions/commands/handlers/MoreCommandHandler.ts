@@ -45,7 +45,11 @@ export class MoreCommandHandler extends CommandHandler {
 
 			// Find if there were previous "more" commands to determine the page number
 			const moreCommandMetadata =
-				await this.plugin.conversationRenderer.findMostRecentMessageMetadata(title, 'more', 'user');
+				await this.plugin.conversationRenderer.findMostRecentMessageMetadata(
+					title,
+					'more',
+					'steward'
+				);
 
 			// Default to page 2 if this is the first "more" command
 			const page = moreCommandMetadata ? parseInt(moreCommandMetadata.PAGE) + 1 : 2;
@@ -90,7 +94,7 @@ export class MoreCommandHandler extends CommandHandler {
 			}
 
 			// Format the results using the search handler's format method
-			const searchHandler = SearchCommandHandler.getInstance();
+			const searchHandler = SearchCommandHandler.getInstance(this.plugin);
 			const response = await searchHandler.formatSearchResults({
 				paginatedDocs,
 				page,

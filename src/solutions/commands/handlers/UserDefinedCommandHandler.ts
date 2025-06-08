@@ -75,8 +75,6 @@ export class UserDefinedCommandHandler extends CommandHandler {
 				};
 			}
 
-			console.log('commandIntents', commandIntents);
-
 			// Process the expanded commands
 			await this.commandProcessor.processCommands({
 				title,

@@ -30,7 +30,7 @@ export class ConversationRenderer {
 			let content = await this.plugin.app.vault.read(file);
 
 			// Find the last user message with a comment block
-			const commentBlockRegex = /<!--STW:ID:(.*?),ROLE:user,COMMAND:(.*?)-->/gi;
+			const commentBlockRegex = /<!--STW ID:(.*?),ROLE:user,COMMAND:(.*?)-->/gi;
 			const matches = Array.from(content.matchAll(commentBlockRegex));
 
 			if (matches.length > 0) {
@@ -40,7 +40,7 @@ export class ConversationRenderer {
 				const messageId = lastMatch[1];
 
 				// Create the updated comment block with the new command type
-				const updatedCommentBlock = `<!--STW:ID:${messageId},ROLE:user,COMMAND:${commandType}-->`;
+				const updatedCommentBlock = `<!--STW ID:${messageId},ROLE:user,COMMAND:${commandType}-->`;
 
 				// Replace only the last occurrence of the comment block
 				const lastIndex = content.lastIndexOf(originalCommentBlock);
@@ -199,11 +199,11 @@ export class ConversationRenderer {
 		};
 
 		if (command === 'more') {
-			const prevMoreMetadata = await this.findMostRecentMessageMetadata(title, command, 'user');
+			const prevMoreMetadata = await this.findMostRecentMessageMetadata(title, command, 'steward');
 			metadata.PAGE = prevMoreMetadata ? parseInt(prevMoreMetadata.PAGE) + 1 : 2;
 		}
 
-		let metadataAsHTMLComment = '<!--STW:';
+		let metadataAsHTMLComment = '<!--STW ';
 
 		for (const [key, value] of Object.entries(metadata)) {
 			metadataAsHTMLComment += `${key}:${value},`;
@@ -249,9 +249,10 @@ export class ConversationRenderer {
 
 			// Find all matching comment blocks
 			const commentBlockRegex = new RegExp(
-				`<!--STW:ID:(.*?)${rolePattern}${commandPattern}.*?-->`,
+				`<!--STW ID:(.*?)${rolePattern}${commandPattern}.*?-->`,
 				'gi'
 			);
+			console.log('commentBlockRegex', commentBlockRegex);
 			const matches = Array.from(content.matchAll(commentBlockRegex));
 
 			// Find the most recent match
@@ -268,6 +269,8 @@ export class ConversationRenderer {
 					const [, key, value] = metadataMatch;
 					metadataObject[key] = value;
 				}
+
+				console.log('metadataObject', metadataObject);
 
 				return metadataObject;
 			}
@@ -344,7 +347,7 @@ export class ConversationRenderer {
 			const t = getTranslation(language);
 
 			// Build initial content based on command type
-			let initialContent = `<!--STW:ID:${messageId},ROLE:user,COMMAND:${commandType}-->\n##### **User:** /${commandType.trim()} ${content}\n\n`;
+			let initialContent = `<!--STW ID:${messageId},ROLE:user,COMMAND:${commandType}-->\n##### **User:** /${commandType.trim()} ${content}\n\n`;
 
 			switch (commandType) {
 				case 'move':
@@ -427,7 +430,7 @@ export class ConversationRenderer {
 
 			// Find the comment block with the given ID
 			const idPattern = `ID:${messageId}`;
-			const commentBlockRegex = new RegExp(`<!--STW:${idPattern}.*?-->`, 'gi');
+			const commentBlockRegex = new RegExp(`<!--STW ${idPattern}.*?-->`, 'gi');
 			const matches = Array.from(content.matchAll(commentBlockRegex));
 
 			// If a match is found, parse it into an object
@@ -480,7 +483,7 @@ export class ConversationRenderer {
 
 			// Find the comment block with the given ID
 			const idPattern = `ID:${messageId}`;
-			const commentBlockRegex = new RegExp(`<!--STW:${idPattern}.*?-->`, 'gi');
+			const commentBlockRegex = new RegExp(`<!--STW ${idPattern}.*?-->`, 'gi');
 			const matches = Array.from(content.matchAll(commentBlockRegex));
 
 			if (matches.length > 0) {
@@ -488,7 +491,7 @@ export class ConversationRenderer {
 				const originalCommentBlock = matches[0][0];
 
 				// Create the updated comment block
-				let updatedCommentBlock = '<!--STW:';
+				let updatedCommentBlock = '<!--STW ';
 				for (const [key, value] of Object.entries(newMetadata)) {
 					updatedCommentBlock += `${key}:${value},`;
 				}
