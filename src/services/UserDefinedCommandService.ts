@@ -264,7 +264,10 @@ export class UserDefinedCommandService {
 	/**
 	 * Process a user-defined command with user input
 	 */
-	public processUserDefinedCommand(commandName: string, userInput: string): CommandIntent[] | null {
+	private processUserDefinedCommand(
+		commandName: string,
+		userInput: string
+	): CommandIntent[] | null {
 		const command = this.userDefinedCommands.get(commandName);
 
 		if (!command) {
@@ -301,5 +304,35 @@ export class UserDefinedCommandService {
 	 */
 	public hasCommand(commandName: string): boolean {
 		return this.userDefinedCommands.has(commandName);
+	}
+
+	/**
+	 * Recursively expand a list of CommandIntent, flattening user-defined commands and detecting cycles
+	 */
+	public expandUserDefinedCommandIntents(
+		intents: CommandIntent[],
+		userInput: string,
+		visited: Set<string> = new Set()
+	): CommandIntent[] {
+		const expanded: CommandIntent[] = [];
+		for (const intent of intents) {
+			if (this.hasCommand(intent.commandType)) {
+				if (visited.has(intent.commandType)) {
+					throw new Error(`Cycle detected in user-defined commands: ${intent.commandType}`);
+				}
+				visited.add(intent.commandType);
+				const subIntents = this.processUserDefinedCommand(
+					intent.commandType,
+					intent.content || userInput
+				);
+				if (subIntents) {
+					expanded.push(...this.expandUserDefinedCommandIntents(subIntents, userInput, visited));
+				}
+				visited.delete(intent.commandType);
+			} else {
+				expanded.push(intent);
+			}
+		}
+		return expanded;
 	}
 }

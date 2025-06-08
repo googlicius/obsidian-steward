@@ -112,7 +112,7 @@ export class CommandProcessor {
 	/**
 	 * Check if a command is a user-defined command that should be handled by the user-defined handler
 	 */
-	private isCustomCommand(commandType: string): boolean {
+	private isUserDefinedCommand(commandType: string): boolean {
 		// If we have a user-defined command handler and the command is not a built-in one
 		return this.userDefinedCommandHandler !== null && !this.commandHandlers.has(commandType);
 	}
@@ -143,7 +143,11 @@ export class CommandProcessor {
 			let handler = this.commandHandlers.get(command.commandType);
 
 			// If no handler found and we have a user-defined command handler, use it
-			if (!handler && this.userDefinedCommandHandler && this.isCustomCommand(command.commandType)) {
+			if (
+				!handler &&
+				this.userDefinedCommandHandler &&
+				this.isUserDefinedCommand(command.commandType)
+			) {
 				handler = this.userDefinedCommandHandler;
 			}
 

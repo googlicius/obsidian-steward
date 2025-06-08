@@ -37,26 +37,47 @@ export class UserDefinedCommandHandler extends CommandHandler {
 		const { title, command } = params;
 
 		try {
-			// Get the user-defined command definition
-			const commandIntents = this.plugin.userDefinedCommandService.processUserDefinedCommand(
-				command.commandType,
-				command.content
-			);
-
-			if (!commandIntents) {
+			// Recursively expand user-defined commands (with cycle detection)
+			let commandIntents;
+			try {
+				commandIntents = this.plugin.userDefinedCommandService.expandUserDefinedCommandIntents(
+					[
+						{
+							commandType: command.commandType,
+							content: command.content,
+							systemPrompts: command.systemPrompts,
+						},
+					],
+					command.content || ''
+				);
+			} catch (cycleError) {
 				await this.renderer.updateConversationNote({
 					path: title,
-					newContent: `*Error: User-defined command '${command.commandType}' not found*`,
+					newContent: `*Error: ${cycleError instanceof Error ? cycleError.message : cycleError}*`,
+					role: 'Steward',
+				});
+				return {
+					status: CommandResultStatus.ERROR,
+					error: cycleError instanceof Error ? cycleError : new Error(String(cycleError)),
+				};
+			}
+
+			if (!commandIntents || commandIntents.length === 0) {
+				await this.renderer.updateConversationNote({
+					path: title,
+					newContent: `*Error: User-defined command '${command.commandType}' not found or empty*`,
 					role: 'Steward',
 				});
 
 				return {
 					status: CommandResultStatus.ERROR,
-					error: new Error(`User-defined command '${command.commandType}' not found`),
+					error: new Error(`User-defined command '${command.commandType}' not found or empty`),
 				};
 			}
 
-			// Process the commands
+			console.log('commandIntents', commandIntents);
+
+			// Process the expanded commands
 			await this.commandProcessor.processCommands({
 				title,
 				commands: commandIntents,

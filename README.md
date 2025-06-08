@@ -1,6 +1,6 @@
 # Steward
 
-Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It provides commands like `search`, `move`, `copy`, `create`, etc, as building blocks for building your own sophisticated commands, prompt chaining, and automation for your specific tasks.
+Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It provides commands like `search`, `move`, `copy`, `create`, etc, as building blocks to create your own sophisticated commands, prompt chaining, and automation for your specific tasks.
 
 ## Features
 
@@ -35,6 +35,7 @@ Steward can be used through the command palette directly in the editor or by ope
 
 - Use a specific command directly instead of a general command (`/ `), e.g, `/search`, `/audio`, etc.
 - For the `/search` command, wrap the keyword in quotation marks for searching the vault without the LLM's help, e.g, `/search "my cat"`
+- Create User-Defined commands
 - Provide feedback by clicking thumbs up or down on any Steward's answer to help it classify accurately #Todo.
 
 ## User-Defined Commands
@@ -72,7 +73,7 @@ You can create your own **User-Defined Commands** to automate workflows and comb
 - `command_name`: The name you will use to invoke the command (e.g., `/clean_up`)
 - `query_required`: (optional, boolean) If true, the command requires user input after the prefix
 - `commands`: The sequence of built-in or user-defined commands to execute
-  - `system_prompt`: The system prompts that allows to add additional guidelines to LLMs to the current command
+  - `system_prompt`: The system prompts that allows you to add additional guidelines to LLMs to the current command
   - `query`: (required if the `query_required` is true, string) The query to send to LLMs, put the `$from_user` as a placeholder for your input
 
 ### Using Links in System Prompts

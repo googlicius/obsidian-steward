@@ -67,6 +67,12 @@ export async function extractSearchQueryV2({
 					filenames: [],
 					folders: [],
 				},
+				{
+					keywords: [],
+					tags: [],
+					filenames: [searchTerm],
+					folders: [],
+				},
 			],
 			explanation: t('search.searchingFor', { searchTerm }),
 			lang: lang || getObsidianLanguage(),
