@@ -13,6 +13,7 @@ import {
 	interpretUpdateFromArtifactPrompt,
 	interpretReadContentPrompt,
 } from '../prompts/interpretQueryPrompts';
+import { getClassifier } from '../classifiers/getClassifier';
 
 // Use AbortService instead of a local controller
 const abortService = AbortService.getInstance();
@@ -86,7 +87,7 @@ export async function extractCommandIntent(
 	llmConfig: StewardPluginSettings['llm']
 ): Promise<CommandIntentExtraction> {
 	const clusterName = await classify({
-		model: intentClassifier,
+		model: getClassifier(llmConfig.model, llmConfig.corsProxyUrl),
 		value: userInput,
 	});
 

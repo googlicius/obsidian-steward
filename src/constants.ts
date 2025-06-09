@@ -54,6 +54,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
 		temperature: 0.2,
 		ollamaBaseUrl: 'http://localhost:11434',
 		maxGenerationTokens: 2048, // Default max tokens for generation
+		corsProxyUrl: '', // Default to no CORS proxy
 	},
 };
 

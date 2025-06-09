@@ -313,6 +313,20 @@ export default class StewardSettingTab extends PluginSettingTab {
 				text.inputEl.setAttribute('min', '1');
 			});
 
+		// CORS Proxy URL setting
+		new Setting(containerEl)
+			.setName('CORS Proxy URL')
+			.setDesc('URL of a CORS proxy to bypass CORS issues with API providers such as DeepSeek')
+			.addText(text =>
+				text
+					.setPlaceholder('https://cors-proxy.example.com/')
+					.setValue(this.plugin.settings.llm.corsProxyUrl || '')
+					.onChange(async value => {
+						this.plugin.settings.llm.corsProxyUrl = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
 		// Ollama Base URL setting (only shown when Ollama model is selected)
 		const ollamaBaseUrlSetting = new Setting(containerEl)
 			.setName('Ollama Base URL')

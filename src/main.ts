@@ -31,6 +31,9 @@ import { ObsidianEditor } from './types/types';
 import { isConversationLink, extractConversationTitle } from './utils/conversationUtils';
 import { CommandProcessorService } from './services/CommandProcessorService';
 import { UserDefinedCommandService } from './services/UserDefinedCommandService';
+import { classify } from 'modelfusion';
+import { retry } from './utils/retry';
+import { getClassifier } from './lib/modelfusion/classifiers/getClassifier';
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -244,6 +247,8 @@ export default class StewardPlugin extends Plugin {
 
 		// Initialize the CommandProcessorService
 		this.commandProcessorService = new CommandProcessorService(this);
+
+		this.initializeClassifier();
 	}
 
 	onunload() {
@@ -252,6 +257,21 @@ export default class StewardPlugin extends Plugin {
 
 		// Unload the conversation event handler
 		this.conversationEventHandler.unload();
+	}
+
+	private initializeClassifier() {
+		const classifier = getClassifier(this.settings.llm.model, this.settings.llm.corsProxyUrl);
+		// Initialize embeddings
+		retry(
+			() =>
+				classify({
+					model: classifier,
+					value: 'initialize',
+				}),
+			{
+				initialDelay: 500,
+			}
+		);
 	}
 
 	async loadSettings() {
@@ -737,6 +757,7 @@ export default class StewardPlugin extends Plugin {
 
 			// Put the API key in the environment variable
 			if (service === 'openai') {
+				console.log('Setting OPENAI_API_KEY', apiKey, encryptedKey);
 				process.env.OPENAI_API_KEY = apiKey;
 			} else if (service === 'elevenlabs') {
 				process.env.ELEVENLABS_API_KEY = apiKey;

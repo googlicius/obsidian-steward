@@ -22,7 +22,6 @@ const context = await esbuild.context({
 		'@codemirror/autocomplete',
 		'@codemirror/collab',
 		'@codemirror/commands',
-		'@codemirror/language',
 		'@codemirror/lint',
 		'@codemirror/search',
 		'@codemirror/state',

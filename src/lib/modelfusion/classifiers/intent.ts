@@ -1,6 +1,5 @@
-import { classify, openai } from 'modelfusion';
+import { openai } from 'modelfusion';
 import { PersistentEmbeddingSimilarityClassifier } from '../classify/PersistentEmbeddingSimilarityClassifier';
-import { retry } from 'src/utils/retry';
 
 /**
  * The intent classifier instance
@@ -260,15 +259,3 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
 		},
 	],
 });
-
-// Initialize embeddings
-retry(
-	() =>
-		classify({
-			model: intentClassifier,
-			value: 'initialize',
-		}),
-	{
-		initialDelay: 500,
-	}
-);

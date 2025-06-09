@@ -1,6 +1,7 @@
-import { openai, ollama } from 'modelfusion';
+import { openai, ollama, openaicompatible } from 'modelfusion';
+import { StewardPluginSettings } from 'src/types/interfaces';
 
-function getProviderFromModel(modelName: string): 'openai' | 'ollama' | 'deepseek' {
+export function getProviderFromModel(modelName: string): 'openai' | 'ollama' | 'deepseek' {
 	if (
 		modelName.includes('llama') ||
 		modelName.includes('mistral') ||
@@ -18,13 +19,9 @@ function getProviderFromModel(modelName: string): 'openai' | 'ollama' | 'deepsee
 	return 'openai';
 }
 
-export function createLLMGenerator(config: {
-	model: string;
-	temperature?: number;
-	ollamaBaseUrl?: string;
-	maxGenerationTokens?: number;
-	responseFormat?: 'json_object' | 'text';
-}) {
+export function createLLMGenerator(
+	config: StewardPluginSettings['llm'] & { responseFormat?: 'json_object' | 'text' }
+) {
 	const provider = getProviderFromModel(config.model);
 	const { model, temperature, maxGenerationTokens, responseFormat = 'json_object' } = config;
 
@@ -37,16 +34,19 @@ export function createLLMGenerator(config: {
 				// topP: config.topP,
 				responseFormat: { type: responseFormat },
 			});
-		case 'deepseek':
-			return openai.ChatTextGenerator({
-				model: model as any,
+		case 'deepseek': {
+			const corsProxy = config.corsProxyUrl ? `${config.corsProxyUrl.replace(/\/$/, '')}/` : '';
+			return openaicompatible.ChatTextGenerator({
+				model,
 				temperature,
 				maxGenerationTokens,
 				responseFormat: { type: responseFormat },
 				api: openai.Api({
-					baseUrl: 'https://api.deepseek.com/v1',
+					baseUrl: corsProxy + 'https://api.deepseek.com/v1',
+					apiKey: process.env.DEEPSEEK_API_KEY,
 				}),
 			});
+		}
 		case 'ollama':
 			return ollama.ChatTextGenerator({
 				model,
