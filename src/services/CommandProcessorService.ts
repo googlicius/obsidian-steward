@@ -20,6 +20,7 @@ import {
 	ImageCommandHandler,
 	UserDefinedCommandHandler,
 } from '../solutions/commands/handlers';
+import { getTextContentWithoutImages } from 'src/lib/modelfusion/utils/imageUtils';
 
 export class CommandProcessorService {
 	private readonly commandProcessor: CommandProcessor;
@@ -132,14 +133,11 @@ export class CommandProcessorService {
 		const handler = this.commandProcessor.getCommandHandler(commandType);
 		if (!handler) return true;
 
-		if (typeof handler.isContentRequired === 'function') {
-			return handler.isContentRequired(commandType) ? commandContent.trim() !== '' : true;
-		}
+		const isContentRequired =
+			typeof handler.isContentRequired === 'function'
+				? handler.isContentRequired(commandType)
+				: handler.isContentRequired;
 
-		if (typeof handler.isContentRequired === 'boolean') {
-			return handler.isContentRequired ? commandContent.trim() !== '' : true;
-		}
-		// Default: allow
-		return true;
+		return isContentRequired ? getTextContentWithoutImages(commandContent) !== '' : true;
 	}
 }

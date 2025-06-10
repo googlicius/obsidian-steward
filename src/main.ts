@@ -307,12 +307,12 @@ export default class StewardPlugin extends Plugin {
 		// Create an extended set of prefixes including custom commands
 		const extendedPrefixes = [...COMMAND_PREFIXES];
 
-		// Add custom command prefixes if available
+		// Add user-defined command prefixes if available
 		if (this.userDefinedCommandService) {
-			const customCommands = this.userDefinedCommandService.getCommandNames();
-			customCommands.forEach(cmd => {
-				extendedPrefixes.push('/' + cmd);
-			});
+			const userDefinedCommands = this.userDefinedCommandService.getCommandNames();
+			for (let i = 0; i < userDefinedCommands.length; i++) {
+				extendedPrefixes.push('/' + userDefinedCommands[i]);
+			}
 		}
 
 		// Sort prefixes by length (longest first) to ensure we match the most specific command
@@ -338,7 +338,6 @@ export default class StewardPlugin extends Plugin {
 
 		logger.log('Command type:', commandType === ' ' ? 'general' : commandType);
 		logger.log('Command content:', commandContent);
-		// this.commandProcessorService
 
 		if (!this.commandProcessorService.validateCommandContent(commandType, commandContent)) {
 			logger.log(`Command content is required for ${commandType} command`);
@@ -717,12 +716,12 @@ export default class StewardPlugin extends Plugin {
 	}
 
 	/**
-	 * Securely get the decrypted API key for a specific service
-	 * @param service - The service to get the API key for (e.g., 'openai', 'elevenlabs')
+	 * Securely get the decrypted API key for a specific provider
+	 * @param provider - The provider to get the API key for (e.g., 'openai', 'elevenlabs')
 	 * @returns The decrypted API key or empty string if not set
 	 */
-	getDecryptedApiKey(service: 'openai' | 'elevenlabs' | 'deepseek'): string {
-		const encryptedKey = this.settings.apiKeys[service];
+	getDecryptedApiKey(provider: 'openai' | 'elevenlabs' | 'deepseek'): string {
+		const encryptedKey = this.settings.apiKeys[provider];
 
 		if (!encryptedKey) {
 			return '';
@@ -731,18 +730,18 @@ export default class StewardPlugin extends Plugin {
 		try {
 			return decrypt(encryptedKey, this.settings.saltKeyId);
 		} catch (error) {
-			logger.error(`Error decrypting ${service} API key:`, error);
-			throw new Error(`Could not decrypt ${service} API key`);
+			logger.error(`Error decrypting ${provider} API key:`, error);
+			throw new Error(`Could not decrypt ${provider} API key`);
 		}
 	}
 
 	/**
-	 * Securely set and encrypt an API key for a specific service
-	 * @param service - The service to set the API key for (e.g., 'openai', 'elevenlabs')
+	 * Securely set and encrypt an API key for a specific provider
+	 * @param provider - The provider to set the API key for (e.g., 'openai', 'elevenlabs')
 	 * @param apiKey - The API key to encrypt and store
 	 */
 	async setEncryptedApiKey(
-		service: 'openai' | 'elevenlabs' | 'deepseek',
+		provider: 'openai' | 'elevenlabs' | 'deepseek',
 		apiKey: string
 	): Promise<void> {
 		try {
@@ -750,23 +749,23 @@ export default class StewardPlugin extends Plugin {
 			const encryptedKey = apiKey ? encrypt(apiKey, this.settings.saltKeyId) : '';
 
 			// Update our settings
-			this.settings.apiKeys[service] = encryptedKey;
+			this.settings.apiKeys[provider] = encryptedKey;
 
 			// Save the settings
 			await this.saveSettings();
 
 			// Put the API key in the environment variable
-			if (service === 'openai') {
+			if (provider === 'openai') {
 				console.log('Setting OPENAI_API_KEY', apiKey, encryptedKey);
 				process.env.OPENAI_API_KEY = apiKey;
-			} else if (service === 'elevenlabs') {
+			} else if (provider === 'elevenlabs') {
 				process.env.ELEVENLABS_API_KEY = apiKey;
-			} else if (service === 'deepseek') {
+			} else if (provider === 'deepseek') {
 				process.env.DEEPSEEK_API_KEY = apiKey;
 			}
 		} catch (error) {
-			logger.error(`Error encrypting ${service} API key:`, error);
-			throw new Error(`Could not encrypt ${service} API key`);
+			logger.error(`Error encrypting ${provider} API key:`, error);
+			throw new Error(`Could not encrypt ${provider} API key`);
 		}
 	}
 

@@ -31,3 +31,4 @@
 - [ ] Settings with the LLM helps: audio generation model, text generation model, names, and temperature
 - [ ] Remove MediaGenerationService
 - [ ] Add `command_builder` command to help users build user-defined commands
+- [x] Send the provided images along with the text

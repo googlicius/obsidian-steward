@@ -14,6 +14,9 @@ import {
 	interpretReadContentPrompt,
 } from '../prompts/interpretQueryPrompts';
 import { getClassifier } from '../classifiers/getClassifier';
+import { prepareUserMessageWithImages } from '../utils/imageUtils';
+import { user } from '../overridden/OpenAIChatMessage';
+import { App } from 'obsidian';
 
 // Use AbortService instead of a local controller
 const abortService = AbortService.getInstance();
@@ -80,12 +83,30 @@ function extractReadGenerateUpdateFromArtifact(userInput: string): CommandIntent
  * Extract command intents from a general query using AI
  * @param userInput Natural language request from the user
  * @param llmConfig LLM configuration settings
+ * @param app Obsidian app instance for accessing vault files
  * @returns Extracted command types, content, and explanation
  */
 export async function extractCommandIntent(
 	userInput: string,
-	llmConfig: StewardPluginSettings['llm']
+	llmConfig: StewardPluginSettings['llm'],
+	app: App
 ): Promise<CommandIntentExtraction> {
+	const userMessage = await prepareUserMessageWithImages(userInput, app);
+
+	// If the user input contains images, classify it as a generate command
+	if (userMessage.find(part => part.type === 'image')) {
+		return {
+			commands: [
+				{
+					commandType: 'generate',
+					content: userInput,
+				},
+			],
+			explanation: `Classified as "generate" command based on the presence of images.`,
+			confidence: 1,
+		};
+	}
+
 	const clusterName = await classify({
 		model: getClassifier(llmConfig.model, llmConfig.corsProxyUrl),
 		value: userInput,
@@ -157,12 +178,7 @@ export async function extractCommandIntent(
 	const response = await generateText({
 		model: createLLMGenerator(llmConfig),
 		run: { abortSignal },
-		prompt: [
-			userLanguagePrompt,
-			commandIntentPrompt,
-			...additionalPrompts,
-			{ role: 'user', content: userInput },
-		],
+		prompt: [userLanguagePrompt, commandIntentPrompt, ...additionalPrompts, user(userMessage)],
 	});
 
 	// Parse and validate the JSON response

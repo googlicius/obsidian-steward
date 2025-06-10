@@ -8,7 +8,7 @@ import {
 	elevenlabs,
 	SpeechGenerationModel,
 } from 'modelfusion';
-import { OpenAISpeechModel } from 'src/lib/modelfusion/overriden/OpenAISpeechModel';
+import { OpenAISpeechModel } from 'src/lib/modelfusion/overridden/OpenAISpeechModel';
 
 export interface MediaGenerationOptions {
 	prompt: string;

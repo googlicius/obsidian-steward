@@ -67,9 +67,10 @@ export interface ModelOption {
 
 export const LLM_MODELS: ModelOption[] = [
 	// OpenAI Models
+	{ id: 'gpt-4o', name: 'GPT-4o', provider: 'openai' },
+	{ id: 'gpt-4-vision-preview', name: 'GPT-4 Vision (Deprecated)', provider: 'openai' },
 	{ id: 'gpt-4-turbo-preview', name: 'GPT-4 Turbo', provider: 'openai' },
 	{ id: 'gpt-4-0125-preview', name: 'GPT-4 0125', provider: 'openai' },
-	{ id: 'gpt-4-vision-preview', name: 'GPT-4 Vision', provider: 'openai' },
 	{ id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'openai' },
 
 	// DeepSeek Models

@@ -1,5 +1,14 @@
-// Export all extraction functions
+// Export extraction functions
 export * from './extractions';
 
-// Export validator functions
+// Export validators
 export * from './validators';
+
+// Export llm configuration
+export * from './llmConfig';
+
+// Export classify functions
+export { getClassifier } from './classifiers/getClassifier';
+
+// Export image utils
+export { extractImageLinks, prepareUserMessageWithImages } from './utils/imageUtils';

@@ -35,9 +35,11 @@ export class GeneralCommandHandler extends CommandHandler {
 
 		try {
 			// Extract the command intent using AI
-			const intentExtraction = await extractCommandIntent(command.content, {
-				...this.settings.llm,
-			});
+			const intentExtraction = await extractCommandIntent(
+				command.content,
+				this.settings.llm,
+				this.plugin.app
+			);
 
 			// For low confidence intents, just show the explanation without further action
 			if (intentExtraction.confidence <= 0.7) {

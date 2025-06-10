@@ -1,0 +1,11 @@
+---
+description: When creating new files (.ts), functions, or updating the existing code.
+globs: 
+alwaysApply: false
+---
+- Adopt the return early approach.
+- If you understand what we're intent to do, tell me what I don't know if my approach not work.
+- If a function has more than 4 arguments, make that function a single params object.
+- Always write the code readable, maintainable, and reusable.
+- Use 'for' loops instead of 'forEach' for iterating arrays.
+

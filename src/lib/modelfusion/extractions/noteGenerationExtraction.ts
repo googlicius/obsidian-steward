@@ -71,8 +71,8 @@ function validateNoteGenerationExtraction(data: any): NoteGenerationExtraction {
 	}
 
 	// noteName is optional, but if provided, must be a valid string
-	if (data.noteName !== undefined && typeof data.noteName !== 'string') {
-		throw new Error('Note name must be a string');
+	if (data.noteName !== undefined && data.noteName !== null && typeof data.noteName !== 'string') {
+		throw new Error('Note name must be a string or null');
 	}
 
 	if (typeof data.instructions !== 'string' || !data.instructions.trim()) {

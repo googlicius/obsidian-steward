@@ -1,5 +1,6 @@
-import { openai, ollama, openaicompatible } from 'modelfusion';
+import { openai, ollama, openaicompatible, OpenAIChatModelType } from 'modelfusion';
 import { StewardPluginSettings } from 'src/types/interfaces';
+import { OpenAIChatModel } from './overridden/OpenAIChatModel';
 
 export function getProviderFromModel(modelName: string): 'openai' | 'ollama' | 'deepseek' {
 	if (
@@ -26,14 +27,14 @@ export function createLLMGenerator(
 	const { model, temperature, maxGenerationTokens, responseFormat = 'json_object' } = config;
 
 	switch (provider) {
-		case 'openai':
-			return openai.ChatTextGenerator({
-				model: model as any,
+		case 'openai': {
+			return new OpenAIChatModel({
+				model: model as OpenAIChatModelType,
 				temperature,
 				maxGenerationTokens,
-				// topP: config.topP,
 				responseFormat: { type: responseFormat },
 			});
+		}
 		case 'deepseek': {
 			const corsProxy = config.corsProxyUrl ? `${config.corsProxyUrl.replace(/\/$/, '')}/` : '';
 			return openaicompatible.ChatTextGenerator({

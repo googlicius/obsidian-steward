@@ -18,6 +18,8 @@ import { streamText } from 'modelfusion';
 import { createLLMGenerator } from 'src/lib/modelfusion/llmConfig';
 import { userLanguagePromptText } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
+import { user } from 'src/lib/modelfusion/overridden/OpenAIChatMessage';
+import { prepareUserMessageWithImages } from 'src/lib/modelfusion';
 
 const abortService = AbortService.getInstance();
 
@@ -79,6 +81,7 @@ export class GenerateCommandHandler extends CommandHandler {
 		nextCommand?: CommandIntent,
 		lang?: string
 	): Promise<void> {
+		const t = getTranslation(lang);
 		const readArtifact = this.artifactManager.getMostRecentArtifactByType(
 			title,
 			ArtifactType.READ_CONTENT
@@ -112,6 +115,8 @@ export class GenerateCommandHandler extends CommandHandler {
 		if (extraction.confidence <= 0.7) {
 			return;
 		}
+
+		await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
 
 		const messageId = await this.renderer.updateConversationNote({
 			path: title,
@@ -201,6 +206,8 @@ export class GenerateCommandHandler extends CommandHandler {
 			return;
 		}
 
+		await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
+
 		// Prepare for content generation
 		const stream = await streamText({
 			model: createLLMGenerator({ ...this.settings.llm, responseFormat: 'text' }),
@@ -215,10 +222,11 @@ export class GenerateCommandHandler extends CommandHandler {
 					content: `The content should not include the big heading on the top.`,
 				},
 				userLanguagePromptText,
-				{
-					role: 'user',
-					content: extraction.instructions,
-				},
+				// {
+				// 	role: 'user',
+				// 	content: extraction.instructions,
+				// },
+				user(await prepareUserMessageWithImages(command.content, this.app)),
 			].filter(Boolean),
 		});
 
