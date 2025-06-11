@@ -9,24 +9,19 @@
  * @returns True if the line appears to be a conversation link
  */
 export function isConversationLink(line: string, stewardFolder?: string): boolean {
-	// Create conversation path pattern if stewardFolder is provided
-	const conversationPathPattern = stewardFolder
-		? new RegExp(`!\\[\\[${stewardFolder}\\/Conversations\\/.*?\\]\\]`, 'i')
-		: null;
-
-	// Standard patterns for embedded links
-	const conversationPatterns = [
-		// Embedded link format (any content)
-		/!\[\[.*?\]\]/i,
-	];
-
-	// Check for stewardFolder/Conversations pattern first if available
-	if (conversationPathPattern && conversationPathPattern.test(line)) {
-		return true;
+	// If no stewardFolder is provided, we can't determine if it's a conversation link
+	if (!stewardFolder) {
+		return false;
 	}
 
-	// Fall back to standard patterns
-	return conversationPatterns.some(pattern => pattern.test(line));
+	// Create conversation path pattern with the stewardFolder
+	const conversationPathPattern = new RegExp(
+		`!\\[\\[${stewardFolder}\\/Conversations\\/.*?\\]\\]`,
+		'i'
+	);
+
+	// Check if the line matches the conversation path pattern
+	return conversationPathPattern.test(line);
 }
 
 /**

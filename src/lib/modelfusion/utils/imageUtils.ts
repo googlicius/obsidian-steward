@@ -1,10 +1,6 @@
 import { ImagePart, TextPart } from 'modelfusion';
 import { App, TFile } from 'obsidian';
-
-/**
- * Regular expression to match Obsidian image links: ![[image.png]]
- */
-const IMAGE_LINK_REGEX = /!\[\[(.*?)\]\]/g;
+import { IMAGE_LINK_PATTERN } from 'src/constants';
 
 /**
  * Extracts image links from text content
@@ -12,7 +8,9 @@ const IMAGE_LINK_REGEX = /!\[\[(.*?)\]\]/g;
  * @returns Array of image paths extracted from the content
  */
 export function extractImageLinks(content: string): string[] {
-	const matches = content.matchAll(IMAGE_LINK_REGEX);
+	// Create a new RegExp instance with flags each time to avoid stateful issues
+	const imageRegex = new RegExp(IMAGE_LINK_PATTERN, 'gi');
+	const matches = content.matchAll(imageRegex);
 	const imagePaths: string[] = [];
 
 	for (const match of matches) {
@@ -25,7 +23,9 @@ export function extractImageLinks(content: string): string[] {
 }
 
 export function getTextContentWithoutImages(userInput: string): string {
-	return userInput.replace(IMAGE_LINK_REGEX, '').trim();
+	// Create a new RegExp instance with flags each time to avoid stateful issues
+	const imageRegex = new RegExp(IMAGE_LINK_PATTERN, 'gi');
+	return userInput.replace(imageRegex, '').trim();
 }
 
 /**
@@ -41,11 +41,7 @@ export async function prepareUserMessageWithImages(
 	const imagePaths = extractImageLinks(userInput);
 	const messageContent: Array<TextPart | ImagePart> = [];
 
-	// Add text content first (with image links removed)
-	const textContent = getTextContentWithoutImages(userInput);
-	if (textContent) {
-		messageContent.push({ type: 'text', text: textContent });
-	}
+	messageContent.push({ type: 'text', text: userInput });
 
 	// Process and add images
 	for (const imagePath of imagePaths) {

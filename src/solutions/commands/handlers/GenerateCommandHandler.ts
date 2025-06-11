@@ -99,17 +99,21 @@ export class GenerateCommandHandler extends CommandHandler {
 			readArtifact.readingResult.blocks.map(block => block.content)
 		);
 
+		const userInput = `Read content:\n${contentsStr}\n\n${command.content}`;
+
 		const extraction =
 			nextCommand && nextCommand.commandType === 'update_from_artifact'
 				? await extractContentUpdate({
-						userInput: `${contentsStr}\n\n${command.content}`,
+						userInput,
 						systemPrompts: command.systemPrompts,
 						llmConfig: this.settings.llm,
+						app: this.app,
 					})
 				: await extractContentGeneration({
-						userInput: `${contentsStr}\n\n${command.content}`,
+						userInput,
 						systemPrompts: command.systemPrompts,
 						llmConfig: this.settings.llm,
+						app: this.app,
 					});
 
 		if (extraction.confidence <= 0.7) {

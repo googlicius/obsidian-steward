@@ -12,6 +12,9 @@ export const STW_EMBEDDED_CONVERSATION_VIEW_CONFIG = {
 	icon: 'message-square',
 };
 
+// Pattern only, without flags, to avoid global regex state issues
+export const IMAGE_LINK_PATTERN = '!\\[\\[(.*?\\.(jpg|jpeg|png|webp|svg))\\]\\]';
+
 // Supported command prefixes
 export const COMMAND_PREFIXES = [
 	'/ ',

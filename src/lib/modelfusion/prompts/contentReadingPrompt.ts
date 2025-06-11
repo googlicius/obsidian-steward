@@ -18,7 +18,7 @@ Contextual clues that indicate what content to read:
 - "fix this code" → read above with elementType "code"
 - "add a column to the table" → read above with elementType "table"
 - "improve the text above" → read above with elementType "paragraph"
-- "correct this paragraph" → read above with elementType "paragraph"
+- "describe this image" → read above with elementType "image"
 - "help me with this list" → read above with elementType "list"
 - "explain this blockquote" → read above with elementType "blockquote"
 

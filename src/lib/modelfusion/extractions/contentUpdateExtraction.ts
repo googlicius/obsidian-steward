@@ -5,6 +5,9 @@ import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { StewardPluginSettings } from 'src/types/interfaces';
 import { logger } from 'src/utils/logger';
 import { AbortService } from 'src/services/AbortService';
+import { prepareUserMessageWithImages } from '../utils/imageUtils';
+import { user } from '../overridden/OpenAIChatMessage';
+import { App } from 'obsidian';
 
 const abortService = AbortService.getInstance();
 
@@ -28,8 +31,9 @@ export async function extractContentUpdate(params: {
 	userInput: string;
 	systemPrompts?: string[];
 	llmConfig: StewardPluginSettings['llm'];
+	app: App;
 }): Promise<ContentUpdateExtraction> {
-	const { userInput, systemPrompts = [], llmConfig } = params;
+	const { userInput, systemPrompts = [], llmConfig, app } = params;
 
 	try {
 		logger.log('Extracting content update from user input');
@@ -41,10 +45,7 @@ export async function extractContentUpdate(params: {
 				userLanguagePrompt,
 				contentUpdatePrompt,
 				...systemPrompts.map(prompt => ({ role: 'system', content: prompt })),
-				{
-					role: 'user',
-					content: userInput,
-				},
+				user(await prepareUserMessageWithImages(userInput, app)),
 			],
 		});
 

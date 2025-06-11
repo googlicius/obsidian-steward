@@ -3,6 +3,7 @@ import { ContentReadingExtraction } from '../lib/modelfusion/extractions';
 import { logger } from '../utils/logger';
 import StewardPlugin from '../main';
 import { isConversationLink } from '../utils/conversationUtils';
+import { IMAGE_LINK_PATTERN } from 'src/constants';
 
 /**
  * Result of a content reading operation
@@ -492,6 +493,11 @@ export class ContentReadingService {
 			return 'list';
 		}
 
+		// Check for embedded images
+		if (line.startsWith('![[') && new RegExp(IMAGE_LINK_PATTERN, 'gi').test(line)) {
+			return 'image';
+		}
+
 		// Default to paragraph
 		return 'paragraph';
 	}
@@ -698,6 +704,10 @@ export class ContentReadingService {
 					normalizedElementType.includes('blockquote') ||
 					normalizedElementType.includes('callout'))
 			) {
+				return true;
+			}
+
+			if (blockType === 'image' && normalizedElementType.includes('image')) {
 				return true;
 			}
 

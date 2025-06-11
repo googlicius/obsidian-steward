@@ -5,6 +5,9 @@ import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { StewardPluginSettings } from 'src/types/interfaces';
 import { logger } from 'src/utils/logger';
 import { AbortService } from 'src/services/AbortService';
+import { App } from 'obsidian';
+import { user } from '../overridden/OpenAIChatMessage';
+import { prepareUserMessageWithImages } from '../utils/imageUtils';
 
 // Get the singleton instance of AbortService
 const abortService = AbortService.getInstance();
@@ -23,8 +26,9 @@ export async function extractContentGeneration(params: {
 	userInput: string;
 	systemPrompts?: string[];
 	llmConfig: StewardPluginSettings['llm'];
+	app: App;
 }): Promise<ContentGenerationExtraction> {
-	const { userInput, systemPrompts = [], llmConfig } = params;
+	const { userInput, systemPrompts = [], llmConfig, app } = params;
 
 	try {
 		logger.log('Extracting content generation from user input');
@@ -39,10 +43,7 @@ export async function extractContentGeneration(params: {
 				userLanguagePrompt,
 				contentGenerationPrompt,
 				...systemPrompts.map(prompt => ({ role: 'system', content: prompt })),
-				{
-					role: 'user',
-					content: userInput,
-				},
+				user(await prepareUserMessageWithImages(userInput, app)),
 			],
 		});
 
