@@ -20,7 +20,7 @@ import {
 	ImageCommandHandler,
 	UserDefinedCommandHandler,
 } from '../solutions/commands/handlers';
-import { getTextContentWithoutImages } from 'src/lib/modelfusion/utils/imageUtils';
+import { getTextContentWithoutImages } from 'src/lib/modelfusion/utils/userMessageUtils';
 
 export class CommandProcessorService {
 	private readonly commandProcessor: CommandProcessor;

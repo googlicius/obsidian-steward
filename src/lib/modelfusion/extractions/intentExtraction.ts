@@ -14,7 +14,7 @@ import {
 	interpretReadContentPrompt,
 } from '../prompts/interpretQueryPrompts';
 import { getClassifier } from '../classifiers/getClassifier';
-import { prepareUserMessageWithImages } from '../utils/imageUtils';
+import { prepareUserMessage } from '../utils/userMessageUtils';
 import { user } from '../overridden/OpenAIChatMessage';
 import { App } from 'obsidian';
 
@@ -79,6 +79,10 @@ function extractReadGenerateUpdateFromArtifact(userInput: string): CommandIntent
 	};
 }
 
+function containsWikilinks(userInput: string): boolean {
+	return userInput.includes('[[') && userInput.includes(']]');
+}
+
 /**
  * Extract command intents from a general query using AI
  * @param userInput Natural language request from the user
@@ -91,10 +95,10 @@ export async function extractCommandIntent(
 	llmConfig: StewardPluginSettings['llm'],
 	app: App
 ): Promise<CommandIntentExtraction> {
-	const userMessage = await prepareUserMessageWithImages(userInput, app);
+	const userMessage = await prepareUserMessage(userInput, app);
 
-	// If the user input contains images, classify it as a generate command
-	if (userMessage.find(part => part.type === 'image')) {
+	// If the user input contains images, or wikilinks, classify it as a generate command
+	if (userMessage.find(part => part.type === 'image') || containsWikilinks(userInput)) {
 		return {
 			commands: [
 				{
@@ -102,10 +106,12 @@ export async function extractCommandIntent(
 					content: userInput,
 				},
 			],
-			explanation: `Classified as "generate" command based on the presence of images.`,
+			explanation: `Classified as "generate" command based on the presence of images or wikilinks.`,
 			confidence: 1,
 		};
 	}
+
+	console.log('containsWikilinks', containsWikilinks(userInput));
 
 	const clusterName = await classify({
 		model: getClassifier(llmConfig.model, llmConfig.corsProxyUrl),

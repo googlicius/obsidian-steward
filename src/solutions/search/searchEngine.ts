@@ -610,4 +610,14 @@ export class SearchEngine {
 
 		return documentsAcrossOperations;
 	}
+
+	/**
+	 * Get a single document by name using similarity matching
+	 * @param name The name of the document to find
+	 * @returns The found document or null if not found
+	 */
+	public async getDocumentByName(name: string): Promise<IndexedDocument | null> {
+		const documents = await this.getDocumentsByNames([name]);
+		return documents.length > 0 ? documents[0] : null;
+	}
 }

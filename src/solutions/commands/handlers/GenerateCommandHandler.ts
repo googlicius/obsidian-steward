@@ -19,7 +19,7 @@ import { createLLMGenerator } from 'src/lib/modelfusion/llmConfig';
 import { userLanguagePromptText } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
 import { user } from 'src/lib/modelfusion/overridden/OpenAIChatMessage';
-import { prepareUserMessageWithImages } from 'src/lib/modelfusion';
+import { prepareUserMessage } from 'src/lib/modelfusion';
 
 const abortService = AbortService.getInstance();
 
@@ -230,7 +230,7 @@ export class GenerateCommandHandler extends CommandHandler {
 				// 	role: 'user',
 				// 	content: extraction.instructions,
 				// },
-				user(await prepareUserMessageWithImages(command.content, this.app)),
+				user(await prepareUserMessage(command.content, this.app)),
 			].filter(Boolean),
 		});
 

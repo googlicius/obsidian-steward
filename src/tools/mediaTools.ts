@@ -9,6 +9,7 @@ import {
 	SpeechGenerationModel,
 } from 'modelfusion';
 import { OpenAISpeechModel } from 'src/lib/modelfusion/overridden/OpenAISpeechModel';
+import { SearchService } from 'src/solutions/search/searchService';
 
 export interface MediaGenerationOptions {
 	prompt: string;
@@ -81,7 +82,7 @@ export class MediaTools {
 	 * @param nameOrPath - File name or path
 	 * @returns The found TFile or null if not found
 	 */
-	findFileByNameOrPath(nameOrPath: string): TFile | null {
+	async findFileByNameOrPath(nameOrPath: string): Promise<TFile | null> {
 		// Strategy 1: Try direct path lookup
 		let file = this.app.vault.getAbstractFileByPath(nameOrPath);
 		if (file instanceof TFile) {
@@ -99,12 +100,18 @@ export class MediaTools {
 			? nameOrPath.split('/').pop() || nameOrPath
 			: nameOrPath;
 
-		// Strategy 4: Search for the file by name among all files
-		const allFiles = this.app.vault.getFiles();
-		for (const f of allFiles) {
-			if (f.name === filename) {
-				return f;
+		// Strategy 4: Use the search service to find the document by name
+		try {
+			const searchService = SearchService.getInstance();
+			const doc = await searchService.searchEngine.getDocumentByName(filename);
+			if (doc && doc.path) {
+				const file = this.app.vault.getAbstractFileByPath(doc.path);
+				if (file instanceof TFile) {
+					return file;
+				}
 			}
+		} catch (e) {
+			console.error('Error using searchService in findFileByNameOrPath:', e);
 		}
 
 		return null;
@@ -269,18 +276,11 @@ export class MediaTools {
 	}
 
 	/**
-	 * Get a media file by path
-	 */
-	getMediaFile(filePath: string): TFile | null {
-		return this.findFileByNameOrPath(filePath);
-	}
-
-	/**
 	 * Delete a media file
 	 */
 	async deleteMediaFile(filePath: string): Promise<boolean> {
 		try {
-			const file = this.getMediaFile(filePath);
+			const file = await this.findFileByNameOrPath(filePath);
 			if (file) {
 				await this.app.vault.delete(file);
 				return true;

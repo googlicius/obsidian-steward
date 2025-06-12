@@ -7,7 +7,7 @@ import { logger } from 'src/utils/logger';
 import { AbortService } from 'src/services/AbortService';
 import { App } from 'obsidian';
 import { user } from '../overridden/OpenAIChatMessage';
-import { prepareUserMessageWithImages } from '../utils/imageUtils';
+import { prepareUserMessage } from '../utils/userMessageUtils';
 
 // Get the singleton instance of AbortService
 const abortService = AbortService.getInstance();
@@ -43,7 +43,7 @@ export async function extractContentGeneration(params: {
 				userLanguagePrompt,
 				contentGenerationPrompt,
 				...systemPrompts.map(prompt => ({ role: 'system', content: prompt })),
-				user(await prepareUserMessageWithImages(userInput, app)),
+				user(await prepareUserMessage(userInput, app)),
 			],
 		});
 

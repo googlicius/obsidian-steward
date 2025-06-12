@@ -805,7 +805,7 @@ export default class StewardPlugin extends Plugin {
 
 		// If path is provided, get that file
 		if (path) {
-			file = this.mediaTools.findFileByNameOrPath(path);
+			file = await this.mediaTools.findFileByNameOrPath(path);
 		}
 
 		// If no path or file not found, use current active file

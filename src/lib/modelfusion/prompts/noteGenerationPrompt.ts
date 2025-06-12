@@ -11,8 +11,11 @@ The image is present in the user's request as a link (e.g. ![[image.png]]) to an
 Extract the user's query following the guidelines below.
 
 Guidelines:
-- noteName: The note name/title from the user's request (OPTIONAL)
-  - If the user wants to generate content in a specific note, extract that note name
+- noteName: (OPTIONAL)
+  - The note name/title from the user's request that they want to generate content into
+  - If the user wants to you to generate content into a specific note, extract that note name
+  - Do not extract a note name:
+    - If the user provides a wikilink to a note ([[noteName]]), but does not explicitly want to generate content into that note
 - instructions: (REQUIRED)
   - The generation instructions from the user's request that will be fed to a sub-prompt for actual generating content
   - The instructions should capture the user's intent (e.g., a request for generating or consulting, a question, etc.)

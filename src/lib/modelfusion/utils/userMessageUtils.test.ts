@@ -1,6 +1,6 @@
-import { extractImageLinks } from './imageUtils';
+import { extractImageLinks } from './userMessageUtils';
 
-describe('imageUtils', () => {
+describe('userMessageUtils', () => {
 	describe('extractImageLinks', () => {
 		it('should extract image links', () => {
 			const content = `Read content:

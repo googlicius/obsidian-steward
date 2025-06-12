@@ -150,7 +150,7 @@ export class SearchCommandHandler extends CommandHandler {
 			response += `\n\n**${displayIndex}.** [[${result.path}]]\n`;
 
 			// Get the file content directly
-			const file = this.mediaTools.findFileByNameOrPath(result.path);
+			const file = await this.mediaTools.findFileByNameOrPath(result.path);
 
 			if (file && 'keywordsMatched' in result) {
 				try {

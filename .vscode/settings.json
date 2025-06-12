@@ -14,5 +14,5 @@
 	"[ignore]": {
 		"editor.defaultFormatter": "foxundermoon.shell-format"
 	},
-	"cSpell.words": ["deepseek", "mixtral", "ollama", "openaicompatible"]
+	"cSpell.words": ["deepseek", "mixtral", "ollama", "openaicompatible", "wikilink", "Wikilinks"]
 }
