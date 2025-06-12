@@ -15,7 +15,7 @@ export class AudioCommandHandler extends CommandHandler {
 
 	constructor(public readonly plugin: StewardPlugin) {
 		super();
-		this.mediaTools = new MediaTools(plugin.app);
+		this.mediaTools = MediaTools.getInstance(plugin.app);
 	}
 
 	/**

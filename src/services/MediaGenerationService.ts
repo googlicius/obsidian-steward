@@ -12,7 +12,7 @@ export class MediaGenerationService {
 	private plugin: StewardPlugin;
 
 	constructor(plugin: StewardPlugin) {
-		this.mediaTools = new MediaTools(plugin.app);
+		this.mediaTools = MediaTools.getInstance(plugin.app);
 		this.renderer = new ConversationRenderer(plugin);
 		this.plugin = plugin;
 		this.setupEventListeners();

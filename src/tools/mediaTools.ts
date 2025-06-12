@@ -49,8 +49,21 @@ const audioModels: Record<AudioModelType, (voice: string) => SpeechGenerationMod
 
 export class MediaTools {
 	private readonly mediaFolder: string;
+	private static instance: MediaTools | null = null;
 
-	constructor(private readonly app: App) {
+	/**
+	 * Get the singleton instance of MediaTools
+	 * @param app The Obsidian App instance
+	 * @returns MediaTools instance
+	 */
+	public static getInstance(app: App): MediaTools {
+		if (!MediaTools.instance) {
+			MediaTools.instance = new MediaTools(app);
+		}
+		return MediaTools.instance;
+	}
+
+	private constructor(private readonly app: App) {
 		this.mediaFolder = this.getAttachmentsFolderPath();
 	}
 
@@ -61,6 +74,40 @@ export class MediaTools {
 		// @ts-ignore - Accessing internal Obsidian API
 		const attachmentsFolder = this.app.vault.config.attachmentFolderPath;
 		return attachmentsFolder || 'attachments';
+	}
+
+	/**
+	 * Find a file by name or path
+	 * @param nameOrPath - File name or path
+	 * @returns The found TFile or null if not found
+	 */
+	findFileByNameOrPath(nameOrPath: string): TFile | null {
+		// Strategy 1: Try direct path lookup
+		let file = this.app.vault.getAbstractFileByPath(nameOrPath);
+		if (file instanceof TFile) {
+			return file;
+		}
+
+		// Strategy 2: Check if it's in the media folder
+		file = this.app.vault.getAbstractFileByPath(`${this.mediaFolder}/${nameOrPath}`);
+		if (file instanceof TFile) {
+			return file;
+		}
+
+		// Strategy 3: If it's a path with directories, extract the filename
+		const filename = nameOrPath.includes('/')
+			? nameOrPath.split('/').pop() || nameOrPath
+			: nameOrPath;
+
+		// Strategy 4: Search for the file by name among all files
+		const allFiles = this.app.vault.getFiles();
+		for (const f of allFiles) {
+			if (f.name === filename) {
+				return f;
+			}
+		}
+
+		return null;
 	}
 
 	/**
@@ -225,8 +272,7 @@ export class MediaTools {
 	 * Get a media file by path
 	 */
 	getMediaFile(filePath: string): TFile | null {
-		const file = this.app.vault.getAbstractFileByPath(filePath);
-		return file instanceof TFile ? file : null;
+		return this.findFileByNameOrPath(filePath);
 	}
 
 	/**

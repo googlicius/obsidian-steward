@@ -34,6 +34,7 @@ import { UserDefinedCommandService } from './services/UserDefinedCommandService'
 import { classify } from 'modelfusion';
 import { retry } from './utils/retry';
 import { getClassifier } from './lib/modelfusion/classifiers/getClassifier';
+import { MediaTools } from './tools/mediaTools';
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -53,6 +54,7 @@ export default class StewardPlugin extends Plugin {
 	commandProcessorService: CommandProcessorService;
 	userDefinedCommandService: UserDefinedCommandService;
 	conversationEventHandler: ConversationEventHandler;
+	mediaTools: MediaTools;
 
 	get editor(): ObsidianEditor {
 		return this.app.workspace.activeEditor?.editor as ObsidianEditor;
@@ -106,6 +108,9 @@ export default class StewardPlugin extends Plugin {
 
 		// Initialize the ObsidianAPITools with the SearchTool
 		this.obsidianAPITools = new ObsidianAPITools(this.app);
+
+		// Initialize the media tools
+		this.mediaTools = MediaTools.getInstance(this.app);
 
 		// Build the index if it's not already built
 		this.checkAndBuildIndexIfNeeded();
@@ -800,7 +805,7 @@ export default class StewardPlugin extends Plugin {
 
 		// If path is provided, get that file
 		if (path) {
-			file = this.getFileByNameOrPath(path);
+			file = this.mediaTools.findFileByNameOrPath(path);
 		}
 
 		// If no path or file not found, use current active file
@@ -873,41 +878,6 @@ export default class StewardPlugin extends Plugin {
 				resolve(leaf);
 			});
 		});
-	}
-
-	/**
-	 * Find a file by name or path
-	 * @param nameOrPath - File name or path (with or without .md extension)
-	 * @returns The found TFile or null if not found
-	 */
-	getFileByNameOrPath(nameOrPath: string): TFile | null {
-		// Add .md extension if missing
-		const hasExtension = nameOrPath.endsWith('.md');
-		const nameOrPathWithExt = hasExtension ? nameOrPath : `${nameOrPath}.md`;
-
-		// If it's a path (contains '/')
-		if (nameOrPathWithExt.includes('/')) {
-			// First try to get the file directly by path
-			const fileByPath = this.app.vault.getAbstractFileByPath(nameOrPathWithExt);
-			if (fileByPath instanceof TFile) {
-				return fileByPath;
-			}
-
-			// If no file found, extract the filename from the path
-			nameOrPath = nameOrPathWithExt.split('/').pop() || nameOrPathWithExt;
-		} else {
-			nameOrPath = nameOrPathWithExt;
-		}
-
-		// Search for the file by name among all markdown files
-		const allFiles = this.app.vault.getMarkdownFiles();
-		for (const file of allFiles) {
-			if (file.name === nameOrPath) {
-				return file;
-			}
-		}
-
-		return null;
 	}
 
 	/**

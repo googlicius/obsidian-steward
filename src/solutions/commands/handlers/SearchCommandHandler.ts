@@ -11,14 +11,17 @@ import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { extractSearchQueryV2 } from 'src/lib/modelfusion/extractions';
 import { highlightKeyword } from 'src/utils/highlightKeywords';
 import { PaginatedSearchResultV2 } from 'src/solutions/search';
+import { MediaTools } from 'src/tools/mediaTools';
 
 export class SearchCommandHandler extends CommandHandler {
 	isContentRequired = true;
 
 	private static instance: SearchCommandHandler | null = null;
+	private mediaTools: MediaTools;
 
 	constructor(public readonly plugin: StewardPlugin) {
 		super();
+		this.mediaTools = MediaTools.getInstance(plugin.app);
 	}
 
 	/**
@@ -147,7 +150,7 @@ export class SearchCommandHandler extends CommandHandler {
 			response += `\n\n**${displayIndex}.** [[${result.path}]]\n`;
 
 			// Get the file content directly
-			const file = this.plugin.getFileByNameOrPath(result.path);
+			const file = this.mediaTools.findFileByNameOrPath(result.path);
 
 			if (file && 'keywordsMatched' in result) {
 				try {

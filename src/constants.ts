@@ -13,7 +13,8 @@ export const STW_EMBEDDED_CONVERSATION_VIEW_CONFIG = {
 };
 
 // Pattern only, without flags, to avoid global regex state issues
-export const IMAGE_LINK_PATTERN = '!\\[\\[(.*?\\.(jpg|jpeg|png|webp|svg))\\]\\]';
+// Captures image path (group 1) which may be followed by size parameter after |
+export const IMAGE_LINK_PATTERN = '!\\[\\[(.*?\\.(jpg|jpeg|png|webp|svg))(?:\\|.*?)?\\]\\]';
 
 // Supported command prefixes
 export const COMMAND_PREFIXES = [

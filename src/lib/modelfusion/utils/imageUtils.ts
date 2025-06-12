@@ -1,6 +1,7 @@
 import { ImagePart, TextPart } from 'modelfusion';
 import { App, TFile } from 'obsidian';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
+import { MediaTools } from 'src/tools/mediaTools';
 
 /**
  * Extracts image links from text content
@@ -46,7 +47,8 @@ export async function prepareUserMessageWithImages(
 	// Process and add images
 	for (const imagePath of imagePaths) {
 		try {
-			const file = app.vault.getAbstractFileByPath(imagePath);
+			const mediaTools = MediaTools.getInstance(app);
+			const file = mediaTools.findFileByNameOrPath(imagePath);
 
 			if (file instanceof TFile) {
 				const imageData = await app.vault.readBinary(file);
