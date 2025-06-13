@@ -13,6 +13,7 @@ export interface NoteGenerationExtraction {
 	style?: string;
 	explanation: string;
 	confidence: number;
+	modifiesNote: boolean;
 }
 
 /**
@@ -92,11 +93,16 @@ function validateNoteGenerationExtraction(data: any): NoteGenerationExtraction {
 		throw new Error('Confidence must be a number between 0 and 1');
 	}
 
+	if (typeof data.modifiesNote !== 'boolean') {
+		throw new Error('modifiesNote must be a boolean');
+	}
+
 	return {
 		noteName: data.noteName,
 		instructions: data.instructions,
 		style: data.style,
 		explanation: data.explanation,
 		confidence: data.confidence,
+		modifiesNote: data.modifiesNote,
 	};
 }

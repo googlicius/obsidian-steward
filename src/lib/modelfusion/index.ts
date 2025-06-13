@@ -11,4 +11,4 @@ export * from './llmConfig';
 export { getClassifier } from './classifiers/getClassifier';
 
 // Export image utils
-export { extractImageLinks, prepareUserMessage } from './utils/userMessageUtils';
+export { prepareUserMessage } from './utils/userMessageUtils';

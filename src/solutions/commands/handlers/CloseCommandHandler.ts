@@ -1,9 +1,9 @@
 import { getTranslation } from 'src/i18n';
 import {
-	CommandHandler,
-	CommandHandlerParams,
-	CommandResult,
-	CommandResultStatus,
+  CommandHandler,
+  CommandHandlerParams,
+  CommandResult,
+  CommandResultStatus,
 } from '../CommandHandler';
 import StewardPlugin from 'src/main';
 
@@ -12,43 +12,43 @@ import StewardPlugin from 'src/main';
  * Closes the conversation and removes the conversation link from the editor
  */
 export class CloseCommandHandler extends CommandHandler {
-	constructor(public readonly plugin: StewardPlugin) {
-		super();
-	}
+  constructor(public readonly plugin: StewardPlugin) {
+    super();
+  }
 
-	/**
-	 * Handle a close command
-	 */
-	public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-		const { title, lang } = params;
-		const t = getTranslation(lang);
+  /**
+   * Handle a close command
+   */
+  public async handle(params: CommandHandlerParams): Promise<CommandResult> {
+    const { title, lang } = params;
+    const t = getTranslation(lang);
 
-		try {
-			const success = await this.plugin.closeConversation(title);
+    try {
+      const success = await this.plugin.closeConversation(title);
 
-			if (!success) {
-				return {
-					status: CommandResultStatus.ERROR,
-					error: new Error('Failed to close conversation'),
-				};
-			}
+      if (!success) {
+        return {
+          status: CommandResultStatus.ERROR,
+          error: new Error('Failed to close conversation'),
+        };
+      }
 
-			await this.renderer.updateConversationNote({
-				path: title,
-				newContent: t('chat.conversationClosed'),
-				role: 'Steward',
-			});
+      await this.renderer.updateConversationNote({
+        path: title,
+        newContent: t('chat.conversationClosed'),
+        role: 'Steward',
+      });
 
-			return {
-				status: CommandResultStatus.SUCCESS,
-			};
-		} catch (error) {
-			console.error('Error closing conversation:', error);
+      return {
+        status: CommandResultStatus.SUCCESS,
+      };
+    } catch (error) {
+      console.error('Error closing conversation:', error);
 
-			return {
-				status: CommandResultStatus.ERROR,
-				error,
-			};
-		}
-	}
+      return {
+        status: CommandResultStatus.ERROR,
+        error,
+      };
+    }
+  }
 }

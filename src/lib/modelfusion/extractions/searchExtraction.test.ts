@@ -1,7 +1,7 @@
 import { extractSearchQueryV2 } from './searchExtraction';
 
 // Mock the language utility
-jest.mock('../../utils/getObsidianLanguage', () => ({
+jest.mock('src/utils/getObsidianLanguage', () => ({
 	getObsidianLanguage: () => 'en',
 }));
 

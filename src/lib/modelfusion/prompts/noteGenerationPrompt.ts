@@ -13,9 +13,10 @@ Extract the user's query following the guidelines below.
 Guidelines:
 - noteName: (OPTIONAL)
   - The note name/title from the user's request that they want to generate content into
-  - If the user wants to you to generate content into a specific note, extract that note name
-  - Do not extract a note name:
-    - If the user provides a wikilink to a note ([[noteName]]), but does not explicitly want to generate content into that note
+  - If the user wants to you to update or create content in a specific note, extract that note name
+  - Leave noteName empty:
+    - If the user provides a wikilink to a note ([[noteName]]) but does not explicitly want to update or create content in that note
+- modifiesNote: A boolean indicating if the user wants to create or update the noteName (true if yes, false if not)
 - instructions: (REQUIRED)
   - The generation instructions from the user's request that will be fed to a sub-prompt for actual generating content
   - The instructions should capture the user's intent (e.g., a request for generating or consulting, a question, etc.)
@@ -25,5 +26,6 @@ You must respond with a valid JSON object containing these properties:
 - noteName
 - instructions
 - explanation
+- modifiesNote
 - confidence: A number from 0 to 1 indicating your confidence in this interpretation`,
 };

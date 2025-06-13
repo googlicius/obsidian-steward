@@ -1,8 +1,8 @@
 import {
-	CommandHandler,
-	CommandHandlerParams,
-	CommandResult,
-	CommandResultStatus,
+  CommandHandler,
+  CommandHandlerParams,
+  CommandResult,
+  CommandResultStatus,
 } from '../CommandHandler';
 import StewardPlugin from 'src/main';
 import { getTranslation } from 'src/i18n';
@@ -14,48 +14,48 @@ import { delay } from 'src/utils/delay';
  * Handler for the stop command
  */
 export class StopCommandHandler extends CommandHandler {
-	private abortService: AbortService;
+  private abortService: AbortService;
 
-	constructor(public readonly plugin: StewardPlugin) {
-		super();
-		this.abortService = AbortService.getInstance();
-	}
+  constructor(public readonly plugin: StewardPlugin) {
+    super();
+    this.abortService = AbortService.getInstance();
+  }
 
-	/**
-	 * Handle the stop command
-	 */
-	public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-		const { title, lang } = params;
-		const t = getTranslation(lang);
+  /**
+   * Handle the stop command
+   */
+  public async handle(params: CommandHandlerParams): Promise<CommandResult> {
+    const { title, lang } = params;
+    const t = getTranslation(lang);
 
-		// Get the count of active operations before stopping
-		const activeOperationsCount = this.abortService.getActiveOperationsCount();
+    // Get the count of active operations before stopping
+    const activeOperationsCount = this.abortService.getActiveOperationsCount();
 
-		this.abortService.abortAllOperations();
+    this.abortService.abortAllOperations();
 
-		// Log the action
-		logger.log(`Stop command received - aborted all operations (${activeOperationsCount} active)`);
+    // Log the action
+    logger.log(`Stop command received - aborted all operations (${activeOperationsCount} active)`);
 
-		// Prepare the response message
-		let responseMessage = t('stop.stopped');
+    // Prepare the response message
+    let responseMessage = t('stop.stopped');
 
-		// Add count of operations if there were any
-		if (activeOperationsCount > 0) {
-			responseMessage = t('stop.stoppedWithCount', { count: activeOperationsCount });
-		} else {
-			responseMessage = t('stop.noActiveOperations');
-		}
+    // Add count of operations if there were any
+    if (activeOperationsCount > 0) {
+      responseMessage = t('stop.stoppedWithCount', { count: activeOperationsCount });
+    } else {
+      responseMessage = t('stop.noActiveOperations');
+    }
 
-		await delay(200);
+    await delay(200);
 
-		await this.renderer.updateConversationNote({
-			path: title,
-			newContent: responseMessage,
-			role: 'Steward',
-		});
+    await this.renderer.updateConversationNote({
+      path: title,
+      newContent: responseMessage,
+      role: 'Steward',
+    });
 
-		return {
-			status: CommandResultStatus.SUCCESS,
-		};
-	}
+    return {
+      status: CommandResultStatus.SUCCESS,
+    };
+  }
 }
