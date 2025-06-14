@@ -9,19 +9,19 @@
  * @returns True if the line appears to be a conversation link
  */
 export function isConversationLink(line: string, stewardFolder?: string): boolean {
-	// If no stewardFolder is provided, we can't determine if it's a conversation link
-	if (!stewardFolder) {
-		return false;
-	}
+  // If no stewardFolder is provided, we can't determine if it's a conversation link
+  if (!stewardFolder) {
+    return false;
+  }
 
-	// Create conversation path pattern with the stewardFolder
-	const conversationPathPattern = new RegExp(
-		`!\\[\\[${stewardFolder}\\/Conversations\\/.*?\\]\\]`,
-		'i'
-	);
+  // Create conversation path pattern with the stewardFolder
+  const conversationPathPattern = new RegExp(
+    `!\\[\\[${stewardFolder}\\/Conversations\\/.*?\\]\\]`,
+    'i'
+  );
 
-	// Check if the line matches the conversation path pattern
-	return conversationPathPattern.test(line);
+  // Check if the line matches the conversation path pattern
+  return conversationPathPattern.test(line);
 }
 
 /**
@@ -30,15 +30,15 @@ export function isConversationLink(line: string, stewardFolder?: string): boolea
  * @returns The conversation title, or null if no link is found
  */
 export function extractConversationTitle(line: string): string | null {
-	// Look for inline link format: ![[conversation title]] or ![[steward/Conversations/title]]
-	const linkMatch = line.match(/!\[\[(.*?)\]\]/);
-	if (linkMatch && linkMatch[1]) {
-		// Extract just the title part if it's a path
-		const titlePath = linkMatch[1];
-		if (titlePath.includes('/')) {
-			return titlePath.split('/').pop() || null;
-		}
-		return titlePath; // Return the full matched content if not a path
-	}
-	return null;
+  // Look for inline link format: ![[conversation title]] or ![[steward/Conversations/title]]
+  const linkMatch = line.match(/!\[\[(.*?)\]\]/);
+  if (linkMatch && linkMatch[1]) {
+    // Extract just the title part if it's a path
+    const titlePath = linkMatch[1];
+    if (titlePath.includes('/')) {
+      return titlePath.split('/').pop() || null;
+    }
+    return titlePath; // Return the full matched content if not a path
+  }
+  return null;
 }

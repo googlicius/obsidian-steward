@@ -9,14 +9,14 @@ import { delay } from './delay';
  * @returns Adjusted end position that won't split special elements
  */
 function adjustChunkBoundary(text: string, position: number, proposedEnd: number): number {
-	let adjustedEnd = proposedEnd;
+  let adjustedEnd = proposedEnd;
 
-	// Check for Markdown links [[...]]
-	adjustedEnd = checkAndAdjustForMarkdownLinks(text, position, adjustedEnd);
+  // Check for Markdown links [[...]]
+  adjustedEnd = checkAndAdjustForMarkdownLinks(text, position, adjustedEnd);
 
-	// Additional checks can be added here in the future
+  // Additional checks can be added here in the future
 
-	return adjustedEnd;
+  return adjustedEnd;
 }
 
 /**
@@ -27,30 +27,30 @@ function adjustChunkBoundary(text: string, position: number, proposedEnd: number
  * @returns Adjusted end position that won't split Markdown links
  */
 function checkAndAdjustForMarkdownLinks(
-	text: string,
-	position: number,
-	proposedEnd: number
+  text: string,
+  position: number,
+  proposedEnd: number
 ): number {
-	// Check if we're in the middle of a Markdown link
-	const linkStartPos = text.lastIndexOf('[[', proposedEnd);
-	const linkEndPos = text.indexOf(']]', linkStartPos);
+  // Check if we're in the middle of a Markdown link
+  const linkStartPos = text.lastIndexOf('[[', proposedEnd);
+  const linkEndPos = text.indexOf(']]', linkStartPos);
 
-	if (
-		linkStartPos !== -1 &&
-		linkStartPos < proposedEnd &&
-		(linkEndPos === -1 || linkEndPos >= proposedEnd)
-	) {
-		// We're about to split a link, so adjust the end position
-		if (linkStartPos > position) {
-			// Cut before the link starts
-			return linkStartPos;
-		} else if (linkEndPos !== -1) {
-			// Include the entire link
-			return linkEndPos + 2;
-		}
-	}
+  if (
+    linkStartPos !== -1 &&
+    linkStartPos < proposedEnd &&
+    (linkEndPos === -1 || linkEndPos >= proposedEnd)
+  ) {
+    // We're about to split a link, so adjust the end position
+    if (linkStartPos > position) {
+      // Cut before the link starts
+      return linkStartPos;
+    } else if (linkEndPos !== -1) {
+      // Include the entire link
+      return linkEndPos + 2;
+    }
+  }
 
-	return proposedEnd;
+  return proposedEnd;
 }
 
 /**
@@ -61,51 +61,51 @@ function checkAndAdjustForMarkdownLinks(
  * @returns AsyncGenerator that yields text chunks
  */
 export async function* createTextStream(
-	text: string,
-	options: {
-		chunkSize?: number;
-		delayMs?: number;
-		randomizeDelay?: boolean;
-		randomizeChunkSize?: boolean;
-	} = {}
+  text: string,
+  options: {
+    chunkSize?: number;
+    delayMs?: number;
+    randomizeDelay?: boolean;
+    randomizeChunkSize?: boolean;
+  } = {}
 ): AsyncGenerator<string, void, unknown> {
-	// Default options
-	const { chunkSize = 5, delayMs = 20, randomizeDelay = true, randomizeChunkSize = true } = options;
+  // Default options
+  const { chunkSize = 5, delayMs = 20, randomizeDelay = true, randomizeChunkSize = true } = options;
 
-	// Return early if text is empty
-	if (!text) return;
+  // Return early if text is empty
+  if (!text) return;
 
-	let position = 0;
+  let position = 0;
 
-	while (position < text.length) {
-		// Calculate current chunk size (randomized if enabled)
-		const currentChunkSize = randomizeChunkSize
-			? Math.max(1, Math.floor(Math.random() * chunkSize * 2))
-			: chunkSize;
+  while (position < text.length) {
+    // Calculate current chunk size (randomized if enabled)
+    const currentChunkSize = randomizeChunkSize
+      ? Math.max(1, Math.floor(Math.random() * chunkSize * 2))
+      : chunkSize;
 
-		// Calculate current delay (randomized if enabled)
-		const currentDelay = randomizeDelay
-			? Math.max(5, Math.floor(Math.random() * delayMs * 1.5))
-			: delayMs;
+    // Calculate current delay (randomized if enabled)
+    const currentDelay = randomizeDelay
+      ? Math.max(5, Math.floor(Math.random() * delayMs * 1.5))
+      : delayMs;
 
-		// Get the next chunk end position
-		const proposedEnd = Math.min(position + currentChunkSize, text.length);
+    // Get the next chunk end position
+    const proposedEnd = Math.min(position + currentChunkSize, text.length);
 
-		// Adjust chunk boundary to avoid splitting special elements
-		const end = adjustChunkBoundary(text, position, proposedEnd);
+    // Adjust chunk boundary to avoid splitting special elements
+    const end = adjustChunkBoundary(text, position, proposedEnd);
 
-		// Get the chunk
-		const chunk = text.substring(position, end);
+    // Get the chunk
+    const chunk = text.substring(position, end);
 
-		// Wait before yielding the chunk
-		await delay(currentDelay);
+    // Wait before yielding the chunk
+    await delay(currentDelay);
 
-		// Yield the chunk
-		yield chunk;
+    // Yield the chunk
+    yield chunk;
 
-		// Move to next position
-		position = end;
-	}
+    // Move to next position
+    position = end;
+  }
 }
 
 /**
@@ -116,18 +116,18 @@ export async function* createTextStream(
  * @returns AsyncIterable<string> that can be used with streaming functions
  */
 export function createMockStreamResponse(
-	text: string,
-	options: {
-		chunkSize?: number;
-		delayMs?: number;
-		randomizeDelay?: boolean;
-		randomizeChunkSize?: boolean;
-	} = {}
+  text: string,
+  options: {
+    chunkSize?: number;
+    delayMs?: number;
+    randomizeDelay?: boolean;
+    randomizeChunkSize?: boolean;
+  } = {}
 ): AsyncIterable<string> {
-	// Return an object that implements AsyncIterable
-	return {
-		[Symbol.asyncIterator]() {
-			return createTextStream(text, options);
-		},
-	};
+  // Return an object that implements AsyncIterable
+  return {
+    [Symbol.asyncIterator]() {
+      return createTextStream(text, options);
+    },
+  };
 }

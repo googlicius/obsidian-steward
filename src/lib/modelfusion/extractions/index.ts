@@ -6,7 +6,6 @@ export * from './imageExtraction';
 // Content Extractions
 export * from './contentReadingExtraction';
 export * from './contentUpdateExtraction';
-export * from './contentGenerationExtraction';
 
 // Note Extractions
 export * from './noteCreationExtraction';

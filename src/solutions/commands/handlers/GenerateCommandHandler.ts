@@ -8,7 +8,6 @@ import { getTranslation } from 'src/i18n';
 import StewardPlugin from 'src/main';
 import {
   CommandIntent,
-  extractContentGeneration,
   extractContentUpdate,
   extractNoteGeneration,
 } from 'src/lib/modelfusion/extractions';
@@ -99,7 +98,7 @@ export class GenerateCommandHandler extends CommandHandler {
       readArtifact.readingResult.blocks.map(block => block.content)
     );
 
-    const userInput = `Read content:\n${contentsStr}\n\n${command.content}`;
+    const userInput = `T content from the current note:\n${contentsStr}\n\n${command.content}`;
 
     const extraction =
       nextCommand && nextCommand.commandType === 'update_from_artifact'
@@ -109,28 +108,32 @@ export class GenerateCommandHandler extends CommandHandler {
             llmConfig: this.settings.llm,
             app: this.app,
           })
-        : await extractContentGeneration({
+        : await extractNoteGeneration({
             userInput,
             systemPrompts: command.systemPrompts,
             llmConfig: this.settings.llm,
-            app: this.app,
           });
 
     if (extraction.confidence <= 0.7) {
+      await this.renderer.updateConversationNote({
+        path: title,
+        newContent: extraction.explanation,
+      });
+
       return;
     }
 
     await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
 
-    const messageId = await this.renderer.updateConversationNote({
-      path: title,
-      newContent: extraction.explanation,
-    });
-
     if ('updates' in extraction) {
       if (extraction.updates.length === 0) {
         return;
       }
+
+      const messageId = await this.renderer.updateConversationNote({
+        path: title,
+        newContent: extraction.explanation,
+      });
 
       // Store the content update extraction as an artifact
       if (messageId) {
@@ -149,16 +152,13 @@ export class GenerateCommandHandler extends CommandHandler {
         });
       }
     } else {
-      if (extraction.responses.length === 0) {
-        return;
-      }
+      const stream = await this.contentGenerationStream({ ...command, content: userInput });
 
-      for (const response of extraction.responses) {
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: this.renderer.formatCallout(response),
-        });
-      }
+      await this.renderer.streamConversationNote({
+        path: title,
+        stream,
+        command: 'generate',
+      });
     }
   }
 
@@ -213,26 +213,7 @@ export class GenerateCommandHandler extends CommandHandler {
     await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
 
     // Prepare for content generation
-    const stream = await streamText({
-      model: createLLMGenerator({ ...this.settings.llm, responseFormat: 'text' }),
-      run: { abortSignal: abortService.createAbortController('generate') },
-      prompt: [
-        {
-          role: 'system',
-          content: `You are a helpful assistant that generates content for Obsidian notes. Generate detailed, well-structured content. Format the content in Markdown.`,
-        },
-        {
-          role: 'system',
-          content: `The content should not include the big heading on the top.`,
-        },
-        userLanguagePromptText,
-        // {
-        // 	role: 'user',
-        // 	content: extraction.instructions,
-        // },
-        user(await prepareUserMessage(command.content, this.app)),
-      ].filter(Boolean),
-    });
+    const stream = await this.contentGenerationStream(command);
 
     // If no note name is provided or the user does not want to modify the note,
     // stream content to current conversation
@@ -286,5 +267,24 @@ export class GenerateCommandHandler extends CommandHandler {
 
     // Delete artifact
     this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
+  }
+
+  private async contentGenerationStream(command: CommandIntent): Promise<AsyncIterable<string>> {
+    const { content, systemPrompts = [] } = command;
+
+    return streamText({
+      model: createLLMGenerator({ ...this.settings.llm, responseFormat: 'text' }),
+      run: { abortSignal: abortService.createAbortController('generate') },
+      prompt: [
+        {
+          role: 'system',
+          content: `You are a helpful assistant that generates content for Obsidian notes. Generate detailed, well-structured content. Format the content in Markdown.
+The content should not include the big heading on the top.`,
+        },
+        userLanguagePromptText,
+        ...systemPrompts.map(prompt => ({ role: 'system', content: prompt })),
+        user(await prepareUserMessage(content, this.app)),
+      ],
+    });
   }
 }

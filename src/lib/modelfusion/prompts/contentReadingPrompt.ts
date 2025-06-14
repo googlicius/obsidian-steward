@@ -2,8 +2,8 @@ import { OpenAIChatMessage } from 'modelfusion';
 import { confidenceFragment } from './fragments';
 
 export const contentReadingPrompt: OpenAIChatMessage = {
-	role: 'system',
-	content: `You are a helpful assistant that analyzes user queries to determine which content from their Obsidian note to read and use as context for their request.
+  role: 'system',
+  content: `You are a helpful assistant that analyzes user queries to determine which content from their Obsidian note to read and use as context for their request.
 
 Your task is to extract information about what content the user wants to focus on in their current note. This could be:
 

@@ -2,8 +2,8 @@ import { OpenAIChatMessage } from 'modelfusion';
 import { explanationFragment } from './fragments';
 
 export const audioCommandPrompt: OpenAIChatMessage = {
-	role: 'system',
-	content: `You are a helpful assistant that extracts audio generation parameters from user queries and can generate creative content when explicitly requested.
+  role: 'system',
+  content: `You are a helpful assistant that extracts audio generation parameters from user queries and can generate creative content when explicitly requested.
 
 Guidelines:
 - text: The text to convert to speech

@@ -2,8 +2,8 @@ import { OpenAIChatMessage } from 'modelfusion';
 import { confidenceFragment, explanationFragment } from './fragments';
 
 export const destinationFolderPrompt: OpenAIChatMessage = {
-	role: 'system',
-	content: `You are a helpful assistant that extracts the move or copy command from user queries for an Obsidian note system.
+  role: 'system',
+  content: `You are a helpful assistant that extracts the move or copy command from user queries for an Obsidian note system.
 
 Your job is to analyze the user's request to move or copy notes and extract based on the following guidelines:
 

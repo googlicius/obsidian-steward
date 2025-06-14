@@ -2,8 +2,8 @@ import { OpenAIChatMessage } from 'modelfusion';
 import { explanationFragment } from './fragments';
 
 export const imageCommandPrompt: OpenAIChatMessage = {
-	role: 'system',
-	content: `You are a helpful assistant that extracts image generation parameters from user queries and can generate creative content when explicitly requested.
+  role: 'system',
+  content: `You are a helpful assistant that extracts image generation parameters from user queries and can generate creative content when explicitly requested.
 
 Your job is to analyze the user's natural language request and extract the parameters needed for image generation. You should only generate creative content when the user explicitly asks for it.
 

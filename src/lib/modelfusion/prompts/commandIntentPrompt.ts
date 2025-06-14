@@ -2,8 +2,8 @@ import { OpenAIChatMessage } from 'modelfusion';
 import { explanationFragment } from './fragments';
 
 export const commandIntentPrompt: OpenAIChatMessage = {
-	role: 'system',
-	content: `You are a helpful assistant that analyzes user queries to determine their intent for an Obsidian note management system.
+  role: 'system',
+  content: `You are a helpful assistant that analyzes user queries to determine their intent for an Obsidian note management system.
 
 Your job is to analyze the user's natural language request and determine which sequence of commands it corresponds to. A single query may contain multiple commands that should be executed in sequence.
 

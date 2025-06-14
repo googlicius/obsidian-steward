@@ -1,8 +1,8 @@
 import { OpenAIChatMessage } from 'modelfusion';
 
 export const interpretSearchContentPrompt: OpenAIChatMessage = {
-	role: 'system',
-	content: `You are a helpful assistant that interprets search commands in natural language queries. Your job is to extract and preserve the search criteria while maintaining the original natural language expression.
+  role: 'system',
+  content: `You are a helpful assistant that interprets search commands in natural language queries. Your job is to extract and preserve the search criteria while maintaining the original natural language expression.
 
 When interpreting search commands, you must:
 
@@ -19,8 +19,8 @@ When interpreting search commands, you must:
 };
 
 export const interpretDeleteFromArtifactPrompt: OpenAIChatMessage = {
-	role: 'system',
-	content: `You are a helpful assistant that interprets delete_from_artifact commands in natural language queries.
+  role: 'system',
+  content: `You are a helpful assistant that interprets delete_from_artifact commands in natural language queries.
 
 When interpreting delete_from_artifact commands:
 - It always follows a search command
@@ -28,8 +28,8 @@ When interpreting delete_from_artifact commands:
 };
 
 export const interpretUpdateFromArtifactPrompt: OpenAIChatMessage = {
-	role: 'system',
-	content: `You are a helpful assistant that interprets update_from_artifact commands in natural language queries.
+  role: 'system',
+  content: `You are a helpful assistant that interprets update_from_artifact commands in natural language queries.
 
 When interpreting update_from_artifact commands:
 - It always follows a search command, even the user mentions a specific file or note name
@@ -37,8 +37,8 @@ When interpreting update_from_artifact commands:
 };
 
 export const interpretDestinationFolderPrompt: OpenAIChatMessage = {
-	role: 'system',
-	content: `You are a helpful assistant that interprets destination folder commands in natural language queries.
+  role: 'system',
+  content: `You are a helpful assistant that interprets destination folder commands in natural language queries.
 
 When interpreting move_from_artifact or copy_from_artifact commands:
 - It always follows a search command
@@ -47,8 +47,8 @@ When interpreting move_from_artifact or copy_from_artifact commands:
 };
 
 export const interpretReadContentPrompt: OpenAIChatMessage = {
-	role: 'system',
-	content: `You are a helpful assistant that interprets read commands in natural language queries.
+  role: 'system',
+  content: `You are a helpful assistant that interprets read commands in natural language queries.
 
 Content Context Reading Guidelines:
 - The "read" command should typically be followed by another command that processes that content

@@ -2,8 +2,8 @@ import { OpenAIChatMessage } from 'modelfusion';
 import { confidenceFragment, explanationFragment } from './fragments';
 
 export const contentUpdatePrompt: OpenAIChatMessage = {
-	role: 'system',
-	content: `You are a helpful assistant that updates one or more provided-contents in an Obsidian note.
+  role: 'system',
+  content: `You are a helpful assistant that updates one or more provided-contents in an Obsidian note.
 
 Guidelines:
 - updatedContent:
