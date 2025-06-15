@@ -2,6 +2,7 @@ import { ConversationCommandReceivedPayload } from '../../types/events';
 import { CommandResultStatus, CommandHandler, CommandResult } from './CommandHandler';
 import { logger } from '../../utils/logger';
 import { CommandIntent } from '../../lib/modelfusion/extractions';
+import StewardPlugin from 'src/main';
 
 interface PendingCommand {
   commands: CommandIntent[];
@@ -14,6 +15,10 @@ interface ProcessCommandsOptions {
   skipIndicators?: boolean;
   skipGeneralCommandCheck?: boolean;
   skipConfirmationCheck?: boolean;
+  /**
+   * In case a user-defined command has the same name as a built-in command, if true, the built-in handler will be used.
+   */
+  builtInCommandPrecedence?: boolean;
 }
 
 export class CommandProcessor {
@@ -21,6 +26,12 @@ export class CommandProcessor {
 
   private commandHandlers: Map<string, CommandHandler> = new Map();
   private userDefinedCommandHandler: CommandHandler | null = null;
+
+  constructor(private readonly plugin: StewardPlugin) {}
+
+  get userDefinedCommandService() {
+    return this.plugin.userDefinedCommandService;
+  }
 
   /**
    * Register a command handler for a specific command type
@@ -84,7 +95,7 @@ export class CommandProcessor {
     commandType: string,
     options: ProcessCommandsOptions = {}
   ): Promise<void> {
-    const tempProcessor = new CommandProcessor();
+    const tempProcessor = new CommandProcessor(this.plugin);
 
     const handler = this.commandHandlers.get(commandType);
     if (handler) {
@@ -109,12 +120,16 @@ export class CommandProcessor {
     return commands.length === 1 && commands[0].commandType === ' ';
   }
 
-  /**
-   * Check if a command is a user-defined command that should be handled by the user-defined handler
-   */
-  private isUserDefinedCommand(commandType: string): boolean {
-    // If we have a user-defined command handler and the command is not a built-in one
-    return this.userDefinedCommandHandler !== null && !this.commandHandlers.has(commandType);
+  private isUserDefinedCommand(commandType: string, builtInCommandPrecedence: boolean): boolean {
+    if (!this.userDefinedCommandService.userDefinedCommands.has(commandType)) {
+      return false;
+    }
+
+    if (this.commandHandlers.has(commandType) && builtInCommandPrecedence) {
+      return false;
+    }
+
+    return true;
   }
 
   /**
@@ -122,8 +137,10 @@ export class CommandProcessor {
    */
   public async continueProcessing(
     title: string,
-    options: { skipIndicators?: boolean } = {}
+    options: ProcessCommandsOptions = {}
   ): Promise<void> {
+    const { builtInCommandPrecedence = false } = options;
+
     const pendingCommand = this.pendingCommands.get(title);
     if (!pendingCommand) {
       logger.warn(`No pending commands for conversation: ${title}`);
@@ -142,11 +159,10 @@ export class CommandProcessor {
       // Find the appropriate handler
       let handler = this.commandHandlers.get(command.commandType);
 
-      // If no handler found and we have a user-defined command handler, use it
+      // If we have a user-defined command handler, use it regardless of the current handler
       if (
-        !handler &&
         this.userDefinedCommandHandler &&
-        this.isUserDefinedCommand(command.commandType)
+        this.isUserDefinedCommand(command.commandType, builtInCommandPrecedence)
       ) {
         handler = this.userDefinedCommandHandler;
       }
@@ -241,5 +257,12 @@ export class CommandProcessor {
    */
   public getCommandHandler(commandType: string): CommandHandler | null {
     return this.commandHandlers.get(commandType) || this.userDefinedCommandHandler;
+  }
+
+  /**
+   * Check if a command type has a built-in handler
+   */
+  public hasBuiltInHandler(commandType: string): boolean {
+    return this.commandHandlers.has(commandType);
   }
 }

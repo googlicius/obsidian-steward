@@ -29,7 +29,7 @@ export interface CommandInputOptions {
   /**
    * The user-defined command service instance
    */
-  customCommandService?: UserDefinedCommandService;
+  userDefinedCommandService?: UserDefinedCommandService;
 }
 
 /**
@@ -184,8 +184,8 @@ function createInputExtension(
         const extendedPrefixes = [...commandPrefixes];
 
         // Add custom command prefixes if available
-        if (options.customCommandService) {
-          const customCommands = options.customCommandService.getCommandNames();
+        if (options.userDefinedCommandService) {
+          const customCommands = options.userDefinedCommandService.getCommandNames();
           customCommands.forEach(cmd => {
             extendedPrefixes.push('/' + cmd);
           });
@@ -289,8 +289,8 @@ function createAutocompleteExtension(
         const customOptions: Completion[] = [];
 
         // Add custom command options if available
-        if (options.customCommandService) {
-          const customCommands = options.customCommandService.getCommandNames();
+        if (options.userDefinedCommandService) {
+          const customCommands = options.userDefinedCommandService.getCommandNames();
 
           // Filter custom commands based on current input
           const filteredCustomCommands = customCommands.filter(
@@ -298,14 +298,20 @@ function createAutocompleteExtension(
           );
 
           // Add to options
-          filteredCustomCommands.forEach((cmd: string) => {
+          for (let i = 0; i < filteredCustomCommands.length; i++) {
+            const cmd = filteredCustomCommands[i];
+
+            if (commandTypes.find(cmdType => cmdType.type === cmd)) {
+              continue;
+            }
+
             customOptions.push({
               label: '/' + cmd,
               type: 'keyword',
               detail: 'Custom command',
               apply: '/' + cmd + ' ',
             });
-          });
+          }
         }
 
         // Combine built-in and custom options

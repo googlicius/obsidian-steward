@@ -10,6 +10,9 @@ import {
 } from 'modelfusion';
 import { OpenAISpeechModel } from 'src/lib/modelfusion/overridden/OpenAISpeechModel';
 import { SearchService } from 'src/solutions/search/searchService';
+import { AbortService } from 'src/services/AbortService';
+
+const abortService = AbortService.getInstance();
 
 export interface MediaGenerationOptions {
   prompt: string;
@@ -111,7 +114,7 @@ export class MediaTools {
         }
       }
     } catch (e) {
-      console.error('Error using searchService in findFileByNameOrPath:', e);
+      logger.error('Error using searchService in findFileByNameOrPath:', e);
     }
 
     return null;
@@ -223,6 +226,9 @@ export class MediaTools {
             | '1024x1792',
           quality: (options.quality || 'standard') as 'standard' | 'hd',
         }),
+        run: {
+          abortSignal: abortService.createAbortController('generateImage'),
+        },
         prompt: options.prompt,
       });
 
@@ -259,6 +265,9 @@ export class MediaTools {
             instructions: options.instructions,
           }),
         } as any),
+        run: {
+          abortSignal: abortService.createAbortController('generateSpeech'),
+        },
         text: options.prompt,
       });
 

@@ -26,11 +26,6 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
 };
 
 /**
- * Sleep for a specified number of milliseconds
- */
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-/**
  * Retry a function with configurable options
  * @param fn Function to retry
  * @param options Retry configuration options

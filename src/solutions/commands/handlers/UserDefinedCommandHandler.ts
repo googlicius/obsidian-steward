@@ -76,11 +76,14 @@ export class UserDefinedCommandHandler extends CommandHandler {
       }
 
       // Process the expanded commands
-      await this.commandProcessor.processCommands({
-        title,
-        commands: commandIntents,
-        lang: params.lang,
-      });
+      await this.commandProcessor.processCommands(
+        {
+          title,
+          commands: commandIntents,
+          lang: params.lang,
+        },
+        { builtInCommandPrecedence: true }
+      );
 
       return {
         status: CommandResultStatus.SUCCESS,

@@ -30,5 +30,11 @@ Is the image above a lake, pond, reservoir, or sea?`;
       const wikilinks = extractWikilinks(content);
       expect(wikilinks).toEqual(['Note1', 'Note2']);
     });
+
+    it('should extract wikilinks with anchors', () => {
+      const content = `Here is a wikilink [[Note1#Anchor1]] and an embedded link ![[Note2#Anchor2]].`;
+      const wikilinks = extractWikilinks(content);
+      expect(wikilinks).toEqual(['Note1#Anchor1', 'Note2#Anchor2']);
+    });
   });
 });

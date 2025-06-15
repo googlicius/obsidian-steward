@@ -20,6 +20,7 @@ export interface UserDefinedCommand {
   description?: string;
   query_required?: boolean;
   commands: UserDefinedCommandStep[];
+  file_path: string;
 }
 
 export class UserDefinedCommandService {
@@ -29,6 +30,10 @@ export class UserDefinedCommandService {
   constructor(private plugin: StewardPlugin) {
     this.commandFolder = `${this.plugin.settings.stewardFolder}/Commands`;
     this.initialize();
+  }
+
+  get commandProcessorService() {
+    return this.plugin.commandProcessorService;
   }
 
   /**
@@ -41,6 +46,9 @@ export class UserDefinedCommandService {
       // if (!folderExists) {
       // 	await this.plugin.app.vault.createFolder(this.commandFolder);
       // }
+
+      // Wait for the vault to be ready
+      await sleep(500);
 
       // Load all command definitions
       await this.loadAllCommands();
@@ -88,6 +96,9 @@ export class UserDefinedCommandService {
    */
   private async loadCommandFromFile(file: TFile): Promise<void> {
     try {
+      // First, remove any existing commands from this file
+      this.removeCommandsFromFile(file.path);
+
       const content = await this.plugin.app.vault.read(file);
 
       // Extract JSON blocks from the content
@@ -97,9 +108,18 @@ export class UserDefinedCommandService {
         try {
           const commandDefinition = JSON.parse(jsonContent) as UserDefinedCommand;
 
+          // Add file path to the command definition
+          commandDefinition.file_path = file.path;
+
           if (this.validateCommandDefinition(commandDefinition)) {
             this.userDefinedCommands.set(commandDefinition.command_name, commandDefinition);
-            logger.log(`Loaded user-defined command: ${commandDefinition.command_name}`);
+            logger.log(
+              `Loaded user-defined command: ${commandDefinition.command_name}, \n\nCommand Definition: \n${JSON.stringify(
+                commandDefinition,
+                null,
+                2
+              )}`
+            );
           }
         } catch (jsonError) {
           logger.error(`Invalid JSON in file ${file.path}:`, jsonError);
@@ -107,6 +127,27 @@ export class UserDefinedCommandService {
       }
     } catch (error) {
       logger.error(`Error loading command from file ${file.path}:`, error);
+    }
+  }
+
+  /**
+   * Remove all commands that were loaded from a specific file
+   * @param filePath The path of the file whose commands should be removed
+   */
+  private removeCommandsFromFile(filePath: string): void {
+    // Find all commands that were loaded from this file
+    const commandsToRemove: string[] = [];
+
+    this.userDefinedCommands.forEach((command, commandName) => {
+      if (command.file_path === filePath) {
+        commandsToRemove.push(commandName);
+      }
+    });
+
+    // Remove the found commands
+    for (const commandName of commandsToRemove) {
+      this.userDefinedCommands.delete(commandName);
+      logger.log(`Removed command ${commandName} from ${filePath}`);
     }
   }
 
@@ -130,8 +171,111 @@ export class UserDefinedCommandService {
   }
 
   /**
+   * Get content from a path, which can be a normal path, with an anchor, or with alias
+   * @param linkPath The path to the file (e.g., "Note Name", "Note Name#Heading", "Note Name#Heading|Alias")
+   * @returns The content of the file or section, properly escaped for JSON
+   */
+  private async getContentByPath(linkPath: string): Promise<string | null> {
+    // Parse the link path to extract path, anchor, and alias
+    let path = linkPath;
+    let anchor: string | undefined;
+
+    // Check for alias (|)
+    const aliasParts = path.split('|');
+    if (aliasParts.length > 1) {
+      path = aliasParts[0];
+      // Alias is not used currently, but we need to remove it from the path
+    }
+
+    // Check for anchor (#)
+    const anchorParts = path.split('#');
+    if (anchorParts.length > 1) {
+      path = anchorParts[0];
+      anchor = anchorParts[1];
+    }
+
+    // Try to find the file
+    const file = this.plugin.app.metadataCache.getFirstLinkpathDest(path, '');
+
+    if (!file) {
+      logger.warn(`Could not resolve link: ${linkPath}`);
+      return null;
+    }
+
+    try {
+      // Read the file content
+      const noteContent = await this.plugin.app.vault.read(file);
+
+      // Get content based on whether there's an anchor or not
+      let contentToInsert = noteContent;
+
+      if (anchor) {
+        // Extract content under the specified heading
+        contentToInsert = this.extractContentUnderHeading(noteContent, anchor);
+      }
+
+      // We need to escape quotes and newlines to maintain valid JSON
+      return contentToInsert
+        .replace(/\\/g, '\\\\') // Escape backslashes
+        .replace(/"/g, '\\"') // Escape quotes
+        .replace(/\n/g, '\\n') // Escape newlines
+        .replace(/\r/g, '\\r') // Escape carriage returns
+        .replace(/\t/g, '\\t'); // Escape tabs
+    } catch (error) {
+      logger.error(`Error reading file content for ${linkPath}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Extract content under a specific heading
+   * @param content The full content to search in
+   * @param headingText The heading text to find
+   * @returns The content under the heading
+   */
+  private extractContentUnderHeading(content: string, headingText: string): string {
+    const lines = content.split('\n');
+    let foundHeading = false;
+    let headingLevel = 0;
+    const result: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      // Check if this line is a heading
+      const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+
+      if (headingMatch) {
+        const level = headingMatch[1].length; // Number of # symbols
+        const heading = headingMatch[2].trim();
+
+        if (foundHeading) {
+          // If we've already found our heading and this is same or higher level, stop
+          if (level <= headingLevel) {
+            break;
+          }
+        } else if (heading === headingText) {
+          // Found our target heading
+          foundHeading = true;
+          headingLevel = level;
+          // Don't include the heading line itself
+          continue;
+        }
+      }
+
+      // Add this line if we've found our heading
+      if (foundHeading) {
+        result.push(line);
+      }
+    }
+
+    return result.join('\n').trim();
+  }
+
+  /**
    * Process content
    * - Replace wiki links with the content of the linked note
+   * - If link has an anchor (e.g., [[Note#Heading]]), only include content under that heading
    * - Escape quotes and newlines to maintain valid JSON
    */
   private async processContent(content: string): Promise<string> {
@@ -141,32 +285,15 @@ export class UserDefinedCommandService {
     let result = content;
 
     while ((match = wikiLinkRegex.exec(content)) !== null) {
-      const fullMatch = match[0]; // The full match, e.g. [[Note Name]]
-      const linkPath = match[1]; // The link path, e.g. Note Name
+      const fullMatch = match[0]; // The full match, e.g. [[Note Name]] or [[Note Name#Heading|Alias]]
+      const linkPath = match[1]; // The link path, which can include anchor and alias
 
-      // Try to find the file
-      const file = this.plugin.app.metadataCache.getFirstLinkpathDest(linkPath, '');
+      // Get content for this link path
+      const resolvedContent = await this.getContentByPath(linkPath);
 
-      if (file && file instanceof TFile) {
-        try {
-          // Read the file content
-          const noteContent = await this.plugin.app.vault.read(file);
-
-          // Replace the link with the content in the result
-          // We need to escape quotes and newlines to maintain valid JSON
-          const safeContent = noteContent
-            .replace(/\\/g, '\\\\') // Escape backslashes
-            .replace(/"/g, '\\"') // Escape quotes
-            .replace(/\n/g, '\\n') // Escape newlines
-            .replace(/\r/g, '\\r') // Escape carriage returns
-            .replace(/\t/g, '\\t'); // Escape tabs
-
-          result = result.replace(fullMatch, safeContent);
-        } catch (error) {
-          logger.error(`Error reading file content for ${fullMatch}:`, error);
-        }
-      } else {
-        logger.warn(`Could not resolve link: ${fullMatch}`);
+      if (resolvedContent !== null) {
+        // Replace the link with the content in the result
+        result = result.replace(fullMatch, resolvedContent);
       }
     }
 
@@ -318,8 +445,20 @@ export class UserDefinedCommandService {
     for (const intent of intents) {
       if (this.hasCommand(intent.commandType)) {
         if (visited.has(intent.commandType)) {
-          throw new Error(`Cycle detected in user-defined commands: ${intent.commandType}`);
+          // Check if this is a built-in command
+          const isBuiltInCommand = this.commandProcessorService.isBuiltInCommand(
+            intent.commandType
+          );
+
+          // Only throw cycle error if it's not a built-in command
+          if (!isBuiltInCommand) {
+            throw new Error(`Cycle detected in user-defined commands: ${intent.commandType}`);
+          }
+
+          expanded.push(intent);
+          continue;
         }
+
         visited.add(intent.commandType);
         const subIntents = this.processUserDefinedCommand(
           intent.commandType,

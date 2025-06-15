@@ -32,3 +32,4 @@
 - [ ] Remove MediaGenerationService
 - [ ] Add `command_builder` command to help users build user-defined commands
 - [x] Send the provided images along with the text
+- [ ] /create Help me create a user-defined command name "pronoun", it includes one command "audio" with the system prompt: "If there is any typo in the user query, correct it and generate the audio from the correct version.", and the query is from the user input. Please refer to this [[User-Defined command]] documentation.

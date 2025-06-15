@@ -98,7 +98,7 @@ export class GenerateCommandHandler extends CommandHandler {
       readArtifact.readingResult.blocks.map(block => block.content)
     );
 
-    const userInput = `T content from the current note:\n${contentsStr}\n\n${command.content}`;
+    const userInput = `The content from the current note:\n${contentsStr}\n\n${command.content}`;
 
     const extraction =
       nextCommand && nextCommand.commandType === 'update_from_artifact'

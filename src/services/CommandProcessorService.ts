@@ -27,7 +27,7 @@ export class CommandProcessorService {
   private userDefinedCommandHandler: UserDefinedCommandHandler;
 
   constructor(private readonly plugin: StewardPlugin) {
-    this.commandProcessor = new CommandProcessor();
+    this.commandProcessor = new CommandProcessor(this.plugin);
 
     this.setupHandlers();
   }
@@ -139,5 +139,12 @@ export class CommandProcessorService {
         : handler.isContentRequired;
 
     return isContentRequired ? getTextContentWithoutImages(commandContent) !== '' : true;
+  }
+
+  /**
+   * Check if a command is a built-in command
+   */
+  public isBuiltInCommand(commandType: string): boolean {
+    return this.commandProcessor.hasBuiltInHandler(commandType);
   }
 }

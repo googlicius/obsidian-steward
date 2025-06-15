@@ -175,7 +175,7 @@ export default class StewardPlugin extends Plugin {
     this.registerEditorExtension([
       createCommandInputExtension(COMMAND_PREFIXES, {
         onEnter: this.handleEnter.bind(this),
-        customCommandService: this.userDefinedCommandService,
+        userDefinedCommandService: this.userDefinedCommandService,
       }),
     ]);
 
