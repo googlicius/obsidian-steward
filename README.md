@@ -113,6 +113,15 @@ When the command is executed:
 - Create macros for your workflow
 - Share and reuse command sequences
 
+### Creating Commands with LLM Assistance
+
+You can ask Steward to help create user-defined commands using natural language, even without knowing YAML syntax:
+
+1. Simply share the [User-Defined Command Guidelines](User-Defined%20Command%20Guidelines.md) with Steward
+2. Describe what you want your command to do in plain language
+3. Steward will create commands with the proper YAML structure for you
+4. Review, modify if needed, and save to your Commands folder
+
 ## Installation
 
 1. Download the plugin from the Obsidian Community Plugins browser

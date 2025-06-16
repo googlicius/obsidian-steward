@@ -26,10 +26,12 @@ Guidelines:
 - readType: One of "selected", "above", "below", "entire"
   - If the user doesn't specify where to read from, set to "above".
   - If the user's query is empty, set to "entire"
-- elementType: Specify element types with AND/OR conditions:
-  - If the user doesn't explicitly specify, use "paragraph"
-  - Use comma-separated values for OR conditions (e.g., "<elementType1>, <elementType2>")
-  - Use "+" for AND conditions (e.g., "<elementType1>+<elementType2>")
+- elementType:
+  - One or many of "paragraph", "table", "code", "list", "blockquote", "image".
+  - If the user mentions a type that is not in the list, set to "paragraph"
+  - Specify multiple element types with AND/OR conditions:
+    - Use comma-separated values for OR conditions (e.g., "<elementType1>, <elementType2>")
+    - Use "+" for AND conditions (e.g., "<elementType1>+<elementType2>")
 - blocksToRead: Number of blocks to read (paragraphs, tables, code blocks, etc.), default is 1
   * If the user mentions all (above, below, entire) the content, set to -1
 - foundPlaceholder: A short text to indicate that the content was found. Put {{number}} as the number of blocks found.

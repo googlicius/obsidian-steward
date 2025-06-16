@@ -14,7 +14,7 @@ import {
   interpretReadContentPrompt,
 } from '../prompts/interpretQueryPrompts';
 import { getClassifier } from '../classifiers/getClassifier';
-import { extractImageLinks, extractWikilinks } from 'src/utils/noteContentUtils';
+// import { extractImageLinks, extractWikilinks } from 'src/utils/noteContentUtils';
 import { App } from 'obsidian';
 
 // Use AbortService instead of a local controller
@@ -90,22 +90,22 @@ export async function extractCommandIntent(
   llmConfig: StewardPluginSettings['llm'],
   app: App
 ): Promise<CommandIntentExtraction> {
-  const imageLinks = extractImageLinks(userInput);
-  const wikilinks = extractWikilinks(userInput);
+  // const imageLinks = extractImageLinks(userInput);
+  // const wikilinks = extractWikilinks(userInput);
 
   // If the user input contains images, or wikilinks, classify it as a generate command
-  if (imageLinks.length > 0 || wikilinks.length > 0) {
-    return {
-      commands: [
-        {
-          commandType: 'generate',
-          content: userInput,
-        },
-      ],
-      explanation: `Classified as "generate" command based on the presence of images or wikilinks.`,
-      confidence: 1,
-    };
-  }
+  // if (imageLinks.length > 0 || wikilinks.length > 0) {
+  //   return {
+  //     commands: [
+  //       {
+  //         commandType: 'generate',
+  //         content: userInput,
+  //       },
+  //     ],
+  //     explanation: `Classified as "generate" command based on the presence of images or wikilinks.`,
+  //     confidence: 1,
+  //   };
+  // }
 
   const clusterName = await classify({
     model: getClassifier(llmConfig.model, llmConfig.corsProxyUrl),

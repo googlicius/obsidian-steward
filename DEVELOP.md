@@ -31,5 +31,5 @@
 - [ ] Settings with the LLM helps: audio generation model, text generation model, names, and temperature
 - [ ] Remove MediaGenerationService
 - [x] Send the provided images along with the text
-- [x] /create Help me create a user-defined command name "pronoun", it includes one command "audio" with the system prompt: "If there is any typo in the user query, correct it and generate the audio from the correct version.", and the query is from the user input. Please refer to this [[User-Defined command]] documentation.
+- [x] /create Help me create a user-defined command name Steward/Commands/Audio Command that override the built-in audio command with the ability to fix the typo automatically and use the correct typo version to generate audio. The guidance of fixing typo should be place under a heading section in the same note with the command definition, please refer to this [[User-Defined command guidelines]]
 - [ ] User-Defined Command: Call the `loadCommandFromFile` function at the time the command is executed to reduce the initialize load.
