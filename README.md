@@ -44,30 +44,24 @@ You can create your own **User-Defined Commands** to automate workflows and comb
 
 ### How It Works
 
-- User-Defined Commands are defined as JSON blocks in markdown files inside the `Steward/Commands` folder.
+- User-Defined Commands are defined as YAML blocks in markdown files inside the `Steward/Commands` folder.
 - Each command can specify a sequence of built-in or user-defined commands to execute.
 - You can specify if user input is required for your command using the `query_required` field.
 - These commands are available with autocomplete and are processed just like built-in commands.
 
-### Example: User-Defined Command JSON
+### Example: User-Defined Command YAML
 
-```json
-{
-	"command_name": "clean_up",
-	"description": "Clean up the vault",
-	"query_required": false,
-	"commands": [
-		{
-			"name": "search",
-			"system_prompt": ["Notes in the root folder"],
-			"query": "Notes name start with Untitled"
-		},
-		{
-			"name": "delete_from_artifact",
-			"query": "Delete them"
-		}
-	]
-}
+```yaml
+command_name: clean_up
+description: Clean up the vault
+query_required: false
+commands:
+  - name: search
+    system_prompt:
+      - Notes in the root folder
+    query: Notes name start with Untitled
+  - name: delete_from_artifact
+    query: Delete them
 ```
 
 - `command_name`: The name you will use to invoke the command (e.g., `/clean_up`)
@@ -80,19 +74,16 @@ You can create your own **User-Defined Commands** to automate workflows and comb
 
 You can reference the content of other notes in your vault by using Obsidian links in the `system_prompt` array:
 
-```json
-{
-	"command_name": "search_with_context",
-	"description": "Search with predefined context",
-	"query_required": true,
-	"commands": [
-		{
-			"name": "search",
-			"system_prompt": ["[[My Context Note]]", "Additional instructions"],
-			"query": "$from_user"
-		}
-	]
-}
+```yaml
+command_name: search_with_context
+description: Search with predefined context
+query_required: true
+commands:
+  - name: search
+    system_prompt:
+      - '[[My Context Note]]'
+      - Additional instructions
+    query: $from_user
 ```
 
 When the command is executed:
@@ -103,13 +94,13 @@ When the command is executed:
 
 ### Usage
 
-1. Create a note in `Steward/Commands` and add your command JSON in a code block.
+1. Create a note in `Steward/Commands` and add your command YAML in a code block.
 2. In any note or the Chat, type your command (e.g., `/clean_up #Todo`) and press Enter.
 3. The command will execute the defined sequence, using your input if required.
 
 ### Validation
 
-- The system validates your User-Defined Command JSON:
+- The system validates your User-Defined Command YAML:
   - `command_name` must be a string
   - `commands` must be a non-empty array
   - If present, `query_required` must be a boolean

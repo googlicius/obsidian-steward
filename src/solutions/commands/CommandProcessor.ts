@@ -16,7 +16,7 @@ interface ProcessCommandsOptions {
   skipGeneralCommandCheck?: boolean;
   skipConfirmationCheck?: boolean;
   /**
-   * In case a user-defined command has the same name as a built-in command, if true, the built-in handler will be used.
+   * If true, the built-in handler will be used in case a user-defined command has the same name as a built-in command.
    */
   builtInCommandPrecedence?: boolean;
 }

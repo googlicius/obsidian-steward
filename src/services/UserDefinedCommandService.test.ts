@@ -131,10 +131,7 @@ This is the conclusion.`;
 
       // The result should contain only the content under the Introduction heading
       // and before the Details heading
-      const expectedOutput = 'This is the introduction content.\nIt spans multiple lines.'.replace(
-        /\n/g,
-        '\\n'
-      );
+      const expectedOutput = 'This is the introduction content.\nIt spans multiple lines.';
       expect(result).toBe(expectedOutput);
     });
 
@@ -189,10 +186,7 @@ This is the conclusion.`;
       expect(mockPlugin.app.vault.read).toHaveBeenCalledWith(mockFile);
 
       // The result should contain only the content under the Introduction heading
-      const expectedOutput = 'This is the introduction content.\nIt spans multiple lines.'.replace(
-        /\n/g,
-        '\\n'
-      );
+      const expectedOutput = 'This is the introduction content.\nIt spans multiple lines.';
       expect(result).toBe(expectedOutput);
     });
 
@@ -246,10 +240,7 @@ These are the details.`;
 
       // The result should contain all content under Introduction including nested sections
       const expectedOutput =
-        'This is the introduction.\n\n### Sub-section\n\nThis is a sub-section under Introduction.\n\n#### Deep nested section\n\nThis is deeply nested.'.replace(
-          /\n/g,
-          '\\n'
-        );
+        'This is the introduction.\n\n### Sub-section\n\nThis is a sub-section under Introduction.\n\n#### Deep nested section\n\nThis is deeply nested.';
       expect(result).toBe(expectedOutput);
     });
   });

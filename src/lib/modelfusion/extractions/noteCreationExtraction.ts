@@ -5,6 +5,9 @@ import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { confidenceScorePrompt } from '../prompts/confidenceScorePrompt';
 import { StewardPluginSettings } from 'src/types/interfaces';
 import { AbortService } from 'src/services/AbortService';
+import { user } from '../overridden/OpenAIChatMessage';
+import { prepareUserMessage } from '..';
+import { App } from 'obsidian';
 
 const abortService = AbortService.getInstance();
 
@@ -21,14 +24,16 @@ export interface NoteCreationExtraction {
 
 /**
  * Extract note creation details from a user query
- * @param userInput Natural language request from the user
- * @param llmConfig LLM configuration settings
+ * @param params Object containing userInput, llmConfig, and app
  * @returns Extracted note details, explanation, and confidence
  */
-export async function extractNoteCreation(
-  userInput: string,
-  llmConfig: StewardPluginSettings['llm']
-): Promise<NoteCreationExtraction> {
+export async function extractNoteCreation(params: {
+  userInput: string;
+  llmConfig: StewardPluginSettings['llm'];
+  app: App;
+}): Promise<NoteCreationExtraction> {
+  const { userInput, llmConfig, app } = params;
+
   try {
     const response = await generateText({
       model: createLLMGenerator(llmConfig),
@@ -37,7 +42,7 @@ export async function extractNoteCreation(
         userLanguagePrompt,
         confidenceScorePrompt,
         noteCreationPrompt,
-        { role: 'user', content: userInput },
+        user(await prepareUserMessage(userInput, app)),
       ],
     });
 

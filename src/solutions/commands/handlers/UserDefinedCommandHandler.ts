@@ -37,7 +37,6 @@ export class UserDefinedCommandHandler extends CommandHandler {
     const { title, command } = params;
 
     try {
-      // Recursively expand user-defined commands (with cycle detection)
       let commandIntents;
       try {
         commandIntents = this.plugin.userDefinedCommandService.expandUserDefinedCommandIntents(

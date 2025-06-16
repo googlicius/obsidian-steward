@@ -30,6 +30,6 @@
 - [ ] Add read_history command when LLM wants to know more about the current context
 - [ ] Settings with the LLM helps: audio generation model, text generation model, names, and temperature
 - [ ] Remove MediaGenerationService
-- [ ] Add `command_builder` command to help users build user-defined commands
 - [x] Send the provided images along with the text
-- [ ] /create Help me create a user-defined command name "pronoun", it includes one command "audio" with the system prompt: "If there is any typo in the user query, correct it and generate the audio from the correct version.", and the query is from the user input. Please refer to this [[User-Defined command]] documentation.
+- [x] /create Help me create a user-defined command name "pronoun", it includes one command "audio" with the system prompt: "If there is any typo in the user query, correct it and generate the audio from the correct version.", and the query is from the user input. Please refer to this [[User-Defined command]] documentation.
+- [ ] User-Defined Command: Call the `loadCommandFromFile` function at the time the command is executed to reduce the initialize load.

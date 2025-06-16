@@ -43,7 +43,12 @@ export class CreateCommandHandler extends CommandHandler {
     try {
       // If we have a cached extraction from confirmation, use it
       const extraction =
-        options.extraction || (await extractNoteCreation(command.content, this.settings.llm));
+        options.extraction ||
+        (await extractNoteCreation({
+          userInput: command.content,
+          llmConfig: this.settings.llm,
+          app: this.app,
+        }));
 
       // For low confidence extractions, just show the explanation
       if (extraction.confidence <= 0.7) {

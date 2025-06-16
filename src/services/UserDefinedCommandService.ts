@@ -2,6 +2,7 @@ import { TFile, TFolder } from 'obsidian';
 import StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { CommandIntent } from 'src/lib/modelfusion/extractions';
+import * as yaml from 'js-yaml';
 
 /**
  * Represents a command within a user-defined command sequence
@@ -101,12 +102,12 @@ export class UserDefinedCommandService {
 
       const content = await this.plugin.app.vault.read(file);
 
-      // Extract JSON blocks from the content
-      const jsonBlocks = await this.extractJsonBlocks(content);
+      // Extract YAML blocks from the content
+      const yamlBlocks = await this.extractYamlBlocks(content);
 
-      for (const jsonContent of jsonBlocks) {
+      for (const yamlContent of yamlBlocks) {
         try {
-          const commandDefinition = JSON.parse(jsonContent) as UserDefinedCommand;
+          const commandDefinition = yaml.load(yamlContent) as UserDefinedCommand;
 
           // Add file path to the command definition
           commandDefinition.file_path = file.path;
@@ -114,15 +115,11 @@ export class UserDefinedCommandService {
           if (this.validateCommandDefinition(commandDefinition)) {
             this.userDefinedCommands.set(commandDefinition.command_name, commandDefinition);
             logger.log(
-              `Loaded user-defined command: ${commandDefinition.command_name}, \n\nCommand Definition: \n${JSON.stringify(
-                commandDefinition,
-                null,
-                2
-              )}`
+              `Loaded user-defined command: ${commandDefinition.command_name}, \n\nCommand Definition: \n${yamlContent}`
             );
           }
-        } catch (jsonError) {
-          logger.error(`Invalid JSON in file ${file.path}:`, jsonError);
+        } catch (yamlError) {
+          logger.error(`Invalid YAML in file ${file.path}:`, yamlError);
         }
       }
     } catch (error) {
@@ -152,28 +149,28 @@ export class UserDefinedCommandService {
   }
 
   /**
-   * Extract JSON blocks from markdown content
+   * Extract YAML blocks from markdown content
    */
-  private async extractJsonBlocks(content: string): Promise<string[]> {
-    const jsonBlocks: string[] = [];
-    const jsonRegex = /```json\s*([\s\S]*?)\s*```/gi;
+  private async extractYamlBlocks(content: string): Promise<string[]> {
+    const yamlBlocks: string[] = [];
+    const yamlRegex = /```yaml\s*([\s\S]*?)\s*```/gi;
 
     let match;
-    while ((match = jsonRegex.exec(content)) !== null) {
+    while ((match = yamlRegex.exec(content)) !== null) {
       if (match[1]) {
-        // Process any wiki links in the JSON content
-        const jsonContent = await this.processContent(match[1]);
-        jsonBlocks.push(jsonContent);
+        // Process any wiki links in the YAML content
+        const yamlContent = await this.processContent(match[1]);
+        yamlBlocks.push(yamlContent);
       }
     }
 
-    return jsonBlocks;
+    return yamlBlocks;
   }
 
   /**
    * Get content from a path, which can be a normal path, with an anchor, or with alias
    * @param linkPath The path to the file (e.g., "Note Name", "Note Name#Heading", "Note Name#Heading|Alias")
-   * @returns The content of the file or section, properly escaped for JSON
+   * @returns The content of the file or section, properly escaped for YAML
    */
   private async getContentByPath(linkPath: string): Promise<string | null> {
     // Parse the link path to extract path, anchor, and alias
@@ -214,13 +211,9 @@ export class UserDefinedCommandService {
         contentToInsert = this.extractContentUnderHeading(noteContent, anchor);
       }
 
-      // We need to escape quotes and newlines to maintain valid JSON
-      return contentToInsert
-        .replace(/\\/g, '\\\\') // Escape backslashes
-        .replace(/"/g, '\\"') // Escape quotes
-        .replace(/\n/g, '\\n') // Escape newlines
-        .replace(/\r/g, '\\r') // Escape carriage returns
-        .replace(/\t/g, '\\t'); // Escape tabs
+      // For YAML, we need to handle multiline strings properly
+      // We'll return the raw content and handle YAML escaping during processing
+      return contentToInsert;
     } catch (error) {
       logger.error(`Error reading file content for ${linkPath}:`, error);
       return null;
@@ -234,49 +227,61 @@ export class UserDefinedCommandService {
    * @returns The content under the heading
    */
   private extractContentUnderHeading(content: string, headingText: string): string {
-    const lines = content.split('\n');
-    let foundHeading = false;
-    let headingLevel = 0;
     const result: string[] = [];
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
+    // Find the heading directly
+    const headingRegex = new RegExp(`^(#{1,6})\\s+${this.escapeRegExp(headingText)}\\s*$`, 'm');
+    const headingMatch = content.match(headingRegex);
+
+    if (!headingMatch) {
+      return '';
+    }
+
+    // Get heading level and position
+    const headingLevel = headingMatch[1].length;
+    const headingPosition = content.indexOf(headingMatch[0]);
+
+    // Start iterating from the position after the heading
+    const contentAfterHeading = content.substring(headingPosition + headingMatch[0].length);
+    const remainingLines = contentAfterHeading.split('\n');
+
+    // Skip the first empty line if it exists
+    const startIndex = remainingLines[0].trim() === '' ? 1 : 0;
+
+    for (let i = startIndex; i < remainingLines.length; i++) {
+      const line = remainingLines[i];
 
       // Check if this line is a heading
-      const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+      const nextHeadingMatch = line.match(/^(#{1,6})\s+(.+)$/);
 
-      if (headingMatch) {
-        const level = headingMatch[1].length; // Number of # symbols
-        const heading = headingMatch[2].trim();
+      if (nextHeadingMatch) {
+        const level = nextHeadingMatch[1].length; // Number of # symbols
 
-        if (foundHeading) {
-          // If we've already found our heading and this is same or higher level, stop
-          if (level <= headingLevel) {
-            break;
-          }
-        } else if (heading === headingText) {
-          // Found our target heading
-          foundHeading = true;
-          headingLevel = level;
-          // Don't include the heading line itself
-          continue;
+        // If we find a heading of same or higher level, stop
+        if (level <= headingLevel) {
+          break;
         }
       }
 
-      // Add this line if we've found our heading
-      if (foundHeading) {
-        result.push(line);
-      }
+      // Add this line to the result
+      result.push(line);
     }
 
     return result.join('\n').trim();
   }
 
   /**
+   * Escape special characters in a string for use in a regular expression
+   */
+  private escapeRegExp(string: string): string {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
    * Process content
    * - Replace wiki links with the content of the linked note
    * - If link has an anchor (e.g., [[Note#Heading]]), only include content under that heading
-   * - Escape quotes and newlines to maintain valid JSON
+   * - Handle YAML-specific formatting needs
    */
   private async processContent(content: string): Promise<string> {
     // Find all wiki links in the content
@@ -292,12 +297,35 @@ export class UserDefinedCommandService {
       const resolvedContent = await this.getContentByPath(linkPath);
 
       if (resolvedContent !== null) {
+        // For YAML, we need to handle multiline content properly
+        // Indent each line to maintain YAML structure
+        const formattedContent = this.formatContentForYaml(resolvedContent);
+
         // Replace the link with the content in the result
-        result = result.replace(fullMatch, resolvedContent);
+        result = result.replace(fullMatch, formattedContent);
       }
     }
 
     return result;
+  }
+
+  /**
+   * Format content to be included in YAML
+   * - For multiline strings, ensure proper indentation
+   * - Escape special YAML characters if needed
+   */
+  private formatContentForYaml(content: string): string {
+    if (!content.includes('\n')) {
+      // Single line content - simple case
+      return content;
+    }
+
+    // For multiline content, use YAML's literal block scalar style (|)
+    // This preserves newlines but requires proper indentation
+    return `|\n${content
+      .split('\n')
+      .map(line => `  ${line}`)
+      .join('\n')}`;
   }
 
   /**
