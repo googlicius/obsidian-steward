@@ -33,3 +33,5 @@
 - [x] Send the provided images along with the text
 - [x] /create Help me create a user-defined command name Steward/Commands/Audio Command that override the built-in audio command with the ability to fix the typo automatically and use the correct typo version to generate audio. The guidance of fixing typo should be place under a heading section in the same note with the command definition, please refer to this [[User-Defined command guidelines]]
 - [ ] User-Defined Command: Call the `loadCommandFromFile` function at the time the command is executed to reduce the initialize load.
+- [ ] User-Defined Command: Provide tools so the LLM can decide which tool should it use to complete the task.
+      For example: The LLM decide whether to use `generate` only or include the `update` command

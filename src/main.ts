@@ -35,6 +35,7 @@ import { classify } from 'modelfusion';
 import { retry } from './utils/retry';
 import { getClassifier } from './lib/modelfusion/classifiers/getClassifier';
 import { MediaTools } from './tools/mediaTools';
+import { NoteContentService } from './services/NoteContentService';
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -55,6 +56,7 @@ export default class StewardPlugin extends Plugin {
   userDefinedCommandService: UserDefinedCommandService;
   conversationEventHandler: ConversationEventHandler;
   mediaTools: MediaTools;
+  noteContentService: NoteContentService;
 
   get editor(): ObsidianEditor {
     return this.app.workspace.activeEditor?.editor as ObsidianEditor;
@@ -111,6 +113,9 @@ export default class StewardPlugin extends Plugin {
 
     // Initialize the media tools
     this.mediaTools = MediaTools.getInstance(this.app);
+
+    // Initialize the note content service
+    this.noteContentService = NoteContentService.getInstance(this.app);
 
     // Build the index if it's not already built
     this.checkAndBuildIndexIfNeeded();

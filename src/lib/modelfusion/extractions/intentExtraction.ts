@@ -14,7 +14,6 @@ import {
   interpretReadContentPrompt,
 } from '../prompts/interpretQueryPrompts';
 import { getClassifier } from '../classifiers/getClassifier';
-// import { extractImageLinks, extractWikilinks } from 'src/utils/noteContentUtils';
 import { App } from 'obsidian';
 
 // Use AbortService instead of a local controller

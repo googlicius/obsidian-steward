@@ -3,6 +3,7 @@ import StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { CommandIntent } from 'src/lib/modelfusion/extractions';
 import * as yaml from 'js-yaml';
+import { NoteContentService } from './NoteContentService';
 
 /**
  * Represents a command within a user-defined command sequence
@@ -27,9 +28,11 @@ export interface UserDefinedCommand {
 export class UserDefinedCommandService {
   public userDefinedCommands: Map<string, UserDefinedCommand> = new Map();
   private commandFolder: string;
+  private noteContentService: NoteContentService;
 
   constructor(private plugin: StewardPlugin) {
     this.commandFolder = `${this.plugin.settings.stewardFolder}/Commands`;
+    this.noteContentService = NoteContentService.getInstance(this.plugin.app);
     this.initialize();
   }
 
@@ -48,12 +51,6 @@ export class UserDefinedCommandService {
       // 	await this.plugin.app.vault.createFolder(this.commandFolder);
       // }
 
-      // Wait for the vault to be ready
-      await sleep(500);
-
-      // Load all command definitions
-      await this.loadAllCommands();
-
       // Watch for changes to command files
       this.plugin.registerEvent(
         this.plugin.app.vault.on('modify', file => this.handleFileModification(file as TFile))
@@ -64,6 +61,12 @@ export class UserDefinedCommandService {
       this.plugin.registerEvent(
         this.plugin.app.vault.on('delete', file => this.handleFileDeletion(file as TFile))
       );
+
+      // Wait for the vault to be ready
+      await sleep(1000);
+
+      // Load all command definitions
+      await this.loadAllCommands();
     } catch (error) {
       logger.error('Error initializing UserDefinedCommandService:', error);
     }
@@ -168,116 +171,6 @@ export class UserDefinedCommandService {
   }
 
   /**
-   * Get content from a path, which can be a normal path, with an anchor, or with alias
-   * @param linkPath The path to the file (e.g., "Note Name", "Note Name#Heading", "Note Name#Heading|Alias")
-   * @returns The content of the file or section, properly escaped for YAML
-   */
-  private async getContentByPath(linkPath: string): Promise<string | null> {
-    // Parse the link path to extract path, anchor, and alias
-    let path = linkPath;
-    let anchor: string | undefined;
-
-    // Check for alias (|)
-    const aliasParts = path.split('|');
-    if (aliasParts.length > 1) {
-      path = aliasParts[0];
-      // Alias is not used currently, but we need to remove it from the path
-    }
-
-    // Check for anchor (#)
-    const anchorParts = path.split('#');
-    if (anchorParts.length > 1) {
-      path = anchorParts[0];
-      anchor = anchorParts[1];
-    }
-
-    // Try to find the file
-    const file = this.plugin.app.metadataCache.getFirstLinkpathDest(path, '');
-
-    if (!file) {
-      logger.warn(`Could not resolve link: ${linkPath}`);
-      return null;
-    }
-
-    try {
-      // Read the file content
-      const noteContent = await this.plugin.app.vault.read(file);
-
-      // Get content based on whether there's an anchor or not
-      let contentToInsert = noteContent;
-
-      if (anchor) {
-        // Extract content under the specified heading
-        contentToInsert = this.extractContentUnderHeading(noteContent, anchor);
-      }
-
-      // For YAML, we need to handle multiline strings properly
-      // We'll return the raw content and handle YAML escaping during processing
-      return contentToInsert;
-    } catch (error) {
-      logger.error(`Error reading file content for ${linkPath}:`, error);
-      return null;
-    }
-  }
-
-  /**
-   * Extract content under a specific heading
-   * @param content The full content to search in
-   * @param headingText The heading text to find
-   * @returns The content under the heading
-   */
-  private extractContentUnderHeading(content: string, headingText: string): string {
-    const result: string[] = [];
-
-    // Find the heading directly
-    const headingRegex = new RegExp(`^(#{1,6})\\s+${this.escapeRegExp(headingText)}\\s*$`, 'm');
-    const headingMatch = content.match(headingRegex);
-
-    if (!headingMatch) {
-      return '';
-    }
-
-    // Get heading level and position
-    const headingLevel = headingMatch[1].length;
-    const headingPosition = content.indexOf(headingMatch[0]);
-
-    // Start iterating from the position after the heading
-    const contentAfterHeading = content.substring(headingPosition + headingMatch[0].length);
-    const remainingLines = contentAfterHeading.split('\n');
-
-    // Skip the first empty line if it exists
-    const startIndex = remainingLines[0].trim() === '' ? 1 : 0;
-
-    for (let i = startIndex; i < remainingLines.length; i++) {
-      const line = remainingLines[i];
-
-      // Check if this line is a heading
-      const nextHeadingMatch = line.match(/^(#{1,6})\s+(.+)$/);
-
-      if (nextHeadingMatch) {
-        const level = nextHeadingMatch[1].length; // Number of # symbols
-
-        // If we find a heading of same or higher level, stop
-        if (level <= headingLevel) {
-          break;
-        }
-      }
-
-      // Add this line to the result
-      result.push(line);
-    }
-
-    return result.join('\n').trim();
-  }
-
-  /**
-   * Escape special characters in a string for use in a regular expression
-   */
-  private escapeRegExp(string: string): string {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-
-  /**
    * Process content
    * - Replace wiki links with the content of the linked note
    * - If link has an anchor (e.g., [[Note#Heading]]), only include content under that heading
@@ -294,7 +187,7 @@ export class UserDefinedCommandService {
       const linkPath = match[1]; // The link path, which can include anchor and alias
 
       // Get content for this link path
-      const resolvedContent = await this.getContentByPath(linkPath);
+      const resolvedContent = await this.noteContentService.getContentByPath(linkPath);
 
       if (resolvedContent !== null) {
         // For YAML, we need to handle multiline content properly
@@ -395,10 +288,9 @@ export class UserDefinedCommandService {
    */
   private handleFileDeletion(file: TFile): void {
     if (this.isCommandFile(file)) {
-      // Find and remove any commands from this file
-      // Since we can't easily determine which command was in this file,
-      // we'll reload all commands
-      this.loadAllCommands();
+      // Remove all commands associated with this file
+      this.removeCommandsFromFile(file.path);
+      logger.log(`Removed commands from deleted file: ${file.path}`);
     }
   }
 
@@ -470,36 +362,37 @@ export class UserDefinedCommandService {
     visited: Set<string> = new Set()
   ): CommandIntent[] {
     const expanded: CommandIntent[] = [];
+
     for (const intent of intents) {
-      if (this.hasCommand(intent.commandType)) {
-        if (visited.has(intent.commandType)) {
-          // Check if this is a built-in command
-          const isBuiltInCommand = this.commandProcessorService.isBuiltInCommand(
-            intent.commandType
-          );
-
-          // Only throw cycle error if it's not a built-in command
-          if (!isBuiltInCommand) {
-            throw new Error(`Cycle detected in user-defined commands: ${intent.commandType}`);
-          }
-
-          expanded.push(intent);
-          continue;
-        }
-
-        visited.add(intent.commandType);
-        const subIntents = this.processUserDefinedCommand(
-          intent.commandType,
-          intent.content || userInput
-        );
-        if (subIntents) {
-          expanded.push(...this.expandUserDefinedCommandIntents(subIntents, userInput, visited));
-        }
-        visited.delete(intent.commandType);
-      } else {
+      if (!this.hasCommand(intent.commandType)) {
         expanded.push(intent);
+        continue;
       }
+
+      if (visited.has(intent.commandType)) {
+        // Check if this is a built-in command
+        const isBuiltInCommand = this.commandProcessorService.isBuiltInCommand(intent.commandType);
+
+        // Only throw cycle error if it's not a built-in command
+        if (!isBuiltInCommand) {
+          throw new Error(`Cycle detected in user-defined commands: ${intent.commandType}`);
+        }
+
+        expanded.push(intent);
+        continue;
+      }
+
+      visited.add(intent.commandType);
+      const subIntents = this.processUserDefinedCommand(
+        intent.commandType,
+        intent.content || userInput
+      );
+      if (subIntents) {
+        expanded.push(...this.expandUserDefinedCommandIntents(subIntents, userInput, visited));
+      }
+      visited.delete(intent.commandType);
     }
+
     return expanded;
   }
 }

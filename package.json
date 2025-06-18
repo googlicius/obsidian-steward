@@ -34,6 +34,7 @@
 		"typescript": "4.7.4"
 	},
 	"dependencies": {
+		"ai": "^4.3.16",
 		"crypto-js": "^4.2.0",
 		"dexie": "^4.0.11",
 		"i18next": "^21.10.0",

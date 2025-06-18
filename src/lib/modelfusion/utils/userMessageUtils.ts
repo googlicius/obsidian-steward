@@ -2,7 +2,7 @@ import { ImagePart, TextPart } from 'modelfusion';
 import { App, TFile } from 'obsidian';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
 import { MediaTools } from 'src/tools/mediaTools';
-import { extractImageLinks, extractWikilinks } from 'src/utils/noteContentUtils';
+import { NoteContentService } from 'src/services/NoteContentService';
 import { resizeImageWithCanvas } from 'src/utils/resizeImageWithCanvas';
 
 export function getTextContentWithoutImages(userInput: string): string {
@@ -21,8 +21,9 @@ export async function prepareUserMessage(
   userInput: string,
   app: App
 ): Promise<Array<TextPart | ImagePart>> {
-  const imagePaths = extractImageLinks(userInput);
-  const wikilinks = extractWikilinks(userInput);
+  const noteContentService = NoteContentService.getInstance(app);
+  const imagePaths = noteContentService.extractImageLinks(userInput);
+  const wikilinks = noteContentService.extractWikilinks(userInput);
   const messageContent: Array<TextPart | ImagePart> = [];
 
   // Add the original user input first
@@ -64,7 +65,7 @@ export async function prepareUserMessage(
 
         if (file instanceof TFile) {
           const content = await app.vault.read(file);
-          wikiContentText += `\nContent of the ${wikilink} file:\n${content}\n`;
+          wikiContentText += `\nContent of the "${wikilink}}:\n${content}\n`;
         }
       } catch (error) {
         console.error(`Error processing wikilink ${wikilink}:`, error);
