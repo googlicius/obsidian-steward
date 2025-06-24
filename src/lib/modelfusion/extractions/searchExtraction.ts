@@ -1,14 +1,12 @@
-import { generateText } from 'modelfusion';
-import { userLanguagePrompt } from '../prompts/languagePrompt';
+import { generateObject } from 'ai';
+import { userLanguagePromptText } from '../prompts/languagePrompt';
 import { searchPromptV2 } from '../prompts/searchPromptV2';
-import { confidenceScorePrompt } from '../prompts/confidenceScorePrompt';
-import { validateLanguage, validateConfidence } from '../validators';
 import { getObsidianLanguage } from 'src/utils/getObsidianLanguage';
 import { logger } from 'src/utils/logger';
 import { getTranslation } from 'src/i18n';
-import { StewardPluginSettings } from 'src/types/interfaces';
-import { createLLMGenerator } from '../llmConfig';
 import { AbortService } from 'src/services/AbortService';
+import { LLMService } from 'src/services/LLMService';
+import { z } from 'zod';
 
 const abortService = AbortService.getInstance();
 
@@ -32,10 +30,25 @@ export interface SearchQueryExtractionV2 {
   confidence: number;
 }
 
+// Define the Zod schema for search operation validation
+const searchOperationSchema = z.object({
+  keywords: z.array(z.string()),
+  tags: z.array(z.string()),
+  filenames: z.array(z.string()),
+  folders: z.array(z.string()),
+});
+
+// Define the Zod schema for search query extraction validation
+const searchQueryExtractionSchema = z.object({
+  operations: z.array(searchOperationSchema),
+  explanation: z.string().min(1, 'Explanation must be a non-empty string'),
+  lang: z.string().optional(),
+  confidence: z.number().min(0).max(1),
+});
+
 /**
  * Extract search parameters from a natural language request using AI (v2)
  * @param userInput Natural language request from the user
- * @param llmConfig LLM configuration settings
  * @param systemPrompts System prompts to add to the prompt
  * @param lang The language of the user
  * @returns Extracted search parameters and explanation
@@ -43,11 +56,9 @@ export interface SearchQueryExtractionV2 {
 export async function extractSearchQueryV2({
   userInput,
   systemPrompts = [],
-  llmConfig,
   lang,
 }: {
   userInput: string;
-  llmConfig: StewardPluginSettings['llm'];
   systemPrompts?: string[];
   lang?: string;
 }): Promise<SearchQueryExtractionV2> {
@@ -105,74 +116,38 @@ export async function extractSearchQueryV2({
   }
 
   try {
-    // Use ModelFusion to generate the response
-    const response = await generateText({
-      model: createLLMGenerator(llmConfig),
-      run: { abortSignal: abortService.createAbortController('search-query-v2') },
-      prompt: [
-        userLanguagePrompt,
-        searchPromptV2,
-        ...systemPrompts.map(prompt => ({ role: 'system', content: prompt })),
-        confidenceScorePrompt,
+    const llmConfig = await LLMService.getInstance().getLLMConfig();
+
+    // Use AI SDK to generate the response
+    const { object } = await generateObject({
+      ...llmConfig,
+      abortSignal: abortService.createAbortController('search-query-v2'),
+      system: `${searchPromptV2.content}\n\n${userLanguagePromptText}`,
+      messages: [
+        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         { role: 'user', content: userInput },
       ],
+      schema: searchQueryExtractionSchema,
     });
 
-    // Parse and validate the JSON response
-    const parsed = JSON.parse(response);
-    return validateSearchQueryExtractionV2(parsed);
+    // Log any empty arrays in operations for debugging
+    object.operations.forEach((op, index) => {
+      if (
+        op.keywords.length === 0 &&
+        op.tags.length === 0 &&
+        op.filenames.length === 0 &&
+        op.folders.length === 0
+      ) {
+        logger.warn(`Operation ${index} has all empty arrays`);
+      }
+    });
+
+    return {
+      ...object,
+      lang: object.lang || lang || getObsidianLanguage(),
+    };
   } catch (error) {
     console.error('Error extracting search query:', error);
     throw error;
   }
-}
-
-/**
- * Validate that the search query extraction v2 contains all required fields
- */
-function validateSearchQueryExtractionV2(data: any): SearchQueryExtractionV2 {
-  if (!data || typeof data !== 'object') {
-    throw new Error('Invalid response format');
-  }
-
-  if (!Array.isArray(data.operations)) {
-    throw new Error('Operations must be an array');
-  }
-
-  // Validate each operation
-  data.operations.forEach((op: any, index: number) => {
-    if (!Array.isArray(op.keywords)) {
-      logger.error(`Operation ${index}: keywords must be an array`);
-      op.keywords = [];
-    }
-    if (!Array.isArray(op.tags)) {
-      logger.error(`Operation ${index}: tags must be an array`);
-      op.tags = [];
-    }
-    if (!Array.isArray(op.filenames)) {
-      logger.error(`Operation ${index}: filenames must be an array`);
-      op.filenames = [];
-    }
-    if (!Array.isArray(op.folders)) {
-      logger.error(`Operation ${index}: folders must be an array`);
-      op.folders = [];
-    }
-  });
-
-  if (typeof data.explanation !== 'string' || !data.explanation.trim()) {
-    throw new Error('Explanation must be a non-empty string');
-  }
-
-  const lang = validateLanguage(data.lang);
-  const confidence = validateConfidence(data.confidence);
-
-  // Create a validated result
-  const result: SearchQueryExtractionV2 = {
-    operations: data.operations,
-    explanation: data.explanation,
-    lang,
-    confidence,
-  };
-
-  return result;
 }

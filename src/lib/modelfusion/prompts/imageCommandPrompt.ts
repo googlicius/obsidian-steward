@@ -12,6 +12,7 @@ Guidelines:
 - size: The image size in format "widthxheight" (e.g., "1024x1024", "512x512")
 - quality: The image quality ("standard" or "hd")
 - model: The model to use for generation (e.g., "dall-e-3", "dall-e-2")
+- confidence: Provide your confidence in the extraction of the user's intent to generate an image
 ${explanationFragment}
 
 Notes:
@@ -29,5 +30,6 @@ You must respond with a valid JSON object containing these properties:
 - size
 - quality
 - model
+- confidence
 - explanation`,
 };

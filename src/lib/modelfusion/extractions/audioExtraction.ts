@@ -1,11 +1,10 @@
-import { generateText } from 'modelfusion';
+import { generateObject } from 'ai';
 import { audioCommandPrompt } from '../prompts/audioCommandPrompt';
-import { StewardPluginSettings } from 'src/types/interfaces';
-import { createLLMGenerator } from '../llmConfig';
-import { validateConfidence, validateLanguage } from '../validators';
 import { AbortService } from 'src/services/AbortService';
-import { userLanguagePrompt } from '../prompts/languagePrompt';
+import { userLanguagePromptText } from '../prompts/languagePrompt';
 import { getObsidianLanguage } from 'src/utils/getObsidianLanguage';
+import { LLMService } from 'src/services/LLMService';
+import { z } from 'zod';
 
 const abortService = AbortService.getInstance();
 
@@ -13,13 +12,23 @@ const abortService = AbortService.getInstance();
  * Represents the extracted audio generation details
  */
 export interface AudioExtraction {
-	text: string;
-	model?: string;
-	voice?: string;
-	explanation: string;
-	confidence?: number;
-	lang?: string;
+  text: string;
+  model?: string;
+  voice?: string;
+  explanation: string;
+  confidence?: number;
+  lang?: string;
 }
+
+// Define the Zod schema for audio extraction validation
+const audioExtractionSchema = z.object({
+  text: z.string().min(1, 'Text must be a non-empty string'),
+  model: z.string().optional(),
+  voice: z.string().optional(),
+  explanation: z.string().min(1, 'Explanation must be a non-empty string'),
+  confidence: z.number().min(0).max(1).optional(),
+  lang: z.string().optional(),
+});
 
 /**
  * Extract audio generation details from a user query
@@ -27,80 +36,46 @@ export interface AudioExtraction {
  * @returns Extracted audio generation details
  */
 export async function extractAudioQuery(params: {
-	userInput: string;
-	systemPrompts?: string[];
-	llmConfig: StewardPluginSettings['llm'];
+  userInput: string;
+  systemPrompts?: string[];
 }): Promise<AudioExtraction> {
-	const { userInput, systemPrompts = [], llmConfig } = params;
+  const { userInput, systemPrompts = [] } = params;
 
-	try {
-		// Check if input is wrapped in quotation marks for direct extraction
-		const quotedRegex = /^["'](.+)["']$/;
-		const match = userInput.trim().match(quotedRegex);
+  try {
+    // Check if input is wrapped in quotation marks for direct extraction
+    const quotedRegex = /^["'](.+)["']$/;
+    const match = userInput.trim().match(quotedRegex);
 
-		if (match) {
-			const content = match[1];
+    if (match) {
+      const content = match[1];
 
-			return {
-				text: content,
-				explanation: `Generating audio with: "${content}"`,
-				lang: getObsidianLanguage(),
-				confidence: 1,
-			};
-		}
+      return {
+        text: content,
+        explanation: `Generating audio with: "${content}"`,
+        lang: getObsidianLanguage(),
+        confidence: 1,
+      };
+    }
 
-		const response = await generateText({
-			model: createLLMGenerator(llmConfig),
-			run: { abortSignal: abortService.createAbortController('audio') },
-			prompt: [
-				userLanguagePrompt,
-				audioCommandPrompt,
-				...systemPrompts.map(prompt => ({ role: 'system', content: prompt })),
-				{
-					role: 'user',
-					content: userInput,
-				},
-			],
-		});
+    const llmConfig = await LLMService.getInstance().getLLMConfig();
 
-		// Parse and validate the JSON response
-		const parsed = JSON.parse(response);
-		return validateAudioExtraction(parsed);
-	} catch (error) {
-		console.error('Error extracting audio generation parameters:', error);
-		throw error;
-	}
-}
+    const { object } = await generateObject({
+      ...llmConfig,
+      abortSignal: abortService.createAbortController('audio'),
+      system: `${audioCommandPrompt.content}\n\n${userLanguagePromptText}`,
+      messages: [
+        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        {
+          role: 'user',
+          content: userInput,
+        },
+      ],
+      schema: audioExtractionSchema,
+    });
 
-/**
- * Validate that the audio extraction contains all required fields
- */
-function validateAudioExtraction(data: any): AudioExtraction {
-	if (!data || typeof data !== 'object') {
-		throw new Error('Invalid response format');
-	}
-
-	if (typeof data.text !== 'string' || !data.text.trim()) {
-		throw new Error('Text must be a non-empty string');
-	}
-
-	if (typeof data.explanation !== 'string' || !data.explanation.trim()) {
-		throw new Error('Explanation must be a non-empty string');
-	}
-
-	// Optional fields
-	const model = data.model && typeof data.model === 'string' ? data.model.trim() : undefined;
-	const voice = data.voice && typeof data.voice === 'string' ? data.voice.trim() : undefined;
-	const confidence =
-		data.confidence !== undefined ? validateConfidence(data.confidence) : undefined;
-	const lang = data.lang ? validateLanguage(data.lang) : undefined;
-
-	return {
-		text: data.text.trim(),
-		model,
-		voice,
-		explanation: data.explanation.trim(),
-		confidence,
-		lang,
-	};
+    return object;
+  } catch (error) {
+    console.error('Error extracting audio generation parameters:', error);
+    throw error;
+  }
 }

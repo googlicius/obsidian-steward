@@ -3,6 +3,7 @@ import { CommandResultStatus, CommandHandler, CommandResult } from './CommandHan
 import { logger } from '../../utils/logger';
 import { CommandIntent } from '../../lib/modelfusion/extractions';
 import StewardPlugin from 'src/main';
+import { NoteContentService } from '../../services/NoteContentService';
 
 interface PendingCommand {
   commands: CommandIntent[];
@@ -155,6 +156,17 @@ export class CommandProcessor {
       const prevCommand = i > 0 ? commands[i - 1] : undefined;
       const nextCommand = i < commands.length - 1 ? commands[i + 1] : undefined;
       const nextIndex = i + 1;
+
+      // Process wikilinks in command.systemPrompts
+      if (command.systemPrompts && command.systemPrompts.length > 0) {
+        const noteContentService = NoteContentService.getInstance(this.plugin.app);
+        const processedPrompts = await Promise.all(
+          command.systemPrompts.map(async prompt => {
+            return await noteContentService.processWikilinksInContent(prompt, 'replace');
+          })
+        );
+        command.systemPrompts = processedPrompts;
+      }
 
       // Find the appropriate handler
       let handler = this.commandHandlers.get(command.commandType);

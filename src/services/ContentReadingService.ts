@@ -1,5 +1,4 @@
 import { TFile, EditorRange, EditorPosition } from 'obsidian';
-import { ContentReadingExtraction } from '../lib/modelfusion/extractions';
 import { logger } from '../utils/logger';
 import StewardPlugin from '../main';
 import { isConversationLink } from '../utils/conversationUtils';
@@ -41,18 +40,38 @@ interface IdentifyBlocksParams {
  * Service for reading content from the editor
  */
 export class ContentReadingService {
+  static instance: ContentReadingService;
+
   private get editor() {
     return this.plugin.editor;
   }
 
-  constructor(private plugin: StewardPlugin) {}
+  private constructor(private plugin: StewardPlugin) {}
+
+  static getInstance(plugin?: StewardPlugin) {
+    if (!ContentReadingService.instance) {
+      if (!plugin) {
+        throw new Error('Plugin is not initialized');
+      }
+      ContentReadingService.instance = new ContentReadingService(plugin);
+    }
+    return ContentReadingService.instance;
+  }
 
   /**
    * Read content from the editor based on extraction parameters
-   * @param extraction Content reading extraction parameters
+   * @param args Content reading parameters
    * @returns The read blocks, or null if unable to read
    */
-  async readContent(extraction: ContentReadingExtraction): Promise<ContentReadingResult | null> {
+  async readContent(args: {
+    readType: 'above' | 'below' | 'selected' | 'entire';
+    blocksToRead: number;
+    elementType: string | null;
+    foundPlaceholder: string;
+    confidence: number;
+    explanation: string;
+    lang?: string | undefined;
+  }): Promise<ContentReadingResult | null> {
     // Get the active file
     const file = this.plugin.app.workspace.getActiveFile();
     if (!file) {
@@ -61,7 +80,7 @@ export class ContentReadingService {
     }
 
     try {
-      switch (extraction.readType) {
+      switch (args.readType) {
         case 'selected':
           return this.readSelectedContent(file);
 
@@ -69,11 +88,11 @@ export class ContentReadingService {
           return this.readEntireContent(file);
 
         case 'below':
-          return this.readBlocksBelowCursor(file, extraction.blocksToRead, extraction.elementType);
+          return this.readBlocksBelowCursor(file, args.blocksToRead, args.elementType);
 
         case 'above':
         default:
-          return this.readBlocksAboveCursor(file, extraction.blocksToRead, extraction.elementType);
+          return this.readBlocksAboveCursor(file, args.blocksToRead, args.elementType);
       }
     } catch (error) {
       logger.error('Error reading content:', error);

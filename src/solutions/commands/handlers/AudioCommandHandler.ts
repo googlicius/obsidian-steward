@@ -38,7 +38,6 @@ export class AudioCommandHandler extends CommandHandler {
       const extraction = await extractAudioQuery({
         userInput: command.content,
         systemPrompts: command.systemPrompts,
-        llmConfig: this.plugin.settings.llm,
       });
 
       await this.renderer.updateConversationNote({

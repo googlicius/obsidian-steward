@@ -25,11 +25,6 @@ export interface CommandInputOptions {
    * The callback function to call when Enter is pressed on a command line
    */
   onEnter?: (view: EditorView) => boolean;
-
-  /**
-   * The user-defined command service instance
-   */
-  userDefinedCommandService?: UserDefinedCommandService;
 }
 
 /**
@@ -184,12 +179,10 @@ function createInputExtension(
         const extendedPrefixes = [...commandPrefixes];
 
         // Add custom command prefixes if available
-        if (options.userDefinedCommandService) {
-          const customCommands = options.userDefinedCommandService.getCommandNames();
-          customCommands.forEach(cmd => {
-            extendedPrefixes.push('/' + cmd);
-          });
-        }
+        const customCommands = UserDefinedCommandService.getInstance().getCommandNames();
+        customCommands.forEach(cmd => {
+          extendedPrefixes.push('/' + cmd);
+        });
 
         // Sort prefixes by length (longest first) to ensure we match the most specific command
         extendedPrefixes.sort((a, b) => b.length - a.length);
@@ -289,29 +282,27 @@ function createAutocompleteExtension(
         const customOptions: Completion[] = [];
 
         // Add custom command options if available
-        if (options.userDefinedCommandService) {
-          const customCommands = options.userDefinedCommandService.getCommandNames();
+        const customCommands = UserDefinedCommandService.getInstance().getCommandNames();
 
-          // Filter custom commands based on current input
-          const filteredCustomCommands = customCommands.filter(
-            (cmd: string) => ('/' + cmd).startsWith(word) && '/' + cmd !== word
-          );
+        // Filter custom commands based on current input
+        const filteredCustomCommands = customCommands.filter(
+          (cmd: string) => ('/' + cmd).startsWith(word) && '/' + cmd !== word
+        );
 
-          // Add to options
-          for (let i = 0; i < filteredCustomCommands.length; i++) {
-            const cmd = filteredCustomCommands[i];
+        // Add to options
+        for (let i = 0; i < filteredCustomCommands.length; i++) {
+          const cmd = filteredCustomCommands[i];
 
-            if (commandTypes.find(cmdType => cmdType.type === cmd)) {
-              continue;
-            }
-
-            customOptions.push({
-              label: '/' + cmd,
-              type: 'keyword',
-              detail: 'Custom command',
-              apply: '/' + cmd + ' ',
-            });
+          if (commandTypes.find(cmdType => cmdType.type === cmd)) {
+            continue;
           }
+
+          customOptions.push({
+            label: '/' + cmd,
+            type: 'keyword',
+            detail: 'Custom command',
+            apply: '/' + cmd + ' ',
+          });
         }
 
         // Combine built-in and custom options

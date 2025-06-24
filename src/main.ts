@@ -36,6 +36,7 @@ import { retry } from './utils/retry';
 import { getClassifier } from './lib/modelfusion/classifiers/getClassifier';
 import { MediaTools } from './tools/mediaTools';
 import { NoteContentService } from './services/NoteContentService';
+import { LLMService } from './services/LLMService';
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -57,6 +58,7 @@ export default class StewardPlugin extends Plugin {
   conversationEventHandler: ConversationEventHandler;
   mediaTools: MediaTools;
   noteContentService: NoteContentService;
+  llmService: LLMService;
 
   get editor(): ObsidianEditor {
     return this.app.workspace.activeEditor?.editor as ObsidianEditor;
@@ -69,6 +71,8 @@ export default class StewardPlugin extends Plugin {
     this.excludeFoldersFromSearch([
       `${this.settings.stewardFolder}/Conversations`,
       `${this.settings.stewardFolder}/Commands`,
+      'Excalidraw',
+      'copilot*',
     ]);
 
     // Set the placeholder text based on the current language
@@ -117,6 +121,9 @@ export default class StewardPlugin extends Plugin {
     // Initialize the note content service
     this.noteContentService = NoteContentService.getInstance(this.app);
 
+    // Initialize the LLM service
+    this.llmService = LLMService.getInstance(this);
+
     // Build the index if it's not already built
     this.checkAndBuildIndexIfNeeded();
 
@@ -139,10 +146,10 @@ export default class StewardPlugin extends Plugin {
     this.mediaGenerationService = new MediaGenerationService(this);
 
     // Initialize the content reading service
-    this.contentReadingService = new ContentReadingService(this);
+    this.contentReadingService = ContentReadingService.getInstance(this);
 
     // Initialize the UserDefinedCommandService
-    this.userDefinedCommandService = new UserDefinedCommandService(this);
+    this.userDefinedCommandService = UserDefinedCommandService.getInstance(this);
 
     // Register custom icon
     addIcon(
@@ -180,7 +187,6 @@ export default class StewardPlugin extends Plugin {
     this.registerEditorExtension([
       createCommandInputExtension(COMMAND_PREFIXES, {
         onEnter: this.handleEnter.bind(this),
-        userDefinedCommandService: this.userDefinedCommandService,
       }),
     ]);
 

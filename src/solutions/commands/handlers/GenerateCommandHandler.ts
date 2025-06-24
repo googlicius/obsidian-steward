@@ -12,13 +12,17 @@ import {
   extractNoteGeneration,
 } from 'src/lib/modelfusion/extractions';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-import { TFile } from 'obsidian';
 import { streamText } from 'modelfusion';
 import { createLLMGenerator } from 'src/lib/modelfusion/llmConfig';
 import { userLanguagePromptText } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
 import { user } from 'src/lib/modelfusion/overridden/OpenAIChatMessage';
-import { prepareUserMessage } from 'src/lib/modelfusion';
+import {
+  ContentUpdateExtraction,
+  NoteGenerationExtraction,
+  prepareUserMessage,
+} from 'src/lib/modelfusion';
+import { MediaTools } from 'src/tools/mediaTools';
 
 const abortService = AbortService.getInstance();
 
@@ -39,12 +43,12 @@ export class GenerateCommandHandler extends CommandHandler {
    * Handle a generate command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command, prevCommand, nextCommand, lang } = params;
+    const { title, command, prevCommand, lang } = params;
 
     try {
       if (prevCommand && prevCommand.commandType === 'read') {
         // Generate content from a read artifact
-        await this.generateFromReadArtifact(title, command, nextCommand, lang);
+        return this.generateFromReadArtifact(params);
       } else {
         // Default generation (including after create)
         await this.generateFromCreateOrDefault(title, command, lang);
@@ -75,11 +79,13 @@ export class GenerateCommandHandler extends CommandHandler {
    * @param lang Optional language code for the response
    */
   private async generateFromReadArtifact(
-    title: string,
-    command: CommandIntent,
-    nextCommand?: CommandIntent,
-    lang?: string
-  ): Promise<void> {
+    params: CommandHandlerParams,
+    options: {
+      lowConfidenceConfirmed?: boolean;
+      extraction?: ContentUpdateExtraction | NoteGenerationExtraction;
+    } = {}
+  ): Promise<CommandResult> {
+    const { title, command, nextCommand, lang } = params;
     const t = getTranslation(lang);
     const readArtifact = this.artifactManager.getMostRecentArtifactByType(
       title,
@@ -91,7 +97,10 @@ export class GenerateCommandHandler extends CommandHandler {
         path: title,
         newContent: `*No read content found*`,
       });
-      return;
+      return {
+        status: CommandResultStatus.ERROR,
+        error: new Error('No read content found'),
+      };
     }
 
     const contentsStr = JSON.stringify(
@@ -100,66 +109,100 @@ export class GenerateCommandHandler extends CommandHandler {
 
     const userInput = `The content from the current note:\n${contentsStr}\n\n${command.content}`;
 
-    const extraction =
-      nextCommand && nextCommand.commandType === 'update_from_artifact'
-        ? await extractContentUpdate({
-            userInput,
-            systemPrompts: command.systemPrompts,
-            llmConfig: this.settings.llm,
-            app: this.app,
-          })
-        : await extractNoteGeneration({
-            userInput,
-            systemPrompts: command.systemPrompts,
-            llmConfig: this.settings.llm,
-          });
+    let extraction = options.extraction;
 
-    if (extraction.confidence <= 0.7) {
+    if (!extraction) {
+      extraction =
+        nextCommand && nextCommand.commandType === 'update_from_artifact'
+          ? await extractContentUpdate({
+              userInput,
+              systemPrompts: command.systemPrompts,
+              app: this.app,
+            })
+          : await extractNoteGeneration({
+              userInput,
+              systemPrompts: command.systemPrompts,
+            });
+    }
+
+    // If the confidence is low, ask for confirmation
+    if (extraction.confidence <= 0.7 && !options.lowConfidenceConfirmed) {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: extraction.explanation,
       });
 
-      return;
+      await this.renderer.updateConversationNote({
+        path: title,
+        newContent: `*${t('common.lowConfidenceConfirmation')}*`,
+      });
+
+      return {
+        status: CommandResultStatus.NEEDS_CONFIRMATION,
+        onConfirmation: () => {
+          this.generateFromReadArtifact(params, {
+            lowConfidenceConfirmed: true,
+            extraction,
+          });
+        },
+      };
     }
 
     await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
 
-    if ('updates' in extraction) {
-      if (extraction.updates.length === 0) {
-        return;
-      }
+    try {
+      if ('updates' in extraction) {
+        if (extraction.updates.length === 0) {
+          return {
+            status: CommandResultStatus.SUCCESS,
+          };
+        }
 
-      const messageId = await this.renderer.updateConversationNote({
-        path: title,
-        newContent: extraction.explanation,
-      });
-
-      // Store the content update extraction as an artifact
-      if (messageId) {
-        this.artifactManager.storeArtifact(title, messageId, {
-          type: ArtifactType.CONTENT_UPDATE,
-          updateExtraction: extraction,
-          // Current path is active editing
-          path: this.app.workspace.getActiveFile()?.path || '',
-        });
-      }
-
-      for (const update of extraction.updates) {
-        await this.renderer.updateConversationNote({
+        const messageId = await this.renderer.updateConversationNote({
           path: title,
-          newContent: this.renderer.formatCallout(update.updatedContent),
+          newContent: extraction.explanation,
+        });
+
+        // Store the content update extraction as an artifact
+        if (messageId) {
+          this.artifactManager.storeArtifact(title, messageId, {
+            type: ArtifactType.CONTENT_UPDATE,
+            updateExtraction: extraction,
+            // Current path is active editing
+            path: this.app.workspace.getActiveFile()?.path || '',
+          });
+        }
+
+        for (const update of extraction.updates) {
+          await this.renderer.updateConversationNote({
+            path: title,
+            newContent: this.renderer.formatCallout(update.updatedContent),
+          });
+        }
+      } else {
+        const stream = await this.contentGenerationStream({ ...command, content: userInput });
+
+        await this.renderer.streamConversationNote({
+          path: title,
+          stream,
+          command: 'generate',
         });
       }
-    } else {
-      const stream = await this.contentGenerationStream({ ...command, content: userInput });
-
-      await this.renderer.streamConversationNote({
+    } catch (error) {
+      await this.renderer.updateConversationNote({
         path: title,
-        stream,
-        command: 'generate',
+        newContent: `*Error generating content: ${error.message}*`,
       });
+
+      return {
+        status: CommandResultStatus.ERROR,
+        error,
+      };
     }
+
+    return {
+      status: CommandResultStatus.SUCCESS,
+    };
   }
 
   /**
@@ -191,7 +234,6 @@ export class GenerateCommandHandler extends CommandHandler {
     const extraction = await extractNoteGeneration({
       userInput: command.content,
       systemPrompts: command.systemPrompts,
-      llmConfig: this.settings.llm,
       recentlyCreatedNote,
     });
 
@@ -205,40 +247,27 @@ export class GenerateCommandHandler extends CommandHandler {
     if (extraction.confidence < 0.7) {
       await this.renderer.updateConversationNote({
         path: title,
-        newContent: '*Low confidence extraction, skipping*',
+        newContent: `*${t('common.abortedByLowConfidence')}*`,
       });
       return;
     }
 
     await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
 
+    const mediaTools = MediaTools.getInstance(this.app);
+
+    const file = extraction.noteName
+      ? await mediaTools.findFileByNameOrPath(extraction.noteName)
+      : null;
+
     // Prepare for content generation
     const stream = await this.contentGenerationStream(command);
 
-    // If no note name is provided or the user does not want to modify the note,
     // stream content to current conversation
-    if (!extraction.noteName || !extraction.modifiesNote) {
+    if (!extraction.noteName || !extraction.modifiesNote || !file) {
       await this.renderer.streamConversationNote({
         path: title,
         stream,
-        command: 'generate',
-      });
-      return;
-    }
-
-    // Check if the note exists
-    const notePath = extraction.noteName.endsWith('.md')
-      ? extraction.noteName
-      : `${extraction.noteName}.md`;
-
-    const file = (this.app.vault.getAbstractFileByPath(notePath) as TFile) || null;
-
-    if (!file) {
-      // If file doesn't exist, inform the user
-      await this.renderer.updateConversationNote({
-        path: title,
-        newContent: t('generate.fileNotFound', { noteName: notePath }),
-        role: 'Steward',
         command: 'generate',
       });
       return;
@@ -252,12 +281,14 @@ export class GenerateCommandHandler extends CommandHandler {
       await this.app.workspace.revealLeaf(mainLeaf);
     }
 
-    // Stream the content to the note
+    // Accumulate the content from the stream
     let accumulatedContent = '';
     for await (const chunk of stream) {
       accumulatedContent += chunk;
-      await this.app.vault.modify(file, accumulatedContent);
     }
+
+    // Update the file once with the complete content after streaming is done
+    await this.app.vault.modify(file, accumulatedContent);
 
     // Update the conversation with the results
     await this.renderer.updateConversationNote({

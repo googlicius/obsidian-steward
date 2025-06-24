@@ -105,7 +105,7 @@ export class UpdateCommandHandler extends CommandHandler {
       // For other artifact types, extract the update instructions
       const extraction = await extractUpdateFromSearchResult({
         userInput: command.content,
-        llmConfig: this.settings.llm,
+        systemPrompts: command.systemPrompts,
       });
 
       await this.renderer.updateConversationNote({

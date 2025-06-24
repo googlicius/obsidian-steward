@@ -1,10 +1,9 @@
-import { generateText } from 'modelfusion';
+import { generateObject } from 'ai';
 import { destinationFolderPrompt } from '../prompts/destinationFolderPrompt';
-import { userLanguagePrompt } from '../prompts/languagePrompt';
-import { StewardPluginSettings } from 'src/types/interfaces';
-import { createLLMGenerator } from '../llmConfig';
-import { validateConfidence, validateLanguage } from '../validators';
+import { userLanguagePromptText } from '../prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
+import { LLMService } from 'src/services/LLMService';
+import { z } from 'zod';
 
 const abortService = AbortService.getInstance();
 
@@ -19,66 +18,45 @@ export interface MoveExtraction {
   lang?: string;
 }
 
+// Define the Zod schema for move extraction validation
+const moveExtractionSchema = z.object({
+  destinationFolder: z.string().min(1, 'Destination folder must be a non-empty string'),
+  explanation: z.string().min(1, 'Explanation must be a non-empty string'),
+  context: z.string().min(1, 'Context must be a non-empty string'),
+  confidence: z.number().min(0).max(1),
+  lang: z.string().optional(),
+});
+
 /**
  * Extract move details from a user query
  * @param userInput Natural language request to move files
+ * @param systemPrompts Optional system prompts to include
  * @returns Extracted move details
  */
 export async function extractMoveQuery(
   userInput: string,
-  llmConfig: StewardPluginSettings['llm']
+  systemPrompts: string[] = []
 ): Promise<MoveExtraction> {
   try {
-    const response = await generateText({
-      model: createLLMGenerator(llmConfig),
-      run: { abortSignal: abortService.createAbortController('move') },
-      prompt: [
-        userLanguagePrompt,
-        destinationFolderPrompt,
+    const llmConfig = await LLMService.getInstance().getLLMConfig();
+
+    const { object } = await generateObject({
+      ...llmConfig,
+      abortSignal: abortService.createAbortController('move'),
+      system: `${destinationFolderPrompt.content}\n\n${userLanguagePromptText}`,
+      messages: [
+        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         {
           role: 'user',
           content: userInput,
         },
       ],
+      schema: moveExtractionSchema,
     });
 
-    // Parse and validate the JSON response
-    const parsed = JSON.parse(response);
-    return validateMoveFromSearchResultExtraction(parsed);
+    return object;
   } catch (error) {
     console.error('Error extracting move from search result parameters:', error);
     throw error;
   }
-}
-
-/**
- * Validate that the move from search results extraction contains all required fields
- */
-function validateMoveFromSearchResultExtraction(data: any): MoveExtraction {
-  if (!data || typeof data !== 'object') {
-    throw new Error('Invalid response format');
-  }
-
-  if (typeof data.destinationFolder !== 'string' || !data.destinationFolder.trim()) {
-    throw new Error('Destination folder must be a non-empty string');
-  }
-
-  if (typeof data.context !== 'string' || !data.context.trim()) {
-    throw new Error('Context must be a non-empty string');
-  }
-
-  if (typeof data.explanation !== 'string' || !data.explanation.trim()) {
-    throw new Error('Explanation must be a non-empty string');
-  }
-
-  const confidence = validateConfidence(data.confidence);
-  const lang = validateLanguage(data.lang);
-
-  return {
-    destinationFolder: data.destinationFolder.trim(),
-    explanation: data.explanation.trim(),
-    context: data.context.trim(),
-    confidence,
-    lang,
-  };
 }

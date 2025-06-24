@@ -16,7 +16,6 @@ import { MediaTools } from 'src/tools/mediaTools';
 export class SearchCommandHandler extends CommandHandler {
   isContentRequired = true;
 
-  private static instance: SearchCommandHandler | null = null;
   private mediaTools: MediaTools;
 
   constructor(public readonly plugin: StewardPlugin) {
@@ -32,16 +31,6 @@ export class SearchCommandHandler extends CommandHandler {
     await this.renderer.addGeneratingIndicator(title, t('conversation.searching'));
   }
 
-  public static getInstance(plugin?: StewardPlugin): SearchCommandHandler {
-    if (!SearchCommandHandler.instance) {
-      if (!plugin) {
-        throw new Error('SearchCommandHandler must be initialized with a plugin');
-      }
-      SearchCommandHandler.instance = new SearchCommandHandler(plugin);
-    }
-    return SearchCommandHandler.instance;
-  }
-
   /**
    * Handle a search command
    */
@@ -53,7 +42,6 @@ export class SearchCommandHandler extends CommandHandler {
       const queryExtraction = await extractSearchQueryV2({
         userInput: command.content,
         systemPrompts: command.systemPrompts,
-        llmConfig: this.plugin.settings.llm,
         lang,
       });
 

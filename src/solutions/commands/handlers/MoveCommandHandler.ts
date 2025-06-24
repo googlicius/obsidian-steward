@@ -12,6 +12,7 @@ import { IndexedDocument } from 'src/database/SearchDatabase';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
 import StewardPlugin from 'src/main';
+import { MediaTools } from 'src/tools/mediaTools';
 
 export class MoveCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -59,8 +60,7 @@ export class MoveCommandHandler extends CommandHandler {
 
     try {
       // Extract move details from command content
-      const extraction =
-        options.extraction || (await extractMoveQuery(command.content, this.settings.llm));
+      const extraction = options.extraction || (await extractMoveQuery(command.content));
 
       await this.renderer.updateConversationNote({
         path: title,
@@ -120,9 +120,13 @@ export class MoveCommandHandler extends CommandHandler {
             error: new Error('Cannot move this type of artifact'),
           };
         }
-      } else {
+      } else if (extraction.context === 'currentNote') {
         const activeFile = this.app.workspace.getActiveFile();
         docs = activeFile ? [{ path: activeFile.path }] : [];
+      } else {
+        const noteName = extraction.context;
+        const note = await MediaTools.getInstance(this.app).findFileByNameOrPath(noteName);
+        docs = note ? [{ path: note.path }] : [];
       }
 
       // Check if docs were found

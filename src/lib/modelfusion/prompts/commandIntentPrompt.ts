@@ -46,14 +46,16 @@ Response guidelines:
 ${explanationFragment}
 - There are other subsequent prompts that will handle the user's query, retain the user's query in the "content" field of the JSON response
 
-Additional notes:
-- Artifact is the local storage to store the result of a specific command like "search", "generate", etc. For the next command refers to.
-- If the user mentions "search results", "notes above", or refers to previously found notes, do NOT include a "search" command as the results are already available
-
 Provide a confidence score from 0 to 1 for the overall sequence:
 - 0.0-0.3: Low confidence (ambiguous or unclear requests)
 - 0.4-0.7: Medium confidence (likely, but could be interpreted differently)
 - 0.8-1.0: High confidence (very clear intent)
+
+Additional notes:
+- Artifact is the local storage to store the result of a specific command like "search", "generate", etc. For the next command refers to.
+- If the user mentions "search results", "notes above", or refers to previously found notes, do NOT include a "search" command as the results are already available
+- Even if the user mentions an image, but doesn't explicitly ask for generate an image, do NOT include an "image" command
+- If the confidence is low, include the commands that you are extracting in the explanation so the user decides whether to proceed or not
 
 You must respond with a valid JSON object containing these properties:
 - commands: An array of objects, each containing:

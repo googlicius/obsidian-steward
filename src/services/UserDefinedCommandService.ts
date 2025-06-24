@@ -3,7 +3,6 @@ import StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { CommandIntent } from 'src/lib/modelfusion/extractions';
 import * as yaml from 'js-yaml';
-import { NoteContentService } from './NoteContentService';
 
 /**
  * Represents a command within a user-defined command sequence
@@ -26,18 +25,27 @@ export interface UserDefinedCommand {
 }
 
 export class UserDefinedCommandService {
+  public static instance: UserDefinedCommandService | null = null;
   public userDefinedCommands: Map<string, UserDefinedCommand> = new Map();
   private commandFolder: string;
-  private noteContentService: NoteContentService;
 
-  constructor(private plugin: StewardPlugin) {
+  private constructor(private plugin: StewardPlugin) {
     this.commandFolder = `${this.plugin.settings.stewardFolder}/Commands`;
-    this.noteContentService = NoteContentService.getInstance(this.plugin.app);
     this.initialize();
   }
 
   get commandProcessorService() {
     return this.plugin.commandProcessorService;
+  }
+
+  public static getInstance(plugin?: StewardPlugin): UserDefinedCommandService {
+    if (!UserDefinedCommandService.instance) {
+      if (!plugin) {
+        throw new Error('UserDefinedCommandService must be initialized with a plugin');
+      }
+      UserDefinedCommandService.instance = new UserDefinedCommandService(plugin);
+    }
+    return UserDefinedCommandService.instance;
   }
 
   /**
@@ -138,11 +146,11 @@ export class UserDefinedCommandService {
     // Find all commands that were loaded from this file
     const commandsToRemove: string[] = [];
 
-    this.userDefinedCommands.forEach((command, commandName) => {
+    for (const [commandName, command] of this.userDefinedCommands.entries()) {
       if (command.file_path === filePath) {
         commandsToRemove.push(commandName);
       }
-    });
+    }
 
     // Remove the found commands
     for (const commandName of commandsToRemove) {
@@ -161,64 +169,11 @@ export class UserDefinedCommandService {
     let match;
     while ((match = yamlRegex.exec(content)) !== null) {
       if (match[1]) {
-        // Process any wiki links in the YAML content
-        const yamlContent = await this.processContent(match[1]);
-        yamlBlocks.push(yamlContent);
+        yamlBlocks.push(match[1]);
       }
     }
 
     return yamlBlocks;
-  }
-
-  /**
-   * Process content
-   * - Replace wiki links with the content of the linked note
-   * - If link has an anchor (e.g., [[Note#Heading]]), only include content under that heading
-   * - Handle YAML-specific formatting needs
-   */
-  private async processContent(content: string): Promise<string> {
-    // Find all wiki links in the content
-    const wikiLinkRegex = /\[\[([^\]]+)\]\]/g;
-    let match;
-    let result = content;
-
-    while ((match = wikiLinkRegex.exec(content)) !== null) {
-      const fullMatch = match[0]; // The full match, e.g. [[Note Name]] or [[Note Name#Heading|Alias]]
-      const linkPath = match[1]; // The link path, which can include anchor and alias
-
-      // Get content for this link path
-      const resolvedContent = await this.noteContentService.getContentByPath(linkPath);
-
-      if (resolvedContent !== null) {
-        // For YAML, we need to handle multiline content properly
-        // Indent each line to maintain YAML structure
-        const formattedContent = this.formatContentForYaml(resolvedContent);
-
-        // Replace the link with the content in the result
-        result = result.replace(fullMatch, formattedContent);
-      }
-    }
-
-    return result;
-  }
-
-  /**
-   * Format content to be included in YAML
-   * - For multiline strings, ensure proper indentation
-   * - Escape special YAML characters if needed
-   */
-  private formatContentForYaml(content: string): string {
-    if (!content.includes('\n')) {
-      // Single line content - simple case
-      return content;
-    }
-
-    // For multiline content, use YAML's literal block scalar style (|)
-    // This preserves newlines but requires proper indentation
-    return `|\n${content
-      .split('\n')
-      .map(line => `  ${line}`)
-      .join('\n')}`;
   }
 
   /**

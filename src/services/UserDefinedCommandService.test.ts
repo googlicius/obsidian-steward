@@ -52,7 +52,7 @@ describe('UserDefinedCommandService', () => {
         return Promise.resolve();
       });
 
-    userDefinedCommandService = new UserDefinedCommandService(mockPlugin);
+    userDefinedCommandService = UserDefinedCommandService.getInstance(mockPlugin);
   });
 
   it('should be defined', () => {

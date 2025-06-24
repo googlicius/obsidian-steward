@@ -180,11 +180,15 @@ export class NoteContentService {
   }
 
   /**
-   * Process wikilinks in content and add their content at the end
+   * Process wikilinks in content and either append their content at the end or replace the wikilinks
    * @param content The content containing wikilinks
-   * @returns The content with wikilink contents appended at the end
+   * @param mode The processing mode: 'append' (default) or 'replace'
+   * @returns The content with wikilink contents either appended or replaced
    */
-  public async processWikilinksInContent(content: string): Promise<string> {
+  public async processWikilinksInContent(
+    content: string,
+    mode: 'append' | 'replace' = 'append'
+  ): Promise<string> {
     // Extract wikilinks from the content
     const wikilinks = this.extractWikilinks(content);
 
@@ -193,7 +197,7 @@ export class NoteContentService {
     }
 
     // Start with the original content
-    const processedContent = content;
+    let processedContent = content;
     let appendedContent = '\n\n';
 
     for (const wikilink of wikilinks) {
@@ -214,16 +218,22 @@ export class NoteContentService {
             extractedContent = this.extractContentUnderHeading(linkedContent, anchorParts[1]);
           }
 
-          // Append the content at the end in the specified format
-          appendedContent += `The content of [[${wikilink}]]:\n${extractedContent}\n\n`;
+          if (mode === 'append') {
+            // Append the content at the end in the specified format
+            appendedContent += `The content of [[${wikilink}]]:\n${extractedContent}\n\n`;
+          } else if (mode === 'replace') {
+            // Replace the wikilink with its content
+            const wikiLinkPattern = new RegExp(`\\[\\[${this.escapeRegExp(wikilink)}\\]\\]`, 'g');
+            processedContent = processedContent.replace(wikiLinkPattern, extractedContent);
+          }
         }
       } catch (error) {
         logger.error(`Error processing wikilink ${wikilink}:`, error);
       }
     }
 
-    // Append all extracted content at the end of the original content
-    return processedContent + appendedContent;
+    // For append mode, add all extracted content at the end of the original content
+    return mode === 'append' ? processedContent + appendedContent : processedContent;
   }
 
   /**

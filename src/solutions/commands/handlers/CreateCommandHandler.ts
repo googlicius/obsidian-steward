@@ -46,7 +46,6 @@ export class CreateCommandHandler extends CommandHandler {
         options.extraction ||
         (await extractNoteCreation({
           userInput: command.content,
-          llmConfig: this.settings.llm,
           app: this.app,
         }));
 

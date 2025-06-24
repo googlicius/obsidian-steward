@@ -56,7 +56,7 @@ export class CommandProcessorService {
     this.commandProcessor.registerHandler('search', searchHandler);
 
     // Register the more handler for pagination
-    const moreHandler = new MoreCommandHandler(this.plugin);
+    const moreHandler = new MoreCommandHandler(this.plugin, searchHandler);
     this.commandProcessor.registerHandler('more', moreHandler);
 
     // Register the image command handler

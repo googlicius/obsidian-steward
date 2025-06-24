@@ -1,12 +1,12 @@
-import { generateText } from 'modelfusion';
-import { createLLMGenerator } from '../llmConfig';
+import { generateObject } from 'ai';
 import { noteGenerationPrompt } from '../prompts/noteGenerationPrompt';
-import { userLanguagePrompt } from '../prompts/languagePrompt';
-import { confidenceScorePrompt } from '../prompts/confidenceScorePrompt';
-import { StewardPluginSettings } from 'src/types/interfaces';
+import { userLanguagePromptText } from '../prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
+import { LLMService } from 'src/services/LLMService';
+import { z } from 'zod';
 
 const abortService = AbortService.getInstance();
+
 export interface NoteGenerationExtraction {
   noteName?: string;
   instructions: string;
@@ -16,6 +16,16 @@ export interface NoteGenerationExtraction {
   modifiesNote: boolean;
 }
 
+// Define the Zod schema for note generation extraction validation
+const noteGenerationExtractionSchema = z.object({
+  noteName: z.string().optional(),
+  instructions: z.string().min(1, 'Instructions must be a non-empty string'),
+  style: z.string().optional(),
+  explanation: z.string().min(1, 'Explanation must be a non-empty string'),
+  confidence: z.number().min(0).max(1),
+  modifiesNote: z.boolean(),
+});
+
 /**
  * Extract note generation details from a user query
  * @param params Parameters for the note generation extraction
@@ -24,79 +34,37 @@ export interface NoteGenerationExtraction {
 export async function extractNoteGeneration(params: {
   userInput: string;
   systemPrompts?: string[];
-  llmConfig: StewardPluginSettings['llm'];
   recentlyCreatedNote?: string;
 }): Promise<NoteGenerationExtraction> {
-  const { userInput, systemPrompts = [], llmConfig, recentlyCreatedNote } = params;
+  const { userInput, systemPrompts = [], recentlyCreatedNote } = params;
+
   try {
-    const response = await generateText({
-      model: createLLMGenerator(llmConfig),
-      run: { abortSignal: abortService.createAbortController('note-generation') },
-      prompt: [
-        userLanguagePrompt,
-        confidenceScorePrompt,
-        noteGenerationPrompt,
-        ...systemPrompts.map(prompt => ({ role: 'system', content: prompt })),
+    const llmConfig = await LLMService.getInstance().getLLMConfig();
+
+    const { object } = await generateObject({
+      ...llmConfig,
+      abortSignal: abortService.createAbortController('note-generation'),
+      system: `${noteGenerationPrompt.content}\n\n${userLanguagePromptText}`,
+      messages: [
+        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         { role: 'user', content: userInput },
       ],
+      schema: noteGenerationExtractionSchema,
     });
 
-    // Parse and validate the JSON response
-    const parsed = JSON.parse(response);
-
     // If no note name is provided but there's a recently created note, use that
-    if ((!parsed.noteName || parsed.noteName === '') && recentlyCreatedNote) {
-      parsed.noteName = recentlyCreatedNote;
-      parsed.explanation = `${parsed.explanation} Using the recently created note: ${recentlyCreatedNote}`;
+    if ((!object.noteName || object.noteName === '') && recentlyCreatedNote) {
+      const result = {
+        ...object,
+        noteName: recentlyCreatedNote,
+        explanation: `${object.explanation} Using the recently created note: ${recentlyCreatedNote}`,
+      };
+      return result;
     }
 
-    return validateNoteGenerationExtraction(parsed);
+    return object;
   } catch (error) {
     console.error('Error extracting note generation details:', error);
     throw error;
   }
-}
-
-/**
- * Validate that the note generation extraction contains all required fields
- */
-function validateNoteGenerationExtraction(data: any): NoteGenerationExtraction {
-  if (!data || typeof data !== 'object') {
-    throw new Error('Invalid response format');
-  }
-
-  // noteName is optional, but if provided, must be a valid string
-  if (data.noteName !== undefined && data.noteName !== null && typeof data.noteName !== 'string') {
-    throw new Error('Note name must be a string or null');
-  }
-
-  if (typeof data.instructions !== 'string' || !data.instructions.trim()) {
-    throw new Error('Instructions must be a non-empty string');
-  }
-
-  // style is optional, but if provided, must be a valid string
-  if (data.style !== undefined && typeof data.style !== 'string') {
-    data.style = ''; // Default to empty string if invalid
-  }
-
-  if (typeof data.explanation !== 'string' || !data.explanation.trim()) {
-    throw new Error('Explanation must be a non-empty string');
-  }
-
-  if (typeof data.confidence !== 'number' || data.confidence < 0 || data.confidence > 1) {
-    throw new Error('Confidence must be a number between 0 and 1');
-  }
-
-  if (typeof data.modifiesNote !== 'boolean') {
-    throw new Error('modifiesNote must be a boolean');
-  }
-
-  return {
-    noteName: data.noteName,
-    instructions: data.instructions,
-    style: data.style,
-    explanation: data.explanation,
-    confidence: data.confidence,
-    modifiesNote: data.modifiesNote,
-  };
 }

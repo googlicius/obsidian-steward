@@ -11,7 +11,10 @@ import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { SearchCommandHandler } from './SearchCommandHandler';
 
 export class MoreCommandHandler extends CommandHandler {
-  constructor(public readonly plugin: StewardPlugin) {
+  constructor(
+    public readonly plugin: StewardPlugin,
+    private readonly searchCommandHandler: SearchCommandHandler
+  ) {
     super();
   }
 
@@ -94,8 +97,7 @@ export class MoreCommandHandler extends CommandHandler {
       }
 
       // Format the results using the search handler's format method
-      const searchHandler = SearchCommandHandler.getInstance(this.plugin);
-      const response = await searchHandler.formatSearchResults({
+      const response = await this.searchCommandHandler.formatSearchResults({
         paginatedDocs,
         page,
         lang,

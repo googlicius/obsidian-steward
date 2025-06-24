@@ -112,8 +112,7 @@ export class CopyCommandHandler extends CommandHandler {
         };
       }
 
-      const extraction =
-        options.extraction || (await extractDestinationFolder(command.content, this.settings.llm));
+      const extraction = options.extraction || (await extractDestinationFolder(command.content));
 
       // Convert search operations to move operations for copying
       const copyOperations: MoveOperationV2[] = [

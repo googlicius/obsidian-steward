@@ -1,4 +1,4 @@
-import { ImagePart, TextPart } from 'modelfusion';
+import { ImagePart, TextPart } from 'ai';
 import { App, TFile } from 'obsidian';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
 import { MediaTools } from 'src/tools/mediaTools';
@@ -65,7 +65,7 @@ export async function prepareUserMessage(
 
         if (file instanceof TFile) {
           const content = await app.vault.read(file);
-          wikiContentText += `\nContent of the "${wikilink}}:\n${content}\n`;
+          wikiContentText += `\nContent of the "${wikilink}":\n${content}\n`;
         }
       } catch (error) {
         console.error(`Error processing wikilink ${wikilink}:`, error);

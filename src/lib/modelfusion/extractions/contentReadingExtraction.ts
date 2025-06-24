@@ -1,111 +1,41 @@
-import { generateText } from 'modelfusion';
-import { StewardPluginSettings } from 'src/types/interfaces';
-import { createLLMGenerator } from '../llmConfig';
-import { contentReadingPrompt } from '../prompts/contentReadingPrompt';
-import { userLanguagePrompt } from '../prompts/languagePrompt';
-import { logger } from 'src/utils/logger';
+import { toolSystemPrompt } from '../prompts/contentReadingPrompt';
+import { userLanguagePromptText } from '../prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
+import { LLMService } from 'src/services/LLMService';
+import { z } from 'zod';
+import { generateText, tool } from 'ai';
 
 const abortService = AbortService.getInstance();
 
-/**
- * Content reading extraction result
- */
-export interface ContentReadingExtraction {
-	readType: 'selected' | 'above' | 'below' | 'entire';
-	/**
-	 * Element type to look for. Supports AND/OR conditions:
-	 *  - For OR conditions, use comma-separated values (e.g., "table, code")
-	 *  - For AND conditions, use "+" between types (e.g., "paragraph+list")
-	 *  - Can combine both: "paragraph+list, code+table" means (paragraph AND list) OR (code AND table)
-	 */
-	elementType: string | null;
-	blocksToRead: number;
-	foundPlaceholder: string;
-	confidence: number;
-	explanation: string;
-	lang?: string;
-}
+export async function extractReadContent(userInput: string) {
+  const llmConfig = await LLMService.getInstance().getLLMConfig();
 
-/**
- * Extract content reading instructions from user input
- * @param userInput The user's input
- * @param llmConfig The LLM configuration
- * @returns Content reading extraction
- */
-export async function extractContentReading(
-	userInput: string,
-	llmConfig: StewardPluginSettings['llm'],
-	lang?: string
-): Promise<ContentReadingExtraction> {
-	try {
-		logger.log('Extracting content reading from user input');
-
-		// Generate the response using the LLM
-		const response = await generateText({
-			model: createLLMGenerator(llmConfig),
-			run: { abortSignal: abortService.createAbortController('content-reading') },
-			prompt: [userLanguagePrompt, contentReadingPrompt, { role: 'user', content: userInput }],
-		});
-
-		// Parse and validate the JSON response
-		const parsed = JSON.parse(response);
-
-		// Validate and ensure the response has the required fields
-		const result: ContentReadingExtraction = {
-			readType: validateReadType(parsed.readType),
-			elementType: parsed.elementType,
-			blocksToRead: validateBlocksToRead(parsed.blocksToRead),
-			foundPlaceholder: parsed.foundPlaceholder,
-			confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.5,
-			explanation: parsed.explanation || 'Content reading extraction',
-			lang: parsed.lang,
-		};
-
-		logger.log('Content reading extraction result:', result);
-		return result;
-	} catch (error) {
-		logger.error('Error extracting content reading:', error);
-		// Return a default extraction if there's an error
-		return {
-			readType: 'above',
-			elementType: null,
-			blocksToRead: 1,
-			foundPlaceholder: '',
-			confidence: 0.5,
-			explanation: 'Failed to extract content reading instructions',
-		};
-	}
-}
-
-/**
- * Validate the read type
- * @param readType The read type to validate
- * @returns A valid read type
- */
-function validateReadType(readType: string): ContentReadingExtraction['readType'] {
-	const validReadTypes: ContentReadingExtraction['readType'][] = [
-		'selected',
-		'above',
-		'below',
-		'entire',
-	];
-
-	if (validReadTypes.includes(readType as ContentReadingExtraction['readType'])) {
-		return readType as ContentReadingExtraction['readType'];
-	}
-
-	return 'above';
-}
-
-/**
- * Validate the blocks to read count
- * @param blocksToRead The number of blocks to read
- * @returns A valid blocks count
- */
-function validateBlocksToRead(blocksToRead: any): number {
-	if (typeof blocksToRead === 'number' && blocksToRead >= -1) {
-		return blocksToRead;
-	}
-	return 1; // Default to 1 block
+  return generateText({
+    ...llmConfig,
+    abortSignal: abortService.createAbortController('content-reading'),
+    system: `${toolSystemPrompt}\n\n${userLanguagePromptText.content}`,
+    prompt: userInput,
+    tools: {
+      contentReading: tool({
+        description: 'Read content partially.',
+        parameters: z.object({
+          readType: z.enum(['selected', 'above', 'below', 'entire']).default('above'),
+          elementType: z.string().nullable().default(null),
+          blocksToRead: z.number().min(-1).default(1),
+          foundPlaceholder: z
+            .string()
+            .describe(
+              'A short text to indicate that the content was found. Put {{number}} as the number of blocks found.'
+            )
+            .default(''),
+          confidence: z.number().min(0).max(1).default(0.5),
+          explanation: z.string(),
+          lang: z
+            .string()
+            .optional()
+            .describe('The lang property should be a valid language code: en, vi, etc.'),
+        }),
+      }),
+    },
+  });
 }

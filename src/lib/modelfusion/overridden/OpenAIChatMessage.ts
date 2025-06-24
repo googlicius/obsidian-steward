@@ -1,16 +1,9 @@
-import {
-  convertDataContentToBase64String,
-  ImagePart,
-  OpenAIChatMessage,
-  TextPart,
-} from 'modelfusion';
+import { DataContent, ImagePart, TextPart } from 'ai';
+import { convertDataContentToBase64String } from 'modelfusion';
 
-export function user(
-  content: string | Array<TextPart | ImagePart>,
-  options?: { name?: string }
-): OpenAIChatMessage {
+export function user(content: string | Array<TextPart | ImagePart>, options?: { name?: string }) {
   return {
-    role: 'user',
+    role: 'user' as const,
     content:
       typeof content === 'string'
         ? content
@@ -25,7 +18,7 @@ export function user(
                   image_url: {
                     url: `data:${
                       part.mimeType ?? 'image/jpeg'
-                    };base64,${convertDataContentToBase64String(part.image)}`,
+                    };base64,${convertDataContentToBase64String(part.image as DataContent)}`,
                     detail: 'high',
                   },
                 };

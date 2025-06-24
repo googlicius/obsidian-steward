@@ -33,13 +33,20 @@ export class ImageCommandHandler extends CommandHandler {
     const { title, command } = params;
 
     try {
-      const extraction = await extractImageQuery(command.content, this.plugin.settings.llm);
+      const extraction = await extractImageQuery(command.content);
 
       await this.renderer.updateConversationNote({
         path: title,
         newContent: extraction.explanation,
         role: 'Steward',
       });
+
+      // If the confidence is low, just return success
+      if (extraction.confidence <= 0.7) {
+        return {
+          status: CommandResultStatus.SUCCESS,
+        };
+      }
 
       const model = extraction.model || 'dall-e-3';
 

@@ -1,26 +1,38 @@
-import { generateText } from 'modelfusion';
-import { createLLMGenerator } from '../llmConfig';
+import { generateObject } from 'ai';
 import { contentUpdatePrompt } from '../prompts/contentUpdatePrompt';
-import { userLanguagePrompt } from '../prompts/languagePrompt';
-import { StewardPluginSettings } from 'src/types/interfaces';
+import { userLanguagePromptText } from '../prompts/languagePrompt';
 import { logger } from 'src/utils/logger';
 import { AbortService } from 'src/services/AbortService';
 import { prepareUserMessage } from '../utils/userMessageUtils';
-import { user } from '../overridden/OpenAIChatMessage';
 import { App } from 'obsidian';
+import { LLMService } from 'src/services/LLMService';
+import { z } from 'zod';
 
 const abortService = AbortService.getInstance();
 
 export interface ContentUpdate {
-	updatedContent: string;
-	originalContent: string;
+  updatedContent: string;
+  originalContent: string;
 }
 
 export interface ContentUpdateExtraction {
-	updates: ContentUpdate[];
-	explanation: string;
-	confidence: number;
+  updates: ContentUpdate[];
+  explanation: string;
+  confidence: number;
 }
+
+// Define the Zod schema for content update
+const contentUpdateSchema = z.object({
+  updatedContent: z.string(),
+  originalContent: z.string(),
+});
+
+// Define the Zod schema for content update extraction
+const contentUpdateExtractionSchema = z.object({
+  updates: z.array(contentUpdateSchema),
+  explanation: z.string().min(1, 'Explanation must be a non-empty string'),
+  confidence: z.number().min(0).max(1),
+});
 
 /**
  * Extract content update details from a user query
@@ -28,74 +40,37 @@ export interface ContentUpdateExtraction {
  * @returns Extracted updated contents, explanation, and confidence
  */
 export async function extractContentUpdate(params: {
-	userInput: string;
-	systemPrompts?: string[];
-	llmConfig: StewardPluginSettings['llm'];
-	app: App;
+  userInput: string;
+  systemPrompts?: string[];
+  app: App;
+  llmConfig?: any; // Keep for backward compatibility
 }): Promise<ContentUpdateExtraction> {
-	const { userInput, systemPrompts = [], llmConfig, app } = params;
+  const { userInput, systemPrompts = [], app } = params;
 
-	try {
-		logger.log('Extracting content update from user input');
+  try {
+    logger.log('Extracting content update from user input');
 
-		const response = await generateText({
-			model: createLLMGenerator(llmConfig),
-			run: { abortSignal: abortService.createAbortController('content-update') },
-			prompt: [
-				userLanguagePrompt,
-				contentUpdatePrompt,
-				...systemPrompts.map(prompt => ({ role: 'system', content: prompt })),
-				user(await prepareUserMessage(userInput, app)),
-			],
-		});
+    const llmConfig = await LLMService.getInstance().getLLMConfig();
 
-		// Parse and validate the JSON response
-		const parsed = JSON.parse(response);
-		return validateContentUpdateExtraction(parsed);
-	} catch (error) {
-		logger.error('Error extracting content update details:', error);
-		throw error;
-	}
-}
+    const userMessage = await prepareUserMessage(userInput, app);
 
-/**
- * Validate that the content update extraction contains all required fields
- */
-function validateContentUpdateExtraction(data: any): ContentUpdateExtraction {
-	if (!data || typeof data !== 'object') {
-		throw new Error('Invalid response format');
-	}
+    const { object } = await generateObject({
+      ...llmConfig,
+      abortSignal: abortService.createAbortController('content-update'),
+      system: `${contentUpdatePrompt.content}\n\n${userLanguagePromptText.content}`,
+      messages: [
+        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        {
+          role: 'user',
+          content: userMessage,
+        },
+      ],
+      schema: contentUpdateExtractionSchema,
+    });
 
-	if (!Array.isArray(data.updates)) {
-		throw new Error('Updates must be an array');
-	}
-
-	// Validate each update in the array
-	for (const update of data.updates) {
-		if (typeof update !== 'object') {
-			throw new Error('Each update must be an object');
-		}
-
-		if (typeof update.updatedContent !== 'string') {
-			throw new Error('Updated content must be a string');
-		}
-
-		if (typeof update.originalContent !== 'string') {
-			throw new Error('Original content must be a string');
-		}
-	}
-
-	if (typeof data.explanation !== 'string' || !data.explanation.trim()) {
-		throw new Error('Explanation must be a non-empty string');
-	}
-
-	if (typeof data.confidence !== 'number' || data.confidence < 0 || data.confidence > 1) {
-		throw new Error('Confidence must be a number between 0 and 1');
-	}
-
-	return {
-		updates: data.updates,
-		explanation: data.explanation,
-		confidence: data.confidence,
-	};
+    return object;
+  } catch (error) {
+    logger.error('Error extracting content update details:', error);
+    throw error;
+  }
 }

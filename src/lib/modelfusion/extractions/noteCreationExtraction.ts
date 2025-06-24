@@ -1,13 +1,11 @@
-import { generateText } from 'modelfusion';
-import { createLLMGenerator } from '../llmConfig';
+import { generateObject } from 'ai';
 import { noteCreationPrompt } from '../prompts/noteCreationPrompt';
-import { userLanguagePrompt } from '../prompts/languagePrompt';
-import { confidenceScorePrompt } from '../prompts/confidenceScorePrompt';
-import { StewardPluginSettings } from 'src/types/interfaces';
+import { userLanguagePromptText } from '../prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
-import { user } from '../overridden/OpenAIChatMessage';
-import { prepareUserMessage } from '..';
+import { prepareUserMessage } from '../utils/userMessageUtils';
 import { App } from 'obsidian';
+import { LLMService } from 'src/services/LLMService';
+import { z } from 'zod';
 
 const abortService = AbortService.getInstance();
 
@@ -22,83 +20,51 @@ export interface NoteCreationExtraction {
   confidence: number;
 }
 
+// Define the Zod schema for note creation extraction validation
+const noteDetailsSchema = z.object({
+  noteName: z.string().min(1, 'Note name must be a non-empty string'),
+  content: z.string(),
+});
+
+const noteCreationExtractionSchema = z.object({
+  notes: z.array(noteDetailsSchema).min(1, 'At least one note must be specified'),
+  explanation: z.string().min(1, 'Explanation must be a non-empty string'),
+  confidence: z.number().min(0).max(1),
+});
+
 /**
  * Extract note creation details from a user query
- * @param params Object containing userInput, llmConfig, and app
+ * @param params Object containing userInput and app
  * @returns Extracted note details, explanation, and confidence
  */
 export async function extractNoteCreation(params: {
   userInput: string;
-  llmConfig: StewardPluginSettings['llm'];
   app: App;
 }): Promise<NoteCreationExtraction> {
-  const { userInput, llmConfig, app } = params;
+  const { userInput, app } = params;
 
   try {
-    const response = await generateText({
-      model: createLLMGenerator(llmConfig),
-      run: { abortSignal: abortService.createAbortController('note-creation') },
-      prompt: [
-        userLanguagePrompt,
-        confidenceScorePrompt,
-        noteCreationPrompt,
-        user(await prepareUserMessage(userInput, app)),
+    const llmConfig = await LLMService.getInstance().getLLMConfig();
+
+    // Prepare user message with potential image content
+    const userMessage = await prepareUserMessage(userInput, app);
+
+    const { object } = await generateObject({
+      ...llmConfig,
+      abortSignal: abortService.createAbortController('note-creation'),
+      system: `${noteCreationPrompt.content}\n\n${userLanguagePromptText}`,
+      messages: [
+        {
+          role: 'user',
+          content: userMessage,
+        },
       ],
+      schema: noteCreationExtractionSchema,
     });
 
-    // Parse and validate the JSON response
-    const parsed = JSON.parse(response);
-    return validateNoteCreationExtraction(parsed);
+    return object;
   } catch (error) {
     console.error('Error extracting note creation details:', error);
     throw error;
   }
-}
-
-/**
- * Validate that the note creation extraction contains all required fields
- */
-function validateNoteCreationExtraction(data: any): NoteCreationExtraction {
-  if (!data || typeof data !== 'object') {
-    throw new Error('Invalid response format');
-  }
-
-  if (!Array.isArray(data.notes)) {
-    throw new Error('Notes must be an array');
-  }
-
-  if (data.notes.length === 0) {
-    throw new Error('At least one note must be specified');
-  }
-
-  // Validate each note in the array
-  for (const note of data.notes) {
-    if (!note || typeof note !== 'object') {
-      throw new Error('Each note must be an object');
-    }
-
-    // noteName is required for note creation
-    if (typeof note.noteName !== 'string' || !note.noteName.trim()) {
-      throw new Error('Note name must be a non-empty string');
-    }
-
-    // content is optional for note creation (can be empty string)
-    if (typeof note.content !== 'string') {
-      throw new Error('Content must be a string');
-    }
-  }
-
-  if (typeof data.explanation !== 'string' || !data.explanation.trim()) {
-    throw new Error('Explanation must be a non-empty string');
-  }
-
-  if (typeof data.confidence !== 'number' || data.confidence < 0 || data.confidence > 1) {
-    throw new Error('Confidence must be a number between 0 and 1');
-  }
-
-  return {
-    notes: data.notes,
-    explanation: data.explanation,
-    confidence: data.confidence,
-  };
 }

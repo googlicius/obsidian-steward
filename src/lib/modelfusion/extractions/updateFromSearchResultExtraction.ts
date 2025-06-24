@@ -1,113 +1,88 @@
-import { generateText } from 'modelfusion';
+import { generateObject } from 'ai';
 import { updateFromSearchResultPrompt } from '../prompts/updateFromSearchResultPrompt';
-import { userLanguagePrompt } from '../prompts/languagePrompt';
-import { confidenceScorePrompt } from '../prompts/confidenceScorePrompt';
-import { StewardPluginSettings } from 'src/types/interfaces';
-import { createLLMGenerator } from '../llmConfig';
+import { userLanguagePromptText } from '../prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
+import { LLMService } from 'src/services/LLMService';
+import { z } from 'zod';
 
 const abortService = AbortService.getInstance();
 
 export interface ReplaceInstruction {
-	type: 'replace';
-	old: string;
-	new: string;
+  type: 'replace';
+  old: string;
+  new: string;
 }
 
 export interface AddInstruction {
-	type: 'add';
-	content: string;
-	position: 'beginning' | 'end' | number;
+  type: 'add';
+  content: string;
+  position: 'beginning' | 'end' | number;
 }
 
 export type UpdateInstruction = ReplaceInstruction | AddInstruction;
 
 export interface UpdateFromSearchResultExtraction {
-	updateInstructions: UpdateInstruction[];
-	explanation: string;
-	confidence: number;
-	lang?: string;
+  updateInstructions: UpdateInstruction[];
+  explanation: string;
+  confidence: number;
+  lang?: string;
 }
+
+// Define the Zod schemas for update instructions
+const replaceInstructionSchema = z.object({
+  type: z.literal('replace'),
+  old: z.string(),
+  new: z.string(),
+});
+
+const addInstructionSchema = z.object({
+  type: z.literal('add'),
+  content: z.string(),
+  position: z.union([z.literal('beginning'), z.literal('end'), z.number()]),
+});
+
+const updateInstructionSchema = z.discriminatedUnion('type', [
+  replaceInstructionSchema,
+  addInstructionSchema,
+]);
+
+// Define the Zod schema for the entire extraction
+const updateFromSearchResultExtractionSchema = z.object({
+  updateInstructions: z.array(updateInstructionSchema),
+  explanation: z.string().min(1, 'Explanation must be a non-empty string'),
+  confidence: z.number().min(0).max(1),
+  lang: z.string().optional(),
+});
 
 /**
  * Extracts update instructions from a search result update command
  */
 export async function extractUpdateFromSearchResult({
-	userInput,
-	llmConfig,
-	lang,
+  userInput,
+  systemPrompts = [],
+  lang,
 }: {
-	userInput: string;
-	llmConfig: StewardPluginSettings['llm'];
-	lang?: string;
+  userInput: string;
+  systemPrompts?: string[];
+  lang?: string;
 }): Promise<UpdateFromSearchResultExtraction> {
-	const response = await generateText({
-		model: createLLMGenerator(llmConfig),
-		run: { abortSignal: abortService.createAbortController('update-from-artifact') },
-		prompt: [
-			userLanguagePrompt,
-			updateFromSearchResultPrompt,
-			confidenceScorePrompt,
-			{ role: 'user', content: userInput },
-		],
-	});
-	const result = JSON.parse(response);
-	return validateUpdateFromSearchResultExtraction(result);
-}
+  try {
+    const llmConfig = await LLMService.getInstance().getLLMConfig();
 
-/**
- * Validate that the update from search results extraction contains all required fields
- */
-function validateUpdateFromSearchResultExtraction(data: any): UpdateFromSearchResultExtraction {
-	if (!data || typeof data !== 'object') {
-		throw new Error('Invalid response format');
-	}
+    const { object } = await generateObject({
+      ...llmConfig,
+      abortSignal: abortService.createAbortController('update-from-artifact'),
+      system: `${updateFromSearchResultPrompt.content}\n\n${userLanguagePromptText}`,
+      messages: [
+        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        { role: 'user', content: userInput },
+      ],
+      schema: updateFromSearchResultExtractionSchema,
+    });
 
-	if (!Array.isArray(data.updateInstructions)) {
-		throw new Error('Update instructions must be an array');
-	}
-
-	// Validate each instruction
-	data.updateInstructions.forEach((instruction: any, index: number) => {
-		if (!instruction.type || !['replace', 'add'].includes(instruction.type)) {
-			throw new Error(`Instruction ${index}: Invalid type. Must be 'replace' or 'add'`);
-		}
-
-		if (instruction.type === 'replace') {
-			if (typeof instruction.old !== 'string') {
-				throw new Error(`Instruction ${index}: 'old' must be a string`);
-			}
-			if (typeof instruction.new !== 'string') {
-				throw new Error(`Instruction ${index}: 'new' must be a string`);
-			}
-		} else if (instruction.type === 'add') {
-			if (typeof instruction.content !== 'string') {
-				throw new Error(`Instruction ${index}: 'content' must be a string`);
-			}
-			if (typeof instruction.position !== 'string' && typeof instruction.position !== 'number') {
-				throw new Error(`Instruction ${index}: 'position' must be a string or number`);
-			}
-			if (
-				typeof instruction.position === 'string' &&
-				!['beginning', 'end'].includes(instruction.position)
-			) {
-				throw new Error(`Instruction ${index}: 'position' must be 'beginning', 'end', or a number`);
-			}
-		}
-	});
-
-	if (typeof data.explanation !== 'string' || !data.explanation.trim()) {
-		throw new Error('Explanation must be a non-empty string');
-	}
-
-	if (typeof data.confidence !== 'number' || data.confidence < 0 || data.confidence > 1) {
-		throw new Error('Confidence must be a number between 0 and 1');
-	}
-
-	return {
-		updateInstructions: data.updateInstructions,
-		explanation: data.explanation.trim(),
-		confidence: data.confidence,
-		lang: data.lang,
-	};
+    return object;
+  } catch (error) {
+    console.error('Error extracting update from search result:', error);
+    throw error;
+  }
 }

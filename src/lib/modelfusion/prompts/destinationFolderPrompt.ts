@@ -12,8 +12,9 @@ Guidelines:
 	* Should be a path within the Obsidian vault
 	* Be precise about identifying the destination folder in the user's request
 - context: The origin of the notes
-	* One of "artifact", "currentNote"
+	* One of "artifact", "currentNote", or "<a note name>"
 	* If the user mentions about this note, use "currentNote"
+	* If the user specifies a note name, use that note name
 	* Otherwise, use "artifact"
 ${explanationFragment}
 ${confidenceFragment}

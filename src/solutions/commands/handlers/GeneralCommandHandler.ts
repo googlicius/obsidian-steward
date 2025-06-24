@@ -6,7 +6,7 @@ import {
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import StewardPlugin from 'src/main';
-import { extractCommandIntent } from 'src/lib/modelfusion/extractions';
+import { CommandIntentExtraction, extractCommandIntent } from 'src/lib/modelfusion/extractions';
 import { CommandProcessor } from '../CommandProcessor';
 
 export class GeneralCommandHandler extends CommandHandler {
@@ -30,30 +30,57 @@ export class GeneralCommandHandler extends CommandHandler {
   /**
    * Handle a general command (space)
    */
-  public async handle(params: CommandHandlerParams): Promise<CommandResult> {
+  public async handle(
+    params: CommandHandlerParams,
+    options: {
+      intentExtractionConfirmed?: boolean;
+      extraction?: CommandIntentExtraction;
+    } = {}
+  ): Promise<CommandResult> {
     const { title, command } = params;
+    const t = getTranslation(params.lang);
 
     try {
       // Extract the command intent using AI
-      const intentExtraction = await extractCommandIntent(
-        command.content,
-        this.settings.llm,
-        this.plugin.app
-      );
+      const intentExtraction =
+        options.extraction || (await extractCommandIntent(command.content, this.settings.llm));
 
-      // For low confidence intents, just show the explanation without further action
-      if (intentExtraction.confidence <= 0.7) {
+      // For low confidence intents, ask for confirmation before proceeding
+      if (intentExtraction.confidence <= 0.7 && !options.intentExtractionConfirmed) {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: intentExtraction.explanation,
           role: 'Steward',
         });
 
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: `*${t('common.abortedByLowConfidence')}*`,
+        });
+
+        // return {
+        //   status: CommandResultStatus.NEEDS_CONFIRMATION,
+        //   confirmationMessage,
+        //   onConfirmation: async () => {
+        //     console.log('onConfirmation');
+        //     // If confirmed, process the commands with the confirmed flag
+        //     this.handle(params, { intentExtractionConfirmed: true, extraction: intentExtraction });
+        //   },
+        //   onRejection: () => {
+        //     // If rejected, add a message indicating the operation was cancelled
+        //     this.renderer.updateConversationNote({
+        //       path: title,
+        //       newContent: `*${t('common.operationCancelled') || 'Operation cancelled.'}*`,
+        //     });
+        //   },
+        // };
+
         return {
           status: CommandResultStatus.SUCCESS,
         };
       }
 
+      // Process the commands (either high confidence or confirmed)
       await this.commandProcessor.processCommands({
         title,
         commands: intentExtraction.commands,
