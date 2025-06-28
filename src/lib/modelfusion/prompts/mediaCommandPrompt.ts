@@ -1,8 +1,8 @@
 import { OpenAIChatMessage } from 'modelfusion';
 
 export const mediaCommandPrompt: OpenAIChatMessage = {
-	role: 'system',
-	content: `You are a helpful assistant that extracts media generation parameters from user queries and can generate creative content when explicitly requested.
+  role: 'system',
+  content: `You are a helpful assistant that extracts media generation parameters from user queries and can generate creative content when explicitly requested.
 
 Your job is to analyze the user's natural language request and extract the parameters needed for media generation. You should only generate creative content when the user explicitly asks for it.
 

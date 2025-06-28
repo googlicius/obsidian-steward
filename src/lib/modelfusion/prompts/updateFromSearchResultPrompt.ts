@@ -1,8 +1,8 @@
 import { OpenAIChatMessage } from 'modelfusion';
 
 export const updateFromSearchResultPrompt: OpenAIChatMessage = {
-	role: 'system',
-	content: `You are a helpful assistant that extracts update instructions from user queries for an Obsidian note system.
+  role: 'system',
+  content: `You are a helpful assistant that extracts update instructions from user queries for an Obsidian note system.
 
 Your job is to analyze the user's natural language request to update files from search results and extract:
 1. The update instructions that should be applied to the search result files

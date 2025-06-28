@@ -9,171 +9,171 @@ If your plugin does not need CSS, delete this file.
 
 /* Style for the commands when typing */
 .cm-line .cm-conversation-command {
-	color: var(--text-accent-hover);
-	font-weight: bold;
+  color: var(--text-accent-hover);
+  font-weight: bold;
 }
 
 .cm-line .cm-conversation-command[has-placeholder='1']:after {
-	content: var(--steward-placeholder-text, 'Press Enter to send');
-	position: absolute;
-	font-style: italic;
-	color: #888;
-	margin-left: 0.5em;
-	opacity: 0.7;
-	font-weight: normal;
-	background: none;
-	cursor: text;
-	-webkit-text-fill-color: #888;
+  content: var(--steward-placeholder-text, 'Press Enter to send');
+  position: absolute;
+  font-style: italic;
+  color: #888;
+  margin-left: 0.5em;
+  opacity: 0.7;
+  font-weight: normal;
+  background: none;
+  cursor: text;
+  -webkit-text-fill-color: #888;
 }
 
 .cm-line .cm-conversation-command.conversation-command-general[has-placeholder='1']:after {
-	margin-left: 0;
+  margin-left: 0;
 }
 
 .conversation-command-line {
-	background-color: rgba(255, 255, 255, 0.1);
-	padding-top: 5px !important;
-	padding-bottom: 5px !important;
+  background-color: rgba(255, 255, 255, 0.1);
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
 }
 
 /* Command Autocomplete styling */
 .cm-tooltip.cm-tooltip-autocomplete {
-	border: 1px solid var(--background-modifier-border);
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .cm-tooltip.cm-tooltip-autocomplete > ul {
-	font-family: var(--font-interface);
-	background-color: var(--background-primary);
-	color: var(--text-normal);
-	overflow: hidden;
-	max-height: 200px;
+  font-family: var(--font-interface);
+  background-color: var(--background-primary);
+  color: var(--text-normal);
+  overflow: hidden;
+  max-height: 200px;
 }
 
 .cm-tooltip.cm-tooltip-autocomplete > ul > li {
-	padding: 4px 8px;
-	border-bottom: 1px solid var(--background-modifier-border-hover);
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--background-modifier-border-hover);
 }
 
 .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
-	background-color: var(--background-modifier-hover);
+  background-color: var(--background-modifier-hover);
 }
 
 .cm-tooltip.cm-tooltip-autocomplete > ul .cm-completionLabel {
-	color: var(--text-accent-hover);
-	font-weight: 500;
+  color: var(--text-accent-hover);
+  font-weight: 500;
 }
 
 .cm-tooltip.cm-tooltip-autocomplete > ul .cm-completionDetail {
-	font-size: 0.85em;
-	color: var(--text-muted);
-	margin-left: 8px;
+  font-size: 0.85em;
+  color: var(--text-muted);
+  margin-left: 8px;
 }
 
 .steward-conversation-wrapper .inline-embed .markdown-embed-content {
-	max-height: none;
+  max-height: none;
 }
 
 .steward-conversation-wrapper .markdown-embed {
-	padding: 0 0 15px 0;
-	border: 0;
-	border-bottom: 1px solid var(--background-modifier-border);
-	background-color: transparent;
+  padding: 0 0 15px 0;
+  border: 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background-color: transparent;
 }
 
 .callout[data-callout='search-result'] {
-	--callout-color: var(--callout-success);
-	padding-left: 12px;
-	cursor: pointer;
-	transition:
-		background-color 0.2s ease,
-		transform 0.1s ease;
-	margin-bottom: 10px !important;
+  --callout-color: var(--callout-success);
+  padding-left: 12px;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    transform 0.1s ease;
+  margin-bottom: 10px !important;
 }
 
 .callout[data-callout='search-result']:active {
-	transform: translateX(2px);
+  transform: translateX(2px);
 }
 
 .callout[data-callout='search-result'] > .callout-title {
-	display: none;
+  display: none;
 }
 
 .workspace-leaf-content[data-type='steward-conversation'] .view-content {
-	padding-left: 0;
-	padding-right: 0;
-	padding-top: 0;
-	overflow: hidden;
+  padding-left: 0;
+  padding-right: 0;
+  padding-top: 0;
+  overflow: hidden;
 }
 
 .workspace-leaf-content[data-type='steward-conversation']
-	.view-content
-	> .markdown-source-view.mod-cm6
-	> .cm-editor
-	> .cm-scroller {
-	padding: 15px;
+  .view-content
+  > .markdown-source-view.mod-cm6
+  > .cm-editor
+  > .cm-scroller {
+  padding: 15px;
 }
 
 .steward-conversation-header {
-	display: flex;
-	gap: 4px;
-	padding: 4px;
-	justify-content: flex-end;
-	background-color: var(--color-base-20);
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  justify-content: flex-end;
+  background-color: var(--color-base-20);
 }
 
 .steward-header-button {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 4px;
-	border-radius: 4px;
-	cursor: pointer;
-	background-color: transparent;
-	color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  background-color: transparent;
+  color: var(--text-muted);
 }
 
 .steward-header-button:hover {
-	color: var(--text-normal);
+  color: var(--text-normal);
 }
 
 .stw-conversation .callout-content :is(ul, p, ol) {
-	margin: 6px 0;
-	line-height: 1.4em;
-	overflow: hidden;
+  margin: 6px 0;
+  line-height: 1.4em;
+  overflow: hidden;
 }
 
 /* Command toolbar styling */
 .command-toolbar {
-	position: absolute;
-	margin-top: 5px;
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	padding: 4px 8px;
-	background-color: var(--color-base-20);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: 4px;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-	z-index: 10;
-	width: 100%;
-	max-width: 500px;
+  position: absolute;
+  margin-top: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  background-color: var(--color-base-20);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  width: 100%;
+  max-width: 500px;
 }
 
 .command-toolbar .clickable-icon {
-	cursor: pointer;
+  cursor: pointer;
 }
 
 .command-toolbar-buttons {
-	display: flex;
-	gap: 4px;
+  display: flex;
+  gap: 4px;
 }
 
 .model-selector {
-	font-size: 0.85em;
-	padding: 4px 8px;
-	border-radius: 4px;
-	box-shadow: none;
-	color: var(--text-normal);
-	background-color: inherit;
+  font-size: 0.85em;
+  padding: 4px 8px;
+  border-radius: 4px;
+  box-shadow: none;
+  color: var(--text-normal);
+  background-color: inherit;
 }

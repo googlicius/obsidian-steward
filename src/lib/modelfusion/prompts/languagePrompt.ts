@@ -1,8 +1,8 @@
 import { OpenAIChatMessage } from 'modelfusion';
 
 export const userLanguagePrompt: OpenAIChatMessage = {
-	role: 'system',
-	content: `
+  role: 'system',
+  content: `
 Respect user's language or the language they specified.
 - Add a "lang" property to the response JSON object.
 - The lang property should be a valid language code: en, vi, etc.
@@ -10,6 +10,6 @@ Respect user's language or the language they specified.
 };
 
 export const userLanguagePromptText: OpenAIChatMessage = {
-	role: 'system',
-	content: `Respect user's language or the language they specified.`,
+  role: 'system',
+  content: `Respect user's language or the language they specified.`,
 };

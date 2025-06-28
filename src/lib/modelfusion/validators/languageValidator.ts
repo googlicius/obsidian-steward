@@ -5,8 +5,8 @@
  * @returns A normalized language code or 'en' if invalid
  */
 export function validateLanguage(lang: any): string {
-	if (lang && typeof lang === 'string' && lang.trim()) {
-		return lang.trim().toLowerCase();
-	}
-	return 'en';
+  if (lang && typeof lang === 'string' && lang.trim()) {
+    return lang.trim().toLowerCase();
+  }
+  return 'en';
 }
