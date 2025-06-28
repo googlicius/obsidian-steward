@@ -17,9 +17,9 @@ export async function extractReadContent(userInput: string) {
     prompt: userInput,
     tools: {
       contentReading: tool({
-        description: 'Read content partially.',
         parameters: z.object({
           readType: z.enum(['selected', 'above', 'below', 'entire']).default('above'),
+          noteName: z.string().nullable().default(null),
           elementType: z.string().nullable().default(null),
           blocksToRead: z.number().min(-1).default(1),
           foundPlaceholder: z
@@ -35,6 +35,18 @@ export async function extractReadContent(userInput: string) {
             .optional()
             .describe('The lang property should be a valid language code: en, vi, etc.'),
         }),
+
+        // execute: async args => {
+        //   const readingResult = await ContentReadingService.getInstance().readContent(args);
+        //   if (!readingResult) {
+        //     return null;
+        //   }
+        //   return {
+        //     blocks: readingResult.blocks,
+        //     elementType: readingResult.elementType,
+        //     range: readingResult.range,
+        //   };
+        // },
       }),
     },
   });

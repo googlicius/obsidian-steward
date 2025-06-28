@@ -57,23 +57,20 @@ export async function prepareUserMessage(
 
   // Process and add wikilink contents
   if (wikilinks.length > 0) {
-    let wikiContentText = '';
-
     for (const wikilink of wikilinks) {
       try {
         const file = await mediaTools.findFileByNameOrPath(wikilink);
 
         if (file instanceof TFile) {
           const content = await app.vault.read(file);
-          wikiContentText += `\nContent of the "${wikilink}":\n${content}\n`;
+          messageContent.push({
+            type: 'text',
+            text: `Content of the "${wikilink}" note:\n${content}\n`,
+          });
         }
       } catch (error) {
         console.error(`Error processing wikilink ${wikilink}:`, error);
       }
-    }
-
-    if (wikiContentText) {
-      messageContent.push({ type: 'text', text: wikiContentText });
     }
   }
 

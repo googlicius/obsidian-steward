@@ -161,8 +161,8 @@ export class CommandProcessor {
       if (command.systemPrompts && command.systemPrompts.length > 0) {
         const noteContentService = NoteContentService.getInstance(this.plugin.app);
         const processedPrompts = await Promise.all(
-          command.systemPrompts.map(async prompt => {
-            return await noteContentService.processWikilinksInContent(prompt, 'replace');
+          command.systemPrompts.map(prompt => {
+            return noteContentService.processWikilinksInContent(prompt, 2);
           })
         );
         command.systemPrompts = processedPrompts;

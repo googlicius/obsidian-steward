@@ -9,6 +9,7 @@ import StewardPlugin from 'src/main';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { extractReadContent } from 'src/lib/modelfusion/extractions';
 import { CommandProcessor } from '../CommandProcessor';
+import { ContentReadingService } from 'src/services/ContentReadingService';
 
 type ExtractReadContentResult = Awaited<ReturnType<typeof extractReadContent>>;
 
@@ -42,18 +43,24 @@ export class ReadCommandHandler extends CommandHandler {
       // Extract the reading instructions using LLM
       const extraction = options.extraction || (await extractReadContent(command.content));
 
-      const contentReadingToolCall = extraction.toolCalls.find(
+      // Find all content reading tool calls
+      const contentReadingToolCalls = extraction.toolCalls.filter(
         toolCall => toolCall.toolName === 'contentReading'
       );
 
-      if (!contentReadingToolCall) {
+      if (contentReadingToolCalls.length === 0) {
         return {
           status: CommandResultStatus.ERROR,
           error: new Error('No content reading tool call found'),
         };
       }
 
-      if (contentReadingToolCall.args.readType === 'entire' && !options.readEntireContent) {
+      // Check if any tool call is for entire content and needs confirmation
+      const hasEntireReadType = contentReadingToolCalls.some(
+        toolCall => toolCall.args.readType === 'entire'
+      );
+
+      if (hasEntireReadType && !options.readEntireContent) {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: t('read.readEntireContentConfirmation'),
@@ -69,12 +76,25 @@ export class ReadCommandHandler extends CommandHandler {
         };
       }
 
-      // Read the content from the editor
-      const readingResult = await this.plugin.contentReadingService.readContent(
-        contentReadingToolCall.args
-      );
+      // Process all tool calls
+      const readingResults = [];
+      let stewardReadMetadata = null;
 
-      if (!readingResult) {
+      for (const toolCall of contentReadingToolCalls) {
+        // Read the content from the editor
+        const readingResult = await ContentReadingService.getInstance().readContent(toolCall.args);
+
+        if (!readingResult) {
+          continue; // Skip this tool call if reading failed
+        }
+
+        readingResults.push({
+          toolCall,
+          readingResult,
+        });
+      }
+
+      if (readingResults.length === 0) {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: `*${t('read.unableToReadContent')}*`,
@@ -88,21 +108,33 @@ export class ReadCommandHandler extends CommandHandler {
         };
       }
 
-      const stewardReadMetadata = await this.renderer.updateConversationNote({
+      // Use the explanation from the first successful tool call
+      stewardReadMetadata = await this.renderer.updateConversationNote({
         path: title,
-        newContent: contentReadingToolCall.args.explanation,
+        newContent: readingResults[0].toolCall.args.explanation,
         role: 'Steward',
         command: 'read',
       });
 
-      if (contentReadingToolCall.args.confidence <= 0.7) {
+      // Check confidence for all tool calls
+      const lowConfidenceCall = readingResults.find(
+        result => result.toolCall.args.confidence <= 0.7
+      );
+
+      if (lowConfidenceCall) {
         return {
           status: CommandResultStatus.ERROR,
           error: new Error('Low confidence in reading extraction'),
         };
       }
 
-      if (readingResult.blocks.length === 0 || readingResult.elementType === 'unknown') {
+      // Check if any content was found
+      const hasContent = readingResults.some(
+        result =>
+          result.readingResult.blocks.length > 0 && result.readingResult.elementType !== 'unknown'
+      );
+
+      if (!hasContent) {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: `*${t('read.noContentFound')}*`,
@@ -114,37 +146,46 @@ export class ReadCommandHandler extends CommandHandler {
         };
       }
 
-      // Show the user the number of blocks found
+      // Show the user the total number of blocks found across all tool calls
+      const totalBlocks = readingResults.reduce(
+        (total, result) => total + result.readingResult.blocks.length,
+        0
+      );
+
+      // Use the placeholder from the first tool call
       await this.renderer.updateConversationNote({
         path: title,
-        newContent: contentReadingToolCall.args.foundPlaceholder.replace(
+        newContent: readingResults[0].toolCall.args.foundPlaceholder.replace(
           '{{number}}',
-          readingResult.blocks.length.toString()
+          totalBlocks.toString()
         ),
       });
 
       // If there is no next command, show the read results
       if (!nextCommand) {
-        for (const block of readingResult.blocks) {
-          const endLine = this.plugin.editor.getLine(block.endLine);
-          await this.renderer.updateConversationNote({
-            path: title,
-            newContent: this.renderer.formatCallout(block.content, 'search-result', {
-              startLine: block.startLine,
-              endLine: block.endLine,
-              start: 0,
-              end: endLine.length,
-              path: this.plugin.app.workspace.getActiveFile()?.path,
-            }),
-          });
+        for (const result of readingResults) {
+          for (const block of result.readingResult.blocks) {
+            const endLine = this.plugin.editor.getLine(block.endLine);
+            await this.renderer.updateConversationNote({
+              path: title,
+              newContent: this.renderer.formatCallout(block.content, 'search-result', {
+                startLine: block.startLine,
+                endLine: block.endLine,
+                start: 0,
+                end: endLine.length,
+                path: result.readingResult.file?.path,
+              }),
+            });
+          }
         }
       }
 
-      // Store the read content in the artifact manager
-      if (stewardReadMetadata) {
+      // Store the read content in the artifact manager - use the first result for now
+      // This could be enhanced to store all results if needed
+      if (stewardReadMetadata && readingResults.length > 0) {
         this.artifactManager.storeArtifact(title, stewardReadMetadata, {
           type: ArtifactType.READ_CONTENT,
-          readingResult,
+          readingResult: readingResults[0].readingResult,
         });
       }
 

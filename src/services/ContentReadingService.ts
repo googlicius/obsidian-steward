@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import StewardPlugin from '../main';
 import { isConversationLink } from '../utils/conversationUtils';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
+import { MediaTools } from 'src/tools/mediaTools';
 
 /**
  * Result of a content reading operation
@@ -46,7 +47,7 @@ export class ContentReadingService {
     return this.plugin.editor;
   }
 
-  private constructor(private plugin: StewardPlugin) {}
+  constructor(private plugin: StewardPlugin) {}
 
   static getInstance(plugin?: StewardPlugin) {
     if (!ContentReadingService.instance) {
@@ -65,6 +66,7 @@ export class ContentReadingService {
    */
   async readContent(args: {
     readType: 'above' | 'below' | 'selected' | 'entire';
+    noteName: string | null;
     blocksToRead: number;
     elementType: string | null;
     foundPlaceholder: string;
@@ -72,8 +74,10 @@ export class ContentReadingService {
     explanation: string;
     lang?: string | undefined;
   }): Promise<ContentReadingResult | null> {
-    // Get the active file
-    const file = this.plugin.app.workspace.getActiveFile();
+    // Get the file
+    const file = args.noteName
+      ? await MediaTools.getInstance(this.plugin.app).findFileByNameOrPath(args.noteName)
+      : this.plugin.app.workspace.getActiveFile();
     if (!file) {
       logger.error('No active file found');
       return null;

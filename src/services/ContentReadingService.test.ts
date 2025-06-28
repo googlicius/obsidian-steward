@@ -44,7 +44,7 @@ console.log(code);
 
       // Create mock plugin and service
       const mockPlugin = createMockPlugin(mockText);
-      const service = ContentReadingService.getInstance(mockPlugin);
+      const service = new ContentReadingService(mockPlugin);
 
       // Access the private method using type assertion
       const findBlockBoundary = (service as any).findBlockBoundary.bind(service);
@@ -81,7 +81,7 @@ End
 
       // Create mock plugin and service
       const mockPlugin = createMockPlugin(mockText);
-      const service = ContentReadingService.getInstance(mockPlugin);
+      const service = new ContentReadingService(mockPlugin);
 
       // Access the private method using type assertion
       const findBlockBoundary = (service as any).findBlockBoundary.bind(service);

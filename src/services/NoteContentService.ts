@@ -182,19 +182,20 @@ export class NoteContentService {
   /**
    * Process wikilinks in content and either append their content at the end or replace the wikilinks
    * @param content The content containing wikilinks
-   * @param mode The processing mode: 'append' (default) or 'replace'
+   * @param depth The maximum depth level for processing nested wikilinks (default: 1)
    * @returns The content with wikilink contents either appended or replaced
    */
-  public async processWikilinksInContent(
-    content: string,
-    mode: 'append' | 'replace' = 'append'
-  ): Promise<string> {
+  public async processWikilinksInContent(content: string, depth = 1): Promise<string> {
     // Extract wikilinks from the content
     const wikilinks = this.extractWikilinks(content);
 
     if (wikilinks.length === 0) {
       return content;
     }
+
+    // Determine mode: if content is just a wikilink, use 'replace', otherwise 'append'
+    const isOnlyWikilink = content.trim().match(/^\[\[([^\]]+)\]\]$/);
+    const mode = isOnlyWikilink ? 'replace' : 'append';
 
     // Start with the original content
     let processedContent = content;
@@ -216,6 +217,11 @@ export class NoteContentService {
           if (anchorParts.length > 1) {
             // Extract content under the specified heading
             extractedContent = this.extractContentUnderHeading(linkedContent, anchorParts[1]);
+          }
+
+          // Process nested wikilinks if depth > 1
+          if (depth > 1 && this.extractWikilinks(extractedContent).length > 0) {
+            extractedContent = await this.processWikilinksInContent(extractedContent, depth - 1);
           }
 
           if (mode === 'append') {

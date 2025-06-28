@@ -103,11 +103,11 @@ export class GenerateCommandHandler extends CommandHandler {
       };
     }
 
-    const contentsStr = JSON.stringify(
+    const readContentsStringified = JSON.stringify(
       readArtifact.readingResult.blocks.map(block => block.content)
     );
 
-    const userInput = `The content from the current note:\n${contentsStr}\n\n${command.content}`;
+    const userInput = `The content from the current note:\n${readContentsStringified}\n\n${command.content}`;
 
     let extraction = options.extraction;
 

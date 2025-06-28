@@ -11,6 +11,8 @@ Guidelines for the contentReading tool:
   - "above": Refers to content above the cursor (default if not specified)
   - "below": Refers to content below the cursor
   - "entire": Refers to the entire content of the note
+- noteName: Name of the note to read from
+  - If not specified, leave it blank
 - elementType: Identify element types mentioned:
   - One or many of "paragraph", "table", "code", "list", "blockquote", "image"
   - For multiple types:

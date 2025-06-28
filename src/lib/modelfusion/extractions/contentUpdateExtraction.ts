@@ -43,7 +43,6 @@ export async function extractContentUpdate(params: {
   userInput: string;
   systemPrompts?: string[];
   app: App;
-  llmConfig?: any; // Keep for backward compatibility
 }): Promise<ContentUpdateExtraction> {
   const { userInput, systemPrompts = [], app } = params;
 
