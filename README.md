@@ -24,6 +24,12 @@ This plugin is currently under active development. New features and improvements
 
 Steward can be used through the command palette directly in the editor or by opening the chat interface. Here are some example commands:
 
+### Command Flow Visualization
+
+The following diagram illustrates how commands are processed in Steward:
+
+![Command Flow](commands-flow.svg)
+
 ### Usage
 
 - **/search** Notes tagged #Todo in the root folder
