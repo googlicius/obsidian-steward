@@ -147,6 +147,14 @@ const ja = {
       readEntireContentConfirmation:
         'このノートの内容をすべて読み込もうとしています。続行しますか？',
     },
+    // Thank you responses
+    thankYou: {
+      response1: 'どういたしまして！お役に立ててうれしいです。',
+      response2: 'どういたしまして！他に何か必要なことはありますか？',
+      response3: 'お力になれてうれしいです！',
+      response4: 'いつでもどうぞ！また何かあれば教えてくださいね。',
+      response5: 'お役に立てて光栄です！',
+    },
     // Conversation states
     conversation: {
       workingOnIt: '処理中...',

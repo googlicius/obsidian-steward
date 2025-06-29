@@ -146,6 +146,13 @@ const vi = {
       readEntireContentConfirmation:
         'Tôi đang đọc toàn bộ nội dung của ghi chú. Bạn có muốn tiếp tục không?',
     },
+    thankYou: {
+      response1: 'Không có gì! Rất vui khi được giúp bạn.',
+      response2: 'Rất hân hạnh! Bạn còn cần gì thêm không?',
+      response3: 'Mình rất vui vì đã có thể hỗ trợ!',
+      response4: 'Bất cứ lúc nào! Nếu cần gì thêm thì cứ nói nhé.',
+      response5: 'Rất hân hạnh được phục vụ bạn!',
+    },
     // Conversation states
     conversation: {
       workingOnIt: 'Đang xử lý...',

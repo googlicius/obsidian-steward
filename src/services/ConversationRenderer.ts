@@ -122,11 +122,13 @@ export class ConversationRenderer {
     path,
     folderPath = `${this.plugin.settings.stewardFolder}/Conversations`,
     stream,
+    role,
     command,
     position,
   }: {
     path: string;
     stream: AsyncIterable<string>;
+    role?: 'Steward';
     folderPath?: string;
     command?: string;
     position?: number;
@@ -151,8 +153,10 @@ export class ConversationRenderer {
         command,
       });
 
+      const roleText = role ? `**${role}:** ` : '';
+
       // Prepare the initial content with metadata
-      const initialContent = `${currentContent}\n\n${comment}\n`;
+      const initialContent = `${currentContent}\n\n${comment}\n${roleText}`;
 
       // If position is provided, insert at that position
       // Otherwise, append to the end

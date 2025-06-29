@@ -15,3 +15,4 @@ export * from './StopCommandHandler';
 export * from './AudioCommandHandler';
 export * from './ImageCommandHandler';
 export * from './UserDefinedCommandHandler';
+export * from './ThankYouCommandHandler';

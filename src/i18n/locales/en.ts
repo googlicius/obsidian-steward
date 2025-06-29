@@ -160,6 +160,14 @@ const en = {
       readEntireContentConfirmation:
         'I am about to read the entire content of the note. Are you sure you want to proceed?',
     },
+    // Thank you responses
+    thankYou: {
+      response1: "You're welcome! Happy to help.",
+      response2: 'My pleasure! Is there anything else you need?',
+      response3: 'Glad I could assist!',
+      response4: 'Anytime! Let me know if you need anything else.',
+      response5: 'Happy to be of service!',
+    },
     // Conversation states
     conversation: {
       workingOnIt: 'Working on it...',

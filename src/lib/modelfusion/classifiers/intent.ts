@@ -47,6 +47,17 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
       name: 'stop' as const,
       values: ['stop', 'abort'],
     },
+    {
+      name: 'thank_you' as const,
+      values: [
+        'thank you',
+        'thanks',
+        'thank you so much',
+        'thanks a lot',
+        'appreciate it',
+        'thank you very much',
+      ],
+    },
   ],
 
   prefixedClusterValue: [
@@ -256,6 +267,23 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
     {
       name: 'read:generate:update_from_artifact' as const,
       values: ['update the list above to numbered list', 'update the list above to bullet list'],
+    },
+    {
+      name: 'thank_you' as const,
+      values: [
+        'thank you for your help',
+        'thanks for the assistance',
+        'thank you for helping me',
+        'i appreciate your help',
+        'thanks for your support',
+        'thank you for the information',
+        'thanks for the explanation',
+        'thank you for the clarification',
+        'thanks for answering my question',
+        'thank you for your time',
+        'xin cảm ơn',
+        'cảm ơn',
+      ],
     },
   ],
 });

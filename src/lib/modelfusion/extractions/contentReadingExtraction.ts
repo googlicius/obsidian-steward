@@ -26,8 +26,7 @@ export async function extractReadContent(userInput: string) {
             .string()
             .describe(
               'A short text to indicate that the content was found. Put {{number}} as the number of blocks found.'
-            )
-            .default(''),
+            ),
           confidence: z.number().min(0).max(1).default(0.5),
           explanation: z.string(),
           lang: z

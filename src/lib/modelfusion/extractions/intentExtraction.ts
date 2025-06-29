@@ -57,6 +57,8 @@ const validCommandTypes = [
   'generate',
   'read',
   'stop',
+  'thank_you',
+  'thanks',
 ] as const;
 
 // Define the Zod schema for command intent
