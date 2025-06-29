@@ -5,9 +5,10 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import StewardPlugin from 'src/main';
-import { CommandProcessor } from '../CommandProcessor';
 import { CommandIntent } from 'src/lib/modelfusion';
+
+import type StewardPlugin from 'src/main';
+import type { CommandProcessor } from '../CommandProcessor';
 
 export class ConfirmCommandHandler extends CommandHandler {
   constructor(
@@ -61,15 +62,17 @@ export class ConfirmCommandHandler extends CommandHandler {
 
     const lastResult = pendingCommandData.lastCommandResult;
 
+    let confirmResult: CommandResult | undefined;
+
     // Handle the confirmation or rejection
     if (confirmationIntent.isAffirmative) {
       // Execute the confirmation callback
       if (lastResult.onConfirmation) {
-        await lastResult.onConfirmation();
+        confirmResult = await lastResult.onConfirmation();
       }
     } else {
       if (lastResult.onRejection) {
-        await lastResult.onRejection();
+        confirmResult = await lastResult.onRejection();
       }
 
       await this.plugin.conversationRenderer.updateConversationNote({
@@ -79,11 +82,11 @@ export class ConfirmCommandHandler extends CommandHandler {
       });
     }
 
-    await this.commandProcessor.continueProcessing(title);
+    if (confirmResult && confirmResult.status === CommandResultStatus.SUCCESS) {
+      await this.commandProcessor.continueProcessing(title);
+    }
 
-    return {
-      status: CommandResultStatus.SUCCESS,
-    };
+    return confirmResult || { status: CommandResultStatus.SUCCESS };
   }
 
   /**

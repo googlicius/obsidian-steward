@@ -1,8 +1,9 @@
 import { TFile, TFolder } from 'obsidian';
-import StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { CommandIntent } from 'src/lib/modelfusion/extractions';
 import * as yaml from 'js-yaml';
+
+import type StewardPlugin from 'src/main';
 
 /**
  * Represents a command within a user-defined command sequence

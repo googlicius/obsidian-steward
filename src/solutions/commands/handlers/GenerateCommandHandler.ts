@@ -5,7 +5,6 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import StewardPlugin from 'src/main';
 import {
   CommandIntent,
   extractContentUpdate,
@@ -23,6 +22,8 @@ import {
   prepareUserMessage,
 } from 'src/lib/modelfusion';
 import { MediaTools } from 'src/tools/mediaTools';
+
+import type StewardPlugin from 'src/main';
 
 const abortService = AbortService.getInstance();
 
@@ -140,7 +141,7 @@ export class GenerateCommandHandler extends CommandHandler {
       return {
         status: CommandResultStatus.NEEDS_CONFIRMATION,
         onConfirmation: () => {
-          this.generateFromReadArtifact(params, {
+          return this.generateFromReadArtifact(params, {
             lowConfidenceConfirmed: true,
             extraction,
           });

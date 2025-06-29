@@ -5,8 +5,8 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import StewardPlugin from 'src/main';
-import { CommandProcessor } from '../CommandProcessor';
+import type StewardPlugin from 'src/main';
+import type { CommandProcessor } from '../CommandProcessor';
 
 export class UserDefinedCommandHandler extends CommandHandler {
   isContentRequired = (commandType: string): boolean => {

@@ -1,4 +1,3 @@
-export * from './MediaCommandHandler';
 export * from './DeleteCommandHandler';
 export * from './CopyCommandHandler';
 export * from './UpdateCommandHandler';

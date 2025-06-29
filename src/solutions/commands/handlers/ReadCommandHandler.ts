@@ -5,11 +5,12 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import StewardPlugin from 'src/main';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { extractReadContent } from 'src/lib/modelfusion/extractions';
-import { CommandProcessor } from '../CommandProcessor';
 import { ContentReadingService } from 'src/services/ContentReadingService';
+
+import type StewardPlugin from 'src/main';
+import type { CommandProcessor } from '../CommandProcessor';
 
 type ExtractReadContentResult = Awaited<ReturnType<typeof extractReadContent>>;
 
@@ -70,8 +71,8 @@ export class ReadCommandHandler extends CommandHandler {
 
         return {
           status: CommandResultStatus.NEEDS_CONFIRMATION,
-          onConfirmation: async () => {
-            await this.handle(params, { extraction, readEntireContent: true });
+          onConfirmation: () => {
+            return this.handle(params, { extraction, readEntireContent: true });
           },
         };
       }

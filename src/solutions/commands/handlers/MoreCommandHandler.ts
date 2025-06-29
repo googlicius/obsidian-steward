@@ -6,9 +6,10 @@ import {
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
-import StewardPlugin from 'src/main';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-import { SearchCommandHandler } from './SearchCommandHandler';
+
+import type StewardPlugin from 'src/main';
+import type { SearchCommandHandler } from './SearchCommandHandler';
 
 export class MoreCommandHandler extends CommandHandler {
   constructor(

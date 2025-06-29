@@ -5,9 +5,10 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import StewardPlugin from 'src/main';
 import { CommandIntentExtraction, extractCommandIntent } from 'src/lib/modelfusion/extractions';
-import { CommandProcessor } from '../CommandProcessor';
+
+import type StewardPlugin from 'src/main';
+import type { CommandProcessor } from '../CommandProcessor';
 
 export class GeneralCommandHandler extends CommandHandler {
   isContentRequired = true;

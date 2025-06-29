@@ -4,7 +4,7 @@ import {
   CommandResult,
   CommandResultStatus,
 } from '../CommandHandler';
-import StewardPlugin from 'src/main';
+import type StewardPlugin from 'src/main';
 import { getTranslation } from 'src/i18n';
 import { AbortService } from 'src/services/AbortService';
 import { logger } from 'src/utils/logger';

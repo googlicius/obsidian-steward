@@ -2,8 +2,9 @@ import { ConversationCommandReceivedPayload } from '../../types/events';
 import { CommandResultStatus, CommandHandler, CommandResult } from './CommandHandler';
 import { logger } from '../../utils/logger';
 import { CommandIntent } from '../../lib/modelfusion/extractions';
-import StewardPlugin from 'src/main';
 import { NoteContentService } from '../../services/NoteContentService';
+
+import type StewardPlugin from 'src/main';
 
 interface PendingCommand {
   commands: CommandIntent[];
@@ -24,7 +25,6 @@ interface ProcessCommandsOptions {
 
 export class CommandProcessor {
   private pendingCommands: Map<string, PendingCommand> = new Map();
-
   private commandHandlers: Map<string, CommandHandler> = new Map();
   private userDefinedCommandHandler: CommandHandler | null = null;
 

@@ -5,7 +5,8 @@ import {
   CommandResult,
   CommandResultStatus,
 } from '../CommandHandler';
-import StewardPlugin from 'src/main';
+
+import type StewardPlugin from 'src/main';
 
 /**
  * Handler for close commands

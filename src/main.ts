@@ -14,7 +14,6 @@ import { logger } from './utils/logger';
 import { ConversationRenderer } from './services/ConversationRenderer';
 import { ConversationArtifactManager } from './services/ConversationArtifactManager';
 import { GitEventHandler } from './solutions/git/GitEventHandler';
-import { MediaGenerationService } from './services/MediaGenerationService';
 import { ContentReadingService } from './services/ContentReadingService';
 import { StewardPluginSettings } from './types/interfaces';
 import { Line, Text } from '@codemirror/state';
@@ -51,7 +50,6 @@ export default class StewardPlugin extends Plugin {
   artifactManager: ConversationArtifactManager;
   conversationRenderer: ConversationRenderer;
   gitEventHandler: GitEventHandler;
-  mediaGenerationService: MediaGenerationService;
   contentReadingService: ContentReadingService;
   commandProcessorService: CommandProcessorService;
   userDefinedCommandService: UserDefinedCommandService;
@@ -141,9 +139,6 @@ export default class StewardPlugin extends Plugin {
     if (decryptedDeepSeekKey) {
       process.env.DEEPSEEK_API_KEY = decryptedDeepSeekKey;
     }
-
-    // Initialize the media generation service
-    this.mediaGenerationService = new MediaGenerationService(this);
 
     // Initialize the content reading service
     this.contentReadingService = ContentReadingService.getInstance(this);

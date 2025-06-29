@@ -1,5 +1,6 @@
 import { ContentReadingService } from './ContentReadingService';
-import StewardPlugin from '../main';
+
+import type StewardPlugin from '../main';
 
 // Mock StewardPlugin
 jest.mock('../main');

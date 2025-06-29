@@ -1,6 +1,5 @@
 import { CommandProcessor } from '../solutions/commands';
 import { ConversationCommandReceivedPayload } from '../types/events';
-import StewardPlugin from '../main';
 import { logger } from '../utils/logger';
 import {
   MoveCommandHandler,
@@ -22,6 +21,8 @@ import {
   ThankYouCommandHandler,
 } from '../solutions/commands/handlers';
 import { getTextContentWithoutImages } from 'src/lib/modelfusion/utils/userMessageUtils';
+
+import type StewardPlugin from '../main';
 
 export class CommandProcessorService {
   private readonly commandProcessor: CommandProcessor;

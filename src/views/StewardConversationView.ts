@@ -1,7 +1,9 @@
-import { MarkdownView, setIcon, WorkspaceLeaf } from 'obsidian';
+import { MarkdownView, setIcon } from 'obsidian';
 import { STW_CONVERSATION_VIEW_CONFIG } from '../constants';
 import { logger } from 'src/utils/logger';
 import i18next from 'i18next';
+
+import type { WorkspaceLeaf } from 'obsidian';
 
 export class StewardConversationView extends MarkdownView {
   constructor(leaf: WorkspaceLeaf) {

@@ -5,7 +5,6 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import StewardPlugin from 'src/main';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { Events } from 'src/types/events';
 import { eventEmitter } from 'src/services/EventEmitter';
@@ -15,6 +14,8 @@ import {
 } from 'src/lib/modelfusion/extractions';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 import { MoveOperationV2 } from 'src/tools/obsidianAPITools';
+
+import type StewardPlugin from 'src/main';
 
 export class CopyCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -142,11 +143,14 @@ export class CopyCommandHandler extends CommandHandler {
         return {
           status: CommandResultStatus.NEEDS_CONFIRMATION,
           confirmationMessage: message,
-          onConfirmation: async () => {
-            await this.handle(params, { extraction, folderExistsConfirmed: true });
+          onConfirmation: () => {
+            return this.handle(params, { extraction, folderExistsConfirmed: true });
           },
-          onRejection: async () => {
+          onRejection: () => {
             this.artifactManager.deleteArtifact(title, artifact.id);
+            return {
+              status: CommandResultStatus.SUCCESS,
+            };
           },
         };
       }

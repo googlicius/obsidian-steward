@@ -5,11 +5,12 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import StewardPlugin from 'src/main';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { TFile } from 'obsidian';
 import { extractNoteCreation, NoteCreationExtraction } from 'src/lib/modelfusion/extractions';
-import { CommandProcessor } from '../CommandProcessor';
+
+import type StewardPlugin from 'src/main';
+import type { CommandProcessor } from '../CommandProcessor';
 
 export class CreateCommandHandler extends CommandHandler {
   constructor(
@@ -101,15 +102,18 @@ export class CreateCommandHandler extends CommandHandler {
         return {
           status: CommandResultStatus.NEEDS_CONFIRMATION,
           confirmationMessage: message,
-          onConfirmation: async () => {
+          onConfirmation: () => {
             // When confirmed, call this handler again with the confirmed flag
-            await this.handle(params, { extraction, confirmed: true });
+            return this.handle(params, { extraction, confirmed: true });
           },
           onRejection: async () => {
             // Delete the next command if it is a generate command
             if (nextCommand && nextCommand.commandType === 'generate') {
               this.commandProcessor.deleteNextPendingCommand(title);
             }
+            return {
+              status: CommandResultStatus.SUCCESS,
+            };
           },
         };
       }

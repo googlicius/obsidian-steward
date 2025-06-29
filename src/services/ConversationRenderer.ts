@@ -1,7 +1,8 @@
 import { TFile } from 'obsidian';
 import { uniqueID } from '../utils/uniqueID';
-import StewardPlugin from '../main';
 import { getTranslation } from '../i18n';
+
+import type StewardPlugin from '../main';
 
 export class ConversationRenderer {
   private readonly plugin: StewardPlugin;

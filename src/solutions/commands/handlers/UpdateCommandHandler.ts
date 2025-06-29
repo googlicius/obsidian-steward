@@ -5,12 +5,13 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import StewardPlugin from 'src/main';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { Events } from 'src/types/events';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { TFile } from 'obsidian';
 import { extractUpdateFromSearchResult, UpdateInstruction } from 'src/lib/modelfusion/extractions';
+
+import type StewardPlugin from 'src/main';
 
 export class UpdateCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -94,10 +95,13 @@ export class UpdateCommandHandler extends CommandHandler {
         return {
           status: CommandResultStatus.NEEDS_CONFIRMATION,
           onConfirmation: () => {
-            this.performUpdateFromArtifact(title, updateInstructions, lang);
+            return this.performUpdateFromArtifact(title, updateInstructions, lang);
           },
           onRejection: () => {
             this.artifactManager.deleteArtifact(title, artifact.id);
+            return {
+              status: CommandResultStatus.SUCCESS,
+            };
           },
         };
       }
@@ -121,11 +125,7 @@ export class UpdateCommandHandler extends CommandHandler {
       }
 
       // Perform the updates
-      return await this.performUpdateFromArtifact(
-        title,
-        extraction.updateInstructions,
-        extraction.lang
-      );
+      return this.performUpdateFromArtifact(title, extraction.updateInstructions, extraction.lang);
     } catch (error) {
       await this.renderer.updateConversationNote({
         path: title,

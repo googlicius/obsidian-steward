@@ -18,7 +18,7 @@ export class Logger {
    * Log a debug message (only if debug is enabled)
    * @param args Arguments to log
    */
-  public log(...args: any[]): void {
+  public log(...args: unknown[]): void {
     if (this.isDebugEnabled) {
       console.log(`${PREFIX}`, ...args);
     }
@@ -28,7 +28,7 @@ export class Logger {
    * Log an error message (always shown, regardless of debug setting)
    * @param args Arguments to log
    */
-  public error(...args: any[]): void {
+  public error(...args: unknown[]): void {
     console.error(`${PREFIX}`, ...args);
   }
 
@@ -36,7 +36,7 @@ export class Logger {
    * Log a warning message (always shown, regardless of debug setting)
    * @param args Arguments to log
    */
-  public warn(...args: any[]): void {
+  public warn(...args: unknown[]): void {
     console.warn(`${PREFIX}`, ...args);
   }
 }

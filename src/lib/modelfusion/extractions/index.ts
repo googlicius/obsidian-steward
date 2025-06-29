@@ -1,6 +1,5 @@
-// Audio and Media Extractions
+// Audio and Image Extractions
 export * from './audioExtraction';
-export * from './mediaExtraction';
 export * from './imageExtraction';
 
 // Content Extractions

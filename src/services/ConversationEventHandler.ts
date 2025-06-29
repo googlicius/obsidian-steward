@@ -5,12 +5,13 @@ import {
   ConversationCommandReceivedPayload,
 } from '../types/events';
 import { eventEmitter } from './EventEmitter';
-import StewardPlugin from '../main';
-import { ConversationRenderer } from './ConversationRenderer';
 import { TFile } from 'obsidian';
 import { createMockStreamResponse } from '../utils/textStreamer';
 import { STEWARD_INTRODUCTION } from '../constants';
 import i18next from 'i18next';
+
+import type StewardPlugin from '../main';
+import type { ConversationRenderer } from './ConversationRenderer';
 
 interface Props {
   plugin: StewardPlugin;

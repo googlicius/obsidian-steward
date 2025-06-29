@@ -1,5 +1,6 @@
 import { UserDefinedCommandService } from './UserDefinedCommandService';
-import StewardPlugin from 'src/main';
+
+import type StewardPlugin from 'src/main';
 
 // Mock the global sleep function
 global.sleep = jest.fn().mockImplementation(ms => Promise.resolve());

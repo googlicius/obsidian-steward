@@ -5,7 +5,7 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import StewardPlugin from 'src/main';
+import type StewardPlugin from 'src/main';
 import { createTextStream } from 'src/utils/textStreamer';
 
 export class ThankYouCommandHandler extends CommandHandler {

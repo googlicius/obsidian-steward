@@ -5,10 +5,11 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import StewardPlugin from 'src/main';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { Events } from 'src/types/events';
 import { eventEmitter } from 'src/services/EventEmitter';
+
+import type StewardPlugin from 'src/main';
 
 export class DeleteCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {

@@ -1,10 +1,11 @@
-import { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { CommandIntent } from '../../lib/modelfusion/extractions';
-import StewardPlugin from '../../main';
 import { ObsidianAPITools } from 'src/tools/obsidianAPITools';
-import { ConversationArtifactManager } from 'src/services/ConversationArtifactManager';
-import { App } from 'obsidian';
-import { StewardPluginSettings } from 'src/types/interfaces';
+
+import type { App } from 'obsidian';
+import type StewardPlugin from '../../main';
+import type { StewardPluginSettings } from 'src/types/interfaces';
+import type { ConversationArtifactManager } from 'src/services/ConversationArtifactManager';
+import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 
 export enum CommandResultStatus {
   SUCCESS = 'success',
@@ -16,8 +17,8 @@ export interface CommandResult {
   status: CommandResultStatus;
   error?: Error | string;
   confirmationMessage?: string;
-  onConfirmation?: () => Promise<void> | void;
-  onRejection?: () => Promise<void> | void;
+  onConfirmation?: () => Promise<CommandResult> | CommandResult;
+  onRejection?: () => Promise<CommandResult> | CommandResult;
 }
 
 export interface CommandHandlerParams {
@@ -29,7 +30,7 @@ export interface CommandHandlerParams {
 }
 
 export abstract class CommandHandler {
-  readonly plugin: StewardPlugin;
+  abstract readonly plugin: StewardPlugin;
 
   /**
    * Optional: Whether this command requires content (boolean or function for dynamic check)

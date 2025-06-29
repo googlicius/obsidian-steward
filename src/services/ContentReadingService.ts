@@ -1,9 +1,10 @@
 import { TFile, EditorRange, EditorPosition } from 'obsidian';
 import { logger } from '../utils/logger';
-import StewardPlugin from '../main';
 import { isConversationLink } from '../utils/conversationUtils';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
 import { MediaTools } from 'src/tools/mediaTools';
+
+import type StewardPlugin from '../main';
 
 /**
  * Result of a content reading operation

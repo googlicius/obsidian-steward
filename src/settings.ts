@@ -1,7 +1,8 @@
 import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
-import StewardPlugin from './main';
 import { logger } from './utils/logger';
 import { LLM_MODELS } from './constants';
+
+import type StewardPlugin from './main';
 
 export default class StewardSettingTab extends PluginSettingTab {
   plugin: StewardPlugin;

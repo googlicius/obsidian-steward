@@ -11,8 +11,9 @@ import { logger } from 'src/utils/logger';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
-import StewardPlugin from 'src/main';
 import { MediaTools } from 'src/tools/mediaTools';
+
+import type StewardPlugin from 'src/main';
 
 export class MoveCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -162,12 +163,15 @@ export class MoveCommandHandler extends CommandHandler {
         return {
           status: CommandResultStatus.NEEDS_CONFIRMATION,
           onConfirmation: () => {
-            this.handle(params, { extraction, folderExistsConfirmed: true });
+            return this.handle(params, { extraction, folderExistsConfirmed: true });
           },
           onRejection: () => {
             if (artifact) {
               this.artifactManager.deleteArtifact(title, artifact.id);
             }
+            return {
+              status: CommandResultStatus.SUCCESS,
+            };
           },
         };
       }

@@ -5,9 +5,10 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import StewardPlugin from 'src/main';
 import { extractAudioQuery } from 'src/lib/modelfusion/extractions';
 import { MediaTools } from 'src/tools/mediaTools';
+
+import type StewardPlugin from 'src/main';
 
 export class AudioCommandHandler extends CommandHandler {
   private mediaTools: MediaTools;
