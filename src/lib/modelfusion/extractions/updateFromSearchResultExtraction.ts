@@ -61,13 +61,15 @@ export async function extractUpdateFromSearchResult({
   userInput,
   systemPrompts = [],
   lang,
+  model,
 }: {
   userInput: string;
   systemPrompts?: string[];
   lang?: string;
+  model?: string; // Optional model to override default
 }): Promise<UpdateFromSearchResultExtraction> {
   try {
-    const llmConfig = await LLMService.getInstance().getLLMConfig();
+    const llmConfig = await LLMService.getInstance().getLLMConfig(model);
 
     const { object } = await generateObject({
       ...llmConfig,

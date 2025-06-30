@@ -5,6 +5,7 @@ const en = {
         "I couldn't find any files matching your query. Please try a different search term.",
       noRecentOperations: 'No recent operations found.',
       abortedByLowConfidence: 'Aborted by low confidence.',
+      noToolCallFound: 'No tool call found.',
       lowConfidenceConfirmation:
         "I'm not entirely sure about this request. Would you like me to proceed anyway?",
     },

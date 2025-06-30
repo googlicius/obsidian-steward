@@ -4,6 +4,7 @@ const ja = {
       noFilesFound:
         '検索条件に一致するファイルが見つかりませんでした。別の検索語をお試しください。',
       noRecentOperations: '最近の操作が見つかりませんでした。最初にコマンドを実行してください。',
+      noToolCallFound: 'ツールコールが見つかりませんでした。',
       lowConfidenceConfirmation: 'このリクエストについては、十分に確信できません。続行しますか？',
     },
     // Chat UI elements

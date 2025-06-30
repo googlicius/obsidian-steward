@@ -12,6 +12,7 @@ interface UserDefinedCommandStep {
   name: string;
   system_prompt?: string[] | string;
   query: string;
+  model?: string; // Optional model to use for this specific command step
 }
 
 /**
@@ -23,6 +24,7 @@ export interface UserDefinedCommand {
   query_required?: boolean;
   commands: UserDefinedCommandStep[];
   file_path: string;
+  model?: string; // Optional default model for all command steps
 }
 
 export class UserDefinedCommandService {
@@ -196,6 +198,12 @@ export class UserDefinedCommandService {
       return false;
     }
 
+    // Validate the model field if present
+    if ('model' in command && typeof command.model !== 'string') {
+      logger.error(`Invalid command ${command.command_name}: model must be a string`);
+      return false;
+    }
+
     for (const step of command.commands) {
       if (!step.name || typeof step.name !== 'string') {
         logger.error(`Invalid command ${command.command_name}: step missing name`);
@@ -214,6 +222,12 @@ export class UserDefinedCommandService {
 
       if (!step.query || typeof step.query !== 'string') {
         logger.error(`Invalid command ${command.command_name}: step missing query`);
+        return false;
+      }
+
+      // Validate the step model field if present
+      if ('model' in step && typeof step.model !== 'string') {
+        logger.error(`Invalid command ${command.command_name}: step model must be a string`);
         return false;
       }
     }
@@ -294,10 +308,14 @@ export class UserDefinedCommandService {
         }
       }
 
+      // Use step model if available, otherwise use command model
+      const model = step.model || command.model;
+
       return {
         commandType: step.name,
         systemPrompts,
         content,
+        model, // Include the model in the CommandIntent
       };
     });
   }

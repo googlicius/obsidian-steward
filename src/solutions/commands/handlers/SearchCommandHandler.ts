@@ -40,8 +40,7 @@ export class SearchCommandHandler extends CommandHandler {
     try {
       // Extract search parameters from the command content
       const queryExtraction = await extractSearchQueryV2({
-        userInput: command.content,
-        systemPrompts: command.systemPrompts,
+        command,
         lang,
       });
 

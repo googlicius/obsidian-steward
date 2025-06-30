@@ -59,8 +59,9 @@ export class LLMService {
    * @param options Options for object generation
    * @returns The result of the object generation
    */
-  public async getLLMConfig() {
-    const { model, temperature, maxGenerationTokens } = this.plugin.settings.llm;
+  public async getLLMConfig(overrideModel?: string) {
+    const { model: defaultModel, temperature, maxGenerationTokens } = this.plugin.settings.llm;
+    const model = overrideModel || defaultModel;
     const provider = this.getProviderFromModel(model);
 
     // Prepare the model based on the provider

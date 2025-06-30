@@ -46,7 +46,7 @@ export class CreateCommandHandler extends CommandHandler {
       const extraction =
         options.extraction ||
         (await extractNoteCreation({
-          userInput: command.content,
+          command,
           app: this.app,
         }));
 

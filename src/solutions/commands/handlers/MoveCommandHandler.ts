@@ -61,7 +61,7 @@ export class MoveCommandHandler extends CommandHandler {
 
     try {
       // Extract move details from command content
-      const extraction = options.extraction || (await extractMoveQuery(command.content));
+      const extraction = options.extraction || (await extractMoveQuery(command));
 
       await this.renderer.updateConversationNote({
         path: title,

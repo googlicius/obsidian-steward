@@ -11,17 +11,16 @@ import {
   extractNoteGeneration,
 } from 'src/lib/modelfusion/extractions';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-import { streamText } from 'modelfusion';
-import { createLLMGenerator } from 'src/lib/modelfusion/llmConfig';
+import { streamText } from 'ai';
 import { userLanguagePromptText } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
-import { user } from 'src/lib/modelfusion/overridden/OpenAIChatMessage';
 import {
   ContentUpdateExtraction,
   NoteGenerationExtraction,
   prepareUserMessage,
 } from 'src/lib/modelfusion';
 import { MediaTools } from 'src/tools/mediaTools';
+import { LLMService } from 'src/services/LLMService';
 
 import type StewardPlugin from 'src/main';
 
@@ -49,7 +48,7 @@ export class GenerateCommandHandler extends CommandHandler {
     try {
       if (prevCommand && prevCommand.commandType === 'read') {
         // Generate content from a read artifact
-        return this.generateFromReadArtifact(params);
+        return await this.generateFromReadArtifact(params);
       } else {
         // Default generation (including after create)
         await this.generateFromCreateOrDefault(title, command, lang);
@@ -116,13 +115,17 @@ export class GenerateCommandHandler extends CommandHandler {
       extraction =
         nextCommand && nextCommand.commandType === 'update_from_artifact'
           ? await extractContentUpdate({
-              userInput,
-              systemPrompts: command.systemPrompts,
+              command: {
+                ...command,
+                content: userInput,
+              },
               app: this.app,
             })
           : await extractNoteGeneration({
-              userInput,
-              systemPrompts: command.systemPrompts,
+              command: {
+                ...command,
+                content: userInput,
+              },
             });
     }
 
@@ -233,8 +236,10 @@ export class GenerateCommandHandler extends CommandHandler {
 
     // Extract the content generation details using the LLM
     const extraction = await extractNoteGeneration({
-      userInput: command.content,
-      systemPrompts: command.systemPrompts,
+      command: {
+        ...command,
+        content: command.content,
+      },
       recentlyCreatedNote,
     });
 
@@ -302,21 +307,24 @@ export class GenerateCommandHandler extends CommandHandler {
   }
 
   private async contentGenerationStream(command: CommandIntent): Promise<AsyncIterable<string>> {
-    const { content, systemPrompts = [] } = command;
+    const { content, systemPrompts = [], model } = command;
+    const llmConfig = await LLMService.getInstance().getLLMConfig(model);
 
-    return streamText({
-      model: createLLMGenerator({ ...this.settings.llm, responseFormat: 'text' }),
-      run: { abortSignal: abortService.createAbortController('generate') },
-      prompt: [
+    const { textStream } = streamText({
+      ...llmConfig,
+      abortSignal: abortService.createAbortController('generate'),
+      system: `You are a helpful assistant that generates content for Obsidian notes. Generate detailed, well-structured content. Format the content in Markdown.
+The content should not include the big heading on the top.
+${userLanguagePromptText.content}
+${systemPrompts.join('\n')}`,
+      messages: [
         {
-          role: 'system',
-          content: `You are a helpful assistant that generates content for Obsidian notes. Generate detailed, well-structured content. Format the content in Markdown.
-The content should not include the big heading on the top.`,
+          role: 'user',
+          content: await prepareUserMessage(content, this.app),
         },
-        userLanguagePromptText,
-        ...systemPrompts.map(prompt => ({ role: 'system', content: prompt })),
-        user(await prepareUserMessage(content, this.app)),
       ],
     });
+
+    return textStream;
   }
 }

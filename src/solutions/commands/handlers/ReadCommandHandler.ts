@@ -42,7 +42,7 @@ export class ReadCommandHandler extends CommandHandler {
 
     try {
       // Extract the reading instructions using LLM
-      const extraction = options.extraction || (await extractReadContent(command.content));
+      const extraction = options.extraction || (await extractReadContent(command));
 
       // Find all content reading tool calls
       const contentReadingToolCalls = extraction.toolCalls.filter(
@@ -50,6 +50,13 @@ export class ReadCommandHandler extends CommandHandler {
       );
 
       if (contentReadingToolCalls.length === 0) {
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: extraction.text || `*${t('common.noToolCallFound')}*`,
+          role: 'Steward',
+          command: 'read',
+        });
+
         return {
           status: CommandResultStatus.ERROR,
           error: new Error('No content reading tool call found'),
@@ -82,8 +89,11 @@ export class ReadCommandHandler extends CommandHandler {
       let stewardReadMetadata = null;
 
       for (const toolCall of contentReadingToolCalls) {
+        console.log('toolCall', toolCall);
         // Read the content from the editor
         const readingResult = await ContentReadingService.getInstance().readContent(toolCall.args);
+
+        console.log('readingResult', readingResult);
 
         if (!readingResult) {
           continue; // Skip this tool call if reading failed

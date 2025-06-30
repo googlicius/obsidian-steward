@@ -1,5 +1,5 @@
 import { generateObject } from 'ai';
-import { userLanguagePromptText } from '../prompts/languagePrompt';
+import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { searchPromptV2 } from '../prompts/searchPromptV2';
 import { getObsidianLanguage } from 'src/utils/getObsidianLanguage';
 import { logger } from 'src/utils/logger';
@@ -7,6 +7,8 @@ import { getTranslation } from 'src/i18n';
 import { AbortService } from 'src/services/AbortService';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
+import { CommandIntent } from './intentExtraction';
+import { explanationFragment } from '../prompts/fragments';
 
 const abortService = AbortService.getInstance();
 
@@ -32,39 +34,56 @@ export interface SearchQueryExtractionV2 {
 
 // Define the Zod schema for search operation validation
 const searchOperationSchema = z.object({
-  keywords: z.array(z.string()),
-  tags: z.array(z.string()),
-  filenames: z.array(z.string()),
-  folders: z.array(z.string()),
+  keywords: z.array(z.string()).describe(`General terms or concepts to search for in file content.
+If a term or phrase is wrapped in quotation marks (e.g., "cat or dog"),
+preserve the quotes exactly as is for exact match queries.
+  `),
+  tags: z
+    .array(z.string())
+    .describe(`Obsidian tags that identify files (formatted without the # symbol)`),
+  filenames: z
+    .array(z.string())
+    .describe(`Specific file names to search for (without .md extension)`),
+  folders: z.array(z.string()).describe(`Specific folder paths to search within.
+Use regex to represent user-specified exact (^folder$), start with (^folder), or contain (folder).
+If the user wants to search in the root folder, use ^/$`),
 });
 
 // Define the Zod schema for search query extraction validation
 const searchQueryExtractionSchema = z.object({
-  operations: z.array(searchOperationSchema),
-  explanation: z.string().min(1, 'Explanation must be a non-empty string'),
-  lang: z.string().optional(),
-  confidence: z.number().min(0).max(1),
+  operations: z.array(searchOperationSchema).describe(`An array of search operations.
+If the user wants to search with different criteria in different locations, return multiple operations.
+  `),
+  explanation: z
+    .string()
+    .min(1, 'Explanation must be a non-empty string')
+    .describe(explanationFragment),
+  lang: z
+    .string()
+    .optional()
+    .describe(userLanguagePrompt.content as string),
+  confidence: z
+    .number()
+    .min(0)
+    .max(1)
+    .describe(`A number from 0 to 1 indicating confidence in this interpretation`),
 });
 
 /**
  * Extract search parameters from a natural language request using AI (v2)
- * @param userInput Natural language request from the user
- * @param systemPrompts System prompts to add to the prompt
- * @param lang The language of the user
  * @returns Extracted search parameters and explanation
  */
 export async function extractSearchQueryV2({
-  userInput,
-  systemPrompts = [],
+  command,
   lang,
 }: {
-  userInput: string;
-  systemPrompts?: string[];
+  command: CommandIntent;
   lang?: string;
 }): Promise<SearchQueryExtractionV2> {
+  const { content, systemPrompts = [] } = command;
   // Check if input is wrapped in quotation marks for direct search
   const quotedRegex = /^["'](.+)["']$/;
-  const match = userInput.trim().match(quotedRegex);
+  const match = content.trim().match(quotedRegex);
 
   const t = getTranslation(lang);
 
@@ -92,7 +111,7 @@ export async function extractSearchQueryV2({
   }
 
   // Check if input only contains tags
-  const trimmedInput = userInput.trim();
+  const trimmedInput = content.trim();
   const tagRegex = /#([^\s#]+)/g;
   const tags = [...trimmedInput.matchAll(tagRegex)].map(match => match[1]);
 
@@ -116,16 +135,16 @@ export async function extractSearchQueryV2({
   }
 
   try {
-    const llmConfig = await LLMService.getInstance().getLLMConfig();
+    const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
 
     // Use AI SDK to generate the response
     const { object } = await generateObject({
       ...llmConfig,
       abortSignal: abortService.createAbortController('search-query-v2'),
-      system: `${searchPromptV2.content}\n\n${userLanguagePromptText}`,
+      system: `${searchPromptV2.content}`,
       messages: [
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
-        { role: 'user', content: userInput },
+        { role: 'user', content },
       ],
       schema: searchQueryExtractionSchema,
     });

@@ -63,6 +63,7 @@ You can create your own **User-Defined Commands** to automate workflows and comb
 command_name: clean_up
 description: Clean up the vault
 query_required: false
+model: gpt-4o # Optional: Specify a default model for all commands
 commands:
   - name: search
     system_prompt:
@@ -70,13 +71,16 @@ commands:
     query: Notes name start with Untitled
   - name: delete_from_artifact
     query: Delete them
+    model: gpt-3.5-turbo # Optional: Override the model for this specific step
 ```
 
 - `command_name`: The name you will use to invoke the command (e.g., `/clean_up`)
 - `query_required`: (optional, boolean) If true, the command requires user input after the prefix
+- `model`: (optional, string) The model to use for all commands in this user-defined command
 - `commands`: The sequence of built-in or user-defined commands to execute
   - `system_prompt`: The system prompts that allows you to add additional guidelines to LLMs to the current command
   - `query`: (required if the `query_required` is true, string) The query to send to LLMs, put the `$from_user` as a placeholder for your input
+  - `model`: (optional, string) The model to use for this specific command step (overrides the command-level model)
 
 ### Using Links in System Prompts
 

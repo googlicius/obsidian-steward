@@ -4,6 +4,7 @@ import { userLanguagePromptText } from '../prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
+import { CommandIntent } from './intentExtraction';
 
 const abortService = AbortService.getInstance();
 
@@ -27,15 +28,14 @@ const destinationFolderSchema = z.object({
 
 /**
  * Extract destination folder from a user query for moving or copying files
- * @param userInput Natural language request to move or copy files
  * @returns Extracted destination folder
  */
 export async function extractDestinationFolder(
-  userInput: string,
-  systemPrompts: string[] = []
+  command: CommandIntent
 ): Promise<DestinationFolderExtraction> {
+  const { content, systemPrompts = [] } = command;
   try {
-    const llmConfig = await LLMService.getInstance().getLLMConfig();
+    const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
 
     const { object } = await generateObject({
       ...llmConfig,
@@ -45,7 +45,7 @@ export async function extractDestinationFolder(
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         {
           role: 'user',
-          content: userInput,
+          content,
         },
       ],
       schema: destinationFolderSchema,

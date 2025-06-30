@@ -1,12 +1,14 @@
 import { generateObject } from 'ai';
 import { contentUpdatePrompt } from '../prompts/contentUpdatePrompt';
-import { userLanguagePromptText } from '../prompts/languagePrompt';
+import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { logger } from 'src/utils/logger';
 import { AbortService } from 'src/services/AbortService';
 import { prepareUserMessage } from '../utils/userMessageUtils';
 import { App } from 'obsidian';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
+import { explanationFragment, confidenceFragment } from '../prompts/fragments';
+import { CommandIntent } from './intentExtraction';
 
 const abortService = AbortService.getInstance();
 
@@ -19,19 +21,32 @@ export interface ContentUpdateExtraction {
   updates: ContentUpdate[];
   explanation: string;
   confidence: number;
+  lang?: string;
 }
 
 // Define the Zod schema for content update
 const contentUpdateSchema = z.object({
-  updatedContent: z.string(),
-  originalContent: z.string(),
+  updatedContent: z.string().describe(`Update exactly what was requested for the provided content.
+Do not add any additional content or include any other text or formatting.`),
+  originalContent: z.string().describe(`The original content of the element you are updating.
+If the provided content contains multiple elements (e.g. mixed of paragraphs, lists, etc.), 
+only include the original element you are updating.`),
 });
 
 // Define the Zod schema for content update extraction
 const contentUpdateExtractionSchema = z.object({
-  updates: z.array(contentUpdateSchema),
-  explanation: z.string().min(1, 'Explanation must be a non-empty string'),
-  confidence: z.number().min(0).max(1),
+  updates: z
+    .array(contentUpdateSchema)
+    .describe(`An array of objects, each containing updatedContent and originalContent.`),
+  explanation: z
+    .string()
+    .min(1, 'Explanation must be a non-empty string')
+    .describe(explanationFragment),
+  confidence: z.number().min(0).max(1).describe(confidenceFragment),
+  lang: z
+    .string()
+    .optional()
+    .describe(userLanguagePrompt.content as string),
 });
 
 /**
@@ -40,25 +55,27 @@ const contentUpdateExtractionSchema = z.object({
  * @returns Extracted updated contents, explanation, and confidence
  */
 export async function extractContentUpdate(params: {
-  userInput: string;
-  systemPrompts?: string[];
+  command: CommandIntent;
   app: App;
 }): Promise<ContentUpdateExtraction> {
-  const { userInput, systemPrompts = [], app } = params;
+  const { command, app } = params;
 
   try {
     logger.log('Extracting content update from user input');
 
-    const llmConfig = await LLMService.getInstance().getLLMConfig();
+    const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
 
-    const userMessage = await prepareUserMessage(userInput, app);
+    const userMessage = await prepareUserMessage(command.content, app);
 
     const { object } = await generateObject({
       ...llmConfig,
       abortSignal: abortService.createAbortController('content-update'),
-      system: `${contentUpdatePrompt.content}\n\n${userLanguagePromptText.content}`,
+      system: contentUpdatePrompt,
       messages: [
-        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        ...(command.systemPrompts || []).map(prompt => ({
+          role: 'system' as const,
+          content: prompt,
+        })),
         {
           role: 'user',
           content: userMessage,

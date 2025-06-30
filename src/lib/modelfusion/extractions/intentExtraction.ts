@@ -27,6 +27,7 @@ export interface CommandIntent {
   commandType: string;
   content: string;
   systemPrompts?: string[];
+  model?: string; // Optional model to use for this command
 }
 
 /**
@@ -123,10 +124,11 @@ function extractReadGenerateUpdateFromArtifact(userInput: string): CommandIntent
  */
 export async function extractCommandIntent(
   userInput: string,
-  llmConfig: StewardPluginSettings['llm']
+  llmConfig: StewardPluginSettings['llm'],
+  overrideModel?: string
 ): Promise<CommandIntentExtraction> {
   const clusterName = await classify({
-    model: getClassifier(llmConfig?.model || 'gpt-4', llmConfig?.corsProxyUrl),
+    model: getClassifier(overrideModel || llmConfig?.model || 'gpt-4', llmConfig?.corsProxyUrl),
     value: userInput,
   });
 
@@ -194,7 +196,7 @@ export async function extractCommandIntent(
     // Create an operation-specific abort signal
     const abortSignal = abortService.createAbortController('intent-extraction');
 
-    const llm = await LLMService.getInstance().getLLMConfig();
+    const llm = await LLMService.getInstance().getLLMConfig(overrideModel);
 
     const { object } = await generateObject({
       ...llm,

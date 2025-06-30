@@ -34,7 +34,7 @@ export class ImageCommandHandler extends CommandHandler {
     const { title, command } = params;
 
     try {
-      const extraction = await extractImageQuery(command.content);
+      const extraction = await extractImageQuery(command);
 
       await this.renderer.updateConversationNote({
         path: title,

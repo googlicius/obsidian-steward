@@ -1,9 +1,11 @@
 import { generateObject } from 'ai';
 import { noteGenerationPrompt } from '../prompts/noteGenerationPrompt';
-import { userLanguagePromptText } from '../prompts/languagePrompt';
+import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
+import { explanationFragment, confidenceFragment } from '../prompts/fragments';
+import { CommandIntent } from './intentExtraction';
 
 const abortService = AbortService.getInstance();
 
@@ -14,16 +16,34 @@ export interface NoteGenerationExtraction {
   explanation: string;
   confidence: number;
   modifiesNote: boolean;
+  lang?: string;
 }
 
 // Define the Zod schema for note generation extraction validation
 const noteGenerationExtractionSchema = z.object({
-  noteName: z.string().optional(),
-  instructions: z.string().min(1, 'Instructions must be a non-empty string'),
-  style: z.string().optional(),
-  explanation: z.string().min(1, 'Explanation must be a non-empty string'),
-  confidence: z.number().min(0).max(1),
-  modifiesNote: z.boolean(),
+  noteName: z.string().optional()
+    .describe(`The note name/title from the user's request that they want to generate content into.
+If the user wants to update or create content in a specific note, extract that note name.
+If the user wants to create a user-defined or custom command, place the note in the Steward/Commands folder.
+Leave noteName empty if the user provides a wikilink to a note ([[Link to a note]]) but does not explicitly want to update or create that note.`),
+  instructions: z.string().min(1, 'Instructions must be a non-empty string')
+    .describe(`The generation instructions from the user's request that will be fed to a sub-prompt for actual generating content.
+The instructions should capture the user's intent (e.g., a request for generating or consulting, a question, etc.).`),
+  style: z.string().optional().describe(`Optional style preferences for content generation.`),
+  explanation: z
+    .string()
+    .min(1, 'Explanation must be a non-empty string')
+    .describe(explanationFragment),
+  confidence: z.number().min(0).max(1).describe(confidenceFragment),
+  modifiesNote: z
+    .boolean()
+    .describe(
+      `A boolean indicating if the user wants to create or update the noteName (true if yes, false if not).`
+    ),
+  lang: z
+    .string()
+    .optional()
+    .describe(userLanguagePrompt.content as string),
 });
 
 /**
@@ -32,22 +52,22 @@ const noteGenerationExtractionSchema = z.object({
  * @returns Extracted note name, instructions, style preferences, and explanation
  */
 export async function extractNoteGeneration(params: {
-  userInput: string;
-  systemPrompts?: string[];
+  command: CommandIntent;
   recentlyCreatedNote?: string;
 }): Promise<NoteGenerationExtraction> {
-  const { userInput, systemPrompts = [], recentlyCreatedNote } = params;
+  const { command, recentlyCreatedNote } = params;
+  const { content, systemPrompts = [] } = command;
 
   try {
-    const llmConfig = await LLMService.getInstance().getLLMConfig();
+    const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
 
     const { object } = await generateObject({
       ...llmConfig,
       abortSignal: abortService.createAbortController('note-generation'),
-      system: `${noteGenerationPrompt.content}\n\n${userLanguagePromptText}`,
+      system: noteGenerationPrompt,
       messages: [
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
-        { role: 'user', content: userInput },
+        { role: 'user', content },
       ],
       schema: noteGenerationExtractionSchema,
     });

@@ -4,6 +4,7 @@ const vi = {
       noFilesFound:
         'Tôi không tìm thấy tập tin nào phù hợp với truy vấn của bạn. Vui lòng thử từ khóa tìm kiếm khác.',
       noRecentOperations: 'Không có thao tác gần đây được tìm thấy.',
+      noToolCallFound: 'Không tìm thấy lệnh gọi công cụ.',
       lowConfidenceConfirmation: 'Tôi không chắc chắn về yêu cầu này. Bạn có muốn tiếp tục không?',
     },
     // Chat UI elements

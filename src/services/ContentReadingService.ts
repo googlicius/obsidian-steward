@@ -654,7 +654,7 @@ export class ContentReadingService {
     }
 
     // Check for ordered list items
-    if (/^\d+\.\s/.test(line)) {
+    if (/^\d+\.\s/.test(line) || /^\d+\)\s/.test(line)) {
       return true;
     }
 

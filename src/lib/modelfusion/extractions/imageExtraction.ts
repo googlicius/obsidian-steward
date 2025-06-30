@@ -1,58 +1,61 @@
 import { generateObject } from 'ai';
 import { imageCommandPrompt } from '../prompts/imageCommandPrompt';
 import { AbortService } from 'src/services/AbortService';
-import { userLanguagePromptText } from '../prompts/languagePrompt';
+import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
+import { CommandIntent } from './intentExtraction';
+import { explanationFragment, confidenceFragment } from '../prompts/fragments';
 
 const abortService = AbortService.getInstance();
 
-/**
- * Represents the extracted image generation details
- */
-// export interface ImageExtraction {
-//   text: string;
-//   size?: string;
-//   quality?: string;
-//   model?: string;
-//   explanation: string;
-//   confidence?: number;
-//   lang?: string;
-// }
-
 // Define the Zod schema for image extraction validation
 const imageExtractionSchema = z.object({
-  text: z.string().min(1, 'Text must be a non-empty string'),
-  size: z.string().optional(),
-  quality: z.string().optional(),
-  model: z.string().optional(),
-  explanation: z.string().min(1, 'Explanation must be a non-empty string'),
-  confidence: z.number().min(0).max(1),
-  lang: z.string().optional(),
+  text: z
+    .string()
+    .min(1, 'Text must be a non-empty string')
+    .describe(`The text prompt that describes the image to generate.`),
+  size: z
+    .string()
+    .optional()
+    .describe(`The image size in format "widthxheight" (e.g., "1024x1024", "512x512").`),
+  quality: z.string().optional().describe(`The image quality ("standard" or "hd").`),
+  model: z
+    .string()
+    .optional()
+    .describe(`The model to use for generation (e.g., "dall-e-3", "dall-e-2").`),
+  explanation: z
+    .string()
+    .min(1, 'Explanation must be a non-empty string')
+    .describe(explanationFragment),
+  confidence: z.number().min(0).max(1).describe(confidenceFragment),
+  lang: z
+    .string()
+    .optional()
+    .describe(userLanguagePrompt.content as string),
 });
 
 /**
  * Extract image generation details from a user query
- * @param userInput Natural language request for image generation
- * @param systemPrompts Optional system prompts to include
+ * @param command CommandIntent containing the user's request
  * @returns Extracted image generation details
  */
 export async function extractImageQuery(
-  userInput: string,
-  systemPrompts: string[] = []
+  command: CommandIntent
 ): Promise<z.infer<typeof imageExtractionSchema>> {
+  const { content, systemPrompts = [] } = command;
   try {
-    const llmConfig = await LLMService.getInstance().getLLMConfig();
+    const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
 
     const { object } = await generateObject({
       ...llmConfig,
       abortSignal: abortService.createAbortController('image'),
-      system: `${imageCommandPrompt.content}\n\n${userLanguagePromptText}`,
+      system: imageCommandPrompt,
       messages: [
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         {
           role: 'user',
-          content: userInput,
+          content,
         },
       ],
       schema: imageExtractionSchema,

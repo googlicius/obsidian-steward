@@ -44,7 +44,8 @@ export class GeneralCommandHandler extends CommandHandler {
     try {
       // Extract the command intent using AI
       const intentExtraction =
-        options.extraction || (await extractCommandIntent(command.content, this.settings.llm));
+        options.extraction ||
+        (await extractCommandIntent(command.content, this.settings.llm, command.model));
 
       // For low confidence intents, ask for confirmation before proceeding
       if (intentExtraction.confidence <= 0.7 && !options.intentExtractionConfirmed) {

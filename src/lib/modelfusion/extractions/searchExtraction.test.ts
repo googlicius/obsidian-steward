@@ -30,7 +30,10 @@ describe('extractSearchQueryV2', () => {
   it('should handle quoted keyword input directly without LLM', async () => {
     // Test with double quotes
     const result1 = await extractSearchQueryV2({
-      userInput: '"project notes"',
+      command: {
+        commandType: 'search',
+        content: '"project notes"',
+      },
     });
 
     expect(result1).toEqual({
@@ -55,7 +58,10 @@ describe('extractSearchQueryV2', () => {
 
     // Test with single quotes
     const result2 = await extractSearchQueryV2({
-      userInput: "'meeting minutes'",
+      command: {
+        commandType: 'search',
+        content: "'meeting minutes'",
+      },
     });
 
     expect(result2).toEqual({
@@ -82,7 +88,10 @@ describe('extractSearchQueryV2', () => {
   it('should handle tag-only input directly without LLM', async () => {
     // Test with multiple tags
     const result = await extractSearchQueryV2({
-      userInput: '#project #work #important',
+      command: {
+        commandType: 'search',
+        content: '#project #work #important',
+      },
     });
 
     expect(result).toEqual({
@@ -101,7 +110,10 @@ describe('extractSearchQueryV2', () => {
 
     // Test with a single tag
     const singleTagResult = await extractSearchQueryV2({
-      userInput: '#urgent',
+      command: {
+        commandType: 'search',
+        content: '#urgent',
+      },
     });
 
     expect(singleTagResult).toEqual({

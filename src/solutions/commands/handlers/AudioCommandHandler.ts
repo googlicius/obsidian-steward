@@ -36,10 +36,7 @@ export class AudioCommandHandler extends CommandHandler {
     const t = getTranslation(lang);
 
     try {
-      const extraction = await extractAudioQuery({
-        userInput: command.content,
-        systemPrompts: command.systemPrompts,
-      });
+      const extraction = await extractAudioQuery(command);
 
       await this.renderer.updateConversationNote({
         path: title,

@@ -6,6 +6,7 @@ import { prepareUserMessage } from '../utils/userMessageUtils';
 import { App } from 'obsidian';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
+import { CommandIntent } from './intentExtraction';
 
 const abortService = AbortService.getInstance();
 
@@ -34,20 +35,19 @@ const noteCreationExtractionSchema = z.object({
 
 /**
  * Extract note creation details from a user query
- * @param params Object containing userInput and app
  * @returns Extracted note details, explanation, and confidence
  */
 export async function extractNoteCreation(params: {
-  userInput: string;
+  command: CommandIntent;
   app: App;
 }): Promise<NoteCreationExtraction> {
-  const { userInput, app } = params;
+  const { command, app } = params;
 
   try {
-    const llmConfig = await LLMService.getInstance().getLLMConfig();
+    const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
 
     // Prepare user message with potential image content
-    const userMessage = await prepareUserMessage(userInput, app);
+    const userMessage = await prepareUserMessage(command.content, app);
 
     const { object } = await generateObject({
       ...llmConfig,

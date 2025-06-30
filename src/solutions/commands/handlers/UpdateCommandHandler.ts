@@ -110,6 +110,7 @@ export class UpdateCommandHandler extends CommandHandler {
       const extraction = await extractUpdateFromSearchResult({
         userInput: command.content,
         systemPrompts: command.systemPrompts,
+        model: command.model,
       });
 
       await this.renderer.updateConversationNote({
