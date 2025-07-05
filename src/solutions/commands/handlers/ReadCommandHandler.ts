@@ -55,11 +55,11 @@ export class ReadCommandHandler extends CommandHandler {
           newContent: extraction.text || `*${t('common.noToolCallFound')}*`,
           role: 'Steward',
           command: 'read',
+          includeHistory: false,
         });
 
         return {
-          status: CommandResultStatus.ERROR,
-          error: new Error('No content reading tool call found'),
+          status: CommandResultStatus.SUCCESS,
         };
       }
 
@@ -89,11 +89,8 @@ export class ReadCommandHandler extends CommandHandler {
       let stewardReadMetadata = null;
 
       for (const toolCall of contentReadingToolCalls) {
-        console.log('toolCall', toolCall);
         // Read the content from the editor
         const readingResult = await ContentReadingService.getInstance().readContent(toolCall.args);
-
-        console.log('readingResult', readingResult);
 
         if (!readingResult) {
           continue; // Skip this tool call if reading failed
@@ -109,7 +106,6 @@ export class ReadCommandHandler extends CommandHandler {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: `*${t('read.unableToReadContent')}*`,
-          role: 'Steward',
           command: 'read',
         });
 
@@ -123,8 +119,8 @@ export class ReadCommandHandler extends CommandHandler {
       stewardReadMetadata = await this.renderer.updateConversationNote({
         path: title,
         newContent: readingResults[0].toolCall.args.explanation,
-        role: 'Steward',
         command: 'read',
+        includeHistory: false,
       });
 
       // Check confidence for all tool calls
@@ -197,6 +193,12 @@ export class ReadCommandHandler extends CommandHandler {
         this.artifactManager.storeArtifact(title, stewardReadMetadata, {
           type: ArtifactType.READ_CONTENT,
           readingResult: readingResults[0].readingResult,
+        });
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: `*${t('common.artifactCreated', { type: ArtifactType.READ_CONTENT })}*`,
+          role: 'System',
+          command: 'read',
         });
       }
 

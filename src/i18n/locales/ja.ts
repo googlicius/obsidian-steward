@@ -6,6 +6,7 @@ const ja = {
       noRecentOperations: '最近の操作が見つかりませんでした。最初にコマンドを実行してください。',
       noToolCallFound: 'ツールコールが見つかりませんでした。',
       lowConfidenceConfirmation: 'このリクエストについては、十分に確信できません。続行しますか？',
+      artifactCreated: 'アーティファクト {{type}} が作成されました',
     },
     // Chat UI elements
     chat: {

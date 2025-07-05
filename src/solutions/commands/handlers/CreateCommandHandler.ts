@@ -164,6 +164,15 @@ export class CreateCommandHandler extends CommandHandler {
             paths: createdNotes,
             createdAt: Date.now(),
           });
+
+          await this.renderer.updateConversationNote({
+            path: title,
+            newContent: `*${t('common.artifactCreated', {
+              type: ArtifactType.CREATED_NOTES,
+            })}*`,
+            command: 'create',
+            role: 'System',
+          });
         }
       }
 

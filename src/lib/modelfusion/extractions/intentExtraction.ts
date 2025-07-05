@@ -1,7 +1,7 @@
 import { generateObject } from 'ai';
 import { classify } from 'modelfusion';
 import { commandIntentPrompt } from '../prompts/commandIntentPrompt';
-import { userLanguagePromptText } from '../prompts/languagePrompt';
+import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { intentClassifier } from '../classifiers/intent';
 import { logger } from 'src/utils/logger';
 import { AbortService } from 'src/services/AbortService';
@@ -15,7 +15,8 @@ import {
 import { getClassifier } from '../classifiers/getClassifier';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
-import { StewardPluginSettings } from 'src/types/interfaces';
+import { ConversationHistoryMessage } from 'src/types/types';
+import { explanationFragment } from '../prompts/fragments';
 
 // Use AbortService instead of a local controller
 const abortService = AbortService.getInstance();
@@ -28,17 +29,6 @@ export interface CommandIntent {
   content: string;
   systemPrompts?: string[];
   model?: string; // Optional model to use for this command
-}
-
-/**
- * Represents the extracted command intents from a general query
- */
-export interface CommandIntentExtraction {
-  commands: CommandIntent[];
-  explanation: string;
-  confidence: number;
-  lang?: string;
-  queryTemplate?: string;
 }
 
 // Define valid command types
@@ -64,19 +54,60 @@ const validCommandTypes = [
 
 // Define the Zod schema for command intent
 const commandIntentSchema = z.object({
-  commandType: z.enum(validCommandTypes),
-  content: z.string(),
-  systemPrompts: z.array(z.string()).optional(),
+  commandType: z.enum(validCommandTypes).describe(`One of the available command types.`),
+  content: z
+    .string()
+    .describe(
+      `The specific content for this command in the sequence. If the command is "read", keep the original user's query.`
+    ),
 });
 
 // Define the Zod schema for command intent extraction
 const commandIntentExtractionSchema = z.object({
-  commands: z.array(commandIntentSchema).max(20, 'Too many commands. Maximum allowed is 20.'),
-  explanation: z.string().min(1, 'Explanation must be a non-empty string'),
-  confidence: z.number().min(0).max(1),
-  lang: z.string().optional().default('en'),
-  queryTemplate: z.string().optional(),
+  commands: z.array(commandIntentSchema).max(20, 'Too many commands. Maximum allowed is 20.')
+    .describe(`An array of objects, each containing commandType and content.
+Analyze the query for multiple commands that should be executed in sequence.
+Each command in the sequence should have its own content that will be processed by specialized handlers.
+- If the user wants to:
+  - Search for notes (and doesn't mention existing search results), include "search"
+  - Move notes from the artifact, include "move_from_artifact"
+  - Delete notes from the artifact, include "delete_from_artifact"
+  - Copy notes from the artifact, include "copy_from_artifact"
+  - Update notes from the artifact, include "update_from_artifact"
+  - Close the conversation, include "close"
+  - Undo changes, include "revert"
+  - Generate an image, include "image"
+  - Generate audio, include "audio"
+  - Create a new note, include "create" command with content that clearly specifies the note name (e.g., "Note name: Hello Kitty")
+  - Generate content with the LLM help in a sub-prompt (either in a new note or the conversation), include "generate"
+  - Read or Find content based on a specific pattern in their current note, include "read"
+  - Ask something about the content of the current note, include "read" and "generate"
+  - Update something about the content of the current note, include "read", "generate" and "update_from_artifact"
+  - Generate or write something into a mentioned note, include "create" and "generate"
+  - If the "read" and "generate" are included, you must extract all the elements mentioned in the user's query in the "content" field of the "read" command`),
+  explanation: z
+    .string()
+    .min(1, 'Explanation must be a non-empty string')
+    .describe(explanationFragment),
+  confidence: z.number().min(0).max(1)
+    .describe(`A confidence score from 0 to 1 for the overall sequence:
+- 0.0-0.3: Low confidence (ambiguous or unclear requests)
+- 0.4-0.7: Medium confidence (likely, but could be interpreted differently)
+- 0.8-1.0: High confidence (very clear intent)
+If the confidence is low, include the commands that you are extracting in the explanation so the user decides whether to proceed or not.`),
+  lang: z
+    .string()
+    .optional()
+    .describe(userLanguagePrompt.content as string),
+  queryTemplate: z
+    .string()
+    .optional()
+    .describe(
+      `A template version of the query where specific elements (tags, keywords, filenames, folders) are replaced with generic placeholders (x, y, z, f). This helps identify similar query patterns for caching purposes.`
+    ),
 });
+
+export type CommandIntentExtraction = z.infer<typeof commandIntentExtractionSchema>;
 
 function extractReadGenerate(userInput: string): CommandIntentExtraction {
   return {
@@ -119,16 +150,18 @@ function extractReadGenerateUpdateFromArtifact(userInput: string): CommandIntent
 /**
  * Extract command intents from a general query using AI
  * @param userInput Natural language request from the user
- * @param app Obsidian app instance for accessing vault files
+ * @param overrideModel Optional model override
+ * @param conversationHistory Optional conversation history
  * @returns Extracted command types, content, and explanation
  */
 export async function extractCommandIntent(
   userInput: string,
-  llmConfig: StewardPluginSettings['llm'],
-  overrideModel?: string
+  overrideModel?: string,
+  conversationHistory: ConversationHistoryMessage[] = []
 ): Promise<CommandIntentExtraction> {
+  const llmConfig = await LLMService.getInstance().getLLMConfig(overrideModel);
   const clusterName = await classify({
-    model: getClassifier(overrideModel || llmConfig?.model || 'gpt-4', llmConfig?.corsProxyUrl),
+    model: getClassifier(llmConfig.model.modelId),
     value: userInput,
   });
 
@@ -176,7 +209,7 @@ export async function extractCommandIntent(
       const result: CommandIntentExtraction = {
         commands: [
           {
-            commandType: clusterName,
+            commandType: clusterName as any,
             content: userInput,
           },
         ],
@@ -201,9 +234,10 @@ export async function extractCommandIntent(
     const { object } = await generateObject({
       ...llm,
       abortSignal,
-      system: `${commandIntentPrompt.content}\n\n${userLanguagePromptText}`,
+      system: commandIntentPrompt,
       messages: [
         ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        // ...conversationHistory.slice(0, -1),
         { role: 'user', content: userInput },
       ],
       schema: commandIntentExtractionSchema,

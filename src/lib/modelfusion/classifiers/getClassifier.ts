@@ -1,10 +1,8 @@
-// import { openai, openaicompatible } from 'modelfusion';
-import { getProviderFromModel } from '../llmConfig';
 import { intentClassifier } from './intent';
+import { LLMService } from 'src/services/LLMService';
 
-export function getClassifier(model: string, corsProxyUrl?: string) {
-  const provider = getProviderFromModel(model);
-  // const corsProxy = corsProxyUrl ? `${corsProxyUrl}/` : '';
+export function getClassifier(model: string) {
+  const provider = LLMService.getInstance().getProviderFromModel(model);
 
   switch (provider) {
     // case 'deepseek':

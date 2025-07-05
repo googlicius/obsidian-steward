@@ -6,18 +6,9 @@ import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
 import { explanationFragment, confidenceFragment } from '../prompts/fragments';
 import { CommandIntent } from './intentExtraction';
+import { ConversationHistoryMessage } from 'src/types/types';
 
 const abortService = AbortService.getInstance();
-
-export interface NoteGenerationExtraction {
-  noteName?: string;
-  instructions: string;
-  style?: string;
-  explanation: string;
-  confidence: number;
-  modifiesNote: boolean;
-  lang?: string;
-}
 
 // Define the Zod schema for note generation extraction validation
 const noteGenerationExtractionSchema = z.object({
@@ -46,6 +37,8 @@ The instructions should capture the user's intent (e.g., a request for generatin
     .describe(userLanguagePrompt.content as string),
 });
 
+export type NoteGenerationExtraction = z.infer<typeof noteGenerationExtractionSchema>;
+
 /**
  * Extract note generation details from a user query
  * @param params Parameters for the note generation extraction
@@ -54,8 +47,9 @@ The instructions should capture the user's intent (e.g., a request for generatin
 export async function extractNoteGeneration(params: {
   command: CommandIntent;
   recentlyCreatedNote?: string;
+  conversationHistory?: ConversationHistoryMessage[];
 }): Promise<NoteGenerationExtraction> {
-  const { command, recentlyCreatedNote } = params;
+  const { command, recentlyCreatedNote, conversationHistory = [] } = params;
   const { content, systemPrompts = [] } = command;
 
   try {
@@ -67,6 +61,7 @@ export async function extractNoteGeneration(params: {
       system: noteGenerationPrompt,
       messages: [
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        ...conversationHistory.slice(0, -1),
         { role: 'user', content },
       ],
       schema: noteGenerationExtractionSchema,

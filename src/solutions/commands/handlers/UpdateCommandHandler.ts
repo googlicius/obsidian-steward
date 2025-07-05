@@ -116,6 +116,7 @@ export class UpdateCommandHandler extends CommandHandler {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `*${extraction.explanation}*`,
+        includeHistory: false,
       });
 
       if (extraction.confidence <= 0.7) {

@@ -35,10 +35,11 @@
 - [ ] User-Defined Command: Provide tools so the LLM can decide which tool should it use to complete the task.
       For example: The LLM decide whether to use `generate` only or include the `update` command
 - [ ] Prevent duplicate note content between included content and read content
+- [ ] Let the LLM aware of artifacts for more transparency by providing a tool to read one or many artifacts if necessary.
 
 ### BUGS
 
 - [ ] The LLM is extracted this query incorrect: "Read the question above and tell me the result. Refer to this note [[Operator]] to get the operator". The extraction includes 2 tool calls with the same type: above. One has noteName: Operator.
       **Solution:** Either fine-tunning the content reading prompt to tell LLMs use correct tool params or
       include all content of any wikilinks along with the user query.
-- [ ] The systemPrompts in the User-Defined command currently load content from wikilinks only one level (Need 2 levels to resolve content of wikilinks in the system prompt)
+- [x] The systemPrompts in the User-Defined command currently load content from wikilinks only one level (Need 2 levels to resolve content of wikilinks in the system prompt)

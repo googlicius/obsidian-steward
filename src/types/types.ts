@@ -7,3 +7,13 @@ import { EditorView } from '@codemirror/view';
 export type ObsidianEditor = Editor & {
   cm: EditorView;
 };
+
+export type ConversationRole = 'user' | 'assistant' | 'system';
+
+/**
+ * Represents a message in the conversation history
+ */
+export interface ConversationHistoryMessage {
+  role: ConversationRole;
+  content: string;
+}

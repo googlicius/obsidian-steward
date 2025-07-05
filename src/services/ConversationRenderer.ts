@@ -1,8 +1,11 @@
 import { TFile } from 'obsidian';
 import { uniqueID } from '../utils/uniqueID';
 import { getTranslation } from '../i18n';
+import { ConversationHistoryMessage, ConversationRole } from '../types/types';
 
 import type StewardPlugin from '../main';
+import { ArtifactType } from './ConversationArtifactManager';
+import { logger } from 'src/utils/logger';
 
 export class ConversationRenderer {
   private readonly plugin: StewardPlugin;
@@ -64,20 +67,24 @@ export class ConversationRenderer {
   /**
    * Updates a conversation note with the given content
    */
-  public async updateConversationNote({
-    path,
-    newContent,
-    role,
-    command,
-  }: {
+  public async updateConversationNote(params: {
     path: string;
     newContent: string;
     command?: string;
-    role?: 'User' | 'Steward';
+    /**
+     * The role of the message.
+     * If not provided, the role will be Steward by default, but not displayed in the conversation
+     */
+    role?: 'User' | 'Steward' | 'System';
+    /**
+     * The history will be included in conversation context.
+     * If not provided, the history will be included by default.
+     */
+    includeHistory?: boolean;
   }): Promise<string | undefined> {
     try {
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
-      const notePath = `${folderPath}/${path}.md`;
+      const notePath = `${folderPath}/${params.path}.md`;
 
       // Get the current content of the note
       const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
@@ -92,18 +99,22 @@ export class ConversationRenderer {
       let heading = '';
 
       // Add a separator line if the role is User
-      if (role === 'User') {
+      if (params.role === 'User') {
         currentContent = `${currentContent}\n\n---`;
         heading = '##### ';
       }
 
-      const { messageId, comment } = await this.buildMessageMetadata(path, { role, command });
+      const { messageId, comment } = await this.buildMessageMetadata(params.path, {
+        role: params.role ?? 'Steward',
+        command: params.command,
+        includeHistory: params.includeHistory ?? true,
+      });
 
       // Update the note
-      const roleText = role ? `**${role}:** ` : '';
+      const roleText = params.role ? `**${params.role}:** ` : '';
       await this.plugin.app.vault.modify(
         file,
-        `${currentContent}\n\n${comment}\n${heading}${roleText}${newContent}`
+        `${currentContent}\n\n${comment}\n${heading}${roleText}${params.newContent}`
       );
 
       // Return the message ID for referencing
@@ -116,17 +127,10 @@ export class ConversationRenderer {
 
   /**
    * Streams content to a conversation note
-   * @param options Options for streaming content
+   * @param params Options for streaming content
    * @returns The message ID for referencing
    */
-  public async streamConversationNote({
-    path,
-    folderPath = `${this.plugin.settings.stewardFolder}/Conversations`,
-    stream,
-    role,
-    command,
-    position,
-  }: {
+  public async streamConversationNote(params: {
     path: string;
     stream: AsyncIterable<string>;
     role?: 'Steward';
@@ -134,8 +138,10 @@ export class ConversationRenderer {
     command?: string;
     position?: number;
   }): Promise<string | undefined> {
+    const folderPath = params.folderPath || `${this.plugin.settings.stewardFolder}/Conversations`;
+
     try {
-      path = path.endsWith('.md') ? path : `${path}.md`;
+      const path = params.path.endsWith('.md') ? params.path : `${params.path}.md`;
       const notePath = `${folderPath}/${path}`;
 
       // Get the current content of the note
@@ -151,10 +157,10 @@ export class ConversationRenderer {
 
       const { messageId, comment } = await this.buildMessageMetadata(path, {
         role: 'Steward',
-        command,
+        command: params.command,
       });
 
-      const roleText = role ? `**${role}:** ` : '';
+      const roleText = params.role ? `**${params.role}:** ` : '';
 
       // Prepare the initial content with metadata
       const initialContent = `${currentContent}\n\n${comment}\n${roleText}`;
@@ -162,15 +168,17 @@ export class ConversationRenderer {
       // If position is provided, insert at that position
       // Otherwise, append to the end
       const contentToModify =
-        position !== undefined
-          ? currentContent.slice(0, position) + initialContent + currentContent.slice(position)
+        params.position !== undefined
+          ? currentContent.slice(0, params.position) +
+            initialContent +
+            currentContent.slice(params.position)
           : initialContent;
 
       // Write the initial content
       await this.plugin.app.vault.modify(file, contentToModify);
 
       // Stream the content
-      this.streamFile(file, stream, contentToModify);
+      this.streamFile(file, params.stream, contentToModify);
 
       // Return the message ID for referencing
       return messageId;
@@ -190,18 +198,40 @@ export class ConversationRenderer {
 
   private async buildMessageMetadata(
     title: string,
-    { role, command }: { role?: string; command?: string } = {}
+    {
+      role = 'Steward',
+      command,
+      includeHistory,
+    }: { role?: string; command?: string; includeHistory?: boolean } = {}
   ) {
     const messageId = uniqueID();
-    const metadata: { [x: string]: any } = {
+    const metadata: { [x: string]: string | number } = {
       ID: messageId,
-      ...(role && {
-        ROLE: role.toLowerCase(),
-      }),
+      ROLE: role.toLowerCase(),
       ...(command && {
         COMMAND: command,
       }),
+      ...(includeHistory === false && {
+        HISTORY: 'false',
+      }),
     };
+
+    if (role === 'System') {
+      switch (command) {
+        case 'search':
+          metadata.ARTIFACT_TYPE = ArtifactType.SEARCH_RESULTS;
+          break;
+        case 'read':
+          metadata.ARTIFACT_TYPE = ArtifactType.READ_CONTENT;
+          break;
+        case 'create':
+          metadata.ARTIFACT_TYPE = ArtifactType.CREATED_NOTES;
+          break;
+        case 'move':
+          metadata.ARTIFACT_TYPE = ArtifactType.MOVE_RESULTS;
+          break;
+      }
+    }
 
     if (command === 'more') {
       const prevMoreMetadata = await this.findMostRecentMessageMetadata(title, command, 'steward');
@@ -257,7 +287,7 @@ export class ConversationRenderer {
         `<!--STW ID:(.*?)${rolePattern}${commandPattern}.*?-->`,
         'gi'
       );
-      console.log('commentBlockRegex', commentBlockRegex);
+
       const matches = Array.from(content.matchAll(commentBlockRegex));
 
       // Find the most recent match
@@ -528,7 +558,7 @@ export class ConversationRenderer {
   public formatCallout(
     content: string,
     type = 'search-result',
-    metadata?: { [key: string]: any }
+    metadata?: { [key: string]: unknown }
   ): string {
     let metadataStr = '';
 
@@ -544,5 +574,142 @@ export class ConversationRenderer {
       .split('\n')
       .map(item => '>' + item)
       .join('\n')}\n\n`;
+  }
+
+  /**
+   * Extracts conversation history from a conversation markdown file
+   * @param conversationTitle The title of the conversation
+   * @param maxMessages Maximum number of messages to include (default: 10)
+   * @returns Array of conversation history messages
+   */
+  public async extractConversationHistory(
+    conversationTitle: string,
+    maxMessages = 10
+  ): Promise<ConversationHistoryMessage[]> {
+    try {
+      // Get the conversation file
+      const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+      const notePath = `${folderPath}/${conversationTitle}.md`;
+      const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
+
+      if (!file) {
+        throw new Error(`Note not found: ${notePath}`);
+      }
+
+      // Read the content
+      const content = await this.plugin.app.vault.read(file);
+
+      // Find all metadata blocks
+      const metadataRegex = /<!--STW (.*?)-->/gi;
+      const matches = Array.from(content.matchAll(metadataRegex));
+
+      const messages: Array<ConversationHistoryMessage & { command: string }> = [];
+
+      // Process each message block
+      for (let i = 0; i < matches.length; i++) {
+        const match = matches[i];
+        const metadataStr = match[1];
+        const metadata: Record<string, string> = {};
+
+        // Parse metadata
+        const pairs = metadataStr.split(',');
+        for (const pair of pairs) {
+          const [key, value] = pair.split(':');
+          if (key && value) {
+            metadata[key] = value;
+          }
+        }
+
+        // Get the message content
+        const startPos = (match.index || 0) + match[0].length;
+        const endPos = i < matches.length - 1 ? matches[i + 1].index || 0 : content.length;
+        let messageContent = content.substring(startPos, endPos).trim();
+
+        // If no role is defined, append to the previous message if available
+        if (!metadata.ROLE) {
+          if (messages.length > 0) {
+            // Append this content to the previous message
+            messages[messages.length - 1].content += '\n\n' + messageContent;
+          }
+          continue;
+        }
+
+        // Skip messages where HISTORY is explicitly set to 'false'
+        if (metadata.HISTORY === 'false') {
+          continue;
+        }
+
+        // Clean up the content based on role
+        if (metadata.ROLE === 'user') {
+          // Remove user role prefix and formatting, but keep command prefix
+          messageContent = messageContent.replace(/^##### \*\*User:\*\* /m, '');
+          messageContent = messageContent.replace(/\*\*User:\*\* /g, '');
+        } else if (metadata.ROLE === 'steward') {
+          // Remove steward role prefix and formatting
+          messageContent = messageContent.replace(/^##### \*\*Steward:\*\* /m, '');
+          messageContent = messageContent.replace(/\*\*Steward:\*\* /g, '');
+
+          // Special handling for search results
+          if (metadata.COMMAND === 'search') {
+            // Extract file paths from search results
+            const paths: string[] = [];
+            const pathRegex = /\[\[(.*?)\]\]/g;
+            let pathMatch;
+
+            while ((pathMatch = pathRegex.exec(messageContent)) !== null) {
+              if (pathMatch[1]) {
+                paths.push(pathMatch[1]);
+              }
+            }
+
+            // If paths were found, use them as content
+            if (paths.length > 0) {
+              messageContent = `Search results: ${paths.join(', ')}`;
+            }
+          }
+        }
+
+        // Remove separator lines
+        messageContent = messageContent.replace(/^---$/gm, '');
+
+        // Remove loading indicators
+        messageContent = messageContent.replace(/\*.*?\.\.\.\*$/gm, '');
+
+        // Convert role from 'steward' to 'assistant'
+        const role = metadata.ROLE === 'steward' ? 'assistant' : metadata.ROLE;
+
+        messages.push({
+          role: role as ConversationRole,
+          content: messageContent.trim(),
+          command: metadata.COMMAND || '',
+        });
+      }
+
+      // Find the index of the most recent topic change
+      const continuationCommands = [' ', 'confirm', 'thank_you'];
+      let topicStartIndex = 0;
+
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const message = messages[i];
+
+        if (message.role === 'user' && !continuationCommands.includes(message.command)) {
+          // Found a message that starts a new topic
+          topicStartIndex = i;
+          break;
+        }
+      }
+
+      // Get messages from the latest topic
+      const topicMessages = messages.slice(topicStartIndex);
+
+      // Return the messages without the command property
+      return topicMessages.slice(-maxMessages).map(({ role, content }) => ({
+        role,
+        content,
+      }));
+    } catch (error) {
+      logger.error('Error extracting conversation history:', error);
+      return [];
+    }
   }
 }

@@ -6,12 +6,13 @@ import {
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
-import type StewardPlugin from 'src/main';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { extractSearchQueryV2 } from 'src/lib/modelfusion/extractions';
 import { highlightKeyword } from 'src/utils/highlightKeywords';
 import { PaginatedSearchResultV2 } from 'src/solutions/search';
 import { MediaTools } from 'src/tools/mediaTools';
+
+import type StewardPlugin from 'src/main';
 
 export class SearchCommandHandler extends CommandHandler {
   isContentRequired = true;
@@ -36,6 +37,8 @@ export class SearchCommandHandler extends CommandHandler {
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
     const { title, command, lang } = params;
+
+    const t = getTranslation(lang);
 
     try {
       // Extract search parameters from the command content
@@ -68,10 +71,18 @@ export class SearchCommandHandler extends CommandHandler {
       });
 
       // Store the search results in the artifact manager
-      if (messageId) {
+      if (messageId && docs.length > 0) {
         this.plugin.artifactManager.storeArtifact(title, messageId, {
           type: ArtifactType.SEARCH_RESULTS,
           originalResults: docs,
+        });
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: `*${t('common.artifactCreated', {
+            type: ArtifactType.SEARCH_RESULTS,
+          })}*`,
+          command: 'search',
+          role: 'System',
         });
       }
 

@@ -127,24 +127,6 @@ export class ConversationArtifactManager {
   }
 
   /**
-   * Store search results for a conversation
-   */
-  public storeSearchResults(
-    conversationTitle: string,
-    messageId: string,
-    originalResults: any[]
-  ): void {
-    const artifact: SearchResultsArtifact = {
-      type: ArtifactType.SEARCH_RESULTS,
-      originalResults,
-      createdAt: Date.now(),
-      id: messageId,
-    };
-
-    this.storeArtifact(conversationTitle, messageId, artifact);
-  }
-
-  /**
    * Get the most recent artifact of a specific type for a conversation
    * @param conversationTitle The title of the conversation
    * @param type The type of artifact to get

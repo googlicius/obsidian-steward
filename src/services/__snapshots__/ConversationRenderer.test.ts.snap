@@ -1,0 +1,108 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ConversationRenderer extractConversationHistory should extract a conversation with search results 1`] = `
+[
+  {
+    "content": "/search #angular",
+    "role": "user",
+  },
+  {
+    "content": "Search results: Haiku About Angular.md, Angular poem.md",
+    "role": "assistant",
+  },
+  {
+    "content": "*Artifact search results is created*",
+    "role": "system",
+  },
+  {
+    "content": "How do I use Angular?",
+    "role": "user",
+  },
+  {
+    "content": "Angular is a platform for building web applications. Here's how to get started:
+
+1. Install Node.js and npm
+2. Install the Angular CLI: \`npm install -g @angular/cli\`
+3. Create a new project: \`ng new my-app\`
+4. Navigate to the project directory: \`cd my-app\`
+5. Start the development server: \`ng serve\`",
+    "role": "assistant",
+  },
+]
+`;
+
+exports[`ConversationRenderer extractConversationHistory should extract a simple conversation with one user query and one steward response 1`] = `
+[
+  {
+    "content": "/search How to use React hooks",
+    "role": "user",
+  },
+  {
+    "content": "Here's what I found about React hooks:
+
+React hooks are functions that let you use state and other React features without writing a class.",
+    "role": "assistant",
+  },
+]
+`;
+
+exports[`ConversationRenderer extractConversationHistory should handle conversation with a message has multiple sections 1`] = `
+[
+  {
+    "content": "/ Read the code block above and update it to not using todos as dependency",
+    "role": "user",
+  },
+  {
+    "content": "I've found 1 code block above.",
+    "role": "assistant",
+  },
+  {
+    "content": "I've updated the code to use a functional update with \`setTodos\`, which removes the need to include \`todos\` as a dependency in the \`useCallback\` hook.",
+    "role": "assistant",
+  },
+  {
+    "content": ">[!search-result]
+>
+>\`\`\`typescript
+>const handleAddTodo = useCallback(text => {
+>  setTodos(prevTodos => {
+>    const newTodo = { id: nextId++, text };
+>    return [...prevTodos, newTodo];
+>  });
+>}, []);
+>\`\`\`",
+    "role": "assistant",
+  },
+  {
+    "content": "Would you like me to apply the changes?",
+    "role": "assistant",
+  },
+]
+`;
+
+exports[`ConversationRenderer extractConversationHistory should only include messages from the latest topic 1`] = `
+[
+  {
+    "content": "/search Angular components",
+    "role": "user",
+  },
+  {
+    "content": "Here's what I found about Angular components:
+
+Angular components are the building blocks of Angular applications.",
+    "role": "assistant",
+  },
+  {
+    "content": "Can you explain more about component lifecycle?",
+    "role": "user",
+  },
+  {
+    "content": "Angular components have several lifecycle hooks:
+
+1. ngOnInit: Called after the component is initialized
+2. ngOnChanges: Called when input properties change
+3. ngOnDestroy: Called before the component is destroyed",
+    "role": "assistant",
+  },
+]
+`;

@@ -23,6 +23,7 @@ import { MediaTools } from 'src/tools/mediaTools';
 import { LLMService } from 'src/services/LLMService';
 
 import type StewardPlugin from 'src/main';
+import { ConversationHistoryMessage } from 'src/types/types';
 
 const abortService = AbortService.getInstance();
 
@@ -134,6 +135,7 @@ export class GenerateCommandHandler extends CommandHandler {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: extraction.explanation,
+        includeHistory: false,
       });
 
       await this.renderer.updateConversationNote({
@@ -165,6 +167,7 @@ export class GenerateCommandHandler extends CommandHandler {
         const messageId = await this.renderer.updateConversationNote({
           path: title,
           newContent: extraction.explanation,
+          includeHistory: false,
         });
 
         // Store the content update extraction as an artifact
@@ -175,6 +178,15 @@ export class GenerateCommandHandler extends CommandHandler {
             // Current path is active editing
             path: this.app.workspace.getActiveFile()?.path || '',
           });
+
+          await this.renderer.updateConversationNote({
+            path: title,
+            newContent: `*${t('common.artifactCreated', {
+              type: ArtifactType.CONTENT_UPDATE,
+            })}*`,
+            command: 'generate',
+            role: 'System',
+          });
         }
 
         for (const update of extraction.updates) {
@@ -184,7 +196,10 @@ export class GenerateCommandHandler extends CommandHandler {
           });
         }
       } else {
-        const stream = await this.contentGenerationStream({ ...command, content: userInput });
+        const stream = await this.contentGenerationStream({
+          ...command,
+          content: userInput,
+        });
 
         await this.renderer.streamConversationNote({
           path: title,
@@ -243,11 +258,11 @@ export class GenerateCommandHandler extends CommandHandler {
       recentlyCreatedNote,
     });
 
-    // For low confidence extractions, just show the explanation
     await this.renderer.updateConversationNote({
       path: title,
       newContent: extraction.explanation,
       role: 'Steward',
+      includeHistory: false,
     });
 
     if (extraction.confidence < 0.7) {
@@ -266,8 +281,10 @@ export class GenerateCommandHandler extends CommandHandler {
       ? await mediaTools.findFileByNameOrPath(extraction.noteName)
       : null;
 
+    const conversationHistory = await this.renderer.extractConversationHistory(title);
+
     // Prepare for content generation
-    const stream = await this.contentGenerationStream(command);
+    const stream = await this.contentGenerationStream(command, conversationHistory);
 
     // stream content to current conversation
     if (!extraction.noteName || !extraction.modifiesNote || !file) {
@@ -306,7 +323,10 @@ export class GenerateCommandHandler extends CommandHandler {
     this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
   }
 
-  private async contentGenerationStream(command: CommandIntent): Promise<AsyncIterable<string>> {
+  private async contentGenerationStream(
+    command: CommandIntent,
+    conversationHistory: ConversationHistoryMessage[] = []
+  ): Promise<AsyncIterable<string>> {
     const { content, systemPrompts = [], model } = command;
     const llmConfig = await LLMService.getInstance().getLLMConfig(model);
 
@@ -318,6 +338,7 @@ The content should not include the big heading on the top.
 ${userLanguagePromptText.content}
 ${systemPrompts.join('\n')}`,
       messages: [
+        ...conversationHistory.slice(0, -1),
         {
           role: 'user',
           content: await prepareUserMessage(content, this.app),

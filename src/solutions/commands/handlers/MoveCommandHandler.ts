@@ -67,6 +67,7 @@ export class MoveCommandHandler extends CommandHandler {
         path: title,
         newContent: extraction.explanation,
         role: 'Steward',
+        includeHistory: false,
       });
 
       if (extraction.confidence <= 0.7) {
@@ -113,7 +114,6 @@ export class MoveCommandHandler extends CommandHandler {
           await this.renderer.updateConversationNote({
             path: title,
             newContent: t('common.cannotMoveThisType'),
-            role: 'Steward',
           });
 
           return {
@@ -135,7 +135,6 @@ export class MoveCommandHandler extends CommandHandler {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: t('common.noFilesFound'),
-          role: 'Steward',
         });
 
         return {
@@ -157,7 +156,6 @@ export class MoveCommandHandler extends CommandHandler {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: message,
-          role: 'Steward',
         });
 
         return {
@@ -189,7 +187,6 @@ export class MoveCommandHandler extends CommandHandler {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `Error processing move command: ${error.message}`,
-        role: 'Steward',
       });
 
       return {
@@ -252,7 +249,6 @@ export class MoveCommandHandler extends CommandHandler {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: response,
-        role: 'Steward',
         command: 'move',
       });
 
@@ -269,7 +265,6 @@ export class MoveCommandHandler extends CommandHandler {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `Error moving files: ${error.message}`,
-        role: 'Steward',
       });
 
       return {

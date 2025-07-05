@@ -42,22 +42,30 @@ export class GeneralCommandHandler extends CommandHandler {
     const t = getTranslation(params.lang);
 
     try {
-      // Extract the command intent using AI
-      const intentExtraction =
-        options.extraction ||
-        (await extractCommandIntent(command.content, this.settings.llm, command.model));
+      let extraction = options.extraction;
+
+      // If extraction is not provided, extract conversation history and then get command intent
+      if (!extraction) {
+        const conversationHistory = await this.renderer.extractConversationHistory(title);
+        extraction = await extractCommandIntent(
+          command.content,
+          command.model,
+          conversationHistory
+        );
+      }
 
       // For low confidence intents, ask for confirmation before proceeding
-      if (intentExtraction.confidence <= 0.7 && !options.intentExtractionConfirmed) {
+      if (extraction.confidence <= 0.7 && !options.intentExtractionConfirmed) {
         await this.renderer.updateConversationNote({
           path: title,
-          newContent: intentExtraction.explanation,
+          newContent: extraction.explanation,
           role: 'Steward',
         });
 
         await this.renderer.updateConversationNote({
           path: title,
           newContent: `*${t('common.abortedByLowConfidence')}*`,
+          includeHistory: false,
         });
 
         // return {
@@ -85,8 +93,8 @@ export class GeneralCommandHandler extends CommandHandler {
       // Process the commands (either high confidence or confirmed)
       await this.commandProcessor.processCommands({
         title,
-        commands: intentExtraction.commands,
-        lang: intentExtraction.lang,
+        commands: extraction.commands,
+        lang: extraction.lang,
       });
 
       return {

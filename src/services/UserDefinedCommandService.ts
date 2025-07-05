@@ -12,7 +12,7 @@ interface UserDefinedCommandStep {
   name: string;
   system_prompt?: string[] | string;
   query: string;
-  model?: string; // Optional model to use for this specific command step
+  model?: string;
 }
 
 /**
@@ -20,15 +20,14 @@ interface UserDefinedCommandStep {
  */
 export interface UserDefinedCommand {
   command_name: string;
-  description?: string;
   query_required?: boolean;
   commands: UserDefinedCommandStep[];
   file_path: string;
-  model?: string; // Optional default model for all command steps
+  model?: string;
 }
 
 export class UserDefinedCommandService {
-  public static instance: UserDefinedCommandService | null = null;
+  private static instance: UserDefinedCommandService | null = null;
   public userDefinedCommands: Map<string, UserDefinedCommand> = new Map();
   private commandFolder: string;
 

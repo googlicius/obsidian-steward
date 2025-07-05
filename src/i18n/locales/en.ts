@@ -8,6 +8,7 @@ const en = {
       noToolCallFound: 'No tool call found.',
       lowConfidenceConfirmation:
         "I'm not entirely sure about this request. Would you like me to proceed anyway?",
+      artifactCreated: 'Artifact {{type}} is created',
     },
     // Chat UI elements
     chat: {

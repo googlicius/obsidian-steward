@@ -4,9 +4,6 @@ export * from './extractions';
 // Export validators
 export * from './validators';
 
-// Export llm configuration
-export * from './llmConfig';
-
 // Export classify functions
 export { getClassifier } from './classifiers/getClassifier';
 

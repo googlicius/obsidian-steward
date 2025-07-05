@@ -40,6 +40,7 @@ export class ImageCommandHandler extends CommandHandler {
         path: title,
         newContent: extraction.explanation,
         role: 'Steward',
+        includeHistory: false,
       });
 
       // If the confidence is low, just return success

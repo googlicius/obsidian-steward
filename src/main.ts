@@ -140,12 +140,6 @@ export default class StewardPlugin extends Plugin {
       process.env.DEEPSEEK_API_KEY = decryptedDeepSeekKey;
     }
 
-    // Initialize the content reading service
-    this.contentReadingService = ContentReadingService.getInstance(this);
-
-    // Initialize the UserDefinedCommandService
-    this.userDefinedCommandService = UserDefinedCommandService.getInstance(this);
-
     // Register custom icon
     addIcon(
       SMILE_CHAT_ICON_ID,
@@ -162,6 +156,44 @@ export default class StewardPlugin extends Plugin {
       await this.openStaticConversation();
     });
 
+    this.registerStuffs();
+
+    // This adds a settings tab so the user can configure various aspects of the plugin
+    this.addSettingTab(new StewardSettingTab(this.app, this));
+
+    // Initialize the content reading service
+    this.contentReadingService = ContentReadingService.getInstance(this);
+
+    // Initialize the UserDefinedCommandService
+    this.userDefinedCommandService = UserDefinedCommandService.getInstance(this);
+
+    // Initialize the ConversationRenderer
+    this.conversationRenderer = new ConversationRenderer(this);
+
+    // Initialize the ConversationArtifactManager
+    this.artifactManager = ConversationArtifactManager.getInstance();
+
+    // Initialize the conversation event handler
+    this.conversationEventHandler = new ConversationEventHandler({ plugin: this });
+
+    // Initialize Git event handler for tracking and reverting changes
+    this.gitEventHandler = new GitEventHandler(this.app, this);
+
+    // Initialize the CommandProcessorService
+    this.commandProcessorService = new CommandProcessorService(this);
+
+    this.initializeClassifier();
+  }
+
+  onunload() {
+    // Unload the search service
+    this.searchService.unload();
+
+    // Unload the conversation event handler
+    this.conversationEventHandler.unload();
+  }
+
+  private registerStuffs() {
     // Add command for toggling Steward chat with hotkey
     this.addCommand({
       id: 'toggle-steward-chat',
@@ -177,33 +209,6 @@ export default class StewardPlugin extends Plugin {
         }
       },
     });
-
-    // Register extensions for CodeMirror
-    this.registerEditorExtension([
-      createCommandInputExtension(COMMAND_PREFIXES, {
-        onEnter: this.handleEnter.bind(this),
-      }),
-    ]);
-
-    this.registerMarkdownPostProcessor(
-      createCalloutSearchResultPostProcessor({
-        handleClick: event => {
-          this.handleSearchResultCalloutClick(event);
-        },
-      })
-    );
-
-    this.registerMarkdownPostProcessor(
-      createStewardConversationProcessor({
-        conversationFolder: `${this.settings.stewardFolder}/Conversations`,
-        handleCloseButtonClick: (event: MouseEvent, conversationPath: string) => {
-          conversationPath = conversationPath.replace('.md', '');
-          const conversationTitle = conversationPath.split('/').pop();
-          this.closeConversation(conversationTitle as string);
-          this.editor.focus();
-        },
-      })
-    );
 
     // This adds a status bar item to the bottom of the app. Does not work on mobile apps.
     const statusBarItemEl = this.addStatusBarItem();
@@ -238,40 +243,39 @@ export default class StewardPlugin extends Plugin {
       },
     });
 
-    // This adds a settings tab so the user can configure various aspects of the plugin
-    this.addSettingTab(new StewardSettingTab(this.app, this));
+    // Register extensions for CodeMirror
+    this.registerEditorExtension([
+      createCommandInputExtension(COMMAND_PREFIXES, {
+        onEnter: this.handleEnter.bind(this),
+      }),
+    ]);
 
-    // Initialize the ConversationRenderer
-    this.conversationRenderer = new ConversationRenderer(this);
+    this.registerMarkdownPostProcessor(
+      createCalloutSearchResultPostProcessor({
+        handleClick: event => {
+          this.handleSearchResultCalloutClick(event);
+        },
+      })
+    );
 
-    // Initialize the ConversationArtifactManager
-    this.artifactManager = ConversationArtifactManager.getInstance();
-
-    // Initialize the conversation event handler
-    this.conversationEventHandler = new ConversationEventHandler({ plugin: this });
-
-    // Initialize Git event handler for tracking and reverting changes
-    this.gitEventHandler = new GitEventHandler(this.app, this);
+    this.registerMarkdownPostProcessor(
+      createStewardConversationProcessor({
+        conversationFolder: `${this.settings.stewardFolder}/Conversations`,
+        handleCloseButtonClick: (event: MouseEvent, conversationPath: string) => {
+          conversationPath = conversationPath.replace('.md', '');
+          const conversationTitle = conversationPath.split('/').pop();
+          this.closeConversation(conversationTitle as string);
+          this.editor.focus();
+        },
+      })
+    );
 
     // Register the custom view type
     this.registerView(STW_CONVERSATION_VIEW_CONFIG.type, leaf => new StewardConversationView(leaf));
-
-    // Initialize the CommandProcessorService
-    this.commandProcessorService = new CommandProcessorService(this);
-
-    this.initializeClassifier();
-  }
-
-  onunload() {
-    // Unload the search service
-    this.searchService.unload();
-
-    // Unload the conversation event handler
-    this.conversationEventHandler.unload();
   }
 
   private initializeClassifier() {
-    const classifier = getClassifier(this.settings.llm.model, this.settings.llm.corsProxyUrl);
+    const classifier = getClassifier(this.settings.llm.model);
     // Initialize embeddings
     retry(
       () =>
@@ -447,23 +451,6 @@ export default class StewardPlugin extends Plugin {
     }
 
     return leaf;
-  }
-
-  /**
-   * Scroll the cursor position into view
-   */
-  private scrollCursorIntoView() {
-    if (this.editor?.cm) {
-      const view = this.editor.cm;
-      const pos = view.state.selection.main.head;
-
-      view.dispatch({
-        effects: EditorView.scrollIntoView(pos, {
-          y: 'center',
-          yMargin: 50,
-        }),
-      });
-    }
   }
 
   async openStaticConversation({

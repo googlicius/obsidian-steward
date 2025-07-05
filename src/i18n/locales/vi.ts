@@ -6,6 +6,7 @@ const vi = {
       noRecentOperations: 'Không có thao tác gần đây được tìm thấy.',
       noToolCallFound: 'Không tìm thấy lệnh gọi công cụ.',
       lowConfidenceConfirmation: 'Tôi không chắc chắn về yêu cầu này. Bạn có muốn tiếp tục không?',
+      artifactCreated: 'Artifact {{type}} đã được lưu',
     },
     // Chat UI elements
     chat: {
