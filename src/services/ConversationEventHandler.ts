@@ -106,7 +106,7 @@ export class ConversationEventHandler {
       payload.line,
       payload.title,
       payload.commandType,
-      payload.commandContent,
+      payload.commandQuery,
       payload.lang
     );
   }
@@ -126,7 +126,7 @@ export class ConversationEventHandler {
         commands: [
           {
             commandType: payload.commandType,
-            content: payload.commandContent,
+            query: payload.commandQuery,
           },
         ],
         lang: payload.lang,

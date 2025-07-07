@@ -50,7 +50,7 @@ export async function extractNoteGeneration(params: {
   conversationHistory?: ConversationHistoryMessage[];
 }): Promise<NoteGenerationExtraction> {
   const { command, recentlyCreatedNote, conversationHistory = [] } = params;
-  const { content, systemPrompts = [] } = command;
+  const { systemPrompts = [] } = command;
 
   try {
     const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
@@ -62,7 +62,7 @@ export async function extractNoteGeneration(params: {
       messages: [
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         ...conversationHistory.slice(0, -1),
-        { role: 'user', content },
+        { role: 'user', content: command.query },
       ],
       schema: noteGenerationExtractionSchema,
     });

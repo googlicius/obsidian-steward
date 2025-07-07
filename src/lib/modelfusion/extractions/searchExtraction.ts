@@ -80,10 +80,10 @@ export async function extractSearchQueryV2({
   command: CommandIntent;
   lang?: string;
 }): Promise<SearchQueryExtractionV2> {
-  const { content, systemPrompts = [] } = command;
+  const { systemPrompts = [] } = command;
   // Check if input is wrapped in quotation marks for direct search
   const quotedRegex = /^["'](.+)["']$/;
-  const match = content.trim().match(quotedRegex);
+  const match = command.query.trim().match(quotedRegex);
 
   const t = getTranslation(lang);
 
@@ -111,7 +111,7 @@ export async function extractSearchQueryV2({
   }
 
   // Check if input only contains tags
-  const trimmedInput = content.trim();
+  const trimmedInput = command.query.trim();
   const tagRegex = /#([^\s#]+)/g;
   const tags = [...trimmedInput.matchAll(tagRegex)].map(match => match[1]);
 
@@ -144,7 +144,7 @@ export async function extractSearchQueryV2({
       system: `${searchPromptV2.content}`,
       messages: [
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
-        { role: 'user', content },
+        { role: 'user', content: command.query },
       ],
       schema: searchQueryExtractionSchema,
     });

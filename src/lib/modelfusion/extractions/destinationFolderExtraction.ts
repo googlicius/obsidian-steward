@@ -33,7 +33,7 @@ const destinationFolderSchema = z.object({
 export async function extractDestinationFolder(
   command: CommandIntent
 ): Promise<DestinationFolderExtraction> {
-  const { content, systemPrompts = [] } = command;
+  const { query, systemPrompts = [] } = command;
   try {
     const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
 
@@ -45,7 +45,7 @@ export async function extractDestinationFolder(
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         {
           role: 'user',
-          content,
+          content: query,
         },
       ],
       schema: destinationFolderSchema,

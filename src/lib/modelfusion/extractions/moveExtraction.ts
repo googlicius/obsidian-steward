@@ -33,7 +33,7 @@ const moveExtractionSchema = z.object({
  * @returns Extracted move details
  */
 export async function extractMoveQuery(command: CommandIntent): Promise<MoveExtraction> {
-  const { content, systemPrompts = [] } = command;
+  const { systemPrompts = [] } = command;
   try {
     const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
 
@@ -45,7 +45,7 @@ export async function extractMoveQuery(command: CommandIntent): Promise<MoveExtr
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         {
           role: 'user',
-          content,
+          content: command.query,
         },
       ],
       schema: moveExtractionSchema,

@@ -341,7 +341,7 @@ export default class StewardPlugin extends Plugin {
     }
 
     // Extract the command content (everything after the prefix)
-    const commandContent = lineText.trim().substring(matchedPrefix.length).trim();
+    const commandQuery = lineText.trim().substring(matchedPrefix.length).trim();
 
     // Determine command type based on the prefix
     let commandType = matchedPrefix.substring(1); // Remove the / from the command
@@ -352,9 +352,9 @@ export default class StewardPlugin extends Plugin {
     }
 
     logger.log('Command type:', commandType === ' ' ? 'general' : commandType);
-    logger.log('Command content:', commandContent);
+    logger.log('Command query:', commandQuery);
 
-    if (!this.commandProcessorService.validateCommandContent(commandType, commandContent)) {
+    if (!this.commandProcessorService.validateCommandContent(commandType, commandQuery)) {
       logger.log(`Command content is required for ${commandType} command`);
       return true;
     }
@@ -395,7 +395,7 @@ export default class StewardPlugin extends Plugin {
             commands: [
               {
                 commandType,
-                content: commandContent,
+                query: commandQuery,
               },
             ],
             lang,
@@ -409,7 +409,7 @@ export default class StewardPlugin extends Plugin {
         const formattedDate = now.toFormat('yyyy-MM-dd_HH-mm-ss');
         const title = `${commandType.trim() || 'General'} command ${formattedDate}`;
 
-        await this.conversationRenderer.createConversationNote(title, commandType, commandContent);
+        await this.conversationRenderer.createConversationNote(title, commandType, commandQuery);
 
         // After the note is created, insert the link on the next tick
         setTimeout(() => {
@@ -418,7 +418,7 @@ export default class StewardPlugin extends Plugin {
             view,
             line,
             title,
-            commandContent,
+            commandQuery,
             commandType,
             // We don't know the language here, so we'll rely on automatic detection
           });
@@ -657,7 +657,7 @@ export default class StewardPlugin extends Plugin {
     line: Line,
     title: string,
     commandType: string,
-    commandContent: string,
+    commandQuery: string,
     lang?: string
   ) {
     const linkText = `![[${this.settings.stewardFolder}/Conversations/${title}]]\n\n`;
@@ -678,7 +678,7 @@ export default class StewardPlugin extends Plugin {
     eventEmitter.emit(Events.CONVERSATION_LINK_INSERTED, {
       title,
       commandType,
-      commandContent,
+      commandQuery,
       lang,
     });
   }

@@ -169,6 +169,7 @@ const en = {
       response3: 'Glad I could assist!',
       response4: 'Anytime! Let me know if you need anything else.',
       response5: 'Happy to be of service!',
+      simpleResponse: "You're welcome 😊",
     },
     // Conversation states
     conversation: {

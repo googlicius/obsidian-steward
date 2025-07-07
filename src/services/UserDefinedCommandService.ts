@@ -293,7 +293,7 @@ export class UserDefinedCommandService {
     // Convert the user-defined command steps to CommandIntent objects
     return command.commands.map(step => {
       // Replace $from_user placeholder with actual user input
-      const content = step.query.replace('$from_user', userInput.trim());
+      const query = step.query.replace('$from_user', userInput.trim());
 
       // Ensure systemPrompts is always an array
       let systemPrompts: string[] | undefined;
@@ -313,7 +313,7 @@ export class UserDefinedCommandService {
       return {
         commandType: step.name,
         systemPrompts,
-        content,
+        query,
         model, // Include the model in the CommandIntent
       };
     });
@@ -358,7 +358,7 @@ export class UserDefinedCommandService {
       visited.add(intent.commandType);
       const subIntents = this.processUserDefinedCommand(
         intent.commandType,
-        intent.content || userInput
+        intent.query || userInput
       );
       if (subIntents) {
         expanded.push(...this.expandUserDefinedCommandIntents(subIntents, userInput, visited));

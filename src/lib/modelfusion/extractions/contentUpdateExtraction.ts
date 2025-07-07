@@ -65,7 +65,7 @@ export async function extractContentUpdate(params: {
 
     const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
 
-    const userMessage = await prepareUserMessage(command.content, app);
+    const userMessage = await prepareUserMessage(command.query, app);
 
     const { object } = await generateObject({
       ...llmConfig,

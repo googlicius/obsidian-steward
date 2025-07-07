@@ -26,7 +26,7 @@ const abortService = AbortService.getInstance();
  */
 export interface CommandIntent {
   commandType: string;
-  content: string;
+  query: string;
   systemPrompts?: string[];
   model?: string; // Optional model to use for this command
 }
@@ -55,19 +55,19 @@ const validCommandTypes = [
 // Define the Zod schema for command intent
 const commandIntentSchema = z.object({
   commandType: z.enum(validCommandTypes).describe(`One of the available command types.`),
-  content: z
+  query: z
     .string()
     .describe(
-      `The specific content for this command in the sequence. If the command is "read", keep the original user's query.`
+      `The specific user query for this command in the sequence. If the command is "read", keep the original user's query.`
     ),
 });
 
 // Define the Zod schema for command intent extraction
 const commandIntentExtractionSchema = z.object({
   commands: z.array(commandIntentSchema).max(20, 'Too many commands. Maximum allowed is 20.')
-    .describe(`An array of objects, each containing commandType and content.
+    .describe(`An array of objects, each containing commandType and query.
 Analyze the query for multiple commands that should be executed in sequence.
-Each command in the sequence should have its own content that will be processed by specialized handlers.
+Each command in the sequence should have its own query that will be processed by specialized handlers.
 - If the user wants to:
   - Search for notes (and doesn't mention existing search results), include "search"
   - Move notes from the artifact, include "move_from_artifact"
@@ -78,13 +78,13 @@ Each command in the sequence should have its own content that will be processed 
   - Undo changes, include "revert"
   - Generate an image, include "image"
   - Generate audio, include "audio"
-  - Create a new note, include "create" command with content that clearly specifies the note name (e.g., "Note name: Hello Kitty")
+  - Create a new note, include "create" command with query that clearly specifies the note name (e.g., "Note name: Hello Kitty")
   - Generate content with the LLM help in a sub-prompt (either in a new note or the conversation), include "generate"
   - Read or Find content based on a specific pattern in their current note, include "read"
   - Ask something about the content of the current note, include "read" and "generate"
   - Update something about the content of the current note, include "read", "generate" and "update_from_artifact"
   - Generate or write something into a mentioned note, include "create" and "generate"
-  - If the "read" and "generate" are included, you must extract all the elements mentioned in the user's query in the "content" field of the "read" command`),
+  - If the "read" and "generate" are included, you must extract all the elements mentioned in the user's query in the "query" field of the "read" command`),
   explanation: z
     .string()
     .min(1, 'Explanation must be a non-empty string')
@@ -114,11 +114,11 @@ function extractReadGenerate(userInput: string): CommandIntentExtraction {
     commands: [
       {
         commandType: 'read',
-        content: userInput,
+        query: userInput,
       },
       {
         commandType: 'generate',
-        content: userInput,
+        query: userInput,
       },
     ],
     explanation: `Classified as "read:generate" command based on semantic similarity.`,
@@ -131,15 +131,15 @@ function extractReadGenerateUpdateFromArtifact(userInput: string): CommandIntent
     commands: [
       {
         commandType: 'read',
-        content: userInput,
+        query: userInput,
       },
       {
         commandType: 'generate',
-        content: userInput,
+        query: userInput,
       },
       {
         commandType: 'update_from_artifact',
-        content: '',
+        query: '',
       },
     ],
     explanation: `Classified as "read:generate:update_from_artifact" command based on semantic similarity.`,
@@ -161,7 +161,7 @@ export async function extractCommandIntent(
   const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
   const clusterName = await classify({
     model: getClassifier(llmConfig.model.modelId),
-    value: command.content,
+    value: command.query,
   });
 
   const additionalSystemPrompts: string[] = [];
@@ -171,14 +171,14 @@ export async function extractCommandIntent(
 
     if ((clusterName as string) === 'read:generate') {
       return {
-        ...extractReadGenerate(command.content),
+        ...extractReadGenerate(command.query),
         lang,
       };
     }
 
     if ((clusterName as string) === 'read:generate:update_from_artifact') {
       return {
-        ...extractReadGenerateUpdateFromArtifact(command.content),
+        ...extractReadGenerateUpdateFromArtifact(command.query),
         lang,
       };
     }
@@ -215,7 +215,7 @@ export async function extractCommandIntent(
         commands: [
           {
             commandType: clusterName as any,
-            content: command.content,
+            query: command.query,
           },
         ],
         explanation: `Classified as ${clusterName} command based on semantic similarity.`,
@@ -241,7 +241,7 @@ export async function extractCommandIntent(
       messages: [
         ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         // ...conversationHistory.slice(0, -1),
-        { role: 'user', content: command.content },
+        { role: 'user', content: command.query },
       ],
       schema: commandIntentExtractionSchema,
     });

@@ -156,6 +156,7 @@ const ja = {
       response3: 'お力になれてうれしいです！',
       response4: 'いつでもどうぞ！また何かあれば教えてくださいね。',
       response5: 'お役に立てて光栄です！',
+      simpleResponse: 'どういたしまして 😊',
     },
     // Conversation states
     conversation: {

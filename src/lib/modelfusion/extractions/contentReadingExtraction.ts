@@ -49,7 +49,7 @@ export async function extractReadContent(command: CommandIntent) {
     ...llmConfig,
     abortSignal: abortService.createAbortController('content-reading'),
     system: toolSystemPrompt,
-    prompt: command.content,
+    prompt: command.query,
     tools: {
       contentReading: tool({
         parameters: contentReadingSchema,

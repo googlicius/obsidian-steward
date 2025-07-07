@@ -129,7 +129,7 @@ export class DeleteCommandHandler extends CommandHandler {
         title,
         operations: [
           {
-            sourceQuery: command.content,
+            sourceQuery: command.query,
             deleted: deletedFiles,
             errors: failedFiles,
           },

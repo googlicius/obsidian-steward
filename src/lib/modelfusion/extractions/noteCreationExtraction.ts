@@ -52,7 +52,7 @@ export async function extractNoteCreation(params: {
     const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
 
     // Prepare user message with potential image content
-    const userMessage = await prepareUserMessage(command.content, app);
+    const userMessage = await prepareUserMessage(command.query, app);
 
     const { object } = await generateObject({
       ...llmConfig,

@@ -44,11 +44,11 @@ export class UserDefinedCommandHandler extends CommandHandler {
           [
             {
               commandType: command.commandType,
-              content: command.content,
+              query: command.query,
               systemPrompts: command.systemPrompts,
             },
           ],
-          command.content || ''
+          command.query || ''
         );
       } catch (cycleError) {
         await this.renderer.updateConversationNote({

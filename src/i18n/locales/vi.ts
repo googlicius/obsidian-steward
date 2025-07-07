@@ -154,6 +154,7 @@ const vi = {
       response3: 'Mình rất vui vì đã có thể hỗ trợ!',
       response4: 'Bất cứ lúc nào! Nếu cần gì thêm thì cứ nói nhé.',
       response5: 'Rất hân hạnh được phục vụ bạn!',
+      simpleResponse: 'Không có gì 😊',
     },
     // Conversation states
     conversation: {

@@ -41,7 +41,7 @@ export interface ConversationNoteCreatedPayload {
   line: Line;
   title: string;
   commandType: string;
-  commandContent: string;
+  commandQuery: string;
   lang?: string;
 }
 
@@ -54,7 +54,7 @@ export interface ConversationCommandReceivedPayload {
 export interface ConversationLinkInsertedPayload {
   title: string;
   commandType: string;
-  commandContent: string;
+  commandQuery: string;
   lang?: string;
 }
 

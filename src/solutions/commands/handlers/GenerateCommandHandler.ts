@@ -108,7 +108,7 @@ export class GenerateCommandHandler extends CommandHandler {
       readArtifact.readingResult.blocks.map(block => block.content)
     );
 
-    const userInput = `The content from the current note:\n${readContentsStringified}\n\n${command.content}`;
+    const userInput = `The content from the current note:\n${readContentsStringified}\n\n${command.query}`;
 
     let extraction = options.extraction;
 
@@ -118,14 +118,14 @@ export class GenerateCommandHandler extends CommandHandler {
           ? await extractContentUpdate({
               command: {
                 ...command,
-                content: userInput,
+                query: userInput,
               },
               app: this.app,
             })
           : await extractNoteGeneration({
               command: {
                 ...command,
-                content: userInput,
+                query: userInput,
               },
             });
     }
@@ -203,7 +203,7 @@ export class GenerateCommandHandler extends CommandHandler {
       } else {
         const stream = await this.contentGenerationStream({
           ...command,
-          content: userInput,
+          query: userInput,
         });
 
         await this.renderer.streamConversationNote({
@@ -259,7 +259,7 @@ export class GenerateCommandHandler extends CommandHandler {
     const extraction = await extractNoteGeneration({
       command: {
         ...command,
-        content: command.content,
+        query: command.query,
       },
       recentlyCreatedNote,
     });
@@ -336,7 +336,7 @@ export class GenerateCommandHandler extends CommandHandler {
     command: CommandIntent,
     conversationHistory: ConversationHistoryMessage[] = []
   ): Promise<AsyncIterable<string>> {
-    const { content, systemPrompts = [], model } = command;
+    const { query, systemPrompts = [], model } = command;
     const llmConfig = await LLMService.getInstance().getLLMConfig(model);
 
     const { textStream } = streamText({
@@ -350,7 +350,7 @@ ${languageEnforcementFragment}`,
         ...conversationHistory.slice(0, -1),
         {
           role: 'user',
-          content: await prepareUserMessage(content, this.app),
+          content: await prepareUserMessage(query, this.app),
         },
       ],
     });

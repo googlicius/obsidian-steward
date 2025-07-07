@@ -42,7 +42,8 @@ export class ReadCommandHandler extends CommandHandler {
     try {
       // Extract the reading instructions using LLM
       const extraction = options.extraction || (await extractReadContent(command));
-      const lang = extraction.toolCalls[0].args.lang || params.lang;
+      const lang =
+        extraction.toolCalls.length > 0 ? extraction.toolCalls[0].args.lang : params.lang;
       const t = getTranslation(lang);
 
       // Find all content reading tool calls
@@ -61,7 +62,8 @@ export class ReadCommandHandler extends CommandHandler {
         });
 
         return {
-          status: CommandResultStatus.SUCCESS,
+          status: CommandResultStatus.ERROR,
+          error: new Error('No content reading tool call found'),
         };
       }
 

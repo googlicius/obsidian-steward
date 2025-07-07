@@ -55,12 +55,12 @@ const audioExtractionSchema = z.object({
  * @returns Extracted audio generation details
  */
 export async function extractAudioQuery(command: CommandIntent): Promise<AudioExtraction> {
-  const { content, systemPrompts = [] } = command;
+  const { systemPrompts = [] } = command;
 
   try {
     // Check if input is wrapped in quotation marks for direct extraction
     const quotedRegex = /^["'](.+)["']$/;
-    const match = content.trim().match(quotedRegex);
+    const match = command.query.trim().match(quotedRegex);
 
     if (match) {
       const content = match[1];
@@ -83,7 +83,7 @@ export async function extractAudioQuery(command: CommandIntent): Promise<AudioEx
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         {
           role: 'user',
-          content,
+          content: command.query,
         },
       ],
       schema: audioExtractionSchema,

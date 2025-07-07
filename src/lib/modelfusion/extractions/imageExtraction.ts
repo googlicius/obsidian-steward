@@ -43,7 +43,7 @@ const imageExtractionSchema = z.object({
 export async function extractImageQuery(
   command: CommandIntent
 ): Promise<z.infer<typeof imageExtractionSchema>> {
-  const { content, systemPrompts = [] } = command;
+  const { systemPrompts = [] } = command;
   try {
     const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
 
@@ -55,7 +55,7 @@ export async function extractImageQuery(
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         {
           role: 'user',
-          content,
+          content: command.query,
         },
       ],
       schema: imageExtractionSchema,

@@ -32,7 +32,7 @@ describe('extractSearchQueryV2', () => {
     const result1 = await extractSearchQueryV2({
       command: {
         commandType: 'search',
-        content: '"project notes"',
+        query: '"project notes"',
       },
     });
 
@@ -60,7 +60,7 @@ describe('extractSearchQueryV2', () => {
     const result2 = await extractSearchQueryV2({
       command: {
         commandType: 'search',
-        content: "'meeting minutes'",
+        query: "'meeting minutes'",
       },
     });
 
@@ -90,7 +90,7 @@ describe('extractSearchQueryV2', () => {
     const result = await extractSearchQueryV2({
       command: {
         commandType: 'search',
-        content: '#project #work #important',
+        query: '#project #work #important',
       },
     });
 
@@ -112,7 +112,7 @@ describe('extractSearchQueryV2', () => {
     const singleTagResult = await extractSearchQueryV2({
       command: {
         commandType: 'search',
-        content: '#urgent',
+        query: '#urgent',
       },
     });
 

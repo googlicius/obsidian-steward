@@ -18,22 +18,29 @@ export class ThankYouCommandHandler extends CommandHandler {
    * Handle a thank you command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, lang } = params;
+    const { title, nextCommand, lang } = params;
     const t = getTranslation(lang);
 
-    // Get a random response from the list
-    const responses = [
-      t('thankYou.response1'),
-      t('thankYou.response2'),
-      t('thankYou.response3'),
-      t('thankYou.response4'),
-      t('thankYou.response5'),
-    ];
+    let responseText: string;
 
-    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+    if (nextCommand) {
+      // If nextCommand is present, use a simple response
+      responseText = t('thankYou.simpleResponse');
+    } else {
+      // Get a random response from the list
+      const responses = [
+        t('thankYou.response1'),
+        t('thankYou.response2'),
+        t('thankYou.response3'),
+        t('thankYou.response4'),
+        t('thankYou.response5'),
+      ];
+
+      responseText = responses[Math.floor(Math.random() * responses.length)];
+    }
 
     // Use text streamer to simulate typing
-    const textStream = createTextStream(randomResponse);
+    const textStream = createTextStream(responseText);
 
     // Stream the response to the conversation
     await this.renderer.streamConversationNote({

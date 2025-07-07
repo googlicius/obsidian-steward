@@ -97,7 +97,7 @@ export class ConfirmCommandHandler extends CommandHandler {
   private isConfirmIntent(
     command: CommandIntent
   ): { isConfirmation: boolean; isAffirmative: boolean } | null {
-    let commandContent = command.content;
+    let commandContent = command.query;
 
     switch (command.commandType) {
       case 'yes':
