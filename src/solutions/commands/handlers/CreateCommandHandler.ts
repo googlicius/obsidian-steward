@@ -56,6 +56,7 @@ export class CreateCommandHandler extends CommandHandler {
           path: title,
           newContent: extraction.explanation,
           role: 'Steward',
+          lang,
         });
 
         return {
@@ -70,6 +71,7 @@ export class CreateCommandHandler extends CommandHandler {
           newContent: '*No notes were specified for creation*',
           role: 'Steward',
           command: 'create',
+          lang,
         });
 
         return {
@@ -97,6 +99,7 @@ export class CreateCommandHandler extends CommandHandler {
           newContent: message,
           role: 'Steward',
           command: 'create',
+          lang,
         });
 
         return {
@@ -156,6 +159,7 @@ export class CreateCommandHandler extends CommandHandler {
           newContent: t('create.creatingNote', { noteName: createdNoteLinks.join(', ') }),
           role: 'Steward',
           command: 'create',
+          lang,
         });
 
         if (messageId) {
@@ -172,6 +176,7 @@ export class CreateCommandHandler extends CommandHandler {
             })}*`,
             command: 'create',
             role: 'System',
+            lang,
           });
         }
       }
@@ -194,6 +199,7 @@ export class CreateCommandHandler extends CommandHandler {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: resultMessage,
+        lang,
       });
 
       return {
@@ -204,6 +210,7 @@ export class CreateCommandHandler extends CommandHandler {
         path: title,
         newContent: `*Error creating notes: ${error.message}*`,
         role: 'Steward',
+        lang,
       });
 
       return {

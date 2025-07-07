@@ -157,7 +157,7 @@ const vi = {
     },
     // Conversation states
     conversation: {
-      workingOnIt: 'Đang xử lý...',
+      orchestrating: 'Đang xử lý...',
       generating: 'Đang tạo...',
       generatingImage: 'Đang tạo hình ảnh...',
       generatingAudio: 'Đang tạo âm thanh...',

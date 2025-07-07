@@ -31,7 +31,7 @@ export class ImageCommandHandler extends CommandHandler {
    * Handle an image command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command } = params;
+    const { title, command, lang } = params;
 
     try {
       const extraction = await extractImageQuery(command);
@@ -41,6 +41,7 @@ export class ImageCommandHandler extends CommandHandler {
         newContent: extraction.explanation,
         role: 'Steward',
         includeHistory: false,
+        lang,
       });
 
       // If the confidence is low, just return success
@@ -65,6 +66,7 @@ export class ImageCommandHandler extends CommandHandler {
         path: title,
         newContent: `\n![[${result.filePath}]]`,
         command: 'image',
+        lang,
       });
 
       return {

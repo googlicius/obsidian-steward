@@ -149,20 +149,19 @@ function extractReadGenerateUpdateFromArtifact(userInput: string): CommandIntent
 
 /**
  * Extract command intents from a general query using AI
- * @param userInput Natural language request from the user
- * @param overrideModel Optional model override
- * @param conversationHistory Optional conversation history
+ * @param command Command intent
+ * @param lang Language of the user
  * @returns Extracted command types, content, and explanation
  */
 export async function extractCommandIntent(
-  userInput: string,
-  overrideModel?: string,
+  command: CommandIntent,
+  lang: string | undefined,
   conversationHistory: ConversationHistoryMessage[] = []
 ): Promise<CommandIntentExtraction> {
-  const llmConfig = await LLMService.getInstance().getLLMConfig(overrideModel);
+  const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
   const clusterName = await classify({
     model: getClassifier(llmConfig.model.modelId),
-    value: userInput,
+    value: command.content,
   });
 
   const additionalSystemPrompts: string[] = [];
@@ -171,11 +170,17 @@ export async function extractCommandIntent(
     logger.log(`The user input was classified as "${clusterName}"`);
 
     if ((clusterName as string) === 'read:generate') {
-      return extractReadGenerate(userInput);
+      return {
+        ...extractReadGenerate(command.content),
+        lang,
+      };
     }
 
     if ((clusterName as string) === 'read:generate:update_from_artifact') {
-      return extractReadGenerateUpdateFromArtifact(userInput);
+      return {
+        ...extractReadGenerateUpdateFromArtifact(command.content),
+        lang,
+      };
     }
 
     const clusterNames = clusterName.split(':');
@@ -210,12 +215,12 @@ export async function extractCommandIntent(
         commands: [
           {
             commandType: clusterName as any,
-            content: userInput,
+            content: command.content,
           },
         ],
         explanation: `Classified as ${clusterName} command based on semantic similarity.`,
         confidence: 0.9,
-        lang: 'en',
+        lang,
       };
 
       return result;
@@ -229,16 +234,14 @@ export async function extractCommandIntent(
     // Create an operation-specific abort signal
     const abortSignal = abortService.createAbortController('intent-extraction');
 
-    const llm = await LLMService.getInstance().getLLMConfig(overrideModel);
-
     const { object } = await generateObject({
-      ...llm,
+      ...llmConfig,
       abortSignal,
       system: commandIntentPrompt,
       messages: [
         ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         // ...conversationHistory.slice(0, -1),
-        { role: 'user', content: userInput },
+        { role: 'user', content: command.content },
       ],
       schema: commandIntentExtractionSchema,
     });

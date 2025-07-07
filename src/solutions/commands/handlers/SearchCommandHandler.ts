@@ -36,16 +36,16 @@ export class SearchCommandHandler extends CommandHandler {
    * Handle a search command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command, lang } = params;
-
-    const t = getTranslation(lang);
+    const { title, command } = params;
 
     try {
       // Extract search parameters from the command content
       const queryExtraction = await extractSearchQueryV2({
         command,
-        lang,
+        lang: params.lang,
       });
+
+      const t = getTranslation(queryExtraction.lang);
 
       // Get the search results
       const docs = await this.plugin.searchService.searchEngine.searchV2(
@@ -68,6 +68,7 @@ export class SearchCommandHandler extends CommandHandler {
         newContent: response,
         role: 'Steward',
         command: 'search',
+        lang: queryExtraction.lang,
       });
 
       // Store the search results in the artifact manager

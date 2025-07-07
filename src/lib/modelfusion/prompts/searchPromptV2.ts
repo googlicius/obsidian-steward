@@ -1,4 +1,5 @@
 import { OpenAIChatMessage } from 'modelfusion';
+import { languageEnforcementFragment } from './fragments';
 
 export const searchPromptV2: OpenAIChatMessage = {
   role: 'system',
@@ -9,5 +10,6 @@ Your job is to analyze the user's natural language request and extract the relev
 Guidelines:
 - If there are any typos in the user query, extract both the original and your corrected version
 - If the user query has a term prefixed with #, it's a tag, for example: #cat
-- Consider synonyms and related terms that might be helpful`,
+- Consider synonyms and related terms that might be helpful
+${languageEnforcementFragment}`,
 };

@@ -25,7 +25,7 @@ export class GeneralCommandHandler extends CommandHandler {
    */
   public async renderIndicator(title: string, lang?: string): Promise<void> {
     const t = getTranslation(lang);
-    await this.renderer.addGeneratingIndicator(title, t('conversation.workingOnIt'));
+    await this.renderer.addGeneratingIndicator(title, t('conversation.orchestrating'));
   }
 
   /**
@@ -47,11 +47,7 @@ export class GeneralCommandHandler extends CommandHandler {
       // If extraction is not provided, extract conversation history and then get command intent
       if (!extraction) {
         const conversationHistory = await this.renderer.extractConversationHistory(title);
-        extraction = await extractCommandIntent(
-          command.content,
-          command.model,
-          conversationHistory
-        );
+        extraction = await extractCommandIntent(command, params.lang, conversationHistory);
       }
 
       // For low confidence intents, ask for confirmation before proceeding
@@ -60,12 +56,14 @@ export class GeneralCommandHandler extends CommandHandler {
           path: title,
           newContent: extraction.explanation,
           role: 'Steward',
+          lang: extraction.lang,
         });
 
         await this.renderer.updateConversationNote({
           path: title,
           newContent: `*${t('common.abortedByLowConfidence')}*`,
           includeHistory: false,
+          lang: extraction.lang,
         });
 
         // return {
@@ -104,6 +102,7 @@ export class GeneralCommandHandler extends CommandHandler {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `*Error processing your request: ${error.message}*`,
+        lang: params.lang,
       });
 
       return {

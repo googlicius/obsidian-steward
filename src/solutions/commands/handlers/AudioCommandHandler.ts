@@ -43,6 +43,7 @@ export class AudioCommandHandler extends CommandHandler {
         newContent: extraction.explanation,
         role: 'Steward',
         includeHistory: false,
+        lang,
       });
 
       await this.renderer.addGeneratingIndicator(title, t('conversation.generatingAudio'));

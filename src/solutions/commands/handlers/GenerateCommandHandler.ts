@@ -12,7 +12,6 @@ import {
 } from 'src/lib/modelfusion/extractions';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { streamText } from 'ai';
-import { userLanguagePromptText } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
 import {
   ContentUpdateExtraction,
@@ -21,9 +20,9 @@ import {
 } from 'src/lib/modelfusion';
 import { MediaTools } from 'src/tools/mediaTools';
 import { LLMService } from 'src/services/LLMService';
-
-import type StewardPlugin from 'src/main';
 import { ConversationHistoryMessage } from 'src/types/types';
+import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
+import type StewardPlugin from 'src/main';
 
 const abortService = AbortService.getInstance();
 
@@ -97,6 +96,7 @@ export class GenerateCommandHandler extends CommandHandler {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `*No read content found*`,
+        lang,
       });
       return {
         status: CommandResultStatus.ERROR,
@@ -136,11 +136,13 @@ export class GenerateCommandHandler extends CommandHandler {
         path: title,
         newContent: extraction.explanation,
         includeHistory: false,
+        lang,
       });
 
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `*${t('common.lowConfidenceConfirmation')}*`,
+        lang,
       });
 
       return {
@@ -168,6 +170,7 @@ export class GenerateCommandHandler extends CommandHandler {
           path: title,
           newContent: extraction.explanation,
           includeHistory: false,
+          lang,
         });
 
         // Store the content update extraction as an artifact
@@ -186,6 +189,7 @@ export class GenerateCommandHandler extends CommandHandler {
             })}*`,
             command: 'generate',
             role: 'System',
+            lang,
           });
         }
 
@@ -193,6 +197,7 @@ export class GenerateCommandHandler extends CommandHandler {
           await this.renderer.updateConversationNote({
             path: title,
             newContent: this.renderer.formatCallout(update.updatedContent),
+            lang,
           });
         }
       } else {
@@ -211,6 +216,7 @@ export class GenerateCommandHandler extends CommandHandler {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `*Error generating content: ${error.message}*`,
+        lang,
       });
 
       return {
@@ -263,12 +269,14 @@ export class GenerateCommandHandler extends CommandHandler {
       newContent: extraction.explanation,
       role: 'Steward',
       includeHistory: false,
+      lang,
     });
 
     if (extraction.confidence < 0.7) {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `*${t('common.abortedByLowConfidence')}*`,
+        lang,
       });
       return;
     }
@@ -317,6 +325,7 @@ export class GenerateCommandHandler extends CommandHandler {
     await this.renderer.updateConversationNote({
       path: title,
       newContent: `*${t('generate.success', { noteName: extraction.noteName })}*`,
+      lang,
     });
 
     // Delete artifact
@@ -335,9 +344,9 @@ export class GenerateCommandHandler extends CommandHandler {
       abortSignal: abortService.createAbortController('generate'),
       system: `You are a helpful assistant that generates content for Obsidian notes. Generate detailed, well-structured content. Format the content in Markdown.
 The content should not include the big heading on the top.
-${userLanguagePromptText.content}
-${systemPrompts.join('\n')}`,
+${languageEnforcementFragment}`,
       messages: [
+        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         ...conversationHistory.slice(0, -1),
         {
           role: 'user',

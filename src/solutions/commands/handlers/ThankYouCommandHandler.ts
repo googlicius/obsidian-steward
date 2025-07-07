@@ -5,8 +5,9 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import type StewardPlugin from 'src/main';
 import { createTextStream } from 'src/utils/textStreamer';
+
+import type StewardPlugin from 'src/main';
 
 export class ThankYouCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {

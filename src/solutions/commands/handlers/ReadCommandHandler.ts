@@ -37,12 +37,13 @@ export class ReadCommandHandler extends CommandHandler {
     params: CommandHandlerParams,
     options: { extraction?: ExtractReadContentResult; readEntireContent?: boolean } = {}
   ): Promise<CommandResult> {
-    const { title, command, nextCommand, lang } = params;
-    const t = getTranslation(lang);
+    const { title, command, nextCommand } = params;
 
     try {
       // Extract the reading instructions using LLM
       const extraction = options.extraction || (await extractReadContent(command));
+      const lang = extraction.toolCalls[0].args.lang || params.lang;
+      const t = getTranslation(lang);
 
       // Find all content reading tool calls
       const contentReadingToolCalls = extraction.toolCalls.filter(
@@ -56,6 +57,7 @@ export class ReadCommandHandler extends CommandHandler {
           role: 'Steward',
           command: 'read',
           includeHistory: false,
+          lang,
         });
 
         return {
@@ -74,6 +76,7 @@ export class ReadCommandHandler extends CommandHandler {
           newContent: t('read.readEntireContentConfirmation'),
           role: 'Steward',
           command: 'read',
+          lang,
         });
 
         return {
@@ -119,8 +122,10 @@ export class ReadCommandHandler extends CommandHandler {
       stewardReadMetadata = await this.renderer.updateConversationNote({
         path: title,
         newContent: readingResults[0].toolCall.args.explanation,
+        role: 'Steward',
         command: 'read',
         includeHistory: false,
+        lang,
       });
 
       // Check confidence for all tool calls

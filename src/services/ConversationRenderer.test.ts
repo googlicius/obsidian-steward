@@ -17,10 +17,92 @@ describe('ConversationRenderer', () => {
           read: jest.fn(),
           cachedRead: jest.fn(),
         },
+        metadataCache: {
+          getFileCache: jest.fn().mockReturnValue({}),
+        },
       },
     };
 
     conversationRenderer = new ConversationRenderer(mockPlugin);
+  });
+
+  describe('updatePropertyInContent', () => {
+    it('should update an existing property in frontmatter', () => {
+      const content = `---
+lang: en
+model: gpt-4
+---
+
+Some content here`;
+
+      const result = (conversationRenderer as any).updatePropertyInContent(content, 'lang', 'fr');
+
+      expect(result).toContain('lang: fr');
+      expect(result).toContain('model: gpt-4');
+      expect(result).toContain('Some content here');
+      expect(result).not.toContain('lang: en');
+    });
+
+    it('should add a new property to existing frontmatter', () => {
+      const content = `---
+model: gpt-4
+---
+
+Some content here`;
+
+      const result = (conversationRenderer as any).updatePropertyInContent(content, 'lang', 'fr');
+
+      expect(result).toContain('lang: fr');
+      expect(result).toContain('model: gpt-4');
+      expect(result).toContain('Some content here');
+    });
+
+    it('should create frontmatter if none exists', () => {
+      const content = 'Some content here without frontmatter';
+
+      const result = (conversationRenderer as any).updatePropertyInContent(content, 'lang', 'fr');
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should handle empty content', () => {
+      const content = '';
+
+      const result = (conversationRenderer as any).updatePropertyInContent(content, 'lang', 'fr');
+
+      expect(result).toEqual(`---
+lang: fr
+---
+
+`);
+    });
+
+    it('should preserve other content in frontmatter', () => {
+      const content = [
+        '---',
+        'model: gpt-4',
+        'tags: [note, important]',
+        'date: 2023-05-15',
+        '---',
+        '',
+        'Some content here',
+      ].join('\n');
+
+      const result = (conversationRenderer as any).updatePropertyInContent(content, 'lang', 'fr');
+
+      expect(result).toEqual(
+        [
+          '---',
+          'model: gpt-4',
+          'tags: [note, important]',
+          'date: 2023-05-15',
+          'lang: fr',
+          '---',
+          '',
+          'Some content here',
+        ].join('\n')
+      );
+    });
   });
 
   describe('extractConversationHistory', () => {
@@ -67,7 +149,7 @@ describe('ConversationRenderer', () => {
         ">Angular's light, bright. ==#angular==",
         '',
         '<!--STW ID:ghi789,ROLE:system,COMMAND:search-->',
-        '*Artifact search results is created*',
+        '**System:** *Artifact search results is created*',
         '',
         '<!--STW ID:ghi789,ROLE:user,COMMAND: -->',
         '##### **User:** How do I use Angular?',
@@ -184,6 +266,99 @@ describe('ConversationRenderer', () => {
 
       // Verify that only messages from the Angular topic are included
       expect(history).toMatchSnapshot();
+    });
+  });
+
+  describe('getConversationProperty', () => {
+    it('should get an existing property from frontmatter', async () => {
+      // Mock the file and metadataCache
+      const mockFile = {} as TFile;
+      mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(mockFile);
+      mockPlugin.app.metadataCache = {
+        getFileCache: jest.fn().mockReturnValue({
+          frontmatter: {
+            lang: 'fr',
+            model: 'gpt-4',
+          },
+        }),
+      };
+
+      const result = await conversationRenderer.getConversationProperty(
+        'test-conversation',
+        'lang'
+      );
+
+      expect(result).toBe('fr');
+    });
+
+    it('should return undefined for non-existent property', async () => {
+      // Mock the file and metadataCache
+      const mockFile = {} as TFile;
+      mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(mockFile);
+      mockPlugin.app.metadataCache = {
+        getFileCache: jest.fn().mockReturnValue({
+          frontmatter: {
+            model: 'gpt-4',
+          },
+        }),
+      };
+
+      const result = await conversationRenderer.getConversationProperty(
+        'test-conversation',
+        'lang'
+      );
+
+      expect(result).toBeUndefined();
+    });
+
+    it('should return undefined when no frontmatter exists', async () => {
+      // Mock the file and metadataCache
+      const mockFile = {} as TFile;
+      mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(mockFile);
+      mockPlugin.app.metadataCache = {
+        getFileCache: jest.fn().mockReturnValue({}),
+      };
+
+      const result = await conversationRenderer.getConversationProperty(
+        'test-conversation',
+        'lang'
+      );
+
+      expect(result).toBeUndefined();
+    });
+
+    it('should handle properties with complex values', async () => {
+      // Mock the file and metadataCache
+      const mockFile = {} as TFile;
+      mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(mockFile);
+      mockPlugin.app.metadataCache = {
+        getFileCache: jest.fn().mockReturnValue({
+          frontmatter: {
+            tags: ['note', 'important'],
+            date: '2023-05-15',
+            model: 'gpt-4',
+          },
+        }),
+      };
+
+      const result = await conversationRenderer.getConversationProperty(
+        'test-conversation',
+        'tags'
+      );
+
+      expect(result).toEqual(['note', 'important']);
+    });
+
+    it('should return undefined when file does not exist', async () => {
+      // Mock the file and vault methods
+      mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(null);
+
+      const result = await conversationRenderer.getConversationProperty(
+        'non-existent-conversation',
+        'lang'
+      );
+
+      expect(result).toBeUndefined();
     });
   });
 });

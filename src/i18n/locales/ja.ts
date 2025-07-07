@@ -159,7 +159,7 @@ const ja = {
     },
     // Conversation states
     conversation: {
-      workingOnIt: '処理中...',
+      orchestrating: '処理中...',
       generating: '生成中...',
       generatingImage: '画像を生成中...',
       generatingAudio: '音声を生成中...',

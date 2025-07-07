@@ -52,6 +52,7 @@ export class CopyCommandHandler extends CommandHandler {
           await this.renderer.updateConversationNote({
             path: title,
             newContent: `*${t('copy.noSearchResultsFoundAbortCopy')}*`,
+            lang,
           });
 
           return {
@@ -70,6 +71,7 @@ export class CopyCommandHandler extends CommandHandler {
           path: title,
           newContent: t('common.noRecentOperations'),
           role: 'Steward',
+          lang,
         });
 
         return {
@@ -90,6 +92,7 @@ export class CopyCommandHandler extends CommandHandler {
           path: title,
           newContent: t('common.cannotCopyThisType'),
           role: 'Steward',
+          lang,
         });
 
         return {
@@ -105,6 +108,7 @@ export class CopyCommandHandler extends CommandHandler {
           newContent: t('common.noFilesFound'),
           role: 'Steward',
           command: 'copy',
+          lang,
         });
 
         return {
@@ -138,6 +142,7 @@ export class CopyCommandHandler extends CommandHandler {
           path: title,
           newContent: message,
           role: 'Steward',
+          lang,
         });
 
         return {

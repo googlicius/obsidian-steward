@@ -91,11 +91,11 @@ export class GitEventHandler {
 
         // Store the commit hash in the conversation metadata
         if (payload.title) {
-          const messageMetadata = await this.renderer.findMostRecentMessageMetadata(
-            payload.title,
-            'move',
-            'steward'
-          );
+          const messageMetadata = await this.renderer.findMostRecentMessageMetadata({
+            conversationTitle: payload.title,
+            command: 'move',
+            role: 'steward',
+          });
 
           if (messageMetadata && messageMetadata.ID) {
             await this.addCommitHashToMetadata(payload.title, messageMetadata.ID, commitHash);
@@ -130,11 +130,11 @@ export class GitEventHandler {
     });
 
     if (commitHash && payload.title) {
-      const messageMetadata = await this.renderer.findMostRecentMessageMetadata(
-        payload.title,
-        'copy',
-        'steward'
-      );
+      const messageMetadata = await this.renderer.findMostRecentMessageMetadata({
+        conversationTitle: payload.title,
+        command: 'copy',
+        role: 'steward',
+      });
 
       if (messageMetadata?.ID) {
         await this.addCommitHashToMetadata(payload.title, messageMetadata.ID, commitHash);
@@ -162,11 +162,11 @@ export class GitEventHandler {
     });
 
     if (commitHash && payload.title) {
-      const messageMetadata = await this.renderer.findMostRecentMessageMetadata(
-        payload.title,
-        'delete',
-        'steward'
-      );
+      const messageMetadata = await this.renderer.findMostRecentMessageMetadata({
+        conversationTitle: payload.title,
+        command: 'delete',
+        role: 'steward',
+      });
 
       if (messageMetadata?.ID) {
         await this.addCommitHashToMetadata(payload.title, messageMetadata.ID, commitHash);

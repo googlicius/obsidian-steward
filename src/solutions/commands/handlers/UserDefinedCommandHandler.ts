@@ -5,6 +5,7 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
+
 import type StewardPlugin from 'src/main';
 import type { CommandProcessor } from '../CommandProcessor';
 
@@ -27,14 +28,14 @@ export class UserDefinedCommandHandler extends CommandHandler {
    */
   public async renderIndicator(title: string, lang?: string): Promise<void> {
     const t = getTranslation(lang);
-    await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
+    await this.renderer.addGeneratingIndicator(title, t('conversation.orchestrating'));
   }
 
   /**
    * Handle a user-defined command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command } = params;
+    const { title, command, lang } = params;
 
     try {
       let commandIntents;
@@ -74,12 +75,16 @@ export class UserDefinedCommandHandler extends CommandHandler {
         };
       }
 
+      if (commandIntents[0].model) {
+        await this.renderer.updateConversationProperty(title, 'model', commandIntents[0].model);
+      }
+
       // Process the expanded commands
       await this.commandProcessor.processCommands(
         {
           title,
           commands: commandIntents,
-          lang: params.lang,
+          lang,
         },
         { builtInCommandPrecedence: true }
       );

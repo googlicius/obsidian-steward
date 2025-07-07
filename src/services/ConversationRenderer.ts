@@ -2,6 +2,7 @@ import { TFile } from 'obsidian';
 import { uniqueID } from '../utils/uniqueID';
 import { getTranslation } from '../i18n';
 import { ConversationHistoryMessage, ConversationRole } from '../types/types';
+import { getObsidianLanguage } from '../utils/getObsidianLanguage';
 
 import type StewardPlugin from '../main';
 import { ArtifactType } from './ConversationArtifactManager';
@@ -59,7 +60,7 @@ export class ConversationRenderer {
         }
       }
     } catch (error) {
-      console.error('Error updating comment block:', error);
+      logger.error('Error updating comment block:', error);
       // Don't throw, as this is not a critical operation
     }
   }
@@ -81,6 +82,11 @@ export class ConversationRenderer {
      * If not provided, the history will be included by default.
      */
     includeHistory?: boolean;
+    /**
+     * The language of the conversation.
+     * If provided, it will be included in the conversation property.
+     */
+    lang?: string;
   }): Promise<string | undefined> {
     try {
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
@@ -93,6 +99,11 @@ export class ConversationRenderer {
       }
 
       let currentContent = await this.plugin.app.vault.read(file);
+
+      // Update language property in the frontmatter if provided
+      if (params.lang) {
+        currentContent = this.updatePropertyInContent(currentContent, 'lang', params.lang);
+      }
 
       // Remove the generating indicator and any trailing newlines
       currentContent = this.removeGeneratingIndicator(currentContent);
@@ -110,7 +121,7 @@ export class ConversationRenderer {
         includeHistory: params.includeHistory ?? true,
       });
 
-      // Update the note
+      // Update the note with both the language property and new content in a single operation
       const roleText = params.role ? `**${params.role}:** ` : '';
       await this.plugin.app.vault.modify(
         file,
@@ -120,7 +131,7 @@ export class ConversationRenderer {
       // Return the message ID for referencing
       return messageId;
     } catch (error) {
-      console.error('Error updating conversation note:', error);
+      logger.error('Error updating conversation note:', error);
       return undefined;
     }
   }
@@ -183,7 +194,7 @@ export class ConversationRenderer {
       // Return the message ID for referencing
       return messageId;
     } catch (error) {
-      console.error('Error streaming to conversation note:', error);
+      logger.error('Error streaming to conversation note:', error);
       return undefined;
     }
   }
@@ -234,7 +245,11 @@ export class ConversationRenderer {
     }
 
     if (command === 'more') {
-      const prevMoreMetadata = await this.findMostRecentMessageMetadata(title, command, 'steward');
+      const prevMoreMetadata = await this.findMostRecentMessageMetadata({
+        conversationTitle: title,
+        command,
+        role: 'steward',
+      });
       metadata.PAGE = prevMoreMetadata ? parseInt(prevMoreMetadata.PAGE) + 1 : 2;
     }
 
@@ -260,15 +275,15 @@ export class ConversationRenderer {
    * @param role The role to look for (user or steward)
    * @returns The message metadata, or null if not found
    */
-  public async findMostRecentMessageMetadata(
-    conversationTitle: string,
-    command: string,
-    role: string
-  ): Promise<Record<string, string> | null> {
+  public async findMostRecentMessageMetadata(params: {
+    conversationTitle: string;
+    command?: string;
+    role: string;
+  }): Promise<Record<string, string> | null> {
     try {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
-      const notePath = `${folderPath}/${conversationTitle}.md`;
+      const notePath = `${folderPath}/${params.conversationTitle}.md`;
       const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
 
       if (!file) {
@@ -279,8 +294,8 @@ export class ConversationRenderer {
       const content = await this.plugin.app.vault.cachedRead(file as TFile);
 
       // Prepare the regular expression pattern
-      const rolePattern = `,ROLE:${role.toLowerCase()}`;
-      const commandPattern = `,COMMAND:${command}`;
+      const rolePattern = `,ROLE:${params.role.toLowerCase()}`;
+      const commandPattern = params.command ? `,COMMAND:${params.command}` : '';
 
       // Find all matching comment blocks
       const commentBlockRegex = new RegExp(
@@ -305,14 +320,12 @@ export class ConversationRenderer {
           metadataObject[key] = value;
         }
 
-        console.log('metadataObject', metadataObject);
-
         return metadataObject;
       }
 
       return null;
     } catch (error) {
-      console.error('Error finding message:', error);
+      logger.error('Error finding message:', error);
       return null;
     }
   }
@@ -381,8 +394,19 @@ export class ConversationRenderer {
       // Get translation function with the appropriate language
       const t = getTranslation(language);
 
+      // Get the current model from settings
+      const currentModel = this.plugin.settings.llm.model;
+
+      // Get the current language from settings
+      const currentLanguage = language || getObsidianLanguage();
+
+      // Create YAML frontmatter with model and language
+      const frontmatter = `---\nmodel: ${currentModel}\nlang: ${currentLanguage}\n---\n\n`;
+
       // Build initial content based on command type
-      let initialContent = `<!--STW ID:${messageId},ROLE:user,COMMAND:${commandType}-->\n##### **User:** /${commandType.trim()} ${content}\n\n`;
+      let initialContent =
+        frontmatter +
+        `<!--STW ID:${messageId},ROLE:user,COMMAND:${commandType}-->\n##### **User:** /${commandType.trim()} ${content}\n\n`;
 
       switch (commandType) {
         case 'move':
@@ -428,14 +452,14 @@ export class ConversationRenderer {
 
         case ' ':
         default:
-          initialContent += `*${t('conversation.generating')}*`;
+          initialContent += `*${t('conversation.orchestrating')}*`;
           break;
       }
 
       // Create the conversation note
       await this.plugin.app.vault.create(notePath, initialContent);
     } catch (error) {
-      console.error('Error creating conversation note:', error);
+      logger.error('Error creating conversation note:', error);
       throw error;
     }
   }
@@ -487,7 +511,7 @@ export class ConversationRenderer {
 
       return null;
     } catch (error) {
-      console.error('Error finding message metadata by ID:', error);
+      logger.error('Error finding message metadata by ID:', error);
       return null;
     }
   }
@@ -543,7 +567,7 @@ export class ConversationRenderer {
 
       return false;
     } catch (error) {
-      console.error('Error updating message metadata:', error);
+      logger.error('Error updating message metadata:', error);
       return false;
     }
   }
@@ -603,7 +627,7 @@ export class ConversationRenderer {
       const metadataRegex = /<!--STW (.*?)-->/gi;
       const matches = Array.from(content.matchAll(metadataRegex));
 
-      const messages: Array<ConversationHistoryMessage & { command: string }> = [];
+      const messages: Array<ConversationHistoryMessage & { command: string; lang?: string }> = [];
 
       // Process each message block
       for (let i = 0; i < matches.length; i++) {
@@ -641,14 +665,9 @@ export class ConversationRenderer {
 
         // Clean up the content based on role
         if (metadata.ROLE === 'user') {
-          // Remove user role prefix and formatting, but keep command prefix
+          // Remove user role prefix and formatting
           messageContent = messageContent.replace(/^##### \*\*User:\*\* /m, '');
-          messageContent = messageContent.replace(/\*\*User:\*\* /g, '');
         } else if (metadata.ROLE === 'steward') {
-          // Remove steward role prefix and formatting
-          messageContent = messageContent.replace(/^##### \*\*Steward:\*\* /m, '');
-          messageContent = messageContent.replace(/\*\*Steward:\*\* /g, '');
-
           // Special handling for search results
           if (metadata.COMMAND === 'search') {
             // Extract file paths from search results
@@ -669,6 +688,9 @@ export class ConversationRenderer {
           }
         }
 
+        // Remove any role name with the syntax **Role:**
+        messageContent = messageContent.replace(/\*\*(User|Steward|System):\*\* /g, '');
+
         // Remove separator lines
         messageContent = messageContent.replace(/^---$/gm, '');
 
@@ -682,10 +704,10 @@ export class ConversationRenderer {
           role: role as ConversationRole,
           content: messageContent.trim(),
           command: metadata.COMMAND || '',
+          lang: metadata.LANG,
         });
       }
 
-      // Find the index of the most recent topic change
       const continuationCommands = [' ', 'confirm', 'thank_you'];
       let topicStartIndex = 0;
 
@@ -702,7 +724,6 @@ export class ConversationRenderer {
       // Get messages from the latest topic
       const topicMessages = messages.slice(topicStartIndex);
 
-      // Return the messages without the command property
       return topicMessages.slice(-maxMessages).map(({ role, content }) => ({
         role,
         content,
@@ -710,6 +731,110 @@ export class ConversationRenderer {
     } catch (error) {
       logger.error('Error extracting conversation history:', error);
       return [];
+    }
+  }
+
+  /**
+   * Gets a property from the conversation's YAML frontmatter
+   * @param conversationTitle The title of the conversation
+   * @param property The property name to retrieve
+   * @returns The property value or undefined if not found
+   */
+  public async getConversationProperty(
+    conversationTitle: string,
+    property: string
+  ): Promise<unknown | undefined> {
+    try {
+      // Get the conversation file
+      const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+      const notePath = `${folderPath}/${conversationTitle}.md`;
+      const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
+
+      if (!file) {
+        throw new Error(`Note not found: ${notePath}`);
+      }
+
+      // Get the file's metadata cache
+      const fileCache = this.plugin.app.metadataCache.getFileCache(file);
+
+      // Check if the file has frontmatter
+      if (!fileCache || !fileCache.frontmatter) {
+        return undefined;
+      }
+
+      return fileCache.frontmatter[property];
+    } catch (error) {
+      logger.error(`Error getting conversation property ${property}:`, error);
+      return undefined;
+    }
+  }
+
+  /**
+   * Updates a property in the given content's YAML frontmatter
+   * @param content The content to update
+   * @param property The property name to update
+   * @param value The new value for the property
+   * @returns The updated content
+   */
+  private updatePropertyInContent(content: string, property: string, value: string): string {
+    // Check for YAML frontmatter
+    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+
+    if (frontmatterMatch) {
+      // Update existing frontmatter
+      const frontmatter = frontmatterMatch[1];
+      const propertyRegex = new RegExp(`(${property}:\\s*)(.+)`, 'i');
+
+      if (propertyRegex.test(frontmatter)) {
+        // Update existing property
+        const updatedFrontmatter = frontmatter.replace(propertyRegex, `$1${value}`);
+        return content.replace(frontmatterMatch[0], `---\n${updatedFrontmatter}\n---`);
+      } else {
+        // Add new property to existing frontmatter
+        const updatedFrontmatter = `${frontmatter}\n${property}: ${value}`;
+        return content.replace(frontmatterMatch[0], `---\n${updatedFrontmatter}\n---`);
+      }
+    } else {
+      // Add new frontmatter if it doesn't exist
+      const newFrontmatter = `---\n${property}: ${value}\n---\n\n`;
+      return newFrontmatter + content;
+    }
+  }
+
+  /**
+   * Updates a property in the conversation's YAML frontmatter
+   * @param conversationTitle The title of the conversation
+   * @param property The property name to update
+   * @param value The new value for the property
+   * @returns True if successful, false otherwise
+   */
+  public async updateConversationProperty(
+    conversationTitle: string,
+    property: string,
+    value: string
+  ): Promise<boolean> {
+    try {
+      // Get the conversation file
+      const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+      const notePath = `${folderPath}/${conversationTitle}.md`;
+      const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
+
+      if (!file) {
+        throw new Error(`Note not found: ${notePath}`);
+      }
+
+      // Read the content
+      let content = await this.plugin.app.vault.read(file);
+
+      // Update the property in the content
+      content = this.updatePropertyInContent(content, property, value);
+
+      // Update the file
+      await this.plugin.app.vault.modify(file, content);
+      return true;
+    } catch (error) {
+      logger.error(`Error updating conversation property ${property}:`, error);
+      return false;
     }
   }
 }

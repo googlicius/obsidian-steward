@@ -28,11 +28,11 @@ export class MoreCommandHandler extends CommandHandler {
 
     try {
       // Find the most recent search message metadata
-      const stewardSearchMetadata = await this.renderer.findMostRecentMessageMetadata(
-        title,
-        'search',
-        'steward'
-      );
+      const stewardSearchMetadata = await this.renderer.findMostRecentMessageMetadata({
+        conversationTitle: title,
+        command: 'search',
+        role: 'steward',
+      });
 
       if (!stewardSearchMetadata) {
         await this.renderer.updateConversationNote({
@@ -49,11 +49,11 @@ export class MoreCommandHandler extends CommandHandler {
 
       // Find if there were previous "more" commands to determine the page number
       const moreCommandMetadata =
-        await this.plugin.conversationRenderer.findMostRecentMessageMetadata(
-          title,
-          'more',
-          'steward'
-        );
+        await this.plugin.conversationRenderer.findMostRecentMessageMetadata({
+          conversationTitle: title,
+          command: 'more',
+          role: 'steward',
+        });
 
       // Default to page 2 if this is the first "more" command
       const page = moreCommandMetadata ? parseInt(moreCommandMetadata.PAGE) + 1 : 2;

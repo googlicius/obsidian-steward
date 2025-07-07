@@ -1,1 +1,5 @@
-export const contentUpdatePrompt = `You are a helpful assistant that updates one or more provided-contents in an Obsidian note.`;
+import { languageEnforcementFragment } from './fragments';
+
+export const contentUpdatePrompt = `You are a helpful assistant that updates one or more provided-contents in an Obsidian note.
+
+${languageEnforcementFragment}`;

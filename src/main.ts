@@ -384,6 +384,11 @@ export default class StewardPlugin extends Plugin {
             },
           });
 
+          const lang = (await this.conversationRenderer.getConversationProperty(
+            conversationLink,
+            'lang'
+          )) as string;
+
           // Emit the conversation note updated event
           eventEmitter.emit(Events.CONVERSATION_COMMAND_RECEIVED, {
             title: conversationLink,
@@ -393,7 +398,7 @@ export default class StewardPlugin extends Plugin {
                 content: commandContent,
               },
             ],
-            // We don't know the language here, so we'll rely on automatic detection
+            lang,
           });
 
           return true;

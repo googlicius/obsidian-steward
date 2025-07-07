@@ -172,7 +172,7 @@ const en = {
     },
     // Conversation states
     conversation: {
-      workingOnIt: 'Working on it...',
+      orchestrating: 'Orchestrating...',
       generating: 'Generating...',
       generatingImage: 'Generating image...',
       generatingAudio: 'Generating audio...',
