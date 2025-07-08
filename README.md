@@ -144,11 +144,11 @@ You can ask Steward to help create user-defined commands using natural language,
 
 #### User-Defined command creation with LLM helps:
 
-<img src="/assets/User-Defined-command-creation.gif.gif" alt="User-Defined command creation" width="80%">
+<img src="/assets/User-Defined-command-creation.gif" alt="User-Defined command creation">
 
 #### Another Real-World User-Defined command:
 
-<img src="/assets/Flashcard-Assist-command.gif" alt="Flashcard Assist" width="80%">
+<img src="/assets/Flashcard-Assist-command.gif" alt="Flashcard Assist">
 
 ## Installation
 
