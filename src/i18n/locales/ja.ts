@@ -148,6 +148,7 @@ const ja = {
       noContentFound: 'エディタにそのような内容が見つかりませんでした。',
       readEntireContentConfirmation:
         'このノートの内容をすべて読み込もうとしています。続行しますか？',
+      unableToReadContent: '内容を読み込めませんでした。',
     },
     // Thank you responses
     thankYou: {

@@ -24,7 +24,7 @@ import {
   STW_CONVERSATION_VIEW_CONFIG,
 } from './constants';
 import { StewardConversationView } from './views/StewardConversationView';
-import { Events } from './types/events';
+import { ConversationNoteCreatedPayload, Events } from './types/events';
 import { createStewardConversationProcessor } from './cm/post-processors/StewardConversationProcessor';
 import { ObsidianEditor } from './types/types';
 import { isConversationLink, extractConversationTitle } from './utils/conversationUtils';
@@ -644,42 +644,28 @@ export default class StewardPlugin extends Plugin {
 
   /**
    * Inserts a conversation link into the editor
-   * @param view - The editor view
-   * @param from - The start position of the link
-   * @param to - The end position of the link
-   * @param title - The title of the conversation
-   * @param commandType - The type of command
-   * @param commandContent - The content of the command
-   * @param lang - Optional language code for the response
    */
-  insertConversationLink(
-    view: EditorView,
-    line: Line,
-    title: string,
-    commandType: string,
-    commandQuery: string,
-    lang?: string
-  ) {
-    const linkText = `![[${this.settings.stewardFolder}/Conversations/${title}]]\n\n`;
+  insertConversationLink(payload: ConversationNoteCreatedPayload) {
+    const linkText = `![[${this.settings.stewardFolder}/Conversations/${payload.title}]]\n\n`;
 
-    view.dispatch({
+    payload.view.dispatch({
       changes: {
-        from: line.from,
-        to: line.to,
+        from: payload.line.from,
+        to: payload.line.to,
         insert: linkText + '/ ',
       },
     });
 
     this.editor.setCursor({
-      line: line.number,
+      line: payload.line.number,
       ch: 3,
     });
 
     eventEmitter.emit(Events.CONVERSATION_LINK_INSERTED, {
-      title,
-      commandType,
-      commandQuery,
-      lang,
+      title: payload.title,
+      commandType: payload.commandType,
+      commandQuery: payload.commandQuery,
+      lang: payload.lang,
     });
   }
 

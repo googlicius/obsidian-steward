@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import { isConversationLink } from '../utils/conversationUtils';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
 import { MediaTools } from 'src/tools/mediaTools';
+import { ContentReadingArgs } from 'src/lib/modelfusion';
 
 import type StewardPlugin from '../main';
 
@@ -65,16 +66,7 @@ export class ContentReadingService {
    * @param args Content reading parameters
    * @returns The read blocks, or null if unable to read
    */
-  async readContent(args: {
-    readType: 'above' | 'below' | 'selected' | 'entire';
-    noteName: string | null;
-    blocksToRead: number;
-    elementType: string | null;
-    foundPlaceholder: string;
-    confidence: number;
-    explanation: string;
-    lang?: string | undefined;
-  }): Promise<ContentReadingResult | null> {
+  async readContent(args: ContentReadingArgs): Promise<ContentReadingResult | null> {
     // Get the file
     const file = args.noteName
       ? await MediaTools.getInstance(this.plugin.app).findFileByNameOrPath(args.noteName)

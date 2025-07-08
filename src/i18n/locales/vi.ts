@@ -147,6 +147,7 @@ const vi = {
       noContentFound: 'Không tìm thấy nội dung như vậy trong trình soạn thảo.',
       readEntireContentConfirmation:
         'Tôi đang đọc toàn bộ nội dung của ghi chú. Bạn có muốn tiếp tục không?',
+      unableToReadContent: 'Không thể đọc nội dung.',
     },
     thankYou: {
       response1: 'Không có gì! Rất vui khi được giúp bạn.',

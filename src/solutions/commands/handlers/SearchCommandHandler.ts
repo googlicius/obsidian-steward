@@ -17,11 +17,8 @@ import type StewardPlugin from 'src/main';
 export class SearchCommandHandler extends CommandHandler {
   isContentRequired = true;
 
-  private mediaTools: MediaTools;
-
   constructor(public readonly plugin: StewardPlugin) {
     super();
-    this.mediaTools = MediaTools.getInstance(plugin.app);
   }
 
   /**
@@ -149,7 +146,7 @@ export class SearchCommandHandler extends CommandHandler {
       response += `\n\n**${displayIndex}.** [[${result.path}]]\n`;
 
       // Get the file content directly
-      const file = await this.mediaTools.findFileByNameOrPath(result.path);
+      const file = await MediaTools.getInstance().findFileByNameOrPath(result.path);
 
       if (file && 'keywordsMatched' in result) {
         try {

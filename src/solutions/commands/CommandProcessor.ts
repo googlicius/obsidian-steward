@@ -149,6 +149,7 @@ export class CommandProcessor {
     }
 
     const { commands, currentIndex, payload } = pendingCommand;
+    const noteContentService = NoteContentService.getInstance(this.plugin.app);
 
     // Process commands sequentially from current index
     for (let i = currentIndex; i < commands.length; i++) {
@@ -159,7 +160,6 @@ export class CommandProcessor {
 
       // Process wikilinks in command.systemPrompts
       if (command.systemPrompts && command.systemPrompts.length > 0) {
-        const noteContentService = NoteContentService.getInstance(this.plugin.app);
         const processedPrompts = await Promise.all(
           command.systemPrompts.map(prompt => {
             return noteContentService.processWikilinksInContent(prompt, 2);

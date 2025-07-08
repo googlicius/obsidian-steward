@@ -31,8 +31,10 @@ const contentReadingSchema = z.object({
 - Otherwise, extract the number from the query if specified`),
   foundPlaceholder: z
     .string()
+    .nullable()
     .describe(
-      'A short text to indicate that the content was found. Put {{number}} as the number of blocks found.'
+      `A short text to indicate that the content was found. Put {{number}} as the number of blocks found.
+      If the readType is "entire", leave it null.`
     ),
   confidence: z.number().min(0).max(1).describe(confidenceFragment),
   explanation: z.string().describe(explanationFragment),
@@ -41,6 +43,8 @@ const contentReadingSchema = z.object({
     .optional()
     .describe(userLanguagePrompt.content as string),
 });
+
+export type ContentReadingArgs = z.infer<typeof contentReadingSchema>;
 
 export async function extractReadContent(command: CommandIntent) {
   const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);

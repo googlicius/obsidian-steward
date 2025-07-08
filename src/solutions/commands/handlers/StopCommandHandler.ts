@@ -14,11 +14,8 @@ import { delay } from 'src/utils/delay';
  * Handler for the stop command
  */
 export class StopCommandHandler extends CommandHandler {
-  private abortService: AbortService;
-
   constructor(public readonly plugin: StewardPlugin) {
     super();
-    this.abortService = AbortService.getInstance();
   }
 
   /**
@@ -29,9 +26,9 @@ export class StopCommandHandler extends CommandHandler {
     const t = getTranslation(lang);
 
     // Get the count of active operations before stopping
-    const activeOperationsCount = this.abortService.getActiveOperationsCount();
+    const activeOperationsCount = AbortService.getInstance().getActiveOperationsCount();
 
-    this.abortService.abortAllOperations();
+    AbortService.getInstance().abortAllOperations();
 
     // Log the action
     logger.log(`Stop command received - aborted all operations (${activeOperationsCount} active)`);

@@ -60,8 +60,11 @@ export class MediaTools {
    * @param app The Obsidian App instance
    * @returns MediaTools instance
    */
-  public static getInstance(app: App): MediaTools {
+  public static getInstance(app?: App): MediaTools {
     if (!MediaTools.instance) {
+      if (!app) {
+        throw new Error('App is required');
+      }
       MediaTools.instance = new MediaTools(app);
     }
     return MediaTools.instance;

@@ -7,7 +7,7 @@ import {
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { extractReadContent } from 'src/lib/modelfusion/extractions';
-import { ContentReadingService } from 'src/services/ContentReadingService';
+import { ContentReadingResult, ContentReadingService } from 'src/services/ContentReadingService';
 
 import type StewardPlugin from 'src/main';
 import type { CommandProcessor } from '../CommandProcessor';
@@ -35,7 +35,7 @@ export class ReadCommandHandler extends CommandHandler {
    */
   public async handle(
     params: CommandHandlerParams,
-    options: { extraction?: ExtractReadContentResult; readEntireContent?: boolean } = {}
+    options: { extraction?: ExtractReadContentResult; readEntireContentConfirmed?: boolean } = {}
   ): Promise<CommandResult> {
     const { title, command, nextCommand } = params;
 
@@ -72,7 +72,7 @@ export class ReadCommandHandler extends CommandHandler {
         toolCall => toolCall.args.readType === 'entire'
       );
 
-      if (hasEntireReadType && !options.readEntireContent) {
+      if (hasEntireReadType && !options.readEntireContentConfirmed) {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: t('read.readEntireContentConfirmation'),
@@ -84,13 +84,13 @@ export class ReadCommandHandler extends CommandHandler {
         return {
           status: CommandResultStatus.NEEDS_CONFIRMATION,
           onConfirmation: () => {
-            return this.handle(params, { extraction, readEntireContent: true });
+            return this.handle(params, { extraction, readEntireContentConfirmed: true });
           },
         };
       }
 
       // Process all tool calls
-      const readingResults = [];
+      const readingResults: ContentReadingResult[] = [];
       let stewardReadMetadata = null;
 
       for (const toolCall of contentReadingToolCalls) {
@@ -101,11 +101,18 @@ export class ReadCommandHandler extends CommandHandler {
           continue; // Skip this tool call if reading failed
         }
 
-        readingResults.push({
-          toolCall,
-          readingResult,
-        });
+        readingResults.push(readingResult);
       }
+
+      // Use the explanation from the first successful tool call
+      stewardReadMetadata = await this.renderer.updateConversationNote({
+        path: title,
+        newContent: contentReadingToolCalls[0].args.explanation,
+        role: 'Steward',
+        command: 'read',
+        includeHistory: false,
+        lang,
+      });
 
       if (readingResults.length === 0) {
         await this.renderer.updateConversationNote({
@@ -120,19 +127,9 @@ export class ReadCommandHandler extends CommandHandler {
         };
       }
 
-      // Use the explanation from the first successful tool call
-      stewardReadMetadata = await this.renderer.updateConversationNote({
-        path: title,
-        newContent: readingResults[0].toolCall.args.explanation,
-        role: 'Steward',
-        command: 'read',
-        includeHistory: false,
-        lang,
-      });
-
       // Check confidence for all tool calls
-      const lowConfidenceCall = readingResults.find(
-        result => result.toolCall.args.confidence <= 0.7
+      const lowConfidenceCall = contentReadingToolCalls.find(
+        result => result.args.confidence <= 0.7
       );
 
       if (lowConfidenceCall) {
@@ -144,8 +141,7 @@ export class ReadCommandHandler extends CommandHandler {
 
       // Check if any content was found
       const hasContent = readingResults.some(
-        result =>
-          result.readingResult.blocks.length > 0 && result.readingResult.elementType !== 'unknown'
+        result => result.blocks.length > 0 && result.elementType !== 'unknown'
       );
 
       if (!hasContent) {
@@ -161,24 +157,23 @@ export class ReadCommandHandler extends CommandHandler {
       }
 
       // Show the user the total number of blocks found across all tool calls
-      const totalBlocks = readingResults.reduce(
-        (total, result) => total + result.readingResult.blocks.length,
-        0
-      );
+      const totalBlocks = readingResults.reduce((total, result) => total + result.blocks.length, 0);
 
       // Use the placeholder from the first tool call
-      await this.renderer.updateConversationNote({
-        path: title,
-        newContent: readingResults[0].toolCall.args.foundPlaceholder.replace(
-          '{{number}}',
-          totalBlocks.toString()
-        ),
-      });
+      if (contentReadingToolCalls[0].args.foundPlaceholder) {
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: contentReadingToolCalls[0].args.foundPlaceholder.replace(
+            '{{number}}',
+            totalBlocks.toString()
+          ),
+        });
+      }
 
       // If there is no next command, show the read results
       if (!nextCommand) {
         for (const result of readingResults) {
-          for (const block of result.readingResult.blocks) {
+          for (const block of result.blocks) {
             const endLine = this.plugin.editor.getLine(block.endLine);
             await this.renderer.updateConversationNote({
               path: title,
@@ -187,7 +182,7 @@ export class ReadCommandHandler extends CommandHandler {
                 endLine: block.endLine,
                 start: 0,
                 end: endLine.length,
-                path: result.readingResult.file?.path,
+                path: result.file?.path,
               }),
             });
           }
@@ -199,7 +194,7 @@ export class ReadCommandHandler extends CommandHandler {
       if (stewardReadMetadata && readingResults.length > 0) {
         this.artifactManager.storeArtifact(title, stewardReadMetadata, {
           type: ArtifactType.READ_CONTENT,
-          readingResult: readingResults[0].readingResult,
+          readingResult: readingResults[0],
         });
         await this.renderer.updateConversationNote({
           path: title,
