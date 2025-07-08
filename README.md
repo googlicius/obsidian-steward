@@ -28,7 +28,7 @@ Steward can be used through the command palette directly in the editor or by ope
 
 The following diagram illustrates how commands are processed in Steward:
 
-![Command Flow](/assets/commands-flow.svg)
+<img src="/assets/commands-flow.svg" alt="Commands flow" width="50%">
 
 ### Usage
 
@@ -50,7 +50,7 @@ The following diagram illustrates how commands are processed in Steward:
 
 ### Update directly in the editor:
 
-<img src="/assets/Update-In-Editor.gif" alt="Update directly in the editor" width="80%">
+<img src="/assets/Update-In-Editor.gif" alt="Update directly in the editor" width="50%">
 
 ### Image read:
 
@@ -142,7 +142,7 @@ You can ask Steward to help create user-defined commands using natural language,
 3. Steward will create commands with the proper YAML structure for you
 4. Review, modify if needed, and save to your Commands folder
 
-![User-Defined command creation](/assets/User-Defined-command.gif)
+<img src="/assets/User-Defined-command.gif" alt="User-Defined command creation" width="80%">
 
 ## Installation
 
