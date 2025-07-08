@@ -50,7 +50,7 @@ The following diagram illustrates how commands are processed in Steward:
 
 ### Update directly in the editor:
 
-<img src="/assets/Update-In-Editor.gif" alt="Update directly in the editor" width="350px">
+<img src="/assets/Update-In-Editor.gif" alt="Update directly in the editor" width="400px">
 ### Image read:
 
 <img src="/assets/Image-Read.gif" alt="Image read" width="650px">
