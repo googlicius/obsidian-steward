@@ -46,6 +46,20 @@ The following diagram illustrates how commands are processed in Steward:
 - Create User-Defined commands
 - Provide feedback by clicking thumbs up or down on any Steward's answer to help it classify accurately #Todo.
 
+## Showcases
+
+### Update directly in the editor:
+
+<img src="/assets/Update-In-Editor.gif" alt="Update directly in the editor" width="80%">
+
+### Image read:
+
+<img src="/assets/Image-Read.gif" alt="Image read" width="80%">
+
+### Read and extract content in a note:
+
+<img src="/assets/React-code-extract.gif" alt="React code extract" width="80%">
+
 ## User-Defined Commands
 
 You can create your own **User-Defined Commands** to automate workflows and combine multiple built-in or other User-Defined commands into a single, reusable command.
@@ -118,12 +132,6 @@ When the command is executed:
   - If present, `query_required` must be a boolean
   - Each command step must have a `name` (string) and `query` (string)
 - If validation fails, the command will not be loaded and an error will be logged.
-
-### Why User-Defined Commands?
-
-- Automate repetitive tasks
-- Create macros for your workflow
-- Share and reuse command sequences
 
 ### Creating Commands with LLM Assistance
 
