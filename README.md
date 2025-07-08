@@ -50,14 +50,14 @@ The following diagram illustrates how commands are processed in Steward:
 
 ### Update directly in the editor:
 
-<img src="/assets/Update-In-Editor.gif" alt="Update directly in the editor" width="500px">
+<img src="/assets/Update-In-Editor.gif" alt="Update directly in the editor" width="350px">
 ### Image read:
 
-<img src="/assets/Image-Read.gif" alt="Image read" width="800px">
+<img src="/assets/Image-Read.gif" alt="Image read" width="650px">
 
 ### Read and extract content in a note:
 
-<img src="/assets/React-code-extract.gif" alt="React code extract" width="800px">
+<img src="/assets/React-code-extract.gif" alt="React code extract" width="650px">
 
 ## User-Defined Commands
 
@@ -143,11 +143,11 @@ You can ask Steward to help create user-defined commands using natural language,
 
 #### User-Defined command creation with LLM helps:
 
-<img src="/assets/User-Defined-command-creation.gif" alt="User-Defined command creation" width="800px">
+<img src="/assets/User-Defined-command-creation.gif" alt="User-Defined command creation" width="650px">
 
 #### Another Real-World User-Defined command:
 
-<img src="/assets/Flashcard-Assist-command.gif" alt="Flashcard Assist" width="800px">
+<img src="/assets/Flashcard-Assist-command.gif" alt="Flashcard Assist" width="650px">
 
 ## Installation
 
