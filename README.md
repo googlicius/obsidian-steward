@@ -142,7 +142,13 @@ You can ask Steward to help create user-defined commands using natural language,
 3. Steward will create commands with the proper YAML structure for you
 4. Review, modify if needed, and save to your Commands folder
 
+#### User-Defined command creation with LLM helps:
+
 <img src="/assets/User-Defined-command.gif" alt="User-Defined command creation" width="80%">
+
+#### Another Real-World User-Defined command:
+
+<img src="/assets/Flashcard-Assist-command.gif" alt="Flashcard Assist" width="80%">
 
 ## Installation
 
