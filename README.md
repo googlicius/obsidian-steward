@@ -144,7 +144,7 @@ You can ask Steward to help create user-defined commands using natural language,
 
 #### User-Defined command creation with LLM helps:
 
-<img src="/assets/User-Defined-command.gif" alt="User-Defined command creation" width="80%">
+<img src="/assets/User-Defined-command-creation.gif.gif" alt="User-Defined command creation" width="80%">
 
 #### Another Real-World User-Defined command:
 
