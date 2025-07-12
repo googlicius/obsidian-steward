@@ -24,12 +24,6 @@ This plugin is currently under active development. New features and improvements
 
 Steward can be used through the command palette directly in the editor or by opening the chat interface. Here are some example commands:
 
-### Command Flow Visualization
-
-The following diagram illustrates how commands are processed in Steward:
-
-<img src="/assets/commands-flow.svg" alt="Commands flow" width="600px">
-
 ### Usage
 
 - **/search** Notes tagged #Todo in the root folder
@@ -148,6 +142,12 @@ You can ask Steward to help create user-defined commands using natural language,
 #### Another Real-World User-Defined command:
 
 <img src="/assets/Flashcard-Assist-command.gif" alt="Flashcard Assist" width="650px">
+
+### Command Flow Visualization
+
+The following diagram illustrates how commands are processed in Steward:
+
+<img src="/assets/commands-flow.svg" alt="Commands flow" width="600px">
 
 ## Installation
 
