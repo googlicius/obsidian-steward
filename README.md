@@ -24,12 +24,6 @@ This plugin is currently under active development. New features and improvements
 
 Steward can be used through the command palette directly in the editor or by opening the chat interface. Here are some example commands:
 
-### Command Flow Visualization
-
-The following diagram illustrates how commands are processed in Steward:
-
-<img src="/assets/commands-flow.svg" alt="Commands flow" width="50%">
-
 ### Usage
 
 - **/search** Notes tagged #Todo in the root folder
@@ -50,15 +44,14 @@ The following diagram illustrates how commands are processed in Steward:
 
 ### Update directly in the editor:
 
-<img src="/assets/Update-In-Editor.gif" alt="Update directly in the editor" width="50%">
-
+<img src="/assets/Update-In-Editor.gif" alt="Update directly in the editor" width="400px">
 ### Image read:
 
-<img src="/assets/Image-Read.gif" alt="Image read" width="80%">
+<img src="/assets/Image-Read.gif" alt="Image read" width="650px">
 
 ### Read and extract content in a note:
 
-<img src="/assets/React-code-extract.gif" alt="React code extract" width="80%">
+<img src="/assets/React-code-extract.gif" alt="React code extract" width="650px">
 
 ## User-Defined Commands
 
@@ -144,11 +137,17 @@ You can ask Steward to help create user-defined commands using natural language,
 
 #### User-Defined command creation with LLM helps:
 
-<img src="/assets/User-Defined-command.gif" alt="User-Defined command creation" width="80%">
+<img src="/assets/User-Defined-command-creation.gif" alt="User-Defined command creation" width="650px">
 
 #### Another Real-World User-Defined command:
 
-<img src="/assets/Flashcard-Assist-command.gif" alt="Flashcard Assist" width="80%">
+<img src="/assets/Flashcard-Assist-command.gif" alt="Flashcard Assist" width="650px">
+
+### Command Flow Visualization
+
+The following diagram illustrates how commands are processed in Steward:
+
+<img src="/assets/commands-flow.svg" alt="Commands flow" width="600px">
 
 ## Installation
 
