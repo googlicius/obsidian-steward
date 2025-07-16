@@ -339,6 +339,19 @@ export class GenerateCommandHandler extends CommandHandler {
     const { query, systemPrompts = [], model } = command;
     const llmConfig = await LLMService.getInstance().getLLMConfig(model);
 
+    let prompt = query;
+
+    // For ongoing conversation, use the latest user message as the prompt
+    if (conversationHistory.length > 1) {
+      for (let i = 0; i < conversationHistory.length; i++) {
+        const message = conversationHistory[conversationHistory.length - i - 1];
+        if (message.role === 'user') {
+          prompt = message.content;
+          break;
+        }
+      }
+    }
+
     const { textStream } = streamText({
       ...llmConfig,
       abortSignal: abortService.createAbortController('generate'),
@@ -350,7 +363,7 @@ ${languageEnforcementFragment}`,
         ...conversationHistory.slice(0, -1),
         {
           role: 'user',
-          content: await prepareUserMessage(query, this.app),
+          content: await prepareUserMessage(prompt, this.app),
         },
       ],
     });

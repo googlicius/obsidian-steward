@@ -1,10 +1,11 @@
 import { generateObject } from 'ai';
 import { destinationFolderPrompt } from '../prompts/destinationFolderPrompt';
-import { userLanguagePromptText } from '../prompts/languagePrompt';
+import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
 import { CommandIntent } from './intentExtraction';
+import { confidenceFragment, explanationFragment } from '../prompts/fragments';
 
 const abortService = AbortService.getInstance();
 
@@ -18,12 +19,26 @@ export interface DestinationFolderExtraction {
   lang?: string;
 }
 
-// Define the Zod schema for destination folder extraction validation
-const destinationFolderSchema = z.object({
-  destinationFolder: z.string().min(1, 'Destination folder must be a non-empty string'),
-  explanation: z.string().min(1, 'Explanation must be a non-empty string'),
-  context: z.string().min(1, 'Context must be a non-empty string'),
-  lang: z.string().optional(),
+export const desFolderExtractionSchema = z.object({
+  destinationFolder: z.string().min(1, 'Destination folder must be a non-empty string')
+    .describe(`Where the notes should be moved or copied to.
+Should be a path within the Obsidian vault.
+Be precise about identifying the destination folder in the user's request.`),
+  context: z.string().min(1, 'Context must be a non-empty string')
+    .describe(`The origin of the notes.
+One of "artifact", "currentNote", or "<a note name>".
+If the user mentions "this note", use "currentNote".
+If the user specifies a note name, use that note name.
+Otherwise, use "artifact".`),
+  explanation: z
+    .string()
+    .min(1, 'Explanation must be a non-empty string')
+    .describe(explanationFragment),
+  confidence: z.number().min(0).max(1).describe(confidenceFragment),
+  lang: z
+    .string()
+    .optional()
+    .describe(userLanguagePrompt.content as string),
 });
 
 /**
@@ -40,7 +55,7 @@ export async function extractDestinationFolder(
     const { object } = await generateObject({
       ...llmConfig,
       abortSignal: abortService.createAbortController('destination-folder'),
-      system: `${destinationFolderPrompt.content}\n\n${userLanguagePromptText}`,
+      system: `${destinationFolderPrompt}`,
       messages: [
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         {
@@ -48,7 +63,7 @@ export async function extractDestinationFolder(
           content: query,
         },
       ],
-      schema: destinationFolderSchema,
+      schema: desFolderExtractionSchema,
     });
 
     return object;

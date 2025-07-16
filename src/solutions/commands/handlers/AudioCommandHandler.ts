@@ -7,6 +7,7 @@ import {
 import { getTranslation } from 'src/i18n';
 import { extractAudioQuery } from 'src/lib/modelfusion/extractions';
 import { MediaTools } from 'src/tools/mediaTools';
+import { ArtifactType } from 'src/services/ConversationArtifactManager';
 
 import type StewardPlugin from 'src/main';
 
@@ -59,11 +60,29 @@ export class AudioCommandHandler extends CommandHandler {
         voice: extraction.voice || this.plugin.settings.audio.voices[model],
       });
 
-      await this.renderer.updateConversationNote({
+      const messageId = await this.renderer.updateConversationNote({
         path: title,
         newContent: `\n![[${result.filePath}]]`,
         command: 'audio',
       });
+
+      // Store the media artifact
+      if (messageId && result.filePath) {
+        this.artifactManager.storeArtifact(title, messageId, {
+          type: ArtifactType.MEDIA_RESULTS,
+          paths: [result.filePath],
+          mediaType: 'audio',
+        });
+
+        // Add a System message with the artifact content
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
+          artifactContent: result.filePath,
+          role: 'System',
+          command: 'audio',
+        });
+      }
 
       return {
         status: CommandResultStatus.SUCCESS,

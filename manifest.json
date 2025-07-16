@@ -3,9 +3,9 @@
   "name": "Steward",
   "version": "1.0.0",
   "minAppVersion": "0.15.0",
-  "description": "A plugin for Obsidian that helps you manage your notes with AI.",
-  "author": "dang.nguyen",
+  "description": "Yet another AI-powered plugin for Obsidian that helps you with your notes: Fast search, flexible commands, and chat with LLMs",
+  "author": "Dang Nguyen",
   "authorUrl": "https://github.com/googlicius",
-  "fundingUrl": "",
+  "fundingUrl": "https://coff.ee/dang.nguyen",
   "isDesktopOnly": false
 }

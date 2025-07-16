@@ -5,20 +5,18 @@ import { logger } from 'src/utils/logger';
 export class NoteContentService {
   private static instance: NoteContentService;
 
-  constructor(private app: App) {}
+  private constructor(private app: App) {}
 
   /**
    * Get the singleton instance of the NoteContentService
    */
   public static getInstance(app?: App): NoteContentService {
+    if (app) {
+      NoteContentService.instance = new NoteContentService(app);
+      return NoteContentService.instance;
+    }
     if (!NoteContentService.instance) {
-      // If app is provided directly, create a minimal instance without the full plugin
-      if (app) {
-        const instance = new NoteContentService(app);
-        NoteContentService.instance = instance;
-      } else {
-        throw new Error('NoteContentService not initialized and no app provided');
-      }
+      throw new Error('NoteContentService not initialized');
     }
     return NoteContentService.instance;
   }

@@ -36,6 +36,8 @@
       For example: The LLM decide whether to use `generate` only or include the `update` command
 - [ ] Prevent duplicate note content between included content and read content
 - [ ] Let the LLM aware of artifacts for more transparency by providing a tool to read one or many artifacts if necessary.
+- [ ] Edit a message (Using linked list to store a multiple histories in a conversation)
+- [ ] Acknowledging the conversation history to the LLM while extract user's intent for better extraction.
 
 ### BUGS
 

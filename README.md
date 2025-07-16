@@ -45,6 +45,7 @@ Steward can be used through the command palette directly in the editor or by ope
 ### Update directly in the editor:
 
 <img src="/assets/Update-In-Editor.gif" alt="Update directly in the editor" width="400px">
+
 ### Image read:
 
 <img src="/assets/Image-Read.gif" alt="Image read" width="650px">
@@ -73,9 +74,8 @@ query_required: false
 model: gpt-4o # Optional: Specify a default model for all commands
 commands:
   - name: search
-    system_prompt:
-      - Notes in the root folder
-    query: Notes name start with Untitled
+    query: 'Notes name starts with Untitled or with tag #delete'
+
   - name: delete_from_artifact
     query: Delete them
     model: gpt-3.5-turbo # Optional: Override the model for this specific step
@@ -189,20 +189,11 @@ MIT
 ## TODOs
 
 - [ ] Multiple lines command.
-- [x] Moving notes to multiple destinations.
-- [x] Search in one or many specific folders.
 - [ ] Command options: `--help`, `--model`, `--explain`,...
-- [x] The reversion of command's actions.
 - [ ] Reminder.
 - [ ] Steward can provide information about its functionalities, limitations,...
 - [ ] Provide any information, usage, and guidance about Obsidian.
 - [ ] Autocompletion and automation.
-- [ ] Unused media actions: Move or remove.
-- [ ] Cache previous generated contents.
-- [x] Respect user's language.
 - [ ] User-defined commands and actions, for example: Don't do anything if not entering the correct password.
-- [x] User confirmation or clarify when the AI is unsure about its response.
-- [ ] User confirmation when the AI performs a large side effect action.
 - [ ] Traceability
 - [ ] MCP support.
-- [x] Remember user's intent.

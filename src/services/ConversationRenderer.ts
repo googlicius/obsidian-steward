@@ -73,6 +73,10 @@ export class ConversationRenderer {
     newContent: string;
     command?: string;
     /**
+     * The content of an artifact.
+     */
+    artifactContent?: string;
+    /**
      * The role of the message.
      * If not provided, the role will be Steward by default, but not displayed in the conversation
      */
@@ -121,12 +125,20 @@ export class ConversationRenderer {
         includeHistory: params.includeHistory ?? true,
       });
 
-      // Update the note with both the language property and new content in a single operation
+      // Prepare the content to be added
+      let contentToAdd = '';
       const roleText = params.role ? `**${params.role}:** ` : '';
-      await this.plugin.app.vault.modify(
-        file,
-        `${currentContent}\n\n${comment}\n${heading}${roleText}${params.newContent}`
-      );
+
+      // Add visible content first
+      contentToAdd += `${heading}${roleText}${params.newContent}`;
+
+      // Add hidden content after visible content if provided
+      if (params.artifactContent) {
+        contentToAdd += `\n\n\`\`\`stw-artifact\n${params.artifactContent}\n\`\`\``;
+      }
+
+      // Update the note with both the language property and new content in a single operation
+      await this.plugin.app.vault.modify(file, `${currentContent}\n\n${comment}\n${contentToAdd}`);
 
       // Return the message ID for referencing
       return messageId;
@@ -240,6 +252,10 @@ export class ConversationRenderer {
           break;
         case 'move':
           metadata.ARTIFACT_TYPE = ArtifactType.MOVE_RESULTS;
+          break;
+        case 'audio':
+        case 'image':
+          metadata.ARTIFACT_TYPE = ArtifactType.MEDIA_RESULTS;
           break;
       }
     }

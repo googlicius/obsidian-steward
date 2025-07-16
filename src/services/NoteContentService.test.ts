@@ -32,7 +32,7 @@ describe('NoteContentService', () => {
     } as unknown as TFile;
 
     // Create a new instance for each test with the mock app
-    noteContentService = new NoteContentService(mockApp);
+    noteContentService = NoteContentService.getInstance(mockApp);
   });
 
   describe('extractImageLinks', () => {

@@ -41,11 +41,12 @@ export class UserDefinedCommandService {
   }
 
   public static getInstance(plugin?: StewardPlugin): UserDefinedCommandService {
-    if (!UserDefinedCommandService.instance) {
-      if (!plugin) {
-        throw new Error('UserDefinedCommandService must be initialized with a plugin');
-      }
+    if (plugin) {
       UserDefinedCommandService.instance = new UserDefinedCommandService(plugin);
+      return UserDefinedCommandService.instance;
+    }
+    if (!UserDefinedCommandService.instance) {
+      throw new Error('UserDefinedCommandService must be initialized with a plugin');
     }
     return UserDefinedCommandService.instance;
   }

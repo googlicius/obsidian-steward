@@ -61,11 +61,12 @@ export class MediaTools {
    * @returns MediaTools instance
    */
   public static getInstance(app?: App): MediaTools {
-    if (!MediaTools.instance) {
-      if (!app) {
-        throw new Error('App is required');
-      }
+    if (app) {
       MediaTools.instance = new MediaTools(app);
+      return MediaTools.instance;
+    }
+    if (!MediaTools.instance) {
+      throw new Error('App is required');
     }
     return MediaTools.instance;
   }
@@ -128,12 +129,10 @@ export class MediaTools {
    */
   async generateMedia(options: MediaGenerationOptions): Promise<MediaGenerationResult> {
     try {
-      // Ensure media folder exists
       await this.ensureMediaFolderExists();
 
-      // Generate unique filename
       const timestamp = Date.now();
-      const filename = `${options.type}_${timestamp}`;
+      const filename = this.getMediaFilename(options, timestamp);
       const extension = this.getFileExtension(options);
 
       // Generate the media using the appropriate model
@@ -188,6 +187,23 @@ export class MediaTools {
       return options.format || 'mp3';
     }
     throw new Error(`Unsupported media type: ${options.type}`);
+  }
+
+  /**
+   * Generate a filename for the media file, including prompt if <= maxWords words
+   */
+  private getMediaFilename(
+    options: MediaGenerationOptions,
+    timestamp: number,
+    maxWords = 3
+  ): string {
+    if (options.prompt && options.prompt.trim().split(/\s+/).length <= maxWords) {
+      // Replace only special characters, preserving letters (including diacritics) and numbers
+      const sanitizedPrompt = options.prompt.replace(/[^\p{L}\p{N}]+/gu, '-');
+      return `${options.type}_${sanitizedPrompt}_${timestamp}`;
+    } else {
+      return `${options.type}_${timestamp}`;
+    }
   }
 
   /**

@@ -7,6 +7,7 @@ import {
 import { getTranslation } from 'src/i18n';
 import { extractImageQuery } from 'src/lib/modelfusion/extractions';
 import { MediaTools } from 'src/tools/mediaTools';
+import { ArtifactType } from 'src/services/ConversationArtifactManager';
 
 import type StewardPlugin from 'src/main';
 
@@ -62,12 +63,31 @@ export class ImageCommandHandler extends CommandHandler {
         quality: extraction.quality,
       });
 
-      await this.renderer.updateConversationNote({
+      const messageId = await this.renderer.updateConversationNote({
         path: title,
         newContent: `\n![[${result.filePath}]]`,
         command: 'image',
         lang,
       });
+
+      // Store the media artifact
+      if (messageId && result.filePath) {
+        this.artifactManager.storeArtifact(title, messageId, {
+          type: ArtifactType.MEDIA_RESULTS,
+          paths: [result.filePath],
+          mediaType: 'image',
+        });
+
+        // Add a System message with the artifact content
+        const t = getTranslation(lang);
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
+          artifactContent: result.filePath,
+          role: 'System',
+          command: 'image',
+        });
+      }
 
       return {
         status: CommandResultStatus.SUCCESS,

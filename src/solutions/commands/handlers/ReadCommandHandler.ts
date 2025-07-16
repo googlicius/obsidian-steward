@@ -91,7 +91,7 @@ export class ReadCommandHandler extends CommandHandler {
 
       // Process all tool calls
       const readingResults: ContentReadingResult[] = [];
-      let stewardReadMetadata = null;
+      let stewardMessageId = null;
 
       for (const toolCall of contentReadingToolCalls) {
         // Read the content from the editor
@@ -105,7 +105,7 @@ export class ReadCommandHandler extends CommandHandler {
       }
 
       // Use the explanation from the first successful tool call
-      stewardReadMetadata = await this.renderer.updateConversationNote({
+      stewardMessageId = await this.renderer.updateConversationNote({
         path: title,
         newContent: contentReadingToolCalls[0].args.explanation,
         role: 'Steward',
@@ -191,14 +191,15 @@ export class ReadCommandHandler extends CommandHandler {
 
       // Store the read content in the artifact manager - use the first result for now
       // This could be enhanced to store all results if needed
-      if (stewardReadMetadata && readingResults.length > 0) {
-        this.artifactManager.storeArtifact(title, stewardReadMetadata, {
+      if (stewardMessageId && readingResults.length > 0) {
+        this.artifactManager.storeArtifact(title, stewardMessageId, {
           type: ArtifactType.READ_CONTENT,
           readingResult: readingResults[0],
         });
         await this.renderer.updateConversationNote({
           path: title,
           newContent: `*${t('common.artifactCreated', { type: ArtifactType.READ_CONTENT })}*`,
+          artifactContent: readingResults[0].blocks.map(block => block.content).join('\n\n'),
           role: 'System',
           command: 'read',
         });

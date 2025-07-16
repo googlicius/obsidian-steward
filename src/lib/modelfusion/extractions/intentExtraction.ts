@@ -55,11 +55,10 @@ const validCommandTypes = [
 // Define the Zod schema for command intent
 const commandIntentSchema = z.object({
   commandType: z.enum(validCommandTypes).describe(`One of the available command types.`),
-  query: z
-    .string()
-    .describe(
-      `The specific user query for this command in the sequence. If the command is "read", keep the original user's query.`
-    ),
+  query: z.string().describe(
+    `The specific query for this command in the sequence.
+If the command is "read" or "create", then this is the original user's query.`
+  ),
 });
 
 // Define the Zod schema for command intent extraction
@@ -68,23 +67,24 @@ const commandIntentExtractionSchema = z.object({
     .describe(`An array of objects, each containing commandType and query.
 Analyze the query for multiple commands that should be executed in sequence.
 Each command in the sequence should have its own query that will be processed by specialized handlers.
-- If the user wants to:
-  - Search for notes (and doesn't mention existing search results), include "search"
-  - Move notes from the artifact, include "move_from_artifact"
-  - Delete notes from the artifact, include "delete_from_artifact"
-  - Copy notes from the artifact, include "copy_from_artifact"
-  - Update notes from the artifact, include "update_from_artifact"
-  - Close the conversation, include "close"
-  - Undo changes, include "revert"
-  - Generate an image, include "image"
-  - Generate audio, include "audio"
-  - Create a new note, include "create" command with query that clearly specifies the note name (e.g., "Note name: Hello Kitty")
-  - Generate content with the LLM help in a sub-prompt (either in a new note or the conversation), include "generate"
-  - Read or Find content based on a specific pattern in their current note, include "read"
-  - Ask something about the content of the current note, include "read" and "generate"
-  - Update something about the content of the current note, include "read", "generate" and "update_from_artifact"
-  - Generate or write something into a mentioned note, include "create" and "generate"
-  - If the "read" and "generate" are included, you must extract all the elements mentioned in the user's query in the "query" field of the "read" command`),
+If the user wants to:
+- Search for notes (and doesn't mention existing search results), include "search"
+- Move notes from the artifact, include "move_from_artifact"
+- Delete notes from the artifact, include "delete_from_artifact"
+- Copy notes from the artifact, include "copy_from_artifact"
+- Update notes from the artifact, include "update_from_artifact"
+- Close the conversation, include "close"
+- Undo changes, include "revert"
+- Generate an image, include "image"
+- Generate audio, include "audio"
+- Create a new note, include "create"
+- Generate content with the LLM help in a sub-prompt (either in a new note or the conversation), include "generate"
+- Read or Find content based on a specific pattern in their current note, include "read"
+- Ask something about the content of the current note, include "read" and "generate"
+- Update something about the content of the current note, include "read", "generate" and "update_from_artifact"
+Important Notes:
+- If the "read" and "generate" are included, you must extract all the elements mentioned in the user's query in the "query" field of the "read" command
+- If there is previous messages in the conversation, include "generate" command only`),
   explanation: z
     .string()
     .min(1, 'Explanation must be a non-empty string')
@@ -234,15 +234,24 @@ export async function extractCommandIntent(
     // Create an operation-specific abort signal
     const abortSignal = abortService.createAbortController('intent-extraction');
 
+    const systemPrompts = additionalSystemPrompts.map(content => ({
+      role: 'system' as const,
+      content,
+    }));
+
+    if (conversationHistory.length > 1) {
+      systemPrompts.push({
+        role: 'system',
+        content:
+          'There are previous messages in this conversation. Use this context for better intent extraction.',
+      });
+    }
+
     const { object } = await generateObject({
       ...llmConfig,
       abortSignal,
       system: commandIntentPrompt,
-      messages: [
-        ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
-        // ...conversationHistory.slice(0, -1),
-        { role: 'user', content: command.query },
-      ],
+      messages: [...systemPrompts, { role: 'user', content: command.query }],
       schema: commandIntentExtractionSchema,
     });
 

@@ -49,14 +49,15 @@ export class ContentReadingService {
     return this.plugin.editor;
   }
 
-  constructor(private plugin: StewardPlugin) {}
+  private constructor(private plugin: StewardPlugin) {}
 
   static getInstance(plugin?: StewardPlugin) {
-    if (!ContentReadingService.instance) {
-      if (!plugin) {
-        throw new Error('Plugin is not initialized');
-      }
+    if (plugin) {
       ContentReadingService.instance = new ContentReadingService(plugin);
+      return ContentReadingService.instance;
+    }
+    if (!ContentReadingService.instance) {
+      throw new Error('ContentReadingService is not initialized');
     }
     return ContentReadingService.instance;
   }

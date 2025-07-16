@@ -176,3 +176,8 @@ If your plugin does not need CSS, delete this file.
   color: var(--text-normal);
   background-color: inherit;
 }
+
+pre[class*='language-stw-artifact'],
+code[class*='language-stw-artifact'] {
+  display: none;
+}

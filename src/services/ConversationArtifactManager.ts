@@ -12,6 +12,7 @@ export enum ArtifactType {
   CREATED_NOTES = 'created_notes',
   READ_CONTENT = 'read_content',
   CONTENT_UPDATE = 'content_update',
+  MEDIA_RESULTS = 'media_results',
 }
 
 /**
@@ -56,17 +57,28 @@ export interface ContentUpdateArtifact extends BaseArtifact {
   updateExtraction: ContentUpdateExtraction;
 }
 
+/**
+ * Media results artifact
+ */
+export interface MediaResultsArtifact extends BaseArtifact {
+  type: ArtifactType.MEDIA_RESULTS;
+  paths: string[]; // Paths to the media files
+  mediaType?: 'audio' | 'image'; // Type of media
+}
+
 export type Artifact =
   | SearchResultsArtifact
   | CreatedNotesArtifact
   | ReadContentArtifact
-  | ContentUpdateArtifact;
+  | ContentUpdateArtifact
+  | MediaResultsArtifact;
 
 type ArtifactMap = {
   [ArtifactType.SEARCH_RESULTS]: SearchResultsArtifact;
   [ArtifactType.CREATED_NOTES]: CreatedNotesArtifact;
   [ArtifactType.READ_CONTENT]: ReadContentArtifact;
   [ArtifactType.CONTENT_UPDATE]: ContentUpdateArtifact;
+  [ArtifactType.MEDIA_RESULTS]: MediaResultsArtifact;
 };
 
 /**

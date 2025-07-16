@@ -174,6 +174,7 @@ export class CreateCommandHandler extends CommandHandler {
             newContent: `*${t('common.artifactCreated', {
               type: ArtifactType.CREATED_NOTES,
             })}*`,
+            artifactContent: createdNotes.join('\n\n'),
             command: 'create',
             role: 'System',
             lang,
