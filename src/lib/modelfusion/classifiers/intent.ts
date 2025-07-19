@@ -58,6 +58,19 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
         'thank you very much',
       ],
     },
+    {
+      name: 'help' as const,
+      values: [
+        'help',
+        'commands',
+        'list commands',
+        'show commands',
+        'available commands',
+        'what commands are available',
+        'what can you do',
+        '?',
+      ],
+    },
   ],
 
   prefixedClusterValue: [

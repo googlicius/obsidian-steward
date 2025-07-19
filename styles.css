@@ -30,10 +30,17 @@ If your plugin does not need CSS, delete this file.
   margin-left: 0;
 }
 
-.conversation-command-line {
+.conversation-command-line,
+.conversation-multiline-input {
   background-color: rgba(255, 255, 255, 0.1);
   padding-top: 5px !important;
   padding-bottom: 5px !important;
+}
+
+.conversation-multiline-end-marker {
+  color: var(--text-accent);
+  opacity: 0.7;
+  font-size: 0.85em;
 }
 
 /* Command Autocomplete styling */

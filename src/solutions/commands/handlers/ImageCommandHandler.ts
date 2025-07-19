@@ -34,6 +34,8 @@ export class ImageCommandHandler extends CommandHandler {
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
     const { title, command, lang } = params;
 
+    const t = getTranslation(lang);
+
     try {
       const extraction = await extractImageQuery(command);
 
@@ -47,10 +49,18 @@ export class ImageCommandHandler extends CommandHandler {
 
       // If the confidence is low, just return success
       if (extraction.confidence <= 0.7) {
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: t('common.abortedByLowConfidence'),
+          includeHistory: false,
+          lang,
+        });
         return {
           status: CommandResultStatus.SUCCESS,
         };
       }
+
+      await this.renderer.addGeneratingIndicator(title, t('conversation.generatingImage'));
 
       const model = extraction.model || 'dall-e-3';
 

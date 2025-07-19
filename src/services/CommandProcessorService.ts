@@ -19,6 +19,7 @@ import {
   ImageCommandHandler,
   UserDefinedCommandHandler,
   ThankYouCommandHandler,
+  HelpCommandHandler,
 } from '../solutions/commands/handlers';
 import { getTextContentWithoutImages } from 'src/lib/modelfusion/utils/userMessageUtils';
 
@@ -104,6 +105,10 @@ export class CommandProcessorService {
     const thankYouHandler = new ThankYouCommandHandler(this.plugin);
     this.commandProcessor.registerHandler('thank_you', thankYouHandler);
     this.commandProcessor.registerHandler('thanks', thankYouHandler);
+
+    // Register the help command handler
+    const helpHandler = new HelpCommandHandler(this.plugin);
+    this.commandProcessor.registerHandler('help', helpHandler);
 
     // Register the general command handler (space)
     const generalHandler = new GeneralCommandHandler(this.plugin, this.commandProcessor);

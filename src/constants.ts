@@ -27,10 +27,10 @@ export const COMMAND_PREFIXES = [
   '/image',
   '/audio',
   '/speak',
-  '/prompt',
   '/create',
   '/stop',
   '/abort',
+  '/help',
 ];
 
 export const DEFAULT_SETTINGS: StewardPluginSettings = {

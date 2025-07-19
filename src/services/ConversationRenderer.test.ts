@@ -23,7 +23,7 @@ describe('ConversationRenderer', () => {
       },
     };
 
-    conversationRenderer = new ConversationRenderer(mockPlugin);
+    conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
   });
 
   describe('updatePropertyInContent', () => {

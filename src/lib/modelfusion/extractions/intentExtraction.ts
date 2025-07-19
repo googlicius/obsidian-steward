@@ -50,6 +50,7 @@ const validCommandTypes = [
   'stop',
   'thank_you',
   'thanks',
+  'help',
 ] as const;
 
 // Define the Zod schema for command intent
@@ -82,6 +83,7 @@ If the user wants to:
 - Read or Find content based on a specific pattern in their current note, include "read"
 - Ask something about the content of the current note, include "read" and "generate"
 - Update something about the content of the current note, include "read", "generate" and "update_from_artifact"
+- Show the list of available commands, include "help"
 Important Notes:
 - If the "read" and "generate" are included, you must extract all the elements mentioned in the user's query in the "query" field of the "read" command
 - If there is previous messages in the conversation, include "generate" command only`),

@@ -29,15 +29,15 @@
 - [ ] The user can suggest their name or nickname to Steward to display it in the chat instead of "User"
 - [ ] Add read_history command when LLM wants to know more about the current context
 - [ ] Settings with the LLM helps: audio generation model, text generation model, names, and temperature
-- [ ] Remove MediaGenerationService
+- [x] Remove MediaGenerationService
 - [x] Send the provided images along with the text
 - [x] /create Help me create a user-defined command name Steward/Commands/Audio Command that override the built-in audio command with the ability to fix the typo automatically and use the correct typo version to generate audio. The guidance of fixing typo should be place under a heading section in the same note with the command definition, please refer to this [[User-Defined command guidelines]]
 - [ ] User-Defined Command: Provide tools so the LLM can decide which tool should it use to complete the task.
       For example: The LLM decide whether to use `generate` only or include the `update` command
 - [ ] Prevent duplicate note content between included content and read content
-- [ ] Let the LLM aware of artifacts for more transparency by providing a tool to read one or many artifacts if necessary.
+- [x] Let the LLM aware of artifacts for more transparency by providing a tool to read one or many artifacts if necessary.
 - [ ] Edit a message (Using linked list to store a multiple histories in a conversation)
-- [ ] Acknowledging the conversation history to the LLM while extract user's intent for better extraction.
+- [x] Acknowledging the conversation history to the LLM while extract user's intent for better extraction.
 
 ### BUGS
 

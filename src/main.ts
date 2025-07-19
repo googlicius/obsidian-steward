@@ -168,7 +168,7 @@ export default class StewardPlugin extends Plugin {
     this.userDefinedCommandService = UserDefinedCommandService.getInstance(this);
 
     // Initialize the ConversationRenderer
-    this.conversationRenderer = new ConversationRenderer(this);
+    this.conversationRenderer = ConversationRenderer.getInstance(this);
 
     // Initialize the ConversationArtifactManager
     this.artifactManager = ConversationArtifactManager.getInstance();

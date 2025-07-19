@@ -76,7 +76,9 @@ export class UserDefinedCommandHandler extends CommandHandler {
       }
 
       if (commandIntents[0].model) {
-        await this.renderer.updateConversationProperty(title, 'model', commandIntents[0].model);
+        await this.renderer.updateConversationFrontmatter(title, [
+          { name: 'model', value: commandIntents[0].model },
+        ]);
       }
 
       // Process the expanded commands

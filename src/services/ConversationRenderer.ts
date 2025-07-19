@@ -10,9 +10,21 @@ import { logger } from 'src/utils/logger';
 
 export class ConversationRenderer {
   private readonly plugin: StewardPlugin;
+  static instance: ConversationRenderer;
 
-  constructor(plugin: StewardPlugin) {
+  private constructor(plugin: StewardPlugin) {
     this.plugin = plugin;
+  }
+
+  static getInstance(plugin?: StewardPlugin): ConversationRenderer {
+    if (plugin) {
+      ConversationRenderer.instance = new ConversationRenderer(plugin);
+      return ConversationRenderer.instance;
+    }
+    if (!ConversationRenderer.instance) {
+      throw new Error('ConversationRenderer not initialized');
+    }
+    return ConversationRenderer.instance;
   }
 
   /**
@@ -820,14 +832,12 @@ export class ConversationRenderer {
   /**
    * Updates a property in the conversation's YAML frontmatter
    * @param conversationTitle The title of the conversation
-   * @param property The property name to update
-   * @param value The new value for the property
+   * @param properties The properties to update
    * @returns True if successful, false otherwise
    */
-  public async updateConversationProperty(
+  public async updateConversationFrontmatter(
     conversationTitle: string,
-    property: string,
-    value: string
+    properties: Array<{ name: string; value: string }>
   ): Promise<boolean> {
     try {
       // Get the conversation file
@@ -839,17 +849,15 @@ export class ConversationRenderer {
         throw new Error(`Note not found: ${notePath}`);
       }
 
-      // Read the content
-      let content = await this.plugin.app.vault.read(file);
+      await this.plugin.app.fileManager.processFrontMatter(file, frontmatter => {
+        for (const { name, value } of properties) {
+          frontmatter[name] = value;
+        }
+      });
 
-      // Update the property in the content
-      content = this.updatePropertyInContent(content, property, value);
-
-      // Update the file
-      await this.plugin.app.vault.modify(file, content);
       return true;
     } catch (error) {
-      logger.error(`Error updating conversation property ${property}:`, error);
+      logger.error(`Error updating conversation frontmatter:`, error);
       return false;
     }
   }

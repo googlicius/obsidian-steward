@@ -42,20 +42,7 @@ export function createCommandInputExtension(
   return [
     createInputExtension(commandPrefixes, options),
     createAutocompleteExtension(commandPrefixes, options),
-    // Add keymap with high precedence
-    Prec.high(
-      keymap.of([
-        {
-          key: 'Enter',
-          run: view => {
-            if (options.onEnter) {
-              return options.onEnter(view);
-            }
-            return false;
-          },
-        },
-      ])
-    ),
+    createCommandKeymapExtension(options),
   ];
 }
 
@@ -156,36 +143,40 @@ function createInputExtension(
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet;
+      extendedPrefixes: string[];
 
       constructor(view: EditorView) {
+        this.extendedPrefixes = this.buildExtendedPrefixes();
         this.decorations = this.buildDecorations(view);
+      }
+
+      private buildExtendedPrefixes() {
+        const extendedPrefixes = [...commandPrefixes];
+        const udcCommands = UserDefinedCommandService.getInstance().getCommandNames();
+        for (const cmd of udcCommands) {
+          extendedPrefixes.push('/' + cmd);
+        }
+        // Sort prefixes by length (longest first) to ensure we match the most specific command
+        extendedPrefixes.sort((a, b) => b.length - a.length);
+        return extendedPrefixes;
       }
 
       update(update: ViewUpdate) {
         if (update.docChanged || update.viewportChanged) {
+          if (update.viewportChanged) {
+            this.extendedPrefixes = this.buildExtendedPrefixes();
+          }
           this.decorations = this.buildDecorations(update.view);
         }
       }
 
-      buildDecorations(view: EditorView) {
+      private buildDecorations(view: EditorView) {
         const decorations = [];
         const { state } = view;
         const { doc } = state;
 
         // Get visible range instead of processing the entire document
         const { from, to } = view.viewport;
-
-        // Create an extended set of prefixes including custom commands
-        const extendedPrefixes = [...commandPrefixes];
-
-        // Add custom command prefixes if available
-        const customCommands = UserDefinedCommandService.getInstance().getCommandNames();
-        customCommands.forEach(cmd => {
-          extendedPrefixes.push('/' + cmd);
-        });
-
-        // Sort prefixes by length (longest first) to ensure we match the most specific command
-        extendedPrefixes.sort((a, b) => b.length - a.length);
 
         // Process only the visible lines
         let pos = from;
@@ -196,7 +187,7 @@ function createInputExtension(
           // Fast check for any command prefix
           if (lineText.startsWith('/')) {
             // Find the matching prefix (if any)
-            const matchedPrefix = extendedPrefixes.find(prefix => lineText.startsWith(prefix));
+            const matchedPrefix = this.extendedPrefixes.find(prefix => lineText.startsWith(prefix));
 
             if (matchedPrefix) {
               const from = line.from + lineText.indexOf(matchedPrefix);
@@ -324,4 +315,23 @@ function createAutocompleteExtension(
       },
     ],
   });
+}
+
+/**
+ * Add keymap with high precedence
+ */
+function createCommandKeymapExtension(options: CommandInputOptions = {}): Extension {
+  return Prec.high(
+    keymap.of([
+      {
+        key: 'Enter',
+        run: view => {
+          if (options.onEnter) {
+            return options.onEnter(view);
+          }
+          return false;
+        },
+      },
+    ])
+  );
 }
