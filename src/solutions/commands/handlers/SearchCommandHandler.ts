@@ -165,7 +165,7 @@ export class SearchCommandHandler extends CommandHandler {
             for (let i = 0; i < matchesToShow; i++) {
               // Format as a search-result callout with position data
               const match = highlightedMatches[i];
-              const callout = this.plugin.conversationRenderer.formatCallout(
+              const callout = this.plugin.noteContentService.formatCallout(
                 match.text,
                 'search-result',
                 {

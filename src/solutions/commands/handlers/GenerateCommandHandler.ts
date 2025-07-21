@@ -196,7 +196,7 @@ export class GenerateCommandHandler extends CommandHandler {
         for (const update of extraction.updates) {
           await this.renderer.updateConversationNote({
             path: title,
-            newContent: this.renderer.formatCallout(update.updatedContent),
+            newContent: this.plugin.noteContentService.formatCallout(update.updatedContent),
             lang,
           });
         }

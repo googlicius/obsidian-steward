@@ -25,6 +25,11 @@ export interface CommandInputOptions {
    * The callback function to call when Enter is pressed on a command line
    */
   onEnter?: (view: EditorView) => boolean;
+
+  /**
+   * The callback function to call when Shift+Enter is pressed on a command line
+   */
+  onShiftEnter?: (view: EditorView) => boolean;
 }
 
 /**
@@ -35,6 +40,64 @@ function hasCommandPlaceholder(line: Line, matchedPrefix: string): boolean {
   return command === 'general' ? line.text === matchedPrefix : line.text.trim() === matchedPrefix;
 }
 
+/**
+ * Checks if a line is a command line (starts with a command prefix)
+ */
+export function isCommandLine(line: Line, commandPrefixes: string[]): boolean {
+  return commandPrefixes.some(prefix => line.text.startsWith(prefix));
+}
+
+/**
+ * Checks if a line is a continuation line (starts with 2 spaces)
+ */
+export function isContinuationLine(line: Line): boolean {
+  return line.text.startsWith('  ') && !line.text.startsWith('   ');
+}
+
+/**
+ * Gets all lines that belong to a command block (command line + continuation lines)
+ */
+export function getCommandBlock(view: EditorView, line: Line, commandPrefixes: string[]): Line[] {
+  const { doc } = view.state;
+  const lines: Line[] = [line];
+
+  // If this is not a command line, return empty array
+  if (!isCommandLine(line, commandPrefixes)) {
+    return [];
+  }
+
+  // Check for continuation lines below
+  let nextLineNum = line.number + 1;
+  while (nextLineNum <= doc.lines) {
+    const nextLine = doc.line(nextLineNum);
+    if (isContinuationLine(nextLine)) {
+      lines.push(nextLine);
+      nextLineNum++;
+    } else {
+      break;
+    }
+  }
+
+  return lines;
+}
+
+/**
+ * Gets the combined content of a command block
+ */
+export function getCommandBlockContent(commandBlock: Line[]): string {
+  if (commandBlock.length === 0) return '';
+
+  // Get content from all lines, preserving the command prefix in the first line
+  let content = commandBlock[0].text;
+
+  // Add content from continuation lines (removing the 2-space prefix)
+  for (let i = 1; i < commandBlock.length; i++) {
+    content += '\n' + commandBlock[i].text.substring(2);
+  }
+
+  return content.trim();
+}
+
 export function createCommandInputExtension(
   commandPrefixes: string[],
   options: CommandInputOptions = {}
@@ -42,7 +105,7 @@ export function createCommandInputExtension(
   return [
     createInputExtension(commandPrefixes, options),
     createAutocompleteExtension(commandPrefixes, options),
-    createCommandKeymapExtension(options),
+    createCommandKeymapExtension(commandPrefixes, options),
   ];
 }
 
@@ -190,8 +253,8 @@ function createInputExtension(
             const matchedPrefix = this.extendedPrefixes.find(prefix => lineText.startsWith(prefix));
 
             if (matchedPrefix) {
-              const from = line.from + lineText.indexOf(matchedPrefix);
-              const to = from + matchedPrefix.length;
+              const prefixFrom = line.from + lineText.indexOf(matchedPrefix);
+              const prefixTo = prefixFrom + matchedPrefix.length;
 
               const command = matchedPrefix === '/ ' ? 'general' : matchedPrefix.replace('/', '');
               const hasPlaceholder = hasCommandPlaceholder(line, matchedPrefix);
@@ -206,8 +269,21 @@ function createInputExtension(
                   ...(hasPlaceholder && {
                     attributes: { 'has-placeholder': '1' },
                   }),
-                }).range(from, to)
+                }).range(prefixFrom, prefixTo)
               );
+
+              // Check for continuation lines
+              let nextLineNum = line.number + 1;
+              while (nextLineNum <= doc.lines) {
+                const nextLine = doc.line(nextLineNum);
+                if (isContinuationLine(nextLine)) {
+                  // Add decoration for continuation line
+                  decorations.push(commandInputLineDecor.range(nextLine.from));
+                  nextLineNum++;
+                } else {
+                  break;
+                }
+              }
             }
           }
 
@@ -320,7 +396,10 @@ function createAutocompleteExtension(
 /**
  * Add keymap with high precedence
  */
-function createCommandKeymapExtension(options: CommandInputOptions = {}): Extension {
+function createCommandKeymapExtension(
+  commandPrefixes: string[],
+  options: CommandInputOptions = {}
+): Extension {
   return Prec.high(
     keymap.of([
       {
@@ -329,6 +408,54 @@ function createCommandKeymapExtension(options: CommandInputOptions = {}): Extens
           if (options.onEnter) {
             return options.onEnter(view);
           }
+          return false;
+        },
+      },
+      {
+        key: 'Shift-Enter',
+        run: view => {
+          const { state } = view;
+          const { doc, selection } = state;
+          const pos = selection.main.head;
+          const line = doc.lineAt(pos);
+
+          // Check if current line is a command line or a continuation line
+          const extendedPrefixes = [...commandPrefixes];
+          const udcCommands = UserDefinedCommandService.getInstance().getCommandNames();
+          for (const cmd of udcCommands) {
+            extendedPrefixes.push('/' + cmd);
+          }
+
+          const isCommand = isCommandLine(line, extendedPrefixes);
+
+          if (isCommand) {
+            // Get the text before and after the cursor
+            const textBeforeCursor = line.text.substring(0, pos - line.from);
+            const textAfterCursor = line.text.substring(pos - line.from);
+
+            const TWO_SPACES_PREFIX = '  ';
+
+            // Create a transaction to:
+            // 1. Replace the current line with text before cursor
+            // 2. Insert a new line with indentation + text after cursor
+            view.dispatch({
+              changes: [
+                { from: line.from, to: line.to, insert: textBeforeCursor },
+                { from: line.to, to: line.to, insert: '\n' + TWO_SPACES_PREFIX + textAfterCursor },
+              ],
+              selection: {
+                anchor: line.from + textBeforeCursor.length + 3,
+              },
+            });
+
+            // If there's a custom handler, call it
+            if (options.onShiftEnter) {
+              return options.onShiftEnter(view);
+            }
+
+            return true;
+          }
+
           return false;
         },
       },

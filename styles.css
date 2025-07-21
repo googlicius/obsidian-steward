@@ -30,17 +30,10 @@ If your plugin does not need CSS, delete this file.
   margin-left: 0;
 }
 
-.conversation-command-line,
-.conversation-multiline-input {
+.conversation-command-line {
   background-color: rgba(255, 255, 255, 0.1);
-  padding-top: 5px !important;
-  padding-bottom: 5px !important;
-}
-
-.conversation-multiline-end-marker {
-  color: var(--text-accent);
-  opacity: 0.7;
-  font-size: 0.85em;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
 }
 
 /* Command Autocomplete styling */
@@ -104,6 +97,23 @@ If your plugin does not need CSS, delete this file.
 
 .callout[data-callout='search-result'] > .callout-title {
   display: none;
+}
+
+/* User message callout styling */
+.callout[data-callout='user-message'] {
+  --callout-color: var(--callout-quote);
+  margin-bottom: 10px !important;
+  margin-top: 10px !important;
+  padding-left: 0px;
+  font-weight: calc(var(--font-weight) + var(--bold-modifier));
+}
+
+.callout[data-callout='user-message'] > .callout-title {
+  display: none;
+}
+
+.callout[data-callout='user-message'] > .callout-content {
+  padding-left: 8px;
 }
 
 .workspace-leaf-content[data-type='steward-conversation'] .view-content {

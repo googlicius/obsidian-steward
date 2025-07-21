@@ -177,7 +177,8 @@ const en = {
         'Steward: Error building initial indexes. Check console for details.',
       decryptionError: 'Failed to decrypt API key. Please re-enter it in settings.',
       encryptionError: 'Failed to encrypt API key. Please try again.',
-      welcomeMessage: 'Welcome to your always-available Steward chat. Type below to interact.',
+      welcomeMessage:
+        'Welcome to your always-available Steward chat. Type below to interact or type `/ ?` to see available commands.',
       commandPlaceholder: 'Press Enter to send',
     },
     read: {

@@ -1,5 +1,3 @@
-import { EditorView } from '@codemirror/view';
-import { Line } from '@codemirror/state';
 import { CommandIntent } from '../lib/modelfusion/extractions';
 import { SearchQueryExtractionV2 } from '../lib/modelfusion';
 import { IndexedDocument } from '../database/SearchDatabase';
@@ -34,15 +32,6 @@ export enum ErrorEvents {
   MATH_PROCESSING_ERROR = 'MATH_PROCESSING_ERROR',
   LLM_ERROR = 'LLM_ERROR',
   GIT_ERROR = 'GIT_ERROR',
-}
-
-export interface ConversationNoteCreatedPayload {
-  view: EditorView;
-  line: Line;
-  title: string;
-  commandType: string;
-  commandQuery: string;
-  lang?: string;
 }
 
 export interface ConversationCommandReceivedPayload {
@@ -182,7 +171,6 @@ export interface UpdateOperationCompletedPayload {
 }
 
 export type EventPayloadMap = {
-  [Events.CONVERSATION_NOTE_CREATED]: ConversationNoteCreatedPayload;
   [Events.CONVERSATION_COMMAND_RECEIVED]: ConversationCommandReceivedPayload;
   [Events.LLM_RESPONSE_RECEIVED]: ResponseReadyPayload;
   [Events.RESPONSE_READY_TO_INSERT]: ResponseReadyPayload;

@@ -7,13 +7,16 @@ import { getObsidianLanguage } from '../utils/getObsidianLanguage';
 import type StewardPlugin from '../main';
 import { ArtifactType } from './ConversationArtifactManager';
 import { logger } from 'src/utils/logger';
+import { NoteContentService } from './NoteContentService';
 
 export class ConversationRenderer {
   private readonly plugin: StewardPlugin;
+  private readonly noteContentService: NoteContentService;
   static instance: ConversationRenderer;
 
   private constructor(plugin: StewardPlugin) {
     this.plugin = plugin;
+    this.noteContentService = NoteContentService.getInstance(plugin.app);
   }
 
   static getInstance(plugin?: StewardPlugin): ConversationRenderer {
@@ -123,13 +126,6 @@ export class ConversationRenderer {
 
       // Remove the generating indicator and any trailing newlines
       currentContent = this.removeGeneratingIndicator(currentContent);
-      let heading = '';
-
-      // Add a separator line if the role is User
-      if (params.role === 'User') {
-        currentContent = `${currentContent}\n\n---`;
-        heading = '##### ';
-      }
 
       const { messageId, comment } = await this.buildMessageMetadata(params.path, {
         role: params.role ?? 'Steward',
@@ -139,10 +135,19 @@ export class ConversationRenderer {
 
       // Prepare the content to be added
       let contentToAdd = '';
-      const roleText = params.role ? `**${params.role}:** ` : '';
 
-      // Add visible content first
-      contentToAdd += `${heading}${roleText}${params.newContent}`;
+      if (params.role === 'User') {
+        currentContent = `${currentContent}\n\n---`;
+        // Format user message as a callout
+        contentToAdd = this.noteContentService.formatCallout(
+          `**${params.role}:** ${params.newContent}`,
+          'user-message'
+        );
+      } else {
+        // For Steward or System messages, use the regular format
+        const roleText = params.role ? `**${params.role}:** ` : '';
+        contentToAdd = `${roleText}${params.newContent}`;
+      }
 
       // Add hidden content after visible content if provided
       if (params.artifactContent) {
@@ -431,10 +436,16 @@ export class ConversationRenderer {
       // Create YAML frontmatter with model and language
       const frontmatter = `---\nmodel: ${currentModel}\nlang: ${currentLanguage}\n---\n\n`;
 
+      // Format user message as a callout with the role text
+      const userMessage = this.noteContentService.formatCallout(
+        `**User:** /${commandType.trim()} ${content}`,
+        'user-message'
+      );
+
       // Build initial content based on command type
       let initialContent =
         frontmatter +
-        `<!--STW ID:${messageId},ROLE:user,COMMAND:${commandType}-->\n##### **User:** /${commandType.trim()} ${content}\n\n`;
+        `<!--STW ID:${messageId},ROLE:user,COMMAND:${commandType}-->\n${userMessage}\n\n`;
 
       switch (commandType) {
         case 'move':
@@ -601,34 +612,6 @@ export class ConversationRenderer {
   }
 
   /**
-   * Formats content as a callout block with the specified type and optional metadata
-   * @param content The content to format in a callout
-   * @param type The callout type (e.g., 'note', 'warning', 'info', 'search-result')
-   * @param metadata Optional metadata to include in the callout header
-   * @returns The formatted callout block
-   */
-  public formatCallout(
-    content: string,
-    type = 'search-result',
-    metadata?: { [key: string]: unknown }
-  ): string {
-    let metadataStr = '';
-
-    if (metadata && Object.keys(metadata).length > 0) {
-      metadataStr =
-        ' ' +
-        Object.entries(metadata)
-          .map(([key, value]) => `${key}:${value}`)
-          .join(',');
-    }
-
-    return `\n>[!${type}]${metadataStr}\n${content
-      .split('\n')
-      .map(item => '>' + item)
-      .join('\n')}\n\n`;
-  }
-
-  /**
    * Extracts conversation history from a conversation markdown file
    * @param conversationTitle The title of the conversation
    * @param maxMessages Maximum number of messages to include (default: 10)
@@ -693,8 +676,19 @@ export class ConversationRenderer {
 
         // Clean up the content based on role
         if (metadata.ROLE === 'user') {
-          // Remove user role prefix and formatting
-          messageContent = messageContent.replace(/^##### \*\*User:\*\* /m, '');
+          // Try to extract content from user-message callout
+          const calloutContent = this.noteContentService.extractCalloutContent(
+            messageContent,
+            'user-message'
+          );
+
+          if (calloutContent) {
+            // Remove the role text if present
+            messageContent = calloutContent.replace(/^\*\*User:\*\* /i, '');
+          } else {
+            // For backward compatibility, try the old heading format
+            messageContent = messageContent.replace(/^##### \*\*User:\*\* /m, '');
+          }
         } else if (metadata.ROLE === 'steward') {
           // Special handling for search results
           if (metadata.COMMAND === 'search') {

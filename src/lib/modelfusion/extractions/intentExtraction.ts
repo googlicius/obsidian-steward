@@ -107,6 +107,7 @@ If the confidence is low, include the commands that you are extracting in the ex
     .describe(
       `A template version of the query where specific elements (tags, keywords, filenames, folders) are replaced with generic placeholders (x, y, z, f). This helps identify similar query patterns for caching purposes.`
     ),
+  shortDescription: z.string().optional().describe(`A short description of the command intent.`),
 });
 
 export type CommandIntentExtraction = z.infer<typeof commandIntentExtractionSchema>;

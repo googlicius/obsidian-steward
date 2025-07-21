@@ -246,4 +246,84 @@ export class NoteContentService {
   private escapeRegExp(string: string): string {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
+
+  /**
+   * Formats content as a callout block with the specified type and optional metadata
+   * @param content The content to format in a callout
+   * @param type The callout type (e.g., 'note', 'warning', 'info', 'search-result')
+   * @param metadata Optional metadata to include in the callout header
+   * @returns The formatted callout block
+   */
+  public formatCallout(
+    content: string,
+    type = 'search-result',
+    metadata?: { [key: string]: unknown }
+  ): string {
+    let metadataStr = '';
+
+    if (metadata && Object.keys(metadata).length > 0) {
+      metadataStr =
+        ' ' +
+        Object.entries(metadata)
+          .map(([key, value]) => `${key}:${value}`)
+          .join(',');
+    }
+
+    return `\n>[!${type}]${metadataStr}\n${content
+      .split('\n')
+      .map(item => '>' + item)
+      .join('\n')}\n\n`;
+  }
+
+  /**
+   * Extracts content from a callout block
+   * @param content The markdown content containing the callout
+   * @param type The callout type to extract (e.g., 'user-message', 'search-result')
+   * @returns The extracted content without the callout syntax, or null if no matching callout is found
+   */
+  public extractCalloutContent(content: string, type: string): string | null {
+    try {
+      // First, find the callout header
+      const headerRegex = new RegExp(`\\>\\[!${type}\\](?:.*?)\\n`, 'i');
+      const headerMatch = content.match(headerRegex);
+
+      if (!headerMatch || headerMatch.index === undefined) {
+        return null;
+      }
+
+      // Get the position after the header
+      const contentStartPos = headerMatch.index + headerMatch[0].length;
+
+      // Find the end of the callout by looking for the first line that doesn't start with '>'
+      // or the end of the content
+      const lines = content.substring(contentStartPos).split('\n');
+      let endLine = 0;
+
+      for (let i = 0; i < lines.length; i++) {
+        if (!lines[i].startsWith('>') && lines[i].trim() !== '') {
+          endLine = i;
+          break;
+        }
+
+        // If we reach the end of the content, set endLine to the last line
+        if (i === lines.length - 1) {
+          endLine = i + 1;
+        }
+      }
+
+      // Extract the callout content
+      const calloutLines = lines.slice(0, endLine);
+
+      // Remove the '>' prefix from each line
+      const calloutContent = calloutLines
+        .map(line => (line.startsWith('>') ? line.substring(1) : line))
+        .join('\n')
+        .trim();
+
+      return calloutContent;
+    } catch (error) {
+      logger.error('Error extracting callout content:', error);
+      return null;
+    }
+  }
 }

@@ -8,17 +8,12 @@ import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { extractReadContent } from 'src/lib/modelfusion/extractions';
 import { ContentReadingResult, ContentReadingService } from 'src/services/ContentReadingService';
-
 import type StewardPlugin from 'src/main';
-import type { CommandProcessor } from '../CommandProcessor';
 
 type ExtractReadContentResult = Awaited<ReturnType<typeof extractReadContent>>;
 
 export class ReadCommandHandler extends CommandHandler {
-  constructor(
-    public readonly plugin: StewardPlugin,
-    public readonly commandProcessor: CommandProcessor
-  ) {
+  constructor(public readonly plugin: StewardPlugin) {
     super();
   }
 
@@ -35,7 +30,16 @@ export class ReadCommandHandler extends CommandHandler {
    */
   public async handle(
     params: CommandHandlerParams,
-    options: { extraction?: ExtractReadContentResult; readEntireContentConfirmed?: boolean } = {}
+    options: {
+      /**
+       * The extraction result from the LLM before confirmation
+       */
+      extraction?: ExtractReadContentResult;
+      /**
+       * Whether the user has confirmed reading the entire content
+       */
+      readEntireConfirmed?: boolean;
+    } = {}
   ): Promise<CommandResult> {
     const { title, command, nextCommand } = params;
 
@@ -72,7 +76,7 @@ export class ReadCommandHandler extends CommandHandler {
         toolCall => toolCall.args.readType === 'entire'
       );
 
-      if (hasEntireReadType && !options.readEntireContentConfirmed) {
+      if (hasEntireReadType && !options.readEntireConfirmed) {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: t('read.readEntireContentConfirmation'),
@@ -84,7 +88,7 @@ export class ReadCommandHandler extends CommandHandler {
         return {
           status: CommandResultStatus.NEEDS_CONFIRMATION,
           onConfirmation: () => {
-            return this.handle(params, { extraction, readEntireContentConfirmed: true });
+            return this.handle(params, { extraction, readEntireConfirmed: true });
           },
         };
       }
@@ -177,13 +181,17 @@ export class ReadCommandHandler extends CommandHandler {
             const endLine = this.plugin.editor.getLine(block.endLine);
             await this.renderer.updateConversationNote({
               path: title,
-              newContent: this.renderer.formatCallout(block.content, 'search-result', {
-                startLine: block.startLine,
-                endLine: block.endLine,
-                start: 0,
-                end: endLine.length,
-                path: result.file?.path,
-              }),
+              newContent: this.plugin.noteContentService.formatCallout(
+                block.content,
+                'search-result',
+                {
+                  startLine: block.startLine,
+                  endLine: block.endLine,
+                  start: 0,
+                  end: endLine.length,
+                  path: result.file?.path,
+                }
+              ),
             });
           }
         }

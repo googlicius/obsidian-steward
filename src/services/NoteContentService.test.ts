@@ -258,4 +258,143 @@ This is the conclusion.`;
       expect(result).toBeNull();
     });
   });
+
+  describe('extractCalloutContent', () => {
+    it('should extract content from a simple callout', () => {
+      const content = `
+Some text before the callout
+
+>[!user-message]
+>This is a user message
+>with multiple lines
+
+Some text after the callout
+`;
+
+      const result = noteContentService.extractCalloutContent(content, 'user-message');
+      expect(result).toBe('This is a user message\nwith multiple lines');
+    });
+
+    it('should extract content from a callout with metadata', () => {
+      const content = `
+>[!user-message] key:value,another:value
+>This is a user message
+>with metadata in the header
+`;
+
+      const result = noteContentService.extractCalloutContent(content, 'user-message');
+      expect(result).toBe('This is a user message\nwith metadata in the header');
+    });
+
+    it('should handle callouts with formatted content', () => {
+      const content = `
+>[!user-message]
+>**User:** This is a *formatted* message
+>with **bold** and *italic* text
+>and \`code\` blocks
+`;
+
+      const result = noteContentService.extractCalloutContent(content, 'user-message');
+      expect(result).toBe(
+        '**User:** This is a *formatted* message\nwith **bold** and *italic* text\nand `code` blocks'
+      );
+    });
+
+    it('should return null if no matching callout is found', () => {
+      const content = `
+>[!info]
+>This is an info callout, not a user-message
+`;
+
+      const result = noteContentService.extractCalloutContent(content, 'user-message');
+      expect(result).toBeNull();
+    });
+
+    it('should handle callouts at the start of content', () => {
+      const content = `>[!user-message]
+>This is at the start
+>of the content`;
+
+      const result = noteContentService.extractCalloutContent(content, 'user-message');
+      expect(result).toBe('This is at the start\nof the content');
+    });
+
+    it('should handle callouts at the end of content', () => {
+      const content = `Some text before
+
+>[!user-message]
+>This is at the end`;
+
+      const result = noteContentService.extractCalloutContent(content, 'user-message');
+      expect(result).toBe('This is at the end');
+    });
+
+    it('should handle empty callouts', () => {
+      const content = `>[!user-message]
+>`;
+
+      const result = noteContentService.extractCalloutContent(content, 'user-message');
+      expect(result).toBe('');
+    });
+
+    it('should handle callouts with code blocks', () => {
+      const content = `
+>[!user-message]
+>Here is some code:
+>
+>\`\`\`javascript
+>function hello() {
+>  console.log('Hello world');
+>}
+>\`\`\`
+>
+>And some text after the code block
+`;
+
+      const result = noteContentService.extractCalloutContent(content, 'user-message');
+      expect(result).toBe(
+        "Here is some code:\n\n```javascript\nfunction hello() {\n  console.log('Hello world');\n}\n```\n\nAnd some text after the code block"
+      );
+    });
+
+    it('should handle nested callouts', () => {
+      const content = `
+>[!user-message]
+>This is a user message with a nested callout:
+>
+>>[!info]
+>>This is a nested info callout
+>
+>And some text after the nested callout
+`;
+
+      const result = noteContentService.extractCalloutContent(content, 'user-message');
+      expect(result).toBe(
+        'This is a user message with a nested callout:\n\n>[!info]\n>This is a nested info callout\n\nAnd some text after the nested callout'
+      );
+    });
+
+    it('should handle callouts with special characters', () => {
+      const content = `
+>[!user-message]
+>This message has special characters: !@#$%^&*()_+{}|:"<>?~\`-=[]\\;',./
+>And emojis: 😀 🚀 💡 🔥
+`;
+
+      const result = noteContentService.extractCalloutContent(content, 'user-message');
+      expect(result).toBe(
+        'This message has special characters: !@#$%^&*()_+{}|:"<>?~`-=[]\\;\',./\nAnd emojis: 😀 🚀 💡 🔥'
+      );
+    });
+
+    it('should handle case insensitive callout types', () => {
+      const content = `
+>[!USER-MESSAGE]
+>This callout has uppercase type
+`;
+
+      const result = noteContentService.extractCalloutContent(content, 'user-message');
+      expect(result).toBe('This callout has uppercase type');
+    });
+  });
 });

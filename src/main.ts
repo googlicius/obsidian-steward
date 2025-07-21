@@ -2,7 +2,12 @@ import { Editor, Notice, Plugin, TFile, WorkspaceLeaf, addIcon } from 'obsidian'
 import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
-import { createCommandInputExtension } from './cm/extensions/CommandInputExtension';
+import {
+  createCommandInputExtension,
+  isContinuationLine,
+  getCommandBlockContent,
+  getCommandBlock,
+} from './cm/extensions/CommandInputExtension';
 import { createCalloutSearchResultPostProcessor } from './cm/post-processors/CalloutSearchResultPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
@@ -24,7 +29,7 @@ import {
   STW_CONVERSATION_VIEW_CONFIG,
 } from './constants';
 import { StewardConversationView } from './views/StewardConversationView';
-import { ConversationNoteCreatedPayload, Events } from './types/events';
+import { Events } from './types/events';
 import { createStewardConversationProcessor } from './cm/post-processors/StewardConversationProcessor';
 import { ObsidianEditor } from './types/types';
 import { isConversationLink, extractConversationTitle } from './utils/conversationUtils';
@@ -247,6 +252,7 @@ export default class StewardPlugin extends Plugin {
     this.registerEditorExtension([
       createCommandInputExtension(COMMAND_PREFIXES, {
         onEnter: this.handleEnter.bind(this),
+        onShiftEnter: () => true, // Just return true to allow default Shift+Enter behavior with indentation
       }),
     ]);
 
@@ -314,11 +320,52 @@ export default class StewardPlugin extends Plugin {
     const line = doc.lineAt(pos);
     const lineText = line.text;
 
+    // Check if this is a continuation line
+    if (isContinuationLine(line)) {
+      // Find the command line above
+      let currentLineNum = line.number;
+      let commandLine: Line | null = null;
+
+      // Search upwards for the command line
+      while (currentLineNum > 1) {
+        currentLineNum--;
+        const prevLine = doc.line(currentLineNum);
+
+        // If we find a non-continuation line that's not a command, break
+        if (!prevLine.text.startsWith('  ') && !prevLine.text.startsWith('/')) {
+          break;
+        }
+
+        // If we find a command line, use it
+        if (prevLine.text.startsWith('/')) {
+          commandLine = prevLine;
+          break;
+        }
+      }
+
+      // If we found a command line, process the entire block
+      if (commandLine) {
+        return this.processCommandBlock(view, commandLine);
+      }
+
+      return false;
+    }
+
     // Exit early if line doesn't start with '/'
     if (!lineText.startsWith('/')) {
       return false;
     }
 
+    return this.processCommandBlock(view, line);
+  }
+
+  /**
+   * Process a command block (command line + continuation lines)
+   * @param view - The editor view
+   * @param commandLine - The command line
+   * @returns True if the command was processed, false otherwise
+   */
+  private processCommandBlock(view: EditorView, commandLine: Line): boolean {
     // Create an extended set of prefixes including custom commands
     const extendedPrefixes = [...COMMAND_PREFIXES];
 
@@ -333,15 +380,18 @@ export default class StewardPlugin extends Plugin {
     // Sort prefixes by length (longest first) to ensure we match the most specific command
     extendedPrefixes.sort((a, b) => b.length - a.length);
 
+    // Collect all lines in the command block using getCommandBlock function
+    const commandBlock = getCommandBlock(view, commandLine, extendedPrefixes);
+
+    // Extract the command content using the getCommandBlockContent function
+    const fullCommandText = getCommandBlockContent(commandBlock);
+
     // Find the matching prefix (if any)
-    const matchedPrefix = extendedPrefixes.find(prefix => lineText.startsWith(prefix));
+    const matchedPrefix = extendedPrefixes.find(prefix => commandLine.text.startsWith(prefix));
 
     if (!matchedPrefix) {
       return false;
     }
-
-    // Extract the command content (everything after the prefix)
-    const commandQuery = lineText.trim().substring(matchedPrefix.length).trim();
 
     // Determine command type based on the prefix
     let commandType = matchedPrefix.substring(1); // Remove the / from the command
@@ -352,7 +402,9 @@ export default class StewardPlugin extends Plugin {
     }
 
     logger.log('Command type:', commandType === ' ' ? 'general' : commandType);
-    logger.log('Command query:', commandQuery);
+    logger.log('Command query:', fullCommandText);
+
+    const commandQuery = fullCommandText.substring(matchedPrefix.length).trim();
 
     if (!this.commandProcessorService.validateCommandContent(commandType, commandQuery)) {
       logger.log(`Command content is required for ${commandType} command`);
@@ -370,16 +422,17 @@ export default class StewardPlugin extends Plugin {
         if (this.app.vault.getAbstractFileByPath(notePath) && conversationLink) {
           await this.updateConversationNote({
             path: conversationLink,
-            newContent: lineText,
+            newContent: fullCommandText,
             role: 'User',
             command: commandType,
           });
 
-          // Insert a general command line
+          // Clear all lines in the command block
+          const lastLine = commandBlock[commandBlock.length - 1];
           view.dispatch({
             changes: {
-              from: line.from,
-              to: line.to,
+              from: commandLine.from,
+              to: lastLine.to,
               insert: '/ ',
             },
           });
@@ -411,18 +464,34 @@ export default class StewardPlugin extends Plugin {
 
         await this.conversationRenderer.createConversationNote(title, commandType, commandQuery);
 
-        // After the note is created, insert the link on the next tick
-        setTimeout(() => {
-          // Emit the conversation note created event
-          eventEmitter.emit(Events.CONVERSATION_NOTE_CREATED, {
-            view,
-            line,
-            title,
-            commandQuery,
-            commandType,
-            // We don't know the language here, so we'll rely on automatic detection
+        // Insert the conversation link directly here instead of using the event
+        const linkText = `![[${this.settings.stewardFolder}/Conversations/${title}]]\n\n`;
+
+        // Clear all lines in the command block and insert the link
+        const lastLine = commandBlock[commandBlock.length - 1];
+        view.dispatch({
+          changes: {
+            from: commandLine.from,
+            to: lastLine.to,
+            insert: linkText + '/ ',
+          },
+        });
+
+        // Set cursor position after the command prefix
+        if (this.editor) {
+          this.editor.setCursor({
+            line: commandLine.number,
+            ch: 3,
           });
-        }, 50);
+        }
+
+        // Emit the conversation link inserted event
+        eventEmitter.emit(Events.CONVERSATION_LINK_INSERTED, {
+          title,
+          commandType,
+          commandQuery,
+          // We don't know the language here, the extraction will update it later
+        });
 
         return true;
       } catch (error) {
@@ -640,33 +709,6 @@ export default class StewardPlugin extends Plugin {
     }
 
     return null;
-  }
-
-  /**
-   * Inserts a conversation link into the editor
-   */
-  insertConversationLink(payload: ConversationNoteCreatedPayload) {
-    const linkText = `![[${this.settings.stewardFolder}/Conversations/${payload.title}]]\n\n`;
-
-    payload.view.dispatch({
-      changes: {
-        from: payload.line.from,
-        to: payload.line.to,
-        insert: linkText + '/ ',
-      },
-    });
-
-    this.editor.setCursor({
-      line: payload.line.number,
-      ch: 3,
-    });
-
-    eventEmitter.emit(Events.CONVERSATION_LINK_INSERTED, {
-      title: payload.title,
-      commandType: payload.commandType,
-      commandQuery: payload.commandQuery,
-      lang: payload.lang,
-    });
   }
 
   /**

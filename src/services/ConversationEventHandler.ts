@@ -1,6 +1,5 @@
 import {
   Events,
-  ConversationNoteCreatedPayload,
   ConversationLinkInsertedPayload,
   ConversationCommandReceivedPayload,
 } from '../types/events';
@@ -9,7 +8,6 @@ import { TFile } from 'obsidian';
 import { createMockStreamResponse } from '../utils/textStreamer';
 import { STEWARD_INTRODUCTION } from '../constants';
 import i18next from 'i18next';
-
 import type StewardPlugin from '../main';
 import type { ConversationRenderer } from './ConversationRenderer';
 
@@ -32,22 +30,17 @@ export class ConversationEventHandler {
       // Listen for file modifications
       this.plugin.app.vault.on('modify', async file => {
         this.initializeChat(file as TFile);
-        this.initializeIntroduction(file as TFile);
+        // this.initializeIntroduction(file as TFile);
       })
     );
 
     this.plugin.registerEvent(
       // Listen for file creations
       this.plugin.app.vault.on('create', async file => {
-        this.initializeChat(file as TFile, true);
-        this.initializeIntroduction(file as TFile);
+        this.initializeChat(file as TFile);
+        // this.initializeIntroduction(file as TFile);
       })
     );
-
-    // Listen for new conversation notes
-    eventEmitter.on(Events.CONVERSATION_NOTE_CREATED, (payload: ConversationNoteCreatedPayload) => {
-      this.handleNewConversation(payload);
-    });
 
     // Listen for user commands in conversation
     eventEmitter.on(
@@ -70,7 +63,7 @@ export class ConversationEventHandler {
     //
   }
 
-  private async initializeChat(file: TFile, newlyCreated = false): Promise<void> {
+  private async initializeChat(file: TFile): Promise<void> {
     if (!file.name.startsWith('Steward Chat')) {
       return;
     }
@@ -81,9 +74,7 @@ export class ConversationEventHandler {
       return;
     }
 
-    const streamContent = newlyCreated
-      ? `${i18next.t('ui.welcomeMessage')}\n\n[[${this.plugin.settings.stewardFolder}/Welcome to Steward|Introduction]]\n\n/ `
-      : `${i18next.t('ui.welcomeMessage')}\n\n/ `;
+    const streamContent = `${i18next.t('ui.welcomeMessage')}\n\n/ `;
     await this.renderer.streamFile(file, createMockStreamResponse(streamContent));
 
     this.plugin.setCursorToEndOfFile();
@@ -98,10 +89,6 @@ export class ConversationEventHandler {
     if (!content.trim()) {
       this.renderer.streamFile(file, createMockStreamResponse(STEWARD_INTRODUCTION));
     }
-  }
-
-  private async handleNewConversation(payload: ConversationNoteCreatedPayload): Promise<void> {
-    this.plugin.insertConversationLink(payload);
   }
 
   private async handleConversationCommand(
