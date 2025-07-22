@@ -32,8 +32,16 @@ If your plugin does not need CSS, delete this file.
 
 .conversation-command-line {
   background-color: rgba(255, 255, 255, 0.1);
-  padding-top: 2px !important;
-  padding-bottom: 2px !important;
+}
+
+/* First line in a block: not preceded by another block line */
+.conversation-command-line:not(.conversation-command-line + .conversation-command-line) {
+  padding-top: 5px !important;
+}
+
+/* Last line in a block: no next sibling is a block line */
+.conversation-command-line:not(:has(+ .conversation-command-line)) {
+  padding-bottom: 5px !important;
 }
 
 /* Command Autocomplete styling */

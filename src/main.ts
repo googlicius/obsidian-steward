@@ -252,7 +252,6 @@ export default class StewardPlugin extends Plugin {
     this.registerEditorExtension([
       createCommandInputExtension(COMMAND_PREFIXES, {
         onEnter: this.handleEnter.bind(this),
-        onShiftEnter: () => true, // Just return true to allow default Shift+Enter behavior with indentation
       }),
     ]);
 
@@ -321,7 +320,7 @@ export default class StewardPlugin extends Plugin {
     const lineText = line.text;
 
     // Check if this is a continuation line
-    if (isContinuationLine(line)) {
+    if (isContinuationLine(lineText)) {
       // Find the command line above
       let currentLineNum = line.number;
       let commandLine: Line | null = null;

@@ -188,12 +188,11 @@ MIT
 
 ## TODOs
 
-- [ ] Multiple lines command.
-- [ ] Command options: `--help`, `--model`, `--explain`,...
+- [x] Multiple lines command.
 - [ ] Reminder.
 - [ ] Steward can provide information about its functionalities, limitations,...
-- [ ] Provide any information, usage, and guidance about Obsidian.
+- [x] Provide any information, usage, and guidance about Obsidian.
 - [ ] Autocompletion and automation.
-- [ ] User-defined commands and actions, for example: Don't do anything if not entering the correct password.
+- [x] User-defined commands and actions
 - [ ] Traceability
 - [ ] MCP support.

@@ -32,6 +32,8 @@ export interface CommandInputOptions {
   onShiftEnter?: (view: EditorView) => boolean;
 }
 
+const TWO_SPACES_PREFIX = '  ';
+
 /**
  * Determines if a command line should show a placeholder
  */
@@ -50,8 +52,8 @@ export function isCommandLine(line: Line, commandPrefixes: string[]): boolean {
 /**
  * Checks if a line is a continuation line (starts with 2 spaces)
  */
-export function isContinuationLine(line: Line): boolean {
-  return line.text.startsWith('  ') && !line.text.startsWith('   ');
+export function isContinuationLine(text: string): boolean {
+  return text.startsWith('  ') && !text.startsWith('   ');
 }
 
 /**
@@ -70,7 +72,7 @@ export function getCommandBlock(view: EditorView, line: Line, commandPrefixes: s
   let nextLineNum = line.number + 1;
   while (nextLineNum <= doc.lines) {
     const nextLine = doc.line(nextLineNum);
-    if (isContinuationLine(nextLine)) {
+    if (isContinuationLine(nextLine.text)) {
       lines.push(nextLine);
       nextLineNum++;
     } else {
@@ -208,9 +210,16 @@ function createInputExtension(
       decorations: DecorationSet;
       extendedPrefixes: string[];
 
-      constructor(view: EditorView) {
+      constructor(public view: EditorView) {
         this.extendedPrefixes = this.buildExtendedPrefixes();
-        this.decorations = this.buildDecorations(view);
+        this.decorations = this.buildDecorations();
+
+        // Attach paste event listener
+        view.dom.addEventListener('paste', this.handlePaste);
+      }
+
+      destroy() {
+        this.view.dom.removeEventListener('paste', this.handlePaste);
       }
 
       private buildExtendedPrefixes() {
@@ -229,17 +238,17 @@ function createInputExtension(
           if (update.viewportChanged) {
             this.extendedPrefixes = this.buildExtendedPrefixes();
           }
-          this.decorations = this.buildDecorations(update.view);
+          this.decorations = this.buildDecorations();
         }
       }
 
-      private buildDecorations(view: EditorView) {
+      private buildDecorations() {
         const decorations = [];
-        const { state } = view;
+        const { state } = this.view;
         const { doc } = state;
 
         // Get visible range instead of processing the entire document
-        const { from, to } = view.viewport;
+        const { from, to } = this.view.viewport;
 
         // Process only the visible lines
         let pos = from;
@@ -249,7 +258,6 @@ function createInputExtension(
 
           // Fast check for any command prefix
           if (lineText.startsWith('/')) {
-            // Find the matching prefix (if any)
             const matchedPrefix = this.extendedPrefixes.find(prefix => lineText.startsWith(prefix));
 
             if (matchedPrefix) {
@@ -276,7 +284,7 @@ function createInputExtension(
               let nextLineNum = line.number + 1;
               while (nextLineNum <= doc.lines) {
                 const nextLine = doc.line(nextLineNum);
-                if (isContinuationLine(nextLine)) {
+                if (isContinuationLine(nextLine.text)) {
                   // Add decoration for continuation line
                   decorations.push(commandInputLineDecor.range(nextLine.from));
                   nextLineNum++;
@@ -293,6 +301,42 @@ function createInputExtension(
 
         return Decoration.set(decorations);
       }
+
+      /**
+       * Handle paste events for multi-line indentation
+       */
+      private handlePaste = (event: ClipboardEvent) => {
+        if (!event.clipboardData) return;
+
+        const pastedText = event.clipboardData.getData('Text');
+
+        const pasteStart = this.view.state.selection.main.head - pastedText.length;
+        const line = this.view.state.doc.lineAt(pasteStart);
+        // Check if we're in a command input context
+        const isInCommandContext =
+          isCommandLine(line, this.extendedPrefixes) || isContinuationLine(line.text);
+
+        if (!isInCommandContext || !pastedText) return; // Normal paste
+
+        const pastedLines = pastedText.split('\n');
+
+        let fullInsert = '';
+        fullInsert += pastedLines[0];
+
+        for (let index = 1; index < pastedLines.length; index++) {
+          const pastedLine = pastedLines[index];
+          fullInsert += isContinuationLine(pastedLine)
+            ? '\n' + pastedLine
+            : '\n' + TWO_SPACES_PREFIX + pastedLine;
+        }
+
+        event.preventDefault();
+        const newCursorPos = pasteStart + fullInsert.length;
+        this.view.dispatch({
+          changes: { from: pasteStart, to: pasteStart + pastedText.length, insert: fullInsert },
+          selection: { anchor: newCursorPos },
+        });
+      };
     },
     {
       decorations: v => v.decorations,
@@ -432,8 +476,6 @@ function createCommandKeymapExtension(
             // Get the text before and after the cursor
             const textBeforeCursor = line.text.substring(0, pos - line.from);
             const textAfterCursor = line.text.substring(pos - line.from);
-
-            const TWO_SPACES_PREFIX = '  ';
 
             // Create a transaction to:
             // 1. Replace the current line with text before cursor
