@@ -167,6 +167,9 @@ export async function extractCommandIntent(
     value: command.query,
   });
 
+  // const classifier = getClassifier(llmConfig.model.modelId);
+  // classifier.doClassify(command.query);
+
   const additionalSystemPrompts: string[] = [];
 
   if (clusterName) {

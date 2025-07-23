@@ -1,7 +1,7 @@
 import { TFile } from 'obsidian';
 import { uniqueID } from '../utils/uniqueID';
 import { getTranslation } from '../i18n';
-import { ConversationHistoryMessage, ConversationRole } from '../types/types';
+import { ConversationHistoryMessage, ConversationMessage, ConversationRole } from '../types/types';
 import { getObsidianLanguage } from '../utils/getObsidianLanguage';
 
 import type StewardPlugin from '../main';
@@ -141,7 +141,8 @@ export class ConversationRenderer {
         // Format user message as a callout
         contentToAdd = this.noteContentService.formatCallout(
           `**${params.role}:** ${params.newContent}`,
-          'user-message'
+          'user-message',
+          { id: messageId }
         );
       } else {
         // For Steward or System messages, use the regular format
@@ -439,7 +440,8 @@ export class ConversationRenderer {
       // Format user message as a callout with the role text
       const userMessage = this.noteContentService.formatCallout(
         `**User:** /${commandType.trim()} ${content}`,
-        'user-message'
+        'user-message',
+        { id: messageId }
       );
 
       // Build initial content based on command type
@@ -612,15 +614,13 @@ export class ConversationRenderer {
   }
 
   /**
-   * Extracts conversation history from a conversation markdown file
+   * Extracts all messages from a conversation
    * @param conversationTitle The title of the conversation
-   * @param maxMessages Maximum number of messages to include (default: 10)
-   * @returns Array of conversation history messages
+   * @returns Array of all conversation messages
    */
-  public async extractConversationHistory(
-    conversationTitle: string,
-    maxMessages = 10
-  ): Promise<ConversationHistoryMessage[]> {
+  public async extractAllConversationMessages(
+    conversationTitle: string
+  ): Promise<ConversationMessage[]> {
     try {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
@@ -638,7 +638,7 @@ export class ConversationRenderer {
       const metadataRegex = /<!--STW (.*?)-->/gi;
       const matches = Array.from(content.matchAll(metadataRegex));
 
-      const messages: Array<ConversationHistoryMessage & { command: string; lang?: string }> = [];
+      const messages: Array<ConversationMessage> = [];
 
       // Process each message block
       for (let i = 0; i < matches.length; i++) {
@@ -723,6 +723,7 @@ export class ConversationRenderer {
         const role = metadata.ROLE === 'steward' ? 'assistant' : metadata.ROLE;
 
         messages.push({
+          id: metadata.ID,
           role: role as ConversationRole,
           content: messageContent.trim(),
           command: metadata.COMMAND || '',
@@ -730,11 +731,33 @@ export class ConversationRenderer {
         });
       }
 
+      return messages;
+    } catch (error) {
+      logger.error('Error extracting conversation messages:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Extracts conversation history from a conversation markdown file
+   * @param conversationTitle The title of the conversation
+   * @param maxMessages Maximum number of messages to include (default: 10)
+   * @returns Array of conversation history messages
+   */
+  public async extractConversationHistory(
+    conversationTitle: string,
+    maxMessages = 10
+  ): Promise<ConversationHistoryMessage[]> {
+    try {
+      // Get all messages from the conversation
+      const allMessages = await this.extractAllConversationMessages(conversationTitle);
+
+      // Find the start of the latest topic
       const continuationCommands = [' ', 'confirm', 'thank_you'];
       let topicStartIndex = 0;
 
-      for (let i = messages.length - 1; i >= 0; i--) {
-        const message = messages[i];
+      for (let i = allMessages.length - 1; i >= 0; i--) {
+        const message = allMessages[i];
 
         if (message.role === 'user' && !continuationCommands.includes(message.command)) {
           // Found a message that starts a new topic
@@ -744,7 +767,7 @@ export class ConversationRenderer {
       }
 
       // Get messages from the latest topic
-      const topicMessages = messages.slice(topicStartIndex);
+      const topicMessages = allMessages.slice(topicStartIndex);
 
       return topicMessages.slice(-maxMessages).map(({ role, content }) => ({
         role,
@@ -854,5 +877,127 @@ export class ConversationRenderer {
       logger.error(`Error updating conversation frontmatter:`, error);
       return false;
     }
+  }
+
+  /**
+   * Deletes a message and all messages below it from a conversation note
+   * @param conversationTitle The title of the conversation
+   * @param messageId The ID of the message to delete
+   * @returns True if successful, false otherwise
+   */
+  public async deleteMessageAndBelow(
+    conversationTitle: string,
+    messageId: string
+  ): Promise<boolean> {
+    try {
+      // Get the conversation file
+      const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+      const notePath = `${folderPath}/${conversationTitle}.md`;
+      const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
+
+      if (!file) {
+        throw new Error(`Note not found: ${notePath}`);
+      }
+
+      // Read the current content
+      const content = await this.plugin.app.vault.read(file);
+
+      // Find the position of the message with the given ID
+      const messageCommentRegex = new RegExp(`<!--STW ID:${messageId}[^>]*-->`, 'i');
+      const match = messageCommentRegex.exec(content);
+
+      if (!match || match.index === undefined) {
+        logger.error(`Message with ID ${messageId} not found in ${notePath}`);
+        return false;
+      }
+
+      // Keep content up to the message (excluding the message itself)
+      let newContent = content.substring(0, match.index).trimEnd();
+
+      // Sanitize the content by removing trailing separators
+      newContent = this.sanitizeConversationContent(newContent);
+
+      // Update the file
+      await this.plugin.app.vault.modify(file, newContent);
+
+      return true;
+    } catch (error) {
+      logger.error('Error deleting message and below:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Sanitizes conversation content by removing trailing separator lines
+   * and ensuring proper formatting
+   * @param content The content to sanitize
+   * @returns The sanitized content
+   */
+  public sanitizeConversationContent(content: string): string {
+    if (!content) return '';
+
+    // Remove trailing whitespace first
+    let sanitizedContent = content.trimEnd();
+
+    // Use regex to find and remove trailing separator lines
+    // This handles cases where the separator might be followed by newlines
+    const trailingSeparatorRegex = /(\n*---\n*)+$/;
+
+    // Remove trailing separators
+    if (trailingSeparatorRegex.test(sanitizedContent)) {
+      sanitizedContent = sanitizedContent.replace(trailingSeparatorRegex, '');
+      sanitizedContent = sanitizedContent.trimEnd();
+    }
+
+    // Ensure the content doesn't end with multiple newlines
+    sanitizedContent = sanitizedContent.replace(/\n+$/, '\n');
+
+    return sanitizedContent;
+  }
+
+  /**
+   * Sanitizes a conversation note by removing trailing separators and ensuring proper formatting
+   * @param conversationPath The path to the conversation note
+   * @returns True if successful, false otherwise
+   */
+  public async sanitizeConversationNote(conversationPath: string): Promise<boolean> {
+    try {
+      // Get the conversation file
+      const file = this.plugin.app.vault.getAbstractFileByPath(conversationPath) as TFile;
+
+      if (!file) {
+        throw new Error(`Note not found: ${conversationPath}`);
+      }
+
+      // Read the current content
+      const content = await this.plugin.app.vault.read(file);
+
+      // Sanitize the content
+      const sanitizedContent = this.sanitizeConversationContent(content);
+
+      // If the content hasn't changed, no need to update
+      if (sanitizedContent === content) {
+        return true;
+      }
+
+      // Update the file
+      await this.plugin.app.vault.modify(file, sanitizedContent);
+
+      return true;
+    } catch (error) {
+      logger.error('Error sanitizing conversation note:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Extracts the conversation title from a path
+   * @param path The path to extract the title from
+   * @returns The conversation title
+   */
+  public extractTitleFromPath(path: string): string {
+    const pathParts = path.split('/');
+    const fileName = pathParts[pathParts.length - 1];
+    return fileName.replace('.md', '');
   }
 }

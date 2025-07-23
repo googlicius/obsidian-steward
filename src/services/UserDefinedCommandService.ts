@@ -4,6 +4,7 @@ import { CommandIntent } from 'src/lib/modelfusion/extractions';
 import * as yaml from 'js-yaml';
 
 import type StewardPlugin from 'src/main';
+import { COMMAND_PREFIXES } from 'src/constants';
 
 /**
  * Represents a command within a user-defined command sequence
@@ -49,6 +50,17 @@ export class UserDefinedCommandService {
       throw new Error('UserDefinedCommandService must be initialized with a plugin');
     }
     return UserDefinedCommandService.instance;
+  }
+
+  public buildExtendedPrefixes(commandPrefixes = COMMAND_PREFIXES) {
+    const extendedPrefixes = [...commandPrefixes];
+    const udcCommands = this.getCommandNames();
+    for (const cmd of udcCommands) {
+      extendedPrefixes.push('/' + cmd);
+    }
+    // Sort prefixes by length (longest first) to ensure we match the most specific command
+    extendedPrefixes.sort((a, b) => b.length - a.length);
+    return extendedPrefixes;
   }
 
   /**

@@ -9,6 +9,8 @@ import {
   getCommandBlock,
 } from './cm/extensions/CommandInputExtension';
 import { createCalloutSearchResultPostProcessor } from './cm/post-processors/CalloutSearchResultPostProcessor';
+import { createUserMessageButtonsProcessor } from './cm/post-processors/UserMessageButtonsProcessor';
+import { createCalloutMetadataProcessor } from './cm/post-processors/CalloutMetadataProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -255,10 +257,141 @@ export default class StewardPlugin extends Plugin {
       }),
     ]);
 
+    // Register the metadata processor first so other processors can use the metadata
+    this.registerMarkdownPostProcessor(createCalloutMetadataProcessor());
+
     this.registerMarkdownPostProcessor(
       createCalloutSearchResultPostProcessor({
         handleClick: event => {
           this.handleSearchResultCalloutClick(event);
+        },
+      })
+    );
+
+    this.registerMarkdownPostProcessor(
+      createUserMessageButtonsProcessor({
+        onDeleteClick: async (event: MouseEvent, sourcePath: string) => {
+          try {
+            const calloutEl = (event.target as HTMLElement).closest(
+              '.callout[data-callout="user-message"]'
+            ) as HTMLElement;
+            if (!calloutEl) {
+              new Notice('Could not find user message callout');
+              return;
+            }
+
+            const messageId = calloutEl.dataset.id;
+
+            if (!messageId || !sourcePath) {
+              new Notice('Could not identify message to delete');
+              return;
+            }
+
+            // Extract the conversation title from the path
+            const title = this.conversationRenderer.extractTitleFromPath(sourcePath);
+
+            // Delete the message and all messages below it
+            const success = await this.conversationRenderer.deleteMessageAndBelow(title, messageId);
+
+            if (!success) {
+              new Notice('Failed to delete message');
+              return;
+            }
+          } catch (error) {
+            logger.error('Error handling delete button click:', error);
+            new Notice(`Error deleting message: ${error.message}`);
+          }
+        },
+        onReloadClick: async (event: MouseEvent, sourcePath: string) => {
+          try {
+            const calloutEl = (event.target as HTMLElement).closest(
+              '.callout[data-callout="user-message"]'
+            ) as HTMLElement;
+            if (!calloutEl) {
+              new Notice('Could not find user message callout');
+              return;
+            }
+
+            const messageId = calloutEl.dataset.id;
+
+            if (!messageId) {
+              new Notice('Could not identify message to reload');
+              return;
+            }
+
+            // Extract the conversation title from the path
+            const title = this.conversationRenderer.extractTitleFromPath(sourcePath);
+
+            // Get all messages from the conversation
+            const allMessages =
+              await this.conversationRenderer.extractAllConversationMessages(title);
+
+            // Find the current message by ID
+            const currentMessageIndex = allMessages.findIndex(message => message.id === messageId);
+
+            if (currentMessageIndex === -1) {
+              new Notice('Could not find message in conversation');
+              return;
+            }
+
+            // Get the current message
+            const currentMessage = allMessages[currentMessageIndex];
+
+            // Find the next message (response to the current message)
+            const nextMessageIndex = currentMessageIndex + 1;
+
+            if (nextMessageIndex >= allMessages.length) {
+              new Notice('No response message found to reload');
+              return;
+            }
+
+            // Get the next message ID to delete from
+            const nextMessageId = allMessages[nextMessageIndex].id;
+
+            // Delete all messages from the next message onwards
+            const success = await this.conversationRenderer.deleteMessageAndBelow(
+              title,
+              nextMessageId
+            );
+
+            if (!success) {
+              new Notice('Failed to prepare message for reload');
+              return;
+            }
+
+            // Get the language from the conversation note
+            const lang = (await this.conversationRenderer.getConversationProperty(
+              title,
+              'lang'
+            )) as string;
+
+            // Determine the command type
+            const commandType = currentMessage.command || ' ';
+
+            // Clean the message content by removing any command prefix
+            let cleanContent = currentMessage.content;
+            if (commandType) {
+              const commandPrefix = '/' + commandType;
+              if (cleanContent.startsWith(commandPrefix)) {
+                cleanContent = cleanContent.substring(commandPrefix.length);
+              }
+            }
+
+            // Process the command
+            await this.commandProcessorService.processCommands({
+              title,
+              commands: [
+                {
+                  commandType,
+                  query: cleanContent,
+                },
+              ],
+              lang,
+            });
+          } catch (error) {
+            logger.error('Error handling reload button click:', error);
+            new Notice(`Error reloading message: ${error.message}`);
+          }
         },
       })
     );
@@ -365,27 +498,14 @@ export default class StewardPlugin extends Plugin {
    * @returns True if the command was processed, false otherwise
    */
   private processCommandBlock(view: EditorView, commandLine: Line): boolean {
-    // Create an extended set of prefixes including custom commands
-    const extendedPrefixes = [...COMMAND_PREFIXES];
-
-    // Add user-defined command prefixes if available
-    if (this.userDefinedCommandService) {
-      const userDefinedCommands = this.userDefinedCommandService.getCommandNames();
-      for (let i = 0; i < userDefinedCommands.length; i++) {
-        extendedPrefixes.push('/' + userDefinedCommands[i]);
-      }
-    }
-
-    // Sort prefixes by length (longest first) to ensure we match the most specific command
-    extendedPrefixes.sort((a, b) => b.length - a.length);
-
     // Collect all lines in the command block using getCommandBlock function
-    const commandBlock = getCommandBlock(view, commandLine, extendedPrefixes);
+    const commandBlock = getCommandBlock(view, commandLine);
 
     // Extract the command content using the getCommandBlockContent function
     const fullCommandText = getCommandBlockContent(commandBlock);
 
     // Find the matching prefix (if any)
+    const extendedPrefixes = this.userDefinedCommandService.buildExtendedPrefixes();
     const matchedPrefix = extendedPrefixes.find(prefix => commandLine.text.startsWith(prefix));
 
     if (!matchedPrefix) {

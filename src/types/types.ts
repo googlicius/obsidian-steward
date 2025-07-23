@@ -16,5 +16,12 @@ export type ConversationRole = 'user' | 'assistant' | 'system';
 export interface ConversationHistoryMessage {
   role: ConversationRole;
   content: string;
+}
+
+export interface ConversationMessage {
+  id: string;
+  role: ConversationRole;
+  content: string;
   lang?: string;
+  command: string;
 }

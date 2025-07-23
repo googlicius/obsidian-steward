@@ -460,6 +460,7 @@ export class PersistentEmbeddingSimilarityClassifier<
   }
 
   async doClassify(value: VALUE, options: FunctionCallOptions) {
+    console.log('OPTIONS', options);
     if (this.settings.staticClusterValues) {
       for (const cluster of this.settings.staticClusterValues) {
         if (cluster.values.includes(value.toLowerCase() as VALUE)) {

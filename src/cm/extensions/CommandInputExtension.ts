@@ -45,8 +45,9 @@ function hasCommandPlaceholder(line: Line, matchedPrefix: string): boolean {
 /**
  * Checks if a line is a command line (starts with a command prefix)
  */
-export function isCommandLine(line: Line, commandPrefixes: string[]): boolean {
-  return commandPrefixes.some(prefix => line.text.startsWith(prefix));
+export function isCommandLine(line: Line): boolean {
+  const extendedPrefixes = UserDefinedCommandService.getInstance().buildExtendedPrefixes();
+  return extendedPrefixes.some(prefix => line.text.startsWith(prefix));
 }
 
 /**
@@ -59,12 +60,12 @@ export function isContinuationLine(text: string): boolean {
 /**
  * Gets all lines that belong to a command block (command line + continuation lines)
  */
-export function getCommandBlock(view: EditorView, line: Line, commandPrefixes: string[]): Line[] {
+export function getCommandBlock(view: EditorView, line: Line): Line[] {
   const { doc } = view.state;
   const lines: Line[] = [line];
 
   // If this is not a command line, return empty array
-  if (!isCommandLine(line, commandPrefixes)) {
+  if (!isCommandLine(line)) {
     return [];
   }
 
@@ -111,107 +112,18 @@ export function createCommandInputExtension(
   ];
 }
 
-// Toolbar widget that will be displayed below command inputs
-// Note: This class is currently not used but implemented for future use
-// The usage is commented out in buildDecorations method below
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-class CommandToolbarWidget extends WidgetType {
-  private command: string;
-  private isGenerating: boolean;
-  private abortService: AbortService;
-
-  constructor(command: string) {
-    super();
-    this.command = command;
-    this.abortService = AbortService.getInstance();
-  }
-
-  toDOM() {
-    const toolbar = document.createElement('div');
-    toolbar.className = 'command-toolbar';
-    toolbar.dataset.command = this.command;
-
-    // Add model selector
-    const modelSelector = document.createElement('select');
-    modelSelector.className = 'model-selector';
-
-    LLM_MODELS.forEach(model => {
-      const option = document.createElement('option');
-      option.value = model.id;
-      option.textContent = model.name;
-      // if (model.id === this.modelService.getCurrentModel()) {
-      // 	option.selected = true;
-      // }
-      modelSelector.appendChild(option);
-    });
-
-    // Add event listener to handle model changes
-    modelSelector.addEventListener('change', e => {
-      // const select = e.target as HTMLSelectElement;
-      // this.modelService.setCurrentModel(select.value);
-    });
-
-    // Create a container for the buttons on the right
-    const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'command-toolbar-buttons';
-
-    // Add stop button (only visible during generation)
-    const stopButton = document.createElement('button');
-    stopButton.classList.add('clickable-icon');
-    stopButton.textContent = 'Stop';
-    setIcon(stopButton, 'x');
-    stopButton.addEventListener('click', (e: MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      // Directly call abort on all operations
-      this.abortService.abortAllOperations();
-    });
-
-    // Add send button
-    const sendButton = document.createElement('button');
-    sendButton.classList.add('clickable-icon');
-    sendButton.textContent = 'Send';
-    setIcon(sendButton, 'send-horizontal');
-    sendButton.addEventListener('click', (e: MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      // this.modelService.sendCommand();
-    });
-
-    // Add buttons to the button container
-    buttonContainer.appendChild(stopButton);
-    buttonContainer.appendChild(sendButton);
-
-    // Add elements to toolbar
-    toolbar.appendChild(modelSelector);
-    toolbar.appendChild(buttonContainer);
-    return toolbar;
-  }
-
-  eq(other: CommandToolbarWidget) {
-    return this.command === other.command && this.isGenerating === other.isGenerating;
-  }
-
-  ignoreEvent() {
-    return false; // Allow events to be handled by the widget
-  }
-}
-
-const commandInputLineDecor = Decoration.line({ class: 'conversation-command-line' });
-
 // Add syntax highlighting for command prefixes and toolbar for command inputs
 function createInputExtension(
   commandPrefixes: string[],
   options: CommandInputOptions = {}
 ): Extension {
+  const commandInputLineDecor = Decoration.line({ class: 'conversation-command-line' });
+
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet;
-      extendedPrefixes: string[];
 
       constructor(public view: EditorView) {
-        this.extendedPrefixes = this.buildExtendedPrefixes();
         this.decorations = this.buildDecorations();
 
         // Attach paste event listener
@@ -222,26 +134,17 @@ function createInputExtension(
         this.view.dom.removeEventListener('paste', this.handlePaste);
       }
 
-      private buildExtendedPrefixes() {
-        const extendedPrefixes = [...commandPrefixes];
-        const udcCommands = UserDefinedCommandService.getInstance().getCommandNames();
-        for (const cmd of udcCommands) {
-          extendedPrefixes.push('/' + cmd);
-        }
-        // Sort prefixes by length (longest first) to ensure we match the most specific command
-        extendedPrefixes.sort((a, b) => b.length - a.length);
-        return extendedPrefixes;
-      }
-
       update(update: ViewUpdate) {
         if (update.docChanged || update.viewportChanged) {
-          if (update.viewportChanged) {
-            this.extendedPrefixes = this.buildExtendedPrefixes();
-          }
           this.decorations = this.buildDecorations();
         }
       }
 
+      /**
+       * Builds the decorations for the command input:
+       * - Command prefix,
+       * - Command line and continuation lines background.
+       */
       private buildDecorations() {
         const decorations = [];
         const { state } = this.view;
@@ -258,7 +161,9 @@ function createInputExtension(
 
           // Fast check for any command prefix
           if (lineText.startsWith('/')) {
-            const matchedPrefix = this.extendedPrefixes.find(prefix => lineText.startsWith(prefix));
+            const extendedPrefixes =
+              UserDefinedCommandService.getInstance().buildExtendedPrefixes();
+            const matchedPrefix = extendedPrefixes.find(prefix => lineText.startsWith(prefix));
 
             if (matchedPrefix) {
               const prefixFrom = line.from + lineText.indexOf(matchedPrefix);
@@ -313,8 +218,7 @@ function createInputExtension(
         const pasteStart = this.view.state.selection.main.head - pastedText.length;
         const line = this.view.state.doc.lineAt(pasteStart);
         // Check if we're in a command input context
-        const isInCommandContext =
-          isCommandLine(line, this.extendedPrefixes) || isContinuationLine(line.text);
+        const isInCommandContext = isCommandLine(line) || isContinuationLine(line.text);
 
         if (!isInCommandContext || !pastedText) return; // Normal paste
 
@@ -463,16 +367,7 @@ function createCommandKeymapExtension(
           const pos = selection.main.head;
           const line = doc.lineAt(pos);
 
-          // Check if current line is a command line or a continuation line
-          const extendedPrefixes = [...commandPrefixes];
-          const udcCommands = UserDefinedCommandService.getInstance().getCommandNames();
-          for (const cmd of udcCommands) {
-            extendedPrefixes.push('/' + cmd);
-          }
-
-          const isCommand = isCommandLine(line, extendedPrefixes);
-
-          if (isCommand) {
+          if (isCommandLine(line)) {
             // Get the text before and after the cursor
             const textBeforeCursor = line.text.substring(0, pos - line.from);
             const textAfterCursor = line.text.substring(pos - line.from);
@@ -503,4 +398,91 @@ function createCommandKeymapExtension(
       },
     ])
   );
+}
+
+// Toolbar widget that will be displayed below command inputs
+// Note: This class is currently not used but implemented for future use
+// The usage is commented out in buildDecorations method below
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+class CommandToolbarWidget extends WidgetType {
+  private command: string;
+  private isGenerating: boolean;
+  private abortService: AbortService;
+
+  constructor(command: string) {
+    super();
+    this.command = command;
+    this.abortService = AbortService.getInstance();
+  }
+
+  toDOM() {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'command-toolbar';
+    toolbar.dataset.command = this.command;
+
+    // Add model selector
+    const modelSelector = document.createElement('select');
+    modelSelector.className = 'model-selector';
+
+    LLM_MODELS.forEach(model => {
+      const option = document.createElement('option');
+      option.value = model.id;
+      option.textContent = model.name;
+      // if (model.id === this.modelService.getCurrentModel()) {
+      // 	option.selected = true;
+      // }
+      modelSelector.appendChild(option);
+    });
+
+    // Add event listener to handle model changes
+    modelSelector.addEventListener('change', e => {
+      // const select = e.target as HTMLSelectElement;
+      // this.modelService.setCurrentModel(select.value);
+    });
+
+    // Create a container for the buttons on the right
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'command-toolbar-buttons';
+
+    // Add stop button (only visible during generation)
+    const stopButton = document.createElement('button');
+    stopButton.classList.add('clickable-icon');
+    stopButton.textContent = 'Stop';
+    setIcon(stopButton, 'x');
+    stopButton.addEventListener('click', (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Directly call abort on all operations
+      this.abortService.abortAllOperations();
+    });
+
+    // Add send button
+    const sendButton = document.createElement('button');
+    sendButton.classList.add('clickable-icon');
+    sendButton.textContent = 'Send';
+    setIcon(sendButton, 'send-horizontal');
+    sendButton.addEventListener('click', (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // this.modelService.sendCommand();
+    });
+
+    // Add buttons to the button container
+    buttonContainer.appendChild(stopButton);
+    buttonContainer.appendChild(sendButton);
+
+    // Add elements to toolbar
+    toolbar.appendChild(modelSelector);
+    toolbar.appendChild(buttonContainer);
+    return toolbar;
+  }
+
+  eq(other: CommandToolbarWidget) {
+    return this.command === other.command && this.isGenerating === other.isGenerating;
+  }
+
+  ignoreEvent() {
+    return false; // Allow events to be handled by the widget
+  }
 }

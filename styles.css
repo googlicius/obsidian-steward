@@ -111,9 +111,10 @@ If your plugin does not need CSS, delete this file.
 .callout[data-callout='user-message'] {
   --callout-color: var(--callout-quote);
   margin-bottom: 10px !important;
-  margin-top: 10px !important;
+  margin-top: 20px !important;
   padding-left: 0px;
   font-weight: calc(var(--font-weight) + var(--bold-modifier));
+  position: relative;
 }
 
 .callout[data-callout='user-message'] > .callout-title {
@@ -205,4 +206,39 @@ If your plugin does not need CSS, delete this file.
 pre[class*='language-stw-artifact'],
 code[class*='language-stw-artifact'] {
   display: none;
+}
+
+/* User message buttons styling */
+.user-message-buttons {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.callout[data-callout='user-message']:hover .user-message-buttons {
+  opacity: 1;
+}
+
+.user-message-button {
+  background-color: var(--background-modifier-hover);
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.user-message-button:hover {
+  background-color: var(--background-modifier-border);
+  color: var(--text-normal);
 }
