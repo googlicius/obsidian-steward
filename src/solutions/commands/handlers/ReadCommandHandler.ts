@@ -183,7 +183,7 @@ export class ReadCommandHandler extends CommandHandler {
               path: title,
               newContent: this.plugin.noteContentService.formatCallout(
                 block.content,
-                'search-result',
+                'stw-search-result',
                 {
                   startLine: block.startLine,
                   endLine: block.endLine,

@@ -89,7 +89,7 @@ If your plugin does not need CSS, delete this file.
   background-color: transparent;
 }
 
-.callout[data-callout='search-result'] {
+.callout[data-callout='stw-search-result'] {
   --callout-color: var(--callout-success);
   padding-left: 12px;
   cursor: pointer;
@@ -99,16 +99,16 @@ If your plugin does not need CSS, delete this file.
   margin-bottom: 10px !important;
 }
 
-.callout[data-callout='search-result']:active {
+.callout[data-callout='stw-search-result']:active {
   transform: translateX(2px);
 }
 
-.callout[data-callout='search-result'] > .callout-title {
+.callout[data-callout='stw-search-result'] > .callout-title {
   display: none;
 }
 
 /* User message callout styling */
-.callout[data-callout='user-message'] {
+.callout[data-callout='stw-user-message'] {
   --callout-color: var(--callout-quote);
   margin-bottom: 10px !important;
   margin-top: 20px !important;
@@ -117,11 +117,11 @@ If your plugin does not need CSS, delete this file.
   position: relative;
 }
 
-.callout[data-callout='user-message'] > .callout-title {
+.callout[data-callout='stw-user-message'] > .callout-title {
   display: none;
 }
 
-.callout[data-callout='user-message'] > .callout-content {
+.callout[data-callout='stw-user-message'] > .callout-content {
   padding-left: 8px;
 }
 
@@ -209,7 +209,7 @@ code[class*='language-stw-artifact'] {
 }
 
 /* User message buttons styling */
-.user-message-buttons {
+.stw-user-message-buttons {
   position: absolute;
   top: 2px;
   right: 2px;
@@ -219,11 +219,11 @@ code[class*='language-stw-artifact'] {
   transition: opacity 0.2s ease;
 }
 
-.callout[data-callout='user-message']:hover .user-message-buttons {
+.callout[data-callout='stw-user-message']:hover .stw-user-message-buttons {
   opacity: 1;
 }
 
-.user-message-button {
+.stw-user-message-button {
   background-color: var(--background-modifier-hover);
   border: none;
   border-radius: 4px;
@@ -238,7 +238,7 @@ code[class*='language-stw-artifact'] {
     color 0.2s ease;
 }
 
-.user-message-button:hover {
+.stw-user-message-button:hover {
   background-color: var(--background-modifier-border);
   color: var(--text-normal);
 }

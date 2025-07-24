@@ -273,7 +273,7 @@ export default class StewardPlugin extends Plugin {
         onDeleteClick: async (event: MouseEvent, sourcePath: string) => {
           try {
             const calloutEl = (event.target as HTMLElement).closest(
-              '.callout[data-callout="user-message"]'
+              '.callout[data-callout="stw-user-message"]'
             ) as HTMLElement;
             if (!calloutEl) {
               new Notice('Could not find user message callout');
@@ -305,7 +305,7 @@ export default class StewardPlugin extends Plugin {
         onReloadClick: async (event: MouseEvent, sourcePath: string) => {
           try {
             const calloutEl = (event.target as HTMLElement).closest(
-              '.callout[data-callout="user-message"]'
+              '.callout[data-callout="stw-user-message"]'
             ) as HTMLElement;
             if (!calloutEl) {
               new Notice('Could not find user message callout');
@@ -387,6 +387,7 @@ export default class StewardPlugin extends Plugin {
                 },
               ],
               lang,
+              isReloadRequest: true,
             });
           } catch (error) {
             logger.error('Error handling reload button click:', error);
@@ -920,7 +921,7 @@ export default class StewardPlugin extends Plugin {
   }
 
   /**
-   * Handle clicks on search-result callouts to navigate to the exact match position
+   * Handle clicks on stw-search-result callouts to navigate to the exact match position
    * @param event Mouse event
    */
   private async handleSearchResultCalloutClick(event: MouseEvent) {
@@ -930,7 +931,7 @@ export default class StewardPlugin extends Plugin {
       return;
     }
 
-    const calloutEl = target.closest('.callout[data-callout="search-result"]') as HTMLElement;
+    const calloutEl = target.closest('.callout[data-callout="stw-search-result"]') as HTMLElement;
 
     // We only handle search result callouts that have position data
     const { line, startLine, endLine, start, end, path } = calloutEl.dataset;

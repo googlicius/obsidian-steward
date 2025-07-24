@@ -21,6 +21,10 @@ interface ProcessCommandsOptions {
    * If true, the built-in handler will be used in case a user-defined command has the same name as a built-in command.
    */
   builtInCommandPrecedence?: boolean;
+  /**
+   * If true, indicates this is a reload request
+   */
+  isReloadRequest?: boolean;
 }
 
 export class CommandProcessor {
@@ -198,6 +202,7 @@ export class CommandProcessor {
           prevCommand,
           nextCommand,
           lang: payload.lang,
+          isReloadRequest: options.isReloadRequest,
         });
 
         // Command completed successfully

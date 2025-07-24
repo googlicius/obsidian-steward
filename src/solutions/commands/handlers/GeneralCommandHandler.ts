@@ -38,7 +38,7 @@ export class GeneralCommandHandler extends CommandHandler {
       extraction?: CommandIntentExtraction;
     } = {}
   ): Promise<CommandResult> {
-    const { title, command } = params;
+    const { title, command, isReloadRequest } = params;
     const t = getTranslation(params.lang);
 
     try {
@@ -47,7 +47,12 @@ export class GeneralCommandHandler extends CommandHandler {
       // If extraction is not provided, extract conversation history and then get command intent
       if (!extraction) {
         const conversationHistory = await this.renderer.extractConversationHistory(title);
-        extraction = await extractCommandIntent(command, params.lang, conversationHistory);
+        extraction = await extractCommandIntent(
+          command,
+          params.lang,
+          conversationHistory,
+          isReloadRequest
+        );
       }
 
       // For low confidence intents, ask for confirmation before proceeding

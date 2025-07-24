@@ -141,7 +141,7 @@ export class ConversationRenderer {
         // Format user message as a callout
         contentToAdd = this.noteContentService.formatCallout(
           `**${params.role}:** ${params.newContent}`,
-          'user-message',
+          'stw-user-message',
           { id: messageId }
         );
       } else {
@@ -440,7 +440,7 @@ export class ConversationRenderer {
       // Format user message as a callout with the role text
       const userMessage = this.noteContentService.formatCallout(
         `**User:** /${commandType.trim()} ${content}`,
-        'user-message',
+        'stw-user-message',
         { id: messageId }
       );
 
@@ -669,17 +669,12 @@ export class ConversationRenderer {
           continue;
         }
 
-        // Skip messages where HISTORY is explicitly set to 'false'
-        if (metadata.HISTORY === 'false') {
-          continue;
-        }
-
         // Clean up the content based on role
         if (metadata.ROLE === 'user') {
-          // Try to extract content from user-message callout
+          // Try to extract content from stw-user-message callout
           const calloutContent = this.noteContentService.extractCalloutContent(
             messageContent,
-            'user-message'
+            'stw-user-message'
           );
 
           if (calloutContent) {
@@ -722,12 +717,16 @@ export class ConversationRenderer {
         // Convert role from 'steward' to 'assistant'
         const role = metadata.ROLE === 'steward' ? 'assistant' : metadata.ROLE;
 
+        // Determine if this message should be included in history
+        const includeInHistory = metadata.HISTORY !== 'false';
+
         messages.push({
           id: metadata.ID,
           role: role as ConversationRole,
           content: messageContent.trim(),
           command: metadata.COMMAND || '',
           lang: metadata.LANG,
+          history: includeInHistory,
         });
       }
 
@@ -752,12 +751,15 @@ export class ConversationRenderer {
       // Get all messages from the conversation
       const allMessages = await this.extractAllConversationMessages(conversationTitle);
 
+      // Filter out messages where history is explicitly set to false
+      const messagesForHistory = allMessages.filter(message => message.history !== false);
+
       // Find the start of the latest topic
       const continuationCommands = [' ', 'confirm', 'thank_you'];
       let topicStartIndex = 0;
 
-      for (let i = allMessages.length - 1; i >= 0; i--) {
-        const message = allMessages[i];
+      for (let i = messagesForHistory.length - 1; i >= 0; i--) {
+        const message = messagesForHistory[i];
 
         if (message.role === 'user' && !continuationCommands.includes(message.command)) {
           // Found a message that starts a new topic
@@ -767,7 +769,7 @@ export class ConversationRenderer {
       }
 
       // Get messages from the latest topic
-      const topicMessages = allMessages.slice(topicStartIndex);
+      const topicMessages = messagesForHistory.slice(topicStartIndex);
 
       return topicMessages.slice(-maxMessages).map(({ role, content }) => ({
         role,

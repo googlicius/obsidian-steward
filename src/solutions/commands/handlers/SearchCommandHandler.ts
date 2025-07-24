@@ -163,11 +163,11 @@ export class SearchCommandHandler extends CommandHandler {
           if (matchesToShow > 0) {
             // Add each highlighted match to the response
             for (let i = 0; i < matchesToShow; i++) {
-              // Format as a search-result callout with position data
+              // Format as a stw-search-result callout with position data
               const match = highlightedMatches[i];
               const callout = this.plugin.noteContentService.formatCallout(
                 match.text,
-                'search-result',
+                'stw-search-result',
                 {
                   line: match.lineNumber,
                   start: match.start,

@@ -1,7 +1,7 @@
 import { intentClassifier } from './intent';
 import { LLMService } from 'src/services/LLMService';
 
-export function getClassifier(model: string) {
+export function getClassifier(model: string, isReloadRequest = false) {
   const provider = LLMService.getInstance().getProviderFromModel(model);
 
   switch (provider) {
@@ -19,6 +19,8 @@ export function getClassifier(model: string) {
 
     case 'openai':
     default:
-      return intentClassifier;
+      return intentClassifier.withSettings({
+        ignoreEmbedding: isReloadRequest,
+      });
   }
 }

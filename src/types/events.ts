@@ -38,6 +38,7 @@ export interface ConversationCommandReceivedPayload {
   title: string;
   commands: CommandIntent[];
   lang?: string;
+  isReloadRequest?: boolean;
 }
 
 export interface ConversationLinkInsertedPayload {

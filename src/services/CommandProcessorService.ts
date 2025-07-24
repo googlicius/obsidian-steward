@@ -130,7 +130,10 @@ export class CommandProcessorService {
     options: { skipIndicators?: boolean } = {}
   ): Promise<boolean> {
     try {
-      await this.commandProcessor.processCommands(payload, options);
+      await this.commandProcessor.processCommands(payload, {
+        ...options,
+        isReloadRequest: payload.isReloadRequest,
+      });
       return true;
     } catch (error) {
       logger.error('Error processing commands:', error);

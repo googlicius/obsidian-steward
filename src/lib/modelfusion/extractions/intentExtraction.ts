@@ -2,7 +2,6 @@ import { generateObject } from 'ai';
 import { classify } from 'modelfusion';
 import { commandIntentPrompt } from '../prompts/commandIntentPrompt';
 import { userLanguagePrompt } from '../prompts/languagePrompt';
-import { intentClassifier } from '../classifiers/intent';
 import { logger } from 'src/utils/logger';
 import { AbortService } from 'src/services/AbortService';
 import {
@@ -57,7 +56,7 @@ const validCommandTypes = [
 const commandIntentSchema = z.object({
   commandType: z.enum(validCommandTypes).describe(`One of the available command types.`),
   query: z.string().describe(
-    `The specific query for this command in the sequence.
+    `The specific query for this command. The query is used to extract further into parameters for actual function calls in local. So make it clear and concise.
 If the command is "read" or "create", then this is the original user's query.`
   ),
 });
@@ -108,6 +107,11 @@ If the confidence is low, include the commands that you are extracting in the ex
       `A template version of the query where specific elements (tags, keywords, filenames, folders) are replaced with generic placeholders (x, y, z, f). This helps identify similar query patterns for caching purposes.`
     ),
   shortDescription: z.string().optional().describe(`A short description of the command intent.`),
+  reasoning: z
+    .string()
+    .describe(
+      `Your step-by-step reasoning here (keep it concise). **Include a brief summary of the extracted user intention.**`
+    ),
 });
 
 export type CommandIntentExtraction = z.infer<typeof commandIntentExtractionSchema>;
@@ -126,6 +130,7 @@ function extractReadGenerate(userInput: string): CommandIntentExtraction {
     ],
     explanation: `Classified as "read:generate" command based on semantic similarity.`,
     confidence: 0.8,
+    reasoning: '',
   };
 }
 
@@ -147,6 +152,7 @@ function extractReadGenerateUpdateFromArtifact(userInput: string): CommandIntent
     ],
     explanation: `Classified as "read:generate:update_from_artifact" command based on semantic similarity.`,
     confidence: 0.8,
+    reasoning: '',
   };
 }
 
@@ -154,16 +160,20 @@ function extractReadGenerateUpdateFromArtifact(userInput: string): CommandIntent
  * Extract command intents from a general query using AI
  * @param command Command intent
  * @param lang Language of the user
+ * @param conversationHistory Conversation history for context
+ * @param isReloadRequest Flag indicating if this is a reload request
  * @returns Extracted command types, content, and explanation
  */
 export async function extractCommandIntent(
   command: CommandIntent,
   lang: string | undefined,
-  conversationHistory: ConversationHistoryMessage[] = []
+  conversationHistory: ConversationHistoryMessage[] = [],
+  isReloadRequest = false
 ): Promise<CommandIntentExtraction> {
   const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
+  const classifier = getClassifier(llmConfig.model.modelId, isReloadRequest);
   const clusterName = await classify({
-    model: getClassifier(llmConfig.model.modelId),
+    model: classifier,
     value: command.query,
   });
 
@@ -227,6 +237,7 @@ export async function extractCommandIntent(
         explanation: `Classified as ${clusterName} command based on semantic similarity.`,
         confidence: 0.9,
         lang,
+        reasoning: '',
       };
 
       return result;
@@ -270,7 +281,7 @@ export async function extractCommandIntent(
           },
           ''
         );
-        await intentClassifier.saveEmbedding(object.queryTemplate, newClusterName);
+        await classifier.saveEmbedding(object.queryTemplate, newClusterName);
       } catch (error) {
         logger.error('Failed to save query embedding:', error);
       }

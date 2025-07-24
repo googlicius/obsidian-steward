@@ -110,6 +110,7 @@ export class ConversationEventHandler {
           },
         ],
         lang: payload.lang,
+        isReloadRequest: false,
       },
       { skipIndicators: true }
     );

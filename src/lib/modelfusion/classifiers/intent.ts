@@ -51,6 +51,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
       name: 'thank_you' as const,
       values: [
         'thank you',
+        'thank',
         'thanks',
         'thank you so much',
         'thanks a lot',

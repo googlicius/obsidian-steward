@@ -169,4 +169,24 @@ export class EmbeddingsDatabase extends Dexie {
       .equals([modelName, clusterName])
       .delete();
   }
+
+  /**
+   * Delete all embeddings with a specific value across all clusters
+   * @param modelName Name of the embedding model
+   * @param value Value text to delete
+   */
+  async deleteEmbeddingsByValue(modelName: string, value: string): Promise<void> {
+    // First, get just the IDs of embeddings that match our criteria
+    const embeddingsToDelete = await this.embeddings
+      .where('modelName')
+      .equals(modelName)
+      .filter(entry => entry.valueText === value)
+      .primaryKeys();
+
+    // If we found any embeddings to delete
+    if (embeddingsToDelete.length > 0) {
+      // Delete them by their IDs (which is more efficient)
+      await this.embeddings.bulkDelete(embeddingsToDelete);
+    }
+  }
 }

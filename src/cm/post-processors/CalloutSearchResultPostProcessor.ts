@@ -7,13 +7,13 @@ type Params = {
 /**
  * Creates a markdown post processor that adds click handling to search result callouts.
  *
- * This processor only works for search-result callouts, where the title is hidden via CSS.
+ * This processor only works for stw-search-result callouts, where the title is hidden via CSS.
  * The metadata extraction is now handled by CalloutMetadataProcessor.
  */
 export function createCalloutSearchResultPostProcessor(params: Params): MarkdownPostProcessor {
   return (el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
-    // Find all search-result callouts in the current element
-    const callouts = el.querySelectorAll('.callout[data-callout="search-result"]');
+    // Find all stw-search-result callouts in the current element
+    const callouts = el.querySelectorAll('.callout[data-callout="stw-search-result"]');
 
     if (!callouts.length) return;
 

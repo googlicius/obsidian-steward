@@ -30,10 +30,18 @@ export interface PersistentEmbeddingSimilarityClassifierSettings<
   modelName?: string;
   forceRefresh?: boolean;
   refreshClusters?: string[];
+  ignoreEmbedding?: boolean; // Flag to indicate if embedding similarity check should be ignored
 }
 
 type ClusterNames<CLUSTERS> =
   CLUSTERS extends Array<ValueCluster<string, infer NAME>> ? NAME : never;
+
+type EmbeddingCache<T> = {
+  embedding: Vector;
+  clusterValue: T;
+  clusterName: string;
+  id?: number; // Add ID to the in-memory embeddings
+};
 
 /**
  * Classifies values based on their distance to the values from a set of clusters.
@@ -60,13 +68,20 @@ export class PersistentEmbeddingSimilarityClassifier<
     modelName: 'PersistentEmbeddingSimilarityClassifier',
   };
 
-  private embeddings:
-    | Array<{
-        embedding: Vector;
-        clusterValue: VALUE;
-        clusterName: string;
-      }>
-    | undefined;
+  /**
+   * Static cache to share embeddings across instances
+   */
+  private static embeddingsCache: unknown;
+
+  private get embeddings() {
+    return PersistentEmbeddingSimilarityClassifier.embeddingsCache as
+      | Array<EmbeddingCache<VALUE>>
+      | undefined;
+  }
+
+  private set embeddings(value: Array<EmbeddingCache<VALUE>> | undefined) {
+    PersistentEmbeddingSimilarityClassifier.embeddingsCache = value;
+  }
 
   constructor(settings: PersistentEmbeddingSimilarityClassifierSettings<VALUE, CLUSTERS>) {
     this.settings = settings;
@@ -182,6 +197,7 @@ export class PersistentEmbeddingSimilarityClassifier<
       embedding: Vector;
       clusterValue: VALUE;
       clusterName: string;
+      id?: number;
     }>;
     changedClusters: Map<string, ValueCluster<VALUE, string>>;
   }> {
@@ -191,6 +207,7 @@ export class PersistentEmbeddingSimilarityClassifier<
         embedding: Vector;
         clusterValue: VALUE;
         clusterName: string;
+        id?: number;
       }> = [];
 
       // Detect which clusters have changed
@@ -218,6 +235,7 @@ export class PersistentEmbeddingSimilarityClassifier<
           embedding: embedding.embedding,
           clusterValue: embedding.valueText as VALUE,
           clusterName: embedding.clusterName,
+          id: embedding.id,
         }));
 
       embeddings.push(...embeddingsForDynamicCluster);
@@ -247,6 +265,7 @@ export class PersistentEmbeddingSimilarityClassifier<
             embedding: entry.embedding,
             clusterValue: entry.valueText as VALUE,
             clusterName: entry.clusterName,
+            id: entry.id,
           }))
         );
       }
@@ -419,11 +438,20 @@ export class PersistentEmbeddingSimilarityClassifier<
     try {
       const modelName = this.getModelStorageName();
 
-      // Check if the value already exists in the database
+      // Check if the value already exists in the database for this specific cluster
       const existingEmbedding = await this.db.getEmbeddingByValue(modelName, clusterName, value);
-      if (existingEmbedding) {
+
+      // If embedding exists in this cluster and ignoreEmbedding is false, return early
+      if (existingEmbedding && !this.settings.ignoreEmbedding) {
         logger.log(`Embedding for value "${value}" under cluster "${clusterName}" already exists`);
         return;
+      }
+
+      // If embedding exists and ignoreEmbedding is true, log that we'll update it
+      if (existingEmbedding && this.settings.ignoreEmbedding) {
+        logger.log(
+          `Re-embedding value "${value}" under cluster "${clusterName}" due to ignoreEmbedding flag`
+        );
       }
 
       // Generate embedding for the value
@@ -432,8 +460,31 @@ export class PersistentEmbeddingSimilarityClassifier<
         value,
       });
 
-      // Save the embedding to database
-      await this.db.storeEmbeddings([
+      // Delete all embeddings with this value across all clusters
+      if (this.embeddings) {
+        // If we have embeddings in memory, use them to find IDs to delete
+        const embeddingsToDelete = this.embeddings
+          .filter(e => e.clusterValue === value && e.id !== undefined)
+          .map(e => e.id as number);
+
+        if (embeddingsToDelete.length > 0) {
+          // Delete by IDs if we found any
+          await this.db.embeddings.bulkDelete(embeddingsToDelete);
+          logger.log(
+            `Deleted ${embeddingsToDelete.length} existing embeddings for value "${value}" using in-memory IDs`
+          );
+        }
+
+        // Update in-memory embeddings by removing all with this value
+        this.embeddings = this.embeddings.filter(e => e.clusterValue !== value);
+      } else {
+        // If we don't have embeddings in memory, use the database method
+        await this.db.deleteEmbeddingsByValue(modelName, value);
+        logger.log(`Deleted existing embeddings for value "${value}" using database query`);
+      }
+
+      // Save the new embedding to database
+      const newId = await this.db.storeEmbeddings([
         {
           modelName,
           clusterName,
@@ -443,16 +494,17 @@ export class PersistentEmbeddingSimilarityClassifier<
         },
       ]);
 
-      // Update in-memory embeddings if they exist
+      // Add the new embedding to in-memory cache if it exists
       if (this.embeddings) {
         this.embeddings.push({
           embedding,
           clusterValue: value as VALUE,
           clusterName,
+          id: newId,
         });
       }
 
-      logger.log(`Saved embedding for value under cluster "${clusterName}"`);
+      logger.log(`Saved embedding for value "${value}" under cluster "${clusterName}"`);
     } catch (error) {
       logger.error('Failed to save embedding:', error);
       throw error;
@@ -460,7 +512,6 @@ export class PersistentEmbeddingSimilarityClassifier<
   }
 
   async doClassify(value: VALUE, options: FunctionCallOptions) {
-    console.log('OPTIONS', options);
     if (this.settings.staticClusterValues) {
       for (const cluster of this.settings.staticClusterValues) {
         if (cluster.values.includes(value.toLowerCase() as VALUE)) {
@@ -483,6 +534,15 @@ export class PersistentEmbeddingSimilarityClassifier<
           }
         }
       }
+    }
+
+    // If ignoreEmbedding is set, skip the embedding similarity check
+    if (this.settings.ignoreEmbedding) {
+      logger.log('Ignoring embedding similarity check');
+      return {
+        class: null,
+        rawResponse: undefined,
+      };
     }
 
     const valueEmbedding = await embed({

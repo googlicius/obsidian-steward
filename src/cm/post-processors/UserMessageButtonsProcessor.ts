@@ -20,8 +20,7 @@ export function createUserMessageButtonsProcessor(
   options: UserMessageButtonsOptions = {}
 ): MarkdownPostProcessor {
   return (el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
-    // Find all user-message callouts in the current element
-    const callouts = el.querySelectorAll('.callout[data-callout="user-message"]');
+    const callouts = el.querySelectorAll('.callout[data-callout="stw-user-message"]');
 
     if (!callouts.length) return;
 
@@ -29,15 +28,15 @@ export function createUserMessageButtonsProcessor(
       const callout = callouts[i] as HTMLElement;
 
       // Skip if buttons are already added
-      if (callout.querySelector('.user-message-buttons')) continue;
+      if (callout.querySelector('.stw-user-message-buttons')) continue;
 
       // Create buttons container
       const buttonsContainer = document.createElement('div');
-      buttonsContainer.classList.add('user-message-buttons');
+      buttonsContainer.classList.add('stw-user-message-buttons');
 
       // Create reload button
       const reloadButton = document.createElement('button');
-      reloadButton.classList.add('clickable-icon', 'user-message-button');
+      reloadButton.classList.add('clickable-icon', 'stw-user-message-button');
       reloadButton.setAttribute('aria-label', i18next.t('Reload response'));
       setIcon(reloadButton, 'refresh-cw');
       reloadButton.addEventListener('click', (event: MouseEvent) => {
@@ -50,7 +49,7 @@ export function createUserMessageButtonsProcessor(
 
       // Create delete button
       const deleteButton = document.createElement('button');
-      deleteButton.classList.add('clickable-icon', 'user-message-button');
+      deleteButton.classList.add('clickable-icon', 'stw-user-message-button');
       deleteButton.setAttribute('aria-label', i18next.t('Delete message'));
       setIcon(deleteButton, 'trash');
       deleteButton.addEventListener('click', (event: MouseEvent) => {

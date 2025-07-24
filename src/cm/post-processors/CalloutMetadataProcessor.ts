@@ -4,16 +4,14 @@ import { MarkdownPostProcessor, MarkdownPostProcessorContext } from 'obsidian';
  * Creates a markdown post processor that extracts data from the callout title text
  * and adds them as data attributes to the callout elements.
  *
- * Example: >[!search-result] line:4,pos:1
+ * Example: >[!stw-search-result] line:4,pos:1
  * Will be processed into: data-line="4" data-pos="1"
- *
- * This processor works for both search-result and user-message callouts.
  */
 export function createCalloutMetadataProcessor(): MarkdownPostProcessor {
   return (el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
     // Find all supported callouts in the current element
     const callouts = el.querySelectorAll(
-      '.callout[data-callout="search-result"], .callout[data-callout="user-message"]'
+      '.callout[data-callout="stw-search-result"], .callout[data-callout="stw-user-message"]'
     );
 
     if (!callouts.length) return;

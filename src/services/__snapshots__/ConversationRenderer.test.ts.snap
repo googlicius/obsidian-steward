@@ -61,7 +61,7 @@ exports[`ConversationRenderer extractConversationHistory should handle conversat
     "role": "assistant",
   },
   {
-    "content": ">[!search-result]
+    "content": ">[!stw-search-result]
 >
 >\`\`\`typescript
 >const handleAddTodo = useCallback(text => {

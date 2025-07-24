@@ -24,4 +24,5 @@ export interface ConversationMessage {
   content: string;
   lang?: string;
   command: string;
+  history?: boolean;
 }
