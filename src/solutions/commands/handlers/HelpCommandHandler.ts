@@ -40,6 +40,7 @@ export class HelpCommandHandler extends CommandHandler {
 
       // Add built-in commands section with descriptions
       content += `**${t('common.builtInCommands')}:**\n\n`;
+      content += `*${t('common.builtInCommandsDesc')}*\n\n`;
 
       // List of built-in commands with descriptions
       const builtInCommandsWithDescriptions = [
@@ -82,8 +83,6 @@ export class HelpCommandHandler extends CommandHandler {
         { command: 'update', description: t('common.updateDesc') },
         { command: 'generate', description: t('common.generateDesc') },
         { command: 'read', description: t('common.readDesc') },
-        { command: 'revert', description: t('common.revertDesc') },
-        { command: 'thank_you', description: t('common.thankDesc') },
       ];
 
       // Add intent commands to content

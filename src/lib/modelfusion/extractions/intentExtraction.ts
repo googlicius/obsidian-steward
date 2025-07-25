@@ -16,6 +16,7 @@ import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
 import { ConversationHistoryMessage } from 'src/types/types';
 import { explanationFragment } from '../prompts/fragments';
+import { getValidCommandTypes } from '../prompts/commands';
 
 // Use AbortService instead of a local controller
 const abortService = AbortService.getInstance();
@@ -31,30 +32,13 @@ export interface CommandIntent {
 }
 
 // Define valid command types
-const validCommandTypes = [
-  'search',
-  'move',
-  'copy',
-  'move_from_artifact',
-  'delete_from_artifact',
-  'close',
-  'confirm',
-  'revert',
-  'image',
-  'audio',
-  'update_from_artifact',
-  'create',
-  'generate',
-  'read',
-  'stop',
-  'thank_you',
-  'thanks',
-  'help',
-] as const;
+const validCommandTypes = getValidCommandTypes();
 
 // Define the Zod schema for command intent
 const commandIntentSchema = z.object({
-  commandType: z.enum(validCommandTypes).describe(`One of the available command types.`),
+  commandType: z
+    .enum(validCommandTypes as [string, ...string[]])
+    .describe(`One of the available command types.`),
   query: z.string().describe(
     `The specific query for this command. The query is used to extract further into parameters for actual function calls in local. So make it clear and concise.
 If the command is "read" or "create", then this is the original user's query.`

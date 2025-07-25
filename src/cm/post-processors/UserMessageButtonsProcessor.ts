@@ -1,24 +1,134 @@
-import { MarkdownPostProcessor, MarkdownPostProcessorContext, setIcon } from 'obsidian';
+import { MarkdownPostProcessor, MarkdownPostProcessorContext, Notice, setIcon } from 'obsidian';
 import i18next from 'i18next';
-
-export interface UserMessageButtonsOptions {
-  /**
-   * The callback function to call when the delete button is clicked
-   */
-  onDeleteClick?: (event: MouseEvent, sourcePath: string) => void;
-
-  /**
-   * The callback function to call when the reload button is clicked
-   */
-  onReloadClick?: (event: MouseEvent, sourcePath: string) => void;
-}
+import type StewardPlugin from 'src/main';
+import { logger } from 'src/utils/logger';
 
 /**
  * Creates a markdown post processor that adds action buttons to user-message callouts
  */
-export function createUserMessageButtonsProcessor(
-  options: UserMessageButtonsOptions = {}
-): MarkdownPostProcessor {
+export function createUserMessageButtonsProcessor(plugin: StewardPlugin): MarkdownPostProcessor {
+  const handleDeleteClick = async (event: MouseEvent, sourcePath: string) => {
+    try {
+      const calloutEl = (event.target as HTMLElement).closest(
+        '.callout[data-callout="stw-user-message"]'
+      ) as HTMLElement;
+      if (!calloutEl) {
+        new Notice('Could not find user message callout');
+        return;
+      }
+
+      const messageId = calloutEl.dataset.id;
+
+      if (!messageId || !sourcePath) {
+        new Notice('Could not identify message to delete');
+        return;
+      }
+
+      // Extract the conversation title from the path
+      const title = plugin.conversationRenderer.extractTitleFromPath(sourcePath);
+
+      // Delete the message and all messages below it
+      const success = await plugin.conversationRenderer.deleteMessageAndBelow(title, messageId);
+
+      if (!success) {
+        new Notice('Failed to delete message');
+        return;
+      }
+    } catch (error) {
+      logger.error('Error handling delete button click:', error);
+      new Notice(`Error deleting message: ${error.message}`);
+    }
+  };
+
+  const handleReloadClick = async (event: MouseEvent, sourcePath: string) => {
+    try {
+      const calloutEl = (event.target as HTMLElement).closest(
+        '.callout[data-callout="stw-user-message"]'
+      ) as HTMLElement;
+      if (!calloutEl) {
+        new Notice('Could not find user message callout');
+        return;
+      }
+
+      const messageId = calloutEl.dataset.id;
+
+      if (!messageId) {
+        new Notice('Could not identify message to reload');
+        return;
+      }
+
+      // Extract the conversation title from the path
+      const title = plugin.conversationRenderer.extractTitleFromPath(sourcePath);
+
+      // Get all messages from the conversation
+      const allMessages = await plugin.conversationRenderer.extractAllConversationMessages(title);
+
+      // Find the current message by ID
+      const currentMessageIndex = allMessages.findIndex(message => message.id === messageId);
+
+      if (currentMessageIndex === -1) {
+        new Notice('Could not find message in conversation');
+        return;
+      }
+
+      // Get the current message
+      const currentMessage = allMessages[currentMessageIndex];
+
+      // Find the next message (response to the current message)
+      const nextMessageIndex = currentMessageIndex + 1;
+
+      if (nextMessageIndex >= allMessages.length) {
+        new Notice('No response message found to reload');
+        return;
+      }
+
+      // Get the next message ID to delete from
+      const nextMessageId = allMessages[nextMessageIndex].id;
+
+      // Delete all messages from the next message onwards
+      const success = await plugin.conversationRenderer.deleteMessageAndBelow(title, nextMessageId);
+
+      if (!success) {
+        new Notice('Failed to prepare message for reload');
+        return;
+      }
+
+      // Get the language from the conversation note
+      const lang = (await plugin.conversationRenderer.getConversationProperty(
+        title,
+        'lang'
+      )) as string;
+
+      // Determine the command type
+      const commandType = currentMessage.command || ' ';
+
+      // Clean the message content by removing any command prefix
+      let cleanContent = currentMessage.content;
+      if (commandType) {
+        const commandPrefix = '/' + commandType;
+        if (cleanContent.startsWith(commandPrefix)) {
+          cleanContent = cleanContent.substring(commandPrefix.length);
+        }
+      }
+
+      // Process the command
+      await plugin.commandProcessorService.processCommands({
+        title,
+        commands: [
+          {
+            commandType,
+            query: cleanContent,
+          },
+        ],
+        lang,
+        isReloadRequest: true,
+      });
+    } catch (error) {
+      logger.error('Error handling reload button click:', error);
+      new Notice(`Error reloading message: ${error.message}`);
+    }
+  };
+
   return (el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
     const callouts = el.querySelectorAll('.callout[data-callout="stw-user-message"]');
 
@@ -42,9 +152,7 @@ export function createUserMessageButtonsProcessor(
       reloadButton.addEventListener('click', (event: MouseEvent) => {
         event.preventDefault();
         event.stopPropagation();
-        if (options.onReloadClick) {
-          options.onReloadClick(event, ctx.sourcePath);
-        }
+        handleReloadClick(event, ctx.sourcePath);
       });
 
       // Create delete button
@@ -55,9 +163,7 @@ export function createUserMessageButtonsProcessor(
       deleteButton.addEventListener('click', (event: MouseEvent) => {
         event.preventDefault();
         event.stopPropagation();
-        if (options.onDeleteClick) {
-          options.onDeleteClick(event, ctx.sourcePath);
-        }
+        handleDeleteClick(event, ctx.sourcePath);
       });
 
       // Add buttons to container

@@ -9,6 +9,7 @@ const ja = {
       artifactCreated: 'アーティファクト {{type}} が作成されました',
       availableCommands: '利用可能なコマンド',
       builtInCommands: '組み込みコマンド',
+      builtInCommandsDesc: 'これらのコマンドは /&lt;command&gt を通じて直接利用できます',
       userDefinedCommands: 'ユーザー定義コマンド',
       noUserDefinedCommands: 'ユーザー定義コマンドはまだありません。',
       intentCommands: 'インテント基づくコマンド',
@@ -28,8 +29,6 @@ const ja = {
       updateDesc: 'ファイルの内容を更新する',
       generateDesc: 'AIでコンテンツを生成する',
       readDesc: 'ノートから内容を読み取る',
-      revertDesc: '以前の変更を元に戻す',
-      thankDesc: '感謝の意を表す',
     },
     // Chat UI elements
     chat: {

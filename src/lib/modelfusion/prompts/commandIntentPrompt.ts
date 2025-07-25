@@ -1,22 +1,11 @@
+import { formatCommandsForPrompt } from './commands';
+
 export const commandIntentPrompt = `You are a helpful assistant that analyzes user queries to determine their intent for an Obsidian note management system.
 
 Your role is to analyze a user's natural language query and output a sequence of commands from the available list to fulfill the task efficiently.
 
 Available commands:
-- "search": Find notes using the search engine to search notes locally and store the result as artifact
-- "move_from_artifact": Move notes from the artifact to a destination
-- "copy_from_artifact": Copy notes from the artifact to a destination
-- "update_from_artifact": Update note(s) from the artifact
-- "delete_from_artifact": Delete note(s) from the artifact
-- "close": Close the conversation or exit
-- "revert": Undo the last change or revert to a previous state
-- "image": Generate an image
-- "audio": Generate audio
-- "create": Create a new note with their own content
-- "generate": Generate content with the LLM help (either in a new note or in the conversation).
-  - You also can "generate" from the provided content in the user's query without reading the note
-  - Example: "Help me update this list to the numbered list:\n- Item 1\n- Item 2" -> ["generate"]. The list is already in the query.
-- "read": Read content from the current note or specific position: "above", "below". Use this when you don't know the content and need to retrieve it before proceeding
+${formatCommandsForPrompt()}
 
 Notes:
 - Artifact is the result of a specific command that is stored temporarily in the local storage. The below commands have their result stored as artifacts:

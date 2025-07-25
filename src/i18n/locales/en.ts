@@ -11,6 +11,7 @@ const en = {
       artifactCreated: 'Artifact {{type}} is created',
       availableCommands: 'Available Commands',
       builtInCommands: 'Built-in Commands',
+      builtInCommandsDesc: 'These commands are directly accessible via /&lt;command&gt',
       userDefinedCommands: 'User-Defined Commands',
       noUserDefinedCommands: "You don't have any user-defined commands yet.",
       intentCommands: 'Intent-Based Commands',
@@ -30,8 +31,6 @@ const en = {
       updateDesc: 'Update file content',
       generateDesc: 'Generate content with AI',
       readDesc: 'Read content from notes',
-      revertDesc: 'Undo previous changes',
-      thankDesc: 'Express gratitude',
     },
     // Chat UI elements
     chat: {

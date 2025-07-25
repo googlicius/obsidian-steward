@@ -9,6 +9,7 @@ const vi = {
       artifactCreated: 'Artifact {{type}} đã được lưu',
       availableCommands: 'Các Lệnh Có Sẵn',
       builtInCommands: 'Lệnh Tích Hợp',
+      builtInCommandsDesc: 'Những lệnh này có sẵn thông qua /&lt;command&gt',
       userDefinedCommands: 'Lệnh Tùy Chỉnh',
       noUserDefinedCommands: 'Bạn chưa có lệnh tùy chỉnh nào.',
       intentCommands: 'Lệnh Dựa Trên Ý Định',
@@ -28,8 +29,6 @@ const vi = {
       updateDesc: 'Cập nhật nội dung tập tin',
       generateDesc: 'Tạo nội dung với AI',
       readDesc: 'Đọc nội dung từ ghi chú',
-      revertDesc: 'Hoàn tác các thay đổi trước đó',
-      thankDesc: 'Bày tỏ lòng biết ơn',
     },
     // Chat UI elements
     chat: {

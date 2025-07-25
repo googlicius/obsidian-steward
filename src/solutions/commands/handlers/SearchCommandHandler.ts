@@ -175,7 +175,7 @@ export class SearchCommandHandler extends CommandHandler {
                   path: result.path,
                 }
               );
-              response += callout;
+              response += '\n' + callout;
             }
 
             // Show a message for additional matches
