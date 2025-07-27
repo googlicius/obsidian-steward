@@ -111,52 +111,54 @@ export class ConversationRenderer {
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
       const notePath = `${folderPath}/${params.path}.md`;
 
-      // Get the current content of the note
+      // Get the file reference
       const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
       if (!file) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
-      let currentContent = await this.plugin.app.vault.read(file);
-
-      // Update language property in the frontmatter if provided
-      if (params.lang) {
-        currentContent = this.updatePropertyInContent(currentContent, 'lang', params.lang);
-      }
-
-      // Remove the generating indicator and any trailing newlines
-      currentContent = this.removeGeneratingIndicator(currentContent);
-
+      // Get message metadata
       const { messageId, comment } = await this.buildMessageMetadata(params.path, {
         role: params.role ?? 'Steward',
         command: params.command,
         includeHistory: params.includeHistory ?? true,
       });
 
-      // Prepare the content to be added
-      let contentToAdd = '';
+      // Process the file content
+      await this.plugin.app.vault.process(file, currentContent => {
+        // Update language property in the frontmatter if provided
+        if (params.lang) {
+          currentContent = this.updatePropertyInContent(currentContent, 'lang', params.lang);
+        }
 
-      if (params.role === 'User') {
-        currentContent = `${currentContent}\n\n---`;
-        // Format user message as a callout
-        contentToAdd = this.noteContentService.formatCallout(
-          `**${params.role}:** ${params.newContent}`,
-          'stw-user-message',
-          { id: messageId }
-        );
-      } else {
-        // For Steward or System messages, use the regular format
-        const roleText = params.role ? `**${params.role}:** ` : '';
-        contentToAdd = `${roleText}${params.newContent}`;
-      }
+        // Remove the generating indicator and any trailing newlines
+        currentContent = this.removeGeneratingIndicator(currentContent);
 
-      // Add hidden content after visible content if provided
-      if (params.artifactContent) {
-        contentToAdd += `\n\n\`\`\`stw-artifact\n${params.artifactContent}\n\`\`\``;
-      }
+        // Prepare the content to be added
+        let contentToAdd = '';
 
-      // Update the note with both the language property and new content in a single operation
-      await this.plugin.app.vault.modify(file, `${currentContent}\n\n${comment}\n${contentToAdd}`);
+        if (params.role === 'User') {
+          currentContent = `${currentContent}\n\n---`;
+          // Format user message as a callout
+          contentToAdd = this.noteContentService.formatCallout(
+            `**${params.role}:** ${params.newContent}`,
+            'stw-user-message',
+            { id: messageId }
+          );
+        } else {
+          // For Steward or System messages, use the regular format
+          const roleText = params.role ? `**${params.role}:** ` : '';
+          contentToAdd = `${roleText}${params.newContent}`;
+        }
+
+        // Add hidden content after visible content if provided
+        if (params.artifactContent) {
+          contentToAdd += `\n\n\`\`\`stw-artifact\n${params.artifactContent}\n\`\`\``;
+        }
+
+        // Return the updated content
+        return `${currentContent}\n\n${comment}\n${contentToAdd}`;
+      });
 
       // Return the message ID for referencing
       return messageId;

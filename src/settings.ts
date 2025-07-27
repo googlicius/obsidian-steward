@@ -17,10 +17,10 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     containerEl.empty();
 
-    containerEl.createEl('h2', { text: 'Steward Plugin Settings' });
+    containerEl.createEl('h1', { text: 'Steward Plugin Settings' });
 
     // Create API Keys section
-    containerEl.createEl('h3', { text: 'API Keys' });
+    new Setting(containerEl).setName('API Keys').setHeading();
 
     // OpenAI API Key setting with encryption
     new Setting(containerEl)
@@ -95,7 +95,7 @@ export default class StewardSettingTab extends PluginSettingTab {
         } catch (error) {
           // If decryption fails, we'll show a special message
           placeholder = 'Error: Click to re-enter key';
-          console.error('Error decrypting API key in settings:', error);
+          logger.error('Error decrypting API key in settings:', error);
         }
 
         text
@@ -153,7 +153,7 @@ export default class StewardSettingTab extends PluginSettingTab {
         } catch (error) {
           // If decryption fails, we'll show a special message
           placeholder = 'Error: Click to re-enter key';
-          console.error('Error decrypting API key in settings:', error);
+          logger.error('Error decrypting API key in settings:', error);
         }
 
         text
@@ -234,7 +234,7 @@ export default class StewardSettingTab extends PluginSettingTab {
       );
 
     // Add LLM settings section
-    containerEl.createEl('h3', { text: 'LLM Settings' });
+    new Setting(containerEl).setName('LLM').setHeading();
 
     // Chat Model selection with provider automatically determined
     new Setting(containerEl)

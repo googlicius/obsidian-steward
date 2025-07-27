@@ -20,7 +20,6 @@ import { encrypt, decrypt, generateSaltKeyId } from './utils/cryptoUtils';
 import { logger } from './utils/logger';
 import { ConversationRenderer } from './services/ConversationRenderer';
 import { ConversationArtifactManager } from './services/ConversationArtifactManager';
-import { GitEventHandler } from './solutions/git/GitEventHandler';
 import { ContentReadingService } from './services/ContentReadingService';
 import { StewardPluginSettings } from './types/interfaces';
 import { Line, Text } from '@codemirror/state';
@@ -56,7 +55,6 @@ export default class StewardPlugin extends Plugin {
   staticConversationTitle = 'Steward Chat';
   artifactManager: ConversationArtifactManager;
   conversationRenderer: ConversationRenderer;
-  gitEventHandler: GitEventHandler;
   contentReadingService: ContentReadingService;
   commandProcessorService: CommandProcessorService;
   userDefinedCommandService: UserDefinedCommandService;
@@ -182,9 +180,6 @@ export default class StewardPlugin extends Plugin {
 
     // Initialize the conversation event handler
     this.conversationEventHandler = new ConversationEventHandler({ plugin: this });
-
-    // Initialize Git event handler for tracking and reverting changes
-    this.gitEventHandler = new GitEventHandler(this.app, this);
 
     // Initialize the CommandProcessorService
     this.commandProcessorService = new CommandProcessorService(this);

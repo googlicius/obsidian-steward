@@ -319,7 +319,7 @@ export class GenerateCommandHandler extends CommandHandler {
     }
 
     // Update the file once with the complete content after streaming is done
-    await this.app.vault.modify(file, accumulatedContent);
+    await this.app.vault.process(file, () => accumulatedContent);
 
     // Update the conversation with the results
     await this.renderer.updateConversationNote({

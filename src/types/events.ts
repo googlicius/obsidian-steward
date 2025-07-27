@@ -1,7 +1,6 @@
 import { CommandIntent } from '../lib/modelfusion/extractions';
 import { SearchQueryExtractionV2 } from '../lib/modelfusion';
 import { IndexedDocument } from '../database/SearchDatabase';
-import { GitOperation } from '../solutions/git/GitService';
 
 export enum Events {
   CONVERSATION_NOTE_CREATED = 'conversation-note-created',
@@ -82,19 +81,9 @@ export interface ConfirmationResponsePayload {
   context?: any; // Additional context data, such as language preference
 }
 
-export interface GitOperationPerformedPayload {
-  operation: GitOperation;
-  commitHash: string;
-}
-
 export interface GitOperationRevertedPayload {
   commitHash: string;
   success: boolean;
-}
-
-export interface GitErrorPayload {
-  error: Error;
-  operation?: GitOperation;
 }
 
 export interface MoveOperationCompletedPayload {
@@ -179,12 +168,10 @@ export type EventPayloadMap = {
   [Events.CONFIRMATION_REQUESTED]: ConfirmationRequestPayload;
   [Events.CONFIRMATION_RESPONDED]: ConfirmationResponsePayload;
   [Events.MOVE_FROM_ARTIFACT_CONFIRMED]: MoveFromArtifactConfirmedPayload;
-  [Events.GIT_OPERATION_PERFORMED]: GitOperationPerformedPayload;
   [Events.GIT_OPERATION_REVERTED]: GitOperationRevertedPayload;
   [Events.MOVE_OPERATION_COMPLETED]: MoveOperationCompletedPayload;
   [ErrorEvents.MATH_PROCESSING_ERROR]: ErrorPayload;
   [ErrorEvents.LLM_ERROR]: ErrorPayload;
-  [ErrorEvents.GIT_ERROR]: GitErrorPayload;
   [Events.DELETE_OPERATION_CONFIRMED]: DeleteOperationConfirmedPayload;
   [Events.COPY_OPERATION_CONFIRMED]: CopyOperationConfirmedPayload;
   [Events.DELETE_OPERATION_COMPLETED]: DeleteOperationCompletedPayload;
