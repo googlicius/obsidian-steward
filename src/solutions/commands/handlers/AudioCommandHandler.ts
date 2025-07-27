@@ -8,7 +8,6 @@ import { getTranslation } from 'src/i18n';
 import { extractAudioQuery } from 'src/lib/modelfusion/extractions';
 import { MediaTools } from 'src/tools/mediaTools';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-
 import type StewardPlugin from 'src/main';
 
 export class AudioCommandHandler extends CommandHandler {
@@ -74,7 +73,6 @@ export class AudioCommandHandler extends CommandHandler {
           mediaType: 'audio',
         });
 
-        // Add a System message with the artifact content
         await this.renderer.updateConversationNote({
           path: title,
           newContent: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,

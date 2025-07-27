@@ -11,7 +11,6 @@ import { extractSearchQueryV2 } from 'src/lib/modelfusion/extractions';
 import { highlightKeyword } from 'src/utils/highlightKeywords';
 import { PaginatedSearchResultV2 } from 'src/solutions/search';
 import { MediaTools } from 'src/tools/mediaTools';
-
 import type StewardPlugin from 'src/main';
 
 export class SearchCommandHandler extends CommandHandler {

@@ -264,17 +264,7 @@ export default class StewardPlugin extends Plugin {
 
     this.registerMarkdownPostProcessor(createUserMessageButtonsProcessor(this));
 
-    this.registerMarkdownPostProcessor(
-      createStewardConversationProcessor({
-        conversationFolder: `${this.settings.stewardFolder}/Conversations`,
-        handleCloseButtonClick: (event: MouseEvent, conversationPath: string) => {
-          conversationPath = conversationPath.replace('.md', '');
-          const conversationTitle = conversationPath.split('/').pop();
-          this.closeConversation(conversationTitle as string);
-          this.editor.focus();
-        },
-      })
-    );
+    this.registerMarkdownPostProcessor(createStewardConversationProcessor(this));
 
     // Register the custom view type
     this.registerView(STW_CONVERSATION_VIEW_CONFIG.type, leaf => new StewardConversationView(leaf));

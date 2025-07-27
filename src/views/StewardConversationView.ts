@@ -2,7 +2,6 @@ import { MarkdownView, setIcon } from 'obsidian';
 import { STW_CONVERSATION_VIEW_CONFIG } from '../constants';
 import { logger } from 'src/utils/logger';
 import i18next from 'i18next';
-
 import type { WorkspaceLeaf } from 'obsidian';
 
 export class StewardConversationView extends MarkdownView {
@@ -83,12 +82,12 @@ export class StewardConversationView extends MarkdownView {
       newChatBtn.addEventListener('click', () => this.handleNewChat());
 
       // History button
-      const historyBtn = headerEl.createEl('button', {
-        cls: 'steward-header-button clickable-icon',
-      });
-      setIcon(historyBtn, 'history');
-      historyBtn.title = i18next.t('chat.history');
-      historyBtn.addEventListener('click', () => this.handleHistory());
+      // const historyBtn = headerEl.createEl('button', {
+      //   cls: 'steward-header-button clickable-icon',
+      // });
+      // setIcon(historyBtn, 'history');
+      // historyBtn.title = i18next.t('chat.history');
+      // historyBtn.addEventListener('click', () => this.handleHistory());
 
       // Close Chat button
       const closeBtn = headerEl.createEl('button', {

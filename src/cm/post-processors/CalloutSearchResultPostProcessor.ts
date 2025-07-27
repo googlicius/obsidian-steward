@@ -1,4 +1,4 @@
-import { MarkdownPostProcessor, MarkdownPostProcessorContext, TFile } from 'obsidian';
+import { MarkdownPostProcessor, TFile } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import { EditorView } from '@codemirror/view';
 import { logger } from 'src/utils/logger';
@@ -110,7 +110,7 @@ export function createCalloutSearchResultPostProcessor(
     });
   };
 
-  return (el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
+  return (el, ctx) => {
     // Find all stw-search-result callouts in the current element
     const callouts = el.querySelectorAll('.callout[data-callout="stw-search-result"]');
 

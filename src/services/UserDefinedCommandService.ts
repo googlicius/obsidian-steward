@@ -327,7 +327,7 @@ export class UserDefinedCommandService {
         commandType: step.name,
         systemPrompts,
         query,
-        model, // Include the model in the CommandIntent
+        model,
       };
     });
   }

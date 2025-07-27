@@ -1,4 +1,4 @@
-import { MarkdownPostProcessor, MarkdownPostProcessorContext, Notice, setIcon } from 'obsidian';
+import { MarkdownPostProcessor, Notice, setIcon } from 'obsidian';
 import i18next from 'i18next';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
@@ -129,7 +129,7 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
     }
   };
 
-  return (el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
+  return (el, ctx) => {
     const callouts = el.querySelectorAll('.callout[data-callout="stw-user-message"]');
 
     if (!callouts.length) return;

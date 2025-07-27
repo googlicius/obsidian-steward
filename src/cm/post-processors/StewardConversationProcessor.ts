@@ -1,14 +1,18 @@
 import i18next from 'i18next';
 import { MarkdownPostProcessor, setIcon } from 'obsidian';
+import type StewardPlugin from 'src/main';
 
-export function createStewardConversationProcessor({
-  conversationFolder,
-  handleCloseButtonClick,
-}: {
-  conversationFolder: string;
-  handleCloseButtonClick: (event: MouseEvent, conversationTitle: string) => void;
-}): MarkdownPostProcessor {
+export function createStewardConversationProcessor(plugin: StewardPlugin): MarkdownPostProcessor {
+  const handleCloseButtonClick = (event: MouseEvent, conversationPath: string) => {
+    conversationPath = conversationPath.replace('.md', '');
+    const conversationTitle = conversationPath.split('/').pop();
+    plugin.closeConversation(conversationTitle as string);
+    plugin.editor.focus();
+  };
+
   return (el, ctx) => {
+    const conversationFolder = `${plugin.settings.stewardFolder}/Conversations`;
+
     // Check if the note is under conversation folder
     if (!ctx.sourcePath.startsWith(conversationFolder)) {
       return;
