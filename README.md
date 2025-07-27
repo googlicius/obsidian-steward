@@ -14,12 +14,6 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 - **Model Flexibility**: Use your favorite AI models including OpenAI, DeepSeek, and Ollama local models
 - **Intent Caching**: Utilizes embeddings to cache similar queries so subsequent requests don't require LLM processing
 
-## Development Status
-
-🚧 **Active Development** 🚧
-
-This plugin is currently under active development. New features and improvements are being added regularly. While the core functionality is stable, you might encounter occasional issues or changes as development progresses. Feedback and bug reports are welcome!
-
 ## Standard (Built-In) Commands
 
 Steward can be used through the command palette directly in the editor or by opening the chat interface. Here are some example commands:
