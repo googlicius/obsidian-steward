@@ -764,7 +764,7 @@ export default class StewardPlugin extends Plugin {
 
       // Put the API key in the environment variable
       if (provider === 'openai') {
-        console.log('Setting OPENAI_API_KEY', apiKey, encryptedKey);
+        logger.log('Setting OPENAI_API_KEY', apiKey, encryptedKey);
         process.env.OPENAI_API_KEY = apiKey;
       } else if (provider === 'elevenlabs') {
         process.env.ELEVENLABS_API_KEY = apiKey;

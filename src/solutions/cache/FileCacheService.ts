@@ -23,11 +23,6 @@ export class FileCacheService {
       fileCache = new FileCache({
         cacheDir: `${basePath}/.obsidian/steward-cache/embeddings`,
       });
-
-      console.log(
-        'Embedding cache initialized at:',
-        `${basePath}/.obsidian/steward-cache/embeddings`
-      );
     } catch (error) {
       console.error('Failed to initialize embedding cache:', error);
       // Create a fallback in-memory cache

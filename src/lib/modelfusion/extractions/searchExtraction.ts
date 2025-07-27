@@ -80,7 +80,6 @@ export async function extractSearchQueryV2({
   command: CommandIntent;
   lang?: string;
 }): Promise<SearchQueryExtractionV2> {
-  console.log('command', command);
   const { systemPrompts = [] } = command;
   // Check if input is wrapped in quotation marks for direct search
   const quotedRegex = /^["'](.+)["']$/;

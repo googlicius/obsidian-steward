@@ -233,18 +233,6 @@ export default class StewardSettingTab extends PluginSettingTab {
           })
       );
 
-    // Add debug mode toggle
-    new Setting(containerEl)
-      .setName('Debug Mode')
-      .setDesc('Enable detailed logging in the console for debugging')
-      .addToggle(toggle =>
-        toggle.setValue(this.plugin.settings.debug).onChange(async value => {
-          this.plugin.settings.debug = value;
-          await this.plugin.saveSettings();
-          logger.setDebug(value);
-        })
-      );
-
     // Add LLM settings section
     containerEl.createEl('h3', { text: 'LLM Settings' });
 
@@ -339,5 +327,17 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     // Initial visibility
     updateOllamaSettingsVisibility();
+
+    // Add debug mode toggle (moved to the end)
+    new Setting(containerEl)
+      .setName('Debug Mode')
+      .setDesc('Enable detailed logging in the console for debugging')
+      .addToggle(toggle =>
+        toggle.setValue(this.plugin.settings.debug).onChange(async value => {
+          this.plugin.settings.debug = value;
+          await this.plugin.saveSettings();
+          logger.setDebug(value);
+        })
+      );
   }
 }

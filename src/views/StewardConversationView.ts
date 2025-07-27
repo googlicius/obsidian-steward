@@ -121,11 +121,6 @@ export class StewardConversationView extends MarkdownView {
     });
   }
 
-  private handleHistory(): void {
-    // TODO: Implement history functionality
-    console.log('History button clicked');
-  }
-
   private handleCloseChat(): void {
     this.toggleStaticConversation();
   }

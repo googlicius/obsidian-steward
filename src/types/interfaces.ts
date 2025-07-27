@@ -20,6 +20,5 @@ export interface StewardPluginSettings {
     temperature: number;
     ollamaBaseUrl?: string;
     maxGenerationTokens?: number; // Maximum number of tokens to generate in response
-    corsProxyUrl?: string; // URL for CORS proxy to bypass CORS issues with API providers
   };
 }
