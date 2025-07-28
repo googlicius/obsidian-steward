@@ -20,19 +20,17 @@ Steward can be used through the command palette directly in the editor or by ope
 
 ### Usage
 
+1. Click the "Open Steward chat" icon or press `Ctrl+Shift+L` to open the chat
+2. Type after the `/ ` in the chat or the active editor to interact or type `/ ?` to see available commands
+3. To add a new line in the command input, press `Shift+Enter` (uses 2-space indentation)
+
+#### Example Commands
+
 - **/search** Notes tagged #Todo in the root folder
 - / Add tag #Done to all notes of the search results and move them to the Archived folder
 - / Write a poem about Angular in a new note then move it to the Generated folder
 - / Update the list above to a numbered list
 - **/audio** "project" as a noun and a verb using 11Labs
-- / I don't like your name, you are "Joe" from now on
-
-### Tips to reduce the number of input tokens
-
-- Use a specific command directly instead of a general command (`/ `), e.g, `/search`, `/audio`, etc.
-- For the `/search` command, wrap the keyword in quotation marks for searching the vault without the LLM's help, e.g, `/search "my cat"`
-- Create User-Defined commands
-- Provide feedback by clicking thumbs up or down on any Steward's answer to help it classify accurately #Todo.
 
 ## Showcases
 
@@ -143,11 +141,38 @@ The following diagram illustrates how commands are processed in Steward:
 
 <img src="/assets/commands-flow.svg" alt="Commands flow" width="600px">
 
+## Folder Structure
+
+Steward creates the following folder structure in your vault:
+
+```
+Steward/
+├── Commands/       # Stores user-defined command definitions
+├── Conversations/  # Archives past conversations
+└── Steward Chat.md # Current active conversation
+```
+
 ## Installation
+
+### From Obsidian Community Plugins
 
 1. Download the plugin from the Obsidian Community Plugins browser
 2. Enable the plugin in your Obsidian settings
 3. Configure your API keys in the plugin settings
+
+### Using BRAT (Beta Reviewer's Auto-update Tool)
+
+1. Install [BRAT](https://github.com/TfTHacker/obsidian42-brat) from the Obsidian Community Plugins
+2. Open BRAT settings and add the beta plugin: `googlicius/obsidian-steward`
+3. Enable the plugin in your Obsidian settings
+4. Configure your API keys in the plugin settings
+
+### Manual Installation
+
+1. Download the latest release from the [releases page](https://github.com/googlicius/obsidian-steward/releases)
+2. Extract the zip file into your Obsidian vault's `.obsidian/plugins` folder
+3. Enable the plugin in your Obsidian settings
+4. Configure your API keys in the plugin settings
 
 ## Settings
 

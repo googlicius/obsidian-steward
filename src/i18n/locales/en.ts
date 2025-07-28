@@ -9,12 +9,12 @@ const en = {
       lowConfidenceConfirmation:
         "I'm not entirely sure about this request. Would you like me to proceed anyway?",
       artifactCreated: 'Artifact {{type}} is created',
-      availableCommands: 'Available Commands',
-      builtInCommands: 'Built-in Commands',
+      availableCommands: 'Available commands',
+      builtInCommands: 'Built-in commands',
       builtInCommandsDesc: 'These commands are directly accessible via /&lt;command&gt',
-      userDefinedCommands: 'User-Defined Commands',
+      userDefinedCommands: 'User-Defined commands',
       noUserDefinedCommands: "You don't have any user-defined commands yet.",
-      intentCommands: 'Intent-Based Commands',
+      intentCommands: 'Intent-Based commands',
       intentCommandsDesc: 'These commands are available through natural language processing',
       commandHelpText: 'Type any command followed by your query to use it.',
       searchDesc: 'Search for notes in your vault',
@@ -34,11 +34,11 @@ const en = {
     },
     // Chat UI elements
     chat: {
-      newChat: 'New Chat',
+      newChat: 'New chat',
       history: 'History',
-      closeChat: 'Close Chat',
+      closeChat: 'Close chat',
       stewardChat: 'Steward Chat',
-      closeConversation: 'Close Conversation',
+      closeConversation: 'Close conversation',
       conversationClosed: 'Conversation closed',
     },
     // Media generation messages
@@ -161,7 +161,7 @@ const en = {
     },
     // UI elements
     ui: {
-      openStewardChat: 'Open Steward Chat (Ctrl+Shift+L)',
+      openStewardChat: 'Open Steward chat (Ctrl+Shift+L)',
       buildingSearchIndex: 'Building search index...',
       errorBuildingSearchIndex: 'Error building search index. Check console for details.',
       buildingIndexes: 'Steward: Building indexes...',

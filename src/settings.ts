@@ -17,14 +17,14 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     containerEl.empty();
 
-    containerEl.createEl('h1', { text: 'Steward Plugin Settings' });
+    containerEl.createEl('h1', { text: 'Steward plugin settings' });
 
     // Create API Keys section
-    new Setting(containerEl).setName('API Keys').setHeading();
+    new Setting(containerEl).setName('API keys').setHeading();
 
     // OpenAI API Key setting with encryption
     new Setting(containerEl)
-      .setName('OpenAI API Key')
+      .setName('OpenAI API key')
       .setDesc('Your OpenAI API key (stored with encryption)')
       .addText(text => {
         // Get the current API key (decrypted) with error handling
@@ -67,7 +67,7 @@ export default class StewardSettingTab extends PluginSettingTab {
       .addExtraButton(button => {
         button
           .setIcon('cross')
-          .setTooltip('Clear API Key')
+          .setTooltip('Clear API key')
           .onClick(async () => {
             try {
               await this.plugin.setEncryptedApiKey('openai', '');
@@ -82,7 +82,7 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     // ElevenLabs API Key setting with encryption
     new Setting(containerEl)
-      .setName('ElevenLabs API Key')
+      .setName('ElevenLabs API key')
       .setDesc('Your ElevenLabs API key (stored with encryption)')
       .addText(text => {
         // Get the current API key (decrypted) with error handling
@@ -140,7 +140,7 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     // DeepSeek API Key setting with encryption
     new Setting(containerEl)
-      .setName('DeepSeek API Key')
+      .setName('DeepSeek API key')
       .setDesc('Your DeepSeek API key (stored with encryption)')
       .addText(text => {
         // Get the current API key (decrypted) with error handling
@@ -183,7 +183,7 @@ export default class StewardSettingTab extends PluginSettingTab {
       .addExtraButton(button => {
         button
           .setIcon('cross')
-          .setTooltip('Clear API Key')
+          .setTooltip('Clear API key')
           .onClick(async () => {
             try {
               await this.plugin.setEncryptedApiKey('deepseek', '');
@@ -221,7 +221,7 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     // Add setting for conversation folder
     new Setting(containerEl)
-      .setName('Steward Folder')
+      .setName('Steward folder')
       .setDesc('Base folder where Steward data will be stored')
       .addText(text =>
         text
@@ -238,7 +238,7 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     // Chat Model selection with provider automatically determined
     new Setting(containerEl)
-      .setName('Chat Model')
+      .setName('Chat model')
       .setDesc('Select the AI model to use for chat')
       .addDropdown(dropdown => {
         // Add all models from the constants
@@ -257,7 +257,7 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     // Embedding Model setting (hard-coded to GPT-4)
     new Setting(containerEl)
-      .setName('Embedding Model')
+      .setName('Embedding model')
       .setDesc('Model used for text embeddings (currently fixed to GPT-4)')
       .addText(text => {
         text.setValue('GPT-4').setDisabled(true);
@@ -280,7 +280,7 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     // Max Generation Tokens setting
     new Setting(containerEl)
-      .setName('Max Generation Tokens')
+      .setName('Max generation tokens')
       .setDesc(
         'Maximum number of tokens to generate in response (higher values may increase API costs)'
       )
@@ -304,7 +304,7 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     // Ollama Base URL setting (only shown when Ollama model is selected)
     const ollamaBaseUrlSetting = new Setting(containerEl)
-      .setName('Ollama Base URL')
+      .setName('Ollama base URL')
       .setDesc('The base URL for Ollama API (default: http://localhost:11434)')
       .addText(text =>
         text
@@ -330,7 +330,7 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     // Add debug mode toggle (moved to the end)
     new Setting(containerEl)
-      .setName('Debug Mode')
+      .setName('Debug mode')
       .setDesc('Enable detailed logging in the console for debugging')
       .addToggle(toggle =>
         toggle.setValue(this.plugin.settings.debug).onChange(async value => {

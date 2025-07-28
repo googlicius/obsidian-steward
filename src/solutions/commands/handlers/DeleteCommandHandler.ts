@@ -91,7 +91,7 @@ export class DeleteCommandHandler extends CommandHandler {
         try {
           const file = this.app.vault.getAbstractFileByPath(doc.path);
           if (file) {
-            await this.app.vault.delete(file);
+            await this.app.fileManager.trashFile(file);
             deletedFiles.push(doc.path);
           }
         } catch (error) {

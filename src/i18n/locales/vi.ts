@@ -32,12 +32,12 @@ const vi = {
     },
     // Chat UI elements
     chat: {
-      newChat: 'Cuộc Trò Chuyện Mới',
+      newChat: 'Cuộc trò chuyện mới',
       history: 'Lịch Sử',
-      closeChat: 'Đóng Trò Chuyện',
-      stewardChat: 'Trò Chuyện Steward',
-      closeConversation: 'Đóng Cuộc Trò Chuyện',
-      conversationClosed: 'Cuộc Trò Chuyện Đã Được Đóng',
+      closeChat: 'Đóng trò chuyện',
+      stewardChat: 'Trò chuyện Steward',
+      closeConversation: 'Đóng cuộc trò chuyện',
+      conversationClosed: 'Cuộc trò chuyện đã được đóng',
     },
     // Move result messages
     move: {
@@ -144,7 +144,7 @@ const vi = {
     },
     // UI elements
     ui: {
-      openStewardChat: 'Mở Trò Chuyện Steward (Ctrl+Shift+L)',
+      openStewardChat: 'Mở trò chuyện Steward (Ctrl+Shift+L)',
       buildingSearchIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
       errorBuildingSearchIndex:
         'Lỗi khi xây dựng chỉ mục tìm kiếm. Kiểm tra bảng điều khiển để biết chi tiết.',

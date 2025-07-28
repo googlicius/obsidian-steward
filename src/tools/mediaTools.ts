@@ -310,7 +310,7 @@ export class MediaTools {
     try {
       const file = await this.findFileByNameOrPath(filePath);
       if (file) {
-        await this.app.vault.delete(file);
+        await this.app.fileManager.trashFile(file);
         return true;
       }
       return false;
