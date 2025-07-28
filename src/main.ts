@@ -15,8 +15,8 @@ import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
 import { SearchService } from './solutions/search';
-import { DateTime } from 'luxon';
 import { encrypt, decrypt, generateSaltKeyId } from './utils/cryptoUtils';
+import { formatDateTime } from './utils/dateUtils';
 import { logger } from './utils/logger';
 import { ConversationRenderer } from './services/ConversationRenderer';
 import { ConversationArtifactManager } from './services/ConversationArtifactManager';
@@ -430,8 +430,7 @@ export default class StewardPlugin extends Plugin {
         }
 
         // Create a title now so we can safely refer to it later
-        const now = DateTime.now();
-        const formattedDate = now.toFormat('yyyy-MM-dd_HH-mm-ss');
+        const formattedDate = formatDateTime();
         const title = `${commandType.trim() || 'General'} command ${formattedDate}`;
 
         await this.conversationRenderer.createConversationNote(title, commandType, commandQuery);
