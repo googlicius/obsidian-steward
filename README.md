@@ -201,6 +201,33 @@ This plugin uses TypeScript and follows the Obsidian plugin architecture.
 2. Run `npm install` to install dependencies
 3. Run `npm run build` to build the production version
 
+## Contributing
+
+Contributions to Steward are welcome! Here's how you can contribute:
+
+### Code Contributions
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### User-Defined Commands
+
+You can contribute your User-Defined Commands (UDCs) to help the community:
+
+1. Create your UDC following the guidelines in the [User-Defined Command section](#user-defined-commands)
+2. Test your UDC thoroughly to ensure it works as expected
+3. Add your UDC to the `community-UDCs` folder with a descriptive name
+4. Include clear documentation in your UDC file explaining:
+   - What the command does
+   - How to use it
+   - Any prerequisites or dependencies
+   - Example usage scenarios
+
+Check out existing commands in the `community-UDCs` folder like `flashcard-assist.md` for reference.
+
 ## License
 
 MIT

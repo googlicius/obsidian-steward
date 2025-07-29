@@ -1,4 +1,4 @@
-import { MarkdownPostProcessor, Notice, setIcon } from 'obsidian';
+import { MarkdownPostProcessor, Notice, setIcon, setTooltip } from 'obsidian';
 import i18next from 'i18next';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
@@ -147,7 +147,7 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
       // Create reload button
       const reloadButton = document.createElement('button');
       reloadButton.classList.add('clickable-icon', 'stw-user-message-button');
-      reloadButton.setAttribute('aria-label', i18next.t('Reload response'));
+      setTooltip(reloadButton, i18next.t('Reload response'));
       setIcon(reloadButton, 'refresh-cw');
       reloadButton.addEventListener('click', (event: MouseEvent) => {
         event.preventDefault();
@@ -158,7 +158,7 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
       // Create delete button
       const deleteButton = document.createElement('button');
       deleteButton.classList.add('clickable-icon', 'stw-user-message-button');
-      deleteButton.setAttribute('aria-label', i18next.t('Delete message'));
+      setTooltip(deleteButton, i18next.t('Delete message'));
       setIcon(deleteButton, 'trash');
       deleteButton.addEventListener('click', (event: MouseEvent) => {
         event.preventDefault();
