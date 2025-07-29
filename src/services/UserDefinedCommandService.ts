@@ -76,13 +76,25 @@ export class UserDefinedCommandService {
 
       // Watch for changes to command files
       this.plugin.registerEvent(
-        this.plugin.app.vault.on('modify', file => this.handleFileModification(file as TFile))
+        this.plugin.app.vault.on('modify', file => {
+          if (file instanceof TFile) {
+            this.handleFileModification(file);
+          }
+        })
       );
       this.plugin.registerEvent(
-        this.plugin.app.vault.on('create', file => this.handleFileCreation(file as TFile))
+        this.plugin.app.vault.on('create', file => {
+          if (file instanceof TFile) {
+            this.handleFileCreation(file);
+          }
+        })
       );
       this.plugin.registerEvent(
-        this.plugin.app.vault.on('delete', file => this.handleFileDeletion(file as TFile))
+        this.plugin.app.vault.on('delete', file => {
+          if (file instanceof TFile) {
+            this.handleFileDeletion(file);
+          }
+        })
       );
 
       // Wait for the vault to be ready

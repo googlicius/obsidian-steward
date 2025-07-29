@@ -316,19 +316,24 @@ export default class StewardSettingTab extends PluginSettingTab {
           })
       );
 
+    // Add initial class for visibility
+    const isOllamaModel =
+      LLM_MODELS.find(model => model.id === this.plugin.settings.llm.model)?.provider === 'ollama';
+    ollamaBaseUrlSetting.settingEl.classList.add(
+      isOllamaModel ? 'stw-setting-visible' : 'stw-setting-hidden'
+    );
+
     // Show/hide Ollama settings based on selected model
     const updateOllamaSettingsVisibility = () => {
       const isOllamaModel =
         LLM_MODELS.find(model => model.id === this.plugin.settings.llm.model)?.provider ===
         'ollama';
 
-      ollamaBaseUrlSetting.settingEl.style.display = isOllamaModel ? 'flex' : 'none';
+      ollamaBaseUrlSetting.settingEl.classList.toggle('stw-setting-visible', isOllamaModel);
+      ollamaBaseUrlSetting.settingEl.classList.toggle('stw-setting-hidden', !isOllamaModel);
     };
 
-    // Initial visibility
-    updateOllamaSettingsVisibility();
-
-    // Add debug mode toggle (moved to the end)
+    // Add debug mode toggle
     new Setting(containerEl)
       .setName('Debug mode')
       .setDesc('Enable detailed logging in the console for debugging')

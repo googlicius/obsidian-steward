@@ -29,16 +29,20 @@ export class ConversationEventHandler {
     this.plugin.registerEvent(
       // Listen for file modifications
       this.plugin.app.vault.on('modify', async file => {
-        this.initializeChat(file as TFile);
-        // this.initializeIntroduction(file as TFile);
+        if (file instanceof TFile) {
+          this.initializeChat(file);
+          // this.initializeIntroduction(file);
+        }
       })
     );
 
     this.plugin.registerEvent(
       // Listen for file creations
       this.plugin.app.vault.on('create', async file => {
-        this.initializeChat(file as TFile);
-        // this.initializeIntroduction(file as TFile);
+        if (file instanceof TFile) {
+          this.initializeChat(file);
+          // this.initializeIntroduction(file);
+        }
       })
     );
 

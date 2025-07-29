@@ -261,7 +261,8 @@ export class ObsidianAPITools {
         break;
       }
       default: {
-        throw new Error(`Unsupported update type: ${(updateInstruction as any).type}`);
+        const unknownInstruction = updateInstruction as { type: string };
+        throw new Error(`Unsupported update type: ${unknownInstruction.type}`);
       }
     }
 

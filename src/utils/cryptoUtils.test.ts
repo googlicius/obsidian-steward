@@ -23,7 +23,7 @@ const localStorageMock = (() => {
 })();
 
 // Assign our mock to global localStorage
-global.localStorage = localStorageMock as any;
+global.localStorage = localStorageMock as unknown as Storage;
 
 // Mock the console.log and console.error to avoid cluttering test output
 global.console.log = jest.fn();

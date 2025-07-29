@@ -7,6 +7,7 @@ import {
   OpenAISpeechVoice,
   elevenlabs,
   SpeechGenerationModel,
+  SpeechGenerationModelSettings,
 } from 'modelfusion';
 import { OpenAISpeechModel } from 'src/lib/modelfusion/overridden/OpenAISpeechModel';
 import { SearchService } from 'src/solutions/search/searchService';
@@ -283,7 +284,7 @@ export class MediaTools {
           ...(options.instructions && {
             instructions: options.instructions,
           }),
-        } as any),
+        } as unknown as SpeechGenerationModelSettings),
         run: {
           abortSignal: abortService.createAbortController('generateSpeech'),
         },

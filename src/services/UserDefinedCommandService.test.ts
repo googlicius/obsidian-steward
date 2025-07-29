@@ -5,31 +5,35 @@ import type StewardPlugin from 'src/main';
 // Mock the global sleep function
 global.sleep = jest.fn().mockImplementation(ms => Promise.resolve());
 
+function createMockPlugin(): jest.Mocked<StewardPlugin> {
+  return {
+    app: {
+      metadataCache: {
+        getFirstLinkpathDest: jest.fn(),
+        getFileCache: jest.fn(),
+      },
+      vault: {
+        read: jest.fn(),
+        getAbstractFileByPath: jest.fn(),
+        on: jest.fn().mockReturnValue({ events: [] }),
+        createFolder: jest.fn(),
+      },
+    },
+    settings: {
+      stewardFolder: 'Steward',
+    },
+    registerEvent: jest.fn(),
+  } as unknown as jest.Mocked<StewardPlugin>;
+}
+
 describe('UserDefinedCommandService', () => {
   let userDefinedCommandService: UserDefinedCommandService;
-  let mockPlugin: any;
+  let mockPlugin: jest.Mocked<StewardPlugin>;
   let mockCommandsFolder: any;
 
   beforeEach(() => {
     // Create mock plugin with required methods
-    mockPlugin = {
-      app: {
-        metadataCache: {
-          getFirstLinkpathDest: jest.fn(),
-          getFileCache: jest.fn(),
-        },
-        vault: {
-          read: jest.fn(),
-          getAbstractFileByPath: jest.fn(),
-          on: jest.fn().mockReturnValue({ events: [] }),
-          createFolder: jest.fn(),
-        },
-      },
-      settings: {
-        stewardFolder: 'Steward',
-      },
-      registerEvent: jest.fn(),
-    } as unknown as StewardPlugin;
+    mockPlugin = createMockPlugin();
 
     // Mock the commands folder
     mockCommandsFolder = {
@@ -38,7 +42,7 @@ describe('UserDefinedCommandService', () => {
     };
 
     // Mock the getAbstractFileByPath and instanceof check
-    mockPlugin.app.vault.getAbstractFileByPath.mockImplementation((path: string) => {
+    mockPlugin.app.vault.getAbstractFileByPath = jest.fn().mockImplementation((path: string) => {
       if (path === 'Steward/Commands') {
         return mockCommandsFolder;
       }
@@ -47,7 +51,10 @@ describe('UserDefinedCommandService', () => {
 
     // Mock the instanceof TFolder check
     jest
-      .spyOn(UserDefinedCommandService.prototype as any, 'loadAllCommands')
+      .spyOn(
+        UserDefinedCommandService.prototype as unknown as { loadAllCommands: () => Promise<void> },
+        'loadAllCommands'
+      )
       .mockImplementation(function (this: UserDefinedCommandService) {
         // Simulate successful loading
         return Promise.resolve();
@@ -66,9 +73,11 @@ describe('UserDefinedCommandService', () => {
 
     beforeEach(() => {
       // Access the private method using type assertion
-      removeCommandsFromFile = (userDefinedCommandService as any).removeCommandsFromFile.bind(
-        userDefinedCommandService
-      );
+      removeCommandsFromFile = (
+        userDefinedCommandService as unknown as {
+          removeCommandsFromFile: (filePath: string) => void;
+        }
+      ).removeCommandsFromFile.bind(userDefinedCommandService);
 
       // Set up some test commands in the map
       userDefinedCommandService.userDefinedCommands.set('command1', {

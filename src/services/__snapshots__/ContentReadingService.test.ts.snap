@@ -1,0 +1,72 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ContentReadingService readContent should read the list above the cursor 1`] = `
+{
+  "blocks": [
+    {
+      "content": "This is the second list
+- Item 3
+- Item 4",
+      "endLine": 6,
+      "startLine": 4,
+      "types": [
+        "list",
+        "paragraph",
+      ],
+    },
+  ],
+  "elementType": "list",
+  "file": TFile {
+    "extension": "",
+    "name": "",
+    "path": "",
+  },
+  "range": {
+    "from": {
+      "ch": 0,
+      "line": 4,
+    },
+    "to": {
+      "ch": 8,
+      "line": 6,
+    },
+  },
+  "source": "element",
+}
+`;
+
+exports[`ContentReadingService readContent should read the paragraph block below the cursor 1`] = `
+{
+  "blocks": [
+    {
+      "content": "# Heading
+This is a paragraph
+With multiple lines
+Of content",
+      "endLine": 3,
+      "startLine": 0,
+      "types": [
+        "paragraph",
+        "heading",
+      ],
+    },
+  ],
+  "elementType": "paragraph",
+  "file": TFile {
+    "extension": "",
+    "name": "",
+    "path": "",
+  },
+  "range": {
+    "from": {
+      "ch": 0,
+      "line": 1,
+    },
+    "to": {
+      "ch": 10,
+      "line": 3,
+    },
+  },
+  "source": "element",
+}
+`;

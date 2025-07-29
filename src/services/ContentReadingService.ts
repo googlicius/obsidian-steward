@@ -67,7 +67,12 @@ export class ContentReadingService {
    * @param args Content reading parameters
    * @returns The read blocks, or null if unable to read
    */
-  async readContent(args: ContentReadingArgs): Promise<ContentReadingResult | null> {
+  async readContent(args: {
+    noteName: ContentReadingArgs['noteName'];
+    readType: ContentReadingArgs['readType'];
+    blocksToRead: ContentReadingArgs['blocksToRead'];
+    elementType: ContentReadingArgs['elementType'];
+  }): Promise<ContentReadingResult | null> {
     // Get the file
     const file = args.noteName
       ? await MediaTools.getInstance(this.plugin.app).findFileByNameOrPath(args.noteName)

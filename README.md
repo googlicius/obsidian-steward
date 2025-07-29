@@ -20,7 +20,7 @@ Steward can be used through the command palette directly in the editor or by ope
 
 ### Usage
 
-1. Click the "Open Steward chat" icon or press `Ctrl+Shift+L` to open the chat
+1. Click the "Open Steward chat" icon to open the chat
 2. Type after the `/ ` in the chat or the active editor to interact or type `/ ?` to see available commands
 3. To add a new line in the command input, press `Shift+Enter` (uses 2-space indentation)
 

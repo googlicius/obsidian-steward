@@ -33,6 +33,8 @@ export interface CommandIntent {
 
 // Define valid command types
 const validCommandTypes = getValidCommandTypes();
+// Define a type for command types based on the valid command types
+type CommandType = (typeof validCommandTypes)[number];
 
 // Define the Zod schema for command intent
 const commandIntentSchema = z.object({
@@ -156,10 +158,10 @@ export async function extractCommandIntent(
 ): Promise<CommandIntentExtraction> {
   const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
   const classifier = getClassifier(llmConfig.model.modelId, isReloadRequest);
-  const clusterName = await classify({
+  const clusterName = (await classify({
     model: classifier,
     value: command.query,
-  });
+  })) as CommandType;
 
   // const classifier = getClassifier(llmConfig.model.modelId);
   // classifier.doClassify(command.query);
@@ -169,14 +171,14 @@ export async function extractCommandIntent(
   if (clusterName) {
     logger.log(`The user input was classified as "${clusterName}"`);
 
-    if ((clusterName as string) === 'read:generate') {
+    if (clusterName === 'read:generate') {
       return {
         ...extractReadGenerate(command.query),
         lang,
       };
     }
 
-    if ((clusterName as string) === 'read:generate:update_from_artifact') {
+    if (clusterName === 'read:generate:update_from_artifact') {
       return {
         ...extractReadGenerateUpdateFromArtifact(command.query),
         lang,
@@ -214,7 +216,7 @@ export async function extractCommandIntent(
       const result: CommandIntentExtraction = {
         commands: [
           {
-            commandType: clusterName as any,
+            commandType: clusterName,
             query: command.query,
           },
         ],

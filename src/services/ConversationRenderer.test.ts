@@ -1,108 +1,51 @@
 import { ConversationRenderer } from './ConversationRenderer';
 import { TFile } from 'obsidian';
+import type StewardPlugin from '../main';
+
+// Mock StewardPlugin
+jest.mock('../main');
+
+/**
+ * Creates a mock plugin for testing the ConversationRenderer
+ * @param fileContent Optional content to be returned by vault.read
+ * @param frontmatter Optional frontmatter to be returned by metadataCache.getFileCache
+ */
+function createMockPlugin(
+  fileContent = '',
+  frontmatter: Record<string, any> = {}
+): jest.Mocked<StewardPlugin> {
+  // Create mock file
+  const mockFile = new TFile();
+
+  // Create and return mock plugin
+  return {
+    settings: {
+      stewardFolder: 'Steward',
+    },
+    app: {
+      vault: {
+        getAbstractFileByPath: jest.fn().mockReturnValue(mockFile),
+        read: jest.fn().mockResolvedValue(fileContent),
+        cachedRead: jest.fn().mockResolvedValue(fileContent),
+      },
+      metadataCache: {
+        getFileCache: jest.fn().mockReturnValue({
+          frontmatter,
+        }),
+      },
+    },
+  } as unknown as jest.Mocked<StewardPlugin>;
+}
 
 describe('ConversationRenderer', () => {
-  let mockPlugin: any;
   let conversationRenderer: ConversationRenderer;
 
   beforeEach(() => {
-    // Mock the plugin and its dependencies
-    mockPlugin = {
-      settings: {
-        stewardFolder: 'Steward',
-      },
-      app: {
-        vault: {
-          getAbstractFileByPath: jest.fn(),
-          read: jest.fn(),
-          cachedRead: jest.fn(),
-        },
-        metadataCache: {
-          getFileCache: jest.fn().mockReturnValue({}),
-        },
-      },
-    };
+    // Create a default mock plugin
+    const mockPlugin = createMockPlugin();
 
+    // Initialize the ConversationRenderer with the mock plugin
     conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
-  });
-
-  describe('updatePropertyInContent', () => {
-    it('should update an existing property in frontmatter', () => {
-      const content = `---
-lang: en
-model: gpt-4
----
-
-Some content here`;
-
-      const result = (conversationRenderer as any).updatePropertyInContent(content, 'lang', 'fr');
-
-      expect(result).toContain('lang: fr');
-      expect(result).toContain('model: gpt-4');
-      expect(result).toContain('Some content here');
-      expect(result).not.toContain('lang: en');
-    });
-
-    it('should add a new property to existing frontmatter', () => {
-      const content = `---
-model: gpt-4
----
-
-Some content here`;
-
-      const result = (conversationRenderer as any).updatePropertyInContent(content, 'lang', 'fr');
-
-      expect(result).toContain('lang: fr');
-      expect(result).toContain('model: gpt-4');
-      expect(result).toContain('Some content here');
-    });
-
-    it('should create frontmatter if none exists', () => {
-      const content = 'Some content here without frontmatter';
-
-      const result = (conversationRenderer as any).updatePropertyInContent(content, 'lang', 'fr');
-
-      expect(result).toMatchSnapshot();
-    });
-
-    it('should handle empty content', () => {
-      const content = '';
-
-      const result = (conversationRenderer as any).updatePropertyInContent(content, 'lang', 'fr');
-
-      expect(result).toEqual(`---
-lang: fr
----
-
-`);
-    });
-
-    it('should preserve other content in frontmatter', () => {
-      const content = [
-        '---',
-        'model: gpt-4',
-        'tags: [note, important]',
-        'date: 2023-05-15',
-        '---',
-        '',
-        'Some content here',
-      ].join('\n');
-
-      const result = (conversationRenderer as any).updatePropertyInContent(content, 'lang', 'fr');
-
-      expect(result).toEqual(
-        [
-          '---',
-          'model: gpt-4',
-          'tags: [note, important]',
-          'date: 2023-05-15',
-          'lang: fr',
-          '---',
-          '',
-          'Some content here',
-        ].join('\n')
-      );
-    });
   });
 
   describe('extractConversationHistory', () => {
@@ -118,10 +61,9 @@ lang: fr
         'React hooks are functions that let you use state and other React features without writing a class.',
       ].join('\n');
 
-      // Mock the file and vault methods
-      const mockFile = {} as TFile;
-      mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(mockFile);
-      mockPlugin.app.vault.read.mockResolvedValue(mockContent);
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       // Call the method
       const history = await conversationRenderer.extractConversationHistory('test-conversation');
@@ -164,10 +106,9 @@ lang: fr
         '5. Start the development server: `ng serve`',
       ].join('\n');
 
-      // Mock the file and vault methods
-      const mockFile = {} as TFile;
-      mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(mockFile);
-      mockPlugin.app.vault.read.mockResolvedValue(mockContent);
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       // Call the method
       const history = await conversationRenderer.extractConversationHistory('test-conversation');
@@ -206,10 +147,9 @@ lang: fr
         'Would you like me to apply the changes?',
       ].join('\n');
 
-      // Mock the file and vault methods
-      const mockFile = {} as TFile;
-      mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(mockFile);
-      mockPlugin.app.vault.read.mockResolvedValue(mockContent);
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       // Call the method
       const history = await conversationRenderer.extractConversationHistory('test-conversation');
@@ -256,10 +196,9 @@ lang: fr
         '3. ngOnDestroy: Called before the component is destroyed',
       ].join('\n');
 
-      // Mock the file and vault methods
-      const mockFile = {} as TFile;
-      mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(mockFile);
-      mockPlugin.app.vault.read.mockResolvedValue(mockContent);
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       // Call the method
       const history = await conversationRenderer.extractConversationHistory('test-conversation');
@@ -271,17 +210,9 @@ lang: fr
 
   describe('getConversationProperty', () => {
     it('should get an existing property from frontmatter', async () => {
-      // Mock the file and metadataCache
-      const mockFile = {} as TFile;
-      mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(mockFile);
-      mockPlugin.app.metadataCache = {
-        getFileCache: jest.fn().mockReturnValue({
-          frontmatter: {
-            lang: 'fr',
-            model: 'gpt-4',
-          },
-        }),
-      };
+      // Create mock plugin with frontmatter
+      const mockPlugin = createMockPlugin('', { lang: 'fr', model: 'gpt-4' });
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       const result = await conversationRenderer.getConversationProperty(
         'test-conversation',
@@ -292,16 +223,9 @@ lang: fr
     });
 
     it('should return undefined for non-existent property', async () => {
-      // Mock the file and metadataCache
-      const mockFile = {} as TFile;
-      mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(mockFile);
-      mockPlugin.app.metadataCache = {
-        getFileCache: jest.fn().mockReturnValue({
-          frontmatter: {
-            model: 'gpt-4',
-          },
-        }),
-      };
+      // Create mock plugin with frontmatter that doesn't have the property
+      const mockPlugin = createMockPlugin('', { model: 'gpt-4' });
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       const result = await conversationRenderer.getConversationProperty(
         'test-conversation',
@@ -312,12 +236,9 @@ lang: fr
     });
 
     it('should return undefined when no frontmatter exists', async () => {
-      // Mock the file and metadataCache
-      const mockFile = {} as TFile;
-      mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(mockFile);
-      mockPlugin.app.metadataCache = {
-        getFileCache: jest.fn().mockReturnValue({}),
-      };
+      // Create mock plugin with empty frontmatter
+      const mockPlugin = createMockPlugin('', {});
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       const result = await conversationRenderer.getConversationProperty(
         'test-conversation',
@@ -328,18 +249,13 @@ lang: fr
     });
 
     it('should handle properties with complex values', async () => {
-      // Mock the file and metadataCache
-      const mockFile = {} as TFile;
-      mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(mockFile);
-      mockPlugin.app.metadataCache = {
-        getFileCache: jest.fn().mockReturnValue({
-          frontmatter: {
-            tags: ['note', 'important'],
-            date: '2023-05-15',
-            model: 'gpt-4',
-          },
-        }),
-      };
+      // Create mock plugin with complex frontmatter
+      const mockPlugin = createMockPlugin('', {
+        tags: ['note', 'important'],
+        date: '2023-05-15',
+        model: 'gpt-4',
+      });
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       const result = await conversationRenderer.getConversationProperty(
         'test-conversation',
@@ -350,8 +266,10 @@ lang: fr
     });
 
     it('should return undefined when file does not exist', async () => {
-      // Mock the file and vault methods
-      mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(null);
+      // Create mock plugin where getAbstractFileByPath returns null
+      const mockPlugin = createMockPlugin();
+      mockPlugin.app.vault.getAbstractFileByPath = jest.fn().mockReturnValue(null);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       const result = await conversationRenderer.getConversationProperty(
         'non-existent-conversation',

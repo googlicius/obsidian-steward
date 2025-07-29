@@ -40,9 +40,9 @@ export class ConversationRenderer {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
       const notePath = `${folderPath}/${title}.md`;
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
+      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
 
-      if (!file) {
+      if (!file || !(file instanceof TFile)) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -112,8 +112,8 @@ export class ConversationRenderer {
       const notePath = `${folderPath}/${params.path}.md`;
 
       // Get the file reference
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
-      if (!file) {
+      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
+      if (!file || !(file instanceof TFile)) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -124,13 +124,15 @@ export class ConversationRenderer {
         includeHistory: params.includeHistory ?? true,
       });
 
+      // Update language property in the frontmatter if provided
+      if (params.lang) {
+        await this.updateConversationFrontmatter(params.path, [
+          { name: 'lang', value: params.lang },
+        ]);
+      }
+
       // Process the file content
       await this.plugin.app.vault.process(file, currentContent => {
-        // Update language property in the frontmatter if provided
-        if (params.lang) {
-          currentContent = this.updatePropertyInContent(currentContent, 'lang', params.lang);
-        }
-
         // Remove the generating indicator and any trailing newlines
         currentContent = this.removeGeneratingIndicator(currentContent);
 
@@ -188,8 +190,8 @@ export class ConversationRenderer {
       const notePath = `${folderPath}/${path}`;
 
       // Get the current content of the note
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
-      if (!file) {
+      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
+      if (!file || !(file instanceof TFile)) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -322,12 +324,12 @@ export class ConversationRenderer {
       const notePath = `${folderPath}/${params.conversationTitle}.md`;
       const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
 
-      if (!file) {
+      if (!file || !(file instanceof TFile)) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
       // Read the content
-      const content = await this.plugin.app.vault.cachedRead(file as TFile);
+      const content = await this.plugin.app.vault.cachedRead(file);
 
       // Prepare the regular expression pattern
       const rolePattern = `,ROLE:${params.role.toLowerCase()}`;
@@ -372,8 +374,8 @@ export class ConversationRenderer {
   public async addGeneratingIndicator(path: string, indicatorText: string): Promise<void> {
     const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
     const notePath = `${folderPath}/${path}.md`;
-    const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
-    if (!file) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
+    if (!file || !(file instanceof TFile)) {
       throw new Error(`Note not found: ${notePath}`);
     }
 
@@ -394,8 +396,8 @@ export class ConversationRenderer {
     const notePath = `${folderPath}/${path}.md`;
 
     // Get the current content of the note
-    const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
-    if (!file) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
+    if (!file || !(file instanceof TFile)) {
       throw new Error(`Note not found: ${notePath}`);
     }
 
@@ -523,12 +525,12 @@ export class ConversationRenderer {
       const notePath = `${folderPath}/${conversationTitle}.md`;
       const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
 
-      if (!file) {
+      if (!file || !(file instanceof TFile)) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
       // Read the content
-      const content = await this.plugin.app.vault.cachedRead(file as TFile);
+      const content = await this.plugin.app.vault.cachedRead(file);
 
       // Find the comment block with the given ID
       const idPattern = `ID:${messageId}`;
@@ -574,9 +576,9 @@ export class ConversationRenderer {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
       const notePath = `${folderPath}/${conversationTitle}.md`;
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
+      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
 
-      if (!file) {
+      if (!file || !(file instanceof TFile)) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -627,9 +629,9 @@ export class ConversationRenderer {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
       const notePath = `${folderPath}/${conversationTitle}.md`;
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
+      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
 
-      if (!file) {
+      if (!file || !(file instanceof TFile)) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -797,9 +799,9 @@ export class ConversationRenderer {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
       const notePath = `${folderPath}/${conversationTitle}.md`;
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
+      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
 
-      if (!file) {
+      if (!file || !(file instanceof TFile)) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -819,38 +821,6 @@ export class ConversationRenderer {
   }
 
   /**
-   * Updates a property in the given content's YAML frontmatter
-   * @param content The content to update
-   * @param property The property name to update
-   * @param value The new value for the property
-   * @returns The updated content
-   */
-  private updatePropertyInContent(content: string, property: string, value: string): string {
-    // Check for YAML frontmatter
-    const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
-
-    if (frontmatterMatch) {
-      // Update existing frontmatter
-      const frontmatter = frontmatterMatch[1];
-      const propertyRegex = new RegExp(`(${property}:\\s*)(.+)`, 'i');
-
-      if (propertyRegex.test(frontmatter)) {
-        // Update existing property
-        const updatedFrontmatter = frontmatter.replace(propertyRegex, `$1${value}`);
-        return content.replace(frontmatterMatch[0], `---\n${updatedFrontmatter}\n---`);
-      } else {
-        // Add new property to existing frontmatter
-        const updatedFrontmatter = `${frontmatter}\n${property}: ${value}`;
-        return content.replace(frontmatterMatch[0], `---\n${updatedFrontmatter}\n---`);
-      }
-    } else {
-      // Add new frontmatter if it doesn't exist
-      const newFrontmatter = `---\n${property}: ${value}\n---\n\n`;
-      return newFrontmatter + content;
-    }
-  }
-
-  /**
    * Updates a property in the conversation's YAML frontmatter
    * @param conversationTitle The title of the conversation
    * @param properties The properties to update
@@ -864,9 +834,9 @@ export class ConversationRenderer {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
       const notePath = `${folderPath}/${conversationTitle}.md`;
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
+      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
 
-      if (!file) {
+      if (!file || !(file instanceof TFile)) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -897,9 +867,9 @@ export class ConversationRenderer {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
       const notePath = `${folderPath}/${conversationTitle}.md`;
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath) as TFile;
+      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
 
-      if (!file) {
+      if (!file || !(file instanceof TFile)) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -967,9 +937,9 @@ export class ConversationRenderer {
   public async sanitizeConversationNote(conversationPath: string): Promise<boolean> {
     try {
       // Get the conversation file
-      const file = this.plugin.app.vault.getAbstractFileByPath(conversationPath) as TFile;
+      const file = this.plugin.app.vault.getAbstractFileByPath(conversationPath);
 
-      if (!file) {
+      if (!file || !(file instanceof TFile)) {
         throw new Error(`Note not found: ${conversationPath}`);
       }
 

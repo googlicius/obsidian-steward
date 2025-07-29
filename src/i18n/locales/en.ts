@@ -161,7 +161,7 @@ const en = {
     },
     // UI elements
     ui: {
-      openStewardChat: 'Open Steward chat (Ctrl+Shift+L)',
+      openStewardChat: 'Open Steward chat',
       buildingSearchIndex: 'Building search index...',
       errorBuildingSearchIndex: 'Error building search index. Check console for details.',
       buildingIndexes: 'Steward: Building indexes...',

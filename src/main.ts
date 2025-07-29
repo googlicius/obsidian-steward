@@ -78,12 +78,6 @@ export default class StewardPlugin extends Plugin {
       'copilot*',
     ]);
 
-    // Set the placeholder text based on the current language
-    document.documentElement.style.setProperty(
-      '--steward-placeholder-text',
-      `'${i18next.t('ui.commandPlaceholder')}'`
-    );
-
     // Generate DB prefix if not already set
     if (!this.settings.searchDbPrefix) {
       this.settings.searchDbPrefix = generateRandomDbPrefix();
@@ -196,11 +190,10 @@ export default class StewardPlugin extends Plugin {
   }
 
   private registerStuffs() {
-    // Add command for toggling Steward chat with hotkey
+    // Add command for toggling chat
     this.addCommand({
-      id: 'toggle-steward-chat',
-      name: 'Toggle Steward Chat',
-      hotkeys: [{ modifiers: ['Ctrl', 'Shift'], key: 'l' }],
+      id: 'toggle-chat',
+      name: 'Toggle Chat',
       callback: async () => {
         const activeFile = this.app.workspace.getActiveFile();
 

@@ -1,4 +1,5 @@
 import * as CryptoJS from 'crypto-js';
+import { logger } from './logger';
 
 /**
  * Generates a unique identifier for use as a localStorage key
@@ -23,7 +24,7 @@ export function getEncryptionSalt(saltKeyId: string): string {
       return salt;
     }
   } catch (error) {
-    console.error('Failed to retrieve encryption salt from localStorage', error);
+    logger.error('Failed to retrieve encryption salt from localStorage', error);
   }
 
   // Generate a new random salt
@@ -33,7 +34,7 @@ export function getEncryptionSalt(saltKeyId: string): string {
   try {
     localStorage.setItem(saltKeyId, newSalt);
   } catch (error) {
-    console.error('Failed to store encryption salt in localStorage', error);
+    logger.error('Failed to store encryption salt in localStorage', error);
   }
 
   return newSalt;
@@ -58,7 +59,7 @@ export function encrypt(data: string, saltKeyId: string): string {
     // Encrypt the data
     return CryptoJS.AES.encrypt(data, encryptionKey).toString();
   } catch (error) {
-    console.error('Failed to encrypt data:', error);
+    logger.error('Failed to encrypt data:', error);
     return '';
   }
 }
@@ -90,7 +91,7 @@ export function decrypt(encryptedData: string, saltKeyId: string): string {
 
     throw new Error('Decryption produced invalid UTF-8 data');
   } catch (error) {
-    console.error('Failed to decrypt data:', error);
+    logger.error('Failed to decrypt data:', error);
     return '';
   }
 }

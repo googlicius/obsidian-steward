@@ -11,16 +11,6 @@ declare global {
   }
 }
 
-// This allows TypeScript to recognize the global Jest types
-if (typeof global.process === 'undefined') {
-  global.process = {} as any;
-}
-
-// Mock metadataCache in App
-if (typeof window === 'undefined') {
-  (global as any).window = {};
-}
-
 // Global mock for getObsidianLanguage
 jest.mock('./utils/getObsidianLanguage', () => ({
   getObsidianLanguage: jest.fn().mockReturnValue('en'),

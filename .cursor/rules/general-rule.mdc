@@ -10,3 +10,4 @@ alwaysApply: false
 - Always write the code readable, maintainable, and reusable.
 - Use 'for' loops instead of 'forEach' for iterating arrays.
 - If you generate hard-coded text or strings, you MUST define all languages for them in the `src/i18n/locales` folder, (Except those are logging or errors) and use them via the `t` method.
+- Avoid cast variables as any

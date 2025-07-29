@@ -142,10 +142,12 @@ export class CreateCommandHandler extends CommandHandler {
 
           // Write the user-provided content to the note if available
           if (note.content) {
-            await this.app.vault.modify(
-              this.app.vault.getAbstractFileByPath(newNotePath) as TFile,
-              note.content
-            );
+            const file = this.app.vault.getAbstractFileByPath(newNotePath);
+            if (file && file instanceof TFile) {
+              await this.app.vault.modify(file, note.content);
+            } else {
+              errors.push(`Failed to modify ${newNotePath}: File not found or not a valid file`);
+            }
           }
         } catch (noteError) {
           errors.push(`Failed to create ${newNotePath}: ${noteError.message}`);

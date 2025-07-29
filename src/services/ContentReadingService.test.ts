@@ -1,5 +1,5 @@
 import { ContentReadingService } from './ContentReadingService';
-
+import { TFile, EditorPosition } from 'obsidian';
 import type StewardPlugin from '../main';
 
 // Mock StewardPlugin
@@ -7,14 +7,30 @@ jest.mock('../main');
 
 /**
  * Creates a mock plugin with a mock editor using the provided text content
+ * @param mockText The text content to use in the mock editor
+ * @param cursorPosition Optional cursor position (defaults to line 1, ch 0)
  */
-function createMockPlugin(mockText: string): jest.Mocked<StewardPlugin> {
+function createMockPlugin(
+  mockText: string,
+  cursorPosition: EditorPosition = { line: 1, ch: 0 }
+): jest.Mocked<StewardPlugin> {
   // Create mock editor
   const mockEditor = {
     lineCount: jest.fn().mockReturnValue(mockText.split('\n').length),
     getLine: jest.fn().mockImplementation(line => mockText.split('\n')[line] || ''),
-    getCursor: jest.fn().mockReturnValue({ line: 1, ch: 0 }),
+    getCursor: jest.fn().mockReturnValue(cursorPosition),
+    getSelection: jest.fn().mockReturnValue(''),
+    getRange: jest.fn().mockImplementation((from, to) => {
+      const lines = [];
+      for (let i = from.line; i <= to.line; i++) {
+        lines.push(mockText.split('\n')[i] || '');
+      }
+      return lines.join('\n');
+    }),
   };
+
+  // Create mock file
+  const mockFile = new TFile();
 
   // Create and return mock plugin with editor
   return {
@@ -22,12 +38,17 @@ function createMockPlugin(mockText: string): jest.Mocked<StewardPlugin> {
     settings: {
       stewardFolder: 'steward',
     },
+    app: {
+      workspace: {
+        getActiveFile: jest.fn().mockReturnValue(mockFile),
+      },
+    },
   } as unknown as jest.Mocked<StewardPlugin>;
 }
 
 describe('ContentReadingService', () => {
-  describe('findBlockBoundary', () => {
-    it('should find paragraph block boundary moving below', () => {
+  describe('readContent', () => {
+    it('should read the paragraph block below the cursor', async () => {
       // Create mock text content
       const mockText = `# Heading
 This is a paragraph
@@ -47,26 +68,17 @@ console.log(code);
       const mockPlugin = createMockPlugin(mockText);
       const service = ContentReadingService.getInstance(mockPlugin);
 
-      // Access the private method using type assertion
-      const findBlockBoundary = (service as any).findBlockBoundary.bind(service);
-
-      const result = findBlockBoundary({
-        startingLine: 1,
-        direction: 'below',
-        initialBlockType: 'paragraph',
-        inList: false,
-        inCodeBlock: false,
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'below',
+        elementType: 'paragraph',
+        noteName: null,
       });
 
-      expect(result).toEqual({
-        lineNumber: 3,
-        types: new Set(['paragraph']),
-        inList: false,
-        inCodeBlock: false,
-      });
+      expect(result).toMatchSnapshot();
     });
 
-    it('should find paragraph block boundary moving above from last line', () => {
+    it('should read the list above the cursor', async () => {
       // Create mock text content with lists and paragraphs
       const mockText = `This is the first list
 - Item 1
@@ -80,29 +92,18 @@ This is the second list
 End
 `;
 
-      // Create mock plugin and service
-      const mockPlugin = createMockPlugin(mockText);
+      // Create mock plugin and service with cursor at the "End" line
+      const mockPlugin = createMockPlugin(mockText, { line: 9, ch: 0 });
       const service = ContentReadingService.getInstance(mockPlugin);
 
-      // Access the private method using type assertion
-      const findBlockBoundary = (service as any).findBlockBoundary.bind(service);
-
-      // The line index of "End" is 9 (0-based), so we start from line 8 (the empty line above "End")
-      const result = findBlockBoundary({
-        startingLine: 6,
-        direction: 'above',
-        initialBlockType: 'list',
-        inList: true,
-        inCodeBlock: false,
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'above',
+        elementType: 'list',
+        noteName: null,
       });
 
-      // We expect it to find the empty line above the second list's items (line 4)
-      expect(result).toEqual({
-        lineNumber: 4,
-        types: new Set(['list', 'paragraph']),
-        inList: false,
-        inCodeBlock: false,
-      });
+      expect(result).toMatchSnapshot();
     });
   });
 });

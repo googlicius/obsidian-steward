@@ -1,11 +1,11 @@
 // Mock implementation for Obsidian API
 export class TFile {
-  path: string;
-  extension: string;
+  path = '';
+  extension = '';
+  name = '';
 
-  constructor(path: string, extension: string) {
-    this.path = path;
-    this.extension = extension;
+  constructor() {
+    // No parameters required
   }
 }
 
@@ -13,6 +13,10 @@ export class App {
   vault = {
     getAbstractFileByPath: jest.fn(),
     readBinary: jest.fn(),
+    read: jest.fn().mockResolvedValue(''),
+  };
+  workspace = {
+    getActiveFile: jest.fn(),
   };
 }
 

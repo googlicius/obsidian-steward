@@ -14,7 +14,7 @@ If your plugin does not need CSS, delete this file.
 }
 
 .cm-line .cm-conversation-command[has-placeholder='1']:after {
-  content: var(--steward-placeholder-text, 'Press Enter to send');
+  content: var(--stw-placeholder-text, 'Press Enter to send');
   position: absolute;
   font-style: italic;
   color: #888;
@@ -241,4 +241,30 @@ code[class*='language-stw-artifact'] {
 .stw-user-message-button:hover {
   background-color: var(--background-modifier-border);
   color: var(--text-normal);
+}
+
+/* Visibility classes for settings */
+.stw-setting-hidden {
+  display: none;
+}
+
+.stw-setting-visible {
+  display: flex;
+}
+
+/* Placeholder text classes for different languages */
+:root {
+  --stw-placeholder-text: 'Press Enter to send';
+}
+
+html[data-stw-language='en'] {
+  --stw-placeholder-text: 'Press Enter to send';
+}
+
+html[data-stw-language='ja'] {
+  --stw-placeholder-text: 'Enterキーを押して送信';
+}
+
+html[data-stw-language='vi'] {
+  --stw-placeholder-text: 'Nhấn Enter để gửi';
 }
