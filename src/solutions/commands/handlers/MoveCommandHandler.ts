@@ -145,7 +145,7 @@ export class MoveCommandHandler extends CommandHandler {
 
       // Check if the destination folder exists
       const destinationFolder = extraction.destinationFolder;
-      const folderExists = this.app.vault.getAbstractFileByPath(destinationFolder);
+      const folderExists = this.app.vault.getFolderByPath(destinationFolder);
 
       if (!folderExists && !options.folderExistsConfirmed) {
         // Request confirmation to create the folder

@@ -92,14 +92,14 @@ export class MediaTools {
    */
   async findFileByNameOrPath(nameOrPath: string): Promise<TFile | null> {
     // Strategy 1: Try direct path lookup
-    let file = this.app.vault.getAbstractFileByPath(nameOrPath);
-    if (file instanceof TFile) {
+    let file = this.app.vault.getFileByPath(nameOrPath);
+    if (file) {
       return file;
     }
 
     // Strategy 2: Check if it's in the media folder
-    file = this.app.vault.getAbstractFileByPath(`${this.mediaFolder}/${nameOrPath}`);
-    if (file instanceof TFile) {
+    file = this.app.vault.getFileByPath(`${this.mediaFolder}/${nameOrPath}`);
+    if (file) {
       return file;
     }
 
@@ -113,8 +113,8 @@ export class MediaTools {
       const searchService = SearchService.getInstance();
       const doc = await searchService.searchEngine.getDocumentByName(filename);
       if (doc && doc.path) {
-        const file = this.app.vault.getAbstractFileByPath(doc.path);
-        if (file instanceof TFile) {
+        const file = this.app.vault.getFileByPath(doc.path);
+        if (file) {
           return file;
         }
       }
@@ -172,7 +172,7 @@ export class MediaTools {
    * Ensure the media folder exists
    */
   private async ensureMediaFolderExists(): Promise<void> {
-    const folder = this.app.vault.getAbstractFileByPath(this.mediaFolder);
+    const folder = this.app.vault.getFolderByPath(this.mediaFolder);
     if (!folder) {
       await this.app.vault.createFolder(this.mediaFolder);
     }

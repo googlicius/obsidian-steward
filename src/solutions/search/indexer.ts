@@ -158,9 +158,9 @@ export class Indexer {
     try {
       const filePath = this.indexingQueue.shift();
       if (!filePath) return;
-      const file = this.app.vault.getAbstractFileByPath(filePath);
+      const file = this.app.vault.getFileByPath(filePath);
 
-      if (file instanceof TFile && file.extension === 'md') {
+      if (file && file.extension === 'md') {
         await this.indexFile(file);
       }
     } catch (error) {

@@ -17,8 +17,6 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     containerEl.empty();
 
-    containerEl.createEl('h1', { text: 'Steward plugin settings' });
-
     // Create API Keys section
     new Setting(containerEl).setName('API keys').setHeading();
 

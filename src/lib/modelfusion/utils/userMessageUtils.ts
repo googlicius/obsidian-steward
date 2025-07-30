@@ -1,5 +1,5 @@
 import { ImagePart, TextPart } from 'ai';
-import { App, TFile } from 'obsidian';
+import { App } from 'obsidian';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
 import { MediaTools } from 'src/tools/mediaTools';
 import { NoteContentService } from 'src/services/NoteContentService';
@@ -36,7 +36,7 @@ export async function prepareUserMessage(
     try {
       const file = await mediaTools.findFileByNameOrPath(imagePath);
 
-      if (file instanceof TFile) {
+      if (file) {
         const imageData = await app.vault.readBinary(file);
         const mimeType = getMimeTypeFromExtension(file.extension);
 
@@ -61,7 +61,7 @@ export async function prepareUserMessage(
       try {
         const file = await mediaTools.findFileByNameOrPath(wikilink);
 
-        if (file instanceof TFile) {
+        if (file) {
           const content = await app.vault.read(file);
           messageContent.push({
             type: 'text',

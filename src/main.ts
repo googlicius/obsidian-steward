@@ -186,7 +186,7 @@ export default class StewardPlugin extends Plugin {
     // Add command for toggling chat
     this.addCommand({
       id: 'toggle-chat',
-      name: 'Toggle Chat',
+      name: 'Toggle chat',
       callback: async () => {
         const activeFile = this.app.workspace.getActiveFile();
 
@@ -204,7 +204,7 @@ export default class StewardPlugin extends Plugin {
     // Command to build search index
     this.addCommand({
       id: 'build-search-index',
-      name: 'Build Search Index',
+      name: 'Build search index',
       callback: async () => {
         new Notice('Building index...');
         try {
@@ -222,7 +222,7 @@ export default class StewardPlugin extends Plugin {
     // Command to toggle debug mode
     this.addCommand({
       id: 'toggle-debug-mode',
-      name: 'Toggle Debug Mode',
+      name: 'Toggle debug mode',
       callback: async () => {
         this.settings.debug = !this.settings.debug;
         logger.setDebug(this.settings.debug);
@@ -377,7 +377,7 @@ export default class StewardPlugin extends Plugin {
         const folderPath = `${this.settings.stewardFolder}/Conversations`;
         const notePath = `${folderPath}/${conversationLink}.md`;
 
-        if (this.app.vault.getAbstractFileByPath(notePath) && conversationLink) {
+        if (this.app.vault.getFileByPath(notePath) && conversationLink) {
           await this.updateConversationNote({
             path: conversationLink,
             newContent: fullCommandText,
@@ -491,13 +491,13 @@ export default class StewardPlugin extends Plugin {
       const notePath = `${folderPath}/${this.chatTitle}.md`;
 
       // Check if conversations folder exists, create if not
-      const folderExists = this.app.vault.getAbstractFileByPath(folderPath);
+      const folderExists = this.app.vault.getFolderByPath(folderPath);
       if (!folderExists) {
         await this.app.vault.createFolder(folderPath);
       }
 
       // Check if the chat note exists, create if not
-      const noteExists = this.app.vault.getAbstractFileByPath(notePath);
+      const noteExists = this.app.vault.getFileByPath(notePath);
       if (!noteExists) {
         // Build initial content
         const initialContent = '';

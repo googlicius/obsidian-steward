@@ -6,7 +6,6 @@ import {
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-import { TFile } from 'obsidian';
 import { extractNoteCreation, NoteCreationExtraction } from 'src/lib/modelfusion/extractions';
 
 import type StewardPlugin from 'src/main';
@@ -142,8 +141,8 @@ export class CreateCommandHandler extends CommandHandler {
 
           // Write the user-provided content to the note if available
           if (note.content) {
-            const file = this.app.vault.getAbstractFileByPath(newNotePath);
-            if (file && file instanceof TFile) {
+            const file = this.app.vault.getFileByPath(newNotePath);
+            if (file) {
               await this.app.vault.modify(file, note.content);
             } else {
               errors.push(`Failed to modify ${newNotePath}: File not found or not a valid file`);

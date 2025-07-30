@@ -8,7 +8,6 @@ import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { Events } from 'src/types/events';
 import { eventEmitter } from 'src/services/EventEmitter';
-import { TFile } from 'obsidian';
 import { extractUpdateFromSearchResult, UpdateInstruction } from 'src/lib/modelfusion/extractions';
 
 import type StewardPlugin from 'src/main';
@@ -198,8 +197,8 @@ export class UpdateCommandHandler extends CommandHandler {
 
       for (const doc of docs) {
         try {
-          const file = this.app.vault.getAbstractFileByPath(doc.path);
-          if (file && file instanceof TFile) {
+          const file = this.app.vault.getFileByPath(doc.path);
+          if (file) {
             // Read the file content
             let content = await this.app.vault.read(file);
             let contentChanged = false;

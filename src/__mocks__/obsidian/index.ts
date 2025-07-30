@@ -9,6 +9,12 @@ export class TFile {
   }
 }
 
+export class TFolder {
+  path = '';
+  name = '';
+  children = [];
+}
+
 export class App {
   vault = {
     getAbstractFileByPath: jest.fn(),

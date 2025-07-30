@@ -53,7 +53,7 @@ export class ObsidianAPITools {
    */
   private async moveFile(filePath: string, newFolderPath: string): Promise<boolean> {
     try {
-      const file = this.app.vault.getAbstractFileByPath(filePath);
+      const file = this.app.vault.getFileByPath(filePath);
       if (!file) {
         return false;
       }
@@ -79,7 +79,7 @@ export class ObsidianAPITools {
    */
   private async ensureFolderExists(folderPath: string): Promise<void> {
     // Skip if folder already exists
-    if (this.app.vault.getAbstractFileByPath(folderPath)) {
+    if (this.app.vault.getFolderByPath(folderPath)) {
       return;
     }
 
@@ -199,7 +199,7 @@ export class ObsidianAPITools {
 
         try {
           // Get the source file
-          const sourceFile = this.app.vault.getAbstractFileByPath(filePath);
+          const sourceFile = this.app.vault.getFileByPath(filePath);
           if (!sourceFile) {
             errors.push(filePath);
             continue;

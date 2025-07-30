@@ -1,4 +1,4 @@
-import { TFile, TFolder } from 'obsidian';
+import { TFile } from 'obsidian';
 import { logger } from 'src/utils/logger';
 import { CommandIntent } from 'src/lib/modelfusion/extractions';
 import * as yaml from 'js-yaml';
@@ -111,9 +111,9 @@ export class UserDefinedCommandService {
    * Load all command definitions from the Commands folder
    */
   private async loadAllCommands(): Promise<void> {
-    const folder = this.plugin.app.vault.getAbstractFileByPath(this.commandFolder);
+    const folder = this.plugin.app.vault.getFolderByPath(this.commandFolder);
 
-    if (!(folder instanceof TFolder)) {
+    if (!folder) {
       return;
     }
 

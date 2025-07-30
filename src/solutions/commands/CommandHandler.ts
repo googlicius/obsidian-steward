@@ -1,6 +1,5 @@
 import { CommandIntent } from '../../lib/modelfusion/extractions';
-import { ObsidianAPITools } from 'src/tools/obsidianAPITools';
-
+import type { ObsidianAPITools } from 'src/tools/obsidianAPITools';
 import type { App } from 'obsidian';
 import type StewardPlugin from '../../main';
 import type { StewardPluginSettings } from 'src/types/interfaces';

@@ -1,6 +1,7 @@
+import { TFolder } from 'obsidian';
 import { UserDefinedCommandService } from './UserDefinedCommandService';
-
 import type StewardPlugin from 'src/main';
+import { getInstance } from 'src/utils/getInstance';
 
 // Mock the global sleep function
 global.sleep = jest.fn().mockImplementation(ms => Promise.resolve());
@@ -29,17 +30,17 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
 describe('UserDefinedCommandService', () => {
   let userDefinedCommandService: UserDefinedCommandService;
   let mockPlugin: jest.Mocked<StewardPlugin>;
-  let mockCommandsFolder: any;
+  let mockCommandsFolder: TFolder;
 
   beforeEach(() => {
     // Create mock plugin with required methods
     mockPlugin = createMockPlugin();
 
     // Mock the commands folder
-    mockCommandsFolder = {
+    mockCommandsFolder = getInstance(TFolder, {
       path: 'Steward/Commands',
       children: [],
-    };
+    });
 
     // Mock the getAbstractFileByPath and instanceof check
     mockPlugin.app.vault.getAbstractFileByPath = jest.fn().mockImplementation((path: string) => {

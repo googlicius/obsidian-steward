@@ -130,7 +130,7 @@ export class CopyCommandHandler extends CommandHandler {
         },
       ];
 
-      const folderExists = this.app.vault.getAbstractFileByPath(extraction.destinationFolder);
+      const folderExists = this.app.vault.getFolderByPath(extraction.destinationFolder);
 
       if (!folderExists && !options.folderExistsConfirmed) {
         // Request confirmation to create the folder

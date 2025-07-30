@@ -40,9 +40,9 @@ export class ConversationRenderer {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
       const notePath = `${folderPath}/${title}.md`;
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
+      const file = this.plugin.app.vault.getFileByPath(notePath);
 
-      if (!file || !(file instanceof TFile)) {
+      if (!file) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -112,8 +112,8 @@ export class ConversationRenderer {
       const notePath = `${folderPath}/${params.path}.md`;
 
       // Get the file reference
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
-      if (!file || !(file instanceof TFile)) {
+      const file = this.plugin.app.vault.getFileByPath(notePath);
+      if (!file) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -190,8 +190,8 @@ export class ConversationRenderer {
       const notePath = `${folderPath}/${path}`;
 
       // Get the current content of the note
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
-      if (!file || !(file instanceof TFile)) {
+      const file = this.plugin.app.vault.getFileByPath(notePath);
+      if (!file) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -322,9 +322,9 @@ export class ConversationRenderer {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
       const notePath = `${folderPath}/${params.conversationTitle}.md`;
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
+      const file = this.plugin.app.vault.getFileByPath(notePath);
 
-      if (!file || !(file instanceof TFile)) {
+      if (!file) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -374,8 +374,8 @@ export class ConversationRenderer {
   public async addGeneratingIndicator(path: string, indicatorText: string): Promise<void> {
     const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
     const notePath = `${folderPath}/${path}.md`;
-    const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
-    if (!file || !(file instanceof TFile)) {
+    const file = this.plugin.app.vault.getFileByPath(notePath);
+    if (!file) {
       throw new Error(`Note not found: ${notePath}`);
     }
 
@@ -396,8 +396,8 @@ export class ConversationRenderer {
     const notePath = `${folderPath}/${path}.md`;
 
     // Get the current content of the note
-    const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
-    if (!file || !(file instanceof TFile)) {
+    const file = this.plugin.app.vault.getFileByPath(notePath);
+    if (!file) {
       throw new Error(`Note not found: ${notePath}`);
     }
 
@@ -421,7 +421,7 @@ export class ConversationRenderer {
       const notePath = `${folderPath}/${title}.md`;
 
       // Check if conversations folder exists, create if not
-      const folderExists = this.plugin.app.vault.getAbstractFileByPath(folderPath);
+      const folderExists = this.plugin.app.vault.getFolderByPath(folderPath);
       if (!folderExists) {
         await this.plugin.app.vault.createFolder(folderPath);
       }
@@ -523,9 +523,9 @@ export class ConversationRenderer {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
       const notePath = `${folderPath}/${conversationTitle}.md`;
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
+      const file = this.plugin.app.vault.getFileByPath(notePath);
 
-      if (!file || !(file instanceof TFile)) {
+      if (!file) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -576,9 +576,9 @@ export class ConversationRenderer {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
       const notePath = `${folderPath}/${conversationTitle}.md`;
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
+      const file = this.plugin.app.vault.getFileByPath(notePath);
 
-      if (!file || !(file instanceof TFile)) {
+      if (!file) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -629,9 +629,9 @@ export class ConversationRenderer {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
       const notePath = `${folderPath}/${conversationTitle}.md`;
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
+      const file = this.plugin.app.vault.getFileByPath(notePath);
 
-      if (!file || !(file instanceof TFile)) {
+      if (!file) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -799,9 +799,9 @@ export class ConversationRenderer {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
       const notePath = `${folderPath}/${conversationTitle}.md`;
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
+      const file = this.plugin.app.vault.getFileByPath(notePath);
 
-      if (!file || !(file instanceof TFile)) {
+      if (!file) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -834,9 +834,9 @@ export class ConversationRenderer {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
       const notePath = `${folderPath}/${conversationTitle}.md`;
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
+      const file = this.plugin.app.vault.getFileByPath(notePath);
 
-      if (!file || !(file instanceof TFile)) {
+      if (!file) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -867,9 +867,9 @@ export class ConversationRenderer {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
       const notePath = `${folderPath}/${conversationTitle}.md`;
-      const file = this.plugin.app.vault.getAbstractFileByPath(notePath);
+      const file = this.plugin.app.vault.getFileByPath(notePath);
 
-      if (!file || !(file instanceof TFile)) {
+      if (!file) {
         throw new Error(`Note not found: ${notePath}`);
       }
 
@@ -937,9 +937,9 @@ export class ConversationRenderer {
   public async sanitizeConversationNote(conversationPath: string): Promise<boolean> {
     try {
       // Get the conversation file
-      const file = this.plugin.app.vault.getAbstractFileByPath(conversationPath);
+      const file = this.plugin.app.vault.getFileByPath(conversationPath);
 
-      if (!file || !(file instanceof TFile)) {
+      if (!file) {
         throw new Error(`Note not found: ${conversationPath}`);
       }
 

@@ -4,7 +4,6 @@ import { isConversationLink } from '../utils/conversationUtils';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
 import { MediaTools } from 'src/tools/mediaTools';
 import { ContentReadingArgs } from 'src/lib/modelfusion';
-
 import type StewardPlugin from '../main';
 
 /**

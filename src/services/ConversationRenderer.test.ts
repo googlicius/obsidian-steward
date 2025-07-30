@@ -12,7 +12,7 @@ jest.mock('../main');
  */
 function createMockPlugin(
   fileContent = '',
-  frontmatter: Record<string, any> = {}
+  frontmatter: Record<string, unknown> = {}
 ): jest.Mocked<StewardPlugin> {
   // Create mock file
   const mockFile = new TFile();
@@ -24,7 +24,7 @@ function createMockPlugin(
     },
     app: {
       vault: {
-        getAbstractFileByPath: jest.fn().mockReturnValue(mockFile),
+        getFileByPath: jest.fn().mockReturnValue(mockFile),
         read: jest.fn().mockResolvedValue(fileContent),
         cachedRead: jest.fn().mockResolvedValue(fileContent),
       },
@@ -266,9 +266,9 @@ describe('ConversationRenderer', () => {
     });
 
     it('should return undefined when file does not exist', async () => {
-      // Create mock plugin where getAbstractFileByPath returns null
+      // Create mock plugin where getFileByPath returns null
       const mockPlugin = createMockPlugin();
-      mockPlugin.app.vault.getAbstractFileByPath = jest.fn().mockReturnValue(null);
+      mockPlugin.app.vault.getFileByPath = jest.fn().mockReturnValue(null);
       conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       const result = await conversationRenderer.getConversationProperty(

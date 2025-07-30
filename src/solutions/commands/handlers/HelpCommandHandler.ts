@@ -5,7 +5,6 @@ import {
   CommandResult,
   CommandResultStatus,
 } from '../CommandHandler';
-import { TFile } from 'obsidian';
 import type StewardPlugin from 'src/main';
 
 /**
@@ -98,8 +97,8 @@ export class HelpCommandHandler extends CommandHandler {
         const sortedCommands = Array.from(userDefinedCommands.entries());
 
         for (const [cmdName, cmdDef] of sortedCommands) {
-          const file = this.app.vault.getAbstractFileByPath(cmdDef.file_path);
-          const fileName = file instanceof TFile ? file.basename : cmdDef.file_path;
+          const file = this.app.vault.getFileByPath(cmdDef.file_path);
+          const fileName = file ? file.basename : cmdDef.file_path;
 
           content += `- \`/${cmdName}\` - [[${cmdDef.file_path}|${fileName}]]\n`;
         }
