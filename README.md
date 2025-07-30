@@ -16,7 +16,7 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 
 ## Standard (Built-In) Commands
 
-Steward can be used through the command palette directly in the editor or by opening the chat interface. Here are some example commands:
+Steward can be used through the command palette directly in the editor or by opening the chat interface.
 
 ### Usage
 
