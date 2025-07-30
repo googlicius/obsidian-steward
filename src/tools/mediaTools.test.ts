@@ -43,15 +43,7 @@ describe('MediaTools', () => {
     const timestamp = 1234567890;
 
     beforeEach(() => {
-      getMediaFilename = (
-        mediaTools as unknown as {
-          getMediaFilename: (
-            options: MediaGenerationOptions,
-            timestamp: number,
-            maxWords?: number
-          ) => string;
-        }
-      ).getMediaFilename.bind(mediaTools);
+      getMediaFilename = mediaTools['getMediaFilename'].bind(mediaTools);
     });
 
     it('includes prompt if 3 words or fewer, retains spaces', () => {

@@ -73,11 +73,8 @@ describe('UserDefinedCommandService', () => {
 
     beforeEach(() => {
       // Access the private method using type assertion
-      removeCommandsFromFile = (
-        userDefinedCommandService as unknown as {
-          removeCommandsFromFile: (filePath: string) => void;
-        }
-      ).removeCommandsFromFile.bind(userDefinedCommandService);
+      removeCommandsFromFile =
+        userDefinedCommandService['removeCommandsFromFile'].bind(userDefinedCommandService);
 
       // Set up some test commands in the map
       userDefinedCommandService.userDefinedCommands.set('command1', {

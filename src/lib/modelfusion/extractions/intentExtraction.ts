@@ -93,11 +93,11 @@ If the confidence is low, include the commands that you are extracting in the ex
       `A template version of the query where specific elements (tags, keywords, filenames, folders) are replaced with generic placeholders (x, y, z, f). This helps identify similar query patterns for caching purposes.`
     ),
   shortDescription: z.string().optional().describe(`A short description of the command intent.`),
-  reasoning: z
-    .string()
-    .describe(
-      `Your step-by-step reasoning here (keep it concise). **Include a brief summary of the extracted user intention.**`
-    ),
+  // reasoning: z
+  //   .string()
+  //   .describe(
+  //     `Your step-by-step reasoning here (keep it concise). **Include a brief summary of the extracted user intention.**`
+  //   ),
 });
 
 export type CommandIntentExtraction = z.infer<typeof commandIntentExtractionSchema>;
@@ -116,7 +116,6 @@ function extractReadGenerate(userInput: string): CommandIntentExtraction {
     ],
     explanation: `Classified as "read:generate" command based on semantic similarity.`,
     confidence: 0.8,
-    reasoning: '',
   };
 }
 
@@ -138,7 +137,6 @@ function extractReadGenerateUpdateFromArtifact(userInput: string): CommandIntent
     ],
     explanation: `Classified as "read:generate:update_from_artifact" command based on semantic similarity.`,
     confidence: 0.8,
-    reasoning: '',
   };
 }
 
@@ -223,7 +221,6 @@ export async function extractCommandIntent(
         explanation: `Classified as ${clusterName} command based on semantic similarity.`,
         confidence: 0.9,
         lang,
-        reasoning: '',
       };
 
       return result;

@@ -25,7 +25,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   {
     commandType: 'search',
     description:
-      'Find notes using the search engine to search notes locally and store the result as artifact',
+      'Find notes using the search engine to search notes locally and store the result as an artifact',
     category: 'built-in',
   },
   {
