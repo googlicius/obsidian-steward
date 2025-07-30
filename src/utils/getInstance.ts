@@ -7,7 +7,7 @@ export function getInstance<T>(cls: Class<T>, args?: Partial<T>): T {
   const instance = new cls();
 
   if (args) {
-    Object.assign(instance as object, args);
+    Object.assign(instance as unknown as object, args);
   }
 
   return instance;
