@@ -27,9 +27,9 @@ import {
   COMMAND_PREFIXES,
   DEFAULT_SETTINGS,
   SMILE_CHAT_ICON_ID,
-  STW_CONVERSATION_VIEW_CONFIG,
+  STW_CHAT_VIEW_CONFIG,
 } from './constants';
-import { StewardConversationView } from './views/StewardConversationView';
+import { StewardChatView } from './views/StewardChatView';
 import { Events } from './types/events';
 import { createStewardConversationProcessor } from './cm/post-processors/StewardConversationProcessor';
 import { ObsidianEditor } from './types/types';
@@ -42,6 +42,7 @@ import { getClassifier } from './lib/modelfusion/classifiers/getClassifier';
 import { MediaTools } from './tools/mediaTools';
 import { NoteContentService } from './services/NoteContentService';
 import { LLMService } from './services/LLMService';
+import stewardIcon from './assets/steward-icon.svg';
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -52,7 +53,7 @@ export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
   obsidianAPITools: ObsidianAPITools;
   searchService: SearchService;
-  staticConversationTitle = 'Steward Chat';
+  chatTitle = 'Steward Chat';
   artifactManager: ConversationArtifactManager;
   conversationRenderer: ConversationRenderer;
   contentReadingService: ContentReadingService;
@@ -139,20 +140,12 @@ export default class StewardPlugin extends Plugin {
       process.env.DEEPSEEK_API_KEY = decryptedDeepSeekKey;
     }
 
-    // Register custom icon
-    addIcon(
-      SMILE_CHAT_ICON_ID,
-      `<svg fill="currentColor" viewBox="0 0 32 32" id="icon" xmlns="http://www.w3.org/2000/svg">
-			<path d="M16,19a6.9908,6.9908,0,0,1-5.833-3.1287l1.666-1.1074a5.0007,5.0007,0,0,0,8.334,0l1.666,1.1074A6.9908,6.9908,0,0,1,16,19Z"/>
-			<path d="M20,8a2,2,0,1,0,2,2A1.9806,1.9806,0,0,0,20,8Z"/>
-			<path d="M12,8a2,2,0,1,0,2,2A1.9806,1.9806,0,0,0,12,8Z"/>
-			<path d="M17.7358,30,16,29l4-7h6a1.9966,1.9966,0,0,0,2-2V6a1.9966,1.9966,0,0,0-2-2H6A1.9966,1.9966,0,0,0,4,6V20a1.9966,1.9966,0,0,0,2,2h9v2H6a3.9993,3.9993,0,0,1-4-4V6A3.9988,3.9988,0,0,1,6,2H26a3.9988,3.9988,0,0,1,4,4V20a3.9993,3.9993,0,0,1-4,4H21.1646Z"/>
-		</svg>`
-    );
+    // Register custom icon using imported SVG
+    addIcon(SMILE_CHAT_ICON_ID, stewardIcon);
 
     // Add ribbon icon with custom icon
     this.addRibbonIcon(SMILE_CHAT_ICON_ID, i18next.t('ui.openStewardChat'), async () => {
-      await this.openStaticConversation();
+      await this.openChat();
     });
 
     this.registerStuffs();
@@ -197,10 +190,10 @@ export default class StewardPlugin extends Plugin {
       callback: async () => {
         const activeFile = this.app.workspace.getActiveFile();
 
-        if (activeFile && activeFile.name.startsWith(this.staticConversationTitle)) {
-          this.toggleStaticConversation();
+        if (activeFile && activeFile.name.startsWith(this.chatTitle)) {
+          this.toggleChat();
         } else {
-          this.openStaticConversation();
+          this.openChat();
         }
       },
     });
@@ -255,7 +248,7 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createStewardConversationProcessor(this));
 
     // Register the custom view type
-    this.registerView(STW_CONVERSATION_VIEW_CONFIG.type, leaf => new StewardConversationView(leaf));
+    this.registerView(STW_CHAT_VIEW_CONFIG.type, leaf => new StewardChatView(leaf, this));
   }
 
   private initializeClassifier() {
@@ -469,12 +462,12 @@ export default class StewardPlugin extends Plugin {
   }
 
   /**
-   * Gets or creates the leaf for the static conversation
-   * @returns The leaf containing the static conversation
+   * Gets or creates the leaf for the chat
+   * @returns The leaf containing the chat
    */
-  private getStaticConversationLeaf(): WorkspaceLeaf {
+  private getChatLeaf(): WorkspaceLeaf {
     // Try to find existing leaf by view type
-    const leaves = this.app.workspace.getLeavesOfType(STW_CONVERSATION_VIEW_CONFIG.type);
+    const leaves = this.app.workspace.getLeavesOfType(STW_CHAT_VIEW_CONFIG.type);
 
     // Use the first leaf if available
     if (leaves.length > 0) {
@@ -485,19 +478,17 @@ export default class StewardPlugin extends Plugin {
     const leaf = this.app.workspace.getRightLeaf(false);
 
     if (!leaf) {
-      throw new Error('Failed to create or find a leaf for the static conversation');
+      throw new Error('Failed to create or find a leaf for the chat');
     }
 
     return leaf;
   }
 
-  async openStaticConversation({
-    revealLeaf = true,
-  }: { revealLeaf?: boolean } = {}): Promise<void> {
+  private async openChat({ revealLeaf = true }: { revealLeaf?: boolean } = {}): Promise<void> {
     try {
       // Get the configured folder for conversations
       const folderPath = this.settings.stewardFolder;
-      const notePath = `${folderPath}/${this.staticConversationTitle}.md`;
+      const notePath = `${folderPath}/${this.chatTitle}.md`;
 
       // Check if conversations folder exists, create if not
       const folderExists = this.app.vault.getAbstractFileByPath(folderPath);
@@ -505,22 +496,21 @@ export default class StewardPlugin extends Plugin {
         await this.app.vault.createFolder(folderPath);
       }
 
-      // Check if the static conversation note exists, create if not
+      // Check if the chat note exists, create if not
       const noteExists = this.app.vault.getAbstractFileByPath(notePath);
       if (!noteExists) {
         // Build initial content
         const initialContent = '';
 
-        // Create the conversation note
+        // Create the chat note
         await this.app.vault.create(notePath, initialContent);
       }
 
-      // Get or create the leaf for the static conversation
-      const leaf = this.getStaticConversationLeaf();
+      const leaf = this.getChatLeaf();
 
       // Use our custom view
       await leaf.setViewState({
-        type: STW_CONVERSATION_VIEW_CONFIG.type,
+        type: STW_CHAT_VIEW_CONFIG.type,
         state: { file: notePath },
       });
 
@@ -532,8 +522,8 @@ export default class StewardPlugin extends Plugin {
         this.setCursorToEndOfFile();
       }
     } catch (error) {
-      logger.error('Error opening static conversation:', error);
-      new Notice(`Error opening static conversation: ${error.message}`);
+      logger.error('Error opening chat:', error);
+      new Notice(`Error opening chat: ${error.message}`);
     }
   }
 
@@ -639,9 +629,9 @@ export default class StewardPlugin extends Plugin {
   }
 
   /**
-   * Toggles the static conversation sidebar open or closed
+   * Toggles the chat sidebar open or closed
    */
-  private async toggleStaticConversation(): Promise<void> {
+  public async toggleChat(): Promise<void> {
     // Find and click the right sidebar toggle button
     const toggleButton = document.querySelector('.sidebar-toggle-button.mod-right');
     if (toggleButton instanceof HTMLElement) {

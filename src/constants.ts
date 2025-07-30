@@ -2,7 +2,7 @@ import { StewardPluginSettings } from './types/interfaces';
 
 export const SMILE_CHAT_ICON_ID = 'smile-chat-icon';
 
-export const STW_CONVERSATION_VIEW_CONFIG = {
+export const STW_CHAT_VIEW_CONFIG = {
   type: 'steward-conversation',
   icon: SMILE_CHAT_ICON_ID,
 };

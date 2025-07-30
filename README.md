@@ -16,7 +16,7 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 
 ## Standard (Built-In) Commands
 
-Steward can be used through the command palette directly in the editor or by opening the chat interface. Here are some example commands:
+Steward can be used through the command palette directly in the editor or by opening the chat interface.
 
 ### Usage
 
@@ -36,15 +36,15 @@ Steward can be used through the command palette directly in the editor or by ope
 
 ### Update directly in the editor:
 
-<img src="/assets/Update-In-Editor.gif" alt="Update directly in the editor" width="400px">
+<img src="/docs/Update-In-Editor.gif" alt="Update directly in the editor" width="400px">
 
 ### Image read:
 
-<img src="/assets/Image-Read.gif" alt="Image read" width="650px">
+<img src="/docs/Image-Read.gif" alt="Image read" width="650px">
 
 ### Read and extract content in a note:
 
-<img src="/assets/React-code-extract.gif" alt="React code extract" width="650px">
+<img src="/docs/React-code-extract.gif" alt="React code extract" width="650px">
 
 ## User-Defined Commands
 
@@ -129,17 +129,17 @@ You can ask Steward to help create user-defined commands using natural language,
 
 #### User-Defined command creation with LLM helps:
 
-<img src="/assets/User-Defined-command-creation.gif" alt="User-Defined command creation" width="650px">
+<img src="/docs/User-Defined-command-creation.gif" alt="User-Defined command creation" width="650px">
 
 #### Another Real-World User-Defined command:
 
-<img src="/assets/Flashcard-Assist-command.gif" alt="Flashcard Assist" width="650px">
+<img src="/docs/Flashcard-Assist-command.gif" alt="Flashcard Assist" width="650px">
 
 ### Command Flow Visualization
 
 The following diagram illustrates how commands are processed in Steward:
 
-<img src="/assets/commands-flow.svg" alt="Commands flow" width="600px">
+<img src="/docs/commands-flow.svg" alt="Commands flow" width="600px">
 
 ## Folder Structure
 

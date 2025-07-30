@@ -1,11 +1,15 @@
 import { MarkdownView, setIcon } from 'obsidian';
-import { STW_CONVERSATION_VIEW_CONFIG } from '../constants';
+import { STW_CHAT_VIEW_CONFIG } from '../constants';
 import { logger } from 'src/utils/logger';
 import i18next from 'i18next';
 import type { WorkspaceLeaf } from 'obsidian';
+import type StewardPlugin from 'src/main';
 
-export class StewardConversationView extends MarkdownView {
-  constructor(leaf: WorkspaceLeaf) {
+export class StewardChatView extends MarkdownView {
+  constructor(
+    leaf: WorkspaceLeaf,
+    private plugin: StewardPlugin
+  ) {
     super(leaf);
 
     // Mark this view as non-navigable
@@ -13,7 +17,7 @@ export class StewardConversationView extends MarkdownView {
   }
 
   getViewType(): string {
-    return STW_CONVERSATION_VIEW_CONFIG.type;
+    return STW_CHAT_VIEW_CONFIG.type;
   }
 
   getDisplayText(): string {
@@ -21,7 +25,7 @@ export class StewardConversationView extends MarkdownView {
   }
 
   getIcon(): string {
-    return STW_CONVERSATION_VIEW_CONFIG.icon;
+    return STW_CHAT_VIEW_CONFIG.icon;
   }
 
   async onOpen(): Promise<void> {
@@ -95,7 +99,7 @@ export class StewardConversationView extends MarkdownView {
       });
       setIcon(closeBtn, 'x');
       closeBtn.title = i18next.t('chat.closeChat');
-      closeBtn.addEventListener('click', () => this.handleCloseChat());
+      closeBtn.addEventListener('click', () => this.plugin.toggleChat());
     }
   }
 
@@ -119,19 +123,5 @@ export class StewardConversationView extends MarkdownView {
         ch: this.editor.getLine(lastLineNum).length,
       });
     });
-  }
-
-  private handleCloseChat(): void {
-    this.toggleStaticConversation();
-  }
-
-  /**
-   * Toggles the static conversation sidebar open or closed
-   */
-  private async toggleStaticConversation(): Promise<void> {
-    const toggleButton = document.querySelector('.sidebar-toggle-button.mod-right');
-    if (toggleButton instanceof HTMLElement) {
-      toggleButton.click();
-    }
   }
 }
