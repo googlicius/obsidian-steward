@@ -9,6 +9,7 @@ import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
 import { CommandIntent } from './intentExtraction';
 import { explanationFragment } from '../prompts/fragments';
+import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 
 const abortService = AbortService.getInstance();
 
@@ -81,14 +82,12 @@ export async function extractSearchQueryV2({
   lang?: string;
 }): Promise<SearchQueryExtractionV2> {
   const { systemPrompts = [] } = command;
-  // Check if input is wrapped in quotation marks for direct search
-  const quotedRegex = /^["'](.+)["']$/;
-  const match = command.query.trim().match(quotedRegex);
-
   const t = getTranslation(lang);
 
-  if (match) {
-    const searchTerm = match[1];
+  // Check if input is wrapped in quotation marks for direct search
+  const searchTerm = getQuotedQuery(command.query);
+
+  if (searchTerm) {
     return {
       operations: [
         {

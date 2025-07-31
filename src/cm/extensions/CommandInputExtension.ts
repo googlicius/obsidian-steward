@@ -117,7 +117,7 @@ function createInputExtension(
   commandPrefixes: string[],
   options: CommandInputOptions = {}
 ): Extension {
-  const commandInputLineDecor = Decoration.line({ class: 'conversation-command-line' });
+  const commandInputLineDecor = Decoration.line({ class: 'stw-input-line' });
 
   return ViewPlugin.fromClass(
     class {

@@ -10,9 +10,10 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 - **Command-based Interaction**: Support for standard commands like search, create, update, delete, move, audio, image generation, and user-defined commands
 - **Multi-language Support**: Use Steward in your preferred language
 - **Privacy-focused**: Most actions are executed in the front-end using Obsidian API to avoid exposing your data to LLMs (except for your queries)
-- **Interactive Chat UI**: An interactive chat interface using your current theme that leverages Obsidian's editor features to input any supported Markdown syntax. You can start a conversation, whether in the Chat sidebar or directly in the current editor.
+- **Interactive and Adaptive Chat UI**: A chat interface made of the slash `/` leveraging Obsidian's editor features and is adaptable to your current themes.
 - **Model Flexibility**: Use your favorite AI models including OpenAI, DeepSeek, and Ollama local models
 - **Intent Caching**: Utilizes embeddings to cache similar queries so subsequent requests don't require LLM processing
+- **User-Defined Commands**: Create your own command workflows by combining multiple commands with specific LLM models and settings of your choice.
 
 ## Standard (Built-In) Commands
 
@@ -122,7 +123,7 @@ When the command is executed:
 
 You can ask Steward to help create user-defined commands using natural language, even without knowing YAML syntax:
 
-1. Simply share the [User-Defined Command Guidelines](User-Defined%20Command%20Guidelines.md) with Steward
+1. Simply share the [User-Defined Command Guidelines](docs/User-Defined%20Command%20Guidelines.md) with Steward
 2. Describe what you want your command to do in plain language
 3. Steward will create commands with the proper YAML structure for you
 4. Review, modify if needed, and save to your Commands folder

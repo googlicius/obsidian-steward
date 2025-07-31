@@ -26,7 +26,6 @@
 - [ ] Search words start with a keyword: If user search for "teem", should be returned "teeming"
 - [x] The "create" command should be able to handle creating multiple notes.
 - [x] If the user wants to read a file entirely at the first time, let them know about the potential high cost by a confirmation.
-- [ ] The user can suggest their name or nickname to Steward to display it in the chat instead of "User"
 - [ ] Add read_history command when LLM wants to know more about the current context
 - [ ] Settings with the LLM helps: audio generation model, text generation model, names, and temperature
 - [x] Remove MediaGenerationService
@@ -38,6 +37,9 @@
 - [x] Let the LLM aware of artifacts for more transparency by providing a tool to read one or many artifacts if necessary.
 - [ ] Edit a message (Using linked list to store a multiple histories in a conversation)
 - [x] Acknowledging the conversation history to the LLM while extract user's intent for better extraction.
+- [ ] Toggle classification
+- [ ] Toggle show/hide pronouns. Pronouns could look redundant; Let the user decide whether to show them or not.
+- [ ] Adds a command prefix input to the setting. Default is `/`. This allow the user to change the prefix if the default conflicts with their use.
 
 ### BUGS
 

@@ -33,8 +33,6 @@ export interface CommandIntent {
 
 // Define valid command types
 const validCommandTypes = getValidCommandTypes();
-// Define a type for command types based on the valid command types
-type CommandType = (typeof validCommandTypes)[number];
 
 // Define the Zod schema for command intent
 const commandIntentSchema = z.object({
@@ -156,13 +154,10 @@ export async function extractCommandIntent(
 ): Promise<CommandIntentExtraction> {
   const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
   const classifier = getClassifier(llmConfig.model.modelId, isReloadRequest);
-  const clusterName = (await classify({
+  const clusterName = await classify({
     model: classifier,
     value: command.query,
-  })) as CommandType;
-
-  // const classifier = getClassifier(llmConfig.model.modelId);
-  // classifier.doClassify(command.query);
+  });
 
   const additionalSystemPrompts: string[] = [];
 

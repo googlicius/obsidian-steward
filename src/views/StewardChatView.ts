@@ -31,7 +31,7 @@ export class StewardChatView extends MarkdownView {
   async onOpen(): Promise<void> {
     await super.onOpen();
 
-    this.containerEl.classList.add('steward-conversation-wrapper');
+    this.containerEl.classList.add('stw-chat');
 
     this.createHeader();
     this.disableTitleEditing();

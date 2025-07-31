@@ -30,17 +30,17 @@ If your plugin does not need CSS, delete this file.
   margin-left: 0;
 }
 
-.conversation-command-line {
+.stw-input-line {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* First line in a block: not preceded by another block line */
-.conversation-command-line:not(.conversation-command-line + .conversation-command-line) {
+.stw-input-line:not(.stw-input-line + .stw-input-line) {
   padding-top: 5px !important;
 }
 
 /* Last line in a block: no next sibling is a block line */
-.conversation-command-line:not(:has(+ .conversation-command-line)) {
+.stw-input-line:not(:has(+ .stw-input-line)) {
   padding-bottom: 5px !important;
 }
 
@@ -78,11 +78,11 @@ If your plugin does not need CSS, delete this file.
   margin-left: 8px;
 }
 
-.steward-conversation-wrapper .inline-embed .markdown-embed-content {
+.stw-chat .inline-embed .markdown-embed-content {
   max-height: none;
 }
 
-.steward-conversation-wrapper .markdown-embed {
+.stw-chat .markdown-embed {
   padding: 0 0 15px 0;
   border: 0;
   border-bottom: 1px solid var(--background-modifier-border);
