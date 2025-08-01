@@ -40,7 +40,7 @@
 - [ ] Toggle classification
 - [ ] Toggle show/hide pronouns. Pronouns could look redundant; Let the user decide whether to show them or not.
 - [ ] Adds a command prefix input to the setting. Default is `/`. This allow the user to change the prefix if the default conflicts with their use.
-- [ ] Provide the extraction step a tool allowing LLMs retrieve more info about the extracted commands to build their queries precisely.
+- [x] Provide the extraction step a tool allowing LLMs retrieve more info about the extracted commands to build their queries precisely.
       For example: This query: "Read the Hold Out note" need to be extracted to a more meaningful query for the read command instead of "Hold Out".
 
 ### BUGS

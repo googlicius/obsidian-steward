@@ -3,7 +3,7 @@
   "name": "Steward",
   "version": "1.0.1",
   "minAppVersion": "0.15.0",
-  "description": "Yet another AI-powered assistant that helps you with your notes: Fast search, flexible commands, and chat with LLMs.",
+  "description": "An AI-powered assistant that helps you with your notes: Fast search, flexible commands, and chat with LLMs.",
   "author": "Dang Nguyen",
   "authorUrl": "https://github.com/googlicius",
   "fundingUrl": "https://coff.ee/dang.nguyen",

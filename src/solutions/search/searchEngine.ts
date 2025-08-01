@@ -622,7 +622,6 @@ export class SearchEngine {
    */
   public async getDocumentByName(name: string): Promise<IndexedDocument | null> {
     const documents = await this.getDocumentsByNames([name]);
-    console.log('getDocumentByName: documents', documents);
     return documents.length > 0 ? documents[0] : null;
   }
 }
