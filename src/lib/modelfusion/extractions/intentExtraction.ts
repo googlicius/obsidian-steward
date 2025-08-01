@@ -1,16 +1,9 @@
 import { generateObject } from 'ai';
 import { classify } from 'modelfusion';
-import { commandIntentPrompt } from '../prompts/commandIntentPrompt';
+import { getCommandIntentPrompt } from '../prompts/commandIntentPrompt';
 import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { logger } from 'src/utils/logger';
 import { AbortService } from 'src/services/AbortService';
-import {
-  interpretDeleteFromArtifactPrompt,
-  interpretDestinationFolderPrompt,
-  interpretSearchContentPrompt,
-  interpretUpdateFromArtifactPrompt,
-  interpretReadContentPrompt,
-} from '../prompts/interpretQueryPrompts';
 import { getClassifier } from '../classifiers/getClassifier';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
@@ -178,38 +171,14 @@ export async function extractCommandIntent(
       };
     }
 
-    const clusterNames = clusterName.split(':');
+    const commandTypes = clusterName.split(':');
 
-    // Add some additional prompts to extract multiple intents
-    if (clusterNames.includes('search')) {
-      additionalSystemPrompts.push(interpretSearchContentPrompt.content as string);
-    }
-
-    if (clusterNames.length > 1) {
-      if (clusterNames.includes('delete_from_artifact')) {
-        additionalSystemPrompts.push(interpretDeleteFromArtifactPrompt.content as string);
-      }
-
-      if (
-        clusterNames.includes('copy_from_artifact') ||
-        clusterNames.includes('move_from_artifact')
-      ) {
-        additionalSystemPrompts.push(interpretDestinationFolderPrompt.content as string);
-      }
-
-      if (clusterNames.includes('update_from_artifact')) {
-        additionalSystemPrompts.push(interpretUpdateFromArtifactPrompt.content as string);
-      }
-
-      if (clusterNames.includes('read')) {
-        additionalSystemPrompts.push(interpretReadContentPrompt.content as string);
-      }
-    } else {
+    if (commandTypes.length === 1) {
       // Create a formatted response based on the classification
       const result: CommandIntentExtraction = {
         commands: [
           {
-            commandType: clusterName,
+            commandType: commandTypes[0],
             query: command.query,
           },
         ],
@@ -245,7 +214,7 @@ export async function extractCommandIntent(
     const { object } = await generateObject({
       ...llmConfig,
       abortSignal,
-      system: commandIntentPrompt,
+      system: getCommandIntentPrompt(clusterName ? clusterName.split(':') : null),
       messages: [...systemPrompts, { role: 'user', content: command.query }],
       schema: commandIntentExtractionSchema,
     });

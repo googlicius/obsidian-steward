@@ -100,7 +100,7 @@ export class SearchEngine {
    */
   private async getDocumentsByNames(names: string[]): Promise<IndexedDocument[]> {
     if (names.length === 0) return [];
-    const matchedDocuments: IndexedDocument[] = [];
+    const matchedDocumentsWithScores: Array<{ document: IndexedDocument; score: number }> = [];
 
     for (const name of names) {
       const terms = this.tokenizer.getUniqueTerms(name);
@@ -123,14 +123,18 @@ export class SearchEngine {
         // Calculate similarity between search name and document name
         const similarityScore = similarity(name, doc.fileName);
 
-        // If similarity is above threshold, add to matched documents
+        // If similarity is above threshold, add to matched documents with score
         if (similarityScore >= this.SIMILARITY_THRESHOLD) {
-          matchedDocuments.push(doc);
+          matchedDocumentsWithScores.push({ document: doc, score: similarityScore });
         }
       }
     }
 
-    return matchedDocuments;
+    // Sort by similarity score in descending order (highest scores first)
+    matchedDocumentsWithScores.sort((a, b) => b.score - a.score);
+
+    // Extract just the documents from the sorted array
+    return matchedDocumentsWithScores.map(item => item.document);
   }
 
   /**
@@ -618,6 +622,7 @@ export class SearchEngine {
    */
   public async getDocumentByName(name: string): Promise<IndexedDocument | null> {
     const documents = await this.getDocumentsByNames([name]);
+    console.log('getDocumentByName: documents', documents);
     return documents.length > 0 ? documents[0] : null;
   }
 }
