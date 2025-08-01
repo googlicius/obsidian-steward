@@ -271,6 +271,9 @@ export default class StewardPlugin extends Plugin {
 
     // Update logger debug setting
     logger.setDebug(this.settings.debug);
+
+    // Apply bordered input class if enabled
+    document.body.classList.toggle('stw-bordered-input', this.settings.borderedInput);
   }
 
   async saveSettings() {

@@ -46,6 +46,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
   encryptionVersion: 1, // Current version
   excludedFolders: ['node_modules', 'src', '.git', 'dist'], // Default development folders to exclude
   debug: false, // Debug logging disabled by default
+  borderedInput: true, // Enable bordered input by default
   audio: {
     model: 'openai', // Default model
     voices: {

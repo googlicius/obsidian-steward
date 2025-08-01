@@ -17,6 +17,20 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     containerEl.empty();
 
+    // Add bordered input toggle (on top, not under a heading)
+    new Setting(containerEl)
+      .setName('Bordered input')
+      .setDesc(
+        'Add border around command input lines (better visibility especially with light themes)'
+      )
+      .addToggle(toggle =>
+        toggle.setValue(this.plugin.settings.borderedInput).onChange(async value => {
+          this.plugin.settings.borderedInput = value;
+          await this.plugin.saveSettings();
+          document.body.classList.toggle('stw-bordered-input', value);
+        })
+      );
+
     // Create API Keys section
     new Setting(containerEl).setName('API keys').setHeading();
 

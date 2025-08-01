@@ -44,6 +44,27 @@ If your plugin does not need CSS, delete this file.
   padding-bottom: 5px !important;
 }
 
+/* Bordered input styling when enabled */
+body.stw-bordered-input .stw-input-line {
+  border-left: thin solid var(--background-modifier-border);
+  border-right: thin solid var(--background-modifier-border);
+  margin: 0;
+}
+
+/* First line in a block: add top border */
+body.stw-bordered-input .stw-input-line:not(.stw-input-line + .stw-input-line) {
+  border-top: thin solid var(--background-modifier-border);
+  border-top-left-radius: var(--radius-s);
+  border-top-right-radius: var(--radius-s);
+}
+
+/* Last line in a block: add bottom border */
+body.stw-bordered-input .stw-input-line:not(:has(+ .stw-input-line)) {
+  border-bottom: thin solid var(--background-modifier-border);
+  border-bottom-left-radius: var(--radius-s);
+  border-bottom-right-radius: var(--radius-s);
+}
+
 /* Command Autocomplete styling */
 .cm-tooltip.cm-tooltip-autocomplete {
   border: 1px solid var(--background-modifier-border);

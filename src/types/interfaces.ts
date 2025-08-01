@@ -11,6 +11,7 @@ export interface StewardPluginSettings {
   encryptionVersion?: number; // Track the encryption version for future migrations
   excludedFolders: string[]; // Folders to exclude from Obsidian search
   debug: boolean; // Enable debug logging
+  borderedInput: boolean; // Toggle border around command input
   audio: {
     model: string;
     voices: Record<string, string>;
