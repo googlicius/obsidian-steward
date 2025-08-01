@@ -1,6 +1,8 @@
+import { commandQueryTemplatesAsString } from './commandQueryTemplates';
 import { formatCommandsForPrompt } from './commands';
 
-export const commandIntentPrompt = `You are a helpful assistant analyzing user queries to determine their intent for an Obsidian note management system.
+export function getCommandIntentPrompt(commandNames: string[] | null) {
+  return `You are a helpful assistant analyzing user queries to determine their intent for an Obsidian note management system.
 
 Your role is to analyze a user's natural language query and output a sequence of commands from the available list to fulfill the task efficiently.
 
@@ -28,4 +30,7 @@ GUIDELINES:
   - Type 1: Editing from content that is already given in the user's query. For this, including the "generate" command is enough (use it to produce the edited content directly).
   - Type 2: Editing from content that is the result of the "read" or "search" commands (these results are stored as artifacts). For this, first use "read" or "search" to obtain the artifacts, second include "generate" if needed, then include "move_from_artifact", "copy_from_artifact", "update_from_artifact", or "delete_from_artifact" to perform the actual update to the note(s)
     Example: "Update the list above to the numbered list" -> ["read", "generate", "update_from_artifact"]. Explain: "First, read the content above and store it as read_artifact, then generate the edited content from the read_artifact and store another artifact is update_artifact, then update the note(s) from the update_artifact"
-`;
+
+TEMPLATES (Command's query extraction guidelines):
+${commandQueryTemplatesAsString(commandNames)}`;
+}
