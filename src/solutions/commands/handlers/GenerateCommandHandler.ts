@@ -11,7 +11,7 @@ import {
   extractNoteGeneration,
 } from 'src/lib/modelfusion/extractions';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-import { streamText } from 'ai';
+import { streamText, APICallError } from 'ai';
 import { AbortService } from 'src/services/AbortService';
 import {
   ContentUpdateExtraction,
@@ -202,8 +202,20 @@ export class GenerateCommandHandler extends CommandHandler {
         }
       } else {
         const stream = await this.contentGenerationStream({
-          ...command,
-          query: userInput,
+          command: {
+            ...command,
+            query: userInput,
+          },
+          errorCallback: error => {
+            if (error instanceof APICallError && error.statusCode === 422) {
+              this.renderer.updateConversationNote({
+                path: title,
+                newContent: `*Error: Unprocessable Content*`,
+                role: 'System',
+                lang,
+              });
+            }
+          },
         });
 
         await this.renderer.streamConversationNote({
@@ -292,7 +304,20 @@ export class GenerateCommandHandler extends CommandHandler {
     const conversationHistory = await this.renderer.extractConversationHistory(title);
 
     // Prepare for content generation
-    const stream = await this.contentGenerationStream(command, conversationHistory);
+    const stream = await this.contentGenerationStream({
+      command,
+      conversationHistory,
+      errorCallback: error => {
+        if (error instanceof APICallError && error.statusCode === 422) {
+          this.renderer.updateConversationNote({
+            path: title,
+            newContent: `*Error: Unprocessable Content*`,
+            role: 'System',
+            lang,
+          });
+        }
+      },
+    });
 
     // stream content to current conversation
     if (!extraction.noteName || !extraction.modifiesNote || !file) {
@@ -332,10 +357,12 @@ export class GenerateCommandHandler extends CommandHandler {
     this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
   }
 
-  private async contentGenerationStream(
-    command: CommandIntent,
-    conversationHistory: ConversationHistoryMessage[] = []
-  ): Promise<AsyncIterable<string>> {
+  private async contentGenerationStream(args: {
+    command: CommandIntent;
+    conversationHistory?: ConversationHistoryMessage[];
+    errorCallback?: (error: unknown) => void;
+  }): Promise<AsyncIterable<string>> {
+    const { command, conversationHistory = [], errorCallback } = args;
     const { query, systemPrompts = [], model } = command;
     const llmConfig = await LLMService.getInstance().getLLMConfig(model);
 
@@ -366,6 +393,11 @@ ${languageEnforcementFragment}`,
           content: await prepareUserMessage(prompt, this.app),
         },
       ],
+      onError: ({ error }) => {
+        if (errorCallback) {
+          errorCallback(error);
+        }
+      },
     });
 
     return textStream;

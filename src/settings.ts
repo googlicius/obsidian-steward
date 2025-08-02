@@ -17,6 +17,20 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     containerEl.empty();
 
+    // Add setting for conversation folder
+    new Setting(containerEl)
+      .setName('Steward folder')
+      .setDesc('Base folder where Steward data will be stored')
+      .addText(text =>
+        text
+          .setPlaceholder('Steward')
+          .setValue(this.plugin.settings.stewardFolder)
+          .onChange(async value => {
+            this.plugin.settings.stewardFolder = value || 'Steward';
+            await this.plugin.saveSettings();
+          })
+      );
+
     // Add bordered input toggle (on top, not under a heading)
     new Setting(containerEl)
       .setName('Bordered input')
@@ -28,6 +42,29 @@ export default class StewardSettingTab extends PluginSettingTab {
           this.plugin.settings.borderedInput = value;
           await this.plugin.saveSettings();
           document.body.classList.toggle('stw-bordered-input', value);
+        })
+      );
+
+    // Add show role labels toggle
+    new Setting(containerEl)
+      .setName('Show role labels')
+      .setDesc('Show User/Steward/System labels in conversations')
+      .addToggle(toggle =>
+        toggle.setValue(this.plugin.settings.showPronouns).onChange(async value => {
+          this.plugin.settings.showPronouns = value;
+          await this.plugin.saveSettings();
+        })
+      );
+
+    // Add debug mode toggle
+    new Setting(containerEl)
+      .setName('Debug mode')
+      .setDesc('Enable detailed logging in the console for debugging')
+      .addToggle(toggle =>
+        toggle.setValue(this.plugin.settings.debug).onChange(async value => {
+          this.plugin.settings.debug = value;
+          await this.plugin.saveSettings();
+          logger.setDebug(value);
         })
       );
 
@@ -231,20 +268,6 @@ export default class StewardSettingTab extends PluginSettingTab {
       }
     }
 
-    // Add setting for conversation folder
-    new Setting(containerEl)
-      .setName('Steward folder')
-      .setDesc('Base folder where Steward data will be stored')
-      .addText(text =>
-        text
-          .setPlaceholder('Steward')
-          .setValue(this.plugin.settings.stewardFolder)
-          .onChange(async value => {
-            this.plugin.settings.stewardFolder = value || 'Steward';
-            await this.plugin.saveSettings();
-          })
-      );
-
     // Add LLM settings section
     new Setting(containerEl).setName('LLM').setHeading();
 
@@ -344,17 +367,5 @@ export default class StewardSettingTab extends PluginSettingTab {
       ollamaBaseUrlSetting.settingEl.classList.toggle('stw-setting-visible', isOllamaModel);
       ollamaBaseUrlSetting.settingEl.classList.toggle('stw-setting-hidden', !isOllamaModel);
     };
-
-    // Add debug mode toggle
-    new Setting(containerEl)
-      .setName('Debug mode')
-      .setDesc('Enable detailed logging in the console for debugging')
-      .addToggle(toggle =>
-        toggle.setValue(this.plugin.settings.debug).onChange(async value => {
-          this.plugin.settings.debug = value;
-          await this.plugin.saveSettings();
-          logger.setDebug(value);
-        })
-      );
   }
 }
