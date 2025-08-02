@@ -105,7 +105,7 @@ export function createCalloutSearchResultPostProcessor(
           });
         }
       } catch (error) {
-        console.error('Error navigating to line:', error);
+        logger.error('Error navigating to line:', error);
       }
     });
   };

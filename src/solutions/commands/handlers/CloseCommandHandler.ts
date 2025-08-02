@@ -7,6 +7,7 @@ import {
 } from '../CommandHandler';
 
 import type StewardPlugin from 'src/main';
+import { logger } from 'src/utils/logger';
 
 /**
  * Handler for close commands
@@ -44,7 +45,7 @@ export class CloseCommandHandler extends CommandHandler {
         status: CommandResultStatus.SUCCESS,
       };
     } catch (error) {
-      console.error('Error closing conversation:', error);
+      logger.error('Error closing conversation:', error);
 
       return {
         status: CommandResultStatus.ERROR,

@@ -167,7 +167,9 @@ export class ConversationRenderer {
 
         // Add hidden content after visible content if provided
         if (params.artifactContent) {
-          contentToAdd += `\n\n\`\`\`stw-artifact\n${params.artifactContent}\n\`\`\``;
+          // Escape backticks in artifact content to prevent breaking the code block
+          const escapedArtifactContent = params.artifactContent.replace(/`/g, '\\`');
+          contentToAdd += `\n\n\`\`\`stw-artifact\n${escapedArtifactContent}\n\`\`\``;
         }
 
         // Return the updated content

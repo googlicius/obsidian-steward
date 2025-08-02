@@ -625,7 +625,7 @@ export default class StewardPlugin extends Plugin {
 
       return true;
     } catch (error) {
-      console.error('Error closing conversation:', error);
+      logger.error('Error closing conversation:', error);
       new Notice(i18next.t('ui.errorClosingConversation', { errorMessage: error.message }));
       return false;
     }
@@ -800,7 +800,7 @@ export default class StewardPlugin extends Plugin {
         ]);
       }
     } catch (error) {
-      console.error('Failed to exclude folders from search:', error);
+      logger.error('Failed to exclude folders from search:', error);
     }
   }
 }

@@ -6,6 +6,7 @@ import {
   AddInstruction,
 } from '../lib/modelfusion/extractions';
 import { SearchOperationV2 } from 'src/lib/modelfusion';
+import { logger } from 'src/utils/logger';
 
 /**
  * Represents a single move operation with v2 parameters
@@ -68,7 +69,7 @@ export class ObsidianAPITools {
       await this.app.fileManager.renameFile(file, newPath);
       return true;
     } catch (error) {
-      console.error(`Error moving file ${filePath} to ${newFolderPath}:`, error);
+      logger.error(`Error moving file ${filePath} to ${newFolderPath}:`, error);
       return false;
     }
   }

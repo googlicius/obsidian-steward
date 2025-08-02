@@ -4,6 +4,7 @@ import { AbortService } from 'src/services/AbortService';
 import { LLMService } from 'src/services/LLMService';
 import { CommandIntent } from './intentExtraction';
 import { desFolderExtractionSchema } from './destinationFolderExtraction';
+import { logger } from 'src/utils/logger';
 
 const abortService = AbortService.getInstance();
 
@@ -43,7 +44,7 @@ export async function extractMoveQuery(command: CommandIntent): Promise<MoveExtr
 
     return object;
   } catch (error) {
-    console.error('Error extracting move from search result parameters:', error);
+    logger.error('Error extracting move from search result parameters:', error);
     throw error;
   }
 }

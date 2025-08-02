@@ -4,6 +4,7 @@ import { IMAGE_LINK_PATTERN } from 'src/constants';
 import { MediaTools } from 'src/tools/mediaTools';
 import { NoteContentService } from 'src/services/NoteContentService';
 import { resizeImageWithCanvas } from 'src/utils/resizeImageWithCanvas';
+import { logger } from 'src/utils/logger';
 
 export function getTextContentWithoutImages(userInput: string): string {
   // Create a new RegExp instance with flags each time to avoid stateful issues
@@ -51,7 +52,7 @@ export async function prepareUserMessage(
         }
       }
     } catch (error) {
-      console.error(`Error processing image ${imagePath}:`, error);
+      logger.error(`Error processing image ${imagePath}:`, error);
     }
   }
 
@@ -69,7 +70,7 @@ export async function prepareUserMessage(
           });
         }
       } catch (error) {
-        console.error(`Error processing wikilink ${wikilink}:`, error);
+        logger.error(`Error processing wikilink ${wikilink}:`, error);
       }
     }
   }

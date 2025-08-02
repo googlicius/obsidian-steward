@@ -27,6 +27,7 @@ function createMockPlugin(
         getFileByPath: jest.fn().mockReturnValue(mockFile),
         read: jest.fn().mockResolvedValue(fileContent),
         cachedRead: jest.fn().mockResolvedValue(fileContent),
+        modify: jest.fn(),
       },
       metadataCache: {
         getFileCache: jest.fn().mockReturnValue({
@@ -277,6 +278,93 @@ describe('ConversationRenderer', () => {
       );
 
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('updateMessageMetadata', () => {
+    it('should update the metadata for a message', async () => {
+      // Mock conversation content with a message that has metadata
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:search-->',
+        '```stw-user-message',
+        '/search React hooks',
+        '```',
+        '',
+        '<!--STW ID:def456,ROLE:steward,COMMAND:search-->',
+        "Here's what I found about React hooks:",
+        '',
+        'React hooks are functions that let you use state and other React features without writing a class.',
+      ].join('\n');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+
+      // Spy on the vault.modify method
+      const modifySpy = jest.spyOn(mockPlugin.app.vault, 'modify').mockResolvedValue(undefined);
+
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Call the method to update metadata for the steward message
+      const result = await conversationRenderer.updateMessageMetadata(
+        'test-conversation',
+        'def456',
+        { ID: 'def456', ROLE: 'steward', COMMAND: 'read', HISTORY: 'false' }
+      );
+
+      // Verify the result is true (success)
+      expect(result).toBe(true);
+
+      // Verify that vault.modify was called
+      expect(modifySpy).toHaveBeenCalledTimes(1);
+
+      // Verify that the content was modified correctly
+      const modifiedContent = modifySpy.mock.calls[0][1];
+      expect(modifiedContent).toContain(
+        '<!--STW ID:def456,ROLE:steward,COMMAND:read,HISTORY:false-->'
+      );
+      expect(modifiedContent).not.toContain('<!--STW ID:def456,ROLE:steward,COMMAND:search-->');
+    });
+
+    it('should return false when the message ID is not found', async () => {
+      // Mock conversation content
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:search-->',
+        '##### **User:** /search React hooks',
+      ].join('\n');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Call the method with a non-existent message ID
+      const result = await conversationRenderer.updateMessageMetadata(
+        'test-conversation',
+        'non-existent-id',
+        { ID: 'non-existent-id', ROLE: 'steward', COMMAND: 'read' }
+      );
+
+      // Verify the result is false (failure)
+      expect(result).toBe(false);
+
+      // Verify that vault.modify was not called
+      expect(mockPlugin.app.vault.modify).not.toHaveBeenCalled();
+    });
+
+    it('should return false when the conversation file does not exist', async () => {
+      // Create mock plugin where getFileByPath returns null
+      const mockPlugin = createMockPlugin();
+      mockPlugin.app.vault.getFileByPath = jest.fn().mockReturnValue(null);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Call the method
+      const result = await conversationRenderer.updateMessageMetadata(
+        'non-existent-conversation',
+        'abc123',
+        { ID: 'abc123', ROLE: 'user', COMMAND: 'search' }
+      );
+
+      // Verify the result is false (failure)
+      expect(result).toBe(false);
     });
   });
 });

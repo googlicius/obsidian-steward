@@ -1,6 +1,7 @@
 import { App, TFile } from 'obsidian';
 import { SearchDatabase } from '../../database/SearchDatabase';
 import { IndexedDocument, IndexedFolder, IndexedTerm } from '../../database/SearchDatabase';
+import { logger } from 'src/utils/logger';
 
 export interface DocumentStoreConfig {
   app: App;
@@ -189,7 +190,7 @@ export class DocumentStore {
       const firstDoc = await this.db.documents.limit(1).first();
       return firstDoc !== undefined;
     } catch (error) {
-      console.error('Error checking if index is built:', error);
+      logger.error('Error checking if index is built:', error);
       return false;
     }
   }

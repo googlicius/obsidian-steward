@@ -1,3 +1,4 @@
+import { logger } from 'src/utils/logger';
 import { Events, ErrorEvents, EventPayloadMap } from '../types/events';
 
 type EventCallback = (payload: any) => void;
@@ -33,7 +34,7 @@ class EventEmitter {
       try {
         callback(payload);
       } catch (error) {
-        console.error(`Error in event handler for ${event}:`, error);
+        logger.error(`Error in event handler for ${event}:`, error);
       }
     });
   }

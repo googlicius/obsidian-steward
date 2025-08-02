@@ -7,6 +7,7 @@ import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
 import { CommandIntent } from './intentExtraction';
 import { explanationFragment, confidenceFragment } from '../prompts/fragments';
+import { logger } from 'src/utils/logger';
 
 const abortService = AbortService.getInstance();
 
@@ -91,7 +92,7 @@ export async function extractAudioQuery(command: CommandIntent): Promise<AudioEx
 
     return object;
   } catch (error) {
-    console.error('Error extracting audio generation parameters:', error);
+    logger.error('Error extracting audio generation parameters:', error);
     throw error;
   }
 }

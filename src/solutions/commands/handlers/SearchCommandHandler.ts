@@ -183,7 +183,7 @@ export class SearchCommandHandler extends CommandHandler {
             }
           }
         } catch (error) {
-          console.error('Error reading file:', error);
+          logger.error('Error reading file:', error);
         }
       }
     }

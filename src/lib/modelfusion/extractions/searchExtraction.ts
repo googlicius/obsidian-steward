@@ -165,7 +165,7 @@ export async function extractSearchQueryV2({
       lang: object.lang || lang || getObsidianLanguage(),
     };
   } catch (error) {
-    console.error('Error extracting search query:', error);
+    logger.error('Error extracting search query:', error);
     throw error;
   }
 }

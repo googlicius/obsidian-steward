@@ -6,6 +6,7 @@ import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
 import { CommandIntent } from './intentExtraction';
 import { explanationFragment, confidenceFragment } from '../prompts/fragments';
+import { logger } from 'src/utils/logger';
 
 const abortService = AbortService.getInstance();
 
@@ -63,7 +64,7 @@ export async function extractImageQuery(
 
     return object;
   } catch (error) {
-    console.error('Error extracting image generation parameters:', error);
+    logger.error('Error extracting image generation parameters:', error);
     throw error;
   }
 }

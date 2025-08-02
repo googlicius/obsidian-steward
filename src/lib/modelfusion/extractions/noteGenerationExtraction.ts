@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { explanationFragment, confidenceFragment } from '../prompts/fragments';
 import { CommandIntent } from './intentExtraction';
 import { ConversationHistoryMessage } from 'src/types/types';
+import { logger } from 'src/utils/logger';
 
 const abortService = AbortService.getInstance();
 
@@ -79,7 +80,7 @@ export async function extractNoteGeneration(params: {
 
     return object;
   } catch (error) {
-    console.error('Error extracting note generation details:', error);
+    logger.error('Error extracting note generation details:', error);
     throw error;
   }
 }

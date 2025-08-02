@@ -104,7 +104,7 @@ body.stw-bordered-input .stw-input-line:not(:has(+ .stw-input-line)) {
 }
 
 .stw-chat .markdown-embed {
-  padding: 0 0 15px 0;
+  --embed-padding: 0 0 15px 0;
   border: 0;
   border-bottom: 1px solid var(--background-modifier-border);
   background-color: transparent;

@@ -4,6 +4,7 @@ import { userLanguagePromptText } from '../prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
+import { logger } from 'src/utils/logger';
 
 const abortService = AbortService.getInstance();
 
@@ -84,7 +85,7 @@ export async function extractUpdateFromSearchResult({
 
     return object;
   } catch (error) {
-    console.error('Error extracting update from search result:', error);
+    logger.error('Error extracting update from search result:', error);
     throw error;
   }
 }

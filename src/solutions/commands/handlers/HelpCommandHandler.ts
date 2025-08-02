@@ -6,6 +6,7 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import type StewardPlugin from 'src/main';
+import { logger } from 'src/utils/logger';
 
 /**
  * Handler for help commands
@@ -123,7 +124,7 @@ export class HelpCommandHandler extends CommandHandler {
         status: CommandResultStatus.SUCCESS,
       };
     } catch (error) {
-      console.error('Error listing commands:', error);
+      logger.error('Error listing commands:', error);
 
       return {
         status: CommandResultStatus.ERROR,

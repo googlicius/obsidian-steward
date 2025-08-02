@@ -42,6 +42,8 @@
 - [ ] Adds a command prefix input to the setting. Default is `/`. This allow the user to change the prefix if the default conflicts with their use.
 - [x] Provide the extraction step a tool allowing LLMs retrieve more info about the extracted commands to build their queries precisely.
       For example: This query: "Read the Hold Out note" need to be extracted to a more meaningful query for the read command instead of "Hold Out".
+- [ ] Extend read extraction functionality: Allow LLM to read enough data before going further
+      For example: The user wants to read the paragraph above and ask for something. But the paragraph is still mention "above" or a note, suggests there is something out of the paragraph. So the LLM needs to read it to collect enough data.
 
 ### BUGS
 

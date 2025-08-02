@@ -86,7 +86,7 @@ export default class StewardSettingTab extends PluginSettingTab {
         } catch (error) {
           // If decryption fails, we'll show a special message
           placeholder = 'Error: Click to re-enter key';
-          console.error('Error decrypting API key in settings:', error);
+          logger.error('Error decrypting API key in settings:', error);
         }
 
         text
@@ -105,7 +105,7 @@ export default class StewardSettingTab extends PluginSettingTab {
                 text.setValue('');
               } catch (error) {
                 new Notice('Failed to save API key. Please try again.');
-                console.error('Error setting API key:', error);
+                logger.error('Error setting API key:', error);
               }
             }
           });
@@ -124,7 +124,7 @@ export default class StewardSettingTab extends PluginSettingTab {
               this.display();
             } catch (error) {
               new Notice('Failed to clear API key. Please try again.');
-              console.error('Error clearing API key:', error);
+              logger.error('Error clearing API key:', error);
             }
           });
       });
@@ -163,7 +163,7 @@ export default class StewardSettingTab extends PluginSettingTab {
                 text.setValue('');
               } catch (error) {
                 new Notice('Failed to save API key. Please try again.');
-                console.error('Error setting API key:', error);
+                logger.error('Error setting API key:', error);
               }
             }
           });
@@ -182,7 +182,7 @@ export default class StewardSettingTab extends PluginSettingTab {
               this.display();
             } catch (error) {
               new Notice('Failed to clear API key. Please try again.');
-              console.error('Error clearing API key:', error);
+              logger.error('Error clearing API key:', error);
             }
           });
       });
@@ -221,7 +221,7 @@ export default class StewardSettingTab extends PluginSettingTab {
                 text.setValue('');
               } catch (error) {
                 new Notice('Failed to save API key. Please try again.');
-                console.error('Error setting API key:', error);
+                logger.error('Error setting API key:', error);
               }
             }
           });
@@ -240,7 +240,7 @@ export default class StewardSettingTab extends PluginSettingTab {
               this.display();
             } catch (error) {
               new Notice('Failed to clear API key. Please try again.');
-              console.error('Error clearing API key:', error);
+              logger.error('Error clearing API key:', error);
             }
           });
       });
