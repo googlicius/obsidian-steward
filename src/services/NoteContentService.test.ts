@@ -18,18 +18,14 @@ const createMockApp = () => {
 describe('NoteContentService', () => {
   let noteContentService: NoteContentService;
   let mockApp: App;
-  let mockFile: any;
+  let mockFile: TFile;
 
   beforeEach(() => {
     // Create a mock app for testing
     mockApp = createMockApp();
 
     // Create mock file
-    mockFile = {
-      path: 'test-file.md',
-      basename: 'test-file',
-      extension: 'md',
-    } as unknown as TFile;
+    mockFile = new TFile();
 
     // Create a new instance for each test with the mock app
     noteContentService = NoteContentService.getInstance(mockApp);

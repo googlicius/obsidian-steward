@@ -12,6 +12,7 @@ export interface StewardPluginSettings {
   excludedFolders: string[]; // Folders to exclude from Obsidian search
   debug: boolean; // Enable debug logging
   borderedInput: boolean; // Toggle border around command input
+  showPronouns: boolean; // Toggle display of User/Steward pronouns in chat
   audio: {
     model: string;
     voices: Record<string, string>;

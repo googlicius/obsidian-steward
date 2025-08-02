@@ -38,7 +38,7 @@
 - [ ] Edit a message (Using linked list to store a multiple histories in a conversation)
 - [x] Acknowledging the conversation history to the LLM while extract user's intent for better extraction.
 - [ ] Toggle classification
-- [ ] Toggle show/hide pronouns. Pronouns could look redundant; Let the user decide whether to show them or not.
+- [x] Toggle show/hide pronouns. Pronouns could look redundant; Let the user decide whether to show them or not.
 - [ ] Adds a command prefix input to the setting. Default is `/`. This allow the user to change the prefix if the default conflicts with their use.
 - [x] Provide the extraction step a tool allowing LLMs retrieve more info about the extracted commands to build their queries precisely.
       For example: This query: "Read the Hold Out note" need to be extracted to a more meaningful query for the read command instead of "Hold Out".

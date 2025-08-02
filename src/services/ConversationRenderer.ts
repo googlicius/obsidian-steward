@@ -31,6 +31,18 @@ export class ConversationRenderer {
   }
 
   /**
+   * Formats role text based on the showPronouns setting
+   * @param role The role to format
+   * @returns Formatted role text or empty string if pronouns should be hidden
+   */
+  private formatRoleText(role?: string): string {
+    if (!role || !this.plugin.settings.showPronouns) {
+      return '';
+    }
+    return `**${role}:** `;
+  }
+
+  /**
    * Updates the command type in the comment block of the last user message
    * @param title The conversation title
    * @param commandType The extracted command type
@@ -143,13 +155,13 @@ export class ConversationRenderer {
           currentContent = `${currentContent}\n\n---`;
           // Format user message as a callout
           contentToAdd = this.noteContentService.formatCallout(
-            `**${params.role}:** ${params.newContent}`,
+            `${this.formatRoleText(params.role)}${params.newContent}`,
             'stw-user-message',
             { id: messageId }
           );
         } else {
           // For Steward or System messages, use the regular format
-          const roleText = params.role ? `**${params.role}:** ` : '';
+          const roleText = this.formatRoleText(params.role);
           contentToAdd = `${roleText}${params.newContent}`;
         }
 
@@ -205,7 +217,7 @@ export class ConversationRenderer {
         command: params.command,
       });
 
-      const roleText = params.role ? `**${params.role}:** ` : '';
+      const roleText = this.formatRoleText(params.role);
 
       // Prepare the initial content with metadata
       const initialContent = `${currentContent}\n\n${comment}\n${roleText}`;
@@ -223,7 +235,7 @@ export class ConversationRenderer {
       await this.plugin.app.vault.modify(file, contentToModify);
 
       // Stream the content
-      this.streamFile(file, params.stream, contentToModify);
+      await this.streamFile(file, params.stream, contentToModify);
 
       // Return the message ID for referencing
       return messageId;
@@ -443,7 +455,7 @@ export class ConversationRenderer {
 
       // Format user message as a callout with the role text
       const userMessage = this.noteContentService.formatCallout(
-        `**User:** /${commandType.trim()} ${content}`,
+        `${this.formatRoleText('User')}/${commandType.trim()} ${content}`,
         'stw-user-message',
         { id: messageId }
       );

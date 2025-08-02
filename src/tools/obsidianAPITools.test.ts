@@ -21,6 +21,10 @@ jest.mock('obsidian', () => ({
     extension: '',
     name: '',
   })),
+  TFolder: jest.fn().mockImplementation(() => ({
+    path: '',
+    name: '',
+  })),
 }));
 
 describe('ObsidianAPITools', () => {
@@ -46,10 +50,10 @@ describe('ObsidianAPITools', () => {
       jest
         .spyOn(app.vault, 'getFolderByPath')
         .mockReturnValueOnce(null)
-        .mockReturnValueOnce({} as TFolder);
+        .mockReturnValueOnce(new TFolder());
 
       // Mock successful file operations
-      jest.spyOn(app.vault, 'createFolder').mockResolvedValue({} as TFolder);
+      jest.spyOn(app.vault, 'createFolder').mockResolvedValue(new TFolder());
       jest.spyOn(app.fileManager, 'renameFile').mockResolvedValue(undefined);
 
       const operations: MoveOperationV2[] = [
