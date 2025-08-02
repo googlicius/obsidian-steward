@@ -23,6 +23,7 @@ import { LLMService } from 'src/services/LLMService';
 import { ConversationHistoryMessage } from 'src/types/types';
 import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
 import type StewardPlugin from 'src/main';
+import { logger } from 'src/utils/logger';
 
 const abortService = AbortService.getInstance();
 
@@ -206,9 +207,9 @@ export class GenerateCommandHandler extends CommandHandler {
             ...command,
             query: userInput,
           },
-          errorCallback: error => {
+          errorCallback: async error => {
             if (error instanceof APICallError && error.statusCode === 422) {
-              this.renderer.updateConversationNote({
+              await this.renderer.updateConversationNote({
                 path: title,
                 newContent: `*Error: Unprocessable Content*`,
                 role: 'System',
@@ -307,9 +308,9 @@ export class GenerateCommandHandler extends CommandHandler {
     const stream = await this.contentGenerationStream({
       command,
       conversationHistory,
-      errorCallback: error => {
+      errorCallback: async error => {
         if (error instanceof APICallError && error.statusCode === 422) {
-          this.renderer.updateConversationNote({
+          await this.renderer.updateConversationNote({
             path: title,
             newContent: `*Error: Unprocessable Content*`,
             role: 'System',
@@ -360,7 +361,7 @@ export class GenerateCommandHandler extends CommandHandler {
   private async contentGenerationStream(args: {
     command: CommandIntent;
     conversationHistory?: ConversationHistoryMessage[];
-    errorCallback?: (error: unknown) => void;
+    errorCallback?: (error: unknown) => Promise<void>;
   }): Promise<AsyncIterable<string>> {
     const { command, conversationHistory = [], errorCallback } = args;
     const { query, systemPrompts = [], model } = command;
@@ -393,9 +394,13 @@ ${languageEnforcementFragment}`,
           content: await prepareUserMessage(prompt, this.app),
         },
       ],
-      onError: ({ error }) => {
-        if (errorCallback) {
-          errorCallback(error);
+      onError: async ({ error }) => {
+        try {
+          if (errorCallback) {
+            await errorCallback(error);
+          }
+        } catch (callbackError) {
+          logger.error('Error in error callback:', callbackError);
         }
       },
     });
