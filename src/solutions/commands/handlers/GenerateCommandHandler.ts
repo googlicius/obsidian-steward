@@ -213,7 +213,6 @@ export class GenerateCommandHandler extends CommandHandler {
                 path: title,
                 newContent: `*Error: Unprocessable Content*`,
                 role: 'System',
-                lang,
               });
             }
           },
@@ -314,7 +313,6 @@ export class GenerateCommandHandler extends CommandHandler {
             path: title,
             newContent: `*Error: Unprocessable Content*`,
             role: 'System',
-            lang,
           });
         }
       },

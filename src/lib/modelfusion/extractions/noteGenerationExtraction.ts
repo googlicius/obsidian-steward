@@ -4,7 +4,7 @@ import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
-import { explanationFragment, confidenceFragment } from '../prompts/fragments';
+import { confidenceFragment } from '../prompts/fragments';
 import { CommandIntent } from './intentExtraction';
 import { ConversationHistoryMessage } from 'src/types/types';
 import { logger } from 'src/utils/logger';
@@ -22,10 +22,10 @@ Leave noteName empty if the user provides a wikilink to a note ([[Link to a note
     .describe(`The generation instructions from the user's request that will be fed to a sub-prompt for actual generating content.
 The instructions should capture the user's intent (e.g., a request for generating or consulting, a question, etc.).`),
   style: z.string().optional().describe(`Optional style preferences for content generation.`),
-  explanation: z
-    .string()
-    .min(1, 'Explanation must be a non-empty string')
-    .describe(explanationFragment),
+  explanation: z.string().min(1, 'Explanation must be a non-empty string')
+    .describe(`- Speak directly to the user (e.g., "I'll help you with...")
+- No need the actual content, just say you will help the user with their query
+- Keep it short`),
   confidence: z.number().min(0).max(1).describe(confidenceFragment),
   modifiesNote: z
     .boolean()

@@ -1,16 +1,9 @@
-import { App } from 'obsidian';
 import { DocumentStore } from './documentStore';
 import { Tokenizer } from './tokenizer';
 import { Indexer } from './indexer';
 import { Scoring } from './scoring';
 import { SearchEngine } from './searchEngine';
-import { EventRef } from 'obsidian';
-
-export interface SearchServiceConfig {
-  app: App;
-  dbName: string;
-  excludeFolders: string[];
-}
+import type StewardPlugin from '../../main';
 
 /**
  * SearchService singleton that provides global access to search components
@@ -18,8 +11,7 @@ export interface SearchServiceConfig {
 export class SearchService {
   private static instance: SearchService | null = null;
 
-  private app: App;
-  private dbName: string;
+  private plugin: StewardPlugin;
   private excludeFolders: string[];
 
   public documentStore: DocumentStore;
@@ -28,23 +20,24 @@ export class SearchService {
   public scoring: Scoring;
   public searchEngine: SearchEngine;
 
-  private eventRefs: EventRef[] = [];
   private isInitialized = false;
 
-  private constructor(config: SearchServiceConfig) {
-    this.app = config.app;
-    this.dbName = config.dbName;
-    this.excludeFolders = config.excludeFolders || [];
+  private constructor(plugin: StewardPlugin) {
+    this.plugin = plugin;
+    this.excludeFolders = [
+      ...this.plugin.settings.excludedFolders,
+      `${this.plugin.settings.stewardFolder}/Conversations`,
+    ];
 
     // Initialize components
     this.tokenizer = new Tokenizer();
     this.documentStore = new DocumentStore({
-      app: this.app,
-      dbName: this.dbName,
+      app: this.plugin.app,
+      dbName: this.plugin.settings.searchDbPrefix,
       excludeFolders: this.excludeFolders,
     });
     this.indexer = new Indexer({
-      app: this.app,
+      app: this.plugin.app,
       documentStore: this.documentStore,
       tokenizer: this.tokenizer,
     });
@@ -59,12 +52,13 @@ export class SearchService {
   /**
    * Get the singleton instance of SearchService
    */
-  public static getInstance(config?: SearchServiceConfig): SearchService {
+  public static getInstance(plugin?: StewardPlugin): SearchService {
+    if (plugin) {
+      SearchService.instance = new SearchService(plugin);
+      return SearchService.instance;
+    }
     if (!SearchService.instance) {
-      if (!config) {
-        throw new Error('SearchService must be initialized with app, dbName, and excludeFolders');
-      }
-      SearchService.instance = new SearchService(config);
+      throw new Error('SearchService must be initialized with a plugin instance');
     }
     return SearchService.instance;
   }
@@ -73,8 +67,11 @@ export class SearchService {
    * Update exclude folders
    */
   public updateExcludeFolders(excludeFolders: string[]): void {
-    this.excludeFolders = excludeFolders;
-    this.documentStore.updateExcludeFolders(excludeFolders);
+    this.excludeFolders = [
+      ...excludeFolders,
+      `${this.plugin.settings.stewardFolder}/Conversations`,
+    ];
+    this.documentStore.updateExcludeFolders(this.excludeFolders);
   }
 
   /**
@@ -86,7 +83,12 @@ export class SearchService {
     }
 
     // Setup event listeners
-    this.eventRefs = this.indexer.setupEventListeners();
+    const eventRefs = this.indexer.setupEventListeners();
+
+    for (let index = 0; index < eventRefs.length; index++) {
+      const eventRef = eventRefs[index];
+      this.plugin.registerEvent(eventRef);
+    }
 
     // Check if index is built
     const indexBuilt = await this.documentStore.isIndexBuilt();
@@ -102,10 +104,6 @@ export class SearchService {
    * Unload the search service
    */
   public unload(): void {
-    // Unregister event listeners
-    this.eventRefs.forEach(ref => this.app.workspace.offref(ref));
-    this.eventRefs = [];
-
     // Reset the singleton instance
     SearchService.instance = null;
     this.isInitialized = false;

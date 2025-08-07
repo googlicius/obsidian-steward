@@ -97,15 +97,8 @@ export default class StewardPlugin extends Plugin {
       await this.saveSettings();
     }
 
-    // Initialize the search service with the stored DB prefix and exclude folders
-    this.searchService = SearchService.getInstance({
-      app: this.app,
-      dbName: this.settings.searchDbPrefix,
-      excludeFolders: [
-        ...this.settings.excludedFolders,
-        `${this.settings.stewardFolder}/Conversations`,
-      ],
-    });
+    // Initialize the search service with the plugin instance
+    this.searchService = SearchService.getInstance(this);
 
     // Initialize the search service
     await this.searchService.initialize();

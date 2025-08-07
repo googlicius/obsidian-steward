@@ -55,7 +55,7 @@ If the user wants to:
 - Generate an image, include "image"
 - Generate audio, include "audio"
 - Create a new note, include "create"
-- Generate content with the LLM help in a sub-prompt (either in a new note or the conversation), include "generate"
+- Ask or generate content with the your help, include "generate"
 - Read or Find content based on a specific pattern in their current note, include "read"
 - Ask something about the content of the current note, include "read" and "generate"
 - Update something about the content of the current note, include "read", "generate" and "update_from_artifact"
