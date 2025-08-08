@@ -11,37 +11,37 @@ If your plugin does not need CSS, delete this file.
 .cm-line .cm-conversation-command {
   color: var(--text-accent-hover);
   font-weight: bold;
-}
 
-.cm-line .cm-conversation-command[has-placeholder='1']:after {
-  content: var(--stw-placeholder-text, 'Press Enter to send');
-  position: absolute;
-  font-style: italic;
-  color: #888;
-  margin-left: 0.5em;
-  opacity: 0.7;
-  font-weight: normal;
-  background: none;
-  cursor: text;
-  -webkit-text-fill-color: #888;
-}
+  &[has-placeholder='1']:after {
+    content: var(--stw-placeholder-text, 'Press Enter to send');
+    position: absolute;
+    font-style: italic;
+    color: #888;
+    margin-left: 0.5em;
+    opacity: 0.7;
+    font-weight: normal;
+    background: none;
+    cursor: text;
+    -webkit-text-fill-color: #888;
+  }
 
-.cm-line .cm-conversation-command.conversation-command-general[has-placeholder='1']:after {
-  margin-left: 0;
+  &.conversation-command-general[has-placeholder='1']:after {
+    margin-left: 0;
+  }
 }
 
 .stw-input-line {
   background-color: rgba(255, 255, 255, 0.1);
-}
 
-/* First line in a block: not preceded by another block line */
-.stw-input-line:not(.stw-input-line + .stw-input-line) {
-  padding-top: 5px !important;
-}
+  /* First line in a block: not preceded by another block line */
+  &:not(.stw-input-line + .stw-input-line) {
+    padding-top: 5px !important;
+  }
 
-/* Last line in a block: no next sibling is a block line */
-.stw-input-line:not(:has(+ .stw-input-line)) {
-  padding-bottom: 5px !important;
+  /* Last line in a block: no next sibling is a block line */
+  &:not(:has(+ .stw-input-line)) {
+    padding-bottom: 5px !important;
+  }
 }
 
 /* Bordered input styling when enabled */
@@ -49,65 +49,67 @@ body.stw-bordered-input .stw-input-line {
   border-left: thin solid var(--background-modifier-border);
   border-right: thin solid var(--background-modifier-border);
   margin: 0;
-}
 
-/* First line in a block: add top border */
-body.stw-bordered-input .stw-input-line:not(.stw-input-line + .stw-input-line) {
-  border-top: thin solid var(--background-modifier-border);
-  border-top-left-radius: var(--radius-s);
-  border-top-right-radius: var(--radius-s);
-}
+  /* First line in a block: add top border */
+  &:not(.stw-input-line + .stw-input-line) {
+    border-top: thin solid var(--background-modifier-border);
+    border-top-left-radius: var(--radius-s);
+    border-top-right-radius: var(--radius-s);
+  }
 
-/* Last line in a block: add bottom border */
-body.stw-bordered-input .stw-input-line:not(:has(+ .stw-input-line)) {
-  border-bottom: thin solid var(--background-modifier-border);
-  border-bottom-left-radius: var(--radius-s);
-  border-bottom-right-radius: var(--radius-s);
+  /* Last line in a block: add bottom border */
+  &:not(:has(+ .stw-input-line)) {
+    border-bottom: thin solid var(--background-modifier-border);
+    border-bottom-left-radius: var(--radius-s);
+    border-bottom-right-radius: var(--radius-s);
+  }
 }
 
 /* Command Autocomplete styling */
 .cm-tooltip.cm-tooltip-autocomplete {
   border: 1px solid var(--background-modifier-border);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+
+  & > ul {
+    font-family: var(--font-interface);
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    overflow: hidden;
+    max-height: 200px;
+
+    & > li {
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--background-modifier-border-hover);
+
+      &[aria-selected] {
+        background-color: var(--background-modifier-hover);
+      }
+    }
+
+    & .cm-completionLabel {
+      color: var(--text-accent-hover);
+      font-weight: 500;
+    }
+
+    & .cm-completionDetail {
+      font-size: 0.85em;
+      color: var(--text-muted);
+      margin-left: 8px;
+    }
+  }
 }
 
-.cm-tooltip.cm-tooltip-autocomplete > ul {
-  font-family: var(--font-interface);
-  background-color: var(--background-primary);
-  color: var(--text-normal);
-  overflow: hidden;
-  max-height: 200px;
-}
+.stw-chat {
+  & .inline-embed .markdown-embed-content {
+    max-height: none;
+  }
 
-.cm-tooltip.cm-tooltip-autocomplete > ul > li {
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--background-modifier-border-hover);
-}
-
-.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] {
-  background-color: var(--background-modifier-hover);
-}
-
-.cm-tooltip.cm-tooltip-autocomplete > ul .cm-completionLabel {
-  color: var(--text-accent-hover);
-  font-weight: 500;
-}
-
-.cm-tooltip.cm-tooltip-autocomplete > ul .cm-completionDetail {
-  font-size: 0.85em;
-  color: var(--text-muted);
-  margin-left: 8px;
-}
-
-.stw-chat .inline-embed .markdown-embed-content {
-  max-height: none;
-}
-
-.stw-chat .markdown-embed {
-  --embed-padding: 0 0 15px 0;
-  border: 0;
-  border-bottom: 1px solid var(--background-modifier-border);
-  background-color: transparent;
+  & .markdown-embed {
+    --embed-padding: 0 0 15px 0;
+    border: 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+    background-color: transparent;
+  }
 }
 
 .callout[data-callout='stw-search-result'] {
@@ -118,14 +120,14 @@ body.stw-bordered-input .stw-input-line:not(:has(+ .stw-input-line)) {
     background-color 0.2s ease,
     transform 0.1s ease;
   margin-bottom: 10px !important;
-}
 
-.callout[data-callout='stw-search-result']:active {
-  transform: translateX(2px);
-}
+  &:active {
+    transform: translateX(2px);
+  }
 
-.callout[data-callout='stw-search-result'] > .callout-title {
-  display: none;
+  & > .callout-title {
+    display: none;
+  }
 }
 
 /* User message callout styling */
@@ -136,14 +138,14 @@ body.stw-bordered-input .stw-input-line:not(:has(+ .stw-input-line)) {
   padding-left: 0px;
   font-weight: calc(var(--font-weight) + var(--bold-modifier));
   position: relative;
-}
 
-.callout[data-callout='stw-user-message'] > .callout-title {
-  display: none;
-}
+  & > .callout-title {
+    display: none;
+  }
 
-.callout[data-callout='stw-user-message'] > .callout-content {
-  padding-left: 8px;
+  & > .callout-content {
+    padding-left: 8px;
+  }
 }
 
 .workspace-leaf-content[data-type='steward-conversation'] .view-content {
@@ -177,10 +179,10 @@ body.stw-bordered-input .stw-input-line:not(:has(+ .stw-input-line)) {
   cursor: pointer;
   background-color: transparent;
   color: var(--text-muted);
-}
 
-.steward-header-button:hover {
-  color: var(--text-normal);
+  &:hover {
+    color: var(--text-normal);
+  }
 }
 
 .stw-conversation .callout-content :is(ul, p, ol) {
@@ -257,11 +259,11 @@ code[class*='language-stw-artifact'] {
   transition:
     background-color 0.2s ease,
     color 0.2s ease;
-}
 
-.stw-user-message-button:hover {
-  background-color: var(--background-modifier-border);
-  color: var(--text-normal);
+  &:hover {
+    background-color: var(--background-modifier-border);
+    color: var(--text-normal);
+  }
 }
 
 /* Visibility classes for settings */
