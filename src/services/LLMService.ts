@@ -1,8 +1,10 @@
 import { LanguageModelV1 } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { deepseek } from '@ai-sdk/deepseek';
-import { logger } from 'src/utils/logger';
-
+import { google } from '@ai-sdk/google';
+import { groq } from '@ai-sdk/groq';
+import { ollama } from 'ollama-ai-provider';
+import { LLM_MODELS, ModelOption } from 'src/constants';
 import type StewardPlugin from 'src/main';
 
 /**
@@ -29,29 +31,17 @@ export class LLMService {
 
   /**
    * Determine the provider from the model name
-   * @param modelName The name of the model
-   * @returns The provider name ('openai', 'ollama', 'deepseek', or 'anthropic')
+   * @param modelId The ID of the model
+   * @returns The provider name
    */
-  public getProviderFromModel(modelName: string): 'openai' | 'ollama' | 'deepseek' | 'anthropic' {
-    if (
-      modelName.includes('llama') ||
-      modelName.includes('mistral') ||
-      modelName.includes('mixtral') ||
-      modelName.includes('phi') ||
-      modelName.includes('gemma')
-    ) {
-      return 'ollama';
+  public getProviderFromModel(modelId: string): ModelOption['provider'] {
+    const modelOption = LLM_MODELS.find(model => model.id === modelId);
+
+    if (!modelOption) {
+      throw new Error(`Model ${modelId} not found`);
     }
 
-    if (modelName.startsWith('deepseek')) {
-      return 'deepseek';
-    }
-
-    if (modelName.includes('claude')) {
-      return 'anthropic';
-    }
-
-    return 'openai';
+    return modelOption.provider;
   }
 
   /**
@@ -64,7 +54,6 @@ export class LLMService {
     const model = overrideModel || defaultModel;
     const provider = this.getProviderFromModel(model);
 
-    // Prepare the model based on the provider
     let languageModel: LanguageModelV1;
 
     switch (provider) {
@@ -74,15 +63,14 @@ export class LLMService {
       case 'deepseek':
         languageModel = deepseek(model);
         break;
-      case 'anthropic':
-        // We'll use openai as a fallback since @ai-sdk/anthropic is not available
-        logger.warn('Anthropic support is not fully implemented, using OpenAI as fallback');
-        languageModel = openai(model);
+      case 'google':
+        languageModel = google(model);
+        break;
+      case 'groq':
+        languageModel = groq(model);
         break;
       case 'ollama':
-        // We'll use openai as a fallback since @ai-sdk/ollama is not available
-        logger.warn('Ollama support is not fully implemented, using OpenAI as fallback');
-        languageModel = openai(model);
+        languageModel = ollama(model);
         break;
       default:
         throw new Error(`Unsupported provider: ${provider}`);

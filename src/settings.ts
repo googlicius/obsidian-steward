@@ -1,6 +1,6 @@
 import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import { logger } from './utils/logger';
-import { LLM_MODELS } from './constants';
+import { LLM_MODELS, ProviderNeedApiKey } from './constants';
 
 import type StewardPlugin from './main';
 
@@ -10,6 +10,77 @@ export default class StewardSettingTab extends PluginSettingTab {
   constructor(app: App, plugin: StewardPlugin) {
     super(app, plugin);
     this.plugin = plugin;
+  }
+
+  /**
+   * Helper function to create API key settings
+   * @param containerEl - The container element
+   * @param provider - The provider name (e.g., 'openai', 'groq')
+   * @param displayName - The display name for the setting
+   * @param description - The description for the setting
+   */
+  private createApiKeySetting(
+    containerEl: HTMLElement,
+    provider: ProviderNeedApiKey,
+    displayName: string,
+    description: string
+  ): void {
+    new Setting(containerEl)
+      .setName(displayName)
+      .setDesc(description)
+      .addText(text => {
+        // Get the current API key (decrypted) with error handling
+        let placeholder = 'Enter your API key';
+        try {
+          const currentKey = this.plugin.getDecryptedApiKey(provider);
+          if (currentKey) {
+            placeholder = '••••••••••••••••••••••';
+          }
+        } catch (error) {
+          // If decryption fails, we'll show a special message
+          placeholder = 'Error: Click to re-enter key';
+          logger.error(`Error decrypting ${provider} API key in settings:`, error);
+        }
+
+        text
+          .setPlaceholder(placeholder)
+          // Only show value if editing
+          .setValue('')
+          .onChange(async value => {
+            if (value) {
+              try {
+                // If a value is entered, encrypt and save it
+                await this.plugin.setEncryptedApiKey(provider, value);
+
+                // Update the placeholder to show that a key is saved
+                text.setPlaceholder('••••••••••••••••••••••');
+                // Clear the input field for security
+                text.setValue('');
+              } catch (error) {
+                new Notice('Failed to save API key. Please try again.');
+                logger.error(`Error setting ${provider} API key:`, error);
+              }
+            }
+          });
+
+        // Add password type to protect API key
+        text.inputEl.setAttribute('type', 'password');
+      })
+      .addExtraButton(button => {
+        button
+          .setIcon('cross')
+          .setTooltip('Clear API key')
+          .onClick(async () => {
+            try {
+              await this.plugin.setEncryptedApiKey(provider, '');
+              // Force refresh of the settings
+              this.display();
+            } catch (error) {
+              new Notice('Failed to clear API key. Please try again.');
+              logger.error(`Error clearing ${provider} API key:`, error);
+            }
+          });
+      });
   }
 
   display(): void {
@@ -71,179 +142,41 @@ export default class StewardSettingTab extends PluginSettingTab {
     // Create API Keys section
     new Setting(containerEl).setName('API keys').setHeading();
 
-    // OpenAI API Key setting with encryption
-    new Setting(containerEl)
-      .setName('OpenAI API key')
-      .setDesc('Your OpenAI API key (stored with encryption)')
-      .addText(text => {
-        // Get the current API key (decrypted) with error handling
-        let placeholder = 'Enter your API key';
-        try {
-          const currentKey = this.plugin.getDecryptedApiKey('openai');
-          if (currentKey) {
-            placeholder = '••••••••••••••••••••••';
-          }
-        } catch (error) {
-          // If decryption fails, we'll show a special message
-          placeholder = 'Error: Click to re-enter key';
-          logger.error('Error decrypting API key in settings:', error);
-        }
+    // Create API key settings using the helper function
+    this.createApiKeySetting(
+      containerEl,
+      'openai',
+      'OpenAI API key',
+      'Your OpenAI API key (stored with encryption)'
+    );
 
-        text
-          .setPlaceholder(placeholder)
-          // Only show value if editing
-          .setValue('')
-          .onChange(async value => {
-            if (value) {
-              try {
-                // If a value is entered, encrypt and save it
-                await this.plugin.setEncryptedApiKey('openai', value);
+    this.createApiKeySetting(
+      containerEl,
+      'elevenlabs',
+      'ElevenLabs API key',
+      'Your ElevenLabs API key (stored with encryption)'
+    );
 
-                // Update the placeholder to show that a key is saved
-                text.setPlaceholder('••••••••••••••••••••••');
-                // Clear the input field for security
-                text.setValue('');
-              } catch (error) {
-                new Notice('Failed to save API key. Please try again.');
-                logger.error('Error setting API key:', error);
-              }
-            }
-          });
+    this.createApiKeySetting(
+      containerEl,
+      'deepseek',
+      'DeepSeek API key',
+      'Your DeepSeek API key (stored with encryption)'
+    );
 
-        // Add password type to protect API key
-        text.inputEl.setAttribute('type', 'password');
-      })
-      .addExtraButton(button => {
-        button
-          .setIcon('cross')
-          .setTooltip('Clear API key')
-          .onClick(async () => {
-            try {
-              await this.plugin.setEncryptedApiKey('openai', '');
-              // Force refresh of the settings
-              this.display();
-            } catch (error) {
-              new Notice('Failed to clear API key. Please try again.');
-              logger.error('Error clearing API key:', error);
-            }
-          });
-      });
+    this.createApiKeySetting(
+      containerEl,
+      'google',
+      'Google API key',
+      'Your Google API key (stored with encryption)'
+    );
 
-    // ElevenLabs API Key setting with encryption
-    new Setting(containerEl)
-      .setName('ElevenLabs API key')
-      .setDesc('Your ElevenLabs API key (stored with encryption)')
-      .addText(text => {
-        // Get the current API key (decrypted) with error handling
-        let placeholder = 'Enter your API key';
-        try {
-          const currentKey = this.plugin.getDecryptedApiKey('elevenlabs');
-          if (currentKey) {
-            placeholder = '••••••••••••••••••••••';
-          }
-        } catch (error) {
-          // If decryption fails, we'll show a special message
-          placeholder = 'Error: Click to re-enter key';
-          logger.error('Error decrypting API key in settings:', error);
-        }
-
-        text
-          .setPlaceholder(placeholder)
-          // Only show value if editing
-          .setValue('')
-          .onChange(async value => {
-            if (value) {
-              try {
-                // If a value is entered, encrypt and save it
-                await this.plugin.setEncryptedApiKey('elevenlabs', value);
-
-                // Update the placeholder to show that a key is saved
-                text.setPlaceholder('••••••••••••••••••••••');
-                // Clear the input field for security
-                text.setValue('');
-              } catch (error) {
-                new Notice('Failed to save API key. Please try again.');
-                logger.error('Error setting API key:', error);
-              }
-            }
-          });
-
-        // Add password type to protect API key
-        text.inputEl.setAttribute('type', 'password');
-      })
-      .addExtraButton(button => {
-        button
-          .setIcon('cross')
-          .setTooltip('Clear API Key')
-          .onClick(async () => {
-            try {
-              await this.plugin.setEncryptedApiKey('elevenlabs', '');
-              // Force refresh of the settings
-              this.display();
-            } catch (error) {
-              new Notice('Failed to clear API key. Please try again.');
-              logger.error('Error clearing API key:', error);
-            }
-          });
-      });
-
-    // DeepSeek API Key setting with encryption
-    new Setting(containerEl)
-      .setName('DeepSeek API key')
-      .setDesc('Your DeepSeek API key (stored with encryption)')
-      .addText(text => {
-        // Get the current API key (decrypted) with error handling
-        let placeholder = 'Enter your API key';
-        try {
-          const currentKey = this.plugin.getDecryptedApiKey('deepseek');
-          if (currentKey) {
-            placeholder = '••••••••••••••••••••••';
-          }
-        } catch (error) {
-          // If decryption fails, we'll show a special message
-          placeholder = 'Error: Click to re-enter key';
-          logger.error('Error decrypting API key in settings:', error);
-        }
-
-        text
-          .setPlaceholder(placeholder)
-          // Only show value if editing
-          .setValue('')
-          .onChange(async value => {
-            if (value) {
-              try {
-                // If a value is entered, encrypt and save it
-                await this.plugin.setEncryptedApiKey('deepseek', value);
-
-                // Update the placeholder to show that a key is saved
-                text.setPlaceholder('••••••••••••••••••••••');
-                // Clear the input field for security
-                text.setValue('');
-              } catch (error) {
-                new Notice('Failed to save API key. Please try again.');
-                logger.error('Error setting API key:', error);
-              }
-            }
-          });
-
-        // Add password type to protect API key
-        text.inputEl.setAttribute('type', 'password');
-      })
-      .addExtraButton(button => {
-        button
-          .setIcon('cross')
-          .setTooltip('Clear API key')
-          .onClick(async () => {
-            try {
-              await this.plugin.setEncryptedApiKey('deepseek', '');
-              // Force refresh of the settings
-              this.display();
-            } catch (error) {
-              new Notice('Failed to clear API key. Please try again.');
-              logger.error('Error clearing API key:', error);
-            }
-          });
-      });
+    this.createApiKeySetting(
+      containerEl,
+      'groq',
+      'Groq API key',
+      'Your Groq API key (stored with encryption)'
+    );
 
     containerEl.createEl('div', {
       text: 'Note: You need to provide your own API keys to use the AI-powered assistant.',
@@ -254,12 +187,16 @@ export default class StewardSettingTab extends PluginSettingTab {
     if (
       this.plugin.settings.apiKeys.openai ||
       this.plugin.settings.apiKeys.elevenlabs ||
-      this.plugin.settings.apiKeys.deepseek
+      this.plugin.settings.apiKeys.deepseek ||
+      this.plugin.settings.apiKeys.google ||
+      this.plugin.settings.apiKeys.groq
     ) {
       try {
         this.plugin.getDecryptedApiKey('openai');
         this.plugin.getDecryptedApiKey('elevenlabs');
         this.plugin.getDecryptedApiKey('deepseek');
+        this.plugin.getDecryptedApiKey('google');
+        this.plugin.getDecryptedApiKey('groq');
       } catch (error) {
         containerEl.createEl('div', {
           text: 'If you are seeing decryption errors, please use the "Reset Encryption" button and re-enter your API keys.',

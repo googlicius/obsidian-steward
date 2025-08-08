@@ -4,6 +4,8 @@ export interface StewardPluginSettings {
     openai: string;
     elevenlabs: string;
     deepseek: string;
+    google: string;
+    groq: string;
   };
   saltKeyId: string; // Store just the key ID, not the actual salt
   stewardFolder: string;

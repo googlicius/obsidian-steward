@@ -26,6 +26,7 @@ import { Line, Text } from '@codemirror/state';
 import {
   COMMAND_PREFIXES,
   DEFAULT_SETTINGS,
+  ProviderNeedApiKey,
   SMILE_CHAT_ICON_ID,
   STW_CHAT_VIEW_CONFIG,
 } from './constants';
@@ -131,6 +132,16 @@ export default class StewardPlugin extends Plugin {
     const decryptedDeepSeekKey = this.getDecryptedApiKey('deepseek');
     if (decryptedDeepSeekKey) {
       process.env.DEEPSEEK_API_KEY = decryptedDeepSeekKey;
+    }
+
+    const decryptedGoogleKey = this.getDecryptedApiKey('google');
+    if (decryptedGoogleKey) {
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY = decryptedGoogleKey;
+    }
+
+    const decryptedGroqKey = this.getDecryptedApiKey('groq');
+    if (decryptedGroqKey) {
+      process.env.GROQ_API_KEY = decryptedGroqKey;
     }
 
     // Register custom icon using imported SVG
@@ -697,11 +708,11 @@ export default class StewardPlugin extends Plugin {
   }
 
   /**
-   * Securely get the decrypted API key for a specific provider
-   * @param provider - The provider to get the API key for (e.g., 'openai', 'elevenlabs')
+   * Get the decrypted API key for a specific provider
+   * @param provider - The provider to get the API key for (e.g., 'openai', 'elevenlabs', 'deepseek', 'google', 'groq')
    * @returns The decrypted API key or empty string if not set
    */
-  getDecryptedApiKey(provider: 'openai' | 'elevenlabs' | 'deepseek'): string {
+  getDecryptedApiKey(provider: ProviderNeedApiKey): string {
     const encryptedKey = this.settings.apiKeys[provider];
 
     if (!encryptedKey) {
@@ -718,13 +729,10 @@ export default class StewardPlugin extends Plugin {
 
   /**
    * Securely set and encrypt an API key for a specific provider
-   * @param provider - The provider to set the API key for (e.g., 'openai', 'elevenlabs')
+   * @param provider - The provider to set the API key for (e.g., 'openai', 'elevenlabs', 'deepseek', 'google', 'groq')
    * @param apiKey - The API key to encrypt and store
    */
-  async setEncryptedApiKey(
-    provider: 'openai' | 'elevenlabs' | 'deepseek',
-    apiKey: string
-  ): Promise<void> {
+  async setEncryptedApiKey(provider: ProviderNeedApiKey, apiKey: string): Promise<void> {
     try {
       // First encrypt the API key
       const encryptedKey = apiKey ? encrypt(apiKey, this.settings.saltKeyId) : '';
@@ -743,6 +751,10 @@ export default class StewardPlugin extends Plugin {
         process.env.ELEVENLABS_API_KEY = apiKey;
       } else if (provider === 'deepseek') {
         process.env.DEEPSEEK_API_KEY = apiKey;
+      } else if (provider === 'google') {
+        process.env.GOOGLE_API_KEY = apiKey;
+      } else if (provider === 'groq') {
+        process.env.GROQ_API_KEY = apiKey;
       }
     } catch (error) {
       logger.error(`Error encrypting ${provider} API key:`, error);
