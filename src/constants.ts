@@ -39,6 +39,9 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     openai: '',
     elevenlabs: '',
     deepseek: '',
+    google: '',
+    groq: '',
+    anthropic: '',
   },
   saltKeyId: '', // Will be generated on first load
   stewardFolder: 'Steward',
@@ -67,7 +70,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
 export interface ModelOption {
   id: string;
   name: string;
-  provider: 'openai' | 'deepseek' | 'ollama';
+  provider: 'openai' | 'deepseek' | 'ollama' | 'google' | 'groq' | 'anthropic';
 }
 
 export const LLM_MODELS: ModelOption[] = [
@@ -81,13 +84,34 @@ export const LLM_MODELS: ModelOption[] = [
   // DeepSeek Models
   { id: 'deepseek-chat', name: 'DeepSeek Chat', provider: 'deepseek' },
 
+  // Google Models
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', provider: 'google' },
+  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', provider: 'google' },
+  { id: 'gemini-2.0-pro', name: 'Gemini 2.0 Pro', provider: 'google' },
+
+  // Groq Models
+  { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout 17B', provider: 'groq' },
+
   // Ollama Models
   { id: 'llama3:latest', name: 'Llama 3 8B', provider: 'ollama' },
   { id: 'llama3.1:latest', name: 'Llama 3.1 8B', provider: 'ollama' },
   { id: 'llama3.2:latest', name: 'Llama 3.2', provider: 'ollama' },
   { id: 'mistral:latest', name: 'Mistral', provider: 'ollama' },
   { id: 'mixtral:latest', name: 'Mixtral', provider: 'ollama' },
+
+  // Anthropic Models
+  { id: 'claude-sonnet-4-20250514', name: 'Claude 4 Sonnet', provider: 'anthropic' },
+  { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', provider: 'anthropic' },
+  { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', provider: 'anthropic' },
 ];
+
+export type ProviderNeedApiKey =
+  | 'openai'
+  | 'elevenlabs'
+  | 'deepseek'
+  | 'google'
+  | 'groq'
+  | 'anthropic';
 
 /**
  * Introduction text for Steward that will be streamed to the Introduction file

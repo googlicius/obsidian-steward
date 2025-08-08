@@ -137,6 +137,13 @@ export class ReadCommandHandler extends CommandHandler {
       );
 
       if (lowConfidenceCall) {
+        // extraction.reasoning
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: `*${t('common.abortedByLowConfidence')}*`,
+          command: 'read',
+        });
+
         return {
           status: CommandResultStatus.ERROR,
           error: new Error('Low confidence in reading extraction'),

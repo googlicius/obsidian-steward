@@ -1,8 +1,11 @@
 import { LanguageModelV1 } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { deepseek } from '@ai-sdk/deepseek';
-import { logger } from 'src/utils/logger';
-
+import { google } from '@ai-sdk/google';
+import { groq } from '@ai-sdk/groq';
+import { anthropic } from '@ai-sdk/anthropic';
+import { ollama } from 'ollama-ai-provider';
+import { LLM_MODELS, ModelOption } from 'src/constants';
 import type StewardPlugin from 'src/main';
 
 /**
@@ -18,40 +21,62 @@ export class LLMService {
    * @returns LLMService instance
    */
   public static getInstance(plugin?: StewardPlugin): LLMService {
-    if (!LLMService.instance) {
-      if (!plugin) {
-        throw new Error('Plugin is required to create an instance of LLMService');
-      }
+    if (plugin) {
       LLMService.instance = new LLMService(plugin);
+      return LLMService.instance;
+    }
+    if (!LLMService.instance) {
+      throw new Error('Plugin is required to create an instance of LLMService');
     }
     return LLMService.instance;
   }
 
   /**
    * Determine the provider from the model name
-   * @param modelName The name of the model
-   * @returns The provider name ('openai', 'ollama', 'deepseek', or 'anthropic')
+   * @param modelId The ID of the model
+   * @returns The provider name
    */
-  public getProviderFromModel(modelName: string): 'openai' | 'ollama' | 'deepseek' | 'anthropic' {
-    if (
-      modelName.includes('llama') ||
-      modelName.includes('mistral') ||
-      modelName.includes('mixtral') ||
-      modelName.includes('phi') ||
-      modelName.includes('gemma')
-    ) {
-      return 'ollama';
+  public getProviderFromModel(modelId: string): ModelOption['provider'] {
+    const modelOption = LLM_MODELS.find(model => model.id === modelId);
+
+    if (modelOption) {
+      return modelOption.provider;
     }
 
-    if (modelName.startsWith('deepseek')) {
+    // Supports all other models
+    if (
+      modelId.includes('llama') ||
+      modelId.includes('mistral') ||
+      modelId.includes('mixtral') ||
+      modelId.includes('phi') ||
+      modelId.includes('gemma') ||
+      modelId.includes('qwen')
+    ) {
+      // Check if the settings model is in LLM_MODELS to determine default provider
+      const settingsModelOption = LLM_MODELS.find(
+        model => model.id === this.plugin.settings.llm.model
+      );
+      const defaultProvider = settingsModelOption?.provider;
+      return defaultProvider === 'ollama' ? 'ollama' : 'groq';
+    }
+
+    if (modelId.startsWith('deepseek')) {
       return 'deepseek';
     }
 
-    if (modelName.includes('claude')) {
+    if (modelId.startsWith('gemini')) {
+      return 'google';
+    }
+
+    if (modelId.startsWith('gpt')) {
+      return 'openai';
+    }
+
+    if (modelId.includes('claude')) {
       return 'anthropic';
     }
 
-    return 'openai';
+    throw new Error(`Model ${modelId} not found`);
   }
 
   /**
@@ -64,7 +89,6 @@ export class LLMService {
     const model = overrideModel || defaultModel;
     const provider = this.getProviderFromModel(model);
 
-    // Prepare the model based on the provider
     let languageModel: LanguageModelV1;
 
     switch (provider) {
@@ -74,15 +98,17 @@ export class LLMService {
       case 'deepseek':
         languageModel = deepseek(model);
         break;
-      case 'anthropic':
-        // We'll use openai as a fallback since @ai-sdk/anthropic is not available
-        logger.warn('Anthropic support is not fully implemented, using OpenAI as fallback');
-        languageModel = openai(model);
+      case 'google':
+        languageModel = google(model);
+        break;
+      case 'groq':
+        languageModel = groq(model);
         break;
       case 'ollama':
-        // We'll use openai as a fallback since @ai-sdk/ollama is not available
-        logger.warn('Ollama support is not fully implemented, using OpenAI as fallback');
-        languageModel = openai(model);
+        languageModel = ollama(model);
+        break;
+      case 'anthropic':
+        languageModel = anthropic(model);
         break;
       default:
         throw new Error(`Unsupported provider: ${provider}`);
