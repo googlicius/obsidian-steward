@@ -52,7 +52,11 @@ export class LLMService {
       modelId.includes('gemma') ||
       modelId.includes('qwen')
     ) {
-      const defaultProvider = this.getProviderFromModel(this.plugin.settings.llm.model);
+      // Check if the settings model is in LLM_MODELS to determine default provider
+      const settingsModelOption = LLM_MODELS.find(
+        model => model.id === this.plugin.settings.llm.model
+      );
+      const defaultProvider = settingsModelOption?.provider;
       return defaultProvider === 'ollama' ? 'ollama' : 'groq';
     }
 
@@ -71,6 +75,7 @@ export class LLMService {
     if (modelId.includes('claude')) {
       return 'anthropic';
     }
+
     throw new Error(`Model ${modelId} not found`);
   }
 

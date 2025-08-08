@@ -180,7 +180,8 @@ export default class StewardSettingTab extends PluginSettingTab {
       this.plugin.settings.apiKeys.elevenlabs ||
       this.plugin.settings.apiKeys.deepseek ||
       this.plugin.settings.apiKeys.google ||
-      this.plugin.settings.apiKeys.groq
+      this.plugin.settings.apiKeys.groq ||
+      this.plugin.settings.apiKeys.anthropic
     ) {
       try {
         this.plugin.getDecryptedApiKey('openai');
@@ -188,6 +189,7 @@ export default class StewardSettingTab extends PluginSettingTab {
         this.plugin.getDecryptedApiKey('deepseek');
         this.plugin.getDecryptedApiKey('google');
         this.plugin.getDecryptedApiKey('groq');
+        this.plugin.getDecryptedApiKey('anthropic');
       } catch (error) {
         containerEl.createEl('div', {
           text: t('settings.decryptionErrorNote'),
