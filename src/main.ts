@@ -752,7 +752,7 @@ export default class StewardPlugin extends Plugin {
       } else if (provider === 'deepseek') {
         process.env.DEEPSEEK_API_KEY = apiKey;
       } else if (provider === 'google') {
-        process.env.GOOGLE_API_KEY = apiKey;
+        process.env.GOOGLE_GENERATIVE_AI_API_KEY = apiKey;
       } else if (provider === 'groq') {
         process.env.GROQ_API_KEY = apiKey;
       }
