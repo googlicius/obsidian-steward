@@ -1,6 +1,8 @@
 import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import { logger } from './utils/logger';
 import { LLM_MODELS, ProviderNeedApiKey } from './constants';
+import { getTranslation } from './i18n';
+import { getObsidianLanguage } from './utils/getObsidianLanguage';
 
 import type StewardPlugin from './main';
 
@@ -22,23 +24,24 @@ export default class StewardSettingTab extends PluginSettingTab {
   private createApiKeySetting(
     containerEl: HTMLElement,
     provider: ProviderNeedApiKey,
-    displayName: string,
-    description: string
+    displayName: string
   ): void {
+    const lang = getObsidianLanguage();
+    const t = getTranslation(lang);
+
     new Setting(containerEl)
       .setName(displayName)
-      .setDesc(description)
       .addText(text => {
         // Get the current API key (decrypted) with error handling
-        let placeholder = 'Enter your API key';
+        let placeholder = t('settings.enterApiKey');
         try {
           const currentKey = this.plugin.getDecryptedApiKey(provider);
           if (currentKey) {
-            placeholder = '••••••••••••••••••••••';
+            placeholder = t('settings.apiKeyPlaceholder');
           }
         } catch (error) {
           // If decryption fails, we'll show a special message
-          placeholder = 'Error: Click to re-enter key';
+          placeholder = t('settings.errorReenterKey');
           logger.error(`Error decrypting ${provider} API key in settings:`, error);
         }
 
@@ -53,11 +56,11 @@ export default class StewardSettingTab extends PluginSettingTab {
                 await this.plugin.setEncryptedApiKey(provider, value);
 
                 // Update the placeholder to show that a key is saved
-                text.setPlaceholder('••••••••••••••••••••••');
+                text.setPlaceholder(t('settings.apiKeyPlaceholder'));
                 // Clear the input field for security
                 text.setValue('');
               } catch (error) {
-                new Notice('Failed to save API key. Please try again.');
+                new Notice(t('settings.failedToSaveApiKey'));
                 logger.error(`Error setting ${provider} API key:`, error);
               }
             }
@@ -69,14 +72,14 @@ export default class StewardSettingTab extends PluginSettingTab {
       .addExtraButton(button => {
         button
           .setIcon('cross')
-          .setTooltip('Clear API key')
+          .setTooltip(t('settings.clearApiKey'))
           .onClick(async () => {
             try {
               await this.plugin.setEncryptedApiKey(provider, '');
               // Force refresh of the settings
               this.display();
             } catch (error) {
-              new Notice('Failed to clear API key. Please try again.');
+              new Notice(t('settings.failedToClearApiKey'));
               logger.error(`Error clearing ${provider} API key:`, error);
             }
           });
@@ -88,10 +91,14 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     containerEl.empty();
 
+    // Get the current language and translation function
+    const lang = getObsidianLanguage();
+    const t = getTranslation(lang);
+
     // Add setting for conversation folder
     new Setting(containerEl)
-      .setName('Steward folder')
-      .setDesc('Base folder where Steward data will be stored')
+      .setName(t('settings.stewardFolder'))
+      .setDesc(t('settings.stewardFolderDesc'))
       .addText(text =>
         text
           .setPlaceholder('Steward')
@@ -104,10 +111,8 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     // Add bordered input toggle (on top, not under a heading)
     new Setting(containerEl)
-      .setName('Bordered input')
-      .setDesc(
-        'Add border around command input lines (better visibility especially with light themes)'
-      )
+      .setName(t('settings.borderedInput'))
+      .setDesc(t('settings.borderedInputDesc'))
       .addToggle(toggle =>
         toggle.setValue(this.plugin.settings.borderedInput).onChange(async value => {
           this.plugin.settings.borderedInput = value;
@@ -118,8 +123,8 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     // Add show role labels toggle
     new Setting(containerEl)
-      .setName('Show role labels')
-      .setDesc('Show User/Steward/System labels in conversations')
+      .setName(t('settings.showRoleLabels'))
+      .setDesc(t('settings.showRoleLabelsDesc'))
       .addToggle(toggle =>
         toggle.setValue(this.plugin.settings.showPronouns).onChange(async value => {
           this.plugin.settings.showPronouns = value;
@@ -129,8 +134,8 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     // Add debug mode toggle
     new Setting(containerEl)
-      .setName('Debug mode')
-      .setDesc('Enable detailed logging in the console for debugging')
+      .setName(t('settings.debugMode'))
+      .setDesc(t('settings.debugModeDesc'))
       .addToggle(toggle =>
         toggle.setValue(this.plugin.settings.debug).onChange(async value => {
           this.plugin.settings.debug = value;
@@ -140,46 +145,32 @@ export default class StewardSettingTab extends PluginSettingTab {
       );
 
     // Create API Keys section
-    new Setting(containerEl).setName('API keys').setHeading();
+    new Setting(containerEl).setName(t('settings.apiKeys')).setHeading();
 
-    // Create API key settings using the helper function
-    this.createApiKeySetting(
-      containerEl,
-      'openai',
-      'OpenAI API key',
-      'Your OpenAI API key (stored with encryption)'
-    );
+    this.createApiKeySetting(containerEl, 'openai', t('settings.openaiApiKey'));
 
-    this.createApiKeySetting(
-      containerEl,
-      'elevenlabs',
-      'ElevenLabs API key',
-      'Your ElevenLabs API key (stored with encryption)'
-    );
+    this.createApiKeySetting(containerEl, 'elevenlabs', t('settings.elevenlabsApiKey'));
 
-    this.createApiKeySetting(
-      containerEl,
-      'deepseek',
-      'DeepSeek API key',
-      'Your DeepSeek API key (stored with encryption)'
-    );
+    this.createApiKeySetting(containerEl, 'deepseek', t('settings.deepseekApiKey'));
 
-    this.createApiKeySetting(
-      containerEl,
-      'google',
-      'Google API key',
-      'Your Google API key (stored with encryption)'
-    );
+    this.createApiKeySetting(containerEl, 'google', t('settings.googleApiKey'));
 
-    this.createApiKeySetting(
-      containerEl,
-      'groq',
-      'Groq API key',
-      'Your Groq API key (stored with encryption)'
-    );
+    this.createApiKeySetting(containerEl, 'groq', t('settings.groqApiKey'));
+
+    this.createApiKeySetting(containerEl, 'anthropic', t('settings.anthropicApiKey'));
 
     containerEl.createEl('div', {
-      text: 'Note: You need to provide your own API keys to use the AI-powered assistant.',
+      text: `${t('settings.note')}:`,
+      cls: 'setting-item-description',
+    });
+
+    containerEl.createEl('div', {
+      text: t('settings.apiKeyNote1'),
+      cls: 'setting-item-description',
+    });
+
+    containerEl.createEl('div', {
+      text: t('settings.apiKeyNote2'),
       cls: 'setting-item-description',
     });
 
@@ -199,19 +190,19 @@ export default class StewardSettingTab extends PluginSettingTab {
         this.plugin.getDecryptedApiKey('groq');
       } catch (error) {
         containerEl.createEl('div', {
-          text: 'If you are seeing decryption errors, please use the "Reset Encryption" button and re-enter your API keys.',
+          text: t('settings.decryptionErrorNote'),
           cls: 'setting-item-description mod-warning',
         });
       }
     }
 
     // Add LLM settings section
-    new Setting(containerEl).setName('LLM').setHeading();
+    new Setting(containerEl).setName(t('settings.llm')).setHeading();
 
     // Chat Model selection with provider automatically determined
     new Setting(containerEl)
-      .setName('Chat model')
-      .setDesc('Select the AI model to use for chat')
+      .setName(t('settings.chatModel'))
+      .setDesc(t('settings.chatModelDesc'))
       .addDropdown(dropdown => {
         // Add all models from the constants
         LLM_MODELS.forEach(model => {
@@ -229,16 +220,16 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     // Embedding Model setting (hard-coded to GPT-4)
     new Setting(containerEl)
-      .setName('Embedding model')
-      .setDesc('Model used for text embeddings (currently fixed to GPT-4)')
+      .setName(t('settings.embeddingModel'))
+      .setDesc(t('settings.embeddingModelDesc'))
       .addText(text => {
         text.setValue('GPT-4').setDisabled(true);
       });
 
     // Temperature setting
     new Setting(containerEl)
-      .setName('Temperature')
-      .setDesc('Controls randomness in the output (0.0 to 1.0)')
+      .setName(t('settings.temperature'))
+      .setDesc(t('settings.temperatureDesc'))
       .addSlider(slider => {
         slider
           .setLimits(0, 1, 0.1)
@@ -252,10 +243,8 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     // Max Generation Tokens setting
     new Setting(containerEl)
-      .setName('Max generation tokens')
-      .setDesc(
-        'Maximum number of tokens to generate in response (higher values may increase API costs)'
-      )
+      .setName(t('settings.maxGenerationTokens'))
+      .setDesc(t('settings.maxGenerationTokensDesc'))
       .addText(text => {
         text
           .setPlaceholder('2048')
@@ -276,8 +265,8 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     // Ollama Base URL setting (only shown when Ollama model is selected)
     const ollamaBaseUrlSetting = new Setting(containerEl)
-      .setName('Ollama base URL')
-      .setDesc('The base URL for Ollama API (default: http://localhost:11434)')
+      .setName(t('settings.ollamaBaseUrl'))
+      .setDesc(t('settings.ollamaBaseUrlDesc', { defaultUrl: 'http://localhost:11434' }))
       .addText(text =>
         text
           .setPlaceholder('http://localhost:11434')

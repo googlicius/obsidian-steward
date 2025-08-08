@@ -3,6 +3,7 @@ import { openai } from '@ai-sdk/openai';
 import { deepseek } from '@ai-sdk/deepseek';
 import { google } from '@ai-sdk/google';
 import { groq } from '@ai-sdk/groq';
+import { anthropic } from '@ai-sdk/anthropic';
 import { ollama } from 'ollama-ai-provider';
 import { LLM_MODELS, ModelOption } from 'src/constants';
 import type StewardPlugin from 'src/main';
@@ -20,11 +21,12 @@ export class LLMService {
    * @returns LLMService instance
    */
   public static getInstance(plugin?: StewardPlugin): LLMService {
-    if (!LLMService.instance) {
-      if (!plugin) {
-        throw new Error('Plugin is required to create an instance of LLMService');
-      }
+    if (plugin) {
       LLMService.instance = new LLMService(plugin);
+      return LLMService.instance;
+    }
+    if (!LLMService.instance) {
+      throw new Error('Plugin is required to create an instance of LLMService');
     }
     return LLMService.instance;
   }
@@ -37,11 +39,39 @@ export class LLMService {
   public getProviderFromModel(modelId: string): ModelOption['provider'] {
     const modelOption = LLM_MODELS.find(model => model.id === modelId);
 
-    if (!modelOption) {
-      throw new Error(`Model ${modelId} not found`);
+    if (modelOption) {
+      return modelOption.provider;
     }
 
-    return modelOption.provider;
+    // Supports all other models
+    if (
+      modelId.includes('llama') ||
+      modelId.includes('mistral') ||
+      modelId.includes('mixtral') ||
+      modelId.includes('phi') ||
+      modelId.includes('gemma') ||
+      modelId.includes('qwen')
+    ) {
+      const defaultProvider = this.getProviderFromModel(this.plugin.settings.llm.model);
+      return defaultProvider === 'ollama' ? 'ollama' : 'groq';
+    }
+
+    if (modelId.startsWith('deepseek')) {
+      return 'deepseek';
+    }
+
+    if (modelId.startsWith('gemini')) {
+      return 'google';
+    }
+
+    if (modelId.startsWith('gpt')) {
+      return 'openai';
+    }
+
+    if (modelId.includes('claude')) {
+      return 'anthropic';
+    }
+    throw new Error(`Model ${modelId} not found`);
   }
 
   /**
@@ -71,6 +101,9 @@ export class LLMService {
         break;
       case 'ollama':
         languageModel = ollama(model);
+        break;
+      case 'anthropic':
+        languageModel = anthropic(model);
         break;
       default:
         throw new Error(`Unsupported provider: ${provider}`);

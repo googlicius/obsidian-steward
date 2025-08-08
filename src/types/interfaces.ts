@@ -6,6 +6,7 @@ export interface StewardPluginSettings {
     deepseek: string;
     google: string;
     groq: string;
+    anthropic: string;
   };
   saltKeyId: string; // Store just the key ID, not the actual salt
   stewardFolder: string;

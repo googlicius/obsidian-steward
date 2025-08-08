@@ -144,6 +144,11 @@ export default class StewardPlugin extends Plugin {
       process.env.GROQ_API_KEY = decryptedGroqKey;
     }
 
+    const decryptedAnthropicKey = this.getDecryptedApiKey('anthropic');
+    if (decryptedAnthropicKey) {
+      process.env.ANTHROPIC_API_KEY = decryptedAnthropicKey;
+    }
+
     // Register custom icon using imported SVG
     addIcon(SMILE_CHAT_ICON_ID, stewardIcon);
 
@@ -755,6 +760,8 @@ export default class StewardPlugin extends Plugin {
         process.env.GOOGLE_GENERATIVE_AI_API_KEY = apiKey;
       } else if (provider === 'groq') {
         process.env.GROQ_API_KEY = apiKey;
+      } else if (provider === 'anthropic') {
+        process.env.ANTHROPIC_API_KEY = apiKey;
       }
     } catch (error) {
       logger.error(`Error encrypting ${provider} API key:`, error);
