@@ -269,7 +269,7 @@ export default class StewardPlugin extends Plugin {
             .setTitle(i18next.t('ui.addToInlineConversation'))
             .setIcon(STW_CHAT_VIEW_CONFIG.icon)
             .onClick(async () => {
-              await this.handleAddToInlineConversation(editor);
+              await this.handleAddToConversation(editor, 'inline');
             });
         });
 
@@ -278,7 +278,7 @@ export default class StewardPlugin extends Plugin {
             .setTitle(i18next.t('ui.addToChat'))
             .setIcon(STW_CHAT_VIEW_CONFIG.icon)
             .onClick(async () => {
-              await this.handleAddToChat(editor);
+              await this.handleAddToConversation(editor, 'chat');
             });
         });
       })
@@ -817,12 +817,14 @@ export default class StewardPlugin extends Plugin {
   }
 
   /**
-   * Handle adding selected text to inline conversation
+   * Handle adding selected text to conversation
    * @param editor - The editor instance
    */
-  private async handleAddToInlineConversation(editor: Editor): Promise<void> {
+  private async handleAddToConversation(
+    editor: Editor,
+    target: 'inline' | 'chat' = 'inline'
+  ): Promise<void> {
     try {
-      const cursor = editor.getCursor();
       const cursorFrom = editor.getCursor('from');
       const cursorTo = editor.getCursor('to');
       const selection = editor.getSelection();
@@ -837,13 +839,29 @@ export default class StewardPlugin extends Plugin {
       // Get extended command prefixes
       const extendedPrefixes = this.userDefinedCommandService.buildExtendedPrefixes();
 
+      let activeEditor = editor;
+
+      if (target === 'chat') {
+        await this.openChat();
+        const chatLeaf = this.getChatLeaf();
+        const chatView = chatLeaf.view;
+
+        if (chatView instanceof StewardChatView) {
+          const chatEditor = chatView.editor;
+          activeEditor = chatEditor;
+        } else {
+          logger.error('Chat view is not a StewardChatView');
+          return;
+        }
+      }
+
       // Find the nearest command line above the cursor
-      const doc = editor.getDoc();
+      const doc = activeEditor.getDoc();
       let commandLine = -1;
       let commandPrefix = '';
 
       // Search the entire document for a command line
-      const lineCount = editor.lineCount();
+      const lineCount = activeEditor.lineCount();
       for (let i = 0; i < lineCount; i++) {
         const lineText = doc.getLine(i);
         const matchedPrefix = extendedPrefixes.find(prefix => lineText.startsWith(prefix));
@@ -858,12 +876,12 @@ export default class StewardPlugin extends Plugin {
       if (commandLine === -1) {
         // No command line found, create a new one below the selected block
         // Find the end of the current block by looking for double newlines
-        const lineCount = editor.lineCount();
-        let insertLine = cursor.line;
+        const lineCount = activeEditor.lineCount();
+        let insertLine = cursorTo.line;
 
         // Look for the next newline after the cursor
-        for (let i = cursor.line; i < lineCount; i++) {
-          const currentLine = editor.getLine(i);
+        for (let i = cursorTo.line; i < lineCount; i++) {
+          const currentLine = activeEditor.getLine(i);
 
           if (currentLine === '') {
             insertLine = i + 1;
@@ -872,21 +890,20 @@ export default class StewardPlugin extends Plugin {
         }
 
         // If no double newline found, insert at the end
-        if (insertLine === cursor.line) {
+        if (insertLine === cursorTo.line) {
           insertLine = lineCount;
         }
 
         // Insert the stwSelected only
         const insertText = `/ ${stwSelected} `;
-        editor.replaceRange(`${insertText}\n`, { line: insertLine, ch: 0 });
+        activeEditor.replaceRange(`${insertText}\n`, { line: insertLine, ch: 0 });
 
         // Set cursor after the stwSelected
-        editor.setCursor({ line: insertLine, ch: insertText.length });
+        activeEditor.setCursor({ line: insertLine, ch: insertText.length });
       } else {
         const prefixEnd = commandPrefix.length;
-
+        const insertText = commandPrefix === '/ ' ? `${stwSelected} ` : ` ${stwSelected} `;
         // Insert stwSelected before existing content
-        const insertText = `${stwSelected} `;
         doc.replaceRange(
           insertText,
           { line: commandLine, ch: prefixEnd },
@@ -894,13 +911,9 @@ export default class StewardPlugin extends Plugin {
         );
       }
     } catch (error) {
-      logger.error('Error adding selection to inline conversation:', error);
-      new Notice('Error adding selection to inline conversation');
+      logger.error('Error adding selection to conversation:', error);
+      new Notice('Error adding selection to conversation');
     }
-  }
-
-  private handleAddToChat(editor: Editor) {
-    this.openChat();
   }
 
   /**

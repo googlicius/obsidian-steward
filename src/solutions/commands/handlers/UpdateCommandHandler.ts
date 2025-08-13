@@ -9,7 +9,6 @@ import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { Events } from 'src/types/events';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { extractUpdateFromSearchResult, UpdateInstruction } from 'src/lib/modelfusion/extractions';
-
 import type StewardPlugin from 'src/main';
 
 export class UpdateCommandHandler extends CommandHandler {
