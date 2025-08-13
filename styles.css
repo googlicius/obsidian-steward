@@ -1,12 +1,3 @@
-/*
-
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
-
-If your plugin does not need CSS, delete this file.
-
-*/
-
 /* Style for the commands when typing */
 .cm-line .cm-conversation-command {
   color: var(--text-accent-hover);
@@ -266,6 +257,16 @@ code[class*='language-stw-artifact'] {
   }
 }
 
+.stw-selected-button {
+  background: linear-gradient(to right, #0000ff, #00bebe);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  border-radius: var(--radius-s);
+  border: thin solid var(--background-modifier-border);
+  cursor: pointer;
+}
+
 /* Visibility classes for settings */
 .stw-setting-hidden {
   display: none;
@@ -290,4 +291,8 @@ html[data-stw-language='ja'] {
 
 html[data-stw-language='vi'] {
   --stw-placeholder-text: 'Nhấn Enter để gửi';
+}
+
+.mr-2 {
+  margin-right: var(--size-2-2);
 }

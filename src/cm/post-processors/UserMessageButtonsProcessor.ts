@@ -13,14 +13,13 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
         '.callout[data-callout="stw-user-message"]'
       ) as HTMLElement;
       if (!calloutEl) {
-        new Notice('Could not find user message callout');
         return;
       }
 
       const messageId = calloutEl.dataset.id;
 
       if (!messageId || !sourcePath) {
-        new Notice('Could not identify message to delete');
+        logger.log('Could not identify message to delete');
         return;
       }
 
@@ -36,7 +35,6 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
       }
     } catch (error) {
       logger.error('Error handling delete button click:', error);
-      new Notice(`Error deleting message: ${error.message}`);
     }
   };
 
@@ -46,14 +44,13 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
         '.callout[data-callout="stw-user-message"]'
       ) as HTMLElement;
       if (!calloutEl) {
-        new Notice('Could not find user message callout');
         return;
       }
 
       const messageId = calloutEl.dataset.id;
 
       if (!messageId) {
-        new Notice('Could not identify message to reload');
+        logger.error('Could not identify message to reload');
         return;
       }
 

@@ -164,6 +164,8 @@ const vi = {
       welcomeMessage:
         'Chào mừng đến với trò chuyện Steward luôn sẵn sàng. Gõ bên dưới để tương tác.',
       commandPlaceholder: 'Nhấn Enter để gửi',
+      addToInlineConversation: 'Steward: Thêm vào cuộc trò chuyện nội tuyến',
+      addToChat: 'Steward: Thêm vào trò chuyện',
     },
     read: {
       noContentFound: 'Không tìm thấy nội dung như vậy trong trình soạn thảo.',

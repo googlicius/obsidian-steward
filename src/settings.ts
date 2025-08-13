@@ -1,17 +1,13 @@
-import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
+import { Notice, PluginSettingTab, Setting } from 'obsidian';
 import { logger } from './utils/logger';
 import { LLM_MODELS, ProviderNeedApiKey } from './constants';
 import { getTranslation } from './i18n';
 import { getObsidianLanguage } from './utils/getObsidianLanguage';
-
 import type StewardPlugin from './main';
 
 export default class StewardSettingTab extends PluginSettingTab {
-  plugin: StewardPlugin;
-
-  constructor(app: App, plugin: StewardPlugin) {
-    super(app, plugin);
-    this.plugin = plugin;
+  constructor(private plugin: StewardPlugin) {
+    super(plugin.app, plugin);
   }
 
   /**

@@ -261,7 +261,6 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
         'read this table',
         'read this list',
         'read this paragraph',
-        'read the selected content',
         'read the table above',
         'read the text above',
         'read the code block above',

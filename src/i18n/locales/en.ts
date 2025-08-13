@@ -179,6 +179,8 @@ const en = {
       welcomeMessage:
         'Welcome to your always-available Steward chat. Type below to interact or type `/ ?` to see available commands.',
       commandPlaceholder: 'Press Enter to send',
+      addToInlineConversation: 'Steward: Add to the inline conversation',
+      addToChat: 'Steward: Add to the chat',
     },
     read: {
       noContentFound: 'No such content found in the editor.',

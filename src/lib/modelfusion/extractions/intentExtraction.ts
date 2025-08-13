@@ -133,18 +133,15 @@ function extractReadGenerateUpdateFromArtifact(userInput: string): CommandIntent
 
 /**
  * Extract command intents from a general query using AI
- * @param command Command intent
- * @param lang Language of the user
- * @param conversationHistory Conversation history for context
- * @param isReloadRequest Flag indicating if this is a reload request
  * @returns Extracted command types, content, and explanation
  */
-export async function extractCommandIntent(
-  command: CommandIntent,
-  lang: string | undefined,
-  conversationHistory: ConversationHistoryMessage[] = [],
-  isReloadRequest = false
-): Promise<CommandIntentExtraction> {
+export async function extractCommandIntent(args: {
+  command: CommandIntent;
+  conversationHistory: ConversationHistoryMessage[];
+  lang?: string;
+  isReloadRequest?: boolean;
+}): Promise<CommandIntentExtraction> {
+  const { command, lang, conversationHistory = [], isReloadRequest = false } = args;
   const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
   const classifier = getClassifier(llmConfig.model.modelId, isReloadRequest);
   const clusterName = await classify({
@@ -152,7 +149,7 @@ export async function extractCommandIntent(
     value: command.query,
   });
 
-  const additionalSystemPrompts: string[] = [];
+  const additionalSystemPrompts: string[] = command.systemPrompts || [];
 
   if (clusterName) {
     logger.log(`The user input was classified as "${clusterName}"`);
@@ -211,10 +208,20 @@ export async function extractCommandIntent(
       });
     }
 
+    // const stwSelectedTexts = convertStwSelectedTextToJson(command.query);
+    // if (stwSelectedTexts.length > 0) {
+    //   systemPrompts.push({
+    //     role: 'system',
+    //     content: `The user has selected some text in the note. Here are the details: ${stwSelectedTexts.join(', ')}`,
+    //   });
+    // }
+
     const { object } = await generateObject({
       ...llmConfig,
       abortSignal,
-      system: getCommandIntentPrompt(clusterName ? clusterName.split(':') : null),
+      system: getCommandIntentPrompt({
+        commandNames: clusterName ? clusterName.split(':') : null,
+      }),
       messages: [...systemPrompts, { role: 'user', content: command.query }],
       schema: commandIntentExtractionSchema,
     });

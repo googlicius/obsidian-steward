@@ -1,4 +1,4 @@
-import { Notice, Plugin, WorkspaceLeaf, addIcon } from 'obsidian';
+import { Editor, Notice, Plugin, WorkspaceLeaf, addIcon } from 'obsidian';
 import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
@@ -11,6 +11,7 @@ import {
 import { createCalloutSearchResultPostProcessor } from './cm/post-processors/CalloutSearchResultPostProcessor';
 import { createUserMessageButtonsProcessor } from './cm/post-processors/UserMessageButtonsProcessor';
 import { createCalloutMetadataProcessor } from './cm/post-processors/CalloutMetadataProcessor';
+import { createStwSelectedPostProcessor } from './cm/post-processors/StwSelectedPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -44,6 +45,8 @@ import { MediaTools } from './tools/mediaTools';
 import { NoteContentService } from './services/NoteContentService';
 import { LLMService } from './services/LLMService';
 import stewardIcon from './assets/steward-icon.svg';
+import { createStwSelectedBlocksExtension } from './cm/extensions/StwSelectedBlockExtension';
+import { escapeMarkdown } from './utils/markdownUtils';
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -160,7 +163,7 @@ export default class StewardPlugin extends Plugin {
     this.registerStuffs();
 
     // This adds a settings tab so the user can configure various aspects of the plugin
-    this.addSettingTab(new StewardSettingTab(this.app, this));
+    this.addSettingTab(new StewardSettingTab(this));
 
     // Initialize the content reading service
     this.contentReadingService = ContentReadingService.getInstance(this);
@@ -245,7 +248,41 @@ export default class StewardPlugin extends Plugin {
       createCommandInputExtension(COMMAND_PREFIXES, {
         onEnter: this.handleEnter.bind(this),
       }),
+      createStwSelectedBlocksExtension(this),
     ]);
+
+    // Register context menu for editor
+    this.registerEvent(
+      this.app.workspace.on('editor-menu', (menu, editor) => {
+        // Only show the menu item if there's a selection
+        const selection = editor.getSelection();
+        if (!selection || selection.trim() === '') {
+          return;
+        }
+
+        // Add separator before our menu item
+        menu.addSeparator();
+
+        // Add our menu item
+        menu.addItem(item => {
+          item
+            .setTitle(i18next.t('ui.addToInlineConversation'))
+            .setIcon(STW_CHAT_VIEW_CONFIG.icon)
+            .onClick(async () => {
+              await this.handleAddToInlineConversation(editor);
+            });
+        });
+
+        menu.addItem(item => {
+          item
+            .setTitle(i18next.t('ui.addToChat'))
+            .setIcon(STW_CHAT_VIEW_CONFIG.icon)
+            .onClick(async () => {
+              await this.handleAddToChat(editor);
+            });
+        });
+      })
+    );
 
     // Register the metadata processor first so other processors can use the metadata
     this.registerMarkdownPostProcessor(createCalloutMetadataProcessor());
@@ -255,6 +292,8 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createUserMessageButtonsProcessor(this));
 
     this.registerMarkdownPostProcessor(createStewardConversationProcessor(this));
+
+    this.registerMarkdownPostProcessor(createStwSelectedPostProcessor(this));
 
     // Register the custom view type
     this.registerView(STW_CHAT_VIEW_CONFIG.type, leaf => new StewardChatView(leaf, this));
@@ -775,6 +814,93 @@ export default class StewardPlugin extends Plugin {
         resolve(leaf);
       });
     });
+  }
+
+  /**
+   * Handle adding selected text to inline conversation
+   * @param editor - The editor instance
+   */
+  private async handleAddToInlineConversation(editor: Editor): Promise<void> {
+    try {
+      const cursor = editor.getCursor();
+      const cursorFrom = editor.getCursor('from');
+      const cursorTo = editor.getCursor('to');
+      const selection = editor.getSelection();
+
+      // Get the current file path
+      const activeFile = this.app.workspace.getActiveFile();
+      const filePath = activeFile ? activeFile.path : '';
+
+      // Create the stwSelected string
+      const stwSelected = `{{stw-selected from:${cursorFrom.line + 1},to:${cursorTo.line + 1},selection:${escapeMarkdown(selection, true)},path:${filePath}}}`;
+
+      // Get extended command prefixes
+      const extendedPrefixes = this.userDefinedCommandService.buildExtendedPrefixes();
+
+      // Find the nearest command line above the cursor
+      const doc = editor.getDoc();
+      let commandLine = -1;
+      let commandPrefix = '';
+
+      // Search the entire document for a command line
+      const lineCount = editor.lineCount();
+      for (let i = 0; i < lineCount; i++) {
+        const lineText = doc.getLine(i);
+        const matchedPrefix = extendedPrefixes.find(prefix => lineText.startsWith(prefix));
+
+        if (matchedPrefix) {
+          commandLine = i;
+          commandPrefix = matchedPrefix;
+          break;
+        }
+      }
+
+      if (commandLine === -1) {
+        // No command line found, create a new one below the selected block
+        // Find the end of the current block by looking for double newlines
+        const lineCount = editor.lineCount();
+        let insertLine = cursor.line;
+
+        // Look for the next newline after the cursor
+        for (let i = cursor.line; i < lineCount; i++) {
+          const currentLine = editor.getLine(i);
+
+          if (currentLine === '') {
+            insertLine = i + 1;
+            break;
+          }
+        }
+
+        // If no double newline found, insert at the end
+        if (insertLine === cursor.line) {
+          insertLine = lineCount;
+        }
+
+        // Insert the stwSelected only
+        const insertText = `/ ${stwSelected} `;
+        editor.replaceRange(`${insertText}\n`, { line: insertLine, ch: 0 });
+
+        // Set cursor after the stwSelected
+        editor.setCursor({ line: insertLine, ch: insertText.length });
+      } else {
+        const prefixEnd = commandPrefix.length;
+
+        // Insert stwSelected before existing content
+        const insertText = `${stwSelected} `;
+        doc.replaceRange(
+          insertText,
+          { line: commandLine, ch: prefixEnd },
+          { line: commandLine, ch: prefixEnd }
+        );
+      }
+    } catch (error) {
+      logger.error('Error adding selection to inline conversation:', error);
+      new Notice('Error adding selection to inline conversation');
+    }
+  }
+
+  private handleAddToChat(editor: Editor) {
+    this.openChat();
   }
 
   /**

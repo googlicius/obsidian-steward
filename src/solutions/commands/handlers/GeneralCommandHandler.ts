@@ -9,6 +9,7 @@ import { CommandIntentExtraction, extractCommandIntent } from 'src/lib/modelfusi
 
 import type StewardPlugin from 'src/main';
 import type { CommandProcessor } from '../CommandProcessor';
+import { STW_SELECTED_PATTERN } from 'src/constants';
 
 export class GeneralCommandHandler extends CommandHandler {
   isContentRequired = true;
@@ -46,13 +47,28 @@ export class GeneralCommandHandler extends CommandHandler {
 
       // If extraction is not provided, extract conversation history and then get command intent
       if (!extraction) {
+        const systemPrompts = [];
         const conversationHistory = await this.renderer.extractConversationHistory(title);
-        extraction = await extractCommandIntent(
-          command,
-          params.lang,
+        const hasStwSelected = new RegExp(STW_SELECTED_PATTERN).test(command.query);
+
+        if (hasStwSelected) {
+          systemPrompts.push(`The user query included one or more selections in the format {{stw-selected from:<startLine>,to:<endLine>,selection:<selectionContent>,path:<notePath>}}.
+* **For generation tasks:** Use the <selectionContent> value from the selection(s) as the primary context for your response.
+* **For update tasks:** The user wants to modify the note. Use the <notePath>, <startLine>, and <endLine> values to identify the exact location in the file to update. The new content should be generated based on the user's instructions and the provided context.
+NOTE: 
+- The selection content is included in the user's query, you don't need to read the note again.
+- Pass the selection(s) {{stw-selected...}} to the downstream command's queries to maintain the context.`);
+        }
+
+        extraction = await extractCommandIntent({
+          command: {
+            ...command,
+            systemPrompts,
+          },
+          lang: params.lang,
           conversationHistory,
-          isReloadRequest
-        );
+          isReloadRequest,
+        });
       }
 
       // For low confidence intents, ask for confirmation before proceeding
@@ -107,7 +123,6 @@ export class GeneralCommandHandler extends CommandHandler {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `*Error processing your request: ${error.message}*`,
-        lang: params.lang,
       });
 
       return {
