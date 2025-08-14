@@ -263,7 +263,7 @@ export default class StewardPlugin extends Plugin {
         // Add separator before our menu item
         menu.addSeparator();
 
-        // Add our menu item
+        // Add our menu items
         menu.addItem(item => {
           item
             .setTitle(i18next.t('ui.addToInlineConversation'))

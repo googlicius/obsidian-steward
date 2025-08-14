@@ -119,16 +119,11 @@ The response should be in natural language and not include the selection(s) {{st
       recentlyCreatedNote = createdNotesArtifact.paths[0] || '';
     }
 
-    // const userInput = fromRead
-    //   ? `The content from the current note:\n${readContentsStringified}\n\n${command.query}`
-    //   : command.query;
-
     const isUpdate = nextCommand && nextCommand.commandType === 'update_from_artifact';
 
     let extraction = options.extraction;
 
     if (!extraction) {
-      // const extractionCommand = { ...command, query: userInput };
       if (isUpdate) {
         extraction = await extractContentUpdate({
           command: {
