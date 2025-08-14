@@ -6,7 +6,6 @@ import {
 import { eventEmitter } from './EventEmitter';
 import { TFile } from 'obsidian';
 import { createMockStreamResponse } from '../utils/textStreamer';
-import { STEWARD_INTRODUCTION } from '../constants';
 import i18next from 'i18next';
 import type StewardPlugin from '../main';
 import type { ConversationRenderer } from './ConversationRenderer';
@@ -82,17 +81,6 @@ export class ConversationEventHandler {
     await this.renderer.streamFile(file, createMockStreamResponse(streamContent));
 
     this.plugin.setCursorToEndOfFile();
-  }
-
-  private async initializeIntroduction(file: TFile): Promise<void> {
-    if (file.path !== `${this.plugin.settings.stewardFolder}/Welcome to Steward.md`) {
-      return;
-    }
-
-    const content = await this.plugin.app.vault.cachedRead(file);
-    if (!content.trim()) {
-      this.renderer.streamFile(file, createMockStreamResponse(STEWARD_INTRODUCTION));
-    }
   }
 
   private async handleConversationCommand(

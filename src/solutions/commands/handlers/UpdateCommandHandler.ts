@@ -9,7 +9,6 @@ import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { Events } from 'src/types/events';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { extractUpdateFromSearchResult, UpdateInstruction } from 'src/lib/modelfusion/extractions';
-
 import type StewardPlugin from 'src/main';
 
 export class UpdateCommandHandler extends CommandHandler {
@@ -39,8 +38,7 @@ export class UpdateCommandHandler extends CommandHandler {
       if (!artifact) {
         await this.renderer.updateConversationNote({
           path: title,
-          newContent: t('common.noRecentOperations'),
-          role: 'Steward',
+          newContent: `*${t('common.noRecentOperations')}*`,
         });
 
         return {
@@ -201,6 +199,7 @@ export class UpdateCommandHandler extends CommandHandler {
           if (file) {
             // Read the file content
             let content = await this.app.vault.read(file);
+
             let contentChanged = false;
 
             // Apply each update instruction in sequence
@@ -222,7 +221,7 @@ export class UpdateCommandHandler extends CommandHandler {
             }
 
             // Write the updated content back
-            await this.app.vault.modify(file, content);
+            this.app.vault.process(file, () => content);
             updatedFiles.push(doc.path);
           }
         } catch (error) {

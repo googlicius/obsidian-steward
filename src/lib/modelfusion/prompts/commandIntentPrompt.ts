@@ -1,7 +1,7 @@
 import { commandQueryTemplatesAsString } from './commandQueryTemplates';
 import { formatCommandsForPrompt } from './commands';
 
-export function getCommandIntentPrompt(commandNames: string[] | null) {
+export function getCommandIntentPrompt(args: { commandNames: string[] | null }) {
   return `You are a helpful assistant analyzing user queries to determine their intent for an Obsidian note management system.
 
 Your role is to analyze a user's natural language query and output a sequence of commands from the available list to fulfill the task efficiently.
@@ -32,5 +32,5 @@ GUIDELINES:
     Example: "Update the list above to the numbered list" -> ["read", "generate", "update_from_artifact"]. Explain: "First, read the content above and store it as read_artifact, then generate the edited content from the read_artifact and store another artifact is update_artifact, then update the note(s) from the update_artifact"
 
 TEMPLATES (Command's query extraction guidelines):
-${commandQueryTemplatesAsString(commandNames)}`;
+${commandQueryTemplatesAsString(args.commandNames)}`;
 }

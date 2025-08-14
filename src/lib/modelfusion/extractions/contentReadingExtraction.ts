@@ -10,9 +10,8 @@ import { explanationFragment, confidenceFragment } from '../prompts/fragments';
 const abortService = AbortService.getInstance();
 
 const contentReadingSchema = z.object({
-  readType: z.enum(['selected', 'above', 'below', 'entire']).default('above')
-    .describe(`- "selected": Refers to "selected text" or "this text"
-- "above": Refers to content above the cursor
+  readType: z.enum(['above', 'below', 'entire']).default('above')
+    .describe(`- "above": Refers to content above the cursor
 - "below": Refers to content below the cursor
 - "entire": Refers to the entire content of the note`),
   noteName: z

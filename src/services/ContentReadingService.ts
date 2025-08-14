@@ -11,7 +11,7 @@ import type StewardPlugin from '../main';
  */
 export interface ContentReadingResult {
   blocks: ContentBlock[];
-  source: 'selected' | 'cursor' | 'element' | 'entire' | 'unknown';
+  source: 'cursor' | 'element' | 'entire' | 'unknown';
   elementType?: string;
   file?: TFile;
   range?: EditorRange;
@@ -83,9 +83,6 @@ export class ContentReadingService {
 
     try {
       switch (args.readType) {
-        case 'selected':
-          return this.readSelectedContent(file);
-
         case 'entire':
           return this.readEntireContent(file);
 
@@ -100,38 +97,6 @@ export class ContentReadingService {
       logger.error('Error reading content:', error);
       return null;
     }
-  }
-
-  /**
-   * Read selected content from the editor
-   * @param file The active file
-   * @returns Selected content as a block
-   */
-  private readSelectedContent(file: TFile): ContentReadingResult {
-    const selection = this.editor.getSelection();
-    if (!selection) {
-      // If no selection, fall back to content above cursor
-      return this.readBlocksAboveCursor(file, 1);
-    }
-
-    // Get the selection range
-    const from = this.editor.offsetToPos(this.editor.posToOffset(this.editor.getCursor('from')));
-    const to = this.editor.offsetToPos(this.editor.posToOffset(this.editor.getCursor('to')));
-
-    // Create a single block from the selection
-    const block: ContentBlock = {
-      startLine: from.line,
-      endLine: to.line,
-      types: ['selected'],
-      content: selection,
-    };
-
-    return {
-      blocks: [block],
-      source: 'selected',
-      file,
-      range: { from, to },
-    };
   }
 
   /**

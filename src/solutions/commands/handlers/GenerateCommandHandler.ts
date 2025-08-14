@@ -24,6 +24,7 @@ import { ConversationHistoryMessage } from 'src/types/types';
 import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
+import { STW_SELECTED_PATTERN } from 'src/constants';
 
 const abortService = AbortService.getInstance();
 
@@ -44,20 +45,10 @@ export class GenerateCommandHandler extends CommandHandler {
    * Handle a generate command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command, prevCommand, lang } = params;
+    const { title } = params;
 
     try {
-      if (prevCommand && prevCommand.commandType === 'read') {
-        // Generate content from a read artifact
-        return await this.generateFromReadArtifact(params);
-      } else {
-        // Default generation (including after create)
-        await this.generateFromCreateOrDefault(title, command, lang);
-      }
-
-      return {
-        status: CommandResultStatus.SUCCESS,
-      };
+      return await this.generateContent(params);
     } catch (error) {
       await this.renderer.updateConversationNote({
         path: title,
@@ -72,66 +63,86 @@ export class GenerateCommandHandler extends CommandHandler {
     }
   }
 
-  /**
-   * Generate content based on previously read content
-   * @param title The conversation title
-   * @param command The current command
-   * @param nextCommand The next command (optional)
-   * @param lang Optional language code for the response
-   */
-  private async generateFromReadArtifact(
+  private async generateContent(
     params: CommandHandlerParams,
     options: {
       lowConfidenceConfirmed?: boolean;
       extraction?: ContentUpdateExtraction | NoteGenerationExtraction;
     } = {}
   ): Promise<CommandResult> {
-    const { title, command, nextCommand, lang } = params;
+    const { title, command, nextCommand, lang, prevCommand } = params;
     const t = getTranslation(lang);
-    const readArtifact = this.artifactManager.getMostRecentArtifactByType(
-      title,
-      ArtifactType.READ_CONTENT
-    );
 
-    if (!readArtifact) {
-      await this.renderer.updateConversationNote({
-        path: title,
-        newContent: `*No read content found*`,
-        lang,
-      });
-      return {
-        status: CommandResultStatus.ERROR,
-        error: new Error('No read content found'),
-      };
+    const fromRead = prevCommand && prevCommand.commandType === 'read';
+    const systemPrompts = [];
+
+    const hasStwSelected = new RegExp(STW_SELECTED_PATTERN).test(command.query);
+
+    if (hasStwSelected) {
+      systemPrompts.push(`The user query included one or more selections in the format {{stw-selected from:<startLine>,to:<endLine>,selection:<selectionContent>,path:<notePath>}}.
+Use the <selectionContent> value from the selection(s) as the primary context for your response.
+The response should be in natural language and not include the selection(s) {{stw-selected...}}`);
     }
 
-    const readContentsStringified = JSON.stringify(
-      readArtifact.readingResult.blocks.map(block => block.content)
-    );
+    let readArtifact;
+    if (fromRead) {
+      readArtifact = this.artifactManager.getMostRecentArtifactByType(
+        title,
+        ArtifactType.READ_CONTENT
+      );
 
-    const userInput = `The content from the current note:\n${readContentsStringified}\n\n${command.query}`;
+      if (!readArtifact) {
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: `*No read content found*`,
+          lang,
+        });
+        return {
+          status: CommandResultStatus.ERROR,
+          error: new Error('No read content found'),
+        };
+      }
+
+      systemPrompts.push(
+        `The content from the current note:\n${JSON.stringify(
+          readArtifact.readingResult.blocks.map(block => block.content)
+        )}`
+      );
+    }
+
+    let recentlyCreatedNote = '';
+    const createdNotesArtifact = this.artifactManager.getMostRecentArtifactByType(
+      title,
+      ArtifactType.CREATED_NOTES
+    );
+    if (createdNotesArtifact && createdNotesArtifact.type === ArtifactType.CREATED_NOTES) {
+      recentlyCreatedNote = createdNotesArtifact.paths[0] || '';
+    }
+
+    const isUpdate = nextCommand && nextCommand.commandType === 'update_from_artifact';
 
     let extraction = options.extraction;
 
     if (!extraction) {
-      extraction =
-        nextCommand && nextCommand.commandType === 'update_from_artifact'
-          ? await extractContentUpdate({
-              command: {
-                ...command,
-                query: userInput,
-              },
-              app: this.app,
-            })
-          : await extractNoteGeneration({
-              command: {
-                ...command,
-                query: userInput,
-              },
-            });
+      if (isUpdate) {
+        extraction = await extractContentUpdate({
+          command: {
+            ...command,
+            systemPrompts,
+          },
+          app: this.app,
+        });
+      } else {
+        extraction = await extractNoteGeneration({
+          command: {
+            ...command,
+            systemPrompts,
+          },
+          recentlyCreatedNote: fromRead ? undefined : recentlyCreatedNote,
+        });
+      }
     }
 
-    // If the confidence is low, ask for confirmation
     if (extraction.confidence <= 0.7 && !options.lowConfidenceConfirmed) {
       await this.renderer.updateConversationNote({
         path: title,
@@ -149,7 +160,7 @@ export class GenerateCommandHandler extends CommandHandler {
       return {
         status: CommandResultStatus.NEEDS_CONFIRMATION,
         onConfirmation: () => {
-          return this.generateFromReadArtifact(params, {
+          return this.generateContent(params, {
             lowConfidenceConfirmed: true,
             extraction,
           });
@@ -174,13 +185,11 @@ export class GenerateCommandHandler extends CommandHandler {
           lang,
         });
 
-        // Store the content update extraction as an artifact
         if (messageId) {
           this.artifactManager.storeArtifact(title, messageId, {
             type: ArtifactType.CONTENT_UPDATE,
             updateExtraction: extraction,
-            // Current path is active editing
-            path: this.app.workspace.getActiveFile()?.path || '',
+            path: extraction.notePath || this.app.workspace.getActiveFile()?.path || '',
           });
 
           await this.renderer.updateConversationNote({
@@ -202,11 +211,17 @@ export class GenerateCommandHandler extends CommandHandler {
           });
         }
       } else {
+        const conversationHistory = fromRead
+          ? []
+          : await this.renderer.extractConversationHistory(title);
+
         const stream = await this.contentGenerationStream({
           command: {
             ...command,
-            query: userInput,
+            query: command.query,
+            systemPrompts,
           },
+          conversationHistory,
           errorCallback: async error => {
             if (error instanceof APICallError && error.statusCode === 422) {
               await this.renderer.updateConversationNote({
@@ -218,12 +233,54 @@ export class GenerateCommandHandler extends CommandHandler {
           },
         });
 
-        await this.renderer.streamConversationNote({
-          path: title,
-          stream,
-          command: 'generate',
-        });
+        const mediaTools = MediaTools.getInstance(this.app);
+
+        const file = extraction.noteName
+          ? await mediaTools.findFileByNameOrPath(extraction.noteName)
+          : null;
+
+        const noteContent = file ? await this.app.vault.read(file) : '';
+
+        if (
+          fromRead ||
+          !extraction.noteName ||
+          !extraction.modifiesNote ||
+          !file ||
+          noteContent.trim() !== ''
+        ) {
+          await this.renderer.streamConversationNote({
+            path: title,
+            stream,
+            command: 'generate',
+          });
+        } else {
+          const mainLeaf = await this.plugin.getMainLeaf();
+
+          if (mainLeaf && file) {
+            mainLeaf.openFile(file);
+            await this.app.workspace.revealLeaf(mainLeaf);
+          }
+
+          let accumulatedContent = '';
+          for await (const chunk of stream) {
+            accumulatedContent += chunk;
+          }
+
+          await this.app.vault.process(file, () => accumulatedContent);
+
+          await this.renderer.updateConversationNote({
+            path: title,
+            newContent: `*${t('generate.success', { noteName: extraction.noteName })}*`,
+            lang,
+          });
+
+          this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
+        }
       }
+
+      return {
+        status: CommandResultStatus.SUCCESS,
+      };
     } catch (error) {
       await this.renderer.updateConversationNote({
         path: title,
@@ -236,124 +293,6 @@ export class GenerateCommandHandler extends CommandHandler {
         error,
       };
     }
-
-    return {
-      status: CommandResultStatus.SUCCESS,
-    };
-  }
-
-  /**
-   * Generate content for a note or conversation
-   * @param title The conversation title
-   * @param command The current command
-   * @param lang Optional language code for the response
-   */
-  private async generateFromCreateOrDefault(
-    title: string,
-    command: CommandIntent,
-    lang?: string
-  ): Promise<void> {
-    const t = getTranslation(lang);
-
-    // Check if there's a recently created note artifact
-    let recentlyCreatedNote = '';
-    const createdNotesArtifact = this.artifactManager.getMostRecentArtifactByType(
-      title,
-      ArtifactType.CREATED_NOTES
-    );
-
-    if (createdNotesArtifact && createdNotesArtifact.type === ArtifactType.CREATED_NOTES) {
-      // Use the first note path if available
-      recentlyCreatedNote = createdNotesArtifact.paths[0] || '';
-    }
-
-    // Extract the content generation details using the LLM
-    const extraction = await extractNoteGeneration({
-      command: {
-        ...command,
-        query: command.query,
-      },
-      recentlyCreatedNote,
-    });
-
-    await this.renderer.updateConversationNote({
-      path: title,
-      newContent: extraction.explanation,
-      role: 'Steward',
-      includeHistory: false,
-      lang,
-    });
-
-    if (extraction.confidence < 0.7) {
-      await this.renderer.updateConversationNote({
-        path: title,
-        newContent: `*${t('common.abortedByLowConfidence')}*`,
-        lang,
-      });
-      return;
-    }
-
-    await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
-
-    const mediaTools = MediaTools.getInstance(this.app);
-
-    const file = extraction.noteName
-      ? await mediaTools.findFileByNameOrPath(extraction.noteName)
-      : null;
-
-    const conversationHistory = await this.renderer.extractConversationHistory(title);
-
-    // Prepare for content generation
-    const stream = await this.contentGenerationStream({
-      command,
-      conversationHistory,
-      errorCallback: async error => {
-        if (error instanceof APICallError && error.statusCode === 422) {
-          await this.renderer.updateConversationNote({
-            path: title,
-            newContent: `*Error: Unprocessable Content*`,
-            role: 'System',
-          });
-        }
-      },
-    });
-
-    // stream content to current conversation
-    if (!extraction.noteName || !extraction.modifiesNote || !file) {
-      await this.renderer.streamConversationNote({
-        path: title,
-        stream,
-        command: 'generate',
-      });
-      return;
-    }
-
-    const mainLeaf = await this.plugin.getMainLeaf();
-
-    // Open the file in the main leaf
-    if (mainLeaf && file) {
-      mainLeaf.openFile(file);
-      await this.app.workspace.revealLeaf(mainLeaf);
-    }
-
-    // Accumulate the content from the stream
-    let accumulatedContent = '';
-    for await (const chunk of stream) {
-      accumulatedContent += chunk;
-    }
-
-    // Update the file once with the complete content after streaming is done
-    await this.app.vault.process(file, () => accumulatedContent);
-
-    // Update the conversation with the results
-    await this.renderer.updateConversationNote({
-      path: title,
-      newContent: `*${t('generate.success', { noteName: extraction.noteName })}*`,
-      lang,
-    });
-
-    // Delete artifact
-    this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
   }
 
   private async contentGenerationStream(args: {

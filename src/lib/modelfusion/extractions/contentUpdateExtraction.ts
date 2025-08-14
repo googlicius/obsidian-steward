@@ -17,13 +17,6 @@ export interface ContentUpdate {
   originalContent: string;
 }
 
-export interface ContentUpdateExtraction {
-  updates: ContentUpdate[];
-  explanation: string;
-  confidence: number;
-  lang?: string;
-}
-
 // Define the Zod schema for content update
 const contentUpdateSchema = z.object({
   updatedContent: z.string().describe(`Update exactly what was requested for the provided content.
@@ -42,12 +35,15 @@ const contentUpdateExtractionSchema = z.object({
     .string()
     .min(1, 'Explanation must be a non-empty string')
     .describe(explanationFragment),
+  notePath: z.string().optional().describe(`The path of the note that was updated if provided`),
   confidence: z.number().min(0).max(1).describe(confidenceFragment),
   lang: z
     .string()
     .optional()
     .describe(userLanguagePrompt.content as string),
 });
+
+export type ContentUpdateExtraction = z.infer<typeof contentUpdateExtractionSchema>;
 
 /**
  * Extract content update details from a user query
