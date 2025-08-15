@@ -35,6 +35,29 @@ export class SearchCommandHandler extends CommandHandler {
     const { title, command } = params;
 
     try {
+      // Check if search index is built
+      const isIndexBuilt = await this.plugin.searchService.documentStore.isIndexBuilt();
+
+      if (!isIndexBuilt) {
+        const t = getTranslation(params.lang);
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent:
+            t('search.indexNotBuilt') +
+            '\n\n' +
+            t('search.buildIndexFirst') +
+            '\n\n' +
+            `*${t('search.privacyNotice')}*`,
+          role: 'Steward',
+          command: 'search',
+          lang: params.lang,
+        });
+        return {
+          status: CommandResultStatus.ERROR,
+          error: new Error('Search index not built'),
+        };
+      }
+
       // Extract search parameters from the command content
       const queryExtraction = await extractSearchQueryV2({
         command,

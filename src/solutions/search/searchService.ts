@@ -88,10 +88,7 @@ export class SearchService {
    * Update exclude folders
    */
   public updateExcludeFolders(excludeFolders: string[]): void {
-    this.excludeFolders = [
-      ...excludeFolders,
-      `${this.plugin.settings.stewardFolder}/Conversations`,
-    ];
+    this.excludeFolders = [...excludeFolders, this.plugin.settings.stewardFolder];
     this.documentStore.updateExcludeFolders(this.excludeFolders);
   }
 

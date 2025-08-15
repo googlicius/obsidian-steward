@@ -72,6 +72,10 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
         '?',
       ],
     },
+    {
+      name: 'build_search_index' as const,
+      values: ['build search index', 'index my notes'],
+    },
   ],
 
   prefixedClusterValue: [
@@ -297,6 +301,10 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
         'xin cảm ơn',
         'cảm ơn',
       ],
+    },
+    {
+      name: 'build_search_index' as const,
+      values: ['build search index', 'index my notes'],
     },
   ],
 });

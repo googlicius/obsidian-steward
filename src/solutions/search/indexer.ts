@@ -176,7 +176,7 @@ export class Indexer {
   /**
    * Index a single file
    */
-  private async indexFile(file: TFile) {
+  public async indexFile(file: TFile) {
     try {
       // Skip files in excluded folders
       if (this.documentStore.isExcluded(file.path)) {

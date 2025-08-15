@@ -101,6 +101,12 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     category: 'intent-based',
   },
   {
+    commandType: 'build_search_index',
+    description: 'Build or rebuild the search index for all markdown files in the vault',
+    category: 'intent-based',
+    aliases: ['index', 'build-index', 'search-index'],
+  },
+  {
     commandType: 'generate',
     description:
       'Generate content with the LLM help (either in a new note or in the conversation). You also can "generate" from the provided content in the user\'s query without reading the note. Example: "Help me update this list to the numbered list:\\n- Item 1\\n- Item 2" -> ["generate"]. The list is already in the query.',
