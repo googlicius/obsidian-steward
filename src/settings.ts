@@ -4,6 +4,7 @@ import { LLM_MODELS, ProviderNeedApiKey } from './constants';
 import { getTranslation } from './i18n';
 import { getObsidianLanguage } from './utils/getObsidianLanguage';
 import type StewardPlugin from './main';
+import { capitalizeString } from './utils/capitalizeString';
 
 export default class StewardSettingTab extends PluginSettingTab {
   constructor(private plugin: StewardPlugin) {
@@ -202,10 +203,33 @@ export default class StewardSettingTab extends PluginSettingTab {
       .setName(t('settings.chatModel'))
       .setDesc(t('settings.chatModelDesc'))
       .addDropdown(dropdown => {
-        // Add all models from the constants
-        LLM_MODELS.forEach(model => {
-          dropdown.addOption(model.id, `${model.name} (${model.provider})`);
-        });
+        // Group models by provider
+        const modelsByProvider = LLM_MODELS.reduce<Record<string, typeof LLM_MODELS>>(
+          (acc, model) => {
+            if (!acc[model.provider]) {
+              acc[model.provider] = [];
+            }
+            acc[model.provider].push(model);
+            return acc;
+          },
+          {}
+        );
+
+        // Add models grouped by provider
+        for (const [provider, models] of Object.entries(modelsByProvider)) {
+          // Create optgroup for each provider
+          const optgroup = dropdown.selectEl.createEl('optgroup');
+          optgroup.setAttribute('label', capitalizeString(provider));
+          optgroup.setAttribute('data-provider', provider);
+
+          // Add models under this provider
+          for (const model of models) {
+            const option = optgroup.createEl('option');
+            option.textContent = model.name;
+            option.value = model.id;
+            option.setAttribute('data-provider', model.provider);
+          }
+        }
 
         dropdown.setValue(this.plugin.settings.llm.model).onChange(async value => {
           this.plugin.settings.llm.model = value;

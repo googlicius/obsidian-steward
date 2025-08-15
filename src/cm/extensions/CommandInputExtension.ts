@@ -45,7 +45,7 @@ function hasCommandPlaceholder(line: Line, matchedPrefix: string): boolean {
 /**
  * Checks if a line is a command line (starts with a command prefix)
  */
-export function isCommandLine(line: Line): boolean {
+function isCommandLine(line: Line): boolean {
   const extendedPrefixes = UserDefinedCommandService.getInstance().buildExtendedPrefixes();
   return extendedPrefixes.some(prefix => line.text.startsWith(prefix));
 }
@@ -378,7 +378,11 @@ function createCommandKeymapExtension(
             view.dispatch({
               changes: [
                 { from: line.from, to: line.to, insert: textBeforeCursor },
-                { from: line.to, to: line.to, insert: '\n' + TWO_SPACES_PREFIX + textAfterCursor },
+                {
+                  from: line.to,
+                  to: line.to,
+                  insert: '\n' + TWO_SPACES_PREFIX + textAfterCursor.trim(),
+                },
               ],
               selection: {
                 anchor: line.from + textBeforeCursor.length + 3,

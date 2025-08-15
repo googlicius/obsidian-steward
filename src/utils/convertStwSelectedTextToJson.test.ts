@@ -20,4 +20,18 @@ describe('convertStwSelectedTextToJson', () => {
       }),
     ]);
   });
+
+  it('should handle selection content with curly braces', () => {
+    const input =
+      'This is a test {{stw-selected from:1,to:2,selection:This is a test with {curly brace},path:test.md}}';
+    const result = convertStwSelectedTextToJson(input);
+    expect(result).toEqual([
+      JSON.stringify({
+        noteName: 'test.md',
+        fromLine: '1',
+        toLine: '2',
+        selection: 'This is a test with {curly brace}',
+      }),
+    ]);
+  });
 });

@@ -49,7 +49,6 @@ export class Indexer {
         }
       })
     );
-
     eventRefs.push(
       // Listen for file creations
       this.app.vault.on('create', async file => {

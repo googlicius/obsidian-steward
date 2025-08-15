@@ -4,11 +4,13 @@
   font-weight: bold;
 
   &[has-placeholder='1']:after {
-    content: var(--stw-placeholder-text, 'Press Enter to send');
+    content: var(--stw-placeholder-text);
     position: absolute;
     font-style: italic;
+    font-size: 0.9em;
     color: #888;
-    margin-left: 0.5em;
+    margin-left: var(--size-2-2);
+    margin-top: var(--size-2-1);
     opacity: 0.7;
     font-weight: normal;
     background: none;
@@ -165,8 +167,8 @@ body.stw-bordered-input .stw-input-line {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
-  border-radius: 4px;
+  padding: var(--size-2-2);
+  border-radius: var(--radius-s);
   cursor: pointer;
   background-color: transparent;
   color: var(--text-muted);
@@ -265,6 +267,8 @@ code[class*='language-stw-artifact'] {
   border-radius: var(--radius-s);
   border: thin solid var(--background-modifier-border);
   cursor: pointer;
+  font-size: 0.9em;
+  padding: var(--size-2-1);
 }
 
 /* Visibility classes for settings */

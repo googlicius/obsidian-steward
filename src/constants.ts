@@ -17,7 +17,7 @@ export const STW_EMBEDDED_CONVERSATION_VIEW_CONFIG = {
 export const IMAGE_LINK_PATTERN = '!\\[\\[(.*?\\.(jpg|jpeg|png|webp|svg))(?:\\|.*?)?\\]\\]';
 // Stw-selected pattern constants for reuse across the application
 // Pattern to match any stw-selected block (with capture group for splitting)
-export const STW_SELECTED_PATTERN = '(\\{\\{stw-selected[^}]*\\}\\})';
+export const STW_SELECTED_PATTERN = '(\\{\\{stw-selected.*?\\}\\})';
 
 // Pattern to extract metadata from stw-selected blocks
 export const STW_SELECTED_METADATA_PATTERN =

@@ -218,7 +218,6 @@ The response should be in natural language and not include the selection(s) {{st
         const stream = await this.contentGenerationStream({
           command: {
             ...command,
-            query: command.query,
             systemPrompts,
           },
           conversationHistory,
