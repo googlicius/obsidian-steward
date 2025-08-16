@@ -31,6 +31,7 @@ const en = {
       updateDesc: 'Update file content',
       generateDesc: 'Generate content with AI',
       readDesc: 'Read content from notes',
+      buildSearchIndexDesc: 'Build the search index for your notes',
     },
     // Chat UI elements
     chat: {
@@ -146,6 +147,18 @@ const en = {
       searchingFor: 'Searching for "{{searchTerm}}"',
       searchingForTags: 'Searching for tags: {{tags}}',
       showingPage: 'Showing page {{page}} of {{total}}',
+      indexNotBuilt: 'Search index is not built yet.',
+      buildIndexFirst:
+        'Please build the search index first by asking me to "Build search index" or "index my notes".',
+      buildingIndex: 'Building search index...',
+      noFilesToIndex: 'No notes found to index.',
+      indexingProgress: 'Indexing progress: {{completed}} of {{total}} notes completed.',
+      indexingCompleted: 'Search index built successfully! {{count}} of {{total}} notes indexed.',
+      indexedFiles: 'Successfully indexed notes',
+      failedFiles: 'Notes that failed to index',
+      foundNotesForIndex: 'I found {{count}} notes that can be indexed.',
+      confirmRebuildIndexQuestion: 'Do you want to rebuild the search index?',
+      privacyNotice: 'Note: The search index is processed and stored locally for privacy.',
     },
     // Close command messages
     close: {
@@ -215,6 +228,7 @@ const en = {
       creatingPrompt: 'Creating custom prompt...',
       creating: 'Creating...',
       readingContent: 'Reading content...',
+      buildingIndex: 'Building search index...',
     },
     // Settings
     settings: {

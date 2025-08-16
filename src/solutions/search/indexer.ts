@@ -49,7 +49,6 @@ export class Indexer {
         }
       })
     );
-
     eventRefs.push(
       // Listen for file creations
       this.app.vault.on('create', async file => {
@@ -177,7 +176,7 @@ export class Indexer {
   /**
    * Index a single file
    */
-  private async indexFile(file: TFile) {
+  public async indexFile(file: TFile) {
     try {
       // Skip files in excluded folders
       if (this.documentStore.isExcluded(file.path)) {

@@ -29,6 +29,7 @@ const vi = {
       updateDesc: 'Cập nhật nội dung tập tin',
       generateDesc: 'Tạo nội dung với AI',
       readDesc: 'Đọc nội dung từ ghi chú',
+      buildSearchIndexDesc: 'Xây dựng chỉ mục tìm kiếm cho ghi chú của bạn',
     },
     // Chat UI elements
     chat: {
@@ -129,6 +130,19 @@ const vi = {
       searchingFor: 'Đang tìm kiếm "{{searchTerm}}"',
       searchingForTags: 'Đang tìm kiếm các tag: {{tags}}',
       showingPage: 'Trang {{page}} của {{total}}',
+      indexNotBuilt: 'Chỉ mục tìm kiếm chưa được xây dựng.',
+      buildIndexFirst:
+        'Vui lòng xây dựng chỉ mục tìm kiếm trước bằng cách yêu cầu tôi "xây dựng chỉ mục tìm kiếm" hoặc "lập chỉ mục các tệp của tôi".',
+      buildingIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
+      noFilesToIndex: 'Không tìm thấy tệp nào để lập chỉ mục.',
+      indexingProgress: 'Tiến trình lập chỉ mục: {{completed}} trong {{total}} tệp đã hoàn thành.',
+      indexingCompleted:
+        'Chỉ mục tìm kiếm đã được xây dựng thành công! {{count}} trong {{total}} tệp đã được lập chỉ mục.',
+      indexedFiles: 'Các tệp đã được lập chỉ mục thành công',
+      failedFiles: 'Các tệp không thể lập chỉ mục',
+      foundNotesForIndex: 'Tôi đã tìm thấy {{count}} ghi chú có thể được lập chỉ mục.',
+      confirmRebuildIndexQuestion: 'Bạn có muốn xây dựng lại chỉ mục tìm kiếm không?',
+      privacyNotice: 'Lưu ý: Chỉ mục tìm kiếm được xử lý và lưu trữ cục bộ để bảo mật.',
     },
     // Close command messages
     close: {
@@ -199,6 +213,7 @@ const vi = {
       creatingPrompt: 'Đang tạo gợi ý tùy chỉnh...',
       creating: 'Đang tạo...',
       readingContent: 'Đang đọc nội dung...',
+      buildingIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
     },
     // Settings
     settings: {

@@ -11,6 +11,7 @@ import {
 import { SearchOperationV2 } from '../../lib/modelfusion';
 import { logger } from '../../utils/logger';
 import { similarity } from '../../utils/similarity';
+import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 
 // Interface for exact phrase match
 interface ExactPhraseMatch {
@@ -182,11 +183,10 @@ export class SearchEngine {
    * @returns The exact phrase details or null if not an exact phrase
    */
   private checkForExactPhrase(keyword: string): ExactPhraseMatch | null {
-    const exactPhraseRegex = /^["'](.+)["']$/;
-    const match = keyword.match(exactPhraseRegex);
+    const quotedContent = getQuotedQuery(keyword);
 
-    if (match) {
-      const phrase = match[1];
+    if (quotedContent) {
+      const phrase = quotedContent;
       const tokens = this.tokenizer.getUniqueTerms(phrase);
       return {
         originalPhrase: phrase,

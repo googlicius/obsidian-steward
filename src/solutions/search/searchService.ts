@@ -3,6 +3,7 @@ import { Tokenizer } from './tokenizer';
 import { Indexer } from './indexer';
 import { Scoring } from './scoring';
 import { SearchEngine } from './searchEngine';
+import { STW_SELECTED_PATTERN } from '../../constants';
 import type StewardPlugin from '../../main';
 
 /**
@@ -31,6 +32,26 @@ export class SearchService {
 
     // Initialize components
     this.tokenizer = new Tokenizer();
+
+    // Add custom normalizers
+    this.tokenizer.addNormalizers(
+      {
+        name: 'removeVietnameseDiacritics',
+        apply: (content: string) => {
+          return content
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // Remove combining diacritical marks
+            .normalize('NFC');
+        },
+      },
+      {
+        name: 'removeStwSelectedPatterns',
+        apply: (content: string) => {
+          return content.replace(new RegExp(STW_SELECTED_PATTERN, 'g'), ' ');
+        },
+      }
+    );
+
     this.documentStore = new DocumentStore({
       app: this.plugin.app,
       dbName: this.plugin.settings.searchDbPrefix,
@@ -67,10 +88,7 @@ export class SearchService {
    * Update exclude folders
    */
   public updateExcludeFolders(excludeFolders: string[]): void {
-    this.excludeFolders = [
-      ...excludeFolders,
-      `${this.plugin.settings.stewardFolder}/Conversations`,
-    ];
+    this.excludeFolders = [...excludeFolders, this.plugin.settings.stewardFolder];
     this.documentStore.updateExcludeFolders(this.excludeFolders);
   }
 
@@ -83,12 +101,14 @@ export class SearchService {
     }
 
     // Setup event listeners
-    const eventRefs = this.indexer.setupEventListeners();
+    this.plugin.app.workspace.onLayoutReady(() => {
+      const eventRefs = this.indexer.setupEventListeners();
 
-    for (let index = 0; index < eventRefs.length; index++) {
-      const eventRef = eventRefs[index];
-      this.plugin.registerEvent(eventRef);
-    }
+      for (let index = 0; index < eventRefs.length; index++) {
+        const eventRef = eventRefs[index];
+        this.plugin.registerEvent(eventRef);
+      }
+    });
 
     // Check if index is built
     const indexBuilt = await this.documentStore.isIndexBuilt();

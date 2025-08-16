@@ -20,6 +20,7 @@ import {
   UserDefinedCommandHandler,
   ThankYouCommandHandler,
   HelpCommandHandler,
+  BuildSearchIndexCommandHandler,
 } from '../solutions/commands/handlers';
 import { getTextContentWithoutImages } from 'src/lib/modelfusion/utils/userMessageUtils';
 
@@ -109,6 +110,13 @@ export class CommandProcessorService {
     // Register the help command handler
     const helpHandler = new HelpCommandHandler(this.plugin);
     this.commandProcessor.registerHandler('help', helpHandler);
+
+    // Register the build search index command handler
+    const buildSearchIndexHandler = new BuildSearchIndexCommandHandler(this.plugin);
+    this.commandProcessor.registerHandler('build_search_index', buildSearchIndexHandler);
+    this.commandProcessor.registerHandler('index', buildSearchIndexHandler);
+    this.commandProcessor.registerHandler('build-index', buildSearchIndexHandler);
+    this.commandProcessor.registerHandler('search-index', buildSearchIndexHandler);
 
     // Register the general command handler (space)
     const generalHandler = new GeneralCommandHandler(this.plugin, this.commandProcessor);

@@ -83,6 +83,7 @@ export class HelpCommandHandler extends CommandHandler {
         { command: 'update', description: t('common.updateDesc') },
         { command: 'generate', description: t('common.generateDesc') },
         { command: 'read', description: t('common.readDesc') },
+        { command: 'build_search_index', description: t('common.buildSearchIndexDesc') },
       ];
 
       // Add intent commands to content

@@ -29,6 +29,7 @@ const ja = {
       updateDesc: 'ファイルの内容を更新する',
       generateDesc: 'AIでコンテンツを生成する',
       readDesc: 'ノートから内容を読み取る',
+      buildSearchIndexDesc: 'ノートの検索インデックスを構築する',
     },
     // Chat UI elements
     chat: {
@@ -131,6 +132,19 @@ const ja = {
       searchingFor: '「{{searchTerm}}」を検索しています',
       searchingForTags: 'タグ: {{tags}}',
       showingPage: '{{page}}ページ目の{{total}}ページ目',
+      indexNotBuilt: '検索インデックスがまだ構築されていません。',
+      buildIndexFirst:
+        '先に検索インデックスを構築してください。「検索インデックスを構築」または「ファイルにインデックスを付ける」とおっしゃってください。',
+      buildingIndex: '検索インデックスを構築中...',
+      noFilesToIndex: 'インデックスを付けるファイルが見つかりません。',
+      indexingProgress: 'インデックス作成の進捗：{{total}}件中{{completed}}件完了。',
+      indexingCompleted:
+        '検索インデックスの構築が完了しました！{{total}}件中{{count}}件にインデックスが付けられました。',
+      indexedFiles: '正常にインデックスが付けられたファイル',
+      failedFiles: 'インデックス作成に失敗したファイル',
+      foundNotesForIndex: '{{count}}件のノートにインデックスを付けることができます。',
+      confirmRebuildIndexQuestion: '検索インデックスを再構築しますか？',
+      privacyNotice: '注意：検索インデックスはプライバシーのためにローカルで処理・保存されます。',
     },
     // Close command messages
     close: {
@@ -199,6 +213,7 @@ const ja = {
       creatingPrompt: 'カスタムプロンプトを作成中...',
       creating: '作成中...',
       readingContent: '内容を読み込んでいます...',
+      buildingIndex: '検索インデックスを構築中...',
     },
   },
 };

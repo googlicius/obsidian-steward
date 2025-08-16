@@ -93,6 +93,31 @@ export class ConversationRenderer {
   }
 
   /**
+   * Gets the content after deleting a message and all messages below it
+   * This is a pure function that doesn't read or modify the vault
+   * @param content The full conversation content
+   * @param messageId The ID of the message to delete from
+   * @returns The new content with the message and below removed
+   */
+  private getContentAfterDeletion(content: string, messageId: string): string {
+    // Find the position of the message with the given ID
+    const messageCommentRegex = new RegExp(`<!--STW ID:${messageId}[^>]*-->`, 'i');
+    const match = messageCommentRegex.exec(content);
+
+    if (!match || match.index === undefined) {
+      return content;
+    }
+
+    // Keep content up to the message (excluding the message itself)
+    let newContent = content.substring(0, match.index).trimEnd();
+
+    // Sanitize the content by removing trailing separators
+    newContent = this.sanitizeConversationContent(newContent);
+
+    return newContent;
+  }
+
+  /**
    * Updates a conversation note with the given content
    */
   public async updateConversationNote(params: {
@@ -118,6 +143,11 @@ export class ConversationRenderer {
      * If provided, it will be included in the conversation property.
      */
     lang?: string;
+    /**
+     * The message ID to replace. If provided, this message and all messages below it will be removed
+     * before adding the new content.
+     */
+    messageId?: string;
   }): Promise<string | undefined> {
     try {
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
@@ -147,6 +177,11 @@ export class ConversationRenderer {
       await this.plugin.app.vault.process(file, currentContent => {
         // Remove the generating indicator and any trailing newlines
         currentContent = this.removeGeneratingIndicator(currentContent);
+
+        // If messageId is provided, remove that message and all messages below it
+        if (params.messageId) {
+          currentContent = this.getContentAfterDeletion(currentContent, params.messageId);
+        }
 
         // Prepare the content to be added
         let contentToAdd = '';
@@ -890,20 +925,12 @@ export class ConversationRenderer {
       // Read the current content
       const content = await this.plugin.app.vault.read(file);
 
-      // Find the position of the message with the given ID
-      const messageCommentRegex = new RegExp(`<!--STW ID:${messageId}[^>]*-->`, 'i');
-      const match = messageCommentRegex.exec(content);
-
-      if (!match || match.index === undefined) {
+      // Use the pure function to get content after deletion
+      const newContent = this.getContentAfterDeletion(content, messageId);
+      if (newContent === null) {
         logger.error(`Message with ID ${messageId} not found in ${notePath}`);
         return false;
       }
-
-      // Keep content up to the message (excluding the message itself)
-      let newContent = content.substring(0, match.index).trimEnd();
-
-      // Sanitize the content by removing trailing separators
-      newContent = this.sanitizeConversationContent(newContent);
 
       // Update the file
       await this.plugin.app.vault.modify(file, newContent);

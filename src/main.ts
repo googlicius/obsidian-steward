@@ -75,14 +75,6 @@ export default class StewardPlugin extends Plugin {
   async onload() {
     await this.loadSettings();
 
-    // Exclude steward folders from search
-    this.excludeFoldersFromSearch([
-      `${this.settings.stewardFolder}/Conversations`,
-      `${this.settings.stewardFolder}/Commands`,
-      'Excalidraw',
-      'copilot*',
-    ]);
-
     // Generate DB prefix if not already set
     if (!this.settings.searchDbPrefix) {
       this.settings.searchDbPrefix = generateRandomDbPrefix();
@@ -119,8 +111,7 @@ export default class StewardPlugin extends Plugin {
     // Initialize the LLM service
     this.llmService = LLMService.getInstance(this);
 
-    // Build the index if it's not already built
-    this.checkAndBuildIndexIfNeeded();
+    // Search index will be built manually by user request
 
     const decryptedOpenAIKey = this.getDecryptedApiKey('openai');
     if (decryptedOpenAIKey) {
@@ -184,6 +175,14 @@ export default class StewardPlugin extends Plugin {
     this.commandProcessorService = new CommandProcessorService(this);
 
     this.initializeClassifier();
+
+    // Exclude steward folders from search
+    this.excludeFoldersFromSearch([
+      `${this.settings.stewardFolder}/Conversations`,
+      `${this.settings.stewardFolder}/Commands`,
+      'Excalidraw',
+      'copilot*',
+    ]);
   }
 
   onunload() {
@@ -206,27 +205,6 @@ export default class StewardPlugin extends Plugin {
           this.toggleChat();
         } else {
           this.openChat();
-        }
-      },
-    });
-
-    // This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-    const statusBarItemEl = this.addStatusBarItem();
-
-    // Command to build search index
-    this.addCommand({
-      id: 'build-search-index',
-      name: 'Build search index',
-      callback: async () => {
-        new Notice('Building index...');
-        try {
-          statusBarItemEl.setText(i18next.t('ui.buildingIndexes'));
-          await this.searchService.indexer.indexAllFiles();
-          statusBarItemEl.setText('');
-          new Notice('Building Search Index completed!');
-        } catch (error) {
-          logger.error('Error building search index:', error);
-          new Notice(i18next.t('ui.errorBuildingSearchIndex'));
         }
       },
     });
@@ -734,21 +712,6 @@ export default class StewardPlugin extends Plugin {
 
   removeGeneratingIndicator(content: string): string {
     return this.conversationRenderer.removeGeneratingIndicator(content);
-  }
-
-  /**
-   * Check if the search index is built and build it if needed
-   */
-  private async checkAndBuildIndexIfNeeded(): Promise<void> {
-    try {
-      const isIndexBuilt = await this.searchService.documentStore.isIndexBuilt();
-      if (!isIndexBuilt) {
-        // Build the index if it's not already built
-        await this.searchService.indexer.indexAllFiles();
-      }
-    } catch (error) {
-      logger.error('Error checking or building index:', error);
-    }
   }
 
   /**
