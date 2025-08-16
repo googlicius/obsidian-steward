@@ -7,7 +7,7 @@ import {
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
-import { TFile } from 'obsidian';
+import type { TFile } from 'obsidian';
 import { AbortService } from 'src/services/AbortService';
 
 export class BuildSearchIndexCommandHandler extends CommandHandler {
@@ -96,7 +96,6 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `*${t('search.indexingError', { error: error.message })}*`,
-        role: 'Steward',
         command: 'build_search_index',
         lang,
       });
