@@ -12,7 +12,7 @@ Your job is to analyze the user's natural language request and extract the relev
 Let's say the user's query is: <query>
 Guidelines:
 - If there are any typos in the <query>, extract both the original and your corrected version
-${hasTag ? "- If the <query> has a term prefixed with #, it's a tag, for example: #cat" : ''}
+${hasTag ? '- The <query> included one or more tags prefixed with #, for example: #cat' : ''}
 - For folders and filenames, use regex to represent user-specified exact: ^<query>$, start with: ^<query>, or contain: <query>
 ${languageEnforcementFragment}`;
 }
