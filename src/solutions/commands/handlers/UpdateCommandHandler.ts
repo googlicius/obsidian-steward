@@ -195,7 +195,7 @@ export class UpdateCommandHandler extends CommandHandler {
 
       for (const doc of docs) {
         try {
-          const file = this.app.vault.getFileByPath(doc.path);
+          const file = await this.plugin.mediaTools.findFileByNameOrPath(doc.path);
           if (file) {
             // Read the file content
             let content = await this.app.vault.read(file);
@@ -221,7 +221,7 @@ export class UpdateCommandHandler extends CommandHandler {
             }
 
             // Write the updated content back
-            this.app.vault.process(file, () => content);
+            await this.app.vault.process(file, () => content);
             updatedFiles.push(doc.path);
           }
         } catch (error) {

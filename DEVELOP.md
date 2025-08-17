@@ -47,6 +47,9 @@
 - [ ] When reloading a read command, ensure the cursor position is correct, whether telling the user or store it in the metadata.
 - [ ] Ensure the highlightKeywords function has the same behavior as the tokenizer.normalizers.
 - [ ] Add search records per page setting
+- [ ] Test these queries:
+      Append "Hello word" to the note 2025-07-24 (In chat)
+      Read the question above and tell me the result. Refer to the Operator note to get the operator
 
 ### BUGS
 

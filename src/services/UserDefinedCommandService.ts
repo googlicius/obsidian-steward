@@ -74,18 +74,20 @@ export class UserDefinedCommandService {
       // 	await this.plugin.app.vault.createFolder(this.commandFolder);
       // }
 
-      // Watch for changes to command files
+      this.plugin.app.workspace.onLayoutReady(() => {
+        this.plugin.registerEvent(
+          this.plugin.app.vault.on('create', file => {
+            if (file instanceof TFile) {
+              this.handleFileCreation(file);
+            }
+          })
+        );
+      });
+
       this.plugin.registerEvent(
         this.plugin.app.vault.on('modify', file => {
           if (file instanceof TFile) {
             this.handleFileModification(file);
-          }
-        })
-      );
-      this.plugin.registerEvent(
-        this.plugin.app.vault.on('create', file => {
-          if (file instanceof TFile) {
-            this.handleFileCreation(file);
           }
         })
       );

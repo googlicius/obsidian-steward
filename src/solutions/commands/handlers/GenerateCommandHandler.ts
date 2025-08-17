@@ -215,6 +215,14 @@ The response should be in natural language and not include the selection(s) {{st
           ? []
           : await this.renderer.extractConversationHistory(title);
 
+        const mediaTools = MediaTools.getInstance(this.app);
+
+        const file = extraction.noteName
+          ? await mediaTools.findFileByNameOrPath(extraction.noteName)
+          : null;
+
+        const noteContent = file ? await this.app.vault.read(file) : '';
+
         const stream = await this.contentGenerationStream({
           command: {
             ...command,
@@ -231,14 +239,6 @@ The response should be in natural language and not include the selection(s) {{st
             }
           },
         });
-
-        const mediaTools = MediaTools.getInstance(this.app);
-
-        const file = extraction.noteName
-          ? await mediaTools.findFileByNameOrPath(extraction.noteName)
-          : null;
-
-        const noteContent = file ? await this.app.vault.read(file) : '';
 
         if (
           fromRead ||
@@ -283,7 +283,7 @@ The response should be in natural language and not include the selection(s) {{st
     } catch (error) {
       await this.renderer.updateConversationNote({
         path: title,
-        newContent: `*Error generating content: ${error.message}*`,
+        newContent: `*Error generating: ${error.message}*`,
         lang,
       });
 

@@ -198,7 +198,7 @@ const en = {
     read: {
       noContentFound: 'No such content found in the editor.',
       readEntireContentConfirmation:
-        'I am about to read the entire content of the note. Are you sure you want to proceed?',
+        'I am about to read the entire content of the {{noteName}} note. Are you sure you want to proceed?',
       unableToReadContent: 'Unable to read content.',
     },
     // Thank you responses

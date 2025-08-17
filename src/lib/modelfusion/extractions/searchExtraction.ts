@@ -45,9 +45,7 @@ preserve the quotes exactly as is for exact match queries.
   filenames: z
     .array(z.string())
     .describe(`Specific file names to search for (without .md extension)`),
-  folders: z.array(z.string()).describe(`Specific folder paths to search within.
-Use regex to represent user-specified exact (^folder$), start with (^folder), or contain (folder).
-If the user wants to search in the root folder, use ^/$`),
+  folders: z.array(z.string()).describe(`Specific folder paths to search within`),
 });
 
 // Define the Zod schema for search query extraction validation
@@ -140,7 +138,7 @@ export async function extractSearchQueryV2({
     const { object } = await generateObject({
       ...llmConfig,
       abortSignal: abortService.createAbortController('search-query-v2'),
-      system: `${searchPromptV2.content}`,
+      system: searchPromptV2(command),
       messages: [
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         { role: 'user', content: command.query },

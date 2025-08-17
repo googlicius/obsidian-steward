@@ -8,23 +8,26 @@ import { COMMAND_PREFIXES } from '../../constants';
 export interface IndexerConfig {
   app: App;
   documentStore: DocumentStore;
-  tokenizer: Tokenizer;
+  contentTokenizer: Tokenizer;
+  nameTokenizer: Tokenizer;
 }
 
 export class Indexer {
   private app: App;
   private documentStore: DocumentStore;
-  private tokenizer: Tokenizer;
+  private contentTokenizer: Tokenizer;
+  private nameTokenizer: Tokenizer;
   private indexingQueue: string[] = [];
   private isIndexing = false;
   // Simple cache for current note
   private cachedNotePath: string | null = null;
   private cachedNoteTermsCount = 0;
 
-  constructor({ app, documentStore, tokenizer }: IndexerConfig) {
+  constructor({ app, documentStore, contentTokenizer, nameTokenizer }: IndexerConfig) {
     this.app = app;
     this.documentStore = documentStore;
-    this.tokenizer = tokenizer;
+    this.contentTokenizer = contentTokenizer;
+    this.nameTokenizer = nameTokenizer;
   }
 
   /**
@@ -70,7 +73,7 @@ export class Indexer {
           // Check if this is the cached note
           if (this.cachedNotePath === file.path) {
             // Get new terms count
-            const newTerms = this.tokenizer.tokenize(content);
+            const newTerms = this.contentTokenizer.tokenize(content);
             const newTermsCount = newTerms.length;
 
             // If terms count differs, reindex
@@ -287,10 +290,10 @@ export class Indexer {
     fileName: string
   ): Promise<void> {
     // Tokenize content
-    const contentTerms = this.tokenizer.tokenize(content);
+    const contentTerms = this.contentTokenizer.tokenize(content);
 
     // Tokenize filename
-    const filenameTerms = this.tokenizer.tokenize(fileName);
+    const filenameTerms = this.nameTokenizer.tokenize(fileName);
 
     // Batch add content terms
     const contentTermBatch = contentTerms.map(term => ({
@@ -377,7 +380,7 @@ export class Indexer {
 
       // Update cache
       this.cachedNotePath = file.path;
-      this.cachedNoteTermsCount = this.tokenizer.tokenize(content).length;
+      this.cachedNoteTermsCount = this.contentTokenizer.tokenize(content).length;
 
       logger.log(`Updated cached note: ${file.path} with ${this.cachedNoteTermsCount} terms`);
     } catch (error) {

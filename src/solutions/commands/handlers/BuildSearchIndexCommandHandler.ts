@@ -17,9 +17,6 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
     super();
   }
 
-  /**
-   * Render the loading indicator for the build search index command
-   */
   public async renderIndicator(title: string, lang?: string): Promise<void> {
     const t = getTranslation(lang);
     await this.renderer.addGeneratingIndicator(title, t('conversation.buildingIndex'));
@@ -34,7 +31,6 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
     try {
       const t = getTranslation(lang);
 
-      // Get all markdown files to show user what will be indexed
       const files = await this.plugin.searchService.documentStore.getAllMarkdownFiles();
       const validFiles = files.filter(
         file => !this.plugin.searchService.documentStore.isExcluded(file.path)
@@ -85,10 +81,10 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
             };
           },
         };
-      } else {
-        // Index doesn't exist, run indexing directly without confirmation
-        return this.performIndexing(title, validFiles, lang);
       }
+
+      // Index doesn't exist, run indexing directly without confirmation
+      return this.performIndexing(title, validFiles, lang);
     } catch (error) {
       logger.error('Error in build search index command:', error);
 
@@ -119,13 +115,13 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
     const operationId = 'build_search_index';
     const abortSignal = abortService.createAbortController(operationId);
 
+    const t = getTranslation(lang);
+
+    // Build the index by processing each file directly
+    const indexedFiles: string[] = [];
+    const failedFiles: string[] = [];
+
     try {
-      const t = getTranslation(lang);
-
-      // Build the index by processing each file directly
-      const indexedFiles: string[] = [];
-      const failedFiles: string[] = [];
-
       await this.renderer.updateConversationNote({
         path: title,
         newContent: t('search.buildingIndex'),
