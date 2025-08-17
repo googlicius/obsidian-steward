@@ -227,10 +227,10 @@ code[class*='language-stw-artifact'] {
 /* User message buttons styling */
 .stw-user-message-buttons {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: var(--size-2-1);
+  right: var(--size-2-1);
   display: flex;
-  gap: 4px;
+  gap: var(--size-2-2);
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -242,10 +242,10 @@ code[class*='language-stw-artifact'] {
 .stw-user-message-button {
   background-color: var(--background-modifier-hover);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-s);
   color: var(--text-muted);
   cursor: pointer;
-  padding: 4px;
+  padding: var(--size-2-1);
   display: flex;
   align-items: center;
   justify-content: center;

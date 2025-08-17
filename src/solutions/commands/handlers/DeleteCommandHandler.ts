@@ -8,8 +8,8 @@ import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { Events } from 'src/types/events';
 import { eventEmitter } from 'src/services/EventEmitter';
-
 import type StewardPlugin from 'src/main';
+import { logger } from 'src/utils/logger';
 
 export class DeleteCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -61,6 +61,7 @@ export class DeleteCommandHandler extends CommandHandler {
           newContent: t('common.cannotDeleteThisType'),
           role: 'Steward',
         });
+        logger.error('Cannot delete this artifact', artifact);
 
         return {
           status: CommandResultStatus.ERROR,

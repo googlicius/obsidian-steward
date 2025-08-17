@@ -14,10 +14,9 @@ const abortService = AbortService.getInstance();
 // Define the Zod schema for note generation extraction validation
 const noteGenerationExtractionSchema = z.object({
   noteName: z.string().optional()
-    .describe(`The note name/title from the user's request that they want to generate content into.
-If the user wants to update or create content in a specific note, extract that note name.
-If the user wants to create a user-defined or custom command, place the note in the Steward/Commands folder.
-Leave noteName empty if the user provides a wikilink to a note ([[Link to a note]]) but does not explicitly want to update or create that note.`),
+    .describe(`The note name from the user's request that they want to generate content into.
+Include only when:
+- The user wants to update or create the <noteName> note.`),
   instructions: z.string().min(1, 'Instructions must be a non-empty string')
     .describe(`The generation instructions from the user's request that will be fed to a sub-prompt for actual generating content.
 The instructions should capture the user's intent (e.g., a request for generating or consulting, a question, etc.).`),

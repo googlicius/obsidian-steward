@@ -19,6 +19,9 @@ export const IMAGE_LINK_PATTERN = '!\\[\\[(.*?\\.(jpg|jpeg|png|webp|svg))(?:\\|.
 // Pattern to match any stw-selected block (with capture group for splitting)
 export const STW_SELECTED_PATTERN = '(\\{\\{stw-selected.*?\\}\\})';
 
+// Pattern to match any wikilink
+export const WIKI_LINK_PATTERN = '\\[\\[([^\\]]+)\\]\\]';
+
 // Pattern to extract metadata from stw-selected blocks
 export const STW_SELECTED_METADATA_PATTERN =
   '\\{\\{stw-selected from:(\\d+),to:(\\d+),selection:(.+?),path:(.+?)\\}\\}';

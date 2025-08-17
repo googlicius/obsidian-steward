@@ -1,4 +1,4 @@
-import { IMAGE_LINK_PATTERN } from 'src/constants';
+import { IMAGE_LINK_PATTERN, WIKI_LINK_PATTERN } from 'src/constants';
 import { App } from 'obsidian';
 import { logger } from 'src/utils/logger';
 
@@ -37,7 +37,7 @@ export class NoteContentService {
    * @returns Array of wikilink paths extracted from the content
    */
   public extractWikilinks(content: string): string[] {
-    const wikiLinkRegex = /\[\[([^\]]+)\]\]/g;
+    const wikiLinkRegex = new RegExp(WIKI_LINK_PATTERN, 'g');
     const matches = content.matchAll(wikiLinkRegex);
     const wikilinks: string[] = [];
 

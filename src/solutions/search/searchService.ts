@@ -3,7 +3,6 @@ import { Tokenizer } from './tokenizer';
 import { Indexer } from './indexer';
 import { Scoring } from './scoring';
 import { SearchEngine } from './searchEngine';
-import { STW_SELECTED_PATTERN } from '../../constants';
 import type StewardPlugin from '../../main';
 
 /**
@@ -16,7 +15,14 @@ export class SearchService {
   private excludeFolders: string[];
 
   public documentStore: DocumentStore;
-  public tokenizer: Tokenizer;
+  /**
+   * Note content tokenizer is used to tokenize the content of the note
+   */
+  public contentTokenizer: Tokenizer;
+  /**
+   * Note name tokenizer is used to tokenize the note name or folder name
+   */
+  public nameTokenizer: Tokenizer;
   public indexer: Indexer;
   public scoring: Scoring;
   public searchEngine: SearchEngine;
@@ -31,26 +37,20 @@ export class SearchService {
     ];
 
     // Initialize components
-    this.tokenizer = new Tokenizer();
+    this.contentTokenizer = new Tokenizer({
+      normalizers: [
+        'removeHtmlComments',
+        'lowercase',
+        'removeSpecialChars',
+        'removeVietnameseDiacritics',
+        'removeStwSelectedPatterns',
+      ],
+    });
 
-    // Add custom normalizers
-    this.tokenizer.addNormalizers(
-      {
-        name: 'removeVietnameseDiacritics',
-        apply: (content: string) => {
-          return content
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '') // Remove combining diacritical marks
-            .normalize('NFC');
-        },
-      },
-      {
-        name: 'removeStwSelectedPatterns',
-        apply: (content: string) => {
-          return content.replace(new RegExp(STW_SELECTED_PATTERN, 'g'), ' ');
-        },
-      }
-    );
+    this.nameTokenizer = new Tokenizer({
+      normalizers: ['lowercase', 'removeSpecialChars', 'removeVietnameseDiacritics'],
+      analyzers: ['wordDelimiter'],
+    });
 
     this.documentStore = new DocumentStore({
       app: this.plugin.app,
@@ -60,12 +60,14 @@ export class SearchService {
     this.indexer = new Indexer({
       app: this.plugin.app,
       documentStore: this.documentStore,
-      tokenizer: this.tokenizer,
+      contentTokenizer: this.contentTokenizer,
+      nameTokenizer: this.nameTokenizer,
     });
     this.scoring = new Scoring(this.documentStore);
     this.searchEngine = new SearchEngine({
       documentStore: this.documentStore,
-      tokenizer: this.tokenizer,
+      contentTokenizer: this.contentTokenizer,
+      nameTokenizer: this.nameTokenizer,
       scoring: this.scoring,
     });
   }

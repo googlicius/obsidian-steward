@@ -42,9 +42,17 @@ export interface PaginatedSearchResultV2 {
   totalPages: number;
 }
 
+export type SearchPatternType = 'exact' | 'startsWith' | 'contains';
+
+export interface ParsedRegexPattern {
+  originalName: string;
+  searchType: SearchPatternType;
+}
+
 export interface SearchEngineConfig {
   documentStore: DocumentStore;
-  tokenizer: Tokenizer;
+  contentTokenizer: Tokenizer;
+  nameTokenizer: Tokenizer;
   scoring: Scoring;
   termMatchThreshold?: number;
   similarityThreshold?: number;
@@ -52,23 +60,54 @@ export interface SearchEngineConfig {
 
 export class SearchEngine {
   private documentStore: DocumentStore;
-  private tokenizer: Tokenizer;
+  private contentTokenizer: Tokenizer;
+  private nameTokenizer: Tokenizer;
   private scoring: Scoring;
   private readonly TERM_MATCH_THRESHOLD: number;
   private readonly SIMILARITY_THRESHOLD: number;
 
   constructor({
     documentStore,
-    tokenizer,
+    contentTokenizer,
+    nameTokenizer,
     scoring,
     termMatchThreshold = 0.7,
     similarityThreshold = 0.7,
   }: SearchEngineConfig) {
     this.documentStore = documentStore;
-    this.tokenizer = tokenizer;
+    this.contentTokenizer = contentTokenizer;
+    this.nameTokenizer = nameTokenizer;
     this.scoring = scoring;
     this.TERM_MATCH_THRESHOLD = termMatchThreshold;
     this.SIMILARITY_THRESHOLD = similarityThreshold;
+  }
+
+  /**
+   * Parse a regex pattern string and determine the search type and original name
+   * Handles patterns like ^name$ (exact), ^name (startsWith), or name (contains)
+   */
+  parseRegexPattern(pattern: string): ParsedRegexPattern {
+    // Check if pattern is for exact match: ^name$
+    if (pattern.startsWith('^') && pattern.endsWith('$')) {
+      return {
+        originalName: pattern.slice(1, -1),
+        searchType: 'exact',
+      };
+    }
+
+    // Check if pattern is for starts with: ^name
+    if (pattern.startsWith('^')) {
+      return {
+        originalName: pattern.slice(1),
+        searchType: 'startsWith',
+      };
+    }
+
+    // Default case is contains: name
+    return {
+      originalName: pattern,
+      searchType: 'contains',
+    };
   }
 
   /**
@@ -104,7 +143,7 @@ export class SearchEngine {
     const matchedDocumentsWithScores: Array<{ document: IndexedDocument; score: number }> = [];
 
     for (const name of names) {
-      const terms = this.tokenizer.getUniqueTerms(name);
+      const terms = this.nameTokenizer.getUniqueTerms(name);
       if (terms.length === 0) continue;
 
       // Get document IDs from term entries
@@ -121,12 +160,33 @@ export class SearchEngine {
 
       // Filter documents by similarity score
       for (const doc of documents) {
-        // Calculate similarity between search name and document name
-        const similarityScore = similarity(name, doc.fileName);
+        const parsedName = this.parseRegexPattern(name);
+        let score = 0;
+
+        switch (parsedName.searchType) {
+          case 'contains':
+            if (doc.fileName.toLowerCase().includes(parsedName.originalName.toLowerCase())) {
+              score = 1.0;
+            }
+            break;
+
+          case 'exact':
+            score = similarity(parsedName.originalName, doc.fileName);
+            break;
+
+          case 'startsWith':
+            if (doc.fileName.toLowerCase().startsWith(parsedName.originalName.toLowerCase())) {
+              score = 1.0;
+            }
+            break;
+
+          default:
+            break;
+        }
 
         // If similarity is above threshold, add to matched documents with score
-        if (similarityScore >= this.SIMILARITY_THRESHOLD) {
-          matchedDocumentsWithScores.push({ document: doc, score: similarityScore });
+        if (score >= this.SIMILARITY_THRESHOLD) {
+          matchedDocumentsWithScores.push({ document: doc, score });
         }
       }
     }
@@ -187,7 +247,7 @@ export class SearchEngine {
 
     if (quotedContent) {
       const phrase = quotedContent;
-      const tokens = this.tokenizer.getUniqueTerms(phrase);
+      const tokens = this.contentTokenizer.getUniqueTerms(phrase);
       return {
         originalPhrase: phrase,
         tokens,
@@ -219,7 +279,7 @@ export class SearchEngine {
       }
 
       // Regular keyword matching (existing code)
-      const terms = this.tokenizer.getUniqueTerms(keyword);
+      const terms = this.contentTokenizer.getUniqueTerms(keyword);
       if (terms.length === 0) {
         continue;
       }
@@ -582,7 +642,6 @@ export class SearchEngine {
 
       if (filenames.length > 0) {
         matchedFilenameDocuments = await this.getDocumentsByNames(filenames);
-        logger.log('matchedFilenameDocuments', matchedFilenameDocuments, filenames);
       }
 
       const keywords = [];
@@ -599,8 +658,6 @@ export class SearchEngine {
         scopedDocuments: matchedFilenameDocuments,
         folders: matchedFolders,
       });
-
-      logger.log('documents', documents);
 
       documentsAcrossOperations.push(...documents);
     }

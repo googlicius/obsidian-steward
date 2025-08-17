@@ -72,14 +72,16 @@ export class ReadCommandHandler extends CommandHandler {
       }
 
       // Check if any tool call is for entire content and needs confirmation
-      const hasEntireReadType = contentReadingToolCalls.some(
+      const entireContentReadCall = contentReadingToolCalls.find(
         toolCall => toolCall.args.readType === 'entire'
       );
 
-      if (hasEntireReadType && !options.readEntireConfirmed) {
+      if (entireContentReadCall && !options.readEntireConfirmed) {
         await this.renderer.updateConversationNote({
           path: title,
-          newContent: t('read.readEntireContentConfirmation'),
+          newContent: t('read.readEntireContentConfirmation', {
+            noteName: entireContentReadCall.args.noteName,
+          }),
           role: 'Steward',
           command: 'read',
           lang,
