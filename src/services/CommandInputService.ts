@@ -60,13 +60,7 @@ export class CommandInputService {
     }
 
     // Fallback to the plugin's editor
-    if (this.plugin.editor) {
-      return this.plugin.editor;
-    }
-
-    throw new Error(
-      'No editor available. Either use withEditor() or ensure the plugin has an active editor.'
-    );
+    return this.plugin.editor;
   }
 
   /**
