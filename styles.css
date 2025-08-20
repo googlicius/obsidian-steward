@@ -113,6 +113,7 @@ body.stw-bordered-input .stw-input-line {
     background-color 0.2s ease,
     transform 0.1s ease;
   margin-bottom: 10px !important;
+  position: relative;
 
   &:active {
     transform: translateX(2px);
@@ -224,8 +225,8 @@ code[class*='language-stw-artifact'] {
   display: none;
 }
 
-/* User message buttons styling */
-.stw-user-message-buttons {
+/* Callout action buttons */
+.stw-callout-buttons {
   position: absolute;
   top: var(--size-2-1);
   right: var(--size-2-1);
@@ -235,11 +236,12 @@ code[class*='language-stw-artifact'] {
   transition: opacity 0.2s ease;
 }
 
-.callout[data-callout='stw-user-message']:hover .stw-user-message-buttons {
+.callout[data-callout='stw-user-message']:hover .stw-callout-buttons,
+.callout[data-callout='stw-search-result']:hover .stw-callout-buttons {
   opacity: 1;
 }
 
-.stw-user-message-button {
+.stw-callout-button {
   background-color: var(--background-modifier-hover);
   border: none;
   border-radius: var(--radius-s);

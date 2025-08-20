@@ -135,15 +135,15 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
       const callout = callouts[i] as HTMLElement;
 
       // Skip if buttons are already added
-      if (callout.querySelector('.stw-user-message-buttons')) continue;
+      if (callout.querySelector('.stw-callout-buttons')) continue;
 
       // Create buttons container
       const buttonsContainer = document.createElement('div');
-      buttonsContainer.classList.add('stw-user-message-buttons');
+      buttonsContainer.classList.add('stw-callout-buttons');
 
       // Create reload button
       const reloadButton = document.createElement('button');
-      reloadButton.classList.add('clickable-icon', 'stw-user-message-button');
+      reloadButton.classList.add('clickable-icon', 'stw-callout-button');
       setTooltip(reloadButton, i18next.t('Reload response'));
       setIcon(reloadButton, 'refresh-cw');
       reloadButton.addEventListener('click', (event: MouseEvent) => {
@@ -154,7 +154,7 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
 
       // Create delete button
       const deleteButton = document.createElement('button');
-      deleteButton.classList.add('clickable-icon', 'stw-user-message-button');
+      deleteButton.classList.add('clickable-icon', 'stw-callout-button');
       setTooltip(deleteButton, i18next.t('Delete message'));
       setIcon(deleteButton, 'trash');
       deleteButton.addEventListener('click', (event: MouseEvent) => {

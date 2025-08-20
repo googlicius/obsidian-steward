@@ -1,7 +1,7 @@
-import { MarkdownPostProcessor, TFile } from 'obsidian';
+import { MarkdownPostProcessor, MarkdownView, TFile, setIcon, setTooltip, Notice } from 'obsidian';
 import type StewardPlugin from 'src/main';
-import { EditorView } from '@codemirror/view';
 import { logger } from 'src/utils/logger';
+import i18next from 'i18next';
 
 /**
  * Creates a markdown post processor that adds click handling to search result callouts.
@@ -71,10 +71,8 @@ export function createCalloutSearchResultPostProcessor(
 
       // Get the editor from the file view directly
       const view = mainLeaf.view;
-      // @ts-ignore - Access the editor property which exists on MarkdownView but might not be in types
-      const editor = view.editor as Editor & {
-        cm: EditorView;
-      };
+
+      const editor = view instanceof MarkdownView ? view.editor : null;
 
       if (!editor) return;
 
@@ -91,26 +89,50 @@ export function createCalloutSearchResultPostProcessor(
           editor.setSelection(from, to);
         }
 
-        // Use CM6 scrolling for precise positioning
-        if (editor.cm) {
-          const linePosition = { line: startLineNum - 1, ch: startPos || 0 };
-          const offset = editor.posToOffset(linePosition);
+        const linePosition = { line: startLineNum - 1, ch: startPos || 0 };
 
-          // Dispatch a scrolling effect to center the cursor
-          editor.cm.dispatch({
-            effects: EditorView.scrollIntoView(offset, {
-              y: 'center',
-              yMargin: 50,
-            }),
-          });
-        }
+        editor.scrollIntoView({ from: linePosition, to: linePosition }, true);
       } catch (error) {
         logger.error('Error navigating to line:', error);
       }
     });
   };
 
-  return (el, ctx) => {
+  /**
+   * Handle copy button click to copy the search result content to clipboard
+   * @param event Mouse event
+   */
+  const handleCopyButtonClick = async (event: MouseEvent) => {
+    // Prevent the event from bubbling up to the callout click handler
+    event.preventDefault();
+    event.stopPropagation();
+
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'A') {
+      logger.log('Click on a link, skipping', target);
+      return;
+    }
+
+    const calloutEl = target.closest('.callout[data-callout="stw-search-result"]') as HTMLElement;
+
+    const { mdContent } = calloutEl.dataset;
+
+    if (!mdContent) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(mdContent);
+
+      // Show success notification
+      new Notice(i18next.t('ui.contentCopied'));
+    } catch (error) {
+      logger.error('Failed to copy content to clipboard:', error);
+      new Notice(i18next.t('ui.copyFailed'));
+    }
+  };
+
+  return el => {
     // Find all stw-search-result callouts in the current element
     const callouts = el.querySelectorAll('.callout[data-callout="stw-search-result"]');
 
@@ -118,6 +140,30 @@ export function createCalloutSearchResultPostProcessor(
 
     for (let i = 0; i < callouts.length; i++) {
       const callout = callouts[i] as HTMLElement;
+
+      // Check if it has mdContent data
+      const { mdContent } = callout.dataset;
+      if (mdContent) {
+        // Skip if buttons are already added
+        if (callout.querySelector('.stw-callout-buttons')) continue;
+
+        // Create buttons container
+        const buttonsContainer = document.createElement('div');
+        buttonsContainer.classList.add('stw-callout-buttons');
+
+        // Create copy button
+        const copyButton = document.createElement('button');
+        copyButton.classList.add('clickable-icon', 'stw-callout-button');
+        setTooltip(copyButton, i18next.t('Copy'));
+        setIcon(copyButton, 'copy');
+        copyButton.addEventListener('click', handleCopyButtonClick);
+
+        // Add button to container
+        buttonsContainer.appendChild(copyButton);
+
+        // Add container to callout
+        callout.appendChild(buttonsContainer);
+      }
 
       // Register a click event listener on the callout element
       callout.addEventListener('click', handleSearchResultCalloutClick);

@@ -194,6 +194,9 @@ const en = {
       commandPlaceholder: 'Press Enter to send',
       addToInlineConversation: 'Steward: Add to the inline conversation',
       addToChat: 'Steward: Add to the chat',
+      Copy: 'Copy',
+      contentCopied: 'Content copied to clipboard',
+      copyFailed: 'Failed to copy content to clipboard',
     },
     read: {
       noContentFound: 'No such content found in the editor.',
