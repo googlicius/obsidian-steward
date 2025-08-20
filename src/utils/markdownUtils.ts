@@ -37,10 +37,7 @@ export class MarkdownUtil {
    * @returns Encoded string safe for use in callout metadata
    */
   encodeForDataset() {
-    this.text = this.text
-      .replace(/:/g, '%3A') // Encode colon
-      .replace(/,/g, '%2C'); // Encode comma
-
+    this.text = this.text.replace(/:/g, '%3A').replace(/,/g, '%2C');
     return this;
   }
 
@@ -49,10 +46,7 @@ export class MarkdownUtil {
    * @returns Decoded original string
    */
   decodeFromDataset() {
-    this.text = this.text
-      .replace(/%3A/g, ':') // Decode colon
-      .replace(/%2C/g, ','); // Decode comma
-
+    this.text = this.text.replace(/%3A/g, ':').replace(/%2C/g, ',');
     return this;
   }
 

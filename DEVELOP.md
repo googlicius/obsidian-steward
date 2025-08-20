@@ -50,7 +50,7 @@
 - [ ] Test these queries:
       [ ] Append "Hello word" to the note 2025-07-24 (In chat, Gemini)
       [ ] Read the question above and tell me the result. Refer to the Operator note to get the operator
-- [ ] Add a Copy button to the search result callout.
+- [x] Add a Copy button to the search result callout.
 - [x] The selection text should be added at the end of the input. Currently, it's added at the head of the input.
 
 ### BUGS

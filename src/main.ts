@@ -9,10 +9,10 @@ import {
   getCommandBlock,
 } from './cm/extensions/CommandInputExtension';
 import { CommandInputService } from './services/CommandInputService';
-import { createCalloutSearchResultPostProcessor } from './cm/post-processors/CalloutSearchResultPostProcessor';
-import { createUserMessageButtonsProcessor } from './cm/post-processors/UserMessageButtonsProcessor';
-import { createCalloutMetadataProcessor } from './cm/post-processors/CalloutMetadataProcessor';
-import { createStwSelectedPostProcessor } from './cm/post-processors/StwSelectedPostProcessor';
+import { createCalloutSearchResultPostProcessor } from './post-processors/CalloutSearchResultPostProcessor';
+import { createUserMessageButtonsProcessor } from './post-processors/UserMessageButtonsProcessor';
+import { createCalloutMetadataProcessor } from './post-processors/CalloutMetadataProcessor';
+import { createStwSelectedPostProcessor } from './post-processors/StwSelectedPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -34,7 +34,7 @@ import {
 } from './constants';
 import { StewardChatView } from './views/StewardChatView';
 import { Events } from './types/events';
-import { createStewardConversationProcessor } from './cm/post-processors/StewardConversationProcessor';
+import { createStewardConversationProcessor } from './post-processors/StewardConversationProcessor';
 import { ObsidianEditor } from './types/types';
 import { isConversationLink, extractConversationTitle } from './utils/conversationUtils';
 import { CommandProcessorService } from './services/CommandProcessorService';
