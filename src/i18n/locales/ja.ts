@@ -179,6 +179,9 @@ const ja = {
       welcomeMessage:
         'いつでも利用可能なStewardチャットへようこそ。以下に入力して対話してください。',
       commandPlaceholder: '送信するにはEnterを押してください',
+      Copy: 'コピー',
+      contentCopied: 'コンテンツをクリップボードにコピーしました',
+      copyFailed: 'コンテンツのコピーに失敗しました',
     },
     read: {
       noContentFound: 'エディタにそのような内容が見つかりませんでした。',

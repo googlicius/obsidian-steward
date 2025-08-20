@@ -1,5 +1,5 @@
 import { STW_SELECTED_METADATA_PATTERN, STW_SELECTED_PATTERN } from 'src/constants';
-import { unescapeMarkdown } from './markdownUtils';
+import { MarkdownUtil } from './markdownUtils';
 
 export function convertStwSelectedTextToJson(userInput: string): string[] {
   if (!userInput.includes('{{stw-selected')) {
@@ -18,7 +18,7 @@ export function convertStwSelectedTextToJson(userInput: string): string[] {
       noteName,
       fromLine,
       toLine,
-      selection: unescapeMarkdown(escapedSelection),
+      selection: new MarkdownUtil(escapedSelection).unescape().getText(),
     });
   });
 }

@@ -180,6 +180,9 @@ const vi = {
       commandPlaceholder: 'Nhấn Enter để gửi',
       addToInlineConversation: 'Steward: Thêm vào cuộc trò chuyện nội tuyến',
       addToChat: 'Steward: Thêm vào trò chuyện',
+      Copy: 'Sao chép',
+      contentCopied: 'Nội dung đã được sao chép vào clipboard',
+      copyFailed: 'Không thể sao chép nội dung vào clipboard',
     },
     read: {
       noContentFound: 'Không tìm thấy nội dung như vậy trong trình soạn thảo.',

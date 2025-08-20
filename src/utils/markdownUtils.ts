@@ -1,24 +1,62 @@
-/**
- * Escapes common Markdown special characters in a string by prepending a backslash.
- * This is useful for rendering text literally without Markdown processing.
- */
-export function escapeMarkdown(text: string, escapeNewlines = false) {
-  const specialChars = /[\\`*_{}[\]()#+-.!|>~^]/g;
+export class MarkdownUtil {
+  private text: string;
 
-  let escaped = text.replace(specialChars, '\\$&');
-
-  if (escapeNewlines) {
-    escaped = escaped.replace(/\n/g, '\\n');
+  constructor(text: string) {
+    this.text = text;
   }
 
-  return escaped;
-}
+  /**
+   * Escapes common Markdown special characters in a string by prepending a backslash.
+   * This is useful for rendering text literally without Markdown processing.
+   */
+  escape(escapeNewlines = false) {
+    const specialChars = /[\\`*_{}[\]()#+-.!|>~^]/g;
 
-/**
- * Unescapes Markdown special characters in a string by removing the prepended backslash.
- */
-export function unescapeMarkdown(text: string) {
-  const escapedChars = /\\(?=[`*_{}[\]()#+-.!|>~^])/g;
+    this.text = this.text.replace(specialChars, '\\$&');
 
-  return text.replace(escapedChars, '').replace(/\\n/g, '\n');
+    if (escapeNewlines) {
+      this.text = this.text.replace(/\n/g, '\\n');
+    }
+
+    return this;
+  }
+
+  unescape() {
+    const escapedChars = /\\(?=[`*_{}[\]()#+-.!|>~^])/g;
+
+    this.text = this.text.replace(escapedChars, '').replace(/\\n/g, '\n');
+
+    this.decodeFromDataset();
+
+    return this;
+  }
+
+  /**
+   * Encodes special characters that would break dataset key:value parsing.
+   * Specifically handles ':' and ',' which are used as delimiters in callout metadata.
+   * @returns Encoded string safe for use in callout metadata
+   */
+  encodeForDataset() {
+    this.text = this.text
+      .replace(/:/g, '%3A') // Encode colon
+      .replace(/,/g, '%2C'); // Encode comma
+
+    return this;
+  }
+
+  /**
+   * Decodes a string that was encoded with encodeForDataset.
+   * @returns Decoded original string
+   */
+  decodeFromDataset() {
+    this.text = this.text
+      .replace(/%3A/g, ':') // Decode colon
+      .replace(/%2C/g, ','); // Decode comma
+
+    return this;
+  }
+
+  getText() {
+    return this.text;
+  }
 }

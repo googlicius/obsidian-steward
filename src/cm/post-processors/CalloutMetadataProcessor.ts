@@ -1,4 +1,5 @@
 import { MarkdownPostProcessor } from 'obsidian';
+import { MarkdownUtil } from 'src/utils/markdownUtils';
 
 /**
  * Creates a markdown post processor that extracts data from the callout title text
@@ -32,7 +33,7 @@ export function createCalloutMetadataProcessor(): MarkdownPostProcessor {
       for (const pair of dataPairs) {
         const [key, value] = pair.split(':').map(s => s.trim());
         if (key && value) {
-          callout.dataset[key] = value;
+          callout.dataset[key] = new MarkdownUtil(value).unescape().decodeFromDataset().getText();
         }
       }
     }

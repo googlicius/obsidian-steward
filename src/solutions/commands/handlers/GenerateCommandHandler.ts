@@ -25,6 +25,7 @@ import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragmen
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { STW_SELECTED_PATTERN } from 'src/constants';
+import { MarkdownUtil } from 'src/utils/markdownUtils';
 
 const abortService = AbortService.getInstance();
 
@@ -103,8 +104,10 @@ The response should be in natural language and not include the selection(s) {{st
         };
       }
 
+      const noteName = readArtifact.readingResult.file?.name || 'current';
+
       systemPrompts.push(
-        `The content from the current note:\n${JSON.stringify(
+        `The read command's content from the ${noteName} note:\n${JSON.stringify(
           readArtifact.readingResult.blocks.map(block => block.content)
         )}`
       );
@@ -206,7 +209,16 @@ The response should be in natural language and not include the selection(s) {{st
         for (const update of extraction.updates) {
           await this.renderer.updateConversationNote({
             path: title,
-            newContent: this.plugin.noteContentService.formatCallout(update.updatedContent),
+            newContent: this.plugin.noteContentService.formatCallout(
+              update.updatedContent,
+              'stw-search-result',
+              {
+                mdContent: new MarkdownUtil(update.updatedContent)
+                  .escape(true)
+                  .encodeForDataset()
+                  .getText(),
+              }
+            ),
             lang,
           });
         }

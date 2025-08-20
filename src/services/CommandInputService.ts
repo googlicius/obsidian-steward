@@ -1,7 +1,7 @@
 import { Editor, Notice } from 'obsidian';
 import { isContinuationLine } from 'src/cm/extensions/CommandInputExtension';
 import { UserDefinedCommandService } from './UserDefinedCommandService';
-import { escapeMarkdown } from 'src/utils/markdownUtils';
+import { MarkdownUtil } from 'src/utils/markdownUtils';
 import type StewardPlugin from 'src/main';
 import { StewardChatView } from 'src/views/StewardChatView';
 import { logger } from 'src/utils/logger';
@@ -120,7 +120,7 @@ export class CommandInputService {
     const cursorTo = this.getEditor().getCursor('to');
     const selection = this.getEditor().getSelection();
 
-    return `{{stw-selected from:${cursorFrom.line + 1},to:${cursorTo.line + 1},selection:${escapeMarkdown(selection, true)},path:${filePath}}}`;
+    return `{{stw-selected from:${cursorFrom.line + 1},to:${cursorTo.line + 1},selection:${new MarkdownUtil(selection).escape(true).getText()},path:${filePath}}}`;
   }
 
   /**
