@@ -225,6 +225,28 @@ code[class*='language-stw-artifact'] {
   display: none;
 }
 
+/* Conversation buttons container */
+.stw-conversation-buttons {
+  position: absolute;
+  top: var(--size-2-2);
+  inset-inline-end: var(--size-2-2);
+  display: flex;
+
+  & > .stw-conversation-button {
+    color: var(--icon-color);
+    opacity: var(--icon-opacity);
+    cursor: var(--cursor-link);
+    padding: var(--size-2-1);
+    border-radius: var(--radius-s);
+
+    &:hover {
+      color: var(--icon-color-hover);
+      opacity: var(--icon-opacity-hover);
+      background: var(--background-modifier-hover);
+    }
+  }
+}
+
 /* Callout action buttons */
 .stw-callout-buttons {
   position: absolute;
@@ -234,31 +256,31 @@ code[class*='language-stw-artifact'] {
   gap: var(--size-2-2);
   opacity: 0;
   transition: opacity 0.2s ease;
+
+  & > .stw-callout-button {
+    background-color: var(--background-modifier-hover);
+    border: none;
+    border-radius: var(--radius-s);
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--size-2-1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
+
+    &:hover {
+      background-color: var(--background-modifier-border);
+      color: var(--text-normal);
+    }
+  }
 }
 
 .callout[data-callout='stw-user-message']:hover .stw-callout-buttons,
 .callout[data-callout='stw-search-result']:hover .stw-callout-buttons {
   opacity: 1;
-}
-
-.stw-callout-button {
-  background-color: var(--background-modifier-hover);
-  border: none;
-  border-radius: var(--radius-s);
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: var(--size-2-1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease;
-
-  &:hover {
-    background-color: var(--background-modifier-border);
-    color: var(--text-normal);
-  }
 }
 
 .stw-selected-button {
@@ -271,6 +293,20 @@ code[class*='language-stw-artifact'] {
   cursor: pointer;
   font-size: 0.9em;
   padding: var(--size-2-1);
+}
+
+.stw-squeezed-button {
+  border-radius: var(--radius-s);
+  border: thin solid var(--background-modifier-border);
+  cursor: pointer;
+  font-size: 0.9em;
+  padding: var(--size-2-1);
+  display: inline-flex;
+  align-items: center;
+
+  &:hover {
+    background: var(--background-modifier-hover);
+  }
 }
 
 /* Visibility classes for settings */

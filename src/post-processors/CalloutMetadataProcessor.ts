@@ -10,10 +10,8 @@ import { MarkdownUtil } from 'src/utils/markdownUtils';
  */
 export function createCalloutMetadataProcessor(): MarkdownPostProcessor {
   return (el, ctx) => {
-    // Find all supported callouts in the current element
-    const callouts = el.querySelectorAll(
-      '.callout[data-callout="stw-search-result"], .callout[data-callout="stw-user-message"]'
-    );
+    // Find all callouts with `stw-` prefix in the current element
+    const callouts = el.querySelectorAll('.callout[data-callout^="stw-"]');
 
     if (!callouts.length) return;
 

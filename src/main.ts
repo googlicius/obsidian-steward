@@ -47,6 +47,7 @@ import { NoteContentService } from './services/NoteContentService';
 import { LLMService } from './services/LLMService';
 import stewardIcon from './assets/steward-icon.svg';
 import { createStwSelectedBlocksExtension } from './cm/extensions/StwSelectedBlockExtension';
+import { createStwSqueezedBlocksExtension } from './cm/extensions/StwSqueezedBlockExtension';
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -231,6 +232,7 @@ export default class StewardPlugin extends Plugin {
         onEnter: this.handleEnter.bind(this),
       }),
       createStwSelectedBlocksExtension(this),
+      createStwSqueezedBlocksExtension(this),
     ]);
 
     // Register context menu for editor
@@ -590,7 +592,10 @@ export default class StewardPlugin extends Plugin {
     return null;
   }
 
-  async closeConversation(conversationTitle: string): Promise<boolean> {
+  async closeConversation(
+    conversationTitle: string,
+    action: 'close' | 'squeeze' = 'close'
+  ): Promise<boolean> {
     try {
       if (!this.editor) {
         new Notice(i18next.t('ui.noActiveEditor', { conversationTitle }));
@@ -651,7 +656,7 @@ export default class StewardPlugin extends Plugin {
         changes: {
           from: linkFrom,
           to: linkTo,
-          insert: '',
+          insert: action === 'squeeze' ? '{{stw-squeezed ' + conversationTitle + ' }}' : '',
         },
       });
 
