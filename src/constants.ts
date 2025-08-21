@@ -19,6 +19,9 @@ export const IMAGE_LINK_PATTERN = '!\\[\\[(.*?\\.(jpg|jpeg|png|webp|svg))(?:\\|.
 // Pattern to match any stw-selected block (with capture group for splitting)
 export const STW_SELECTED_PATTERN = '(\\{\\{stw-selected.*?\\}\\})';
 
+// Pattern to match {{stw-squeezed [[<path>]] }}
+export const STW_SQUEEZED_PATTERN = '\\{\\{stw-squeezed \\[\\[([^\\]]+)\\]\\] \\}\\}';
+
 // Pattern to match any wikilink
 export const WIKI_LINK_PATTERN = '\\[\\[([^\\]]+)\\]\\]';
 

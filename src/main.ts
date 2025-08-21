@@ -656,7 +656,7 @@ export default class StewardPlugin extends Plugin {
         changes: {
           from: linkFrom,
           to: linkTo,
-          insert: action === 'squeeze' ? '{{stw-squeezed ' + conversationTitle + ' }}' : '',
+          insert: action === 'squeeze' ? '{{stw-squeezed [[' + conversationTitle + ']] }}' : '',
         },
       });
 

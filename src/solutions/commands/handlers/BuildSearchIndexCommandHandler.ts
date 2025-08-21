@@ -31,7 +31,7 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
     try {
       const t = getTranslation(lang);
 
-      const files = await this.plugin.searchService.documentStore.getAllMarkdownFiles();
+      const files = await this.plugin.searchService.documentStore.getAllFiles();
       const validFiles = files.filter(
         file => !this.plugin.searchService.documentStore.isExcluded(file.path)
       );
@@ -48,7 +48,7 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
         };
       }
 
-      // Show found notes message and privacy notice for all scenarios
+      // Show found files message and privacy notice for all scenarios
       await this.renderer.updateConversationNote({
         path: title,
         newContent:
@@ -196,6 +196,9 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
         command: 'build_search_index',
         lang,
       });
+
+      // Set the index as built after successful indexing
+      this.plugin.searchService.indexer.setIndexBuilt(true);
 
       return {
         status: CommandResultStatus.SUCCESS,
