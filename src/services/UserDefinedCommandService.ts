@@ -74,7 +74,7 @@ export class UserDefinedCommandService {
       // 	await this.plugin.app.vault.createFolder(this.commandFolder);
       // }
 
-      this.plugin.app.workspace.onLayoutReady(() => {
+      this.plugin.app.workspace.onLayoutReady(async () => {
         this.plugin.registerEvent(
           this.plugin.app.vault.on('create', file => {
             if (file instanceof TFile) {
@@ -82,6 +82,9 @@ export class UserDefinedCommandService {
             }
           })
         );
+
+        // Load all command definitions
+        await this.loadAllCommands();
       });
 
       this.plugin.registerEvent(
@@ -98,12 +101,6 @@ export class UserDefinedCommandService {
           }
         })
       );
-
-      // Wait for the vault to be ready
-      await sleep(1000);
-
-      // Load all command definitions
-      await this.loadAllCommands();
     } catch (error) {
       logger.error('Error initializing UserDefinedCommandService:', error);
     }

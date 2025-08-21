@@ -1,5 +1,5 @@
 import { removeStopwords } from '../../stopwords';
-import { STW_SELECTED_PATTERN } from '../../constants';
+import { STW_SELECTED_PATTERN, STW_SQUEEZED_PATTERN } from '../../constants';
 
 export interface Token {
   term: string;
@@ -79,6 +79,8 @@ export const ALL_NORMALIZERS: Record<string, (content: string) => string> = {
       .normalize('NFC'),
   removeStwSelectedPatterns: (content: string) =>
     content.replace(new RegExp(STW_SELECTED_PATTERN, 'g'), ' '),
+  removeStwSqueezedPatterns: (content: string) =>
+    content.replace(new RegExp(STW_SQUEEZED_PATTERN, 'g'), ' '),
 };
 
 export class Tokenizer {

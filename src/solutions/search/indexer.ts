@@ -19,6 +19,7 @@ export class Indexer {
   private nameTokenizer: Tokenizer;
   private indexingQueue: string[] = [];
   private isIndexing = false;
+  private isIndexBuilt = false;
   // Simple cache for current note
   private cachedNotePath: string | null = null;
   private cachedNoteTermsCount = 0;
@@ -39,6 +40,9 @@ export class Indexer {
     // Listen for active leaf changes to update the cache
     eventRefs.push(
       this.app.workspace.on('active-leaf-change', async leaf => {
+        // Skip if index is not built
+        if (!this.isIndexBuilt) return;
+
         const view = leaf?.view;
         if (view instanceof MarkdownView && view.file) {
           const file = view.file;
@@ -55,63 +59,81 @@ export class Indexer {
     eventRefs.push(
       // Listen for file creations
       this.app.vault.on('create', async file => {
-        if (file instanceof TFile && file.extension === 'md') {
+        // Skip if index is not built
+        if (!this.isIndexBuilt) return;
+
+        if (file instanceof TFile) {
           this.queueFileForIndexing(file.path);
         }
       }),
       // Listen for file modifications
       this.app.vault.on('modify', async file => {
-        if (file instanceof TFile && file.extension === 'md') {
+        // Skip if index is not built
+        if (!this.isIndexBuilt) return;
+
+        if (file instanceof TFile) {
           // Skip files in excluded folders
           if (this.documentStore.isExcluded(file.path)) {
             return;
           }
 
-          // Check if file content contains command prefixes before indexing
-          const content = await this.app.vault.read(file);
+          // For markdown files, do special handling with command prefixes and caching
+          if (file.extension === 'md') {
+            // Check if file content contains command prefixes before indexing
+            const content = await this.app.vault.read(file);
 
-          // Check if this is the cached note
-          if (this.cachedNotePath === file.path) {
-            // Get new terms count
-            const newTerms = this.contentTokenizer.tokenize(content);
-            const newTermsCount = newTerms.length;
+            // Check if this is the cached note
+            if (this.cachedNotePath === file.path) {
+              // Get new terms count
+              const newTerms = this.contentTokenizer.tokenize(content);
+              const newTermsCount = newTerms.length;
 
-            // If terms count differs, reindex
-            if (this.cachedNoteTermsCount !== newTermsCount) {
-              logger.log(
-                `Terms count changed for ${file.path}: ${this.cachedNoteTermsCount} -> ${newTermsCount}`
-              );
-              this.queueFileForIndexing(file.path);
+              // If terms count differs, reindex
+              if (this.cachedNoteTermsCount !== newTermsCount) {
+                logger.log(
+                  `Terms count changed for ${file.path}: ${this.cachedNoteTermsCount} -> ${newTermsCount}`
+                );
+                this.queueFileForIndexing(file.path);
 
-              // Update cache with new terms count
-              this.cachedNoteTermsCount = newTermsCount;
+                // Update cache with new terms count
+                this.cachedNoteTermsCount = newTermsCount;
+              } else {
+                logger.log(`Terms count unchanged for ${file.path}, skipping indexing`);
+              }
             } else {
-              logger.log(`Terms count unchanged for ${file.path}, skipping indexing`);
+              // Not the cached note, proceed with normal indexing
+              this.queueFileForIndexing(file.path);
             }
           } else {
-            // Not the cached note, proceed with normal indexing
+            // For non-markdown files, just queue for indexing
             this.queueFileForIndexing(file.path);
           }
         }
       }),
       // Listen for file deletions
       this.app.vault.on('delete', file => {
-        if (file instanceof TFile && file.extension === 'md') {
+        // Skip if index is not built
+        if (!this.isIndexBuilt) return;
+
+        if (file instanceof TFile) {
           this.removeFromIndex(file.path);
 
-          // Clear cache if this was the cached note
-          if (this.cachedNotePath === file.path) {
+          // Clear cache if this was the cached note (for markdown files)
+          if (file.extension === 'md' && this.cachedNotePath === file.path) {
             this.clearCachedNote();
           }
         }
       }),
       // Listen for file renames
       this.app.vault.on('rename', async (file, oldPath: string) => {
-        if (file instanceof TFile && file.extension === 'md') {
+        // Skip if index is not built
+        if (!this.isIndexBuilt) return;
+
+        if (file instanceof TFile) {
           this.removeFromIndex(oldPath);
 
-          // Update cache if this was the cached note
-          if (this.cachedNotePath === oldPath) {
+          // Update cache if this was the cached note (for markdown files)
+          if (file.extension === 'md' && this.cachedNotePath === oldPath) {
             this.cachedNotePath = file.path;
           }
 
@@ -162,7 +184,7 @@ export class Indexer {
       if (!filePath) return;
       const file = this.app.vault.getFileByPath(filePath);
 
-      if (file && file.extension === 'md') {
+      if (file) {
         await this.indexFile(file);
       }
     } catch (error) {
@@ -186,27 +208,35 @@ export class Indexer {
         return;
       }
 
-      const content = await this.documentStore.readFile(file);
-
-      // Skip files with command prefixes
-      if (this.containsCommandPrefix(content)) {
-        return;
-      }
-
-      const cache = this.documentStore.getFileCache(file);
-
-      // Extract tags from content and frontmatter
+      let content = '';
       const tags: string[] = [];
-      if (cache?.tags) {
-        tags.push(...cache.tags.map(t => t.tag));
-      }
 
-      if (cache?.frontmatter?.tags) {
-        if (Array.isArray(cache.frontmatter.tags)) {
-          tags.push(...cache.frontmatter.tags.map((t: string) => `#${t}`));
-        } else if (typeof cache.frontmatter.tags === 'string') {
-          tags.push(`#${cache.frontmatter.tags}`);
+      // Process file based on its type
+      if (file.extension === 'md') {
+        content = await this.documentStore.readFile(file);
+
+        // Skip markdown files with command prefixes
+        if (this.containsCommandPrefix(content)) {
+          return;
         }
+
+        const cache = this.documentStore.getFileCache(file);
+
+        // Extract tags from content and frontmatter for markdown files
+        if (cache?.tags) {
+          tags.push(...cache.tags.map(t => t.tag));
+        }
+
+        if (cache?.frontmatter?.tags) {
+          if (Array.isArray(cache.frontmatter.tags)) {
+            tags.push(...cache.frontmatter.tags.map((t: string) => `#${t}`));
+          } else if (typeof cache.frontmatter.tags === 'string') {
+            tags.push(`#${cache.frontmatter.tags}`);
+          }
+        }
+      } else {
+        // For non-markdown files, use the filename as content
+        content = file.basename;
       }
 
       // Extract the folder path from the file path
@@ -351,27 +381,6 @@ export class Indexer {
   }
 
   /**
-   * Index all files in the vault
-   */
-  public async indexAllFiles() {
-    const files = await this.documentStore.getAllMarkdownFiles();
-
-    // Clear the current queue
-    this.indexingQueue = [];
-
-    // Add all files to the queue, excluding excluded folders and files with commands
-    for (const file of files) {
-      if (!this.documentStore.isExcluded(file.path)) {
-        try {
-          this.queueFileForIndexing(file.path);
-        } catch (error) {
-          logger.error(`Error checking file ${file.path}:`, error);
-        }
-      }
-    }
-  }
-
-  /**
    * Update the cached note terms count
    */
   private async updateCachedNote(file: TFile): Promise<void> {
@@ -395,5 +404,13 @@ export class Indexer {
   private clearCachedNote(): void {
     this.cachedNotePath = null;
     this.cachedNoteTermsCount = 0;
+  }
+
+  /**
+   * Set the index built status
+   */
+  public setIndexBuilt(status: boolean): void {
+    this.isIndexBuilt = status;
+    logger.log(`Search index built status set to: ${status}`);
   }
 }

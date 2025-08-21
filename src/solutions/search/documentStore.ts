@@ -1,6 +1,10 @@
-import { App, TFile } from 'obsidian';
-import { SearchDatabase } from '../../database/SearchDatabase';
-import { IndexedDocument, IndexedFolder, IndexedTerm } from '../../database/SearchDatabase';
+import type { App, TFile } from 'obsidian';
+import {
+  SearchDatabase,
+  IndexedDocument,
+  IndexedFolder,
+  IndexedTerm,
+} from '../../database/SearchDatabase';
 import { logger } from 'src/utils/logger';
 
 export interface DocumentStoreConfig {
@@ -44,6 +48,15 @@ export class DocumentStore {
    */
   public async getAllMarkdownFiles(): Promise<TFile[]> {
     return this.app.vault.getMarkdownFiles();
+  }
+
+  /**
+   * Get all files from the vault
+   */
+  public async getAllFiles(): Promise<TFile[]> {
+    // Get all files from the vault
+    const allFiles = this.app.vault.getFiles();
+    return allFiles;
   }
 
   /**

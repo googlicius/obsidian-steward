@@ -51,7 +51,8 @@
 - [x] Add a Copy button to the search result callout.
 - [x] The selection text should be added at the end of the input. Currently, it's added at the head of the input.
 - [ ] When users send query "yes/no", if there no current conformation, leave it as the other queries.
-- [ ] Create a "Squeeze" button to squeeze a conversation into a small button that can
+- [x] Create a "Squeeze" button to squeeze a conversation into a small button that can expand to a normal conversation.
+- [x] Search all files
 
 ### BUGS
 

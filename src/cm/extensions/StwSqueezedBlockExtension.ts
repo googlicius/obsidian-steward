@@ -10,14 +10,11 @@ import { Decoration, WidgetType, EditorView, DecorationSet } from '@codemirror/v
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { setIcon, setTooltip } from 'obsidian';
-import { SMILE_CHAT_ICON_ID } from 'src/constants';
+import { SMILE_CHAT_ICON_ID, STW_SQUEEZED_PATTERN } from 'src/constants';
 import i18next from 'i18next';
 
 // Define an effect to trigger recomputation of widgets
 const updateWidgets = StateEffect.define();
-
-// Pattern to match {{stw-squeezed path }}
-const STW_SQUEEZED_PATTERN = '\\{\\{stw-squeezed ([^}]+) \\}\\}';
 
 export function createStwSqueezedBlocksExtension(plugin: StewardPlugin) {
   // Widget for rendering the {{stw-squeezed...}} block
@@ -30,7 +27,6 @@ export function createStwSqueezedBlocksExtension(plugin: StewardPlugin) {
       const span = document.createElement('span');
       span.className = 'stw-squeezed-button';
 
-      // Parse the content to extract the conversation path
       const match = this.content.match(new RegExp(STW_SQUEEZED_PATTERN));
 
       if (match) {
@@ -61,7 +57,7 @@ export function createStwSqueezedBlocksExtension(plugin: StewardPlugin) {
                 changes: {
                   from: widgetPos,
                   to: widgetPos + this.content.length,
-                  insert: `![[${conversationPath}]]\n\n/ `,
+                  insert: `![[${plugin.settings.stewardFolder}/Conversations/${conversationPath}]]\n\n/ `,
                 },
               });
             }

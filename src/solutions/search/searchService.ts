@@ -102,6 +102,10 @@ export class SearchService {
       return;
     }
 
+    // Check if index is built and set the flag accordingly
+    const isIndexBuilt = await this.documentStore.isIndexBuilt();
+    this.indexer.setIndexBuilt(isIndexBuilt);
+
     // Setup event listeners
     this.plugin.app.workspace.onLayoutReady(() => {
       const eventRefs = this.indexer.setupEventListeners();
@@ -111,13 +115,6 @@ export class SearchService {
         this.plugin.registerEvent(eventRef);
       }
     });
-
-    // Check if index is built
-    const indexBuilt = await this.documentStore.isIndexBuilt();
-    if (!indexBuilt) {
-      // Build index if not already built
-      await this.indexer.indexAllFiles();
-    }
 
     this.isInitialized = true;
   }
