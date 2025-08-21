@@ -10,6 +10,7 @@ import { Events } from 'src/types/events';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { extractUpdateFromSearchResult, UpdateInstruction } from 'src/lib/modelfusion/extractions';
 import type StewardPlugin from 'src/main';
+import { logger } from 'src/utils/logger';
 
 export class UpdateCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -216,6 +217,7 @@ export class UpdateCommandHandler extends CommandHandler {
             }
 
             if (!contentChanged) {
+              logger.log(`Skipping ${doc.path} because it didn't change`);
               skippedFiles.push(doc.path);
               continue;
             }

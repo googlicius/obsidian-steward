@@ -1,13 +1,27 @@
 import i18next from 'i18next';
-import { MarkdownPostProcessor, setIcon } from 'obsidian';
+import { MarkdownPostProcessor, setIcon, setTooltip } from 'obsidian';
 import type StewardPlugin from 'src/main';
 
 export function createStewardConversationProcessor(plugin: StewardPlugin): MarkdownPostProcessor {
   const handleCloseButtonClick = (event: MouseEvent, conversationPath: string) => {
     conversationPath = conversationPath.replace('.md', '');
     const conversationTitle = conversationPath.split('/').pop();
-    plugin.closeConversation(conversationTitle as string);
-    plugin.editor.focus();
+    if (conversationTitle) {
+      plugin.closeConversation(conversationTitle);
+      plugin.editor.focus();
+    }
+  };
+
+  const handleSqueezeButtonClick = async (event: MouseEvent, conversationPath: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    conversationPath = conversationPath.replace('.md', '');
+    const conversationTitle = conversationPath.split('/').pop();
+    if (conversationTitle) {
+      plugin.closeConversation(conversationTitle, 'squeeze');
+      plugin.editor.focus();
+    }
   };
 
   return (el, ctx) => {
@@ -39,17 +53,36 @@ export function createStewardConversationProcessor(plugin: StewardPlugin): Markd
           markdownEmbedLink.remove();
         }
 
+        // Create button container for better positioning
+        const buttonContainer = document.createElement('div');
+        buttonContainer.classList.add('stw-conversation-buttons');
+
+        // Add squeeze button
+        const squeezeButton = document.createElement('button');
+        squeezeButton.classList.add('stw-conversation-button', 'clickable-icon');
+        setTooltip(squeezeButton, i18next.t('chat.squeezeConversation'));
+        setIcon(squeezeButton, 'minimize-2');
+        squeezeButton.addEventListener('click', (event: MouseEvent) => {
+          event.preventDefault();
+          event.stopPropagation();
+          handleSqueezeButtonClick(event, ctx.sourcePath);
+        });
+        buttonContainer.appendChild(squeezeButton);
+
         // Add close button
-        const closeButton = document.createElement('div');
-        closeButton.classList.add('markdown-embed-link');
-        closeButton.title = i18next.t('chat.closeConversation');
+        const closeButton = document.createElement('button');
+        closeButton.classList.add('stw-conversation-button', 'clickable-icon');
+        setTooltip(closeButton, i18next.t('chat.closeConversation'));
         setIcon(closeButton, 'x');
         closeButton.addEventListener('click', (event: MouseEvent) => {
           event.preventDefault();
           event.stopPropagation();
           handleCloseButtonClick(event, ctx.sourcePath);
         });
-        embedEl.appendChild(closeButton);
+        buttonContainer.appendChild(closeButton);
+
+        // Add the button container to the embed
+        embedEl.appendChild(buttonContainer);
       }
     });
   };

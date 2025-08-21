@@ -15,8 +15,6 @@
 - [ ] Extract user's intent correctly based on the context
       Given a query: "I made a mistake, please help me delete it"
       If the PREVIOUS command is "Adding a tag to notes", Then this will NOT be classified as "delete_from_search_result"
-- [ ] Recommendation, based on recently activities.
-- [ ] Understanding the current user intent, for example: If user updating a bulleted list to a numbered list, suggest to update the whole list.
 - [ ] Maintain a classify_reliably score (start with a moderate score) to mitigate classification mistakes.
       And this score is increase over time. Classified scores from user's queries is used for intent extraction until it reaches a high score.
 - [x] Rename those commands move, copy, etc from the search results to "from the artifact"
@@ -52,6 +50,8 @@
       [ ] Read the question above and tell me the result. Refer to the Operator note to get the operator
 - [x] Add a Copy button to the search result callout.
 - [x] The selection text should be added at the end of the input. Currently, it's added at the head of the input.
+- [ ] When users send query "yes/no", if there no current conformation, leave it as the other queries.
+- [ ] Create a "Squeeze" button to squeeze a conversation into a small button that can
 
 ### BUGS
 

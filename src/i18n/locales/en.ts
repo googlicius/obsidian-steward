@@ -41,6 +41,8 @@ const en = {
       stewardChat: 'Steward Chat',
       closeConversation: 'Close conversation',
       conversationClosed: 'Conversation closed',
+      squeezeConversation: 'Squeeze conversation',
+      expandConversation: 'Expand conversation',
     },
     // Media generation messages
     media: {

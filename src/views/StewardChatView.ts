@@ -1,4 +1,4 @@
-import { MarkdownView, setIcon } from 'obsidian';
+import { MarkdownView, setIcon, setTooltip } from 'obsidian';
 import { STW_CHAT_VIEW_CONFIG } from '../constants';
 import { logger } from 'src/utils/logger';
 import i18next from 'i18next';
@@ -82,7 +82,7 @@ export class StewardChatView extends MarkdownView {
         cls: 'steward-header-button clickable-icon',
       });
       setIcon(newChatBtn, 'plus-circle');
-      newChatBtn.title = i18next.t('chat.newChat');
+      setTooltip(newChatBtn, i18next.t('chat.newChat'));
       newChatBtn.addEventListener('click', () => this.handleNewChat());
 
       // History button
@@ -98,7 +98,7 @@ export class StewardChatView extends MarkdownView {
         cls: 'steward-header-button clickable-icon',
       });
       setIcon(closeBtn, 'x');
-      closeBtn.title = i18next.t('chat.closeChat');
+      setTooltip(closeBtn, i18next.t('chat.closeChat'));
       closeBtn.addEventListener('click', () => this.plugin.toggleChat());
     }
   }
