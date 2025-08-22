@@ -27,7 +27,7 @@ exports[`commands formatCommandsForPrompt should return formatted commands for p
 - "build_search_index" (aliases: index, build-index, search-index): Build or rebuild the search index for all markdown files in the vault
   Use when: Build or rebuild the search index for all markdown files in the vault
 - "generate": Generate content with the LLM help (either in a new note or in the conversation). You also can "generate" from the provided content in the user's query without reading the note. Example: "Help me update this list to the numbered list:\\n- Item 1\\n- Item 2" -> ["generate"]. The list is already in the query.
-  Use when: Ask or generate content with the your help
+  Use when: Ask or generate content with your help
 - "read": Read content from the current note or specific position: "above", "below". Use this when you don't know the content and need to retrieve it before proceeding
   Use when: Read or Find content based on a specific pattern in their current note"
 `;

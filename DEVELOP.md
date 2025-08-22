@@ -45,7 +45,7 @@
 - [ ] Ensure the highlightKeywords function has the same behavior as the tokenizer.normalizers.
 - [ ] Add search records per page setting
 - [x] Test these queries:
-      [ ] Append "Hello word" to the note 2025-07-24 (In chat, Gemini)
+      [x] Append "Hello word" to the note 2025-07-24 (In chat, Gemini)
       [ ] Read the question above and tell me the result. Refer to the Operator note to get the operator
 - [x] Add a Copy button to the search result callout.
 - [x] The selection text should be added at the end of the input. Currently, it's added at the head of the input.
