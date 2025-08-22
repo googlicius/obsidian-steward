@@ -35,7 +35,6 @@
 - [x] Let the LLM aware of artifacts for more transparency by providing a tool to read one or many artifacts if necessary.
 - [ ] Edit a message (Using linked list to store a multiple histories in a conversation)
 - [x] Acknowledging the conversation history to the LLM while extract user's intent for better extraction.
-- [ ] Toggle classification
 - [x] Toggle show/hide pronouns. Pronouns could look redundant; Let the user decide whether to show them or not.
 - [ ] Adds a command prefix input to the setting. Default is `/`. This allow the user to change the prefix if the default conflicts with their use.
 - [x] Provide the extraction step a tool allowing LLMs retrieve more info about the extracted commands to build their queries precisely.
@@ -45,7 +44,7 @@
 - [ ] When reloading a read command, ensure the cursor position is correct, whether telling the user or store it in the metadata.
 - [ ] Ensure the highlightKeywords function has the same behavior as the tokenizer.normalizers.
 - [ ] Add search records per page setting
-- [ ] Test these queries:
+- [x] Test these queries:
       [ ] Append "Hello word" to the note 2025-07-24 (In chat, Gemini)
       [ ] Read the question above and tell me the result. Refer to the Operator note to get the operator
 - [x] Add a Copy button to the search result callout.
@@ -53,6 +52,9 @@
 - [ ] When users send query "yes/no", if there no current conformation, leave it as the other queries.
 - [x] Create a "Squeeze" button to squeeze a conversation into a small button that can expand to a normal conversation.
 - [x] Search all files
+- [ ] Conversation summarization
+- [x] LLM extraction for classified queries: We still need LLMs help to extract those to specific queries for each command. A light version for extract queries for a list of defined commands.
+- [ ] Serialize and store artifacts directly in the conversation that persists when users reopen the app.
 
 ### BUGS
 

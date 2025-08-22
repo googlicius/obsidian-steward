@@ -43,26 +43,7 @@ const commandIntentExtractionSchema = z.object({
   commands: z.array(commandIntentSchema).max(20, 'Too many commands. Maximum allowed is 20.')
     .describe(`An array of objects, each containing commandType and query.
 Analyze the query for multiple commands that should be executed in sequence.
-Each command in the sequence should have its own query that will be processed by specialized handlers.
-If the user wants to:
-- Search for notes (and doesn't mention existing search results), include "search"
-- Move notes from the artifact, include "move_from_artifact"
-- Delete notes from the artifact, include "delete_from_artifact"
-- Copy notes from the artifact, include "copy_from_artifact"
-- Update notes from the artifact, include "update_from_artifact"
-- Close the conversation, include "close"
-- Undo changes, include "revert"
-- Generate an image, include "image"
-- Generate audio, include "audio"
-- Create a new note, include "create"
-- Ask or generate content with the your help, include "generate"
-- Read or Find content based on a specific pattern in their current note, include "read"
-- Ask something about the content of the current note, include "read" and "generate"
-- Update something about the content of the current note, include "read", "generate" and "update_from_artifact"
-- Show the list of available commands, include "help"
-Important Notes:
-- If the "read" and "generate" are included, you must extract all the elements mentioned in the user's query in the "query" field of the "read" command
-- If there is previous messages in the conversation, include "generate" command only`),
+Each command in the sequence should have its own query that will be processed by specialized handlers.`),
   explanation: z
     .string()
     .min(1, 'Explanation must be a non-empty string')
@@ -93,44 +74,6 @@ If the confidence is low, include the commands that you are extracting in the ex
 
 export type CommandIntentExtraction = z.infer<typeof commandIntentExtractionSchema>;
 
-function extractReadGenerate(userInput: string): CommandIntentExtraction {
-  return {
-    commands: [
-      {
-        commandType: 'read',
-        query: userInput,
-      },
-      {
-        commandType: 'generate',
-        query: userInput,
-      },
-    ],
-    explanation: `Classified as "read:generate" command based on semantic similarity.`,
-    confidence: 0.8,
-  };
-}
-
-function extractReadGenerateUpdateFromArtifact(userInput: string): CommandIntentExtraction {
-  return {
-    commands: [
-      {
-        commandType: 'read',
-        query: userInput,
-      },
-      {
-        commandType: 'generate',
-        query: userInput,
-      },
-      {
-        commandType: 'update_from_artifact',
-        query: '',
-      },
-    ],
-    explanation: `Classified as "read:generate:update_from_artifact" command based on semantic similarity.`,
-    confidence: 0.8,
-  };
-}
-
 /**
  * Extract command intents from a general query using AI
  * @returns Extracted command types, content, and explanation
@@ -140,8 +83,15 @@ export async function extractCommandIntent(args: {
   conversationHistory: ConversationHistoryMessage[];
   lang?: string;
   isReloadRequest?: boolean;
+  currentArtifacts?: Array<{ type: string }>;
 }): Promise<CommandIntentExtraction> {
-  const { command, lang, conversationHistory = [], isReloadRequest = false } = args;
+  const {
+    command,
+    lang,
+    conversationHistory = [],
+    isReloadRequest = false,
+    currentArtifacts,
+  } = args;
   const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
   const classifier = getClassifier(llmConfig.model.modelId, isReloadRequest);
   const clusterName = await classify({
@@ -153,20 +103,6 @@ export async function extractCommandIntent(args: {
 
   if (clusterName) {
     logger.log(`The user input was classified as "${clusterName}"`);
-
-    if (clusterName === 'read:generate') {
-      return {
-        ...extractReadGenerate(command.query),
-        lang,
-      };
-    }
-
-    if (clusterName === 'read:generate:update_from_artifact') {
-      return {
-        ...extractReadGenerateUpdateFromArtifact(command.query),
-        lang,
-      };
-    }
 
     const commandTypes = clusterName.split(':');
 
@@ -208,19 +144,12 @@ export async function extractCommandIntent(args: {
       });
     }
 
-    // const stwSelectedTexts = convertStwSelectedTextToJson(command.query);
-    // if (stwSelectedTexts.length > 0) {
-    //   systemPrompts.push({
-    //     role: 'system',
-    //     content: `The user has selected some text in the note. Here are the details: ${stwSelectedTexts.join(', ')}`,
-    //   });
-    // }
-
     const { object } = await generateObject({
       ...llmConfig,
       abortSignal,
       system: getCommandIntentPrompt({
         commandNames: clusterName ? clusterName.split(':') : null,
+        currentArtifacts,
       }),
       messages: [...systemPrompts, { role: 'user', content: command.query }],
       schema: commandIntentExtractionSchema,

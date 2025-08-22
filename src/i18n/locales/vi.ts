@@ -140,7 +140,7 @@ const vi = {
         'Chỉ mục tìm kiếm đã được xây dựng thành công! {{count}} trong {{total}} tệp đã được lập chỉ mục.',
       indexedFiles: 'Các tệp đã được lập chỉ mục thành công',
       failedFiles: 'Các tệp không thể lập chỉ mục',
-      foundNotesForIndex: 'Tôi đã tìm thấy {{count}} ghi chú có thể được lập chỉ mục.',
+      foundFilesForIndex: 'Tôi đã tìm thấy {{count}} tệp có thể được lập chỉ mục.',
       confirmRebuildIndexQuestion: 'Bạn có muốn xây dựng lại chỉ mục tìm kiếm không?',
       privacyNotice: 'Lưu ý: Chỉ mục tìm kiếm được xử lý và lưu trữ cục bộ để bảo mật.',
     },

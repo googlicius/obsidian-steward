@@ -74,7 +74,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
     },
     {
       name: 'build_search_index' as const,
-      values: ['build search index', 'index my notes'],
+      values: ['build search index', 'index my files'],
     },
   ],
 
@@ -304,7 +304,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
     },
     {
       name: 'build_search_index' as const,
-      values: ['build search index', 'index my notes'],
+      values: ['build search index', 'index my files'],
     },
   ],
 });
