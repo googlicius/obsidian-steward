@@ -142,7 +142,7 @@ const ja = {
         '検索インデックスの構築が完了しました！{{total}}件中{{count}}件にインデックスが付けられました。',
       indexedFiles: '正常にインデックスが付けられたファイル',
       failedFiles: 'インデックス作成に失敗したファイル',
-      foundNotesForIndex: '{{count}}件のノートにインデックスを付けることができます。',
+      foundFilesForIndex: '{{count}}件のファイルにインデックスを付けることができます。',
       confirmRebuildIndexQuestion: '検索インデックスを再構築しますか？',
       privacyNotice: '注意：検索インデックスはプライバシーのためにローカルで処理・保存されます。',
     },

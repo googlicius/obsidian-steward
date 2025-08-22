@@ -270,4 +270,23 @@ export class ConversationArtifactManager {
   public clearArtifacts(conversationTitle: string): void {
     this.artifacts.delete(conversationTitle);
   }
+
+  /**
+   * Get all current artifacts for a conversation
+   * @param conversationTitle The title of the conversation
+   * @returns Array of current artifacts with their types
+   */
+  public getCurrentArtifacts(conversationTitle: string): Array<{ type: string }> {
+    const conversationArtifacts = this.artifacts.get(conversationTitle);
+    if (!conversationArtifacts || conversationArtifacts.size === 0) {
+      return [];
+    }
+
+    const artifacts: Array<{ type: string }> = [];
+    conversationArtifacts.forEach(artifact => {
+      artifacts.push({ type: artifact.type });
+    });
+
+    return artifacts;
+  }
 }

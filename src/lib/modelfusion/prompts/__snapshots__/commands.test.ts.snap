@@ -1,0 +1,46 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`commands artifactDependentExamples should return examples for commands that depend on artifacts 1`] = `"For example: if you include "search" and "move_from_artifact", the "move_from_artifact" command will use the artifact that will be created from the "search" command or "read" and "update_from_artifact", the "update_from_artifact" command will use the artifact that will be created from the "read" command."`;
+
+exports[`commands artifactDependentExamples should return only one example if there are only one command that creates artifacts 1`] = `"For example: if you include "read" and "update_from_artifact", the "update_from_artifact" command will use the artifact that will be created from the "read" command."`;
+
+exports[`commands formatCommandsForPrompt should return formatted commands for prompt 1`] = `
+"- "search": Find files using the search engine to search files locally and store the result as an artifact
+  Use when: Search for files (and doesn't mention existing search results)
+- "close": Close the conversation or exit
+  Use when: Close the conversation
+- "image": Generate an image
+  Use when: Generate an image
+- "audio" (aliases: speak): Generate audio from text
+  Use when: Generate audio
+- "create": Create a new note with their own content
+  Use when: Create a new note
+- "move_from_artifact" (aliases: move): Move notes from the artifact to a destination
+  Use when: Move notes from the artifact
+- "copy_from_artifact" (aliases: copy): Copy notes from the artifact to a destination
+  Use when: Copy notes from the artifact
+- "update_from_artifact" (aliases: update): Update note(s) from the artifact
+  Use when: Update notes from the artifact
+- "delete_from_artifact" (aliases: delete): Delete note(s) from the artifact
+  Use when: Delete notes from the artifact
+- "revert": Undo the last change or revert to a previous state
+- "build_search_index" (aliases: index, build-index, search-index): Build or rebuild the search index for all markdown files in the vault
+  Use when: Build or rebuild the search index for all markdown files in the vault
+- "generate": Generate content with the LLM help (either in a new note or in the conversation). You also can "generate" from the provided content in the user's query without reading the note. Example: "Help me update this list to the numbered list:\\n- Item 1\\n- Item 2" -> ["generate"]. The list is already in the query.
+  Use when: Ask or generate content with your help
+- "read": Read content from the current note or specific position: "above", "below". Use this when you don't know the content and need to retrieve it before proceeding
+  Use when: Read or Find content based on a specific pattern in their current note"
+`;
+
+exports[`commands formatCommandsForPrompt should return formatted commands for prompt with given command names 1`] = `
+"- "search": Find files using the search engine to search files locally and store the result as an artifact
+  Use when: Search for files (and doesn't mention existing search results)
+- "read": Read content from the current note or specific position: "above", "below". Use this when you don't know the content and need to retrieve it before proceeding
+  Use when: Read or Find content based on a specific pattern in their current note"
+`;
+
+exports[`commands formatCurrentArtifacts should return formatted current artifacts for prompt 1`] = `
+"Current artifacts in the conversation can be used by artifact-dependent commands:
+- search_results
+- read_content"
+`;

@@ -52,7 +52,7 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
       await this.renderer.updateConversationNote({
         path: title,
         newContent:
-          t('search.foundNotesForIndex', { count: validFiles.length }) +
+          t('search.foundFilesForIndex', { count: validFiles.length }) +
           '\n\n' +
           `*${t('search.privacyNotice')}*`,
         command: 'build_search_index',

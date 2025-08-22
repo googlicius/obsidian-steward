@@ -74,6 +74,9 @@ NOTE:
 - You don't need to issue a read command for the wikilinks, the wikilinks's content will be attached automatically.`);
         }
 
+        // Get current artifacts for the conversation
+        const currentArtifacts = this.artifactManager.getCurrentArtifacts(title);
+
         extraction = await extractCommandIntent({
           command: {
             ...command,
@@ -82,6 +85,7 @@ NOTE:
           lang: params.lang,
           conversationHistory,
           isReloadRequest,
+          currentArtifacts,
         });
       }
 

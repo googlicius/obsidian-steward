@@ -111,9 +111,6 @@ export class CommandInputService {
 
   /**
    * Create a selection marker for the given selection
-   * @param sourceEditor - The editor containing the selection
-   * @param filePath - The path of the file containing the selection
-   * @returns The selection marker string
    */
   private createSelectionMarker(filePath: string): string {
     const cursorFrom = this.getEditor().getCursor('from');
