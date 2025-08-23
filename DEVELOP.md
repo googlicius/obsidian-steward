@@ -55,6 +55,8 @@
 - [ ] Conversation summarization
 - [x] LLM extraction for classified queries: We still need LLMs help to extract those to specific queries for each command. A light version for extract queries for a list of defined commands.
 - [ ] Serialize and store artifacts directly in the conversation that persists when users reopen the app.
+- [x] Add multiple operations confirmation. Ensuring the LLM's extraction is expected. For example this query: "Find the note tagged #test in the root folder to the Archived folder" sometimes being extracted to 2 operations {tag: #test}, {folder: "^/$}. Which is incorrect.
+- [ ] Encapsulate the `getInstance` function.
 
 ### BUGS
 

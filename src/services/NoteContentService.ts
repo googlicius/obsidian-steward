@@ -206,7 +206,7 @@ export class NoteContentService {
 
         if (file) {
           // Read the file content
-          const linkedContent = await this.app.vault.read(file);
+          const linkedContent = await this.app.vault.cachedRead(file);
 
           // Check if there's an anchor
           const anchorParts = wikilink.split('#');

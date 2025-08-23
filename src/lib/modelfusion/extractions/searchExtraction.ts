@@ -37,15 +37,15 @@ export interface SearchQueryExtractionV2 {
 const searchOperationSchema = z.object({
   keywords: z.array(z.string()).describe(`General terms or concepts to search for in file content.
 If a term or phrase is wrapped in quotation marks (e.g., "cat or dog"),
-preserve the quotes exactly as is for exact match queries.
-  `),
+preserve the quotes exactly as is for exact match queries.`),
   tags: z
     .array(z.string())
     .describe(`Obsidian tags that identify files (formatted without the # symbol)`),
   filenames: z
     .array(z.string())
     .describe(`Specific file names to search for (without .md extension)`),
-  folders: z.array(z.string()).describe(`Specific folder paths to search within`),
+  folders: z.array(z.string()).describe(`Specific folder paths to search within
+- If the user wants to search in the root folder, use ^/$`),
 });
 
 // Define the Zod schema for search query extraction validation

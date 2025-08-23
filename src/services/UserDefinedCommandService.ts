@@ -137,7 +137,7 @@ export class UserDefinedCommandService {
       // First, remove any existing commands from this file
       this.removeCommandsFromFile(file.path);
 
-      const content = await this.plugin.app.vault.read(file);
+      const content = await this.plugin.app.vault.cachedRead(file);
 
       // Extract YAML blocks from the content
       const yamlBlocks = await this.extractYamlBlocks(content);

@@ -2,9 +2,7 @@ import { TFolder } from 'obsidian';
 import { UserDefinedCommandService } from './UserDefinedCommandService';
 import type StewardPlugin from 'src/main';
 import { getInstance } from 'src/utils/getInstance';
-
-// Mock the global sleep function
-global.sleep = jest.fn().mockImplementation(ms => Promise.resolve());
+import type { CommandIntent } from 'src/lib/modelfusion/extractions';
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   return {
@@ -18,6 +16,13 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
         getAbstractFileByPath: jest.fn(),
         on: jest.fn().mockReturnValue({ events: [] }),
         createFolder: jest.fn(),
+      },
+      workspace: {
+        onLayoutReady: jest.fn().mockImplementation((callback: () => void) => {
+          // Immediately call the callback to simulate layout ready
+          callback();
+          return { events: [] };
+        }),
       },
     },
     settings: {
@@ -113,6 +118,173 @@ describe('UserDefinedCommandService', () => {
 
       // Verify
       expect(userDefinedCommandService.userDefinedCommands.size).toBe(3);
+    });
+  });
+
+  describe('expandUserDefinedCommandIntents', () => {
+    it('should expand user-defined commands into their constituent CommandIntents', () => {
+      // Arrange
+      const mockCommandProcessorService = {
+        isBuiltInCommand: jest.fn().mockReturnValue(false),
+      };
+
+      // Mock the commandProcessorService getter
+      Object.defineProperty(userDefinedCommandService, 'commandProcessorService', {
+        get: jest.fn().mockReturnValue(mockCommandProcessorService),
+      });
+
+      // Set up a test user-defined command
+      userDefinedCommandService.userDefinedCommands.set('testCommand', {
+        command_name: 'testCommand',
+        commands: [
+          { name: 'read', query: 'Read $from_user' },
+          { name: 'create', query: 'Create note about $from_user' },
+        ],
+        file_path: 'path/to/test.md',
+      });
+
+      // Create input CommandIntents that reference the user-defined command
+      const inputIntents: CommandIntent[] = [
+        {
+          commandType: 'testCommand',
+          query: 'some user input',
+        },
+      ];
+
+      // Execute
+      const result = userDefinedCommandService.expandUserDefinedCommandIntents(
+        inputIntents,
+        'some user input'
+      );
+
+      // Verify
+      expect(result).toMatchObject([
+        {
+          commandType: 'read',
+          model: undefined,
+          query: 'Read some user input',
+          systemPrompts: undefined,
+        },
+        {
+          commandType: 'create',
+          model: undefined,
+          query: 'Create note about some user input',
+          systemPrompts: undefined,
+        },
+      ]);
+    });
+
+    it('should override built-in audio command with custom query and system prompt', () => {
+      // Arrange
+      const mockCommandProcessorService = {
+        isBuiltInCommand: jest.fn().mockImplementation((commandType: string) => {
+          // audio is a built-in command
+          return commandType === 'audio';
+        }),
+      };
+
+      // Mock the commandProcessorService getter
+      Object.defineProperty(userDefinedCommandService, 'commandProcessorService', {
+        get: jest.fn().mockReturnValue(mockCommandProcessorService),
+      });
+
+      // Set up a test user-defined command that overrides the audio command
+      userDefinedCommandService.userDefinedCommands.set('audio', {
+        command_name: 'audio',
+        commands: [
+          {
+            name: 'audio',
+            query: 'Pronounce: $from_user',
+            system_prompt: 'Fix typo if any',
+          },
+        ],
+        file_path: 'path/to/audio-override.md',
+      });
+
+      // Create input CommandIntents that reference the overridden audio command
+      const inputIntents: CommandIntent[] = [
+        {
+          commandType: 'audio',
+          query: 'hello world',
+        },
+      ];
+
+      // Execute
+      const result = userDefinedCommandService.expandUserDefinedCommandIntents(
+        inputIntents,
+        'hello world'
+      );
+
+      // Verify
+      expect(result).toMatchObject([
+        {
+          commandType: 'audio',
+          model: undefined,
+          query: 'Pronounce: hello world',
+          systemPrompts: ['Fix typo if any'],
+        },
+      ]);
+    });
+
+    it('should handle model overrides at command and step levels', () => {
+      // Arrange
+      const mockCommandProcessorService = {
+        isBuiltInCommand: jest.fn().mockReturnValue(false),
+      };
+
+      // Mock the commandProcessorService getter
+      Object.defineProperty(userDefinedCommandService, 'commandProcessorService', {
+        get: jest.fn().mockReturnValue(mockCommandProcessorService),
+      });
+
+      // Set up a test user-defined command with model overrides
+      userDefinedCommandService.userDefinedCommands.set('multiModelCommand', {
+        command_name: 'multiModelCommand',
+        model: 'gemini-2.5', // Default model for the command
+        commands: [
+          {
+            name: 'read',
+            query: 'Read $from_user',
+            model: 'gpt-4o', // Override for this specific step
+          },
+          {
+            name: 'create',
+            query: 'Create note about $from_user',
+            // No model defined - should use command default
+          },
+        ],
+        file_path: 'path/to/multi-model.md',
+      });
+
+      // Create input CommandIntents that reference the multi-model command
+      const inputIntents: CommandIntent[] = [
+        {
+          commandType: 'multiModelCommand',
+          query: 'test content',
+        },
+      ];
+
+      // Execute
+      const result = userDefinedCommandService.expandUserDefinedCommandIntents(
+        inputIntents,
+        'test content'
+      );
+
+      // Verify
+      expect(result).toMatchObject([
+        {
+          commandType: 'read',
+          model: 'gpt-4o',
+          query: 'Read test content',
+          systemPrompts: undefined,
+        },
+        {
+          commandType: 'create',
+          model: 'gemini-2.5',
+          query: 'Create note about test content',
+          systemPrompts: undefined,
+        },
+      ]);
     });
   });
 });

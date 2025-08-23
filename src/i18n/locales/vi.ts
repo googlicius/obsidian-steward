@@ -130,6 +130,14 @@ const vi = {
       searchingFor: 'Đang tìm kiếm "{{searchTerm}}"',
       searchingForTags: 'Đang tìm kiếm các tag: {{tags}}',
       showingPage: 'Trang {{page}} của {{total}}',
+      multipleOperationsHeader: 'Tôi đã tạo {{count}} thao tác tìm kiếm trong truy vấn của bạn:',
+      operation: 'Thao tác {{num}}',
+      keywords: 'Từ khóa',
+      tags: 'Thẻ',
+      filenames: 'Tên tệp',
+      folders: 'Thư mục',
+      confirmMultipleOperations:
+        'Những thao tác này có chính xác không? Vui lòng xác nhận để tiếp tục tìm kiếm.',
       indexNotBuilt: 'Chỉ mục tìm kiếm chưa được xây dựng.',
       buildIndexFirst:
         'Vui lòng xây dựng chỉ mục tìm kiếm trước bằng cách yêu cầu tôi "xây dựng chỉ mục tìm kiếm" hoặc "lập chỉ mục các tệp của tôi".',

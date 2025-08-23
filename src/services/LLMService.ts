@@ -1,4 +1,4 @@
-import { LanguageModelV1 } from 'ai';
+import { JSONParseError, LanguageModelV1, TypeValidationError } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { deepseek } from '@ai-sdk/deepseek';
 import { google } from '@ai-sdk/google';
@@ -7,6 +7,8 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { ollama } from 'ollama-ai-provider';
 import { LLM_MODELS, ModelOption } from 'src/constants';
 import type StewardPlugin from 'src/main';
+import { jsonrepair } from 'jsonrepair';
+import { logger } from 'src/utils/logger';
 
 /**
  * Service for managing LLM models and configurations using the AI package
@@ -118,6 +120,17 @@ export class LLMService {
       model: languageModel,
       temperature,
       maxTokens: maxGenerationTokens,
+      experimental_repairText: async (options: {
+        text: string;
+        error: JSONParseError | TypeValidationError;
+      }) => {
+        if (options.error instanceof JSONParseError) {
+          logger.log('Repairing JSON', options.error);
+          return jsonrepair(options.text);
+        }
+
+        return options.text;
+      },
     };
 
     return mergedOptions;

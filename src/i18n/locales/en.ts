@@ -149,6 +149,14 @@ const en = {
       searchingFor: 'Searching for "{{searchTerm}}"',
       searchingForTags: 'Searching for tags: {{tags}}',
       showingPage: 'Showing page {{page}} of {{total}}',
+      multipleOperationsHeader: 'I interpreted {{count}} search operations in your query:',
+      operation: 'Operation {{num}}',
+      keywords: 'Keywords',
+      tags: 'Tags',
+      filenames: 'Filenames',
+      folders: 'Folders',
+      confirmMultipleOperations:
+        'Are these operations correct? Please confirm to proceed with the search.',
       indexNotBuilt: 'Search index is not built yet.',
       buildIndexFirst:
         'Please build the search index first by asking me to "Build search index" or "index my files".',

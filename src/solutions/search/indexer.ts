@@ -80,7 +80,7 @@ export class Indexer {
           // For markdown files, do special handling with command prefixes and caching
           if (file.extension === 'md') {
             // Check if file content contains command prefixes before indexing
-            const content = await this.app.vault.read(file);
+            const content = await this.app.vault.cachedRead(file);
 
             // Check if this is the cached note
             if (this.cachedNotePath === file.path) {
@@ -385,7 +385,7 @@ export class Indexer {
    */
   private async updateCachedNote(file: TFile): Promise<void> {
     try {
-      const content = await this.app.vault.read(file);
+      const content = await this.app.vault.cachedRead(file);
 
       // Update cache
       this.cachedNotePath = file.path;
