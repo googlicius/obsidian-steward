@@ -161,11 +161,11 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     includeWhen: 'Delete notes from the artifact',
     artifactDesc: 'The deleted note paths',
   },
-  {
-    commandType: 'revert',
-    description: 'Undo the last change or revert to a previous state',
-    category: 'intent-based',
-  },
+  // {
+  //   commandType: 'revert',
+  //   description: 'Undo the last change or revert to a previous state',
+  //   category: 'intent-based',
+  // },
   {
     commandType: 'build_search_index',
     description: 'Build or rebuild the search index for all markdown files in the vault',

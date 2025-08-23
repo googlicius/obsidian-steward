@@ -10,8 +10,6 @@ import type StewardPlugin from '../../main';
  */
 export class SearchService {
   private static instance: SearchService | null = null;
-
-  private plugin: StewardPlugin;
   private excludeFolders: string[];
 
   public documentStore: DocumentStore;
@@ -29,11 +27,10 @@ export class SearchService {
 
   private isInitialized = false;
 
-  private constructor(plugin: StewardPlugin) {
-    this.plugin = plugin;
+  private constructor(private plugin: StewardPlugin) {
     this.excludeFolders = [
-      ...this.plugin.settings.excludedFolders,
-      `${this.plugin.settings.stewardFolder}/Conversations`,
+      ...plugin.settings.excludedFolders,
+      `${plugin.settings.stewardFolder}/Conversations`,
     ];
 
     // Initialize components
@@ -54,8 +51,8 @@ export class SearchService {
     });
 
     this.documentStore = new DocumentStore({
-      app: this.plugin.app,
-      dbName: this.plugin.settings.searchDbPrefix,
+      app: plugin.app,
+      dbName: plugin.settings.searchDbPrefix,
       excludeFolders: this.excludeFolders,
     });
     this.indexer = new Indexer({

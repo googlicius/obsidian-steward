@@ -123,7 +123,7 @@ function createInputExtension(
     class {
       decorations: DecorationSet;
 
-      constructor(public view: EditorView) {
+      constructor(private view: EditorView) {
         this.decorations = this.buildDecorations();
 
         // Attach paste event listener
