@@ -44,6 +44,7 @@ export class SearchService {
         'removeSpecialChars',
         'removeVietnameseDiacritics',
         'removeStwSelectedPatterns',
+        'removeStwSqueezedPatterns',
       ],
     });
 

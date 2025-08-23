@@ -103,12 +103,11 @@ export class MediaTools {
       return file;
     }
 
-    // Strategy 3: If it's a path with directories, extract the filename
+    // Strategy 3: Use the search service to find the document by name
     const filename = nameOrPath.includes('/')
       ? nameOrPath.split('/').pop() || nameOrPath
       : nameOrPath;
 
-    // Strategy 4: Use the search service to find the document by name
     try {
       const searchService = SearchService.getInstance();
       const doc = await searchService.searchEngine.getDocumentByName(filename);

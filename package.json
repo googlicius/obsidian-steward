@@ -43,6 +43,7 @@
     "dexie": "^4.0.11",
     "i18next": "^21.10.0",
     "js-yaml": "^4.1.0",
+    "jsonrepair": "^3.13.0",
     "modelfusion": "^0.137.0",
     "ollama-ai-provider": "^1.2.0",
     "zod": "^3.25.76"

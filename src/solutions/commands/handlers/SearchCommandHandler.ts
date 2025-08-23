@@ -7,11 +7,12 @@ import {
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-import { extractSearchQueryV2 } from 'src/lib/modelfusion/extractions';
+import { extractSearchQueryV2, SearchQueryExtractionV2 } from 'src/lib/modelfusion/extractions';
 import { highlightKeyword } from 'src/utils/highlightKeywords';
 import { PaginatedSearchResultV2 } from 'src/solutions/search';
 import { MediaTools } from 'src/tools/mediaTools';
 import type StewardPlugin from 'src/main';
+import { MarkdownUtil } from 'src/utils/markdownUtils';
 
 export class SearchCommandHandler extends CommandHandler {
   isContentRequired = true;
@@ -31,15 +32,21 @@ export class SearchCommandHandler extends CommandHandler {
   /**
    * Handle a search command
    */
-  public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command } = params;
+  public async handle(
+    params: CommandHandlerParams,
+    options: {
+      extraction?: SearchQueryExtractionV2;
+      multipleOperationsConfirmed?: boolean;
+    } = {}
+  ): Promise<CommandResult> {
+    const { title, command, nextCommand } = params;
+    const t = getTranslation(params.lang);
 
     try {
       // Check if search index is built
       const isIndexBuilt = await this.plugin.searchService.documentStore.isIndexBuilt();
 
       if (!isIndexBuilt) {
-        const t = getTranslation(params.lang);
         await this.renderer.updateConversationNote({
           path: title,
           newContent:
@@ -58,13 +65,84 @@ export class SearchCommandHandler extends CommandHandler {
         };
       }
 
-      // Extract search parameters from the command content
-      const queryExtraction = await extractSearchQueryV2({
-        command,
-        lang: params.lang,
-      });
+      // Extract search parameters from the command content or use provided extraction
+      const queryExtraction =
+        options.extraction ||
+        (await extractSearchQueryV2({
+          command,
+          lang: params.lang,
+        }));
 
-      const t = getTranslation(queryExtraction.lang);
+      // Check if there are multiple operations and we haven't already confirmed them
+      if (queryExtraction.operations.length > 1 && !options.multipleOperationsConfirmed) {
+        // Format the operations for display
+        let message =
+          t('search.multipleOperationsHeader', { count: queryExtraction.operations.length }) +
+          '\n\n';
+
+        for (let index = 0; index < queryExtraction.operations.length; index++) {
+          const operation = queryExtraction.operations[index];
+          message += `**${t('search.operation', { num: index + 1 })}**\n`;
+
+          if (operation.keywords.length > 0) {
+            message += `- ${t('search.keywords')}: ${operation.keywords.join(', ')}\n`;
+          }
+
+          if (operation.tags.length > 0) {
+            message += `- ${t('search.tags')}: ${operation.tags.map(tag => `#${tag}`).join(', ')}\n`;
+          }
+
+          if (operation.filenames.length > 0) {
+            // Escape filenames as they contain some special characters
+            const escapedFilenames = new MarkdownUtil(operation.filenames.join(', '))
+              .escape()
+              .getText();
+            message += `- ${t('search.filenames')}: ${escapedFilenames}\n`;
+          }
+
+          if (operation.folders.length > 0) {
+            // Escape folders as they contain some special characters
+            const escapedFolders = new MarkdownUtil(operation.folders.join(', '))
+              .escape()
+              .getText();
+            message += `- ${t('search.folders')}: ${escapedFolders}\n`;
+          }
+
+          message += '\n';
+        }
+
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: message,
+          command: 'search',
+          includeHistory: false,
+        });
+
+        // Check if the next command will operate on the search results
+        if (nextCommand && nextCommand.commandType.endsWith('_from_artifact')) {
+          // Request confirmation before proceeding
+          await this.renderer.updateConversationNote({
+            path: title,
+            newContent: t('search.confirmMultipleOperations'),
+            command: 'search',
+          });
+
+          return {
+            status: CommandResultStatus.NEEDS_CONFIRMATION,
+            onConfirmation: () => {
+              return this.handle(params, {
+                extraction: queryExtraction,
+                multipleOperationsConfirmed: true,
+              });
+            },
+            onRejection: () => {
+              return {
+                status: CommandResultStatus.SUCCESS,
+              };
+            },
+          };
+        }
+      }
 
       // Get the search results
       const docs = await this.plugin.searchService.searchEngine.searchV2(

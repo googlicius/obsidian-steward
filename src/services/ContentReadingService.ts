@@ -207,7 +207,7 @@ export class ContentReadingService {
    * @returns The entire file content as a single block
    */
   private async readEntireContent(file: TFile): Promise<ContentReadingResult> {
-    const content = await this.plugin.app.vault.read(file);
+    const content = await this.plugin.app.vault.cachedRead(file);
 
     // Create a single block containing the entire file
     const block: ContentBlock = {

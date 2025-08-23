@@ -63,7 +63,7 @@ export async function prepareUserMessage(
         const file = await mediaTools.findFileByNameOrPath(wikilink);
 
         if (file) {
-          const content = await app.vault.read(file);
+          const content = await app.vault.cachedRead(file);
           messageContent.push({
             type: 'text',
             text: `Content of the "${wikilink}" note:\n${content}\n`,

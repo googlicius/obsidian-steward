@@ -132,6 +132,13 @@ const ja = {
       searchingFor: '「{{searchTerm}}」を検索しています',
       searchingForTags: 'タグ: {{tags}}',
       showingPage: '{{page}}ページ目の{{total}}ページ目',
+      multipleOperationsHeader: 'クエリから{{count}}件の検索操作を検出しました：',
+      operation: '操作{{num}}',
+      keywords: 'キーワード',
+      tags: 'タグ',
+      filenames: 'ファイル名',
+      folders: 'フォルダ',
+      confirmMultipleOperations: 'これらの操作は正しいですか？検索を続行するには確認してください。',
       indexNotBuilt: '検索インデックスがまだ構築されていません。',
       buildIndexFirst:
         '先に検索インデックスを構築してください。「検索インデックスを構築」または「ファイルにインデックスを付ける」とおっしゃってください。',

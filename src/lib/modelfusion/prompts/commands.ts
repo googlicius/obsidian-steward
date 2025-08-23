@@ -126,8 +126,9 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     description: 'Move notes from the artifact to a destination',
     category: 'intent-based',
     aliases: ['move'],
-    queryTemplate: `Extract specific details for a move_from_artifact command:
-- The query MUST include the destination folder where files should be moved`,
+    queryTemplate: `Extract specific details for a move_from_artifact command follows this format: <query>; destination: <destination>
+- <query>: The query for the move command.
+- <destination>: The destination folder.`,
     includeWhen: 'Move notes from the artifact',
     artifactDesc: 'The moved note paths',
   },
@@ -136,8 +137,9 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     description: 'Copy notes from the artifact to a destination',
     category: 'intent-based',
     aliases: ['copy'],
-    queryTemplate: `Extract specific details for a copy_from_artifact command:
-- The query MUST include the destination folder where files should be copied`,
+    queryTemplate: `Extract specific details for a copy_from_artifact command follows this format: <query>; destination: <destination>
+- <query>: The query for the copy command.
+- <destination>: The destination folder.`,
     includeWhen: 'Copy notes from the artifact',
     artifactDesc: 'The copied note paths',
   },

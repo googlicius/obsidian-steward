@@ -14,6 +14,7 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 - **Model Flexibility**: Use your favorite AI models including OpenAI, DeepSeek, and Ollama local models
 - **Intent Caching**: Utilizes embeddings to cache similar queries so subsequent requests don't require LLM processing
 - **User-Defined Commands**: Create your own command workflows by combining multiple commands with specific LLM models and settings of your choice.
+- **Safety Features**: Confirmation prompts for potentially destructive operations, validation of complex extractions, and safeguards against unintended actions
 
 ## Standard (Built-In) Commands
 
@@ -141,6 +142,21 @@ You can ask Steward to help create user-defined commands using natural language,
 The following diagram illustrates how commands are processed in Steward:
 
 <img src="/docs/commands-flow.svg" alt="Commands flow" width="600px">
+
+## Safety Features
+
+Steward includes multiple safety mechanisms to prevent unintended actions and protect your data:
+
+### Confirmation Prompts
+
+- **Folder Creation**: When moving or copying files to non-existent folders, Steward asks for confirmation before creating new folders
+- **Note Creation**: Confirmation is required before creating new notes to prevent accidental file creation
+
+### Extraction Validation
+
+- **Multiple Operation Validation**: When complex moving, copying, or deleting queries are interpreted as multiple operations, Steward shows each operation for confirmation.
+- **Low Confidence Detection**: Operations with low confidence scores are either cancelled or confirmed by users.
+- **Content Preview**: File content changes are previewed and confirmed before applying updates
 
 ## Folder Structure
 
