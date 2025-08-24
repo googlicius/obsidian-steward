@@ -92,7 +92,7 @@ export class CommandProcessor {
 
   /**
    * Process a single command with an isolated CommandProcessor instance
-   * This allows processing the command without interfering with pending commands
+   * This allows processing the command without interfering with pending commands in the main processor
    */
   private async processCommandInIsolation(
     payload: ConversationCommandReceivedPayload,

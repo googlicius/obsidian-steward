@@ -1,9 +1,5 @@
 export class MarkdownUtil {
-  private text: string;
-
-  constructor(text: string) {
-    this.text = text;
-  }
+  constructor(private text: string) {}
 
   /**
    * Escapes common Markdown special characters in a string by prepending a backslash.

@@ -12,18 +12,9 @@ import { logger } from 'src/utils/logger';
  */
 export class CommandInputService {
   private static instance: CommandInputService;
-  private plugin: StewardPlugin;
   private editor: Editor | null = null;
-  private userDefinedCommandService: UserDefinedCommandService;
 
-  /**
-   * Private constructor for singleton pattern
-   * @param plugin - The plugin instance
-   */
-  private constructor(plugin: StewardPlugin) {
-    this.plugin = plugin;
-    this.userDefinedCommandService = UserDefinedCommandService.getInstance();
-  }
+  private constructor(private plugin: StewardPlugin) {}
 
   /**
    * Get the singleton instance of CommandInputService
@@ -70,7 +61,7 @@ export class CommandInputService {
    */
   private findCommandInputLine(): { lineNumber: number; prefix: string } | null {
     const editor = this.getEditor();
-    const extendedPrefixes = this.userDefinedCommandService.buildExtendedPrefixes();
+    const extendedPrefixes = this.plugin.userDefinedCommandService.buildExtendedPrefixes();
     const lineCount = editor.lineCount();
 
     for (let i = 0; i < lineCount; i++) {

@@ -59,6 +59,7 @@
 - [ ] Configure models for each stage: summarization, extraction, generate, etc.
 - [ ] Toggle extraction explanation, to demonstrate the user what it going to do.
 - [ ] Don't include the content of wikilinks automatically. Let the extraction decide it. But the downstream commands like `generate` are still able to include the content itself if not presented in the context.
+- [ ] Make another UDC demo: Is there any LOVE in violence? Is there any bilateral solution between Gandalf and Sauron?
 
 ### BUGS
 

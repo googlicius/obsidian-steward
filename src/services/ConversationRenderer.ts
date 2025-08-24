@@ -3,21 +3,14 @@ import { uniqueID } from '../utils/uniqueID';
 import { getTranslation } from '../i18n';
 import { ConversationHistoryMessage, ConversationMessage, ConversationRole } from '../types/types';
 import { getObsidianLanguage } from '../utils/getObsidianLanguage';
-
 import type StewardPlugin from '../main';
 import { ArtifactType } from './ConversationArtifactManager';
 import { logger } from 'src/utils/logger';
-import { NoteContentService } from './NoteContentService';
 
 export class ConversationRenderer {
-  private readonly plugin: StewardPlugin;
-  private readonly noteContentService: NoteContentService;
   static instance: ConversationRenderer;
 
-  private constructor(plugin: StewardPlugin) {
-    this.plugin = plugin;
-    this.noteContentService = NoteContentService.getInstance(plugin.app);
-  }
+  private constructor(private plugin: StewardPlugin) {}
 
   static getInstance(plugin?: StewardPlugin): ConversationRenderer {
     if (plugin) {
@@ -189,7 +182,7 @@ export class ConversationRenderer {
         if (params.role === 'User') {
           currentContent = `${currentContent}\n\n---`;
           // Format user message as a callout
-          contentToAdd = this.noteContentService.formatCallout(
+          contentToAdd = this.plugin.noteContentService.formatCallout(
             `${this.formatRoleText(params.role)}${params.newContent}`,
             'stw-user-message',
             { id: messageId }
@@ -491,7 +484,7 @@ export class ConversationRenderer {
       const frontmatter = `---\nmodel: ${currentModel}\nlang: ${currentLanguage}\n---\n\n`;
 
       // Format user message as a callout with the role text
-      const userMessage = this.noteContentService.formatCallout(
+      const userMessage = this.plugin.noteContentService.formatCallout(
         `${this.formatRoleText('User')}/${commandType.trim()} ${content}`,
         'stw-user-message',
         { id: messageId }
@@ -725,7 +718,7 @@ export class ConversationRenderer {
         // Clean up the content based on role
         if (metadata.ROLE === 'user') {
           // Try to extract content from stw-user-message callout
-          const calloutContent = this.noteContentService.extractCalloutContent(
+          const calloutContent = this.plugin.noteContentService.extractCalloutContent(
             messageContent,
             'stw-user-message'
           );
