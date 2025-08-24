@@ -225,7 +225,9 @@ The response should be in natural language and not include the selection(s) {{st
       } else {
         const conversationHistory = fromRead
           ? []
-          : await this.renderer.extractConversationHistory(title);
+          : await this.renderer.extractConversationHistory(title, {
+              summaryPosition: 1,
+            });
 
         const mediaTools = MediaTools.getInstance(this.app);
 
@@ -287,6 +289,29 @@ The response should be in natural language and not include the selection(s) {{st
 
           this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
         }
+      }
+
+      // After successful generation, trigger summarization if needed
+      try {
+        const allMessages = await this.renderer.extractAllConversationMessages(title);
+        const assistantMessages = allMessages.filter(msg => msg.command === 'generate');
+
+        // Only generate summary if there's at least one assistant message (LLM response)
+        if (assistantMessages.length > 0) {
+          const summaryHandler = this.plugin.commandProcessorService.getCommandHandler('summary');
+          if (summaryHandler) {
+            await summaryHandler.handle({
+              title,
+              command: {
+                commandType: 'summary',
+                query: '',
+              },
+            });
+          }
+        }
+      } catch (summaryError) {
+        // Log but don't fail the generate command if summary fails
+        logger.error('Error generating summary after content generation:', summaryError);
       }
 
       return {

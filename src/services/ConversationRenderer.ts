@@ -792,27 +792,42 @@ export class ConversationRenderer {
 
   /**
    * Extracts conversation history from a conversation markdown file
-   * @param conversationTitle The title of the conversation
-   * @param maxMessages Maximum number of messages to include (default: 10)
    * @returns Array of conversation history messages
    */
   public async extractConversationHistory(
     conversationTitle: string,
-    maxMessages = 10
+    options?: {
+      maxMessages?: number;
+      summaryPosition?: number;
+    }
   ): Promise<ConversationHistoryMessage[]> {
+    const { maxMessages = 10 } = options || {};
+    let { summaryPosition = 0 } = options || {};
+
     try {
       // Get all messages from the conversation
       const allMessages = await this.extractAllConversationMessages(conversationTitle);
 
       // Filter out messages where history is explicitly set to false
-      const messagesForHistory = allMessages.filter(message => message.history !== false);
+      const messagesForHistory: (ConversationMessage & { ignored?: boolean })[] =
+        allMessages.filter(message => message.history !== false);
 
-      // Find the start of the latest topic
+      // Find the most recent summary message or the start of the latest topic
       const continuationCommands = [' ', 'confirm', 'thank_you'];
       let topicStartIndex = 0;
 
       for (let i = messagesForHistory.length - 1; i >= 0; i--) {
         const message = messagesForHistory[i];
+
+        // Check for summary message first (highest priority)
+        if (message.command === 'summary') {
+          if (summaryPosition === 0) {
+            topicStartIndex = i;
+            break;
+          }
+          messagesForHistory[i].ignored = true;
+          summaryPosition--;
+        }
 
         if (message.role === 'user' && !continuationCommands.includes(message.command)) {
           // Found a message that starts a new topic
@@ -821,10 +836,12 @@ export class ConversationRenderer {
         }
       }
 
-      // Get messages from the latest topic
-      const topicMessages = messagesForHistory.slice(topicStartIndex);
+      // Get messages after the topicStartIndex (either summary or topic start)
+      const messagesToInclude = messagesForHistory
+        .slice(topicStartIndex)
+        .filter(message => !message.ignored);
 
-      return topicMessages.slice(-maxMessages).map(({ role, content }) => ({
+      return messagesToInclude.slice(-maxMessages).map(({ role, content }) => ({
         role,
         content,
       }));

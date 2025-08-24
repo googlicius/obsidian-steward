@@ -3,7 +3,6 @@ import { CommandResultStatus, CommandHandler, CommandResult } from './CommandHan
 import { logger } from '../../utils/logger';
 import { CommandIntent } from '../../lib/modelfusion/extractions';
 import { NoteContentService } from '../../services/NoteContentService';
-
 import type StewardPlugin from 'src/main';
 
 interface PendingCommand {
@@ -61,11 +60,11 @@ export class CommandProcessor {
   ): Promise<void> {
     const { title, commands } = payload;
 
-    // Special handling for general commands
+    // Preprocessing for general commands
     // This prevents accidentally resetting pending commands when a general command
     // might actually be a confirmation command
     if (this.isGeneralCommand(commands) && !options.skipGeneralCommandCheck) {
-      await this.processSingleCommand(payload, commands[0].commandType, {
+      await this.processCommandInIsolation(payload, commands[0].commandType, {
         ...options,
         skipGeneralCommandCheck: true,
       });
@@ -74,7 +73,7 @@ export class CommandProcessor {
 
     // Check if this is a confirmation command
     if (this.isConfirmation(commands) && !options.skipConfirmationCheck) {
-      await this.processSingleCommand(payload, commands[0].commandType, {
+      await this.processCommandInIsolation(payload, commands[0].commandType, {
         ...options,
         skipConfirmationCheck: true,
       });
@@ -92,25 +91,25 @@ export class CommandProcessor {
   }
 
   /**
-   * Process a single command with a temporary CommandProcessor
+   * Process a single command with an isolated CommandProcessor instance
    * This allows processing the command without interfering with pending commands
    */
-  private async processSingleCommand(
+  private async processCommandInIsolation(
     payload: ConversationCommandReceivedPayload,
     commandType: string,
     options: ProcessCommandsOptions = {}
   ): Promise<void> {
-    const tempProcessor = new CommandProcessor(this.plugin);
+    const isolatedProcessor = new CommandProcessor(this.plugin);
 
     const handler = this.commandHandlers.get(commandType);
     if (handler) {
-      tempProcessor.registerHandler(commandType, handler);
+      isolatedProcessor.registerHandler(commandType, handler);
     } else {
       logger.warn(`No command handler found for command type: ${commandType}`);
       return;
     }
 
-    await tempProcessor.processCommands(payload, options);
+    await isolatedProcessor.processCommands(payload, options);
   }
 
   private isConfirmation(commands: CommandIntent[]): boolean {

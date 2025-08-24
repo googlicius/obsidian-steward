@@ -7,7 +7,7 @@
 export interface CommandDefinition {
   commandType: string;
   description: string;
-  category: 'built-in' | 'intent-based';
+  category: 'built-in' | 'intent-based' | 'manual';
   aliases?: string[];
   includeWhen?: string;
   dontIncludeWhen?: string;
@@ -166,6 +166,13 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   //   description: 'Undo the last change or revert to a previous state',
   //   category: 'intent-based',
   // },
+  {
+    commandType: 'summary',
+    description: 'Generate a summary of the conversation to provide context and reduce token usage',
+    category: 'manual',
+    availableToLLM: false,
+    artifactDesc: 'The conversation summary',
+  },
   {
     commandType: 'build_search_index',
     description: 'Build or rebuild the search index for all markdown files in the vault',

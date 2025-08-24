@@ -9,6 +9,8 @@ const en = {
       lowConfidenceConfirmation:
         "I'm not entirely sure about this request. Would you like me to proceed anyway?",
       artifactCreated: 'Artifact {{type}} is created',
+      cannotUpdateThisType:
+        'Cannot update this type of artifact. Only search results, created notes, read content, and content updates can be updated.',
       availableCommands: 'Available commands',
       builtInCommands: 'Built-in commands',
       builtInCommandsDesc: 'These commands are directly accessible via /&lt;command&gt',
@@ -96,6 +98,10 @@ const en = {
     },
     generate: {
       success: 'Successfully generated',
+    },
+    summary: {
+      conversationSummary: 'CONVERSATION SUMMARY',
+      noConversation: 'No conversation history to summarize',
     },
     // Command-specific messages
     stop: {

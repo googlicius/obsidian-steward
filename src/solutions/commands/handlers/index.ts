@@ -17,3 +17,4 @@ export * from './UserDefinedCommandHandler';
 export * from './ThankYouCommandHandler';
 export * from './HelpCommandHandler';
 export * from './BuildSearchIndexCommandHandler';
+export * from './SummaryCommandHandler';

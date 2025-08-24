@@ -35,6 +35,9 @@ function createMockPlugin(
         }),
       },
     },
+    artifactManager: {
+      getMostRecentArtifactByType: jest.fn().mockReturnValue(undefined),
+    },
   } as unknown as jest.Mocked<StewardPlugin>;
 }
 
@@ -205,6 +208,110 @@ describe('ConversationRenderer', () => {
       const history = await conversationRenderer.extractConversationHistory('test-conversation');
 
       // Verify that only messages from the Angular topic are included
+      expect(history).toMatchSnapshot();
+    });
+
+    it('should only include the summary message and messages after it', async () => {
+      // Mock conversation content with a summary message in between
+      const mockContent = [
+        // First part of conversation
+        '<!--STW ID:abc123,ROLE:user,COMMAND:search-->',
+        '>[!stw-user-message]',
+        '>/search React hooks',
+        '',
+        '<!--STW ID:def456,ROLE:steward,COMMAND:search-->',
+        "Here's what I found about React hooks. React hooks let you use state and other React features without writing a class.",
+        '',
+        '<!--STW ID:ghi789,ROLE:user,COMMAND: -->',
+        '>[!stw-user-message]',
+        '>How do I use useState?',
+        '',
+        '<!--STW ID:jkl012,ROLE:steward,COMMAND:generate-->',
+        'The useState hook lets you add state to functional components. It returns a state value and a function to update it.',
+        '',
+        // Summary message in the middle
+        '<!--STW ID:mno345,ROLE:system,COMMAND:summary-->',
+        '',
+        '```stw-artifact',
+        'This conversation discusses React hooks, particularly useState, which allows adding state to functional components.',
+        '```',
+        '',
+        '<!--STW ID:pqr678,ROLE:user,COMMAND: -->',
+        '>[!stw-user-message]',
+        '>What about useEffect?',
+        '',
+        '<!--STW ID:stu901,ROLE:steward,COMMAND:generate-->',
+        'The useEffect hook lets you perform side effects in function components. It runs after render and after every update by default.',
+        '',
+        '<!--STW ID:vwx234,ROLE:user,COMMAND: -->',
+        '>[!stw-user-message]',
+        '>How can I skip effects?',
+        '',
+        '<!--STW ID:yz456,ROLE:steward,COMMAND:generate-->',
+        'You can skip effects by providing a dependency array as the second argument. The effect will only run when values in the array change.',
+      ].join('\n');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Call the method
+      const history = await conversationRenderer.extractConversationHistory('test-conversation');
+
+      // Verify
+      expect(history).toMatchSnapshot();
+    });
+
+    it('should extract conversation with summary in the second position', async () => {
+      // Mock conversation with multiple summary messages
+      const mockContent = [
+        // First topic
+        '<!--STW ID:abc123,ROLE:user,COMMAND: -->',
+        '>[!stw-user-message]',
+        '>/ React hooks',
+        '',
+        '<!--STW ID:def456,ROLE:steward,COMMAND:generate-->',
+        "Here's what I found about React hooks",
+        '',
+        // First summary message (should be included)
+        '<!--STW ID:sum001,ROLE:system,COMMAND:summary-->',
+        '```stw-artifact',
+        'First summary about React hooks',
+        '```',
+        '',
+        // Second topic
+        '<!--STW ID:ghi789,ROLE:user,COMMAND: -->',
+        '>[!stw-user-message]',
+        '>/ useState hook',
+        '',
+        '<!--STW ID:jkl012,ROLE:steward,COMMAND:generate-->',
+        'useState is a React Hook that lets you add state to functional components',
+        '',
+        // Second summary message (should be ignored)
+        '<!--STW ID:sum002,ROLE:system,COMMAND:summary-->',
+        '```stw-artifact',
+        'Second summary about useState hook',
+        '```',
+        '',
+        // Third topic
+        '<!--STW ID:mno345,ROLE:user,COMMAND: -->',
+        '>[!stw-user-message]',
+        '>/ useEffect hook',
+        '',
+        '<!--STW ID:pqr678,ROLE:steward,COMMAND:generate-->',
+        'useEffect is a React Hook that lets you synchronize a component with an external system',
+      ].join('\n');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Call the method with summaryPosition = 1 to get the second summary
+      const history = await conversationRenderer.extractConversationHistory('test-conversation', {
+        summaryPosition: 1,
+      });
+
+      // Verify that only messages after the second summary are included
       expect(history).toMatchSnapshot();
     });
   });

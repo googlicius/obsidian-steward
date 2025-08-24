@@ -47,7 +47,7 @@ export class GeneralCommandHandler extends CommandHandler {
       // If extraction is not provided, extract conversation history and then get command intent
       if (!extraction) {
         const systemPrompts = [];
-        const conversationHistory = await this.renderer.extractConversationHistory(title);
+        const conversationHistories = await this.renderer.extractConversationHistory(title);
         const hasStwSelected = new RegExp(STW_SELECTED_PATTERN).test(command.query);
         const hasImageLinks = new RegExp(IMAGE_LINK_PATTERN).test(command.query);
         const hasWikiLinks = new RegExp(WIKI_LINK_PATTERN).test(command.query);
@@ -83,7 +83,7 @@ NOTE:
             systemPrompts,
           },
           lang: params.lang,
-          conversationHistory,
+          conversationHistories,
           isReloadRequest,
           currentArtifacts,
         });
