@@ -58,7 +58,8 @@
 - [x] Add multiple operations confirmation. Ensuring the LLM's extraction is expected. For example this query: "Move the note tagged #test in the root folder to the Archived folder" sometimes being extracted to 2 operations {tag: #test}, {folder: "^/$}. Which is incorrect.
 - [ ] Configure models for each stage: summarization, extraction, generate, etc.
 - [ ] Toggle extraction explanation, to demonstrate the user what it going to do.
-- [ ] Don't include the content of wikilinks automatically. Let the extraction decide it. But the downstream commands like `generate` are still able to include the content itself if not presented in the context.
+- [ ] Don't include the content of wikilinks automatically. Let the extraction decide it. But the downstream commands like `generate` are still able to include the content itself if it is not presented in the context.
+- Provide a unify solution allows each command can retrieve context itself.
 - [ ] Make another UDC demo: Is there any LOVE in violence? Is there any bilateral solution between Gandalf and Sauron?
 
 ### BUGS

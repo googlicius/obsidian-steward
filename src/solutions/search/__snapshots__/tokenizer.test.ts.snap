@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`wordDelimiter analyzer should split words by dashes and underscores while preserving original tokens 1`] = `
+exports[`Tokenizer wordDelimiter analyzer should split words by dashes and underscores while preserving original tokens 1`] = `
 [
   {
     "count": 1,
