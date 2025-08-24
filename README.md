@@ -43,9 +43,11 @@ Steward can be used through the command palette directly in the editor or by ope
 
 <img src="/docs/Image-Read.gif" alt="Image read" width="650px">
 
-### Read and extract content in a note:
+### Updating the selection
 
-<img src="/docs/React-code-extract.gif" alt="React code extract" width="650px">
+<video src="/docs/Stw-Demo-Update-selection.mp4" controls title="Updating the selection">
+  Your browser does not support the video tag.
+</video>
 
 ## User-Defined Commands
 
