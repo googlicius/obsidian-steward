@@ -45,9 +45,7 @@ Steward can be used through the command palette directly in the editor or by ope
 
 ### Updating the selection
 
-<video src="/docs/Stw-Demo-Update-selection.mp4" controls title="Updating the selection">
-  Your browser does not support the video tag.
-</video>
+https://github.com/user-attachments/assets/d4317be8-c8ea-4ad2-a728-de5f88ad2d33
 
 ## User-Defined Commands
 
