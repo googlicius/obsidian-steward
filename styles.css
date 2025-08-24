@@ -1,5 +1,5 @@
-/* Style for the commands when typing */
-.cm-line .cm-conversation-command {
+/* Style for the commands prefix when typing */
+.stw-command-prefix {
   color: var(--text-accent-hover);
   font-weight: bold;
 
@@ -18,7 +18,7 @@
     -webkit-text-fill-color: #888;
   }
 
-  &.conversation-command-general[has-placeholder='1']:after {
+  &.stw-command-prefix-general[has-placeholder='1']:after {
     margin-left: 0;
   }
 }

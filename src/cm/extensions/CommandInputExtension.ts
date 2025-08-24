@@ -178,7 +178,7 @@ function createInputExtension(
 
                 // Add decoration for the command prefix
                 Decoration.mark({
-                  class: `conversation-command cm-conversation-command conversation-command-${command}`,
+                  class: `stw-command-prefix stw-command-prefix-${command}`,
                   ...(hasPlaceholder && {
                     attributes: { 'has-placeholder': '1' },
                   }),
