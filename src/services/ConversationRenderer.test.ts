@@ -1,6 +1,7 @@
 import { ConversationRenderer } from './ConversationRenderer';
-import { TFile } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import type StewardPlugin from '../main';
+import { NoteContentService } from './NoteContentService';
 
 // Mock StewardPlugin
 jest.mock('../main');
@@ -17,27 +18,27 @@ function createMockPlugin(
   // Create mock file
   const mockFile = new TFile();
 
+  const app = {
+    vault: {
+      getFileByPath: jest.fn().mockReturnValue(mockFile),
+      read: jest.fn().mockResolvedValue(fileContent),
+      cachedRead: jest.fn().mockResolvedValue(fileContent),
+      modify: jest.fn(),
+    },
+    metadataCache: {
+      getFileCache: jest.fn().mockReturnValue({
+        frontmatter,
+      }),
+    },
+  } as unknown as App;
+
   // Create and return mock plugin
   return {
     settings: {
       stewardFolder: 'Steward',
     },
-    app: {
-      vault: {
-        getFileByPath: jest.fn().mockReturnValue(mockFile),
-        read: jest.fn().mockResolvedValue(fileContent),
-        cachedRead: jest.fn().mockResolvedValue(fileContent),
-        modify: jest.fn(),
-      },
-      metadataCache: {
-        getFileCache: jest.fn().mockReturnValue({
-          frontmatter,
-        }),
-      },
-    },
-    artifactManager: {
-      getMostRecentArtifactByType: jest.fn().mockReturnValue(undefined),
-    },
+    app,
+    noteContentService: NoteContentService.getInstance(app),
   } as unknown as jest.Mocked<StewardPlugin>;
 }
 
