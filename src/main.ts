@@ -2,12 +2,7 @@ import { Notice, Plugin, WorkspaceLeaf, addIcon } from 'obsidian';
 import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
-import {
-  createCommandInputExtension,
-  isContinuationLine,
-  getCommandBlockContent,
-  getCommandBlock,
-} from './cm/extensions/CommandInputExtension';
+import { createCommandInputExtension } from './cm/extensions/CommandInputExtension';
 import { CommandInputService } from './services/CommandInputService';
 import { createCalloutSearchResultPostProcessor } from './post-processors/CalloutSearchResultPostProcessor';
 import { createUserMessageButtonsProcessor } from './post-processors/UserMessageButtonsProcessor';
@@ -26,7 +21,6 @@ import { ContentReadingService } from './services/ContentReadingService';
 import { StewardPluginSettings } from './types/interfaces';
 import { Line, Text } from '@codemirror/state';
 import {
-  COMMAND_PREFIXES,
   DEFAULT_SETTINGS,
   ProviderNeedApiKey,
   SMILE_CHAT_ICON_ID,
@@ -228,8 +222,9 @@ export default class StewardPlugin extends Plugin {
 
     // Register extensions for CodeMirror
     this.registerEditorExtension([
-      createCommandInputExtension(COMMAND_PREFIXES, {
+      createCommandInputExtension(this, {
         onEnter: this.handleEnter.bind(this),
+        onTyping: this.handleTyping.bind(this),
       }),
       createStwSelectedBlocksExtension(this),
       createStwSqueezedBlocksExtension(this),
@@ -329,7 +324,7 @@ export default class StewardPlugin extends Plugin {
     const lineText = line.text;
 
     // Check if this is a continuation line
-    if (isContinuationLine(lineText)) {
+    if (this.commandInputService.isContinuationLine(lineText)) {
       // Find the command line above
       let currentLineNum = line.number;
       let commandLine: Line | null = null;
@@ -374,11 +369,9 @@ export default class StewardPlugin extends Plugin {
    * @returns True if the command was processed, false otherwise
    */
   private processCommandBlock(view: EditorView, commandLine: Line): boolean {
-    // Collect all lines in the command block using getCommandBlock function
-    const commandBlock = getCommandBlock(view, commandLine);
+    const commandBlock = this.commandInputService.getCommandBlock(view, commandLine);
 
-    // Extract the command content using the getCommandBlockContent function
-    const fullCommandText = getCommandBlockContent(commandBlock);
+    const fullCommandText = this.commandInputService.getCommandBlockContent(commandBlock);
 
     // Find the matching prefix (if any)
     const extendedPrefixes = this.userDefinedCommandService.buildExtendedPrefixes();
@@ -496,6 +489,93 @@ export default class StewardPlugin extends Plugin {
     })();
 
     return true;
+  }
+
+  /**
+   * Handle typing in command input to trigger summarization when appropriate
+   */
+  private async handleTyping(event: KeyboardEvent, view: EditorView): Promise<void> {
+    const { state } = view;
+    const { doc, selection } = state;
+
+    const line = doc.lineAt(selection.main.head);
+
+    if (
+      !this.commandInputService.isGeneralCommandLine(line) &&
+      'general' !== this.commandInputService.getInputPrefix(line, doc)
+    ) {
+      return;
+    }
+
+    const conversationTitle = this.findConversationLinkAbove(view);
+
+    if (!conversationTitle) return;
+
+    try {
+      // Check if we need to generate a summary
+      await this.checkAndGenerateSummary(conversationTitle);
+    } catch (error) {
+      logger.error('Error in handleTyping:', error);
+    }
+  }
+
+  /**
+   * Check if we need to generate a summary and do so if needed
+   * @param conversationTitle The conversation title
+   */
+  private async checkAndGenerateSummary(conversationTitle: string): Promise<void> {
+    try {
+      // Get all messages from the conversation
+      const allMessages =
+        await this.conversationRenderer.extractAllConversationMessages(conversationTitle);
+
+      // Check if summary is already in progress
+      if (this.commandProcessorService.hasCommand(conversationTitle, 'summary')) {
+        logger.log('Summary already in progress for conversation:', conversationTitle);
+        return;
+      }
+
+      let shouldRunSummary = false;
+
+      // Check messages from newest to oldest
+      for (let i = allMessages.length - 1; i >= 0; i--) {
+        const message = allMessages[i];
+
+        // If we find a summary message first, no need to generate a new summary
+        if (message.command === 'summary') {
+          break;
+        }
+
+        // If we find a generate message first, we need to generate a summary
+        if (message.command === 'generate') {
+          shouldRunSummary = true;
+          break;
+        }
+      }
+
+      if (shouldRunSummary) {
+        logger.log('Generating summary for conversation:', conversationTitle);
+
+        await this.commandProcessorService.processCommands(
+          {
+            title: conversationTitle,
+            commands: [
+              {
+                commandType: 'summary',
+                query: '',
+              },
+            ],
+          },
+          {
+            skipIndicators: true,
+          }
+        );
+
+        logger.log('Summary generated successfully for conversation:', conversationTitle);
+      }
+    } catch (error) {
+      logger.error('Error checking and generating summary:', error);
+    }
   }
 
   /**

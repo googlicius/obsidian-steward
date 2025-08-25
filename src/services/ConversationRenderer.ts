@@ -3,21 +3,14 @@ import { uniqueID } from '../utils/uniqueID';
 import { getTranslation } from '../i18n';
 import { ConversationHistoryMessage, ConversationMessage, ConversationRole } from '../types/types';
 import { getObsidianLanguage } from '../utils/getObsidianLanguage';
-
 import type StewardPlugin from '../main';
 import { ArtifactType } from './ConversationArtifactManager';
 import { logger } from 'src/utils/logger';
-import { NoteContentService } from './NoteContentService';
 
 export class ConversationRenderer {
-  private readonly plugin: StewardPlugin;
-  private readonly noteContentService: NoteContentService;
   static instance: ConversationRenderer;
 
-  private constructor(plugin: StewardPlugin) {
-    this.plugin = plugin;
-    this.noteContentService = NoteContentService.getInstance(plugin.app);
-  }
+  private constructor(private plugin: StewardPlugin) {}
 
   static getInstance(plugin?: StewardPlugin): ConversationRenderer {
     if (plugin) {
@@ -125,6 +118,10 @@ export class ConversationRenderer {
     newContent: string;
     command?: string;
     /**
+     * If provided, the placeholder will be replaced with the newContent.
+     */
+    replacePlaceHolder?: string;
+    /**
      * The content of an artifact.
      */
     artifactContent?: string;
@@ -178,6 +175,23 @@ export class ConversationRenderer {
         // Remove the generating indicator and any trailing newlines
         currentContent = this.removeGeneratingIndicator(currentContent);
 
+        let processedArtifactContent = '';
+        if (params.artifactContent) {
+          // Escape backticks in artifact content to prevent breaking the code block
+          const escapedArtifactContent = params.artifactContent.replace(/`/g, '\\`');
+          processedArtifactContent += `\n\`\`\`stw-artifact\n${escapedArtifactContent}\n\`\`\``;
+        }
+
+        // If replacePlaceHolder is provided, replace it with the newContent
+        if (params.replacePlaceHolder) {
+          const newContent = processedArtifactContent
+            ? `${params.newContent}${processedArtifactContent}`
+            : params.newContent;
+
+          // Return the updated content immediately, no need for further processing
+          return currentContent.replace(params.replacePlaceHolder, newContent);
+        }
+
         // If messageId is provided, remove that message and all messages below it
         if (params.messageId) {
           currentContent = this.getContentAfterDeletion(currentContent, params.messageId);
@@ -189,7 +203,7 @@ export class ConversationRenderer {
         if (params.role === 'User') {
           currentContent = `${currentContent}\n\n---`;
           // Format user message as a callout
-          contentToAdd = this.noteContentService.formatCallout(
+          contentToAdd = this.plugin.noteContentService.formatCallout(
             `${this.formatRoleText(params.role)}${params.newContent}`,
             'stw-user-message',
             { id: messageId }
@@ -201,10 +215,8 @@ export class ConversationRenderer {
         }
 
         // Add hidden content after visible content if provided
-        if (params.artifactContent) {
-          // Escape backticks in artifact content to prevent breaking the code block
-          const escapedArtifactContent = params.artifactContent.replace(/`/g, '\\`');
-          contentToAdd += `\n\n\`\`\`stw-artifact\n${escapedArtifactContent}\n\`\`\``;
+        if (processedArtifactContent) {
+          contentToAdd += processedArtifactContent;
         }
 
         // Return the updated content
@@ -292,13 +304,15 @@ export class ConversationRenderer {
 
   private async buildMessageMetadata(
     title: string,
-    {
-      role = 'Steward',
-      command,
-      includeHistory,
-    }: { role?: string; command?: string; includeHistory?: boolean } = {}
+    options: {
+      messageId?: string;
+      role?: string;
+      command?: string;
+      includeHistory?: boolean;
+    } = {}
   ) {
-    const messageId = uniqueID();
+    const { messageId = uniqueID(), role = 'Steward', command, includeHistory } = options;
+
     const metadata: { [x: string]: string | number } = {
       ID: messageId,
       ROLE: role.toLowerCase(),
@@ -491,7 +505,7 @@ export class ConversationRenderer {
       const frontmatter = `---\nmodel: ${currentModel}\nlang: ${currentLanguage}\n---\n\n`;
 
       // Format user message as a callout with the role text
-      const userMessage = this.noteContentService.formatCallout(
+      const userMessage = this.plugin.noteContentService.formatCallout(
         `${this.formatRoleText('User')}/${commandType.trim()} ${content}`,
         'stw-user-message',
         { id: messageId }
@@ -725,7 +739,7 @@ export class ConversationRenderer {
         // Clean up the content based on role
         if (metadata.ROLE === 'user') {
           // Try to extract content from stw-user-message callout
-          const calloutContent = this.noteContentService.extractCalloutContent(
+          const calloutContent = this.plugin.noteContentService.extractCalloutContent(
             messageContent,
             'stw-user-message'
           );
@@ -792,27 +806,42 @@ export class ConversationRenderer {
 
   /**
    * Extracts conversation history from a conversation markdown file
-   * @param conversationTitle The title of the conversation
-   * @param maxMessages Maximum number of messages to include (default: 10)
    * @returns Array of conversation history messages
    */
   public async extractConversationHistory(
     conversationTitle: string,
-    maxMessages = 10
+    options?: {
+      maxMessages?: number;
+      summaryPosition?: number;
+    }
   ): Promise<ConversationHistoryMessage[]> {
+    const { maxMessages = 10 } = options || {};
+    let { summaryPosition = 0 } = options || {};
+
     try {
       // Get all messages from the conversation
       const allMessages = await this.extractAllConversationMessages(conversationTitle);
 
       // Filter out messages where history is explicitly set to false
-      const messagesForHistory = allMessages.filter(message => message.history !== false);
+      const messagesForHistory: (ConversationMessage & { ignored?: boolean })[] =
+        allMessages.filter(message => message.history !== false);
 
-      // Find the start of the latest topic
+      // Find the most recent summary message or the start of the latest topic
       const continuationCommands = [' ', 'confirm', 'thank_you'];
       let topicStartIndex = 0;
 
       for (let i = messagesForHistory.length - 1; i >= 0; i--) {
         const message = messagesForHistory[i];
+
+        // Check for summary message first (highest priority)
+        if (message.command === 'summary') {
+          if (summaryPosition === 0) {
+            topicStartIndex = i;
+            break;
+          }
+          messagesForHistory[i].ignored = true;
+          summaryPosition--;
+        }
 
         if (message.role === 'user' && !continuationCommands.includes(message.command)) {
           // Found a message that starts a new topic
@@ -821,10 +850,12 @@ export class ConversationRenderer {
         }
       }
 
-      // Get messages from the latest topic
-      const topicMessages = messagesForHistory.slice(topicStartIndex);
+      // Get messages after the topicStartIndex (either summary or topic start)
+      const messagesToInclude = messagesForHistory
+        .slice(topicStartIndex)
+        .filter(message => !message.ignored);
 
-      return topicMessages.slice(-maxMessages).map(({ role, content }) => ({
+      return messagesToInclude.slice(-maxMessages).map(({ role, content }) => ({
         role,
         content,
       }));

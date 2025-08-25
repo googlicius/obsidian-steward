@@ -46,6 +46,33 @@ React hooks are functions that let you use state and other React features withou
 ]
 `;
 
+exports[`ConversationRenderer extractConversationHistory should extract conversation with summary in the second position 1`] = `
+[
+  {
+    "content": "\`\`\`stw-artifact
+First summary about React hooks
+\`\`\`",
+    "role": "system",
+  },
+  {
+    "content": "/ useState hook",
+    "role": "user",
+  },
+  {
+    "content": "useState is a React Hook that lets you add state to functional components",
+    "role": "assistant",
+  },
+  {
+    "content": "/ useEffect hook",
+    "role": "user",
+  },
+  {
+    "content": "useEffect is a React Hook that lets you synchronize a component with an external system",
+    "role": "assistant",
+  },
+]
+`;
+
 exports[`ConversationRenderer extractConversationHistory should handle conversation with a message has multiple sections 1`] = `
 [
   {
@@ -105,4 +132,72 @@ Angular components are the building blocks of Angular applications.",
     "role": "assistant",
   },
 ]
+`;
+
+exports[`ConversationRenderer extractConversationHistory should only include the summary message and messages after it 1`] = `
+[
+  {
+    "content": "\`\`\`stw-artifact
+This conversation discusses React hooks, particularly useState, which allows adding state to functional components.
+\`\`\`",
+    "role": "system",
+  },
+  {
+    "content": "What about useEffect?",
+    "role": "user",
+  },
+  {
+    "content": "The useEffect hook lets you perform side effects in function components. It runs after render and after every update by default.",
+    "role": "assistant",
+  },
+  {
+    "content": "How can I skip effects?",
+    "role": "user",
+  },
+  {
+    "content": "You can skip effects by providing a dependency array as the second argument. The effect will only run when values in the array change.",
+    "role": "assistant",
+  },
+]
+`;
+
+exports[`ConversationRenderer updateConversationNote should replace a specific message when replacePlaceHolder is provided 1`] = `
+"<!--STW ID:abc123,ROLE:user,COMMAND:search-->
+>[!stw-user-message] id:abc123
+>/ React hooks
+
+<!--STW ID:def456,ROLE:steward,COMMAND:search-->
+React hooks are functions that let you use state and other React features without writing a class.
+
+<!--STW ID:mmmm,ROLE:system,COMMAND:summary-->
+Summarized content
+
+<!--STW ID:ghi789,ROLE:user,COMMAND: -->
+>[!stw-user-message] id:ghi789
+>/ How do I use useState?
+
+<!--STW ID:jkl012,ROLE:steward,COMMAND:read-->
+useState is a React Hook that lets you add state to functional components."
+`;
+
+exports[`ConversationRenderer updateConversationNote should replace a specific message when replacePlaceHolder is provided and artifactContent is provided 1`] = `
+"<!--STW ID:abc123,ROLE:user,COMMAND:search-->
+>[!stw-user-message] id:abc123
+>/ React hooks
+
+<!--STW ID:def456,ROLE:steward,COMMAND:search-->
+React hooks are functions that let you use state and other React features without writing a class.
+
+<!--STW ID:mmmm,ROLE:system,COMMAND:summary-->
+
+\`\`\`stw-artifact
+Summarized content
+\`\`\`
+
+<!--STW ID:ghi789,ROLE:user,COMMAND: -->
+>[!stw-user-message] id:ghi789
+>/ How do I use useState?
+
+<!--STW ID:jkl012,ROLE:steward,COMMAND:read-->
+useState is a React Hook that lets you add state to functional components."
 `;

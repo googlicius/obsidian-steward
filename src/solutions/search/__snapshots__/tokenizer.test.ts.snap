@@ -1,0 +1,41 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Tokenizer wordDelimiter analyzer should split words by dashes and underscores while preserving original tokens 1`] = `
+[
+  {
+    "count": 1,
+    "positions": [
+      0,
+    ],
+    "term": "user-defined_command",
+  },
+  {
+    "count": 1,
+    "positions": [
+      1,
+    ],
+    "term": "definition",
+  },
+  {
+    "count": 1,
+    "positions": [
+      0,
+    ],
+    "term": "user",
+  },
+  {
+    "count": 1,
+    "positions": [
+      0,
+    ],
+    "term": "defined",
+  },
+  {
+    "count": 1,
+    "positions": [
+      0,
+    ],
+    "term": "command",
+  },
+]
+`;

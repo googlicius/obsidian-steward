@@ -21,6 +21,7 @@ import {
   ThankYouCommandHandler,
   HelpCommandHandler,
   BuildSearchIndexCommandHandler,
+  SummaryCommandHandler,
 } from '../solutions/commands/handlers';
 import { getTextContentWithoutImages } from 'src/lib/modelfusion/utils/userMessageUtils';
 
@@ -34,6 +35,13 @@ export class CommandProcessorService {
     this.commandProcessor = new CommandProcessor(this.plugin);
 
     this.setupHandlers();
+  }
+
+  /**
+   * Get the command processor
+   */
+  public getCommandHandler(commandType: string) {
+    return this.commandProcessor.getCommandHandler(commandType);
   }
 
   /**
@@ -118,6 +126,10 @@ export class CommandProcessorService {
     this.commandProcessor.registerHandler('build-index', buildSearchIndexHandler);
     this.commandProcessor.registerHandler('search-index', buildSearchIndexHandler);
 
+    // Register the summary command handler
+    const summaryHandler = new SummaryCommandHandler(this.plugin);
+    this.commandProcessor.registerHandler('summary', summaryHandler);
+
     // Register the general command handler (space)
     const generalHandler = new GeneralCommandHandler(this.plugin, this.commandProcessor);
     this.commandProcessor.registerHandler(' ', generalHandler);
@@ -169,5 +181,12 @@ export class CommandProcessorService {
    */
   public isBuiltInCommand(commandType: string): boolean {
     return this.commandProcessor.hasBuiltInHandler(commandType);
+  }
+
+  public hasCommand(title: string, commandType: string): boolean {
+    const pendingCommand = this.commandProcessor.getPendingCommand(title);
+    if (!pendingCommand) return false;
+
+    return pendingCommand.commands.some(command => command.commandType === commandType);
   }
 }

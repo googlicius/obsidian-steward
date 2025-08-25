@@ -3,7 +3,6 @@ import { CommandResultStatus, CommandHandler, CommandResult } from './CommandHan
 import { logger } from '../../utils/logger';
 import { CommandIntent } from '../../lib/modelfusion/extractions';
 import { NoteContentService } from '../../services/NoteContentService';
-
 import type StewardPlugin from 'src/main';
 
 interface PendingCommand {
@@ -11,6 +10,11 @@ interface PendingCommand {
   currentIndex: number;
   payload: ConversationCommandReceivedPayload;
   lastCommandResult?: CommandResult;
+}
+
+interface QueuedCommands {
+  commands: CommandIntent[];
+  payload: ConversationCommandReceivedPayload;
 }
 
 interface ProcessCommandsOptions {
@@ -25,10 +29,15 @@ interface ProcessCommandsOptions {
    * If true, indicates this is a reload request
    */
   isReloadRequest?: boolean;
+  /**
+   * If true, skip the queue check and process commands directly
+   */
+  skipQueueCheck?: boolean;
 }
 
 export class CommandProcessor {
   private pendingCommands: Map<string, PendingCommand> = new Map();
+  private commandQueues: Map<string, QueuedCommands[]> = new Map();
   private commandHandlers: Map<string, CommandHandler> = new Map();
   private userDefinedCommandHandler: CommandHandler | null = null;
 
@@ -61,11 +70,11 @@ export class CommandProcessor {
   ): Promise<void> {
     const { title, commands } = payload;
 
-    // Special handling for general commands
+    // Preprocessing for general commands
     // This prevents accidentally resetting pending commands when a general command
     // might actually be a confirmation command
     if (this.isGeneralCommand(commands) && !options.skipGeneralCommandCheck) {
-      await this.processSingleCommand(payload, commands[0].commandType, {
+      await this.processCommandInIsolation(payload, commands[0].commandType, {
         ...options,
         skipGeneralCommandCheck: true,
       });
@@ -74,10 +83,17 @@ export class CommandProcessor {
 
     // Check if this is a confirmation command
     if (this.isConfirmation(commands) && !options.skipConfirmationCheck) {
-      await this.processSingleCommand(payload, commands[0].commandType, {
+      await this.processCommandInIsolation(payload, commands[0].commandType, {
         ...options,
         skipConfirmationCheck: true,
       });
+      return;
+    }
+
+    // Check if there are pending commands for this conversation
+    if (!options.skipQueueCheck && this.isPendingCommand(title)) {
+      // Queue the commands
+      this.queueCommands(title, { commands, payload });
       return;
     }
 
@@ -92,25 +108,51 @@ export class CommandProcessor {
   }
 
   /**
-   * Process a single command with a temporary CommandProcessor
-   * This allows processing the command without interfering with pending commands
+   * Queue commands for later processing
    */
-  private async processSingleCommand(
+  private queueCommands(title: string, queuedCommands: QueuedCommands): void {
+    if (!this.commandQueues.has(title)) {
+      this.commandQueues.set(title, []);
+    }
+    const queue = this.commandQueues.get(title);
+    if (queue) {
+      queue.push(queuedCommands);
+    }
+  }
+
+  /**
+   * Process a single command with an isolated CommandProcessor instance
+   * This allows processing the command without interfering with pending commands in the main processor
+   */
+  private async processCommandInIsolation(
     payload: ConversationCommandReceivedPayload,
     commandType: string,
     options: ProcessCommandsOptions = {}
   ): Promise<void> {
-    const tempProcessor = new CommandProcessor(this.plugin);
+    const isolatedProcessor = new CommandProcessor(this.plugin);
 
     const handler = this.commandHandlers.get(commandType);
     if (handler) {
-      tempProcessor.registerHandler(commandType, handler);
+      isolatedProcessor.registerHandler(commandType, handler);
     } else {
       logger.warn(`No command handler found for command type: ${commandType}`);
       return;
     }
 
-    await tempProcessor.processCommands(payload, options);
+    await isolatedProcessor.processCommands(payload, options);
+  }
+
+  private isPendingCommand(title: string): boolean {
+    const pendingCommand = this.pendingCommands.get(title);
+
+    if (!pendingCommand) {
+      return false;
+    }
+
+    return (
+      !pendingCommand.lastCommandResult ||
+      pendingCommand.lastCommandResult.status === CommandResultStatus.SUCCESS
+    );
   }
 
   private isConfirmation(commands: CommandIntent[]): boolean {
@@ -232,6 +274,36 @@ export class CommandProcessor {
 
     // All commands processed successfully
     this.pendingCommands.delete(title);
+
+    // Check if there are queued commands waiting to be processed
+    await this.processQueuedCommands(title, options);
+  }
+
+  /**
+   * Process queued commands for a conversation
+   */
+  private async processQueuedCommands(
+    title: string,
+    options: ProcessCommandsOptions
+  ): Promise<void> {
+    const queue = this.commandQueues.get(title);
+    if (!queue || queue.length === 0) {
+      return;
+    }
+
+    // Get the next queued commands
+    const nextQueuedCommands = queue.shift();
+    if (!nextQueuedCommands) {
+      return;
+    }
+
+    // Clear the queue if it's empty
+    if (queue.length === 0) {
+      this.commandQueues.delete(title);
+    }
+
+    // Process the queued commands with skipQueueCheck to prevent infinite loops
+    await this.processCommands(nextQueuedCommands.payload, { ...options, skipQueueCheck: true });
   }
 
   /**
@@ -254,6 +326,13 @@ export class CommandProcessor {
    */
   public getPendingCommand(title: string): PendingCommand | undefined {
     return this.pendingCommands.get(title);
+  }
+
+  /**
+   * Get queued commands for a conversation
+   */
+  public getQueuedCommands(title: string): QueuedCommands[] {
+    return this.commandQueues.get(title) || [];
   }
 
   /**
@@ -281,5 +360,13 @@ export class CommandProcessor {
    */
   public hasBuiltInHandler(commandType: string): boolean {
     return this.commandHandlers.has(commandType);
+  }
+
+  /**
+   * Clear all pending and queued commands for a conversation
+   */
+  public clearCommands(title: string): void {
+    this.pendingCommands.delete(title);
+    this.commandQueues.delete(title);
   }
 }

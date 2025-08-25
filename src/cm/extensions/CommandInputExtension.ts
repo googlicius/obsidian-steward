@@ -16,9 +16,10 @@ import {
 } from '@codemirror/autocomplete';
 import { capitalizeString } from 'src/utils/capitalizeString';
 import { setIcon } from 'obsidian';
-import { LLM_MODELS } from 'src/constants';
+import { COMMAND_PREFIXES, LLM_MODELS } from 'src/constants';
 import { AbortService } from 'src/services/AbortService';
 import { UserDefinedCommandService } from 'src/services/UserDefinedCommandService';
+import StewardPlugin from 'src/main';
 
 export interface CommandInputOptions {
   /**
@@ -30,6 +31,11 @@ export interface CommandInputOptions {
    * The callback function to call when Shift+Enter is pressed on a command line
    */
   onShiftEnter?: (view: EditorView) => boolean;
+
+  /**
+   * The callback function to call when typing in a command line
+   */
+  onTyping?: (event: KeyboardEvent, view: EditorView) => void;
 }
 
 const TWO_SPACES_PREFIX = '  ';
@@ -42,96 +48,42 @@ function hasCommandPlaceholder(line: Line, matchedPrefix: string): boolean {
   return command === 'general' ? line.text === matchedPrefix : line.text.trim() === matchedPrefix;
 }
 
-/**
- * Checks if a line is a command line (starts with a command prefix)
- */
-function isCommandLine(line: Line): boolean {
-  const extendedPrefixes = UserDefinedCommandService.getInstance().buildExtendedPrefixes();
-  return extendedPrefixes.some(prefix => line.text.startsWith(prefix));
-}
-
-/**
- * Checks if a line is a continuation line (starts with 2 spaces)
- */
-export function isContinuationLine(text: string): boolean {
-  return text.startsWith('  ') && !text.startsWith('   ');
-}
-
-/**
- * Gets all lines that belong to a command block (command line + continuation lines)
- */
-export function getCommandBlock(view: EditorView, line: Line): Line[] {
-  const { doc } = view.state;
-  const lines: Line[] = [line];
-
-  // If this is not a command line, return empty array
-  if (!isCommandLine(line)) {
-    return [];
-  }
-
-  // Check for continuation lines below
-  let nextLineNum = line.number + 1;
-  while (nextLineNum <= doc.lines) {
-    const nextLine = doc.line(nextLineNum);
-    if (isContinuationLine(nextLine.text)) {
-      lines.push(nextLine);
-      nextLineNum++;
-    } else {
-      break;
-    }
-  }
-
-  return lines;
-}
-
-/**
- * Gets the combined content of a command block
- */
-export function getCommandBlockContent(commandBlock: Line[]): string {
-  if (commandBlock.length === 0) return '';
-
-  // Get content from all lines, preserving the command prefix in the first line
-  let content = commandBlock[0].text;
-
-  // Add content from continuation lines (removing the 2-space prefix)
-  for (let i = 1; i < commandBlock.length; i++) {
-    content += '\n' + commandBlock[i].text.substring(2);
-  }
-
-  return content.trim();
-}
-
 export function createCommandInputExtension(
-  commandPrefixes: string[],
+  plugin: StewardPlugin,
   options: CommandInputOptions = {}
 ): Extension {
   return [
-    createInputExtension(commandPrefixes, options),
-    createAutocompleteExtension(commandPrefixes, options),
-    createCommandKeymapExtension(commandPrefixes, options),
+    createInputExtension(plugin, options),
+    createAutocompleteExtension(),
+    createCommandKeymapExtension(plugin, options),
   ];
 }
 
 // Add syntax highlighting for command prefixes and toolbar for command inputs
-function createInputExtension(
-  commandPrefixes: string[],
-  options: CommandInputOptions = {}
-): Extension {
+function createInputExtension(plugin: StewardPlugin, options: CommandInputOptions = {}): Extension {
   const commandInputLineDecor = Decoration.line({ class: 'stw-input-line' });
 
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet;
+      private typingDebounceTimeout: NodeJS.Timeout | null = null;
 
-      constructor(public view: EditorView) {
+      constructor(private view: EditorView) {
         this.decorations = this.buildDecorations();
 
-        // Attach paste event listener
+        // Attach event listeners
+        view.dom.addEventListener('keypress', this.handleKeyPress);
         view.dom.addEventListener('paste', this.handlePaste);
       }
 
       destroy() {
+        this.view.dom.removeEventListener('keypress', this.handleKeyPress);
         this.view.dom.removeEventListener('paste', this.handlePaste);
+
+        // Clear any pending timeout
+        if (this.typingDebounceTimeout) {
+          clearTimeout(this.typingDebounceTimeout);
+        }
       }
 
       update(update: ViewUpdate) {
@@ -178,7 +130,7 @@ function createInputExtension(
 
                 // Add decoration for the command prefix
                 Decoration.mark({
-                  class: `conversation-command cm-conversation-command conversation-command-${command}`,
+                  class: `stw-command-prefix stw-command-prefix-${command}`,
                   ...(hasPlaceholder && {
                     attributes: { 'has-placeholder': '1' },
                   }),
@@ -189,7 +141,7 @@ function createInputExtension(
               let nextLineNum = line.number + 1;
               while (nextLineNum <= doc.lines) {
                 const nextLine = doc.line(nextLineNum);
-                if (isContinuationLine(nextLine.text)) {
+                if (plugin.commandInputService.isContinuationLine(nextLine.text)) {
                   // Add decoration for continuation line
                   decorations.push(commandInputLineDecor.range(nextLine.from));
                   nextLineNum++;
@@ -207,6 +159,31 @@ function createInputExtension(
         return Decoration.set(decorations);
       }
 
+      private handleKeyPress = (event: KeyboardEvent) => {
+        // Clear any existing timeout
+        if (this.typingDebounceTimeout) {
+          clearTimeout(this.typingDebounceTimeout);
+        }
+
+        // Set a debounced timeout to call onTyping
+        this.typingDebounceTimeout = setTimeout(() => {
+          if (options.onTyping) {
+            // Get the current cursor position at the time of execution
+            const { state } = this.view;
+            const pos = state.selection.main.head;
+            const line = state.doc.lineAt(pos);
+
+            // Check if this is a command line or continuation line
+            if (
+              plugin.commandInputService.isCommandLine(line) ||
+              plugin.commandInputService.isContinuationLine(line.text)
+            ) {
+              options.onTyping(event, this.view);
+            }
+          }
+        }, 500);
+      };
+
       /**
        * Handle paste events for multi-line indentation
        */
@@ -218,7 +195,9 @@ function createInputExtension(
         const pasteStart = this.view.state.selection.main.head - pastedText.length;
         const line = this.view.state.doc.lineAt(pasteStart);
         // Check if we're in a command input context
-        const isInCommandContext = isCommandLine(line) || isContinuationLine(line.text);
+        const isInCommandContext =
+          plugin.commandInputService.isCommandLine(line) ||
+          plugin.commandInputService.isContinuationLine(line.text);
 
         if (!isInCommandContext || !pastedText) return; // Normal paste
 
@@ -229,7 +208,7 @@ function createInputExtension(
 
         for (let index = 1; index < pastedLines.length; index++) {
           const pastedLine = pastedLines[index];
-          fullInsert += isContinuationLine(pastedLine)
+          fullInsert += plugin.commandInputService.isContinuationLine(pastedLine)
             ? '\n' + pastedLine
             : '\n' + TWO_SPACES_PREFIX + pastedLine;
         }
@@ -249,12 +228,9 @@ function createInputExtension(
 }
 
 // Add autocomplete functionality for command prefixes
-function createAutocompleteExtension(
-  commandPrefixes: string[],
-  options: CommandInputOptions = {}
-): Extension {
+function createAutocompleteExtension(): Extension {
   // Create a mapping of command prefixes to their types for easier lookup
-  const commandTypes = commandPrefixes.map(prefix => {
+  const commandTypes = COMMAND_PREFIXES.map(prefix => {
     // Remove the slash and trim whitespace
     const type = prefix === '/ ' ? 'general' : prefix.replace('/', '');
     return { prefix, type };
@@ -330,7 +306,7 @@ function createAutocompleteExtension(
           options: completionOptions,
           validFor: text => {
             // If text matches an exact command, return false
-            if (commandPrefixes.some(cmd => cmd === text)) return false;
+            if (COMMAND_PREFIXES.some(cmd => cmd === text)) return false;
 
             // Otherwise, validate if it starts with a slash followed by word characters
             return /^\/\w*$/.test(text);
@@ -345,7 +321,7 @@ function createAutocompleteExtension(
  * Add keymap with high precedence
  */
 function createCommandKeymapExtension(
-  commandPrefixes: string[],
+  plugin: StewardPlugin,
   options: CommandInputOptions = {}
 ): Extension {
   return Prec.high(
@@ -367,7 +343,7 @@ function createCommandKeymapExtension(
           const pos = selection.main.head;
           const line = doc.lineAt(pos);
 
-          if (isCommandLine(line)) {
+          if (plugin.commandInputService.isCommandLine(line)) {
             // Get the text before and after the cursor
             const textBeforeCursor = line.text.substring(0, pos - line.from);
             const textAfterCursor = line.text.substring(pos - line.from);

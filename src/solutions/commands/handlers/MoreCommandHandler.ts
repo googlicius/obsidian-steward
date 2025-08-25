@@ -7,9 +7,10 @@ import {
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-
 import type StewardPlugin from 'src/main';
 import type { SearchCommandHandler } from './SearchCommandHandler';
+import type { ScoredKeywordsMatchedDoc } from 'src/solutions/search/scoring';
+import type { IndexedDocument } from 'src/database/SearchDatabase';
 
 export class MoreCommandHandler extends CommandHandler {
   constructor(
@@ -79,7 +80,7 @@ export class MoreCommandHandler extends CommandHandler {
 
       // Get paginated results for the current page
       const paginatedDocs = this.plugin.searchService.searchEngine.paginateResults(
-        searchArtifact.originalResults,
+        searchArtifact.originalResults as (IndexedDocument | ScoredKeywordsMatchedDoc)[],
         page,
         10
       );

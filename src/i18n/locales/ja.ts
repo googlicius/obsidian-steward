@@ -224,6 +224,7 @@ const ja = {
       creating: '作成中...',
       readingContent: '内容を読み込んでいます...',
       buildingIndex: '検索インデックスを構築中...',
+      summarizing: '会話を要約中...',
     },
   },
 };

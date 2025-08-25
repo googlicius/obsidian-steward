@@ -7,11 +7,21 @@ export interface Token {
   positions: number[];
 }
 
+/**
+ * Interface for text normalizers that transform content before tokenization.
+ * Normalizers handle tasks like case folding, accent removal, or special character handling
+ * to standardize text for more effective search and analysis.
+ */
 export interface Normalizer {
   name: string;
   apply: (content: string) => string;
 }
 
+/**
+ * Interface for text analyzers that process tokens after tokenization.
+ * Analyzers perform tasks like word splitting, stemming, or phrase extraction
+ * to enhance the quality of search results and analysis.
+ */
 export interface Analyzer {
   name: string;
   process: (tokens: Token[]) => Token[];
@@ -23,9 +33,9 @@ export interface TokenizerConfig {
   analyzers?: string[];
 }
 
-export const ALL_ANALYZERS: Record<string, (tokens: Token[]) => Token[]> = {
+export const ALL_ANALYZERS: Record<string, Analyzer['process']> = {
   /**
-   * Word delimiter analyzer that splits words by dashes and adds the parts as separate tokens
+   * Word delimiter analyzer that splits words by dashes and underscores, adding the parts as separate tokens
    * while preserving the original token
    */
   wordDelimiter: (tokens: Token[]) => {
@@ -35,10 +45,10 @@ export const ALL_ANALYZERS: Record<string, (tokens: Token[]) => Token[]> = {
     for (let i = 0; i < tokens.length; i++) {
       const token = tokens[i];
 
-      // Check if token contains dashes
-      if (token.term.includes('-')) {
-        // Split the term by dashes
-        const parts = token.term.split('-').filter(Boolean);
+      // Check if token contains dashes or underscores
+      if (token.term.includes('-') || token.term.includes('_')) {
+        // Split the term by dashes and underscores
+        const parts = token.term.split(/[-_]/).filter(Boolean);
 
         // Add each part as a new token if it's not already in the result
         for (const part of parts) {
@@ -65,7 +75,7 @@ export const ALL_ANALYZERS: Record<string, (tokens: Token[]) => Token[]> = {
   },
 };
 
-export const ALL_NORMALIZERS: Record<string, (content: string) => string> = {
+export const ALL_NORMALIZERS: Record<string, Normalizer['apply']> = {
   removeHtmlComments: (content: string) => content.replace(/<!--[\s\S]*?-->/g, ' '),
   lowercase: (content: string) => content.toLowerCase(),
   removeSpecialChars: (content: string) =>

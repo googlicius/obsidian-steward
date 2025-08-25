@@ -107,8 +107,6 @@ export class SearchCommandHandler extends CommandHandler {
               .getText();
             message += `- ${t('search.folders')}: ${escapedFolders}\n`;
           }
-
-          message += '\n';
         }
 
         await this.renderer.updateConversationNote({
