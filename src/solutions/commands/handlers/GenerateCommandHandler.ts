@@ -225,7 +225,9 @@ The response should be in natural language and not include the selection(s) {{st
       } else {
         const conversationHistory = fromRead
           ? []
-          : await this.renderer.extractConversationHistory(title);
+          : await this.renderer.extractConversationHistory(title, {
+              summaryPosition: 1,
+            });
 
         const mediaTools = MediaTools.getInstance(this.app);
 
@@ -288,6 +290,9 @@ The response should be in natural language and not include the selection(s) {{st
           this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
         }
       }
+
+      // We no longer generate summaries after every generate command
+      // Summaries are now generated when users send follow-up queries in GeneralCommandHandler
 
       return {
         status: CommandResultStatus.SUCCESS,

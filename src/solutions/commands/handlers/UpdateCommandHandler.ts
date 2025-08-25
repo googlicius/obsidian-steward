@@ -12,6 +12,13 @@ import { extractUpdateFromSearchResult, UpdateInstruction } from 'src/lib/modelf
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 
+const updatableTypes = [
+  ArtifactType.SEARCH_RESULTS,
+  ArtifactType.CREATED_NOTES,
+  ArtifactType.READ_CONTENT,
+  ArtifactType.CONTENT_UPDATE,
+];
+
 export class UpdateCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
     super();
@@ -33,8 +40,8 @@ export class UpdateCommandHandler extends CommandHandler {
     const t = getTranslation(lang);
 
     try {
-      // Retrieve the most recent artifact regardless of type
-      const artifact = this.artifactManager.getMostRecentArtifact(title);
+      // Retrieve the most recent artifact of updatable types
+      const artifact = this.artifactManager.getMostRecentArtifactOfTypes(title, updatableTypes);
 
       if (!artifact) {
         await this.renderer.updateConversationNote({
@@ -45,25 +52,6 @@ export class UpdateCommandHandler extends CommandHandler {
         return {
           status: CommandResultStatus.ERROR,
           error: new Error('No recent operations found'),
-        };
-      }
-
-      // Handle different artifact types
-      if (
-        artifact.type !== ArtifactType.SEARCH_RESULTS &&
-        artifact.type !== ArtifactType.CREATED_NOTES &&
-        artifact.type !== ArtifactType.READ_CONTENT &&
-        artifact.type !== ArtifactType.CONTENT_UPDATE
-      ) {
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: t('common.cannotUpdateThisType'),
-          role: 'Steward',
-        });
-
-        return {
-          status: CommandResultStatus.ERROR,
-          error: new Error('Cannot update this type of artifact'),
         };
       }
 
@@ -151,8 +139,8 @@ export class UpdateCommandHandler extends CommandHandler {
     const t = getTranslation(lang);
 
     try {
-      // Retrieve the most recent artifact regardless of type
-      const artifact = this.artifactManager.getMostRecentArtifact(title);
+      // Retrieve the most recent artifact of updatable types
+      const artifact = this.artifactManager.getMostRecentArtifactOfTypes(title, updatableTypes);
 
       if (!artifact) {
         await this.renderer.updateConversationNote({
@@ -168,10 +156,14 @@ export class UpdateCommandHandler extends CommandHandler {
       }
 
       // Handle different artifact types
-      let docs: any[] = [];
+      interface DocWithPath {
+        path: string;
+        [key: string]: unknown;
+      }
+      let docs: DocWithPath[] = [];
 
       if (artifact.type === ArtifactType.SEARCH_RESULTS) {
-        docs = artifact.originalResults;
+        docs = artifact.originalResults as DocWithPath[];
       } else if (artifact.type === ArtifactType.CREATED_NOTES) {
         docs = artifact.paths.map(path => ({ path }));
       } else if (artifact.type === ArtifactType.CONTENT_UPDATE) {

@@ -13,6 +13,7 @@ export enum ArtifactType {
   READ_CONTENT = 'read_content',
   CONTENT_UPDATE = 'content_update',
   MEDIA_RESULTS = 'media_results',
+  CONVERSATION_SUMMARY = 'conversation_summary',
 }
 
 /**
@@ -29,7 +30,7 @@ export interface BaseArtifact {
  */
 export interface SearchResultsArtifact extends BaseArtifact {
   type: ArtifactType.SEARCH_RESULTS;
-  originalResults: any[]; // The original, unpaginated results
+  originalResults: unknown[]; // The original, unpaginated results
 }
 
 /**
@@ -66,12 +67,21 @@ export interface MediaResultsArtifact extends BaseArtifact {
   mediaType?: 'audio' | 'image'; // Type of media
 }
 
+/**
+ * Conversation summary artifact
+ */
+export interface ConversationSummaryArtifact extends BaseArtifact {
+  type: ArtifactType.CONVERSATION_SUMMARY;
+  summary: string; // The generated summary text
+}
+
 export type Artifact =
   | SearchResultsArtifact
   | CreatedNotesArtifact
   | ReadContentArtifact
   | ContentUpdateArtifact
-  | MediaResultsArtifact;
+  | MediaResultsArtifact
+  | ConversationSummaryArtifact;
 
 type ArtifactMap = {
   [ArtifactType.SEARCH_RESULTS]: SearchResultsArtifact;
@@ -79,6 +89,7 @@ type ArtifactMap = {
   [ArtifactType.READ_CONTENT]: ReadContentArtifact;
   [ArtifactType.CONTENT_UPDATE]: ContentUpdateArtifact;
   [ArtifactType.MEDIA_RESULTS]: MediaResultsArtifact;
+  [ArtifactType.CONVERSATION_SUMMARY]: ConversationSummaryArtifact;
 };
 
 /**
@@ -192,6 +203,38 @@ export class ConversationArtifactManager {
         latestTimestamp = timestamp;
       }
     });
+
+    return latestArtifact;
+  }
+
+  /**
+   * Get the most recent artifact of specified types for a conversation
+   * @param conversationTitle The title of the conversation
+   * @param types Array of artifact types to consider
+   * @returns The most recent artifact of the specified types, or undefined if none found
+   */
+  public getMostRecentArtifactOfTypes(
+    conversationTitle: string,
+    types: ArtifactType[]
+  ): Artifact | undefined {
+    const conversationArtifacts = this.artifacts.get(conversationTitle);
+    if (!conversationArtifacts || conversationArtifacts.size === 0) {
+      return undefined;
+    }
+
+    // Get artifacts of specified types and find the most recent one by timestamp
+    let latestArtifact: Artifact | undefined = undefined;
+    let latestTimestamp = 0;
+
+    for (const [, artifact] of conversationArtifacts.entries()) {
+      if (types.includes(artifact.type)) {
+        const timestamp = artifact.createdAt || 0;
+        if (!latestArtifact || timestamp > latestTimestamp) {
+          latestArtifact = artifact;
+          latestTimestamp = timestamp;
+        }
+      }
+    }
 
     return latestArtifact;
   }

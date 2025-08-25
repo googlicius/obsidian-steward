@@ -7,7 +7,7 @@
 export interface CommandDefinition {
   commandType: string;
   description: string;
-  category: 'built-in' | 'intent-based';
+  category: 'built-in' | 'intent-based' | 'manual';
   aliases?: string[];
   includeWhen?: string;
   dontIncludeWhen?: string;
@@ -161,10 +161,17 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     includeWhen: 'Delete notes from the artifact',
     artifactDesc: 'The deleted note paths',
   },
+  // {
+  //   commandType: 'revert',
+  //   description: 'Undo the last change or revert to a previous state',
+  //   category: 'intent-based',
+  // },
   {
-    commandType: 'revert',
-    description: 'Undo the last change or revert to a previous state',
-    category: 'intent-based',
+    commandType: 'summary',
+    description: 'Generate a summary of the conversation to provide context and reduce token usage',
+    category: 'manual',
+    availableToLLM: false,
+    artifactDesc: 'The conversation summary',
   },
   {
     commandType: 'build_search_index',

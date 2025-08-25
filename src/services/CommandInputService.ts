@@ -1,5 +1,6 @@
 import { Editor, Notice } from 'obsidian';
-import { isContinuationLine } from 'src/cm/extensions/CommandInputExtension';
+import { Line, Text } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 import { UserDefinedCommandService } from './UserDefinedCommandService';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import type StewardPlugin from 'src/main';
@@ -11,18 +12,9 @@ import { logger } from 'src/utils/logger';
  */
 export class CommandInputService {
   private static instance: CommandInputService;
-  private plugin: StewardPlugin;
   private editor: Editor | null = null;
-  private userDefinedCommandService: UserDefinedCommandService;
 
-  /**
-   * Private constructor for singleton pattern
-   * @param plugin - The plugin instance
-   */
-  private constructor(plugin: StewardPlugin) {
-    this.plugin = plugin;
-    this.userDefinedCommandService = UserDefinedCommandService.getInstance();
-  }
+  private constructor(private plugin: StewardPlugin) {}
 
   /**
    * Get the singleton instance of CommandInputService
@@ -69,7 +61,7 @@ export class CommandInputService {
    */
   private findCommandInputLine(): { lineNumber: number; prefix: string } | null {
     const editor = this.getEditor();
-    const extendedPrefixes = this.userDefinedCommandService.buildExtendedPrefixes();
+    const extendedPrefixes = this.plugin.userDefinedCommandService.buildExtendedPrefixes();
     const lineCount = editor.lineCount();
 
     for (let i = 0; i < lineCount; i++) {
@@ -99,7 +91,7 @@ export class CommandInputService {
 
     for (let i = lineNumber + 1; i < lineCount; i++) {
       const lineText = editor.getLine(i);
-      if (isContinuationLine(lineText)) {
+      if (this.isContinuationLine(lineText)) {
         lastLineNumber = i;
       } else {
         break;
@@ -257,5 +249,101 @@ export class CommandInputService {
       logger.error('Error adding selection to conversation:', error);
       new Notice('Error adding selection to conversation');
     }
+  }
+
+  public isCommandLine(line: Line): boolean {
+    const extendedPrefixes = UserDefinedCommandService.getInstance().buildExtendedPrefixes();
+    return extendedPrefixes.some(prefix => line.text.startsWith(prefix));
+  }
+
+  public isContinuationLine(text: string): boolean {
+    return text.startsWith('  ') && !text.startsWith('   ');
+  }
+
+  public isGeneralCommandLine(line: Line): boolean {
+    return line.text.startsWith('/ ') && line.text.length > 2;
+  }
+
+  public getInputPrefix(line: Line, doc: Text): string | undefined {
+    let prefix;
+
+    if (this.isContinuationLine(line.text)) {
+      // Find the command line above
+      let currentLineNum = line.number;
+      let commandLine: Line | null = null;
+
+      // Search upwards for the command line
+      while (currentLineNum > 1) {
+        currentLineNum--;
+        const prevLine = doc.line(currentLineNum);
+
+        // If we find a non-continuation line that's not a command, break
+        if (!prevLine.text.startsWith('  ') && !prevLine.text.startsWith('/')) {
+          break;
+        }
+
+        // If we find a command line, use it
+        if (prevLine.text.startsWith('/')) {
+          commandLine = prevLine;
+          break;
+        }
+      }
+
+      prefix = commandLine?.text.split(' ')[0];
+    }
+
+    if (this.isCommandLine(line)) {
+      prefix = line.text.split(' ')[0];
+    }
+
+    if (prefix) {
+      return prefix === '/' ? 'general' : prefix.replace('/', '');
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Gets all lines that belong to a command block (command line + continuation lines)
+   */
+  public getCommandBlock(view: EditorView, line: Line): Line[] {
+    const { doc } = view.state;
+    const lines: Line[] = [line];
+
+    // If this is not a command line, return empty array
+    if (!this.isCommandLine(line)) {
+      return [];
+    }
+
+    // Check for continuation lines below
+    let nextLineNum = line.number + 1;
+    while (nextLineNum <= doc.lines) {
+      const nextLine = doc.line(nextLineNum);
+      if (this.isContinuationLine(nextLine.text)) {
+        lines.push(nextLine);
+        nextLineNum++;
+      } else {
+        break;
+      }
+    }
+
+    return lines;
+  }
+
+  /**
+   * Gets the combined content of a command block
+   */
+  public getCommandBlockContent(commandBlock: Line[]): string {
+    if (commandBlock.length === 0) return '';
+
+    // Get content from all lines, preserving the command prefix in the first line
+    let content = commandBlock[0].text;
+
+    // Add content from continuation lines (removing the 2-space prefix)
+    for (let i = 1; i < commandBlock.length; i++) {
+      content += '\n' + commandBlock[i].text.substring(2);
+    }
+
+    return content.trim();
   }
 }

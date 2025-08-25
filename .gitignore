@@ -20,3 +20,6 @@ data.json
 
 # Exclude the copy-plugin files
 copy-plugin*.sh
+
+# Note
+NOTE.md

@@ -80,7 +80,7 @@ export type CommandIntentExtraction = z.infer<typeof commandIntentExtractionSche
  */
 export async function extractCommandIntent(args: {
   command: CommandIntent;
-  conversationHistory: ConversationHistoryMessage[];
+  conversationHistories: ConversationHistoryMessage[];
   lang?: string;
   isReloadRequest?: boolean;
   currentArtifacts?: Array<{ type: string }>;
@@ -88,7 +88,7 @@ export async function extractCommandIntent(args: {
   const {
     command,
     lang,
-    conversationHistory = [],
+    conversationHistories = [],
     isReloadRequest = false,
     currentArtifacts,
   } = args;
@@ -136,13 +136,13 @@ export async function extractCommandIntent(args: {
       content,
     }));
 
-    if (conversationHistory.length > 1) {
-      systemPrompts.push({
-        role: 'system',
-        content:
-          'There are previous messages in this conversation. Use this context for better intent extraction.',
-      });
-    }
+    // if (conversationHistory.length > 1) {
+    //   systemPrompts.push({
+    //     role: 'system',
+    //     content:
+    //       'There are previous messages in this conversation. Use this context for better intent extraction.',
+    //   });
+    // }
 
     const { object } = await generateObject({
       ...llmConfig,
@@ -151,7 +151,11 @@ export async function extractCommandIntent(args: {
         commandNames: clusterName ? clusterName.split(':') : null,
         currentArtifacts,
       }),
-      messages: [...systemPrompts, { role: 'user', content: command.query }],
+      messages: [
+        ...systemPrompts,
+        ...conversationHistories,
+        { role: 'user', content: command.query },
+      ],
       schema: commandIntentExtractionSchema,
     });
 
