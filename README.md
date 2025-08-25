@@ -159,7 +159,7 @@ Steward/
 
 ## Installation
 
-### From Obsidian Community Plugins
+### From Obsidian Community Plugins (Waiting for approval)
 
 1. Download the plugin from the Obsidian Community Plugins browser
 2. Enable the plugin in your Obsidian settings

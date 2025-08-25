@@ -182,4 +182,11 @@ export class CommandProcessorService {
   public isBuiltInCommand(commandType: string): boolean {
     return this.commandProcessor.hasBuiltInHandler(commandType);
   }
+
+  public hasCommand(title: string, commandType: string): boolean {
+    const pendingCommand = this.commandProcessor.getPendingCommand(title);
+    if (!pendingCommand) return false;
+
+    return pendingCommand.commands.some(command => command.commandType === commandType);
+  }
 }

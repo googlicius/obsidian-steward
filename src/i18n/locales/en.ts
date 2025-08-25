@@ -248,6 +248,7 @@ const en = {
       creating: 'Creating...',
       readingContent: 'Reading content...',
       buildingIndex: 'Building search index...',
+      summarizing: 'Summarizing conversation...',
     },
     // Settings
     settings: {

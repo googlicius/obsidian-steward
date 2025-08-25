@@ -35,7 +35,7 @@ export interface CommandInputOptions {
   /**
    * The callback function to call when typing in a command line
    */
-  onTyping?: (update: ViewUpdate) => void;
+  onTyping?: (event: KeyboardEvent, view: EditorView) => void;
 }
 
 const TWO_SPACES_PREFIX = '  ';
@@ -66,37 +66,29 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet;
+      private typingDebounceTimeout: NodeJS.Timeout | null = null;
 
       constructor(private view: EditorView) {
         this.decorations = this.buildDecorations();
 
-        // Attach paste event listener
+        // Attach event listeners
+        view.dom.addEventListener('keypress', this.handleKeyPress);
         view.dom.addEventListener('paste', this.handlePaste);
       }
 
       destroy() {
+        this.view.dom.removeEventListener('keypress', this.handleKeyPress);
         this.view.dom.removeEventListener('paste', this.handlePaste);
+
+        // Clear any pending timeout
+        if (this.typingDebounceTimeout) {
+          clearTimeout(this.typingDebounceTimeout);
+        }
       }
 
       update(update: ViewUpdate) {
         if (update.docChanged || update.viewportChanged) {
           this.decorations = this.buildDecorations();
-
-          // Handle typing events if the document has changed
-          if (update.docChanged && options.onTyping) {
-            // Get the current cursor position
-            const pos = update.state.selection.main.head;
-            const line = update.state.doc.lineAt(pos);
-
-            // Check if this is a command line or continuation line
-            if (
-              plugin.commandInputService.isCommandLine(line) ||
-              plugin.commandInputService.isContinuationLine(line.text)
-            ) {
-              // Call the onTyping callback
-              options.onTyping(update);
-            }
-          }
         }
       }
 
@@ -166,6 +158,31 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
 
         return Decoration.set(decorations);
       }
+
+      private handleKeyPress = (event: KeyboardEvent) => {
+        // Clear any existing timeout
+        if (this.typingDebounceTimeout) {
+          clearTimeout(this.typingDebounceTimeout);
+        }
+
+        // Set a debounced timeout to call onTyping
+        this.typingDebounceTimeout = setTimeout(() => {
+          if (options.onTyping) {
+            // Get the current cursor position at the time of execution
+            const { state } = this.view;
+            const pos = state.selection.main.head;
+            const line = state.doc.lineAt(pos);
+
+            // Check if this is a command line or continuation line
+            if (
+              plugin.commandInputService.isCommandLine(line) ||
+              plugin.commandInputService.isContinuationLine(line.text)
+            ) {
+              options.onTyping(event, this.view);
+            }
+          }
+        }, 500);
+      };
 
       /**
        * Handle paste events for multi-line indentation

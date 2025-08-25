@@ -160,3 +160,44 @@ This conversation discusses React hooks, particularly useState, which allows add
   },
 ]
 `;
+
+exports[`ConversationRenderer updateConversationNote should replace a specific message when replacePlaceHolder is provided 1`] = `
+"<!--STW ID:abc123,ROLE:user,COMMAND:search-->
+>[!stw-user-message] id:abc123
+>/ React hooks
+
+<!--STW ID:def456,ROLE:steward,COMMAND:search-->
+React hooks are functions that let you use state and other React features without writing a class.
+
+<!--STW ID:mmmm,ROLE:system,COMMAND:summary-->
+Summarized content
+
+<!--STW ID:ghi789,ROLE:user,COMMAND: -->
+>[!stw-user-message] id:ghi789
+>/ How do I use useState?
+
+<!--STW ID:jkl012,ROLE:steward,COMMAND:read-->
+useState is a React Hook that lets you add state to functional components."
+`;
+
+exports[`ConversationRenderer updateConversationNote should replace a specific message when replacePlaceHolder is provided and artifactContent is provided 1`] = `
+"<!--STW ID:abc123,ROLE:user,COMMAND:search-->
+>[!stw-user-message] id:abc123
+>/ React hooks
+
+<!--STW ID:def456,ROLE:steward,COMMAND:search-->
+React hooks are functions that let you use state and other React features without writing a class.
+
+<!--STW ID:mmmm,ROLE:system,COMMAND:summary-->
+
+\`\`\`stw-artifact
+Summarized content
+\`\`\`
+
+<!--STW ID:ghi789,ROLE:user,COMMAND: -->
+>[!stw-user-message] id:ghi789
+>/ How do I use useState?
+
+<!--STW ID:jkl012,ROLE:steward,COMMAND:read-->
+useState is a React Hook that lets you add state to functional components."
+`;

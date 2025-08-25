@@ -225,6 +225,7 @@ const vi = {
       creating: 'Đang tạo...',
       readingContent: 'Đang đọc nội dung...',
       buildingIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
+      summarizing: 'Đang tóm tắt cuộc trò chuyện...',
     },
     // Settings
     settings: {

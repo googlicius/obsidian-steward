@@ -118,6 +118,10 @@ export class ConversationRenderer {
     newContent: string;
     command?: string;
     /**
+     * If provided, the placeholder will be replaced with the newContent.
+     */
+    replacePlaceHolder?: string;
+    /**
      * The content of an artifact.
      */
     artifactContent?: string;
@@ -171,6 +175,23 @@ export class ConversationRenderer {
         // Remove the generating indicator and any trailing newlines
         currentContent = this.removeGeneratingIndicator(currentContent);
 
+        let processedArtifactContent = '';
+        if (params.artifactContent) {
+          // Escape backticks in artifact content to prevent breaking the code block
+          const escapedArtifactContent = params.artifactContent.replace(/`/g, '\\`');
+          processedArtifactContent += `\n\`\`\`stw-artifact\n${escapedArtifactContent}\n\`\`\``;
+        }
+
+        // If replacePlaceHolder is provided, replace it with the newContent
+        if (params.replacePlaceHolder) {
+          const newContent = processedArtifactContent
+            ? `${params.newContent}${processedArtifactContent}`
+            : params.newContent;
+
+          // Return the updated content immediately, no need for further processing
+          return currentContent.replace(params.replacePlaceHolder, newContent);
+        }
+
         // If messageId is provided, remove that message and all messages below it
         if (params.messageId) {
           currentContent = this.getContentAfterDeletion(currentContent, params.messageId);
@@ -194,10 +215,8 @@ export class ConversationRenderer {
         }
 
         // Add hidden content after visible content if provided
-        if (params.artifactContent) {
-          // Escape backticks in artifact content to prevent breaking the code block
-          const escapedArtifactContent = params.artifactContent.replace(/`/g, '\\`');
-          contentToAdd += `\n\n\`\`\`stw-artifact\n${escapedArtifactContent}\n\`\`\``;
+        if (processedArtifactContent) {
+          contentToAdd += processedArtifactContent;
         }
 
         // Return the updated content
@@ -285,13 +304,15 @@ export class ConversationRenderer {
 
   private async buildMessageMetadata(
     title: string,
-    {
-      role = 'Steward',
-      command,
-      includeHistory,
-    }: { role?: string; command?: string; includeHistory?: boolean } = {}
+    options: {
+      messageId?: string;
+      role?: string;
+      command?: string;
+      includeHistory?: boolean;
+    } = {}
   ) {
-    const messageId = uniqueID();
+    const { messageId = uniqueID(), role = 'Steward', command, includeHistory } = options;
+
     const metadata: { [x: string]: string | number } = {
       ID: messageId,
       ROLE: role.toLowerCase(),

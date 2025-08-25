@@ -24,6 +24,7 @@ function createMockPlugin(
       read: jest.fn().mockResolvedValue(fileContent),
       cachedRead: jest.fn().mockResolvedValue(fileContent),
       modify: jest.fn(),
+      process: jest.fn(),
     },
     metadataCache: {
       getFileCache: jest.fn().mockReturnValue({
@@ -473,6 +474,93 @@ describe('ConversationRenderer', () => {
 
       // Verify the result is false (failure)
       expect(result).toBe(false);
+    });
+  });
+
+  describe('updateConversationNote', () => {
+    // Mock conversation content with multiple messages
+    const mockContent = [
+      '<!--STW ID:abc123,ROLE:user,COMMAND:search-->',
+      '>[!stw-user-message] id:abc123',
+      '>/ React hooks',
+      '',
+      '<!--STW ID:def456,ROLE:steward,COMMAND:search-->',
+      'React hooks are functions that let you use state and other React features without writing a class.',
+      '',
+      '<!--STW ID:mmmm,ROLE:system,COMMAND:summary-->',
+      '<summaryPlaceholder>',
+      '',
+      '<!--STW ID:ghi789,ROLE:user,COMMAND: -->',
+      '>[!stw-user-message] id:ghi789',
+      '>/ How do I use useState?',
+      '',
+      '<!--STW ID:jkl012,ROLE:steward,COMMAND:read-->',
+      'useState is a React Hook that lets you add state to functional components.',
+    ].join('\n');
+
+    it('should replace a specific message when replacePlaceHolder is provided', async () => {
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Spy on the vault.process method
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, processor) => {
+          const result = processor(mockContent);
+          return result;
+        });
+
+      // Call the method to replace the steward message with ID 'def456'
+      await conversationRenderer.updateConversationNote({
+        path: 'test-conversation',
+        newContent: 'Summarized content',
+        replacePlaceHolder: '<summaryPlaceholder>',
+      });
+
+      // Verify that vault.process was called
+      expect(processSpy).toHaveBeenCalledTimes(1);
+
+      // Get the processed content from the mock
+      const processCall = processSpy.mock.calls[0];
+      const processor = processCall[1];
+      const processedContent = processor(mockContent);
+
+      // Verify that only the target message was removed, others remain
+      expect(processedContent).toMatchSnapshot();
+    });
+
+    it('should replace a specific message when replacePlaceHolder is provided and artifactContent is provided', async () => {
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Spy on the vault.process method
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, processor) => {
+          const result = processor(mockContent);
+          return result;
+        });
+
+      // Call the method to replace the steward message with ID 'def456'
+      await conversationRenderer.updateConversationNote({
+        path: 'test-conversation',
+        newContent: '',
+        artifactContent: 'Summarized content',
+        replacePlaceHolder: '<summaryPlaceholder>',
+      });
+
+      // Verify that vault.process was called
+      expect(processSpy).toHaveBeenCalledTimes(1);
+
+      // Get the processed content from the mock
+      const processCall = processSpy.mock.calls[0];
+      const processor = processCall[1];
+      const processedContent = processor(mockContent);
+
+      // Verify that only the target message was removed, others remain
+      expect(processedContent).toMatchSnapshot();
     });
   });
 });

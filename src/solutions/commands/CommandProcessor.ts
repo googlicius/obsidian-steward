@@ -12,6 +12,11 @@ interface PendingCommand {
   lastCommandResult?: CommandResult;
 }
 
+interface QueuedCommands {
+  commands: CommandIntent[];
+  payload: ConversationCommandReceivedPayload;
+}
+
 interface ProcessCommandsOptions {
   skipIndicators?: boolean;
   skipGeneralCommandCheck?: boolean;
@@ -24,10 +29,15 @@ interface ProcessCommandsOptions {
    * If true, indicates this is a reload request
    */
   isReloadRequest?: boolean;
+  /**
+   * If true, skip the queue check and process commands directly
+   */
+  skipQueueCheck?: boolean;
 }
 
 export class CommandProcessor {
   private pendingCommands: Map<string, PendingCommand> = new Map();
+  private commandQueues: Map<string, QueuedCommands[]> = new Map();
   private commandHandlers: Map<string, CommandHandler> = new Map();
   private userDefinedCommandHandler: CommandHandler | null = null;
 
@@ -80,6 +90,13 @@ export class CommandProcessor {
       return;
     }
 
+    // Check if there are pending commands for this conversation
+    if (!options.skipQueueCheck && this.isPendingCommand(title)) {
+      // Queue the commands
+      this.queueCommands(title, { commands, payload });
+      return;
+    }
+
     // Start new command processing
     this.pendingCommands.set(title, {
       commands,
@@ -88,6 +105,19 @@ export class CommandProcessor {
     });
 
     await this.continueProcessing(title, options);
+  }
+
+  /**
+   * Queue commands for later processing
+   */
+  private queueCommands(title: string, queuedCommands: QueuedCommands): void {
+    if (!this.commandQueues.has(title)) {
+      this.commandQueues.set(title, []);
+    }
+    const queue = this.commandQueues.get(title);
+    if (queue) {
+      queue.push(queuedCommands);
+    }
   }
 
   /**
@@ -110,6 +140,19 @@ export class CommandProcessor {
     }
 
     await isolatedProcessor.processCommands(payload, options);
+  }
+
+  private isPendingCommand(title: string): boolean {
+    const pendingCommand = this.pendingCommands.get(title);
+
+    if (!pendingCommand) {
+      return false;
+    }
+
+    return (
+      !pendingCommand.lastCommandResult ||
+      pendingCommand.lastCommandResult.status === CommandResultStatus.SUCCESS
+    );
   }
 
   private isConfirmation(commands: CommandIntent[]): boolean {
@@ -231,6 +274,36 @@ export class CommandProcessor {
 
     // All commands processed successfully
     this.pendingCommands.delete(title);
+
+    // Check if there are queued commands waiting to be processed
+    await this.processQueuedCommands(title, options);
+  }
+
+  /**
+   * Process queued commands for a conversation
+   */
+  private async processQueuedCommands(
+    title: string,
+    options: ProcessCommandsOptions
+  ): Promise<void> {
+    const queue = this.commandQueues.get(title);
+    if (!queue || queue.length === 0) {
+      return;
+    }
+
+    // Get the next queued commands
+    const nextQueuedCommands = queue.shift();
+    if (!nextQueuedCommands) {
+      return;
+    }
+
+    // Clear the queue if it's empty
+    if (queue.length === 0) {
+      this.commandQueues.delete(title);
+    }
+
+    // Process the queued commands with skipQueueCheck to prevent infinite loops
+    await this.processCommands(nextQueuedCommands.payload, { ...options, skipQueueCheck: true });
   }
 
   /**
@@ -253,6 +326,13 @@ export class CommandProcessor {
    */
   public getPendingCommand(title: string): PendingCommand | undefined {
     return this.pendingCommands.get(title);
+  }
+
+  /**
+   * Get queued commands for a conversation
+   */
+  public getQueuedCommands(title: string): QueuedCommands[] {
+    return this.commandQueues.get(title) || [];
   }
 
   /**
@@ -280,5 +360,13 @@ export class CommandProcessor {
    */
   public hasBuiltInHandler(commandType: string): boolean {
     return this.commandHandlers.has(commandType);
+  }
+
+  /**
+   * Clear all pending and queued commands for a conversation
+   */
+  public clearCommands(title: string): void {
+    this.pendingCommands.delete(title);
+    this.commandQueues.delete(title);
   }
 }

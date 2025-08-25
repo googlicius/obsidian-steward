@@ -17,7 +17,7 @@ const abortService = AbortService.getInstance();
 
 // Schema for conversation summary
 const conversationSummarySchema = z.object({
-  summary: z.string().describe('A concise summary of the conversation'),
+  summary: z.string().describe('A concise summary text of the conversation'),
 });
 
 export class SummaryCommandHandler extends CommandHandler {
@@ -57,6 +57,16 @@ export class SummaryCommandHandler extends CommandHandler {
         };
       }
 
+      await this.renderer.updateConversationNote({
+        path: title,
+        // Put placeholder to ensure it does not render in between user and steward messages
+        // The `<>` won't be visible in the conversation
+        newContent: '<summaryPlaceholder>',
+        role: 'System',
+        command: 'summary',
+        lang,
+      });
+
       // Generate summary
       const summary = await this.generateSummary(conversationHistory);
 
@@ -64,10 +74,8 @@ export class SummaryCommandHandler extends CommandHandler {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: '',
-        role: 'System',
-        command: 'summary',
         artifactContent: `${t('summary.conversationSummary')}:\n${summary}`,
-        lang,
+        replacePlaceHolder: '<summaryPlaceholder>',
       });
 
       return {

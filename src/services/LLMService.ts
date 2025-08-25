@@ -129,6 +129,8 @@ export class LLMService {
           return jsonrepair(options.text);
         }
 
+        logger.error('May be TypeValidationError', options.error);
+
         return options.text;
       },
     };

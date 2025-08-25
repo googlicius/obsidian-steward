@@ -1,7 +1,7 @@
 import { Notice, Plugin, WorkspaceLeaf, addIcon } from 'obsidian';
 import i18next from './i18n';
 import StewardSettingTab from './settings';
-import { EditorView, ViewUpdate } from '@codemirror/view';
+import { EditorView } from '@codemirror/view';
 import { createCommandInputExtension } from './cm/extensions/CommandInputExtension';
 import { CommandInputService } from './services/CommandInputService';
 import { createCalloutSearchResultPostProcessor } from './post-processors/CalloutSearchResultPostProcessor';
@@ -63,7 +63,6 @@ export default class StewardPlugin extends Plugin {
   noteContentService: NoteContentService;
   llmService: LLMService;
   commandInputService: CommandInputService;
-  typingDebounceTimeout: NodeJS.Timeout | null = null;
 
   get editor(): ObsidianEditor {
     return this.app.workspace.activeEditor?.editor as ObsidianEditor;
@@ -495,8 +494,8 @@ export default class StewardPlugin extends Plugin {
   /**
    * Handle typing in command input to trigger summarization when appropriate
    */
-  private handleTyping(update: ViewUpdate): void {
-    const { state } = update;
+  private async handleTyping(event: KeyboardEvent, view: EditorView): Promise<void> {
+    const { state } = view;
     const { doc, selection } = state;
 
     const line = doc.lineAt(selection.main.head);
@@ -508,32 +507,16 @@ export default class StewardPlugin extends Plugin {
       return;
     }
 
-    if (this.typingDebounceTimeout) {
-      clearTimeout(this.typingDebounceTimeout);
+    const conversationTitle = this.findConversationLinkAbove(view);
+
+    if (!conversationTitle) return;
+
+    try {
+      // Check if we need to generate a summary
+      await this.checkAndGenerateSummary(conversationTitle);
+    } catch (error) {
+      logger.error('Error in handleTyping:', error);
     }
-
-    // Set a timeout to trigger summarization after the user stops typing for a bit
-    this.typingDebounceTimeout = setTimeout(async () => {
-      console.log('Typing...');
-
-      const conversationTitle = this.findConversationLinkAbove(update.view);
-
-      if (!conversationTitle) return;
-
-      try {
-        // Only proceed if the line starts with a general command prefix
-        if (line.text.startsWith('/ ')) {
-          // Check if there's actual content after the prefix
-          const content = line.text.substring(2).trim();
-          if (content.length > 0) {
-            // Check if we need to generate a summary
-            await this.checkAndGenerateSummary(conversationTitle);
-          }
-        }
-      } catch (error) {
-        logger.error('Error in handleTyping:', error);
-      }
-    }, 500);
   }
 
   /**
@@ -546,39 +529,49 @@ export default class StewardPlugin extends Plugin {
       const allMessages =
         await this.conversationRenderer.extractAllConversationMessages(conversationTitle);
 
-      // Filter for assistant messages with generate command
-      const assistantMessages = allMessages.filter(msg => msg.command === 'generate');
+      // Check if summary is already in progress
+      if (this.commandProcessorService.hasCommand(conversationTitle, 'summary')) {
+        logger.log('Summary already in progress for conversation:', conversationTitle);
+        return;
+      }
 
-      // Only generate summary if there's at least one assistant message
-      if (assistantMessages.length > 0) {
-        // Check if we already have a summary
-        const summaryMessages = allMessages.filter(msg => msg.command === 'summary');
+      let shouldRunSummary = false;
 
-        // Only generate a new summary if:
-        // 1. There's no summary yet, or
-        // 2. There's at least one assistant message after the last summary
-        if (
-          summaryMessages.length === 0 ||
-          allMessages.indexOf(assistantMessages[assistantMessages.length - 1]) >
-            allMessages.indexOf(summaryMessages[summaryMessages.length - 1])
-        ) {
-          // Get the summary handler and generate a summary
-          const summaryHandler = this.commandProcessorService.getCommandHandler('summary');
-          if (summaryHandler) {
-            // Log that we're about to generate a summary
-            logger.log('Generating summary for conversation:', conversationTitle);
+      // Check messages from newest to oldest
+      for (let i = allMessages.length - 1; i >= 0; i--) {
+        const message = allMessages[i];
 
-            // await summaryHandler.handle({
-            //   title: conversationTitle,
-            //   command: {
-            //     commandType: 'summary',
-            //     query: '',
-            //   },
-            // });
-
-            // logger.log('Summary generated successfully for conversation:', conversationTitle);
-          }
+        // If we find a summary message first, no need to generate a new summary
+        if (message.command === 'summary') {
+          break;
         }
+
+        // If we find a generate message first, we need to generate a summary
+        if (message.command === 'generate') {
+          shouldRunSummary = true;
+          break;
+        }
+      }
+
+      if (shouldRunSummary) {
+        logger.log('Generating summary for conversation:', conversationTitle);
+
+        await this.commandProcessorService.processCommands(
+          {
+            title: conversationTitle,
+            commands: [
+              {
+                commandType: 'summary',
+                query: '',
+              },
+            ],
+          },
+          {
+            skipIndicators: true,
+          }
+        );
+
+        logger.log('Summary generated successfully for conversation:', conversationTitle);
       }
     } catch (error) {
       logger.error('Error checking and generating summary:', error);
