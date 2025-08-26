@@ -9,6 +9,7 @@ const createMockApp = () => {
     },
     vault: {
       read: jest.fn(),
+      cachedRead: jest.fn(),
     },
   } as unknown as App;
 
@@ -391,6 +392,88 @@ Some text after the callout
 
       const result = noteContentService.extractCalloutContent(content, 'user-message');
       expect(result).toBe('This callout has uppercase type');
+    });
+  });
+
+  describe('processWikilinksInContent', () => {
+    it('should process wikilinks in content with default depth level', async () => {
+      // Setup
+      const content = 'This is some content with a wikilink [[TestNote]] and more text.';
+      const linkedContent = 'Content from the linked note. With [[AnotherNote]]';
+
+      // Mock the app methods
+      mockApp.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
+      mockApp.vault.cachedRead = jest.fn().mockResolvedValue(linkedContent);
+
+      // Execute
+      const result = await noteContentService.processWikilinksInContent(content);
+
+      // Verify
+      expect(mockApp.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith('TestNote', '');
+      expect(mockApp.vault.cachedRead).toHaveBeenCalledWith(mockFile);
+      expect(result).toBe(`This is some content with a wikilink [[TestNote]] and more text.
+
+The content of [[TestNote]]:
+Content from the linked note. With [[AnotherNote]]`);
+    });
+
+    it('should process wikilinks in content with a depth level of 2', async () => {
+      // Setup
+      const content = 'This is some content with a wikilink [[TestNote]] and more text.';
+      const testNoteContent = 'Content from the linked note. With [[AnotherNote]].';
+      const anotherNoteContent = 'Content from another linked note. With [[YetAnotherNote]].';
+
+      // Mock the app methods
+      const mockTestFile = new TFile();
+      const mockAnotherFile = new TFile();
+
+      // First call returns TestNote file
+      mockApp.metadataCache.getFirstLinkpathDest = jest.fn().mockImplementation(path => {
+        if (path === 'TestNote') return mockTestFile;
+        if (path === 'AnotherNote') return mockAnotherFile;
+        return null;
+      });
+
+      // Mock reading different content based on the file
+      mockApp.vault.cachedRead = jest.fn().mockImplementation(file => {
+        if (file === mockTestFile) return Promise.resolve(testNoteContent);
+        if (file === mockAnotherFile) return Promise.resolve(anotherNoteContent);
+        return Promise.resolve('');
+      });
+
+      // Execute with depth level 2
+      const result = await noteContentService.processWikilinksInContent(content, 2);
+
+      // Verify
+      expect(mockApp.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith('TestNote', '');
+      expect(mockApp.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith('AnotherNote', '');
+      expect(mockApp.vault.cachedRead).toHaveBeenCalledWith(mockTestFile);
+      expect(mockApp.vault.cachedRead).toHaveBeenCalledWith(mockAnotherFile);
+      expect(result).toBe(`This is some content with a wikilink [[TestNote]] and more text.
+
+The content of [[TestNote]]:
+Content from the linked note. With [[AnotherNote]].
+
+The content of [[AnotherNote]]:
+Content from another linked note. With [[YetAnotherNote]].`);
+    });
+
+    it('should process content with just a wikilink', async () => {
+      // Setup
+      const content = '[[TestNote]]';
+      const linkedContent = 'Content from the linked note.';
+
+      // Mock the app methods
+      mockApp.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
+      mockApp.vault.cachedRead = jest.fn().mockResolvedValue(linkedContent);
+
+      // Execute
+      const result = await noteContentService.processWikilinksInContent(content);
+
+      // Verify
+      expect(mockApp.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith('TestNote', '');
+      expect(mockApp.vault.cachedRead).toHaveBeenCalledWith(mockFile);
+      expect(result).toBe('Content from the linked note.');
     });
   });
 });

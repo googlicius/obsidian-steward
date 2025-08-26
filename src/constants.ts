@@ -46,6 +46,11 @@ export const COMMAND_PREFIXES = [
   '/help',
 ];
 
+/**
+ * The 2-space indentation is used to indicate a command line.
+ */
+export const TWO_SPACES_PREFIX = '  ';
+
 export const DEFAULT_SETTINGS: StewardPluginSettings = {
   mySetting: 'default',
   apiKeys: {

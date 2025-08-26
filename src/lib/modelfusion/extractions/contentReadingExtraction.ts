@@ -32,8 +32,8 @@ const contentReadingSchema = z.object({
     .string()
     .nullable()
     .describe(
-      `A short text to indicate that the content was found. Put {{number}} as the number of blocks found.
-      If the readType is "entire", leave it null.`
+      `A short text to indicate that the content was found. Use {{number}} as a placeholder that will be replaced with an actual number later.
+If the readType is "entire", leave it null.`
     ),
   confidence: z.number().min(0).max(1).describe(confidenceFragment),
   explanation: z.string().describe(explanationFragment),

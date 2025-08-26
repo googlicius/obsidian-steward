@@ -25,6 +25,7 @@ import {
   ProviderNeedApiKey,
   SMILE_CHAT_ICON_ID,
   STW_CHAT_VIEW_CONFIG,
+  TWO_SPACES_PREFIX,
 } from './constants';
 import { StewardChatView } from './views/StewardChatView';
 import { Events } from './types/events';
@@ -71,21 +72,28 @@ export default class StewardPlugin extends Plugin {
   async onload() {
     await this.loadSettings();
 
+    // Check and update missing settings
+    let settingsUpdated = false;
+
     // Generate DB prefix if not already set
     if (!this.settings.searchDbPrefix) {
       this.settings.searchDbPrefix = generateRandomDbPrefix();
-      await this.saveSettings();
+      settingsUpdated = true;
     }
 
     // Setup encryption salt if not already set
     if (!this.settings.saltKeyId) {
       this.settings.saltKeyId = generateSaltKeyId();
-      await this.saveSettings();
+      settingsUpdated = true;
     }
 
     // Set encryption version if not already set
     if (!this.settings.encryptionVersion) {
       this.settings.encryptionVersion = 1;
+      settingsUpdated = true;
+    }
+
+    if (settingsUpdated) {
       await this.saveSettings();
     }
 
@@ -225,6 +233,7 @@ export default class StewardPlugin extends Plugin {
       createCommandInputExtension(this, {
         onEnter: this.handleEnter.bind(this),
         onTyping: this.handleTyping.bind(this),
+        typingDebounceMs: 1000,
       }),
       createStwSelectedBlocksExtension(this),
       createStwSqueezedBlocksExtension(this),
@@ -335,7 +344,7 @@ export default class StewardPlugin extends Plugin {
         const prevLine = doc.line(currentLineNum);
 
         // If we find a non-continuation line that's not a command, break
-        if (!prevLine.text.startsWith('  ') && !prevLine.text.startsWith('/')) {
+        if (!prevLine.text.startsWith(TWO_SPACES_PREFIX) && !prevLine.text.startsWith('/')) {
           break;
         }
 
@@ -500,10 +509,7 @@ export default class StewardPlugin extends Plugin {
 
     const line = doc.lineAt(selection.main.head);
 
-    if (
-      !this.commandInputService.isGeneralCommandLine(line) &&
-      'general' !== this.commandInputService.getInputPrefix(line, doc)
-    ) {
+    if ('general' !== this.commandInputService.getInputPrefix(line, doc)) {
       return;
     }
 
@@ -529,9 +535,8 @@ export default class StewardPlugin extends Plugin {
       const allMessages =
         await this.conversationRenderer.extractAllConversationMessages(conversationTitle);
 
-      // Check if summary is already in progress
-      if (this.commandProcessorService.hasCommand(conversationTitle, 'summary')) {
-        logger.log('Summary already in progress for conversation:', conversationTitle);
+      if (this.commandProcessorService.isProcessing(conversationTitle)) {
+        logger.log('Commands are in processing, skipping summary generation');
         return;
       }
 
@@ -543,6 +548,11 @@ export default class StewardPlugin extends Plugin {
 
         // If we find a summary message first, no need to generate a new summary
         if (message.command === 'summary') {
+          break;
+        }
+
+        // Stopped generation, no need to summarize
+        if (message.command === 'stop') {
           break;
         }
 

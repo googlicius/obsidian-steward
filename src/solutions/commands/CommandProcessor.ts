@@ -90,9 +90,15 @@ export class CommandProcessor {
       return;
     }
 
-    // Check if there are pending commands for this conversation
-    if (!options.skipQueueCheck && this.isPendingCommand(title)) {
-      // Queue the commands
+    // Check if we need to queue these commands instead of processing immediately
+    const shouldQueueCommands =
+      !options.skipQueueCheck &&
+      !options.builtInCommandPrecedence &&
+      !this.isConfirming(title) &&
+      this.isProcessing(title);
+
+    if (shouldQueueCommands) {
+      // Queue the commands for later processing
       this.queueCommands(title, { commands, payload });
       return;
     }
@@ -142,25 +148,22 @@ export class CommandProcessor {
     await isolatedProcessor.processCommands(payload, options);
   }
 
-  private isPendingCommand(title: string): boolean {
+  public isProcessing(title: string): boolean {
+    return this.pendingCommands.has(title);
+  }
+
+  private isConfirming(title: string): boolean {
     const pendingCommand = this.pendingCommands.get(title);
-
-    if (!pendingCommand) {
-      return false;
-    }
-
-    return (
-      !pendingCommand.lastCommandResult ||
-      pendingCommand.lastCommandResult.status === CommandResultStatus.SUCCESS
-    );
+    if (!pendingCommand || !pendingCommand.lastCommandResult) return false;
+    return pendingCommand.lastCommandResult.status === CommandResultStatus.NEEDS_CONFIRMATION;
   }
 
   private isConfirmation(commands: CommandIntent[]): boolean {
-    const cmd = commands[0];
+    if (!commands || commands.length === 0) return false;
 
-    if (!cmd) return false;
-
-    return cmd.commandType === 'confirm' || cmd.commandType === 'yes' || cmd.commandType === 'no';
+    return commands.some(
+      cmd => cmd.commandType === 'confirm' || cmd.commandType === 'yes' || cmd.commandType === 'no'
+    );
   }
 
   private isGeneralCommand(commands: CommandIntent[]): boolean {

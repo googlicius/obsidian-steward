@@ -264,8 +264,16 @@ export class CommandInputService {
     return line.text.startsWith('/ ') && line.text.length > 2;
   }
 
+  /**
+   * Get the prefix of the input at any given line
+   */
   public getInputPrefix(line: Line, doc: Text): string | undefined {
     let prefix;
+
+    // Early return if this is a general command line
+    if (this.isGeneralCommandLine(line)) {
+      return 'general';
+    }
 
     if (this.isContinuationLine(line.text)) {
       // Find the command line above
@@ -345,5 +353,34 @@ export class CommandInputService {
     }
 
     return content.trim();
+  }
+
+  /**
+   * Focus to the input.
+   */
+  public focus(): void {
+    try {
+      const editor = this.getEditor();
+
+      // Find the first command input line
+      const commandLineInfo = this.findCommandInputLine();
+
+      if (!commandLineInfo) {
+        logger.warn('No command line found.');
+        return;
+      }
+
+      // Find the last line of the command block
+      const lastLineNumber = this.findLastInputLine(commandLineInfo.lineNumber);
+      const lastLineText = editor.getLine(lastLineNumber);
+
+      // Set cursor at the end of the last line of the command block
+      editor.setCursor({ line: lastLineNumber, ch: lastLineText.length });
+
+      // Focus the editor
+      editor.focus();
+    } catch (error) {
+      logger.error('Error focusing input:', error);
+    }
   }
 }

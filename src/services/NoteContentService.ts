@@ -237,7 +237,7 @@ export class NoteContentService {
     }
 
     // For append mode, add all extracted content at the end of the original content
-    return mode === 'append' ? processedContent + appendedContent : processedContent;
+    return mode === 'append' ? processedContent + appendedContent.trimEnd() : processedContent;
   }
 
   /**

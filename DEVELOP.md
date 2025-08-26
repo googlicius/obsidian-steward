@@ -24,7 +24,6 @@
 - [ ] Search words start with a keyword: If user search for "teem", should be returned "teeming"
 - [x] The "create" command should be able to handle creating multiple notes.
 - [x] If the user wants to read a file entirely at the first time, let them know about the potential high cost by a confirmation.
-- [ ] Add read_history command when LLM wants to know more about the current context
 - [ ] Settings with the LLM helps: audio generation model, text generation model, names, and temperature
 - [x] Remove MediaGenerationService
 - [x] Send the provided images along with the text
@@ -41,7 +40,7 @@
       For example: This query: "Read the Hold Out note" need to be extracted to a more meaningful query for the read command instead of "Hold Out".
 - [ ] Extend read extraction functionality: Allow LLM to read enough data before going further
       For example: The user wants to read the paragraph above and ask for something. But the paragraph is still mention "above" or a note, suggests there is something out of the paragraph. So the LLM needs to read it to collect enough data.
-- [ ] When reloading a read command, ensure the cursor position is correct, whether telling the user or store it in the metadata.
+- [x] When reloading a read command, ensure the cursor position is correct, whether telling the user or store it in the metadata.
 - [ ] Ensure the highlightKeywords function has the same behavior as the tokenizer.normalizers.
 - [ ] Add search records per page setting
 - [x] Test these queries:
@@ -59,7 +58,7 @@
 - [ ] Configure models for each stage: summarization, extraction, generate, etc.
 - [ ] Toggle extraction explanation, to demonstrate the user what it going to do.
 - [ ] Don't include the content of wikilinks automatically. Let the extraction decide it. But the downstream commands like `generate` are still able to include the content itself if it is not presented in the context.
-- Provide a unify solution allows each command can retrieve context itself.
+- [ ] Provide a unify solution allows each command can retrieve context itself.
 - [ ] Make another UDC demo: Is there any LOVE in violence? Is there any bilateral solution between Gandalf and Sauron?
 
 ### BUGS
