@@ -90,9 +90,15 @@ export class CommandProcessor {
       return;
     }
 
-    // Check if there are pending commands for this conversation
-    if (!options.skipQueueCheck && this.isPendingCommand(title)) {
-      // Queue the commands
+    // Check if we need to queue these commands instead of processing immediately
+    const shouldQueueCommands =
+      !options.skipQueueCheck &&
+      !options.builtInCommandPrecedence &&
+      !this.isConfirmation(commands) &&
+      this.isProcessing(title);
+
+    if (shouldQueueCommands) {
+      // Queue the commands for later processing
       this.queueCommands(title, { commands, payload });
       return;
     }
@@ -142,17 +148,8 @@ export class CommandProcessor {
     await isolatedProcessor.processCommands(payload, options);
   }
 
-  private isPendingCommand(title: string): boolean {
-    const pendingCommand = this.pendingCommands.get(title);
-
-    if (!pendingCommand) {
-      return false;
-    }
-
-    return (
-      !pendingCommand.lastCommandResult ||
-      pendingCommand.lastCommandResult.status === CommandResultStatus.SUCCESS
-    );
+  public isProcessing(title: string): boolean {
+    return this.pendingCommands.has(title);
   }
 
   private isConfirmation(commands: CommandIntent[]): boolean {

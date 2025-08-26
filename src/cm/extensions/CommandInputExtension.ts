@@ -36,6 +36,11 @@ export interface CommandInputOptions {
    * The callback function to call when typing in a command line
    */
   onTyping?: (event: KeyboardEvent, view: EditorView) => void;
+
+  /**
+   * Debounce time in milliseconds for typing
+   */
+  typingDebounceMs?: number;
 }
 
 const TWO_SPACES_PREFIX = '  ';
@@ -181,7 +186,7 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
               options.onTyping(event, this.view);
             }
           }
-        }, 500);
+        }, options.typingDebounceMs || 0);
       };
 
       /**

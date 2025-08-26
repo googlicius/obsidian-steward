@@ -264,8 +264,16 @@ export class CommandInputService {
     return line.text.startsWith('/ ') && line.text.length > 2;
   }
 
+  /**
+   * Get the prefix of the input at any given line
+   */
   public getInputPrefix(line: Line, doc: Text): string | undefined {
     let prefix;
+
+    // Early return if this is a general command line
+    if (this.isGeneralCommandLine(line)) {
+      return 'general';
+    }
 
     if (this.isContinuationLine(line.text)) {
       // Find the command line above

@@ -225,6 +225,7 @@ export default class StewardPlugin extends Plugin {
       createCommandInputExtension(this, {
         onEnter: this.handleEnter.bind(this),
         onTyping: this.handleTyping.bind(this),
+        typingDebounceMs: 1000,
       }),
       createStwSelectedBlocksExtension(this),
       createStwSqueezedBlocksExtension(this),
@@ -500,10 +501,7 @@ export default class StewardPlugin extends Plugin {
 
     const line = doc.lineAt(selection.main.head);
 
-    if (
-      !this.commandInputService.isGeneralCommandLine(line) &&
-      'general' !== this.commandInputService.getInputPrefix(line, doc)
-    ) {
+    if ('general' !== this.commandInputService.getInputPrefix(line, doc)) {
       return;
     }
 
@@ -529,9 +527,8 @@ export default class StewardPlugin extends Plugin {
       const allMessages =
         await this.conversationRenderer.extractAllConversationMessages(conversationTitle);
 
-      // Check if summary is already in progress
-      if (this.commandProcessorService.hasCommand(conversationTitle, 'summary')) {
-        logger.log('Summary already in progress for conversation:', conversationTitle);
+      if (this.commandProcessorService.isProcessing(conversationTitle)) {
+        logger.log('Commands are in processing, skipping summary generation');
         return;
       }
 
@@ -543,6 +540,11 @@ export default class StewardPlugin extends Plugin {
 
         // If we find a summary message first, no need to generate a new summary
         if (message.command === 'summary') {
+          break;
+        }
+
+        // Stopped generation, no need to summarize
+        if (message.command === 'stop') {
           break;
         }
 

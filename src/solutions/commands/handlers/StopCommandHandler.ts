@@ -43,12 +43,13 @@ export class StopCommandHandler extends CommandHandler {
       responseMessage = t('stop.noActiveOperations');
     }
 
-    await delay(200);
+    await delay(800);
 
     await this.renderer.updateConversationNote({
       path: title,
       newContent: responseMessage,
       role: 'Steward',
+      command: 'stop',
     });
 
     return {
