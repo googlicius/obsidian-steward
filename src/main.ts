@@ -25,6 +25,7 @@ import {
   ProviderNeedApiKey,
   SMILE_CHAT_ICON_ID,
   STW_CHAT_VIEW_CONFIG,
+  TWO_SPACES_PREFIX,
 } from './constants';
 import { StewardChatView } from './views/StewardChatView';
 import { Events } from './types/events';
@@ -71,21 +72,28 @@ export default class StewardPlugin extends Plugin {
   async onload() {
     await this.loadSettings();
 
+    // Check and update missing settings
+    let settingsUpdated = false;
+
     // Generate DB prefix if not already set
     if (!this.settings.searchDbPrefix) {
       this.settings.searchDbPrefix = generateRandomDbPrefix();
-      await this.saveSettings();
+      settingsUpdated = true;
     }
 
     // Setup encryption salt if not already set
     if (!this.settings.saltKeyId) {
       this.settings.saltKeyId = generateSaltKeyId();
-      await this.saveSettings();
+      settingsUpdated = true;
     }
 
     // Set encryption version if not already set
     if (!this.settings.encryptionVersion) {
       this.settings.encryptionVersion = 1;
+      settingsUpdated = true;
+    }
+
+    if (settingsUpdated) {
       await this.saveSettings();
     }
 
@@ -336,7 +344,7 @@ export default class StewardPlugin extends Plugin {
         const prevLine = doc.line(currentLineNum);
 
         // If we find a non-continuation line that's not a command, break
-        if (!prevLine.text.startsWith('  ') && !prevLine.text.startsWith('/')) {
+        if (!prevLine.text.startsWith(TWO_SPACES_PREFIX) && !prevLine.text.startsWith('/')) {
           break;
         }
 

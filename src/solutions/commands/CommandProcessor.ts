@@ -94,7 +94,7 @@ export class CommandProcessor {
     const shouldQueueCommands =
       !options.skipQueueCheck &&
       !options.builtInCommandPrecedence &&
-      !this.isConfirmation(commands) &&
+      !this.isConfirming(title) &&
       this.isProcessing(title);
 
     if (shouldQueueCommands) {
@@ -152,12 +152,18 @@ export class CommandProcessor {
     return this.pendingCommands.has(title);
   }
 
+  private isConfirming(title: string): boolean {
+    const pendingCommand = this.pendingCommands.get(title);
+    if (!pendingCommand || !pendingCommand.lastCommandResult) return false;
+    return pendingCommand.lastCommandResult.status === CommandResultStatus.NEEDS_CONFIRMATION;
+  }
+
   private isConfirmation(commands: CommandIntent[]): boolean {
-    const cmd = commands[0];
+    if (!commands || commands.length === 0) return false;
 
-    if (!cmd) return false;
-
-    return cmd.commandType === 'confirm' || cmd.commandType === 'yes' || cmd.commandType === 'no';
+    return commands.some(
+      cmd => cmd.commandType === 'confirm' || cmd.commandType === 'yes' || cmd.commandType === 'no'
+    );
   }
 
   private isGeneralCommand(commands: CommandIntent[]): boolean {

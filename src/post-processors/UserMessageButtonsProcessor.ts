@@ -79,8 +79,15 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
         return;
       }
 
+      const nextMessage = allMessages[nextMessageIndex];
+
+      // Focus to the input to ensure it reads the content correct from the cursor.
+      if (nextMessage.command === 'read') {
+        plugin.commandInputService.focus();
+      }
+
       // Get the next message ID to delete from
-      const nextMessageId = allMessages[nextMessageIndex].id;
+      const nextMessageId = nextMessage.id;
 
       // Delete all messages from the next message onwards
       const success = await plugin.conversationRenderer.deleteMessageAndBelow(title, nextMessageId);

@@ -16,10 +16,9 @@ import {
 } from '@codemirror/autocomplete';
 import { capitalizeString } from 'src/utils/capitalizeString';
 import { setIcon } from 'obsidian';
-import { COMMAND_PREFIXES, LLM_MODELS } from 'src/constants';
+import { COMMAND_PREFIXES, LLM_MODELS, TWO_SPACES_PREFIX } from 'src/constants';
 import { AbortService } from 'src/services/AbortService';
-import { UserDefinedCommandService } from 'src/services/UserDefinedCommandService';
-import StewardPlugin from 'src/main';
+import type StewardPlugin from 'src/main';
 
 export interface CommandInputOptions {
   /**
@@ -43,8 +42,6 @@ export interface CommandInputOptions {
   typingDebounceMs?: number;
 }
 
-const TWO_SPACES_PREFIX = '  ';
-
 /**
  * Determines if a command line should show a placeholder
  */
@@ -59,7 +56,7 @@ export function createCommandInputExtension(
 ): Extension {
   return [
     createInputExtension(plugin, options),
-    createAutocompleteExtension(),
+    createAutocompleteExtension(plugin),
     createCommandKeymapExtension(plugin, options),
   ];
 }
@@ -118,8 +115,7 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
 
           // Fast check for any command prefix
           if (lineText.startsWith('/')) {
-            const extendedPrefixes =
-              UserDefinedCommandService.getInstance().buildExtendedPrefixes();
+            const extendedPrefixes = plugin.userDefinedCommandService.buildExtendedPrefixes();
             const matchedPrefix = extendedPrefixes.find(prefix => lineText.startsWith(prefix));
 
             if (matchedPrefix) {
@@ -233,7 +229,7 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
 }
 
 // Add autocomplete functionality for command prefixes
-function createAutocompleteExtension(): Extension {
+function createAutocompleteExtension(plugin: StewardPlugin): Extension {
   // Create a mapping of command prefixes to their types for easier lookup
   const commandTypes = COMMAND_PREFIXES.map(prefix => {
     // Remove the slash and trim whitespace
@@ -278,7 +274,7 @@ function createAutocompleteExtension(): Extension {
         const customOptions: Completion[] = [];
 
         // Add custom command options if available
-        const customCommands = UserDefinedCommandService.getInstance().getCommandNames();
+        const customCommands = plugin.userDefinedCommandService.getCommandNames();
 
         // Filter custom commands based on current input
         const filteredCustomCommands = customCommands.filter(

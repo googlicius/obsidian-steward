@@ -40,7 +40,7 @@ function retrieveGuidelines(commandNames?: string[] | null) {
     Example: "Update the list above to the numbered list" -> ["read", "generate", "update_from_artifact"]. Explain: "First, read the content above and store it as read_artifact, then generate the edited content from the read_artifact and store another artifact is update_artifact, then update the note(s) from the update_artifact"`;
 
   if (commandNames && commandNames.length > 0) {
-    result += `\n- This query is already extracted before, so you should include the commands in this order: [${commandNames.map(cmd => `"${cmd}"`).join(', ')}]`;
+    result += `\n- This query is a previous extraction, please include the commands in this order: [${commandNames.map(cmd => `"${cmd}"`).join(', ')}]`;
   }
 
   return result;

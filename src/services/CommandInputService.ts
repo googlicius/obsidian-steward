@@ -354,4 +354,33 @@ export class CommandInputService {
 
     return content.trim();
   }
+
+  /**
+   * Focus to the input.
+   */
+  public focus(): void {
+    try {
+      const editor = this.getEditor();
+
+      // Find the first command input line
+      const commandLineInfo = this.findCommandInputLine();
+
+      if (!commandLineInfo) {
+        logger.warn('No command line found.');
+        return;
+      }
+
+      // Find the last line of the command block
+      const lastLineNumber = this.findLastInputLine(commandLineInfo.lineNumber);
+      const lastLineText = editor.getLine(lastLineNumber);
+
+      // Set cursor at the end of the last line of the command block
+      editor.setCursor({ line: lastLineNumber, ch: lastLineText.length });
+
+      // Focus the editor
+      editor.focus();
+    } catch (error) {
+      logger.error('Error focusing input:', error);
+    }
+  }
 }
