@@ -78,10 +78,9 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   },
   {
     commandType: 'confirm',
-    description: 'Confirm or reject operations',
+    description: 'Confirm or reject the current command to proceed',
     category: 'built-in',
     aliases: ['yes', 'no'],
-    availableToLLM: false,
   },
   {
     commandType: 'image',

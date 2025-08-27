@@ -116,17 +116,23 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
       }
 
       // Process the command
-      await plugin.commandProcessorService.processCommands({
-        title,
-        commands: [
-          {
-            commandType,
-            query: cleanContent,
+      await plugin.commandProcessorService.processCommands(
+        {
+          title,
+          commands: [
+            {
+              commandType,
+              query: cleanContent,
+            },
+          ],
+          lang,
+        },
+        {
+          sendToDownstream: {
+            isReloadRequest: true,
           },
-        ],
-        lang,
-        isReloadRequest: true,
-      });
+        }
+      );
     } catch (error) {
       logger.error('Error handling reload button click:', error);
       new Notice(`Error reloading message: ${error.message}`);

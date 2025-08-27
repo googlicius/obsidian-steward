@@ -17,7 +17,7 @@ interface QueuedCommands {
   payload: ConversationCommandReceivedPayload;
 }
 
-interface ProcessCommandsOptions {
+export interface ProcessCommandsOptions {
   skipIndicators?: boolean;
   skipGeneralCommandCheck?: boolean;
   skipConfirmationCheck?: boolean;
@@ -26,13 +26,20 @@ interface ProcessCommandsOptions {
    */
   builtInCommandPrecedence?: boolean;
   /**
-   * If true, indicates this is a reload request
-   */
-  isReloadRequest?: boolean;
-  /**
    * If true, skip the queue check and process commands directly
    */
   skipQueueCheck?: boolean;
+
+  sendToDownstream?: {
+    /**
+     * If true, indicates this is a reload request
+     */
+    isReloadRequest?: boolean;
+    /**
+     * If true, skip the classification check
+     */
+    ignoreClassify?: boolean;
+  };
 }
 
 export class CommandProcessor {
@@ -247,7 +254,7 @@ export class CommandProcessor {
           prevCommand,
           nextCommand,
           lang: payload.lang,
-          isReloadRequest: options.isReloadRequest,
+          upstreamOptions: options.sendToDownstream,
         });
 
         // Command completed successfully
