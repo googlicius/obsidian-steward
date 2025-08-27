@@ -102,9 +102,13 @@ export class ConversationEventHandler {
           },
         ],
         lang: payload.lang,
-        isReloadRequest: false,
       },
-      { skipIndicators: true }
+      {
+        skipIndicators: true,
+        sendToDownstream: {
+          isReloadRequest: false,
+        },
+      }
     );
   }
 }

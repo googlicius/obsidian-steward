@@ -1,4 +1,4 @@
-import { CommandProcessor } from '../solutions/commands';
+import { CommandProcessor, ProcessCommandsOptions } from '../solutions/commands';
 import { ConversationCommandReceivedPayload } from '../types/events';
 import { logger } from '../utils/logger';
 import {
@@ -147,13 +147,10 @@ export class CommandProcessorService {
    */
   public async processCommands(
     payload: ConversationCommandReceivedPayload,
-    options: { skipIndicators?: boolean } = {}
+    options: ProcessCommandsOptions = {}
   ): Promise<boolean> {
     try {
-      await this.commandProcessor.processCommands(payload, {
-        ...options,
-        isReloadRequest: payload.isReloadRequest,
-      });
+      await this.commandProcessor.processCommands(payload, options);
       return true;
     } catch (error) {
       logger.error('Error processing commands:', error);

@@ -60,6 +60,7 @@
 - [ ] Don't include the content of wikilinks automatically. Let the extraction decide it. But the downstream commands like `generate` are still able to include the content itself if it is not presented in the context.
 - [ ] Provide a unify solution allows each command can retrieve context itself.
 - [ ] Make another UDC demo: Is there any LOVE in violence? Is there any bilateral solution between Gandalf and Sauron?
+- [ ] Context Augmentation: When the confidence is low, evaluate the current extraction, request another extraction with all current context: read results, etc. And continue the process with the new extraction.
 
 ### BUGS
 

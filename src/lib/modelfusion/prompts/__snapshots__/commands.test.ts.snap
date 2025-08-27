@@ -9,6 +9,7 @@ exports[`commands formatCommandsForPrompt should return formatted commands for p
   Use when: Search for files (and doesn't mention existing search results)
 - "close": Close the conversation or exit
   Use when: Close the conversation
+- "confirm" (aliases: yes, no): Confirm or reject the current command to proceed
 - "image": Generate an image
   Use when: Generate an image
 - "audio" (aliases: speak): Generate audio from text

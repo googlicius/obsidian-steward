@@ -1,0 +1,6 @@
+---
+globs: *.test.ts,*.spec.ts
+alwaysApply: false
+---
+
+- When setting up a new test that requires mocking the plugin, create the `createMockPlugin` function within that test file with the necessary mocked properties. Finds an example here: @src/services/UserDefinedCommandService.test.ts (0-40)

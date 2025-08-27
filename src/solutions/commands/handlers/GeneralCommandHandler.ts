@@ -38,7 +38,7 @@ export class GeneralCommandHandler extends CommandHandler {
       extraction?: CommandIntentExtraction;
     } = {}
   ): Promise<CommandResult> {
-    const { title, command, isReloadRequest } = params;
+    const { title, command, upstreamOptions } = params;
     const t = getTranslation(params.lang);
 
     try {
@@ -46,7 +46,7 @@ export class GeneralCommandHandler extends CommandHandler {
 
       // If extraction is not provided, extract conversation history and then get command intent
       if (!extraction) {
-        const systemPrompts = [];
+        const systemPrompts = command.systemPrompts || [];
         const conversationHistories = await this.renderer.extractConversationHistory(title);
         const hasStwSelected = new RegExp(STW_SELECTED_PATTERN).test(command.query);
         const hasImageLinks = new RegExp(IMAGE_LINK_PATTERN).test(command.query);
@@ -84,7 +84,8 @@ NOTE:
           },
           lang: params.lang,
           conversationHistories,
-          isReloadRequest,
+          isReloadRequest: upstreamOptions?.isReloadRequest,
+          ignoreClassify: upstreamOptions?.ignoreClassify,
           currentArtifacts,
         });
       }

@@ -26,7 +26,10 @@ export interface CommandHandlerParams {
   prevCommand?: CommandIntent;
   nextCommand?: CommandIntent;
   lang?: string;
-  isReloadRequest?: boolean;
+  upstreamOptions?: {
+    isReloadRequest?: boolean;
+    ignoreClassify?: boolean;
+  };
 }
 
 export abstract class CommandHandler {

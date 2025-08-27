@@ -83,6 +83,7 @@ export async function extractCommandIntent(args: {
   conversationHistories: ConversationHistoryMessage[];
   lang?: string;
   isReloadRequest?: boolean;
+  ignoreClassify?: boolean;
   currentArtifacts?: Array<{ type: string }>;
 }): Promise<CommandIntentExtraction> {
   const {
@@ -90,14 +91,17 @@ export async function extractCommandIntent(args: {
     lang,
     conversationHistories = [],
     isReloadRequest = false,
+    ignoreClassify = false,
     currentArtifacts,
   } = args;
   const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
   const classifier = getClassifier(llmConfig.model.modelId, isReloadRequest);
-  const clusterName = await classify({
-    model: classifier,
-    value: command.query,
-  });
+  const clusterName = ignoreClassify
+    ? null
+    : await classify({
+        model: classifier,
+        value: command.query,
+      });
 
   const additionalSystemPrompts: string[] = command.systemPrompts || [];
 
@@ -135,14 +139,6 @@ export async function extractCommandIntent(args: {
       role: 'system' as const,
       content,
     }));
-
-    // if (conversationHistory.length > 1) {
-    //   systemPrompts.push({
-    //     role: 'system',
-    //     content:
-    //       'There are previous messages in this conversation. Use this context for better intent extraction.',
-    //   });
-    // }
 
     const { object } = await generateObject({
       ...llmConfig,

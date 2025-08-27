@@ -6,9 +6,9 @@ import {
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { CommandIntent } from 'src/lib/modelfusion';
-
 import type StewardPlugin from 'src/main';
 import type { CommandProcessor } from '../CommandProcessor';
+import { logger } from 'src/utils/logger';
 
 export class ConfirmCommandHandler extends CommandHandler {
   constructor(
@@ -22,7 +22,7 @@ export class ConfirmCommandHandler extends CommandHandler {
    * Handle a confirmation command by checking if the previous command needs confirmation
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command, lang } = params;
+    const { title, command, prevCommand, lang } = params;
     const t = getTranslation(lang);
 
     const confirmationIntent = this.isConfirmIntent(command);
@@ -48,15 +48,60 @@ export class ConfirmCommandHandler extends CommandHandler {
       !pendingCommandData.lastCommandResult ||
       pendingCommandData.lastCommandResult.status !== CommandResultStatus.NEEDS_CONFIRMATION
     ) {
-      await this.plugin.conversationRenderer.updateConversationNote({
-        path: title,
-        newContent: t('confirmation.noPending'),
-        role: 'Steward',
-      });
+      if (!prevCommand) {
+        await this.plugin.conversationRenderer.updateConversationNote({
+          path: title,
+          newContent: t('confirmation.noPending'),
+          role: 'Steward',
+        });
+
+        return {
+          status: CommandResultStatus.ERROR,
+          error: t('confirmation.noPending'),
+        };
+      }
+
+      logger.log('No pending command to confirm, letting LLMs handle it.');
+
+      // If the previous command was a generate command, it is more likely that the user is responding to the previous message.
+      if (prevCommand.commandType === 'generate') {
+        // Forward the query to the generate command.
+        await this.commandProcessor.processCommands({
+          title,
+          commands: [
+            {
+              commandType: 'generate',
+              query: params.command.query,
+            },
+          ],
+        });
+      }
+
+      // Otherwise, it is something else.
+      else {
+        await this.commandProcessor.processCommands(
+          {
+            title,
+            commands: [
+              {
+                commandType: ' ',
+                query: params.command.query,
+                systemPrompts: [
+                  'There is no pending command to confirm, so don\'t include the "confirm" command.',
+                ],
+              },
+            ],
+          },
+          {
+            sendToDownstream: {
+              ignoreClassify: true,
+            },
+          }
+        );
+      }
 
       return {
-        status: CommandResultStatus.ERROR,
-        error: t('confirmation.noPending'),
+        status: CommandResultStatus.SUCCESS,
       };
     }
 
