@@ -4,7 +4,7 @@ import { AbortService } from 'src/services/AbortService';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
 import { generateText, tool } from 'ai';
-import { CommandIntent } from './intentExtraction';
+import { CommandIntent } from 'src/types/types';
 import { explanationFragment, confidenceFragment } from '../prompts/fragments';
 
 const abortService = AbortService.getInstance();

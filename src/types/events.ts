@@ -1,4 +1,4 @@
-import { CommandIntent } from '../lib/modelfusion/extractions';
+import { CommandIntent } from './types';
 import { SearchQueryExtractionV2 } from '../lib/modelfusion';
 import { IndexedDocument } from '../database/SearchDatabase';
 

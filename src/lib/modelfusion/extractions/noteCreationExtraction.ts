@@ -6,7 +6,7 @@ import { prepareUserMessage } from '../utils/userMessageUtils';
 import { App } from 'obsidian';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
-import { CommandIntent } from './intentExtraction';
+import { CommandIntent } from 'src/types/types';
 import { explanationFragment, confidenceFragment } from '../prompts/fragments';
 import { logger } from 'src/utils/logger';
 
