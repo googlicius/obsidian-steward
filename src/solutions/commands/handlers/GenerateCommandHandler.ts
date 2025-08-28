@@ -5,11 +5,7 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import {
-  CommandIntent,
-  extractContentUpdate,
-  extractNoteGeneration,
-} from 'src/lib/modelfusion/extractions';
+import { extractContentUpdate, extractNoteGeneration } from 'src/lib/modelfusion/extractions';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { streamText, APICallError } from 'ai';
 import { AbortService } from 'src/services/AbortService';
@@ -20,7 +16,7 @@ import {
 } from 'src/lib/modelfusion';
 import { MediaTools } from 'src/tools/mediaTools';
 import { LLMService } from 'src/services/LLMService';
-import { ConversationHistoryMessage } from 'src/types/types';
+import { CommandIntent, ConversationHistoryMessage } from 'src/types/types';
 import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
@@ -147,27 +143,11 @@ The response should be in natural language and not include the selection(s) {{st
     }
 
     if (extraction.confidence <= 0.7 && !options.lowConfidenceConfirmed) {
-      await this.renderer.updateConversationNote({
-        path: title,
-        newContent: extraction.explanation,
-        includeHistory: false,
-        lang,
-      });
-
-      await this.renderer.updateConversationNote({
-        path: title,
-        newContent: `*${t('common.lowConfidenceConfirmation')}*`,
-        lang,
-      });
-
+      // Return LOW_CONFIDENCE status to trigger context augmentation
       return {
-        status: CommandResultStatus.NEEDS_CONFIRMATION,
-        onConfirmation: () => {
-          return this.generateContent(params, {
-            lowConfidenceConfirmed: true,
-            extraction,
-          });
-        },
+        status: CommandResultStatus.LOW_CONFIDENCE,
+        commandType: 'generate',
+        explanation: extraction.explanation,
       };
     }
 
@@ -223,11 +203,9 @@ The response should be in natural language and not include the selection(s) {{st
           });
         }
       } else {
-        const conversationHistory = fromRead
-          ? []
-          : await this.renderer.extractConversationHistory(title, {
-              summaryPosition: 1,
-            });
+        const conversationHistory = await this.renderer.extractConversationHistory(title, {
+          summaryPosition: 1,
+        });
 
         const mediaTools = MediaTools.getInstance(this.app);
 

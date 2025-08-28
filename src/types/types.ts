@@ -39,5 +39,5 @@ export interface CommandIntent {
 
 export interface ContextAugmentationIntent extends CommandIntent {
   commandType: 'context_augmentation';
-  retryCount: number;
+  retryRemaining: number;
 }

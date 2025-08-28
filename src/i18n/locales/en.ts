@@ -249,6 +249,7 @@ const en = {
       readingContent: 'Reading content...',
       buildingIndex: 'Building search index...',
       summarizing: 'Summarizing conversation...',
+      augmentingContext: 'Augmenting context...',
     },
     // Settings
     settings: {

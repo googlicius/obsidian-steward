@@ -47,16 +47,12 @@ export class ImageCommandHandler extends CommandHandler {
         lang,
       });
 
-      // If the confidence is low, just return success
       if (extraction.confidence <= 0.7) {
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: t('common.abortedByLowConfidence'),
-          includeHistory: false,
-          lang,
-        });
+        // Return LOW_CONFIDENCE status to trigger context augmentation
         return {
-          status: CommandResultStatus.SUCCESS,
+          status: CommandResultStatus.LOW_CONFIDENCE,
+          commandType: 'image',
+          explanation: extraction.explanation,
         };
       }
 

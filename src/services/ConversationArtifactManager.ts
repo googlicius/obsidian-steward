@@ -14,6 +14,7 @@ export enum ArtifactType {
   CONTENT_UPDATE = 'content_update',
   MEDIA_RESULTS = 'media_results',
   CONVERSATION_SUMMARY = 'conversation_summary',
+  EXTRACTION_RESULT = 'extraction-result',
 }
 
 /**
@@ -75,13 +76,28 @@ export interface ConversationSummaryArtifact extends BaseArtifact {
   summary: string; // The generated summary text
 }
 
+/**
+ * Extraction result artifact
+ */
+export interface ExtractionResultArtifact extends BaseArtifact {
+  type: ArtifactType.EXTRACTION_RESULT;
+  content: {
+    query: string;
+    commands: {
+      commandType: string;
+      query: string;
+    }[];
+  };
+}
+
 export type Artifact =
   | SearchResultsArtifact
   | CreatedNotesArtifact
   | ReadContentArtifact
   | ContentUpdateArtifact
   | MediaResultsArtifact
-  | ConversationSummaryArtifact;
+  | ConversationSummaryArtifact
+  | ExtractionResultArtifact;
 
 type ArtifactMap = {
   [ArtifactType.SEARCH_RESULTS]: SearchResultsArtifact;
@@ -90,6 +106,7 @@ type ArtifactMap = {
   [ArtifactType.CONTENT_UPDATE]: ContentUpdateArtifact;
   [ArtifactType.MEDIA_RESULTS]: MediaResultsArtifact;
   [ArtifactType.CONVERSATION_SUMMARY]: ConversationSummaryArtifact;
+  [ArtifactType.EXTRACTION_RESULT]: ExtractionResultArtifact;
 };
 
 /**

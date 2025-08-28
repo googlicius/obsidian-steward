@@ -1,4 +1,4 @@
-import { CommandIntent } from './types';
+import { CommandIntent, ContextAugmentationIntent } from './types';
 import { SearchQueryExtractionV2 } from '../lib/modelfusion';
 import { IndexedDocument } from '../database/SearchDatabase';
 
@@ -35,7 +35,7 @@ export enum ErrorEvents {
 
 export interface ConversationCommandReceivedPayload {
   title: string;
-  commands: CommandIntent[];
+  commands: (CommandIntent | ContextAugmentationIntent)[];
   lang?: string;
 }
 

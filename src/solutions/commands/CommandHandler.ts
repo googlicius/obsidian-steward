@@ -1,4 +1,4 @@
-import { CommandIntent } from '../../lib/modelfusion/extractions';
+import { CommandIntent } from 'src/types/types';
 import type { ObsidianAPITools } from 'src/tools/obsidianAPITools';
 import type { App } from 'obsidian';
 import type StewardPlugin from '../../main';
@@ -10,19 +10,40 @@ export enum CommandResultStatus {
   SUCCESS = 'success',
   ERROR = 'error',
   NEEDS_CONFIRMATION = 'needs_confirmation',
+  LOW_CONFIDENCE = 'low_confidence',
 }
 
-export interface CommandResult {
-  status: CommandResultStatus;
-  error?: Error | string;
+type ConfirmationCommandResult = {
+  status: CommandResultStatus.NEEDS_CONFIRMATION;
   confirmationMessage?: string;
-  onConfirmation?: () => Promise<CommandResult> | CommandResult;
+  onConfirmation: () => Promise<CommandResult> | CommandResult;
   onRejection?: () => Promise<CommandResult> | CommandResult;
-}
+};
 
-export interface CommandHandlerParams {
+type SuccessCommandResult = {
+  status: CommandResultStatus.SUCCESS;
+};
+
+type ErrorCommandResult = {
+  status: CommandResultStatus.ERROR;
+  error?: Error | string;
+};
+
+type LowConfidenceCommandResult = {
+  status: CommandResultStatus.LOW_CONFIDENCE;
+  commandType: string;
+  explanation?: string;
+};
+
+export type CommandResult =
+  | ConfirmationCommandResult
+  | SuccessCommandResult
+  | ErrorCommandResult
+  | LowConfidenceCommandResult;
+
+export interface CommandHandlerParams<T extends CommandIntent = CommandIntent> {
   title: string;
-  command: CommandIntent;
+  command: T;
   prevCommand?: CommandIntent;
   nextCommand?: CommandIntent;
   lang?: string;
