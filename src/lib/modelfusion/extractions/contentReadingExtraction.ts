@@ -32,7 +32,7 @@ const contentReadingSchema = z.object({
     .string()
     .nullable()
     .describe(
-      `A short text to indicate that the content was found. Use {{number}} as a placeholder, not the actual number.
+      `A short text to indicate that the content was found. MUST include the term {{number}} as a placeholder, for example: "I found {{number}}..."
 If the readType is "entire", leave it null.`
     ),
   confidence: z.number().min(0).max(1).describe(confidenceFragment),

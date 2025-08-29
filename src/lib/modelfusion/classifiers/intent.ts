@@ -176,11 +176,8 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
         'proceed',
         'cancel',
         'go ahead',
-        'stop',
         'i agree',
         'i disagree',
-        "that's correct",
-        "that's incorrect",
       ],
     },
     {
