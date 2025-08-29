@@ -107,6 +107,11 @@ export class SearchCommandHandler extends CommandHandler {
               .getText();
             message += `- ${t('search.folders')}: ${escapedFolders}\n`;
           }
+
+          // Add an extra newline between operations except for the last one
+          if (index < queryExtraction.operations.length - 1) {
+            message += '\n';
+          }
         }
 
         await this.renderer.updateConversationNote({
@@ -114,6 +119,7 @@ export class SearchCommandHandler extends CommandHandler {
           newContent: message,
           command: 'search',
           includeHistory: false,
+          role: 'Steward',
         });
 
         // Check if the next command will operate on the search results
