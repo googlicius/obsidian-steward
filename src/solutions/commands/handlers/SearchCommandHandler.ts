@@ -183,7 +183,6 @@ export class SearchCommandHandler extends CommandHandler {
           })}*`,
           artifactContent,
           command: 'search',
-          role: 'System',
         });
       }
 

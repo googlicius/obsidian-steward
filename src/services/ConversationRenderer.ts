@@ -26,8 +26,8 @@ export class ConversationRenderer {
   /**
    * Formats role text based on the showPronouns setting
    */
-  private formatRoleText(role?: string, showLabel = false): string {
-    if (!role || !showLabel || !this.plugin.settings.showPronouns) {
+  private formatRoleText(role?: string, showLabel = this.plugin.settings.showPronouns): string {
+    if (!role || !showLabel) {
       return '';
     }
 

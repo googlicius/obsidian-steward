@@ -84,13 +84,11 @@ export class ImageCommandHandler extends CommandHandler {
           mediaType: 'image',
         });
 
-        // Add a System message with the artifact content
         const t = getTranslation(lang);
         await this.renderer.updateConversationNote({
           path: title,
           newContent: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
           artifactContent: result.filePath,
-          role: 'System',
           command: 'image',
         });
       }
