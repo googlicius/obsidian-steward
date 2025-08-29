@@ -572,7 +572,7 @@ describe('ConversationRenderer', () => {
     it('should not show label when role is System and showLabel is false', async () => {
       // Mock uniqueID to return predictable values for testing
       const mockUniqueID = uniqueID as jest.MockedFunction<typeof uniqueID>;
-      mockUniqueID.mockReturnValueOnce('msg-001').mockReturnValueOnce('msg-002');
+      mockUniqueID.mockClear().mockReturnValueOnce('msg-001').mockReturnValueOnce('msg-002');
 
       // Create mock plugin with the conversation content
       const mockPlugin = createMockPlugin('');
