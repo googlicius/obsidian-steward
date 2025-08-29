@@ -151,22 +151,23 @@ The response should be in natural language and not include the selection(s) {{st
       };
     }
 
-    await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
-
     try {
+      const messageId = await this.renderer.updateConversationNote({
+        path: title,
+        newContent: extraction.explanation,
+        includeHistory: false,
+        role: 'Steward',
+        lang,
+      });
+
+      await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
+
       if ('updates' in extraction) {
         if (extraction.updates.length === 0) {
           return {
             status: CommandResultStatus.SUCCESS,
           };
         }
-
-        const messageId = await this.renderer.updateConversationNote({
-          path: title,
-          newContent: extraction.explanation,
-          includeHistory: false,
-          lang,
-        });
 
         if (messageId) {
           this.artifactManager.storeArtifact(title, messageId, {
@@ -181,7 +182,6 @@ The response should be in natural language and not include the selection(s) {{st
               type: ArtifactType.CONTENT_UPDATE,
             })}*`,
             command: 'generate',
-            role: 'System',
             lang,
           });
         }
@@ -220,13 +220,14 @@ The response should be in natural language and not include the selection(s) {{st
             ...command,
             systemPrompts,
           },
-          conversationHistory,
+          conversationHistory: conversationHistory.slice(0, -1),
           errorCallback: async error => {
+            logger.error('Error in contentGenerationStream', error);
+
             if (error instanceof APICallError && error.statusCode === 422) {
               await this.renderer.updateConversationNote({
                 path: title,
                 newContent: `*Error: Unprocessable Content*`,
-                role: 'System',
               });
             }
           },
@@ -268,9 +269,6 @@ The response should be in natural language and not include the selection(s) {{st
           this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
         }
       }
-
-      // We no longer generate summaries after every generate command
-      // Summaries are now generated when users send follow-up queries in GeneralCommandHandler
 
       return {
         status: CommandResultStatus.SUCCESS,

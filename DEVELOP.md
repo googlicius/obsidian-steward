@@ -70,3 +70,4 @@
       **Solution:** Either fine-tunning the content reading prompt to tell LLMs use correct tool params or
       include all content of any wikilinks along with the user query.
 - [x] The systemPrompts in the User-Defined command currently load content from wikilinks only one level (Need 2 levels to resolve content of wikilinks in the system prompt)
+- [ ] Double user messages in the actual generate.

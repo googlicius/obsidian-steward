@@ -171,7 +171,6 @@ export class CreateCommandHandler extends CommandHandler {
             })}*`,
             artifactContent: createdNotes.join('\n\n'),
             command: 'create',
-            role: 'System',
             lang,
           });
         }

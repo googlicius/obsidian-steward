@@ -174,6 +174,9 @@ export class ConfirmCommandHandler extends CommandHandler {
       'create',
       'confirm',
       'proceed',
+      'go ahead',
+      'approve',
+      'agree',
       // Vietnamese affirmative terms
       'có',
       'có nha',
@@ -193,6 +196,8 @@ export class ConfirmCommandHandler extends CommandHandler {
       'dont',
       'cancel',
       'stop',
+      'reject',
+      'disagree',
       // Vietnamese negative terms
       'không',
       'không nha',

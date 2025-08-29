@@ -48,7 +48,6 @@ export class SummaryCommandHandler extends CommandHandler {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: `*${t('summary.noConversation')}*`,
-          role: 'System',
           lang,
         });
 
@@ -63,7 +62,7 @@ export class SummaryCommandHandler extends CommandHandler {
         // The `<>` won't be visible in the conversation
         newContent: '<summaryPlaceholder>',
         role: {
-          name: 'System',
+          name: 'Steward',
           showLabel: false,
         },
         command: 'summary',
@@ -88,7 +87,6 @@ export class SummaryCommandHandler extends CommandHandler {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `*Error generating summary: ${error.message}*`,
-        role: 'System',
         lang,
       });
 
