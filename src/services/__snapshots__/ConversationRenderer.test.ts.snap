@@ -161,6 +161,16 @@ This conversation discusses React hooks, particularly useState, which allows add
 ]
 `;
 
+exports[`ConversationRenderer updateConversationNote should not show label when role is System and showLabel is false 1`] = `
+"<!--STW ID:msg-001,ROLE:steward-->
+**Steward:** This message has a role label"
+`;
+
+exports[`ConversationRenderer updateConversationNote should not show label when role is System and showLabel is false 2`] = `
+"<!--STW ID:msg-002,ROLE:system-->
+This message does not have a role label"
+`;
+
 exports[`ConversationRenderer updateConversationNote should replace a specific message when replacePlaceHolder is provided 1`] = `
 "<!--STW ID:abc123,ROLE:user,COMMAND:search-->
 >[!stw-user-message] id:abc123

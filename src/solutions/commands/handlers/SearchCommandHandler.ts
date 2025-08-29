@@ -172,11 +172,16 @@ export class SearchCommandHandler extends CommandHandler {
           type: ArtifactType.SEARCH_RESULTS,
           originalResults: docs,
         });
+
+        // Create artifact content with description of results
+        const artifactContent = `${t('search.artifactDescription', { count: docs.length })}\n\n${t('search.artifactNote')}`;
+
         await this.renderer.updateConversationNote({
           path: title,
           newContent: `*${t('common.artifactCreated', {
             type: ArtifactType.SEARCH_RESULTS,
           })}*`,
+          artifactContent,
           command: 'search',
           role: 'System',
         });

@@ -152,6 +152,9 @@ const ja = {
       foundFilesForIndex: '{{count}}件のファイルにインデックスを付けることができます。',
       confirmRebuildIndexQuestion: '検索インデックスを再構築しますか？',
       privacyNotice: '注意：検索インデックスはプライバシーのためにローカルで処理・保存されます。',
+      artifactDescription: '{{count}}件のドキュメントを含む検索結果',
+      artifactNote:
+        '完全な検索結果は編集されていますが、検索結果を操作する必要がある他のコマンドからは引き続きアクセスできます。',
     },
     // Close command messages
     close: {

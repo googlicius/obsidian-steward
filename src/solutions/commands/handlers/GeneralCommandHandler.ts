@@ -99,6 +99,20 @@ NOTE:
         },
       });
 
+      if (extraction.commands.length === 0) {
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: extraction.explanation,
+          role: 'Steward',
+          lang: params.lang,
+        });
+
+        return {
+          status: CommandResultStatus.ERROR,
+          error: 'No commands are extracted',
+        };
+      }
+
       // For low confidence intents, return LOW_CONFIDENCE status
       if (extraction.confidence <= 0.7 && !options.intentExtractionConfirmed) {
         return {

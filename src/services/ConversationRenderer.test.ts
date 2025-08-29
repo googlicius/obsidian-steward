@@ -2,9 +2,15 @@ import { ConversationRenderer } from './ConversationRenderer';
 import { App, TFile } from 'obsidian';
 import type StewardPlugin from '../main';
 import { NoteContentService } from './NoteContentService';
+import { uniqueID } from '../utils/uniqueID';
 
 // Mock StewardPlugin
 jest.mock('../main');
+
+// Mock the uniqueID function
+jest.mock('../utils/uniqueID', () => ({
+  uniqueID: jest.fn(() => 'mock-id-123'),
+}));
 
 /**
  * Creates a mock plugin for testing the ConversationRenderer
@@ -561,6 +567,55 @@ describe('ConversationRenderer', () => {
 
       // Verify that only the target message was removed, others remain
       expect(processedContent).toMatchSnapshot();
+    });
+
+    it('should not show label when role is System and showLabel is false', async () => {
+      // Mock uniqueID to return predictable values for testing
+      const mockUniqueID = uniqueID as jest.MockedFunction<typeof uniqueID>;
+      mockUniqueID.mockReturnValueOnce('msg-001').mockReturnValueOnce('msg-002');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin('');
+      // Set showPronouns to true to show the label by default.
+      mockPlugin.settings.showPronouns = true;
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, processor) => {
+          const result = processor('');
+          return result;
+        });
+
+      await conversationRenderer.updateConversationNote({
+        path: 'test-conversation',
+        newContent: 'This message has a role label',
+        role: 'Steward',
+      });
+
+      await conversationRenderer.updateConversationNote({
+        path: 'test-conversation',
+        newContent: 'This message does not have a role label',
+        role: {
+          name: 'System',
+          showLabel: false,
+        },
+      });
+
+      // Verify that uniqueID was called for each message
+      expect(mockUniqueID).toHaveBeenCalledTimes(2);
+
+      // Verify that vault.process was called
+      expect(processSpy).toHaveBeenCalledTimes(2);
+
+      // Get the processed content from the mocks
+      for (const processCall of processSpy.mock.calls) {
+        const processor = processCall[1];
+        const processedContent = processor('');
+
+        // Verify that the label is not shown
+        expect(processedContent.trim()).toMatchSnapshot();
+      }
     });
   });
 });

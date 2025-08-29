@@ -62,7 +62,10 @@ export class SummaryCommandHandler extends CommandHandler {
         // Put placeholder to ensure it does not render in between user and steward messages
         // The `<>` won't be visible in the conversation
         newContent: '<summaryPlaceholder>',
-        role: 'System',
+        role: {
+          name: 'System',
+          showLabel: false,
+        },
         command: 'summary',
         lang,
       });
