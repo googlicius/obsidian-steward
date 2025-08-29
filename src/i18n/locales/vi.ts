@@ -151,6 +151,9 @@ const vi = {
       foundFilesForIndex: 'Tôi đã tìm thấy {{count}} tệp có thể được lập chỉ mục.',
       confirmRebuildIndexQuestion: 'Bạn có muốn xây dựng lại chỉ mục tìm kiếm không?',
       privacyNotice: 'Lưu ý: Chỉ mục tìm kiếm được xử lý và lưu trữ cục bộ để bảo mật.',
+      artifactDescription: 'Kết quả tìm kiếm chứa {{count}} tài liệu',
+      artifactNote:
+        'Toàn bộ kết quả tìm kiếm được ẩn bớt nhưng vẫn có thể được truy cập bởi các lệnh khác cần làm việc với kết quả tìm kiếm.',
     },
     // Close command messages
     close: {

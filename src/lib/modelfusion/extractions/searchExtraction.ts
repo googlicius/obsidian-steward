@@ -7,7 +7,7 @@ import { getTranslation } from 'src/i18n';
 import { AbortService } from 'src/services/AbortService';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
-import { CommandIntent } from './intentExtraction';
+import { CommandIntent } from 'src/types/types';
 import { explanationFragment } from '../prompts/fragments';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 

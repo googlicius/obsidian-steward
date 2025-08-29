@@ -175,6 +175,9 @@ const en = {
       foundFilesForIndex: 'I found {{count}} files that can be indexed.',
       confirmRebuildIndexQuestion: 'Do you want to rebuild the search index?',
       privacyNotice: 'Note: The search index is processed and stored locally for privacy.',
+      artifactDescription: 'Search results containing {{count}} documents',
+      artifactNote:
+        'The full search results are redacted but still can be accessed by other commands that need to work with the search results.',
     },
     // Close command messages
     close: {
@@ -249,6 +252,7 @@ const en = {
       readingContent: 'Reading content...',
       buildingIndex: 'Building search index...',
       summarizing: 'Summarizing conversation...',
+      augmentingContext: 'Augmenting context...',
     },
     // Settings
     settings: {

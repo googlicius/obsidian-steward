@@ -9,6 +9,7 @@ import { CommandIntentExtraction, extractCommandIntent } from 'src/lib/modelfusi
 import type StewardPlugin from 'src/main';
 import type { CommandProcessor } from '../CommandProcessor';
 import { STW_SELECTED_PATTERN, IMAGE_LINK_PATTERN, WIKI_LINK_PATTERN } from 'src/constants';
+import { ArtifactType } from '../../../services/ConversationArtifactManager';
 
 export class GeneralCommandHandler extends CommandHandler {
   isContentRequired = true;
@@ -39,7 +40,6 @@ export class GeneralCommandHandler extends CommandHandler {
     } = {}
   ): Promise<CommandResult> {
     const { title, command, upstreamOptions } = params;
-    const t = getTranslation(params.lang);
 
     try {
       let extraction = options.extraction;
@@ -90,41 +90,35 @@ NOTE:
         });
       }
 
-      // For low confidence intents, ask for confirmation before proceeding
-      if (extraction.confidence <= 0.7 && !options.intentExtractionConfirmed) {
+      // Store the extraction result as an artifact
+      this.artifactManager.storeArtifact(title, `extraction-${Date.now()}`, {
+        type: ArtifactType.EXTRACTION_RESULT,
+        content: {
+          query: command.query,
+          commands: extraction.commands,
+        },
+      });
+
+      if (extraction.commands.length === 0) {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: extraction.explanation,
           role: 'Steward',
-          lang: extraction.lang,
+          lang: params.lang,
         });
-
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: `*${t('common.abortedByLowConfidence')}*`,
-          includeHistory: false,
-          lang: extraction.lang,
-        });
-
-        // return {
-        //   status: CommandResultStatus.NEEDS_CONFIRMATION,
-        //   confirmationMessage,
-        //   onConfirmation: async () => {
-        //     console.log('onConfirmation');
-        //     // If confirmed, process the commands with the confirmed flag
-        //     this.handle(params, { intentExtractionConfirmed: true, extraction: intentExtraction });
-        //   },
-        //   onRejection: () => {
-        //     // If rejected, add a message indicating the operation was cancelled
-        //     this.renderer.updateConversationNote({
-        //       path: title,
-        //       newContent: `*${t('common.operationCancelled') || 'Operation cancelled.'}*`,
-        //     });
-        //   },
-        // };
 
         return {
-          status: CommandResultStatus.SUCCESS,
+          status: CommandResultStatus.ERROR,
+          error: 'No commands are extracted',
+        };
+      }
+
+      // For low confidence intents, return LOW_CONFIDENCE status
+      if (extraction.confidence <= 0.7 && !options.intentExtractionConfirmed) {
+        return {
+          status: CommandResultStatus.LOW_CONFIDENCE,
+          commandType: 'general',
+          explanation: extraction.explanation,
         };
       }
 

@@ -1,4 +1,4 @@
-import { CommandIntent } from '../extractions';
+import { CommandIntent } from 'src/types/types';
 import { languageEnforcementFragment } from './fragments';
 
 export function searchPromptV2(command: CommandIntent) {

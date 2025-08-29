@@ -7,22 +7,12 @@ import { AbortService } from 'src/services/AbortService';
 import { getClassifier } from '../classifiers/getClassifier';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
-import { ConversationHistoryMessage } from 'src/types/types';
+import { ConversationHistoryMessage, CommandIntent } from 'src/types/types';
 import { explanationFragment } from '../prompts/fragments';
 import { getValidCommandTypes } from '../prompts/commands';
 
 // Use AbortService instead of a local controller
 const abortService = AbortService.getInstance();
-
-/**
- * Represents a single command in a sequence
- */
-export interface CommandIntent {
-  commandType: string;
-  query: string;
-  systemPrompts?: string[];
-  model?: string; // Optional model to use for this command
-}
 
 // Define valid command types
 const validCommandTypes = getValidCommandTypes();

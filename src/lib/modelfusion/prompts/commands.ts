@@ -197,14 +197,16 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     category: 'intent-based',
     queryTemplate: `Extract a specific query for a read command:
 1. Extract the query for the read command follows this format: <query_in_natural_language>; read type: <readType>[; note name: <noteName>]
-  - <query_in_natural_language>: Tailored query for read command.
+  - <query_in_natural_language>: Tailored query for each read command.
   - <readType>: abort, below, or entire.
   - <noteName>: The note name to read. Include if the <readType> is "entire".
 
-2. Maintain Natural Language:
-   - Keep the query in natural language form
-   - Don't convert natural language expressions into structured queries
-   - Preserve the original wording and context`,
+2. Multiple read commands if needed.
+  - If the query require read content in one or more notes, include all of them.
+
+3. Maintain Natural Language:
+  - Keep the query in natural language form
+  - Don't convert natural language expressions into structured queries.`,
     includeWhen: 'Read or Find content based on a specific pattern in their current note',
     artifactDesc: 'The content of the reading result',
   },

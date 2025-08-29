@@ -49,18 +49,12 @@ export class CreateCommandHandler extends CommandHandler {
           app: this.app,
         }));
 
-      // For low confidence extractions, just show the explanation
       if (extraction.confidence <= 0.7) {
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: extraction.explanation,
-          role: 'Steward',
-          lang,
-        });
-
+        // Return LOW_CONFIDENCE status to trigger context augmentation
         return {
-          status: CommandResultStatus.ERROR,
-          error: new Error('Low confidence in note creation extraction'),
+          status: CommandResultStatus.LOW_CONFIDENCE,
+          commandType: 'create',
+          explanation: extraction.explanation,
         };
       }
 

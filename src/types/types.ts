@@ -26,3 +26,18 @@ export interface ConversationMessage {
   command: string;
   history?: boolean;
 }
+
+/**
+ * Represents a single command in a sequence
+ */
+export interface CommandIntent {
+  commandType: string;
+  query: string;
+  systemPrompts?: string[];
+  model?: string; // Optional model to use for this command
+}
+
+export interface ContextAugmentationIntent extends CommandIntent {
+  commandType: 'context_augmentation';
+  retryRemaining: number;
+}

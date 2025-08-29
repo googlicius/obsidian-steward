@@ -2,9 +2,9 @@ import { generateObject } from 'ai';
 import { destinationFolderPrompt } from '../prompts/destinationFolderPrompt';
 import { AbortService } from 'src/services/AbortService';
 import { LLMService } from 'src/services/LLMService';
-import { CommandIntent } from './intentExtraction';
 import { desFolderExtractionSchema } from './destinationFolderExtraction';
 import { logger } from 'src/utils/logger';
+import { CommandIntent } from 'src/types/types';
 
 const abortService = AbortService.getInstance();
 

@@ -1,6 +1,6 @@
 import { TFile } from 'obsidian';
 import { logger } from 'src/utils/logger';
-import { CommandIntent } from 'src/lib/modelfusion/extractions';
+import { CommandIntent } from 'src/types/types';
 import * as yaml from 'js-yaml';
 
 import type StewardPlugin from 'src/main';

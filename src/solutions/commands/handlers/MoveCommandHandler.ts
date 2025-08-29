@@ -71,14 +71,11 @@ export class MoveCommandHandler extends CommandHandler {
       });
 
       if (extraction.confidence <= 0.7) {
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: `*${t('common.abortedByLowConfidence')}*`,
-        });
-
+        // Return LOW_CONFIDENCE status to trigger context augmentation
         return {
-          status: CommandResultStatus.ERROR,
-          error: t('common.abortedByLowConfidence'),
+          status: CommandResultStatus.LOW_CONFIDENCE,
+          commandType: 'move_from_artifact',
+          explanation: extraction.explanation,
         };
       }
 

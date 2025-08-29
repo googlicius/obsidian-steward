@@ -5,7 +5,7 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import { CommandIntent } from 'src/lib/modelfusion';
+import { CommandIntent } from 'src/types/types';
 import type StewardPlugin from 'src/main';
 import type { CommandProcessor } from '../CommandProcessor';
 import { logger } from 'src/utils/logger';

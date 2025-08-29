@@ -1,7 +1,7 @@
 import { ConversationCommandReceivedPayload } from '../../types/events';
 import { CommandResultStatus, CommandHandler, CommandResult } from './CommandHandler';
 import { logger } from '../../utils/logger';
-import { CommandIntent } from '../../lib/modelfusion/extractions';
+import { CommandIntent } from 'src/types/types';
 import { NoteContentService } from '../../services/NoteContentService';
 import type StewardPlugin from 'src/main';
 
@@ -273,6 +273,31 @@ export class CommandProcessor {
         } else if (result.status === CommandResultStatus.NEEDS_CONFIRMATION) {
           // Pause processing until confirmation is received
           logger.log(`Command needs confirmation: ${command.commandType}`);
+          return;
+        } else if (result.status === CommandResultStatus.LOW_CONFIDENCE) {
+          logger.log(
+            `Low confidence in command: ${command.commandType}, attempting context augmentation`
+          );
+
+          await this.processCommands(
+            {
+              title,
+              commands: [
+                {
+                  commandType: 'context_augmentation',
+                  query: '',
+                  retryRemaining: 0, // We disable the context augmentation for now.
+                },
+              ],
+              lang: payload.lang,
+            },
+            {
+              skipQueueCheck: true,
+            }
+          );
+
+          // Stop the current command processing
+          this.pendingCommands.delete(title);
           return;
         }
       } catch (error) {

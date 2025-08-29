@@ -6,13 +6,13 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 
 ## Features
 
-- **Built-in Search Engine**: A TF-IDF based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search
-- **Command-based Interaction**: Support for standard commands like search, create, update, delete, move, audio, image generation, and user-defined commands
-- **Multi-language Support**: Use Steward in your preferred language
-- **Privacy-focused**: Most actions are executed in the front-end using Obsidian API to avoid exposing your data to LLMs (except for your queries)
-- **Interactive and Adaptive Chat UI**: A chat interface made of the slash `/` leveraging Obsidian's editor features and is adaptable to your current themes.
-- **Model Flexibility**: Use your favorite AI models including OpenAI, DeepSeek, and Ollama local models
+- **Built-in Search Engine**: A TF-IDF based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search.
+- **Interactive and Adaptive Chat UI**: One or more chat interfaces made of the slash `/` leveraging Obsidian's editor and reading view features, that is, adaptable to your current themes.
+- **Privacy-focused**: Most actions are executed in the front-end using Obsidian API to avoid exposing your data to LLMs (except for your queries).
+- **Command-based Interaction**: Support for standard commands like search, create, update, delete, move, audio, image generation, and user-defined commands.
+- **Model Flexibility**: Use your favorite AI models, including OpenAI, DeepSeek, Gemini, Ollama, etc.
 - **Intent Caching**: Utilizes embeddings to cache similar queries, so subsequent requests require fewer tokens for LLM processing.
+- **Multi-language Support**: Use Steward in your preferred language.
 - **User-Defined Commands**: Create your own command workflows by combining multiple commands with specific LLM models and settings of your choice.
 
 ## Standard (Built-In) Commands
@@ -24,14 +24,6 @@ Steward can be used through the command palette directly in the editor or by ope
 1. Click the "Open Steward chat" icon to open the chat
 2. Type after the `/ ` in the chat or the active editor to interact or type `/ ?` to see available commands
 3. To add a new line in the command input, press `Shift+Enter` (uses 2-space indentation)
-
-#### Example Commands
-
-- **/search** Notes tagged #Todo in the root folder
-- / Add tag #Done to all notes of the search results and move them to the Archived folder
-- / Write a poem about Angular in a new note then move it to the Generated folder
-- / Update the list above to a numbered list
-- **/audio** "project" as a noun and a verb using 11Labs
 
 ## Showcases
 

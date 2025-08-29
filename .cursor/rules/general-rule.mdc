@@ -5,7 +5,6 @@ alwaysApply: false
 ---
 
 - Adopt the return early approach.
-- If you understand what we're intent to do, tell me what I don't know if my approach not work.
 - If a function has more than 4 arguments, make it a single argument as an object.
 - Always write the code readable, maintainable, and reusable.
 - Use 'for' loops instead of 'forEach' for iterating arrays.

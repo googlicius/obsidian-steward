@@ -8,7 +8,7 @@ import { App } from 'obsidian';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
 import { explanationFragment, confidenceFragment } from '../prompts/fragments';
-import { CommandIntent } from './intentExtraction';
+import { CommandIntent } from 'src/types/types';
 
 const abortService = AbortService.getInstance();
 

@@ -5,8 +5,7 @@ import { AbortService } from 'src/services/AbortService';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
 import { confidenceFragment } from '../prompts/fragments';
-import { CommandIntent } from './intentExtraction';
-import { ConversationHistoryMessage } from 'src/types/types';
+import { CommandIntent, ConversationHistoryMessage } from 'src/types/types';
 import { logger } from 'src/utils/logger';
 
 const abortService = AbortService.getInstance();
@@ -58,7 +57,7 @@ export async function extractNoteGeneration(params: {
     const { object } = await generateObject({
       ...llmConfig,
       abortSignal: abortService.createAbortController('note-generation'),
-      system: noteGenerationPrompt,
+      system: noteGenerationPrompt(command),
       messages: [
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         ...conversationHistory.slice(0, -1),

@@ -25,13 +25,12 @@ export class ConversationRenderer {
 
   /**
    * Formats role text based on the showPronouns setting
-   * @param role The role to format
-   * @returns Formatted role text or empty string if pronouns should be hidden
    */
-  private formatRoleText(role?: string): string {
-    if (!role || !this.plugin.settings.showPronouns) {
+  private formatRoleText(role?: string, showLabel = false): string {
+    if (!role || !showLabel || !this.plugin.settings.showPronouns) {
       return '';
     }
+
     return `**${role}:** `;
   }
 
@@ -129,7 +128,12 @@ export class ConversationRenderer {
      * The role of the message.
      * If not provided, the role will be Steward by default, but not displayed in the conversation
      */
-    role?: 'User' | 'Steward' | 'System';
+    role?:
+      | string
+      | {
+          name: string;
+          showLabel: boolean;
+        };
     /**
      * The history will be included in conversation context.
      * If not provided, the history will be included by default.
@@ -156,9 +160,16 @@ export class ConversationRenderer {
         throw new Error(`Note not found: ${notePath}`);
       }
 
+      const { roleName, showLabel } = (() => {
+        if (typeof params.role === 'string') {
+          return { roleName: params.role, showLabel: true };
+        }
+        return { roleName: params.role?.name, showLabel: params.role?.showLabel };
+      })();
+
       // Get message metadata
       const { messageId, comment } = await this.buildMessageMetadata(params.path, {
-        role: params.role ?? 'Steward',
+        role: roleName ?? 'Steward',
         command: params.command,
         includeHistory: params.includeHistory ?? true,
       });
@@ -204,13 +215,13 @@ export class ConversationRenderer {
           currentContent = `${currentContent}\n\n---`;
           // Format user message as a callout
           contentToAdd = this.plugin.noteContentService.formatCallout(
-            `${this.formatRoleText(params.role)}${params.newContent}`,
+            `${this.formatRoleText(params.role, showLabel)}${params.newContent}`,
             'stw-user-message',
             { id: messageId }
           );
         } else {
           // For Steward or System messages, use the regular format
-          const roleText = this.formatRoleText(params.role);
+          const roleText = this.formatRoleText(roleName, showLabel);
           contentToAdd = `${roleText}${params.newContent}`;
         }
 

@@ -4,7 +4,7 @@ import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
-import { CommandIntent } from './intentExtraction';
+import { CommandIntent } from 'src/types/types';
 import { confidenceFragment, explanationFragment } from '../prompts/fragments';
 import { logger } from 'src/utils/logger';
 

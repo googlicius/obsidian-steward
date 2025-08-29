@@ -13,15 +13,29 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Use Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18.x'
+          cache: 'npm'
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        id: npm-cache
+        with:
+          path: |
+            **/node_modules
+            ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        if: steps.npm-cache.outputs.cache-hit != 'true'
+        run: npm ci
 
       - name: Build plugin
-        run: |
-          npm install
-          npm run build
+        run: npm run build
 
       - name: Create release
         env:

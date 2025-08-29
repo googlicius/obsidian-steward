@@ -22,6 +22,7 @@ import {
   HelpCommandHandler,
   BuildSearchIndexCommandHandler,
   SummaryCommandHandler,
+  ContextAugmentationHandler,
 } from '../solutions/commands/handlers';
 import { getTextContentWithoutImages } from 'src/lib/modelfusion/utils/userMessageUtils';
 
@@ -133,6 +134,13 @@ export class CommandProcessorService {
     // Register the general command handler (space)
     const generalHandler = new GeneralCommandHandler(this.plugin, this.commandProcessor);
     this.commandProcessor.registerHandler(' ', generalHandler);
+
+    // Register the context_augmentation handler
+    const contextAugmentationHandler = new ContextAugmentationHandler(
+      this.plugin,
+      this.commandProcessor
+    );
+    this.commandProcessor.registerHandler('context_augmentation', contextAugmentationHandler);
 
     // Register the user-defined command handler
     this.userDefinedCommandHandler = new UserDefinedCommandHandler(

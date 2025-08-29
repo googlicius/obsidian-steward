@@ -2,7 +2,7 @@ import { TFolder } from 'obsidian';
 import { UserDefinedCommandService } from './UserDefinedCommandService';
 import type StewardPlugin from 'src/main';
 import { getInstance } from 'src/utils/getInstance';
-import type { CommandIntent } from 'src/lib/modelfusion/extractions';
+import type { CommandIntent } from 'src/types/types';
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   return {
