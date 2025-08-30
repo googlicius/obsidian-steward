@@ -161,6 +161,19 @@ This conversation discusses React hooks, particularly useState, which allows add
 ]
 `;
 
+exports[`ConversationRenderer extractConversationHistory should remove the last user message 1`] = `
+[
+  {
+    "content": "/ React hooks",
+    "role": "user",
+  },
+  {
+    "content": "React hooks are functions.",
+    "role": "assistant",
+  },
+]
+`;
+
 exports[`ConversationRenderer updateConversationNote should not show label when role is System and showLabel is false 1`] = `
 "<!--STW ID:msg-001,ROLE:steward-->
 **Steward:** This message has a role label"

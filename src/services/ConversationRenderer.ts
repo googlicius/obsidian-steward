@@ -841,6 +841,14 @@ export class ConversationRenderer {
       const messagesForHistory: (ConversationMessage & { ignored?: boolean })[] =
         allMessages.filter(message => message.history !== false);
 
+      // Remove the last message if it is a user message which is just being added.
+      if (
+        messagesForHistory.length > 0 &&
+        messagesForHistory[messagesForHistory.length - 1].role === 'user'
+      ) {
+        messagesForHistory.pop();
+      }
+
       // Find the most recent summary message or the start of the latest topic
       const continuationCommands = [' ', 'confirm', 'thank_you'];
       let topicStartIndex = 0;
