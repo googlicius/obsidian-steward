@@ -23,7 +23,8 @@ const commandIntentSchema = z.object({
     .enum(validCommandTypes as [string, ...string[]])
     .describe(`One of the available command types.`),
   query: z.string().describe(
-    `The specific query for this command. The query is used to extract further into parameters for actual function calls in local. So make it clear and concise.
+    `The specific query for this command and will be the input of the downstream command.
+- Keep it concise and short
 If the command is "read" or "create", then this is the original user's query.`
   ),
 });

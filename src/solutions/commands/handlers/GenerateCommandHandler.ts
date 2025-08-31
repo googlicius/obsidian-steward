@@ -123,6 +123,7 @@ The response should be in natural language and not include the selection(s) {{st
     let extraction = options.extraction;
 
     if (!extraction) {
+      const conversationHistory = await this.renderer.extractConversationHistory(title);
       if (isUpdate) {
         extraction = await extractContentUpdate({
           command: {
@@ -138,6 +139,7 @@ The response should be in natural language and not include the selection(s) {{st
             systemPrompts,
           },
           recentlyCreatedNote: fromRead ? undefined : recentlyCreatedNote,
+          conversationHistory,
         });
       }
     }
@@ -296,19 +298,6 @@ The response should be in natural language and not include the selection(s) {{st
     const { query, systemPrompts = [], model } = command;
     const llmConfig = await LLMService.getInstance().getLLMConfig(model);
 
-    let prompt = query;
-
-    // For ongoing conversation, use the latest user message as the prompt
-    if (conversationHistory.length > 1) {
-      for (let i = 0; i < conversationHistory.length; i++) {
-        const message = conversationHistory[conversationHistory.length - i - 1];
-        if (message.role === 'user') {
-          prompt = message.content;
-          break;
-        }
-      }
-    }
-
     const { textStream } = streamText({
       ...llmConfig,
       abortSignal: abortService.createAbortController('generate'),
@@ -320,7 +309,7 @@ ${languageEnforcementFragment}`,
         ...conversationHistory.slice(0, -1),
         {
           role: 'user',
-          content: await prepareUserMessage(prompt, this.app),
+          content: await prepareUserMessage(query, this.app),
         },
       ],
       onError: async ({ error }) => {

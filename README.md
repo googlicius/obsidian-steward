@@ -37,7 +37,7 @@ Steward can be used through the command palette directly in the editor or by ope
 
 ### Update the selection
 
-<img src="/docs/Stw-Demo-Update-selected-text.gif" alt="Update selection" width="650px">
+<img src="/docs/Stw-Demo-Update-selected-text-complex.gif" alt="Update selection" width="650px">
 
 ### Search
 

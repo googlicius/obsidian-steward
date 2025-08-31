@@ -24,10 +24,14 @@ export class ConversationRenderer {
   }
 
   /**
-   * Formats role text based on the showPronouns setting
+   * Formats role text based on the showLabel parameter and showPronouns setting
    */
-  private formatRoleText(role?: string, showLabel = this.plugin.settings.showPronouns): string {
-    if (!role || !showLabel) {
+  private formatRoleText(role?: string, showLabel?: boolean): string {
+    if (!role) {
+      return '';
+    }
+
+    if (showLabel === false || !this.plugin.settings.showPronouns) {
       return '';
     }
 
@@ -162,7 +166,7 @@ export class ConversationRenderer {
 
       const { roleName, showLabel } = (() => {
         if (typeof params.role === 'string') {
-          return { roleName: params.role, showLabel: true };
+          return { roleName: params.role, showLabel: undefined };
         }
         return { roleName: params.role?.name, showLabel: params.role?.showLabel };
       })();
