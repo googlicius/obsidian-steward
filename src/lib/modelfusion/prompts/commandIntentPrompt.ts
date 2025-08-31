@@ -33,7 +33,10 @@ function retrieveGuidelines(commandNames?: string[] | null) {
   let result = `- Always reason step-by-step: First, understand the user's query. Then, break it down into subtasks. Finally, map subtasks to the sequence of commands needed.
 - Output ONLY a sequence of commands if they can fulfill the query.
 - Use "read" or "search", if you need more information (e.g., to check note content before editing).
-- IMPORTANT: This is a one-round extraction, so ensure you include all necessary commands to fulfill the query.
+- IMPORTANT: 
+  - This is a one-round extraction, so ensure you include all necessary commands to fulfill the query.
+  - DO NOT provide your answers or opinions directly in command's queries.
+  - Queries must be in the user's perspective.
 - For editing tasks (move, copy, update, delete), ensure there is a relevant artifact; infer it from context, or use "search", "read" to find it.
   - Type 1: Editing from content that is already given in the user's query. For this, including the "generate" command is enough (use it to produce the edited content directly).
   - Type 2: Editing from content that is the result of the "read" or "search" commands (these results are stored as artifacts). For this, first use "read" or "search" to obtain the artifacts, second include "generate" if needed, then include "move_from_artifact", "copy_from_artifact", "update_from_artifact", or "delete_from_artifact" to perform the actual update to the note(s)
