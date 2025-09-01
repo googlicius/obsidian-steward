@@ -60,9 +60,9 @@ describe('ObsidianAPITools', () => {
         {
           destinationFolder: 'destination',
           keywords: ['test'],
-          tags: [],
           filenames: [],
           folders: [],
+          properties: [],
         },
       ];
 
@@ -111,9 +111,9 @@ describe('ObsidianAPITools', () => {
         {
           destinationFolder: 'destination',
           keywords: ['test'],
-          tags: [],
           filenames: [],
           folders: [],
+          properties: [],
         },
       ];
 
@@ -157,9 +157,9 @@ describe('ObsidianAPITools', () => {
         {
           destinationFolder: 'current-folder',
           keywords: ['test'],
-          tags: [],
           filenames: [],
           folders: [],
+          properties: [],
         },
       ];
 

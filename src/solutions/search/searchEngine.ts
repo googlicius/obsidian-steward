@@ -494,6 +494,47 @@ export class SearchEngine {
   }
 
   /**
+   * Get documents by properties
+   */
+  private async getDocumentsByProperties(
+    properties: Array<{ name: string; value: string }>
+  ): Promise<IndexedDocument[]> {
+    if (properties.length === 0) return [];
+
+    // Store matched document IDs for each property
+    const matchedDocIdsByProperty: number[][] = [];
+
+    console.log('properties', properties);
+
+    // Process each property
+    for (const prop of properties) {
+      // Get documents matching this property
+      const docs = await this.documentStore.getDocumentsByProperty(prop.name, prop.value);
+
+      // If no documents match this property, return empty array (AND logic)
+      if (docs.length === 0) return [];
+
+      // Add document IDs to the matched list
+      matchedDocIdsByProperty.push(docs.map(doc => doc.id as number));
+    }
+
+    // Find document IDs that match ALL properties (intersection)
+    let resultDocIds: number[] = matchedDocIdsByProperty[0];
+
+    console.log('resultDocIds', resultDocIds);
+
+    for (let i = 1; i < matchedDocIdsByProperty.length; i++) {
+      resultDocIds = resultDocIds.filter(id => matchedDocIdsByProperty[i].includes(id));
+    }
+
+    // If no documents match all properties, return empty array
+    if (resultDocIds.length === 0) return [];
+
+    // Get the actual documents
+    return this.documentStore.getDocumentsByIds(resultDocIds);
+  }
+
+  /**
    * Get documents from folders
    */
   private async getDocumentsFromFolders(folders: IndexedFolder[]): Promise<IndexedDocument[]> {
@@ -628,9 +669,19 @@ export class SearchEngine {
     const documentsAcrossOperations: (IndexedDocument | ScoredKeywordsMatchedDoc)[] = [];
 
     for (const operation of operations) {
-      const { filenames, folders = [], tags = [] } = operation;
+      const { filenames, folders = [], properties = [] } = operation;
       let matchedFilenameDocuments: IndexedDocument[] = [];
       let matchedFolders: IndexedFolder[] = [];
+      let matchedPropertyDocuments: IndexedDocument[] = [];
+
+      // Get documents matching properties
+      if (properties.length > 0) {
+        matchedPropertyDocuments = await this.getDocumentsByProperties(properties);
+        if (matchedPropertyDocuments.length === 0) {
+          logger.warn('No documents found with these properties, skipped', properties);
+          continue;
+        }
+      }
 
       if (folders.length > 0) {
         matchedFolders = await this.getFoldersByNames(folders);
@@ -646,16 +697,38 @@ export class SearchEngine {
 
       const keywords = [];
 
-      if (tags.length > 0) {
-        keywords.push(...tags.map(tag => `#${tag}`));
+      // Extract tag properties and add them as keywords for backward compatibility
+      const tagProperties = properties.filter(prop => prop.name === 'tag');
+      if (tagProperties.length > 0) {
+        keywords.push(...tagProperties.map(prop => `#${prop.value}`));
       }
 
       if (operation.keywords.length > 0) {
         keywords.push(...operation.keywords);
       }
 
+      // Combine filename documents and property documents
+      let scopedDocuments = matchedFilenameDocuments;
+
+      if (matchedPropertyDocuments.length > 0) {
+        if (scopedDocuments.length > 0) {
+          // If we have both filename and property matches, find the intersection
+          const propertyDocIds = new Set(matchedPropertyDocuments.map(doc => doc.id));
+          scopedDocuments = scopedDocuments.filter(doc => propertyDocIds.has(doc.id));
+
+          // If no documents match both criteria, skip this operation
+          if (scopedDocuments.length === 0) {
+            logger.warn('No documents match both filename and property criteria, skipped');
+            continue;
+          }
+        } else {
+          // If we only have property matches, use those
+          scopedDocuments = matchedPropertyDocuments;
+        }
+      }
+
       const documents = await this.getDocuments(keywords, {
-        scopedDocuments: matchedFilenameDocuments,
+        scopedDocuments,
         folders: matchedFolders,
       });
 

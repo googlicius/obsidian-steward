@@ -1,7 +1,7 @@
-import { App, TFile, EventRef, MarkdownView } from 'obsidian';
+import { App, TFile, EventRef, MarkdownView, FrontMatterCache } from 'obsidian';
 import { DocumentStore } from './documentStore';
 import { Tokenizer } from './tokenizer';
-import { TermSource } from '../../database/SearchDatabase';
+import { TermSource, IndexedProperty } from '../../database/SearchDatabase';
 import { logger } from '../../utils/logger';
 import { COMMAND_PREFIXES } from '../../constants';
 
@@ -210,6 +210,7 @@ export class Indexer {
 
       let content = '';
       const tags: string[] = [];
+      let cache;
 
       // Process file based on its type
       if (file.extension === 'md') {
@@ -220,7 +221,7 @@ export class Indexer {
           return;
         }
 
-        const cache = this.documentStore.getFileCache(file);
+        cache = this.documentStore.getFileCache(file);
 
         // Extract tags from content and frontmatter for markdown files
         if (cache?.tags) {
@@ -246,9 +247,77 @@ export class Indexer {
       // Create or update document in the index
       const folderId = await this.indexFolder(folderPath, folderName);
       const documentId = await this.indexDocument(file, content, tags);
+
+      // Index terms for the document
       await this.indexTerms(content, documentId, folderId, file.basename);
+
+      await this.indexProperties(file, documentId, cache);
     } catch (error) {
       logger.error(`Error indexing file ${file.path}:`, error);
+    }
+  }
+
+  private async indexProperties(file: TFile, documentId: number, cache?: FrontMatterCache | null) {
+    cache = cache || this.documentStore.getFileCache(file);
+
+    // Create a properties array to store all properties
+    const properties: IndexedProperty[] = [];
+
+    // Extract properties from frontmatter (for markdown files)
+    if (file.extension === 'md' && cache?.frontmatter) {
+      properties.push(...this.extractProperties(cache.frontmatter, documentId));
+    }
+
+    // Add file type as a property for all files
+    properties.push({
+      documentId,
+      name: 'file_type',
+      value: file.extension.toLowerCase(),
+    });
+
+    // Add file category as a property
+    properties.push({
+      documentId,
+      name: 'file_category',
+      value: this.getFileCategory(file.extension),
+    });
+
+    // Extract and add tags as properties
+    if (file.extension === 'md') {
+      // Extract tags from content
+      if (cache?.tags) {
+        for (const tagObj of cache.tags) {
+          properties.push({
+            documentId,
+            name: 'tag',
+            value: tagObj.tag.replace(/^#/, ''), // Remove leading # if present
+          });
+        }
+      }
+
+      // Extract tags from frontmatter
+      if (cache?.frontmatter?.tags) {
+        if (Array.isArray(cache.frontmatter.tags)) {
+          for (const tag of cache.frontmatter.tags) {
+            properties.push({
+              documentId,
+              name: 'tag',
+              value: tag.toString().replace(/^#/, ''), // Remove leading # if present
+            });
+          }
+        } else if (typeof cache.frontmatter.tags === 'string') {
+          properties.push({
+            documentId,
+            name: 'tag',
+            value: cache.frontmatter.tags.replace(/^#/, ''), // Remove leading # if present
+          });
+        }
+      }
+    }
+
+    // Store all properties if there are any
+    if (properties.length > 0) {
+      await this.documentStore.storeProperties(properties);
     }
   }
 
@@ -303,11 +372,100 @@ export class Indexer {
       // Remove existing terms for this document
       await this.documentStore.deleteTerms(documentId);
 
+      // Remove existing properties for this document
+      await this.documentStore.deletePropertiesByDocumentId(documentId);
+
       return documentId;
     } else {
       // Create new document
       return this.documentStore.storeDocument(documentData);
     }
+  }
+
+  /**
+   * Extract properties from frontmatter
+   * @param frontmatter The frontmatter object from the file cache
+   * @param documentId The document ID to associate with the properties
+   * @returns Array of properties extracted from frontmatter
+   */
+  private extractProperties(
+    frontmatter: FrontMatterCache | undefined,
+    documentId: number
+  ): IndexedProperty[] {
+    if (!frontmatter) return [];
+
+    const properties: IndexedProperty[] = [];
+
+    // Process each key in frontmatter
+    for (const [key, value] of Object.entries(frontmatter)) {
+      // Skip tags as they're handled separately
+      if (key === 'tags') continue;
+
+      // Handle different value types
+      if (Array.isArray(value)) {
+        // For arrays, create a property for each item
+        for (const item of value) {
+          properties.push({
+            documentId,
+            name: key.toLowerCase(),
+            value: item,
+          });
+        }
+      } else {
+        // For scalar values, create a single property
+        properties.push({
+          documentId,
+          name: key.toLowerCase(),
+          value,
+        });
+      }
+    }
+
+    return properties;
+  }
+
+  /**
+   * Get file category based on extension
+   * @param extension File extension
+   * @returns File category (document, image, audio, video, etc.)
+   */
+  private getFileCategory(extension: string): string {
+    const ext = extension.toLowerCase();
+
+    // Document types
+    if (['md', 'txt', 'pdf', 'doc', 'docx', 'rtf', 'odt'].includes(ext)) {
+      return 'document';
+    }
+
+    // Image types
+    if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'tiff'].includes(ext)) {
+      return 'image';
+    }
+
+    // Audio types
+    if (['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac'].includes(ext)) {
+      return 'audio';
+    }
+
+    // Video types
+    if (['mp4', 'webm', 'mov', 'avi', 'mkv', 'flv'].includes(ext)) {
+      return 'video';
+    }
+
+    // Data types
+    if (['json', 'csv', 'xml', 'yaml', 'yml'].includes(ext)) {
+      return 'data';
+    }
+
+    // Code types
+    if (
+      ['js', 'ts', 'py', 'java', 'c', 'cpp', 'cs', 'go', 'rb', 'php', 'html', 'css'].includes(ext)
+    ) {
+      return 'code';
+    }
+
+    // Default
+    return 'other';
   }
 
   /**

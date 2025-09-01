@@ -123,10 +123,10 @@ export class CopyCommandHandler extends CommandHandler {
       const copyOperations: MoveOperationV2[] = [
         {
           keywords: [extraction.explanation],
-          tags: [],
           filenames: [],
           folders: [],
           destinationFolder: extraction.destinationFolder,
+          properties: [],
         },
       ];
 

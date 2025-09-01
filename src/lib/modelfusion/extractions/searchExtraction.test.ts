@@ -40,15 +40,15 @@ describe('extractSearchQueryV2', () => {
       operations: [
         {
           keywords: ['"project notes"'],
-          tags: [],
           filenames: [],
           folders: [],
+          properties: [],
         },
         {
           keywords: [],
-          tags: [],
           filenames: ['project notes'],
           folders: [],
+          properties: [],
         },
       ],
       explanation: 'translated_search.searchingFor',
@@ -68,15 +68,15 @@ describe('extractSearchQueryV2', () => {
       operations: [
         {
           keywords: ['"meeting minutes"'],
-          tags: [],
           filenames: [],
           folders: [],
+          properties: [],
         },
         {
           keywords: [],
-          tags: [],
           filenames: ['meeting minutes'],
           folders: [],
+          properties: [],
         },
       ],
       explanation: 'translated_search.searchingFor',
@@ -98,9 +98,13 @@ describe('extractSearchQueryV2', () => {
       operations: [
         {
           keywords: [],
-          tags: ['project', 'work', 'important'],
           filenames: [],
           folders: [],
+          properties: [
+            { name: 'tag', value: 'project' },
+            { name: 'tag', value: 'work' },
+            { name: 'tag', value: 'important' },
+          ],
         },
       ],
       explanation: 'translated_search.searchingForTags',
@@ -120,9 +124,9 @@ describe('extractSearchQueryV2', () => {
       operations: [
         {
           keywords: [],
-          tags: ['urgent'],
           filenames: [],
           folders: [],
+          properties: [{ name: 'tag', value: 'urgent' }],
         },
       ],
       explanation: 'translated_search.searchingForTags',

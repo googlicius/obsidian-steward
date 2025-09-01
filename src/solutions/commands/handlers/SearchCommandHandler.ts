@@ -88,8 +88,8 @@ export class SearchCommandHandler extends CommandHandler {
             message += `- ${t('search.keywords')}: ${operation.keywords.join(', ')}\n`;
           }
 
-          if (operation.tags.length > 0) {
-            message += `- ${t('search.tags')}: ${operation.tags.map(tag => `#${tag}`).join(', ')}\n`;
+          if (operation.properties.length > 0) {
+            message += `- ${t('search.properties')}: ${operation.properties.map(prop => `${prop.name}: ${prop.value}`).join(', ')}\n`;
           }
 
           if (operation.filenames.length > 0) {

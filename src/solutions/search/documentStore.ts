@@ -4,8 +4,9 @@ import {
   IndexedDocument,
   IndexedFolder,
   IndexedTerm,
+  IndexedProperty,
 } from '../../database/SearchDatabase';
-import { logger } from 'src/utils/logger';
+import { logger } from '../../utils/logger';
 
 export interface DocumentStoreConfig {
   app: App;
@@ -34,6 +35,10 @@ export class DocumentStore {
 
   get folders() {
     return this.db.folders;
+  }
+
+  get properties() {
+    return this.db.properties;
   }
 
   /**
@@ -206,5 +211,63 @@ export class DocumentStore {
       logger.error('Error checking if index is built:', error);
       return false;
     }
+  }
+
+  /**
+   * Store a property for a document
+   */
+  public async storeProperty(property: IndexedProperty): Promise<number> {
+    return this.db.properties.add(property);
+  }
+
+  /**
+   * Store multiple properties for a document
+   */
+  public async storeProperties(properties: IndexedProperty[]): Promise<void> {
+    if (properties.length === 0) return;
+    await this.db.properties.bulkAdd(properties);
+  }
+
+  /**
+   * Get properties for a document
+   */
+  public async getPropertiesByDocumentId(documentId: number): Promise<IndexedProperty[]> {
+    return this.db.properties.where('documentId').equals(documentId).toArray();
+  }
+
+  /**
+   * Get documents by property name and value
+   */
+  public async getDocumentsByProperty(name: string, value: unknown): Promise<IndexedDocument[]> {
+    // Find property matches
+    // For compound index queries, we need to use a more specific approach
+    const properties = await this.db.properties
+      .where('name')
+      .equals(name.toLowerCase())
+      .and(prop => prop.value === value)
+      .toArray();
+
+    if (properties.length === 0) return [];
+
+    // Get unique document IDs
+    const documentIds = [...new Set(properties.map(p => p.documentId))];
+
+    // Return the documents
+    return this.getDocumentsByIds(documentIds);
+  }
+
+  /**
+   * Delete properties for a document
+   */
+  public async deletePropertiesByDocumentId(documentId: number): Promise<void> {
+    await this.db.properties.where('documentId').equals(documentId).delete();
+  }
+
+  /**
+   * Get all property names in the database
+   */
+  public async getAllPropertyNames(): Promise<string[]> {
+    const names = await this.db.properties.orderBy('name').uniqueKeys();
+    return names as string[];
   }
 }
