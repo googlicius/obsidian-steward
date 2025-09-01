@@ -4,6 +4,7 @@ import { Tokenizer } from './tokenizer';
 import { TermSource, IndexedProperty } from '../../database/SearchDatabase';
 import { logger } from '../../utils/logger';
 import { COMMAND_PREFIXES } from '../../constants';
+import { IndexedPropertyArray } from './IndexedPropertyArray';
 
 export interface IndexerConfig {
   app: App;
@@ -260,8 +261,7 @@ export class Indexer {
   private async indexProperties(file: TFile, documentId: number, cache?: FrontMatterCache | null) {
     cache = cache || this.documentStore.getFileCache(file);
 
-    // Create a properties array to store all properties
-    const properties: IndexedProperty[] = [];
+    const properties = new IndexedPropertyArray();
 
     // Extract properties from frontmatter (for markdown files)
     if (file.extension === 'md' && cache?.frontmatter) {
@@ -272,7 +272,7 @@ export class Indexer {
     properties.push({
       documentId,
       name: 'file_type',
-      value: file.extension.toLowerCase(),
+      value: file.extension,
     });
 
     // Add file category as a property
@@ -290,7 +290,7 @@ export class Indexer {
           properties.push({
             documentId,
             name: 'tag',
-            value: tagObj.tag.replace(/^#/, ''), // Remove leading # if present
+            value: tagObj.tag,
           });
         }
       }
@@ -302,14 +302,14 @@ export class Indexer {
             properties.push({
               documentId,
               name: 'tag',
-              value: tag.toString().replace(/^#/, ''), // Remove leading # if present
+              value: tag.toString(),
             });
           }
         } else if (typeof cache.frontmatter.tags === 'string') {
           properties.push({
             documentId,
             name: 'tag',
-            value: cache.frontmatter.tags.replace(/^#/, ''), // Remove leading # if present
+            value: cache.frontmatter.tags,
           });
         }
       }
@@ -394,7 +394,7 @@ export class Indexer {
   ): IndexedProperty[] {
     if (!frontmatter) return [];
 
-    const properties: IndexedProperty[] = [];
+    const properties = new IndexedPropertyArray();
 
     // Process each key in frontmatter
     for (const [key, value] of Object.entries(frontmatter)) {
@@ -407,7 +407,7 @@ export class Indexer {
         for (const item of value) {
           properties.push({
             documentId,
-            name: key.toLowerCase(),
+            name: key,
             value: item,
           });
         }
@@ -415,7 +415,7 @@ export class Indexer {
         // For scalar values, create a single property
         properties.push({
           documentId,
-          name: key.toLowerCase(),
+          name: key,
           value,
         });
       }

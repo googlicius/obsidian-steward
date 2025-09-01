@@ -7,6 +7,7 @@ import {
   IndexedProperty,
 } from '../../database/SearchDatabase';
 import { logger } from '../../utils/logger';
+import { IndexedPropertyArray } from './IndexedPropertyArray';
 
 export interface DocumentStoreConfig {
   app: App;
@@ -225,7 +226,14 @@ export class DocumentStore {
    */
   public async storeProperties(properties: IndexedProperty[]): Promise<void> {
     if (properties.length === 0) return;
-    await this.db.properties.bulkAdd(properties);
+
+    // If the properties array is not already a IndexedPropertyArray, convert it
+    if (!(properties instanceof IndexedPropertyArray)) {
+      const indexedProperties = new IndexedPropertyArray(...properties);
+      await this.db.properties.bulkAdd(indexedProperties);
+    } else {
+      await this.db.properties.bulkAdd(properties);
+    }
   }
 
   /**
@@ -239,13 +247,34 @@ export class DocumentStore {
    * Get documents by property name and value
    */
   public async getDocumentsByProperty(name: string, value: unknown): Promise<IndexedDocument[]> {
-    // Find property matches
-    // For compound index queries, we need to use a more specific approach
-    const properties = await this.db.properties
-      .where('name')
-      .equals(name.toLowerCase())
-      .and(prop => prop.value === value)
-      .toArray();
+    // Convert name to lowercase for consistency
+    const lowerName = name.toLowerCase();
+
+    // Convert value to lowercase if it's a string
+    const lowerValue = typeof value === 'string' ? value.toLowerCase() : value;
+
+    let properties: IndexedProperty[] = [];
+
+    // Only use the compound index for string values to avoid type issues
+    if (typeof lowerValue === 'string' || typeof lowerValue === 'number') {
+      // Use the compound index for efficient querying
+      properties = await this.db.properties
+        .where('[name+value]')
+        .equals([lowerName, lowerValue])
+        .toArray();
+    } else {
+      // For complex types, fall back to the previous approach
+      properties = await this.db.properties
+        .where('name')
+        .equals(lowerName)
+        .and(prop => {
+          if (typeof prop.value === 'string' && typeof lowerValue === 'string') {
+            return prop.value === lowerValue;
+          }
+          return prop.value === lowerValue;
+        })
+        .toArray();
+    }
 
     if (properties.length === 0) return [];
 
