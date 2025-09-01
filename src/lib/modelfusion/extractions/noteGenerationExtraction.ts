@@ -60,7 +60,7 @@ export async function extractNoteGeneration(params: {
       system: noteGenerationPrompt(command),
       messages: [
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
-        ...conversationHistory.slice(0, -1),
+        ...conversationHistory,
         { role: 'user', content: command.query },
       ],
       schema: noteGenerationExtractionSchema,

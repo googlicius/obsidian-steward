@@ -222,7 +222,7 @@ The response should be in natural language and not include the selection(s) {{st
             ...command,
             systemPrompts,
           },
-          conversationHistory: conversationHistory.slice(0, -1),
+          conversationHistory: conversationHistory,
           errorCallback: async error => {
             logger.error('Error in contentGenerationStream', error);
 
@@ -306,7 +306,7 @@ The content should not include the big heading on the top.
 ${languageEnforcementFragment}`,
       messages: [
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
-        ...conversationHistory.slice(0, -1),
+        ...conversationHistory,
         {
           role: 'user',
           content: await prepareUserMessage(query, this.app),

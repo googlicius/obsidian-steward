@@ -322,6 +322,28 @@ describe('ConversationRenderer', () => {
       // Verify that only messages after the second summary are included
       expect(history).toMatchSnapshot();
     });
+
+    it('should remove the last user message', async () => {
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND: -->',
+        '>[!stw-user-message]',
+        '>/ React hooks',
+        '',
+        '<!--STW ID:def456,ROLE:steward,COMMAND:generate-->',
+        'React hooks are functions.',
+        '',
+        '<!--STW ID:ghi789,ROLE:user,COMMAND: -->',
+        '>[!stw-user-message]',
+        '>/ How do I use useState?',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation');
+
+      expect(history).toMatchSnapshot();
+    });
   });
 
   describe('getConversationProperty', () => {
