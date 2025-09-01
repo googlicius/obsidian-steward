@@ -504,8 +504,6 @@ export class SearchEngine {
     // Store matched document IDs for each property
     const matchedDocIdsByProperty: number[][] = [];
 
-    console.log('properties', properties);
-
     // Process each property
     for (const prop of properties) {
       // Get documents matching this property
@@ -520,8 +518,6 @@ export class SearchEngine {
 
     // Find document IDs that match ALL properties (intersection)
     let resultDocIds: number[] = matchedDocIdsByProperty[0];
-
-    console.log('resultDocIds', resultDocIds);
 
     for (let i = 1; i < matchedDocIdsByProperty.length; i++) {
       resultDocIds = resultDocIds.filter(id => matchedDocIdsByProperty[i].includes(id));
