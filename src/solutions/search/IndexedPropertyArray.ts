@@ -5,6 +5,11 @@ import { IndexedProperty } from 'src/database/SearchDatabase';
  * converts property names and string values to lowercase when items are pushed
  */
 export class IndexedPropertyArray extends Array<IndexedProperty> {
+  constructor(...items: IndexedProperty[]) {
+    super();
+    this.push(...items);
+  }
+
   /**
    * Override push method to convert property names and string values to lowercase
    * @returns The new length of the array
