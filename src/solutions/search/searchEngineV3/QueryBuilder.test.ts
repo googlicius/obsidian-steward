@@ -2,9 +2,6 @@ import { AndCondition } from './AndCondition';
 import { FilenameCondition } from './FilenameCondition';
 import { KeywordCondition } from './KeywordCondition';
 import { QueryBuilder } from './QueryBuilder';
-// import { DocumentStore } from '../documentStore';
-// import { Tokenizer } from '../tokenizer';
-// import { Scoring } from '../scoring';
 
 describe('QueryBuilder', () => {
   it('should build an AND condition', () => {

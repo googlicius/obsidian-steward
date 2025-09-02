@@ -9,10 +9,6 @@ import { OrCondition } from './OrCondition';
 export class QueryBuilder {
   private rootCondition: Condition;
 
-  constructor() {
-    this.rootCondition = new AndCondition();
-  }
-
   /**
    * Add a condition with AND logic
    */
@@ -38,6 +34,6 @@ export class QueryBuilder {
   }
 
   build(): Condition {
-    return this.rootCondition;
+    return this.rootCondition || new AndCondition();
   }
 }

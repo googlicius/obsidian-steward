@@ -8,7 +8,7 @@ export class AndCondition extends Condition {
 
   constructor(...conditions: Condition[]) {
     super();
-    this.conditions = conditions;
+    this.conditions = conditions.filter(condition => condition !== undefined);
   }
 
   async evaluate() {

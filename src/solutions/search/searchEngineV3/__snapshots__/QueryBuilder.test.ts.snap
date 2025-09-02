@@ -20,9 +20,6 @@ AndCondition {
 exports[`QueryBuilder should build an OR condition 1`] = `
 OrCondition {
   "conditions": [
-    AndCondition {
-      "conditions": [],
-    },
     FilenameCondition {
       "names": [
         "cat",
@@ -40,9 +37,6 @@ OrCondition {
 exports[`QueryBuilder should build nested conditions 1`] = `
 OrCondition {
   "conditions": [
-    AndCondition {
-      "conditions": [],
-    },
     AndCondition {
       "conditions": [
         FilenameCondition {
