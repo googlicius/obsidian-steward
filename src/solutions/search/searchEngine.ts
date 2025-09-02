@@ -12,12 +12,7 @@ import { SearchOperationV2 } from '../../lib/modelfusion';
 import { logger } from '../../utils/logger';
 import { similarity } from '../../utils/similarity';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
-
-// Interface for exact phrase match
-interface ExactPhraseMatch {
-  originalPhrase: string;
-  tokens: string[];
-}
+import { ExactPhraseMatch, ParsedRegexPattern } from './types';
 
 export interface SearchResult {
   file: TFile;
@@ -40,13 +35,6 @@ export interface PaginatedSearchResultV2 {
   page: number;
   limit: number;
   totalPages: number;
-}
-
-export type SearchPatternType = 'exact' | 'startsWith' | 'contains';
-
-export interface ParsedRegexPattern {
-  originalName: string;
-  searchType: SearchPatternType;
 }
 
 export interface SearchEngineConfig {
@@ -475,6 +463,7 @@ export class SearchEngine {
       .anyOf(documentIdArray)
       .and(item => this.isFolderMatch(item.folderId, folderIdArray, folders.length))
       .toArray();
+
     const filteredEntries = termEntries.filter(
       item =>
         documentIdArray.includes(item.documentId) &&
@@ -501,11 +490,18 @@ export class SearchEngine {
   ): Promise<IndexedDocument[]> {
     if (properties.length === 0) return [];
 
+    const specificProperties = properties.filter(
+      prop => prop.name !== 'file_type' && prop.name !== 'file_category'
+    );
+
+    // Use specific properties if available, otherwise use all properties
+    const propertiesToUse = specificProperties.length > 0 ? specificProperties : properties;
+
     // Store matched document IDs for each property
     const matchedDocIdsByProperty: number[][] = [];
 
     // Process each property
-    for (const prop of properties) {
+    for (const prop of propertiesToUse) {
       // Get documents matching this property
       const docs = await this.documentStore.getDocumentsByProperty(prop.name, prop.value);
 
@@ -665,7 +661,7 @@ export class SearchEngine {
     const documentsAcrossOperations: (IndexedDocument | ScoredKeywordsMatchedDoc)[] = [];
 
     for (const operation of operations) {
-      const { filenames, folders = [], properties = [] } = operation;
+      const { filenames = [], folders = [], keywords = [], properties = [] } = operation;
       let matchedFilenameDocuments: IndexedDocument[] = [];
       let matchedFolders: IndexedFolder[] = [];
       let matchedPropertyDocuments: IndexedDocument[] = [];
@@ -691,17 +687,11 @@ export class SearchEngine {
         matchedFilenameDocuments = await this.getDocumentsByNames(filenames);
       }
 
-      const keywords = [];
-
       // Extract tag properties and add them as keywords for backward compatibility
-      const tagProperties = properties.filter(prop => prop.name === 'tag');
-      if (tagProperties.length > 0) {
-        keywords.push(...tagProperties.map(prop => `#${prop.value}`));
-      }
-
-      if (operation.keywords.length > 0) {
-        keywords.push(...operation.keywords);
-      }
+      // const tagProperties = properties.filter(prop => prop.name === 'tag');
+      // if (tagProperties.length > 0) {
+      //   keywords.push(...tagProperties.map(prop => `#${prop.value}`));
+      // }
 
       // Combine filename documents and property documents
       let scopedDocuments = matchedFilenameDocuments;

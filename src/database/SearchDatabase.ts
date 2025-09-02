@@ -9,7 +9,7 @@ export interface IndexedDocument {
   path: string; // File path as unique ID
   fileName: string; // File name without extension (lowercase)
   lastModified: number; // Timestamp of last modification
-  tags: string[]; // Tags extracted from content and frontmatter
+  tags: string[]; // Tags array (legacy - tags are now primarily handled as properties)
   tokenCount?: number; // Total number of tokens in the document for TF-IDF scoring
 }
 

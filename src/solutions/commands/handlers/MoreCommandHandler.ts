@@ -79,8 +79,8 @@ export class MoreCommandHandler extends CommandHandler {
       }
 
       // Get paginated results for the current page
-      const paginatedDocs = this.plugin.searchService.searchEngine.paginateResults(
-        searchArtifact.originalResults as (IndexedDocument | ScoredKeywordsMatchedDoc)[],
+      const paginatedDocs = this.plugin.searchService.paginateResults(
+        searchArtifact.originalResults as IndexedDocument[],
         page,
         10
       );

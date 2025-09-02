@@ -210,8 +210,6 @@ export class Indexer {
       }
 
       let content = '';
-      const tags: string[] = [];
-      let cache;
 
       // Process file based on its type
       if (file.extension === 'md') {
@@ -220,21 +218,6 @@ export class Indexer {
         // Skip markdown files with command prefixes
         if (this.containsCommandPrefix(content)) {
           return;
-        }
-
-        cache = this.documentStore.getFileCache(file);
-
-        // Extract tags from content and frontmatter for markdown files
-        if (cache?.tags) {
-          tags.push(...cache.tags.map(t => t.tag));
-        }
-
-        if (cache?.frontmatter?.tags) {
-          if (Array.isArray(cache.frontmatter.tags)) {
-            tags.push(...cache.frontmatter.tags.map((t: string) => `#${t}`));
-          } else if (typeof cache.frontmatter.tags === 'string') {
-            tags.push(`#${cache.frontmatter.tags}`);
-          }
         }
       } else {
         // For non-markdown files, use the filename as content
@@ -247,24 +230,24 @@ export class Indexer {
 
       // Create or update document in the index
       const folderId = await this.indexFolder(folderPath, folderName);
-      const documentId = await this.indexDocument(file, content, tags);
+      const documentId = await this.indexDocument(file, content);
 
       // Index terms for the document
       await this.indexTerms(content, documentId, folderId, file.basename);
 
-      await this.indexProperties(file, documentId, cache);
+      await this.indexProperties(file, documentId);
     } catch (error) {
       logger.error(`Error indexing file ${file.path}:`, error);
     }
   }
 
-  private async indexProperties(file: TFile, documentId: number, cache?: FrontMatterCache | null) {
-    cache = cache || this.documentStore.getFileCache(file);
-
+  private async indexProperties(file: TFile, documentId: number) {
     const properties = new IndexedPropertyArray();
 
+    const cache = file.extension === 'md' ? this.documentStore.getFileCache(file) : null;
+
     // Extract properties from frontmatter (for markdown files)
-    if (file.extension === 'md' && cache?.frontmatter) {
+    if (cache?.frontmatter) {
       properties.push(...this.extractProperties(cache.frontmatter, documentId));
     }
 
@@ -282,36 +265,33 @@ export class Indexer {
       value: this.getFileCategory(file.extension),
     });
 
-    // Extract and add tags as properties
-    if (file.extension === 'md') {
-      // Extract tags from content
-      if (cache?.tags) {
-        for (const tagObj of cache.tags) {
-          properties.push({
-            documentId,
-            name: 'tag',
-            value: tagObj.tag,
-          });
-        }
+    // Extract tags from content
+    if (cache?.tags) {
+      for (const tagObj of cache.tags) {
+        properties.push({
+          documentId,
+          name: 'tag',
+          value: tagObj.tag,
+        });
       }
+    }
 
-      // Extract tags from frontmatter
-      if (cache?.frontmatter?.tags) {
-        if (Array.isArray(cache.frontmatter.tags)) {
-          for (const tag of cache.frontmatter.tags) {
-            properties.push({
-              documentId,
-              name: 'tag',
-              value: tag.toString(),
-            });
-          }
-        } else if (typeof cache.frontmatter.tags === 'string') {
+    // Extract tags from frontmatter
+    if (cache?.frontmatter?.tags) {
+      if (Array.isArray(cache.frontmatter.tags)) {
+        for (const tag of cache.frontmatter.tags) {
           properties.push({
             documentId,
             name: 'tag',
-            value: cache.frontmatter.tags,
+            value: tag.toString(),
           });
         }
+      } else if (typeof cache.frontmatter.tags === 'string') {
+        properties.push({
+          documentId,
+          name: 'tag',
+          value: cache.frontmatter.tags,
+        });
       }
     }
 
@@ -347,7 +327,7 @@ export class Indexer {
   /**
    * Index a document and return its ID
    */
-  private async indexDocument(file: TFile, content: string, tags: string[]): Promise<number> {
+  private async indexDocument(file: TFile, content: string): Promise<number> {
     // Find existing document by path
     const existingDoc = await this.documentStore.getDocumentByPath(file.path);
 
@@ -360,7 +340,7 @@ export class Indexer {
       path: file.path,
       fileName,
       lastModified: file.stat.mtime,
-      tags: [...new Set(tags)],
+      tags: [], // Tags are now handled as properties
       tokenCount,
     };
 
