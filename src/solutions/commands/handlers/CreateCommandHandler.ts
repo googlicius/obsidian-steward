@@ -172,6 +172,10 @@ export class CreateCommandHandler extends CommandHandler {
             artifactContent: createdNotes.join('\n\n'),
             command: 'create',
             lang,
+            role: {
+              name: 'Assistant',
+              showLabel: false,
+            },
           });
         }
       }

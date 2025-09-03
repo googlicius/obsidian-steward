@@ -1,3 +1,5 @@
+import { ConditionResult } from './searchEngineV3';
+
 export type SearchPatternType = 'exact' | 'startsWith' | 'contains';
 
 export interface ParsedRegexPattern {
@@ -9,4 +11,12 @@ export interface ParsedRegexPattern {
 export interface ExactPhraseMatch {
   originalPhrase: string;
   tokens: string[];
+}
+
+export interface PaginatedSearchResult<T = unknown> {
+  conditionResults: ConditionResult<T>[];
+  totalCount: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }

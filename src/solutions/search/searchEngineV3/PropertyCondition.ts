@@ -1,14 +1,15 @@
 import { Condition, ConditionResult } from './Condition';
+import { IndexedDocument } from 'src/database/SearchDatabase';
 
 /**
  * Condition for filtering by properties.
  */
-export class PropertyCondition extends Condition {
+export class PropertyCondition extends Condition<IndexedDocument> {
   constructor(private properties: Array<{ name: string; value: string }>) {
     super();
   }
 
-  async evaluate(): Promise<Map<number, ConditionResult>> {
+  async evaluate() {
     if (this.properties.length === 0) {
       return new Map();
     }
@@ -20,44 +21,59 @@ export class PropertyCondition extends Condition {
     // Use specific properties if available, otherwise use all properties
     const propertiesToUse = specificProperties.length > 0 ? specificProperties : this.properties;
 
-    // Store matched document IDs for each property
-    const matchedDocIdsByProperty: number[][] = [];
+    // Store matched documents with their associated properties for highlighting
+    const documentsMap = new Map<number, { doc: IndexedDocument; matchedProperties: string[] }>();
 
     // Process each property
     for (const prop of propertiesToUse) {
       // Get documents matching this property
       const docs = await this.context.documentStore.getDocumentsByProperty(prop.name, prop.value);
 
-      // If no documents match this property, return empty map (AND logic)
-      if (docs.length === 0) {
-        return new Map();
+      // Skip file type and file category properties
+      if (prop.name === 'file_type' || prop.name === 'file_category') {
+        continue;
       }
 
-      // Add document IDs to the matched list
-      matchedDocIdsByProperty.push(docs.map(doc => doc.id as number));
+      // Add documents to the map with their matched properties
+      for (const doc of docs) {
+        const docId = doc.id as number;
+
+        const matchedProperties: string[] = [];
+
+        if (prop.name === 'tag') {
+          matchedProperties.push(`#${prop.value}`);
+        } else {
+          matchedProperties.push(`${prop.name}: ${prop.value}`);
+        }
+
+        if (documentsMap.has(docId)) {
+          // Document already exists, add the property to matched properties
+          const existing = documentsMap.get(docId);
+          if (existing) {
+            existing.matchedProperties.push(...matchedProperties);
+          }
+        } else {
+          // New document, add to map
+          documentsMap.set(docId, {
+            doc,
+            matchedProperties: matchedProperties,
+          });
+        }
+      }
     }
 
-    // Find document IDs that match ALL properties (intersection)
-    let resultDocIds: number[] = matchedDocIdsByProperty[0];
-
-    for (let i = 1; i < matchedDocIdsByProperty.length; i++) {
-      resultDocIds = resultDocIds.filter(id => matchedDocIdsByProperty[i].includes(id));
-    }
-
-    // If no documents match all properties, return empty map
-    if (resultDocIds.length === 0) {
+    // If no documents match any properties, return empty map
+    if (documentsMap.size === 0) {
       return new Map();
     }
 
-    // Get the actual documents
-    const documents = await this.context.documentStore.getDocumentsByIds(resultDocIds);
-
     // Create result map with score 1 for all matching documents
-    const result = new Map<number, ConditionResult>();
-    for (const doc of documents) {
-      result.set(doc.id as number, {
+    const result = new Map<number, ConditionResult<IndexedDocument>>();
+    for (const [docId, { doc, matchedProperties }] of documentsMap) {
+      result.set(docId, {
         document: doc,
         score: 1,
+        keywordsMatched: matchedProperties,
       });
     }
 

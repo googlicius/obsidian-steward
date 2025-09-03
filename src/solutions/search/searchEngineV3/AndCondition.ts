@@ -26,9 +26,14 @@ export class AndCondition extends Condition {
         const nextResult = nextMap.get(docId);
         if (nextResult !== undefined) {
           const combinedScore = resultData.score + nextResult.score; // Sum scores; adjust logic if needed (e.g., Math.max(score, nextScore) or score * nextScore for multiplicative)
+          const combinedKeywordsMatched = [
+            ...(resultData.keywordsMatched || []),
+            ...(nextResult.keywordsMatched || []),
+          ];
           intersected.set(docId, {
             document: resultData.document,
             score: combinedScore,
+            keywordsMatched: combinedKeywordsMatched,
           });
         }
       }

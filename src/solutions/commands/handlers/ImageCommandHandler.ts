@@ -90,6 +90,10 @@ export class ImageCommandHandler extends CommandHandler {
           newContent: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
           artifactContent: result.filePath,
           command: 'image',
+          role: {
+            name: 'Assistant',
+            showLabel: false,
+          },
         });
       }
 

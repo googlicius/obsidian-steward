@@ -1,4 +1,4 @@
-import { Condition, ConditionResult } from './Condition';
+import { Condition } from './Condition';
 
 /**
  * Composite condition for OR logic.
@@ -11,8 +11,8 @@ export class OrCondition extends Condition {
     this.conditions = conditions.filter(condition => condition !== undefined);
   }
 
-  async evaluate(): Promise<Map<number, ConditionResult>> {
-    const result = new Map<number, ConditionResult>();
+  async evaluate() {
+    const result = new Map();
 
     for (const condition of this.conditions) {
       const map = await condition.injectContext(this.context).evaluate();

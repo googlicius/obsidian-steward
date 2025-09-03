@@ -5,10 +5,6 @@ export interface ScoredDocument extends IndexedDocument {
   score: number;
 }
 
-export interface ScoredKeywordsMatchedDoc extends ScoredDocument {
-  keywordsMatched: string[];
-}
-
 export interface ScoringConfig {
   maxCoverageBonus?: number;
   maxProximityBonus?: number;

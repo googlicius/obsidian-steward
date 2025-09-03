@@ -1,13 +1,14 @@
 import { Condition, ConditionResult } from './Condition';
 import { ParsedRegexPattern } from '../types';
 import { similarity } from 'src/utils/similarity';
+import { IndexedDocument } from 'src/database/SearchDatabase';
 
 const SIMILARITY_THRESHOLD = 0.7;
 
 /**
  * Condition for filtering by filename.
  */
-export class FilenameCondition extends Condition {
+export class FilenameCondition extends Condition<IndexedDocument> {
   constructor(private names: string[]) {
     super();
   }
@@ -41,7 +42,7 @@ export class FilenameCondition extends Condition {
   }
 
   async evaluate() {
-    const result = new Map<number, ConditionResult>();
+    const result = new Map<number, ConditionResult<IndexedDocument>>();
 
     for (const name of this.names) {
       const terms = this.context.nameTokenizer.getUniqueTerms(name);
@@ -90,13 +91,11 @@ export class FilenameCondition extends Condition {
           result.set(doc.id as number, {
             document: doc,
             score: score,
+            keywordsMatched: [name],
           });
         }
       }
     }
-
-    // Sort by similarity score in descending order (highest scores first)
-    // result.sort((a, b) => b.score - a.score);
 
     return result;
   }

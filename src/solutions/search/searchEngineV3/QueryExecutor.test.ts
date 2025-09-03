@@ -62,18 +62,27 @@ describe('QueryExecutor', () => {
 
     const queryExecutor = new QueryExecutor(searchContext);
     const result = await queryExecutor.execute(condition);
+
     expect(result).toMatchObject({
-      count: 2,
-      documents: [
+      conditionResults: [
         {
-          id: 1,
-          name: 'cat.md',
+          document: {
+            id: 1,
+            name: 'cat.md',
+          },
+          keywordsMatched: [],
+          score: 1.7000000000000002,
         },
         {
-          id: 3,
-          name: 'another_cat.md',
+          document: {
+            id: 3,
+            name: 'another_cat.md',
+          },
+          keywordsMatched: [],
+          score: 1.1,
         },
       ],
+      count: 2,
     });
   });
 
@@ -103,26 +112,39 @@ describe('QueryExecutor', () => {
 
     const queryExecutor = new QueryExecutor(searchContext);
     const result = await queryExecutor.execute(condition);
+
     expect(result).toMatchObject({
-      count: 4,
-      documents: [
+      conditionResults: [
         {
-          id: 1,
-          name: 'cat.md',
+          document: {
+            id: 1,
+            name: 'cat.md',
+          },
+          score: 1.7000000000000002,
         },
         {
-          id: 3,
-          name: 'another_cat.md',
+          document: {
+            id: 3,
+            name: 'another_cat.md',
+          },
+          score: 1.1,
         },
         {
-          id: 2,
-          name: 'cat_photo.md',
+          document: {
+            id: 2,
+            name: 'cat_photo.md',
+          },
+          score: 0.7,
         },
         {
-          id: 4,
-          name: 'black_kitten.md',
+          document: {
+            id: 4,
+            name: 'black_kitten.md',
+          },
+          score: 0.4,
         },
       ],
+      count: 4,
     });
   });
 });

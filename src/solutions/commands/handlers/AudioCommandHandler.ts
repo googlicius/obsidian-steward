@@ -77,8 +77,11 @@ export class AudioCommandHandler extends CommandHandler {
           path: title,
           newContent: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
           artifactContent: result.filePath,
-          role: 'System',
           command: 'audio',
+          role: {
+            name: 'Assistant',
+            showLabel: false,
+          },
         });
       }
 
