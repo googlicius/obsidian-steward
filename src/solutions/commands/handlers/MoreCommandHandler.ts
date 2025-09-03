@@ -10,6 +10,7 @@ import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import type StewardPlugin from 'src/main';
 import type { SearchCommandHandler } from './SearchCommandHandler';
 import { ConditionResult } from 'src/solutions/search/searchEngineV3';
+import { IndexedDocument } from 'src/database/SearchDatabase';
 
 export class MoreCommandHandler extends CommandHandler {
   constructor(
@@ -79,7 +80,7 @@ export class MoreCommandHandler extends CommandHandler {
 
       // Get paginated results for the current page
       const paginatedSearchResult = this.plugin.searchService.paginateResults(
-        searchArtifact.originalResults as ConditionResult[],
+        searchArtifact.originalResults as ConditionResult<IndexedDocument>[],
         page,
         10
       );
