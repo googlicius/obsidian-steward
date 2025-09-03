@@ -1,0 +1,49 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`QueryExecutor should inject context to all conditions 1`] = `
+AndCondition {
+  "conditions": [
+    FilenameCondition {
+      "context": {
+        "documentStore": {},
+      },
+      "evaluate": [MockFunction] {
+        "calls": [
+          [],
+        ],
+        "results": [
+          {
+            "type": "return",
+            "value": Promise {},
+          },
+        ],
+      },
+      "names": [
+        "cat",
+      ],
+    },
+    KeywordCondition {
+      "context": {
+        "documentStore": {},
+      },
+      "evaluate": [MockFunction] {
+        "calls": [
+          [],
+        ],
+        "results": [
+          {
+            "type": "return",
+            "value": Promise {},
+          },
+        ],
+      },
+      "keywords": [
+        "black cat",
+      ],
+    },
+  ],
+  "context": {
+    "documentStore": {},
+  },
+}
+`;

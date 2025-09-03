@@ -2,8 +2,19 @@ import { DocumentStore } from './documentStore';
 import { Tokenizer } from './tokenizer';
 import { Indexer } from './indexer';
 import { Scoring } from './scoring';
-import { SearchEngine } from './searchEngine';
 import type StewardPlugin from '../../main';
+import { QueryBuilder } from './searchEngineV3/QueryBuilder';
+import { QueryExecutor, QueryResult } from './searchEngineV3/QueryExecutor';
+import { SearchContext } from './searchEngineV3/SearchContext';
+import { FolderCondition } from './searchEngineV3/FolderCondition';
+import { FilenameCondition } from './searchEngineV3/FilenameCondition';
+import { KeywordCondition } from './searchEngineV3/KeywordCondition';
+import { PropertyCondition } from './searchEngineV3/PropertyCondition';
+import { SearchOperationV2 } from 'src/lib/modelfusion';
+import { AndCondition } from './searchEngineV3/AndCondition';
+import { Condition } from './searchEngineV3/Condition';
+import { IndexedDocument } from 'src/database/SearchDatabase';
+import { PaginatedSearchResultV2 } from './searchEngine';
 
 /**
  * SearchService singleton that provides global access to search components
@@ -23,7 +34,6 @@ export class SearchService {
   public nameTokenizer: Tokenizer;
   public indexer: Indexer;
   public scoring: Scoring;
-  public searchEngine: SearchEngine;
 
   private isInitialized = false;
 
@@ -62,12 +72,15 @@ export class SearchService {
       nameTokenizer: this.nameTokenizer,
     });
     this.scoring = new Scoring(this.documentStore);
-    this.searchEngine = new SearchEngine({
+  }
+
+  get searchContext(): SearchContext {
+    return {
       documentStore: this.documentStore,
-      contentTokenizer: this.contentTokenizer,
       nameTokenizer: this.nameTokenizer,
+      contentTokenizer: this.contentTokenizer,
       scoring: this.scoring,
-    });
+    };
   }
 
   /**
@@ -115,6 +128,77 @@ export class SearchService {
     });
 
     this.isInitialized = true;
+  }
+
+  /**
+   * Search for documents using the v3 search engine
+   */
+  public searchV3(operations: SearchOperationV2[]): Promise<QueryResult> {
+    const queryExecutor = new QueryExecutor(this.searchContext);
+
+    const queryBuilder = new QueryBuilder();
+
+    for (const operation of operations) {
+      const { filenames = [], folders = [], keywords = [], properties = [] } = operation;
+      const andConditions: Condition[] = [];
+
+      // Add conditions using the generic approach
+      if (filenames.length > 0) {
+        andConditions.push(new FilenameCondition(filenames));
+      }
+      if (folders.length > 0) {
+        andConditions.push(new FolderCondition(folders));
+      }
+      if (keywords.length > 0) {
+        andConditions.push(new KeywordCondition(keywords));
+      }
+      if (properties.length > 0) {
+        andConditions.push(new PropertyCondition(properties));
+      }
+
+      queryBuilder.or(new AndCondition(...andConditions));
+    }
+
+    const condition = queryBuilder.build();
+
+    return queryExecutor.execute(condition);
+  }
+
+  /**
+   * Paginate search results
+   */
+  public paginateResults(
+    results: IndexedDocument[],
+    page = 1,
+    limit = 20
+  ): PaginatedSearchResultV2 {
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    return {
+      documents: results.slice(startIndex, endIndex),
+      totalCount: results.length,
+      page,
+      limit,
+      totalPages: Math.ceil(results.length / limit),
+    };
+  }
+
+  /**
+   * Get a single document by name using similarity matching
+   * @param name The name of the document to find
+   * @returns The found document or null if not found
+   */
+  public async getDocumentByName(name: string): Promise<IndexedDocument | null> {
+    const queryExecutor = new QueryExecutor(this.searchContext);
+
+    const queryBuilder = new QueryBuilder();
+    queryBuilder.and(new FilenameCondition([name]));
+
+    const condition = queryBuilder.build();
+    const result = await queryExecutor.execute(condition);
+    const documents = result.documents;
+
+    return documents.length > 0 ? documents[0] : null;
   }
 
   /**

@@ -212,9 +212,9 @@ export class MoveCommandHandler extends CommandHandler {
       const operations = [
         {
           keywords: [explanation],
-          tags: [],
           filenames: [],
           folders: [],
+          properties: [],
           destinationFolder,
         },
       ];

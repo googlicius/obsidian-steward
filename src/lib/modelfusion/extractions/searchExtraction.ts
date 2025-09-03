@@ -18,9 +18,9 @@ const abortService = AbortService.getInstance();
  */
 export interface SearchOperationV2 {
   keywords: string[];
-  tags: string[];
   filenames: string[];
   folders: string[];
+  properties: Array<{ name: string; value: string }>;
 }
 
 /**
@@ -38,14 +38,26 @@ const searchOperationSchema = z.object({
   keywords: z.array(z.string()).describe(`General terms or concepts to search for in file content.
 If a term or phrase is wrapped in quotation marks (e.g., "cat or dog"),
 preserve the quotes exactly as is for exact match queries.`),
-  tags: z
-    .array(z.string())
-    .describe(`Obsidian tags that identify files (formatted without the # symbol)`),
   filenames: z
     .array(z.string())
     .describe(`Specific file names to search for (without .md extension)`),
   folders: z.array(z.string()).describe(`Specific folder paths to search within
 - If the user wants to search in the root folder, use ^/$`),
+  properties: z.array(
+    z.object({
+      name: z.string(),
+      value: z.string(),
+    })
+  ).describe(`Properties to search for in files:
+- For tags: use name: "tag" and value without # symbol
+- For file types: use name: "file_type" and value: extension (e.g., "md", "pdf", "jpg")
+- For file categories: use name: "file_category" and value: category (e.g., "document", "image", "audio", "video", "data", "code")
+- For frontmatter properties: use the property name and value
+Examples:
+- For images: {name: "file_category", value: "image"}
+- For PDFs: {name: "file_type", value: "pdf"}
+- For notes: {name: "file_type", value: "md"}
+- For documents with status "completed": {name: "status", value: "completed"}`),
 });
 
 // Define the Zod schema for search query extraction validation
@@ -90,15 +102,15 @@ export async function extractSearchQueryV2({
       operations: [
         {
           keywords: [`"${searchTerm}"`],
-          tags: [],
           filenames: [],
           folders: [],
+          properties: [],
         },
         {
           keywords: [],
-          tags: [],
           filenames: [searchTerm],
           folders: [],
+          properties: [],
         },
       ],
       explanation: t('search.searchingFor', { searchTerm }),
@@ -118,9 +130,12 @@ export async function extractSearchQueryV2({
       operations: [
         {
           keywords: [],
-          tags,
           filenames: [],
           folders: [],
+          properties: tags.map(tag => ({
+            name: 'tag',
+            value: tag,
+          })),
         },
       ],
       explanation: t('search.searchingForTags', {
@@ -150,9 +165,9 @@ export async function extractSearchQueryV2({
     object.operations.forEach((op, index) => {
       if (
         op.keywords.length === 0 &&
-        op.tags.length === 0 &&
         op.filenames.length === 0 &&
-        op.folders.length === 0
+        op.folders.length === 0 &&
+        op.properties.length === 0
       ) {
         logger.warn(`Operation ${index} has all empty arrays`);
       }

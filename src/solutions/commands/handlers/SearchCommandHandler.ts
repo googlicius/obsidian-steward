@@ -88,8 +88,8 @@ export class SearchCommandHandler extends CommandHandler {
             message += `- ${t('search.keywords')}: ${operation.keywords.join(', ')}\n`;
           }
 
-          if (operation.tags.length > 0) {
-            message += `- ${t('search.tags')}: ${operation.tags.map(tag => `#${tag}`).join(', ')}\n`;
+          if (operation.properties.length > 0) {
+            message += `- ${t('search.properties')}: ${operation.properties.map(prop => `${prop.name}: ${prop.value}`).join(', ')}\n`;
           }
 
           if (operation.filenames.length > 0) {
@@ -149,12 +149,10 @@ export class SearchCommandHandler extends CommandHandler {
       }
 
       // Get the search results
-      const docs = await this.plugin.searchService.searchEngine.searchV2(
-        queryExtraction.operations
-      );
+      const queryResult = await this.plugin.searchService.searchV3(queryExtraction.operations);
 
       // Paginate the results for display (first page)
-      const paginatedDocs = this.plugin.searchService.searchEngine.paginateResults(docs, 1, 10);
+      const paginatedDocs = this.plugin.searchService.paginateResults(queryResult.documents, 1, 10);
 
       // Format the search results
       const response = await this.formatSearchResults({
@@ -173,14 +171,14 @@ export class SearchCommandHandler extends CommandHandler {
       });
 
       // Store the search results in the artifact manager
-      if (messageId && docs.length > 0) {
+      if (messageId && queryResult.documents.length > 0) {
         this.plugin.artifactManager.storeArtifact(title, messageId, {
           type: ArtifactType.SEARCH_RESULTS,
-          originalResults: docs,
+          originalResults: queryResult.documents,
         });
 
         // Create artifact content with description of results
-        const artifactContent = `${t('search.artifactDescription', { count: docs.length })}\n\n${t('search.artifactNote')}`;
+        const artifactContent = `${t('search.artifactDescription', { count: queryResult.count })}\n\n${t('search.artifactNote')}`;
 
         await this.renderer.updateConversationNote({
           path: title,
@@ -188,6 +186,10 @@ export class SearchCommandHandler extends CommandHandler {
             type: ArtifactType.SEARCH_RESULTS,
           })}*`,
           artifactContent,
+          role: {
+            name: 'Assistant',
+            showLabel: false,
+          },
           command: 'search',
         });
       }

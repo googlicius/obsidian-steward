@@ -1,9 +1,10 @@
-import { App, TFile, EventRef, MarkdownView } from 'obsidian';
+import { App, TFile, EventRef, MarkdownView, FrontMatterCache } from 'obsidian';
 import { DocumentStore } from './documentStore';
 import { Tokenizer } from './tokenizer';
-import { TermSource } from '../../database/SearchDatabase';
+import { TermSource, IndexedProperty } from '../../database/SearchDatabase';
 import { logger } from '../../utils/logger';
 import { COMMAND_PREFIXES } from '../../constants';
+import { IndexedPropertyArray } from './IndexedPropertyArray';
 
 export interface IndexerConfig {
   app: App;
@@ -209,7 +210,6 @@ export class Indexer {
       }
 
       let content = '';
-      const tags: string[] = [];
 
       // Process file based on its type
       if (file.extension === 'md') {
@@ -218,21 +218,6 @@ export class Indexer {
         // Skip markdown files with command prefixes
         if (this.containsCommandPrefix(content)) {
           return;
-        }
-
-        const cache = this.documentStore.getFileCache(file);
-
-        // Extract tags from content and frontmatter for markdown files
-        if (cache?.tags) {
-          tags.push(...cache.tags.map(t => t.tag));
-        }
-
-        if (cache?.frontmatter?.tags) {
-          if (Array.isArray(cache.frontmatter.tags)) {
-            tags.push(...cache.frontmatter.tags.map((t: string) => `#${t}`));
-          } else if (typeof cache.frontmatter.tags === 'string') {
-            tags.push(`#${cache.frontmatter.tags}`);
-          }
         }
       } else {
         // For non-markdown files, use the filename as content
@@ -245,10 +230,74 @@ export class Indexer {
 
       // Create or update document in the index
       const folderId = await this.indexFolder(folderPath, folderName);
-      const documentId = await this.indexDocument(file, content, tags);
+      const documentId = await this.indexDocument(file, content);
+
+      // Index terms for the document
       await this.indexTerms(content, documentId, folderId, file.basename);
+
+      await this.indexProperties(file, documentId);
     } catch (error) {
       logger.error(`Error indexing file ${file.path}:`, error);
+    }
+  }
+
+  private async indexProperties(file: TFile, documentId: number) {
+    const properties = new IndexedPropertyArray();
+
+    const cache = file.extension === 'md' ? this.documentStore.getFileCache(file) : null;
+
+    // Extract properties from frontmatter (for markdown files)
+    if (cache?.frontmatter) {
+      properties.push(...this.extractProperties(cache.frontmatter, documentId));
+    }
+
+    // Add file type as a property for all files
+    properties.push({
+      documentId,
+      name: 'file_type',
+      value: file.extension,
+    });
+
+    // Add file category as a property
+    properties.push({
+      documentId,
+      name: 'file_category',
+      value: this.getFileCategory(file.extension),
+    });
+
+    // Extract tags from content
+    if (cache?.tags) {
+      for (const tagObj of cache.tags) {
+        properties.push({
+          documentId,
+          name: 'tag',
+          value: tagObj.tag,
+        });
+      }
+    }
+
+    // Extract tags from frontmatter
+    if (cache?.frontmatter?.tags) {
+      if (Array.isArray(cache.frontmatter.tags)) {
+        for (const tag of cache.frontmatter.tags) {
+          properties.push({
+            documentId,
+            name: 'tag',
+            value: tag.toString(),
+          });
+        }
+      } else if (typeof cache.frontmatter.tags === 'string') {
+        properties.push({
+          documentId,
+          name: 'tag',
+          value: cache.frontmatter.tags,
+        });
+      }
+    }
+
+    // Store all properties if there are any
+    if (properties.length > 0) {
+      await this.documentStore.storeProperties(properties);
     }
   }
 
@@ -278,7 +327,7 @@ export class Indexer {
   /**
    * Index a document and return its ID
    */
-  private async indexDocument(file: TFile, content: string, tags: string[]): Promise<number> {
+  private async indexDocument(file: TFile, content: string): Promise<number> {
     // Find existing document by path
     const existingDoc = await this.documentStore.getDocumentByPath(file.path);
 
@@ -291,7 +340,7 @@ export class Indexer {
       path: file.path,
       fileName,
       lastModified: file.stat.mtime,
-      tags: [...new Set(tags)],
+      tags: [], // Tags are now handled as properties
       tokenCount,
     };
 
@@ -303,11 +352,100 @@ export class Indexer {
       // Remove existing terms for this document
       await this.documentStore.deleteTerms(documentId);
 
+      // Remove existing properties for this document
+      await this.documentStore.deletePropertiesByDocumentId(documentId);
+
       return documentId;
     } else {
       // Create new document
       return this.documentStore.storeDocument(documentData);
     }
+  }
+
+  /**
+   * Extract properties from frontmatter
+   * @param frontmatter The frontmatter object from the file cache
+   * @param documentId The document ID to associate with the properties
+   * @returns Array of properties extracted from frontmatter
+   */
+  private extractProperties(
+    frontmatter: FrontMatterCache | undefined,
+    documentId: number
+  ): IndexedProperty[] {
+    if (!frontmatter) return [];
+
+    const properties = new IndexedPropertyArray();
+
+    // Process each key in frontmatter
+    for (const [key, value] of Object.entries(frontmatter)) {
+      // Skip tags as they're handled separately
+      if (key === 'tags') continue;
+
+      // Handle different value types
+      if (Array.isArray(value)) {
+        // For arrays, create a property for each item
+        for (const item of value) {
+          properties.push({
+            documentId,
+            name: key,
+            value: item,
+          });
+        }
+      } else {
+        // For scalar values, create a single property
+        properties.push({
+          documentId,
+          name: key,
+          value,
+        });
+      }
+    }
+
+    return properties;
+  }
+
+  /**
+   * Get file category based on extension
+   * @param extension File extension
+   * @returns File category (document, image, audio, video, etc.)
+   */
+  private getFileCategory(extension: string): string {
+    const ext = extension.toLowerCase();
+
+    // Document types
+    if (['md', 'txt', 'pdf', 'doc', 'docx', 'rtf', 'odt'].includes(ext)) {
+      return 'document';
+    }
+
+    // Image types
+    if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'bmp', 'tiff'].includes(ext)) {
+      return 'image';
+    }
+
+    // Audio types
+    if (['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac'].includes(ext)) {
+      return 'audio';
+    }
+
+    // Video types
+    if (['mp4', 'webm', 'mov', 'avi', 'mkv', 'flv'].includes(ext)) {
+      return 'video';
+    }
+
+    // Data types
+    if (['json', 'csv', 'xml', 'yaml', 'yml'].includes(ext)) {
+      return 'data';
+    }
+
+    // Code types
+    if (
+      ['js', 'ts', 'py', 'java', 'c', 'cpp', 'cs', 'go', 'rb', 'php', 'html', 'css'].includes(ext)
+    ) {
+      return 'code';
+    }
+
+    // Default
+    return 'other';
   }
 
   /**

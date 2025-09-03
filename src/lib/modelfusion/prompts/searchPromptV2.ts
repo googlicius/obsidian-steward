@@ -13,7 +13,8 @@ Let's say the user's query is: <query>
 GUIDELINES:
 - If the <query> lacks search intention, assume it is the keyword for searching.
 - If there are any typos in the <query>, extract both the original and your corrected version
-${hasTag ? '- The <query> included one or more tags prefixed with #, for example: #cat' : ''}
+- If the <query> includes or mentions "note", include the property {name: "file_type", value: "md"}
+${hasTag ? '- The <query> included one or more tags prefixed with #, extract them as tag properties with value without the # symbol, for example: #project -> {name: "tag", value: "project"}' : ''}
 - For folders and filenames, use regex to represent user-specified exact: ^<query>$, start with: ^<query>, or contain: <query>
 ${languageEnforcementFragment}`;
 }
