@@ -13,8 +13,8 @@ export interface ExactPhraseMatch {
   tokens: string[];
 }
 
-export interface PaginatedSearchResult {
-  conditionResults: ConditionResult[];
+export interface PaginatedSearchResult<T = unknown> {
+  conditionResults: ConditionResult<T>[];
   totalCount: number;
   page: number;
   limit: number;

@@ -4,7 +4,7 @@ import { IndexedDocument } from 'src/database/SearchDatabase';
 /**
  * Condition for filtering by properties.
  */
-export class PropertyCondition extends Condition {
+export class PropertyCondition extends Condition<IndexedDocument> {
   constructor(private properties: Array<{ name: string; value: string }>) {
     super();
   }
@@ -68,7 +68,7 @@ export class PropertyCondition extends Condition {
     }
 
     // Create result map with score 1 for all matching documents
-    const result = new Map<number, ConditionResult>();
+    const result = new Map<number, ConditionResult<IndexedDocument>>();
     for (const [docId, { doc, matchedProperties }] of documentsMap) {
       result.set(docId, {
         document: doc,

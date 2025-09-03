@@ -13,6 +13,7 @@ import { MediaTools } from 'src/tools/mediaTools';
 import type StewardPlugin from 'src/main';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { PaginatedSearchResult } from 'src/solutions/search/types';
+import { IndexedDocument } from 'src/database/SearchDatabase';
 
 export class SearchCommandHandler extends CommandHandler {
   isContentRequired = true;
@@ -221,7 +222,7 @@ export class SearchCommandHandler extends CommandHandler {
    * Format search results into a markdown string for display
    */
   public async formatSearchResults(options: {
-    paginatedSearchResult: PaginatedSearchResult;
+    paginatedSearchResult: PaginatedSearchResult<IndexedDocument>;
     page?: number;
     headerText?: string;
     lang?: string;

@@ -5,8 +5,8 @@ import { SearchContext } from './SearchContext';
 /**
  * Interface for query results (array of matching documents with optional metadata)
  */
-export interface QueryResult {
-  conditionResults: ConditionResult[];
+export interface QueryResult<T> {
+  conditionResults: ConditionResult<T>[];
   count: number;
 }
 
@@ -16,7 +16,7 @@ export interface QueryResult {
 export class QueryExecutor {
   constructor(private context: SearchContext) {}
 
-  async execute(condition: Condition): Promise<QueryResult> {
+  async execute<T>(condition: Condition<T>): Promise<QueryResult<T>> {
     try {
       const resultMap = await condition.injectContext(this.context).evaluate();
       if (resultMap.size === 0) return { conditionResults: [], count: 0 };

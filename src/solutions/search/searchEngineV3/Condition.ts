@@ -1,11 +1,10 @@
-import { IndexedDocument } from 'src/database/SearchDatabase';
 import { SearchContext } from './SearchContext';
 
 /**
  * Result structure for condition evaluation
  */
-export interface ConditionResult {
-  document: IndexedDocument;
+export interface ConditionResult<T = unknown> {
+  document: T;
   score: number;
   keywordsMatched?: string[];
 }
@@ -14,7 +13,7 @@ export interface ConditionResult {
  * Abstract base class for all conditions.
  * Subclasses implement specific filtering logic.
  */
-export abstract class Condition {
+export abstract class Condition<T = unknown> {
   protected context: SearchContext;
 
   /**
@@ -31,5 +30,5 @@ export abstract class Condition {
    * For non-scoring conditions, use a default score like 1 (match) or 0 (no relevance).
    * @returns Promise<Map<number, ConditionResult>>
    */
-  abstract evaluate(): Promise<Map<number, ConditionResult>>;
+  abstract evaluate(): Promise<Map<number, ConditionResult<T>>>;
 }

@@ -1,10 +1,10 @@
-import { IndexedFolder } from 'src/database/SearchDatabase';
+import { IndexedDocument, IndexedFolder } from 'src/database/SearchDatabase';
 import { Condition, ConditionResult } from './Condition';
 
 /**
  * Condition for filtering by folder (path or name).
  */
-export class FolderCondition extends Condition {
+export class FolderCondition extends Condition<IndexedDocument> {
   constructor(private names: string[]) {
     super();
   }
@@ -35,7 +35,7 @@ export class FolderCondition extends Condition {
   }
 
   async evaluate() {
-    const result = new Map<number, ConditionResult>();
+    const result = new Map<number, ConditionResult<IndexedDocument>>();
 
     const folders = await this.getFoldersByNames(this.names);
 

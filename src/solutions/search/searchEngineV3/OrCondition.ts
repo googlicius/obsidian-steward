@@ -1,4 +1,4 @@
-import { Condition, ConditionResult } from './Condition';
+import { Condition } from './Condition';
 
 /**
  * Composite condition for OR logic.
@@ -12,7 +12,7 @@ export class OrCondition extends Condition {
   }
 
   async evaluate() {
-    const result = new Map<number, ConditionResult>();
+    const result = new Map();
 
     for (const condition of this.conditions) {
       const map = await condition.injectContext(this.context).evaluate();

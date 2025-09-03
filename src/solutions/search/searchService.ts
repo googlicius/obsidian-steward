@@ -18,6 +18,7 @@ import {
 } from './searchEngineV3';
 import { SearchOperationV2 } from 'src/lib/modelfusion';
 import { PaginatedSearchResult } from './types';
+import { IndexedDocument } from 'src/database/SearchDatabase';
 
 /**
  * SearchService singleton that provides global access to search components
@@ -136,10 +137,10 @@ export class SearchService {
   /**
    * Search for documents using the v3 search engine
    */
-  public searchV3(operations: SearchOperationV2[]): Promise<QueryResult> {
+  public searchV3(operations: SearchOperationV2[]): Promise<QueryResult<IndexedDocument>> {
     const queryExecutor = new QueryExecutor(this.searchContext);
 
-    const queryBuilder = new QueryBuilder();
+    const queryBuilder = new QueryBuilder<IndexedDocument>();
 
     for (const operation of operations) {
       const { filenames = [], folders = [], keywords = [], properties = [] } = operation;
@@ -170,7 +171,11 @@ export class SearchService {
   /**
    * Paginate search results
    */
-  public paginateResults(results: ConditionResult[], page = 1, limit = 20): PaginatedSearchResult {
+  public paginateResults<T = IndexedDocument>(
+    results: ConditionResult<T>[],
+    page = 1,
+    limit = 20
+  ): PaginatedSearchResult<T> {
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
     return {
@@ -187,10 +192,10 @@ export class SearchService {
    * @param name The name of the document to find
    * @returns The found document or null if not found
    */
-  public async getDocumentByName(name: string): Promise<ConditionResult | null> {
+  public async getDocumentByName(name: string): Promise<ConditionResult<IndexedDocument> | null> {
     const queryExecutor = new QueryExecutor(this.searchContext);
 
-    const queryBuilder = new QueryBuilder();
+    const queryBuilder = new QueryBuilder<IndexedDocument>();
     queryBuilder.and(new FilenameCondition([name]));
 
     const condition = queryBuilder.build();

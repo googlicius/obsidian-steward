@@ -1,14 +1,14 @@
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 import { Condition, ConditionResult } from './Condition';
 import { ExactPhraseMatch } from '../types';
-import { IndexedTerm, TermSource } from 'src/database/SearchDatabase';
+import { IndexedDocument, IndexedTerm, TermSource } from 'src/database/SearchDatabase';
 
 const TERM_MATCH_THRESHOLD = 0.7;
 
 /**
  * Condition for keyword search.
  */
-export class KeywordCondition extends Condition {
+export class KeywordCondition extends Condition<IndexedDocument> {
   constructor(private keywords: string[]) {
     super();
   }
@@ -117,7 +117,7 @@ export class KeywordCondition extends Condition {
    */
   private async handleExactPhraseMatch(
     exactPhrase: ExactPhraseMatch,
-    documentsMap: Map<number, ConditionResult>
+    documentsMap: Map<number, ConditionResult<IndexedDocument>>
   ): Promise<void> {
     const { originalPhrase, tokens } = exactPhrase;
 
@@ -245,7 +245,7 @@ export class KeywordCondition extends Condition {
   }
 
   async evaluate() {
-    const documentsMap = new Map<number, ConditionResult>();
+    const documentsMap = new Map<number, ConditionResult<IndexedDocument>>();
 
     for (const keyword of this.keywords) {
       // Check if this is an exact phrase match
