@@ -33,7 +33,10 @@ export class DeleteCommandHandler extends CommandHandler {
 
     try {
       // Retrieve the most recent artifact regardless of type
-      const artifact = this.artifactManager.getMostRecentArtifact(title);
+      const artifact = this.artifactManager.getMostRecentArtifactOfTypes(title, [
+        ArtifactType.SEARCH_RESULTS,
+        ArtifactType.CREATED_NOTES,
+      ]);
 
       if (!artifact) {
         await this.renderer.updateConversationNote({
@@ -58,7 +61,7 @@ export class DeleteCommandHandler extends CommandHandler {
       } else {
         await this.renderer.updateConversationNote({
           path: title,
-          newContent: t('common.cannotDeleteThisType'),
+          newContent: t('common.cannotDeleteThisType', { type: artifact.type }),
           role: 'Steward',
         });
         logger.error('Cannot delete this artifact', artifact);

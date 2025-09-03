@@ -11,7 +11,7 @@ export class OrCondition extends Condition {
     this.conditions = conditions.filter(condition => condition !== undefined);
   }
 
-  async evaluate(): Promise<Map<number, ConditionResult>> {
+  async evaluate() {
     const result = new Map<number, ConditionResult>();
 
     for (const condition of this.conditions) {

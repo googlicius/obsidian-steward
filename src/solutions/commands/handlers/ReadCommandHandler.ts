@@ -212,6 +212,10 @@ export class ReadCommandHandler extends CommandHandler {
           newContent: `*${t('common.artifactCreated', { type: ArtifactType.READ_CONTENT })}*`,
           artifactContent: readingResults[0].blocks.map(block => block.content).join('\n\n'),
           command: 'read',
+          role: {
+            name: 'Assistant',
+            showLabel: false,
+          },
         });
       }
 

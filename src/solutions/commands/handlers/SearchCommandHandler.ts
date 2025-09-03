@@ -9,10 +9,10 @@ import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { extractSearchQueryV2, SearchQueryExtractionV2 } from 'src/lib/modelfusion/extractions';
 import { highlightKeyword } from 'src/utils/highlightKeywords';
-import { PaginatedSearchResultV2 } from 'src/solutions/search';
 import { MediaTools } from 'src/tools/mediaTools';
 import type StewardPlugin from 'src/main';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
+import { PaginatedSearchResult } from 'src/solutions/search/types';
 
 export class SearchCommandHandler extends CommandHandler {
   isContentRequired = true;
@@ -152,11 +152,15 @@ export class SearchCommandHandler extends CommandHandler {
       const queryResult = await this.plugin.searchService.searchV3(queryExtraction.operations);
 
       // Paginate the results for display (first page)
-      const paginatedDocs = this.plugin.searchService.paginateResults(queryResult.documents, 1, 10);
+      const paginatedSearchResult = this.plugin.searchService.paginateResults(
+        queryResult.conditionResults,
+        1,
+        10
+      );
 
       // Format the search results
       const response = await this.formatSearchResults({
-        paginatedDocs,
+        paginatedSearchResult,
         headerText: queryExtraction.explanation,
         lang: queryExtraction.lang,
       });
@@ -171,10 +175,10 @@ export class SearchCommandHandler extends CommandHandler {
       });
 
       // Store the search results in the artifact manager
-      if (messageId && queryResult.documents.length > 0) {
+      if (messageId && queryResult.conditionResults.length > 0) {
         this.plugin.artifactManager.storeArtifact(title, messageId, {
           type: ArtifactType.SEARCH_RESULTS,
-          originalResults: queryResult.documents,
+          originalResults: queryResult.conditionResults,
         });
 
         // Create artifact content with description of results
@@ -217,12 +221,12 @@ export class SearchCommandHandler extends CommandHandler {
    * Format search results into a markdown string for display
    */
   public async formatSearchResults(options: {
-    paginatedDocs: PaginatedSearchResultV2;
+    paginatedSearchResult: PaginatedSearchResult;
     page?: number;
     headerText?: string;
     lang?: string;
   }): Promise<string> {
-    const { paginatedDocs, headerText, lang } = options;
+    const { paginatedSearchResult, headerText, lang } = options;
     const page = options.page || 1;
 
     // Get translation function using the provided language or default
@@ -238,27 +242,27 @@ export class SearchCommandHandler extends CommandHandler {
     // Add specific header based on page (first page vs pagination)
     if (page === 1) {
       // First page header (search results count)
-      if (paginatedDocs.totalCount > 0) {
-        response += `${t('search.found', { count: paginatedDocs.totalCount })}`;
+      if (paginatedSearchResult.totalCount > 0) {
+        response += `${t('search.found', { count: paginatedSearchResult.totalCount })}`;
       } else {
         response += `${t('search.noResults')}`;
         return response; // Return early if no results
       }
     } else {
       // Pagination header for subsequent pages
-      response += `${t('search.showingPage', { page, total: paginatedDocs.totalPages })}\n\n`;
+      response += `${t('search.showingPage', { page, total: paginatedSearchResult.totalPages })}\n\n`;
     }
 
     // List the search results
-    for (let index = 0; index < paginatedDocs.documents.length; index++) {
-      const result = paginatedDocs.documents[index];
+    for (let index = 0; index < paginatedSearchResult.conditionResults.length; index++) {
+      const result = paginatedSearchResult.conditionResults[index];
       const displayIndex = (page - 1) * 10 + index + 1;
-      response += `\n\n**${displayIndex}.** [[${result.path}]]\n`;
+      response += `\n\n**${displayIndex}.** [[${result.document.path}]]\n`;
 
       // Get the file content directly
-      const file = await MediaTools.getInstance().findFileByNameOrPath(result.path);
+      const file = await MediaTools.getInstance().findFileByNameOrPath(result.document.path);
 
-      if (file && 'keywordsMatched' in result) {
+      if (file && result.keywordsMatched) {
         try {
           const fileContent = await this.plugin.app.vault.cachedRead(file);
 
@@ -282,7 +286,7 @@ export class SearchCommandHandler extends CommandHandler {
                   line: match.lineNumber,
                   start: match.start,
                   end: match.end,
-                  path: result.path,
+                  path: result.document.path,
                 }
               );
               response += '\n' + callout;
@@ -300,7 +304,7 @@ export class SearchCommandHandler extends CommandHandler {
     }
 
     // Add pagination footer if there are more pages
-    if (page < paginatedDocs.totalPages) {
+    if (page < paginatedSearchResult.totalPages) {
       response += `\n\n${t('search.useMoreCommand')}`;
     }
 

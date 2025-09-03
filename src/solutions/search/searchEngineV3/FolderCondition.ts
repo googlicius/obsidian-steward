@@ -34,7 +34,7 @@ export class FolderCondition extends Condition {
     return matchedFolders;
   }
 
-  async evaluate(): Promise<Map<number, ConditionResult>> {
+  async evaluate() {
     const result = new Map<number, ConditionResult>();
 
     const folders = await this.getFoldersByNames(this.names);

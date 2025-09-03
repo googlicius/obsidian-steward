@@ -110,9 +110,9 @@ export class MediaTools {
 
     try {
       const searchService = SearchService.getInstance();
-      const doc = await searchService.getDocumentByName(filename);
-      if (doc && doc.path) {
-        const file = this.app.vault.getFileByPath(doc.path);
+      const result = await searchService.getDocumentByName(filename);
+      if (result && result.document.path) {
+        const file = this.app.vault.getFileByPath(result.document.path);
         if (file) {
           return file;
         }

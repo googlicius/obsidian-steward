@@ -30,6 +30,7 @@ const ja = {
       generateDesc: 'AIでコンテンツを生成する',
       readDesc: 'ノートから内容を読み取る',
       buildSearchIndexDesc: 'ノートの検索インデックスを構築する',
+      cannotDeleteThisType: 'この種類のアーティファクトは削除できません: {{type}}',
     },
     // Chat UI elements
     chat: {
@@ -138,6 +139,7 @@ const ja = {
       tags: 'タグ',
       filenames: 'ファイル名',
       folders: 'フォルダ',
+      properties: 'プロパティ',
       confirmMultipleOperations: 'これらの操作は正しいですか？検索を続行するには確認してください。',
       indexNotBuilt: '検索インデックスがまだ構築されていません。',
       buildIndexFirst:

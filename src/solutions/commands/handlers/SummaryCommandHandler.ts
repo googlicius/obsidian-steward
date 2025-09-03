@@ -78,6 +78,10 @@ export class SummaryCommandHandler extends CommandHandler {
         newContent: '',
         artifactContent: `${t('summary.conversationSummary')}:\n${summary}`,
         replacePlaceHolder: '<summaryPlaceholder>',
+        role: {
+          name: 'Assistant',
+          showLabel: false,
+        },
       });
 
       return {

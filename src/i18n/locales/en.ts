@@ -34,6 +34,7 @@ const en = {
       generateDesc: 'Generate content with AI',
       readDesc: 'Read content from notes',
       buildSearchIndexDesc: 'Build the search index for your notes',
+      cannotDeleteThisType: 'Cannot delete this type of artifact: {{type}}',
     },
     // Chat UI elements
     chat: {
@@ -161,6 +162,7 @@ const en = {
       tags: 'Tags',
       filenames: 'Filenames',
       folders: 'Folders',
+      properties: 'Properties',
       confirmMultipleOperations:
         'Are these operations correct? Please confirm to proceed with the search.',
       indexNotBuilt: 'Search index is not built yet.',

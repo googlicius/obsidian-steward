@@ -3,18 +3,21 @@ import { Tokenizer } from './tokenizer';
 import { Indexer } from './indexer';
 import { Scoring } from './scoring';
 import type StewardPlugin from '../../main';
-import { QueryBuilder } from './searchEngineV3/QueryBuilder';
-import { QueryExecutor, QueryResult } from './searchEngineV3/QueryExecutor';
-import { SearchContext } from './searchEngineV3/SearchContext';
-import { FolderCondition } from './searchEngineV3/FolderCondition';
-import { FilenameCondition } from './searchEngineV3/FilenameCondition';
-import { KeywordCondition } from './searchEngineV3/KeywordCondition';
-import { PropertyCondition } from './searchEngineV3/PropertyCondition';
+import {
+  AndCondition,
+  Condition,
+  ConditionResult,
+  FilenameCondition,
+  FolderCondition,
+  KeywordCondition,
+  PropertyCondition,
+  QueryBuilder,
+  QueryExecutor,
+  QueryResult,
+  SearchContext,
+} from './searchEngineV3';
 import { SearchOperationV2 } from 'src/lib/modelfusion';
-import { AndCondition } from './searchEngineV3/AndCondition';
-import { Condition } from './searchEngineV3/Condition';
-import { IndexedDocument } from 'src/database/SearchDatabase';
-import { PaginatedSearchResultV2 } from './searchEngine';
+import { PaginatedSearchResult } from './types';
 
 /**
  * SearchService singleton that provides global access to search components
@@ -167,15 +170,11 @@ export class SearchService {
   /**
    * Paginate search results
    */
-  public paginateResults(
-    results: IndexedDocument[],
-    page = 1,
-    limit = 20
-  ): PaginatedSearchResultV2 {
+  public paginateResults(results: ConditionResult[], page = 1, limit = 20): PaginatedSearchResult {
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
     return {
-      documents: results.slice(startIndex, endIndex),
+      conditionResults: results.slice(startIndex, endIndex),
       totalCount: results.length,
       page,
       limit,
@@ -188,7 +187,7 @@ export class SearchService {
    * @param name The name of the document to find
    * @returns The found document or null if not found
    */
-  public async getDocumentByName(name: string): Promise<IndexedDocument | null> {
+  public async getDocumentByName(name: string): Promise<ConditionResult | null> {
     const queryExecutor = new QueryExecutor(this.searchContext);
 
     const queryBuilder = new QueryBuilder();
@@ -196,9 +195,9 @@ export class SearchService {
 
     const condition = queryBuilder.build();
     const result = await queryExecutor.execute(condition);
-    const documents = result.documents;
+    const results = result.conditionResults;
 
-    return documents.length > 0 ? documents[0] : null;
+    return results.length > 0 ? results[0] : null;
   }
 
   /**

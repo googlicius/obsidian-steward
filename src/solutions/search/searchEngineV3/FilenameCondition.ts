@@ -95,9 +95,6 @@ export class FilenameCondition extends Condition {
       }
     }
 
-    // Sort by similarity score in descending order (highest scores first)
-    // result.sort((a, b) => b.score - a.score);
-
     return result;
   }
 }

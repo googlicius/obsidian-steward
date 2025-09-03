@@ -7,6 +7,7 @@ import { SearchContext } from './SearchContext';
 export interface ConditionResult {
   document: IndexedDocument;
   score: number;
+  keywordsMatched?: string[];
 }
 
 /**

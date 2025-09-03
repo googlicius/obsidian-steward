@@ -30,6 +30,7 @@ const vi = {
       generateDesc: 'Tạo nội dung với AI',
       readDesc: 'Đọc nội dung từ ghi chú',
       buildSearchIndexDesc: 'Xây dựng chỉ mục tìm kiếm cho ghi chú của bạn',
+      cannotDeleteThisType: 'Không thể xóa loại artifact này: {{type}}',
     },
     // Chat UI elements
     chat: {
@@ -136,6 +137,7 @@ const vi = {
       tags: 'Thẻ',
       filenames: 'Tên tệp',
       folders: 'Thư mục',
+      properties: 'Thuộc tính',
       confirmMultipleOperations:
         'Những thao tác này có chính xác không? Vui lòng xác nhận để tiếp tục tìm kiếm.',
       indexNotBuilt: 'Chỉ mục tìm kiếm chưa được xây dựng.',

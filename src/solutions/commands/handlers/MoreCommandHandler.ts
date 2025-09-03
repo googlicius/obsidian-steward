@@ -9,7 +9,7 @@ import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import type StewardPlugin from 'src/main';
 import type { SearchCommandHandler } from './SearchCommandHandler';
-import type { IndexedDocument } from 'src/database/SearchDatabase';
+import { ConditionResult } from 'src/solutions/search/searchEngineV3';
 
 export class MoreCommandHandler extends CommandHandler {
   constructor(
@@ -78,14 +78,14 @@ export class MoreCommandHandler extends CommandHandler {
       }
 
       // Get paginated results for the current page
-      const paginatedDocs = this.plugin.searchService.paginateResults(
-        searchArtifact.originalResults as IndexedDocument[],
+      const paginatedSearchResult = this.plugin.searchService.paginateResults(
+        searchArtifact.originalResults as ConditionResult[],
         page,
         10
       );
 
       // If we're past the last page, inform the user
-      if (page > paginatedDocs.totalPages) {
+      if (page > paginatedSearchResult.totalPages) {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: t('search.noMoreResults'),
@@ -99,7 +99,7 @@ export class MoreCommandHandler extends CommandHandler {
 
       // Format the results using the search handler's format method
       const response = await this.searchCommandHandler.formatSearchResults({
-        paginatedDocs,
+        paginatedSearchResult,
         page,
         lang,
       });

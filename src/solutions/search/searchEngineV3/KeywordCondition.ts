@@ -1,5 +1,4 @@
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
-import { ScoredKeywordsMatchedDoc } from '../scoring';
 import { Condition, ConditionResult } from './Condition';
 import { ExactPhraseMatch } from '../types';
 import { IndexedTerm, TermSource } from 'src/database/SearchDatabase';
@@ -118,7 +117,7 @@ export class KeywordCondition extends Condition {
    */
   private async handleExactPhraseMatch(
     exactPhrase: ExactPhraseMatch,
-    documentsMap: Map<number, ScoredKeywordsMatchedDoc>
+    documentsMap: Map<number, ConditionResult>
   ): Promise<void> {
     const { originalPhrase, tokens } = exactPhrase;
 
@@ -183,28 +182,25 @@ export class KeywordCondition extends Condition {
     // Fetch documents for the exact match IDs
     const exactMatchDocs = await this.context.documentStore.getDocumentsByIds(exactMatchDocIds);
 
-    // Apply very high scoring for exact matches
-    const scoredDocuments = exactMatchDocs.map(doc => ({
-      ...doc,
-      score: 10.0, // High score for exact matches
-    }));
-
     // Merge into overall result map
-    for (const doc of scoredDocuments) {
+    for (const doc of exactMatchDocs) {
       const docId = doc.id as number;
 
       if (documentsMap.has(docId)) {
         // Document already exists, update score and keywords matched
-        const existingDoc = documentsMap.get(docId);
-        if (existingDoc) {
-          existingDoc.score += doc.score;
-          existingDoc.keywordsMatched = [...(existingDoc.keywordsMatched || []), originalPhrase];
+        const existingResult = documentsMap.get(docId);
+        if (existingResult) {
+          existingResult.score += 10.0; // High score for exact matches
+          existingResult.keywordsMatched = [
+            ...(existingResult.keywordsMatched || []),
+            originalPhrase,
+          ];
         }
       } else {
         // New document, add to map
         documentsMap.set(docId, {
-          ...doc,
-          score: doc.score,
+          document: doc,
+          score: 10.0, // High score for exact matches
           keywordsMatched: [originalPhrase],
         });
       }
@@ -248,9 +244,8 @@ export class KeywordCondition extends Condition {
     return qualifiedIds;
   }
 
-  async evaluate(): Promise<Map<number, ConditionResult>> {
-    // Document ID -> ScoredDocument map to collect results
-    const documentsMap = new Map<number, ScoredKeywordsMatchedDoc>();
+  async evaluate() {
+    const documentsMap = new Map<number, ConditionResult>();
 
     for (const keyword of this.keywords) {
       // Check if this is an exact phrase match
@@ -292,26 +287,22 @@ export class KeywordCondition extends Condition {
 
         if (documentsMap.has(docId)) {
           // Document already exists, update score and keywords matched
-          const existingDoc = documentsMap.get(docId);
-          if (existingDoc) {
-            existingDoc.score += doc.score;
-            existingDoc.keywordsMatched = [...(existingDoc.keywordsMatched || []), keyword];
+          const existingResult = documentsMap.get(docId);
+          if (existingResult) {
+            existingResult.score += doc.score;
+            existingResult.keywordsMatched = [...(existingResult.keywordsMatched || []), keyword];
           }
         } else {
           // New document, add to map
-          documentsMap.set(docId, { ...doc, keywordsMatched: [keyword] });
+          documentsMap.set(docId, {
+            document: doc,
+            score: doc.score,
+            keywordsMatched: [keyword],
+          });
         }
       }
     }
 
-    // Convert internal map to expected format: Map<number, ConditionResult>
-    const result = new Map<number, ConditionResult>();
-    for (const [, scoredDoc] of documentsMap) {
-      result.set(scoredDoc.id as number, {
-        document: scoredDoc,
-        score: scoredDoc.score,
-      });
-    }
-    return result;
+    return documentsMap;
   }
 }
