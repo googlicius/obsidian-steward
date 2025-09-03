@@ -9,7 +9,6 @@ import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import type StewardPlugin from 'src/main';
 import type { SearchCommandHandler } from './SearchCommandHandler';
-import type { ScoredKeywordsMatchedDoc } from 'src/solutions/search/scoring';
 import type { IndexedDocument } from 'src/database/SearchDatabase';
 
 export class MoreCommandHandler extends CommandHandler {

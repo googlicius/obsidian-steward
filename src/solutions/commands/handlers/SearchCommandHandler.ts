@@ -186,6 +186,10 @@ export class SearchCommandHandler extends CommandHandler {
             type: ArtifactType.SEARCH_RESULTS,
           })}*`,
           artifactContent,
+          role: {
+            name: 'Assistant',
+            showLabel: false,
+          },
           command: 'search',
         });
       }
