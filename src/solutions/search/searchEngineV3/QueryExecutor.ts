@@ -6,7 +6,6 @@ import { SearchContext } from './SearchContext';
  * Interface for query results (array of matching documents with optional metadata)
  */
 export interface QueryResult {
-  // documents: IndexedDocument[];
   conditionResults: ConditionResult[];
   count: number;
 }

@@ -1,4 +1,5 @@
 import { Condition, ConditionResult } from './Condition';
+import { IndexedDocument } from 'src/database/SearchDatabase';
 
 /**
  * Condition for filtering by properties.
@@ -20,35 +21,59 @@ export class PropertyCondition extends Condition {
     // Use specific properties if available, otherwise use all properties
     const propertiesToUse = specificProperties.length > 0 ? specificProperties : this.properties;
 
-    // Store all matched document IDs across all properties
-    const allMatchedDocIds: number[] = [];
+    // Store matched documents with their associated properties for highlighting
+    const documentsMap = new Map<number, { doc: IndexedDocument; matchedProperties: string[] }>();
 
     // Process each property
     for (const prop of propertiesToUse) {
       // Get documents matching this property
       const docs = await this.context.documentStore.getDocumentsByProperty(prop.name, prop.value);
 
-      // Add document IDs to the combined list (OR logic)
-      allMatchedDocIds.push(...docs.map(doc => doc.id as number));
+      // Skip file type and file category properties
+      if (prop.name === 'file_type' || prop.name === 'file_category') {
+        continue;
+      }
+
+      // Add documents to the map with their matched properties
+      for (const doc of docs) {
+        const docId = doc.id as number;
+
+        const matchedProperties: string[] = [];
+
+        if (prop.name === 'tag') {
+          matchedProperties.push(`#${prop.value}`);
+        } else {
+          matchedProperties.push(`${prop.name}: ${prop.value}`);
+        }
+
+        if (documentsMap.has(docId)) {
+          // Document already exists, add the property to matched properties
+          const existing = documentsMap.get(docId);
+          if (existing) {
+            existing.matchedProperties.push(...matchedProperties);
+          }
+        } else {
+          // New document, add to map
+          documentsMap.set(docId, {
+            doc,
+            matchedProperties: matchedProperties,
+          });
+        }
+      }
     }
 
-    // Remove duplicates and get unique document IDs
-    const resultDocIds = [...new Set(allMatchedDocIds)];
-
     // If no documents match any properties, return empty map
-    if (resultDocIds.length === 0) {
+    if (documentsMap.size === 0) {
       return new Map();
     }
 
-    // Get the actual documents
-    const documents = await this.context.documentStore.getDocumentsByIds(resultDocIds);
-
     // Create result map with score 1 for all matching documents
     const result = new Map<number, ConditionResult>();
-    for (const doc of documents) {
-      result.set(doc.id as number, {
+    for (const [docId, { doc, matchedProperties }] of documentsMap) {
+      result.set(docId, {
         document: doc,
         score: 1,
+        keywordsMatched: matchedProperties,
       });
     }
 

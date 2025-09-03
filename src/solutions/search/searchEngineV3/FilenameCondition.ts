@@ -90,6 +90,7 @@ export class FilenameCondition extends Condition {
           result.set(doc.id as number, {
             document: doc,
             score: score,
+            keywordsMatched: [name],
           });
         }
       }
