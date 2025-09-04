@@ -42,6 +42,7 @@ export class ContextAugmentationHandler extends CommandHandler {
 
       return {
         status: CommandResultStatus.ERROR,
+        error: 'Context augmentation aborted by low confidence and the retry remaining is 0',
       };
     }
 

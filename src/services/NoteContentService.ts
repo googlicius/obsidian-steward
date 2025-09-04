@@ -1,6 +1,12 @@
-import { IMAGE_LINK_PATTERN, WIKI_LINK_PATTERN } from 'src/constants';
+import {
+  IMAGE_LINK_PATTERN,
+  WIKI_LINK_PATTERN,
+  STW_SELECTED_PATTERN,
+  STW_SELECTED_METADATA_PATTERN,
+} from 'src/constants';
 import { App } from 'obsidian';
 import { logger } from 'src/utils/logger';
+import { MarkdownUtil } from 'src/utils/markdownUtils';
 
 export class NoteContentService {
   private static instance: NoteContentService;
@@ -59,14 +65,41 @@ export class NoteContentService {
    * @returns Array of image paths extracted from the content
    */
   public extractImageLinks(content: string): string[] {
-    // Create a new RegExp instance with flags each time to avoid stateful issues
+    const imagePaths: string[] = [];
+
+    // Extract images from regular image links
     const imageRegex = new RegExp(IMAGE_LINK_PATTERN, 'gi');
     const matches = content.matchAll(imageRegex);
-    const imagePaths: string[] = [];
 
     for (const match of matches) {
       if (match[1]) {
         imagePaths.push(match[1]);
+      }
+    }
+
+    // Early check if content has stw-selected blocks
+    if (!content.includes('{{stw-selected')) {
+      return imagePaths;
+    }
+
+    // Extract images from stw-selected blocks
+    const stwSelectedMatches = content.matchAll(new RegExp(STW_SELECTED_PATTERN, 'g'));
+
+    for (const stwMatch of stwSelectedMatches) {
+      if (stwMatch[1]) {
+        const stwBlock = stwMatch[1];
+        const metadataMatch = stwBlock.match(new RegExp(STW_SELECTED_METADATA_PATTERN));
+
+        if (metadataMatch) {
+          const [, , , escapedSelection] = metadataMatch;
+          // Unescape the selection content
+          const unescapedSelection = new MarkdownUtil(escapedSelection)
+            .unescape()
+            .decodeURI()
+            .getText();
+          const selectionImagePaths = this.extractImageLinks(unescapedSelection);
+          imagePaths.push(...selectionImagePaths);
+        }
       }
     }
 

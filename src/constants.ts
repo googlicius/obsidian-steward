@@ -12,24 +12,43 @@ export const STW_EMBEDDED_CONVERSATION_VIEW_CONFIG = {
   icon: 'message-square',
 };
 
-// Pattern only, without flags, to avoid global regex state issues
-// Captures image path (group 1) which may be followed by size parameter after |
+/**
+ * Pattern only, without flags, to avoid global regex state issues
+ * Captures image path (group 1) which may be followed by size parameter after |
+ */
 export const IMAGE_LINK_PATTERN = '!\\[\\[(.*?\\.(jpg|jpeg|png|webp|svg))(?:\\|.*?)?\\]\\]';
-// Stw-selected pattern constants for reuse across the application
-// Pattern to match any stw-selected block (with capture group for splitting)
+
+/**
+ * Stw-selected pattern constants for reuse across the application
+ * Pattern to match any stw-selected block (with capture group for splitting)
+ */
 export const STW_SELECTED_PATTERN = '(\\{\\{stw-selected.*?\\}\\})';
 
-// Pattern to match {{stw-squeezed [[<path>]] }}
+/**
+ * The placeholder for the stw-selected blocks in the original query
+ * This helps to reduce the complexity for the planner to just put the placeholder rather than extract the stw-selected blocks
+ */
+export const STW_SELECTED_PLACEHOLDER = '<stwSelected>';
+
+/**
+ * Pattern to match {{stw-squeezed [[<path>]] }}
+ */
 export const STW_SQUEEZED_PATTERN = '\\{\\{stw-squeezed \\[\\[([^\\]]+)\\]\\] \\}\\}';
 
-// Pattern to match any wikilink
+/**
+ * Pattern to match any wikilink
+ */
 export const WIKI_LINK_PATTERN = '\\[\\[([^\\]]+)\\]\\]';
 
-// Pattern to extract metadata from stw-selected blocks
+/**
+ * Pattern to extract metadata from stw-selected blocks
+ */
 export const STW_SELECTED_METADATA_PATTERN =
   '\\{\\{stw-selected from:(\\d+),to:(\\d+),selection:(.+?),path:(.+?)\\}\\}';
 
-// Supported command prefixes
+/**
+ * Supported command prefixes
+ */
 export const COMMAND_PREFIXES = [
   '/ ',
   '/search',

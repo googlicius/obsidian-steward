@@ -12,7 +12,7 @@ import { AbortService } from 'src/services/AbortService';
 import {
   ContentUpdateExtraction,
   NoteGenerationExtraction,
-  prepareUserMessage,
+  prepareMessage,
 } from 'src/lib/modelfusion';
 import { MediaTools } from 'src/tools/mediaTools';
 import { LLMService } from 'src/services/LLMService';
@@ -20,13 +20,17 @@ import { CommandIntent, ConversationHistoryMessage } from 'src/types/types';
 import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
-import { STW_SELECTED_PATTERN } from 'src/constants';
+import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
+import { type CommandProcessor } from '../CommandProcessor';
 
 const abortService = AbortService.getInstance();
 
 export class GenerateCommandHandler extends CommandHandler {
-  constructor(public readonly plugin: StewardPlugin) {
+  constructor(
+    public readonly plugin: StewardPlugin,
+    private readonly commandProcessor: CommandProcessor
+  ) {
     super();
   }
 
@@ -73,6 +77,25 @@ export class GenerateCommandHandler extends CommandHandler {
     const fromRead = prevCommand && prevCommand.commandType === 'read';
     const systemPrompts = [];
 
+    const originalQuery = this.commandProcessor.getPendingCommand(title)?.payload.originalQuery;
+
+    // Replace the placeholder with the {{stw-selected...}} in the original query.
+    if (
+      originalQuery &&
+      originalQuery.includes('{{stw-selected') &&
+      command.query.includes(STW_SELECTED_PLACEHOLDER)
+    ) {
+      const stwSelectedBlocks = Array.from(
+        originalQuery.matchAll(new RegExp(STW_SELECTED_PATTERN, 'g'))
+      );
+      if (stwSelectedBlocks.length > 0) {
+        // Replace all instances of <stwSelected> with the actual stw-selected blocks
+        for (const match of stwSelectedBlocks) {
+          command.query = command.query.replace(STW_SELECTED_PLACEHOLDER, match[0]);
+        }
+      }
+    }
+
     const hasStwSelected = new RegExp(STW_SELECTED_PATTERN).test(command.query);
 
     if (hasStwSelected) {
@@ -102,11 +125,12 @@ The response should be in natural language and not include the selection(s) {{st
 
       const noteName = readArtifact.readingResult.file?.name || 'current';
 
-      systemPrompts.push(
-        `The read command's content from the ${noteName} note:\n${JSON.stringify(
-          readArtifact.readingResult.blocks.map(block => block.content)
-        )}`
-      );
+      const artifactContent = `The read command's content from the ${noteName} note:\n${JSON.stringify(
+        readArtifact.readingResult.blocks.map(block => block.content)
+      )}`;
+
+      // Inject the artifact content into the command query
+      command.query = `${artifactContent}\n\n${command.query}`;
     }
 
     let recentlyCreatedNote = '';
@@ -312,7 +336,7 @@ ${languageEnforcementFragment}`,
         ...conversationHistory,
         {
           role: 'user',
-          content: await prepareUserMessage(query, this.app),
+          content: await prepareMessage(query, this.app),
         },
       ],
       onError: async ({ error }) => {

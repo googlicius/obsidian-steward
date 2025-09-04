@@ -6,29 +6,28 @@ import { NoteContentService } from 'src/services/NoteContentService';
 import { resizeImageWithCanvas } from 'src/utils/resizeImageWithCanvas';
 import { logger } from 'src/utils/logger';
 
-export function getTextContentWithoutImages(userInput: string): string {
+export function getTextContentWithoutImages(input: string): string {
   // Create a new RegExp instance with flags each time to avoid stateful issues
   const imageRegex = new RegExp(IMAGE_LINK_PATTERN, 'gi');
-  return userInput.replace(imageRegex, '').trim();
+  return input.replace(imageRegex, '').trim();
 }
 
 /**
- * Prepares user message content with images and wikilinks's content for OpenAI's Vision API
- * @param userInput Original user input text
+ * Prepares message content with images and wikilinks's content
+ * @param input Original input text
  * @param app Obsidian App instance for accessing vault
- * @returns An array of content items for OpenAI's ChatMessage.user
  */
-export async function prepareUserMessage(
-  userInput: string,
+export async function prepareMessage(
+  input: string,
   app: App
 ): Promise<Array<TextPart | ImagePart>> {
   const noteContentService = NoteContentService.getInstance(app);
-  const imagePaths = noteContentService.extractImageLinks(userInput);
-  const wikilinks = noteContentService.extractWikilinks(userInput);
+  const imagePaths = noteContentService.extractImageLinks(input);
+  const wikilinks = noteContentService.extractWikilinks(input);
   const messageContent: Array<TextPart | ImagePart> = [];
 
   // Add the original user input first
-  messageContent.push({ type: 'text', text: userInput });
+  messageContent.push({ type: 'text', text: input });
 
   const mediaTools = MediaTools.getInstance(app);
 

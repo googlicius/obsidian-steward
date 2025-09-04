@@ -144,8 +144,8 @@ body.stw-bordered-input .stw-input-line {
 
 .workspace-leaf-content[data-type='steward-conversation'] {
   .view-content {
-    padding-left: 0;
-    padding-right: 0;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
     padding-top: 0;
     overflow: hidden;
   }

@@ -8,4 +8,4 @@ export * from './validators';
 export { getClassifier } from './classifiers/getClassifier';
 
 // Export image utils
-export { prepareUserMessage } from './utils/userMessageUtils';
+export { prepareMessage } from './utils/messageUtils';

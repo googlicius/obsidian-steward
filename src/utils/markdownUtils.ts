@@ -46,6 +46,11 @@ export class MarkdownUtil {
     return this;
   }
 
+  decodeURI() {
+    this.text = decodeURIComponent(this.text);
+    return this;
+  }
+
   getText() {
     return this.text;
   }
