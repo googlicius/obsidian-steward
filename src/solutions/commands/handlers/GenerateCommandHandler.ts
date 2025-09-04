@@ -296,7 +296,10 @@ The response should be in natural language and not include the selection(s) {{st
   }): Promise<AsyncIterable<string>> {
     const { command, conversationHistory = [], errorCallback } = args;
     const { query, systemPrompts = [], model } = command;
-    const llmConfig = await LLMService.getInstance().getLLMConfig(model);
+    const llmConfig = await LLMService.getInstance().getLLMConfig({
+      overrideModel: model,
+      generateType: 'text',
+    });
 
     const { textStream } = streamText({
       ...llmConfig,

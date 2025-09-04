@@ -142,11 +142,19 @@ body.stw-bordered-input .stw-input-line {
   }
 }
 
-.workspace-leaf-content[data-type='steward-conversation'] .view-content {
-  padding-left: 0;
-  padding-right: 0;
-  padding-top: 0;
-  overflow: hidden;
+.workspace-leaf-content[data-type='steward-conversation'] {
+  .view-content {
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 0;
+    overflow: hidden;
+  }
+
+  /* Hide line numbers in steward chat view */
+  .cm-editor .cm-lineNumbers,
+  .cm-editor .cm-gutters {
+    display: none;
+  }
 }
 
 .workspace-leaf-content[data-type='steward-conversation']

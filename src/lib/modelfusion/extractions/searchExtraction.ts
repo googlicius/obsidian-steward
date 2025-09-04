@@ -147,7 +147,10 @@ export async function extractSearchQueryV2({
   }
 
   try {
-    const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
+    const llmConfig = await LLMService.getInstance().getLLMConfig({
+      overrideModel: command.model,
+      generateType: 'object',
+    });
 
     // Use AI SDK to generate the response
     const { object } = await generateObject({

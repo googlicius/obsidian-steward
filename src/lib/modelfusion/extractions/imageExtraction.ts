@@ -46,7 +46,10 @@ export async function extractImageQuery(
 ): Promise<z.infer<typeof imageExtractionSchema>> {
   const { systemPrompts = [] } = command;
   try {
-    const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
+    const llmConfig = await LLMService.getInstance().getLLMConfig({
+      overrideModel: command.model,
+      generateType: 'object',
+    });
 
     const { object } = await generateObject({
       ...llmConfig,

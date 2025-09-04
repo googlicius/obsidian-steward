@@ -273,6 +273,9 @@ const vi = {
         'Số lượng token tối đa để tạo trong phản hồi (giá trị cao hơn có thể tăng chi phí API)',
       ollamaBaseUrl: 'URL cơ sở Ollama',
       ollamaBaseUrlDesc: 'URL cơ sở cho API Ollama (mặc định: {{defaultUrl}})',
+      providerBaseUrl: 'URL cơ sở nhà cung cấp',
+      providerBaseUrlDesc:
+        'URL cơ sở tùy chỉnh cho nhà cung cấp đã chọn (để trống để sử dụng mặc định)',
     },
   },
 };

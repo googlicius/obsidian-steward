@@ -74,7 +74,10 @@ export async function extractAudioQuery(command: CommandIntent): Promise<AudioEx
       };
     }
 
-    const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
+    const llmConfig = await LLMService.getInstance().getLLMConfig({
+      overrideModel: command.model,
+      generateType: 'object',
+    });
 
     const { object } = await generateObject({
       ...llmConfig,

@@ -46,7 +46,10 @@ If the readType is "entire", leave it null.`
 export type ContentReadingArgs = z.infer<typeof contentReadingSchema>;
 
 export async function extractReadContent(command: CommandIntent) {
-  const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
+  const llmConfig = await LLMService.getInstance().getLLMConfig({
+    overrideModel: command.model,
+    generateType: 'text',
+  });
 
   return generateText({
     ...llmConfig,

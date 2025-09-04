@@ -23,7 +23,15 @@ export interface StewardPluginSettings {
   llm: {
     model: string; // The model name (e.g., gpt-4-turbo-preview, llama3.2)
     temperature: number;
-    ollamaBaseUrl?: string;
+    ollamaBaseUrl?: string; // Deprecated: use providerConfigs instead
     maxGenerationTokens?: number; // Maximum number of tokens to generate in response
+    providerConfigs: {
+      openai?: { baseUrl?: string };
+      deepseek?: { baseUrl?: string };
+      google?: { baseUrl?: string };
+      groq?: { baseUrl?: string };
+      ollama?: { baseUrl?: string };
+      anthropic?: { baseUrl?: string };
+    };
   };
 }

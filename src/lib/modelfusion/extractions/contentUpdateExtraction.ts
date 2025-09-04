@@ -59,7 +59,10 @@ export async function extractContentUpdate(params: {
   try {
     logger.log('Extracting content update from user input');
 
-    const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
+    const llmConfig = await LLMService.getInstance().getLLMConfig({
+      overrideModel: command.model,
+      generateType: 'object',
+    });
 
     const userMessage = await prepareUserMessage(command.query, app);
 
