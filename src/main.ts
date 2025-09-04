@@ -93,6 +93,21 @@ export default class StewardPlugin extends Plugin {
       settingsUpdated = true;
     }
 
+    // Initialize providerConfigs if not already set
+    if (!this.settings.llm.providerConfigs) {
+      this.settings.llm.providerConfigs = {};
+      settingsUpdated = true;
+    }
+
+    // Migrate ollamaBaseUrl to providerConfigs if it exists
+    if (
+      this.settings.llm.ollamaBaseUrl &&
+      this.settings.llm.providerConfigs.ollama?.baseUrl === 'http://localhost:11434'
+    ) {
+      this.settings.llm.providerConfigs.ollama.baseUrl = this.settings.llm.ollamaBaseUrl;
+      settingsUpdated = true;
+    }
+
     if (settingsUpdated) {
       await this.saveSettings();
     }

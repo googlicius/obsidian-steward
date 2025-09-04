@@ -297,6 +297,8 @@ const en = {
         'Maximum number of tokens to generate in response (higher values may increase API costs)',
       ollamaBaseUrl: 'Ollama base URL',
       ollamaBaseUrlDesc: 'The base URL for Ollama API (default: {{defaultUrl}})',
+      providerBaseUrl: 'Provider base URL',
+      providerBaseUrlDesc: 'Custom base URL for the selected provider (leave empty to use default)',
     },
   },
 };

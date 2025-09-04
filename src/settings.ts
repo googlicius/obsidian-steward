@@ -6,9 +6,33 @@ import { getObsidianLanguage } from './utils/getObsidianLanguage';
 import type StewardPlugin from './main';
 import { capitalizeString } from './utils/capitalizeString';
 
+// Get the current language and translation function
+const lang = getObsidianLanguage();
+const t = getTranslation(lang);
+
 export default class StewardSettingTab extends PluginSettingTab {
+  private providerBaseUrlSetting: Setting;
+
   constructor(private plugin: StewardPlugin) {
     super(plugin.app, plugin);
+  }
+
+  /**
+   * Get the default base URL for a provider
+   * @param provider - The provider name
+   * @returns The default base URL
+   */
+  private getDefaultBaseUrl(provider: string): string {
+    const defaultUrls: Record<string, string> = {
+      openai: 'Default OpenAI Base URL',
+      deepseek: 'Default DeepSeek Base URL',
+      google: 'Default Google Base URL',
+      groq: 'Default Groq Base URL',
+      ollama: 'http://localhost:11434',
+      anthropic: 'Default Anthropic Base URL',
+    };
+
+    return defaultUrls[provider] || '';
   }
 
   /**
@@ -83,14 +107,136 @@ export default class StewardSettingTab extends PluginSettingTab {
       });
   }
 
+  private createProviderBaseUrlSetting(containerEl: HTMLElement) {
+    const setting = new Setting(containerEl)
+      .setName(t('settings.providerBaseUrl'))
+      .setDesc(t('settings.providerBaseUrlDesc'))
+      .addText(text => {
+        const updateBaseUrlInput = () => {
+          const currentProvider = LLM_MODELS.find(
+            model => model.id === this.plugin.settings.llm.model
+          )?.provider;
+
+          if (currentProvider) {
+            // Ensure providerConfigs exists
+            if (!this.plugin.settings.llm.providerConfigs) {
+              this.plugin.settings.llm.providerConfigs = {};
+            }
+
+            const currentBaseUrl =
+              this.plugin.settings.llm.providerConfigs[currentProvider]?.baseUrl || '';
+            const defaultBaseUrl = this.getDefaultBaseUrl(currentProvider);
+
+            text.setValue(currentBaseUrl);
+            text.setPlaceholder(defaultBaseUrl);
+          }
+        };
+
+        updateBaseUrlInput();
+
+        text.onChange(async value => {
+          const currentProvider = LLM_MODELS.find(
+            model => model.id === this.plugin.settings.llm.model
+          )?.provider;
+
+          if (currentProvider) {
+            // Ensure providerConfigs exists
+            if (!this.plugin.settings.llm.providerConfigs) {
+              this.plugin.settings.llm.providerConfigs = {};
+            }
+
+            // Initialize provider config if it doesn't exist
+            if (!this.plugin.settings.llm.providerConfigs[currentProvider]) {
+              this.plugin.settings.llm.providerConfigs[currentProvider] = {};
+            }
+
+            const providerConfig = this.plugin.settings.llm.providerConfigs[currentProvider];
+            if (providerConfig) {
+              providerConfig.baseUrl = value || undefined;
+              await this.plugin.saveSettings();
+            }
+          }
+        });
+      });
+
+    this.providerBaseUrlSetting = setting;
+
+    return setting;
+  }
+
+  private updateProviderBaseUrlVisibility(): void {
+    const currentProvider = LLM_MODELS.find(
+      model => model.id === this.plugin.settings.llm.model
+    )?.provider;
+
+    if (currentProvider) {
+      // Ensure providerConfigs exists
+      if (!this.plugin.settings.llm.providerConfigs) {
+        this.plugin.settings.llm.providerConfigs = {};
+      }
+
+      // Update the input value and placeholder when switching models
+      const currentBaseUrl =
+        this.plugin.settings.llm.providerConfigs[currentProvider]?.baseUrl || '';
+      const defaultBaseUrl = this.getDefaultBaseUrl(currentProvider);
+
+      const textInput = this.providerBaseUrlSetting.settingEl.querySelector(
+        'input[type="text"]'
+      ) as HTMLInputElement;
+      if (textInput) {
+        textInput.value = currentBaseUrl;
+        textInput.placeholder = defaultBaseUrl;
+      }
+    }
+  }
+
+  private createChatModelSetting(containerEl: HTMLElement) {
+    new Setting(containerEl)
+      .setName(t('settings.chatModel'))
+      .setDesc(t('settings.chatModelDesc'))
+      .addDropdown(dropdown => {
+        // Group models by provider
+        const modelsByProvider = LLM_MODELS.reduce<Record<string, typeof LLM_MODELS>>(
+          (acc, model) => {
+            if (!acc[model.provider]) {
+              acc[model.provider] = [];
+            }
+            acc[model.provider].push(model);
+            return acc;
+          },
+          {}
+        );
+
+        // Add models grouped by provider
+        for (const [provider, models] of Object.entries(modelsByProvider)) {
+          // Create optgroup for each provider
+          const optgroup = dropdown.selectEl.createEl('optgroup');
+          optgroup.setAttribute('label', capitalizeString(provider));
+          optgroup.setAttribute('data-provider', provider);
+
+          // Add models under this provider
+          for (const model of models) {
+            const option = optgroup.createEl('option');
+            option.textContent = model.name;
+            option.value = model.id;
+            option.setAttribute('data-provider', model.provider);
+          }
+        }
+
+        dropdown.setValue(this.plugin.settings.llm.model).onChange(async value => {
+          this.plugin.settings.llm.model = value;
+          await this.plugin.saveSettings();
+
+          // Update provider base URL settings visibility based on selected model
+          this.updateProviderBaseUrlVisibility();
+        });
+      });
+  }
+
   display(): void {
     const { containerEl } = this;
 
     containerEl.empty();
-
-    // Get the current language and translation function
-    const lang = getObsidianLanguage();
-    const t = getTranslation(lang);
 
     // Add setting for conversation folder
     new Setting(containerEl)
@@ -199,46 +345,9 @@ export default class StewardSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName(t('settings.llm')).setHeading();
 
     // Chat Model selection with provider automatically determined
-    new Setting(containerEl)
-      .setName(t('settings.chatModel'))
-      .setDesc(t('settings.chatModelDesc'))
-      .addDropdown(dropdown => {
-        // Group models by provider
-        const modelsByProvider = LLM_MODELS.reduce<Record<string, typeof LLM_MODELS>>(
-          (acc, model) => {
-            if (!acc[model.provider]) {
-              acc[model.provider] = [];
-            }
-            acc[model.provider].push(model);
-            return acc;
-          },
-          {}
-        );
+    this.createChatModelSetting(containerEl);
 
-        // Add models grouped by provider
-        for (const [provider, models] of Object.entries(modelsByProvider)) {
-          // Create optgroup for each provider
-          const optgroup = dropdown.selectEl.createEl('optgroup');
-          optgroup.setAttribute('label', capitalizeString(provider));
-          optgroup.setAttribute('data-provider', provider);
-
-          // Add models under this provider
-          for (const model of models) {
-            const option = optgroup.createEl('option');
-            option.textContent = model.name;
-            option.value = model.id;
-            option.setAttribute('data-provider', model.provider);
-          }
-        }
-
-        dropdown.setValue(this.plugin.settings.llm.model).onChange(async value => {
-          this.plugin.settings.llm.model = value;
-          await this.plugin.saveSettings();
-
-          // Update Ollama settings visibility based on selected model
-          updateOllamaSettingsVisibility();
-        });
-      });
+    this.createProviderBaseUrlSetting(containerEl);
 
     // Embedding Model setting (hard-coded to GPT-4)
     new Setting(containerEl)
@@ -284,36 +393,5 @@ export default class StewardSettingTab extends PluginSettingTab {
         text.inputEl.setAttribute('type', 'number');
         text.inputEl.setAttribute('min', '1');
       });
-
-    // Ollama Base URL setting (only shown when Ollama model is selected)
-    const ollamaBaseUrlSetting = new Setting(containerEl)
-      .setName(t('settings.ollamaBaseUrl'))
-      .setDesc(t('settings.ollamaBaseUrlDesc', { defaultUrl: 'http://localhost:11434' }))
-      .addText(text =>
-        text
-          .setPlaceholder('http://localhost:11434')
-          .setValue(this.plugin.settings.llm.ollamaBaseUrl || '')
-          .onChange(async value => {
-            this.plugin.settings.llm.ollamaBaseUrl = value;
-            await this.plugin.saveSettings();
-          })
-      );
-
-    // Add initial class for visibility
-    const isOllamaModel =
-      LLM_MODELS.find(model => model.id === this.plugin.settings.llm.model)?.provider === 'ollama';
-    ollamaBaseUrlSetting.settingEl.classList.add(
-      isOllamaModel ? 'stw-setting-visible' : 'stw-setting-hidden'
-    );
-
-    // Show/hide Ollama settings based on selected model
-    const updateOllamaSettingsVisibility = () => {
-      const isOllamaModel =
-        LLM_MODELS.find(model => model.id === this.plugin.settings.llm.model)?.provider ===
-        'ollama';
-
-      ollamaBaseUrlSetting.settingEl.classList.toggle('stw-setting-visible', isOllamaModel);
-      ollamaBaseUrlSetting.settingEl.classList.toggle('stw-setting-hidden', !isOllamaModel);
-    };
   }
 }

@@ -85,7 +85,10 @@ export async function extractCommandIntent(args: {
     ignoreClassify = false,
     currentArtifacts,
   } = args;
-  const llmConfig = await LLMService.getInstance().getLLMConfig(command.model);
+  const llmConfig = await LLMService.getInstance().getLLMConfig({
+    overrideModel: command.model,
+    generateType: 'object',
+  });
   const classifier = getClassifier(llmConfig.model.modelId, isReloadRequest);
   const clusterName = ignoreClassify
     ? null

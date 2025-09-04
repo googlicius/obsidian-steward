@@ -79,8 +79,9 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
   llm: {
     model: 'gpt-4-turbo-preview',
     temperature: 0.2,
-    ollamaBaseUrl: 'http://localhost:11434',
+    ollamaBaseUrl: 'http://localhost:11434', // Deprecated: use providerConfigs instead
     maxGenerationTokens: 2048, // Default max tokens for generation
+    providerConfigs: {},
   },
 };
 

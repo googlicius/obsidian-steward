@@ -70,7 +70,10 @@ export async function extractUpdateFromSearchResult({
   model?: string; // Optional model to override default
 }): Promise<UpdateFromSearchResultExtraction> {
   try {
-    const llmConfig = await LLMService.getInstance().getLLMConfig(model);
+    const llmConfig = await LLMService.getInstance().getLLMConfig({
+      overrideModel: model,
+      generateType: 'object',
+    });
 
     const { object } = await generateObject({
       ...llmConfig,

@@ -1,10 +1,10 @@
 import { JSONParseError, LanguageModelV1, TypeValidationError } from 'ai';
-import { openai } from '@ai-sdk/openai';
-import { deepseek } from '@ai-sdk/deepseek';
-import { google } from '@ai-sdk/google';
-import { groq } from '@ai-sdk/groq';
-import { anthropic } from '@ai-sdk/anthropic';
-import { ollama } from 'ollama-ai-provider';
+import { createOpenAI } from '@ai-sdk/openai';
+import { createDeepSeek } from '@ai-sdk/deepseek';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createGroq } from '@ai-sdk/groq';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createOllama } from 'ollama-ai-provider';
 import { LLM_MODELS, ModelOption } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { jsonrepair } from 'jsonrepair';
@@ -31,6 +31,27 @@ export class LLMService {
       throw new Error('Plugin is required to create an instance of LLMService');
     }
     return LLMService.instance;
+  }
+
+  /**
+   * Get the base URL for a provider, with fallback to default
+   * @param provider The provider name
+   * @returns The base URL for the provider
+   */
+  private getProviderBaseUrl(provider: ModelOption['provider']): string | undefined {
+    const providerConfig = this.plugin.settings.llm.providerConfigs[provider];
+
+    if (providerConfig?.baseUrl) {
+      return providerConfig.baseUrl;
+    }
+
+    // Fallback to deprecated ollamaBaseUrl for ollama provider
+    if (provider === 'ollama' && this.plugin.settings.llm.ollamaBaseUrl) {
+      return this.plugin.settings.llm.ollamaBaseUrl;
+    }
+
+    // Return undefined to use default base URLs from the AI SDK
+    return undefined;
   }
 
   /**
@@ -84,42 +105,79 @@ export class LLMService {
   /**
    * Generate text using the AI package's generateObject function
    * @param options Options for object generation
-   * @returns The result of the object generation
    */
-  public async getLLMConfig(overrideModel?: string) {
+  public async getLLMConfig(
+    options: { overrideModel?: string; generateType?: 'text' | 'object' } = {}
+  ) {
+    const { generateType = 'object', overrideModel } = options;
+
     const { model: defaultModel, temperature, maxGenerationTokens } = this.plugin.settings.llm;
     const model = overrideModel || defaultModel;
     const provider = this.getProviderFromModel(model);
 
     let languageModel: LanguageModelV1;
 
+    const baseURL = this.getProviderBaseUrl(provider);
+
     switch (provider) {
-      case 'openai':
+      case 'openai': {
+        const openai = createOpenAI({
+          ...(baseURL && { baseURL }),
+        });
         languageModel = openai(model);
         break;
-      case 'deepseek':
+      }
+      case 'deepseek': {
+        const deepseek = createDeepSeek({
+          ...(baseURL && { baseURL }),
+        });
         languageModel = deepseek(model);
         break;
-      case 'google':
+      }
+      case 'google': {
+        const google = createGoogleGenerativeAI({
+          ...(baseURL && { baseURL }),
+        });
         languageModel = google(model);
         break;
-      case 'groq':
+      }
+      case 'groq': {
+        const groq = createGroq({
+          ...(baseURL && { baseURL }),
+        });
         languageModel = groq(model);
         break;
-      case 'ollama':
-        languageModel = ollama(model);
+      }
+      case 'ollama': {
+        const ollamaProvider = createOllama({
+          ...(baseURL && { baseURL }),
+        });
+        languageModel = ollamaProvider(model);
         break;
-      case 'anthropic':
+      }
+      case 'anthropic': {
+        const anthropic = createAnthropic({
+          ...(baseURL && { baseURL }),
+        });
         languageModel = anthropic(model);
         break;
+      }
       default:
         throw new Error(`Unsupported provider: ${provider}`);
     }
 
-    const mergedOptions = {
+    const generateParams = {
       model: languageModel,
       temperature,
       maxTokens: maxGenerationTokens,
+    };
+
+    if (generateType === 'text') {
+      return generateParams;
+    }
+
+    return {
+      ...generateParams,
       experimental_repairText: async (options: {
         text: string;
         error: JSONParseError | TypeValidationError;
@@ -134,7 +192,5 @@ export class LLMService {
         return options.text;
       },
     };
-
-    return mergedOptions;
   }
 }
