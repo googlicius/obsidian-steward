@@ -181,8 +181,9 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   },
   {
     commandType: 'generate',
-    description:
-      'Generate content with the LLM help (either in a new note or in the conversation). You also can "generate" from the provided content in the user\'s query without reading the note. Example: "Help me update this list to the numbered list:\\n- Item 1\\n- Item 2" -> ["generate"]. The list is already in the query.',
+    description: `Generate content with the LLM help (either in a new note or in the conversation). You also can "generate" from the provided content in the user's query without reading the note. Example: "Help me update this list to the numbered list:
+  - Item 1
+  - Item 2" -> ["generate"]. The list is already in the query.`,
     category: 'intent-based',
     queryTemplate: `Extract the query for the generate command follows this format: <query_in_natural_language>; [note name: <noteName>]
 - <query_in_natural_language>: Tailored query for the generate command.
@@ -192,8 +193,8 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   },
   {
     commandType: 'read',
-    description:
-      'Read content from the current note or specific position: "above", "below". Use this when you don\'t know the content and need to retrieve it before proceeding',
+    description: `Read content from the current note or specific position: "above", "below". Use this when you don't know the content and need to retrieve it before proceeding
+  Can read any content type, including code blocks, tables, lists, paragraphs, images, and more.`,
     category: 'intent-based',
     queryTemplate: `Extract a specific query for a read command:
 1. Extract the query for the read command follows this format: <query_in_natural_language>; read type: <readType>[; note name: <noteName>]

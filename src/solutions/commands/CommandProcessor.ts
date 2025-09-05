@@ -144,6 +144,12 @@ export class CommandProcessor {
   ): Promise<void> {
     const isolatedProcessor = new CommandProcessor(this.plugin);
 
+    const contextAugmentationHandler = this.commandHandlers.get('context_augmentation');
+
+    if (contextAugmentationHandler) {
+      isolatedProcessor.registerHandler('context_augmentation', contextAugmentationHandler);
+    }
+
     const handler = this.commandHandlers.get(commandType);
     if (handler) {
       isolatedProcessor.registerHandler(commandType, handler);
@@ -236,7 +242,7 @@ export class CommandProcessor {
       }
 
       if (!handler) {
-        logger.warn(`No handler for command type: ${command.commandType}`);
+        logger.warn(`No handler for command type: ${command.commandType}`, this.commandHandlers);
         // Continue to the next command instead of stopping
         continue;
       }

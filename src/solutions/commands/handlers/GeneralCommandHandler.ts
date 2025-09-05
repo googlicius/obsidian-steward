@@ -8,7 +8,12 @@ import { getTranslation } from 'src/i18n';
 import { CommandIntentExtraction, extractCommandIntent } from 'src/lib/modelfusion/extractions';
 import type StewardPlugin from 'src/main';
 import type { CommandProcessor } from '../CommandProcessor';
-import { STW_SELECTED_PATTERN, IMAGE_LINK_PATTERN, WIKI_LINK_PATTERN } from 'src/constants';
+import {
+  STW_SELECTED_PATTERN,
+  IMAGE_LINK_PATTERN,
+  WIKI_LINK_PATTERN,
+  STW_SELECTED_PLACEHOLDER,
+} from 'src/constants';
 import { ArtifactType } from '../../../services/ConversationArtifactManager';
 
 export class GeneralCommandHandler extends CommandHandler {
@@ -58,7 +63,7 @@ export class GeneralCommandHandler extends CommandHandler {
 * **For update tasks:** The user wants to modify the note. Use the <notePath>, <startLine>, and <endLine> values to identify the exact location in the file to update. The new content should be generated based on the user's instructions and the provided context.
 NOTE: 
 - The selection content is included in the user's query, you don't need to read the note again.
-- Pass the selection(s) {{stw-selected...}} to the downstream command's queries to maintain the context.`);
+- Pass the selection(s) placeholder: ${STW_SELECTED_PLACEHOLDER} to the downstream command's queries to maintain the context.`);
         }
 
         if (hasImageLinks) {
@@ -126,6 +131,7 @@ NOTE:
       await this.commandProcessor.processCommands({
         title,
         commands: extraction.commands,
+        originalQuery: command.query,
         lang: extraction.lang,
       });
 

@@ -3,7 +3,7 @@ import { contentUpdatePrompt } from '../prompts/contentUpdatePrompt';
 import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { logger } from 'src/utils/logger';
 import { AbortService } from 'src/services/AbortService';
-import { prepareUserMessage } from '../utils/userMessageUtils';
+import { prepareMessage } from '../utils/messageUtils';
 import { App } from 'obsidian';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
@@ -64,7 +64,7 @@ export async function extractContentUpdate(params: {
       generateType: 'object',
     });
 
-    const userMessage = await prepareUserMessage(command.query, app);
+    const userMessage = await prepareMessage(command.query, app);
 
     const { object } = await generateObject({
       ...llmConfig,

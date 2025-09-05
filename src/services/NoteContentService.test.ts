@@ -1,3 +1,4 @@
+import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { NoteContentService } from './NoteContentService';
 import { App, TFile } from 'obsidian';
 
@@ -52,6 +53,13 @@ Is the image above a lake, pond, reservoir, or sea?`;
       const content = `Read content:\n["Describe this image:\\n![[Pasted image 20250222171626.png|400]]\\n?\\nA Chinese fishing boat [[ram|rammed]] a Japanese [[coastguard patrol]]\\n<!--SR:!2025-08-21,108,250-->"]\n\nRead the text above and tell me what is the image about?`;
       const imageLinks = noteContentService.extractImageLinks(content);
       expect(imageLinks).toEqual(['Pasted image 20250222171626.png']);
+    });
+
+    it('should extract images from stw-selected blocks', () => {
+      const content = `Here is a selected block with an image:
+{{stw-selected from:1,to:5,selection: ${new MarkdownUtil('This contains an image: ![[image2.jpg]] and some text').escape().getText()},path:test.md}}`;
+      const imageLinks = noteContentService.extractImageLinks(content);
+      expect(imageLinks).toEqual(['image2.jpg']);
     });
   });
 

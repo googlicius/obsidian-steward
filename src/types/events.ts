@@ -36,6 +36,10 @@ export enum ErrorEvents {
 export interface ConversationCommandReceivedPayload {
   title: string;
   commands: (CommandIntent | ContextAugmentationIntent)[];
+  /**
+   * The original query that was received from the user
+   */
+  originalQuery?: string;
   lang?: string;
 }
 

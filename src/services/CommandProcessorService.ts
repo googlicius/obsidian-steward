@@ -24,9 +24,9 @@ import {
   SummaryCommandHandler,
   ContextAugmentationHandler,
 } from '../solutions/commands/handlers';
-import { getTextContentWithoutImages } from 'src/lib/modelfusion/utils/userMessageUtils';
 
 import type StewardPlugin from '../main';
+import { getTextContentWithoutImages } from 'src/lib/modelfusion/utils/messageUtils';
 
 export class CommandProcessorService {
   private readonly commandProcessor: CommandProcessor;
@@ -103,7 +103,7 @@ export class CommandProcessorService {
     this.commandProcessor.registerHandler('read', readHandler);
 
     // Register the generate command handler
-    const generateHandler = new GenerateCommandHandler(this.plugin);
+    const generateHandler = new GenerateCommandHandler(this.plugin, this.commandProcessor);
     this.commandProcessor.registerHandler('generate', generateHandler);
 
     // Register the stop command handler
