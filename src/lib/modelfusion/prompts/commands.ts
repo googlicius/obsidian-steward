@@ -24,26 +24,6 @@ export interface CommandDefinition {
   queryTemplate?: string;
 }
 
-// If the user wants to:
-// - Search for notes (and doesn't mention existing search results), include "search"
-// - Move notes from the artifact, include "move_from_artifact"
-// - Delete notes from the artifact, include "delete_from_artifact"
-// - Copy notes from the artifact, include "copy_from_artifact"
-// - Update notes from the artifact, include "update_from_artifact"
-// - Close the conversation, include "close"
-// - Undo changes, include "revert"
-// - Generate an image, include "image"
-// - Generate audio, include "audio"
-// - Create a new note, include "create"
-// - Ask or generate content with the your help, include "generate"
-// - Read or Find content based on a specific pattern in their current note, include "read"
-// - Ask something about the content of the current note, include "read" and "generate"
-// - Update something about the content of the current note, include "read", "generate" and "update_from_artifact"
-// - Show the list of available commands, include "help"
-// Important Notes:
-// - If the "read" and "generate" are included, you must extract all the elements mentioned in the user's query in the "query" field of the "read" command
-// - If there is previous messages in the conversation, include "generate" command only.
-
 /**
  * All available command definitions
  * These are organized by category for better maintainability

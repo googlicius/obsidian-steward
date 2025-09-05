@@ -8,3 +8,4 @@ export * from './FilenameCondition';
 export * from './FolderCondition';
 export * from './KeywordCondition';
 export * from './PropertyCondition';
+export * from './DocumentPropertyFilter';

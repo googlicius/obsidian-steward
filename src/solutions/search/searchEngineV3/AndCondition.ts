@@ -1,3 +1,4 @@
+import { Filter } from './Filter';
 import { Condition, ConditionResult } from './Condition';
 
 /**
@@ -19,7 +20,11 @@ export class AndCondition extends Condition {
 
     // Intersect with subsequent conditions, combining scores (e.g., sum for cumulative relevance)
     for (let i = 1; i < this.conditions.length; i++) {
-      const nextMap = await this.conditions[i].injectContext(this.context).evaluate();
+      const condition = this.conditions[i];
+      if (condition instanceof Filter) {
+        condition.injectConditionResult(result);
+      }
+      const nextMap = await condition.injectContext(this.context).evaluate();
       const intersected = new Map<number, ConditionResult>();
 
       for (const [docId, resultData] of result) {
