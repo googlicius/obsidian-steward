@@ -149,7 +149,8 @@ export class SearchService {
       const generalProperties: Array<{ name: string; value: unknown }> = [];
 
       if (filenames.length > 0 || folders.length > 0 || keywords.length > 0) {
-        for (let i = 0; i < properties.length; i++) {
+        // Iterate backwards to safely remove items while iterating
+        for (let i = properties.length - 1; i >= 0; i--) {
           const prop = properties[i];
           if (prop.name === 'file_type' || prop.name === 'file_category') {
             generalProperties.push(prop);
@@ -158,7 +159,6 @@ export class SearchService {
         }
       }
 
-      // Add conditions using the generic approach
       if (filenames.length > 0) {
         andConditions.push(new FilenameCondition(filenames));
       }
