@@ -7,7 +7,11 @@ import {
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-import { extractSearchQueryV2, SearchQueryExtractionV2 } from 'src/lib/modelfusion/extractions';
+import {
+  extractSearchQueryV2,
+  SearchQueryExtractionV2,
+  SearchOperationV2,
+} from 'src/lib/modelfusion/extractions';
 import { highlightKeyword } from 'src/utils/highlightKeywords';
 import { MediaTools } from 'src/tools/mediaTools';
 import type StewardPlugin from 'src/main';
@@ -74,12 +78,16 @@ export class SearchCommandHandler extends CommandHandler {
           lang: params.lang,
         }));
 
+      // Repair extraction operations by moving file-related properties to filenames
+      queryExtraction.operations = this.repairExtractionOperations(queryExtraction.operations);
+
       // Check if there are multiple operations and we haven't already confirmed them
       if (queryExtraction.operations.length > 1 && !options.multipleOperationsConfirmed) {
         // Format the operations for display
         let message =
-          t('search.multipleOperationsHeader', { count: queryExtraction.operations.length }) +
-          '\n\n';
+          t('search.multipleOperationsHeader', {
+            count: queryExtraction.operations.length,
+          }) + '\n\n';
 
         for (let index = 0; index < queryExtraction.operations.length; index++) {
           const operation = queryExtraction.operations[index];
@@ -216,6 +224,29 @@ export class SearchCommandHandler extends CommandHandler {
         error,
       };
     }
+  }
+
+  /**
+   * Repair extraction operations
+   * @param operations Array of search operations to repair
+   * @returns Repaired search operations
+   */
+  private repairExtractionOperations(operations: SearchOperationV2[]): SearchOperationV2[] {
+    return operations.map(operation => {
+      const filePropertyNames = ['file_name', 'filename', 'note_name', 'notename'];
+      const repairedOperation = { ...operation };
+
+      // Iterate backwards to safely use splice
+      for (let i = repairedOperation.properties.length - 1; i >= 0; i--) {
+        const prop = repairedOperation.properties[i];
+        if (filePropertyNames.includes(prop.name.toLowerCase())) {
+          repairedOperation.filenames.push(prop.value);
+          repairedOperation.properties.splice(i, 1);
+        }
+      }
+
+      return repairedOperation;
+    });
   }
 
   /**

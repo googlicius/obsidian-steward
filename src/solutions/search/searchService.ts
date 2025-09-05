@@ -15,6 +15,7 @@ import {
   QueryExecutor,
   QueryResult,
   SearchContext,
+  DocumentPropertyFilter,
 } from './searchEngineV3';
 import { SearchOperationV2 } from 'src/lib/modelfusion';
 import { PaginatedSearchResult } from './types';
@@ -145,8 +146,19 @@ export class SearchService {
     for (const operation of operations) {
       const { filenames = [], folders = [], keywords = [], properties = [] } = operation;
       const andConditions: Condition[] = [];
+      const generalProperties: Array<{ name: string; value: unknown }> = [];
 
-      // Add conditions using the generic approach
+      if (filenames.length > 0 || folders.length > 0 || keywords.length > 0) {
+        // Iterate backwards to safely remove items while iterating
+        for (let i = properties.length - 1; i >= 0; i--) {
+          const prop = properties[i];
+          if (prop.name === 'file_type' || prop.name === 'file_category') {
+            generalProperties.push(prop);
+            properties.splice(i, 1);
+          }
+        }
+      }
+
       if (filenames.length > 0) {
         andConditions.push(new FilenameCondition(filenames));
       }
@@ -158,6 +170,9 @@ export class SearchService {
       }
       if (properties.length > 0) {
         andConditions.push(new PropertyCondition(properties));
+      }
+      if (generalProperties.length > 0) {
+        andConditions.push(new DocumentPropertyFilter(generalProperties));
       }
 
       queryBuilder.or(new AndCondition(...andConditions));

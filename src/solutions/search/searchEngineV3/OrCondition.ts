@@ -1,3 +1,4 @@
+import { Filter } from './Filter';
 import { Condition } from './Condition';
 
 /**
@@ -15,6 +16,9 @@ export class OrCondition extends Condition {
     const result = new Map();
 
     for (const condition of this.conditions) {
+      if (condition instanceof Filter) {
+        condition.injectConditionResult(result);
+      }
       const map = await condition.injectContext(this.context).evaluate();
       for (const [docId, resultData] of map) {
         if (result.has(docId)) {
@@ -24,6 +28,10 @@ export class OrCondition extends Condition {
             result.set(docId, {
               document: resultData.document,
               score: existingResult.score + resultData.score,
+              keywordsMatched: [
+                ...(existingResult.keywordsMatched || []),
+                ...(resultData.keywordsMatched || []),
+              ],
             });
           }
         } else {

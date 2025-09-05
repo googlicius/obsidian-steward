@@ -65,7 +65,7 @@
 - [ ] When a generate command isn't have enough context, it can directly use commands like search and read for context augmentation.
 - [ ] Add a new step to evaluate the results if it is satisfied the user's query.
       For example: Some models extract this query as only one read command: "<selectedText> Help me update the table, check the Instructions note to get the instructions.". Which is incorrect.
-- [ ] Add the ability to the frontend side to enrich the context if LLMs don't work properly.
+- [x] Add the ability to the frontend side to enrich the context if LLMs don't work properly.
       Pass the selection to the downstream commands.
 
 ### BUGS

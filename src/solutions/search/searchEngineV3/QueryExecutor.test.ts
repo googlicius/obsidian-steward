@@ -97,9 +97,21 @@ describe('QueryExecutor', () => {
     filenameResults.set(3, { document: { id: 3, name: 'another_cat.md' }, score: 0.6 });
 
     const keywordResults = new Map();
-    keywordResults.set(1, { document: { id: 1, name: 'cat.md' }, score: 0.9 });
-    keywordResults.set(3, { document: { id: 3, name: 'another_cat.md' }, score: 0.5 });
-    keywordResults.set(4, { document: { id: 4, name: 'black_kitten.md' }, score: 0.4 });
+    keywordResults.set(1, {
+      document: { id: 1, name: 'cat.md' },
+      score: 0.9,
+      keywordsMatched: ['black cat'],
+    });
+    keywordResults.set(3, {
+      document: { id: 3, name: 'another_cat.md' },
+      score: 0.5,
+      keywordsMatched: ['cat'],
+    });
+    keywordResults.set(4, {
+      document: { id: 4, name: 'black_kitten.md' },
+      score: 0.4,
+      keywordsMatched: ['cat'],
+    });
 
     jest.spyOn(filenameCondition, 'evaluate').mockResolvedValue(filenameResults);
     jest.spyOn(keywordCondition, 'evaluate').mockResolvedValue(keywordResults);
@@ -121,6 +133,7 @@ describe('QueryExecutor', () => {
             name: 'cat.md',
           },
           score: 1.7000000000000002,
+          keywordsMatched: ['black cat'],
         },
         {
           document: {
@@ -128,6 +141,7 @@ describe('QueryExecutor', () => {
             name: 'another_cat.md',
           },
           score: 1.1,
+          keywordsMatched: ['cat'],
         },
         {
           document: {
@@ -142,6 +156,7 @@ describe('QueryExecutor', () => {
             name: 'black_kitten.md',
           },
           score: 0.4,
+          keywordsMatched: ['cat'],
         },
       ],
       count: 4,
