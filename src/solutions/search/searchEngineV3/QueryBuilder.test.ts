@@ -13,7 +13,6 @@ describe('QueryBuilder', () => {
   });
 
   it('should build an OR condition', () => {
-    // const orConditions: Condition[] = [];
     const queryBuilder = new QueryBuilder();
 
     queryBuilder.or(new FilenameCondition(['cat']));

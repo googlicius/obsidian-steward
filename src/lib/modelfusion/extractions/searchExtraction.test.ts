@@ -90,7 +90,7 @@ describe('extractSearchQueryV2', () => {
     const result = await extractSearchQueryV2({
       command: {
         commandType: 'search',
-        query: '#project #work #important',
+        query: '#project, #work #important',
       },
     });
 

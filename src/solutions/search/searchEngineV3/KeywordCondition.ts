@@ -276,27 +276,29 @@ export class KeywordCondition extends Condition<IndexedDocument> {
       // Fetch documents for these IDs
       const keywordDocuments = await this.context.documentStore.getDocumentsByIds(keywordDocIds);
 
-      // Calculate scores for this keyword
-      const scoredDocuments = await this.context.scoring.calculateDocumentScores(keywordDocuments, [
-        keyword,
-      ]);
+      // Calculate scores for this keyword using pre-tokenized terms
+      const scoredDocumentsMap = await this.context.scoring.calculateDocumentScores(
+        keywordDocuments,
+        terms
+      );
 
-      // Merge into overall result map
-      for (const doc of scoredDocuments) {
-        const docId = doc.id as number;
+      // Filter out documents with 0 proximity bonus and merge into overall result map
+      for (const [docId, scoredDoc] of scoredDocumentsMap.entries()) {
+        // Skip documents with 0 proximity bonus
+        if (scoredDoc.proximityBonus === 0) {
+          continue;
+        }
 
         if (documentsMap.has(docId)) {
-          // Document already exists, update score and keywords matched
           const existingResult = documentsMap.get(docId);
           if (existingResult) {
-            existingResult.score += doc.score;
+            existingResult.score += scoredDoc.score;
             existingResult.keywordsMatched = [...(existingResult.keywordsMatched || []), keyword];
           }
         } else {
-          // New document, add to map
           documentsMap.set(docId, {
-            document: doc,
-            score: doc.score,
+            document: scoredDoc.document,
+            score: scoredDoc.score,
             keywordsMatched: [keyword],
           });
         }

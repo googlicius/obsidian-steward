@@ -1,9 +1,6 @@
 import { Filter } from './Filter';
 import { Condition } from './Condition';
 
-/**
- * Composite condition for OR logic.
- */
 export class OrCondition extends Condition {
   private conditions: Condition[];
 

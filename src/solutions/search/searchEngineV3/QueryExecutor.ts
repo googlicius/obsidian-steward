@@ -2,17 +2,11 @@ import { Condition, ConditionResult } from './Condition';
 import { logger } from 'src/utils/logger';
 import { SearchContext } from './SearchContext';
 
-/**
- * Interface for query results (array of matching documents with optional metadata)
- */
 export interface QueryResult<T> {
   conditionResults: ConditionResult<T>[];
   count: number;
 }
 
-/**
- * Updated Executor class (uses DocumentStore for fetching).
- */
 export class QueryExecutor {
   constructor(private context: SearchContext) {}
 

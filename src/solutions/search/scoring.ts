@@ -5,10 +5,25 @@ export interface ScoredDocument extends IndexedDocument {
   score: number;
 }
 
+export interface DetailedScoredDocument {
+  document: IndexedDocument;
+  score: number;
+  proximityBonus: number;
+  filenameBonus: number;
+  coverageBonus: number;
+}
+
 export interface ScoringConfig {
   maxCoverageBonus?: number;
-  maxProximityBonus?: number;
   filenameMatchBoost?: number;
+  filenameBonus?: number;
+  /**
+   * A scoring multiplier that determines the maximum bonus score a document can receive when query terms appear close together in the document.
+   */
+  maxProximityBonus?: number;
+  /**
+   * The maximum distance between query terms for which they are considered to be close together.
+   */
   proximityThreshold?: number;
 }
 
@@ -20,8 +35,9 @@ export class Scoring {
     this.documentStore = documentStore;
     this.config = {
       maxCoverageBonus: 0.5,
-      maxProximityBonus: 0.5,
       filenameMatchBoost: 2.0,
+      filenameBonus: 0.5,
+      maxProximityBonus: 0.5,
       proximityThreshold: 10,
       ...config,
     };
@@ -31,11 +47,11 @@ export class Scoring {
    * Calculate TF (Term Frequency) score with sub-linear scaling
    */
   private calculateTF(termFreq: number, docLength: number): number {
-    if (docLength === 0 || termFreq === 0) return 0;
+    if (docLength <= 0 || termFreq <= 0) return 0;
+    if (termFreq === 1) return 1 / Math.log10(docLength); // Avoid log(1) = 0
 
-    // Use sub-linear scaling: 1 + log(tf)
-    // This reduces the impact of high frequency terms in long documents
-    return (1 + Math.log10(termFreq)) / Math.log10(1 + docLength);
+    // Standard TF formula with sub-linear scaling
+    return (1 + Math.log10(termFreq)) / Math.log10(docLength);
   }
 
   /**
@@ -65,77 +81,141 @@ export class Scoring {
     termPositions: Map<string, number[]>,
     queryTerms: string[]
   ): number {
-    if (queryTerms.length <= 1 || termPositions.size <= 1) {
-      return 0; // No proximity bonus for single term queries
+    const proximityScore = this.calculateProximityScore(termPositions, queryTerms);
+
+    return this.config.maxProximityBonus * proximityScore;
+  }
+
+  public calculateProximityScore(
+    termPositions: Map<string, number[]>,
+    queryTerms: string[]
+  ): number {
+    if (queryTerms.length === 0 || termPositions.size === 0) {
+      return 0;
+    }
+
+    // For single term queries, return a high score since there's no proximity to measure
+    if (queryTerms.length === 1) {
+      return 0.9;
     }
 
     // Find minimum distances between different terms
     const minDistances: number[] = [];
-    const matchedTerms = Array.from(termPositions.keys());
+    const matchedTerms = Array.from(termPositions.keys()).filter(term => queryTerms.includes(term));
 
-    // For each pair of different terms, find minimum distance
-    for (let i = 0; i < matchedTerms.length; i++) {
-      const term1 = matchedTerms[i];
-      const positions1 = termPositions.get(term1) || [];
+    // Check if all terms can be connected within the proximity threshold
+    // We'll use a graph approach to find if all terms are reachable from each other
+    const termPositionsList = matchedTerms.map(term => ({
+      term,
+      positions: termPositions.get(term) || [],
+    }));
 
-      for (let j = i + 1; j < matchedTerms.length; j++) {
-        const term2 = matchedTerms[j];
-        const positions2 = termPositions.get(term2) || [];
+    // Create adjacency matrix for terms within threshold
+    const adjacencyMatrix = new Map<string, Set<string>>();
+
+    // Initialize adjacency sets
+    for (const term of matchedTerms) {
+      adjacencyMatrix.set(term, new Set());
+    }
+
+    // Build adjacency matrix - connect terms that are within threshold
+    for (let i = 0; i < termPositionsList.length; i++) {
+      const term1 = termPositionsList[i];
+      for (let j = i + 1; j < termPositionsList.length; j++) {
+        const term2 = termPositionsList[j];
 
         // Find minimum distance between any position of term1 and any position of term2
-        let minDistance = this.config.proximityThreshold + 1; // Start with value greater than threshold
-
-        for (const pos1 of positions1) {
-          for (const pos2 of positions2) {
+        let minDistance = this.config.proximityThreshold + 1;
+        for (const pos1 of term1.positions) {
+          for (const pos2 of term2.positions) {
             const distance = Math.abs(pos1 - pos2);
             minDistance = Math.min(minDistance, distance);
           }
         }
 
+        // If within threshold, connect the terms
         if (minDistance <= this.config.proximityThreshold) {
+          adjacencyMatrix.get(term1.term)?.add(term2.term);
+          adjacencyMatrix.get(term2.term)?.add(term1.term);
           minDistances.push(minDistance);
         }
       }
     }
 
+    // Check if all terms are connected (reachable from each other)
+    if (matchedTerms.length > 1) {
+      const visited = new Set<string>();
+      const queue = [matchedTerms[0]];
+      visited.add(matchedTerms[0]);
+
+      // BFS to check connectivity
+      while (queue.length > 0) {
+        const current = queue.shift();
+        if (!current) {
+          continue;
+        }
+        const neighbors = adjacencyMatrix.get(current) || new Set();
+
+        for (const neighbor of neighbors) {
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor);
+            queue.push(neighbor);
+          }
+        }
+      }
+
+      // If not all terms are reachable, return 0
+      if (visited.size !== matchedTerms.length) {
+        return 0;
+      }
+    }
+
     if (minDistances.length === 0) {
-      return 0; // No terms within proximity threshold
+      return 0;
     }
 
     // Average the minimum distances and invert so closer = higher bonus
     const avgMinDistance = minDistances.reduce((sum, dist) => sum + dist, 0) / minDistances.length;
     const proximityScore = Math.max(0, 1 - avgMinDistance / this.config.proximityThreshold);
 
-    return this.config.maxProximityBonus * proximityScore;
+    return proximityScore;
   }
 
   /**
-   * Calculate scores for documents based on query terms
+   * Calculate scores for documents based on pre-tokenized terms
    */
   public async calculateDocumentScores(
     documents: IndexedDocument[],
-    queries: string[]
-  ): Promise<ScoredDocument[]> {
-    if (documents.length === 0 || queries.length === 0) {
-      return documents.map(doc => ({ ...doc, score: 0 }));
+    terms: string[],
+    totalDocuments?: number
+  ): Promise<Map<number, DetailedScoredDocument>> {
+    if (documents.length === 0 || terms.length === 0) {
+      const result = new Map<number, DetailedScoredDocument>();
+      for (const doc of documents) {
+        result.set(doc.id as number, {
+          document: doc,
+          score: 0,
+          proximityBonus: 0,
+          filenameBonus: 0,
+          coverageBonus: 0,
+        });
+      }
+      return result;
     }
 
-    // Get total document count for IDF calculation
-    const totalDocuments = await this.documentStore.getTotalDocumentCount();
+    // Get total document count for IDF calculation if not provided
+    const docCount = totalDocuments ?? (await this.documentStore.getTotalDocumentCount());
 
-    // Collect all terms from queries
-    const allQueryTerms = queries.flatMap(query => query.split(/\s+/));
-    const uniqueQueryTerms = [...new Set(allQueryTerms)];
+    // Get all term results with one request
+    const allTermResults = await this.documentStore.getTermsByValue(terms);
 
-    // Get term results with document frequency information
-    const termResults = await Promise.all(
-      uniqueQueryTerms.map(async term => {
-        const results = await this.documentStore.getTermsByValue([term]);
-        const docsWithTerm = new Set(results.map(r => r.documentId)).size;
-        const idf = this.calculateIDF(totalDocuments, docsWithTerm);
-        return { term, results, idf };
-      })
-    );
+    // Group results by term and calculate IDF for each term
+    const termResults = terms.map(term => {
+      const results = allTermResults.filter(r => r.term === term);
+      const docsWithTerm = new Set(results.map(r => r.documentId)).size;
+      const idf = this.calculateIDF(docCount, docsWithTerm);
+      return { term, results, idf };
+    });
 
     // Prepare data structures for scoring
     const documentScores = new Map<number, number>();
@@ -213,33 +293,41 @@ export class Scoring {
       }
     }
 
-    // Apply term coverage and proximity bonuses
+    // Apply term coverage and proximity bonuses and build result map
+    const result = new Map<number, DetailedScoredDocument>();
+
     for (const [documentId, matchedTerms] of documentMatchedTerms.entries()) {
       const currentScore = documentScores.get(documentId) || 0;
 
       // Calculate coverage bonus
-      const coverageBonus = this.calculateCoverageBonus(matchedTerms.size, uniqueQueryTerms.length);
+      const coverageBonus = this.calculateCoverageBonus(matchedTerms.size, terms.length);
 
       // Calculate proximity bonus
       const docTermPositions = termMatches.get(documentId) || new Map();
-      const proximityBonus = this.calculateProximityBonus(docTermPositions, uniqueQueryTerms);
+      const proximityBonus = this.calculateProximityBonus(docTermPositions, terms);
 
       // Apply a bonus for documents with filename matches
-      const filenameBonus = documentHasFilenameMatch.get(documentId) ? 0.5 : 0;
+      const filenameBonus = documentHasFilenameMatch.get(documentId)
+        ? this.config.filenameBonus
+        : 0;
 
       // Apply combined bonuses
       const totalBonus = coverageBonus + proximityBonus + filenameBonus;
-      documentScores.set(documentId, currentScore * (1 + totalBonus));
+      const finalScore = currentScore * (1 + totalBonus);
+
+      // Find the document
+      const document = documents.find(doc => (doc.id as number) === documentId);
+      if (document) {
+        result.set(documentId, {
+          document,
+          score: finalScore,
+          proximityBonus,
+          filenameBonus,
+          coverageBonus,
+        });
+      }
     }
 
-    // Add scores to documents and return
-    return documents.map(doc => {
-      const docId = doc.id as number;
-      const score = documentScores.get(docId) || 0;
-      return {
-        ...doc,
-        score,
-      };
-    });
+    return result;
   }
 }

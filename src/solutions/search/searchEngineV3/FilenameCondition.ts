@@ -4,10 +4,8 @@ import { similarity } from 'src/utils/similarity';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 
 const SIMILARITY_THRESHOLD = 0.7;
+const BOOST = 5;
 
-/**
- * Condition for filtering by filename.
- */
 export class FilenameCondition extends Condition<IndexedDocument> {
   constructor(private names: string[]) {
     super();
@@ -48,16 +46,12 @@ export class FilenameCondition extends Condition<IndexedDocument> {
       const terms = this.context.nameTokenizer.getUniqueTerms(name);
       if (terms.length === 0) continue;
 
-      // Get document IDs from term entries
       const termEntries = await this.context.documentStore.getTermsByValue(terms);
 
-      // Extract unique document IDs from term entries
       const documentIds = [...new Set(termEntries.map(entry => entry.documentId))];
 
-      // If no matching documents found, continue to next name
       if (documentIds.length === 0) continue;
 
-      // Fetch the documents for these IDs
       const documents = await this.context.documentStore.getDocumentsByIds(documentIds);
 
       // Filter documents by similarity score
@@ -90,7 +84,7 @@ export class FilenameCondition extends Condition<IndexedDocument> {
         if (score >= SIMILARITY_THRESHOLD) {
           result.set(doc.id as number, {
             document: doc,
-            score: score,
+            score: score * BOOST,
             keywordsMatched: [name],
           });
         }

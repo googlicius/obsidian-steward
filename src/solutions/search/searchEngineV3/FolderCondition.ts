@@ -1,9 +1,6 @@
 import { IndexedDocument, IndexedFolder } from 'src/database/SearchDatabase';
 import { Condition, ConditionResult } from './Condition';
 
-/**
- * Condition for filtering by folder (path or name).
- */
 export class FolderCondition extends Condition<IndexedDocument> {
   constructor(private names: string[]) {
     super();
@@ -41,7 +38,6 @@ export class FolderCondition extends Condition<IndexedDocument> {
 
     if (folders.length === 0) return result;
 
-    // Find documents in those folders (filter by path prefix)
     const folderIdArray = folders.map(folder => folder.id as number);
 
     const termEntries = await this.context.documentStore.terms
@@ -50,7 +46,7 @@ export class FolderCondition extends Condition<IndexedDocument> {
       .toArray();
     const filteredEntries = termEntries.filter(item => folderIdArray.includes(item.folderId));
 
-    // Convert to Set to remove duplicates
+    // Remove duplicates
     const documentIds = new Set(filteredEntries.map(entry => entry.documentId));
 
     const documents = await this.context.documentStore.getDocumentsByIds([...documentIds]);
