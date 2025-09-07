@@ -56,9 +56,17 @@ describe('scoring', () => {
         ['cats', [20]],
       ]);
 
-      const result = scoring.calculateProximityScore(termPositions, ['hello', 'friendly', 'cats']);
+      expect(
+        scoring.calculateProximityScore(termPositions, ['hello', 'friendly', 'cats'])
+      ).toBeGreaterThan(0);
 
-      expect(result).toBeGreaterThan(0);
+      expect(
+        scoring.calculateProximityScore(termPositions, ['cats', 'hello', 'friendly'])
+      ).toBeGreaterThan(0);
+
+      expect(
+        scoring.calculateProximityScore(termPositions, ['friendly', 'cats', 'hello'])
+      ).toBeGreaterThan(0);
     });
 
     it('should return 0 when the threshold is exceeded', () => {

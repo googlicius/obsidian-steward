@@ -1,3 +1,4 @@
+import { termsProximity } from 'src/utils/termsProximity';
 import { IndexedDocument, TermSource } from '../../database/SearchDatabase';
 import { DocumentStore } from './documentStore';
 
@@ -99,78 +100,13 @@ export class Scoring {
       return 0.9;
     }
 
-    // Find minimum distances between different terms
-    const minDistances: number[] = [];
-    const matchedTerms = Array.from(termPositions.keys()).filter(term => queryTerms.includes(term));
+    const { isProximity, minDistances } = termsProximity(
+      termPositions,
+      queryTerms,
+      this.config.proximityThreshold
+    );
 
-    // Check if all terms can be connected within the proximity threshold
-    // We'll use a graph approach to find if all terms are reachable from each other
-    const termPositionsList = matchedTerms.map(term => ({
-      term,
-      positions: termPositions.get(term) || [],
-    }));
-
-    // Create adjacency matrix for terms within threshold
-    const adjacencyMatrix = new Map<string, Set<string>>();
-
-    // Initialize adjacency sets
-    for (const term of matchedTerms) {
-      adjacencyMatrix.set(term, new Set());
-    }
-
-    // Build adjacency matrix - connect terms that are within threshold
-    for (let i = 0; i < termPositionsList.length; i++) {
-      const term1 = termPositionsList[i];
-      for (let j = i + 1; j < termPositionsList.length; j++) {
-        const term2 = termPositionsList[j];
-
-        // Find minimum distance between any position of term1 and any position of term2
-        let minDistance = this.config.proximityThreshold + 1;
-        for (const pos1 of term1.positions) {
-          for (const pos2 of term2.positions) {
-            const distance = Math.abs(pos1 - pos2);
-            minDistance = Math.min(minDistance, distance);
-          }
-        }
-
-        // If within threshold, connect the terms
-        if (minDistance <= this.config.proximityThreshold) {
-          adjacencyMatrix.get(term1.term)?.add(term2.term);
-          adjacencyMatrix.get(term2.term)?.add(term1.term);
-          minDistances.push(minDistance);
-        }
-      }
-    }
-
-    // Check if all terms are connected (reachable from each other)
-    if (matchedTerms.length > 1) {
-      const visited = new Set<string>();
-      const queue = [matchedTerms[0]];
-      visited.add(matchedTerms[0]);
-
-      // BFS to check connectivity
-      while (queue.length > 0) {
-        const current = queue.shift();
-        if (!current) {
-          continue;
-        }
-        const neighbors = adjacencyMatrix.get(current) || new Set();
-
-        for (const neighbor of neighbors) {
-          if (!visited.has(neighbor)) {
-            visited.add(neighbor);
-            queue.push(neighbor);
-          }
-        }
-      }
-
-      // If not all terms are reachable, return 0
-      if (visited.size !== matchedTerms.length) {
-        return 0;
-      }
-    }
-
-    if (minDistances.length === 0) {
+    if (!isProximity) {
       return 0;
     }
 
