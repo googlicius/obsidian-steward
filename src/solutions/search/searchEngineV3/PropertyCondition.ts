@@ -1,9 +1,6 @@
 import { Condition, ConditionResult } from './Condition';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 
-/**
- * Condition for filtering by properties.
- */
 export class PropertyCondition extends Condition<IndexedDocument> {
   constructor(private properties: Array<{ name: string; value: unknown }>) {
     super();

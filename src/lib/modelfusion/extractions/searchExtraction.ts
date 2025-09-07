@@ -122,7 +122,10 @@ export async function extractSearchQueryV2({
   // Check if input only contains tags
   const trimmedInput = command.query.trim();
   const tagRegex = /#([^\s#]+)/g;
-  const tags = [...trimmedInput.matchAll(tagRegex)].map(match => match[1]);
+  const NON_TAG_PATTERN = '[,\\s;|&+]+$';
+  const tags = [...trimmedInput.matchAll(tagRegex)].map(match =>
+    match[1].replace(new RegExp(NON_TAG_PATTERN), '')
+  );
 
   // If the input only contains tags (after removing tag patterns, only whitespace remains)
   if (tags.length > 0 && trimmedInput.replace(tagRegex, '').trim() === '') {

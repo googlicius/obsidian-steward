@@ -35,7 +35,6 @@ export class DocumentPropertyFilter extends Filter<IndexedDocument> {
         resultMap.set(docId, {
           document: result.document as IndexedDocument,
           score: 0, // We don't need to add score while filtering.
-          keywordsMatched: [], // We don't need to maintain the keywordsMatched here.
         });
       }
     }
