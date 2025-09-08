@@ -25,6 +25,7 @@ export interface StewardPluginSettings {
     temperature: number;
     ollamaBaseUrl?: string; // Deprecated: use providerConfigs instead
     maxGenerationTokens?: number; // Maximum number of tokens to generate in response
+    embeddingModel: string; // The embedding model (e.g., openai:text-embedding-ada-002, google:gemini-embedding-001)
     providerConfigs: {
       openai?: { baseUrl?: string };
       deepseek?: { baseUrl?: string };

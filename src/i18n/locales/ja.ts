@@ -231,6 +231,8 @@ const ja = {
       buildingIndex: '検索インデックスを構築中...',
       summarizing: '会話を要約中...',
     },
+    // Settings (Obsidian doesn't support Japanese, so ignore it)
+    settings: {},
   },
 };
 

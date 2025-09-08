@@ -34,6 +34,14 @@ export class LLMService {
   }
 
   /**
+   * Get the embedding model from settings
+   * @returns The embedding model string
+   */
+  public getEmbeddingModel(): string {
+    return this.plugin.settings.llm.embeddingModel;
+  }
+
+  /**
    * Get the base URL for a provider, with fallback to default
    * @param provider The provider name
    * @returns The base URL for the provider

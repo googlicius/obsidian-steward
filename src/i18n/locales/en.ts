@@ -289,7 +289,8 @@ const en = {
       chatModel: 'Chat model',
       chatModelDesc: 'Select the AI model to use for chat',
       embeddingModel: 'Embedding model',
-      embeddingModelDesc: 'Model used for text embeddings (currently fixed to GPT-4)',
+      embeddingModelDesc:
+        'Model used for intent classification. Stores previous queries in semantic meaning to reduce token usage for intent extraction with similar queries.',
       temperature: 'Temperature',
       temperatureDesc: 'Controls randomness in the output (0.0 to 1.0)',
       maxGenerationTokens: 'Max generation tokens',
