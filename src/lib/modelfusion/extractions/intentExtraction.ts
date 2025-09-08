@@ -89,7 +89,8 @@ export async function extractCommandIntent(args: {
     overrideModel: command.model,
     generateType: 'object',
   });
-  const classifier = getClassifier(llmConfig.model.modelId, isReloadRequest);
+  const embeddingModel = LLMService.getInstance().getEmbeddingModel();
+  const classifier = getClassifier(embeddingModel, isReloadRequest);
   const clusterName = ignoreClassify
     ? null
     : await classify({

@@ -265,7 +265,8 @@ const vi = {
       chatModel: 'Mô hình trò chuyện',
       chatModelDesc: 'Chọn mô hình AI để sử dụng cho trò chuyện',
       embeddingModel: 'Mô hình nhúng (Embedding)',
-      embeddingModelDesc: 'Mô hình được sử dụng cho embedding (hiện tại cố định là GPT-4)',
+      embeddingModelDesc:
+        'Mô hình được sử dụng cho embedding và phân loại ý định. Lưu trữ các truy vấn trước đó theo nghĩa ngữ nghĩa để giảm việc sử dụng token cho việc trích xuất ý định với các truy vấn tương tự.',
       temperature: 'Temperature',
       temperatureDesc: 'Điều khiển tính ngẫu nhiên trong đầu ra (0.0 đến 1.0)',
       maxGenerationTokens: 'Số token tạo tối đa (Max Generation Tokens)',

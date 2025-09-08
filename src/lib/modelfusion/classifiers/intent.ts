@@ -1,17 +1,15 @@
-import { openai } from 'modelfusion';
+import { openai } from '@ai-sdk/openai';
 import { PersistentEmbeddingSimilarityClassifier } from '../classify/PersistentEmbeddingSimilarityClassifier';
+import { EMBEDDING_MODELS } from 'src/constants';
+
+const [, modelId] = EMBEDDING_MODELS[0].id.split(':');
 
 /**
  * The intent classifier instance
  */
 export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
-  // you can use any supported embedding model:
-  embeddingModel: openai.TextEmbedder({
-    model: 'text-embedding-ada-002',
-  }),
-
-  // Custom model name for storage
-  modelName: 'steward-intent-classifier',
+  // Default embedding model (will be overridden by getClassifier)
+  embeddingModel: openai.textEmbeddingModel(modelId),
 
   // the threshold for the distance between the value and the cluster values:
   similarityThreshold: 0.84,

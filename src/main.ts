@@ -99,6 +99,12 @@ export default class StewardPlugin extends Plugin {
       settingsUpdated = true;
     }
 
+    // Initialize embeddingModel if not already set
+    if (!this.settings.llm.embeddingModel) {
+      this.settings.llm.embeddingModel = 'openai:text-embedding-ada-002';
+      settingsUpdated = true;
+    }
+
     // Migrate ollamaBaseUrl to providerConfigs if it exists
     if (
       this.settings.llm.ollamaBaseUrl &&
@@ -305,7 +311,7 @@ export default class StewardPlugin extends Plugin {
   }
 
   private initializeClassifier() {
-    const classifier = getClassifier(this.settings.llm.model);
+    const classifier = getClassifier(this.settings.llm.embeddingModel);
     // Initialize embeddings
     retry(
       () =>

@@ -1,6 +1,6 @@
 import { Notice, PluginSettingTab, Setting } from 'obsidian';
 import { logger } from './utils/logger';
-import { LLM_MODELS, ProviderNeedApiKey } from './constants';
+import { LLM_MODELS, EMBEDDING_MODELS, ProviderNeedApiKey } from './constants';
 import { getTranslation } from './i18n';
 import { getObsidianLanguage } from './utils/getObsidianLanguage';
 import type StewardPlugin from './main';
@@ -349,12 +349,20 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     this.createProviderBaseUrlSetting(containerEl);
 
-    // Embedding Model setting (hard-coded to GPT-4)
+    // Embedding Model setting
     new Setting(containerEl)
       .setName(t('settings.embeddingModel'))
       .setDesc(t('settings.embeddingModelDesc'))
-      .addText(text => {
-        text.setValue('GPT-4').setDisabled(true);
+      .addDropdown(dropdown => {
+        // Add embedding models
+        for (const model of EMBEDDING_MODELS) {
+          dropdown.addOption(model.id, model.name);
+        }
+
+        dropdown.setValue(this.plugin.settings.llm.embeddingModel).onChange(async value => {
+          this.plugin.settings.llm.embeddingModel = value;
+          await this.plugin.saveSettings();
+        });
       });
 
     // Temperature setting

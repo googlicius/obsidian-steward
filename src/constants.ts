@@ -100,6 +100,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     temperature: 0.2,
     ollamaBaseUrl: 'http://localhost:11434', // Deprecated: use providerConfigs instead
     maxGenerationTokens: 2048, // Default max tokens for generation
+    embeddingModel: 'openai:text-embedding-ada-002', // Default embedding model
     providerConfigs: {},
   },
 };
@@ -150,3 +151,17 @@ export type ProviderNeedApiKey =
   | 'google'
   | 'groq'
   | 'anthropic';
+
+// Embedding model options
+export interface EmbeddingModelOption {
+  id: string;
+  name: string;
+}
+
+export const EMBEDDING_MODELS: EmbeddingModelOption[] = [
+  {
+    id: 'openai:text-embedding-ada-002',
+    name: 'text-embedding-ada-002 (OpenAI)',
+  },
+  { id: 'google:gemini-embedding-001', name: 'gemini-embedding-001 (Google)' },
+];

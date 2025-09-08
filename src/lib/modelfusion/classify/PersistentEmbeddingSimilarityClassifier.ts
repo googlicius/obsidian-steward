@@ -1,14 +1,6 @@
-/* eslint-disable no-mixed-spaces-and-tabs */
-import {
-  Vector,
-  FunctionCallOptions,
-  cosineSimilarity,
-  EmbeddingModel,
-  embed,
-  embedMany,
-  Classifier,
-  ClassifierSettings,
-} from 'modelfusion';
+import { Vector, FunctionCallOptions, Classifier, ClassifierSettings } from 'modelfusion';
+import { embed, embedMany, cosineSimilarity } from 'ai';
+import { EmbeddingModelV1 } from '@ai-sdk/provider';
 import { EmbeddingsDatabase, EmbeddingEntry } from 'src/database/EmbeddingsDatabase';
 import { logger } from 'src/utils/logger';
 import crypto from 'crypto';
@@ -25,7 +17,7 @@ export interface PersistentEmbeddingSimilarityClassifierSettings<
   staticClusterValues?: CLUSTERS;
   prefixedClusterValue?: CLUSTERS;
   clusters: CLUSTERS;
-  embeddingModel: EmbeddingModel<VALUE>;
+  embeddingModel: EmbeddingModelV1<VALUE>;
   similarityThreshold: number;
   modelName?: string;
   forceRefresh?: boolean;
@@ -92,10 +84,7 @@ export class PersistentEmbeddingSimilarityClassifier<
    * Get model name used for storage
    */
   getModelStorageName(): string {
-    return (
-      this.settings.modelName ||
-      `${this.settings.embeddingModel.modelInformation.provider}-${this.settings.embeddingModel.modelInformation.modelName}`
-    );
+    return this.settings.modelName || this.settings.embeddingModel.modelId;
   }
 
   /**
@@ -352,21 +341,14 @@ export class PersistentEmbeddingSimilarityClassifier<
 
     // Generate new embeddings for changed clusters
     logger.log(`Generating embeddings for ${changedClusters.size} changed clusters`);
-    const newEmbeddingsByCluster = new Map<
-      string,
-      Array<{
-        embedding: Vector;
-        clusterValue: VALUE;
-        clusterName: string;
-      }>
-    >();
+    const allEmbeddings = [...embeddings];
 
     for (const cluster of changedClusters.values()) {
       logger.log(
         `Generating embeddings for cluster "${cluster.name}" (${cluster.values.length} values)`
       );
 
-      const clusterEmbeddings = await embedMany({
+      const { embeddings: clusterEmbeddings } = await embedMany({
         model: this.settings.embeddingModel,
         values: cluster.values as VALUE[],
         ...options,
@@ -381,16 +363,13 @@ export class PersistentEmbeddingSimilarityClassifier<
         });
       }
 
-      newEmbeddingsByCluster.set(cluster.name, processedEmbeddings);
-    }
+      // Save this cluster's embeddings to the database immediately
+      const clusterMap = new Map<string, typeof processedEmbeddings>();
+      clusterMap.set(cluster.name, processedEmbeddings);
+      await this.saveEmbeddingsForClusters(clusterMap);
 
-    // Save the new embeddings to the database
-    await this.saveEmbeddingsForClusters(newEmbeddingsByCluster);
-
-    // Combine existing and new embeddings
-    const allEmbeddings = [...embeddings];
-    for (const newEmbeddings of newEmbeddingsByCluster.values()) {
-      allEmbeddings.push(...newEmbeddings);
+      // Add to the combined embeddings array
+      allEmbeddings.push(...processedEmbeddings);
     }
 
     // Store in memory and return
@@ -443,7 +422,9 @@ export class PersistentEmbeddingSimilarityClassifier<
 
       // If embedding exists in this cluster and ignoreEmbedding is false, return early
       if (existingEmbedding && !this.settings.ignoreEmbedding) {
-        logger.log(`Embedding for value "${value}" under cluster "${clusterName}" already exists`);
+        logger.log(
+          `Embedding for value "${value}" under cluster "${clusterName}" of the ${modelName} already exists`
+        );
         return;
       }
 
@@ -455,7 +436,7 @@ export class PersistentEmbeddingSimilarityClassifier<
       }
 
       // Generate embedding for the value
-      const embedding = await embed({
+      const { embedding } = await embed({
         model: this.settings.embeddingModel,
         value,
       });
@@ -545,21 +526,40 @@ export class PersistentEmbeddingSimilarityClassifier<
       };
     }
 
-    const valueEmbedding = await embed({
-      model: this.settings.embeddingModel,
-      value,
-      ...options,
-    });
-
     // Race between getEmbeddings and timeout
-    const clusterEmbeddings = await Promise.race([
-      this.getEmbeddings(options),
-      new Promise<null>(resolve => {
-        setTimeout(() => resolve(null), 2000);
-      }),
+    const [embeddingResult, clusterEmbeddings] = await Promise.all([
+      Promise.race([
+        embed({
+          model: this.settings.embeddingModel,
+          value,
+          ...options,
+        }),
+        new Promise<null>(resolve => {
+          setTimeout(() => {
+            resolve(null);
+          }, 2000);
+        }),
+      ]),
+      Promise.race([
+        this.getEmbeddings(options),
+        new Promise<null>(resolve => {
+          setTimeout(() => {
+            resolve(null);
+          }, 2000);
+        }),
+      ]),
     ]);
 
     if (!clusterEmbeddings) {
+      logger.warn('Cluster embeddings not found or timed out.');
+      return {
+        class: null,
+        rawResponse: undefined,
+      };
+    }
+
+    if (!embeddingResult) {
+      logger.warn('Embedding not found or timed out.');
       return {
         class: null,
         rawResponse: undefined,
@@ -573,7 +573,7 @@ export class PersistentEmbeddingSimilarityClassifier<
     }> = [];
 
     for (const embedding of clusterEmbeddings) {
-      const similarity = cosineSimilarity(valueEmbedding, embedding.embedding);
+      const similarity = cosineSimilarity(embeddingResult.embedding, embedding.embedding);
 
       if (similarity >= this.settings.similarityThreshold) {
         allMatches.push({
@@ -582,6 +582,10 @@ export class PersistentEmbeddingSimilarityClassifier<
           clusterName: embedding.clusterName,
         });
       }
+
+      // else if (similarity >= 0.7) {
+      //   logger.log('Similarity is greater than 0.7', similarity, embedding);
+      // }
     }
 
     // sort (highest similarity first)
@@ -591,8 +595,11 @@ export class PersistentEmbeddingSimilarityClassifier<
     const countClusterNames = new Set(firstFiveMatches.map(m => m.clusterName));
 
     // If there are multiple clusters with similar matches
-    if (countClusterNames.size > 1 && firstFiveMatches[0].similarity < 0.99) {
-      return this.findDominantCluster(firstFiveMatches);
+    if (countClusterNames.size > 1) {
+      const firstMatch = firstFiveMatches[0];
+      if (!firstMatch.clusterName.includes(':') && firstMatch.similarity < 0.99) {
+        return this.findDominantCluster(firstFiveMatches);
+      }
     }
 
     return {

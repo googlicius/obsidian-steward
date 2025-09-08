@@ -38,7 +38,7 @@ export class Scoring {
       maxCoverageBonus: 0.5,
       filenameMatchBoost: 2.0,
       filenameBonus: 0.5,
-      maxProximityBonus: 0.5,
+      maxProximityBonus: 1,
       proximityThreshold: 10,
       ...config,
     };

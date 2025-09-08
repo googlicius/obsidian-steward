@@ -1,25 +1,24 @@
+import { openai } from '@ai-sdk/openai';
+import { google } from '@ai-sdk/google';
 import { intentClassifier } from './intent';
-import { LLMService } from 'src/services/LLMService';
 
-export function getClassifier(model: string, isReloadRequest = false) {
-  const provider = LLMService.getInstance().getProviderFromModel(model);
+export function getClassifier(embeddingModel: string, isReloadRequest = false) {
+  const [provider, modelId] = embeddingModel.split(':');
 
   switch (provider) {
-    // case 'deepseek':
-    // 	return intentClassifier.withSettings({
-    // 		embeddingModel: openaicompatible.TextEmbedder({
-    // 			model: 'deepseek-embedding',
-    // 			api: openai.Api({
-    // 				baseUrl: corsProxy + 'https://api.deepseek.com/v1',
-    // 				apiKey: process.env.DEEPSEEK_API_KEY,
-    // 			}),
-    // 		}),
-    // 		modelName: 'deepseek',
-    // 	});
+    case 'google':
+      return intentClassifier.withSettings({
+        embeddingModel: google.textEmbeddingModel(modelId),
+        modelName: modelId,
+        similarityThreshold: 0.77,
+        ignoreEmbedding: isReloadRequest,
+      });
 
     case 'openai':
     default:
       return intentClassifier.withSettings({
+        embeddingModel: openai.textEmbeddingModel(modelId),
+        modelName: 'steward-intent-classifier', // Keep for back-compatibility
         ignoreEmbedding: isReloadRequest,
       });
   }

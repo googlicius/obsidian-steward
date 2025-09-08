@@ -151,9 +151,7 @@ export class UserDefinedCommandService {
 
           if (this.validateCommandDefinition(commandDefinition)) {
             this.userDefinedCommands.set(commandDefinition.command_name, commandDefinition);
-            logger.log(
-              `Loaded user-defined command: ${commandDefinition.command_name}, \n\nCommand Definition: \n${yamlContent}`
-            );
+            logger.log(`Loaded user-defined command: ${commandDefinition.command_name}`);
           }
         } catch (yamlError) {
           logger.error(`Invalid YAML in file ${file.path}:`, yamlError);
