@@ -401,5 +401,46 @@ export default class StewardSettingTab extends PluginSettingTab {
         text.inputEl.setAttribute('type', 'number');
         text.inputEl.setAttribute('min', '1');
       });
+
+    // Add Search settings section
+    new Setting(containerEl).setName(t('settings.searchSettings')).setHeading();
+
+    // Without LLM setting
+    new Setting(containerEl)
+      .setName(t('settings.withoutLLM'))
+      .setDesc(t('settings.withoutLLMDesc'))
+      .addDropdown(dropdown => {
+        dropdown
+          .addOption('exact', t('settings.exactMatch'))
+          .addOption('relevant', t('settings.relevantScoring'))
+          .setValue(this.plugin.settings.search.withoutLLM)
+          .onChange(async value => {
+            this.plugin.settings.search.withoutLLM = value as 'exact' | 'relevant';
+            await this.plugin.saveSettings();
+          });
+      });
+
+    // Results per page setting
+    new Setting(containerEl)
+      .setName(t('settings.resultsPerPage'))
+      .setDesc(t('settings.resultsPerPageDesc'))
+      .addText(text => {
+        text
+          .setPlaceholder('10')
+          .setValue(String(this.plugin.settings.search.resultsPerPage))
+          .onChange(async value => {
+            // Convert to number and validate
+            const numValue = Number(value);
+            if (!isNaN(numValue) && numValue > 0) {
+              this.plugin.settings.search.resultsPerPage = numValue;
+              await this.plugin.saveSettings();
+            }
+          });
+
+        // Set input type to number
+        text.inputEl.setAttribute('type', 'number');
+        text.inputEl.setAttribute('min', '1');
+        text.inputEl.setAttribute('max', '100');
+      });
   }
 }

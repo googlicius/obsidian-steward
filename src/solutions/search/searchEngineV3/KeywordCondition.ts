@@ -3,8 +3,6 @@ import { Condition, ConditionResult } from './Condition';
 import { ExactPhraseMatch } from '../types';
 import { IndexedDocument, IndexedTerm, TermSource } from 'src/database/SearchDatabase';
 
-const TERM_MATCH_THRESHOLD = 0.7;
-
 /**
  * Condition for keyword search.
  */
@@ -227,17 +225,54 @@ export class KeywordCondition extends Condition<IndexedDocument> {
   }
 
   /**
-   * Get document IDs that meet the term match threshold
+   * Get document IDs that meet the term match threshold using dynamic threshold adjustment
    */
   private getQualifiedDocumentIds(
     documentTermMap: Map<number, Set<string>>,
     terms: string[]
   ): number[] {
+    const MIN_THRESHOLD = 0.6;
+    const MAX_THRESHOLD = 1.0;
+    const MIN_QUALIFIED_IDS = 10;
+
+    if (terms.length === 0) {
+      return [];
+    }
+
+    // Use a more efficient approach with bucketed ratios
+    const bucketSize = 0.1;
+    const buckets = new Map<number, number[]>(); // bucket -> document IDs
+
+    // Distribute documents into buckets based on their ratio
+    for (const [docId, docTermsSet] of documentTermMap) {
+      const ratio = docTermsSet.size / terms.length;
+
+      if (ratio >= MIN_THRESHOLD) {
+        const bucketIndex = Math.min(
+          Math.floor(ratio / bucketSize),
+          Math.floor(MAX_THRESHOLD / bucketSize)
+        );
+
+        if (!buckets.has(bucketIndex)) {
+          buckets.set(bucketIndex, []);
+        }
+        buckets.get(bucketIndex)?.push(docId);
+      }
+    }
+
+    // Collect results starting from highest ratio buckets
+    const sortedBuckets = Array.from(buckets.keys()).sort((a, b) => b - a);
     const qualifiedIds: number[] = [];
 
-    for (const [documentId, docTermsSet] of documentTermMap.entries()) {
-      if (docTermsSet.size / terms.length >= TERM_MATCH_THRESHOLD) {
-        qualifiedIds.push(documentId);
+    for (const bucketIndex of sortedBuckets) {
+      const bucketDocs = buckets.get(bucketIndex) as number[];
+
+      // Add documents from this bucket
+      qualifiedIds.push(...bucketDocs);
+
+      // Stop if we have enough results and meet minimum requirements
+      if (qualifiedIds.length >= MIN_QUALIFIED_IDS) {
+        break;
       }
     }
 
@@ -285,9 +320,9 @@ export class KeywordCondition extends Condition<IndexedDocument> {
       // Filter out documents with 0 proximity bonus and merge into overall result map
       for (const [docId, scoredDoc] of scoredDocumentsMap.entries()) {
         // Skip documents with 0 proximity bonus
-        if (scoredDoc.proximityBonus === 0) {
-          continue;
-        }
+        // if (scoredDoc.proximityBonus === 0) {
+        //   continue;
+        // }
 
         if (documentsMap.has(docId)) {
           const existingResult = documentsMap.get(docId);

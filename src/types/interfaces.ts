@@ -35,4 +35,8 @@ export interface StewardPluginSettings {
       anthropic?: { baseUrl?: string };
     };
   };
+  search: {
+    withoutLLM: 'exact' | 'relevant'; // Search mode when query is wrapped in quotation marks
+    resultsPerPage: number; // Number of search results per page
+  };
 }

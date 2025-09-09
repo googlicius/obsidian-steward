@@ -79,10 +79,11 @@ export class MoreCommandHandler extends CommandHandler {
       }
 
       // Get paginated results for the current page
+      const resultsPerPage = this.plugin.settings.search.resultsPerPage;
       const paginatedSearchResult = this.plugin.searchService.paginateResults(
         searchArtifact.originalResults as ConditionResult<IndexedDocument>[],
         page,
-        10
+        resultsPerPage
       );
 
       // If we're past the last page, inform the user

@@ -76,6 +76,7 @@ export class SearchCommandHandler extends CommandHandler {
         (await extractSearchQueryV2({
           command,
           lang: params.lang,
+          searchSettings: this.plugin.settings.search,
         }));
 
       // Repair extraction operations by moving file-related properties to filenames
@@ -161,10 +162,11 @@ export class SearchCommandHandler extends CommandHandler {
       const queryResult = await this.plugin.searchService.searchV3(queryExtraction.operations);
 
       // Paginate the results for display (first page)
+      const resultsPerPage = this.plugin.settings.search.resultsPerPage;
       const paginatedSearchResult = this.plugin.searchService.paginateResults(
         queryResult.conditionResults,
         1,
-        10
+        resultsPerPage
       );
 
       // Format the search results
@@ -288,7 +290,7 @@ export class SearchCommandHandler extends CommandHandler {
     // List the search results
     for (let index = 0; index < paginatedSearchResult.conditionResults.length; index++) {
       const result = paginatedSearchResult.conditionResults[index];
-      const displayIndex = (page - 1) * 10 + index + 1;
+      const displayIndex = (page - 1) * this.plugin.settings.search.resultsPerPage + index + 1;
       response += `\n\n**${displayIndex}.** [[${result.document.path}]]\n`;
 
       // Get the file content directly

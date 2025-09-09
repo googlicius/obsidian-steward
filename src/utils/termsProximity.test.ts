@@ -33,6 +33,30 @@ describe('termsProximity', () => {
     });
   });
 
+  it('should return true even a term is not in the termPositions', () => {
+    const termPositions = new Map<string, number[]>([
+      ['term1', [1, 2, 3]],
+      ['term2', [7, 9]],
+    ]);
+
+    expect(termsProximity(termPositions, ['term1', 'term2', 'term3'])).toMatchObject({
+      isProximity: true,
+      minDistances: [4],
+    });
+  });
+
+  it('should return false when all terms are filtered out', () => {
+    const termPositions = new Map<string, number[]>([
+      ['term1', [1, 2, 3]],
+      ['term2', [7, 9]],
+    ]);
+
+    expect(termsProximity(termPositions, ['term3', 'term4'])).toMatchObject({
+      isProximity: false,
+      minDistances: [],
+    });
+  });
+
   it('should return false when the terms cannot be traversed', () => {
     const termPositions = new Map<string, number[]>([
       ['term1', [1, 2, 3]],

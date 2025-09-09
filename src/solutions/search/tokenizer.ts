@@ -99,7 +99,10 @@ export class Tokenizer {
   private analyzers: Analyzer[] = [];
 
   constructor(config: TokenizerConfig = {}) {
-    this.config = config;
+    this.config = {
+      removeStopwords: true,
+      ...config,
+    };
 
     if (config.normalizers) {
       this.addNormalizers(...config.normalizers);

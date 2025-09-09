@@ -46,16 +46,11 @@ export class LLMService {
    * @param provider The provider name
    * @returns The base URL for the provider
    */
-  private getProviderBaseUrl(provider: ModelOption['provider']): string | undefined {
+  public getProviderBaseUrl(provider: ModelOption['provider']): string | undefined {
     const providerConfig = this.plugin.settings.llm.providerConfigs[provider];
 
     if (providerConfig?.baseUrl) {
       return providerConfig.baseUrl;
-    }
-
-    // Fallback to deprecated ollamaBaseUrl for ollama provider
-    if (provider === 'ollama' && this.plugin.settings.llm.ollamaBaseUrl) {
-      return this.plugin.settings.llm.ollamaBaseUrl;
     }
 
     // Return undefined to use default base URLs from the AI SDK
