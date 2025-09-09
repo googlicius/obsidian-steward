@@ -103,6 +103,10 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     embeddingModel: 'openai:text-embedding-ada-002', // Default embedding model
     providerConfigs: {},
   },
+  search: {
+    withoutLLM: 'relevant' as const,
+    resultsPerPage: 10,
+  },
 };
 
 // Model options grouped by provider

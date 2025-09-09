@@ -277,6 +277,13 @@ const vi = {
       providerBaseUrl: 'URL cơ sở nhà cung cấp',
       providerBaseUrlDesc:
         'URL cơ sở tùy chỉnh cho nhà cung cấp đã chọn (để trống để sử dụng mặc định)',
+      searchSettings: 'Tìm kiếm',
+      withoutLLM: 'Không dùng LLM',
+      withoutLLMDesc: 'Chế độ tìm kiếm khi truy vấn được bao trong dấu ngoặc kép',
+      exactMatch: 'Khớp chính xác',
+      relevantScoring: 'Chấm điểm liên quan',
+      resultsPerPage: 'Kết quả mỗi trang',
+      resultsPerPageDesc: 'Số lượng kết quả tìm kiếm hiển thị mỗi trang',
     },
   },
 };

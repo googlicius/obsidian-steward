@@ -46,7 +46,15 @@ export function termsProximity(
 
   let index = 0;
   const minDistances: number[] = [];
-  const remainingTerms = [...new Set(queryTerms)];
+  // Filter out terms that don't exist in termPositions
+  const remainingTerms = [...new Set(queryTerms)].filter(term => termPositions.has(term));
+
+  if (remainingTerms.length === 0) {
+    return {
+      isProximity: false,
+      minDistances: [],
+    };
+  }
 
   const stack = [remainingTerms[index]];
   remainingTerms.splice(0, 1);

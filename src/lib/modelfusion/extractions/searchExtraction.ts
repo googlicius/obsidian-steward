@@ -10,6 +10,8 @@ import { z } from 'zod';
 import { CommandIntent } from 'src/types/types';
 import { explanationFragment } from '../prompts/fragments';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
+import { StewardPluginSettings } from 'src/types/interfaces';
+import { DEFAULT_SETTINGS } from 'src/constants';
 
 const abortService = AbortService.getInstance();
 
@@ -40,7 +42,7 @@ If a term or phrase is wrapped in quotation marks (e.g., "cat or dog"),
 preserve the quotes exactly as is for exact match queries.`),
   filenames: z
     .array(z.string())
-    .describe(`Specific file names to search for (without .md extension)`),
+    .describe(`Specific file or note names to search for (without .md extension)`),
   folders: z.array(z.string()).describe(`Specific folder paths to search within
 - If the user wants to search in the root folder, use ^/$`),
   properties: z.array(
@@ -87,8 +89,10 @@ If the user wants to search with different criteria in different locations, retu
 export async function extractSearchQueryV2({
   command,
   lang,
+  searchSettings = DEFAULT_SETTINGS.search,
 }: {
   command: CommandIntent;
+  searchSettings?: StewardPluginSettings['search'];
   lang?: string;
 }): Promise<SearchQueryExtractionV2> {
   const { systemPrompts = [] } = command;
@@ -98,21 +102,32 @@ export async function extractSearchQueryV2({
   const searchTerm = getQuotedQuery(command.query);
 
   if (searchTerm) {
+    const operations: SearchOperationV2[] = [
+      {
+        keywords: [],
+        filenames: [searchTerm],
+        folders: [],
+        properties: [],
+      },
+    ];
+
+    if (searchSettings.withoutLLM === 'relevant') {
+      operations.push({
+        keywords: [searchTerm],
+        filenames: [],
+        folders: [],
+        properties: [],
+      });
+    } else {
+      operations.push({
+        keywords: [`"${searchTerm}"`],
+        filenames: [],
+        folders: [],
+        properties: [],
+      });
+    }
     return {
-      operations: [
-        {
-          keywords: [`"${searchTerm}"`],
-          filenames: [],
-          folders: [],
-          properties: [],
-        },
-        {
-          keywords: [],
-          filenames: [searchTerm],
-          folders: [],
-          properties: [],
-        },
-      ],
+      operations,
       explanation: t('search.searchingFor', { searchTerm }),
       lang: lang || getObsidianLanguage(),
       confidence: 1,

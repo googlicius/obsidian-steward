@@ -300,6 +300,13 @@ const en = {
       ollamaBaseUrlDesc: 'The base URL for Ollama API (default: {{defaultUrl}})',
       providerBaseUrl: 'Provider base URL',
       providerBaseUrlDesc: 'Custom base URL for the selected provider (leave empty to use default)',
+      searchSettings: 'Search',
+      withoutLLM: 'Without LLM',
+      withoutLLMDesc: 'Search mode when query is wrapped in quotation marks',
+      exactMatch: 'Exact match',
+      relevantScoring: 'Relevant scoring',
+      resultsPerPage: 'Results per page',
+      resultsPerPageDesc: 'Number of search results to display per page',
     },
   },
 };
