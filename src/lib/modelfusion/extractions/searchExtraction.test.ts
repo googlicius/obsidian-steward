@@ -34,19 +34,23 @@ describe('extractSearchQueryV2', () => {
         commandType: 'search',
         query: '"project notes"',
       },
+      searchSettings: {
+        withoutLLM: 'relevant',
+        resultsPerPage: 10,
+      },
     });
 
     expect(result1).toEqual({
       operations: [
         {
-          keywords: ['"project notes"'],
-          filenames: [],
+          keywords: [],
+          filenames: ['project notes'],
           folders: [],
           properties: [],
         },
         {
-          keywords: [],
-          filenames: ['project notes'],
+          keywords: ['project notes'],
+          filenames: [],
           folders: [],
           properties: [],
         },
@@ -62,19 +66,23 @@ describe('extractSearchQueryV2', () => {
         commandType: 'search',
         query: "'meeting minutes'",
       },
+      searchSettings: {
+        withoutLLM: 'exact',
+        resultsPerPage: 10,
+      },
     });
 
     expect(result2).toEqual({
       operations: [
         {
-          keywords: ['"meeting minutes"'],
-          filenames: [],
+          keywords: [],
+          filenames: ['meeting minutes'],
           folders: [],
           properties: [],
         },
         {
-          keywords: [],
-          filenames: ['meeting minutes'],
+          keywords: ['"meeting minutes"'],
+          filenames: [],
           folders: [],
           properties: [],
         },
