@@ -102,6 +102,7 @@ export class CommandProcessor {
       !options.skipQueueCheck &&
       !options.builtInCommandPrecedence &&
       !this.isConfirming(title) &&
+      !this.isStop(commands) &&
       this.isProcessing(title);
 
     if (shouldQueueCommands) {
@@ -131,6 +132,7 @@ export class CommandProcessor {
     if (queue) {
       queue.push(queuedCommands);
     }
+    logger.log(`Queued commands for conversation: ${title}`, queuedCommands);
   }
 
   /**
@@ -177,6 +179,10 @@ export class CommandProcessor {
     return commands.some(
       cmd => cmd.commandType === 'confirm' || cmd.commandType === 'yes' || cmd.commandType === 'no'
     );
+  }
+
+  private isStop(commands: CommandIntent[]): boolean {
+    return commands.some(cmd => cmd.commandType === 'stop');
   }
 
   private isGeneralCommand(commands: CommandIntent[]): boolean {

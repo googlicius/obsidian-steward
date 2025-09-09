@@ -54,7 +54,6 @@ export class GenerateCommandHandler extends CommandHandler {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `*Error generating content: ${error.message}*`,
-        role: 'Steward',
       });
 
       return {
