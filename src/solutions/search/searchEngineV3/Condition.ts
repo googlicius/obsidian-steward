@@ -19,9 +19,6 @@ export abstract class Condition<T = unknown> {
 
   /**
    * Evaluate the condition.
-   * Returns a promise of a Map where keys are document IDs and values contain the document and score.
-   * For non-scoring conditions, use a default score like 1 (match) or 0 (no relevance).
-   * @returns Promise<Map<number, ConditionResult>>
    */
   abstract evaluate(): Promise<Map<number, ConditionResult<T>>>;
 }

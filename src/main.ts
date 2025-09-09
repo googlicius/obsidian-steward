@@ -540,7 +540,7 @@ export default class StewardPlugin extends Plugin {
 
     try {
       // Check if we need to generate a summary
-      await this.checkAndGenerateSummary(conversationTitle);
+      await this.checkAndGenerateSummary(conversationTitle, view, line);
     } catch (error) {
       logger.error('Error in handleTyping:', error);
     }
@@ -550,16 +550,20 @@ export default class StewardPlugin extends Plugin {
    * Check if we need to generate a summary and do so if needed
    * @param conversationTitle The conversation title
    */
-  private async checkAndGenerateSummary(conversationTitle: string): Promise<void> {
+  private async checkAndGenerateSummary(
+    conversationTitle: string,
+    view: EditorView,
+    line: Line
+  ): Promise<void> {
     try {
-      // Get all messages from the conversation
-      const allMessages =
-        await this.conversationRenderer.extractAllConversationMessages(conversationTitle);
-
       if (this.commandProcessorService.isProcessing(conversationTitle)) {
         logger.log('Commands are in processing, skipping summary generation');
         return;
       }
+
+      // Get all messages from the conversation
+      const allMessages =
+        await this.conversationRenderer.extractAllConversationMessages(conversationTitle);
 
       let shouldRunSummary = false;
 
@@ -579,7 +583,12 @@ export default class StewardPlugin extends Plugin {
 
         // If we find a generate message first, we need to generate a summary
         if (message.command === 'generate') {
-          shouldRunSummary = true;
+          const commandBlock = this.commandInputService.getCommandBlock(view, line);
+          const fullCommandText = this.commandInputService.getCommandBlockContent(commandBlock);
+
+          if (fullCommandText.substring(2) !== '') {
+            shouldRunSummary = true;
+          }
           break;
         }
       }

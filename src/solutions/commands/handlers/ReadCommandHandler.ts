@@ -226,7 +226,6 @@ export class ReadCommandHandler extends CommandHandler {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `*Error reading content: ${error.message}*`,
-        role: 'Steward',
       });
 
       return {
