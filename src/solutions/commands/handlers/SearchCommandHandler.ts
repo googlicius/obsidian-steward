@@ -34,6 +34,27 @@ export class SearchCommandHandler extends CommandHandler {
     await this.renderer.addGeneratingIndicator(title, t('conversation.searching'));
   }
 
+  private async shouldUpdateTitle(title: string): Promise<boolean> {
+    try {
+      // Get all messages from the conversation
+      const messages = await this.renderer.extractAllConversationMessages(title);
+
+      // If there are only 1 message (user)
+      if (
+        messages.length === 1 &&
+        messages[0].role === 'user' &&
+        messages[0].command === 'search'
+      ) {
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      logger.error('Error checking if conversation is only help command:', error);
+      return false;
+    }
+  }
+
   /**
    * Handle a search command
    */
@@ -44,10 +65,17 @@ export class SearchCommandHandler extends CommandHandler {
       multipleOperationsConfirmed?: boolean;
     } = {}
   ): Promise<CommandResult> {
-    const { title, command, nextCommand } = params;
+    const { command, nextCommand } = params;
     const t = getTranslation(params.lang);
 
+    let title = params.title;
+
     try {
+      title =
+        params.title !== 'Search' && (await this.shouldUpdateTitle(title))
+          ? await this.renderer.updateTheTitle(params.title, 'Search')
+          : params.title;
+
       // Check if search index is built
       const isIndexBuilt = await this.plugin.searchService.documentStore.isIndexBuilt();
 

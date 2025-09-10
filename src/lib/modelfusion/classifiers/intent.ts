@@ -61,7 +61,6 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
       name: 'help' as const,
       values: [
         'help',
-        'commands',
         'list commands',
         'show commands',
         'available commands',

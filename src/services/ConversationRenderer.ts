@@ -113,6 +113,94 @@ export class ConversationRenderer {
     return newContent;
   }
 
+  public async updateTheTitle(
+    title: string,
+    newTitle: string,
+    options?: {
+      strategy: 'vaultEvent' | 'cmDispatch';
+    }
+  ): Promise<string> {
+    const { strategy = 'cmDispatch' } = options || {};
+
+    const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+
+    // Get the current file
+    const currentFile = this.plugin.app.vault.getFileByPath(`${folderPath}/${title}.md`);
+    const currentNote = this.plugin.app.workspace.getActiveFile();
+
+    if (!currentFile || !currentNote) {
+      return title;
+    }
+
+    const existingFile = this.plugin.app.vault.getFileByPath(`${folderPath}/${newTitle}.md`);
+    if (existingFile) {
+      await this.plugin.app.fileManager.trashFile(existingFile);
+    }
+
+    await this.plugin.app.fileManager.renameFile(currentFile, `${folderPath}/${newTitle}.md`);
+
+    const currentNoteContent = await this.plugin.app.vault.read(currentNote);
+    // Automatically updated by Obsidian
+    if (currentNoteContent.includes(`![[${newTitle}]]`)) {
+      return newTitle;
+    }
+
+    if (strategy === 'cmDispatch') {
+      const editorView = this.plugin.editor.cm;
+      const { state } = editorView;
+      const { doc } = state;
+
+      try {
+        const cursorPos = state.selection.main.head;
+        const cursorLine = doc.lineAt(cursorPos);
+
+        // Find the line 2 lines above the current cursor position
+        const targetLineNumber = Math.max(1, cursorLine.number - 2);
+        const targetLine = doc.line(targetLineNumber);
+
+        const lineText = targetLine.text;
+        const oldLinkText = `![[${folderPath}/${title}]]`;
+
+        if (lineText.includes(oldLinkText)) {
+          editorView.dispatch({
+            changes: {
+              from: targetLine.from,
+              to: targetLine.to,
+              insert: `![[${folderPath}/${newTitle}]]`,
+            },
+          });
+
+          return newTitle;
+        } else {
+          logger.log(`No embed link found on line ${targetLineNumber} to update`);
+          return title;
+        }
+      } catch (error) {
+        logger.error('Error updating embed link with CodeMirror dispatch:', error);
+        return title;
+      }
+    } else {
+      return new Promise(resolve => {
+        const eventRef = this.plugin.app.vault.on('modify', async file => {
+          if (file instanceof TFile && file.path === currentNote.path) {
+            // Off ref immediately
+            await this.plugin.app.vault.process(file, currentContent => {
+              return currentContent.replace(`${folderPath}/${title}`, `${folderPath}/${newTitle}`);
+            });
+            this.plugin.app.vault.offref(eventRef);
+            resolve(newTitle);
+          }
+        });
+
+        // Ensure the event is off
+        setTimeout(() => {
+          this.plugin.app.vault.offref(eventRef);
+          resolve(newTitle);
+        }, 3000);
+      });
+    }
+  }
+
   /**
    * Updates a conversation note with the given content
    */
@@ -577,6 +665,12 @@ export class ConversationRenderer {
         default:
           initialContent += `*${t('conversation.orchestrating')}*`;
           break;
+      }
+
+      // Remove the conversation note if exist
+      const existingFile = this.plugin.app.vault.getFileByPath(notePath);
+      if (existingFile) {
+        await this.plugin.app.fileManager.trashFile(existingFile);
       }
 
       // Create the conversation note

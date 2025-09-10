@@ -27,15 +27,38 @@ export class AudioCommandHandler extends CommandHandler {
     await this.renderer.addGeneratingIndicator(title, t('conversation.generatingAudio'));
   }
 
+  private async shouldUpdateTitle(title: string): Promise<boolean> {
+    try {
+      // Get all messages from the conversation
+      const messages = await this.renderer.extractAllConversationMessages(title);
+
+      // If there are only 1 message (user)
+      if (messages.length === 1 && messages[0].role === 'user' && messages[0].command === 'audio') {
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      return false;
+    }
+  }
+
   /**
    * Handle an audio command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command, lang } = params;
+    const { command, lang } = params;
 
     const t = getTranslation(lang);
 
+    let title = params.title;
+
     try {
+      title =
+        params.title !== 'Audio' && (await this.shouldUpdateTitle(title))
+          ? await this.renderer.updateTheTitle(params.title, 'Audio')
+          : params.title;
+
       const extraction = await extractAudioQuery(command);
 
       await this.renderer.updateConversationNote({

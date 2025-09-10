@@ -68,7 +68,8 @@
 - [x] Add the ability to the frontend side to enrich the context if LLMs don't work properly.
       Pass the selection to the downstream commands.
 - [ ] Add search settings: Proximity threshold, Coverage configure.
-- [ ] Offline search: exact, contain, and start with.
+- [x] Offline search: exact and contain.
+- [ ] Classify dynamic threshold
 
 ### BUGS
 
@@ -77,4 +78,4 @@
       include all content of any wikilinks along with the user query.
 - [x] The systemPrompts in the User-Defined command currently load content from wikilinks only one level (Need 2 levels to resolve content of wikilinks in the system prompt)
 - [x] Double user messages in the actual generate.
-- [ ] Cannot stop
+- [x] Cannot stop
