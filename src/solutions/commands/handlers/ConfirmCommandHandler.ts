@@ -22,7 +22,7 @@ export class ConfirmCommandHandler extends CommandHandler {
    * Handle a confirmation command by checking if the previous command needs confirmation
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command, prevCommand, lang } = params;
+    const { title, command, lang } = params;
     const t = getTranslation(lang);
 
     const confirmationIntent = this.isConfirmIntent(command);
@@ -48,7 +48,14 @@ export class ConfirmCommandHandler extends CommandHandler {
       !pendingCommandData.lastCommandResult ||
       pendingCommandData.lastCommandResult.status !== CommandResultStatus.NEEDS_CONFIRMATION
     ) {
-      if (!prevCommand) {
+      const history = (await this.renderer.extractAllConversationMessages(title)).filter(
+        message =>
+          message.command !== 'summary' &&
+          message.command !== 'confirm' &&
+          message.role === 'assistant'
+      );
+
+      if (history.length === 0) {
         await this.plugin.conversationRenderer.updateConversationNote({
           path: title,
           newContent: t('confirmation.noPending'),
@@ -63,8 +70,8 @@ export class ConfirmCommandHandler extends CommandHandler {
 
       logger.log('No pending command to confirm, letting LLMs handle it.');
 
-      // If the previous command was a generate command, it is more likely that the user is responding to the previous message.
-      if (prevCommand.commandType === 'generate') {
+      // If the previous message was a generate command, it is more likely that the user is responding to the previous message.
+      if (history[history.length - 1].command === 'generate') {
         // Forward the query to the generate command.
         await this.commandProcessor.processCommands({
           title,

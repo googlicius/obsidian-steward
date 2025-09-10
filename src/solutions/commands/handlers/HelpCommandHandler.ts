@@ -27,14 +27,40 @@ export class HelpCommandHandler extends CommandHandler {
     await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
   }
 
+  private async isOnyOneUserMessage(title: string): Promise<boolean> {
+    try {
+      // Get all messages from the conversation
+      const messages = await this.renderer.extractAllConversationMessages(title);
+
+      // If there are only 1 message (user)
+      if (messages.length === 1 && messages[0].role === 'user') {
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      logger.error('Error checking if conversation is only help command:', error);
+      return false;
+    }
+  }
+
   /**
    * Handle a help command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, lang } = params;
+    const { lang } = params;
     const t = getTranslation(lang);
 
     try {
+      // Check if this is just a help command conversation
+      const isOnlyHelp = await this.isOnyOneUserMessage(params.title);
+      const newTitle = 'Help';
+
+      const title =
+        !isOnlyHelp || params.title === newTitle
+          ? params.title
+          : await this.renderer.updateTheTitle(params.title, newTitle);
+
       // Format the commands list
       let content = `${t('common.availableCommands')}\n\n`;
 

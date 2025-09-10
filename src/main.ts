@@ -43,6 +43,7 @@ import { LLMService } from './services/LLMService';
 import stewardIcon from './assets/steward-icon.svg';
 import { createStwSelectedBlocksExtension } from './cm/extensions/StwSelectedBlockExtension';
 import { createStwSqueezedBlocksExtension } from './cm/extensions/StwSqueezedBlockExtension';
+import { capitalizeString } from './utils/capitalizeString';
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -477,7 +478,7 @@ export default class StewardPlugin extends Plugin {
 
         // Create a title now so we can safely refer to it later
         const formattedDate = formatDateTime();
-        const title = `${commandType.trim() || 'General'} command ${formattedDate}`;
+        const title = `${capitalizeString(commandType.trim()) || 'General'} ${formattedDate}`;
 
         await this.conversationRenderer.createConversationNote(title, commandType, commandQuery);
 
