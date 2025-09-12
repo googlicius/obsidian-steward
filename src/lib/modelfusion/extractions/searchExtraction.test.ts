@@ -58,6 +58,7 @@ describe('extractSearchQueryV2', () => {
       explanation: 'translated_search.searchingFor',
       lang: 'en',
       confidence: 1,
+      needsLLM: false,
     });
 
     // Test with single quotes
@@ -90,6 +91,7 @@ describe('extractSearchQueryV2', () => {
       explanation: 'translated_search.searchingFor',
       lang: 'en',
       confidence: 1,
+      needsLLM: false,
     });
   });
 
@@ -118,6 +120,7 @@ describe('extractSearchQueryV2', () => {
       explanation: 'translated_search.searchingForTags',
       lang: 'en',
       confidence: 1,
+      needsLLM: false,
     });
 
     // Test with a single tag
@@ -140,6 +143,7 @@ describe('extractSearchQueryV2', () => {
       explanation: 'translated_search.searchingForTags',
       lang: 'en',
       confidence: 1,
+      needsLLM: false,
     });
   });
 });
