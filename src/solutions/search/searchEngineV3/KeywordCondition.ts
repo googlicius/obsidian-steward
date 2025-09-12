@@ -2,6 +2,7 @@ import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 import { Condition, ConditionResult } from './Condition';
 import { ExactPhraseMatch } from '../types';
 import { IndexedDocument, IndexedTerm, TermSource } from 'src/database/SearchDatabase';
+import { getQualifiedCandidates } from 'src/utils/getQualifiedCandidates';
 
 /**
  * Condition for keyword search.
@@ -232,51 +233,24 @@ export class KeywordCondition extends Condition<IndexedDocument> {
     terms: string[]
   ): number[] {
     const MIN_THRESHOLD = 0.6;
-    const MAX_THRESHOLD = 1.0;
     const MIN_QUALIFIED_IDS = 10;
 
     if (terms.length === 0) {
       return [];
     }
 
-    // Use a more efficient approach with bucketed ratios
-    const bucketSize = 0.1;
-    const buckets = new Map<number, number[]>(); // bucket -> document IDs
+    const candidates = Array.from(documentTermMap.entries()).map(([docId, docTermsSet]) => ({
+      candidate: docId,
+      score: docTermsSet.size / terms.length,
+    }));
 
-    // Distribute documents into buckets based on their ratio
-    for (const [docId, docTermsSet] of documentTermMap) {
-      const ratio = docTermsSet.size / terms.length;
+    const qualifiedCandidates = getQualifiedCandidates(candidates, {
+      bucketSize: 0.1,
+      minThreshold: MIN_THRESHOLD,
+      minCount: MIN_QUALIFIED_IDS,
+    });
 
-      if (ratio >= MIN_THRESHOLD) {
-        const bucketIndex = Math.min(
-          Math.floor(ratio / bucketSize),
-          Math.floor(MAX_THRESHOLD / bucketSize)
-        );
-
-        if (!buckets.has(bucketIndex)) {
-          buckets.set(bucketIndex, []);
-        }
-        buckets.get(bucketIndex)?.push(docId);
-      }
-    }
-
-    // Collect results starting from highest ratio buckets
-    const sortedBuckets = Array.from(buckets.keys()).sort((a, b) => b - a);
-    const qualifiedIds: number[] = [];
-
-    for (const bucketIndex of sortedBuckets) {
-      const bucketDocs = buckets.get(bucketIndex) as number[];
-
-      // Add documents from this bucket
-      qualifiedIds.push(...bucketDocs);
-
-      // Stop if we have enough results and meet minimum requirements
-      if (qualifiedIds.length >= MIN_QUALIFIED_IDS) {
-        break;
-      }
-    }
-
-    return qualifiedIds;
+    return qualifiedCandidates.map(item => item.candidate);
   }
 
   async evaluate() {

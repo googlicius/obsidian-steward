@@ -12,4 +12,12 @@ describe('Tokenizer', () => {
       expect(tokens).toMatchSnapshot();
     });
   });
+
+  describe('tokenize', () => {
+    it('should return terms with correct positions', () => {
+      const tokenizer = new Tokenizer();
+
+      expect(tokenizer.tokenize('My cat is on the table')).toMatchSnapshot();
+    });
+  });
 });

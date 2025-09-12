@@ -1,5 +1,31 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`Tokenizer tokenize should return terms with correct positions 1`] = `
+[
+  {
+    "count": 1,
+    "positions": [
+      0,
+    ],
+    "term": "My",
+  },
+  {
+    "count": 1,
+    "positions": [
+      1,
+    ],
+    "term": "cat",
+  },
+  {
+    "count": 1,
+    "positions": [
+      2,
+    ],
+    "term": "table",
+  },
+]
+`;
+
 exports[`Tokenizer wordDelimiter analyzer should split words by dashes and underscores while preserving original tokens 1`] = `
 [
   {

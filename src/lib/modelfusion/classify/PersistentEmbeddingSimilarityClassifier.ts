@@ -3,6 +3,7 @@ import { embed, embedMany, cosineSimilarity } from 'ai';
 import { EmbeddingModelV1 } from '@ai-sdk/provider';
 import { EmbeddingsDatabase, EmbeddingEntry } from 'src/database/EmbeddingsDatabase';
 import { logger } from 'src/utils/logger';
+import { getQualifiedCandidates } from 'src/utils/getQualifiedCandidates';
 import crypto from 'crypto';
 
 export interface ValueCluster<VALUE extends string, NAME extends string> {
@@ -566,97 +567,30 @@ export class PersistentEmbeddingSimilarityClassifier<
       };
     }
 
-    const allMatches: Array<{
-      similarity: number;
-      clusterValue: VALUE;
-      clusterName: string;
-    }> = [];
+    const candidates = clusterEmbeddings.map(item => {
+      return {
+        candidate: {
+          clusterName: item.clusterName,
+          clusterValue: item.clusterValue,
+          id: item.id,
+        },
+        score: cosineSimilarity(embeddingResult.embedding, item.embedding),
+      };
+    });
 
-    for (const embedding of clusterEmbeddings) {
-      const similarity = cosineSimilarity(embeddingResult.embedding, embedding.embedding);
+    const qualifiedCandidates = getQualifiedCandidates(candidates, {
+      minCount: 1,
+      minThreshold: this.settings.similarityThreshold,
+      bucketSize: 0.01,
+    });
 
-      if (similarity >= this.settings.similarityThreshold) {
-        allMatches.push({
-          similarity,
-          clusterValue: embedding.clusterValue,
-          clusterName: embedding.clusterName,
-        });
-      }
-
-      // else if (similarity >= 0.7) {
-      //   logger.log('Similarity is greater than 0.7', similarity, embedding);
-      // }
-    }
-
-    // sort (highest similarity first)
-    const firstFiveMatches = allMatches.sort((a, b) => b.similarity - a.similarity).slice(0, 5);
-
-    logger.log(`First ${firstFiveMatches.length} matches`, firstFiveMatches);
-    const countClusterNames = new Set(firstFiveMatches.map(m => m.clusterName));
-
-    // If there are multiple clusters with similar matches
-    if (countClusterNames.size > 1) {
-      const firstMatch = firstFiveMatches[0];
-      if (!firstMatch.clusterName.includes(':') && firstMatch.similarity < 0.99) {
-        return this.findDominantCluster(firstFiveMatches);
-      }
-    }
+    logger.log(`Found ${qualifiedCandidates.length} qualified candidates`, qualifiedCandidates);
 
     return {
       class:
-        firstFiveMatches.length > 0
-          ? (firstFiveMatches[0].clusterName as unknown as ClusterNames<CLUSTERS>)
+        qualifiedCandidates.length > 0
+          ? (qualifiedCandidates[0].candidate.clusterName as unknown as ClusterNames<CLUSTERS>)
           : null,
-      rawResponse: undefined,
-    };
-  }
-
-  /**
-   * Analyzes match results and finds the dominant cluster if one exists
-   * @param matches Array of matches with similarity scores and cluster names
-   * @returns Classification result with either the dominant cluster or null
-   */
-  private findDominantCluster(
-    matches: Array<{
-      similarity: number;
-      clusterValue: VALUE;
-      clusterName: string;
-    }>
-  ) {
-    // Count matches per cluster
-    const clusterCounts: Record<string, number> = {};
-    for (const match of matches) {
-      clusterCounts[match.clusterName] = (clusterCounts[match.clusterName] || 0) + 1;
-    }
-
-    // Find the cluster with the most matches
-    let maxCount = 0;
-    let dominantCluster = '';
-    for (const [cluster, count] of Object.entries(clusterCounts)) {
-      if (count > maxCount) {
-        maxCount = count;
-        dominantCluster = cluster;
-      }
-    }
-
-    // Calculate the percentage of the dominant cluster
-    const dominantPercentage = (maxCount / matches.length) * 100;
-
-    logger.log(
-      `Dominant cluster "${dominantCluster}" has ${dominantPercentage.toFixed(2)}% of matches`
-    );
-
-    // If dominant cluster has more than 80% of matches, return it
-    if (dominantPercentage >= 80) {
-      return {
-        class: dominantCluster as unknown as ClusterNames<CLUSTERS>,
-        rawResponse: undefined,
-      };
-    }
-
-    // Otherwise still return null
-    return {
-      class: null,
       rawResponse: undefined,
     };
   }

@@ -12,12 +12,23 @@ import {
   SearchQueryExtractionV2,
   SearchOperationV2,
 } from 'src/lib/modelfusion/extractions';
-import { highlightKeyword } from 'src/utils/highlightKeywords';
 import { MediaTools } from 'src/tools/mediaTools';
 import type StewardPlugin from 'src/main';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { PaginatedSearchResult } from 'src/solutions/search/types';
 import { IndexedDocument } from 'src/database/SearchDatabase';
+import { STOPWORDS } from 'src/solutions/search';
+
+type HighlighKeywordResult = {
+  highlightedText: string;
+  lineNumber: number;
+  termMatches: {
+    term: string;
+    start: number;
+    end: number;
+    match: string;
+  }[];
+};
 
 export class SearchCommandHandler extends CommandHandler {
   isContentRequired = true;
@@ -65,16 +76,16 @@ export class SearchCommandHandler extends CommandHandler {
       multipleOperationsConfirmed?: boolean;
     } = {}
   ): Promise<CommandResult> {
-    const { command, nextCommand } = params;
+    const { title, command, nextCommand } = params;
     const t = getTranslation(params.lang);
 
-    let title = params.title;
+    // let title = params.title;
 
     try {
-      title =
-        params.title !== 'Search' && (await this.shouldUpdateTitle(title))
-          ? await this.renderer.updateTheTitle(params.title, 'Search')
-          : params.title;
+      // title =
+      //   params.title !== 'Search' && (await this.shouldUpdateTitle(title))
+      //     ? await this.renderer.updateTheTitle(params.title, 'Search')
+      //     : params.title;
 
       // Check if search index is built
       const isIndexBuilt = await this.plugin.searchService.documentStore.isIndexBuilt();
@@ -111,7 +122,11 @@ export class SearchCommandHandler extends CommandHandler {
       queryExtraction.operations = this.repairExtractionOperations(queryExtraction.operations);
 
       // Check if there are multiple operations and we haven't already confirmed them
-      if (queryExtraction.operations.length > 1 && !options.multipleOperationsConfirmed) {
+      if (
+        queryExtraction.needsLLM &&
+        queryExtraction.operations.length > 1 &&
+        !options.multipleOperationsConfirmed
+      ) {
         // Format the operations for display
         let message =
           t('search.multipleOperationsHeader', {
@@ -330,7 +345,13 @@ export class SearchCommandHandler extends CommandHandler {
 
           // Get highlighted matches from the entire file content
           const highlightedMatches = result.keywordsMatched.reduce((acc, keyword) => {
-            return [...acc, ...highlightKeyword(keyword, fileContent)];
+            return [
+              ...acc,
+              ...this.highlightKeyword(
+                keyword,
+                this.plugin.noteContentService.toMarkdownLink(fileContent)
+              ),
+            ];
           }, []);
 
           // Show up to 3 highlighted matches
@@ -342,12 +363,12 @@ export class SearchCommandHandler extends CommandHandler {
               // Format as a stw-search-result callout with position data
               const match = highlightedMatches[i];
               const callout = this.plugin.noteContentService.formatCallout(
-                match.text,
+                match.highlightedText,
                 'stw-search-result',
                 {
                   line: match.lineNumber,
-                  start: match.start,
-                  end: match.end,
+                  start: match.termMatches[0].start,
+                  end: match.termMatches[match.termMatches.length - 1].end,
                   path: result.document.path,
                 }
               );
@@ -371,5 +392,126 @@ export class SearchCommandHandler extends CommandHandler {
     }
 
     return response;
+  }
+
+  private highlightKeyword(
+    keyword: string,
+    content: string,
+    options?: {
+      beforeMark?: string;
+      afterMark?: string;
+    }
+  ): HighlighKeywordResult[] {
+    const { beforeMark = '==', afterMark = '==' } = options || {};
+    const tokenizer = this.plugin.searchService.contentTokenizer.withConfig({
+      removeStopwords: false,
+    });
+    tokenizer.addNormalizers('removeTagPrefix');
+    const keywordTerms = tokenizer.tokenize(keyword).map(item => item.term);
+    const termsPattern = keywordTerms.join('|');
+    const lines = content.split('\n');
+    const results: HighlighKeywordResult[] = [];
+
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      const lineText = lines[lineIndex];
+      const normalizedLineText = lineText
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove combining diacritical marks
+        .normalize('NFC');
+
+      if (!lineText.trim()) {
+        continue;
+      }
+
+      const lineResults: HighlighKeywordResult['termMatches'] = [];
+      let containStopwordsOnly = true;
+
+      // Regex to match terms but exclude those inside markdown link paths: [display](path)
+      // First, we need to identify positions inside markdown link paths and exclude them
+      const markdownLinkPathRegex = /\]\([^)]+\)/g;
+      const linkPathPositions: { start: number; end: number }[] = [];
+      let linkMatch: RegExpExecArray | null;
+
+      // Find all markdown link path positions
+      while ((linkMatch = markdownLinkPathRegex.exec(normalizedLineText)) !== null) {
+        linkPathPositions.push({
+          start: linkMatch.index + 2, // Start after "]("
+          end: linkMatch.index + linkMatch[0].length - 1, // End before ")"
+        });
+      }
+
+      const regex = new RegExp(`(?:\\B#|\\b)(${termsPattern})\\b`, 'gi');
+      let match: RegExpExecArray | null;
+
+      while ((match = regex.exec(normalizedLineText)) !== null) {
+        const start = match.index;
+        const end = match.index + match[0].length;
+
+        // Check if this match is inside a markdown link path
+        const isInsideLinkPath = linkPathPositions.some(
+          linkPath => start >= linkPath.start && end <= linkPath.end
+        );
+
+        // Skip matches that are inside markdown link paths
+        if (isInsideLinkPath) {
+          continue;
+        }
+
+        lineResults.push({
+          // Get term from the lineText not from the normalized or match[0]
+          term: lineText.slice(start, end),
+          start,
+          end,
+          match: match[0],
+        });
+
+        if (!STOPWORDS.has(match[0])) {
+          containStopwordsOnly = false;
+        }
+      }
+
+      if (lineResults.length === 0 || containStopwordsOnly) {
+        continue;
+      }
+
+      lineResults.sort((a, b) => a.start - b.start);
+      let lastIndex = 0;
+      let highlightedText = '';
+
+      for (const match of lineResults) {
+        const inHighlight =
+          highlightedText.slice(-afterMark.length) === afterMark && match.start - lastIndex < 2;
+
+        // Remove the afterMark if it is in highlight
+        if (inHighlight) {
+          highlightedText = highlightedText.slice(0, -afterMark.length);
+        }
+
+        // Add text before the match
+        highlightedText += lineText.slice(lastIndex, match.start);
+
+        // Add highlighted match
+        if (inHighlight) {
+          highlightedText += match.term + afterMark;
+        } else {
+          highlightedText += beforeMark + match.term + afterMark;
+        }
+
+        // Update last processed position
+        lastIndex = match.end;
+      }
+
+      // Add remaining text after the last match
+      highlightedText += lineText.slice(lastIndex);
+
+      results.push({
+        highlightedText,
+        lineNumber: lineIndex + 1,
+        termMatches: lineResults,
+      });
+    }
+
+    return results.sort((a, b) => b.termMatches.length - a.termMatches.length);
   }
 }

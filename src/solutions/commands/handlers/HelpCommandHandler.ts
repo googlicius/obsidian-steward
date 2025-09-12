@@ -48,18 +48,18 @@ export class HelpCommandHandler extends CommandHandler {
    * Handle a help command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { lang } = params;
+    const { title, lang } = params;
     const t = getTranslation(lang);
 
     try {
       // Check if this is just a help command conversation
-      const isOnlyHelp = await this.isOnyOneUserMessage(params.title);
-      const newTitle = 'Help';
+      // const isOnlyHelp = await this.isOnyOneUserMessage(params.title);
+      // const newTitle = 'Help';
 
-      const title =
-        !isOnlyHelp || params.title === newTitle
-          ? params.title
-          : await this.renderer.updateTheTitle(params.title, newTitle);
+      // const title =
+      //   !isOnlyHelp || params.title === newTitle
+      //     ? params.title
+      //     : await this.renderer.updateTheTitle(params.title, newTitle);
 
       // Format the commands list
       let content = `${t('common.availableCommands')}\n\n`;
