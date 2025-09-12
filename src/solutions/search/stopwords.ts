@@ -1,7 +1,7 @@
 /**
  * List of common English stopwords to filter out from search
  */
-const STOPWORDS = new Set([
+export const STOPWORDS = new Set([
   'a',
   'an',
   'and',

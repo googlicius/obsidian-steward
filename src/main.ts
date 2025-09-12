@@ -478,7 +478,9 @@ export default class StewardPlugin extends Plugin {
 
         // Create a title now so we can safely refer to it later
         const formattedDate = formatDateTime();
-        const title = `${capitalizeString(commandType.trim()) || 'General'} ${formattedDate}`;
+        const title = ['search', 'help', 'audio', 'image'].includes(commandType)
+          ? capitalizeString(commandType)
+          : `${capitalizeString(commandType.trim()) || 'General'} ${formattedDate}`;
 
         await this.conversationRenderer.createConversationNote(title, commandType, commandQuery);
 

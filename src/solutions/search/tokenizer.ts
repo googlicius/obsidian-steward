@@ -1,4 +1,4 @@
-import { removeStopwords } from '../../stopwords';
+import { removeStopwords } from './stopwords';
 import { STW_SELECTED_PATTERN, STW_SQUEEZED_PATTERN } from '../../constants';
 
 export interface Token {
@@ -91,6 +91,7 @@ export const ALL_NORMALIZERS: Record<string, Normalizer['apply']> = {
     content.replace(new RegExp(STW_SELECTED_PATTERN, 'g'), ' '),
   removeStwSqueezedPatterns: (content: string) =>
     content.replace(new RegExp(STW_SQUEEZED_PATTERN, 'g'), ' '),
+  removeTagPrefix: (content: string) => content.replace(/#([^#\s]+)/g, '$1'),
 };
 
 export class Tokenizer {
@@ -111,6 +112,13 @@ export class Tokenizer {
     if (config.analyzers) {
       this.addAnalyzers(...config.analyzers);
     }
+  }
+
+  public withConfig(config: TokenizerConfig): Tokenizer {
+    return new Tokenizer({
+      ...this.config,
+      ...config,
+    });
   }
 
   /**

@@ -359,4 +359,22 @@ export class NoteContentService {
       return null;
     }
   }
+
+  /**
+   * Convert any wikilinks to markdown links
+   */
+  toMarkdownLink(content: string): string {
+    const wikiLinkRegex = new RegExp(WIKI_LINK_PATTERN, 'g');
+
+    return content.replace(wikiLinkRegex, (match, linkContent) => {
+      if (linkContent.includes('|')) {
+        const [link, displayText] = linkContent.split('|', 2);
+        const encodedLink = encodeURIComponent(link);
+        return `[${displayText}](${encodedLink})`;
+      }
+
+      const encodedLink = encodeURIComponent(linkContent);
+      return `[${linkContent}](${encodedLink})`;
+    });
+  }
 }

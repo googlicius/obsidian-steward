@@ -170,6 +170,8 @@ export class ConversationRenderer {
             },
           });
 
+          logger.log(`Updated embed link to ${newTitle}`);
+
           return newTitle;
         } else {
           logger.log(`No embed link found on line ${targetLineNumber} to update`);

@@ -18,7 +18,7 @@ export function getClassifier(embeddingModel: string, isReloadRequest = false) {
       return intentClassifier.withSettings({
         embeddingModel: google.textEmbeddingModel(modelId),
         modelName: modelId,
-        similarityThreshold: 0.77,
+        similarityThreshold: 0.7,
         ignoreEmbedding: isReloadRequest,
       });
     }

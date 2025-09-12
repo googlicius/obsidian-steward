@@ -42,7 +42,7 @@
       For example: The user wants to read the paragraph above and ask for something. But the paragraph is still mention "above" or a note, suggests there is something out of the paragraph. So the LLM needs to read it to collect enough data.
 - [x] When reloading a read command, ensure the cursor position is correct, whether telling the user or store it in the metadata.
 - [ ] Ensure the highlightKeywords function has the same behavior as the tokenizer.normalizers.
-- [ ] Add search records per page setting
+- [x] Add search records per page setting
 - [x] Test these queries:
       [x] Append "Hello word" to the note 2025-07-24 (In chat, Gemini)
       [ ] Read the question above and tell me the result. Refer to the Operator note to get the operator
@@ -69,7 +69,9 @@
       Pass the selection to the downstream commands.
 - [ ] Add search settings: Proximity threshold, Coverage configure.
 - [x] Offline search: exact and contain.
-- [ ] Classify dynamic threshold
+- [x] Classify dynamic threshold
+- [ ] Auto build search index
+- [ ] Build index for PDF files
 
 ### BUGS
 

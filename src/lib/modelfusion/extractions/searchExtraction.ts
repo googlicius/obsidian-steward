@@ -33,6 +33,7 @@ export interface SearchQueryExtractionV2 {
   explanation: string;
   lang?: string;
   confidence: number;
+  needsLLM: boolean;
 }
 
 // Define the Zod schema for search operation validation
@@ -130,6 +131,7 @@ export async function extractSearchQueryV2({
       explanation: t('search.searchingFor', { searchTerm }),
       lang: lang || getObsidianLanguage(),
       confidence: 1,
+      needsLLM: false,
     };
   }
 
@@ -160,6 +162,7 @@ export async function extractSearchQueryV2({
       }),
       lang: lang || getObsidianLanguage(),
       confidence: 1,
+      needsLLM: false,
     };
   }
 
@@ -196,6 +199,7 @@ export async function extractSearchQueryV2({
     return {
       ...object,
       lang: object.lang || lang || getObsidianLanguage(),
+      needsLLM: true,
     };
   } catch (error) {
     logger.error('Error extracting search query:', error);
