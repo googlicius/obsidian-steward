@@ -230,18 +230,18 @@ export class KeywordCondition extends Condition<IndexedDocument> {
    */
   private getQualifiedDocumentIds(
     documentTermMap: Map<number, Set<string>>,
-    terms: string[]
+    keywordTerms: string[]
   ): number[] {
     const MIN_THRESHOLD = 0.6;
-    const MIN_QUALIFIED_IDS = 10;
+    const MIN_QUALIFIED_IDS = 5;
 
-    if (terms.length === 0) {
+    if (keywordTerms.length === 0) {
       return [];
     }
 
     const candidates = Array.from(documentTermMap.entries()).map(([docId, docTermsSet]) => ({
       candidate: docId,
-      score: docTermsSet.size / terms.length,
+      score: docTermsSet.size / keywordTerms.length,
     }));
 
     const qualifiedCandidates = getQualifiedCandidates(candidates, {

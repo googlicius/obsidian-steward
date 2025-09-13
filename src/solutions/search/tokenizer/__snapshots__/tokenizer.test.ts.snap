@@ -1,5 +1,53 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`Tokenizer stemmer analyzer should merge tokens that stem to the same root form 1`] = `
+[
+  {
+    "count": 3,
+    "positions": [
+      0,
+      1,
+      2,
+    ],
+    "term": "run",
+  },
+]
+`;
+
+exports[`Tokenizer stemmer analyzer should reduce words to their root form using Porter stemming algorithm 1`] = `
+[
+  {
+    "count": 2,
+    "positions": [
+      0,
+      4,
+    ],
+    "term": "run",
+  },
+  {
+    "count": 1,
+    "positions": [
+      1,
+    ],
+    "term": "quickli",
+  },
+  {
+    "count": 1,
+    "positions": [
+      2,
+    ],
+    "term": "better",
+  },
+  {
+    "count": 1,
+    "positions": [
+      3,
+    ],
+    "term": "fastest",
+  },
+]
+`;
+
 exports[`Tokenizer tokenize should return terms with correct positions 1`] = `
 [
   {

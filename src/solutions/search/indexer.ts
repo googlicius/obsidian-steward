@@ -1,6 +1,6 @@
 import { App, TFile, EventRef, MarkdownView, FrontMatterCache } from 'obsidian';
 import { DocumentStore } from './documentStore';
-import { Tokenizer } from './tokenizer';
+import { Tokenizer } from './tokenizer/tokenizer';
 import { TermSource, IndexedProperty } from '../../database/SearchDatabase';
 import { logger } from '../../utils/logger';
 import { COMMAND_PREFIXES } from '../../constants';
