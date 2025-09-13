@@ -230,18 +230,18 @@ export class KeywordCondition extends Condition<IndexedDocument> {
    */
   private getQualifiedDocumentIds(
     documentTermMap: Map<number, Set<string>>,
-    terms: string[]
+    keywordTerms: string[]
   ): number[] {
     const MIN_THRESHOLD = 0.6;
-    const MIN_QUALIFIED_IDS = 10;
+    const MIN_QUALIFIED_IDS = 5;
 
-    if (terms.length === 0) {
+    if (keywordTerms.length === 0) {
       return [];
     }
 
     const candidates = Array.from(documentTermMap.entries()).map(([docId, docTermsSet]) => ({
       candidate: docId,
-      score: docTermsSet.size / terms.length,
+      score: docTermsSet.size / keywordTerms.length,
     }));
 
     const qualifiedCandidates = getQualifiedCandidates(candidates, {
@@ -294,9 +294,9 @@ export class KeywordCondition extends Condition<IndexedDocument> {
       // Filter out documents with 0 proximity bonus and merge into overall result map
       for (const [docId, scoredDoc] of scoredDocumentsMap.entries()) {
         // Skip documents with 0 proximity bonus
-        // if (scoredDoc.proximityBonus === 0) {
-        //   continue;
-        // }
+        if (scoredDoc.proximityBonus === 0) {
+          continue;
+        }
 
         if (documentsMap.has(docId)) {
           const existingResult = documentsMap.get(docId);

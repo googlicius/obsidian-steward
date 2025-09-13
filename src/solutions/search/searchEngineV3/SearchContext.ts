@@ -1,5 +1,5 @@
 import { DocumentStore } from '../documentStore';
-import { Tokenizer } from '../tokenizer';
+import { Tokenizer } from '../tokenizer/tokenizer';
 import { Scoring } from '../scoring';
 
 export interface SearchContext {

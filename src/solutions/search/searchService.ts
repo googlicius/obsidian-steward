@@ -1,5 +1,5 @@
 import { DocumentStore } from './documentStore';
-import { Tokenizer } from './tokenizer';
+import { Tokenizer } from './tokenizer/tokenizer';
 import { Indexer } from './indexer';
 import { Scoring } from './scoring';
 import type StewardPlugin from '../../main';
@@ -58,11 +58,12 @@ export class SearchService {
         'removeStwSelectedPatterns',
         'removeStwSqueezedPatterns',
       ],
+      analyzers: ['stemmer'],
     });
 
     this.nameTokenizer = new Tokenizer({
       normalizers: ['lowercase', 'removeSpecialChars', 'removeVietnameseDiacritics'],
-      analyzers: ['wordDelimiter'],
+      analyzers: ['wordDelimiter', 'stemmer'],
     });
 
     this.documentStore = new DocumentStore({

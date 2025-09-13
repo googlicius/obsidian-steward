@@ -408,7 +408,9 @@ export class SearchCommandHandler extends CommandHandler {
     });
     tokenizer.addNormalizers('removeTagPrefix');
     const keywordTerms = tokenizer.tokenize(keyword).map(item => item.term);
-    const termsPattern = keywordTerms.join('|');
+    // Preserve original terms for highlighting
+    const keywordTerms2 = keyword.split(' ');
+    const termsPattern = [...new Set([...keywordTerms, ...keywordTerms2])].join('|');
     const lines = content.split('\n');
     const results: HighlighKeywordResult[] = [];
 

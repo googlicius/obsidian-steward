@@ -1,5 +1,6 @@
 import { removeStopwords } from './stopwords';
-import { STW_SELECTED_PATTERN, STW_SQUEEZED_PATTERN } from '../../constants';
+import { stemmer } from './stemmer';
+import { STW_SELECTED_PATTERN, STW_SQUEEZED_PATTERN } from '../../../constants';
 
 export interface Token {
   term: string;
@@ -39,12 +40,21 @@ export const ALL_ANALYZERS: Record<string, Analyzer['process']> = {
    * while preserving the original token
    */
   wordDelimiter: (tokens: Token[]) => {
-    const result: Token[] = [...tokens];
+    const tokenMap = new Map<string, Token>();
 
-    // Process each token
-    for (let i = 0; i < tokens.length; i++) {
-      const token = tokens[i];
+    // Add all original tokens to the map
+    for (const token of tokens) {
+      const existingToken = tokenMap.get(token.term);
+      if (existingToken) {
+        existingToken.count += token.count;
+        existingToken.positions.push(...token.positions);
+      } else {
+        tokenMap.set(token.term, { ...token });
+      }
+    }
 
+    // Process each original token for splitting
+    for (const token of tokens) {
       // Check if token contains dashes or underscores
       if (token.term.includes('-') || token.term.includes('_')) {
         // Split the term by dashes and underscores
@@ -52,8 +62,8 @@ export const ALL_ANALYZERS: Record<string, Analyzer['process']> = {
 
         // Add each part as a new token if it's not already in the result
         for (const part of parts) {
-          // Check if this part already exists in the result
-          const existingToken = result.find(t => t.term === part);
+          // Check if this part already exists using O(1) Map lookup
+          const existingToken = tokenMap.get(part);
 
           if (existingToken) {
             // If it exists, merge the positions
@@ -61,7 +71,7 @@ export const ALL_ANALYZERS: Record<string, Analyzer['process']> = {
             existingToken.positions.push(...token.positions);
           } else {
             // Otherwise, add a new token
-            result.push({
+            tokenMap.set(part, {
               term: part,
               count: 1,
               positions: [...token.positions],
@@ -71,7 +81,38 @@ export const ALL_ANALYZERS: Record<string, Analyzer['process']> = {
       }
     }
 
-    return result;
+    return Array.from(tokenMap.values());
+  },
+
+  /**
+   * Stemmer analyzer that reduces words to their root form using the Porter stemming algorithm
+   * This helps match different forms of the same word (e.g., "running" -> "run", "better" -> "better")
+   */
+  stemmer: (tokens: Token[]) => {
+    const stemmedMap = new Map<string, Token>();
+
+    for (const token of tokens) {
+      const stemmedTerm = stemmer(token.term);
+
+      // Check if a stemmed version already exists using O(1) Map lookup
+      const existingToken = stemmedMap.get(stemmedTerm);
+
+      if (existingToken) {
+        // Merge with existing stemmed token
+        existingToken.count += token.count;
+        existingToken.positions.push(...token.positions);
+      } else {
+        // Add new stemmed token to map
+        stemmedMap.set(stemmedTerm, {
+          term: stemmedTerm,
+          count: token.count,
+          positions: [...token.positions],
+        });
+      }
+    }
+
+    // Convert map values to array
+    return Array.from(stemmedMap.values());
   },
 };
 

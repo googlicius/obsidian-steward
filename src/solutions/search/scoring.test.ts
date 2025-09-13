@@ -8,7 +8,9 @@ describe('scoring', () => {
 
     beforeEach(() => {
       mockDocumentStore = {} as DocumentStore;
-      scoring = new Scoring(mockDocumentStore);
+      scoring = new Scoring(mockDocumentStore, {
+        proximityThreshold: 10,
+      });
     });
 
     it('should return high score when 2 terms are next to each other', () => {
