@@ -23,25 +23,29 @@ export function termsProximity(
   // 2.3 If all remainingTerms are checked with the last item in the stack but not any close, exit fail.
 
   /**
-   * Check proximity between 2 terms
+   * Minimum distance between 2 terms
+   * Optimized approach using two pointers - O(m + n) time complexity
    */
-  function calcDistance(term1: string, term2: string): number {
+  function calMinDistance(term1: string, term2: string): number {
     const positions = termPositions.get(term1) || [];
     const nextPositions = termPositions.get(term2) || [];
 
-    const farthestPositionOfThisTerm = Math.max(...positions);
-    const closestPositionOfNextTerm = Math.min(...nextPositions);
+    let i = 0;
+    let j = 0;
+    let minDistance = Infinity;
 
-    // For backward traversal
-    const closestPositionOfThisTerm = Math.min(...positions);
-    const farthestPositionOfNextTerm = Math.max(...nextPositions);
+    while (i < positions.length && j < nextPositions.length) {
+      const distance = Math.abs(positions[i] - nextPositions[j]);
+      minDistance = minDistance ? Math.min(minDistance, distance) : distance;
 
-    const distance = Math.min(
-      Math.abs(closestPositionOfNextTerm - farthestPositionOfThisTerm),
-      Math.abs(farthestPositionOfNextTerm - closestPositionOfThisTerm)
-    );
+      if (positions[i] < nextPositions[j]) {
+        i++;
+      } else {
+        j++;
+      }
+    }
 
-    return distance;
+    return minDistance;
   }
 
   let index = 0;
@@ -63,7 +67,7 @@ export function termsProximity(
     const term = stack[stack.length - 1];
     const nextTerm = remainingTerms[index];
 
-    const distance = calcDistance(term, nextTerm);
+    const distance = calMinDistance(term, nextTerm);
 
     if (distance > proximityThreshold) {
       if (index < remainingTerms.length - 1) {

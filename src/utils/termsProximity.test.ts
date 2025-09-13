@@ -111,4 +111,16 @@ describe('termsProximity', () => {
       minDistances: [],
     });
   });
+
+  it('should return true with *git tag* query', () => {
+    const termPositions = new Map([
+      ['git', [91, 92, 97, 107, 136, 139, 147]],
+      ['tag', [93, 129, 96, 98, 116, 135, 137, 140, 145, 148]],
+    ]);
+
+    expect(termsProximity(termPositions, ['git', 'tag'])).toMatchObject({
+      isProximity: true,
+      minDistances: [1],
+    });
+  });
 });
