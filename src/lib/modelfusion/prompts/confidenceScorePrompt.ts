@@ -1,6 +1,4 @@
-import { OpenAIChatMessage } from 'modelfusion';
-
-export const confidenceScorePrompt: OpenAIChatMessage = {
+export const confidenceScorePrompt = {
   role: 'system',
   content: `Add a property called "confidence" to the response JSON object that reflects your certainty about the interpretation.
 The confidence score from 0 to 1:

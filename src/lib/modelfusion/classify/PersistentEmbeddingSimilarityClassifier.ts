@@ -1,4 +1,3 @@
-import { Vector, FunctionCallOptions, Classifier, ClassifierSettings } from 'modelfusion';
 import { embed, embedMany, cosineSimilarity } from 'ai';
 import { EmbeddingModelV1 } from '@ai-sdk/provider';
 import { EmbeddingsDatabase, EmbeddingEntry } from 'src/database/EmbeddingsDatabase';
@@ -6,19 +5,16 @@ import { logger } from 'src/utils/logger';
 import { getQualifiedCandidates } from 'src/utils/getQualifiedCandidates';
 import crypto from 'crypto';
 
-export interface ValueCluster<VALUE extends string, NAME extends string> {
-  name: NAME;
-  values: VALUE[];
+export interface ValueCluster {
+  name: string;
+  values: string[];
 }
 
-export interface PersistentEmbeddingSimilarityClassifierSettings<
-  VALUE extends string,
-  CLUSTERS extends Array<ValueCluster<VALUE, string>>,
-> extends ClassifierSettings {
-  staticClusterValues?: CLUSTERS;
-  prefixedClusterValue?: CLUSTERS;
-  clusters: CLUSTERS;
-  embeddingModel: EmbeddingModelV1<VALUE>;
+export interface Settings {
+  staticClusterValues?: ValueCluster[];
+  prefixedClusterValue?: ValueCluster[];
+  clusters: ValueCluster[];
+  embeddingModel: EmbeddingModelV1<string>;
   similarityThreshold: number;
   modelName?: string;
   forceRefresh?: boolean;
@@ -26,11 +22,8 @@ export interface PersistentEmbeddingSimilarityClassifierSettings<
   ignoreEmbedding?: boolean; // Flag to indicate if embedding similarity check should be ignored
 }
 
-type ClusterNames<CLUSTERS> =
-  CLUSTERS extends Array<ValueCluster<string, infer NAME>> ? NAME : never;
-
 type EmbeddingCache<T> = {
-  embedding: Vector;
+  embedding: number[];
   clusterValue: T;
   clusterName: string;
   id?: number; // Add ID to the in-memory embeddings
@@ -43,17 +36,8 @@ type EmbeddingCache<T> = {
  *
  * This version persists embeddings to IndexedDB for faster startup times.
  */
-export class PersistentEmbeddingSimilarityClassifier<
-  VALUE extends string,
-  CLUSTERS extends Array<ValueCluster<VALUE, string>>,
-> implements
-    Classifier<
-      VALUE,
-      ClusterNames<CLUSTERS> | null,
-      PersistentEmbeddingSimilarityClassifierSettings<VALUE, CLUSTERS>
-    >
-{
-  readonly settings: PersistentEmbeddingSimilarityClassifierSettings<VALUE, CLUSTERS>;
+export class PersistentEmbeddingSimilarityClassifier {
+  readonly settings: Settings;
   private db: EmbeddingsDatabase;
 
   readonly modelInformation = {
@@ -68,15 +52,15 @@ export class PersistentEmbeddingSimilarityClassifier<
 
   private get embeddings() {
     return PersistentEmbeddingSimilarityClassifier.embeddingsCache as
-      | Array<EmbeddingCache<VALUE>>
+      | Array<EmbeddingCache<string>>
       | undefined;
   }
 
-  private set embeddings(value: Array<EmbeddingCache<VALUE>> | undefined) {
+  private set embeddings(value: Array<EmbeddingCache<string>> | undefined) {
     PersistentEmbeddingSimilarityClassifier.embeddingsCache = value;
   }
 
-  constructor(settings: PersistentEmbeddingSimilarityClassifierSettings<VALUE, CLUSTERS>) {
+  constructor(settings: Settings) {
     this.settings = settings;
     this.db = new EmbeddingsDatabase();
   }
@@ -92,7 +76,7 @@ export class PersistentEmbeddingSimilarityClassifier<
    * Generate a version hash for a specific cluster
    * @param cluster The cluster to hash
    */
-  private generateClusterHash(cluster: ValueCluster<VALUE, string>): string {
+  private generateClusterHash(cluster: ValueCluster): string {
     // Sort values for consistent hash
     const sortedValues = [...cluster.values].sort();
     // Create a string representation
@@ -108,7 +92,7 @@ export class PersistentEmbeddingSimilarityClassifier<
    * Check which clusters have changed by comparing version hashes
    * @returns Map of cluster names that need to be refreshed
    */
-  private async detectChangedClusters(): Promise<Map<string, ValueCluster<VALUE, string>>> {
+  private async detectChangedClusters(): Promise<Map<string, ValueCluster>> {
     try {
       const modelName = this.getModelStorageName();
 
@@ -116,7 +100,7 @@ export class PersistentEmbeddingSimilarityClassifier<
       const storedVersions = await this.db.getAllClusterVersions(modelName);
 
       // Map to store clusters that need to be refreshed
-      const changedClusters = new Map<string, ValueCluster<VALUE, string>>();
+      const changedClusters = new Map<string, ValueCluster>();
 
       // Check each cluster for changes
       for (const cluster of this.settings.clusters) {
@@ -157,7 +141,7 @@ export class PersistentEmbeddingSimilarityClassifier<
     } catch (error) {
       logger.error('Error detecting changed clusters:', error);
       // On error, refresh all clusters to be safe
-      const allClusters = new Map<string, ValueCluster<VALUE, string>>();
+      const allClusters = new Map<string, ValueCluster>();
       for (const cluster of this.settings.clusters) {
         allClusters.set(cluster.name, cluster);
       }
@@ -184,18 +168,18 @@ export class PersistentEmbeddingSimilarityClassifier<
    */
   private async loadEmbeddingsFromDb(): Promise<{
     embeddings: Array<{
-      embedding: Vector;
-      clusterValue: VALUE;
+      embedding: number[];
+      clusterValue: string;
       clusterName: string;
       id?: number;
     }>;
-    changedClusters: Map<string, ValueCluster<VALUE, string>>;
+    changedClusters: Map<string, ValueCluster>;
   }> {
     try {
       const modelName = this.getModelStorageName();
       const embeddings: Array<{
-        embedding: Vector;
-        clusterValue: VALUE;
+        embedding: number[];
+        clusterValue: string;
         clusterName: string;
         id?: number;
       }> = [];
@@ -223,7 +207,7 @@ export class PersistentEmbeddingSimilarityClassifier<
         .filter(item => clustersMap[item.clusterName] === undefined)
         .map(embedding => ({
           embedding: embedding.embedding,
-          clusterValue: embedding.valueText as VALUE,
+          clusterValue: embedding.valueText,
           clusterName: embedding.clusterName,
           id: embedding.id,
         }));
@@ -253,7 +237,7 @@ export class PersistentEmbeddingSimilarityClassifier<
         embeddings.push(
           ...clusterEmbeddings.map((entry: EmbeddingEntry) => ({
             embedding: entry.embedding,
-            clusterValue: entry.valueText as VALUE,
+            clusterValue: entry.valueText,
             clusterName: entry.clusterName,
             id: entry.id,
           }))
@@ -264,7 +248,7 @@ export class PersistentEmbeddingSimilarityClassifier<
     } catch (error) {
       logger.error('Error loading embeddings from database:', error);
       // On error, refresh all clusters
-      const allClusters = new Map<string, ValueCluster<VALUE, string>>();
+      const allClusters = new Map<string, ValueCluster>();
       for (const cluster of this.settings.clusters) {
         allClusters.set(cluster.name, cluster);
       }
@@ -279,8 +263,8 @@ export class PersistentEmbeddingSimilarityClassifier<
     clusterEmbeddings: Map<
       string,
       Array<{
-        embedding: Vector;
-        clusterValue: VALUE;
+        embedding: number[];
+        clusterValue: string;
         clusterName: string;
       }>
     >
@@ -325,7 +309,7 @@ export class PersistentEmbeddingSimilarityClassifier<
   /**
    * Get embeddings for all clusters, either from memory, database, or by generating new ones
    */
-  async getEmbeddings(options: FunctionCallOptions) {
+  async getEmbeddings(): Promise<EmbeddingCache<string>[]> {
     // Return from memory if already loaded
     if (this.embeddings != null) {
       return this.embeddings;
@@ -351,15 +335,14 @@ export class PersistentEmbeddingSimilarityClassifier<
 
       const { embeddings: clusterEmbeddings } = await embedMany({
         model: this.settings.embeddingModel,
-        values: cluster.values as VALUE[],
-        ...options,
+        values: cluster.values,
       });
 
       const processedEmbeddings = [];
       for (let i = 0; i < clusterEmbeddings.length; i++) {
         processedEmbeddings.push({
           embedding: clusterEmbeddings[i],
-          clusterValue: cluster.values[i] as VALUE,
+          clusterValue: cluster.values[i],
           clusterName: cluster.name,
         });
       }
@@ -480,7 +463,7 @@ export class PersistentEmbeddingSimilarityClassifier<
       if (this.embeddings) {
         this.embeddings.push({
           embedding,
-          clusterValue: value as VALUE,
+          clusterValue: value,
           clusterName,
           id: newId,
         });
@@ -493,14 +476,11 @@ export class PersistentEmbeddingSimilarityClassifier<
     }
   }
 
-  async doClassify(value: VALUE, options: FunctionCallOptions) {
+  async doClassify(value: string): Promise<string | null> {
     if (this.settings.staticClusterValues) {
       for (const cluster of this.settings.staticClusterValues) {
-        if (cluster.values.includes(value.toLowerCase() as VALUE)) {
-          return {
-            class: cluster.name as unknown as ClusterNames<CLUSTERS>,
-            rawResponse: undefined,
-          };
+        if (cluster.values.includes(value.toLowerCase())) {
+          return cluster.name;
         }
       }
     }
@@ -509,10 +489,7 @@ export class PersistentEmbeddingSimilarityClassifier<
       for (const cluster of this.settings.prefixedClusterValue) {
         for (const clusterValue of cluster.values) {
           if (value.toLowerCase().startsWith(clusterValue.toLowerCase())) {
-            return {
-              class: cluster.name as unknown as ClusterNames<CLUSTERS>,
-              rawResponse: undefined,
-            };
+            return cluster.name;
           }
         }
       }
@@ -521,10 +498,7 @@ export class PersistentEmbeddingSimilarityClassifier<
     // If ignoreEmbedding is set, skip the embedding similarity check
     if (this.settings.ignoreEmbedding) {
       logger.log('Ignoring embedding similarity check');
-      return {
-        class: null,
-        rawResponse: undefined,
-      };
+      return null;
     }
 
     // Race between getEmbeddings and timeout
@@ -533,7 +507,6 @@ export class PersistentEmbeddingSimilarityClassifier<
         embed({
           model: this.settings.embeddingModel,
           value,
-          ...options,
         }),
         new Promise<null>(resolve => {
           setTimeout(() => {
@@ -542,7 +515,7 @@ export class PersistentEmbeddingSimilarityClassifier<
         }),
       ]),
       Promise.race([
-        this.getEmbeddings(options),
+        this.getEmbeddings(),
         new Promise<null>(resolve => {
           setTimeout(() => {
             resolve(null);
@@ -553,18 +526,12 @@ export class PersistentEmbeddingSimilarityClassifier<
 
     if (!clusterEmbeddings) {
       logger.warn('Cluster embeddings not found or timed out.');
-      return {
-        class: null,
-        rawResponse: undefined,
-      };
+      return null;
     }
 
     if (!embeddingResult) {
       logger.warn('Embedding not found or timed out.');
-      return {
-        class: null,
-        rawResponse: undefined,
-      };
+      return null;
     }
 
     const candidates = clusterEmbeddings.map(item => {
@@ -586,18 +553,10 @@ export class PersistentEmbeddingSimilarityClassifier<
 
     logger.log(`Found ${qualifiedCandidates.length} qualified candidates`, qualifiedCandidates);
 
-    return {
-      class:
-        qualifiedCandidates.length > 0
-          ? (qualifiedCandidates[0].candidate.clusterName as unknown as ClusterNames<CLUSTERS>)
-          : null,
-      rawResponse: undefined,
-    };
+    return qualifiedCandidates.length > 0 ? qualifiedCandidates[0].candidate.clusterName : null;
   }
 
-  get settingsForEvent(): Partial<
-    PersistentEmbeddingSimilarityClassifierSettings<VALUE, CLUSTERS>
-  > {
+  get settingsForEvent(): Partial<Settings> {
     const eventSettingProperties: Array<string> = [
       'clusters',
       'embeddingModel',
@@ -610,9 +569,7 @@ export class PersistentEmbeddingSimilarityClassifier<
     );
   }
 
-  withSettings(
-    additionalSettings: Partial<PersistentEmbeddingSimilarityClassifierSettings<VALUE, CLUSTERS>>
-  ): this {
+  withSettings(additionalSettings: Partial<Settings>): this {
     return new PersistentEmbeddingSimilarityClassifier(
       Object.assign({}, this.settings, additionalSettings)
     ) as this;

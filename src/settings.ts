@@ -1,10 +1,17 @@
-import { Notice, PluginSettingTab, Setting } from 'obsidian';
+import { Notice, PluginSettingTab, setIcon, Setting, setTooltip } from 'obsidian';
 import { logger } from './utils/logger';
-import { LLM_MODELS, EMBEDDING_MODELS, ProviderNeedApiKey } from './constants';
+import {
+  LLM_MODELS,
+  EMBEDDING_MODELS,
+  SPEECH_MODELS,
+  DEFAULT_VOICES,
+  ProviderNeedApiKey,
+} from './constants';
 import { getTranslation } from './i18n';
 import { getObsidianLanguage } from './utils/getObsidianLanguage';
 import type StewardPlugin from './main';
 import { capitalizeString } from './utils/capitalizeString';
+import { StewardPluginSettings } from './types/interfaces';
 
 // Get the current language and translation function
 const lang = getObsidianLanguage();
@@ -190,6 +197,23 @@ export default class StewardSettingTab extends PluginSettingTab {
     }
   }
 
+  /**
+   * Update the voice input field based on the selected speech model
+   */
+  private updateVoiceInput(): void {
+    const voiceInput = document.getElementById('stw-voice-input') as HTMLInputElement;
+    if (!voiceInput) return;
+
+    const currentSpeechModel = this.plugin.settings.llm.speech.model;
+    const provider = currentSpeechModel.split(':')[0];
+
+    const currentVoice =
+      this.plugin.settings.llm.speech.voices[
+        provider as keyof StewardPluginSettings['llm']['speech']['voices']
+      ] || DEFAULT_VOICES[provider];
+    voiceInput.value = currentVoice;
+  }
+
   private createChatModelSetting(containerEl: HTMLElement) {
     new Setting(containerEl)
       .setName(t('settings.chatModel'))
@@ -212,14 +236,12 @@ export default class StewardSettingTab extends PluginSettingTab {
           // Create optgroup for each provider
           const optgroup = dropdown.selectEl.createEl('optgroup');
           optgroup.setAttribute('label', capitalizeString(provider));
-          optgroup.setAttribute('data-provider', provider);
 
           // Add models under this provider
           for (const model of models) {
             const option = optgroup.createEl('option');
             option.textContent = model.name;
             option.value = model.id;
-            option.setAttribute('data-provider', model.provider);
           }
         }
 
@@ -402,6 +424,33 @@ export default class StewardSettingTab extends PluginSettingTab {
         text.inputEl.setAttribute('min', '1');
       });
 
+    // Speech settings section
+    new Setting(containerEl).setName(t('settings.speech')).setHeading();
+
+    // Create speech model setting
+    this.createSpeechModelSetting(containerEl);
+
+    // Voice ID setting
+    new Setting(containerEl)
+      .setName(t('settings.voiceId'))
+      .setDesc(t('settings.voiceIdDesc'))
+      .addText(text => {
+        text.inputEl.id = 'stw-voice-input';
+
+        // Initialize the voice input
+        this.updateVoiceInput();
+
+        text.onChange(async value => {
+          const currentSpeechModel = this.plugin.settings.llm.speech.model;
+          const provider = currentSpeechModel.split(':')[0];
+
+          this.plugin.settings.llm.speech.voices[
+            provider as keyof StewardPluginSettings['llm']['speech']['voices']
+          ] = value;
+          await this.plugin.saveSettings();
+        });
+      });
+
     // Add Search settings section
     new Setting(containerEl).setName(t('settings.searchSettings')).setHeading();
 
@@ -442,5 +491,275 @@ export default class StewardSettingTab extends PluginSettingTab {
         text.inputEl.setAttribute('min', '1');
         text.inputEl.setAttribute('max', '100');
       });
+  }
+
+  private createSpeechModelSetting(containerEl: HTMLElement): void {
+    // Speech Model setting
+    const speechModelSetting = new Setting(containerEl)
+      .setName(t('settings.speechModel'))
+      .setDesc(t('settings.speechModelDesc'));
+
+    // No toggle link needed - specific links will be added in each mode
+
+    let currentInputWrapper: HTMLElement | null = null;
+
+    // Validation function for custom model format
+    const validateModelFormat = (model: string): boolean => {
+      const pattern = /^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/;
+      return pattern.test(model);
+    };
+
+    // Function to create dropdown
+    const createDropdown = () => {
+      // Create wrapper div
+      const wrapper = speechModelSetting.controlEl.createEl('div', {
+        cls: 'stw-input-wrapper',
+      });
+      currentInputWrapper = wrapper;
+
+      // Create select element directly
+      const select = wrapper.createEl('select', {
+        cls: 'dropdown',
+      });
+
+      // Combine preset models and custom models
+      const allModels = [
+        ...SPEECH_MODELS.map(model => ({ id: model.id, isCustom: false })),
+        ...(this.plugin.settings.llm.speech?.customModels || []).map(modelId => ({
+          id: modelId,
+          isCustom: true,
+        })),
+      ];
+
+      // Group models by provider
+      const modelsByProvider = allModels.reduce<Record<string, typeof allModels>>((acc, model) => {
+        const provider = model.id.split(':')[0];
+        if (!acc[provider]) {
+          acc[provider] = [];
+        }
+        acc[provider].push(model);
+        return acc;
+      }, {});
+
+      // Add models grouped by provider
+      for (const [provider, models] of Object.entries(modelsByProvider)) {
+        // Create optgroup for each provider
+        const optgroup = select.createEl('optgroup');
+        optgroup.setAttribute('label', capitalizeString(provider));
+
+        // Add models under this provider
+        for (const model of models) {
+          const option = optgroup.createEl('option');
+          // Use the model ID as display text, with custom indicator
+          option.textContent = model.isCustom ? `${model.id} (Custom)` : model.id;
+          option.value = model.id;
+        }
+      }
+
+      // Initialize with current value or default
+      const currentSpeechModel = this.plugin.settings.llm.speech?.model || 'openai:tts-1';
+      select.value = currentSpeechModel;
+
+      select.addEventListener('change', async e => {
+        const target = e.target as HTMLSelectElement;
+        this.plugin.settings.llm.speech.model = target.value;
+        await this.plugin.saveSettings();
+        this.updateVoiceInput();
+      });
+
+      // Add "Add new model" link
+      const addNewModelLink = wrapper.createEl('a', {
+        text: t('settings.addNewModel'),
+        href: '#',
+        cls: 'stw-custom-model-link',
+      });
+
+      addNewModelLink.addEventListener('click', e => {
+        e.preventDefault();
+        recreateInput('add');
+      });
+
+      // Add delete link below the select box (only if there are custom models)
+      const customModels = this.plugin.settings.llm.speech?.customModels || [];
+      if (customModels.length > 0) {
+        const deleteLink = wrapper.createEl('a', {
+          text: t('settings.deleteCustomModels'),
+          href: '#',
+          cls: 'stw-custom-model-link',
+        });
+
+        deleteLink.addEventListener('click', e => {
+          e.preventDefault();
+          recreateInput('delete');
+        });
+      }
+    };
+
+    // Function to create text input
+    const createTextInput = () => {
+      // Create wrapper div
+      const wrapper = speechModelSetting.controlEl.createEl('div', {
+        cls: 'stw-input-wrapper',
+      });
+      currentInputWrapper = wrapper;
+
+      // Add "Back" link
+      const backLink = wrapper.createEl('a', {
+        text: t('settings.back'),
+        href: '#',
+        cls: 'stw-custom-model-link',
+      });
+
+      backLink.addEventListener('click', e => {
+        e.preventDefault();
+        recreateInput();
+      });
+
+      // Create text input directly
+      const textInput = wrapper.createEl('input', {
+        type: 'text',
+        placeholder: 'e.g., openai:tts-1',
+        cls: 'text-input',
+      });
+      textInput.focus();
+
+      // Add change handler for validation
+      textInput.addEventListener('input', e => {
+        const target = e.target as HTMLInputElement;
+        const value = target.value;
+
+        // Only validate format, don't save yet
+        if (value && !validateModelFormat(value)) {
+          target.addClass('is-invalid');
+          return;
+        }
+        target.removeClass('is-invalid');
+      });
+
+      // Add Add button next to the text input
+      const addButton = wrapper.createEl('button', {
+        text: t('settings.add'),
+        cls: 'mod-cta',
+      });
+
+      // Add button click handler
+      addButton.addEventListener('click', async () => {
+        const inputValue = textInput.value.trim();
+
+        if (!inputValue) {
+          return;
+        }
+
+        if (!validateModelFormat(inputValue)) {
+          textInput.addClass('is-invalid');
+          return;
+        }
+
+        textInput.removeClass('is-invalid');
+
+        // Add to custom models if not already present and not a preset model
+        const isPresetModel = SPEECH_MODELS.some(model => model.id === inputValue);
+        const customModels = this.plugin.settings.llm.speech?.customModels || [];
+
+        if (!isPresetModel && !customModels.includes(inputValue)) {
+          customModels.push(inputValue);
+          this.plugin.settings.llm.speech.customModels = customModels;
+        }
+
+        // Set the model and save
+        this.plugin.settings.llm.speech.model = inputValue;
+        await this.plugin.saveSettings();
+        this.updateVoiceInput();
+
+        recreateInput();
+      });
+    };
+
+    // Function to create delete interface
+    const createDeleteInterface = () => {
+      // Create wrapper div
+      const wrapper = speechModelSetting.controlEl.createEl('div', {
+        cls: 'stw-input-wrapper',
+      });
+      currentInputWrapper = wrapper;
+
+      // Add "Back" link
+      const backLink = wrapper.createEl('a', {
+        text: t('settings.back'),
+        href: '#',
+        cls: 'stw-custom-model-link',
+      });
+
+      backLink.addEventListener('click', e => {
+        e.preventDefault();
+        recreateInput();
+      });
+
+      const customModels = this.plugin.settings.llm.speech?.customModels || [];
+
+      if (customModels.length === 0) {
+        wrapper.createEl('div', {
+          text: t('settings.customModels') + ': ' + t('settings.noCustomModels'),
+          cls: 'stw-no-models',
+        });
+        return null;
+      }
+
+      // Create models list
+      const modelsList = wrapper.createEl('div', {
+        cls: 'stw-custom-models-list',
+      });
+
+      for (const modelId of customModels) {
+        const modelItem = modelsList.createEl('div', {
+          cls: 'stw-custom-model-item',
+        });
+
+        modelItem.createEl('span', { text: modelId });
+
+        const deleteButton = modelItem.createEl('button');
+        setIcon(deleteButton, 'trash');
+        setTooltip(deleteButton, t('settings.delete'));
+        deleteButton.classList.add('clickable-icon');
+
+        deleteButton.addEventListener('click', async () => {
+          // Remove from custom models
+          const updatedCustomModels = customModels.filter(id => id !== modelId);
+          this.plugin.settings.llm.speech.customModels = updatedCustomModels;
+
+          // If this was the selected model, switch to default
+          if (this.plugin.settings.llm.speech.model === modelId) {
+            this.plugin.settings.llm.speech.model = 'openai:tts-1';
+          }
+
+          await this.plugin.saveSettings();
+          this.updateVoiceInput();
+
+          // Recreate the interface to reflect changes
+          recreateInput('delete');
+        });
+      }
+    };
+
+    // Function to remove current input and create new one
+    const recreateInput = (mode?: 'delete' | 'add') => {
+      // Remove current wrapper if it exists
+      if (currentInputWrapper) {
+        currentInputWrapper.remove();
+        currentInputWrapper = null;
+      }
+
+      // Create new input based on current mode
+      if (mode === 'delete') {
+        createDeleteInterface();
+      } else if (mode === 'add') {
+        createTextInput();
+      } else {
+        createDropdown();
+      }
+    };
+
+    // Initialize with dropdown mode
+    recreateInput();
   }
 }

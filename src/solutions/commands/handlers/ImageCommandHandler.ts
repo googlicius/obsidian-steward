@@ -4,20 +4,19 @@ import {
   CommandResult,
   CommandResultStatus,
 } from '../CommandHandler';
+import { experimental_generateImage } from 'ai';
 import { getTranslation } from 'src/i18n';
 import { extractImageQuery } from 'src/lib/modelfusion/extractions';
-import { MediaTools } from 'src/tools/mediaTools';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { logger } from 'src/utils/logger';
 
 import type StewardPlugin from 'src/main';
 
 export class ImageCommandHandler extends CommandHandler {
-  private mediaTools: MediaTools;
   isContentRequired = true;
 
   constructor(public readonly plugin: StewardPlugin) {
     super();
-    this.mediaTools = MediaTools.getInstance(plugin.app);
   }
 
   /**
@@ -58,16 +57,8 @@ export class ImageCommandHandler extends CommandHandler {
 
       await this.renderer.addGeneratingIndicator(title, t('conversation.generatingImage'));
 
-      const model = extraction.model || 'dall-e-3';
-
-      // Generate the media with supported options
-      const result = await this.mediaTools.generateMedia({
-        type: 'image',
-        prompt: extraction.text,
-        model,
-        size: extraction.size,
-        quality: extraction.quality,
-      });
+      // Generate the image using the handler's method
+      const result = await this.generateImage(extraction.text);
 
       const messageId = await this.renderer.updateConversationNote({
         path: title,
@@ -110,6 +101,52 @@ export class ImageCommandHandler extends CommandHandler {
       return {
         status: CommandResultStatus.ERROR,
         error,
+      };
+    }
+  }
+
+  private async generateImage(
+    prompt: string
+  ): Promise<{ success: boolean; filePath?: string; error?: string }> {
+    try {
+      await this.plugin.mediaTools.ensureMediaFolderExists();
+
+      const timestamp = Date.now();
+      const filename = this.plugin.mediaTools.getMediaFilename(prompt, 'image', timestamp);
+      const extension = 'png';
+
+      // Get image configuration from LLM service
+      const imageConfig = await this.plugin.llmService.getImageConfig();
+
+      // Generate the image
+      const response = await experimental_generateImage({
+        ...imageConfig,
+        prompt,
+      });
+
+      if (!response.image) {
+        return {
+          success: false,
+          error: 'Failed to generate image - no image received',
+        };
+      }
+
+      // Get the Uint8Array from the generated image
+      const uint8Array = response.image.uint8Array;
+
+      // Save the generated image to a file
+      const filePath = `${this.plugin.mediaTools.getAttachmentsFolderPath()}/${filename}.${extension}`;
+      await this.plugin.app.vault.createBinary(filePath, uint8Array.buffer);
+
+      return {
+        success: true,
+        filePath,
+      };
+    } catch (error) {
+      logger.error('Error generating image:', error);
+      return {
+        success: false,
+        error: error.message,
       };
     }
   }

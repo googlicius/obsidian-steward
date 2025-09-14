@@ -16,8 +16,6 @@ const abortService = AbortService.getInstance();
  */
 export interface AudioExtraction {
   text: string;
-  model?: string;
-  voice?: string;
   explanation: string;
   confidence?: number;
   lang?: string;
@@ -29,16 +27,6 @@ const audioExtractionSchema = z.object({
     .string()
     .min(1, 'Text must be a non-empty string')
     .describe(`The text to convert to speech. Focus on the pronunciation not explanation.`),
-  model: z
-    .string()
-    .optional()
-    .describe(`One of "openai", "elevenlabs". The model to use for speech generation if specified`),
-  voice: z
-    .string()
-    .optional()
-    .describe(
-      `The voice to use for speech generation if specified (e.g., "alloy", "echo", "fable", "onyx", "nova", "shimmer", etc.)`
-    ),
   explanation: z
     .string()
     .min(1, 'Explanation must be a non-empty string')

@@ -120,7 +120,7 @@ translated_search.found
     });
 
     it('should sorted by most match number', async () => {
-      vaultCachedReadSpy = jest
+      jest
         .spyOn(mockPlugin.app.vault, 'cachedRead')
         .mockResolvedValue(
           'This is a test note with example content.\nShe took the test yesterday.'
@@ -145,7 +145,7 @@ translated_search.found
     });
 
     it('should highlight words with a comma', async () => {
-      vaultCachedReadSpy = jest
+      jest
         .spyOn(mockPlugin.app.vault, 'cachedRead')
         .mockResolvedValue('I have a black cat, white dog, and a goose.');
 
@@ -165,9 +165,7 @@ translated_search.found
     });
 
     it('should highlight tags', async () => {
-      vaultCachedReadSpy = jest
-        .spyOn(mockPlugin.app.vault, 'cachedRead')
-        .mockResolvedValue('My tag: #black_cat.');
+      jest.spyOn(mockPlugin.app.vault, 'cachedRead').mockResolvedValue('My tag: #black_cat.');
 
       paginatedSearchResult.conditionResults[0].keywordsMatched = ['#black_cat'];
 
@@ -185,7 +183,7 @@ translated_search.found
     });
 
     it('should highlight 2 adjacent words as one', async () => {
-      vaultCachedReadSpy = jest
+      jest
         .spyOn(mockPlugin.app.vault, 'cachedRead')
         .mockResolvedValue('I have a black cat and a white dog.');
 
@@ -205,7 +203,7 @@ translated_search.found
     });
 
     it('should remove lines only contain highlighted stopwords', async () => {
-      vaultCachedReadSpy = jest
+      jest
         .spyOn(mockPlugin.app.vault, 'cachedRead')
         .mockResolvedValue('I have a black cat and a white dog.\nA cow and a chicken.');
 
@@ -225,7 +223,7 @@ translated_search.found
     });
 
     it('should highlight whole words and links correctly', async () => {
-      vaultCachedReadSpy = jest
+      jest
         .spyOn(mockPlugin.app.vault, 'cachedRead')
         .mockResolvedValue(
           'Totto-chan walked [sedately](sedately). Rocky walked sedately too, looking up at Totto-chan [from time to time](from%20time%20to%20time)'
@@ -245,6 +243,24 @@ translated_search.found
 
 >[!stw-search-result] line:1,start:0,end:105,path:Test Note.md
 >==Totto-chan== walked [==sedately==](sedately). ==Rocky== walked ==sedately== too, ==looking up== at ==Totto-chan== [from time ==to== time](from%20time%20to%20time)
+`);
+    });
+
+    it('should highlight tag with slash', async () => {
+      jest.spyOn(mockPlugin.app.vault, 'cachedRead').mockResolvedValue('#tag/subtag This is test');
+
+      paginatedSearchResult.conditionResults[0].keywordsMatched = ['#tag/subtag'];
+
+      const result = await searchCommandHandler.formatSearchResults({
+        paginatedSearchResult,
+      });
+
+      expect(result).toEqual(`translated_search.found
+
+**1.** [[Test Note.md]]
+
+>[!stw-search-result] line:1,start:0,end:11,path:Test Note.md
+>==#tag/subtag== This is test
 `);
     });
   });

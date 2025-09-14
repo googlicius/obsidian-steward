@@ -406,11 +406,21 @@ export class SearchCommandHandler extends CommandHandler {
     const tokenizer = this.plugin.searchService.contentTokenizer.withConfig({
       removeStopwords: false,
     });
-    tokenizer.addNormalizers('removeTagPrefix');
     const keywordTerms = tokenizer.tokenize(keyword).map(item => item.term);
     // Preserve original terms for highlighting
-    const keywordTerms2 = keyword.split(' ');
-    const termsPattern = [...new Set([...keywordTerms, ...keywordTerms2])].join('|');
+    const [keywordSpitTerms, tagTerms] = keyword.split(' ').reduce<[string[], string[]]>(
+      (acc, term) => {
+        if (term.startsWith('#')) {
+          acc[1].push(term);
+        } else {
+          acc[0].push(term);
+        }
+        return acc;
+      },
+      [[], []]
+    );
+    const termsPattern = [...new Set([...keywordSpitTerms, ...keywordTerms])].join('|');
+    const tagTermsPattern = tagTerms.join('|');
     const lines = content.split('\n');
     const results: HighlighKeywordResult[] = [];
 
@@ -443,7 +453,9 @@ export class SearchCommandHandler extends CommandHandler {
         });
       }
 
-      const regex = new RegExp(`(?:\\B#|\\b)(${termsPattern})\\b`, 'gi');
+      const regex = tagTermsPattern
+        ? new RegExp(`${tagTermsPattern}|\\b(${termsPattern})\\b`, 'gi')
+        : new RegExp(`\\b(${termsPattern})\\b`, 'gi');
       let match: RegExpExecArray | null;
 
       while ((match = regex.exec(normalizedLineText)) !== null) {

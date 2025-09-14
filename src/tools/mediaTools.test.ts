@@ -1,4 +1,4 @@
-import { MediaTools, MediaGenerationOptions } from './mediaTools';
+import { MediaTools } from './mediaTools';
 import { App as ObsidianApp } from 'obsidian';
 
 // Mock the Obsidian modules
@@ -36,7 +36,8 @@ describe('MediaTools', () => {
 
   describe('getMediaFilename', () => {
     let getMediaFilename: (
-      options: MediaGenerationOptions,
+      prompt: string,
+      type: 'image' | 'audio',
       timestamp: number,
       maxWords?: number
     ) => string;
@@ -47,38 +48,22 @@ describe('MediaTools', () => {
     });
 
     it('includes prompt if 3 words or fewer, retains spaces', () => {
-      const options: MediaGenerationOptions = {
-        prompt: 'cat dog bird',
-        type: 'image',
-      };
-      const filename = getMediaFilename(options, timestamp);
+      const filename = getMediaFilename('cat dog bird', 'image', timestamp);
       expect(filename).toBe('image_cat-dog-bird_1234567890');
     });
 
     it('sanitizes special characters in prompt', () => {
-      const options: MediaGenerationOptions = {
-        prompt: 'cat/dog*bird',
-        type: 'audio',
-      };
-      const filename = getMediaFilename(options, timestamp);
+      const filename = getMediaFilename('cat/dog*bird', 'audio', timestamp);
       expect(filename).toBe('audio_cat-dog-bird_1234567890');
     });
 
     it('does not include prompt if more than 3 words', () => {
-      const options: MediaGenerationOptions = {
-        prompt: 'this is more than three',
-        type: 'image',
-      };
-      const filename = getMediaFilename(options, timestamp);
+      const filename = getMediaFilename('this is more than three', 'image', timestamp);
       expect(filename).toBe('image_1234567890');
     });
 
     it('does not replace letters with diacritics and other language characters', () => {
-      const options: MediaGenerationOptions = {
-        prompt: 'café naïve العربية  Москва 文字',
-        type: 'image',
-      };
-      const filename = getMediaFilename(options, timestamp, 6);
+      const filename = getMediaFilename('café naïve العربية  Москва 文字', 'image', timestamp, 6);
       expect(filename).toBe('image_café-naïve-العربية-Москва-文字_1234567890');
     });
   });
