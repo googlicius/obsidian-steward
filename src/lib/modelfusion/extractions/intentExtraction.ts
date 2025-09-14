@@ -1,5 +1,4 @@
 import { generateObject } from 'ai';
-import { classify } from 'modelfusion';
 import { getCommandIntentPrompt } from '../prompts/commandIntentPrompt';
 import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { logger } from 'src/utils/logger';
@@ -91,12 +90,7 @@ export async function extractCommandIntent(args: {
   });
   const embeddingModel = LLMService.getInstance().getEmbeddingModel();
   const classifier = getClassifier(embeddingModel, isReloadRequest);
-  const clusterName = ignoreClassify
-    ? null
-    : await classify({
-        model: classifier,
-        value: command.query,
-      });
+  const clusterName = ignoreClassify ? null : await classifier.doClassify(command.query);
 
   const additionalSystemPrompts: string[] = command.systemPrompts || [];
 

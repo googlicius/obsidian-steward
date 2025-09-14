@@ -16,10 +16,13 @@ export interface StewardPluginSettings {
   debug: boolean; // Enable debug logging
   borderedInput: boolean; // Toggle border around command input
   showPronouns: boolean; // Toggle display of User/Steward pronouns in chat
-  audio: {
-    model: string;
-    voices: Record<string, string>;
-  };
+  // Undefined for backward compatibility
+  audio:
+    | {
+        model: string;
+        voices: Record<string, string>;
+      }
+    | undefined;
   llm: {
     model: string; // The model name (e.g., gpt-4-turbo-preview, llama3.2)
     temperature: number;
@@ -33,6 +36,14 @@ export interface StewardPluginSettings {
       groq?: { baseUrl?: string };
       ollama?: { baseUrl?: string };
       anthropic?: { baseUrl?: string };
+    };
+    speech: {
+      model: string; // The speech model (e.g., "openai:tts-1", "elevenlabs:eleven_turbo_v2")
+      voices: {
+        openai: string; // OpenAI voice ID (e.g., "alloy", "echo", "fable", "onyx", "nova", "shimmer")
+        elevenlabs: string; // ElevenLabs voice ID
+      };
+      customModels: string[]; // User-defined custom speech models
     };
   };
   search: {

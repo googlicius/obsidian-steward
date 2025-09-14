@@ -1,6 +1,4 @@
-import { OpenAIChatMessage } from 'modelfusion';
-
-export const userLanguagePrompt: OpenAIChatMessage = {
+export const userLanguagePrompt = {
   role: 'system',
   content: `
 Respect user's language or the language they specified.
@@ -8,7 +6,7 @@ Respect user's language or the language they specified.
 `,
 };
 
-export const userLanguagePromptText: OpenAIChatMessage = {
+export const userLanguagePromptText = {
   role: 'system',
   content: `Respect user's language or the language they specified.`,
 };

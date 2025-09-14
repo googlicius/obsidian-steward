@@ -1,6 +1,4 @@
-import { OpenAIChatMessage } from 'modelfusion';
-
-export const promptCreationPrompt: OpenAIChatMessage = {
+export const promptCreationPrompt = {
   role: 'system',
   content: `You are an expert at creating prompts for AI systems. Your task is to help create a new prompt based on the user's request.
 

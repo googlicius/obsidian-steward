@@ -16,15 +16,6 @@ const imageExtractionSchema = z.object({
     .string()
     .min(1, 'Text must be a non-empty string')
     .describe(`The text prompt that describes the image to generate.`),
-  size: z
-    .string()
-    .optional()
-    .describe(`The image size in format "widthxheight" (e.g., "1024x1024", "512x512").`),
-  quality: z.string().optional().describe(`The image quality ("standard" or "hd").`),
-  model: z
-    .string()
-    .optional()
-    .describe(`The model to use for generation (e.g., "dall-e-3", "dall-e-2").`),
   explanation: z
     .string()
     .min(1, 'Explanation must be a non-empty string')

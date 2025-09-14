@@ -4,19 +4,19 @@ import {
   CommandResult,
   CommandResultStatus,
 } from '../CommandHandler';
+import { experimental_generateSpeech } from 'ai';
 import { getTranslation } from 'src/i18n';
 import { extractAudioQuery } from 'src/lib/modelfusion/extractions';
-import { MediaTools } from 'src/tools/mediaTools';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
+import { StewardPluginSettings } from 'src/types/interfaces';
 
 export class AudioCommandHandler extends CommandHandler {
-  private mediaTools: MediaTools;
   isContentRequired = true;
 
   constructor(public readonly plugin: StewardPlugin) {
     super();
-    this.mediaTools = MediaTools.getInstance(plugin.app);
   }
 
   /**
@@ -71,15 +71,17 @@ export class AudioCommandHandler extends CommandHandler {
 
       await this.renderer.addGeneratingIndicator(title, t('conversation.generatingAudio'));
 
-      const model = extraction.model || this.plugin.settings.audio.model;
+      // Generate the audio using the handler's method
+      const speechModel = this.plugin.settings.llm.speech.model;
+      const provider = speechModel.split(':')[0];
+      const voice =
+        this.plugin.settings.llm.speech.voices[
+          provider as keyof StewardPluginSettings['llm']['speech']['voices']
+        ];
 
-      // Generate the media with supported options
-      const result = await this.mediaTools.generateMedia({
-        type: 'audio',
-        prompt: extraction.text,
+      const result = await this.generateAudio(extraction.text, {
+        voice,
         instructions: command.systemPrompts?.join('\n'),
-        model,
-        voice: extraction.voice || this.plugin.settings.audio.voices[model],
       });
 
       const messageId = await this.renderer.updateConversationNote({
@@ -121,6 +123,57 @@ export class AudioCommandHandler extends CommandHandler {
       return {
         status: CommandResultStatus.ERROR,
         error,
+      };
+    }
+  }
+
+  private async generateAudio(
+    text: string,
+    options?: {
+      voice?: string;
+      instructions?: string;
+    }
+  ): Promise<{ success: boolean; filePath?: string; error?: string }> {
+    try {
+      await this.plugin.mediaTools.ensureMediaFolderExists();
+
+      const timestamp = Date.now();
+      const filename = this.plugin.mediaTools.getMediaFilename(text, 'audio', timestamp);
+      const extension = 'mp3';
+
+      // Get speech configuration from LLM service
+      const speechConfig = await this.plugin.llmService.getSpeechConfig();
+
+      // Generate the speech
+      const response = await experimental_generateSpeech({
+        ...speechConfig,
+        ...options,
+        text,
+      });
+
+      if (!response.audio) {
+        return {
+          success: false,
+          error: 'Failed to generate speech - no audio received',
+        };
+      }
+
+      // Get the Uint8Array from the generated audio
+      const uint8Array = response.audio.uint8Array;
+
+      // Save the generated audio to a file
+      const filePath = `${this.plugin.mediaTools.getAttachmentsFolderPath()}/${filename}.${extension}`;
+      await this.plugin.app.vault.createBinary(filePath, uint8Array.buffer);
+
+      return {
+        success: true,
+        filePath,
+      };
+    } catch (error) {
+      logger.error('Error generating audio:', error);
+      return {
+        success: false,
+        error: error.message,
       };
     }
   }

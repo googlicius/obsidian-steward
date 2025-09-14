@@ -1,5 +1,17 @@
 import { DataContent, ImagePart, TextPart } from 'ai';
-import { convertDataContentToBase64String } from 'modelfusion';
+import { uint8ArrayToBase64 } from './Uint8Utils';
+
+export function convertDataContentToBase64String(content: DataContent): string {
+  if (typeof content === 'string') {
+    return content;
+  }
+
+  if (content instanceof ArrayBuffer) {
+    return uint8ArrayToBase64(new Uint8Array(content));
+  }
+
+  return uint8ArrayToBase64(content);
+}
 
 export function user(content: string | Array<TextPart | ImagePart>, options?: { name?: string }) {
   return {

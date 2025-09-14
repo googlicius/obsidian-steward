@@ -34,7 +34,6 @@ import { ObsidianEditor } from './types/types';
 import { isConversationLink, extractConversationTitle } from './utils/conversationUtils';
 import { CommandProcessorService } from './services/CommandProcessorService';
 import { UserDefinedCommandService } from './services/UserDefinedCommandService';
-import { classify } from 'modelfusion';
 import { retry } from './utils/retry';
 import { getClassifier } from './lib/modelfusion/classifiers/getClassifier';
 import { MediaTools } from './tools/mediaTools';
@@ -97,6 +96,14 @@ export default class StewardPlugin extends Plugin {
     // Initialize providerConfigs if not already set
     if (!this.settings.llm.providerConfigs) {
       this.settings.llm.providerConfigs = {};
+      settingsUpdated = true;
+    }
+
+    // Initialize speech if not already set
+    if (!this.settings.llm.speech) {
+      this.settings.llm.speech = DEFAULT_SETTINGS.llm.speech;
+      // Remove legacy config
+      this.settings.audio = undefined;
       settingsUpdated = true;
     }
 
@@ -313,17 +320,11 @@ export default class StewardPlugin extends Plugin {
 
   private initializeClassifier() {
     const classifier = getClassifier(this.settings.llm.embeddingModel);
+
     // Initialize embeddings
-    retry(
-      () =>
-        classify({
-          model: classifier,
-          value: 'initialize',
-        }),
-      {
-        initialDelay: 500,
-      }
-    );
+    retry(() => classifier.doClassify('initialize'), {
+      initialDelay: 500,
+    });
   }
 
   async loadSettings() {

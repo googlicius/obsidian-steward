@@ -102,6 +102,14 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     maxGenerationTokens: 2048, // Default max tokens for generation
     embeddingModel: 'openai:text-embedding-ada-002', // Default embedding model
     providerConfigs: {},
+    speech: {
+      model: 'openai:tts-1', // Default speech model
+      voices: {
+        openai: 'alloy', // Default OpenAI voice
+        elevenlabs: 'pNInz6obpgDQGcFmaJgB', // Default ElevenLabs voice
+      },
+      customModels: [], // User-defined custom speech models
+    },
   },
   search: {
     withoutLLM: 'relevant' as const,
@@ -155,6 +163,27 @@ export type ProviderNeedApiKey =
   | 'google'
   | 'groq'
   | 'anthropic';
+
+// Speech model options
+export interface SpeechModelOption {
+  id: string; // Format: "provider:modelId" (e.g., "openai:tts-1")
+}
+
+export const SPEECH_MODELS: SpeechModelOption[] = [
+  // OpenAI Speech Models
+  { id: 'openai:tts-1' },
+  { id: 'openai:tts-1-hd' },
+
+  // ElevenLabs Speech Models
+  { id: 'elevenlabs:eleven_turbo_v2' },
+  { id: 'elevenlabs:eleven_multilingual_v2' },
+];
+
+// Default voice IDs for each provider
+export const DEFAULT_VOICES: Record<string, string> = {
+  openai: 'alloy',
+  elevenlabs: 'pNInz6obpgDQGcFmaJgB',
+};
 
 // Embedding model options
 export interface EmbeddingModelOption {

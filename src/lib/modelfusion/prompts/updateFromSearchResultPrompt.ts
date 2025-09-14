@@ -1,6 +1,4 @@
-import { OpenAIChatMessage } from 'modelfusion';
-
-export const updateFromSearchResultPrompt: OpenAIChatMessage = {
+export const updateFromSearchResultPrompt = {
   role: 'system',
   content: `You are a helpful assistant that extracts update instructions from user queries for an Obsidian note system.
 
