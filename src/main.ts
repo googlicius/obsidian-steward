@@ -277,7 +277,7 @@ export default class StewardPlugin extends Plugin {
     });
   }
 
-  async loadSettings() {
+  private async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 
     // Update logger debug setting

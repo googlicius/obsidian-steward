@@ -659,7 +659,7 @@ export default class StewardSettingTab extends PluginSettingTab {
     const createDropdown = () => {
       // Create wrapper div
       const wrapper = setting.controlEl.createEl('div', {
-        cls: 'stw-input-wrapper',
+        cls: 'stw-setting-wrapper',
       });
       currentInputWrapper = wrapper;
 
@@ -718,9 +718,9 @@ export default class StewardSettingTab extends PluginSettingTab {
 
       // Add "Add new model" link
       const addNewModelLink = wrapper.createEl('a', {
-        text: t('settings.addNewModel'),
+        text: `${t('settings.addNewModel')}`,
         href: '#',
-        cls: 'stw-custom-model-link',
+        cls: 'stw-custom-model-link caret-right',
       });
 
       addNewModelLink.addEventListener('click', e => {
@@ -734,7 +734,7 @@ export default class StewardSettingTab extends PluginSettingTab {
         const deleteLink = wrapper.createEl('a', {
           text: t('settings.deleteCustomModels'),
           href: '#',
-          cls: 'stw-custom-model-link',
+          cls: 'stw-custom-model-link caret-right',
         });
 
         deleteLink.addEventListener('click', e => {
@@ -748,7 +748,7 @@ export default class StewardSettingTab extends PluginSettingTab {
     const createTextInput = () => {
       // Create wrapper div
       const wrapper = setting.controlEl.createEl('div', {
-        cls: 'stw-input-wrapper',
+        cls: 'stw-setting-wrapper',
       });
       currentInputWrapper = wrapper;
 
@@ -756,12 +756,12 @@ export default class StewardSettingTab extends PluginSettingTab {
       const backLink = wrapper.createEl('a', {
         text: t('settings.back'),
         href: '#',
-        cls: 'stw-custom-model-link',
+        cls: 'stw-custom-model-link caret-left',
       });
 
       backLink.addEventListener('click', e => {
         e.preventDefault();
-        recreateInput();
+        recreateInput('dropdown');
       });
 
       // Create text input directly
@@ -788,7 +788,6 @@ export default class StewardSettingTab extends PluginSettingTab {
       // Add Add button next to the text input
       const addButton = wrapper.createEl('button', {
         text: t('settings.add'),
-        cls: 'mod-cta',
       });
 
       // Add button click handler
@@ -807,7 +806,7 @@ export default class StewardSettingTab extends PluginSettingTab {
         textInput.removeClass('is-invalid');
 
         await options.onAddModel(inputValue);
-        recreateInput();
+        recreateInput('dropdown');
       });
     };
 
@@ -815,7 +814,7 @@ export default class StewardSettingTab extends PluginSettingTab {
     const createDeleteInterface = () => {
       // Create wrapper div
       const wrapper = setting.controlEl.createEl('div', {
-        cls: 'stw-input-wrapper',
+        cls: 'stw-setting-wrapper',
       });
       currentInputWrapper = wrapper;
 
@@ -823,12 +822,12 @@ export default class StewardSettingTab extends PluginSettingTab {
       const backLink = wrapper.createEl('a', {
         text: t('settings.back'),
         href: '#',
-        cls: 'stw-custom-model-link',
+        cls: 'stw-custom-model-link caret-left',
       });
 
       backLink.addEventListener('click', e => {
         e.preventDefault();
-        recreateInput();
+        recreateInput('dropdown');
       });
 
       const customModels = getCustomModels();
@@ -867,7 +866,7 @@ export default class StewardSettingTab extends PluginSettingTab {
     };
 
     // Function to remove current input and create new one
-    const recreateInput = (mode?: 'delete' | 'add') => {
+    const recreateInput = (mode: 'delete' | 'add' | 'dropdown') => {
       // Remove current wrapper if it exists
       if (currentInputWrapper) {
         currentInputWrapper.remove();
@@ -885,6 +884,6 @@ export default class StewardSettingTab extends PluginSettingTab {
     };
 
     // Initialize with dropdown mode
-    recreateInput();
+    recreateInput('dropdown');
   }
 }
