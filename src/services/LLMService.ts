@@ -5,7 +5,7 @@ import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/go
 import { createGroq, GroqProvider } from '@ai-sdk/groq';
 import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
 import { createOllama, OllamaProvider } from 'ollama-ai-provider';
-import { LLM_MODELS, ModelOption } from 'src/constants';
+import { LLM_MODELS } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { jsonrepair } from 'jsonrepair';
 import { logger } from 'src/utils/logger';
@@ -39,7 +39,7 @@ export class LLMService {
    * @returns The embedding model string
    */
   public getEmbeddingModel(): string {
-    return this.plugin.settings.llm.embeddingModel;
+    return this.plugin.settings.llm.embedding.model;
   }
 
   /**
@@ -47,7 +47,7 @@ export class LLMService {
    * @param provider The provider name
    * @returns The base URL for the provider
    */
-  public getProviderBaseUrl(provider: ModelOption['provider']): string | undefined {
+  public getProviderBaseUrl(provider: string): string | undefined {
     const providerConfig = this.plugin.settings.llm.providerConfigs[provider];
 
     if (providerConfig?.baseUrl) {
@@ -60,61 +60,57 @@ export class LLMService {
 
   /**
    * Determine the provider from the model name
-   * @param modelId The ID of the model
    */
   public getProviderFromModel(
-    modelId: string | `${string}:${string}`
+    model: string | `${string}:${string}`
   ):
-    | { name: 'openai'; provider: OpenAIProvider }
-    | { name: 'deepseek'; provider: DeepSeekProvider }
-    | { name: 'google'; provider: GoogleGenerativeAIProvider }
-    | { name: 'groq'; provider: GroqProvider }
-    | { name: 'ollama'; provider: OllamaProvider }
-    | { name: 'anthropic'; provider: AnthropicProvider } {
-    const modelOption = LLM_MODELS.find(model => model.id === modelId);
+    | { modelId: string; name: 'openai'; provider: OpenAIProvider }
+    | { modelId: string; name: 'deepseek'; provider: DeepSeekProvider }
+    | { modelId: string; name: 'google'; provider: GoogleGenerativeAIProvider }
+    | { modelId: string; name: 'groq'; provider: GroqProvider }
+    | { modelId: string; name: 'ollama'; provider: OllamaProvider }
+    | { modelId: string; name: 'anthropic'; provider: AnthropicProvider } {
+    let name: string | null = null;
+    let modelId = model;
 
-    let name: ModelOption['provider'] | null = null;
-
-    if (modelOption) {
-      name = modelOption.provider;
-    }
-
-    if (!name && modelId.includes(':')) {
-      const [provider] = modelId.split(':');
-      name = provider as ModelOption['provider'];
+    if (model.includes(':')) {
+      const [provider, id] = model.split(':');
+      name = provider;
+      modelId = id;
     }
 
     // Supports all other models
     if (!name) {
       if (
-        modelId.includes('llama') ||
-        modelId.includes('mistral') ||
-        modelId.includes('mixtral') ||
-        modelId.includes('phi') ||
-        modelId.includes('gemma') ||
-        modelId.includes('qwen')
+        model.includes('llama') ||
+        model.includes('mistral') ||
+        model.includes('mixtral') ||
+        model.includes('phi') ||
+        model.includes('gemma') ||
+        model.includes('qwen')
       ) {
         // Check if the settings model is in LLM_MODELS to determine default provider
         const settingsModelOption = LLM_MODELS.find(
-          model => model.id === this.plugin.settings.llm.model
+          model => model.id === this.plugin.settings.llm.chat.model
         );
-        const defaultProvider = settingsModelOption?.provider;
+        const defaultProvider = settingsModelOption?.id.split(':')[0];
         name = defaultProvider === 'ollama' ? 'ollama' : 'groq';
       }
 
-      if (modelId.startsWith('deepseek')) {
+      // For legacy models
+      if (model.startsWith('deepseek')) {
         name = 'deepseek';
-      } else if (modelId.startsWith('gemini')) {
+      } else if (model.startsWith('gemini')) {
         name = 'google';
-      } else if (modelId.startsWith('gpt')) {
+      } else if (model.startsWith('gpt')) {
         name = 'openai';
-      } else if (modelId.includes('claude')) {
+      } else if (model.includes('claude')) {
         name = 'anthropic';
       }
     }
 
     if (!name) {
-      throw new Error(`Model ${modelId} not found`);
+      throw new Error(`Model ${model} not found`);
     }
 
     const baseURL = this.getProviderBaseUrl(name);
@@ -122,6 +118,7 @@ export class LLMService {
     switch (name) {
       case 'openai': {
         return {
+          modelId,
           name,
           provider: createOpenAI({
             ...(baseURL && { baseURL }),
@@ -131,6 +128,7 @@ export class LLMService {
 
       case 'deepseek': {
         return {
+          modelId,
           name,
           provider: createDeepSeek({
             ...(baseURL && { baseURL }),
@@ -140,6 +138,7 @@ export class LLMService {
 
       case 'google': {
         return {
+          modelId,
           name,
           provider: createGoogleGenerativeAI({
             ...(baseURL && { baseURL }),
@@ -149,6 +148,7 @@ export class LLMService {
 
       case 'groq': {
         return {
+          modelId,
           name,
           provider: createGroq({
             ...(baseURL && { baseURL }),
@@ -158,6 +158,7 @@ export class LLMService {
 
       case 'ollama': {
         return {
+          modelId,
           name,
           provider: createOllama({
             ...(baseURL && { baseURL }),
@@ -167,6 +168,7 @@ export class LLMService {
 
       case 'anthropic': {
         return {
+          modelId,
           name,
           provider: createAnthropic({
             ...(baseURL && { baseURL }),
@@ -188,11 +190,19 @@ export class LLMService {
   ) {
     const { generateType = 'object', overrideModel } = options;
 
-    const { model: defaultModel, temperature, maxGenerationTokens } = this.plugin.settings.llm;
+    const {
+      model: defaultModel,
+      temperature,
+      maxGenerationTokens,
+    } = {
+      model: this.plugin.settings.llm.chat.model,
+      temperature: this.plugin.settings.llm.temperature,
+      maxGenerationTokens: this.plugin.settings.llm.maxGenerationTokens,
+    };
     const model = overrideModel || defaultModel;
-    const { provider } = this.getProviderFromModel(model);
+    const { provider, modelId } = this.getProviderFromModel(model);
 
-    const languageModel = provider(model);
+    const languageModel = provider(modelId);
 
     const generateParams = {
       model: languageModel,
@@ -227,22 +237,21 @@ export class LLMService {
     size: `${number}x${number}`;
   }> {
     const { overrideModel } = options || {};
-    const { model: defaultModel } = this.plugin.settings.llm;
-    const model = overrideModel || defaultModel;
+    const model = overrideModel || this.plugin.settings.llm.image.model;
     const result = this.getProviderFromModel(model);
     let imageModel: ImageModel;
 
     if (result.name === 'openai') {
-      imageModel = result.provider.image(model);
+      imageModel = result.provider.image(result.modelId);
     } else if (result.provider.imageModel) {
-      imageModel = result.provider.imageModel(model);
+      imageModel = result.provider.imageModel(result.modelId);
     } else {
       throw new Error(`Image generation not supported for provider: ${result.name}`);
     }
 
     return {
       model: imageModel,
-      size: '1024x1024',
+      size: this.plugin.settings.llm.image.size as `${number}x${number}`,
     };
   }
 
@@ -253,15 +262,13 @@ export class LLMService {
     const speechModelId = overrideModel || this.plugin.settings.llm.speech.model;
     const [provider, model] = speechModelId.split(':');
 
-    console.log('speechModelId', speechModelId);
-
     const result = this.getProviderFromModel(`${provider}:${model}`);
     let speechModel: SpeechModel;
 
     if (result.name === 'openai') {
-      speechModel = result.provider.speech(model);
+      speechModel = result.provider.speech(result.modelId);
     } else if (result.provider.speechModel) {
-      speechModel = result.provider.speechModel(model);
+      speechModel = result.provider.speechModel(result.modelId);
     } else {
       throw new Error(`Speech generation not supported for provider: ${result.name}`);
     }

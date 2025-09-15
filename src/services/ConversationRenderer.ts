@@ -601,7 +601,7 @@ export class ConversationRenderer {
       const t = getTranslation(language);
 
       // Get the current model from settings
-      const currentModel = this.plugin.settings.llm.model;
+      const currentModel = this.plugin.settings.llm.chat.model;
 
       // Get the current language from settings
       const currentLanguage = language || getObsidianLanguage();

@@ -4,6 +4,7 @@ import {
   LLM_MODELS,
   EMBEDDING_MODELS,
   SPEECH_MODELS,
+  IMAGE_MODELS,
   DEFAULT_VOICES,
   ProviderNeedApiKey,
 } from './constants';
@@ -12,6 +13,7 @@ import { getObsidianLanguage } from './utils/getObsidianLanguage';
 import type StewardPlugin from './main';
 import { capitalizeString } from './utils/capitalizeString';
 import { StewardPluginSettings } from './types/interfaces';
+import { get } from './utils/lodash-like';
 
 // Get the current language and translation function
 const lang = getObsidianLanguage();
@@ -120,9 +122,7 @@ export default class StewardSettingTab extends PluginSettingTab {
       .setDesc(t('settings.providerBaseUrlDesc'))
       .addText(text => {
         const updateBaseUrlInput = () => {
-          const currentProvider = LLM_MODELS.find(
-            model => model.id === this.plugin.settings.llm.model
-          )?.provider;
+          const currentProvider = this.plugin.settings.llm.chat.model.split(':')[0];
 
           if (currentProvider) {
             // Ensure providerConfigs exists
@@ -142,9 +142,7 @@ export default class StewardSettingTab extends PluginSettingTab {
         updateBaseUrlInput();
 
         text.onChange(async value => {
-          const currentProvider = LLM_MODELS.find(
-            model => model.id === this.plugin.settings.llm.model
-          )?.provider;
+          const currentProvider = this.plugin.settings.llm.chat.model.split(':')[0];
 
           if (currentProvider) {
             // Ensure providerConfigs exists
@@ -172,9 +170,7 @@ export default class StewardSettingTab extends PluginSettingTab {
   }
 
   private updateProviderBaseUrlVisibility(): void {
-    const currentProvider = LLM_MODELS.find(
-      model => model.id === this.plugin.settings.llm.model
-    )?.provider;
+    const currentProvider = this.plugin.settings.llm.chat.model.split(':')[0];
 
     if (currentProvider) {
       // Ensure providerConfigs exists
@@ -212,47 +208,6 @@ export default class StewardSettingTab extends PluginSettingTab {
         provider as keyof StewardPluginSettings['llm']['speech']['voices']
       ] || DEFAULT_VOICES[provider];
     voiceInput.value = currentVoice;
-  }
-
-  private createChatModelSetting(containerEl: HTMLElement) {
-    new Setting(containerEl)
-      .setName(t('settings.chatModel'))
-      .setDesc(t('settings.chatModelDesc'))
-      .addDropdown(dropdown => {
-        // Group models by provider
-        const modelsByProvider = LLM_MODELS.reduce<Record<string, typeof LLM_MODELS>>(
-          (acc, model) => {
-            if (!acc[model.provider]) {
-              acc[model.provider] = [];
-            }
-            acc[model.provider].push(model);
-            return acc;
-          },
-          {}
-        );
-
-        // Add models grouped by provider
-        for (const [provider, models] of Object.entries(modelsByProvider)) {
-          // Create optgroup for each provider
-          const optgroup = dropdown.selectEl.createEl('optgroup');
-          optgroup.setAttribute('label', capitalizeString(provider));
-
-          // Add models under this provider
-          for (const model of models) {
-            const option = optgroup.createEl('option');
-            option.textContent = model.name;
-            option.value = model.id;
-          }
-        }
-
-        dropdown.setValue(this.plugin.settings.llm.model).onChange(async value => {
-          this.plugin.settings.llm.model = value;
-          await this.plugin.saveSettings();
-
-          // Update provider base URL settings visibility based on selected model
-          this.updateProviderBaseUrlVisibility();
-        });
-      });
   }
 
   display(): void {
@@ -366,26 +321,102 @@ export default class StewardSettingTab extends PluginSettingTab {
     // Add LLM settings section
     new Setting(containerEl).setName(t('settings.llm')).setHeading();
 
-    // Chat Model selection with provider automatically determined
-    this.createChatModelSetting(containerEl);
+    // Chat Model setting
+    this.createModelSetting(
+      new Setting(containerEl)
+        .setName(t('settings.chatModel'))
+        .setDesc(t('settings.chatModelDesc')),
+      {
+        currentModelField: 'llm.chat.model',
+        customModelsField: 'llm.chat.customModels',
+        defaultModel: LLM_MODELS[0].id,
+        placeholder: 'e.g., gpt-5',
+        validationPattern: /^[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+$/,
+        presetModels: LLM_MODELS,
+        onSelectChange: async (modelId: string) => {
+          this.plugin.settings.llm.chat.model = modelId;
+          await this.plugin.saveSettings();
+          // Update provider base URL settings visibility based on selected model
+          this.updateProviderBaseUrlVisibility();
+        },
+        onAddModel: async (modelId: string) => {
+          this.plugin.settings.llm.chat.model = modelId;
+
+          // Add to custom models if not already present and not a preset model
+          const isPresetModel = LLM_MODELS.some(model => model.id === modelId);
+          const customModels = this.plugin.settings.llm.chat.customModels || [];
+
+          if (!isPresetModel && !customModels.includes(modelId)) {
+            customModels.push(modelId);
+            this.plugin.settings.llm.chat.customModels = customModels;
+          }
+
+          await this.plugin.saveSettings();
+          // Update provider base URL settings visibility based on selected model
+          this.updateProviderBaseUrlVisibility();
+        },
+        onDeleteModel: async (modelId: string) => {
+          this.plugin.settings.llm.chat.customModels =
+            this.plugin.settings.llm.chat.customModels.filter(id => id !== modelId);
+
+          // If this was the selected model, switch to default
+          if (this.plugin.settings.llm.chat.model === modelId) {
+            this.plugin.settings.llm.chat.model = LLM_MODELS[0].id;
+          }
+
+          await this.plugin.saveSettings();
+          // Update provider base URL settings visibility based on selected model
+          this.updateProviderBaseUrlVisibility();
+        },
+      }
+    );
 
     this.createProviderBaseUrlSetting(containerEl);
 
     // Embedding Model setting
-    new Setting(containerEl)
-      .setName(t('settings.embeddingModel'))
-      .setDesc(t('settings.embeddingModelDesc'))
-      .addDropdown(dropdown => {
-        // Add embedding models
-        for (const model of EMBEDDING_MODELS) {
-          dropdown.addOption(model.id, model.name);
-        }
-
-        dropdown.setValue(this.plugin.settings.llm.embeddingModel).onChange(async value => {
-          this.plugin.settings.llm.embeddingModel = value;
+    this.createModelSetting(
+      new Setting(containerEl)
+        .setName(t('settings.embeddingModel'))
+        .setDesc(t('settings.embeddingModelDesc')),
+      {
+        currentModelField: 'llm.embedding.model',
+        customModelsField: 'llm.embedding.customModels',
+        defaultModel: EMBEDDING_MODELS[0].id,
+        placeholder: 'e.g., openai:text-embedding-ada-002',
+        validationPattern: /^[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+$/,
+        presetModels: EMBEDDING_MODELS,
+        onSelectChange: async (modelId: string) => {
+          this.plugin.settings.llm.embedding.model = modelId;
           await this.plugin.saveSettings();
-        });
-      });
+          this.updateVoiceInput();
+        },
+        onAddModel: async (modelId: string) => {
+          this.plugin.settings.llm.embedding.model = modelId;
+
+          // Add to custom models if not already present and not a preset model
+          const isPresetModel = EMBEDDING_MODELS.some(model => model.id === modelId);
+          const customModels = this.plugin.settings.llm.embedding.customModels || [];
+
+          if (!isPresetModel && !customModels.includes(modelId)) {
+            customModels.push(modelId);
+            this.plugin.settings.llm.embedding.customModels = customModels;
+          }
+
+          await this.plugin.saveSettings();
+        },
+        onDeleteModel: async (modelId: string) => {
+          this.plugin.settings.llm.embedding.customModels =
+            this.plugin.settings.llm.embedding.customModels.filter(id => id !== modelId);
+
+          // If this was the selected model, switch to default
+          if (this.plugin.settings.llm.embedding.model === modelId) {
+            this.plugin.settings.llm.embedding.model = EMBEDDING_MODELS[0].id;
+          }
+
+          await this.plugin.saveSettings();
+        },
+      }
+    );
 
     // Temperature setting
     new Setting(containerEl)
@@ -428,7 +459,48 @@ export default class StewardSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName(t('settings.speech')).setHeading();
 
     // Create speech model setting
-    this.createSpeechModelSetting(containerEl);
+    this.createModelSetting(
+      new Setting(containerEl)
+        .setName(t('settings.speechModel'))
+        .setDesc(t('settings.speechModelDesc')),
+      {
+        currentModelField: 'llm.speech.model',
+        customModelsField: 'llm.speech.customModels',
+        defaultModel: 'openai:tts-1',
+        placeholder: 'e.g., openai:tts-1',
+        validationPattern: /^[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+$/,
+        presetModels: SPEECH_MODELS,
+        onSelectChange: async (modelId: string) => {
+          this.plugin.settings.llm.speech.model = modelId;
+          await this.plugin.saveSettings();
+          this.updateVoiceInput();
+        },
+        onAddModel: async (modelId: string) => {
+          this.plugin.settings.llm.speech.model = modelId;
+          // Add to custom models if not already present and not a preset model
+          const isPresetModel = SPEECH_MODELS.some(model => model.id === modelId);
+          const customModels = this.plugin.settings.llm.speech.customModels || [];
+
+          if (!isPresetModel && !customModels.includes(modelId)) {
+            customModels.push(modelId);
+            this.plugin.settings.llm.speech.customModels = customModels;
+          }
+          await this.plugin.saveSettings();
+        },
+        onDeleteModel: async (modelId: string) => {
+          this.plugin.settings.llm.speech.customModels =
+            this.plugin.settings.llm.speech.customModels.filter(id => id !== modelId);
+
+          // If this was the selected model, switch to default
+          if (this.plugin.settings.llm.speech.model === modelId) {
+            this.plugin.settings.llm.speech.model = 'openai:tts-1';
+          }
+
+          await this.plugin.saveSettings();
+          this.updateVoiceInput();
+        },
+      }
+    );
 
     // Voice ID setting
     new Setting(containerEl)
@@ -447,6 +519,66 @@ export default class StewardSettingTab extends PluginSettingTab {
           this.plugin.settings.llm.speech.voices[
             provider as keyof StewardPluginSettings['llm']['speech']['voices']
           ] = value;
+          await this.plugin.saveSettings();
+        });
+      });
+
+    // Add Image section
+    new Setting(containerEl).setName(t('settings.image')).setHeading();
+
+    // Image Model setting
+    this.createModelSetting(
+      new Setting(containerEl)
+        .setName(t('settings.imageModel'))
+        .setDesc(t('settings.imageModelDesc')),
+      {
+        currentModelField: 'llm.image.model',
+        customModelsField: 'llm.image.customModels',
+        defaultModel: IMAGE_MODELS[0].id,
+        placeholder: 'e.g., openai:dall-e-3',
+        validationPattern: /^[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+$/,
+        presetModels: IMAGE_MODELS,
+        onSelectChange: async (modelId: string) => {
+          this.plugin.settings.llm.image.model = modelId;
+          await this.plugin.saveSettings();
+        },
+        onAddModel: async (modelId: string) => {
+          this.plugin.settings.llm.image.model = modelId;
+
+          // Add to custom models if not already present and not a preset model
+          const isPresetModel = IMAGE_MODELS.some(model => model.id === modelId);
+          const customModels = this.plugin.settings.llm.image.customModels || [];
+
+          if (!isPresetModel && !customModels.includes(modelId)) {
+            customModels.push(modelId);
+            this.plugin.settings.llm.image.customModels = customModels;
+          }
+
+          await this.plugin.saveSettings();
+        },
+        onDeleteModel: async (modelId: string) => {
+          this.plugin.settings.llm.image.customModels =
+            this.plugin.settings.llm.image.customModels.filter(id => id !== modelId);
+
+          // If this was the selected model, switch to default
+          if (this.plugin.settings.llm.image.model === modelId) {
+            this.plugin.settings.llm.image.model = IMAGE_MODELS[0].id;
+          }
+
+          await this.plugin.saveSettings();
+        },
+      }
+    );
+
+    // Image Size setting
+    new Setting(containerEl)
+      .setName(t('settings.imageSize'))
+      .setDesc(t('settings.imageSizeDesc'))
+      .addText(text => {
+        text.setValue(this.plugin.settings.llm.image.size);
+        text.setPlaceholder('e.g., 1024x1024');
+        text.onChange(async value => {
+          this.plugin.settings.llm.image.size = value;
           await this.plugin.saveSettings();
         });
       });
@@ -486,33 +618,47 @@ export default class StewardSettingTab extends PluginSettingTab {
             }
           });
 
-        // Set input type to number
         text.inputEl.setAttribute('type', 'number');
         text.inputEl.setAttribute('min', '1');
         text.inputEl.setAttribute('max', '100');
       });
   }
 
-  private createSpeechModelSetting(containerEl: HTMLElement): void {
-    // Speech Model setting
-    const speechModelSetting = new Setting(containerEl)
-      .setName(t('settings.speechModel'))
-      .setDesc(t('settings.speechModelDesc'));
-
-    // No toggle link needed - specific links will be added in each mode
-
+  private createModelSetting(
+    setting: Setting,
+    options: {
+      validationPattern: RegExp;
+      presetModels: Array<{ id: string; name?: string }>;
+      customModelsField: string;
+      currentModelField: string;
+      defaultModel: string;
+      placeholder: string;
+      onSelectChange: (modelId: string) => Promise<void>;
+      onAddModel: (modelId: string) => Promise<void>;
+      onDeleteModel: (modelId: string) => Promise<void>;
+    }
+  ): void {
     let currentInputWrapper: HTMLElement | null = null;
 
     // Validation function for custom model format
     const validateModelFormat = (model: string): boolean => {
-      const pattern = /^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/;
-      return pattern.test(model);
+      return options.validationPattern.test(model);
+    };
+
+    // Function to get custom models from settings
+    const getCustomModels = (): string[] => {
+      return get(this.plugin.settings, options.customModelsField) as string[];
+    };
+
+    // Function to get current model from settings
+    const getCurrentModel = (): string => {
+      return get(this.plugin.settings, options.currentModelField) as string;
     };
 
     // Function to create dropdown
     const createDropdown = () => {
       // Create wrapper div
-      const wrapper = speechModelSetting.controlEl.createEl('div', {
+      const wrapper = setting.controlEl.createEl('div', {
         cls: 'stw-input-wrapper',
       });
       currentInputWrapper = wrapper;
@@ -524,11 +670,17 @@ export default class StewardSettingTab extends PluginSettingTab {
 
       // Combine preset models and custom models
       const allModels = [
-        ...SPEECH_MODELS.map(model => ({ id: model.id, isCustom: false })),
-        ...(this.plugin.settings.llm.speech?.customModels || []).map(modelId => ({
-          id: modelId,
-          isCustom: true,
+        ...options.presetModels.map(model => ({
+          id: model.id,
+          name: model.name || model.id,
         })),
+        ...getCustomModels().map(model => {
+          const [, id] = model.split(':');
+          return {
+            id: model,
+            name: id,
+          };
+        }),
       ];
 
       // Group models by provider
@@ -550,21 +702,18 @@ export default class StewardSettingTab extends PluginSettingTab {
         // Add models under this provider
         for (const model of models) {
           const option = optgroup.createEl('option');
-          // Use the model ID as display text, with custom indicator
-          option.textContent = model.isCustom ? `${model.id} (Custom)` : model.id;
+          option.textContent = model.name;
           option.value = model.id;
         }
       }
 
       // Initialize with current value or default
-      const currentSpeechModel = this.plugin.settings.llm.speech?.model || 'openai:tts-1';
-      select.value = currentSpeechModel;
+      const currentModel = getCurrentModel();
+      select.value = currentModel;
 
       select.addEventListener('change', async e => {
         const target = e.target as HTMLSelectElement;
-        this.plugin.settings.llm.speech.model = target.value;
-        await this.plugin.saveSettings();
-        this.updateVoiceInput();
+        await options.onSelectChange(target.value);
       });
 
       // Add "Add new model" link
@@ -580,7 +729,7 @@ export default class StewardSettingTab extends PluginSettingTab {
       });
 
       // Add delete link below the select box (only if there are custom models)
-      const customModels = this.plugin.settings.llm.speech?.customModels || [];
+      const customModels = getCustomModels();
       if (customModels.length > 0) {
         const deleteLink = wrapper.createEl('a', {
           text: t('settings.deleteCustomModels'),
@@ -598,7 +747,7 @@ export default class StewardSettingTab extends PluginSettingTab {
     // Function to create text input
     const createTextInput = () => {
       // Create wrapper div
-      const wrapper = speechModelSetting.controlEl.createEl('div', {
+      const wrapper = setting.controlEl.createEl('div', {
         cls: 'stw-input-wrapper',
       });
       currentInputWrapper = wrapper;
@@ -618,7 +767,7 @@ export default class StewardSettingTab extends PluginSettingTab {
       // Create text input directly
       const textInput = wrapper.createEl('input', {
         type: 'text',
-        placeholder: 'e.g., openai:tts-1',
+        placeholder: options.placeholder,
         cls: 'text-input',
       });
       textInput.focus();
@@ -657,20 +806,7 @@ export default class StewardSettingTab extends PluginSettingTab {
 
         textInput.removeClass('is-invalid');
 
-        // Add to custom models if not already present and not a preset model
-        const isPresetModel = SPEECH_MODELS.some(model => model.id === inputValue);
-        const customModels = this.plugin.settings.llm.speech?.customModels || [];
-
-        if (!isPresetModel && !customModels.includes(inputValue)) {
-          customModels.push(inputValue);
-          this.plugin.settings.llm.speech.customModels = customModels;
-        }
-
-        // Set the model and save
-        this.plugin.settings.llm.speech.model = inputValue;
-        await this.plugin.saveSettings();
-        this.updateVoiceInput();
-
+        await options.onAddModel(inputValue);
         recreateInput();
       });
     };
@@ -678,7 +814,7 @@ export default class StewardSettingTab extends PluginSettingTab {
     // Function to create delete interface
     const createDeleteInterface = () => {
       // Create wrapper div
-      const wrapper = speechModelSetting.controlEl.createEl('div', {
+      const wrapper = setting.controlEl.createEl('div', {
         cls: 'stw-input-wrapper',
       });
       currentInputWrapper = wrapper;
@@ -695,7 +831,7 @@ export default class StewardSettingTab extends PluginSettingTab {
         recreateInput();
       });
 
-      const customModels = this.plugin.settings.llm.speech?.customModels || [];
+      const customModels = getCustomModels();
 
       if (customModels.length === 0) {
         wrapper.createEl('div', {
@@ -723,18 +859,7 @@ export default class StewardSettingTab extends PluginSettingTab {
         deleteButton.classList.add('clickable-icon');
 
         deleteButton.addEventListener('click', async () => {
-          // Remove from custom models
-          const updatedCustomModels = customModels.filter(id => id !== modelId);
-          this.plugin.settings.llm.speech.customModels = updatedCustomModels;
-
-          // If this was the selected model, switch to default
-          if (this.plugin.settings.llm.speech.model === modelId) {
-            this.plugin.settings.llm.speech.model = 'openai:tts-1';
-          }
-
-          await this.plugin.saveSettings();
-          this.updateVoiceInput();
-
+          await options.onDeleteModel(modelId);
           // Recreate the interface to reflect changes
           recreateInput('delete');
         });
