@@ -24,18 +24,26 @@ export interface StewardPluginSettings {
       }
     | undefined;
   llm: {
-    model: string; // The model name (e.g., gpt-4-turbo-preview, llama3.2)
+    model?: string; // Deprecated: use chat.model instead
+    chat: {
+      model: string; // The chat model (e.g., gpt-4-turbo-preview, llama3.2)
+      customModels: string[]; // User-defined custom chat models
+    };
     temperature: number;
     ollamaBaseUrl?: string; // Deprecated: use providerConfigs instead
     maxGenerationTokens?: number; // Maximum number of tokens to generate in response
-    embeddingModel: string; // The embedding model (e.g., openai:text-embedding-ada-002, google:gemini-embedding-001)
+    embeddingModel?: string; // Deprecated: use embedding.model instead
+    embedding: {
+      model: string; // The embedding model (e.g., openai:text-embedding-ada-002, google:gemini-embedding-001)
+      customModels: string[]; // User-defined custom embedding models
+    };
+    image: {
+      model: string; // The image model (e.g., "openai:dall-e-3", "openai:dall-e-2")
+      customModels: string[]; // User-defined custom image models
+      size: string; // Image size (e.g., "1024x1024", "1792x1024")
+    };
     providerConfigs: {
-      openai?: { baseUrl?: string };
-      deepseek?: { baseUrl?: string };
-      google?: { baseUrl?: string };
-      groq?: { baseUrl?: string };
-      ollama?: { baseUrl?: string };
-      anthropic?: { baseUrl?: string };
+      [key: string]: { baseUrl?: string };
     };
     speech: {
       model: string; // The speech model (e.g., "openai:tts-1", "elevenlabs:eleven_turbo_v2")

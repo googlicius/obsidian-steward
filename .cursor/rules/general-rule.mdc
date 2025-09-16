@@ -6,9 +6,9 @@ alwaysApply: false
 
 - Adopt the return early approach.
 - If a function has more than 4 arguments, make it a single argument as an object.
-- Always write the code readable, maintainable, and reusable.
 - Use 'for' loops instead of 'forEach' for iterating arrays.
 - If you generate hard-coded text or strings, you MUST define all languages for them in the `src/i18n/locales` folder, (Except those are logging or errors) and use them via the `t` method.
 - Avoid cast variables as any
 - When defining properties for a class, define them directly in the constructor's parameters if feasible, for example: `constructor(private plugin: Plugin)`.
+- Always write the code readable, maintainable, and reusable.
 - When finishing generation, no need to run build or test. Leave it for me to review.

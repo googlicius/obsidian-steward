@@ -349,19 +349,23 @@ html[data-stw-language='vi'] {
 
 /* Custom model link styling */
 .stw-custom-model-link {
-  color: var(--text-accent);
   text-decoration: none;
   font-size: 0.9em;
-  margin-left: var(--size-2-2);
-  cursor: pointer;
 
-  &:hover {
-    color: var(--text-accent-hover);
-    text-decoration: underline;
+  &.caret-right {
+    &::after {
+      content: ' ›';
+    }
+  }
+
+  &.caret-left {
+    &::before {
+      content: '‹ ';
+    }
   }
 }
 
-.stw-input-wrapper {
+.stw-setting-wrapper {
   display: flex;
   flex-direction: column;
   gap: var(--size-2-2);
@@ -375,7 +379,7 @@ html[data-stw-language='vi'] {
 
 /* Custom models delete interface */
 .stw-custom-models-list {
-  margin-top: var(--size-2-2);
+  margin-top: var(--size-4-2);
 }
 
 .stw-custom-model-item {
@@ -383,6 +387,7 @@ html[data-stw-language='vi'] {
   align-items: center;
   justify-content: space-between;
   padding: var(--size-2-1) 0;
+  text-wrap: nowrap;
 }
 
 .stw-no-models {

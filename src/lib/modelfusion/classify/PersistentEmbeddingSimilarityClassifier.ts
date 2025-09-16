@@ -40,11 +40,6 @@ export class PersistentEmbeddingSimilarityClassifier {
   readonly settings: Settings;
   private db: EmbeddingsDatabase;
 
-  readonly modelInformation = {
-    provider: 'modelfusion',
-    modelName: 'PersistentEmbeddingSimilarityClassifier',
-  };
-
   /**
    * Static cache to share embeddings across instances
    */

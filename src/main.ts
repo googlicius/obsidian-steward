@@ -70,57 +70,7 @@ export default class StewardPlugin extends Plugin {
   }
 
   async onload() {
-    await this.loadSettings();
-
-    // Check and update missing settings
-    let settingsUpdated = false;
-
-    // Generate DB prefix if not already set
-    if (!this.settings.searchDbPrefix) {
-      this.settings.searchDbPrefix = generateRandomDbPrefix();
-      settingsUpdated = true;
-    }
-
-    // Setup encryption salt if not already set
-    if (!this.settings.saltKeyId) {
-      this.settings.saltKeyId = generateSaltKeyId();
-      settingsUpdated = true;
-    }
-
-    // Set encryption version if not already set
-    if (!this.settings.encryptionVersion) {
-      this.settings.encryptionVersion = 1;
-      settingsUpdated = true;
-    }
-
-    // Initialize providerConfigs if not already set
-    if (!this.settings.llm.providerConfigs) {
-      this.settings.llm.providerConfigs = {};
-      settingsUpdated = true;
-    }
-
-    // Initialize speech if not already set
-    if (!this.settings.llm.speech) {
-      this.settings.llm.speech = DEFAULT_SETTINGS.llm.speech;
-      // Remove legacy config
-      this.settings.audio = undefined;
-      settingsUpdated = true;
-    }
-
-    // Initialize embeddingModel if not already set
-    if (!this.settings.llm.embeddingModel) {
-      this.settings.llm.embeddingModel = 'openai:text-embedding-ada-002';
-      settingsUpdated = true;
-    }
-
-    // Migrate ollamaBaseUrl to providerConfigs if it exists
-    if (
-      this.settings.llm.ollamaBaseUrl &&
-      this.settings.llm.providerConfigs.ollama?.baseUrl === 'http://localhost:11434'
-    ) {
-      this.settings.llm.providerConfigs.ollama.baseUrl = this.settings.llm.ollamaBaseUrl;
-      settingsUpdated = true;
-    }
+    const settingsUpdated = await this.loadSettings();
 
     if (settingsUpdated) {
       await this.saveSettings();
@@ -319,7 +269,7 @@ export default class StewardPlugin extends Plugin {
   }
 
   private initializeClassifier() {
-    const classifier = getClassifier(this.settings.llm.embeddingModel);
+    const classifier = getClassifier(this.settings.llm.embedding.model);
 
     // Initialize embeddings
     retry(() => classifier.doClassify('initialize'), {
@@ -327,7 +277,7 @@ export default class StewardPlugin extends Plugin {
     });
   }
 
-  async loadSettings() {
+  private async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 
     // Update logger debug setting
@@ -335,6 +285,91 @@ export default class StewardPlugin extends Plugin {
 
     // Apply bordered input class if enabled
     document.body.classList.toggle('stw-bordered-input', this.settings.borderedInput);
+
+    // Check and update missing settings
+    let settingsUpdated = false;
+
+    // Generate DB prefix if not already set
+    if (!this.settings.searchDbPrefix) {
+      this.settings.searchDbPrefix = generateRandomDbPrefix();
+      settingsUpdated = true;
+    }
+
+    // Setup encryption salt if not already set
+    if (!this.settings.saltKeyId) {
+      this.settings.saltKeyId = generateSaltKeyId();
+      settingsUpdated = true;
+    }
+
+    // Set encryption version if not already set
+    if (!this.settings.encryptionVersion) {
+      this.settings.encryptionVersion = 1;
+      settingsUpdated = true;
+    }
+
+    // Initialize providerConfigs if not already set
+    if (!this.settings.llm.providerConfigs) {
+      this.settings.llm.providerConfigs = {};
+      settingsUpdated = true;
+    }
+
+    // Initialize chat if not already set
+    if (!this.settings.llm.chat) {
+      this.settings.llm.chat = DEFAULT_SETTINGS.llm.chat;
+      // Migrate legacy model to chat.model
+      if (this.settings.llm.model) {
+        const provider = LLMService.getInstance(this).getProviderFromModel(this.settings.llm.model);
+        this.settings.llm.chat.model = `${provider.name}:${provider.modelId}`;
+        this.settings.llm.model = undefined;
+      }
+      settingsUpdated = true;
+    }
+
+    // Initialize embedding if not already set
+    if (!this.settings.llm.embedding) {
+      this.settings.llm.embedding = DEFAULT_SETTINGS.llm.embedding;
+      // Migrate legacy embeddingModel to embedding.model
+      if (this.settings.llm.embeddingModel) {
+        this.settings.llm.embedding.model = this.settings.llm.embeddingModel;
+        this.settings.llm.embeddingModel = undefined;
+      }
+      settingsUpdated = true;
+    }
+
+    // Initialize speech if not already set
+    if (!this.settings.llm.speech) {
+      this.settings.llm.speech = DEFAULT_SETTINGS.llm.speech;
+      // Remove legacy config
+      this.settings.audio = undefined;
+      settingsUpdated = true;
+    }
+
+    // Initialize embedding model if not already set
+    if (!this.settings.llm.embedding?.model) {
+      this.settings.llm.embedding = {
+        model: 'openai:text-embedding-ada-002',
+        customModels: [],
+      };
+      settingsUpdated = true;
+    }
+
+    // Initialize image model if not already set
+    if (!this.settings.llm.image?.model) {
+      this.settings.llm.image = DEFAULT_SETTINGS.llm.image;
+      settingsUpdated = true;
+    }
+
+    // Migrate ollamaBaseUrl to providerConfigs if it exists
+    if (this.settings.llm.ollamaBaseUrl) {
+      if (!this.settings.llm.providerConfigs.ollama) {
+        this.settings.llm.providerConfigs.ollama = {};
+      }
+      this.settings.llm.providerConfigs.ollama.baseUrl = this.settings.llm.ollamaBaseUrl;
+      this.settings.llm.ollamaBaseUrl = undefined;
+      settingsUpdated = true;
+    }
+
+    return settingsUpdated;
   }
 
   async saveSettings() {

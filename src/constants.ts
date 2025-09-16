@@ -96,11 +96,22 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     },
   },
   llm: {
-    model: 'gpt-4-turbo-preview',
+    chat: {
+      model: 'openai:gpt-4-turbo-preview',
+      customModels: [],
+    },
     temperature: 0.2,
     ollamaBaseUrl: 'http://localhost:11434', // Deprecated: use providerConfigs instead
     maxGenerationTokens: 2048, // Default max tokens for generation
-    embeddingModel: 'openai:text-embedding-ada-002', // Default embedding model
+    embedding: {
+      model: 'openai:text-embedding-ada-002',
+      customModels: [],
+    },
+    image: {
+      model: 'openai:dall-e-3',
+      customModels: [],
+      size: '1024x1024',
+    },
     providerConfigs: {},
     speech: {
       model: 'openai:tts-1', // Default speech model
@@ -121,39 +132,38 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
 export interface ModelOption {
   id: string;
   name: string;
-  provider: 'openai' | 'deepseek' | 'ollama' | 'google' | 'groq' | 'anthropic';
 }
 
 export const LLM_MODELS: ModelOption[] = [
   // OpenAI Models
-  { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai' },
-  { id: 'gpt-4-vision-preview', name: 'GPT-4 Vision (Deprecated)', provider: 'openai' },
-  { id: 'gpt-4-turbo-preview', name: 'GPT-4 Turbo', provider: 'openai' },
-  { id: 'gpt-4-0125-preview', name: 'GPT-4 0125', provider: 'openai' },
-  { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'openai' },
+  { id: 'openai:gpt-4o', name: 'GPT-4o' },
+  { id: 'openai:gpt-4-vision-preview', name: 'GPT-4 Vision (Deprecated)' },
+  { id: 'openai:gpt-4-turbo-preview', name: 'GPT-4 Turbo' },
+  { id: 'openai:gpt-4-0125-preview', name: 'GPT-4 0125' },
+  { id: 'openai:gpt-3.5-turbo', name: 'GPT-3.5 Turbo' },
 
   // DeepSeek Models
-  { id: 'deepseek-chat', name: 'DeepSeek Chat', provider: 'deepseek' },
+  { id: 'deepseek:deepseek-chat', name: 'DeepSeek Chat' },
 
   // Google Models
-  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', provider: 'google' },
-  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', provider: 'google' },
-  { id: 'gemini-2.0-pro', name: 'Gemini 2.0 Pro', provider: 'google' },
+  { id: 'google:gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+  { id: 'google:gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+  { id: 'google:gemini-2.0-pro', name: 'Gemini 2.0 Pro' },
 
   // Groq Models
-  { id: 'meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout 17B', provider: 'groq' },
+  { id: 'groq:meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout 17B' },
 
   // Ollama Models
-  { id: 'llama3:latest', name: 'Llama 3 8B', provider: 'ollama' },
-  { id: 'llama3.1:latest', name: 'Llama 3.1 8B', provider: 'ollama' },
-  { id: 'llama3.2:latest', name: 'Llama 3.2', provider: 'ollama' },
-  { id: 'mistral:latest', name: 'Mistral', provider: 'ollama' },
-  { id: 'mixtral:latest', name: 'Mixtral', provider: 'ollama' },
+  { id: 'ollama:llama3:latest', name: 'Llama 3 8B' },
+  { id: 'ollama:llama3.1:latest', name: 'Llama 3.1 8B' },
+  { id: 'ollama:llama3.2:latest', name: 'Llama 3.2' },
+  { id: 'ollama:mistral:latest', name: 'Mistral' },
+  { id: 'ollama:mixtral:latest', name: 'Mixtral' },
 
   // Anthropic Models
-  { id: 'claude-sonnet-4-20250514', name: 'Claude 4 Sonnet', provider: 'anthropic' },
-  { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', provider: 'anthropic' },
-  { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', provider: 'anthropic' },
+  { id: 'anthropic:claude-sonnet-4-20250514', name: 'Claude 4 Sonnet' },
+  { id: 'anthropic:claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
+  { id: 'anthropic:claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
 ];
 
 export type ProviderNeedApiKey =
@@ -167,16 +177,17 @@ export type ProviderNeedApiKey =
 // Speech model options
 export interface SpeechModelOption {
   id: string; // Format: "provider:modelId" (e.g., "openai:tts-1")
+  name?: string;
 }
 
 export const SPEECH_MODELS: SpeechModelOption[] = [
   // OpenAI Speech Models
-  { id: 'openai:tts-1' },
-  { id: 'openai:tts-1-hd' },
+  { id: 'openai:tts-1', name: 'OpenAI TTS-1' },
+  { id: 'openai:tts-1-hd', name: 'OpenAI TTS-1 HD' },
 
   // ElevenLabs Speech Models
-  { id: 'elevenlabs:eleven_turbo_v2' },
-  { id: 'elevenlabs:eleven_multilingual_v2' },
+  { id: 'elevenlabs:eleven_turbo_v2', name: 'ElevenLabs Turbo v2' },
+  { id: 'elevenlabs:eleven_multilingual_v2', name: 'ElevenLabs Multilingual v2' },
 ];
 
 // Default voice IDs for each provider
@@ -197,4 +208,15 @@ export const EMBEDDING_MODELS: EmbeddingModelOption[] = [
     name: 'text-embedding-ada-002 (OpenAI)',
   },
   { id: 'google:gemini-embedding-001', name: 'gemini-embedding-001 (Google)' },
+];
+
+// Image model options
+export interface ImageModelOption {
+  id: string;
+  name: string;
+}
+
+export const IMAGE_MODELS: ImageModelOption[] = [
+  { id: 'openai:dall-e-3', name: 'DALL-E 3' },
+  { id: 'openai:dall-e-2', name: 'DALL-E 2' },
 ];

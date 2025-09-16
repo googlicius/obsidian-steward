@@ -60,6 +60,18 @@ export class ImageCommandHandler extends CommandHandler {
       // Generate the image using the handler's method
       const result = await this.generateImage(extraction.text);
 
+      if (!result.success) {
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: `*Error generating image: ${result.error}*`,
+        });
+
+        return {
+          status: CommandResultStatus.ERROR,
+          error: result.error,
+        };
+      }
+
       const messageId = await this.renderer.updateConversationNote({
         path: title,
         newContent: `\n![[${result.filePath}]]`,

@@ -36,20 +36,12 @@ export class KeywordCondition extends Condition<IndexedDocument> {
    * Get term entries that match the specified content terms
    */
   private async getTermEntriesForContent(terms: string[]): Promise<IndexedTerm[]> {
-    // Pre-compute arrays for better performance
-    // const documentIdArray = scopedDocuments.map(doc => doc.id as number);
-    // const folderIdArray = folders.map(folder => folder.id as number);
-
     // Apply filtering
-    return (
-      this.context.documentStore.terms
-        .where('term')
-        .anyOf(terms)
-        .and(item => item.source === TermSource.Content)
-        // .and(item => this.isDocumentMatch(item.documentId, documentIdArray, scopedDocuments.length))
-        // .and(item => this.isFolderMatch(item.folderId, folderIdArray, folders.length))
-        .toArray()
-    );
+    return this.context.documentStore.terms
+      .where('term')
+      .anyOf(terms)
+      .and(item => item.source === TermSource.Content)
+      .toArray();
   }
 
   /**
