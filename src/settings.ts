@@ -330,7 +330,7 @@ export default class StewardSettingTab extends PluginSettingTab {
         currentModelField: 'llm.chat.model',
         customModelsField: 'llm.chat.customModels',
         defaultModel: LLM_MODELS[0].id,
-        placeholder: 'e.g., gpt-5',
+        placeholder: 'e.g., openai:gpt-5',
         validationPattern: /^[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+$/,
         presetModels: LLM_MODELS,
         onSelectChange: async (modelId: string) => {

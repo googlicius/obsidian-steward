@@ -2,7 +2,7 @@ import { removeStopwords } from './stopwords';
 import { stemmer } from './stemmer';
 import { STW_SELECTED_PATTERN, STW_SQUEEZED_PATTERN } from '../../../constants';
 
-export interface Token {
+interface Token {
   term: string;
   count: number;
   positions: number[];
@@ -13,7 +13,7 @@ export interface Token {
  * Normalizers handle tasks like case folding, accent removal, or special character handling
  * to standardize text for more effective search and analysis.
  */
-export interface Normalizer {
+interface Normalizer {
   name: string;
   apply: (content: string) => string;
 }
@@ -23,18 +23,18 @@ export interface Normalizer {
  * Analyzers perform tasks like word splitting, stemming, or phrase extraction
  * to enhance the quality of search results and analysis.
  */
-export interface Analyzer {
+interface Analyzer {
   name: string;
   process: (tokens: Token[]) => Token[];
 }
 
-export interface TokenizerConfig {
+interface TokenizerConfig {
   removeStopwords?: boolean;
   normalizers?: string[];
   analyzers?: string[];
 }
 
-export const ALL_ANALYZERS: Record<string, Analyzer['process']> = {
+const ALL_ANALYZERS: Record<string, Analyzer['process']> = {
   /**
    * Word delimiter analyzer that splits words by dashes and underscores, adding the parts as separate tokens
    * while preserving the original token
@@ -116,7 +116,7 @@ export const ALL_ANALYZERS: Record<string, Analyzer['process']> = {
   },
 };
 
-export const ALL_NORMALIZERS: Record<string, Normalizer['apply']> = {
+const ALL_NORMALIZERS: Record<string, Normalizer['apply']> = {
   removeHtmlComments: (content: string) => content.replace(/<!--[\s\S]*?-->/g, ' '),
   lowercase: (content: string) => content.toLowerCase(),
   removeSpecialChars: (content: string) =>

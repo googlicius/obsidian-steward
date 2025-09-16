@@ -263,5 +263,25 @@ translated_search.found
 >==#tag/subtag== This is test
 `);
     });
+
+    it('should highlight words stem to the same root', async () => {
+      jest
+        .spyOn(mockPlugin.app.vault, 'cachedRead')
+        .mockResolvedValue('I walked in the park yesterday.');
+
+      paginatedSearchResult.conditionResults[0].keywordsMatched = ['He is walking in the park'];
+
+      const result = await searchCommandHandler.formatSearchResults({
+        paginatedSearchResult,
+      });
+
+      expect(result).toEqual(`translated_search.found
+
+**1.** [[Test Note.md]]
+
+>[!stw-search-result] line:1,start:2,end:20,path:Test Note.md
+>I ==walked in the park== yesterday.
+`);
+    });
   });
 });

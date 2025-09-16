@@ -1,6 +1,6 @@
-import { DocumentStore } from '../documentStore';
-import { Tokenizer } from '../tokenizer/tokenizer';
-import { Scoring } from '../scoring';
+import { type DocumentStore } from '../documentStore';
+import { type Tokenizer } from '../tokenizer/tokenizer';
+import { type Scoring } from '../scoring';
 
 export interface SearchContext {
   documentStore: DocumentStore;

@@ -11,12 +11,13 @@ export class PropertyCondition extends Condition<IndexedDocument> {
       return new Map();
     }
 
-    const specificProperties = this.properties.filter(
+    // file_type and file_category are evaluated if there is no other properties.
+    const otherProperties = this.properties.filter(
       prop => prop.name !== 'file_type' && prop.name !== 'file_category'
     );
 
     // Use specific properties if available, otherwise use all properties
-    const propertiesToUse = specificProperties.length > 0 ? specificProperties : this.properties;
+    const propertiesToUse = otherProperties.length > 0 ? otherProperties : this.properties;
 
     const result = new Map<number, ConditionResult<IndexedDocument>>();
 
