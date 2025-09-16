@@ -21,7 +21,7 @@
 - [x] Add a post-processor to build the custom callout HTML data properties from the HTML comment in the callout:
       `>[!search-result] line:4,pos:0`
 - [x] Refactor the handleConversationCommand to be able to handle a confirmation in the between or stop immediately if errors happen when there are multiple commands
-- [ ] Search words start with a keyword: If user search for "teem", should be returned "teeming"
+- [x] Search words start with a keyword: If user search for "teem", should be returned "teeming"
 - [x] The "create" command should be able to handle creating multiple notes.
 - [x] If the user wants to read a file entirely at the first time, let them know about the potential high cost by a confirmation.
 - [ ] Settings with the LLM helps: audio generation model, text generation model, names, and temperature
@@ -72,6 +72,7 @@
 - [x] Classify dynamic threshold
 - [ ] Auto build search index
 - [ ] Build index for PDF files
+- [ ] Stw squeezed block in reading view
 
 ### BUGS
 

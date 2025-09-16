@@ -1,3 +1,20 @@
+/* Placeholder text classes for different languages */
+:root {
+  --stw-placeholder-text: 'Press Enter to send';
+}
+
+html[data-stw-language='en'] {
+  --stw-placeholder-text: 'Press Enter to send';
+}
+
+html[data-stw-language='ja'] {
+  --stw-placeholder-text: 'Enterキーを押して送信';
+}
+
+html[data-stw-language='vi'] {
+  --stw-placeholder-text: 'Nhấn Enter để gửi';
+}
+
 /* Style for the commands prefix when typing */
 .stw-command-prefix {
   color: var(--text-accent-hover);
@@ -324,23 +341,6 @@ code[class*='language-stw-artifact'] {
 
 .stw-setting-visible {
   display: flex;
-}
-
-/* Placeholder text classes for different languages */
-:root {
-  --stw-placeholder-text: 'Press Enter to send';
-}
-
-html[data-stw-language='en'] {
-  --stw-placeholder-text: 'Press Enter to send';
-}
-
-html[data-stw-language='ja'] {
-  --stw-placeholder-text: 'Enterキーを押して送信';
-}
-
-html[data-stw-language='vi'] {
-  --stw-placeholder-text: 'Nhấn Enter để gửi';
 }
 
 .mr-2 {
