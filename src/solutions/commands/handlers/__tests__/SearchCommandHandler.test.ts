@@ -242,7 +242,7 @@ translated_search.found
 **1.** [[Test Note.md]]
 
 >[!stw-search-result] line:1,start:0,end:105,path:Test Note.md
->==Totto-chan== walked [==sedately==](sedately). ==Rocky== walked ==sedately== too, ==looking up== at ==Totto-chan== [from time ==to== time](from%20time%20to%20time)
+>==Totto-chan walked== [==sedately==](sedately). ==Rocky walked sedately== too, ==looking up== at ==Totto-chan== [from time ==to== time](from%20time%20to%20time)
 `);
     });
 
