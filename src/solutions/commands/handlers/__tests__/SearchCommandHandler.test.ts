@@ -242,7 +242,7 @@ translated_search.found
 **1.** [[Test Note.md]]
 
 >[!stw-search-result] line:1,start:0,end:105,path:Test Note.md
->==Totto-chan== walked [==sedately==](sedately). ==Rocky== walked ==sedately== too, ==looking up== at ==Totto-chan== [from time ==to== time](from%20time%20to%20time)
+>==Totto-chan walked== [==sedately==](sedately). ==Rocky walked sedately== too, ==looking up== at ==Totto-chan== [from time ==to== time](from%20time%20to%20time)
 `);
     });
 
@@ -261,6 +261,26 @@ translated_search.found
 
 >[!stw-search-result] line:1,start:0,end:11,path:Test Note.md
 >==#tag/subtag== This is test
+`);
+    });
+
+    it('should highlight words stem to the same root', async () => {
+      jest
+        .spyOn(mockPlugin.app.vault, 'cachedRead')
+        .mockResolvedValue('I walked in the park yesterday.');
+
+      paginatedSearchResult.conditionResults[0].keywordsMatched = ['He is walking in the park'];
+
+      const result = await searchCommandHandler.formatSearchResults({
+        paginatedSearchResult,
+      });
+
+      expect(result).toEqual(`translated_search.found
+
+**1.** [[Test Note.md]]
+
+>[!stw-search-result] line:1,start:2,end:20,path:Test Note.md
+>I ==walked in the park== yesterday.
 `);
     });
   });

@@ -10,6 +10,8 @@ import { Events } from 'src/types/events';
 import { eventEmitter } from 'src/services/EventEmitter';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
+import { IndexedDocument } from 'src/database/SearchDatabase';
+import { ConditionResult } from 'src/solutions/search/searchEngineV3';
 
 export class DeleteCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -55,7 +57,9 @@ export class DeleteCommandHandler extends CommandHandler {
       let docs: any[] = [];
 
       if (artifact.type === ArtifactType.SEARCH_RESULTS) {
-        docs = artifact.originalResults;
+        docs = artifact.originalResults.map(result => ({
+          path: result.document.path,
+        }));
       } else if (artifact.type === ArtifactType.CREATED_NOTES) {
         docs = artifact.paths.map(path => ({ path }));
       } else {
@@ -97,6 +101,8 @@ export class DeleteCommandHandler extends CommandHandler {
           if (file) {
             await this.app.fileManager.trashFile(file);
             deletedFiles.push(doc.path);
+          } else {
+            logger.error(`File not found: ${doc.path}`);
           }
         } catch (error) {
           failedFiles.push(doc.path);

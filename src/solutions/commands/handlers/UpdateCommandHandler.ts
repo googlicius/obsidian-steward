@@ -163,7 +163,7 @@ export class UpdateCommandHandler extends CommandHandler {
       let docs: DocWithPath[] = [];
 
       if (artifact.type === ArtifactType.SEARCH_RESULTS) {
-        docs = artifact.originalResults as DocWithPath[];
+        docs = artifact.originalResults.map(result => ({ path: result.document.path }));
       } else if (artifact.type === ArtifactType.CREATED_NOTES) {
         docs = artifact.paths.map(path => ({ path }));
       } else if (artifact.type === ArtifactType.CONTENT_UPDATE) {

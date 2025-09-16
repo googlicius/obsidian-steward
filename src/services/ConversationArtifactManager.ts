@@ -1,6 +1,8 @@
 import { ContentReadingResult } from './ContentReadingService';
 import { ContentUpdateExtraction } from '../lib/modelfusion/extractions';
 import { logger } from 'src/utils/logger';
+import { IndexedDocument } from 'src/database/SearchDatabase';
+import { ConditionResult } from 'src/solutions/search/searchEngineV3';
 
 /**
  * Types of artifacts that can be stored for conversations
@@ -31,7 +33,7 @@ export interface BaseArtifact {
  */
 export interface SearchResultsArtifact extends BaseArtifact {
   type: ArtifactType.SEARCH_RESULTS;
-  originalResults: unknown[]; // The original, unpaginated results
+  originalResults: ConditionResult<IndexedDocument>[]; // The original, unpaginated results
 }
 
 /**

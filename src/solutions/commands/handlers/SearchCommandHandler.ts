@@ -18,6 +18,7 @@ import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { PaginatedSearchResult } from 'src/solutions/search/types';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 import { STOPWORDS } from 'src/solutions/search';
+import { stemmer } from 'src/solutions/search/tokenizer/stemmer';
 
 type HighlighKeywordResult = {
   highlightedText: string;
@@ -201,7 +202,6 @@ export class SearchCommandHandler extends CommandHandler {
         }
       }
 
-      // Get the search results
       const queryResult = await this.plugin.searchService.searchV3(queryExtraction.operations);
 
       // Paginate the results for display (first page)
@@ -212,7 +212,6 @@ export class SearchCommandHandler extends CommandHandler {
         resultsPerPage
       );
 
-      // Format the search results
       const response = await this.formatSearchResults({
         paginatedSearchResult,
         headerText: queryExtraction.explanation,
@@ -278,7 +277,7 @@ export class SearchCommandHandler extends CommandHandler {
    */
   private repairExtractionOperations(operations: SearchOperationV2[]): SearchOperationV2[] {
     return operations.map(operation => {
-      const filePropertyNames = ['file_name', 'filename', 'note_name', 'notename'];
+      const filePropertyNames = ['file_name', 'filename', 'note_name', 'notename', 'name'];
       const repairedOperation = { ...operation };
 
       // Iterate backwards to safely use splice
@@ -394,6 +393,41 @@ export class SearchCommandHandler extends CommandHandler {
     return response;
   }
 
+  /**
+   * Builds a mapping from stemmed terms to their original forms found in the content.
+   * This enables highlighting of original word forms that stem to the same root.
+   *
+   * @param content The content to analyze
+   * @returns Map where keys are stemmed terms and values are arrays of original forms
+   */
+  private buildContentStemmingMap(content: string): Map<string, string[]> {
+    const contentMap = new Map<string, string[]>();
+
+    // Create a tokenizer without stemming to get original terms
+    const originalTokenizer = this.plugin.searchService.contentTokenizer.withConfig({
+      analyzers: [],
+    });
+
+    // Tokenize content to get original terms
+    const originalTokens = originalTokenizer.tokenize(content);
+
+    // Build mapping: stemmed term -> [original forms that exist in content]
+    for (const token of originalTokens) {
+      const stemmedForm = stemmer(token.term);
+
+      if (!contentMap.has(stemmedForm)) {
+        contentMap.set(stemmedForm, []);
+      }
+
+      const originals = contentMap.get(stemmedForm);
+      if (originals && !originals.includes(token.term)) {
+        originals.push(token.term);
+      }
+    }
+
+    return contentMap;
+  }
+
   private highlightKeyword(
     keyword: string,
     content: string,
@@ -406,20 +440,23 @@ export class SearchCommandHandler extends CommandHandler {
     const tokenizer = this.plugin.searchService.contentTokenizer.withConfig({
       removeStopwords: false,
     });
-    const keywordTerms = tokenizer.tokenize(keyword).map(item => item.term);
-    // Preserve original terms for highlighting
-    const [keywordSpitTerms, tagTerms] = keyword.split(' ').reduce<[string[], string[]]>(
-      (acc, term) => {
-        if (term.startsWith('#')) {
-          acc[1].push(term);
-        } else {
-          acc[0].push(term);
-        }
-        return acc;
-      },
-      [[], []]
-    );
-    const termsPattern = [...new Set([...keywordSpitTerms, ...keywordTerms])].join('|');
+    const stemmedKeywordTerms = tokenizer.tokenize(keyword).map(item => item.term);
+    // Tag terms have a different regex pattern
+    const tagTerms = keyword.split(' ').reduce<string[]>((acc, term) => {
+      if (term.startsWith('#')) {
+        acc.push(term);
+      }
+      return acc;
+    }, []);
+    const originalKeywordTerms: string[] = [];
+    const contentStemmingMap = this.buildContentStemmingMap(content);
+    // Collect original terms from the stemmed keyword terms
+    for (const term of stemmedKeywordTerms) {
+      if (contentStemmingMap.has(term)) {
+        originalKeywordTerms.push(...(contentStemmingMap.get(term) as string[]));
+      }
+    }
+    const termsPattern = [...new Set([...stemmedKeywordTerms, ...originalKeywordTerms])].join('|');
     const tagTermsPattern = tagTerms.join('|');
     const lines = content.split('\n');
     const results: HighlighKeywordResult[] = [];
