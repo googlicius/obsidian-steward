@@ -84,6 +84,18 @@ export class AudioCommandHandler extends CommandHandler {
         instructions: command.systemPrompts?.join('\n'),
       });
 
+      if (!result.success) {
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: `*Error generating audio: ${result.error}*`,
+        });
+
+        return {
+          status: CommandResultStatus.ERROR,
+          error: result.error,
+        };
+      }
+
       const messageId = await this.renderer.updateConversationNote({
         path: title,
         newContent: `\n![[${result.filePath}]]`,
@@ -146,6 +158,7 @@ export class AudioCommandHandler extends CommandHandler {
 
       // Generate the speech
       const response = await experimental_generateSpeech({
+        abortSignal: this.plugin.abortService.createAbortController('audio'),
         ...speechConfig,
         ...options,
         text,
@@ -163,7 +176,7 @@ export class AudioCommandHandler extends CommandHandler {
 
       // Save the generated audio to a file
       const filePath = `${this.plugin.mediaTools.getAttachmentsFolderPath()}/${filename}.${extension}`;
-      await this.plugin.app.vault.createBinary(filePath, uint8Array.buffer);
+      await this.plugin.app.vault.createBinary(filePath, uint8Array.buffer as ArrayBuffer);
 
       return {
         success: true,

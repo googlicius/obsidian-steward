@@ -8,7 +8,6 @@ import { getTranslation } from 'src/i18n';
 import { extractContentUpdate, extractNoteGeneration } from 'src/lib/modelfusion/extractions';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import { streamText, APICallError } from 'ai';
-import { AbortService } from 'src/services/AbortService';
 import {
   ContentUpdateExtraction,
   NoteGenerationExtraction,
@@ -23,8 +22,6 @@ import { logger } from 'src/utils/logger';
 import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { type CommandProcessor } from '../CommandProcessor';
-
-const abortService = AbortService.getInstance();
 
 export class GenerateCommandHandler extends CommandHandler {
   constructor(
@@ -74,7 +71,7 @@ export class GenerateCommandHandler extends CommandHandler {
     const t = getTranslation(lang);
 
     const fromRead = prevCommand && prevCommand.commandType === 'read';
-    const systemPrompts = [];
+    const systemPrompts = params.command.systemPrompts || [];
 
     const originalQuery = this.commandProcessor.getPendingCommand(title)?.payload.originalQuery;
 
@@ -240,6 +237,8 @@ The response should be in natural language and not include the selection(s) {{st
 
         const noteContent = file ? await this.app.vault.read(file) : '';
 
+        console.log('systemPrompts', systemPrompts);
+
         const stream = await this.contentGenerationStream({
           command: {
             ...command,
@@ -326,7 +325,7 @@ The response should be in natural language and not include the selection(s) {{st
 
     const { textStream } = streamText({
       ...llmConfig,
-      abortSignal: abortService.createAbortController('generate'),
+      abortSignal: this.plugin.abortService.createAbortController('generate'),
       system: `You are a helpful assistant that generates content for Obsidian notes. Generate detailed, well-structured content. Format the content in Markdown.
 The content should not include the big heading on the top.
 ${languageEnforcementFragment}`,

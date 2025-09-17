@@ -43,6 +43,7 @@ import stewardIcon from './assets/steward-icon.svg';
 import { createStwSelectedBlocksExtension } from './cm/extensions/StwSelectedBlockExtension';
 import { createStwSqueezedBlocksExtension } from './cm/extensions/StwSqueezedBlockExtension';
 import { capitalizeString } from './utils/capitalizeString';
+import { AbortService } from './services/AbortService';
 
 // Generate a random string for DB prefix
 function generateRandomDbPrefix(): string {
@@ -64,6 +65,7 @@ export default class StewardPlugin extends Plugin {
   noteContentService: NoteContentService;
   llmService: LLMService;
   commandInputService: CommandInputService;
+  abortService: AbortService;
 
   get editor(): ObsidianEditor {
     return this.app.workspace.activeEditor?.editor as ObsidianEditor;
@@ -93,6 +95,9 @@ export default class StewardPlugin extends Plugin {
 
     // Initialize the LLM service
     this.llmService = LLMService.getInstance(this);
+
+    // Initialize the AbortService
+    this.abortService = AbortService.getInstance();
 
     // Search index will be built manually by user request
 
