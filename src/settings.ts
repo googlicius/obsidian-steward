@@ -329,9 +329,7 @@ export default class StewardSettingTab extends PluginSettingTab {
       {
         currentModelField: 'llm.chat.model',
         customModelsField: 'llm.chat.customModels',
-        defaultModel: LLM_MODELS[0].id,
         placeholder: 'e.g., openai:gpt-5',
-        validationPattern: /^[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+$/,
         presetModels: LLM_MODELS,
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.chat.model = modelId;
@@ -381,9 +379,7 @@ export default class StewardSettingTab extends PluginSettingTab {
       {
         currentModelField: 'llm.embedding.model',
         customModelsField: 'llm.embedding.customModels',
-        defaultModel: EMBEDDING_MODELS[0].id,
         placeholder: 'e.g., openai:text-embedding-ada-002',
-        validationPattern: /^[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+$/,
         presetModels: EMBEDDING_MODELS,
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.embedding.model = modelId;
@@ -466,9 +462,7 @@ export default class StewardSettingTab extends PluginSettingTab {
       {
         currentModelField: 'llm.speech.model',
         customModelsField: 'llm.speech.customModels',
-        defaultModel: 'openai:tts-1',
         placeholder: 'e.g., openai:tts-1',
-        validationPattern: /^[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+$/,
         presetModels: SPEECH_MODELS,
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.speech.model = modelId;
@@ -534,7 +528,6 @@ export default class StewardSettingTab extends PluginSettingTab {
       {
         currentModelField: 'llm.image.model',
         customModelsField: 'llm.image.customModels',
-        defaultModel: IMAGE_MODELS[0].id,
         placeholder: 'e.g., openai:dall-e-3',
         validationPattern: /^[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+$/,
         presetModels: IMAGE_MODELS,
@@ -627,22 +620,22 @@ export default class StewardSettingTab extends PluginSettingTab {
   private createModelSetting(
     setting: Setting,
     options: {
-      validationPattern: RegExp;
+      validationPattern?: RegExp;
       presetModels: Array<{ id: string; name?: string }>;
       customModelsField: string;
       currentModelField: string;
-      defaultModel: string;
       placeholder: string;
       onSelectChange: (modelId: string) => Promise<void>;
       onAddModel: (modelId: string) => Promise<void>;
       onDeleteModel: (modelId: string) => Promise<void>;
     }
   ): void {
+    const { validationPattern = /^[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+$/ } = options;
     let currentInputWrapper: HTMLElement | null = null;
 
     // Validation function for custom model format
     const validateModelFormat = (model: string): boolean => {
-      return options.validationPattern.test(model);
+      return validationPattern.test(model);
     };
 
     // Function to get custom models from settings

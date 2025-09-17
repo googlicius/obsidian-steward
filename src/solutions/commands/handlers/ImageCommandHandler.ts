@@ -132,6 +132,7 @@ export class ImageCommandHandler extends CommandHandler {
 
       // Generate the image
       const response = await experimental_generateImage({
+        abortSignal: this.plugin.abortService.createAbortController('image'),
         ...imageConfig,
         prompt,
       });
@@ -148,7 +149,7 @@ export class ImageCommandHandler extends CommandHandler {
 
       // Save the generated image to a file
       const filePath = `${this.plugin.mediaTools.getAttachmentsFolderPath()}/${filename}.${extension}`;
-      await this.plugin.app.vault.createBinary(filePath, uint8Array.buffer);
+      await this.plugin.app.vault.createBinary(filePath, uint8Array.buffer as ArrayBuffer);
 
       return {
         success: true,

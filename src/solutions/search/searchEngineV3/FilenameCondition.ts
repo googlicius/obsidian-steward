@@ -85,7 +85,6 @@ export class FilenameCondition extends Condition<IndexedDocument> {
           result.set(doc.id as number, {
             document: doc,
             score: score * BOOST,
-            keywordsMatched: [name],
           });
         }
       }

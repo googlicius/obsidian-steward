@@ -153,9 +153,23 @@ export class CommandInputService {
     selectionMarker: string
   ): { line: number; ch: number } {
     const editor = this.getEditor();
+    const lineCount = editor.lineCount();
     const insertText = `/ ${selectionMarker} `;
-    editor.replaceRange(`${insertText}\n`, { line: insertLine, ch: 0 });
 
+    // If inserting at the end of the document
+    if (insertLine >= lineCount) {
+      // Append to the end of the document
+      const lastLineNumber = lineCount - 1;
+      const lastLineText = editor.getLine(lastLineNumber);
+      editor.replaceRange(
+        `\n\n${insertText}\n`,
+        { line: lastLineNumber, ch: lastLineText.length },
+        { line: lastLineNumber, ch: lastLineText.length }
+      );
+    } else {
+      // Insert at the beginning of the specified line
+      editor.replaceRange(`\n${insertText}\n`, { line: insertLine, ch: 0 });
+    }
     return {
       line: insertLine,
       ch: insertText.length,
@@ -172,17 +186,15 @@ export class CommandInputService {
     const lineCount = editor.lineCount();
     let insertLine = cursorLine;
 
-    // Look for the next newline after the cursor
     for (let i = cursorLine; i < lineCount; i++) {
       const currentLine = editor.getLine(i);
 
       if (currentLine === '') {
-        insertLine = i + 1;
+        insertLine = i;
         break;
       }
     }
 
-    // If no empty line found, insert at the end
     if (insertLine === cursorLine) {
       insertLine = lineCount;
     }
