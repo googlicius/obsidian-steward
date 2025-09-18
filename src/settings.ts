@@ -451,6 +451,19 @@ export default class StewardSettingTab extends PluginSettingTab {
         text.inputEl.setAttribute('min', '1');
       });
 
+    // Show Extraction Explanation setting
+    new Setting(containerEl)
+      .setName(t('settings.showExtractionExplanation'))
+      .setDesc(t('settings.showExtractionExplanationDesc'))
+      .addToggle(toggle => {
+        toggle
+          .setValue(this.plugin.settings.llm.showExtractionExplanation ?? false)
+          .onChange(async value => {
+            this.plugin.settings.llm.showExtractionExplanation = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
     // Speech settings section
     new Setting(containerEl).setName(t('settings.speech')).setHeading();
 

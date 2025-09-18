@@ -19,6 +19,9 @@ const en = {
       intentCommands: 'Intent-Based commands',
       intentCommandsDesc: 'These commands are available through natural language processing',
       commandHelpText: 'Type any command followed by your query to use it.',
+      extractedCommands: 'Extracted Commands',
+      explanation: 'Explanation',
+      extractionDetails: 'Extraction Details',
       searchDesc: 'Search for notes in your vault',
       closeDesc: 'Close the current conversation',
       confirmDesc: 'Confirm or reject operations',
@@ -296,6 +299,9 @@ const en = {
       maxGenerationTokens: 'Max generation tokens',
       maxGenerationTokensDesc:
         'Maximum number of tokens to generate in response (higher values may increase API costs)',
+      showExtractionExplanation: 'Show extraction explanation',
+      showExtractionExplanationDesc:
+        'Display detailed explanation of extracted commands including command type and query in the conversation note',
       ollamaBaseUrl: 'Ollama base URL',
       ollamaBaseUrlDesc: 'The base URL for Ollama API (default: {{defaultUrl}})',
       providerBaseUrl: 'Provider base URL',
