@@ -54,7 +54,7 @@ export class SearchService {
         'removeHtmlComments',
         'lowercase',
         'removeSpecialChars',
-        'removeVietnameseDiacritics',
+        'removeDiacritics',
         'removeStwSelectedPatterns',
         'removeStwSqueezedPatterns',
       ],
@@ -62,13 +62,13 @@ export class SearchService {
     });
 
     this.nameTokenizer = new Tokenizer({
-      normalizers: ['lowercase', 'removeSpecialChars', 'removeVietnameseDiacritics'],
+      normalizers: ['lowercase', 'removeSpecialChars', 'removeDiacritics'],
       analyzers: ['wordDelimiter', 'stemmer'],
     });
 
     this.documentStore = new DocumentStore({
       app: plugin.app,
-      dbName: plugin.settings.searchDbPrefix,
+      dbName: plugin.settings.searchDbName,
       excludeFolders: this.excludeFolders,
     });
     this.indexer = new Indexer({

@@ -10,7 +10,8 @@ export interface StewardPluginSettings {
   };
   saltKeyId: string; // Store just the key ID, not the actual salt
   stewardFolder: string;
-  searchDbPrefix: string;
+  searchDbPrefix?: string; // Deprecated: use searchDbName instead
+  searchDbName: string; // Database name for search functionality
   encryptionVersion?: number; // Track the encryption version for future migrations
   excludedFolders: string[]; // Folders to exclude from Obsidian search
   debug: boolean; // Enable debug logging

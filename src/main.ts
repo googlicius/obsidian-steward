@@ -45,11 +45,6 @@ import { createStwSqueezedBlocksExtension } from './cm/extensions/StwSqueezedBlo
 import { capitalizeString } from './utils/capitalizeString';
 import { AbortService } from './services/AbortService';
 
-// Generate a random string for DB prefix
-function generateRandomDbPrefix(): string {
-  return `obsidian_steward_${Math.random().toString(36).substring(2, 10)}`;
-}
-
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
   obsidianAPITools: ObsidianAPITools;
@@ -294,9 +289,16 @@ export default class StewardPlugin extends Plugin {
     // Check and update missing settings
     let settingsUpdated = false;
 
-    // Generate DB prefix if not already set
-    if (!this.settings.searchDbPrefix) {
-      this.settings.searchDbPrefix = generateRandomDbPrefix();
+    // Migrate searchDbPrefix to searchDbName
+    if (!this.settings.searchDbName) {
+      if (this.settings.searchDbPrefix) {
+        // If searchDbPrefix exists, copy it to searchDbName
+        this.settings.searchDbName = this.settings.searchDbPrefix;
+        this.settings.searchDbPrefix = undefined;
+      } else {
+        // Generate new searchDbName with steward_search prefix
+        this.settings.searchDbName = `steward_search_${Math.random().toString(36).substring(2, 10)}`;
+      }
       settingsUpdated = true;
     }
 

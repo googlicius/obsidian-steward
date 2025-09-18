@@ -24,8 +24,8 @@ export class EmbeddingsDatabase extends Dexie {
   embeddings!: Table<EmbeddingEntry>;
   clusterVersions!: Table<ClusterVersionEntry>;
 
-  constructor() {
-    super('embeddings-cache');
+  constructor(name = 'steward_embeddings') {
+    super(name);
 
     this.version(1).stores({
       embeddings: '++id, modelName, clusterName, valueText, createdAt, [modelName+clusterName]',

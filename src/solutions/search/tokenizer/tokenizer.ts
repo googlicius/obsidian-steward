@@ -123,7 +123,7 @@ const ALL_NORMALIZERS: Record<string, Normalizer['apply']> = {
     content
       .replace(/[^\p{L}\p{N}'\u2019\s#_-]/gu, ' ') // Keep letters, numbers, apostrophes, hashtags, underscores, hyphens
       .replace(/[#_-]{2,}/g, ' '), // Filter out 2+ consecutive special characters
-  removeVietnameseDiacritics: (content: string) =>
+  removeDiacritics: (content: string) =>
     content
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '') // Remove combining diacritical marks

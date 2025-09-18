@@ -21,7 +21,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       },
       excludedFolders: [],
       stewardFolder: 'Steward',
-      searchDbPrefix: 'test-search',
+      searchDbName: 'test-search',
     },
     app: mockApp,
     registerEvent: jest.fn(),

@@ -82,7 +82,8 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
   },
   saltKeyId: '', // Will be generated on first load
   stewardFolder: 'Steward',
-  searchDbPrefix: '',
+  searchDbPrefix: '', // Deprecated: will be migrated to searchDbName
+  searchDbName: '', // Will be generated on first load
   encryptionVersion: 1, // Current version
   excludedFolders: ['node_modules', 'src', '.git', 'dist'], // Default development folders to exclude
   debug: false, // Debug logging disabled by default
