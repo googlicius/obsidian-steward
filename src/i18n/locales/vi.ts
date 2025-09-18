@@ -15,6 +15,9 @@ const vi = {
       intentCommands: 'Lệnh dựa trên ý định',
       intentCommandsDesc: 'Những lệnh này có sẵn thông qua xử lý ngôn ngữ tự nhiên',
       commandHelpText: 'Nhập lệnh theo sau bởi truy vấn của bạn để sử dụng.',
+      extractedCommands: 'Các Lệnh Được Trích Xuất',
+      explanation: 'Giải thích',
+      extractionDetails: 'Chi Tiết Trích Xuất',
       searchDesc: 'Tìm kiếm ghi chú trong kho lưu trữ của bạn',
       closeDesc: 'Đóng cuộc trò chuyện hiện tại',
       confirmDesc: 'Xác nhận hoặc từ chối các thao tác',
@@ -272,6 +275,9 @@ const vi = {
       maxGenerationTokens: 'Số token tạo tối đa (Max Generation Tokens)',
       maxGenerationTokensDesc:
         'Số lượng token tối đa để tạo trong phản hồi (giá trị cao hơn có thể tăng chi phí API)',
+      showExtractionExplanation: 'Hiển thị giải thích trích xuất',
+      showExtractionExplanationDesc:
+        'Hiển thị giải thích chi tiết về các lệnh được trích xuất bao gồm loại lệnh và truy vấn trong ghi chú cuộc trò chuyện',
       ollamaBaseUrl: 'URL cơ sở Ollama',
       ollamaBaseUrlDesc: 'URL cơ sở cho API Ollama (mặc định: {{defaultUrl}})',
       providerBaseUrl: 'URL cơ sở nhà cung cấp',

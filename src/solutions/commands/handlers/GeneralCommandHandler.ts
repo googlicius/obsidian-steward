@@ -15,6 +15,7 @@ import {
   STW_SELECTED_PLACEHOLDER,
 } from 'src/constants';
 import { ArtifactType } from '../../../services/ConversationArtifactManager';
+import * as yaml from 'js-yaml';
 
 export class GeneralCommandHandler extends CommandHandler {
   isContentRequired = true;
@@ -32,6 +33,34 @@ export class GeneralCommandHandler extends CommandHandler {
   public async renderIndicator(title: string, lang?: string): Promise<void> {
     const t = getTranslation(lang);
     await this.renderer.addGeneratingIndicator(title, t('conversation.orchestrating'));
+  }
+
+  /**
+   * Format extraction explanation as YAML format
+   */
+  private formatExtractionExplanation(extraction: CommandIntentExtraction, lang?: string): string {
+    const t = getTranslation(lang);
+
+    // Create the YAML data structure
+    const yamlData: any = {
+      name: 'Extraction details',
+      commands: extraction.commands.map(cmd => ({
+        [cmd.commandType]: cmd.query,
+      })),
+    };
+
+    yamlData.explanation = extraction.explanation;
+    yamlData.confidence = extraction.confidence;
+
+    // Convert to YAML string
+    const yamlContent = yaml.dump(yamlData, {
+      lineWidth: -1, // No line wrapping
+      noRefs: true, // Don't use references
+      quotingType: '"', // Use double quotes
+      forceQuotes: false, // Only quote when necessary
+    });
+
+    return `<a href="javascript:;" class="stw-extraction-details-link">${t('common.extractionDetails')}</a>\n\n\`\`\`yaml\n${yamlContent}\`\`\``;
   }
 
   /**
@@ -103,6 +132,17 @@ NOTE:
           commands: extraction.commands,
         },
       });
+
+      // Show extraction explanation if setting is enabled
+      if (this.plugin.settings.llm.showExtractionExplanation && extraction.commands.length > 0) {
+        const explanationContent = this.formatExtractionExplanation(extraction, params.lang);
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: explanationContent,
+          lang: params.lang,
+          includeHistory: false,
+        });
+      }
 
       if (extraction.commands.length === 0) {
         await this.renderer.updateConversationNote({

@@ -334,13 +334,17 @@ code[class*='language-stw-artifact'] {
   }
 }
 
-/* Visibility classes for settings */
-.stw-setting-hidden {
+.stw-setting-hidden,
+.stw-hidden {
   display: none;
 }
 
 .stw-setting-visible {
   display: flex;
+}
+
+.stw-visible {
+  display: block;
 }
 
 .mr-2 {
@@ -394,4 +398,8 @@ code[class*='language-stw-artifact'] {
   color: var(--text-muted);
   font-style: italic;
   padding: var(--size-2-2) 0;
+}
+
+.stw-extraction-details-link {
+  font-size: 0.9em;
 }

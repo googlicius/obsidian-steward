@@ -33,6 +33,7 @@ export interface StewardPluginSettings {
     temperature: number;
     ollamaBaseUrl?: string; // Deprecated: use providerConfigs instead
     maxGenerationTokens?: number; // Maximum number of tokens to generate in response
+    showExtractionExplanation?: boolean; // Show detailed explanation for command extractions
     embeddingModel?: string; // Deprecated: use embedding.model instead
     embedding: {
       model: string; // The embedding model (e.g., openai:text-embedding-ada-002, google:gemini-embedding-001)
