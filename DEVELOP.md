@@ -73,6 +73,7 @@
 - [ ] Auto build search index
 - [ ] Build index for PDF files
 - [ ] Stw squeezed block in reading view
+- [ ] 2-step extraction to reduce the complexity of the system prompt for extraction the user's query, Step 1, extract only command names. Step2, build query for each extracted commands from the step 1.
 
 ### BUGS
 

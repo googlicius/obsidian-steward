@@ -173,8 +173,8 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   },
   {
     commandType: 'read',
-    description: `Read content from the current note or specific position: "above", "below". Use this when you don't know the content and need to retrieve it before proceeding
-  Can read any content type, including code blocks, tables, lists, paragraphs, images, and more.`,
+    description: `Read text contents, images from the current note or specific position: "above", "below". Use this when you don't know the content and need to retrieve it before proceeding
+  Can read any content type, including code blocks, tables, lists, paragraphs, and more.`,
     category: 'intent-based',
     queryTemplate: `Extract a specific query for a read command:
 1. Extract the query for the read command follows this format: <query_in_natural_language>; read type: <readType>[; note name: <noteName>]
