@@ -17,7 +17,7 @@ export interface DestinationFolderExtraction {
   destinationFolder: string;
   explanation: string;
   context: string;
-  lang?: string;
+  lang?: string | null;
 }
 
 export const desFolderExtractionSchema = z.object({
@@ -38,6 +38,7 @@ Otherwise, use "artifact".`),
   confidence: z.number().min(0).max(1).describe(confidenceFragment),
   lang: z
     .string()
+    .nullable()
     .optional()
     .describe(userLanguagePrompt.content as string),
 });

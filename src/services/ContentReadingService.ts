@@ -3,8 +3,8 @@ import { logger } from '../utils/logger';
 import { isConversationLink } from '../utils/conversationUtils';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
 import { MediaTools } from 'src/tools/mediaTools';
-import { ContentReadingArgs } from 'src/lib/modelfusion';
 import type StewardPlugin from '../main';
+import { ContentReadingArgs } from 'src/solutions/commands/handlers/ReadCommandHandler/zSchemas';
 
 /**
  * Result of a content reading operation
@@ -13,7 +13,10 @@ export interface ContentReadingResult {
   blocks: ContentBlock[];
   source: 'cursor' | 'element' | 'entire' | 'unknown';
   elementType?: string;
-  file?: TFile;
+  file?: {
+    path: string;
+    name: string;
+  };
   range?: EditorRange;
 }
 
@@ -71,14 +74,14 @@ export class ContentReadingService {
     readType: ContentReadingArgs['readType'];
     blocksToRead: ContentReadingArgs['blocksToRead'];
     elementType: ContentReadingArgs['elementType'];
-  }): Promise<ContentReadingResult | null> {
+  }): Promise<ContentReadingResult> {
     // Get the file
     const file = args.noteName
       ? await MediaTools.getInstance(this.plugin.app).findFileByNameOrPath(args.noteName)
       : this.plugin.app.workspace.getActiveFile();
     if (!file) {
       logger.error('No active file found');
-      return null;
+      throw new Error(`No active file found for note: ${args.noteName}`);
     }
 
     try {
@@ -95,7 +98,7 @@ export class ContentReadingService {
       }
     } catch (error) {
       logger.error('Error reading content:', error);
-      return null;
+      throw new Error(`Error reading content: ${error.message}`);
     }
   }
 
@@ -125,7 +128,10 @@ export class ContentReadingService {
       return {
         blocks: [],
         source: 'unknown',
-        file,
+        file: {
+          path: file.path,
+          name: file.name,
+        },
         elementType: elementType || undefined,
         range: {
           from: { line: cursor.line, ch: 0 },
@@ -141,7 +147,10 @@ export class ContentReadingService {
     return {
       blocks,
       source: elementType ? 'element' : 'cursor',
-      file,
+      file: {
+        path: file.path,
+        name: file.name,
+      },
       elementType: elementType || undefined,
       range: {
         from: { line: startLine, ch: 0 },
@@ -176,7 +185,10 @@ export class ContentReadingService {
       return {
         blocks: [],
         source: 'unknown',
-        file,
+        file: {
+          path: file.path,
+          name: file.name,
+        },
         elementType: elementType || undefined,
         range: {
           from: { line: cursor.line, ch: 0 },
@@ -192,7 +204,10 @@ export class ContentReadingService {
     return {
       blocks,
       source: elementType ? 'element' : 'cursor',
-      file,
+      file: {
+        path: file.path,
+        name: file.name,
+      },
       elementType: elementType || undefined,
       range: {
         from: { line: startLine, ch: 0 },
@@ -220,7 +235,10 @@ export class ContentReadingService {
     return {
       blocks: [block],
       source: 'entire',
-      file,
+      file: {
+        path: file.path,
+        name: file.name,
+      },
     };
   }
 

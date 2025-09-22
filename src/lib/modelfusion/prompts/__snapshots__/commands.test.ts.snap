@@ -21,25 +21,29 @@ exports[`commands formatCommandsForPrompt should return formatted commands for p
 - "copy_from_artifact" (aliases: copy): Copy notes from the artifact to a destination
   Use when: Copy notes from the artifact
 - "update_from_artifact" (aliases: update): Update note(s) from the artifact
-  Use when: Update notes from the artifact
+  Use when: Update one or more notes from the artifact
 - "delete_from_artifact" (aliases: delete): Delete note(s) from the artifact
   Use when: Delete notes from the artifact
 - "build_search_index" (aliases: index, build-index, search-index): Build or rebuild the search index for all markdown files in the vault
   Use when: Build or rebuild the search index for all markdown files in the vault
+- "read": Read text contents, images from the current note in specific position: "above", "below". OR from the other notes. Use this when you don't know the content and need to retrieve it before proceeding
+  - Can read any content type, including code blocks, tables, lists, paragraphs, and more.
+  - Can multiple notes at once.
+  - Can read when the note's name or position (above or below) is provided, no location needed.
+  Use when: Read or Find content based on a specific pattern in their current note
 - "generate": Generate content with the LLM help (either in a new note or in the conversation). You also can "generate" from the provided content in the user's query without reading the note. Example: "Help me update this list to the numbered list:
   - Item 1
   - Item 2" -> ["generate"]. The list is already in the query.
-  Use when: Ask or generate content with your help
-- "read": Read content from the current note or specific position: "above", "below". Use this when you don't know the content and need to retrieve it before proceeding
-  Can read any content type, including code blocks, tables, lists, paragraphs, images, and more.
-  Use when: Read or Find content based on a specific pattern in their current note"
+  Use when: Ask or generate content with your help"
 `;
 
 exports[`commands formatCommandsForPrompt should return formatted commands for prompt with given command names 1`] = `
 "- "search": Find files using the search engine to search files locally and store the result as an artifact
   Use when: Search for files (and doesn't mention existing search results)
-- "read": Read content from the current note or specific position: "above", "below". Use this when you don't know the content and need to retrieve it before proceeding
-  Can read any content type, including code blocks, tables, lists, paragraphs, images, and more.
+- "read": Read text contents, images from the current note in specific position: "above", "below". OR from the other notes. Use this when you don't know the content and need to retrieve it before proceeding
+  - Can read any content type, including code blocks, tables, lists, paragraphs, and more.
+  - Can multiple notes at once.
+  - Can read when the note's name or position (above or below) is provided, no location needed.
   Use when: Read or Find content based on a specific pattern in their current note"
 `;
 

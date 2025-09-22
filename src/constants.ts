@@ -63,6 +63,7 @@ export const COMMAND_PREFIXES = [
   '/stop',
   '/abort',
   '/help',
+  '/test',
 ];
 
 /**

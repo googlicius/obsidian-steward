@@ -17,7 +17,7 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
     super();
   }
 
-  public async renderIndicator(title: string, lang?: string): Promise<void> {
+  public async renderIndicator(title: string, lang?: string | null): Promise<void> {
     const t = getTranslation(lang);
     await this.renderer.addGeneratingIndicator(title, t('conversation.buildingIndex'));
   }
@@ -109,7 +109,7 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
   private async performIndexing(
     title: string,
     validFiles: TFile[],
-    lang?: string
+    lang?: string | null
   ): Promise<CommandResult> {
     const abortService = AbortService.getInstance();
     const operationId = 'build_search_index';

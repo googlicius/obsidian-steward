@@ -207,7 +207,7 @@ export default class StewardSettingTab extends PluginSettingTab {
       this.plugin.settings.llm.speech.voices[
         provider as keyof StewardPluginSettings['llm']['speech']['voices']
       ] || DEFAULT_VOICES[provider];
-    voiceInput.value = currentVoice;
+    voiceInput.value = currentVoice || '';
   }
 
   display(): void {
@@ -542,7 +542,6 @@ export default class StewardSettingTab extends PluginSettingTab {
         currentModelField: 'llm.image.model',
         customModelsField: 'llm.image.customModels',
         placeholder: 'e.g., openai:dall-e-3',
-        validationPattern: /^[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+$/,
         presetModels: IMAGE_MODELS,
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.image.model = modelId;
@@ -598,8 +597,8 @@ export default class StewardSettingTab extends PluginSettingTab {
       .setDesc(t('settings.withoutLLMDesc'))
       .addDropdown(dropdown => {
         dropdown
-          .addOption('exact', t('settings.exactMatch'))
           .addOption('relevant', t('settings.relevantScoring'))
+          .addOption('exact', t('settings.exactMatch'))
           .setValue(this.plugin.settings.search.withoutLLM)
           .onChange(async value => {
             this.plugin.settings.search.withoutLLM = value as 'exact' | 'relevant';
@@ -643,7 +642,7 @@ export default class StewardSettingTab extends PluginSettingTab {
       onDeleteModel: (modelId: string) => Promise<void>;
     }
   ): void {
-    const { validationPattern = /^[a-zA-Z0-9_.-]+:[a-zA-Z0-9_.-]+$/ } = options;
+    const { validationPattern = /^[a-zA-Z0-9_.-]+:[^\s]+$/ } = options;
     let currentInputWrapper: HTMLElement | null = null;
 
     // Validation function for custom model format

@@ -134,7 +134,7 @@ export class UpdateCommandHandler extends CommandHandler {
   private async performUpdateFromArtifact(
     title: string,
     updateInstructions: UpdateInstruction[],
-    lang?: string
+    lang?: string | null
   ): Promise<CommandResult> {
     const t = getTranslation(lang);
 

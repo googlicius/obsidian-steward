@@ -392,6 +392,7 @@ code[class*='language-stw-artifact'] {
   justify-content: space-between;
   padding: var(--size-2-1) 0;
   text-wrap: nowrap;
+  gap: var(--size-4-2);
 }
 
 .stw-no-models {

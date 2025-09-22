@@ -52,6 +52,7 @@ export class ConfirmCommandHandler extends CommandHandler {
         message =>
           message.command !== 'summary' &&
           message.command !== 'confirm' &&
+          message.history !== false &&
           message.role === 'assistant'
       );
 

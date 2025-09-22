@@ -1,6 +1,6 @@
 import { CommandIntent, ContextAugmentationIntent } from './types';
-import { SearchQueryExtractionV2 } from '../lib/modelfusion';
 import { IndexedDocument } from '../database/SearchDatabase';
+import { SearchQueryExtractionV2 } from 'src/solutions/commands/handlers/SearchCommandHandler/zSchemas';
 
 export enum Events {
   CONVERSATION_NOTE_CREATED = 'conversation-note-created',
@@ -40,7 +40,7 @@ export interface ConversationCommandReceivedPayload {
    * The original query that was received from the user
    */
   originalQuery?: string;
-  lang?: string;
+  lang?: string | null;
 }
 
 export interface ConversationLinkInsertedPayload {

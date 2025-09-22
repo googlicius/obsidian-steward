@@ -18,7 +18,7 @@ export interface AudioExtraction {
   text: string;
   explanation: string;
   confidence?: number;
-  lang?: string;
+  lang?: string | null;
 }
 
 // Define the Zod schema for audio extraction validation
@@ -34,6 +34,7 @@ const audioExtractionSchema = z.object({
   confidence: z.number().min(0).max(1).describe(confidenceFragment),
   lang: z
     .string()
+    .nullable()
     .optional()
     .describe(userLanguagePrompt.content as string),
 });

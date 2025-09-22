@@ -30,7 +30,7 @@ export class GeneralCommandHandler extends CommandHandler {
   /**
    * Render the loading indicator for the general command
    */
-  public async renderIndicator(title: string, lang?: string): Promise<void> {
+  public async renderIndicator(title: string, lang?: string | null): Promise<void> {
     const t = getTranslation(lang);
     await this.renderer.addGeneratingIndicator(title, t('conversation.orchestrating'));
   }
@@ -38,11 +38,14 @@ export class GeneralCommandHandler extends CommandHandler {
   /**
    * Format extraction explanation as YAML format
    */
-  private formatExtractionExplanation(extraction: CommandIntentExtraction, lang?: string): string {
+  private formatExtractionExplanation(
+    extraction: CommandIntentExtraction,
+    lang?: string | null
+  ): string {
     const t = getTranslation(lang);
 
     // Create the YAML data structure
-    const yamlData: any = {
+    const yamlData: Record<string, unknown> = {
       name: 'Extraction details',
       commands: extraction.commands.map(cmd => ({
         [cmd.commandType]: cmd.query,
@@ -54,10 +57,10 @@ export class GeneralCommandHandler extends CommandHandler {
 
     // Convert to YAML string
     const yamlContent = yaml.dump(yamlData, {
-      lineWidth: -1, // No line wrapping
-      noRefs: true, // Don't use references
-      quotingType: '"', // Use double quotes
-      forceQuotes: false, // Only quote when necessary
+      lineWidth: -1,
+      noRefs: true,
+      quotingType: '"',
+      forceQuotes: false,
     });
 
     return `<a href="javascript:;" class="stw-extraction-details-link">${t('common.extractionDetails')}</a>\n\n\`\`\`yaml\n${yamlContent}\`\`\``;

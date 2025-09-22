@@ -23,6 +23,7 @@ const imageExtractionSchema = z.object({
   confidence: z.number().min(0).max(1).describe(confidenceFragment),
   lang: z
     .string()
+    .nullable()
     .optional()
     .describe(userLanguagePrompt.content as string),
 });

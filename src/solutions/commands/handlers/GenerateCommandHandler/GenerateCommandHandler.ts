@@ -3,25 +3,33 @@ import {
   CommandHandlerParams,
   CommandResult,
   CommandResultStatus,
-} from '../CommandHandler';
+} from '../../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import { extractContentUpdate, extractNoteGeneration } from 'src/lib/modelfusion/extractions';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-import { streamText, APICallError } from 'ai';
-import {
-  ContentUpdateExtraction,
-  NoteGenerationExtraction,
-  prepareMessage,
-} from 'src/lib/modelfusion';
+import { streamText, generateObject } from 'ai';
+import { prepareMessage } from 'src/lib/modelfusion';
 import { MediaTools } from 'src/tools/mediaTools';
-import { LLMService } from 'src/services/LLMService';
 import { CommandIntent, ConversationHistoryMessage } from 'src/types/types';
 import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
-import { type CommandProcessor } from '../CommandProcessor';
+import { type CommandProcessor } from '../../CommandProcessor';
+import { contentUpdatePrompt } from 'src/lib/modelfusion/prompts/contentUpdatePrompt';
+import { noteGenerationPrompt } from 'src/lib/modelfusion/prompts/noteGenerationPrompt';
+import { type App } from 'obsidian';
+import {
+  ContentUpdateExtraction,
+  contentUpdateExtractionSchema,
+  NoteGenerationExtraction,
+  noteGenerationExtractionSchema,
+} from './zSchemas';
+
+export interface ContentUpdate {
+  updatedContent: string;
+  originalContent: string;
+}
 
 export class GenerateCommandHandler extends CommandHandler {
   constructor(
@@ -29,6 +37,99 @@ export class GenerateCommandHandler extends CommandHandler {
     private readonly commandProcessor: CommandProcessor
   ) {
     super();
+  }
+
+  /**
+   * Extract content update details from a user query
+   * @param params Parameters for content update extraction
+   * @returns Extracted updated contents, explanation, and confidence
+   */
+  private async extractContentUpdate(params: {
+    command: CommandIntent;
+    app: App;
+  }): Promise<ContentUpdateExtraction> {
+    const { command, app } = params;
+
+    try {
+      logger.log('Extracting content update from user input');
+
+      const llmConfig = await this.plugin.llmService.getLLMConfig({
+        overrideModel: command.model,
+        generateType: 'object',
+      });
+
+      const userMessage = await prepareMessage(command.query, app);
+
+      const { object } = await generateObject({
+        ...llmConfig,
+        abortSignal: this.plugin.abortService.createAbortController('content-update'),
+        system: contentUpdatePrompt,
+        messages: [
+          ...(command.systemPrompts || []).map(prompt => ({
+            role: 'system' as const,
+            content: prompt,
+          })),
+          {
+            role: 'user',
+            content: userMessage,
+          },
+        ],
+        schema: contentUpdateExtractionSchema,
+      });
+
+      return object;
+    } catch (error) {
+      logger.error('Error extracting content update details:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Extract note generation details from a user query
+   * @param params Parameters for the note generation extraction
+   * @returns Extracted note name, instructions, style preferences, and explanation
+   */
+  private async extractNoteGeneration(params: {
+    command: CommandIntent;
+    recentlyCreatedNote?: string;
+    conversationHistory?: ConversationHistoryMessage[];
+  }): Promise<NoteGenerationExtraction> {
+    const { command, recentlyCreatedNote, conversationHistory = [] } = params;
+    const { systemPrompts = [] } = command;
+
+    try {
+      const llmConfig = await this.plugin.llmService.getLLMConfig({
+        overrideModel: command.model,
+        generateType: 'object',
+      });
+
+      const { object } = await generateObject({
+        ...llmConfig,
+        abortSignal: this.plugin.abortService.createAbortController('note-generation'),
+        system: noteGenerationPrompt(command),
+        messages: [
+          ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+          ...conversationHistory,
+          { role: 'user', content: command.query },
+        ],
+        schema: noteGenerationExtractionSchema,
+      });
+
+      // If no note name is provided but there's a recently created note, use that
+      if ((!object.noteName || object.noteName === '') && recentlyCreatedNote) {
+        const result = {
+          ...object,
+          noteName: recentlyCreatedNote,
+          explanation: `${object.explanation} Using the recently created note: ${recentlyCreatedNote}`,
+        };
+        return result;
+      }
+
+      return object;
+    } catch (error) {
+      logger.error('Error extracting note generation details:', error);
+      throw error;
+    }
   }
 
   /**
@@ -145,7 +246,7 @@ The response should be in natural language and not include the selection(s) {{st
     if (!extraction) {
       const conversationHistory = await this.renderer.extractConversationHistory(title);
       if (isUpdate) {
-        extraction = await extractContentUpdate({
+        extraction = await this.extractContentUpdate({
           command: {
             ...command,
             systemPrompts,
@@ -153,7 +254,7 @@ The response should be in natural language and not include the selection(s) {{st
           app: this.app,
         });
       } else {
-        extraction = await extractNoteGeneration({
+        extraction = await this.extractNoteGeneration({
           command: {
             ...command,
             systemPrompts,
@@ -237,8 +338,6 @@ The response should be in natural language and not include the selection(s) {{st
 
         const noteContent = file ? await this.app.vault.read(file) : '';
 
-        console.log('systemPrompts', systemPrompts);
-
         const stream = await this.contentGenerationStream({
           command: {
             ...command,
@@ -248,12 +347,17 @@ The response should be in natural language and not include the selection(s) {{st
           errorCallback: async error => {
             logger.error('Error in contentGenerationStream', error);
 
-            if (error instanceof APICallError && error.statusCode === 422) {
-              await this.renderer.updateConversationNote({
-                path: title,
-                newContent: `*Error: Unprocessable Content*`,
-              });
+            let errorMessage =
+              '*An error occurred while generating content, please check the console log (Ctrl+Shift+I)*';
+
+            if (typeof error === 'object' && error !== null && 'toString' in error) {
+              errorMessage = `*Error: ${error.toString()}*`;
             }
+
+            await this.renderer.updateConversationNote({
+              path: title,
+              newContent: errorMessage,
+            });
           },
         });
 
@@ -318,7 +422,7 @@ The response should be in natural language and not include the selection(s) {{st
   }): Promise<AsyncIterable<string>> {
     const { command, conversationHistory = [], errorCallback } = args;
     const { query, systemPrompts = [], model } = command;
-    const llmConfig = await LLMService.getInstance().getLLMConfig({
+    const llmConfig = await this.plugin.llmService.getLLMConfig({
       overrideModel: model,
       generateType: 'text',
     });

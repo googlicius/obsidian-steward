@@ -3,15 +3,11 @@ import {
   CommandHandlerParams,
   CommandResult,
   CommandResultStatus,
-} from '../CommandHandler';
+} from '../../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-import {
-  extractSearchQueryV2,
-  SearchQueryExtractionV2,
-  SearchOperationV2,
-} from 'src/lib/modelfusion/extractions';
+import { SearchQueryExtractionV2, SearchOperationV2 } from './zSchemas';
 import { MediaTools } from 'src/tools/mediaTools';
 import type StewardPlugin from 'src/main';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
@@ -19,6 +15,14 @@ import { PaginatedSearchResult } from 'src/solutions/search/types';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 import { STOPWORDS } from 'src/solutions/search';
 import { stemmer } from 'src/solutions/search/tokenizer/stemmer';
+import { CommandIntent } from 'src/types/types';
+import { StewardPluginSettings } from 'src/types/interfaces';
+import { DEFAULT_SETTINGS } from 'src/constants';
+import { getQuotedQuery } from 'src/utils/getQuotedQuery';
+import { getObsidianLanguage } from 'src/utils/getObsidianLanguage';
+import { generateObject } from 'ai';
+import { searchPromptV2 } from 'src/lib/modelfusion/prompts/searchPromptV2';
+import { searchQueryExtractionSchema } from './zSchemas';
 
 type HighlighKeywordResult = {
   highlightedText: string;
@@ -41,7 +45,7 @@ export class SearchCommandHandler extends CommandHandler {
   /**
    * Render the loading indicator for the search command
    */
-  public async renderIndicator(title: string, lang?: string): Promise<void> {
+  public async renderIndicator(title: string, lang?: string | null): Promise<void> {
     const t = getTranslation(lang);
     await this.renderer.addGeneratingIndicator(title, t('conversation.searching'));
   }
@@ -113,7 +117,7 @@ export class SearchCommandHandler extends CommandHandler {
       // Extract search parameters from the command content or use provided extraction
       const queryExtraction =
         options.extraction ||
-        (await extractSearchQueryV2({
+        (await this.extractSearchQueryV2({
           command,
           lang: params.lang,
           searchSettings: this.plugin.settings.search,
@@ -271,6 +275,131 @@ export class SearchCommandHandler extends CommandHandler {
   }
 
   /**
+   * Extract search parameters from a natural language request using AI (v2)
+   * @returns Extracted search parameters and explanation
+   */
+  private async extractSearchQueryV2({
+    command,
+    lang,
+    searchSettings = DEFAULT_SETTINGS.search,
+  }: {
+    command: CommandIntent;
+    searchSettings?: StewardPluginSettings['search'];
+    lang?: string | null;
+  }): Promise<SearchQueryExtractionV2> {
+    const { systemPrompts = [] } = command;
+    const t = getTranslation(lang);
+
+    // Check if input is wrapped in quotation marks for direct search
+    const searchTerm = getQuotedQuery(command.query);
+
+    if (searchTerm) {
+      const operations: SearchOperationV2[] = [
+        {
+          keywords: [],
+          filenames: [searchTerm],
+          folders: [],
+          properties: [],
+        },
+      ];
+
+      if (searchSettings.withoutLLM === 'relevant') {
+        operations.push({
+          keywords: [searchTerm],
+          filenames: [],
+          folders: [],
+          properties: [],
+        });
+      } else {
+        operations.push({
+          keywords: [`"${searchTerm}"`],
+          filenames: [],
+          folders: [],
+          properties: [],
+        });
+      }
+      return {
+        operations,
+        explanation: t('search.searchingFor', { searchTerm }),
+        lang: lang || getObsidianLanguage(),
+        confidence: 1,
+        needsLLM: false,
+      };
+    }
+
+    // Check if input only contains tags
+    const trimmedInput = command.query.trim();
+    const tagRegex = /#([^\s#]+)/g;
+    const NON_TAG_PATTERN = '[,\\s;|&+]+$';
+    const tags = [...trimmedInput.matchAll(tagRegex)].map(match =>
+      match[1].replace(new RegExp(NON_TAG_PATTERN), '')
+    );
+
+    // If the input only contains tags (after removing tag patterns, only whitespace remains)
+    if (tags.length > 0 && trimmedInput.replace(tagRegex, '').trim() === '') {
+      return {
+        operations: [
+          {
+            keywords: [],
+            filenames: [],
+            folders: [],
+            properties: tags.map(tag => ({
+              name: 'tag',
+              value: tag,
+            })),
+          },
+        ],
+        explanation: t('search.searchingForTags', {
+          tags: tags.map(tag => `#${tag}`).join(', '),
+        }),
+        lang: lang || getObsidianLanguage(),
+        confidence: 1,
+        needsLLM: false,
+      };
+    }
+
+    try {
+      const llmConfig = await this.plugin.llmService.getLLMConfig({
+        overrideModel: command.model,
+        generateType: 'object',
+      });
+
+      // Use AI SDK to generate the response
+      const { object } = await generateObject({
+        ...llmConfig,
+        abortSignal: this.plugin.abortService.createAbortController('search-query-v2'),
+        system: searchPromptV2(command),
+        messages: [
+          ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+          { role: 'user', content: command.query },
+        ],
+        schema: searchQueryExtractionSchema,
+      });
+
+      // Log any empty arrays in operations for debugging
+      object.operations.forEach((op, index) => {
+        if (
+          op.keywords.length === 0 &&
+          op.filenames.length === 0 &&
+          op.folders.length === 0 &&
+          op.properties.length === 0
+        ) {
+          logger.warn(`Operation ${index} has all empty arrays`);
+        }
+      });
+
+      return {
+        ...object,
+        lang: object.lang || lang || getObsidianLanguage(),
+        needsLLM: true,
+      };
+    } catch (error) {
+      logger.error('Error extracting search query:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Repair extraction operations
    * @param operations Array of search operations to repair
    * @returns Repaired search operations
@@ -300,7 +429,7 @@ export class SearchCommandHandler extends CommandHandler {
     paginatedSearchResult: PaginatedSearchResult<IndexedDocument>;
     page?: number;
     headerText?: string;
-    lang?: string;
+    lang?: string | null;
   }): Promise<string> {
     const { paginatedSearchResult, headerText, lang } = options;
     const page = options.page || 1;

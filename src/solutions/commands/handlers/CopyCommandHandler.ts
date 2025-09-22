@@ -183,7 +183,7 @@ export class CopyCommandHandler extends CommandHandler {
     title: string,
     docs: IndexedDocument[],
     moveOperations: MoveOperationV2[],
-    lang?: string
+    lang?: string | null
   ): Promise<CommandResult> {
     try {
       // Create a map of files by operation
@@ -241,7 +241,7 @@ export class CopyCommandHandler extends CommandHandler {
       errors: string[];
       skipped: string[];
     }>;
-    lang?: string;
+    lang?: string | null;
   }): string {
     const { operations, lang } = result;
 

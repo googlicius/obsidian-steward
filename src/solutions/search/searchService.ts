@@ -17,9 +17,9 @@ import {
   SearchContext,
   DocumentPropertyFilter,
 } from './searchEngineV3';
-import { SearchOperationV2 } from 'src/lib/modelfusion';
 import { PaginatedSearchResult } from './types';
 import { IndexedDocument } from 'src/database/SearchDatabase';
+import { SearchOperationV2 } from '../commands/handlers/SearchCommandHandler/zSchemas';
 
 /**
  * SearchService singleton that provides global access to search components

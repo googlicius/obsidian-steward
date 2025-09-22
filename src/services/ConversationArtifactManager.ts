@@ -1,8 +1,8 @@
 import { ContentReadingResult } from './ContentReadingService';
-import { ContentUpdateExtraction } from '../lib/modelfusion/extractions';
 import { logger } from 'src/utils/logger';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 import { ConditionResult } from 'src/solutions/search/searchEngineV3';
+import { ContentUpdateExtraction } from 'src/solutions/commands/handlers/GenerateCommandHandler/zSchemas';
 
 /**
  * Types of artifacts that can be stored for conversations

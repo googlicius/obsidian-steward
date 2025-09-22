@@ -35,12 +35,12 @@ updateLanguageAttribute(i18next.language);
 export default i18next;
 
 // Utility function to get the translation function for a specific language
-export function getTranslation(lang = 'en') {
+export function getTranslation(lang: string | null = 'en') {
   return (key: string, options?: any): string => {
     // Change language temporarily, get translation, then restore
     const currentLang = i18next.language;
-    i18next.changeLanguage(lang);
-    updateLanguageAttribute(lang);
+    i18next.changeLanguage(lang || 'en');
+    updateLanguageAttribute(lang || 'en');
     const translation = i18next.t(key, options);
     i18next.changeLanguage(currentLang);
     updateLanguageAttribute(currentLang);
