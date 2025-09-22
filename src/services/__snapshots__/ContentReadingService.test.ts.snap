@@ -16,8 +16,7 @@ exports[`ContentReadingService readContent should read the list above the cursor
     },
   ],
   "elementType": "list",
-  "file": TFile {
-    "extension": "",
+  "file": {
     "name": "",
     "path": "",
   },
@@ -52,8 +51,7 @@ Of content",
     },
   ],
   "elementType": "paragraph",
-  "file": TFile {
-    "extension": "",
+  "file": {
     "name": "",
     "path": "",
   },

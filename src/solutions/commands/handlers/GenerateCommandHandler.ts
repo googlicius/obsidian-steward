@@ -7,7 +7,7 @@ import {
 import { getTranslation } from 'src/i18n';
 import { extractContentUpdate, extractNoteGeneration } from 'src/lib/modelfusion/extractions';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-import { streamText, APICallError } from 'ai';
+import { streamText } from 'ai';
 import {
   ContentUpdateExtraction,
   NoteGenerationExtraction,
@@ -237,8 +237,6 @@ The response should be in natural language and not include the selection(s) {{st
 
         const noteContent = file ? await this.app.vault.read(file) : '';
 
-        console.log('systemPrompts', systemPrompts);
-
         const stream = await this.contentGenerationStream({
           command: {
             ...command,
@@ -248,12 +246,17 @@ The response should be in natural language and not include the selection(s) {{st
           errorCallback: async error => {
             logger.error('Error in contentGenerationStream', error);
 
-            if (error instanceof APICallError && error.statusCode === 422) {
-              await this.renderer.updateConversationNote({
-                path: title,
-                newContent: `*Error: Unprocessable Content*`,
-              });
+            let errorMessage =
+              '*An error occurred while generating content, please check the console log (Ctrl+Shift+I)*';
+
+            if (typeof error === 'object' && error !== null && 'toString' in error) {
+              errorMessage = `*Error: ${error.toString()}*`;
             }
+
+            await this.renderer.updateConversationNote({
+              path: title,
+              newContent: errorMessage,
+            });
           },
         });
 

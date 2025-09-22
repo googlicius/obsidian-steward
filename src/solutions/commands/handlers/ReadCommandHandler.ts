@@ -6,15 +6,168 @@ import {
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-import { extractReadContent } from 'src/lib/modelfusion/extractions';
-import { ContentReadingResult, ContentReadingService } from 'src/services/ContentReadingService';
 import type StewardPlugin from 'src/main';
+import { toolSystemPrompt } from 'src/lib/modelfusion/prompts/contentReadingPrompt';
+import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
+import { z } from 'zod';
+import { generateText, tool } from 'ai';
+import { explanationFragment, confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
 
-type ExtractReadContentResult = Awaited<ReturnType<typeof extractReadContent>>;
+const contentReadingSchema = z.object({
+  readType: z.enum(['above', 'below', 'entire']).default('above')
+    .describe(`- "above": Refers to content above the cursor
+- "below": Refers to content below the cursor
+- "entire": Refers to the entire content of the note`),
+  noteName: z
+    .string()
+    .nullable()
+    .default(null)
+    .describe(`Name of the note to read from. If not specified, leave it blank`),
+  elementType: z.string().nullable().default(null).describe(`Identify element types if mentioned:
+- One or many of "paragraph", "table", "code", "list", "blockquote", "image", or null if no specific element type is mentioned
+- For multiple types:
+  - Use comma-separated values for OR conditions (e.g., "paragraph, table")
+  - Use "+" for AND conditions (e.g., "paragraph+table")`),
+  blocksToRead: z.number().min(-1).default(1)
+    .describe(`Number of blocks to read (paragraphs, tables, code blocks, etc.)
+- Set to -1 ONLY if the user mentions "all content"
+- Otherwise, extract the number from the query if specified`),
+  foundPlaceholder: z
+    .string()
+    .nullable()
+    .describe(
+      `A short text to indicate that the content was found. MUST include the term {{number}} as a placeholder, for example: "I found {{number}}..."
+If the readType is "entire", leave it null.`
+    ),
+  confidence: z.number().min(0).max(1).describe(confidenceFragment),
+  explanation: z.string().describe(explanationFragment),
+  lang: z
+    .string()
+    .optional()
+    .describe(userLanguagePrompt.content as string),
+});
+
+export type ContentReadingArgs = z.infer<typeof contentReadingSchema>;
 
 export class ReadCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
     super();
+  }
+
+  /**
+   * Extract reading instructions from a command using LLM
+   */
+  private async extractReadContent(params: CommandHandlerParams) {
+    const { command, title, nextCommand } = params;
+    const llmConfig = await this.plugin.llmService.getLLMConfig({
+      overrideModel: command.model,
+      generateType: 'text',
+    });
+
+    return generateText({
+      ...llmConfig,
+      abortSignal: this.plugin.abortService.createAbortController('content-reading'),
+      system: toolSystemPrompt,
+      prompt: command.query,
+      maxSteps: 5,
+      tools: {
+        contentReading: tool({
+          parameters: contentReadingSchema,
+          execute: async args => {
+            try {
+              return await this.plugin.contentReadingService.readContent(args);
+            } catch (error) {
+              return error.message as string;
+            }
+          },
+        }),
+      },
+      onStepFinish: async step => {
+        const lang = params.lang;
+        const t = getTranslation(lang);
+
+        // Get all content reading tool calls
+        const contentReadingCalls = step.toolResults.filter(
+          call => call.toolName === 'contentReading'
+        );
+
+        // Process each content reading tool call
+        for (const toolCall of contentReadingCalls) {
+          const args = toolCall.args as ContentReadingArgs;
+
+          if (typeof toolCall.result === 'string') {
+            await this.renderer.updateConversationNote({
+              path: title,
+              newContent: `*${toolCall.result}*`,
+            });
+            continue;
+          }
+
+          // Update conversation with the explanation for this specific result
+          const messageId = await this.renderer.updateConversationNote({
+            path: title,
+            newContent: args.explanation,
+            role: 'Steward',
+            command: 'read',
+            includeHistory: false,
+            lang,
+          });
+
+          // Show found placeholder if available
+          if (args.foundPlaceholder) {
+            await this.renderer.updateConversationNote({
+              path: title,
+              newContent: args.foundPlaceholder.replace(
+                '{{number}}',
+                toolCall.result.blocks.length.toString()
+              ),
+            });
+          }
+
+          // Display each block
+          if (!nextCommand) {
+            for (const block of toolCall.result.blocks) {
+              const endLine = this.plugin.editor.getLine(block.endLine);
+              await this.renderer.updateConversationNote({
+                path: title,
+                newContent: this.plugin.noteContentService.formatCallout(
+                  block.content,
+                  'stw-search-result',
+                  {
+                    startLine: block.startLine,
+                    endLine: block.endLine,
+                    start: 0,
+                    end: endLine.length,
+                    path: toolCall.result.file?.path,
+                  }
+                ),
+              });
+            }
+          }
+
+          // Store the artifact for this result
+          if (messageId) {
+            this.artifactManager.storeArtifact(title, messageId, {
+              type: ArtifactType.READ_CONTENT,
+              readingResult: toolCall.result,
+            });
+
+            await this.renderer.updateConversationNote({
+              path: title,
+              newContent: `*${t('common.artifactCreated', { type: ArtifactType.READ_CONTENT })}*`,
+              artifactContent: toolCall.result.blocks.map(block => block.content).join('\n\n'),
+              command: 'read',
+              role: {
+                name: 'Assistant',
+                showLabel: false,
+              },
+            });
+          }
+        }
+
+        await this.renderIndicator(title, lang);
+      },
+    });
   }
 
   /**
@@ -34,190 +187,54 @@ export class ReadCommandHandler extends CommandHandler {
       /**
        * The extraction result from the LLM before confirmation
        */
-      extraction?: ExtractReadContentResult;
+      extraction?: unknown;
       /**
        * Whether the user has confirmed reading the entire content
        */
       readEntireConfirmed?: boolean;
     } = {}
   ): Promise<CommandResult> {
-    const { title, command, nextCommand } = params;
+    const { title, nextCommand } = params;
+
+    type ExtractReadContentResult = Awaited<ReturnType<typeof this.extractReadContent>>;
 
     try {
-      // Extract the reading instructions using LLM
-      const extraction = options.extraction || (await extractReadContent(command));
-      const lang =
-        extraction.toolCalls.length > 0 ? extraction.toolCalls[0].args.lang : params.lang;
-      const t = getTranslation(lang);
+      const extraction =
+        (options.extraction as ExtractReadContentResult) || (await this.extractReadContent(params));
 
-      // Find all content reading tool calls
-      const contentReadingToolCalls = extraction.toolCalls.filter(
-        toolCall => toolCall.toolName === 'contentReading'
-      );
-
-      if (contentReadingToolCalls.length === 0) {
+      if (!nextCommand && extraction.text) {
         await this.renderer.updateConversationNote({
           path: title,
-          newContent: extraction.text || `*${t('common.noToolCallFound')}*`,
-          role: 'Steward',
+          newContent: extraction.text,
           command: 'read',
-          includeHistory: false,
-          lang,
+          lang: params.lang,
         });
-
-        return {
-          status: CommandResultStatus.ERROR,
-          error: new Error('No content reading tool call found'),
-        };
       }
 
       // Check if any tool call is for entire content and needs confirmation
-      const entireContentReadCall = contentReadingToolCalls.find(
-        toolCall => toolCall.args.readType === 'entire'
-      );
+      // Note: This code is kept as requested but is currently commented out
+      // const entireContentReadCall = contentReadingToolCalls.find(
+      //   toolCall => toolCall.args.readType === 'entire'
+      // );
 
-      if (entireContentReadCall && !options.readEntireConfirmed) {
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: t('read.readEntireContentConfirmation', {
-            noteName: entireContentReadCall.args.noteName,
-          }),
-          role: 'Steward',
-          command: 'read',
-          lang,
-        });
+      // if (entireContentReadCall && !options.readEntireConfirmed) {
+      //   await this.renderer.updateConversationNote({
+      //     path: title,
+      //     newContent: t('read.readEntireContentConfirmation', {
+      //       noteName: entireContentReadCall.args.noteName,
+      //     }),
+      //     role: 'Steward',
+      //     command: 'read',
+      //     lang,
+      //   });
 
-        return {
-          status: CommandResultStatus.NEEDS_CONFIRMATION,
-          onConfirmation: () => {
-            return this.handle(params, { extraction, readEntireConfirmed: true });
-          },
-        };
-      }
-
-      // Process all tool calls
-      const readingResults: ContentReadingResult[] = [];
-      let stewardMessageId = null;
-
-      for (const toolCall of contentReadingToolCalls) {
-        // Read the content from the editor
-        const readingResult = await ContentReadingService.getInstance().readContent(toolCall.args);
-
-        if (!readingResult) {
-          continue; // Skip this tool call if reading failed
-        }
-
-        readingResults.push(readingResult);
-      }
-
-      // Use the explanation from the first successful tool call
-      stewardMessageId = await this.renderer.updateConversationNote({
-        path: title,
-        newContent: contentReadingToolCalls[0].args.explanation,
-        role: 'Steward',
-        command: 'read',
-        includeHistory: false,
-        lang,
-      });
-
-      if (readingResults.length === 0) {
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: `*${t('read.unableToReadContent')}*`,
-          command: 'read',
-        });
-
-        return {
-          status: CommandResultStatus.ERROR,
-          error: new Error('Unable to read content from the editor'),
-        };
-      }
-
-      // Check confidence for all tool calls
-      const lowConfidenceCall = contentReadingToolCalls.find(
-        result => result.args.confidence <= 0.7
-      );
-
-      if (lowConfidenceCall) {
-        return {
-          status: CommandResultStatus.LOW_CONFIDENCE,
-          commandType: 'read',
-          explanation: lowConfidenceCall.args.explanation,
-        };
-      }
-
-      // Check if any content was found
-      const hasContent = readingResults.some(
-        result => result.blocks.length > 0 && result.elementType !== 'unknown'
-      );
-
-      if (!hasContent) {
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: `*${t('read.noContentFound')}*`,
-        });
-
-        return {
-          status: CommandResultStatus.ERROR,
-          error: new Error('No content found to read'),
-        };
-      }
-
-      // Show the user the total number of blocks found across all tool calls
-      const totalBlocks = readingResults.reduce((total, result) => total + result.blocks.length, 0);
-
-      // Use the placeholder from the first tool call
-      if (contentReadingToolCalls[0].args.foundPlaceholder) {
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: contentReadingToolCalls[0].args.foundPlaceholder.replace(
-            '{{number}}',
-            totalBlocks.toString()
-          ),
-        });
-      }
-
-      // If there is no next command, show the read results
-      if (!nextCommand) {
-        for (const result of readingResults) {
-          for (const block of result.blocks) {
-            const endLine = this.plugin.editor.getLine(block.endLine);
-            await this.renderer.updateConversationNote({
-              path: title,
-              newContent: this.plugin.noteContentService.formatCallout(
-                block.content,
-                'stw-search-result',
-                {
-                  startLine: block.startLine,
-                  endLine: block.endLine,
-                  start: 0,
-                  end: endLine.length,
-                  path: result.file?.path,
-                }
-              ),
-            });
-          }
-        }
-      }
-
-      // Store the read content in the artifact manager - use the first result for now
-      // This could be enhanced to store all results if needed
-      if (stewardMessageId && readingResults.length > 0) {
-        this.artifactManager.storeArtifact(title, stewardMessageId, {
-          type: ArtifactType.READ_CONTENT,
-          readingResult: readingResults[0],
-        });
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: `*${t('common.artifactCreated', { type: ArtifactType.READ_CONTENT })}*`,
-          artifactContent: readingResults[0].blocks.map(block => block.content).join('\n\n'),
-          command: 'read',
-          role: {
-            name: 'Assistant',
-            showLabel: false,
-          },
-        });
-      }
+      //   return {
+      //     status: CommandResultStatus.NEEDS_CONFIRMATION,
+      //     onConfirmation: () => {
+      //       return this.handle(params, { extraction, readEntireConfirmed: true });
+      //     },
+      //   };
+      // }
 
       return {
         status: CommandResultStatus.SUCCESS,

@@ -56,6 +56,7 @@ export async function extractReadContent(command: CommandIntent) {
     abortSignal: abortService.createAbortController('content-reading'),
     system: toolSystemPrompt,
     prompt: command.query,
+    maxSteps: 1,
     tools: {
       contentReading: tool({
         parameters: contentReadingSchema,

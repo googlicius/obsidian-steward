@@ -18,3 +18,6 @@ export * from './updateFromSearchResultExtraction';
 
 // Intent and Prompt Extractions
 export * from './intentExtraction';
+
+export * from './commandTypeExtraction';
+export * from './queryExtraction';

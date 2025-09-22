@@ -23,6 +23,7 @@ import {
   BuildSearchIndexCommandHandler,
   SummaryCommandHandler,
   ContextAugmentationHandler,
+  TestCommandHandler,
 } from '../solutions/commands/handlers';
 
 import type StewardPlugin from '../main';
@@ -148,6 +149,10 @@ export class CommandProcessorService {
       this.commandProcessor
     );
     this.commandProcessor.registerUserDefinedCommandHandler(this.userDefinedCommandHandler);
+
+    // Register the test command handler
+    const testHandler = new TestCommandHandler(this.plugin);
+    this.commandProcessor.registerHandler('test', testHandler);
   }
 
   /**

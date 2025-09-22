@@ -4,6 +4,8 @@
  * for reuse in command intent prompts and help systems
  */
 
+import { ArtifactType } from 'src/services/ConversationArtifactManager';
+
 export interface CommandDefinition {
   commandType: string;
   description: string;
@@ -48,7 +50,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
    - Preserve the original wording and context`,
     includeWhen: `Search for files (and doesn't mention existing search results)`,
     dontIncludeWhen: `- If the user mentions "search results", "notes above", or refers to previously found notes, do NOT include a "search" command`,
-    artifactDesc: 'The search results: list of file paths',
+    artifactDesc: `The search results: list of file paths is stored as the artifact with name ${ArtifactType.SEARCH_RESULTS}`,
   },
   {
     commandType: 'close',
@@ -68,7 +70,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     category: 'built-in',
     includeWhen: 'Generate an image',
     dontIncludeWhen: `Even if the user mentions an image, but doesn't explicitly ask for generate an image, do NOT include an "image" command`,
-    artifactDesc: 'The file path of the created image',
+    artifactDesc: `The file path of the created image is stored as the artifact with name ${ArtifactType.MEDIA_RESULTS}`,
   },
   {
     commandType: 'audio',
@@ -76,7 +78,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     category: 'built-in',
     aliases: ['speak'],
     includeWhen: 'Generate audio',
-    artifactDesc: 'The file path of the created audio',
+    artifactDesc: `The file path of the created audio is stored as the artifact with name ${ArtifactType.MEDIA_RESULTS}`,
   },
   {
     commandType: 'create',
@@ -109,7 +111,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
 - <query>: The query for the move command.
 - <destination>: The destination folder.`,
     includeWhen: 'Move notes from the artifact',
-    artifactDesc: 'The moved note paths',
+    artifactDesc: `The moved note paths is stored as the artifact with name ${ArtifactType.MOVE_RESULTS}`,
   },
   {
     commandType: 'copy_from_artifact',
@@ -120,15 +122,15 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
 - <query>: The query for the copy command.
 - <destination>: The destination folder.`,
     includeWhen: 'Copy notes from the artifact',
-    artifactDesc: 'The copied note paths',
+    artifactDesc: `The copied note paths is stored as the artifact with name copy_results`,
   },
   {
     commandType: 'update_from_artifact',
     description: 'Update note(s) from the artifact',
     category: 'intent-based',
     aliases: ['update'],
-    includeWhen: 'Update notes from the artifact',
-    artifactDesc: 'The updated note paths',
+    includeWhen: 'Update one or more notes from the artifact',
+    artifactDesc: `The updated note paths is stored as the artifact with name ${ArtifactType.CONTENT_UPDATE}`,
   },
   {
     commandType: 'delete_from_artifact',
@@ -138,7 +140,6 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     queryTemplate: `Extract specific details for a delete_from_artifact command:
 - The query always be: "Delete all notes in the search result."`,
     includeWhen: 'Delete notes from the artifact',
-    artifactDesc: 'The deleted note paths',
   },
   // {
   //   commandType: 'revert',
@@ -160,21 +161,11 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     includeWhen: 'Build or rebuild the search index for all markdown files in the vault',
   },
   {
-    commandType: 'generate',
-    description: `Generate content with the LLM help (either in a new note or in the conversation). You also can "generate" from the provided content in the user's query without reading the note. Example: "Help me update this list to the numbered list:
-  - Item 1
-  - Item 2" -> ["generate"]. The list is already in the query.`,
-    category: 'intent-based',
-    queryTemplate: `Extract the query for the generate command follows this format: <query_in_natural_language>; [note name: <noteName>]
-- <query_in_natural_language>: Tailored query for the generate command.
-- <noteName>: Include if mentioned.`,
-    includeWhen: 'Ask or generate content with your help',
-    artifactDesc: 'The generated content',
-  },
-  {
     commandType: 'read',
-    description: `Read text contents, images from the current note or specific position: "above", "below". Use this when you don't know the content and need to retrieve it before proceeding
-  Can read any content type, including code blocks, tables, lists, paragraphs, and more.`,
+    description: `Read text contents, images from the current note in specific position: "above", "below". OR from the other notes. Use this when you don't know the content and need to retrieve it before proceeding
+  - Can read any content type, including code blocks, tables, lists, paragraphs, and more.
+  - Can multiple notes at once.
+  - Can read when the note's name or position (above or below) is provided, no location needed.`,
     category: 'intent-based',
     queryTemplate: `Extract a specific query for a read command:
 1. Extract the query for the read command follows this format: <query_in_natural_language>; read type: <readType>[; note name: <noteName>]
@@ -189,7 +180,19 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   - Keep the query in natural language form
   - Don't convert natural language expressions into structured queries.`,
     includeWhen: 'Read or Find content based on a specific pattern in their current note',
-    artifactDesc: 'The content of the reading result',
+    artifactDesc: `The content of the reading result is stored as the artifact with name ${ArtifactType.READ_CONTENT}`,
+  },
+  {
+    commandType: 'generate',
+    description: `Generate content with the LLM help (either in a new note or in the conversation). You also can "generate" from the provided content in the user's query without reading the note. Example: "Help me update this list to the numbered list:
+  - Item 1
+  - Item 2" -> ["generate"]. The list is already in the query.`,
+    category: 'intent-based',
+    queryTemplate: `Extract the query for the generate command follows this format: <query_in_natural_language>; [note name: <noteName>]
+- <query_in_natural_language>: Tailored query for the generate command.
+- <noteName>: Include if mentioned.`,
+    includeWhen: 'Ask or generate content with your help',
+    artifactDesc: `The generated content is stored as the artifact with name ${ArtifactType.CONTENT_UPDATE}`,
   },
   {
     commandType: 'thank_you',

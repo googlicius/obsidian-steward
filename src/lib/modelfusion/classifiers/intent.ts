@@ -70,6 +70,17 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
       ],
     },
     {
+      name: 'test' as const,
+      values: [
+        'test tool calls',
+        'test ai sdk',
+        'run tool test',
+        'test ai tools',
+        'test sdk tools',
+        'run test tools',
+      ],
+    },
+    {
       name: 'build_search_index' as const,
       values: ['build search index', 'index my files'],
     },

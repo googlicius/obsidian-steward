@@ -19,3 +19,4 @@ export * from './HelpCommandHandler';
 export * from './BuildSearchIndexCommandHandler';
 export * from './SummaryCommandHandler';
 export * from './ContextAugmentationHandler';
+export * from './TestCommandHandler';
