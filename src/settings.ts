@@ -597,8 +597,8 @@ export default class StewardSettingTab extends PluginSettingTab {
       .setDesc(t('settings.withoutLLMDesc'))
       .addDropdown(dropdown => {
         dropdown
-          .addOption('exact', t('settings.exactMatch'))
           .addOption('relevant', t('settings.relevantScoring'))
+          .addOption('exact', t('settings.exactMatch'))
           .setValue(this.plugin.settings.search.withoutLLM)
           .onChange(async value => {
             this.plugin.settings.search.withoutLLM = value as 'exact' | 'relevant';

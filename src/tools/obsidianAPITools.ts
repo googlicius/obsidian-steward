@@ -5,8 +5,8 @@ import {
   ReplaceInstruction,
   AddInstruction,
 } from '../lib/modelfusion/extractions';
-import { SearchOperationV2 } from 'src/lib/modelfusion';
 import { logger } from 'src/utils/logger';
+import { SearchOperationV2 } from 'src/solutions/commands/handlers/SearchCommandHandler/zSchemas';
 
 /**
  * Represents a single move operation with v2 parameters

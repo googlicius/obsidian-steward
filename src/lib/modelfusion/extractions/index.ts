@@ -5,8 +5,6 @@ export * from './imageExtraction';
 // Note Extractions
 export * from './noteCreationExtraction';
 
-// Search and Move Extractions
-export * from './searchExtraction';
 export * from './moveExtraction';
 export * from './destinationFolderExtraction';
 export * from './updateFromSearchResultExtraction';
