@@ -237,7 +237,7 @@ export class ConversationRenderer {
      * The language of the conversation.
      * If provided, it will be included in the conversation property.
      */
-    lang?: string;
+    lang?: string | null;
     /**
      * The message ID to replace. If provided, this message and all messages below it will be removed
      * before adding the new content.

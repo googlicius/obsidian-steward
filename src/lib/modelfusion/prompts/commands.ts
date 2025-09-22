@@ -141,11 +141,6 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
 - The query always be: "Delete all notes in the search result."`,
     includeWhen: 'Delete notes from the artifact',
   },
-  // {
-  //   commandType: 'revert',
-  //   description: 'Undo the last change or revert to a previous state',
-  //   category: 'intent-based',
-  // },
   {
     commandType: 'summary',
     description: 'Generate a summary of the conversation to provide context and reduce token usage',
@@ -168,13 +163,17 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   - Can read when the note's name or position (above or below) is provided, no location needed.`,
     category: 'intent-based',
     queryTemplate: `Extract a specific query for a read command:
-1. Extract the query for the read command follows this format: <query_in_natural_language>; read type: <readType>[; note name: <noteName>]
+1. Extract the query for the read command follows this format: <query_in_natural_language>, read type: <read_type>[, note name: <note_name>] [; <other_notes_to_read>]; notes to read: <notes_to_read>
   - <query_in_natural_language>: Tailored query for each read command.
-  - <readType>: abort, below, or entire.
-  - <noteName>: The note name to read. Include if the <readType> is "entire".
+  - <read_type>: abort, below, or entire.
+  - <note_name>: The note name to read. Include if the <read_type> is "entire".
+  - <other_notes_to_read>: The other notes to read if needed. Follow the same structure as the previous.
+  - <notes_to_read>: The number of notes to read.
+  - Square brackets [] indicate optional fields.
 
-2. Multiple read commands if needed.
+2. Read multiple notes if needed.
   - If the query require read content in one or more notes, include all of them.
+    Example: "Read the context above, read type: above; Read the note named 'Note 2', read type: entire, note name: 'Note 2'"
 
 3. Maintain Natural Language:
   - Keep the query in natural language form
@@ -188,11 +187,12 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   - Item 1
   - Item 2" -> ["generate"]. The list is already in the query.`,
     category: 'intent-based',
-    queryTemplate: `Extract the query for the generate command follows this format: <query_in_natural_language>; [note name: <noteName>]
+    queryTemplate: `Extract the query for the generate command follows this format: <query_in_natural_language>, [note name: <note_name>]
 - <query_in_natural_language>: Tailored query for the generate command.
-- <noteName>: Include if mentioned.`,
+- <note_name>: Include if mentioned.`,
     includeWhen: 'Ask or generate content with your help',
-    artifactDesc: `The generated content is stored as the artifact with name ${ArtifactType.CONTENT_UPDATE}`,
+    artifactDesc: `The generated content is stored as the artifact with name ${ArtifactType.CONTENT_UPDATE}
+- Square brackets [] indicate optional fields.`,
   },
   {
     commandType: 'thank_you',

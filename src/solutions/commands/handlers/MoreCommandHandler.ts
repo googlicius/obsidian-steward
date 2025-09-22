@@ -8,7 +8,7 @@ import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import type StewardPlugin from 'src/main';
-import type { SearchCommandHandler } from './SearchCommandHandler';
+import { type SearchCommandHandler } from './SearchCommandHandler/SearchCommandHandler';
 import { ConditionResult } from 'src/solutions/search/searchEngineV3';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 

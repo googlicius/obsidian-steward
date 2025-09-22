@@ -16,7 +16,7 @@ export interface MoveExtraction {
   explanation: string;
   context: string;
   confidence: number;
-  lang?: string;
+  lang?: string | null;
 }
 
 /**

@@ -1,45 +1,11 @@
 import { logger } from 'src/utils/logger';
 import { ConversationHistoryMessage, CommandIntent } from 'src/types/types';
-import { z } from 'zod';
 import { CommandTypeExtraction, extractCommandTypes } from './commandTypeExtraction';
-import { extractQueries } from './queryExtraction';
+import { extractQueries, QueryExtraction } from './queryExtraction';
 import { getClassifier } from '../classifiers/getClassifier';
 import { LLMService } from 'src/services/LLMService';
 
-// Define the Zod schema for command intent
-const commandIntentSchema = z.object({
-  commandType: z.string().describe(`One of the available command types.`),
-  query: z.string().describe(
-    `The specific query for this command and will be the input of the downstream command.
-- Keep it concise and short
-If the command is "read" or "create", then this is the original user's query.`
-  ),
-});
-
-// Define the Zod schema for command intent extraction
-const commandIntentExtractionSchema = z.object({
-  commands: z.array(commandIntentSchema).max(20, 'Too many commands. Maximum allowed is 20.')
-    .describe(`An array of objects, each containing commandType and query.
-Analyze the query for multiple commands that should be executed in sequence.
-Each command in the sequence should have its own query that will be processed by specialized handlers.`),
-  explanation: z.string().min(1, 'Explanation must be a non-empty string'),
-  confidence: z.number().min(0).max(1)
-    .describe(`A confidence score from 0 to 1 for the overall sequence:
-- 0.0-0.3: Low confidence (ambiguous or unclear requests)
-- 0.4-0.7: Medium confidence (likely, but could be interpreted differently)
-- 0.8-1.0: High confidence (very clear intent)
-If the confidence is low, include the commands that you are extracting in the explanation so the user decides whether to proceed or not.`),
-  lang: z.string().optional(),
-  queryTemplate: z
-    .string()
-    .optional()
-    .describe(
-      `A template version of the query where specific elements (tags, keywords, filenames, folders) are replaced with generic placeholders (x, y, z, f). This helps identify similar query patterns for caching purposes.`
-    ),
-  shortDescription: z.string().optional().describe(`A short description of the command intent.`),
-});
-
-export type CommandIntentExtraction = z.infer<typeof commandIntentExtractionSchema>;
+export type CommandIntentExtraction = Omit<CommandTypeExtraction, 'commandTypes'> & QueryExtraction;
 
 /**
  * Extract command intents from a general query using AI with a 2-step approach
@@ -50,7 +16,7 @@ export type CommandIntentExtraction = z.infer<typeof commandIntentExtractionSche
 export async function extractCommandIntent(args: {
   command: CommandIntent;
   conversationHistories: ConversationHistoryMessage[];
-  lang?: string;
+  lang?: string | null;
   isReloadRequest?: boolean;
   ignoreClassify?: boolean;
   currentArtifacts?: Array<{ type: string }>;
@@ -60,7 +26,7 @@ export async function extractCommandIntent(args: {
     lang,
     conversationHistories = [],
     isReloadRequest = false,
-    ignoreClassify = true,
+    ignoreClassify = false,
     currentArtifacts,
   } = args;
 
@@ -105,6 +71,20 @@ export async function extractCommandIntent(args: {
         confidence: commandTypeExtraction.confidence,
         lang,
       };
+    }
+
+    // If command type is not read or generate, return early
+    if (commandTypeExtraction.commandTypes.length === 1) {
+      const commandType = commandTypeExtraction.commandTypes[0];
+
+      if (commandType !== 'read' && commandType !== 'generate') {
+        return {
+          commands: [{ commandType, query: command.query }],
+          explanation: commandTypeExtraction.explanation,
+          confidence: commandTypeExtraction.confidence,
+          lang,
+        };
+      }
     }
 
     // Step 2: Extract specific queries for each command type

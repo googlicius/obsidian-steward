@@ -1,11 +1,13 @@
 import { getCommandDefinition, getCommandQueryTemplate, formatCurrentArtifacts } from './commands';
-import { joinWithConjunction } from 'src/utils/arrayUtils';
+import { joinWithConjunction, removeConsecutiveItems } from 'src/utils/arrayUtils';
 
 export function getQueryExtractionPrompt(args: {
   commandTypes: string[];
   currentArtifacts?: Array<{ type: string }>;
 }) {
-  const { commandTypes, currentArtifacts } = args;
+  const { currentArtifacts } = args;
+  // Remove consecutive commands to avoid duplicate commands descriptions and templates
+  const commandTypes = removeConsecutiveItems(args.commandTypes);
 
   // Get command descriptions for the specified command types
   const commandDescriptions = commandTypes

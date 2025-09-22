@@ -2,13 +2,8 @@
 export * from './audioExtraction';
 export * from './imageExtraction';
 
-// Content Extractions
-export * from './contentReadingExtraction';
-export * from './contentUpdateExtraction';
-
 // Note Extractions
 export * from './noteCreationExtraction';
-export * from './noteGenerationExtraction';
 
 // Search and Move Extractions
 export * from './searchExtraction';

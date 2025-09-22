@@ -1,4 +1,4 @@
-import { SearchCommandHandler } from '../SearchCommandHandler';
+import { SearchCommandHandler } from './SearchCommandHandler';
 import type StewardPlugin from 'src/main';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 import { PaginatedSearchResult } from 'src/solutions/search/types';

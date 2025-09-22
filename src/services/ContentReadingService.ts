@@ -3,8 +3,8 @@ import { logger } from '../utils/logger';
 import { isConversationLink } from '../utils/conversationUtils';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
 import { MediaTools } from 'src/tools/mediaTools';
-import { ContentReadingArgs } from 'src/lib/modelfusion';
 import type StewardPlugin from '../main';
+import { ContentReadingArgs } from 'src/solutions/commands/handlers/ReadCommandHandler/zSchemas';
 
 /**
  * Result of a content reading operation

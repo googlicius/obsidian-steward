@@ -3,7 +3,7 @@ import {
   CommandHandlerParams,
   CommandResult,
   CommandResultStatus,
-} from '../CommandHandler';
+} from '../../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
@@ -41,7 +41,7 @@ export class SearchCommandHandler extends CommandHandler {
   /**
    * Render the loading indicator for the search command
    */
-  public async renderIndicator(title: string, lang?: string): Promise<void> {
+  public async renderIndicator(title: string, lang?: string | null): Promise<void> {
     const t = getTranslation(lang);
     await this.renderer.addGeneratingIndicator(title, t('conversation.searching'));
   }
@@ -300,7 +300,7 @@ export class SearchCommandHandler extends CommandHandler {
     paginatedSearchResult: PaginatedSearchResult<IndexedDocument>;
     page?: number;
     headerText?: string;
-    lang?: string;
+    lang?: string | null;
   }): Promise<string> {
     const { paginatedSearchResult, headerText, lang } = options;
     const page = options.page || 1;

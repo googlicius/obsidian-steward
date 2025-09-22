@@ -203,7 +203,7 @@ export class MoveCommandHandler extends CommandHandler {
       docs: IndexedDocument[];
       explanation: string;
     },
-    lang?: string
+    lang?: string | null
   ): Promise<CommandResult> {
     try {
       const { destinationFolder, docs, explanation } = context;
@@ -282,7 +282,7 @@ export class MoveCommandHandler extends CommandHandler {
       errors: string[];
       skipped: string[];
     }>;
-    lang?: string;
+    lang?: string | null;
   }): string {
     const { operations, lang } = result;
 

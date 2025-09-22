@@ -40,7 +40,7 @@ export interface ConversationCommandReceivedPayload {
    * The original query that was received from the user
    */
   originalQuery?: string;
-  lang?: string;
+  lang?: string | null;
 }
 
 export interface ConversationLinkInsertedPayload {

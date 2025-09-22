@@ -93,7 +93,7 @@ export async function extractSearchQueryV2({
 }: {
   command: CommandIntent;
   searchSettings?: StewardPluginSettings['search'];
-  lang?: string;
+  lang?: string | null;
 }): Promise<SearchQueryExtractionV2> {
   const { systemPrompts = [] } = command;
   const t = getTranslation(lang);

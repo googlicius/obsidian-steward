@@ -3,51 +3,13 @@ import {
   CommandHandlerParams,
   CommandResult,
   CommandResultStatus,
-} from '../CommandHandler';
+} from '../../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import type StewardPlugin from 'src/main';
 import { toolSystemPrompt } from 'src/lib/modelfusion/prompts/contentReadingPrompt';
-import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
-import { z } from 'zod';
 import { generateText, tool } from 'ai';
-import { explanationFragment, confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
-
-const contentReadingSchema = z.object({
-  readType: z.enum(['above', 'below', 'entire']).default('above')
-    .describe(`- "above": Refers to content above the cursor
-- "below": Refers to content below the cursor
-- "entire": Refers to the entire content of the note`),
-  noteName: z
-    .string()
-    .nullable()
-    .default(null)
-    .describe(`Name of the note to read from. If not specified, leave it blank`),
-  elementType: z.string().nullable().default(null).describe(`Identify element types if mentioned:
-- One or many of "paragraph", "table", "code", "list", "blockquote", "image", or null if no specific element type is mentioned
-- For multiple types:
-  - Use comma-separated values for OR conditions (e.g., "paragraph, table")
-  - Use "+" for AND conditions (e.g., "paragraph+table")`),
-  blocksToRead: z.number().min(-1).default(1)
-    .describe(`Number of blocks to read (paragraphs, tables, code blocks, etc.)
-- Set to -1 ONLY if the user mentions "all content"
-- Otherwise, extract the number from the query if specified`),
-  foundPlaceholder: z
-    .string()
-    .nullable()
-    .describe(
-      `A short text to indicate that the content was found. MUST include the term {{number}} as a placeholder, for example: "I found {{number}}..."
-If the readType is "entire", leave it null.`
-    ),
-  confidence: z.number().min(0).max(1).describe(confidenceFragment),
-  explanation: z.string().describe(explanationFragment),
-  lang: z
-    .string()
-    .optional()
-    .describe(userLanguagePrompt.content as string),
-});
-
-export type ContentReadingArgs = z.infer<typeof contentReadingSchema>;
+import { ContentReadingArgs, contentReadingSchema } from './zSchemas';
 
 export class ReadCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -64,12 +26,15 @@ export class ReadCommandHandler extends CommandHandler {
       generateType: 'text',
     });
 
+    const readTypeMatches = command.query.match(/read type:/g);
+    const notesToRead = readTypeMatches ? readTypeMatches.length : 0;
+
     return generateText({
       ...llmConfig,
       abortSignal: this.plugin.abortService.createAbortController('content-reading'),
       system: toolSystemPrompt,
       prompt: command.query,
-      maxSteps: 5,
+      maxSteps: notesToRead > 0 ? notesToRead : 5,
       tools: {
         contentReading: tool({
           parameters: contentReadingSchema,
@@ -173,7 +138,7 @@ export class ReadCommandHandler extends CommandHandler {
   /**
    * Render the loading indicator for the read command
    */
-  public async renderIndicator(title: string, lang?: string): Promise<void> {
+  public async renderIndicator(title: string, lang?: string | null): Promise<void> {
     const t = getTranslation(lang);
     await this.renderer.addGeneratingIndicator(title, t('conversation.readingContent'));
   }

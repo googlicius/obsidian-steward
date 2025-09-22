@@ -46,7 +46,7 @@ export interface CommandHandlerParams<T extends CommandIntent = CommandIntent> {
   command: T;
   prevCommand?: CommandIntent;
   nextCommand?: CommandIntent;
-  lang?: string;
+  lang?: string | null;
   upstreamOptions?: {
     isReloadRequest?: boolean;
     ignoreClassify?: boolean;
@@ -86,7 +86,7 @@ export abstract class CommandHandler {
    * @param title The conversation title
    * @param lang The language code
    */
-  public renderIndicator?(title: string, lang?: string): Promise<void>;
+  public renderIndicator?(title: string, lang?: string | null): Promise<void>;
 
   /**
    * Handle a command

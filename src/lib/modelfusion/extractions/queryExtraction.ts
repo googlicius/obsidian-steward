@@ -35,6 +35,7 @@ Each command in the sequence should have its own query that will be processed by
     .string()
     .min(1, 'Explanation must be a non-empty string')
     .describe(explanationFragment),
+  lang: z.string().nullable().optional(),
 });
 
 export type QueryExtraction = z.infer<typeof queryExtractionSchema>;

@@ -1,15 +1,8 @@
-import { toolSystemPrompt } from '../prompts/contentReadingPrompt';
-import { userLanguagePrompt } from '../prompts/languagePrompt';
-import { AbortService } from 'src/services/AbortService';
-import { LLMService } from 'src/services/LLMService';
+import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { z } from 'zod';
-import { generateText, tool } from 'ai';
-import { CommandIntent } from 'src/types/types';
-import { explanationFragment, confidenceFragment } from '../prompts/fragments';
+import { explanationFragment, confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
 
-const abortService = AbortService.getInstance();
-
-const contentReadingSchema = z.object({
+export const contentReadingSchema = z.object({
   readType: z.enum(['above', 'below', 'entire']).default('above')
     .describe(`- "above": Refers to content above the cursor
 - "below": Refers to content below the cursor
@@ -26,7 +19,7 @@ const contentReadingSchema = z.object({
   - Use "+" for AND conditions (e.g., "paragraph+table")`),
   blocksToRead: z.number().min(-1).default(1)
     .describe(`Number of blocks to read (paragraphs, tables, code blocks, etc.)
-- Set to -1 if the user mentions "all" content
+- Set to -1 ONLY if the user mentions "all content"
 - Otherwise, extract the number from the query if specified`),
   foundPlaceholder: z
     .string()
@@ -39,40 +32,9 @@ If the readType is "entire", leave it null.`
   explanation: z.string().describe(explanationFragment),
   lang: z
     .string()
+    .nullable()
     .optional()
     .describe(userLanguagePrompt.content as string),
 });
 
 export type ContentReadingArgs = z.infer<typeof contentReadingSchema>;
-
-export async function extractReadContent(command: CommandIntent) {
-  const llmConfig = await LLMService.getInstance().getLLMConfig({
-    overrideModel: command.model,
-    generateType: 'text',
-  });
-
-  return generateText({
-    ...llmConfig,
-    abortSignal: abortService.createAbortController('content-reading'),
-    system: toolSystemPrompt,
-    prompt: command.query,
-    maxSteps: 1,
-    tools: {
-      contentReading: tool({
-        parameters: contentReadingSchema,
-
-        // execute: async args => {
-        //   const readingResult = await ContentReadingService.getInstance().readContent(args);
-        //   if (!readingResult) {
-        //     return null;
-        //   }
-        //   return {
-        //     blocks: readingResult.blocks,
-        //     elementType: readingResult.elementType,
-        //     range: readingResult.range,
-        //   };
-        // },
-      }),
-    },
-  });
-}
