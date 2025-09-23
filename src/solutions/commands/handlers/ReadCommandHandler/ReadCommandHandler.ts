@@ -29,12 +29,15 @@ export class ReadCommandHandler extends CommandHandler {
     const readTypeMatches = command.query.match(/read type:/g);
     const notesToRead = readTypeMatches ? readTypeMatches.length : 0;
 
+    // Set maxSteps based on the notesToRead to skip the last evaluation step
+    const maxSteps = notesToRead > 0 ? notesToRead : 5;
+
     return generateText({
       ...llmConfig,
       abortSignal: this.plugin.abortService.createAbortController('content-reading'),
       system: toolSystemPrompt,
       prompt: command.query,
-      maxSteps: notesToRead > 0 ? notesToRead : 5,
+      maxSteps,
       tools: {
         contentReading: tool({
           parameters: contentReadingSchema,
@@ -130,7 +133,9 @@ export class ReadCommandHandler extends CommandHandler {
           }
         }
 
-        await this.renderIndicator(title, lang);
+        if (step.isContinued) {
+          await this.renderIndicator(title, lang);
+        }
       },
     });
   }
@@ -167,13 +172,15 @@ export class ReadCommandHandler extends CommandHandler {
       const extraction =
         (options.extraction as ExtractReadContentResult) || (await this.extractReadContent(params));
 
-      if (!nextCommand && extraction.text) {
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: extraction.text,
-          command: 'read',
-          lang: params.lang,
-        });
+      if (extraction.text) {
+        if (!nextCommand || extraction.steps.length === 0) {
+          await this.renderer.updateConversationNote({
+            path: title,
+            newContent: extraction.text,
+            command: 'read',
+            lang: params.lang,
+          });
+        }
       }
 
       // Check if any tool call is for entire content and needs confirmation

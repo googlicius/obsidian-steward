@@ -6,25 +6,18 @@ import {
 } from '../../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
-import { streamText, generateObject } from 'ai';
+import { streamText, generateText, tool } from 'ai';
 import { prepareMessage } from 'src/lib/modelfusion';
 import { MediaTools } from 'src/tools/mediaTools';
 import { CommandIntent, ConversationHistoryMessage } from 'src/types/types';
-import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { type CommandProcessor } from '../../CommandProcessor';
-import { contentUpdatePrompt } from 'src/lib/modelfusion/prompts/contentUpdatePrompt';
-import { noteGenerationPrompt } from 'src/lib/modelfusion/prompts/noteGenerationPrompt';
-import { type App } from 'obsidian';
-import {
-  ContentUpdateExtraction,
-  contentUpdateExtractionSchema,
-  NoteGenerationExtraction,
-  noteGenerationExtractionSchema,
-} from './zSchemas';
+import { ReadCommandHandler } from '../ReadCommandHandler/ReadCommandHandler';
+import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
+import { updateContentSchema, generateContentSchema, contentReadingSchema } from './zSchemas';
 
 export interface ContentUpdate {
   updatedContent: string;
@@ -37,99 +30,6 @@ export class GenerateCommandHandler extends CommandHandler {
     private readonly commandProcessor: CommandProcessor
   ) {
     super();
-  }
-
-  /**
-   * Extract content update details from a user query
-   * @param params Parameters for content update extraction
-   * @returns Extracted updated contents, explanation, and confidence
-   */
-  private async extractContentUpdate(params: {
-    command: CommandIntent;
-    app: App;
-  }): Promise<ContentUpdateExtraction> {
-    const { command, app } = params;
-
-    try {
-      logger.log('Extracting content update from user input');
-
-      const llmConfig = await this.plugin.llmService.getLLMConfig({
-        overrideModel: command.model,
-        generateType: 'object',
-      });
-
-      const userMessage = await prepareMessage(command.query, app);
-
-      const { object } = await generateObject({
-        ...llmConfig,
-        abortSignal: this.plugin.abortService.createAbortController('content-update'),
-        system: contentUpdatePrompt,
-        messages: [
-          ...(command.systemPrompts || []).map(prompt => ({
-            role: 'system' as const,
-            content: prompt,
-          })),
-          {
-            role: 'user',
-            content: userMessage,
-          },
-        ],
-        schema: contentUpdateExtractionSchema,
-      });
-
-      return object;
-    } catch (error) {
-      logger.error('Error extracting content update details:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Extract note generation details from a user query
-   * @param params Parameters for the note generation extraction
-   * @returns Extracted note name, instructions, style preferences, and explanation
-   */
-  private async extractNoteGeneration(params: {
-    command: CommandIntent;
-    recentlyCreatedNote?: string;
-    conversationHistory?: ConversationHistoryMessage[];
-  }): Promise<NoteGenerationExtraction> {
-    const { command, recentlyCreatedNote, conversationHistory = [] } = params;
-    const { systemPrompts = [] } = command;
-
-    try {
-      const llmConfig = await this.plugin.llmService.getLLMConfig({
-        overrideModel: command.model,
-        generateType: 'object',
-      });
-
-      const { object } = await generateObject({
-        ...llmConfig,
-        abortSignal: this.plugin.abortService.createAbortController('note-generation'),
-        system: noteGenerationPrompt(command),
-        messages: [
-          ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
-          ...conversationHistory,
-          { role: 'user', content: command.query },
-        ],
-        schema: noteGenerationExtractionSchema,
-      });
-
-      // If no note name is provided but there's a recently created note, use that
-      if ((!object.noteName || object.noteName === '') && recentlyCreatedNote) {
-        const result = {
-          ...object,
-          noteName: recentlyCreatedNote,
-          explanation: `${object.explanation} Using the recently created note: ${recentlyCreatedNote}`,
-        };
-        return result;
-      }
-
-      return object;
-    } catch (error) {
-      logger.error('Error extracting note generation details:', error);
-      throw error;
-    }
   }
 
   /**
@@ -165,9 +65,9 @@ export class GenerateCommandHandler extends CommandHandler {
     params: CommandHandlerParams,
     options: {
       lowConfidenceConfirmed?: boolean;
-      extraction?: ContentUpdateExtraction | NoteGenerationExtraction;
     } = {}
   ): Promise<CommandResult> {
+    // This function will always return a CommandResult either directly or through a called function
     const { title, command, nextCommand, lang, prevCommand } = params;
     const t = getTranslation(lang);
 
@@ -230,73 +130,149 @@ The response should be in natural language and not include the selection(s) {{st
       command.query = `${artifactContent}\n\n${command.query}`;
     }
 
-    let recentlyCreatedNote = '';
+    // Get recently created note information (for context)
     const createdNotesArtifact = this.artifactManager.getMostRecentArtifactByType(
       title,
       ArtifactType.CREATED_NOTES
     );
+    // Get recently created note information
     if (createdNotesArtifact && createdNotesArtifact.type === ArtifactType.CREATED_NOTES) {
-      recentlyCreatedNote = createdNotesArtifact.paths[0] || '';
+      // We have a recently created note (available for future use)
     }
 
     const isUpdate = nextCommand && nextCommand.commandType === 'update_from_artifact';
 
-    let extraction = options.extraction;
+    const conversationHistory = await this.renderer.extractConversationHistory(title);
 
-    if (!extraction) {
-      const conversationHistory = await this.renderer.extractConversationHistory(title);
-      if (isUpdate) {
-        extraction = await this.extractContentUpdate({
-          command: {
-            ...command,
-            systemPrompts,
-          },
-          app: this.app,
+    const llmConfig = await this.plugin.llmService.getLLMConfig({
+      overrideModel: command.model,
+      generateType: 'text',
+    });
+
+    // Only use prepareMessage for update commands
+    const userMessage = isUpdate ? await prepareMessage(command.query, this.app) : command.query;
+
+    // Use generateText with tools instead of the extraction functions
+    const extraction = await generateText({
+      ...llmConfig,
+      abortSignal: this.plugin.abortService.createAbortController('generate'),
+      system: `You are a helpful assistant that generates content for Obsidian notes. Generate detailed, well-structured content in Markdown.
+
+You have access to the following tools:
+
+1. updateContent - Update existing content in a note.
+2. generateContent - Generate new content for a note.
+3. contentReading - Read content from notes to gather context before generating a response.
+
+GUIDELINES:
+- If you need more context before generating a response, use the contentReading tool first.
+- If the user wants to update existing content, use the updateContent tool.
+- For all other content generation requests, use the generateContent tool.
+- Choose exactly one tool for each request.
+${
+  isUpdate
+    ? `IMPORTANT: This is an update request. Please do NOT use the generateContent tool.`
+    : ``
+}
+
+${languageEnforcementFragment}`,
+      messages: [
+        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        ...conversationHistory,
+        { role: 'user', content: userMessage },
+      ],
+      tools: {
+        updateContent: tool({
+          parameters: updateContentSchema,
+        }),
+        generateContent: tool({
+          parameters: generateContentSchema,
+        }),
+        contentReading: tool({
+          parameters: contentReadingSchema,
+        }),
+      },
+    });
+
+    // If no tool calls were made but we have text, render the text
+    if (extraction.toolCalls.length === 0) {
+      if (extraction.text && extraction.text.trim()) {
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: extraction.text,
+          lang,
         });
+        return {
+          status: CommandResultStatus.SUCCESS,
+        };
       } else {
-        extraction = await this.extractNoteGeneration({
-          command: {
-            ...command,
-            systemPrompts,
-          },
-          recentlyCreatedNote: fromRead ? undefined : recentlyCreatedNote,
-          conversationHistory,
+        // No tool calls and no text, return error
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: `*Error: No response was generated by the AI*`,
+          lang,
         });
+        return {
+          status: CommandResultStatus.ERROR,
+          error: new Error('No response was generated by the AI'),
+        };
       }
     }
 
-    if (extraction.confidence <= 0.7 && !options.lowConfidenceConfirmed) {
-      // Return LOW_CONFIDENCE status to trigger context augmentation
-      return {
-        status: CommandResultStatus.LOW_CONFIDENCE,
-        commandType: 'generate',
-        explanation: extraction.explanation,
-      };
-    }
+    for (const toolCall of extraction.toolCalls) {
+      if (toolCall.toolName === 'contentReading') {
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: toolCall.args.explanation,
+          command: 'read',
+          includeHistory: false,
+          lang,
+        });
 
-    try {
-      const messageId = await this.renderer.updateConversationNote({
-        path: title,
-        newContent: extraction.explanation,
-        includeHistory: false,
-        role: 'Steward',
-        lang,
-      });
+        // Initialize ReadCommandHandler and process the reading request
+        const readCommandHandler = new ReadCommandHandler(this.plugin);
 
-      await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
+        const readResult = await readCommandHandler.handle({
+          title,
+          command: {
+            commandType: 'read',
+            query: toolCall.args.query,
+            model: command.model,
+          },
+          nextCommand: command,
+          lang,
+        });
 
-      if ('updates' in extraction) {
-        if (extraction.updates.length === 0) {
-          return {
-            status: CommandResultStatus.SUCCESS,
-          };
+        if (readResult.status === CommandResultStatus.SUCCESS) {
+          // Call generateContent again after reading
+          return this.generateContent(params);
+        } else {
+          return readResult;
         }
+      } else if (toolCall.toolName === 'updateContent') {
+        try {
+          await this.renderer.updateConversationNote({
+            path: title,
+            newContent: toolCall.args.explanation,
+            includeHistory: false,
+            role: 'Steward',
+            lang,
+          });
 
-        if (messageId) {
-          this.artifactManager.storeArtifact(title, messageId, {
+          await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
+
+          if (toolCall.args.updates.length === 0) {
+            return {
+              status: CommandResultStatus.SUCCESS,
+            };
+          }
+
+          // Store artifact
+          const artifactId = `update-${Date.now()}`;
+          this.artifactManager.storeArtifact(title, artifactId, {
             type: ArtifactType.CONTENT_UPDATE,
-            updateExtraction: extraction,
-            path: extraction.notePath || this.app.workspace.getActiveFile()?.path || '',
+            updateExtraction: toolCall.args,
+            path: toolCall.args.notePath || this.app.workspace.getActiveFile()?.path || '',
           });
 
           await this.renderer.updateConversationNote({
@@ -307,112 +283,151 @@ The response should be in natural language and not include the selection(s) {{st
             command: 'generate',
             lang,
           });
-        }
 
-        for (const update of extraction.updates) {
+          for (const update of toolCall.args.updates) {
+            await this.renderer.updateConversationNote({
+              path: title,
+              newContent: this.plugin.noteContentService.formatCallout(
+                update.updatedContent,
+                'stw-search-result',
+                {
+                  mdContent: new MarkdownUtil(update.updatedContent)
+                    .escape(true)
+                    .encodeForDataset()
+                    .getText(),
+                }
+              ),
+              lang,
+            });
+          }
+
+          return {
+            status: CommandResultStatus.SUCCESS,
+          };
+        } catch (error) {
           await this.renderer.updateConversationNote({
             path: title,
-            newContent: this.plugin.noteContentService.formatCallout(
-              update.updatedContent,
-              'stw-search-result',
-              {
-                mdContent: new MarkdownUtil(update.updatedContent)
-                  .escape(true)
-                  .encodeForDataset()
-                  .getText(),
-              }
-            ),
+            newContent: `*Error generating: ${error.message}*`,
             lang,
           });
+
+          return {
+            status: CommandResultStatus.ERROR,
+            error,
+          };
         }
-      } else {
-        const conversationHistory = await this.renderer.extractConversationHistory(title, {
-          summaryPosition: 1,
-        });
+      } else if (toolCall.toolName === 'generateContent') {
+        try {
+          await this.renderer.updateConversationNote({
+            path: title,
+            newContent: toolCall.args.explanation,
+            includeHistory: false,
+            role: 'Steward',
+            lang,
+          });
 
-        const mediaTools = MediaTools.getInstance(this.app);
+          await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
 
-        const file = extraction.noteName
-          ? await mediaTools.findFileByNameOrPath(extraction.noteName)
-          : null;
+          const conversationHistory = await this.renderer.extractConversationHistory(title, {
+            summaryPosition: 1,
+          });
 
-        const noteContent = file ? await this.app.vault.read(file) : '';
+          const mediaTools = MediaTools.getInstance(this.app);
 
-        const stream = await this.contentGenerationStream({
-          command: {
-            ...command,
-            systemPrompts,
-          },
-          conversationHistory: conversationHistory,
-          errorCallback: async error => {
-            logger.error('Error in contentGenerationStream', error);
+          const file = toolCall.args.noteName
+            ? await mediaTools.findFileByNameOrPath(toolCall.args.noteName)
+            : null;
 
-            let errorMessage =
-              '*An error occurred while generating content, please check the console log (Ctrl+Shift+I)*';
+          const noteContent = file ? await this.app.vault.read(file) : '';
 
-            if (typeof error === 'object' && error !== null && 'toString' in error) {
-              errorMessage = `*Error: ${error.toString()}*`;
+          const stream = await this.contentGenerationStream({
+            command: {
+              ...command,
+              systemPrompts,
+            },
+            conversationHistory: conversationHistory,
+            errorCallback: async error => {
+              logger.error('Error in contentGenerationStream', error);
+
+              let errorMessage =
+                '*An error occurred while generating content, please check the console log (Ctrl+Shift+I)*';
+
+              if (typeof error === 'object' && error !== null && 'toString' in error) {
+                errorMessage = `*Error: ${error.toString()}*`;
+              }
+
+              await this.renderer.updateConversationNote({
+                path: title,
+                newContent: errorMessage,
+              });
+            },
+          });
+
+          if (
+            fromRead ||
+            !toolCall.args.noteName ||
+            !toolCall.args.modifiesNote ||
+            !file ||
+            noteContent.trim() !== ''
+          ) {
+            await this.renderer.streamConversationNote({
+              path: title,
+              stream,
+              command: 'generate',
+            });
+          } else {
+            const mainLeaf = await this.plugin.getMainLeaf();
+
+            if (mainLeaf && file) {
+              mainLeaf.openFile(file);
+              await this.app.workspace.revealLeaf(mainLeaf);
             }
+
+            let accumulatedContent = '';
+            for await (const chunk of stream) {
+              accumulatedContent += chunk;
+            }
+
+            await this.app.vault.process(file, () => accumulatedContent);
 
             await this.renderer.updateConversationNote({
               path: title,
-              newContent: errorMessage,
+              newContent: `*${t('generate.success', { noteName: toolCall.args.noteName })}*`,
+              lang,
             });
-          },
-        });
 
-        if (
-          fromRead ||
-          !extraction.noteName ||
-          !extraction.modifiesNote ||
-          !file ||
-          noteContent.trim() !== ''
-        ) {
-          await this.renderer.streamConversationNote({
-            path: title,
-            stream,
-            command: 'generate',
-          });
-        } else {
-          const mainLeaf = await this.plugin.getMainLeaf();
-
-          if (mainLeaf && file) {
-            mainLeaf.openFile(file);
-            await this.app.workspace.revealLeaf(mainLeaf);
+            this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
           }
 
-          let accumulatedContent = '';
-          for await (const chunk of stream) {
-            accumulatedContent += chunk;
-          }
-
-          await this.app.vault.process(file, () => accumulatedContent);
-
+          return {
+            status: CommandResultStatus.SUCCESS,
+          };
+        } catch (error) {
           await this.renderer.updateConversationNote({
             path: title,
-            newContent: `*${t('generate.success', { noteName: extraction.noteName })}*`,
+            newContent: `*Error generating: ${error.message}*`,
             lang,
           });
 
-          this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
+          return {
+            status: CommandResultStatus.ERROR,
+            error,
+          };
         }
       }
-
-      return {
-        status: CommandResultStatus.SUCCESS,
-      };
-    } catch (error) {
-      await this.renderer.updateConversationNote({
-        path: title,
-        newContent: `*Error generating: ${error.message}*`,
-        lang,
-      });
-
-      return {
-        status: CommandResultStatus.ERROR,
-        error,
-      };
     }
+
+    // If we get here, no valid tool call was found
+    await this.renderer.updateConversationNote({
+      path: title,
+      newContent: `*Error: No valid tool was selected*`,
+      lang,
+    });
+
+    return {
+      status: CommandResultStatus.ERROR,
+      error: new Error('No valid tool was selected'),
+    };
   }
 
   private async contentGenerationStream(args: {

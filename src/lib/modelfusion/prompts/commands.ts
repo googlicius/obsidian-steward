@@ -163,13 +163,14 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   - Can read when the note's name or position (above or below) is provided, no location needed.`,
     category: 'intent-based',
     queryTemplate: `Extract a specific query for a read command:
-1. Extract the query for the read command follows this format: <query_in_natural_language>, read type: <read_type>[, note name: <note_name>] [; <other_notes_to_read>]; notes to read: <notes_to_read>
+1. Extract the query for the read command follows this format: <query_in_natural_language>, read type: <read_type>[, note name: <note_name>] [; <other_notes_to_read>]
   - <query_in_natural_language>: Tailored query for each read command.
-  - <read_type>: abort, below, or entire.
-  - <note_name>: The note name to read. Include if the <read_type> is "entire".
+  - <read_type>: above, below, or entire.
+  - <note_name>: The note name to read. 
+    - If the <read_type> is "entire", include the note name.
+    - If the <read_type> is "above" or "below", it means current note, leave the note name blank.
   - <other_notes_to_read>: The other notes to read if needed. Follow the same structure as the previous.
-  - <notes_to_read>: The number of notes to read.
-  - Square brackets [] indicate optional fields.
+  NOTE: Square brackets [] indicate optional fields.
 
 2. Read multiple notes if needed.
   - If the query require read content in one or more notes, include all of them.

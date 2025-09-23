@@ -1,6 +1,7 @@
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { explanationFragment, confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { z } from 'zod';
+import { COMMAND_DEFINITIONS } from 'src/lib/modelfusion/prompts/commands';
 
 // Define the Zod schema for content update
 const contentUpdateSchema = z.object({
@@ -11,16 +12,21 @@ If the provided content contains multiple elements (e.g. mixed of paragraphs, li
 only include the original element you are updating.`),
 });
 
-// Define the Zod schema for content update extraction
-export const contentUpdateExtractionSchema = z.object({
-  updates: z
-    .array(contentUpdateSchema)
-    .describe(`An array of objects, each containing updatedContent and originalContent.`),
+// Define the Zod schema for update content tool
+export const updateContentSchema = z.object({
+  updates: z.array(contentUpdateSchema)
+    .describe(`An array of objects, each containing updatedContent and originalContent. 
+Identify the exact content to update and provide the updated version while preserving the overall structure.`),
   explanation: z
     .string()
     .min(1, 'Explanation must be a non-empty string')
-    .describe(explanationFragment),
-  notePath: z.string().optional().describe(`The path of the note that was updated if provided`),
+    .describe(`${explanationFragment} Clearly explain what changes you're making to the content.`),
+  notePath: z
+    .string()
+    .optional()
+    .describe(
+      `The path of the note that was updated if provided. Include this when updating a specific note.`
+    ),
   confidence: z.number().min(0).max(1).describe(confidenceFragment),
   lang: z
     .string()
@@ -28,15 +34,19 @@ export const contentUpdateExtractionSchema = z.object({
     .describe(userLanguagePrompt.content as string),
 });
 
-// Define the Zod schema for note generation extraction validation
-export const noteGenerationExtractionSchema = z.object({
+// Define the Zod schema for generate content tool
+export const generateContentSchema = z.object({
   noteName: z.string().nullable().optional()
     .describe(`The note name from the user's request that they want to generate content into.
 Include only when:
-- The user wants to update or create the <noteName> note.`),
+- The user wants to update or create the <noteName> note.
+- If the user specifies a note name, include it exactly as provided.`),
   instructions: z.string().min(1, 'Instructions must be a non-empty string')
-    .describe(`The generation instructions from the user's request that will be fed to a sub-prompt for actual generating content.
-The instructions should capture the user's intent (e.g., a request for generating or consulting, a question, etc.).`),
+    .describe(`The generation instructions from the user's request for creating content.
+Capture the user's intent clearly, including:
+- The topic or subject matter
+- The format or structure requested (e.g., list, table, essay)
+- Any specific requirements or constraints mentioned`),
   explanation: z.string().min(1, 'Explanation must be a non-empty string')
     .describe(`- Speak directly to the user (e.g., "I'll help you with...")
 - No need the actual content, just say you will help the user with their query
@@ -45,7 +55,7 @@ The instructions should capture the user's intent (e.g., a request for generatin
   modifiesNote: z
     .boolean()
     .describe(
-      `A boolean indicating if the user wants to create or update the noteName (true if yes, false if not).`
+      `A boolean indicating if the user wants to create or update a specific note (true) or just wants a response in the conversation (false).`
     ),
   lang: z
     .string()
@@ -54,5 +64,23 @@ The instructions should capture the user's intent (e.g., a request for generatin
     .describe(userLanguagePrompt.content as string),
 });
 
-export type ContentUpdateExtraction = z.infer<typeof contentUpdateExtractionSchema>;
-export type NoteGenerationExtraction = z.infer<typeof noteGenerationExtractionSchema>;
+const readCommandQueryTemplate = COMMAND_DEFINITIONS.find(
+  command => command.commandType === 'read'
+)?.queryTemplate;
+
+// Define the Zod schema for content reading
+export const contentReadingSchema = z.object({
+  query: z.string().describe(`The query to read content from notes.
+
+QUERY TEMPLATE:
+${readCommandQueryTemplate}`),
+  explanation: z
+    .string()
+    .describe(
+      `A brief explanation of why reading this content is necessary. Explain to the user why you need additional context before generating a response.`
+    ),
+});
+
+export type UpdateContentArgs = z.infer<typeof updateContentSchema>;
+export type GenerateContentArgs = z.infer<typeof generateContentSchema>;
+export type ContentReadingArgs = z.infer<typeof contentReadingSchema>;
