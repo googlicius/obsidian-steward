@@ -71,16 +71,16 @@ export class ReadCommandHandler extends CommandHandler {
        */
       toolCallIndex?: number;
       /**
-       * Previous messages of the tool calls
+       * Messages in this command
        */
-      previousMessages?: Message[];
+      internalMessages?: Message[];
     } = {}
   ): Promise<CommandResult> {
     const { title, command, nextCommand } = params;
     const t = getTranslation(params.lang);
 
-    if (typeof options.previousMessages === 'undefined') {
-      options.previousMessages = [{ role: 'user', content: command.query, id: generateId() }];
+    if (typeof options.internalMessages === 'undefined') {
+      options.internalMessages = [{ role: 'user', content: command.query, id: generateId() }];
     }
 
     type ExtractReadContentResult = Awaited<ReturnType<typeof this.extractReadContent>>;
@@ -110,7 +110,7 @@ export class ReadCommandHandler extends CommandHandler {
 
       const extraction =
         (options.extraction as ExtractReadContentResult) ||
-        (await this.extractReadContent(params, options.previousMessages));
+        (await this.extractReadContent(params, options.internalMessages));
 
       // If there's text and no more steps or no next command, update conversation
       if (extraction.text) {
@@ -152,7 +152,7 @@ export class ReadCommandHandler extends CommandHandler {
                   readEntireConfirmed: true,
                   remainingSteps,
                   toolCallIndex: i,
-                  previousMessages: options.previousMessages,
+                  internalMessages: options.internalMessages,
                 });
               },
             };
@@ -169,7 +169,6 @@ export class ReadCommandHandler extends CommandHandler {
           toolResults.push({
             ...toolCall,
             result,
-            type: 'tool-invocation',
           });
 
           // Process the result
@@ -254,14 +253,14 @@ export class ReadCommandHandler extends CommandHandler {
         if (newRemainingSteps > 0) {
           await this.renderIndicator(title, params.lang);
 
-          // Keep track of the assistant requests and the user responses for tool calls
-          options.previousMessages.push({
+          // Keep track of the assistant's requests and the user's responses for tool calls
+          options.internalMessages.push({
             id: extraction.response.id,
             content: '',
-            parts: toolResults.map(toolCall => ({
+            parts: toolResults.map(item => ({
               type: 'tool-invocation',
               toolInvocation: {
-                ...toolCall,
+                ...item,
                 state: 'result',
               },
             })),
@@ -273,7 +272,7 @@ export class ReadCommandHandler extends CommandHandler {
             readEntireConfirmed: options.readEntireConfirmed,
             // Reset the index for the next batch of tool calls
             toolCallIndex: 0,
-            previousMessages: options.previousMessages,
+            internalMessages: options.internalMessages,
           });
         }
       }

@@ -6,8 +6,6 @@ import { MediaTools } from 'src/tools/mediaTools';
 import { NoteContentService } from 'src/services/NoteContentService';
 import { type App } from 'obsidian';
 import { SearchService } from 'src/solutions/search';
-import { CommandIntent } from 'src/types/types';
-import { SearchQueryExtractionV2 } from './zSchemas';
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   const mockApp = {
@@ -54,11 +52,7 @@ describe('SearchCommandHandler', () => {
 
   describe('extractSearchQueryV2', () => {
     // We need to access the private method for testing
-    let extractSearchQueryV2: (params: {
-      command: CommandIntent;
-      searchSettings?: StewardPlugin['settings']['search'];
-      lang?: string | null;
-    }) => Promise<SearchQueryExtractionV2>;
+    let extractSearchQueryV2: (typeof searchCommandHandler)['extractSearchQueryV2'];
 
     beforeEach(() => {
       // Access the private method using type assertion

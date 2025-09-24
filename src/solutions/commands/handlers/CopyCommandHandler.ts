@@ -12,10 +12,10 @@ import {
   DestinationFolderExtraction,
   extractDestinationFolder,
 } from 'src/lib/modelfusion/extractions';
-import { IndexedDocument } from 'src/database/SearchDatabase';
 import { MoveOperationV2 } from 'src/tools/obsidianAPITools';
 
 import type StewardPlugin from 'src/main';
+import { DocWithPath } from 'src/types/types';
 
 export class CopyCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -64,13 +64,15 @@ export class CopyCommandHandler extends CommandHandler {
 
     try {
       // Retrieve the most recent artifact regardless of type
-      const artifact = this.artifactManager.getMostRecentArtifact(title);
+      const artifact = this.artifactManager.getMostRecentArtifactOfTypes(title, [
+        ArtifactType.SEARCH_RESULTS,
+        ArtifactType.CREATED_NOTES,
+      ]);
 
       if (!artifact) {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: t('common.noRecentOperations'),
-          role: 'Steward',
           lang,
         });
 
@@ -81,17 +83,16 @@ export class CopyCommandHandler extends CommandHandler {
       }
 
       // Handle different artifact types
-      let docs: any[] = [];
+      let docs: DocWithPath[] = [];
 
       if (artifact.type === ArtifactType.SEARCH_RESULTS) {
-        docs = artifact.originalResults;
+        docs = artifact.originalResults.map(item => ({ path: item.document.path }));
       } else if (artifact.type === ArtifactType.CREATED_NOTES) {
         docs = artifact.paths.map(path => ({ path }));
       } else {
         await this.renderer.updateConversationNote({
           path: title,
-          newContent: t('common.cannotCopyThisType'),
-          role: 'Steward',
+          newContent: `*${t('copy.cannotCopyThisType', { type: artifact.type })}*`,
           lang,
         });
 
@@ -181,13 +182,13 @@ export class CopyCommandHandler extends CommandHandler {
    */
   private async performCopyOperation(
     title: string,
-    docs: IndexedDocument[],
+    docs: DocWithPath[],
     moveOperations: MoveOperationV2[],
     lang?: string | null
   ): Promise<CommandResult> {
     try {
       // Create a map of files by operation
-      const filesByOperation = new Map<number, IndexedDocument[]>();
+      const filesByOperation = new Map<number, DocWithPath[]>();
       filesByOperation.set(0, docs);
 
       // Perform the copy operation

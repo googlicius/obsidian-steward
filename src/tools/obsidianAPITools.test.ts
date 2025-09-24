@@ -1,8 +1,8 @@
 import { ObsidianAPITools } from './obsidianAPITools';
 import { App, TFile, TFolder } from 'obsidian';
-import { IndexedDocument } from 'src/database/SearchDatabase';
 import { MoveOperationV2 } from './obsidianAPITools';
 import { getInstance } from 'src/utils/getInstance';
+import { DocWithPath } from 'src/types/types';
 
 // Mock the Obsidian modules
 jest.mock('obsidian', () => ({
@@ -66,7 +66,7 @@ describe('ObsidianAPITools', () => {
         },
       ];
 
-      const filesByOperation = new Map<number, IndexedDocument[]>([
+      const filesByOperation = new Map<number, DocWithPath[]>([
         [
           0,
           [
@@ -77,7 +77,7 @@ describe('ObsidianAPITools', () => {
               tags: [],
               content: 'test content',
               title: 'Test File',
-            } as IndexedDocument,
+            } as DocWithPath,
           ],
         ],
       ]);
@@ -117,7 +117,7 @@ describe('ObsidianAPITools', () => {
         },
       ];
 
-      const filesByOperation = new Map<number, IndexedDocument[]>([
+      const filesByOperation = new Map<number, DocWithPath[]>([
         [
           0,
           [
@@ -128,7 +128,7 @@ describe('ObsidianAPITools', () => {
               tags: [],
               content: 'test content',
               title: 'Non Existent File',
-            } as IndexedDocument,
+            } as DocWithPath,
           ],
         ],
       ]);
@@ -163,7 +163,7 @@ describe('ObsidianAPITools', () => {
         },
       ];
 
-      const filesByOperation = new Map<number, IndexedDocument[]>([
+      const filesByOperation = new Map<number, DocWithPath[]>([
         [
           0,
           [
@@ -174,7 +174,7 @@ describe('ObsidianAPITools', () => {
               tags: [],
               content: 'test content',
               title: 'Test File',
-            } as IndexedDocument,
+            } as DocWithPath,
           ],
         ],
       ]);

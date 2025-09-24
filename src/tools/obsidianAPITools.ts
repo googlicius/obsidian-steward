@@ -1,5 +1,4 @@
 import { App } from 'obsidian';
-import { IndexedDocument } from 'src/database/SearchDatabase';
 import {
   UpdateInstruction,
   ReplaceInstruction,
@@ -7,6 +6,7 @@ import {
 } from '../lib/modelfusion/extractions';
 import { logger } from 'src/utils/logger';
 import { SearchOperationV2 } from 'src/solutions/commands/handlers/SearchCommandHandler/zSchemas';
+import { DocWithPath } from 'src/types/types';
 
 /**
  * Represents a single move operation with v2 parameters
@@ -96,7 +96,7 @@ export class ObsidianAPITools {
    */
   async moveByOperations(
     operations: MoveOperationV2[],
-    filesByOperation: Map<number, IndexedDocument[]>
+    filesByOperation: Map<number, DocWithPath[]>
   ): Promise<{
     operations: Array<{
       sourceQuery: string;
@@ -161,7 +161,7 @@ export class ObsidianAPITools {
    */
   async copyByOperations(
     operations: MoveOperationV2[],
-    filesByOperation: Map<number, IndexedDocument[]>
+    filesByOperation: Map<number, DocWithPath[]>
   ): Promise<{
     operations: Array<{
       sourceQuery: string;

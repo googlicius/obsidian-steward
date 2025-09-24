@@ -8,12 +8,11 @@ import { extractMoveQuery, MoveExtraction } from 'src/lib/modelfusion';
 import { Artifact, ArtifactType } from 'src/services/ConversationArtifactManager';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
-import { IndexedDocument } from 'src/database/SearchDatabase';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
 import { MediaTools } from 'src/tools/mediaTools';
-
 import type StewardPlugin from 'src/main';
+import { DocWithPath } from 'src/types/types';
 
 export class MoveCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -79,12 +78,16 @@ export class MoveCommandHandler extends CommandHandler {
         };
       }
 
-      let docs: any[] = [];
+      let docs: DocWithPath[] = [];
       let artifact: Artifact | undefined;
 
       if (extraction.context === 'artifact') {
         // Get the most recent artifact
-        artifact = this.artifactManager.getMostRecentArtifact(title);
+        artifact = this.artifactManager.getMostRecentArtifactOfTypes(title, [
+          ArtifactType.SEARCH_RESULTS,
+          ArtifactType.CREATED_NOTES,
+          ArtifactType.READ_CONTENT,
+        ]);
 
         if (!artifact) {
           await this.renderer.updateConversationNote({
@@ -99,7 +102,7 @@ export class MoveCommandHandler extends CommandHandler {
         }
 
         if (artifact.type === ArtifactType.SEARCH_RESULTS) {
-          docs = artifact.originalResults;
+          docs = artifact.originalResults.map(result => ({ path: result.document.path }));
         } else if (artifact.type === ArtifactType.CREATED_NOTES) {
           // Convert string paths to IndexedDocument objects
           docs = artifact.paths.map(path => ({ path }));
@@ -110,7 +113,7 @@ export class MoveCommandHandler extends CommandHandler {
         } else {
           await this.renderer.updateConversationNote({
             path: title,
-            newContent: t('common.cannotMoveThisType'),
+            newContent: `*${t('move.cannotMoveThisType', { type: artifact.type })}*`,
           });
 
           return {
@@ -200,7 +203,7 @@ export class MoveCommandHandler extends CommandHandler {
     title: string,
     context: {
       destinationFolder: string;
-      docs: IndexedDocument[];
+      docs: DocWithPath[];
       explanation: string;
     },
     lang?: string | null
@@ -220,7 +223,7 @@ export class MoveCommandHandler extends CommandHandler {
       ];
 
       // Set the files for this operation
-      const filesByOperation = new Map<number, IndexedDocument[]>();
+      const filesByOperation = new Map<number, DocWithPath[]>();
       filesByOperation.set(0, docs);
 
       // Perform the move operations

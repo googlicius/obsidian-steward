@@ -1,7 +1,7 @@
 import { ReadCommandHandler } from './ReadCommandHandler';
-import StewardPlugin from 'src/main';
-import { App } from 'obsidian';
-import { NoteContentService } from 'src/services/NoteContentService';
+import type StewardPlugin from 'src/main';
+import { type App } from 'obsidian';
+import { type NoteContentService } from 'src/services/NoteContentService';
 import { CommandHandlerParams, CommandResultStatus } from '../../CommandHandler';
 import { generateId, generateText } from 'ai';
 import { CommandIntent } from 'src/types/types';

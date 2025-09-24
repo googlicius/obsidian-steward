@@ -7,7 +7,7 @@ export * from './MoreCommandHandler';
 export * from './CreateCommandHandler';
 export * from './ReadCommandHandler/ReadCommandHandler';
 export * from './GenerateCommandHandler/GenerateCommandHandler';
-export * from './GeneralCommandHandler';
+export * from './GeneralCommandHandler/GeneralCommandHandler';
 export * from './CloseCommandHandler';
 export * from './ConfirmCommandHandler';
 export * from './StopCommandHandler';

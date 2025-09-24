@@ -41,3 +41,8 @@ export interface ContextAugmentationIntent extends CommandIntent {
   commandType: 'context_augmentation';
   retryRemaining: number;
 }
+
+export interface DocWithPath {
+  path: string;
+  [key: string]: unknown;
+}
