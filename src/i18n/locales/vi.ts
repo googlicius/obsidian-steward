@@ -59,6 +59,7 @@ const vi = {
       operation: 'Thao tác {{num}}: Di chuyển các tập tin với {{query}} đến {{folder}}',
       createFoldersHeader: 'Tôi cần tạo các thư mục sau trước khi di chuyển tập tin:',
       createFoldersQuestion: 'Bạn có muốn tôi tạo các thư mục này không?',
+      cannotMoveThisType: 'Không thể di chuyển loại artifact này: {{type}}',
     },
     // Copy result messages
     copy: {
@@ -78,6 +79,7 @@ const vi = {
       createFoldersHeader: 'Tôi cần tạo các thư mục sau trước khi sao chép tập tin:',
       createFoldersQuestion: 'Bạn có muốn tôi tạo các thư mục này không?',
       tooManyFilesConfirm: 'Tôi đang sao chép {{count}} ghi chú. Bạn có muốn tiếp tục không?',
+      cannotCopyThisType: 'Không thể sao chép loại artifact này: {{type}}',
     },
     create: {
       success_one: 'Đã tạo thành công {{noteName}}',

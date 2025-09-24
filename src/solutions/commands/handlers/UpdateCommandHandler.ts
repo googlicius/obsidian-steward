@@ -11,6 +11,7 @@ import { eventEmitter } from 'src/services/EventEmitter';
 import { extractUpdateFromSearchResult, UpdateInstruction } from 'src/lib/modelfusion/extractions';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
+import { DocWithPath } from 'src/types/types';
 
 const updatableTypes = [
   ArtifactType.SEARCH_RESULTS,
@@ -160,10 +161,6 @@ export class UpdateCommandHandler extends CommandHandler {
       }
 
       // Handle different artifact types
-      interface DocWithPath {
-        path: string;
-        [key: string]: unknown;
-      }
       let docs: DocWithPath[] = [];
 
       if (artifact.type === ArtifactType.SEARCH_RESULTS) {

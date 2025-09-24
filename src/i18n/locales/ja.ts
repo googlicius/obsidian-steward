@@ -57,6 +57,7 @@ const ja = {
       operation: '操作{{num}}: {{query}}を含むファイルを{{folder}}に移動',
       createFoldersHeader: 'ファイルを移動する前に以下のフォルダを作成する必要があります：',
       createFoldersQuestion: 'これらのフォルダを作成しますか？',
+      cannotMoveThisType: 'この種類のアーティファクトは移動できません: {{type}}',
     },
     // Copy result messages
     copy: {
@@ -76,6 +77,7 @@ const ja = {
       createFoldersHeader: 'ファイルをコピーする前に以下のフォルダを作成する必要があります：',
       createFoldersQuestion: 'これらのフォルダを作成しますか？',
       tooManyFilesConfirm: '{{count}}件のファイルをコピーします。よろしいですか？',
+      cannotCopyThisType: 'この種類のアーティファクトはコピーできません: {{type}}',
     },
     create: {
       success_one: '{{noteName}}を作成しました',

@@ -3,18 +3,18 @@ import {
   CommandHandlerParams,
   CommandResult,
   CommandResultStatus,
-} from '../CommandHandler';
+} from '../../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { CommandIntentExtraction, extractCommandIntent } from 'src/lib/modelfusion/extractions';
 import type StewardPlugin from 'src/main';
-import type { CommandProcessor } from '../CommandProcessor';
+import type { CommandProcessor } from '../../CommandProcessor';
 import {
   STW_SELECTED_PATTERN,
   IMAGE_LINK_PATTERN,
   WIKI_LINK_PATTERN,
   STW_SELECTED_PLACEHOLDER,
 } from 'src/constants';
-import { ArtifactType } from '../../../services/ConversationArtifactManager';
+import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import * as yaml from 'js-yaml';
 
 export class GeneralCommandHandler extends CommandHandler {

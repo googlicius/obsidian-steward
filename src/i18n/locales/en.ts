@@ -71,6 +71,7 @@ const en = {
       operation: 'Operation {{num}}: Moving files with {{query}} to {{folder}}',
       createFoldersHeader: 'I need to create the following folders before moving files:',
       createFoldersQuestion: 'Would you like me to create these folders?',
+      cannotMoveThisType: 'I cannot move this type of artifact: {{type}}',
     },
     // Copy result messages
     copy: {
@@ -90,6 +91,7 @@ const en = {
       createFoldersHeader: 'I need to create the following folders before copying files:',
       createFoldersQuestion: 'Would you like me to create these folders?',
       tooManyFilesConfirm: 'I am about to copy {{count}} files. Are you sure you want to proceed?',
+      cannotCopyThisType: 'I cannot copy this type of artifact: {{type}}',
     },
     create: {
       success_one: 'Successfully created {{noteName}}',
