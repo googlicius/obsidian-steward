@@ -99,6 +99,7 @@ const ja = {
       skipped_one: '{{count}}件のファイルをスキップしました：',
       skipped_other: '{{count}}件のファイルをスキップしました：',
       applyChangesConfirm: '変更を適用しますか？',
+      noChangesNeeded: '元の内容と更新された内容は同一です。変更は必要ありませんでした。',
     },
     // Delete result messages
     delete: {

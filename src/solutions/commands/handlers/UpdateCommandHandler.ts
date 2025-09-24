@@ -67,7 +67,11 @@ export class UpdateCommandHandler extends CommandHandler {
           }));
 
         if (updateInstructions.length === 0) {
-          this.renderer.removeGeneratingIndicatorByPath(title);
+          await this.renderer.updateConversationNote({
+            path: title,
+            newContent: t('update.noChangesNeeded'),
+            lang,
+          });
           return {
             status: CommandResultStatus.SUCCESS,
           };

@@ -124,6 +124,7 @@ const en = {
       skipped_one: 'Skipped {{count}} file:',
       skipped_other: 'Skipped {{count}} files:',
       applyChangesConfirm: 'Would you like me to apply the changes?',
+      noChangesNeeded: 'The original and updated content are identical. No changes were needed.',
     },
     // Delete result messages
     delete: {

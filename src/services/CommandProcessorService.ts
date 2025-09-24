@@ -172,6 +172,16 @@ export class CommandProcessorService {
   }
 
   /**
+   * Process a command in isolation
+   */
+  public processCommandInIsolation(
+    payload: ConversationCommandReceivedPayload,
+    commandType: string
+  ) {
+    return this.commandProcessor.processCommandInIsolation(payload, commandType);
+  }
+
+  /**
    * Validate if the command content is required for a specific command type
    */
   public validateCommandContent(commandType: string, commandContent: string): boolean {
