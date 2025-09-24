@@ -101,6 +101,8 @@ const vi = {
       skipped_one: 'Đã bỏ qua {{count}} tập tin:',
       skipped_other: 'Đã bỏ qua {{count}} tập tin:',
       applyChangesConfirm: 'Bạn có muốn áp dụng các thay đổi này không?',
+      noChangesNeeded:
+        'Nội dung gốc và nội dung đã cập nhật giống hệt nhau. Không cần thay đổi gì.',
     },
     // Delete result messages
     delete: {

@@ -1,5 +1,5 @@
-import { COMMAND_DEFINITIONS } from './commands';
-import { languageEnforcementFragment } from './fragments';
+import { COMMAND_DEFINITIONS } from 'src/lib/modelfusion/prompts/commands';
+import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
 
 const readCommandQueryTemplate = COMMAND_DEFINITIONS.find(
   command => command.commandType === 'read'
@@ -14,7 +14,8 @@ You MUST use the contentReading tool to extract information about what content t
 - If you not sure about the user's query, you should ask for clarification.
 - You can read one or more notes at once. This is the guideline for the query template:
 
-READ QUERY TEMPLATE
+<READ_QUERY_TEMPLATE>
 ${readCommandQueryTemplate}
+</READ_QUERY_TEMPLATE>
 
 ${languageEnforcementFragment}`;

@@ -9,28 +9,6 @@ import { SearchService } from 'src/solutions/search';
 import { CommandIntent } from 'src/types/types';
 import { SearchQueryExtractionV2 } from './zSchemas';
 
-// Mock the language utility
-jest.mock('src/utils/getObsidianLanguage', () => ({
-  getObsidianLanguage: () => 'en',
-}));
-
-// Mock the AI SDK
-jest.mock('ai', () => ({
-  generateObject: jest.fn(),
-}));
-
-// Mock the LLMService
-jest.mock('src/services/LLMService', () => ({
-  LLMService: {
-    getInstance: jest.fn().mockReturnValue({
-      getLLMConfig: jest.fn().mockResolvedValue({
-        model: 'mock-model',
-        temperature: 0.2,
-      }),
-    }),
-  },
-}));
-
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   const mockApp = {
     vault: {

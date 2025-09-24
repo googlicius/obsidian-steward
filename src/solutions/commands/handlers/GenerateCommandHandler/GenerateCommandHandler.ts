@@ -43,36 +43,31 @@ export class GenerateCommandHandler extends CommandHandler {
   /**
    * Handle a generate command
    */
-  public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title } = params;
-
-    try {
-      return await this.generateContent(params);
-    } catch (error) {
-      await this.renderer.updateConversationNote({
-        path: title,
-        newContent: `*Error generating content: ${error.message}*`,
-      });
-
-      return {
-        status: CommandResultStatus.ERROR,
-        error,
-      };
-    }
-  }
-
-  private async generateContent(
+  public async handle(
     params: CommandHandlerParams,
     options: {
       lowConfidenceConfirmed?: boolean;
+      remainingSteps?: number;
     } = {}
   ): Promise<CommandResult> {
-    // This function will always return a CommandResult either directly or through a called function
     const { title, command, nextCommand, lang, prevCommand } = params;
     const t = getTranslation(lang);
+    const MAX_STEP_COUNT = 3;
+    const remainingSteps =
+      typeof options.remainingSteps !== 'undefined' ? options.remainingSteps : MAX_STEP_COUNT;
+
+    if (remainingSteps <= 0) {
+      return {
+        status: CommandResultStatus.SUCCESS,
+      };
+    }
 
     const fromRead = prevCommand && prevCommand.commandType === 'read';
-    const systemPrompts = params.command.systemPrompts || [];
+
+    if (typeof params.command.systemPrompts === 'undefined') {
+      params.command.systemPrompts = [];
+    }
+    const systemPrompts = params.command.systemPrompts;
 
     const originalQuery = this.commandProcessor.getPendingCommand(title)?.payload.originalQuery;
 
@@ -152,7 +147,6 @@ The response should be in natural language and not include the selection(s) {{st
     // Only use prepareMessage for update commands
     const userMessage = isUpdate ? await prepareMessage(command.query, this.app) : command.query;
 
-    // Use generateText with tools instead of the extraction functions
     const extraction = await generateText({
       ...llmConfig,
       abortSignal: this.plugin.abortService.createAbortController('generate'),
@@ -168,7 +162,8 @@ GUIDELINES:
 - If you need more context before generating a response, use the contentReading tool first.
 - If the user wants to update existing content, use the updateContent tool.
 - For all other content generation requests, use the generateContent tool.
-- Choose exactly one tool for each request.
+- You MUST use tools to fulfill the query.
+- IMPORTANT: Even if you cannot see images referenced in the user's request, you can still proceed with content generation. The actual generation process can access and process images when needed, so don't hesitate to generate content based on image-related requests.
 ${
   isUpdate
     ? `IMPORTANT: This is an update request. Please do NOT use the generateContent tool.`
@@ -192,6 +187,7 @@ ${languageEnforcementFragment}`,
           parameters: contentReadingSchema,
         }),
       },
+      toolChoice: 'required',
     });
 
     // If no tool calls were made but we have text, render the text
@@ -220,200 +216,225 @@ ${languageEnforcementFragment}`,
     }
 
     for (const toolCall of extraction.toolCalls) {
-      if (toolCall.toolName === 'contentReading') {
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: toolCall.args.explanation,
-          command: 'read',
-          includeHistory: false,
-          lang,
-        });
-
-        // Initialize ReadCommandHandler and process the reading request
-        const readCommandHandler = new ReadCommandHandler(this.plugin);
-
-        const readResult = await readCommandHandler.handle({
-          title,
-          command: {
-            commandType: 'read',
-            query: toolCall.args.query,
-            model: command.model,
-          },
-          nextCommand: command,
-          lang,
-        });
-
-        if (readResult.status === CommandResultStatus.SUCCESS) {
-          // Call generateContent again after reading
-          return this.generateContent(params);
-        } else {
-          return readResult;
-        }
-      } else if (toolCall.toolName === 'updateContent') {
-        try {
+      switch (toolCall.toolName) {
+        case 'contentReading': {
           await this.renderer.updateConversationNote({
             path: title,
             newContent: toolCall.args.explanation,
+            command: 'read',
             includeHistory: false,
-            role: 'Steward',
             lang,
           });
 
-          await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
+          // Initialize ReadCommandHandler and process the reading request
+          const readCommandHandler = new ReadCommandHandler(this.plugin);
 
-          if (toolCall.args.updates.length === 0) {
+          const readResult = await readCommandHandler.handle({
+            title,
+            command: {
+              commandType: 'read',
+              query: toolCall.args.query,
+              model: command.model,
+            },
+            nextCommand: command,
+            lang,
+          });
+
+          if (readResult.status === CommandResultStatus.SUCCESS) {
+            // Call handle again after reading
+            return this.handle(params, {
+              remainingSteps: remainingSteps - 1,
+            });
+          } else {
+            return readResult;
+          }
+        }
+
+        case 'updateContent': {
+          try {
+            await this.renderer.updateConversationNote({
+              path: title,
+              newContent: toolCall.args.explanation,
+              includeHistory: false,
+              role: 'Steward',
+              lang,
+            });
+
+            await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
+
+            if (toolCall.args.updates.length === 0) {
+              return {
+                status: CommandResultStatus.SUCCESS,
+              };
+            }
+
+            // Store artifact
+            const artifactId = `update-${Date.now()}`;
+            this.artifactManager.storeArtifact(title, artifactId, {
+              type: ArtifactType.CONTENT_UPDATE,
+              updateExtraction: toolCall.args,
+              path: toolCall.args.notePath || this.app.workspace.getActiveFile()?.path || '',
+            });
+
+            await this.renderer.updateConversationNote({
+              path: title,
+              newContent: `*${t('common.artifactCreated', {
+                type: ArtifactType.CONTENT_UPDATE,
+              })}*`,
+              command: 'generate',
+              lang,
+            });
+
+            for (const update of toolCall.args.updates) {
+              await this.renderer.updateConversationNote({
+                path: title,
+                newContent: this.plugin.noteContentService.formatCallout(
+                  update.updatedContent,
+                  'stw-search-result',
+                  {
+                    mdContent: new MarkdownUtil(update.updatedContent)
+                      .escape(true)
+                      .encodeForDataset()
+                      .getText(),
+                  }
+                ),
+                lang,
+              });
+            }
+
+            // If there's no next command, automatically trigger update_from_artifact
+            if (!nextCommand) {
+              await this.plugin.commandProcessorService.processCommands({
+                title,
+                commands: [
+                  {
+                    commandType: 'update_from_artifact',
+                    query: 'Apply the content updates from the generated artifact',
+                  },
+                ],
+                lang,
+              });
+            }
+
             return {
               status: CommandResultStatus.SUCCESS,
             };
-          }
-
-          // Store artifact
-          const artifactId = `update-${Date.now()}`;
-          this.artifactManager.storeArtifact(title, artifactId, {
-            type: ArtifactType.CONTENT_UPDATE,
-            updateExtraction: toolCall.args,
-            path: toolCall.args.notePath || this.app.workspace.getActiveFile()?.path || '',
-          });
-
-          await this.renderer.updateConversationNote({
-            path: title,
-            newContent: `*${t('common.artifactCreated', {
-              type: ArtifactType.CONTENT_UPDATE,
-            })}*`,
-            command: 'generate',
-            lang,
-          });
-
-          for (const update of toolCall.args.updates) {
+          } catch (error) {
             await this.renderer.updateConversationNote({
               path: title,
-              newContent: this.plugin.noteContentService.formatCallout(
-                update.updatedContent,
-                'stw-search-result',
-                {
-                  mdContent: new MarkdownUtil(update.updatedContent)
-                    .escape(true)
-                    .encodeForDataset()
-                    .getText(),
-                }
-              ),
+              newContent: `*Error generating: ${error.message}*`,
               lang,
             });
+
+            return {
+              status: CommandResultStatus.ERROR,
+              error,
+            };
           }
-
-          return {
-            status: CommandResultStatus.SUCCESS,
-          };
-        } catch (error) {
-          await this.renderer.updateConversationNote({
-            path: title,
-            newContent: `*Error generating: ${error.message}*`,
-            lang,
-          });
-
-          return {
-            status: CommandResultStatus.ERROR,
-            error,
-          };
         }
-      } else if (toolCall.toolName === 'generateContent') {
-        try {
-          await this.renderer.updateConversationNote({
-            path: title,
-            newContent: toolCall.args.explanation,
-            includeHistory: false,
-            role: 'Steward',
-            lang,
-          });
 
-          await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
+        case 'generateContent': {
+          try {
+            await this.renderer.updateConversationNote({
+              path: title,
+              newContent: toolCall.args.explanation,
+              includeHistory: false,
+              role: 'Steward',
+              lang,
+            });
 
-          const conversationHistory = await this.renderer.extractConversationHistory(title, {
-            summaryPosition: 1,
-          });
+            await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
 
-          const mediaTools = MediaTools.getInstance(this.app);
+            const conversationHistory = await this.renderer.extractConversationHistory(title, {
+              summaryPosition: 1,
+            });
 
-          const file = toolCall.args.noteName
-            ? await mediaTools.findFileByNameOrPath(toolCall.args.noteName)
-            : null;
+            const mediaTools = MediaTools.getInstance(this.app);
 
-          const noteContent = file ? await this.app.vault.read(file) : '';
+            const file = toolCall.args.noteName
+              ? await mediaTools.findFileByNameOrPath(toolCall.args.noteName)
+              : null;
 
-          const stream = await this.contentGenerationStream({
-            command: {
-              ...command,
-              systemPrompts,
-            },
-            conversationHistory: conversationHistory,
-            errorCallback: async error => {
-              logger.error('Error in contentGenerationStream', error);
+            const noteContent = file ? await this.app.vault.read(file) : '';
 
-              let errorMessage =
-                '*An error occurred while generating content, please check the console log (Ctrl+Shift+I)*';
+            const stream = await this.contentGenerationStream({
+              command: {
+                ...command,
+                systemPrompts,
+              },
+              conversationHistory: conversationHistory,
+              errorCallback: async error => {
+                logger.error('Error in contentGenerationStream', error);
 
-              if (typeof error === 'object' && error !== null && 'toString' in error) {
-                errorMessage = `*Error: ${error.toString()}*`;
+                let errorMessage =
+                  '*An error occurred while generating content, please check the console log (Ctrl+Shift+I)*';
+
+                if (typeof error === 'object' && error !== null && 'toString' in error) {
+                  errorMessage = `*Error: ${error.toString()}*`;
+                }
+
+                await this.renderer.updateConversationNote({
+                  path: title,
+                  newContent: errorMessage,
+                });
+              },
+            });
+
+            if (
+              fromRead ||
+              !toolCall.args.noteName ||
+              !toolCall.args.modifiesNote ||
+              !file ||
+              noteContent.trim() !== ''
+            ) {
+              await this.renderer.streamConversationNote({
+                path: title,
+                stream,
+                command: 'generate',
+              });
+            } else {
+              const mainLeaf = await this.plugin.getMainLeaf();
+
+              if (mainLeaf && file) {
+                mainLeaf.openFile(file);
+                await this.app.workspace.revealLeaf(mainLeaf);
               }
+
+              let accumulatedContent = '';
+              for await (const chunk of stream) {
+                accumulatedContent += chunk;
+              }
+
+              await this.app.vault.process(file, () => accumulatedContent);
 
               await this.renderer.updateConversationNote({
                 path: title,
-                newContent: errorMessage,
+                newContent: `*${t('generate.success', { noteName: toolCall.args.noteName })}*`,
+                lang,
               });
-            },
-          });
 
-          if (
-            fromRead ||
-            !toolCall.args.noteName ||
-            !toolCall.args.modifiesNote ||
-            !file ||
-            noteContent.trim() !== ''
-          ) {
-            await this.renderer.streamConversationNote({
-              path: title,
-              stream,
-              command: 'generate',
-            });
-          } else {
-            const mainLeaf = await this.plugin.getMainLeaf();
-
-            if (mainLeaf && file) {
-              mainLeaf.openFile(file);
-              await this.app.workspace.revealLeaf(mainLeaf);
+              this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
             }
 
-            let accumulatedContent = '';
-            for await (const chunk of stream) {
-              accumulatedContent += chunk;
-            }
-
-            await this.app.vault.process(file, () => accumulatedContent);
-
+            return {
+              status: CommandResultStatus.SUCCESS,
+            };
+          } catch (error) {
             await this.renderer.updateConversationNote({
               path: title,
-              newContent: `*${t('generate.success', { noteName: toolCall.args.noteName })}*`,
+              newContent: `*Error generating: ${error.message}*`,
               lang,
             });
 
-            this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
+            return {
+              status: CommandResultStatus.ERROR,
+              error,
+            };
           }
-
-          return {
-            status: CommandResultStatus.SUCCESS,
-          };
-        } catch (error) {
-          await this.renderer.updateConversationNote({
-            path: title,
-            newContent: `*Error generating: ${error.message}*`,
-            lang,
-          });
-
-          return {
-            status: CommandResultStatus.ERROR,
-            error,
-          };
         }
+
+        default:
+          break;
       }
     }
 

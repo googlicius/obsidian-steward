@@ -46,9 +46,10 @@ Include only when:
 Capture the user's intent clearly, including:
 - The topic or subject matter
 - The format or structure requested (e.g., list, table, essay)
-- Any specific requirements or constraints mentioned`),
+- Any specific requirements or constraints mentioned
+- Image-related requests (e.g., "describe this image", "analyze the chart") - proceed with content generation even if you cannot see the actual image.`),
   explanation: z.string().min(1, 'Explanation must be a non-empty string')
-    .describe(`- Speak directly to the user (e.g., "I'll help you with...")
+    .describe(`- Speak directly to the user (e.g., "I'll help you with..."
 - No need the actual content, just say you will help the user with their query
 - Keep it short`),
   confidence: z.number().min(0).max(1).describe(confidenceFragment),
@@ -74,13 +75,15 @@ export const contentReadingSchema = z.object({
 
 QUERY TEMPLATE:
 ${readCommandQueryTemplate}`),
-  explanation: z
-    .string()
-    .describe(
-      `A brief explanation of why reading this content is necessary. Explain to the user why you need additional context before generating a response.`
-    ),
+  explanation: z.string().describe(`A brief explanation of why reading this content is necessary.`),
+});
+
+export const fileIncludingSchema = z.object({
+  filePath: z.string().describe(`The path of the file to read.`),
+  explanation: z.string().describe(`A brief explanation of why reading this file is necessary.`),
 });
 
 export type UpdateContentArgs = z.infer<typeof updateContentSchema>;
 export type GenerateContentArgs = z.infer<typeof generateContentSchema>;
 export type ContentReadingArgs = z.infer<typeof contentReadingSchema>;
+export type FileIncludingArgs = z.infer<typeof fileIncludingSchema>;
