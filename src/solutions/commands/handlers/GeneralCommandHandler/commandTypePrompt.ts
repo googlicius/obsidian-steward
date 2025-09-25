@@ -3,7 +3,7 @@ import {
   formatCommandsForPrompt,
   formatCurrentArtifacts,
   getArtifactInstructions,
-} from './commands';
+} from 'src/lib/modelfusion/prompts/commands';
 
 export function getCommandTypePrompt(args: { currentArtifacts?: Array<{ type: string }> }) {
   return `You are a helpful assistant analyzing user queries to determine their intent for an Obsidian note management system.

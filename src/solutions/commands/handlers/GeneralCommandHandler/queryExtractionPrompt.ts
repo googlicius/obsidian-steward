@@ -1,4 +1,8 @@
-import { getCommandDefinition, getCommandQueryTemplate, formatCurrentArtifacts } from './commands';
+import {
+  getCommandDefinition,
+  getCommandQueryTemplate,
+  formatCurrentArtifacts,
+} from 'src/lib/modelfusion/prompts/commands';
 import { joinWithConjunction, removeConsecutiveItems } from 'src/utils/arrayUtils';
 
 export function getQueryExtractionPrompt(args: {

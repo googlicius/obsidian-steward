@@ -21,7 +21,7 @@ import { DEFAULT_SETTINGS } from 'src/constants';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 import { getObsidianLanguage } from 'src/utils/getObsidianLanguage';
 import { generateObject } from 'ai';
-import { searchPromptV2 } from 'src/lib/modelfusion/prompts/searchPromptV2';
+import { searchPromptV2 } from './searchPromptV2';
 import { searchQueryExtractionSchema } from './zSchemas';
 
 type HighlighKeywordResult = {
