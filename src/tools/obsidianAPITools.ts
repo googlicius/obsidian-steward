@@ -52,7 +52,7 @@ export class ObsidianAPITools {
    * @param newFolderPath Destination folder path
    * @returns Success or failure
    */
-  private async moveFile(filePath: string, newFolderPath: string): Promise<boolean> {
+  public async moveFile(filePath: string, newFolderPath: string): Promise<boolean> {
     try {
       const file = this.app.vault.getFileByPath(filePath);
       if (!file) {

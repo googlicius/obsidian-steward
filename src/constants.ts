@@ -125,9 +125,10 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     },
   },
   search: {
-    withoutLLM: 'relevant' as const,
+    withoutLLM: 'relevant',
     resultsPerPage: 10,
   },
+  deleteBehavior: 'stw_trash', // Default to moving files to trash
 };
 
 // Model options grouped by provider

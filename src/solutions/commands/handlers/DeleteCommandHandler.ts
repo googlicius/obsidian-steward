@@ -10,6 +10,7 @@ import { Events } from 'src/types/events';
 import { eventEmitter } from 'src/services/EventEmitter';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
+import { DocWithPath } from 'src/types/types';
 
 export class DeleteCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -22,6 +23,33 @@ export class DeleteCommandHandler extends CommandHandler {
   public async renderIndicator(title: string, lang?: string): Promise<void> {
     const t = getTranslation(lang);
     await this.renderer.addGeneratingIndicator(title, t('conversation.deleting'));
+  }
+
+  /**
+   * Delete a file based on the delete behavior setting
+   * @param filePath Path of the file to delete
+   * @returns Success or failure
+   */
+  private async deleteFile(filePath: string): Promise<boolean> {
+    try {
+      if (this.plugin.settings.deleteBehavior === 'stw_trash') {
+        const trashFolder = `${this.plugin.settings.stewardFolder}/Trash`;
+        return await this.obsidianAPITools.moveFile(filePath, trashFolder);
+      } else {
+        const file = this.app.vault.getFileByPath(filePath);
+        if (!file) {
+          return false;
+        }
+        await this.app.fileManager.trashFile(file);
+        return true;
+      }
+    } catch (error) {
+      logger.error(
+        `Error deleting file ${filePath} with behavior ${this.plugin.settings.deleteBehavior}:`,
+        error
+      );
+      return false;
+    }
   }
 
   /**
@@ -52,7 +80,7 @@ export class DeleteCommandHandler extends CommandHandler {
       }
 
       // Handle different artifact types
-      let docs: any[] = [];
+      let docs: DocWithPath[] = [];
 
       if (artifact.type === ArtifactType.SEARCH_RESULTS) {
         docs = artifact.originalResults.map(result => ({
@@ -89,20 +117,15 @@ export class DeleteCommandHandler extends CommandHandler {
         };
       }
 
-      // Delete the files directly
+      // Delete the files based on the setting
       const deletedFiles: string[] = [];
       const failedFiles: string[] = [];
 
       for (const doc of docs) {
-        try {
-          const file = this.app.vault.getFileByPath(doc.path);
-          if (file) {
-            await this.app.fileManager.trashFile(file);
-            deletedFiles.push(doc.path);
-          } else {
-            logger.error(`File not found: ${doc.path}`);
-          }
-        } catch (error) {
+        const success = await this.deleteFile(doc.path);
+        if (success) {
+          deletedFiles.push(doc.path);
+        } else {
           failedFiles.push(doc.path);
         }
       }

@@ -60,4 +60,5 @@ export interface StewardPluginSettings {
     withoutLLM: 'exact' | 'relevant'; // Search mode when query is wrapped in quotation marks
     resultsPerPage: number; // Number of search results per page
   };
+  deleteBehavior: 'stw_trash' | 'obsidian_trash'; // How to handle file deletion
 }
