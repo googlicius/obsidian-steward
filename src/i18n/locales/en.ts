@@ -335,6 +335,10 @@ const en = {
       relevantScoring: 'Relevant scoring',
       resultsPerPage: 'Results per page',
       resultsPerPageDesc: 'Number of search results to display per page',
+      deleteBehavior: 'Delete behavior',
+      deleteBehaviorDesc: 'How to handle file deletion',
+      moveToTrash: 'Move files to {{folder}}',
+      useObsidianDeletedFiles: 'Use Obsidian Deleted files setting',
     },
   },
 };

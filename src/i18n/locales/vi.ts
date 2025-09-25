@@ -313,6 +313,10 @@ const vi = {
       relevantScoring: 'Chấm điểm liên quan',
       resultsPerPage: 'Kết quả mỗi trang',
       resultsPerPageDesc: 'Số lượng kết quả tìm kiếm hiển thị mỗi trang',
+      deleteBehavior: 'Hành động xóa',
+      deleteBehaviorDesc: 'Cách xử lý việc xóa tập tin',
+      moveToTrash: 'Di chuyển tập tin đến {{folder}}',
+      useObsidianDeletedFiles: 'Sử dụng cài đặt Xóa tập tin của Obsidian',
     },
   },
 };

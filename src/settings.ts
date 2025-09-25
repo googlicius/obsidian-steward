@@ -264,6 +264,24 @@ export default class StewardSettingTab extends PluginSettingTab {
         })
       );
 
+    // Add delete behavior setting
+    new Setting(containerEl)
+      .setName(t('settings.deleteBehavior'))
+      .setDesc(t('settings.deleteBehaviorDesc'))
+      .addDropdown(dropdown => {
+        dropdown
+          .addOption(
+            'stw_trash',
+            t('settings.moveToTrash', { folder: `${this.plugin.settings.stewardFolder}/Trash` })
+          )
+          .addOption('obsidian_trash', t('settings.useObsidianDeletedFiles'))
+          .setValue(this.plugin.settings.deleteBehavior)
+          .onChange(async value => {
+            this.plugin.settings.deleteBehavior = value as StewardPluginSettings['deleteBehavior'];
+            await this.plugin.saveSettings();
+          });
+      });
+
     // Create API Keys section
     new Setting(containerEl).setName(t('settings.apiKeys')).setHeading();
 

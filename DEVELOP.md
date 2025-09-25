@@ -75,6 +75,7 @@
 - [ ] Stw squeezed block in reading view
 - [x] 2-step extraction to reduce the complexity of the system prompt for extraction the user's query, Step 1, extract only command names. Step2, build query for each extracted commands from the step 1.
 - [ ] 2-phrase processing to strengthen the context before editing or generating. Step 1: Collecting data using "read" or "search" command. Step 2: Generate or editing using "generate", "update", "delete", "copy", etc, commands.
+- [ ] Add the new Steward folder to the excluded folders.
 
 ### BUGS
 
