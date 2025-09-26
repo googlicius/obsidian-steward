@@ -4,9 +4,12 @@ import {
   formatCurrentArtifacts,
   getArtifactInstructions,
 } from 'src/lib/modelfusion/prompts/commands';
+import { twoStepExtractionPrompt } from './twoStepExtractionPrompt';
 
 export function getCommandTypePrompt(args: { currentArtifacts?: Array<{ type: string }> }) {
-  return `You are a helpful assistant analyzing user queries to determine their intent for an Obsidian note management system.
+  return `${twoStepExtractionPrompt(1)}
+
+You are a helpful assistant analyzing user queries to determine their intent for an Obsidian note management system.
 
 Your role is to analyze a user's natural language query and output ONLY the sequence of command types needed to fulfill the task efficiently.
 

@@ -184,14 +184,14 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   },
   {
     commandType: 'generate',
-    description: `Generate content with the LLM help (either in a new note or in the conversation). You also can "generate" from the provided content in the user's query without reading the note. Example: "Help me update this list to the numbered list:
-  - Item 1
-  - Item 2" -> ["generate"]. The list is already in the query.`,
+    description: `Generate content with the LLM help.
+If you see the source content is already included in the user's query, you can use "generate" without the need of reading additional content. Example: "Help me update this list to the numbered list:\n- Item 1\n- Item 2".
+Otherwise, you need to include the "read" command.`,
     category: 'intent-based',
     queryTemplate: `Extract the query for the generate command follows this format: <query_in_natural_language>, [note name: <note_name>]
 - <query_in_natural_language>: Tailored query for the generate command.
 - <note_name>: Include if mentioned.`,
-    includeWhen: 'Ask or generate content with your help',
+    includeWhen: 'Ask, update, or generate content with your help',
     artifactDesc: `The generated content is stored as the artifact with name ${ArtifactType.CONTENT_UPDATE}
 - Square brackets [] indicate optional fields.`,
   },
