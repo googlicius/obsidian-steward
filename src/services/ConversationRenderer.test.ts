@@ -354,7 +354,7 @@ describe('ConversationRenderer', () => {
         '<!--STW ID:def456,ROLE:steward,COMMAND:search-->',
         "I'll search for information about React hooks.",
         '',
-        '<!--STW ID:ghi789,ROLE:steward,COMMAND:search,ARTIFACT_TYPE:search_results-->',
+        '<!--STW ID:ghi789,ROLE:steward,COMMAND:search,TYPE:tool-invocation-->',
         " Here's what I found:",
         '',
         '```stw-artifact',

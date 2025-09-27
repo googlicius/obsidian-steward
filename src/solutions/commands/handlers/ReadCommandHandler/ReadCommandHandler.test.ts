@@ -28,6 +28,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
   const mockRenderer = {
     addGeneratingIndicator: jest.fn(),
     updateConversationNote: jest.fn().mockResolvedValue('message-id-123'),
+    serializeToolInvocation: jest.fn(),
   };
 
   const mockArtifactManager = {
@@ -352,6 +353,8 @@ describe('ReadCommandHandler', () => {
         extraction: mockExtraction,
         readEntireConfirmed: true,
       });
+
+      console.log('confirmedResult', confirmedResult);
 
       // Assert
       expect(result).toMatchObject({

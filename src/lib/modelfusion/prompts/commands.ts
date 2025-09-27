@@ -343,13 +343,21 @@ export function formatCommandsForPrompt(commandNames?: string[] | null): string 
     ? COMMAND_DEFINITIONS.filter(cmd => commandNames.includes(cmd.commandType))
     : COMMAND_DEFINITIONS.filter(cmd => cmd.availableToLLM !== false);
 
-  return commands
+  const commandElements = commands
     .map(cmd => {
-      const aliases = cmd.aliases ? ` (aliases: ${cmd.aliases.join(', ')})` : '';
-      const includeWhen = cmd.includeWhen ? `\n  Use when: ${cmd.includeWhen}` : '';
-      return `- "${cmd.commandType}"${aliases}: ${cmd.description}${includeWhen}`;
+      const aliasesAttr = cmd.aliases ? ` aliases="${cmd.aliases.join(', ')}"` : '';
+      const includeWhenElement = cmd.includeWhen
+        ? `\n\t\t<use_when>${cmd.includeWhen}</use_when>`
+        : '';
+      return `\t<command name="${cmd.commandType}"${aliasesAttr}>
+\t\t<description>${cmd.description}</description>${includeWhenElement}
+\t</command>`;
     })
     .join('\n');
+
+  return `<commands>
+${commandElements}
+</commands>`;
 }
 
 /**

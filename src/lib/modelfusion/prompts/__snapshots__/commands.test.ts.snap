@@ -5,46 +5,82 @@ exports[`commands artifactDependentExamples should return examples for commands 
 exports[`commands artifactDependentExamples should return only one example if there are only one command that creates artifacts 1`] = `"For example: if you include "read" and "update_from_artifact", the "update_from_artifact" command will use the artifact that will be created from the "read" command."`;
 
 exports[`commands formatCommandsForPrompt should return formatted commands for prompt 1`] = `
-"- "search": Find files using the search engine to search files locally and store the result as an artifact
-  Use when: Search for files (and doesn't mention existing search results)
-- "close": Close the conversation or exit
-  Use when: Close the conversation
-- "confirm" (aliases: yes, no): Confirm or reject the current command to proceed
-- "image": Generate an image
-  Use when: Generate an image
-- "audio" (aliases: speak): Generate audio from text
-  Use when: Generate audio
-- "create": Create a new note with their own content
-  Use when: Create a new note
-- "move_from_artifact" (aliases: move): Move notes from the artifact to a destination
-  Use when: Move notes from the artifact
-- "copy_from_artifact" (aliases: copy): Copy notes from the artifact to a destination
-  Use when: Copy notes from the artifact
-- "update_from_artifact" (aliases: update): Update note(s) from the artifact
-  Use when: Update one or more notes from the artifact
-- "delete_from_artifact" (aliases: delete): Delete note(s) from the artifact
-  Use when: Delete notes from the artifact
-- "build_search_index" (aliases: index, build-index, search-index): Build or rebuild the search index for all markdown files in the vault
-  Use when: Build or rebuild the search index for all markdown files in the vault
-- "read": Read text contents, images from the current note in specific position: "above", "below". OR from the other notes. Use this when you don't know the content and need to retrieve it before proceeding
+"<commands>
+	<command name="search">
+		<description>Find files using the search engine to search files locally and store the result as an artifact</description>
+		<use_when>Search for files (and doesn't mention existing search results)</use_when>
+	</command>
+	<command name="close">
+		<description>Close the conversation or exit</description>
+		<use_when>Close the conversation</use_when>
+	</command>
+	<command name="confirm" aliases="yes, no">
+		<description>Confirm or reject the current command to proceed</description>
+	</command>
+	<command name="image">
+		<description>Generate an image</description>
+		<use_when>Generate an image</use_when>
+	</command>
+	<command name="audio" aliases="speak">
+		<description>Generate audio from text</description>
+		<use_when>Generate audio</use_when>
+	</command>
+	<command name="create">
+		<description>Create a new note with their own content</description>
+		<use_when>Create a new note</use_when>
+	</command>
+	<command name="move_from_artifact" aliases="move">
+		<description>Move notes from the artifact to a destination</description>
+		<use_when>Move notes from the artifact</use_when>
+	</command>
+	<command name="copy_from_artifact" aliases="copy">
+		<description>Copy notes from the artifact to a destination</description>
+		<use_when>Copy notes from the artifact</use_when>
+	</command>
+	<command name="update_from_artifact" aliases="update">
+		<description>Update note(s) from the artifact</description>
+		<use_when>Update one or more notes from the artifact</use_when>
+	</command>
+	<command name="delete_from_artifact" aliases="delete">
+		<description>Delete note(s) from the artifact</description>
+		<use_when>Delete notes from the artifact</use_when>
+	</command>
+	<command name="build_search_index" aliases="index, build-index, search-index">
+		<description>Build or rebuild the search index for all markdown files in the vault</description>
+		<use_when>Build or rebuild the search index for all markdown files in the vault</use_when>
+	</command>
+	<command name="read">
+		<description>Read text contents, images from the current note in specific position: "above", "below". OR from the other notes. Use this when you don't know the content and need to retrieve it before proceeding
   - Can read any content type, including code blocks, tables, lists, paragraphs, and more.
   - Can multiple notes at once.
-  - Can read when the note's name or position (above or below) is provided, no location needed.
-  Use when: Read or Find content based on a specific pattern in their current note
-- "generate": Generate content with the LLM help (either in a new note or in the conversation). You also can "generate" from the provided content in the user's query without reading the note. Example: "Help me update this list to the numbered list:
-  - Item 1
-  - Item 2" -> ["generate"]. The list is already in the query.
-  Use when: Ask or generate content with your help"
+  - Can read when the note's name or position (above or below) is provided, no location needed.</description>
+		<use_when>Read or Find content based on a specific pattern in their current note</use_when>
+	</command>
+	<command name="generate">
+		<description>Generate content with the LLM help.
+If you see the source content is already included in the user's query, you can use "generate" without the need of reading additional content. Example: "Help me update this list to the numbered list:
+- Item 1
+- Item 2".
+Otherwise, you need to include the "read" command.</description>
+		<use_when>Ask, update, or generate content with your help</use_when>
+	</command>
+</commands>"
 `;
 
 exports[`commands formatCommandsForPrompt should return formatted commands for prompt with given command names 1`] = `
-"- "search": Find files using the search engine to search files locally and store the result as an artifact
-  Use when: Search for files (and doesn't mention existing search results)
-- "read": Read text contents, images from the current note in specific position: "above", "below". OR from the other notes. Use this when you don't know the content and need to retrieve it before proceeding
+"<commands>
+	<command name="search">
+		<description>Find files using the search engine to search files locally and store the result as an artifact</description>
+		<use_when>Search for files (and doesn't mention existing search results)</use_when>
+	</command>
+	<command name="read">
+		<description>Read text contents, images from the current note in specific position: "above", "below". OR from the other notes. Use this when you don't know the content and need to retrieve it before proceeding
   - Can read any content type, including code blocks, tables, lists, paragraphs, and more.
   - Can multiple notes at once.
-  - Can read when the note's name or position (above or below) is provided, no location needed.
-  Use when: Read or Find content based on a specific pattern in their current note"
+  - Can read when the note's name or position (above or below) is provided, no location needed.</description>
+		<use_when>Read or Find content based on a specific pattern in their current note</use_when>
+	</command>
+</commands>"
 `;
 
 exports[`commands formatCurrentArtifacts should return formatted current artifacts for prompt 1`] = `
