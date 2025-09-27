@@ -4,18 +4,22 @@ exports[`ConversationRenderer extractConversationHistory should extract a conver
 [
   {
     "content": "/search #angular",
+    "id": "abc123",
     "role": "user",
   },
   {
     "content": "Search results: Haiku About Angular.md, Angular poem.md",
+    "id": "def456",
     "role": "assistant",
   },
   {
     "content": "*Artifact search results is created*",
+    "id": "ghi789",
     "role": "system",
   },
   {
     "content": "How do I use Angular?",
+    "id": "ghi789",
     "role": "user",
   },
   {
@@ -26,6 +30,7 @@ exports[`ConversationRenderer extractConversationHistory should extract a conver
 3. Create a new project: \`ng new my-app\`
 4. Navigate to the project directory: \`cd my-app\`
 5. Start the development server: \`ng serve\`",
+    "id": "jkl012",
     "role": "assistant",
   },
 ]
@@ -35,12 +40,14 @@ exports[`ConversationRenderer extractConversationHistory should extract a simple
 [
   {
     "content": "/search How to use React hooks",
+    "id": "abc123",
     "role": "user",
   },
   {
     "content": "Here's what I found about React hooks:
 
 React hooks are functions that let you use state and other React features without writing a class.",
+    "id": "def456",
     "role": "assistant",
   },
 ]
@@ -52,22 +59,61 @@ exports[`ConversationRenderer extractConversationHistory should extract conversa
     "content": "\`\`\`stw-artifact
 First summary about React hooks
 \`\`\`",
+    "id": "sum001",
     "role": "system",
   },
   {
     "content": "/ useState hook",
+    "id": "ghi789",
     "role": "user",
   },
   {
     "content": "useState is a React Hook that lets you add state to functional components",
+    "id": "jkl012",
     "role": "assistant",
   },
   {
     "content": "/ useEffect hook",
+    "id": "mno345",
     "role": "user",
   },
   {
     "content": "useEffect is a React Hook that lets you synchronize a component with an external system",
+    "id": "pqr678",
+    "role": "assistant",
+  },
+]
+`;
+
+exports[`ConversationRenderer extractConversationHistory should extract conversation with tool invocations message 1`] = `
+[
+  {
+    "content": "/search React hooks",
+    "id": "abc123",
+    "role": "user",
+  },
+  {
+    "content": "I'll search for information about React hooks.",
+    "id": "def456",
+    "role": "assistant",
+  },
+  {
+    "content": "",
+    "id": "ghi789",
+    "parts": [
+      {
+        "toolInvocation": {
+          "args": {
+            "query": "React Hooks",
+          },
+          "result": "I found 1 result",
+          "state": "result",
+          "toolCallId": "call_456",
+          "toolName": "read",
+        },
+        "type": "tool-invocation",
+      },
+    ],
     "role": "assistant",
   },
 ]
@@ -77,14 +123,17 @@ exports[`ConversationRenderer extractConversationHistory should handle conversat
 [
   {
     "content": "/ Read the code block above and update it to not using todos as dependency",
+    "id": "keon4",
     "role": "user",
   },
   {
     "content": "I've found 1 code block above.",
+    "id": "w968m",
     "role": "assistant",
   },
   {
     "content": "I've updated the code to use a functional update with \`setTodos\`, which removes the need to include \`todos\` as a dependency in the \`useCallback\` hook.",
+    "id": "wqe5m",
     "role": "assistant",
   },
   {
@@ -98,10 +147,12 @@ exports[`ConversationRenderer extractConversationHistory should handle conversat
 >  });
 >}, []);
 >\`\`\`",
+    "id": "j62s2",
     "role": "assistant",
   },
   {
     "content": "Would you like me to apply the changes?",
+    "id": "b34sn",
     "role": "assistant",
   },
 ]
@@ -111,16 +162,19 @@ exports[`ConversationRenderer extractConversationHistory should only include mes
 [
   {
     "content": "/search Angular components",
+    "id": "mno345",
     "role": "user",
   },
   {
     "content": "Here's what I found about Angular components:
 
 Angular components are the building blocks of Angular applications.",
+    "id": "pqr678",
     "role": "assistant",
   },
   {
     "content": "Can you explain more about component lifecycle?",
+    "id": "stu901",
     "role": "user",
   },
   {
@@ -129,6 +183,7 @@ Angular components are the building blocks of Angular applications.",
 1. ngOnInit: Called after the component is initialized
 2. ngOnChanges: Called when input properties change
 3. ngOnDestroy: Called before the component is destroyed",
+    "id": "vwx234",
     "role": "assistant",
   },
 ]
@@ -140,22 +195,27 @@ exports[`ConversationRenderer extractConversationHistory should only include the
     "content": "\`\`\`stw-artifact
 This conversation discusses React hooks, particularly useState, which allows adding state to functional components.
 \`\`\`",
+    "id": "mno345",
     "role": "system",
   },
   {
     "content": "What about useEffect?",
+    "id": "pqr678",
     "role": "user",
   },
   {
     "content": "The useEffect hook lets you perform side effects in function components. It runs after render and after every update by default.",
+    "id": "stu901",
     "role": "assistant",
   },
   {
     "content": "How can I skip effects?",
+    "id": "vwx234",
     "role": "user",
   },
   {
     "content": "You can skip effects by providing a dependency array as the second argument. The effect will only run when values in the array change.",
+    "id": "yz456",
     "role": "assistant",
   },
 ]
@@ -165,10 +225,12 @@ exports[`ConversationRenderer extractConversationHistory should remove the last 
 [
   {
     "content": "/ React hooks",
+    "id": "abc123",
     "role": "user",
   },
   {
     "content": "React hooks are functions.",
+    "id": "def456",
     "role": "assistant",
   },
 ]

@@ -67,7 +67,7 @@ export class GeneralCommandHandler extends CommandHandler {
       lang,
       conversationHistories = [],
       isReloadRequest = false,
-      ignoreClassify = true,
+      ignoreClassify = false,
       currentArtifacts,
     } = args;
 

@@ -344,6 +344,42 @@ describe('ConversationRenderer', () => {
 
       expect(history).toMatchSnapshot();
     });
+
+    it('should extract conversation with tool invocations message', async () => {
+      // Mock conversation content with tool invocations
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:search-->',
+        '/search React hooks',
+        '',
+        '<!--STW ID:def456,ROLE:steward,COMMAND:search-->',
+        "I'll search for information about React hooks.",
+        '',
+        '<!--STW ID:ghi789,ROLE:steward,COMMAND:search,ARTIFACT_TYPE:search_results-->',
+        " Here's what I found:",
+        '',
+        '```stw-artifact',
+        JSON.stringify([
+          {
+            toolName: 'read',
+            toolCallId: 'call_456',
+            args: { query: 'React Hooks' },
+            result: 'I found 1 result',
+          },
+        ]),
+        '```',
+        '',
+      ].join('\n');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Call the method
+      const history = await conversationRenderer.extractConversationHistory('test-conversation');
+
+      // Use snapshot testing
+      expect(history).toMatchSnapshot();
+    });
   });
 
   describe('getConversationProperty', () => {

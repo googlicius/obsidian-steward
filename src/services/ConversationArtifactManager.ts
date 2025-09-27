@@ -14,6 +14,7 @@ export enum ArtifactType {
   CREATED_NOTES = 'created_notes',
   READ_CONTENT = 'read_content',
   CONTENT_UPDATE = 'content_update',
+  GENERATED_CONTENT = 'generated_content',
   MEDIA_RESULTS = 'media_results',
   CONVERSATION_SUMMARY = 'conversation_summary',
   EXTRACTION_RESULT = 'extraction-result',

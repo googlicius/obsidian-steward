@@ -70,7 +70,7 @@ const readCommandQueryTemplate = COMMAND_DEFINITIONS.find(
 )?.queryTemplate;
 
 // Define the Zod schema for content reading
-export const contentReadingSchema = z.object({
+export const readContentSchema = z.object({
   query: z.string().describe(`The query to read content from notes.
 
 QUERY TEMPLATE:
@@ -85,5 +85,5 @@ export const fileIncludingSchema = z.object({
 
 export type UpdateContentArgs = z.infer<typeof updateContentSchema>;
 export type GenerateContentArgs = z.infer<typeof generateContentSchema>;
-export type ContentReadingArgs = z.infer<typeof contentReadingSchema>;
+export type ReadContentArgs = z.infer<typeof readContentSchema>;
 export type FileIncludingArgs = z.infer<typeof fileIncludingSchema>;
