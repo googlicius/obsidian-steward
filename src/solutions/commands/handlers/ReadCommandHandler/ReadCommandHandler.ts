@@ -11,6 +11,7 @@ import { toolSystemPrompt } from './contentReadingPrompt';
 import { generateText, tool, Message, generateId } from 'ai';
 import { contentReadingSchema } from './zSchemas';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
+import { uniqueID } from 'src/utils/uniqueID';
 
 export class ReadCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -128,6 +129,7 @@ export class ReadCommandHandler extends CommandHandler {
       const startIndex = options.toolCallIndex || 0;
 
       const toolResults = [];
+      const toolInvocationArtifactRefs = [];
 
       for (let i = startIndex; i < extraction.toolCalls.length; i++) {
         const toolCall = extraction.toolCalls[i];
@@ -181,7 +183,7 @@ export class ReadCommandHandler extends CommandHandler {
           }
 
           // Update conversation with the explanation for this specific result
-          const messageId = await this.renderer.updateConversationNote({
+          await this.renderer.updateConversationNote({
             path: title,
             newContent: toolCall.args.explanation,
             role: 'Steward',
@@ -198,6 +200,7 @@ export class ReadCommandHandler extends CommandHandler {
                 '{{number}}',
                 result.blocks.length.toString()
               ),
+              includeHistory: false,
             });
           }
 
@@ -218,29 +221,32 @@ export class ReadCommandHandler extends CommandHandler {
                     path: result.file?.path,
                   }
                 ),
+                includeHistory: false,
               });
             }
           }
 
-          // Store the artifact for this result
-          if (messageId) {
-            this.artifactManager.storeArtifact(title, messageId, {
-              type: ArtifactType.READ_CONTENT,
-              readingResult: result,
-            });
+          const artifactId = uniqueID();
 
-            await this.renderer.updateConversationNote({
-              path: title,
-              newContent: `*${t('common.artifactCreated', { type: ArtifactType.READ_CONTENT })}*`,
-              artifactContent: result.blocks.map(block => block.content).join('\n\n'),
-              command: 'read',
-              role: {
-                name: 'Assistant',
-                showLabel: false,
-              },
-            });
-          }
+          this.artifactManager.storeArtifact(title, artifactId, {
+            type: ArtifactType.READ_CONTENT,
+            readingResult: result,
+          });
+
+          toolInvocationArtifactRefs.push({
+            ...toolCall,
+            result: `artifactRef:${artifactId}`,
+          });
         }
+      }
+
+      if (toolInvocationArtifactRefs.length > 0) {
+        await this.renderer.serializeToolInvocation({
+          path: title,
+          command: 'read',
+          text: `*${t('common.artifactCreated', { type: ArtifactType.READ_CONTENT })}*`,
+          toolInvocations: toolInvocationArtifactRefs,
+        });
       }
 
       // If there are more toolCalls, continue

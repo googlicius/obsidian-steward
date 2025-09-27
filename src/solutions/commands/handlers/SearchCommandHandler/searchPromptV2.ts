@@ -1,5 +1,5 @@
 import { CommandIntent } from 'src/types/types';
-import { languageEnforcementFragment } from './fragments';
+import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
 
 export function searchPromptV2(command: CommandIntent) {
   // Check if command exists and if the query includes a tag pattern

@@ -97,10 +97,13 @@ export class UpdateCommandHandler extends CommandHandler {
         };
       }
 
+      const conversationHistory = await this.renderer.extractConversationHistory(title);
+
       // For other artifact types, extract the update instructions
       const extraction = await extractUpdateFromSearchResult({
         userInput: command.query,
         systemPrompts: command.systemPrompts,
+        conversationHistory,
         model: command.model,
       });
 

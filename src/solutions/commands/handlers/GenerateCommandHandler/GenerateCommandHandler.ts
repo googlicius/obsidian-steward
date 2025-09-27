@@ -17,7 +17,8 @@ import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { type CommandProcessor } from '../../CommandProcessor';
 import { ReadCommandHandler } from '../ReadCommandHandler/ReadCommandHandler';
 import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
-import { updateContentSchema, generateContentSchema, contentReadingSchema } from './zSchemas';
+import { updateContentSchema, generateContentSchema, readContentSchema } from './zSchemas';
+import { uniqueID } from 'src/utils/uniqueID';
 
 export interface ContentUpdate {
   updatedContent: string;
@@ -96,35 +97,6 @@ Use the <selectionContent> value from the selection(s) as the primary context fo
 The response should be in natural language and not include the selection(s) {{stw-selected...}}`);
     }
 
-    let readArtifact;
-    if (fromRead) {
-      readArtifact = this.artifactManager.getMostRecentArtifactByType(
-        title,
-        ArtifactType.READ_CONTENT
-      );
-
-      if (!readArtifact) {
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: `*No read content found*`,
-          lang,
-        });
-        return {
-          status: CommandResultStatus.ERROR,
-          error: new Error('No read content found'),
-        };
-      }
-
-      const noteName = readArtifact.readingResult.file?.name || 'current';
-
-      const artifactContent = `The read command's content from the ${noteName} note:\n${JSON.stringify(
-        readArtifact.readingResult.blocks.map(block => block.content)
-      )}`;
-
-      // Inject the artifact content into the command query
-      command.query = `${artifactContent}\n\n${command.query}`;
-    }
-
     // Get recently created note information (for context)
     const createdNotesArtifact = this.artifactManager.getMostRecentArtifactByType(
       title,
@@ -183,8 +155,8 @@ ${languageEnforcementFragment}`,
         generateContent: tool({
           parameters: generateContentSchema,
         }),
-        contentReading: tool({
-          parameters: contentReadingSchema,
+        readContent: tool({
+          parameters: readContentSchema,
         }),
       },
       toolChoice: 'required',
@@ -215,9 +187,16 @@ ${languageEnforcementFragment}`,
       }
     }
 
+    const toolInvocations: {
+      toolName: string;
+      toolCallId: string;
+      args: Record<string, unknown>;
+      result?: string | undefined;
+    }[] = [];
+
     for (const toolCall of extraction.toolCalls) {
       switch (toolCall.toolName) {
-        case 'contentReading': {
+        case 'readContent': {
           await this.renderer.updateConversationNote({
             path: title,
             newContent: toolCall.args.explanation,
@@ -263,26 +242,15 @@ ${languageEnforcementFragment}`,
             await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
 
             if (toolCall.args.updates.length === 0) {
-              return {
-                status: CommandResultStatus.SUCCESS,
-              };
+              break;
             }
 
             // Store artifact
-            const artifactId = `update-${Date.now()}`;
+            const artifactId = uniqueID();
             this.artifactManager.storeArtifact(title, artifactId, {
               type: ArtifactType.CONTENT_UPDATE,
               updateExtraction: toolCall.args,
               path: toolCall.args.notePath || this.app.workspace.getActiveFile()?.path || '',
-            });
-
-            await this.renderer.updateConversationNote({
-              path: title,
-              newContent: `*${t('common.artifactCreated', {
-                type: ArtifactType.CONTENT_UPDATE,
-              })}*`,
-              command: 'generate',
-              lang,
             });
 
             for (const update of toolCall.args.updates) {
@@ -298,9 +266,22 @@ ${languageEnforcementFragment}`,
                       .getText(),
                   }
                 ),
+                includeHistory: false,
                 lang,
               });
             }
+
+            toolInvocations.push({
+              ...toolCall,
+              result: `artifactRef:${artifactId}`,
+            });
+
+            await this.renderer.serializeToolInvocation({
+              path: title,
+              command: 'generate',
+              text: `*${t('common.artifactCreated', { type: ArtifactType.CONTENT_UPDATE })}*`,
+              toolInvocations,
+            });
 
             // If there's no next command, automatically trigger update_from_artifact
             if (!nextCommand) {
@@ -315,10 +296,7 @@ ${languageEnforcementFragment}`,
                 lang,
               });
             }
-
-            return {
-              status: CommandResultStatus.SUCCESS,
-            };
+            break;
           } catch (error) {
             await this.renderer.updateConversationNote({
               path: title,
@@ -387,10 +365,23 @@ ${languageEnforcementFragment}`,
               !file ||
               noteContent.trim() !== ''
             ) {
-              await this.renderer.streamConversationNote({
+              const messageId = await this.renderer.streamConversationNote({
                 path: title,
                 stream,
                 command: 'generate',
+                includeHistory: false,
+              });
+
+              toolInvocations.push({
+                ...toolCall,
+                result: 'messageRef:' + messageId,
+              });
+
+              await this.renderer.serializeToolInvocation({
+                path: title,
+                command: 'generate',
+                text: `*${t('common.artifactCreated', { type: ArtifactType.GENERATED_CONTENT })}*`,
+                toolInvocations,
               });
             } else {
               const mainLeaf = await this.plugin.getMainLeaf();
@@ -416,9 +407,7 @@ ${languageEnforcementFragment}`,
               this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
             }
 
-            return {
-              status: CommandResultStatus.SUCCESS,
-            };
+            break;
           } catch (error) {
             await this.renderer.updateConversationNote({
               path: title,
@@ -438,16 +427,8 @@ ${languageEnforcementFragment}`,
       }
     }
 
-    // If we get here, no valid tool call was found
-    await this.renderer.updateConversationNote({
-      path: title,
-      newContent: `*Error: No valid tool was selected*`,
-      lang,
-    });
-
     return {
-      status: CommandResultStatus.ERROR,
-      error: new Error('No valid tool was selected'),
+      status: CommandResultStatus.SUCCESS,
     };
   }
 

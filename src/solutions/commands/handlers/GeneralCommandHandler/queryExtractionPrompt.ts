@@ -1,5 +1,10 @@
-import { getCommandDefinition, getCommandQueryTemplate, formatCurrentArtifacts } from './commands';
+import {
+  getCommandDefinition,
+  getCommandQueryTemplate,
+  formatCurrentArtifacts,
+} from 'src/lib/modelfusion/prompts/commands';
 import { joinWithConjunction, removeConsecutiveItems } from 'src/utils/arrayUtils';
+import { twoStepExtractionPrompt } from './twoStepExtractionPrompt';
 
 export function getQueryExtractionPrompt(args: {
   commandTypes: string[];
@@ -30,7 +35,9 @@ export function getQueryExtractionPrompt(args: {
     .filter(Boolean)
     .join('\n\n');
 
-  return `You are a helpful assistant extracting specific queries for commands in an Obsidian note management system.
+  return `${twoStepExtractionPrompt(2)}
+
+You are a helpful assistant extracting specific queries for commands in an Obsidian note management system.
 
 Your role is to analyze a user's natural language query and extract specific queries for each command in the sequence.
 

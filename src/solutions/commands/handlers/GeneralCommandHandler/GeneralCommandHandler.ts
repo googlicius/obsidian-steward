@@ -5,7 +5,6 @@ import {
   CommandResultStatus,
 } from '../../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import { CommandIntentExtraction, extractCommandIntent } from 'src/lib/modelfusion/extractions';
 import type StewardPlugin from 'src/main';
 import type { CommandProcessor } from '../../CommandProcessor';
 import {
@@ -16,6 +15,20 @@ import {
 } from 'src/constants';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 import * as yaml from 'js-yaml';
+import { generateObject } from 'ai';
+import { getCommandTypePrompt } from './commandTypePrompt';
+import { getQueryExtractionPrompt } from './queryExtractionPrompt';
+import { logger } from 'src/utils/logger';
+import { ConversationHistoryMessage, CommandIntent } from 'src/types/types';
+import { getClassifier } from 'src/lib/modelfusion/classifiers/getClassifier';
+import {
+  commandTypeExtractionSchema,
+  queryExtractionSchema,
+  CommandTypeExtraction,
+  QueryExtraction,
+} from './zSchemas';
+
+export type CommandIntentExtraction = Omit<CommandTypeExtraction, 'commandTypes'> & QueryExtraction;
 
 export class GeneralCommandHandler extends CommandHandler {
   isContentRequired = true;
@@ -33,6 +46,237 @@ export class GeneralCommandHandler extends CommandHandler {
   public async renderIndicator(title: string, lang?: string | null): Promise<void> {
     const t = getTranslation(lang);
     await this.renderer.addGeneratingIndicator(title, t('conversation.orchestrating'));
+  }
+
+  /**
+   * Extract command intents from a general query using AI with a 2-step approach
+   * Step 1: Extract command types
+   * Step 2: Extract specific queries for each command type
+   * @returns Extracted command types, content, and explanation
+   */
+  private async extractCommandIntent(args: {
+    command: CommandIntent;
+    conversationHistories: ConversationHistoryMessage[];
+    lang?: string | null;
+    isReloadRequest?: boolean;
+    ignoreClassify?: boolean;
+    currentArtifacts?: Array<{ type: string }>;
+  }): Promise<CommandIntentExtraction> {
+    const {
+      command,
+      lang,
+      conversationHistories = [],
+      isReloadRequest = false,
+      ignoreClassify = false,
+      currentArtifacts,
+    } = args;
+
+    try {
+      logger.log('Starting 2-step intent extraction process');
+
+      // Get classifier for semantic similarity check
+      let commandTypeExtraction: CommandTypeExtraction | undefined;
+
+      if (!ignoreClassify) {
+        const embeddingModel = this.plugin.llmService.getEmbeddingModel();
+        const classifier = getClassifier(embeddingModel, isReloadRequest);
+        const clusterName = await classifier.doClassify(command.query);
+
+        if (clusterName) {
+          logger.log(`The user input was classified as "${clusterName}"`);
+          const classifiedCommandTypes = clusterName.split(':');
+
+          // If classified, create command type extraction result directly without calling the function
+          commandTypeExtraction = {
+            commandTypes: classifiedCommandTypes,
+            explanation: `Classified as ${clusterName} command based on semantic similarity.`,
+            confidence: 0.9,
+          };
+        }
+      }
+
+      // Step 1: Extract command types (only if not already classified)
+      if (!commandTypeExtraction) {
+        commandTypeExtraction = await this.extractCommandTypes({
+          command,
+          conversationHistories,
+          currentArtifacts,
+        });
+      }
+
+      // If no command types were extracted or confidence is very low, return early
+      if (commandTypeExtraction.commandTypes.length === 0) {
+        return {
+          commands: [],
+          explanation: commandTypeExtraction.explanation,
+          confidence: commandTypeExtraction.confidence,
+          lang,
+        };
+      }
+
+      // If command type is not read or generate, return early
+      if (commandTypeExtraction.commandTypes.length === 1) {
+        const commandType = commandTypeExtraction.commandTypes[0];
+
+        if (commandType !== 'read' && commandType !== 'generate') {
+          return {
+            commands: [{ commandType, query: command.query }],
+            explanation: commandTypeExtraction.explanation,
+            confidence: commandTypeExtraction.confidence,
+            lang,
+          };
+        }
+      }
+
+      // Step 2: Extract specific queries for each command type
+      logger.log(`Extracting queries for ${commandTypeExtraction.commandTypes.length} command(s)`);
+
+      const queryExtraction = await this.extractQueries({
+        command,
+        commandTypes: commandTypeExtraction.commandTypes,
+        conversationHistories,
+        currentArtifacts,
+      });
+
+      // Combine the results from both steps
+      const result: CommandIntentExtraction = {
+        commands: queryExtraction.commands,
+        explanation: queryExtraction.explanation,
+        confidence: commandTypeExtraction.confidence,
+        queryTemplate: commandTypeExtraction.queryTemplate,
+        lang,
+      };
+
+      // Save the embeddings after both steps are complete
+      if (result.confidence >= 0.9 && result.queryTemplate && !ignoreClassify) {
+        try {
+          const embeddingModel = this.plugin.llmService.getEmbeddingModel();
+          const classifier = getClassifier(embeddingModel, isReloadRequest);
+
+          // Create cluster name from unique command types
+          const uniqueCommandTypes = Array.from(
+            new Set(result.commands.map(cmd => cmd.commandType))
+          );
+          const newClusterName = uniqueCommandTypes.reduce((acc, curVal) => {
+            return acc ? `${acc}:${curVal}` : curVal;
+          }, '');
+
+          await classifier.saveEmbedding(result.queryTemplate, newClusterName);
+          logger.log(`Saved embedding for query template with cluster: ${newClusterName}`);
+        } catch (error) {
+          logger.error('Failed to save query embedding:', error);
+        }
+      }
+
+      return result;
+    } catch (error) {
+      logger.error('Error in 2-step intent extraction:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Extract command types from a general query using AI (Step 1)
+   * @returns Extracted command types and explanation
+   */
+  private async extractCommandTypes(args: {
+    command: CommandIntent;
+    conversationHistories: ConversationHistoryMessage[];
+    currentArtifacts?: Array<{ type: string }>;
+  }): Promise<CommandTypeExtraction> {
+    const { command, conversationHistories = [], currentArtifacts } = args;
+
+    const llmConfig = await this.plugin.llmService.getLLMConfig({
+      overrideModel: command.model,
+      generateType: 'object',
+    });
+
+    const additionalSystemPrompts: string[] = command.systemPrompts || [];
+
+    // Proceed with LLM-based command type extraction
+    logger.log('Using LLM for command type extraction');
+
+    try {
+      // Create an operation-specific abort signal
+      const abortSignal = this.plugin.abortService.createAbortController('command-type-extraction');
+
+      const systemPrompts = additionalSystemPrompts.map(content => ({
+        role: 'system' as const,
+        content,
+      }));
+
+      const { object } = await generateObject({
+        ...llmConfig,
+        abortSignal,
+        system: getCommandTypePrompt({
+          currentArtifacts,
+        }),
+        messages: [
+          ...systemPrompts,
+          ...conversationHistories,
+          { role: 'user', content: command.query },
+        ],
+        schema: commandTypeExtractionSchema,
+      });
+
+      return object;
+    } catch (error) {
+      logger.error('Error extracting command types:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Extract specific queries for each command type using AI (Step 2)
+   * @returns Extracted commands with queries
+   */
+  private async extractQueries(args: {
+    command: CommandIntent;
+    commandTypes: string[];
+    conversationHistories: ConversationHistoryMessage[];
+    currentArtifacts?: Array<{ type: string }>;
+  }): Promise<QueryExtraction> {
+    const { command, commandTypes, conversationHistories = [], currentArtifacts } = args;
+
+    const llmConfig = await this.plugin.llmService.getLLMConfig({
+      overrideModel: command.model,
+      generateType: 'object',
+    });
+
+    const additionalSystemPrompts: string[] = command.systemPrompts || [];
+
+    // Proceed with LLM-based query extraction
+    logger.log('Using LLM for query extraction');
+
+    try {
+      // Create an operation-specific abort signal
+      const abortSignal = this.plugin.abortService.createAbortController('query-extraction');
+
+      const systemPrompts = additionalSystemPrompts.map(content => ({
+        role: 'system' as const,
+        content,
+      }));
+
+      const { object } = await generateObject({
+        ...llmConfig,
+        abortSignal,
+        system: getQueryExtractionPrompt({
+          commandTypes,
+          currentArtifacts,
+        }),
+        messages: [
+          ...systemPrompts,
+          ...conversationHistories,
+          { role: 'user', content: command.query },
+        ],
+        schema: queryExtractionSchema,
+      });
+
+      return object;
+    } catch (error) {
+      logger.error('Error extracting queries:', error);
+      throw error;
+    }
   }
 
   /**
@@ -114,7 +358,7 @@ NOTE:
         // Get current artifacts for the conversation
         const currentArtifacts = this.artifactManager.getCurrentArtifacts(title);
 
-        extraction = await extractCommandIntent({
+        extraction = await this.extractCommandIntent({
           command: {
             ...command,
             systemPrompts,

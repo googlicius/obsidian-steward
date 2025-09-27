@@ -4,7 +4,6 @@ import { getTranslation } from '../i18n';
 import { ConversationHistoryMessage, ConversationMessage, ConversationRole } from '../types/types';
 import { getObsidianLanguage } from '../utils/getObsidianLanguage';
 import type StewardPlugin from '../main';
-import { ArtifactType } from './ConversationArtifactManager';
 import { logger } from 'src/utils/logger';
 
 export class ConversationRenderer {
@@ -204,6 +203,153 @@ export class ConversationRenderer {
   }
 
   /**
+   * Serialize tool calls to a conversation note.
+   * The result could be inlined or referenced to a message or an artifact.
+   * @returns The message ID for referencing
+   */
+  public async serializeToolInvocation<T>(params: {
+    path: string;
+    command: string;
+    text: string;
+    toolInvocations: {
+      toolName: string;
+      toolCallId: string;
+      args: Record<string, unknown>;
+      result?: T;
+    }[];
+  }): Promise<string | undefined> {
+    try {
+      const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+      const notePath = `${folderPath}/${params.path}.md`;
+
+      // Get the file reference
+      const file = this.plugin.app.vault.getFileByPath(notePath);
+      if (!file) {
+        throw new Error(`Note not found: ${notePath}`);
+      }
+
+      // Get message metadata
+      const { messageId, comment } = await this.buildMessageMetadata(params.path, {
+        role: 'Assistant',
+        command: params.command,
+        type: 'tool-invocation',
+      });
+
+      // Process the file content
+      await this.plugin.app.vault.process(file, currentContent => {
+        // Remove the generating indicator and any trailing newlines
+        currentContent = this.removeGeneratingIndicator(currentContent);
+
+        let contentToAdd = `${params.text}`;
+
+        contentToAdd += `\n\`\`\`stw-artifact\n${JSON.stringify(params.toolInvocations)}\n\`\`\``;
+
+        // Return the updated content
+        return `${currentContent}\n\n${comment}\n${contentToAdd}`;
+      });
+
+      return messageId;
+    } catch (error: unknown) {
+      logger.error('Error serializing tool call:', error);
+      return undefined;
+    }
+  }
+
+  /**
+   * Deserialize tool calls from a message
+   * @param params - Either a messageId (string) or a ConversationMessage
+   * @returns The deserialized tool call with resolved result
+   */
+  public deserializeToolInvocations(params: {
+    message: ConversationMessage;
+    conversationTitle: string;
+    allMessages: ConversationMessage[];
+  }):
+    | {
+        toolName: string;
+        toolCallId: string;
+        args: Record<string, unknown>;
+        result: unknown;
+      }[]
+    | null {
+    try {
+      // Extract all tool calls from the message content
+      const toolInvocationsMatches = params.message.content.match(
+        /```stw-artifact\n([\s\S]*?)\n```/g
+      );
+      if (!toolInvocationsMatches || toolInvocationsMatches.length === 0) {
+        logger.error('No stw-artifact blocks found in message content');
+        return null;
+      }
+
+      const toolInvocations = [];
+
+      for (const toolInvocationsMatch of toolInvocationsMatches) {
+        const toolInvocationData = JSON.parse(
+          toolInvocationsMatch.replace(/```stw-artifact\n|\n```/g, '')
+        );
+
+        // Ensure toolInvocationData is an array
+        if (!Array.isArray(toolInvocationData)) {
+          logger.error('Tool invocation data should be an array', toolInvocationData);
+          continue;
+        }
+
+        for (const toolInvocation of toolInvocationData) {
+          const { toolName, toolCallId, args, result } = toolInvocation;
+
+          if (!toolName || !toolCallId || !args) {
+            logger.error('Invalid tool call data structure', toolInvocation);
+            continue; // Skip invalid tool calls but continue processing others
+          }
+
+          // Resolve the result based on its type
+          let resolvedResult = result;
+
+          if (typeof result === 'string') {
+            // Check if it's an artifact reference
+            if (result.startsWith('artifactRef:')) {
+              const artifactId = result.substring('artifactRef:'.length);
+              const artifact = this.plugin.artifactManager.getArtifact(
+                params.conversationTitle,
+                artifactId
+              );
+              if (artifact) {
+                resolvedResult = artifact;
+              } else {
+                logger.error(`Artifact not found: ${artifactId}`);
+                resolvedResult = null;
+              }
+            } else if (result.startsWith('messageRef:')) {
+              const messageId = result.substring('messageRef:'.length);
+              const referencedMessage = params.allMessages.find(msg => msg.id === messageId);
+              if (referencedMessage) {
+                resolvedResult = referencedMessage;
+              } else {
+                logger.error(`Message not found: ${messageId}`);
+                resolvedResult = null;
+              }
+            }
+            // Otherwise, it's an inlined result, keep as is
+          }
+
+          toolInvocations.push({
+            toolName,
+            toolCallId,
+            args,
+            result: resolvedResult,
+          });
+        }
+      }
+
+      return toolInvocations.length > 0 ? toolInvocations : null;
+    } catch (error: unknown) {
+      logger.error('Error deserializing tool calls:', error);
+      return null;
+    }
+  }
+
+  /**
    * Updates a conversation note with the given content
    */
   public async updateConversationNote(params: {
@@ -348,6 +494,7 @@ export class ConversationRenderer {
     folderPath?: string;
     command?: string;
     position?: number;
+    includeHistory?: boolean;
   }): Promise<string | undefined> {
     const folderPath = params.folderPath || `${this.plugin.settings.stewardFolder}/Conversations`;
 
@@ -369,6 +516,7 @@ export class ConversationRenderer {
       const { messageId, comment } = await this.buildMessageMetadata(path, {
         role: 'Steward',
         command: params.command,
+        includeHistory: params.includeHistory ?? true,
       });
 
       const roleText = this.formatRoleText(params.role);
@@ -414,6 +562,7 @@ export class ConversationRenderer {
       role?: string;
       command?: string;
       includeHistory?: boolean;
+      type?: string;
     } = {}
   ) {
     const { messageId = uniqueID(), role = 'Steward', command, includeHistory } = options;
@@ -427,28 +576,10 @@ export class ConversationRenderer {
       ...(includeHistory === false && {
         HISTORY: 'false',
       }),
+      ...(options.type && {
+        TYPE: options.type,
+      }),
     };
-
-    if (role === 'System') {
-      switch (command) {
-        case 'search':
-          metadata.ARTIFACT_TYPE = ArtifactType.SEARCH_RESULTS;
-          break;
-        case 'read':
-          metadata.ARTIFACT_TYPE = ArtifactType.READ_CONTENT;
-          break;
-        case 'create':
-          metadata.ARTIFACT_TYPE = ArtifactType.CREATED_NOTES;
-          break;
-        case 'move':
-          metadata.ARTIFACT_TYPE = ArtifactType.MOVE_RESULTS;
-          break;
-        case 'audio':
-        case 'image':
-          metadata.ARTIFACT_TYPE = ArtifactType.MEDIA_RESULTS;
-          break;
-      }
-    }
 
     if (command === 'more') {
       const prevMoreMetadata = await this.findMostRecentMessageMetadata({
@@ -905,6 +1036,7 @@ export class ConversationRenderer {
           command: metadata.COMMAND || '',
           lang: metadata.LANG,
           history: includeInHistory,
+          type: metadata.TYPE,
         });
       }
 
@@ -974,10 +1106,36 @@ export class ConversationRenderer {
         .slice(topicStartIndex)
         .filter(message => !message.ignored);
 
-      return messagesToInclude.slice(-maxMessages).map(({ role, content }) => ({
-        role,
-        content,
-      }));
+      return messagesToInclude.slice(-maxMessages).map(message => {
+        if (message.type === 'tool-invocation') {
+          const toolInvocations = this.deserializeToolInvocations({
+            message,
+            conversationTitle,
+            allMessages,
+          });
+
+          if (toolInvocations && toolInvocations.length > 0) {
+            return {
+              id: message.id,
+              content: '',
+              role: 'assistant',
+              parts: toolInvocations.map(toolInvocation => ({
+                type: 'tool-invocation',
+                toolInvocation: {
+                  ...toolInvocation,
+                  state: 'result',
+                },
+              })),
+            };
+          }
+        }
+
+        return {
+          id: message.id,
+          role: message.role,
+          content: message.content,
+        };
+      });
     } catch (error) {
       logger.error('Error extracting conversation history:', error);
       return [];

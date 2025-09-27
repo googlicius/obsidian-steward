@@ -1,5 +1,6 @@
 import { Editor } from 'obsidian';
 import { EditorView } from '@codemirror/view';
+import { Message } from 'ai';
 
 /**
  * Exposes the Obsidian Editor and Codemirror EditorView
@@ -13,9 +14,8 @@ export type ConversationRole = 'user' | 'assistant' | 'system';
 /**
  * Represents a message in the conversation history
  */
-export interface ConversationHistoryMessage {
+export interface ConversationHistoryMessage extends Message {
   role: ConversationRole;
-  content: string;
 }
 
 export interface ConversationMessage {
@@ -25,6 +25,7 @@ export interface ConversationMessage {
   lang?: string;
   command: string;
   history?: boolean;
+  type?: string;
 }
 
 /**

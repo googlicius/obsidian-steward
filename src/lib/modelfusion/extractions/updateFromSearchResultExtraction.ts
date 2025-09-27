@@ -5,6 +5,7 @@ import { AbortService } from 'src/services/AbortService';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
 import { logger } from 'src/utils/logger';
+import { ConversationHistoryMessage } from 'src/types/types';
 
 const abortService = AbortService.getInstance();
 
@@ -48,7 +49,7 @@ const updateInstructionSchema = z.discriminatedUnion('type', [
 ]);
 
 // Define the Zod schema for the entire extraction
-const updateFromSearchResultExtractionSchema = z.object({
+const updateExtractionSchema = z.object({
   updateInstructions: z.array(updateInstructionSchema),
   explanation: z.string().min(1, 'Explanation must be a non-empty string'),
   confidence: z.number().min(0).max(1),
@@ -61,11 +62,13 @@ const updateFromSearchResultExtractionSchema = z.object({
 export async function extractUpdateFromSearchResult({
   userInput,
   systemPrompts = [],
+  conversationHistory = [],
   lang,
   model,
 }: {
   userInput: string;
   systemPrompts?: string[];
+  conversationHistory?: ConversationHistoryMessage[];
   lang?: string;
   model?: string; // Optional model to override default
 }): Promise<UpdateFromSearchResultExtraction> {
@@ -81,9 +84,10 @@ export async function extractUpdateFromSearchResult({
       system: `${updateFromSearchResultPrompt.content}\n\n${userLanguagePromptText}`,
       messages: [
         ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        ...conversationHistory,
         { role: 'user', content: userInput },
       ],
-      schema: updateFromSearchResultExtractionSchema,
+      schema: updateExtractionSchema,
     });
 
     return object;
