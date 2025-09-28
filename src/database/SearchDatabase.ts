@@ -31,6 +31,7 @@ export interface IndexedTerm {
   source: TermSource; // Source of the term (content or filename)
   frequency: number; // Number of occurrences in the document
   positions: number[]; // Positions in the document
+  isOriginal: boolean; // Whether this term is an original form (not stemmed)
 }
 
 export interface IndexedFolder {
@@ -79,6 +80,26 @@ export class SearchDatabase extends Dexie {
       .upgrade(async trans => {
         // No migration needed for properties table - it starts empty
         logger.log('Upgraded search database to version 2 with properties table');
+      });
+
+    // New version 3: Add isOriginal field and new index
+    this.version(3)
+      .stores({
+        documents: '++id, path, fileName, lastModified',
+        folders: '++id, path, name',
+        terms:
+          '[term+documentId+source], [term+source], term, documentId, folderId, source, frequency, isOriginal',
+        properties: '++id, documentId, name, [name+value], value',
+      })
+      .upgrade(async trans => {
+        // Add isOriginal field to existing terms (default to true for backward compatibility)
+        await trans
+          .table('terms')
+          .toCollection()
+          .modify((term: IndexedTerm) => {
+            term.isOriginal = true;
+          });
+        logger.log('Upgraded search database to version 3 with isOriginal field and new index');
       });
   }
 }

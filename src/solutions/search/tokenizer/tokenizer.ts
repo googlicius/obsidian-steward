@@ -6,6 +6,7 @@ interface Token {
   term: string;
   count: number;
   positions: number[];
+  isOriginal?: boolean; // Whether this term is an original form (not stemmed)
 }
 
 /**
@@ -30,8 +31,8 @@ interface Analyzer {
 
 interface TokenizerConfig {
   removeStopwords?: boolean;
-  normalizers?: string[];
-  analyzers?: string[];
+  normalizers?: (string | Normalizer)[];
+  analyzers?: (string | Analyzer)[];
 }
 
 const ALL_ANALYZERS: Record<string, Analyzer['process']> = {
@@ -87,32 +88,46 @@ const ALL_ANALYZERS: Record<string, Analyzer['process']> = {
   /**
    * Stemmer analyzer that reduces words to their root form using the Porter stemming algorithm
    * This helps match different forms of the same word (e.g., "running" -> "run", "better" -> "better")
+   * Now preserves both original and stemmed tokens for exact match support
    */
   stemmer: (tokens: Token[]) => {
-    const stemmedMap = new Map<string, Token>();
+    const tokenMap = new Map<string, Token>();
 
     for (const token of tokens) {
-      const stemmedTerm = stemmer(token.term);
-
-      // Check if a stemmed version already exists using O(1) Map lookup
-      const existingToken = stemmedMap.get(stemmedTerm);
-
-      if (existingToken) {
-        // Merge with existing stemmed token
-        existingToken.count += token.count;
-        existingToken.positions.push(...token.positions);
+      // Always preserve the original token with isOriginal flag
+      const existingOriginal = tokenMap.get(token.term);
+      if (existingOriginal) {
+        existingOriginal.count += token.count;
+        existingOriginal.positions.push(...token.positions);
       } else {
-        // Add new stemmed token to map
-        stemmedMap.set(stemmedTerm, {
-          term: stemmedTerm,
-          count: token.count,
-          positions: [...token.positions],
+        tokenMap.set(token.term, {
+          ...token,
+          isOriginal: true, // Mark as original
         });
+      }
+
+      // Add stemmed version if different from original
+      const stemmedTerm = stemmer(token.term);
+      if (stemmedTerm !== token.term) {
+        const existingStemmed = tokenMap.get(stemmedTerm);
+        if (existingStemmed) {
+          // Merge with existing stemmed token
+          existingStemmed.count += token.count;
+          existingStemmed.positions.push(...token.positions);
+        } else {
+          // Add new stemmed token to map
+          tokenMap.set(stemmedTerm, {
+            term: stemmedTerm,
+            count: token.count,
+            positions: [...token.positions],
+            isOriginal: false, // Mark as stemmed
+          });
+        }
       }
     }
 
     // Convert map values to array
-    return Array.from(stemmedMap.values());
+    return Array.from(tokenMap.values());
   },
 };
 

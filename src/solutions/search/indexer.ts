@@ -471,6 +471,7 @@ export class Indexer {
       source: TermSource.Content,
       frequency: term.count,
       positions: term.positions,
+      isOriginal: term.isOriginal ?? true, // Default to true if not specified
     }));
 
     // Batch add filename terms
@@ -481,6 +482,7 @@ export class Indexer {
       source: TermSource.Filename,
       frequency: term.count,
       positions: term.positions,
+      isOriginal: term.isOriginal ?? true, // Default to true if not specified
     }));
 
     // Combine both batches and add to database
