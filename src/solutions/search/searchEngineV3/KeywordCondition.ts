@@ -134,8 +134,6 @@ export class KeywordCondition extends Condition<IndexedDocument> {
     // Get term entries for all tokens in the phrase (exact match)
     const termEntries = await this.getTermEntriesForContent(tokens, true);
 
-    console.log('termEntries', termEntries);
-
     if (termEntries.length === 0) {
       return;
     }
@@ -271,9 +269,7 @@ export class KeywordCondition extends Condition<IndexedDocument> {
 
       if (exactPhrase) {
         // Handle exact phrase matching
-        console.log('exactPhrase', exactPhrase);
         await this.handleExactPhraseMatch(exactPhrase, documentsMap);
-        console.log('document map', documentsMap);
         continue;
       }
 
@@ -285,7 +281,6 @@ export class KeywordCondition extends Condition<IndexedDocument> {
 
       const termEntries = await this.getTermEntriesForContent(terms);
       const documentTermMap = this.groupTermEntriesByDocument(termEntries);
-      console.log('documentTermMap', documentTermMap);
 
       // Get qualified document IDs for this keyword
       const keywordDocIds = this.getQualifiedDocumentIds(documentTermMap, terms);
