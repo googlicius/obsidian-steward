@@ -22,7 +22,13 @@ export class KeywordCondition extends Condition<IndexedDocument> {
 
     if (quotedContent) {
       const phrase = quotedContent;
-      const tokens = this.context.contentTokenizer.getUniqueTerms(phrase);
+      // Use tokenizer without stemmer for exact matches to preserve original word forms
+      const exactMatchTokenizer = this.context.contentTokenizer.withConfig({
+        analyzers: this.context.contentTokenizer
+          .getAnalyzers()
+          .filter(analyzer => analyzer.name !== 'stemmer'),
+      });
+      const tokens = exactMatchTokenizer.getUniqueTerms(phrase);
       return {
         originalPhrase: phrase,
         tokens,
@@ -35,13 +41,22 @@ export class KeywordCondition extends Condition<IndexedDocument> {
   /**
    * Get term entries that match the specified content terms
    */
-  private async getTermEntriesForContent(terms: string[]): Promise<IndexedTerm[]> {
-    // Apply filtering
-    return this.context.documentStore.terms
-      .where('term')
-      .anyOf(terms)
-      .and(item => item.source === TermSource.Content)
-      .toArray();
+  private async getTermEntriesForContent(
+    terms: string[],
+    isExactMatch = false
+  ): Promise<IndexedTerm[]> {
+    // Use [term+source] index for efficient querying
+    const termSourcePairs = terms.map(term => [term, TermSource.Content]);
+    const queryCollection = this.context.documentStore.terms
+      .where('[term+source]')
+      .anyOf(termSourcePairs);
+
+    if (isExactMatch) {
+      // For exact matches, only get original terms (not stemmed variants)
+      queryCollection.and(item => item.isOriginal === true);
+    }
+
+    return queryCollection.toArray();
   }
 
   /**
@@ -116,8 +131,8 @@ export class KeywordCondition extends Condition<IndexedDocument> {
       return;
     }
 
-    // Get term entries for all tokens in the phrase
-    const termEntries = await this.getTermEntriesForContent(tokens);
+    // Get term entries for all tokens in the phrase (exact match)
+    const termEntries = await this.getTermEntriesForContent(tokens, true);
 
     if (termEntries.length === 0) {
       return;
