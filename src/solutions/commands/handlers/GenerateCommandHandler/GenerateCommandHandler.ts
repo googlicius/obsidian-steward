@@ -159,7 +159,6 @@ ${languageEnforcementFragment}`,
           parameters: readContentSchema,
         }),
       },
-      toolChoice: 'required',
     });
 
     // If no tool calls were made but we have text, render the text

@@ -77,7 +77,7 @@
 - [ ] 2-phrase processing to strengthen the context before editing or generating. Step 1: Collecting data using "read" or "search" command. Step 2: Generate or editing using "generate", "update", "delete", "copy", etc, commands.
 - [ ] Add the new Steward folder to the excluded folders.
 - [ ] When users clicking on the reload button of a message, remove ALL artifacts below that message.
-- [ ] Provide a clean assistant-user' request/response flow with consistent ID: User sends queries: 1. Assistant send request (request_id) to read. The user response with a reading result (include the request_id)
+- [x] Provide a clean assistant-user' request/response flow with consistent ID: User sends queries: 1. Assistant send request (request_id) to read. The user response with a reading result (include the request_id)
 
 ### BUGS
 

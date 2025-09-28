@@ -4,6 +4,7 @@
  * for reuse in command intent prompts and help systems
  */
 
+import * as yaml from 'js-yaml';
 import { ArtifactType } from 'src/services/ConversationArtifactManager';
 
 export interface CommandDefinition {
@@ -24,6 +25,13 @@ export interface CommandDefinition {
    * Provides specific instructions for extracting command parameters
    */
   queryTemplate?: string;
+}
+
+interface CommandData {
+  name: string;
+  description: string;
+  aliases?: string[];
+  use_when?: string;
 }
 
 /**
@@ -129,6 +137,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     description: 'Update note(s) from the artifact',
     category: 'intent-based',
     aliases: ['update'],
+    queryTemplate: `Extract specific details for what to be updated.`,
     includeWhen: 'Update one or more notes from the artifact',
     artifactDesc: `The updated note paths is stored as the artifact with name ${ArtifactType.CONTENT_UPDATE}`,
   },
@@ -152,15 +161,14 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     commandType: 'build_search_index',
     description: 'Build or rebuild the search index for all markdown files in the vault',
     category: 'intent-based',
-    aliases: ['index', 'build-index', 'search-index'],
     includeWhen: 'Build or rebuild the search index for all markdown files in the vault',
   },
   {
     commandType: 'read',
     description: `Read text contents, images from the current note in specific position: "above", "below". OR from the other notes. Use this when you don't know the content and need to retrieve it before proceeding
-  - Can read any content type, including code blocks, tables, lists, paragraphs, and more.
-  - Can multiple notes at once.
-  - Can read when the note's name or position (above or below) is provided, no location needed.`,
+- Can read any content type, including code blocks, tables, lists, paragraphs, and more.
+- Can multiple notes at once.
+- Can read when the note's name or position (above or below) is provided, no location needed.`,
     category: 'intent-based',
     queryTemplate: `Extract a specific query for a read command:
 1. Extract the query for the read command follows this format: <query_in_natural_language>, read type: <read_type>[, note name: <note_name>] [; <other_notes_to_read>]
@@ -177,8 +185,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     Example: "Read the context above, read type: above; Read the note named 'Note 2', read type: entire, note name: 'Note 2'"
 
 3. Maintain Natural Language:
-  - Keep the query in natural language form
-  - Don't convert natural language expressions into structured queries.`,
+  - Keep the query in natural language form.`,
     includeWhen: 'Read or Find content based on a specific pattern in their current note',
     artifactDesc: `The content of the reading result is stored as the artifact with name ${ArtifactType.READ_CONTENT}`,
   },
@@ -190,10 +197,10 @@ Otherwise, you need to include the "read" command.`,
     category: 'intent-based',
     queryTemplate: `Extract the query for the generate command follows this format: <query_in_natural_language>, [note name: <note_name>]
 - <query_in_natural_language>: Tailored query for the generate command.
-- <note_name>: Include if mentioned.`,
+- <note_name>: Include if mentioned.
+NOTE: Square brackets [] indicate optional fields.`,
     includeWhen: 'Ask, update, or generate content with your help',
-    artifactDesc: `The generated content is stored as the artifact with name ${ArtifactType.CONTENT_UPDATE}
-- Square brackets [] indicate optional fields.`,
+    artifactDesc: `The generated content is stored as the artifact with name ${ArtifactType.CONTENT_UPDATE}`,
   },
   {
     commandType: 'thank_you',
@@ -209,6 +216,11 @@ Otherwise, you need to include the "read" command.`,
     availableToLLM: false,
   },
 ];
+
+const COMMAND_DEFINITIONS_MAP = COMMAND_DEFINITIONS.reduce((acc, item) => {
+  acc.set(item.commandType, item);
+  return acc;
+}, new Map<string, CommandDefinition>());
 
 /**
  * Get commands by category
@@ -232,24 +244,6 @@ export function getCommandDefinition(commandType: string): CommandDefinition | u
 export function getCommandQueryTemplate(commandType: string): string | undefined {
   const command = getCommandDefinition(commandType);
   return command?.queryTemplate;
-}
-
-/**
- * Get all query templates as a formatted string
- */
-export function getAllQueryTemplatesAsString(commandNames?: string[] | null): string {
-  const commands = commandNames
-    ? COMMAND_DEFINITIONS.filter(cmd => commandNames.includes(cmd.commandType))
-    : COMMAND_DEFINITIONS.filter(cmd => cmd.queryTemplate);
-
-  return commands.reduce((result, cmd) => {
-    if (cmd.queryTemplate) {
-      return result.length
-        ? `${result}\n\n## ${cmd.commandType} command template:\n${cmd.queryTemplate}`
-        : `## ${cmd.commandType} command template:\n${cmd.queryTemplate}`;
-    }
-    return result;
-  }, '');
 }
 
 /**
@@ -339,25 +333,66 @@ ${artifactList}
  * Format commands list for prompt inclusion (only commands available to LLMs)
  */
 export function formatCommandsForPrompt(commandNames?: string[] | null): string {
-  const commands = commandNames
-    ? COMMAND_DEFINITIONS.filter(cmd => commandNames.includes(cmd.commandType))
+  const commands: CommandDefinition[] = commandNames
+    ? commandNames.map(cmd => {
+        if (!COMMAND_DEFINITIONS_MAP.has(cmd)) {
+          throw new Error(`Command ${cmd} not found`);
+        }
+        return COMMAND_DEFINITIONS_MAP.get(cmd) as CommandDefinition;
+      })
     : COMMAND_DEFINITIONS.filter(cmd => cmd.availableToLLM !== false);
 
-  const commandElements = commands
-    .map(cmd => {
-      const aliasesAttr = cmd.aliases ? ` aliases="${cmd.aliases.join(', ')}"` : '';
-      const includeWhenElement = cmd.includeWhen
-        ? `\n\t\t<use_when>${cmd.includeWhen}</use_when>`
-        : '';
-      return `\t<command name="${cmd.commandType}"${aliasesAttr}>
-\t\t<description>${cmd.description}</description>${includeWhenElement}
-\t</command>`;
-    })
-    .join('\n');
+  const commandsData = commands.map(cmd => {
+    const commandData: CommandData = {
+      name: cmd.commandType,
+      description: cmd.description,
+    };
 
-  return `<commands>
-${commandElements}
-</commands>`;
+    if (cmd.aliases && cmd.aliases.length > 0) {
+      commandData.aliases = cmd.aliases;
+    }
+
+    if (cmd.includeWhen) {
+      commandData.use_when = cmd.includeWhen;
+    }
+
+    return commandData;
+  });
+
+  return yaml.dump(commandsData, {
+    indent: 2,
+    lineWidth: -1,
+    noRefs: true,
+    sortKeys: false,
+  });
+}
+
+/**
+ * Format query templates for prompt inclusion in YAML format
+ */
+export function formatQueryTemplatesForPrompt(commandNames?: string[] | null): string {
+  const commands = commandNames
+    ? commandNames.map(cmd => {
+        if (!COMMAND_DEFINITIONS_MAP.has(cmd)) {
+          throw new Error(`Command ${cmd} not found`);
+        }
+        return COMMAND_DEFINITIONS_MAP.get(cmd) as CommandDefinition;
+      })
+    : COMMAND_DEFINITIONS.filter(cmd => cmd.queryTemplate);
+
+  const templatesData = commands
+    .filter(cmd => cmd.queryTemplate)
+    .map(cmd => ({
+      command: cmd.commandType,
+      template: cmd.queryTemplate,
+    }));
+
+  return yaml.dump(templatesData, {
+    indent: 2,
+    lineWidth: -1,
+    noRefs: true,
+    sortKeys: false,
+  });
 }
 
 /**

@@ -4,6 +4,7 @@ import {
   artifactDependentExamples,
   formatCommandsForPrompt,
   formatCurrentArtifacts,
+  formatQueryTemplatesForPrompt,
 } from './commands';
 
 describe('commands', () => {
@@ -24,8 +25,37 @@ describe('commands', () => {
     });
 
     it('should return formatted commands for prompt with given command names', () => {
-      const formattedCommands = formatCommandsForPrompt(['read', 'search']);
+      const formattedCommands = formatCommandsForPrompt([
+        'read',
+        'generate',
+        'update_from_artifact',
+      ]);
       expect(formattedCommands).toMatchSnapshot();
+    });
+
+    it('should throw error if command not found', () => {
+      expect(() => formatCommandsForPrompt(['not_found'])).toThrow('Command not_found not found');
+    });
+  });
+
+  describe('formatQueryTemplatesForPrompt', () => {
+    it('should return formatted query templates for prompt', () => {
+      const formattedTemplates = formatQueryTemplatesForPrompt();
+      expect(formattedTemplates).toMatchSnapshot();
+    });
+
+    it('should return formatted query templates for prompt with given command names', () => {
+      const formattedTemplates = formatQueryTemplatesForPrompt([
+        'read',
+        'generate',
+        'update_from_artifact',
+      ]);
+      expect(formattedTemplates).toMatchSnapshot();
+    });
+
+    it('should return empty YAML structure when no commands have templates', () => {
+      const formattedTemplates = formatQueryTemplatesForPrompt(['close', 'confirm']);
+      expect(formattedTemplates).toMatchSnapshot();
     });
   });
 

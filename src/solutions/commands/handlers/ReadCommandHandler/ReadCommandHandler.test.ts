@@ -354,8 +354,6 @@ describe('ReadCommandHandler', () => {
         readEntireConfirmed: true,
       });
 
-      console.log('confirmedResult', confirmedResult);
-
       // Assert
       expect(result).toMatchObject({
         status: CommandResultStatus.NEEDS_CONFIRMATION,
