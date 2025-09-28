@@ -491,7 +491,7 @@ export class SearchCommandHandler extends CommandHandler {
               // Format as a stw-search-result callout with position data
               const match = highlightedMatches[i];
               const callout = this.plugin.noteContentService.formatCallout(
-                match.highlightedText,
+                match.highlightedText.trim(),
                 'stw-search-result',
                 {
                   line: match.lineNumber,

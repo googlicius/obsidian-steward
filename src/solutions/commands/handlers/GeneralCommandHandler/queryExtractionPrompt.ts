@@ -1,6 +1,5 @@
 import {
-  getCommandDefinition,
-  getCommandQueryTemplate,
+  formatQueryTemplatesForPrompt,
   formatCurrentArtifacts,
 } from 'src/lib/modelfusion/prompts/commands';
 import { joinWithConjunction, removeConsecutiveItems } from 'src/utils/arrayUtils';
@@ -14,26 +13,7 @@ export function getQueryExtractionPrompt(args: {
   // Remove consecutive commands to avoid duplicate commands descriptions and templates
   const commandTypes = removeConsecutiveItems(args.commandTypes);
 
-  // Get command descriptions for the specified command types
-  const commandDescriptions = commandTypes
-    .map(cmdType => {
-      const cmd = getCommandDefinition(cmdType);
-      if (!cmd) return `- "${cmdType}": Unknown command`;
-
-      const aliases = cmd.aliases ? ` (aliases: ${cmd.aliases.join(', ')})` : '';
-      return `- "${cmd.commandType}"${aliases}: ${cmd.description}`;
-    })
-    .join('\n');
-
-  // Get query templates for the specified command types
-  const queryTemplates = commandTypes
-    .map(cmdType => {
-      const template = getCommandQueryTemplate(cmdType);
-      if (!template) return '';
-      return `## ${cmdType} command template:\n${template}`;
-    })
-    .filter(Boolean)
-    .join('\n\n');
+  const queryTemplates = formatQueryTemplatesForPrompt(commandTypes);
 
   return `${twoStepExtractionPrompt(2)}
 
@@ -42,7 +22,10 @@ You are a helpful assistant extracting specific queries for commands in an Obsid
 Your role is to analyze a user's natural language query and extract specific queries for each command in the sequence.
 
 COMMANDS TO EXTRACT QUERIES FOR:
-${commandDescriptions}
+${joinWithConjunction(
+  commandTypes.map(cmd => `"${cmd}"`),
+  'and'
+)}
 
 CURRENT ARTIFACTS:
 ${formatCurrentArtifacts(currentArtifacts)}
@@ -51,7 +34,7 @@ QUERY TEMPLATES:
 ${queryTemplates}
 
 GUIDELINES:
-- If any command does not have a QUERY TEMPLATE instruction, extract its query based on your understanding.
+- If any command does not have a query template, extract its query based on your understanding.
 - For each command in the sequence, extract a specific query that will be processed by specialized handlers.
 - Keep queries concise and focused on the specific command's requirements.
 - DO NOT provide your answers or opinions directly in command's queries.

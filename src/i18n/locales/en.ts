@@ -297,7 +297,7 @@ const en = {
       embeddingModelDesc:
         'Model used for intent classification. Stores previous queries in semantic meaning to reduce token usage for intent extraction with similar queries.',
       temperature: 'Temperature',
-      temperatureDesc: 'Controls randomness in the output (0.0 to 1.0)',
+      temperatureDesc: `Controls the randomness of the model's output. Value is within 0 and 1\n. The lower the value, the more deterministic the responses. Higher value increase creativity responses.`,
       maxGenerationTokens: 'Max generation tokens',
       maxGenerationTokensDesc:
         'Maximum number of tokens to generate in response (higher values may increase API costs)',

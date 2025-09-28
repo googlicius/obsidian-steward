@@ -5,86 +5,187 @@ exports[`commands artifactDependentExamples should return examples for commands 
 exports[`commands artifactDependentExamples should return only one example if there are only one command that creates artifacts 1`] = `"For example: if you include "read" and "update_from_artifact", the "update_from_artifact" command will use the artifact that will be created from the "read" command."`;
 
 exports[`commands formatCommandsForPrompt should return formatted commands for prompt 1`] = `
-"<commands>
-	<command name="search">
-		<description>Find files using the search engine to search files locally and store the result as an artifact</description>
-		<use_when>Search for files (and doesn't mention existing search results)</use_when>
-	</command>
-	<command name="close">
-		<description>Close the conversation or exit</description>
-		<use_when>Close the conversation</use_when>
-	</command>
-	<command name="confirm" aliases="yes, no">
-		<description>Confirm or reject the current command to proceed</description>
-	</command>
-	<command name="image">
-		<description>Generate an image</description>
-		<use_when>Generate an image</use_when>
-	</command>
-	<command name="audio" aliases="speak">
-		<description>Generate audio from text</description>
-		<use_when>Generate audio</use_when>
-	</command>
-	<command name="create">
-		<description>Create a new note with their own content</description>
-		<use_when>Create a new note</use_when>
-	</command>
-	<command name="move_from_artifact" aliases="move">
-		<description>Move notes from the artifact to a destination</description>
-		<use_when>Move notes from the artifact</use_when>
-	</command>
-	<command name="copy_from_artifact" aliases="copy">
-		<description>Copy notes from the artifact to a destination</description>
-		<use_when>Copy notes from the artifact</use_when>
-	</command>
-	<command name="update_from_artifact" aliases="update">
-		<description>Update note(s) from the artifact</description>
-		<use_when>Update one or more notes from the artifact</use_when>
-	</command>
-	<command name="delete_from_artifact" aliases="delete">
-		<description>Delete note(s) from the artifact</description>
-		<use_when>Delete notes from the artifact</use_when>
-	</command>
-	<command name="build_search_index" aliases="index, build-index, search-index">
-		<description>Build or rebuild the search index for all markdown files in the vault</description>
-		<use_when>Build or rebuild the search index for all markdown files in the vault</use_when>
-	</command>
-	<command name="read">
-		<description>Read text contents, images from the current note in specific position: "above", "below". OR from the other notes. Use this when you don't know the content and need to retrieve it before proceeding
-  - Can read any content type, including code blocks, tables, lists, paragraphs, and more.
-  - Can multiple notes at once.
-  - Can read when the note's name or position (above or below) is provided, no location needed.</description>
-		<use_when>Read or Find content based on a specific pattern in their current note</use_when>
-	</command>
-	<command name="generate">
-		<description>Generate content with the LLM help.
-If you see the source content is already included in the user's query, you can use "generate" without the need of reading additional content. Example: "Help me update this list to the numbered list:
-- Item 1
-- Item 2".
-Otherwise, you need to include the "read" command.</description>
-		<use_when>Ask, update, or generate content with your help</use_when>
-	</command>
-</commands>"
+"- name: search
+  description: Find files using the search engine to search files locally and store the result as an artifact
+  use_when: Search for files (and doesn't mention existing search results)
+- name: close
+  description: Close the conversation or exit
+  use_when: Close the conversation
+- name: confirm
+  description: Confirm or reject the current command to proceed
+  aliases:
+    - 'yes'
+    - 'no'
+- name: image
+  description: Generate an image
+  use_when: Generate an image
+- name: audio
+  description: Generate audio from text
+  aliases:
+    - speak
+  use_when: Generate audio
+- name: create
+  description: Create a new note with their own content
+  use_when: Create a new note
+- name: move_from_artifact
+  description: Move notes from the artifact to a destination
+  aliases:
+    - move
+  use_when: Move notes from the artifact
+- name: copy_from_artifact
+  description: Copy notes from the artifact to a destination
+  aliases:
+    - copy
+  use_when: Copy notes from the artifact
+- name: update_from_artifact
+  description: Update note(s) from the artifact
+  aliases:
+    - update
+  use_when: Update one or more notes from the artifact
+- name: delete_from_artifact
+  description: Delete note(s) from the artifact
+  aliases:
+    - delete
+  use_when: Delete notes from the artifact
+- name: build_search_index
+  description: Build or rebuild the search index for all markdown files in the vault
+  use_when: Build or rebuild the search index for all markdown files in the vault
+- name: read
+  description: |-
+    Read text contents, images from the current note in specific position: "above", "below". OR from the other notes. Use this when you don't know the content and need to retrieve it before proceeding
+    - Can read any content type, including code blocks, tables, lists, paragraphs, and more.
+    - Can multiple notes at once.
+    - Can read when the note's name or position (above or below) is provided, no location needed.
+  use_when: Read or Find content based on a specific pattern in their current note
+- name: generate
+  description: |-
+    Generate content with the LLM help.
+    If you see the source content is already included in the user's query, you can use "generate" without the need of reading additional content. Example: "Help me update this list to the numbered list:
+    - Item 1
+    - Item 2".
+    Otherwise, you need to include the "read" command.
+  use_when: Ask, update, or generate content with your help
+"
 `;
 
 exports[`commands formatCommandsForPrompt should return formatted commands for prompt with given command names 1`] = `
-"<commands>
-	<command name="search">
-		<description>Find files using the search engine to search files locally and store the result as an artifact</description>
-		<use_when>Search for files (and doesn't mention existing search results)</use_when>
-	</command>
-	<command name="read">
-		<description>Read text contents, images from the current note in specific position: "above", "below". OR from the other notes. Use this when you don't know the content and need to retrieve it before proceeding
-  - Can read any content type, including code blocks, tables, lists, paragraphs, and more.
-  - Can multiple notes at once.
-  - Can read when the note's name or position (above or below) is provided, no location needed.</description>
-		<use_when>Read or Find content based on a specific pattern in their current note</use_when>
-	</command>
-</commands>"
+"- name: read
+  description: |-
+    Read text contents, images from the current note in specific position: "above", "below". OR from the other notes. Use this when you don't know the content and need to retrieve it before proceeding
+    - Can read any content type, including code blocks, tables, lists, paragraphs, and more.
+    - Can multiple notes at once.
+    - Can read when the note's name or position (above or below) is provided, no location needed.
+  use_when: Read or Find content based on a specific pattern in their current note
+- name: generate
+  description: |-
+    Generate content with the LLM help.
+    If you see the source content is already included in the user's query, you can use "generate" without the need of reading additional content. Example: "Help me update this list to the numbered list:
+    - Item 1
+    - Item 2".
+    Otherwise, you need to include the "read" command.
+  use_when: Ask, update, or generate content with your help
+- name: update_from_artifact
+  description: Update note(s) from the artifact
+  aliases:
+    - update
+  use_when: Update one or more notes from the artifact
+"
 `;
 
 exports[`commands formatCurrentArtifacts should return formatted current artifacts for prompt 1`] = `
 "Current artifacts in the conversation can be used by artifact-dependent commands:
 - search_results
 - read_content"
+`;
+
+exports[`commands formatQueryTemplatesForPrompt should return empty YAML structure when no commands have templates 1`] = `
+"[]
+"
+`;
+
+exports[`commands formatQueryTemplatesForPrompt should return formatted query templates for prompt 1`] = `
+"- command: search
+  template: |-
+    Extract specific details for a search command:
+    1. Preserve Specific Categories:
+       - Keywords: Keep any specific words or phrases the user wants to search for
+       - Tags: Keep hashtags (#tag) exactly as written
+       - Folders: Keep folder names exactly as written, including quotes if present
+       - File names: Keep file names exactly as written
+
+    2. Maintain Natural Language:
+       - Keep the search query in natural language form
+       - Don't convert natural language expressions into structured queries
+       - Preserve the original wording and context
+- command: move_from_artifact
+  template: |-
+    Extract specific details for a move_from_artifact command follows this format: <query>; destination: <destination>
+    - <query>: The query for the move command.
+    - <destination>: The destination folder.
+- command: copy_from_artifact
+  template: |-
+    Extract specific details for a copy_from_artifact command follows this format: <query>; destination: <destination>
+    - <query>: The query for the copy command.
+    - <destination>: The destination folder.
+- command: update_from_artifact
+  template: Extract specific details for what to be updated.
+- command: delete_from_artifact
+  template: |-
+    Extract specific details for a delete_from_artifact command:
+    - The query always be: "Delete all notes in the search result."
+- command: read
+  template: |-
+    Extract a specific query for a read command:
+    1. Extract the query for the read command follows this format: <query_in_natural_language>, read type: <read_type>[, note name: <note_name>] [; <other_notes_to_read>]
+      - <query_in_natural_language>: Tailored query for each read command.
+      - <read_type>: above, below, or entire.
+      - <note_name>: The note name to read. 
+        - If the <read_type> is "entire", include the note name.
+        - If the <read_type> is "above" or "below", it means current note, leave the note name blank.
+      - <other_notes_to_read>: The other notes to read if needed. Follow the same structure as the previous.
+      NOTE: Square brackets [] indicate optional fields.
+
+    2. Read multiple notes if needed.
+      - If the query require read content in one or more notes, include all of them.
+        Example: "Read the context above, read type: above; Read the note named 'Note 2', read type: entire, note name: 'Note 2'"
+
+    3. Maintain Natural Language:
+      - Keep the query in natural language form.
+- command: generate
+  template: |-
+    Extract the query for the generate command follows this format: <query_in_natural_language>, [note name: <note_name>]
+    - <query_in_natural_language>: Tailored query for the generate command.
+    - <note_name>: Include if mentioned.
+    NOTE: Square brackets [] indicate optional fields.
+"
+`;
+
+exports[`commands formatQueryTemplatesForPrompt should return formatted query templates for prompt with given command names 1`] = `
+"- command: read
+  template: |-
+    Extract a specific query for a read command:
+    1. Extract the query for the read command follows this format: <query_in_natural_language>, read type: <read_type>[, note name: <note_name>] [; <other_notes_to_read>]
+      - <query_in_natural_language>: Tailored query for each read command.
+      - <read_type>: above, below, or entire.
+      - <note_name>: The note name to read. 
+        - If the <read_type> is "entire", include the note name.
+        - If the <read_type> is "above" or "below", it means current note, leave the note name blank.
+      - <other_notes_to_read>: The other notes to read if needed. Follow the same structure as the previous.
+      NOTE: Square brackets [] indicate optional fields.
+
+    2. Read multiple notes if needed.
+      - If the query require read content in one or more notes, include all of them.
+        Example: "Read the context above, read type: above; Read the note named 'Note 2', read type: entire, note name: 'Note 2'"
+
+    3. Maintain Natural Language:
+      - Keep the query in natural language form.
+- command: generate
+  template: |-
+    Extract the query for the generate command follows this format: <query_in_natural_language>, [note name: <note_name>]
+    - <query_in_natural_language>: Tailored query for the generate command.
+    - <note_name>: Include if mentioned.
+    NOTE: Square brackets [] indicate optional fields.
+- command: update_from_artifact
+  template: Extract specific details for what to be updated.
+"
 `;
