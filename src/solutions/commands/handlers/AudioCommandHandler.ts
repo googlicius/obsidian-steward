@@ -7,7 +7,7 @@ import {
 import { experimental_generateSpeech } from 'ai';
 import { getTranslation } from 'src/i18n';
 import { extractAudioQuery } from 'src/lib/modelfusion/extractions';
-import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { ArtifactType } from 'src/solutions/artifact';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
 import { StewardPluginSettings } from 'src/types/interfaces';
@@ -104,22 +104,25 @@ export class AudioCommandHandler extends CommandHandler {
 
       // Store the media artifact
       if (messageId && result.filePath) {
-        this.artifactManager.storeArtifact(title, messageId, {
-          type: ArtifactType.MEDIA_RESULTS,
-          paths: [result.filePath],
-          mediaType: 'audio',
-        });
-
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
-          artifactContent: result.filePath,
-          command: 'audio',
-          role: {
-            name: 'Assistant',
-            showLabel: false,
+        await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+          text: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
+          artifact: {
+            artifactType: ArtifactType.MEDIA_RESULTS,
+            paths: [result.filePath],
+            mediaType: 'audio',
           },
         });
+
+        // await this.renderer.updateConversationNote({
+        //   path: title,
+        //   newContent: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
+        //   artifactContent: result.filePath,
+        //   command: 'audio',
+        //   role: {
+        //     name: 'Assistant',
+        //     showLabel: false,
+        //   },
+        // });
       }
 
       return {

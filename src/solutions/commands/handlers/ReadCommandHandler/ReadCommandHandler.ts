@@ -5,13 +5,12 @@ import {
   CommandResultStatus,
 } from '../../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { ArtifactType } from 'src/solutions/artifact';
 import type StewardPlugin from 'src/main';
 import { toolSystemPrompt } from './contentReadingPrompt';
 import { generateText, tool, Message, generateId } from 'ai';
 import { contentReadingSchema } from './zSchemas';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
-import { uniqueID } from 'src/utils/uniqueID';
 
 export class ReadCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -226,11 +225,12 @@ export class ReadCommandHandler extends CommandHandler {
             }
           }
 
-          const artifactId = uniqueID();
-
-          this.artifactManager.storeArtifact(title, artifactId, {
-            type: ArtifactType.READ_CONTENT,
-            readingResult: result,
+          const artifactId = await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+            text: `*${t('common.artifactCreated', { type: ArtifactType.READ_CONTENT })}*`,
+            artifact: {
+              artifactType: ArtifactType.READ_CONTENT,
+              readingResult: result,
+            },
           });
 
           toolInvocationArtifactRefs.push({
@@ -244,7 +244,7 @@ export class ReadCommandHandler extends CommandHandler {
         await this.renderer.serializeToolInvocation({
           path: title,
           command: 'read',
-          text: `*${t('common.artifactCreated', { type: ArtifactType.READ_CONTENT })}*`,
+          text: '',
           toolInvocations: toolInvocationArtifactRefs,
         });
       }

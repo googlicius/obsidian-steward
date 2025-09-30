@@ -5,6 +5,7 @@ import { ConversationHistoryMessage, ConversationMessage, ConversationRole } fro
 import { getObsidianLanguage } from '../utils/getObsidianLanguage';
 import type StewardPlugin from '../main';
 import { logger } from 'src/utils/logger';
+import { ArtifactType } from 'src/solutions/artifact';
 
 export class ConversationRenderer {
   static instance: ConversationRenderer;
@@ -260,18 +261,19 @@ export class ConversationRenderer {
    * @param params - Either a messageId (string) or a ConversationMessage
    * @returns The deserialized tool call with resolved result
    */
-  public deserializeToolInvocations(params: {
+  public async deserializeToolInvocations(params: {
     message: ConversationMessage;
     conversationTitle: string;
     allMessages: ConversationMessage[];
-  }):
+  }): Promise<
     | {
         toolName: string;
         toolCallId: string;
         args: Record<string, unknown>;
         result: unknown;
       }[]
-    | null {
+    | null
+  > {
     try {
       // Extract all tool calls from the message content
       const toolInvocationsMatches = params.message.content.match(
@@ -310,10 +312,9 @@ export class ConversationRenderer {
             // Check if it's an artifact reference
             if (result.startsWith('artifactRef:')) {
               const artifactId = result.substring('artifactRef:'.length);
-              const artifact = this.plugin.artifactManager.getArtifact(
-                params.conversationTitle,
-                artifactId
-              );
+              const artifact = await this.plugin.artifactManagerV2
+                .withTitle(params.conversationTitle)
+                .getArtifactById(artifactId);
               if (artifact) {
                 resolvedResult = artifact;
               } else {
@@ -555,7 +556,7 @@ export class ConversationRenderer {
     }
   }
 
-  private async buildMessageMetadata(
+  public async buildMessageMetadata(
     title: string,
     options: {
       messageId?: string;
@@ -563,6 +564,7 @@ export class ConversationRenderer {
       command?: string;
       includeHistory?: boolean;
       type?: string;
+      artifactType?: ArtifactType;
     } = {}
   ) {
     const { messageId = uniqueID(), role = 'Steward', command, includeHistory } = options;
@@ -573,11 +575,14 @@ export class ConversationRenderer {
       ...(command && {
         COMMAND: command,
       }),
-      ...(includeHistory === false && {
-        HISTORY: 'false',
-      }),
       ...(options.type && {
         TYPE: options.type,
+      }),
+      ...(options.artifactType && {
+        ARTIFACT_TYPE: options.artifactType,
+      }),
+      ...(includeHistory === false && {
+        HISTORY: 'false',
       }),
     };
 
@@ -1036,7 +1041,12 @@ export class ConversationRenderer {
           command: metadata.COMMAND || '',
           lang: metadata.LANG,
           history: includeInHistory,
-          type: metadata.TYPE,
+          ...(metadata.TYPE && {
+            type: metadata.TYPE,
+          }),
+          ...(metadata.ARTIFACT_TYPE && {
+            artifactType: metadata.ARTIFACT_TYPE,
+          }),
         });
       }
 
@@ -1104,18 +1114,21 @@ export class ConversationRenderer {
       // Get messages after the topicStartIndex (either summary or topic start)
       const messagesToInclude = messagesForHistory
         .slice(topicStartIndex)
-        .filter(message => !message.ignored);
+        .filter(message => !message.ignored)
+        .slice(-maxMessages);
 
-      return messagesToInclude.slice(-maxMessages).map(message => {
+      const result: ConversationHistoryMessage[] = [];
+
+      for (const message of messagesToInclude) {
         if (message.type === 'tool-invocation') {
-          const toolInvocations = this.deserializeToolInvocations({
+          const toolInvocations = await this.deserializeToolInvocations({
             message,
             conversationTitle,
             allMessages,
           });
 
           if (toolInvocations && toolInvocations.length > 0) {
-            return {
+            result.push({
               id: message.id,
               content: '',
               role: 'assistant',
@@ -1126,16 +1139,18 @@ export class ConversationRenderer {
                   state: 'result',
                 },
               })),
-            };
+            });
+            continue;
           }
         }
-
-        return {
+        result.push({
           id: message.id,
           role: message.role,
           content: message.content,
-        };
-      });
+        });
+      }
+
+      return result;
     } catch (error) {
       logger.error('Error extracting conversation history:', error);
       return [];

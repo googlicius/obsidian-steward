@@ -4,10 +4,11 @@ import {
 } from 'src/lib/modelfusion/prompts/commands';
 import { joinWithConjunction, removeConsecutiveItems } from 'src/utils/arrayUtils';
 import { twoStepExtractionPrompt } from './twoStepExtractionPrompt';
+import { Artifact } from 'src/solutions/artifact';
 
 export function getQueryExtractionPrompt(args: {
   commandTypes: string[];
-  currentArtifacts?: Array<{ type: string }>;
+  currentArtifacts?: Artifact[];
 }) {
   const { currentArtifacts } = args;
   // Remove consecutive commands to avoid duplicate commands descriptions and templates
@@ -40,7 +41,7 @@ GUIDELINES:
 - DO NOT provide your answers or opinions directly in command's queries.
 - Queries must be in the user's perspective.
 - This is a one-round extraction, so ensure you include all necessary information in each query.
-- You MUST include all of the given commands: ${joinWithConjunction(
+- You MUST include ALL the given commands in the same order: ${joinWithConjunction(
     commandTypes.map(cmd => `"${cmd}"`),
     'and'
   )}.`;

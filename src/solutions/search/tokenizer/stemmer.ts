@@ -155,7 +155,7 @@ export function stemmer(w: string) {
     }
   } else if (re2.test(w)) {
     const fp = re2.exec(w);
-    stem = fp?.[1] ?? '' + fp?.[2] ?? '';
+    stem = fp?.[1] ?? fp?.[2] ?? '';
     re2 = new RegExp(mgr1);
     if (re2.test(stem)) {
       w = stem;

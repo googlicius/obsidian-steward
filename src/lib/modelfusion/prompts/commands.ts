@@ -5,7 +5,7 @@
  */
 
 import * as yaml from 'js-yaml';
-import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { Artifact, ArtifactType } from 'src/solutions/artifact';
 
 export interface CommandDefinition {
   commandType: string;
@@ -433,13 +433,13 @@ export function getValidCommandTypes(): string[] {
  * @param artifacts - Array of artifacts with type
  * @returns Formatted string showing current artifacts, or empty string if none
  */
-export function formatCurrentArtifacts(artifacts?: Array<{ type: string }>): string {
+export function formatCurrentArtifacts(artifacts?: Pick<Artifact, 'artifactType'>[]): string {
   if (!artifacts || artifacts.length === 0) {
     return 'There is no current artifacts in the conversation.';
   }
 
   // Get unique artifact types
-  const uniqueTypes = [...new Set(artifacts.map(artifact => artifact.type))];
+  const uniqueTypes = [...new Set(artifacts.map(artifact => artifact.artifactType))];
 
   const artifactList = uniqueTypes.map(type => `- ${type}`).join('\n');
 

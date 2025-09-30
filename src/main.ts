@@ -17,7 +17,7 @@ import { encrypt, decrypt, generateSaltKeyId } from './utils/cryptoUtils';
 import { formatDateTime } from './utils/dateUtils';
 import { logger } from './utils/logger';
 import { ConversationRenderer } from './services/ConversationRenderer';
-import { ConversationArtifactManager } from './services/ConversationArtifactManager';
+import { ArtifactManagerV2 } from './solutions/artifact/ArtifactManagerV2';
 import { ContentReadingService } from './services/ContentReadingService';
 import { StewardPluginSettings } from './types/interfaces';
 import { Line, Text } from '@codemirror/state';
@@ -51,7 +51,7 @@ export default class StewardPlugin extends Plugin {
   obsidianAPITools: ObsidianAPITools;
   searchService: SearchService;
   chatTitle = 'Steward Chat';
-  artifactManager: ConversationArtifactManager;
+  artifactManagerV2: ArtifactManagerV2;
   conversationRenderer: ConversationRenderer;
   contentReadingService: ContentReadingService;
   commandProcessorService: CommandProcessorService;
@@ -149,8 +149,8 @@ export default class StewardPlugin extends Plugin {
     // Initialize the ConversationRenderer
     this.conversationRenderer = ConversationRenderer.getInstance(this);
 
-    // Initialize the ConversationArtifactManager
-    this.artifactManager = ConversationArtifactManager.getInstance();
+    // Initialize the ArtifactManagerV2
+    this.artifactManagerV2 = ArtifactManagerV2.getInstance(this);
 
     // Initialize the conversation event handler
     this.conversationEventHandler = new ConversationEventHandler({ plugin: this });

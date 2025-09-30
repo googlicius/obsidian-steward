@@ -5,9 +5,8 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { extractMoveQuery, MoveExtraction } from 'src/lib/modelfusion';
-import { Artifact, ArtifactType } from 'src/services/ConversationArtifactManager';
+import { Artifact, ArtifactType } from 'src/solutions/artifact';
 import { getTranslation } from 'src/i18n';
-import { logger } from 'src/utils/logger';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
 import { MediaTools } from 'src/tools/mediaTools';
@@ -42,19 +41,19 @@ export class MoveCommandHandler extends CommandHandler {
 
     // Check the search result of the previous command
     if (prevCommand && prevCommand.commandType === 'search') {
-      const artifact = this.artifactManager.getMostRecentArtifact(title);
+      const artifact = await this.plugin.artifactManagerV2
+        .withTitle(title)
+        .getMostRecentArtifactByType(ArtifactType.SEARCH_RESULTS);
 
-      if (artifact && artifact.type === ArtifactType.SEARCH_RESULTS) {
-        if (artifact.originalResults.length === 0) {
-          await this.renderer.updateConversationNote({
-            path: title,
-            newContent: `*${t('move.noSearchResultsFoundAbortMove')}*`,
-          });
+      if (artifact && artifact.originalResults.length === 0) {
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: `*${t('move.noSearchResultsFoundAbortMove')}*`,
+        });
 
-          return {
-            status: CommandResultStatus.SUCCESS,
-          };
-        }
+        return {
+          status: CommandResultStatus.SUCCESS,
+        };
       }
     }
 
@@ -83,11 +82,13 @@ export class MoveCommandHandler extends CommandHandler {
 
       if (extraction.context === 'artifact') {
         // Get the most recent artifact
-        artifact = this.artifactManager.getMostRecentArtifactOfTypes(title, [
-          ArtifactType.SEARCH_RESULTS,
-          ArtifactType.CREATED_NOTES,
-          ArtifactType.READ_CONTENT,
-        ]);
+        artifact = await this.plugin.artifactManagerV2
+          .withTitle(title)
+          .getMostRecentArtifactOfTypes([
+            ArtifactType.SEARCH_RESULTS,
+            ArtifactType.CREATED_NOTES,
+            ArtifactType.READ_CONTENT,
+          ]);
 
         if (!artifact) {
           await this.renderer.updateConversationNote({
@@ -101,19 +102,19 @@ export class MoveCommandHandler extends CommandHandler {
           };
         }
 
-        if (artifact.type === ArtifactType.SEARCH_RESULTS) {
+        if (artifact.artifactType === ArtifactType.SEARCH_RESULTS) {
           docs = artifact.originalResults.map(result => ({ path: result.document.path }));
-        } else if (artifact.type === ArtifactType.CREATED_NOTES) {
+        } else if (artifact.artifactType === ArtifactType.CREATED_NOTES) {
           // Convert string paths to IndexedDocument objects
           docs = artifact.paths.map(path => ({ path }));
-        } else if (artifact.type === ArtifactType.READ_CONTENT) {
+        } else if (artifact.artifactType === ArtifactType.READ_CONTENT) {
           // For read content, get the file from the reading result
           const file = artifact.readingResult.file;
           docs = file ? [{ path: file.path }] : [];
         } else {
           await this.renderer.updateConversationNote({
             path: title,
-            newContent: `*${t('move.cannotMoveThisType', { type: artifact.type })}*`,
+            newContent: `*${t('move.cannotMoveThisType', { type: artifact.artifactType })}*`,
           });
 
           return {
@@ -164,9 +165,9 @@ export class MoveCommandHandler extends CommandHandler {
             return this.handle(params, { extraction, folderExistsConfirmed: true });
           },
           onRejection: () => {
-            if (artifact) {
-              this.artifactManager.deleteArtifact(title, artifact.id);
-            }
+            // if (artifact) {
+            //   this.artifactManager.deleteArtifact(title, artifact.id);
+            // }
             return {
               status: CommandResultStatus.SUCCESS,
             };
@@ -230,14 +231,14 @@ export class MoveCommandHandler extends CommandHandler {
       const result = await this.obsidianAPITools.moveByOperations(operations, filesByOperation);
 
       // Delete the most recent artifact (if any) after moving
-      const artifact = this.artifactManager.getMostRecentArtifact(title);
-      if (artifact && artifact.id) {
-        if (this.artifactManager.deleteArtifact(title, artifact.id)) {
-          logger.log(
-            `Artifact of type ${artifact.type} deleted successfully (created ${new Date(artifact.createdAt).toLocaleString()}).`
-          );
-        }
-      }
+      // const artifact = this.plugin.artifactManagerV2.withTitle(title).getMostRecentArtifact(title);
+      // if (artifact && artifact.id) {
+      //   if (this.artifactManager.deleteArtifact(title, artifact.id)) {
+      //     logger.log(
+      //       `Artifact of type ${artifact.type} deleted successfully (created ${new Date(artifact.createdAt).toLocaleString()}).`
+      //     );
+      //   }
+      // }
 
       // Format the results
       const response = this.formatMoveResult({

@@ -6,7 +6,7 @@ import {
 } from '../../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
-import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { ArtifactType } from 'src/solutions/artifact';
 import { SearchQueryExtractionV2, SearchOperationV2 } from './zSchemas';
 import { MediaTools } from 'src/tools/mediaTools';
 import type StewardPlugin from 'src/main';
@@ -233,26 +233,31 @@ export class SearchCommandHandler extends CommandHandler {
 
       // Store the search results in the artifact manager
       if (messageId && queryResult.conditionResults.length > 0) {
-        this.plugin.artifactManager.storeArtifact(title, messageId, {
-          type: ArtifactType.SEARCH_RESULTS,
-          originalResults: queryResult.conditionResults,
+        await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+          text: `*${t('common.artifactCreated', {
+            type: ArtifactType.SEARCH_RESULTS,
+          })}*`,
+          artifact: {
+            artifactType: ArtifactType.SEARCH_RESULTS,
+            originalResults: queryResult.conditionResults,
+          },
         });
 
         // Create artifact content with description of results
-        const artifactContent = `${t('search.artifactDescription', { count: queryResult.count })}\n\n${t('search.artifactNote')}`;
+        // const artifactContent = `${t('search.artifactDescription', { count: queryResult.count })}\n\n${t('search.artifactNote')}`;
 
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: `*${t('common.artifactCreated', {
-            type: ArtifactType.SEARCH_RESULTS,
-          })}*`,
-          artifactContent,
-          role: {
-            name: 'Assistant',
-            showLabel: false,
-          },
-          command: 'search',
-        });
+        // await this.renderer.updateConversationNote({
+        //   path: title,
+        //   newContent: `*${t('common.artifactCreated', {
+        //     type: ArtifactType.SEARCH_RESULTS,
+        //   })}*`,
+        //   artifactContent,
+        //   role: {
+        //     name: 'Assistant',
+        //     showLabel: false,
+        //   },
+        //   command: 'search',
+        // });
       }
 
       return {
