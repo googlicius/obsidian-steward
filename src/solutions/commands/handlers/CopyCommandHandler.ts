@@ -5,7 +5,7 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { ArtifactType } from 'src/solutions/artifact';
 import { Events } from 'src/types/events';
 import { eventEmitter } from 'src/services/EventEmitter';
 import {
@@ -45,29 +45,28 @@ export class CopyCommandHandler extends CommandHandler {
 
     // Check the search result of the previous command
     if (prevCommand && prevCommand.commandType === 'search') {
-      const artifact = this.artifactManager.getMostRecentArtifact(title);
+      const artifact = await this.plugin.artifactManagerV2
+        .withTitle(title)
+        .getMostRecentArtifactByType(ArtifactType.SEARCH_RESULTS);
 
-      if (artifact && artifact.type === ArtifactType.SEARCH_RESULTS) {
-        if (artifact.originalResults.length === 0) {
-          await this.renderer.updateConversationNote({
-            path: title,
-            newContent: `*${t('copy.noSearchResultsFoundAbortCopy')}*`,
-            lang,
-          });
+      if (artifact && artifact.originalResults.length === 0) {
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: `*${t('copy.noSearchResultsFoundAbortCopy')}*`,
+          lang,
+        });
 
-          return {
-            status: CommandResultStatus.SUCCESS,
-          };
-        }
+        return {
+          status: CommandResultStatus.SUCCESS,
+        };
       }
     }
 
     try {
       // Retrieve the most recent artifact regardless of type
-      const artifact = this.artifactManager.getMostRecentArtifactOfTypes(title, [
-        ArtifactType.SEARCH_RESULTS,
-        ArtifactType.CREATED_NOTES,
-      ]);
+      const artifact = await this.plugin.artifactManagerV2
+        .withTitle(title)
+        .getMostRecentArtifactOfTypes([ArtifactType.SEARCH_RESULTS, ArtifactType.CREATED_NOTES]);
 
       if (!artifact) {
         await this.renderer.updateConversationNote({
@@ -85,14 +84,14 @@ export class CopyCommandHandler extends CommandHandler {
       // Handle different artifact types
       let docs: DocWithPath[] = [];
 
-      if (artifact.type === ArtifactType.SEARCH_RESULTS) {
+      if (artifact.artifactType === ArtifactType.SEARCH_RESULTS) {
         docs = artifact.originalResults.map(item => ({ path: item.document.path }));
-      } else if (artifact.type === ArtifactType.CREATED_NOTES) {
+      } else if (artifact.artifactType === ArtifactType.CREATED_NOTES) {
         docs = artifact.paths.map(path => ({ path }));
       } else {
         await this.renderer.updateConversationNote({
           path: title,
-          newContent: `*${t('copy.cannotCopyThisType', { type: artifact.type })}*`,
+          newContent: `*${t('copy.cannotCopyThisType', { type: artifact.artifactType })}*`,
           lang,
         });
 
@@ -153,7 +152,7 @@ export class CopyCommandHandler extends CommandHandler {
             return this.handle(params, { extraction, folderExistsConfirmed: true });
           },
           onRejection: () => {
-            this.artifactManager.deleteArtifact(title, artifact.id);
+            // this.artifactManager.deleteArtifact(title, artifact.id);
             return {
               status: CommandResultStatus.SUCCESS,
             };

@@ -5,7 +5,7 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { ArtifactType } from 'src/solutions/artifact';
 import { Events } from 'src/types/events';
 import { eventEmitter } from 'src/services/EventEmitter';
 import type StewardPlugin from 'src/main';
@@ -61,10 +61,9 @@ export class DeleteCommandHandler extends CommandHandler {
 
     try {
       // Retrieve the most recent artifact regardless of type
-      const artifact = this.artifactManager.getMostRecentArtifactOfTypes(title, [
-        ArtifactType.SEARCH_RESULTS,
-        ArtifactType.CREATED_NOTES,
-      ]);
+      const artifact = await this.plugin.artifactManagerV2
+        .withTitle(title)
+        .getMostRecentArtifactOfTypes([ArtifactType.SEARCH_RESULTS, ArtifactType.CREATED_NOTES]);
 
       if (!artifact) {
         await this.renderer.updateConversationNote({
@@ -82,16 +81,16 @@ export class DeleteCommandHandler extends CommandHandler {
       // Handle different artifact types
       let docs: DocWithPath[] = [];
 
-      if (artifact.type === ArtifactType.SEARCH_RESULTS) {
+      if (artifact.artifactType === ArtifactType.SEARCH_RESULTS) {
         docs = artifact.originalResults.map(result => ({
           path: result.document.path,
         }));
-      } else if (artifact.type === ArtifactType.CREATED_NOTES) {
+      } else if (artifact.artifactType === ArtifactType.CREATED_NOTES) {
         docs = artifact.paths.map(path => ({ path }));
       } else {
         await this.renderer.updateConversationNote({
           path: title,
-          newContent: t('common.cannotDeleteThisType', { type: artifact.type }),
+          newContent: t('common.cannotDeleteThisType', { type: artifact.artifactType }),
           role: 'Steward',
         });
         logger.error('Cannot delete this artifact', artifact);
@@ -168,7 +167,7 @@ export class DeleteCommandHandler extends CommandHandler {
       });
 
       // Delete the artifact
-      this.artifactManager.deleteArtifact(title, artifact.id);
+      // this.artifactManager.deleteArtifact(title, artifact.id);
 
       return {
         status: CommandResultStatus.SUCCESS,

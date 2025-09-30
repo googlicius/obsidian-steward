@@ -5,7 +5,7 @@ import {
   CommandResultStatus,
 } from '../../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { ArtifactType } from 'src/solutions/artifact';
 import { streamText, generateText, tool } from 'ai';
 import { prepareMessage } from 'src/lib/modelfusion';
 import { MediaTools } from 'src/tools/mediaTools';
@@ -18,7 +18,6 @@ import { type CommandProcessor } from '../../CommandProcessor';
 import { ReadCommandHandler } from '../ReadCommandHandler/ReadCommandHandler';
 import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { updateContentSchema, generateContentSchema, readContentSchema } from './zSchemas';
-import { uniqueID } from 'src/utils/uniqueID';
 
 export interface ContentUpdate {
   updatedContent: string;
@@ -98,12 +97,11 @@ The response should be in natural language and not include the selection(s) {{st
     }
 
     // Get recently created note information (for context)
-    const createdNotesArtifact = this.artifactManager.getMostRecentArtifactByType(
-      title,
-      ArtifactType.CREATED_NOTES
-    );
+    const createdNotesArtifact = await this.plugin.artifactManagerV2
+      .withTitle(title)
+      .getMostRecentArtifactByType(ArtifactType.CREATED_NOTES);
     // Get recently created note information
-    if (createdNotesArtifact && createdNotesArtifact.type === ArtifactType.CREATED_NOTES) {
+    if (createdNotesArtifact && createdNotesArtifact.artifactType === ArtifactType.CREATED_NOTES) {
       // We have a recently created note (available for future use)
     }
 
@@ -245,11 +243,13 @@ ${languageEnforcementFragment}`,
             }
 
             // Store artifact
-            const artifactId = uniqueID();
-            this.artifactManager.storeArtifact(title, artifactId, {
-              type: ArtifactType.CONTENT_UPDATE,
-              updateExtraction: toolCall.args,
-              path: toolCall.args.notePath || this.app.workspace.getActiveFile()?.path || '',
+            const artifactId = await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+              text: `*${t('common.artifactCreated', { type: ArtifactType.CONTENT_UPDATE })}*`,
+              artifact: {
+                artifactType: ArtifactType.CONTENT_UPDATE,
+                updateExtraction: toolCall.args,
+                path: toolCall.args.notePath || this.app.workspace.getActiveFile()?.path || '',
+              },
             });
 
             for (const update of toolCall.args.updates) {
@@ -278,7 +278,7 @@ ${languageEnforcementFragment}`,
             await this.renderer.serializeToolInvocation({
               path: title,
               command: 'generate',
-              text: `*${t('common.artifactCreated', { type: ArtifactType.CONTENT_UPDATE })}*`,
+              text: '',
               toolInvocations,
             });
 
@@ -403,7 +403,7 @@ ${languageEnforcementFragment}`,
                 lang,
               });
 
-              this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
+              // this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
             }
 
             break;

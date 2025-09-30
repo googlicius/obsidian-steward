@@ -21,8 +21,8 @@ export interface ClusterVersionEntry {
  * Database for storing embeddings for EmbeddingSimilarityClassifier
  */
 export class EmbeddingsDatabase extends Dexie {
-  embeddings!: Table<EmbeddingEntry>;
-  clusterVersions!: Table<ClusterVersionEntry>;
+  embeddings: Table<EmbeddingEntry>;
+  clusterVersions: Table<ClusterVersionEntry>;
 
   constructor(name = 'steward_embeddings') {
     super(name);

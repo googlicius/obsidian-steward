@@ -18,6 +18,9 @@ jest.mock('ai', () => {
   };
 });
 
+/**
+ * Creates a mock plugin
+ */
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   const mockApp = {
     vault: {
@@ -32,7 +35,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
   };
 
   const mockArtifactManager = {
-    storeArtifact: jest.fn(),
+    withTitle: jest.fn().mockReturnValue({
+      storeArtifact: jest.fn().mockResolvedValue('artifact-id-123'),
+    }),
   };
 
   const mockPlugin = {
@@ -60,7 +65,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       readContent: jest.fn(),
     },
     conversationRenderer: mockRenderer,
-    artifactManager: mockArtifactManager,
+    artifactManagerV2: mockArtifactManager,
   } as unknown as StewardPlugin;
 
   return {

@@ -13,7 +13,7 @@ import {
   WIKI_LINK_PATTERN,
   STW_SELECTED_PLACEHOLDER,
 } from 'src/constants';
-import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { Artifact, ArtifactType } from 'src/solutions/artifact';
 import * as yaml from 'js-yaml';
 import { generateObject } from 'ai';
 import { getCommandTypePrompt } from './commandTypePrompt';
@@ -60,7 +60,7 @@ export class GeneralCommandHandler extends CommandHandler {
     lang?: string | null;
     isReloadRequest?: boolean;
     ignoreClassify?: boolean;
-    currentArtifacts?: Array<{ type: string }>;
+    currentArtifacts?: Artifact[];
   }): Promise<CommandIntentExtraction> {
     const {
       command,
@@ -182,7 +182,7 @@ export class GeneralCommandHandler extends CommandHandler {
   private async extractCommandTypes(args: {
     command: CommandIntent;
     conversationHistories: ConversationHistoryMessage[];
-    currentArtifacts?: Array<{ type: string }>;
+    currentArtifacts?: Artifact[];
   }): Promise<CommandTypeExtraction> {
     const { command, conversationHistories = [], currentArtifacts } = args;
 
@@ -234,7 +234,7 @@ export class GeneralCommandHandler extends CommandHandler {
     command: CommandIntent;
     commandTypes: string[];
     conversationHistories: ConversationHistoryMessage[];
-    currentArtifacts?: Array<{ type: string }>;
+    currentArtifacts?: Artifact[];
   }): Promise<QueryExtraction> {
     const { command, commandTypes, conversationHistories = [], currentArtifacts } = args;
 
@@ -356,7 +356,9 @@ NOTE:
         }
 
         // Get current artifacts for the conversation
-        const currentArtifacts = this.artifactManager.getCurrentArtifacts(title);
+        const currentArtifacts = await this.plugin.artifactManagerV2
+          .withTitle(title)
+          .getAllArtifacts();
 
         extraction = await this.extractCommandIntent({
           command: {
@@ -372,11 +374,13 @@ NOTE:
       }
 
       // Store the extraction result as an artifact
-      this.artifactManager.storeArtifact(title, `extraction-${Date.now()}`, {
-        type: ArtifactType.EXTRACTION_RESULT,
-        content: {
-          query: command.query,
-          commands: extraction.commands,
+      await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+        artifact: {
+          artifactType: ArtifactType.EXTRACTION_RESULT,
+          content: {
+            query: command.query,
+            commands: extraction.commands,
+          },
         },
       });
 

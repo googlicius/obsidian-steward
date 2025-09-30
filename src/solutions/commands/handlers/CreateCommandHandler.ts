@@ -5,7 +5,7 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { ArtifactType } from 'src/solutions/artifact';
 import { extractNoteCreation, NoteCreationExtraction } from 'src/lib/modelfusion/extractions';
 
 import type StewardPlugin from 'src/main';
@@ -158,23 +158,14 @@ export class CreateCommandHandler extends CommandHandler {
         });
 
         if (messageId) {
-          this.artifactManager.storeArtifact(title, messageId, {
-            type: ArtifactType.CREATED_NOTES,
-            paths: createdNotes,
-            createdAt: Date.now(),
-          });
-
-          await this.renderer.updateConversationNote({
-            path: title,
-            newContent: `*${t('common.artifactCreated', {
+          await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+            text: `*${t('common.artifactCreated', {
               type: ArtifactType.CREATED_NOTES,
             })}*`,
-            artifactContent: createdNotes.join('\n\n'),
-            command: 'create',
-            lang,
-            role: {
-              name: 'Assistant',
-              showLabel: false,
+            artifact: {
+              artifactType: ArtifactType.CREATED_NOTES,
+              paths: createdNotes,
+              createdAt: Date.now(),
             },
           });
         }

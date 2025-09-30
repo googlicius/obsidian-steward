@@ -5,7 +5,7 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { ArtifactType } from 'src/solutions/artifact';
 import { Events } from 'src/types/events';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { extractUpdateFromSearchResult, UpdateInstruction } from 'src/lib/modelfusion/extractions';
@@ -42,7 +42,9 @@ export class UpdateCommandHandler extends CommandHandler {
 
     try {
       // Retrieve the most recent artifact of updatable types
-      const artifact = this.artifactManager.getMostRecentArtifactOfTypes(title, updatableTypes);
+      const artifact = await this.plugin.artifactManagerV2
+        .withTitle(title)
+        .getMostRecentArtifactOfTypes(updatableTypes);
 
       if (!artifact) {
         await this.renderer.updateConversationNote({
@@ -57,7 +59,7 @@ export class UpdateCommandHandler extends CommandHandler {
       }
 
       // If we have a content update artifact, we can use it directly
-      if (artifact.type === ArtifactType.CONTENT_UPDATE) {
+      if (artifact.artifactType === ArtifactType.CONTENT_UPDATE) {
         // Convert the updates in the extraction to UpdateInstruction objects
         const updateInstructions = artifact.updateExtraction.updates
           .filter(update => update.updatedContent !== update.originalContent)
@@ -89,7 +91,7 @@ export class UpdateCommandHandler extends CommandHandler {
             return this.performUpdateFromArtifact(title, updateInstructions, lang);
           },
           onRejection: () => {
-            this.artifactManager.deleteArtifact(title, artifact.id);
+            // this.artifactManager.deleteArtifact(title, artifact.id);
             return {
               status: CommandResultStatus.SUCCESS,
             };
@@ -148,7 +150,9 @@ export class UpdateCommandHandler extends CommandHandler {
 
     try {
       // Retrieve the most recent artifact of updatable types
-      const artifact = this.artifactManager.getMostRecentArtifactOfTypes(title, updatableTypes);
+      const artifact = await this.plugin.artifactManagerV2
+        .withTitle(title)
+        .getMostRecentArtifactOfTypes(updatableTypes);
 
       if (!artifact) {
         await this.renderer.updateConversationNote({
@@ -166,11 +170,11 @@ export class UpdateCommandHandler extends CommandHandler {
       // Handle different artifact types
       let docs: DocWithPath[] = [];
 
-      if (artifact.type === ArtifactType.SEARCH_RESULTS) {
+      if (artifact.artifactType === ArtifactType.SEARCH_RESULTS) {
         docs = artifact.originalResults.map(result => ({ path: result.document.path }));
-      } else if (artifact.type === ArtifactType.CREATED_NOTES) {
+      } else if (artifact.artifactType === ArtifactType.CREATED_NOTES) {
         docs = artifact.paths.map(path => ({ path }));
-      } else if (artifact.type === ArtifactType.CONTENT_UPDATE) {
+      } else if (artifact.artifactType === ArtifactType.CONTENT_UPDATE) {
         docs = [{ path: artifact.path }];
       } else {
         await this.renderer.updateConversationNote({

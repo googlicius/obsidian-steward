@@ -26,6 +26,7 @@ export interface ConversationMessage {
   command: string;
   history?: boolean;
   type?: string;
+  artifactType?: string;
 }
 
 /**

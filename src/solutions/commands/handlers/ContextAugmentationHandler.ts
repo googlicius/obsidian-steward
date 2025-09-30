@@ -6,7 +6,7 @@ import {
 } from '../CommandHandler';
 import { logger } from 'src/utils/logger';
 import { getTranslation } from 'src/i18n/index';
-import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { ArtifactType } from 'src/solutions/artifact';
 import type StewardPlugin from 'src/main';
 import type { CommandProcessor } from '../CommandProcessor';
 import { ContextAugmentationIntent } from 'src/types/types';
@@ -50,10 +50,9 @@ export class ContextAugmentationHandler extends CommandHandler {
       const pendingCommandData = this.commandProcessor.getPendingCommand(title);
 
       // Get the most recent extraction result
-      const extractionArtifact = this.artifactManager.getMostRecentArtifactByType(
-        title,
-        ArtifactType.EXTRACTION_RESULT
-      );
+      const extractionArtifact = await this.plugin.artifactManagerV2
+        .withTitle(title)
+        .getMostRecentArtifactByType(ArtifactType.EXTRACTION_RESULT);
 
       if (!extractionArtifact || !extractionArtifact.content) {
         logger.error('No extraction result found for context augmentation');

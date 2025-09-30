@@ -1,3 +1,4 @@
+import { ArtifactType } from 'src/solutions/artifact';
 import {
   COMMAND_DEFINITIONS,
   CommandDefinition,
@@ -11,8 +12,8 @@ describe('commands', () => {
   describe('formatCurrentArtifacts', () => {
     it('should return formatted current artifacts for prompt', () => {
       const formattedArtifacts = formatCurrentArtifacts([
-        { type: 'search_results' },
-        { type: 'read_content' },
+        { artifactType: ArtifactType.SEARCH_RESULTS },
+        { artifactType: ArtifactType.READ_CONTENT },
       ]);
       expect(formattedArtifacts).toMatchSnapshot();
     });

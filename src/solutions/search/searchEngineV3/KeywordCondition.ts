@@ -70,18 +70,18 @@ export class KeywordCondition extends Condition<IndexedDocument> {
       return true; // Single token is always "consecutive"
     }
 
-    // Convert position arrays to Sets for O(1) lookup instead of O(n)
-    const positionSets = new Map<string, Set<number>>();
+    // Convert position arrays to a Map for O(1) lookup instead of O(n)
+    const positionMap = new Map<string, Set<number>>();
     for (const token of tokens) {
       const positions = termsMap.get(token);
       if (!positions || positions.length === 0) {
         return false; // If any token is missing, no consecutive sequence possible
       }
-      positionSets.set(token, new Set(positions));
+      positionMap.set(token, new Set(positions));
     }
 
     // Get all positions for the first token
-    const firstTokenPositions = positionSets.get(tokens[0]);
+    const firstTokenPositions = positionMap.get(tokens[0]);
     if (!firstTokenPositions) {
       return false;
     }
@@ -93,7 +93,7 @@ export class KeywordCondition extends Condition<IndexedDocument> {
       // Check if all other tokens appear in consecutive positions
       for (let i = 1; i < tokens.length; i++) {
         const expectedPos = startPos + i;
-        const tokenPositions = positionSets.get(tokens[i]);
+        const tokenPositions = positionMap.get(tokens[i]);
         if (!tokenPositions) {
           isConsecutive = false;
           break;

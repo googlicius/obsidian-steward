@@ -7,7 +7,7 @@ import {
 import { experimental_generateImage } from 'ai';
 import { getTranslation } from 'src/i18n';
 import { extractImageQuery } from 'src/lib/modelfusion/extractions';
-import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { ArtifactType } from 'src/solutions/artifact';
 import { logger } from 'src/utils/logger';
 
 import type StewardPlugin from 'src/main';
@@ -81,13 +81,15 @@ export class ImageCommandHandler extends CommandHandler {
 
       // Store the media artifact
       if (messageId && result.filePath) {
-        this.artifactManager.storeArtifact(title, messageId, {
-          type: ArtifactType.MEDIA_RESULTS,
-          paths: [result.filePath],
-          mediaType: 'image',
-        });
-
         const t = getTranslation(lang);
+        await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+          text: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
+          artifact: {
+            artifactType: ArtifactType.MEDIA_RESULTS,
+            paths: [result.filePath],
+            mediaType: 'image',
+          },
+        });
         await this.renderer.updateConversationNote({
           path: title,
           newContent: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,

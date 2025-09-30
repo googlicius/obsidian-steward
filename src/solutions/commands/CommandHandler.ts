@@ -3,7 +3,6 @@ import type { ObsidianAPITools } from 'src/tools/obsidianAPITools';
 import type { App } from 'obsidian';
 import type StewardPlugin from '../../main';
 import type { StewardPluginSettings } from 'src/types/interfaces';
-import type { ConversationArtifactManager } from 'src/services/ConversationArtifactManager';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 
 export enum CommandResultStatus {
@@ -63,10 +62,6 @@ export abstract class CommandHandler {
 
   get renderer(): ConversationRenderer {
     return this.plugin.conversationRenderer;
-  }
-
-  get artifactManager(): ConversationArtifactManager {
-    return this.plugin.artifactManager;
   }
 
   get obsidianAPITools(): ObsidianAPITools {

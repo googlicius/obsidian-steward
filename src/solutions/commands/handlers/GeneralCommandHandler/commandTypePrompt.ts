@@ -5,8 +5,9 @@ import {
   getArtifactInstructions,
 } from 'src/lib/modelfusion/prompts/commands';
 import { twoStepExtractionPrompt } from './twoStepExtractionPrompt';
+import { Artifact } from 'src/solutions/artifact';
 
-export function getCommandTypePrompt(args: { currentArtifacts?: Array<{ type: string }> }) {
+export function getCommandTypePrompt(args: { currentArtifacts?: Artifact[] }) {
   return `${twoStepExtractionPrompt(1)}
 
 You are a helpful assistant analyzing user queries to determine their intent for an Obsidian note management system.

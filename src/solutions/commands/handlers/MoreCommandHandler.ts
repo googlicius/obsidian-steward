@@ -6,7 +6,7 @@ import {
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
-import { ArtifactType } from 'src/services/ConversationArtifactManager';
+import { ArtifactType } from 'src/solutions/artifact';
 import type StewardPlugin from 'src/main';
 import { type SearchCommandHandler } from './SearchCommandHandler/SearchCommandHandler';
 import { ConditionResult } from 'src/solutions/search/searchEngineV3';
@@ -60,12 +60,11 @@ export class MoreCommandHandler extends CommandHandler {
       const page = moreCommandMetadata ? parseInt(moreCommandMetadata.PAGE) + 1 : 2;
 
       // Retrieve the search results from the artifact manager
-      const searchArtifact = this.plugin.artifactManager.getArtifact(
-        title,
-        stewardSearchMetadata.ID
-      );
+      const searchArtifact = await this.plugin.artifactManagerV2
+        .withTitle(title)
+        .getMostRecentArtifactByType(ArtifactType.SEARCH_RESULTS);
 
-      if (!searchArtifact || searchArtifact.type !== ArtifactType.SEARCH_RESULTS) {
+      if (!searchArtifact) {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: t('search.noRecentSearch'),
