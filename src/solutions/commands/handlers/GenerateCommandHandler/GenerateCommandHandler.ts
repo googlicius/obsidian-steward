@@ -278,7 +278,6 @@ ${languageEnforcementFragment}`,
             await this.renderer.serializeToolInvocation({
               path: title,
               command: 'generate',
-              text: '',
               toolInvocations,
             });
 

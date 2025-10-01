@@ -12,7 +12,7 @@ import { getTranslation } from './i18n';
 import { getObsidianLanguage } from './utils/getObsidianLanguage';
 import type StewardPlugin from './main';
 import { capitalizeString } from './utils/capitalizeString';
-import { StewardPluginSettings } from './types/interfaces';
+import { DeleteBehavior, StewardPluginSettings } from './types/interfaces';
 import { get } from './utils/lodash-like';
 
 // Get the current language and translation function
@@ -229,18 +229,6 @@ export default class StewardSettingTab extends PluginSettingTab {
           })
       );
 
-    // Add bordered input toggle (on top, not under a heading)
-    new Setting(containerEl)
-      .setName(t('settings.borderedInput'))
-      .setDesc(t('settings.borderedInputDesc'))
-      .addToggle(toggle =>
-        toggle.setValue(this.plugin.settings.borderedInput).onChange(async value => {
-          this.plugin.settings.borderedInput = value;
-          await this.plugin.saveSettings();
-          document.body.classList.toggle('stw-bordered-input', value);
-        })
-      );
-
     // Add show role labels toggle
     new Setting(containerEl)
       .setName(t('settings.showRoleLabels'))
@@ -265,22 +253,7 @@ export default class StewardSettingTab extends PluginSettingTab {
       );
 
     // Add delete behavior setting
-    new Setting(containerEl)
-      .setName(t('settings.deleteBehavior'))
-      .setDesc(t('settings.deleteBehaviorDesc'))
-      .addDropdown(dropdown => {
-        dropdown
-          .addOption(
-            'stw_trash',
-            t('settings.moveToTrash', { folder: `${this.plugin.settings.stewardFolder}/Trash` })
-          )
-          .addOption('obsidian_trash', t('settings.useObsidianDeletedFiles'))
-          .setValue(this.plugin.settings.deleteBehavior)
-          .onChange(async value => {
-            this.plugin.settings.deleteBehavior = value as StewardPluginSettings['deleteBehavior'];
-            await this.plugin.saveSettings();
-          });
-      });
+    this.createDeleteBehaviorSetting(containerEl);
 
     // Create API Keys section
     new Setting(containerEl).setName(t('settings.apiKeys')).setHeading();
@@ -645,6 +618,145 @@ export default class StewardSettingTab extends PluginSettingTab {
         text.inputEl.setAttribute('min', '1');
         text.inputEl.setAttribute('max', '100');
       });
+  }
+
+  private createDeleteBehaviorSetting(containerEl: HTMLElement): void {
+    const lang = getObsidianLanguage();
+    const t = getTranslation(lang);
+
+    // Create the main setting first
+    const setting = new Setting(containerEl)
+      .setName(t('settings.deleteBehavior'))
+      .setDesc(t('settings.deleteBehaviorDesc'));
+
+    let currentInputWrapper: HTMLElement | null = null;
+
+    // Function to create delete behavior dropdown
+    const createDeleteBehaviorDropdown = () => {
+      // Create wrapper div
+      const wrapper = setting.controlEl.createEl('div', {
+        cls: 'stw-setting-wrapper',
+      });
+      currentInputWrapper = wrapper;
+
+      // Create select element directly
+      const select = wrapper.createEl('select', {
+        cls: 'dropdown',
+      });
+
+      select.addEventListener('change', async e => {
+        const target = e.target as HTMLSelectElement;
+        this.plugin.settings.deleteBehavior.behavior = target.value as DeleteBehavior['behavior'];
+        await this.plugin.saveSettings();
+      });
+
+      // Add options
+      const options = [
+        {
+          id: 'stw_trash',
+          name: t('settings.moveToTrash', {
+            folder: `${this.plugin.settings.stewardFolder}/Trash`,
+          }),
+        },
+        {
+          id: 'obsidian_trash',
+          name: t('settings.useObsidianDeletedFiles'),
+        },
+      ];
+
+      // Add options to select
+      for (const option of options) {
+        const optionEl = select.createEl('option');
+        optionEl.textContent = option.name;
+        optionEl.value = option.id;
+      }
+
+      // Initialize with current value
+      select.value = this.plugin.settings.deleteBehavior.behavior;
+
+      // Add "Cleanup policy" link (initially hidden if not stw_trash)
+      wrapper
+        .createEl('a', {
+          text: t('settings.cleanupPolicy'),
+          href: '#',
+          cls: 'stw-custom-model-link caret-right',
+        })
+        .addEventListener('click', e => {
+          e.preventDefault();
+          recreateInput('cleanup');
+        });
+    };
+
+    // Function to create cleanup policy dropdown
+    const createCleanupPolicyDropdown = () => {
+      // Create wrapper div
+      const wrapper = setting.controlEl.createEl('div', {
+        cls: 'stw-setting-wrapper',
+      });
+      currentInputWrapper = wrapper;
+
+      // Add "Back" link
+      const backLink = wrapper.createEl('a', {
+        text: t('settings.back'),
+        href: '#',
+        cls: 'stw-custom-model-link caret-left',
+      });
+
+      backLink.addEventListener('click', e => {
+        e.preventDefault();
+        recreateInput('deleteBehavior');
+      });
+
+      // Create select element directly
+      const select = wrapper.createEl('select', {
+        cls: 'dropdown',
+      });
+
+      // Add options
+      const options = [
+        { id: 'never', name: t('settings.never') },
+        { id: '7days', name: t('settings.days7') },
+        { id: '30days', name: t('settings.days30') },
+        { id: '90days', name: t('settings.days90') },
+        { id: '1year', name: t('settings.year1') },
+      ];
+
+      // Add options to select
+      for (const option of options) {
+        const optionEl = select.createEl('option');
+        optionEl.textContent = option.name;
+        optionEl.value = option.id;
+      }
+
+      // Initialize with current value
+      select.value = this.plugin.settings.deleteBehavior.cleanupPolicy || 'never';
+
+      select.addEventListener('change', async e => {
+        const target = e.target as HTMLSelectElement;
+        this.plugin.settings.deleteBehavior.cleanupPolicy =
+          target.value as DeleteBehavior['cleanupPolicy'];
+        await this.plugin.saveSettings();
+      });
+    };
+
+    // Function to remove current input and create new one
+    const recreateInput = (mode: 'deleteBehavior' | 'cleanup') => {
+      // Remove current wrapper if it exists
+      if (currentInputWrapper) {
+        currentInputWrapper.remove();
+        currentInputWrapper = null;
+      }
+
+      // Create new input based on current mode
+      if (mode === 'cleanup') {
+        createCleanupPolicyDropdown();
+      } else {
+        createDeleteBehaviorDropdown();
+      }
+    };
+
+    // Initialize with delete behavior dropdown
+    recreateInput('deleteBehavior');
   }
 
   private createModelSetting(

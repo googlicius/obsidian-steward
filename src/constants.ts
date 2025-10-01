@@ -88,7 +88,6 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
   encryptionVersion: 1, // Current version
   excludedFolders: ['node_modules', 'src', '.git', 'dist'], // Default development folders to exclude
   debug: false, // Debug logging disabled by default
-  borderedInput: true, // Enable bordered input by default
   showPronouns: true, // Show pronouns in chat by default
   audio: {
     model: 'openai', // Default model
@@ -128,7 +127,10 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     withoutLLM: 'relevant',
     resultsPerPage: 10,
   },
-  deleteBehavior: 'stw_trash', // Default to moving files to trash
+  deleteBehavior: {
+    behavior: 'stw_trash', // Default to moving files to trash
+    cleanupPolicy: 'never', // Default to never automatically delete
+  },
 };
 
 // Model options grouped by provider

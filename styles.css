@@ -42,20 +42,6 @@ html[data-stw-language='vi'] {
 
 .stw-input-line {
   background-color: rgba(255, 255, 255, 0.1);
-
-  /* First line in a block: not preceded by another block line */
-  &:not(.stw-input-line + .stw-input-line) {
-    padding-top: 5px !important;
-  }
-
-  /* Last line in a block: no next sibling is a block line */
-  &:not(:has(+ .stw-input-line)) {
-    padding-bottom: 5px !important;
-  }
-}
-
-/* Bordered input styling when enabled */
-body.stw-bordered-input .stw-input-line {
   border-left: thin solid var(--background-modifier-border);
   border-right: thin solid var(--background-modifier-border);
   margin: 0;
@@ -72,6 +58,16 @@ body.stw-bordered-input .stw-input-line {
     border-bottom: thin solid var(--background-modifier-border);
     border-bottom-left-radius: var(--radius-s);
     border-bottom-right-radius: var(--radius-s);
+  }
+
+  /* First line in a block: not preceded by another block line */
+  &:not(.stw-input-line + .stw-input-line) {
+    padding-top: 5px !important;
+  }
+
+  /* Last line in a block: no next sibling is a block line */
+  &:not(:has(+ .stw-input-line)) {
+    padding-bottom: 5px !important;
   }
 }
 

@@ -13,7 +13,7 @@ import {
   WIKI_LINK_PATTERN,
   STW_SELECTED_PLACEHOLDER,
 } from 'src/constants';
-import { Artifact, ArtifactType } from 'src/solutions/artifact';
+import { Artifact } from 'src/solutions/artifact';
 import * as yaml from 'js-yaml';
 import { generateObject } from 'ai';
 import { getCommandTypePrompt } from './commandTypePrompt';
@@ -372,17 +372,6 @@ NOTE:
           currentArtifacts,
         });
       }
-
-      // Store the extraction result as an artifact
-      await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
-        artifact: {
-          artifactType: ArtifactType.EXTRACTION_RESULT,
-          content: {
-            query: command.query,
-            commands: extraction.commands,
-          },
-        },
-      });
 
       // Show extraction explanation if setting is enabled
       if (this.plugin.settings.llm.showExtractionExplanation && extraction.commands.length > 0) {
