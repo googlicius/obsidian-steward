@@ -17,6 +17,7 @@ export enum ArtifactType {
   MEDIA_RESULTS = 'media_results',
   CONVERSATION_SUMMARY = 'conversation_summary',
   EXTRACTION_RESULT = 'extraction-result',
+  DELETED_FILES = 'deleted_files',
 }
 
 /**
@@ -92,6 +93,16 @@ export interface ExtractionResultArtifact extends BaseArtifact {
   };
 }
 
+/**
+ * Deleted files artifact
+ * The artifact ID is used to reference deleted files in .trash-metadata.json
+ */
+export interface DeletedFilesArtifact extends BaseArtifact {
+  artifactType: ArtifactType.DELETED_FILES;
+  // The id field (from BaseArtifact) serves as the reference to deleted files in metadata
+  fileCount: number; // Number of files deleted in this operation
+}
+
 export type Artifact =
   | SearchResultsArtifact
   | CreatedNotesArtifact
@@ -99,7 +110,8 @@ export type Artifact =
   | ContentUpdateArtifact
   | MediaResultsArtifact
   | ConversationSummaryArtifact
-  | ExtractionResultArtifact;
+  | ExtractionResultArtifact
+  | DeletedFilesArtifact;
 
 export type ArtifactMap = {
   [ArtifactType.SEARCH_RESULTS]: SearchResultsArtifact;
@@ -109,6 +121,7 @@ export type ArtifactMap = {
   [ArtifactType.MEDIA_RESULTS]: MediaResultsArtifact;
   [ArtifactType.CONVERSATION_SUMMARY]: ConversationSummaryArtifact;
   [ArtifactType.EXTRACTION_RESULT]: ExtractionResultArtifact;
+  [ArtifactType.DELETED_FILES]: DeletedFilesArtifact;
 };
 
 /**

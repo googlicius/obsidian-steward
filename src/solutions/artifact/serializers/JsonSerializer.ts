@@ -1,11 +1,9 @@
-import { Artifact, ArtifactSerializer, ArtifactType } from '../types';
+import { Artifact, ArtifactSerializer } from '../types';
 
 /**
  * Serializer for JSON-based artifacts
  */
 export class JsonArtifactSerializer implements ArtifactSerializer {
-  constructor(private type: ArtifactType) {}
-
   /**
    * Serialize an artifact to a JSON string wrapped in stw-artifact block
    */
@@ -35,14 +33,6 @@ export class JsonArtifactSerializer implements ArtifactSerializer {
       // Validate the parsed data
       if (!parsed || typeof parsed !== 'object') {
         throw new Error('Invalid artifact data: not an object');
-      }
-
-      if (parsed.artifactType !== this.type) {
-        if (parsed.artifactType) {
-          throw new Error(`Type mismatch: expected ${this.type}, got ${parsed.artifactType}`);
-        } else {
-          // It's OK to parsed without artifactType
-        }
       }
 
       return parsed;

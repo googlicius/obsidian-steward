@@ -211,7 +211,7 @@ export class ConversationRenderer {
   public async serializeToolInvocation<T>(params: {
     path: string;
     command: string;
-    text: string;
+    text?: string;
     toolInvocations: {
       toolName: string;
       toolCallId: string;
@@ -241,9 +241,9 @@ export class ConversationRenderer {
         // Remove the generating indicator and any trailing newlines
         currentContent = this.removeGeneratingIndicator(currentContent);
 
-        let contentToAdd = `${params.text}`;
+        let contentToAdd = params.text ? `${params.text}\n` : '';
 
-        contentToAdd += `\n\`\`\`stw-artifact\n${JSON.stringify(params.toolInvocations)}\n\`\`\``;
+        contentToAdd += `\`\`\`stw-artifact\n${JSON.stringify(params.toolInvocations)}\n\`\`\``;
 
         // Return the updated content
         return `${currentContent}\n\n${comment}\n${contentToAdd}`;

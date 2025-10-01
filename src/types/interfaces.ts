@@ -15,7 +15,6 @@ export interface StewardPluginSettings {
   encryptionVersion?: number; // Track the encryption version for future migrations
   excludedFolders: string[]; // Folders to exclude from Obsidian search
   debug: boolean; // Enable debug logging
-  borderedInput: boolean; // Toggle border around command input
   showPronouns: boolean; // Toggle display of User/Steward pronouns in chat
   // Undefined for backward compatibility
   audio:
@@ -60,5 +59,10 @@ export interface StewardPluginSettings {
     withoutLLM: 'exact' | 'relevant'; // Search mode when query is wrapped in quotation marks
     resultsPerPage: number; // Number of search results per page
   };
-  deleteBehavior: 'stw_trash' | 'obsidian_trash'; // How to handle file deletion
+  deleteBehavior: {
+    behavior: 'stw_trash' | 'obsidian_trash'; // How to handle file deletion
+    cleanupPolicy?: 'never' | '7days' | '30days' | '90days' | '1year'; // When to permanently delete files from stw_trash
+  };
 }
+
+export type DeleteBehavior = StewardPluginSettings['deleteBehavior'];

@@ -244,7 +244,6 @@ export class ReadCommandHandler extends CommandHandler {
         await this.renderer.serializeToolInvocation({
           path: title,
           command: 'read',
-          text: '',
           toolInvocations: toolInvocationArtifactRefs,
         });
       }

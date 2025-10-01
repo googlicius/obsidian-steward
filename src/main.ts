@@ -45,6 +45,7 @@ import { createStwSelectedBlocksExtension } from './cm/extensions/StwSelectedBlo
 import { createStwSqueezedBlocksExtension } from './cm/extensions/StwSqueezedBlockExtension';
 import { capitalizeString } from './utils/capitalizeString';
 import { AbortService } from './services/AbortService';
+import { TrashCleanupService } from './services/TrashCleanupService';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -62,6 +63,7 @@ export default class StewardPlugin extends Plugin {
   llmService: LLMService;
   commandInputService: CommandInputService;
   abortService: AbortService;
+  trashCleanupService: TrashCleanupService;
 
   get editor(): ObsidianEditor {
     return this.app.workspace.activeEditor?.editor as ObsidianEditor;
@@ -161,6 +163,10 @@ export default class StewardPlugin extends Plugin {
     // Initialize the CommandInputService
     this.commandInputService = CommandInputService.getInstance(this);
 
+    // Initialize the TrashCleanupService
+    this.trashCleanupService = new TrashCleanupService(this);
+    this.trashCleanupService.initialize();
+
     this.initializeClassifier();
 
     // Exclude steward folders from search
@@ -178,6 +184,9 @@ export default class StewardPlugin extends Plugin {
 
     // Unload the conversation event handler
     this.conversationEventHandler.unload();
+
+    // Cleanup the trash cleanup service
+    this.trashCleanupService.cleanup();
   }
 
   private registerStuffs() {
@@ -286,9 +295,6 @@ export default class StewardPlugin extends Plugin {
     // Update logger debug setting
     logger.setDebug(this.settings.debug);
 
-    // Apply bordered input class if enabled
-    document.body.classList.toggle('stw-bordered-input', this.settings.borderedInput);
-
     // Check and update missing settings
     let settingsUpdated = false;
 
@@ -376,6 +382,15 @@ export default class StewardPlugin extends Plugin {
       }
       this.settings.llm.providerConfigs.ollama.baseUrl = this.settings.llm.ollamaBaseUrl;
       this.settings.llm.ollamaBaseUrl = undefined;
+      settingsUpdated = true;
+    }
+
+    // Migrate deleteBehavior from string to object structure
+    if (typeof this.settings.deleteBehavior === 'string') {
+      this.settings.deleteBehavior = {
+        behavior: this.settings.deleteBehavior as 'stw_trash' | 'obsidian_trash',
+        cleanupPolicy: 'never', // Default cleanup policy for existing users
+      };
       settingsUpdated = true;
     }
 

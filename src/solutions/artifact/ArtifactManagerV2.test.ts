@@ -72,13 +72,10 @@ describe('ArtifactManagerV2', () => {
       ].join('\n');
 
       mockPlugin = createMockPlugin(mockContent);
-      artifactManager = new ArtifactManagerV2(mockPlugin);
-
-      // Setup the conversation title
-      const manager = artifactManager.withTitle('Test Conversation');
+      artifactManager = ArtifactManagerV2.getInstance(mockPlugin);
 
       // Get all artifacts
-      const artifacts = await manager.getAllArtifacts(true);
+      const artifacts = await artifactManager.withTitle('Test Conversation').getAllArtifacts(true);
 
       expect(artifacts).toMatchObject([
         {
@@ -131,13 +128,12 @@ describe('ArtifactManagerV2', () => {
       (mockPlugin.searchService.documentStore.getDocumentsByIds as jest.Mock) =
         getDocumentsByIdsMock;
 
-      artifactManager = new ArtifactManagerV2(mockPlugin);
-
-      // Setup the conversation title
-      const manager = artifactManager.withTitle('Search Test Conversation');
+      artifactManager = ArtifactManagerV2.getInstance(mockPlugin);
 
       // Get all artifacts
-      const artifacts = await manager.getAllArtifacts(true);
+      const artifacts = await artifactManager
+        .withTitle('Search Test Conversation')
+        .getAllArtifacts(true);
 
       // Verify that getDocumentsByIds was called with the correct document IDs
       expect(getDocumentsByIdsMock).toHaveBeenCalledWith([29]);

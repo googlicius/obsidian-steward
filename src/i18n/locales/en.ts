@@ -265,9 +265,6 @@ const en = {
     settings: {
       stewardFolder: 'Steward folder',
       stewardFolderDesc: 'Base folder where Steward data will be stored',
-      borderedInput: 'Bordered input',
-      borderedInputDesc:
-        'Add border around command input lines (better visibility especially with light themes)',
       showRoleLabels: 'Show role labels',
       showRoleLabelsDesc: 'Show User/Steward/System labels in conversations',
       debugMode: 'Debug mode',
@@ -339,6 +336,13 @@ const en = {
       deleteBehaviorDesc: 'How to handle file deletion',
       moveToTrash: 'Move files to {{folder}}',
       useObsidianDeletedFiles: 'Use Obsidian Deleted files setting',
+      cleanupPolicy: 'Cleanup policy',
+      cleanupPolicyDesc: 'When to permanently delete files from trash folder',
+      never: 'Never',
+      days7: '7 days',
+      days30: '30 days',
+      days90: '90 days',
+      year1: '1 year',
     },
   },
 };

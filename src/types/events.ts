@@ -123,15 +123,6 @@ export interface CopyOperationCompletedPayload {
   }>;
 }
 
-export interface DeleteOperationCompletedPayload {
-  title: string;
-  operations: Array<{
-    sourceQuery: string;
-    deleted: string[];
-    errors: string[];
-  }>;
-}
-
 export interface MediaGenerationStartedPayload {
   type: 'image' | 'audio';
   prompt: string;
@@ -177,7 +168,6 @@ export type EventPayloadMap = {
   [ErrorEvents.LLM_ERROR]: ErrorPayload;
   [Events.DELETE_OPERATION_CONFIRMED]: DeleteOperationConfirmedPayload;
   [Events.COPY_OPERATION_CONFIRMED]: CopyOperationConfirmedPayload;
-  [Events.DELETE_OPERATION_COMPLETED]: DeleteOperationCompletedPayload;
   [Events.COPY_OPERATION_COMPLETED]: CopyOperationCompletedPayload;
   [Events.MEDIA_GENERATION_STARTED]: MediaGenerationStartedPayload;
   [Events.MEDIA_GENERATION_COMPLETED]: MediaGenerationCompletedPayload;

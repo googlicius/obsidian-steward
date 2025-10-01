@@ -6,8 +6,6 @@ import {
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
-import { Events } from 'src/types/events';
-import { eventEmitter } from 'src/services/EventEmitter';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { DocWithPath } from 'src/types/types';
@@ -28,27 +26,52 @@ export class DeleteCommandHandler extends CommandHandler {
   /**
    * Delete a file based on the delete behavior setting
    * @param filePath Path of the file to delete
-   * @returns Success or failure
+   * @returns Object containing success status and trash path if applicable
    */
-  private async deleteFile(filePath: string): Promise<boolean> {
+  private async trashFile(params: {
+    filePath: string;
+  }): Promise<{ success: boolean; trashPath?: string; originalPath: string }> {
+    const { filePath } = params;
+
     try {
-      if (this.plugin.settings.deleteBehavior === 'stw_trash') {
+      if (this.plugin.settings.deleteBehavior.behavior === 'stw_trash') {
         const trashFolder = `${this.plugin.settings.stewardFolder}/Trash`;
-        return await this.obsidianAPITools.moveFile(filePath, trashFolder);
+
+        const file = this.app.vault.getFileByPath(filePath);
+        if (!file) {
+          return { success: false, originalPath: filePath };
+        }
+
+        const extension = file.extension ? `.${file.extension}` : '';
+        const uniqueFileName = `${file.basename}_${Date.now()}${extension}`;
+
+        await this.obsidianAPITools.ensureFolderExists(trashFolder);
+
+        // Move file directly to trash with unique name
+        const trashPath = `${trashFolder}/${uniqueFileName}`;
+
+        try {
+          await this.app.fileManager.renameFile(file, trashPath);
+
+          return { success: true, trashPath, originalPath: filePath };
+        } catch (error) {
+          logger.error(`Error moving file to trash: ${error}`);
+          return { success: false, originalPath: filePath };
+        }
       } else {
         const file = this.app.vault.getFileByPath(filePath);
         if (!file) {
-          return false;
+          return { success: false, originalPath: filePath };
         }
         await this.app.fileManager.trashFile(file);
-        return true;
+        return { success: true, originalPath: filePath };
       }
     } catch (error) {
       logger.error(
-        `Error deleting file ${filePath} with behavior ${this.plugin.settings.deleteBehavior}:`,
+        `Error deleting file ${filePath} with behavior ${this.plugin.settings.deleteBehavior.behavior}:`,
         error
       );
-      return false;
+      return { success: false, originalPath: filePath };
     }
   }
 
@@ -56,7 +79,7 @@ export class DeleteCommandHandler extends CommandHandler {
    * Handle a delete command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command, lang } = params;
+    const { title, lang } = params;
     const t = getTranslation(lang);
 
     try {
@@ -116,34 +139,62 @@ export class DeleteCommandHandler extends CommandHandler {
         };
       }
 
-      // Delete the files based on the setting
-      const deletedFiles: string[] = [];
+      // Generate artifact ID for this delete operation
+      const artifactId = `delete_${Date.now()}`;
+
+      const isStwTrash = this.plugin.settings.deleteBehavior.behavior === 'stw_trash';
+
+      type TrashFile = { originalPath: string; trashPath: string };
+      type NonTrashFile = { originalPath: string; trashPath?: string };
+
+      const deletedFiles: (TrashFile | NonTrashFile)[] = [];
       const failedFiles: string[] = [];
 
+      // Start building response
+      let response = t('delete.foundFiles', { count: docs.length });
+      let deletedSection = '';
+      let failedSection = '';
+
       for (const doc of docs) {
-        const success = await this.deleteFile(doc.path);
-        if (success) {
-          deletedFiles.push(doc.path);
+        const result = await this.trashFile({ filePath: doc.path });
+        if (result.success) {
+          deletedFiles.push({
+            originalPath: result.originalPath,
+            trashPath: result.trashPath,
+          });
+
+          // Build deleted files section
+          const fileName = result.originalPath.split('/').pop() || result.originalPath;
+          if (result.trashPath) {
+            // Use alias format: [[trash_path|original_file_name]]
+            deletedSection += `\n- [[${result.trashPath}|${fileName}]]`;
+          } else {
+            // For Obsidian trash or paths without trash path
+            deletedSection += `\n- [[${result.originalPath}]]`;
+          }
         } else {
           failedFiles.push(doc.path);
+          // Build failed files section
+          failedSection += `\n- [[${doc.path}]]`;
         }
       }
 
-      // Format the results
-      let response = t('delete.foundFiles', { count: docs.length });
+      if (isStwTrash && deletedFiles.length > 0) {
+        await this.plugin.trashCleanupService.addFilesToTrash({
+          files: deletedFiles as TrashFile[],
+          artifactId,
+        });
+      }
 
+      // Add sections to response if they exist
       if (deletedFiles.length > 0) {
         response += `\n\n**${t('delete.successfullyDeleted', { count: deletedFiles.length })}**`;
-        deletedFiles.forEach(file => {
-          response += `\n- [[${file}]]`;
-        });
+        response += deletedSection;
       }
 
       if (failedFiles.length > 0) {
         response += `\n\n**${t('delete.failed', { count: failedFiles.length })}**`;
-        failedFiles.forEach(file => {
-          response += `\n- [[${file}]]`;
-        });
+        response += failedSection;
       }
 
       // Update the conversation with the results
@@ -154,20 +205,17 @@ export class DeleteCommandHandler extends CommandHandler {
         command: 'delete_from_artifact',
       });
 
-      // Emit the delete operation completed event
-      eventEmitter.emit(Events.DELETE_OPERATION_COMPLETED, {
-        title,
-        operations: [
-          {
-            sourceQuery: command.query,
-            deleted: deletedFiles,
-            errors: failedFiles,
+      // Create DELETED_FILES artifact if files were moved to stw_trash
+      if (isStwTrash && deletedFiles.length > 0) {
+        await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+          artifact: {
+            artifactType: ArtifactType.DELETED_FILES,
+            fileCount: deletedFiles.length,
+            id: artifactId,
+            createdAt: Date.now(),
           },
-        ],
-      });
-
-      // Delete the artifact
-      // this.artifactManager.deleteArtifact(title, artifact.id);
+        });
+      }
 
       return {
         status: CommandResultStatus.SUCCESS,

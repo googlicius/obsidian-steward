@@ -27,32 +27,11 @@ export class ArtifactManagerV2 {
     return this.plugin.searchService.documentStore;
   }
 
-  constructor(
-    private plugin: StewardPlugin,
-    serializers?: Map<ArtifactType, ArtifactSerializer>
-  ) {
-    // Register default serializers
-    if (!serializers) {
-      for (const type of Object.values(ArtifactType)) {
-        if (type === ArtifactType.SEARCH_RESULTS) {
-          const searchResultSerializer = new SearchResultSerializer(this.documentStore);
-          const jsonSerializer = new JsonArtifactSerializer(type);
-
-          this.registerSerializer(
-            type,
-            new CompositeSerializer(searchResultSerializer, jsonSerializer)
-          );
-        } else {
-          this.registerSerializer(type, new JsonArtifactSerializer(type));
-        }
-      }
-    } else {
-      this.serializers = serializers;
-    }
-  }
+  private constructor(private plugin: StewardPlugin) {}
 
   /**
    * Register the modify event listener for all instances
+   * to update the cache if there is mismatch between the cache and the conversation note
    */
   private static registerModifyListener(plugin: StewardPlugin): void {
     if (ArtifactManagerV2.modifyListenerRegistered) {
@@ -92,6 +71,7 @@ export class ArtifactManagerV2 {
   public static getInstance(plugin?: StewardPlugin): ArtifactManagerV2 {
     if (plugin) {
       ArtifactManagerV2.instance = new ArtifactManagerV2(plugin);
+      ArtifactManagerV2.instance.registerDefaultSerializers();
     }
 
     if (!ArtifactManagerV2.instance) {
@@ -111,7 +91,7 @@ export class ArtifactManagerV2 {
     }
 
     // Create a new instance
-    const manager = new ArtifactManagerV2(this.plugin, this.serializers);
+    const manager = new ArtifactManagerV2(this.plugin);
     manager.conversationTitle = conversationTitle;
     manager.artifactsCache = null;
 
@@ -132,10 +112,30 @@ export class ArtifactManagerV2 {
   }
 
   /**
+   * Register default serializers
+   */
+  private registerDefaultSerializers(): void {
+    const jsonSerializer = new JsonArtifactSerializer();
+
+    for (const type of Object.values(ArtifactType)) {
+      if (type === ArtifactType.SEARCH_RESULTS) {
+        const searchResultSerializer = new SearchResultSerializer(this.documentStore);
+
+        this.registerSerializer(
+          type,
+          new CompositeSerializer(searchResultSerializer, jsonSerializer)
+        );
+      } else {
+        this.registerSerializer(type, jsonSerializer);
+      }
+    }
+  }
+
+  /**
    * Get the serializer for a specific artifact type
    */
   private getSerializer(type: ArtifactType): ArtifactSerializer {
-    const serializer = this.serializers.get(type);
+    const serializer = ArtifactManagerV2.instance.serializers.get(type);
     if (!serializer) {
       throw new Error(`No serializer registered for artifact type: ${type}`);
     }
@@ -321,9 +321,7 @@ export class ArtifactManagerV2 {
     const artifacts = await this.getAllArtifacts();
 
     // Filter artifacts by the specified types
-    const filteredArtifacts = artifacts.filter(artifact =>
-      types.includes(artifact.artifactType as ArtifactType)
-    );
+    const filteredArtifacts = artifacts.filter(artifact => types.includes(artifact.artifactType));
 
     if (filteredArtifacts.length === 0) {
       return undefined;
