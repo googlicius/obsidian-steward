@@ -224,3 +224,5 @@ export const IMAGE_MODELS: ImageModelOption[] = [
   { id: 'openai:dall-e-3', name: 'DALL-E 3' },
   { id: 'openai:dall-e-2', name: 'DALL-E 2' },
 ];
+
+export const SEARCH_DB_NAME_PREFIX = 'steward_search_';

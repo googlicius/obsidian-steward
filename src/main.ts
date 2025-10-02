@@ -13,7 +13,8 @@ import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
 import { SearchService } from './solutions/search';
-import { encrypt, decrypt, generateSaltKeyId } from './utils/cryptoUtils';
+import { SearchDatabase } from './database/SearchDatabase';
+import { encrypt, decrypt, generateSaltKeyId, removeEncryptionSalt } from './utils/cryptoUtils';
 import { formatDateTime } from './utils/dateUtils';
 import { logger } from './utils/logger';
 import { ConversationRenderer } from './services/ConversationRenderer';
@@ -24,6 +25,7 @@ import { Line, Text } from '@codemirror/state';
 import {
   DEFAULT_SETTINGS,
   ProviderNeedApiKey,
+  SEARCH_DB_NAME_PREFIX,
   SMILE_CHAT_ICON_ID,
   STW_CHAT_VIEW_CONFIG,
   TWO_SPACES_PREFIX,
@@ -46,7 +48,6 @@ import { createStwSqueezedBlocksExtension } from './cm/extensions/StwSqueezedBlo
 import { capitalizeString } from './utils/capitalizeString';
 import { AbortService } from './services/AbortService';
 import { TrashCleanupService } from './services/TrashCleanupService';
-import { SearchDatabase } from './database/SearchDatabase';
 import { uniqueID } from './utils/uniqueID';
 
 export default class StewardPlugin extends Plugin {
@@ -155,11 +156,31 @@ export default class StewardPlugin extends Plugin {
     // Unload the search service
     this.searchService.unload();
 
-    // Unload the conversation event handler
-    this.conversationEventHandler.unload();
-
     // Cleanup the trash cleanup service
     this.trashCleanupService.cleanup();
+
+    // Cleanup current database and remove saltKeyId from localStorage
+    retry(async () => {
+      const data = await this.loadData();
+      if (!data) {
+        const currentDbName = this.settings.search.searchDbName;
+
+        if (currentDbName) {
+          // Remove the current database
+          await SearchDatabase.removeDatabaseByName(currentDbName);
+        }
+
+        // Remove saltKeyId from localStorage
+        if (this.settings.saltKeyId) {
+          removeEncryptionSalt(this.settings.saltKeyId);
+          logger.log('Removed saltKeyId from localStorage');
+        }
+
+        logger.log('Plugin cleanup completed successfully');
+      } else {
+        throw new Error('The plugin seems not to be uninstalled yet.');
+      }
+    });
   }
 
   private registerStuffs() {
@@ -288,7 +309,7 @@ export default class StewardPlugin extends Plugin {
       } else {
         // Generate new db name
         const vaultName = this.app.vault.getName();
-        this.settings.search.searchDbName = `steward_search_${vaultName}_${uniqueID()}`;
+        this.settings.search.searchDbName = `${SEARCH_DB_NAME_PREFIX}${vaultName}_${uniqueID()}`;
       }
       // Clear deprecated fields
       this.settings.searchDbName = undefined;

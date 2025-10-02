@@ -1,12 +1,13 @@
 import * as CryptoJS from 'crypto-js';
 import { logger } from './logger';
+import { generateId } from 'ai';
 
 /**
  * Generates a unique identifier for use as a localStorage key
  * @returns A random string ID
  */
 export function generateSaltKeyId(): string {
-  return Math.random().toString(36).substring(2, 15);
+  return generateId();
 }
 
 /**
@@ -93,6 +94,19 @@ export function decrypt(encryptedData: string, saltKeyId: string): string {
   } catch (error) {
     logger.error('Failed to decrypt data:', error);
     return '';
+  }
+}
+
+/**
+ * Removes the encryption salt from localStorage
+ * @param saltKeyId - The key identifier for the salt to remove
+ */
+export function removeEncryptionSalt(saltKeyId: string): void {
+  try {
+    localStorage.removeItem(saltKeyId);
+    logger.log(`Removed encryption salt with key: ${saltKeyId}`);
+  } catch (error) {
+    logger.error('Failed to remove encryption salt from localStorage', error);
   }
 }
 
