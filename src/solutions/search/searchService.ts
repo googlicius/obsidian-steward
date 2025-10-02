@@ -68,7 +68,7 @@ export class SearchService {
 
     this.documentStore = new DocumentStore({
       app: plugin.app,
-      dbName: plugin.settings.searchDbName,
+      dbName: plugin.settings.search.searchDbName,
       excludeFolders: this.excludeFolders,
     });
     this.indexer = new Indexer({

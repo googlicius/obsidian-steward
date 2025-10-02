@@ -19,10 +19,10 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       search: {
         resultsPerPage: 10,
         withoutLLM: 'relevant',
+        searchDbName: 'test-search',
       },
       excludedFolders: [],
       stewardFolder: 'Steward',
-      searchDbName: 'test-search',
     },
     app: mockApp,
     registerEvent: jest.fn(),
@@ -68,6 +68,7 @@ describe('SearchCommandHandler', () => {
           query: '"project notes"',
         },
         searchSettings: {
+          searchDbName: 'test-search',
           withoutLLM: 'relevant',
           resultsPerPage: 10,
         },
@@ -101,6 +102,7 @@ describe('SearchCommandHandler', () => {
           query: "'meeting minutes'",
         },
         searchSettings: {
+          searchDbName: 'test-search',
           withoutLLM: 'exact',
           resultsPerPage: 10,
         },

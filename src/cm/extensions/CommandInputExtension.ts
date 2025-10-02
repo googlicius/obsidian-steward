@@ -68,7 +68,7 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet;
-      private typingDebounceTimeout: NodeJS.Timeout | null = null;
+      private typingDebounceTimeout: number | null = null;
 
       constructor(private view: EditorView) {
         this.decorations = this.buildDecorations();
@@ -167,7 +167,7 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
         }
 
         // Set a debounced timeout to call onTyping
-        this.typingDebounceTimeout = setTimeout(() => {
+        this.typingDebounceTimeout = window.setTimeout(() => {
           if (options.onTyping) {
             // Get the current cursor position at the time of execution
             const { state } = this.view;

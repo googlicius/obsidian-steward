@@ -2,6 +2,15 @@ import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { NoteContentService } from './NoteContentService';
 import { App, TFile } from 'obsidian';
 
+// Mock logger
+jest.mock('../utils/logger', () => ({
+  logger: {
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+  },
+}));
+
 // Mock App for testing
 const createMockApp = () => {
   const mockApp = {
