@@ -91,4 +91,81 @@ export class SearchDatabase extends Dexie {
       properties: '++id, documentId, name, [name+value], value',
     });
   }
+
+  /**
+   * Delete all databases with names prefixed by "steward_search_" for the current vault except the current one
+   * @param currentDbName - The name of the current database to exclude from deletion
+   * @param vaultName - The name of the current vault to filter databases by
+   * @returns Array of deleted database names
+   */
+  static async cleanupOldDatabases(currentDbName: string, vaultName: string): Promise<string[]> {
+    // Check if the 'databases' method is supported
+    if (!indexedDB.databases) {
+      logger.log('indexedDB.databases() is not supported in this browser.');
+      return [];
+    }
+
+    try {
+      // Retrieve all databases
+      const dbs = await indexedDB.databases();
+
+      // Filter databases with names starting with 'steward_search_' for the current vault and not the current one
+      const oldSearchDbs = dbs
+        .filter(db => {
+          if (!db.name || !db.name.startsWith('steward_search_') || db.name === currentDbName) {
+            return false;
+          }
+
+          // Handle new pattern: steward_search_<vaultName>_<uniqueID>
+          // Simply check if the vault name is contained in the database name
+          return db.name.includes(vaultName);
+
+          // Handle old pattern: steward_search_<random> (3 parts)
+          // For old databases without vault name, we can't determine which vault they belong to
+          // So we'll be conservative and not delete them unless we're sure
+          // This means old databases will remain until manually cleaned up
+        })
+        .map(db => db.name as string);
+
+      if (oldSearchDbs.length === 0) {
+        logger.log('No old search databases to clean up for vault:', vaultName);
+        return [];
+      }
+
+      logger.log(
+        `Found ${oldSearchDbs.length} old search database(s) to delete for vault "${vaultName}":`,
+        oldSearchDbs
+      );
+
+      // Delete each filtered database
+      const deletedDbs: string[] = [];
+      for (const dbName of oldSearchDbs) {
+        await new Promise<void>((resolve, reject) => {
+          const deleteRequest = indexedDB.deleteDatabase(dbName);
+
+          deleteRequest.onsuccess = () => {
+            logger.log(`Database ${dbName} deleted successfully`);
+            deletedDbs.push(dbName);
+            resolve();
+          };
+
+          deleteRequest.onerror = event => {
+            logger.error(`Error deleting database ${dbName}:`, event);
+            reject(new Error(`Failed to delete database ${dbName}`));
+          };
+
+          deleteRequest.onblocked = () => {
+            logger.log(`Deletion of database ${dbName} is blocked`);
+            // Continue anyway, it will eventually be deleted when connections are closed
+            resolve();
+          };
+        });
+      }
+
+      return deletedDbs;
+    } catch (error) {
+      logger.error('Error retrieving or deleting databases:', error);
+      return [];
+    }
+  }
 }

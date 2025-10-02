@@ -46,6 +46,8 @@ import { createStwSqueezedBlocksExtension } from './cm/extensions/StwSqueezedBlo
 import { capitalizeString } from './utils/capitalizeString';
 import { AbortService } from './services/AbortService';
 import { TrashCleanupService } from './services/TrashCleanupService';
+import { SearchDatabase } from './database/SearchDatabase';
+import { uniqueID } from './utils/uniqueID';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -76,6 +78,9 @@ export default class StewardPlugin extends Plugin {
       await this.saveSettings();
     }
 
+    // Clean up old search databases
+    this.cleanupOldSearchDatabases();
+
     // Initialize the search service with the plugin instance
     this.searchService = SearchService.getInstance(this);
 
@@ -96,38 +101,6 @@ export default class StewardPlugin extends Plugin {
 
     // Initialize the AbortService
     this.abortService = AbortService.getInstance();
-
-    // Search index will be built manually by user request
-
-    const decryptedOpenAIKey = this.getDecryptedApiKey('openai');
-    if (decryptedOpenAIKey) {
-      process.env.OPENAI_API_KEY = decryptedOpenAIKey;
-    }
-
-    const decryptedElevenLabsKey = this.getDecryptedApiKey('elevenlabs');
-    if (decryptedElevenLabsKey) {
-      process.env.ELEVENLABS_API_KEY = decryptedElevenLabsKey;
-    }
-
-    const decryptedDeepSeekKey = this.getDecryptedApiKey('deepseek');
-    if (decryptedDeepSeekKey) {
-      process.env.DEEPSEEK_API_KEY = decryptedDeepSeekKey;
-    }
-
-    const decryptedGoogleKey = this.getDecryptedApiKey('google');
-    if (decryptedGoogleKey) {
-      process.env.GOOGLE_GENERATIVE_AI_API_KEY = decryptedGoogleKey;
-    }
-
-    const decryptedGroqKey = this.getDecryptedApiKey('groq');
-    if (decryptedGroqKey) {
-      process.env.GROQ_API_KEY = decryptedGroqKey;
-    }
-
-    const decryptedAnthropicKey = this.getDecryptedApiKey('anthropic');
-    if (decryptedAnthropicKey) {
-      process.env.ANTHROPIC_API_KEY = decryptedAnthropicKey;
-    }
 
     // Register custom icon using imported SVG
     addIcon(SMILE_CHAT_ICON_ID, stewardIcon);
@@ -298,16 +271,28 @@ export default class StewardPlugin extends Plugin {
     // Check and update missing settings
     let settingsUpdated = false;
 
-    // Migrate searchDbPrefix to searchDbName
-    if (!this.settings.searchDbName) {
-      if (this.settings.searchDbPrefix) {
-        // If searchDbPrefix exists, copy it to searchDbName
-        this.settings.searchDbName = this.settings.searchDbPrefix;
-        this.settings.searchDbPrefix = undefined;
+    // Ensure search object exists
+    if (!this.settings.search) {
+      this.settings.search = DEFAULT_SETTINGS.search;
+      settingsUpdated = true;
+    }
+
+    // Migrate legacy searchDbPrefix/searchDbName to search.searchDbName
+    if (!this.settings.search.searchDbName) {
+      if (this.settings.searchDbName) {
+        // Prefer explicitly set top-level value if present
+        this.settings.search.searchDbName = this.settings.searchDbName;
+      } else if (this.settings.searchDbPrefix) {
+        // If searchDbPrefix exists, copy it
+        this.settings.search.searchDbName = this.settings.searchDbPrefix;
       } else {
-        // Generate new searchDbName with steward_search prefix
-        this.settings.searchDbName = `steward_search_${Math.random().toString(36).substring(2, 10)}`;
+        // Generate new db name
+        const vaultName = this.app.vault.getName();
+        this.settings.search.searchDbName = `steward_search_${vaultName}_${uniqueID()}`;
       }
+      // Clear deprecated fields
+      this.settings.searchDbName = undefined;
+      this.settings.searchDbPrefix = undefined;
       settingsUpdated = true;
     }
 
@@ -945,21 +930,7 @@ export default class StewardPlugin extends Plugin {
       // Save the settings
       await this.saveSettings();
 
-      // Put the API key in the environment variable
-      if (provider === 'openai') {
-        logger.log('Setting OPENAI_API_KEY', apiKey, encryptedKey);
-        process.env.OPENAI_API_KEY = apiKey;
-      } else if (provider === 'elevenlabs') {
-        process.env.ELEVENLABS_API_KEY = apiKey;
-      } else if (provider === 'deepseek') {
-        process.env.DEEPSEEK_API_KEY = apiKey;
-      } else if (provider === 'google') {
-        process.env.GOOGLE_GENERATIVE_AI_API_KEY = apiKey;
-      } else if (provider === 'groq') {
-        process.env.GROQ_API_KEY = apiKey;
-      } else if (provider === 'anthropic') {
-        process.env.ANTHROPIC_API_KEY = apiKey;
-      }
+      logger.log(`API key for ${provider} has been encrypted and saved`);
     } catch (error) {
       logger.error(`Error encrypting ${provider} API key:`, error);
       throw new Error(`Could not encrypt ${provider} API key`);
@@ -1010,6 +981,33 @@ export default class StewardPlugin extends Plugin {
       }
     } catch (error) {
       logger.error('Failed to exclude folders from search:', error);
+    }
+  }
+
+  /**
+   * Clean up old search databases that are no longer in use
+   * This removes databases with the "steward_search_" prefix for the current vault that are not the current one
+   */
+  private async cleanupOldSearchDatabases(): Promise<void> {
+    try {
+      const currentDbName = this.settings.search.searchDbName;
+
+      if (!currentDbName) {
+        logger.log('No current search database name found, skipping cleanup');
+        return;
+      }
+
+      const vaultName = this.app.vault.getName();
+      logger.log('Starting cleanup of old search databases for vault:', vaultName);
+      const deletedDbs = await SearchDatabase.cleanupOldDatabases(currentDbName, vaultName);
+
+      if (deletedDbs.length > 0) {
+        logger.log(
+          `Successfully cleaned up ${deletedDbs.length} old search database(s) for vault "${vaultName}"`
+        );
+      }
+    } catch (error) {
+      logger.error('Error during search database cleanup:', error);
     }
   }
 }

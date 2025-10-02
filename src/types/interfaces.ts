@@ -10,8 +10,11 @@ export interface StewardPluginSettings {
   };
   saltKeyId: string; // Store just the key ID, not the actual salt
   stewardFolder: string;
-  searchDbPrefix?: string; // Deprecated: use searchDbName instead
-  searchDbName: string; // Database name for search functionality
+  searchDbPrefix?: string; // Deprecated: use search.searchDbName instead
+  /**
+   * Deprecated: use search.searchDbName instead
+   */
+  searchDbName?: string;
   encryptionVersion?: number; // Track the encryption version for future migrations
   excludedFolders: string[]; // Folders to exclude from Obsidian search
   debug: boolean; // Enable debug logging
@@ -56,6 +59,8 @@ export interface StewardPluginSettings {
     };
   };
   search: {
+    /** Database name for search functionality */
+    searchDbName: string;
     withoutLLM: 'exact' | 'relevant'; // Search mode when query is wrapped in quotation marks
     resultsPerPage: number; // Number of search results per page
   };

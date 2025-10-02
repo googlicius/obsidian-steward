@@ -59,6 +59,24 @@ export class LLMService {
   }
 
   /**
+   * Get the decrypted API key for a provider
+   * @param provider The provider name
+   * @returns The decrypted API key or undefined
+   */
+  public getApiKey(provider: keyof StewardPluginSettings['apiKeys']): string | undefined {
+    try {
+      const encryptedKey = this.plugin.settings.apiKeys[provider];
+      if (!encryptedKey) {
+        return undefined;
+      }
+      return this.plugin.getDecryptedApiKey(provider);
+    } catch (error) {
+      logger.error(`Error getting API key for ${provider}:`, error);
+      return undefined;
+    }
+  }
+
+  /**
    * Determine the provider from the model name
    */
   public getProviderFromModel(
@@ -114,6 +132,7 @@ export class LLMService {
     }
 
     const baseURL = this.getProviderBaseUrl(name);
+    const apiKey = this.getApiKey(name as keyof StewardPluginSettings['apiKeys']);
 
     switch (name) {
       case 'openai': {
@@ -122,6 +141,7 @@ export class LLMService {
           name,
           provider: createOpenAI({
             ...(baseURL && { baseURL }),
+            ...(apiKey && { apiKey }),
           }),
         };
       }
@@ -132,6 +152,7 @@ export class LLMService {
           name,
           provider: createDeepSeek({
             ...(baseURL && { baseURL }),
+            ...(apiKey && { apiKey }),
           }),
         };
       }
@@ -142,6 +163,7 @@ export class LLMService {
           name,
           provider: createGoogleGenerativeAI({
             ...(baseURL && { baseURL }),
+            ...(apiKey && { apiKey }),
           }),
         };
       }
@@ -152,6 +174,7 @@ export class LLMService {
           name,
           provider: createGroq({
             ...(baseURL && { baseURL }),
+            ...(apiKey && { apiKey }),
           }),
         };
       }
@@ -172,6 +195,7 @@ export class LLMService {
           name,
           provider: createAnthropic({
             ...(baseURL && { baseURL }),
+            ...(apiKey && { apiKey }),
           }),
         };
       }
