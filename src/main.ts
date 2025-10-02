@@ -102,38 +102,6 @@ export default class StewardPlugin extends Plugin {
     // Initialize the AbortService
     this.abortService = AbortService.getInstance();
 
-    // Search index will be built manually by user request
-
-    const decryptedOpenAIKey = this.getDecryptedApiKey('openai');
-    if (decryptedOpenAIKey) {
-      process.env.OPENAI_API_KEY = decryptedOpenAIKey;
-    }
-
-    const decryptedElevenLabsKey = this.getDecryptedApiKey('elevenlabs');
-    if (decryptedElevenLabsKey) {
-      process.env.ELEVENLABS_API_KEY = decryptedElevenLabsKey;
-    }
-
-    const decryptedDeepSeekKey = this.getDecryptedApiKey('deepseek');
-    if (decryptedDeepSeekKey) {
-      process.env.DEEPSEEK_API_KEY = decryptedDeepSeekKey;
-    }
-
-    const decryptedGoogleKey = this.getDecryptedApiKey('google');
-    if (decryptedGoogleKey) {
-      process.env.GOOGLE_GENERATIVE_AI_API_KEY = decryptedGoogleKey;
-    }
-
-    const decryptedGroqKey = this.getDecryptedApiKey('groq');
-    if (decryptedGroqKey) {
-      process.env.GROQ_API_KEY = decryptedGroqKey;
-    }
-
-    const decryptedAnthropicKey = this.getDecryptedApiKey('anthropic');
-    if (decryptedAnthropicKey) {
-      process.env.ANTHROPIC_API_KEY = decryptedAnthropicKey;
-    }
-
     // Register custom icon using imported SVG
     addIcon(SMILE_CHAT_ICON_ID, stewardIcon);
 
@@ -962,21 +930,7 @@ export default class StewardPlugin extends Plugin {
       // Save the settings
       await this.saveSettings();
 
-      // Put the API key in the environment variable
-      if (provider === 'openai') {
-        logger.log('Setting OPENAI_API_KEY', apiKey, encryptedKey);
-        process.env.OPENAI_API_KEY = apiKey;
-      } else if (provider === 'elevenlabs') {
-        process.env.ELEVENLABS_API_KEY = apiKey;
-      } else if (provider === 'deepseek') {
-        process.env.DEEPSEEK_API_KEY = apiKey;
-      } else if (provider === 'google') {
-        process.env.GOOGLE_GENERATIVE_AI_API_KEY = apiKey;
-      } else if (provider === 'groq') {
-        process.env.GROQ_API_KEY = apiKey;
-      } else if (provider === 'anthropic') {
-        process.env.ANTHROPIC_API_KEY = apiKey;
-      }
+      logger.log(`API key for ${provider} has been encrypted and saved`);
     } catch (error) {
       logger.error(`Error encrypting ${provider} API key:`, error);
       throw new Error(`Could not encrypt ${provider} API key`);
