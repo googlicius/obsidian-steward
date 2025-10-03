@@ -3,7 +3,7 @@ import { EmbeddingModelV1 } from '@ai-sdk/provider';
 import { EmbeddingsDatabase, EmbeddingEntry } from 'src/database/EmbeddingsDatabase';
 import { logger } from 'src/utils/logger';
 import { getQualifiedCandidates } from 'src/utils/getQualifiedCandidates';
-import crypto from 'crypto';
+import * as CryptoJS from 'crypto-js';
 
 export interface ValueCluster {
   name: string;
@@ -79,8 +79,8 @@ export class PersistentEmbeddingSimilarityClassifier {
       name: cluster.name,
       values: sortedValues,
     });
-    // Generate a hash
-    return crypto.createHash('md5').update(clusterString).digest('hex');
+    // Generate a hash using crypto-js MD5
+    return CryptoJS.MD5(clusterString).toString();
   }
 
   /**
