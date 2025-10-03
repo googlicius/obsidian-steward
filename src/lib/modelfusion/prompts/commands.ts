@@ -45,17 +45,17 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     description:
       'Find files using the search engine to search files locally and store the result as an artifact',
     category: 'built-in',
-    queryTemplate: `Extract specific details for a search command:
-1. Preserve Specific Categories:
-   - Keywords: Keep any specific words or phrases the user wants to search for
-   - Tags: Keep hashtags (#tag) exactly as written
-   - Folders: Keep folder names exactly as written, including quotes if present
-   - File names: Keep file names exactly as written
+    queryTemplate: `Extract a specific query for a search command:
+1. Extract the query for the search command follows this format: [file name <file_name>][, tag <tag>][, folder <folder>][, keywords <keywords>]
+  - <file_name>: If searching for a specific file name.
+  - <tag>: If searching for a specific tag, include it with the # symbol.
+  - <folder>: If searching in a specific folder.
+  - <keywords>: Words or phrases to search for within note content.
+  NOTE: Square brackets [] indicate optional fields. At least one field must be present.
 
-2. Maintain Natural Language:
-   - Keep the search query in natural language form
-   - Don't convert natural language expressions into structured queries
-   - Preserve the original wording and context`,
+2. Search Guidelines:
+  - Multiple parameters can be combined when needed.
+  - Preserve the original wording and context if provided: start with, contain, or exact, for example: "file name start with...", "keywords contain...", "folder exact..."`,
     includeWhen: `Search for files (and doesn't mention existing search results)`,
     dontIncludeWhen: `- If the user mentions "search results", "notes above", or refers to previously found notes, do NOT include a "search" command`,
     artifactDesc: `The search results: list of file paths is stored as the artifact with name ${ArtifactType.SEARCH_RESULTS}`,

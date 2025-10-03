@@ -123,9 +123,6 @@ export class SearchCommandHandler extends CommandHandler {
           searchSettings: this.plugin.settings.search,
         }));
 
-      // Repair extraction operations by moving file-related properties to filenames
-      queryExtraction.operations = this.repairExtractionOperations(queryExtraction.operations);
-
       // Check if there are multiple operations and we haven't already confirmed them
       if (
         queryExtraction.needsLLM &&
@@ -392,6 +389,9 @@ export class SearchCommandHandler extends CommandHandler {
           logger.warn(`Operation ${index} has all empty arrays`);
         }
       });
+
+      // Repair extraction operations by moving file-related properties to filenames
+      object.operations = this.repairExtractionOperations(object.operations);
 
       return {
         ...object,

@@ -146,6 +146,7 @@ Steward creates the following folder structure in your vault:
 Steward/
 ├── Commands/       # Stores user-defined command definitions
 ├── Conversations/  # Archives past conversations
+├── Trash/          # Stores deleted files
 └── Steward Chat.md # Current active conversation
 ```
 

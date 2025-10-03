@@ -149,23 +149,24 @@ export class GeneralCommandHandler extends CommandHandler {
 
       // Save the embeddings after both steps are complete
       if (result.confidence >= 0.9 && result.queryTemplate && !ignoreClassify) {
-        try {
-          const embeddingModel = this.plugin.llmService.getEmbeddingModel();
-          const classifier = getClassifier(embeddingModel, isReloadRequest);
+        const embeddingModel = this.plugin.llmService.getEmbeddingModel();
+        const classifier = getClassifier(embeddingModel, isReloadRequest);
 
-          // Create cluster name from unique command types
-          const uniqueCommandTypes = Array.from(
-            new Set(result.commands.map(cmd => cmd.commandType))
-          );
-          const newClusterName = uniqueCommandTypes.reduce((acc, curVal) => {
-            return acc ? `${acc}:${curVal}` : curVal;
-          }, '');
+        // Create cluster name from unique command types
+        const uniqueCommandTypes = Array.from(new Set(result.commands.map(cmd => cmd.commandType)));
+        const newClusterName = uniqueCommandTypes.reduce((acc, curVal) => {
+          return acc ? `${acc}:${curVal}` : curVal;
+        }, '');
 
-          await classifier.saveEmbedding(result.queryTemplate, newClusterName);
-          logger.log(`Saved embedding for query template with cluster: ${newClusterName}`);
-        } catch (error) {
-          logger.error('Failed to save query embedding:', error);
-        }
+        // Save embedding without awaiting to avoid blocking
+        classifier
+          .saveEmbedding(result.queryTemplate, newClusterName)
+          .then(() => {
+            logger.log(`Saved embedding for query template with cluster: ${newClusterName}`);
+          })
+          .catch(err => {
+            logger.error('Failed to save embedding:', err);
+          });
       }
 
       return result;

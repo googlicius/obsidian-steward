@@ -78,6 +78,8 @@
 - [ ] Add the new Steward folder to the excluded folders.
 - [x] When users clicking on the reload button of a message, remove ALL artifacts below that message.
 - [x] Provide a clean assistant-user' request/response flow with consistent ID: User sends queries: 1. Assistant send request (request_id) to read. The user response with a reading result (include the request_id)
+- [ ] Save embedding only when the command sequence is completed.
+- [ ] Enhance summarization: Only check generated_content, note content_update for generate commands.
 
 ### BUGS
 
