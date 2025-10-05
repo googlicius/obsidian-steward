@@ -1,17 +1,18 @@
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { explanationFragment, confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { z } from 'zod';
+import { ArtifactType } from 'src/solutions/artifact';
 
 // Define the Zod schema for content update
 const contentUpdateSchema = z.object({
   updatedContent: z.string().describe(`Update exactly what was requested for the provided content.
 Do not add any additional content or include any other text or formatting.`),
-  fromLine: z.number()
-    .describe(`The starting line number (0-based) of the original content to be replaced.
-Get this from the read_result or grep_result artifact that contains the content you're updating.`),
-  toLine: z.number()
-    .describe(`The ending line number (0-based) of the original content to be replaced.
-Get this from the read_result or grep_result artifact that contains the content you're updating.`),
+  fromLine: z
+    .number()
+    .describe(`The starting line number (0-based) of the original content to be replaced.`),
+  toLine: z
+    .number()
+    .describe(`The ending line number (0-based) of the original content to be replaced.`),
 });
 
 // Define the Zod schema for update content tool
@@ -19,7 +20,7 @@ export const updateContentSchema = z.object({
   updates: z.array(contentUpdateSchema)
     .describe(`An array of objects, each containing updatedContent and line numbers (fromLine, toLine). 
 Identify the exact content to update and provide the updated version while preserving the overall structure.
-Get the line numbers from the read_result or grep_result artifact that contains the content you're updating.`),
+Get the line numbers from the ${ArtifactType.READ_CONTENT} artifact or grep's result that contains the content you're updating.`),
   explanation: z
     .string()
     .min(1, 'Explanation must be a non-empty string')
