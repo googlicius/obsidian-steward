@@ -31,6 +31,7 @@ const ja = {
       readDesc: 'ノートから内容を読み取る',
       buildSearchIndexDesc: 'ノートの検索インデックスを構築する',
       cannotDeleteThisType: 'この種類のアーティファクトは削除できません: {{type}}',
+      thisNote: 'このノート',
     },
     // Chat UI elements
     chat: {

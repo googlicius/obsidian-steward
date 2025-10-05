@@ -15,11 +15,6 @@ const grepSchema = z.object({
     .string()
     .optional()
     .describe('The path of the file to search in. If not provided, leave it empty.'),
-  contextLines: z
-    .number()
-    .optional()
-    .default(2)
-    .describe('Number of lines before and after each match to include in the result (default: 2).'),
   explanation: z
     .string()
     .describe('A brief explanation of why searching for this pattern is necessary.'),
@@ -51,13 +46,9 @@ export interface GrepResult {
   filePath?: string;
   totalMatches: number;
   matches: Array<{
-    lineNumber: number;
     content: string;
-    context: Array<{
-      lineNumber: number;
-      content: string;
-      isMatch: boolean;
-    }>;
+    fromLine: number;
+    toLine: number;
   }>;
   error?: string;
 }
@@ -66,7 +57,7 @@ export interface GrepResult {
  * Execute grep content search
  */
 export async function execute(args: GrepArgs, plugin: StewardPlugin): Promise<GrepResult | null> {
-  const { pattern, filePath, contextLines = 2 } = args;
+  const { pattern, filePath } = args;
 
   // Find the file to search in
   const file = filePath
@@ -80,7 +71,6 @@ export async function execute(args: GrepArgs, plugin: StewardPlugin): Promise<Gr
   try {
     // Read file content
     const content = await plugin.app.vault.read(file);
-    const lines = content.split('\n');
 
     // Create regex pattern (escape special characters if not already a regex)
     let searchPattern: RegExp;
@@ -95,27 +85,32 @@ export async function execute(args: GrepArgs, plugin: StewardPlugin): Promise<Gr
 
     const matches: GrepResult['matches'] = [];
 
-    // Search for matches
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (searchPattern.test(line)) {
-        const startLine = Math.max(0, i - contextLines);
-        const endLine = Math.min(lines.length - 1, i + contextLines);
+    // Reset regex for global search
+    searchPattern.lastIndex = 0;
 
-        const context = lines.slice(startLine, endLine + 1).map((contextLine, index) => {
-          const actualLineNumber = startLine + index + 1;
-          return {
-            lineNumber: actualLineNumber,
-            content: contextLine,
-            isMatch: actualLineNumber === i + 1,
-          };
-        });
+    // Search for matches in the full content
+    let match;
+    while ((match = searchPattern.exec(content)) !== null) {
+      const matchStart = match.index;
+      const matchedContent = match[0];
 
-        matches.push({
-          lineNumber: i + 1,
-          content: line,
-          context,
-        });
+      // Calculate line numbers for the match
+      const beforeMatch = content.substring(0, matchStart);
+      const fromLine = beforeMatch.split('\n').length - 1;
+
+      // Calculate toLine by counting newlines in the matched content
+      const newlinesInMatch = (matchedContent.match(/\n/g) || []).length;
+      const toLine = fromLine + newlinesInMatch;
+
+      matches.push({
+        content: matchedContent,
+        fromLine,
+        toLine,
+      });
+
+      // Prevent infinite loop on zero-length matches
+      if (match[0].length === 0) {
+        searchPattern.lastIndex++;
       }
     }
 

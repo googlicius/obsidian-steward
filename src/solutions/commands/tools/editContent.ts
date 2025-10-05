@@ -5,9 +5,16 @@ import { z } from 'zod';
  * Schema for the edit tool parameters
  */
 const editSchema = z.object({
-  oldContent: z
-    .string()
-    .describe('The exact content to be replaced. Must match the current content in the note.'),
+  fromLine: z
+    .number()
+    .describe(
+      "The starting line number (0-based) of the content to be replaced. Get this from the read_result artifact or grep tool's result."
+    ),
+  toLine: z
+    .number()
+    .describe(
+      "The ending line number (0-based) of the content to be replaced. Get this from the read_result artifact or grep tool's result."
+    ),
   newContent: z.string().describe('The new content to replace the old content with.'),
   filePath: z
     .string()

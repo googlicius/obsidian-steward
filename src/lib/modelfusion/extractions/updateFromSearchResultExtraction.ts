@@ -11,7 +11,8 @@ const abortService = AbortService.getInstance();
 
 export interface ReplaceInstruction {
   type: 'replace';
-  old: string;
+  fromLine: number;
+  toLine: number;
   new: string;
 }
 
@@ -33,7 +34,8 @@ export interface UpdateFromSearchResultExtraction {
 // Define the Zod schemas for update instructions
 const replaceInstructionSchema = z.object({
   type: z.literal('replace'),
-  old: z.string(),
+  fromLine: z.number(),
+  toLine: z.number(),
   new: z.string(),
 });
 

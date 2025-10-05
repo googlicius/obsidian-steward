@@ -26,7 +26,8 @@ import {
 
 export interface ContentUpdate {
   updatedContent: string;
-  originalContent: string;
+  fromLine: number;
+  toLine: number;
 }
 
 export class GenerateCommandHandler extends CommandHandler {

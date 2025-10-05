@@ -37,6 +37,7 @@ const en = {
       readDesc: 'Read content from notes',
       buildSearchIndexDesc: 'Build the search index for your notes',
       cannotDeleteThisType: 'Cannot delete this type of artifact: {{type}}',
+      thisNote: 'this note',
     },
     // Chat UI elements
     chat: {

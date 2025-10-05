@@ -188,20 +188,12 @@ GUIDELINES:
             lang: params.lang,
           });
 
-          console.log('EDIT TOOL CALL', toolCall);
-
           const file = toolCall.args.filePath
             ? await this.plugin.mediaTools.findFileByNameOrPath(toolCall.args.filePath)
             : this.plugin.app.workspace.getActiveFile();
 
           if (!file) {
             throw new Error('No file provided');
-          }
-
-          const content = await this.app.vault.cachedRead(file);
-
-          if (!content.includes(toolCall.args.oldContent)) {
-            throw new Error(`"${toolCall.args.oldContent}" not found in ${file.path}`);
           }
 
           await this.renderer.updateConversationNote({
@@ -220,7 +212,12 @@ GUIDELINES:
                   },
                 ],
                 updateInstructions: [
-                  { type: 'replace', old: toolCall.args.oldContent, new: toolCall.args.newContent },
+                  {
+                    type: 'replace',
+                    fromLine: toolCall.args.fromLine,
+                    toLine: toolCall.args.toLine,
+                    new: toolCall.args.newContent,
+                  },
                 ],
                 lang: params.lang,
               });
@@ -277,6 +274,9 @@ GUIDELINES:
     };
   }
 
+  /**
+   * Handle update the content_update artifact
+   */
   private async handleUpdateContentUpdate(
     params: CommandHandlerParams,
     artifact: ContentUpdateArtifact,
@@ -285,13 +285,12 @@ GUIDELINES:
     const t = getTranslation(params.lang);
 
     // Convert the updates in the extraction to UpdateInstruction objects
-    const updateInstructions = artifact.updateExtraction.updates
-      .filter(update => update.updatedContent !== update.originalContent)
-      .map(update => ({
-        type: 'replace' as const,
-        old: update.originalContent,
-        new: update.updatedContent,
-      }));
+    const updateInstructions = artifact.updateExtraction.updates.map(update => ({
+      type: 'replace' as const,
+      fromLine: update.fromLine,
+      toLine: update.toLine,
+      new: update.updatedContent,
+    }));
 
     if (updateInstructions.length === 0) {
       await this.renderer.updateConversationNote({
@@ -453,13 +452,6 @@ GUIDELINES:
 
             // Apply each update instruction in sequence
             for (const instruction of updateInstructions) {
-              if (instruction.type === 'replace' && !content.includes(instruction.old)) {
-                await this.renderer.updateConversationNote({
-                  path: title,
-                  newContent: `*Old content not found in ${doc.path}:*\n"${instruction.old}"`,
-                });
-              }
-
               const updatedContent = await this.obsidianAPITools.applyUpdateInstruction(
                 content,
                 instruction
