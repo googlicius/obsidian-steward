@@ -17,7 +17,12 @@ import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { type CommandProcessor } from '../../CommandProcessor';
 import { ReadCommandHandler } from '../ReadCommandHandler/ReadCommandHandler';
 import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
-import { updateContentSchema, generateContentSchema, readContentSchema } from './zSchemas';
+import { updateContentSchema, generateContentSchema } from './zSchemas';
+import { GENERATE_COMMAND_TOOLS } from './toolNames';
+import {
+  requestReadContentTool,
+  REQUEST_READ_CONTENT_TOOL_NAME,
+} from '../../tools/requestReadContent';
 
 export interface ContentUpdate {
   updatedContent: string;
@@ -107,7 +112,9 @@ The response should be in natural language and not include the selection(s) {{st
 
     const isUpdate = nextCommand && nextCommand.commandType === 'update_from_artifact';
 
-    const conversationHistory = await this.renderer.extractConversationHistory(title);
+    const conversationHistory = await this.renderer.extractConversationHistory(title, {
+      summaryPosition: 1,
+    });
 
     const llmConfig = await this.plugin.llmService.getLLMConfig({
       overrideModel: command.model,
@@ -124,19 +131,19 @@ The response should be in natural language and not include the selection(s) {{st
 
 You have access to the following tools:
 
-1. updateContent - Update existing content in a note.
-2. generateContent - Generate new content for a note.
-3. contentReading - Read content from notes to gather context before generating a response.
+1. ${GENERATE_COMMAND_TOOLS.UPDATE_CONTENT} - Update existing content in a note.
+2. ${GENERATE_COMMAND_TOOLS.GENERATE_CONTENT} - Generate new content for a note.
+3. ${REQUEST_READ_CONTENT_TOOL_NAME} - Read content from notes to gather context before generating a response.
 
 GUIDELINES:
-- If you need more context before generating a response, use the contentReading tool first.
-- If the user wants to update existing content, use the updateContent tool.
-- For all other content generation requests, use the generateContent tool.
+- If you need more context before generating a response, use the ${REQUEST_READ_CONTENT_TOOL_NAME} tool first.
+- If the user wants to update existing content, use the ${GENERATE_COMMAND_TOOLS.UPDATE_CONTENT} tool.
+- For all other content generation requests, use the ${GENERATE_COMMAND_TOOLS.GENERATE_CONTENT} tool.
 - You MUST use tools to fulfill the query.
 - IMPORTANT: Even if you cannot see images referenced in the user's request, you can still proceed with content generation. The actual generation process can access and process images when needed, so don't hesitate to generate content based on image-related requests.
 ${
   isUpdate
-    ? `IMPORTANT: This is an update request. Please do NOT use the generateContent tool.`
+    ? `IMPORTANT: This is an update request. Please do NOT use the ${GENERATE_COMMAND_TOOLS.GENERATE_CONTENT} tool.`
     : ``
 }
 
@@ -147,15 +154,13 @@ ${languageEnforcementFragment}`,
         { role: 'user', content: userMessage },
       ],
       tools: {
-        updateContent: tool({
+        [GENERATE_COMMAND_TOOLS.UPDATE_CONTENT]: tool({
           parameters: updateContentSchema,
         }),
-        generateContent: tool({
+        [GENERATE_COMMAND_TOOLS.GENERATE_CONTENT]: tool({
           parameters: generateContentSchema,
         }),
-        readContent: tool({
-          parameters: readContentSchema,
-        }),
+        [REQUEST_READ_CONTENT_TOOL_NAME]: requestReadContentTool,
       },
     });
 
@@ -193,7 +198,7 @@ ${languageEnforcementFragment}`,
 
     for (const toolCall of extraction.toolCalls) {
       switch (toolCall.toolName) {
-        case 'readContent': {
+        case REQUEST_READ_CONTENT_TOOL_NAME: {
           await this.renderer.updateConversationNote({
             path: title,
             newContent: toolCall.args.explanation,
@@ -226,7 +231,7 @@ ${languageEnforcementFragment}`,
           }
         }
 
-        case 'updateContent': {
+        case GENERATE_COMMAND_TOOLS.UPDATE_CONTENT: {
           try {
             await this.renderer.updateConversationNote({
               path: title,
@@ -309,7 +314,7 @@ ${languageEnforcementFragment}`,
           }
         }
 
-        case 'generateContent': {
+        case GENERATE_COMMAND_TOOLS.GENERATE_CONTENT: {
           try {
             await this.renderer.updateConversationNote({
               path: title,
@@ -370,6 +375,19 @@ ${languageEnforcementFragment}`,
                 includeHistory: false,
               });
 
+              if (!messageId) {
+                throw new Error('Failed to stream conversation note');
+              }
+
+              await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+                text: `*${t('common.artifactCreated', { type: ArtifactType.GENERATED_CONTENT })}*`,
+                artifact: {
+                  artifactType: ArtifactType.GENERATED_CONTENT,
+                  messageId,
+                  content: (await this.renderer.getMessageById(title, messageId))?.content || '',
+                },
+              });
+
               toolInvocations.push({
                 ...toolCall,
                 result: 'messageRef:' + messageId,
@@ -378,7 +396,6 @@ ${languageEnforcementFragment}`,
               await this.renderer.serializeToolInvocation({
                 path: title,
                 command: 'generate',
-                text: `*${t('common.artifactCreated', { type: ArtifactType.GENERATED_CONTENT })}*`,
                 toolInvocations,
               });
             } else {

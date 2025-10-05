@@ -102,6 +102,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     temperature: 0.2,
     ollamaBaseUrl: 'http://localhost:11434', // Deprecated: use providerConfigs instead
     maxGenerationTokens: 2048, // Default max tokens for generation
+    showExtractionExplanation: true,
     embedding: {
       model: 'openai:text-embedding-ada-002',
       customModels: [],

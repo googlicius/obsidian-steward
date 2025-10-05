@@ -5,7 +5,7 @@ import { Artifact, ArtifactSerializer } from '../types';
  * For serialization, it applies the serializers in order
  * For deserialization, it applies the serializers in reverse order
  */
-export class CompositeSerializer implements ArtifactSerializer {
+export class CompositeSerializer extends ArtifactSerializer {
   private serializers: ArtifactSerializer[];
 
   /**
@@ -13,6 +13,7 @@ export class CompositeSerializer implements ArtifactSerializer {
    * @param serializers The serializers to chain, in the order they should be applied for serialization
    */
   constructor(...serializers: ArtifactSerializer[]) {
+    super();
     if (serializers.length === 0) {
       throw new Error('CompositeSerializer requires at least one serializer');
     }
@@ -29,7 +30,12 @@ export class CompositeSerializer implements ArtifactSerializer {
 
     // Apply each serializer in order, except the first one
     for (const serializer of this.serializers.slice(1)) {
-      result = serializer.serialize(JSON.parse(result));
+      result = serializer.serialize(result);
+    }
+
+    // Final result must a string
+    if (typeof result !== 'string') {
+      throw new Error('Final result must be a string');
     }
 
     return result;

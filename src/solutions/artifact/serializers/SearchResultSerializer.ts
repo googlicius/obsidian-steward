@@ -7,14 +7,16 @@ import { IndexedDocument } from 'src/database/SearchDatabase';
  * Serializer for search results that only stores document IDs
  * instead of full document objects to save space
  */
-export class SearchResultSerializer implements ArtifactSerializer {
-  constructor(private documentStore: DocumentStore) {}
+export class SearchResultSerializer extends ArtifactSerializer {
+  constructor(private documentStore: DocumentStore) {
+    super();
+  }
 
   /**
    * Serialize a search result artifact to a string
    * Extracts only the document IDs, scores, and keywords matched
    */
-  serialize(artifact: SearchResultsArtifact): string {
+  serialize(artifact: SearchResultsArtifact) {
     if (artifact.artifactType !== ArtifactType.SEARCH_RESULTS) {
       throw new Error(
         `Type mismatch: expected ${ArtifactType.SEARCH_RESULTS}, got ${artifact.artifactType}`
@@ -29,7 +31,7 @@ export class SearchResultSerializer implements ArtifactSerializer {
       k: result.keywordsMatched,
     }));
 
-    return JSON.stringify(simplifiedResults);
+    return simplifiedResults;
   }
 
   /**

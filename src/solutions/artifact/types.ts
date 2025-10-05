@@ -79,6 +79,12 @@ export interface ConversationSummaryArtifact extends BaseArtifact {
   summary: string; // The generated summary text
 }
 
+export interface GeneratedContentArtifact extends BaseArtifact {
+  artifactType: ArtifactType.GENERATED_CONTENT;
+  content: string;
+  messageId: string;
+}
+
 /**
  * Extraction result artifact
  */
@@ -108,6 +114,7 @@ export type Artifact =
   | CreatedNotesArtifact
   | ReadContentArtifact
   | ContentUpdateArtifact
+  | GeneratedContentArtifact
   | MediaResultsArtifact
   | ConversationSummaryArtifact
   | ExtractionResultArtifact
@@ -118,6 +125,7 @@ export type ArtifactMap = {
   [ArtifactType.CREATED_NOTES]: CreatedNotesArtifact;
   [ArtifactType.READ_CONTENT]: ReadContentArtifact;
   [ArtifactType.CONTENT_UPDATE]: ContentUpdateArtifact;
+  [ArtifactType.GENERATED_CONTENT]: GeneratedContentArtifact;
   [ArtifactType.MEDIA_RESULTS]: MediaResultsArtifact;
   [ArtifactType.CONVERSATION_SUMMARY]: ConversationSummaryArtifact;
   [ArtifactType.EXTRACTION_RESULT]: ExtractionResultArtifact;
@@ -127,18 +135,25 @@ export type ArtifactMap = {
 /**
  * Interface for artifact serializers
  */
-export interface ArtifactSerializer {
+export abstract class ArtifactSerializer {
+  title?: string;
+
+  injectTitle(title: string): this {
+    this.title = title;
+    return this;
+  }
+
   /**
    * Serialize an artifact to a string wrapped in stw-artifact block
    * @param artifact The artifact to serialize
    * @returns The serialized artifact as a string wrapped in stw-artifact block
    */
-  serialize(artifact: Artifact): string;
+  abstract serialize(artifact: unknown | string): string | unknown;
 
   /**
    * Deserialize a string to an artifact
    * @param data The string to deserialize (possibly containing a stw-artifact block)
    * @returns The deserialized artifact or a Promise that resolves to the artifact
    */
-  deserialize(data: string): Artifact | Promise<Artifact>;
+  abstract deserialize(data: string): Artifact | Promise<Artifact>;
 }

@@ -258,62 +258,55 @@ export class CommandProcessor {
         await handler.renderIndicator(title, payload.lang);
       }
 
-      // Execute the command
-      try {
-        const result = await handler.handle({
-          title,
-          command,
-          prevCommand,
-          nextCommand,
-          lang: payload.lang,
-          upstreamOptions: options.sendToDownstream,
-        });
+      const result = await handler.handle({
+        title,
+        command,
+        prevCommand,
+        nextCommand,
+        lang: payload.lang,
+        upstreamOptions: options.sendToDownstream,
+      });
 
-        // Command completed successfully
-        this.pendingCommands.set(title, {
-          ...pendingCommand,
-          currentIndex: nextIndex,
-          lastCommandResult: result,
-        });
+      // Command completed successfully
+      this.pendingCommands.set(title, {
+        ...pendingCommand,
+        currentIndex: nextIndex,
+        lastCommandResult: result,
+      });
 
-        // Handle the result
-        if (result.status === CommandResultStatus.ERROR) {
-          logger.error(`Command failed: ${command.commandType}`, result.error);
-          // Stop processing on error
-          this.pendingCommands.delete(title);
-          return;
-        } else if (result.status === CommandResultStatus.NEEDS_CONFIRMATION) {
-          // Pause processing until confirmation is received
-          logger.log(`Command needs confirmation: ${command.commandType}`);
-          return;
-        } else if (result.status === CommandResultStatus.LOW_CONFIDENCE) {
-          logger.log(
-            `Low confidence in command: ${command.commandType}, attempting context augmentation`
-          );
+      // Handle the result
+      if (result.status === CommandResultStatus.ERROR) {
+        logger.error(`Command failed: ${command.commandType}`, result.error);
+        // Stop processing on error
+        this.pendingCommands.delete(title);
+        return;
+      } else if (result.status === CommandResultStatus.NEEDS_CONFIRMATION) {
+        // Pause processing until confirmation is received
+        logger.log(`Command needs confirmation: ${command.commandType}`);
+        return;
+      } else if (result.status === CommandResultStatus.LOW_CONFIDENCE) {
+        logger.log(
+          `Low confidence in command: ${command.commandType}, attempting context augmentation`
+        );
 
-          await this.processCommands(
-            {
-              title,
-              commands: [
-                {
-                  commandType: 'context_augmentation',
-                  query: '',
-                  retryRemaining: 0, // We disable the context augmentation for now.
-                },
-              ],
-              lang: payload.lang,
-            },
-            {
-              skipQueueCheck: true,
-            }
-          );
+        await this.processCommands(
+          {
+            title,
+            commands: [
+              {
+                commandType: 'context_augmentation',
+                query: '',
+                retryRemaining: 0, // We disable the context augmentation for now.
+              },
+            ],
+            lang: payload.lang,
+          },
+          {
+            skipQueueCheck: true,
+          }
+        );
 
-          // Stop the current command processing
-          this.pendingCommands.delete(title);
-          return;
-        }
-      } catch (error) {
-        logger.error(`Unexpected error in command: ${command.commandType}`, error);
+        // Stop the current command processing
         this.pendingCommands.delete(title);
         return;
       }

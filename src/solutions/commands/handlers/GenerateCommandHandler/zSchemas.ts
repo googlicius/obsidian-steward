@@ -1,7 +1,6 @@
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { explanationFragment, confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { z } from 'zod';
-import { COMMAND_DEFINITIONS } from 'src/lib/modelfusion/prompts/commands';
 
 // Define the Zod schema for content update
 const contentUpdateSchema = z.object({
@@ -41,13 +40,6 @@ export const generateContentSchema = z.object({
 Include only when:
 - The user wants to update or create the <noteName> note.
 - If the user specifies a note name, include it exactly as provided.`),
-  instructions: z.string().min(1, 'Instructions must be a non-empty string')
-    .describe(`The generation instructions from the user's request for creating content.
-Capture the user's intent clearly, including:
-- The topic or subject matter
-- The format or structure requested (e.g., list, table, essay)
-- Any specific requirements or constraints mentioned
-- Image-related requests (e.g., "describe this image", "analyze the chart") - proceed with content generation even if you cannot see the actual image.`),
   explanation: z.string().min(1, 'Explanation must be a non-empty string')
     .describe(`- Speak directly to the user (e.g., "I'll help you with..."
 - No need the actual content, just say you will help the user with their query
@@ -65,19 +57,6 @@ Capture the user's intent clearly, including:
     .describe(userLanguagePrompt.content as string),
 });
 
-const readCommandQueryTemplate = COMMAND_DEFINITIONS.find(
-  command => command.commandType === 'read'
-)?.queryTemplate;
-
-// Define the Zod schema for content reading
-export const readContentSchema = z.object({
-  query: z.string().describe(`The query to read content from notes.
-
-QUERY TEMPLATE:
-${readCommandQueryTemplate}`),
-  explanation: z.string().describe(`A brief explanation of why reading this content is necessary.`),
-});
-
 export const fileIncludingSchema = z.object({
   filePath: z.string().describe(`The path of the file to read.`),
   explanation: z.string().describe(`A brief explanation of why reading this file is necessary.`),
@@ -85,5 +64,4 @@ export const fileIncludingSchema = z.object({
 
 export type UpdateContentArgs = z.infer<typeof updateContentSchema>;
 export type GenerateContentArgs = z.infer<typeof generateContentSchema>;
-export type ReadContentArgs = z.infer<typeof readContentSchema>;
 export type FileIncludingArgs = z.infer<typeof fileIncludingSchema>;
