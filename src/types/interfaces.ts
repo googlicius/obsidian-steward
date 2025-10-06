@@ -37,9 +37,10 @@ export interface StewardPluginSettings {
     maxGenerationTokens?: number; // Maximum number of tokens to generate in response
     showExtractionExplanation?: boolean; // Show detailed explanation for command extractions
     embeddingModel?: string; // Deprecated: use embedding.model instead
-    embedding: {
-      model: string; // The embedding model (e.g., openai:text-embedding-ada-002, google:gemini-embedding-001)
-      customModels: string[]; // User-defined custom embedding models
+    // Deprecated: use embedding instead
+    embedding?: {
+      model: string;
+      customModels: string[];
     };
     image: {
       model: string; // The image model (e.g., "openai:dall-e-3", "openai:dall-e-2")
@@ -57,6 +58,12 @@ export interface StewardPluginSettings {
       };
       customModels: string[]; // User-defined custom speech models
     };
+  };
+  embedding: {
+    enabled: boolean; // Enable/disable embedding functionality
+    model: string; // The embedding model (e.g., openai:text-embedding-ada-002, google:gemini-embedding-001)
+    customModels: string[]; // User-defined custom embedding models
+    similarityThreshold: number; // Similarity threshold for embedding matching (0.7 - 0.99)
   };
   search: {
     /** Database name for search functionality */

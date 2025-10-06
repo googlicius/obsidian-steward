@@ -362,49 +362,6 @@ export default class StewardSettingTab extends PluginSettingTab {
 
     this.createProviderBaseUrlSetting(containerEl);
 
-    // Embedding Model setting
-    this.createModelSetting(
-      new Setting(containerEl)
-        .setName(t('settings.embeddingModel'))
-        .setDesc(t('settings.embeddingModelDesc')),
-      {
-        currentModelField: 'llm.embedding.model',
-        customModelsField: 'llm.embedding.customModels',
-        placeholder: 'e.g., openai:text-embedding-ada-002',
-        presetModels: EMBEDDING_MODELS,
-        onSelectChange: async (modelId: string) => {
-          this.plugin.settings.llm.embedding.model = modelId;
-          await this.plugin.saveSettings();
-          this.updateVoiceInput();
-        },
-        onAddModel: async (modelId: string) => {
-          this.plugin.settings.llm.embedding.model = modelId;
-
-          // Add to custom models if not already present and not a preset model
-          const isPresetModel = EMBEDDING_MODELS.some(model => model.id === modelId);
-          const customModels = this.plugin.settings.llm.embedding.customModels || [];
-
-          if (!isPresetModel && !customModels.includes(modelId)) {
-            customModels.push(modelId);
-            this.plugin.settings.llm.embedding.customModels = customModels;
-          }
-
-          await this.plugin.saveSettings();
-        },
-        onDeleteModel: async (modelId: string) => {
-          this.plugin.settings.llm.embedding.customModels =
-            this.plugin.settings.llm.embedding.customModels.filter(id => id !== modelId);
-
-          // If this was the selected model, switch to default
-          if (this.plugin.settings.llm.embedding.model === modelId) {
-            this.plugin.settings.llm.embedding.model = EMBEDDING_MODELS[0].id;
-          }
-
-          await this.plugin.saveSettings();
-        },
-      }
-    );
-
     // Temperature setting
     new Setting(containerEl)
       .setName(t('settings.temperature'))
@@ -451,6 +408,78 @@ export default class StewardSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.llm.showExtractionExplanation ?? false)
           .onChange(async value => {
             this.plugin.settings.llm.showExtractionExplanation = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    // Intent classification settings section
+    new Setting(containerEl).setName(t('settings.intentClassification')).setHeading();
+
+    // Intent classification Enable/Disable setting
+    new Setting(containerEl)
+      .setName(t('settings.classificationEnabled'))
+      .setDesc(t('settings.classificationEnabledDesc'))
+      .addToggle(toggle => {
+        toggle.setValue(this.plugin.settings.embedding.enabled ?? true).onChange(async value => {
+          this.plugin.settings.embedding.enabled = value;
+          await this.plugin.saveSettings();
+        });
+      });
+
+    // Embedding Model setting
+    this.createModelSetting(
+      new Setting(containerEl)
+        .setName(t('settings.embeddingModel'))
+        .setDesc(t('settings.embeddingModelDesc')),
+      {
+        currentModelField: 'embedding.model',
+        customModelsField: 'embedding.customModels',
+        placeholder: 'e.g., openai:text-embedding-ada-002',
+        presetModels: EMBEDDING_MODELS,
+        onSelectChange: async (modelId: string) => {
+          this.plugin.settings.embedding.model = modelId;
+          await this.plugin.saveSettings();
+          this.updateVoiceInput();
+        },
+        onAddModel: async (modelId: string) => {
+          this.plugin.settings.embedding.model = modelId;
+
+          // Add to custom models if not already present and not a preset model
+          const isPresetModel = EMBEDDING_MODELS.some(model => model.id === modelId);
+          const customModels = this.plugin.settings.embedding.customModels || [];
+
+          if (!isPresetModel && !customModels.includes(modelId)) {
+            customModels.push(modelId);
+            this.plugin.settings.embedding.customModels = customModels;
+          }
+
+          await this.plugin.saveSettings();
+        },
+        onDeleteModel: async (modelId: string) => {
+          this.plugin.settings.embedding.customModels =
+            this.plugin.settings.embedding.customModels.filter(id => id !== modelId);
+
+          // If this was the selected model, switch to default
+          if (this.plugin.settings.embedding.model === modelId) {
+            this.plugin.settings.embedding.model = EMBEDDING_MODELS[0].id;
+          }
+
+          await this.plugin.saveSettings();
+        },
+      }
+    );
+
+    // Embedding Similarity Threshold setting
+    new Setting(containerEl)
+      .setName(t('settings.embeddingSimilarityThreshold'))
+      .setDesc(t('settings.embeddingSimilarityThresholdDesc'))
+      .addSlider(slider => {
+        slider
+          .setLimits(0.7, 0.99, 0.01)
+          .setValue(this.plugin.settings.embedding.similarityThreshold ?? 0.85)
+          .setDynamicTooltip()
+          .onChange(async value => {
+            this.plugin.settings.embedding.similarityThreshold = value;
             await this.plugin.saveSettings();
           });
       });

@@ -103,10 +103,6 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     ollamaBaseUrl: 'http://localhost:11434', // Deprecated: use providerConfigs instead
     maxGenerationTokens: 2048, // Default max tokens for generation
     showExtractionExplanation: true,
-    embedding: {
-      model: 'openai:text-embedding-ada-002',
-      customModels: [],
-    },
     image: {
       model: 'openai:dall-e-3',
       customModels: [],
@@ -121,6 +117,12 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
       },
       customModels: [], // User-defined custom speech models
     },
+  },
+  embedding: {
+    enabled: true, // Embedding functionality enabled by default
+    model: 'openai:text-embedding-ada-002',
+    customModels: [],
+    similarityThreshold: 0.85, // Default similarity threshold for embedding matching
   },
   search: {
     searchDbName: '',
