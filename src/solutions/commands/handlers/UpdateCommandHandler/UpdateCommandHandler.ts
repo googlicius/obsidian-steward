@@ -131,7 +131,6 @@ GUIDELINES:
               query: toolCall.args.query,
               model: params.command.model,
             },
-            nextCommand: params.command,
             lang: params.lang,
           });
 
@@ -204,6 +203,33 @@ GUIDELINES:
           return {
             status: CommandResultStatus.NEEDS_CONFIRMATION,
             onConfirmation: async () => {
+              const editMode = toolCall.args.editMode || 'replace';
+
+              let updateInstruction: UpdateInstruction;
+              if (editMode === 'replace') {
+                // Replace operation (existing logic)
+                updateInstruction = {
+                  type: 'replace' as const,
+                  fromLine: toolCall.args.fromLine,
+                  toLine: toolCall.args.toLine,
+                  new: toolCall.args.newContent,
+                };
+              } else if (editMode === 'above') {
+                // Insert above the grepped content (before fromLine)
+                updateInstruction = {
+                  type: 'add' as const,
+                  content: toolCall.args.newContent,
+                  position: toolCall.args.fromLine - 1,
+                };
+              } else {
+                // Insert below the grepped content (after toLine)
+                updateInstruction = {
+                  type: 'add' as const,
+                  content: toolCall.args.newContent,
+                  position: toolCall.args.toLine + 1,
+                };
+              }
+
               return this.performUpdate({
                 title: params.title,
                 docs: [
@@ -211,14 +237,7 @@ GUIDELINES:
                     path: file.path,
                   },
                 ],
-                updateInstructions: [
-                  {
-                    type: 'replace',
-                    fromLine: toolCall.args.fromLine,
-                    toLine: toolCall.args.toLine,
-                    new: toolCall.args.newContent,
-                  },
-                ],
+                updateInstructions: [updateInstruction],
                 lang: params.lang,
               });
             },

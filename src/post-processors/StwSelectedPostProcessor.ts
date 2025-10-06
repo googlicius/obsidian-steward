@@ -31,7 +31,10 @@ export function createStwSelectedPostProcessor(plugin: StewardPlugin): MarkdownP
             const [, fromLine, toLine, , filePath] = metadataMatch;
             const span = document.createElement('span');
             const fileName = filePath.split('/').pop()?.replace(/\.md$/, '') || 'Unknown';
-            span.textContent = `@${fileName} (${fromLine}-${toLine})`;
+            // Display 1-based line numbers (add 1 to 0-based stored values)
+            const displayFromLine = parseInt(fromLine) + 1;
+            const displayToLine = parseInt(toLine) + 1;
+            span.textContent = `@${fileName} (${displayFromLine}-${displayToLine})`;
             span.addClass('stw-selected-button', 'mr-2');
 
             replacementElements.push(span);

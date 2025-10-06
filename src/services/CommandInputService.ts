@@ -109,7 +109,7 @@ export class CommandInputService {
     const cursorTo = this.getEditor().getCursor('to');
     const selection = this.getEditor().getSelection();
 
-    return `{{stw-selected from:${cursorFrom.line + 1},to:${cursorTo.line + 1},selection:${new MarkdownUtil(selection).escape(true).getText()},path:${filePath}}}`;
+    return `{{stw-selected from:${cursorFrom.line},to:${cursorTo.line},selection:${new MarkdownUtil(selection).escape(true).getText()},path:${filePath}}}`;
   }
 
   /**

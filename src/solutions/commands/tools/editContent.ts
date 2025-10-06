@@ -21,6 +21,12 @@ const editSchema = z.object({
     .optional()
     .describe('The path of the file to edit. If not provided, edits the current note.'),
   explanation: z.string().describe('A brief explanation of what changes are being made and why.'),
+  editMode: z
+    .enum(['replace', 'above', 'below'])
+    .optional()
+    .describe(
+      'How to apply the content: "replace" (default) to replace the content between fromLine and toLine, "above" to insert before fromLine, "below" to insert after toLine.'
+    ),
 });
 
 /**

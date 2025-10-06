@@ -66,7 +66,7 @@ Is the image above a lake, pond, reservoir, or sea?`;
 
     it('should extract images from stw-selected blocks', () => {
       const content = `Here is a selected block with an image:
-{{stw-selected from:1,to:5,selection: ${new MarkdownUtil('This contains an image: ![[image2.jpg]] and some text').escape().getText()},path:test.md}}`;
+{{stw-selected from:0,to:4,selection: ${new MarkdownUtil('This contains an image: ![[image2.jpg]] and some text').escape().getText()},path:test.md}}`;
       const imageLinks = noteContentService.extractImageLinks(content);
       expect(imageLinks).toEqual(['image2.jpg']);
     });
