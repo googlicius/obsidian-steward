@@ -28,3 +28,12 @@ jest.mock('./i18n', () => ({
     changeLanguage: jest.fn(),
   },
 }));
+
+// Mock logger
+jest.mock('./utils/logger', () => ({
+  logger: {
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+  },
+}));

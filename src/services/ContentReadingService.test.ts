@@ -2,9 +2,6 @@ import { ContentReadingService } from './ContentReadingService';
 import { TFile, EditorPosition } from 'obsidian';
 import type StewardPlugin from '../main';
 
-// Mock StewardPlugin
-jest.mock('../main');
-
 /**
  * Creates a mock plugin with a mock editor using the provided text content
  * @param mockText The text content to use in the mock editor
