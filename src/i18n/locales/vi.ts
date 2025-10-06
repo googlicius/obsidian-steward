@@ -33,6 +33,7 @@ const vi = {
       readDesc: 'Đọc nội dung từ ghi chú',
       buildSearchIndexDesc: 'Xây dựng chỉ mục tìm kiếm cho ghi chú của bạn',
       cannotDeleteThisType: 'Không thể xóa loại artifact này: {{type}}',
+      thisNote: 'ghi chú này',
     },
     // Chat UI elements
     chat: {

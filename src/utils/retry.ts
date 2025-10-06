@@ -1,3 +1,5 @@
+import { logger } from './logger';
+
 /**
  * Retry configuration options
  */
@@ -38,6 +40,7 @@ export async function retry<T>(fn: () => Promise<T> | T, options: RetryOptions =
 
   for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
     try {
+      logger.log(`Retry attempt ${attempt + 1} of ${config.maxRetries}`);
       return await fn();
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));

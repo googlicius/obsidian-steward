@@ -9,12 +9,28 @@ import { ArtifactType } from 'src/solutions/artifact';
 import type StewardPlugin from 'src/main';
 import { toolSystemPrompt } from './contentReadingPrompt';
 import { generateText, tool, Message, generateId } from 'ai';
-import { contentReadingSchema } from './zSchemas';
+import { contentReadingSchema, ContentReadingArgs } from './zSchemas';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
 
 export class ReadCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
     super();
+  }
+
+  /**
+   * Repair content reading tool call arguments to handle common LLM misinterpretations
+   */
+  private repairContentReadingToolCallArgs(args: ContentReadingArgs): ContentReadingArgs {
+    if (args.noteName && typeof args.noteName === 'string') {
+      const normalizedNoteName = args.noteName.trim().toLowerCase();
+      if (['current note', 'this note', 'current', 'current note'].includes(normalizedNoteName)) {
+        return {
+          ...args,
+          noteName: null,
+        };
+      }
+    }
+    return args;
   }
 
   /**
@@ -133,6 +149,9 @@ export class ReadCommandHandler extends CommandHandler {
       for (let i = startIndex; i < extraction.toolCalls.length; i++) {
         const toolCall = extraction.toolCalls[i];
         if (toolCall.toolName === 'contentReading') {
+          // Repair tool call arguments to handle common LLM misinterpretations
+          toolCall.args = this.repairContentReadingToolCallArgs(toolCall.args);
+
           // Check if readType is 'entire' and needs confirmation
           if (toolCall.args.readType === 'entire' && !options.readEntireConfirmed) {
             await this.renderer.updateConversationNote({
@@ -140,7 +159,6 @@ export class ReadCommandHandler extends CommandHandler {
               newContent: t('read.readEntireContentConfirmation', {
                 noteName: toolCall.args.noteName || t('common.thisNote'),
               }),
-              role: 'Steward',
               command: 'read',
               lang: params.lang,
             });

@@ -1,14 +1,6 @@
 import { SearchDatabase } from './SearchDatabase';
 import { logger } from '../utils/logger';
 
-// Mock logger
-jest.mock('../utils/logger', () => ({
-  logger: {
-    log: jest.fn(),
-    error: jest.fn(),
-  },
-}));
-
 describe('SearchDatabase', () => {
   describe('cleanupOldDatabases', () => {
     let mockIndexedDB: {

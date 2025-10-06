@@ -8,6 +8,7 @@ import {
   ArtifactType,
 } from 'src/solutions/artifact/types';
 import { JsonArtifactSerializer, SearchResultSerializer, CompositeSerializer } from './serializers';
+import { GeneratedContentSerializer } from './serializers/GeneratedContentSerializer';
 
 /**
  * Manager for storing and retrieving artifacts in conversation notes
@@ -125,6 +126,13 @@ export class ArtifactManagerV2 {
           type,
           new CompositeSerializer(searchResultSerializer, jsonSerializer)
         );
+      } else if (type === ArtifactType.GENERATED_CONTENT) {
+        const generatedContentSerializer = new GeneratedContentSerializer(
+          (conversationTitle: string, messageId: string) => {
+            return this.plugin.conversationRenderer.getMessageById(conversationTitle, messageId);
+          }
+        );
+        this.registerSerializer(type, generatedContentSerializer);
       } else {
         this.registerSerializer(type, jsonSerializer);
       }
@@ -268,7 +276,9 @@ export class ArtifactManagerV2 {
         }
         try {
           const serializer = this.getSerializer(message.artifactType as ArtifactType);
-          const result = await serializer.deserialize(message.content);
+          const result = await serializer
+            .injectTitle(this.conversationTitle)
+            .deserialize(message.content);
           artifacts.push(result);
         } catch (error) {
           logger.error(`Error deserializing artifact of type ${message.artifactType}:`, error);

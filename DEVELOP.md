@@ -78,6 +78,9 @@
 - [ ] Add the new Steward folder to the excluded folders.
 - [x] When users clicking on the reload button of a message, remove ALL artifacts below that message.
 - [x] Provide a clean assistant-user' request/response flow with consistent ID: User sends queries: 1. Assistant send request (request_id) to read. The user response with a reading result (include the request_id)
+- [ ] Save embedding only when the command sequence is completed.
+- [ ] Enhance summarization: Only check generated_content, note content_update for generate commands.
+- [ ] Large updates: Tables, lists, paragraphs,...
 
 ### BUGS
 
@@ -87,3 +90,14 @@
 - [x] The systemPrompts in the User-Defined command currently load content from wikilinks only one level (Need 2 levels to resolve content of wikilinks in the system prompt)
 - [x] Double user messages in the actual generate.
 - [x] Cannot stop
+
+### CONTEXT ENGINEERING
+
+1. Use JSON format to present schemas need to be enforced.
+2. Simplified instructions/system prompts by including the necessary and related to the current query/context.
+3. Don't ask LLM repeat or copy something, specially complicated patterns. The larger the content the higher risk the model making mistakes. Ask for sending placeholders instead and the client will process to transform placeholders into the actual contents.
+4. Use IDs to connect things together, for example: If the model uses a tool call, attach the same ID (toolCallID) to the tool call request and the result.
+5. Test the outcomes with as many models as possible. Each model has their own approach of resolving the query and tool usage.
+6. Specialized agents can process some related tasks beyond their capacity by requesting other agents for more context.
+7. Repair model's responses in-flight that are still correct but varies due to their creativity/randomness.
+8. Option to see human-readable explanation (YAML) about what it did.

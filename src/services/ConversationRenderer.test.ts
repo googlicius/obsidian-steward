@@ -4,9 +4,6 @@ import type StewardPlugin from '../main';
 import { NoteContentService } from './NoteContentService';
 import { uniqueID } from '../utils/uniqueID';
 
-// Mock StewardPlugin
-jest.mock('../main');
-
 // Mock the uniqueID function
 jest.mock('../utils/uniqueID', () => ({
   uniqueID: jest.fn(() => 'mock-id-123'),

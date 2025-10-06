@@ -1,6 +1,6 @@
 export * from './DeleteCommandHandler';
 export * from './CopyCommandHandler';
-export * from './UpdateCommandHandler';
+export * from './UpdateCommandHandler/UpdateCommandHandler';
 export * from './MoveCommandHandler';
 export * from './SearchCommandHandler/SearchCommandHandler';
 export * from './MoreCommandHandler';

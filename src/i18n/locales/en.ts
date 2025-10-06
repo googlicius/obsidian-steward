@@ -37,6 +37,7 @@ const en = {
       readDesc: 'Read content from notes',
       buildSearchIndexDesc: 'Build the search index for your notes',
       cannotDeleteThisType: 'Cannot delete this type of artifact: {{type}}',
+      thisNote: 'this note',
     },
     // Chat UI elements
     chat: {
@@ -127,6 +128,7 @@ const en = {
       skipped_other: 'Skipped {{count}} files:',
       applyChangesConfirm: 'Would you like me to apply the changes?',
       noChangesNeeded: 'The original and updated content are identical. No changes were needed.',
+      contentUpdatedSuccessfully: 'Content updated successfully.',
     },
     // Delete result messages
     delete: {

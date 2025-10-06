@@ -151,5 +151,52 @@ describe('ArtifactManagerV2', () => {
         },
       ]);
     });
+
+    it('should return an array of generated content artifacts', async () => {
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user-->',
+        'Help me create a table of Pokemon',
+        '',
+        '<!--STW ID:def456,ROLE:steward,COMMAND:generate,HISTORY:false-->',
+        'Pokemon table:',
+        '',
+        '| Name | Type |',
+        '|------|------|',
+        '| Pikachu | Electric |',
+        '| Charizard | Fire |',
+        '| Blastoise | Water |',
+        '',
+        '<!--STW ID:3w307,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:generated_content,HISTORY:false-->',
+        '*Artifact generated_content is created*',
+        '```stw-artifact',
+        'messageRef:def456',
+        '```',
+        '',
+      ].join('\n');
+
+      mockPlugin = createMockPlugin(mockContent);
+
+      artifactManager = ArtifactManagerV2.getInstance(mockPlugin);
+
+      const artifacts = await artifactManager
+        .withTitle('Generated Content Test Conversation')
+        .getAllArtifacts(true);
+
+      expect(artifacts).toMatchObject([
+        {
+          artifactType: 'generated_content',
+          messageId: 'def456',
+          content: [
+            'Pokemon table:',
+            '',
+            '| Name | Type |',
+            '|------|------|',
+            '| Pikachu | Electric |',
+            '| Charizard | Fire |',
+            '| Blastoise | Water |',
+          ].join('\n'),
+        },
+      ]);
+    });
   });
 });

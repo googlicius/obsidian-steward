@@ -1,9 +1,5 @@
 import { App } from 'obsidian';
-import {
-  UpdateInstruction,
-  ReplaceInstruction,
-  AddInstruction,
-} from '../lib/modelfusion/extractions';
+import { UpdateInstruction, AddInstruction } from '../lib/modelfusion/extractions';
 import { logger } from 'src/utils/logger';
 import { SearchOperationV2 } from 'src/solutions/commands/handlers/SearchCommandHandler/zSchemas';
 import { DocWithPath } from 'src/types/types';
@@ -241,8 +237,18 @@ export class ObsidianAPITools {
 
     switch (updateInstruction.type) {
       case 'replace': {
-        const replaceInstruction = updateInstruction as ReplaceInstruction;
-        content = content.replace(replaceInstruction.old, replaceInstruction.new);
+        // Extract the original content from the specified lines (0-based indexing)
+        const startLine = Math.max(0, updateInstruction.fromLine);
+        const endLine = Math.min(lines.length - 1, updateInstruction.toLine);
+
+        if (startLine > endLine) {
+          throw new Error(
+            `Invalid line range: fromLine ${updateInstruction.fromLine} > toLine ${updateInstruction.toLine}`
+          );
+        }
+
+        const originalContent = lines.slice(startLine, endLine + 1).join('\n');
+        content = content.replace(originalContent, updateInstruction.new);
         break;
       }
       case 'add': {

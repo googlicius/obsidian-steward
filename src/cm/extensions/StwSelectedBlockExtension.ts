@@ -30,7 +30,10 @@ export function createStwSelectedBlocksExtension(plugin: StewardPlugin) {
       if (metadataMatch) {
         const [, fromLine, toLine, , filePath] = metadataMatch;
         const fileName = filePath.split('/').pop()?.replace(/\.md$/, '') || 'Unknown';
-        span.textContent = `@${fileName} (${fromLine}-${toLine})`;
+        // Display 1-based line numbers (add 1 to 0-based stored values)
+        const displayFromLine = parseInt(fromLine) + 1;
+        const displayToLine = parseInt(toLine) + 1;
+        span.textContent = `@${fileName} (${displayFromLine}-${displayToLine})`;
 
         // Handles navigation to the selected block
         span.addEventListener('click', async () => {
@@ -51,8 +54,9 @@ export function createStwSelectedBlocksExtension(plugin: StewardPlugin) {
               await sleep(100);
             }
 
-            const startLineNum = parseInt(fromLine) - 1;
-            const endLineNum = parseInt(toLine) - 1;
+            // Line numbers are now stored as 0-based, so no need to subtract 1
+            const startLineNum = parseInt(fromLine);
+            const endLineNum = parseInt(toLine);
 
             // Validate line numbers are within document bounds
             const docLineCount = plugin.editor.lineCount();

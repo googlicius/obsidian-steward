@@ -1,6 +1,9 @@
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 
+export type TrashFile = { originalPath: string; trashPath: string };
+export type NonTrashFile = { originalPath: string; trashPath?: string };
+
 /**
  * Interface for trash metadata
  */
@@ -36,8 +39,6 @@ export class TrashCleanupService {
     this.cleanupIntervalId = window.setInterval(() => {
       this.runCleanup();
     }, this.CHECK_INTERVAL);
-
-    logger.log('TrashCleanupService initialized');
   }
 
   /**
@@ -77,7 +78,7 @@ export class TrashCleanupService {
       }
 
       const content = await this.plugin.app.vault.read(file);
-      return JSON.parse(content) as TrashMetadata;
+      return JSON.parse(content);
     } catch (error) {
       logger.error('Error loading trash metadata:', error);
       return { files: {} };
@@ -111,13 +112,7 @@ export class TrashCleanupService {
   /**
    * Add multiple files to the trash metadata at once
    */
-  async addFilesToTrash(params: {
-    files: Array<{
-      originalPath: string;
-      trashPath: string;
-    }>;
-    artifactId: string;
-  }): Promise<void> {
+  async addFilesToTrash(params: { files: TrashFile[]; artifactId: string }): Promise<void> {
     if (params.files.length === 0) {
       return;
     }

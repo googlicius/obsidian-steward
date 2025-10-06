@@ -3,7 +3,7 @@ import { Artifact, ArtifactSerializer } from '../types';
 /**
  * Serializer for JSON-based artifacts
  */
-export class JsonArtifactSerializer implements ArtifactSerializer {
+export class JsonArtifactSerializer extends ArtifactSerializer {
   /**
    * Serialize an artifact to a JSON string wrapped in stw-artifact block
    */

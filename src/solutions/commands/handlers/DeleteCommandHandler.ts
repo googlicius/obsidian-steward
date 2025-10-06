@@ -9,6 +9,7 @@ import { ArtifactType } from 'src/solutions/artifact';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { DocWithPath } from 'src/types/types';
+import { NonTrashFile, TrashFile } from 'src/services/TrashCleanupService';
 
 export class DeleteCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -144,9 +145,6 @@ export class DeleteCommandHandler extends CommandHandler {
 
       const isStwTrash = this.plugin.settings.deleteBehavior.behavior === 'stw_trash';
 
-      type TrashFile = { originalPath: string; trashPath: string };
-      type NonTrashFile = { originalPath: string; trashPath?: string };
-
       const deletedFiles: (TrashFile | NonTrashFile)[] = [];
       const failedFiles: string[] = [];
 
@@ -164,14 +162,7 @@ export class DeleteCommandHandler extends CommandHandler {
           });
 
           // Build deleted files section
-          const fileName = result.originalPath.split('/').pop() || result.originalPath;
-          if (result.trashPath) {
-            // Use alias format: [[trash_path|original_file_name]]
-            deletedSection += `\n- [[${result.trashPath}|${fileName}]]`;
-          } else {
-            // For Obsidian trash or paths without trash path
-            deletedSection += `\n- [[${result.originalPath}]]`;
-          }
+          deletedSection += `\n- [[${doc.path}]]`;
         } else {
           failedFiles.push(doc.path);
           // Build failed files section

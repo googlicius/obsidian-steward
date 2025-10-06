@@ -264,7 +264,6 @@ export class ConversationRenderer {
   public async deserializeToolInvocations(params: {
     message: ConversationMessage;
     conversationTitle: string;
-    allMessages: ConversationMessage[];
   }): Promise<
     | {
         toolName: string;
@@ -323,9 +322,12 @@ export class ConversationRenderer {
               }
             } else if (result.startsWith('messageRef:')) {
               const messageId = result.substring('messageRef:'.length);
-              const referencedMessage = params.allMessages.find(msg => msg.id === messageId);
+              const referencedMessage = await this.getMessageById(
+                params.conversationTitle,
+                messageId
+              );
               if (referencedMessage) {
-                resolvedResult = referencedMessage;
+                resolvedResult = referencedMessage.content;
               } else {
                 logger.error(`Message not found: ${messageId}`);
                 resolvedResult = null;
@@ -872,6 +874,114 @@ export class ConversationRenderer {
   }
 
   /**
+   * Gets a specific message by ID from a conversation
+   * @param conversationTitle The title of the conversation
+   * @param messageId The ID of the message to retrieve
+   * @returns The conversation message, or null if not found
+   */
+  public async getMessageById(
+    conversationTitle: string,
+    messageId: string
+  ): Promise<ConversationMessage | null> {
+    try {
+      // Get the conversation file
+      const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+      const notePath = `${folderPath}/${conversationTitle}.md`;
+      const file = this.plugin.app.vault.getFileByPath(notePath);
+
+      if (!file) {
+        throw new Error(`Note not found: ${notePath}`);
+      }
+
+      // Read the content
+      const content = await this.plugin.app.vault.cachedRead(file);
+
+      // Find the comment block with the given ID
+      const idPattern = `ID:${messageId}`;
+      const commentBlockRegex = new RegExp(`<!--STW ${idPattern}[^>]*-->`, 'gi');
+      const match = commentBlockRegex.exec(content);
+
+      if (!match) {
+        return null;
+      }
+
+      // Parse metadata from the comment block
+      const metadataStr = match[0].replace(/<!--STW |-->/g, '');
+      const metadata: Record<string, string> = {};
+      const pairs = metadataStr.split(',');
+      for (const pair of pairs) {
+        const [key, value] = pair.split(':');
+        if (key && value) {
+          metadata[key] = value;
+        }
+      }
+
+      // Get the message content
+      const startPos = (match.index ?? 0) + match[0].length;
+
+      // Find the next comment block to determine the end of this message
+      const nextCommentRegex = /<!--STW ID:[^>]*-->/gi;
+      nextCommentRegex.lastIndex = startPos;
+      const nextMatch = nextCommentRegex.exec(content);
+
+      const endPos = nextMatch ? (nextMatch.index ?? content.length) : content.length;
+      let messageContent = content.substring(startPos, endPos).trim();
+
+      // If no role is defined, return null
+      if (!metadata.ROLE) {
+        return null;
+      }
+
+      // Clean up the content based on role
+      if (metadata.ROLE === 'user') {
+        // Try to extract content from stw-user-message callout
+        const calloutContent = this.plugin.noteContentService.extractCalloutContent(
+          messageContent,
+          'stw-user-message'
+        );
+
+        if (calloutContent) {
+          // Remove the role text if present
+          messageContent = calloutContent.replace(/^\*\*User:\*\* /i, '');
+        }
+      }
+
+      // Remove any role name with the syntax **Role:**
+      messageContent = messageContent.replace(/\*\*(User|Steward|System):\*\* /g, '');
+
+      // Remove separator lines
+      messageContent = messageContent.replace(/^---$/gm, '');
+
+      // Remove loading indicators
+      messageContent = messageContent.replace(/\*.*?\.\.\.\*$/gm, '');
+
+      // Convert role from 'steward' to 'assistant'
+      const role = metadata.ROLE === 'steward' ? 'assistant' : metadata.ROLE;
+
+      // Determine if this message should be included in history
+      const includeInHistory = metadata.HISTORY !== 'false';
+
+      return {
+        id: metadata.ID,
+        role: role as ConversationRole,
+        content: messageContent.trim(),
+        command: metadata.COMMAND || '',
+        lang: metadata.LANG,
+        history: includeInHistory,
+        ...(metadata.TYPE && {
+          type: metadata.TYPE,
+        }),
+        ...(metadata.ARTIFACT_TYPE && {
+          artifactType: metadata.ARTIFACT_TYPE,
+        }),
+      };
+    } catch (error) {
+      logger.error('Error getting message by ID:', error);
+      return null;
+    }
+  }
+
+  /**
    * Update the metadata for a message
    * @param conversationTitle The conversation title
    * @param messageId The message ID
@@ -946,7 +1056,7 @@ export class ConversationRenderer {
       }
 
       // Read the content
-      const content = await this.plugin.app.vault.read(file);
+      const content = await this.plugin.app.vault.cachedRead(file);
 
       // Find all metadata blocks
       const metadataRegex = /<!--STW (.*?)-->/gi;
@@ -1124,7 +1234,6 @@ export class ConversationRenderer {
           const toolInvocations = await this.deserializeToolInvocations({
             message,
             conversationTitle,
-            allMessages,
           });
 
           if (toolInvocations && toolInvocations.length > 0) {

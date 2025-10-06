@@ -62,10 +62,6 @@ export class ConversationEventHandler {
     );
   }
 
-  unload(): void {
-    //
-  }
-
   private async initializeChat(file: TFile): Promise<void> {
     if (!file.name.startsWith('Steward Chat')) {
       return;

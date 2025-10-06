@@ -1,5 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { logger } from '../utils/logger';
+import { SEARCH_DB_NAME_PREFIX } from 'src/constants';
 
 /**
  * Document in the search index
@@ -112,7 +113,7 @@ export class SearchDatabase extends Dexie {
       // Filter databases with names starting with 'steward_search_' for the current vault and not the current one
       const oldSearchDbs = dbs
         .filter(db => {
-          if (!db.name || !db.name.startsWith('steward_search_') || db.name === currentDbName) {
+          if (!db.name || !db.name.startsWith(SEARCH_DB_NAME_PREFIX) || db.name === currentDbName) {
             return false;
           }
 
@@ -167,5 +168,40 @@ export class SearchDatabase extends Dexie {
       logger.error('Error retrieving or deleting databases:', error);
       return [];
     }
+  }
+
+  /**
+   * Delete a specific database by name
+   * @param dbName - The name of the database to delete
+   * @returns Promise that resolves when deletion is complete
+   */
+  static async removeDatabaseByName(dbName: string): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      if (!dbName.startsWith(SEARCH_DB_NAME_PREFIX)) {
+        logger.log(
+          `Database name does not start with ${SEARCH_DB_NAME_PREFIX}, skipping deletion.`
+        );
+        resolve();
+        return;
+      }
+
+      const deleteRequest = indexedDB.deleteDatabase(dbName);
+
+      deleteRequest.onsuccess = () => {
+        logger.log(`Database ${dbName} deleted successfully`);
+        resolve();
+      };
+
+      deleteRequest.onerror = event => {
+        logger.error(`Error deleting database ${dbName}:`, event);
+        reject(new Error(`Failed to delete database ${dbName}`));
+      };
+
+      deleteRequest.onblocked = () => {
+        logger.log(`Deletion of database ${dbName} is blocked`);
+        // Continue anyway, it will eventually be deleted when connections are closed
+        resolve();
+      };
+    });
   }
 }

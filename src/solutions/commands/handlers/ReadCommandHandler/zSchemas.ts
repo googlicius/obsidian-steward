@@ -23,6 +23,7 @@ export const contentReadingSchema = z.object({
 - Otherwise, extract the number from the query if specified`),
   foundPlaceholder: z
     .string()
+    .optional()
     .nullable()
     .describe(
       `A short text to indicate that the content was found. MUST include the term {{number}} as a placeholder, for example: "I found {{number}}..."
