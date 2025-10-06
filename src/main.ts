@@ -275,7 +275,7 @@ export default class StewardPlugin extends Plugin {
   }
 
   private initializeClassifier() {
-    const classifier = getClassifier(this.settings.llm.embedding.model);
+    const classifier = getClassifier(this.settings.embedding);
 
     // Initialize embeddings
     retry(() => classifier.doClassify('initialize'), {
@@ -348,13 +348,30 @@ export default class StewardPlugin extends Plugin {
     }
 
     // Initialize embedding if not already set
-    if (!this.settings.llm.embedding) {
-      this.settings.llm.embedding = DEFAULT_SETTINGS.llm.embedding;
-      // Migrate legacy embeddingModel to embedding.model
-      if (this.settings.llm.embeddingModel) {
-        this.settings.llm.embedding.model = this.settings.llm.embeddingModel;
-        this.settings.llm.embeddingModel = undefined;
+    if (!this.settings.embedding) {
+      this.settings.embedding = DEFAULT_SETTINGS.embedding;
+      settingsUpdated = true;
+    }
+
+    // Migrate embedding from llm.embedding to top-level embedding
+    if (this.settings.llm.embedding) {
+      // Migrate existing embedding settings
+      this.settings.embedding.model = this.settings.llm.embedding.model;
+      this.settings.embedding.customModels = this.settings.llm.embedding.customModels || [];
+      // Keep enabled as true by default for existing users
+      if (this.settings.embedding.enabled === undefined) {
+        this.settings.embedding.enabled = true;
       }
+
+      // Clear old embedding settings
+      this.settings.llm.embedding = undefined;
+      settingsUpdated = true;
+    }
+
+    // Migrate legacy embeddingModel to embedding.model
+    if (this.settings.llm.embeddingModel) {
+      this.settings.embedding.model = this.settings.llm.embeddingModel;
+      this.settings.llm.embeddingModel = undefined;
       settingsUpdated = true;
     }
 
@@ -363,15 +380,6 @@ export default class StewardPlugin extends Plugin {
       this.settings.llm.speech = DEFAULT_SETTINGS.llm.speech;
       // Remove legacy config
       this.settings.audio = undefined;
-      settingsUpdated = true;
-    }
-
-    // Initialize embedding model if not already set
-    if (!this.settings.llm.embedding?.model) {
-      this.settings.llm.embedding = {
-        model: 'openai:text-embedding-ada-002',
-        customModels: [],
-      };
       settingsUpdated = true;
     }
 

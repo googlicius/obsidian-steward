@@ -35,11 +35,10 @@ export class LLMService {
   }
 
   /**
-   * Get the embedding model from settings
-   * @returns The embedding model string
+   * Get the embedding settings
    */
-  public getEmbeddingModel(): string {
-    return this.plugin.settings.llm.embedding.model;
+  public getEmbeddingSettings(): StewardPluginSettings['embedding'] {
+    return this.plugin.settings.embedding;
   }
 
   /**

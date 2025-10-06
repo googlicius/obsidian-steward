@@ -292,11 +292,17 @@ const en = {
       llm: 'LLM',
       chatModel: 'Chat model',
       chatModelDesc: 'Select the AI model to use for chat',
+      intentClassification: 'Intent classification',
+      classificationEnabled: 'Enable intent classification',
+      classificationEnabledDesc: 'Enable or disable intent classification functionality',
       embeddingModel: 'Embedding model',
       embeddingModelDesc:
         'Model used for intent classification. Stores previous queries in semantic meaning to reduce token usage for intent extraction with similar queries.',
+      embeddingSimilarityThreshold: 'Similarity threshold',
+      embeddingSimilarityThresholdDesc:
+        'Threshold for embedding similarity matching (0.7 - 0.99). Higher values require more similar queries to match.',
       temperature: 'Temperature',
-      temperatureDesc: `Controls the randomness of the model's output. Value is within 0 and 1\n. The lower the value, the more deterministic the responses. Higher value increase creativity responses.`,
+      temperatureDesc: `Controls the randomness of the model's output. Value is within 0 and 1.\n The lower the value, the more deterministic the responses. Higher value increase creativity responses.`,
       maxGenerationTokens: 'Max generation tokens',
       maxGenerationTokensDesc:
         'Maximum number of tokens to generate in response (higher values may increase API costs)',

@@ -268,9 +268,15 @@ const vi = {
       llm: 'LLM',
       chatModel: 'Mô hình trò chuyện',
       chatModelDesc: 'Chọn mô hình AI để sử dụng cho trò chuyện',
+      intentClassification: 'Phân loại ý định',
+      classificationEnabled: 'Bật phân loại ý định',
+      classificationEnabledDesc: 'Bật hoặc tắt chức năng phân loại ý định',
       embeddingModel: 'Mô hình nhúng (Embedding)',
       embeddingModelDesc:
         'Mô hình được sử dụng cho embedding và phân loại ý định. Lưu trữ các truy vấn trước đó theo nghĩa ngữ nghĩa để giảm việc sử dụng token cho việc trích xuất ý định với các truy vấn tương tự.',
+      embeddingSimilarityThreshold: 'Ngưỡng tương đồng',
+      embeddingSimilarityThresholdDesc:
+        'Ngưỡng cho việc so khớp tương đồng embedding (0.7 - 0.99). Giá trị cao hơn yêu cầu các truy vấn tương tự hơn để khớp.',
       temperature: 'Temperature',
       temperatureDesc: 'Điều khiển tính ngẫu nhiên trong đầu ra (0.0 đến 1.0)',
       maxGenerationTokens: 'Số token tạo tối đa (Max Generation Tokens)',

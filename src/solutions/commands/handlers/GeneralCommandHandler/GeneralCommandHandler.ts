@@ -67,7 +67,7 @@ export class GeneralCommandHandler extends CommandHandler {
       lang,
       conversationHistories = [],
       isReloadRequest = false,
-      ignoreClassify = false,
+      ignoreClassify = !this.plugin.settings.embedding.enabled,
       currentArtifacts,
     } = args;
 
@@ -78,8 +78,8 @@ export class GeneralCommandHandler extends CommandHandler {
       let commandTypeExtraction: CommandTypeExtraction | undefined;
 
       if (!ignoreClassify) {
-        const embeddingModel = this.plugin.llmService.getEmbeddingModel();
-        const classifier = getClassifier(embeddingModel, isReloadRequest);
+        const embeddingSettings = this.plugin.llmService.getEmbeddingSettings();
+        const classifier = getClassifier(embeddingSettings, isReloadRequest);
         const clusterName = await classifier.doClassify(command.query);
 
         if (clusterName) {
@@ -149,8 +149,8 @@ export class GeneralCommandHandler extends CommandHandler {
 
       // Save the embeddings after both steps are complete
       if (result.confidence >= 0.9 && result.queryTemplate && !ignoreClassify) {
-        const embeddingModel = this.plugin.llmService.getEmbeddingModel();
-        const classifier = getClassifier(embeddingModel, isReloadRequest);
+        const embeddingSettings = this.plugin.llmService.getEmbeddingSettings();
+        const classifier = getClassifier(embeddingSettings, isReloadRequest);
 
         // Create cluster name from unique command types
         const uniqueCommandTypes = Array.from(new Set(result.commands.map(cmd => cmd.commandType)));
