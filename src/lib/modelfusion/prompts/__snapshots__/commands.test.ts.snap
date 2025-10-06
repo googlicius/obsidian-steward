@@ -106,17 +106,17 @@ exports[`commands formatQueryTemplatesForPrompt should return empty YAML structu
 exports[`commands formatQueryTemplatesForPrompt should return formatted query templates for prompt 1`] = `
 "- command: search
   template: |-
-    Extract specific details for a search command:
-    1. Preserve Specific Categories:
-       - Keywords: Keep any specific words or phrases the user wants to search for
-       - Tags: Keep hashtags (#tag) exactly as written
-       - Folders: Keep folder names exactly as written, including quotes if present
-       - File names: Keep file names exactly as written
+    Extract a specific query for a search command:
+    1. Extract the query for the search command follows this format: [file name <file_name>][, tag <tag>][, folder <folder>][, keywords <keywords>]
+      - <file_name>: If searching for a specific file name.
+      - <tag>: If searching for a specific tag, include it with the # symbol.
+      - <folder>: If searching in a specific folder.
+      - <keywords>: Words or phrases to search for within note content.
+      NOTE: Square brackets [] indicate optional fields. At least one field must be present.
 
-    2. Maintain Natural Language:
-       - Keep the search query in natural language form
-       - Don't convert natural language expressions into structured queries
-       - Preserve the original wording and context
+    2. Search Guidelines:
+      - Multiple parameters can be combined when needed.
+      - Preserve the original wording and context if provided: start with, contain, or exact, for example: "file name start with...", "keywords contain...", "folder exact..."
 - command: move_from_artifact
   template: |-
     Extract specific details for a move_from_artifact command follows this format: <query>; destination: <destination>
