@@ -81,6 +81,7 @@
 - [ ] Save embedding only when the command sequence is completed.
 - [ ] Enhance summarization: Only check generated_content, note content_update for generate commands.
 - [x] Large updates: Tables, lists, paragraphs,...
+- [ ] Evaluation council: A set of different models participating in evaluating the unqualified outcomes: low confidence, errors,...
 
 ### BUGS
 

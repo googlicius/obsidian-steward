@@ -8,17 +8,13 @@ import { logger } from 'src/utils/logger';
 import { getTranslation } from 'src/i18n/index';
 import { ArtifactType } from 'src/solutions/artifact';
 import type StewardPlugin from 'src/main';
-import type { CommandProcessor } from '../CommandProcessor';
 import { ContextAugmentationIntent } from 'src/types/types';
 
 /**
  * Handler for context augmentation
  */
 export class ContextAugmentationHandler extends CommandHandler {
-  constructor(
-    public readonly plugin: StewardPlugin,
-    private readonly commandProcessor: CommandProcessor
-  ) {
+  constructor(public readonly plugin: StewardPlugin) {
     super();
   }
 
@@ -96,7 +92,7 @@ You task is to evaluate and re-analyze this query with the above context to impr
       `.trim();
 
       // Process with general command and the augmented system prompt
-      await this.plugin.commandProcessorService.processCommands(
+      await this.commandProcessor.processCommands(
         {
           title,
           commands: [

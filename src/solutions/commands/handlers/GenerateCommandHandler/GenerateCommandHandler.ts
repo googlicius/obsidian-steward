@@ -12,17 +12,17 @@ import { MediaTools } from 'src/tools/mediaTools';
 import { CommandIntent, ConversationHistoryMessage } from 'src/types/types';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
-import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
+import { STW_SELECTED_PATTERN } from 'src/constants';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
-import { type CommandProcessor } from '../../CommandProcessor';
 import { ReadCommandHandler } from '../ReadCommandHandler/ReadCommandHandler';
 import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
-import { updateContentSchema, generateContentSchema } from './zSchemas';
+import { generateContentSchema } from './zSchemas';
 import { GENERATE_COMMAND_TOOLS } from './toolNames';
 import {
   requestReadContentTool,
   REQUEST_READ_CONTENT_TOOL_NAME,
 } from '../../tools/requestReadContent';
+import { createEditTool, EDIT_TOOL_NAME } from '../../tools/editContent';
 
 export interface ContentUpdate {
   updatedContent: string;
@@ -31,10 +31,7 @@ export interface ContentUpdate {
 }
 
 export class GenerateCommandHandler extends CommandHandler {
-  constructor(
-    public readonly plugin: StewardPlugin,
-    private readonly commandProcessor: CommandProcessor
-  ) {
+  constructor(public readonly plugin: StewardPlugin) {
     super();
   }
 
@@ -78,21 +75,7 @@ export class GenerateCommandHandler extends CommandHandler {
     const originalQuery = this.commandProcessor.getPendingCommand(title)?.payload.originalQuery;
 
     // Replace the placeholder with the {{stw-selected...}} in the original query.
-    if (
-      originalQuery &&
-      originalQuery.includes('{{stw-selected') &&
-      command.query.includes(STW_SELECTED_PLACEHOLDER)
-    ) {
-      const stwSelectedBlocks = Array.from(
-        originalQuery.matchAll(new RegExp(STW_SELECTED_PATTERN, 'g'))
-      );
-      if (stwSelectedBlocks.length > 0) {
-        // Replace all instances of <stwSelected> with the actual stw-selected blocks
-        for (const match of stwSelectedBlocks) {
-          command.query = command.query.replace(STW_SELECTED_PLACEHOLDER, match[0]);
-        }
-      }
-    }
+    command.query = this.restoreStwSelectedBlocks({ originalQuery, query: command.query });
 
     const hasStwSelected = new RegExp(STW_SELECTED_PATTERN).test(command.query);
 
@@ -125,6 +108,10 @@ The response should be in natural language and not include the selection(s) {{st
     // Only use prepareMessage for update commands
     const userMessage = isUpdate ? await prepareMessage(command.query, this.app) : command.query;
 
+    const { editTool } = createEditTool({
+      contentType: 'in_the_note',
+    });
+
     const extraction = await generateText({
       ...llmConfig,
       abortSignal: this.plugin.abortService.createAbortController('generate'),
@@ -132,21 +119,17 @@ The response should be in natural language and not include the selection(s) {{st
 
 You have access to the following tools:
 
-1. ${GENERATE_COMMAND_TOOLS.UPDATE_CONTENT} - Update existing content in a note.
+1. ${EDIT_TOOL_NAME} - Update existing content in a note.
 2. ${GENERATE_COMMAND_TOOLS.GENERATE_CONTENT} - Generate new content for a note.
 3. ${REQUEST_READ_CONTENT_TOOL_NAME} - Read content from notes to gather context before generating a response.
 
 GUIDELINES:
 - If you need more context before generating a response, use the ${REQUEST_READ_CONTENT_TOOL_NAME} tool first.
-- If the user wants to update existing content, use the ${GENERATE_COMMAND_TOOLS.UPDATE_CONTENT} tool.
+- If the user wants to update existing content, use the ${EDIT_TOOL_NAME} tool.
 - For all other content generation requests, use the ${GENERATE_COMMAND_TOOLS.GENERATE_CONTENT} tool.
 - You MUST use tools to fulfill the query.
+- When updating content, return ONLY the specific changed content, not the entire surrounding context.
 - IMPORTANT: Even if you cannot see images referenced in the user's request, you can still proceed with content generation. The actual generation process can access and process images when needed, so don't hesitate to generate content based on image-related requests.
-${
-  isUpdate
-    ? `IMPORTANT: This is an update request. Please do NOT use the ${GENERATE_COMMAND_TOOLS.GENERATE_CONTENT} tool.`
-    : ``
-}
 
 ${languageEnforcementFragment}`,
       messages: [
@@ -155,13 +138,11 @@ ${languageEnforcementFragment}`,
         { role: 'user', content: userMessage },
       ],
       tools: {
-        [GENERATE_COMMAND_TOOLS.UPDATE_CONTENT]: tool({
-          parameters: updateContentSchema,
-        }),
         [GENERATE_COMMAND_TOOLS.GENERATE_CONTENT]: tool({
           parameters: generateContentSchema,
         }),
         [REQUEST_READ_CONTENT_TOOL_NAME]: requestReadContentTool,
+        [EDIT_TOOL_NAME]: editTool,
       },
     });
 
@@ -232,53 +213,152 @@ ${languageEnforcementFragment}`,
           }
         }
 
-        case GENERATE_COMMAND_TOOLS.UPDATE_CONTENT: {
-          try {
+        case EDIT_TOOL_NAME: {
+          await this.renderer.updateConversationNote({
+            path: title,
+            newContent: toolCall.args.explanation,
+            includeHistory: false,
+            role: 'Steward',
+            lang,
+          });
+
+          await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
+
+          if (toolCall.args.operations.length === 0) {
+            break;
+          }
+
+          for (const operation of toolCall.args.operations) {
             await this.renderer.updateConversationNote({
               path: title,
-              newContent: toolCall.args.explanation,
+              newContent: this.plugin.noteContentService.formatCallout(
+                operation.newContent,
+                'stw-search-result',
+                {
+                  mdContent: new MarkdownUtil(operation.newContent)
+                    .escape(true)
+                    .encodeForDataset()
+                    .getText(),
+                }
+              ),
               includeHistory: false,
-              role: 'Steward',
               lang,
             });
+          }
 
-            await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
+          // Store artifact
+          const artifactId = await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+            text: `*${t('common.artifactCreated', { type: ArtifactType.CONTENT_UPDATE })}*`,
+            artifact: {
+              artifactType: ArtifactType.CONTENT_UPDATE,
+              updateExtraction: toolCall.args,
+              path: toolCall.args.filePath || this.app.workspace.getActiveFile()?.path || '',
+            },
+          });
 
-            if (toolCall.args.updates.length === 0) {
-              break;
+          toolInvocations.push({
+            ...toolCall,
+            result: `artifactRef:${artifactId}`,
+          });
+
+          await this.renderer.serializeToolInvocation({
+            path: title,
+            command: 'generate',
+            toolInvocations,
+          });
+
+          // If there's no next command, automatically trigger update_from_artifact
+          if (!nextCommand) {
+            await this.commandProcessor.processCommands({
+              title,
+              commands: [
+                {
+                  commandType: 'update_from_artifact',
+                  query: 'Apply the content updates from the generated artifact',
+                },
+              ],
+              lang,
+            });
+          }
+          break;
+        }
+
+        case GENERATE_COMMAND_TOOLS.GENERATE_CONTENT: {
+          await this.renderer.updateConversationNote({
+            path: title,
+            newContent: toolCall.args.explanation,
+            includeHistory: false,
+            role: 'Steward',
+            lang,
+          });
+
+          await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
+
+          const conversationHistory = await this.renderer.extractConversationHistory(title, {
+            summaryPosition: 1,
+          });
+
+          const mediaTools = MediaTools.getInstance(this.app);
+
+          const file = toolCall.args.noteName
+            ? await mediaTools.findFileByNameOrPath(toolCall.args.noteName)
+            : null;
+
+          const noteContent = file ? await this.app.vault.read(file) : '';
+
+          const stream = await this.contentGenerationStream({
+            command: {
+              ...command,
+              systemPrompts,
+            },
+            conversationHistory: conversationHistory,
+            errorCallback: async error => {
+              logger.error('Error in contentGenerationStream', error);
+
+              let errorMessage =
+                '*An error occurred while generating content, please check the console log (Ctrl+Shift+I)*';
+
+              if (typeof error === 'object' && error !== null && 'toString' in error) {
+                errorMessage = `*Error: ${error.toString()}*`;
+              }
+
+              await this.renderer.updateConversationNote({
+                path: title,
+                newContent: errorMessage,
+              });
+            },
+          });
+
+          if (
+            fromRead ||
+            !toolCall.args.noteName ||
+            !toolCall.args.modifiesNote ||
+            !file ||
+            noteContent.trim() !== ''
+          ) {
+            const messageId = await this.renderer.streamConversationNote({
+              path: title,
+              stream,
+              command: 'generate',
+              includeHistory: false,
+            });
+
+            if (!messageId) {
+              throw new Error('Failed to stream conversation note');
             }
 
-            // Store artifact
-            const artifactId = await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
-              text: `*${t('common.artifactCreated', { type: ArtifactType.CONTENT_UPDATE })}*`,
+            await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+              text: `*${t('common.artifactCreated', { type: ArtifactType.GENERATED_CONTENT })}*`,
               artifact: {
-                artifactType: ArtifactType.CONTENT_UPDATE,
-                updateExtraction: toolCall.args,
-                path: toolCall.args.notePath || this.app.workspace.getActiveFile()?.path || '',
+                artifactType: ArtifactType.GENERATED_CONTENT,
+                messageId,
+                content: (await this.renderer.getMessageById(title, messageId))?.content || '',
               },
             });
 
-            for (const update of toolCall.args.updates) {
-              await this.renderer.updateConversationNote({
-                path: title,
-                newContent: this.plugin.noteContentService.formatCallout(
-                  update.updatedContent,
-                  'stw-search-result',
-                  {
-                    mdContent: new MarkdownUtil(update.updatedContent)
-                      .escape(true)
-                      .encodeForDataset()
-                      .getText(),
-                  }
-                ),
-                includeHistory: false,
-                lang,
-              });
-            }
-
             toolInvocations.push({
               ...toolCall,
-              result: `artifactRef:${artifactId}`,
+              result: 'messageRef:' + messageId,
             });
 
             await this.renderer.serializeToolInvocation({
@@ -286,156 +366,28 @@ ${languageEnforcementFragment}`,
               command: 'generate',
               toolInvocations,
             });
+          } else {
+            const mainLeaf = await this.plugin.getMainLeaf();
 
-            // If there's no next command, automatically trigger update_from_artifact
-            if (!nextCommand) {
-              await this.plugin.commandProcessorService.processCommands({
-                title,
-                commands: [
-                  {
-                    commandType: 'update_from_artifact',
-                    query: 'Apply the content updates from the generated artifact',
-                  },
-                ],
-                lang,
-              });
-            }
-            break;
-          } catch (error) {
-            await this.renderer.updateConversationNote({
-              path: title,
-              newContent: `*Error generating: ${error.message}*`,
-              lang,
-            });
-
-            return {
-              status: CommandResultStatus.ERROR,
-              error,
-            };
-          }
-        }
-
-        case GENERATE_COMMAND_TOOLS.GENERATE_CONTENT: {
-          try {
-            await this.renderer.updateConversationNote({
-              path: title,
-              newContent: toolCall.args.explanation,
-              includeHistory: false,
-              role: 'Steward',
-              lang,
-            });
-
-            await this.renderer.addGeneratingIndicator(title, t('conversation.generating'));
-
-            const conversationHistory = await this.renderer.extractConversationHistory(title, {
-              summaryPosition: 1,
-            });
-
-            const mediaTools = MediaTools.getInstance(this.app);
-
-            const file = toolCall.args.noteName
-              ? await mediaTools.findFileByNameOrPath(toolCall.args.noteName)
-              : null;
-
-            const noteContent = file ? await this.app.vault.read(file) : '';
-
-            const stream = await this.contentGenerationStream({
-              command: {
-                ...command,
-                systemPrompts,
-              },
-              conversationHistory: conversationHistory,
-              errorCallback: async error => {
-                logger.error('Error in contentGenerationStream', error);
-
-                let errorMessage =
-                  '*An error occurred while generating content, please check the console log (Ctrl+Shift+I)*';
-
-                if (typeof error === 'object' && error !== null && 'toString' in error) {
-                  errorMessage = `*Error: ${error.toString()}*`;
-                }
-
-                await this.renderer.updateConversationNote({
-                  path: title,
-                  newContent: errorMessage,
-                });
-              },
-            });
-
-            if (
-              fromRead ||
-              !toolCall.args.noteName ||
-              !toolCall.args.modifiesNote ||
-              !file ||
-              noteContent.trim() !== ''
-            ) {
-              const messageId = await this.renderer.streamConversationNote({
-                path: title,
-                stream,
-                command: 'generate',
-                includeHistory: false,
-              });
-
-              if (!messageId) {
-                throw new Error('Failed to stream conversation note');
-              }
-
-              await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
-                text: `*${t('common.artifactCreated', { type: ArtifactType.GENERATED_CONTENT })}*`,
-                artifact: {
-                  artifactType: ArtifactType.GENERATED_CONTENT,
-                  messageId,
-                  content: (await this.renderer.getMessageById(title, messageId))?.content || '',
-                },
-              });
-
-              toolInvocations.push({
-                ...toolCall,
-                result: 'messageRef:' + messageId,
-              });
-
-              await this.renderer.serializeToolInvocation({
-                path: title,
-                command: 'generate',
-                toolInvocations,
-              });
-            } else {
-              const mainLeaf = await this.plugin.getMainLeaf();
-
-              if (mainLeaf && file) {
-                mainLeaf.openFile(file);
-                await this.app.workspace.revealLeaf(mainLeaf);
-              }
-
-              let accumulatedContent = '';
-              for await (const chunk of stream) {
-                accumulatedContent += chunk;
-              }
-
-              await this.app.vault.process(file, () => accumulatedContent);
-
-              await this.renderer.updateConversationNote({
-                path: title,
-                newContent: `*${t('generate.success', { noteName: toolCall.args.noteName })}*`,
-                lang,
-              });
-
-              // this.artifactManager.deleteArtifact(title, ArtifactType.CREATED_NOTES);
+            if (mainLeaf && file) {
+              mainLeaf.openFile(file);
+              await this.app.workspace.revealLeaf(mainLeaf);
             }
 
-            break;
-          } catch (error) {
+            let accumulatedContent = '';
+            for await (const chunk of stream) {
+              accumulatedContent += chunk;
+            }
+
+            await this.app.vault.process(file, () => accumulatedContent);
+
             await this.renderer.updateConversationNote({
               path: title,
-              newContent: `*Error generating: ${error.message}*`,
+              newContent: `*${t('generate.success', { noteName: toolCall.args.noteName })}*`,
               lang,
             });
-
-            return {
-              status: CommandResultStatus.ERROR,
-              error,
-            };
           }
+          break;
         }
 
         default:

@@ -7,15 +7,10 @@ import {
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { extractNoteCreation, NoteCreationExtraction } from 'src/lib/modelfusion/extractions';
-
 import type StewardPlugin from 'src/main';
-import type { CommandProcessor } from '../CommandProcessor';
 
 export class CreateCommandHandler extends CommandHandler {
-  constructor(
-    public readonly plugin: StewardPlugin,
-    public readonly commandProcessor: CommandProcessor
-  ) {
+  constructor(public readonly plugin: StewardPlugin) {
     super();
   }
 

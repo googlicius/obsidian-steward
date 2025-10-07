@@ -96,6 +96,7 @@ const ja = {
     },
     // Update result messages
     update: {
+      noContentFound: '更新する内容が見つかりませんでした。',
       failed: '{{count}}件のファイルの更新に失敗しました：',
       successfullyUpdated: '{{count}}件のファイルを更新しました：',
       foundFiles: '{{count}}件のファイルを更新します。',

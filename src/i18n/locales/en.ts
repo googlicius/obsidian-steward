@@ -118,6 +118,7 @@ const en = {
     },
     // Update result messages
     update: {
+      noContentFound: 'No content found to update.',
       failed_one: 'Failed to update {{count}} file:',
       failed_other: 'Failed to update {{count}} files:',
       successfullyUpdated_one: 'Successfully updated {{count}} file:',
@@ -334,7 +335,7 @@ const en = {
       voiceId: 'Voice ID',
       voiceIdDesc: 'Enter the voice ID for the selected text-to-speech model',
       searchSettings: 'Search',
-      withoutLLM: 'Offline search matching preference',
+      withoutLLM: 'Search matching preference',
       withoutLLMDesc: 'Search mode without LLM extraction when query is wrapped in quotation marks',
       exactMatch: 'Exact match',
       relevantScoring: 'Relevant scoring',

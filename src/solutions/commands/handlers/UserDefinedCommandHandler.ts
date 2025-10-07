@@ -5,9 +5,7 @@ import {
   CommandResultStatus,
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-
 import type StewardPlugin from 'src/main';
-import type { CommandProcessor } from '../CommandProcessor';
 
 export class UserDefinedCommandHandler extends CommandHandler {
   isContentRequired = (commandType: string): boolean => {
@@ -16,10 +14,7 @@ export class UserDefinedCommandHandler extends CommandHandler {
     return !!(userDefinedCommand && userDefinedCommand.query_required);
   };
 
-  constructor(
-    public readonly plugin: StewardPlugin,
-    private readonly commandProcessor: CommandProcessor
-  ) {
+  constructor(public readonly plugin: StewardPlugin) {
     super();
   }
 

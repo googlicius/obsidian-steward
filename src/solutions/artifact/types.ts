@@ -1,7 +1,7 @@
 import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 import { ConditionResult } from 'src/solutions/search/searchEngineV3';
-import { UpdateContentArgs } from 'src/solutions/commands/handlers/GenerateCommandHandler/zSchemas';
+import { EditArgs } from '../commands/tools/editContent';
 
 /**
  * Types of artifacts that can be stored for conversations
@@ -59,7 +59,7 @@ export interface ReadContentArtifact extends BaseArtifact {
 export interface ContentUpdateArtifact extends BaseArtifact {
   artifactType: ArtifactType.CONTENT_UPDATE;
   path: string;
-  updateExtraction: UpdateContentArgs;
+  updateExtraction: EditArgs;
 }
 
 /**

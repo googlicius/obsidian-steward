@@ -5,6 +5,8 @@ import type StewardPlugin from '../../main';
 import type { StewardPluginSettings } from 'src/types/interfaces';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { logger } from 'src/utils/logger';
+import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
+import { type CommandProcessor } from './CommandProcessor';
 
 export enum CommandResultStatus {
   SUCCESS = 'success',
@@ -56,10 +58,6 @@ export interface CommandHandlerParams<T extends CommandIntent = CommandIntent> {
 export abstract class CommandHandler {
   abstract readonly plugin: StewardPlugin;
 
-  constructor() {
-    createSafeCommandHandler(this);
-  }
-
   /**
    * Optional: Whether this command requires content (boolean or function for dynamic check)
    */
@@ -81,6 +79,10 @@ export abstract class CommandHandler {
     return this.plugin.settings;
   }
 
+  get commandProcessor(): CommandProcessor {
+    return this.plugin.commandProcessorService.commandProcessor;
+  }
+
   /**
    * Render a loading indicator for the command
    * @param title The conversation title
@@ -91,48 +93,75 @@ export abstract class CommandHandler {
   /**
    * Handle a command
    */
-  public abstract handle(params: CommandHandlerParams): Promise<CommandResult>;
-}
+  public abstract handle(params: CommandHandlerParams, ...args: unknown[]): Promise<CommandResult>;
 
-/**
- * Create a proxied command handler that wraps the handle method with error handling
- * @param handler The command handler to wrap
- * @returns A proxied handler with automatic error handling
- */
-export function createSafeCommandHandler<T extends CommandHandler>(handler: T): T {
-  return new Proxy(handler, {
-    get(target, prop, receiver) {
-      // Only intercept the 'handle' method
-      if (prop === 'handle') {
-        return async function (params: CommandHandlerParams): Promise<CommandResult> {
-          try {
-            // Call the original handle method
-            return await target.handle(params);
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
+  /**
+   * Handle a command with automatic error handling
+   */
+  public async safeHandle(
+    params: CommandHandlerParams,
+    ...args: unknown[]
+  ): Promise<CommandResult> {
+    try {
+      // Call the original handle method
+      return await this.handle(params, ...args);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
 
-            logger.error(`Error in ${params.command.commandType} command handler:`, error);
+      logger.error(`Error in ${params.command.commandType} command handler:`, error);
 
-            try {
-              await target.renderer.updateConversationNote({
-                path: params.title,
-                newContent: `*Error processing ${params.command.commandType} command: ${errorMessage}*`,
-                lang: params.lang,
-              });
-            } catch (renderError) {
-              logger.error('Failed to render error message to conversation:', renderError);
-            }
-
-            return {
-              status: CommandResultStatus.ERROR,
-              error: error instanceof Error ? error : new Error(errorMessage),
-            };
-          }
-        };
+      try {
+        await this.renderer.updateConversationNote({
+          path: params.title,
+          newContent: `*Error processing ${params.command.commandType} command: ${errorMessage}*`,
+          lang: params.lang,
+        });
+      } catch (renderError) {
+        logger.error('Failed to render error message to conversation:', renderError);
       }
 
-      // For all other properties, return them as-is
-      return Reflect.get(target, prop, receiver);
-    },
-  });
+      return {
+        status: CommandResultStatus.ERROR,
+        error: error instanceof Error ? error : new Error(errorMessage),
+      };
+    }
+  }
+
+  /**
+   * Restores stw-selected blocks from the original query to the processed command query.
+   */
+  protected restoreStwSelectedBlocks(params: {
+    originalQuery: string | undefined;
+    query: string;
+  }): string {
+    const { originalQuery, query } = params;
+
+    if (!originalQuery) {
+      return query;
+    }
+
+    if (!originalQuery.includes('{{stw-selected')) {
+      return query;
+    }
+
+    if (!query.includes(STW_SELECTED_PLACEHOLDER)) {
+      return query;
+    }
+
+    const stwSelectedBlocks = Array.from(
+      originalQuery.matchAll(new RegExp(STW_SELECTED_PATTERN, 'g'))
+    );
+
+    if (stwSelectedBlocks.length === 0) {
+      return query;
+    }
+
+    let updatedQuery = query;
+    // Replace all instances of <stwSelected> with the actual stw-selected blocks
+    for (const match of stwSelectedBlocks) {
+      updatedQuery = updatedQuery.replace(STW_SELECTED_PLACEHOLDER, match[0]);
+    }
+
+    return updatedQuery;
+  }
 }

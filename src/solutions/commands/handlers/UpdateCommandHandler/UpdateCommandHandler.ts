@@ -9,6 +9,7 @@ import {
   ArtifactType,
   ContentUpdateArtifact,
   GeneratedContentArtifact,
+  ReadContentArtifact,
 } from 'src/solutions/artifact';
 import { extractUpdateFromSearchResult, UpdateInstruction } from 'src/lib/modelfusion/extractions';
 import type StewardPlugin from 'src/main';
@@ -20,14 +21,17 @@ import {
   requestReadContentTool,
 } from '../../tools/requestReadContent';
 import { GREP_TOOL_NAME, grepTool, execute as grepExecute } from '../../tools/grepContent';
-import { EDIT_TOOL_NAME, editTool } from '../../tools/editContent';
+import { EDIT_TOOL_NAME, createEditTool } from '../../tools/editContent';
 import { ReadCommandHandler } from '../ReadCommandHandler/ReadCommandHandler';
+import { MarkdownUtil } from 'src/utils/markdownUtils';
+import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
 
 const updatableTypes = [
   ArtifactType.SEARCH_RESULTS,
   ArtifactType.CREATED_NOTES,
   ArtifactType.CONTENT_UPDATE,
   ArtifactType.GENERATED_CONTENT,
+  ArtifactType.READ_CONTENT,
 ];
 
 export class UpdateCommandHandler extends CommandHandler {
@@ -44,10 +48,127 @@ export class UpdateCommandHandler extends CommandHandler {
   }
 
   /**
-   * Update the generated content
+   * Handle update directly if the stw-selected block is included in the query
    */
-  private async handleUpdateGeneratedContent(params: {
-    artifact: GeneratedContentArtifact;
+  private async handleUpdateStwSelected(params: {
+    title: string;
+    command: CommandIntent;
+    messages: Message[];
+    lang?: string | null;
+  }): Promise<CommandResult> {
+    const t = getTranslation(params.lang);
+    const llmConfig = await this.plugin.llmService.getLLMConfig({
+      overrideModel: params.command.model,
+      generateType: 'text',
+    });
+
+    const { editTool, execute: editToolExecute } = createEditTool({
+      contentType: 'in_the_note',
+    });
+
+    const extraction = await generateText({
+      ...llmConfig,
+      abortSignal: this.plugin.abortService.createAbortController('update'),
+      system: `You are a helpful assistant that updates content in a Obsidian note.
+Update the content in the note based on the instructions provided.
+
+You have access to the following tools:
+
+1. ${EDIT_TOOL_NAME} - Update content by replacing old content with new content.
+
+GUIDELINES:
+- Use ${EDIT_TOOL_NAME} to make the actual content changes.
+- You MUST use tools to fulfill the query.
+`,
+      messages: params.messages,
+      tools: {
+        [EDIT_TOOL_NAME]: editTool,
+      },
+    });
+
+    for (const toolCall of extraction.toolCalls) {
+      switch (toolCall.toolName) {
+        case EDIT_TOOL_NAME: {
+          // Handle edit content
+          await this.renderer.updateConversationNote({
+            path: params.title,
+            newContent: toolCall.args.explanation,
+            command: 'update',
+            includeHistory: false,
+            lang: params.lang,
+          });
+
+          const file = toolCall.args.filePath
+            ? await this.plugin.mediaTools.findFileByNameOrPath(toolCall.args.filePath)
+            : this.plugin.app.workspace.getActiveFile();
+
+          if (!file) {
+            throw new Error('No file provided');
+          }
+
+          // Render what will be updated
+          for (const operation of toolCall.args.operations) {
+            await this.renderer.updateConversationNote({
+              path: params.title,
+              newContent: this.plugin.noteContentService.formatCallout(
+                operation.newContent,
+                'stw-search-result',
+                {
+                  mdContent: new MarkdownUtil(operation.newContent)
+                    .escape(true)
+                    .encodeForDataset()
+                    .getText(),
+                }
+              ),
+              includeHistory: false,
+              lang: params.lang,
+            });
+          }
+
+          await this.renderer.updateConversationNote({
+            path: params.title,
+            newContent: t('update.applyChangesConfirm'),
+          });
+
+          return {
+            status: CommandResultStatus.NEEDS_CONFIRMATION,
+            onConfirmation: () => {
+              const updateInstructions = editToolExecute(toolCall.args);
+
+              return this.performUpdate({
+                title: params.title,
+                docs: [
+                  {
+                    path: file.path,
+                  },
+                ],
+                updateInstructions,
+                lang: params.lang,
+              });
+            },
+            onRejection: () => {
+              return {
+                status: CommandResultStatus.SUCCESS,
+              };
+            },
+          };
+        }
+
+        default:
+          break;
+      }
+    }
+
+    return {
+      status: CommandResultStatus.SUCCESS,
+    };
+  }
+
+  /**
+   * Update the generated or read content
+   */
+  private async handleUpdateGeneratedOrReadContent(params: {
+    artifact: GeneratedContentArtifact | ReadContentArtifact;
     command: CommandIntent;
     title: string;
     lang?: string | null;
@@ -82,10 +203,19 @@ export class UpdateCommandHandler extends CommandHandler {
       generateType: 'text',
     });
 
+    const { editTool, execute: editToolExecute } = createEditTool({
+      contentType:
+        params.artifact.artifactType === ArtifactType.GENERATED_CONTENT
+          ? // Generated content is still in the chat
+            'in_the_chat'
+          : // Read content is in the note
+            'in_the_note',
+    });
+
     const extraction = await generateText({
       ...llmConfig,
       abortSignal: this.plugin.abortService.createAbortController('update'),
-      system: `You are a helpful assistant that updates generated content in a Obsidian note.
+      system: `You are a helpful assistant that updates content in a Obsidian note.
 Update the content in the note based on the instructions provided.
 
 You have access to the following tools:
@@ -136,7 +266,7 @@ GUIDELINES:
 
           if (readResult.status === CommandResultStatus.SUCCESS) {
             // Call handleUpdateGeneratedContent again after reading
-            return this.handleUpdateGeneratedContent({
+            return this.handleUpdateGeneratedOrReadContent({
               ...params,
               remainingSteps: remainingSteps - 1,
             });
@@ -195,6 +325,27 @@ GUIDELINES:
             throw new Error('No file provided');
           }
 
+          // Render what will be updated if the artifact type is read_content
+          if (params.artifact.artifactType === ArtifactType.READ_CONTENT) {
+            for (const operation of toolCall.args.operations) {
+              await this.renderer.updateConversationNote({
+                path: params.title,
+                newContent: this.plugin.noteContentService.formatCallout(
+                  operation.newContent,
+                  'stw-search-result',
+                  {
+                    mdContent: new MarkdownUtil(operation.newContent)
+                      .escape(true)
+                      .encodeForDataset()
+                      .getText(),
+                  }
+                ),
+                includeHistory: false,
+                lang: params.lang,
+              });
+            }
+          }
+
           await this.renderer.updateConversationNote({
             path: params.title,
             newContent: t('update.applyChangesConfirm'),
@@ -202,33 +353,8 @@ GUIDELINES:
 
           return {
             status: CommandResultStatus.NEEDS_CONFIRMATION,
-            onConfirmation: async () => {
-              const editMode = toolCall.args.editMode || 'replace';
-
-              let updateInstruction: UpdateInstruction;
-              if (editMode === 'replace') {
-                // Replace operation (existing logic)
-                updateInstruction = {
-                  type: 'replace' as const,
-                  fromLine: toolCall.args.fromLine,
-                  toLine: toolCall.args.toLine,
-                  new: toolCall.args.newContent,
-                };
-              } else if (editMode === 'above') {
-                // Insert above the grepped content (before fromLine)
-                updateInstruction = {
-                  type: 'add' as const,
-                  content: toolCall.args.newContent,
-                  position: toolCall.args.fromLine - 1,
-                };
-              } else {
-                // Insert below the grepped content (after toLine)
-                updateInstruction = {
-                  type: 'add' as const,
-                  content: toolCall.args.newContent,
-                  position: toolCall.args.toLine + 1,
-                };
-              }
+            onConfirmation: () => {
+              const updateInstructions = editToolExecute(toolCall.args);
 
               return this.performUpdate({
                 title: params.title,
@@ -237,7 +363,7 @@ GUIDELINES:
                     path: file.path,
                   },
                 ],
-                updateInstructions: [updateInstruction],
+                updateInstructions,
                 lang: params.lang,
               });
             },
@@ -280,7 +406,7 @@ GUIDELINES:
           } as Message,
         ];
 
-        return this.handleUpdateGeneratedContent({
+        return this.handleUpdateGeneratedOrReadContent({
           ...params,
           remainingSteps: newRemainingSteps,
           messages: updatedMessages,
@@ -302,14 +428,12 @@ GUIDELINES:
     docs: DocWithPath[]
   ): Promise<CommandResult> {
     const t = getTranslation(params.lang);
+    const { execute } = createEditTool({
+      contentType: 'in_the_note',
+    });
 
     // Convert the updates in the extraction to UpdateInstruction objects
-    const updateInstructions = artifact.updateExtraction.updates.map(update => ({
-      type: 'replace' as const,
-      fromLine: update.fromLine,
-      toLine: update.toLine,
-      new: update.updatedContent,
-    }));
+    const updateInstructions = execute(artifact.updateExtraction);
 
     if (updateInstructions.length === 0) {
       await this.renderer.updateConversationNote({
@@ -351,6 +475,9 @@ GUIDELINES:
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
     const { title, command, lang } = params;
     const t = getTranslation(lang);
+    const conversationHistory = await this.renderer.extractConversationHistory(title, {
+      summaryPosition: 1,
+    });
 
     // Retrieve the most recent artifact of updatable types
     const artifact = await this.plugin.artifactManagerV2
@@ -358,9 +485,29 @@ GUIDELINES:
       .getMostRecentArtifactOfTypes(updatableTypes);
 
     if (!artifact) {
+      if (command.query.includes(STW_SELECTED_PLACEHOLDER)) {
+        const originalQuery =
+          this.plugin.commandProcessorService.commandProcessor.getPendingCommand(title)?.payload
+            .originalQuery;
+        command.query = this.restoreStwSelectedBlocks({ originalQuery, query: command.query });
+      }
+
+      const hasStwSelected = new RegExp(STW_SELECTED_PATTERN).test(command.query);
+
+      if (hasStwSelected) {
+        return this.handleUpdateStwSelected({
+          ...params,
+          messages: [
+            ...conversationHistory,
+            { role: 'user', content: command.query, id: generateId() },
+          ],
+        });
+      }
+
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `*${t('common.noRecentOperations')}*`,
+        command: 'update',
       });
 
       return {
@@ -378,18 +525,16 @@ GUIDELINES:
       docs = artifact.paths.map(path => ({ path }));
     } else if (artifact.artifactType === ArtifactType.CONTENT_UPDATE) {
       docs = [{ path: artifact.path }];
-    }
-
-    if (docs.length === 0 && artifact.artifactType !== ArtifactType.GENERATED_CONTENT) {
-      await this.renderer.updateConversationNote({
-        path: title,
-        newContent: t('common.noFilesFound'),
-      });
-
-      return {
-        status: CommandResultStatus.ERROR,
-        error: new Error('No files found'),
-      };
+    } else if (artifact.artifactType === ArtifactType.READ_CONTENT) {
+      if (artifact.readingResult.blocks.length === 0) {
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: `*${t('update.noContentFound')}*`,
+        });
+        return {
+          status: CommandResultStatus.SUCCESS,
+        };
+      }
     }
 
     // If we have a content update artifact, we can use it directly
@@ -397,12 +542,11 @@ GUIDELINES:
       return this.handleUpdateContentUpdate(params, artifact, docs);
     }
 
-    const conversationHistory = await this.renderer.extractConversationHistory(title, {
-      summaryPosition: 1,
-    });
-
-    if (artifact.artifactType === ArtifactType.GENERATED_CONTENT) {
-      return this.handleUpdateGeneratedContent({
+    if (
+      artifact.artifactType === ArtifactType.GENERATED_CONTENT ||
+      artifact.artifactType === ArtifactType.READ_CONTENT
+    ) {
+      return this.handleUpdateGeneratedOrReadContent({
         ...params,
         artifact,
         messages: [

@@ -258,7 +258,7 @@ export class CommandProcessor {
         await handler.renderIndicator(title, payload.lang);
       }
 
-      const result = await handler.handle({
+      const result = await handler.safeHandle({
         title,
         command,
         prevCommand,

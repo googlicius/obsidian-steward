@@ -119,7 +119,7 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
       }
 
       // Process the command
-      await plugin.commandProcessorService.processCommands(
+      await plugin.commandProcessorService.commandProcessor.processCommands(
         {
           title,
           commands: [
@@ -131,6 +131,7 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
           lang,
         },
         {
+          skipQueueCheck: true,
           sendToDownstream: {
             isReloadRequest: true,
           },
