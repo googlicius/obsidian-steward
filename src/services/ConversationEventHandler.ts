@@ -82,13 +82,13 @@ export class ConversationEventHandler {
   private async handleConversationCommand(
     payload: ConversationCommandReceivedPayload
   ): Promise<void> {
-    await this.plugin.commandProcessorService.processCommands(payload);
+    await this.plugin.commandProcessorService.commandProcessor.processCommands(payload);
   }
 
   private async handleConversationLinkInserted(
     payload: ConversationLinkInsertedPayload
   ): Promise<void> {
-    await this.plugin.commandProcessorService.processCommands(
+    await this.plugin.commandProcessorService.commandProcessor.processCommands(
       {
         title: payload.title,
         commands: [

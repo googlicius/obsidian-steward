@@ -7,14 +7,10 @@ import {
 import { getTranslation } from 'src/i18n';
 import { CommandIntent } from 'src/types/types';
 import type StewardPlugin from 'src/main';
-import type { CommandProcessor } from '../CommandProcessor';
 import { logger } from 'src/utils/logger';
 
 export class ConfirmCommandHandler extends CommandHandler {
-  constructor(
-    public readonly plugin: StewardPlugin,
-    private readonly commandProcessor: CommandProcessor
-  ) {
+  constructor(public readonly plugin: StewardPlugin) {
     super();
   }
 

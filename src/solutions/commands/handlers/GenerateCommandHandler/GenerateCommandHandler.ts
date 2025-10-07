@@ -12,9 +12,8 @@ import { MediaTools } from 'src/tools/mediaTools';
 import { CommandIntent, ConversationHistoryMessage } from 'src/types/types';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
-import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
+import { STW_SELECTED_PATTERN } from 'src/constants';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
-import { type CommandProcessor } from '../../CommandProcessor';
 import { ReadCommandHandler } from '../ReadCommandHandler/ReadCommandHandler';
 import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { generateContentSchema } from './zSchemas';
@@ -32,10 +31,7 @@ export interface ContentUpdate {
 }
 
 export class GenerateCommandHandler extends CommandHandler {
-  constructor(
-    public readonly plugin: StewardPlugin,
-    private readonly commandProcessor: CommandProcessor
-  ) {
+  constructor(public readonly plugin: StewardPlugin) {
     super();
   }
 
@@ -79,21 +75,7 @@ export class GenerateCommandHandler extends CommandHandler {
     const originalQuery = this.commandProcessor.getPendingCommand(title)?.payload.originalQuery;
 
     // Replace the placeholder with the {{stw-selected...}} in the original query.
-    if (
-      originalQuery &&
-      originalQuery.includes('{{stw-selected') &&
-      command.query.includes(STW_SELECTED_PLACEHOLDER)
-    ) {
-      const stwSelectedBlocks = Array.from(
-        originalQuery.matchAll(new RegExp(STW_SELECTED_PATTERN, 'g'))
-      );
-      if (stwSelectedBlocks.length > 0) {
-        // Replace all instances of <stwSelected> with the actual stw-selected blocks
-        for (const match of stwSelectedBlocks) {
-          command.query = command.query.replace(STW_SELECTED_PLACEHOLDER, match[0]);
-        }
-      }
-    }
+    command.query = this.restoreStwSelectedBlocks({ originalQuery, query: command.query });
 
     const hasStwSelected = new RegExp(STW_SELECTED_PATTERN).test(command.query);
 
@@ -287,7 +269,7 @@ ${languageEnforcementFragment}`,
 
           // If there's no next command, automatically trigger update_from_artifact
           if (!nextCommand) {
-            await this.plugin.commandProcessorService.processCommands({
+            await this.commandProcessor.processCommands({
               title,
               commands: [
                 {

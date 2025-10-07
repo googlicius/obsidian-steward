@@ -1,6 +1,7 @@
 import { tool } from 'ai';
 import { UpdateInstruction } from 'src/lib/modelfusion';
 import { ArtifactType } from 'src/solutions/artifact';
+import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { z } from 'zod';
 
 /**
@@ -42,7 +43,9 @@ Examples:
             ),
         },
         {
-          description: `The fromLine and toLine are provided from the ${ArtifactType.READ_CONTENT} artifact or grep's result.`,
+          description: `The fromLine and toLine are provided from the ${ArtifactType.READ_CONTENT} artifact or grep's result.
+NOTE:
+- If editing is in 1 line, the fromLine and toLine MUST be the same.`,
         }
       )
     ),
@@ -58,6 +61,8 @@ Examples:
   });
 
   function execute(args: EditArgs): UpdateInstruction[] {
+    args = repairEditToolCallArgs(args);
+
     return args.operations.map(operation => {
       const editMode = operation.mode || 'replace';
       if (editMode === 'replace') {
@@ -91,4 +96,15 @@ Examples:
     editTool,
     execute,
   };
+}
+
+function repairEditToolCallArgs(args: EditArgs): EditArgs {
+  const repairedArgs = { ...args };
+
+  // Unescape the newContent
+  repairedArgs.operations.forEach(operation => {
+    operation.newContent = new MarkdownUtil(operation.newContent).unescape().getText();
+  });
+
+  return repairedArgs;
 }

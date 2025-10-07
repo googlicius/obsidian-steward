@@ -24,6 +24,7 @@ import { GREP_TOOL_NAME, grepTool, execute as grepExecute } from '../../tools/gr
 import { EDIT_TOOL_NAME, createEditTool } from '../../tools/editContent';
 import { ReadCommandHandler } from '../ReadCommandHandler/ReadCommandHandler';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
+import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
 
 const updatableTypes = [
   ArtifactType.SEARCH_RESULTS,
@@ -44,6 +45,123 @@ export class UpdateCommandHandler extends CommandHandler {
   public async renderIndicator(title: string, lang?: string): Promise<void> {
     const t = getTranslation(lang);
     await this.renderer.addGeneratingIndicator(title, t('conversation.updating'));
+  }
+
+  /**
+   * Handle update directly if the stw-selected block is included in the query
+   */
+  private async handleUpdateStwSelected(params: {
+    title: string;
+    command: CommandIntent;
+    messages: Message[];
+    lang?: string | null;
+  }): Promise<CommandResult> {
+    const t = getTranslation(params.lang);
+    const llmConfig = await this.plugin.llmService.getLLMConfig({
+      overrideModel: params.command.model,
+      generateType: 'text',
+    });
+
+    const { editTool, execute: editToolExecute } = createEditTool({
+      contentType: 'in_the_note',
+    });
+
+    const extraction = await generateText({
+      ...llmConfig,
+      abortSignal: this.plugin.abortService.createAbortController('update'),
+      system: `You are a helpful assistant that updates content in a Obsidian note.
+Update the content in the note based on the instructions provided.
+
+You have access to the following tools:
+
+1. ${EDIT_TOOL_NAME} - Update content by replacing old content with new content.
+
+GUIDELINES:
+- Use ${EDIT_TOOL_NAME} to make the actual content changes.
+- You MUST use tools to fulfill the query.
+`,
+      messages: params.messages,
+      tools: {
+        [EDIT_TOOL_NAME]: editTool,
+      },
+    });
+
+    for (const toolCall of extraction.toolCalls) {
+      switch (toolCall.toolName) {
+        case EDIT_TOOL_NAME: {
+          // Handle edit content
+          await this.renderer.updateConversationNote({
+            path: params.title,
+            newContent: toolCall.args.explanation,
+            command: 'update',
+            includeHistory: false,
+            lang: params.lang,
+          });
+
+          const file = toolCall.args.filePath
+            ? await this.plugin.mediaTools.findFileByNameOrPath(toolCall.args.filePath)
+            : this.plugin.app.workspace.getActiveFile();
+
+          if (!file) {
+            throw new Error('No file provided');
+          }
+
+          // Render what will be updated
+          for (const operation of toolCall.args.operations) {
+            await this.renderer.updateConversationNote({
+              path: params.title,
+              newContent: this.plugin.noteContentService.formatCallout(
+                operation.newContent,
+                'stw-search-result',
+                {
+                  mdContent: new MarkdownUtil(operation.newContent)
+                    .escape(true)
+                    .encodeForDataset()
+                    .getText(),
+                }
+              ),
+              includeHistory: false,
+              lang: params.lang,
+            });
+          }
+
+          await this.renderer.updateConversationNote({
+            path: params.title,
+            newContent: t('update.applyChangesConfirm'),
+          });
+
+          return {
+            status: CommandResultStatus.NEEDS_CONFIRMATION,
+            onConfirmation: () => {
+              const updateInstructions = editToolExecute(toolCall.args);
+
+              return this.performUpdate({
+                title: params.title,
+                docs: [
+                  {
+                    path: file.path,
+                  },
+                ],
+                updateInstructions,
+                lang: params.lang,
+              });
+            },
+            onRejection: () => {
+              return {
+                status: CommandResultStatus.SUCCESS,
+              };
+            },
+          };
+        }
+
+        default:
+          break;
+      }
+    }
+
+    return {
+      status: CommandResultStatus.SUCCESS,
+    };
   }
 
   /**
@@ -235,7 +353,7 @@ GUIDELINES:
 
           return {
             status: CommandResultStatus.NEEDS_CONFIRMATION,
-            onConfirmation: async () => {
+            onConfirmation: () => {
               const updateInstructions = editToolExecute(toolCall.args);
 
               return this.performUpdate({
@@ -357,6 +475,9 @@ GUIDELINES:
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
     const { title, command, lang } = params;
     const t = getTranslation(lang);
+    const conversationHistory = await this.renderer.extractConversationHistory(title, {
+      summaryPosition: 1,
+    });
 
     // Retrieve the most recent artifact of updatable types
     const artifact = await this.plugin.artifactManagerV2
@@ -364,9 +485,29 @@ GUIDELINES:
       .getMostRecentArtifactOfTypes(updatableTypes);
 
     if (!artifact) {
+      if (command.query.includes(STW_SELECTED_PLACEHOLDER)) {
+        const originalQuery =
+          this.plugin.commandProcessorService.commandProcessor.getPendingCommand(title)?.payload
+            .originalQuery;
+        command.query = this.restoreStwSelectedBlocks({ originalQuery, query: command.query });
+      }
+
+      const hasStwSelected = new RegExp(STW_SELECTED_PATTERN).test(command.query);
+
+      if (hasStwSelected) {
+        return this.handleUpdateStwSelected({
+          ...params,
+          messages: [
+            ...conversationHistory,
+            { role: 'user', content: command.query, id: generateId() },
+          ],
+        });
+      }
+
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `*${t('common.noRecentOperations')}*`,
+        command: 'update',
       });
 
       return {
@@ -400,10 +541,6 @@ GUIDELINES:
     if (artifact.artifactType === ArtifactType.CONTENT_UPDATE) {
       return this.handleUpdateContentUpdate(params, artifact, docs);
     }
-
-    const conversationHistory = await this.renderer.extractConversationHistory(title, {
-      summaryPosition: 1,
-    });
 
     if (
       artifact.artifactType === ArtifactType.GENERATED_CONTENT ||

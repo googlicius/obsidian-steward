@@ -1,6 +1,4 @@
-import { CommandProcessor, ProcessCommandsOptions } from '../solutions/commands';
-import { ConversationCommandReceivedPayload } from '../types/events';
-import { logger } from '../utils/logger';
+import { CommandProcessor } from '../solutions/commands';
 import {
   MoveCommandHandler,
   SearchCommandHandler,
@@ -30,7 +28,7 @@ import type StewardPlugin from '../main';
 import { getTextContentWithoutImages } from 'src/lib/modelfusion/utils/messageUtils';
 
 export class CommandProcessorService {
-  private readonly commandProcessor: CommandProcessor;
+  public readonly commandProcessor: CommandProcessor;
   private userDefinedCommandHandler: UserDefinedCommandHandler;
 
   constructor(private readonly plugin: StewardPlugin) {
@@ -60,7 +58,7 @@ export class CommandProcessorService {
     this.commandProcessor.registerHandler('move_from_artifact', moveHandler);
 
     // Register the confirmation handler
-    const confirmHandler = new ConfirmCommandHandler(this.plugin, this.commandProcessor);
+    const confirmHandler = new ConfirmCommandHandler(this.plugin);
     this.commandProcessor.registerHandler('confirm', confirmHandler);
     this.commandProcessor.registerHandler('yes', confirmHandler);
     this.commandProcessor.registerHandler('no', confirmHandler);
@@ -96,7 +94,7 @@ export class CommandProcessorService {
     this.commandProcessor.registerHandler('update_from_artifact', updateHandler);
 
     // Register the create command handler
-    const createHandler = new CreateCommandHandler(this.plugin, this.commandProcessor);
+    const createHandler = new CreateCommandHandler(this.plugin);
     this.commandProcessor.registerHandler('create', createHandler);
 
     // Register the read command handler
@@ -104,7 +102,7 @@ export class CommandProcessorService {
     this.commandProcessor.registerHandler('read', readHandler);
 
     // Register the generate command handler
-    const generateHandler = new GenerateCommandHandler(this.plugin, this.commandProcessor);
+    const generateHandler = new GenerateCommandHandler(this.plugin);
     this.commandProcessor.registerHandler('generate', generateHandler);
 
     // Register the stop command handler
@@ -133,52 +131,20 @@ export class CommandProcessorService {
     this.commandProcessor.registerHandler('summary', summaryHandler);
 
     // Register the general command handler (space)
-    const generalHandler = new GeneralCommandHandler(this.plugin, this.commandProcessor);
+    const generalHandler = new GeneralCommandHandler(this.plugin);
     this.commandProcessor.registerHandler(' ', generalHandler);
 
     // Register the context_augmentation handler
-    const contextAugmentationHandler = new ContextAugmentationHandler(
-      this.plugin,
-      this.commandProcessor
-    );
+    const contextAugmentationHandler = new ContextAugmentationHandler(this.plugin);
     this.commandProcessor.registerHandler('context_augmentation', contextAugmentationHandler);
 
     // Register the user-defined command handler
-    this.userDefinedCommandHandler = new UserDefinedCommandHandler(
-      this.plugin,
-      this.commandProcessor
-    );
+    this.userDefinedCommandHandler = new UserDefinedCommandHandler(this.plugin);
     this.commandProcessor.registerUserDefinedCommandHandler(this.userDefinedCommandHandler);
 
     // Register the test command handler
     const testHandler = new TestCommandHandler(this.plugin);
     this.commandProcessor.registerHandler('test', testHandler);
-  }
-
-  /**
-   * Process commands
-   */
-  public async processCommands(
-    payload: ConversationCommandReceivedPayload,
-    options: ProcessCommandsOptions = {}
-  ): Promise<boolean> {
-    try {
-      await this.commandProcessor.processCommands(payload, options);
-      return true;
-    } catch (error) {
-      logger.error('Error processing commands:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Process a command in isolation
-   */
-  public processCommandInIsolation(
-    payload: ConversationCommandReceivedPayload,
-    commandType: string
-  ) {
-    return this.commandProcessor.processCommandInIsolation(payload, commandType);
   }
 
   /**
