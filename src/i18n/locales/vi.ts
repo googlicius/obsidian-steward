@@ -98,6 +98,7 @@ const vi = {
     },
     // Update result messages
     update: {
+      noContentFound: 'Không tìm thấy nội dung để cập nhật.',
       failed: 'Không thể cập nhật {{count}} tập tin:',
       successfullyUpdated: 'Đã cập nhật thành công {{count}} tập tin:',
       foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để cập nhật.',
@@ -311,7 +312,7 @@ const vi = {
       voiceId: 'ID giọng nói',
       voiceIdDesc: 'Nhập ID giọng nói cho mô hình đã chọn',
       searchSettings: 'Tìm kiếm',
-      withoutLLM: 'Tùy chọn khớp tìm kiếm ngoại tuyến',
+      withoutLLM: 'Tùy chọn khớp tìm kiếm',
       withoutLLMDesc: 'Chế độ tìm kiếm khi truy vấn được bao trong dấu ngoặc kép',
       exactMatch: 'Khớp chính xác',
       relevantScoring: 'Chấm điểm liên quan',

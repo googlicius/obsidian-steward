@@ -13,7 +13,9 @@ const requestReadContentSchema = z.object({
   query: z.string().describe(`The query to read content from notes.
 
 QUERY TEMPLATE:
-${readCommandQueryTemplate}`),
+${readCommandQueryTemplate}
+
+IMPORTANT: You're only able to request read above or below (or both) the current cursor. Reading entire note will not be processed`),
   explanation: z.string().describe(`A brief explanation of why reading this content is necessary.`),
 });
 

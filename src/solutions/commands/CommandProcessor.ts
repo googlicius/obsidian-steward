@@ -76,6 +76,7 @@ export class CommandProcessor {
     options: ProcessCommandsOptions = {}
   ): Promise<void> {
     const { title, commands } = payload;
+    console.log('options', options);
 
     // Preprocessing for general commands
     // This prevents accidentally resetting pending commands when a general command
@@ -106,6 +107,7 @@ export class CommandProcessor {
       this.isProcessing(title);
 
     if (shouldQueueCommands) {
+      console.log('options 2', options);
       // Queue the commands for later processing
       this.queueCommands(title, { commands, payload });
       return;

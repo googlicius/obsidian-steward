@@ -338,9 +338,10 @@ export class GeneralCommandHandler extends CommandHandler {
           systemPrompts.push(`The user query included one or more selections in this format {{stw-selected from:<startLine>,to:<endLine>,selection:<selectionContent>,path:<notePath>}}.
 * **For generation tasks:** Use the <selectionContent> value from the selection(s) as the primary context for your response.
 * **For update tasks:** The user wants to modify the note. Use the <notePath>, <startLine>, and <endLine> values to identify the exact location in the file to update. The new content should be generated based on the user's instructions and the provided context.
-NOTE: 
+
+IMPORTANT:
 - The selection content is included in the user's query, you don't need to read the note again.
-- Pass the selection(s) placeholder: ${STW_SELECTED_PLACEHOLDER} to the downstream command's queries to maintain the context.`);
+- You MUST add a placeholder: ${STW_SELECTED_PLACEHOLDER} to the related command's queries. It will be replaced with the actual selection content to maintain the context.`);
         }
 
         if (hasImageLinks) {

@@ -11,6 +11,7 @@ import { toolSystemPrompt } from './contentReadingPrompt';
 import { generateText, tool, Message, generateId } from 'ai';
 import { contentReadingSchema, ContentReadingArgs } from './zSchemas';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
+import { logger } from 'src/utils/logger';
 
 export class ReadCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -21,16 +22,26 @@ export class ReadCommandHandler extends CommandHandler {
    * Repair content reading tool call arguments to handle common LLM misinterpretations
    */
   private repairContentReadingToolCallArgs(args: ContentReadingArgs): ContentReadingArgs {
+    const modifiedArgs = { ...args };
     if (args.noteName && typeof args.noteName === 'string') {
       const normalizedNoteName = args.noteName.trim().toLowerCase();
       if (['current note', 'this note', 'current', 'current note'].includes(normalizedNoteName)) {
-        return {
-          ...args,
-          noteName: null,
-        };
+        logger.warn(`Repairing noteName: ${args.noteName} to null`);
+        modifiedArgs.noteName = null;
       }
     }
-    return args;
+
+    if (
+      args.elementType &&
+      !['paragraph', 'table', 'code', 'list', 'blockquote', 'image', 'heading'].includes(
+        args.elementType
+      )
+    ) {
+      logger.warn(`Repairing elementType: ${args.elementType} to null`);
+      modifiedArgs.elementType = null;
+    }
+
+    return modifiedArgs;
   }
 
   /**
@@ -149,7 +160,6 @@ export class ReadCommandHandler extends CommandHandler {
       for (let i = startIndex; i < extraction.toolCalls.length; i++) {
         const toolCall = extraction.toolCalls[i];
         if (toolCall.toolName === 'contentReading') {
-          // Repair tool call arguments to handle common LLM misinterpretations
           toolCall.args = this.repairContentReadingToolCallArgs(toolCall.args);
 
           // Check if readType is 'entire' and needs confirmation
