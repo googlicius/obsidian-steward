@@ -208,6 +208,15 @@ ${languageEnforcementFragment}`,
             return this.handle(params, {
               remainingSteps: remainingSteps - 1,
             });
+          } else if (readResult.status === CommandResultStatus.NEEDS_CONFIRMATION) {
+            return {
+              ...readResult,
+              onFinal: async () => {
+                await this.handle(params, {
+                  remainingSteps: remainingSteps - 1,
+                });
+              },
+            };
           } else {
             return readResult;
           }

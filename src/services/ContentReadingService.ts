@@ -2,7 +2,6 @@ import { TFile, EditorRange, EditorPosition } from 'obsidian';
 import { logger } from '../utils/logger';
 import { isConversationLink } from '../utils/conversationUtils';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
-import { MediaTools } from 'src/tools/mediaTools';
 import type StewardPlugin from '../main';
 import { ContentReadingArgs } from 'src/solutions/commands/handlers/ReadCommandHandler/zSchemas';
 
@@ -29,16 +28,6 @@ export interface ContentBlock {
   endLine: number;
   types: string[]; // Array of types present in this block
   content: string;
-}
-
-/**
- * Parameters for identifying blocks
- */
-interface IdentifyBlocksParams {
-  cursor?: EditorPosition;
-  maxBlocks: number;
-  direction: 'above' | 'below';
-  elementType?: string | null;
 }
 
 /**
@@ -77,7 +66,7 @@ export class ContentReadingService {
   }): Promise<ContentReadingResult> {
     // Get the file
     const file = args.noteName
-      ? await MediaTools.getInstance(this.plugin.app).findFileByNameOrPath(args.noteName)
+      ? await this.plugin.mediaTools.findFileByNameOrPath(args.noteName)
       : this.plugin.app.workspace.getActiveFile();
     if (!file) {
       logger.error('No active file found');
@@ -247,13 +236,15 @@ export class ContentReadingService {
    * @param params Object containing search parameters
    * @returns Array of identified blocks
    */
-  private identifyBlocksUsingLines({
-    cursor = this.editor.getCursor(),
-    maxBlocks,
-    direction,
-    elementType = null,
-  }: IdentifyBlocksParams): ContentBlock[] {
+  private identifyBlocksUsingLines(params: {
+    cursor?: EditorPosition;
+    maxBlocks: number;
+    direction: 'above' | 'below';
+    elementType?: string | null;
+  }): ContentBlock[] {
     try {
+      const { cursor = this.editor.getCursor(), maxBlocks, direction, elementType = null } = params;
+
       const blocks: ContentBlock[] = [];
       const lineCount = this.editor.lineCount();
 

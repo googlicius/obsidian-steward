@@ -82,6 +82,7 @@
 - [ ] Enhance summarization: Only check generated_content, note content_update for generate commands.
 - [x] Large updates: Tables, lists, paragraphs,...
 - [ ] Evaluation council: A set of different models participating in evaluating the unqualified outcomes: low confidence, errors,...
+- [ ] Confirmation as a tool: Allow LLM decide the confirmation so we can send a flexible query (maybe to put more classify) instead of just Yes and No
 
 ### BUGS
 

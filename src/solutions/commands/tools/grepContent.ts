@@ -14,7 +14,7 @@ const grepSchema = z.object({
   filePath: z
     .string()
     .optional()
-    .describe('The path of the file to search in. If not provided, leave it empty.'),
+    .describe('The path of the note to search in. If not provided, leave it empty.'),
   explanation: z
     .string()
     .describe('A brief explanation of why searching for this pattern is necessary.'),
@@ -65,12 +65,12 @@ export async function execute(args: GrepArgs, plugin: StewardPlugin): Promise<Gr
     : plugin.app.workspace.getActiveFile();
 
   if (!file) {
-    return null;
+    throw new Error(`Note not found: ${filePath}`);
   }
 
   try {
     // Read file content
-    const content = await plugin.app.vault.read(file);
+    const content = await plugin.app.vault.cachedRead(file);
 
     // Create regex pattern (escape special characters if not already a regex)
     let searchPattern: RegExp;

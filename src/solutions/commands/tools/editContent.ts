@@ -18,43 +18,54 @@ export function createEditTool(params: { contentType: 'in_the_note' | 'in_the_ch
   /**
    * Schema for the edit tool parameters
    */
-  const editSchema = z.object({
-    operations: z.array(
-      z.object(
-        {
-          newContent: z.string().describe(
-            params.contentType === 'in_the_chat'
-              ? 'The new content to replace the old content with.'
-              : `Only the specific part of the content that needs to be updated, without any surrounding context.
+  const editSchema = z.object(
+    {
+      operations: z.array(
+        z.object(
+          {
+            newContent: z.string().describe(
+              params.contentType === 'in_the_chat'
+                ? 'The new content to replace the old content with.'
+                : `Only the specific part of the content that needs to be updated, without any surrounding context.
 Examples:
 - For table updates: Return only the updated rows, not the entire table
 - For text edits: Return only the changed sentences/paragraphs, not surrounding content
 - For list updates: Return only the added/modified list items, not the entire list.`
-          ),
-          fromLine: z
-            .number()
-            .describe('The starting line number (0-based) of the original content.'),
-          toLine: z.number().describe('The ending line number (0-based) of the original content.'),
-          mode: z
-            .enum(['replace', 'above', 'below'])
-            .default('replace')
-            .describe(
-              'How to apply the content: "replace" (default) to replace the content between fromLine and toLine, "above" to insert before fromLine, "below" to insert after toLine.'
             ),
-        },
-        {
-          description: `The fromLine and toLine are provided from the ${ArtifactType.READ_CONTENT} artifact or grep's result.
+            fromLine: z
+              .number()
+              .describe('The starting line number (0-based) of the original content.'),
+            toLine: z
+              .number()
+              .describe('The ending line number (0-based) of the original content.'),
+            mode: z
+              .enum(['replace', 'above', 'below'])
+              .default('replace')
+              .describe(
+                'How to apply the content: "replace" (default) to replace the content between fromLine and toLine, "above" to insert before fromLine, "below" to insert after toLine.'
+              ),
+          },
+          {
+            description: `The fromLine and toLine are provided from the ${ArtifactType.READ_CONTENT} artifact or grep's result.
 NOTE:
 - If editing is in 1 line, the fromLine and toLine MUST be the same.`,
-        }
-      )
-    ),
-    filePath: z
-      .string()
-      .optional()
-      .describe('The path of the file to edit. If not provided, edits the current note.'),
-    explanation: z.string().describe('A brief explanation of what changes are being made and why.'),
-  });
+          }
+        )
+      ),
+      filePath: z
+        .string()
+        .optional()
+        .describe(
+          'The path of the EXISTING note to edit. If not provided, edits the current note.'
+        ),
+      explanation: z
+        .string()
+        .describe('A brief explanation of what changes are being made and why.'),
+    },
+    {
+      description: `An edit tool used to update an existing note. It won't be able to create a new note automatically.`,
+    }
+  );
 
   const editTool = tool({
     parameters: editSchema,

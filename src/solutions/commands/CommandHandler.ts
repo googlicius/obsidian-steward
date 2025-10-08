@@ -20,6 +20,7 @@ type ConfirmationCommandResult = {
   confirmationMessage?: string;
   onConfirmation: () => Promise<CommandResult> | CommandResult;
   onRejection?: () => Promise<CommandResult> | CommandResult;
+  onFinal?: () => Promise<void> | void;
 };
 
 type SuccessCommandResult = {
