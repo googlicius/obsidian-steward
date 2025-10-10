@@ -147,7 +147,7 @@ Steward/
 ├── Commands/       # Stores user-defined command definitions
 ├── Conversations/  # Archives past conversations
 ├── Trash/          # Stores deleted files
-└── Steward Chat.md # Current active conversation
+└── Steward chat.md # Current active conversation
 ```
 
 ## Installation

@@ -63,7 +63,7 @@ export class ConversationEventHandler {
   }
 
   private async initializeChat(file: TFile): Promise<void> {
-    if (!file.name.startsWith('Steward Chat')) {
+    if (!file.name.startsWith('Steward chat')) {
       return;
     }
 

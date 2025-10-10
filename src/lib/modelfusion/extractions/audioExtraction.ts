@@ -2,12 +2,12 @@ import { generateObject } from 'ai';
 import { audioCommandPrompt } from '../prompts/audioCommandPrompt';
 import { AbortService } from 'src/services/AbortService';
 import { userLanguagePrompt } from '../prompts/languagePrompt';
-import { getObsidianLanguage } from 'src/utils/getObsidianLanguage';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
 import { CommandIntent } from 'src/types/types';
 import { explanationFragment, confidenceFragment } from '../prompts/fragments';
 import { logger } from 'src/utils/logger';
+import { getLanguage } from 'obsidian';
 
 const abortService = AbortService.getInstance();
 
@@ -58,7 +58,7 @@ export async function extractAudioQuery(command: CommandIntent): Promise<AudioEx
       return {
         text: content,
         explanation: `Generating audio with: "${content}"`,
-        lang: getObsidianLanguage(),
+        lang: getLanguage(),
         confidence: 1,
       };
     }

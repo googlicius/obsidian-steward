@@ -19,10 +19,10 @@ import { CommandIntent } from 'src/types/types';
 import { StewardPluginSettings } from 'src/types/interfaces';
 import { DEFAULT_SETTINGS } from 'src/constants';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
-import { getObsidianLanguage } from 'src/utils/getObsidianLanguage';
 import { generateObject } from 'ai';
 import { searchPromptV2 } from './searchPromptV2';
 import { searchQueryExtractionSchema } from './zSchemas';
+import { getLanguage } from 'obsidian';
 
 type HighlighKeywordResult = {
   highlightedText: string;
@@ -307,7 +307,7 @@ export class SearchCommandHandler extends CommandHandler {
       return {
         operations,
         explanation: t('search.searchingFor', { searchTerm }),
-        lang: lang || getObsidianLanguage(),
+        lang: lang || getLanguage(),
         confidence: 1,
         needsLLM: false,
       };
@@ -338,7 +338,7 @@ export class SearchCommandHandler extends CommandHandler {
         explanation: t('search.searchingForTags', {
           tags: tags.map(tag => `#${tag}`).join(', '),
         }),
-        lang: lang || getObsidianLanguage(),
+        lang: lang || getLanguage(),
         confidence: 1,
         needsLLM: false,
       };
@@ -379,7 +379,7 @@ export class SearchCommandHandler extends CommandHandler {
 
       return {
         ...object,
-        lang: object.lang || lang || getObsidianLanguage(),
+        lang: object.lang || lang || getLanguage(),
         needsLLM: true,
       };
     } catch (error) {

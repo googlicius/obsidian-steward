@@ -54,7 +54,7 @@ export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
   obsidianAPITools: ObsidianAPITools;
   searchService: SearchService;
-  chatTitle = 'Steward Chat';
+  chatTitle = 'Steward chat';
   artifactManagerV2: ArtifactManagerV2;
   conversationRenderer: ConversationRenderer;
   contentReadingService: ContentReadingService;
@@ -153,6 +153,9 @@ export default class StewardPlugin extends Plugin {
   }
 
   onunload() {
+    // Remove the language attribute from the HTML element
+    document.documentElement.removeAttribute('data-stw-language');
+
     // Unload the search service
     this.searchService.unload();
 
@@ -967,11 +970,7 @@ export default class StewardPlugin extends Plugin {
   }
 
   async getMainLeaf(): Promise<WorkspaceLeaf> {
-    return new Promise(resolve => {
-      this.app.workspace.iterateRootLeaves(leaf => {
-        resolve(leaf);
-      });
-    });
+    return this.app.workspace.getMostRecentLeaf() ?? this.app.workspace.getLeaf();
   }
 
   /**

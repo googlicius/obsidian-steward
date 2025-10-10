@@ -11,11 +11,6 @@ declare global {
   }
 }
 
-// Global mock for getObsidianLanguage
-jest.mock('./utils/getObsidianLanguage', () => ({
-  getObsidianLanguage: jest.fn().mockReturnValue('en'),
-}));
-
 // Global mock for i18n module
 jest.mock('./i18n', () => ({
   getTranslation: jest.fn().mockImplementation(() => {

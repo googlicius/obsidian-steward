@@ -72,7 +72,7 @@ html[data-stw-language='vi'] {
 }
 
 /* Command Autocomplete styling */
-.cm-tooltip.cm-tooltip-autocomplete {
+.stw-command-autocomplete.cm-tooltip-autocomplete {
   border: 1px solid var(--background-modifier-border);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 
@@ -206,41 +206,6 @@ html[data-stw-language='vi'] {
   overflow: hidden;
 }
 
-/* Command toolbar styling */
-.command-toolbar {
-  position: absolute;
-  margin-top: 5px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 8px;
-  background-color: var(--color-base-20);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  z-index: 10;
-  width: 100%;
-  max-width: 500px;
-}
-
-.command-toolbar .clickable-icon {
-  cursor: pointer;
-}
-
-.command-toolbar-buttons {
-  display: flex;
-  gap: 4px;
-}
-
-.model-selector {
-  font-size: 0.85em;
-  padding: 4px 8px;
-  border-radius: 4px;
-  box-shadow: none;
-  color: var(--text-normal);
-  background-color: inherit;
-}
-
 pre[class*='language-stw-artifact'],
 code[class*='language-stw-artifact'] {
   display: none;
@@ -343,7 +308,7 @@ code[class*='language-stw-artifact'] {
   display: block;
 }
 
-.mr-2 {
+.stw-mr-2 {
   margin-right: var(--size-2-2);
 }
 
@@ -372,7 +337,7 @@ code[class*='language-stw-artifact'] {
 }
 
 /* Validation styling for custom model input */
-.is-invalid {
+.stw-is-invalid {
   border-color: var(--text-error) !important;
   box-shadow: 0 0 0 1px var(--text-error) !important;
 }

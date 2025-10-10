@@ -241,8 +241,16 @@ function createAutocompleteExtension(plugin: StewardPlugin): Extension {
     // Only activate when typing after a slash at the beginning of a line
     activateOnTyping: true,
     icons: false,
+    tooltipClass: () => 'stw-command-autocomplete',
     override: [
       (context: CompletionContext): CompletionResult | null => {
+        // Don't show autocomplete if the core Slash Commands plugin is enabled
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const isSlashCommandsEnabled = (plugin.app as any).internalPlugins?.getPluginById(
+          'slash-command'
+        )?.enabled;
+        if (isSlashCommandsEnabled) return null;
+
         // Get current line
         const { state, pos } = context;
         const line = state.doc.lineAt(pos);
