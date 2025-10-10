@@ -26,4 +26,7 @@ export class App {
   };
 }
 
+// Mock getLanguage
+export const getLanguage = jest.fn().mockReturnValue('en');
+
 // Add any other classes or functions from obsidian that you need to mock
