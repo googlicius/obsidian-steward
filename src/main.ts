@@ -95,7 +95,7 @@ export default class StewardPlugin extends Plugin {
     this.mediaTools = MediaTools.getInstance(this.app);
 
     // Initialize the note content service
-    this.noteContentService = NoteContentService.getInstance(this.app);
+    this.noteContentService = NoteContentService.getInstance(this);
 
     // Initialize the LLM service
     this.llmService = LLMService.getInstance(this);

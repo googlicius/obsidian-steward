@@ -25,6 +25,7 @@ import { EDIT_TOOL_NAME, createEditTool } from '../../tools/editContent';
 import { ReadCommandHandler } from '../ReadCommandHandler/ReadCommandHandler';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
+import { uniqueID } from 'src/utils/uniqueID';
 
 const updatableTypes = [
   ArtifactType.SEARCH_RESULTS,
@@ -139,6 +140,8 @@ GUIDELINES:
             newContent: t('update.applyChangesConfirm'),
           });
 
+          console.log('$$$$$$$$$$$');
+
           return {
             status: CommandResultStatus.NEEDS_CONFIRMATION,
             onConfirmation: () => {
@@ -185,10 +188,11 @@ GUIDELINES:
      * Remaining steps for the LLM to execute
      */
     remainingSteps?: number;
+    handlerId: string;
   }): Promise<CommandResult> {
     const t = getTranslation(params.lang);
     const MAX_STEP_COUNT = 10;
-    const { remainingSteps = MAX_STEP_COUNT } = params;
+    const { remainingSteps = MAX_STEP_COUNT, handlerId } = params;
     const isInitialCall = remainingSteps === MAX_STEP_COUNT;
 
     if (remainingSteps <= 0) {
@@ -290,6 +294,7 @@ GUIDELINES:
               query: toolCall.args.query,
               model: params.command.model,
             },
+            handlerId: `fromUpdate_${handlerId}`,
             lang: params.lang,
           });
 
@@ -397,6 +402,8 @@ GUIDELINES:
             newContent: t('update.applyChangesConfirm'),
           });
 
+          console.log('CONFIRM....');
+
           return {
             status: CommandResultStatus.NEEDS_CONFIRMATION,
             onConfirmation: () => {
@@ -486,6 +493,8 @@ GUIDELINES:
       newContent: t('update.applyChangesConfirm'),
     });
 
+    console.log('NEED CONFIRM');
+
     return {
       status: CommandResultStatus.NEEDS_CONFIRMATION,
       onConfirmation: () => {
@@ -508,7 +517,7 @@ GUIDELINES:
    * Handle an update command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command, lang } = params;
+    const { title, command, lang, handlerId = uniqueID() } = params;
     const t = getTranslation(lang);
     const conversationHistory = await this.renderer.extractConversationHistory(title, {
       summaryPosition: 1,
@@ -583,6 +592,7 @@ GUIDELINES:
     ) {
       return this.handleUpdateGeneratedOrReadContent({
         ...params,
+        handlerId,
         artifact,
       });
     }

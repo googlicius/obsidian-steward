@@ -23,6 +23,8 @@ export class ConfirmCommandHandler extends CommandHandler {
 
     const confirmationIntent = this.isConfirmIntent(command);
 
+    console.log('confirmationIntent', confirmationIntent);
+
     if (!confirmationIntent) {
       // If it's not a clear confirmation, let the user know
       await this.renderer.updateConversationNote({
@@ -83,6 +85,7 @@ export class ConfirmCommandHandler extends CommandHandler {
 
       // Otherwise, it is something else.
       else {
+        console.log('Some thing else', pendingCommandData);
         await this.commandProcessor.processCommands(
           {
             title,
@@ -117,11 +120,11 @@ export class ConfirmCommandHandler extends CommandHandler {
     if (confirmationIntent.isAffirmative) {
       // Execute the confirmation callback
       if (lastResult.onConfirmation) {
-        confirmResult = await lastResult.onConfirmation();
+        confirmResult = await lastResult.onConfirmation(command.query);
       }
     } else {
       if (lastResult.onRejection) {
-        confirmResult = await lastResult.onRejection();
+        confirmResult = await lastResult.onRejection(command.query);
       }
 
       await this.plugin.conversationRenderer.updateConversationNote({

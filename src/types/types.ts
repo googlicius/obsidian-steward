@@ -16,6 +16,7 @@ export type ConversationRole = 'user' | 'assistant' | 'system';
  */
 export interface ConversationHistoryMessage extends Message {
   role: ConversationRole;
+  handlerId?: string;
 }
 
 export interface ConversationMessage {
@@ -27,6 +28,10 @@ export interface ConversationMessage {
   history?: boolean;
   type?: string;
   artifactType?: string;
+  /**
+   * Handler ID to group all messages issued in one handle function call
+   */
+  handlerId?: string;
 }
 
 /**

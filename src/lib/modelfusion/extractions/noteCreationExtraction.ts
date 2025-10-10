@@ -2,13 +2,13 @@ import { generateObject } from 'ai';
 import { noteCreationPrompt } from '../prompts/noteCreationPrompt';
 import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { AbortService } from 'src/services/AbortService';
-import { App } from 'obsidian';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
 import { CommandIntent } from 'src/types/types';
 import { explanationFragment, confidenceFragment } from '../prompts/fragments';
 import { logger } from 'src/utils/logger';
 import { prepareMessage } from '../utils/messageUtils';
+import type StewardPlugin from 'src/main';
 
 const abortService = AbortService.getInstance();
 
@@ -45,9 +45,9 @@ export type NoteCreationExtraction = z.infer<typeof noteCreationExtractionSchema
  */
 export async function extractNoteCreation(params: {
   command: CommandIntent;
-  app: App;
+  plugin: StewardPlugin;
 }): Promise<NoteCreationExtraction> {
-  const { command, app } = params;
+  const { command, plugin } = params;
 
   try {
     const llmConfig = await LLMService.getInstance().getLLMConfig({
@@ -56,7 +56,7 @@ export async function extractNoteCreation(params: {
     });
 
     // Prepare user message with potential image content
-    const userMessage = await prepareMessage(command.query, app);
+    const userMessage = await prepareMessage(command.query, plugin);
 
     const { object } = await generateObject({
       ...llmConfig,

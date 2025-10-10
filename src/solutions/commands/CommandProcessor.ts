@@ -217,7 +217,7 @@ export class CommandProcessor {
     }
 
     const { commands, currentIndex, payload } = pendingCommand;
-    const noteContentService = NoteContentService.getInstance(this.plugin.app);
+    const noteContentService = NoteContentService.getInstance(this.plugin);
 
     // Process commands sequentially from current index
     for (let i = currentIndex; i < commands.length; i++) {
@@ -266,6 +266,8 @@ export class CommandProcessor {
         lang: payload.lang,
         upstreamOptions: options.sendToDownstream,
       });
+
+      console.log('COMMAND RESULT', command, result);
 
       // Command completed successfully
       this.pendingCommands.set(title, {

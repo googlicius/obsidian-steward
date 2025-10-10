@@ -12,6 +12,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     vault: {
       cachedRead: jest.fn().mockResolvedValue(''),
     },
+    metadataCache: {
+      getFirstLinkpathDest: jest.fn(),
+    },
   } as unknown as App;
 
   const mockPlugin = {
@@ -34,11 +37,11 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     },
   } as unknown as StewardPlugin;
 
-  return {
-    ...mockPlugin,
-    noteContentService: NoteContentService.getInstance(mockApp),
-    searchService: SearchService.getInstance(mockPlugin),
-  } as unknown as jest.Mocked<StewardPlugin>;
+  // Initialize services with the mock plugin
+  mockPlugin.noteContentService = NoteContentService.getInstance(mockPlugin);
+  mockPlugin.searchService = SearchService.getInstance(mockPlugin);
+
+  return mockPlugin as jest.Mocked<StewardPlugin>;
 }
 
 describe('SearchCommandHandler', () => {

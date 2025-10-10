@@ -21,21 +21,16 @@ function createMockPlugin(fileContent = ''): jest.Mocked<StewardPlugin> {
       getFileCache: jest.fn().mockReturnValue({
         frontmatter: {},
       }),
+      getFirstLinkpathDest: jest.fn(),
     },
   } as unknown as App;
 
-  // Create and return mock plugin
-  return {
+  // Create mock plugin structure first
+  const mockPlugin = {
     settings: {
       stewardFolder: 'Steward',
     },
     app,
-    noteContentService: NoteContentService.getInstance(app),
-    conversationRenderer: ConversationRenderer.getInstance({
-      settings: { stewardFolder: 'Steward' },
-      app,
-      noteContentService: NoteContentService.getInstance(app),
-    } as unknown as StewardPlugin),
     searchService: {
       documentStore: {
         getDocumentsByIds: jest.fn(),
@@ -43,6 +38,12 @@ function createMockPlugin(fileContent = ''): jest.Mocked<StewardPlugin> {
     },
     registerEvent: jest.fn(),
   } as unknown as jest.Mocked<StewardPlugin>;
+
+  // Initialize services with the mock plugin
+  mockPlugin.noteContentService = NoteContentService.getInstance(mockPlugin);
+  mockPlugin.conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+  return mockPlugin;
 }
 
 describe('ArtifactManagerV2', () => {

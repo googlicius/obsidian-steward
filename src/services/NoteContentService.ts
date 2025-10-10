@@ -4,21 +4,21 @@ import {
   STW_SELECTED_PATTERN,
   STW_SELECTED_METADATA_PATTERN,
 } from 'src/constants';
-import { App } from 'obsidian';
 import { logger } from 'src/utils/logger';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
+import type StewardPlugin from 'src/main';
 
 export class NoteContentService {
   private static instance: NoteContentService;
 
-  private constructor(private app: App) {}
+  private constructor(private plugin: StewardPlugin) {}
 
   /**
    * Get the singleton instance of the NoteContentService
    */
-  public static getInstance(app?: App): NoteContentService {
-    if (app) {
-      NoteContentService.instance = new NoteContentService(app);
+  public static getInstance(plugin?: StewardPlugin): NoteContentService {
+    if (plugin) {
+      NoteContentService.instance = new NoteContentService(plugin);
       return NoteContentService.instance;
     }
     if (!NoteContentService.instance) {
@@ -131,7 +131,7 @@ export class NoteContentService {
     }
 
     // Try to find the file
-    const file = this.app.metadataCache.getFirstLinkpathDest(path, '');
+    const file = this.plugin.app.metadataCache.getFirstLinkpathDest(path, '');
 
     if (!file) {
       logger.warn(`Could not resolve link: ${linkPath}`);
@@ -140,7 +140,7 @@ export class NoteContentService {
 
     try {
       // Read the file content
-      const noteContent = await this.app.vault.read(file);
+      const noteContent = await this.plugin.app.vault.read(file);
 
       // Get content based on whether there's an anchor or not
       let contentToInsert = noteContent;
@@ -235,11 +235,11 @@ export class NoteContentService {
     for (const wikilink of wikilinks) {
       try {
         // Find the file by path
-        const file = this.app.metadataCache.getFirstLinkpathDest(wikilink.split('#')[0], '');
+        const file = this.plugin.app.metadataCache.getFirstLinkpathDest(wikilink.split('#')[0], '');
 
         if (file) {
           // Read the file content
-          const linkedContent = await this.app.vault.cachedRead(file);
+          const linkedContent = await this.plugin.app.vault.cachedRead(file);
 
           // Check if there's an anchor
           const anchorParts = wikilink.split('#');
@@ -302,7 +302,21 @@ export class NoteContentService {
           .join(',');
     }
 
-    return `>[!${type}]${metadataStr}\n${content
+    // Remove wikilinks to steward conversation folder to avoid recursion
+    const stewardFolder = this.plugin.settings.stewardFolder;
+    const conversationLinkPattern = new RegExp(
+      `!?\\[\\[${this.escapeRegExp(stewardFolder)}/Conversations/[^\\]]+\\]\\]\\n?`,
+      'g'
+    );
+    let cleanedContent = content.replace(conversationLinkPattern, '');
+
+    // Remove the following "/ " that appears after the removed wikilink
+    cleanedContent = cleanedContent.replace(/^\s*\/\s*/gm, '');
+
+    // Remove empty lines that resulted from the cleanup
+    cleanedContent = cleanedContent.replace(/^\s*$/gm, '').replace(/\n\n+/g, '\n');
+
+    return `>[!${type}]${metadataStr}\n${cleanedContent
       .split('\n')
       .map(item => '>' + item)
       .join('\n')}\n`;

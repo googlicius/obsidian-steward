@@ -354,10 +354,7 @@ describe('ReadCommandHandler', () => {
 
       // Act
       const result = await handler.handle(params);
-      const confirmedResult = await handler.handle(params, {
-        extraction: mockExtraction,
-        readEntireConfirmed: true,
-      });
+      const confirmedResult = await handler.handle(params);
 
       // Assert
       expect(result).toMatchObject({

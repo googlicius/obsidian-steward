@@ -176,6 +176,7 @@ const vi = {
       noPending: 'Không có yêu cầu xác nhận nào đang chờ phản hồi.',
       operationCancelled: 'Thao tác đã bị hủy bỏ.',
       errorProcessing: 'Lỗi khi xử lý xác nhận: {{errorMessage}}',
+      userConfirmed: 'Người dùng đã xác nhận hành động.',
     },
     // UI elements
     ui: {

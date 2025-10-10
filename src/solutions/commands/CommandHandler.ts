@@ -18,8 +18,8 @@ export enum CommandResultStatus {
 type ConfirmationCommandResult = {
   status: CommandResultStatus.NEEDS_CONFIRMATION;
   confirmationMessage?: string;
-  onConfirmation: () => Promise<CommandResult> | CommandResult;
-  onRejection?: () => Promise<CommandResult> | CommandResult;
+  onConfirmation: (message: string) => Promise<CommandResult> | CommandResult;
+  onRejection?: (message: string) => Promise<CommandResult> | CommandResult;
   onFinal?: () => Promise<void> | void;
 };
 
@@ -50,6 +50,11 @@ export interface CommandHandlerParams<T extends CommandIntent = CommandIntent> {
   prevCommand?: CommandIntent;
   nextCommand?: CommandIntent;
   lang?: string | null;
+  /**
+   * Handler ID to group all messages issued in one handle function call.
+   * If not provided, a new ID will be generated.
+   */
+  handlerId?: string;
   upstreamOptions?: {
     isReloadRequest?: boolean;
     ignoreClassify?: boolean;

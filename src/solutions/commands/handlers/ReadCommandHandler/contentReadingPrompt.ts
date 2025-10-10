@@ -18,4 +18,10 @@ You MUST use the contentReading tool to extract information about what content t
 ${readCommandQueryTemplate}
 </READ_QUERY_TEMPLATE>
 
+IMPORTANT: When the readType is "entire" (reading the entire content of a note), you MUST use the requestConfirmation tool BEFORE using the contentReading tool to ask for user confirmation. This is because reading entire notes can be resource-intensive and the user should explicitly approve this action.
+
+Example flow for reading entire content:
+1. Call requestConfirmation with message asking if the user wants to read the entire note
+2. After confirmation is received, call contentReading with readType: "entire"
+
 ${languageEnforcementFragment}`;
