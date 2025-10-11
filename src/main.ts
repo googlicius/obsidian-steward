@@ -95,7 +95,7 @@ export default class StewardPlugin extends Plugin {
     this.mediaTools = MediaTools.getInstance(this.app);
 
     // Initialize the note content service
-    this.noteContentService = NoteContentService.getInstance(this.app);
+    this.noteContentService = NoteContentService.getInstance(this);
 
     // Initialize the LLM service
     this.llmService = LLMService.getInstance(this);
@@ -677,7 +677,7 @@ export default class StewardPlugin extends Plugin {
       if (shouldRunSummary) {
         logger.log('Generating summary for conversation:', conversationTitle);
 
-        await this.commandProcessorService.commandProcessor.processCommands(
+        await this.commandProcessorService.commandProcessor.processCommandInIsolation(
           {
             title: conversationTitle,
             commands: [
@@ -687,6 +687,7 @@ export default class StewardPlugin extends Plugin {
               },
             ],
           },
+          'summary',
           {
             skipIndicators: true,
           }

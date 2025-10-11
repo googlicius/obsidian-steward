@@ -32,6 +32,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     addGeneratingIndicator: jest.fn(),
     updateConversationNote: jest.fn().mockResolvedValue('message-id-123'),
     serializeToolInvocation: jest.fn(),
+    getMessagesByHandlerId: jest.fn().mockResolvedValue([]),
   };
 
   const mockArtifactManager = {
@@ -299,7 +300,7 @@ describe('ReadCommandHandler', () => {
       expect(generateText).toHaveBeenCalledTimes(1);
     });
 
-    it('should return needs_confirmation status when reading entire content, and return success status when confirmed', async () => {
+    it('should return needs_confirmation when the confirmation tool is used', async () => {
       // Arrange
       const mockPlugin = createMockPlugin();
       const handler = new ReadCommandHandler(mockPlugin);
@@ -312,13 +313,9 @@ describe('ReadCommandHandler', () => {
         text: 'Extracted text content',
         toolCalls: [
           {
-            toolName: 'contentReading',
+            toolName: 'confirmation',
             args: {
-              readType: 'entire',
-              noteName: 'Test Note',
-              blocksToRead: -1,
-              confidence: 0.9,
-              explanation: 'Reading content above the cursor',
+              message: 'Do you confirm?',
             },
           },
         ],
@@ -354,17 +351,10 @@ describe('ReadCommandHandler', () => {
 
       // Act
       const result = await handler.handle(params);
-      const confirmedResult = await handler.handle(params, {
-        extraction: mockExtraction,
-        readEntireConfirmed: true,
-      });
 
       // Assert
       expect(result).toMatchObject({
         status: CommandResultStatus.NEEDS_CONFIRMATION,
-      });
-      expect(confirmedResult).toMatchObject({
-        status: CommandResultStatus.SUCCESS,
       });
     });
   });

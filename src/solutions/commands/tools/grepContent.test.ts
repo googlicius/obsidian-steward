@@ -9,7 +9,7 @@ function createMockPlugin(fileContent = ''): jest.Mocked<StewardPlugin> {
 
   const app = {
     vault: {
-      read: jest.fn().mockResolvedValue(fileContent),
+      cachedRead: jest.fn().mockResolvedValue(fileContent),
     },
     workspace: {
       getActiveFile: jest.fn().mockReturnValue(mockFile),
@@ -63,7 +63,6 @@ Final content`;
           },
         ],
         pattern: 'test',
-        success: true,
         totalMatches: 2,
       });
     });
@@ -101,9 +100,23 @@ line pattern to find`;
           },
         ],
         pattern: 'multi\nline',
-        success: true,
         totalMatches: 2,
       });
+    });
+
+    it('should throw an error when file is not found', async () => {
+      const mockPluginWithNoFile = createMockPlugin();
+      mockPluginWithNoFile.mediaTools.findFileByNameOrPath = jest.fn().mockResolvedValue(null);
+
+      const args: GrepArgs = {
+        pattern: 'test',
+        filePath: 'non-existent-file.md',
+        explanation: 'Testing file not found',
+      };
+
+      await expect(execute(args, mockPluginWithNoFile)).rejects.toThrow(
+        'Note not found: non-existent-file.md'
+      );
     });
   });
 });

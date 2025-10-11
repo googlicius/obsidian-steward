@@ -92,22 +92,17 @@ You task is to evaluate and re-analyze this query with the above context to impr
       `.trim();
 
       // Process with general command and the augmented system prompt
-      await this.commandProcessor.processCommands(
-        {
-          title,
-          commands: [
-            {
-              commandType: ' ',
-              query: extraction.query,
-              systemPrompts: [augmentedSystemPrompt],
-            },
-          ],
-          lang,
-        },
-        {
-          skipQueueCheck: true,
-        }
-      );
+      await this.commandProcessor.processCommands({
+        title,
+        commands: [
+          {
+            commandType: ' ',
+            query: extraction.query,
+            systemPrompts: [augmentedSystemPrompt],
+          },
+        ],
+        lang,
+      });
 
       return {
         status: CommandResultStatus.SUCCESS,

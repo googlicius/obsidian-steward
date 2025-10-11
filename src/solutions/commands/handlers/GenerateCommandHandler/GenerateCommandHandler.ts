@@ -8,7 +8,6 @@ import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { streamText, generateText, tool } from 'ai';
 import { prepareMessage } from 'src/lib/modelfusion';
-import { MediaTools } from 'src/tools/mediaTools';
 import { CommandIntent, ConversationHistoryMessage } from 'src/types/types';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
@@ -23,6 +22,9 @@ import {
   REQUEST_READ_CONTENT_TOOL_NAME,
 } from '../../tools/requestReadContent';
 import { createEditTool, EDIT_TOOL_NAME } from '../../tools/editContent';
+import { ToolInvocation } from '../../tools/types';
+import { UpdateCommandHandler } from '../UpdateCommandHandler/UpdateCommandHandler';
+import { uniqueID } from 'src/utils/uniqueID';
 
 export interface ContentUpdate {
   updatedContent: string;
@@ -53,7 +55,7 @@ export class GenerateCommandHandler extends CommandHandler {
       remainingSteps?: number;
     } = {}
   ): Promise<CommandResult> {
-    const { title, command, nextCommand, lang, prevCommand } = params;
+    const { title, command, nextCommand, lang, prevCommand, handlerId = uniqueID() } = params;
     const t = getTranslation(lang);
     const MAX_STEP_COUNT = 3;
     const remainingSteps =
@@ -106,7 +108,7 @@ The response should be in natural language and not include the selection(s) {{st
     });
 
     // Only use prepareMessage for update commands
-    const userMessage = isUpdate ? await prepareMessage(command.query, this.app) : command.query;
+    const userMessage = isUpdate ? await prepareMessage(command.query, this.plugin) : command.query;
 
     const { editTool } = createEditTool({
       contentType: 'in_the_note',
@@ -171,12 +173,7 @@ ${languageEnforcementFragment}`,
       }
     }
 
-    const toolInvocations: {
-      toolName: string;
-      toolCallId: string;
-      args: Record<string, unknown>;
-      result?: string | undefined;
-    }[] = [];
+    const toolInvocations: ToolInvocation<string>[] = [];
 
     for (const toolCall of extraction.toolCalls) {
       switch (toolCall.toolName) {
@@ -201,6 +198,7 @@ ${languageEnforcementFragment}`,
             },
             nextCommand: command,
             lang,
+            handlerId: `fromGenerate_${handlerId}`,
           });
 
           if (readResult.status === CommandResultStatus.SUCCESS) {
@@ -208,6 +206,17 @@ ${languageEnforcementFragment}`,
             return this.handle(params, {
               remainingSteps: remainingSteps - 1,
             });
+          } else if (readResult.status === CommandResultStatus.NEEDS_CONFIRMATION) {
+            return {
+              ...readResult,
+              onFinal: async () => {
+                await this.handle(params, {
+                  remainingSteps: remainingSteps - 1,
+                });
+              },
+            };
+          } else if (readResult.status === CommandResultStatus.NEEDS_USER_INPUT) {
+            return readResult;
           } else {
             return readResult;
           }
@@ -269,15 +278,15 @@ ${languageEnforcementFragment}`,
 
           // If there's no next command, automatically trigger update_from_artifact
           if (!nextCommand) {
-            await this.commandProcessor.processCommands({
+            const updateCommandHandler = new UpdateCommandHandler(this.plugin);
+            return updateCommandHandler.handle({
               title,
-              commands: [
-                {
-                  commandType: 'update_from_artifact',
-                  query: 'Apply the content updates from the generated artifact',
-                },
-              ],
               lang,
+              handlerId: `fromGenerate_${handlerId}`,
+              command: {
+                commandType: 'update',
+                query: 'Apply the content updates from the generated artifact',
+              },
             });
           }
           break;
@@ -298,10 +307,8 @@ ${languageEnforcementFragment}`,
             summaryPosition: 1,
           });
 
-          const mediaTools = MediaTools.getInstance(this.app);
-
           const file = toolCall.args.noteName
-            ? await mediaTools.findFileByNameOrPath(toolCall.args.noteName)
+            ? await this.plugin.mediaTools.findFileByNameOrPath(toolCall.args.noteName)
             : null;
 
           const noteContent = file ? await this.app.vault.read(file) : '';
@@ -423,7 +430,7 @@ ${languageEnforcementFragment}`,
         ...conversationHistory,
         {
           role: 'user',
-          content: await prepareMessage(query, this.app),
+          content: await prepareMessage(query, this.plugin),
         },
       ],
       onError: async ({ error }) => {

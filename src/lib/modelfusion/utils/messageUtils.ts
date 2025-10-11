@@ -1,10 +1,10 @@
 import { ImagePart, TextPart } from 'ai';
-import { App } from 'obsidian';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
 import { MediaTools } from 'src/tools/mediaTools';
 import { NoteContentService } from 'src/services/NoteContentService';
 import { resizeImageWithCanvas } from 'src/utils/resizeImageWithCanvas';
 import { logger } from 'src/utils/logger';
+import type StewardPlugin from 'src/main';
 
 export function getTextContentWithoutImages(input: string): string {
   // Create a new RegExp instance with flags each time to avoid stateful issues
@@ -15,13 +15,13 @@ export function getTextContentWithoutImages(input: string): string {
 /**
  * Prepares message content with images and wikilinks's content
  * @param input Original input text
- * @param app Obsidian App instance for accessing vault
+ * @param plugin StewardPlugin instance for accessing vault and services
  */
 export async function prepareMessage(
   input: string,
-  app: App
+  plugin: StewardPlugin
 ): Promise<Array<TextPart | ImagePart>> {
-  const noteContentService = NoteContentService.getInstance(app);
+  const noteContentService = NoteContentService.getInstance(plugin);
   const imagePaths = noteContentService.extractImageLinks(input);
   const wikilinks = noteContentService.extractWikilinks(input);
   const messageContent: Array<TextPart | ImagePart> = [];
@@ -29,7 +29,7 @@ export async function prepareMessage(
   // Add the original user input first
   messageContent.push({ type: 'text', text: input });
 
-  const mediaTools = MediaTools.getInstance(app);
+  const mediaTools = MediaTools.getInstance(plugin.app);
 
   // Process and add images
   for (const imagePath of imagePaths) {
@@ -37,7 +37,7 @@ export async function prepareMessage(
       const file = await mediaTools.findFileByNameOrPath(imagePath);
 
       if (file) {
-        const imageData = await app.vault.readBinary(file);
+        const imageData = await plugin.app.vault.readBinary(file);
         const mimeType = getMimeTypeFromExtension(file.extension);
 
         if (mimeType) {
@@ -62,7 +62,7 @@ export async function prepareMessage(
         const file = await mediaTools.findFileByNameOrPath(wikilink);
 
         if (file) {
-          const content = await app.vault.cachedRead(file);
+          const content = await plugin.app.vault.cachedRead(file);
           messageContent.push({
             type: 'text',
             text: `Content of the "${wikilink}" note:\n${content}\n`,

@@ -33,17 +33,22 @@ function createMockPlugin(
       getFileCache: jest.fn().mockReturnValue({
         frontmatter,
       }),
+      getFirstLinkpathDest: jest.fn(),
     },
   } as unknown as App;
 
-  // Create and return mock plugin
-  return {
+  // Create mock plugin structure first
+  const mockPlugin = {
     settings: {
       stewardFolder: 'Steward',
     },
     app,
-    noteContentService: NoteContentService.getInstance(app),
   } as unknown as jest.Mocked<StewardPlugin>;
+
+  // Initialize services with the mock plugin
+  mockPlugin.noteContentService = NoteContentService.getInstance(mockPlugin);
+
+  return mockPlugin;
 }
 
 describe('ConversationRenderer', () => {

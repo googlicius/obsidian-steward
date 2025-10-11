@@ -12,14 +12,21 @@ export enum CommandResultStatus {
   SUCCESS = 'success',
   ERROR = 'error',
   NEEDS_CONFIRMATION = 'needs_confirmation',
+  NEEDS_USER_INPUT = 'needs_user_input',
   LOW_CONFIDENCE = 'low_confidence',
 }
 
-type ConfirmationCommandResult = {
+export type ConfirmationCommandResult = {
   status: CommandResultStatus.NEEDS_CONFIRMATION;
   confirmationMessage?: string;
-  onConfirmation: () => Promise<CommandResult> | CommandResult;
-  onRejection?: () => Promise<CommandResult> | CommandResult;
+  onConfirmation: (message: string) => Promise<CommandResult> | CommandResult;
+  onRejection?: (message: string) => Promise<CommandResult> | CommandResult;
+  onFinal?: () => Promise<void> | void;
+};
+
+type UserInputCommandResult = {
+  status: CommandResultStatus.NEEDS_USER_INPUT;
+  onUserInput: (message: string) => Promise<CommandResult> | CommandResult;
 };
 
 type SuccessCommandResult = {
@@ -39,6 +46,7 @@ type LowConfidenceCommandResult = {
 
 export type CommandResult =
   | ConfirmationCommandResult
+  | UserInputCommandResult
   | SuccessCommandResult
   | ErrorCommandResult
   | LowConfidenceCommandResult;
@@ -49,6 +57,11 @@ export interface CommandHandlerParams<T extends CommandIntent = CommandIntent> {
   prevCommand?: CommandIntent;
   nextCommand?: CommandIntent;
   lang?: string | null;
+  /**
+   * Handler ID to group all messages issued in one handle function call.
+   * If not provided, a new ID will be generated.
+   */
+  handlerId?: string;
   upstreamOptions?: {
     isReloadRequest?: boolean;
     ignoreClassify?: boolean;

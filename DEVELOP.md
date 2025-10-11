@@ -82,6 +82,7 @@
 - [ ] Enhance summarization: Only check generated_content, note content_update for generate commands.
 - [x] Large updates: Tables, lists, paragraphs,...
 - [ ] Evaluation council: A set of different models participating in evaluating the unqualified outcomes: low confidence, errors,...
+- [ ] Confirmation as a tool: Allow LLM decide the confirmation so we can send a flexible query (maybe to put more classify) instead of just Yes and No
 
 ### BUGS
 
@@ -102,3 +103,7 @@
 6. Specialized agents can process some related tasks beyond their capacity by requesting other agents for more context.
 7. Repair model's responses in-flight that are still correct but varies due to their creativity/randomness.
 8. Option to see human-readable explanation (YAML) about what it did.
+
+# Some scenarios lead to an infinite tool calls:
+
+1. Update command need to read content, it sends a request to the Read command (1). The Read agent return a text response instead of a tool call -> Return back to the Update command, the Update agent still need to read -> resend another request (1) -> Loop created.

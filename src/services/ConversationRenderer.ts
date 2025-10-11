@@ -211,6 +211,7 @@ export class ConversationRenderer {
     path: string;
     command: string;
     text?: string;
+    handlerId?: string;
     toolInvocations: {
       toolName: string;
       toolCallId: string;
@@ -233,6 +234,7 @@ export class ConversationRenderer {
         role: 'Assistant',
         command: params.command,
         type: 'tool-invocation',
+        handlerId: params.handlerId,
       });
 
       // Process the file content
@@ -391,6 +393,10 @@ export class ConversationRenderer {
      * before adding the new content.
      */
     messageId?: string;
+    /**
+     * Handler ID to group all messages issued in one handle function call.
+     */
+    handlerId?: string;
   }): Promise<string | undefined> {
     try {
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
@@ -414,6 +420,7 @@ export class ConversationRenderer {
         role: roleName ?? 'Steward',
         command: params.command,
         includeHistory: params.includeHistory ?? true,
+        handlerId: params.handlerId,
       });
 
       // Update language property in the frontmatter if provided
@@ -476,7 +483,6 @@ export class ConversationRenderer {
         return `${currentContent}\n\n${comment}\n${contentToAdd}`;
       });
 
-      // Return the message ID for referencing
       return messageId;
     } catch (error) {
       logger.error('Error updating conversation note:', error);
@@ -497,6 +503,7 @@ export class ConversationRenderer {
     command?: string;
     position?: number;
     includeHistory?: boolean;
+    handlerId?: string;
   }): Promise<string | undefined> {
     const folderPath = params.folderPath || `${this.plugin.settings.stewardFolder}/Conversations`;
 
@@ -519,6 +526,7 @@ export class ConversationRenderer {
         role: 'Steward',
         command: params.command,
         includeHistory: params.includeHistory ?? true,
+        handlerId: params.handlerId,
       });
 
       const roleText = this.formatRoleText(params.role);
@@ -566,9 +574,16 @@ export class ConversationRenderer {
       includeHistory?: boolean;
       type?: string;
       artifactType?: ArtifactType;
+      handlerId?: string;
     } = {}
   ) {
-    const { messageId = uniqueID(), role = 'Steward', command, includeHistory } = options;
+    const {
+      messageId = uniqueID(),
+      role = 'Steward',
+      command,
+      includeHistory,
+      handlerId,
+    } = options;
 
     const metadata: { [x: string]: string | number } = {
       ID: messageId,
@@ -584,6 +599,9 @@ export class ConversationRenderer {
       }),
       ...(includeHistory === false && {
         HISTORY: 'false',
+      }),
+      ...(handlerId && {
+        HANDLER_ID: handlerId,
       }),
     };
 
@@ -973,10 +991,35 @@ export class ConversationRenderer {
         ...(metadata.ARTIFACT_TYPE && {
           artifactType: metadata.ARTIFACT_TYPE,
         }),
+        ...(metadata.HANDLER_ID && {
+          handlerId: metadata.HANDLER_ID,
+        }),
       };
     } catch (error) {
       logger.error('Error getting message by ID:', error);
       return null;
+    }
+  }
+
+  /**
+   * Gets all messages with a specific handler ID from a conversation
+   * @param conversationTitle The title of the conversation
+   * @param handlerId The handler ID to filter by
+   * @returns Array of conversation messages with the specified handler ID
+   */
+  public async getMessagesByHandlerId(
+    conversationTitle: string,
+    handlerId: string
+  ): Promise<ConversationHistoryMessage[]> {
+    try {
+      // Get all messages from the conversation
+      const allMessages = await this.extractConversationHistory(conversationTitle);
+
+      // Filter messages by handler ID
+      return allMessages.filter(message => message.handlerId === handlerId);
+    } catch (error) {
+      logger.error('Error getting messages by handler ID:', error);
+      return [];
     }
   }
 
@@ -1156,6 +1199,9 @@ export class ConversationRenderer {
           ...(metadata.ARTIFACT_TYPE && {
             artifactType: metadata.ARTIFACT_TYPE,
           }),
+          ...(metadata.HANDLER_ID && {
+            handlerId: metadata.HANDLER_ID,
+          }),
         });
       }
 
@@ -1240,6 +1286,9 @@ export class ConversationRenderer {
               id: message.id,
               content: '',
               role: 'assistant',
+              ...(message.handlerId && {
+                handlerId: message.handlerId,
+              }),
               parts: toolInvocations.map(toolInvocation => ({
                 type: 'tool-invocation',
                 toolInvocation: {
@@ -1250,12 +1299,16 @@ export class ConversationRenderer {
             });
             continue;
           }
+        } else {
+          result.push({
+            id: message.id,
+            role: message.role,
+            content: message.content,
+            ...(message.handlerId && {
+              handlerId: message.handlerId,
+            }),
+          });
         }
-        result.push({
-          id: message.id,
-          role: message.role,
-          content: message.content,
-        });
       }
 
       return result;

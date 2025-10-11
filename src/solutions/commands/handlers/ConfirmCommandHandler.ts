@@ -23,6 +23,8 @@ export class ConfirmCommandHandler extends CommandHandler {
 
     const confirmationIntent = this.isConfirmIntent(command);
 
+    console.log('confirmationIntent', confirmationIntent);
+
     if (!confirmationIntent) {
       // If it's not a clear confirmation, let the user know
       await this.renderer.updateConversationNote({
@@ -115,22 +117,26 @@ export class ConfirmCommandHandler extends CommandHandler {
 
     // Handle the confirmation or rejection
     if (confirmationIntent.isAffirmative) {
-      // Execute the confirmation callback
-      if (lastResult.onConfirmation) {
-        confirmResult = await lastResult.onConfirmation();
-      }
+      confirmResult = await lastResult.onConfirmation(command.query);
     } else {
       if (lastResult.onRejection) {
-        confirmResult = await lastResult.onRejection();
+        confirmResult = await lastResult.onRejection(command.query);
       }
 
       await this.plugin.conversationRenderer.updateConversationNote({
         path: title,
-        newContent: t('confirmation.operationCancelled'),
+        newContent: `*${t('confirmation.operationCancelled')}*`,
         role: 'Steward',
       });
     }
 
+    // If there's an onFinal callback, execute it with the result
+    // This allows handlers to continue their internal flow
+    if (lastResult.onFinal) {
+      await lastResult.onFinal();
+    }
+
+    // Standard flow: continue processing the command queue if confirmation was successful
     if (confirmResult && confirmResult.status === CommandResultStatus.SUCCESS) {
       await this.commandProcessor.continueProcessing(title);
     }

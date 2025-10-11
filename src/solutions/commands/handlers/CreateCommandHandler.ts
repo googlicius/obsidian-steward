@@ -41,7 +41,7 @@ export class CreateCommandHandler extends CommandHandler {
         options.extraction ||
         (await extractNoteCreation({
           command,
-          app: this.app,
+          plugin: this.plugin,
         }));
 
       if (extraction.confidence <= 0.7) {

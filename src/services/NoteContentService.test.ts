@@ -1,36 +1,40 @@
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { NoteContentService } from './NoteContentService';
-import { App, TFile } from 'obsidian';
+import { TFile } from 'obsidian';
+import type StewardPlugin from 'src/main';
 
-// Mock App for testing
-const createMockApp = () => {
-  const mockApp = {
-    metadataCache: {
-      getFirstLinkpathDest: jest.fn(),
+// Mock Plugin for testing
+function createMockPlugin(): jest.Mocked<StewardPlugin> {
+  return {
+    app: {
+      metadataCache: {
+        getFirstLinkpathDest: jest.fn(),
+      },
+      vault: {
+        read: jest.fn(),
+        cachedRead: jest.fn(),
+      },
     },
-    vault: {
-      read: jest.fn(),
-      cachedRead: jest.fn(),
+    settings: {
+      stewardFolder: 'Steward',
     },
-  } as unknown as App;
-
-  return mockApp;
-};
+  } as unknown as jest.Mocked<StewardPlugin>;
+}
 
 describe('NoteContentService', () => {
   let noteContentService: NoteContentService;
-  let mockApp: App;
+  let mockPlugin: jest.Mocked<StewardPlugin>;
   let mockFile: TFile;
 
   beforeEach(() => {
-    // Create a mock app for testing
-    mockApp = createMockApp();
+    // Create a mock plugin for testing
+    mockPlugin = createMockPlugin();
 
     // Create mock file
     mockFile = new TFile();
 
-    // Create a new instance for each test with the mock app
-    noteContentService = NoteContentService.getInstance(mockApp);
+    // Create a new instance for each test with the mock plugin
+    noteContentService = NoteContentService.getInstance(mockPlugin);
   });
 
   describe('extractImageLinks', () => {
@@ -150,15 +154,18 @@ These are the details.`;
     it('should get content when there is no anchor', async () => {
       // Setup
       const testContent = 'This is the test content';
-      mockApp.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
-      mockApp.vault.read = jest.fn().mockResolvedValue(testContent);
+      mockPlugin.app.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
+      mockPlugin.app.vault.read = jest.fn().mockResolvedValue(testContent);
 
       // Execute
       const result = await noteContentService.getContentByPath('test-file');
 
       // Verify
-      expect(mockApp.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith('test-file', '');
-      expect(mockApp.vault.read).toHaveBeenCalledWith(mockFile);
+      expect(mockPlugin.app.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith(
+        'test-file',
+        ''
+      );
+      expect(mockPlugin.app.vault.read).toHaveBeenCalledWith(mockFile);
       expect(result).toBe(testContent);
     });
 
@@ -181,15 +188,18 @@ These are the details.
 
 This is the conclusion.`;
 
-      mockApp.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
-      mockApp.vault.read = jest.fn().mockResolvedValue(testContent);
+      mockPlugin.app.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
+      mockPlugin.app.vault.read = jest.fn().mockResolvedValue(testContent);
 
       // Execute
       const result = await noteContentService.getContentByPath('test-file#Introduction');
 
       // Verify
-      expect(mockApp.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith('test-file', '');
-      expect(mockApp.vault.read).toHaveBeenCalledWith(mockFile);
+      expect(mockPlugin.app.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith(
+        'test-file',
+        ''
+      );
+      expect(mockPlugin.app.vault.read).toHaveBeenCalledWith(mockFile);
 
       // The result should contain only the content under the Introduction heading
       // and before the Details heading
@@ -200,15 +210,18 @@ This is the conclusion.`;
     it('should get content with alias', async () => {
       // Setup
       const testContent = 'This is the test content';
-      mockApp.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
-      mockApp.vault.read = jest.fn().mockResolvedValue(testContent);
+      mockPlugin.app.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
+      mockPlugin.app.vault.read = jest.fn().mockResolvedValue(testContent);
 
       // Execute
       const result = await noteContentService.getContentByPath('test-file|Alias');
 
       // Verify
-      expect(mockApp.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith('test-file', '');
-      expect(mockApp.vault.read).toHaveBeenCalledWith(mockFile);
+      expect(mockPlugin.app.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith(
+        'test-file',
+        ''
+      );
+      expect(mockPlugin.app.vault.read).toHaveBeenCalledWith(mockFile);
       expect(result).toBe(testContent);
     });
 
@@ -231,8 +244,8 @@ These are the details.
 
 This is the conclusion.`;
 
-      mockApp.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
-      mockApp.vault.read = jest.fn().mockResolvedValue(testContent);
+      mockPlugin.app.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
+      mockPlugin.app.vault.read = jest.fn().mockResolvedValue(testContent);
 
       // Execute
       const result = await noteContentService.getContentByPath(
@@ -240,8 +253,11 @@ This is the conclusion.`;
       );
 
       // Verify
-      expect(mockApp.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith('test-file', '');
-      expect(mockApp.vault.read).toHaveBeenCalledWith(mockFile);
+      expect(mockPlugin.app.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith(
+        'test-file',
+        ''
+      );
+      expect(mockPlugin.app.vault.read).toHaveBeenCalledWith(mockFile);
 
       // The result should contain only the content under the Introduction heading
       const expectedOutput = 'This is the introduction content.\nIt spans multiple lines.';
@@ -250,17 +266,60 @@ This is the conclusion.`;
 
     it('should return null when file is not found', async () => {
       // Setup
-      mockApp.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(null);
+      mockPlugin.app.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(null);
 
       // Execute
       const result = await noteContentService.getContentByPath('non-existent-file');
 
       // Verify
-      expect(mockApp.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith(
+      expect(mockPlugin.app.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith(
         'non-existent-file',
         ''
       );
       expect(result).toBeNull();
+    });
+  });
+
+  describe('formatCallout', () => {
+    it('should format content as a callout', () => {
+      const content = 'This is some content';
+      const result = noteContentService.formatCallout(content, 'stw-search-result');
+      expect(result).toBe('>[!stw-search-result]\n>This is some content\n');
+    });
+
+    it('should format content with metadata', () => {
+      const content = 'This is some content';
+      const metadata = { id: '123', path: 'test.md' };
+      const result = noteContentService.formatCallout(content, 'stw-search-result', metadata);
+      expect(result).toBe('>[!stw-search-result] id:123,path:test.md\n>This is some content\n');
+    });
+
+    it('should remove wikilinks to steward conversation folder', () => {
+      const content = '![[Steward/Conversations/test-conversation.md]]\nSome content';
+      const result = noteContentService.formatCallout(content, 'stw-search-result');
+      expect(result).toBe('>[!stw-search-result]\n>Some content\n');
+    });
+
+    it('should remove regular wikilinks to steward conversation folder', () => {
+      const content = '[[Steward/Conversations/test-conversation.md]]\nSome content';
+      const result = noteContentService.formatCallout(content, 'stw-search-result');
+      expect(result).toBe('>[!stw-search-result]\n>Some content\n');
+    });
+
+    it('should remove multiple conversation wikilinks', () => {
+      const content =
+        '![[Steward/Conversations/conv1.md]]\nContent 1\n[[Steward/Conversations/conv2.md]]\nContent 2';
+      const result = noteContentService.formatCallout(content, 'stw-search-result');
+      expect(result).toBe('>[!stw-search-result]\n>Content 1\n>Content 2\n');
+    });
+
+    it('should preserve other wikilinks', () => {
+      const content =
+        '![[Steward/Conversations/conv1.md]]\nSome content\n[[Other/Note.md]]\nMore content';
+      const result = noteContentService.formatCallout(content, 'stw-search-result');
+      expect(result).toBe(
+        '>[!stw-search-result]\n>Some content\n>[[Other/Note.md]]\n>More content\n'
+      );
     });
   });
 
@@ -410,15 +469,18 @@ Some text after the callout
       const linkedContent = 'Content from the linked note. With [[AnotherNote]]';
 
       // Mock the app methods
-      mockApp.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
-      mockApp.vault.cachedRead = jest.fn().mockResolvedValue(linkedContent);
+      mockPlugin.app.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
+      mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue(linkedContent);
 
       // Execute
       const result = await noteContentService.processWikilinksInContent(content);
 
       // Verify
-      expect(mockApp.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith('TestNote', '');
-      expect(mockApp.vault.cachedRead).toHaveBeenCalledWith(mockFile);
+      expect(mockPlugin.app.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith(
+        'TestNote',
+        ''
+      );
+      expect(mockPlugin.app.vault.cachedRead).toHaveBeenCalledWith(mockFile);
       expect(result).toBe(`This is some content with a wikilink [[TestNote]] and more text.
 
 The content of [[TestNote]]:
@@ -436,14 +498,14 @@ Content from the linked note. With [[AnotherNote]]`);
       const mockAnotherFile = new TFile();
 
       // First call returns TestNote file
-      mockApp.metadataCache.getFirstLinkpathDest = jest.fn().mockImplementation(path => {
+      mockPlugin.app.metadataCache.getFirstLinkpathDest = jest.fn().mockImplementation(path => {
         if (path === 'TestNote') return mockTestFile;
         if (path === 'AnotherNote') return mockAnotherFile;
         return null;
       });
 
       // Mock reading different content based on the file
-      mockApp.vault.cachedRead = jest.fn().mockImplementation(file => {
+      mockPlugin.app.vault.cachedRead = jest.fn().mockImplementation(file => {
         if (file === mockTestFile) return Promise.resolve(testNoteContent);
         if (file === mockAnotherFile) return Promise.resolve(anotherNoteContent);
         return Promise.resolve('');
@@ -453,10 +515,16 @@ Content from the linked note. With [[AnotherNote]]`);
       const result = await noteContentService.processWikilinksInContent(content, 2);
 
       // Verify
-      expect(mockApp.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith('TestNote', '');
-      expect(mockApp.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith('AnotherNote', '');
-      expect(mockApp.vault.cachedRead).toHaveBeenCalledWith(mockTestFile);
-      expect(mockApp.vault.cachedRead).toHaveBeenCalledWith(mockAnotherFile);
+      expect(mockPlugin.app.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith(
+        'TestNote',
+        ''
+      );
+      expect(mockPlugin.app.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith(
+        'AnotherNote',
+        ''
+      );
+      expect(mockPlugin.app.vault.cachedRead).toHaveBeenCalledWith(mockTestFile);
+      expect(mockPlugin.app.vault.cachedRead).toHaveBeenCalledWith(mockAnotherFile);
       expect(result).toBe(`This is some content with a wikilink [[TestNote]] and more text.
 
 The content of [[TestNote]]:
@@ -472,15 +540,18 @@ Content from another linked note. With [[YetAnotherNote]].`);
       const linkedContent = 'Content from the linked note.';
 
       // Mock the app methods
-      mockApp.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
-      mockApp.vault.cachedRead = jest.fn().mockResolvedValue(linkedContent);
+      mockPlugin.app.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
+      mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue(linkedContent);
 
       // Execute
       const result = await noteContentService.processWikilinksInContent(content);
 
       // Verify
-      expect(mockApp.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith('TestNote', '');
-      expect(mockApp.vault.cachedRead).toHaveBeenCalledWith(mockFile);
+      expect(mockPlugin.app.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith(
+        'TestNote',
+        ''
+      );
+      expect(mockPlugin.app.vault.cachedRead).toHaveBeenCalledWith(mockFile);
       expect(result).toBe('Content from the linked note.');
     });
   });

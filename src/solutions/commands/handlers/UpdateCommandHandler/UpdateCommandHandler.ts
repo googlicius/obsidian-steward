@@ -25,6 +25,7 @@ import { EDIT_TOOL_NAME, createEditTool } from '../../tools/editContent';
 import { ReadCommandHandler } from '../ReadCommandHandler/ReadCommandHandler';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
+import { uniqueID } from 'src/utils/uniqueID';
 
 const updatableTypes = [
   ArtifactType.SEARCH_RESULTS,
@@ -42,7 +43,7 @@ export class UpdateCommandHandler extends CommandHandler {
   /**
    * Render the loading indicator for the update command
    */
-  public async renderIndicator(title: string, lang?: string): Promise<void> {
+  public async renderIndicator(title: string, lang?: string | null): Promise<void> {
     const t = getTranslation(lang);
     await this.renderer.addGeneratingIndicator(title, t('conversation.updating'));
   }
@@ -78,13 +79,22 @@ You have access to the following tools:
 
 GUIDELINES:
 - Use ${EDIT_TOOL_NAME} to make the actual content changes.
-- You MUST use tools to fulfill the query.
 `,
       messages: params.messages,
       tools: {
         [EDIT_TOOL_NAME]: editTool,
       },
     });
+
+    // Render the text
+    if (extraction.text && extraction.text.trim()) {
+      await this.renderer.updateConversationNote({
+        path: params.title,
+        newContent: extraction.text,
+        command: 'update',
+        lang: params.lang,
+      });
+    }
 
     for (const toolCall of extraction.toolCalls) {
       switch (toolCall.toolName) {
@@ -173,18 +183,15 @@ GUIDELINES:
     title: string;
     lang?: string | null;
     /**
-     * Messages in this command
-     */
-    messages: Message[];
-    /**
      * Remaining steps for the LLM to execute
      */
     remainingSteps?: number;
+    handlerId: string;
   }): Promise<CommandResult> {
     const t = getTranslation(params.lang);
     const MAX_STEP_COUNT = 10;
-    const remainingSteps =
-      typeof params.remainingSteps !== 'undefined' ? params.remainingSteps : MAX_STEP_COUNT;
+    const { remainingSteps = MAX_STEP_COUNT, handlerId } = params;
+    const isInitialCall = remainingSteps === MAX_STEP_COUNT;
 
     if (remainingSteps <= 0) {
       await this.renderer.updateConversationNote({
@@ -197,6 +204,15 @@ GUIDELINES:
         error: new Error('The update command has reached the maximum number of steps'),
       };
     }
+
+    const conversationHistory = await this.renderer.extractConversationHistory(params.title, {
+      summaryPosition: 1,
+    });
+
+    // Use provided messages or default to conversation history
+    const messages: Message[] = isInitialCall
+      ? [...conversationHistory, { role: 'user', content: params.command.query, id: generateId() }]
+      : conversationHistory;
 
     const llmConfig = await this.plugin.llmService.getLLMConfig({
       overrideModel: params.command.model,
@@ -225,18 +241,27 @@ You have access to the following tools:
 3. ${EDIT_TOOL_NAME} - Update content by replacing old content with new content.
 
 GUIDELINES:
-- use the ${REQUEST_READ_CONTENT_TOOL_NAME} to read the content above/below the current cursor or the entire note.
+- use ${REQUEST_READ_CONTENT_TOOL_NAME} to read the content above/below the current cursor or the entire note.
 - Use ${GREP_TOOL_NAME} to find specific text patterns that need to be updated.
-- Use ${EDIT_TOOL_NAME} to make the actual content changes.
-- You MUST use tools to fulfill the query.
+- Use ${EDIT_TOOL_NAME} to make the actual content changes. (NOTE: You cannot use this tool if a note does not exist.)
 `,
-      messages: params.messages,
+      messages,
       tools: {
         [REQUEST_READ_CONTENT_TOOL_NAME]: requestReadContentTool,
         [GREP_TOOL_NAME]: grepTool,
         [EDIT_TOOL_NAME]: editTool,
       },
     });
+
+    // Render the text
+    if (extraction.toolCalls.length === 0 && extraction.text && extraction.text.trim()) {
+      await this.renderer.updateConversationNote({
+        path: params.title,
+        newContent: extraction.text,
+        command: 'update',
+        lang: params.lang,
+      });
+    }
 
     const toolResults = [];
 
@@ -251,6 +276,11 @@ GUIDELINES:
             lang: params.lang,
           });
 
+          await this.renderer.addGeneratingIndicator(
+            params.title,
+            t('conversation.readingContent')
+          );
+
           // Initialize ReadCommandHandler and process the reading request
           const readCommandHandler = new ReadCommandHandler(this.plugin);
 
@@ -261,6 +291,7 @@ GUIDELINES:
               query: toolCall.args.query,
               model: params.command.model,
             },
+            handlerId: `fromUpdate_${handlerId}`,
             lang: params.lang,
           });
 
@@ -270,6 +301,20 @@ GUIDELINES:
               ...params,
               remainingSteps: remainingSteps - 1,
             });
+          } else if (readResult.status === CommandResultStatus.NEEDS_CONFIRMATION) {
+            return {
+              ...readResult,
+              onFinal: async () => {
+                await this.renderIndicator(params.title, params.lang);
+
+                await this.handleUpdateGeneratedOrReadContent({
+                  ...params,
+                  remainingSteps: remainingSteps - 1,
+                });
+              },
+            };
+          } else if (readResult.status === CommandResultStatus.NEEDS_USER_INPUT) {
+            return readResult;
           } else {
             return readResult;
           }
@@ -285,6 +330,11 @@ GUIDELINES:
             lang: params.lang,
           });
 
+          await this.renderer.addGeneratingIndicator(
+            params.title,
+            t('conversation.readingContent')
+          );
+
           try {
             const grepResult = await grepExecute(toolCall.args, this.plugin);
 
@@ -293,7 +343,7 @@ GUIDELINES:
               result: grepResult,
             });
           } catch (error) {
-            const errorResult = `*Error searching content: ${error.message}*`;
+            const errorResult = `*${error.message}*`;
             await this.renderer.updateConversationNote({
               path: params.title,
               newContent: errorResult,
@@ -381,35 +431,24 @@ GUIDELINES:
     }
 
     // If there are tool calls, continue with the process
-    if (extraction.toolCalls.length > 0) {
+    if (extraction.toolCalls.length > 0 && toolResults.length > 0) {
       // Calculate remaining steps
       const newRemainingSteps = remainingSteps > 0 ? remainingSteps - 1 : 0;
 
       // Continue handling if there are steps remaining
       if (newRemainingSteps > 0) {
-        await this.renderIndicator(params.title, params.lang || undefined);
+        await this.renderer.serializeToolInvocation<unknown>({
+          path: params.title,
+          command: 'update',
+          toolInvocations: toolResults,
+        });
 
-        // Keep track of the assistant's requests and the user's responses for tool calls
-        const updatedMessages = [
-          ...params.messages,
-          {
-            id: extraction.response.id,
-            content: '',
-            parts: toolResults.map(item => ({
-              type: 'tool-invocation',
-              toolInvocation: {
-                ...item,
-                state: 'result',
-              },
-            })),
-            role: 'assistant',
-          } as Message,
-        ];
+        await this.renderIndicator(params.title, params.lang);
 
+        // Continue with updated conversation history (will be fetched fresh in the recursive call)
         return this.handleUpdateGeneratedOrReadContent({
           ...params,
           remainingSteps: newRemainingSteps,
-          messages: updatedMessages,
         });
       }
     }
@@ -473,7 +512,7 @@ GUIDELINES:
    * Handle an update command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command, lang } = params;
+    const { title, command, lang, handlerId = uniqueID() } = params;
     const t = getTranslation(lang);
     const conversationHistory = await this.renderer.extractConversationHistory(title, {
       summaryPosition: 1,
@@ -548,11 +587,8 @@ GUIDELINES:
     ) {
       return this.handleUpdateGeneratedOrReadContent({
         ...params,
+        handlerId,
         artifact,
-        messages: [
-          ...conversationHistory,
-          { role: 'user', content: params.command.query, id: generateId() },
-        ],
       });
     }
 
