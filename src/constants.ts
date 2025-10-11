@@ -142,32 +142,30 @@ export interface ModelOption {
 }
 
 export const LLM_MODELS: ModelOption[] = [
-  // OpenAI Models
+  // OpenAI models
   { id: 'openai:gpt-4o', name: 'GPT-4o' },
-  { id: 'openai:gpt-4-vision-preview', name: 'GPT-4 Vision (Deprecated)' },
   { id: 'openai:gpt-4-turbo-preview', name: 'GPT-4 Turbo' },
   { id: 'openai:gpt-4-0125-preview', name: 'GPT-4 0125' },
   { id: 'openai:gpt-3.5-turbo', name: 'GPT-3.5 Turbo' },
 
-  // DeepSeek Models
+  // DeepSeek models
   { id: 'deepseek:deepseek-chat', name: 'DeepSeek Chat' },
 
-  // Google Models
+  // Google models
   { id: 'google:gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
   { id: 'google:gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
-  { id: 'google:gemini-2.0-pro', name: 'Gemini 2.0 Pro' },
 
-  // Groq Models
+  // Groq models
   { id: 'groq:meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout 17B' },
 
-  // Ollama Models
+  // Ollama models
   { id: 'ollama:llama3:latest', name: 'Llama 3 8B' },
   { id: 'ollama:llama3.1:latest', name: 'Llama 3.1 8B' },
   { id: 'ollama:llama3.2:latest', name: 'Llama 3.2' },
   { id: 'ollama:mistral:latest', name: 'Mistral' },
   { id: 'ollama:mixtral:latest', name: 'Mixtral' },
 
-  // Anthropic Models
+  // Anthropic models
   { id: 'anthropic:claude-sonnet-4-20250514', name: 'Claude 4 Sonnet' },
   { id: 'anthropic:claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
   { id: 'anthropic:claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
