@@ -6,20 +6,16 @@ import { z } from 'zod';
 // - But another argued that if the user directly ask for read entire a note, so it says no need to get confirmation from the user.
 
 /**
- * Type for askUser tool arguments
- */
-export type AskUserArgs = z.infer<ReturnType<typeof createAskUserSchema>>;
-
-/**
  * Tool name constants
  */
 export const CONFIRMATION_TOOL_NAME = 'confirmation';
 export const ASK_USER_TOOL_NAME = 'askUser';
 
 /**
- * Creates a schema for the askUser tool based on the mode
+ * Creates an askUser tool based on the mode
+ * @param mode - 'confirmation' for requesting user confirmation, 'ask' for requesting additional information
  */
-function createAskUserSchema(mode: 'confirmation' | 'ask') {
+export function createAskUserTool(mode: 'confirmation' | 'ask') {
   const messageDescription =
     mode === 'confirmation'
       ? `The message that you ask to get confirmation from the user.
@@ -28,17 +24,21 @@ function createAskUserSchema(mode: 'confirmation' | 'ask') {
 - Use first-person perspective, e.g, I need, I will, etc.
 - Be specific about what information you need from the user.`;
 
-  return z.object({
+  const askUserSchema = z.object({
     message: z.string().describe(messageDescription),
   });
+
+  const askUserTool = tool({
+    parameters: askUserSchema,
+  });
+
+  return {
+    askUserSchema,
+    askUserTool,
+  };
 }
 
 /**
- * Creates an askUser tool based on the mode
- * @param mode - 'confirmation' for requesting user confirmation, 'ask' for requesting additional information
+ * Type for askUser tool arguments
  */
-export function createAskUserTool(mode: 'confirmation' | 'ask') {
-  return tool({
-    parameters: createAskUserSchema(mode),
-  });
-}
+export type AskUserArgs = z.infer<ReturnType<typeof createAskUserTool>['askUserSchema']>;

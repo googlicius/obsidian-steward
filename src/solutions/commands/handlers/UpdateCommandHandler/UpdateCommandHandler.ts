@@ -316,6 +316,8 @@ GUIDELINES:
                 });
               },
             };
+          } else if (readResult.status === CommandResultStatus.NEEDS_USER_INPUT) {
+            return readResult;
           } else {
             return readResult;
           }

@@ -12,6 +12,7 @@ export enum CommandResultStatus {
   SUCCESS = 'success',
   ERROR = 'error',
   NEEDS_CONFIRMATION = 'needs_confirmation',
+  NEEDS_USER_INPUT = 'needs_user_input',
   LOW_CONFIDENCE = 'low_confidence',
 }
 
@@ -21,6 +22,11 @@ type ConfirmationCommandResult = {
   onConfirmation: (message: string) => Promise<CommandResult> | CommandResult;
   onRejection?: (message: string) => Promise<CommandResult> | CommandResult;
   onFinal?: () => Promise<void> | void;
+};
+
+type UserInputCommandResult = {
+  status: CommandResultStatus.NEEDS_USER_INPUT;
+  onUserInput: (message: string) => Promise<CommandResult> | CommandResult;
 };
 
 type SuccessCommandResult = {
@@ -40,6 +46,7 @@ type LowConfidenceCommandResult = {
 
 export type CommandResult =
   | ConfirmationCommandResult
+  | UserInputCommandResult
   | SuccessCommandResult
   | ErrorCommandResult
   | LowConfidenceCommandResult;

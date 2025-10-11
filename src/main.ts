@@ -674,7 +674,7 @@ export default class StewardPlugin extends Plugin {
       if (shouldRunSummary) {
         logger.log('Generating summary for conversation:', conversationTitle);
 
-        await this.commandProcessorService.commandProcessor.processCommands(
+        await this.commandProcessorService.commandProcessor.processCommandInIsolation(
           {
             title: conversationTitle,
             commands: [
@@ -684,6 +684,7 @@ export default class StewardPlugin extends Plugin {
               },
             ],
           },
+          'summary',
           {
             skipIndicators: true,
           }

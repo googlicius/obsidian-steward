@@ -19,6 +19,9 @@ import { uniqueID } from 'src/utils/uniqueID';
 
 const CONTENT_READING_TOOL_NAME = 'contentReading';
 
+const { askUserTool: confirmationTool } = createAskUserTool('confirmation');
+const { askUserTool } = createAskUserTool('ask');
+
 export class ReadCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
     super();
@@ -93,8 +96,8 @@ ${languageEnforcementFragment}`,
         [CONTENT_READING_TOOL_NAME]: tool({
           parameters: contentReadingSchema,
         }),
-        [CONFIRMATION_TOOL_NAME]: createAskUserTool('confirmation'),
-        [ASK_USER_TOOL_NAME]: createAskUserTool('ask'),
+        [CONFIRMATION_TOOL_NAME]: confirmationTool,
+        [ASK_USER_TOOL_NAME]: askUserTool,
       },
     });
   }
@@ -204,49 +207,53 @@ ${languageEnforcementFragment}`,
           handlerId,
         });
 
-        console.log(
-          'READ ASK USER:',
-          toolCall.toolName === CONFIRMATION_TOOL_NAME ? 'CONFIRMATION' : 'ASK'
-        );
+        const callBack = async (message: string): Promise<CommandResult> => {
+          toolInvocations.push({
+            ...toolCall,
+            result: message,
+          });
 
-        return {
-          status: CommandResultStatus.NEEDS_CONFIRMATION,
-          onConfirmation: async (message: string) => {
-            toolInvocations.push({
-              ...toolCall,
-              result: message,
-            });
-
-            options.internalMessages?.push({
-              id: extraction.response.id,
-              content: '',
-              parts: [
-                {
-                  type: 'tool-invocation',
-                  toolInvocation: {
-                    ...toolCall,
-                    state: 'result',
-                    result: message,
-                  },
+          options.internalMessages?.push({
+            id: extraction.response.id,
+            content: '',
+            parts: [
+              {
+                type: 'tool-invocation',
+                toolInvocation: {
+                  ...toolCall,
+                  state: 'result',
+                  result: message,
                 },
-              ],
-              role: 'assistant',
-            });
+              },
+            ],
+            role: 'assistant',
+          });
 
-            await this.renderIndicator(title, params.lang);
+          await this.renderIndicator(title, params.lang);
 
-            const nextIndex = i + 1;
+          const nextIndex = i + 1;
 
-            return this.handle(params, {
-              ...(nextIndex < extraction.toolCalls.length && {
-                extraction,
-                toolCallIndex: nextIndex,
-              }),
-              remainingSteps,
-              internalMessages: options.internalMessages,
-            });
-          },
+          return this.handle(params, {
+            ...(nextIndex < extraction.toolCalls.length && {
+              extraction,
+              toolCallIndex: nextIndex,
+            }),
+            remainingSteps,
+            internalMessages: options.internalMessages,
+          });
         };
+
+        if (toolCall.toolName === CONFIRMATION_TOOL_NAME) {
+          return {
+            status: CommandResultStatus.NEEDS_CONFIRMATION,
+            onConfirmation: callBack,
+          };
+        } else {
+          return {
+            status: CommandResultStatus.NEEDS_USER_INPUT,
+            onUserInput: callBack,
+          };
+        }
       } else if (toolCall.toolName === CONTENT_READING_TOOL_NAME) {
         toolCall.args = this.repairContentReadingToolCallArgs(toolCall.args);
 

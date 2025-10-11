@@ -131,7 +131,6 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
           lang,
         },
         {
-          skipQueueCheck: true,
           sendToDownstream: {
             isReloadRequest: true,
           },

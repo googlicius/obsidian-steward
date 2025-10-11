@@ -12,11 +12,6 @@ interface PendingCommand {
   lastCommandResult?: CommandResult;
 }
 
-interface QueuedCommands {
-  commands: CommandIntent[];
-  payload: ConversationCommandReceivedPayload;
-}
-
 export interface ProcessCommandsOptions {
   skipIndicators?: boolean;
   skipGeneralCommandCheck?: boolean;
@@ -25,11 +20,6 @@ export interface ProcessCommandsOptions {
    * If true, the built-in handler will be used in case a user-defined command has the same name as a built-in command.
    */
   builtInCommandPrecedence?: boolean;
-  /**
-   * If true, skip the queue check and process commands directly
-   */
-  skipQueueCheck?: boolean;
-
   sendToDownstream?: {
     /**
      * If true, indicates this is a reload request
@@ -44,7 +34,6 @@ export interface ProcessCommandsOptions {
 
 export class CommandProcessor {
   private pendingCommands: Map<string, PendingCommand> = new Map();
-  private commandQueues: Map<string, QueuedCommands[]> = new Map();
   private commandHandlers: Map<string, CommandHandler> = new Map();
   private userDefinedCommandHandler: CommandHandler | null = null;
 
@@ -81,6 +70,12 @@ export class CommandProcessor {
     // This prevents accidentally resetting pending commands when a general command
     // might actually be a confirmation command
     if (this.isGeneralCommand(commands) && !options.skipGeneralCommandCheck) {
+      // Check if we're waiting for user input (not yes/no confirmation)
+      if (this.isWaitingForUserInput(title)) {
+        await this.handleUserInput(title, commands[0]);
+        return;
+      }
+
       await this.processCommandInIsolation(payload, commands[0].commandType, {
         ...options,
         skipGeneralCommandCheck: true,
@@ -97,20 +92,6 @@ export class CommandProcessor {
       return;
     }
 
-    // Check if we need to queue these commands instead of processing immediately
-    const shouldQueueCommands =
-      !options.skipQueueCheck &&
-      !options.builtInCommandPrecedence &&
-      !this.isConfirming(title) &&
-      !this.isStop(commands) &&
-      this.isProcessing(title);
-
-    if (shouldQueueCommands) {
-      // Queue the commands for later processing
-      this.queueCommands(title, { commands, payload });
-      return;
-    }
-
     // Start new command processing
     this.pendingCommands.set(title, {
       commands,
@@ -119,20 +100,6 @@ export class CommandProcessor {
     });
 
     await this.continueProcessing(title, options);
-  }
-
-  /**
-   * Queue commands for later processing
-   */
-  private queueCommands(title: string, queuedCommands: QueuedCommands): void {
-    if (!this.commandQueues.has(title)) {
-      this.commandQueues.set(title, []);
-    }
-    const queue = this.commandQueues.get(title);
-    if (queue) {
-      queue.push(queuedCommands);
-    }
-    logger.log(`Queued commands for conversation: ${title}`, queuedCommands);
   }
 
   /**
@@ -167,10 +134,10 @@ export class CommandProcessor {
     return this.pendingCommands.has(title);
   }
 
-  private isConfirming(title: string): boolean {
+  private isWaitingForUserInput(title: string): boolean {
     const pendingCommand = this.pendingCommands.get(title);
     if (!pendingCommand || !pendingCommand.lastCommandResult) return false;
-    return pendingCommand.lastCommandResult.status === CommandResultStatus.NEEDS_CONFIRMATION;
+    return pendingCommand.lastCommandResult.status === CommandResultStatus.NEEDS_USER_INPUT;
   }
 
   private isConfirmation(commands: CommandIntent[]): boolean {
@@ -179,10 +146,6 @@ export class CommandProcessor {
     return commands.some(
       cmd => cmd.commandType === 'confirm' || cmd.commandType === 'yes' || cmd.commandType === 'no'
     );
-  }
-
-  private isStop(commands: CommandIntent[]): boolean {
-    return commands.some(cmd => cmd.commandType === 'stop');
   }
 
   private isGeneralCommand(commands: CommandIntent[]): boolean {
@@ -267,8 +230,6 @@ export class CommandProcessor {
         upstreamOptions: options.sendToDownstream,
       });
 
-      console.log('COMMAND RESULT', command, result);
-
       // Command completed successfully
       this.pendingCommands.set(title, {
         ...pendingCommand,
@@ -286,27 +247,26 @@ export class CommandProcessor {
         // Pause processing until confirmation is received
         logger.log(`Command needs confirmation: ${command.commandType}`);
         return;
+      } else if (result.status === CommandResultStatus.NEEDS_USER_INPUT) {
+        // Pause processing until user provides additional input
+        logger.log(`Command needs user input: ${command.commandType}`);
+        return;
       } else if (result.status === CommandResultStatus.LOW_CONFIDENCE) {
         logger.log(
           `Low confidence in command: ${command.commandType}, attempting context augmentation`
         );
 
-        await this.processCommands(
-          {
-            title,
-            commands: [
-              {
-                commandType: 'context_augmentation',
-                query: '',
-                retryRemaining: 0, // We disable the context augmentation for now.
-              },
-            ],
-            lang: payload.lang,
-          },
-          {
-            skipQueueCheck: true,
-          }
-        );
+        await this.processCommands({
+          title,
+          commands: [
+            {
+              commandType: 'context_augmentation',
+              query: '',
+              retryRemaining: 0, // We disable the context augmentation for now.
+            },
+          ],
+          lang: payload.lang,
+        });
 
         // Stop the current command processing
         this.pendingCommands.delete(title);
@@ -316,36 +276,6 @@ export class CommandProcessor {
 
     // All commands processed successfully
     this.pendingCommands.delete(title);
-
-    // Check if there are queued commands waiting to be processed
-    await this.processQueuedCommands(title, options);
-  }
-
-  /**
-   * Process queued commands for a conversation
-   */
-  private async processQueuedCommands(
-    title: string,
-    options: ProcessCommandsOptions
-  ): Promise<void> {
-    const queue = this.commandQueues.get(title);
-    if (!queue || queue.length === 0) {
-      return;
-    }
-
-    // Get the next queued commands
-    const nextQueuedCommands = queue.shift();
-    if (!nextQueuedCommands) {
-      return;
-    }
-
-    // Clear the queue if it's empty
-    if (queue.length === 0) {
-      this.commandQueues.delete(title);
-    }
-
-    // Process the queued commands with skipQueueCheck to prevent infinite loops
-    await this.processCommands(nextQueuedCommands.payload, { ...options, skipQueueCheck: true });
   }
 
   /**
@@ -368,13 +298,6 @@ export class CommandProcessor {
    */
   public getPendingCommand(title: string): PendingCommand | undefined {
     return this.pendingCommands.get(title);
-  }
-
-  /**
-   * Get queued commands for a conversation
-   */
-  public getQueuedCommands(title: string): QueuedCommands[] {
-    return this.commandQueues.get(title) || [];
   }
 
   /**
@@ -405,10 +328,44 @@ export class CommandProcessor {
   }
 
   /**
-   * Clear all pending and queued commands for a conversation
+   * Clear all pending commands for a conversation
    */
   public clearCommands(title: string): void {
     this.pendingCommands.delete(title);
-    this.commandQueues.delete(title);
+  }
+
+  /**
+   * Handle user input for a pending command that requested it
+   */
+  private async handleUserInput(title: string, command: CommandIntent): Promise<void> {
+    const pendingCommand = this.pendingCommands.get(title);
+    if (!pendingCommand || !pendingCommand.lastCommandResult) {
+      return;
+    }
+
+    const lastResult = pendingCommand.lastCommandResult;
+    if (lastResult.status !== CommandResultStatus.NEEDS_USER_INPUT) {
+      return;
+    }
+
+    // Call the onUserInput callback with the user's query
+    const result = await lastResult.onUserInput(command.query);
+
+    // Update the pending command with the new result
+    this.pendingCommands.set(title, {
+      ...pendingCommand,
+      lastCommandResult: result,
+    });
+
+    // Handle the result
+    if (result.status === CommandResultStatus.SUCCESS) {
+      // Continue processing the command queue
+      await this.continueProcessing(title);
+    } else if (result.status === CommandResultStatus.ERROR) {
+      logger.error(`User input handling failed: ${title}`, result.error);
+      this.pendingCommands.delete(title);
+    }
+    // If the result is NEEDS_CONFIRMATION or NEEDS_USER_INPUT again,
+    // the command will remain pending and wait for the next input
   }
 }

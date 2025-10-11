@@ -308,13 +308,7 @@ export class NoteContentService {
       `!?\\[\\[${this.escapeRegExp(stewardFolder)}/Conversations/[^\\]]+\\]\\]\\n?`,
       'g'
     );
-    let cleanedContent = content.replace(conversationLinkPattern, '');
-
-    // Remove the following "/ " that appears after the removed wikilink
-    cleanedContent = cleanedContent.replace(/^\s*\/\s*/gm, '');
-
-    // Remove empty lines that resulted from the cleanup
-    cleanedContent = cleanedContent.replace(/^\s*$/gm, '').replace(/\n\n+/g, '\n');
+    const cleanedContent = content.replace(conversationLinkPattern, '');
 
     return `>[!${type}]${metadataStr}\n${cleanedContent
       .split('\n')

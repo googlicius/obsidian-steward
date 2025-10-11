@@ -85,7 +85,6 @@ export class ConfirmCommandHandler extends CommandHandler {
 
       // Otherwise, it is something else.
       else {
-        console.log('Some thing else', pendingCommandData);
         await this.commandProcessor.processCommands(
           {
             title,
@@ -118,10 +117,7 @@ export class ConfirmCommandHandler extends CommandHandler {
 
     // Handle the confirmation or rejection
     if (confirmationIntent.isAffirmative) {
-      // Execute the confirmation callback
-      if (lastResult.onConfirmation) {
-        confirmResult = await lastResult.onConfirmation(command.query);
-      }
+      confirmResult = await lastResult.onConfirmation(command.query);
     } else {
       if (lastResult.onRejection) {
         confirmResult = await lastResult.onRejection(command.query);
