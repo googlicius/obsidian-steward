@@ -140,8 +140,6 @@ GUIDELINES:
             newContent: t('update.applyChangesConfirm'),
           });
 
-          console.log('$$$$$$$$$$$');
-
           return {
             status: CommandResultStatus.NEEDS_CONFIRMATION,
             onConfirmation: () => {
@@ -207,7 +205,6 @@ GUIDELINES:
       };
     }
 
-    // console.log('params messages', params.messages);
     const conversationHistory = await this.renderer.extractConversationHistory(params.title, {
       summaryPosition: 1,
     });
@@ -404,8 +401,6 @@ GUIDELINES:
             newContent: t('update.applyChangesConfirm'),
           });
 
-          console.log('CONFIRM....');
-
           return {
             status: CommandResultStatus.NEEDS_CONFIRMATION,
             onConfirmation: () => {
@@ -494,8 +489,6 @@ GUIDELINES:
       path: params.title,
       newContent: t('update.applyChangesConfirm'),
     });
-
-    console.log('NEED CONFIRM');
 
     return {
       status: CommandResultStatus.NEEDS_CONFIRMATION,

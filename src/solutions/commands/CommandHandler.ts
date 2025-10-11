@@ -16,7 +16,7 @@ export enum CommandResultStatus {
   LOW_CONFIDENCE = 'low_confidence',
 }
 
-type ConfirmationCommandResult = {
+export type ConfirmationCommandResult = {
   status: CommandResultStatus.NEEDS_CONFIRMATION;
   confirmationMessage?: string;
   onConfirmation: (message: string) => Promise<CommandResult> | CommandResult;

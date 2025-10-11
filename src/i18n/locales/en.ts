@@ -200,7 +200,6 @@ const en = {
       noPending: 'There are no pending confirmations to respond to.',
       operationCancelled: 'Operation cancelled.',
       errorProcessing: 'Error processing confirmation: {{errorMessage}}',
-      userConfirmed: 'User has confirmed the action.',
     },
     // UI elements
     ui: {

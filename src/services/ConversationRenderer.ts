@@ -1286,7 +1286,9 @@ export class ConversationRenderer {
               id: message.id,
               content: '',
               role: 'assistant',
-              handlerId: message.handlerId,
+              ...(message.handlerId && {
+                handlerId: message.handlerId,
+              }),
               parts: toolInvocations.map(toolInvocation => ({
                 type: 'tool-invocation',
                 toolInvocation: {
@@ -1297,13 +1299,16 @@ export class ConversationRenderer {
             });
             continue;
           }
+        } else {
+          result.push({
+            id: message.id,
+            role: message.role,
+            content: message.content,
+            ...(message.handlerId && {
+              handlerId: message.handlerId,
+            }),
+          });
         }
-        result.push({
-          id: message.id,
-          role: message.role,
-          content: message.content,
-          handlerId: message.handlerId,
-        });
       }
 
       return result;

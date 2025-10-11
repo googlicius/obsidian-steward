@@ -174,7 +174,6 @@ const ja = {
       noPending: '保留中の確認はありません。',
       operationCancelled: '操作をキャンセルしました。',
       errorProcessing: '確認の処理中にエラーが発生しました：{{errorMessage}}',
-      userConfirmed: 'ユーザーがアクションを確認しました。',
     },
     // UI elements
     ui: {

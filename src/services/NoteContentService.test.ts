@@ -295,27 +295,27 @@ This is the conclusion.`;
     });
 
     it('should remove wikilinks to steward conversation folder', () => {
-      const content = '![[Steward/Conversations/test-conversation.md]]\n/ Some content';
+      const content = '![[Steward/Conversations/test-conversation.md]]\nSome content';
       const result = noteContentService.formatCallout(content, 'stw-search-result');
       expect(result).toBe('>[!stw-search-result]\n>Some content\n');
     });
 
     it('should remove regular wikilinks to steward conversation folder', () => {
-      const content = '[[Steward/Conversations/test-conversation.md]]\n/ Some content';
+      const content = '[[Steward/Conversations/test-conversation.md]]\nSome content';
       const result = noteContentService.formatCallout(content, 'stw-search-result');
       expect(result).toBe('>[!stw-search-result]\n>Some content\n');
     });
 
     it('should remove multiple conversation wikilinks', () => {
       const content =
-        '![[Steward/Conversations/conv1.md]]\n/ Content 1\n[[Steward/Conversations/conv2.md]]\n/ Content 2';
+        '![[Steward/Conversations/conv1.md]]\nContent 1\n[[Steward/Conversations/conv2.md]]\nContent 2';
       const result = noteContentService.formatCallout(content, 'stw-search-result');
       expect(result).toBe('>[!stw-search-result]\n>Content 1\n>Content 2\n');
     });
 
     it('should preserve other wikilinks', () => {
       const content =
-        '![[Steward/Conversations/conv1.md]]\n/ Some content\n[[Other/Note.md]]\nMore content';
+        '![[Steward/Conversations/conv1.md]]\nSome content\n[[Other/Note.md]]\nMore content';
       const result = noteContentService.formatCallout(content, 'stw-search-result');
       expect(result).toBe(
         '>[!stw-search-result]\n>Some content\n>[[Other/Note.md]]\n>More content\n'
