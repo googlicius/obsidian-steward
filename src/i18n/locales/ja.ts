@@ -178,7 +178,7 @@ const ja = {
     },
     // UI elements
     ui: {
-      openStewardChat: 'Steward Chatを開く',
+      openStewardChat: 'Steward chatを開く',
       buildingSearchIndex: '検索インデックスを構築中...',
       errorBuildingSearchIndex:
         '検索インデックスの構築中にエラーが発生しました。詳細はコンソールを確認してください。',

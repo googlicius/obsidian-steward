@@ -1,8 +1,7 @@
-import { TFile } from 'obsidian';
+import { getLanguage, TFile } from 'obsidian';
 import { uniqueID } from '../utils/uniqueID';
 import { getTranslation } from '../i18n';
 import { ConversationHistoryMessage, ConversationMessage, ConversationRole } from '../types/types';
-import { getObsidianLanguage } from '../utils/getObsidianLanguage';
 import type StewardPlugin from '../main';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -760,7 +759,7 @@ export class ConversationRenderer {
       const currentModel = this.plugin.settings.llm.chat.model;
 
       // Get the current language from settings
-      const currentLanguage = language || getObsidianLanguage();
+      const currentLanguage = language || getLanguage();
 
       // Create YAML frontmatter with model and language
       const frontmatter = `---\nmodel: ${currentModel}\nlang: ${currentLanguage}\n---\n\n`;

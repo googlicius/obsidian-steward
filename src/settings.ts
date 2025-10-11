@@ -1,4 +1,12 @@
-import { Notice, PluginSettingTab, setIcon, Setting, setTooltip } from 'obsidian';
+import {
+  getLanguage,
+  normalizePath,
+  Notice,
+  PluginSettingTab,
+  setIcon,
+  Setting,
+  setTooltip,
+} from 'obsidian';
 import { logger } from './utils/logger';
 import {
   LLM_MODELS,
@@ -9,14 +17,13 @@ import {
   ProviderNeedApiKey,
 } from './constants';
 import { getTranslation } from './i18n';
-import { getObsidianLanguage } from './utils/getObsidianLanguage';
 import type StewardPlugin from './main';
 import { capitalizeString } from './utils/capitalizeString';
 import { DeleteBehavior, StewardPluginSettings } from './types/interfaces';
 import { get } from './utils/lodash-like';
+import { FolderSuggest } from './settings/FolderSuggest';
 
-// Get the current language and translation function
-const lang = getObsidianLanguage();
+const lang = getLanguage();
 const t = getTranslation(lang);
 
 export default class StewardSettingTab extends PluginSettingTab {
@@ -33,12 +40,12 @@ export default class StewardSettingTab extends PluginSettingTab {
    */
   private getDefaultBaseUrl(provider: string): string {
     const defaultUrls: Record<string, string> = {
-      openai: 'Default OpenAI Base URL',
-      deepseek: 'Default DeepSeek Base URL',
-      google: 'Default Google Base URL',
-      groq: 'Default Groq Base URL',
+      openai: 'Default OpenAI base URL',
+      deepseek: 'Default DeepSeek base URL',
+      google: 'Default Google base URL',
+      groq: 'Default Groq base URL',
       ollama: 'http://localhost:11434',
-      anthropic: 'Default Anthropic Base URL',
+      anthropic: 'Default Anthropic base URL',
     };
 
     return defaultUrls[provider] || '';
@@ -49,14 +56,13 @@ export default class StewardSettingTab extends PluginSettingTab {
    * @param containerEl - The container element
    * @param provider - The provider name (e.g., 'openai', 'groq')
    * @param displayName - The display name for the setting
-   * @param description - The description for the setting
    */
   private createApiKeySetting(
     containerEl: HTMLElement,
     provider: ProviderNeedApiKey,
     displayName: string
   ): void {
-    const lang = getObsidianLanguage();
+    const lang = getLanguage();
     const t = getTranslation(lang);
 
     new Setting(containerEl)
@@ -121,46 +127,37 @@ export default class StewardSettingTab extends PluginSettingTab {
       .setName(t('settings.providerBaseUrl'))
       .setDesc(t('settings.providerBaseUrlDesc'))
       .addText(text => {
-        const updateBaseUrlInput = () => {
-          const currentProvider = this.plugin.settings.llm.chat.model.split(':')[0];
-
-          if (currentProvider) {
-            // Ensure providerConfigs exists
-            if (!this.plugin.settings.llm.providerConfigs) {
-              this.plugin.settings.llm.providerConfigs = {};
-            }
-
-            const currentBaseUrl =
-              this.plugin.settings.llm.providerConfigs[currentProvider]?.baseUrl || '';
-            const defaultBaseUrl = this.getDefaultBaseUrl(currentProvider);
-
-            text.setValue(currentBaseUrl);
-            text.setPlaceholder(defaultBaseUrl);
+        // Initialize input with current values
+        const currentProvider = this.plugin.settings.llm.chat.model.split(':')[0];
+        if (currentProvider) {
+          if (!this.plugin.settings.llm.providerConfigs) {
+            this.plugin.settings.llm.providerConfigs = {};
           }
-        };
 
-        updateBaseUrlInput();
+          const currentBaseUrl =
+            this.plugin.settings.llm.providerConfigs[currentProvider]?.baseUrl || '';
+          const defaultBaseUrl = this.getDefaultBaseUrl(currentProvider);
+
+          text.setValue(currentBaseUrl);
+          text.setPlaceholder(defaultBaseUrl);
+        }
 
         text.onChange(async value => {
           const currentProvider = this.plugin.settings.llm.chat.model.split(':')[0];
+          if (!currentProvider) return;
 
-          if (currentProvider) {
-            // Ensure providerConfigs exists
-            if (!this.plugin.settings.llm.providerConfigs) {
-              this.plugin.settings.llm.providerConfigs = {};
-            }
-
-            // Initialize provider config if it doesn't exist
-            if (!this.plugin.settings.llm.providerConfigs[currentProvider]) {
-              this.plugin.settings.llm.providerConfigs[currentProvider] = {};
-            }
-
-            const providerConfig = this.plugin.settings.llm.providerConfigs[currentProvider];
-            if (providerConfig) {
-              providerConfig.baseUrl = value || undefined;
-              await this.plugin.saveSettings();
-            }
+          // Ensure providerConfigs exists
+          if (!this.plugin.settings.llm.providerConfigs) {
+            this.plugin.settings.llm.providerConfigs = {};
           }
+
+          // Initialize provider config if it doesn't exist
+          if (!this.plugin.settings.llm.providerConfigs[currentProvider]) {
+            this.plugin.settings.llm.providerConfigs[currentProvider] = {};
+          }
+
+          this.plugin.settings.llm.providerConfigs[currentProvider].baseUrl = value;
+          await this.plugin.saveSettings();
         });
       });
 
@@ -219,15 +216,17 @@ export default class StewardSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName(t('settings.stewardFolder'))
       .setDesc(t('settings.stewardFolderDesc'))
-      .addText(text =>
+      .addText(text => {
         text
           .setPlaceholder('Steward')
           .setValue(this.plugin.settings.stewardFolder)
           .onChange(async value => {
-            this.plugin.settings.stewardFolder = value || 'Steward';
+            this.plugin.settings.stewardFolder = normalizePath(value) ?? 'Steward';
             await this.plugin.saveSettings();
-          })
-      );
+          });
+
+        new FolderSuggest(this.app, text.inputEl);
+      });
 
     // Add show role labels toggle
     new Setting(containerEl)
@@ -650,9 +649,6 @@ export default class StewardSettingTab extends PluginSettingTab {
   }
 
   private createDeleteBehaviorSetting(containerEl: HTMLElement): void {
-    const lang = getObsidianLanguage();
-    const t = getTranslation(lang);
-
     // Create the main setting first
     const setting = new Setting(containerEl)
       .setName(t('settings.deleteBehavior'))
@@ -943,10 +939,10 @@ export default class StewardSettingTab extends PluginSettingTab {
 
         // Only validate format, don't save yet
         if (value && !validateModelFormat(value)) {
-          target.addClass('is-invalid');
+          target.addClass('stw-is-invalid');
           return;
         }
-        target.removeClass('is-invalid');
+        target.removeClass('stw-is-invalid');
       });
 
       // Add Add button next to the text input
@@ -963,11 +959,11 @@ export default class StewardSettingTab extends PluginSettingTab {
         }
 
         if (!validateModelFormat(inputValue)) {
-          textInput.addClass('is-invalid');
+          textInput.addClass('stw-is-invalid');
           return;
         }
 
-        textInput.removeClass('is-invalid');
+        textInput.removeClass('stw-is-invalid');
 
         await options.onAddModel(inputValue);
         recreateInput('dropdown');
