@@ -82,7 +82,8 @@
 - [ ] Enhance summarization: Only check generated_content, note content_update for generate commands.
 - [x] Large updates: Tables, lists, paragraphs,...
 - [ ] Evaluation council: A set of different models participating in evaluating the unqualified outcomes: low confidence, errors,...
-- [ ] Confirmation as a tool: Allow LLM decide the confirmation so we can send a flexible query (maybe to put more classify) instead of just Yes and No
+- [x] Confirmation as a tool: Allow LLM decide the confirmation so we can send a flexible query (maybe to put more classify) instead of just Yes and No
+- [ ] Model fallback: Defines a set of models if the main model returns errors
 
 ### BUGS
 
@@ -92,6 +93,7 @@
 - [x] The systemPrompts in the User-Defined command currently load content from wikilinks only one level (Need 2 levels to resolve content of wikilinks in the system prompt)
 - [x] Double user messages in the actual generate.
 - [x] Cannot stop
+- [ ] Generate command doesn't store artifact when the command is defined in a User-Defined command.
 
 ### CONTEXT ENGINEERING
 
