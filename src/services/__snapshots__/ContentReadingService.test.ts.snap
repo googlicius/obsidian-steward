@@ -34,6 +34,38 @@ exports[`ContentReadingService readContent should read the list above the cursor
 }
 `;
 
+exports[`ContentReadingService readContent should read the list with 2 items above the cursor at non-null input line 1`] = `
+{
+  "blocks": [
+    {
+      "content": "- Item 1
+- Item 2",
+      "endLine": 1,
+      "startLine": 0,
+      "types": [
+        "list",
+      ],
+    },
+  ],
+  "elementType": undefined,
+  "file": {
+    "name": "",
+    "path": "",
+  },
+  "range": {
+    "from": {
+      "ch": 0,
+      "line": 0,
+    },
+    "to": {
+      "ch": 8,
+      "line": 1,
+    },
+  },
+  "source": "cursor",
+}
+`;
+
 exports[`ContentReadingService readContent should read the paragraph block below the cursor 1`] = `
 {
   "blocks": [
@@ -58,7 +90,7 @@ Of content",
   "range": {
     "from": {
       "ch": 0,
-      "line": 1,
+      "line": 0,
     },
     "to": {
       "ch": 10,

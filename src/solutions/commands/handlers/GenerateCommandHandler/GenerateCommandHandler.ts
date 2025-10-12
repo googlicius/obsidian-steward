@@ -311,7 +311,7 @@ ${languageEnforcementFragment}`,
             ? await this.plugin.mediaTools.findFileByNameOrPath(toolCall.args.noteName)
             : null;
 
-          const noteContent = file ? await this.app.vault.read(file) : '';
+          const noteContent = file ? await this.app.vault.cachedRead(file) : '';
 
           const stream = await this.contentGenerationStream({
             command: {

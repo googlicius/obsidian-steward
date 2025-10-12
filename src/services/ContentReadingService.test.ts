@@ -102,5 +102,28 @@ End
 
       expect(result).toMatchSnapshot();
     });
+
+    it('should read the list with 2 items above the cursor at non-null input line', async () => {
+      // Create mock text content with a list and an input line
+      const mockText = `- Item 1
+- Item 2
+
+![[Steward/Conversations/General]]
+
+/ Test 123`;
+
+      // Create mock plugin and service with cursor at the "/ Test 123" line
+      const mockPlugin = createMockPlugin(mockText, { line: 5, ch: 10 });
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'above',
+        elementType: null,
+        noteName: null,
+      });
+
+      expect(result).toMatchSnapshot();
+    });
   });
 });

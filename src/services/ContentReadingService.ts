@@ -1,4 +1,4 @@
-import { TFile, EditorRange, EditorPosition } from 'obsidian';
+import { TFile, EditorRange } from 'obsidian';
 import { logger } from '../utils/logger';
 import { isConversationLink } from '../utils/conversationUtils';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
@@ -75,15 +75,15 @@ export class ContentReadingService {
 
     try {
       switch (args.readType) {
-        case 'entire':
-          return this.readEntireContent(file);
+        case 'above':
+        default:
+          return this.readBlocksAboveCursor(file, args.blocksToRead, args.elementType);
 
         case 'below':
           return this.readBlocksBelowCursor(file, args.blocksToRead, args.elementType);
 
-        case 'above':
-        default:
-          return this.readBlocksAboveCursor(file, args.blocksToRead, args.elementType);
+        case 'entire':
+          return this.readEntireContent(file);
       }
     } catch (error) {
       logger.error('Error reading content:', error);
@@ -106,46 +106,48 @@ export class ContentReadingService {
     elementType: string | null = null
   ): ContentReadingResult {
     const cursor = this.editor.getCursor();
-    const blocks = this.identifyBlocksUsingLines({
-      maxBlocks: blocksToRead,
-      direction: 'above',
-      elementType,
-    });
+    const blocks: ContentBlock[] = [];
+    let currentLine = cursor.line;
 
-    // If no blocks are found, return an empty result with clear indication
-    if (blocks.length === 0) {
-      return {
-        blocks: [],
-        source: 'unknown',
-        file: {
-          path: file.path,
-          name: file.name,
-        },
-        elementType: elementType || undefined,
-        range: {
-          from: { line: cursor.line, ch: 0 },
-          to: { line: cursor.line, ch: 0 },
-        },
-      };
+    // Process each line going upward until we reach the start
+    while (currentLine >= 0) {
+      // If we have reached the maximum number of blocks, stop
+      if (blocksToRead !== -1 && blocks.length >= blocksToRead) {
+        break;
+      }
+
+      // Find the block that contains the current line
+      const block = this.findBlockContainingLine(currentLine, 'above');
+
+      if (block) {
+        // Skip if we're looking for a specific element type and it doesn't match
+        if (elementType && !this.matchesElementType(block.types, elementType)) {
+          // Move to the line before this block
+          currentLine = block.startLine - 1;
+          continue;
+        }
+
+        // Add the block to our results
+        blocks.unshift(block);
+
+        // Move to the line before this block
+        currentLine = block.startLine - 1;
+      } else {
+        // If no block found, just move up one line
+        currentLine--;
+      }
     }
 
-    // Get the earliest block's start line and the last block's end line for the range
-    const startLine = blocks[0].startLine;
-    const endLine = blocks[blocks.length - 1].endLine;
+    // Checking AND condition
+    if (
+      elementType &&
+      this.isANDCondition(elementType) &&
+      !this.blocksMatchANDCondition(blocks, elementType)
+    ) {
+      return this.createContentReadingResult({ file, blocks: [], elementType });
+    }
 
-    return {
-      blocks,
-      source: elementType ? 'element' : 'cursor',
-      file: {
-        path: file.path,
-        name: file.name,
-      },
-      elementType: elementType || undefined,
-      range: {
-        from: { line: startLine, ch: 0 },
-        to: { line: endLine, ch: this.editor.getLine(endLine).length },
-      },
-    };
+    return this.createContentReadingResult({ file, blocks, elementType });
   }
 
   /**
@@ -163,11 +165,62 @@ export class ContentReadingService {
     elementType: string | null = null
   ): ContentReadingResult {
     const cursor = this.editor.getCursor();
-    const blocks = this.identifyBlocksUsingLines({
-      maxBlocks: blocksToRead,
-      direction: 'below',
-      elementType,
-    });
+    const blocks: ContentBlock[] = [];
+    const lineCount = this.editor.lineCount();
+    let currentLine = cursor.line;
+
+    // Process each line going downward until we reach the end
+    while (currentLine < lineCount) {
+      // If we have reached the maximum number of blocks, stop
+      if (blocksToRead !== -1 && blocks.length >= blocksToRead) {
+        break;
+      }
+
+      // Find the block that contains or starts at the current line
+      const block = this.findBlockContainingLine(currentLine, 'below');
+
+      if (block) {
+        // Skip if we're looking for a specific element type and it doesn't match
+        if (elementType && !this.matchesElementType(block.types, elementType)) {
+          // Move to the line after this block
+          currentLine = block.endLine + 1;
+          continue;
+        }
+
+        // Add the block to our results
+        blocks.push(block);
+
+        // Move to the line after this block
+        currentLine = block.endLine + 1;
+      } else {
+        // If no block found, just move down one line
+        currentLine++;
+      }
+    }
+
+    // Checking AND condition
+    if (
+      elementType &&
+      this.isANDCondition(elementType) &&
+      !this.blocksMatchANDCondition(blocks, elementType)
+    ) {
+      return this.createContentReadingResult({ file, blocks: [], elementType });
+    }
+
+    return this.createContentReadingResult({ file, blocks, elementType });
+  }
+
+  /**
+   * Create a ContentReadingResult object
+   * @returns Formatted ContentReadingResult
+   */
+  private createContentReadingResult(params: {
+    file: TFile;
+    blocks: ContentBlock[];
+    elementType: string | null;
+  }): ContentReadingResult {
+    const { file, blocks, elementType } = params;
+    const cursor = this.editor.getCursor();
 
     // If no blocks are found, return an empty result with clear indication
     if (blocks.length === 0) {
@@ -186,8 +239,8 @@ export class ContentReadingService {
       };
     }
 
-    // Get the cursor line and the last block's end line for the range
-    const startLine = cursor.line;
+    // Get the range from the first to last block
+    const startLine = blocks[0].startLine;
     const endLine = blocks[blocks.length - 1].endLine;
 
     return {
@@ -232,103 +285,6 @@ export class ContentReadingService {
   }
 
   /**
-   * Identify blocks using line-based detection
-   * @param params Object containing search parameters
-   * @returns Array of identified blocks
-   */
-  private identifyBlocksUsingLines(params: {
-    cursor?: EditorPosition;
-    maxBlocks: number;
-    direction: 'above' | 'below';
-    elementType?: string | null;
-  }): ContentBlock[] {
-    try {
-      const { cursor = this.editor.getCursor(), maxBlocks, direction, elementType = null } = params;
-
-      const blocks: ContentBlock[] = [];
-      const lineCount = this.editor.lineCount();
-
-      // Start from the cursor line
-      let currentLine = cursor.line;
-
-      // For 'above' direction, we need to scan backward
-      if (direction === 'above') {
-        // Process each line going upward until we reach the start
-        while (currentLine >= 0) {
-          // If we have reached the maximum number of blocks, stop
-          if (maxBlocks !== -1 && blocks.length >= maxBlocks) {
-            break;
-          }
-
-          // Find the block that contains the current line
-          const block = this.findBlockContainingLine(currentLine, 'above');
-
-          if (block) {
-            // Skip if we're looking for a specific element type and it doesn't match
-            if (elementType && !this.matchesElementType(block.types, elementType)) {
-              // Move to the line before this block
-              currentLine = block.startLine - 1;
-              continue;
-            }
-
-            // Add the block to our results
-            blocks.unshift(block);
-
-            // Move to the line before this block
-            currentLine = block.startLine - 1;
-          } else {
-            // If no block found, just move up one line
-            currentLine--;
-          }
-        }
-      } else {
-        // For 'below' direction, we scan forward
-        while (currentLine < lineCount) {
-          // If we have reached the maximum number of blocks, stop
-          if (maxBlocks !== -1 && blocks.length >= maxBlocks) {
-            break;
-          }
-
-          // Find the block that contains or starts at the current line
-          const block = this.findBlockContainingLine(currentLine, 'below');
-
-          if (block) {
-            // Skip if we're looking for a specific element type and it doesn't match
-            if (elementType && !this.matchesElementType(block.types, elementType)) {
-              // Move to the line after this block
-              currentLine = block.endLine + 1;
-              continue;
-            }
-
-            // Add the block to our results
-            blocks.push(block);
-
-            // Move to the line after this block
-            currentLine = block.endLine + 1;
-          } else {
-            // If no block found, just move down one line
-            currentLine++;
-          }
-        }
-      }
-
-      // Checking AND condition
-      if (
-        elementType &&
-        this.isANDCondition(elementType) &&
-        !this.blocksMatchANDCondition(blocks, elementType)
-      ) {
-        return [];
-      }
-
-      return blocks;
-    } catch (error) {
-      logger.error('Error identifying blocks using lines:', error);
-      return [];
-    }
-  }
-
-  /**
    * Find a content block that contains the specified line
    * @param lineNumber The line number to check
    * @param direction Search direction ('above' or 'below')
@@ -347,42 +303,24 @@ export class ContentReadingService {
         return null;
       }
 
-      // Start from the given line and find a suitable non-empty line
+      // Start from the given line and search in the requested direction
       let currentLine = lineNumber;
 
-      // If the current line is non-empty, try to identify its block
-      if (!this.isIgnoredLine(currentLine)) {
-        const block = this.identifyBlockFromLine(currentLine);
-        if (block) {
-          return block;
-        }
-      }
-
-      // Otherwise, search in the requested direction
       // Continue until we reach the file boundaries
-      let canContinue = true;
-      while (canContinue) {
-        // Move in the specified direction
-        if (direction === 'above') {
-          currentLine--;
-          if (currentLine < 0) {
-            canContinue = false; // Reached the top of the file
-            continue;
-          }
-        } else {
-          currentLine++;
-          if (currentLine >= lineCount) {
-            canContinue = false; // Reached the bottom of the file
-            continue;
-          }
-        }
-
-        // Check if the current line is non-empty
+      while (currentLine >= 0 && currentLine < lineCount) {
+        // Try to identify a block from the current line if it's not ignored
         if (!this.isIgnoredLine(currentLine)) {
           const block = this.identifyBlockFromLine(currentLine);
           if (block) {
             return block;
           }
+        }
+
+        // Move in the specified direction
+        if (direction === 'above') {
+          currentLine--;
+        } else {
+          currentLine++;
         }
       }
 
@@ -531,15 +469,16 @@ export class ContentReadingService {
   }
 
   /**
-   * Ignores if a line is empty, conversation link, or general command
+   * Ignores if a line is empty, conversation link, or input line (command line)
    */
   private isIgnoredLine(lineNumber: number): boolean {
     const line = this.editor.getLine(lineNumber);
-    return (
+    const result =
       line.trim() === '' ||
-      line === '/ ' ||
-      isConversationLink(line, this.plugin.settings.stewardFolder)
-    );
+      line.startsWith('/ ') ||
+      isConversationLink(line, this.plugin.settings.stewardFolder);
+
+    return result;
   }
 
   /**
