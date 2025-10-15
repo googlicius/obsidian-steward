@@ -39,6 +39,9 @@ function createMockPlugin(
       workspace: {
         getActiveFile: jest.fn().mockReturnValue(mockFile),
       },
+      metadataCache: {
+        getFileCache: jest.fn().mockReturnValue(null),
+      },
     },
   } as unknown as jest.Mocked<StewardPlugin>;
 }
@@ -120,6 +123,119 @@ End
         blocksToRead: 1,
         readType: 'above',
         elementType: null,
+        noteName: null,
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should read all content below the cursor when blocksToRead is -1', async () => {
+      // Create mock text content with cursor in the middle
+      const mockText = `# Introduction
+This is the introduction paragraph.
+
+## Section 1
+Content before cursor.
+
+## Section 2
+Content after cursor starts here.
+
+- List item 1
+- List item 2
+- List item 3
+
+## Section 3
+Final paragraph with more content.
+Multiple lines here.
+
+> A blockquote at the end.`;
+
+      // Create mock plugin and service with cursor positioned at Section 2
+      const mockPlugin = createMockPlugin(mockText, { line: 8, ch: 0 });
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: -1,
+        readType: 'below',
+        elementType: null,
+        noteName: null,
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should read the code block below the cursor', async () => {
+      // Create mock text content with a code block
+      const mockText = `Code
+ 
+Should skip this line
+
+\`\`\`js
+function greet(name) {
+  const greet = 'Greet: ';
+
+  return greet + name;
+}
+\`\`\`
+`;
+
+      // Create mock plugin and service with cursor at the first line
+      const mockPlugin = createMockPlugin(mockText, { line: 0, ch: 0 });
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'below',
+        elementType: 'code',
+        noteName: null,
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should read a list with 2 items separated by an empty line above the cursor', async () => {
+      // Create mock text content with a list that has an empty line between items
+      const mockText = `Start here
+
+- First item in the list
+
+- Second item in the list
+
+End paragraph`;
+
+      // Create mock plugin and service with cursor at the start
+      const mockPlugin = createMockPlugin(mockText, { line: 6, ch: 0 });
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'above',
+        elementType: 'list',
+        noteName: null,
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should read a list with 2 items separated by an empty line below the cursor', async () => {
+      // Create mock text content with a list that has an empty line between items
+      const mockText = `Start here
+
+- First item in the list
+
+
+- Second item in the list
+
+End paragraph`;
+
+      // Create mock plugin and service with cursor at the start
+      const mockPlugin = createMockPlugin(mockText, { line: 0, ch: 0 });
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'below',
+        elementType: 'list',
         noteName: null,
       });
 
