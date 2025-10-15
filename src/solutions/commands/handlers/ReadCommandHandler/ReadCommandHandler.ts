@@ -8,7 +8,7 @@ import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import type StewardPlugin from 'src/main';
 import { generateText, tool, Message, generateId } from 'ai';
-import { contentReadingSchema, ContentReadingArgs } from './zSchemas';
+import { contentReadingSchema } from './zSchemas';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { logger } from 'src/utils/logger';
 import { COMMAND_DEFINITIONS } from 'src/lib/modelfusion/prompts/commands';
@@ -25,32 +25,6 @@ const { askUserTool } = createAskUserTool('ask');
 export class ReadCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
     super();
-  }
-
-  /**
-   * Repair content reading tool call arguments to handle common LLM misinterpretations
-   */
-  private repairContentReadingToolCallArgs(args: ContentReadingArgs): ContentReadingArgs {
-    const modifiedArgs = { ...args };
-    if (args.noteName && typeof args.noteName === 'string') {
-      const normalizedNoteName = args.noteName.trim().toLowerCase();
-      if (['current note', 'this note', 'current', 'current note'].includes(normalizedNoteName)) {
-        logger.warn(`Repairing noteName: ${args.noteName} to null`);
-        modifiedArgs.noteName = null;
-      }
-    }
-
-    if (
-      args.elementType &&
-      !['paragraph', 'table', 'code', 'list', 'blockquote', 'image', 'heading'].includes(
-        args.elementType
-      )
-    ) {
-      logger.warn(`Repairing elementType: ${args.elementType} to null`);
-      modifiedArgs.elementType = null;
-    }
-
-    return modifiedArgs;
   }
 
   /**
@@ -255,8 +229,6 @@ ${languageEnforcementFragment}`,
           };
         }
       } else if (toolCall.toolName === CONTENT_READING_TOOL_NAME) {
-        toolCall.args = this.repairContentReadingToolCallArgs(toolCall.args);
-
         // Execute the content reading
         let result: ContentReadingResult | string;
         try {

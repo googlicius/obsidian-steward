@@ -238,39 +238,38 @@ export class CommandProcessor {
       });
 
       // Handle the result
-      if (result.status === CommandResultStatus.ERROR) {
-        logger.error(`Command failed: ${command.commandType}`, result.error);
-        // Stop processing on error
-        this.pendingCommands.delete(title);
-        return;
-      } else if (result.status === CommandResultStatus.NEEDS_CONFIRMATION) {
-        // Pause processing until confirmation is received
-        logger.log(`Command needs confirmation: ${command.commandType}`);
-        return;
-      } else if (result.status === CommandResultStatus.NEEDS_USER_INPUT) {
-        // Pause processing until user provides additional input
-        logger.log(`Command needs user input: ${command.commandType}`);
-        return;
-      } else if (result.status === CommandResultStatus.LOW_CONFIDENCE) {
-        logger.log(
-          `Low confidence in command: ${command.commandType}, attempting context augmentation`
-        );
+      switch (result.status) {
+        case CommandResultStatus.ERROR:
+          logger.error(`Command failed: ${command.commandType}`, result.error);
+          // Stop processing on error
+          this.pendingCommands.delete(title);
+          return;
 
-        await this.processCommands({
-          title,
-          commands: [
-            {
-              commandType: 'context_augmentation',
-              query: '',
-              retryRemaining: 0, // We disable the context augmentation for now.
-            },
-          ],
-          lang: payload.lang,
-        });
+        case CommandResultStatus.NEEDS_CONFIRMATION:
+        case CommandResultStatus.NEEDS_USER_INPUT:
+          // Pause processing until user provides additional input
+          return;
 
-        // Stop the current command processing
-        this.pendingCommands.delete(title);
-        return;
+        case CommandResultStatus.LOW_CONFIDENCE:
+          logger.log(
+            `Low confidence in command: ${command.commandType}, attempting context augmentation`
+          );
+
+          await this.processCommands({
+            title,
+            commands: [
+              {
+                commandType: 'context_augmentation',
+                query: '',
+                retryRemaining: 0, // We disable the context augmentation for now.
+              },
+            ],
+            lang: payload.lang,
+          });
+
+          // Stop the current command processing
+          this.pendingCommands.delete(title);
+          return;
       }
     }
 

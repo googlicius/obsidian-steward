@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 import { isConversationLink } from '../utils/conversationUtils';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
 import type StewardPlugin from '../main';
-import { ContentReadingArgs } from 'src/solutions/commands/handlers/ReadCommandHandler/zSchemas';
+import { ContentReadingArgs } from '../solutions/commands/handlers/ReadCommandHandler/zSchemas';
 
 /**
  * Result of a content reading operation
@@ -69,25 +69,19 @@ export class ContentReadingService {
       ? await this.plugin.mediaTools.findFileByNameOrPath(args.noteName)
       : this.plugin.app.workspace.getActiveFile();
     if (!file) {
-      logger.error('No active file found');
       throw new Error(`No active file found for note: ${args.noteName}`);
     }
 
-    try {
-      switch (args.readType) {
-        case 'above':
-        default:
-          return this.readBlocksAboveCursor(file, args.blocksToRead, args.elementType);
+    switch (args.readType) {
+      case 'above':
+      default:
+        return this.readBlocksAboveCursor(file, args.blocksToRead, args.elementType);
 
-        case 'below':
-          return this.readBlocksBelowCursor(file, args.blocksToRead, args.elementType);
+      case 'below':
+        return this.readBlocksBelowCursor(file, args.blocksToRead, args.elementType);
 
-        case 'entire':
-          return this.readEntireContent(file);
-      }
-    } catch (error) {
-      logger.error('Error reading content:', error);
-      throw new Error(`Error reading content: ${error.message}`);
+      case 'entire':
+        return this.readEntireContent(file);
     }
   }
 
@@ -95,21 +89,18 @@ export class ContentReadingService {
    * Read blocks above the cursor using line-based detection
    * @param file The active file
    * @param blocksToRead Number of blocks to read
-   * @param elementType Element type to look for. Supports AND/OR conditions:
-   *  - For OR conditions, use comma-separated values (e.g., "table, code")
-   *  - For AND conditions, use "+" between types (e.g., "paragraph+list")
+   * @param elementType Element type to look for (e.g., "table", "code", "paragraph")
    * @returns Blocks above the cursor
    */
   private readBlocksAboveCursor(
     file: TFile,
     blocksToRead: number,
-    elementType: string | null = null
+    elementType: ContentReadingArgs['elementType'] = null
   ): ContentReadingResult {
     const cursor = this.editor.getCursor();
     const blocks: ContentBlock[] = [];
     let currentLine = cursor.line;
 
-    // Process each line going upward until we reach the start
     while (currentLine >= 0) {
       // If we have reached the maximum number of blocks, stop
       if (blocksToRead !== -1 && blocks.length >= blocksToRead) {
@@ -117,7 +108,7 @@ export class ContentReadingService {
       }
 
       // Find the block that contains the current line
-      const block = this.findBlockContainingLine(currentLine, 'above');
+      const block = this.findBlockContainingLineV2(file, currentLine, 'above');
 
       if (block) {
         // Skip if we're looking for a specific element type and it doesn't match
@@ -138,15 +129,6 @@ export class ContentReadingService {
       }
     }
 
-    // Checking AND condition
-    if (
-      elementType &&
-      this.isANDCondition(elementType) &&
-      !this.blocksMatchANDCondition(blocks, elementType)
-    ) {
-      return this.createContentReadingResult({ file, blocks: [], elementType });
-    }
-
     return this.createContentReadingResult({ file, blocks, elementType });
   }
 
@@ -154,15 +136,13 @@ export class ContentReadingService {
    * Read blocks below the cursor using line-based detection
    * @param file The active file
    * @param blocksToRead Number of blocks to read
-   * @param elementType Element type to look for. Supports AND/OR conditions:
-   *  - For OR conditions, use comma-separated values (e.g., "table, code")
-   *  - For AND conditions, use "+" between types (e.g., "paragraph+list")
+   * @param elementType Element type to look for (e.g., "table", "code", "paragraph")
    * @returns Blocks below the cursor
    */
   private readBlocksBelowCursor(
     file: TFile,
     blocksToRead: number,
-    elementType: string | null = null
+    elementType: ContentReadingArgs['elementType'] = null
   ): ContentReadingResult {
     const cursor = this.editor.getCursor();
     const blocks: ContentBlock[] = [];
@@ -177,7 +157,7 @@ export class ContentReadingService {
       }
 
       // Find the block that contains or starts at the current line
-      const block = this.findBlockContainingLine(currentLine, 'below');
+      const block = this.findBlockContainingLineV2(file, currentLine, 'below');
 
       if (block) {
         // Skip if we're looking for a specific element type and it doesn't match
@@ -198,15 +178,6 @@ export class ContentReadingService {
       }
     }
 
-    // Checking AND condition
-    if (
-      elementType &&
-      this.isANDCondition(elementType) &&
-      !this.blocksMatchANDCondition(blocks, elementType)
-    ) {
-      return this.createContentReadingResult({ file, blocks: [], elementType });
-    }
-
     return this.createContentReadingResult({ file, blocks, elementType });
   }
 
@@ -217,7 +188,7 @@ export class ContentReadingService {
   private createContentReadingResult(params: {
     file: TFile;
     blocks: ContentBlock[];
-    elementType: string | null;
+    elementType: ContentReadingArgs['elementType'];
   }): ContentReadingResult {
     const { file, blocks, elementType } = params;
     const cursor = this.editor.getCursor();
@@ -285,6 +256,58 @@ export class ContentReadingService {
   }
 
   /**
+   * Find a content block that contains the specified line using the metadata cache
+   * @param file The file to search in
+   * @param lineNumber The line number to check
+   * @param direction The direction to search ('above' or 'below')
+   * @returns The content block, or null if none found
+   */
+  private findBlockContainingLineV2(
+    file: TFile,
+    lineNumber: number,
+    direction: 'above' | 'below'
+  ): ContentBlock | null {
+    // Return early if the line is empty, command input, or embedded conversation note
+    if (this.isIgnoredLine(lineNumber)) return null;
+
+    const cache = this.plugin.app.metadataCache.getFileCache(file);
+
+    if (!cache) {
+      // NO CACHE - Fallback to line-based approach
+      return this.findBlockContainingLine(lineNumber, direction);
+    }
+
+    const sections = cache.sections;
+    if (!sections) {
+      // NO SECTIONS - Fallback to line-based approach
+      return this.findBlockContainingLine(lineNumber, direction);
+    }
+
+    // Find the section that contains the given line number
+    const section = sections.find(
+      s => s.position.start.line <= lineNumber && s.position.end.line >= lineNumber
+    );
+
+    if (!section) return null;
+
+    // Get the content
+    const content = this.editor.getRange(
+      { line: section.position.start.line, ch: 0 },
+      {
+        line: section.position.end.line,
+        ch: this.editor.getLine(section.position.end.line).length,
+      }
+    );
+
+    return {
+      startLine: section.position.start.line,
+      endLine: section.position.end.line,
+      types: [section.type],
+      content,
+    };
+  }
+
+  /**
    * Find a content block that contains the specified line
    * @param lineNumber The line number to check
    * @param direction Search direction ('above' or 'below')
@@ -310,10 +333,41 @@ export class ContentReadingService {
       while (currentLine >= 0 && currentLine < lineCount) {
         // Try to identify a block from the current line if it's not ignored
         if (!this.isIgnoredLine(currentLine)) {
-          const block = this.identifyBlockFromLine(currentLine);
-          if (block) {
-            return block;
-          }
+          const line = this.editor.getLine(currentLine).trim();
+
+          // Get initial block type
+          const initialBlockType = this.detectBlockType(line);
+
+          // Find the start of the block (search upward)
+          const blockStart = this.findBlockBoundary({
+            startingLine: currentLine,
+            direction: 'above',
+            initialBlockType,
+          });
+
+          // Find the end of the block (search downward)
+          const blockEnd = this.findBlockBoundary({
+            startingLine: currentLine,
+            direction: 'below',
+            initialBlockType,
+            inCodeBlock: blockStart.inCodeBlock,
+          });
+
+          // Combine all collected types
+          const allTypes = new Set([...blockStart.types, ...blockEnd.types]);
+
+          // Get the content of the block
+          const content = this.editor.getRange(
+            { line: blockStart.lineNumber, ch: 0 },
+            { line: blockEnd.lineNumber, ch: this.editor.getLine(blockEnd.lineNumber).length }
+          );
+
+          return {
+            startLine: blockStart.lineNumber,
+            endLine: blockEnd.lineNumber,
+            types: Array.from(allTypes),
+            content,
+          };
         }
 
         // Move in the specified direction
@@ -328,67 +382,6 @@ export class ContentReadingService {
       return null;
     } catch (error) {
       logger.error('Error finding block containing line:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Identify a content block from a specific line
-   * @param lineNumber The line number to start from
-   * @returns The identified content block, or null if none found
-   */
-  private identifyBlockFromLine(lineNumber: number): ContentBlock | null {
-    try {
-      const line = this.editor.getLine(lineNumber).trim();
-
-      // Skip empty lines
-      if (this.isIgnoredLine(lineNumber)) {
-        return null;
-      }
-
-      // Get initial block type
-      const initialBlockType = this.detectBlockType(line);
-
-      // Find the start of the block (search upward)
-      const {
-        lineNumber: startLineNum,
-        types: startTypes,
-        inList,
-        inCodeBlock,
-      } = this.findBlockBoundary({
-        startingLine: lineNumber,
-        direction: 'above',
-        initialBlockType,
-        inList: initialBlockType === 'list',
-        inCodeBlock: initialBlockType === 'code',
-      });
-
-      // Find the end of the block (search downward)
-      const { lineNumber: endLineNum, types: endTypes } = this.findBlockBoundary({
-        startingLine: lineNumber,
-        direction: 'below',
-        initialBlockType,
-        inList,
-        inCodeBlock,
-      });
-
-      // Combine all collected types
-      const allTypes = new Set([...startTypes, ...endTypes]);
-
-      // Get the content of the block
-      const content = this.editor.getRange(
-        { line: startLineNum, ch: 0 },
-        { line: endLineNum, ch: this.editor.getLine(endLineNum).length }
-      );
-
-      return {
-        startLine: startLineNum,
-        endLine: endLineNum,
-        types: Array.from(allTypes),
-        content,
-      };
-    } catch (error) {
-      logger.error('Error identifying block from line:', error);
       return null;
     }
   }
@@ -439,9 +432,15 @@ export class ContentReadingService {
    * Detect the type of the next block in a specified direction
    * @param lineNumber The current line number
    * @param direction The direction to look ('above' or 'below')
-   * @returns The detected block type or null if no valid block found
+   * @returns The detected block type and line number or null if no valid block found
    */
-  private detectNextBlockType(lineNumber: number, direction: 'above' | 'below'): string | null {
+  private detectNextBlockType(
+    lineNumber: number,
+    direction: 'above' | 'below'
+  ): {
+    blockType: string;
+    lineNumber: number;
+  } | null {
     try {
       const lineCount = this.editor.lineCount();
 
@@ -461,7 +460,12 @@ export class ContentReadingService {
       }
 
       // Detect and return the block type
-      return this.detectBlockType(nextLine);
+      const result = this.detectBlockType(nextLine);
+
+      return {
+        blockType: result,
+        lineNumber: nextLineNumber,
+      };
     } catch (error) {
       logger.error('Error detecting next block type:', error);
       return null;
@@ -488,67 +492,74 @@ export class ContentReadingService {
     startingLine: number;
     direction: 'above' | 'below';
     initialBlockType: string;
-    inList: boolean;
-    inCodeBlock: boolean;
-  }): { lineNumber: number; types: Set<string>; inList: boolean; inCodeBlock: boolean } {
+    inCodeBlock?: boolean;
+  }): { lineNumber: number; types: Set<string>; inCodeBlock: boolean } {
     const { startingLine, direction, initialBlockType } = params;
-    let { inList, inCodeBlock } = params;
+    let inCodeBlock = params.inCodeBlock ?? initialBlockType === 'code';
+    let inList = initialBlockType === 'list';
     const lineCount = this.editor.lineCount();
     const types = new Set<string>([initialBlockType]);
-    let currentLineNumber = startingLine;
 
-    // Determine boundary conditions and line increment based on direction
-    const atBoundary = () =>
-      direction === 'above' ? currentLineNumber <= 0 : currentLineNumber >= lineCount - 1;
+    // Track the actual boundary line (last non-empty line found)
+    let boundaryLine = startingLine;
+    // Track current position in the search
+    let currentLine = startingLine;
 
     const increment = direction === 'above' ? -1 : 1;
+    const isAtFileBoundary = () =>
+      direction === 'above' ? currentLine <= 0 : currentLine >= lineCount - 1;
 
-    // Keep track of whether we can continue searching
-    // let canContinue = true;
+    while (!isAtFileBoundary()) {
+      const nextLine = currentLine + increment;
+      const nextLineContent = this.editor.getLine(nextLine).trim();
+      const currentLineContent = this.editor.getLine(currentLine).trim();
+      const nextLineType = this.detectBlockType(nextLineContent);
+      const currentLineType = this.detectBlockType(currentLineContent);
+      const isNextLineEmpty = this.isIgnoredLine(nextLine);
 
-    while (!atBoundary()) {
-      const nextLineNumber = currentLineNumber + increment;
-      const nextLine = this.editor.getLine(nextLineNumber).trim();
-      const currentLine = this.editor.getLine(currentLineNumber).trim();
-      const nextLineType = this.detectBlockType(nextLine);
-      const currentLineType = this.detectBlockType(currentLine);
-
-      // Handle code block boundaries
+      // Update code block state when we encounter code fences
       if (inCodeBlock && nextLineType === 'code') {
         inCodeBlock = false;
       }
 
-      // Handle list boundaries
-      if (inList && this.isIgnoredLine(nextLineNumber)) {
-        if (currentLineType !== 'list') {
-          inList = false;
-        } else {
-          const adjacentBlockType = this.detectNextBlockType(currentLineNumber, direction);
-          if (adjacentBlockType !== 'list') {
+      // Handle empty lines
+      if (isNextLineEmpty) {
+        // Handle list boundaries
+        if (inList) {
+          if (currentLineType !== 'list') {
             inList = false;
+          } else {
+            const adjacentBlock = this.detectNextBlockType(currentLine, direction);
+            if (adjacentBlock) {
+              if (adjacentBlock.blockType !== 'list') {
+                inList = false;
+              } else {
+                currentLine = adjacentBlock.lineNumber;
+                continue;
+              }
+            }
           }
         }
-      }
 
-      // Collect type if line isn't empty
-      if (!this.isIgnoredLine(nextLineNumber)) {
-        types.add(nextLineType);
-      }
-
-      // Check if the next line is empty
-      if (this.isIgnoredLine(nextLineNumber)) {
-        if (!inCodeBlock && !inList) {
-          // canContinue = false;
-          // continue;
+        // Stop at empty lines unless we're in a code block or list
+        if (!inCodeBlock) {
+          boundaryLine = nextLine;
           break;
         }
       }
+      // Handle non-empty lines
+      else {
+        // Only collect types when not inside a code block (except for code fences)
+        if (!inCodeBlock || nextLineType === 'code') {
+          types.add(nextLineType);
+          boundaryLine = nextLine;
+        }
+      }
 
-      // Move to the next line
-      currentLineNumber = nextLineNumber;
+      currentLine = nextLine;
     }
 
-    return { lineNumber: currentLineNumber, types, inList, inCodeBlock };
+    return { lineNumber: boundaryLine, types, inCodeBlock };
   }
 
   /**
@@ -574,20 +585,14 @@ export class ContentReadingService {
   /**
    * Check if a block's types match the requested element type
    * @param blockTypes The block types
-   * @param elementType The requested element type with possible AND/OR conditions
+   * @param elementType The requested element type
    * @returns True if they match
    */
   private matchesElementType(blockTypes: string[], elementType: string): boolean {
     // Handle common synonyms and variations
     const normalizedElementType = elementType.toLowerCase().trim();
 
-    // Check for OR conditions (comma-separated values)
-    if (this.isORCondition(normalizedElementType)) {
-      const types = normalizedElementType.split(',').map(type => type.trim());
-      return types.some(type => this.matchesElementType(blockTypes, type));
-    }
-
-    // Single element type check (this is a base case for the recursion)
+    // Check each block type for a match
     for (const blockType of blockTypes) {
       if (
         blockType === 'code' &&
@@ -651,29 +656,5 @@ export class ContentReadingService {
     }
 
     return false;
-  }
-
-  private isANDCondition(elementType: string): boolean {
-    return elementType.includes('+');
-  }
-
-  private isORCondition(elementType: string): boolean {
-    return elementType.includes(',');
-  }
-
-  private blocksMatchANDCondition(blocks: ContentBlock[], elementType: string): boolean {
-    const types = elementType.split('+');
-
-    for (const type of types) {
-      const atLeastOneBlockMatches = blocks.some(block =>
-        this.matchesElementType(block.types, type)
-      );
-
-      if (!atLeastOneBlockMatches) {
-        return false;
-      }
-    }
-
-    return true;
   }
 }
