@@ -474,8 +474,15 @@ describe('ConversationRenderer', () => {
       // Create mock plugin with the conversation content
       const mockPlugin = createMockPlugin(mockContent);
 
-      // Spy on the vault.modify method
-      const modifySpy = jest.spyOn(mockPlugin.app.vault, 'modify').mockResolvedValue(undefined);
+      let modifiedContent = '';
+
+      // Spy on the vault.process method and simulate it calling the callback
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, callback) => {
+          modifiedContent = callback(mockContent);
+          return Promise.resolve(modifiedContent);
+        });
 
       conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
@@ -489,11 +496,10 @@ describe('ConversationRenderer', () => {
       // Verify the result is true (success)
       expect(result).toBe(true);
 
-      // Verify that vault.modify was called
-      expect(modifySpy).toHaveBeenCalledTimes(1);
+      // Verify that vault.process was called
+      expect(processSpy).toHaveBeenCalledTimes(1);
 
       // Verify that the content was modified correctly
-      const modifiedContent = modifySpy.mock.calls[0][1];
       expect(modifiedContent).toContain(
         '<!--STW ID:def456,ROLE:steward,COMMAND:read,HISTORY:false-->'
       );
@@ -521,8 +527,8 @@ describe('ConversationRenderer', () => {
       // Verify the result is false (failure)
       expect(result).toBe(false);
 
-      // Verify that vault.modify was not called
-      expect(mockPlugin.app.vault.modify).not.toHaveBeenCalled();
+      // Verify that vault.process was not called
+      expect(mockPlugin.app.vault.process).not.toHaveBeenCalled();
     });
 
     it('should return false when the conversation file does not exist', async () => {

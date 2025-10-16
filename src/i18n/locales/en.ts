@@ -288,8 +288,6 @@ const en = {
       note: 'Note',
       apiKeyNote1: 'You need to provide your own API keys to use the AI-powered assistant.',
       apiKeyNote2: 'All API keys are stored with encryption.',
-      decryptionErrorNote:
-        'If you are seeing decryption errors, please use the "Reset Encryption" button and re-enter your API keys.',
       llm: 'LLM',
       chatModel: 'Chat model',
       chatModelDesc: 'Select the AI model to use for chat',

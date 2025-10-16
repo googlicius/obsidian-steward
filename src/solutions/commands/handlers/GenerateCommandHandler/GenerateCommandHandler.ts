@@ -371,26 +371,6 @@ ${languageEnforcementFragment}`,
               command: 'generate',
               toolInvocations,
             });
-          } else {
-            const mainLeaf = await this.plugin.getMainLeaf();
-
-            if (mainLeaf && file) {
-              mainLeaf.openFile(file);
-              await this.app.workspace.revealLeaf(mainLeaf);
-            }
-
-            let accumulatedContent = '';
-            for await (const chunk of stream) {
-              accumulatedContent += chunk;
-            }
-
-            await this.app.vault.process(file, () => accumulatedContent);
-
-            await this.renderer.updateConversationNote({
-              path: title,
-              newContent: `*${t('generate.success', { noteName: toolCall.args.noteName })}*`,
-              lang,
-            });
           }
           break;
         }

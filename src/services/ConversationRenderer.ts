@@ -38,56 +38,6 @@ export class ConversationRenderer {
   }
 
   /**
-   * Updates the command type in the comment block of the last user message
-   * @param title The conversation title
-   * @param commandType The extracted command type
-   */
-  public async updateLastUserMessageCommand(title: string, commandType: string): Promise<void> {
-    try {
-      // Get the conversation file
-      const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
-      const notePath = `${folderPath}/${title}.md`;
-      const file = this.plugin.app.vault.getFileByPath(notePath);
-
-      if (!file) {
-        throw new Error(`Note not found: ${notePath}`);
-      }
-
-      // Read the current content
-      let content = await this.plugin.app.vault.read(file);
-
-      // Find the last user message with a comment block
-      const commentBlockRegex = /<!--STW ID:(.*?),ROLE:user,COMMAND:(.*?)-->/gi;
-      const matches = Array.from(content.matchAll(commentBlockRegex));
-
-      if (matches.length > 0) {
-        // Get the last user message comment block
-        const lastMatch = matches[matches.length - 1];
-        const originalCommentBlock = lastMatch[0];
-        const messageId = lastMatch[1];
-
-        // Create the updated comment block with the new command type
-        const updatedCommentBlock = `<!--STW ID:${messageId},ROLE:user,COMMAND:${commandType}-->`;
-
-        // Replace only the last occurrence of the comment block
-        const lastIndex = content.lastIndexOf(originalCommentBlock);
-        if (lastIndex !== -1) {
-          content =
-            content.substring(0, lastIndex) +
-            updatedCommentBlock +
-            content.substring(lastIndex + originalCommentBlock.length);
-
-          // Update the file
-          await this.plugin.app.vault.modify(file, content);
-        }
-      }
-    } catch (error) {
-      logger.error('Error updating comment block:', error);
-      // Don't throw, as this is not a critical operation
-    }
-  }
-
-  /**
    * Gets the content after deleting a message and all messages below it
    * This is a pure function that doesn't read or modify the vault
    * @param content The full conversation content
@@ -517,11 +467,6 @@ export class ConversationRenderer {
         throw new Error(`Note not found: ${notePath}`);
       }
 
-      let currentContent = await this.plugin.app.vault.read(file);
-
-      // Remove the generating indicator and any trailing newlines
-      currentContent = this.removeGeneratingIndicator(currentContent);
-
       const { messageId, comment } = await this.buildMessageMetadata(path, {
         role: 'Steward',
         command: params.command,
@@ -531,23 +476,30 @@ export class ConversationRenderer {
 
       const roleText = this.formatRoleText(params.role);
 
-      // Prepare the initial content with metadata
-      const initialContent = `${currentContent}\n\n${comment}\n${roleText}`;
-
-      // If position is provided, insert at that position
-      // Otherwise, append to the end
-      const contentToModify =
-        params.position !== undefined
-          ? currentContent.slice(0, params.position) +
-            initialContent +
-            currentContent.slice(params.position)
-          : initialContent;
+      let contentToModify = '';
 
       // Write the initial content
-      await this.plugin.app.vault.modify(file, contentToModify);
+      await this.plugin.app.vault.process(file, currentContent => {
+        // Remove the generating indicator and any trailing newlines
+        currentContent = this.removeGeneratingIndicator(currentContent);
+
+        // Prepare the initial content with metadata
+        const initialContent = `${currentContent}\n\n${comment}\n${roleText}`;
+
+        // If position is provided, insert at that position
+        // Otherwise, append to the end
+        contentToModify =
+          params.position !== undefined
+            ? currentContent.slice(0, params.position) +
+              initialContent +
+              currentContent.slice(params.position)
+            : initialContent;
+
+        return contentToModify;
+      });
 
       // Stream the content
-      await this.streamFile(file, params.stream, contentToModify);
+      await this.streamFile(file, params.stream);
 
       // Return the message ID for referencing
       return messageId;
@@ -557,11 +509,9 @@ export class ConversationRenderer {
     }
   }
 
-  public async streamFile(file: TFile, stream: AsyncIterable<string>, initialContent = '') {
-    let accumulatedContent = '';
+  public async streamFile(file: TFile, stream: AsyncIterable<string>) {
     for await (const chunk of stream) {
-      accumulatedContent += chunk;
-      await this.plugin.app.vault.modify(file, initialContent + accumulatedContent);
+      await this.plugin.app.vault.process(file, currentContent => currentContent + chunk);
     }
   }
 
@@ -702,9 +652,10 @@ export class ConversationRenderer {
       throw new Error(`Note not found: ${notePath}`);
     }
 
-    const currentContent = this.removeGeneratingIndicator(await this.plugin.app.vault.read(file));
-    const newContent = `${currentContent}\n\n*${indicatorText}*`;
-    await this.plugin.app.vault.modify(file, newContent);
+    await this.plugin.app.vault.process(file, currentContent => {
+      currentContent = this.removeGeneratingIndicator(currentContent);
+      return `${currentContent}\n\n*${indicatorText}*`;
+    });
   }
 
   /**
@@ -712,21 +663,6 @@ export class ConversationRenderer {
    */
   public removeGeneratingIndicator(content: string): string {
     return content.replace(/\n\n\*.*?\.\.\.\*$/, '');
-  }
-
-  public async removeGeneratingIndicatorByPath(path: string): Promise<void> {
-    const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
-    const notePath = `${folderPath}/${path}.md`;
-
-    // Get the current content of the note
-    const file = this.plugin.app.vault.getFileByPath(notePath);
-    if (!file) {
-      throw new Error(`Note not found: ${notePath}`);
-    }
-
-    let currentContent = await this.plugin.app.vault.read(file);
-    currentContent = this.removeGeneratingIndicator(currentContent);
-    await this.plugin.app.vault.modify(file, currentContent);
   }
 
   /**
@@ -1045,7 +981,7 @@ export class ConversationRenderer {
       }
 
       // Read the current content
-      let content = await this.plugin.app.vault.read(file);
+      const content = await this.plugin.app.vault.cachedRead(file);
 
       // Find the comment block with the given ID
       const idPattern = `ID:${messageId}`;
@@ -1053,22 +989,23 @@ export class ConversationRenderer {
       const matches = Array.from(content.matchAll(commentBlockRegex));
 
       if (matches.length > 0) {
-        // Get the existing comment block
-        const originalCommentBlock = matches[0][0];
-
-        // Create the updated comment block
-        let updatedCommentBlock = '<!--STW ';
-        for (const [key, value] of Object.entries(newMetadata)) {
-          updatedCommentBlock += `${key}:${value},`;
-        }
-        // Remove trailing comma and close comment
-        updatedCommentBlock = updatedCommentBlock.slice(0, -1) + '-->';
-
-        // Replace the comment block in the content
-        content = content.replace(originalCommentBlock, updatedCommentBlock);
-
         // Update the file
-        await this.plugin.app.vault.modify(file, content);
+        await this.plugin.app.vault.process(file, currentContent => {
+          // Get the existing comment block
+          const originalCommentBlock = matches[0][0];
+
+          // Create the updated comment block
+          let updatedCommentBlock = '<!--STW ';
+          for (const [key, value] of Object.entries(newMetadata)) {
+            updatedCommentBlock += `${key}:${value},`;
+          }
+          // Remove trailing comma and close comment
+          updatedCommentBlock = updatedCommentBlock.slice(0, -1) + '-->';
+
+          // Replace the comment block in the content
+          return currentContent.replace(originalCommentBlock, updatedCommentBlock);
+        });
+
         return true;
       }
 
@@ -1406,18 +1343,14 @@ export class ConversationRenderer {
         throw new Error(`Note not found: ${notePath}`);
       }
 
-      // Read the current content
-      const content = await this.plugin.app.vault.read(file);
-
-      // Use the pure function to get content after deletion
-      const newContent = this.getContentAfterDeletion(content, messageId);
-      if (newContent === null) {
-        logger.error(`Message with ID ${messageId} not found in ${notePath}`);
-        return false;
-      }
-
-      // Update the file
-      await this.plugin.app.vault.modify(file, newContent);
+      await this.plugin.app.vault.process(file, currentContent => {
+        // Use the pure function to get content after deletion
+        currentContent = this.getContentAfterDeletion(currentContent, messageId);
+        if (currentContent === null) {
+          logger.error(`Message with ID ${messageId} not found in ${notePath}`);
+        }
+        return currentContent;
+      });
 
       return true;
     } catch (error) {
@@ -1468,19 +1401,9 @@ export class ConversationRenderer {
         throw new Error(`Note not found: ${conversationPath}`);
       }
 
-      // Read the current content
-      const content = await this.plugin.app.vault.read(file);
-
-      // Sanitize the content
-      const sanitizedContent = this.sanitizeConversationContent(content);
-
-      // If the content hasn't changed, no need to update
-      if (sanitizedContent === content) {
-        return true;
-      }
-
-      // Update the file
-      await this.plugin.app.vault.modify(file, sanitizedContent);
+      await this.plugin.app.vault.process(file, currentContent => {
+        return this.sanitizeConversationContent(currentContent);
+      });
 
       return true;
     } catch (error) {

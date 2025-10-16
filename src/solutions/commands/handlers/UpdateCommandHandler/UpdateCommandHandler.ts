@@ -644,23 +644,22 @@ GUIDELINES:
         try {
           const file = await this.plugin.mediaTools.findFileByNameOrPath(doc.path);
           if (file) {
-            // Read the file content
-            let content = await this.app.vault.read(file);
-
             let contentChanged = false;
 
-            // Apply each update instruction in sequence
-            for (const instruction of updateInstructions) {
-              const updatedContent = await this.obsidianAPITools.applyUpdateInstruction(
-                content,
-                instruction
-              );
+            // Apply update instructions and write back atomically
+            await this.app.vault.process(file, content => {
+              // Apply each update instruction in sequence
+              for (const instruction of updateInstructions) {
+                const result = this.obsidianAPITools.applyUpdateInstruction(content, instruction);
 
-              if (updatedContent !== content) {
-                content = updatedContent;
-                contentChanged = true;
+                if (result !== content) {
+                  content = result;
+                  contentChanged = true;
+                }
               }
-            }
+
+              return content;
+            });
 
             if (!contentChanged) {
               logger.log(`Skipping ${doc.path} because it didn't change`);
@@ -668,8 +667,6 @@ GUIDELINES:
               continue;
             }
 
-            // Write the updated content back
-            await this.app.vault.process(file, () => content);
             updatedFiles.push(doc.path);
           }
         } catch (error) {
