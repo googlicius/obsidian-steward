@@ -34,6 +34,13 @@ export const contentReadingSchema = z.object({
 Set to -1 when:
 - The user requests to read entire content.
 - Reading above or below the cursor and explicitly requesting reading all content from the current position.`),
+  startLine: z
+    .number()
+    .nullable()
+    .default(null)
+    .describe(
+      `Specific line number to start reading from (0-based). Leave null to use cursor position.`
+    ),
   foundPlaceholder: z
     .string()
     .optional()

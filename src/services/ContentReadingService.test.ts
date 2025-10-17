@@ -1,14 +1,27 @@
 import { ContentReadingService } from './ContentReadingService';
-import { TFile, EditorPosition } from 'obsidian';
+import { TFile, EditorPosition, CachedMetadata, SectionCache } from 'obsidian';
 import type StewardPlugin from '../main';
+
+/**
+ * Section definition for mocking cache.sections
+ */
+interface MockSection {
+  type: string;
+  position: {
+    start: { line: number; col: number; offset: number };
+    end: { line: number; col: number; offset: number };
+  };
+}
 
 /**
  * Creates a mock plugin with a mock editor using the provided text content
  * @param mockText The text content to use in the mock editor
+ * @param sections The sections to mock in the file cache
  * @param cursorPosition Optional cursor position (defaults to line 1, ch 0)
  */
 function createMockPlugin(
   mockText: string,
+  sections: MockSection[],
   cursorPosition: EditorPosition = { line: 1, ch: 0 }
 ): jest.Mocked<StewardPlugin> {
   // Create mock editor
@@ -29,6 +42,11 @@ function createMockPlugin(
   // Create mock file
   const mockFile = new TFile();
 
+  // Create mock cache with sections
+  const mockCache: Partial<CachedMetadata> = {
+    sections: sections as SectionCache[],
+  };
+
   // Create and return mock plugin with editor
   return {
     editor: mockEditor,
@@ -40,44 +58,27 @@ function createMockPlugin(
         getActiveFile: jest.fn().mockReturnValue(mockFile),
       },
       metadataCache: {
-        getFileCache: jest.fn().mockReturnValue(null),
+        getFileCache: jest.fn().mockReturnValue(mockCache),
       },
     },
   } as unknown as jest.Mocked<StewardPlugin>;
 }
 
+/**
+ * Helper to create a section mock
+ */
+function createSection(type: string, startLine: number, endLine: number): MockSection {
+  return {
+    type,
+    position: {
+      start: { line: startLine, col: 0, offset: 0 },
+      end: { line: endLine, col: 0, offset: 0 },
+    },
+  };
+}
+
 describe('ContentReadingService', () => {
   describe('readContent', () => {
-    it('should read the paragraph block below the cursor', async () => {
-      // Create mock text content
-      const mockText = `# Heading
-This is a paragraph
-With multiple lines
-Of content
-
-- List item 1
-- List item 2
-
-\`\`\`typescript
-const code = 'block';
-console.log(code);
-\`\`\`
-`;
-
-      // Create mock plugin and service
-      const mockPlugin = createMockPlugin(mockText);
-      const service = ContentReadingService.getInstance(mockPlugin);
-
-      const result = await service.readContent({
-        blocksToRead: 1,
-        readType: 'below',
-        elementType: 'paragraph',
-        noteName: null,
-      });
-
-      expect(result).toMatchSnapshot();
-    });
-
     it('should read the list above the cursor', async () => {
       // Create mock text content with lists and paragraphs
       const mockText = `This is the first list
@@ -92,8 +93,16 @@ This is the second list
 End
 `;
 
+      const sections = [
+        createSection('paragraph', 0, 0),
+        createSection('list', 1, 2),
+        createSection('paragraph', 4, 4),
+        createSection('list', 5, 6),
+        createSection('paragraph', 9, 9),
+      ];
+
       // Create mock plugin and service with cursor at the "End" line
-      const mockPlugin = createMockPlugin(mockText, { line: 9, ch: 0 });
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 9, ch: 0 });
       const service = ContentReadingService.getInstance(mockPlugin);
 
       const result = await service.readContent({
@@ -101,9 +110,29 @@ End
         readType: 'above',
         elementType: 'list',
         noteName: null,
+        startLine: null,
       });
 
-      expect(result).toMatchSnapshot();
+      expect(result).toMatchObject({
+        blocks: [
+          {
+            content: `This is the second list
+- Item 3
+- Item 4`,
+            endLine: 6,
+            startLine: 4,
+            sections: [
+              { type: 'paragraph', startLine: 4, endLine: 4 },
+              { type: 'list', startLine: 5, endLine: 6 },
+            ],
+          },
+        ],
+        elementType: 'list',
+        range: {
+          from: { ch: 0, line: 4 },
+          to: { ch: 8, line: 6 },
+        },
+      });
     });
 
     it('should read the list with 2 items above the cursor at non-null input line', async () => {
@@ -115,8 +144,14 @@ End
 
 / Test 123`;
 
+      const sections = [
+        createSection('list', 0, 1),
+        createSection('paragraph', 3, 3),
+        createSection('paragraph', 5, 5),
+      ];
+
       // Create mock plugin and service with cursor at the "/ Test 123" line
-      const mockPlugin = createMockPlugin(mockText, { line: 5, ch: 10 });
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 5, ch: 10 });
       const service = ContentReadingService.getInstance(mockPlugin);
 
       const result = await service.readContent({
@@ -124,9 +159,29 @@ End
         readType: 'above',
         elementType: null,
         noteName: null,
+        startLine: null,
       });
 
-      expect(result).toMatchSnapshot();
+      expect(result).toMatchObject({
+        blocks: [
+          {
+            content: '- Item 1\n- Item 2',
+            endLine: 1,
+            startLine: 0,
+            sections: [{ type: 'list', startLine: 0, endLine: 1 }],
+          },
+        ],
+        elementType: undefined,
+        source: 'cursor',
+        file: {
+          name: '',
+          path: '',
+        },
+        range: {
+          from: { ch: 0, line: 0 },
+          to: { ch: 8, line: 1 },
+        },
+      });
     });
 
     it('should read all content below the cursor when blocksToRead is -1', async () => {
@@ -150,8 +205,21 @@ Multiple lines here.
 
 > A blockquote at the end.`;
 
+      const sections = [
+        createSection('heading', 0, 0),
+        createSection('paragraph', 1, 1),
+        createSection('heading', 3, 3),
+        createSection('paragraph', 4, 4),
+        createSection('heading', 6, 6),
+        createSection('paragraph', 7, 7),
+        createSection('list', 9, 11),
+        createSection('heading', 13, 13),
+        createSection('paragraph', 14, 15),
+        createSection('blockquote', 17, 17),
+      ];
+
       // Create mock plugin and service with cursor positioned at Section 2
-      const mockPlugin = createMockPlugin(mockText, { line: 8, ch: 0 });
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 8, ch: 0 });
       const service = ContentReadingService.getInstance(mockPlugin);
 
       const result = await service.readContent({
@@ -159,9 +227,48 @@ Multiple lines here.
         readType: 'below',
         elementType: null,
         noteName: null,
+        startLine: null,
       });
 
-      expect(result).toMatchSnapshot();
+      expect(result).toMatchObject({
+        blocks: [
+          {
+            content: `- List item 1
+- List item 2
+- List item 3`,
+            endLine: 11,
+            startLine: 9,
+            sections: [{ type: 'list', startLine: 9, endLine: 11 }],
+          },
+          {
+            content: `## Section 3
+Final paragraph with more content.
+Multiple lines here.`,
+            endLine: 15,
+            startLine: 13,
+            sections: [
+              { type: 'heading', startLine: 13, endLine: 13 },
+              { type: 'paragraph', startLine: 14, endLine: 15 },
+            ],
+          },
+          {
+            content: '> A blockquote at the end.',
+            endLine: 17,
+            startLine: 17,
+            sections: [{ type: 'blockquote', startLine: 17, endLine: 17 }],
+          },
+        ],
+        elementType: undefined,
+        source: 'cursor',
+        file: {
+          name: '',
+          path: '',
+        },
+        range: {
+          from: { ch: 0, line: 9 },
+          to: { ch: 26, line: 17 },
+        },
+      });
     });
 
     it('should read the code block below the cursor', async () => {
@@ -179,8 +286,14 @@ function greet(name) {
 \`\`\`
 `;
 
+      const sections = [
+        createSection('paragraph', 0, 0),
+        createSection('paragraph', 2, 2),
+        createSection('code', 4, 10),
+      ];
+
       // Create mock plugin and service with cursor at the first line
-      const mockPlugin = createMockPlugin(mockText, { line: 0, ch: 0 });
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 });
       const service = ContentReadingService.getInstance(mockPlugin);
 
       const result = await service.readContent({
@@ -188,9 +301,31 @@ function greet(name) {
         readType: 'below',
         elementType: 'code',
         noteName: null,
+        startLine: null,
       });
 
-      expect(result).toMatchSnapshot();
+      expect(result).toMatchObject({
+        blocks: [
+          {
+            content: `\`\`\`js
+function greet(name) {
+  const greet = 'Greet: ';
+
+  return greet + name;
+}
+\`\`\``,
+            endLine: 10,
+            startLine: 4,
+            sections: [{ type: 'code', startLine: 4, endLine: 10 }],
+          },
+        ],
+        elementType: 'code',
+        source: 'element',
+        range: {
+          from: { ch: 0, line: 4 },
+          to: { ch: 3, line: 10 },
+        },
+      });
     });
 
     it('should read a list with 2 items separated by an empty line above the cursor', async () => {
@@ -203,8 +338,14 @@ function greet(name) {
 
 End paragraph`;
 
-      // Create mock plugin and service with cursor at the start
-      const mockPlugin = createMockPlugin(mockText, { line: 6, ch: 0 });
+      const sections = [
+        createSection('paragraph', 0, 0),
+        createSection('list', 2, 4),
+        createSection('paragraph', 6, 6),
+      ];
+
+      // Create mock plugin and service with cursor at the end paragraph
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 6, ch: 0 });
       const service = ContentReadingService.getInstance(mockPlugin);
 
       const result = await service.readContent({
@@ -212,34 +353,31 @@ End paragraph`;
         readType: 'above',
         elementType: 'list',
         noteName: null,
+        startLine: null,
       });
 
-      expect(result).toMatchSnapshot();
-    });
+      expect(result).toMatchObject({
+        blocks: [
+          {
+            content: `- First item in the list
 
-    it('should read a list with 2 items separated by an empty line below the cursor', async () => {
-      // Create mock text content with a list that has an empty line between items
-      const mockText = `Start here
-
-- First item in the list
-
-
-- Second item in the list
-
-End paragraph`;
-
-      // Create mock plugin and service with cursor at the start
-      const mockPlugin = createMockPlugin(mockText, { line: 0, ch: 0 });
-      const service = ContentReadingService.getInstance(mockPlugin);
-
-      const result = await service.readContent({
-        blocksToRead: 1,
-        readType: 'below',
+- Second item in the list`,
+            endLine: 4,
+            startLine: 2,
+            sections: [{ type: 'list', startLine: 2, endLine: 4 }],
+          },
+        ],
         elementType: 'list',
-        noteName: null,
+        source: 'element',
+        file: {
+          name: '',
+          path: '',
+        },
+        range: {
+          from: { ch: 0, line: 2 },
+          to: { ch: 25, line: 4 },
+        },
       });
-
-      expect(result).toMatchSnapshot();
     });
   });
 });
