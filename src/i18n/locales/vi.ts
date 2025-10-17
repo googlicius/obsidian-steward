@@ -264,8 +264,6 @@ const vi = {
       note: 'Lưu ý',
       apiKeyNote1: 'Bạn cần cung cấp khóa API của riêng mình để sử dụng trợ lý AI.',
       apiKeyNote2: 'Tất cả khóa API được lưu trữ với mã hóa.',
-      decryptionErrorNote:
-        'Nếu bạn thấy lỗi giải mã, vui lòng sử dụng nút "Đặt lại Mã hóa" và nhập lại khóa API của bạn.',
       llm: 'LLM',
       chatModel: 'Mô hình trò chuyện',
       chatModelDesc: 'Chọn mô hình AI để sử dụng cho trò chuyện',

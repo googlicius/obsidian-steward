@@ -14,7 +14,8 @@ import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
 import { SearchService } from './solutions/search';
 import { SearchDatabase } from './database/SearchDatabase';
-import { encrypt, decrypt, generateSaltKeyId, removeEncryptionSalt } from './utils/cryptoUtils';
+import { EncryptionService } from './services/EncryptionService';
+import { generateId } from 'ai';
 import { formatDateTime } from './utils/dateUtils';
 import { logger } from './utils/logger';
 import { ConversationRenderer } from './services/ConversationRenderer';
@@ -24,7 +25,6 @@ import { StewardPluginSettings } from './types/interfaces';
 import { Line, Text } from '@codemirror/state';
 import {
   DEFAULT_SETTINGS,
-  ProviderNeedApiKey,
   SEARCH_DB_NAME_PREFIX,
   SMILE_CHAT_ICON_ID,
   STW_CHAT_VIEW_CONFIG,
@@ -67,6 +67,7 @@ export default class StewardPlugin extends Plugin {
   commandInputService: CommandInputService;
   abortService: AbortService;
   trashCleanupService: TrashCleanupService;
+  encryptionService: EncryptionService;
 
   get editor(): ObsidianEditor {
     return this.app.workspace.activeEditor?.editor as ObsidianEditor;
@@ -99,6 +100,9 @@ export default class StewardPlugin extends Plugin {
 
     // Initialize the LLM service
     this.llmService = LLMService.getInstance(this);
+
+    // Initialize the encryption service
+    this.encryptionService = EncryptionService.getInstance(this);
 
     // Initialize the AbortService
     this.abortService = AbortService.getInstance();
@@ -175,8 +179,7 @@ export default class StewardPlugin extends Plugin {
 
         // Remove saltKeyId from localStorage
         if (this.settings.saltKeyId) {
-          removeEncryptionSalt(this.settings.saltKeyId);
-          logger.log('Removed saltKeyId from localStorage');
+          this.encryptionService.removeEncryptionSalt(this.settings.saltKeyId);
         }
 
         logger.log('Plugin cleanup completed successfully');
@@ -322,7 +325,7 @@ export default class StewardPlugin extends Plugin {
 
     // Setup encryption salt if not already set
     if (!this.settings.saltKeyId) {
-      this.settings.saltKeyId = generateSaltKeyId();
+      this.settings.saltKeyId = generateId();
       settingsUpdated = true;
     }
 
@@ -517,7 +520,7 @@ export default class StewardPlugin extends Plugin {
         const notePath = `${folderPath}/${conversationLink}.md`;
 
         if (this.app.vault.getFileByPath(notePath) && conversationLink) {
-          await this.updateConversationNote({
+          await this.conversationRenderer.updateConversationNote({
             path: conversationLink,
             newContent: fullCommandText,
             role: 'User',
@@ -905,69 +908,6 @@ export default class StewardPlugin extends Plugin {
     }
 
     return null;
-  }
-
-  /**
-   * Updates a conversation note with the given result
-   */
-  async updateConversationNote(params: {
-    path: string;
-    newContent: string;
-    command?: string;
-    role?: 'User' | 'Steward';
-  }) {
-    return this.conversationRenderer.updateConversationNote(params);
-  }
-
-  async addGeneratingIndicator(path: string, indicatorText: string): Promise<void> {
-    return this.conversationRenderer.addGeneratingIndicator(path, indicatorText);
-  }
-
-  removeGeneratingIndicator(content: string): string {
-    return this.conversationRenderer.removeGeneratingIndicator(content);
-  }
-
-  /**
-   * Get the decrypted API key for a specific provider
-   * @param provider - The provider to get the API key for (e.g., 'openai', 'elevenlabs', 'deepseek', 'google', 'groq')
-   * @returns The decrypted API key or empty string if not set
-   */
-  getDecryptedApiKey(provider: ProviderNeedApiKey): string {
-    const encryptedKey = this.settings.apiKeys[provider];
-
-    if (!encryptedKey) {
-      return '';
-    }
-
-    try {
-      return decrypt(encryptedKey, this.settings.saltKeyId);
-    } catch (error) {
-      logger.error(`Error decrypting ${provider} API key:`, error);
-      throw new Error(`Could not decrypt ${provider} API key`);
-    }
-  }
-
-  /**
-   * Securely set and encrypt an API key for a specific provider
-   * @param provider - The provider to set the API key for (e.g., 'openai', 'elevenlabs', 'deepseek', 'google', 'groq')
-   * @param apiKey - The API key to encrypt and store
-   */
-  async setEncryptedApiKey(provider: ProviderNeedApiKey, apiKey: string): Promise<void> {
-    try {
-      // First encrypt the API key
-      const encryptedKey = apiKey ? encrypt(apiKey, this.settings.saltKeyId) : '';
-
-      // Update our settings
-      this.settings.apiKeys[provider] = encryptedKey;
-
-      // Save the settings
-      await this.saveSettings();
-
-      logger.log(`API key for ${provider} has been encrypted and saved`);
-    } catch (error) {
-      logger.error(`Error encrypting ${provider} API key:`, error);
-      throw new Error(`Could not encrypt ${provider} API key`);
-    }
   }
 
   async getMainLeaf(): Promise<WorkspaceLeaf> {

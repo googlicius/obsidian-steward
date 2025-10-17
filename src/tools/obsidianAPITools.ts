@@ -229,10 +229,7 @@ export class ObsidianAPITools {
   /**
    * Applies an update instruction to the given content
    */
-  async applyUpdateInstruction(
-    content: string,
-    updateInstruction: UpdateInstruction
-  ): Promise<string> {
+  public applyUpdateInstruction(content: string, updateInstruction: UpdateInstruction): string {
     let lines = content.split('\n');
 
     switch (updateInstruction.type) {

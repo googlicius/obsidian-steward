@@ -71,7 +71,7 @@ export default class StewardSettingTab extends PluginSettingTab {
         // Get the current API key (decrypted) with error handling
         let placeholder = t('settings.enterApiKey');
         try {
-          const currentKey = this.plugin.getDecryptedApiKey(provider);
+          const currentKey = this.plugin.encryptionService.getDecryptedApiKey(provider);
           if (currentKey) {
             placeholder = t('settings.apiKeyPlaceholder');
           }
@@ -89,7 +89,7 @@ export default class StewardSettingTab extends PluginSettingTab {
             if (value) {
               try {
                 // If a value is entered, encrypt and save it
-                await this.plugin.setEncryptedApiKey(provider, value);
+                await this.plugin.encryptionService.setEncryptedApiKey(provider, value);
 
                 // Update the placeholder to show that a key is saved
                 text.setPlaceholder(t('settings.apiKeyPlaceholder'));
@@ -111,7 +111,7 @@ export default class StewardSettingTab extends PluginSettingTab {
           .setTooltip(t('settings.clearApiKey'))
           .onClick(async () => {
             try {
-              await this.plugin.setEncryptedApiKey(provider, '');
+              await this.plugin.encryptionService.setEncryptedApiKey(provider, '');
               // Force refresh of the settings
               this.display();
             } catch (error) {
@@ -283,30 +283,6 @@ export default class StewardSettingTab extends PluginSettingTab {
       text: t('settings.apiKeyNote2'),
       cls: 'setting-item-description',
     });
-
-    // If we have encryption issues, show instructions for resetting
-    if (
-      this.plugin.settings.apiKeys.openai ||
-      this.plugin.settings.apiKeys.elevenlabs ||
-      this.plugin.settings.apiKeys.deepseek ||
-      this.plugin.settings.apiKeys.google ||
-      this.plugin.settings.apiKeys.groq ||
-      this.plugin.settings.apiKeys.anthropic
-    ) {
-      try {
-        this.plugin.getDecryptedApiKey('openai');
-        this.plugin.getDecryptedApiKey('elevenlabs');
-        this.plugin.getDecryptedApiKey('deepseek');
-        this.plugin.getDecryptedApiKey('google');
-        this.plugin.getDecryptedApiKey('groq');
-        this.plugin.getDecryptedApiKey('anthropic');
-      } catch (error) {
-        containerEl.createEl('div', {
-          text: t('settings.decryptionErrorNote'),
-          cls: 'setting-item-description mod-warning',
-        });
-      }
-    }
 
     // Add LLM settings section
     new Setting(containerEl).setName(t('settings.llm')).setHeading();

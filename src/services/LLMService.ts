@@ -68,7 +68,7 @@ export class LLMService {
       if (!encryptedKey) {
         return undefined;
       }
-      return this.plugin.getDecryptedApiKey(provider);
+      return this.plugin.encryptionService.getDecryptedApiKey(provider);
     } catch (error) {
       logger.error(`Error getting API key for ${provider}:`, error);
       return undefined;
