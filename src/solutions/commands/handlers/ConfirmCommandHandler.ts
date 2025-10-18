@@ -23,8 +23,6 @@ export class ConfirmCommandHandler extends CommandHandler {
 
     const confirmationIntent = this.isConfirmIntent(command);
 
-    console.log('confirmationIntent', confirmationIntent);
-
     if (!confirmationIntent) {
       // If it's not a clear confirmation, let the user know
       await this.renderer.updateConversationNote({
@@ -84,27 +82,30 @@ export class ConfirmCommandHandler extends CommandHandler {
       }
 
       // Otherwise, it is something else.
-      else {
-        await this.commandProcessor.processCommands(
-          {
-            title,
-            commands: [
-              {
-                commandType: ' ',
-                query: params.command.query,
-                systemPrompts: [
-                  'There is no pending command to confirm, so don\'t include the "confirm" command.',
-                ],
-              },
-            ],
-          },
-          {
-            sendToDownstream: {
-              ignoreClassify: true,
-            },
-          }
-        );
-      }
+      // else {
+      //   await this.commandProcessor.processCommands(
+      //     {
+      //       title,
+      //       commands: [
+      //         {
+      //           commandType: ' ',
+      //           query: params.command.query,
+      //         },
+      //       ],
+      //     },
+      //     {
+      //       sendToDownstream: {
+      //         ignoreClassify: true,
+      //       },
+      //     }
+      //   );
+      // }
+
+      await this.plugin.conversationRenderer.updateConversationNote({
+        path: title,
+        newContent: `*${t('confirmation.noPending')}*`,
+        role: 'Steward',
+      });
 
       return {
         status: CommandResultStatus.SUCCESS,

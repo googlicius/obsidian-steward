@@ -67,7 +67,7 @@ describe('ArtifactManagerV2', () => {
         '<!--STW ID:mmmm,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->',
         '*Artifact read_content is created*',
         '```stw-artifact',
-        '{"artifactType":"read_content","readingResult":{"blocks":[{"startLine":82,"endLine":82,"types":["paragraph"],"content":"testABC"}],"source":"cursor","file":{"path":"Steward/Conversations/Test Conversation.md","name":"Test Conversation.md"},"range":{"from":{"line":82,"ch":0},"to":{"line":82,"ch":7}}},"id":"mmmm"}',
+        '{"artifactType":"read_content","readingResult":{"blocks":[{"startLine":82,"endLine":82,"sections":[{"type":"paragraph","startLine":82,"endLine":82}],"content":"testABC"}],"source":"cursor","file":{"path":"Steward/Conversations/Test Conversation.md","name":"Test Conversation.md"},"range":{"from":{"line":82,"ch":0},"to":{"line":82,"ch":7}}},"id":"mmmm"}',
         '```',
         '',
       ].join('\n');
@@ -83,7 +83,14 @@ describe('ArtifactManagerV2', () => {
           id: 'mmmm',
           artifactType: 'read_content',
           readingResult: {
-            blocks: [{ startLine: 82, endLine: 82, types: ['paragraph'], content: 'testABC' }],
+            blocks: [
+              {
+                startLine: 82,
+                endLine: 82,
+                sections: [{ type: 'paragraph', startLine: 82, endLine: 82 }],
+                content: 'testABC',
+              },
+            ],
             source: 'cursor',
             file: {
               path: 'Steward/Conversations/Test Conversation.md',

@@ -121,7 +121,7 @@ describe('ReadCommandHandler', () => {
             content: 'Test paragraph content',
             startLine: 0,
             endLine: 1,
-            types: ['paragraph'],
+            sections: [{ type: 'paragraph', startLine: 0, endLine: 1 }],
           },
         ],
       };
@@ -191,7 +191,7 @@ describe('ReadCommandHandler', () => {
             content: 'Test paragraph content',
             startLine: 0,
             endLine: 1,
-            types: ['paragraph'],
+            sections: [{ type: 'paragraph', startLine: 0, endLine: 1 }],
           },
         ],
       };
@@ -270,7 +270,7 @@ describe('ReadCommandHandler', () => {
             content: 'Test paragraph content',
             startLine: 0,
             endLine: 1,
-            types: ['paragraph'],
+            sections: [{ type: 'paragraph', startLine: 0, endLine: 1 }],
           },
         ],
       };
@@ -330,7 +330,7 @@ describe('ReadCommandHandler', () => {
             content: 'Test paragraph content',
             startLine: 0,
             endLine: 1,
-            types: ['paragraph'],
+            sections: [{ type: 'paragraph', startLine: 0, endLine: 1 }],
           },
         ],
       };

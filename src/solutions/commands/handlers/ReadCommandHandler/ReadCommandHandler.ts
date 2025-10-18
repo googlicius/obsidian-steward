@@ -165,7 +165,6 @@ ${languageEnforcementFragment}`,
     const startIndex = options.toolCallIndex || 0;
 
     const toolInvocations: ToolInvocation<string | ContentReadingResult>[] = [];
-    const toolInvocationArtifactRefs = [];
 
     for (let i = startIndex; i < extraction.toolCalls.length; i++) {
       const toolCall = extraction.toolCalls[i];
@@ -234,21 +233,39 @@ ${languageEnforcementFragment}`,
         try {
           result = await this.plugin.contentReadingService.readContent(toolCall.args);
         } catch (error) {
+          logger.error('Error in content reading', error);
           result = error.message as string;
         }
 
-        toolInvocations.push({
-          ...toolCall,
-          result,
-        });
-
         // Process the result
         if (typeof result === 'string') {
-          await this.renderer.updateConversationNote({
+          const messageId = await this.renderer.updateConversationNote({
             path: title,
             newContent: `*${result}*`,
             command: 'read',
+            includeHistory: false,
             handlerId,
+          });
+
+          toolInvocations.push({
+            ...toolCall,
+            result: `messageRef:${messageId}`,
+          });
+          continue;
+        }
+
+        if (result.blocks.length === 0) {
+          const messageId = await this.renderer.updateConversationNote({
+            path: title,
+            newContent: `*${t('read.noContentFound')}*`,
+            command: 'read',
+            includeHistory: false,
+            handlerId,
+          });
+
+          toolInvocations.push({
+            ...toolCall,
+            result: `messageRef:${messageId}`,
           });
           continue;
         }
@@ -307,18 +324,19 @@ ${languageEnforcementFragment}`,
           },
         });
 
-        toolInvocationArtifactRefs.push({
+        // Store the artifact reference for successful reads
+        toolInvocations.push({
           ...toolCall,
           result: `artifactRef:${artifactId}`,
         });
       }
     }
 
-    if (toolInvocationArtifactRefs.length > 0) {
+    if (toolInvocations.length > 0) {
       await this.renderer.serializeToolInvocation({
         path: title,
         command: 'read',
-        toolInvocations: toolInvocationArtifactRefs,
+        toolInvocations,
         handlerId,
       });
     }
