@@ -85,6 +85,7 @@
 - [x] Confirmation as a tool: Allow LLM decide the confirmation so we can send a flexible query (maybe to put more classify) instead of just Yes and No
 - [ ] Model fallback: Defines a set of models if the main model returns errors
 - [ ] Don't allow command input inside a code block
+- [ ] Serialize needs_confirmation, needs_user_input calls
 
 ### BUGS
 
