@@ -2,8 +2,8 @@ import { ConversationCommandReceivedPayload } from '../../types/events';
 import { CommandResultStatus, CommandHandler, CommandResult } from './CommandHandler';
 import { logger } from '../../utils/logger';
 import { CommandIntent } from 'src/types/types';
-import { NoteContentService } from '../../services/NoteContentService';
 import type StewardPlugin from 'src/main';
+import { SystemPromptModifier, SystemPromptModification } from 'src/utils/SystemPromptModifier';
 
 interface PendingCommand {
   commands: CommandIntent[];
@@ -180,7 +180,6 @@ export class CommandProcessor {
     }
 
     const { commands, currentIndex, payload } = pendingCommand;
-    const noteContentService = NoteContentService.getInstance(this.plugin);
 
     // Process commands sequentially from current index
     for (let i = currentIndex; i < commands.length; i++) {
@@ -189,14 +188,9 @@ export class CommandProcessor {
       const nextCommand = i < commands.length - 1 ? commands[i + 1] : undefined;
       const nextIndex = i + 1;
 
-      // Process wikilinks in command.systemPrompts
+      // Process wikilinks in command.systemPrompts (only for string-based prompts)
       if (command.systemPrompts && command.systemPrompts.length > 0) {
-        const processedPrompts = await Promise.all(
-          command.systemPrompts.map(prompt => {
-            return noteContentService.processWikilinksInContent(prompt, 2);
-          })
-        );
-        command.systemPrompts = processedPrompts;
+        command.systemPrompts = await this.processSystemPromptsWikilinks(command.systemPrompts);
       }
 
       // Find the appropriate handler
@@ -366,5 +360,40 @@ export class CommandProcessor {
     }
     // If the result is NEEDS_CONFIRMATION or NEEDS_USER_INPUT again,
     // the command will remain pending and wait for the next input
+  }
+
+  /**
+   * Process wikilinks in system prompts
+   * Only processes string-based prompts, keeps modification objects unchanged
+   * @param systemPrompts Array of system prompt items (strings or modification objects)
+   * @returns Processed system prompts with wikilinks resolved
+   */
+  private async processSystemPromptsWikilinks(
+    systemPrompts: (string | SystemPromptModification)[]
+  ): Promise<(string | SystemPromptModification)[]> {
+    const modifier = new SystemPromptModifier(systemPrompts);
+    const stringPrompts = modifier.getAdditionalSystemPrompts();
+
+    // Process wikilinks only in string-based system prompts
+    if (stringPrompts.length === 0) {
+      return systemPrompts;
+    }
+
+    const processedStrings = await Promise.all(
+      stringPrompts.map(prompt =>
+        this.plugin.noteContentService.processWikilinksInContent(prompt, 2)
+      )
+    );
+
+    // Reconstruct systemPrompts: replace strings with processed versions, keep modification objects
+    return systemPrompts.map(item => {
+      if (typeof item === 'string') {
+        // Find the corresponding processed string
+        const index = stringPrompts.indexOf(item);
+        return processedStrings[index];
+      }
+      // Keep modification objects unchanged
+      return item;
+    });
   }
 }

@@ -72,6 +72,8 @@ export class Indexer {
         // Skip if index is not built
         if (!this.isIndexBuilt) return;
 
+        await sleep(1000);
+
         if (file instanceof TFile) {
           // Skip files in excluded folders
           if (this.documentStore.isExcluded(file.path)) {

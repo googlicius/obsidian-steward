@@ -110,3 +110,4 @@
 # Some scenarios lead to an infinite tool calls:
 
 1. Update command need to read content, it sends a request to the Read command (1). The Read agent return a text response instead of a tool call -> Return back to the Update command, the Update agent still need to read -> resend another request (1) -> Loop created.
+2. Conflict between the user query and strict system instructions -> Leave no way to escape the loop.

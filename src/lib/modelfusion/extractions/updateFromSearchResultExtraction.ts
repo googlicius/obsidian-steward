@@ -6,6 +6,7 @@ import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
 import { logger } from 'src/utils/logger';
 import { ConversationHistoryMessage } from 'src/types/types';
+import { SystemPromptItem, SystemPromptModifier } from 'src/utils/SystemPromptModifier';
 
 const abortService = AbortService.getInstance();
 
@@ -69,7 +70,7 @@ export async function extractUpdateFromSearchResult({
   model,
 }: {
   userInput: string;
-  systemPrompts?: string[];
+  systemPrompts?: (string | SystemPromptItem)[];
   conversationHistory?: ConversationHistoryMessage[];
   lang?: string;
   model?: string; // Optional model to override default
@@ -80,12 +81,17 @@ export async function extractUpdateFromSearchResult({
       generateType: 'object',
     });
 
+    const modifier = new SystemPromptModifier(systemPrompts);
+    const additionalSystemPrompts = modifier.getAdditionalSystemPrompts();
+
     const { object } = await generateObject({
       ...llmConfig,
       abortSignal: abortService.createAbortController('update-from-artifact'),
-      system: `${updateFromSearchResultPrompt.content}\n\n${userLanguagePromptText}`,
+      system: modifier.apply(
+        `${updateFromSearchResultPrompt.content}\n\n${userLanguagePromptText}`
+      ),
       messages: [
-        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         ...conversationHistory,
         { role: 'user', content: userInput },
       ],

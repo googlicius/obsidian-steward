@@ -195,7 +195,7 @@ describe('UserDefinedCommandService', () => {
           {
             name: 'audio',
             query: 'Pronounce: $from_user',
-            system_prompt: 'Fix typo if any',
+            system_prompt: ['Fix typo if any'],
           },
         ],
         file_path: 'path/to/audio-override.md',

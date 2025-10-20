@@ -16,6 +16,7 @@ import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragmen
 import { CONFIRMATION_TOOL_NAME, ASK_USER_TOOL_NAME, createAskUserTool } from '../../tools/askUser';
 import { ToolInvocation } from '../../tools/types';
 import { uniqueID } from 'src/utils/uniqueID';
+import { SystemPromptModifier } from 'src/utils/SystemPromptModifier';
 
 const CONTENT_READING_TOOL_NAME = 'contentReading';
 
@@ -40,11 +41,15 @@ export class ReadCommandHandler extends CommandHandler {
     const readCommandQueryTemplate = COMMAND_DEFINITIONS.find(
       command => command.commandType === 'read'
     )?.queryTemplate;
+    const modifier = new SystemPromptModifier(command.systemPrompts);
+
+    console.log('system prompts', command.systemPrompts);
 
     return generateText({
       ...llmConfig,
       abortSignal: this.plugin.abortService.createAbortController('content-reading'),
-      system: `You are a helpful assistant that analyzes user queries to determine which content from their Obsidian note to read.
+      system:
+        modifier.apply(`You are a helpful assistant that analyzes user queries to determine which content from their Obsidian note to read.
 
 You have access to the following tools:
 
@@ -64,7 +69,7 @@ This is the structure of the query template:
 <read_query_template>
 ${readCommandQueryTemplate}
 </read_query_template>
-${languageEnforcementFragment}`,
+${languageEnforcementFragment}`),
       messages,
       tools: {
         [CONTENT_READING_TOOL_NAME]: tool({

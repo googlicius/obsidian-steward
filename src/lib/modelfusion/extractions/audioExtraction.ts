@@ -8,6 +8,7 @@ import { CommandIntent } from 'src/types/types';
 import { explanationFragment, confidenceFragment } from '../prompts/fragments';
 import { logger } from 'src/utils/logger';
 import { getLanguage } from 'obsidian';
+import { SystemPromptModifier } from 'src/utils/SystemPromptModifier';
 
 const abortService = AbortService.getInstance();
 
@@ -47,6 +48,10 @@ const audioExtractionSchema = z.object({
 export async function extractAudioQuery(command: CommandIntent): Promise<AudioExtraction> {
   const { systemPrompts = [] } = command;
 
+  // Extract only string-based system prompts (filter out modification objects)
+  const modifier = new SystemPromptModifier(systemPrompts);
+  const additionalSystemPrompts = modifier.getAdditionalSystemPrompts();
+
   try {
     // Check if input is wrapped in quotation marks for direct extraction
     const quotedRegex = /^["'](.+)["']$/;
@@ -73,7 +78,7 @@ export async function extractAudioQuery(command: CommandIntent): Promise<AudioEx
       abortSignal: abortService.createAbortController('audio'),
       system: audioCommandPrompt,
       messages: [
-        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         {
           role: 'user',
           content: command.query,

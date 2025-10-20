@@ -25,6 +25,7 @@ import { createEditTool, EDIT_TOOL_NAME } from '../../tools/editContent';
 import { ToolInvocation } from '../../tools/types';
 import { UpdateCommandHandler } from '../UpdateCommandHandler/UpdateCommandHandler';
 import { uniqueID } from 'src/utils/uniqueID';
+import { SystemPromptModifier } from 'src/utils/SystemPromptModifier';
 
 export interface ContentUpdate {
   updatedContent: string;
@@ -114,10 +115,14 @@ The response should be in natural language and not include the selection(s) {{st
       contentType: 'in_the_note',
     });
 
+    const modifier = new SystemPromptModifier(systemPrompts);
+    const additionalSystemPrompts = modifier.getAdditionalSystemPrompts();
+
     const extraction = await generateText({
       ...llmConfig,
       abortSignal: this.plugin.abortService.createAbortController('generate'),
-      system: `You are a helpful assistant that generates content for Obsidian notes. Generate detailed, well-structured content in Markdown.
+      system:
+        modifier.apply(`You are a helpful assistant that generates content for Obsidian notes. Generate detailed, well-structured content in Markdown.
 
 You have access to the following tools:
 
@@ -132,9 +137,9 @@ GUIDELINES:
 - When updating content, return ONLY the specific changed content, not the entire surrounding context.
 - IMPORTANT: Even if you cannot see images referenced in the user's request, you can still proceed with content generation. The actual generation process can access and process images when needed, so don't hesitate to generate content based on image-related requests.
 
-${languageEnforcementFragment}`,
+${languageEnforcementFragment}`),
       messages: [
-        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         ...conversationHistory,
         { role: 'user', content: userMessage },
       ],
@@ -403,14 +408,18 @@ ${languageEnforcementFragment}`,
       generateType: 'text',
     });
 
+    const modifier = new SystemPromptModifier(systemPrompts);
+    const additionalSystemPrompts = modifier.getAdditionalSystemPrompts();
+
     const { textStream } = streamText({
       ...llmConfig,
       abortSignal: this.plugin.abortService.createAbortController('generate'),
-      system: `You are a helpful assistant that generates content for Obsidian notes. Generate detailed, well-structured content. Format the content in Markdown.
+      system:
+        modifier.apply(`You are a helpful assistant that generates content for Obsidian notes. Generate detailed, well-structured content. Format the content in Markdown.
 The content should not include the big heading on the top.
-${languageEnforcementFragment}`,
+${languageEnforcementFragment}`),
       messages: [
-        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         ...conversationHistory,
         {
           role: 'user',

@@ -39,6 +39,11 @@ const en = {
       cannotDeleteThisType: 'Cannot delete this type of artifact: {{type}}',
       thisNote: 'this note',
     },
+    trigger: {
+      executingCommand: 'Executing triggered command: {{commandName}} for file: {{fileName}}',
+      executionError: 'Error executing trigger for command {{commandName}}: {{error}}',
+      matched: 'Trigger matched for command: {{commandName}}, event: {{event}}, file: {{fileName}}',
+    },
     // Chat UI elements
     chat: {
       newChat: 'New chat',

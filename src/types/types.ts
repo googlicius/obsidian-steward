@@ -1,6 +1,7 @@
 import { Editor } from 'obsidian';
 import { EditorView } from '@codemirror/view';
 import { Message } from 'ai';
+import { SystemPromptItem } from '../utils/SystemPromptModifier';
 
 /**
  * Exposes the Obsidian Editor and Codemirror EditorView
@@ -40,7 +41,7 @@ export interface ConversationMessage {
 export interface CommandIntent {
   commandType: string;
   query: string;
-  systemPrompts?: string[];
+  systemPrompts?: (string | SystemPromptItem)[];
   model?: string; // Optional model to use for this command
 }
 

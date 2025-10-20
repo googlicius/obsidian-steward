@@ -74,37 +74,300 @@ commands:
 - `query_required`: (optional, boolean) If true, the command requires user input after the prefix
 - `model`: (optional, string) The model to use for all commands in this user-defined command
 - `commands`: The sequence of built-in or user-defined commands to execute
-  - `system_prompt`: The system prompts that allows you to add additional guidelines to LLMs to the current command
+  - `system_prompt`: (optional) Modify the system prompt for this command (see below)
   - `query`: (required if the `query_required` is true, string) The query to send to LLMs, put the `$from_user` as a placeholder for your input
   - `model`: (optional, string) The model to use for this specific command step (overrides the command-level model)
 
-### Using Links in System Prompts
+### Customizing System Prompts
 
-You can reference the content of other notes in your vault by using Obsidian links in the `system_prompt` array:
+You can customize the system prompt for any command step using the `system_prompt` field. This allows you to modify the AI's behavior for specific commands without completely replacing the base prompt.
+
+#### Simple Format (Strings)
+
+Add additional instructions that will be handled separately:
+
+```yaml
+commands:
+  - name: read
+    system_prompt:
+      - '[[My Context Note]]' # Link to a note (content will be included)
+      - 'Focus on technical details'
+      - 'Provide examples'
+    query: $from_user
+```
+
+#### Advanced Format (Modifications)
+
+Modify specific parts of the base system prompt using operations:
+
+**Remove a guideline:**
+
+```yaml
+commands:
+  - name: read
+    system_prompt:
+      - mode: remove
+        pattern: 'Read ALL notes at once'
+    query: Read the content
+```
+
+**Modify a guideline:**
+
+```yaml
+commands:
+  - name: read
+    system_prompt:
+      - mode: modify
+        pattern: 'Read ALL notes at once'
+        replacement: 'Read notes one at a time'
+        matchType: partial # Options: partial, exact, regex (default: partial)
+    query: $from_user
+```
+
+**Add new content:**
+
+```yaml
+commands:
+  - name: read
+    system_prompt:
+      - mode: add
+        content: '- Prioritize code blocks when reading'
+        pattern: 'Use.*when you need clarification' # Optional: insert after this line
+    query: $from_user
+```
+
+#### Mixed Format
+
+You can combine strings and modifications:
+
+```yaml
+commands:
+  - name: read
+    system_prompt:
+      - '[[Custom Instructions]]' # String addition
+      - mode: remove
+        pattern: 'MUST use.*BEFORE reading the entire'
+      - mode: modify
+        pattern: 'Read ALL'
+        replacement: 'Read selected'
+      - 'Additional context' # Another string addition
+    query: $from_user
+```
+
+#### Match Types
+
+When using `remove` or `modify` mode, you can specify how to match patterns:
+
+- `partial` (default): Matches if the pattern appears anywhere in the line
+- `exact`: Matches only if the entire line equals the pattern
+- `regex`: Treats the pattern as a regular expression
+
+Example:
+
+```yaml
+system_prompt:
+  - mode: remove
+    pattern: 'Read.*notes' # Regex pattern
+    matchType: regex
+```
+
+#### Using Links in System Prompts
+
+Reference the content of other notes in your vault using Obsidian links:
 
 ```yaml
 command_name: search_with_context
-description: Search with predefined context
-query_required: true
 commands:
   - name: search
     system_prompt:
       - '[[My Context Note]]'
-      - Additional instructions
+      - '[[Another Context]]'
     query: $from_user
 ```
 
-When the command is executed:
+When executed:
 
 1. The link `[[My Context Note]]` will be replaced with the actual content of that note
 2. This allows you to maintain complex prompts or contexts in separate notes
 3. You can update the linked notes independently of your command definition
+
+#### Practical Examples
+
+**Sequential Reading (instead of parallel):**
+
+```yaml
+command_name: sequential_read
+commands:
+  - name: read
+    system_prompt:
+      - mode: modify
+        pattern: 'Read ALL notes at once'
+        replacement: 'Read notes one at a time sequentially'
+    query: Read $from_user
+```
+
+**Remove Confirmation Requirements:**
+
+```yaml
+command_name: quick_read
+commands:
+  - name: read
+    system_prompt:
+      - mode: remove
+        pattern: 'MUST use.*BEFORE reading the entire'
+    query: Read the entire note $from_user
+```
+
+**Add Domain-Specific Instructions:**
+
+```yaml
+command_name: code_review
+commands:
+  - name: read
+    system_prompt:
+      - '[[Code Review Guidelines]]'
+      - mode: add
+        content: '- Focus on security vulnerabilities and performance issues'
+      - mode: add
+        content: '- Highlight best practices violations'
+    query: Review the code in $from_user
+```
+
+**Combine Multiple Modifications:**
+
+```yaml
+command_name: custom_search
+commands:
+  - name: search
+    system_prompt:
+      - '[[Search Context]]'
+      - mode: remove
+        pattern: 'limit.*results'
+        matchType: regex
+      - mode: modify
+        pattern: 'semantic search'
+        replacement: 'keyword-based search'
+      - 'Prioritize recent files'
+    query: $from_user
+```
 
 ### Usage
 
 1. Create a note in `Steward/Commands` and add your command YAML in a code block.
 2. In any note or the Chat, type your command (e.g., `/clean_up #Todo`) and press Enter.
 3. The command will execute the defined sequence, using your input if required.
+
+### Automated Command Triggers
+
+User-Defined Commands can be configured to automatically execute when specific file events occur, enabling powerful automation workflows.
+
+#### Trigger Configuration
+
+Add a `triggers` array to your command definition to specify when the command should automatically execute:
+
+```yaml
+command_name: inbox_processor
+query_required: false
+triggers:
+  - events: [create]
+    folders: ['Inbox']
+  - events: [modify]
+    patterns:
+      tags: ['#process']
+      status: 'pending'
+commands:
+  - name: read
+    query: 'Read the content of $file_name'
+  - name: generate
+    query: 'Categorize and suggest improvements'
+```
+
+#### Trigger Fields
+
+- `events`: (required, array) List of events to watch: `create`, `modify`, `delete`
+- `folders`: (optional, array) Folder paths to watch (e.g., `["Inbox", "Daily Notes"]`)
+- `patterns`: (optional, object) Pattern matching criteria (all must match):
+  - `tags`: Tags to match (e.g., `["#todo", "#review"]` or `"#todo"`)
+  - `content`: Regex pattern to match file content
+  - Any frontmatter property name (e.g., `status: "draft"`, `priority: ["high", "urgent"]`)
+
+#### Placeholders in Triggers
+
+When a command is triggered, you can use these placeholders:
+
+- `$file_name`: The name of the file that triggered the command
+- `$from_user`: Empty string for triggered commands
+
+#### Practical Examples
+
+**Daily Note Processing:**
+
+```yaml
+command_name: daily_note_processor
+triggers:
+  - events: [create]
+    patterns:
+      folders: ['Daily Notes']
+commands:
+  - name: read
+    query: 'Read $file_name'
+  - name: generate
+    query: 'Extract tasks and create a summary'
+```
+
+**Tag-Based Workflow:**
+
+```yaml
+command_name: flashcard_review
+triggers:
+  - events: [modify]
+    patterns:
+      tags: '#flashcard'
+commands:
+  - name: read
+    query: 'Review flashcard in $file_name'
+  - name: generate
+    query: 'Validate flashcard format'
+```
+
+**Property-Based Workflow:**
+
+```yaml
+command_name: draft_reviewer
+triggers:
+  - events: [modify]
+    patterns:
+      status: 'draft'
+      type: 'article'
+commands:
+  - name: read
+    query: 'Read article from $file_name'
+  - name: generate
+    query: 'Review the draft and provide feedback'
+```
+
+**Content Pattern Matching:**
+
+```yaml
+command_name: todo_detector
+triggers:
+  - events: [modify]
+    patterns:
+      content: '\\[ \\]|TODO:|FIXME:'
+commands:
+  - name: read
+    query: 'Read content from $file_name'
+  - name: generate
+    query: 'Extract all TODO items and create a task list'
+```
+
+#### How Triggers Work
+
+1. When a file event occurs (create/modify/delete), the system checks all trigger conditions
+2. For `modify` events, the system waits for metadata cache to update, then checks if patterns are newly added
+3. If all patterns match and are new (for modify events), a conversation note is created automatically
+4. The triggered command executes in this conversation note
+5. Conversation notes are saved in `Steward/Triggered/{command_name}-{timestamp}`
 
 ### Validation
 
@@ -113,6 +376,11 @@ When the command is executed:
   - `commands` must be a non-empty array
   - If present, `query_required` must be a boolean
   - Each command step must have a `name` (string) and `query` (string)
+  - If present, `triggers` must be an array with:
+    - Valid event types (`create`, `modify`, `delete`)
+    - Optional `folders` array
+    - Optional `patterns` object where each value is a string or array
+    - `content` pattern must be a valid regular expression if present
 - If validation fails, the command will not be loaded and an error will be logged.
 
 ### Creating Commands with LLM Assistance

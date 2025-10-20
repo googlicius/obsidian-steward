@@ -35,6 +35,11 @@ const vi = {
       cannotDeleteThisType: 'Không thể xóa loại artifact này: {{type}}',
       thisNote: 'ghi chú này',
     },
+    trigger: {
+      executingCommand: 'Đang thực thi lệnh tự động: {{commandName}} cho tập tin: {{fileName}}',
+      executionError: 'Lỗi khi thực thi trigger cho lệnh {{commandName}}: {{error}}',
+      matched: 'Trigger khớp với lệnh: {{commandName}}, sự kiện: {{event}}, tập tin: {{fileName}}',
+    },
     // Chat UI elements
     chat: {
       newChat: 'Cuộc trò chuyện mới',

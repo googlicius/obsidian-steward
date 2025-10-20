@@ -33,6 +33,12 @@ const ja = {
       cannotDeleteThisType: 'この種類のアーティファクトは削除できません: {{type}}',
       thisNote: 'このノート',
     },
+    trigger: {
+      executingCommand: 'トリガーコマンドを実行中: {{commandName}} ファイル: {{fileName}}',
+      executionError: 'コマンド {{commandName}} のトリガー実行エラー: {{error}}',
+      matched:
+        'トリガーが一致しました - コマンド: {{commandName}}, イベント: {{event}}, ファイル: {{fileName}}',
+    },
     // Chat UI elements
     chat: {
       newChat: '新しいチャット',

@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { CommandIntent } from 'src/types/types';
 import { confidenceFragment, explanationFragment } from '../prompts/fragments';
 import { logger } from 'src/utils/logger';
+import { SystemPromptModifier } from 'src/utils/SystemPromptModifier';
 
 const abortService = AbortService.getInstance();
 
@@ -57,12 +58,15 @@ export async function extractDestinationFolder(
       generateType: 'object',
     });
 
+    const modifier = new SystemPromptModifier(systemPrompts);
+    const additionalSystemPrompts = modifier.getAdditionalSystemPrompts();
+
     const { object } = await generateObject({
       ...llmConfig,
       abortSignal: abortService.createAbortController('destination-folder'),
-      system: `${destinationFolderPrompt}`,
+      system: modifier.apply(destinationFolderPrompt),
       messages: [
-        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         {
           role: 'user',
           content: query,
