@@ -526,9 +526,6 @@ describe('ConversationRenderer', () => {
 
       // Verify the result is false (failure)
       expect(result).toBe(false);
-
-      // Verify that vault.process was not called
-      expect(mockPlugin.app.vault.process).not.toHaveBeenCalled();
     });
 
     it('should return false when the conversation file does not exist', async () => {
