@@ -980,17 +980,17 @@ export class ConversationRenderer {
         throw new Error(`Note not found: ${notePath}`);
       }
 
-      // Read the current content
-      const content = await this.plugin.app.vault.cachedRead(file);
+      // Update the file with regex check inside process to ensure current content
+      let foundMatch = false;
+      await this.plugin.app.vault.process(file, currentContent => {
+        // Find the comment block with the given ID in the current content
+        const idPattern = `ID:${messageId}`;
+        const commentBlockRegex = new RegExp(`<!--STW ${idPattern}.*?-->`, 'gi');
+        const matches = Array.from(currentContent.matchAll(commentBlockRegex));
 
-      // Find the comment block with the given ID
-      const idPattern = `ID:${messageId}`;
-      const commentBlockRegex = new RegExp(`<!--STW ${idPattern}.*?-->`, 'gi');
-      const matches = Array.from(content.matchAll(commentBlockRegex));
+        if (matches.length > 0) {
+          foundMatch = true;
 
-      if (matches.length > 0) {
-        // Update the file
-        await this.plugin.app.vault.process(file, currentContent => {
           // Get the existing comment block
           const originalCommentBlock = matches[0][0];
 
@@ -1004,12 +1004,13 @@ export class ConversationRenderer {
 
           // Replace the comment block in the content
           return currentContent.replace(originalCommentBlock, updatedCommentBlock);
-        });
+        }
 
-        return true;
-      }
+        // Return unchanged content if no match found
+        return currentContent;
+      });
 
-      return false;
+      return foundMatch;
     } catch (error) {
       logger.error('Error updating message metadata:', error);
       return false;
