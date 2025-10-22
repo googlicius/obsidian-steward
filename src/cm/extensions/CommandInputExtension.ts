@@ -245,10 +245,8 @@ function createAutocompleteExtension(plugin: StewardPlugin): Extension {
     override: [
       (context: CompletionContext): CompletionResult | null => {
         // Don't show autocomplete if the core Slash Commands plugin is enabled
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const isSlashCommandsEnabled = (plugin.app as any).internalPlugins?.getPluginById(
-          'slash-command'
-        )?.enabled;
+        const isSlashCommandsEnabled =
+          plugin.extendedApp.internalPlugins?.getPluginById('slash-command')?.enabled;
         if (isSlashCommandsEnabled) return null;
 
         // Get current line

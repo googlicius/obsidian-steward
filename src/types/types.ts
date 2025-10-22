@@ -1,4 +1,4 @@
-import { Editor } from 'obsidian';
+import { Editor, App } from 'obsidian';
 import { EditorView } from '@codemirror/view';
 import { Message } from 'ai';
 
@@ -8,6 +8,17 @@ import { Message } from 'ai';
 export type ObsidianEditor = Editor & {
   cm: EditorView;
 };
+
+/**
+ * Extended App type that includes internal plugins access
+ */
+export interface ExtendedApp extends App {
+  internalPlugins?: {
+    getPluginById(id: string): {
+      enabled: boolean;
+    } | null;
+  };
+}
 
 export type ConversationRole = 'user' | 'assistant' | 'system';
 
