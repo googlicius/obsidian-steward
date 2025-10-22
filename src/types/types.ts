@@ -1,4 +1,4 @@
-import { Editor } from 'obsidian';
+import { Editor, App } from 'obsidian';
 import { EditorView } from '@codemirror/view';
 import { Message } from 'ai';
 import { SystemPromptItem } from '../utils/SystemPromptModifier';
@@ -9,6 +9,17 @@ import { SystemPromptItem } from '../utils/SystemPromptModifier';
 export type ObsidianEditor = Editor & {
   cm: EditorView;
 };
+
+/**
+ * Extended App type that includes internal plugins access
+ */
+export interface ExtendedApp extends App {
+  internalPlugins?: {
+    getPluginById(id: string): {
+      enabled: boolean;
+    } | null;
+  };
+}
 
 export type ConversationRole = 'user' | 'assistant' | 'system';
 
