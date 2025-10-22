@@ -15,6 +15,31 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 - **Multi-language Support**: Use Steward in your preferred language.
 - **User-Defined Commands**: Create your own command workflows by combining multiple commands with specific LLM models and settings of your choice.
 
+## Table of Contents
+
+- [Features](#features)
+- [Standard (Built-In) Commands](#standard-built-in-commands)
+  - [Usage](#usage)
+  - [Showcases](#showcases)
+- [User-Defined Commands](#user-defined-commands)
+  - [How It Works](#how-it-works)
+  - [Example: User-Defined Command definition](#example-user-defined-command-definition)
+  - [Customizing System Prompts](#customizing-system-prompts)
+  - [Usage](#usage-1)
+  - [Automated Command Triggers](#automated-command-triggers)
+  - [Validation](#validation)
+  - [Creating Commands with LLM Assistance](#creating-commands-with-llm-assistance)
+  - [User-Defined command showcases](#user-defined-command-showcases)
+- [Command Flow Visualization](#command-flow-visualization)
+- [Folder Structure](#folder-structure)
+- [Installation](#installation)
+- [Settings](#settings)
+- [Development](#development)
+- [Contributing](#contributing)
+  - [Code Contributions](#code-contributions)
+  - [User-Defined Commands](#user-defined-commands-1)
+- [License](#license)
+
 ## Standard (Built-In) Commands
 
 Steward can be used directly in the editor or by opening the chat interface.
