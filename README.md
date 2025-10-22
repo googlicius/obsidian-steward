@@ -331,13 +331,19 @@ You can ask Steward to help create user-defined commands using natural language,
 3. Steward will create commands with the proper YAML structure for you
 4. Review, modify if needed, and save to your Commands folder
 
+### User-Defined command showcases
+
 #### User-Defined command creation with LLM helps:
 
 <img src="/docs/User-Defined-command-creation.gif" alt="User-Defined command creation" width="650px">
 
-#### Another Real-World User-Defined command:
+#### Flashcard assist:
 
 <img src="/docs/Flashcard-Assist-command.gif" alt="Flashcard Assist" width="650px">
+
+#### Automated command
+
+<img src="/docs/Steward-Demo-Auto-trigger.gif" alt="Flashcard Assist" width="650px">
 
 ### Command Flow Visualization
 
