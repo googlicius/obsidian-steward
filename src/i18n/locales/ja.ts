@@ -34,10 +34,18 @@ const ja = {
       thisNote: 'このノート',
     },
     trigger: {
-      executingCommand: 'トリガーコマンドを実行中: {{commandName}} ファイル: {{fileName}}',
-      executionError: 'コマンド {{commandName}} のトリガー実行エラー: {{error}}',
-      matched:
-        'トリガーが一致しました - コマンド: {{commandName}}, イベント: {{event}}, ファイル: {{fileName}}',
+      executing: 'トリガーコマンドを実行中: {{commandName}}',
+      executed: 'トリガー "{{commandName}}" を実行しました。',
+      openConversation: '会話を開く',
+    },
+    validation: {
+      errorTitle: 'UDC 検証エラー',
+      errorDetected: 'コマンドファイルで検証エラーが検出されました: {{fileName}}. ',
+      openValidationNote: 'エラーを表示',
+      errorDescription: 'ユーザー定義コマンドの検証中に次のエラーが見つかりました:',
+      commandError: 'コマンド: {{commandName}}',
+      yamlError: '無効なYAML構文',
+      successMessage: 'すべてのコマンド定義が有効です！✅',
     },
     // Chat UI elements
     chat: {

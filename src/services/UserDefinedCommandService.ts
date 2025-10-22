@@ -1,4 +1,4 @@
-import { normalizePath, TFile } from 'obsidian';
+import { getLanguage, normalizePath, Notice, TFile } from 'obsidian';
 import { logger } from 'src/utils/logger';
 import { CommandIntent } from 'src/types/types';
 import * as yaml from 'js-yaml';
@@ -6,31 +6,9 @@ import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES } from 'src/constants';
 import { SearchOperationV2 } from 'src/solutions/commands/handlers/SearchCommandHandler/zSchemas';
 import { SystemPromptItem } from 'src/utils/SystemPromptModifier';
-
-/**
- * Represents a command within a user-defined command sequence
- */
-interface UserDefinedCommandStep {
-  name: string;
-  system_prompt?: (string | SystemPromptItem)[];
-  query: string;
-  model?: string;
-}
-
-/**
- * Represents a trigger condition for automated command execution
- */
-export interface TriggerCondition {
-  // Event types to watch
-  events: ('create' | 'modify' | 'delete')[];
-
-  // Folder path(s) to watch (optional)
-  folders?: string[];
-
-  // Pattern matching (all conditions must be met)
-  // Keys can be 'tags' for tags, 'content' for regex, or any frontmatter property name
-  patterns?: Record<string, string | string[]>;
-}
+import { StewardChatView } from 'src/views/StewardChatView';
+import i18next from 'i18next';
+import { z } from 'zod';
 
 /**
  * Represents a user-defined command definition
@@ -38,11 +16,139 @@ export interface TriggerCondition {
 export interface UserDefinedCommand {
   command_name: string;
   query_required?: boolean;
-  commands: UserDefinedCommandStep[];
+  commands: Array<{
+    name: string;
+    system_prompt?: (string | SystemPromptItem)[];
+    query: string;
+    model?: string;
+    no_confirm?: boolean;
+  }>;
   file_path: string;
   model?: string;
-  triggers?: TriggerCondition[];
+  triggers?: Array<{
+    // Event types to watch
+    events: ('create' | 'modify' | 'delete')[];
+
+    // Folder path(s) to watch (optional)
+    folders?: string[];
+
+    // Pattern matching (all conditions must be met)
+    // Keys can be 'tags' for tags, 'content' for regex, or any frontmatter property name
+    patterns?: Record<string, string | string[]>;
+  }>;
 }
+
+type TriggerCondition = NonNullable<UserDefinedCommand['triggers']>[number];
+
+/**
+ * Zod schema for SystemPromptModification
+ */
+const systemPromptModificationSchema = z.object({
+  mode: z.enum(['modify', 'remove', 'add']),
+  pattern: z.string().optional(),
+  replacement: z.string().optional(),
+  content: z.string().optional(),
+  matchType: z.enum(['exact', 'partial', 'regex']).optional(),
+});
+
+/**
+ * Zod schema for SystemPromptItem
+ */
+const systemPromptItemSchema = z.union([z.string(), systemPromptModificationSchema]);
+
+/**
+ * Validation refinement for SystemPromptModification based on mode
+ */
+const validateSystemPromptModification = (
+  item: z.infer<typeof systemPromptModificationSchema>
+): boolean => {
+  if (item.mode === 'modify') {
+    return !!item.pattern && !!item.replacement;
+  }
+  if (item.mode === 'remove') {
+    return !!item.pattern;
+  }
+  if (item.mode === 'add') {
+    return !!item.content;
+  }
+  return false;
+};
+
+/**
+ * Zod schema for UserDefinedCommandStep
+ */
+const userDefinedCommandStepSchema = z.object({
+  name: z.string().min(1, 'Command name is required'),
+  system_prompt: z
+    .array(systemPromptItemSchema)
+    .optional()
+    .refine(
+      val => {
+        if (!val) return true;
+        return val.every(item => {
+          if (typeof item === 'string') return true;
+          return validateSystemPromptModification(item);
+        });
+      },
+      {
+        message:
+          'system_prompt modification objects must have valid mode-specific fields (modify: pattern & replacement, remove: pattern, add: content)',
+      }
+    ),
+  query: z.string().min(1, 'Step query is required'),
+  model: z.string().optional(),
+  no_confirm: z.boolean().optional(),
+});
+
+/**
+ * Zod schema for TriggerCondition
+ */
+const triggerConditionSchema = z
+  .object({
+    events: z
+      .array(z.enum(['create', 'modify', 'delete']))
+      .min(1, 'At least one event is required'),
+    folders: z.array(z.string()).optional(),
+    patterns: z.record(z.union([z.string(), z.array(z.string())])).optional(),
+  })
+  .refine(
+    data => {
+      // Validate regex pattern for content
+      if (data.patterns?.content) {
+        const pattern = Array.isArray(data.patterns.content)
+          ? data.patterns.content[0]
+          : data.patterns.content;
+        try {
+          new RegExp(pattern);
+          return true;
+        } catch {
+          return false;
+        }
+      }
+      return true;
+    },
+    {
+      message: 'trigger pattern "content" must be a valid regex',
+    }
+  );
+
+/**
+ * Zod schema for UserDefinedCommand
+ */
+const userDefinedCommandSchema = z.object({
+  command_name: z
+    .string()
+    .min(1, 'Command name is required')
+    .regex(
+      /^[a-zA-Z0-9_-]+$/,
+      'Command name must only contain alphanumeric characters, hyphens, and underscores (no spaces or special characters)'
+    ),
+  query_required: z.boolean().optional(),
+  commands: z.array(userDefinedCommandStepSchema).min(1, 'At least one command step is required'),
+  file_path: z.string(),
+  model: z.string().optional(),
+  triggers: z.array(triggerConditionSchema).optional(),
+});
 
 export class UserDefinedCommandService {
   private static instance: UserDefinedCommandService | null = null;
@@ -158,8 +264,10 @@ export class UserDefinedCommandService {
 
   /**
    * Load command definition from a file
+   * @param file The file to load commands from
+   * @param shouldRenderErrors Whether to render validation errors (only on modify events)
    */
-  private async loadCommandFromFile(file: TFile): Promise<void> {
+  private async loadCommandFromFile(file: TFile, shouldRenderErrors = false): Promise<void> {
     try {
       // First, remove any existing commands from this file
       this.removeCommandsFromFile(file.path);
@@ -169,6 +277,11 @@ export class UserDefinedCommandService {
       // Extract YAML blocks from the content
       const yamlBlocks = await this.extractYamlBlocks(content);
 
+      const validationErrors: Array<{
+        commandName: string;
+        errors: string[];
+      }> = [];
+
       for (const yamlContent of yamlBlocks) {
         try {
           const commandDefinition = yaml.load(yamlContent) as UserDefinedCommand;
@@ -176,13 +289,30 @@ export class UserDefinedCommandService {
           // Add file path to the command definition
           commandDefinition.file_path = file.path;
 
-          if (this.validateCommandDefinition(commandDefinition)) {
+          const validation = this.validateCommandDefinitionWithErrors(commandDefinition);
+
+          if (validation.isValid) {
             this.userDefinedCommands.set(commandDefinition.command_name, commandDefinition);
             logger.log(`Loaded user-defined command: ${commandDefinition.command_name}`);
+          } else {
+            validationErrors.push({
+              commandName: commandDefinition.command_name || 'unknown',
+              errors: validation.errors,
+            });
           }
         } catch (yamlError) {
+          const errorMsg = yamlError instanceof Error ? yamlError.message : String(yamlError);
+          validationErrors.push({
+            commandName: 'unknown',
+            errors: [i18next.t('validation.yamlError'), errorMsg],
+          });
           logger.error(`Invalid YAML in file ${file.path}:`, yamlError);
         }
+      }
+
+      // Render validation result on modify events (errors or success message)
+      if (shouldRenderErrors) {
+        await this.renderValidationErrors(file, validationErrors);
       }
     } catch (error) {
       logger.error(`Error loading command from file ${file.path}:`, error);
@@ -356,174 +486,151 @@ export class UserDefinedCommandService {
   }
 
   /**
-   * Validate a command definition
+   * Validate a command definition and return detailed errors
    */
-  private validateCommandDefinition(command: UserDefinedCommand): boolean {
-    if (!command.command_name || typeof command.command_name !== 'string') {
-      logger.error('Invalid command: missing or invalid command_name');
-      return false;
-    }
+  private validateCommandDefinitionWithErrors(command: UserDefinedCommand): {
+    isValid: boolean;
+    errors: string[];
+  } {
+    try {
+      userDefinedCommandSchema.parse(command);
+      return { isValid: true, errors: [] };
+    } catch (error) {
+      const errors: string[] = [];
+      if (error instanceof z.ZodError) {
+        const commandName = command.command_name || 'unknown';
+        logger.error(`Invalid command ${commandName}:`);
 
-    if (!Array.isArray(command.commands) || command.commands.length === 0) {
-      logger.error(`Invalid command ${command.command_name}: missing or empty commands array`);
-      return false;
-    }
+        const addError = (path: string, message: string) => {
+          const errorMsg = `${path}: ${message}`;
+          errors.push(errorMsg);
+          logger.error(`  - ${errorMsg}`);
+        };
 
-    if ('query_required' in command && typeof command.query_required !== 'boolean') {
-      logger.error(`Invalid command ${command.command_name}: query_required must be a boolean`);
-      return false;
-    }
-
-    // Validate the model field if present
-    if ('model' in command && typeof command.model !== 'string') {
-      logger.error(`Invalid command ${command.command_name}: model must be a string`);
-      return false;
-    }
-
-    // Validate triggers if present
-    if ('triggers' in command) {
-      if (!Array.isArray(command.triggers)) {
-        logger.error(`Invalid command ${command.command_name}: triggers must be an array`);
-        return false;
-      }
-
-      for (const trigger of command.triggers) {
-        if (!this.validateTriggerCondition(command.command_name, trigger)) {
-          return false;
-        }
-      }
-    }
-
-    for (const step of command.commands) {
-      if (!step.name || typeof step.name !== 'string') {
-        logger.error(`Invalid command ${command.command_name}: step missing name`);
-        return false;
-      }
-
-      // Check system_prompt can be either a string or an array (of strings or modification objects)
-      if ('system_prompt' in step) {
-        if (!Array.isArray(step.system_prompt) && typeof step.system_prompt !== 'string') {
-          logger.error(
-            `Invalid command ${command.command_name}: system_prompt must be an array or string`
-          );
-          return false;
-        }
-
-        // Validate array items if it's an array
-        if (Array.isArray(step.system_prompt)) {
-          for (const item of step.system_prompt) {
-            if (typeof item !== 'string' && typeof item !== 'object') {
-              logger.error(
-                `Invalid command ${command.command_name}: system_prompt array items must be strings or modification objects`
-              );
-              return false;
-            }
-
-            // Validate modification object structure
-            if (typeof item === 'object') {
-              if (!('mode' in item) || !['modify', 'remove', 'add'].includes(item.mode)) {
-                logger.error(
-                  `Invalid command ${command.command_name}: system_prompt modification must have valid mode (modify, remove, or add)`
-                );
-                return false;
-              }
-
-              // Validate mode-specific requirements
-              if (item.mode === 'modify' && (!item.pattern || !item.replacement)) {
-                logger.error(
-                  `Invalid command ${command.command_name}: system_prompt modify mode requires pattern and replacement`
-                );
-                return false;
-              }
-
-              if (item.mode === 'remove' && !item.pattern) {
-                logger.error(
-                  `Invalid command ${command.command_name}: system_prompt remove mode requires pattern`
-                );
-                return false;
-              }
-
-              if (item.mode === 'add' && !item.content) {
-                logger.error(
-                  `Invalid command ${command.command_name}: system_prompt add mode requires content`
-                );
-                return false;
+        for (const issue of error.errors) {
+          // Handle invalid_union errors - extract nested errors
+          if (issue.code === 'invalid_union') {
+            for (const unionError of issue.unionErrors) {
+              for (const nestedIssue of unionError.issues) {
+                const path = nestedIssue.path.join('.');
+                addError(path, nestedIssue.message);
               }
             }
+          } else {
+            // Handle regular errors
+            const path = issue.path.join('.');
+            addError(path, issue.message);
           }
         }
+      } else {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        errors.push(errorMsg);
+        logger.error('Invalid command definition:', error);
       }
-
-      if (!step.query || typeof step.query !== 'string') {
-        logger.error(`Invalid command ${command.command_name}: step missing query`);
-        return false;
-      }
-
-      // Validate the step model field if present
-      if ('model' in step && typeof step.model !== 'string') {
-        logger.error(`Invalid command ${command.command_name}: step model must be a string`);
-        return false;
-      }
+      return { isValid: false, errors };
     }
-
-    return true;
   }
 
   /**
-   * Validate a trigger condition
+   * Render validation errors or success message in a dedicated note
    */
-  private validateTriggerCondition(commandName: string, trigger: TriggerCondition): boolean {
-    if (!Array.isArray(trigger.events) || trigger.events.length === 0) {
-      logger.error(`Invalid command ${commandName}: trigger must have non-empty events array`);
-      return false;
-    }
+  private async renderValidationErrors(
+    sourceFile: TFile,
+    validationErrors: Array<{
+      commandName: string;
+      errors: string[];
+    }>
+  ): Promise<void> {
+    try {
+      const stewardFolder = this.plugin.settings.stewardFolder;
+      const validationNotePath = `${stewardFolder}/UDC-validation-errors.md`;
 
-    const validEvents = ['create', 'modify', 'delete'];
-    for (const event of trigger.events) {
-      if (!validEvents.includes(event)) {
-        logger.error(
-          `Invalid command ${commandName}: invalid event type "${event}". Must be one of: ${validEvents.join(', ')}`
+      const errorDescription = i18next.t('validation.errorDescription');
+
+      let errorContent = '';
+      errorContent += `**Source file:** [[${sourceFile.basename}]]\n\n`;
+      errorContent += '```stw-artifact\n';
+      errorContent += `**Last updated:** ${new Date().toLocaleString()}\n`;
+      errorContent += '```\n\n';
+      errorContent += `---\n\n`;
+
+      if (validationErrors.length === 0) {
+        // No errors - show success message
+        const successMessage = i18next.t('validation.successMessage');
+        const successCallout = this.plugin.noteContentService.formatCallout(
+          successMessage,
+          'success'
         );
-        return false;
-      }
-    }
+        errorContent += successCallout;
+      } else {
+        // Has errors - show error details
+        errorContent += `${errorDescription}\n\n`;
 
-    if (trigger.folders !== undefined && !Array.isArray(trigger.folders)) {
-      logger.error(`Invalid command ${commandName}: trigger folders must be an array`);
-      return false;
-    }
+        for (const errorInfo of validationErrors) {
+          const commandError = i18next.t('validation.commandError', {
+            commandName: errorInfo.commandName,
+          });
+          errorContent += `**${commandError}**\n\n`;
 
-    if (trigger.patterns) {
-      if (typeof trigger.patterns !== 'object') {
-        logger.error(`Invalid command ${commandName}: trigger patterns must be an object`);
-        return false;
-      }
-
-      // Validate each pattern
-      for (const [key, value] of Object.entries(trigger.patterns)) {
-        if (typeof value !== 'string' && !Array.isArray(value)) {
-          logger.error(
-            `Invalid command ${commandName}: trigger pattern "${key}" must be a string or array`
-          );
-          return false;
+          // Format errors as callout
+          const errorList = errorInfo.errors.map(err => `- ${err}`).join('\n');
+          const errorCallout = this.plugin.noteContentService.formatCallout(errorList, 'error');
+          errorContent += errorCallout + '\n';
         }
 
-        // Validate regex pattern for content
-        if (key === 'content') {
-          const pattern = Array.isArray(value) ? value[0] : value;
-          try {
-            new RegExp(pattern);
-          } catch (e) {
-            logger.error(
-              `Invalid command ${commandName}: trigger pattern "content" is not a valid regex: ${e.message}`
-            );
-            return false;
-          }
+        errorContent += `---\n\n`;
+      }
+
+      // Check if the validation note already exists
+      const existingFile = this.plugin.app.vault.getFileByPath(validationNotePath);
+
+      if (existingFile) {
+        // Update existing file
+        await this.plugin.app.vault.modify(existingFile, errorContent);
+      } else {
+        // Create new file
+        await this.plugin.app.vault.create(validationNotePath, errorContent);
+      }
+
+      // Only show notice if there are errors
+      if (validationErrors.length > 0) {
+        const leaf = this.plugin.getChatLeaf();
+        if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(validationNotePath)) {
+          // Show notice with link to open the chat and view errors
+          const noticeEl = document.createDocumentFragment();
+          const text = noticeEl.createEl('span');
+          text.textContent = i18next.t('validation.errorDetected', {
+            fileName: sourceFile.basename,
+          });
+
+          // Add line break
+          noticeEl.createEl('br');
+
+          const link = noticeEl.createEl('a', {
+            text: i18next.t('validation.openValidationNote'),
+            href: '#',
+          });
+          link.addEventListener('click', async e => {
+            e.preventDefault();
+
+            // Open the chat
+            await this.plugin.openChat({ revealLeaf: true });
+
+            // Get the chat view and open the validation note
+            const leaf = this.plugin.getChatLeaf();
+            const view = leaf.view;
+
+            if (view instanceof StewardChatView) {
+              await view.openExistingConversation(validationNotePath);
+            }
+          });
+
+          new Notice(noticeEl, 10000);
         }
       }
+    } catch (error) {
+      logger.error('Error rendering validation errors:', error);
     }
-
-    return true;
   }
 
   /**
@@ -531,7 +638,7 @@ export class UserDefinedCommandService {
    */
   private async handleFileModification(file: TFile): Promise<void> {
     if (this.isCommandFile(file)) {
-      await this.loadCommandFromFile(file);
+      await this.loadCommandFromFile(file, true); // Render errors on modify
     } else {
       // Add to pending queue - will check triggers when metadata cache updates
       this.pendingTriggerChecks.set(file.path, 'modify');
@@ -608,7 +715,7 @@ export class UserDefinedCommandService {
     try {
       const operation: SearchOperationV2 = {
         keywords: [],
-        filenames: [file.basename], // Search by filename without extension
+        filenames: [file.basename],
         folders: trigger.folders || [],
         properties: [],
       };
@@ -666,15 +773,45 @@ export class UserDefinedCommandService {
    * Execute a triggered command
    */
   private async executeTrigger(command: UserDefinedCommand, file: TFile): Promise<void> {
+    // Generate unique conversation note title
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const conversationsFolder = `${this.plugin.settings.stewardFolder}/Conversations`;
+    const conversationTitle = `${command.command_name}-${timestamp}`;
+    const conversationPath = `${conversationsFolder}/${conversationTitle}.md`;
+    logger.log(`Executing triggered command: ${command.command_name} for file: ${file.name}`);
+
+    const getNoticeEl = (message: string): DocumentFragment => {
+      // Show notice with link to the conversation note
+      const noticeEl = document.createDocumentFragment();
+      const text = noticeEl.createEl('span');
+      text.textContent = message;
+
+      // Add line break
+      noticeEl.createEl('br');
+
+      const link = noticeEl.createEl('a', {
+        text: i18next.t('trigger.openConversation'),
+        href: '#',
+      });
+      link.addEventListener('click', async e => {
+        e.preventDefault();
+
+        // Open the chat
+        await this.plugin.openChat({ revealLeaf: true });
+
+        // Get the chat view and open the conversation
+        const leaf = this.plugin.getChatLeaf();
+        const view = leaf.view;
+
+        if (view instanceof StewardChatView) {
+          await view.openExistingConversation(conversationPath);
+        }
+      });
+
+      return noticeEl;
+    };
+
     try {
-      // Generate unique conversation note title
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-      const conversationsFolder = `${this.plugin.settings.stewardFolder}/Conversations`;
-      const conversationTitle = `${command.command_name}-${timestamp}`;
-      const conversationPath = `${conversationsFolder}/${conversationTitle}.md`;
-
-      logger.log(`Executing triggered command: ${command.command_name} for file: ${file.name}`);
-
       // Ensure conversations folder exists
       const folderExists = this.plugin.app.vault.getFolderByPath(conversationsFolder);
       if (!folderExists) {
@@ -684,14 +821,21 @@ export class UserDefinedCommandService {
       // Create the conversation note
       const frontmatter = [
         '---',
+        `model: ${command.model || this.plugin.settings.llm.chat.model}`,
         `trigger: ${command.command_name}`,
         `source_file: ${file.name}`,
         `created: ${new Date().toISOString()}`,
+        `lang: ${getLanguage()}`,
         '---',
         '',
       ].join('\n');
 
       await this.plugin.app.vault.create(conversationPath, frontmatter);
+
+      new Notice(
+        getNoticeEl(i18next.t('trigger.executing', { commandName: command.command_name })),
+        10000
+      );
 
       await this.plugin.commandProcessorService.commandProcessor.processCommands({
         title: conversationTitle,
@@ -702,7 +846,28 @@ export class UserDefinedCommandService {
           },
         ],
       });
+
+      // Show notice if the chat view is not visible
+      const leaf = this.plugin.getChatLeaf();
+      if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
+        new Notice(
+          getNoticeEl(i18next.t('trigger.executed', { commandName: command.command_name })),
+          10000
+        );
+      }
     } catch (error) {
+      const leaf = this.plugin.getChatLeaf();
+      if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
+        new Notice(
+          getNoticeEl(
+            i18next.t('trigger.executionFailed', {
+              commandName: command.command_name,
+              error: error instanceof Error ? error.message : String(error),
+            })
+          ),
+          10000
+        );
+      }
       logger.error(`Error executing trigger for command ${command.command_name}:`, error);
     }
   }
@@ -732,13 +897,13 @@ export class UserDefinedCommandService {
       }
 
       for (const trigger of command.triggers) {
-        // First, check if current state matches the trigger condition (cheap operation)
+        // First, check if current state matches the trigger condition (cheaper operation than the searchV3 below)
         const matches = await this.evaluateTriggerCondition({ file, event, trigger });
         if (!matches) {
           continue; // Current state doesn't match, skip
         }
 
-        // For modify events, check if this is a newly added pattern (expensive search operation)
+        // For modify events, check if this is a newly added pattern
         if (event === 'modify') {
           const isNewPattern = await this.isNewlyAddedPattern({ file, trigger });
           if (!isNewPattern) {
@@ -804,6 +969,7 @@ export class UserDefinedCommandService {
         systemPrompts: step.system_prompt,
         query,
         model,
+        no_confirm: step.no_confirm,
       };
     });
   }

@@ -199,10 +199,10 @@ export default class StewardPlugin extends Plugin {
       id: 'toggle-chat',
       name: 'Toggle chat',
       callback: async () => {
-        const activeFile = this.app.workspace.getActiveFile();
+        const rightSplit = this.app.workspace.rightSplit;
 
-        if (activeFile && activeFile.name.startsWith(this.chatTitle)) {
-          this.toggleChat();
+        if (!rightSplit.collapsed) {
+          rightSplit.collapse();
         } else {
           this.openChat();
         }
@@ -874,17 +874,6 @@ export default class StewardPlugin extends Plugin {
       logger.error('Error closing conversation:', error);
       new Notice(i18next.t('ui.errorClosingConversation', { errorMessage: error.message }));
       return false;
-    }
-  }
-
-  /**
-   * Toggles the chat sidebar open or closed
-   */
-  public async toggleChat(): Promise<void> {
-    // Find and click the right sidebar toggle button
-    const toggleButton = document.querySelector('.sidebar-toggle-button.mod-right');
-    if (toggleButton instanceof HTMLElement) {
-      toggleButton.click();
     }
   }
 

@@ -40,9 +40,20 @@ const en = {
       thisNote: 'this note',
     },
     trigger: {
-      executingCommand: 'Executing triggered command: {{commandName}} for file: {{fileName}}',
-      executionError: 'Error executing trigger for command {{commandName}}: {{error}}',
-      matched: 'Trigger matched for command: {{commandName}}, event: {{event}}, file: {{fileName}}',
+      executing: 'Command "{{commandName}}" is executing.',
+      executed: 'Command "{{commandName}}" is executed successfully.',
+      openConversation: 'Open conversation',
+      executionFailed: 'Failed to execute command "{{commandName}}": {{error}}',
+    },
+    validation: {
+      errorTitle: 'UDC Validation Errors',
+      errorDetected: 'Validation errors detected in command file: {{fileName}}. ',
+      openValidationNote: 'View errors',
+      errorDescription:
+        'The following errors were found while validating your user-defined commands:',
+      commandError: 'Command: {{commandName}}',
+      yamlError: 'Invalid YAML syntax',
+      successMessage: 'All command definitions are valid! ✅',
     },
     // Chat UI elements
     chat: {

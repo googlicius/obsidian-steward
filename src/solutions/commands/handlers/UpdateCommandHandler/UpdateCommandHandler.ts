@@ -26,6 +26,7 @@ import { ReadCommandHandler } from '../ReadCommandHandler/ReadCommandHandler';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
 import { uniqueID } from 'src/utils/uniqueID';
+import { SystemPromptModifier } from 'src/utils/SystemPromptModifier';
 
 const updatableTypes = [
   ArtifactType.SEARCH_RESULTS,
@@ -67,10 +68,12 @@ export class UpdateCommandHandler extends CommandHandler {
       contentType: 'in_the_note',
     });
 
+    const modifier = new SystemPromptModifier(params.command.systemPrompts);
+
     const extraction = await generateText({
       ...llmConfig,
       abortSignal: this.plugin.abortService.createAbortController('update'),
-      system: `You are a helpful assistant that updates content in a Obsidian note.
+      system: modifier.apply(`You are a helpful assistant that updates content in a Obsidian note.
 Update the content in the note based on the instructions provided.
 
 You have access to the following tools:
@@ -79,7 +82,7 @@ You have access to the following tools:
 
 GUIDELINES:
 - Use ${EDIT_TOOL_NAME} to make the actual content changes.
-`,
+`),
       messages: params.messages,
       tools: {
         [EDIT_TOOL_NAME]: editTool,
@@ -135,6 +138,22 @@ GUIDELINES:
             });
           }
 
+          const updateInstructions = editToolExecute(toolCall.args);
+
+          // Skip confirmation if no_confirm is true
+          if (params.command.no_confirm) {
+            return this.performUpdate({
+              title: params.title,
+              docs: [
+                {
+                  path: file.path,
+                },
+              ],
+              updateInstructions,
+              lang: params.lang,
+            });
+          }
+
           await this.renderer.updateConversationNote({
             path: params.title,
             newContent: t('update.applyChangesConfirm'),
@@ -143,8 +162,6 @@ GUIDELINES:
           return {
             status: CommandResultStatus.NEEDS_CONFIRMATION,
             onConfirmation: () => {
-              const updateInstructions = editToolExecute(toolCall.args);
-
               return this.performUpdate({
                 title: params.title,
                 docs: [
@@ -396,6 +413,22 @@ GUIDELINES:
             }
           }
 
+          const updateInstructions = editToolExecute(toolCall.args);
+
+          // Skip confirmation if no_confirm
+          if (params.command.no_confirm) {
+            return this.performUpdate({
+              title: params.title,
+              docs: [
+                {
+                  path: file.path,
+                },
+              ],
+              updateInstructions,
+              lang: params.lang,
+            });
+          }
+
           await this.renderer.updateConversationNote({
             path: params.title,
             newContent: t('update.applyChangesConfirm'),
@@ -404,8 +437,6 @@ GUIDELINES:
           return {
             status: CommandResultStatus.NEEDS_CONFIRMATION,
             onConfirmation: () => {
-              const updateInstructions = editToolExecute(toolCall.args);
-
               return this.performUpdate({
                 title: params.title,
                 docs: [
@@ -483,6 +514,16 @@ GUIDELINES:
       return {
         status: CommandResultStatus.SUCCESS,
       };
+    }
+
+    // Skip confirmation if no_confirm
+    if (params.command.no_confirm) {
+      return this.performUpdate({
+        title: params.title,
+        docs,
+        updateInstructions,
+        lang: params.lang,
+      });
     }
 
     await this.renderer.updateConversationNote({

@@ -8,7 +8,7 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 
 - **Built-in Search Engine**: A TF-IDF based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search.
 - **Interactive and Adaptive Chat UI**: One or more chat interfaces made of the slash `/` leveraging Obsidian's editor and reading view features, that is, adaptable to your current themes.
-- **Privacy-focused**: Most actions are executed in the front-end using Obsidian API and local services to avoid exposing your data to LLMs (except for your queries).
+- **Privacy-focused**: Most actions are executed in the front-end using Obsidian API and local services to avoid exposing your data to LLMs (except for your queries and what you're explicitly provided).
 - **Command-based Interaction**: Support for standard commands like search, create, update, delete, move, audio, image generation, and user-defined commands.
 - **Model Flexibility**: Use your favorite AI models, including OpenAI, Gemini, DeepSeek, Ollama, etc.
 - **Intent Caching**: Utilizes embeddings to cache similar queries, so subsequent requests require fewer tokens for LLM processing.
@@ -17,7 +17,7 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 
 ## Standard (Built-In) Commands
 
-Steward can be used through the command palette directly in the editor or by opening the chat interface.
+Steward can be used directly in the editor or by opening the chat interface.
 
 ### Usage
 
@@ -54,7 +54,7 @@ You can create your own **User-Defined Commands** to automate workflows and comb
 - You can specify if user input is required for your command using the `query_required` field.
 - These commands are available with autocomplete and are processed just like built-in commands.
 
-### Example: User-Defined Command YAML
+### Example: User-Defined Command definition
 
 ```yaml
 command_name: clean_up
@@ -77,6 +77,7 @@ commands:
   - `system_prompt`: (optional) Modify the system prompt for this command (see below)
   - `query`: (required if the `query_required` is true, string) The query to send to LLMs, put the `$from_user` as a placeholder for your input
   - `model`: (optional, string) The model to use for this specific command step (overrides the command-level model)
+  - `no_confirm`: (optional, boolean) If true, skips confirmation prompts for this command step
 
 ### Customizing System Prompts
 
@@ -136,24 +137,6 @@ commands:
     query: $from_user
 ```
 
-#### Mixed Format
-
-You can combine strings and modifications:
-
-```yaml
-commands:
-  - name: read
-    system_prompt:
-      - '[[Custom Instructions]]' # String addition
-      - mode: remove
-        pattern: 'MUST use.*BEFORE reading the entire'
-      - mode: modify
-        pattern: 'Read ALL'
-        replacement: 'Read selected'
-      - 'Additional context' # Another string addition
-    query: $from_user
-```
-
 #### Match Types
 
 When using `remove` or `modify` mode, you can specify how to match patterns:
@@ -209,47 +192,16 @@ commands:
 **Remove Confirmation Requirements:**
 
 ```yaml
-command_name: quick_read
+command_name: no-confirm-read
 commands:
   - name: read
     system_prompt:
       - mode: remove
-        pattern: 'MUST use.*BEFORE reading the entire'
+        pattern: 'MUST use confirmation BEFORE reading the entire'
     query: Read the entire note $from_user
 ```
 
-**Add Domain-Specific Instructions:**
-
-```yaml
-command_name: code_review
-commands:
-  - name: read
-    system_prompt:
-      - '[[Code Review Guidelines]]'
-      - mode: add
-        content: '- Focus on security vulnerabilities and performance issues'
-      - mode: add
-        content: '- Highlight best practices violations'
-    query: Review the code in $from_user
-```
-
-**Combine Multiple Modifications:**
-
-```yaml
-command_name: custom_search
-commands:
-  - name: search
-    system_prompt:
-      - '[[Search Context]]'
-      - mode: remove
-        pattern: 'limit.*results'
-        matchType: regex
-      - mode: modify
-        pattern: 'semantic search'
-        replacement: 'keyword-based search'
-      - 'Prioritize recent files'
-    query: $from_user
-```
+You can also skip confirmation prompts for individual command steps using the `no_confirm` field.
 
 ### Usage
 
@@ -295,39 +247,27 @@ commands:
 
 When a command is triggered, you can use these placeholders:
 
-- `$file_name`: The name of the file that triggered the command
-- `$from_user`: Empty string for triggered commands
+- `$file_name`: The name of the note that triggered the command
 
 #### Practical Examples
-
-**Daily Note Processing:**
-
-```yaml
-command_name: daily_note_processor
-triggers:
-  - events: [create]
-    patterns:
-      folders: ['Daily Notes']
-commands:
-  - name: read
-    query: 'Read $file_name'
-  - name: generate
-    query: 'Extract tasks and create a summary'
-```
 
 **Tag-Based Workflow:**
 
 ```yaml
-command_name: flashcard_review
+command_name: flashcard-gen
+
 triggers:
   - events: [modify]
     patterns:
-      tags: '#flashcard'
+      tags: '#flashcard-gen'
+
 commands:
   - name: read
-    query: 'Review flashcard in $file_name'
+    query: 'Read entire $file_name'
   - name: generate
-    query: 'Validate flashcard format'
+    query: 'Generate flashcards from the $file_name'
+  - name: update_from_artifact
+    query: 'Append generated flashcards to the $file_name
 ```
 
 **Property-Based Workflow:**
@@ -367,7 +307,6 @@ commands:
 2. For `modify` events, the system waits for metadata cache to update, then checks if patterns are newly added
 3. If all patterns match and are new (for modify events), a conversation note is created automatically
 4. The triggered command executes in this conversation note
-5. Conversation notes are saved in `Steward/Triggered/{command_name}-{timestamp}`
 
 ### Validation
 
@@ -497,14 +436,3 @@ Check out existing commands in the `community-UDCs` folder like `flashcard-assis
 ## License
 
 MIT
-
-## TODOs
-
-- [x] Multiple lines command.
-- [ ] Reminder.
-- [ ] Steward can provide information about its functionalities, limitations,...
-- [x] Provide any information, usage, and guidance about Obsidian.
-- [ ] Autocompletion and automation.
-- [x] User-defined commands and actions
-- [ ] Traceability
-- [ ] MCP support.

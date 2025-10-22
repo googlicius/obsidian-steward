@@ -54,6 +54,7 @@ export interface CommandIntent {
   query: string;
   systemPrompts?: (string | SystemPromptItem)[];
   model?: string; // Optional model to use for this command
+  no_confirm?: boolean; // Skip confirmation for this command
 }
 
 export interface ContextAugmentationIntent extends CommandIntent {

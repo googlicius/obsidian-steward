@@ -96,6 +96,9 @@
 - [x] Double user messages in the actual generate.
 - [x] Cannot stop
 - [ ] Generate command doesn't store artifact when the command is defined in a User-Defined command.
+- [ ] Cannot search terms start or end with markdown syntaxes: \*john, sarah\_, etc.
+- [ ] It keep read the same content again in the following query.
+- [x] Index is not triggered when update a tag
 
 ### CONTEXT ENGINEERING
 

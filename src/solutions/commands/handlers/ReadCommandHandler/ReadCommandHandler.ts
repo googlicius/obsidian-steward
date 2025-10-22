@@ -41,9 +41,33 @@ export class ReadCommandHandler extends CommandHandler {
     const readCommandQueryTemplate = COMMAND_DEFINITIONS.find(
       command => command.commandType === 'read'
     )?.queryTemplate;
-    const modifier = new SystemPromptModifier(command.systemPrompts);
 
-    console.log('system prompts', command.systemPrompts);
+    // Tools set
+    const tools = {
+      [CONTENT_READING_TOOL_NAME]: tool({
+        parameters: contentReadingSchema,
+      }),
+      [CONFIRMATION_TOOL_NAME]: confirmationTool,
+      [ASK_USER_TOOL_NAME]: askUserTool,
+    };
+
+    // Build modifications array - add remove operations when no_confirm is true
+    const modifications = [...(command.systemPrompts || [])];
+    if (command.no_confirm) {
+      modifications.push({
+        mode: 'remove',
+        pattern: [
+          `2. ${CONFIRMATION_TOOL_NAME}`,
+          `3. ${ASK_USER_TOOL_NAME}`,
+          `- You MUST use ${CONFIRMATION_TOOL_NAME}`,
+          `- Use ${CONFIRMATION_TOOL_NAME}`,
+          `- Use ${ASK_USER_TOOL_NAME}`,
+        ].join('\n'),
+        matchType: 'regex',
+      });
+    }
+
+    const modifier = new SystemPromptModifier(modifications);
 
     return generateText({
       ...llmConfig,
@@ -71,13 +95,7 @@ ${readCommandQueryTemplate}
 </read_query_template>
 ${languageEnforcementFragment}`),
       messages,
-      tools: {
-        [CONTENT_READING_TOOL_NAME]: tool({
-          parameters: contentReadingSchema,
-        }),
-        [CONFIRMATION_TOOL_NAME]: confirmationTool,
-        [ASK_USER_TOOL_NAME]: askUserTool,
-      },
+      tools,
     });
   }
 
