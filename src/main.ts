@@ -33,7 +33,7 @@ import {
 import { StewardChatView } from './views/StewardChatView';
 import { Events } from './types/events';
 import { createStewardConversationProcessor } from './post-processors/StewardConversationProcessor';
-import { ObsidianEditor } from './types/types';
+import { ObsidianEditor, ExtendedApp } from './types/types';
 import { isConversationLink, extractConversationTitle } from './utils/conversationUtils';
 import { CommandProcessorService } from './services/CommandProcessorService';
 import { UserDefinedCommandService } from './services/UserDefinedCommandService';
@@ -71,6 +71,10 @@ export default class StewardPlugin extends Plugin {
 
   get editor(): ObsidianEditor {
     return this.app.workspace.activeEditor?.editor as ObsidianEditor;
+  }
+
+  get extendedApp(): ExtendedApp {
+    return this.app as ExtendedApp;
   }
 
   async onload() {
