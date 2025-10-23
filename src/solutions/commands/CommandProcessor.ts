@@ -3,7 +3,7 @@ import { CommandResultStatus, CommandHandler, CommandResult } from './CommandHan
 import { logger } from '../../utils/logger';
 import { CommandIntent } from 'src/types/types';
 import type StewardPlugin from 'src/main';
-import { SystemPromptModifier, SystemPromptModification } from 'src/utils/SystemPromptModifier';
+import { SystemPromptModifier, SystemPromptModification } from './SystemPromptModifier';
 
 interface PendingCommand {
   commands: CommandIntent[];

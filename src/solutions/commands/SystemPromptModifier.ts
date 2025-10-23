@@ -190,7 +190,7 @@ export class SystemPromptModifier {
       case 'exact':
         return line === pattern;
       case 'partial':
-        return line.includes(pattern);
+        return line.toLowerCase().includes(pattern.toLowerCase());
       case 'regex':
         try {
           const regex = new RegExp(pattern);

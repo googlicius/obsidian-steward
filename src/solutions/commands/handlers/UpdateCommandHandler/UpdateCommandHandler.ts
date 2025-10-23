@@ -26,7 +26,7 @@ import { ReadCommandHandler } from '../ReadCommandHandler/ReadCommandHandler';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
 import { uniqueID } from 'src/utils/uniqueID';
-import { SystemPromptModifier } from 'src/utils/SystemPromptModifier';
+import { SystemPromptModifier } from '../../SystemPromptModifier';
 
 const updatableTypes = [
   ArtifactType.SEARCH_RESULTS,

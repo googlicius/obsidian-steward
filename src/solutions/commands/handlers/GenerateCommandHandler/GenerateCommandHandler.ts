@@ -25,7 +25,7 @@ import { createEditTool, EDIT_TOOL_NAME } from '../../tools/editContent';
 import { ToolInvocation } from '../../tools/types';
 import { UpdateCommandHandler } from '../UpdateCommandHandler/UpdateCommandHandler';
 import { uniqueID } from 'src/utils/uniqueID';
-import { SystemPromptModifier } from 'src/utils/SystemPromptModifier';
+import { SystemPromptModifier } from '../../SystemPromptModifier';
 
 export interface ContentUpdate {
   updatedContent: string;
@@ -155,15 +155,28 @@ ${languageEnforcementFragment}`),
     // If no tool calls were made but we have text, render the text
     if (extraction.toolCalls.length === 0) {
       if (extraction.text && extraction.text.trim()) {
-        await this.renderer.updateConversationNote({
+        const messageId = await this.renderer.updateConversationNote({
           path: title,
           newContent: extraction.text,
           command: 'generate',
           handlerId,
           lang,
         });
+
+        if (messageId) {
+          // Store the text as generated_content artifact
+          await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+            text: `*${t('common.artifactCreated', { type: ArtifactType.GENERATED_CONTENT })}*`,
+            artifact: {
+              artifactType: ArtifactType.GENERATED_CONTENT,
+              content: extraction.text,
+              messageId,
+            },
+          });
+        }
         return {
           status: CommandResultStatus.ERROR,
+          error: new Error('No tool calls were made but we have text'),
         };
       } else {
         // No tool calls and no text, return error

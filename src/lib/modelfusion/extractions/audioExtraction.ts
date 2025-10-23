@@ -8,7 +8,7 @@ import { CommandIntent } from 'src/types/types';
 import { explanationFragment, confidenceFragment } from '../prompts/fragments';
 import { logger } from 'src/utils/logger';
 import { getLanguage } from 'obsidian';
-import { SystemPromptModifier } from 'src/utils/SystemPromptModifier';
+import { SystemPromptModifier } from 'src/solutions/commands';
 
 const abortService = AbortService.getInstance();
 

@@ -1,7 +1,7 @@
 import { Editor, App } from 'obsidian';
 import { EditorView } from '@codemirror/view';
 import { Message } from 'ai';
-import { SystemPromptItem } from '../utils/SystemPromptModifier';
+import { SystemPromptItem } from 'src/solutions/commands';
 
 /**
  * Exposes the Obsidian Editor and Codemirror EditorView

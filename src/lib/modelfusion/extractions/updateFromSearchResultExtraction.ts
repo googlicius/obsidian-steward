@@ -6,7 +6,7 @@ import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
 import { logger } from 'src/utils/logger';
 import { ConversationHistoryMessage } from 'src/types/types';
-import { SystemPromptItem, SystemPromptModifier } from 'src/utils/SystemPromptModifier';
+import { SystemPromptItem, SystemPromptModifier } from 'src/solutions/commands';
 
 const abortService = AbortService.getInstance();
 

@@ -23,7 +23,7 @@ import { generateObject } from 'ai';
 import { searchPromptV2 } from './searchPromptV2';
 import { searchQueryExtractionSchema } from './zSchemas';
 import { getLanguage } from 'obsidian';
-import { SystemPromptModifier } from 'src/utils/SystemPromptModifier';
+import { SystemPromptModifier } from '../../SystemPromptModifier';
 
 type HighlighKeywordResult = {
   highlightedText: string;

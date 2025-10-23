@@ -5,7 +5,7 @@ import * as yaml from 'js-yaml';
 import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES } from 'src/constants';
 import { SearchOperationV2 } from 'src/solutions/commands/handlers/SearchCommandHandler/zSchemas';
-import { SystemPromptItem } from 'src/utils/SystemPromptModifier';
+import { SystemPromptItem } from 'src/solutions/commands';
 import { StewardChatView } from 'src/views/StewardChatView';
 import i18next from 'i18next';
 import { z } from 'zod';

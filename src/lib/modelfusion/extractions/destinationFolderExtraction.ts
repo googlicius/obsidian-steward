@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { CommandIntent } from 'src/types/types';
 import { confidenceFragment, explanationFragment } from '../prompts/fragments';
 import { logger } from 'src/utils/logger';
-import { SystemPromptModifier } from 'src/utils/SystemPromptModifier';
+import { SystemPromptModifier } from 'src/solutions/commands';
 
 const abortService = AbortService.getInstance();
 

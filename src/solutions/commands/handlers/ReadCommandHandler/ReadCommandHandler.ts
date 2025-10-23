@@ -16,7 +16,7 @@ import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragmen
 import { CONFIRMATION_TOOL_NAME, ASK_USER_TOOL_NAME, createAskUserTool } from '../../tools/askUser';
 import { ToolInvocation } from '../../tools/types';
 import { uniqueID } from 'src/utils/uniqueID';
-import { SystemPromptModifier } from 'src/utils/SystemPromptModifier';
+import { SystemPromptModifier } from '../../SystemPromptModifier';
 
 const CONTENT_READING_TOOL_NAME = 'contentReading';
 

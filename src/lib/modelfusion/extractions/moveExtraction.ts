@@ -5,7 +5,7 @@ import { LLMService } from 'src/services/LLMService';
 import { desFolderExtractionSchema } from './destinationFolderExtraction';
 import { logger } from 'src/utils/logger';
 import { CommandIntent } from 'src/types/types';
-import { SystemPromptModifier } from 'src/utils/SystemPromptModifier';
+import { SystemPromptModifier } from 'src/solutions/commands';
 
 const abortService = AbortService.getInstance();
 

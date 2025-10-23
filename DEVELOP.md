@@ -85,6 +85,7 @@
 - [ ] Model fallback: Defines a set of models if the main model returns errors
 - [ ] Don't allow command input inside a code block
 - [ ] Serialize needs_confirmation, needs_user_input calls
+- [ ] Treat the raw text response as the generated_content if no tool is used
 
 ### BUGS
 

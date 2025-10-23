@@ -26,7 +26,7 @@ import {
   CommandTypeExtraction,
   QueryExtraction,
 } from './zSchemas';
-import { SystemPromptModifier } from 'src/utils/SystemPromptModifier';
+import { SystemPromptModifier } from '../../SystemPromptModifier';
 
 export type CommandIntentExtraction = Omit<CommandTypeExtraction, 'commandTypes'> & QueryExtraction;
 
