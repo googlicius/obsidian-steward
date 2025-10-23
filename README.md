@@ -6,42 +6,41 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 
 ## Features
 
-- **Built-in Search Engine**: A TF-IDF based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search.
-- **Interactive and Adaptive Chat UI**: One or more chat interfaces made of the slash `/` leveraging Obsidian's editor and reading view features, that is, adaptable to your current themes.
+- **Built-in search engine**: A TF-IDF based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search.
+- **Interactive and adaptive chat UI**: One or more chat interfaces made of the slash `/` leveraging Obsidian's editor and reading view features, that is, adaptable to your current themes.
 - **Privacy-focused**: Most actions are executed in the front-end using Obsidian API and local services to avoid exposing your data to LLMs (except for your queries and what you're explicitly provided).
-- **Command-based Interaction**: Support for standard commands like search, create, update, delete, move, audio, image generation, and user-defined commands.
-- **Model Flexibility**: Use your favorite AI models, including OpenAI, Gemini, DeepSeek, Ollama, etc.
-- **Intent Caching**: Utilizes embeddings to cache similar queries, so subsequent requests require fewer tokens for LLM processing.
-- **Multi-language Support**: Use Steward in your preferred language.
-- **User-Defined Commands**: Create your own command workflows by combining multiple commands with specific LLM models and settings of your choice.
+- **Command-based interaction**: Support for standard commands like search, create, update, delete, move, audio, image generation, and user-defined commands.
+- **Model flexibility**: Use your favorite AI models, including OpenAI, Gemini, DeepSeek, Ollama, etc.
+- **Intent caching**: Utilizes embeddings to cache similar queries, so subsequent requests require fewer tokens for LLM processing.
+- **Multi-language support**: Use Steward in your preferred language.
+- **User-defined commands**: Create your own command workflows by combining multiple commands with specific LLM models and settings of your choice.
 
-## Table of Contents
+## Table of contents
 
 - [Features](#features)
-- [Standard (Built-In) Commands](#standard-built-in-commands)
+- [Standard (built-in) commands](#standard-built-in-commands)
   - [Usage](#usage)
   - [Showcases](#showcases)
-- [User-Defined Commands](#user-defined-commands)
-  - [How It Works](#how-it-works)
+- [User-defined commands](#user-defined-commands)
+  - [How it works](#how-it-works)
   - [Definitions](#definitions)
-  - [Example: User-Defined Command definition](#example-user-defined-command-definition)
-  - [Customizing System Prompts](#customizing-system-prompts)
+  - [Example: user-defined command definition](#example-user-defined-command-definition)
+  - [Customizing system prompts](#customizing-system-prompts)
   - [Usage](#usage-1)
-  - [Automated Command Triggers](#automated-command-triggers)
-  - [Validation](#validation)
-  - [Creating Commands with LLM Assistance](#creating-commands-with-llm-assistance)
-  - [User-Defined command showcases](#user-defined-command-showcases)
-- [Command Flow Visualization](#command-flow-visualization)
-- [Folder Structure](#folder-structure)
+  - [Automated command triggers](#automated-command-triggers)
+  - [Creating commands with LLM assistance](#creating-commands-with-llm-assistance)
+  - [User-defined command showcases](#user-defined-command-showcases)
+- [Command flow visualization](#command-flow-visualization)
+- [Folder structure](#folder-structure)
 - [Installation](#installation)
 - [Settings](#settings)
 - [Development](#development)
 - [Contributing](#contributing)
-  - [Code Contributions](#code-contributions)
-  - [User-Defined Commands](#user-defined-commands-1)
+  - [Code contributions](#code-contributions)
+  - [User-defined commands](#user-defined-commands-1)
 - [License](#license)
 
-## Standard (Built-In) Commands
+## Standard (built-in) commands
 
 Steward can be used directly in the editor or by opening the chat interface.
 
@@ -69,11 +68,11 @@ Steward can be used directly in the editor or by opening the chat interface.
 
 <img src="/docs/Stw-Demo-Search-light.gif" alt="Search" width="650px">
 
-## User-Defined Commands
+## User-defined commands
 
 You can create your own **User-Defined Commands** to automate workflows and combine multiple built-in or other User-Defined commands into a single, reusable command.
 
-### How It Works
+### How it works
 
 - User-Defined Commands are defined as YAML blocks in markdown files inside the `Steward/Commands` folder.
 - Each command can specify a sequence of built-in or user-defined commands to execute.
@@ -86,14 +85,14 @@ You can create your own **User-Defined Commands** to automate workflows and comb
 - `query_required`: (optional, boolean) If true, the command requires user input after the prefix
 - `model`: (optional, string) The model to use for all commands in this user-defined command
 - `hidden`: (optional, boolean) If true, the command will not appear in the command menu
-- `triggers`: (optional, array) Automatically execute commands when files match specified criteria (see [Trigger Fields](#trigger-fields))
+- `triggers`: (optional, array) Automatically execute commands when files match specified criteria (see [Trigger fields](#trigger-fields))
 - `commands`: The sequence of built-in or user-defined commands to execute
-  - `system_prompt`: (optional) Modify the system prompt for this command (see below)
+  - `system_prompt`: (optional, array) Modify the system prompt for this command (see [Customizing system prompts](#customizing-system-prompts))
   - `query`: (required if the `query_required` is true, string) The query to send to LLMs, put the `$from_user` as a placeholder for your input
   - `model`: (optional, string) The model to use for this specific command step (overrides the command-level model)
   - `no_confirm`: (optional, boolean) If true, skips confirmation prompts for this command step
 
-### Example: User-Defined Command definition
+### Example: user-defined command definition
 
 ```yaml
 command_name: clean_up
@@ -109,17 +108,17 @@ commands:
     model: gpt-3.5-turbo # Optional: Override the model for this specific step
 ```
 
-### Customizing System Prompts
+### Customizing system prompts
 
 You can customize the system prompt for any command step using the `system_prompt` field. This allows you to modify the AI's behavior for specific commands without completely replacing the base prompt.
 
-#### Simple Format (Strings)
+#### Simple format (strings)
 
 Add additional instructions that will be handled separately:
 
 ```yaml
 commands:
-  - name: read
+  - name: generate
     system_prompt:
       - '[[My Context Note]]' # Link to a note (content will be included)
       - 'Focus on technical details'
@@ -127,7 +126,7 @@ commands:
     query: $from_user
 ```
 
-#### Advanced Format (Modifications)
+#### Advanced format (modifications)
 
 Modify specific parts of the base system prompt using operations:
 
@@ -159,15 +158,15 @@ commands:
 
 ```yaml
 commands:
-  - name: read
+  - name: generate
     system_prompt:
       - mode: add
-        content: '- Prioritize code blocks when reading'
+        content: 'You MUST use the generateContent tool to stream content.'
         pattern: 'Use.*when you need clarification' # Optional: insert after this line
     query: $from_user
 ```
 
-#### Match Types
+#### Match types
 
 When using `remove` or `modify` mode, you can specify how to match patterns:
 
@@ -184,7 +183,7 @@ system_prompt:
     matchType: regex
 ```
 
-#### Using Links in System Prompts
+#### Using links in system prompts
 
 Reference the content of other notes in your vault using Obsidian links:
 
@@ -204,7 +203,7 @@ When executed:
 2. This allows you to maintain complex prompts or contexts in separate notes
 3. You can update the linked notes independently of your command definition
 
-#### Practical Examples
+#### Practical examples
 
 **Sequential Reading (instead of parallel):**
 
@@ -239,11 +238,11 @@ You can also skip confirmation prompts for individual command steps using the `n
 2. In any note or the Chat, type your command (e.g., `/clean_up #Todo`) and press Enter.
 3. The command will execute the defined sequence, using your input if required.
 
-### Automated Command Triggers
+### Automated command triggers
 
 User-Defined Commands can be configured to automatically execute when specific file events occur, enabling powerful automation workflows.
 
-#### Trigger Configuration
+#### Trigger configuration
 
 Add a `triggers` array to your command definition to specify when the command should automatically execute:
 
@@ -264,7 +263,7 @@ commands:
     query: 'Categorize and suggest improvements'
 ```
 
-#### Trigger Fields
+#### Trigger fields
 
 - `events`: (required, array) List of events to watch: `create`, `modify`, `delete`
 - `folders`: (optional, array) Folder paths to watch (e.g., `["Inbox", "Daily Notes"]`)
@@ -273,86 +272,50 @@ commands:
   - `content`: Regex pattern to match file content
   - Any frontmatter property name (e.g., `status: "draft"`, `priority: ["high", "urgent"]`)
 
-#### Placeholders in Triggers
+#### Placeholders in triggers
 
 When a command is triggered, you can use these placeholders:
 
 - `$file_name`: The name of the note that triggered the command
 
-#### Practical Examples
+#### Practical examples
 
-**Tag-Based Workflow:**
+**Tag-based workflow:**
 
 ```yaml
-command_name: flashcard-gen
-
 triggers:
   - events: [modify]
     patterns:
       tags: '#flashcard-gen'
-
-commands:
-  - name: read
-    query: 'Read entire $file_name'
-  - name: generate
-    query: 'Generate flashcards from the $file_name'
-  - name: update_from_artifact
-    query: 'Append generated flashcards to the $file_name
 ```
 
-**Property-Based Workflow:**
+**Property-Based workflow:**
 
 ```yaml
-command_name: draft_reviewer
 triggers:
   - events: [modify]
     patterns:
       status: 'draft'
       type: 'article'
-commands:
-  - name: read
-    query: 'Read article from $file_name'
-  - name: generate
-    query: 'Review the draft and provide feedback'
 ```
 
-**Content Pattern Matching:**
+**Content pattern matching:**
 
 ```yaml
-command_name: todo_detector
 triggers:
   - events: [modify]
     patterns:
       content: '\\[ \\]|TODO:|FIXME:'
-commands:
-  - name: read
-    query: 'Read content from $file_name'
-  - name: generate
-    query: 'Extract all TODO items and create a task list'
 ```
 
-#### How Triggers Work
+#### How triggers work
 
 1. When a file event occurs (create/modify/delete), the system checks all trigger conditions
 2. For `modify` events, the system waits for metadata cache to update, then checks if patterns are newly added
 3. If all patterns match and are new (for modify events), a conversation note is created automatically
 4. The triggered command executes in this conversation note
 
-### Validation
-
-- The system validates your User-Defined Command YAML:
-  - `command_name` must be a string
-  - `commands` must be a non-empty array
-  - If present, `query_required` must be a boolean
-  - Each command step must have a `name` (string) and `query` (string)
-  - If present, `triggers` must be an array with:
-    - Valid event types (`create`, `modify`, `delete`)
-    - Optional `folders` array
-    - Optional `patterns` object where each value is a string or array
-    - `content` pattern must be a valid regular expression if present
-- If validation fails, the command will not be loaded and an error will be logged.
-
-### Creating Commands with LLM Assistance
+### Creating commands with LLM assistance
 
 You can ask Steward to help create user-defined commands using natural language, even without knowing YAML syntax:
 
@@ -361,9 +324,9 @@ You can ask Steward to help create user-defined commands using natural language,
 3. Steward will create commands with the proper YAML structure for you
 4. Review, modify if needed, and save to your Commands folder
 
-### User-Defined command showcases
+### User-defined command showcases
 
-#### User-Defined command creation with LLM helps:
+#### User-defined command creation with LLM helps:
 
 <img src="/docs/User-Defined-command-creation.gif" alt="User-Defined command creation" width="650px">
 
@@ -375,13 +338,13 @@ You can ask Steward to help create user-defined commands using natural language,
 
 <img src="/docs/Steward-Demo-Auto-trigger.gif" alt="Flashcard Assist" width="650px">
 
-### Command Flow Visualization
+### Command flow visualization
 
 The following diagram illustrates how commands are processed in Steward:
 
 <img src="/docs/commands-flow.svg" alt="Commands flow" width="600px">
 
-## Folder Structure
+## Folder structure
 
 Steward creates the following folder structure in your vault:
 
@@ -408,7 +371,7 @@ Steward/
 3. Enable the plugin in your Obsidian settings
 4. Configure your API keys in the plugin settings
 
-### Manual Installation
+### Manual installation
 
 1. Download the latest release from the [releases page](https://github.com/googlicius/obsidian-steward/releases)
 2. Extract the zip file into your Obsidian vault's `.obsidian/plugins` folder
@@ -446,7 +409,7 @@ This plugin uses TypeScript and follows the Obsidian plugin architecture.
 
 Contributions to Steward are welcome! Here's how you can contribute:
 
-### Code Contributions
+### Code contributions
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -454,7 +417,7 @@ Contributions to Steward are welcome! Here's how you can contribute:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-### User-Defined Commands
+### User-defined commands
 
 You can contribute your User-Defined Commands (UDCs) to help the community:
 
