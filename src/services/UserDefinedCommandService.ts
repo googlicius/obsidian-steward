@@ -25,6 +25,7 @@ export interface UserDefinedCommand {
   }>;
   file_path: string;
   model?: string;
+  hidden?: boolean;
   triggers?: Array<{
     // Event types to watch
     events: ('create' | 'modify' | 'delete')[];
@@ -147,6 +148,7 @@ const userDefinedCommandSchema = z.object({
   commands: z.array(userDefinedCommandStepSchema).min(1, 'At least one command step is required'),
   file_path: z.string(),
   model: z.string().optional(),
+  hidden: z.boolean().optional(),
   triggers: z.array(triggerConditionSchema).optional(),
 });
 
@@ -926,7 +928,9 @@ export class UserDefinedCommandService {
    * Get all user-defined command names for autocomplete
    */
   public getCommandNames(): string[] {
-    return Array.from(this.userDefinedCommands.keys());
+    return Array.from(this.userDefinedCommands.entries())
+      .filter(([_, command]) => !command.hidden)
+      .map(([commandName, _]) => commandName);
   }
 
   /**

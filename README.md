@@ -23,6 +23,7 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
   - [Showcases](#showcases)
 - [User-Defined Commands](#user-defined-commands)
   - [How It Works](#how-it-works)
+  - [Definitions](#definitions)
   - [Example: User-Defined Command definition](#example-user-defined-command-definition)
   - [Customizing System Prompts](#customizing-system-prompts)
   - [Usage](#usage-1)
@@ -79,6 +80,19 @@ You can create your own **User-Defined Commands** to automate workflows and comb
 - You can specify if user input is required for your command using the `query_required` field.
 - These commands are available with autocomplete and are processed just like built-in commands.
 
+### Definitions
+
+- `command_name`: The name you will use to invoke the command (e.g., `/clean_up`)
+- `query_required`: (optional, boolean) If true, the command requires user input after the prefix
+- `model`: (optional, string) The model to use for all commands in this user-defined command
+- `hidden`: (optional, boolean) If true, the command will not appear in the command menu
+- `triggers`: (optional, array) Automatically execute commands when files match specified criteria (see [Trigger Fields](#trigger-fields))
+- `commands`: The sequence of built-in or user-defined commands to execute
+  - `system_prompt`: (optional) Modify the system prompt for this command (see below)
+  - `query`: (required if the `query_required` is true, string) The query to send to LLMs, put the `$from_user` as a placeholder for your input
+  - `model`: (optional, string) The model to use for this specific command step (overrides the command-level model)
+  - `no_confirm`: (optional, boolean) If true, skips confirmation prompts for this command step
+
 ### Example: User-Defined Command definition
 
 ```yaml
@@ -94,15 +108,6 @@ commands:
     query: Delete them
     model: gpt-3.5-turbo # Optional: Override the model for this specific step
 ```
-
-- `command_name`: The name you will use to invoke the command (e.g., `/clean_up`)
-- `query_required`: (optional, boolean) If true, the command requires user input after the prefix
-- `model`: (optional, string) The model to use for all commands in this user-defined command
-- `commands`: The sequence of built-in or user-defined commands to execute
-  - `system_prompt`: (optional) Modify the system prompt for this command (see below)
-  - `query`: (required if the `query_required` is true, string) The query to send to LLMs, put the `$from_user` as a placeholder for your input
-  - `model`: (optional, string) The model to use for this specific command step (overrides the command-level model)
-  - `no_confirm`: (optional, boolean) If true, skips confirmation prompts for this command step
 
 ### Customizing System Prompts
 

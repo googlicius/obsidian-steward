@@ -121,6 +121,81 @@ describe('UserDefinedCommandService', () => {
     });
   });
 
+  describe('getCommandNames', () => {
+    it('should return all command names when no commands are hidden', () => {
+      // Arrange
+      userDefinedCommandService.userDefinedCommands.set('command1', {
+        command_name: 'command1',
+        commands: [{ name: 'test', query: 'query1' }],
+        file_path: 'path/to/file1.md',
+      });
+
+      userDefinedCommandService.userDefinedCommands.set('command2', {
+        command_name: 'command2',
+        commands: [{ name: 'test', query: 'query2' }],
+        file_path: 'path/to/file2.md',
+      });
+
+      // Execute
+      const result = userDefinedCommandService.getCommandNames();
+
+      // Verify
+      expect(result).toEqual(['command1', 'command2']);
+    });
+
+    it('should filter out hidden commands', () => {
+      // Arrange
+      userDefinedCommandService.userDefinedCommands.set('visible_command', {
+        command_name: 'visible_command',
+        commands: [{ name: 'test', query: 'query1' }],
+        file_path: 'path/to/file1.md',
+      });
+
+      userDefinedCommandService.userDefinedCommands.set('hidden_command', {
+        command_name: 'hidden_command',
+        commands: [{ name: 'test', query: 'query2' }],
+        file_path: 'path/to/file2.md',
+        hidden: true,
+      });
+
+      userDefinedCommandService.userDefinedCommands.set('another_visible', {
+        command_name: 'another_visible',
+        commands: [{ name: 'test', query: 'query3' }],
+        file_path: 'path/to/file3.md',
+      });
+
+      // Execute
+      const result = userDefinedCommandService.getCommandNames();
+
+      // Verify
+      expect(result).toEqual(['visible_command', 'another_visible']);
+      expect(result).not.toContain('hidden_command');
+    });
+
+    it('should return empty array when all commands are hidden', () => {
+      // Arrange
+      userDefinedCommandService.userDefinedCommands.set('hidden_command1', {
+        command_name: 'hidden_command1',
+        commands: [{ name: 'test', query: 'query1' }],
+        file_path: 'path/to/file1.md',
+        hidden: true,
+      });
+
+      userDefinedCommandService.userDefinedCommands.set('hidden_command2', {
+        command_name: 'hidden_command2',
+        commands: [{ name: 'test', query: 'query2' }],
+        file_path: 'path/to/file2.md',
+        hidden: true,
+      });
+
+      // Execute
+      const result = userDefinedCommandService.getCommandNames();
+
+      // Verify
+      expect(result).toEqual([]);
+    });
+  });
+
   describe('expandUserDefinedCommandIntents', () => {
     it('should expand user-defined commands into their constituent CommandIntents', () => {
       // Arrange

@@ -223,13 +223,6 @@ const COMMAND_DEFINITIONS_MAP = COMMAND_DEFINITIONS.reduce((acc, item) => {
 }, new Map<string, CommandDefinition>());
 
 /**
- * Get commands by category
- */
-export function getCommandsByCategory(category: 'built-in' | 'intent-based'): CommandDefinition[] {
-  return COMMAND_DEFINITIONS.filter(cmd => cmd.category === category);
-}
-
-/**
  * Get a command definition by command type
  */
 export function getCommandDefinition(commandType: string): CommandDefinition | undefined {
