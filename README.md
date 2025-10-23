@@ -51,21 +51,21 @@ Steward can be used directly in the editor or by opening the chat interface.
 2. Type after the `/ ` in the chat or the active editor to interact or type `/ ?` to see available commands
 3. To add a new line in the command input, press `Shift+Enter` (uses 2-space indentation)
 
-## Showcases
+### Showcases
 
-### Update directly in the editor
+#### Update directly in the editor
 
 <img src="/docs/Update-In-Editor.gif" alt="Update directly in the editor" width="400px">
 
-### Image read
+#### Image read
 
 <img src="/docs/Image-Read.gif" alt="Image read" width="650px">
 
-### Update the selection
+#### Update the selection
 
 <img src="/docs/Stw-Demo-Update-selected-text-complex.gif" alt="Update selection" width="650px">
 
-### Search
+#### Search
 
 <img src="/docs/Stw-Demo-Search-light.gif" alt="Search" width="650px">
 
