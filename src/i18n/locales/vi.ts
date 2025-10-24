@@ -240,6 +240,14 @@ const vi = {
       buildingIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
       summarizing: 'Đang tóm tắt cuộc trò chuyện...',
     },
+    // Model fallback messages
+    modelFallback: {
+      switchingToFallback:
+        'Mô hình {{fromModel}} gặp lỗi. Đang thử mô hình dự phòng: {{toModel}}...',
+      fallbackSuccess: 'Đã chuyển thành công sang {{model}}',
+      allModelsFailed: 'Tất cả các mô hình đều không thể xử lý yêu cầu của bạn:',
+      errorSummary: '{{model}}: {{error}}',
+    },
     // Settings
     settings: {
       stewardFolder: 'Thư mục Steward',
@@ -320,6 +328,18 @@ const vi = {
       deleteBehaviorDesc: 'Cách xử lý việc xóa tập tin',
       moveToTrash: 'Di chuyển tập tin đến {{folder}}',
       useObsidianDeletedFiles: 'Sử dụng cài đặt Xóa tập tin của Obsidian',
+      modelFallbackEnabled: 'Bật dự phòng mô hình',
+      modelFallbackEnabledDesc: 'Tự động chuyển sang mô hình dự phòng khi mô hình chính gặp lỗi',
+      fallbackChain: 'Chuỗi dự phòng',
+      fallbackChainDesc: 'Các mô hình sẽ được thử theo thứ tự này khi mô hình chính gặp lỗi',
+      modelFallback: {
+        noFallbackModels: 'Chưa cấu hình mô hình dự phòng',
+        addFirstModel: 'Thêm mô hình đầu tiên',
+        addToChain: 'Thêm vào chuỗi',
+        moveUp: 'Di chuyển lên',
+        moveDown: 'Di chuyển xuống',
+        noAvailableModels: 'Không có mô hình nào để thêm',
+      },
     },
   },
 };

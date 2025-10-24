@@ -58,6 +58,10 @@ export interface StewardPluginSettings {
       };
       customModels: string[]; // User-defined custom speech models
     };
+    modelFallback: {
+      enabled: boolean; // Enable/disable automatic model fallback
+      fallbackChain: string[]; // Ordered list of models to try as fallbacks
+    };
   };
   embedding: {
     enabled: boolean; // Enable/disable embedding functionality

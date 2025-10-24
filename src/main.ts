@@ -48,26 +48,114 @@ import { createStwSqueezedBlocksExtension } from './cm/extensions/StwSqueezedBlo
 import { capitalizeString } from './utils/capitalizeString';
 import { AbortService } from './services/AbortService';
 import { TrashCleanupService } from './services/TrashCleanupService';
+import { ModelFallbackService } from './services/ModelFallbackService';
 import { uniqueID } from './utils/uniqueID';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
   obsidianAPITools: ObsidianAPITools;
-  searchService: SearchService;
   chatTitle = 'Steward chat';
-  artifactManagerV2: ArtifactManagerV2;
-  conversationRenderer: ConversationRenderer;
-  contentReadingService: ContentReadingService;
   commandProcessorService: CommandProcessorService;
-  userDefinedCommandService: UserDefinedCommandService;
   conversationEventHandler: ConversationEventHandler;
-  mediaTools: MediaTools;
-  noteContentService: NoteContentService;
   llmService: LLMService;
-  commandInputService: CommandInputService;
-  abortService: AbortService;
   trashCleanupService: TrashCleanupService;
-  encryptionService: EncryptionService;
+
+  // Lazy-loaded services
+  _searchService: SearchService;
+  _artifactManagerV2: ArtifactManagerV2;
+  _conversationRenderer: ConversationRenderer;
+  _contentReadingService: ContentReadingService;
+  _userDefinedCommandService: UserDefinedCommandService;
+  _mediaTools: MediaTools;
+  _noteContentService: NoteContentService;
+  _modelFallbackService: ModelFallbackService;
+  _abortService: AbortService;
+  _encryptionService: EncryptionService;
+  _commandInputService: CommandInputService;
+
+  get commandInputService(): CommandInputService {
+    if (!this._commandInputService) {
+      this._commandInputService = CommandInputService.getInstance(this);
+    }
+    return this._commandInputService;
+  }
+
+  get searchService(): SearchService {
+    if (!this._searchService) {
+      this._searchService = SearchService.getInstance(this);
+    }
+    return this._searchService;
+  }
+
+  get abortService(): AbortService {
+    if (!this._abortService) {
+      this._abortService = AbortService.getInstance();
+    }
+    return this._abortService;
+  }
+
+  get modelFallbackService(): ModelFallbackService {
+    if (!this._modelFallbackService) {
+      this._modelFallbackService = ModelFallbackService.getInstance(this);
+    }
+    return this._modelFallbackService;
+  }
+
+  get artifactManagerV2(): ArtifactManagerV2 {
+    if (!this._artifactManagerV2) {
+      this._artifactManagerV2 = ArtifactManagerV2.getInstance(this);
+    }
+    return this._artifactManagerV2;
+  }
+
+  get conversationRenderer(): ConversationRenderer {
+    if (!this._conversationRenderer) {
+      this._conversationRenderer = ConversationRenderer.getInstance(this);
+    }
+    return this._conversationRenderer;
+  }
+
+  get contentReadingService(): ContentReadingService {
+    if (!this._contentReadingService) {
+      this._contentReadingService = ContentReadingService.getInstance(this);
+    }
+    return this._contentReadingService;
+  }
+
+  get userDefinedCommandService(): UserDefinedCommandService {
+    if (!this._userDefinedCommandService) {
+      this._userDefinedCommandService = UserDefinedCommandService.getInstance(this);
+    }
+    return this._userDefinedCommandService;
+  }
+
+  get mediaTools(): MediaTools {
+    if (!this._mediaTools) {
+      this._mediaTools = MediaTools.getInstance(this.app);
+    }
+    return this._mediaTools;
+  }
+
+  get noteContentService(): NoteContentService {
+    if (!this._noteContentService) {
+      this._noteContentService = NoteContentService.getInstance(this);
+    }
+    return this._noteContentService;
+  }
+
+  get encryptionService(): EncryptionService {
+    if (!this._encryptionService) {
+      this._encryptionService = EncryptionService.getInstance(this);
+    }
+    return this._encryptionService;
+  }
+
+  get conversationRender(): ConversationRenderer {
+    if (!this._conversationRenderer) {
+      this._conversationRenderer = ConversationRenderer.getInstance(this);
+    }
+    return this._conversationRenderer;
+  }
 
   get editor(): ObsidianEditor {
     return this.app.workspace.activeEditor?.editor as ObsidianEditor;
@@ -87,29 +175,14 @@ export default class StewardPlugin extends Plugin {
     // Clean up old search databases
     this.cleanupOldSearchDatabases();
 
-    // Initialize the search service with the plugin instance
-    this.searchService = SearchService.getInstance(this);
-
     // Initialize the search service
     await this.searchService.initialize();
 
     // Initialize the ObsidianAPITools with the SearchTool
     this.obsidianAPITools = new ObsidianAPITools(this.app);
 
-    // Initialize the media tools
-    this.mediaTools = MediaTools.getInstance(this.app);
-
-    // Initialize the note content service
-    this.noteContentService = NoteContentService.getInstance(this);
-
     // Initialize the LLM service
     this.llmService = LLMService.getInstance(this);
-
-    // Initialize the encryption service
-    this.encryptionService = EncryptionService.getInstance(this);
-
-    // Initialize the AbortService
-    this.abortService = AbortService.getInstance();
 
     // Register custom icon using imported SVG
     addIcon(SMILE_CHAT_ICON_ID, stewardIcon);
@@ -124,26 +197,11 @@ export default class StewardPlugin extends Plugin {
     // This adds a settings tab so the user can configure various aspects of the plugin
     this.addSettingTab(new StewardSettingTab(this));
 
-    // Initialize the content reading service
-    this.contentReadingService = ContentReadingService.getInstance(this);
-
-    // Initialize the UserDefinedCommandService
-    this.userDefinedCommandService = UserDefinedCommandService.getInstance(this);
-
-    // Initialize the ConversationRenderer
-    this.conversationRenderer = ConversationRenderer.getInstance(this);
-
-    // Initialize the ArtifactManagerV2
-    this.artifactManagerV2 = ArtifactManagerV2.getInstance(this);
-
     // Initialize the conversation event handler
     this.conversationEventHandler = new ConversationEventHandler({ plugin: this });
 
     // Initialize the CommandProcessorService
     this.commandProcessorService = new CommandProcessorService(this);
-
-    // Initialize the CommandInputService
-    this.commandInputService = CommandInputService.getInstance(this);
 
     // Initialize the TrashCleanupService
     this.trashCleanupService = new TrashCleanupService(this);
