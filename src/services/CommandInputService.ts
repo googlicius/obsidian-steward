@@ -1,7 +1,6 @@
 import { Editor, Notice } from 'obsidian';
 import { Line, Text } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
-import { UserDefinedCommandService } from './UserDefinedCommandService';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import type StewardPlugin from 'src/main';
 import { StewardChatView } from 'src/views/StewardChatView';
@@ -264,7 +263,7 @@ export class CommandInputService {
   }
 
   public isCommandLine(line: Line): boolean {
-    const extendedPrefixes = UserDefinedCommandService.getInstance().buildExtendedPrefixes();
+    const extendedPrefixes = this.plugin.userDefinedCommandService.buildExtendedPrefixes();
     return extendedPrefixes.some(prefix => line.text.startsWith(prefix));
   }
 

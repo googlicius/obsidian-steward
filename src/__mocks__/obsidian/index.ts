@@ -1,4 +1,4 @@
-// Mock implementation for Obsidian API
+// Override specific classes with mocks
 export class TFile {
   path = '';
   extension = '';
@@ -20,13 +20,24 @@ export class App {
     getAbstractFileByPath: jest.fn(),
     readBinary: jest.fn(),
     read: jest.fn().mockResolvedValue(''),
+    cachedRead: jest.fn().mockResolvedValue(''),
+    modify: jest.fn(),
+    process: jest.fn(),
+    config: {
+      attachmentFolderPath: 'attachments',
+    },
   };
   workspace = {
     getActiveFile: jest.fn(),
+    activeEditor: {
+      editor: {},
+    },
+  };
+  metadataCache = {
+    getFileCache: jest.fn(),
+    getFirstLinkpathDest: jest.fn(),
   };
 }
 
-// Mock getLanguage
+// Mock functions
 export const getLanguage = jest.fn().mockReturnValue('en');
-
-// Add any other classes or functions from obsidian that you need to mock

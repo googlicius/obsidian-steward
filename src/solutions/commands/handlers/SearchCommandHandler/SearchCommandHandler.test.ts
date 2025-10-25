@@ -4,13 +4,17 @@ import { IndexedDocument } from 'src/database/SearchDatabase';
 import { PaginatedSearchResult } from 'src/solutions/search/types';
 import { MediaTools } from 'src/tools/mediaTools';
 import { NoteContentService } from 'src/services/NoteContentService';
-import { type App } from 'obsidian';
+import { TFile, type App } from 'obsidian';
 import { SearchService } from 'src/solutions/search';
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   const mockApp = {
     vault: {
       cachedRead: jest.fn().mockResolvedValue(''),
+      getFileByPath: jest.fn().mockReturnValue(null),
+      config: {
+        attachmentFolderPath: 'attachments',
+      },
     },
     metadataCache: {
       getFirstLinkpathDest: jest.fn(),
@@ -35,13 +39,23 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
         temperature: 0.2,
       }),
     },
+    get mediaTools() {
+      return mockPlugin._mediaTools;
+    },
+    get noteContentService() {
+      return mockPlugin._noteContentService;
+    },
+    get searchService() {
+      return mockPlugin._searchService;
+    },
   } as unknown as StewardPlugin;
 
   // Initialize services with the mock plugin
-  mockPlugin.noteContentService = NoteContentService.getInstance(mockPlugin);
-  mockPlugin.searchService = SearchService.getInstance(mockPlugin);
+  mockPlugin._mediaTools = MediaTools.getInstance(mockPlugin.app);
+  mockPlugin._noteContentService = NoteContentService.getInstance(mockPlugin);
+  mockPlugin._searchService = SearchService.getInstance(mockPlugin);
 
-  return mockPlugin as jest.Mocked<StewardPlugin>;
+  return mockPlugin as unknown as jest.Mocked<StewardPlugin>;
 }
 
 describe('SearchCommandHandler', () => {
@@ -187,19 +201,19 @@ describe('SearchCommandHandler', () => {
   });
 
   describe('formatSearchResults', () => {
-    let mockMediaTools: jest.Mocked<MediaTools>;
+    let findFileByNameOrPathSpy: jest.SpyInstance;
     let vaultCachedReadSpy: jest.SpyInstance;
 
     let paginatedSearchResult: PaginatedSearchResult<IndexedDocument>;
 
     beforeEach(() => {
-      const mockFile = { path: 'Test Note.md' };
-      mockMediaTools = {
-        findFileByNameOrPath: jest.fn().mockResolvedValue(mockFile),
-      } as unknown as jest.Mocked<MediaTools>;
+      const mockFile = new TFile();
+      mockFile.path = 'Test Note.md';
 
-      // Mock the static getInstance method
-      jest.spyOn(MediaTools, 'getInstance').mockReturnValue(mockMediaTools);
+      // Spy on the mediaTools.findFileByNameOrPath method
+      findFileByNameOrPathSpy = jest
+        .spyOn(mockPlugin.mediaTools, 'findFileByNameOrPath')
+        .mockResolvedValue(mockFile);
 
       // Mock vault.cachedRead to return file content
       vaultCachedReadSpy = jest
@@ -238,8 +252,7 @@ describe('SearchCommandHandler', () => {
       });
 
       // Assert
-      expect(MediaTools.getInstance).toHaveBeenCalled();
-      expect(mockMediaTools.findFileByNameOrPath).toHaveBeenCalledWith('Test Note.md');
+      expect(findFileByNameOrPathSpy).toHaveBeenCalledWith('Test Note.md');
       expect(vaultCachedReadSpy).toHaveBeenCalled();
     });
 

@@ -9,7 +9,6 @@ import { Artifact, ArtifactType } from 'src/solutions/artifact';
 import { getTranslation } from 'src/i18n';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
-import { MediaTools } from 'src/tools/mediaTools';
 import type StewardPlugin from 'src/main';
 import { DocWithPath } from 'src/types/types';
 
@@ -127,7 +126,7 @@ export class MoveCommandHandler extends CommandHandler {
         docs = activeFile ? [{ path: activeFile.path }] : [];
       } else {
         const noteName = extraction.context;
-        const note = await MediaTools.getInstance(this.app).findFileByNameOrPath(noteName);
+        const note = await this.plugin.mediaTools.findFileByNameOrPath(noteName);
         docs = note ? [{ path: note.path }] : [];
       }
 

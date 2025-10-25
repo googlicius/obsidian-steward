@@ -165,6 +165,39 @@ export class CommandProcessor {
   }
 
   /**
+   * Initialize model fallback state for a conversation
+   * This is called at the beginning of command processing to ensure
+   * the state is properly initialized before any commands are executed
+   */
+  private async initializeModelFallbackState(
+    title: string,
+    commands: CommandIntent[]
+  ): Promise<void> {
+    // Check if model fallback is enabled
+    if (!this.plugin.modelFallbackService.isEnabled()) {
+      return;
+    }
+
+    // Check if there's already a state for this conversation
+    const state = await this.plugin.modelFallbackService.getState(title);
+    if (state) {
+      // State already exists, no need to initialize
+      return;
+    }
+
+    // Find the first command with a model specified, or use the default model
+    const firstModelCommand = commands.find(cmd => cmd.model);
+    const initialModel = firstModelCommand?.model || this.plugin.settings.llm.chat.model;
+
+    // Initialize the state with the initial model
+    await this.plugin.modelFallbackService.initializeState(title, initialModel);
+
+    logger.log(
+      `Initialized model fallback state for conversation ${title} with model ${initialModel}`
+    );
+  }
+
+  /**
    * Continue processing commands from the current index
    */
   public async continueProcessing(
@@ -181,6 +214,9 @@ export class CommandProcessor {
 
     const { commands, currentIndex, payload } = pendingCommand;
     const noteContentService = NoteContentService.getInstance(this.plugin);
+
+    // Initialize model fallback state if needed
+    await this.initializeModelFallbackState(title, commands);
 
     // Process commands sequentially from current index
     for (let i = currentIndex; i < commands.length; i++) {

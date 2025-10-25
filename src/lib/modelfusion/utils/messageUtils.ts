@@ -1,6 +1,5 @@
 import { ImagePart, TextPart } from 'ai';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
-import { MediaTools } from 'src/tools/mediaTools';
 import { NoteContentService } from 'src/services/NoteContentService';
 import { resizeImageWithCanvas } from 'src/utils/resizeImageWithCanvas';
 import { logger } from 'src/utils/logger';
@@ -29,12 +28,10 @@ export async function prepareMessage(
   // Add the original user input first
   messageContent.push({ type: 'text', text: input });
 
-  const mediaTools = MediaTools.getInstance(plugin.app);
-
   // Process and add images
   for (const imagePath of imagePaths) {
     try {
-      const file = await mediaTools.findFileByNameOrPath(imagePath);
+      const file = await plugin.mediaTools.findFileByNameOrPath(imagePath);
 
       if (file) {
         const imageData = await plugin.app.vault.readBinary(file);
@@ -59,7 +56,7 @@ export async function prepareMessage(
   if (wikilinks.length > 0) {
     for (const wikilink of wikilinks) {
       try {
-        const file = await mediaTools.findFileByNameOrPath(wikilink);
+        const file = await plugin.mediaTools.findFileByNameOrPath(wikilink);
 
         if (file) {
           const content = await plugin.app.vault.cachedRead(file);

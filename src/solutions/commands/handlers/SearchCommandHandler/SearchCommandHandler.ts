@@ -8,7 +8,6 @@ import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/solutions/artifact';
 import { SearchQueryExtractionV2, SearchOperationV2 } from './zSchemas';
-import { MediaTools } from 'src/tools/mediaTools';
 import type StewardPlugin from 'src/main';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { PaginatedSearchResult } from 'src/solutions/search/types';
@@ -454,7 +453,7 @@ export class SearchCommandHandler extends CommandHandler {
       response += `\n\n**${displayIndex}.** [[${result.document.path}]]\n`;
 
       // Get the file content directly
-      const file = await MediaTools.getInstance().findFileByNameOrPath(result.document.path);
+      const file = await this.plugin.mediaTools.findFileByNameOrPath(result.document.path);
 
       if (file && result.keywordsMatched) {
         try {

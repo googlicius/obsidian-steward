@@ -362,6 +362,12 @@ code[class*='language-stw-artifact'] {
   padding: var(--size-2-2) 0;
 }
 
+.stw-model-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-1);
+}
+
 .stw-extraction-details-link {
   font-size: 0.9em;
 }
