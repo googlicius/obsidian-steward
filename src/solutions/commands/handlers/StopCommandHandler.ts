@@ -26,9 +26,9 @@ export class StopCommandHandler extends CommandHandler {
     const t = getTranslation(lang);
 
     // Get the count of active operations before stopping
-    const activeOperationsCount = AbortService.getInstance().getActiveOperationsCount();
+    const activeOperationsCount = this.plugin.abortService.getActiveOperationsCount();
 
-    AbortService.getInstance().abortAllOperations();
+    this.plugin.abortService.abortAllOperations();
 
     // Log the action
     logger.log(`Stop command received - aborted all operations (${activeOperationsCount} active)`);

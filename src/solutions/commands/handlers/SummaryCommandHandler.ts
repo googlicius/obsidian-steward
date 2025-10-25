@@ -6,14 +6,10 @@ import {
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { generateObject } from 'ai';
-import { AbortService } from 'src/services/AbortService';
-import { LLMService } from 'src/services/LLMService';
 import { ConversationHistoryMessage } from 'src/types/types';
 import { z } from 'zod';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
-
-const abortService = AbortService.getInstance();
 
 // Schema for conversation summary
 const conversationSummarySchema = z.object({
@@ -108,11 +104,11 @@ export class SummaryCommandHandler extends CommandHandler {
     conversationHistory: ConversationHistoryMessage[]
   ): Promise<string> {
     try {
-      const llmConfig = await LLMService.getInstance().getLLMConfig();
+      const llmConfig = await this.plugin.llmService.getLLMConfig();
 
       const { object } = await generateObject({
         ...llmConfig,
-        abortSignal: abortService.createAbortController('summary'),
+        abortSignal: this.plugin.abortService.createAbortController('summary'),
         system: `You are a conversation summarizer that creates concise, informative summaries of conversations.
 Your task is to create a summary of the conversation that:
 1. Captures the main topics and key points discussed

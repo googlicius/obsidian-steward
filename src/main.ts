@@ -59,6 +59,7 @@ export default class StewardPlugin extends Plugin {
   conversationEventHandler: ConversationEventHandler;
   llmService: LLMService;
   trashCleanupService: TrashCleanupService;
+  abortService: AbortService;
 
   // Lazy-loaded services
   _searchService: SearchService;
@@ -69,7 +70,6 @@ export default class StewardPlugin extends Plugin {
   _mediaTools: MediaTools;
   _noteContentService: NoteContentService;
   _modelFallbackService: ModelFallbackService;
-  _abortService: AbortService;
   _encryptionService: EncryptionService;
   _commandInputService: CommandInputService;
 
@@ -85,13 +85,6 @@ export default class StewardPlugin extends Plugin {
       this._searchService = SearchService.getInstance(this);
     }
     return this._searchService;
-  }
-
-  get abortService(): AbortService {
-    if (!this._abortService) {
-      this._abortService = AbortService.getInstance();
-    }
-    return this._abortService;
   }
 
   get modelFallbackService(): ModelFallbackService {
@@ -183,6 +176,9 @@ export default class StewardPlugin extends Plugin {
 
     // Initialize the LLM service
     this.llmService = LLMService.getInstance(this);
+
+    // Initialize the AbortService
+    this.abortService = AbortService.getInstance();
 
     // Register custom icon using imported SVG
     addIcon(SMILE_CHAT_ICON_ID, stewardIcon);

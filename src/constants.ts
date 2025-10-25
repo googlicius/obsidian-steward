@@ -118,7 +118,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
       customModels: [], // User-defined custom speech models
     },
     modelFallback: {
-      enabled: false, // Disabled by default
+      enabled: true,
       fallbackChain: [], // Empty by default - users must configure
     },
   },
