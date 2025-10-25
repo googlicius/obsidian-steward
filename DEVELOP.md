@@ -82,10 +82,10 @@
 - [x] Large updates: Tables, lists, paragraphs,...
 - [ ] Evaluation council: A set of different models participating in evaluating the unqualified outcomes: low confidence, errors,...
 - [x] Confirmation as a tool: Allow LLM decide the confirmation so we can send a flexible query (maybe to put more classify) instead of just Yes and No
-- [ ] Model fallback: Defines a set of models if the main model returns errors
+- [x] Model fallback: Defines a set of models if the main model returns errors
 - [ ] Don't allow command input inside a code block
 - [ ] Serialize needs_confirmation, needs_user_input calls
-- [ ] Treat the raw text response as the generated_content if no tool is used
+- [x] Treat the raw text response as the generated_content if no tool is used
 
 ### BUGS
 
