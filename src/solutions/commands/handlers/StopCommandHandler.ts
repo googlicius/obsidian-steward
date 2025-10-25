@@ -6,7 +6,6 @@ import {
 } from '../CommandHandler';
 import type StewardPlugin from 'src/main';
 import { getTranslation } from 'src/i18n';
-import { AbortService } from 'src/services/AbortService';
 import { logger } from 'src/utils/logger';
 import { delay } from 'src/utils/delay';
 
@@ -26,9 +25,9 @@ export class StopCommandHandler extends CommandHandler {
     const t = getTranslation(lang);
 
     // Get the count of active operations before stopping
-    const activeOperationsCount = AbortService.getInstance().getActiveOperationsCount();
+    const activeOperationsCount = this.plugin.abortService.getActiveOperationsCount();
 
-    AbortService.getInstance().abortAllOperations();
+    this.plugin.abortService.abortAllOperations();
 
     // Log the action
     logger.log(`Stop command received - aborted all operations (${activeOperationsCount} active)`);

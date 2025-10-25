@@ -43,10 +43,13 @@ function createMockPlugin(
       stewardFolder: 'Steward',
     },
     app,
+    get noteContentService() {
+      return mockPlugin._noteContentService;
+    },
   } as unknown as jest.Mocked<StewardPlugin>;
 
   // Initialize services with the mock plugin
-  mockPlugin.noteContentService = NoteContentService.getInstance(mockPlugin);
+  mockPlugin._noteContentService = NoteContentService.getInstance(mockPlugin);
 
   return mockPlugin;
 }

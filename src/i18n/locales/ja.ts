@@ -250,6 +250,14 @@ const ja = {
       buildingIndex: '検索インデックスを構築中...',
       summarizing: '会話を要約中...',
     },
+    // Model fallback messages
+    modelFallback: {
+      switchingToFallback:
+        'モデル{{fromModel}}でエラーが発生しました。フォールバックモデル{{toModel}}を試行中...',
+      fallbackSuccess: '{{model}}への切り替えが成功しました',
+      allModelsFailed: 'すべてのモデルでリクエストの処理に失敗しました:',
+      errorSummary: '{{model}}: {{error}}',
+    },
     // Settings (Obsidian doesn't support Japanese, so ignore it)
     settings: {},
   },

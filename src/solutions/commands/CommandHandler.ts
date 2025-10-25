@@ -109,34 +109,131 @@ export abstract class CommandHandler {
   public abstract handle(params: CommandHandlerParams, ...args: unknown[]): Promise<CommandResult>;
 
   /**
-   * Handle a command with automatic error handling
+   * Handle a command with automatic error handling and model fallback
    */
   public async safeHandle(
     params: CommandHandlerParams,
     ...args: unknown[]
   ): Promise<CommandResult> {
+    // Check if model fallback is enabled
+    const fallbackEnabled = this.plugin.modelFallbackService.isEnabled();
+
+    // First, try to get the current model from the fallback state if available
+    let currentModel = params.command.model || this.plugin.settings.llm.chat.model;
+
+    if (fallbackEnabled) {
+      const currentModelFromState = await this.plugin.modelFallbackService.getCurrentModel(
+        params.title
+      );
+      if (currentModelFromState) {
+        // Use the model from frontmatter if available
+        currentModel = currentModelFromState;
+      }
+    }
+
+    params.command.model = currentModel;
+
     try {
       // Call the original handle method
       return await this.handle(params, ...args);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-
       logger.error(`Error in ${params.command.commandType} command handler:`, error);
 
-      try {
-        await this.renderer.updateConversationNote({
-          path: params.title,
-          newContent: `*Error processing ${params.command.commandType} command: ${errorMessage}*`,
-          lang: params.lang,
-        });
-      } catch (renderError) {
-        logger.error('Failed to render error message to conversation:', renderError);
+      // Render the current error message
+      await this.renderer.updateConversationNote({
+        path: params.title,
+        newContent: `*Error processing ${params.command.commandType} command: ${errorMessage}*`,
+        lang: params.lang,
+      });
+
+      // If fallback is enabled, try to use fallback models
+      if (fallbackEnabled) {
+        // Try to switch to the next model
+        const nextModel = await this.plugin.modelFallbackService.switchToNextModel(params.title);
+        if (nextModel) {
+          const newModel = await this.plugin.modelFallbackService.getCurrentModel(params.title);
+          if (newModel) {
+            // Render fallback message
+            await this.renderFallbackMessage(
+              params.title,
+              params.command.model,
+              newModel,
+              params.lang
+            );
+
+            // Update command with new model
+            params.command.model = newModel;
+
+            // Try again with the new model
+            logger.log(`Retrying command with fallback model: ${newModel}`);
+            return this.safeHandle(params, ...args);
+          }
+        } else {
+          // We've exhausted all models, show the error summary
+          const errors = await this.plugin.modelFallbackService.getRecordedErrors(params.title);
+          await this.renderAllModelsFailed(params.title, params.lang, errors);
+        }
       }
 
       return {
         status: CommandResultStatus.ERROR,
         error: error instanceof Error ? error : new Error(errorMessage),
       };
+    }
+  }
+
+  /**
+   * Render a message indicating that we're switching to a fallback model
+   */
+  protected async renderFallbackMessage(
+    conversationTitle: string,
+    fromModel: string,
+    toModel: string,
+    lang?: string | null
+  ): Promise<void> {
+    try {
+      await this.renderer.updateConversationNote({
+        path: conversationTitle,
+        newContent: `*Switching from ${fromModel} to ${toModel} due to errors*`,
+        lang: lang,
+        includeHistory: false,
+      });
+    } catch (error) {
+      logger.error('Failed to render fallback message:', error);
+    }
+  }
+
+  /**
+   * Render a message with all errors when all models have failed
+   */
+  protected async renderAllModelsFailed(
+    conversationTitle: string,
+    lang?: string | null,
+    errors?: Array<{ model: string; error: string }>
+  ): Promise<void> {
+    try {
+      let message = `*All available models have failed. Please check your query or try again later.*`;
+
+      // Add error details if available
+      if (errors && errors.length > 0) {
+        const errorDetails = errors
+          .map(err => {
+            return `- ${err.model}: ${err.error}`;
+          })
+          .join('\n');
+
+        message += `\n\n${errorDetails}`;
+      }
+
+      await this.renderer.updateConversationNote({
+        path: conversationTitle,
+        newContent: message,
+        lang: lang,
+        includeHistory: false,
+      });
+    } catch (error) {
+      logger.error('Failed to render all models failed message:', error);
     }
   }
 

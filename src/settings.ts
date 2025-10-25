@@ -1,12 +1,4 @@
-import {
-  getLanguage,
-  normalizePath,
-  Notice,
-  PluginSettingTab,
-  setIcon,
-  Setting,
-  setTooltip,
-} from 'obsidian';
+import { getLanguage, normalizePath, PluginSettingTab, Setting } from 'obsidian';
 import { logger } from './utils/logger';
 import {
   LLM_MODELS,
@@ -14,22 +6,32 @@ import {
   SPEECH_MODELS,
   IMAGE_MODELS,
   DEFAULT_VOICES,
-  ProviderNeedApiKey,
 } from './constants';
 import { getTranslation } from './i18n';
 import type StewardPlugin from './main';
-import { capitalizeString } from './utils/capitalizeString';
-import { DeleteBehavior, StewardPluginSettings } from './types/interfaces';
-import { get } from './utils/lodash-like';
+import { StewardPluginSettings } from './types/interfaces';
 import { FolderSuggest } from './settings/FolderSuggest';
+import { ModelSetting } from './settings/ModelSetting';
+import { ModelFallbackSetting } from './settings/ModelFallbackSetting';
+import { DeleteBehaviorSetting } from './settings/DeleteBehaviorSetting';
+import { applyMixins } from './utils/applyMixins';
+import { ApiKeySetting } from './settings/ApiKeySetting';
 
 const lang = getLanguage();
 const t = getTranslation(lang);
 
-export default class StewardSettingTab extends PluginSettingTab {
+// Define interface that combines all mixins
+interface StewardSettingTab
+  extends PluginSettingTab,
+    ApiKeySetting,
+    ModelSetting,
+    ModelFallbackSetting,
+    DeleteBehaviorSetting {}
+
+class StewardSettingTab extends PluginSettingTab {
   private providerBaseUrlSetting: Setting;
 
-  constructor(private plugin: StewardPlugin) {
+  constructor(protected plugin: StewardPlugin) {
     super(plugin.app, plugin);
   }
 
@@ -49,77 +51,6 @@ export default class StewardSettingTab extends PluginSettingTab {
     };
 
     return defaultUrls[provider] || '';
-  }
-
-  /**
-   * Helper function to create API key settings
-   * @param containerEl - The container element
-   * @param provider - The provider name (e.g., 'openai', 'groq')
-   * @param displayName - The display name for the setting
-   */
-  private createApiKeySetting(
-    containerEl: HTMLElement,
-    provider: ProviderNeedApiKey,
-    displayName: string
-  ): void {
-    const lang = getLanguage();
-    const t = getTranslation(lang);
-
-    new Setting(containerEl)
-      .setName(displayName)
-      .addText(text => {
-        // Get the current API key (decrypted) with error handling
-        let placeholder = t('settings.enterApiKey');
-        try {
-          const currentKey = this.plugin.encryptionService.getDecryptedApiKey(provider);
-          if (currentKey) {
-            placeholder = t('settings.apiKeyPlaceholder');
-          }
-        } catch (error) {
-          // If decryption fails, we'll show a special message
-          placeholder = t('settings.errorReenterKey');
-          logger.error(`Error decrypting ${provider} API key in settings:`, error);
-        }
-
-        text
-          .setPlaceholder(placeholder)
-          // Only show value if editing
-          .setValue('')
-          .onChange(async value => {
-            if (value) {
-              try {
-                // If a value is entered, encrypt and save it
-                await this.plugin.encryptionService.setEncryptedApiKey(provider, value);
-
-                // Update the placeholder to show that a key is saved
-                text.setPlaceholder(t('settings.apiKeyPlaceholder'));
-                // Clear the input field for security
-                text.setValue('');
-              } catch (error) {
-                new Notice(t('settings.failedToSaveApiKey'));
-                logger.error(`Error setting ${provider} API key:`, error);
-              }
-            }
-          });
-
-        // Add password type to protect API key
-        text.inputEl.setAttribute('type', 'password');
-      })
-      .addExtraButton(button => {
-        button
-          .setIcon('cross')
-          .setTooltip(t('settings.clearApiKey'))
-          .onClick(async () => {
-            try {
-              await this.plugin.encryptionService.setEncryptedApiKey(provider, '');
-              // Force refresh of the settings
-              this.display();
-            } catch (error) {
-              new Notice(t('settings.failedToClearApiKey'));
-              logger.error(`Error clearing ${provider} API key:`, error);
-            }
-          });
-      });
   }
 
   private createProviderBaseUrlSetting(containerEl: HTMLElement) {
@@ -387,6 +318,33 @@ export default class StewardSettingTab extends PluginSettingTab {
           });
       });
 
+    // Enable Model Fallback setting
+    new Setting(containerEl)
+      .setName(t('settings.modelFallbackEnabled'))
+      .setDesc(t('settings.modelFallbackEnabledDesc'))
+      .addToggle(toggle => {
+        toggle
+          .setValue(this.plugin.settings.llm.modelFallback?.enabled ?? false)
+          .onChange(async value => {
+            // Initialize modelFallback if it doesn't exist
+            if (!this.plugin.settings.llm.modelFallback) {
+              this.plugin.settings.llm.modelFallback = {
+                enabled: false,
+                fallbackChain: [],
+              };
+            }
+            this.plugin.settings.llm.modelFallback.enabled = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    // Fallback Chain setting
+    this.createModelFallbackSetting(
+      new Setting(containerEl)
+        .setName(t('settings.fallbackChain'))
+        .setDesc(t('settings.fallbackChainDesc'))
+    );
+
     // Intent classification settings section
     new Setting(containerEl).setName(t('settings.intentClassification')).setHeading();
 
@@ -623,403 +581,15 @@ export default class StewardSettingTab extends PluginSettingTab {
         text.inputEl.setAttribute('max', '100');
       });
   }
-
-  private createDeleteBehaviorSetting(containerEl: HTMLElement): void {
-    // Create the main setting first
-    const setting = new Setting(containerEl)
-      .setName(t('settings.deleteBehavior'))
-      .setDesc(t('settings.deleteBehaviorDesc'));
-
-    let currentInputWrapper: HTMLElement | null = null;
-
-    // Function to create delete behavior dropdown
-    const createDeleteBehaviorDropdown = () => {
-      // Create wrapper div
-      const wrapper = setting.controlEl.createEl('div', {
-        cls: 'stw-setting-wrapper',
-      });
-      currentInputWrapper = wrapper;
-
-      // Create select element directly
-      const select = wrapper.createEl('select', {
-        cls: 'dropdown',
-      });
-
-      select.addEventListener('change', async e => {
-        const target = e.target as HTMLSelectElement;
-        this.plugin.settings.deleteBehavior.behavior = target.value as DeleteBehavior['behavior'];
-        await this.plugin.saveSettings();
-      });
-
-      // Add options
-      const options = [
-        {
-          id: 'stw_trash',
-          name: t('settings.moveToTrash', {
-            folder: `${this.plugin.settings.stewardFolder}/Trash`,
-          }),
-        },
-        {
-          id: 'obsidian_trash',
-          name: t('settings.useObsidianDeletedFiles'),
-        },
-      ];
-
-      // Add options to select
-      for (const option of options) {
-        const optionEl = select.createEl('option');
-        optionEl.textContent = option.name;
-        optionEl.value = option.id;
-      }
-
-      // Initialize with current value
-      select.value = this.plugin.settings.deleteBehavior.behavior;
-
-      // Add "Cleanup policy" link (initially hidden if not stw_trash)
-      wrapper
-        .createEl('a', {
-          text: t('settings.cleanupPolicy'),
-          href: '#',
-          cls: 'stw-custom-model-link caret-right',
-        })
-        .addEventListener('click', e => {
-          e.preventDefault();
-          recreateInput('cleanup');
-        });
-    };
-
-    // Function to create cleanup policy dropdown
-    const createCleanupPolicyDropdown = () => {
-      // Create wrapper div
-      const wrapper = setting.controlEl.createEl('div', {
-        cls: 'stw-setting-wrapper',
-      });
-      currentInputWrapper = wrapper;
-
-      // Add "Back" link
-      const backLink = wrapper.createEl('a', {
-        text: t('settings.back'),
-        href: '#',
-        cls: 'stw-custom-model-link caret-left',
-      });
-
-      backLink.addEventListener('click', e => {
-        e.preventDefault();
-        recreateInput('deleteBehavior');
-      });
-
-      // Create select element directly
-      const select = wrapper.createEl('select', {
-        cls: 'dropdown',
-      });
-
-      // Add options
-      const options = [
-        { id: 'never', name: t('settings.never') },
-        { id: '7days', name: t('settings.days7') },
-        { id: '30days', name: t('settings.days30') },
-        { id: '90days', name: t('settings.days90') },
-        { id: '1year', name: t('settings.year1') },
-      ];
-
-      // Add options to select
-      for (const option of options) {
-        const optionEl = select.createEl('option');
-        optionEl.textContent = option.name;
-        optionEl.value = option.id;
-      }
-
-      // Initialize with current value
-      select.value = this.plugin.settings.deleteBehavior.cleanupPolicy || 'never';
-
-      select.addEventListener('change', async e => {
-        const target = e.target as HTMLSelectElement;
-        this.plugin.settings.deleteBehavior.cleanupPolicy =
-          target.value as DeleteBehavior['cleanupPolicy'];
-        await this.plugin.saveSettings();
-      });
-    };
-
-    // Function to remove current input and create new one
-    const recreateInput = (mode: 'deleteBehavior' | 'cleanup') => {
-      // Remove current wrapper if it exists
-      if (currentInputWrapper) {
-        currentInputWrapper.remove();
-        currentInputWrapper = null;
-      }
-
-      // Create new input based on current mode
-      if (mode === 'cleanup') {
-        createCleanupPolicyDropdown();
-      } else {
-        createDeleteBehaviorDropdown();
-      }
-    };
-
-    // Initialize with delete behavior dropdown
-    recreateInput('deleteBehavior');
-  }
-
-  private createModelSetting(
-    setting: Setting,
-    options: {
-      validationPattern?: RegExp;
-      presetModels: Array<{ id: string; name?: string }>;
-      customModelsField: string;
-      currentModelField: string;
-      placeholder: string;
-      onSelectChange: (modelId: string) => Promise<void>;
-      onAddModel: (modelId: string) => Promise<void>;
-      onDeleteModel: (modelId: string) => Promise<void>;
-    }
-  ): void {
-    const { validationPattern = /^[a-zA-Z0-9_.-]+:[^\s]+$/ } = options;
-    let currentInputWrapper: HTMLElement | null = null;
-
-    // Validation function for custom model format
-    const validateModelFormat = (model: string): boolean => {
-      return validationPattern.test(model);
-    };
-
-    // Function to get custom models from settings
-    const getCustomModels = (): string[] => {
-      return get(this.plugin.settings, options.customModelsField) as string[];
-    };
-
-    // Function to get current model from settings
-    const getCurrentModel = (): string => {
-      return get(this.plugin.settings, options.currentModelField) as string;
-    };
-
-    // Function to create dropdown
-    const createDropdown = () => {
-      // Create wrapper div
-      const wrapper = setting.controlEl.createEl('div', {
-        cls: 'stw-setting-wrapper',
-      });
-      currentInputWrapper = wrapper;
-
-      // Create select element directly
-      const select = wrapper.createEl('select', {
-        cls: 'dropdown',
-      });
-
-      // Combine preset models and custom models
-      const allModels = [
-        ...options.presetModels.map(model => ({
-          id: model.id,
-          name: model.name || model.id,
-        })),
-        ...getCustomModels().map(model => {
-          const [, id] = model.split(':');
-          return {
-            id: model,
-            name: id,
-          };
-        }),
-      ];
-
-      // Group models by provider
-      const modelsByProvider = allModels.reduce<Record<string, typeof allModels>>((acc, model) => {
-        const provider = model.id.split(':')[0];
-        if (!acc[provider]) {
-          acc[provider] = [];
-        }
-        acc[provider].push(model);
-        return acc;
-      }, {});
-
-      // Add models grouped by provider
-      for (const [provider, models] of Object.entries(modelsByProvider)) {
-        // Create optgroup for each provider
-        const optgroup = select.createEl('optgroup');
-        optgroup.setAttribute('label', capitalizeString(provider));
-
-        // Add models under this provider
-        for (const model of models) {
-          const option = optgroup.createEl('option');
-          option.textContent = model.name;
-          option.value = model.id;
-        }
-      }
-
-      // Initialize with current value or default
-      const currentModel = getCurrentModel();
-      select.value = currentModel;
-
-      select.addEventListener('change', async e => {
-        const target = e.target as HTMLSelectElement;
-        await options.onSelectChange(target.value);
-      });
-
-      // Add "Add new model" link
-      const addNewModelLink = wrapper.createEl('a', {
-        text: `${t('settings.addNewModel')}`,
-        href: '#',
-        cls: 'stw-custom-model-link caret-right',
-      });
-
-      addNewModelLink.addEventListener('click', e => {
-        e.preventDefault();
-        recreateInput('add');
-      });
-
-      // Add delete link below the select box (only if there are custom models)
-      const customModels = getCustomModels();
-      if (customModels.length > 0) {
-        const deleteLink = wrapper.createEl('a', {
-          text: t('settings.deleteCustomModels'),
-          href: '#',
-          cls: 'stw-custom-model-link caret-right',
-        });
-
-        deleteLink.addEventListener('click', e => {
-          e.preventDefault();
-          recreateInput('delete');
-        });
-      }
-    };
-
-    // Function to create text input
-    const createTextInput = () => {
-      // Create wrapper div
-      const wrapper = setting.controlEl.createEl('div', {
-        cls: 'stw-setting-wrapper',
-      });
-      currentInputWrapper = wrapper;
-
-      // Add "Back" link
-      const backLink = wrapper.createEl('a', {
-        text: t('settings.back'),
-        href: '#',
-        cls: 'stw-custom-model-link caret-left',
-      });
-
-      backLink.addEventListener('click', e => {
-        e.preventDefault();
-        recreateInput('dropdown');
-      });
-
-      // Create text input directly
-      const textInput = wrapper.createEl('input', {
-        type: 'text',
-        placeholder: options.placeholder,
-        cls: 'text-input',
-      });
-      textInput.focus();
-
-      // Add change handler for validation
-      textInput.addEventListener('input', e => {
-        const target = e.target as HTMLInputElement;
-        const value = target.value;
-
-        // Only validate format, don't save yet
-        if (value && !validateModelFormat(value)) {
-          target.addClass('stw-is-invalid');
-          return;
-        }
-        target.removeClass('stw-is-invalid');
-      });
-
-      // Add Add button next to the text input
-      const addButton = wrapper.createEl('button', {
-        text: t('settings.add'),
-      });
-
-      // Add button click handler
-      addButton.addEventListener('click', async () => {
-        const inputValue = textInput.value.trim();
-
-        if (!inputValue) {
-          return;
-        }
-
-        if (!validateModelFormat(inputValue)) {
-          textInput.addClass('stw-is-invalid');
-          return;
-        }
-
-        textInput.removeClass('stw-is-invalid');
-
-        await options.onAddModel(inputValue);
-        recreateInput('dropdown');
-      });
-    };
-
-    // Function to create delete interface
-    const createDeleteInterface = () => {
-      // Create wrapper div
-      const wrapper = setting.controlEl.createEl('div', {
-        cls: 'stw-setting-wrapper',
-      });
-      currentInputWrapper = wrapper;
-
-      // Add "Back" link
-      const backLink = wrapper.createEl('a', {
-        text: t('settings.back'),
-        href: '#',
-        cls: 'stw-custom-model-link caret-left',
-      });
-
-      backLink.addEventListener('click', e => {
-        e.preventDefault();
-        recreateInput('dropdown');
-      });
-
-      const customModels = getCustomModels();
-
-      if (customModels.length === 0) {
-        wrapper.createEl('div', {
-          text: t('settings.customModels') + ': ' + t('settings.noCustomModels'),
-          cls: 'stw-no-models',
-        });
-        return null;
-      }
-
-      // Create models list
-      const modelsList = wrapper.createEl('div', {
-        cls: 'stw-custom-models-list',
-      });
-
-      for (const modelId of customModels) {
-        const modelItem = modelsList.createEl('div', {
-          cls: 'stw-custom-model-item',
-        });
-
-        modelItem.createEl('span', { text: modelId });
-
-        const deleteButton = modelItem.createEl('button');
-        setIcon(deleteButton, 'trash');
-        setTooltip(deleteButton, t('settings.delete'));
-        deleteButton.classList.add('clickable-icon');
-
-        deleteButton.addEventListener('click', async () => {
-          await options.onDeleteModel(modelId);
-          // Recreate the interface to reflect changes
-          recreateInput('delete');
-        });
-      }
-    };
-
-    // Function to remove current input and create new one
-    const recreateInput = (mode: 'delete' | 'add' | 'dropdown') => {
-      // Remove current wrapper if it exists
-      if (currentInputWrapper) {
-        currentInputWrapper.remove();
-        currentInputWrapper = null;
-      }
-
-      // Create new input based on current mode
-      if (mode === 'delete') {
-        createDeleteInterface();
-      } else if (mode === 'add') {
-        createTextInput();
-      } else {
-        createDropdown();
-      }
-    };
-
-    // Initialize with dropdown mode
-    recreateInput('dropdown');
-  }
 }
+
+// Apply mixins to the class
+applyMixins(StewardSettingTab, [
+  ApiKeySetting,
+  ModelSetting,
+  ModelFallbackSetting,
+  DeleteBehaviorSetting,
+]);
+
+// Export the final class
+export default StewardSettingTab;

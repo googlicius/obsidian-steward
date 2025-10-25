@@ -37,11 +37,17 @@ function createMockPlugin(fileContent = ''): jest.Mocked<StewardPlugin> {
       },
     },
     registerEvent: jest.fn(),
+    get noteContentService() {
+      return mockPlugin._noteContentService;
+    },
+    get conversationRenderer() {
+      return mockPlugin._conversationRenderer;
+    },
   } as unknown as jest.Mocked<StewardPlugin>;
 
   // Initialize services with the mock plugin
-  mockPlugin.noteContentService = NoteContentService.getInstance(mockPlugin);
-  mockPlugin.conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+  mockPlugin._noteContentService = NoteContentService.getInstance(mockPlugin);
+  mockPlugin._conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
   return mockPlugin;
 }

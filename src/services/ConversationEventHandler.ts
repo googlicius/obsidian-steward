@@ -85,7 +85,7 @@ export class ConversationEventHandler {
     await this.plugin.commandProcessorService.commandProcessor.processCommands(payload);
   }
 
-  private async handleConversationLinkInserted(
+  public async handleConversationLinkInserted(
     payload: ConversationLinkInsertedPayload
   ): Promise<void> {
     await this.plugin.commandProcessorService.commandProcessor.processCommands(

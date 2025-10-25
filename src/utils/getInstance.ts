@@ -1,4 +1,4 @@
-type Class<T = any> = new () => T;
+type Class<T = unknown> = new () => T;
 
 /**
  * Create a new instance of class with properties of that class.
@@ -10,5 +10,5 @@ export function getInstance<T>(cls: Class<T>, args?: Partial<T>): T {
     Object.assign(instance as unknown as object, args);
   }
 
-  return instance;
+  return instance as T;
 }

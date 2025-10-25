@@ -280,6 +280,14 @@ const en = {
       summarizing: 'Summarizing conversation...',
       augmentingContext: 'Augmenting context...',
     },
+    // Model fallback messages
+    modelFallback: {
+      switchingToFallback:
+        'Model {{fromModel}} encountered an error. Trying fallback model: {{toModel}}...',
+      fallbackSuccess: 'Successfully switched to {{model}}',
+      allModelsFailed: 'All models failed to process your request:',
+      errorSummary: '{{model}}: {{error}}',
+    },
     // Settings
     settings: {
       stewardFolder: 'Steward folder',
@@ -366,6 +374,21 @@ const en = {
       days30: '30 days',
       days90: '90 days',
       year1: '1 year',
+      modelFallbackEnabled: 'Enable model fallback',
+      modelFallbackEnabledDesc:
+        'Automatically switch to backup models when the primary model fails',
+      fallbackChain: 'Fallback chain',
+      fallbackChainDesc: 'Models will be tried in this order when the primary model fails',
+      modelFallback: {
+        noFallbackModels: 'No fallback models configured',
+        addFirstModel: 'Add first model',
+        addModel: 'Add model',
+        addToChain: 'Add to chain',
+        moveUp: 'Move up',
+        moveDown: 'Move down',
+        remove: 'Remove',
+        noAvailableModels: 'No available models to add',
+      },
     },
   },
 };
