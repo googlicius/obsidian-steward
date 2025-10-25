@@ -655,7 +655,6 @@ export default class StewardPlugin extends Plugin {
         return true;
       } catch (error) {
         logger.error('Error in handleEnter:', error);
-        new Notice(`Error processing command: ${error.message}`);
         return false;
       }
     })();
@@ -823,7 +822,6 @@ export default class StewardPlugin extends Plugin {
       }
     } catch (error) {
       logger.error('Error opening chat:', error);
-      new Notice(`Error opening chat: ${error.message}`);
     }
   }
 
