@@ -7,6 +7,7 @@ import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { logger } from 'src/utils/logger';
 import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
 import { type CommandProcessor } from './CommandProcessor';
+import { getTranslation } from 'src/i18n';
 
 export enum CommandResultStatus {
   SUCCESS = 'success',
@@ -140,39 +141,32 @@ export abstract class CommandHandler {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error(`Error in ${params.command.commandType} command handler:`, error);
 
+      const t = getTranslation(params.lang);
       // Render the current error message
       await this.renderer.updateConversationNote({
         path: params.title,
-        newContent: `*Error processing ${params.command.commandType} command: ${errorMessage}*`,
+        newContent: `*${t('common.errorProcessingCommand', { commandType: params.command.commandType, errorMessage })}*`,
         lang: params.lang,
       });
 
       // If fallback is enabled, try to use fallback models
       if (fallbackEnabled) {
-        // Try to switch to the next model
         const nextModel = await this.plugin.modelFallbackService.switchToNextModel(params.title);
         if (nextModel) {
-          const newModel = await this.plugin.modelFallbackService.getCurrentModel(params.title);
-          if (newModel) {
-            // Render fallback message
-            await this.renderFallbackMessage(
-              params.title,
-              params.command.model,
-              newModel,
-              params.lang
-            );
+          // Render fallback message
+          await this.renderer.updateConversationNote({
+            path: params.title,
+            newContent: `*${t('common.switchingModelDueToErrors', { fromModel: params.command.model, toModel: nextModel })}*`,
+            lang: params.lang,
+            includeHistory: false,
+          });
 
-            // Update command with new model
-            params.command.model = newModel;
+          // Update command with new model
+          params.command.model = nextModel;
 
-            // Try again with the new model
-            logger.log(`Retrying command with fallback model: ${newModel}`);
-            return this.safeHandle(params, ...args);
-          }
-        } else {
-          // We've exhausted all models, show the error summary
-          const errors = await this.plugin.modelFallbackService.getRecordedErrors(params.title);
-          await this.renderAllModelsFailed(params.title, params.lang, errors);
+          // Try again with the new model
+          logger.log(`Retrying command with fallback model: ${nextModel}`);
+          return this.safeHandle(params, ...args);
         }
       }
 
@@ -180,60 +174,6 @@ export abstract class CommandHandler {
         status: CommandResultStatus.ERROR,
         error: error instanceof Error ? error : new Error(errorMessage),
       };
-    }
-  }
-
-  /**
-   * Render a message indicating that we're switching to a fallback model
-   */
-  protected async renderFallbackMessage(
-    conversationTitle: string,
-    fromModel: string,
-    toModel: string,
-    lang?: string | null
-  ): Promise<void> {
-    try {
-      await this.renderer.updateConversationNote({
-        path: conversationTitle,
-        newContent: `*Switching from ${fromModel} to ${toModel} due to errors*`,
-        lang: lang,
-        includeHistory: false,
-      });
-    } catch (error) {
-      logger.error('Failed to render fallback message:', error);
-    }
-  }
-
-  /**
-   * Render a message with all errors when all models have failed
-   */
-  protected async renderAllModelsFailed(
-    conversationTitle: string,
-    lang?: string | null,
-    errors?: Array<{ model: string; error: string }>
-  ): Promise<void> {
-    try {
-      let message = `*All available models have failed. Please check your query or try again later.*`;
-
-      // Add error details if available
-      if (errors && errors.length > 0) {
-        const errorDetails = errors
-          .map(err => {
-            return `- ${err.model}: ${err.error}`;
-          })
-          .join('\n');
-
-        message += `\n\n${errorDetails}`;
-      }
-
-      await this.renderer.updateConversationNote({
-        path: conversationTitle,
-        newContent: message,
-        lang: lang,
-        includeHistory: false,
-      });
-    } catch (error) {
-      logger.error('Failed to render all models failed message:', error);
     }
   }
 

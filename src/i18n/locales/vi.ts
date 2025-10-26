@@ -34,6 +34,8 @@ const vi = {
       buildSearchIndexDesc: 'Xây dựng chỉ mục tìm kiếm cho ghi chú của bạn',
       cannotDeleteThisType: 'Không thể xóa loại artifact này: {{type}}',
       thisNote: 'ghi chú này',
+      errorProcessingCommand: 'Lỗi khi xử lý lệnh {{commandType}}: {{errorMessage}}',
+      switchingModelDueToErrors: 'Chuyển từ {{fromModel}} sang {{toModel}} do gặp lỗi',
     },
     trigger: {
       executing: 'Đang thực thi trigger cho lệnh: {{commandName}}',
@@ -258,9 +260,6 @@ const vi = {
     modelFallback: {
       switchingToFallback:
         'Mô hình {{fromModel}} gặp lỗi. Đang thử mô hình dự phòng: {{toModel}}...',
-      fallbackSuccess: 'Đã chuyển thành công sang {{model}}',
-      allModelsFailed: 'Tất cả các mô hình đều không thể xử lý yêu cầu của bạn:',
-      errorSummary: '{{model}}: {{error}}',
     },
     // Settings
     settings: {
@@ -291,7 +290,8 @@ const vi = {
       chatModelDesc: 'Chọn mô hình AI để sử dụng cho trò chuyện',
       intentClassification: 'Phân loại ý định',
       classificationEnabled: 'Bật phân loại ý định',
-      classificationEnabledDesc: 'Bật hoặc tắt chức năng phân loại ý định',
+      classificationEnabledDesc:
+        'Khi được kích hoạt, hệ thống sẽ trở nên thông minh hơn, hiệu quả hơn và sử dụng ít mã thông báo hơn theo thời gian.',
       embeddingModel: 'Mô hình nhúng (Embedding)',
       embeddingModelDesc:
         'Mô hình được sử dụng cho embedding và phân loại ý định. Lưu trữ các truy vấn trước đó theo nghĩa ngữ nghĩa để giảm việc sử dụng token cho việc trích xuất ý định với các truy vấn tương tự.',

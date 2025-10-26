@@ -38,6 +38,8 @@ const en = {
       buildSearchIndexDesc: 'Build the search index for your notes',
       cannotDeleteThisType: 'Cannot delete this type of artifact: {{type}}',
       thisNote: 'this note',
+      errorProcessingCommand: 'Error processing {{commandType}} command: {{errorMessage}}',
+      switchingModelDueToErrors: 'Switching from {{fromModel}} to {{toModel}} due to errors',
     },
     trigger: {
       executing: 'Command "{{commandName}}" is executing.',
@@ -284,9 +286,6 @@ const en = {
     modelFallback: {
       switchingToFallback:
         'Model {{fromModel}} encountered an error. Trying fallback model: {{toModel}}...',
-      fallbackSuccess: 'Successfully switched to {{model}}',
-      allModelsFailed: 'All models failed to process your request:',
-      errorSummary: '{{model}}: {{error}}',
     },
     // Settings
     settings: {
@@ -317,7 +316,8 @@ const en = {
       chatModelDesc: 'Select the AI model to use for chat',
       intentClassification: 'Intent classification',
       classificationEnabled: 'Enable intent classification',
-      classificationEnabledDesc: 'Enable or disable intent classification functionality',
+      classificationEnabledDesc:
+        'When enabled, the system gets smarter, increasingly efficient, and the less token usage over time.',
       embeddingModel: 'Embedding model',
       embeddingModelDesc:
         'Model used for intent classification. Stores previous queries in semantic meaning to reduce token usage for intent extraction with similar queries.',
