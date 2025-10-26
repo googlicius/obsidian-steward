@@ -568,9 +568,6 @@ export default class StewardPlugin extends Plugin {
       commandType = ' ';
     }
 
-    logger.log('Command type:', commandType === ' ' ? 'general' : commandType);
-    logger.log('Command query:', fullCommandText);
-
     const commandQuery = fullCommandText.substring(matchedPrefix.length).trim();
 
     if (!this.commandProcessorService.validateCommandContent(commandType, commandQuery)) {
