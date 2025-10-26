@@ -27,7 +27,10 @@ import {
   QueryExtraction,
 } from './zSchemas';
 
-export type CommandIntentExtraction = Omit<CommandTypeExtraction, 'commandTypes'> & QueryExtraction;
+export type CommandIntentExtraction = Omit<CommandTypeExtraction, 'commandTypes'> &
+  Omit<QueryExtraction, 'commands'> & {
+    commands: QueryExtraction['commands'];
+  };
 
 export class GeneralCommandHandler extends CommandHandler {
   isContentRequired = true;
@@ -139,31 +142,9 @@ export class GeneralCommandHandler extends CommandHandler {
         commands: queryExtraction.commands,
         explanation: queryExtraction.explanation,
         confidence: commandTypeExtraction.confidence,
-        queryTemplate: commandTypeExtraction.queryTemplate,
+        queryTemplate: queryExtraction.queryTemplate,
         lang,
       };
-
-      // Save the embeddings after both steps are complete
-      if (result.confidence >= 0.9 && result.queryTemplate && !ignoreClassify) {
-        const embeddingSettings = this.plugin.llmService.getEmbeddingSettings();
-        const classifier = getClassifier(embeddingSettings, isReloadRequest);
-
-        // Create cluster name from unique command types
-        const uniqueCommandTypes = Array.from(new Set(result.commands.map(cmd => cmd.commandType)));
-        const newClusterName = uniqueCommandTypes.reduce((acc, curVal) => {
-          return acc ? `${acc}:${curVal}` : curVal;
-        }, '');
-
-        // Save embedding without awaiting to avoid blocking
-        classifier
-          .saveEmbedding(result.queryTemplate, newClusterName)
-          .then(() => {
-            logger.log(`Saved embedding for query template with cluster: ${newClusterName}`);
-          })
-          .catch(err => {
-            logger.error('Failed to save embedding:', err);
-          });
-      }
 
       return result;
     } catch (error) {
@@ -402,6 +383,24 @@ IMPORTANT:
         commandType: 'general',
         explanation: extraction.explanation,
       };
+    }
+
+    // Initialize command execution tracking
+    const shouldTrack = extraction.confidence >= 0.9;
+
+    if (shouldTrack) {
+      const existingTracking = await this.plugin.commandTrackingService.getTracking(title);
+
+      if (!existingTracking || upstreamOptions?.isReloadRequest) {
+        await this.plugin.commandTrackingService.initializeTracking({
+          conversationTitle: title,
+          originalQuery: command.query,
+          extractedCommands: extraction.commands.map(c => c.commandType),
+          queryTemplate: extraction.queryTemplate,
+          confidence: extraction.confidence,
+          isReloadRequest: upstreamOptions?.isReloadRequest,
+        });
+      }
     }
 
     // Process the commands (either high confidence or confirmed)

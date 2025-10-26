@@ -205,6 +205,12 @@ ${languageEnforcementFragment}`,
             handlerId: `fromGenerate_${handlerId}`,
           });
 
+          // Record read command execution if tracking is active (check frontmatter)
+          const tracking = await this.plugin.commandTrackingService.getTracking(title);
+          if (tracking) {
+            await this.plugin.commandTrackingService.recordCommandExecution(title, 'read');
+          }
+
           if (readResult.status === CommandResultStatus.SUCCESS) {
             // Call handle again after reading
             return this.handle(params, {

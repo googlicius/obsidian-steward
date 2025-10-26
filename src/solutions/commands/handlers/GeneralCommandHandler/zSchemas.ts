@@ -21,12 +21,6 @@ export const commandTypeExtractionSchema = z.object({
 - 0.4-0.7: Medium confidence (likely, but could be interpreted differently)
 - 0.8-1.0: High confidence (very clear intent)
 If the confidence is low, include the commands that you are extracting in the explanation so the user decides whether to proceed or not.`),
-  queryTemplate: z
-    .string()
-    .optional()
-    .describe(
-      `A template version of the query where specific elements (tags, keywords, filenames, folders) are replaced with generic placeholders (x, y, z, f). This helps identify similar query patterns for caching purposes.`
-    ),
 });
 
 // Define the Zod schema for command intent
@@ -51,6 +45,12 @@ Each command in the sequence should have its own query that will be processed by
     .min(1, 'Explanation must be a non-empty string')
     .describe(explanationFragment),
   lang: z.string().nullable().optional(),
+  queryTemplate: z
+    .string()
+    .optional()
+    .describe(
+      `A template version of the query where specific elements (tags, keywords, filenames, folders) are replaced with generic placeholders (x, y, z, f). This helps identify similar query patterns for caching purposes.`
+    ),
 });
 
 // Export types

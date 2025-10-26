@@ -8,7 +8,6 @@ import { logger } from 'src/utils/logger';
 export interface ModelFallbackFrontmatter {
   originalModel?: string;
   attemptedModels?: string[];
-  errors?: Array<{ model: string; error: string }>;
 }
 
 /**
@@ -93,17 +92,12 @@ export class ModelFallbackService {
    * Get the current model fallback state from frontmatter
    */
   public async getState(conversationTitle: string): Promise<ModelFallbackFrontmatter | null> {
-    const file = this.getConversationFile(conversationTitle);
-    if (!file) {
-      return null;
-    }
+    const modelFallback = await this.plugin.conversationRenderer.getConversationProperty(
+      conversationTitle,
+      'modelFallback'
+    );
 
-    const cache = this.plugin.app.metadataCache.getFileCache(file);
-    if (!cache?.frontmatter?.modelFallback) {
-      return null;
-    }
-
-    return cache.frontmatter.modelFallback;
+    return (modelFallback as ModelFallbackFrontmatter) || null;
   }
 
   /**
@@ -129,18 +123,6 @@ export class ModelFallbackService {
   }
 
   /**
-   * Check if a specific model has already failed in this conversation
-   */
-  public async hasModelFailed(conversationTitle: string, model: string): Promise<boolean> {
-    const state = await this.getState(conversationTitle);
-    if (!state || !state.errors) {
-      return false;
-    }
-
-    return state.errors.some(error => error.model === model);
-  }
-
-  /**
    * Get the next model from the fallback chain
    */
   private async getNextModel(conversationTitle: string): Promise<string | null> {
@@ -163,26 +145,27 @@ export class ModelFallbackService {
   }
 
   /**
-   * Switch to the next fallback model
+   * Switch to the next fallback model, update the frontmatter with the new model.
+   * @returns The next model if enabled and found otherwise null.
    */
-  public async switchToNextModel(conversationTitle: string): Promise<boolean> {
+  public async switchToNextModel(conversationTitle: string): Promise<string | null> {
     if (!this.isEnabled()) {
-      return false;
+      return null;
     }
 
     const file = this.getConversationFile(conversationTitle);
     if (!file) {
-      return false;
+      return null;
     }
 
     const state = await this.getState(conversationTitle);
     if (!state) {
-      return false;
+      return null;
     }
 
     const nextModel = await this.getNextModel(conversationTitle);
     if (!nextModel) {
-      return false;
+      return null;
     }
 
     // Update the frontmatter
@@ -204,33 +187,7 @@ export class ModelFallbackService {
     // Update usedModels in frontmatter
     await this.trackModelInFrontmatter(conversationTitle, nextModel);
 
-    return true;
-  }
-
-  /**
-   * Get all recorded errors for a conversation
-   */
-  public async getRecordedErrors(
-    conversationTitle: string
-  ): Promise<Array<{ model: string; error: string }>> {
-    const state = await this.getState(conversationTitle);
-    if (!state || !state.errors) {
-      return [];
-    }
-
-    return state.errors;
-  }
-
-  /**
-   * Get a user-friendly display name for a model ID
-   */
-  private getModelDisplayName(modelId: string): string {
-    if (!modelId || !modelId.includes(':')) {
-      return modelId;
-    }
-
-    const [provider, model] = modelId.split(':');
-    return `${provider} ${model}`;
+    return nextModel;
   }
 
   /**

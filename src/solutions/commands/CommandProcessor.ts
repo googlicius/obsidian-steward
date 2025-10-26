@@ -4,6 +4,7 @@ import { logger } from '../../utils/logger';
 import { CommandIntent } from 'src/types/types';
 import { NoteContentService } from '../../services/NoteContentService';
 import type StewardPlugin from 'src/main';
+import { getClassifier } from 'src/lib/modelfusion';
 
 interface PendingCommand {
   commands: CommandIntent[];
@@ -20,6 +21,11 @@ export interface ProcessCommandsOptions {
    * If true, the built-in handler will be used in case a user-defined command has the same name as a built-in command.
    */
   builtInCommandPrecedence?: boolean;
+  /**
+   * If false, don't record command execution to tracking (default: true)
+   * Used for isolated processors (confirmations, etc.)
+   */
+  enableTracking?: boolean;
   sendToDownstream?: {
     /**
      * If true, indicates this is a reload request
@@ -66,9 +72,6 @@ export class CommandProcessor {
   ): Promise<void> {
     const { title, commands } = payload;
 
-    // Preprocessing for general commands
-    // This prevents accidentally resetting pending commands when a general command
-    // might actually be a confirmation command
     if (this.isGeneralCommand(commands) && !options.skipGeneralCommandCheck) {
       // Check if we're waiting for user input (not yes/no confirmation)
       if (this.isWaitingForUserInput(title)) {
@@ -76,6 +79,9 @@ export class CommandProcessor {
         return;
       }
 
+      // Process general commands in an isolated processor
+      // This prevents accidentally resetting pending commands when a general command
+      // might actually be a confirmation command.
       await this.processCommandInIsolation(payload, commands[0].commandType, {
         ...options,
         skipGeneralCommandCheck: true,
@@ -127,7 +133,11 @@ export class CommandProcessor {
       return;
     }
 
-    await isolatedProcessor.processCommands(payload, options);
+    // Disable tracking for isolated processors (confirmations, etc.)
+    await isolatedProcessor.processCommands(payload, {
+      ...options,
+      enableTracking: false,
+    });
   }
 
   public isProcessing(title: string): boolean {
@@ -165,39 +175,6 @@ export class CommandProcessor {
   }
 
   /**
-   * Initialize model fallback state for a conversation
-   * This is called at the beginning of command processing to ensure
-   * the state is properly initialized before any commands are executed
-   */
-  private async initializeModelFallbackState(
-    title: string,
-    commands: CommandIntent[]
-  ): Promise<void> {
-    // Check if model fallback is enabled
-    if (!this.plugin.modelFallbackService.isEnabled()) {
-      return;
-    }
-
-    // Check if there's already a state for this conversation
-    const state = await this.plugin.modelFallbackService.getState(title);
-    if (state) {
-      // State already exists, no need to initialize
-      return;
-    }
-
-    // Find the first command with a model specified, or use the default model
-    const firstModelCommand = commands.find(cmd => cmd.model);
-    const initialModel = firstModelCommand?.model || this.plugin.settings.llm.chat.model;
-
-    // Initialize the state with the initial model
-    await this.plugin.modelFallbackService.initializeState(title, initialModel);
-
-    logger.log(
-      `Initialized model fallback state for conversation ${title} with model ${initialModel}`
-    );
-  }
-
-  /**
    * Continue processing commands from the current index
    */
   public async continueProcessing(
@@ -216,7 +193,8 @@ export class CommandProcessor {
     const noteContentService = NoteContentService.getInstance(this.plugin);
 
     // Initialize model fallback state if needed
-    await this.initializeModelFallbackState(title, commands);
+    const initialModel = commands[0].model || this.plugin.settings.llm.chat.model;
+    await this.plugin.modelFallbackService.initializeState(title, initialModel);
 
     // Process commands sequentially from current index
     for (let i = currentIndex; i < commands.length; i++) {
@@ -266,6 +244,17 @@ export class CommandProcessor {
         upstreamOptions: options.sendToDownstream,
       });
 
+      const enableTracking = options.enableTracking !== false; // default to true
+      if (enableTracking) {
+        const tracking = await this.plugin.commandTrackingService.getTracking(title);
+        if (tracking) {
+          await this.plugin.commandTrackingService.recordCommandExecution(
+            title,
+            command.commandType
+          );
+        }
+      }
+
       // Command completed successfully
       this.pendingCommands.set(title, {
         ...pendingCommand,
@@ -311,6 +300,38 @@ export class CommandProcessor {
 
     // All commands processed successfully
     this.pendingCommands.delete(title);
+
+    // Save classification if tracking is enabled and active
+    const enableTracking = options.enableTracking !== false; // default to true
+    if (enableTracking) {
+      await this.saveClassification(title);
+    }
+  }
+
+  /**
+   * Save classification after all commands finish
+   */
+  private async saveClassification(title: string): Promise<void> {
+    const tracking = await this.plugin.commandTrackingService.getTracking(title);
+    if (!tracking) {
+      return;
+    }
+
+    const embeddingSettings = this.plugin.llmService.getEmbeddingSettings();
+    const classifier = getClassifier(embeddingSettings, tracking.isReloadRequest);
+
+    // Create cluster name from ACTUAL executed commands
+    const clusterName = tracking.executedCommands.join(':');
+
+    if (!tracking.queryTemplate) {
+      logger.warn('Query template is missing, cannot save embedding');
+      return;
+    }
+
+    // Save embedding without awaiting to avoid blocking
+    classifier.saveEmbedding(tracking.queryTemplate, clusterName).catch(err => {
+      logger.error('Failed to save embedding:', err);
+    });
   }
 
   /**

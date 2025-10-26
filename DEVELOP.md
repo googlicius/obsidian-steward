@@ -86,6 +86,7 @@
 - [ ] Model fallback: Defines a set of models if the main model returns errors
 - [ ] Don't allow command input inside a code block
 - [ ] Serialize needs_confirmation, needs_user_input calls
+- [ ] Select a model by typing `m:` or `model:` in the command input.
 
 ### BUGS
 

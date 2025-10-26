@@ -1,4 +1,4 @@
-import { getLanguage, TFile } from 'obsidian';
+import { getLanguage, parseYaml, TFile } from 'obsidian';
 import { uniqueID } from '../utils/uniqueID';
 import { getTranslation } from '../i18n';
 import { ConversationHistoryMessage, ConversationMessage, ConversationRole } from '../types/types';
@@ -1258,14 +1258,15 @@ export class ConversationRenderer {
 
   /**
    * Gets a property from the conversation's YAML frontmatter
+   * Tries cache first, then reads directly from file if not found
    * @param conversationTitle The title of the conversation
    * @param property The property name to retrieve
    * @returns The property value or undefined if not found
    */
-  public async getConversationProperty(
+  public async getConversationProperty<T>(
     conversationTitle: string,
     property: string
-  ): Promise<unknown | undefined> {
+  ): Promise<T | undefined> {
     try {
       // Get the conversation file
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
@@ -1276,15 +1277,25 @@ export class ConversationRenderer {
         throw new Error(`Note not found: ${notePath}`);
       }
 
-      // Get the file's metadata cache
+      // Try to get from cache first
       const fileCache = this.plugin.app.metadataCache.getFileCache(file);
 
-      // Check if the file has frontmatter
-      if (!fileCache || !fileCache.frontmatter) {
-        return undefined;
+      if (fileCache?.frontmatter) {
+        return fileCache.frontmatter[property];
       }
 
-      return fileCache.frontmatter[property];
+      // Cache miss, read directly from file
+      logger.log(`Cache miss for property ${property}, reading directly from file`);
+      const fileContent = await this.plugin.app.vault.read(file);
+      const frontmatterRegex = /^---\n([\s\S]*?)\n---/;
+      const match = fileContent.match(frontmatterRegex);
+
+      if (match) {
+        const frontmatter = parseYaml(match[1]) as Record<string, unknown>;
+        return frontmatter[property] as T;
+      }
+
+      return undefined;
     } catch (error) {
       logger.error(`Error getting conversation property ${property}:`, error);
       return undefined;
