@@ -87,6 +87,8 @@
 - [ ] Don't allow command input inside a code block
 - [ ] Serialize needs_confirmation, needs_user_input calls
 - [ ] Select a model by typing `m:` or `model:` in the command input.
+- [ ] Improve the queryTemplate of the query extraction: Replace terms with place holders: <keyword>, <tag>, <folder>, <table>, <list>,...
+- [ ] Embedding database: Removing the last or least used items to prevent the database larger over time.
 
 ### BUGS
 
