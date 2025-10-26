@@ -295,6 +295,12 @@ GUIDELINES:
             lang: params.lang,
           });
 
+          // Record read command execution if tracking is active (check frontmatter)
+          const tracking = await this.plugin.commandTrackingService.getTracking(params.title);
+          if (tracking) {
+            await this.plugin.commandTrackingService.recordCommandExecution(params.title, 'read');
+          }
+
           if (readResult.status === CommandResultStatus.SUCCESS) {
             // Call handleUpdateGeneratedContent again after reading
             return this.handleUpdateGeneratedOrReadContent({

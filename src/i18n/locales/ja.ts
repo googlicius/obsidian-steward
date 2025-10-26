@@ -32,6 +32,9 @@ const ja = {
       buildSearchIndexDesc: 'ノートの検索インデックスを構築する',
       cannotDeleteThisType: 'この種類のアーティファクトは削除できません: {{type}}',
       thisNote: 'このノート',
+      errorProcessingCommand:
+        '{{commandType}}コマンドの処理中にエラーが発生しました: {{errorMessage}}',
+      switchingModelDueToErrors: 'エラーのため{{fromModel}}から{{toModel}}に切り替えています',
     },
     // Chat UI elements
     chat: {
@@ -240,9 +243,6 @@ const ja = {
     modelFallback: {
       switchingToFallback:
         'モデル{{fromModel}}でエラーが発生しました。フォールバックモデル{{toModel}}を試行中...',
-      fallbackSuccess: '{{model}}への切り替えが成功しました',
-      allModelsFailed: 'すべてのモデルでリクエストの処理に失敗しました:',
-      errorSummary: '{{model}}: {{error}}',
     },
     // Settings (Obsidian doesn't support Japanese, so ignore it)
     settings: {},

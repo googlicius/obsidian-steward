@@ -62,7 +62,7 @@
 - [ ] Make another UDC demo: Is there any LOVE in violence? Is there any bilateral solution between Gandalf and Sauron?
 - [x] Context Augmentation: When the confidence is low, evaluate the current extraction, request another extraction with all current context: read results, etc. And continue the process with the new extraction.
 - [x] Search files with only mentioned type.
-- [ ] When a generate command isn't have enough context, it can directly use commands like search and read for context augmentation.
+- [x] When a generate command isn't have enough context, it can directly use commands like search and read for context augmentation.
 - [ ] Add a new step to evaluate the results if it is satisfied the user's query.
       For example: Some models extract this query as only one read command: "<selectedText> Help me update the table, check the Instructions note to get the instructions.". Which is incorrect.
 - [x] Add the ability to the frontend side to enrich the context if LLMs don't work properly.
@@ -78,7 +78,7 @@
 - [ ] Add the new Steward folder to the excluded folders.
 - [x] When users clicking on the reload button of a message, remove ALL artifacts below that message.
 - [x] Provide a clean assistant-user' request/response flow with consistent ID: User sends queries: 1. Assistant send request (request_id) to read. The user response with a reading result (include the request_id)
-- [ ] Save embedding only when the command sequence is completed.
+- [x] Save embedding only when the command sequence is completed.
 - [ ] Enhance summarization: Only check generated_content, note content_update for generate commands.
 - [x] Large updates: Tables, lists, paragraphs,...
 - [ ] Evaluation council: A set of different models participating in evaluating the unqualified outcomes: low confidence, errors,...
@@ -86,6 +86,7 @@
 - [ ] Model fallback: Defines a set of models if the main model returns errors
 - [ ] Don't allow command input inside a code block
 - [ ] Serialize needs_confirmation, needs_user_input calls
+- [ ] Select a model by typing `m:` or `model:` in the command input.
 
 ### BUGS
 

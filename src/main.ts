@@ -50,6 +50,7 @@ import { AbortService } from './services/AbortService';
 import { TrashCleanupService } from './services/TrashCleanupService';
 import { ModelFallbackService } from './services/ModelFallbackService';
 import { uniqueID } from './utils/uniqueID';
+import { CommandTrackingService } from './services/CommandTrackingService';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -72,6 +73,7 @@ export default class StewardPlugin extends Plugin {
   _modelFallbackService: ModelFallbackService;
   _encryptionService: EncryptionService;
   _commandInputService: CommandInputService;
+  _commandTrackingService: CommandTrackingService;
 
   get commandInputService(): CommandInputService {
     if (!this._commandInputService) {
@@ -92,6 +94,13 @@ export default class StewardPlugin extends Plugin {
       this._modelFallbackService = ModelFallbackService.getInstance(this);
     }
     return this._modelFallbackService;
+  }
+
+  get commandTrackingService(): CommandTrackingService {
+    if (!this._commandTrackingService) {
+      this._commandTrackingService = CommandTrackingService.getInstance(this);
+    }
+    return this._commandTrackingService;
   }
 
   get artifactManagerV2(): ArtifactManagerV2 {
