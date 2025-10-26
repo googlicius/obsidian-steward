@@ -1,7 +1,6 @@
-import { getLanguage, normalizePath, Notice, TFile } from 'obsidian';
+import { getLanguage, normalizePath, Notice, TFile, parseYaml } from 'obsidian';
 import { logger } from 'src/utils/logger';
 import { CommandIntent } from 'src/types/types';
-import * as yaml from 'js-yaml';
 import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES } from 'src/constants';
 import { SearchOperationV2 } from 'src/solutions/commands/handlers/SearchCommandHandler/zSchemas';
@@ -286,7 +285,7 @@ export class UserDefinedCommandService {
 
       for (const yamlContent of yamlBlocks) {
         try {
-          const commandDefinition = yaml.load(yamlContent) as UserDefinedCommand;
+          const commandDefinition = parseYaml(yamlContent) as UserDefinedCommand;
 
           // Add file path to the command definition
           commandDefinition.file_path = file.path;

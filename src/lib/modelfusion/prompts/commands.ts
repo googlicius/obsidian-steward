@@ -4,7 +4,7 @@
  * for reuse in command intent prompts and help systems
  */
 
-import * as yaml from 'js-yaml';
+import { stringifyYaml } from 'obsidian';
 import { Artifact, ArtifactType } from 'src/solutions/artifact';
 
 export interface CommandDefinition {
@@ -352,12 +352,7 @@ export function formatCommandsForPrompt(commandNames?: string[] | null): string 
     return commandData;
   });
 
-  return yaml.dump(commandsData, {
-    indent: 2,
-    lineWidth: -1,
-    noRefs: true,
-    sortKeys: false,
-  });
+  return stringifyYaml(commandsData);
 }
 
 /**
@@ -380,12 +375,7 @@ export function formatQueryTemplatesForPrompt(commandNames?: string[] | null): s
       template: cmd.queryTemplate,
     }));
 
-  return yaml.dump(templatesData, {
-    indent: 2,
-    lineWidth: -1,
-    noRefs: true,
-    sortKeys: false,
-  });
+  return stringifyYaml(templatesData);
 }
 
 /**

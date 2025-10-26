@@ -87,6 +87,8 @@
 - [ ] Serialize needs_confirmation, needs_user_input calls
 - [x] Treat the raw text response as the generated_content if no tool is used
 - [ ] Select a model by typing `m:` or `model:` in the command input.
+- [ ] Improve the queryTemplate of the query extraction: Replace terms with place holders: <keyword>, <tag>, <folder>, <table>, <list>,...
+- [ ] Embedding database: Removing the last or least used items to prevent the database larger over time.
 
 ### BUGS
 

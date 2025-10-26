@@ -13,7 +13,6 @@ import {
   STW_SELECTED_PLACEHOLDER,
 } from 'src/constants';
 import { Artifact } from 'src/solutions/artifact';
-import * as yaml from 'js-yaml';
 import { generateObject } from 'ai';
 import { getCommandTypePrompt } from './commandTypePrompt';
 import { getQueryExtractionPrompt } from './queryExtractionPrompt';
@@ -27,6 +26,7 @@ import {
   QueryExtraction,
 } from './zSchemas';
 import { SystemPromptModifier } from '../../SystemPromptModifier';
+import { stringifyYaml } from 'obsidian';
 
 export type CommandIntentExtraction = Omit<CommandTypeExtraction, 'commandTypes'> &
   Omit<QueryExtraction, 'commands'> & {
@@ -278,12 +278,7 @@ export class GeneralCommandHandler extends CommandHandler {
     yamlData.confidence = extraction.confidence;
 
     // Convert to YAML string
-    const yamlContent = yaml.dump(yamlData, {
-      lineWidth: -1,
-      noRefs: true,
-      quotingType: '"',
-      forceQuotes: false,
-    });
+    const yamlContent = stringifyYaml(yamlData);
 
     return `<a href="javascript:;" class="stw-extraction-details-link">${t('common.extractionDetails')}</a>\n\n\`\`\`yaml\n${yamlContent}\`\`\``;
   }
