@@ -1,3 +1,7 @@
+// Note: The obsidian package only contains type definitions, no actual runtime code.
+// We use jest.requireActual to get the real js-yaml implementation (which Obsidian uses internally)
+const yaml = jest.requireActual('js-yaml');
+
 // Override specific classes with mocks
 export class TFile {
   path = '';
@@ -39,5 +43,16 @@ export class App {
   };
 }
 
-// Mock functions
+// Mock specific functions
 export const getLanguage = jest.fn().mockReturnValue('en');
+
+// Export YAML utilities using js-yaml package (which Obsidian uses internally)
+export const parseYaml = yaml.load;
+export const stringifyYaml = (obj: unknown): string => {
+  return yaml.dump(obj, {
+    indent: 2,
+    lineWidth: -1,
+    noRefs: true,
+    sortKeys: false,
+  });
+};
