@@ -22,6 +22,7 @@ import { generateObject } from 'ai';
 import { searchPromptV2 } from './searchPromptV2';
 import { searchQueryExtractionSchema } from './zSchemas';
 import { getLanguage } from 'obsidian';
+import { SystemPromptModifier } from '../../SystemPromptModifier';
 
 type HighlighKeywordResult = {
   highlightedText: string;
@@ -349,13 +350,16 @@ export class SearchCommandHandler extends CommandHandler {
         generateType: 'object',
       });
 
+      const modifier = new SystemPromptModifier(systemPrompts);
+      const additionalSystemPrompts = modifier.getAdditionalSystemPrompts();
+
       // Use AI SDK to generate the response
       const { object } = await generateObject({
         ...llmConfig,
         abortSignal: this.plugin.abortService.createAbortController('search-query-v2'),
-        system: searchPromptV2(command),
+        system: modifier.apply(searchPromptV2(command)),
         messages: [
-          ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+          ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
           { role: 'user', content: command.query },
         ],
         schema: searchQueryExtractionSchema,

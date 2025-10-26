@@ -6,7 +6,6 @@ import {
 } from '../CommandHandler';
 import type StewardPlugin from 'src/main';
 import { getTranslation } from 'src/i18n';
-import { AbortService } from 'src/services/AbortService';
 import { logger } from 'src/utils/logger';
 import { delay } from 'src/utils/delay';
 

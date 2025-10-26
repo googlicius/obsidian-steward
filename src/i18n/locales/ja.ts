@@ -36,6 +36,20 @@ const ja = {
         '{{commandType}}コマンドの処理中にエラーが発生しました: {{errorMessage}}',
       switchingModelDueToErrors: 'エラーのため{{fromModel}}から{{toModel}}に切り替えています',
     },
+    trigger: {
+      executing: 'トリガーコマンドを実行中: {{commandName}}',
+      executed: 'トリガー "{{commandName}}" を実行しました。',
+      openConversation: '会話を開く',
+    },
+    validation: {
+      errorTitle: 'UDC 検証エラー',
+      errorDetected: 'コマンドファイルで検証エラーが検出されました: {{fileName}}. ',
+      openValidationNote: 'エラーを表示',
+      errorDescription: 'ユーザー定義コマンドの検証中に次のエラーが見つかりました:',
+      commandError: 'コマンド: {{commandName}}',
+      yamlError: '無効なYAML構文',
+      successMessage: 'すべてのコマンド定義が有効です！✅',
+    },
     // Chat UI elements
     chat: {
       newChat: '新しいチャット',

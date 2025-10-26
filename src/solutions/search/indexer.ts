@@ -5,6 +5,7 @@ import { TermSource, IndexedProperty } from '../../database/SearchDatabase';
 import { logger } from '../../utils/logger';
 import { COMMAND_PREFIXES } from '../../constants';
 import { IndexedPropertyArray } from './IndexedPropertyArray';
+import { hashTerms } from '../../utils/arrayUtils';
 
 export interface IndexerConfig {
   app: App;
@@ -23,7 +24,7 @@ export class Indexer {
   private isIndexBuilt = false;
   // Simple cache for current note
   private cachedNotePath: string | null = null;
-  private cachedNoteTermsCount = 0;
+  private cachedNoteTermsHash: string | null = null;
 
   constructor({ app, documentStore, contentTokenizer, nameTokenizer }: IndexerConfig) {
     this.app = app;
@@ -72,6 +73,9 @@ export class Indexer {
         // Skip if index is not built
         if (!this.isIndexBuilt) return;
 
+        // Wait a bit for any UDC trigger to check if a term is newly added or not.
+        await sleep(1000);
+
         if (file instanceof TFile) {
           // Skip files in excluded folders
           if (this.documentStore.isExcluded(file.path)) {
@@ -85,21 +89,21 @@ export class Indexer {
 
             // Check if this is the cached note
             if (this.cachedNotePath === file.path) {
-              // Get new terms count
+              // Get new terms and hash them
               const newTerms = this.contentTokenizer.tokenize(content);
-              const newTermsCount = newTerms.length;
+              const newTermsHash = hashTerms(newTerms.map(t => t.term));
 
-              // If terms count differs, reindex
-              if (this.cachedNoteTermsCount !== newTermsCount) {
+              // If terms hash differs, reindex
+              if (this.cachedNoteTermsHash !== newTermsHash) {
                 logger.log(
-                  `Terms count changed for ${file.path}: ${this.cachedNoteTermsCount} -> ${newTermsCount}`
+                  `Terms changed for ${file.path}, hash: ${this.cachedNoteTermsHash} -> ${newTermsHash}`
                 );
                 this.queueFileForIndexing(file.path);
 
-                // Update cache with new terms count
-                this.cachedNoteTermsCount = newTermsCount;
+                // Update cache with new terms hash
+                this.cachedNoteTermsHash = newTermsHash;
               } else {
-                logger.log(`Terms count unchanged for ${file.path}, skipping indexing`);
+                logger.log(`Terms unchanged for ${file.path}, skipping indexing`);
               }
             } else {
               // Not the cached note, proceed with normal indexing
@@ -213,7 +217,7 @@ export class Indexer {
 
       // Process file based on its type
       if (file.extension === 'md') {
-        content = await this.documentStore.readFile(file);
+        content = await this.app.vault.cachedRead(file);
 
         // Skip markdown files with command prefixes
         if (this.containsCommandPrefix(content)) {
@@ -244,7 +248,7 @@ export class Indexer {
   private async indexProperties(file: TFile, documentId: number) {
     const properties = new IndexedPropertyArray();
 
-    const cache = file.extension === 'md' ? this.documentStore.getFileCache(file) : null;
+    const cache = file.extension === 'md' ? this.app.metadataCache.getFileCache(file) : null;
 
     // Extract properties from frontmatter (for markdown files)
     if (cache?.frontmatter) {
@@ -521,17 +525,19 @@ export class Indexer {
   }
 
   /**
-   * Update the cached note terms count
+   * Update the cached note terms hash
    */
   private async updateCachedNote(file: TFile): Promise<void> {
     try {
       const content = await this.app.vault.cachedRead(file);
+      const terms = this.contentTokenizer.tokenize(content);
+      const termsHash = hashTerms(terms.map(t => t.term));
 
       // Update cache
       this.cachedNotePath = file.path;
-      this.cachedNoteTermsCount = this.contentTokenizer.tokenize(content).length;
+      this.cachedNoteTermsHash = termsHash;
 
-      logger.log(`Updated cached note: ${file.path} with ${this.cachedNoteTermsCount} terms`);
+      logger.log(`Updated cached note: ${file.path} with hash ${termsHash}`);
     } catch (error) {
       logger.error(`Error updating cached note ${file.path}:`, error);
       this.clearCachedNote();
@@ -543,7 +549,7 @@ export class Indexer {
    */
   private clearCachedNote(): void {
     this.cachedNotePath = null;
-    this.cachedNoteTermsCount = 0;
+    this.cachedNoteTermsHash = null;
   }
 
   /**

@@ -59,7 +59,6 @@
 - [x] Toggle extraction explanation, to demonstrate the user what it going to do.
 - [ ] Don't include the content of wikilinks automatically. Let the extraction decide it. But the downstream commands like `generate` are still able to include the content itself if it is not presented in the context.
 - [ ] Provide a unify solution allows each command can retrieve context itself.
-- [ ] Make another UDC demo: Is there any LOVE in violence? Is there any bilateral solution between Gandalf and Sauron?
 - [x] Context Augmentation: When the confidence is low, evaluate the current extraction, request another extraction with all current context: read results, etc. And continue the process with the new extraction.
 - [x] Search files with only mentioned type.
 - [x] When a generate command isn't have enough context, it can directly use commands like search and read for context augmentation.
@@ -83,9 +82,10 @@
 - [x] Large updates: Tables, lists, paragraphs,...
 - [ ] Evaluation council: A set of different models participating in evaluating the unqualified outcomes: low confidence, errors,...
 - [x] Confirmation as a tool: Allow LLM decide the confirmation so we can send a flexible query (maybe to put more classify) instead of just Yes and No
-- [ ] Model fallback: Defines a set of models if the main model returns errors
+- [x] Model fallback: Defines a set of models if the main model returns errors
 - [ ] Don't allow command input inside a code block
 - [ ] Serialize needs_confirmation, needs_user_input calls
+- [x] Treat the raw text response as the generated_content if no tool is used
 - [ ] Select a model by typing `m:` or `model:` in the command input.
 - [ ] Improve the queryTemplate of the query extraction: Replace terms with place holders: <keyword>, <tag>, <folder>, <table>, <list>,...
 - [ ] Embedding database: Removing the last or least used items to prevent the database larger over time.
@@ -99,6 +99,9 @@
 - [x] Double user messages in the actual generate.
 - [x] Cannot stop
 - [ ] Generate command doesn't store artifact when the command is defined in a User-Defined command.
+- [ ] Cannot search terms start or end with markdown syntaxes: \*john, sarah\_, etc.
+- [ ] It keep read the same content again in the following query.
+- [x] Index is not triggered when update a tag
 
 ### CONTEXT ENGINEERING
 
@@ -114,3 +117,4 @@
 # Some scenarios lead to an infinite tool calls:
 
 1. Update command need to read content, it sends a request to the Read command (1). The Read agent return a text response instead of a tool call -> Return back to the Update command, the Update agent still need to read -> resend another request (1) -> Loop created.
+2. Conflict between the user query and strict system instructions -> Leave no way to escape the loop.

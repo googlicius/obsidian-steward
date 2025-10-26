@@ -1,4 +1,4 @@
-import { removeConsecutiveItems } from './arrayUtils';
+import { removeConsecutiveItems, hashTerms } from './arrayUtils';
 
 describe('arrayUtils', () => {
   describe('removeConsecutiveItems', () => {
@@ -19,5 +19,35 @@ describe('arrayUtils', () => {
       const result = removeConsecutiveItems(array);
       expect(result).toEqual(['a', 'b', 'c', 'd']);
     });
+  });
+});
+
+describe('hashTerms', () => {
+  it('should return consistent hash for empty array', () => {
+    const hash1 = hashTerms([]);
+    const hash2 = hashTerms([]);
+    expect(hash1).toBe(hash2);
+    expect(hash1).toBe('45h');
+  });
+
+  it('should return consistent hash for single term', () => {
+    const hash1 = hashTerms(['apple']);
+    expect(hash1).toBe('1r7wcc5');
+  });
+
+  it('should return a hash for 3 terms', () => {
+    const terms = ['apple', 'banana', 'orange'];
+    const hash1 = hashTerms(terms);
+    expect(hash1).toBe('1egcafc');
+  });
+
+  it('should return a hash for a long list of terms', () => {
+    const terms: string[] = [];
+    for (let i = 0; i < 1000; i++) {
+      terms.push(`term${i}`);
+    }
+    const hash1 = hashTerms(terms);
+
+    expect(hash1).toEqual('rl0513');
   });
 });

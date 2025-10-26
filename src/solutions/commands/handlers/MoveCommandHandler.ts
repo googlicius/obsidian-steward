@@ -147,7 +147,7 @@ export class MoveCommandHandler extends CommandHandler {
       const destinationFolder = extraction.destinationFolder;
       const folderExists = this.app.vault.getFolderByPath(destinationFolder);
 
-      if (!folderExists && !options.folderExistsConfirmed) {
+      if (!folderExists && !options.folderExistsConfirmed && !command.no_confirm) {
         // Request confirmation to create the folder
         let message = t('move.createFoldersHeader') + '\n';
         message += `- \`${destinationFolder}\`\n`;
@@ -164,9 +164,6 @@ export class MoveCommandHandler extends CommandHandler {
             return this.handle(params, { extraction, folderExistsConfirmed: true });
           },
           onRejection: () => {
-            // if (artifact) {
-            //   this.artifactManager.deleteArtifact(title, artifact.id);
-            // }
             return {
               status: CommandResultStatus.SUCCESS,
             };

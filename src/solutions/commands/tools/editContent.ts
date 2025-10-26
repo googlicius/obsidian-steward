@@ -113,9 +113,9 @@ function repairEditToolCallArgs(args: EditArgs): EditArgs {
   const repairedArgs = { ...args };
 
   // Unescape the newContent
-  repairedArgs.operations.forEach(operation => {
+  for (const operation of repairedArgs.operations) {
     operation.newContent = new MarkdownUtil(operation.newContent).unescape().getText();
-  });
+  }
 
   return repairedArgs;
 }

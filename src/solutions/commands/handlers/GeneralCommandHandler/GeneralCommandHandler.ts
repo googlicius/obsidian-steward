@@ -25,6 +25,7 @@ import {
   CommandTypeExtraction,
   QueryExtraction,
 } from './zSchemas';
+import { SystemPromptModifier } from '../../SystemPromptModifier';
 import { stringifyYaml } from 'obsidian';
 
 export type CommandIntentExtraction = Omit<CommandTypeExtraction, 'commandTypes'> &
@@ -169,7 +170,7 @@ export class GeneralCommandHandler extends CommandHandler {
       generateType: 'object',
     });
 
-    const additionalSystemPrompts: string[] = command.systemPrompts || [];
+    const additionalSystemPrompts = command.systemPrompts || [];
 
     // Proceed with LLM-based command type extraction
     logger.log('Using LLM for command type extraction');
@@ -177,20 +178,20 @@ export class GeneralCommandHandler extends CommandHandler {
     try {
       // Create an operation-specific abort signal
       const abortSignal = this.plugin.abortService.createAbortController('command-type-extraction');
-
-      const systemPrompts = additionalSystemPrompts.map(content => ({
-        role: 'system' as const,
-        content,
-      }));
+      const modifier = new SystemPromptModifier(additionalSystemPrompts);
 
       const { object } = await generateObject({
         ...llmConfig,
         abortSignal,
-        system: getCommandTypePrompt({
-          currentArtifacts,
-        }),
+        system: modifier.apply(
+          getCommandTypePrompt({
+            currentArtifacts,
+          })
+        ),
         messages: [
-          ...systemPrompts,
+          ...modifier
+            .getAdditionalSystemPrompts()
+            .map(prompt => ({ role: 'system' as const, content: prompt })),
           ...conversationHistories,
           { role: 'user', content: command.query },
         ],
@@ -221,7 +222,7 @@ export class GeneralCommandHandler extends CommandHandler {
       generateType: 'object',
     });
 
-    const additionalSystemPrompts: string[] = command.systemPrompts || [];
+    const modifier = new SystemPromptModifier(command.systemPrompts);
 
     // Proceed with LLM-based query extraction
     logger.log('Using LLM for query extraction');
@@ -230,20 +231,19 @@ export class GeneralCommandHandler extends CommandHandler {
       // Create an operation-specific abort signal
       const abortSignal = this.plugin.abortService.createAbortController('query-extraction');
 
-      const systemPrompts = additionalSystemPrompts.map(content => ({
-        role: 'system' as const,
-        content,
-      }));
-
       const { object } = await generateObject({
         ...llmConfig,
         abortSignal,
-        system: getQueryExtractionPrompt({
-          commandTypes,
-          currentArtifacts,
-        }),
+        system: modifier.apply(
+          getQueryExtractionPrompt({
+            commandTypes,
+            currentArtifacts,
+          })
+        ),
         messages: [
-          ...systemPrompts,
+          ...modifier
+            .getAdditionalSystemPrompts()
+            .map(prompt => ({ role: 'system' as const, content: prompt })),
           ...conversationHistories,
           { role: 'user', content: command.query },
         ],

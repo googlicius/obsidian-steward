@@ -41,6 +41,22 @@ const en = {
       errorProcessingCommand: 'Error processing {{commandType}} command: {{errorMessage}}',
       switchingModelDueToErrors: 'Switching from {{fromModel}} to {{toModel}} due to errors',
     },
+    trigger: {
+      executing: 'Command "{{commandName}}" is executing.',
+      executed: 'Command "{{commandName}}" is executed successfully.',
+      openConversation: 'Open conversation',
+      executionFailed: 'Failed to execute command "{{commandName}}": {{error}}',
+    },
+    validation: {
+      errorTitle: 'UDC Validation Errors',
+      errorDetected: 'Validation errors detected in command file: {{fileName}}. ',
+      openValidationNote: 'View errors',
+      errorDescription:
+        'The following errors were found while validating your user-defined commands:',
+      commandError: 'Command: {{commandName}}',
+      yamlError: 'Invalid YAML syntax',
+      successMessage: 'All command definitions are valid! ✅',
+    },
     // Chat UI elements
     chat: {
       newChat: 'New chat',

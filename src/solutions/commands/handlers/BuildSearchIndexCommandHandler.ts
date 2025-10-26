@@ -31,7 +31,7 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
     try {
       const t = getTranslation(lang);
 
-      const files = await this.plugin.searchService.documentStore.getAllFiles();
+      const files = this.plugin.app.vault.getFiles();
       const validFiles = files.filter(
         file => !this.plugin.searchService.documentStore.isExcluded(file.path)
       );

@@ -5,6 +5,7 @@ import { LLMService } from 'src/services/LLMService';
 import { desFolderExtractionSchema } from './destinationFolderExtraction';
 import { logger } from 'src/utils/logger';
 import { CommandIntent } from 'src/types/types';
+import { SystemPromptModifier } from 'src/solutions/commands';
 
 const abortService = AbortService.getInstance();
 
@@ -25,6 +26,11 @@ export interface MoveExtraction {
  */
 export async function extractMoveQuery(command: CommandIntent): Promise<MoveExtraction> {
   const { systemPrompts = [] } = command;
+
+  // Extract only string-based system prompts (filter out modification objects)
+  const modifier = new SystemPromptModifier(systemPrompts);
+  const additionalSystemPrompts = modifier.getAdditionalSystemPrompts();
+
   try {
     const llmConfig = await LLMService.getInstance().getLLMConfig({
       overrideModel: command.model,
@@ -36,7 +42,7 @@ export async function extractMoveQuery(command: CommandIntent): Promise<MoveExtr
       abortSignal: abortService.createAbortController('move'),
       system: destinationFolderPrompt,
       messages: [
-        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         {
           role: 'user',
           content: command.query,

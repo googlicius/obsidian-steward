@@ -47,7 +47,7 @@ export const STW_SELECTED_METADATA_PATTERN =
   '\\{\\{stw-selected from:(\\d+),to:(\\d+),selection:(.+?),path:(.+?)\\}\\}';
 
 /**
- * Supported command prefixes
+ * All built-in command that are available to the command menu
  */
 export const COMMAND_PREFIXES = [
   '/ ',

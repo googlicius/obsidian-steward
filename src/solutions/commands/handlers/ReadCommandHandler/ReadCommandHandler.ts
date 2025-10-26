@@ -16,6 +16,7 @@ import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragmen
 import { CONFIRMATION_TOOL_NAME, ASK_USER_TOOL_NAME, createAskUserTool } from '../../tools/askUser';
 import { ToolInvocation } from '../../tools/types';
 import { uniqueID } from 'src/utils/uniqueID';
+import { SystemPromptModifier } from '../../SystemPromptModifier';
 
 const CONTENT_READING_TOOL_NAME = 'contentReading';
 
@@ -41,10 +42,38 @@ export class ReadCommandHandler extends CommandHandler {
       command => command.commandType === 'read'
     )?.queryTemplate;
 
+    // Tools set
+    const tools = {
+      [CONTENT_READING_TOOL_NAME]: tool({
+        parameters: contentReadingSchema,
+      }),
+      [CONFIRMATION_TOOL_NAME]: confirmationTool,
+      [ASK_USER_TOOL_NAME]: askUserTool,
+    };
+
+    // Build modifications array - add remove operations when no_confirm is true
+    const modifications = [...(command.systemPrompts || [])];
+    if (command.no_confirm) {
+      modifications.push({
+        mode: 'remove',
+        pattern: [
+          `2. ${CONFIRMATION_TOOL_NAME}`,
+          `3. ${ASK_USER_TOOL_NAME}`,
+          `- You MUST use ${CONFIRMATION_TOOL_NAME}`,
+          `- Use ${CONFIRMATION_TOOL_NAME}`,
+          `- Use ${ASK_USER_TOOL_NAME}`,
+        ].join('\n'),
+        matchType: 'regex',
+      });
+    }
+
+    const modifier = new SystemPromptModifier(modifications);
+
     return generateText({
       ...llmConfig,
       abortSignal: this.plugin.abortService.createAbortController('content-reading'),
-      system: `You are a helpful assistant that analyzes user queries to determine which content from their Obsidian note to read.
+      system:
+        modifier.apply(`You are a helpful assistant that analyzes user queries to determine which content from their Obsidian note to read.
 
 You have access to the following tools:
 
@@ -64,15 +93,9 @@ This is the structure of the query template:
 <read_query_template>
 ${readCommandQueryTemplate}
 </read_query_template>
-${languageEnforcementFragment}`,
+${languageEnforcementFragment}`),
       messages,
-      tools: {
-        [CONTENT_READING_TOOL_NAME]: tool({
-          parameters: contentReadingSchema,
-        }),
-        [CONFIRMATION_TOOL_NAME]: confirmationTool,
-        [ASK_USER_TOOL_NAME]: askUserTool,
-      },
+      tools,
     });
   }
 
