@@ -380,8 +380,8 @@ IMPORTANT:
       };
     }
 
-    // Initialize command execution tracking
-    const shouldTrack = extraction.confidence >= 0.9;
+    // Initialize command execution tracking when high confidence and more than 1 command
+    const shouldTrack = extraction.confidence >= 0.9 && extraction.commands.length > 1;
 
     if (shouldTrack) {
       const existingTracking = await this.plugin.commandTrackingService.getTracking(title);

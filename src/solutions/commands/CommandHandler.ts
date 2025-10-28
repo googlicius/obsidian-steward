@@ -138,8 +138,9 @@ export abstract class CommandHandler {
         lang: params.lang,
       });
 
-      // If fallback is enabled, try to use fallback models
-      if (this.plugin.modelFallbackService.isEnabled()) {
+      const isAbortError = error instanceof Error && error.name === 'AbortError';
+
+      if (this.plugin.modelFallbackService.isEnabled() && !isAbortError) {
         const nextModel = await this.plugin.modelFallbackService.switchToNextModel(params.title);
         if (nextModel) {
           // Render fallback message
