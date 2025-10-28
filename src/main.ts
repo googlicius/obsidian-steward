@@ -9,6 +9,8 @@ import { createUserMessageButtonsProcessor } from './post-processors/UserMessage
 import { createCalloutMetadataProcessor } from './post-processors/CalloutMetadataProcessor';
 import { createStwSelectedPostProcessor } from './post-processors/StwSelectedPostProcessor';
 import { createExtractionDetailsLinkProcessor } from './post-processors/ExtractionDetailsLinkProcessor';
+import { createStewardConversationProcessor } from './post-processors/StewardConversationProcessor';
+import { createSelectedModelProcessor } from './post-processors/SelectedModelProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -32,7 +34,6 @@ import {
 } from './constants';
 import { StewardChatView } from './views/StewardChatView';
 import { Events } from './types/events';
-import { createStewardConversationProcessor } from './post-processors/StewardConversationProcessor';
 import { ObsidianEditor, ExtendedApp } from './types/types';
 import { isConversationLink, extractConversationTitle } from './utils/conversationUtils';
 import { CommandProcessorService } from './services/CommandProcessorService';
@@ -45,6 +46,7 @@ import { LLMService } from './services/LLMService';
 import stewardIcon from './assets/steward-icon.svg';
 import { createStwSelectedBlocksExtension } from './cm/extensions/StwSelectedBlockExtension';
 import { createStwSqueezedBlocksExtension } from './cm/extensions/StwSqueezedBlockExtension';
+import { createAutocompleteExtension } from './cm/extensions/AutocompleteExtension';
 import { capitalizeString } from './utils/capitalizeString';
 import { AbortService } from './services/AbortService';
 import { TrashCleanupService } from './services/TrashCleanupService';
@@ -293,6 +295,7 @@ export default class StewardPlugin extends Plugin {
       }),
       createStwSelectedBlocksExtension(this),
       createStwSqueezedBlocksExtension(this),
+      createAutocompleteExtension(this),
     ]);
 
     // Register context menu for editor
@@ -342,6 +345,8 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createStewardConversationProcessor(this));
 
     this.registerMarkdownPostProcessor(createStwSelectedPostProcessor(this));
+
+    this.registerMarkdownPostProcessor(createSelectedModelProcessor());
 
     // Register the custom view type
     this.registerView(STW_CHAT_VIEW_CONFIG.type, leaf => new StewardChatView(leaf, this));

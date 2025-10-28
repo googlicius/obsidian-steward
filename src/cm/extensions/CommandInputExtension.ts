@@ -4,20 +4,20 @@ import {
   DecorationSet,
   ViewPlugin,
   ViewUpdate,
-  WidgetType,
   keymap,
+  WidgetType,
 } from '@codemirror/view';
-import { Extension, Line, Prec } from '@codemirror/state';
 import {
-  autocompletion,
-  CompletionContext,
-  CompletionResult,
-  Completion,
-} from '@codemirror/autocomplete';
-import { capitalizeString } from 'src/utils/capitalizeString';
-import { setIcon } from 'obsidian';
-import { COMMAND_PREFIXES, LLM_MODELS, TWO_SPACES_PREFIX } from 'src/constants';
-import { AbortService } from 'src/services/AbortService';
+  Extension,
+  Line,
+  Prec,
+  EditorState,
+  StateField,
+  RangeSetBuilder,
+  Text,
+  RangeSet,
+} from '@codemirror/state';
+import { SELECTED_MODEL_PATTERN, TWO_SPACES_PREFIX } from 'src/constants';
 import type StewardPlugin from 'src/main';
 
 export interface CommandInputOptions {
@@ -56,8 +56,8 @@ export function createCommandInputExtension(
 ): Extension {
   return [
     createInputExtension(plugin, options),
-    createAutocompleteExtension(plugin),
     createCommandKeymapExtension(plugin, options),
+    createSelectedModelExtension(),
   ];
 }
 
@@ -228,102 +228,6 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
   );
 }
 
-// Add autocomplete functionality for command prefixes
-function createAutocompleteExtension(plugin: StewardPlugin): Extension {
-  // Create a mapping of command prefixes to their types for easier lookup
-  const commandTypes = COMMAND_PREFIXES.map(prefix => {
-    // Remove the slash and trim whitespace
-    const type = prefix === '/ ' ? 'general' : prefix.replace('/', '');
-    return { prefix, type };
-  });
-
-  return autocompletion({
-    // Only activate when typing after a slash at the beginning of a line
-    activateOnTyping: true,
-    icons: false,
-    tooltipClass: () => 'stw-command-autocomplete',
-    override: [
-      (context: CompletionContext): CompletionResult | null => {
-        // Don't show autocomplete if the core Slash Commands plugin is enabled
-        const isSlashCommandsEnabled =
-          plugin.extendedApp.internalPlugins?.getPluginById('slash-command')?.enabled;
-        if (isSlashCommandsEnabled) return null;
-
-        // Get current line
-        const { state, pos } = context;
-        const line = state.doc.lineAt(pos);
-        const lineText = line.text;
-
-        // Only show autocomplete when cursor is at beginning of line with a slash
-        if (!lineText.startsWith('/')) return null;
-
-        // Only show when user types a character after the "/"
-        if (lineText === '/ ' || lineText === '/') return null;
-
-        // Make sure we're at the beginning of the line
-        if (line.from !== pos - lineText.length && pos !== line.from + lineText.length) return null;
-
-        // Get the current word (which starts with /)
-        const word = lineText.trim();
-
-        // Get built-in command options
-        const builtInOptions: Completion[] = commandTypes
-          .filter(cmd => cmd.prefix.startsWith(word) && cmd.prefix !== word)
-          .map(cmd => ({
-            label: cmd.prefix,
-            type: 'keyword',
-            detail: `${capitalizeString(cmd.type)} command`,
-            apply: cmd.prefix + ' ',
-          }));
-
-        // Get custom command options
-        const customOptions: Completion[] = [];
-
-        // Add custom command options if available
-        const customCommands = plugin.userDefinedCommandService.getCommandNames();
-
-        // Filter custom commands based on current input
-        const filteredCustomCommands = customCommands.filter(
-          (cmd: string) => ('/' + cmd).startsWith(word) && '/' + cmd !== word
-        );
-
-        // Add to options
-        for (let i = 0; i < filteredCustomCommands.length; i++) {
-          const cmd = filteredCustomCommands[i];
-
-          if (commandTypes.find(cmdType => cmdType.type === cmd)) {
-            continue;
-          }
-
-          customOptions.push({
-            label: '/' + cmd,
-            type: 'keyword',
-            detail: 'Custom command',
-            apply: '/' + cmd + ' ',
-          });
-        }
-
-        // Combine built-in and custom options
-        const completionOptions = [...builtInOptions, ...customOptions];
-
-        if (completionOptions.length === 0) return null;
-
-        return {
-          from: line.from,
-          options: completionOptions,
-          validFor: text => {
-            // If text matches an exact command, return false
-            if (COMMAND_PREFIXES.some(cmd => cmd === text)) return false;
-
-            // Otherwise, validate if it starts with a slash followed by word characters
-            return /^\/\w*$/.test(text);
-          },
-        };
-      },
-    ],
-  });
-}
-
 /**
  * Add keymap with high precedence
  */
@@ -387,89 +291,117 @@ function createCommandKeymapExtension(
   );
 }
 
-// Toolbar widget that will be displayed below command inputs
-// Note: This class is currently not used but implemented for future use
-// The usage is commented out in buildDecorations method below
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-class CommandToolbarWidget extends WidgetType {
-  private command: string;
-  private isGenerating: boolean;
-  private abortService: AbortService;
+/**
+ * Extension to display selected model as a widget
+ * Pattern: `m:<provider>:<modelId>` or `model:<provider>:<modelId>`
+ * Display as `<modelId>`
+ */
+export function createSelectedModelExtension(): Extension {
+  // Widget for rendering the model selector
+  class SelectedModelWidget extends WidgetType {
+    constructor(
+      private selectorPrefix: string,
+      private provider: string,
+      private modelId: string
+    ) {
+      super();
+    }
 
-  constructor(command: string) {
-    super();
-    this.command = command;
-    this.abortService = AbortService.getInstance();
+    toDOM() {
+      const span = document.createElement('span');
+      span.textContent = this.modelId;
+      span.className = 'stw-selected-model';
+      span.title = `${this.provider}:${this.modelId}`;
+      return span;
+    }
+
+    ignoreEvent() {
+      return true;
+    }
+
+    eq(other: SelectedModelWidget) {
+      return (
+        this.selectorPrefix === other.selectorPrefix &&
+        this.provider === other.provider &&
+        this.modelId === other.modelId
+      );
+    }
   }
 
-  toDOM() {
-    const toolbar = document.createElement('div');
-    toolbar.className = 'command-toolbar';
-    toolbar.dataset.command = this.command;
+  // Function to find all model selector patterns in the document
+  function findModelSelectorRanges(doc: Text) {
+    const ranges = [];
+    const text = doc.sliceString(0, doc.length);
 
-    // Add model selector
-    const modelSelector = document.createElement('select');
-    modelSelector.className = 'model-selector';
+    const regex = new RegExp(SELECTED_MODEL_PATTERN, 'gi');
+    let match;
 
-    LLM_MODELS.forEach(model => {
-      const option = document.createElement('option');
-      option.value = model.id;
-      option.textContent = model.name;
-      // if (model.id === this.modelService.getCurrentModel()) {
-      // 	option.selected = true;
-      // }
-      modelSelector.appendChild(option);
-    });
+    while ((match = regex.exec(text)) !== null) {
+      const from = match.index;
+      const to = from + match[0].length;
+      const selectorPrefix = match[1].toLowerCase();
+      const provider = match[2];
+      const modelId = match[3];
 
-    // Add event listener to handle model changes
-    modelSelector.addEventListener('change', e => {
-      // const select = e.target as HTMLSelectElement;
-      // this.modelService.setCurrentModel(select.value);
-    });
+      ranges.push({ from, to, selectorPrefix, provider, modelId });
+    }
 
-    // Create a container for the buttons on the right
-    const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'command-toolbar-buttons';
-
-    // Add stop button (only visible during generation)
-    const stopButton = document.createElement('button');
-    stopButton.classList.add('clickable-icon');
-    stopButton.textContent = 'Stop';
-    setIcon(stopButton, 'x');
-    stopButton.addEventListener('click', (e: MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      // Directly call abort on all operations
-      this.abortService.abortAllOperations();
-    });
-
-    // Add send button
-    const sendButton = document.createElement('button');
-    sendButton.classList.add('clickable-icon');
-    sendButton.textContent = 'Send';
-    setIcon(sendButton, 'send-horizontal');
-    sendButton.addEventListener('click', (e: MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      // this.modelService.sendCommand();
-    });
-
-    // Add buttons to the button container
-    buttonContainer.appendChild(stopButton);
-    buttonContainer.appendChild(sendButton);
-
-    // Add elements to toolbar
-    toolbar.appendChild(modelSelector);
-    toolbar.appendChild(buttonContainer);
-    return toolbar;
+    return ranges;
   }
 
-  eq(other: CommandToolbarWidget) {
-    return this.command === other.command && this.isGenerating === other.isGenerating;
+  // Helper to compute the decoration set
+  function computeDecorationsAndRanges(state: EditorState) {
+    const decorationBuilder = new RangeSetBuilder<Decoration>();
+    const atomicRangeBuilder = new RangeSetBuilder<Decoration>();
+    const ranges = findModelSelectorRanges(state.doc);
+
+    for (const { from, to, selectorPrefix, provider, modelId } of ranges) {
+      decorationBuilder.add(
+        from,
+        to,
+        Decoration.replace({
+          widget: new SelectedModelWidget(selectorPrefix, provider, modelId),
+          inclusive: false,
+        })
+      );
+
+      // Add the same range to the atomic ranges builder
+      atomicRangeBuilder.add(from, to, Decoration.mark({}));
+    }
+
+    return {
+      decorations: decorationBuilder.finish(),
+      atomicRanges: atomicRangeBuilder.finish(),
+    };
   }
 
-  ignoreEvent() {
-    return false; // Allow events to be handled by the widget
-  }
+  const selectedModelField = StateField.define<{
+    decorations: DecorationSet;
+    atomicRanges: RangeSet<Decoration>;
+  }>({
+    create(state) {
+      return computeDecorationsAndRanges(state);
+    },
+
+    update(value, tr) {
+      // Recompute on any transaction (doc change)
+      if (tr.docChanged) {
+        return computeDecorationsAndRanges(tr.state);
+      }
+
+      return {
+        decorations: value.decorations.map(tr.changes),
+        atomicRanges: value.atomicRanges.map(tr.changes),
+      };
+    },
+
+    provide(field) {
+      return [
+        EditorView.decorations.from(field, value => value.decorations),
+        EditorView.atomicRanges.from(field, value => () => value.atomicRanges),
+      ];
+    },
+  });
+
+  return [selectedModelField];
 }

@@ -192,8 +192,7 @@ export class CommandProcessor {
     const { commands, currentIndex, payload } = pendingCommand;
 
     // Initialize model fallback state if needed
-    const initialModel = commands[0].model || this.plugin.settings.llm.chat.model;
-    await this.plugin.modelFallbackService.initializeState(title, initialModel);
+    await this.plugin.modelFallbackService.initializeState(title);
 
     // Process commands sequentially from current index
     for (let i = currentIndex; i < commands.length; i++) {

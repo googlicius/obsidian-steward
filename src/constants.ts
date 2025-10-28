@@ -47,6 +47,16 @@ export const STW_SELECTED_METADATA_PATTERN =
   '\\{\\{stw-selected from:(\\d+),to:(\\d+),selection:(.+?),path:(.+?)\\}\\}';
 
 /**
+ * Pattern to extract extracted model prefix m: or model:
+ */
+export const SELECTED_MODEL_PREFIX_PATTERN = '\\b(m|model):';
+
+/**
+ * Pattern to match selected model: `m:<provider>:<modelId>` or `model:<provider>:<modelId>`
+ */
+export const SELECTED_MODEL_PATTERN = '\\b(m|model):([a-zA-Z0-9_.-]+):([^\\s]+)';
+
+/**
  * All built-in command that are available to the command menu
  */
 export const COMMAND_PREFIXES = [

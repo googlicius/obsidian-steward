@@ -11,6 +11,7 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 - **Privacy-focused**: Most actions are executed in the front-end using Obsidian API and local services to avoid exposing your data to LLMs (except for your queries and what you're explicitly provided).
 - **Command-based interaction**: Support for standard commands like search, create, update, delete, move, audio, image generation, and user-defined commands.
 - **Model flexibility**: Use your favorite AI models, including OpenAI, Gemini, DeepSeek, Ollama, etc.
+- **Model fallback**: Automatically switches to alternative models when errors occur, ensuring robust command execution.
 - **Intent caching**: Utilizes embeddings to cache similar queries, so subsequent requests require fewer tokens for LLM processing.
 - **Multi-language support**: Use Steward in your preferred language.
 - **User-defined commands**: Create your own command workflows by combining multiple commands with specific LLM models and settings of your choice.
@@ -49,6 +50,7 @@ Steward can be used directly in the editor or by opening the chat interface.
 1. Click the "Open Steward chat" icon to open the chat
 2. Type after the `/ ` in the chat or the active editor to interact or type `/ ?` to see available commands
 3. To add a new line in the command input, press `Shift+Enter` (uses 2-space indentation)
+4. To change the model, in the input, type `m:` or `model:` and select from the dropdown.
 
 ### Showcases
 

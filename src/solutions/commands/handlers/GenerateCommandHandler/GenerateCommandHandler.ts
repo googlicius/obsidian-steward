@@ -126,9 +126,9 @@ The response should be in natural language and not include the selection(s) {{st
 
 You have access to the following tools:
 
-1. ${EDIT_TOOL_NAME} - Update existing content in a note.
-2. ${GENERATE_COMMAND_TOOLS.GENERATE_CONTENT} - Generate new content for a note.
-3. ${REQUEST_READ_CONTENT_TOOL_NAME} - Read content from notes to gather context before generating a response.
+- ${EDIT_TOOL_NAME} - Update existing content in a note.
+- ${GENERATE_COMMAND_TOOLS.GENERATE_CONTENT} - Generate new content for a note.
+- ${REQUEST_READ_CONTENT_TOOL_NAME} - Read content from notes to gather context before generating a response.
 
 GUIDELINES:
 - If you need more context before generating a response, use the ${REQUEST_READ_CONTENT_TOOL_NAME} tool first.
@@ -136,7 +136,6 @@ GUIDELINES:
 - For all other content generation requests, use the ${GENERATE_COMMAND_TOOLS.GENERATE_CONTENT} tool.
 - When updating content, return ONLY the specific changed content, not the entire surrounding context.
 - IMPORTANT: Even if you cannot see images referenced in the user's request, you can still proceed with content generation. The actual generation process can access and process images when needed, so don't hesitate to generate content based on image-related requests.
-
 ${languageEnforcementFragment}`),
       messages: [
         ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
@@ -174,6 +173,7 @@ ${languageEnforcementFragment}`),
             },
           });
         }
+
         return {
           status: CommandResultStatus.ERROR,
           error: new Error('No tool calls were made but we have text'),

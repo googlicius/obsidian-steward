@@ -5,7 +5,11 @@ import type StewardPlugin from '../../main';
 import type { StewardPluginSettings } from 'src/types/interfaces';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { logger } from 'src/utils/logger';
-import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
+import {
+  SELECTED_MODEL_PATTERN,
+  STW_SELECTED_PATTERN,
+  STW_SELECTED_PLACEHOLDER,
+} from 'src/constants';
 import { type CommandProcessor } from './CommandProcessor';
 import { getTranslation } from 'src/i18n';
 
@@ -116,23 +120,8 @@ export abstract class CommandHandler {
     params: CommandHandlerParams,
     ...args: unknown[]
   ): Promise<CommandResult> {
-    // Check if model fallback is enabled
-    const fallbackEnabled = this.plugin.modelFallbackService.isEnabled();
-
-    // First, try to get the current model from the fallback state if available
-    let currentModel = params.command.model || this.plugin.settings.llm.chat.model;
-
-    if (fallbackEnabled) {
-      const currentModelFromState = await this.plugin.modelFallbackService.getCurrentModel(
-        params.title
-      );
-      if (currentModelFromState) {
-        // Use the model from frontmatter if available
-        currentModel = currentModelFromState;
-      }
-    }
-
-    params.command.model = currentModel;
+    params.command.model = await this.getCurrentModel(params.title, params.command);
+    params.command.query = this.sanitizeQuery(params.command.query);
 
     try {
       // Call the original handle method
@@ -151,7 +140,7 @@ export abstract class CommandHandler {
 
       const isAbortError = error instanceof Error && error.name === 'AbortError';
 
-      if (fallbackEnabled && !isAbortError) {
+      if (this.plugin.modelFallbackService.isEnabled() && !isAbortError) {
         const nextModel = await this.plugin.modelFallbackService.switchToNextModel(params.title);
         if (nextModel) {
           // Render fallback message
@@ -176,6 +165,40 @@ export abstract class CommandHandler {
         error: error instanceof Error ? error : new Error(errorMessage),
       };
     }
+  }
+
+  /**
+   * Get current model from the command or frontmatter.
+   */
+  private async getCurrentModel(title: string, command: CommandIntent) {
+    // Check if model fallback is enabled
+    const fallbackEnabled = this.plugin.modelFallbackService.isEnabled();
+    const modelPromise = this.renderer.getConversationProperty<string>(title, 'model');
+
+    // First, try to get the current model from the fallback state if available
+    let currentModel = command.model || (await modelPromise);
+
+    if (fallbackEnabled) {
+      const currentModelFromState = await this.plugin.modelFallbackService.getCurrentModel(title);
+      if (currentModelFromState) {
+        // Use the model from frontmatter if available
+        currentModel = currentModelFromState;
+      }
+    }
+
+    return currentModel;
+  }
+
+  /**
+   * Sanitize the query by removing the selected model pattern.
+   */
+  private sanitizeQuery(query: string) {
+    const regex = new RegExp(SELECTED_MODEL_PATTERN, 'gi');
+    let match;
+    while ((match = regex.exec(query)) !== null) {
+      query = query.replace(match[0], '');
+    }
+    return query;
   }
 
   /**
