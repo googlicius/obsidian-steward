@@ -53,10 +53,10 @@ export class FilenameCondition extends Condition<IndexedDocument> {
       if (documentIds.length === 0) continue;
 
       const documents = await this.context.documentStore.getDocumentsByIds(documentIds);
+      const parsedName = this.parseRegexPattern(name);
 
       // Filter documents by similarity score
       for (const doc of documents) {
-        const parsedName = this.parseRegexPattern(name);
         let score = 0;
 
         switch (parsedName.searchType) {
