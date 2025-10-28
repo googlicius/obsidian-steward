@@ -52,7 +52,7 @@ export class ModelFallbackService {
    * Initialize the model fallback state for a command
    * Only initializes if state doesn't exist yet
    */
-  public async initializeState(conversationTitle: string, originalModel: string): Promise<void> {
+  public async initializeState(conversationTitle: string): Promise<void> {
     const file = this.getConversationFile(conversationTitle);
     if (!file) {
       logger.error(`Note not found: ${conversationTitle}`);
@@ -67,10 +67,14 @@ export class ModelFallbackService {
     }
 
     await this.plugin.app.fileManager.processFrontMatter(file, frontmatter => {
-      frontmatter.model = originalModel;
+      if (!frontmatter.model) {
+        logger.warn(`No original model found in frontmatter for conversation ${conversationTitle}`);
+        return;
+      }
+
       frontmatter.modelFallback = {
-        originalModel,
-        attemptedModels: [originalModel],
+        originalModel: frontmatter.model,
+        attemptedModels: [frontmatter.model],
       };
     });
   }

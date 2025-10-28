@@ -1,6 +1,6 @@
 import { MarkdownPostProcessor } from 'obsidian';
 import { findTextNodesWithRegex } from 'src/utils/findTextNode';
-import { SELECTED_MODEL_PATTERN } from 'src/constants';
+import { SELECTED_MODEL_PATTERN, SELECTED_MODEL_PREFIX_PATTERN } from 'src/constants';
 
 /**
  * Process selected model patterns (e.g., `m:openai:gpt-4` or `model:google:gemini`)
@@ -9,7 +9,7 @@ import { SELECTED_MODEL_PATTERN } from 'src/constants';
 export function createSelectedModelProcessor(): MarkdownPostProcessor {
   return el => {
     // Early exit: Check if element contains the pattern before expensive DOM traversal
-    const patternCheck = /\b(m|model):/;
+    const patternCheck = new RegExp(SELECTED_MODEL_PREFIX_PATTERN, 'i');
     if (!el.textContent?.match(patternCheck)) {
       return;
     }
@@ -20,27 +20,46 @@ export function createSelectedModelProcessor(): MarkdownPostProcessor {
 
     for (const textNode of textNodes) {
       const replacementElements: (HTMLElement | Text)[] = [];
+      const textContent = textNode.textContent || '';
 
-      const textParts = textNode.textContent?.split(' ') || [];
+      // Use matchAll to find all model patterns in the text
+      const regex = new RegExp(SELECTED_MODEL_PATTERN, 'gi');
+      let lastIndex = 0;
+      let match;
 
-      for (const textPart of textParts) {
-        // Check if this part matches the pattern
-        const match = textPart.match(new RegExp(SELECTED_MODEL_PATTERN));
-        if (match) {
-          const [, , provider, modelId] = match;
-          const span = document.createElement('span');
-          span.textContent = modelId;
-          span.className = 'stw-selected-model review';
-          span.title = `${provider}:${modelId}`;
+      // Process all matches
+      while ((match = regex.exec(textContent)) !== null) {
+        // Add text before the match
+        if (match.index > lastIndex) {
+          const beforeText = textContent.substring(lastIndex, match.index);
+          if (beforeText) {
+            replacementElements.push(document.createTextNode(beforeText));
+          }
+        }
 
-          replacementElements.push(span);
-        } else if (textPart) {
-          // Only push non-empty text parts
-          replacementElements.push(document.createTextNode(textPart));
+        // Create span for the matched model pattern
+        const [, , provider, modelId] = match;
+        const span = document.createElement('span');
+        span.textContent = modelId;
+        span.className = 'stw-selected-model review';
+        span.title = `${provider}:${modelId}`;
+
+        replacementElements.push(span);
+        lastIndex = match.index + match[0].length;
+      }
+
+      // Add remaining text after the last match
+      if (lastIndex < textContent.length) {
+        const afterText = textContent.substring(lastIndex);
+        if (afterText) {
+          replacementElements.push(document.createTextNode(afterText));
         }
       }
 
-      textNode.replaceWith(...replacementElements);
+      // Replace the original text node only if we created replacements
+      if (replacementElements.length > 0) {
+        textNode.replaceWith(...replacementElements);
+      }
     }
   };
 }

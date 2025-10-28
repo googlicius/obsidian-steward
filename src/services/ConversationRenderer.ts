@@ -5,6 +5,7 @@ import { ConversationHistoryMessage, ConversationMessage, ConversationRole } fro
 import type StewardPlugin from '../main';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/solutions/artifact';
+import { SELECTED_MODEL_PATTERN } from 'src/constants';
 
 export class ConversationRenderer {
   static instance: ConversationRenderer;
@@ -20,6 +21,22 @@ export class ConversationRenderer {
       throw new Error('ConversationRenderer not initialized');
     }
     return ConversationRenderer.instance;
+  }
+
+  /**
+   * Extract selected model from a text using SELECTED_MODEL_PATTERN.
+   * Returns in the format "provider:modelId" or null if not found.
+   */
+  private extractSelectedModelFromText(text: string | undefined | null): string | null {
+    if (!text) return null;
+    const regex = new RegExp(SELECTED_MODEL_PATTERN, 'i');
+    const match = regex.exec(text);
+    if (!match) return null;
+
+    const provider = match[2];
+    const modelId = match[3];
+    if (!provider || !modelId) return null;
+    return `${provider}:${modelId}`;
   }
 
   /**
@@ -373,11 +390,19 @@ export class ConversationRenderer {
         handlerId: params.handlerId,
       });
 
-      // Update language property in the frontmatter if provided
+      // Update language and model properties in the frontmatter if provided
+      const updatedProperties = [];
       if (params.lang) {
-        await this.updateConversationFrontmatter(params.path, [
-          { name: 'lang', value: params.lang },
-        ]);
+        updatedProperties.push({ name: 'lang', value: params.lang });
+      }
+
+      const selectedModel = this.extractSelectedModelFromText(params.newContent);
+      if (selectedModel) {
+        updatedProperties.push({ name: 'model', value: selectedModel });
+      }
+
+      if (updatedProperties.length > 0) {
+        await this.updateConversationFrontmatter(params.path, updatedProperties);
       }
 
       // Process the file content
@@ -691,8 +716,9 @@ export class ConversationRenderer {
       // Get translation function with the appropriate language
       const t = getTranslation(language);
 
-      // Get the current model from settings
-      const currentModel = this.plugin.settings.llm.chat.model;
+      // Determine model: from query if present, otherwise from settings
+      const modelFromQuery = this.extractSelectedModelFromText(content);
+      const currentModel = modelFromQuery || this.plugin.settings.llm.chat.model;
 
       // Get the current language from settings
       const currentLanguage = language || getLanguage();

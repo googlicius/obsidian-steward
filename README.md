@@ -49,6 +49,7 @@ Steward can be used directly in the editor or by opening the chat interface.
 1. Click the "Open Steward chat" icon to open the chat
 2. Type after the `/ ` in the chat or the active editor to interact or type `/ ?` to see available commands
 3. To add a new line in the command input, press `Shift+Enter` (uses 2-space indentation)
+4. To change the model in the input, type `m:` or `model:` and select from the dropdown.
 
 ### Showcases
 
