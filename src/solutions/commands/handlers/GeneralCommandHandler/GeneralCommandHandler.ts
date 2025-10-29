@@ -143,7 +143,6 @@ export class GeneralCommandHandler extends CommandHandler {
         commands: queryExtraction.commands,
         explanation: queryExtraction.explanation,
         confidence: commandTypeExtraction.confidence,
-        queryTemplate: queryExtraction.queryTemplate,
         lang,
       };
 
@@ -391,7 +390,6 @@ IMPORTANT:
           conversationTitle: title,
           originalQuery: command.query,
           extractedCommands: extraction.commands.map(c => c.commandType),
-          queryTemplate: extraction.queryTemplate,
           confidence: extraction.confidence,
           isReloadRequest: upstreamOptions?.isReloadRequest,
         });

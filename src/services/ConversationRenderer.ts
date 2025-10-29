@@ -5,7 +5,9 @@ import { ConversationHistoryMessage, ConversationMessage, ConversationRole } fro
 import type StewardPlugin from '../main';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/solutions/artifact';
-import { SELECTED_MODEL_PATTERN } from 'src/constants';
+import { IMAGE_LINK_PATTERN, SELECTED_MODEL_PATTERN } from 'src/constants';
+import { prependChunk } from 'src/utils/textStreamer';
+import { CoreMessage } from 'ai';
 
 export class ConversationRenderer {
   static instance: ConversationRenderer;
@@ -492,6 +494,18 @@ export class ConversationRenderer {
         throw new Error(`Note not found: ${notePath}`);
       }
 
+      // Check if stream is empty by trying to get the first chunk
+      const streamIterator = params.stream[Symbol.asyncIterator]();
+      const firstResult = await streamIterator.next();
+
+      // If stream is empty, return undefined without creating metadata
+      if (firstResult.done) {
+        return undefined;
+      }
+
+      // Create a stream that includes the first chunk we already retrieved
+      const streamWithFirstChunk = prependChunk(firstResult.value, streamIterator);
+
       const { messageId, comment } = await this.buildMessageMetadata(path, {
         role: 'Steward',
         command: params.command,
@@ -524,7 +538,7 @@ export class ConversationRenderer {
       });
 
       // Stream the content
-      await this.streamFile(file, params.stream);
+      await this.streamFile(file, streamWithFirstChunk);
 
       // Return the message ID for referencing
       return messageId;
@@ -978,7 +992,9 @@ export class ConversationRenderer {
       const allMessages = await this.extractConversationHistory(conversationTitle);
 
       // Filter messages by handler ID
-      return allMessages.filter(message => message.handlerId === handlerId);
+      return allMessages.filter(
+        message => 'handlerId' in message && message.handlerId === handlerId
+      );
     } catch (error) {
       logger.error('Error getting messages by handler ID:', error);
       return [];
@@ -1236,7 +1252,7 @@ export class ConversationRenderer {
         .filter(message => !message.ignored)
         .slice(-maxMessages);
 
-      const result: ConversationHistoryMessage[] = [];
+      const result: (ConversationHistoryMessage | CoreMessage)[] = [];
 
       for (const message of messagesToInclude) {
         if (message.type === 'tool-invocation') {
@@ -1261,6 +1277,22 @@ export class ConversationRenderer {
                 },
               })),
             });
+
+            const toolInvocationStr = JSON.stringify(toolInvocations);
+            const hasImage = new RegExp(IMAGE_LINK_PATTERN).test(toolInvocationStr);
+            if (hasImage) {
+              // Inject images as a user message
+              const images =
+                await this.plugin.noteContentService.getImagesFromInput(toolInvocationStr);
+              logger.log('Injecting images after tool invocation', images);
+              for (const [path, imagePart] of images) {
+                result.push({
+                  id: uniqueID(),
+                  role: 'user',
+                  content: [{ type: 'text', text: path }, imagePart],
+                });
+              }
+            }
             continue;
           }
         } else {
@@ -1275,7 +1307,7 @@ export class ConversationRenderer {
         }
       }
 
-      return result;
+      return result as ConversationHistoryMessage[];
     } catch (error) {
       logger.error('Error extracting conversation history:', error);
       return [];
@@ -1291,7 +1323,8 @@ export class ConversationRenderer {
    */
   public async getConversationProperty<T>(
     conversationTitle: string,
-    property: string
+    property: string,
+    forceRefresh?: boolean
   ): Promise<T | undefined> {
     try {
       // Get the conversation file
@@ -1306,12 +1339,16 @@ export class ConversationRenderer {
       // Try to get from cache first
       const fileCache = this.plugin.app.metadataCache.getFileCache(file);
 
-      if (fileCache?.frontmatter) {
+      if (fileCache?.frontmatter && !forceRefresh) {
         return fileCache.frontmatter[property];
       }
 
       // Cache miss, read directly from file
-      logger.log(`Cache miss for property ${property}, reading directly from file`);
+      if (forceRefresh) {
+        logger.log(`Force refresh for property ${property}, reading directly from file`);
+      } else {
+        logger.log(`Cache miss for property ${property}, reading directly from file`);
+      }
       const fileContent = await this.plugin.app.vault.read(file);
       const frontmatterRegex = /^---\n([\s\S]*?)\n---/;
       const match = fileContent.match(frontmatterRegex);

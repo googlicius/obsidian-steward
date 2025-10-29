@@ -379,5 +379,65 @@ End paragraph`;
         },
       });
     });
+
+    it('should read the image above the cursor', async () => {
+      // Create mock text with an embedded image wikilink above the cursor
+      const mockText = `Intro paragraph
+
+![[Pasted image 20250610015617.png]]
+
+End paragraph`;
+
+      const sections = [
+        createSection('paragraph', 0, 0),
+        createSection('paragraph', 2, 2),
+        createSection('paragraph', 4, 4),
+      ];
+
+      // Place cursor at the end paragraph (below the image)
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 4, ch: 0 });
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'above',
+        elementType: 'image',
+        noteName: null,
+        startLine: null,
+      });
+
+      const result2 = await service.readContent({
+        blocksToRead: -1,
+        readType: 'above',
+        elementType: 'image',
+        noteName: null,
+        startLine: null,
+      });
+
+      const expected = {
+        blocks: [
+          {
+            content: '![[Pasted image 20250610015617.png]]',
+            startLine: 2,
+            endLine: 2,
+            sections: [{ type: 'paragraph', startLine: 2, endLine: 2 }],
+          },
+        ],
+        elementType: 'image',
+        source: 'element',
+        file: {
+          name: '',
+          path: '',
+        },
+        range: {
+          from: { ch: 0, line: 2 },
+          to: { ch: 36, line: 2 },
+        },
+      };
+
+      expect(result2).toMatchObject(expected);
+
+      expect(result).toMatchObject(expected);
+    });
   });
 });

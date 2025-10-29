@@ -104,6 +104,7 @@ const ja = {
     },
     generate: {
       success: '生成に成功しました',
+      noResponse: 'AIからの応答がありませんでした。',
     },
     stop: {
       stopped: '生成を停止しました。',

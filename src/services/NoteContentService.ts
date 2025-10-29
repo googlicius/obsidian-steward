@@ -7,6 +7,8 @@ import {
 import { logger } from 'src/utils/logger';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import type StewardPlugin from 'src/main';
+import { ImagePart } from 'ai';
+import { resizeImageWithCanvas } from 'src/utils/resizeImageWithCanvas';
 
 export class NoteContentService {
   private static instance: NoteContentService;
@@ -384,5 +386,60 @@ export class NoteContentService {
       const encodedLink = encodeURIComponent(linkContent);
       return `[${linkContent}](${encodedLink})`;
     });
+  }
+
+  /**
+   * Gets the images from the input text
+   * @returns An array of [image path, image part]
+   */
+  public async getImagesFromInput(input: string): Promise<[string, ImagePart][]> {
+    const imagePaths = this.extractImageLinks(input);
+    const images: [string, ImagePart][] = [];
+
+    for (const imagePath of imagePaths) {
+      try {
+        const file = await this.plugin.mediaTools.findFileByNameOrPath(imagePath);
+
+        if (file) {
+          const imageData = await this.plugin.app.vault.readBinary(file);
+          const mimeType = this.getMimeTypeFromExtension(file.extension);
+
+          // Resize the image to reduce size using Canvas API
+          const resizedImage = await resizeImageWithCanvas(imageData, 800, 0.8);
+          images.push([
+            imagePath,
+            {
+              type: 'image',
+              image: resizedImage.imageData,
+              mimeType,
+            },
+          ]);
+        } else {
+          logger.warn(`File note found for image ${imagePath}`);
+        }
+      } catch (error) {
+        logger.error(`Error processing image ${imagePath}:`, error);
+      }
+    }
+
+    return images;
+  }
+
+  /**
+   * Gets the MIME type from a file extension
+   * @param extension The file extension
+   * @returns The corresponding MIME type
+   */
+  private getMimeTypeFromExtension(extension: string): string | undefined {
+    const mimeTypes: Record<string, string> = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      gif: 'image/gif',
+      webp: 'image/webp',
+      svg: 'image/svg+xml',
+    };
+
+    return mimeTypes[extension.toLowerCase()];
   }
 }

@@ -238,14 +238,9 @@ export class CommandProcessor {
       });
 
       const enableTracking = options.enableTracking !== false; // default to true
-      if (enableTracking) {
-        const tracking = await this.plugin.commandTrackingService.getTracking(title);
-        if (tracking) {
-          await this.plugin.commandTrackingService.recordCommandExecution(
-            title,
-            command.commandType
-          );
-        }
+      const trackingPromise = this.plugin.commandTrackingService.getTracking(title);
+      if (enableTracking && (await trackingPromise)) {
+        await this.plugin.commandTrackingService.recordCommandExecution(title, command.commandType);
       }
 
       // Command completed successfully
@@ -305,7 +300,7 @@ export class CommandProcessor {
    * Save classification after all commands finish
    */
   private async saveClassification(title: string): Promise<void> {
-    const tracking = await this.plugin.commandTrackingService.getTracking(title);
+    const tracking = await this.plugin.commandTrackingService.getTracking(title, true);
     if (!tracking) {
       return;
     }
@@ -316,13 +311,8 @@ export class CommandProcessor {
     // Create cluster name from ACTUAL executed commands
     const clusterName = tracking.executedCommands.join(':');
 
-    if (!tracking.queryTemplate) {
-      logger.warn('Query template is missing, cannot save embedding');
-      return;
-    }
-
     // Save embedding without awaiting to avoid blocking
-    classifier.saveEmbedding(tracking.queryTemplate, clusterName).catch(err => {
+    classifier.saveEmbedding(tracking.originalQuery, clusterName).catch(err => {
       logger.error('Failed to save embedding:', err);
     });
   }
