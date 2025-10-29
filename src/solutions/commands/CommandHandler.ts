@@ -136,6 +136,7 @@ export abstract class CommandHandler {
         path: params.title,
         newContent: `*${t('common.errorProcessingCommand', { commandType: params.command.commandType, errorMessage })}*`,
         lang: params.lang,
+        includeHistory: false,
       });
 
       const isAbortError = error instanceof Error && error.name === 'AbortError';

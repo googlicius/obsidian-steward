@@ -131,3 +131,16 @@ export function createMockStreamResponse(
     },
   };
 }
+
+/**
+ * Prepend a chunk to a stream
+ */
+export async function* prependChunk<T>(
+  firstChunk: T,
+  iterator: AsyncIterator<T>
+): AsyncGenerator<T> {
+  yield firstChunk;
+  for await (const chunk of { [Symbol.asyncIterator]: () => iterator }) {
+    yield chunk;
+  }
+}

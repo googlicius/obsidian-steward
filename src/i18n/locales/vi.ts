@@ -105,6 +105,7 @@ const vi = {
     },
     generate: {
       success: 'Đã tạo thành công',
+      noResponse: 'Không có phản hồi từ AI.',
     },
     stop: {
       stopped: 'Đã dừng tạo.',
