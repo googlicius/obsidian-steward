@@ -198,5 +198,61 @@ describe('ObsidianAPITools', () => {
       expect(app.vault.createFolder).not.toHaveBeenCalled();
       expect(app.fileManager.renameFile).not.toHaveBeenCalled();
     });
+
+    it('should move file to the root folder', async () => {
+      // Mock file existence
+      const file = getInstance(TFile, { path: 'folder/test-file.md', name: 'test-file.md' });
+      jest.spyOn(app.vault, 'getFileByPath').mockReturnValue(file);
+
+      // Root folder should be considered as existing; no creation
+      jest.spyOn(app.vault, 'getFolderByPath').mockReturnValue(new TFolder());
+
+      // Mock successful file operations
+      jest.spyOn(app.fileManager, 'renameFile').mockResolvedValue(undefined);
+
+      const operations: MoveOperationV2[] = [
+        {
+          destinationFolder: '/',
+          keywords: ['test'],
+          filenames: [],
+          folders: [],
+          properties: [],
+        },
+      ];
+
+      const filesByOperation = new Map<number, DocWithPath[]>([
+        [
+          0,
+          [
+            {
+              path: 'folder/test-file.md',
+              fileName: 'test-file',
+              lastModified: 1234567890,
+              tags: [],
+              content: 'test content',
+              title: 'Test File',
+            } as DocWithPath,
+          ],
+        ],
+      ]);
+
+      const result = await obsidianAPITools.moveByOperations(operations, filesByOperation);
+
+      expect(result).toMatchObject({
+        operations: [
+          {
+            destinationFolder: '/',
+            errors: [],
+            moved: ['test-file.md'],
+            skipped: [],
+            sourceQuery: 'test',
+          },
+        ],
+      });
+
+      // Verify that root folder wasn't created and file was moved correctly
+      expect(app.vault.createFolder).not.toHaveBeenCalled();
+      expect(app.fileManager.renameFile).toHaveBeenCalledWith(file, '/test-file.md');
+    });
   });
 });

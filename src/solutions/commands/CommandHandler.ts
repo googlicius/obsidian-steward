@@ -139,9 +139,10 @@ export abstract class CommandHandler {
         includeHistory: false,
       });
 
-      const isAbortError = error instanceof Error && error.name === 'AbortError';
+      const nonRetryAbleError =
+        error instanceof Error && ['AbortError', 'TypeError'].includes(error.name);
 
-      if (this.plugin.modelFallbackService.isEnabled() && !isAbortError) {
+      if (this.plugin.modelFallbackService.isEnabled() && !nonRetryAbleError) {
         const nextModel = await this.plugin.modelFallbackService.switchToNextModel(params.title);
         if (nextModel) {
           // Render fallback message

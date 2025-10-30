@@ -57,6 +57,7 @@ export class UpdateCommandHandler extends CommandHandler {
     command: CommandIntent;
     messages: Message[];
     lang?: string | null;
+    handlerId: string;
   }): Promise<CommandResult> {
     const t = getTranslation(params.lang);
     const llmConfig = await this.plugin.llmService.getLLMConfig({
@@ -151,6 +152,7 @@ GUIDELINES:
               ],
               updateInstructions,
               lang: params.lang,
+              handlerId: params.handlerId,
             });
           }
 
@@ -171,6 +173,7 @@ GUIDELINES:
                 ],
                 updateInstructions,
                 lang: params.lang,
+                handlerId: params.handlerId,
               });
             },
             onRejection: () => {
@@ -253,9 +256,9 @@ Update the content in the note based on the instructions provided.
 
 You have access to the following tools:
 
-1. ${REQUEST_READ_CONTENT_TOOL_NAME} - Read content from a note.
-2. ${GREP_TOOL_NAME} - Search for specific text patterns in notes.
-3. ${EDIT_TOOL_NAME} - Update content by replacing old content with new content.
+- ${REQUEST_READ_CONTENT_TOOL_NAME} - Read content from a note.
+- ${GREP_TOOL_NAME} - Search for specific text patterns in notes.
+- ${EDIT_TOOL_NAME} - Update content by replacing old content with new content.
 
 GUIDELINES:
 - use ${REQUEST_READ_CONTENT_TOOL_NAME} to read the content above/below the current cursor or the entire note.
@@ -277,6 +280,7 @@ GUIDELINES:
         newContent: extraction.text,
         command: 'update',
         lang: params.lang,
+        handlerId,
       });
     }
 
@@ -291,6 +295,7 @@ GUIDELINES:
             command: 'update',
             includeHistory: false,
             lang: params.lang,
+            handlerId,
           });
 
           await this.renderer.addGeneratingIndicator(
@@ -352,6 +357,7 @@ GUIDELINES:
             command: 'update',
             includeHistory: false,
             lang: params.lang,
+            handlerId,
           });
 
           await this.renderer.addGeneratingIndicator(
@@ -372,6 +378,7 @@ GUIDELINES:
               path: params.title,
               newContent: errorResult,
               includeHistory: false,
+              handlerId,
             });
             toolResults.push({
               ...toolCall,
@@ -389,6 +396,7 @@ GUIDELINES:
             command: 'update',
             includeHistory: false,
             lang: params.lang,
+            handlerId,
           });
 
           const file = toolCall.args.filePath
@@ -416,6 +424,7 @@ GUIDELINES:
                 ),
                 includeHistory: false,
                 lang: params.lang,
+                handlerId,
               });
             }
           }
@@ -433,12 +442,15 @@ GUIDELINES:
               ],
               updateInstructions,
               lang: params.lang,
+              handlerId,
             });
           }
 
           await this.renderer.updateConversationNote({
             path: params.title,
             newContent: t('update.applyChangesConfirm'),
+            command: 'update',
+            handlerId,
           });
 
           return {
@@ -453,6 +465,7 @@ GUIDELINES:
                 ],
                 updateInstructions,
                 lang: params.lang,
+                handlerId,
               });
             },
             onRejection: () => {
@@ -500,7 +513,9 @@ GUIDELINES:
    * Handle update the content_update artifact
    */
   private async handleUpdateContentUpdate(
-    params: CommandHandlerParams,
+    params: CommandHandlerParams & {
+      handlerId: string;
+    },
     artifact: ContentUpdateArtifact,
     docs: DocWithPath[]
   ): Promise<CommandResult> {
@@ -517,6 +532,7 @@ GUIDELINES:
         path: params.title,
         newContent: t('update.noChangesNeeded'),
         lang: params.lang,
+        handlerId: params.handlerId,
       });
       return {
         status: CommandResultStatus.SUCCESS,
@@ -530,12 +546,15 @@ GUIDELINES:
         docs,
         updateInstructions,
         lang: params.lang,
+        handlerId: params.handlerId,
       });
     }
 
     await this.renderer.updateConversationNote({
       path: params.title,
       newContent: t('update.applyChangesConfirm'),
+      command: 'update',
+      handlerId: params.handlerId,
     });
 
     return {
@@ -546,6 +565,7 @@ GUIDELINES:
           docs,
           updateInstructions,
           lang: params.lang,
+          handlerId: params.handlerId,
         });
       },
       onRejection: () => {
@@ -584,6 +604,7 @@ GUIDELINES:
       if (hasStwSelected) {
         return this.handleUpdateStwSelected({
           ...params,
+          handlerId,
           messages: [
             ...conversationHistory,
             { role: 'user', content: command.query, id: generateId() },
@@ -595,6 +616,7 @@ GUIDELINES:
         path: title,
         newContent: `*${t('common.noRecentOperations')}*`,
         command: 'update',
+        handlerId,
       });
 
       return {
@@ -626,7 +648,14 @@ GUIDELINES:
 
     // If we have a content update artifact, we can use it directly
     if (artifact.artifactType === ArtifactType.CONTENT_UPDATE) {
-      return this.handleUpdateContentUpdate(params, artifact, docs);
+      return this.handleUpdateContentUpdate(
+        {
+          ...params,
+          handlerId,
+        },
+        artifact,
+        docs
+      );
     }
 
     if (
@@ -652,6 +681,8 @@ GUIDELINES:
       path: title,
       newContent: `*${extraction.explanation}*`,
       includeHistory: false,
+      command: 'update',
+      handlerId,
     });
 
     if (extraction.confidence <= 0.7) {
@@ -667,6 +698,7 @@ GUIDELINES:
       docs,
       updateInstructions: extraction.updateInstructions,
       lang: extraction.lang,
+      handlerId,
     });
   }
 
@@ -678,8 +710,9 @@ GUIDELINES:
     docs: DocWithPath[];
     updateInstructions: UpdateInstruction[];
     lang?: string | null;
+    handlerId: string;
   }): Promise<CommandResult> {
-    const { title, docs, updateInstructions, lang } = params;
+    const { title, docs, updateInstructions, lang, handlerId } = params;
     const t = getTranslation(lang);
 
     try {
@@ -751,6 +784,7 @@ GUIDELINES:
         path: title,
         newContent: response,
         command: 'update',
+        handlerId,
       });
 
       return {
@@ -760,6 +794,7 @@ GUIDELINES:
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `Error updating files: ${error.message}`,
+        handlerId,
       });
 
       return {

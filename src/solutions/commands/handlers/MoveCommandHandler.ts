@@ -56,141 +56,130 @@ export class MoveCommandHandler extends CommandHandler {
       }
     }
 
-    try {
-      // Extract move details from command content
-      const extraction = options.extraction || (await extractMoveQuery(command));
+    // Extract move details from command content
+    const extraction = options.extraction || (await extractMoveQuery(command));
 
-      await this.renderer.updateConversationNote({
-        path: title,
-        newContent: extraction.explanation,
-        role: 'Steward',
-        includeHistory: false,
-      });
+    await this.renderer.updateConversationNote({
+      path: title,
+      newContent: extraction.explanation,
+      role: 'Steward',
+      includeHistory: false,
+    });
 
-      if (extraction.confidence <= 0.7) {
-        // Return LOW_CONFIDENCE status to trigger context augmentation
-        return {
-          status: CommandResultStatus.LOW_CONFIDENCE,
-          commandType: 'move_from_artifact',
-          explanation: extraction.explanation,
-        };
-      }
+    if (extraction.confidence <= 0.7) {
+      // Return LOW_CONFIDENCE status to trigger context augmentation
+      return {
+        status: CommandResultStatus.LOW_CONFIDENCE,
+        commandType: 'move_from_artifact',
+        explanation: extraction.explanation,
+      };
+    }
 
-      let docs: DocWithPath[] = [];
-      let artifact: Artifact | undefined;
+    let docs: DocWithPath[] = [];
+    let artifact: Artifact | undefined;
 
-      if (extraction.context === 'artifact') {
-        // Get the most recent artifact
-        artifact = await this.plugin.artifactManagerV2
-          .withTitle(title)
-          .getMostRecentArtifactOfTypes([
-            ArtifactType.SEARCH_RESULTS,
-            ArtifactType.CREATED_NOTES,
-            ArtifactType.READ_CONTENT,
-          ]);
+    if (extraction.context === 'artifact') {
+      // Get the most recent artifact
+      artifact = await this.plugin.artifactManagerV2
+        .withTitle(title)
+        .getMostRecentArtifactOfTypes([
+          ArtifactType.SEARCH_RESULTS,
+          ArtifactType.CREATED_NOTES,
+          ArtifactType.READ_CONTENT,
+        ]);
 
-        if (!artifact) {
-          await this.renderer.updateConversationNote({
-            path: title,
-            newContent: t('common.noRecentOperations'),
-          });
-
-          return {
-            status: CommandResultStatus.ERROR,
-            error: new Error('No recent operations found'),
-          };
-        }
-
-        if (artifact.artifactType === ArtifactType.SEARCH_RESULTS) {
-          docs = artifact.originalResults.map(result => ({ path: result.document.path }));
-        } else if (artifact.artifactType === ArtifactType.CREATED_NOTES) {
-          // Convert string paths to IndexedDocument objects
-          docs = artifact.paths.map(path => ({ path }));
-        } else if (artifact.artifactType === ArtifactType.READ_CONTENT) {
-          // For read content, get the file from the reading result
-          const file = artifact.readingResult.file;
-          docs = file ? [{ path: file.path }] : [];
-        } else {
-          await this.renderer.updateConversationNote({
-            path: title,
-            newContent: `*${t('move.cannotMoveThisType', { type: artifact.artifactType })}*`,
-          });
-
-          return {
-            status: CommandResultStatus.ERROR,
-            error: new Error('Cannot move this type of artifact'),
-          };
-        }
-      } else if (extraction.context === 'currentNote') {
-        const activeFile = this.app.workspace.getActiveFile();
-        docs = activeFile ? [{ path: activeFile.path }] : [];
-      } else {
-        const noteName = extraction.context;
-        const note = await this.plugin.mediaTools.findFileByNameOrPath(noteName);
-        docs = note ? [{ path: note.path }] : [];
-      }
-
-      // Check if docs were found
-      if (docs.length === 0) {
+      if (!artifact) {
         await this.renderer.updateConversationNote({
           path: title,
-          newContent: t('common.noFilesFound'),
+          newContent: t('common.noRecentOperations'),
         });
 
         return {
           status: CommandResultStatus.ERROR,
-          error: new Error('No files found to move'),
+          error: new Error('No recent operations found'),
         };
       }
 
-      // Check if the destination folder exists
-      const destinationFolder = extraction.destinationFolder;
-      const folderExists = this.app.vault.getFolderByPath(destinationFolder);
-
-      if (!folderExists && !options.folderExistsConfirmed && !command.no_confirm) {
-        // Request confirmation to create the folder
-        let message = t('move.createFoldersHeader') + '\n';
-        message += `- \`${destinationFolder}\`\n`;
-        message += '\n' + t('move.createFoldersQuestion');
-
+      if (artifact.artifactType === ArtifactType.SEARCH_RESULTS) {
+        console.log('SEARCH RESULTS', artifact.originalResults);
+        docs = artifact.originalResults.map(result => ({ path: result.document.path }));
+      } else if (artifact.artifactType === ArtifactType.CREATED_NOTES) {
+        // Convert string paths to IndexedDocument objects
+        docs = artifact.paths.map(path => ({ path }));
+      } else if (artifact.artifactType === ArtifactType.READ_CONTENT) {
+        // For read content, get the file from the reading result
+        const file = artifact.readingResult.file;
+        docs = file ? [{ path: file.path }] : [];
+      } else {
         await this.renderer.updateConversationNote({
           path: title,
-          newContent: message,
+          newContent: `*${t('move.cannotMoveThisType', { type: artifact.artifactType })}*`,
         });
 
         return {
-          status: CommandResultStatus.NEEDS_CONFIRMATION,
-          onConfirmation: () => {
-            return this.handle(params, { extraction, folderExistsConfirmed: true });
-          },
-          onRejection: () => {
-            return {
-              status: CommandResultStatus.SUCCESS,
-            };
-          },
+          status: CommandResultStatus.ERROR,
+          error: new Error('Cannot move this type of artifact'),
         };
       }
+    } else if (extraction.context === 'currentNote') {
+      const activeFile = this.app.workspace.getActiveFile();
+      docs = activeFile ? [{ path: activeFile.path }] : [];
+    } else {
+      const noteName = extraction.context;
+      const note = await this.plugin.mediaTools.findFileByNameOrPath(noteName);
+      docs = note ? [{ path: note.path }] : [];
+    }
 
-      return this.performMoveOperation(
-        title,
-        {
-          destinationFolder,
-          docs,
-          explanation: extraction.explanation,
-        },
-        lang
-      );
-    } catch (error) {
+    // Check if docs were found
+    if (docs.length === 0) {
       await this.renderer.updateConversationNote({
         path: title,
-        newContent: `Error processing move command: ${error.message}`,
+        newContent: t('common.noFilesFound'),
       });
 
       return {
         status: CommandResultStatus.ERROR,
-        error,
+        error: new Error('No files found to move'),
       };
     }
+
+    // Check if the destination folder exists
+    const destinationFolder = extraction.destinationFolder;
+    const folderExists = this.app.vault.getFolderByPath(destinationFolder);
+
+    if (!folderExists && !options.folderExistsConfirmed && !command.no_confirm) {
+      // Request confirmation to create the folder
+      let message = t('move.createFoldersHeader') + '\n';
+      message += `- \`${destinationFolder}\`\n`;
+      message += '\n' + t('move.createFoldersQuestion');
+
+      await this.renderer.updateConversationNote({
+        path: title,
+        newContent: message,
+      });
+
+      return {
+        status: CommandResultStatus.NEEDS_CONFIRMATION,
+        onConfirmation: () => {
+          return this.handle(params, { extraction, folderExistsConfirmed: true });
+        },
+        onRejection: () => {
+          return {
+            status: CommandResultStatus.SUCCESS,
+          };
+        },
+      };
+    }
+
+    return this.performMoveOperation(
+      title,
+      {
+        destinationFolder,
+        docs,
+        explanation: extraction.explanation,
+      },
+      lang
+    );
   }
 
   /**
@@ -223,18 +212,10 @@ export class MoveCommandHandler extends CommandHandler {
       const filesByOperation = new Map<number, DocWithPath[]>();
       filesByOperation.set(0, docs);
 
+      console.log('OPERATIONS', operations, filesByOperation);
+
       // Perform the move operations
       const result = await this.obsidianAPITools.moveByOperations(operations, filesByOperation);
-
-      // Delete the most recent artifact (if any) after moving
-      // const artifact = this.plugin.artifactManagerV2.withTitle(title).getMostRecentArtifact(title);
-      // if (artifact && artifact.id) {
-      //   if (this.artifactManager.deleteArtifact(title, artifact.id)) {
-      //     logger.log(
-      //       `Artifact of type ${artifact.type} deleted successfully (created ${new Date(artifact.createdAt).toLocaleString()}).`
-      //     );
-      //   }
-      // }
 
       // Format the results
       const response = this.formatMoveResult({
