@@ -50,6 +50,10 @@ export class CommandTrackingService {
     return CommandTrackingService.instance;
   }
 
+  public noTrackingCommand(commandType: string): boolean {
+    return ['confirm', 'yes', 'no', 'stop', ' '].includes(commandType);
+  }
+
   /**
    * Get the conversation file
    */

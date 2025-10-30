@@ -21,11 +21,7 @@ export interface ProcessCommandsOptions {
    * If true, the built-in handler will be used in case a user-defined command has the same name as a built-in command.
    */
   builtInCommandPrecedence?: boolean;
-  /**
-   * If false, don't record command execution to tracking (default: true)
-   * Used for isolated processors (confirmations, etc.)
-   */
-  enableTracking?: boolean;
+
   sendToDownstream?: {
     /**
      * If true, indicates this is a reload request
@@ -134,10 +130,7 @@ export class CommandProcessor {
     }
 
     // Disable tracking for isolated processors (confirmations, etc.)
-    await isolatedProcessor.processCommands(payload, {
-      ...options,
-      enableTracking: false,
-    });
+    await isolatedProcessor.processCommands(payload, options);
   }
 
   public isProcessing(title: string): boolean {
@@ -191,6 +184,11 @@ export class CommandProcessor {
 
     const { commands, currentIndex, payload } = pendingCommand;
 
+    // No tracking command execution if command is confirm or stop.
+    const noTrackingCommand =
+      commands.length === 1 &&
+      this.plugin.commandTrackingService.noTrackingCommand(commands[0].commandType);
+
     // Initialize model fallback state if needed
     await this.plugin.modelFallbackService.initializeState(title);
 
@@ -236,10 +234,8 @@ export class CommandProcessor {
         lang: payload.lang,
         upstreamOptions: options.sendToDownstream,
       });
-
-      const enableTracking = options.enableTracking !== false; // default to true
       const trackingPromise = this.plugin.commandTrackingService.getTracking(title);
-      if (enableTracking && (await trackingPromise)) {
+      if (!noTrackingCommand && (await trackingPromise)) {
         await this.plugin.commandTrackingService.recordCommandExecution(title, command.commandType);
       }
 
@@ -290,8 +286,7 @@ export class CommandProcessor {
     this.pendingCommands.delete(title);
 
     // Save classification if tracking is enabled and active
-    const enableTracking = options.enableTracking !== false; // default to true
-    if (enableTracking) {
+    if (!noTrackingCommand) {
       await this.saveClassification(title);
     }
   }
