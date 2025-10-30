@@ -10,7 +10,7 @@ export function waitForError(
 ): Promise<void> {
   const { intervalMs = 1000, maxAttempts = 10 } = options || {};
 
-  return new Promise((resolve, reject) => {
+  return new Promise((_, reject) => {
     // Define a bucket to ensure the timer will eventually be cleared.
     let bucket = maxAttempts;
     const timer = window.setInterval(() => {
@@ -20,9 +20,9 @@ export function waitForError(
         reject(error);
         clearInterval(timer);
       }
-      // If the bucket is empty and no error, resolve it.
+      // If the bucket is empty and no error, clear the timer.
+      // The function expects error, so we don't resolve
       if (bucket <= 0) {
-        resolve(undefined);
         clearInterval(timer);
       }
     }, intervalMs);

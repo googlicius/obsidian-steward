@@ -57,8 +57,8 @@ export class ReadCommandHandler extends CommandHandler {
       modifications.push({
         mode: 'remove',
         pattern: [
-          `2. ${CONFIRMATION_TOOL_NAME}`,
-          `3. ${ASK_USER_TOOL_NAME}`,
+          `- ${CONFIRMATION_TOOL_NAME}`,
+          `- ${ASK_USER_TOOL_NAME}`,
           `- You MUST use ${CONFIRMATION_TOOL_NAME}`,
           `- Use ${CONFIRMATION_TOOL_NAME}`,
           `- Use ${ASK_USER_TOOL_NAME}`,
@@ -77,9 +77,9 @@ export class ReadCommandHandler extends CommandHandler {
 
 You have access to the following tools:
 
-1. ${CONTENT_READING_TOOL_NAME} - Read content from a note.
-2. ${CONFIRMATION_TOOL_NAME} - Get confirmation from the user before performing an action.
-3. ${ASK_USER_TOOL_NAME} - Ask the user for additional information or clarification when needed.
+- ${CONTENT_READING_TOOL_NAME} - Read content from a note.
+- ${CONFIRMATION_TOOL_NAME} - Get confirmation from the user before performing an action.
+- ${ASK_USER_TOOL_NAME} - Ask the user for additional information or clarification when needed.
 
 GUIDELINES:
 - Use ${CONTENT_READING_TOOL_NAME} to read any type of content, including text, image, audio, video, etc.

@@ -307,6 +307,7 @@ GUIDELINES:
               commandType: 'read',
               query: toolCall.args.query,
               model: params.command.model,
+              no_confirm: params.command.no_confirm,
             },
             handlerId: `fromUpdate_${handlerId}`,
             lang: params.lang,
