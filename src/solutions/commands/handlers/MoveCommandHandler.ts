@@ -101,7 +101,6 @@ export class MoveCommandHandler extends CommandHandler {
       }
 
       if (artifact.artifactType === ArtifactType.SEARCH_RESULTS) {
-        console.log('SEARCH RESULTS', artifact.originalResults);
         docs = artifact.originalResults.map(result => ({ path: result.document.path }));
       } else if (artifact.artifactType === ArtifactType.CREATED_NOTES) {
         // Convert string paths to IndexedDocument objects
@@ -211,8 +210,6 @@ export class MoveCommandHandler extends CommandHandler {
       // Set the files for this operation
       const filesByOperation = new Map<number, DocWithPath[]>();
       filesByOperation.set(0, docs);
-
-      console.log('OPERATIONS', operations, filesByOperation);
 
       // Perform the move operations
       const result = await this.obsidianAPITools.moveByOperations(operations, filesByOperation);
