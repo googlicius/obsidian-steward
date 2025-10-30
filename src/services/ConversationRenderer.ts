@@ -549,8 +549,16 @@ export class ConversationRenderer {
   }
 
   public async streamFile(file: TFile, stream: AsyncIterable<string>) {
-    for await (const chunk of stream) {
-      await this.plugin.app.vault.process(file, currentContent => currentContent + chunk);
+    for await (let chunk of stream) {
+      await this.plugin.app.vault.process(file, currentContent => {
+        if (chunk.includes(`<think>`)) {
+          chunk = '\n```stw-thinking\n' + chunk;
+        } else if (chunk.includes(`</think>`)) {
+          chunk = chunk + '\n```\n';
+        }
+
+        return currentContent + chunk;
+      });
     }
   }
 

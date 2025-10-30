@@ -164,6 +164,17 @@ ${languageEnforcementFragment}`),
       streamErrorPromise,
     ])) as Awaited<string | undefined>;
 
+    if (messageId) {
+      await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+        text: `*${t('common.artifactCreated', { type: ArtifactType.GENERATED_CONTENT })}*`,
+        artifact: {
+          artifactType: ArtifactType.GENERATED_CONTENT,
+          messageId,
+          content: (await this.renderer.getMessageById(title, messageId))?.content || '',
+        },
+      });
+    }
+
     const toolInvocations: ToolInvocation<string>[] = [];
 
     // Then, we handle tool calls
@@ -339,6 +350,7 @@ ${languageEnforcementFragment}`),
         path: title,
         command: 'generate',
         toolInvocations,
+        handlerId,
       });
     }
 
