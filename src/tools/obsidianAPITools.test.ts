@@ -243,7 +243,7 @@ describe('ObsidianAPITools', () => {
           {
             destinationFolder: '/',
             errors: [],
-            moved: ['test-file.md'],
+            moved: ['/test-file.md'],
             skipped: [],
             sourceQuery: 'test',
           },
