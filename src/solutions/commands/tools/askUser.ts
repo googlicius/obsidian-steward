@@ -6,12 +6,6 @@ import { z } from 'zod';
 // - But another argued that if the user directly ask for read entire a note, so it says no need to get confirmation from the user.
 
 /**
- * Tool name constants
- */
-export const CONFIRMATION_TOOL_NAME = 'confirmation';
-export const ASK_USER_TOOL_NAME = 'askUser';
-
-/**
  * Creates an askUser tool based on the mode
  * @param mode - 'confirmation' for requesting user confirmation, 'ask' for requesting additional information
  */

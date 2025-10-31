@@ -15,9 +15,8 @@ triggers:
 commands:
 - name: read
   query: Read entire the $file_name
-  system_prompt:
-  - mode: remove
-    pattern: "MUST use confirmation BEFORE reading the entire content"
+  tools:
+    exclude: [confirmation, askUser]
 
 - name: generate
   query: Help me process the $file_name as an English word.

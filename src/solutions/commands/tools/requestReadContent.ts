@@ -23,11 +23,6 @@ ${readCommandQueryTemplate}`),
 export type RequestReadContentArgs = z.infer<typeof requestReadContentSchema>;
 
 /**
- * Tool name constant for requestReadContent
- */
-export const REQUEST_READ_CONTENT_TOOL_NAME = 'requestReadContent';
-
-/**
  * Shared requestReadContent tool definition
  */
 export const requestReadContentTool = tool({

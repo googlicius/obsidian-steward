@@ -5,11 +5,6 @@ import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { z } from 'zod';
 
 /**
- * Tool name constant for edit
- */
-export const EDIT_TOOL_NAME = 'edit';
-
-/**
  * Type for edit tool arguments
  */
 export type EditArgs = z.infer<ReturnType<typeof createEditTool>['editSchema']>;

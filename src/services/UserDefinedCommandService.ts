@@ -8,6 +8,7 @@ import { SystemPromptItem } from 'src/solutions/commands';
 import { StewardChatView } from 'src/views/StewardChatView';
 import i18next from 'i18next';
 import { z } from 'zod';
+import { ToolName } from 'src/solutions/commands/ToolRegistry';
 
 /**
  * Represents a user-defined command definition
@@ -21,6 +22,9 @@ export interface UserDefinedCommand {
     query: string;
     model?: string;
     no_confirm?: boolean;
+    tools?: {
+      exclude?: ToolName[];
+    };
   }>;
   file_path: string;
   model?: string;
@@ -98,6 +102,11 @@ const userDefinedCommandStepSchema = z.object({
   query: z.string().min(1, 'Step query is required'),
   model: z.string().optional(),
   no_confirm: z.boolean().optional(),
+  tools: z
+    .object({
+      exclude: z.array(z.enum(Object.values(ToolName) as [string, ...string[]])).optional(),
+    })
+    .optional(),
 });
 
 /**
@@ -973,6 +982,7 @@ export class UserDefinedCommandService {
         query,
         model,
         no_confirm: step.no_confirm,
+        tools: step.tools,
       };
     });
   }

@@ -29,7 +29,7 @@ export class ConversationRenderer {
    * Extract selected model from a text using SELECTED_MODEL_PATTERN.
    * Returns in the format "provider:modelId" or null if not found.
    */
-  private extractSelectedModelFromText(text: string | undefined | null): string | null {
+  public extractSelectedModelFromText(text: string | undefined | null): string | null {
     if (!text) return null;
     const regex = new RegExp(SELECTED_MODEL_PATTERN, 'i');
     const match = regex.exec(text);
