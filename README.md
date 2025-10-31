@@ -25,16 +25,16 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 - [User-defined commands](#user-defined-commands)
   - [How it works](#how-it-works)
   - [Definitions](#definitions)
+  - [Usage](#usage-1)
   - [Example: user-defined command definition](#example-user-defined-command-definition)
   - [Customizing system prompts](#customizing-system-prompts)
-  - [Usage](#usage-1)
+  - [Excluding tools](#excluding-tools)
   - [Automated command triggers](#automated-command-triggers)
   - [Creating commands with LLM assistance](#creating-commands-with-llm-assistance)
   - [User-defined command showcases](#user-defined-command-showcases)
 - [Command flow visualization](#command-flow-visualization)
 - [Folder structure](#folder-structure)
 - [Installation](#installation)
-- [Settings](#settings)
 - [Development](#development)
 - [Contributing](#contributing)
   - [Code contributions](#code-contributions)
@@ -93,6 +93,14 @@ You can create your own **User-Defined Commands** to automate workflows and comb
   - `query`: (required if the `query_required` is true, string) The query to send to LLMs, put the `$from_user` as a placeholder for your input
   - `model`: (optional, string) The model to use for this specific command step (overrides the command-level model)
   - `no_confirm`: (optional, boolean) If true, skips confirmation prompts for this command step
+  - `tools`: (optional, object) Control which tools are available for this command step (see [Excluding tools](#excluding-tools))
+    - `exclude`: (optional, array) Array of tool names to exclude from this command step
+
+### Usage
+
+1. Create a note in `Steward/Commands` and add your command YAML in a code block.
+2. In any note or the Chat, type your command (e.g., `/clean_up #Todo`) and press Enter.
+3. The command will execute the defined sequence, using your input if required.
 
 ### Example: user-defined command definition
 
@@ -234,11 +242,42 @@ commands:
 
 You can also skip confirmation prompts for individual command steps using the `no_confirm` field.
 
-### Usage
+### Excluding tools
 
-1. Create a note in `Steward/Commands` and add your command YAML in a code block.
-2. In any note or the Chat, type your command (e.g., `/clean_up #Todo`) and press Enter.
-3. The command will execute the defined sequence, using your input if required.
+You can exclude specific tools from being available in a command step using the `tools.exclude` field. This removes both the tool from the LLM's available tools and automatically removes related guidelines from the system prompt.
+
+#### Available tool names
+
+- `contentReading` - Read content from notes
+- `confirmation` - Get user confirmation before actions
+- `askUser` - Ask the user for additional information
+- `requestReadContent` - Request the read command for more data
+- `grep` - Search for text patterns in notes
+- `edit` - Update content in notes
+
+#### Example
+
+Exclude specific tools from a command step:
+
+```yaml
+commands:
+  - name: read
+    tools:
+      exclude: ['confirmation', 'askUser']
+    query: Read the entire content
+```
+
+This example:
+
+1. Removes `confirmation` and `askUser` tools from the LLM's available tools
+2. Automatically removes all guidelines mentioning these tools from the system prompt
+
+#### Notes on `no_confirm` vs excluding the confirmation tool
+
+- Excluding the `confirmation` tool removes it from the LLM's available tools only. The model cannot call it.
+- `no_confirm: true` does two things:
+  1. It removes the `confirmation` and `askUser` tools from the LLM's tool set (same effect as excluding the tool), and
+  2. It also disables the in-app confirmation flow for that command step.
 
 ### Automated command triggers
 
@@ -360,7 +399,7 @@ Steward/
 
 ## Installation
 
-### From Obsidian Community Plugins (Waiting for approval)
+### From Obsidian Community Plugins
 
 1. Download the plugin from the Obsidian Community Plugins browser
 2. Enable the plugin in your Obsidian settings
@@ -379,23 +418,6 @@ Steward/
 2. Extract the zip file into your Obsidian vault's `.obsidian/plugins` folder
 3. Enable the plugin in your Obsidian settings
 4. Configure your API keys in the plugin settings
-
-## Settings
-
-- **API Keys**:
-
-  - OpenAI API Key (for OpenAI models and embeddings)
-  - ElevenLabs API Key (for audio generation)
-  - DeepSeek API Key (for DeepSeek models)
-
-- **LLM Settings**:
-
-  - Chat Model: Choose between various models from OpenAI, DeepSeek, or Ollama
-  - Temperature: Controls randomness in the output (0.0 to 1.0)
-  - Ollama Base URL: For local Ollama models (default: http://localhost:11434)
-
-- **Steward Folder**: The folder where Steward' related notes will be stored (default: `Steward`)
-- **Debug Mode**: Enable detailed logging for troubleshooting
 
 ## Development
 

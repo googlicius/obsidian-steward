@@ -13,17 +13,15 @@ import { STW_SELECTED_PATTERN } from 'src/constants';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { ReadCommandHandler } from '../ReadCommandHandler/ReadCommandHandler';
 import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
-import {
-  requestReadContentTool,
-  REQUEST_READ_CONTENT_TOOL_NAME,
-} from '../../tools/requestReadContent';
-import { createEditTool, EDIT_TOOL_NAME } from '../../tools/editContent';
+import { requestReadContentTool } from '../../tools/requestReadContent';
+import { createEditTool } from '../../tools/editContent';
 import { ToolInvocation } from '../../tools/types';
 import { UpdateCommandHandler } from '../UpdateCommandHandler/UpdateCommandHandler';
 import { uniqueID } from 'src/utils/uniqueID';
 import { SystemPromptModifier } from '../../SystemPromptModifier';
-import { ASK_USER_TOOL_NAME, createAskUserTool } from '../../tools/askUser';
+import { createAskUserTool } from '../../tools/askUser';
 import { waitForError } from 'src/utils/waitForError';
+import { ToolRegistry, ToolName } from '../../ToolRegistry';
 
 const { askUserTool } = createAskUserTool('ask');
 
@@ -113,6 +111,14 @@ The response should be in natural language and not include the selection(s) {{st
     const modifier = new SystemPromptModifier(systemPrompts);
     const additionalSystemPrompts = modifier.getAdditionalSystemPrompts();
 
+    // Tools and registry from centralized metadata
+    const tools = {
+      [ToolName.REQUEST_READ_CONTENT]: requestReadContentTool,
+      [ToolName.EDIT]: editTool,
+      [ToolName.ASK_USER]: askUserTool,
+    };
+    const registry = ToolRegistry.buildFromTools(tools, params.command.tools);
+
     // Collect the error from the stream to handle it with our handle function.
     let streamError: Error | null = null;
 
@@ -124,15 +130,10 @@ The response should be in natural language and not include the selection(s) {{st
 
 You have access to the following tools:
 
-- ${EDIT_TOOL_NAME} - Update existing content in a note.
-- ${REQUEST_READ_CONTENT_TOOL_NAME} - Read content from notes to gather context before generating a response.
-- ${ASK_USER_TOOL_NAME} - Ask the user for additional information or clarification when needed.
+${registry.generateToolsSection()}
 
 GUIDELINES:
-- Use the ${REQUEST_READ_CONTENT_TOOL_NAME} tool if you need more context before generating a response.
-- Use the ${EDIT_TOOL_NAME} tool if you need to update existing content.
-- Use ${ASK_USER_TOOL_NAME} when you need clarification or additional information from the user to fulfill their request.
-- When updating content, return ONLY the specific changed content, not the entire surrounding context.
+${registry.generateGuidelinesSection()}
 - For all other content generation requests, generate detailed and well-structured content in Markdown.
 ${languageEnforcementFragment}`),
       messages: [
@@ -140,11 +141,7 @@ ${languageEnforcementFragment}`),
         ...conversationHistory,
         { role: 'user', content: userMessage },
       ],
-      tools: {
-        [REQUEST_READ_CONTENT_TOOL_NAME]: requestReadContentTool,
-        [EDIT_TOOL_NAME]: editTool,
-        [ASK_USER_TOOL_NAME]: askUserTool,
-      },
+      tools: registry.getToolsObject(),
       onError: ({ error }) => {
         streamError = error instanceof Error ? error : new Error(String(error));
       },
@@ -184,7 +181,7 @@ ${languageEnforcementFragment}`),
 
     for (const toolCall of toolCalls) {
       switch (toolCall.toolName) {
-        case REQUEST_READ_CONTENT_TOOL_NAME: {
+        case ToolName.REQUEST_READ_CONTENT: {
           await this.renderer.updateConversationNote({
             path: title,
             newContent: toolCall.args.explanation,
@@ -234,7 +231,7 @@ ${languageEnforcementFragment}`),
           }
         }
 
-        case EDIT_TOOL_NAME: {
+        case ToolName.EDIT: {
           await this.renderer.updateConversationNote({
             path: title,
             newContent: toolCall.args.explanation,
@@ -309,12 +306,13 @@ ${languageEnforcementFragment}`),
           break;
         }
 
-        case ASK_USER_TOOL_NAME: {
+        case ToolName.ASK_USER: {
           await this.renderer.updateConversationNote({
             path: title,
             newContent: toolCall.args.message,
             command: 'generate',
             includeHistory: false,
+            handlerId,
             lang,
           });
 

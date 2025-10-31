@@ -13,12 +13,11 @@ import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { logger } from 'src/utils/logger';
 import { COMMAND_DEFINITIONS } from 'src/lib/modelfusion/prompts/commands';
 import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
-import { CONFIRMATION_TOOL_NAME, ASK_USER_TOOL_NAME, createAskUserTool } from '../../tools/askUser';
+import { createAskUserTool } from '../../tools/askUser';
 import { ToolInvocation } from '../../tools/types';
 import { uniqueID } from 'src/utils/uniqueID';
 import { SystemPromptModifier } from '../../SystemPromptModifier';
-
-const CONTENT_READING_TOOL_NAME = 'contentReading';
+import { ToolRegistry, ToolName } from '../../ToolRegistry';
 
 const { askUserTool: confirmationTool } = createAskUserTool('confirmation');
 const { askUserTool } = createAskUserTool('ask');
@@ -44,28 +43,22 @@ export class ReadCommandHandler extends CommandHandler {
 
     // Tools set
     const tools = {
-      [CONTENT_READING_TOOL_NAME]: tool({
+      [ToolName.CONTENT_READING]: tool({
         parameters: contentReadingSchema,
       }),
-      [CONFIRMATION_TOOL_NAME]: confirmationTool,
-      [ASK_USER_TOOL_NAME]: askUserTool,
+      [ToolName.CONFIRMATION]: confirmationTool,
+      [ToolName.ASK_USER]: askUserTool,
     };
 
-    // Build modifications array - add remove operations when no_confirm is true
-    const modifications = [...(command.systemPrompts || [])];
+    // Tools registry from centralized metadata
+    const registry = ToolRegistry.buildFromTools(tools, params.command.tools);
+
     if (command.no_confirm) {
-      modifications.push({
-        mode: 'remove',
-        pattern: [
-          `- ${CONFIRMATION_TOOL_NAME}`,
-          `- ${ASK_USER_TOOL_NAME}`,
-          `- You MUST use ${CONFIRMATION_TOOL_NAME}`,
-          `- Use ${CONFIRMATION_TOOL_NAME}`,
-          `- Use ${ASK_USER_TOOL_NAME}`,
-        ].join('\n'),
-        matchType: 'regex',
-      });
+      registry.exclude([ToolName.CONFIRMATION, ToolName.ASK_USER]);
     }
+
+    // Build modifications array (user-defined system prompts)
+    const modifications = [...(command.systemPrompts || [])];
 
     const modifier = new SystemPromptModifier(modifications);
 
@@ -77,17 +70,11 @@ export class ReadCommandHandler extends CommandHandler {
 
 You have access to the following tools:
 
-- ${CONTENT_READING_TOOL_NAME} - Read content from a note.
-- ${CONFIRMATION_TOOL_NAME} - Get confirmation from the user before performing an action.
-- ${ASK_USER_TOOL_NAME} - Ask the user for additional information or clarification when needed.
+${registry.generateToolsSection()}
 
 GUIDELINES:
-- Use ${CONTENT_READING_TOOL_NAME} to read any type of content, including text, image, audio, video, etc.
-- You MUST use ${CONFIRMATION_TOOL_NAME} BEFORE reading the entire content of any note. (When readType is "entire")
-- Use ${CONFIRMATION_TOOL_NAME} once for all note(s) to be read.
-- Use ${ASK_USER_TOOL_NAME} when you need clarification or additional information from the user to fulfill their request.
+${registry.generateGuidelinesSection()}
 - Do NOT repeat the content in your final response.
-- Read ALL notes at once with multiple ${CONTENT_READING_TOOL_NAME} tool calls.
 
 This is the structure of the query template:
 <read_query_template>
@@ -95,7 +82,7 @@ ${readCommandQueryTemplate}
 </read_query_template>
 ${languageEnforcementFragment}`),
       messages,
-      tools,
+      tools: registry.getToolsObject(),
     });
   }
 
@@ -191,10 +178,7 @@ ${languageEnforcementFragment}`),
 
     for (let i = startIndex; i < extraction.toolCalls.length; i++) {
       const toolCall = extraction.toolCalls[i];
-      if (
-        toolCall.toolName === CONFIRMATION_TOOL_NAME ||
-        toolCall.toolName === ASK_USER_TOOL_NAME
-      ) {
+      if (toolCall.toolName === ToolName.CONFIRMATION || toolCall.toolName === ToolName.ASK_USER) {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: toolCall.args.message,
@@ -239,7 +223,7 @@ ${languageEnforcementFragment}`),
           });
         };
 
-        if (toolCall.toolName === CONFIRMATION_TOOL_NAME) {
+        if (toolCall.toolName === ToolName.CONFIRMATION) {
           return {
             status: CommandResultStatus.NEEDS_CONFIRMATION,
             onConfirmation: callBack,
@@ -250,7 +234,7 @@ ${languageEnforcementFragment}`),
             onUserInput: callBack,
           };
         }
-      } else if (toolCall.toolName === CONTENT_READING_TOOL_NAME) {
+      } else if (toolCall.toolName === ToolName.CONTENT_READING) {
         // Execute the content reading
         let result: ContentReadingResult | string;
         try {
