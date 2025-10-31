@@ -35,7 +35,6 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 - [Command flow visualization](#command-flow-visualization)
 - [Folder structure](#folder-structure)
 - [Installation](#installation)
-- [Settings](#settings)
 - [Development](#development)
 - [Contributing](#contributing)
   - [Code contributions](#code-contributions)
@@ -400,7 +399,7 @@ Steward/
 
 ## Installation
 
-### From Obsidian Community Plugins (Waiting for approval)
+### From Obsidian Community Plugins
 
 1. Download the plugin from the Obsidian Community Plugins browser
 2. Enable the plugin in your Obsidian settings
@@ -419,23 +418,6 @@ Steward/
 2. Extract the zip file into your Obsidian vault's `.obsidian/plugins` folder
 3. Enable the plugin in your Obsidian settings
 4. Configure your API keys in the plugin settings
-
-## Settings
-
-- **API Keys**:
-
-  - OpenAI API Key (for OpenAI models and embeddings)
-  - ElevenLabs API Key (for audio generation)
-  - DeepSeek API Key (for DeepSeek models)
-
-- **LLM Settings**:
-
-  - Chat Model: Choose between various models from OpenAI, DeepSeek, or Ollama
-  - Temperature: Controls randomness in the output (0.0 to 1.0)
-  - Ollama Base URL: For local Ollama models (default: http://localhost:11434)
-
-- **Steward Folder**: The folder where Steward' related notes will be stored (default: `Steward`)
-- **Debug Mode**: Enable detailed logging for troubleshooting
 
 ## Development
 
