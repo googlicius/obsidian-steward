@@ -5,6 +5,9 @@ import { ConversationHistoryMessage, ConversationMessage, ConversationRole } fro
 import type StewardPlugin from '../main';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/solutions/artifact';
+import { IMAGE_LINK_PATTERN, SELECTED_MODEL_PATTERN } from 'src/constants';
+import { prependChunk } from 'src/utils/textStreamer';
+import { CoreMessage } from 'ai';
 
 export class ConversationRenderer {
   static instance: ConversationRenderer;
@@ -20,6 +23,22 @@ export class ConversationRenderer {
       throw new Error('ConversationRenderer not initialized');
     }
     return ConversationRenderer.instance;
+  }
+
+  /**
+   * Extract selected model from a text using SELECTED_MODEL_PATTERN.
+   * Returns in the format "provider:modelId" or null if not found.
+   */
+  public extractSelectedModelFromText(text: string | undefined | null): string | null {
+    if (!text) return null;
+    const regex = new RegExp(SELECTED_MODEL_PATTERN, 'i');
+    const match = regex.exec(text);
+    if (!match) return null;
+
+    const provider = match[2];
+    const modelId = match[3];
+    if (!provider || !modelId) return null;
+    return `${provider}:${modelId}`;
   }
 
   /**
@@ -373,11 +392,19 @@ export class ConversationRenderer {
         handlerId: params.handlerId,
       });
 
-      // Update language property in the frontmatter if provided
+      // Update language and model properties in the frontmatter if provided
+      const updatedProperties = [];
       if (params.lang) {
-        await this.updateConversationFrontmatter(params.path, [
-          { name: 'lang', value: params.lang },
-        ]);
+        updatedProperties.push({ name: 'lang', value: params.lang });
+      }
+
+      const selectedModel = this.extractSelectedModelFromText(params.newContent);
+      if (selectedModel) {
+        updatedProperties.push({ name: 'model', value: selectedModel });
+      }
+
+      if (updatedProperties.length > 0) {
+        await this.updateConversationFrontmatter(params.path, updatedProperties);
       }
 
       // Process the file content
@@ -467,6 +494,18 @@ export class ConversationRenderer {
         throw new Error(`Note not found: ${notePath}`);
       }
 
+      // Check if stream is empty by trying to get the first chunk
+      const streamIterator = params.stream[Symbol.asyncIterator]();
+      const firstResult = await streamIterator.next();
+
+      // If stream is empty, return undefined without creating metadata
+      if (firstResult.done) {
+        return undefined;
+      }
+
+      // Create a stream that includes the first chunk we already retrieved
+      const streamWithFirstChunk = prependChunk(firstResult.value, streamIterator);
+
       const { messageId, comment } = await this.buildMessageMetadata(path, {
         role: 'Steward',
         command: params.command,
@@ -499,7 +538,7 @@ export class ConversationRenderer {
       });
 
       // Stream the content
-      await this.streamFile(file, params.stream);
+      await this.streamFile(file, streamWithFirstChunk);
 
       // Return the message ID for referencing
       return messageId;
@@ -510,8 +549,16 @@ export class ConversationRenderer {
   }
 
   public async streamFile(file: TFile, stream: AsyncIterable<string>) {
-    for await (const chunk of stream) {
-      await this.plugin.app.vault.process(file, currentContent => currentContent + chunk);
+    for await (let chunk of stream) {
+      await this.plugin.app.vault.process(file, currentContent => {
+        if (chunk.includes(`<think>`)) {
+          chunk = '\n```stw-thinking\n' + chunk;
+        } else if (chunk.includes(`</think>`)) {
+          chunk = chunk + '\n```\n';
+        }
+
+        return currentContent + chunk;
+      });
     }
   }
 
@@ -691,8 +738,9 @@ export class ConversationRenderer {
       // Get translation function with the appropriate language
       const t = getTranslation(language);
 
-      // Get the current model from settings
-      const currentModel = this.plugin.settings.llm.chat.model;
+      // Determine model: from query if present, otherwise from settings
+      const modelFromQuery = this.extractSelectedModelFromText(content);
+      const currentModel = modelFromQuery || this.plugin.settings.llm.chat.model;
 
       // Get the current language from settings
       const currentLanguage = language || getLanguage();
@@ -952,7 +1000,9 @@ export class ConversationRenderer {
       const allMessages = await this.extractConversationHistory(conversationTitle);
 
       // Filter messages by handler ID
-      return allMessages.filter(message => message.handlerId === handlerId);
+      return allMessages.filter(
+        message => 'handlerId' in message && message.handlerId === handlerId
+      );
     } catch (error) {
       logger.error('Error getting messages by handler ID:', error);
       return [];
@@ -1210,7 +1260,7 @@ export class ConversationRenderer {
         .filter(message => !message.ignored)
         .slice(-maxMessages);
 
-      const result: ConversationHistoryMessage[] = [];
+      const result: (ConversationHistoryMessage | CoreMessage)[] = [];
 
       for (const message of messagesToInclude) {
         if (message.type === 'tool-invocation') {
@@ -1235,6 +1285,22 @@ export class ConversationRenderer {
                 },
               })),
             });
+
+            const toolInvocationStr = JSON.stringify(toolInvocations);
+            const hasImage = new RegExp(IMAGE_LINK_PATTERN).test(toolInvocationStr);
+            if (hasImage) {
+              // Inject images as a user message
+              const images =
+                await this.plugin.noteContentService.getImagesFromInput(toolInvocationStr);
+              logger.log('Injecting images after tool invocation', images);
+              for (const [path, imagePart] of images) {
+                result.push({
+                  id: uniqueID(),
+                  role: 'user',
+                  content: [{ type: 'text', text: path }, imagePart],
+                });
+              }
+            }
             continue;
           }
         } else {
@@ -1249,7 +1315,7 @@ export class ConversationRenderer {
         }
       }
 
-      return result;
+      return result as ConversationHistoryMessage[];
     } catch (error) {
       logger.error('Error extracting conversation history:', error);
       return [];
@@ -1265,7 +1331,8 @@ export class ConversationRenderer {
    */
   public async getConversationProperty<T>(
     conversationTitle: string,
-    property: string
+    property: string,
+    forceRefresh?: boolean
   ): Promise<T | undefined> {
     try {
       // Get the conversation file
@@ -1280,12 +1347,16 @@ export class ConversationRenderer {
       // Try to get from cache first
       const fileCache = this.plugin.app.metadataCache.getFileCache(file);
 
-      if (fileCache?.frontmatter) {
+      if (fileCache?.frontmatter && !forceRefresh) {
         return fileCache.frontmatter[property];
       }
 
       // Cache miss, read directly from file
-      logger.log(`Cache miss for property ${property}, reading directly from file`);
+      if (forceRefresh) {
+        logger.log(`Force refresh for property ${property}, reading directly from file`);
+      } else {
+        logger.log(`Cache miss for property ${property}, reading directly from file`);
+      }
       const fileContent = await this.plugin.app.vault.read(file);
       const frontmatterRegex = /^---\n([\s\S]*?)\n---/;
       const match = fileContent.match(frontmatterRegex);

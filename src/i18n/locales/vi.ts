@@ -37,6 +37,20 @@ const vi = {
       errorProcessingCommand: 'Lỗi khi xử lý lệnh {{commandType}}: {{errorMessage}}',
       switchingModelDueToErrors: 'Chuyển từ {{fromModel}} sang {{toModel}} do gặp lỗi',
     },
+    trigger: {
+      executing: 'Đang thực thi trigger cho lệnh: {{commandName}}',
+      executed: 'Trigger "{{commandName}}" đã thực thi thành công.',
+      openConversation: 'Mở cuộc trò chuyện',
+    },
+    validation: {
+      errorTitle: 'Lỗi Xác Thực UDC',
+      errorDetected: 'Phát hiện lỗi xác thực trong tệp lệnh: {{fileName}}. ',
+      openValidationNote: 'Xem lỗi',
+      errorDescription: 'Các lỗi sau đã được tìm thấy khi xác thực lệnh do người dùng định nghĩa:',
+      commandError: 'Lệnh: {{commandName}}',
+      yamlError: 'Cú pháp YAML không hợp lệ',
+      successMessage: 'Tất cả các định nghĩa lệnh đều hợp lệ! ✅',
+    },
     // Chat UI elements
     chat: {
       newChat: 'Cuộc trò chuyện mới',
@@ -91,6 +105,7 @@ const vi = {
     },
     generate: {
       success: 'Đã tạo thành công',
+      noResponse: 'Không có phản hồi từ AI.',
     },
     stop: {
       stopped: 'Đã dừng tạo.',

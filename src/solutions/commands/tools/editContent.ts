@@ -5,11 +5,6 @@ import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { z } from 'zod';
 
 /**
- * Tool name constant for edit
- */
-export const EDIT_TOOL_NAME = 'edit';
-
-/**
  * Type for edit tool arguments
  */
 export type EditArgs = z.infer<ReturnType<typeof createEditTool>['editSchema']>;
@@ -113,9 +108,9 @@ function repairEditToolCallArgs(args: EditArgs): EditArgs {
   const repairedArgs = { ...args };
 
   // Unescape the newContent
-  repairedArgs.operations.forEach(operation => {
+  for (const operation of repairedArgs.operations) {
     operation.newContent = new MarkdownUtil(operation.newContent).unescape().getText();
-  });
+  }
 
   return repairedArgs;
 }

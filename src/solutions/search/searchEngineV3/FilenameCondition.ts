@@ -9,6 +9,15 @@ const BOOST = 5;
 export class FilenameCondition extends Condition<IndexedDocument> {
   constructor(private names: string[]) {
     super();
+    // Ensure names are without extensions. Include both versions ensuring we don't accidentally remove the part that is not an extension.
+    for (let i = names.length - 1; i >= 0; i--) {
+      const name = names[i];
+      const lastDotIndex = name.lastIndexOf('.');
+
+      if (lastDotIndex > 0 && lastDotIndex < name.length - 1) {
+        names.push(name.substring(0, lastDotIndex));
+      }
+    }
   }
 
   /**
@@ -53,10 +62,10 @@ export class FilenameCondition extends Condition<IndexedDocument> {
       if (documentIds.length === 0) continue;
 
       const documents = await this.context.documentStore.getDocumentsByIds(documentIds);
+      const parsedName = this.parseRegexPattern(name);
 
       // Filter documents by similarity score
       for (const doc of documents) {
-        const parsedName = this.parseRegexPattern(name);
         let score = 0;
 
         switch (parsedName.searchType) {

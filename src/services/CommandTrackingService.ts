@@ -19,10 +19,6 @@ interface Tracking {
    */
   executedCommands: string[];
   /**
-   * The query template used for classification (if available)
-   */
-  queryTemplate?: string;
-  /**
    * Confidence score from the extraction
    */
   confidence?: number;
@@ -54,6 +50,10 @@ export class CommandTrackingService {
     return CommandTrackingService.instance;
   }
 
+  public noTrackingCommand(commandType: string): boolean {
+    return ['confirm', 'yes', 'no', 'stop', ' '].includes(commandType);
+  }
+
   /**
    * Get the conversation file
    */
@@ -71,18 +71,11 @@ export class CommandTrackingService {
     conversationTitle: string;
     originalQuery: string;
     extractedCommands: string[];
-    queryTemplate?: string;
     confidence?: number;
     isReloadRequest?: boolean;
   }): Promise<void> {
-    const {
-      conversationTitle,
-      originalQuery,
-      extractedCommands,
-      queryTemplate,
-      confidence,
-      isReloadRequest,
-    } = params;
+    const { conversationTitle, originalQuery, extractedCommands, confidence, isReloadRequest } =
+      params;
 
     const file = this.getConversationFile(conversationTitle);
     if (!file) {
@@ -95,7 +88,6 @@ export class CommandTrackingService {
         originalQuery,
         extractedCommands,
         executedCommands: [],
-        queryTemplate,
         confidence,
         isReloadRequest,
       };
@@ -144,10 +136,14 @@ export class CommandTrackingService {
   /**
    * Get the current tracking state
    */
-  public async getTracking(conversationTitle: string): Promise<Tracking | null> {
+  public async getTracking(
+    conversationTitle: string,
+    forceRefresh?: boolean
+  ): Promise<Tracking | null> {
     const tracking = await this.plugin.conversationRenderer.getConversationProperty<Tracking>(
       conversationTitle,
-      'tracking'
+      'tracking',
+      forceRefresh
     );
 
     return tracking || null;

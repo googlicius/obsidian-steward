@@ -16,16 +16,15 @@ import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { CommandIntent, DocWithPath } from 'src/types/types';
 import { generateId, generateText, Message } from 'ai';
-import {
-  REQUEST_READ_CONTENT_TOOL_NAME,
-  requestReadContentTool,
-} from '../../tools/requestReadContent';
-import { GREP_TOOL_NAME, grepTool, execute as grepExecute } from '../../tools/grepContent';
-import { EDIT_TOOL_NAME, createEditTool } from '../../tools/editContent';
+import { requestReadContentTool } from '../../tools/requestReadContent';
+import { grepTool, execute as grepExecute } from '../../tools/grepContent';
+import { createEditTool } from '../../tools/editContent';
 import { ReadCommandHandler } from '../ReadCommandHandler/ReadCommandHandler';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
 import { uniqueID } from 'src/utils/uniqueID';
+import { SystemPromptModifier } from '../../SystemPromptModifier';
+import { ToolRegistry, ToolName } from '../../ToolRegistry';
 
 const updatableTypes = [
   ArtifactType.SEARCH_RESULTS,
@@ -56,6 +55,7 @@ export class UpdateCommandHandler extends CommandHandler {
     command: CommandIntent;
     messages: Message[];
     lang?: string | null;
+    handlerId: string;
   }): Promise<CommandResult> {
     const t = getTranslation(params.lang);
     const llmConfig = await this.plugin.llmService.getLLMConfig({
@@ -67,23 +67,26 @@ export class UpdateCommandHandler extends CommandHandler {
       contentType: 'in_the_note',
     });
 
+    const modifier = new SystemPromptModifier(params.command.systemPrompts);
+
+    const tools = { [ToolName.EDIT]: editTool };
+    const registry = ToolRegistry.buildFromTools(tools, params.command.tools);
+
     const extraction = await generateText({
       ...llmConfig,
       abortSignal: this.plugin.abortService.createAbortController('update'),
-      system: `You are a helpful assistant that updates content in a Obsidian note.
+      system: modifier.apply(`You are a helpful assistant that updates content in a Obsidian note.
 Update the content in the note based on the instructions provided.
 
 You have access to the following tools:
 
-1. ${EDIT_TOOL_NAME} - Update content by replacing old content with new content.
+${registry.generateToolsSection()}
 
 GUIDELINES:
-- Use ${EDIT_TOOL_NAME} to make the actual content changes.
-`,
+${registry.generateGuidelinesSection()}
+`),
       messages: params.messages,
-      tools: {
-        [EDIT_TOOL_NAME]: editTool,
-      },
+      tools: registry.getToolsObject(),
     });
 
     // Render the text
@@ -98,7 +101,7 @@ GUIDELINES:
 
     for (const toolCall of extraction.toolCalls) {
       switch (toolCall.toolName) {
-        case EDIT_TOOL_NAME: {
+        case ToolName.EDIT: {
           // Handle edit content
           await this.renderer.updateConversationNote({
             path: params.title,
@@ -135,6 +138,23 @@ GUIDELINES:
             });
           }
 
+          const updateInstructions = editToolExecute(toolCall.args);
+
+          // Skip confirmation if no_confirm is true
+          if (params.command.no_confirm) {
+            return this.performUpdate({
+              title: params.title,
+              docs: [
+                {
+                  path: file.path,
+                },
+              ],
+              updateInstructions,
+              lang: params.lang,
+              handlerId: params.handlerId,
+            });
+          }
+
           await this.renderer.updateConversationNote({
             path: params.title,
             newContent: t('update.applyChangesConfirm'),
@@ -143,8 +163,6 @@ GUIDELINES:
           return {
             status: CommandResultStatus.NEEDS_CONFIRMATION,
             onConfirmation: () => {
-              const updateInstructions = editToolExecute(toolCall.args);
-
               return this.performUpdate({
                 title: params.title,
                 docs: [
@@ -154,6 +172,7 @@ GUIDELINES:
                 ],
                 updateInstructions,
                 lang: params.lang,
+                handlerId: params.handlerId,
               });
             },
             onRejection: () => {
@@ -228,6 +247,13 @@ GUIDELINES:
             'in_the_note',
     });
 
+    const tools = {
+      [ToolName.REQUEST_READ_CONTENT]: requestReadContentTool,
+      [ToolName.GREP]: grepTool,
+      [ToolName.EDIT]: editTool,
+    };
+    const registry = ToolRegistry.buildFromTools(tools, params.command.tools);
+
     const extraction = await generateText({
       ...llmConfig,
       abortSignal: this.plugin.abortService.createAbortController('update'),
@@ -236,21 +262,13 @@ Update the content in the note based on the instructions provided.
 
 You have access to the following tools:
 
-1. ${REQUEST_READ_CONTENT_TOOL_NAME} - Read content from a note.
-2. ${GREP_TOOL_NAME} - Search for specific text patterns in notes.
-3. ${EDIT_TOOL_NAME} - Update content by replacing old content with new content.
+${registry.generateToolsSection()}
 
 GUIDELINES:
-- use ${REQUEST_READ_CONTENT_TOOL_NAME} to read the content above/below the current cursor or the entire note.
-- Use ${GREP_TOOL_NAME} to find specific text patterns that need to be updated.
-- Use ${EDIT_TOOL_NAME} to make the actual content changes. (NOTE: You cannot use this tool if a note does not exist.)
+${registry.generateGuidelinesSection()}
 `,
       messages,
-      tools: {
-        [REQUEST_READ_CONTENT_TOOL_NAME]: requestReadContentTool,
-        [GREP_TOOL_NAME]: grepTool,
-        [EDIT_TOOL_NAME]: editTool,
-      },
+      tools: registry.getToolsObject(),
     });
 
     // Render the text
@@ -260,6 +278,7 @@ GUIDELINES:
         newContent: extraction.text,
         command: 'update',
         lang: params.lang,
+        handlerId,
       });
     }
 
@@ -267,13 +286,14 @@ GUIDELINES:
 
     for (const toolCall of extraction.toolCalls) {
       switch (toolCall.toolName) {
-        case REQUEST_READ_CONTENT_TOOL_NAME: {
+        case ToolName.REQUEST_READ_CONTENT: {
           await this.renderer.updateConversationNote({
             path: params.title,
             newContent: toolCall.args.explanation,
             command: 'update',
             includeHistory: false,
             lang: params.lang,
+            handlerId,
           });
 
           await this.renderer.addGeneratingIndicator(
@@ -290,6 +310,7 @@ GUIDELINES:
               commandType: 'read',
               query: toolCall.args.query,
               model: params.command.model,
+              no_confirm: params.command.no_confirm,
             },
             handlerId: `fromUpdate_${handlerId}`,
             lang: params.lang,
@@ -326,7 +347,7 @@ GUIDELINES:
           }
         }
 
-        case GREP_TOOL_NAME: {
+        case ToolName.GREP: {
           // Handle grep content search
           await this.renderer.updateConversationNote({
             path: params.title,
@@ -334,6 +355,7 @@ GUIDELINES:
             command: 'update',
             includeHistory: false,
             lang: params.lang,
+            handlerId,
           });
 
           await this.renderer.addGeneratingIndicator(
@@ -354,6 +376,7 @@ GUIDELINES:
               path: params.title,
               newContent: errorResult,
               includeHistory: false,
+              handlerId,
             });
             toolResults.push({
               ...toolCall,
@@ -363,7 +386,7 @@ GUIDELINES:
           break;
         }
 
-        case EDIT_TOOL_NAME: {
+        case ToolName.EDIT: {
           // Handle edit content
           await this.renderer.updateConversationNote({
             path: params.title,
@@ -371,6 +394,7 @@ GUIDELINES:
             command: 'update',
             includeHistory: false,
             lang: params.lang,
+            handlerId,
           });
 
           const file = toolCall.args.filePath
@@ -398,20 +422,38 @@ GUIDELINES:
                 ),
                 includeHistory: false,
                 lang: params.lang,
+                handlerId,
               });
             }
+          }
+
+          const updateInstructions = editToolExecute(toolCall.args);
+
+          // Skip confirmation if no_confirm
+          if (params.command.no_confirm) {
+            return this.performUpdate({
+              title: params.title,
+              docs: [
+                {
+                  path: file.path,
+                },
+              ],
+              updateInstructions,
+              lang: params.lang,
+              handlerId,
+            });
           }
 
           await this.renderer.updateConversationNote({
             path: params.title,
             newContent: t('update.applyChangesConfirm'),
+            command: 'update',
+            handlerId,
           });
 
           return {
             status: CommandResultStatus.NEEDS_CONFIRMATION,
             onConfirmation: () => {
-              const updateInstructions = editToolExecute(toolCall.args);
-
               return this.performUpdate({
                 title: params.title,
                 docs: [
@@ -421,6 +463,7 @@ GUIDELINES:
                 ],
                 updateInstructions,
                 lang: params.lang,
+                handlerId,
               });
             },
             onRejection: () => {
@@ -468,7 +511,9 @@ GUIDELINES:
    * Handle update the content_update artifact
    */
   private async handleUpdateContentUpdate(
-    params: CommandHandlerParams,
+    params: CommandHandlerParams & {
+      handlerId: string;
+    },
     artifact: ContentUpdateArtifact,
     docs: DocWithPath[]
   ): Promise<CommandResult> {
@@ -485,15 +530,29 @@ GUIDELINES:
         path: params.title,
         newContent: t('update.noChangesNeeded'),
         lang: params.lang,
+        handlerId: params.handlerId,
       });
       return {
         status: CommandResultStatus.SUCCESS,
       };
     }
 
+    // Skip confirmation if no_confirm
+    if (params.command.no_confirm) {
+      return this.performUpdate({
+        title: params.title,
+        docs,
+        updateInstructions,
+        lang: params.lang,
+        handlerId: params.handlerId,
+      });
+    }
+
     await this.renderer.updateConversationNote({
       path: params.title,
       newContent: t('update.applyChangesConfirm'),
+      command: 'update',
+      handlerId: params.handlerId,
     });
 
     return {
@@ -504,6 +563,7 @@ GUIDELINES:
           docs,
           updateInstructions,
           lang: params.lang,
+          handlerId: params.handlerId,
         });
       },
       onRejection: () => {
@@ -542,6 +602,7 @@ GUIDELINES:
       if (hasStwSelected) {
         return this.handleUpdateStwSelected({
           ...params,
+          handlerId,
           messages: [
             ...conversationHistory,
             { role: 'user', content: command.query, id: generateId() },
@@ -553,6 +614,7 @@ GUIDELINES:
         path: title,
         newContent: `*${t('common.noRecentOperations')}*`,
         command: 'update',
+        handlerId,
       });
 
       return {
@@ -584,7 +646,14 @@ GUIDELINES:
 
     // If we have a content update artifact, we can use it directly
     if (artifact.artifactType === ArtifactType.CONTENT_UPDATE) {
-      return this.handleUpdateContentUpdate(params, artifact, docs);
+      return this.handleUpdateContentUpdate(
+        {
+          ...params,
+          handlerId,
+        },
+        artifact,
+        docs
+      );
     }
 
     if (
@@ -610,6 +679,8 @@ GUIDELINES:
       path: title,
       newContent: `*${extraction.explanation}*`,
       includeHistory: false,
+      command: 'update',
+      handlerId,
     });
 
     if (extraction.confidence <= 0.7) {
@@ -625,6 +696,7 @@ GUIDELINES:
       docs,
       updateInstructions: extraction.updateInstructions,
       lang: extraction.lang,
+      handlerId,
     });
   }
 
@@ -636,8 +708,9 @@ GUIDELINES:
     docs: DocWithPath[];
     updateInstructions: UpdateInstruction[];
     lang?: string | null;
+    handlerId: string;
   }): Promise<CommandResult> {
-    const { title, docs, updateInstructions, lang } = params;
+    const { title, docs, updateInstructions, lang, handlerId } = params;
     const t = getTranslation(lang);
 
     try {
@@ -709,6 +782,7 @@ GUIDELINES:
         path: title,
         newContent: response,
         command: 'update',
+        handlerId,
       });
 
       return {
@@ -718,6 +792,7 @@ GUIDELINES:
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `Error updating files: ${error.message}`,
+        handlerId,
       });
 
       return {

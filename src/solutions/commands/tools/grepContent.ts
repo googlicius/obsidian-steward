@@ -26,11 +26,6 @@ const grepSchema = z.object({
 export type GrepArgs = z.infer<typeof grepSchema>;
 
 /**
- * Tool name constant for grep
- */
-export const GREP_TOOL_NAME = 'grep';
-
-/**
  * Shared grep tool definition
  */
 export const grepTool = tool({

@@ -2,8 +2,8 @@ import { ConversationCommandReceivedPayload } from '../../types/events';
 import { CommandResultStatus, CommandHandler, CommandResult } from './CommandHandler';
 import { logger } from '../../utils/logger';
 import { CommandIntent } from 'src/types/types';
-import { NoteContentService } from '../../services/NoteContentService';
 import type StewardPlugin from 'src/main';
+import { SystemPromptModifier, SystemPromptModification } from './SystemPromptModifier';
 import { getClassifier } from 'src/lib/modelfusion';
 
 interface PendingCommand {
@@ -21,11 +21,7 @@ export interface ProcessCommandsOptions {
    * If true, the built-in handler will be used in case a user-defined command has the same name as a built-in command.
    */
   builtInCommandPrecedence?: boolean;
-  /**
-   * If false, don't record command execution to tracking (default: true)
-   * Used for isolated processors (confirmations, etc.)
-   */
-  enableTracking?: boolean;
+
   sendToDownstream?: {
     /**
      * If true, indicates this is a reload request
@@ -134,10 +130,7 @@ export class CommandProcessor {
     }
 
     // Disable tracking for isolated processors (confirmations, etc.)
-    await isolatedProcessor.processCommands(payload, {
-      ...options,
-      enableTracking: false,
-    });
+    await isolatedProcessor.processCommands(payload, options);
   }
 
   public isProcessing(title: string): boolean {
@@ -190,11 +183,14 @@ export class CommandProcessor {
     }
 
     const { commands, currentIndex, payload } = pendingCommand;
-    const noteContentService = NoteContentService.getInstance(this.plugin);
+
+    // No tracking command execution if command is confirm or stop.
+    const noTrackingCommand =
+      commands.length === 1 &&
+      this.plugin.commandTrackingService.noTrackingCommand(commands[0].commandType);
 
     // Initialize model fallback state if needed
-    const initialModel = commands[0].model || this.plugin.settings.llm.chat.model;
-    await this.plugin.modelFallbackService.initializeState(title, initialModel);
+    await this.plugin.modelFallbackService.initializeState(title);
 
     // Process commands sequentially from current index
     for (let i = currentIndex; i < commands.length; i++) {
@@ -203,14 +199,9 @@ export class CommandProcessor {
       const nextCommand = i < commands.length - 1 ? commands[i + 1] : undefined;
       const nextIndex = i + 1;
 
-      // Process wikilinks in command.systemPrompts
+      // Process wikilinks in command.systemPrompts (only for string-based prompts)
       if (command.systemPrompts && command.systemPrompts.length > 0) {
-        const processedPrompts = await Promise.all(
-          command.systemPrompts.map(prompt => {
-            return noteContentService.processWikilinksInContent(prompt, 2);
-          })
-        );
-        command.systemPrompts = processedPrompts;
+        command.systemPrompts = await this.processSystemPromptsWikilinks(command.systemPrompts);
       }
 
       // Find the appropriate handler
@@ -243,16 +234,9 @@ export class CommandProcessor {
         lang: payload.lang,
         upstreamOptions: options.sendToDownstream,
       });
-
-      const enableTracking = options.enableTracking !== false; // default to true
-      if (enableTracking) {
-        const tracking = await this.plugin.commandTrackingService.getTracking(title);
-        if (tracking) {
-          await this.plugin.commandTrackingService.recordCommandExecution(
-            title,
-            command.commandType
-          );
-        }
+      const trackingPromise = this.plugin.commandTrackingService.getTracking(title);
+      if (!noTrackingCommand && (await trackingPromise)) {
+        await this.plugin.commandTrackingService.recordCommandExecution(title, command.commandType);
       }
 
       // Command completed successfully
@@ -302,8 +286,7 @@ export class CommandProcessor {
     this.pendingCommands.delete(title);
 
     // Save classification if tracking is enabled and active
-    const enableTracking = options.enableTracking !== false; // default to true
-    if (enableTracking) {
+    if (!noTrackingCommand) {
       await this.saveClassification(title);
     }
   }
@@ -312,7 +295,7 @@ export class CommandProcessor {
    * Save classification after all commands finish
    */
   private async saveClassification(title: string): Promise<void> {
-    const tracking = await this.plugin.commandTrackingService.getTracking(title);
+    const tracking = await this.plugin.commandTrackingService.getTracking(title, true);
     if (!tracking) {
       return;
     }
@@ -323,13 +306,8 @@ export class CommandProcessor {
     // Create cluster name from ACTUAL executed commands
     const clusterName = tracking.executedCommands.join(':');
 
-    if (!tracking.queryTemplate) {
-      logger.warn('Query template is missing, cannot save embedding');
-      return;
-    }
-
     // Save embedding without awaiting to avoid blocking
-    classifier.saveEmbedding(tracking.queryTemplate, clusterName).catch(err => {
+    classifier.saveEmbedding(tracking.originalQuery, clusterName).catch(err => {
       logger.error('Failed to save embedding:', err);
     });
   }
@@ -423,5 +401,40 @@ export class CommandProcessor {
     }
     // If the result is NEEDS_CONFIRMATION or NEEDS_USER_INPUT again,
     // the command will remain pending and wait for the next input
+  }
+
+  /**
+   * Process wikilinks in system prompts
+   * Only processes string-based prompts, keeps modification objects unchanged
+   * @param systemPrompts Array of system prompt items (strings or modification objects)
+   * @returns Processed system prompts with wikilinks resolved
+   */
+  private async processSystemPromptsWikilinks(
+    systemPrompts: (string | SystemPromptModification)[]
+  ): Promise<(string | SystemPromptModification)[]> {
+    const modifier = new SystemPromptModifier(systemPrompts);
+    const stringPrompts = modifier.getAdditionalSystemPrompts();
+
+    // Process wikilinks only in string-based system prompts
+    if (stringPrompts.length === 0) {
+      return systemPrompts;
+    }
+
+    const processedStrings = await Promise.all(
+      stringPrompts.map(prompt =>
+        this.plugin.noteContentService.processWikilinksInContent(prompt, 2)
+      )
+    );
+
+    // Reconstruct systemPrompts: replace strings with processed versions, keep modification objects
+    return systemPrompts.map(item => {
+      if (typeof item === 'string') {
+        // Find the corresponding processed string
+        const index = stringPrompts.indexOf(item);
+        return processedStrings[index];
+      }
+      // Keep modification objects unchanged
+      return item;
+    });
   }
 }

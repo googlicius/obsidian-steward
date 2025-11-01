@@ -1,7 +1,6 @@
 import { ImagePart, TextPart } from 'ai';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
 import { NoteContentService } from 'src/services/NoteContentService';
-import { resizeImageWithCanvas } from 'src/utils/resizeImageWithCanvas';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
 
@@ -21,7 +20,6 @@ export async function prepareMessage(
   plugin: StewardPlugin
 ): Promise<Array<TextPart | ImagePart>> {
   const noteContentService = NoteContentService.getInstance(plugin);
-  const imagePaths = noteContentService.extractImageLinks(input);
   const wikilinks = noteContentService.extractWikilinks(input);
   const messageContent: Array<TextPart | ImagePart> = [];
 
@@ -29,27 +27,9 @@ export async function prepareMessage(
   messageContent.push({ type: 'text', text: input });
 
   // Process and add images
-  for (const imagePath of imagePaths) {
-    try {
-      const file = await plugin.mediaTools.findFileByNameOrPath(imagePath);
-
-      if (file) {
-        const imageData = await plugin.app.vault.readBinary(file);
-        const mimeType = getMimeTypeFromExtension(file.extension);
-
-        if (mimeType) {
-          // Resize the image to reduce size using Canvas API
-          const resizedImage = await resizeImageWithCanvas(imageData, 800, 0.8);
-          messageContent.push({
-            type: 'image',
-            image: resizedImage.imageData,
-            mimeType: resizedImage.mimeType,
-          });
-        }
-      }
-    } catch (error) {
-      logger.error(`Error processing image ${imagePath}:`, error);
-    }
+  const images = await noteContentService.getImagesFromInput(input);
+  for (const [path, imagePart] of images) {
+    messageContent.push({ type: 'text', text: path }, imagePart);
   }
 
   // Process and add wikilink contents
@@ -72,22 +52,4 @@ export async function prepareMessage(
   }
 
   return messageContent;
-}
-
-/**
- * Gets the MIME type from a file extension
- * @param extension The file extension
- * @returns The corresponding MIME type
- */
-function getMimeTypeFromExtension(extension: string): string | undefined {
-  const mimeTypes: Record<string, string> = {
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    png: 'image/png',
-    gif: 'image/gif',
-    webp: 'image/webp',
-    svg: 'image/svg+xml',
-  };
-
-  return mimeTypes[extension.toLowerCase()];
 }

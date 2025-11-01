@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { CommandIntent } from 'src/types/types';
 import { confidenceFragment, explanationFragment } from '../prompts/fragments';
 import { logger } from 'src/utils/logger';
+import { SystemPromptModifier } from 'src/solutions/commands';
 
 const abortService = AbortService.getInstance();
 
@@ -21,10 +22,22 @@ export interface DestinationFolderExtraction {
 }
 
 export const desFolderExtractionSchema = z.object({
-  destinationFolder: z.string().min(1, 'Destination folder must be a non-empty string')
-    .describe(`Where the notes should be moved or copied to.
+  destinationFolder: z
+    .string()
+    .min(1, 'Destination folder must be a non-empty string')
+    .describe(
+      `Where the notes should be moved or copied to.
 Should be a path within the Obsidian vault.
-Be precise about identifying the destination folder in the user's request.`),
+Be precise about identifying the destination folder in the user's request.`
+    )
+    .transform(value => {
+      // If the value are "root", ".", return the '/'
+      if (value === 'root' || value === '.') {
+        logger.warn(`Transforming the value "${value}" to "/".`);
+        return '/';
+      }
+      return value;
+    }),
   context: z.string().min(1, 'Context must be a non-empty string')
     .describe(`The origin of the notes.
 One of "artifact", "currentNote", or "<a note name>".
@@ -57,12 +70,15 @@ export async function extractDestinationFolder(
       generateType: 'object',
     });
 
+    const modifier = new SystemPromptModifier(systemPrompts);
+    const additionalSystemPrompts = modifier.getAdditionalSystemPrompts();
+
     const { object } = await generateObject({
       ...llmConfig,
       abortSignal: abortService.createAbortController('destination-folder'),
-      system: `${destinationFolderPrompt}`,
+      system: modifier.apply(destinationFolderPrompt),
       messages: [
-        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         {
           role: 'user',
           content: query,

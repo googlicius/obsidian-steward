@@ -3,6 +3,7 @@ import { isConversationLink } from '../utils/conversationUtils';
 import type StewardPlugin from '../main';
 import { ContentReadingArgs } from '../solutions/commands/handlers/ReadCommandHandler/zSchemas';
 import { logger } from 'src/utils/logger';
+import { IMAGE_LINK_PATTERN } from 'src/constants';
 
 /**
  * Result of a content reading operation
@@ -133,7 +134,7 @@ export class ContentReadingService {
 
       if (block) {
         // Skip if we're looking for a specific element type and it doesn't match
-        if (elementType && !this.matchesElementType(block.sections, elementType)) {
+        if (elementType && !this.matchesElementType(block, elementType)) {
           // Move to the line before this block
           currentLine = block.startLine - 1;
           continue;
@@ -184,7 +185,7 @@ export class ContentReadingService {
 
       if (block) {
         // Skip if we're looking for a specific element type and it doesn't match
-        if (elementType && !this.matchesElementType(block.sections, elementType)) {
+        if (elementType && !this.matchesElementType(block, elementType)) {
           // Move to the line after this block
           currentLine = block.endLine + 1;
           continue;
@@ -407,17 +408,15 @@ export class ContentReadingService {
   }
 
   /**
-   * Check if a block's sections match the requested element type
-   * @param sections The block sections with their type information
-   * @param elementType The requested element type
+   * Check if a block match the requested element type
    * @returns True if they match
    */
-  private matchesElementType(sections: SectionDetail[], elementType: string): boolean {
+  private matchesElementType(block: ContentBlock, elementType: string): boolean {
     // Handle common synonyms and variations
     const normalizedElementType = elementType.toLowerCase().trim();
 
     // Check each section type for a match
-    for (const section of sections) {
+    for (const section of block.sections) {
       const sectionType = section.type;
 
       if (
@@ -472,7 +471,11 @@ export class ContentReadingService {
         return true;
       }
 
-      if (sectionType === 'image' && normalizedElementType.includes('image')) {
+      if (
+        sectionType === 'paragraph' &&
+        normalizedElementType.includes('image') &&
+        new RegExp(IMAGE_LINK_PATTERN).test(block.content)
+      ) {
         return true;
       }
 

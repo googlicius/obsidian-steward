@@ -13,7 +13,6 @@ import {
   STW_SELECTED_PLACEHOLDER,
 } from 'src/constants';
 import { Artifact } from 'src/solutions/artifact';
-import * as yaml from 'js-yaml';
 import { generateObject } from 'ai';
 import { getCommandTypePrompt } from './commandTypePrompt';
 import { getQueryExtractionPrompt } from './queryExtractionPrompt';
@@ -26,6 +25,8 @@ import {
   CommandTypeExtraction,
   QueryExtraction,
 } from './zSchemas';
+import { SystemPromptModifier } from '../../SystemPromptModifier';
+import { stringifyYaml } from 'obsidian';
 
 export type CommandIntentExtraction = Omit<CommandTypeExtraction, 'commandTypes'> &
   Omit<QueryExtraction, 'commands'> & {
@@ -142,7 +143,6 @@ export class GeneralCommandHandler extends CommandHandler {
         commands: queryExtraction.commands,
         explanation: queryExtraction.explanation,
         confidence: commandTypeExtraction.confidence,
-        queryTemplate: queryExtraction.queryTemplate,
         lang,
       };
 
@@ -169,7 +169,7 @@ export class GeneralCommandHandler extends CommandHandler {
       generateType: 'object',
     });
 
-    const additionalSystemPrompts: string[] = command.systemPrompts || [];
+    const additionalSystemPrompts = command.systemPrompts || [];
 
     // Proceed with LLM-based command type extraction
     logger.log('Using LLM for command type extraction');
@@ -177,20 +177,20 @@ export class GeneralCommandHandler extends CommandHandler {
     try {
       // Create an operation-specific abort signal
       const abortSignal = this.plugin.abortService.createAbortController('command-type-extraction');
-
-      const systemPrompts = additionalSystemPrompts.map(content => ({
-        role: 'system' as const,
-        content,
-      }));
+      const modifier = new SystemPromptModifier(additionalSystemPrompts);
 
       const { object } = await generateObject({
         ...llmConfig,
         abortSignal,
-        system: getCommandTypePrompt({
-          currentArtifacts,
-        }),
+        system: modifier.apply(
+          getCommandTypePrompt({
+            currentArtifacts,
+          })
+        ),
         messages: [
-          ...systemPrompts,
+          ...modifier
+            .getAdditionalSystemPrompts()
+            .map(prompt => ({ role: 'system' as const, content: prompt })),
           ...conversationHistories,
           { role: 'user', content: command.query },
         ],
@@ -221,7 +221,7 @@ export class GeneralCommandHandler extends CommandHandler {
       generateType: 'object',
     });
 
-    const additionalSystemPrompts: string[] = command.systemPrompts || [];
+    const modifier = new SystemPromptModifier(command.systemPrompts);
 
     // Proceed with LLM-based query extraction
     logger.log('Using LLM for query extraction');
@@ -230,20 +230,19 @@ export class GeneralCommandHandler extends CommandHandler {
       // Create an operation-specific abort signal
       const abortSignal = this.plugin.abortService.createAbortController('query-extraction');
 
-      const systemPrompts = additionalSystemPrompts.map(content => ({
-        role: 'system' as const,
-        content,
-      }));
-
       const { object } = await generateObject({
         ...llmConfig,
         abortSignal,
-        system: getQueryExtractionPrompt({
-          commandTypes,
-          currentArtifacts,
-        }),
+        system: modifier.apply(
+          getQueryExtractionPrompt({
+            commandTypes,
+            currentArtifacts,
+          })
+        ),
         messages: [
-          ...systemPrompts,
+          ...modifier
+            .getAdditionalSystemPrompts()
+            .map(prompt => ({ role: 'system' as const, content: prompt })),
           ...conversationHistories,
           { role: 'user', content: command.query },
         ],
@@ -278,12 +277,7 @@ export class GeneralCommandHandler extends CommandHandler {
     yamlData.confidence = extraction.confidence;
 
     // Convert to YAML string
-    const yamlContent = yaml.dump(yamlData, {
-      lineWidth: -1,
-      noRefs: true,
-      quotingType: '"',
-      forceQuotes: false,
-    });
+    const yamlContent = stringifyYaml(yamlData);
 
     return `<a href="javascript:;" class="stw-extraction-details-link">${t('common.extractionDetails')}</a>\n\n\`\`\`yaml\n${yamlContent}\`\`\``;
   }
@@ -396,7 +390,6 @@ IMPORTANT:
           conversationTitle: title,
           originalQuery: command.query,
           extractedCommands: extraction.commands.map(c => c.commandType),
-          queryTemplate: extraction.queryTemplate,
           confidence: extraction.confidence,
           isReloadRequest: upstreamOptions?.isReloadRequest,
         });

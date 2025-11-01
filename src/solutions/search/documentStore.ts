@@ -1,4 +1,4 @@
-import type { App, TFile } from 'obsidian';
+import type { App } from 'obsidian';
 import {
   SearchDatabase,
   IndexedDocument,
@@ -47,36 +47,6 @@ export class DocumentStore {
    */
   public updateExcludeFolders(excludeFolders: string[]): void {
     this.excludeFolders = excludeFolders;
-  }
-
-  /**
-   * Get all markdown files from the vault
-   */
-  public async getAllMarkdownFiles(): Promise<TFile[]> {
-    return this.app.vault.getMarkdownFiles();
-  }
-
-  /**
-   * Get all files from the vault
-   */
-  public async getAllFiles(): Promise<TFile[]> {
-    // Get all files from the vault
-    const allFiles = this.app.vault.getFiles();
-    return allFiles;
-  }
-
-  /**
-   * Read file content
-   */
-  public async readFile(file: TFile): Promise<string> {
-    return this.app.vault.read(file);
-  }
-
-  /**
-   * Get file metadata cache
-   */
-  public getFileCache(file: TFile) {
-    return this.app.metadataCache.getFileCache(file);
   }
 
   /**

@@ -69,7 +69,7 @@ export class CreateCommandHandler extends CommandHandler {
       }
 
       // Ask for confirmation before creating notes
-      if (!options.confirmed) {
+      if (!options.confirmed && !command.no_confirm) {
         let message = `${t('create.confirmMessage', { count: extraction.notes.length })}\n`;
 
         // List notes to be created

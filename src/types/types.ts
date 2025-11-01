@@ -1,6 +1,8 @@
 import { Editor, App } from 'obsidian';
 import { EditorView } from '@codemirror/view';
 import { Message } from 'ai';
+import { SystemPromptItem } from 'src/solutions/commands';
+import { ToolName } from 'src/solutions/commands/ToolRegistry';
 
 /**
  * Exposes the Obsidian Editor and Codemirror EditorView
@@ -51,8 +53,12 @@ export interface ConversationMessage {
 export interface CommandIntent {
   commandType: string;
   query: string;
-  systemPrompts?: string[];
+  systemPrompts?: (string | SystemPromptItem)[];
   model?: string; // Optional model to use for this command
+  no_confirm?: boolean; // Skip confirmation for this command
+  tools?: {
+    exclude?: ToolName[];
+  };
 }
 
 export interface ContextAugmentationIntent extends CommandIntent {

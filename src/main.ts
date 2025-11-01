@@ -9,6 +9,8 @@ import { createUserMessageButtonsProcessor } from './post-processors/UserMessage
 import { createCalloutMetadataProcessor } from './post-processors/CalloutMetadataProcessor';
 import { createStwSelectedPostProcessor } from './post-processors/StwSelectedPostProcessor';
 import { createExtractionDetailsLinkProcessor } from './post-processors/ExtractionDetailsLinkProcessor';
+import { createStewardConversationProcessor } from './post-processors/StewardConversationProcessor';
+import { createSelectedModelProcessor } from './post-processors/SelectedModelProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -32,7 +34,6 @@ import {
 } from './constants';
 import { StewardChatView } from './views/StewardChatView';
 import { Events } from './types/events';
-import { createStewardConversationProcessor } from './post-processors/StewardConversationProcessor';
 import { ObsidianEditor, ExtendedApp } from './types/types';
 import { isConversationLink, extractConversationTitle } from './utils/conversationUtils';
 import { CommandProcessorService } from './services/CommandProcessorService';
@@ -45,6 +46,7 @@ import { LLMService } from './services/LLMService';
 import stewardIcon from './assets/steward-icon.svg';
 import { createStwSelectedBlocksExtension } from './cm/extensions/StwSelectedBlockExtension';
 import { createStwSqueezedBlocksExtension } from './cm/extensions/StwSqueezedBlockExtension';
+import { createAutocompleteExtension } from './cm/extensions/AutocompleteExtension';
 import { capitalizeString } from './utils/capitalizeString';
 import { AbortService } from './services/AbortService';
 import { TrashCleanupService } from './services/TrashCleanupService';
@@ -262,10 +264,10 @@ export default class StewardPlugin extends Plugin {
       id: 'toggle-chat',
       name: 'Toggle chat',
       callback: async () => {
-        const activeFile = this.app.workspace.getActiveFile();
+        const rightSplit = this.app.workspace.rightSplit;
 
-        if (activeFile && activeFile.name.startsWith(this.chatTitle)) {
-          this.toggleChat();
+        if (!rightSplit.collapsed) {
+          rightSplit.collapse();
         } else {
           this.openChat();
         }
@@ -293,6 +295,7 @@ export default class StewardPlugin extends Plugin {
       }),
       createStwSelectedBlocksExtension(this),
       createStwSqueezedBlocksExtension(this),
+      createAutocompleteExtension(this),
     ]);
 
     // Register context menu for editor
@@ -342,6 +345,8 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createStewardConversationProcessor(this));
 
     this.registerMarkdownPostProcessor(createStwSelectedPostProcessor(this));
+
+    this.registerMarkdownPostProcessor(createSelectedModelProcessor());
 
     // Register the custom view type
     this.registerView(STW_CHAT_VIEW_CONFIG.type, leaf => new StewardChatView(leaf, this));
@@ -568,9 +573,6 @@ export default class StewardPlugin extends Plugin {
       commandType = ' ';
     }
 
-    logger.log('Command type:', commandType === ' ' ? 'general' : commandType);
-    logger.log('Command query:', fullCommandText);
-
     const commandQuery = fullCommandText.substring(matchedPrefix.length).trim();
 
     if (!this.commandProcessorService.validateCommandContent(commandType, commandQuery)) {
@@ -664,7 +666,6 @@ export default class StewardPlugin extends Plugin {
         return true;
       } catch (error) {
         logger.error('Error in handleEnter:', error);
-        new Notice(`Error processing command: ${error.message}`);
         return false;
       }
     })();
@@ -832,7 +833,6 @@ export default class StewardPlugin extends Plugin {
       }
     } catch (error) {
       logger.error('Error opening chat:', error);
-      new Notice(`Error opening chat: ${error.message}`);
     }
   }
 
@@ -937,17 +937,6 @@ export default class StewardPlugin extends Plugin {
       logger.error('Error closing conversation:', error);
       new Notice(i18next.t('ui.errorClosingConversation', { errorMessage: error.message }));
       return false;
-    }
-  }
-
-  /**
-   * Toggles the chat sidebar open or closed
-   */
-  public async toggleChat(): Promise<void> {
-    // Find and click the right sidebar toggle button
-    const toggleButton = document.querySelector('.sidebar-toggle-button.mod-right');
-    if (toggleButton instanceof HTMLElement) {
-      toggleButton.click();
     }
   }
 

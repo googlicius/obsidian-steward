@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { CommandIntent } from 'src/types/types';
 import { explanationFragment, confidenceFragment } from '../prompts/fragments';
 import { logger } from 'src/utils/logger';
+import { SystemPromptModifier } from 'src/solutions/commands';
 
 const abortService = AbortService.getInstance();
 
@@ -37,6 +38,11 @@ export async function extractImageQuery(
   command: CommandIntent
 ): Promise<z.infer<typeof imageExtractionSchema>> {
   const { systemPrompts = [] } = command;
+
+  // Extract only string-based system prompts (filter out modification objects)
+  const modifier = new SystemPromptModifier(systemPrompts);
+  const additionalSystemPrompts = modifier.getAdditionalSystemPrompts();
+
   try {
     const llmConfig = await LLMService.getInstance().getLLMConfig({
       overrideModel: command.model,
@@ -48,7 +54,7 @@ export async function extractImageQuery(
       abortSignal: abortService.createAbortController('image'),
       system: imageCommandPrompt,
       messages: [
-        ...systemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         {
           role: 'user',
           content: command.query,

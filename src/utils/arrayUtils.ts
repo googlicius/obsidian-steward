@@ -36,3 +36,19 @@ export function removeConsecutiveItems(array: string[]): string[] {
     return acc;
   }, []);
 }
+
+/**
+ * Create a simple hash from an array of strings
+ */
+export function hashTerms(terms: string[]): string {
+  let hash = 5381; // Initial hash value (prime number)
+  for (let i = 0; i < terms.length; i++) {
+    const term = terms[i];
+    for (let j = 0; j < term.length; j++) {
+      const char = term.charCodeAt(j);
+      hash = (hash << 5) - hash + char;
+      hash = hash >>> 0; // Convert to unsigned 32bit integer
+    }
+  }
+  return hash.toString(36);
+}
