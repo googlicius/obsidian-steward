@@ -3,6 +3,7 @@ import { UserDefinedCommandService } from './UserDefinedCommandService';
 import type StewardPlugin from 'src/main';
 import { getInstance } from 'src/utils/getInstance';
 import type { CommandIntent } from 'src/types/types';
+import { UserDefinedCommandV1, type UserDefinedCommandV1Data } from './versions/v1';
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   return {
@@ -82,24 +83,36 @@ describe('UserDefinedCommandService', () => {
       removeCommandsFromFile =
         userDefinedCommandService['removeCommandsFromFile'].bind(userDefinedCommandService);
 
-      // Set up some test commands in the map
-      userDefinedCommandService.userDefinedCommands.set('command1', {
+      // Set up some test commands in the map (using v1)
+      const command1Data: UserDefinedCommandV1Data = {
         command_name: 'command1',
         commands: [{ name: 'test', query: 'query1' }],
         file_path: 'path/to/file1.md',
-      });
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'command1',
+        new UserDefinedCommandV1(command1Data)
+      );
 
-      userDefinedCommandService.userDefinedCommands.set('command2', {
+      const command2Data: UserDefinedCommandV1Data = {
         command_name: 'command2',
         commands: [{ name: 'test', query: 'query2' }],
         file_path: 'path/to/file1.md',
-      });
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'command2',
+        new UserDefinedCommandV1(command2Data)
+      );
 
-      userDefinedCommandService.userDefinedCommands.set('command3', {
+      const command3Data: UserDefinedCommandV1Data = {
         command_name: 'command3',
         commands: [{ name: 'test', query: 'query3' }],
         file_path: 'path/to/file2.md',
-      });
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'command3',
+        new UserDefinedCommandV1(command3Data)
+      );
     });
 
     it('should remove all commands from a specific file', () => {
@@ -124,17 +137,25 @@ describe('UserDefinedCommandService', () => {
   describe('getCommandNames', () => {
     it('should return all command names when no commands are hidden', () => {
       // Arrange
-      userDefinedCommandService.userDefinedCommands.set('command1', {
+      const command1Data: UserDefinedCommandV1Data = {
         command_name: 'command1',
         commands: [{ name: 'test', query: 'query1' }],
         file_path: 'path/to/file1.md',
-      });
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'command1',
+        new UserDefinedCommandV1(command1Data)
+      );
 
-      userDefinedCommandService.userDefinedCommands.set('command2', {
+      const command2Data: UserDefinedCommandV1Data = {
         command_name: 'command2',
         commands: [{ name: 'test', query: 'query2' }],
         file_path: 'path/to/file2.md',
-      });
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'command2',
+        new UserDefinedCommandV1(command2Data)
+      );
 
       // Execute
       const result = userDefinedCommandService.getCommandNames();
@@ -145,24 +166,36 @@ describe('UserDefinedCommandService', () => {
 
     it('should filter out hidden commands', () => {
       // Arrange
-      userDefinedCommandService.userDefinedCommands.set('visible_command', {
+      const visibleCommandData: UserDefinedCommandV1Data = {
         command_name: 'visible_command',
         commands: [{ name: 'test', query: 'query1' }],
         file_path: 'path/to/file1.md',
-      });
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'visible_command',
+        new UserDefinedCommandV1(visibleCommandData)
+      );
 
-      userDefinedCommandService.userDefinedCommands.set('hidden_command', {
+      const hiddenCommandData: UserDefinedCommandV1Data = {
         command_name: 'hidden_command',
         commands: [{ name: 'test', query: 'query2' }],
         file_path: 'path/to/file2.md',
         hidden: true,
-      });
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'hidden_command',
+        new UserDefinedCommandV1(hiddenCommandData)
+      );
 
-      userDefinedCommandService.userDefinedCommands.set('another_visible', {
+      const anotherVisibleData: UserDefinedCommandV1Data = {
         command_name: 'another_visible',
         commands: [{ name: 'test', query: 'query3' }],
         file_path: 'path/to/file3.md',
-      });
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'another_visible',
+        new UserDefinedCommandV1(anotherVisibleData)
+      );
 
       // Execute
       const result = userDefinedCommandService.getCommandNames();
@@ -174,19 +207,27 @@ describe('UserDefinedCommandService', () => {
 
     it('should return empty array when all commands are hidden', () => {
       // Arrange
-      userDefinedCommandService.userDefinedCommands.set('hidden_command1', {
+      const hiddenCommand1Data: UserDefinedCommandV1Data = {
         command_name: 'hidden_command1',
         commands: [{ name: 'test', query: 'query1' }],
         file_path: 'path/to/file1.md',
         hidden: true,
-      });
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'hidden_command1',
+        new UserDefinedCommandV1(hiddenCommand1Data)
+      );
 
-      userDefinedCommandService.userDefinedCommands.set('hidden_command2', {
+      const hiddenCommand2Data: UserDefinedCommandV1Data = {
         command_name: 'hidden_command2',
         commands: [{ name: 'test', query: 'query2' }],
         file_path: 'path/to/file2.md',
         hidden: true,
-      });
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'hidden_command2',
+        new UserDefinedCommandV1(hiddenCommand2Data)
+      );
 
       // Execute
       const result = userDefinedCommandService.getCommandNames();
@@ -208,15 +249,19 @@ describe('UserDefinedCommandService', () => {
         get: jest.fn().mockReturnValue(mockCommandProcessorService),
       });
 
-      // Set up a test user-defined command
-      userDefinedCommandService.userDefinedCommands.set('testCommand', {
+      // Set up a test user-defined command (v1)
+      const testCommandData: UserDefinedCommandV1Data = {
         command_name: 'testCommand',
         commands: [
           { name: 'read', query: 'Read $from_user' },
           { name: 'create', query: 'Create note about $from_user' },
         ],
         file_path: 'path/to/test.md',
-      });
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'testCommand',
+        new UserDefinedCommandV1(testCommandData)
+      );
 
       // Create input CommandIntents that reference the user-defined command
       const inputIntents: CommandIntent[] = [
@@ -263,8 +308,8 @@ describe('UserDefinedCommandService', () => {
         get: jest.fn().mockReturnValue(mockCommandProcessorService),
       });
 
-      // Set up a test user-defined command that overrides the audio command
-      userDefinedCommandService.userDefinedCommands.set('audio', {
+      // Set up a test user-defined command that overrides the audio command (v1)
+      const audioCommandData: UserDefinedCommandV1Data = {
         command_name: 'audio',
         commands: [
           {
@@ -274,7 +319,11 @@ describe('UserDefinedCommandService', () => {
           },
         ],
         file_path: 'path/to/audio-override.md',
-      });
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'audio',
+        new UserDefinedCommandV1(audioCommandData)
+      );
 
       // Create input CommandIntents that reference the overridden audio command
       const inputIntents: CommandIntent[] = [
@@ -312,8 +361,8 @@ describe('UserDefinedCommandService', () => {
         get: jest.fn().mockReturnValue(mockCommandProcessorService),
       });
 
-      // Set up a test user-defined command with model overrides
-      userDefinedCommandService.userDefinedCommands.set('multiModelCommand', {
+      // Set up a test user-defined command with model overrides (v1)
+      const multiModelCommandData: UserDefinedCommandV1Data = {
         command_name: 'multiModelCommand',
         model: 'gemini-2.5', // Default model for the command
         commands: [
@@ -329,7 +378,11 @@ describe('UserDefinedCommandService', () => {
           },
         ],
         file_path: 'path/to/multi-model.md',
-      });
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'multiModelCommand',
+        new UserDefinedCommandV1(multiModelCommandData)
+      );
 
       // Create input CommandIntents that reference the multi-model command
       const inputIntents: CommandIntent[] = [

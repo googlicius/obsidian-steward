@@ -11,7 +11,7 @@ export class UserDefinedCommandHandler extends CommandHandler {
   isContentRequired = (commandType: string): boolean => {
     const userDefinedCommand =
       this.plugin.userDefinedCommandService?.userDefinedCommands.get(commandType);
-    return !!(userDefinedCommand && userDefinedCommand.query_required);
+    return !!(userDefinedCommand && userDefinedCommand.normalized.query_required);
   };
 
   constructor(public readonly plugin: StewardPlugin) {
