@@ -125,11 +125,11 @@ export class HelpCommandHandler extends CommandHandler {
         const sortedCommands = Array.from(userDefinedCommands.entries());
 
         for (const [cmdName, cmdDef] of sortedCommands) {
-          const file = this.app.vault.getFileByPath(cmdDef.file_path);
-          const fileName = file ? file.basename : cmdDef.file_path;
-          const slash = cmdDef.hidden ? '' : '/';
+          const file = this.app.vault.getFileByPath(cmdDef.normalized.file_path);
+          const fileName = file ? file.basename : cmdDef.normalized.file_path;
+          const slash = cmdDef.isHidden() ? '' : '/';
 
-          content += `- \`${slash}${cmdName}\` - [[${cmdDef.file_path}|${fileName}]]\n`;
+          content += `- \`${slash}${cmdName}\` - [[${cmdDef.normalized.file_path}|${fileName}]]\n`;
         }
       } else {
         content += `*${t('common.noUserDefinedCommands')}*\n\n`;
