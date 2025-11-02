@@ -582,6 +582,13 @@ export default class StewardPlugin extends Plugin {
 
     (async () => {
       try {
+        // Extract and update settings if a selected model is found in the query
+        const selectedModel =
+          this.conversationRenderer.extractSelectedModelFromText(fullCommandText);
+        if (selectedModel) {
+          this.settings.llm.chat.model = selectedModel;
+          await this.saveSettings();
+        }
         // Look for a conversation link in the previous lines
         const conversationLink = this.findConversationLinkAbove(view);
 
