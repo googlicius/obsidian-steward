@@ -37,11 +37,11 @@ function getAllModels(plugin: StewardPlugin): Array<{ id: string; name: string }
 }
 
 /**
- * Check if text matches model selector pattern: m: or model:
- * Only matches when there are no trailing whitespaces after the colon
+ * Check if text matches model selector pattern: m: or model: (with optional text after)
+ * Matches when text starts with m: or model: followed by optional characters
  */
 function isModelSelectorPattern(text: string): boolean {
-  return /^(m|model):$/i.test(text);
+  return /^(m|model):/i.test(text);
 }
 
 export function createAutocompleteExtension(plugin: StewardPlugin): Extension {
@@ -187,15 +187,21 @@ export function createAutocompleteExtension(plugin: StewardPlugin): Extension {
 
     // Build completion options grouped by provider
     const options: Completion[] = [];
+    // Current model: provider:modelName
+    const currentModel = plugin.settings.llm.chat.model;
 
     for (const [provider, models] of Object.entries(modelsByProvider)) {
       // Add models under this provider
       for (const model of models) {
         const { modelName } = parseModelId(model.id);
+        const isCurrentModel = model.id === currentModel;
+
         options.push({
-          label: modelName,
+          label: modelName.length > 25 ? `${modelName.substring(0, 25)}...` : modelName,
           type: 'constant',
-          detail: capitalizeString(provider),
+          detail: isCurrentModel
+            ? `${capitalizeString(provider)} (Current)`
+            : capitalizeString(provider),
           apply: model.id + ' ',
         });
       }
@@ -206,7 +212,11 @@ export function createAutocompleteExtension(plugin: StewardPlugin): Extension {
     return {
       from: selectorStart + selectorLength,
       options,
-      filter: false,
+      filter: true,
+      validFor: text => {
+        // Valid if text matches model name pattern
+        return /^[\w:.-]*$/i.test(text);
+      },
     };
   };
 
@@ -215,6 +225,7 @@ export function createAutocompleteExtension(plugin: StewardPlugin): Extension {
     activateOnTyping: true,
     icons: false,
     tooltipClass: () => 'stw-autocomplete',
+    compareCompletions: () => 0, // Disable reorder
     override: [modelCompletionSource, commandCompletionSource],
   });
 }
