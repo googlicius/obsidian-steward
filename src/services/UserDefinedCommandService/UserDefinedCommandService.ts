@@ -823,11 +823,13 @@ export class UserDefinedCommandService {
    * Recursively expand a list of CommandIntent, flattening user-defined commands and detecting cycles
    */
   public expandUserDefinedCommandIntents(
-    intents: CommandIntent[],
-    userInput: string,
+    intents: CommandIntent | CommandIntent[],
+    userInput = '',
     visited: Set<string> = new Set()
   ): CommandIntent[] {
     const expanded: CommandIntent[] = [];
+
+    intents = Array.isArray(intents) ? intents : [intents];
 
     for (const intent of intents) {
       if (!this.hasCommand(intent.commandType)) {

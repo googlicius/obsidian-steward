@@ -192,12 +192,43 @@ export class CommandProcessor {
     // Initialize model fallback state if needed
     await this.plugin.modelFallbackService.initializeState(title);
 
+    // Get stored user-defined command properties once before processing commands
+    const udcCommandName = await this.plugin.conversationRenderer.getConversationProperty<string>(
+      title,
+      'udc_command'
+    );
+    let udcIntentsMap: Map<string, CommandIntent> | undefined;
+
+    if (udcCommandName) {
+      udcIntentsMap = new Map();
+
+      // Use expandUserDefinedCommandIntents to get all intents from the UDC
+      const expandedIntents = this.userDefinedCommandService.expandUserDefinedCommandIntents({
+        commandType: udcCommandName,
+        query: '',
+      });
+      // Create a map for quick lookup by command type
+      for (const intent of expandedIntents) {
+        udcIntentsMap.set(intent.commandType, intent);
+      }
+    }
+
     // Process commands sequentially from current index
     for (let i = currentIndex; i < commands.length; i++) {
-      const command = commands[i];
+      let command = commands[i];
       const prevCommand = i > 0 ? commands[i - 1] : undefined;
       const nextCommand = i < commands.length - 1 ? commands[i + 1] : undefined;
       const nextIndex = i + 1;
+
+      // Override properties from stored user-defined command if present (except query)
+      const matchingIntent = udcIntentsMap?.get(command.commandType);
+      if (matchingIntent) {
+        // Take all intent from the UDC.
+        command = {
+          ...matchingIntent,
+          query: command.query,
+        };
+      }
 
       // Process wikilinks in command.systemPrompts (only for string-based prompts)
       if (command.systemPrompts && command.systemPrompts.length > 0) {
