@@ -139,42 +139,47 @@ export class UserDefinedCommandService {
       // Extract YAML blocks from the content
       const yamlBlocks = await this.extractYamlBlocks(content);
 
+      // Only process the first YAML block as the command definition
+      // Other YAML blocks are ignored (they may be examples or referenced content for system prompts)
+      if (yamlBlocks.length === 0) {
+        return;
+      }
+
       const validationErrors: Array<{
         commandName: string;
         errors: string[];
       }> = [];
 
-      for (const yamlContent of yamlBlocks) {
-        try {
-          const rawData = parseYaml(yamlContent);
+      // Process only the first YAML block
+      const yamlContent = yamlBlocks[0];
+      try {
+        const rawData = parseYaml(yamlContent);
 
-          // Load and validate using version-aware loader (async imports)
-          const result = await loadUDCVersion(rawData, file.path);
+        // Load and validate using version-aware loader (async imports)
+        const result = await loadUDCVersion(rawData, file.path);
 
-          if (!result.success) {
-            // Collect errors from parse function
-            const commandName = rawData.command_name || 'unknown';
-            validationErrors.push({
-              commandName,
-              errors: result.errors,
-            });
-            continue;
-          }
-
+        if (!result.success) {
+          // Collect errors from parse function
+          const commandName = rawData.command_name || 'unknown';
+          validationErrors.push({
+            commandName,
+            errors: result.errors,
+          });
+        } else {
           // Successfully loaded - store the command
           const versionedCommand = result.command;
           this.userDefinedCommands.set(versionedCommand.normalized.command_name, versionedCommand);
           logger.log(
             `Loaded user-defined command: ${versionedCommand.normalized.command_name} (v${versionedCommand.getVersion()})`
           );
-        } catch (yamlError) {
-          const errorMsg = yamlError instanceof Error ? yamlError.message : String(yamlError);
-          validationErrors.push({
-            commandName: 'unknown',
-            errors: [i18next.t('validation.yamlError'), errorMsg],
-          });
-          logger.error(`Invalid YAML in file ${file.path}:`, yamlError);
         }
+      } catch (yamlError) {
+        const errorMsg = yamlError instanceof Error ? yamlError.message : String(yamlError);
+        validationErrors.push({
+          commandName: 'unknown',
+          errors: [i18next.t('validation.yamlError'), errorMsg],
+        });
+        logger.error(`Invalid YAML in file ${file.path}:`, yamlError);
       }
 
       // Render validation result on modify events (errors or success message)
@@ -818,11 +823,13 @@ export class UserDefinedCommandService {
    * Recursively expand a list of CommandIntent, flattening user-defined commands and detecting cycles
    */
   public expandUserDefinedCommandIntents(
-    intents: CommandIntent[],
-    userInput: string,
+    intents: CommandIntent | CommandIntent[],
+    userInput = '',
     visited: Set<string> = new Set()
   ): CommandIntent[] {
     const expanded: CommandIntent[] = [];
+
+    intents = Array.isArray(intents) ? intents : [intents];
 
     for (const intent of intents) {
       if (!this.hasCommand(intent.commandType)) {

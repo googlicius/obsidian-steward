@@ -51,7 +51,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   - <tag>: If searching for a specific tag, include it with the # symbol.
   - <folder>: If searching in a specific folder.
   - <keywords>: Words or phrases to search for within note content.
-  NOTE: Square brackets [] indicate optional fields. At least one field must be present.
+  NOTE: Square brackets [] indicate optional part of the query. At least one part must be present.
 
 2. Search Guidelines:
   - Multiple parameters can be combined when needed.
@@ -178,7 +178,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     - If the <read_type> is "entire", include the note name.
     - If the <read_type> is "above" or "below", it means current note, leave the note name blank.
   - <other_notes_to_read>: The other notes to read if needed. Follow the same structure as the previous.
-  NOTE: Square brackets [] indicate optional fields.
+  NOTE: Square brackets [] indicate optional part of the query.
 
 2. Read multiple notes if needed.
   - If the query require read content in one or more notes, include all of them.
@@ -197,8 +197,8 @@ Otherwise, you need to include the "read" command.`,
     category: 'intent-based',
     queryTemplate: `Extract the query for the generate command follows this format: <query_in_natural_language>, [note name: <note_name>]
 - <query_in_natural_language>: Tailored query for the generate command.
-- <note_name>: Include if mentioned.
-NOTE: Square brackets [] indicate optional fields.`,
+- <note_name>: The existing note name, include only if mentioned in the context.
+NOTE: Square brackets [] indicate optional part of the query.`,
     includeWhen: 'Ask, update, or generate content with your help',
     artifactDesc: `The generated content is stored as the artifact with name ${ArtifactType.CONTENT_UPDATE}`,
   },
