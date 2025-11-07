@@ -68,7 +68,8 @@ export class ConfirmCommandHandler extends CommandHandler {
       logger.log('No pending command to confirm, letting LLMs handle it.');
 
       // If the previous message was a generate command, it is more likely that the user is responding to the previous message.
-      if (history[history.length - 1].command === 'generate') {
+      const prevMessage = history[history.length - 1];
+      if (prevMessage.command === 'generate' && this.isAQuestion(prevMessage.content)) {
         // Forward the query to the generate command.
         await this.commandProcessor.processCommands({
           title,
@@ -79,6 +80,10 @@ export class ConfirmCommandHandler extends CommandHandler {
             },
           ],
         });
+
+        return {
+          status: CommandResultStatus.SUCCESS,
+        };
       }
 
       // Otherwise, it is something else.
@@ -143,6 +148,13 @@ export class ConfirmCommandHandler extends CommandHandler {
     }
 
     return confirmResult || { status: CommandResultStatus.SUCCESS };
+  }
+
+  /**
+   * A simple check if a content a message is a question.
+   */
+  private isAQuestion(content: string): boolean {
+    return content.endsWith('?');
   }
 
   /**

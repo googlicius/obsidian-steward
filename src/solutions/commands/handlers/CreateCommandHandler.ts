@@ -1,3 +1,4 @@
+import { generateText } from 'ai';
 import {
   CommandHandler,
   CommandHandlerParams,
@@ -6,8 +7,13 @@ import {
 } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
-import { extractNoteCreation, NoteCreationExtraction } from 'src/lib/modelfusion/extractions';
 import type StewardPlugin from 'src/main';
+import { prepareMessage } from 'src/lib/modelfusion/utils/messageUtils';
+import { SystemPromptModifier } from '../SystemPromptModifier';
+import { ToolRegistry, ToolName } from '../ToolRegistry';
+import { createCreateTool, CreatePlan, CreateToolArgs } from '../tools/createNotes';
+import { ToolInvocation } from '../tools/types';
+import { uniqueID } from 'src/utils/uniqueID';
 
 export class CreateCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -28,38 +34,26 @@ export class CreateCommandHandler extends CommandHandler {
   public async handle(
     params: CommandHandlerParams,
     options: {
-      extraction?: NoteCreationExtraction;
+      plan?: CreatePlan;
       confirmed?: boolean;
     } = {}
   ): Promise<CommandResult> {
     const { title, command, nextCommand, lang } = params;
     const t = getTranslation(lang);
+    const handlerId = params.handlerId ?? uniqueID();
 
     try {
-      // If we have a cached extraction from confirmation, use it
-      const extraction =
-        options.extraction ||
-        (await extractNoteCreation({
-          command,
-          plugin: this.plugin,
-        }));
+      const plan = options.plan || (await this.createPlan({ title, command, lang, handlerId }));
 
-      if (extraction.confidence <= 0.7) {
-        // Return LOW_CONFIDENCE status to trigger context augmentation
-        return {
-          status: CommandResultStatus.LOW_CONFIDENCE,
-          commandType: 'create',
-          explanation: extraction.explanation,
-        };
-      }
-
-      if (extraction.notes.length === 0) {
+      if (plan.notes.length === 0) {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: '*No notes were specified for creation*',
           role: 'Steward',
           command: 'create',
           lang,
+          handlerId,
+          includeHistory: false,
         });
 
         return {
@@ -68,15 +62,13 @@ export class CreateCommandHandler extends CommandHandler {
         };
       }
 
-      // Ask for confirmation before creating notes
       if (!options.confirmed && !command.no_confirm) {
-        let message = `${t('create.confirmMessage', { count: extraction.notes.length })}\n`;
+        let message = `${t('create.confirmMessage', { count: plan.notes.length })}\n`;
 
-        // List notes to be created
-        for (const note of extraction.notes) {
-          const noteName = note.noteName ? `${note.noteName}.md` : '';
-          if (noteName) {
-            message += `- \`${noteName}\`\n`;
+        for (const note of plan.notes) {
+          const notePath = note.filePath ? note.filePath : '';
+          if (notePath) {
+            message += `- \`${notePath}\`\n`;
           }
         }
 
@@ -88,17 +80,22 @@ export class CreateCommandHandler extends CommandHandler {
           role: 'Steward',
           command: 'create',
           lang,
+          handlerId,
         });
 
         return {
           status: CommandResultStatus.NEEDS_CONFIRMATION,
           confirmationMessage: message,
           onConfirmation: () => {
-            // When confirmed, call this handler again with the confirmed flag
-            return this.handle(params, { extraction, confirmed: true });
+            return this.handle(
+              {
+                ...params,
+                handlerId,
+              },
+              { plan, confirmed: true }
+            );
           },
           onRejection: async () => {
-            // Delete the next command if it is a generate command
             if (nextCommand && nextCommand.commandType === 'generate') {
               this.commandProcessor.deleteNextPendingCommand(title);
             }
@@ -109,47 +106,18 @@ export class CreateCommandHandler extends CommandHandler {
         };
       }
 
-      // Track successfully created notes
-      const createdNotes: string[] = [];
-      const createdNoteLinks: string[] = [];
-      const errors: string[] = [];
+      const creationResult = await this.executePlan({ plan });
 
-      // Process each note
-      for (const note of extraction.notes) {
-        const newNotePath = note.noteName ? `${note.noteName}.md` : '';
-        if (!newNotePath) {
-          errors.push('Note name is missing');
-          continue;
-        }
-
-        try {
-          // Create the note
-          await this.app.vault.create(newNotePath, '');
-          createdNotes.push(newNotePath);
-          createdNoteLinks.push(`[[${newNotePath}]]`);
-
-          // Write the user-provided content to the note if available
-          if (note.content) {
-            const file = this.app.vault.getFileByPath(newNotePath);
-            if (file) {
-              await this.app.vault.modify(file, note.content);
-            } else {
-              errors.push(`Failed to modify ${newNotePath}: File not found or not a valid file`);
-            }
-          }
-        } catch (noteError) {
-          errors.push(`Failed to create ${newNotePath}: ${noteError.message}`);
-        }
-      }
-
-      // Store created notes as an artifact for future operations (if any were created)
-      if (createdNotes.length > 0) {
+      if (creationResult.createdNotes.length > 0) {
         const messageId = await this.renderer.updateConversationNote({
           path: title,
-          newContent: t('create.creatingNote', { noteName: createdNoteLinks.join(', ') }),
+          newContent: t('create.creatingNote', {
+            noteName: creationResult.createdNoteLinks.join(', '),
+          }),
           role: 'Steward',
           command: 'create',
           lang,
+          handlerId,
         });
 
         if (messageId) {
@@ -159,32 +127,38 @@ export class CreateCommandHandler extends CommandHandler {
             })}*`,
             artifact: {
               artifactType: ArtifactType.CREATED_NOTES,
-              paths: createdNotes,
+              paths: creationResult.createdNotes,
               createdAt: Date.now(),
             },
           });
         }
       }
 
-      // Create the result message
       let resultMessage = '';
-      if (createdNotes.length > 0) {
+      if (creationResult.createdNotes.length > 0) {
         resultMessage = `*${t('create.success', {
-          count: createdNotes.length,
-          noteName: createdNotes.join(', '),
+          count: creationResult.createdNotes.length,
+          noteName: creationResult.createdNotes.join(', '),
         })}*`;
       }
 
-      if (errors.length > 0) {
-        if (resultMessage) resultMessage += '\n\n';
-        resultMessage += `*Errors:*\n${errors.map(e => `- ${e}`).join('\n')}`;
+      if (creationResult.errors.length > 0) {
+        if (resultMessage) {
+          resultMessage += '\n\n';
+        }
+
+        let errorsBlock = '*Errors:*\n';
+        for (const errorMessage of creationResult.errors) {
+          errorsBlock += `- ${errorMessage}\n`;
+        }
+        resultMessage += errorsBlock.trimEnd();
       }
 
-      // Update the conversation with the results
       await this.renderer.updateConversationNote({
         path: title,
         newContent: resultMessage,
         lang,
+        handlerId,
       });
 
       return {
@@ -203,5 +177,147 @@ export class CreateCommandHandler extends CommandHandler {
         error,
       };
     }
+  }
+
+  private async createPlan(params: {
+    title: string;
+    command: CommandHandlerParams['command'];
+    lang?: string | null;
+    handlerId: string;
+  }): Promise<CreatePlan> {
+    const { title, command, lang, handlerId } = params;
+    const conversationHistory = await this.renderer.extractConversationHistory(title, {
+      summaryPosition: 1,
+    });
+
+    const llmConfig = await this.plugin.llmService.getLLMConfig({
+      overrideModel: command.model,
+      generateType: 'text',
+    });
+
+    const { createTool, execute } = createCreateTool();
+    const modifier = new SystemPromptModifier(command.systemPrompts);
+    const tools = {
+      [ToolName.CREATE]: createTool,
+    };
+    const registry = ToolRegistry.buildFromTools(tools, command.tools);
+    const userMessage = await prepareMessage(command.query, this.plugin);
+
+    const response = await generateText({
+      ...llmConfig,
+      abortSignal: this.plugin.abortService.createAbortController('create'),
+      system: modifier.apply(`You are a helpful assistant that creates new Obsidian notes.
+
+You have access to the following tools:
+
+${registry.generateToolsSection()}
+
+GUIDELINES:
+${registry.generateGuidelinesSection()}
+- Always call the ${ToolName.CREATE} tool to create notes requested by the user.
+- Provide clear note paths that include the .md extension.
+- Include the full Markdown content for each note when the user supplies it.`),
+      messages: [...conversationHistory, { role: 'user', content: userMessage }],
+      tools: registry.getToolsObject(),
+    });
+
+    if (response.text && response.text.trim()) {
+      await this.renderer.updateConversationNote({
+        path: title,
+        newContent: response.text,
+        command: 'create',
+        includeHistory: false,
+        lang,
+        handlerId,
+      });
+    }
+
+    const toolInvocations: ToolInvocation<CreatePlan>[] = [];
+    let plan: CreatePlan | null = null;
+
+    for (const toolCall of response.toolCalls) {
+      if (toolCall.toolName !== ToolName.CREATE) {
+        continue;
+      }
+
+      const createArgs = toolCall.args as CreateToolArgs;
+
+      await this.renderer.updateConversationNote({
+        path: title,
+        newContent: createArgs.explanation,
+        command: 'create',
+        includeHistory: false,
+        lang,
+        handlerId,
+      });
+
+      const executedPlan = execute(createArgs);
+      plan = executedPlan;
+      toolInvocations.push({
+        toolName: toolCall.toolName,
+        toolCallId: toolCall.toolCallId,
+        args: toolCall.args,
+        result: executedPlan,
+      });
+    }
+
+    if (toolInvocations.length > 0) {
+      await this.renderer.serializeToolInvocation<CreatePlan>({
+        path: title,
+        command: 'create',
+        handlerId,
+        toolInvocations,
+      });
+    }
+
+    if (!plan) {
+      throw new Error('No create instructions were generated.');
+    }
+
+    return plan;
+  }
+
+  private async executePlan(params: { plan: CreatePlan }): Promise<{
+    createdNotes: string[];
+    createdNoteLinks: string[];
+    errors: string[];
+  }> {
+    const createdNotes: string[] = [];
+    const createdNoteLinks: string[] = [];
+    const errors: string[] = [];
+
+    for (const note of params.plan.notes) {
+      const newNotePath = note.filePath;
+
+      if (!newNotePath) {
+        errors.push('Note path is missing');
+        continue;
+      }
+
+      try {
+        await this.app.vault.create(newNotePath, '');
+        createdNotes.push(newNotePath);
+        createdNoteLinks.push(`[[${newNotePath}]]`);
+
+        if (note.content) {
+          const file = this.app.vault.getFileByPath(newNotePath);
+          if (file) {
+            await this.app.vault.modify(file, note.content);
+          } else {
+            errors.push(`Failed to modify ${newNotePath}: File not found or not a valid file`);
+          }
+        }
+      } catch (noteError) {
+        const message =
+          noteError instanceof Error ? noteError.message : 'Unknown error while creating the note';
+        errors.push(`Failed to create ${newNotePath}: ${message}`);
+      }
+    }
+
+    return {
+      createdNotes,
+      createdNoteLinks,
+      errors,
+    };
   }
 }
