@@ -47,11 +47,6 @@ export class UserDefinedCommandV2 implements IVersionedUserDefinedCommand {
 
   isHidden(): boolean {
     // Version 2: Command is hidden if it has triggers (triggers indicate automation, not user-visible commands)
-    // Actually, wait - let me reconsider. Having triggers doesn't mean it should be hidden from autocomplete.
-    // Let me check the requirement again...
-    // The user said: "we replace it in the `getCommandNames` function with the `triggers` field"
-    // This suggests that if a command has triggers, it should be hidden (not shown in autocomplete)
-    // So: hidden = has triggers
     return (this.data.triggers?.length ?? 0) > 0;
   }
 

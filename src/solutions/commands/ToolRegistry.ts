@@ -5,6 +5,7 @@ export enum ToolName {
   EDIT = 'edit',
   GREP = 'grep',
   REQUEST_READ_CONTENT = 'requestReadContent',
+  CREATE = 'create',
 }
 
 export interface ToolDefinition {
@@ -87,6 +88,17 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       `Use ${ToolName.EDIT} to make the actual content changes. (NOTE: You cannot use this tool if a note does not exist.)`,
     ],
     category: 'content-edit',
+  },
+
+  [ToolName.CREATE]: {
+    name: ToolName.CREATE,
+    description: 'Create new notes and optionally populate them with content.',
+    guidelines: [
+      `Use ${ToolName.CREATE} to create every note requested by the user.`,
+      `Provide the exact Markdown content that should be written to the note when available.`,
+      `Ensure each note path includes the .md extension and points to the correct folder.`,
+    ],
+    category: 'content-create',
   },
 };
 
