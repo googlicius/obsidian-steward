@@ -159,17 +159,6 @@ class StewardSettingTab extends PluginSettingTab {
         new FolderSuggest(this.app, text.inputEl);
       });
 
-    // Add show role labels toggle
-    new Setting(containerEl)
-      .setName(t('settings.showRoleLabels'))
-      .setDesc(t('settings.showRoleLabelsDesc'))
-      .addToggle(toggle =>
-        toggle.setValue(this.plugin.settings.showPronouns).onChange(async value => {
-          this.plugin.settings.showPronouns = value;
-          await this.plugin.saveSettings();
-        })
-      );
-
     // Add debug mode toggle
     new Setting(containerEl)
       .setName(t('settings.debugMode'))

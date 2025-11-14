@@ -18,7 +18,6 @@ export interface StewardPluginSettings {
   encryptionVersion?: number; // Track the encryption version for future migrations
   excludedFolders: string[]; // Folders to exclude from Obsidian search
   debug: boolean; // Enable debug logging
-  showPronouns: boolean; // Toggle display of User/Steward pronouns in chat
   // Undefined for backward compatibility
   audio:
     | {

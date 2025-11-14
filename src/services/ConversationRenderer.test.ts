@@ -642,8 +642,6 @@ describe('ConversationRenderer', () => {
 
       // Create mock plugin with the conversation content
       const mockPlugin = createMockPlugin('');
-      // Set showPronouns to true to show the label by default.
-      mockPlugin.settings.showPronouns = true;
       conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
       const processSpy = jest

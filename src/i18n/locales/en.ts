@@ -325,8 +325,6 @@ const en = {
     settings: {
       stewardFolder: 'Steward folder',
       stewardFolderDesc: 'Base folder where Steward data will be stored',
-      showRoleLabels: 'Show role labels',
-      showRoleLabelsDesc: 'Show User/Steward/System labels in conversations',
       debugMode: 'Debug mode',
       debugModeDesc: 'Enable detailed logging in the console for debugging',
       apiKeys: 'API keys',

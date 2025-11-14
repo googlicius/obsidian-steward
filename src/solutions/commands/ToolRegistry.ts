@@ -134,7 +134,6 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     guidelines: [
       `Use ${ToolName.RENAME} to change the name or location of files.`,
       `Always provide both the current path and the new path for each file.`,
-      `Set createFolderIfMissing to true when new destination folders are required.`,
     ],
     category: 'vault-access',
   },
@@ -153,10 +152,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   [ToolName.LIST]: {
     name: ToolName.LIST,
     description: 'List files in the vault or a specific folder.',
-    guidelines: [
-      `Use ${ToolName.LIST} to list files in the vault or a specific folder.`,
-      `Only include paths that you are confident exist.`,
-    ],
+    guidelines: [`Use ${ToolName.LIST} to list files in the vault or a specific folder.`],
     category: 'vault-access',
   },
 
