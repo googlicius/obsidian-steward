@@ -5,7 +5,6 @@ import {
   UpdateCommandHandler,
   ReadCommandHandler,
   GenerateCommandHandler,
-  GeneralCommandHandler,
   CloseCommandHandler,
   ConfirmCommandHandler,
   StopCommandHandler,
@@ -24,6 +23,7 @@ import VaultAgent from '../solutions/commands/agents/VaultAgent/VaultAgent';
 import type StewardPlugin from '../main';
 import { getTextContentWithoutImages } from 'src/lib/modelfusion/utils/messageUtils';
 import { ToolName } from 'src/solutions/commands/ToolRegistry';
+import { PlannerAgent } from 'src/solutions/commands/agents/PlannerAgent/PlannerAgent';
 
 export class CommandProcessorService {
   public readonly commandProcessor: CommandProcessor;
@@ -58,6 +58,10 @@ export class CommandProcessorService {
     );
     this.commandProcessor.registerAgent('vault_copy', new VaultAgent(this.plugin, [ToolName.COPY]));
     this.commandProcessor.registerAgent('vault_move', new VaultAgent(this.plugin, [ToolName.MOVE]));
+
+    // Register the planner agent
+    const planner = new PlannerAgent(this.plugin);
+    this.commandProcessor.registerAgent(' ', planner);
 
     // Register the close command handler
     const closeHandler = new CloseCommandHandler(this.plugin);
@@ -122,10 +126,6 @@ export class CommandProcessorService {
     // Register the summary command handler
     const summaryHandler = new SummaryCommandHandler(this.plugin);
     this.commandProcessor.registerHandler('summary', summaryHandler);
-
-    // Register the general command handler (space)
-    const generalHandler = new GeneralCommandHandler(this.plugin);
-    this.commandProcessor.registerHandler(' ', generalHandler);
 
     // Register the context_augmentation handler
     const contextAugmentationHandler = new ContextAugmentationHandler(this.plugin);

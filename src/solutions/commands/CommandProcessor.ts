@@ -136,7 +136,7 @@ export class CommandProcessor {
    */
   public async processCommandInIsolation(
     payload: ConversationIntentReceivedPayload,
-    commandType: string,
+    intentType: string,
     options: ProcessIntentsOptions = {}
   ): Promise<void> {
     const isolatedProcessor = new CommandProcessor(this.plugin);
@@ -147,11 +147,15 @@ export class CommandProcessor {
       isolatedProcessor.registerHandler('context_augmentation', contextAugmentationHandler);
     }
 
-    const handler = this.commandHandlers.get(commandType);
+    const handler = this.commandHandlers.get(intentType) || this.agentHandlers.get(intentType);
     if (handler) {
-      isolatedProcessor.registerHandler(commandType, handler);
+      if (handler instanceof CommandHandler) {
+        isolatedProcessor.registerHandler(intentType, handler);
+      } else {
+        isolatedProcessor.registerAgent(intentType, handler);
+      }
     } else {
-      logger.warn(`No command handler found for command type: ${commandType}`);
+      logger.warn(`No command handler found for intent type: ${intentType}`);
       return;
     }
 

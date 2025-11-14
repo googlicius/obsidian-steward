@@ -53,7 +53,7 @@ export class FolderCondition extends Condition<IndexedDocument> {
 
     for (const document of documents) {
       result.set(document.id as number, {
-        document: document,
+        document,
         score: 1,
       });
     }
