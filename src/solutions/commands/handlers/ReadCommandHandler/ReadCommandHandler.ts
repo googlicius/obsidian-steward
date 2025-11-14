@@ -1,9 +1,4 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import type StewardPlugin from 'src/main';
@@ -14,10 +9,11 @@ import { logger } from 'src/utils/logger';
 import { COMMAND_DEFINITIONS } from 'src/lib/modelfusion/prompts/commands';
 import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { createAskUserTool } from '../../tools/askUser';
-import { ToolInvocation } from '../../tools/types';
+import { ToolInvocationResult } from '../../tools/types';
 import { uniqueID } from 'src/utils/uniqueID';
 import { SystemPromptModifier } from '../../SystemPromptModifier';
 import { ToolRegistry, ToolName } from '../../ToolRegistry';
+import { IntentResultStatus } from '../../types';
 
 const { askUserTool: confirmationTool } = createAskUserTool('confirmation');
 const { askUserTool } = createAskUserTool('ask');
@@ -31,9 +27,9 @@ export class ReadCommandHandler extends CommandHandler {
    * Extract reading instructions from a command using LLM
    */
   private async extractReadContent(params: CommandHandlerParams, messages: Message[]) {
-    const { command } = params;
+    const { intent } = params;
     const llmConfig = await this.plugin.llmService.getLLMConfig({
-      overrideModel: command.model,
+      overrideModel: intent.model,
       generateType: 'text',
     });
 
@@ -51,14 +47,14 @@ export class ReadCommandHandler extends CommandHandler {
     };
 
     // Tools registry from centralized metadata
-    const registry = ToolRegistry.buildFromTools(tools, params.command.tools);
+    const registry = ToolRegistry.buildFromTools(tools, params.intent.tools);
 
-    if (command.no_confirm) {
+    if (intent.no_confirm) {
       registry.exclude([ToolName.CONFIRMATION, ToolName.ASK_USER]);
     }
 
     // Build modifications array (user-defined system prompts)
-    const modifications = [...(command.systemPrompts || [])];
+    const modifications = [...(intent.systemPrompts || [])];
 
     const modifier = new SystemPromptModifier(modifications);
 
@@ -118,11 +114,11 @@ ${languageEnforcementFragment}`),
       internalMessages?: Message[];
     } = {}
   ): Promise<CommandResult> {
-    const { title, command, nextCommand, handlerId = uniqueID() } = params;
+    const { title, intent, nextIntent, handlerId = uniqueID() } = params;
     const t = getTranslation(params.lang);
     type ExtractReadContentResult = Awaited<ReturnType<typeof this.extractReadContent>>;
 
-    const readTypeMatches = command.query.match(/read type:/g);
+    const readTypeMatches = intent.query.match(/read type:/g);
     const notesToRead = readTypeMatches ? readTypeMatches.length : 0;
     // Set maxSteps based on the notesToRead to skip the last evaluation step
     const maxSteps = notesToRead > 0 ? notesToRead : 10;
@@ -136,7 +132,7 @@ ${languageEnforcementFragment}`),
       }
       options.internalMessages = [
         ...previousInternalMessages,
-        { role: 'user', content: command.query, id: generateId() },
+        { role: 'user', content: intent.query, id: generateId() },
       ];
     }
 
@@ -150,7 +146,7 @@ ${languageEnforcementFragment}`),
         lang: params.lang,
       });
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error: new Error('The read command has reached the maximum number of steps'),
       };
     }
@@ -161,7 +157,7 @@ ${languageEnforcementFragment}`),
 
     // If there's text and no more steps or no next command, update conversation
     if (extraction.text) {
-      if (!nextCommand || extraction.steps.length === 0) {
+      if (!nextIntent || extraction.steps.length === 0) {
         await this.renderer.updateConversationNote({
           path: title,
           newContent: extraction.text,
@@ -174,7 +170,7 @@ ${languageEnforcementFragment}`),
 
     const startIndex = options.toolCallIndex || 0;
 
-    const toolInvocations: ToolInvocation<string | ContentReadingResult>[] = [];
+    const toolInvocations: ToolInvocationResult<string | ContentReadingResult>[] = [];
 
     for (let i = startIndex; i < extraction.toolCalls.length; i++) {
       const toolCall = extraction.toolCalls[i];
@@ -225,12 +221,12 @@ ${languageEnforcementFragment}`),
 
         if (toolCall.toolName === ToolName.CONFIRMATION) {
           return {
-            status: CommandResultStatus.NEEDS_CONFIRMATION,
+            status: IntentResultStatus.NEEDS_CONFIRMATION,
             onConfirmation: callBack,
           };
         } else {
           return {
-            status: CommandResultStatus.NEEDS_USER_INPUT,
+            status: IntentResultStatus.NEEDS_USER_INPUT,
             onUserInput: callBack,
           };
         }
@@ -301,7 +297,7 @@ ${languageEnforcementFragment}`),
         }
 
         // Display each block
-        if (!nextCommand || nextCommand.commandType === 'read') {
+        if (!nextIntent || nextIntent.type === 'read') {
           for (const block of result.blocks) {
             const endLine = this.plugin.editor.getLine(block.endLine);
             await this.renderer.updateConversationNote({
@@ -380,7 +376,7 @@ ${languageEnforcementFragment}`),
     }
 
     return {
-      status: CommandResultStatus.SUCCESS,
+      status: IntentResultStatus.SUCCESS,
     };
   }
 }

@@ -388,6 +388,39 @@ export class PersistentEmbeddingSimilarityClassifier {
   }
 
   /**
+   * Delete embeddings by value across all clusters
+   * @param value The value text to delete embeddings for
+   */
+  async deleteEmbeddingsByValue(value: string): Promise<void> {
+    const modelName = this.getModelStorageName();
+
+    if (this.embeddings) {
+      // If we have embeddings in memory, use them to find IDs to delete
+      const embeddingsToDelete = this.embeddings.filter(e => {
+        const score = similarity(e.clusterValue, value);
+        return score > 0.7 && e.id !== undefined;
+      });
+
+      if (embeddingsToDelete.length > 0) {
+        const ids = embeddingsToDelete.map(e => e.id as number);
+        // Delete by IDs if we found any
+        await this.db.embeddings.bulkDelete(ids);
+        logger.log(
+          `Deleted ${embeddingsToDelete.length} existing embeddings for value "${value}" using in-memory IDs, deleted embeddings:`,
+          embeddingsToDelete
+        );
+      }
+
+      // Update in-memory embeddings by removing all with this value
+      this.embeddings = this.embeddings.filter(e => e.clusterValue !== value);
+    } else {
+      // If we don't have embeddings in memory, use the database method
+      await this.db.deleteEmbeddingsByValue(modelName, value);
+      logger.log(`Deleted existing embeddings close to value "${value}" using database query`);
+    }
+  }
+
+  /**
    * Save the embedding of a value to the database under a specific cluster
    * and update in-memory embeddings
    * @param value The value to embed
@@ -422,30 +455,7 @@ export class PersistentEmbeddingSimilarityClassifier {
       });
 
       // Delete all embeddings with this value across all clusters
-      if (this.embeddings) {
-        // If we have embeddings in memory, use them to find IDs to delete
-        const embeddingsToDelete = this.embeddings.filter(e => {
-          const score = similarity(e.clusterValue, value);
-          return score > 0.7 && e.id !== undefined;
-        });
-
-        if (embeddingsToDelete.length > 0) {
-          const ids = embeddingsToDelete.map(e => e.id as number);
-          // Delete by IDs if we found any
-          await this.db.embeddings.bulkDelete(ids);
-          logger.log(
-            `Deleted ${embeddingsToDelete.length} existing embeddings for value "${value}" using in-memory IDs, deleted embeddings:`,
-            embeddingsToDelete
-          );
-        }
-
-        // Update in-memory embeddings by removing all with this value
-        this.embeddings = this.embeddings.filter(e => e.clusterValue !== value);
-      } else {
-        // If we don't have embeddings in memory, use the database method
-        await this.db.deleteEmbeddingsByValue(modelName, value);
-        logger.log(`Deleted existing embeddings close to value "${value}" using database query`);
-      }
+      await this.deleteEmbeddingsByValue(value);
 
       // Save the new embedding to database
       const newId = await this.db.storeEmbeddings([

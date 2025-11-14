@@ -1,3 +1,4 @@
+import { AgentHandlerParams, AgentResult, Intent, IntentResultStatus } from './types';
 import type { ObsidianAPITools } from 'src/tools/obsidianAPITools';
 import type { App } from 'obsidian';
 import type StewardPlugin from '../../main';
@@ -11,18 +12,18 @@ import {
 } from 'src/constants';
 import { type CommandProcessor } from './CommandProcessor';
 import { getTranslation } from 'src/i18n';
-import { AgentHandlerParams, AgentResult, Intent, IntentResultStatus } from './types';
+import { ToolName } from './ToolRegistry';
 
-export type CommandHandlerParams<T extends Intent = Intent> = AgentHandlerParams<T>;
-export type CommandResult = AgentResult;
-
-export abstract class CommandHandler {
-  abstract readonly plugin: StewardPlugin;
+export abstract class Agent {
+  constructor(
+    readonly plugin: StewardPlugin,
+    protected activeTools: ToolName[] = []
+  ) {}
 
   /**
-   * Optional: Whether this command requires content (boolean or function for dynamic check)
+   * Optional: Whether this agent requires content (boolean or function for dynamic check)
    */
-  isContentRequired?: boolean | ((commandType: string) => boolean);
+  isContentRequired?: boolean | ((agentType: string) => boolean);
 
   get renderer(): ConversationRenderer {
     return this.plugin.conversationRenderer;
@@ -45,24 +46,21 @@ export abstract class CommandHandler {
   }
 
   /**
-   * Render a loading indicator for the command
+   * Render a loading indicator for the agent
    * @param title The conversation title
    * @param lang The language code
    */
   public renderIndicator?(title: string, lang?: string | null): Promise<void>;
 
   /**
-   * Handle a command
+   * Handle an agent invocation
    */
-  public abstract handle(params: CommandHandlerParams, ...args: unknown[]): Promise<CommandResult>;
+  public abstract handle(params: AgentHandlerParams, ...args: unknown[]): Promise<AgentResult>;
 
   /**
-   * Handle a command with automatic error handling and model fallback
+   * Handle an agent invocation with automatic error handling and model fallback
    */
-  public async safeHandle(
-    params: CommandHandlerParams,
-    ...args: unknown[]
-  ): Promise<CommandResult> {
+  public async safeHandle(params: AgentHandlerParams, ...args: unknown[]): Promise<AgentResult> {
     params.intent.model = await this.getCurrentModel(params.title, params.intent);
     params.intent.query = this.sanitizeQuery(params.intent.query);
 
@@ -71,7 +69,7 @@ export abstract class CommandHandler {
       return await this.handle(params, ...args);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error(`Error in ${params.intent.type} command handler:`, error);
+      logger.error(`Error in ${params.intent.type} agent handler:`, error);
 
       const t = getTranslation(params.lang);
       // Render the current error message
@@ -83,7 +81,7 @@ export abstract class CommandHandler {
       });
 
       const nonRetryAbleError =
-        error instanceof Error && ['AbortError', 'TypeError'].includes(error.name);
+        error instanceof Error && ['AbortError', 'TypeError', 'SysError'].includes(error.name);
 
       if (this.plugin.modelFallbackService.isEnabled() && !nonRetryAbleError) {
         const nextModel = await this.plugin.modelFallbackService.switchToNextModel(params.title);
@@ -100,7 +98,7 @@ export abstract class CommandHandler {
           params.intent.model = nextModel;
 
           // Try again with the new model
-          logger.log(`Retrying command with fallback model: ${nextModel}`);
+          logger.log(`Retrying agent with fallback model: ${nextModel}`);
           return this.safeHandle(params, ...args);
         }
       }
@@ -147,7 +145,7 @@ export abstract class CommandHandler {
   }
 
   /**
-   * Restores stw-selected blocks from the original query to the processed command query.
+   * Restores stw-selected blocks from the original query to the processed agent query.
    */
   protected restoreStwSelectedBlocks(params: {
     originalQuery: string | undefined;

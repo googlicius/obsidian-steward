@@ -113,7 +113,7 @@ commands:
   - name: search
     query: 'Notes name starts with Untitled or with tag #delete'
 
-  - name: delete_from_artifact
+  - name: vault_delete
     query: Delete them
     model: gpt-3.5-turbo # Optional: Override the model for this specific step
 ```

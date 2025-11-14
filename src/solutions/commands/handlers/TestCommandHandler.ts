@@ -1,15 +1,10 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../CommandHandler';
 import type StewardPlugin from 'src/main';
-import { CommandIntent } from 'src/types/types';
 import { z } from 'zod';
 import { generateText, tool } from 'ai';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { explanationFragment, confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
+import { Intent, IntentResultStatus } from '../types';
 
 // Number Guessing Game Schema
 const numberGuessSchema = z.object({
@@ -32,7 +27,7 @@ export class TestCommandHandler extends CommandHandler {
     super();
   }
 
-  private async extractNumberGuess(command: CommandIntent, conversationTitle: string) {
+  private async extractNumberGuess(command: Intent, conversationTitle: string) {
     const llmConfig = await this.plugin.llmService.getLLMConfig({
       overrideModel: command.model,
     });
@@ -125,11 +120,11 @@ Use your reasoning skills to make intelligent guesses based on the feedback.`,
    * Handle a test command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command } = params;
+    const { title, intent } = params;
 
     try {
       // Extract the number guessing game instructions using LLM
-      const extraction = await this.extractNumberGuess(command, title);
+      const extraction = await this.extractNumberGuess(intent, title);
       const lang = params.lang || 'en';
 
       // Show introduction
@@ -161,7 +156,7 @@ Use your reasoning skills to make intelligent guesses based on the feedback.`,
       // }
 
       return {
-        status: CommandResultStatus.SUCCESS,
+        status: IntentResultStatus.SUCCESS,
       };
     } catch (error) {
       await this.renderer.updateConversationNote({
@@ -170,7 +165,7 @@ Use your reasoning skills to make intelligent guesses based on the feedback.`,
       });
 
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error,
       };
     }

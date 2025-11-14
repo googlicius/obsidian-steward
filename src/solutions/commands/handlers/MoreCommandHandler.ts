@@ -1,9 +1,4 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -11,6 +6,7 @@ import type StewardPlugin from 'src/main';
 import { type SearchCommandHandler } from './SearchCommandHandler/SearchCommandHandler';
 import { ConditionResult } from 'src/solutions/search/searchEngineV3';
 import { IndexedDocument } from 'src/database/SearchDatabase';
+import { IntentResultStatus } from '../types';
 
 export class MoreCommandHandler extends CommandHandler {
   constructor(
@@ -43,7 +39,7 @@ export class MoreCommandHandler extends CommandHandler {
         });
 
         return {
-          status: CommandResultStatus.ERROR,
+          status: IntentResultStatus.ERROR,
           error: 'No recent search found',
         };
       }
@@ -72,7 +68,7 @@ export class MoreCommandHandler extends CommandHandler {
         });
 
         return {
-          status: CommandResultStatus.ERROR,
+          status: IntentResultStatus.ERROR,
           error: 'No search results artifact found',
         };
       }
@@ -94,7 +90,7 @@ export class MoreCommandHandler extends CommandHandler {
         });
 
         return {
-          status: CommandResultStatus.SUCCESS,
+          status: IntentResultStatus.SUCCESS,
         };
       }
 
@@ -114,7 +110,7 @@ export class MoreCommandHandler extends CommandHandler {
       });
 
       return {
-        status: CommandResultStatus.SUCCESS,
+        status: IntentResultStatus.SUCCESS,
       };
     } catch (error) {
       logger.error('Error processing more command:', error);
@@ -126,7 +122,7 @@ export class MoreCommandHandler extends CommandHandler {
       });
 
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error,
       };
     }

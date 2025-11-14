@@ -1,11 +1,7 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import type StewardPlugin from 'src/main';
+import { IntentResultStatus } from '../types';
 
 export class UserDefinedCommandHandler extends CommandHandler {
   isContentRequired = (commandType: string): boolean => {
@@ -30,17 +26,17 @@ export class UserDefinedCommandHandler extends CommandHandler {
    * Handle a user-defined command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command, lang } = params;
+    const { title, intent, lang } = params;
 
     let commandIntents;
     try {
       commandIntents = this.plugin.userDefinedCommandService.expandUserDefinedCommandIntents(
         {
-          commandType: command.commandType,
-          query: command.query,
-          systemPrompts: command.systemPrompts,
+          type: intent.type,
+          query: intent.query,
+          systemPrompts: intent.systemPrompts,
         },
-        command.query || ''
+        intent.query || ''
       );
     } catch (cycleError) {
       await this.renderer.updateConversationNote({
@@ -49,7 +45,7 @@ export class UserDefinedCommandHandler extends CommandHandler {
         role: 'Steward',
       });
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error: cycleError instanceof Error ? cycleError : new Error(String(cycleError)),
       };
     }
@@ -57,18 +53,18 @@ export class UserDefinedCommandHandler extends CommandHandler {
     if (!commandIntents || commandIntents.length === 0) {
       await this.renderer.updateConversationNote({
         path: title,
-        newContent: `*Error: User-defined command '${command.commandType}' not found or empty*`,
+        newContent: `*Error: User-defined command '${intent.type}' not found or empty*`,
         role: 'Steward',
       });
 
       return {
-        status: CommandResultStatus.ERROR,
-        error: new Error(`User-defined command '${command.commandType}' not found or empty`),
+        status: IntentResultStatus.ERROR,
+        error: new Error(`User-defined command '${intent.type}' not found or empty`),
       };
     }
 
     // Store the model and user-defined command name in frontmatter
-    const frontmatterUpdates = [{ name: 'udc_command', value: command.commandType }];
+    const frontmatterUpdates = [{ name: 'udc_command', value: intent.type }];
 
     if (commandIntents[0].model) {
       frontmatterUpdates.push({ name: 'model', value: commandIntents[0].model });
@@ -76,17 +72,17 @@ export class UserDefinedCommandHandler extends CommandHandler {
     await this.renderer.updateConversationFrontmatter(title, frontmatterUpdates);
 
     // Process the expanded commands
-    await this.commandProcessor.processCommands(
+    await this.commandProcessor.processIntents(
       {
         title,
-        commands: commandIntents,
+        intents: commandIntents,
         lang,
       },
       { builtInCommandPrecedence: true }
     );
 
     return {
-      status: CommandResultStatus.SUCCESS,
+      status: IntentResultStatus.SUCCESS,
     };
   }
 }

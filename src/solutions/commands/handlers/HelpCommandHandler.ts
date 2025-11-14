@@ -1,12 +1,8 @@
 import { getTranslation } from 'src/i18n';
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../CommandHandler';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
+import { IntentResultStatus } from '../types';
 
 /**
  * Handler for help commands
@@ -149,13 +145,13 @@ export class HelpCommandHandler extends CommandHandler {
       });
 
       return {
-        status: CommandResultStatus.SUCCESS,
+        status: IntentResultStatus.SUCCESS,
       };
     } catch (error) {
       logger.error('Error listing commands:', error);
 
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error,
       };
     }

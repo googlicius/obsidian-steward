@@ -27,7 +27,7 @@ commands:
   query: "Update from the generated content, note name: $file_name"
   no_confirm: true
 
-- name: move_from_artifact
+- name: vault_move
   query: "Move the note: $file_name into the Done folder"
   no_confirm: true
 ```

@@ -37,6 +37,22 @@ describe('commands', () => {
     it('should throw error if command not found', () => {
       expect(() => formatCommandsForPrompt(['not_found'])).toThrow('Command not_found not found');
     });
+
+    it('should handle command names that include a query fragment', () => {
+      const formattedCommands = formatCommandsForPrompt(['vault?tools=list,rename']);
+
+      expect(formattedCommands).toMatchSnapshot();
+    });
+
+    it('should merge multiple commands referencing the same agent by tools', () => {
+      const formattedCommands = formatCommandsForPrompt([
+        'vault?tools=list',
+        'vault?tools=rename',
+        'vault?tools=copy',
+      ]);
+
+      expect(formattedCommands).toMatchSnapshot();
+    });
   });
 
   describe('formatQueryTemplatesForPrompt', () => {

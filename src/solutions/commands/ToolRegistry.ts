@@ -6,6 +6,12 @@ export enum ToolName {
   GREP = 'grep',
   REQUEST_READ_CONTENT = 'requestReadContent',
   CREATE = 'create',
+  DELETE = 'delete',
+  COPY = 'copy',
+  RENAME = 'rename',
+  MOVE = 'move',
+  LIST = 'list',
+  ACTIVATE = 'activate_tools',
 }
 
 export interface ToolDefinition {
@@ -100,11 +106,75 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     ],
     category: 'content-create',
   },
+
+  [ToolName.DELETE]: {
+    name: ToolName.DELETE,
+    description: 'Delete files from the vault using the configured trash behavior.',
+    guidelines: [
+      `Use the ${ToolName.DELETE} tool to remove files or notes from the vault.`,
+      `List every file you plan to delete and ensure the paths are accurate.`,
+    ],
+    category: 'vault-access',
+  },
+
+  [ToolName.COPY]: {
+    name: ToolName.COPY,
+    description: 'Copy files to another folder.',
+    guidelines: [
+      `Use ${ToolName.COPY} to duplicate files into another folder.`,
+      `Always provide the destination folder path for the copy operation.`,
+      `Specify the files or artifactId for the copy operation.`,
+    ],
+    category: 'vault-access',
+  },
+
+  [ToolName.RENAME]: {
+    name: ToolName.RENAME,
+    description: 'Rename files to a new path or filename.',
+    guidelines: [
+      `Use ${ToolName.RENAME} to change the name or location of files.`,
+      `Always provide both the current path and the new path for each file.`,
+      `Set createFolderIfMissing to true when new destination folders are required.`,
+    ],
+    category: 'vault-access',
+  },
+
+  [ToolName.MOVE]: {
+    name: ToolName.MOVE,
+    description: 'Move files to another folder.',
+    guidelines: [
+      `Use ${ToolName.MOVE} to relocate files to another folder.`,
+      `Always provide the destination folder path for the move operation.`,
+      `Specify the files or artifactId for the move operation.`,
+    ],
+    category: 'vault-access',
+  },
+
+  [ToolName.LIST]: {
+    name: ToolName.LIST,
+    description: 'List files in the vault or a specific folder.',
+    guidelines: [
+      `Use ${ToolName.LIST} to list files in the vault or a specific folder.`,
+      `Only include paths that you are confident exist.`,
+    ],
+    category: 'vault-access',
+  },
+
+  [ToolName.ACTIVATE]: {
+    name: ToolName.ACTIVATE,
+    description: 'Request additional tools to be activated for the current session.',
+    guidelines: [
+      `Use ${ToolName.ACTIVATE} when you need another tool that is currently inactive to complete the task.`,
+      `The ${ToolName.ACTIVATE} tool will return the schemas and guidelines of the requested tools.`,
+    ],
+    category: 'tool-management',
+  },
 };
 
 export class ToolRegistry<T> {
   private readonly tools: Map<ToolName, ToolDefinition> = new Map();
-  private readonly excluded: Set<string> = new Set();
+  private readonly excluded: Set<ToolName> = new Set();
+  private activeTools: Set<ToolName> | null = null;
 
   public register(def: ToolDefinition): this {
     this.tools.set(def.name, def);
@@ -118,10 +188,32 @@ export class ToolRegistry<T> {
     return this;
   }
 
+  public setActive(names?: readonly ToolName[]): this {
+    if (typeof names === 'undefined') {
+      this.activeTools = null;
+      return this;
+    }
+
+    this.activeTools = new Set(names);
+    return this;
+  }
+
+  private isActive(name: ToolName): boolean {
+    if (this.excluded.has(name)) {
+      return false;
+    }
+
+    if (this.activeTools === null) {
+      return true;
+    }
+
+    return this.activeTools.has(name);
+  }
+
   public getToolsObject(): T {
     const obj: Record<string, unknown> = {};
     for (const [name, def] of this.tools) {
-      if (this.excluded.has(name)) continue;
+      if (!this.isActive(name)) continue;
       obj[name] = def.tool;
     }
     return obj as T;
@@ -130,7 +222,7 @@ export class ToolRegistry<T> {
   public generateToolsSection(): string {
     const lines: string[] = [];
     for (const [, def] of this.tools) {
-      if (this.excluded.has(def.name)) continue;
+      if (!this.isActive(def.name)) continue;
       lines.push(`- ${def.name} - ${def.description}`);
     }
     return lines.join('\n');
@@ -139,11 +231,25 @@ export class ToolRegistry<T> {
   public generateGuidelinesSection(): string {
     const lines: string[] = [];
     for (const [, def] of this.tools) {
-      if (this.excluded.has(def.name)) continue;
+      if (!this.isActive(def.name)) continue;
       for (const g of def.guidelines) {
         lines.push(`- ${g}`);
       }
     }
+    return lines.join('\n');
+  }
+
+  public generateOtherToolsSection(emptyLabel = ''): string {
+    const lines: string[] = [];
+    for (const [, def] of this.tools) {
+      if (this.isActive(def.name)) continue;
+      lines.push(`- ${def.name}`);
+    }
+
+    if (lines.length === 0) {
+      return emptyLabel;
+    }
+
     return lines.join('\n');
   }
 

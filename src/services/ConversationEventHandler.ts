@@ -1,7 +1,7 @@
 import {
   Events,
   ConversationLinkInsertedPayload,
-  ConversationCommandReceivedPayload,
+  ConversationIntentReceivedPayload,
 } from '../types/events';
 import { eventEmitter } from './EventEmitter';
 import { TFile } from 'obsidian';
@@ -47,8 +47,8 @@ export class ConversationEventHandler {
 
     // Listen for user commands in conversation
     eventEmitter.on(
-      Events.CONVERSATION_COMMAND_RECEIVED,
-      (payload: ConversationCommandReceivedPayload) => {
+      Events.CONVERSATION_INTENT_RECEIVED,
+      (payload: ConversationIntentReceivedPayload) => {
         this.handleConversationCommand(payload);
       }
     );
@@ -80,21 +80,21 @@ export class ConversationEventHandler {
   }
 
   private async handleConversationCommand(
-    payload: ConversationCommandReceivedPayload
+    payload: ConversationIntentReceivedPayload
   ): Promise<void> {
-    await this.plugin.commandProcessorService.commandProcessor.processCommands(payload);
+    await this.plugin.commandProcessorService.commandProcessor.processIntents(payload);
   }
 
   public async handleConversationLinkInserted(
     payload: ConversationLinkInsertedPayload
   ): Promise<void> {
-    await this.plugin.commandProcessorService.commandProcessor.processCommands(
+    await this.plugin.commandProcessorService.commandProcessor.processIntents(
       {
         title: payload.title,
-        commands: [
+        intents: [
           {
-            commandType: payload.commandType,
-            query: payload.commandQuery,
+            type: payload.intentType,
+            query: payload.intentQuery,
           },
         ],
         lang: payload.lang,

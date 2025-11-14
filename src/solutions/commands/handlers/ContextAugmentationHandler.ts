@@ -1,14 +1,9 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../CommandHandler';
 import { logger } from 'src/utils/logger';
 import { getTranslation } from 'src/i18n/index';
 import { ArtifactType } from 'src/solutions/artifact';
 import type StewardPlugin from 'src/main';
-import { ContextAugmentationIntent } from 'src/types/types';
+import { ContextAugmentationIntent, IntentResultStatus } from '../types';
 
 /**
  * Handler for context augmentation
@@ -26,10 +21,10 @@ export class ContextAugmentationHandler extends CommandHandler {
   public async handle(
     params: CommandHandlerParams<ContextAugmentationIntent>
   ): Promise<CommandResult> {
-    const { title, lang, command } = params;
+    const { title, lang, intent } = params;
     const t = getTranslation(lang);
 
-    if (command.retryRemaining === 0) {
+    if (intent.retryRemaining === 0) {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: `*${t('common.abortedByLowConfidence')}*`,
@@ -37,13 +32,13 @@ export class ContextAugmentationHandler extends CommandHandler {
       });
 
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error: 'Context augmentation aborted by low confidence and the retry remaining is 0',
       };
     }
 
     try {
-      const pendingCommandData = this.commandProcessor.getPendingCommand(title);
+      const pendingCommandData = this.commandProcessor.getPendingIntent(title);
 
       // Get the most recent extraction result
       const extractionArtifact = await this.plugin.artifactManagerV2
@@ -59,17 +54,17 @@ export class ContextAugmentationHandler extends CommandHandler {
           lang,
         });
         return {
-          status: CommandResultStatus.ERROR,
+          status: IntentResultStatus.ERROR,
           error: new Error('No extraction result found for context augmentation'),
         };
       }
 
       const extraction = extractionArtifact.content;
-      const lastCommandResult = pendingCommandData?.lastCommandResult;
+      const lastCommandResult = pendingCommandData?.lastResult;
 
       const lastCommandResultStr =
-        lastCommandResult?.status === CommandResultStatus.LOW_CONFIDENCE
-          ? `Command type: ${lastCommandResult.commandType}, explanation: ${lastCommandResult.explanation}`
+        lastCommandResult?.status === IntentResultStatus.LOW_CONFIDENCE
+          ? `Command type: ${lastCommandResult.intentType}, explanation: ${lastCommandResult.explanation}`
           : '';
 
       // Format the commands for the system prompt
@@ -87,16 +82,16 @@ ${commandsText}
 The last command result was:
 ${lastCommandResultStr}
 
-Retry attempt: ${4 - command.retryRemaining} of 3
+Retry attempt: ${4 - intent.retryRemaining} of 3
 You task is to evaluate and re-analyze this query with the above context to improve extraction confidence.
       `.trim();
 
       // Process with general command and the augmented system prompt
-      await this.commandProcessor.processCommands({
+      await this.commandProcessor.processIntents({
         title,
-        commands: [
+        intents: [
           {
-            commandType: ' ',
+            type: ' ',
             query: extraction.query,
             systemPrompts: [augmentedSystemPrompt],
           },
@@ -105,13 +100,13 @@ You task is to evaluate and re-analyze this query with the above context to impr
       });
 
       return {
-        status: CommandResultStatus.SUCCESS,
+        status: IntentResultStatus.SUCCESS,
       };
     } catch (error) {
       logger.error('Error in ContextAugmentationHandler:', error);
 
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
       };
     }
   }

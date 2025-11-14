@@ -55,12 +55,12 @@ These commands use natural language processing and work with artifacts:
 
 - `read` - Read content from notes
 - `generate` - Generate content
-- `move_from_artifact` - Move notes from the artifact to a destination
-- `copy_from_artifact` - Copy notes from the artifact to a destination
-- `delete_from_artifact` - Delete notes from the artifact
+- `vault_move` - Move notes from the artifact to a destination
+- `vault_copy` - Copy notes from the artifact to a destination
+- `vault_delete` - Delete notes from the artifact
 - `update_from_artifact` - Update notes from the artifact
 
-**Note about artifact-based commands:** Commands like `move_from_artifact`, `copy_from_artifact`, `delete_from_artifact`, and `update_from_artifact` operate on artifacts created by previous commands like `search` or `read`. They work with the results stored in the artifact from the previous command.
+**Note about artifact-based commands:** Commands like `vault_move`, `vault_copy`, `vault_delete`, and `update_from_artifact` operate on artifacts created by previous commands like `search` or `read`. They work with the results stored in the artifact from the previous command.
 
 #### Example: Basic User-Defined Command
 
@@ -73,7 +73,7 @@ commands:
   - name: search
     query: 'Notes name starts with Untitled or with tag #delete'
 
-  - name: delete_from_artifact
+  - name: vault_delete
     query: Delete them
     model: gpt-3.5-turbo # Optional: Override the model for this specific step
 ```

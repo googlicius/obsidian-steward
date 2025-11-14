@@ -1,13 +1,9 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../CommandHandler';
 import type StewardPlugin from 'src/main';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { delay } from 'src/utils/delay';
+import { IntentResultStatus } from '../types';
 
 /**
  * Handler for the stop command
@@ -52,7 +48,7 @@ export class StopCommandHandler extends CommandHandler {
     });
 
     return {
-      status: CommandResultStatus.SUCCESS,
+      status: IntentResultStatus.SUCCESS,
     };
   }
 }

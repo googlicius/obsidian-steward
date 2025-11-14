@@ -76,6 +76,7 @@ const ja = {
       createFoldersHeader: 'ファイルを移動する前に以下のフォルダを作成する必要があります：',
       createFoldersQuestion: 'これらのフォルダを作成しますか？',
       cannotMoveThisType: 'この種類のアーティファクトは移動できません: {{type}}',
+      destinationRequired: '移動操作の移動先フォルダを指定してください。',
     },
     // Copy result messages
     copy: {
@@ -97,10 +98,37 @@ const ja = {
       tooManyFilesConfirm: '{{count}}件のファイルをコピーします。よろしいですか？',
       cannotCopyThisType: 'この種類のアーティファクトはコピーできません: {{type}}',
     },
+    rename: {
+      processed: '{{count}}件のリネーム指示を処理しました。',
+      processed_plural: '{{count}}件のリネーム指示を処理しました。',
+      success: '{{count}}件のファイル名をリネームしました：',
+      success_plural: '{{count}}件のファイル名をリネームしました：',
+      samePath: 'パスが変更されていないため{{count}}件をスキップしました：',
+      samePath_plural: 'パスが変更されていないため{{count}}件をスキップしました：',
+      fileMissing: '元のパスが見つからないため{{count}}件をスキップしました：',
+      fileMissing_plural: '元のパスが見つからないため{{count}}件をスキップしました：',
+      targetExists: 'ターゲットが既に存在するため{{count}}件をスキップしました：',
+      targetExists_plural: 'ターゲットが既に存在するため{{count}}件をスキップしました：',
+      errors: '{{count}}件でエラーが発生しました：',
+      errors_plural: '{{count}}件でエラーが発生しました：',
+      renameError: '{{path}} のリネームに失敗しました：{{message}}',
+      createFoldersHeader: 'リネームを行う前に以下のフォルダを作成する必要があります：',
+      createFoldersQuestion: 'これらのフォルダを作成してもよろしいですか？',
+      noInstructions: 'リネーム指示が指定されていません。',
+      invalidInstruction: '各リネーム指示には現在のパスと新しいパスが必要です。',
+      unknownError: '不明なエラーが発生しました。',
+    },
     create: {
       success_one: '{{noteName}}を作成しました',
       success_other: '{{count}}件のノートを作成しました: {{noteNames}}',
       creatingNote: 'ノートを作成中: [[{{noteName}}]]',
+    },
+    list: {
+      noFilesFound: 'ファイルは見つかりませんでした。',
+      noFilesFoundInFolder: '{{folder}} ではファイルが見つかりませんでした。',
+      foundFiles: '{{count}} 件のファイルを見つけました',
+      foundFilesInFolder: '{{folder}} で {{count}} 件のファイルを見つけました',
+      moreFiles: '... さらに {{count}} 件のファイルがあります',
     },
     generate: {
       success: '生成に成功しました',
@@ -253,6 +281,7 @@ const ja = {
       readingContent: '内容を読み込んでいます...',
       buildingIndex: '検索インデックスを構築中...',
       summarizing: '会話を要約中...',
+      continuingProcessing: '処理を続行中...',
     },
     // Model fallback messages
     modelFallback: {

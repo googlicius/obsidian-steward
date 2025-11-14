@@ -1,8 +1,26 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`commands artifactDependentExamples should return examples for commands that depend on artifacts 1`] = `"For example: if you include "search" and "move_from_artifact", the "move_from_artifact" command will use the artifact that will be created from the "search" command or "read" and "update_from_artifact", the "update_from_artifact" command will use the artifact that will be created from the "read" command."`;
+exports[`commands artifactDependentExamples should return examples for commands that depend on artifacts 1`] = `"For example: if you include "read" and "update_from_artifact", the "update_from_artifact" command will use the artifact that will be created from the "read" command or "generate" and "update_from_artifact", the "update_from_artifact" command will use the artifact that will be created from the "generate" command."`;
 
 exports[`commands artifactDependentExamples should return only one example if there are only one command that creates artifacts 1`] = `"For example: if you include "read" and "update_from_artifact", the "update_from_artifact" command will use the artifact that will be created from the "read" command."`;
+
+exports[`commands formatCommandsForPrompt should handle command names that include a query fragment 1`] = `
+"- name: vault?tools=list,rename
+  description: |-
+    An agent performs vault-related operations. You MUST add a query to activate one or more tools that needs to perform the operation, e.g. 'vault?tools=list,rename'.
+    Available tools: list, rename, create, delete, copy, and move.
+  use_when: Vault operations (list files, create notes, etc.)
+"
+`;
+
+exports[`commands formatCommandsForPrompt should merge multiple commands referencing the same agent by tools 1`] = `
+"- name: vault?tools=list,rename,copy
+  description: |-
+    An agent performs vault-related operations. You MUST add a query to activate one or more tools that needs to perform the operation, e.g. 'vault?tools=list,rename'.
+    Available tools: list, rename, create, delete, copy, and move.
+  use_when: Vault operations (list files, create notes, etc.)
+"
+`;
 
 exports[`commands formatCommandsForPrompt should return formatted commands for prompt 1`] = `
 "- name: search
@@ -24,15 +42,17 @@ exports[`commands formatCommandsForPrompt should return formatted commands for p
   aliases:
     - speak
   use_when: Generate audio
-- name: create
-  description: Create a new note with their own content
-  use_when: Create a new note
-- name: move_from_artifact
+- name: vault
+  description: |-
+    An agent performs vault-related operations. You MUST add a query to activate one or more tools that needs to perform the operation, e.g. 'vault?tools=list,rename'.
+    Available tools: list, rename, create, delete, copy, and move.
+  use_when: Vault operations (list files, create notes, etc.)
+- name: vault_move
   description: Move notes from the artifact to a destination
   aliases:
     - move
   use_when: Move notes from the artifact
-- name: copy_from_artifact
+- name: vault_copy
   description: Copy notes from the artifact to a destination
   aliases:
     - copy
@@ -42,7 +62,7 @@ exports[`commands formatCommandsForPrompt should return formatted commands for p
   aliases:
     - update
   use_when: Update one or more notes from the artifact
-- name: delete_from_artifact
+- name: vault_delete
   description: Delete note(s) from the artifact
   aliases:
     - delete
@@ -117,21 +137,21 @@ exports[`commands formatQueryTemplatesForPrompt should return formatted query te
     2. Search Guidelines:
       - Multiple parameters can be combined when needed.
       - Preserve the original wording and context if provided: start with, contain, or exact, for example: "file name start with...", "keywords contain...", "folder exact..."
-- command: move_from_artifact
+- command: vault_move
   template: |-
-    Extract specific details for a move_from_artifact command follows this format: <query>; destination: <destination>
+    Extract specific details for a vault_move command follows this format: <query>; destination: <destination>
     - <query>: The query for the move command.
     - <destination>: The destination folder.
-- command: copy_from_artifact
+- command: vault_copy
   template: |-
-    Extract specific details for a copy_from_artifact command follows this format: <query>; destination: <destination>
+    Extract specific details for a vault_copy command follows this format: <query>; destination: <destination>
     - <query>: The query for the copy command.
     - <destination>: The destination folder.
 - command: update_from_artifact
   template: Extract specific details for what to be updated.
-- command: delete_from_artifact
+- command: vault_delete
   template: |-
-    Extract specific details for a delete_from_artifact command:
+    Extract specific details for a vault_delete command:
     - The query always be: "Delete all notes in the search result."
 - command: read
   template: |-
