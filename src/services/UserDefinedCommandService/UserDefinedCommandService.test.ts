@@ -2,8 +2,8 @@ import { TFolder } from 'obsidian';
 import { UserDefinedCommandService } from './UserDefinedCommandService';
 import type StewardPlugin from 'src/main';
 import { getInstance } from 'src/utils/getInstance';
-import type { CommandIntent } from 'src/types/types';
 import { UserDefinedCommandV1, type UserDefinedCommandV1Data } from './versions/v1';
+import { Intent } from 'src/solutions/commands/types';
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   return {
@@ -264,9 +264,9 @@ describe('UserDefinedCommandService', () => {
       );
 
       // Create input CommandIntents that reference the user-defined command
-      const inputIntents: CommandIntent[] = [
+      const inputIntents: Intent[] = [
         {
-          commandType: 'testCommand',
+          type: 'testCommand',
           query: 'some user input',
         },
       ];
@@ -280,13 +280,13 @@ describe('UserDefinedCommandService', () => {
       // Verify
       expect(result).toMatchObject([
         {
-          commandType: 'read',
+          type: 'read',
           model: undefined,
           query: 'Read some user input',
           systemPrompts: undefined,
         },
         {
-          commandType: 'create',
+          type: 'create',
           model: undefined,
           query: 'Create note about some user input',
           systemPrompts: undefined,
@@ -326,9 +326,9 @@ describe('UserDefinedCommandService', () => {
       );
 
       // Create input CommandIntents that reference the overridden audio command
-      const inputIntents: CommandIntent[] = [
+      const inputIntents: Intent[] = [
         {
-          commandType: 'audio',
+          type: 'audio',
           query: 'hello world',
         },
       ];
@@ -342,7 +342,7 @@ describe('UserDefinedCommandService', () => {
       // Verify
       expect(result).toMatchObject([
         {
-          commandType: 'audio',
+          type: 'audio',
           model: undefined,
           query: 'Pronounce: hello world',
           systemPrompts: ['Fix typo if any'],
@@ -385,9 +385,9 @@ describe('UserDefinedCommandService', () => {
       );
 
       // Create input CommandIntents that reference the multi-model command
-      const inputIntents: CommandIntent[] = [
+      const inputIntents: Intent[] = [
         {
-          commandType: 'multiModelCommand',
+          type: 'multiModelCommand',
           query: 'test content',
         },
       ];
@@ -401,13 +401,13 @@ describe('UserDefinedCommandService', () => {
       // Verify
       expect(result).toMatchObject([
         {
-          commandType: 'read',
+          type: 'read',
           model: 'gpt-4o',
           query: 'Read test content',
           systemPrompts: undefined,
         },
         {
-          commandType: 'create',
+          type: 'create',
           model: 'gemini-2.5',
           query: 'Create note about test content',
           systemPrompts: undefined,

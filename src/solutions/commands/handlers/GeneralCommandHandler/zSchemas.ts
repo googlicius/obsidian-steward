@@ -5,12 +5,25 @@ import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
 // Define valid command types
 const validCommandTypes = getValidCommandTypes();
 
-// Define the Zod schema for command type extraction
-export const commandTypeExtractionSchema = z.object({
-  commandTypes: z
-    .array(z.enum(validCommandTypes as [string, ...string[]]))
-    .max(20, 'Too many commands. Maximum allowed is 20.')
-    .describe('An array of command types that should be executed in sequence.'),
+const validCommandTypeSet = new Set(validCommandTypes);
+const isValidCommandTypeWithQuery = (value: string): boolean => {
+  const [baseType] = value.split('?', 1);
+  return validCommandTypeSet.has(baseType);
+};
+
+// Define the Zod schema for intent type extraction
+export const intentTypeExtractionSchema = z.object({
+  types: z
+    .array(
+      z
+        .string()
+        .min(1, 'Intent type must be a non-empty string.')
+        .refine(isValidCommandTypeWithQuery, value => ({
+          message: `Invalid intent type: ${value}.`,
+        }))
+    )
+    .max(20, 'Too many intents. Maximum allowed is 20.')
+    .describe('An array of intent types that should be executed in sequence.'),
   explanation: z
     .string()
     .min(1, 'Explanation must be a non-empty string')
@@ -24,34 +37,29 @@ If the confidence is low, include the commands that you are extracting in the ex
 });
 
 // Define the Zod schema for command intent
-const commandIntentSchema = z.object({
-  commandType: z
+const intentSchema = z.object({
+  type: z
     .enum(validCommandTypes as [string, ...string[]])
-    .describe(`One of the available command types.`),
+    .describe(`One of the available intent types.`),
   query: z.string().describe(
-    `The specific query for this command and will be the input of the downstream command.
+    `The specific query for this intent and will be the input of the downstream intent.
 - Keep it concise and short
-If the command is "read" or "create", then this is the original user's query.`
+If the intent is "read" or "create", then this is the original user's query.`
   ),
 });
 
 // Define the Zod schema for query extraction
 export const queryExtractionSchema = z.object({
-  commands: z.array(commandIntentSchema).max(20, 'Too many commands. Maximum allowed is 20.')
-    .describe(`An array of objects, each containing commandType and query.
-Each command in the sequence should have its own query that will be processed by specialized handlers.`),
+  intents: z.array(intentSchema).max(20, 'Too many intents. Maximum allowed is 20.')
+    .describe(`An array of objects, each containing intentType and query.
+Each intent in the sequence should have its own query that will be processed by specialized handlers.`),
   explanation: z
     .string()
     .min(1, 'Explanation must be a non-empty string')
     .describe(explanationFragment),
   lang: z.string().nullable().optional(),
-  // queryTemplate: z
-  //   .string()
-  //   .describe(
-  //     `A template version of the query where specific elements (tags, keywords, filenames, folders) are replaced with generic placeholders (x, y, z, f). This helps identify similar query patterns for caching purposes.`
-  //   ),
 });
 
 // Export types
-export type CommandTypeExtraction = z.infer<typeof commandTypeExtractionSchema>;
+export type IntentTypeExtraction = z.infer<typeof intentTypeExtractionSchema>;
 export type QueryExtraction = z.infer<typeof queryExtractionSchema>;

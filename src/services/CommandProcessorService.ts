@@ -1,12 +1,8 @@
 import { CommandProcessor } from '../solutions/commands';
 import {
-  MoveCommandHandler,
   SearchCommandHandler,
   MoreCommandHandler,
-  DeleteCommandHandler,
-  CopyCommandHandler,
   UpdateCommandHandler,
-  CreateCommandHandler,
   ReadCommandHandler,
   GenerateCommandHandler,
   GeneralCommandHandler,
@@ -23,9 +19,11 @@ import {
   ContextAugmentationHandler,
   TestCommandHandler,
 } from '../solutions/commands/handlers';
+import VaultAgent from '../solutions/commands/agents/VaultAgent/VaultAgent';
 
 import type StewardPlugin from '../main';
 import { getTextContentWithoutImages } from 'src/lib/modelfusion/utils/messageUtils';
+import { ToolName } from 'src/solutions/commands/ToolRegistry';
 
 export class CommandProcessorService {
   public readonly commandProcessor: CommandProcessor;
@@ -48,14 +46,22 @@ export class CommandProcessorService {
    * Setup command handlers
    */
   private setupHandlers(): void {
+    // Register the vault agent
+    this.commandProcessor.registerAgent('vault', new VaultAgent(this.plugin));
+    this.commandProcessor.registerAgent(
+      'vault_delete',
+      new VaultAgent(this.plugin, [ToolName.DELETE])
+    );
+    this.commandProcessor.registerAgent(
+      'vault_create',
+      new VaultAgent(this.plugin, [ToolName.CREATE])
+    );
+    this.commandProcessor.registerAgent('vault_copy', new VaultAgent(this.plugin, [ToolName.COPY]));
+    this.commandProcessor.registerAgent('vault_move', new VaultAgent(this.plugin, [ToolName.MOVE]));
+
     // Register the close command handler
     const closeHandler = new CloseCommandHandler(this.plugin);
     this.commandProcessor.registerHandler('close', closeHandler);
-
-    // Register the move command handler
-    const moveHandler = new MoveCommandHandler(this.plugin);
-    this.commandProcessor.registerHandler('move', moveHandler);
-    this.commandProcessor.registerHandler('move_from_artifact', moveHandler);
 
     // Register the confirmation handler
     const confirmHandler = new ConfirmCommandHandler(this.plugin);
@@ -65,7 +71,7 @@ export class CommandProcessorService {
 
     // Register the search handler
     const searchHandler = new SearchCommandHandler(this.plugin);
-    this.commandProcessor.registerHandler('search', searchHandler);
+    this.commandProcessor.registerAgent('search', searchHandler);
 
     // Register the more handler for pagination
     const moreHandler = new MoreCommandHandler(this.plugin, searchHandler);
@@ -80,22 +86,9 @@ export class CommandProcessorService {
     this.commandProcessor.registerHandler('audio', audioHandler);
     this.commandProcessor.registerHandler('speak', audioHandler);
 
-    // Register the delete command handler
-    const deleteHandler = new DeleteCommandHandler(this.plugin);
-    this.commandProcessor.registerHandler('delete', deleteHandler);
-    this.commandProcessor.registerHandler('delete_from_artifact', deleteHandler);
-
-    // Register the copy command handler
-    const copyHandler = new CopyCommandHandler(this.plugin);
-    this.commandProcessor.registerHandler('copy_from_artifact', copyHandler);
-
     // Register the update command handler
     const updateHandler = new UpdateCommandHandler(this.plugin);
     this.commandProcessor.registerHandler('update_from_artifact', updateHandler);
-
-    // Register the create command handler
-    const createHandler = new CreateCommandHandler(this.plugin);
-    this.commandProcessor.registerHandler('create', createHandler);
 
     // Register the read command handler
     const readHandler = new ReadCommandHandler(this.plugin);
@@ -148,18 +141,18 @@ export class CommandProcessorService {
   }
 
   /**
-   * Validate if the command content is required for a specific command type
+   * Validate if the intent content is required for a specific intent type
    */
-  public validateCommandContent(commandType: string, commandContent: string): boolean {
-    const handler = this.commandProcessor.getCommandHandler(commandType);
+  public validateIntentContent(intentType: string, intentContent: string): boolean {
+    const handler = this.commandProcessor.getCommandHandler(intentType);
     if (!handler) return true;
 
     const isContentRequired =
       typeof handler.isContentRequired === 'function'
-        ? handler.isContentRequired(commandType)
+        ? handler.isContentRequired(intentType)
         : handler.isContentRequired;
 
-    return isContentRequired ? getTextContentWithoutImages(commandContent) !== '' : true;
+    return isContentRequired ? getTextContentWithoutImages(intentContent) !== '' : true;
   }
 
   /**

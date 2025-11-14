@@ -1,9 +1,4 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { streamText } from 'ai';
@@ -15,13 +10,14 @@ import { ReadCommandHandler } from '../ReadCommandHandler/ReadCommandHandler';
 import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { requestReadContentTool } from '../../tools/requestReadContent';
 import { createEditTool } from '../../tools/editContent';
-import { ToolInvocation } from '../../tools/types';
+import { ToolInvocationResult } from '../../tools/types';
 import { UpdateCommandHandler } from '../UpdateCommandHandler/UpdateCommandHandler';
 import { uniqueID } from 'src/utils/uniqueID';
 import { SystemPromptModifier } from '../../SystemPromptModifier';
 import { createAskUserTool } from '../../tools/askUser';
 import { waitForError } from 'src/utils/waitForError';
 import { ToolRegistry, ToolName } from '../../ToolRegistry';
+import { IntentResultStatus } from '../../types';
 
 const { askUserTool } = createAskUserTool('ask');
 
@@ -54,7 +50,7 @@ export class GenerateCommandHandler extends CommandHandler {
       remainingSteps?: number;
     } = {}
   ): Promise<CommandResult> {
-    const { title, command, nextCommand, lang, handlerId = uniqueID() } = params;
+    const { title, intent, nextIntent, lang, handlerId = uniqueID() } = params;
     const t = getTranslation(lang);
     const MAX_STEP_COUNT = 3;
     const remainingSteps =
@@ -62,21 +58,21 @@ export class GenerateCommandHandler extends CommandHandler {
 
     if (remainingSteps <= 0) {
       return {
-        status: CommandResultStatus.SUCCESS,
+        status: IntentResultStatus.SUCCESS,
       };
     }
 
-    if (typeof params.command.systemPrompts === 'undefined') {
-      params.command.systemPrompts = [];
+    if (typeof params.intent.systemPrompts === 'undefined') {
+      params.intent.systemPrompts = [];
     }
-    const systemPrompts = params.command.systemPrompts;
+    const systemPrompts = params.intent.systemPrompts;
 
-    const originalQuery = this.commandProcessor.getPendingCommand(title)?.payload.originalQuery;
+    const originalQuery = this.commandProcessor.getPendingIntent(title)?.payload.originalQuery;
 
     // Replace the placeholder with the {{stw-selected...}} in the original query.
-    command.query = this.restoreStwSelectedBlocks({ originalQuery, query: command.query });
+    intent.query = this.restoreStwSelectedBlocks({ originalQuery, query: intent.query });
 
-    const hasStwSelected = new RegExp(STW_SELECTED_PATTERN).test(command.query);
+    const hasStwSelected = new RegExp(STW_SELECTED_PATTERN).test(intent.query);
 
     if (hasStwSelected) {
       systemPrompts.push(`The user query included one or more selections in the format {{stw-selected from:<startLine>,to:<endLine>,selection:<selectionContent>,path:<notePath>}}.
@@ -98,11 +94,11 @@ The response should be in natural language and not include the selection(s) {{st
     });
 
     const llmConfig = await this.plugin.llmService.getLLMConfig({
-      overrideModel: command.model,
+      overrideModel: intent.model,
       generateType: 'text',
     });
 
-    const userMessage = await prepareMessage(command.query, this.plugin);
+    const userMessage = await prepareMessage(intent.query, this.plugin);
 
     const { editTool } = createEditTool({
       contentType: 'in_the_note',
@@ -117,7 +113,7 @@ The response should be in natural language and not include the selection(s) {{st
       [ToolName.EDIT]: editTool,
       [ToolName.ASK_USER]: askUserTool,
     };
-    const registry = ToolRegistry.buildFromTools(tools, params.command.tools);
+    const registry = ToolRegistry.buildFromTools(tools, params.intent.tools);
 
     // Collect the error from the stream to handle it with our handle function.
     let streamError: Error | null = null;
@@ -172,7 +168,7 @@ ${languageEnforcementFragment}`),
       });
     }
 
-    const toolInvocations: ToolInvocation<string>[] = [];
+    const toolInvocations: ToolInvocationResult<string>[] = [];
 
     // Then, we handle tool calls
     const toolCalls = (await Promise.race([toolCallsPromise, streamErrorPromise])) as Awaited<
@@ -196,12 +192,12 @@ ${languageEnforcementFragment}`),
 
           const readResult = await readCommandHandler.handle({
             title,
-            command: {
-              commandType: 'read',
+            intent: {
+              type: 'read',
               query: toolCall.args.query,
-              model: command.model,
+              model: intent.model,
             },
-            nextCommand: command,
+            nextIntent: intent,
             lang,
             handlerId: `fromGenerate_${handlerId}`,
           });
@@ -209,15 +205,15 @@ ${languageEnforcementFragment}`),
           // Record read command execution if tracking is active (check frontmatter)
           const tracking = await this.plugin.commandTrackingService.getTracking(title);
           if (tracking) {
-            await this.plugin.commandTrackingService.recordCommandExecution(title, 'read');
+            await this.plugin.commandTrackingService.recordIntentExecution(title, 'read');
           }
 
-          if (readResult.status === CommandResultStatus.SUCCESS) {
+          if (readResult.status === IntentResultStatus.SUCCESS) {
             // Call handle again after reading
             return this.handle(params, {
               remainingSteps: remainingSteps - 1,
             });
-          } else if (readResult.status === CommandResultStatus.NEEDS_CONFIRMATION) {
+          } else if (readResult.status === IntentResultStatus.NEEDS_CONFIRMATION) {
             return {
               ...readResult,
               onFinal: async () => {
@@ -284,7 +280,7 @@ ${languageEnforcementFragment}`),
           });
 
           // If there's no next command, automatically trigger update_from_artifact
-          if (!nextCommand) {
+          if (!nextIntent) {
             await this.renderer.serializeToolInvocation({
               path: title,
               command: 'generate',
@@ -297,8 +293,8 @@ ${languageEnforcementFragment}`),
               title,
               lang,
               handlerId: `fromGenerate_${handlerId}`,
-              command: {
-                commandType: 'update',
+              intent: {
+                type: 'update',
                 query: 'Apply the content updates from the generated artifact',
               },
             });
@@ -317,7 +313,7 @@ ${languageEnforcementFragment}`),
           });
 
           return {
-            status: CommandResultStatus.NEEDS_USER_INPUT,
+            status: IntentResultStatus.NEEDS_USER_INPUT,
             onUserInput: async message => {
               toolInvocations.push({
                 ...toolCall,
@@ -363,13 +359,13 @@ ${languageEnforcementFragment}`),
         lang,
       });
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error: new Error('No response was generated by the AI'),
       };
     }
 
     return {
-      status: CommandResultStatus.SUCCESS,
+      status: IntentResultStatus.SUCCESS,
     };
   }
 }

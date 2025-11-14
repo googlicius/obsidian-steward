@@ -4,11 +4,11 @@ import { AbortService } from 'src/services/AbortService';
 import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
-import { CommandIntent } from 'src/types/types';
 import { explanationFragment, confidenceFragment } from '../prompts/fragments';
 import { logger } from 'src/utils/logger';
 import { getLanguage } from 'obsidian';
 import { SystemPromptModifier } from 'src/solutions/commands';
+import { Intent } from 'src/solutions/commands/types';
 
 const abortService = AbortService.getInstance();
 
@@ -45,8 +45,8 @@ const audioExtractionSchema = z.object({
  * @param params Parameters for audio extraction
  * @returns Extracted audio generation details
  */
-export async function extractAudioQuery(command: CommandIntent): Promise<AudioExtraction> {
-  const { systemPrompts = [] } = command;
+export async function extractAudioQuery(intent: Intent): Promise<AudioExtraction> {
+  const { systemPrompts = [] } = intent;
 
   // Extract only string-based system prompts (filter out modification objects)
   const modifier = new SystemPromptModifier(systemPrompts);
@@ -55,7 +55,7 @@ export async function extractAudioQuery(command: CommandIntent): Promise<AudioEx
   try {
     // Check if input is wrapped in quotation marks for direct extraction
     const quotedRegex = /^["'](.+)["']$/;
-    const match = command.query.trim().match(quotedRegex);
+    const match = intent.query.trim().match(quotedRegex);
 
     if (match) {
       const content = match[1];
@@ -69,7 +69,7 @@ export async function extractAudioQuery(command: CommandIntent): Promise<AudioEx
     }
 
     const llmConfig = await LLMService.getInstance().getLLMConfig({
-      overrideModel: command.model,
+      overrideModel: intent.model,
       generateType: 'object',
     });
 
@@ -81,7 +81,7 @@ export async function extractAudioQuery(command: CommandIntent): Promise<AudioEx
         ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         {
           role: 'user',
-          content: command.query,
+          content: intent.query,
         },
       ],
       schema: audioExtractionSchema,

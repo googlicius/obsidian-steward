@@ -4,10 +4,10 @@ import { AbortService } from 'src/services/AbortService';
 import { userLanguagePrompt } from '../prompts/languagePrompt';
 import { LLMService } from 'src/services/LLMService';
 import { z } from 'zod';
-import { CommandIntent } from 'src/types/types';
 import { explanationFragment, confidenceFragment } from '../prompts/fragments';
 import { logger } from 'src/utils/logger';
 import { SystemPromptModifier } from 'src/solutions/commands';
+import { Intent } from 'src/solutions/commands/types';
 
 const abortService = AbortService.getInstance();
 
@@ -31,13 +31,11 @@ const imageExtractionSchema = z.object({
 
 /**
  * Extract image generation details from a user query
- * @param command CommandIntent containing the user's request
- * @returns Extracted image generation details
  */
 export async function extractImageQuery(
-  command: CommandIntent
+  intent: Intent
 ): Promise<z.infer<typeof imageExtractionSchema>> {
-  const { systemPrompts = [] } = command;
+  const { systemPrompts = [] } = intent;
 
   // Extract only string-based system prompts (filter out modification objects)
   const modifier = new SystemPromptModifier(systemPrompts);
@@ -45,7 +43,7 @@ export async function extractImageQuery(
 
   try {
     const llmConfig = await LLMService.getInstance().getLLMConfig({
-      overrideModel: command.model,
+      overrideModel: intent.model,
       generateType: 'object',
     });
 
@@ -57,7 +55,7 @@ export async function extractImageQuery(
         ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
         {
           role: 'user',
-          content: command.query,
+          content: intent.query,
         },
       ],
       schema: imageExtractionSchema,

@@ -1,0 +1,84 @@
+import { SystemPromptItem } from './SystemPromptModifier';
+import { ToolName } from './ToolRegistry';
+
+/**
+ * Represents a single intent in a sequence
+ */
+export interface Intent {
+  type: string;
+  query: string;
+  systemPrompts?: (string | SystemPromptItem)[];
+  model?: string; // Optional model to use for this intent
+  no_confirm?: boolean; // Skip confirmation for this intent
+  tools?: {
+    exclude?: ToolName[];
+  };
+}
+
+export interface ContextAugmentationIntent extends Intent {
+  type: 'context_augmentation';
+  retryRemaining: number;
+}
+
+export enum IntentResultStatus {
+  SUCCESS = 'success',
+  ERROR = 'error',
+  NEEDS_CONFIRMATION = 'needs_confirmation',
+  NEEDS_USER_INPUT = 'needs_user_input',
+  LOW_CONFIDENCE = 'low_confidence',
+}
+
+type UserInputResult = {
+  status: IntentResultStatus.NEEDS_USER_INPUT;
+  onUserInput: (message: string) => Promise<AgentResult> | AgentResult;
+};
+
+type SuccessResult = {
+  status: IntentResultStatus.SUCCESS;
+  shouldContinue?: boolean;
+  nextParams?: Partial<AgentHandlerParams>;
+};
+
+type ErrorResult = {
+  status: IntentResultStatus.ERROR;
+  error?: Error | string;
+};
+
+type LowConfidenceResult = {
+  status: IntentResultStatus.LOW_CONFIDENCE;
+  intentType: string;
+  explanation?: string;
+};
+
+export type ConfirmationResult = {
+  status: IntentResultStatus.NEEDS_CONFIRMATION;
+  confirmationMessage?: string;
+  onConfirmation: (message: string) => Promise<AgentResult> | AgentResult;
+  onRejection?: (message: string) => Promise<AgentResult> | AgentResult;
+  onFinal?: () => Promise<void> | void;
+};
+
+export type AgentResult =
+  | ConfirmationResult
+  | UserInputResult
+  | SuccessResult
+  | ErrorResult
+  | LowConfidenceResult;
+
+export interface AgentHandlerParams<T extends Intent = Intent> {
+  title: string;
+  intent: T;
+  prevIntent?: Intent;
+  nextIntent?: Intent;
+  lang?: string | null;
+  /**
+   * Handler ID to group all messages issued in one handle function call.
+   * If not provided, a new ID will be generated.
+   */
+  handlerId?: string;
+  upstreamOptions?: {
+    isReloadRequest?: boolean;
+    ignoreClassify?: boolean;
+  };
+  activeTools?: ToolName[];
+}

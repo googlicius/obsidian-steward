@@ -1,9 +1,4 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import type StewardPlugin from 'src/main';
 import {
@@ -17,20 +12,23 @@ import { generateObject } from 'ai';
 import { getCommandTypePrompt } from './commandTypePrompt';
 import { getQueryExtractionPrompt } from './queryExtractionPrompt';
 import { logger } from 'src/utils/logger';
-import { ConversationHistoryMessage, CommandIntent } from 'src/types/types';
+import { ConversationHistoryMessage } from 'src/types/types';
 import { getClassifier } from 'src/lib/modelfusion/classifiers/getClassifier';
 import {
-  commandTypeExtractionSchema,
   queryExtractionSchema,
-  CommandTypeExtraction,
   QueryExtraction,
+  IntentTypeExtraction,
+  intentTypeExtractionSchema,
 } from './zSchemas';
 import { SystemPromptModifier } from '../../SystemPromptModifier';
 import { stringifyYaml } from 'obsidian';
+import { Intent } from '../../types';
+import { IntentResultStatus } from '../../types';
+import { joinWithConjunction } from 'src/utils/arrayUtils';
 
-export type CommandIntentExtraction = Omit<CommandTypeExtraction, 'commandTypes'> &
-  Omit<QueryExtraction, 'commands'> & {
-    commands: QueryExtraction['commands'];
+export type CommandIntentExtraction = Omit<IntentTypeExtraction, 'types'> &
+  Omit<QueryExtraction, 'intents'> & {
+    intents: QueryExtraction['intents'];
   };
 
 export class GeneralCommandHandler extends CommandHandler {
@@ -55,7 +53,7 @@ export class GeneralCommandHandler extends CommandHandler {
    * @returns Extracted command types, content, and explanation
    */
   private async extractCommandIntent(args: {
-    command: CommandIntent;
+    intent: Intent;
     conversationHistories: ConversationHistoryMessage[];
     lang?: string | null;
     isReloadRequest?: boolean;
@@ -63,7 +61,7 @@ export class GeneralCommandHandler extends CommandHandler {
     currentArtifacts?: Artifact[];
   }): Promise<CommandIntentExtraction> {
     const {
-      command,
+      intent,
       lang,
       conversationHistories = [],
       isReloadRequest = false,
@@ -75,20 +73,20 @@ export class GeneralCommandHandler extends CommandHandler {
       logger.log('Starting 2-step intent extraction process');
 
       // Get classifier for semantic similarity check
-      let commandTypeExtraction: CommandTypeExtraction | undefined;
+      let intentTypeExtraction: IntentTypeExtraction | undefined;
 
       if (!ignoreClassify) {
         const embeddingSettings = this.plugin.llmService.getEmbeddingSettings();
         const classifier = getClassifier(embeddingSettings, isReloadRequest);
-        const clusterName = await classifier.doClassify(command.query);
+        const clusterName = await classifier.doClassify(intent.query);
 
         if (clusterName) {
           logger.log(`The user input was classified as "${clusterName}"`);
           const classifiedCommandTypes = clusterName.split(':');
 
           // If classified, create command type extraction result directly without calling the function
-          commandTypeExtraction = {
-            commandTypes: classifiedCommandTypes,
+          intentTypeExtraction = {
+            types: classifiedCommandTypes,
             explanation: `Classified as ${clusterName} command based on semantic similarity.`,
             confidence: 0.9,
           };
@@ -96,53 +94,55 @@ export class GeneralCommandHandler extends CommandHandler {
       }
 
       // Step 1: Extract command types (only if not already classified)
-      if (!commandTypeExtraction) {
-        commandTypeExtraction = await this.extractCommandTypes({
-          command,
+      if (!intentTypeExtraction) {
+        intentTypeExtraction = await this.extractIntentTypes({
+          intent,
           conversationHistories,
           currentArtifacts,
         });
       }
 
       // If no command types were extracted or confidence is very low, return early
-      if (commandTypeExtraction.commandTypes.length === 0) {
+      if (intentTypeExtraction.types.length === 0) {
         return {
-          commands: [],
-          explanation: commandTypeExtraction.explanation,
-          confidence: commandTypeExtraction.confidence,
+          intents: [],
+          explanation: intentTypeExtraction.explanation,
+          confidence: intentTypeExtraction.confidence,
           lang,
         };
       }
 
       // If command type is not read or generate, return early
-      if (commandTypeExtraction.commandTypes.length === 1) {
-        const commandType = commandTypeExtraction.commandTypes[0];
+      if (intentTypeExtraction.types.length === 1) {
+        const intentType = intentTypeExtraction.types[0];
 
-        if (commandType !== 'read' && commandType !== 'generate') {
+        if (intentType !== 'read' && intentType !== 'generate') {
           return {
-            commands: [{ commandType, query: command.query }],
-            explanation: commandTypeExtraction.explanation,
-            confidence: commandTypeExtraction.confidence,
+            intents: [{ type: intentType, query: intent.query }],
+            explanation: intentTypeExtraction.explanation,
+            confidence: intentTypeExtraction.confidence,
             lang,
           };
         }
       }
 
       // Step 2: Extract specific queries for each command type
-      logger.log(`Extracting queries for ${commandTypeExtraction.commandTypes.length} command(s)`);
+      logger.log(
+        `Extracting queries for ${joinWithConjunction(intentTypeExtraction.types, 'and')} intent(s)`
+      );
 
       const queryExtraction = await this.extractQueries({
-        command,
-        commandTypes: commandTypeExtraction.commandTypes,
+        intent,
+        intentTypes: intentTypeExtraction.types,
         conversationHistories,
         currentArtifacts,
       });
 
       // Combine the results from both steps
       const result: CommandIntentExtraction = {
-        commands: queryExtraction.commands,
+        intents: queryExtraction.intents,
         explanation: queryExtraction.explanation,
-        confidence: commandTypeExtraction.confidence,
+        confidence: intentTypeExtraction.confidence,
         lang,
       };
 
@@ -154,25 +154,25 @@ export class GeneralCommandHandler extends CommandHandler {
   }
 
   /**
-   * Extract command types from a general query using AI (Step 1)
-   * @returns Extracted command types and explanation
+   * Extract intent types from a general query using AI (Step 1)
+   * @returns Extracted intent types and explanation
    */
-  private async extractCommandTypes(args: {
-    command: CommandIntent;
+  private async extractIntentTypes(args: {
+    intent: Intent;
     conversationHistories: ConversationHistoryMessage[];
     currentArtifacts?: Artifact[];
-  }): Promise<CommandTypeExtraction> {
-    const { command, conversationHistories = [], currentArtifacts } = args;
+  }): Promise<IntentTypeExtraction> {
+    const { intent, conversationHistories = [], currentArtifacts } = args;
 
     const llmConfig = await this.plugin.llmService.getLLMConfig({
-      overrideModel: command.model,
+      overrideModel: intent.model,
       generateType: 'object',
     });
 
-    const additionalSystemPrompts = command.systemPrompts || [];
+    const additionalSystemPrompts = intent.systemPrompts || [];
 
-    // Proceed with LLM-based command type extraction
-    logger.log('Using LLM for command type extraction');
+    // Proceed with LLM-based intent type extraction
+    logger.log('Using LLM for intent type extraction');
 
     try {
       // Create an operation-specific abort signal
@@ -192,9 +192,9 @@ export class GeneralCommandHandler extends CommandHandler {
             .getAdditionalSystemPrompts()
             .map(prompt => ({ role: 'system' as const, content: prompt })),
           ...conversationHistories,
-          { role: 'user', content: command.query },
+          { role: 'user', content: intent.query },
         ],
-        schema: commandTypeExtractionSchema,
+        schema: intentTypeExtractionSchema,
       });
 
       return object;
@@ -209,19 +209,19 @@ export class GeneralCommandHandler extends CommandHandler {
    * @returns Extracted commands with queries
    */
   private async extractQueries(args: {
-    command: CommandIntent;
-    commandTypes: string[];
+    intent: Intent;
+    intentTypes: string[];
     conversationHistories: ConversationHistoryMessage[];
     currentArtifacts?: Artifact[];
   }): Promise<QueryExtraction> {
-    const { command, commandTypes, conversationHistories = [], currentArtifacts } = args;
+    const { intent, intentTypes, conversationHistories = [], currentArtifacts } = args;
 
     const llmConfig = await this.plugin.llmService.getLLMConfig({
-      overrideModel: command.model,
+      overrideModel: intent.model,
       generateType: 'object',
     });
 
-    const modifier = new SystemPromptModifier(command.systemPrompts);
+    const modifier = new SystemPromptModifier(intent.systemPrompts);
 
     // Proceed with LLM-based query extraction
     logger.log('Using LLM for query extraction');
@@ -235,7 +235,7 @@ export class GeneralCommandHandler extends CommandHandler {
         abortSignal,
         system: modifier.apply(
           getQueryExtractionPrompt({
-            commandTypes,
+            intentTypes,
             currentArtifacts,
           })
         ),
@@ -244,7 +244,7 @@ export class GeneralCommandHandler extends CommandHandler {
             .getAdditionalSystemPrompts()
             .map(prompt => ({ role: 'system' as const, content: prompt })),
           ...conversationHistories,
-          { role: 'user', content: command.query },
+          { role: 'user', content: intent.query },
         ],
         schema: queryExtractionSchema,
       });
@@ -268,8 +268,8 @@ export class GeneralCommandHandler extends CommandHandler {
     // Create the YAML data structure
     const yamlData: Record<string, unknown> = {
       name: 'Extraction details',
-      commands: extraction.commands.map(cmd => ({
-        [cmd.commandType]: cmd.query,
+      intents: extraction.intents.map(intent => ({
+        [intent.type]: intent.query,
       })),
     };
 
@@ -292,17 +292,17 @@ export class GeneralCommandHandler extends CommandHandler {
       extraction?: CommandIntentExtraction;
     } = {}
   ): Promise<CommandResult> {
-    const { title, command, upstreamOptions } = params;
+    const { title, intent, upstreamOptions } = params;
 
     let extraction = options.extraction;
 
     // If extraction is not provided, extract conversation history and then get command intent
     if (!extraction) {
-      const systemPrompts = command.systemPrompts || [];
+      const systemPrompts = intent.systemPrompts || [];
       const conversationHistories = await this.renderer.extractConversationHistory(title);
-      const hasStwSelected = new RegExp(STW_SELECTED_PATTERN).test(command.query);
-      const hasImageLinks = new RegExp(IMAGE_LINK_PATTERN).test(command.query);
-      const hasWikiLinks = new RegExp(WIKI_LINK_PATTERN).test(command.query);
+      const hasStwSelected = new RegExp(STW_SELECTED_PATTERN).test(intent.query);
+      const hasImageLinks = new RegExp(IMAGE_LINK_PATTERN).test(intent.query);
+      const hasWikiLinks = new RegExp(WIKI_LINK_PATTERN).test(intent.query);
 
       if (hasStwSelected) {
         systemPrompts.push(`The user query included one or more selections in this format {{stw-selected from:<startLine>,to:<endLine>,selection:<selectionContent>,path:<notePath>}}.
@@ -333,8 +333,8 @@ IMPORTANT:
         .getAllArtifacts();
 
       extraction = await this.extractCommandIntent({
-        command: {
-          ...command,
+        intent: {
+          ...intent,
           systemPrompts,
         },
         lang: params.lang,
@@ -346,7 +346,7 @@ IMPORTANT:
     }
 
     // Show extraction explanation if setting is enabled
-    if (this.plugin.settings.llm.showExtractionExplanation && extraction.commands.length > 0) {
+    if (this.plugin.settings.llm.showExtractionExplanation && extraction.intents.length > 0) {
       const explanationContent = this.formatExtractionExplanation(extraction, params.lang);
       await this.renderer.updateConversationNote({
         path: title,
@@ -356,7 +356,7 @@ IMPORTANT:
       });
     }
 
-    if (extraction.commands.length === 0) {
+    if (extraction.intents.length === 0) {
       await this.renderer.updateConversationNote({
         path: title,
         newContent: extraction.explanation,
@@ -365,22 +365,37 @@ IMPORTANT:
       });
 
       return {
-        status: CommandResultStatus.ERROR,
-        error: 'No commands are extracted',
+        status: IntentResultStatus.ERROR,
+        error: 'No intents are extracted',
       };
     }
 
     // For low confidence intents, return LOW_CONFIDENCE status
     if (extraction.confidence <= 0.7 && !options.intentExtractionConfirmed) {
       return {
-        status: CommandResultStatus.LOW_CONFIDENCE,
-        commandType: 'general',
+        status: IntentResultStatus.LOW_CONFIDENCE,
+        intentType: 'general',
         explanation: extraction.explanation,
       };
     }
 
     // Initialize command execution tracking when high confidence and more than 1 command
-    const shouldTrack = extraction.confidence >= 0.9 && extraction.commands.length > 1;
+    const shouldTrack = extraction.confidence >= 0.9 && extraction.intents.length > 1;
+
+    if (upstreamOptions?.isReloadRequest) {
+      // Delete embeddings before resetting
+      const embeddingSettings = this.plugin.llmService.getEmbeddingSettings();
+      const classifier = getClassifier(embeddingSettings, false);
+
+      try {
+        await classifier.deleteEmbeddingsByValue(params.intent.query);
+        logger.log(`Deleted embeddings for original query when resetting tracking`);
+      } catch (error) {
+        logger.error('Failed to delete embeddings when resetting tracking:', error);
+      }
+
+      await this.plugin.commandTrackingService.resetTracking(title);
+    }
 
     if (shouldTrack) {
       const existingTracking = await this.plugin.commandTrackingService.getTracking(title);
@@ -388,8 +403,8 @@ IMPORTANT:
       if (!existingTracking || upstreamOptions?.isReloadRequest) {
         await this.plugin.commandTrackingService.initializeTracking({
           conversationTitle: title,
-          originalQuery: command.query,
-          extractedCommands: extraction.commands.map(c => c.commandType),
+          originalQuery: intent.query,
+          extractedCommands: extraction.intents.map(i => i.type),
           confidence: extraction.confidence,
           isReloadRequest: upstreamOptions?.isReloadRequest,
         });
@@ -397,15 +412,15 @@ IMPORTANT:
     }
 
     // Process the commands (either high confidence or confirmed)
-    await this.commandProcessor.processCommands({
+    await this.commandProcessor.processIntents({
       title,
-      commands: extraction.commands,
-      originalQuery: command.query,
+      intents: extraction.intents,
+      originalQuery: intent.query,
       lang: extraction.lang,
     });
 
     return {
-      status: CommandResultStatus.SUCCESS,
+      status: IntentResultStatus.SUCCESS,
     };
   }
 }

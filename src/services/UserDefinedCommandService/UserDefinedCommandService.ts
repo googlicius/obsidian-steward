@@ -1,6 +1,5 @@
 import { getLanguage, normalizePath, Notice, TFile, parseYaml } from 'obsidian';
 import { logger } from 'src/utils/logger';
-import { CommandIntent } from 'src/types/types';
 import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES } from 'src/constants';
 import { SearchOperationV2 } from 'src/solutions/commands/handlers/SearchCommandHandler/zSchemas';
@@ -8,6 +7,7 @@ import { StewardChatView } from 'src/views/StewardChatView';
 import i18next from 'i18next';
 import { IVersionedUserDefinedCommand, TriggerCondition } from './versions/types';
 import { loadUDCVersion } from './versions/loader';
+import { Intent } from 'src/solutions/commands/types';
 
 export class UserDefinedCommandService {
   private static instance: UserDefinedCommandService | null = null;
@@ -667,11 +667,11 @@ export class UserDefinedCommandService {
         10000
       );
 
-      await this.plugin.commandProcessorService.commandProcessor.processCommands({
+      await this.plugin.commandProcessorService.commandProcessor.processIntents({
         title: conversationTitle,
-        commands: [
+        intents: [
           {
-            commandType: command.normalized.command_name,
+            type: command.normalized.command_name,
             query: `__file:${file.name}__`,
           },
         ],
@@ -769,10 +769,7 @@ export class UserDefinedCommandService {
   /**
    * Process a user-defined command with user input
    */
-  private processUserDefinedCommand(
-    commandName: string,
-    userInput: string
-  ): CommandIntent[] | null {
+  private processUserDefinedCommand(commandName: string, userInput: string): Intent[] | null {
     const command = this.userDefinedCommands.get(commandName);
 
     if (!command) {
@@ -802,7 +799,7 @@ export class UserDefinedCommandService {
       const model = step.model || command.normalized.model;
 
       return {
-        commandType: step.name,
+        type: step.name,
         systemPrompts: step.system_prompt,
         query,
         model,
@@ -823,42 +820,39 @@ export class UserDefinedCommandService {
    * Recursively expand a list of CommandIntent, flattening user-defined commands and detecting cycles
    */
   public expandUserDefinedCommandIntents(
-    intents: CommandIntent | CommandIntent[],
+    intents: Intent | Intent[],
     userInput = '',
     visited: Set<string> = new Set()
-  ): CommandIntent[] {
-    const expanded: CommandIntent[] = [];
+  ): Intent[] {
+    const expanded: Intent[] = [];
 
     intents = Array.isArray(intents) ? intents : [intents];
 
     for (const intent of intents) {
-      if (!this.hasCommand(intent.commandType)) {
+      if (!this.hasCommand(intent.type)) {
         expanded.push(intent);
         continue;
       }
 
-      if (visited.has(intent.commandType)) {
+      if (visited.has(intent.type)) {
         // Check if this is a built-in command
-        const isBuiltInCommand = this.commandProcessorService.isBuiltInCommand(intent.commandType);
+        const isBuiltInCommand = this.commandProcessorService.isBuiltInCommand(intent.type);
 
         // Only throw cycle error if it's not a built-in command
         if (!isBuiltInCommand) {
-          throw new Error(`Cycle detected in user-defined commands: ${intent.commandType}`);
+          throw new Error(`Cycle detected in user-defined commands: ${intent.type}`);
         }
 
         expanded.push(intent);
         continue;
       }
 
-      visited.add(intent.commandType);
-      const subIntents = this.processUserDefinedCommand(
-        intent.commandType,
-        intent.query || userInput
-      );
+      visited.add(intent.type);
+      const subIntents = this.processUserDefinedCommand(intent.type, intent.query || userInput);
       if (subIntents) {
         expanded.push(...this.expandUserDefinedCommandIntents(subIntents, userInput, visited));
       }
-      visited.delete(intent.commandType);
+      visited.delete(intent.type);
     }
 
     return expanded;

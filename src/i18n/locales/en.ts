@@ -91,6 +91,7 @@ const en = {
       createFoldersHeader: 'I need to create the following folders before moving files:',
       createFoldersQuestion: 'Would you like me to create these folders?',
       cannotMoveThisType: 'I cannot move this type of artifact: {{type}}',
+      destinationRequired: 'Please specify a destination folder for the move operation.',
     },
     // Copy result messages
     copy: {
@@ -112,6 +113,27 @@ const en = {
       tooManyFilesConfirm: 'I am about to copy {{count}} files. Are you sure you want to proceed?',
       cannotCopyThisType: 'I cannot copy this type of artifact: {{type}}',
     },
+    rename: {
+      processed_one: 'I processed {{count}} rename instruction.',
+      processed_other: 'I processed {{count}} rename instructions.',
+      success_one: 'Successfully renamed {{count}} file:',
+      success_other: 'Successfully renamed {{count}} files:',
+      samePath_one: 'Skipped {{count}} file (new path matches current path):',
+      samePath_other: 'Skipped {{count}} files (new path matches current path):',
+      fileMissing_one: 'Skipped {{count}} file (original path not found):',
+      fileMissing_other: 'Skipped {{count}} files (original path not found):',
+      targetExists_one: 'Skipped {{count}} file (target already exists):',
+      targetExists_other: 'Skipped {{count}} files (target already exists):',
+      errors_one: 'Encountered errors with {{count}} file:',
+      errors_other: 'Encountered errors with {{count}} files:',
+      renameError: 'Failed to rename {{path}}: {{message}}',
+      createFoldersHeader: 'I need to create the following folders before renaming files:',
+      createFoldersQuestion: 'Would you like me to create these folders?',
+      noInstructions: 'No rename instructions provided.',
+      invalidInstruction:
+        'Each rename instruction must include both the current path and the new path.',
+      unknownError: 'Unknown error.',
+    },
     create: {
       success_one: 'Successfully created {{noteName}}',
       success_other: 'Successfully created {{count}} notes: {{noteNames}}',
@@ -119,6 +141,16 @@ const en = {
       confirmMessage_one: 'I will create the following note:',
       confirmMessage_other: 'I will create the following notes:',
       confirmPrompt: 'Do you want to proceed?',
+    },
+    list: {
+      noFilesFound: 'No files found.',
+      noFilesFoundInFolder: 'No files found in {{folder}}.',
+      foundFiles_one: 'I found {{count}} file',
+      foundFiles_other: 'I found {{count}} files',
+      foundFilesInFolder_one: 'I found {{count}} file in {{folder}}',
+      foundFilesInFolder_other: 'I found {{count}} files in {{folder}}',
+      moreFiles_one: '... and {{count}} more file',
+      moreFiles_other: '... and {{count}} more files',
     },
     generate: {
       success: 'Successfully generated',
@@ -282,6 +314,7 @@ const en = {
       buildingIndex: 'Building search index...',
       summarizing: 'Summarizing conversation...',
       augmentingContext: 'Augmenting context...',
+      continuingProcessing: 'Continuing...',
     },
     // Model fallback messages
     modelFallback: {

@@ -77,6 +77,7 @@ const vi = {
       createFoldersHeader: 'Tôi cần tạo các thư mục sau trước khi di chuyển tập tin:',
       createFoldersQuestion: 'Bạn có muốn tôi tạo các thư mục này không?',
       cannotMoveThisType: 'Không thể di chuyển loại artifact này: {{type}}',
+      destinationRequired: 'Vui lòng chỉ định thư mục đích cho thao tác di chuyển.',
     },
     // Copy result messages
     copy: {
@@ -98,10 +99,38 @@ const vi = {
       tooManyFilesConfirm: 'Tôi đang sao chép {{count}} ghi chú. Bạn có muốn tiếp tục không?',
       cannotCopyThisType: 'Không thể sao chép loại artifact này: {{type}}',
     },
+    rename: {
+      processed: 'Tôi đã xử lý {{count}} yêu cầu đổi tên.',
+      processed_plural: 'Tôi đã xử lý {{count}} yêu cầu đổi tên.',
+      success: 'Đã đổi tên thành công {{count}} tập tin:',
+      success_plural: 'Đã đổi tên thành công {{count}} tập tin:',
+      samePath: 'Đã bỏ qua {{count}} tập tin (đường dẫn mới trùng với đường dẫn cũ):',
+      samePath_plural: 'Đã bỏ qua {{count}} tập tin (đường dẫn mới trùng với đường dẫn cũ):',
+      fileMissing: 'Đã bỏ qua {{count}} tập tin (không tìm thấy đường dẫn gốc):',
+      fileMissing_plural: 'Đã bỏ qua {{count}} tập tin (không tìm thấy đường dẫn gốc):',
+      targetExists: 'Đã bỏ qua {{count}} tập tin (đích đã tồn tại):',
+      targetExists_plural: 'Đã bỏ qua {{count}} tập tin (đích đã tồn tại):',
+      errors: 'Gặp lỗi với {{count}} tập tin:',
+      errors_plural: 'Gặp lỗi với {{count}} tập tin:',
+      renameError: 'Không thể đổi tên {{path}}: {{message}}',
+      createFoldersHeader: 'Tôi cần tạo các thư mục sau trước khi đổi tên tập tin:',
+      createFoldersQuestion: 'Bạn có muốn tôi tạo các thư mục này không?',
+      noInstructions: 'Không có hướng dẫn đổi tên nào được cung cấp.',
+      invalidInstruction:
+        'Mỗi hướng dẫn đổi tên phải bao gồm cả đường dẫn hiện tại và đường dẫn mới.',
+      unknownError: 'Lỗi không xác định.',
+    },
     create: {
       success_one: 'Đã tạo thành công {{noteName}}',
       success_other: 'Đã tạo thành công {{count}} ghi chú: {{noteNames}}',
       creatingNote: 'Đang tạo ghi chú: [[{{noteName}}]]',
+    },
+    list: {
+      noFilesFound: 'Không tìm thấy tập tin nào.',
+      noFilesFoundInFolder: 'Không tìm thấy tập tin nào trong {{folder}}.',
+      foundFiles: 'Tôi đã tìm thấy {{count}} tập tin',
+      foundFilesInFolder: 'Tôi đã tìm thấy {{count}} tập tin trong {{folder}}',
+      moreFiles: '... và thêm {{count}} tập tin nữa',
     },
     generate: {
       success: 'Đã tạo thành công',
@@ -256,6 +285,7 @@ const vi = {
       readingContent: 'Đang đọc nội dung...',
       buildingIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
       summarizing: 'Đang tóm tắt cuộc trò chuyện...',
+      continuingProcessing: 'Đang tiếp tục...',
     },
     // Model fallback messages
     modelFallback: {

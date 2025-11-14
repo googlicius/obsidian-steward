@@ -2,10 +2,10 @@ import { ReadCommandHandler } from './ReadCommandHandler';
 import type StewardPlugin from 'src/main';
 import { type App } from 'obsidian';
 import { type NoteContentService } from 'src/services/NoteContentService';
-import { CommandHandlerParams, CommandResultStatus } from '../../CommandHandler';
+import { CommandHandlerParams } from '../../CommandHandler';
 import { generateId, generateText } from 'ai';
-import { CommandIntent } from 'src/types/types';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
+import { Intent, IntentResultStatus } from '../../types';
 
 // Mock individual functions from the ai package
 jest.mock('ai', () => {
@@ -133,11 +133,11 @@ describe('ReadCommandHandler', () => {
       // Create command params
       const params: CommandHandlerParams = {
         title: 'Test Conversation',
-        command: {
-          commandType: 'read',
+        intent: {
+          type: 'read',
           query: 'Read text above, read type: above',
           model: 'mock-model',
-        } as CommandIntent,
+        } as Intent,
       };
 
       // Act
@@ -145,7 +145,7 @@ describe('ReadCommandHandler', () => {
 
       // Assert
       expect(result).toMatchObject({
-        status: CommandResultStatus.SUCCESS,
+        status: IntentResultStatus.SUCCESS,
       });
       expect(handleSpy).toHaveBeenCalledTimes(1);
       expect(generateText).toHaveBeenCalledTimes(1);
@@ -203,11 +203,11 @@ describe('ReadCommandHandler', () => {
       // Create command params
       const params: CommandHandlerParams = {
         title: 'Test Conversation',
-        command: {
-          commandType: 'read',
+        intent: {
+          type: 'read',
           query: 'Read text above, read type: above; Read table above; read type: above',
           model: 'mock-model',
-        } as CommandIntent,
+        } as Intent,
       };
 
       // Act
@@ -215,7 +215,7 @@ describe('ReadCommandHandler', () => {
 
       // Assert
       expect(result).toMatchObject({
-        status: CommandResultStatus.SUCCESS,
+        status: IntentResultStatus.SUCCESS,
       });
       expect(handleSpy).toHaveBeenCalledTimes(2);
       expect(generateText).toHaveBeenCalledTimes(2);
@@ -282,11 +282,11 @@ describe('ReadCommandHandler', () => {
       // Create command params
       const params: CommandHandlerParams = {
         title: 'Test Conversation',
-        command: {
-          commandType: 'read',
+        intent: {
+          type: 'read',
           query: 'Read text above, read type: above; Read table above; read type: above',
           model: 'mock-model',
-        } as CommandIntent,
+        } as Intent,
       };
 
       // Act
@@ -294,7 +294,7 @@ describe('ReadCommandHandler', () => {
 
       // Assert
       expect(result).toMatchObject({
-        status: CommandResultStatus.SUCCESS,
+        status: IntentResultStatus.SUCCESS,
       });
       expect(handleSpy).toHaveBeenCalledTimes(1);
       expect(generateText).toHaveBeenCalledTimes(1);
@@ -342,11 +342,11 @@ describe('ReadCommandHandler', () => {
       // Create command params
       const params: CommandHandlerParams = {
         title: 'Test Conversation',
-        command: {
-          commandType: 'read',
+        intent: {
+          type: 'read',
           query: 'Read entire note Test',
           model: 'mock-model',
-        } as CommandIntent,
+        } as Intent,
       };
 
       // Act
@@ -354,7 +354,7 @@ describe('ReadCommandHandler', () => {
 
       // Assert
       expect(result).toMatchObject({
-        status: CommandResultStatus.NEEDS_CONFIRMATION,
+        status: IntentResultStatus.NEEDS_CONFIRMATION,
       });
     });
   });

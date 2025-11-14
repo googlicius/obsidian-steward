@@ -1,15 +1,11 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { generateObject } from 'ai';
 import { ConversationHistoryMessage } from 'src/types/types';
 import { z } from 'zod';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
+import { IntentResultStatus } from '../types';
 
 // Schema for conversation summary
 const conversationSummarySchema = z.object({
@@ -48,7 +44,7 @@ export class SummaryCommandHandler extends CommandHandler {
         });
 
         return {
-          status: CommandResultStatus.SUCCESS,
+          status: IntentResultStatus.SUCCESS,
         };
       }
 
@@ -81,7 +77,7 @@ export class SummaryCommandHandler extends CommandHandler {
       });
 
       return {
-        status: CommandResultStatus.SUCCESS,
+        status: IntentResultStatus.SUCCESS,
       };
     } catch (error) {
       await this.renderer.updateConversationNote({
@@ -91,7 +87,7 @@ export class SummaryCommandHandler extends CommandHandler {
       });
 
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error,
       };
     }

@@ -1,9 +1,4 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../CommandHandler';
 import { experimental_generateSpeech } from 'ai';
 import { getTranslation } from 'src/i18n';
 import { extractAudioQuery } from 'src/lib/modelfusion/extractions';
@@ -11,6 +6,7 @@ import { ArtifactType } from 'src/solutions/artifact';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
 import { StewardPluginSettings } from 'src/types/interfaces';
+import { IntentResultStatus } from '../types';
 
 export class AudioCommandHandler extends CommandHandler {
   isContentRequired = true;
@@ -33,7 +29,7 @@ export class AudioCommandHandler extends CommandHandler {
       const messages = await this.renderer.extractAllConversationMessages(title);
 
       // If there are only 1 message (user)
-      if (messages.length === 1 && messages[0].role === 'user' && messages[0].command === 'audio') {
+      if (messages.length === 1 && messages[0].role === 'user' && messages[0].intent === 'audio') {
         return true;
       }
 
@@ -47,7 +43,7 @@ export class AudioCommandHandler extends CommandHandler {
    * Handle an audio command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { command, lang } = params;
+    const { intent, lang } = params;
 
     const t = getTranslation(lang);
 
@@ -59,7 +55,7 @@ export class AudioCommandHandler extends CommandHandler {
           ? await this.renderer.updateTheTitle(params.title, 'Audio')
           : params.title;
 
-      const extraction = await extractAudioQuery(command);
+      const extraction = await extractAudioQuery(intent);
 
       await this.renderer.updateConversationNote({
         path: title,
@@ -81,7 +77,7 @@ export class AudioCommandHandler extends CommandHandler {
 
       const result = await this.generateAudio(extraction.text, {
         voice,
-        instructions: command.systemPrompts?.join('\n'),
+        instructions: intent.systemPrompts?.join('\n'),
       });
 
       if (!result.success) {
@@ -91,7 +87,7 @@ export class AudioCommandHandler extends CommandHandler {
         });
 
         return {
-          status: CommandResultStatus.ERROR,
+          status: IntentResultStatus.ERROR,
           error: result.error,
         };
       }
@@ -126,7 +122,7 @@ export class AudioCommandHandler extends CommandHandler {
       }
 
       return {
-        status: CommandResultStatus.SUCCESS,
+        status: IntentResultStatus.SUCCESS,
       };
     } catch (error) {
       await this.renderer.updateConversationNote({
@@ -136,7 +132,7 @@ export class AudioCommandHandler extends CommandHandler {
       });
 
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error,
       };
     }

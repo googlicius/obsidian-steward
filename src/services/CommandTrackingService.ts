@@ -96,14 +96,29 @@ export class CommandTrackingService {
     logger.log(`Initialized tracking for: ${conversationTitle}`, extractedCommands);
   }
 
+  public async resetTracking(conversationTitle: string): Promise<void> {
+    const file = this.getConversationFile(conversationTitle);
+    if (!file) {
+      logger.warn(`Note not found when resetting tracking: ${conversationTitle}`);
+      return;
+    }
+
+    await this.plugin.app.fileManager.processFrontMatter(file, frontmatter => {
+      if (!frontmatter.tracking) {
+        return;
+      }
+
+      delete frontmatter.tracking;
+    });
+
+    logger.log(`Reset tracking for: ${conversationTitle}`);
+  }
+
   /**
-   * Record a command execution
-   * This should be called whenever a command handler is executed
+   * Record a command/agent execution
+   * This should be called whenever a handler is executed
    */
-  public async recordCommandExecution(
-    conversationTitle: string,
-    commandType: string
-  ): Promise<void> {
+  public async recordIntentExecution(conversationTitle: string, intentType: string): Promise<void> {
     const file = this.getConversationFile(conversationTitle);
     if (!file) {
       return;
@@ -123,14 +138,14 @@ export class CommandTrackingService {
       }
 
       // Only add if not already present
-      if (!tracking.executedCommands.includes(commandType)) {
-        tracking.executedCommands.push(commandType);
+      if (!tracking.executedCommands.includes(intentType)) {
+        tracking.executedCommands.push(intentType);
       }
 
       frontmatter.tracking = tracking;
     });
 
-    logger.log(`Recorded command execution: "${commandType}" for ${conversationTitle}`);
+    logger.log(`Recorded intent execution: "${intentType}" for ${conversationTitle}`);
   }
 
   /**

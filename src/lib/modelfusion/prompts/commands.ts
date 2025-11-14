@@ -6,6 +6,7 @@
 
 import { stringifyYaml } from 'obsidian';
 import { Artifact, ArtifactType } from 'src/solutions/artifact';
+import { SysError } from 'src/utils/errors';
 
 export interface CommandDefinition {
   commandType: string;
@@ -89,13 +90,6 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     artifactDesc: `The file path of the created audio is stored as the artifact with name ${ArtifactType.MEDIA_RESULTS}`,
   },
   {
-    commandType: 'create',
-    description: 'Create a new note with their own content',
-    category: 'built-in',
-    includeWhen: 'Create a new note',
-    artifactDesc: 'The file path of the created note',
-  },
-  {
     commandType: 'stop',
     description: 'Stop ongoing operations',
     category: 'built-in',
@@ -108,25 +102,33 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     category: 'built-in',
     availableToLLM: false,
   },
+  {
+    commandType: 'vault',
+    description: `An agent performs vault-related operations. You MUST add a query to activate one or more tools that needs to perform the operation, e.g. 'vault?tools=list,rename'.
+Available tools: list, rename, create, delete, copy, and move.`,
+    category: 'intent-based',
+    includeWhen: 'Vault operations (list files, create notes, etc.)',
+    artifactDesc: 'Vault agent outputs',
+  },
 
   // Intent-based commands (available through natural language processing)
   {
-    commandType: 'move_from_artifact',
+    commandType: 'vault_move',
     description: 'Move notes from the artifact to a destination',
     category: 'intent-based',
     aliases: ['move'],
-    queryTemplate: `Extract specific details for a move_from_artifact command follows this format: <query>; destination: <destination>
+    queryTemplate: `Extract specific details for a vault_move command follows this format: <query>; destination: <destination>
 - <query>: The query for the move command.
 - <destination>: The destination folder.`,
     includeWhen: 'Move notes from the artifact',
     artifactDesc: `The moved note paths is stored as the artifact with name ${ArtifactType.MOVE_RESULTS}`,
   },
   {
-    commandType: 'copy_from_artifact',
+    commandType: 'vault_copy',
     description: 'Copy notes from the artifact to a destination',
     category: 'intent-based',
     aliases: ['copy'],
-    queryTemplate: `Extract specific details for a copy_from_artifact command follows this format: <query>; destination: <destination>
+    queryTemplate: `Extract specific details for a vault_copy command follows this format: <query>; destination: <destination>
 - <query>: The query for the copy command.
 - <destination>: The destination folder.`,
     includeWhen: 'Copy notes from the artifact',
@@ -142,11 +144,11 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     artifactDesc: `The updated note paths is stored as the artifact with name ${ArtifactType.CONTENT_UPDATE}`,
   },
   {
-    commandType: 'delete_from_artifact',
+    commandType: 'vault_delete',
     description: 'Delete note(s) from the artifact',
     category: 'intent-based',
     aliases: ['delete'],
-    queryTemplate: `Extract specific details for a delete_from_artifact command:
+    queryTemplate: `Extract specific details for a vault_delete command:
 - The query always be: "Delete all notes in the search result."`,
     includeWhen: 'Delete notes from the artifact',
   },
@@ -222,6 +224,103 @@ const COMMAND_DEFINITIONS_MAP = COMMAND_DEFINITIONS.reduce((acc, item) => {
   return acc;
 }, new Map<string, CommandDefinition>());
 
+function resolveCommandDefinition(commandName: string): CommandDefinition {
+  const [baseName] = commandName.split('?', 1);
+
+  const definition =
+    COMMAND_DEFINITIONS_MAP.get(baseName) ??
+    COMMAND_DEFINITIONS.find(cmd => cmd.aliases && cmd.aliases.includes(baseName));
+
+  if (!definition) {
+    throw new SysError(`Command ${baseName} not found`);
+  }
+
+  return definition;
+}
+
+type AggregatedCommand = {
+  commandName: string;
+  definition: CommandDefinition;
+};
+
+function aggregateCommandNames(commandNames: string[]): AggregatedCommand[] {
+  const aggregated = new Map<
+    string,
+    {
+      params: Map<string, string[]>;
+      definition: CommandDefinition;
+    }
+  >();
+  const order: string[] = [];
+
+  for (const rawName of commandNames) {
+    if (!rawName) continue;
+    const [baseName, queryString] = rawName.split('?', 2);
+
+    const definition = resolveCommandDefinition(baseName);
+
+    let entry = aggregated.get(baseName);
+    if (!entry) {
+      entry = {
+        params: new Map<string, string[]>(),
+        definition,
+      };
+      aggregated.set(baseName, entry);
+      order.push(baseName);
+    }
+
+    if (!queryString) {
+      continue;
+    }
+
+    const searchParams = new URLSearchParams(queryString);
+    for (const [param, rawValue] of searchParams.entries()) {
+      const values = rawValue
+        .split(',')
+        .map(value => value.trim())
+        .filter(Boolean);
+
+      let existingValues = entry.params.get(param);
+      if (!existingValues) {
+        existingValues = [];
+        entry.params.set(param, existingValues);
+      }
+
+      for (const value of values) {
+        if (!existingValues.includes(value)) {
+          existingValues.push(value);
+        }
+      }
+    }
+  }
+
+  return order.map(baseName => {
+    const entry = aggregated.get(baseName);
+    if (!entry) {
+      throw new SysError(`Command ${baseName} not found`);
+    }
+
+    const queryParts: string[] = [];
+    for (const [param, values] of entry.params.entries()) {
+      if (values.length === 0) {
+        continue;
+      }
+      queryParts.push(`${param}=${values.join(',')}`);
+    }
+
+    const commandName = queryParts.length > 0 ? `${baseName}?${queryParts.join('&')}` : baseName;
+
+    return {
+      commandName,
+      definition: entry.definition,
+    };
+  });
+}
+
+function getCommandDefinitionsFromNames(commandNames: string[]): CommandDefinition[] {
+  return aggregateCommandNames(commandNames).map(item => item.definition);
+}
+
 /**
  * Get a command definition by command type
  */
@@ -258,13 +357,13 @@ export function artifactDependentExamples(commands: CommandDefinition[]): string
 
   // Common and useful combinations
   const commonPairs = [
-    { creator: 'search', user: 'move_from_artifact' },
+    { creator: 'search', user: 'vault_move' },
     { creator: 'read', user: 'update_from_artifact' },
     { creator: 'generate', user: 'update_from_artifact' },
-    { creator: 'search', user: 'copy_from_artifact' },
+    { creator: 'search', user: 'vault_copy' },
     { creator: 'read', user: 'generate' },
     { creator: 'search', user: 'update_from_artifact' },
-    { creator: 'search', user: 'delete_from_artifact' },
+    { creator: 'search', user: 'vault_delete' },
   ];
 
   // Find available pairs from the common combinations
@@ -301,7 +400,7 @@ export function artifactDependentExamples(commands: CommandDefinition[]): string
  */
 export function getArtifactInstructions(commandNames?: string[] | null): string {
   const commands = commandNames
-    ? COMMAND_DEFINITIONS.filter(cmd => commandNames.includes(cmd.commandType))
+    ? getCommandDefinitionsFromNames(commandNames)
     : COMMAND_DEFINITIONS;
 
   const artifactCommands = commands.filter(cmd => cmd.artifactDesc);
@@ -326,27 +425,25 @@ ${artifactList}
  * Format commands list for prompt inclusion (only commands available to LLMs)
  */
 export function formatCommandsForPrompt(commandNames?: string[] | null): string {
-  const commands: CommandDefinition[] = commandNames
-    ? commandNames.map(cmd => {
-        if (!COMMAND_DEFINITIONS_MAP.has(cmd)) {
-          throw new Error(`Command ${cmd} not found`);
-        }
-        return COMMAND_DEFINITIONS_MAP.get(cmd) as CommandDefinition;
-      })
-    : COMMAND_DEFINITIONS.filter(cmd => cmd.availableToLLM !== false);
+  const commands = commandNames
+    ? aggregateCommandNames(commandNames)
+    : COMMAND_DEFINITIONS.filter(cmd => cmd.availableToLLM !== false).map(definition => ({
+        commandName: definition.commandType,
+        definition,
+      }));
 
-  const commandsData = commands.map(cmd => {
+  const commandsData = commands.map(({ commandName, definition }) => {
     const commandData: CommandData = {
-      name: cmd.commandType,
-      description: cmd.description,
+      name: commandName,
+      description: definition.description,
     };
 
-    if (cmd.aliases && cmd.aliases.length > 0) {
-      commandData.aliases = cmd.aliases;
+    if (definition.aliases && definition.aliases.length > 0) {
+      commandData.aliases = definition.aliases;
     }
 
-    if (cmd.includeWhen) {
-      commandData.use_when = cmd.includeWhen;
+    if (definition.includeWhen) {
+      commandData.use_when = definition.includeWhen;
     }
 
     return commandData;
@@ -360,19 +457,17 @@ export function formatCommandsForPrompt(commandNames?: string[] | null): string 
  */
 export function formatQueryTemplatesForPrompt(commandNames?: string[] | null): string {
   const commands = commandNames
-    ? commandNames.map(cmd => {
-        if (!COMMAND_DEFINITIONS_MAP.has(cmd)) {
-          throw new Error(`Command ${cmd} not found`);
-        }
-        return COMMAND_DEFINITIONS_MAP.get(cmd) as CommandDefinition;
-      })
-    : COMMAND_DEFINITIONS.filter(cmd => cmd.queryTemplate);
+    ? aggregateCommandNames(commandNames)
+    : COMMAND_DEFINITIONS.filter(cmd => cmd.queryTemplate).map(definition => ({
+        commandName: definition.commandType,
+        definition,
+      }));
 
   const templatesData = commands
-    .filter(cmd => cmd.queryTemplate)
-    .map(cmd => ({
-      command: cmd.commandType,
-      template: cmd.queryTemplate,
+    .filter(({ definition }) => definition.queryTemplate)
+    .map(({ commandName, definition }) => ({
+      command: commandName,
+      template: definition.queryTemplate as string,
     }));
 
   return stringifyYaml(templatesData);

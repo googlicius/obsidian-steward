@@ -7,24 +7,24 @@ import { twoStepExtractionPrompt } from './twoStepExtractionPrompt';
 import { Artifact } from 'src/solutions/artifact';
 
 export function getQueryExtractionPrompt(args: {
-  commandTypes: string[];
+  intentTypes: string[];
   currentArtifacts?: Artifact[];
 }) {
   const { currentArtifacts } = args;
   // Remove consecutive commands to avoid duplicate commands descriptions and templates
-  const commandTypes = removeConsecutiveItems(args.commandTypes);
+  const intentTypes = removeConsecutiveItems(args.intentTypes);
 
-  const queryTemplates = formatQueryTemplatesForPrompt(commandTypes);
+  const queryTemplates = formatQueryTemplatesForPrompt(intentTypes);
 
   return `${twoStepExtractionPrompt(2)}
 
-You are a helpful assistant extracting specific queries for commands in an Obsidian note management system.
+You are a helpful assistant extracting specific queries for intents in an Obsidian note management system.
 
-Your role is to analyze a user's natural language query and extract specific queries for each command in the sequence.
+Your role is to analyze a user's natural language query and extract specific queries for each intent in the sequence.
 
-COMMANDS TO EXTRACT QUERIES FOR:
+INTENTS TO EXTRACT QUERIES FOR:
 ${joinWithConjunction(
-  commandTypes.map(cmd => `"${cmd}"`),
+  intentTypes.map(cmd => `"${cmd}"`),
   'and'
 )}
 
@@ -35,14 +35,15 @@ QUERY TEMPLATES:
 ${queryTemplates}
 
 GUIDELINES:
-- If any command does not have a query template, extract its query based on your understanding.
-- For each command in the sequence, extract a specific query that will be processed by specialized handlers.
+- If any intent does not have a query template, extract its query based on your understanding.
+- For each intent in the sequence, extract a specific query that will be processed by specialized handlers.
 - Keep queries concise and focused on the specific command's requirements.
 - DO NOT provide your answers or opinions directly in command's queries.
 - Queries must be in the user's perspective.
 - This is a one-round extraction, so ensure you include all necessary information in each query.
-- You MUST include ALL the given commands in the same order: ${joinWithConjunction(
-    commandTypes.map(cmd => `"${cmd}"`),
+- You MUST include the given intents in the same order: ${joinWithConjunction(
+    intentTypes.map(cmd => `"${cmd}"`),
     'and'
-  )}.`;
+  )}.
+- Exclude any intent that is unrelated to the user's task.`;
 }
