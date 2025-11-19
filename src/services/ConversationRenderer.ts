@@ -43,14 +43,14 @@ export class ConversationRenderer {
   }
 
   /**
-   * Formats role text based on the showLabel parameter and showPronouns setting
+   * Formats role text based on the showLabel parameter
    */
   private formatRoleText(role?: string, showLabel?: boolean): string {
     if (!role) {
       return '';
     }
 
-    if (showLabel === false || !this.plugin.settings.showPronouns) {
+    if (showLabel === false) {
       return '';
     }
 
