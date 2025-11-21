@@ -11,6 +11,7 @@ export enum ToolName {
   RENAME = 'rename',
   MOVE = 'move',
   LIST = 'list',
+  UPDATE_FRONTMATTER = 'update_frontmatter',
   ACTIVATE = 'activate_tools',
 }
 
@@ -156,6 +157,17 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     guidelines: [
       `Use ${ToolName.LIST} to list files in the vault or a specific folder.`,
       `Only include paths that you are confident exist.`,
+    ],
+    category: 'vault-access',
+  },
+
+  [ToolName.UPDATE_FRONTMATTER]: {
+    name: ToolName.UPDATE_FRONTMATTER,
+    description: 'Update frontmatter properties in notes (add, update, or delete properties).',
+    guidelines: [
+      `Use ${ToolName.UPDATE_FRONTMATTER} to modify frontmatter properties in notes.`,
+      `Specify the files or artifactId containing the files to update.`,
+      `For each property, provide a value to add/update, or omit the value to delete the property.`,
     ],
     category: 'vault-access',
   },

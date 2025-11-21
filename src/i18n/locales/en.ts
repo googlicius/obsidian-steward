@@ -196,6 +196,17 @@ const en = {
       confirmHeader: 'I found the following files to delete:',
       confirmQuestion: 'Are you sure you want to delete these files? This action cannot be undone.',
     },
+    // Frontmatter update result messages
+    frontmatter: {
+      foundFiles_one: 'I found {{count}} file to update frontmatter for.',
+      foundFiles_other: 'I found {{count}} files to update frontmatter for.',
+      successfullyUpdated_one: 'Successfully updated {{count}} file:',
+      successfullyUpdated_other: 'Successfully updated {{count}} files:',
+      failed_one: 'Failed to update {{count}} file:',
+      failed_other: 'Failed to update {{count}} files:',
+      cannotUpdateThisType: 'Cannot update frontmatter for this type of artifact: {{type}}',
+      propertiesRequired: 'Properties are required when using artifactId. Please provide files with properties to update.',
+    },
     // Search result messages
     search: {
       found_one: 'I found {{count}} result:',

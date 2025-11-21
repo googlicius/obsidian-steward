@@ -11,6 +11,7 @@ import { DeleteToolArgs, VaultDelete } from './VaultDelete';
 import { VaultCopy } from './VaultCopy';
 import { VaultMove } from './VaultMove';
 import { VaultRename } from './VaultRename';
+import { UpdateFrontmatterToolArgs, VaultUpdateFrontmatter } from './VaultUpdateFrontmatter';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { activateTools } from '../../tools/activateTools';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
@@ -24,6 +25,7 @@ class VaultAgent extends Agent {
   private _vaultDelete: VaultDelete;
   private _vaultList: VaultList;
   private _vaultRename: VaultRename;
+  private _vaultUpdateFrontmatter: VaultUpdateFrontmatter;
 
   private get vaultMove(): VaultMove {
     if (!this._vaultMove) {
@@ -73,6 +75,14 @@ class VaultAgent extends Agent {
     return this._vaultRename;
   }
 
+  private get vaultUpdateFrontmatter(): VaultUpdateFrontmatter {
+    if (!this._vaultUpdateFrontmatter) {
+      this._vaultUpdateFrontmatter = new VaultUpdateFrontmatter(this);
+    }
+
+    return this._vaultUpdateFrontmatter;
+  }
+
   /**
    * Render the loading indicator for the vault agent
    */
@@ -97,6 +107,25 @@ class VaultAgent extends Agent {
       if (artifact) {
         const manualToolCall: ToolInvocation<unknown, DeleteToolArgs> = {
           toolName: ToolName.DELETE,
+          toolCallId: `manual-tool-call-${uniqueID()}`,
+          args: {
+            artifactId: artifact.id,
+            explanation: '',
+          },
+        };
+
+        return [manualToolCall];
+      }
+    }
+
+    if (this.activeTools.includes(ToolName.UPDATE_FRONTMATTER)) {
+      const artifact = await this.plugin.artifactManagerV2
+        .withTitle(title)
+        .getMostRecentArtifactOfTypes([ArtifactType.SEARCH_RESULTS, ArtifactType.CREATED_NOTES]);
+
+      if (artifact) {
+        const manualToolCall: ToolInvocation<unknown, UpdateFrontmatterToolArgs> = {
+          toolName: ToolName.UPDATE_FRONTMATTER,
           toolCallId: `manual-tool-call-${uniqueID()}`,
           args: {
             artifactId: artifact.id,
@@ -139,6 +168,7 @@ class VaultAgent extends Agent {
       [ToolName.COPY]: VaultCopy.getCopyTool(),
       [ToolName.RENAME]: VaultRename.getRenameTool(),
       [ToolName.MOVE]: VaultMove.getMoveTool(),
+      [ToolName.UPDATE_FRONTMATTER]: VaultUpdateFrontmatter.getUpdateFrontmatterTool(),
       [ToolName.ACTIVATE]: activateTools,
     };
 
@@ -203,7 +233,6 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
           path: title,
           newContent: response.text,
           agent: 'vault',
-          includeHistory: false,
           lang,
           handlerId,
         });
@@ -289,6 +318,17 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
             break;
           }
 
+          case ToolName.UPDATE_FRONTMATTER: {
+            toolCallResult = await this.vaultUpdateFrontmatter.handle(
+              {
+                ...params,
+                handlerId,
+              },
+              { toolCall }
+            );
+            break;
+          }
+
           case ToolName.ACTIVATE: {
             const { tools, explanation } = toolCall.args;
 
@@ -302,21 +342,21 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
                 lang,
                 handlerId,
               });
-
-              // Serialize the tool invocation
-              await this.renderer.serializeToolInvocation({
-                path: title,
-                agent: 'vault',
-                command: 'activate-tools',
-                handlerId,
-                toolInvocations: [
-                  {
-                    ...toolCall,
-                    result: `Requested tools ${joinWithConjunction(tools, 'and')} are now active.`,
-                  },
-                ],
-              });
             }
+
+            // Serialize the tool invocation
+            await this.renderer.serializeToolInvocation({
+              path: title,
+              agent: 'vault',
+              command: 'activate-tools',
+              handlerId,
+              toolInvocations: [
+                {
+                  ...toolCall,
+                  result: `Requested tools ${joinWithConjunction(tools, 'and')} are now active.`,
+                },
+              ],
+            });
 
             activeTools.push(...tools);
             break;

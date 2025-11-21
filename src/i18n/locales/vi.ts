@@ -166,6 +166,18 @@ const vi = {
       multiDeleteHeader_plural: 'Tôi đã thực hiện {{count}} thao tác xóa:',
       operation: 'Thao tác {{num}}: Xóa các tập tin với {{query}}',
     },
+    // Frontmatter update result messages
+    frontmatter: {
+      foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để cập nhật frontmatter.',
+      foundFiles_plural: 'Tôi đã tìm thấy {{count}} tập tin để cập nhật frontmatter.',
+      successfullyUpdated: 'Đã cập nhật thành công {{count}} ghi chú:',
+      successfullyUpdated_plural: 'Đã cập nhật thành công {{count}} ghi chú:',
+      failed: 'Không thể cập nhật {{count}} ghi chú:',
+      failed_plural: 'Không thể cập nhật {{count}} ghi chú:',
+      cannotUpdateThisType: 'Không thể cập nhật frontmatter cho loại artifact này: {{type}}',
+      propertiesRequired:
+        'Thuộc tính là bắt buộc khi sử dụng artifactId. Vui lòng cung cấp các tập tin với thuộc tính để cập nhật.',
+    },
     // Search result messages
     search: {
       found: 'Tôi đã tìm thấy {{count}} kết quả:',
