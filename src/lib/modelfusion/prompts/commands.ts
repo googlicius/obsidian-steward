@@ -105,7 +105,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   {
     commandType: 'vault',
     description: `An agent performs vault-related operations. You MUST add a query to activate one or more tools that needs to perform the operation, e.g. 'vault?tools=list,rename'.
-Available tools: list, rename, create, delete, copy, and move.`,
+Available tools: list, rename, create, delete, copy, update_frontmatter, and move.`,
     category: 'intent-based',
     includeWhen: 'Vault operations (list files, create notes, etc.)',
     artifactDesc: 'Vault agent outputs',
