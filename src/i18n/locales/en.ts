@@ -205,7 +205,8 @@ const en = {
       failed_one: 'Failed to update {{count}} file:',
       failed_other: 'Failed to update {{count}} files:',
       cannotUpdateThisType: 'Cannot update frontmatter for this type of artifact: {{type}}',
-      propertiesRequired: 'Properties are required when using artifactId. Please provide files with properties to update.',
+      propertiesRequired:
+        'Properties are required when using artifactId. Please provide files with properties to update.',
     },
     // Search result messages
     search: {
