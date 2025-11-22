@@ -106,16 +106,11 @@ export function removeStopwords(words: string[], threshold?: number): string[] {
   // Calculate how many stopwords we can remove while staying below threshold
   // We want: (stopwordCount - removedCount) / (totalWords - removedCount) <= threshold
   // Solving for removedCount: removedCount >= (stopwordCount - threshold * totalWords) / (1 - threshold)
-  const minRemovedCount = Math.ceil(
-    (stopwordCount - threshold * totalWords) / (1 - threshold)
-  );
-  
+  const minRemovedCount = Math.ceil((stopwordCount - threshold * totalWords) / (1 - threshold));
+
   // Ensure we don't remove all words - keep at least 1 word total
   // So we can remove at most (totalWords - 1) words
-  const stopwordsToRemove = Math.max(
-    0,
-    Math.min(minRemovedCount, stopwordCount, totalWords - 1)
-  );
+  const stopwordsToRemove = Math.max(0, Math.min(minRemovedCount, stopwordCount, totalWords - 1));
 
   // Remove stopwords from the end first to preserve beginning context
   // Create a set of indices to remove (take from the end of stopwordIndices)
