@@ -105,7 +105,8 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   {
     commandType: 'vault',
     description: `An agent performs vault-related operations. You MUST add a query to activate one or more tools that needs to perform the operation, e.g. 'vault?tools=list,rename'.
-Available tools: list, rename, create, delete, copy, update_frontmatter, and move.`,
+Available tools: list, rename, create, delete, copy, update_frontmatter, and move.
+NOTE: The update_frontmatter tool is used to add, update, or delete frontmatter properties in notes. Use this tool to delete note's properties.`,
     category: 'intent-based',
     includeWhen: 'Vault operations (list files, create notes, etc.)',
     artifactDesc: 'Vault agent outputs',
@@ -136,7 +137,8 @@ Available tools: list, rename, create, delete, copy, update_frontmatter, and mov
   },
   {
     commandType: 'update_from_artifact',
-    description: 'Update note(s) from the artifact',
+    description:
+      'Update note(s) content from the artifact. NOTE: This command is used to update the content of the note only. If you need to update the frontmatter properties, use the vault?tool=update_frontmatter.',
     category: 'intent-based',
     aliases: ['update'],
     queryTemplate: `Extract specific details for what to be updated.`,
@@ -145,7 +147,8 @@ Available tools: list, rename, create, delete, copy, update_frontmatter, and mov
   },
   {
     commandType: 'vault_delete',
-    description: 'Delete note(s) from the artifact',
+    description:
+      "Delete note(s) from the artifact. NOTE: This command does not delete note's properties. If you need that, use the vault?tool=update_frontmatter.",
     category: 'intent-based',
     aliases: ['delete'],
     queryTemplate: `Extract specific details for a vault_delete command:
