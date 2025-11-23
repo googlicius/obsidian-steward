@@ -40,6 +40,7 @@ const en = {
       thisNote: 'this note',
       errorProcessingCommand: 'Error processing {{commandType}} command: {{errorMessage}}',
       switchingModelDueToErrors: 'Switching from {{fromModel}} to {{toModel}} due to errors',
+      thinkingProcess: 'Thinking process',
     },
     trigger: {
       executing: 'Command "{{commandName}}" is executing.',

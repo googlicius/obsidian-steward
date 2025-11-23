@@ -36,6 +36,7 @@ const vi = {
       thisNote: 'ghi chú này',
       errorProcessingCommand: 'Lỗi khi xử lý lệnh {{commandType}}: {{errorMessage}}',
       switchingModelDueToErrors: 'Chuyển từ {{fromModel}} sang {{toModel}} do gặp lỗi',
+      thinkingProcess: 'Quá trình suy nghĩ',
     },
     trigger: {
       executing: 'Đang thực thi trigger cho lệnh: {{commandName}}',

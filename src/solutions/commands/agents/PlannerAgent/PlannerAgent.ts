@@ -4,9 +4,10 @@ import {
   IMAGE_LINK_PATTERN,
   WIKI_LINK_PATTERN,
   STW_SELECTED_PLACEHOLDER,
+  LLM_MODELS,
 } from 'src/constants';
 import { Artifact } from 'src/solutions/artifact';
-import { generateObject } from 'ai';
+import { streamText, tool } from 'ai';
 import { getCommandTypePrompt } from './commandTypePrompt';
 import { getQueryExtractionPrompt } from './queryExtractionPrompt';
 import { logger } from 'src/utils/logger';
@@ -23,6 +24,7 @@ import { stringifyYaml } from 'obsidian';
 import { AgentHandlerParams, IntentResultStatus, Intent, AgentResult } from '../../types';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { Agent } from '../../Agent';
+import { waitForError } from 'src/utils/waitForError';
 
 export type CommandIntentExtraction = Omit<IntentTypeExtraction, 'types'> &
   Omit<QueryExtraction, 'intents'> & {
@@ -47,6 +49,7 @@ export class PlannerAgent extends Agent {
    * @returns Extracted command types, content, and explanation
    */
   private async extractCommandIntent(args: {
+    title: string;
     intent: Intent;
     conversationHistories: ConversationHistoryMessage[];
     lang?: string | null;
@@ -55,6 +58,7 @@ export class PlannerAgent extends Agent {
     currentArtifacts?: Artifact[];
   }): Promise<CommandIntentExtraction> {
     const {
+      title,
       intent,
       lang,
       conversationHistories = [],
@@ -90,9 +94,11 @@ export class PlannerAgent extends Agent {
       // Step 1: Extract command types (only if not already classified)
       if (!intentTypeExtraction) {
         intentTypeExtraction = await this.extractIntentTypes({
+          title,
           intent,
           conversationHistories,
           currentArtifacts,
+          lang,
         });
       }
 
@@ -126,6 +132,7 @@ export class PlannerAgent extends Agent {
       );
 
       const queryExtraction = await this.extractQueries({
+        title,
         intent,
         intentTypes: intentTypeExtraction.types,
         conversationHistories,
@@ -152,18 +159,20 @@ export class PlannerAgent extends Agent {
    * @returns Extracted intent types and explanation
    */
   private async extractIntentTypes(args: {
+    title: string;
     intent: Intent;
     conversationHistories: ConversationHistoryMessage[];
     currentArtifacts?: Artifact[];
+    lang?: string | null;
   }): Promise<IntentTypeExtraction> {
-    const { intent, conversationHistories = [], currentArtifacts } = args;
+    const { conversationHistories = [] } = args;
 
     const llmConfig = await this.plugin.llmService.getLLMConfig({
-      overrideModel: intent.model,
-      generateType: 'object',
+      overrideModel: args.intent.model,
+      generateType: 'text',
     });
 
-    const additionalSystemPrompts = intent.systemPrompts || [];
+    const additionalSystemPrompts = args.intent.systemPrompts || [];
 
     // Proceed with LLM-based intent type extraction
     logger.log('Using LLM for intent type extraction');
@@ -173,12 +182,24 @@ export class PlannerAgent extends Agent {
       const abortSignal = this.plugin.abortService.createAbortController('command-type-extraction');
       const modifier = new SystemPromptModifier(additionalSystemPrompts);
 
-      const { object } = await generateObject({
+      // Create tool for intent type extraction
+      const intentTypeExtractionTool = tool({
+        parameters: intentTypeExtractionSchema,
+      });
+
+      // Collect the error from the stream to handle it with our handle function.
+      let streamError: Error | null = null;
+
+      const currentModelId = this.plugin.settings.llm.chat.model;
+      const isReasoning = LLM_MODELS.find(m => m.id === currentModelId)?.isReasoning ?? false;
+
+      const { textStream, toolCalls: toolCallsPromise } = streamText({
         ...llmConfig,
         abortSignal,
         system: modifier.apply(
           getCommandTypePrompt({
-            currentArtifacts,
+            currentArtifacts: args.currentArtifacts,
+            isReasoning,
           })
         ),
         messages: [
@@ -186,12 +207,47 @@ export class PlannerAgent extends Agent {
             .getAdditionalSystemPrompts()
             .map(prompt => ({ role: 'system' as const, content: prompt })),
           ...conversationHistories,
-          { role: 'user', content: intent.query },
+          { role: 'user', content: args.intent.query },
         ],
-        schema: intentTypeExtractionSchema,
+        tools: {
+          extractIntentTypes: intentTypeExtractionTool,
+        },
+        onError: ({ error }) => {
+          streamError = error instanceof Error ? error : new Error(String(error));
+        },
       });
 
-      return object;
+      const streamErrorPromise = waitForError(() => streamError);
+
+      // Stream the text directly to the conversation note
+      await Promise.race([
+        this.renderer.streamConversationNote({
+          path: args.title,
+          stream: textStream,
+          command: 'general',
+          includeHistory: false,
+        }),
+        streamErrorPromise,
+      ]);
+
+      await this.renderIndicator(args.title, args.lang);
+
+      // Wait for tool calls and extract the result
+      const toolCalls = (await Promise.race([toolCallsPromise, streamErrorPromise])) as Awaited<
+        typeof toolCallsPromise
+      >;
+
+      // Find the extractIntentTypes tool call
+      const intentTypeToolCall = toolCalls.find(
+        toolCall => toolCall.toolName === 'extractIntentTypes'
+      );
+
+      if (!intentTypeToolCall) {
+        throw new Error('No intent type extraction tool call found');
+      }
+
+      // Extract the result from the tool call args
+      return intentTypeToolCall.args;
     } catch (error) {
       logger.error('Error extracting command types:', error);
       throw error;
@@ -203,16 +259,17 @@ export class PlannerAgent extends Agent {
    * @returns Extracted commands with queries
    */
   private async extractQueries(args: {
+    title: string;
     intent: Intent;
     intentTypes: string[];
     conversationHistories: ConversationHistoryMessage[];
     currentArtifacts?: Artifact[];
   }): Promise<QueryExtraction> {
-    const { intent, intentTypes, conversationHistories = [], currentArtifacts } = args;
+    const { title, intent, intentTypes, conversationHistories = [], currentArtifacts } = args;
 
     const llmConfig = await this.plugin.llmService.getLLMConfig({
       overrideModel: intent.model,
-      generateType: 'object',
+      generateType: 'text',
     });
 
     const modifier = new SystemPromptModifier(intent.systemPrompts);
@@ -224,7 +281,15 @@ export class PlannerAgent extends Agent {
       // Create an operation-specific abort signal
       const abortSignal = this.plugin.abortService.createAbortController('query-extraction');
 
-      const { object } = await generateObject({
+      // Create tool for query extraction
+      const queryExtractionTool = tool({
+        parameters: queryExtractionSchema,
+      });
+
+      // Collect the error from the stream to handle it with our handle function.
+      let streamError: Error | null = null;
+
+      const { textStream, toolCalls: toolCallsPromise } = streamText({
         ...llmConfig,
         abortSignal,
         system: modifier.apply(
@@ -240,10 +305,42 @@ export class PlannerAgent extends Agent {
           ...conversationHistories,
           { role: 'user', content: intent.query },
         ],
-        schema: queryExtractionSchema,
+        tools: {
+          extractQueries: queryExtractionTool,
+        },
+        toolChoice: 'required',
+        onError: ({ error }) => {
+          streamError = error instanceof Error ? error : new Error(String(error));
+        },
       });
 
-      return object;
+      const streamErrorPromise = waitForError(() => streamError);
+
+      // Stream the text directly to the conversation note
+      await Promise.race([
+        this.renderer.streamConversationNote({
+          path: title,
+          stream: textStream,
+          command: 'general',
+          includeHistory: false,
+        }),
+        streamErrorPromise,
+      ]);
+
+      // Wait for tool calls and extract the result
+      const toolCalls = (await Promise.race([toolCallsPromise, streamErrorPromise])) as Awaited<
+        typeof toolCallsPromise
+      >;
+
+      // Find the extractQueries tool call
+      const queryToolCall = toolCalls.find(toolCall => toolCall.toolName === 'extractQueries');
+
+      if (!queryToolCall) {
+        throw new Error('No query extraction tool call found');
+      }
+
+      // Extract the result from the tool call args
+      return queryToolCall.args;
     } catch (error) {
       logger.error('Error extracting queries:', error);
       throw error;
@@ -327,6 +424,7 @@ IMPORTANT:
         .getAllArtifacts();
 
       extraction = await this.extractCommandIntent({
+        title,
         intent: {
           ...intent,
           systemPrompts,

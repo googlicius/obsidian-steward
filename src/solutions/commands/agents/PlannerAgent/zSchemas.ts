@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { getValidCommandTypes } from 'src/lib/modelfusion/prompts/commands';
 import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
+import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 // Define valid command types
 const validCommandTypes = getValidCommandTypes();
@@ -39,8 +40,11 @@ If the confidence is low, include the commands that you are extracting in the ex
 // Define the Zod schema for command intent
 const intentSchema = z.object({
   type: z
-    .enum(validCommandTypes as [string, ...string[]])
-    .describe(`One of the available intent types.`),
+    .string()
+    .min(1, 'Intent type must be a non-empty string.')
+    .refine(isValidCommandTypeWithQuery, value => ({
+      message: `Invalid intent type: ${value}.`,
+    })),
   query: z.string().describe(
     `The specific query for this intent and will be the input of the downstream intent.
 - Keep it concise and short
@@ -57,7 +61,7 @@ Each intent in the sequence should have its own query that will be processed by 
     .string()
     .min(1, 'Explanation must be a non-empty string')
     .describe(explanationFragment),
-  lang: z.string().nullable().optional(),
+  lang: z.string().nullish().describe(userLanguagePrompt.content),
 });
 
 // Export types

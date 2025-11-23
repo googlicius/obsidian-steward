@@ -1,6 +1,6 @@
 import { getLanguage, parseYaml, TFile } from 'obsidian';
 import { uniqueID } from '../utils/uniqueID';
-import { getTranslation } from '../i18n';
+import i18next, { getTranslation } from '../i18n';
 import { ConversationHistoryMessage, ConversationMessage, ConversationRole } from '../types/types';
 import type StewardPlugin from '../main';
 import { logger } from 'src/utils/logger';
@@ -548,16 +548,31 @@ export class ConversationRenderer {
     }
   }
 
-  public async streamFile(file: TFile, stream: AsyncIterable<string>) {
-    for await (let chunk of stream) {
+  public async streamFile(file: TFile, stream: AsyncIterable<string>, minLength = 20) {
+    let buffer = '';
+    let trailingContent = '';
+
+    for await (const chunk of stream) {
       await this.plugin.app.vault.process(file, currentContent => {
-        if (chunk.includes(`<think>`)) {
-          chunk = '\n```stw-thinking\n' + chunk;
-        } else if (chunk.includes(`</think>`)) {
-          chunk = chunk + '\n```\n';
+        if (trailingContent && currentContent.endsWith(trailingContent)) {
+          currentContent = currentContent.slice(0, -trailingContent.length);
         }
 
-        return currentContent + chunk;
+        currentContent += chunk;
+        buffer = currentContent.slice(-20);
+
+        if (buffer.includes(`<think>`)) {
+          trailingContent = '\n```\n';
+          currentContent = currentContent.replace('<think>', '\n```stw-thinking\n');
+        } else if (buffer.includes(`</think>`)) {
+          currentContent = currentContent.replace(
+            '</think>',
+            `\n\`\`\`\n>[!info] <a class="stw-thinking-process">${i18next.t('common.thinkingProcess')}</a>\n`
+          );
+          trailingContent = '';
+        }
+
+        return currentContent + trailingContent;
       });
     }
   }
