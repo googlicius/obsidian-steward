@@ -9,6 +9,7 @@ exports[`commands formatCommandsForPrompt should handle command names that inclu
   description: |-
     An agent performs vault-related operations. You MUST add a query to activate one or more tools that needs to perform the operation, e.g. 'vault?tools=list,rename'.
     Available tools: list, rename, create, delete, copy, update_frontmatter, and move.
+    NOTE: The update_frontmatter tool is used to add, update, or delete frontmatter properties in notes. Use this tool to delete note's properties.
   use_when: Vault operations (list files, create notes, etc.)
 "
 `;
@@ -18,6 +19,7 @@ exports[`commands formatCommandsForPrompt should merge multiple commands referen
   description: |-
     An agent performs vault-related operations. You MUST add a query to activate one or more tools that needs to perform the operation, e.g. 'vault?tools=list,rename'.
     Available tools: list, rename, create, delete, copy, update_frontmatter, and move.
+    NOTE: The update_frontmatter tool is used to add, update, or delete frontmatter properties in notes. Use this tool to delete note's properties.
   use_when: Vault operations (list files, create notes, etc.)
 "
 `;
@@ -46,6 +48,7 @@ exports[`commands formatCommandsForPrompt should return formatted commands for p
   description: |-
     An agent performs vault-related operations. You MUST add a query to activate one or more tools that needs to perform the operation, e.g. 'vault?tools=list,rename'.
     Available tools: list, rename, create, delete, copy, update_frontmatter, and move.
+    NOTE: The update_frontmatter tool is used to add, update, or delete frontmatter properties in notes. Use this tool to delete note's properties.
   use_when: Vault operations (list files, create notes, etc.)
 - name: vault_move
   description: Move notes from the artifact to a destination
@@ -58,12 +61,12 @@ exports[`commands formatCommandsForPrompt should return formatted commands for p
     - copy
   use_when: Copy notes from the artifact
 - name: update_from_artifact
-  description: Update note(s) from the artifact
+  description: 'Update note(s) content from the artifact. NOTE: This command is used to update the content of the note only. If you need to update the frontmatter properties, use the vault?tool=update_frontmatter.'
   aliases:
     - update
   use_when: Update one or more notes from the artifact
 - name: vault_delete
-  description: Delete note(s) from the artifact
+  description: 'Delete note(s) from the artifact. NOTE: This command does not delete note''s properties. If you need that, use the vault?tool=update_frontmatter.'
   aliases:
     - delete
   use_when: Delete notes from the artifact
@@ -105,7 +108,7 @@ exports[`commands formatCommandsForPrompt should return formatted commands for p
     Otherwise, you need to include the "read" command.
   use_when: Ask, update, or generate content with your help
 - name: update_from_artifact
-  description: Update note(s) from the artifact
+  description: 'Update note(s) content from the artifact. NOTE: This command is used to update the content of the note only. If you need to update the frontmatter properties, use the vault?tool=update_frontmatter.'
   aliases:
     - update
   use_when: Update one or more notes from the artifact
