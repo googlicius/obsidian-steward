@@ -35,6 +35,7 @@ const ja = {
       errorProcessingCommand:
         '{{commandType}}コマンドの処理中にエラーが発生しました: {{errorMessage}}',
       switchingModelDueToErrors: 'エラーのため{{fromModel}}から{{toModel}}に切り替えています',
+      thinkingProcess: '思考過程',
     },
     trigger: {
       executing: 'トリガーコマンドを実行中: {{commandName}}',
