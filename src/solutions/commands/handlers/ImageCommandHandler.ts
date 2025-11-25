@@ -1,9 +1,4 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../CommandHandler';
 import { experimental_generateImage } from 'ai';
 import { getTranslation } from 'src/i18n';
 import { extractImageQuery } from 'src/lib/modelfusion/extractions';
@@ -11,6 +6,7 @@ import { ArtifactType } from 'src/solutions/artifact';
 import { logger } from 'src/utils/logger';
 
 import type StewardPlugin from 'src/main';
+import { IntentResultStatus } from '../types';
 
 export class ImageCommandHandler extends CommandHandler {
   isContentRequired = true;
@@ -31,12 +27,12 @@ export class ImageCommandHandler extends CommandHandler {
    * Handle an image command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command, lang } = params;
+    const { title, intent, lang } = params;
 
     const t = getTranslation(lang);
 
     try {
-      const extraction = await extractImageQuery(command);
+      const extraction = await extractImageQuery(intent);
 
       await this.renderer.updateConversationNote({
         path: title,
@@ -49,8 +45,8 @@ export class ImageCommandHandler extends CommandHandler {
       if (extraction.confidence <= 0.7) {
         // Return LOW_CONFIDENCE status to trigger context augmentation
         return {
-          status: CommandResultStatus.LOW_CONFIDENCE,
-          commandType: 'image',
+          status: IntentResultStatus.LOW_CONFIDENCE,
+          intentType: 'image',
           explanation: extraction.explanation,
         };
       }
@@ -67,7 +63,7 @@ export class ImageCommandHandler extends CommandHandler {
         });
 
         return {
-          status: CommandResultStatus.ERROR,
+          status: IntentResultStatus.ERROR,
           error: result.error,
         };
       }
@@ -103,7 +99,7 @@ export class ImageCommandHandler extends CommandHandler {
       }
 
       return {
-        status: CommandResultStatus.SUCCESS,
+        status: IntentResultStatus.SUCCESS,
       };
     } catch (error) {
       await this.renderer.updateConversationNote({
@@ -113,7 +109,7 @@ export class ImageCommandHandler extends CommandHandler {
       });
 
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error,
       };
     }

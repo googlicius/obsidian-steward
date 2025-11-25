@@ -279,6 +279,9 @@ export class ArtifactManagerV2 {
           const result = await serializer
             .injectTitle(this.conversationTitle)
             .deserialize(message.content);
+          if (!result.id && message.id) {
+            result.id = message.id;
+          }
           artifacts.push(result);
         } catch (error) {
           logger.error(`Error deserializing artifact of type ${message.artifactType}:`, error);

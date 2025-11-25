@@ -17,8 +17,10 @@ export class FolderCondition extends Condition<IndexedDocument> {
     allFolders.push(this.context.documentStore.getRootFolder());
 
     for (const name of names) {
+      // Remove leading slashes before matching
+      const normalizedName = name.replace(/^\/+/, '');
       const matches = allFolders.filter(folder => {
-        const nameReg = new RegExp(name, 'i');
+        const nameReg = new RegExp(normalizedName, 'i');
         return nameReg.test(folder.name) || nameReg.test(folder.path);
       });
 
@@ -53,7 +55,7 @@ export class FolderCondition extends Condition<IndexedDocument> {
 
     for (const document of documents) {
       result.set(document.id as number, {
-        document: document,
+        document,
         score: 1,
       });
     }

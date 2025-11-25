@@ -1,9 +1,9 @@
 import { IMAGE_LINK_PATTERN } from 'src/constants';
-import { CommandIntent } from 'src/types/types';
+import { Intent } from 'src/solutions/commands/types';
 import { languageEnforcementFragment } from './fragments';
 
-export function noteGenerationPrompt(command: CommandIntent) {
-  const hasImageLinks = new RegExp(IMAGE_LINK_PATTERN).test(command.query);
+export function noteGenerationPrompt(intent: Intent) {
+  const hasImageLinks = new RegExp(IMAGE_LINK_PATTERN).test(intent.query);
 
   const imageInstruction = hasImageLinks
     ? '\nThe user query included one or more image links in this format ![[<imagePath>]].\n'

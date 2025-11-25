@@ -1,13 +1,9 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { createTextStream } from 'src/utils/textStreamer';
 
 import type StewardPlugin from 'src/main';
+import { IntentResultStatus } from '../types';
 
 export class ThankYouCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -18,13 +14,13 @@ export class ThankYouCommandHandler extends CommandHandler {
    * Handle a thank you command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, nextCommand, lang } = params;
+    const { title, nextIntent, lang } = params;
     const t = getTranslation(lang);
 
     let responseText: string;
 
-    if (nextCommand) {
-      // If nextCommand is present, use a simple response
+    if (nextIntent) {
+      // If nextIntent is present, use a simple response
       responseText = t('thankYou.simpleResponse');
     } else {
       // Get a random response from the list
@@ -51,7 +47,7 @@ export class ThankYouCommandHandler extends CommandHandler {
     });
 
     return {
-      status: CommandResultStatus.SUCCESS,
+      status: IntentResultStatus.SUCCESS,
     };
   }
 }

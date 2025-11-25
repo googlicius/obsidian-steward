@@ -31,6 +31,13 @@ interface Analyzer {
 
 interface TokenizerConfig {
   removeStopwords?: boolean;
+  /**
+   * Threshold for stopword removal (0.0 to 1.0).
+   * If the percentage of stopwords exceeds this threshold, only remove stopwords until the percentage is below the threshold.
+   * Default: 0.5 (50%)
+   * Example: With threshold 0.5, "The lord of the Rings" (60% stopwords) will have some stopwords removed to bring it below 50%
+   */
+  stopwordThreshold?: number;
   normalizers?: (string | Normalizer)[];
   analyzers?: (string | Analyzer)[];
 }
@@ -158,6 +165,7 @@ export class Tokenizer {
   constructor(config: TokenizerConfig = {}) {
     this.config = {
       removeStopwords: true,
+      stopwordThreshold: 0.5,
       ...config,
     };
 
@@ -284,7 +292,9 @@ export class Tokenizer {
     const words = normalizedContent.split(/\s+/).filter(Boolean);
 
     // Remove stopwords if configured
-    const filteredWords = this.config.removeStopwords ? removeStopwords(words) : words;
+    const filteredWords = this.config.removeStopwords
+      ? removeStopwords(words, this.config.stopwordThreshold)
+      : words;
 
     // Count term frequencies and positions
     const termMap = new Map<string, { count: number; positions: number[] }>();

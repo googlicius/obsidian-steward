@@ -1,9 +1,9 @@
-import { CommandIntent } from 'src/types/types';
 import { languageEnforcementFragment } from 'src/lib/modelfusion/prompts/fragments';
+import { Intent } from '../../types';
 
-export function searchPromptV2(command: CommandIntent) {
+export function searchPromptV2(intent: Intent) {
   // Check if command exists and if the query includes a tag pattern
-  const hasTag = command.query && /#[^\s#]+/.test(command.query);
+  const hasTag = intent.query && /#[^\s#]+/.test(intent.query);
 
   return `You are a helpful assistant that extracts parameters from user queries for an Obsidian note search system.
 

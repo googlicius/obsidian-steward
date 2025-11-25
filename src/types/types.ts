@@ -1,8 +1,6 @@
 import { Editor, App } from 'obsidian';
 import { EditorView } from '@codemirror/view';
 import { Message } from 'ai';
-import { SystemPromptItem } from 'src/solutions/commands';
-import { ToolName } from 'src/solutions/commands/ToolRegistry';
 
 /**
  * Exposes the Obsidian Editor and Codemirror EditorView
@@ -37,7 +35,7 @@ export interface ConversationMessage {
   role: ConversationRole;
   content: string;
   lang?: string;
-  command: string;
+  intent: string;
   history?: boolean;
   type?: string;
   artifactType?: string;
@@ -45,25 +43,6 @@ export interface ConversationMessage {
    * Handler ID to group all messages issued in one handle function call
    */
   handlerId?: string;
-}
-
-/**
- * Represents a single command in a sequence
- */
-export interface CommandIntent {
-  commandType: string;
-  query: string;
-  systemPrompts?: (string | SystemPromptItem)[];
-  model?: string; // Optional model to use for this command
-  no_confirm?: boolean; // Skip confirmation for this command
-  tools?: {
-    exclude?: ToolName[];
-  };
-}
-
-export interface ContextAugmentationIntent extends CommandIntent {
-  commandType: 'context_augmentation';
-  retryRemaining: number;
 }
 
 export interface DocWithPath {

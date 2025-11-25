@@ -1,176 +1,28 @@
 import { getLanguage, normalizePath, Notice, TFile, parseYaml } from 'obsidian';
 import { logger } from 'src/utils/logger';
-import { CommandIntent } from 'src/types/types';
 import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES } from 'src/constants';
 import { SearchOperationV2 } from 'src/solutions/commands/handlers/SearchCommandHandler/zSchemas';
-import { SystemPromptItem } from 'src/solutions/commands';
 import { StewardChatView } from 'src/views/StewardChatView';
 import i18next from 'i18next';
-import { z } from 'zod';
-import { ToolName } from 'src/solutions/commands/ToolRegistry';
-
-/**
- * Represents a user-defined command definition
- */
-export interface UserDefinedCommand {
-  command_name: string;
-  query_required?: boolean;
-  commands: Array<{
-    name: string;
-    system_prompt?: (string | SystemPromptItem)[];
-    query: string;
-    model?: string;
-    no_confirm?: boolean;
-    tools?: {
-      exclude?: ToolName[];
-    };
-  }>;
-  file_path: string;
-  model?: string;
-  hidden?: boolean;
-  triggers?: Array<{
-    // Event types to watch
-    events: ('create' | 'modify' | 'delete')[];
-
-    // Folder path(s) to watch (optional)
-    folders?: string[];
-
-    // Pattern matching (all conditions must be met)
-    // Keys can be 'tags' for tags, 'content' for regex, or any frontmatter property name
-    patterns?: Record<string, string | string[]>;
-  }>;
-}
-
-type TriggerCondition = NonNullable<UserDefinedCommand['triggers']>[number];
-
-/**
- * Zod schema for SystemPromptModification
- */
-const systemPromptModificationSchema = z.object({
-  mode: z.enum(['modify', 'remove', 'add']),
-  pattern: z.string().optional(),
-  replacement: z.string().optional(),
-  content: z.string().optional(),
-  matchType: z.enum(['exact', 'partial', 'regex']).optional(),
-});
-
-/**
- * Zod schema for SystemPromptItem
- */
-const systemPromptItemSchema = z.union([z.string(), systemPromptModificationSchema]);
-
-/**
- * Validation refinement for SystemPromptModification based on mode
- */
-const validateSystemPromptModification = (
-  item: z.infer<typeof systemPromptModificationSchema>
-): boolean => {
-  if (item.mode === 'modify') {
-    return !!item.pattern && !!item.replacement;
-  }
-  if (item.mode === 'remove') {
-    return !!item.pattern;
-  }
-  if (item.mode === 'add') {
-    return !!item.content;
-  }
-  return false;
-};
-
-/**
- * Zod schema for UserDefinedCommandStep
- */
-const userDefinedCommandStepSchema = z.object({
-  name: z.string().min(1, 'Command name is required'),
-  system_prompt: z
-    .array(systemPromptItemSchema)
-    .optional()
-    .refine(
-      val => {
-        if (!val) return true;
-        return val.every(item => {
-          if (typeof item === 'string') return true;
-          return validateSystemPromptModification(item);
-        });
-      },
-      {
-        message:
-          'system_prompt modification objects must have valid mode-specific fields (modify: pattern & replacement, remove: pattern, add: content)',
-      }
-    ),
-  query: z.string().min(1, 'Step query is required'),
-  model: z.string().optional(),
-  no_confirm: z.boolean().optional(),
-  tools: z
-    .object({
-      exclude: z.array(z.enum(Object.values(ToolName) as [string, ...string[]])).optional(),
-    })
-    .optional(),
-});
-
-/**
- * Zod schema for TriggerCondition
- */
-const triggerConditionSchema = z
-  .object({
-    events: z
-      .array(z.enum(['create', 'modify', 'delete']))
-      .min(1, 'At least one event is required'),
-    folders: z.array(z.string()).optional(),
-    patterns: z.record(z.union([z.string(), z.array(z.string())])).optional(),
-  })
-  .refine(
-    data => {
-      // Validate regex pattern for content
-      if (data.patterns?.content) {
-        const pattern = Array.isArray(data.patterns.content)
-          ? data.patterns.content[0]
-          : data.patterns.content;
-        try {
-          new RegExp(pattern);
-          return true;
-        } catch {
-          return false;
-        }
-      }
-      return true;
-    },
-    {
-      message: 'trigger pattern "content" must be a valid regex',
-    }
-  );
-
-/**
- * Zod schema for UserDefinedCommand
- */
-const userDefinedCommandSchema = z.object({
-  command_name: z
-    .string()
-    .min(1, 'Command name is required')
-    .regex(
-      /^[a-zA-Z0-9_-]+$/,
-      'Command name must only contain alphanumeric characters, hyphens, and underscores (no spaces or special characters)'
-    ),
-  query_required: z.boolean().optional(),
-  commands: z.array(userDefinedCommandStepSchema).min(1, 'At least one command step is required'),
-  file_path: z.string(),
-  model: z.string().optional(),
-  hidden: z.boolean().optional(),
-  triggers: z.array(triggerConditionSchema).optional(),
-});
+import { IVersionedUserDefinedCommand, TriggerCondition } from './versions/types';
+import { loadUDCVersion } from './versions/loader';
+import { Intent } from 'src/solutions/commands/types';
 
 export class UserDefinedCommandService {
   private static instance: UserDefinedCommandService | null = null;
-  public userDefinedCommands: Map<string, UserDefinedCommand> = new Map();
-  private commandFolder: string;
+  // Store versioned commands - normalized format is accessed via normalize()
+  public userDefinedCommands: Map<string, IVersionedUserDefinedCommand> = new Map();
 
   // Track files pending trigger checks (waiting for metadata cache update)
   private pendingTriggerChecks: Map<string, 'create' | 'modify' | 'delete'> = new Map();
 
   private constructor(private plugin: StewardPlugin) {
-    this.commandFolder = `${this.plugin.settings.stewardFolder}/Commands`;
     this.initialize();
+  }
+
+  get commandFolder(): string {
+    return `${this.plugin.settings.stewardFolder}/Commands`;
   }
 
   get commandProcessorService() {
@@ -287,37 +139,47 @@ export class UserDefinedCommandService {
       // Extract YAML blocks from the content
       const yamlBlocks = await this.extractYamlBlocks(content);
 
+      // Only process the first YAML block as the command definition
+      // Other YAML blocks are ignored (they may be examples or referenced content for system prompts)
+      if (yamlBlocks.length === 0) {
+        return;
+      }
+
       const validationErrors: Array<{
         commandName: string;
         errors: string[];
       }> = [];
 
-      for (const yamlContent of yamlBlocks) {
-        try {
-          const commandDefinition = parseYaml(yamlContent) as UserDefinedCommand;
+      // Process only the first YAML block
+      const yamlContent = yamlBlocks[0];
+      try {
+        const rawData = parseYaml(yamlContent);
 
-          // Add file path to the command definition
-          commandDefinition.file_path = file.path;
+        // Load and validate using version-aware loader (async imports)
+        const result = await loadUDCVersion(rawData, file.path);
 
-          const validation = this.validateCommandDefinitionWithErrors(commandDefinition);
-
-          if (validation.isValid) {
-            this.userDefinedCommands.set(commandDefinition.command_name, commandDefinition);
-            logger.log(`Loaded user-defined command: ${commandDefinition.command_name}`);
-          } else {
-            validationErrors.push({
-              commandName: commandDefinition.command_name || 'unknown',
-              errors: validation.errors,
-            });
-          }
-        } catch (yamlError) {
-          const errorMsg = yamlError instanceof Error ? yamlError.message : String(yamlError);
+        if (!result.success) {
+          // Collect errors from parse function
+          const commandName = rawData.command_name || 'unknown';
           validationErrors.push({
-            commandName: 'unknown',
-            errors: [i18next.t('validation.yamlError'), errorMsg],
+            commandName,
+            errors: result.errors,
           });
-          logger.error(`Invalid YAML in file ${file.path}:`, yamlError);
+        } else {
+          // Successfully loaded - store the command
+          const versionedCommand = result.command;
+          this.userDefinedCommands.set(versionedCommand.normalized.command_name, versionedCommand);
+          logger.log(
+            `Loaded user-defined command: ${versionedCommand.normalized.command_name} (v${versionedCommand.getVersion()})`
+          );
         }
+      } catch (yamlError) {
+        const errorMsg = yamlError instanceof Error ? yamlError.message : String(yamlError);
+        validationErrors.push({
+          commandName: 'unknown',
+          errors: [i18next.t('validation.yamlError'), errorMsg],
+        });
+        logger.error(`Invalid YAML in file ${file.path}:`, yamlError);
       }
 
       // Render validation result on modify events (errors or success message)
@@ -338,7 +200,7 @@ export class UserDefinedCommandService {
     const commandsToRemove: string[] = [];
 
     for (const [commandName, command] of this.userDefinedCommands.entries()) {
-      if (command.file_path === filePath) {
+      if (command.normalized.file_path === filePath) {
         commandsToRemove.push(commandName);
       }
     }
@@ -493,52 +355,6 @@ export class UserDefinedCommandService {
     }
 
     return true;
-  }
-
-  /**
-   * Validate a command definition and return detailed errors
-   */
-  private validateCommandDefinitionWithErrors(command: UserDefinedCommand): {
-    isValid: boolean;
-    errors: string[];
-  } {
-    try {
-      userDefinedCommandSchema.parse(command);
-      return { isValid: true, errors: [] };
-    } catch (error) {
-      const errors: string[] = [];
-      if (error instanceof z.ZodError) {
-        const commandName = command.command_name || 'unknown';
-        logger.error(`Invalid command ${commandName}:`);
-
-        const addError = (path: string, message: string) => {
-          const errorMsg = `${path}: ${message}`;
-          errors.push(errorMsg);
-          logger.error(`  - ${errorMsg}`);
-        };
-
-        for (const issue of error.errors) {
-          // Handle invalid_union errors - extract nested errors
-          if (issue.code === 'invalid_union') {
-            for (const unionError of issue.unionErrors) {
-              for (const nestedIssue of unionError.issues) {
-                const path = nestedIssue.path.join('.');
-                addError(path, nestedIssue.message);
-              }
-            }
-          } else {
-            // Handle regular errors
-            const path = issue.path.join('.');
-            addError(path, issue.message);
-          }
-        }
-      } else {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        errors.push(errorMsg);
-        logger.error('Invalid command definition:', error);
-      }
-      return { isValid: false, errors };
-    }
   }
 
   /**
@@ -782,13 +598,15 @@ export class UserDefinedCommandService {
   /**
    * Execute a triggered command
    */
-  private async executeTrigger(command: UserDefinedCommand, file: TFile): Promise<void> {
+  private async executeTrigger(command: IVersionedUserDefinedCommand, file: TFile): Promise<void> {
     // Generate unique conversation note title
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
     const conversationsFolder = `${this.plugin.settings.stewardFolder}/Conversations`;
-    const conversationTitle = `${command.command_name}-${timestamp}`;
+    const conversationTitle = `${command.normalized.command_name}-${timestamp}`;
     const conversationPath = `${conversationsFolder}/${conversationTitle}.md`;
-    logger.log(`Executing triggered command: ${command.command_name} for file: ${file.name}`);
+    logger.log(
+      `Executing triggered command: ${command.normalized.command_name} for file: ${file.name}`
+    );
 
     const getNoticeEl = (message: string): DocumentFragment => {
       // Show notice with link to the conversation note
@@ -831,8 +649,8 @@ export class UserDefinedCommandService {
       // Create the conversation note
       const frontmatter = [
         '---',
-        `model: ${command.model || this.plugin.settings.llm.chat.model}`,
-        `trigger: ${command.command_name}`,
+        `model: ${command.normalized.model || this.plugin.settings.llm.chat.model}`,
+        `trigger: ${command.normalized.command_name}`,
         `source_file: ${file.name}`,
         `created: ${new Date().toISOString()}`,
         `lang: ${getLanguage()}`,
@@ -843,15 +661,17 @@ export class UserDefinedCommandService {
       await this.plugin.app.vault.create(conversationPath, frontmatter);
 
       new Notice(
-        getNoticeEl(i18next.t('trigger.executing', { commandName: command.command_name })),
+        getNoticeEl(
+          i18next.t('trigger.executing', { commandName: command.normalized.command_name })
+        ),
         10000
       );
 
-      await this.plugin.commandProcessorService.commandProcessor.processCommands({
+      await this.plugin.commandProcessorService.commandProcessor.processIntents({
         title: conversationTitle,
-        commands: [
+        intents: [
           {
-            commandType: command.command_name,
+            type: command.normalized.command_name,
             query: `__file:${file.name}__`,
           },
         ],
@@ -861,7 +681,9 @@ export class UserDefinedCommandService {
       const leaf = this.plugin.getChatLeaf();
       if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
         new Notice(
-          getNoticeEl(i18next.t('trigger.executed', { commandName: command.command_name })),
+          getNoticeEl(
+            i18next.t('trigger.executed', { commandName: command.normalized.command_name })
+          ),
           10000
         );
       }
@@ -871,14 +693,17 @@ export class UserDefinedCommandService {
         new Notice(
           getNoticeEl(
             i18next.t('trigger.executionFailed', {
-              commandName: command.command_name,
+              commandName: command.normalized.command_name,
               error: error instanceof Error ? error.message : String(error),
             })
           ),
           10000
         );
       }
-      logger.error(`Error executing trigger for command ${command.command_name}:`, error);
+      logger.error(
+        `Error executing trigger for command ${command.normalized.command_name}:`,
+        error
+      );
     }
   }
 
@@ -902,11 +727,11 @@ export class UserDefinedCommandService {
     }
 
     for (const [commandName, command] of this.userDefinedCommands.entries()) {
-      if (!command.triggers || command.triggers.length === 0) {
+      if (!command.normalized.triggers || command.normalized.triggers.length === 0) {
         continue;
       }
 
-      for (const trigger of command.triggers) {
+      for (const trigger of command.normalized.triggers) {
         // First, check if current state matches the trigger condition (cheaper operation than the searchV3 below)
         const matches = await this.evaluateTriggerCondition({ file, event, trigger });
         if (!matches) {
@@ -937,17 +762,14 @@ export class UserDefinedCommandService {
    */
   public getCommandNames(): string[] {
     return Array.from(this.userDefinedCommands.entries())
-      .filter(([_, command]) => !command.hidden)
+      .filter(([_, command]) => !command.isHidden())
       .map(([commandName, _]) => commandName);
   }
 
   /**
    * Process a user-defined command with user input
    */
-  private processUserDefinedCommand(
-    commandName: string,
-    userInput: string
-  ): CommandIntent[] | null {
+  private processUserDefinedCommand(commandName: string, userInput: string): Intent[] | null {
     const command = this.userDefinedCommands.get(commandName);
 
     if (!command) {
@@ -961,7 +783,7 @@ export class UserDefinedCommandService {
     const cleanedUserInput = userInput.replace(/__file:[^_]+__/g, '').trim();
 
     // Convert the user-defined command steps to CommandIntent objects
-    return command.commands.map(step => {
+    return command.normalized.steps.map(step => {
       // Replace placeholders with actual values
       let query = step.query;
 
@@ -974,10 +796,10 @@ export class UserDefinedCommandService {
       query = query.replace(/\$from_user/g, cleanedUserInput);
 
       // Use step model if available, otherwise use command model
-      const model = step.model || command.model;
+      const model = step.model || command.normalized.model;
 
       return {
-        commandType: step.name,
+        type: step.name,
         systemPrompts: step.system_prompt,
         query,
         model,
@@ -998,40 +820,39 @@ export class UserDefinedCommandService {
    * Recursively expand a list of CommandIntent, flattening user-defined commands and detecting cycles
    */
   public expandUserDefinedCommandIntents(
-    intents: CommandIntent[],
-    userInput: string,
+    intents: Intent | Intent[],
+    userInput = '',
     visited: Set<string> = new Set()
-  ): CommandIntent[] {
-    const expanded: CommandIntent[] = [];
+  ): Intent[] {
+    const expanded: Intent[] = [];
+
+    intents = Array.isArray(intents) ? intents : [intents];
 
     for (const intent of intents) {
-      if (!this.hasCommand(intent.commandType)) {
+      if (!this.hasCommand(intent.type)) {
         expanded.push(intent);
         continue;
       }
 
-      if (visited.has(intent.commandType)) {
+      if (visited.has(intent.type)) {
         // Check if this is a built-in command
-        const isBuiltInCommand = this.commandProcessorService.isBuiltInCommand(intent.commandType);
+        const isBuiltInCommand = this.commandProcessorService.isBuiltInCommand(intent.type);
 
         // Only throw cycle error if it's not a built-in command
         if (!isBuiltInCommand) {
-          throw new Error(`Cycle detected in user-defined commands: ${intent.commandType}`);
+          throw new Error(`Cycle detected in user-defined commands: ${intent.type}`);
         }
 
         expanded.push(intent);
         continue;
       }
 
-      visited.add(intent.commandType);
-      const subIntents = this.processUserDefinedCommand(
-        intent.commandType,
-        intent.query || userInput
-      );
+      visited.add(intent.type);
+      const subIntents = this.processUserDefinedCommand(intent.type, intent.query || userInput);
       if (subIntents) {
         expanded.push(...this.expandUserDefinedCommandIntents(subIntents, userInput, visited));
       }
-      visited.delete(intent.commandType);
+      visited.delete(intent.type);
     }
 
     return expanded;

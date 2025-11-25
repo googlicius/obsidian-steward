@@ -1,6 +1,6 @@
 import { getLanguage, parseYaml, TFile } from 'obsidian';
 import { uniqueID } from '../utils/uniqueID';
-import { getTranslation } from '../i18n';
+import i18next, { getTranslation } from '../i18n';
 import { ConversationHistoryMessage, ConversationMessage, ConversationRole } from '../types/types';
 import type StewardPlugin from '../main';
 import { logger } from 'src/utils/logger';
@@ -8,6 +8,7 @@ import { ArtifactType } from 'src/solutions/artifact';
 import { IMAGE_LINK_PATTERN, SELECTED_MODEL_PATTERN } from 'src/constants';
 import { prependChunk } from 'src/utils/textStreamer';
 import { CoreMessage } from 'ai';
+import { ToolInvocationResult } from 'src/solutions/commands/tools/types';
 
 export class ConversationRenderer {
   static instance: ConversationRenderer;
@@ -178,15 +179,11 @@ export class ConversationRenderer {
    */
   public async serializeToolInvocation<T>(params: {
     path: string;
-    command: string;
+    command?: string;
+    agent?: string;
     text?: string;
     handlerId?: string;
-    toolInvocations: {
-      toolName: string;
-      toolCallId: string;
-      args: Record<string, unknown>;
-      result?: T;
-    }[];
+    toolInvocations: ToolInvocationResult<T>[];
   }): Promise<string | undefined> {
     try {
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
@@ -202,6 +199,7 @@ export class ConversationRenderer {
       const { messageId, comment } = await this.buildMessageMetadata(params.path, {
         role: 'Assistant',
         command: params.command,
+        agent: params.agent,
         type: 'tool-invocation',
         handlerId: params.handlerId,
       });
@@ -329,6 +327,7 @@ export class ConversationRenderer {
     path: string;
     newContent: string;
     command?: string;
+    agent?: string;
     /**
      * If provided, the placeholder will be replaced with the newContent.
      */
@@ -388,6 +387,7 @@ export class ConversationRenderer {
       const { messageId, comment } = await this.buildMessageMetadata(params.path, {
         role: roleName ?? 'Steward',
         command: params.command,
+        agent: params.agent,
         includeHistory: params.includeHistory ?? true,
         handlerId: params.handlerId,
       });
@@ -548,16 +548,31 @@ export class ConversationRenderer {
     }
   }
 
-  public async streamFile(file: TFile, stream: AsyncIterable<string>) {
-    for await (let chunk of stream) {
+  public async streamFile(file: TFile, stream: AsyncIterable<string>, minLength = 20) {
+    let buffer = '';
+    let trailingContent = '';
+
+    for await (const chunk of stream) {
       await this.plugin.app.vault.process(file, currentContent => {
-        if (chunk.includes(`<think>`)) {
-          chunk = '\n```stw-thinking\n' + chunk;
-        } else if (chunk.includes(`</think>`)) {
-          chunk = chunk + '\n```\n';
+        if (trailingContent && currentContent.endsWith(trailingContent)) {
+          currentContent = currentContent.slice(0, -trailingContent.length);
         }
 
-        return currentContent + chunk;
+        currentContent += chunk;
+        buffer = currentContent.slice(-20);
+
+        if (buffer.includes(`<think>`)) {
+          trailingContent = '\n```\n';
+          currentContent = currentContent.replace('<think>', '\n```stw-thinking\n');
+        } else if (buffer.includes(`</think>`)) {
+          currentContent = currentContent.replace(
+            '</think>',
+            `\n\`\`\`\n>[!info] <a class="stw-thinking-process">${i18next.t('common.thinkingProcess')}</a>\n`
+          );
+          trailingContent = '';
+        }
+
+        return currentContent + trailingContent;
       });
     }
   }
@@ -568,6 +583,7 @@ export class ConversationRenderer {
       messageId?: string;
       role?: string;
       command?: string;
+      agent?: string;
       includeHistory?: boolean;
       type?: string;
       artifactType?: ArtifactType;
@@ -578,6 +594,7 @@ export class ConversationRenderer {
       messageId = uniqueID(),
       role = 'Steward',
       command,
+      agent,
       includeHistory,
       handlerId,
     } = options;
@@ -587,6 +604,9 @@ export class ConversationRenderer {
       ROLE: role.toLowerCase(),
       ...(command && {
         COMMAND: command,
+      }),
+      ...(agent && {
+        AGENT: agent,
       }),
       ...(options.type && {
         TYPE: options.type,
@@ -762,10 +782,7 @@ export class ConversationRenderer {
 
       switch (commandType) {
         case 'move':
-          initialContent += `*${t('conversation.moving')}*`;
-          break;
-
-        case 'move_from_artifact':
+        case 'vault_move':
           initialContent += `*${t('conversation.moving')}*`;
           break;
 
@@ -773,7 +790,7 @@ export class ConversationRenderer {
           initialContent += `*${t('conversation.deleting')}*`;
           break;
 
-        case 'copy':
+        case 'vault_copy':
           initialContent += `*${t('conversation.copying')}*`;
           break;
 
@@ -796,10 +813,6 @@ export class ConversationRenderer {
 
         case 'update':
           initialContent += `*${t('conversation.updating')}*`;
-          break;
-
-        case 'prompt':
-          initialContent += `*${t('conversation.creatingPrompt')}*`;
           break;
 
         case ' ':
@@ -966,7 +979,7 @@ export class ConversationRenderer {
         id: metadata.ID,
         role: role as ConversationRole,
         content: messageContent.trim(),
-        command: metadata.COMMAND || '',
+        intent: metadata.COMMAND || metadata.AGENT,
         lang: metadata.LANG,
         history: includeInHistory,
         ...(metadata.TYPE && {
@@ -1178,7 +1191,7 @@ export class ConversationRenderer {
           id: metadata.ID,
           role: role as ConversationRole,
           content: messageContent.trim(),
-          command: metadata.COMMAND || '',
+          intent: metadata.COMMAND || metadata.AGENT,
           lang: metadata.LANG,
           history: includeInHistory,
           ...(metadata.TYPE && {
@@ -1238,7 +1251,7 @@ export class ConversationRenderer {
         const message = messagesForHistory[i];
 
         // Check for summary message first (highest priority)
-        if (message.command === 'summary') {
+        if (message.intent === 'summary') {
           if (summaryPosition === 0) {
             topicStartIndex = i;
             break;
@@ -1247,7 +1260,7 @@ export class ConversationRenderer {
           summaryPosition--;
         }
 
-        if (message.role === 'user' && !continuationCommands.includes(message.command)) {
+        if (message.role === 'user' && !continuationCommands.includes(message.intent)) {
           // Found a message that starts a new topic
           topicStartIndex = i;
           break;

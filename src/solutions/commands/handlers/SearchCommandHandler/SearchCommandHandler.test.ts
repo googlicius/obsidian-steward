@@ -80,8 +80,8 @@ describe('SearchCommandHandler', () => {
     it('should handle quoted keyword input directly without LLM', async () => {
       // Test with double quotes
       const result1 = await extractSearchQueryV2({
-        command: {
-          commandType: 'search',
+        intent: {
+          type: 'search',
           query: '"project notes"',
         },
         searchSettings: {
@@ -114,8 +114,8 @@ describe('SearchCommandHandler', () => {
 
       // Test with single quotes
       const result2 = await extractSearchQueryV2({
-        command: {
-          commandType: 'search',
+        intent: {
+          type: 'search',
           query: "'meeting minutes'",
         },
         searchSettings: {
@@ -150,8 +150,8 @@ describe('SearchCommandHandler', () => {
     it('should handle tag-only input directly without LLM', async () => {
       // Test with multiple tags
       const result = await extractSearchQueryV2({
-        command: {
-          commandType: 'search',
+        intent: {
+          type: 'search',
           query: '#project, #work #important',
         },
       });
@@ -177,8 +177,8 @@ describe('SearchCommandHandler', () => {
 
       // Test with a single tag
       const singleTagResult = await extractSearchQueryV2({
-        command: {
-          commandType: 'search',
+        intent: {
+          type: 'search',
           query: '#urgent',
         },
       });

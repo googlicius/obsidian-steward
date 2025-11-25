@@ -153,19 +153,24 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
 export interface ModelOption {
   id: string;
   name: string;
+  isReasoning?: boolean;
 }
 
 export const LLM_MODELS: ModelOption[] = [
   // OpenAI models
   { id: 'openai:gpt-4o', name: 'GPT-4o' },
+  { id: 'openai:o3', name: 'O3', isReasoning: true },
+  { id: 'openai:o4-mini', name: 'O4 Mini', isReasoning: true },
   { id: 'openai:gpt-4-turbo-preview', name: 'GPT-4 Turbo' },
   { id: 'openai:gpt-4-0125-preview', name: 'GPT-4 0125' },
   { id: 'openai:gpt-3.5-turbo', name: 'GPT-3.5 Turbo' },
 
   // DeepSeek models
   { id: 'deepseek:deepseek-chat', name: 'DeepSeek Chat' },
+  { id: 'deepseek:deepseek-reasoner', name: 'DeepSeek Reasoner', isReasoning: true },
 
   // Google models
+  { id: 'google:gemini-3-pro-preview', name: 'Gemini 3 Pro', isReasoning: true },
   { id: 'google:gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
   { id: 'google:gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
 
@@ -181,7 +186,7 @@ export const LLM_MODELS: ModelOption[] = [
 
   // Anthropic models
   { id: 'anthropic:claude-sonnet-4-20250514', name: 'Claude 4 Sonnet' },
-  { id: 'anthropic:claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet' },
+  { id: 'anthropic:claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', isReasoning: true },
   { id: 'anthropic:claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
 ];
 

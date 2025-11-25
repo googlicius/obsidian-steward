@@ -1,14 +1,10 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
 import type { TFile } from 'obsidian';
 import { AbortService } from 'src/services/AbortService';
+import { IntentResultStatus } from '../types';
 
 export class BuildSearchIndexCommandHandler extends CommandHandler {
   isContentRequired = false;
@@ -44,7 +40,7 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
           lang,
         });
         return {
-          status: CommandResultStatus.SUCCESS,
+          status: IntentResultStatus.SUCCESS,
         };
       }
 
@@ -71,13 +67,13 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
         });
 
         return {
-          status: CommandResultStatus.NEEDS_CONFIRMATION,
+          status: IntentResultStatus.NEEDS_CONFIRMATION,
           onConfirmation: () => {
             return this.performIndexing(title, validFiles, lang);
           },
           onRejection: () => {
             return {
-              status: CommandResultStatus.SUCCESS,
+              status: IntentResultStatus.SUCCESS,
             };
           },
         };
@@ -97,7 +93,7 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
       });
 
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error,
       };
     }
@@ -134,7 +130,7 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
         // Check if operation was aborted
         if (abortSignal.aborted) {
           return {
-            status: CommandResultStatus.SUCCESS,
+            status: IntentResultStatus.SUCCESS,
           };
         }
 
@@ -201,7 +197,7 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
       this.plugin.searchService.indexer.setIndexBuilt(true);
 
       return {
-        status: CommandResultStatus.SUCCESS,
+        status: IntentResultStatus.SUCCESS,
       };
     } catch (error) {
       logger.error('Error building search index:', error);
@@ -216,7 +212,7 @@ export class BuildSearchIndexCommandHandler extends CommandHandler {
       });
 
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error,
       };
     } finally {

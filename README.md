@@ -51,6 +51,7 @@ Steward can be used directly in the editor or by opening the chat interface.
 2. Type after the `/ ` in the chat or the active editor to interact or type `/ ?` to see available commands
 3. To add a new line in the command input, press `Shift+Enter` (uses 2-space indentation)
 4. To change the model, in the input, type `m:` or `model:` and select from the dropdown.
+5. To stop a running command, press `ESC` key or type `stop` in the command input.
 
 ### Showcases
 
@@ -113,7 +114,7 @@ commands:
   - name: search
     query: 'Notes name starts with Untitled or with tag #delete'
 
-  - name: delete_from_artifact
+  - name: vault_delete
     query: Delete them
     model: gpt-3.5-turbo # Optional: Override the model for this specific step
 ```

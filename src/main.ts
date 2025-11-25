@@ -11,6 +11,7 @@ import { createStwSelectedPostProcessor } from './post-processors/StwSelectedPos
 import { createExtractionDetailsLinkProcessor } from './post-processors/ExtractionDetailsLinkProcessor';
 import { createStewardConversationProcessor } from './post-processors/StewardConversationProcessor';
 import { createSelectedModelProcessor } from './post-processors/SelectedModelProcessor';
+import { createThinkingProcessPostProcessor } from './post-processors/ThinkingProcessPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -286,6 +287,17 @@ export default class StewardPlugin extends Plugin {
       },
     });
 
+    // Register global ESC key handler to stop running commands
+    this.registerDomEvent(document, 'keydown', (evt: KeyboardEvent) => {
+      if (evt.key === 'Escape' && !evt.isComposing) {
+        const activeOperationsCount = this.abortService.getActiveOperationsCount();
+        if (activeOperationsCount > 0) {
+          this.stopOperations();
+          evt.stopPropagation();
+        }
+      }
+    });
+
     // Register extensions for CodeMirror
     this.registerEditorExtension([
       createCommandInputExtension(this, {
@@ -347,6 +359,8 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createStwSelectedPostProcessor(this));
 
     this.registerMarkdownPostProcessor(createSelectedModelProcessor());
+
+    this.registerMarkdownPostProcessor(createThinkingProcessPostProcessor());
 
     // Register the custom view type
     this.registerView(STW_CHAT_VIEW_CONFIG.type, leaf => new StewardChatView(leaf, this));
@@ -565,23 +579,30 @@ export default class StewardPlugin extends Plugin {
       return false;
     }
 
-    // Determine command type based on the prefix
-    let commandType = matchedPrefix.substring(1); // Remove the / from the command
+    // Determine intent type based on the prefix
+    let intentType = matchedPrefix.substring(1); // Remove the / from the command
 
-    // Handle special case for general command
+    // Handle special case for general intent
     if (matchedPrefix === '/ ') {
-      commandType = ' ';
+      intentType = ' ';
     }
 
-    const commandQuery = fullCommandText.substring(matchedPrefix.length).trim();
+    const intentQuery = fullCommandText.substring(matchedPrefix.length).trim();
 
-    if (!this.commandProcessorService.validateCommandContent(commandType, commandQuery)) {
-      logger.log(`Command content is required for ${commandType} command`);
+    if (!this.commandProcessorService.validateIntentContent(intentType, intentQuery)) {
+      logger.log(`Intent content is required for ${intentType} intent`);
       return true;
     }
 
     (async () => {
       try {
+        // Extract and update settings if a selected model is found in the query
+        const selectedModel =
+          this.conversationRenderer.extractSelectedModelFromText(fullCommandText);
+        if (selectedModel) {
+          this.settings.llm.chat.model = selectedModel;
+          await this.saveSettings();
+        }
         // Look for a conversation link in the previous lines
         const conversationLink = this.findConversationLinkAbove(view);
 
@@ -593,7 +614,7 @@ export default class StewardPlugin extends Plugin {
             path: conversationLink,
             newContent: fullCommandText,
             role: 'User',
-            command: commandType,
+            command: intentType,
           });
 
           // Clear all lines in the command block
@@ -612,12 +633,12 @@ export default class StewardPlugin extends Plugin {
           )) as string;
 
           // Emit the conversation note updated event
-          eventEmitter.emit(Events.CONVERSATION_COMMAND_RECEIVED, {
+          eventEmitter.emit(Events.CONVERSATION_INTENT_RECEIVED, {
             title: conversationLink,
-            commands: [
+            intents: [
               {
-                commandType,
-                query: commandQuery,
+                type: intentType,
+                query: intentQuery,
               },
             ],
             lang,
@@ -628,11 +649,11 @@ export default class StewardPlugin extends Plugin {
 
         // Create a title now so we can safely refer to it later
         const formattedDate = formatDateTime();
-        const title = ['search', 'help', 'audio', 'image'].includes(commandType)
-          ? capitalizeString(commandType)
-          : `${capitalizeString(commandType.trim()) || 'General'} ${formattedDate}`;
+        const title = ['search', 'help', 'audio', 'image'].includes(intentType)
+          ? capitalizeString(intentType)
+          : `${capitalizeString(intentType.trim()) || 'General'} ${formattedDate}`;
 
-        await this.conversationRenderer.createConversationNote(title, commandType, commandQuery);
+        await this.conversationRenderer.createConversationNote(title, intentType, intentQuery);
 
         // Insert the conversation link directly here instead of using the event
         const linkText = `![[${this.settings.stewardFolder}/Conversations/${title}]]\n\n`;
@@ -658,8 +679,8 @@ export default class StewardPlugin extends Plugin {
         // Emit the conversation link inserted event
         eventEmitter.emit(Events.CONVERSATION_LINK_INSERTED, {
           title,
-          commandType,
-          commandQuery,
+          intentType,
+          intentQuery,
           // We don't know the language here, the extraction will update it later
         });
 
@@ -724,17 +745,17 @@ export default class StewardPlugin extends Plugin {
         const message = allMessages[i];
 
         // If we find a summary message first, no need to generate a new summary
-        if (message.command === 'summary') {
+        if (message.intent === 'summary') {
           break;
         }
 
         // Stopped generation, no need to summarize
-        if (message.command === 'stop') {
+        if (message.intent === 'stop') {
           break;
         }
 
         // If we find a generate message first, we need to generate a summary
-        if (message.command === 'generate') {
+        if (message.intent === 'generate') {
           const commandBlock = this.commandInputService.getCommandBlock(view, line);
           const fullCommandText = this.commandInputService.getCommandBlockContent(commandBlock);
 
@@ -751,9 +772,9 @@ export default class StewardPlugin extends Plugin {
         await this.commandProcessorService.commandProcessor.processCommandInIsolation(
           {
             title: conversationTitle,
-            commands: [
+            intents: [
               {
-                commandType: 'summary',
+                type: 'summary',
                 query: '',
               },
             ],
@@ -937,6 +958,22 @@ export default class StewardPlugin extends Plugin {
       logger.error('Error closing conversation:', error);
       new Notice(i18next.t('ui.errorClosingConversation', { errorMessage: error.message }));
       return false;
+    }
+  }
+
+  /**
+   * Stop all running operations
+   * Can be called from ESC key or stop command
+   */
+  public stopOperations(): void {
+    const activeOperationsCount = this.abortService.getActiveOperationsCount();
+
+    if (activeOperationsCount > 0) {
+      this.abortService.abortAllOperations();
+      logger.log(
+        `Stop operations triggered - aborted all operations (${activeOperationsCount} active)`
+      );
+      new Notice(i18next.t('stop.stoppedWithCount', { count: activeOperationsCount }));
     }
   }
 

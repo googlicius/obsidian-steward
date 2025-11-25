@@ -85,7 +85,7 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
       const nextMessage = allMessages[nextMessageIndex];
 
       // Focus to the input to ensure it reads the content correct from the cursor.
-      if (nextMessage.command === 'read') {
+      if (nextMessage.intent === 'read') {
         plugin.commandInputService.focus();
       }
 
@@ -106,13 +106,13 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
         'lang'
       )) as string;
 
-      // Determine the command type
-      const commandType = currentMessage.command || ' ';
+      // Determine the intent type
+      const intentType = currentMessage.intent || ' ';
 
       // Clean the message content by removing any command prefix
       let cleanContent = currentMessage.content;
-      if (commandType) {
-        const commandPrefix = '/' + commandType;
+      if (intentType) {
+        const commandPrefix = '/' + intentType;
         if (cleanContent.startsWith(commandPrefix)) {
           cleanContent = cleanContent.substring(commandPrefix.length);
         }
@@ -131,12 +131,12 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
       }
 
       // Process the command
-      await plugin.commandProcessorService.commandProcessor.processCommands(
+      await plugin.commandProcessorService.commandProcessor.processIntents(
         {
           title,
-          commands: [
+          intents: [
             {
-              commandType,
+              type: intentType,
               query: cleanContent,
             },
           ],

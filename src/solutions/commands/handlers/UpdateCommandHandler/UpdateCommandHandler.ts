@@ -1,9 +1,4 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import {
   ArtifactType,
@@ -14,7 +9,7 @@ import {
 import { extractUpdateFromSearchResult, UpdateInstruction } from 'src/lib/modelfusion/extractions';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
-import { CommandIntent, DocWithPath } from 'src/types/types';
+import { DocWithPath } from 'src/types/types';
 import { generateId, generateText, Message } from 'ai';
 import { requestReadContentTool } from '../../tools/requestReadContent';
 import { grepTool, execute as grepExecute } from '../../tools/grepContent';
@@ -25,6 +20,7 @@ import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
 import { uniqueID } from 'src/utils/uniqueID';
 import { SystemPromptModifier } from '../../SystemPromptModifier';
 import { ToolRegistry, ToolName } from '../../ToolRegistry';
+import { Intent, IntentResultStatus } from '../../types';
 
 const updatableTypes = [
   ArtifactType.SEARCH_RESULTS,
@@ -52,14 +48,14 @@ export class UpdateCommandHandler extends CommandHandler {
    */
   private async handleUpdateStwSelected(params: {
     title: string;
-    command: CommandIntent;
+    intent: Intent;
     messages: Message[];
     lang?: string | null;
     handlerId: string;
   }): Promise<CommandResult> {
     const t = getTranslation(params.lang);
     const llmConfig = await this.plugin.llmService.getLLMConfig({
-      overrideModel: params.command.model,
+      overrideModel: params.intent.model,
       generateType: 'text',
     });
 
@@ -67,10 +63,10 @@ export class UpdateCommandHandler extends CommandHandler {
       contentType: 'in_the_note',
     });
 
-    const modifier = new SystemPromptModifier(params.command.systemPrompts);
+    const modifier = new SystemPromptModifier(params.intent.systemPrompts);
 
     const tools = { [ToolName.EDIT]: editTool };
-    const registry = ToolRegistry.buildFromTools(tools, params.command.tools);
+    const registry = ToolRegistry.buildFromTools(tools, params.intent.tools);
 
     const extraction = await generateText({
       ...llmConfig,
@@ -141,7 +137,7 @@ ${registry.generateGuidelinesSection()}
           const updateInstructions = editToolExecute(toolCall.args);
 
           // Skip confirmation if no_confirm is true
-          if (params.command.no_confirm) {
+          if (params.intent.no_confirm) {
             return this.performUpdate({
               title: params.title,
               docs: [
@@ -161,7 +157,7 @@ ${registry.generateGuidelinesSection()}
           });
 
           return {
-            status: CommandResultStatus.NEEDS_CONFIRMATION,
+            status: IntentResultStatus.NEEDS_CONFIRMATION,
             onConfirmation: () => {
               return this.performUpdate({
                 title: params.title,
@@ -177,7 +173,7 @@ ${registry.generateGuidelinesSection()}
             },
             onRejection: () => {
               return {
-                status: CommandResultStatus.SUCCESS,
+                status: IntentResultStatus.SUCCESS,
               };
             },
           };
@@ -189,7 +185,7 @@ ${registry.generateGuidelinesSection()}
     }
 
     return {
-      status: CommandResultStatus.SUCCESS,
+      status: IntentResultStatus.SUCCESS,
     };
   }
 
@@ -198,7 +194,7 @@ ${registry.generateGuidelinesSection()}
    */
   private async handleUpdateGeneratedOrReadContent(params: {
     artifact: GeneratedContentArtifact | ReadContentArtifact;
-    command: CommandIntent;
+    intent: Intent;
     title: string;
     lang?: string | null;
     /**
@@ -219,7 +215,7 @@ ${registry.generateGuidelinesSection()}
         lang: params.lang,
       });
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error: new Error('The update command has reached the maximum number of steps'),
       };
     }
@@ -230,11 +226,11 @@ ${registry.generateGuidelinesSection()}
 
     // Use provided messages or default to conversation history
     const messages: Message[] = isInitialCall
-      ? [...conversationHistory, { role: 'user', content: params.command.query, id: generateId() }]
+      ? [...conversationHistory, { role: 'user', content: params.intent.query, id: generateId() }]
       : conversationHistory;
 
     const llmConfig = await this.plugin.llmService.getLLMConfig({
-      overrideModel: params.command.model,
+      overrideModel: params.intent.model,
       generateType: 'text',
     });
 
@@ -252,7 +248,7 @@ ${registry.generateGuidelinesSection()}
       [ToolName.GREP]: grepTool,
       [ToolName.EDIT]: editTool,
     };
-    const registry = ToolRegistry.buildFromTools(tools, params.command.tools);
+    const registry = ToolRegistry.buildFromTools(tools, params.intent.tools);
 
     const extraction = await generateText({
       ...llmConfig,
@@ -306,11 +302,11 @@ ${registry.generateGuidelinesSection()}
 
           const readResult = await readCommandHandler.handle({
             title: params.title,
-            command: {
-              commandType: 'read',
+            intent: {
+              type: 'read',
               query: toolCall.args.query,
-              model: params.command.model,
-              no_confirm: params.command.no_confirm,
+              model: params.intent.model,
+              no_confirm: params.intent.no_confirm,
             },
             handlerId: `fromUpdate_${handlerId}`,
             lang: params.lang,
@@ -319,16 +315,16 @@ ${registry.generateGuidelinesSection()}
           // Record read command execution if tracking is active (check frontmatter)
           const tracking = await this.plugin.commandTrackingService.getTracking(params.title);
           if (tracking) {
-            await this.plugin.commandTrackingService.recordCommandExecution(params.title, 'read');
+            await this.plugin.commandTrackingService.recordIntentExecution(params.title, 'read');
           }
 
-          if (readResult.status === CommandResultStatus.SUCCESS) {
+          if (readResult.status === IntentResultStatus.SUCCESS) {
             // Call handleUpdateGeneratedContent again after reading
             return this.handleUpdateGeneratedOrReadContent({
               ...params,
               remainingSteps: remainingSteps - 1,
             });
-          } else if (readResult.status === CommandResultStatus.NEEDS_CONFIRMATION) {
+          } else if (readResult.status === IntentResultStatus.NEEDS_CONFIRMATION) {
             return {
               ...readResult,
               onFinal: async () => {
@@ -340,7 +336,7 @@ ${registry.generateGuidelinesSection()}
                 });
               },
             };
-          } else if (readResult.status === CommandResultStatus.NEEDS_USER_INPUT) {
+          } else if (readResult.status === IntentResultStatus.NEEDS_USER_INPUT) {
             return readResult;
           } else {
             return readResult;
@@ -430,7 +426,7 @@ ${registry.generateGuidelinesSection()}
           const updateInstructions = editToolExecute(toolCall.args);
 
           // Skip confirmation if no_confirm
-          if (params.command.no_confirm) {
+          if (params.intent.no_confirm) {
             return this.performUpdate({
               title: params.title,
               docs: [
@@ -452,7 +448,7 @@ ${registry.generateGuidelinesSection()}
           });
 
           return {
-            status: CommandResultStatus.NEEDS_CONFIRMATION,
+            status: IntentResultStatus.NEEDS_CONFIRMATION,
             onConfirmation: () => {
               return this.performUpdate({
                 title: params.title,
@@ -468,7 +464,7 @@ ${registry.generateGuidelinesSection()}
             },
             onRejection: () => {
               return {
-                status: CommandResultStatus.SUCCESS,
+                status: IntentResultStatus.SUCCESS,
               };
             },
           };
@@ -503,7 +499,7 @@ ${registry.generateGuidelinesSection()}
     }
 
     return {
-      status: CommandResultStatus.SUCCESS,
+      status: IntentResultStatus.SUCCESS,
     };
   }
 
@@ -533,12 +529,12 @@ ${registry.generateGuidelinesSection()}
         handlerId: params.handlerId,
       });
       return {
-        status: CommandResultStatus.SUCCESS,
+        status: IntentResultStatus.SUCCESS,
       };
     }
 
     // Skip confirmation if no_confirm
-    if (params.command.no_confirm) {
+    if (params.intent.no_confirm) {
       return this.performUpdate({
         title: params.title,
         docs,
@@ -556,7 +552,7 @@ ${registry.generateGuidelinesSection()}
     });
 
     return {
-      status: CommandResultStatus.NEEDS_CONFIRMATION,
+      status: IntentResultStatus.NEEDS_CONFIRMATION,
       onConfirmation: () => {
         return this.performUpdate({
           title: params.title,
@@ -568,7 +564,7 @@ ${registry.generateGuidelinesSection()}
       },
       onRejection: () => {
         return {
-          status: CommandResultStatus.SUCCESS,
+          status: IntentResultStatus.SUCCESS,
         };
       },
     };
@@ -578,7 +574,7 @@ ${registry.generateGuidelinesSection()}
    * Handle an update command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command, lang, handlerId = uniqueID() } = params;
+    const { title, intent, lang, handlerId = uniqueID() } = params;
     const t = getTranslation(lang);
     const conversationHistory = await this.renderer.extractConversationHistory(title, {
       summaryPosition: 1,
@@ -590,14 +586,14 @@ ${registry.generateGuidelinesSection()}
       .getMostRecentArtifactOfTypes(updatableTypes);
 
     if (!artifact) {
-      if (command.query.includes(STW_SELECTED_PLACEHOLDER)) {
+      if (intent.query.includes(STW_SELECTED_PLACEHOLDER)) {
         const originalQuery =
-          this.plugin.commandProcessorService.commandProcessor.getPendingCommand(title)?.payload
+          this.plugin.commandProcessorService.commandProcessor.getPendingIntent(title)?.payload
             .originalQuery;
-        command.query = this.restoreStwSelectedBlocks({ originalQuery, query: command.query });
+        intent.query = this.restoreStwSelectedBlocks({ originalQuery, query: intent.query });
       }
 
-      const hasStwSelected = new RegExp(STW_SELECTED_PATTERN).test(command.query);
+      const hasStwSelected = new RegExp(STW_SELECTED_PATTERN).test(intent.query);
 
       if (hasStwSelected) {
         return this.handleUpdateStwSelected({
@@ -605,7 +601,7 @@ ${registry.generateGuidelinesSection()}
           handlerId,
           messages: [
             ...conversationHistory,
-            { role: 'user', content: command.query, id: generateId() },
+            { role: 'user', content: intent.query, id: generateId() },
           ],
         });
       }
@@ -618,7 +614,7 @@ ${registry.generateGuidelinesSection()}
       });
 
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error: new Error('No recent operations found'),
       };
     }
@@ -639,7 +635,7 @@ ${registry.generateGuidelinesSection()}
           newContent: `*${t('update.noContentFound')}*`,
         });
         return {
-          status: CommandResultStatus.SUCCESS,
+          status: IntentResultStatus.SUCCESS,
         };
       }
     }
@@ -669,10 +665,10 @@ ${registry.generateGuidelinesSection()}
 
     // For other artifact types, extract the update instructions
     const extraction = await extractUpdateFromSearchResult({
-      userInput: command.query,
-      systemPrompts: command.systemPrompts,
+      userInput: intent.query,
+      systemPrompts: intent.systemPrompts,
       conversationHistory,
-      model: command.model,
+      model: intent.model,
     });
 
     await this.renderer.updateConversationNote({
@@ -685,7 +681,7 @@ ${registry.generateGuidelinesSection()}
 
     if (extraction.confidence <= 0.7) {
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error: new Error('Low confidence in update extraction'),
       };
     }
@@ -786,7 +782,7 @@ ${registry.generateGuidelinesSection()}
       });
 
       return {
-        status: CommandResultStatus.SUCCESS,
+        status: IntentResultStatus.SUCCESS,
       };
     } catch (error) {
       await this.renderer.updateConversationNote({
@@ -796,7 +792,7 @@ ${registry.generateGuidelinesSection()}
       });
 
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error,
       };
     }

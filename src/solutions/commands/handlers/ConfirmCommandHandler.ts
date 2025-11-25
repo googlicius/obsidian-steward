@@ -1,13 +1,8 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import { CommandIntent } from 'src/types/types';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
+import { Intent, IntentResultStatus } from '../types';
 
 export class ConfirmCommandHandler extends CommandHandler {
   constructor(public readonly plugin: StewardPlugin) {
@@ -18,10 +13,10 @@ export class ConfirmCommandHandler extends CommandHandler {
    * Handle a confirmation command by checking if the previous command needs confirmation
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command, lang } = params;
+    const { title, intent, lang } = params;
     const t = getTranslation(lang);
 
-    const confirmationIntent = this.isConfirmIntent(command);
+    const confirmationIntent = this.isConfirmIntent(intent);
 
     if (!confirmationIntent) {
       // If it's not a clear confirmation, let the user know
@@ -32,22 +27,22 @@ export class ConfirmCommandHandler extends CommandHandler {
       });
 
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error: t('confirmation.notUnderstood'),
       };
     }
 
     // Get the pending command data
-    const pendingCommandData = this.commandProcessor.getPendingCommand(title);
+    const pendingCommandData = this.commandProcessor.getPendingIntent(title);
     if (
       !pendingCommandData ||
-      !pendingCommandData.lastCommandResult ||
-      pendingCommandData.lastCommandResult.status !== CommandResultStatus.NEEDS_CONFIRMATION
+      !pendingCommandData.lastResult ||
+      pendingCommandData.lastResult.status !== IntentResultStatus.NEEDS_CONFIRMATION
     ) {
       const history = (await this.renderer.extractAllConversationMessages(title)).filter(
         message =>
-          message.command !== 'summary' &&
-          message.command !== 'confirm' &&
+          message.intent !== 'summary' &&
+          message.intent !== 'confirm' &&
           message.history !== false &&
           message.role === 'assistant'
       );
@@ -60,7 +55,7 @@ export class ConfirmCommandHandler extends CommandHandler {
         });
 
         return {
-          status: CommandResultStatus.ERROR,
+          status: IntentResultStatus.ERROR,
           error: t('confirmation.noPending'),
         };
       }
@@ -68,38 +63,23 @@ export class ConfirmCommandHandler extends CommandHandler {
       logger.log('No pending command to confirm, letting LLMs handle it.');
 
       // If the previous message was a generate command, it is more likely that the user is responding to the previous message.
-      if (history[history.length - 1].command === 'generate') {
+      const prevMessage = history[history.length - 1];
+      if (prevMessage.intent === 'generate' && this.isAQuestion(prevMessage.content)) {
         // Forward the query to the generate command.
-        await this.commandProcessor.processCommands({
+        await this.commandProcessor.processIntents({
           title,
-          commands: [
+          intents: [
             {
-              commandType: 'generate',
-              query: params.command.query,
+              type: 'generate',
+              query: intent.query,
             },
           ],
         });
-      }
 
-      // Otherwise, it is something else.
-      // else {
-      //   await this.commandProcessor.processCommands(
-      //     {
-      //       title,
-      //       commands: [
-      //         {
-      //           commandType: ' ',
-      //           query: params.command.query,
-      //         },
-      //       ],
-      //     },
-      //     {
-      //       sendToDownstream: {
-      //         ignoreClassify: true,
-      //       },
-      //     }
-      //   );
-      // }
+        return {
+          status: IntentResultStatus.SUCCESS,
+        };
+      }
 
       await this.plugin.conversationRenderer.updateConversationNote({
         path: title,
@@ -108,20 +88,20 @@ export class ConfirmCommandHandler extends CommandHandler {
       });
 
       return {
-        status: CommandResultStatus.SUCCESS,
+        status: IntentResultStatus.SUCCESS,
       };
     }
 
-    const lastResult = pendingCommandData.lastCommandResult;
+    const lastResult = pendingCommandData.lastResult;
 
     let confirmResult: CommandResult | undefined;
 
     // Handle the confirmation or rejection
     if (confirmationIntent.isAffirmative) {
-      confirmResult = await lastResult.onConfirmation(command.query);
+      confirmResult = await lastResult.onConfirmation(intent.query);
     } else {
       if (lastResult.onRejection) {
-        confirmResult = await lastResult.onRejection(command.query);
+        confirmResult = await lastResult.onRejection(intent.query);
       }
 
       await this.plugin.conversationRenderer.updateConversationNote({
@@ -138,11 +118,18 @@ export class ConfirmCommandHandler extends CommandHandler {
     }
 
     // Standard flow: continue processing the command queue if confirmation was successful
-    if (confirmResult && confirmResult.status === CommandResultStatus.SUCCESS) {
+    if (confirmResult && confirmResult.status === IntentResultStatus.SUCCESS) {
       await this.commandProcessor.continueProcessing(title);
     }
 
-    return confirmResult || { status: CommandResultStatus.SUCCESS };
+    return confirmResult || { status: IntentResultStatus.SUCCESS };
+  }
+
+  /**
+   * A simple check if a content a message is a question.
+   */
+  private isAQuestion(content: string): boolean {
+    return content.endsWith('?');
   }
 
   /**
@@ -151,11 +138,11 @@ export class ConfirmCommandHandler extends CommandHandler {
    * @returns An object with the response type or null if not a clear response
    */
   private isConfirmIntent(
-    command: CommandIntent
+    intent: Intent
   ): { isConfirmation: boolean; isAffirmative: boolean } | null {
-    let commandContent = command.query;
+    let commandContent = intent.query;
 
-    switch (command.commandType) {
+    switch (intent.type) {
       case 'yes':
         commandContent = 'yes';
         break;

@@ -1,20 +1,13 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../../CommandHandler';
+import { CommandHandlerParams, CommandResult } from '../../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/solutions/artifact';
 import { SearchQueryExtractionV2, SearchOperationV2 } from './zSchemas';
-import type StewardPlugin from 'src/main';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { PaginatedSearchResult } from 'src/solutions/search/types';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 import { STOPWORDS } from 'src/solutions/search';
 import { stemmer } from 'src/solutions/search/tokenizer/stemmer';
-import { CommandIntent } from 'src/types/types';
 import { StewardPluginSettings } from 'src/types/interfaces';
 import { DEFAULT_SETTINGS } from 'src/constants';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
@@ -23,6 +16,8 @@ import { searchPromptV2 } from './searchPromptV2';
 import { searchQueryExtractionSchema } from './zSchemas';
 import { getLanguage } from 'obsidian';
 import { SystemPromptModifier } from '../../SystemPromptModifier';
+import { Intent, IntentResultStatus } from '../../types';
+import { Agent } from '../../Agent';
 
 type HighlighKeywordResult = {
   highlightedText: string;
@@ -35,12 +30,8 @@ type HighlighKeywordResult = {
   }[];
 };
 
-export class SearchCommandHandler extends CommandHandler {
+export class SearchCommandHandler extends Agent {
   isContentRequired = true;
-
-  constructor(public readonly plugin: StewardPlugin) {
-    super();
-  }
 
   /**
    * Render the loading indicator for the search command
@@ -56,11 +47,7 @@ export class SearchCommandHandler extends CommandHandler {
       const messages = await this.renderer.extractAllConversationMessages(title);
 
       // If there are only 1 message (user)
-      if (
-        messages.length === 1 &&
-        messages[0].role === 'user' &&
-        messages[0].command === 'search'
-      ) {
+      if (messages.length === 1 && messages[0].role === 'user' && messages[0].intent === 'search') {
         return true;
       }
 
@@ -81,7 +68,7 @@ export class SearchCommandHandler extends CommandHandler {
       multipleOperationsConfirmed?: boolean;
     } = {}
   ): Promise<CommandResult> {
-    const { title, command, nextCommand } = params;
+    const { title, intent, nextIntent } = params;
     const t = getTranslation(params.lang);
 
     // let title = params.title;
@@ -108,7 +95,7 @@ export class SearchCommandHandler extends CommandHandler {
         lang: params.lang,
       });
       return {
-        status: CommandResultStatus.ERROR,
+        status: IntentResultStatus.ERROR,
         error: new Error('Search index not built'),
       };
     }
@@ -117,7 +104,7 @@ export class SearchCommandHandler extends CommandHandler {
     const queryExtraction =
       options.extraction ||
       (await this.extractSearchQueryV2({
-        command,
+        intent,
         lang: params.lang,
         searchSettings: this.plugin.settings.search,
       }));
@@ -175,7 +162,7 @@ export class SearchCommandHandler extends CommandHandler {
       });
 
       // Check if the next command will operate on the search results
-      if (nextCommand && nextCommand.commandType.endsWith('_from_artifact')) {
+      if (nextIntent && nextIntent.type.endsWith('_from_artifact')) {
         // Request confirmation before proceeding
         await this.renderer.updateConversationNote({
           path: title,
@@ -184,7 +171,7 @@ export class SearchCommandHandler extends CommandHandler {
         });
 
         return {
-          status: CommandResultStatus.NEEDS_CONFIRMATION,
+          status: IntentResultStatus.NEEDS_CONFIRMATION,
           onConfirmation: () => {
             return this.handle(params, {
               extraction: queryExtraction,
@@ -193,7 +180,7 @@ export class SearchCommandHandler extends CommandHandler {
           },
           onRejection: () => {
             return {
-              status: CommandResultStatus.SUCCESS,
+              status: IntentResultStatus.SUCCESS,
             };
           },
         };
@@ -239,7 +226,7 @@ export class SearchCommandHandler extends CommandHandler {
     }
 
     return {
-      status: CommandResultStatus.SUCCESS,
+      status: IntentResultStatus.SUCCESS,
     };
   }
 
@@ -248,19 +235,19 @@ export class SearchCommandHandler extends CommandHandler {
    * @returns Extracted search parameters and explanation
    */
   private async extractSearchQueryV2({
-    command,
+    intent,
     lang,
     searchSettings = DEFAULT_SETTINGS.search,
   }: {
-    command: CommandIntent;
+    intent: Intent;
     searchSettings?: StewardPluginSettings['search'];
     lang?: string | null;
   }): Promise<SearchQueryExtractionV2> {
-    const { systemPrompts = [] } = command;
+    const { systemPrompts = [] } = intent;
     const t = getTranslation(lang);
 
     // Check if input is wrapped in quotation marks for direct search
-    const searchTerm = getQuotedQuery(command.query);
+    const searchTerm = getQuotedQuery(intent.query);
 
     if (searchTerm) {
       const operations: SearchOperationV2[] = [
@@ -297,7 +284,7 @@ export class SearchCommandHandler extends CommandHandler {
     }
 
     // Check if input only contains tags
-    const trimmedInput = command.query.trim();
+    const trimmedInput = intent.query.trim();
     const tagRegex = /#([^\s#]+)/g;
     const NON_TAG_PATTERN = '[,\\s;|&+]+$';
     const tags = [...trimmedInput.matchAll(tagRegex)].map(match =>
@@ -329,7 +316,7 @@ export class SearchCommandHandler extends CommandHandler {
 
     try {
       const llmConfig = await this.plugin.llmService.getLLMConfig({
-        overrideModel: command.model,
+        overrideModel: intent.model,
         generateType: 'object',
       });
 
@@ -340,10 +327,10 @@ export class SearchCommandHandler extends CommandHandler {
       const { object } = await generateObject({
         ...llmConfig,
         abortSignal: this.plugin.abortService.createAbortController('search-query-v2'),
-        system: modifier.apply(searchPromptV2(command)),
+        system: modifier.apply(searchPromptV2(intent)),
         messages: [
           ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
-          { role: 'user', content: command.query },
+          { role: 'user', content: intent.query },
         ],
         schema: searchQueryExtractionSchema,
       });

@@ -1,10 +1,10 @@
-import { CommandIntent, ContextAugmentationIntent } from './types';
+import { ContextAugmentationIntent, Intent } from 'src/solutions/commands/types';
 import { IndexedDocument } from '../database/SearchDatabase';
 import { SearchQueryExtractionV2 } from 'src/solutions/commands/handlers/SearchCommandHandler/zSchemas';
 
 export enum Events {
   CONVERSATION_NOTE_CREATED = 'conversation-note-created',
-  CONVERSATION_COMMAND_RECEIVED = 'conversation-command-received',
+  CONVERSATION_INTENT_RECEIVED = 'conversation-intent-received',
   CONVERSATION_LINK_INSERTED = 'conversation-link-inserted',
   LLM_RESPONSE_RECEIVED = 'LLM_RESPONSE_RECEIVED',
   RESPONSE_READY_TO_INSERT = 'RESPONSE_READY_TO_INSERT',
@@ -32,9 +32,9 @@ export enum ErrorEvents {
   GIT_ERROR = 'GIT_ERROR',
 }
 
-export interface ConversationCommandReceivedPayload {
+export interface ConversationIntentReceivedPayload {
   title: string;
-  commands: (CommandIntent | ContextAugmentationIntent)[];
+  intents: (Intent | ContextAugmentationIntent)[];
   /**
    * The original query that was received from the user
    */
@@ -44,8 +44,8 @@ export interface ConversationCommandReceivedPayload {
 
 export interface ConversationLinkInsertedPayload {
   title: string;
-  commandType: string;
-  commandQuery: string;
+  intentType: string;
+  intentQuery: string;
   lang?: string;
 }
 
@@ -144,7 +144,7 @@ export interface MediaGenerationFailedPayload {
 }
 
 export type EventPayloadMap = {
-  [Events.CONVERSATION_COMMAND_RECEIVED]: ConversationCommandReceivedPayload;
+  [Events.CONVERSATION_INTENT_RECEIVED]: ConversationIntentReceivedPayload;
   [Events.LLM_RESPONSE_RECEIVED]: ResponseReadyPayload;
   [Events.RESPONSE_READY_TO_INSERT]: ResponseReadyPayload;
   [Events.CONVERSATION_LINK_INSERTED]: ConversationLinkInsertedPayload;

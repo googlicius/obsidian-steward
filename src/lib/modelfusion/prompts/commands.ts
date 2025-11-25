@@ -6,6 +6,7 @@
 
 import { stringifyYaml } from 'obsidian';
 import { Artifact, ArtifactType } from 'src/solutions/artifact';
+import { SysError } from 'src/utils/errors';
 
 export interface CommandDefinition {
   commandType: string;
@@ -51,7 +52,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   - <tag>: If searching for a specific tag, include it with the # symbol.
   - <folder>: If searching in a specific folder.
   - <keywords>: Words or phrases to search for within note content.
-  NOTE: Square brackets [] indicate optional fields. At least one field must be present.
+  NOTE: Square brackets [] indicate optional part of the query. At least one part must be present.
 
 2. Search Guidelines:
   - Multiple parameters can be combined when needed.
@@ -89,13 +90,6 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     artifactDesc: `The file path of the created audio is stored as the artifact with name ${ArtifactType.MEDIA_RESULTS}`,
   },
   {
-    commandType: 'create',
-    description: 'Create a new note with their own content',
-    category: 'built-in',
-    includeWhen: 'Create a new note',
-    artifactDesc: 'The file path of the created note',
-  },
-  {
     commandType: 'stop',
     description: 'Stop ongoing operations',
     category: 'built-in',
@@ -108,25 +102,34 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     category: 'built-in',
     availableToLLM: false,
   },
+  {
+    commandType: 'vault',
+    description: `An agent performs vault-related operations. You MUST add a query to activate one or more tools that needs to perform the operation, e.g. 'vault?tools=list,rename'.
+Available tools: list, rename, create, delete, copy, update_frontmatter, and move.
+NOTE: The update_frontmatter tool is used to add, update, or delete frontmatter properties in notes. Use this tool to delete note's properties.`,
+    category: 'intent-based',
+    includeWhen: 'Vault operations (list files, create notes, etc.)',
+    artifactDesc: 'Vault agent outputs',
+  },
 
   // Intent-based commands (available through natural language processing)
   {
-    commandType: 'move_from_artifact',
+    commandType: 'vault_move',
     description: 'Move notes from the artifact to a destination',
     category: 'intent-based',
     aliases: ['move'],
-    queryTemplate: `Extract specific details for a move_from_artifact command follows this format: <query>; destination: <destination>
+    queryTemplate: `Extract specific details for a vault_move command follows this format: <query>; destination: <destination>
 - <query>: The query for the move command.
 - <destination>: The destination folder.`,
     includeWhen: 'Move notes from the artifact',
     artifactDesc: `The moved note paths is stored as the artifact with name ${ArtifactType.MOVE_RESULTS}`,
   },
   {
-    commandType: 'copy_from_artifact',
+    commandType: 'vault_copy',
     description: 'Copy notes from the artifact to a destination',
     category: 'intent-based',
     aliases: ['copy'],
-    queryTemplate: `Extract specific details for a copy_from_artifact command follows this format: <query>; destination: <destination>
+    queryTemplate: `Extract specific details for a vault_copy command follows this format: <query>; destination: <destination>
 - <query>: The query for the copy command.
 - <destination>: The destination folder.`,
     includeWhen: 'Copy notes from the artifact',
@@ -134,7 +137,8 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   },
   {
     commandType: 'update_from_artifact',
-    description: 'Update note(s) from the artifact',
+    description:
+      'Update note(s) content from the artifact. NOTE: This command is used to update the content of the note only. If you need to update the frontmatter properties, use the vault?tool=update_frontmatter.',
     category: 'intent-based',
     aliases: ['update'],
     queryTemplate: `Extract specific details for what to be updated.`,
@@ -142,11 +146,12 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     artifactDesc: `The updated note paths is stored as the artifact with name ${ArtifactType.CONTENT_UPDATE}`,
   },
   {
-    commandType: 'delete_from_artifact',
-    description: 'Delete note(s) from the artifact',
+    commandType: 'vault_delete',
+    description:
+      "Delete note(s) from the artifact. NOTE: This command does not delete note's properties. If you need that, use the vault?tool=update_frontmatter.",
     category: 'intent-based',
     aliases: ['delete'],
-    queryTemplate: `Extract specific details for a delete_from_artifact command:
+    queryTemplate: `Extract specific details for a vault_delete command:
 - The query always be: "Delete all notes in the search result."`,
     includeWhen: 'Delete notes from the artifact',
   },
@@ -178,7 +183,7 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     - If the <read_type> is "entire", include the note name.
     - If the <read_type> is "above" or "below", it means current note, leave the note name blank.
   - <other_notes_to_read>: The other notes to read if needed. Follow the same structure as the previous.
-  NOTE: Square brackets [] indicate optional fields.
+  NOTE: Square brackets [] indicate optional part of the query.
 
 2. Read multiple notes if needed.
   - If the query require read content in one or more notes, include all of them.
@@ -197,8 +202,8 @@ Otherwise, you need to include the "read" command.`,
     category: 'intent-based',
     queryTemplate: `Extract the query for the generate command follows this format: <query_in_natural_language>, [note name: <note_name>]
 - <query_in_natural_language>: Tailored query for the generate command.
-- <note_name>: Include if mentioned.
-NOTE: Square brackets [] indicate optional fields.`,
+- <note_name>: The existing note name, include only if mentioned in the context.
+NOTE: Square brackets [] indicate optional part of the query.`,
     includeWhen: 'Ask, update, or generate content with your help',
     artifactDesc: `The generated content is stored as the artifact with name ${ArtifactType.CONTENT_UPDATE}`,
   },
@@ -221,6 +226,103 @@ const COMMAND_DEFINITIONS_MAP = COMMAND_DEFINITIONS.reduce((acc, item) => {
   acc.set(item.commandType, item);
   return acc;
 }, new Map<string, CommandDefinition>());
+
+function resolveCommandDefinition(commandName: string): CommandDefinition {
+  const [baseName] = commandName.split('?', 1);
+
+  const definition =
+    COMMAND_DEFINITIONS_MAP.get(baseName) ??
+    COMMAND_DEFINITIONS.find(cmd => cmd.aliases && cmd.aliases.includes(baseName));
+
+  if (!definition) {
+    throw new SysError(`Command ${baseName} not found`);
+  }
+
+  return definition;
+}
+
+type AggregatedCommand = {
+  commandName: string;
+  definition: CommandDefinition;
+};
+
+function aggregateCommandNames(commandNames: string[]): AggregatedCommand[] {
+  const aggregated = new Map<
+    string,
+    {
+      params: Map<string, string[]>;
+      definition: CommandDefinition;
+    }
+  >();
+  const order: string[] = [];
+
+  for (const rawName of commandNames) {
+    if (!rawName) continue;
+    const [baseName, queryString] = rawName.split('?', 2);
+
+    const definition = resolveCommandDefinition(baseName);
+
+    let entry = aggregated.get(baseName);
+    if (!entry) {
+      entry = {
+        params: new Map<string, string[]>(),
+        definition,
+      };
+      aggregated.set(baseName, entry);
+      order.push(baseName);
+    }
+
+    if (!queryString) {
+      continue;
+    }
+
+    const searchParams = new URLSearchParams(queryString);
+    for (const [param, rawValue] of searchParams.entries()) {
+      const values = rawValue
+        .split(',')
+        .map(value => value.trim())
+        .filter(Boolean);
+
+      let existingValues = entry.params.get(param);
+      if (!existingValues) {
+        existingValues = [];
+        entry.params.set(param, existingValues);
+      }
+
+      for (const value of values) {
+        if (!existingValues.includes(value)) {
+          existingValues.push(value);
+        }
+      }
+    }
+  }
+
+  return order.map(baseName => {
+    const entry = aggregated.get(baseName);
+    if (!entry) {
+      throw new SysError(`Command ${baseName} not found`);
+    }
+
+    const queryParts: string[] = [];
+    for (const [param, values] of entry.params.entries()) {
+      if (values.length === 0) {
+        continue;
+      }
+      queryParts.push(`${param}=${values.join(',')}`);
+    }
+
+    const commandName = queryParts.length > 0 ? `${baseName}?${queryParts.join('&')}` : baseName;
+
+    return {
+      commandName,
+      definition: entry.definition,
+    };
+  });
+}
+
+function getCommandDefinitionsFromNames(commandNames: string[]): CommandDefinition[] {
+  return aggregateCommandNames(commandNames).map(item => item.definition);
+}
 
 /**
  * Get a command definition by command type
@@ -258,13 +360,13 @@ export function artifactDependentExamples(commands: CommandDefinition[]): string
 
   // Common and useful combinations
   const commonPairs = [
-    { creator: 'search', user: 'move_from_artifact' },
+    { creator: 'search', user: 'vault_move' },
     { creator: 'read', user: 'update_from_artifact' },
     { creator: 'generate', user: 'update_from_artifact' },
-    { creator: 'search', user: 'copy_from_artifact' },
+    { creator: 'search', user: 'vault_copy' },
     { creator: 'read', user: 'generate' },
     { creator: 'search', user: 'update_from_artifact' },
-    { creator: 'search', user: 'delete_from_artifact' },
+    { creator: 'search', user: 'vault_delete' },
   ];
 
   // Find available pairs from the common combinations
@@ -301,7 +403,7 @@ export function artifactDependentExamples(commands: CommandDefinition[]): string
  */
 export function getArtifactInstructions(commandNames?: string[] | null): string {
   const commands = commandNames
-    ? COMMAND_DEFINITIONS.filter(cmd => commandNames.includes(cmd.commandType))
+    ? getCommandDefinitionsFromNames(commandNames)
     : COMMAND_DEFINITIONS;
 
   const artifactCommands = commands.filter(cmd => cmd.artifactDesc);
@@ -326,27 +428,25 @@ ${artifactList}
  * Format commands list for prompt inclusion (only commands available to LLMs)
  */
 export function formatCommandsForPrompt(commandNames?: string[] | null): string {
-  const commands: CommandDefinition[] = commandNames
-    ? commandNames.map(cmd => {
-        if (!COMMAND_DEFINITIONS_MAP.has(cmd)) {
-          throw new Error(`Command ${cmd} not found`);
-        }
-        return COMMAND_DEFINITIONS_MAP.get(cmd) as CommandDefinition;
-      })
-    : COMMAND_DEFINITIONS.filter(cmd => cmd.availableToLLM !== false);
+  const commands = commandNames
+    ? aggregateCommandNames(commandNames)
+    : COMMAND_DEFINITIONS.filter(cmd => cmd.availableToLLM !== false).map(definition => ({
+        commandName: definition.commandType,
+        definition,
+      }));
 
-  const commandsData = commands.map(cmd => {
+  const commandsData = commands.map(({ commandName, definition }) => {
     const commandData: CommandData = {
-      name: cmd.commandType,
-      description: cmd.description,
+      name: commandName,
+      description: definition.description,
     };
 
-    if (cmd.aliases && cmd.aliases.length > 0) {
-      commandData.aliases = cmd.aliases;
+    if (definition.aliases && definition.aliases.length > 0) {
+      commandData.aliases = definition.aliases;
     }
 
-    if (cmd.includeWhen) {
-      commandData.use_when = cmd.includeWhen;
+    if (definition.includeWhen) {
+      commandData.use_when = definition.includeWhen;
     }
 
     return commandData;
@@ -360,19 +460,17 @@ export function formatCommandsForPrompt(commandNames?: string[] | null): string 
  */
 export function formatQueryTemplatesForPrompt(commandNames?: string[] | null): string {
   const commands = commandNames
-    ? commandNames.map(cmd => {
-        if (!COMMAND_DEFINITIONS_MAP.has(cmd)) {
-          throw new Error(`Command ${cmd} not found`);
-        }
-        return COMMAND_DEFINITIONS_MAP.get(cmd) as CommandDefinition;
-      })
-    : COMMAND_DEFINITIONS.filter(cmd => cmd.queryTemplate);
+    ? aggregateCommandNames(commandNames)
+    : COMMAND_DEFINITIONS.filter(cmd => cmd.queryTemplate).map(definition => ({
+        commandName: definition.commandType,
+        definition,
+      }));
 
   const templatesData = commands
-    .filter(cmd => cmd.queryTemplate)
-    .map(cmd => ({
-      command: cmd.commandType,
-      template: cmd.queryTemplate,
+    .filter(({ definition }) => definition.queryTemplate)
+    .map(({ commandName, definition }) => ({
+      command: commandName,
+      template: definition.queryTemplate as string,
     }));
 
   return stringifyYaml(templatesData);

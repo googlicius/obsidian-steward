@@ -1,17 +1,13 @@
-import {
-  CommandHandler,
-  CommandHandlerParams,
-  CommandResult,
-  CommandResultStatus,
-} from '../CommandHandler';
+import { CommandHandler, CommandHandlerParams, CommandResult } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
 import type StewardPlugin from 'src/main';
+import { IntentResultStatus } from '../types';
 
 export class UserDefinedCommandHandler extends CommandHandler {
   isContentRequired = (commandType: string): boolean => {
     const userDefinedCommand =
       this.plugin.userDefinedCommandService?.userDefinedCommands.get(commandType);
-    return !!(userDefinedCommand && userDefinedCommand.query_required);
+    return !!(userDefinedCommand && userDefinedCommand.normalized.query_required);
   };
 
   constructor(public readonly plugin: StewardPlugin) {
@@ -30,76 +26,63 @@ export class UserDefinedCommandHandler extends CommandHandler {
    * Handle a user-defined command
    */
   public async handle(params: CommandHandlerParams): Promise<CommandResult> {
-    const { title, command, lang } = params;
+    const { title, intent, lang } = params;
 
+    let commandIntents;
     try {
-      let commandIntents;
-      try {
-        commandIntents = this.plugin.userDefinedCommandService.expandUserDefinedCommandIntents(
-          [
-            {
-              commandType: command.commandType,
-              query: command.query,
-              systemPrompts: command.systemPrompts,
-            },
-          ],
-          command.query || ''
-        );
-      } catch (cycleError) {
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: `*Error: ${cycleError instanceof Error ? cycleError.message : cycleError}*`,
-          role: 'Steward',
-        });
-        return {
-          status: CommandResultStatus.ERROR,
-          error: cycleError instanceof Error ? cycleError : new Error(String(cycleError)),
-        };
-      }
-
-      if (!commandIntents || commandIntents.length === 0) {
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: `*Error: User-defined command '${command.commandType}' not found or empty*`,
-          role: 'Steward',
-        });
-
-        return {
-          status: CommandResultStatus.ERROR,
-          error: new Error(`User-defined command '${command.commandType}' not found or empty`),
-        };
-      }
-
-      if (commandIntents[0].model) {
-        await this.renderer.updateConversationFrontmatter(title, [
-          { name: 'model', value: commandIntents[0].model },
-        ]);
-      }
-
-      // Process the expanded commands
-      await this.commandProcessor.processCommands(
+      commandIntents = this.plugin.userDefinedCommandService.expandUserDefinedCommandIntents(
         {
-          title,
-          commands: commandIntents,
-          lang,
+          type: intent.type,
+          query: intent.query,
+          systemPrompts: intent.systemPrompts,
         },
-        { builtInCommandPrecedence: true }
+        intent.query || ''
       );
-
-      return {
-        status: CommandResultStatus.SUCCESS,
-      };
-    } catch (error) {
+    } catch (cycleError) {
       await this.renderer.updateConversationNote({
         path: title,
-        newContent: `*Error processing user-defined command: ${error.message}*`,
+        newContent: `*Error: ${cycleError instanceof Error ? cycleError.message : cycleError}*`,
+        role: 'Steward',
+      });
+      return {
+        status: IntentResultStatus.ERROR,
+        error: cycleError instanceof Error ? cycleError : new Error(String(cycleError)),
+      };
+    }
+
+    if (!commandIntents || commandIntents.length === 0) {
+      await this.renderer.updateConversationNote({
+        path: title,
+        newContent: `*Error: User-defined command '${intent.type}' not found or empty*`,
         role: 'Steward',
       });
 
       return {
-        status: CommandResultStatus.ERROR,
-        error,
+        status: IntentResultStatus.ERROR,
+        error: new Error(`User-defined command '${intent.type}' not found or empty`),
       };
     }
+
+    // Store the model and user-defined command name in frontmatter
+    const frontmatterUpdates = [{ name: 'udc_command', value: intent.type }];
+
+    if (commandIntents[0].model) {
+      frontmatterUpdates.push({ name: 'model', value: commandIntents[0].model });
+    }
+    await this.renderer.updateConversationFrontmatter(title, frontmatterUpdates);
+
+    // Process the expanded commands
+    await this.commandProcessor.processIntents(
+      {
+        title,
+        intents: commandIntents,
+        lang,
+      },
+      { builtInCommandPrecedence: true }
+    );
+
+    return {
+      status: IntentResultStatus.SUCCESS,
+    };
   }
 }

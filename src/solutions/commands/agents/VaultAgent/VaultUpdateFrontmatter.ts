@@ -1,0 +1,368 @@
+import { tool } from 'ai';
+import { z } from 'zod';
+import { getTranslation } from 'src/i18n';
+import { ArtifactType } from 'src/solutions/artifact';
+import { logger } from 'src/utils/logger';
+import type VaultAgent from './VaultAgent';
+import { ToolInvocation } from '../../tools/types';
+import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+
+const frontmatterPropertySchema = z
+  .object({
+    name: z.string().min(1).describe('The name of the frontmatter property.'),
+    value: z
+      .union([z.string(), z.number(), z.boolean(), z.array(z.string())])
+      .optional()
+      .describe('The value to set for the property. Omit to delete the property.'),
+  })
+  .describe(
+    'A frontmatter property operation (add/update if value is provided, delete if omitted).'
+  );
+
+const updateFrontmatterToolSchema = z
+  .object({
+    artifactId: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('The artifact identifier containing files to update frontmatter for.'),
+    files: z
+      .array(
+        z.object({
+          path: z
+            .string()
+            .min(1)
+            .describe('The full path (including extension) of the file to update frontmatter for.'),
+          properties: z
+            .array(frontmatterPropertySchema)
+            .min(1)
+            .describe('The list of frontmatter properties to add, update, or delete.'),
+        })
+      )
+      .optional()
+      .refine(array => !array || array.length > 0, {
+        message: 'files array must include at least one entry when provided.',
+      })
+      .describe('The list of files that must have their frontmatter updated.'),
+    explanation: z
+      .string()
+      .min(1)
+      .describe('A short explanation of why these frontmatter changes are being made.'),
+  })
+  .refine(data => Boolean(data.artifactId) || Boolean(data.files && data.files.length > 0), {
+    message: 'Provide either artifactId or files.',
+  });
+
+export type UpdateFrontmatterToolArgs = z.infer<typeof updateFrontmatterToolSchema>;
+
+type FileWithProperties = {
+  path: string;
+  properties: Array<{
+    name: string;
+    value?: string | number | boolean | string[];
+  }>;
+};
+
+export class VaultUpdateFrontmatter {
+  private static readonly updateFrontmatterTool = tool({
+    parameters: updateFrontmatterToolSchema,
+  });
+
+  constructor(private readonly agent: VaultAgent) {}
+
+  public static getUpdateFrontmatterTool() {
+    return VaultUpdateFrontmatter.updateFrontmatterTool;
+  }
+
+  public async handle(
+    params: AgentHandlerParams,
+    options: { toolCall: ToolInvocation<unknown, UpdateFrontmatterToolArgs> }
+  ): Promise<AgentResult> {
+    const { title, lang, handlerId } = params;
+    const { toolCall } = options;
+    const t = getTranslation(lang);
+
+    if (!handlerId) {
+      throw new Error('VaultUpdateFrontmatter.handle invoked without handlerId');
+    }
+
+    if (toolCall.args.explanation) {
+      await this.agent.renderer.updateConversationNote({
+        path: title,
+        newContent: toolCall.args.explanation,
+        agent: 'vault',
+        command: 'vault_update_frontmatter',
+        includeHistory: false,
+        lang,
+        handlerId,
+      });
+    }
+
+    const resolveResult = await this.resolveFiles({
+      title,
+      toolCall,
+      lang,
+      handlerId,
+    });
+
+    if (resolveResult.errorMessage) {
+      return {
+        status: IntentResultStatus.ERROR,
+        error: new Error(resolveResult.errorMessage),
+      };
+    }
+
+    const filesToUpdate = resolveResult.files;
+
+    if (filesToUpdate.length === 0) {
+      return {
+        status: IntentResultStatus.ERROR,
+        error: new Error(t('common.noFilesFound')),
+      };
+    }
+
+    const updateResult = await this.executeFrontmatterUpdates({
+      title,
+      files: filesToUpdate,
+    });
+
+    const formattedMessage = this.formatUpdateResult({
+      result: updateResult,
+      lang,
+    });
+
+    const messageId = await this.agent.renderer.updateConversationNote({
+      path: title,
+      newContent: formattedMessage,
+      agent: 'vault',
+      command: 'vault_update_frontmatter',
+      lang,
+      handlerId,
+      includeHistory: false,
+    });
+
+    await this.serializeUpdateInvocation({
+      title,
+      handlerId,
+      toolCall,
+      result: messageId ? `messageRef:${messageId}` : formattedMessage,
+    });
+
+    return {
+      status: IntentResultStatus.SUCCESS,
+    };
+  }
+
+  private async resolveFiles(params: {
+    title: string;
+    toolCall: ToolInvocation<unknown, UpdateFrontmatterToolArgs>;
+    lang?: string | null;
+    handlerId: string;
+  }): Promise<{ files: FileWithProperties[]; errorMessage?: string }> {
+    const { title, toolCall, lang, handlerId } = params;
+    const t = getTranslation(lang);
+
+    const artifactFilePaths: string[] = [];
+    let noFilesMessage = t('common.noFilesFound');
+
+    if (toolCall.args.artifactId) {
+      const artifact = await this.agent.plugin.artifactManagerV2
+        .withTitle(title)
+        .getArtifactById(toolCall.args.artifactId);
+
+      if (!artifact) {
+        logger.error(`Update frontmatter tool artifact not found: ${toolCall.args.artifactId}`);
+        noFilesMessage = t('common.noRecentOperations');
+      } else if (artifact.artifactType === ArtifactType.SEARCH_RESULTS) {
+        for (const result of artifact.originalResults) {
+          artifactFilePaths.push(result.document.path);
+        }
+      } else if (artifact.artifactType === ArtifactType.CREATED_NOTES) {
+        for (const path of artifact.paths) {
+          artifactFilePaths.push(path);
+        }
+      } else {
+        const message = t('frontmatter.cannotUpdateThisType', { type: artifact.artifactType });
+
+        const messageId = await this.agent.renderer.updateConversationNote({
+          path: title,
+          newContent: message,
+          agent: 'vault',
+          command: 'vault_update_frontmatter',
+          lang,
+          handlerId,
+          includeHistory: false,
+        });
+
+        await this.serializeUpdateInvocation({
+          title,
+          handlerId,
+          toolCall,
+          result: messageId ? `messageRef:${messageId}` : message,
+        });
+
+        return { files: [], errorMessage: message };
+      }
+    }
+
+    if (toolCall.args.artifactId && !toolCall.args.files) {
+      const message = t('frontmatter.propertiesRequired');
+
+      const messageId = await this.agent.renderer.updateConversationNote({
+        path: title,
+        newContent: message,
+        agent: 'vault',
+        command: 'vault_update_frontmatter',
+        lang,
+        handlerId,
+        includeHistory: false,
+      });
+
+      await this.serializeUpdateInvocation({
+        title,
+        handlerId,
+        toolCall,
+        result: messageId ? `messageRef:${messageId}` : message,
+      });
+
+      return { files: [], errorMessage: message };
+    }
+
+    const filesToUpdate: FileWithProperties[] = [];
+
+    if (toolCall.args.files) {
+      for (const file of toolCall.args.files) {
+        const trimmedPath = file.path.trim();
+        if (!trimmedPath) {
+          continue;
+        }
+
+        if (toolCall.args.artifactId && !artifactFilePaths.includes(trimmedPath)) {
+          continue;
+        }
+
+        filesToUpdate.push({
+          path: trimmedPath,
+          properties: file.properties,
+        });
+      }
+    }
+
+    if (filesToUpdate.length === 0) {
+      const noFilesMessageId = await this.agent.renderer.updateConversationNote({
+        path: title,
+        newContent: noFilesMessage,
+        agent: 'vault',
+        command: 'vault_update_frontmatter',
+        lang,
+        handlerId,
+        includeHistory: false,
+      });
+
+      await this.serializeUpdateInvocation({
+        title,
+        handlerId,
+        toolCall,
+        result: noFilesMessageId ? `messageRef:${noFilesMessageId}` : noFilesMessage,
+      });
+
+      return { files: [], errorMessage: noFilesMessage };
+    }
+
+    return { files: filesToUpdate };
+  }
+
+  private async executeFrontmatterUpdates(params: {
+    title: string;
+    files: FileWithProperties[];
+  }): Promise<{ updated: string[]; failed: Array<{ path: string; error: string }> }> {
+    const { files } = params;
+    const updated: string[] = [];
+    const failed: Array<{ path: string; error: string }> = [];
+
+    for (const fileToUpdate of files) {
+      const file = this.agent.app.vault.getFileByPath(fileToUpdate.path);
+
+      if (!file) {
+        failed.push({
+          path: fileToUpdate.path,
+          error: 'File not found',
+        });
+        continue;
+      }
+
+      try {
+        await this.agent.app.fileManager.processFrontMatter(file, frontmatter => {
+          for (const property of fileToUpdate.properties) {
+            if (property.value === undefined) {
+              delete frontmatter[property.name];
+            } else {
+              frontmatter[property.name] = property.value;
+            }
+          }
+        });
+
+        updated.push(fileToUpdate.path);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        logger.error(`Error updating frontmatter for ${fileToUpdate.path}:`, error);
+        failed.push({
+          path: fileToUpdate.path,
+          error: errorMessage,
+        });
+      }
+    }
+
+    return { updated, failed };
+  }
+
+  private formatUpdateResult(params: {
+    result: { updated: string[]; failed: Array<{ path: string; error: string }> };
+    lang?: string | null;
+  }): string {
+    const { result, lang } = params;
+    const { updated, failed } = result;
+    const t = getTranslation(lang);
+
+    const totalCount = updated.length + failed.length;
+    let response = t('frontmatter.foundFiles', { count: totalCount });
+
+    if (updated.length > 0) {
+      response += `\n\n**${t('frontmatter.successfullyUpdated', { count: updated.length })}**`;
+      for (const filePath of updated) {
+        response += `\n- [[${filePath}]]`;
+      }
+    }
+
+    if (failed.length > 0) {
+      response += `\n\n**${t('frontmatter.failed', { count: failed.length })}**`;
+      for (const failure of failed) {
+        response += `\n- [[${failure.path}]]: ${failure.error}`;
+      }
+    }
+
+    return response;
+  }
+
+  private async serializeUpdateInvocation(params: {
+    title: string;
+    handlerId: string;
+    toolCall: ToolInvocation<unknown, UpdateFrontmatterToolArgs>;
+    result: string;
+  }): Promise<void> {
+    const { title, handlerId, toolCall, result } = params;
+
+    await this.agent.renderer.serializeToolInvocation({
+      path: title,
+      agent: 'vault',
+      command: 'vault_update_frontmatter',
+      handlerId,
+      toolInvocations: [
+        {
+          ...toolCall,
+          result,
+        },
+      ],
+    });
+  }
+}
