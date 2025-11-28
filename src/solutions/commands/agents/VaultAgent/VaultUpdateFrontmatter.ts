@@ -11,9 +11,9 @@ const frontmatterPropertySchema = z
   .object({
     name: z.string().min(1).describe('The name of the frontmatter property.'),
     value: z
-      .union([z.string(), z.number(), z.boolean(), z.array(z.string())])
+      .union([z.string(), z.number(), z.boolean(), z.array(z.string()), z.null()])
       .optional()
-      .describe('The value to set for the property. Omit to delete the property.'),
+      .describe('The value to set for the property. Omit or set null to delete the property.'),
   })
   .describe(
     'A frontmatter property operation (add/update if value is provided, delete if omitted).'
@@ -59,7 +59,7 @@ type FileWithProperties = {
   path: string;
   properties: Array<{
     name: string;
-    value?: string | number | boolean | string[];
+    value?: string | number | boolean | string[] | null;
   }>;
 };
 
@@ -294,7 +294,7 @@ export class VaultUpdateFrontmatter {
       try {
         await this.agent.app.fileManager.processFrontMatter(file, frontmatter => {
           for (const property of fileToUpdate.properties) {
-            if (property.value === undefined) {
+            if (property.value === undefined || property.value === null) {
               delete frontmatter[property.name];
             } else {
               frontmatter[property.name] = property.value;

@@ -22,6 +22,8 @@
     "modelfusion",
     "ollama",
     "openaicompatible",
+    "stopword",
+    "Stopwords",
     "wikilink",
     "Wikilinks"
   ],
