@@ -292,9 +292,7 @@ export class Tokenizer {
     const words = normalizedContent.split(/\s+/).filter(Boolean);
 
     // Remove stopwords if configured
-    const filteredWords = this.config.removeStopwords
-      ? removeStopwords(words, this.config.stopwordThreshold)
-      : words;
+    const filteredWords = this.config.removeStopwords ? removeStopwords(words) : words;
 
     // Count term frequencies and positions
     const termMap = new Map<string, { count: number; positions: number[] }>();

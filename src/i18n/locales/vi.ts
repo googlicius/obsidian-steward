@@ -331,7 +331,8 @@ const vi = {
       apiKeyNote2: 'Tất cả khóa API được lưu trữ với mã hóa.',
       llm: 'LLM',
       chatModel: 'Mô hình trò chuyện',
-      chatModelDesc: 'Chọn mô hình AI để sử dụng cho trò chuyện',
+      chatModelDesc:
+        'Chọn mô hình AI để sử dụng cho trò chuyện. Bạn cũng có thể thay đổi mô hình trực tiếp trong ô nhập bằng cách gõ m: hoặc model:',
       intentClassification: 'Phân loại ý định',
       classificationEnabled: 'Bật phân loại ý định',
       classificationEnabledDesc:

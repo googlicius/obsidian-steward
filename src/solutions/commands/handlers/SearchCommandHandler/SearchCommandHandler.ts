@@ -11,13 +11,14 @@ import { stemmer } from 'src/solutions/search/tokenizer/stemmer';
 import { StewardPluginSettings } from 'src/types/interfaces';
 import { DEFAULT_SETTINGS } from 'src/constants';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
-import { generateObject } from 'ai';
+import { streamText, tool } from 'ai';
 import { searchPromptV2 } from './searchPromptV2';
 import { searchQueryExtractionSchema } from './zSchemas';
 import { getLanguage } from 'obsidian';
 import { SystemPromptModifier } from '../../SystemPromptModifier';
 import { Intent, IntentResultStatus } from '../../types';
 import { Agent } from '../../Agent';
+import { waitForError } from 'src/utils/waitForError';
 
 type HighlighKeywordResult = {
   highlightedText: string;
@@ -104,6 +105,7 @@ export class SearchCommandHandler extends Agent {
     const queryExtraction =
       options.extraction ||
       (await this.extractSearchQueryV2({
+        title,
         intent,
         lang: params.lang,
         searchSettings: this.plugin.settings.search,
@@ -234,15 +236,13 @@ export class SearchCommandHandler extends Agent {
    * Extract search parameters from a natural language request using AI (v2)
    * @returns Extracted search parameters and explanation
    */
-  private async extractSearchQueryV2({
-    intent,
-    lang,
-    searchSettings = DEFAULT_SETTINGS.search,
-  }: {
+  private async extractSearchQueryV2(args: {
+    title: string;
     intent: Intent;
     searchSettings?: StewardPluginSettings['search'];
     lang?: string | null;
   }): Promise<SearchQueryExtractionV2> {
+    const { title, intent, lang, searchSettings = DEFAULT_SETTINGS.search } = args;
     const { systemPrompts = [] } = intent;
     const t = getTranslation(lang);
 
@@ -317,23 +317,72 @@ export class SearchCommandHandler extends Agent {
     try {
       const llmConfig = await this.plugin.llmService.getLLMConfig({
         overrideModel: intent.model,
-        generateType: 'object',
+        generateType: 'text',
       });
 
       const modifier = new SystemPromptModifier(systemPrompts);
       const additionalSystemPrompts = modifier.getAdditionalSystemPrompts();
 
-      // Use AI SDK to generate the response
-      const { object } = await generateObject({
+      // Create an operation-specific abort signal
+      const abortSignal = this.plugin.abortService.createAbortController('search-query-v2');
+
+      // Create tool for search query extraction
+      const searchQueryExtractionTool = tool({
+        parameters: searchQueryExtractionSchema,
+      });
+
+      // Collect the error from the stream to handle it with our handle function.
+      let streamError: Error | null = null;
+
+      // Use streamText with tool to disable reasoning responses
+      const { textStream, toolCalls: toolCallsPromise } = streamText({
         ...llmConfig,
-        abortSignal: this.plugin.abortService.createAbortController('search-query-v2'),
+        abortSignal,
         system: modifier.apply(searchPromptV2(intent)),
         messages: [
           ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
           { role: 'user', content: intent.query },
         ],
-        schema: searchQueryExtractionSchema,
+        tools: {
+          extractSearchQuery: searchQueryExtractionTool,
+        },
+        toolChoice: 'required',
+        onError: ({ error }) => {
+          streamError = error instanceof Error ? error : new Error(String(error));
+        },
       });
+
+      const streamErrorPromise = waitForError(() => streamError);
+
+      // Stream the text directly to the conversation note
+      await Promise.race([
+        this.renderer.streamConversationNote({
+          path: title,
+          stream: textStream,
+          command: 'search',
+          includeHistory: false,
+        }),
+        streamErrorPromise,
+      ]);
+
+      await this.renderIndicator(title, lang);
+
+      // Wait for tool calls and extract the result
+      const toolCalls = (await Promise.race([toolCallsPromise, streamErrorPromise])) as Awaited<
+        typeof toolCallsPromise
+      >;
+
+      // Find the extractSearchQuery tool call
+      const searchQueryToolCall = toolCalls.find(
+        toolCall => toolCall.toolName === 'extractSearchQuery'
+      );
+
+      if (!searchQueryToolCall) {
+        throw new Error('No search query extraction tool call found');
+      }
+
+      // Extract the result from the tool call args
+      const object = searchQueryToolCall.args;
 
       // Log any empty arrays in operations for debugging
       object.operations.forEach((op, index) => {
