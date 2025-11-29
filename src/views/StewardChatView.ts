@@ -114,7 +114,7 @@ export class StewardChatView extends MarkdownView {
       return;
     }
 
-    // Update the file with the new content
+    // Update the file with the new content immediately (non-blocking)
     this.app.vault.modify(this.file, initialContent).then(() => {
       // Set the leaf as active and focus it
       this.app.workspace.setActiveLeaf(this.leaf, { focus: true });
@@ -126,6 +126,87 @@ export class StewardChatView extends MarkdownView {
         ch: this.editor.getLine(lastLineNum).length,
       });
     });
+
+    // Check for new version asynchronously (non-blocking)
+    this.checkAndDisplayVersionNotification();
+  }
+
+  /**
+   * Checks for new version and displays notification using ConversationRenderer.updateConversationNote
+   * This runs asynchronously without blocking the UI
+   */
+  private async checkAndDisplayVersionNotification(): Promise<void> {
+    if (!this.file) {
+      return;
+    }
+
+    try {
+      // Check for new version (async call to GitHub API)
+      const currentVersion = this.plugin.manifest.version;
+      const newVersion = await this.plugin.versionCheckerService.checkForNewVersion(
+        currentVersion,
+        this.plugin.settings.lastSeenVersion
+      );
+
+      // If there's a new version, create/update the "New version" note and embed it in the chat
+      if (newVersion) {
+        const { version, body } = newVersion;
+
+        // Create/update the release note in "Release notes" folder
+        const releaseNotesFolder = `${this.plugin.settings.stewardFolder}/Release notes`;
+        const releaseNoteTitle = `v${version}`;
+        const releaseNotePath = `${releaseNotesFolder}/${releaseNoteTitle}.md`;
+
+        // Create or update the release note file
+        let releaseNoteFile = this.plugin.app.vault.getFileByPath(releaseNotePath);
+        if (!releaseNoteFile) {
+          releaseNoteFile = await this.plugin.app.vault.create(releaseNotePath, body || '');
+        } else {
+          await this.plugin.app.vault.modify(releaseNoteFile, body || '');
+        }
+
+        // Create notification message with link to release note
+        const releaseNoteLink = `[[Release notes/${releaseNoteTitle}|Release notes]]`;
+        const versionMessage = `${i18next.t('chat.newVersionMessage', { version })}\n\n${releaseNoteLink}`;
+
+        // Format the message as a callout (like UpdateCommandHandler does)
+        const formattedCallout = this.plugin.noteContentService.formatCallout(
+          versionMessage,
+          'info'
+        );
+
+        // Create/update the "New version" note directly in stewardFolder
+        const versionNoteTitle = 'New version';
+        const versionNotePath = `${this.plugin.settings.stewardFolder}/${versionNoteTitle}.md`;
+        let versionNoteFile = this.plugin.app.vault.getFileByPath(versionNotePath);
+
+        // Create the note if it doesn't exist
+        if (!versionNoteFile) {
+          // Create the note with the formatted callout
+          versionNoteFile = await this.plugin.app.vault.create(versionNotePath, formattedCallout);
+        } else {
+          // Update the note by replacing all content
+          await this.plugin.app.vault.modify(versionNoteFile, formattedCallout);
+        }
+
+        // Embed the version note in the chat file
+        await this.app.vault.process(this.file, currentContent => {
+          // Remove any existing "New version" embed to avoid duplicates
+          const versionEmbedPattern = /!\[\[New version\]\]\n?/g;
+          const cleanedContent = currentContent.replace(versionEmbedPattern, '');
+
+          // Prepend the embed link
+          return `![[New version]]\n${cleanedContent}`;
+        });
+
+        // Update last seen version
+        this.plugin.settings.lastSeenVersion = version;
+        await this.plugin.saveSettings();
+      }
+    } catch (error) {
+      logger.error('Error checking for new version:', error);
+      // Don't throw - this is a non-critical feature
+    }
   }
 
   /**
