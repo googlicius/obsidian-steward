@@ -119,22 +119,29 @@ export class ArtifactManagerV2 {
     const jsonSerializer = new JsonArtifactSerializer();
 
     for (const type of Object.values(ArtifactType)) {
-      if (type === ArtifactType.SEARCH_RESULTS) {
-        const searchResultSerializer = new SearchResultSerializer(this.documentStore);
+      switch (type) {
+        case ArtifactType.SEARCH_RESULTS: {
+          const searchResultSerializer = new SearchResultSerializer(this.documentStore);
 
-        this.registerSerializer(
-          type,
-          new CompositeSerializer(searchResultSerializer, jsonSerializer)
-        );
-      } else if (type === ArtifactType.GENERATED_CONTENT) {
-        const generatedContentSerializer = new GeneratedContentSerializer(
-          (conversationTitle: string, messageId: string) => {
-            return this.plugin.conversationRenderer.getMessageById(conversationTitle, messageId);
-          }
-        );
-        this.registerSerializer(type, generatedContentSerializer);
-      } else {
-        this.registerSerializer(type, jsonSerializer);
+          this.registerSerializer(
+            type,
+            new CompositeSerializer(searchResultSerializer, jsonSerializer)
+          );
+          break;
+        }
+        case ArtifactType.GENERATED_CONTENT: {
+          const generatedContentSerializer = new GeneratedContentSerializer(
+            (conversationTitle: string, messageId: string) => {
+              return this.plugin.conversationRenderer.getMessageById(conversationTitle, messageId);
+            }
+          );
+          this.registerSerializer(type, generatedContentSerializer);
+          break;
+        }
+        default: {
+          this.registerSerializer(type, jsonSerializer);
+          break;
+        }
       }
     }
   }

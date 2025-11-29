@@ -54,6 +54,7 @@ import { TrashCleanupService } from './services/TrashCleanupService';
 import { ModelFallbackService } from './services/ModelFallbackService';
 import { uniqueID } from './utils/uniqueID';
 import { CommandTrackingService } from './services/CommandTrackingService';
+import { VersionCheckerService } from './services/VersionCheckerService';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -77,6 +78,7 @@ export default class StewardPlugin extends Plugin {
   _encryptionService: EncryptionService;
   _commandInputService: CommandInputService;
   _commandTrackingService: CommandTrackingService;
+  _versionCheckerService: VersionCheckerService;
 
   get commandInputService(): CommandInputService {
     if (!this._commandInputService) {
@@ -155,6 +157,13 @@ export default class StewardPlugin extends Plugin {
     return this._encryptionService;
   }
 
+  get versionCheckerService(): VersionCheckerService {
+    if (!this._versionCheckerService) {
+      this._versionCheckerService = VersionCheckerService.getInstance(this);
+    }
+    return this._versionCheckerService;
+  }
+
   get conversationRender(): ConversationRenderer {
     if (!this._conversationRenderer) {
       this._conversationRenderer = ConversationRenderer.getInstance(this);
@@ -216,6 +225,9 @@ export default class StewardPlugin extends Plugin {
     this.trashCleanupService.initialize();
 
     this.initializeClassifier();
+
+    // Ensure required folders exist
+    this.ensureRequiredFolders();
 
     // Exclude steward folders from search
     this.excludeFoldersFromSearch([
@@ -1044,6 +1056,24 @@ export default class StewardPlugin extends Plugin {
     } catch (error) {
       logger.error('Failed to exclude folders from search:', error);
     }
+  }
+
+  /**
+   * Ensures required folders exist when the app is opened
+   */
+  private async ensureRequiredFolders(): Promise<void> {
+    this.app.workspace.onLayoutReady(async () => {
+      try {
+        // Ensure stewardFolder exists
+        await this.obsidianAPITools.ensureFolderExists(this.settings.stewardFolder);
+
+        // Ensure Release notes folder exists
+        const releaseNotesFolder = `${this.settings.stewardFolder}/Release notes`;
+        await this.obsidianAPITools.ensureFolderExists(releaseNotesFolder);
+      } catch (error) {
+        logger.error('Failed to ensure required folders:', error);
+      }
+    });
   }
 
   /**

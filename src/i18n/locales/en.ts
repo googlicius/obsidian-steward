@@ -68,6 +68,8 @@ const en = {
       conversationClosed: 'Conversation closed',
       squeezeConversation: 'Squeeze conversation',
       expandConversation: 'Expand conversation',
+      newVersionAvailable: 'New version available',
+      newVersionMessage: 'A new version of Steward ({{version}}) is now available!',
     },
     // Media generation messages
     media: {
