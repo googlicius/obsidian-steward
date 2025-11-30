@@ -79,6 +79,7 @@ export interface StewardPluginSettings {
     behavior: 'stw_trash' | 'obsidian_trash'; // How to handle file deletion
     cleanupPolicy?: 'never' | '7days' | '30days' | '90days' | '1year'; // When to permanently delete files from stw_trash
   };
+  lastSeenVersion?: string; // Last version the user has seen (for version notifications)
 }
 
 export type DeleteBehavior = StewardPluginSettings['deleteBehavior'];

@@ -147,6 +147,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     behavior: 'stw_trash', // Default to moving files to trash
     cleanupPolicy: 'never', // Default to never automatically delete
   },
+  lastSeenVersion: undefined, // Will be set when user sees a version notification
 };
 
 // Model options grouped by provider

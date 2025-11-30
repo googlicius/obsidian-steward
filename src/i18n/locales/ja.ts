@@ -59,6 +59,8 @@ const ja = {
       stewardChat: 'Stewardチャット',
       closeConversation: '会話を閉じる',
       conversationClosed: '会話を閉じました',
+      newVersionAvailable: '新しいバージョンが利用可能',
+      newVersionMessage: 'Stewardの新しいバージョン（{{version}}）が利用可能になりました！',
     },
     // Move result messages
     move: {

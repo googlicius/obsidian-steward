@@ -68,6 +68,8 @@ const en = {
       conversationClosed: 'Conversation closed',
       squeezeConversation: 'Squeeze conversation',
       expandConversation: 'Expand conversation',
+      newVersionAvailable: 'New version available',
+      newVersionMessage: 'A new version of Steward ({{version}}) is now available!',
     },
     // Media generation messages
     media: {
@@ -360,7 +362,8 @@ const en = {
       apiKeyNote2: 'All API keys are stored with encryption.',
       llm: 'LLM',
       chatModel: 'Chat model',
-      chatModelDesc: 'Select the AI model to use for chat',
+      chatModelDesc:
+        'Select the AI model to use for chat. You can also change the model inline in the command input by typing m: or model:',
       intentClassification: 'Intent classification',
       classificationEnabled: 'Enable intent classification',
       classificationEnabledDesc:
