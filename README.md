@@ -63,6 +63,10 @@ Steward can be used directly in the editor or by opening the chat interface.
 
 <img src="/docs/Image-Read.gif" alt="Image read" width="650px">
 
+#### Reasoning
+
+<img src="/docs/Steward-Demo-Reasoning.gif" alt="Image read" width="400px">
+
 #### Update the selection
 
 <img src="/docs/Stw-Demo-Update-selected-text-complex.gif" alt="Update selection" width="650px">

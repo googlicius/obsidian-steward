@@ -106,7 +106,9 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     commandType: 'vault',
     description: `An agent performs vault-related operations. You MUST add a query to activate one or more tools that needs to perform the operation, e.g. 'vault?tools=list,rename'.
 Available tools: list, rename, create, delete, copy, update_frontmatter, and move.
-NOTE: The update_frontmatter tool is used to add, update, or delete frontmatter properties in notes. Use this tool to delete note's properties.`,
+NOTE: 
+- The update_frontmatter tool is used to add, update, or delete frontmatter properties in notes. Use this tool to delete note's properties.
+- Use the list tool (vault?tools=list) to list all files in a specific folder instead of using the search command.`,
     category: 'intent-based',
     includeWhen: 'Vault operations (list files, create notes, etc.)',
     artifactDesc: 'Vault agent outputs',
