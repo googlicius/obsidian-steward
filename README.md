@@ -59,13 +59,13 @@ Steward can be used directly in the editor or by opening the chat interface.
 
 <img src="/docs/Update-In-Editor.gif" alt="Update directly in the editor" width="400px">
 
-#### Image read
-
-<img src="/docs/Image-Read.gif" alt="Image read" width="650px">
-
 #### Reasoning
 
 <img src="/docs/Steward-Demo-Reasoning.gif" alt="Image read" width="400px">
+
+#### Image read
+
+<img src="/docs/Image-Read.gif" alt="Image read" width="650px">
 
 #### Update the selection
 
@@ -398,6 +398,7 @@ Steward creates the following folder structure in your vault:
 Steward/
 ├── Commands/       # Stores user-defined command definitions
 ├── Conversations/  # Archives past conversations
+├── Release notes/  # Release notes of Steward
 ├── Trash/          # Stores deleted files
 └── Steward chat.md # Current active conversation
 ```
