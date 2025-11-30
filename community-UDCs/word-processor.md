@@ -3,6 +3,7 @@ A user-defined to process a newly added English word.
 ### Definition
 
 ```YAML
+version: 2
 command_name: word-processor
 query_required: false
 hidden: true
@@ -12,23 +13,27 @@ triggers:
   patterns:
     tags: "#process_word"
 
-commands:
+steps:
 - name: read
   query: Read entire the $file_name
-  tools:
-    exclude: [confirmation, askUser]
+  no_confirm: true
 
 - name: generate
   query: Help me process the $file_name as an English word.
+  tools:
+    exclude: [requestReadContent, edit]
   system_prompt:
   - "[[Word processor#Instructions]]"
 
+- name: audio
+  query: Help me pronounce this "$file_name" (without the .md extension if present)
+
 - name: update_from_artifact
-  query: "Update from the generated content, note name: $file_name"
+  query: "Update from the generated content and audio, note name: $file_name. NOTE: Put the audio embedded link right below the Vietnamese meaning."
   no_confirm: true
 
 - name: vault_move
-  query: "Move the note: $file_name into the Done folder"
+  query: "Move the note: $file_name into the English/Vocabulary folder"
   no_confirm: true
 ```
 
