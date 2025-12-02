@@ -71,40 +71,6 @@ html[data-stw-language='vi'] {
   }
 }
 
-/* Command Autocomplete styling */
-.stw-autocomplete.cm-tooltip-autocomplete {
-  border: 1px solid var(--background-modifier-border);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-
-  & > ul {
-    font-family: var(--font-interface);
-    background-color: var(--background-primary);
-    color: var(--text-normal);
-    overflow: hidden;
-    max-height: 200px;
-
-    & > li {
-      padding: 4px 8px;
-      border-bottom: 1px solid var(--background-modifier-border-hover);
-
-      &[aria-selected] {
-        background-color: var(--background-modifier-hover);
-      }
-    }
-
-    & .cm-completionLabel {
-      color: var(--text-accent-hover);
-      font-weight: 500;
-    }
-
-    & .cm-completionDetail {
-      font-size: 0.85em;
-      color: var(--text-muted);
-      margin-left: 8px;
-    }
-  }
-}
-
 .stw-chat {
   & .inline-embed .markdown-embed-content {
     max-height: none;
