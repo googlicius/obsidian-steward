@@ -1,4 +1,3 @@
-import { joinWithConjunction } from 'src/utils/arrayUtils';
 import {
   formatCommandsForPrompt,
   formatCurrentArtifacts,
@@ -31,7 +30,7 @@ GUIDELINES:
 - For generating tasks (generate), include "read" or "search" if you need more information (e.g., to check note content before generating).
 - For editing tasks (move, copy, update, delete), ensure there is a relevant artifact; infer it from context, or use "search" or "read" command to find it.
   - Type 1: Editing from content that is already given in the user's query. For this, including the "generate" command is enough.
-  - Type 2: Editing from content that is the result of the "read" or "search" commands (these results are stored as artifacts). For this, first use "read" or "search" to obtain the artifacts, then include "generate" if needed, then include ${joinWithConjunction(['vault_move', 'vault_copy', 'update_from_artifact', 'vault_delete'], 'or')} to perform the actual update to the note(s)
+  - Type 2: Editing from content that is the result of the "read" or "search" commands (these results are stored as artifacts). For this, first use "read" or "search" to obtain the artifacts, then include "generate" if needed, then include "vault" (with appropriate tools) or "update_from_artifact" to perform the actual update to the note(s)
 - Each command/agent name can include an URL query-like to activate related tools, e.g. 'vault?tools=list,rename'.
 - This is a one-round extraction, so ensure you include all necessary commands to fulfill the user's query.`;
 

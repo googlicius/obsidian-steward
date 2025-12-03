@@ -2,14 +2,14 @@
 
 [![Build and Test](https://github.com/googlicius/obsidian-steward/actions/workflows/ci.yml/badge.svg)](https://github.com/googlicius/obsidian-steward/actions/workflows/ci.yml)
 
-Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It provides commands like `search`, `move`, `copy`, `create`, etc, as building blocks, allowing you to create your own sophisticated commands and automation workflows to automate your boring and repetitive tasks.
+Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It provides commands like `search`, `vault`, `create`, etc, as building blocks, allowing you to create your own sophisticated commands and automation workflows to automate your boring and repetitive tasks.
 
 ## Features
 
 - **Built-in search engine**: A TF-IDF based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search.
 - **Interactive and adaptive chat UI**: One or more chat interfaces made of the slash `/` leveraging Obsidian's editor and reading view features, that is, adaptable to your current themes.
 - **Privacy-focused**: Most actions are executed in the front-end using Obsidian API and local services to avoid exposing your data to LLMs (except for your queries and what you're explicitly provided).
-- **Command-based interaction**: Support for standard commands like search, create, update, delete, move, audio, image generation, and user-defined commands.
+- **Command-based interaction**: Support for standard commands like search, vault (list, create, delete, copy, move, rename, update frontmatter), update, audio, image generation, and user-defined commands.
 - **Model flexibility**: Use your favorite AI models, including OpenAI, Gemini, DeepSeek, Ollama, etc.
 - **Model fallback**: Automatically switches to alternative models when errors occur, ensuring robust command execution.
 - **Intent caching**: Utilizes embeddings to cache similar queries, so subsequent requests require fewer tokens for LLM processing.
@@ -118,8 +118,8 @@ commands:
   - name: search
     query: 'Notes name starts with Untitled or with tag #delete'
 
-  - name: vault_delete
-    query: Delete them
+  - name: vault
+    query: 'Delete them'
     model: gpt-3.5-turbo # Optional: Override the model for this specific step
 ```
 

@@ -99,13 +99,15 @@ export class HelpCommandHandler extends CommandHandler {
 
       // List of intent-based commands with descriptions
       const intentCommands = [
-        { command: 'move', description: t('common.moveDesc') },
-        { command: 'copy', description: t('common.copyDesc') },
-        { command: 'delete', description: t('common.deleteDesc') },
+        { command: 'vault', description: t('common.vaultDesc') },
         { command: 'update', description: t('common.updateDesc') },
         { command: 'generate', description: t('common.generateDesc') },
         { command: 'read', description: t('common.readDesc') },
         { command: 'build_search_index', description: t('common.buildSearchIndexDesc') },
+        {
+          command: 'revert',
+          description: t('common.revertDesc'),
+        },
       ];
 
       // Add intent commands to content

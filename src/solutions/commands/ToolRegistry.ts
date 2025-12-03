@@ -13,6 +13,9 @@ export enum ToolName {
   LIST = 'list',
   UPDATE_FRONTMATTER = 'update_frontmatter',
   ACTIVATE = 'activate_tools',
+  REVERT_DELETE = 'revert_delete',
+  GET_MOST_RECENT_ARTIFACT = 'get_most_recent_artifact',
+  GET_ARTIFACT_BY_ID = 'get_artifact_by_id',
 }
 
 export interface ToolDefinition {
@@ -180,6 +183,39 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       `The ${ToolName.ACTIVATE} tool will return the schemas and guidelines of the requested tools.`,
     ],
     category: 'tool-management',
+  },
+
+  [ToolName.REVERT_DELETE]: {
+    name: ToolName.REVERT_DELETE,
+    description:
+      'Revert deleted files by restoring them from the trash folder to their original locations.',
+    guidelines: [
+      `Use ${ToolName.REVERT_DELETE} to restore files that were previously deleted.`,
+      `Specify the artifactId containing deleted files to restore, or provide specific trash file paths.`,
+      `Files will be restored to their original paths as recorded in the trash metadata.`,
+    ],
+    category: 'vault-access',
+  },
+
+  [ToolName.GET_MOST_RECENT_ARTIFACT]: {
+    name: ToolName.GET_MOST_RECENT_ARTIFACT,
+    description: 'Get the most recent artifact of specified types from the conversation.',
+    guidelines: [
+      `Use ${ToolName.GET_MOST_RECENT_ARTIFACT} to retrieve the most recent artifact matching the specified types.`,
+      `This is useful when you need to find artifacts to perform revert operations.`,
+      `Specify one or more artifact types to search for.`,
+    ],
+    category: 'artifact-access',
+  },
+
+  [ToolName.GET_ARTIFACT_BY_ID]: {
+    name: ToolName.GET_ARTIFACT_BY_ID,
+    description: 'Get a specific artifact by its ID from the conversation.',
+    guidelines: [
+      `Use ${ToolName.GET_ARTIFACT_BY_ID} to retrieve a specific artifact when you know its ID.`,
+      `This is useful when you have an artifact ID from previous operations or user input.`,
+    ],
+    category: 'artifact-access',
   },
 };
 

@@ -25,12 +25,12 @@ const vi = {
       createDesc: 'Tạo ghi chú mới',
       stopDesc: 'Dừng các thao tác đang diễn ra',
       helpDesc: 'Hiển thị trợ giúp này',
-      moveDesc: 'Di chuyển tập tin đến vị trí khác',
-      copyDesc: 'Sao chép tập tin đến vị trí khác',
-      deleteDesc: 'Xóa tập tin',
       updateDesc: 'Cập nhật nội dung tập tin',
       generateDesc: 'Tạo nội dung với AI',
       readDesc: 'Đọc nội dung từ ghi chú',
+      revertDesc: 'Hoàn tác hoặc hoàn tác các thao tác trước đó',
+      vaultDesc:
+        'Thực hiện các thao tác vault (danh sách, tạo, xóa, sao chép, di chuyển, đổi tên, cập nhật frontmatter)',
       buildSearchIndexDesc: 'Xây dựng chỉ mục tìm kiếm cho ghi chú của bạn',
       cannotDeleteThisType: 'Không thể xóa loại artifact này: {{type}}',
       thisNote: 'ghi chú này',
@@ -168,6 +168,14 @@ const vi = {
       multiDeleteHeader: 'Tôi đã thực hiện {{count}} thao tác xóa:',
       multiDeleteHeader_plural: 'Tôi đã thực hiện {{count}} thao tác xóa:',
       operation: 'Thao tác {{num}}: Xóa các tập tin với {{query}}',
+    },
+    revert: {
+      foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để hoàn nguyên.',
+      foundFiles_plural: 'Tôi đã tìm thấy {{count}} tập tin để hoàn nguyên.',
+      successfullyReverted: 'Đã hoàn nguyên thành công {{count}} tập tin:',
+      successfullyReverted_plural: 'Đã hoàn nguyên thành công {{count}} tập tin:',
+      failed: 'Không thể hoàn nguyên {{count}} tập tin:',
+      failed_plural: 'Không thể hoàn nguyên {{count}} tập tin:',
     },
     // Frontmatter update result messages
     frontmatter: {

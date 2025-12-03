@@ -193,9 +193,7 @@ class VaultAgent extends Agent {
       const modifier = new SystemPromptModifier(intent.systemPrompts);
 
       const activeToolNames =
-        activeTools.length > 0
-          ? [...activeTools, ToolName.ACTIVATE]
-          : (Object.keys(tools) as ToolName[]);
+        activeTools.length > 0 ? [...activeTools, ToolName.ACTIVATE] : [ToolName.ACTIVATE];
       const registry = ToolRegistry.buildFromTools(tools, intent.tools).setActive(activeToolNames);
 
       const messages: Message[] = conversationHistory;

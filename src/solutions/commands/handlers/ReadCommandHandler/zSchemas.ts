@@ -28,8 +28,11 @@ export const contentReadingSchema = z.object({
   elementType: z
     .enum(['paragraph', 'table', 'code', 'list', 'blockquote', 'image', 'heading'])
     .nullable()
-    .default(null)
-    .describe(`Identify the element type if mentioned.`),
+    .default('paragraph')
+    .describe(
+      `Identify the element type if mentioned.
+If the mentioned element is NOT one of the predefined types, classify it as "paragraph" so it could be any element closest to the current position.`
+    ),
   blocksToRead: z.number().min(-1).default(1).describe(`Number of blocks to read
 Set to -1 when:
 - The user requests to read entire content.

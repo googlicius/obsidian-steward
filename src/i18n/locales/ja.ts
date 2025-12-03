@@ -23,12 +23,12 @@ const ja = {
       createDesc: '新しいノートを作成する',
       stopDesc: '実行中の操作を停止する',
       helpDesc: 'このヘルプメッセージを表示する',
-      moveDesc: 'ファイルを別の場所に移動する',
-      copyDesc: 'ファイルを別の場所にコピーする',
-      deleteDesc: 'ファイルを削除する',
       updateDesc: 'ファイルの内容を更新する',
       generateDesc: 'AIでコンテンツを生成する',
       readDesc: 'ノートから内容を読み取る',
+      revertDesc: '以前の操作を元に戻す',
+      vaultDesc:
+        'ボルト操作を実行する（リスト、作成、削除、コピー、移動、名前変更、フロントマター更新）',
       buildSearchIndexDesc: 'ノートの検索インデックスを構築する',
       cannotDeleteThisType: 'この種類のアーティファクトは削除できません: {{type}}',
       thisNote: 'このノート',
@@ -167,6 +167,15 @@ const ja = {
       operation: '操作{{num}}: {{query}}を含むファイルを削除',
       confirmHeader: '以下のファイルを削除します：',
       confirmQuestion: 'これらのファイルを削除してもよろしいですか？この操作は取り消せません。',
+    },
+    // Revert result messages
+    revert: {
+      foundFiles: '{{count}}件のファイルを元に戻します。',
+      foundFiles_plural: '{{count}}件のファイルを元に戻します。',
+      successfullyReverted: '{{count}}件のファイルを元に戻しました：',
+      successfullyReverted_plural: '{{count}}件のファイルを元に戻しました：',
+      failed: '{{count}}件のファイルの元に戻しに失敗しました：',
+      failed_plural: '{{count}}件のファイルの元に戻しに失敗しました：',
     },
     // Search result messages
     search: {

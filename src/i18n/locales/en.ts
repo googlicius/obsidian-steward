@@ -29,12 +29,12 @@ const en = {
       createDesc: 'Create new notes',
       stopDesc: 'Stop ongoing operations',
       helpDesc: 'Show this help message',
-      moveDesc: 'Move files to another location',
-      copyDesc: 'Copy files to another location',
-      deleteDesc: 'Delete files',
       updateDesc: 'Update file content',
       generateDesc: 'Generate content with AI',
       readDesc: 'Read content from notes',
+      revertDesc: 'Revert or undo previous operations',
+      vaultDesc:
+        'Perform vault operations (list, create, delete, copy, move, rename, update frontmatter)',
       buildSearchIndexDesc: 'Build the search index for your notes',
       cannotDeleteThisType: 'Cannot delete this type of artifact: {{type}}',
       thisNote: 'this note',
@@ -198,6 +198,15 @@ const en = {
       operation: 'Operation {{num}}: Deleting files with {{query}}',
       confirmHeader: 'I found the following files to delete:',
       confirmQuestion: 'Are you sure you want to delete these files? This action cannot be undone.',
+    },
+    // Revert result messages
+    revert: {
+      foundFiles_one: 'I found {{count}} file to revert.',
+      foundFiles_other: 'I found {{count}} files to revert.',
+      successfullyReverted_one: 'Successfully reverted {{count}} file:',
+      successfullyReverted_other: 'Successfully reverted {{count}} files:',
+      failed_one: 'Failed to revert {{count}} file:',
+      failed_other: 'Failed to revert {{count}} files:',
     },
     // Frontmatter update result messages
     frontmatter: {
