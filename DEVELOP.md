@@ -8,6 +8,7 @@
 6. Specialized agents can process some related tasks beyond their capacity by requesting other agents for more context.
 7. Repair model's responses in-flight that are still correct but varies due to their creativity/randomness.
 8. Option to see human-readable explanation (YAML) about what it did.
+9. To reduce the number of tool definitions and schemas in each request and improve accuracy, let the AI retrieve tools to use. Like a mechanic takes out his tools from tool boxes.
 
 ### Some scenarios lead to an infinite tool calls:
 

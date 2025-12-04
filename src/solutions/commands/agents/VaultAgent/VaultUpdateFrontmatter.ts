@@ -131,7 +131,7 @@ export class VaultUpdateFrontmatter {
       lang,
     });
 
-    const messageId = await this.agent.renderer.updateConversationNote({
+    await this.agent.renderer.updateConversationNote({
       path: title,
       newContent: formattedMessage,
       agent: 'vault',
@@ -141,11 +141,22 @@ export class VaultUpdateFrontmatter {
       includeHistory: false,
     });
 
+    // Store frontmatter update results as an artifact
+    const artifactId = `frontmatter_update_${Date.now()}`;
+    await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+      artifact: {
+        artifactType: ArtifactType.UPDATE_FRONTMATTER_RESULTS,
+        updates: updateResult.updates,
+        id: artifactId,
+        createdAt: Date.now(),
+      },
+    });
+
     await this.serializeUpdateInvocation({
       title,
       handlerId,
       toolCall,
-      result: messageId ? `messageRef:${messageId}` : formattedMessage,
+      result: `artifactRef:${artifactId}`,
     });
 
     return {
@@ -275,10 +286,23 @@ export class VaultUpdateFrontmatter {
   private async executeFrontmatterUpdates(params: {
     title: string;
     files: FileWithProperties[];
-  }): Promise<{ updated: string[]; failed: Array<{ path: string; error: string }> }> {
+  }): Promise<{
+    updated: string[];
+    failed: Array<{ path: string; error: string }>;
+    updates: Array<{
+      path: string;
+      original: Record<string, unknown>;
+      updated: Record<string, unknown>;
+    }>;
+  }> {
     const { files } = params;
     const updated: string[] = [];
     const failed: Array<{ path: string; error: string }> = [];
+    const updates: Array<{
+      path: string;
+      original: Record<string, unknown>;
+      updated: Record<string, unknown>;
+    }> = [];
 
     for (const fileToUpdate of files) {
       const file = this.agent.app.vault.getFileByPath(fileToUpdate.path);
@@ -292,15 +316,29 @@ export class VaultUpdateFrontmatter {
       }
 
       try {
-        await this.agent.app.fileManager.processFrontMatter(file, frontmatter => {
-          for (const property of fileToUpdate.properties) {
-            if (property.value === undefined || property.value === null) {
-              delete frontmatter[property.name];
-            } else {
-              frontmatter[property.name] = property.value;
+        // Process the updates to actually modify the file
+        await this.agent.app.fileManager.processFrontMatter(
+          file,
+          (frontmatter: Record<string, unknown>) => {
+            // Capture the original frontmatter before updating
+            const original = { ...frontmatter };
+
+            // Apply the updates
+            for (const property of fileToUpdate.properties) {
+              if (property.value === undefined || property.value === null) {
+                delete frontmatter[property.name];
+              } else {
+                frontmatter[property.name] = property.value;
+              }
             }
+
+            updates.push({
+              path: fileToUpdate.path,
+              original,
+              updated: frontmatter,
+            });
           }
-        });
+        );
 
         updated.push(fileToUpdate.path);
       } catch (error) {
@@ -313,7 +351,7 @@ export class VaultUpdateFrontmatter {
       }
     }
 
-    return { updated, failed };
+    return { updated, failed, updates };
   }
 
   private formatUpdateResult(params: {

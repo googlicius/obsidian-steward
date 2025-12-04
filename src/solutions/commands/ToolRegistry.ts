@@ -14,6 +14,8 @@ export enum ToolName {
   UPDATE_FRONTMATTER = 'update_frontmatter',
   ACTIVATE = 'activate_tools',
   REVERT_DELETE = 'revert_delete',
+  REVERT_MOVE = 'revert_move',
+  REVERT_FRONTMATTER = 'revert_frontmatter',
   GET_MOST_RECENT_ARTIFACT = 'get_most_recent_artifact',
   GET_ARTIFACT_BY_ID = 'get_artifact_by_id',
 }
@@ -84,9 +86,13 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
 
   [ToolName.GREP]: {
     name: ToolName.GREP,
-    description: 'Search for specific text patterns in notes.',
-    guidelines: [`Use ${ToolName.GREP} to find specific text patterns that need to be updated.`],
-    category: 'content-search',
+    description:
+      'Check if files or folders exist, or search for specific text patterns in note content.',
+    guidelines: [
+      `Use ${ToolName.GREP} to check if one or many files or folders exist in the vault.`,
+      `Use ${ToolName.GREP} to search for specific text patterns in note content when a pattern is provided with a single file path.`,
+    ],
+    category: 'vault-access',
   },
 
   [ToolName.EDIT]: {
@@ -194,6 +200,20 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       `Specify the artifactId containing deleted files to restore, or provide specific trash file paths.`,
       `Files will be restored to their original paths as recorded in the trash metadata.`,
     ],
+    category: 'vault-access',
+  },
+
+  [ToolName.REVERT_MOVE]: {
+    name: ToolName.REVERT_MOVE,
+    description: 'Revert move operations by moving files back to their original locations.',
+    guidelines: [`Use ${ToolName.REVERT_MOVE} to undo file move operations.`],
+    category: 'vault-access',
+  },
+
+  [ToolName.REVERT_FRONTMATTER]: {
+    name: ToolName.REVERT_FRONTMATTER,
+    description: 'Revert frontmatter updates by restoring original frontmatter properties.',
+    guidelines: [`Use ${ToolName.REVERT_FRONTMATTER} to undo frontmatter property changes.`],
     category: 'vault-access',
   },
 

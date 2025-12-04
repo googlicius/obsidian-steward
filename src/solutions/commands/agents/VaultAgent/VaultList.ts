@@ -6,12 +6,17 @@ import { ToolInvocation } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { SearchOperationV2 } from '../../handlers/SearchCommandHandler/zSchemas';
 
-const listToolSchema = z.object({
-  folderPath: z
-    .string()
-    .describe('The folder path to list files from. Specify / to lists from the root.'),
-  explanation: z.string().describe('A brief explanation of why listing files is necessary.'),
-});
+const listToolSchema = z.object(
+  {
+    folderPath: z
+      .string()
+      .describe('The folder path to list files from. Specify / to lists from the root.'),
+    explanation: z.string().describe('A brief explanation of why listing files is necessary.'),
+  },
+  {
+    description: `List the FIRST 10 files in a specific folder. NOTE: This tool does not list folders but files only.`,
+  }
+);
 
 export type ListToolArgs = z.infer<typeof listToolSchema>;
 

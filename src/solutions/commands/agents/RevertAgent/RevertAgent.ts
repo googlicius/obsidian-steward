@@ -6,6 +6,8 @@ import { SystemPromptModifier } from '../../SystemPromptModifier';
 import { ToolRegistry, ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { RevertDelete } from './RevertDelete';
+import { RevertMove } from './RevertMove';
+import { RevertFrontmatter } from './RevertFrontmatter';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { activateTools } from '../../tools/activateTools';
 import { getMostRecentArtifact, getArtifactById } from '../../tools/getArtifact';
@@ -13,6 +15,8 @@ import { joinWithConjunction } from 'src/utils/arrayUtils';
 
 class RevertAgent extends Agent {
   private _revertDelete: RevertDelete;
+  private _revertMove: RevertMove;
+  private _revertFrontmatter: RevertFrontmatter;
 
   private get revertDelete(): RevertDelete {
     if (!this._revertDelete) {
@@ -22,12 +26,28 @@ class RevertAgent extends Agent {
     return this._revertDelete;
   }
 
+  private get revertMove(): RevertMove {
+    if (!this._revertMove) {
+      this._revertMove = new RevertMove(this);
+    }
+
+    return this._revertMove;
+  }
+
+  private get revertFrontmatter(): RevertFrontmatter {
+    if (!this._revertFrontmatter) {
+      this._revertFrontmatter = new RevertFrontmatter(this);
+    }
+
+    return this._revertFrontmatter;
+  }
+
   /**
    * Render the loading indicator for the revert agent
    */
   public async renderIndicator(title: string, lang?: string | null): Promise<void> {
     const t = getTranslation(lang);
-    await this.renderer.addGeneratingIndicator(title, t('conversation.orchestrating'));
+    await this.renderer.addGeneratingIndicator(title, t('conversation.reverting'));
   }
 
   /**
@@ -55,6 +75,8 @@ class RevertAgent extends Agent {
 
     const tools = {
       [ToolName.REVERT_DELETE]: RevertDelete.getRevertDeleteTool(),
+      [ToolName.REVERT_MOVE]: RevertMove.getRevertMoveTool(),
+      [ToolName.REVERT_FRONTMATTER]: RevertFrontmatter.getRevertFrontmatterTool(),
       [ToolName.ACTIVATE]: activateTools,
       [ToolName.GET_MOST_RECENT_ARTIFACT]: getMostRecentArtifact,
       [ToolName.GET_ARTIFACT_BY_ID]: getArtifactById,
@@ -150,6 +172,32 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
             break;
           }
 
+          case ToolName.REVERT_MOVE: {
+            toolCallResult = await this.revertMove.handle(
+              {
+                ...params,
+                handlerId,
+              },
+              {
+                toolCall,
+              }
+            );
+            break;
+          }
+
+          case ToolName.REVERT_FRONTMATTER: {
+            toolCallResult = await this.revertFrontmatter.handle(
+              {
+                ...params,
+                handlerId,
+              },
+              {
+                toolCall,
+              }
+            );
+            break;
+          }
+
           case ToolName.GET_MOST_RECENT_ARTIFACT: {
             const { artifactTypes } = toolCall.args;
             const t = getTranslation(lang);
@@ -158,10 +206,13 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
               .withTitle(title)
               .getMostRecentArtifactOfTypes(artifactTypes);
 
-            const result = artifact || {
-              error:
-                t('common.noArtifactsFound') || 'No artifacts found matching the specified types.',
-            };
+            const result = artifact?.id
+              ? `artifactRef:${artifact.id}`
+              : {
+                  error:
+                    t('common.noArtifactsFound') ||
+                    'No artifacts found matching the specified types.',
+                };
 
             await this.renderer.serializeToolInvocation({
               path: title,
@@ -186,9 +237,12 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
               .withTitle(title)
               .getArtifactById(artifactId);
 
-            const result = artifact || {
-              error: t('common.artifactNotFound') || `Artifact with ID "${artifactId}" not found.`,
-            };
+            const result = artifact?.id
+              ? `artifactRef:${artifact.id}`
+              : {
+                  error:
+                    t('common.artifactNotFound') || `Artifact with ID "${artifactId}" not found.`,
+                };
 
             await this.renderer.serializeToolInvocation({
               path: title,
