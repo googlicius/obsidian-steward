@@ -19,10 +19,10 @@ import {
   TestCommandHandler,
 } from '../solutions/commands/handlers';
 import VaultAgent from '../solutions/commands/agents/VaultAgent/VaultAgent';
+import RevertAgent from '../solutions/commands/agents/RevertAgent/RevertAgent';
 
 import type StewardPlugin from '../main';
 import { getTextContentWithoutImages } from 'src/lib/modelfusion/utils/messageUtils';
-import { ToolName } from 'src/solutions/commands/ToolRegistry';
 import { PlannerAgent } from 'src/solutions/commands/agents/PlannerAgent/PlannerAgent';
 
 export class CommandProcessorService {
@@ -46,22 +46,15 @@ export class CommandProcessorService {
    * Setup command handlers
    */
   private setupHandlers(): void {
-    // Register the vault agent
-    this.commandProcessor.registerAgent('vault', new VaultAgent(this.plugin));
-    this.commandProcessor.registerAgent(
-      'vault_delete',
-      new VaultAgent(this.plugin, [ToolName.DELETE])
-    );
-    this.commandProcessor.registerAgent(
-      'vault_create',
-      new VaultAgent(this.plugin, [ToolName.CREATE])
-    );
-    this.commandProcessor.registerAgent('vault_copy', new VaultAgent(this.plugin, [ToolName.COPY]));
-    this.commandProcessor.registerAgent('vault_move', new VaultAgent(this.plugin, [ToolName.MOVE]));
-
     // Register the planner agent
     const planner = new PlannerAgent(this.plugin);
     this.commandProcessor.registerAgent(' ', planner);
+
+    // Register the vault agent
+    this.commandProcessor.registerAgent('vault', new VaultAgent(this.plugin));
+
+    // Register the revert agent
+    this.commandProcessor.registerAgent('revert', new RevertAgent(this.plugin));
 
     // Register the close command handler
     const closeHandler = new CloseCommandHandler(this.plugin);

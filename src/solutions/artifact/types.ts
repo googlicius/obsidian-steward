@@ -18,6 +18,7 @@ export enum ArtifactType {
   CONVERSATION_SUMMARY = 'conversation_summary',
   EXTRACTION_RESULT = 'extraction-result',
   DELETED_FILES = 'deleted_files',
+  UPDATE_FRONTMATTER_RESULTS = 'update_frontmatter_results',
 }
 
 /**
@@ -109,6 +110,28 @@ export interface DeletedFilesArtifact extends BaseArtifact {
   fileCount: number; // Number of files deleted in this operation
 }
 
+/**
+ * Move results artifact
+ * Stores pairs of original paths and their moved paths
+ */
+export interface MoveResultsArtifact extends BaseArtifact {
+  artifactType: ArtifactType.MOVE_RESULTS;
+  moves: Array<[string, string]>; // Array of [originalPath, movedPath] pairs
+}
+
+/**
+ * Update frontmatter results artifact
+ * Stores paths with their original and updated frontmatter properties
+ */
+export interface UpdateFrontmatterResultsArtifact extends BaseArtifact {
+  artifactType: ArtifactType.UPDATE_FRONTMATTER_RESULTS;
+  updates: Array<{
+    path: string;
+    original: Record<string, unknown>; // Original frontmatter properties
+    updated: Record<string, unknown>; // Updated frontmatter properties
+  }>;
+}
+
 export type Artifact =
   | SearchResultsArtifact
   | CreatedNotesArtifact
@@ -118,7 +141,9 @@ export type Artifact =
   | MediaResultsArtifact
   | ConversationSummaryArtifact
   | ExtractionResultArtifact
-  | DeletedFilesArtifact;
+  | DeletedFilesArtifact
+  | MoveResultsArtifact
+  | UpdateFrontmatterResultsArtifact;
 
 export type ArtifactMap = {
   [ArtifactType.SEARCH_RESULTS]: SearchResultsArtifact;
@@ -130,6 +155,8 @@ export type ArtifactMap = {
   [ArtifactType.CONVERSATION_SUMMARY]: ConversationSummaryArtifact;
   [ArtifactType.EXTRACTION_RESULT]: ExtractionResultArtifact;
   [ArtifactType.DELETED_FILES]: DeletedFilesArtifact;
+  [ArtifactType.MOVE_RESULTS]: MoveResultsArtifact;
+  [ArtifactType.UPDATE_FRONTMATTER_RESULTS]: UpdateFrontmatterResultsArtifact;
 };
 
 /**

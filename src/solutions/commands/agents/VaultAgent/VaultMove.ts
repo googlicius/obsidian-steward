@@ -50,6 +50,7 @@ type MoveOperationResult = {
   moved: string[];
   skipped: string[];
   errors: string[];
+  movePairs: Array<[string, string]>; // Array of [originalPath, movedPath] pairs
 };
 
 export class VaultMove {
@@ -181,6 +182,19 @@ export class VaultMove {
       lang,
       handlerId,
     });
+
+    // Store move results as an artifact if there are any moves
+    if (moveResult.movePairs.length > 0) {
+      const artifactId = `move_${Date.now()}`;
+      await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+        artifact: {
+          artifactType: ArtifactType.MOVE_RESULTS,
+          moves: moveResult.movePairs,
+          id: artifactId,
+          createdAt: Date.now(),
+        },
+      });
+    }
 
     await this.serializeMoveInvocation({
       title,
@@ -360,6 +374,7 @@ export class VaultMove {
       moved,
       skipped,
       errors,
+      movePairs: result.movePairs,
     };
   }
 

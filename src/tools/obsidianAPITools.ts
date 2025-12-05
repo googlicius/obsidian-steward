@@ -102,8 +102,10 @@ export class ObsidianAPITools {
       errors: string[];
       skipped: string[];
     }>;
+    movePairs: Array<[string, string]>; // Array of [originalPath, movedPath] pairs
   }> {
     const operationResults = [];
+    const movePairs: Array<[string, string]> = [];
 
     // Process each operation
     for (let i = 0; i < operations.length; i++) {
@@ -133,6 +135,7 @@ export class ObsidianAPITools {
 
         if (success) {
           moved.push(destinationPath);
+          movePairs.push([filePath, destinationPath]);
         } else {
           errors.push(filePath);
         }
@@ -147,7 +150,7 @@ export class ObsidianAPITools {
       });
     }
 
-    return { operations: operationResults };
+    return { operations: operationResults, movePairs };
   }
 
   /**

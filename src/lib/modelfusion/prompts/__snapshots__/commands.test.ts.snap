@@ -9,7 +9,8 @@ exports[`commands formatCommandsForPrompt should handle command names that inclu
   description: |-
     An agent performs vault-related operations. You MUST add a query to activate one or more tools that needs to perform the operation, e.g. 'vault?tools=list,rename'.
     Available tools: list, rename, create, delete, copy, update_frontmatter, and move.
-    NOTE: The update_frontmatter tool is used to add, update, or delete frontmatter properties in notes. Use this tool to delete note's properties.
+    NOTE:
+    - Use the list tool (vault?tools=list) to list all files in a specific folder instead of using the search command.
   use_when: Vault operations (list files, create notes, etc.)
 "
 `;
@@ -19,7 +20,8 @@ exports[`commands formatCommandsForPrompt should merge multiple commands referen
   description: |-
     An agent performs vault-related operations. You MUST add a query to activate one or more tools that needs to perform the operation, e.g. 'vault?tools=list,rename'.
     Available tools: list, rename, create, delete, copy, update_frontmatter, and move.
-    NOTE: The update_frontmatter tool is used to add, update, or delete frontmatter properties in notes. Use this tool to delete note's properties.
+    NOTE:
+    - Use the list tool (vault?tools=list) to list all files in a specific folder instead of using the search command.
   use_when: Vault operations (list files, create notes, etc.)
 "
 `;
@@ -48,28 +50,14 @@ exports[`commands formatCommandsForPrompt should return formatted commands for p
   description: |-
     An agent performs vault-related operations. You MUST add a query to activate one or more tools that needs to perform the operation, e.g. 'vault?tools=list,rename'.
     Available tools: list, rename, create, delete, copy, update_frontmatter, and move.
-    NOTE: The update_frontmatter tool is used to add, update, or delete frontmatter properties in notes. Use this tool to delete note's properties.
+    NOTE:
+    - Use the list tool (vault?tools=list) to list all files in a specific folder instead of using the search command.
   use_when: Vault operations (list files, create notes, etc.)
-- name: vault_move
-  description: Move notes from the artifact to a destination
-  aliases:
-    - move
-  use_when: Move notes from the artifact
-- name: vault_copy
-  description: Copy notes from the artifact to a destination
-  aliases:
-    - copy
-  use_when: Copy notes from the artifact
 - name: update_from_artifact
   description: 'Update note(s) content from the artifact. NOTE: This command is used to update the content of the note only. If you need to update the frontmatter properties, use the vault?tool=update_frontmatter.'
   aliases:
     - update
   use_when: Update one or more notes from the artifact
-- name: vault_delete
-  description: 'Delete note(s) from the artifact. NOTE: This command does not delete note''s properties. If you need that, use the vault?tool=update_frontmatter.'
-  aliases:
-    - delete
-  use_when: Delete notes from the artifact
 - name: build_search_index
   description: Build or rebuild the search index for all markdown files in the vault
   use_when: Build or rebuild the search index for all markdown files in the vault
@@ -88,6 +76,9 @@ exports[`commands formatCommandsForPrompt should return formatted commands for p
     - Item 2".
     Otherwise, you need to include the "read" command.
   use_when: Ask, update, or generate content with your help
+- name: revert
+  description: An agent performs revert operations to undo previous actions like delete, update, move, etc.
+  use_when: Revert or undo previous operations (delete, update, move, etc.)
 "
 `;
 
@@ -140,22 +131,8 @@ exports[`commands formatQueryTemplatesForPrompt should return formatted query te
     2. Search Guidelines:
       - Multiple parameters can be combined when needed.
       - Preserve the original wording and context if provided: start with, contain, or exact, for example: "file name start with...", "keywords contain...", "folder exact..."
-- command: vault_move
-  template: |-
-    Extract specific details for a vault_move command follows this format: <query>; destination: <destination>
-    - <query>: The query for the move command.
-    - <destination>: The destination folder.
-- command: vault_copy
-  template: |-
-    Extract specific details for a vault_copy command follows this format: <query>; destination: <destination>
-    - <query>: The query for the copy command.
-    - <destination>: The destination folder.
 - command: update_from_artifact
   template: Extract specific details for what to be updated.
-- command: vault_delete
-  template: |-
-    Extract specific details for a vault_delete command:
-    - The query always be: "Delete all notes in the search result."
 - command: read
   template: |-
     Extract a specific query for a read command:

@@ -780,45 +780,50 @@ export class ConversationRenderer {
         frontmatter +
         `<!--STW ID:${messageId},ROLE:user,COMMAND:${commandType}-->\n${userMessage}\n\n`;
 
-      switch (commandType) {
-        case 'move':
-        case 'vault_move':
-          initialContent += `*${t('conversation.moving')}*`;
-          break;
+      // Handle vault command with optional tools parameter
+      if (commandType.startsWith('vault')) {
+        // Check if tools parameter is specified to show appropriate message
+        const [, queryString] = commandType.split('?');
+        if (queryString) {
+          const urlParams = new URLSearchParams(queryString);
+          const tools = urlParams.get('tools')?.split(',') || [];
 
-        case 'delete':
-          initialContent += `*${t('conversation.deleting')}*`;
-          break;
+          if (tools.includes('move')) {
+            initialContent += `*${t('conversation.moving')}*`;
+          } else if (tools.includes('copy')) {
+            initialContent += `*${t('conversation.copying')}*`;
+          } else if (tools.includes('delete')) {
+            initialContent += `*${t('conversation.deleting')}*`;
+          }
+        }
+      } else {
+        switch (commandType) {
+          case 'search':
+            initialContent += `*${t('conversation.searching')}*`;
+            break;
 
-        case 'vault_copy':
-          initialContent += `*${t('conversation.copying')}*`;
-          break;
+          case 'calc':
+            initialContent += `*${t('conversation.calculating')}*`;
+            break;
 
-        case 'search':
-          initialContent += `*${t('conversation.searching')}*`;
-          break;
+          case 'image':
+            initialContent += `*${t('conversation.generatingImage')}*`;
+            break;
 
-        case 'calc':
-          initialContent += `*${t('conversation.calculating')}*`;
-          break;
+          case 'audio':
+          case 'speak':
+            initialContent += `*${t('conversation.generatingAudio')}*`;
+            break;
 
-        case 'image':
-          initialContent += `*${t('conversation.generatingImage')}*`;
-          break;
+          case 'update':
+            initialContent += `*${t('conversation.updating')}*`;
+            break;
 
-        case 'audio':
-        case 'speak':
-          initialContent += `*${t('conversation.generatingAudio')}*`;
-          break;
-
-        case 'update':
-          initialContent += `*${t('conversation.updating')}*`;
-          break;
-
-        case ' ':
-        default:
-          initialContent += `*${t('conversation.orchestrating')}*`;
-          break;
+          case ' ':
+          default:
+            initialContent += `*${t('conversation.orchestrating')}*`;
+            break;
+        }
       }
 
       // Remove the conversation note if exist

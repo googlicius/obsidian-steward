@@ -12,6 +12,7 @@ import { VaultCopy } from './VaultCopy';
 import { VaultMove } from './VaultMove';
 import { VaultRename } from './VaultRename';
 import { UpdateFrontmatterToolArgs, VaultUpdateFrontmatter } from './VaultUpdateFrontmatter';
+import { VaultGrep } from './VaultGrep';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { activateTools } from '../../tools/activateTools';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
@@ -26,6 +27,7 @@ class VaultAgent extends Agent {
   private _vaultList: VaultList;
   private _vaultRename: VaultRename;
   private _vaultUpdateFrontmatter: VaultUpdateFrontmatter;
+  private _vaultGrep: VaultGrep;
 
   private get vaultMove(): VaultMove {
     if (!this._vaultMove) {
@@ -81,6 +83,14 @@ class VaultAgent extends Agent {
     }
 
     return this._vaultUpdateFrontmatter;
+  }
+
+  private get vaultGrep(): VaultGrep {
+    if (!this._vaultGrep) {
+      this._vaultGrep = new VaultGrep(this);
+    }
+
+    return this._vaultGrep;
   }
 
   /**
@@ -169,6 +179,7 @@ class VaultAgent extends Agent {
       [ToolName.RENAME]: VaultRename.getRenameTool(),
       [ToolName.MOVE]: VaultMove.getMoveTool(),
       [ToolName.UPDATE_FRONTMATTER]: VaultUpdateFrontmatter.getUpdateFrontmatterTool(),
+      [ToolName.GREP]: VaultGrep.getGrepTool(),
       [ToolName.ACTIVATE]: activateTools,
     };
 
@@ -193,9 +204,7 @@ class VaultAgent extends Agent {
       const modifier = new SystemPromptModifier(intent.systemPrompts);
 
       const activeToolNames =
-        activeTools.length > 0
-          ? [...activeTools, ToolName.ACTIVATE]
-          : (Object.keys(tools) as ToolName[]);
+        activeTools.length > 0 ? [...activeTools, ToolName.ACTIVATE] : [ToolName.ACTIVATE];
       const registry = ToolRegistry.buildFromTools(tools, intent.tools).setActive(activeToolNames);
 
       const messages: Message[] = conversationHistory;
@@ -220,6 +229,7 @@ ${registry.generateGuidelinesSection()}
 
 NOTE:
 - Do NOT repeat the latest tool call result in your final response as it is already rendered in the UI.
+- To check if name(s) is/are file(s) or folder(s), use the grep tool, it returns file paths and folder paths. Because the list tool returns only the FIRST 10 files (not folders).
 
 OTHER TOOLS:
 ${registry.generateOtherToolsSection('No other tools available.')}`),
@@ -320,6 +330,17 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
 
           case ToolName.UPDATE_FRONTMATTER: {
             toolCallResult = await this.vaultUpdateFrontmatter.handle(
+              {
+                ...params,
+                handlerId,
+              },
+              { toolCall }
+            );
+            break;
+          }
+
+          case ToolName.GREP: {
+            toolCallResult = await this.vaultGrep.handle(
               {
                 ...params,
                 handlerId,

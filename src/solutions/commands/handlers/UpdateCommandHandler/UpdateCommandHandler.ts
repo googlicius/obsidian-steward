@@ -12,7 +12,7 @@ import { logger } from 'src/utils/logger';
 import { DocWithPath } from 'src/types/types';
 import { generateId, generateText, Message } from 'ai';
 import { requestReadContentTool } from '../../tools/requestReadContent';
-import { grepTool, execute as grepExecute } from '../../tools/grepContent';
+import { grepTool, execute as grepExecute } from '../../tools/grep';
 import { createEditTool } from '../../tools/editContent';
 import { ReadCommandHandler } from '../ReadCommandHandler/ReadCommandHandler';
 import { MarkdownUtil } from 'src/utils/markdownUtils';

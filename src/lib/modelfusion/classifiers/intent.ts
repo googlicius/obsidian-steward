@@ -17,7 +17,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
   // Static cluster values that aren't need to be embedded
   staticClusterValues: [
     {
-      name: 'vault_delete' as const,
+      name: 'vault?tools=delete' as const,
       values: [
         'delete them',
         'delete it',
@@ -113,7 +113,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
       ],
     },
     {
-      name: 'vault_move' as const,
+      name: 'vault?tools=move' as const,
       values: [
         'move results to the f folder',
         'move the results into the f folder',
@@ -129,7 +129,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
       ],
     },
     {
-      name: 'vault_copy' as const,
+      name: 'vault?tools=copy' as const,
       values: [
         'copy results to the folder f',
         'copy these notes to the folder f',
@@ -204,6 +204,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
         'undo the last action',
         'restore previous version',
         'cancel last change',
+        'revert the deletion',
       ],
     },
     {
@@ -250,7 +251,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
       ],
     },
     {
-      name: 'vault_create' as const,
+      name: 'vault?tools=create' as const,
       values: [
         'create a note titled x',
         'write a new note about x',
