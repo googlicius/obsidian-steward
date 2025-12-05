@@ -5,7 +5,7 @@ import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/go
 import { createGroq, GroqProvider } from '@ai-sdk/groq';
 import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
 import { createOllama, OllamaProvider } from 'ollama-ai-provider';
-import { LLM_MODELS } from 'src/constants';
+import { LLM_MODELS, ProviderNeedApiKey } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { jsonrepair } from 'jsonrepair';
 import { logger } from 'src/utils/logger';
@@ -42,15 +42,14 @@ export class LLMService {
   }
 
   /**
-   * Get the base URL for a provider, with fallback to default
+   * Get the base URL for a provider
    * @param provider The provider name
    * @returns The base URL for the provider
    */
   public getProviderBaseUrl(provider: string): string | undefined {
-    const providerConfig = this.plugin.settings.llm.providerConfigs[provider];
-
-    if (providerConfig?.baseUrl) {
-      return providerConfig.baseUrl;
+    // Check providers first (new location)
+    if (this.plugin.settings.providers[provider]?.baseUrl) {
+      return this.plugin.settings.providers[provider].baseUrl;
     }
 
     // Return undefined to use default base URLs from the AI SDK
@@ -62,9 +61,12 @@ export class LLMService {
    * @param provider The provider name
    * @returns The decrypted API key or undefined
    */
-  public getApiKey(provider: keyof StewardPluginSettings['apiKeys']): string | undefined {
+  public getApiKey(provider: ProviderNeedApiKey): string | undefined {
     try {
-      const encryptedKey = this.plugin.settings.apiKeys[provider];
+      if (!this.plugin.settings.providers[provider]) {
+        return undefined;
+      }
+      const encryptedKey = this.plugin.settings.providers[provider].apiKey;
       if (!encryptedKey) {
         return undefined;
       }
@@ -130,8 +132,9 @@ export class LLMService {
       throw new Error(`Model ${model} not found`);
     }
 
+    // Get baseURL for the provider (users can include CORS proxy in baseURL if needed)
     const baseURL = this.getProviderBaseUrl(name);
-    const apiKey = this.getApiKey(name as keyof StewardPluginSettings['apiKeys']);
+    const apiKey = this.getApiKey(name as ProviderNeedApiKey);
 
     switch (name) {
       case 'openai': {

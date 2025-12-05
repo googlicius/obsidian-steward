@@ -1,12 +1,21 @@
 export interface StewardPluginSettings {
   mySetting: string;
-  apiKeys: {
+  /**
+   * Deprecated: use providers instead
+   */
+  apiKeys?: {
     openai: string;
     elevenlabs: string;
     deepseek: string;
     google: string;
     groq: string;
     anthropic: string;
+  };
+  providers: {
+    [key: string]: {
+      apiKey: string; // Encrypted API key
+      baseUrl?: string; // Optional base URL for the provider
+    };
   };
   saltKeyId: string; // Store just the key ID, not the actual salt
   stewardFolder: string;
@@ -33,7 +42,7 @@ export interface StewardPluginSettings {
       customModels: string[]; // User-defined custom chat models
     };
     temperature: number;
-    ollamaBaseUrl?: string; // Deprecated: use providerConfigs instead
+    ollamaBaseUrl?: string; // Deprecated: use providers[provider].baseUrl instead
     maxGenerationTokens?: number; // Maximum number of tokens to generate in response
     showExtractionExplanation?: boolean; // Show detailed explanation for command extractions
     embeddingModel?: string; // Deprecated: use embedding.model instead
@@ -47,6 +56,9 @@ export interface StewardPluginSettings {
       customModels: string[]; // User-defined custom image models
       size: string; // Image size (e.g., "1024x1024", "1792x1024")
     };
+    /**
+     * Deprecated: use providers[provider].baseUrl instead
+     */
     providerConfigs: {
       [key: string]: { baseUrl?: string };
     };
