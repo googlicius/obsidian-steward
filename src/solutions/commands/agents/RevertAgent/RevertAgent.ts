@@ -8,6 +8,7 @@ import { uniqueID } from 'src/utils/uniqueID';
 import { RevertDelete } from './RevertDelete';
 import { RevertMove } from './RevertMove';
 import { RevertFrontmatter } from './RevertFrontmatter';
+import { RevertRename } from './RevertRename';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { activateTools } from '../../tools/activateTools';
 import { getMostRecentArtifact, getArtifactById } from '../../tools/getArtifact';
@@ -17,6 +18,7 @@ class RevertAgent extends Agent {
   private _revertDelete: RevertDelete;
   private _revertMove: RevertMove;
   private _revertFrontmatter: RevertFrontmatter;
+  private _revertRename: RevertRename;
 
   private get revertDelete(): RevertDelete {
     if (!this._revertDelete) {
@@ -40,6 +42,14 @@ class RevertAgent extends Agent {
     }
 
     return this._revertFrontmatter;
+  }
+
+  private get revertRename(): RevertRename {
+    if (!this._revertRename) {
+      this._revertRename = new RevertRename(this);
+    }
+
+    return this._revertRename;
   }
 
   /**
@@ -77,6 +87,7 @@ class RevertAgent extends Agent {
       [ToolName.REVERT_DELETE]: RevertDelete.getRevertDeleteTool(),
       [ToolName.REVERT_MOVE]: RevertMove.getRevertMoveTool(),
       [ToolName.REVERT_FRONTMATTER]: RevertFrontmatter.getRevertFrontmatterTool(),
+      [ToolName.REVERT_RENAME]: RevertRename.getRevertRenameTool(),
       [ToolName.ACTIVATE]: activateTools,
       [ToolName.GET_MOST_RECENT_ARTIFACT]: getMostRecentArtifact,
       [ToolName.GET_ARTIFACT_BY_ID]: getArtifactById,
@@ -198,6 +209,19 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
             break;
           }
 
+          case ToolName.REVERT_RENAME: {
+            toolCallResult = await this.revertRename.handle(
+              {
+                ...params,
+                handlerId,
+              },
+              {
+                toolCall,
+              }
+            );
+            break;
+          }
+
           case ToolName.GET_MOST_RECENT_ARTIFACT: {
             const { artifactTypes } = toolCall.args;
             const t = getTranslation(lang);
@@ -260,19 +284,19 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
           }
 
           case ToolName.ACTIVATE: {
-            const { tools, explanation } = toolCall.args;
+            const { tools } = toolCall.args;
 
-            if (explanation) {
-              await this.renderer.updateConversationNote({
-                path: title,
-                newContent: explanation,
-                agent: 'revert',
-                command: 'activate-tools',
-                includeHistory: false,
-                lang,
-                handlerId,
-              });
-            }
+            const toolNamesWithBackticks = tools.map(tool => `\`${tool}\``);
+            const toolNamesJoined = joinWithConjunction(toolNamesWithBackticks, 'and');
+            await this.renderer.updateConversationNote({
+              path: title,
+              newContent: `*Activating ${toolNamesJoined}.*`,
+              agent: 'revert',
+              command: 'activate-tools',
+              includeHistory: false,
+              lang,
+              handlerId,
+            });
 
             // Serialize the tool invocation
             await this.renderer.serializeToolInvocation({

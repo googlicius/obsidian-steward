@@ -8,7 +8,8 @@ import { TFile, TFolder } from 'obsidian';
  */
 export const grepSchema = z.object({
   paths: z
-    .array(z.string())
+    // Remove trailing slash from paths
+    .array(z.string().transform(val => val.replace(/\/$/, '')))
     .min(1)
     .describe(
       'Array of file or folder paths to check for existence. Can also include a single file path to search content in.'

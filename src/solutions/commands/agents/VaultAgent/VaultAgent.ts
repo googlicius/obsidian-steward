@@ -11,7 +11,7 @@ import { DeleteToolArgs, VaultDelete } from './VaultDelete';
 import { VaultCopy } from './VaultCopy';
 import { VaultMove } from './VaultMove';
 import { VaultRename } from './VaultRename';
-import { UpdateFrontmatterToolArgs, VaultUpdateFrontmatter } from './VaultUpdateFrontmatter';
+import { VaultUpdateFrontmatter } from './VaultUpdateFrontmatter';
 import { VaultGrep } from './VaultGrep';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { activateTools } from '../../tools/activateTools';
@@ -128,24 +128,8 @@ class VaultAgent extends Agent {
       }
     }
 
-    if (this.activeTools.includes(ToolName.UPDATE_FRONTMATTER)) {
-      const artifact = await this.plugin.artifactManagerV2
-        .withTitle(title)
-        .getMostRecentArtifactOfTypes([ArtifactType.SEARCH_RESULTS, ArtifactType.CREATED_NOTES]);
-
-      if (artifact) {
-        const manualToolCall: ToolInvocation<unknown, UpdateFrontmatterToolArgs> = {
-          toolName: ToolName.UPDATE_FRONTMATTER,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
-          args: {
-            artifactId: artifact.id,
-            explanation: '',
-          },
-        };
-
-        return [manualToolCall];
-      }
-    }
+    // UPDATE_FRONTMATTER requires properties to be specified, which must be determined by AI
+    // So we don't create manual tool calls for it
   }
 
   /**
@@ -232,7 +216,7 @@ NOTE:
 - To check if name(s) is/are file(s) or folder(s), use the grep tool, it returns file paths and folder paths. Because the list tool returns only the FIRST 10 files (not folders).
 
 OTHER TOOLS:
-${registry.generateOtherToolsSection('No other tools available.')}`),
+${registry.generateOtherToolsSection('No other tools available.', new Set([ToolName.GREP, ToolName.LIST]))}`),
         messages,
         tools: registry.getToolsObject(),
       });
@@ -351,19 +335,19 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
           }
 
           case ToolName.ACTIVATE: {
-            const { tools, explanation } = toolCall.args;
+            const { tools } = toolCall.args;
 
-            if (explanation) {
-              await this.renderer.updateConversationNote({
-                path: title,
-                newContent: explanation,
-                agent: 'vault',
-                command: 'activate-tools',
-                includeHistory: false,
-                lang,
-                handlerId,
-              });
-            }
+            const toolNamesWithBackticks = tools.map(tool => `\`${tool}\``);
+            const toolNamesJoined = joinWithConjunction(toolNamesWithBackticks, 'and');
+            await this.renderer.updateConversationNote({
+              path: title,
+              newContent: `*Activating ${toolNamesJoined}.*`,
+              agent: 'vault',
+              command: 'activate-tools',
+              includeHistory: false,
+              lang,
+              handlerId,
+            });
 
             // Serialize the tool invocation
             await this.renderer.serializeToolInvocation({
