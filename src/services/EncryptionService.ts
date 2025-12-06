@@ -130,7 +130,11 @@ export class EncryptionService {
    * @returns The decrypted API key or empty string if not set
    */
   public getDecryptedApiKey(provider: ProviderNeedApiKey): string {
-    const encryptedKey = this.plugin.settings.apiKeys[provider];
+    if (!this.plugin.settings.providers[provider]) {
+      return '';
+    }
+
+    const encryptedKey = this.plugin.settings.providers[provider].apiKey;
 
     if (!encryptedKey) {
       return '';
@@ -150,11 +154,18 @@ export class EncryptionService {
    */
   public async setEncryptedApiKey(provider: ProviderNeedApiKey, apiKey: string): Promise<void> {
     try {
+      // Ensure provider config exists
+      if (!this.plugin.settings.providers[provider]) {
+        this.plugin.settings.providers[provider] = {
+          apiKey: '',
+        };
+      }
+
       // First encrypt the API key
       const encryptedKey = apiKey ? this.encrypt(apiKey, this.plugin.settings.saltKeyId) : '';
 
       // Update settings
-      this.plugin.settings.apiKeys[provider] = encryptedKey;
+      this.plugin.settings.providers[provider].apiKey = encryptedKey;
 
       // Save the settings
       await this.plugin.saveSettings();

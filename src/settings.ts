@@ -15,7 +15,7 @@ import { ModelSetting } from './settings/ModelSetting';
 import { ModelFallbackSetting } from './settings/ModelFallbackSetting';
 import { DeleteBehaviorSetting } from './settings/DeleteBehaviorSetting';
 import { applyMixins } from './utils/applyMixins';
-import { ApiKeySetting } from './settings/ApiKeySetting';
+import { ProviderSetting } from './settings/ProviderSetting';
 
 const lang = getLanguage();
 const t = getTranslation(lang);
@@ -23,102 +23,14 @@ const t = getTranslation(lang);
 // Define interface that combines all mixins
 interface StewardSettingTab
   extends PluginSettingTab,
-    ApiKeySetting,
+    ProviderSetting,
     ModelSetting,
     ModelFallbackSetting,
     DeleteBehaviorSetting {}
 
 class StewardSettingTab extends PluginSettingTab {
-  private providerBaseUrlSetting: Setting;
-
   constructor(protected plugin: StewardPlugin) {
     super(plugin.app, plugin);
-  }
-
-  /**
-   * Get the default base URL for a provider
-   * @param provider - The provider name
-   * @returns The default base URL
-   */
-  private getDefaultBaseUrl(provider: string): string {
-    const defaultUrls: Record<string, string> = {
-      openai: 'Default OpenAI base URL',
-      deepseek: 'Default DeepSeek base URL',
-      google: 'Default Google base URL',
-      groq: 'Default Groq base URL',
-      ollama: 'http://localhost:11434',
-      anthropic: 'Default Anthropic base URL',
-    };
-
-    return defaultUrls[provider] || '';
-  }
-
-  private createProviderBaseUrlSetting(containerEl: HTMLElement) {
-    const setting = new Setting(containerEl)
-      .setName(t('settings.providerBaseUrl'))
-      .setDesc(t('settings.providerBaseUrlDesc'))
-      .addText(text => {
-        // Initialize input with current values
-        const currentProvider = this.plugin.settings.llm.chat.model.split(':')[0];
-        if (currentProvider) {
-          if (!this.plugin.settings.llm.providerConfigs) {
-            this.plugin.settings.llm.providerConfigs = {};
-          }
-
-          const currentBaseUrl =
-            this.plugin.settings.llm.providerConfigs[currentProvider]?.baseUrl || '';
-          const defaultBaseUrl = this.getDefaultBaseUrl(currentProvider);
-
-          text.setValue(currentBaseUrl);
-          text.setPlaceholder(defaultBaseUrl);
-        }
-
-        text.onChange(async value => {
-          const currentProvider = this.plugin.settings.llm.chat.model.split(':')[0];
-          if (!currentProvider) return;
-
-          // Ensure providerConfigs exists
-          if (!this.plugin.settings.llm.providerConfigs) {
-            this.plugin.settings.llm.providerConfigs = {};
-          }
-
-          // Initialize provider config if it doesn't exist
-          if (!this.plugin.settings.llm.providerConfigs[currentProvider]) {
-            this.plugin.settings.llm.providerConfigs[currentProvider] = {};
-          }
-
-          this.plugin.settings.llm.providerConfigs[currentProvider].baseUrl = value;
-          await this.plugin.saveSettings();
-        });
-      });
-
-    this.providerBaseUrlSetting = setting;
-
-    return setting;
-  }
-
-  private updateProviderBaseUrlVisibility(): void {
-    const currentProvider = this.plugin.settings.llm.chat.model.split(':')[0];
-
-    if (currentProvider) {
-      // Ensure providerConfigs exists
-      if (!this.plugin.settings.llm.providerConfigs) {
-        this.plugin.settings.llm.providerConfigs = {};
-      }
-
-      // Update the input value and placeholder when switching models
-      const currentBaseUrl =
-        this.plugin.settings.llm.providerConfigs[currentProvider]?.baseUrl || '';
-      const defaultBaseUrl = this.getDefaultBaseUrl(currentProvider);
-
-      const textInput = this.providerBaseUrlSetting.settingEl.querySelector(
-        'input[type="text"]'
-      ) as HTMLInputElement;
-      if (textInput) {
-        textInput.value = currentBaseUrl;
-        textInput.placeholder = defaultBaseUrl;
-      }
-    }
   }
 
   /**
@@ -185,20 +97,15 @@ class StewardSettingTab extends PluginSettingTab {
     // Add delete behavior setting
     this.createDeleteBehaviorSetting(containerEl);
 
-    // Create API Keys section
-    new Setting(containerEl).setName(t('settings.apiKeys')).setHeading();
+    // Create Providers section
+    new Setting(containerEl).setName(t('settings.providers')).setHeading();
 
-    this.createApiKeySetting(containerEl, 'openai', t('settings.openaiApiKey'));
-
-    this.createApiKeySetting(containerEl, 'elevenlabs', t('settings.elevenlabsApiKey'));
-
-    this.createApiKeySetting(containerEl, 'deepseek', t('settings.deepseekApiKey'));
-
-    this.createApiKeySetting(containerEl, 'google', t('settings.googleApiKey'));
-
-    this.createApiKeySetting(containerEl, 'groq', t('settings.groqApiKey'));
-
-    this.createApiKeySetting(containerEl, 'anthropic', t('settings.anthropicApiKey'));
+    this.createProviderSetting('openai');
+    this.createProviderSetting('elevenlabs');
+    this.createProviderSetting('deepseek');
+    this.createProviderSetting('google');
+    this.createProviderSetting('groq');
+    this.createProviderSetting('anthropic');
 
     containerEl.createEl('div', {
       text: `${t('settings.note')}:`,
@@ -231,8 +138,6 @@ class StewardSettingTab extends PluginSettingTab {
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.chat.model = modelId;
           await this.plugin.saveSettings();
-          // Update provider base URL settings visibility based on selected model
-          this.updateProviderBaseUrlVisibility();
         },
         onAddModel: async (modelId: string) => {
           this.plugin.settings.llm.chat.model = modelId;
@@ -247,8 +152,6 @@ class StewardSettingTab extends PluginSettingTab {
           }
 
           await this.plugin.saveSettings();
-          // Update provider base URL settings visibility based on selected model
-          this.updateProviderBaseUrlVisibility();
         },
         onDeleteModel: async (modelId: string) => {
           this.plugin.settings.llm.chat.customModels =
@@ -260,13 +163,9 @@ class StewardSettingTab extends PluginSettingTab {
           }
 
           await this.plugin.saveSettings();
-          // Update provider base URL settings visibility based on selected model
-          this.updateProviderBaseUrlVisibility();
         },
       }
     );
-
-    this.createProviderBaseUrlSetting(containerEl);
 
     // Temperature setting
     new Setting(containerEl)
@@ -585,7 +484,7 @@ class StewardSettingTab extends PluginSettingTab {
 
 // Apply mixins to the class
 applyMixins(StewardSettingTab, [
-  ApiKeySetting,
+  ProviderSetting,
   ModelSetting,
   ModelFallbackSetting,
   DeleteBehaviorSetting,

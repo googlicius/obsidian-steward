@@ -83,13 +83,25 @@ export const TWO_SPACES_PREFIX = '  ';
 
 export const DEFAULT_SETTINGS: StewardPluginSettings = {
   mySetting: 'default',
-  apiKeys: {
-    openai: '',
-    elevenlabs: '',
-    deepseek: '',
-    google: '',
-    groq: '',
-    anthropic: '',
+  providers: {
+    openai: {
+      apiKey: '',
+    },
+    elevenlabs: {
+      apiKey: '',
+    },
+    deepseek: {
+      apiKey: '',
+    },
+    google: {
+      apiKey: '',
+    },
+    groq: {
+      apiKey: '',
+    },
+    anthropic: {
+      apiKey: '',
+    },
   },
   saltKeyId: '', // Will be generated on first load
   stewardFolder: 'Steward',

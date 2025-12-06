@@ -314,100 +314,95 @@ export class SearchCommandHandler extends Agent {
       };
     }
 
-    try {
-      const llmConfig = await this.plugin.llmService.getLLMConfig({
-        overrideModel: intent.model,
-        generateType: 'text',
-      });
+    const llmConfig = await this.plugin.llmService.getLLMConfig({
+      overrideModel: intent.model,
+      generateType: 'text',
+    });
 
-      const modifier = new SystemPromptModifier(systemPrompts);
-      const additionalSystemPrompts = modifier.getAdditionalSystemPrompts();
+    const modifier = new SystemPromptModifier(systemPrompts);
+    const additionalSystemPrompts = modifier.getAdditionalSystemPrompts();
 
-      // Create an operation-specific abort signal
-      const abortSignal = this.plugin.abortService.createAbortController('search-query-v2');
+    // Create an operation-specific abort signal
+    const abortSignal = this.plugin.abortService.createAbortController('search-query-v2');
 
-      // Create tool for search query extraction
-      const searchQueryExtractionTool = tool({
-        parameters: searchQueryExtractionSchema,
-      });
+    // Create tool for search query extraction
+    const searchQueryExtractionTool = tool({
+      parameters: searchQueryExtractionSchema,
+    });
 
-      // Collect the error from the stream to handle it with our handle function.
-      let streamError: Error | null = null;
+    // Collect the error from the stream to handle it with our handle function.
+    let streamError: Error | null = null;
 
-      // Use streamText with tool to disable reasoning responses
-      const { textStream, toolCalls: toolCallsPromise } = streamText({
-        ...llmConfig,
-        abortSignal,
-        system: modifier.apply(searchPromptV2(intent)),
-        messages: [
-          ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
-          { role: 'user', content: intent.query },
-        ],
-        tools: {
-          extractSearchQuery: searchQueryExtractionTool,
-        },
-        toolChoice: 'required',
-        onError: ({ error }) => {
-          streamError = error instanceof Error ? error : new Error(String(error));
-        },
-      });
+    // Use streamText with tool to disable reasoning responses
+    const { textStream, toolCalls: toolCallsPromise } = streamText({
+      ...llmConfig,
+      abortSignal,
+      system: modifier.apply(searchPromptV2(intent)),
+      messages: [
+        ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+        { role: 'user', content: intent.query },
+      ],
+      tools: {
+        extractSearchQuery: searchQueryExtractionTool,
+      },
+      toolChoice: 'required',
+      onError: ({ error }) => {
+        streamError = error instanceof Error ? error : new Error(String(error));
+      },
+    });
 
-      const streamErrorPromise = waitForError(() => streamError);
+    const streamErrorPromise = waitForError(() => streamError);
 
-      // Stream the text directly to the conversation note
-      await Promise.race([
-        this.renderer.streamConversationNote({
-          path: title,
-          stream: textStream,
-          command: 'search',
-          includeHistory: false,
-        }),
-        streamErrorPromise,
-      ]);
+    // Stream the text directly to the conversation note
+    await Promise.race([
+      this.renderer.streamConversationNote({
+        path: title,
+        stream: textStream,
+        command: 'search',
+        includeHistory: false,
+      }),
+      streamErrorPromise,
+    ]);
 
-      await this.renderIndicator(title, lang);
+    await this.renderIndicator(title, lang);
 
-      // Wait for tool calls and extract the result
-      const toolCalls = (await Promise.race([toolCallsPromise, streamErrorPromise])) as Awaited<
-        typeof toolCallsPromise
-      >;
+    // Wait for tool calls and extract the result
+    const toolCalls = (await Promise.race([toolCallsPromise, streamErrorPromise])) as Awaited<
+      typeof toolCallsPromise
+    >;
 
-      // Find the extractSearchQuery tool call
-      const searchQueryToolCall = toolCalls.find(
-        toolCall => toolCall.toolName === 'extractSearchQuery'
-      );
+    // Find the extractSearchQuery tool call
+    const searchQueryToolCall = toolCalls.find(
+      toolCall => toolCall.toolName === 'extractSearchQuery'
+    );
 
-      if (!searchQueryToolCall) {
-        throw new Error('No search query extraction tool call found');
-      }
-
-      // Extract the result from the tool call args
-      const object = searchQueryToolCall.args;
-
-      // Log any empty arrays in operations for debugging
-      object.operations.forEach((op, index) => {
-        if (
-          op.keywords.length === 0 &&
-          op.filenames.length === 0 &&
-          op.folders.length === 0 &&
-          op.properties.length === 0
-        ) {
-          logger.warn(`Operation ${index} has all empty arrays`);
-        }
-      });
-
-      // Repair extraction operations by moving file-related properties to filenames
-      object.operations = this.repairExtractionOperations(object.operations);
-
-      return {
-        ...object,
-        lang: object.lang || lang || getLanguage(),
-        needsLLM: true,
-      };
-    } catch (error) {
-      logger.error('Error extracting search query:', error);
-      throw error;
+    if (!searchQueryToolCall) {
+      throw new Error('No search query extraction tool call found');
     }
+
+    // Extract the result from the tool call args
+    const object = searchQueryToolCall.args;
+
+    // Log any empty arrays in operations for debugging
+    object.operations.forEach((op, index) => {
+      if (
+        op.keywords.length === 0 &&
+        op.filenames.length === 0 &&
+        op.folders.length === 0 &&
+        op.properties.length === 0
+      ) {
+        logger.warn(`Operation ${index} has all empty arrays`);
+      }
+    });
+
+    // Repair extraction operations by moving file-related properties to filenames
+    object.operations = this.repairExtractionOperations(object.operations);
+
+    return {
+      ...object,
+      lang: object.lang || lang || getLanguage(),
+      needsLLM: true,
+    };
   }
 
   /**
