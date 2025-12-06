@@ -66,7 +66,7 @@ Steward can be used directly in the editor or by opening the chat interface.
 
 #### Model fallback and revert changes
 
-<img src="/docs/Steward-Demo-Revert-and-model-fallback.gif" alt="Revert" width="650px">
+<img src="/docs/Steward-Demo-Revert-and-model-fallback.gif" alt="Revert" width="400px">
 
 #### Update the selection
 
