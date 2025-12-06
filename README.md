@@ -64,9 +64,9 @@ Steward can be used directly in the editor or by opening the chat interface.
 
 <img src="/docs/Steward-Demo-Reasoning.gif" alt="Image read" width="400px">
 
-#### Image read
+#### Model fallback and revert changes
 
-<img src="/docs/Image-Read.gif" alt="Image read" width="650px">
+<img src="/docs/Steward-Demo-Revert-and-model-fallback.gif" alt="Revert" width="650px">
 
 #### Update the selection
 
