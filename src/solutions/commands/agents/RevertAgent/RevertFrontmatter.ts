@@ -159,9 +159,7 @@ export class RevertFrontmatter {
     }
 
     if (artifact.artifactType !== ArtifactType.UPDATE_FRONTMATTER_RESULTS) {
-      const message =
-        t('common.cannotRevertThisType', { type: artifact.artifactType }) ||
-        `Cannot revert this type of artifact: ${artifact.artifactType}`;
+      const message = t('common.cannotRevertThisType', { type: artifact.artifactType });
 
       const messageId = await this.agent.renderer.updateConversationNote({
         path: title,

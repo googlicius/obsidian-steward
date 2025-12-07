@@ -7,43 +7,43 @@ import { logger } from 'src/utils/logger';
 import { ToolInvocation } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 
-const revertMoveToolSchema = z.object({
+const revertRenameToolSchema = z.object({
   artifactId: z
     .string()
     .min(1)
-    .describe('The artifact identifier containing move operations to revert.'),
+    .describe('The artifact identifier containing rename operations to revert.'),
   explanation: z
     .string()
     .min(1)
-    .describe('A short explanation of why these moves should be reverted.'),
+    .describe('A short explanation of why these renames should be reverted.'),
 });
 
-export type RevertMoveToolArgs = z.infer<typeof revertMoveToolSchema>;
+export type RevertRenameToolArgs = z.infer<typeof revertRenameToolSchema>;
 
-type RevertMoveExecutionResult = {
+type RevertRenameExecutionResult = {
   revertedFiles: string[];
   failedFiles: string[];
 };
 
-export class RevertMove {
-  private static readonly revertMoveTool = tool({ parameters: revertMoveToolSchema });
+export class RevertRename {
+  private static readonly revertRenameTool = tool({ parameters: revertRenameToolSchema });
 
   constructor(private readonly agent: RevertAgent) {}
 
-  public static getRevertMoveTool() {
-    return RevertMove.revertMoveTool;
+  public static getRevertRenameTool() {
+    return RevertRename.revertRenameTool;
   }
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, RevertMoveToolArgs> }
+    options: { toolCall: ToolInvocation<unknown, RevertRenameToolArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const { toolCall } = options;
     const t = getTranslation(lang);
 
     if (!handlerId) {
-      throw new Error('RevertMove.handle invoked without handlerId');
+      throw new Error('RevertRename.handle invoked without handlerId');
     }
 
     if (toolCall.args.explanation) {
@@ -51,30 +51,30 @@ export class RevertMove {
         path: title,
         newContent: toolCall.args.explanation,
         agent: 'revert',
-        command: 'revert_move',
+        command: 'revert_rename',
         includeHistory: false,
         lang,
         handlerId,
       });
     }
 
-    const resolveMovesResult = await this.resolveMoves({
+    const resolveRenamesResult = await this.resolveRenames({
       title,
       toolCall,
       lang,
       handlerId,
     });
 
-    if (resolveMovesResult.errorMessage) {
+    if (resolveRenamesResult.errorMessage) {
       return {
         status: IntentResultStatus.ERROR,
-        error: new Error(resolveMovesResult.errorMessage),
+        error: new Error(resolveRenamesResult.errorMessage),
       };
     }
 
-    const movePairs = resolveMovesResult.movePairs;
+    const renamePairs = resolveRenamesResult.renamePairs;
 
-    if (movePairs.length === 0) {
+    if (renamePairs.length === 0) {
       return {
         status: IntentResultStatus.ERROR,
         error: new Error(t('common.noFilesFound')),
@@ -83,7 +83,7 @@ export class RevertMove {
 
     const revertResult = await this.executeRevert({
       title,
-      movePairs,
+      renamePairs,
     });
 
     let response = '';
@@ -109,7 +109,7 @@ export class RevertMove {
       path: title,
       newContent: response,
       agent: 'revert',
-      command: 'revert_move',
+      command: 'revert_rename',
       lang,
       handlerId,
       includeHistory: false,
@@ -127,18 +127,18 @@ export class RevertMove {
     };
   }
 
-  private async resolveMoves(params: {
+  private async resolveRenames(params: {
     title: string;
-    toolCall: ToolInvocation<unknown, RevertMoveToolArgs>;
+    toolCall: ToolInvocation<unknown, RevertRenameToolArgs>;
     lang?: string | null;
     handlerId: string;
-  }): Promise<{ movePairs: Array<[string, string]>; errorMessage?: string }> {
+  }): Promise<{ renamePairs: Array<[string, string]>; errorMessage?: string }> {
     const { title, toolCall, lang, handlerId } = params;
     const t = getTranslation(lang);
 
     if (!toolCall.args.artifactId) {
       const message = t('common.noRecentOperations') || 'No artifact ID provided.';
-      return { movePairs: [], errorMessage: message };
+      return { renamePairs: [], errorMessage: message };
     }
 
     const artifact = await this.agent.plugin.artifactManagerV2
@@ -146,19 +146,19 @@ export class RevertMove {
       .getArtifactById(toolCall.args.artifactId);
 
     if (!artifact) {
-      logger.error(`Revert move tool artifact not found: ${toolCall.args.artifactId}`);
+      logger.error(`Revert rename tool artifact not found: ${toolCall.args.artifactId}`);
       const message = t('common.noRecentOperations') || 'No recent operations found.';
-      return { movePairs: [], errorMessage: message };
+      return { renamePairs: [], errorMessage: message };
     }
 
-    if (artifact.artifactType !== ArtifactType.MOVE_RESULTS) {
+    if (artifact.artifactType !== ArtifactType.RENAME_RESULTS) {
       const message = t('common.cannotRevertThisType', { type: artifact.artifactType });
 
       const messageId = await this.agent.renderer.updateConversationNote({
         path: title,
         newContent: message,
         agent: 'revert',
-        command: 'revert_move',
+        command: 'revert_rename',
         lang,
         handlerId,
         includeHistory: false,
@@ -171,30 +171,29 @@ export class RevertMove {
         result: messageId ? `messageRef:${messageId}` : message,
       });
 
-      return { movePairs: [], errorMessage: message };
+      return { renamePairs: [], errorMessage: message };
     }
 
-    // Extract move pairs from the artifact
-    // moves is an array of [originalPath, movedPath] pairs
-    // To revert, we need to move from movedPath back to originalPath
-    const movePairs: Array<[string, string]> = artifact.moves.map(([originalPath, movedPath]) => [
-      movedPath,
-      originalPath,
-    ]);
+    // Extract rename pairs from the artifact
+    // renames is an array of [originalPath, renamedPath] pairs
+    // To revert, we need to rename from renamedPath back to originalPath
+    const renamePairs: Array<[string, string]> = artifact.renames.map(
+      ([originalPath, renamedPath]) => [renamedPath, originalPath]
+    );
 
-    return { movePairs };
+    return { renamePairs };
   }
 
   private async executeRevert(params: {
     title: string;
-    movePairs: Array<[string, string]>; // Array of [currentPath, originalPath] pairs
-  }): Promise<RevertMoveExecutionResult> {
-    const { movePairs } = params;
+    renamePairs: Array<[string, string]>; // Array of [currentPath, originalPath] pairs
+  }): Promise<RevertRenameExecutionResult> {
+    const { renamePairs } = params;
     const revertedFiles: string[] = [];
     const failedFiles: string[] = [];
 
-    for (const [currentPath, originalPath] of movePairs) {
-      const result = await this.revertFileMove({ currentPath, originalPath });
+    for (const [currentPath, originalPath] of renamePairs) {
+      const result = await this.revertFileRename({ currentPath, originalPath });
       if (!result.success) {
         failedFiles.push(currentPath);
         continue;
@@ -209,7 +208,7 @@ export class RevertMove {
     };
   }
 
-  private async revertFileMove(params: {
+  private async revertFileRename(params: {
     currentPath: string;
     originalPath: string;
   }): Promise<{ success: boolean; originalPath: string }> {
@@ -218,7 +217,7 @@ export class RevertMove {
     const file = this.agent.app.vault.getFileByPath(currentPath);
 
     if (!file) {
-      logger.error(`File not found for revert move: ${currentPath}`);
+      logger.error(`File not found for revert rename: ${currentPath}`);
       return { success: false, originalPath };
     }
 
@@ -236,7 +235,7 @@ export class RevertMove {
         await this.agent.obsidianAPITools.ensureFolderExists(originalFolder);
       }
 
-      // Move file back to original location
+      // Rename file back to original location
       await this.agent.app.fileManager.renameFile(file, originalPath);
 
       return {
@@ -244,7 +243,7 @@ export class RevertMove {
         originalPath,
       };
     } catch (error) {
-      logger.error(`Error reverting move from ${currentPath} to ${originalPath}:`, error);
+      logger.error(`Error reverting rename from ${currentPath} to ${originalPath}:`, error);
       return { success: false, originalPath };
     }
   }
@@ -252,7 +251,7 @@ export class RevertMove {
   private async serializeRevertInvocation(params: {
     title: string;
     handlerId: string;
-    toolCall: ToolInvocation<unknown, RevertMoveToolArgs>;
+    toolCall: ToolInvocation<unknown, RevertRenameToolArgs>;
     result: string;
   }): Promise<void> {
     const { title, handlerId, toolCall, result } = params;
@@ -260,7 +259,7 @@ export class RevertMove {
     await this.agent.renderer.serializeToolInvocation({
       path: title,
       agent: 'revert',
-      command: 'revert_move',
+      command: 'revert_rename',
       handlerId,
       toolInvocations: [
         {

@@ -9,7 +9,6 @@ const activateToolsSchema = z.object({
     .describe(
       'List of tool names that should be activated for the current task. Only include tools that are currently inactive.'
     ),
-  explanation: z.string().min(1).describe('Brief explanation of why these tools are needed.'),
 });
 
 export type ActivateToolsArgs = z.infer<typeof activateToolsSchema>;

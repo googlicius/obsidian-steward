@@ -11,7 +11,7 @@ import { DeleteToolArgs, VaultDelete } from './VaultDelete';
 import { VaultCopy } from './VaultCopy';
 import { VaultMove } from './VaultMove';
 import { VaultRename } from './VaultRename';
-import { UpdateFrontmatterToolArgs, VaultUpdateFrontmatter } from './VaultUpdateFrontmatter';
+import { VaultUpdateFrontmatter } from './VaultUpdateFrontmatter';
 import { VaultGrep } from './VaultGrep';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { activateTools } from '../../tools/activateTools';
@@ -128,24 +128,8 @@ class VaultAgent extends Agent {
       }
     }
 
-    if (this.activeTools.includes(ToolName.UPDATE_FRONTMATTER)) {
-      const artifact = await this.plugin.artifactManagerV2
-        .withTitle(title)
-        .getMostRecentArtifactOfTypes([ArtifactType.SEARCH_RESULTS, ArtifactType.CREATED_NOTES]);
-
-      if (artifact) {
-        const manualToolCall: ToolInvocation<unknown, UpdateFrontmatterToolArgs> = {
-          toolName: ToolName.UPDATE_FRONTMATTER,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
-          args: {
-            artifactId: artifact.id,
-            explanation: '',
-          },
-        };
-
-        return [manualToolCall];
-      }
-    }
+    // UPDATE_FRONTMATTER requires properties to be specified, which must be determined by AI
+    // So we don't create manual tool calls for it
   }
 
   /**
@@ -211,6 +195,7 @@ class VaultAgent extends Agent {
 
       // Include user message for the first iteration.
       if (!params.handlerId) {
+        params.handlerId = handlerId;
         const userMessage = await prepareMessage(intent.query, this.plugin);
         messages.push({ role: 'user', content: userMessage } as unknown as Message);
       }
@@ -229,10 +214,9 @@ ${registry.generateGuidelinesSection()}
 
 NOTE:
 - Do NOT repeat the latest tool call result in your final response as it is already rendered in the UI.
-- To check if name(s) is/are file(s) or folder(s), use the grep tool, it returns file paths and folder paths. Because the list tool returns only the FIRST 10 files (not folders).
 
 OTHER TOOLS:
-${registry.generateOtherToolsSection('No other tools available.')}`),
+${registry.generateOtherToolsSection('No other tools available.', new Set([ToolName.GREP, ToolName.LIST]))}`),
         messages,
         tools: registry.getToolsObject(),
       });
@@ -257,113 +241,65 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
 
         switch (toolCall.toolName) {
           case ToolName.LIST: {
-            toolCallResult = await this.vaultList.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              {
-                toolCall,
-              }
-            );
+            toolCallResult = await this.vaultList.handle(params, {
+              toolCall,
+            });
             break;
           }
 
           case ToolName.CREATE: {
-            toolCallResult = await this.vaultCreate.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              {
-                toolCall,
-              }
-            );
+            toolCallResult = await this.vaultCreate.handle(params, {
+              toolCall,
+            });
             break;
           }
 
           case ToolName.DELETE: {
-            toolCallResult = await this.vaultDelete.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              {
-                toolCall,
-              }
-            );
+            toolCallResult = await this.vaultDelete.handle(params, {
+              toolCall,
+            });
             break;
           }
 
           case ToolName.COPY: {
-            toolCallResult = await this.vaultCopy.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              { toolCall }
-            );
+            toolCallResult = await this.vaultCopy.handle(params, { toolCall });
             break;
           }
 
           case ToolName.RENAME: {
-            toolCallResult = await this.vaultRename.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              { toolCall }
-            );
+            toolCallResult = await this.vaultRename.handle(params, { toolCall });
             break;
           }
 
           case ToolName.MOVE: {
-            toolCallResult = await this.vaultMove.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              { toolCall }
-            );
+            toolCallResult = await this.vaultMove.handle(params, { toolCall });
             break;
           }
 
           case ToolName.UPDATE_FRONTMATTER: {
-            toolCallResult = await this.vaultUpdateFrontmatter.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              { toolCall }
-            );
+            toolCallResult = await this.vaultUpdateFrontmatter.handle(params, { toolCall });
             break;
           }
 
           case ToolName.GREP: {
-            toolCallResult = await this.vaultGrep.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              { toolCall }
-            );
+            toolCallResult = await this.vaultGrep.handle(params, { toolCall });
             break;
           }
 
           case ToolName.ACTIVATE: {
-            const { tools, explanation } = toolCall.args;
+            const { tools } = toolCall.args;
 
-            if (explanation) {
-              await this.renderer.updateConversationNote({
-                path: title,
-                newContent: explanation,
-                agent: 'vault',
-                command: 'activate-tools',
-                includeHistory: false,
-                lang,
-                handlerId,
-              });
-            }
+            const toolNamesWithBackticks = tools.map(tool => `\`${tool}\``);
+            const toolNamesJoined = joinWithConjunction(toolNamesWithBackticks, 'and');
+            await this.renderer.updateConversationNote({
+              path: title,
+              newContent: `*Activating ${toolNamesJoined}.*`,
+              agent: 'vault',
+              command: 'activate-tools',
+              includeHistory: false,
+              lang,
+              handlerId,
+            });
 
             // Serialize the tool invocation
             await this.renderer.serializeToolInvocation({
@@ -380,6 +316,8 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
             });
 
             activeTools.push(...tools);
+            // Update params.activeTools to preserve changes during error retries
+            params.activeTools = activeTools;
             break;
           }
 
@@ -428,16 +366,9 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
       const t = getTranslation(lang);
       await this.renderer.addGeneratingIndicator(title, t('conversation.continuingProcessing'));
 
-      return this.handle(
-        {
-          ...params,
-          handlerId,
-          activeTools,
-        },
-        {
-          remainingSteps: nextRemainingSteps,
-        }
-      );
+      return this.handle(params, {
+        remainingSteps: nextRemainingSteps,
+      });
     }
 
     return toolProcessingResult;

@@ -8,6 +8,7 @@ import { uniqueID } from 'src/utils/uniqueID';
 import { RevertDelete } from './RevertDelete';
 import { RevertMove } from './RevertMove';
 import { RevertFrontmatter } from './RevertFrontmatter';
+import { RevertRename } from './RevertRename';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { activateTools } from '../../tools/activateTools';
 import { getMostRecentArtifact, getArtifactById } from '../../tools/getArtifact';
@@ -17,6 +18,7 @@ class RevertAgent extends Agent {
   private _revertDelete: RevertDelete;
   private _revertMove: RevertMove;
   private _revertFrontmatter: RevertFrontmatter;
+  private _revertRename: RevertRename;
 
   private get revertDelete(): RevertDelete {
     if (!this._revertDelete) {
@@ -40,6 +42,14 @@ class RevertAgent extends Agent {
     }
 
     return this._revertFrontmatter;
+  }
+
+  private get revertRename(): RevertRename {
+    if (!this._revertRename) {
+      this._revertRename = new RevertRename(this);
+    }
+
+    return this._revertRename;
   }
 
   /**
@@ -77,6 +87,7 @@ class RevertAgent extends Agent {
       [ToolName.REVERT_DELETE]: RevertDelete.getRevertDeleteTool(),
       [ToolName.REVERT_MOVE]: RevertMove.getRevertMoveTool(),
       [ToolName.REVERT_FRONTMATTER]: RevertFrontmatter.getRevertFrontmatterTool(),
+      [ToolName.REVERT_RENAME]: RevertRename.getRevertRenameTool(),
       [ToolName.ACTIVATE]: activateTools,
       [ToolName.GET_MOST_RECENT_ARTIFACT]: getMostRecentArtifact,
       [ToolName.GET_ARTIFACT_BY_ID]: getArtifactById,
@@ -112,6 +123,7 @@ class RevertAgent extends Agent {
 
     // Include user message for the first iteration.
     if (!params.handlerId) {
+      params.handlerId = handlerId;
       const userMessage = await prepareMessage(intent.query, this.plugin);
       messages.push({ role: 'user', content: userMessage } as unknown as Message);
     }
@@ -160,41 +172,30 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
 
         switch (toolCall.toolName) {
           case ToolName.REVERT_DELETE: {
-            toolCallResult = await this.revertDelete.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              {
-                toolCall,
-              }
-            );
+            toolCallResult = await this.revertDelete.handle(params, {
+              toolCall,
+            });
             break;
           }
 
           case ToolName.REVERT_MOVE: {
-            toolCallResult = await this.revertMove.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              {
-                toolCall,
-              }
-            );
+            toolCallResult = await this.revertMove.handle(params, {
+              toolCall,
+            });
             break;
           }
 
           case ToolName.REVERT_FRONTMATTER: {
-            toolCallResult = await this.revertFrontmatter.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              {
-                toolCall,
-              }
-            );
+            toolCallResult = await this.revertFrontmatter.handle(params, {
+              toolCall,
+            });
+            break;
+          }
+
+          case ToolName.REVERT_RENAME: {
+            toolCallResult = await this.revertRename.handle(params, {
+              toolCall,
+            });
             break;
           }
 
@@ -260,19 +261,19 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
           }
 
           case ToolName.ACTIVATE: {
-            const { tools, explanation } = toolCall.args;
+            const { tools } = toolCall.args;
 
-            if (explanation) {
-              await this.renderer.updateConversationNote({
-                path: title,
-                newContent: explanation,
-                agent: 'revert',
-                command: 'activate-tools',
-                includeHistory: false,
-                lang,
-                handlerId,
-              });
-            }
+            const toolNamesWithBackticks = tools.map(tool => `\`${tool}\``);
+            const toolNamesJoined = joinWithConjunction(toolNamesWithBackticks, 'and');
+            await this.renderer.updateConversationNote({
+              path: title,
+              newContent: `*Activating ${toolNamesJoined}.*`,
+              agent: 'revert',
+              command: 'activate-tools',
+              includeHistory: false,
+              lang,
+              handlerId,
+            });
 
             // Serialize the tool invocation
             await this.renderer.serializeToolInvocation({
@@ -289,6 +290,7 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
             });
 
             activeTools.push(...tools);
+            params.activeTools = activeTools;
             break;
           }
 
@@ -337,16 +339,9 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
       const t = getTranslation(lang);
       await this.renderer.addGeneratingIndicator(title, t('conversation.continuingProcessing'));
 
-      return this.handle(
-        {
-          ...params,
-          handlerId,
-          activeTools,
-        },
-        {
-          remainingSteps: nextRemainingSteps,
-        }
-      );
+      return this.handle(params, {
+        remainingSteps: nextRemainingSteps,
+      });
     }
 
     return toolProcessingResult;

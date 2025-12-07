@@ -16,6 +16,7 @@ export enum ToolName {
   REVERT_DELETE = 'revert_delete',
   REVERT_MOVE = 'revert_move',
   REVERT_FRONTMATTER = 'revert_frontmatter',
+  REVERT_RENAME = 'revert_rename',
   GET_MOST_RECENT_ARTIFACT = 'get_most_recent_artifact',
   GET_ARTIFACT_BY_ID = 'get_artifact_by_id',
 }
@@ -122,7 +123,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description: 'Delete files from the vault using the configured trash behavior.',
     guidelines: [
       `Use the ${ToolName.DELETE} tool to remove files or notes from the vault.`,
-      `List every file you plan to delete and ensure the paths are accurate.`,
+      `List every file using the list tool (not grep tool) you plan to delete and ensure the paths are accurate.`,
     ],
     category: 'vault-access',
   },
@@ -163,10 +164,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   [ToolName.LIST]: {
     name: ToolName.LIST,
     description: 'List files in the vault or a specific folder.',
-    guidelines: [
-      `Use ${ToolName.LIST} to list files in the vault or a specific folder.`,
-      `Only include paths that you are confident exist.`,
-    ],
+    guidelines: [`Use ${ToolName.LIST} to list files in the vault or a specific folder.`],
     category: 'vault-access',
   },
 
@@ -214,6 +212,13 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     name: ToolName.REVERT_FRONTMATTER,
     description: 'Revert frontmatter updates by restoring original frontmatter properties.',
     guidelines: [`Use ${ToolName.REVERT_FRONTMATTER} to undo frontmatter property changes.`],
+    category: 'vault-access',
+  },
+
+  [ToolName.REVERT_RENAME]: {
+    name: ToolName.REVERT_RENAME,
+    description: 'Revert rename operations by renaming files back to their original names.',
+    guidelines: [`Use ${ToolName.REVERT_RENAME} to undo file rename operations.`],
     category: 'vault-access',
   },
 
@@ -307,11 +312,14 @@ export class ToolRegistry<T> {
     return lines.join('\n');
   }
 
-  public generateOtherToolsSection(emptyLabel = ''): string {
+  public generateOtherToolsSection(emptyLabel = '', includeDescription?: Set<ToolName>): string {
     const lines: string[] = [];
     for (const [, def] of this.tools) {
       if (this.isActive(def.name)) continue;
-      lines.push(`- ${def.name}`);
+      const line = includeDescription?.has(def.name)
+        ? `${def.name} - ${def.description}`
+        : def.name;
+      lines.push(line);
     }
 
     if (lines.length === 0) {

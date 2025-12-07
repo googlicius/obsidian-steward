@@ -19,6 +19,7 @@ export enum ArtifactType {
   EXTRACTION_RESULT = 'extraction-result',
   DELETED_FILES = 'deleted_files',
   UPDATE_FRONTMATTER_RESULTS = 'update_frontmatter_results',
+  RENAME_RESULTS = 'rename_results',
 }
 
 /**
@@ -132,6 +133,15 @@ export interface UpdateFrontmatterResultsArtifact extends BaseArtifact {
   }>;
 }
 
+/**
+ * Rename results artifact
+ * Stores pairs of original paths and their renamed paths
+ */
+export interface RenameResultsArtifact extends BaseArtifact {
+  artifactType: ArtifactType.RENAME_RESULTS;
+  renames: Array<[string, string]>; // Array of [originalPath, renamedPath] pairs
+}
+
 export type Artifact =
   | SearchResultsArtifact
   | CreatedNotesArtifact
@@ -143,7 +153,8 @@ export type Artifact =
   | ExtractionResultArtifact
   | DeletedFilesArtifact
   | MoveResultsArtifact
-  | UpdateFrontmatterResultsArtifact;
+  | UpdateFrontmatterResultsArtifact
+  | RenameResultsArtifact;
 
 export type ArtifactMap = {
   [ArtifactType.SEARCH_RESULTS]: SearchResultsArtifact;
@@ -157,6 +168,7 @@ export type ArtifactMap = {
   [ArtifactType.DELETED_FILES]: DeletedFilesArtifact;
   [ArtifactType.MOVE_RESULTS]: MoveResultsArtifact;
   [ArtifactType.UPDATE_FRONTMATTER_RESULTS]: UpdateFrontmatterResultsArtifact;
+  [ArtifactType.RENAME_RESULTS]: RenameResultsArtifact;
 };
 
 /**

@@ -110,20 +110,19 @@ export class RevertDelete {
       trashFiles,
     });
 
-    let response = t('revert.foundFiles', { count: trashFiles.length });
+    let response = '';
 
     if (revertResult.revertedFiles.length > 0) {
-      response += `\n\n**${t('revert.successfullyReverted', {
+      response = `**${t('revert.successfullyReverted', {
         count: revertResult.revertedFiles.length,
       })}**`;
-
-      for (const revertedPath of revertResult.revertedFiles) {
-        response += `\n- [[${revertedPath}]]`;
-      }
     }
 
     if (revertResult.failedFiles.length > 0) {
-      response += `\n\n**${t('revert.failed', { count: revertResult.failedFiles.length })}**`;
+      if (response) {
+        response += '\n\n';
+      }
+      response += `**${t('revert.failed', { count: revertResult.failedFiles.length })}**`;
 
       for (const failedPath of revertResult.failedFiles) {
         response += `\n- [[${failedPath}]]`;

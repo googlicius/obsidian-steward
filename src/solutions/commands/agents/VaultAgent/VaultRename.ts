@@ -1,6 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { getTranslation } from 'src/i18n';
+import { ArtifactType } from 'src/solutions/artifact';
 import type VaultAgent from './VaultAgent';
 import { ToolInvocation } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -396,6 +397,23 @@ export class VaultRename {
       lang,
       handlerId,
     });
+
+    // Store rename results as an artifact if there are any renames
+    if (renameResult.renamed.length > 0) {
+      const artifactId = `rename_${Date.now()}`;
+      const renamePairs: Array<[string, string]> = renameResult.renamed.map(({ from, to }) => [
+        from,
+        to,
+      ]);
+      await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+        artifact: {
+          artifactType: ArtifactType.RENAME_RESULTS,
+          renames: renamePairs,
+          id: artifactId,
+          createdAt: Date.now(),
+        },
+      });
+    }
 
     await this.serializeRenameInvocation({
       title,
