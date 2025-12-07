@@ -98,13 +98,10 @@ export class VaultList {
     args: ListToolArgs,
     lang: string | null | undefined
   ): Promise<ListToolResult> {
-    const folderPath = args.folderPath;
+    const folderPath = args.folderPath || '/';
     const filePattern = args.filePattern?.trim();
     const t = getTranslation(lang);
     const errors: string[] = [];
-
-    // Determine folder path - use empty string for root folder
-    const targetFolderPath = !folderPath ? '' : folderPath;
 
     // Validate regex pattern if provided
     if (filePattern) {
@@ -123,9 +120,9 @@ export class VaultList {
     }
 
     // Get folder using Obsidian API
-    const folder = this.agent.app.vault.getFolderByPath(targetFolderPath);
+    const folder = this.agent.app.vault.getFolderByPath(folderPath);
     if (!folder) {
-      const errorMessage = folderPath ? `Folder not found: ${folderPath}` : 'Root folder not found';
+      const errorMessage = `Folder not found: ${folderPath}`;
       errors.push(errorMessage);
       const messageKey = folderPath ? 'list.noFilesFoundInFolder' : 'list.noFilesFound';
       return {

@@ -199,6 +199,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
         'revert to previous state',
         'go back to previous version',
         'undo',
+        'revert',
         'rollback changes',
         'revert last operation',
         'undo the last action',

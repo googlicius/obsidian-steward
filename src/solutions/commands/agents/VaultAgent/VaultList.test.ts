@@ -166,5 +166,48 @@ describe('VaultList', () => {
       expect(result.files).toEqual([]);
       expect(result.errors).toEqual(['Folder not found: non-existent-folder']);
     });
+
+    it('should list files in root folder when folderPath is empty string', async () => {
+      // Create mock files at root level
+      const file1 = getInstance(TFile, {
+        path: 'root-file1.md',
+        name: 'root-file1.md',
+      });
+
+      // Create mock root folder with files
+      const mockRootFolder = getInstance(TFolder, {
+        path: '/',
+        children: [file1],
+      });
+
+      mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(mockRootFolder);
+
+      const result = await executeListTool({ folderPath: '', explanation: '' }, null);
+
+      expect(result.files).toEqual(['root-file1.md']);
+      expect(result.errors).toBeUndefined();
+      expect(mockPlugin.app.vault.getFolderByPath).toHaveBeenCalledWith('/');
+    });
+
+    it('should list files in root folder when folderPath is forward slash', async () => {
+      // Create mock files at root level
+      const file1 = getInstance(TFile, {
+        path: 'root-file1.md',
+        name: 'root-file1.md',
+      });
+      // Create mock root folder with files
+      const mockRootFolder = getInstance(TFolder, {
+        path: '/',
+        children: [file1],
+      });
+
+      mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(mockRootFolder);
+
+      const result = await executeListTool({ folderPath: '/', explanation: '' }, null);
+
+      expect(result.files).toEqual(['root-file1.md']);
+      expect(result.errors).toBeUndefined();
+      expect(mockPlugin.app.vault.getFolderByPath).toHaveBeenCalledWith('/');
+    });
   });
 });

@@ -8,43 +8,43 @@ import { ToolInvocation } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { SysError } from 'src/utils/errors';
 
-const revertFrontmatterToolSchema = z.object({
+const revertCreateToolSchema = z.object({
   artifactId: z
     .string()
     .min(1)
-    .describe('The artifact identifier containing frontmatter updates to revert.'),
+    .describe('The artifact identifier containing created notes to revert.'),
   explanation: z
     .string()
     .min(1)
-    .describe('A short explanation of why these frontmatter updates should be reverted.'),
+    .describe('A short explanation of why these created notes should be reverted.'),
 });
 
-export type RevertFrontmatterToolArgs = z.infer<typeof revertFrontmatterToolSchema>;
+export type RevertCreateToolArgs = z.infer<typeof revertCreateToolSchema>;
 
-type RevertFrontmatterExecutionResult = {
+type RevertCreateExecutionResult = {
   revertedFiles: string[];
   failedFiles: string[];
 };
 
-export class RevertFrontmatter {
-  private static readonly revertFrontmatterTool = tool({ parameters: revertFrontmatterToolSchema });
+export class RevertCreate {
+  private static readonly revertCreateTool = tool({ parameters: revertCreateToolSchema });
 
   constructor(private readonly agent: RevertAgent) {}
 
-  public static getRevertFrontmatterTool() {
-    return RevertFrontmatter.revertFrontmatterTool;
+  public static getRevertCreateTool() {
+    return RevertCreate.revertCreateTool;
   }
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, RevertFrontmatterToolArgs> }
+    options: { toolCall: ToolInvocation<unknown, RevertCreateToolArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const { toolCall } = options;
     const t = getTranslation(lang);
 
     if (!handlerId) {
-      throw new SysError('RevertFrontmatter.handle invoked without handlerId');
+      throw new SysError('RevertCreate.handle invoked without handlerId');
     }
 
     if (toolCall.args.explanation) {
@@ -52,30 +52,30 @@ export class RevertFrontmatter {
         path: title,
         newContent: toolCall.args.explanation,
         agent: 'revert',
-        command: 'revert_frontmatter',
+        command: 'revert_create',
         includeHistory: false,
         lang,
         handlerId,
       });
     }
 
-    const resolveUpdatesResult = await this.resolveUpdates({
+    const resolveCreatedNotesResult = await this.resolveCreatedNotes({
       title,
       toolCall,
       lang,
       handlerId,
     });
 
-    if (resolveUpdatesResult.errorMessage) {
+    if (resolveCreatedNotesResult.errorMessage) {
       return {
         status: IntentResultStatus.ERROR,
-        error: new Error(resolveUpdatesResult.errorMessage),
+        error: new Error(resolveCreatedNotesResult.errorMessage),
       };
     }
 
-    const updates = resolveUpdatesResult.updates;
+    const filePaths = resolveCreatedNotesResult.filePaths;
 
-    if (updates.length === 0) {
+    if (filePaths.length === 0) {
       return {
         status: IntentResultStatus.ERROR,
         error: new Error(t('common.noFilesFound')),
@@ -84,7 +84,7 @@ export class RevertFrontmatter {
 
     const revertResult = await this.executeRevert({
       title,
-      updates,
+      filePaths,
     });
 
     let response = '';
@@ -110,7 +110,7 @@ export class RevertFrontmatter {
       path: title,
       newContent: response,
       agent: 'revert',
-      command: 'revert_frontmatter',
+      command: 'revert_create',
       lang,
       handlerId,
       includeHistory: false,
@@ -128,25 +128,18 @@ export class RevertFrontmatter {
     };
   }
 
-  private async resolveUpdates(params: {
+  private async resolveCreatedNotes(params: {
     title: string;
-    toolCall: ToolInvocation<unknown, RevertFrontmatterToolArgs>;
+    toolCall: ToolInvocation<unknown, RevertCreateToolArgs>;
     lang?: string | null;
     handlerId: string;
-  }): Promise<{
-    updates: Array<{
-      path: string;
-      original: Record<string, unknown>;
-      updated: Record<string, unknown>;
-    }>;
-    errorMessage?: string;
-  }> {
+  }): Promise<{ filePaths: string[]; errorMessage?: string }> {
     const { title, toolCall, lang, handlerId } = params;
     const t = getTranslation(lang);
 
     if (!toolCall.args.artifactId) {
       const message = t('common.noRecentOperations') || 'No artifact ID provided.';
-      return { updates: [], errorMessage: message };
+      return { filePaths: [], errorMessage: message };
     }
 
     const artifact = await this.agent.plugin.artifactManagerV2
@@ -154,19 +147,19 @@ export class RevertFrontmatter {
       .getArtifactById(toolCall.args.artifactId);
 
     if (!artifact) {
-      logger.error(`Revert frontmatter tool artifact not found: ${toolCall.args.artifactId}`);
+      logger.error(`Revert create tool artifact not found: ${toolCall.args.artifactId}`);
       const message = t('common.noRecentOperations') || 'No recent operations found.';
-      return { updates: [], errorMessage: message };
+      return { filePaths: [], errorMessage: message };
     }
 
-    if (artifact.artifactType !== ArtifactType.UPDATE_FRONTMATTER_RESULTS) {
+    if (artifact.artifactType !== ArtifactType.CREATED_NOTES) {
       const message = t('common.cannotRevertThisType', { type: artifact.artifactType });
 
       const messageId = await this.agent.renderer.updateConversationNote({
         path: title,
         newContent: message,
         agent: 'revert',
-        command: 'revert_frontmatter',
+        command: 'revert_create',
         lang,
         handlerId,
         includeHistory: false,
@@ -179,38 +172,30 @@ export class RevertFrontmatter {
         result: messageId ? `messageRef:${messageId}` : message,
       });
 
-      return { updates: [], errorMessage: message };
+      return { filePaths: [], errorMessage: message };
     }
 
-    // Extract updates from the artifact
-    // Each update has original and updated frontmatter
-    // To revert, we need to restore the original frontmatter
-    return { updates: artifact.updates };
+    // Extract file paths from the artifact
+    // To revert creation, we need to delete the created files
+    return { filePaths: artifact.paths };
   }
 
   private async executeRevert(params: {
     title: string;
-    updates: Array<{
-      path: string;
-      original: Record<string, unknown>;
-      updated: Record<string, unknown>;
-    }>;
-  }): Promise<RevertFrontmatterExecutionResult> {
-    const { updates } = params;
+    filePaths: string[];
+  }): Promise<RevertCreateExecutionResult> {
+    const { filePaths } = params;
     const revertedFiles: string[] = [];
     const failedFiles: string[] = [];
 
-    for (const update of updates) {
-      const result = await this.revertFileFrontmatter({
-        path: update.path,
-        original: update.original,
-      });
+    for (const filePath of filePaths) {
+      const result = await this.revertFileCreation({ filePath });
       if (!result.success) {
-        failedFiles.push(update.path);
+        failedFiles.push(filePath);
         continue;
       }
 
-      revertedFiles.push(update.path);
+      revertedFiles.push(filePath);
     }
 
     return {
@@ -219,39 +204,26 @@ export class RevertFrontmatter {
     };
   }
 
-  private async revertFileFrontmatter(params: {
-    path: string;
-    original: Record<string, unknown>;
-  }): Promise<{ success: boolean }> {
-    const { path, original } = params;
+  private async revertFileCreation(params: { filePath: string }): Promise<{ success: boolean }> {
+    const { filePath } = params;
 
-    const file = this.agent.app.vault.getFileByPath(path);
+    const file = this.agent.app.vault.getFileByPath(filePath);
 
     if (!file) {
-      logger.error(`File not found for revert frontmatter: ${path}`);
-      return { success: false };
+      logger.warn(`File not found for revert create: ${filePath}`);
+      // Consider it successful if the file doesn't exist (already deleted)
+      return { success: true };
     }
 
     try {
-      // Restore the original frontmatter
-      await this.agent.app.fileManager.processFrontMatter(
-        file,
-        (frontmatter: Record<string, unknown>) => {
-          // Clear current frontmatter
-          Object.keys(frontmatter).forEach(key => {
-            delete frontmatter[key];
-          });
-
-          // Restore original frontmatter
-          Object.assign(frontmatter, original);
-        }
-      );
+      // Delete the file to revert its creation
+      await this.agent.app.vault.delete(file);
 
       return {
         success: true,
       };
     } catch (error) {
-      logger.error(`Error reverting frontmatter for ${path}:`, error);
+      logger.error(`Error reverting creation of ${filePath}:`, error);
       return { success: false };
     }
   }
@@ -259,7 +231,7 @@ export class RevertFrontmatter {
   private async serializeRevertInvocation(params: {
     title: string;
     handlerId: string;
-    toolCall: ToolInvocation<unknown, RevertFrontmatterToolArgs>;
+    toolCall: ToolInvocation<unknown, RevertCreateToolArgs>;
     result: string;
   }): Promise<void> {
     const { title, handlerId, toolCall, result } = params;
@@ -267,7 +239,7 @@ export class RevertFrontmatter {
     await this.agent.renderer.serializeToolInvocation({
       path: title,
       agent: 'revert',
-      command: 'revert_frontmatter',
+      command: 'revert_create',
       handlerId,
       toolInvocations: [
         {

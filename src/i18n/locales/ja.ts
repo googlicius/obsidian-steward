@@ -66,12 +66,12 @@ const ja = {
     // Move result messages
     move: {
       noSearchResultsFoundAbortMove: '検索結果が見つかりませんでした。移動コマンドを中止します。',
-      foundFiles: '{{count}}件のファイルが見つかりました。',
-      successfullyMoved: '{{count}}件のファイルを移動しました：',
-      skipped: '{{count}}件のファイルをスキップしました（すでに移動先に存在）：',
-      failed: '{{count}}件のファイルの移動に失敗しました：',
+      foundFiles: '{{count}}件のファイルまたはフォルダが見つかりました。',
+      successfullyMoved: '{{count}}件のアイテムを移動しました：',
+      skipped: '{{count}}件のアイテムをスキップしました（すでに移動先に存在）：',
+      failed: '{{count}}件のアイテムの移動に失敗しました：',
       multiMoveHeader: '{{count}}件の移動操作を実行しました：',
-      operation: '操作{{num}}: {{query}}を含むファイルを{{folder}}に移動',
+      operation: '操作{{num}}: {{query}}を含むファイルとフォルダを{{folder}}に移動',
       createFoldersHeader: 'ファイルを移動する前に以下のフォルダを作成する必要があります：',
       createFoldersQuestion: 'これらのフォルダを作成しますか？',
       cannotMoveThisType: 'この種類のアーティファクトは移動できません: {{type}}',
@@ -162,6 +162,7 @@ const ja = {
       foundFiles: '{{count}}件のファイルを元に戻します。',
       successfullyReverted: '{{count}}件のファイルを元に戻しました',
       failed: '{{count}}件のファイルの元に戻しに失敗しました：',
+      revertingArtifact: '`{{artifactType}}`から元に戻しています',
     },
     // Search result messages
     search: {

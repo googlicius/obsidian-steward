@@ -9,16 +9,20 @@ import { RevertDelete } from './RevertDelete';
 import { RevertMove } from './RevertMove';
 import { RevertFrontmatter } from './RevertFrontmatter';
 import { RevertRename } from './RevertRename';
+import { RevertCreate } from './RevertCreate';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { activateTools } from '../../tools/activateTools';
 import { getMostRecentArtifact, getArtifactById } from '../../tools/getArtifact';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
+import { ArtifactType } from 'src/solutions/artifact';
+import { ToolInvocation } from '../../tools/types';
 
 class RevertAgent extends Agent {
   private _revertDelete: RevertDelete;
   private _revertMove: RevertMove;
   private _revertFrontmatter: RevertFrontmatter;
   private _revertRename: RevertRename;
+  private _revertCreate: RevertCreate;
 
   private get revertDelete(): RevertDelete {
     if (!this._revertDelete) {
@@ -52,12 +56,86 @@ class RevertAgent extends Agent {
     return this._revertRename;
   }
 
+  private get revertCreate(): RevertCreate {
+    if (!this._revertCreate) {
+      this._revertCreate = new RevertCreate(this);
+    }
+
+    return this._revertCreate;
+  }
+
   /**
    * Render the loading indicator for the revert agent
    */
   public async renderIndicator(title: string, lang?: string | null): Promise<void> {
     const t = getTranslation(lang);
     await this.renderer.addGeneratingIndicator(title, t('conversation.reverting'));
+  }
+
+  /**
+   * Craft tool calls without AI help for simple revert requests
+   * If the query is a single word like "Undo" or "Revert", automatically revert the most recent artifact
+   */
+  private async manualToolCalls(
+    title: string,
+    query: string,
+    lang?: string | null
+  ): Promise<ToolInvocation<unknown>[] | undefined> {
+    const t = getTranslation(lang);
+    // Check if query is a single word (case-insensitive)
+    const trimmedQuery = query.trim();
+    const words = trimmedQuery.split(/\s+/);
+
+    // Single word revert commands
+    const revertKeywords = ['undo', 'revert', 'rollback', 'cancel'];
+    const isSimpleRevert =
+      words.length === 1 && revertKeywords.includes(trimmedQuery.toLowerCase());
+
+    if (!isSimpleRevert) {
+      return;
+    }
+
+    // Get the most recent artifact from types created by VaultAgent
+    const artifactTypes = [
+      ArtifactType.MOVE_RESULTS,
+      ArtifactType.CREATED_NOTES,
+      ArtifactType.DELETED_FILES,
+      ArtifactType.UPDATE_FRONTMATTER_RESULTS,
+      ArtifactType.RENAME_RESULTS,
+    ];
+
+    const artifact = await this.plugin.artifactManagerV2
+      .withTitle(title)
+      .getMostRecentArtifactOfTypes(artifactTypes);
+
+    if (!artifact?.id) {
+      return;
+    }
+
+    // Map artifact type to the appropriate revert tool
+    const artifactTypeToToolMap: Partial<Record<ArtifactType, ToolName>> = {
+      [ArtifactType.MOVE_RESULTS]: ToolName.REVERT_MOVE,
+      [ArtifactType.CREATED_NOTES]: ToolName.REVERT_CREATE,
+      [ArtifactType.DELETED_FILES]: ToolName.REVERT_DELETE,
+      [ArtifactType.UPDATE_FRONTMATTER_RESULTS]: ToolName.REVERT_FRONTMATTER,
+      [ArtifactType.RENAME_RESULTS]: ToolName.REVERT_RENAME,
+    };
+
+    const toolName = artifactTypeToToolMap[artifact.artifactType];
+    if (!toolName) {
+      return;
+    }
+
+    const manualToolCall: ToolInvocation<unknown> = {
+      toolName,
+      toolCallId: `manual-tool-call-${uniqueID()}`,
+      args: {
+        artifactId: artifact.id,
+        explanation: t('revert.revertingArtifact', { artifactType: artifact.artifactType }),
+      },
+    };
+
+    return [manualToolCall];
   }
 
   /**
@@ -88,6 +166,7 @@ class RevertAgent extends Agent {
       [ToolName.REVERT_MOVE]: RevertMove.getRevertMoveTool(),
       [ToolName.REVERT_FRONTMATTER]: RevertFrontmatter.getRevertFrontmatterTool(),
       [ToolName.REVERT_RENAME]: RevertRename.getRevertRenameTool(),
+      [ToolName.REVERT_CREATE]: RevertCreate.getRevertCreateTool(),
       [ToolName.ACTIVATE]: activateTools,
       [ToolName.GET_MOST_RECENT_ARTIFACT]: getMostRecentArtifact,
       [ToolName.GET_ARTIFACT_BY_ID]: getArtifactById,
@@ -95,44 +174,50 @@ class RevertAgent extends Agent {
 
     type ToolCalls = GenerateTextResult<typeof tools, unknown>['toolCalls'];
 
-    let toolCalls: ToolCalls = [];
+    const manualToolCalls = (await this.manualToolCalls(title, intent.query, lang)) as ToolCalls;
 
-    const conversationHistory = await this.renderer.extractConversationHistory(title, {
-      summaryPosition: 1,
-    });
+    let toolCalls: ToolCalls;
 
-    const llmConfig = await this.plugin.llmService.getLLMConfig({
-      overrideModel: intent.model,
-      generateType: 'text',
-    });
-
-    const modifier = new SystemPromptModifier(intent.systemPrompts);
-
-    // Initially, only artifact retrieval tools and ACTIVATE tool are active
-    // The agent needs to first get an artifact, then activate the appropriate revert tool
-    const initialActiveTools = [
-      ToolName.GET_MOST_RECENT_ARTIFACT,
-      ToolName.GET_ARTIFACT_BY_ID,
-      ToolName.ACTIVATE,
-    ];
-    const activeToolNames =
-      activeTools.length > 0 ? [...activeTools, ...initialActiveTools] : initialActiveTools;
-    const registry = ToolRegistry.buildFromTools(tools, intent.tools).setActive(activeToolNames);
-
-    const messages: Message[] = conversationHistory;
-
-    // Include user message for the first iteration.
-    if (!params.handlerId) {
+    if (manualToolCalls) {
+      toolCalls = manualToolCalls;
       params.handlerId = handlerId;
-      const userMessage = await prepareMessage(intent.query, this.plugin);
-      messages.push({ role: 'user', content: userMessage } as unknown as Message);
-    }
+    } else {
+      const conversationHistory = await this.renderer.extractConversationHistory(title, {
+        summaryPosition: 1,
+      });
 
-    const response = await generateText({
-      ...llmConfig,
-      abortSignal: this.plugin.abortService.createAbortController('revert-agent'),
-      system:
-        modifier.apply(`You are a helpful assistant that helps users revert operations in their Obsidian vault.
+      const llmConfig = await this.plugin.llmService.getLLMConfig({
+        overrideModel: intent.model,
+        generateType: 'text',
+      });
+
+      const modifier = new SystemPromptModifier(intent.systemPrompts);
+
+      // Initially, only artifact retrieval tools and ACTIVATE tool are active
+      // The agent needs to first get an artifact, then activate the appropriate revert tool
+      const initialActiveTools = [
+        ToolName.GET_MOST_RECENT_ARTIFACT,
+        ToolName.GET_ARTIFACT_BY_ID,
+        ToolName.ACTIVATE,
+      ];
+      const activeToolNames =
+        activeTools.length > 0 ? [...activeTools, ...initialActiveTools] : initialActiveTools;
+      const registry = ToolRegistry.buildFromTools(tools, intent.tools).setActive(activeToolNames);
+
+      const messages: Message[] = conversationHistory;
+
+      // Include user message for the first iteration.
+      if (!params.handlerId) {
+        params.handlerId = handlerId;
+        const userMessage = await prepareMessage(intent.query, this.plugin);
+        messages.push({ role: 'user', content: userMessage } as unknown as Message);
+      }
+
+      const response = await generateText({
+        ...llmConfig,
+        abortSignal: this.plugin.abortService.createAbortController('revert-agent'),
+        system:
+          modifier.apply(`You are a helpful assistant that helps users revert operations in their Obsidian vault.
 
 You have access to the following tools:
 ${registry.generateToolsSection()}
@@ -144,26 +229,24 @@ WORKFLOW:
 1. First, use ${ToolName.GET_MOST_RECENT_ARTIFACT} or ${ToolName.GET_ARTIFACT_BY_ID} to retrieve an artifact from the conversation.
 2. Based on the artifact type returned, determine which revert operation is needed and activate the appropriate revert tool using ${ToolName.ACTIVATE} if it's not already active.
 
-NOTE:
-- Do NOT repeat the latest tool call result in your final response as it is already rendered in the UI.
-
 OTHER TOOLS:
 ${registry.generateOtherToolsSection('No other tools available.')}`),
-      messages,
-      tools: registry.getToolsObject(),
-    });
-
-    // Render text response if any
-    if (response.text && response.text.trim()) {
-      await this.renderer.updateConversationNote({
-        path: title,
-        newContent: response.text,
-        agent: 'revert',
-        lang,
-        handlerId,
+        messages,
+        tools: registry.getToolsObject(),
       });
+
+      // Render text response if any
+      if (response.text && response.text.trim()) {
+        await this.renderer.updateConversationNote({
+          path: title,
+          newContent: response.text,
+          agent: 'revert',
+          lang,
+          handlerId,
+        });
+      }
+      toolCalls = response.toolCalls;
     }
-    toolCalls = response.toolCalls;
 
     const processToolCalls = async (startIndex: number): Promise<AgentResult> => {
       for (let index = startIndex; index < toolCalls.length; index += 1) {
@@ -199,9 +282,24 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
             break;
           }
 
+          case ToolName.REVERT_CREATE: {
+            toolCallResult = await this.revertCreate.handle(params, {
+              toolCall,
+            });
+            break;
+          }
+
           case ToolName.GET_MOST_RECENT_ARTIFACT: {
-            const { artifactTypes } = toolCall.args;
             const t = getTranslation(lang);
+
+            // Get the most recent artifact from types created by VaultAgent
+            const artifactTypes = [
+              ArtifactType.MOVE_RESULTS,
+              ArtifactType.CREATED_NOTES,
+              ArtifactType.DELETED_FILES,
+              ArtifactType.UPDATE_FRONTMATTER_RESULTS,
+              ArtifactType.RENAME_RESULTS,
+            ];
 
             const artifact = await this.plugin.artifactManagerV2
               .withTitle(title)
@@ -328,7 +426,7 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
 
     const toolProcessingResult = await processToolCalls(0);
 
-    if (toolProcessingResult.status !== IntentResultStatus.SUCCESS) {
+    if (toolProcessingResult.status !== IntentResultStatus.SUCCESS || manualToolCalls) {
       return toolProcessingResult;
     }
 

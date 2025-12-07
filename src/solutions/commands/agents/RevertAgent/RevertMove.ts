@@ -6,6 +6,8 @@ import type RevertAgent from './RevertAgent';
 import { logger } from 'src/utils/logger';
 import { ToolInvocation } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { OperationError } from 'src/tools/obsidianAPITools';
+import { SysError } from 'src/utils/errors';
 
 const revertMoveToolSchema = z.object({
   artifactId: z
@@ -22,7 +24,7 @@ export type RevertMoveToolArgs = z.infer<typeof revertMoveToolSchema>;
 
 type RevertMoveExecutionResult = {
   revertedFiles: string[];
-  failedFiles: string[];
+  failedFiles: OperationError[];
 };
 
 export class RevertMove {
@@ -43,7 +45,7 @@ export class RevertMove {
     const t = getTranslation(lang);
 
     if (!handlerId) {
-      throw new Error('RevertMove.handle invoked without handlerId');
+      throw new SysError('RevertMove.handle invoked without handlerId');
     }
 
     if (toolCall.args.explanation) {
@@ -100,8 +102,13 @@ export class RevertMove {
       }
       response += `**${t('revert.failed', { count: revertResult.failedFiles.length })}**`;
 
-      for (const failedPath of revertResult.failedFiles) {
-        response += `\n- [[${failedPath}]]`;
+      for (const error of revertResult.failedFiles) {
+        const isFile = Boolean(this.agent.app.vault.getFileByPath(error.path));
+        if (isFile) {
+          response += `\n- [[${error.path}]] - ${error.message}`;
+        } else {
+          response += `\n- \`${error.path}\` - ${error.message}`;
+        }
       }
     }
 
@@ -191,12 +198,15 @@ export class RevertMove {
   }): Promise<RevertMoveExecutionResult> {
     const { movePairs } = params;
     const revertedFiles: string[] = [];
-    const failedFiles: string[] = [];
+    const failedFiles: OperationError[] = [];
 
     for (const [currentPath, originalPath] of movePairs) {
       const result = await this.revertFileMove({ currentPath, originalPath });
       if (!result.success) {
-        failedFiles.push(currentPath);
+        failedFiles.push({
+          path: currentPath,
+          message: result.error || 'Unknown error',
+        });
         continue;
       }
 
@@ -212,40 +222,50 @@ export class RevertMove {
   private async revertFileMove(params: {
     currentPath: string;
     originalPath: string;
-  }): Promise<{ success: boolean; originalPath: string }> {
+  }): Promise<{ success: boolean; originalPath: string; error?: string }> {
     const { currentPath, originalPath } = params;
 
+    // Check if it's a file or folder
     const file = this.agent.app.vault.getFileByPath(currentPath);
+    const folder = this.agent.app.vault.getFolderByPath(currentPath);
 
-    if (!file) {
-      logger.error(`File not found for revert move: ${currentPath}`);
-      return { success: false, originalPath };
+    if (!file && !folder) {
+      const errorMessage = `File or folder not found: ${currentPath}`;
+      logger.error(`File or folder not found for revert move: ${currentPath}`);
+      return { success: false, originalPath, error: errorMessage };
     }
 
     // Check if original path already exists
     const originalFile = this.agent.app.vault.getFileByPath(originalPath);
-    if (originalFile) {
-      logger.warn(`Original file already exists: ${originalPath}`);
-      return { success: false, originalPath };
+    const originalFolder = this.agent.app.vault.getFolderByPath(originalPath);
+    if (originalFile || originalFolder) {
+      const errorMessage = `Original file or folder already exists: ${originalPath}`;
+      logger.warn(`Original file or folder already exists: ${originalPath}`);
+      return { success: false, originalPath, error: errorMessage };
     }
 
     try {
-      // Ensure the original folder exists
-      const originalFolder = originalPath.substring(0, originalPath.lastIndexOf('/'));
-      if (originalFolder) {
-        await this.agent.obsidianAPITools.ensureFolderExists(originalFolder);
+      // Ensure the parent folder of the original path exists
+      const parentFolder = originalPath.substring(0, originalPath.lastIndexOf('/'));
+      if (parentFolder) {
+        await this.agent.obsidianAPITools.ensureFolderExists(parentFolder);
       }
 
-      // Move file back to original location
-      await this.agent.app.fileManager.renameFile(file, originalPath);
+      // Move file or folder back to original location
+      const itemToMove = file || folder;
+      if (itemToMove) {
+        await this.agent.app.fileManager.renameFile(itemToMove, originalPath);
+      }
 
       return {
         success: true,
         originalPath,
       };
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : `Unknown error: ${String(error)}`;
       logger.error(`Error reverting move from ${currentPath} to ${originalPath}:`, error);
-      return { success: false, originalPath };
+      return { success: false, originalPath, error: errorMessage };
     }
   }
 
