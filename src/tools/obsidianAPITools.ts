@@ -12,6 +12,14 @@ export interface MoveOperationV2 extends SearchOperationV2 {
 }
 
 /**
+ * Represents an error with path and message
+ */
+export interface OperationError {
+  path: string;
+  message: string;
+}
+
+/**
  * Represents a single move operation
  */
 export interface MoveOperation {
@@ -46,13 +54,19 @@ export class ObsidianAPITools {
    * Move a file to a different location in the vault
    * @param filePath Current path of the file
    * @param newFolderPath Destination folder path
-   * @returns Success or failure
+   * @returns Success status and error message if failed
    */
-  public async moveFile(filePath: string, newFolderPath: string): Promise<boolean> {
+  public async moveFile(
+    filePath: string,
+    newFolderPath: string
+  ): Promise<{ success: boolean; error?: string }> {
     try {
       const file = this.app.vault.getFileByPath(filePath);
       if (!file) {
-        return false;
+        return {
+          success: false,
+          error: `File not found: ${filePath}`,
+        };
       }
 
       // Ensure the destination folder exists
@@ -63,10 +77,82 @@ export class ObsidianAPITools {
 
       // Move the file
       await this.app.fileManager.renameFile(file, newPath);
-      return true;
+      return { success: true };
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : `Unknown error: ${String(error)}`;
       logger.error(`Error moving file ${filePath} to ${newFolderPath}:`, error);
-      return false;
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * Move a folder to a different location in the vault
+   * @param folderPath Current path of the folder
+   * @param newFolderPath Destination folder path (parent folder)
+   * @returns Success status and error message if failed
+   */
+  public async moveFolder(
+    folderPath: string,
+    newFolderPath: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const folder = this.app.vault.getFolderByPath(folderPath);
+      if (!folder) {
+        return {
+          success: false,
+          error: `Folder not found: ${folderPath}`,
+        };
+      }
+
+      // Create the new path (keep the same folder name)
+      const folderName = folderPath.split('/').pop();
+      const newPath = `${newFolderPath}/${folderName}`.replace(/\/+/g, '/');
+
+      // Normalize paths for comparison
+      const normalizedFolderPath = folderPath.replace(/\/+/g, '/').replace(/^\/+|\/+$/g, '');
+      const normalizedNewPath = newPath.replace(/\/+/g, '/').replace(/^\/+|\/+$/g, '');
+
+      // Prevent moving folder into itself or into a subfolder
+      if (
+        normalizedNewPath === normalizedFolderPath ||
+        normalizedNewPath.startsWith(normalizedFolderPath + '/')
+      ) {
+        const errorMessage = `Cannot move folder into itself or a subfolder: ${newPath}`;
+        logger.error(`Cannot move folder ${folderPath} into itself or a subfolder: ${newPath}`);
+        return {
+          success: false,
+          error: errorMessage,
+        };
+      }
+
+      // Ensure the destination folder exists
+      await this.ensureFolderExists(newFolderPath);
+
+      // Check if destination already exists
+      if (this.app.vault.getFolderByPath(newPath)) {
+        const errorMessage = `Destination folder already exists: ${newPath}`;
+        logger.error(`Destination folder already exists: ${newPath}`);
+        return {
+          success: false,
+          error: errorMessage,
+        };
+      }
+
+      // Move the folder using renameFile (works for folders too)
+      await this.app.fileManager.renameFile(folder, newPath);
+      return { success: true };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : `Unknown error: ${String(error)}`;
+      logger.error(`Error moving folder ${folderPath} to ${newFolderPath}:`, error);
+      return {
+        success: false,
+        error: errorMessage,
+      };
     }
   }
 
@@ -99,7 +185,7 @@ export class ObsidianAPITools {
       sourceQuery: string;
       destinationFolder: string;
       moved: string[];
-      errors: string[];
+      errors: OperationError[];
       skipped: string[];
     }>;
     movePairs: Array<[string, string]>; // Array of [originalPath, movedPath] pairs
@@ -116,28 +202,44 @@ export class ObsidianAPITools {
 
       // Process the move operations
       const moved: string[] = [];
-      const errors: string[] = [];
+      const errors: OperationError[] = [];
       const skipped: string[] = [];
 
       for (const result of results) {
-        const filePath = result.path;
-        if (!filePath) continue;
+        const itemPath = result.path;
+        if (!itemPath) continue;
 
-        const destinationPath = this.getNewPath(filePath, operation.destinationFolder);
+        // Determine if this is a file or folder
+        const file = this.app.vault.getFileByPath(itemPath);
+        const folder = this.app.vault.getFolderByPath(itemPath);
 
-        // Check if file is already in the destination folder
-        if (filePath === destinationPath) {
-          skipped.push(filePath);
+        if (!file && !folder) {
+          errors.push({ path: itemPath, message: 'Item not found' });
           continue;
         }
 
-        const success = await this.moveFile(filePath, operation.destinationFolder);
+        const itemName = itemPath.split('/').pop() || '';
+        const destinationPath = `${operation.destinationFolder}/${itemName}`.replace(/\/+/g, '/');
 
-        if (success) {
+        // Check if item is already in the destination location
+        if (itemPath === destinationPath) {
+          skipped.push(itemPath);
+          continue;
+        }
+
+        // Move file or folder accordingly
+        const result_1 = file
+          ? await this.moveFile(itemPath, operation.destinationFolder)
+          : await this.moveFolder(itemPath, operation.destinationFolder);
+
+        if (result_1.success) {
           moved.push(destinationPath);
-          movePairs.push([filePath, destinationPath]);
+          movePairs.push([itemPath, destinationPath]);
         } else {
-          errors.push(filePath);
+          errors.push({
+            path: itemPath,
+            message: result_1.error || 'Unknown error',
+          });
         }
       }
 
@@ -167,7 +269,7 @@ export class ObsidianAPITools {
       sourceQuery: string;
       destinationFolder: string;
       copied: string[];
-      errors: string[];
+      errors: OperationError[];
       skipped: string[];
     }>;
   }> {
@@ -182,7 +284,7 @@ export class ObsidianAPITools {
 
       // Process the copy operations
       const copied: string[] = [];
-      const errors: string[] = [];
+      const errors: OperationError[] = [];
       const skipped: string[] = [];
 
       for (const result of results) {
@@ -202,7 +304,7 @@ export class ObsidianAPITools {
           // Get the source file
           const sourceFile = this.app.vault.getFileByPath(filePath);
           if (!sourceFile) {
-            errors.push(filePath);
+            errors.push({ path: filePath, message: 'File not found' });
             continue;
           }
 
@@ -213,7 +315,9 @@ export class ObsidianAPITools {
           await this.app.vault.copy(sourceFile, destinationPath);
           copied.push(filePath);
         } catch (error) {
-          errors.push(filePath);
+          const errorMessage =
+            error instanceof Error ? error.message : `Unknown error: ${String(error)}`;
+          errors.push({ path: filePath, message: errorMessage });
         }
       }
 

@@ -1,14 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
-import { ArtifactType } from 'src/solutions/artifact';
 
 const getMostRecentArtifactSchema = z.object({
-  artifactTypes: z
-    .array(z.nativeEnum(ArtifactType))
-    .min(1)
-    .describe(
-      'List of artifact types to search for. Returns the most recent artifact matching any of these types.'
-    ),
   explanation: z
     .string()
     .min(1)

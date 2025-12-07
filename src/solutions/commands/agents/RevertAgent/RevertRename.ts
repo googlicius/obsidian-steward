@@ -6,6 +6,7 @@ import type RevertAgent from './RevertAgent';
 import { logger } from 'src/utils/logger';
 import { ToolInvocation } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { SysError } from 'src/utils/errors';
 
 const revertRenameToolSchema = z.object({
   artifactId: z
@@ -43,7 +44,7 @@ export class RevertRename {
     const t = getTranslation(lang);
 
     if (!handlerId) {
-      throw new Error('RevertRename.handle invoked without handlerId');
+      throw new SysError('RevertRename.handle invoked without handlerId');
     }
 
     if (toolCall.args.explanation) {

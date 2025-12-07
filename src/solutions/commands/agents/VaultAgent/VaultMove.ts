@@ -4,7 +4,7 @@ import { getTranslation } from 'src/i18n';
 import type VaultAgent from './VaultAgent';
 import { ArtifactType } from 'src/solutions/artifact';
 import { DocWithPath } from 'src/types/types';
-import { MoveOperationV2 } from 'src/tools/obsidianAPITools';
+import { MoveOperationV2, OperationError } from 'src/tools/obsidianAPITools';
 import { ToolInvocation } from '../../tools/types';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
@@ -16,7 +16,7 @@ const moveToolSchema = z
       .string()
       .min(1)
       .optional()
-      .describe('ID of the artifact containing the files to move.'),
+      .describe('ID of the artifact containing the files or folders to move.'),
     files: z
       .array(
         z.object({
@@ -31,25 +31,47 @@ const moveToolSchema = z
         message: 'files array must include at least one entry when provided.',
       })
       .describe('Explicit list of files to move.'),
+    folders: z
+      .array(
+        z.object({
+          path: z
+            .string()
+            .min(1)
+            // Ensure folders don't have leading/trailing slashes
+            .transform(path => path.replace(/^\/+|\/+$/g, ''))
+            .describe('The full path of the folder to move.'),
+        })
+      )
+      .optional()
+      .refine(array => !array || array.length > 0, {
+        message: 'folders array must include at least one entry when provided.',
+      })
+      .describe('Explicit list of folders to move.'),
     destinationFolder: z
       .string()
       .min(1)
-      .describe('Destination folder path where the files should be moved.'),
+      .describe('Destination folder path where the files or folders should be moved.'),
     explanation: z
       .string()
       .min(1)
       .describe('Short explanation of the move operation and why it is required.'),
   })
-  .refine(data => Boolean(data.artifactId) || Boolean(data.files && data.files.length > 0), {
-    message: 'Provide either artifactId or files.',
-  });
+  .refine(
+    data =>
+      Boolean(data.artifactId) ||
+      Boolean(data.files && data.files.length > 0) ||
+      Boolean(data.folders && data.folders.length > 0),
+    {
+      message: 'Provide either artifactId, files, or folders.',
+    }
+  );
 
 export type MoveToolArgs = z.infer<typeof moveToolSchema>;
 
 type MoveOperationResult = {
   moved: string[];
   skipped: string[];
-  errors: string[];
+  errors: OperationError[];
   movePairs: Array<[string, string]>; // Array of [originalPath, movedPath] pairs
 };
 
@@ -180,6 +202,7 @@ export class VaultMove {
       agent: 'vault',
       command: 'vault_move',
       lang,
+      includeHistory: false,
       handlerId,
     });
 
@@ -273,6 +296,15 @@ export class VaultMove {
       }
     }
 
+    if (args.folders) {
+      for (const folder of args.folders) {
+        const trimmedPath = folder.path.trim();
+        if (trimmedPath) {
+          docs.push({ path: trimmedPath });
+        }
+      }
+    }
+
     if (docs.length === 0) {
       const responseMessage = await this.respondAndSerializeMove({
         title,
@@ -342,14 +374,18 @@ export class VaultMove {
       filesByOperation
     );
 
+    // Convert errors to strings for event emission (backward compatibility)
     eventEmitter.emit(Events.MOVE_OPERATION_COMPLETED, {
       title,
-      operations: result.operations,
+      operations: result.operations.map(op => ({
+        ...op,
+        errors: op.errors.map(err => `${err.path}: ${err.message}`),
+      })),
     });
 
     const moved: string[] = [];
     const skipped: string[] = [];
-    const errors: string[] = [];
+    const errors: OperationError[] = [];
 
     for (const operation of result.operations) {
       for (const movedPath of operation.moved) {
@@ -360,14 +396,14 @@ export class VaultMove {
         skipped.push(skippedPath);
       }
 
-      for (const errorPath of operation.errors) {
-        errors.push(errorPath);
+      for (const error of operation.errors) {
+        errors.push(error);
       }
     }
 
     if (moved.length === 0 && skipped.length === 0 && errors.length === 0) {
       const t = getTranslation(lang);
-      errors.push(t('move.noSearchResultsFoundAbortMove'));
+      errors.push({ path: '', message: t('move.noSearchResultsFoundAbortMove') });
     }
 
     return {
@@ -394,22 +430,33 @@ export class VaultMove {
 
     if (moved.length > 0) {
       response += `\n\n**${t('move.successfullyMoved', { count: moved.length })}**`;
-      for (const file of moved) {
-        response += `\n- [[${file}]]`;
+      for (const path of moved) {
+        const isFile = Boolean(this.agent.app.vault.getFileByPath(path));
+        if (isFile) {
+          response += `\n- [[${path}]]`;
+        } else {
+          response += `\n- \`${path}\``;
+        }
       }
     }
 
     if (skipped.length > 0) {
       response += `\n\n**${t('move.skipped', { count: skipped.length })}**`;
-      for (const file of skipped) {
-        response += `\n- [[${file}]]`;
+      for (const path of skipped) {
+        const isFile = Boolean(this.agent.app.vault.getFileByPath(path));
+        if (isFile) {
+          response += `\n- [[${path}]]`;
+        } else {
+          response += `\n- \`${path}\``;
+        }
       }
     }
 
     if (errors.length > 0) {
       response += `\n\n**${t('move.failed', { count: errors.length })}**`;
-      for (const file of errors) {
-        response += `\n- ${file}`;
+      for (const error of errors) {
+        const errorString = error.path ? `${error.path}: ${error.message}` : error.message;
+        response += `\n- ${errorString}`;
       }
     }
 

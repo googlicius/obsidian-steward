@@ -44,13 +44,20 @@ describe('ObsidianAPITools', () => {
     it('should successfully move files to destination folder', async () => {
       // Mock file existence
       const file = getInstance(TFile, { path: 'test-file.md', name: 'test-file.md' });
-      jest.spyOn(app.vault, 'getFileByPath').mockReturnValue(file);
+      jest.spyOn(app.vault, 'getFileByPath').mockImplementation((path: string) => {
+        if (path === 'test-file.md') {
+          return file;
+        }
+        return null;
+      });
 
-      // Mock folder doesn't exist initially, then exists after creation
-      jest
-        .spyOn(app.vault, 'getFolderByPath')
-        .mockReturnValueOnce(null)
-        .mockReturnValueOnce(new TFolder());
+      // Mock folder doesn't exist for destination folder
+      jest.spyOn(app.vault, 'getFolderByPath').mockImplementation((path: string) => {
+        if (path === 'destination') {
+          return null; // Folder doesn't exist, should be created
+        }
+        return null;
+      });
 
       // Mock successful file operations
       jest.spyOn(app.vault, 'createFolder').mockResolvedValue(new TFolder());
@@ -104,8 +111,9 @@ describe('ObsidianAPITools', () => {
     });
 
     it('should fail to move file when file is not found', async () => {
-      // Mock file not found
+      // Mock file and folder not found
       jest.spyOn(app.vault, 'getFileByPath').mockReturnValue(null);
+      jest.spyOn(app.vault, 'getFolderByPath').mockReturnValue(null);
 
       const operations: MoveOperationV2[] = [
         {
@@ -139,7 +147,7 @@ describe('ObsidianAPITools', () => {
         operations: [
           {
             destinationFolder: 'destination',
-            errors: ['non-existent-file.md'],
+            errors: [{ path: 'non-existent-file.md', message: 'Item not found' }],
             moved: [],
             skipped: [],
             sourceQuery: 'test',
@@ -153,6 +161,13 @@ describe('ObsidianAPITools', () => {
     });
 
     it('should skip moving file when source and destination are the same', async () => {
+      // Mock file existence
+      const file = getInstance(TFile, {
+        path: 'current-folder/test-file.md',
+        name: 'test-file.md',
+      });
+      jest.spyOn(app.vault, 'getFileByPath').mockReturnValue(file);
+
       const operations: MoveOperationV2[] = [
         {
           destinationFolder: 'current-folder',
@@ -193,8 +208,8 @@ describe('ObsidianAPITools', () => {
         ],
       });
 
-      // Verify that no file operations were called since the file is already in the destination
-      expect(app.vault.getFileByPath).not.toHaveBeenCalled();
+      // Verify that file was checked but no move operations were called since the file is already in the destination
+      expect(app.vault.getFileByPath).toHaveBeenCalledWith('current-folder/test-file.md');
       expect(app.vault.createFolder).not.toHaveBeenCalled();
       expect(app.fileManager.renameFile).not.toHaveBeenCalled();
     });

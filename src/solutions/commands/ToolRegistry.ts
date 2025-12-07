@@ -17,6 +17,7 @@ export enum ToolName {
   REVERT_MOVE = 'revert_move',
   REVERT_FRONTMATTER = 'revert_frontmatter',
   REVERT_RENAME = 'revert_rename',
+  REVERT_CREATE = 'revert_create',
   GET_MOST_RECENT_ARTIFACT = 'get_most_recent_artifact',
   GET_ARTIFACT_BY_ID = 'get_artifact_by_id',
 }
@@ -171,11 +172,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   [ToolName.UPDATE_FRONTMATTER]: {
     name: ToolName.UPDATE_FRONTMATTER,
     description: 'Update frontmatter properties in notes (add, update, or delete properties).',
-    guidelines: [
-      `Use ${ToolName.UPDATE_FRONTMATTER} to modify frontmatter properties in notes.`,
-      `Specify the files or artifactId containing the files to update.`,
-      `For each property, provide a value to add/update, or omit the value to delete the property.`,
-    ],
+    guidelines: [`Use ${ToolName.UPDATE_FRONTMATTER} to modify frontmatter properties in notes.`],
     category: 'vault-access',
   },
 
@@ -185,6 +182,8 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     guidelines: [
       `Use ${ToolName.ACTIVATE} when you need another tool that is currently inactive to complete the task.`,
       `The ${ToolName.ACTIVATE} tool will return the schemas and guidelines of the requested tools.`,
+      `You must activate any tool listed under 'OTHER TOOLS' section (inactive). If you call without active, it will fail.`,
+      `You will fail when: 1. Calling inactive tools; 2. Activate tools that are not in the 'OTHER TOOLS' section.`,
     ],
     category: 'tool-management',
   },
@@ -222,13 +221,20 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     category: 'vault-access',
   },
 
+  [ToolName.REVERT_CREATE]: {
+    name: ToolName.REVERT_CREATE,
+    description: 'Revert create operations by deleting files that were previously created.',
+    guidelines: [`Use ${ToolName.REVERT_CREATE} to undo file creation operations.`],
+    category: 'vault-access',
+  },
+
   [ToolName.GET_MOST_RECENT_ARTIFACT]: {
     name: ToolName.GET_MOST_RECENT_ARTIFACT,
-    description: 'Get the most recent artifact of specified types from the conversation.',
+    description:
+      'Get the most recent artifact from the conversation (searches for artifacts created by vault operations).',
     guidelines: [
-      `Use ${ToolName.GET_MOST_RECENT_ARTIFACT} to retrieve the most recent artifact matching the specified types.`,
+      `Use ${ToolName.GET_MOST_RECENT_ARTIFACT} to retrieve the most recent artifact that can be reverted.`,
       `This is useful when you need to find artifacts to perform revert operations.`,
-      `Specify one or more artifact types to search for.`,
     ],
     category: 'artifact-access',
   },
@@ -317,8 +323,8 @@ export class ToolRegistry<T> {
     for (const [, def] of this.tools) {
       if (this.isActive(def.name)) continue;
       const line = includeDescription?.has(def.name)
-        ? `${def.name} - ${def.description}`
-        : def.name;
+        ? `- ${def.name} - ${def.description}`
+        : `- ${def.name}`;
       lines.push(line);
     }
 

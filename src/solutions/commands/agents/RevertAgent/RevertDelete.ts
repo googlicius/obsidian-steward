@@ -6,6 +6,7 @@ import type RevertAgent from './RevertAgent';
 import { logger } from 'src/utils/logger';
 import { ToolInvocation } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { SysError } from 'src/utils/errors';
 
 const revertDeleteToolSchema = z
   .object({
@@ -67,7 +68,7 @@ export class RevertDelete {
     const t = getTranslation(lang);
 
     if (!handlerId) {
-      throw new Error('RevertDelete.handle invoked without handlerId');
+      throw new SysError('RevertDelete.handle invoked without handlerId');
     }
 
     if (toolCall.args.explanation) {

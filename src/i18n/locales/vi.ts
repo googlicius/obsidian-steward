@@ -67,12 +67,12 @@ const vi = {
     // Move result messages
     move: {
       noSearchResultsFoundAbortMove: 'Không tìm thấy kết quả tìm kiếm. Hủy thao tác di chuyển.',
-      foundFiles: 'Tôi đã tìm thấy {{count}} tập tin khớp với truy vấn của bạn.',
-      successfullyMoved: 'Đã di chuyển thành công {{count}} tập tin:',
-      skipped: 'Đã bỏ qua {{count}} tập tin (đã có trong thư mục đích):',
-      failed: 'Không thể di chuyển {{count}} tập tin:',
+      foundFiles: 'Tôi đã tìm thấy {{count}} tập tin hoặc thư mục khớp với truy vấn của bạn.',
+      successfullyMoved: 'Đã di chuyển thành công {{count}} mục:',
+      skipped: 'Đã bỏ qua {{count}} mục (đã có trong thư mục đích):',
+      failed: 'Không thể di chuyển {{count}} mục:',
       multiMoveHeader: 'Tôi đã thực hiện {{count}} thao tác di chuyển:',
-      operation: 'Thao tác {{num}}: Di chuyển các tập tin với {{query}} đến {{folder}}',
+      operation: 'Thao tác {{num}}: Di chuyển các tập tin và thư mục với {{query}} đến {{folder}}',
       createFoldersHeader: 'Tôi cần tạo các thư mục sau trước khi di chuyển tập tin:',
       createFoldersQuestion: 'Bạn có muốn tôi tạo các thư mục này không?',
       cannotMoveThisType: 'Không thể di chuyển loại artifact này: {{type}}',
@@ -159,9 +159,10 @@ const vi = {
       operation: 'Thao tác {{num}}: Xóa các tập tin với {{query}}',
     },
     revert: {
-      foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để hoàn nguyên.',
-      successfullyReverted: 'Đã hoàn nguyên thành công {{count}} tập tin',
-      failed: 'Không thể hoàn nguyên {{count}} tập tin:',
+      foundFiles: 'Tôi đã tìm thấy {{count}} mục để hoàn nguyên.',
+      successfullyReverted: 'Đã hoàn nguyên thành công {{count}} mục',
+      failed: 'Không thể hoàn nguyên {{count}} mục:',
+      revertingArtifact: 'Đang hoàn tác từ artifact `{{artifactType}}`',
     },
     // Frontmatter update result messages
     frontmatter: {
