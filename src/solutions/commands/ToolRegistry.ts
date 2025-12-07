@@ -123,7 +123,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description: 'Delete files from the vault using the configured trash behavior.',
     guidelines: [
       `Use the ${ToolName.DELETE} tool to remove files or notes from the vault.`,
-      `List every file you plan to delete and ensure the paths are accurate.`,
+      `List every file using the list tool (not grep tool) you plan to delete and ensure the paths are accurate.`,
     ],
     category: 'vault-access',
   },
@@ -164,10 +164,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   [ToolName.LIST]: {
     name: ToolName.LIST,
     description: 'List files in the vault or a specific folder.',
-    guidelines: [
-      `Use ${ToolName.LIST} to list files in the vault or a specific folder.`,
-      `Only include paths that you are confident exist.`,
-    ],
+    guidelines: [`Use ${ToolName.LIST} to list files in the vault or a specific folder.`],
     category: 'vault-access',
   },
 

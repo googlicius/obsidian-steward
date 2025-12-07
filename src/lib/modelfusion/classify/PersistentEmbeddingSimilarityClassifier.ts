@@ -5,6 +5,7 @@ import { logger } from 'src/utils/logger';
 import { getQualifiedCandidates } from 'src/utils/getQualifiedCandidates';
 import * as CryptoJS from 'crypto-js';
 import { similarity } from 'src/utils/similarity';
+import { getValidCommandTypes } from 'src/lib/modelfusion/prompts/commands';
 
 export interface ValueCluster {
   name: string;
@@ -155,6 +156,67 @@ export class PersistentEmbeddingSimilarityClassifier {
       await this.db.removeClusterVersion(modelName, clusterName);
     } catch (error) {
       logger.error(`Error removing embeddings for cluster "${clusterName}":`, error);
+    }
+  }
+
+  /**
+   * Validate if a cluster name contains valid command types
+   * @param clusterName The cluster name to validate (may contain multiple command types separated by ':')
+   * @returns true if all command types in the cluster are valid, false otherwise
+   */
+  private isValidClusterName(clusterName: string): boolean {
+    const validCommandTypes = new Set(getValidCommandTypes());
+    const commandTypes = clusterName.split(':');
+
+    for (const commandType of commandTypes) {
+      // Extract base type (before ? or :)
+      const [baseType] = commandType.split(/[?:]/, 1);
+      if (!validCommandTypes.has(baseType)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Validate a cluster name and handle invalid clusters by deleting them
+   * @param clusterName The cluster name to validate
+   * @returns The cluster name if valid, null if invalid (and cluster will be deleted)
+   */
+  private validateAndHandleCluster(clusterName: string): string | null {
+    if (this.isValidClusterName(clusterName)) {
+      return clusterName;
+    } else {
+      logger.warn(`Cluster "${clusterName}" contains invalid command types. Deleting cluster.`);
+      // Delete invalid cluster asynchronously (don't await to avoid blocking)
+      this.deleteCluster(clusterName).catch(error => {
+        logger.error(`Failed to delete invalid cluster "${clusterName}":`, error);
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Public method to delete a cluster by name
+   * Removes embeddings and cluster version from the database
+   * Also removes from in-memory cache if present
+   * @param clusterName The name of the cluster to delete
+   */
+  async deleteCluster(clusterName: string): Promise<void> {
+    try {
+      // Remove from database
+      await this.removeClusterEmbeddings(clusterName);
+
+      // Remove from in-memory cache if present
+      if (this.embeddings) {
+        this.embeddings = this.embeddings.filter(e => e.clusterName !== clusterName);
+      }
+
+      logger.log(`Deleted cluster "${clusterName}"`);
+    } catch (error) {
+      logger.error(`Error deleting cluster "${clusterName}":`, error);
+      throw error;
     }
   }
 
@@ -489,7 +551,7 @@ export class PersistentEmbeddingSimilarityClassifier {
     if (this.settings.staticClusterValues) {
       for (const cluster of this.settings.staticClusterValues) {
         if (cluster.values.includes(value.toLowerCase())) {
-          return cluster.name;
+          return this.validateAndHandleCluster(cluster.name);
         }
       }
     }
@@ -498,7 +560,7 @@ export class PersistentEmbeddingSimilarityClassifier {
       for (const cluster of this.settings.prefixedClusterValue) {
         for (const clusterValue of cluster.values) {
           if (value.toLowerCase().startsWith(clusterValue.toLowerCase())) {
-            return cluster.name;
+            return this.validateAndHandleCluster(cluster.name);
           }
         }
       }
@@ -562,7 +624,12 @@ export class PersistentEmbeddingSimilarityClassifier {
 
     logger.log(`Found ${qualifiedCandidates.length} qualified candidates`, qualifiedCandidates);
 
-    return qualifiedCandidates.length > 0 ? qualifiedCandidates[0].candidate.clusterName : null;
+    if (qualifiedCandidates.length > 0) {
+      const clusterName = qualifiedCandidates[0].candidate.clusterName;
+      return this.validateAndHandleCluster(clusterName);
+    }
+
+    return null;
   }
 
   get settingsForEvent(): Partial<Settings> {

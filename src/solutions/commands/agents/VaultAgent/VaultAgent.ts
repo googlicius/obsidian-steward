@@ -195,6 +195,7 @@ class VaultAgent extends Agent {
 
       // Include user message for the first iteration.
       if (!params.handlerId) {
+        params.handlerId = handlerId;
         const userMessage = await prepareMessage(intent.query, this.plugin);
         messages.push({ role: 'user', content: userMessage } as unknown as Message);
       }
@@ -213,7 +214,6 @@ ${registry.generateGuidelinesSection()}
 
 NOTE:
 - Do NOT repeat the latest tool call result in your final response as it is already rendered in the UI.
-- To check if name(s) is/are file(s) or folder(s), use the grep tool, it returns file paths and folder paths. Because the list tool returns only the FIRST 10 files (not folders).
 
 OTHER TOOLS:
 ${registry.generateOtherToolsSection('No other tools available.', new Set([ToolName.GREP, ToolName.LIST]))}`),
@@ -241,96 +241,48 @@ ${registry.generateOtherToolsSection('No other tools available.', new Set([ToolN
 
         switch (toolCall.toolName) {
           case ToolName.LIST: {
-            toolCallResult = await this.vaultList.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              {
-                toolCall,
-              }
-            );
+            toolCallResult = await this.vaultList.handle(params, {
+              toolCall,
+            });
             break;
           }
 
           case ToolName.CREATE: {
-            toolCallResult = await this.vaultCreate.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              {
-                toolCall,
-              }
-            );
+            toolCallResult = await this.vaultCreate.handle(params, {
+              toolCall,
+            });
             break;
           }
 
           case ToolName.DELETE: {
-            toolCallResult = await this.vaultDelete.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              {
-                toolCall,
-              }
-            );
+            toolCallResult = await this.vaultDelete.handle(params, {
+              toolCall,
+            });
             break;
           }
 
           case ToolName.COPY: {
-            toolCallResult = await this.vaultCopy.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              { toolCall }
-            );
+            toolCallResult = await this.vaultCopy.handle(params, { toolCall });
             break;
           }
 
           case ToolName.RENAME: {
-            toolCallResult = await this.vaultRename.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              { toolCall }
-            );
+            toolCallResult = await this.vaultRename.handle(params, { toolCall });
             break;
           }
 
           case ToolName.MOVE: {
-            toolCallResult = await this.vaultMove.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              { toolCall }
-            );
+            toolCallResult = await this.vaultMove.handle(params, { toolCall });
             break;
           }
 
           case ToolName.UPDATE_FRONTMATTER: {
-            toolCallResult = await this.vaultUpdateFrontmatter.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              { toolCall }
-            );
+            toolCallResult = await this.vaultUpdateFrontmatter.handle(params, { toolCall });
             break;
           }
 
           case ToolName.GREP: {
-            toolCallResult = await this.vaultGrep.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              { toolCall }
-            );
+            toolCallResult = await this.vaultGrep.handle(params, { toolCall });
             break;
           }
 
@@ -364,6 +316,8 @@ ${registry.generateOtherToolsSection('No other tools available.', new Set([ToolN
             });
 
             activeTools.push(...tools);
+            // Update params.activeTools to preserve changes during error retries
+            params.activeTools = activeTools;
             break;
           }
 
@@ -412,16 +366,9 @@ ${registry.generateOtherToolsSection('No other tools available.', new Set([ToolN
       const t = getTranslation(lang);
       await this.renderer.addGeneratingIndicator(title, t('conversation.continuingProcessing'));
 
-      return this.handle(
-        {
-          ...params,
-          handlerId,
-          activeTools,
-        },
-        {
-          remainingSteps: nextRemainingSteps,
-        }
-      );
+      return this.handle(params, {
+        remainingSteps: nextRemainingSteps,
+      });
     }
 
     return toolProcessingResult;

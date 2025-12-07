@@ -1,24 +1,42 @@
 import { tool } from 'ai';
 import { z } from 'zod';
+import { TFile } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import type VaultAgent from './VaultAgent';
 import { ToolInvocation } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { SearchOperationV2 } from '../../handlers/SearchCommandHandler/zSchemas';
 
 const listToolSchema = z.object(
   {
     folderPath: z
       .string()
+      .transform(val => {
+        // Sanitize folderPath: remove leading and trailing slashes, then trim
+        let sanitized = val.trim();
+        sanitized = sanitized.replace(/^\/+|\/+$/g, '');
+        return sanitized;
+      })
       .describe('The folder path to list files from. Specify / to lists from the root.'),
+    filePattern: z
+      .string()
+      .optional()
+      .describe(
+        'Optional RegExp pattern to filter files. If not provided, all files will be listed.'
+      ),
     explanation: z.string().describe('A brief explanation of why listing files is necessary.'),
   },
   {
-    description: `List the FIRST 10 files in a specific folder. NOTE: This tool does not list folders but files only.`,
+    description: `List all files in a specific folder. NOTE: This tool does not list folders but files only.`,
   }
 );
 
 export type ListToolArgs = z.infer<typeof listToolSchema>;
+
+type ListToolResult = {
+  response: string;
+  files: string[];
+  errors?: string[];
+};
 
 export class VaultList {
   protected static readonly listTool = tool({
@@ -54,9 +72,9 @@ export class VaultList {
 
     const result = await this.executeListTool(toolCall.args, lang);
 
-    const listMessageId = await this.agent.renderer.updateConversationNote({
+    await this.agent.renderer.updateConversationNote({
       path: title,
-      newContent: `${result}`,
+      newContent: result.response,
       agent: 'vault',
       command: 'vault_list',
       lang,
@@ -68,7 +86,7 @@ export class VaultList {
       title,
       handlerId,
       toolCall,
-      result: listMessageId ? `messageRef:${listMessageId}` : result,
+      result,
     });
 
     return {
@@ -79,59 +97,107 @@ export class VaultList {
   private async executeListTool(
     args: ListToolArgs,
     lang: string | null | undefined
-  ): Promise<string> {
-    const folderPath = (args.folderPath || '').trim();
+  ): Promise<ListToolResult> {
+    const folderPath = args.folderPath;
+    const filePattern = args.filePattern?.trim();
     const t = getTranslation(lang);
+    const errors: string[] = [];
 
-    // Determine folder path for search - use "^/$" for root folder
-    const searchFolderPath = !folderPath || folderPath === '/' ? '^/$' : folderPath;
+    // Determine folder path - use empty string for root folder
+    const targetFolderPath = !folderPath ? '' : folderPath;
 
-    // Build search operation with only folder criteria
-    const operations: SearchOperationV2[] = [
-      {
-        folders: [searchFolderPath],
-        keywords: [],
-        filenames: [],
-        properties: [],
-      },
-    ];
+    // Validate regex pattern if provided
+    if (filePattern) {
+      try {
+        new RegExp(filePattern, 'i');
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMsg = `Invalid RegExp pattern: ${filePattern}. ${errorMessage}`;
+        errors.push(errorMsg);
+        return {
+          response: `Error: ${errorMsg}`,
+          files: [],
+          errors,
+        };
+      }
+    }
 
-    // Execute search using search service
-    const queryResult = await this.agent.plugin.searchService.searchV3(operations);
-    const results = queryResult.conditionResults;
-
-    if (results.length === 0) {
+    // Get folder using Obsidian API
+    const folder = this.agent.app.vault.getFolderByPath(targetFolderPath);
+    if (!folder) {
+      const errorMessage = folderPath ? `Folder not found: ${folderPath}` : 'Root folder not found';
+      errors.push(errorMessage);
       const messageKey = folderPath ? 'list.noFilesFoundInFolder' : 'list.noFilesFound';
-      return t(messageKey, { folder: folderPath });
+      return {
+        response: t(messageKey, { folder: folderPath }),
+        files: [],
+        errors,
+      };
+    }
+
+    // Collect files from folder
+    const files: TFile[] = [];
+    for (const child of folder.children) {
+      if (child instanceof TFile) {
+        // Apply pattern filter if provided
+        if (filePattern) {
+          if (this.matchesPattern(child.name, filePattern)) {
+            files.push(child);
+          }
+        } else {
+          files.push(child);
+        }
+      }
+    }
+
+    const filePaths = files.map(file => file.path);
+
+    if (files.length === 0) {
+      const messageKey = folderPath ? 'list.noFilesFoundInFolder' : 'list.noFilesFound';
+      return {
+        response: t(messageKey, { folder: folderPath }),
+        files: [],
+        errors: errors.length > 0 ? errors : undefined,
+      };
     }
 
     const fileLinks: string[] = [];
-    const maxFilesToShow = 20;
-    for (let index = 0; index < results.length && index < maxFilesToShow; index += 1) {
-      const result = results[index];
-      fileLinks.push(`- [[${result.document.path}]]`);
+    for (const file of files) {
+      fileLinks.push(`- [[${file.path}]]`);
     }
 
-    const moreCount = results.length > maxFilesToShow ? results.length - maxFilesToShow : 0;
-
     const headerKey = folderPath ? 'list.foundFilesInFolder' : 'list.foundFiles';
-    let response = `${t(headerKey, {
-      count: results.length,
+    const response = `${t(headerKey, {
+      count: files.length,
       folder: folderPath,
     })}:\n\n${fileLinks.join('\n')}`;
 
-    if (moreCount > 0) {
-      response += `\n\n${t('list.moreFiles', { count: moreCount })}`;
-    }
+    return {
+      response,
+      files: filePaths,
+      errors: errors.length > 0 ? errors : undefined,
+    };
+  }
 
-    return response;
+  /**
+   * Check if a filename matches the given RegExp pattern.
+   * The pattern is treated as a pure RegExp string.
+   */
+  private matchesPattern(filename: string, pattern: string): boolean {
+    try {
+      const regex = new RegExp(pattern, 'i');
+      return regex.test(filename);
+    } catch (error) {
+      // If regex is invalid, return false
+      return false;
+    }
   }
 
   private async serializeListInvocation(params: {
     title: string;
     handlerId: string;
     toolCall: ToolInvocation<unknown, ListToolArgs>;
-    result: string;
+    result: ListToolResult;
   }): Promise<void> {
     const { title, handlerId, toolCall, result } = params;
 
@@ -143,7 +209,10 @@ export class VaultList {
       toolInvocations: [
         {
           ...toolCall,
-          result,
+          result: {
+            files: result.files,
+            ...(result.errors && result.errors.length > 0 && { errors: result.errors }),
+          },
         },
       ],
     });

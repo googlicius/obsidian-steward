@@ -123,6 +123,7 @@ class RevertAgent extends Agent {
 
     // Include user message for the first iteration.
     if (!params.handlerId) {
+      params.handlerId = handlerId;
       const userMessage = await prepareMessage(intent.query, this.plugin);
       messages.push({ role: 'user', content: userMessage } as unknown as Message);
     }
@@ -171,54 +172,30 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
 
         switch (toolCall.toolName) {
           case ToolName.REVERT_DELETE: {
-            toolCallResult = await this.revertDelete.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              {
-                toolCall,
-              }
-            );
+            toolCallResult = await this.revertDelete.handle(params, {
+              toolCall,
+            });
             break;
           }
 
           case ToolName.REVERT_MOVE: {
-            toolCallResult = await this.revertMove.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              {
-                toolCall,
-              }
-            );
+            toolCallResult = await this.revertMove.handle(params, {
+              toolCall,
+            });
             break;
           }
 
           case ToolName.REVERT_FRONTMATTER: {
-            toolCallResult = await this.revertFrontmatter.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              {
-                toolCall,
-              }
-            );
+            toolCallResult = await this.revertFrontmatter.handle(params, {
+              toolCall,
+            });
             break;
           }
 
           case ToolName.REVERT_RENAME: {
-            toolCallResult = await this.revertRename.handle(
-              {
-                ...params,
-                handlerId,
-              },
-              {
-                toolCall,
-              }
-            );
+            toolCallResult = await this.revertRename.handle(params, {
+              toolCall,
+            });
             break;
           }
 
@@ -313,6 +290,7 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
             });
 
             activeTools.push(...tools);
+            params.activeTools = activeTools;
             break;
           }
 
@@ -361,16 +339,9 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
       const t = getTranslation(lang);
       await this.renderer.addGeneratingIndicator(title, t('conversation.continuingProcessing'));
 
-      return this.handle(
-        {
-          ...params,
-          handlerId,
-          activeTools,
-        },
-        {
-          remainingSteps: nextRemainingSteps,
-        }
-      );
+      return this.handle(params, {
+        remainingSteps: nextRemainingSteps,
+      });
     }
 
     return toolProcessingResult;

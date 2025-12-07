@@ -18,7 +18,8 @@ export const grepSchema = z.object({
     .string()
     .optional()
     .describe(
-      'The text pattern to search for in note content. Can be a simple string or regex pattern. Only used when checking content in a single file.'
+      `The text pattern to search for in note content. Can be a simple string or regex pattern. Only used when checking content in a single file.
+NOTE: Pattern can only be used when 'paths' is file paths, NOT folder paths.`
     ),
   explanation: z
     .string()
@@ -60,6 +61,7 @@ export interface GrepContentResult {
     fromLine: number;
     toLine: number;
   }>;
+  error?: string;
 }
 
 /**
@@ -119,7 +121,13 @@ async function executeContentSearch(
   const file = await plugin.mediaTools.findFileByNameOrPath(filePath);
 
   if (!file) {
-    throw new Error(`Note not found: ${filePath}`);
+    return {
+      pattern,
+      filePath,
+      totalMatches: 0,
+      matches: [],
+      error: `Note not found: ${filePath}`,
+    };
   }
 
   // Read file content
