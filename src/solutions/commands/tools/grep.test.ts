@@ -107,7 +107,7 @@ line pattern to find`;
       });
     });
 
-    it('should throw an error when file is not found', async () => {
+    it('should include an error when file is not found', async () => {
       const mockPluginWithNoFile = createMockPlugin();
       mockPluginWithNoFile.mediaTools.findFileByNameOrPath = jest.fn().mockResolvedValue(null);
 
@@ -117,9 +117,15 @@ line pattern to find`;
         explanation: 'Testing file not found',
       };
 
-      await expect(execute(args, mockPluginWithNoFile)).rejects.toThrow(
-        'Note not found: non-existent-file.md'
-      );
+      await expect(execute(args, mockPluginWithNoFile)).resolves.toMatchObject({
+        content: {
+          error: 'Note not found: non-existent-file.md',
+          filePath: 'non-existent-file.md',
+          matches: [],
+          pattern: 'test',
+          totalMatches: 0,
+        },
+      });
     });
   });
 
