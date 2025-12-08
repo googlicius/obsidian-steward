@@ -205,12 +205,11 @@ export class VaultDelete {
     }
 
     if (toolCall.args.files) {
-      for (const file of toolCall.args.files) {
-        const trimmedPath = file.path.trim();
-        if (!trimmedPath) {
-          continue;
+      for (const item of toolCall.args.files) {
+        const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(item.path);
+        if (file) {
+          filePaths.push(file.path);
         }
-        filePaths.push(trimmedPath);
       }
     }
 

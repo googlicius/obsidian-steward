@@ -5,7 +5,7 @@ import type VaultAgent from './VaultAgent';
 import { ToolInvocation } from '../../tools/types';
 import { ArtifactType } from 'src/solutions/artifact';
 import { DocWithPath } from 'src/types/types';
-import { MoveOperationV2 } from 'src/tools/obsidianAPITools';
+import { MoveOperationV2, OperationError } from 'src/tools/obsidianAPITools';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -53,7 +53,7 @@ export type CopyToolArgs = z.infer<typeof copyToolSchema>;
 type CopyOperationResult = {
   copied: string[];
   skipped: string[];
-  errors: string[];
+  errors: OperationError[];
 };
 
 export class VaultCopy {
@@ -327,14 +327,18 @@ export class VaultCopy {
       filesByOperation
     );
 
+    // Convert errors to strings for event emission (backward compatibility)
     eventEmitter.emit(Events.COPY_OPERATION_COMPLETED, {
       title,
-      operations: result.operations,
+      operations: result.operations.map(op => ({
+        ...op,
+        errors: op.errors.map(err => `${err.path}: ${err.message}`),
+      })),
     });
 
     const copied: string[] = [];
     const skipped: string[] = [];
-    const errors: string[] = [];
+    const errors: OperationError[] = [];
 
     for (const operation of result.operations) {
       copied.push(...operation.copied);
@@ -344,7 +348,7 @@ export class VaultCopy {
 
     if (copied.length === 0 && skipped.length === 0 && errors.length === 0) {
       const t = getTranslation(lang);
-      errors.push(t('copy.noSearchResultsFoundAbortCopy'));
+      errors.push({ path: '', message: t('copy.noSearchResultsFoundAbortCopy') });
     }
 
     return {
@@ -384,8 +388,9 @@ export class VaultCopy {
 
     if (errors.length > 0) {
       response += `\n\n**${t('copy.failed', { count: errors.length })}**`;
-      for (const file of errors) {
-        response += `\n- ${file}`;
+      for (const error of errors) {
+        const errorString = error.path ? `${error.path}: ${error.message}` : error.message;
+        response += `\n- ${errorString}`;
       }
     }
 

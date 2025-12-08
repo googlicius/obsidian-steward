@@ -6,6 +6,7 @@
 
 import { stringifyYaml } from 'obsidian';
 import { Artifact, ArtifactType } from 'src/solutions/artifact';
+import { ToolName } from 'src/solutions/commands/ToolRegistry';
 import { SysError } from 'src/utils/errors';
 
 export interface CommandDefinition {
@@ -105,36 +106,15 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
   {
     commandType: 'vault',
     description: `An agent performs vault-related operations. You MUST add a query to activate one or more tools that needs to perform the operation, e.g. 'vault?tools=list,rename'.
-Available tools: list, rename, create, delete, copy, update_frontmatter, and move.
-NOTE: The update_frontmatter tool is used to add, update, or delete frontmatter properties in notes. Use this tool to delete note's properties.`,
+Available tools: ${ToolName.LIST}, ${ToolName.RENAME}, ${ToolName.CREATE}, ${ToolName.DELETE}, ${ToolName.COPY}, ${ToolName.UPDATE_FRONTMATTER}, and ${ToolName.MOVE}.
+NOTE:
+- Use the list tool (vault?tools=${ToolName.LIST}) to list all files in a specific folder instead of using the search command.`,
     category: 'intent-based',
     includeWhen: 'Vault operations (list files, create notes, etc.)',
     artifactDesc: 'Vault agent outputs',
   },
 
   // Intent-based commands (available through natural language processing)
-  {
-    commandType: 'vault_move',
-    description: 'Move notes from the artifact to a destination',
-    category: 'intent-based',
-    aliases: ['move'],
-    queryTemplate: `Extract specific details for a vault_move command follows this format: <query>; destination: <destination>
-- <query>: The query for the move command.
-- <destination>: The destination folder.`,
-    includeWhen: 'Move notes from the artifact',
-    artifactDesc: `The moved note paths is stored as the artifact with name ${ArtifactType.MOVE_RESULTS}`,
-  },
-  {
-    commandType: 'vault_copy',
-    description: 'Copy notes from the artifact to a destination',
-    category: 'intent-based',
-    aliases: ['copy'],
-    queryTemplate: `Extract specific details for a vault_copy command follows this format: <query>; destination: <destination>
-- <query>: The query for the copy command.
-- <destination>: The destination folder.`,
-    includeWhen: 'Copy notes from the artifact',
-    artifactDesc: `The copied note paths is stored as the artifact with name copy_results`,
-  },
   {
     commandType: 'update_from_artifact',
     description:
@@ -144,16 +124,6 @@ NOTE: The update_frontmatter tool is used to add, update, or delete frontmatter 
     queryTemplate: `Extract specific details for what to be updated.`,
     includeWhen: 'Update one or more notes from the artifact',
     artifactDesc: `The updated note paths is stored as the artifact with name ${ArtifactType.CONTENT_UPDATE}`,
-  },
-  {
-    commandType: 'vault_delete',
-    description:
-      "Delete note(s) from the artifact. NOTE: This command does not delete note's properties. If you need that, use the vault?tool=update_frontmatter.",
-    category: 'intent-based',
-    aliases: ['delete'],
-    queryTemplate: `Extract specific details for a vault_delete command:
-- The query always be: "Delete all notes in the search result."`,
-    includeWhen: 'Delete notes from the artifact',
   },
   {
     commandType: 'summary',
@@ -219,6 +189,13 @@ NOTE: Square brackets [] indicate optional part of the query.`,
     description: 'Show more results from previous search operations',
     category: 'intent-based',
     availableToLLM: false,
+  },
+  {
+    commandType: 'revert',
+    description: `An agent performs revert operations to undo previous actions like delete, update, move, etc.`,
+    category: 'intent-based',
+    includeWhen: 'Revert or undo previous operations (delete, update, move, etc.)',
+    artifactDesc: 'Revert agent outputs',
   },
 ];
 
@@ -360,13 +337,10 @@ export function artifactDependentExamples(commands: CommandDefinition[]): string
 
   // Common and useful combinations
   const commonPairs = [
-    { creator: 'search', user: 'vault_move' },
     { creator: 'read', user: 'update_from_artifact' },
     { creator: 'generate', user: 'update_from_artifact' },
-    { creator: 'search', user: 'vault_copy' },
     { creator: 'read', user: 'generate' },
     { creator: 'search', user: 'update_from_artifact' },
-    { creator: 'search', user: 'vault_delete' },
   ];
 
   // Find available pairs from the common combinations

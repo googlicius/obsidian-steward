@@ -190,18 +190,19 @@ export function createAutocompleteExtension(plugin: StewardPlugin): Extension {
     // Current model: provider:modelName
     const currentModel = plugin.settings.llm.chat.model;
 
-    for (const [provider, models] of Object.entries(modelsByProvider)) {
+    for (const [, models] of Object.entries(modelsByProvider)) {
       // Add models under this provider
       for (const model of models) {
         const { modelName } = parseModelId(model.id);
         const isCurrentModel = model.id === currentModel;
+        const currentText = isCurrentModel ? '(Current)' : '';
 
         options.push({
-          label: modelName.length > 25 ? `${modelName.substring(0, 25)}...` : modelName,
+          label:
+            modelName.length > 25
+              ? `${modelName.substring(0, 25)}... ${currentText}`
+              : modelName + ' ' + currentText,
           type: 'constant',
-          detail: isCurrentModel
-            ? `${capitalizeString(provider)} (Current)`
-            : capitalizeString(provider),
           apply: model.id + ' ',
         });
       }
@@ -224,7 +225,6 @@ export function createAutocompleteExtension(plugin: StewardPlugin): Extension {
     // Only activate when typing after a slash at the beginning of a line
     activateOnTyping: true,
     icons: false,
-    tooltipClass: () => 'stw-autocomplete',
     compareCompletions: () => 0, // Disable reorder
     override: [modelCompletionSource, commandCompletionSource],
   });

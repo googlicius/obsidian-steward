@@ -13,6 +13,13 @@ export enum ToolName {
   LIST = 'list',
   UPDATE_FRONTMATTER = 'update_frontmatter',
   ACTIVATE = 'activate_tools',
+  REVERT_DELETE = 'revert_delete',
+  REVERT_MOVE = 'revert_move',
+  REVERT_FRONTMATTER = 'revert_frontmatter',
+  REVERT_RENAME = 'revert_rename',
+  REVERT_CREATE = 'revert_create',
+  GET_MOST_RECENT_ARTIFACT = 'get_most_recent_artifact',
+  GET_ARTIFACT_BY_ID = 'get_artifact_by_id',
 }
 
 export interface ToolDefinition {
@@ -81,9 +88,13 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
 
   [ToolName.GREP]: {
     name: ToolName.GREP,
-    description: 'Search for specific text patterns in notes.',
-    guidelines: [`Use ${ToolName.GREP} to find specific text patterns that need to be updated.`],
-    category: 'content-search',
+    description:
+      'Check if files or folders exist, or search for specific text patterns in note content.',
+    guidelines: [
+      `Use ${ToolName.GREP} to check if one or many files or folders exist in the vault.`,
+      `Use ${ToolName.GREP} to search for specific text patterns in note content when a pattern is provided with a single file path.`,
+    ],
+    category: 'vault-access',
   },
 
   [ToolName.EDIT]: {
@@ -113,7 +124,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description: 'Delete files from the vault using the configured trash behavior.',
     guidelines: [
       `Use the ${ToolName.DELETE} tool to remove files or notes from the vault.`,
-      `List every file you plan to delete and ensure the paths are accurate.`,
+      `List every file using the list tool (not grep tool) you plan to delete and ensure the paths are accurate.`,
     ],
     category: 'vault-access',
   },
@@ -154,21 +165,14 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   [ToolName.LIST]: {
     name: ToolName.LIST,
     description: 'List files in the vault or a specific folder.',
-    guidelines: [
-      `Use ${ToolName.LIST} to list files in the vault or a specific folder.`,
-      `Only include paths that you are confident exist.`,
-    ],
+    guidelines: [`Use ${ToolName.LIST} to list files in the vault or a specific folder.`],
     category: 'vault-access',
   },
 
   [ToolName.UPDATE_FRONTMATTER]: {
     name: ToolName.UPDATE_FRONTMATTER,
     description: 'Update frontmatter properties in notes (add, update, or delete properties).',
-    guidelines: [
-      `Use ${ToolName.UPDATE_FRONTMATTER} to modify frontmatter properties in notes.`,
-      `Specify the files or artifactId containing the files to update.`,
-      `For each property, provide a value to add/update, or omit the value to delete the property.`,
-    ],
+    guidelines: [`Use ${ToolName.UPDATE_FRONTMATTER} to modify frontmatter properties in notes.`],
     category: 'vault-access',
   },
 
@@ -178,8 +182,71 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     guidelines: [
       `Use ${ToolName.ACTIVATE} when you need another tool that is currently inactive to complete the task.`,
       `The ${ToolName.ACTIVATE} tool will return the schemas and guidelines of the requested tools.`,
+      `You must activate any tool listed under 'OTHER TOOLS' section (inactive). If you call without active, it will fail.`,
+      `You will fail when: 1. Calling inactive tools; 2. Activate tools that are not in the 'OTHER TOOLS' section.`,
     ],
     category: 'tool-management',
+  },
+
+  [ToolName.REVERT_DELETE]: {
+    name: ToolName.REVERT_DELETE,
+    description:
+      'Revert deleted files by restoring them from the trash folder to their original locations.',
+    guidelines: [
+      `Use ${ToolName.REVERT_DELETE} to restore files that were previously deleted.`,
+      `Specify the artifactId containing deleted files to restore, or provide specific trash file paths.`,
+      `Files will be restored to their original paths as recorded in the trash metadata.`,
+    ],
+    category: 'vault-access',
+  },
+
+  [ToolName.REVERT_MOVE]: {
+    name: ToolName.REVERT_MOVE,
+    description: 'Revert move operations by moving files back to their original locations.',
+    guidelines: [`Use ${ToolName.REVERT_MOVE} to undo file move operations.`],
+    category: 'vault-access',
+  },
+
+  [ToolName.REVERT_FRONTMATTER]: {
+    name: ToolName.REVERT_FRONTMATTER,
+    description: 'Revert frontmatter updates by restoring original frontmatter properties.',
+    guidelines: [`Use ${ToolName.REVERT_FRONTMATTER} to undo frontmatter property changes.`],
+    category: 'vault-access',
+  },
+
+  [ToolName.REVERT_RENAME]: {
+    name: ToolName.REVERT_RENAME,
+    description: 'Revert rename operations by renaming files back to their original names.',
+    guidelines: [`Use ${ToolName.REVERT_RENAME} to undo file rename operations.`],
+    category: 'vault-access',
+  },
+
+  [ToolName.REVERT_CREATE]: {
+    name: ToolName.REVERT_CREATE,
+    description: 'Revert create operations by deleting files that were previously created.',
+    guidelines: [`Use ${ToolName.REVERT_CREATE} to undo file creation operations.`],
+    category: 'vault-access',
+  },
+
+  [ToolName.GET_MOST_RECENT_ARTIFACT]: {
+    name: ToolName.GET_MOST_RECENT_ARTIFACT,
+    description:
+      'Get the most recent artifact from the conversation (searches for artifacts created by vault operations).',
+    guidelines: [
+      `Use ${ToolName.GET_MOST_RECENT_ARTIFACT} to retrieve the most recent artifact that can be reverted.`,
+      `This is useful when you need to find artifacts to perform revert operations.`,
+    ],
+    category: 'artifact-access',
+  },
+
+  [ToolName.GET_ARTIFACT_BY_ID]: {
+    name: ToolName.GET_ARTIFACT_BY_ID,
+    description: 'Get a specific artifact by its ID from the conversation.',
+    guidelines: [
+      `Use ${ToolName.GET_ARTIFACT_BY_ID} to retrieve a specific artifact when you know its ID.`,
+      `This is useful when you have an artifact ID from previous operations or user input.`,
+    ],
+    category: 'artifact-access',
   },
 };
 
@@ -251,11 +318,14 @@ export class ToolRegistry<T> {
     return lines.join('\n');
   }
 
-  public generateOtherToolsSection(emptyLabel = ''): string {
+  public generateOtherToolsSection(emptyLabel = '', includeDescription?: Set<ToolName>): string {
     const lines: string[] = [];
     for (const [, def] of this.tools) {
       if (this.isActive(def.name)) continue;
-      lines.push(`- ${def.name}`);
+      const line = includeDescription?.has(def.name)
+        ? `- ${def.name} - ${def.description}`
+        : `- ${def.name}`;
+      lines.push(line);
     }
 
     if (lines.length === 0) {

@@ -78,10 +78,12 @@ export abstract class Agent {
         newContent: `*${t('common.errorProcessingCommand', { commandType: params.intent.type, errorMessage })}*`,
         lang: params.lang,
         includeHistory: false,
+        handlerId: params.handlerId,
       });
 
       const nonRetryAbleError =
-        error instanceof Error && ['AbortError', 'TypeError', 'SysError'].includes(error.name);
+        error instanceof Error &&
+        ['AbortError', 'TypeError', 'SysError', 'AI_InvalidPromptError'].includes(error.name);
 
       if (this.plugin.modelFallbackService.isEnabled() && !nonRetryAbleError) {
         const nextModel = await this.plugin.modelFallbackService.switchToNextModel(params.title);
@@ -92,6 +94,7 @@ export abstract class Agent {
             newContent: `*${t('common.switchingModelDueToErrors', { fromModel: params.intent.model, toModel: nextModel })}*`,
             lang: params.lang,
             includeHistory: false,
+            handlerId: params.handlerId,
           });
 
           // Update intent with new model
@@ -99,6 +102,11 @@ export abstract class Agent {
 
           // Try again with the new model
           logger.log(`Retrying agent with fallback model: ${nextModel}`);
+
+          if (!params.handlerId) {
+            logger.warn('Retrying agent with fallback model without handlerId');
+          }
+
           return this.safeHandle(params, ...args);
         }
       }

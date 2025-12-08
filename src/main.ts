@@ -433,6 +433,70 @@ export default class StewardPlugin extends Plugin {
       settingsUpdated = true;
     }
 
+    // Initialize providers if not already set
+    if (!this.settings.providers) {
+      this.settings.providers = {};
+      settingsUpdated = true;
+    }
+
+    // Always migrate apiKeys to providers structure
+    if (this.settings.apiKeys) {
+      const legacyApiKeys = this.settings.apiKeys;
+      const providersToMigrate: Array<keyof typeof legacyApiKeys> = [
+        'openai',
+        'elevenlabs',
+        'deepseek',
+        'google',
+        'groq',
+        'anthropic',
+      ];
+
+      for (const provider of providersToMigrate) {
+        if (legacyApiKeys[provider]) {
+          if (!this.settings.providers[provider]) {
+            this.settings.providers[provider] = {
+              apiKey: legacyApiKeys[provider],
+            };
+          } else {
+            // If provider already exists but apiKey is empty, migrate it
+            if (!this.settings.providers[provider].apiKey) {
+              this.settings.providers[provider].apiKey = legacyApiKeys[provider];
+            }
+          }
+        } else {
+          // Initialize provider even if no API key exists
+          if (!this.settings.providers[provider]) {
+            this.settings.providers[provider] = {
+              apiKey: '',
+            };
+          }
+        }
+      }
+
+      // Clear deprecated apiKeys field
+      delete this.settings.apiKeys;
+      settingsUpdated = true;
+    }
+
+    // Migrate baseUrl from providerConfigs to providers
+    if (this.settings.llm.providerConfigs) {
+      for (const [provider, config] of Object.entries(this.settings.llm.providerConfigs)) {
+        if (config?.baseUrl) {
+          // Ensure provider exists in providers
+          if (!this.settings.providers[provider]) {
+            this.settings.providers[provider] = {
+              apiKey: '',
+            };
+          }
+          // Migrate baseUrl if not already set in providers
+          if (!this.settings.providers[provider].baseUrl) {
+            this.settings.providers[provider].baseUrl = config.baseUrl;
+            settingsUpdated = true;
+          }
+        }
+      }
+    }
+
     // Initialize providerConfigs if not already set
     if (!this.settings.llm.providerConfigs) {
       this.settings.llm.providerConfigs = {};
@@ -493,12 +557,25 @@ export default class StewardPlugin extends Plugin {
       settingsUpdated = true;
     }
 
-    // Migrate ollamaBaseUrl to providerConfigs if it exists
+    // Migrate ollamaBaseUrl to providers if it exists
     if (this.settings.llm.ollamaBaseUrl) {
+      // Ensure ollama provider exists
+      if (!this.settings.providers.ollama) {
+        this.settings.providers.ollama = {
+          apiKey: '',
+        };
+      }
+      // Migrate baseUrl to providers
+      if (!this.settings.providers.ollama.baseUrl) {
+        this.settings.providers.ollama.baseUrl = this.settings.llm.ollamaBaseUrl;
+      }
+      // Also keep in providerConfigs for backward compatibility (deprecated)
       if (!this.settings.llm.providerConfigs.ollama) {
         this.settings.llm.providerConfigs.ollama = {};
       }
-      this.settings.llm.providerConfigs.ollama.baseUrl = this.settings.llm.ollamaBaseUrl;
+      if (!this.settings.llm.providerConfigs.ollama.baseUrl) {
+        this.settings.llm.providerConfigs.ollama.baseUrl = this.settings.llm.ollamaBaseUrl;
+      }
       this.settings.llm.ollamaBaseUrl = undefined;
       settingsUpdated = true;
     }

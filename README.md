@@ -2,14 +2,14 @@
 
 [![Build and Test](https://github.com/googlicius/obsidian-steward/actions/workflows/ci.yml/badge.svg)](https://github.com/googlicius/obsidian-steward/actions/workflows/ci.yml)
 
-Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It provides commands like `search`, `move`, `copy`, `create`, etc, as building blocks to create your own sophisticated commands, prompt chaining, and automation for your specific tasks.
+Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It provides commands like `search`, `vault`, `create`, etc, as building blocks, allowing you to create your own sophisticated commands and automation workflows to automate your boring and repetitive tasks.
 
 ## Features
 
 - **Built-in search engine**: A TF-IDF based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search.
 - **Interactive and adaptive chat UI**: One or more chat interfaces made of the slash `/` leveraging Obsidian's editor and reading view features, that is, adaptable to your current themes.
 - **Privacy-focused**: Most actions are executed in the front-end using Obsidian API and local services to avoid exposing your data to LLMs (except for your queries and what you're explicitly provided).
-- **Command-based interaction**: Support for standard commands like search, create, update, delete, move, audio, image generation, and user-defined commands.
+- **Command-based interaction**: Support for standard commands like search, vault (list, create, delete, copy, move, rename, update frontmatter), update, audio, image generation, and user-defined commands.
 - **Model flexibility**: Use your favorite AI models, including OpenAI, Gemini, DeepSeek, Ollama, etc.
 - **Model fallback**: Automatically switches to alternative models when errors occur, ensuring robust command execution.
 - **Intent caching**: Utilizes embeddings to cache similar queries, so subsequent requests require fewer tokens for LLM processing.
@@ -51,7 +51,8 @@ Steward can be used directly in the editor or by opening the chat interface.
 2. Type after the `/ ` in the chat or the active editor to interact or type `/ ?` to see available commands
 3. To add a new line in the command input, press `Shift+Enter` (uses 2-space indentation)
 4. To change the model, in the input, type `m:` or `model:` and select from the dropdown.
-5. To stop a running command, press `ESC` key or type `stop` in the command input.
+5. To stop a running command, press `ESC` key or type `Stop` in the command input.
+6. To revert changes, type `Undo` in the command input.
 
 ### Showcases
 
@@ -59,9 +60,13 @@ Steward can be used directly in the editor or by opening the chat interface.
 
 <img src="/docs/Update-In-Editor.gif" alt="Update directly in the editor" width="400px">
 
-#### Image read
+#### Reasoning
 
-<img src="/docs/Image-Read.gif" alt="Image read" width="650px">
+<img src="/docs/Steward-Demo-Reasoning.gif" alt="Image read" width="400px">
+
+#### Model fallback and revert changes
+
+<img src="/docs/Steward-Demo-Revert-and-model-fallback.gif" alt="Revert" width="400px">
 
 #### Update the selection
 
@@ -114,8 +119,8 @@ commands:
   - name: search
     query: 'Notes name starts with Untitled or with tag #delete'
 
-  - name: vault_delete
-    query: Delete them
+  - name: vault
+    query: 'Delete them'
     model: gpt-3.5-turbo # Optional: Override the model for this specific step
 ```
 
@@ -394,6 +399,7 @@ Steward creates the following folder structure in your vault:
 Steward/
 ├── Commands/       # Stores user-defined command definitions
 ├── Conversations/  # Archives past conversations
+├── Release notes/  # Release notes of Steward
 ├── Trash/          # Stores deleted files
 └── Steward chat.md # Current active conversation
 ```
