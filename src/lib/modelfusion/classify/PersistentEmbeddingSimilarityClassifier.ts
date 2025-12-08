@@ -551,7 +551,7 @@ export class PersistentEmbeddingSimilarityClassifier {
     if (this.settings.staticClusterValues) {
       for (const cluster of this.settings.staticClusterValues) {
         if (cluster.values.includes(value.toLowerCase())) {
-          return this.validateAndHandleCluster(cluster.name);
+          return cluster.name;
         }
       }
     }
