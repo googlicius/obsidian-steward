@@ -81,10 +81,6 @@ export abstract class Agent {
         handlerId: params.handlerId,
       });
 
-      console.log('ERROR', {
-        name: error.name,
-      });
-
       const nonRetryAbleError =
         error instanceof Error &&
         ['AbortError', 'TypeError', 'SysError', 'AI_InvalidPromptError'].includes(error.name);
