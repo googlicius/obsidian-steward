@@ -14,7 +14,7 @@ import { VaultRename } from './VaultRename';
 import { VaultUpdateFrontmatter } from './VaultUpdateFrontmatter';
 import { VaultGrep } from './VaultGrep';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { activateTools } from '../../tools/activateTools';
+import { activateTools, execute as executeActivateTools } from '../../tools/activateTools';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { ArtifactType } from 'src/solutions/artifact';
 import { ToolInvocation } from '../../tools/types';
@@ -127,9 +127,6 @@ class VaultAgent extends Agent {
         return [manualToolCall];
       }
     }
-
-    // UPDATE_FRONTMATTER requires properties to be specified, which must be determined by AI
-    // So we don't create manual tool calls for it
   }
 
   /**
@@ -144,6 +141,7 @@ class VaultAgent extends Agent {
     const { title, intent, lang } = params;
     const handlerId = params.handlerId ?? uniqueID();
     const activeTools = params.activeTools || [...this.activeTools];
+    const t = getTranslation(lang);
 
     const MAX_STEP_COUNT = 10;
     const remainingSteps =
@@ -287,9 +285,19 @@ ${registry.generateOtherToolsSection('No other tools available.', new Set([ToolN
           }
 
           case ToolName.ACTIVATE: {
-            const { tools } = toolCall.args;
+            const { tools: requestedTools } = toolCall.args;
 
-            const toolNamesWithBackticks = tools.map(tool => `\`${tool}\``);
+            // Validate that requested tools exist in the available tool set
+            const validationResult = await executeActivateTools(toolCall.args, tools);
+
+            // Only activate valid tools
+            if (validationResult.activatedTools && validationResult.activatedTools.length > 0) {
+              activeTools.push(...validationResult.activatedTools);
+              // Update params.activeTools to preserve changes during error retries
+              params.activeTools = activeTools;
+            }
+
+            const toolNamesWithBackticks = requestedTools.map(tool => `\`${tool}\``);
             const toolNamesJoined = joinWithConjunction(toolNamesWithBackticks, 'and');
             await this.renderer.updateConversationNote({
               path: title,
@@ -301,23 +309,23 @@ ${registry.generateOtherToolsSection('No other tools available.', new Set([ToolN
               handlerId,
             });
 
-            // Serialize the tool invocation
+            // Serialize the tool invocation with result message
             await this.renderer.serializeToolInvocation({
               path: title,
               agent: 'vault',
               command: 'activate-tools',
               handlerId,
+              ...(validationResult.invalidTools && {
+                text: `*${t('activateTools.invalidTools', { tools: joinWithConjunction(validationResult.invalidTools, 'and') })}*`,
+              }),
               toolInvocations: [
                 {
                   ...toolCall,
-                  result: `Requested tools ${joinWithConjunction(tools, 'and')} are now active.`,
+                  result: validationResult,
                 },
               ],
             });
 
-            activeTools.push(...tools);
-            // Update params.activeTools to preserve changes during error retries
-            params.activeTools = activeTools;
             break;
           }
 
@@ -363,7 +371,6 @@ ${registry.generateOtherToolsSection('No other tools available.', new Set([ToolN
 
     if (toolCalls.length > 0 && nextRemainingSteps > 0) {
       // Update indicator to show we're continuing to process
-      const t = getTranslation(lang);
       await this.renderer.addGeneratingIndicator(title, t('conversation.continuingProcessing'));
 
       return this.handle(params, {

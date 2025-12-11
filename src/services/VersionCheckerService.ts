@@ -139,15 +139,6 @@ export class VersionCheckerService {
   }
 
   /**
-   * Gets the latest version (for backward compatibility)
-   * @returns The latest version string or null if not found
-   */
-  public async getLatestVersion(): Promise<string | null> {
-    const release = await this.getLatestRelease();
-    return release?.version || null;
-  }
-
-  /**
    * Checks if there's a new version available compared to the last seen version
    * @param currentVersion The current plugin version
    * @param lastSeenVersion The last version the user has seen (optional)

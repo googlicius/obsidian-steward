@@ -1,4 +1,4 @@
-import { App } from 'obsidian';
+import { App, TFile, TFolder } from 'obsidian';
 import { UpdateInstruction, AddInstruction } from '../lib/modelfusion/extractions';
 import { logger } from 'src/utils/logger';
 import { SearchOperationV2 } from 'src/solutions/commands/handlers/SearchCommandHandler/zSchemas';
@@ -388,5 +388,80 @@ export class ObsidianAPITools {
       lines.pop();
     }
     return lines.join('\n') + '\n';
+  }
+
+  /**
+   * Get all files from a folder recursively.
+   * Similar to VaultList's approach but collects files recursively.
+   */
+  private getFilesFromFolder(folder: TFolder): TFile[] {
+    const files: TFile[] = [];
+
+    for (const child of folder.children) {
+      if (child instanceof TFile) {
+        files.push(child);
+      } else if (child instanceof TFolder) {
+        // Recursively process subfolders
+        files.push(...this.getFilesFromFolder(child));
+      }
+    }
+
+    return files;
+  }
+
+  /**
+   * Resolve file patterns to actual file paths.
+   * Patterns are treated as RegExp strings (case-insensitive), similar to VaultList.
+   * If a pattern fails to compile as regex, it's treated as a literal path.
+   *
+   * @param patterns Array of file patterns to resolve
+   * @param folder Optional folder path to limit search scope. If provided, only files in this folder (and subfolders) are matched.
+   * @returns Array of file paths matching the patterns
+   */
+  public resolveFilePatterns(patterns: string[], folder?: string): string[] {
+    let filesToSearch: TFile[];
+
+    // If folder is specified, collect files from folder.children recursively
+    if (folder) {
+      const folderPath = folder.trim().replace(/^\/+|\/+$/g, '');
+      const targetFolder = this.app.vault.getFolderByPath(folderPath);
+      if (!targetFolder) {
+        // Folder doesn't exist, return empty array
+        return [];
+      }
+
+      // Collect files from folder.children recursively (like VaultList does)
+      filesToSearch = this.getFilesFromFolder(targetFolder);
+    } else {
+      // No folder specified, search entire vault
+      filesToSearch = this.app.vault.getFiles();
+    }
+
+    const matchedPaths = new Set<string>();
+
+    for (const pattern of patterns) {
+      const trimmedPattern = pattern.trim();
+      if (!trimmedPattern) {
+        continue;
+      }
+
+      // Try to match as regex pattern first (like VaultList does)
+      try {
+        const regex = new RegExp(trimmedPattern, 'i');
+        for (const file of filesToSearch) {
+          if (regex.test(file.path) || regex.test(file.name)) {
+            matchedPaths.add(file.path);
+          }
+        }
+      } catch (error) {
+        // If regex is invalid, treat as literal path
+        const file = this.app.vault.getFileByPath(trimmedPattern);
+        if (file && (!folder || file.path.startsWith(folder))) {
+          matchedPaths.add(file.path);
+        }
+      }
+    }
+
+    return Array.from(matchedPaths);
   }
 }

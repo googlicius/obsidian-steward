@@ -5,27 +5,36 @@ import { getInstance } from 'src/utils/getInstance';
 import { DocWithPath } from 'src/types/types';
 
 // Mock the Obsidian modules
-jest.mock('obsidian', () => ({
-  App: jest.fn().mockImplementation(() => ({
-    vault: {
-      getFileByPath: jest.fn(),
-      getFolderByPath: jest.fn(),
-      createFolder: jest.fn().mockResolvedValue(undefined),
-    },
-    fileManager: {
-      renameFile: jest.fn().mockResolvedValue(undefined),
-    },
-  })),
-  TFile: jest.fn().mockImplementation(() => ({
-    path: '',
-    extension: '',
-    name: '',
-  })),
-  TFolder: jest.fn().mockImplementation(() => ({
-    path: '',
-    name: '',
-  })),
-}));
+jest.mock('obsidian', () => {
+  // Create mock classes that support instanceof checks
+  class MockTFile {
+    path = '';
+    extension = '';
+    name = '';
+  }
+
+  class MockTFolder {
+    path = '';
+    name = '';
+    children: unknown[] = [];
+  }
+
+  return {
+    App: jest.fn().mockImplementation(() => ({
+      vault: {
+        getFileByPath: jest.fn(),
+        getFolderByPath: jest.fn(),
+        createFolder: jest.fn().mockResolvedValue(undefined),
+        getFiles: jest.fn(),
+      },
+      fileManager: {
+        renameFile: jest.fn().mockResolvedValue(undefined),
+      },
+    })),
+    TFile: MockTFile,
+    TFolder: MockTFolder,
+  };
+});
 
 describe('ObsidianAPITools', () => {
   let app: App;
@@ -268,6 +277,119 @@ describe('ObsidianAPITools', () => {
       // Verify that root folder wasn't created and file was moved correctly
       expect(app.vault.createFolder).not.toHaveBeenCalled();
       expect(app.fileManager.renameFile).toHaveBeenCalledWith(file, '/test-file.md');
+    });
+  });
+
+  describe('resolveFilePatterns', () => {
+    it('should resolve pattern that starts with text', () => {
+      // Create mock files
+      const file1 = getInstance(TFile, { path: 'test-file.md', name: 'test-file.md' });
+      const file2 = getInstance(TFile, { path: 'test-note.md', name: 'test-note.md' });
+      const file3 = getInstance(TFile, { path: 'other-file.md', name: 'other-file.md' });
+
+      // Mock vault.getFiles to return all files
+      jest.spyOn(app.vault, 'getFiles').mockReturnValue([file1, file2, file3]);
+
+      const patterns = ['^test'];
+      const result = obsidianAPITools.resolveFilePatterns(patterns);
+
+      expect(result).toEqual(['test-file.md', 'test-note.md']);
+    });
+
+    it('should resolve pattern that contains text', () => {
+      // Create mock files
+      const file1 = getInstance(TFile, { path: 'my-test-file.md', name: 'my-test-file.md' });
+      const file2 = getInstance(TFile, { path: 'test-note.md', name: 'test-note.md' });
+      const file3 = getInstance(TFile, { path: 'other-file.md', name: 'other-file.md' });
+
+      // Mock vault.getFiles to return all files
+      jest.spyOn(app.vault, 'getFiles').mockReturnValue([file1, file2, file3]);
+
+      const patterns = ['.*test.*'];
+      const result = obsidianAPITools.resolveFilePatterns(patterns);
+
+      expect(result).toEqual(['my-test-file.md', 'test-note.md']);
+    });
+
+    it('should resolve pattern that is an invalid pattern by treating it as literal path', () => {
+      // Create mock files
+      const file1 = getInstance(TFile, { path: 'test-file.md', name: 'test-file.md' });
+      const file2 = getInstance(TFile, {
+        path: '[invalid-pattern.md',
+        name: '[invalid-pattern.md',
+      });
+
+      // Mock vault.getFiles to return all files
+      jest.spyOn(app.vault, 'getFiles').mockReturnValue([file1, file2]);
+
+      // Mock getFileByPath for the invalid pattern fallback
+      jest.spyOn(app.vault, 'getFileByPath').mockImplementation((path: string) => {
+        if (path === '[invalid-pattern') {
+          return file2;
+        }
+        return null;
+      });
+
+      const patterns = ['[invalid-pattern'];
+      const result = obsidianAPITools.resolveFilePatterns(patterns);
+
+      expect(result).toEqual(['[invalid-pattern.md']);
+      expect(app.vault.getFileByPath).toHaveBeenCalledWith('[invalid-pattern');
+    });
+
+    it('should resolve pattern with a folder specified', () => {
+      // Create mock files - some in folder, some outside
+      const file1 = getInstance(TFile, { path: 'folder/test-file.md', name: 'test-file.md' });
+      const file2 = getInstance(TFile, { path: 'folder/other-file.md', name: 'other-file.md' });
+      const file3 = getInstance(TFile, { path: 'root-test-file.md', name: 'root-test-file.md' });
+
+      // Create mock folder with children array properly set
+      const folder = getInstance(TFolder, {
+        path: 'folder',
+        name: 'folder',
+        children: [file1, file2],
+      });
+
+      // Mock vault.getFolderByPath to return the folder
+      jest.spyOn(app.vault, 'getFolderByPath').mockReturnValue(folder);
+
+      // Mock vault.getFiles (shouldn't be called when folder is specified, but just in case)
+      jest.spyOn(app.vault, 'getFiles').mockReturnValue([file1, file2, file3]);
+
+      const patterns = ['.*test.*'];
+      const result = obsidianAPITools.resolveFilePatterns(patterns, 'folder');
+
+      // Should only match files within the folder
+      expect(result).toEqual(['folder/test-file.md']);
+      expect(app.vault.getFolderByPath).toHaveBeenCalledWith('folder');
+    });
+
+    it('should return empty array when folder does not exist', () => {
+      // Mock vault.getFolderByPath to return null (folder doesn't exist)
+      jest.spyOn(app.vault, 'getFolderByPath').mockReturnValue(null);
+
+      const patterns = ['.*test.*'];
+      const result = obsidianAPITools.resolveFilePatterns(patterns, 'non-existent-folder');
+
+      expect(result).toEqual([]);
+      expect(app.vault.getFolderByPath).toHaveBeenCalledWith('non-existent-folder');
+    });
+
+    it('should match against both file path and file name', () => {
+      // Create mock files
+      const file1 = getInstance(TFile, { path: 'folder/test.md', name: 'test.md' });
+      const file2 = getInstance(TFile, { path: 'test-folder/file.md', name: 'file.md' });
+      const file3 = getInstance(TFile, { path: 'other/file.md', name: 'file.md' });
+
+      // Mock vault.getFiles to return all files
+      jest.spyOn(app.vault, 'getFiles').mockReturnValue([file1, file2, file3]);
+
+      // Pattern should match both path and name
+      const patterns = ['^test'];
+      const result = obsidianAPITools.resolveFilePatterns(patterns);
+
+      // Should match file1 (name starts with test) and file2 (path contains test-folder)
+      expect(result).toEqual(['folder/test.md', 'test-folder/file.md']);
     });
   });
 });

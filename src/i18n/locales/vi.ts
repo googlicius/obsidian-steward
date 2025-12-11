@@ -7,6 +7,7 @@ const vi = {
       noToolCallFound: 'Không tìm thấy lệnh gọi công cụ.',
       lowConfidenceConfirmation: 'Tôi không chắc chắn về yêu cầu này. Bạn có muốn tiếp tục không?',
       artifactCreated: 'Artifact {{type}} đã được lưu',
+      artifactNotFound: ' Không tìm thấy artifact với ID "{{artifactId}}".',
       availableCommands: 'Các lệnh có sẵn',
       builtInCommands: 'Lệnh tích hợp',
       builtInCommandsDesc: 'Những lệnh này có sẵn thông qua /&lt;command&gt',
@@ -93,6 +94,9 @@ const vi = {
       tooManyFilesConfirm: 'Tôi đang sao chép {{count}} ghi chú. Bạn có muốn tiếp tục không?',
       cannotCopyThisType: 'Không thể sao chép loại artifact này: {{type}}',
     },
+    activateTools: {
+      invalidTools: 'Công cụ không hợp lệ: `{{tools}}`',
+    },
     rename: {
       processed: 'Tôi đã xử lý {{count}} yêu cầu đổi tên.',
       success: 'Đã đổi tên thành công {{count}} tập tin:',
@@ -111,6 +115,7 @@ const vi = {
     create: {
       success: 'Đã tạo thành công {{count}} ghi chú: {{noteNames}}',
       creatingNote: 'Đang tạo ghi chú: [[{{noteName}}]]',
+      errors: 'Lỗi:',
     },
     list: {
       noFilesFound: 'Không tìm thấy tập tin nào.',
@@ -118,6 +123,7 @@ const vi = {
       foundFiles: 'Tôi đã tìm thấy {{count}} tập tin',
       foundFilesInFolder: 'Tôi đã tìm thấy {{count}} tập tin trong {{folder}}',
       moreFiles: '... và thêm {{count}} tập tin nữa',
+      fullListAvailableInArtifact: 'Danh sách đầy đủ có sẵn trong artifact ID: {{artifactId}}',
     },
     grep: {
       found: 'Đã tìm thấy {{count}} đường dẫn:',
@@ -142,10 +148,10 @@ const vi = {
     // Update result messages
     update: {
       noContentFound: 'Không tìm thấy nội dung để cập nhật.',
-      failed: 'Không thể cập nhật {{count}} tập tin:',
-      successfullyUpdated: 'Đã cập nhật thành công {{count}} tập tin:',
-      foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để cập nhật.',
-      skipped: 'Đã bỏ qua {{count}} tập tin:',
+      failed: 'Không thể cập nhật {{count}} tập tin',
+      successfullyUpdated: 'Đã cập nhật thành công {{count}} tập tin',
+      foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để cập nhật',
+      skipped: 'Đã bỏ qua {{count}} tập tin',
       applyChangesConfirm: 'Bạn có muốn áp dụng các thay đổi này không?',
       noChangesNeeded:
         'Nội dung gốc và nội dung đã cập nhật giống hệt nhau. Không cần thay đổi gì.',
@@ -159,19 +165,10 @@ const vi = {
       operation: 'Thao tác {{num}}: Xóa các tập tin với {{query}}',
     },
     revert: {
-      foundFiles: 'Tôi đã tìm thấy {{count}} mục để hoàn nguyên.',
-      successfullyReverted: 'Đã hoàn nguyên thành công {{count}} mục',
-      failed: 'Không thể hoàn nguyên {{count}} mục:',
+      foundFiles: 'Tôi đã tìm thấy {{count}} mục để hoàn tác.',
+      successfullyReverted: 'Đã hoàn tác thành công {{count}} mục',
+      failed: 'Không thể hoàn tác {{count}} mục:',
       revertingArtifact: 'Đang hoàn tác từ artifact `{{artifactType}}`',
-    },
-    // Frontmatter update result messages
-    frontmatter: {
-      foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để cập nhật frontmatter.',
-      successfullyUpdated: 'Đã cập nhật thành công {{count}} ghi chú:',
-      failed: 'Không thể cập nhật {{count}} ghi chú:',
-      cannotUpdateThisType: 'Không thể cập nhật frontmatter cho loại artifact này: {{type}}',
-      propertiesRequired:
-        'Thuộc tính là bắt buộc khi sử dụng artifactId. Vui lòng cung cấp các tập tin với thuộc tính để cập nhật.',
     },
     // Search result messages
     search: {
@@ -291,6 +288,7 @@ const vi = {
       buildingIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
       summarizing: 'Đang tóm tắt cuộc trò chuyện...',
       continuingProcessing: 'Đang tiếp tục...',
+      processingBatch: 'Đang xử lý batch {{current}}/{{total}}...',
     },
     // Model fallback messages
     modelFallback: {
@@ -378,11 +376,12 @@ const vi = {
       withoutLLM: 'Tùy chọn khớp tìm kiếm',
       withoutLLMDesc: 'Chế độ tìm kiếm khi truy vấn được bao trong dấu ngoặc kép',
       exactMatch: 'Khớp chính xác',
-      relevantScoring: 'Chấm điểm liên quan',
+      relevantScoring: 'Khớp điểm liên quan',
       resultsPerPage: 'Kết quả mỗi trang',
       resultsPerPageDesc: 'Số lượng kết quả tìm kiếm hiển thị mỗi trang',
       deleteBehavior: 'Hành động xóa',
-      deleteBehaviorDesc: 'Cách xử lý việc xóa tập tin',
+      deleteBehaviorDesc:
+        'Cách xử lý việc xóa tập tin. Khuyến nghị: Sử dụng Steward/Trash để có thể hoàn tác việc xóa',
       moveToTrash: 'Di chuyển tập tin đến {{folder}}',
       useObsidianDeletedFiles: 'Sử dụng cài đặt Xóa tập tin của Obsidian',
       modelFallbackEnabled: 'Bật dự phòng mô hình',

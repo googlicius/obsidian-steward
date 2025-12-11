@@ -86,16 +86,6 @@ export class ImageCommandHandler extends CommandHandler {
             mediaType: 'image',
           },
         });
-        await this.renderer.updateConversationNote({
-          path: title,
-          newContent: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
-          artifactContent: result.filePath,
-          command: 'image',
-          role: {
-            name: 'Assistant',
-            showLabel: false,
-          },
-        });
       }
 
       return {

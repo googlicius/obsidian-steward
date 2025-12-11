@@ -7,36 +7,54 @@ import { logger } from 'src/utils/logger';
 import { NonTrashFile, TrashFile } from 'src/services/TrashCleanupService';
 import { ToolInvocation } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import {
+  createArtifactIdSchema,
+  createFilesSchemaString,
+  createFilePatternsSchema,
+  createExplanationSchema,
+} from './vaultOperationSchemas';
 
 const deleteToolSchema = z
   .object({
-    artifactId: z
-      .string()
-      .min(1)
-      .optional()
-      .describe('The artifact identifier containing files to delete.'),
-    files: z
-      .array(
-        z.object({
-          path: z
-            .string()
-            .min(1)
-            .describe('The full path (including extension) of the file to delete.'),
-        })
-      )
-      .optional()
-      .refine(array => !array || array.length > 0, {
-        message: 'files array must include at least one entry when provided.',
-      })
-      .describe('The list of files that must be deleted.'),
-    explanation: z
-      .string()
-      .min(1)
-      .describe('A short explanation of why these files should be deleted.'),
+    artifactId: createArtifactIdSchema({
+      description: 'The artifact identifier containing files to delete.',
+    }),
+    files: createFilesSchemaString({
+      description: 'The list of files that must be deleted.',
+    }),
+    filePatterns: createFilePatternsSchema({
+      description:
+        'Pattern-based file selection for large file sets. Prefer this over the files array to avoid token limits.',
+      patternsDescription: 'Array of RegExp patterns to match files for deletion.',
+    }),
+    explanation: createExplanationSchema({
+      description: 'A short explanation of why these files should be deleted.',
+    }),
   })
-  .refine(data => Boolean(data.artifactId) || Boolean(data.files && data.files.length > 0), {
-    message: 'Provide either artifactId or files.',
-  });
+  .refine(
+    data =>
+      Boolean(data.artifactId) ||
+      Boolean(data.files && data.files.length > 0) ||
+      Boolean(
+        data.filePatterns && data.filePatterns.patterns && data.filePatterns.patterns.length > 0
+      ),
+    {
+      message: 'Provide either artifactId, files, or filePatterns.',
+    }
+  )
+  .refine(
+    data =>
+      !(
+        data.files &&
+        data.files.length > 0 &&
+        data.filePatterns &&
+        data.filePatterns.patterns &&
+        data.filePatterns.patterns.length > 0
+      ),
+    {
+      message: 'Provide either files or filePatterns, not both.',
+    }
+  );
 
 export type DeleteToolArgs = z.infer<typeof deleteToolSchema>;
 
@@ -162,55 +180,38 @@ export class VaultDelete {
     const t = getTranslation(lang);
 
     const filePaths: string[] = [];
-    let noFilesMessage = t('common.noFilesFound');
+    const noFilesMessage = t('common.noFilesFound');
 
     if (toolCall.args.artifactId) {
-      const artifact = await this.agent.plugin.artifactManagerV2
-        .withTitle(title)
-        .getArtifactById(toolCall.args.artifactId);
+      const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(title);
+      const resolvedFiles = await artifactManager.resolveFilesFromArtifact(
+        toolCall.args.artifactId
+      );
 
-      if (!artifact) {
-        logger.error(`Delete tool artifact not found: ${toolCall.args.artifactId}`);
-        noFilesMessage = t('common.noRecentOperations');
-      } else if (artifact.artifactType === ArtifactType.SEARCH_RESULTS) {
-        for (const result of artifact.originalResults) {
-          filePaths.push(result.document.path);
-        }
-      } else if (artifact.artifactType === ArtifactType.CREATED_NOTES) {
-        for (const path of artifact.paths) {
-          filePaths.push(path);
-        }
+      if (resolvedFiles.length === 0) {
+        // No files found in artifact, continue to check other sources
+        // The noFilesMessage will be handled at the end if no files are found
       } else {
-        const message = t('common.cannotDeleteThisType', { type: artifact.artifactType });
-
-        const messageId = await this.agent.renderer.updateConversationNote({
-          path: title,
-          newContent: message,
-          agent: 'vault',
-          command: 'vault_delete',
-          lang,
-          handlerId,
-          includeHistory: false,
-        });
-
-        await this.serializeDeleteInvocation({
-          title,
-          handlerId,
-          toolCall,
-          result: messageId ? `messageRef:${messageId}` : message,
-        });
-
-        return { filePaths: [], errorMessage: message };
+        // Extract paths from DocWithPath objects
+        filePaths.push(...resolvedFiles.map(file => file.path));
       }
     }
 
     if (toolCall.args.files) {
-      for (const item of toolCall.args.files) {
-        const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(item.path);
+      for (const filePath of toolCall.args.files) {
+        const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(filePath);
         if (file) {
           filePaths.push(file.path);
         }
       }
+    }
+
+    if (toolCall.args.filePatterns) {
+      const patternMatchedPaths = this.agent.obsidianAPITools.resolveFilePatterns(
+        toolCall.args.filePatterns.patterns,
+        toolCall.args.filePatterns.folder
+      );
+      filePaths.push(...patternMatchedPaths);
     }
 
     if (filePaths.length === 0) {

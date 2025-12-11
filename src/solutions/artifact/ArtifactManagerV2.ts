@@ -9,6 +9,7 @@ import {
 } from 'src/solutions/artifact/types';
 import { JsonArtifactSerializer, SearchResultSerializer, CompositeSerializer } from './serializers';
 import { GeneratedContentSerializer } from './serializers/GeneratedContentSerializer';
+import { DocWithPath } from 'src/types/types';
 
 /**
  * Manager for storing and retrieving artifacts in conversation notes
@@ -356,5 +357,196 @@ export class ArtifactManagerV2 {
   public clearCache(): void {
     this.artifactsCache = null;
     logger.log('Artifact cache cleared');
+  }
+
+  /**
+   * Remove an artifact from both the conversation note and in-memory cache
+   * Finds the line containing the artifactId, then removes the entire message block
+   * (from the STW comment block to the next STW comment block)
+   * If deleteReason is provided, the artifact is marked as deleted instead of being removed
+   * @param artifactId The ID of the artifact to remove
+   * @param deleteReason Optional reason for deletion. If provided, artifact is marked as deleted with {id, deleteReason}
+   * @returns true if the artifact was successfully removed or marked as deleted, false otherwise
+   */
+  public async removeArtifact(artifactId: string, deleteReason?: string): Promise<boolean> {
+    try {
+      if (!this.conversationTitle) {
+        throw new Error('Conversation title is not set. Use withTitle() first.');
+      }
+
+      const file = await this.getFile();
+      const content = await this.plugin.app.vault.cachedRead(file);
+      const lines = content.split('\n');
+
+      let startLineIndex = -1;
+
+      // Find the line index that contains the artifactId
+      let artifactLineIndex = -1;
+      for (let i = 0; i < lines.length; i += 1) {
+        const isIDInMessage = lines[i].includes(`"id":"${artifactId}"`);
+        const isIDInComment = lines[i].includes(`ID:${artifactId}`);
+        if (isIDInMessage || isIDInComment) {
+          artifactLineIndex = i;
+          if (isIDInComment) {
+            startLineIndex = i;
+          }
+          break;
+        }
+      }
+
+      if (artifactLineIndex === -1) {
+        logger.warn(`Artifact with ID "${artifactId}" not found in conversation note`);
+        return false;
+      }
+
+      const stwCommentRegex = /<!--STW ID:[^>]*-->/i;
+      // Traverse up to find the STW comment block that starts this message
+      if (startLineIndex === -1) {
+        for (let i = artifactLineIndex; i >= 0; i -= 1) {
+          if (stwCommentRegex.test(lines[i])) {
+            startLineIndex = i;
+            break;
+          }
+        }
+      }
+
+      if (startLineIndex === -1) {
+        logger.warn(
+          `Could not find STW comment block before artifact "${artifactId}" in conversation note`
+        );
+        return false;
+      }
+
+      // Traverse down to find the next STW comment block (or end of file)
+      let endLineIndex = lines.length;
+      for (let i = artifactLineIndex + 1; i < lines.length; i += 1) {
+        if (stwCommentRegex.test(lines[i])) {
+          endLineIndex = i;
+          break;
+        }
+      }
+
+      // Get the original artifact to determine its type before deletion
+      const originalArtifact = await this.getArtifactById(artifactId);
+
+      const deletedArtifact = deleteReason
+        ? {
+            ...originalArtifact,
+            deleteReason,
+          }
+        : undefined;
+
+      // Prepare new lines if marking as deleted, otherwise undefined for removal
+      const newArtifactLines = deletedArtifact
+        ? [
+            lines[startLineIndex], // Keep the STW comment
+            '```stw-artifact',
+            JSON.stringify(deletedArtifact),
+            '```',
+            '',
+          ]
+        : undefined;
+
+      // Replace the old lines with new lines (if provided) or remove them
+      const newLines = [...lines];
+      if (newArtifactLines) {
+        newLines.splice(startLineIndex, endLineIndex - startLineIndex, ...newArtifactLines);
+      } else {
+        newLines.splice(startLineIndex, endLineIndex - startLineIndex);
+      }
+
+      // Write the updated content back to the file
+      const updatedContent = newLines.join('\n');
+      await this.plugin.app.vault.modify(file, updatedContent);
+
+      // Update in-memory cache
+      if (this.artifactsCache) {
+        const index = this.artifactsCache.findIndex(artifact => artifact.id === artifactId);
+        if (index !== -1) {
+          if (deletedArtifact) {
+            // Replace with deleted artifact structure
+            this.artifactsCache[index] = deletedArtifact as Artifact;
+          } else {
+            // Remove from cache
+            this.artifactsCache.splice(index, 1);
+            // If cache is now empty, set it to null
+            if (this.artifactsCache.length === 0) {
+              this.artifactsCache = null;
+            }
+          }
+        }
+      }
+
+      logger.log(
+        deleteReason
+          ? `Marked artifact "${artifactId}" as deleted with reason: ${deleteReason}`
+          : `Removed artifact "${artifactId}" from conversation note and cache`
+      );
+      return true;
+    } catch (error) {
+      logger.error(`Error removing artifact "${artifactId}":`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Resolve files from an artifact
+   * Supported artifact types: SEARCH_RESULTS, CREATED_NOTES, READ_CONTENT, LIST_RESULTS
+   * @param artifactId The ID of the artifact to resolve files from
+   * @returns Array of DocWithPath objects containing file paths
+   */
+  public async resolveFilesFromArtifact(artifactId: string): Promise<DocWithPath[]> {
+    const artifact = await this.getArtifactById(artifactId);
+
+    if (!artifact) {
+      logger.warn(`Artifact not found: ${artifactId}`);
+      return [];
+    }
+
+    const resolvedFiles: DocWithPath[] = [];
+
+    switch (artifact.artifactType) {
+      case ArtifactType.SEARCH_RESULTS: {
+        for (const result of artifact.originalResults) {
+          if (result.document) {
+            resolvedFiles.push({ path: result.document.path });
+          } else {
+            logger.warn(`Search result document not found.`);
+          }
+        }
+        break;
+      }
+
+      case ArtifactType.CREATED_NOTES: {
+        for (const path of artifact.paths) {
+          resolvedFiles.push({ path });
+        }
+        break;
+      }
+
+      case ArtifactType.READ_CONTENT: {
+        const file = artifact.readingResult.file;
+        if (file) {
+          resolvedFiles.push({ path: file.path });
+        }
+        break;
+      }
+
+      case ArtifactType.LIST_RESULTS: {
+        for (const path of artifact.paths) {
+          resolvedFiles.push({ path });
+        }
+        break;
+      }
+
+      default: {
+        logger.warn(
+          `Unsupported artifact type for resolving files: ${artifact.artifactType}. Supported types: search_results, created_notes, read_content, list_results`
+        );
+        return [];
+      }
+    }
+
+    return resolvedFiles;
   }
 }

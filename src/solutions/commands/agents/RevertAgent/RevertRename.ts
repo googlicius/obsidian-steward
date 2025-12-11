@@ -123,6 +123,13 @@ export class RevertRename {
       result: messageId ? `messageRef:${messageId}` : response,
     });
 
+    // Remove the artifact if revert was successful and artifactId was provided
+    if (toolCall.args.artifactId && revertResult.revertedFiles.length > 0) {
+      await this.agent.plugin.artifactManagerV2
+        .withTitle(title)
+        .removeArtifact(toolCall.args.artifactId, toolCall.args.explanation);
+    }
+
     return {
       status: IntentResultStatus.SUCCESS,
     };

@@ -9,6 +9,10 @@
 7. Repair model's responses in-flight that are still correct but varies due to their creativity/randomness.
 8. Option to see human-readable explanation (YAML) about what it did.
 9. To reduce the number of tool definitions and schemas in each request and improve accuracy, let the AI retrieve tools to use. Like a mechanic takes out his tools from tool boxes.
+10. To handle a large data set without hitting the AI's response token limit:
+    Use patterns (RegExp, Glob,...) that can be applied for all items without AI awareness of the output.
+    Use a specialized agent that can replicate itself or spawn workers to process tasks need to be aware of the original data. The accumulated result will be returned to the requested agent.
+11. Instead of forcing AIs to do a task in a certain way with a lengthy and complicated prompt, the client should be able to process all potential ways from AIs.
 
 ### Some scenarios lead to an infinite tool calls:
 

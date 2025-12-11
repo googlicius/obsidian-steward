@@ -11,7 +11,7 @@ import { RevertFrontmatter } from './RevertFrontmatter';
 import { RevertRename } from './RevertRename';
 import { RevertCreate } from './RevertCreate';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { activateTools } from '../../tools/activateTools';
+import { activateTools, execute as executeActivateTools } from '../../tools/activateTools';
 import { getMostRecentArtifact, getArtifactById } from '../../tools/getArtifact';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -225,9 +225,10 @@ ${registry.generateToolsSection()}
 GUIDELINES:
 ${registry.generateGuidelinesSection()}
 
-WORKFLOW:
-1. First, use ${ToolName.GET_MOST_RECENT_ARTIFACT} or ${ToolName.GET_ARTIFACT_BY_ID} to retrieve an artifact from the conversation.
-2. Based on the artifact type returned, determine which revert operation is needed and activate the appropriate revert tool using ${ToolName.ACTIVATE} if it's not already active.
+GUIDELINES:
+- First, use ${ToolName.GET_MOST_RECENT_ARTIFACT} or ${ToolName.GET_ARTIFACT_BY_ID} to retrieve an artifact from the conversation.
+- If the artifact is not found OR the status is deleted, everything is fine, respond with a text message.
+- Based on the artifact type returned, determine which revert operation is needed and activate the appropriate revert tool using ${ToolName.ACTIVATE} if it's not already active.
 
 OTHER TOOLS:
 ${registry.generateOtherToolsSection('No other tools available.')}`),
@@ -339,8 +340,7 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
             const result = artifact?.id
               ? `artifactRef:${artifact.id}`
               : {
-                  error:
-                    t('common.artifactNotFound') || `Artifact with ID "${artifactId}" not found.`,
+                  error: t('common.artifactNotFound', { artifactId }),
                 };
 
             await this.renderer.serializeToolInvocation({
@@ -359,9 +359,18 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
           }
 
           case ToolName.ACTIVATE: {
-            const { tools } = toolCall.args;
+            const { tools: requestedTools } = toolCall.args;
 
-            const toolNamesWithBackticks = tools.map(tool => `\`${tool}\``);
+            // Validate that requested tools exist in the available tool set
+            const validationResult = await executeActivateTools(toolCall.args, tools);
+
+            // Only activate valid tools
+            if (validationResult.activatedTools && validationResult.activatedTools.length > 0) {
+              activeTools.push(...validationResult.activatedTools);
+              params.activeTools = activeTools;
+            }
+
+            const toolNamesWithBackticks = requestedTools.map(tool => `\`${tool}\``);
             const toolNamesJoined = joinWithConjunction(toolNamesWithBackticks, 'and');
             await this.renderer.updateConversationNote({
               path: title,
@@ -373,7 +382,7 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
               handlerId,
             });
 
-            // Serialize the tool invocation
+            // Serialize the tool invocation with result message
             await this.renderer.serializeToolInvocation({
               path: title,
               agent: 'revert',
@@ -382,13 +391,11 @@ ${registry.generateOtherToolsSection('No other tools available.')}`),
               toolInvocations: [
                 {
                   ...toolCall,
-                  result: `Requested tools ${joinWithConjunction(tools, 'and')} are now active.`,
+                  result: validationResult,
                 },
               ],
             });
 
-            activeTools.push(...tools);
-            params.activeTools = activeTools;
             break;
           }
 

@@ -9,28 +9,21 @@ import { ToolInvocation } from '../../tools/types';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import {
+  createArtifactIdSchema,
+  createFilesSchemaString,
+  createFilePatternsSchema,
+  createExplanationSchema,
+} from './vaultOperationSchemas';
 
 const moveToolSchema = z
   .object({
-    artifactId: z
-      .string()
-      .min(1)
-      .optional()
-      .describe('ID of the artifact containing the files or folders to move.'),
-    files: z
-      .array(
-        z.object({
-          path: z
-            .string()
-            .min(1)
-            .describe('The full path (including extension) of the file to move.'),
-        })
-      )
-      .optional()
-      .refine(array => !array || array.length > 0, {
-        message: 'files array must include at least one entry when provided.',
-      })
-      .describe('Explicit list of files to move.'),
+    artifactId: createArtifactIdSchema({
+      description: `ID of the artifact containing the files or folders to move.`,
+    }),
+    files: createFilesSchemaString({
+      description: `The list of files that must be moved.`,
+    }),
     folders: z
       .array(
         z.object({
@@ -47,22 +40,42 @@ const moveToolSchema = z
         message: 'folders array must include at least one entry when provided.',
       })
       .describe('Explicit list of folders to move.'),
+    filePatterns: createFilePatternsSchema({
+      description:
+        'Pattern-based file selection for large file sets. Use this to avoid token limits.',
+      patternsDescription: 'Array of RegExp patterns to match files for moving.',
+    }),
     destinationFolder: z
       .string()
       .min(1)
       .describe('Destination folder path where the files or folders should be moved.'),
-    explanation: z
-      .string()
-      .min(1)
-      .describe('Short explanation of the move operation and why it is required.'),
+    explanation: createExplanationSchema({
+      description: 'Short explanation of the move operation and why it is required.',
+    }),
   })
   .refine(
     data =>
       Boolean(data.artifactId) ||
       Boolean(data.files && data.files.length > 0) ||
-      Boolean(data.folders && data.folders.length > 0),
+      Boolean(data.folders && data.folders.length > 0) ||
+      Boolean(
+        data.filePatterns && data.filePatterns.patterns && data.filePatterns.patterns.length > 0
+      ),
     {
-      message: 'Provide either artifactId, files, or folders.',
+      message: 'Provide at least one of: artifactId, files, folders, or filePatterns.',
+    }
+  )
+  .refine(
+    data =>
+      !(
+        data.files &&
+        data.files.length > 0 &&
+        data.filePatterns &&
+        data.filePatterns.patterns &&
+        data.filePatterns.patterns.length > 0
+      ),
+    {
+      message: 'Provide either files or filePatterns, not both.',
     }
   );
 
@@ -245,51 +258,20 @@ export class VaultMove {
     const noFilesMessage = t('common.noFilesFound');
 
     if (args.artifactId) {
-      const artifact = await this.agent.plugin.artifactManagerV2
-        .withTitle(title)
-        .getArtifactById(args.artifactId);
+      const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(title);
+      const resolvedFiles = await artifactManager.resolveFilesFromArtifact(args.artifactId);
 
-      if (!artifact) {
-        const message = t('common.noRecentOperations');
-        const responseMessage = await this.respondAndSerializeMove({
-          title,
-          content: message,
-          toolCall,
-          lang,
-          handlerId,
-        });
-        return { docs: [], responseMessage };
-      }
-
-      if (artifact.artifactType === ArtifactType.SEARCH_RESULTS) {
-        for (const result of artifact.originalResults) {
-          docs.push({ path: result.document.path });
-        }
-      } else if (artifact.artifactType === ArtifactType.CREATED_NOTES) {
-        for (const path of artifact.paths) {
-          docs.push({ path });
-        }
-      } else if (artifact.artifactType === ArtifactType.READ_CONTENT) {
-        const file = artifact.readingResult.file;
-        if (file) {
-          docs.push({ path: file.path });
-        }
+      if (resolvedFiles.length === 0) {
+        // No files found in artifact, continue to check other sources
+        // The noFilesMessage will be handled at the end if no files are found
       } else {
-        const message = t('move.cannotMoveThisType', { type: artifact.artifactType });
-        const responseMessage = await this.respondAndSerializeMove({
-          title,
-          content: message,
-          toolCall,
-          lang,
-          handlerId,
-        });
-        return { docs: [], responseMessage };
+        docs.push(...resolvedFiles);
       }
     }
 
     if (args.files) {
-      for (const file of args.files) {
-        const trimmedPath = file.path.trim();
+      for (const filePath of args.files) {
+        const trimmedPath = filePath.trim();
         if (trimmedPath) {
           docs.push({ path: trimmedPath });
         }
@@ -302,6 +284,16 @@ export class VaultMove {
         if (trimmedPath) {
           docs.push({ path: trimmedPath });
         }
+      }
+    }
+
+    if (args.filePatterns) {
+      const patternMatchedPaths = this.agent.obsidianAPITools.resolveFilePatterns(
+        args.filePatterns.patterns,
+        args.filePatterns.folder
+      );
+      for (const path of patternMatchedPaths) {
+        docs.push({ path });
       }
     }
 

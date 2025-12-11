@@ -28,10 +28,12 @@ ${formatCurrentArtifacts(args.currentArtifacts)}
 GUIDELINES:
 - Always reason step-by-step: First, understand the user's query. Then, break it down into subtasks. Finally, map subtasks to the sequence of commands needed.
 - For generating tasks (generate), include "read" or "search" if you need more information (e.g., to check note content before generating).
-- For editing tasks (move, copy, update, delete), ensure there is a relevant artifact; infer it from context, or use "search" or "read" command to find it.
+- For editing tasks (update), ensure there is a relevant artifact; infer it from context, or use "read" command to find it.
   - Type 1: Editing from content that is already given in the user's query. For this, including the "generate" command is enough.
-  - Type 2: Editing from content that is the result of the "read" or "search" commands (these results are stored as artifacts). For this, first use "read" or "search" to obtain the artifacts, then include "generate" if needed, then include "vault" (with appropriate tools) or "update_from_artifact" to perform the actual update to the note(s)
-- Each command/agent name can include an URL query-like to activate related tools, e.g. 'vault?tools=list,rename'.
+  - Type 2: Editing from content that is the result of the "read" command (The result is stored as artifacts). For this, first use "read" to obtain the artifacts, then include "generate" if needed, then include "update_from_artifact" to perform the actual update to the note(s)
+- For vault management tasks (list, create, delete, copy, move, rename, update_frontmatter), include "vault" agent (with appropriate tools) is enough.
+
+NOTE:
 - This is a one-round extraction, so ensure you include all necessary commands to fulfill the user's query.`;
 
   if (args.isReasoning) {

@@ -283,7 +283,17 @@ export class ConversationRenderer {
                 .withTitle(params.conversationTitle)
                 .getArtifactById(artifactId);
               if (artifact) {
-                resolvedResult = artifact;
+                // If the artifact is marked as deleted, then skip sending data, return the deleteReason instead
+                if (artifact.deleteReason) {
+                  resolvedResult = {
+                    id: artifact.id,
+                    artifactType: artifact.artifactType,
+                    status: 'deleted',
+                    deleteReason: artifact.deleteReason,
+                  };
+                } else {
+                  resolvedResult = artifact;
+                }
               } else {
                 logger.error(`Artifact not found: ${artifactId}`);
                 resolvedResult = null;
@@ -292,7 +302,8 @@ export class ConversationRenderer {
               const messageId = result.substring('messageRef:'.length);
               const referencedMessage = await this.getMessageById(
                 params.conversationTitle,
-                messageId
+                messageId,
+                true // Exclude tool-hidden content when resolving message references
               );
               if (referencedMessage) {
                 resolvedResult = referencedMessage.content;
@@ -893,14 +904,30 @@ export class ConversationRenderer {
   }
 
   /**
+   * Removes content marked with <!--stw-tool-hidden-start--> and <!--stw-tool-hidden-end-->
+   * from the message content. This content is visible in reading view but excluded from
+   * tool call results.
+   * @param content The message content to filter
+   * @returns The filtered content with tool-hidden sections removed
+   */
+  private removeToolHiddenContent(content: string): string {
+    // Match content between <!--stw-tool-hidden-start--> and <!--stw-tool-hidden-end-->
+    // Using non-greedy match to handle multiple sections
+    const toolHiddenRegex = /<!--stw-tool-hidden-start-->[\s\S]*?<!--stw-tool-hidden-end-->/g;
+    return content.replace(toolHiddenRegex, '').trim();
+  }
+
+  /**
    * Gets a specific message by ID from a conversation
    * @param conversationTitle The title of the conversation
    * @param messageId The ID of the message to retrieve
+   * @param excludeToolHidden If true, removes content marked with tool-hidden markers
    * @returns The conversation message, or null if not found
    */
   public async getMessageById(
     conversationTitle: string,
-    messageId: string
+    messageId: string,
+    excludeToolHidden = false
   ): Promise<ConversationMessage | null> {
     try {
       // Get the conversation file
@@ -973,6 +1000,11 @@ export class ConversationRenderer {
 
       // Remove loading indicators
       messageContent = messageContent.replace(/\*.*?\.\.\.\*$/gm, '');
+
+      // Remove tool-hidden content if requested (for tool call results)
+      if (excludeToolHidden) {
+        messageContent = this.removeToolHiddenContent(messageContent);
+      }
 
       // Convert role from 'steward' to 'assistant'
       const role = metadata.ROLE === 'steward' ? 'assistant' : metadata.ROLE;

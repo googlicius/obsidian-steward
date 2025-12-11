@@ -7,15 +7,14 @@ import type VaultAgent from './VaultAgent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 
 const createToolSchema = z.object({
+  folder: z.string().min(1).describe('The folder path where the notes will be created.'),
   notes: z
     .array(
       z.object({
-        filePath: z
+        fileName: z
           .string()
           .min(1)
-          .describe(
-            'The full path (including file name) for the note to create. Include the .md extension.'
-          ),
+          .describe('The file name for the note to create. Include the .md extension.'),
         content: z
           .string()
           .optional()
@@ -32,39 +31,36 @@ const createToolSchema = z.object({
 export type CreateToolArgs = z.infer<typeof createToolSchema>;
 
 export type CreateNoteInstruction = {
-  filePath: string;
+  fileName: string;
   content?: string;
 };
 
 export type CreatePlan = {
+  folder: string;
   notes: CreateNoteInstruction[];
   explanation: string;
 };
 
 function executeCreateToolArgs(args: CreateToolArgs): CreatePlan {
   const normalizedNotes: CreateNoteInstruction[] = [];
+  // Normalize folder path: trim, normalize slashes, remove leading/trailing slashes
+  const trimmedFolder = args.folder.trim();
+  const folder = trimmedFolder.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 
   for (const note of args.notes) {
-    const trimmedPath = note.filePath.trim();
-    const filePath = trimmedPath.endsWith('.md') ? trimmedPath : `${trimmedPath}.md`;
+    const trimmedFileName = note.fileName.trim();
+    const fileName = trimmedFileName.endsWith('.md') ? trimmedFileName : `${trimmedFileName}.md`;
 
     normalizedNotes.push({
-      filePath,
+      fileName,
       content: note.content && note.content.trim().length > 0 ? note.content : undefined,
     });
   }
 
   return {
+    folder,
     notes: normalizedNotes,
     explanation: args.explanation,
-  };
-}
-
-export function createCreateTool() {
-  return {
-    createSchema: createToolSchema,
-    createTool: tool({ parameters: createToolSchema }),
-    execute: executeCreateToolArgs,
   };
 }
 
@@ -87,14 +83,19 @@ export class VaultCreate {
     const createdNotes: string[] = [];
     const createdNoteLinks: string[] = [];
     const errors: string[] = [];
+    const { plan } = params;
 
-    for (const note of params.plan.notes) {
-      const newNotePath = note.filePath;
+    // Ensure folder exists
+    await this.agent.obsidianAPITools.ensureFolderExists(plan.folder);
 
-      if (!newNotePath) {
-        errors.push('Note path is missing');
+    for (const note of plan.notes) {
+      if (!note.fileName) {
+        errors.push('Note file name is missing');
         continue;
       }
+
+      // Build full path: folder/fileName
+      const newNotePath = `${plan.folder}/${note.fileName}`;
 
       try {
         await this.agent.app.vault.create(newNotePath, '');
@@ -179,15 +180,24 @@ export class VaultCreate {
 
     if (!intent?.no_confirm) {
       let message = `${t('create.confirmMessage', { count: plan.notes.length })}\n`;
+      message += `\n*Folder:* \`${plan.folder}\`\n`;
 
       for (const note of plan.notes) {
-        const notePath = note.filePath ? note.filePath : '';
-        if (notePath) {
-          message += `- \`${notePath}\`\n`;
-        }
+        const fullPath = `${plan.folder}/${note.fileName}`;
+        message += `- \`${fullPath}\`\n`;
       }
 
       message += `\n${t('create.confirmPrompt')}`;
+
+      await this.agent.renderer.updateConversationNote({
+        path: title,
+        newContent: message,
+        role: 'Steward',
+        agent: 'vault',
+        command: 'vault_create',
+        lang,
+        handlerId,
+      });
 
       return {
         status: IntentResultStatus.NEEDS_CONFIRMATION,
@@ -286,7 +296,7 @@ export class VaultCreate {
         resultMessage += '\n\n';
       }
 
-      let errorsBlock = '*Errors:*\n';
+      let errorsBlock = `*${t('create.errors')}*\n`;
       for (const errorMessage of creationResult.errors) {
         errorsBlock += `- ${errorMessage}\n`;
       }

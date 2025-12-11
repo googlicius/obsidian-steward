@@ -5,23 +5,33 @@ import { ArtifactType } from 'src/solutions/artifact';
 import type VaultAgent from './VaultAgent';
 import { ToolInvocation } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { logger } from 'src/utils/logger';
+import { DataAwarenessAgent } from '../DataAwarenessAgent';
+
+const renamesSchema = z.array(
+  z.object({
+    path: z.string().min(1).describe('The full path of the file to rename.'),
+    newPath: z.string().min(1).describe('The new full path for the renamed file.'),
+  })
+);
 
 const renameToolSchema = z.object({
-  files: z
-    .array(
-      z.object({
-        path: z
-          .string()
-          .min(1)
-          .describe('The full path (including extension) of the file to rename.'),
-        newPath: z
-          .string()
-          .min(1)
-          .describe('The new full path (including extension) for the renamed file.'),
-      })
-    )
-    .min(1, { message: 'Provide at least one file to rename.' })
-    .describe('List of files to rename along with their destination paths.'),
+  files: renamesSchema.optional()
+    .describe(`List of files to rename along with their destination paths.
+DO NOT use this for a paginated list, where the files number is smaller than the total count.`),
+  delegateToAgent: z
+    .object({
+      artifactId: z.string().min(1).describe('ID of the artifact containing files to rename.'),
+      query: z
+        .string()
+        .min(1)
+        .describe('Query describing what rename operations to perform on the files.'),
+    })
+    .optional()
+    .describe(
+      `Delegate to DataAwarenessAgent to process files in small batches from an artifact. Use this for large file sets to avoid token limits.
+- Use this when: 1. Provided artifact ID (By user, tool call results), 2. The files is a part of a larger list.`
+    ),
   explanation: z
     .string()
     .min(1)
@@ -30,10 +40,7 @@ const renameToolSchema = z.object({
 
 export type RenameToolArgs = z.infer<typeof renameToolSchema>;
 
-type RenameInstruction = {
-  path: string;
-  newPath: string;
-};
+type RenameInstructions = z.infer<typeof renamesSchema>;
 
 type RenameOperationResult = {
   renamed: Array<{ from: string; to: string }>;
@@ -45,11 +52,28 @@ type RenameOperationResult = {
 
 export class VaultRename {
   private static readonly renameTool = tool({ parameters: renameToolSchema });
+  private _dataAwarenessAgent: DataAwarenessAgent;
 
   constructor(private readonly agent: VaultAgent) {}
 
   public static getRenameTool() {
     return VaultRename.renameTool;
+  }
+
+  private get dataAwarenessAgent(): DataAwarenessAgent {
+    if (!this._dataAwarenessAgent) {
+      this._dataAwarenessAgent = new DataAwarenessAgent({
+        plugin: this.agent.plugin,
+        systemPrompt: `You are a helpful assistant that analyzes files to determine appropriate new names for renaming operations.`,
+        responseSchema: renamesSchema,
+        extractResults: <T>(object: unknown): T[] => {
+          // The response schema is an array, so we expect an array directly
+          return object as T[];
+        },
+      });
+    }
+
+    return this._dataAwarenessAgent;
   }
 
   public async handle(
@@ -75,6 +99,29 @@ export class VaultRename {
       lang,
       handlerId,
     });
+
+    // Handle delegation to DataAwarenessAgent
+    if (toolCall.args.delegateToAgent) {
+      return this.handleDataAwarenessDelegation(params, {
+        toolCall,
+      });
+    }
+
+    // Validate that files are provided when not delegating
+    if (!toolCall.args.files || toolCall.args.files.length === 0) {
+      const message = t('rename.noInstructions');
+      await this.respondAndSerializeRename({
+        title,
+        content: message,
+        toolCall,
+        lang,
+        handlerId,
+      });
+      return {
+        status: IntentResultStatus.ERROR,
+        error: new Error(message),
+      };
+    }
 
     const normalization = this.normalizeInstructions({ files: toolCall.args.files });
     if (normalization.hasInvalid) {
@@ -154,11 +201,15 @@ export class VaultRename {
   }
 
   private normalizeInstructions(params: { files: RenameToolArgs['files'] }): {
-    instructions: RenameInstruction[];
+    instructions: RenameInstructions;
     hasInvalid: boolean;
   } {
-    const instructions: RenameInstruction[] = [];
+    const instructions: RenameInstructions = [];
     let hasInvalid = false;
+
+    if (!params.files) {
+      return { instructions, hasInvalid: true };
+    }
 
     for (const entry of params.files) {
       const normalizedPath = this.normalizePath(entry.path);
@@ -182,7 +233,7 @@ export class VaultRename {
     return path.trim().replace(/\\/g, '/').replace(/\/+/g, '/');
   }
 
-  private collectMissingFolders(params: { instructions: RenameInstruction[] }): string[] {
+  private collectMissingFolders(params: { instructions: RenameInstructions }): string[] {
     const missingFolders = new Set<string>();
 
     for (const instruction of params.instructions) {
@@ -211,7 +262,7 @@ export class VaultRename {
   }
 
   private async executeRenameOperations(params: {
-    instructions: RenameInstruction[];
+    instructions: RenameInstructions;
     lang?: string | null;
   }): Promise<RenameOperationResult> {
     const { instructions, lang } = params;
@@ -279,9 +330,12 @@ export class VaultRename {
 
     if (renamed.length > 0) {
       response += `\n\n**${t('rename.success', { count: renamed.length })}**`;
+      // Wrap the list of renames in a tool-hidden section, we don't need to send it to the tool call result
+      response += `\n<!--stw-tool-hidden-start-->`;
       for (const entry of renamed) {
         response += `\n- [[${entry.from}]] → [[${entry.to}]]`;
       }
+      response += `\n<!--stw-tool-hidden-end-->`;
     }
 
     if (skippedSamePath.length > 0) {
@@ -368,7 +422,7 @@ export class VaultRename {
   private async finishRename(
     params: AgentHandlerParams,
     options: {
-      instructions: RenameInstruction[];
+      instructions: RenameInstructions;
       toolCall: ToolInvocation<unknown, RenameToolArgs>;
     }
   ): Promise<AgentResult> {
@@ -425,5 +479,92 @@ export class VaultRename {
     return {
       status: IntentResultStatus.SUCCESS,
     };
+  }
+
+  /**
+   * Handle delegation to DataAwarenessAgent for processing files from an artifact
+   */
+  private async handleDataAwarenessDelegation(
+    params: AgentHandlerParams,
+    options: {
+      toolCall: ToolInvocation<unknown, RenameToolArgs>;
+    }
+  ): Promise<AgentResult> {
+    const { title, lang } = params;
+    const handlerId = params.handlerId;
+    const { toolCall } = options;
+
+    if (!handlerId) {
+      throw new Error('VaultRename.handleDataAwarenessDelegation invoked without handlerId');
+    }
+
+    if (!toolCall.args.delegateToAgent) {
+      throw new Error('delegateToAgent is required for handleDataAwarenessDelegation');
+    }
+
+    const artifactId = toolCall.args.delegateToAgent.artifactId;
+    const query = toolCall.args.delegateToAgent.query;
+
+    const t = getTranslation(lang);
+
+    try {
+      const result = await this.dataAwarenessAgent.process({
+        query,
+        artifactId,
+        title,
+        parallel: false,
+        lang,
+        handlerId,
+        model: params.intent.model,
+      });
+
+      if (result.failedFiles.length > 0) {
+        logger.warn('DataAwarenessAgent processing errors:', result.failedFiles);
+      }
+
+      if (result.results.length === 0) {
+        const message = t('rename.noInstructions');
+        await this.respondAndSerializeRename({
+          title,
+          content: message,
+          toolCall,
+          lang,
+          handlerId,
+        });
+        return {
+          status: IntentResultStatus.ERROR,
+          error: new Error(message),
+        };
+      }
+
+      // Convert results to rename instructions format
+      type RenameResult = { path: string; newPath: string };
+      const instructions: RenameInstructions = (result.results as RenameResult[]).map(item => ({
+        path: item.path,
+        newPath: item.newPath,
+      }));
+
+      return this.finishRename(params, { instructions, toolCall });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('Error in DataAwarenessAgent delegation:', error);
+
+      const message = `${t('common.errorProcessingCommand', {
+        commandType: 'rename',
+        errorMessage,
+      })}`;
+      await this.respondAndSerializeRename({
+        title,
+        content: message,
+        toolCall,
+        lang,
+        handlerId,
+      });
+
+      return {
+        status: IntentResultStatus.ERROR,
+        error: new Error(errorMessage),
+      };
+    }
   }
 }

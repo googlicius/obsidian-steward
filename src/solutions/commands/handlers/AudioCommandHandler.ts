@@ -108,17 +108,6 @@ export class AudioCommandHandler extends CommandHandler {
             mediaType: 'audio',
           },
         });
-
-        // await this.renderer.updateConversationNote({
-        //   path: title,
-        //   newContent: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
-        //   artifactContent: result.filePath,
-        //   command: 'audio',
-        //   role: {
-        //     name: 'Assistant',
-        //     showLabel: false,
-        //   },
-        // });
       }
 
       return {
