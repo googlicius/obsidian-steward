@@ -44,7 +44,7 @@ Final content`;
 
       const args: GrepArgs = {
         paths: ['test-file.md'],
-        pattern: 'test',
+        contentPattern: 'test',
         explanation: 'Looking for test occurrences',
       };
 
@@ -64,7 +64,7 @@ Final content`;
             toLine: 3,
           },
         ],
-        pattern: 'test',
+        contentPattern: 'test',
         totalMatches: 2,
       });
     });
@@ -82,7 +82,7 @@ line pattern to find`;
 
       const args: GrepArgs = {
         paths: ['test-file.md'],
-        pattern: 'multi\nline',
+        contentPattern: 'multi\nline',
         explanation: 'Looking for patterns with actual newlines',
       };
 
@@ -102,7 +102,7 @@ line pattern to find`;
             toLine: 6,
           },
         ],
-        pattern: 'multi\nline',
+        contentPattern: 'multi\nline',
         totalMatches: 2,
       });
     });
@@ -113,7 +113,7 @@ line pattern to find`;
 
       const args: GrepArgs = {
         paths: ['non-existent-file.md'],
-        pattern: 'test',
+        contentPattern: 'test',
         explanation: 'Testing file not found',
       };
 
@@ -122,7 +122,7 @@ line pattern to find`;
           error: 'Note not found: non-existent-file.md',
           filePath: 'non-existent-file.md',
           matches: [],
-          pattern: 'test',
+          contentPattern: 'test',
           totalMatches: 0,
         },
       });
@@ -355,7 +355,7 @@ More content here`;
 
       const args: GrepArgs = {
         paths: ['test-file.md'],
-        pattern: 'test',
+        contentPattern: 'test',
         explanation: 'Searching for test pattern',
       };
 

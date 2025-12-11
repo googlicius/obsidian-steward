@@ -7,6 +7,7 @@ const ja = {
       noToolCallFound: 'ツールコールが見つかりませんでした。',
       lowConfidenceConfirmation: 'このリクエストについては、十分に確信できません。続行しますか？',
       artifactCreated: 'アーティファクト {{type}} が作成されました',
+      artifactNotFound: 'アーティファクト ID "{{artifactId}}" が見つかりませんでした。',
       availableCommands: '利用可能なコマンド',
       builtInCommands: '組み込みコマンド',
       builtInCommandsDesc: 'これらのコマンドは /&lt;command&gt を通じて直接利用できます',
@@ -92,6 +93,9 @@ const ja = {
       tooManyFilesConfirm: '{{count}}件のファイルをコピーします。よろしいですか？',
       cannotCopyThisType: 'この種類のアーティファクトはコピーできません: {{type}}',
     },
+    activateTools: {
+      invalidTools: '無効なツール: `{{tools}}`',
+    },
     rename: {
       processed: '{{count}}件のリネーム指示を処理しました。',
       success: '{{count}}件のファイル名をリネームしました：',
@@ -109,6 +113,7 @@ const ja = {
     create: {
       success: '{{count}}件のノートを作成しました: {{noteNames}}',
       creatingNote: 'ノートを作成中: [[{{noteName}}]]',
+      errors: 'エラー:',
     },
     list: {
       noFilesFound: 'ファイルは見つかりませんでした。',
@@ -116,6 +121,8 @@ const ja = {
       foundFiles: '{{count}} 件のファイルを見つけました',
       foundFilesInFolder: '{{folder}} で {{count}} 件のファイルを見つけました',
       moreFiles: '... さらに {{count}} 件のファイルがあります',
+      fullListAvailableInArtifact:
+        '完全なリストはアーティファクト ID: {{artifactId}} で利用可能です',
     },
     grep: {
       found: '{{count}} 件のパスが見つかりました：',
@@ -279,6 +286,7 @@ const ja = {
       buildingIndex: '検索インデックスを構築中...',
       summarizing: '会話を要約中...',
       continuingProcessing: '処理を続行中...',
+      processingBatch: 'バッチ {{current}}/{{total}} を処理中...',
     },
     // Model fallback messages
     modelFallback: {

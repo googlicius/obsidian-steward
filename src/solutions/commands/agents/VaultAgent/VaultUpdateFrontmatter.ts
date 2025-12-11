@@ -7,6 +7,12 @@ import { logger } from 'src/utils/logger';
 import type VaultAgent from './VaultAgent';
 import { ToolInvocation } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import {
+  createArtifactIdSchema,
+  createFilesSchemaString,
+  createFilePatternsSchema,
+  createExplanationSchema,
+} from './vaultOperationSchemas';
 
 const frontmatterPropertySchema = z
   .object({
@@ -22,51 +28,69 @@ const frontmatterPropertySchema = z
 
 const updateFrontmatterToolSchema = z
   .object({
-    artifactId: z
-      .string()
-      .min(1)
-      .optional()
-      .describe('The artifact identifier containing files to update frontmatter for.'),
-    files: z
-      .array(z.string().min(1))
-      .optional()
-      .refine(array => !array || array.length > 0, {
-        message: 'files array must include at least one entry when provided.',
-      })
-      .describe('The list of file paths (including extension) to update frontmatter for.'),
+    artifactId: createArtifactIdSchema({
+      description: 'The artifact identifier containing files to update frontmatter for.',
+    }),
+    files: createFilesSchemaString({
+      description: 'The list of file paths (including extension) to update frontmatter for.',
+    }),
     folders: z
-      .array(z.string().min(1))
-      .optional()
-      .refine(array => !array || array.length > 0, {
-        message: 'folders array must include at least one entry when provided.',
+      .object({
+        paths: z
+          .array(z.string().min(1))
+          .min(1)
+          .describe(
+            'The list of folder paths to update frontmatter for all markdown files within.'
+          ),
+        recursive: z
+          .boolean()
+          .default(false)
+          .describe(
+            'Whether to recursively process subfolders. Use only when the user EXPLICITLY requests it. Defaults to false.'
+          ),
       })
+      .optional()
       .describe(
-        'The list of folder paths to update frontmatter for all markdown files within. Use recursive to include subfolders only when the user EXPLICITLY requests it.'
+        'Folder-based file selection. Processes all markdown files within the specified folders.'
       ),
-    recursive: z
-      .boolean()
-      .default(false)
-      .describe(
-        'Whether to recursively process subfolders when folders are specified. Defaults to false.'
-      ),
+    filePatterns: createFilePatternsSchema({
+      description:
+        'Pattern-based file selection for large file sets. Prefer this over the files array to avoid token limits.',
+      patternsDescription: 'Array of RegExp patterns to match files for updating frontmatter.',
+    }),
     properties: z
       .array(frontmatterPropertySchema)
       .min(1)
       .describe(
         'The list of frontmatter properties to add, update, or delete for all specified files.'
       ),
-    explanation: z
-      .string()
-      .min(1)
-      .describe('A short explanation of why these frontmatter changes are being made.'),
+    explanation: createExplanationSchema({
+      description: 'A short explanation of why these frontmatter changes are being made.',
+    }),
   })
   .refine(
     data =>
       Boolean(data.artifactId) ||
       Boolean(data.files && data.files.length > 0) ||
-      Boolean(data.folders && data.folders.length > 0),
+      Boolean(data.folders && data.folders.paths && data.folders.paths.length > 0) ||
+      Boolean(
+        data.filePatterns && data.filePatterns.patterns && data.filePatterns.patterns.length > 0
+      ),
     {
-      message: 'Provide either artifactId, files, or folders.',
+      message: 'Provide either artifactId, files, folders, or filePatterns.',
+    }
+  )
+  .refine(
+    data =>
+      !(
+        data.files &&
+        data.files.length > 0 &&
+        data.filePatterns &&
+        data.filePatterns.patterns &&
+        data.filePatterns.patterns.length > 0
+      ),
+    {
+      message: 'Provide either files or filePatterns, not both.',
     }
   );
 
@@ -173,7 +197,7 @@ export class VaultUpdateFrontmatter {
       title,
       handlerId,
       toolCall,
-      result: `artifactRef:${artifactId}`,
+      result: formattedMessage,
     });
 
     return {
@@ -208,85 +232,66 @@ export class VaultUpdateFrontmatter {
     const { title, toolCall, lang, handlerId } = params;
     const t = getTranslation(lang);
 
-    const artifactFilePaths: string[] = [];
-    let noFilesMessage = t('common.noFilesFound');
-
-    if (toolCall.args.artifactId) {
-      const artifact = await this.agent.plugin.artifactManagerV2
-        .withTitle(title)
-        .getArtifactById(toolCall.args.artifactId);
-
-      if (!artifact) {
-        logger.error(`Update frontmatter tool artifact not found: ${toolCall.args.artifactId}`);
-        noFilesMessage = t('common.noRecentOperations');
-      } else if (artifact.artifactType === ArtifactType.SEARCH_RESULTS) {
-        for (const result of artifact.originalResults) {
-          artifactFilePaths.push(result.document.path);
-        }
-      } else if (artifact.artifactType === ArtifactType.CREATED_NOTES) {
-        for (const path of artifact.paths) {
-          artifactFilePaths.push(path);
-        }
-      } else {
-        const message = t('frontmatter.cannotUpdateThisType', { type: artifact.artifactType });
-
-        const messageId = await this.agent.renderer.updateConversationNote({
-          path: title,
-          newContent: message,
-          agent: 'vault',
-          command: 'vault_update_frontmatter',
-          lang,
-          handlerId,
-          includeHistory: false,
-        });
-
-        await this.serializeUpdateInvocation({
-          title,
-          handlerId,
-          toolCall,
-          result: messageId ? `messageRef:${messageId}` : message,
-        });
-
-        return { files: [], errorMessage: message };
-      }
-    }
+    const noFilesMessage = t('common.noFilesFound');
 
     // Determine which files to update
     let filePathsToUpdate: string[] = [];
 
     if (toolCall.args.artifactId) {
-      // If artifactId is provided, use all files from the artifact
-      filePathsToUpdate = [...artifactFilePaths];
-    } else {
-      // Collect files from files array
-      if (toolCall.args.files) {
-        for (const filePath of toolCall.args.files) {
-          const trimmedPath = filePath.trim();
-          if (trimmedPath) {
-            filePathsToUpdate.push(trimmedPath);
-          }
+      const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(title);
+      const resolvedFiles = await artifactManager.resolveFilesFromArtifact(
+        toolCall.args.artifactId
+      );
+
+      if (resolvedFiles.length > 0) {
+        // Extract paths from DocWithPath objects
+        filePathsToUpdate.push(...resolvedFiles.map(file => file.path));
+      }
+    }
+
+    // Collect files from files array
+    if (toolCall.args.files) {
+      for (const filePath of toolCall.args.files) {
+        const trimmedPath = filePath.trim();
+        if (trimmedPath) {
+          filePathsToUpdate.push(trimmedPath);
         }
       }
+    }
 
-      // Collect files from folders array
-      if (toolCall.args.folders) {
-        const recursive = toolCall.args.recursive ?? false;
-        for (const folderPath of toolCall.args.folders) {
-          const trimmedPath = folderPath.trim();
-          if (!trimmedPath) {
-            continue;
-          }
+    // Collect files from folders
+    if (toolCall.args.folders) {
+      const recursive = toolCall.args.folders.recursive ?? false;
+      for (const folderPath of toolCall.args.folders.paths) {
+        const trimmedPath = folderPath.trim();
+        if (!trimmedPath) {
+          continue;
+        }
 
-          const folder = this.agent.app.vault.getFolderByPath(trimmedPath);
-          if (!folder) {
-            logger.warn(`Folder not found: ${trimmedPath}`);
-            continue;
-          }
+        const folder = this.agent.app.vault.getFolderByPath(trimmedPath);
+        if (!folder) {
+          logger.warn(`Folder not found: ${trimmedPath}`);
+          continue;
+        }
 
-          const markdownFiles = this.getMarkdownFilesFromFolder(folder, recursive);
-          for (const file of markdownFiles) {
-            filePathsToUpdate.push(file.path);
-          }
+        const markdownFiles = this.getMarkdownFilesFromFolder(folder, recursive);
+        for (const file of markdownFiles) {
+          filePathsToUpdate.push(file.path);
+        }
+      }
+    }
+
+    // Collect files from filePatterns
+    if (toolCall.args.filePatterns) {
+      const patternMatchedPaths = this.agent.obsidianAPITools.resolveFilePatterns(
+        toolCall.args.filePatterns.patterns,
+        toolCall.args.filePatterns.folder
+      );
+      // Only include markdown files from patterns
+      for (const path of patternMatchedPaths) {
+        const file = this.agent.app.vault.getFileByPath(path);
+        if (file && file.extension === 'md') {
+          filePathsToUpdate.push(path);
         }
       }
     }
@@ -404,17 +409,19 @@ export class VaultUpdateFrontmatter {
     const t = getTranslation(lang);
 
     const totalCount = updated.length + failed.length;
-    let response = t('frontmatter.foundFiles', { count: totalCount });
+    let response = t('update.foundFiles', { count: totalCount });
 
     if (updated.length > 0) {
-      response += `\n\n**${t('frontmatter.successfullyUpdated', { count: updated.length })}**`;
+      response += `\n\n**${t('update.successfullyUpdated', { count: updated.length })}**`;
+      response += `\n<!--stw-tool-hidden-start-->`;
       for (const filePath of updated) {
         response += `\n- [[${filePath}]]`;
       }
+      response += `\n<!--stw-tool-hidden-end-->`;
     }
 
     if (failed.length > 0) {
-      response += `\n\n**${t('frontmatter.failed', { count: failed.length })}**`;
+      response += `\n\n**${t('update.failed', { count: failed.length })}**`;
       for (const failure of failed) {
         response += `\n- [[${failure.path}]]: ${failure.error}`;
       }

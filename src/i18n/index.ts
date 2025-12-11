@@ -35,6 +35,6 @@ updateLanguageAttribute(i18next.language);
 export default i18next;
 
 // Utility function to get the translation function for a specific language
-export function getTranslation(lang: string | null = 'en') {
+export function getTranslation(lang: string | null = obsidianLang) {
   return i18next.getFixedT(lang || 'en');
 }

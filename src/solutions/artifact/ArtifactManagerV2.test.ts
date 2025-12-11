@@ -213,4 +213,308 @@ describe('ArtifactManagerV2', () => {
       ]);
     });
   });
+
+  describe('removeArtifact', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      // Clear static instances to avoid test interference
+      (
+        ArtifactManagerV2 as unknown as { withTitleInstances: Map<string, ArtifactManagerV2> }
+      ).withTitleInstances?.clear();
+    });
+
+    it('should remove artifact between messages', async () => {
+      const artifactId = 'artifact123';
+      const mockContent = [
+        '<!--STW ID:msg1,ROLE:user-->',
+        'User message 1',
+        '',
+        '<!--STW ID:msg2,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->',
+        '*Artifact created*',
+        '```stw-artifact',
+        `{"artifactType":"read_content","id":"${artifactId}","readingResult":{"blocks":[]}}`,
+        '```',
+        '',
+        '<!--STW ID:msg3,ROLE:user-->',
+        'User message 2',
+        '',
+      ].join('\n');
+
+      const expectedModifiedContent = [
+        '<!--STW ID:msg1,ROLE:user-->',
+        'User message 1',
+        '',
+        '<!--STW ID:msg3,ROLE:user-->',
+        'User message 2',
+        '',
+      ].join('\n');
+
+      mockPlugin = createMockPlugin(mockContent);
+
+      // Update cachedRead to return modified content after modify is called
+      (mockPlugin.app.vault.modify as jest.Mock).mockImplementation(async (file, content) => {
+        (mockPlugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
+      });
+
+      artifactManager = ArtifactManagerV2.getInstance(mockPlugin);
+      const manager = artifactManager.withTitle('Test Conversation');
+
+      // Load artifacts into cache first
+      await manager.getAllArtifacts(true);
+
+      // Remove the artifact
+      const result = await manager.removeArtifact(artifactId);
+
+      expect(result).toBe(true);
+
+      // Verify the modified content
+      const modifyCall = (mockPlugin.app.vault.modify as jest.Mock).mock.calls[0];
+      const modifiedContent = modifyCall[1];
+
+      expect(modifiedContent).toBe(expectedModifiedContent);
+
+      // Verify cache was updated - should be empty after removal
+      const artifacts = await manager.getAllArtifacts();
+      expect(artifacts).toHaveLength(0);
+    });
+
+    it('should remove artifact has ID is a message ID', async () => {
+      const artifactId = 'artifact123';
+      const mockContent = [
+        '<!--STW ID:msg1,ROLE:user-->',
+        'User message 1',
+        '',
+        `<!--STW ID:${artifactId},ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->`,
+        '*Artifact created*',
+        '```stw-artifact',
+        `{"artifactType":"read_content","readingResult":{"blocks":[]}}`,
+        '```',
+        '',
+        '<!--STW ID:msg3,ROLE:user-->',
+        'User message 2',
+        '',
+      ].join('\n');
+
+      const expectedModifiedContent = [
+        '<!--STW ID:msg1,ROLE:user-->',
+        'User message 1',
+        '',
+        '<!--STW ID:msg3,ROLE:user-->',
+        'User message 2',
+        '',
+      ].join('\n');
+
+      mockPlugin = createMockPlugin(mockContent);
+
+      // Update cachedRead to return modified content after modify is called
+      (mockPlugin.app.vault.modify as jest.Mock).mockImplementation(async (file, content) => {
+        (mockPlugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
+      });
+
+      artifactManager = ArtifactManagerV2.getInstance(mockPlugin);
+      const manager = artifactManager.withTitle('Test Conversation');
+
+      // Load artifacts into cache first
+      await manager.getAllArtifacts(true);
+
+      // Remove the artifact
+      const result = await manager.removeArtifact(artifactId);
+
+      expect(result).toBe(true);
+
+      // Verify the modified content
+      const modifyCall = (mockPlugin.app.vault.modify as jest.Mock).mock.calls[0];
+      const modifiedContent = modifyCall[1];
+
+      expect(modifiedContent).toBe(expectedModifiedContent);
+    });
+
+    it('should remove artifact as the last message', async () => {
+      const artifactId = 'artifact456';
+      const mockContent = [
+        '<!--STW ID:msg1,ROLE:user-->',
+        'User message 1',
+        '',
+        '<!--STW ID:msg2,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->',
+        '*Artifact created*',
+        '```stw-artifact',
+        `{"artifactType":"read_content","id":"${artifactId}","readingResult":{"blocks":[]}}`,
+        '```',
+      ].join('\n');
+
+      mockPlugin = createMockPlugin(mockContent);
+      // Ensure cachedRead returns the content each time it's called
+      (mockPlugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(mockContent);
+
+      // Update cachedRead to return modified content after modify is called
+      (mockPlugin.app.vault.modify as jest.Mock).mockImplementation(async (file, content) => {
+        (mockPlugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
+      });
+
+      artifactManager = ArtifactManagerV2.getInstance(mockPlugin);
+      const manager = artifactManager.withTitle('Test Conversation');
+
+      // Load artifacts into cache first
+      await manager.getAllArtifacts(true);
+
+      // Remove the artifact
+      const result = await manager.removeArtifact(artifactId);
+
+      expect(result).toBe(true);
+      expect(mockPlugin.app.vault.modify).toHaveBeenCalledTimes(1);
+
+      // Verify the modified content
+      const modifyCall = (mockPlugin.app.vault.modify as jest.Mock).mock.calls[0];
+      const modifiedContent = modifyCall[1];
+
+      expect(modifiedContent).toBe(
+        ['<!--STW ID:msg1,ROLE:user-->', 'User message 1', ''].join('\n')
+      );
+
+      // Verify cache was updated
+      const artifacts = await manager.getAllArtifacts();
+      expect(artifacts).toHaveLength(0);
+    });
+
+    it('should remove artifact with a message below it that has a ref to it', async () => {
+      const artifactId = 'artifact789';
+      const mockContent = [
+        '<!--STW ID:msg1,ROLE:user-->',
+        'User message 1',
+        '',
+        '<!--STW ID:msg2,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->',
+        '*Artifact created*',
+        '```stw-artifact',
+        `{"artifactType":"read_content","id":"${artifactId}","readingResult":{"blocks":[]}}`,
+        '```',
+        '',
+        '<!--STW ID:msg3,ROLE:assistant,COMMAND:revert_delete-->',
+        'Reverting operation...',
+        '```stw-artifact',
+        `[{"toolName":"revert_delete","args":{"artifactId":"${artifactId}"},"result":"artifactRef:${artifactId}"}]`,
+        '```',
+        '',
+      ].join('\n');
+
+      mockPlugin = createMockPlugin(mockContent);
+
+      // Update cachedRead to return modified content after modify is called
+      (mockPlugin.app.vault.modify as jest.Mock).mockImplementation(async (file, content) => {
+        (mockPlugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
+      });
+
+      artifactManager = ArtifactManagerV2.getInstance(mockPlugin);
+      const manager = artifactManager.withTitle('Test Conversation');
+
+      // Load artifacts into cache first
+      await manager.getAllArtifacts(true);
+
+      // Remove the artifact
+      const result = await manager.removeArtifact(artifactId);
+
+      expect(result).toBe(true);
+      expect(mockPlugin.app.vault.modify).toHaveBeenCalledTimes(1);
+
+      // Verify the modified content - the artifact should be removed but the message below with ref should remain
+      const modifyCall = (mockPlugin.app.vault.modify as jest.Mock).mock.calls[0];
+      const modifiedContent = modifyCall[1];
+
+      expect(modifiedContent).toBe(
+        [
+          '<!--STW ID:msg1,ROLE:user-->',
+          'User message 1',
+          '',
+          '<!--STW ID:msg3,ROLE:assistant,COMMAND:revert_delete-->',
+          'Reverting operation...',
+          '```stw-artifact',
+          `[{"toolName":"revert_delete","args":{"artifactId":"${artifactId}"},"result":"artifactRef:${artifactId}"}]`,
+          '```',
+          '',
+        ].join('\n')
+      );
+
+      // Verify cache was updated
+      const artifacts = await manager.getAllArtifacts();
+      expect(artifacts).toHaveLength(0);
+    });
+
+    it('should return false if artifact not found', async () => {
+      const mockContent = ['<!--STW ID:msg1,ROLE:user-->', 'User message 1', ''].join('\n');
+
+      mockPlugin = createMockPlugin(mockContent);
+      artifactManager = ArtifactManagerV2.getInstance(mockPlugin);
+      const manager = artifactManager.withTitle('Test Conversation');
+
+      const result = await manager.removeArtifact('nonexistent');
+
+      expect(result).toBe(false);
+      expect(mockPlugin.app.vault.modify).not.toHaveBeenCalled();
+    });
+
+    it('should mark artifact as deleted with reason when deleteReason is provided', async () => {
+      const artifactId = 'artifact999';
+      const deleteReason = 'Reverted operation';
+      const mockContent = [
+        '<!--STW ID:msg1,ROLE:user-->',
+        'User message 1',
+        '',
+        '<!--STW ID:msg2,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->',
+        '*Artifact created*',
+        '```stw-artifact',
+        `{"artifactType":"read_content","id":"${artifactId}","readingResult":{"blocks":[]}}`,
+        '```',
+        '',
+        '<!--STW ID:msg3,ROLE:user-->',
+        'User message 2',
+        '',
+      ].join('\n');
+
+      const expectedModifiedContent = [
+        '<!--STW ID:msg1,ROLE:user-->',
+        'User message 1',
+        '',
+        '<!--STW ID:msg2,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->',
+        '```stw-artifact',
+        `{"artifactType":"read_content","id":"${artifactId}","readingResult":{"blocks":[]},"deleteReason":"${deleteReason}"}`,
+        '```',
+        '',
+        '<!--STW ID:msg3,ROLE:user-->',
+        'User message 2',
+        '',
+      ].join('\n');
+
+      mockPlugin = createMockPlugin(mockContent);
+      // Update cachedRead to return modified content after modify is called
+      (mockPlugin.app.vault.modify as jest.Mock).mockImplementation(async (file, content) => {
+        (mockPlugin.app.vault.cachedRead as jest.Mock).mockResolvedValue(content);
+      });
+
+      artifactManager = ArtifactManagerV2.getInstance(mockPlugin);
+      const manager = artifactManager.withTitle('Test Conversation');
+
+      // Load artifacts into cache first
+      await manager.getAllArtifacts(true);
+
+      // Mark artifact as deleted with reason
+      const result = await manager.removeArtifact(artifactId, deleteReason);
+
+      expect(result).toBe(true);
+      expect(mockPlugin.app.vault.modify).toHaveBeenCalledTimes(1);
+
+      // Verify the modified content - artifact should be marked as deleted
+      const modifyCall = (mockPlugin.app.vault.modify as jest.Mock).mock.calls[0];
+      const modifiedContent = modifyCall[1];
+
+      expect(modifiedContent).toBe(expectedModifiedContent);
+
+      // Verify cache was updated with deleted artifact structure
+      const artifacts = await manager.getAllArtifacts();
+      expect(artifacts).toHaveLength(1);
+      expect(artifacts[0]).toMatchObject({
+        id: artifactId,
+        artifactType: 'read_content',
+        deleteReason,
+      });
+    });
+  });
 });

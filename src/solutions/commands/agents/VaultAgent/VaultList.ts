@@ -5,6 +5,9 @@ import { getTranslation } from 'src/i18n';
 import type VaultAgent from './VaultAgent';
 import { ToolInvocation } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { ArtifactType } from 'src/solutions/artifact';
+
+const MAX_FILES_TO_SHOW = 10;
 
 const listToolSchema = z.object(
   {
@@ -82,11 +85,30 @@ export class VaultList {
       includeHistory: false,
     });
 
+    const hasMoreFiles = result.files.length > MAX_FILES_TO_SHOW;
+    const artifactId = `list_${Date.now()}`;
+
+    await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+      artifact: {
+        artifactType: ArtifactType.LIST_RESULTS,
+        paths: result.files,
+        id: artifactId,
+        createdAt: Date.now(),
+      },
+    });
+
+    // Build result string: response text + artifact message if files reached max count
+    const t = getTranslation(lang);
+    let resultText = result.response;
+    if (hasMoreFiles) {
+      resultText += `\n\n${t('list.fullListAvailableInArtifact', { artifactId })}`;
+    }
+
     await this.serializeListInvocation({
       title,
       handlerId,
       toolCall,
-      result,
+      result: resultText,
     });
 
     return {
@@ -159,15 +181,22 @@ export class VaultList {
     }
 
     const fileLinks: string[] = [];
-    for (const file of files) {
+    for (let index = 0; index < files.length && index < MAX_FILES_TO_SHOW; index += 1) {
+      const file = files[index];
       fileLinks.push(`- [[${file.path}]]`);
     }
 
+    const moreCount = files.length > MAX_FILES_TO_SHOW ? files.length - MAX_FILES_TO_SHOW : 0;
+
     const headerKey = folderPath ? 'list.foundFilesInFolder' : 'list.foundFiles';
-    const response = `${t(headerKey, {
+    let response = `${t(headerKey, {
       count: files.length,
       folder: folderPath,
     })}:\n\n${fileLinks.join('\n')}`;
+
+    if (moreCount > 0) {
+      response += `\n\n${t('list.moreFiles', { count: moreCount })}`;
+    }
 
     return {
       response,
@@ -194,7 +223,7 @@ export class VaultList {
     title: string;
     handlerId: string;
     toolCall: ToolInvocation<unknown, ListToolArgs>;
-    result: ListToolResult;
+    result: string;
   }): Promise<void> {
     const { title, handlerId, toolCall, result } = params;
 
@@ -206,10 +235,7 @@ export class VaultList {
       toolInvocations: [
         {
           ...toolCall,
-          result: {
-            files: result.files,
-            ...(result.errors && result.errors.length > 0 && { errors: result.errors }),
-          },
+          result,
         },
       ],
     });

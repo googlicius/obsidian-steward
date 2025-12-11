@@ -20,6 +20,7 @@ export enum ArtifactType {
   DELETED_FILES = 'deleted_files',
   UPDATE_FRONTMATTER_RESULTS = 'update_frontmatter_results',
   RENAME_RESULTS = 'rename_results',
+  LIST_RESULTS = 'list_results',
 }
 
 /**
@@ -29,6 +30,7 @@ export interface BaseArtifact {
   artifactType: ArtifactType;
   createdAt?: number; // Timestamp when the artifact was created
   id?: string; // ID of the artifact (usually the message ID that created it)
+  deleteReason?: string;
 }
 
 /**
@@ -142,6 +144,15 @@ export interface RenameResultsArtifact extends BaseArtifact {
   renames: Array<[string, string]>; // Array of [originalPath, renamedPath] pairs
 }
 
+/**
+ * List results artifact
+ * Stores the full list of file paths from a list operation
+ */
+export interface ListResultsArtifact extends BaseArtifact {
+  artifactType: ArtifactType.LIST_RESULTS;
+  paths: string[]; // Full list of file paths
+}
+
 export type Artifact =
   | SearchResultsArtifact
   | CreatedNotesArtifact
@@ -154,7 +165,8 @@ export type Artifact =
   | DeletedFilesArtifact
   | MoveResultsArtifact
   | UpdateFrontmatterResultsArtifact
-  | RenameResultsArtifact;
+  | RenameResultsArtifact
+  | ListResultsArtifact;
 
 export type ArtifactMap = {
   [ArtifactType.SEARCH_RESULTS]: SearchResultsArtifact;
@@ -169,6 +181,7 @@ export type ArtifactMap = {
   [ArtifactType.MOVE_RESULTS]: MoveResultsArtifact;
   [ArtifactType.UPDATE_FRONTMATTER_RESULTS]: UpdateFrontmatterResultsArtifact;
   [ArtifactType.RENAME_RESULTS]: RenameResultsArtifact;
+  [ArtifactType.LIST_RESULTS]: ListResultsArtifact;
 };
 
 /**

@@ -205,18 +205,19 @@ export class SearchCommandHandler extends Agent {
       lang: queryExtraction.lang,
     });
 
-    // Update the conversation note
-    const messageId = await this.renderer.updateConversationNote({
+    // Update the conversation note, user only see the response
+    await this.renderer.updateConversationNote({
       path: title,
       newContent: response,
       role: 'Steward',
       command: 'search',
       lang: queryExtraction.lang,
+      includeHistory: false,
     });
 
     // Store the search results in the artifact manager
-    if (messageId && queryResult.conditionResults.length > 0) {
-      await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+    if (queryResult.conditionResults.length > 0) {
+      const artifactId = await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
         text: `*${t('common.artifactCreated', {
           type: ArtifactType.SEARCH_RESULTS,
         })}*`,
@@ -225,6 +226,43 @@ export class SearchCommandHandler extends Agent {
           originalResults: queryResult.conditionResults,
         },
       });
+
+      // Serialize tool calls
+      if (queryExtraction.toolCall) {
+        const displayedCount = paginatedSearchResult.conditionResults.length;
+        const totalCount = paginatedSearchResult.totalCount;
+        const hasMoreResults = displayedCount < totalCount;
+        const moreCount = hasMoreResults ? totalCount - displayedCount : 0;
+
+        // Build file paths list
+        const filePaths: string[] = [];
+        for (let index = 0; index < displayedCount; index += 1) {
+          const result = paginatedSearchResult.conditionResults[index];
+          filePaths.push(result.document.path);
+        }
+
+        // Build result text similar to VaultList format
+        let resultText = `${t('search.found', { count: totalCount })}\n\n${filePaths.join('\n')}`;
+
+        if (moreCount > 0) {
+          resultText += `\n\n${t('list.moreFiles', { count: moreCount })}`;
+        }
+
+        if (hasMoreResults) {
+          resultText += `\n\n${t('list.fullListAvailableInArtifact', { artifactId })}`;
+        }
+
+        await this.renderer.serializeToolInvocation({
+          path: title,
+          command: 'search',
+          toolInvocations: [
+            {
+              ...queryExtraction.toolCall,
+              result: resultText,
+            },
+          ],
+        });
+      }
     }
 
     return {
@@ -326,7 +364,7 @@ export class SearchCommandHandler extends Agent {
     const abortSignal = this.plugin.abortService.createAbortController('search-query-v2');
 
     // Create tool for search query extraction
-    const searchQueryExtractionTool = tool({
+    const searchTool = tool({
       parameters: searchQueryExtractionSchema,
     });
 
@@ -343,7 +381,7 @@ export class SearchCommandHandler extends Agent {
         { role: 'user', content: intent.query },
       ],
       tools: {
-        extractSearchQuery: searchQueryExtractionTool,
+        search: searchTool,
       },
       toolChoice: 'required',
       onError: ({ error }) => {
@@ -371,20 +409,15 @@ export class SearchCommandHandler extends Agent {
       typeof toolCallsPromise
     >;
 
-    // Find the extractSearchQuery tool call
-    const searchQueryToolCall = toolCalls.find(
-      toolCall => toolCall.toolName === 'extractSearchQuery'
-    );
+    // Find the search tool call
+    const searchToolCall = toolCalls.find(toolCall => toolCall.toolName === 'search');
 
-    if (!searchQueryToolCall) {
+    if (!searchToolCall) {
       throw new Error('No search query extraction tool call found');
     }
 
-    // Extract the result from the tool call args
-    const object = searchQueryToolCall.args;
-
     // Log any empty arrays in operations for debugging
-    object.operations.forEach((op, index) => {
+    searchToolCall.args.operations.forEach((op, index) => {
       if (
         op.keywords.length === 0 &&
         op.filenames.length === 0 &&
@@ -396,12 +429,15 @@ export class SearchCommandHandler extends Agent {
     });
 
     // Repair extraction operations by moving file-related properties to filenames
-    object.operations = this.repairExtractionOperations(object.operations);
+    searchToolCall.args.operations = this.repairExtractionOperations(
+      searchToolCall.args.operations
+    );
 
     return {
-      ...object,
-      lang: object.lang || lang || getLanguage(),
+      ...searchToolCall.args,
+      lang: searchToolCall.args.lang || lang || getLanguage(),
       needsLLM: true,
+      toolCall: searchToolCall,
     };
   }
 

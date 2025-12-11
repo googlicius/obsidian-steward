@@ -91,8 +91,9 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description:
       'Check if files or folders exist, or search for specific text patterns in note content.',
     guidelines: [
-      `Use ${ToolName.GREP} to check if one or many files or folders exist in the vault.`,
+      `Use ${ToolName.GREP} to check if one or many given file or folder paths exist in the vault. If a folder.`,
       `Use ${ToolName.GREP} to search for specific text patterns in note content when a pattern is provided with a single file path.`,
+      `The ${ToolName.GREP} tool will NOT return the files inside the folder. Use ${ToolName.LIST} to list files instead.`,
     ],
     category: 'vault-access',
   },
@@ -146,7 +147,6 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     guidelines: [
       `Use ${ToolName.RENAME} to change the name or location of files.`,
       `Always provide both the current path and the new path for each file.`,
-      `Set createFolderIfMissing to true when new destination folders are required.`,
     ],
     category: 'vault-access',
   },

@@ -1,6 +1,7 @@
 import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { z } from 'zod';
+import { ToolInvocation } from '../../tools/types';
 
 /**
  * Represents a single search operation with v2 parameters
@@ -21,6 +22,7 @@ export interface SearchQueryExtractionV2 {
   lang?: string;
   confidence: number;
   needsLLM: boolean;
+  toolCall?: ToolInvocation<unknown>;
 }
 
 // Define the Zod schema for search operation validation
