@@ -1,8 +1,8 @@
 import { App, TFile, TFolder } from 'obsidian';
-import { UpdateInstruction, AddInstruction } from '../lib/modelfusion/extractions';
 import { logger } from 'src/utils/logger';
-import { SearchOperationV2 } from 'src/solutions/commands/handlers/SearchCommandHandler/zSchemas';
 import { DocWithPath } from 'src/types/types';
+import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
+import { AddInstruction, UpdateInstruction } from 'src/solutions/commands/tools/editContent';
 
 /**
  * Represents a single move operation with v2 parameters

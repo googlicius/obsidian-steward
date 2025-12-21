@@ -684,4 +684,98 @@ describe('ConversationRenderer', () => {
       }
     });
   });
+
+  describe('getGeneratingIndicator', () => {
+    it('should get the generating indicator from the content', () => {
+      const content = 'This is a message\n\n*Generating...*';
+      const indicator = conversationRenderer.getGeneratingIndicator(content);
+      console.log('indicator...', indicator);
+      expect(indicator).toEqual('\n\n*Generating...*');
+    });
+
+    it('should return an empty string if no indicator is found', () => {
+      const content = 'This is a message';
+      const indicator = conversationRenderer.getGeneratingIndicator(content);
+      expect(indicator).toEqual('');
+    });
+  });
+
+  describe('serializeToolInvocation', () => {
+    it('should keep indicator when there is an indicator but no visible text is being added', async () => {
+      // Mock conversation content with generating indicator
+      const mockContent = 'Some existing content\n\n*Generating...*';
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Spy on the vault.process method
+      let processedContent = '';
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, processor) => {
+          processedContent = processor(mockContent);
+          return processedContent;
+        });
+
+      // Call serializeToolInvocation without text parameter
+      await conversationRenderer.serializeToolInvocation({
+        path: 'test-conversation',
+        toolInvocations: [
+          {
+            toolName: 'read',
+            toolCallId: 'call_123',
+            args: { query: 'test' },
+            result: 'test result',
+          },
+        ],
+      });
+
+      // Verify that vault.process was called
+      expect(processSpy).toHaveBeenCalledTimes(1);
+
+      // Verify that the indicator is kept in the processed content
+      expect(processedContent).toContain('*Generating...*');
+    });
+
+    it('should not keep indicator when there is an indicator and visible text is being added', async () => {
+      // Mock conversation content with generating indicator
+      const mockContent = 'Some existing content\n\n*Generating...*';
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Spy on the vault.process method
+      let processedContent = '';
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, processor) => {
+          processedContent = processor(mockContent);
+          return processedContent;
+        });
+
+      // Call serializeToolInvocation with text parameter
+      await conversationRenderer.serializeToolInvocation({
+        path: 'test-conversation',
+        text: 'Here are the results:',
+        toolInvocations: [
+          {
+            toolName: 'read',
+            toolCallId: 'call_123',
+            args: { query: 'test' },
+            result: 'test result',
+          },
+        ],
+      });
+
+      // Verify that vault.process was called
+      expect(processSpy).toHaveBeenCalledTimes(1);
+
+      // Verify that the indicator is NOT kept in the processed content
+      expect(processedContent).not.toContain('*Generating...*');
+      // Verify that the text is present
+      expect(processedContent).toContain('Here are the results:');
+    });
+  });
 });

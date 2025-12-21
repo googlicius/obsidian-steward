@@ -331,6 +331,8 @@ const en = {
     // Conversation states
     conversation: {
       orchestrating: 'Orchestrating...',
+      planning: 'Planning...',
+      working: 'Working...',
       generating: 'Generating...',
       generatingImage: 'Generating image...',
       generatingAudio: 'Generating audio...',

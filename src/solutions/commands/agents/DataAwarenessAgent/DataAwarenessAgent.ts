@@ -52,7 +52,7 @@ export class DataAwarenessAgent {
   private readonly plugin: StewardPlugin;
   private readonly systemPrompt: string;
   private readonly responseSchema: z.ZodSchema;
-  private readonly extractResults: <T>(object: unknown) => T[];
+  private readonly extractResults: <T = unknown>(object: unknown) => T[];
 
   constructor(params: DataAwarenessAgentParams) {
     this.plugin = params.plugin;
@@ -108,6 +108,8 @@ export class DataAwarenessAgent {
       lang,
       handlerId,
     } = options;
+
+    const t = getTranslation(lang);
 
     // Resolve files from artifact
     const resolvedFiles = await this.plugin.artifactManagerV2
@@ -169,7 +171,6 @@ export class DataAwarenessAgent {
 
         // Render batch processing message
         if (batches.length > 1 && handlerId) {
-          const t = getTranslation(lang);
           await this.plugin.conversationRenderer.updateConversationNote({
             path: title,
             newContent: `*${t('conversation.processingBatch', {
@@ -219,7 +220,7 @@ export class DataAwarenessAgent {
   /**
    * Process a single batch of files
    */
-  private async processBatch<T>(params: {
+  private async processBatch<T = unknown>(params: {
     batch: DocWithPath[];
     query: string;
     model?: string;

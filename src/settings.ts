@@ -16,6 +16,7 @@ import { ModelFallbackSetting } from './settings/ModelFallbackSetting';
 import { DeleteBehaviorSetting } from './settings/DeleteBehaviorSetting';
 import { applyMixins } from './utils/applyMixins';
 import { ProviderSetting } from './settings/ProviderSetting';
+import { getClassifier } from './lib/modelfusion';
 
 const lang = getLanguage();
 const t = getTranslation(lang);
@@ -48,6 +49,22 @@ class StewardSettingTab extends PluginSettingTab {
         provider as keyof StewardPluginSettings['llm']['speech']['voices']
       ] || DEFAULT_VOICES[provider];
     voiceInput.value = currentVoice || '';
+  }
+
+  /**
+   * Clear cached embeddings for a given embedding model
+   * @param embeddingSettings The embedding settings containing the model to clear
+   */
+  private async clearCachedEmbeddings(
+    embeddingSettings: StewardPluginSettings['embedding']
+  ): Promise<void> {
+    try {
+      const classifier = getClassifier(embeddingSettings);
+      await classifier.clearCachedEmbeddings();
+      logger.log(`Cleared cached embeddings for model: ${embeddingSettings.model}`);
+    } catch (error) {
+      logger.error('Error clearing cached embeddings:', error);
+    }
   }
 
   display(): void {
@@ -269,11 +286,31 @@ class StewardSettingTab extends PluginSettingTab {
         placeholder: 'e.g., openai:text-embedding-ada-002',
         presetModels: EMBEDDING_MODELS,
         onSelectChange: async (modelId: string) => {
+          const oldModelId = this.plugin.settings.embedding.model;
+
+          // Clear cached embeddings if the model is changing
+          if (oldModelId !== modelId) {
+            await this.clearCachedEmbeddings({
+              ...this.plugin.settings.embedding,
+              model: oldModelId,
+            });
+          }
+
           this.plugin.settings.embedding.model = modelId;
           await this.plugin.saveSettings();
           this.updateVoiceInput();
         },
         onAddModel: async (modelId: string) => {
+          const oldModelId = this.plugin.settings.embedding.model;
+
+          // Clear cached embeddings if the model is changing
+          if (oldModelId !== modelId) {
+            await this.clearCachedEmbeddings({
+              ...this.plugin.settings.embedding,
+              model: oldModelId,
+            });
+          }
+
           this.plugin.settings.embedding.model = modelId;
 
           // Add to custom models if not already present and not a preset model
@@ -293,7 +330,15 @@ class StewardSettingTab extends PluginSettingTab {
 
           // If this was the selected model, switch to default
           if (this.plugin.settings.embedding.model === modelId) {
-            this.plugin.settings.embedding.model = EMBEDDING_MODELS[0].id;
+            const newModelId = EMBEDDING_MODELS[0].id;
+
+            // Clear cached embeddings for the old model
+            await this.clearCachedEmbeddings({
+              ...this.plugin.settings.embedding,
+              model: modelId,
+            });
+
+            this.plugin.settings.embedding.model = newModelId;
           }
 
           await this.plugin.saveSettings();

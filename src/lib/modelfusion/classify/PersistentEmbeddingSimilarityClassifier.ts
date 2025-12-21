@@ -221,7 +221,7 @@ export class PersistentEmbeddingSimilarityClassifier {
   }
 
   /**
-   * Load embeddings from IndexedDB, detecting which clusters need refresh
+   * Load embeddings of the current embedding model from IndexedDB, detecting which clusters need refresh
    * @returns Object containing loaded embeddings and clusters that need refresh
    */
   private async loadEmbeddingsFromDb(): Promise<{
@@ -365,7 +365,7 @@ export class PersistentEmbeddingSimilarityClassifier {
   }
 
   /**
-   * Get embeddings for all clusters, either from memory, database, or by generating new ones
+   * Get embeddings of the current embedding model for all clusters, either from memory, database, or by generating new ones
    */
   async getEmbeddings(): Promise<EmbeddingCache<string>[]> {
     // Return from memory if already loaded
@@ -498,7 +498,8 @@ export class PersistentEmbeddingSimilarityClassifier {
       // If embedding exists in this cluster and ignoreEmbedding is false, return early
       if (existingEmbedding && !this.settings.ignoreEmbedding) {
         logger.log(
-          `Embedding for value "${value}" under cluster "${clusterName}" of the ${modelName} already exists`
+          `Embedding for value "${value}" under cluster "${clusterName}" of the ${modelName} already exists`,
+          existingEmbedding
         );
         return;
       }

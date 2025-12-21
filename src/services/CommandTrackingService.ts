@@ -11,13 +11,9 @@ interface Tracking {
    */
   originalQuery: string;
   /**
-   * Commands extracted by the general command handler
+   * Tasks classified based on tools used
    */
-  extractedCommands: string[];
-  /**
-   * Commands that were actually executed (including dynamically called ones)
-   */
-  executedCommands: string[];
+  classifiedTasks: string[];
   /**
    * Confidence score from the extraction
    */
@@ -87,7 +83,7 @@ export class CommandTrackingService {
       frontmatter.tracking = {
         originalQuery,
         extractedCommands,
-        executedCommands: [],
+        classifiedTasks: [],
         confidence,
         isReloadRequest,
       };
@@ -115,10 +111,10 @@ export class CommandTrackingService {
   }
 
   /**
-   * Record a command/agent execution
-   * This should be called whenever a handler is executed
+   * Record classified tasks based on tools used
+   * This should be called after SuperAgent completes
    */
-  public async recordIntentExecution(conversationTitle: string, intentType: string): Promise<void> {
+  public async recordTasks(conversationTitle: string, tasks: string[]): Promise<void> {
     const file = this.getConversationFile(conversationTitle);
     if (!file) {
       return;
@@ -132,20 +128,13 @@ export class CommandTrackingService {
 
       const tracking = frontmatter.tracking;
 
-      // Add command to executed commands (avoid duplicates by using Set logic)
-      if (!tracking.executedCommands) {
-        tracking.executedCommands = [];
-      }
-
-      // Only add if not already present
-      if (!tracking.executedCommands.includes(intentType)) {
-        tracking.executedCommands.push(intentType);
-      }
+      // Set classified tasks (replace existing)
+      tracking.classifiedTasks = tasks;
 
       frontmatter.tracking = tracking;
     });
 
-    logger.log(`Recorded intent execution: "${intentType}" for ${conversationTitle}`);
+    logger.log(`Recorded classified tasks: [${tasks.join(', ')}] for ${conversationTitle}`);
   }
 
   /**

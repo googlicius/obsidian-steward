@@ -1,26 +1,6 @@
-export enum ToolName {
-  CONTENT_READING = 'contentReading',
-  CONFIRMATION = 'confirmation',
-  ASK_USER = 'askUser',
-  EDIT = 'edit',
-  GREP = 'grep',
-  REQUEST_READ_CONTENT = 'requestReadContent',
-  CREATE = 'create',
-  DELETE = 'delete',
-  COPY = 'copy',
-  RENAME = 'rename',
-  MOVE = 'move',
-  LIST = 'list',
-  UPDATE_FRONTMATTER = 'update_frontmatter',
-  ACTIVATE = 'activate_tools',
-  REVERT_DELETE = 'revert_delete',
-  REVERT_MOVE = 'revert_move',
-  REVERT_FRONTMATTER = 'revert_frontmatter',
-  REVERT_RENAME = 'revert_rename',
-  REVERT_CREATE = 'revert_create',
-  GET_MOST_RECENT_ARTIFACT = 'get_most_recent_artifact',
-  GET_ARTIFACT_BY_ID = 'get_artifact_by_id',
-}
+import { ToolName } from './toolNames';
+import { joinWithConjunction } from 'src/utils/arrayUtils';
+import { SUPPORTED_READ } from 'src/services/ContentReadingService';
 
 export interface ToolDefinition {
   name: ToolName;
@@ -42,24 +22,27 @@ export interface ToolMetaDefinition {
  * Centralized tool definition. Handlers can build registries from actual tool instances
  * and this definition will provide consistent prompt text across the app.
  */
+const contentReadingDefinition: ToolMetaDefinition = {
+  name: ToolName.CONTENT_READING,
+  description: 'Read content from a note.',
+  category: 'content-access',
+  guidelines: [
+    `Use ${ToolName.CONTENT_READING} to read any type of content, including text, image, audio, video, etc.`,
+    `Analyze the user's query carefully to determine the content to read.`,
+    `After reading, respond a short conclusion of your task. DO NOT respond the elements of the reading result in your final response: Tables, lists, code, blockquote, images, headings, etc.`,
+  ],
+};
+
 export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
-  // ReadCommandHandler tool
-  [ToolName.CONTENT_READING]: {
-    name: ToolName.CONTENT_READING,
-    description: 'Read content from a note.',
-    guidelines: [
-      `Use ${ToolName.CONTENT_READING} to read any type of content, including text, image, audio, video, etc.`,
-      `Read ALL notes at once with multiple ${ToolName.CONTENT_READING} tool calls.`,
-    ],
-    category: 'content-access',
-  },
+  // ReadAgent tool
+  [ToolName.CONTENT_READING]: contentReadingDefinition,
 
   // User interaction tools
   [ToolName.CONFIRMATION]: {
     name: ToolName.CONFIRMATION,
     description: 'Get confirmation from the user before performing an action.',
     guidelines: [
-      `You MUST use ${ToolName.CONFIRMATION} BEFORE reading the entire content of any note. (When readType is "entire")`,
+      `You MUST use ${ToolName.CONFIRMATION} BEFORE reading the entire content of any note (markdown files). (When readType is "entire"). EXCEPT reading images.`,
       `Use ${ToolName.CONFIRMATION} once for all note(s) to be read.`,
       `The ${ToolName.CONFIRMATION} tool also pauses the system until the user responds.`,
     ],
@@ -76,12 +59,78 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     category: 'user-interaction',
   },
 
-  // Generate/Update common tools
-  [ToolName.REQUEST_READ_CONTENT]: {
-    name: ToolName.REQUEST_READ_CONTENT,
-    description: 'Read content from notes to gather context before generating a response.',
+  [ToolName.USER_CONFIRM]: {
+    name: ToolName.USER_CONFIRM,
+    description: 'Handle user confirmation responses (yes/no) for pending operations.',
     guidelines: [
-      `Use ${ToolName.REQUEST_READ_CONTENT} to read the content above/below the current cursor or the entire note.`,
+      `Use ${ToolName.USER_CONFIRM} when the user provides a confirmation response to a pending operation.`,
+    ],
+    category: 'user-interaction',
+  },
+
+  [ToolName.HELP]: {
+    name: ToolName.HELP,
+    description: 'Display help information listing all available commands.',
+    guidelines: [
+      `Use ${ToolName.HELP} when the user requests help or wants to see available commands.`,
+    ],
+    category: 'user-interaction',
+  },
+
+  [ToolName.STOP]: {
+    name: ToolName.STOP,
+    description: 'Stop all active operations and abort any ongoing processes.',
+    guidelines: [
+      `Use ${ToolName.STOP} when the user requests to stop or cancel ongoing operations.`,
+    ],
+    category: 'user-interaction',
+  },
+
+  [ToolName.THANK_YOU]: {
+    name: ToolName.THANK_YOU,
+    description: 'Respond to user expressions of gratitude.',
+    guidelines: [`Use ${ToolName.THANK_YOU} when the user expresses thanks or gratitude.`],
+    category: 'user-interaction',
+  },
+
+  [ToolName.BUILD_SEARCH_INDEX]: {
+    name: ToolName.BUILD_SEARCH_INDEX,
+    description:
+      'Build or rebuild the search index for the vault to enable fast content searching.',
+    guidelines: [
+      `Use ${ToolName.BUILD_SEARCH_INDEX} when the user requests to build or rebuild the search index.`,
+    ],
+    category: 'vault-access',
+  },
+
+  [ToolName.SEARCH]: {
+    name: ToolName.SEARCH,
+    description:
+      'Comprehensive search for notes and files in the vault using keywords, tags, filenames, folders, and properties.',
+    guidelines: [
+      `Use ${ToolName.SEARCH} tool when the user wants to find files in the vault.
+  - If the query lacks search intention, assume it is the keyword for searching.
+  - If there are any typos in the query, extract both the original and your corrected version
+  - If the query includes or mentions "note", include the property {name: "file_type", value: "md"}`,
+      `The search query can include keywords, file names, folder paths, tags, and other properties.`,
+    ],
+    category: 'vault-access',
+  },
+
+  [ToolName.SEARCH_MORE]: {
+    name: ToolName.SEARCH_MORE,
+    description: 'Display additional pages of search results from the most recent search.',
+    guidelines: [
+      `Use ${ToolName.SEARCH_MORE} when the user requests to see more results from a previous search.`,
+    ],
+    category: 'vault-access',
+  },
+
+  [ToolName.REQUEST_READ_AGENT]: {
+    name: ToolName.REQUEST_READ_AGENT,
+    description: `Request the read agent to read ${joinWithConjunction(SUPPORTED_READ, 'or')} to gather context.`,
+    guidelines: [
+      `Use ${ToolName.REQUEST_READ_AGENT} to request the read agent to read ${joinWithConjunction(SUPPORTED_READ, 'or')} to gather context before performing any other actions.`,
     ],
     category: 'content-access',
   },
@@ -182,6 +231,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     guidelines: [
       `Use ${ToolName.ACTIVATE} when you need another tool that is currently inactive to complete the task.`,
       `The ${ToolName.ACTIVATE} tool will return the schemas and guidelines of the requested tools.`,
+      `You can also use ${ToolName.ACTIVATE} to activate tools to provide more information for your answer if being asked.`,
       `You must activate any tool listed under 'OTHER TOOLS' section (inactive). If you call without active, it will fail.`,
       `You will fail when: 1. Calling inactive tools; 2. Activate tools that are not in the 'OTHER TOOLS' section.`,
     ],
@@ -247,6 +297,25 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       `This is useful when you have an artifact ID from previous operations or user input.`,
     ],
     category: 'artifact-access',
+  },
+
+  [ToolName.SPEECH]: {
+    name: ToolName.SPEECH,
+    description: 'Generate text content for speech/audio generation.',
+    guidelines: [
+      `Use ${ToolName.SPEECH} when the user wants to generate audio or speech from text.`,
+    ],
+    category: 'content-generation',
+  },
+
+  [ToolName.IMAGE]: {
+    name: ToolName.IMAGE,
+    description: 'Generate image content for image generation.',
+    guidelines: [
+      `Use ${ToolName.IMAGE} when the user wants to generate image from text.`,
+      `NOTE: The ${ToolName.IMAGE} tool is NOT for reading images, the tool cannot read. Use ${ToolName.CONTENT_READING} for reading images.`,
+    ],
+    category: 'content-generation',
   },
 };
 
@@ -360,6 +429,8 @@ export class ToolRegistry<T> {
     return registry;
   }
 }
+
+export { ToolName } from './toolNames';
 
 export type ToolRegistryOptions = {
   exclude?: ToolName[];

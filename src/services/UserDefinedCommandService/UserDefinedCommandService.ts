@@ -2,12 +2,12 @@ import { getLanguage, normalizePath, Notice, TFile, parseYaml } from 'obsidian';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES } from 'src/constants';
-import { SearchOperationV2 } from 'src/solutions/commands/handlers/SearchCommandHandler/zSchemas';
 import { StewardChatView } from 'src/views/StewardChatView';
 import i18next from 'i18next';
 import { IVersionedUserDefinedCommand, TriggerCondition } from './versions/types';
 import { loadUDCVersion } from './versions/loader';
 import { Intent } from 'src/solutions/commands/types';
+import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
 
 export class UserDefinedCommandService {
   private static instance: UserDefinedCommandService | null = null;

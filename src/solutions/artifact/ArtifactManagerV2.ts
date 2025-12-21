@@ -7,7 +7,12 @@ import {
   ArtifactSerializer,
   ArtifactType,
 } from 'src/solutions/artifact/types';
-import { JsonArtifactSerializer, SearchResultSerializer, CompositeSerializer } from './serializers';
+import {
+  JsonArtifactSerializer,
+  SearchResultSerializer,
+  CompositeSerializer,
+  ReadContentSerializer,
+} from './serializers';
 import { GeneratedContentSerializer } from './serializers/GeneratedContentSerializer';
 import { DocWithPath } from 'src/types/types';
 
@@ -137,6 +142,15 @@ export class ArtifactManagerV2 {
             }
           );
           this.registerSerializer(type, generatedContentSerializer);
+          break;
+        }
+        case ArtifactType.READ_CONTENT: {
+          const readContentSerializer = new ReadContentSerializer(this.plugin);
+
+          this.registerSerializer(
+            type,
+            new CompositeSerializer(readContentSerializer, jsonSerializer)
+          );
           break;
         }
         default: {

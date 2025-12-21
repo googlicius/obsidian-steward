@@ -252,15 +252,6 @@ You can also skip confirmation prompts for individual command steps using the `n
 
 You can exclude specific tools from being available in a command step using the `tools.exclude` field. This removes both the tool from the LLM's available tools and automatically removes related guidelines from the system prompt.
 
-#### Available tool names
-
-- `contentReading` - Read content from notes
-- `confirmation` - Get user confirmation before actions
-- `askUser` - Ask the user for additional information
-- `requestReadContent` - Request the read command for more data
-- `grep` - Search for text patterns in notes
-- `edit` - Update content in notes
-
 #### Example
 
 Exclude specific tools from a command step:

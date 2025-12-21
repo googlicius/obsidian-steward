@@ -55,6 +55,7 @@ import { ModelFallbackService } from './services/ModelFallbackService';
 import { uniqueID } from './utils/uniqueID';
 import { CommandTrackingService } from './services/CommandTrackingService';
 import { VersionCheckerService } from './services/VersionCheckerService';
+import { UserMessageService } from './services/UserMessageService';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -79,6 +80,7 @@ export default class StewardPlugin extends Plugin {
   _commandInputService: CommandInputService;
   _commandTrackingService: CommandTrackingService;
   _versionCheckerService: VersionCheckerService;
+  _userMessageService: UserMessageService;
 
   get commandInputService(): CommandInputService {
     if (!this._commandInputService) {
@@ -162,6 +164,13 @@ export default class StewardPlugin extends Plugin {
       this._versionCheckerService = VersionCheckerService.getInstance(this);
     }
     return this._versionCheckerService;
+  }
+
+  get userMessageService(): UserMessageService {
+    if (!this._userMessageService) {
+      this._userMessageService = UserMessageService.getInstance(this);
+    }
+    return this._userMessageService;
   }
 
   get conversationRender(): ConversationRenderer {

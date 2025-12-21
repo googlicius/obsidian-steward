@@ -21,6 +21,7 @@ export enum ArtifactType {
   UPDATE_FRONTMATTER_RESULTS = 'update_frontmatter_results',
   RENAME_RESULTS = 'rename_results',
   LIST_RESULTS = 'list_results',
+  STW_SELECTED = 'stw_selected',
 }
 
 /**
@@ -50,11 +51,12 @@ export interface CreatedNotesArtifact extends BaseArtifact {
 }
 
 /**
- * Read content artifact
+ * Read content artifact interface
  */
 export interface ReadContentArtifact extends BaseArtifact {
   artifactType: ArtifactType.READ_CONTENT;
   readingResult: ContentReadingResult;
+  imagePaths?: string[];
 }
 
 /**
@@ -153,6 +155,21 @@ export interface ListResultsArtifact extends BaseArtifact {
   paths: string[]; // Full list of file paths
 }
 
+/**
+ * STW Selected artifact
+ * Stores selected content blocks from the user's query in the format:
+ * {{stw-selected from:<startLine>,to:<endLine>,selection:<selectionContent>,path:<notePath>}}
+ */
+export interface StwSelectedArtifact extends BaseArtifact {
+  artifactType: ArtifactType.STW_SELECTED;
+  selections: Array<{
+    fromLine: number; // Starting line number (0-based)
+    toLine: number; // Ending line number (0-based)
+    selection: string; // The selected content
+    path: string; // Path to the note file
+  }>;
+}
+
 export type Artifact =
   | SearchResultsArtifact
   | CreatedNotesArtifact
@@ -166,7 +183,8 @@ export type Artifact =
   | MoveResultsArtifact
   | UpdateFrontmatterResultsArtifact
   | RenameResultsArtifact
-  | ListResultsArtifact;
+  | ListResultsArtifact
+  | StwSelectedArtifact;
 
 export type ArtifactMap = {
   [ArtifactType.SEARCH_RESULTS]: SearchResultsArtifact;
@@ -182,6 +200,7 @@ export type ArtifactMap = {
   [ArtifactType.UPDATE_FRONTMATTER_RESULTS]: UpdateFrontmatterResultsArtifact;
   [ArtifactType.RENAME_RESULTS]: RenameResultsArtifact;
   [ArtifactType.LIST_RESULTS]: ListResultsArtifact;
+  [ArtifactType.STW_SELECTED]: StwSelectedArtifact;
 };
 
 /**

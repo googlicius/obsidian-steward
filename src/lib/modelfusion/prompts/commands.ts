@@ -5,8 +5,8 @@
  */
 
 import { stringifyYaml } from 'obsidian';
-import { Artifact, ArtifactType } from 'src/solutions/artifact';
-import { ToolName } from 'src/solutions/commands/ToolRegistry';
+import { ArtifactType } from 'src/solutions/artifact';
+import { ToolName } from 'src/solutions/commands/toolNames';
 import { SysError } from 'src/utils/errors';
 
 export interface CommandDefinition {
@@ -63,12 +63,6 @@ export const COMMAND_DEFINITIONS: CommandDefinition[] = [
     artifactDesc: `The search results: list of file paths is stored as the artifact with name ${ArtifactType.SEARCH_RESULTS}`,
   },
   {
-    commandType: 'close',
-    description: 'Close the conversation or exit',
-    category: 'built-in',
-    includeWhen: 'Close the conversation',
-  },
-  {
     commandType: 'confirm',
     description: 'Confirm or reject the current command to proceed',
     category: 'built-in',
@@ -116,14 +110,14 @@ NOTE:
 
   // Intent-based commands (available through natural language processing)
   {
-    commandType: 'update_from_artifact',
+    commandType: 'edit',
     description:
-      'Update note(s) content from the artifact. NOTE: This command is used to update the content of the note only. If you need to update the frontmatter properties, use the vault?tool=update_frontmatter.',
+      'Edit note(s) content of one or more notes. The edit agent can collect context itself before editing using the requestReadAgent tool. NOTE: This command is used to update the content of the note only. If you need to update the frontmatter properties, use the vault?tool=update_frontmatter.',
     category: 'intent-based',
     aliases: ['update'],
     queryTemplate: `Extract specific details for what to be updated.`,
-    includeWhen: 'Update one or more notes from the artifact',
-    artifactDesc: `The updated note paths is stored as the artifact with name ${ArtifactType.CONTENT_UPDATE}`,
+    includeWhen: 'Update or edit one or more notes from artifacts',
+    artifactDesc: `The edit agent works with read_content, generated_content, or stw_selected artifacts.`,
   },
   {
     commandType: 'summary',
@@ -140,43 +134,44 @@ NOTE:
   },
   {
     commandType: 'read',
-    description: `Read text contents, images from the current note in specific position: "above", "below". OR from the other notes. Use this when you don't know the content and need to retrieve it before proceeding
-- Can read any content type, including code blocks, tables, lists, paragraphs, and more.
-- Can multiple notes at once.
-- Can read when the note's name or position (above or below) is provided, no location needed.`,
+    description: `Read text contents from the current note or other notes in specific position: "above", "below". Or image files (png, jpg, jpeg, etc.).
+- Can read any note content type, including code blocks, tables, lists, paragraphs, and more.
+- Can read image files (png, jpg, jpeg, etc.).
+- Can multiple files at once.
+- Can read when the file's name or position (above or below) is provided, no location needed.`,
     category: 'intent-based',
     queryTemplate: `Extract a specific query for a read command:
-1. Extract the query for the read command follows this format: <query_in_natural_language>, read type: <read_type>[, note name: <note_name>] [; <other_notes_to_read>]
+1. Extract the query for the read command follows this format: <query_in_natural_language>, read type: <read_type>[, file name: <file_name>] [; <other_files_to_read>]
   - <query_in_natural_language>: Tailored query for each read command.
   - <read_type>: above, below, or entire.
-  - <note_name>: The note name to read. 
-    - If the <read_type> is "entire", include the note name.
-    - If the <read_type> is "above" or "below", it means current note, leave the note name blank.
-  - <other_notes_to_read>: The other notes to read if needed. Follow the same structure as the previous.
+  - <file_name>: The file name to read. 
+    - If the <read_type> is "entire", include the file name.
+    - If the <read_type> is "above" or "below", it means current file, leave the file name blank.
+  - <other_files_to_read>: The other files to read if needed. Follow the same structure as the previous.
   NOTE: Square brackets [] indicate optional part of the query.
 
-2. Read multiple notes if needed.
-  - If the query require read content in one or more notes, include all of them.
-    Example: "Read the context above, read type: above; Read the note named 'Note 2', read type: entire, note name: 'Note 2'"
+2. Read multiple files if needed.
+  - If the query require read content in one or more files, include all of them.
+    Example: "Read the context above, read type: above; Read the file named 'File 2', read type: entire, file name: 'File 2'"
 
 3. Maintain Natural Language:
   - Keep the query in natural language form.`,
     includeWhen: 'Read or Find content based on a specific pattern in their current note',
     artifactDesc: `The content of the reading result is stored as the artifact with name ${ArtifactType.READ_CONTENT}`,
   },
-  {
-    commandType: 'generate',
-    description: `Generate content with the LLM help.
-If you see the source content is already included in the user's query, you can use "generate" without the need of reading additional content. Example: "Help me update this list to the numbered list:\n- Item 1\n- Item 2".
-Otherwise, you need to include the "read" command.`,
-    category: 'intent-based',
-    queryTemplate: `Extract the query for the generate command follows this format: <query_in_natural_language>, [note name: <note_name>]
-- <query_in_natural_language>: Tailored query for the generate command.
-- <note_name>: The existing note name, include only if mentioned in the context.
-NOTE: Square brackets [] indicate optional part of the query.`,
-    includeWhen: 'Ask, update, or generate content with your help',
-    artifactDesc: `The generated content is stored as the artifact with name ${ArtifactType.CONTENT_UPDATE}`,
-  },
+  //   {
+  //     commandType: 'generate',
+  //     description: `Generate content with the LLM help.
+  // If you see the source content is already included in the user's query, you can use "generate" without the need of reading additional content. Example: "Help me update this list to the numbered list:\n- Item 1\n- Item 2".
+  // Otherwise, you need to include the "read" command.`,
+  //     category: 'intent-based',
+  //     queryTemplate: `Extract the query for the generate command follows this format: <query_in_natural_language>, [note name: <note_name>]
+  // - <query_in_natural_language>: Tailored query for the generate command.
+  // - <note_name>: The existing note name, include only if mentioned in the context.
+  // NOTE: Square brackets [] indicate optional part of the query.`,
+  //     includeWhen: 'Ask, update, or generate content with your help',
+  //     artifactDesc: `The generated content is stored as the artifact with name ${ArtifactType.CONTENT_UPDATE}`,
+  //   },
   {
     commandType: 'thank_you',
     description: 'Express gratitude',
@@ -297,10 +292,6 @@ function aggregateCommandNames(commandNames: string[]): AggregatedCommand[] {
   });
 }
 
-function getCommandDefinitionsFromNames(commandNames: string[]): CommandDefinition[] {
-  return aggregateCommandNames(commandNames).map(item => item.definition);
-}
-
 /**
  * Get a command definition by command type
  */
@@ -316,86 +307,6 @@ export function getCommandDefinition(commandType: string): CommandDefinition | u
 export function getCommandQueryTemplate(commandType: string): string | undefined {
   const command = getCommandDefinition(commandType);
   return command?.queryTemplate;
-}
-
-/**
- * Get artifact dependent examples as a formatted string
- * Returns examples for commands that depend on artifacts
- */
-export function artifactDependentExamples(commands: CommandDefinition[]): string {
-  // Find commands that create artifacts
-  const artifactCreatingCommands = commands.filter(cmd => cmd.artifactDesc);
-
-  // Find commands that use artifacts (commands with "_from_artifact" in their name)
-  const artifactUsingCommands = commands.filter(
-    cmd => cmd.commandType.includes('_from_artifact') && cmd.availableToLLM !== false
-  );
-
-  if (artifactCreatingCommands.length === 0 || artifactUsingCommands.length === 0) {
-    return '';
-  }
-
-  // Common and useful combinations
-  const commonPairs = [
-    { creator: 'read', user: 'update_from_artifact' },
-    { creator: 'generate', user: 'update_from_artifact' },
-    { creator: 'read', user: 'generate' },
-    { creator: 'search', user: 'update_from_artifact' },
-  ];
-
-  // Find available pairs from the common combinations
-  const availablePairs = commonPairs.filter(pair => {
-    const creatorExists = artifactCreatingCommands.some(cmd => cmd.commandType === pair.creator);
-    const userExists = artifactUsingCommands.some(cmd => cmd.commandType === pair.user);
-    return creatorExists && userExists;
-  });
-
-  if (availablePairs.length === 0) {
-    return '';
-  }
-
-  // Take up to 2 examples to avoid overwhelming the prompt
-  const selectedPairs = availablePairs.slice(0, 2);
-
-  const examplesList = selectedPairs.map(pair => {
-    return `"${pair.creator}" and "${pair.user}", the "${pair.user}" command will use the artifact that will be created from the "${pair.creator}" command`;
-  });
-
-  if (examplesList.length === 1) {
-    return `For example: if you include ${examplesList[0]}.`;
-  } else if (examplesList.length === 2) {
-    return `For example: if you include ${examplesList[0]} or ${examplesList[1]}.`;
-  } else {
-    const lastExample = examplesList.pop();
-    return `For example: if you include ${examplesList.join(', ')}, or ${lastExample}.`;
-  }
-}
-
-/**
- * Get artifact instructions as a formatted string
- * Returns instructions for commands that create artifacts
- */
-export function getArtifactInstructions(commandNames?: string[] | null): string {
-  const commands = commandNames
-    ? getCommandDefinitionsFromNames(commandNames)
-    : COMMAND_DEFINITIONS;
-
-  const artifactCommands = commands.filter(cmd => cmd.artifactDesc);
-
-  if (artifactCommands.length === 0) {
-    return 'No commands create artifacts.';
-  }
-
-  const artifactList = artifactCommands
-    .map(cmd => `  - "${cmd.commandType}": ${cmd.artifactDesc}`)
-    .join('\n');
-
-  const examples = artifactDependentExamples(commands);
-  const examplesText = examples ? ` ${examples}` : '';
-
-  return `- Artifact is the result of a specific command that is stored temporarily in the local storage. The below commands have their result stored as artifacts:
-${artifactList}
-- When you include those commands above, artifacts will be CREATED and AVAILABLE for the next commands.${examplesText}`;
 }
 
 /**
@@ -480,24 +391,4 @@ export function getValidCommandTypes(): string[] {
   const commandTypes = llmCommands.map(cmd => cmd.commandType);
   const aliases = llmCommands.flatMap(cmd => cmd.aliases || []);
   return [...commandTypes, ...aliases];
-}
-
-/**
- * Format current artifacts for prompt inclusion
- * Shows only artifact types to provide context for LLMs
- * @param artifacts - Array of artifacts with type
- * @returns Formatted string showing current artifacts, or empty string if none
- */
-export function formatCurrentArtifacts(artifacts?: Pick<Artifact, 'artifactType'>[]): string {
-  if (!artifacts || artifacts.length === 0) {
-    return 'There is no current artifacts in the conversation.';
-  }
-
-  // Get unique artifact types
-  const uniqueTypes = [...new Set(artifacts.map(artifact => artifact.artifactType))];
-
-  const artifactList = uniqueTypes.map(type => `- ${type}`).join('\n');
-
-  return `Current artifacts in the conversation can be used by artifact-dependent commands:
-${artifactList}`;
 }

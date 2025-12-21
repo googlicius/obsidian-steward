@@ -4,11 +4,7 @@ import type StewardPlugin from '../../main';
 import type { StewardPluginSettings } from 'src/types/interfaces';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { logger } from 'src/utils/logger';
-import {
-  SELECTED_MODEL_PATTERN,
-  STW_SELECTED_PATTERN,
-  STW_SELECTED_PLACEHOLDER,
-} from 'src/constants';
+import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
 import { type CommandProcessor } from './CommandProcessor';
 import { getTranslation } from 'src/i18n';
 import { AgentHandlerParams, AgentResult, Intent, IntentResultStatus } from './types';
@@ -64,7 +60,7 @@ export abstract class CommandHandler {
     ...args: unknown[]
   ): Promise<CommandResult> {
     params.intent.model = await this.getCurrentModel(params.title, params.intent);
-    params.intent.query = this.sanitizeQuery(params.intent.query);
+    params.intent.query = this.plugin.userMessageService.sanitizeQuery(params.intent.query);
 
     try {
       // Call the original handle method
@@ -132,18 +128,6 @@ export abstract class CommandHandler {
     }
 
     return currentModel;
-  }
-
-  /**
-   * Sanitize the query by removing the selected model pattern.
-   */
-  private sanitizeQuery(query: string) {
-    const regex = new RegExp(SELECTED_MODEL_PATTERN, 'gi');
-    let match;
-    while ((match = regex.exec(query)) !== null) {
-      query = query.replace(match[0], '');
-    }
-    return query;
   }
 
   /**

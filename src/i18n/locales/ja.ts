@@ -268,6 +268,8 @@ const ja = {
     // Conversation states
     conversation: {
       orchestrating: '処理中...',
+      planning: '計画中...',
+      working: '処理中...',
       generating: '生成中...',
       generatingImage: '画像を生成中...',
       generatingAudio: '音声を生成中...',

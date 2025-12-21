@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { delay } from './delay';
 
 /**
@@ -142,5 +143,69 @@ export async function* prependChunk<T>(
   yield firstChunk;
   for await (const chunk of { [Symbol.asyncIterator]: () => iterator }) {
     yield chunk;
+  }
+}
+
+const REASONING_START_TAG = '```stw-thinking\n';
+const REASONING_END_TAG = `\n\`\`\`\n>[!info] <a class="stw-thinking-process">${i18next.t('common.thinkingProcess')}</a>\n`;
+
+/**
+ * Streams text and reasoning from a fullStream, wrapping reasoning in <think> tags
+ * @param fullStream The full stream from streamText that contains various chunk types
+ * @returns AsyncGenerator that yields text chunks with reasoning wrapped in <think> tags
+ */
+export async function* streamTextWithReasoning(
+  fullStream: AsyncIterable<unknown>
+): AsyncGenerator<string, void, unknown> {
+  let reasoningStarted = false;
+  let reasoningEnded = false;
+
+  for await (const chunk of fullStream) {
+    // Type guard to check if chunk has a type property
+    const chunkWithType = chunk as {
+      type?: string;
+      reasoning?: string;
+      textDelta?: string;
+      text?: string;
+      [key: string]: unknown;
+    };
+
+    if (!chunkWithType.type) {
+      continue;
+    }
+
+    // Handle reasoning chunks
+    if (chunkWithType.type === 'reasoning-delta' || chunkWithType.type === 'reasoning') {
+      if (!reasoningStarted) {
+        reasoningStarted = true;
+        yield REASONING_START_TAG;
+      }
+
+      // Yield the reasoning content
+      const reasoningText = (chunkWithType.reasoning || chunkWithType.textDelta || '') as string;
+      if (reasoningText && typeof reasoningText === 'string') {
+        yield reasoningText;
+      }
+    }
+    // Handle text chunks
+    else if (chunkWithType.type === 'text-delta' || chunkWithType.type === 'text') {
+      // If we were in reasoning mode and now getting text, close reasoning tag
+      if (reasoningStarted && !reasoningEnded) {
+        reasoningEnded = true;
+        yield REASONING_END_TAG;
+      }
+
+      // Yield the text content
+      const textContent = (chunkWithType.textDelta || chunkWithType.text || '') as string;
+      if (textContent && typeof textContent === 'string') {
+        yield textContent;
+      }
+    }
+    // Handle other chunk types (tool-call, etc.) - skip them for this stream
+  }
+
+  // If reasoning started but never ended (no text followed), close it
+  if (reasoningStarted && !reasoningEnded) {
+    yield REASONING_END_TAG;
   }
 }

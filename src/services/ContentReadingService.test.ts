@@ -1,6 +1,7 @@
 import { ContentReadingService } from './ContentReadingService';
 import { TFile, EditorPosition, CachedMetadata, SectionCache } from 'obsidian';
 import type StewardPlugin from '../main';
+import { getInstance } from 'src/utils/getInstance';
 
 /**
  * Section definition for mocking cache.sections
@@ -15,14 +16,12 @@ interface MockSection {
 
 /**
  * Creates a mock plugin with a mock editor using the provided text content
- * @param mockText The text content to use in the mock editor
- * @param sections The sections to mock in the file cache
- * @param cursorPosition Optional cursor position (defaults to line 1, ch 0)
  */
 function createMockPlugin(
   mockText: string,
   sections: MockSection[],
-  cursorPosition: EditorPosition = { line: 1, ch: 0 }
+  cursorPosition: EditorPosition = { line: 1, ch: 0 },
+  mockFile = new TFile()
 ): jest.Mocked<StewardPlugin> {
   // Create mock editor
   const mockEditor = {
@@ -39,9 +38,6 @@ function createMockPlugin(
     }),
   };
 
-  // Create mock file
-  const mockFile = new TFile();
-
   // Create mock cache with sections
   const mockCache: Partial<CachedMetadata> = {
     sections: sections as SectionCache[],
@@ -50,6 +46,9 @@ function createMockPlugin(
   // Create and return mock plugin with editor
   return {
     editor: mockEditor,
+    mediaTools: {
+      findFileByNameOrPath: jest.fn().mockResolvedValue(mockFile),
+    },
     settings: {
       stewardFolder: 'steward',
     },
@@ -109,7 +108,7 @@ End
         blocksToRead: 1,
         readType: 'above',
         elementType: 'list',
-        noteName: null,
+        fileName: null,
         startLine: null,
       });
 
@@ -158,7 +157,7 @@ End
         blocksToRead: 1,
         readType: 'above',
         elementType: null,
-        noteName: null,
+        fileName: null,
         startLine: null,
       });
 
@@ -226,7 +225,7 @@ Multiple lines here.
         blocksToRead: -1,
         readType: 'below',
         elementType: null,
-        noteName: null,
+        fileName: null,
         startLine: null,
       });
 
@@ -300,7 +299,7 @@ function greet(name) {
         blocksToRead: 1,
         readType: 'below',
         elementType: 'code',
-        noteName: null,
+        fileName: null,
         startLine: null,
       });
 
@@ -352,7 +351,7 @@ End paragraph`;
         blocksToRead: 1,
         readType: 'above',
         elementType: 'list',
-        noteName: null,
+        fileName: null,
         startLine: null,
       });
 
@@ -402,7 +401,7 @@ End paragraph`;
         blocksToRead: 1,
         readType: 'above',
         elementType: 'image',
-        noteName: null,
+        fileName: null,
         startLine: null,
       });
 
@@ -410,7 +409,7 @@ End paragraph`;
         blocksToRead: -1,
         readType: 'above',
         elementType: 'image',
-        noteName: null,
+        fileName: null,
         startLine: null,
       });
 
@@ -438,6 +437,36 @@ End paragraph`;
       expect(result2).toMatchObject(expected);
 
       expect(result).toMatchObject(expected);
+    });
+
+    it('should return file details for non-markdown files', async () => {
+      const mockText = '';
+      const sections: MockSection[] = [];
+      const mockFile = getInstance(TFile, {
+        path: 'assets/image.png',
+        name: 'image.png',
+        extension: 'png',
+      });
+      const mockPlugin = createMockPlugin(mockText, sections, undefined, mockFile);
+
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'entire',
+        elementType: null,
+        startLine: null,
+        fileName: 'image.png',
+      });
+
+      expect(result).toEqual({
+        blocks: [],
+        source: 'entire',
+        file: {
+          path: 'assets/image.png',
+          name: 'image.png',
+        },
+      });
     });
   });
 });

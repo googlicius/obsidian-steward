@@ -18,6 +18,8 @@ export const STW_EMBEDDED_CONVERSATION_VIEW_CONFIG = {
  */
 export const IMAGE_LINK_PATTERN = '!\\[\\[(.*?\\.(jpg|jpeg|png|webp|svg))(?:\\|.*?)?\\]\\]';
 
+export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'svg', 'gif'];
+
 /**
  * Stw-selected pattern constants for reuse across the application
  * Pattern to match any stw-selected block (with capture group for splitting)
@@ -59,22 +61,7 @@ export const SELECTED_MODEL_PATTERN = '\\b(m|model):([a-zA-Z0-9_.-]+):([^\\s]+)'
 /**
  * All built-in command that are available to the command menu
  */
-export const COMMAND_PREFIXES = [
-  '/ ',
-  '/search',
-  '/more',
-  '/close',
-  '/yes',
-  '/no',
-  '/image',
-  '/audio',
-  '/speak',
-  '/create',
-  '/stop',
-  '/abort',
-  '/help',
-  '/test',
-];
+export const COMMAND_PREFIXES = ['/ ', '/search', '/image', '/speech'];
 
 /**
  * The 2-space indentation is used to indicate a command line.

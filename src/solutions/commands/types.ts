@@ -5,6 +5,7 @@ import { ToolName } from './ToolRegistry';
  * Represents a single intent in a sequence
  */
 export interface Intent {
+  /** @deprecated As we use only one super agent, we don't need to distinguish between intents. */
   type: string;
   query: string;
   systemPrompts?: (string | SystemPromptItem)[];
@@ -26,6 +27,7 @@ export enum IntentResultStatus {
   NEEDS_CONFIRMATION = 'needs_confirmation',
   NEEDS_USER_INPUT = 'needs_user_input',
   LOW_CONFIDENCE = 'low_confidence',
+  STOP_PROCESSING = 'stop_processing',
 }
 
 type UserInputResult = {
@@ -37,6 +39,11 @@ type SuccessResult = {
   status: IntentResultStatus.SUCCESS;
   shouldContinue?: boolean;
   nextParams?: Partial<AgentHandlerParams>;
+};
+
+type StopProcessingResult = {
+  status: IntentResultStatus.STOP_PROCESSING;
+  reason?: string;
 };
 
 type ErrorResult = {
@@ -63,7 +70,8 @@ export type AgentResult =
   | UserInputResult
   | SuccessResult
   | ErrorResult
-  | LowConfidenceResult;
+  | LowConfidenceResult
+  | StopProcessingResult;
 
 export interface AgentHandlerParams<T extends Intent = Intent> {
   title: string;
@@ -76,6 +84,11 @@ export interface AgentHandlerParams<T extends Intent = Intent> {
    * If not provided, a new ID will be generated.
    */
   handlerId?: string;
+  /**
+   * Count of how many times the handle function has been invoked.
+   * When 0 or undefined, it's the first iteration and user messages should be included.
+   */
+  invocationCount?: number;
   upstreamOptions?: {
     isReloadRequest?: boolean;
     ignoreClassify?: boolean;

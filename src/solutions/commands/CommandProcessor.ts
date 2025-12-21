@@ -3,10 +3,10 @@ import { CommandHandler } from './CommandHandler';
 import { logger } from '../../utils/logger';
 import type StewardPlugin from 'src/main';
 import { SystemPromptModifier, SystemPromptModification } from './SystemPromptModifier';
-import { getClassifier } from 'src/lib/modelfusion';
 import { Agent } from './Agent';
 import { AgentResult, Intent, IntentResultStatus } from './types';
 import { ToolName } from './ToolRegistry';
+import { uniqueID } from '../../utils/uniqueID';
 
 const VALID_TOOL_NAMES = new Set<string>(Object.values(ToolName));
 
@@ -14,7 +14,6 @@ interface PendingIntent {
   intents: Intent[];
   currentIndex: number;
   payload: ConversationIntentReceivedPayload;
-  lastResult?: AgentResult;
 }
 
 export interface ProcessIntentsOptions {
@@ -39,22 +38,45 @@ export interface ProcessIntentsOptions {
 }
 
 export class CommandProcessor {
+  public readonly id: string;
+  /**
+   * Store lastResult at conversation title level so it's accessible across processor instances
+   */
+  private static lastResults: Map<string, AgentResult> = new Map();
   private pendingIntents: Map<string, PendingIntent> = new Map();
-  private commandHandlers: Map<string, CommandHandler> = new Map();
   private userDefinedCommandHandler: CommandHandler | null = null;
   private agentHandlers: Map<string, Agent> = new Map();
 
-  constructor(private readonly plugin: StewardPlugin) {}
+  constructor(
+    private readonly plugin: StewardPlugin,
+    id = 'main'
+  ) {
+    this.id = id;
+  }
 
   get userDefinedCommandService() {
     return this.plugin.userDefinedCommandService;
   }
 
   /**
-   * Register a command handler for a specific command type
+   * Get the last result for a conversation (stored at conversation title level)
    */
-  public registerHandler(commandType: string, handler: CommandHandler): void {
-    this.commandHandlers.set(commandType, handler);
+  public getLastResult(title: string): AgentResult | undefined {
+    return CommandProcessor.lastResults.get(title);
+  }
+
+  /**
+   * Set the last result for a conversation (stored at conversation title level)
+   */
+  public setLastResult(title: string, result: AgentResult): void {
+    CommandProcessor.lastResults.set(title, result);
+  }
+
+  /**
+   * Clear the last result for a conversation
+   */
+  public clearLastResult(title: string): void {
+    CommandProcessor.lastResults.delete(title);
   }
 
   /**
@@ -94,32 +116,6 @@ export class CommandProcessor {
   ): Promise<void> {
     const { title, intents } = payload;
 
-    if (this.isGeneralCommand(intents) && !options.skipGeneralCommandCheck) {
-      // Check if we're waiting for user input (not yes/no confirmation)
-      if (this.isWaitingForUserInput(title)) {
-        await this.handleUserInput(title, intents[0]);
-        return;
-      }
-
-      // Process general commands in an isolated processor
-      // This prevents accidentally resetting pending commands when a general command
-      // might actually be a confirmation command.
-      await this.processCommandInIsolation(payload, intents[0].type, {
-        ...options,
-        skipGeneralCommandCheck: true,
-      });
-      return;
-    }
-
-    // Check if this is a confirmation command
-    if (this.isConfirmation(intents) && !options.skipConfirmationCheck) {
-      await this.processCommandInIsolation(payload, intents[0].type, {
-        ...options,
-        skipConfirmationCheck: true,
-      });
-      return;
-    }
-
     // Start new command processing
     this.pendingIntents.set(title, {
       intents,
@@ -139,21 +135,11 @@ export class CommandProcessor {
     intentType: string,
     options: ProcessIntentsOptions = {}
   ): Promise<void> {
-    const isolatedProcessor = new CommandProcessor(this.plugin);
+    const isolatedProcessor = new CommandProcessor(this.plugin, uniqueID());
 
-    const contextAugmentationHandler = this.commandHandlers.get('context_augmentation');
-
-    if (contextAugmentationHandler) {
-      isolatedProcessor.registerHandler('context_augmentation', contextAugmentationHandler);
-    }
-
-    const handler = this.commandHandlers.get(intentType) || this.agentHandlers.get(intentType);
+    const handler = this.agentHandlers.get(intentType);
     if (handler) {
-      if (handler instanceof CommandHandler) {
-        isolatedProcessor.registerHandler(intentType, handler);
-      } else {
-        isolatedProcessor.registerAgent(intentType, handler);
-      }
+      isolatedProcessor.registerAgent(intentType, handler);
     } else {
       logger.warn(`No command handler found for intent type: ${intentType}`);
       return;
@@ -168,9 +154,10 @@ export class CommandProcessor {
   }
 
   private isWaitingForUserInput(title: string): boolean {
-    const pendingIntent = this.pendingIntents.get(title);
-    if (!pendingIntent || !pendingIntent.lastResult) return false;
-    return pendingIntent.lastResult.status === IntentResultStatus.NEEDS_USER_INPUT;
+    // Check conversation-level storage (accessible across processors)
+    const lastResult = this.getLastResult(title);
+    if (!lastResult) return false;
+    return lastResult.status === IntentResultStatus.NEEDS_USER_INPUT;
   }
 
   private isConfirmation(intents: Intent[]): boolean {
@@ -188,7 +175,7 @@ export class CommandProcessor {
       return false;
     }
 
-    if (this.commandHandlers.has(commandType) && builtInCommandPrecedence) {
+    if (this.agentHandlers.has(commandType) && builtInCommandPrecedence) {
       return false;
     }
 
@@ -211,10 +198,6 @@ export class CommandProcessor {
     }
 
     const { intents, currentIndex, payload } = pendingIntent;
-
-    // No tracking command execution if command is confirm or stop.
-    const noTrackingCommand =
-      intents.length === 1 && this.plugin.commandTrackingService.noTrackingCommand(intents[0].type);
 
     // Initialize model fallback state if needed
     await this.plugin.modelFallbackService.initializeState(title);
@@ -273,7 +256,7 @@ export class CommandProcessor {
       }
 
       // Find the appropriate handler
-      let handler = this.commandHandlers.get(baseType) || this.agentHandlers.get(baseType);
+      let handler: Agent | CommandHandler | null = this.agentHandlers.get(baseType) || null;
 
       // If we have a user-defined command handler, use it regardless of the current handler
       if (
@@ -284,7 +267,7 @@ export class CommandProcessor {
       }
 
       if (!handler) {
-        logger.warn(`No handler for command type: ${intent.type}`, this.commandHandlers);
+        logger.warn(`No handler for command type: ${intent.type}`);
         // Continue to the next command instead of stopping
         continue;
       }
@@ -303,16 +286,19 @@ export class CommandProcessor {
         activeTools: activeToolsFromQuery.length > 0 ? activeToolsFromQuery : undefined,
         upstreamOptions: options.sendToDownstream,
       });
-      const trackingPromise = this.plugin.commandTrackingService.getTracking(title);
-      if (!noTrackingCommand && (await trackingPromise)) {
-        await this.plugin.commandTrackingService.recordIntentExecution(title, intent.type);
+
+      // Store lastResult at conversation title level (accessible across processor instances)
+      if (
+        result.status === IntentResultStatus.NEEDS_CONFIRMATION ||
+        result.status === IntentResultStatus.NEEDS_USER_INPUT
+      ) {
+        this.setLastResult(title, result);
       }
 
       // Command completed successfully
       this.pendingIntents.set(title, {
         ...pendingIntent,
         currentIndex: nextIndex,
-        lastResult: result,
       });
 
       // Handle the result
@@ -321,6 +307,7 @@ export class CommandProcessor {
           logger.error(`Command failed: ${intent.type}`, result.error);
           // Stop processing on error
           this.pendingIntents.delete(title);
+          this.clearLastResult(title);
           return;
 
         case IntentResultStatus.NEEDS_CONFIRMATION:
@@ -345,38 +332,13 @@ export class CommandProcessor {
 
           // Stop the current command processing
           this.pendingIntents.delete(title);
+          this.clearLastResult(title);
           return;
       }
     }
 
     // All commands processed successfully
     this.pendingIntents.delete(title);
-
-    // Save classification if tracking is enabled and active
-    if (!noTrackingCommand) {
-      await this.saveClassification(title);
-    }
-  }
-
-  /**
-   * Save classification after all commands finish
-   */
-  private async saveClassification(title: string): Promise<void> {
-    const tracking = await this.plugin.commandTrackingService.getTracking(title, true);
-    if (!tracking) {
-      return;
-    }
-
-    const embeddingSettings = this.plugin.llmService.getEmbeddingSettings();
-    const classifier = getClassifier(embeddingSettings, tracking.isReloadRequest);
-
-    // Create cluster name from ACTUAL executed commands
-    const clusterName = tracking.executedCommands.join(':');
-
-    // Save embedding without awaiting to avoid blocking
-    classifier.saveEmbedding(tracking.originalQuery, clusterName).catch(err => {
-      logger.error('Failed to save embedding:', err);
-    });
   }
 
   private parseIntentType(intentType: string): {
@@ -465,17 +427,17 @@ export class CommandProcessor {
   }
 
   /**
-   * Get the command handler for a specific command type
+   * Get the command handler or agent for a specific command type
    */
-  public getCommandHandler(commandType: string): CommandHandler | null {
-    return this.commandHandlers.get(commandType) || this.userDefinedCommandHandler;
+  public getCommandHandlerOrAgent(commandType: string): CommandHandler | Agent | null {
+    return this.agentHandlers.get(commandType) || this.userDefinedCommandHandler;
   }
 
   /**
    * Check if a command type has a built-in handler
    */
   public hasBuiltInHandler(commandType: string): boolean {
-    return this.commandHandlers.has(commandType);
+    return this.agentHandlers.has(commandType);
   }
 
   /**
@@ -489,24 +451,29 @@ export class CommandProcessor {
    * Handle user input for a pending intent that requested it
    */
   private async handleUserInput(title: string, intent: Intent): Promise<void> {
-    const pendingIntent = this.pendingIntents.get(title);
-    if (!pendingIntent || !pendingIntent.lastResult) {
+    // Get lastResult from conversation-level storage (accessible across processors)
+    const lastResult = this.getLastResult(title);
+    if (!lastResult || lastResult.status !== IntentResultStatus.NEEDS_USER_INPUT) {
       return;
     }
 
-    const lastResult = pendingIntent.lastResult;
-    if (lastResult.status !== IntentResultStatus.NEEDS_USER_INPUT) {
+    const pendingIntent = this.pendingIntents.get(title);
+    if (!pendingIntent) {
       return;
     }
 
     // Call the onUserInput callback with the user's query
     const result = await lastResult.onUserInput(intent.query);
 
-    // Update the pending command with the new result
-    this.pendingIntents.set(title, {
-      ...pendingIntent,
-      lastResult: result,
-    });
+    // Store lastResult at conversation title level if it still needs input/confirmation
+    if (
+      result.status === IntentResultStatus.NEEDS_CONFIRMATION ||
+      result.status === IntentResultStatus.NEEDS_USER_INPUT
+    ) {
+      this.setLastResult(title, result);
+    } else {
+      this.clearLastResult(title);
+    }
 
     // Handle the result
     if (result.status === IntentResultStatus.SUCCESS) {
@@ -515,6 +482,7 @@ export class CommandProcessor {
     } else if (result.status === IntentResultStatus.ERROR) {
       logger.error(`User input handling failed: ${title}`, result.error);
       this.pendingIntents.delete(title);
+      this.clearLastResult(title);
     }
     // If the result is NEEDS_CONFIRMATION or NEEDS_USER_INPUT again,
     // the command will remain pending and wait for the next input

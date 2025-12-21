@@ -28,6 +28,8 @@ export type ConversationRole = 'user' | 'assistant' | 'system';
 export interface ConversationHistoryMessage extends Message {
   role: ConversationRole;
   handlerId?: string;
+  step?: number;
+  reasoning_content?: string;
 }
 
 export interface ConversationMessage {
@@ -43,6 +45,10 @@ export interface ConversationMessage {
    * Handler ID to group all messages issued in one handle function call
    */
   handlerId?: string;
+  /**
+   * Step number for grouping messages in one invocation or one AI function call.
+   */
+  step?: number;
 }
 
 export interface DocWithPath {

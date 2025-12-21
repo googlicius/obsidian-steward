@@ -17,7 +17,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
   // Static cluster values that aren't need to be embedded
   staticClusterValues: [
     {
-      name: 'vault?tools=delete' as const,
+      name: 'vault' as const,
       values: [
         'delete them',
         'delete it',
@@ -30,7 +30,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
       ],
     },
     {
-      name: 'confirm' as const,
+      name: 'user_confirm' as const,
       values: ['yes', 'no', 'confirm', 'ok', 'go ahead', 'approve', 'reject', 'proceed', 'cancel'],
     },
     {
@@ -61,11 +61,11 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
       name: 'help' as const,
       values: [
         'help',
+        'help me',
         'list commands',
         'show commands',
         'available commands',
         'what commands are available',
-        'what can you do',
         '?',
       ],
     },
@@ -83,6 +83,10 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
     {
       name: 'build_search_index' as const,
       values: ['build search index', 'index my files'],
+    },
+    {
+      name: 'revert' as const,
+      values: ['revert', 'undo', 'rollback'],
     },
   ],
 
@@ -113,34 +117,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
       ],
     },
     {
-      name: 'vault?tools=move' as const,
-      values: [
-        'move results to the f folder',
-        'move the results into the f folder',
-        'move these notes to the f folder',
-        'move them to the f folder',
-        'move them into the f folder',
-        'move these notes to the f folder',
-        'move it to the f folder',
-        'move it into the f folder',
-        'move all to the f folder',
-        'move all into the f folder',
-        'move all notes above to the f folder',
-      ],
-    },
-    {
-      name: 'vault?tools=copy' as const,
-      values: [
-        'copy results to the folder f',
-        'copy these notes to the folder f',
-        'copy them to the folder f',
-        'copy it to the folder f',
-        'copy all to the folder f',
-        'copy all notes above to the folder f',
-      ],
-    },
-    {
-      name: 'update_from_artifact' as const,
+      name: 'edit' as const,
       values: [
         'update the tag y to y',
         'remove the tag y',
@@ -173,7 +150,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
       ],
     },
     {
-      name: 'confirm' as const,
+      name: 'user_confirm' as const,
       values: [
         'yes',
         'no',
@@ -223,7 +200,7 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
       ],
     },
     {
-      name: 'audio' as const,
+      name: 'speech' as const,
       values: [
         'generate audio of x',
         'create voice recording saying x',
@@ -235,33 +212,6 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
         'make audio recording of x',
         'convert to audio',
         'speak this x',
-      ],
-    },
-    {
-      name: 'prompt' as const,
-      values: [
-        'create a new prompt for x',
-        'make a prompt that does x',
-        'generate a prompt for x',
-        'create custom prompt for x',
-        'add new prompt for x',
-        'define a prompt that x',
-        'create prompt template for x',
-        'add prompt command for x',
-        'create new command prompt for x',
-      ],
-    },
-    {
-      name: 'vault?tools=create' as const,
-      values: [
-        'create a note titled x',
-        'write a new note about x',
-        'create a note with content x',
-        'write a note about x',
-        'create a new document about x',
-        'start a new note for x',
-        'create a new note named x',
-        'create a new note titled x',
       ],
     },
     {
@@ -279,18 +229,6 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
         'read the paragraph above',
         'read the entire content',
       ],
-    },
-    {
-      name: 'read:generate' as const,
-      values: [
-        'What is this note about?',
-        'help me summarize this note',
-        'read the text above, and help me some sentences include the word "x"',
-      ],
-    },
-    {
-      name: 'read:generate:update_from_artifact' as const,
-      values: ['update the list above to numbered list', 'update the list above to bullet list'],
     },
     {
       name: 'thank_you' as const,

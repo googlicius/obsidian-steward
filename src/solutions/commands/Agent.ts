@@ -5,14 +5,11 @@ import type StewardPlugin from '../../main';
 import type { StewardPluginSettings } from 'src/types/interfaces';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { logger } from 'src/utils/logger';
-import {
-  SELECTED_MODEL_PATTERN,
-  STW_SELECTED_PATTERN,
-  STW_SELECTED_PLACEHOLDER,
-} from 'src/constants';
+import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
 import { type CommandProcessor } from './CommandProcessor';
 import { getTranslation } from 'src/i18n';
 import { ToolName } from './ToolRegistry';
+import { uniqueID } from 'src/utils/uniqueID';
 
 export abstract class Agent {
   constructor(
@@ -62,7 +59,9 @@ export abstract class Agent {
    */
   public async safeHandle(params: AgentHandlerParams, ...args: unknown[]): Promise<AgentResult> {
     params.intent.model = await this.getCurrentModel(params.title, params.intent);
-    params.intent.query = this.sanitizeQuery(params.intent.query);
+    params.intent.query = this.plugin.userMessageService.sanitizeQuery(params.intent.query);
+    params.invocationCount = params.invocationCount || 0;
+    params.handlerId = params.handlerId || uniqueID();
 
     try {
       // Call the original handle method
@@ -107,6 +106,9 @@ export abstract class Agent {
             logger.warn('Retrying agent with fallback model without handlerId');
           }
 
+          // Increment invocation count for retry
+          params.invocationCount = (params.invocationCount ?? 0) + 1;
+
           return this.safeHandle(params, ...args);
         }
       }
@@ -141,15 +143,30 @@ export abstract class Agent {
   }
 
   /**
-   * Sanitize the query by removing the selected model pattern.
+   * Load activeTools from conversation frontmatter or use default
+   * @param title The conversation title
+   * @param paramsActiveTools ActiveTools provided in params (if any)
+   * @returns The activeTools to use
    */
-  private sanitizeQuery(query: string) {
-    const regex = new RegExp(SELECTED_MODEL_PATTERN, 'gi');
-    let match;
-    while ((match = regex.exec(query)) !== null) {
-      query = query.replace(match[0], '');
+  protected async loadActiveTools(
+    title: string,
+    paramsActiveTools?: ToolName[]
+  ): Promise<ToolName[]> {
+    // Use params activeTools if provided
+    if (paramsActiveTools) {
+      return paramsActiveTools;
     }
-    return query;
+
+    // Try to load from frontmatter
+    const savedActiveTools = await this.renderer.getConversationProperty<ToolName[]>(
+      title,
+      'tools'
+    );
+
+    // Return saved tools if available, otherwise use default
+    return savedActiveTools && savedActiveTools.length > 0
+      ? savedActiveTools
+      : [...this.activeTools];
   }
 
   /**

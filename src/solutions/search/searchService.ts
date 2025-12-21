@@ -19,7 +19,7 @@ import {
 } from './searchEngineV3';
 import { PaginatedSearchResult } from './types';
 import { IndexedDocument } from 'src/database/SearchDatabase';
-import { SearchOperationV2 } from '../commands/handlers/SearchCommandHandler/zSchemas';
+import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
 
 /**
  * SearchService singleton that provides global access to search components

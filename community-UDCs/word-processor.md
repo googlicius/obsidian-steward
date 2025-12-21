@@ -28,7 +28,7 @@ steps:
 - name: audio
   query: Help me pronounce this "$file_name" (without the .md extension if present)
 
-- name: update_from_artifact
+- name: edit
   query: "Update from the generated content and audio, note name: $file_name. NOTE: Put the audio embedded link right below the Vietnamese meaning."
   no_confirm: true
 

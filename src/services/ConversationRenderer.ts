@@ -1,14 +1,19 @@
 import { getLanguage, parseYaml, TFile } from 'obsidian';
 import { uniqueID } from '../utils/uniqueID';
-import i18next, { getTranslation } from '../i18n';
+import { getTranslation } from '../i18n';
 import { ConversationHistoryMessage, ConversationMessage, ConversationRole } from '../types/types';
 import type StewardPlugin from '../main';
 import { logger } from 'src/utils/logger';
-import { ArtifactType } from 'src/solutions/artifact';
-import { IMAGE_LINK_PATTERN, SELECTED_MODEL_PATTERN } from 'src/constants';
+import {
+  SELECTED_MODEL_PATTERN,
+  STW_SELECTED_PATTERN,
+  STW_SELECTED_METADATA_PATTERN,
+} from 'src/constants';
 import { prependChunk } from 'src/utils/textStreamer';
-import { CoreMessage } from 'ai';
+import { CoreMessage, ImagePart } from 'ai';
 import { ToolInvocationResult } from 'src/solutions/commands/tools/types';
+import { MarkdownUtil } from 'src/utils/markdownUtils';
+import { ArtifactType, ReadContentArtifactImpl } from 'src/solutions/artifact';
 
 export class ConversationRenderer {
   static instance: ConversationRenderer;
@@ -40,6 +45,59 @@ export class ConversationRenderer {
     const modelId = match[3];
     if (!provider || !modelId) return null;
     return `${provider}:${modelId}`;
+  }
+
+  /**
+   * Extract stw-selected blocks from content and create artifact if found
+   */
+  private async createStwSelectedArtifactIfPresent(title: string, content: string): Promise<void> {
+    if (!content.includes('{{stw-selected')) {
+      return;
+    }
+
+    const stwSelectedMatches = Array.from(content.matchAll(new RegExp(STW_SELECTED_PATTERN, 'g')));
+    if (stwSelectedMatches.length === 0) {
+      return;
+    }
+
+    const selections: Array<{
+      fromLine: number;
+      toLine: number;
+      selection: string;
+      path: string;
+    }> = [];
+
+    for (const match of stwSelectedMatches) {
+      if (match[1]) {
+        const stwBlock = match[1];
+        const metadataMatch = stwBlock.match(new RegExp(STW_SELECTED_METADATA_PATTERN));
+
+        if (metadataMatch) {
+          const [, fromLineStr, toLineStr, escapedSelection, path] = metadataMatch;
+          const fromLine = parseInt(fromLineStr, 10);
+          const toLine = parseInt(toLineStr, 10);
+
+          // Unescape the selection content
+          const selection = new MarkdownUtil(escapedSelection).unescape().decodeURI().getText();
+
+          selections.push({
+            fromLine,
+            toLine,
+            selection,
+            path,
+          });
+        }
+      }
+    }
+
+    if (selections.length > 0) {
+      await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+        artifact: {
+          artifactType: ArtifactType.STW_SELECTED,
+          selections,
+        },
+      });
+    }
   }
 
   /**
@@ -183,6 +241,7 @@ export class ConversationRenderer {
     agent?: string;
     text?: string;
     handlerId?: string;
+    step?: number;
     toolInvocations: ToolInvocationResult<T>[];
   }): Promise<string | undefined> {
     try {
@@ -202,10 +261,13 @@ export class ConversationRenderer {
         agent: params.agent,
         type: 'tool-invocation',
         handlerId: params.handlerId,
+        step: params.step,
       });
 
       // Process the file content
       await this.plugin.app.vault.process(file, currentContent => {
+        const indicator = this.getGeneratingIndicator(currentContent);
+
         // Remove the generating indicator and any trailing newlines
         currentContent = this.removeGeneratingIndicator(currentContent);
 
@@ -213,7 +275,12 @@ export class ConversationRenderer {
 
         contentToAdd += `\`\`\`stw-artifact\n${JSON.stringify(params.toolInvocations)}\n\`\`\``;
 
-        // Return the updated content
+        // Preserve the generating indicator if exists
+        const shouldKeepIndicator = indicator && !params.text;
+        if (shouldKeepIndicator) {
+          contentToAdd += indicator;
+        }
+
         return `${currentContent}\n\n${comment}\n${contentToAdd}`;
       });
 
@@ -376,6 +443,11 @@ export class ConversationRenderer {
      * Handler ID to group all messages issued in one handle function call.
      */
     handlerId?: string;
+    /**
+     * Step number for grouping messages in one invocation or one streamText function call.
+     * Should be params.invocationCount + 1 when called from handlers.
+     */
+    step?: number;
   }): Promise<string | undefined> {
     try {
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
@@ -401,6 +473,7 @@ export class ConversationRenderer {
         agent: params.agent,
         includeHistory: params.includeHistory ?? true,
         handlerId: params.handlerId,
+        step: params.step,
       });
 
       // Update language and model properties in the frontmatter if provided
@@ -471,6 +544,11 @@ export class ConversationRenderer {
         return `${currentContent}\n\n${comment}\n${contentToAdd}`;
       });
 
+      if (roleName === 'User') {
+        // Automatically create STW_SELECTED artifact if stw-selected blocks are present
+        await this.createStwSelectedArtifactIfPresent(params.path, params.newContent);
+      }
+
       return messageId;
     } catch (error) {
       logger.error('Error updating conversation note:', error);
@@ -492,6 +570,11 @@ export class ConversationRenderer {
     position?: number;
     includeHistory?: boolean;
     handlerId?: string;
+    /**
+     * Step number for grouping messages in one invocation or one AI function call.
+     * Should be params.invocationCount + 1 when called from handlers.
+     */
+    step?: number;
   }): Promise<string | undefined> {
     const folderPath = params.folderPath || `${this.plugin.settings.stewardFolder}/Conversations`;
 
@@ -514,6 +597,8 @@ export class ConversationRenderer {
         return undefined;
       }
 
+      const isReasoning = firstResult.value.includes('stw-thinking');
+
       // Create a stream that includes the first chunk we already retrieved
       const streamWithFirstChunk = prependChunk(firstResult.value, streamIterator);
 
@@ -522,6 +607,10 @@ export class ConversationRenderer {
         command: params.command,
         includeHistory: params.includeHistory ?? true,
         handlerId: params.handlerId,
+        step: params.step,
+        ...(isReasoning && {
+          type: 'reasoning',
+        }),
       });
 
       const roleText = this.formatRoleText(params.role);
@@ -559,31 +648,10 @@ export class ConversationRenderer {
     }
   }
 
-  public async streamFile(file: TFile, stream: AsyncIterable<string>, minLength = 20) {
-    let buffer = '';
-    let trailingContent = '';
-
+  public async streamFile(file: TFile, stream: AsyncIterable<string>) {
     for await (const chunk of stream) {
       await this.plugin.app.vault.process(file, currentContent => {
-        if (trailingContent && currentContent.endsWith(trailingContent)) {
-          currentContent = currentContent.slice(0, -trailingContent.length);
-        }
-
-        currentContent += chunk;
-        buffer = currentContent.slice(-20);
-
-        if (buffer.includes(`<think>`)) {
-          trailingContent = '\n```\n';
-          currentContent = currentContent.replace('<think>', '\n```stw-thinking\n');
-        } else if (buffer.includes(`</think>`)) {
-          currentContent = currentContent.replace(
-            '</think>',
-            `\n\`\`\`\n>[!info] <a class="stw-thinking-process">${i18next.t('common.thinkingProcess')}</a>\n`
-          );
-          trailingContent = '';
-        }
-
-        return currentContent + trailingContent;
+        return currentContent + chunk;
       });
     }
   }
@@ -599,6 +667,7 @@ export class ConversationRenderer {
       type?: string;
       artifactType?: ArtifactType;
       handlerId?: string;
+      step?: number;
     } = {}
   ) {
     const {
@@ -608,6 +677,7 @@ export class ConversationRenderer {
       agent,
       includeHistory,
       handlerId,
+      step,
     } = options;
 
     const metadata: { [x: string]: string | number } = {
@@ -630,6 +700,9 @@ export class ConversationRenderer {
       }),
       ...(handlerId && {
         HANDLER_ID: handlerId,
+      }),
+      ...(step !== undefined && {
+        STEP: step,
       }),
     };
 
@@ -737,10 +810,35 @@ export class ConversationRenderer {
   }
 
   /**
+   * Gets the generating indicator from the end of the content if it exists
+   * @returns The indicator string (including leading newlines) or empty string if not found
+   */
+  public getGeneratingIndicator(content: string): string {
+    const indicatorMatch = content.match(/(\n\n\*.*?\.\.\.\*)$/);
+    return indicatorMatch ? indicatorMatch[1] : '';
+  }
+
+  /**
    * Removes the generating indicator from the content
    */
   public removeGeneratingIndicator(content: string): string {
     return content.replace(/\n\n\*.*?\.\.\.\*$/, '');
+  }
+
+  /**
+   * Removes the generating indicator from the conversation note
+   */
+  public removeIndicator(title: string): Promise<string> {
+    const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+    const notePath = `${folderPath}/${title}.md`;
+    const file = this.plugin.app.vault.getFileByPath(notePath);
+    if (!file) {
+      throw new Error(`Note not found: ${notePath}`);
+    }
+
+    return this.plugin.app.vault.process(file, currentContent => {
+      return this.removeGeneratingIndicator(currentContent);
+    });
   }
 
   /**
@@ -771,13 +869,20 @@ export class ConversationRenderer {
 
       // Determine model: from query if present, otherwise from settings
       const modelFromQuery = this.extractSelectedModelFromText(content);
-      const currentModel = modelFromQuery || this.plugin.settings.llm.chat.model;
 
-      // Get the current language from settings
-      const currentLanguage = language || getLanguage();
+      const properties = [
+        { name: 'model', value: modelFromQuery || this.plugin.settings.llm.chat.model },
+        { name: 'lang', value: language || getLanguage() },
+      ];
 
-      // Create YAML frontmatter with model and language
-      const frontmatter = `---\nmodel: ${currentModel}\nlang: ${currentLanguage}\n---\n\n`;
+      const activeNote = this.plugin.app.workspace.getActiveFile();
+
+      if (activeNote && !activeNote.name.includes(this.plugin.chatTitle)) {
+        properties.push({ name: 'current_note', value: activeNote.name });
+      }
+
+      // Create YAML frontmatter with model, current_note, and language
+      const frontmatter = `---\n${properties.map(property => `${property.name}: ${property.value}`).join('\n')}\n---\n\n`;
 
       // Format user message as a callout with the role text
       const userMessage = this.plugin.noteContentService.formatCallout(
@@ -832,7 +937,7 @@ export class ConversationRenderer {
 
           case ' ':
           default:
-            initialContent += `*${t('conversation.orchestrating')}*`;
+            initialContent += `*${t('conversation.planning')}*`;
             break;
         }
       }
@@ -845,6 +950,9 @@ export class ConversationRenderer {
 
       // Create the conversation note
       await this.plugin.app.vault.create(notePath, initialContent);
+
+      // Automatically create STW_SELECTED artifact if stw-selected blocks are present
+      await this.createStwSelectedArtifactIfPresent(title, content);
     } catch (error) {
       logger.error('Error creating conversation note:', error);
       throw error;
@@ -1218,6 +1326,16 @@ export class ConversationRenderer {
         // Remove loading indicators
         messageContent = messageContent.replace(/\*.*?\.\.\.\*$/gm, '');
 
+        // Remove stw-thinking block when type is reasoning
+        if (metadata.TYPE === 'reasoning') {
+          // Extract content inside stw-thinking code block
+          const stwThinkingRegex = /```stw-thinking\s*([\s\S]*?)\s*```/m;
+          const match = stwThinkingRegex.exec(messageContent);
+          if (match) {
+            messageContent = match[1].trim();
+          }
+        }
+
         // Convert role from 'steward' to 'assistant'
         const role = metadata.ROLE === 'steward' ? 'assistant' : metadata.ROLE;
 
@@ -1259,18 +1377,27 @@ export class ConversationRenderer {
     options?: {
       maxMessages?: number;
       summaryPosition?: number;
+      /**
+       * Only include messages with the given handler ID.
+       */
+      handlerId?: string;
     }
   ): Promise<ConversationHistoryMessage[]> {
-    const { maxMessages = 10 } = options || {};
+    const { maxMessages = 10, handlerId } = options || {};
     let { summaryPosition = 0 } = options || {};
 
     try {
       // Get all messages from the conversation
       const allMessages = await this.extractAllConversationMessages(conversationTitle);
 
+      // Filter by handlerId if provided
+      const messagesToProcess = handlerId
+        ? allMessages.filter(message => 'handlerId' in message && message.handlerId === handlerId)
+        : allMessages;
+
       // Filter out messages where history is explicitly set to false
       const messagesForHistory: (ConversationMessage & { ignored?: boolean })[] =
-        allMessages.filter(message => message.history !== false);
+        messagesToProcess.filter(message => message.history !== false);
 
       // Remove the last message if it is a user message which is just being added.
       if (
@@ -1336,14 +1463,26 @@ export class ConversationRenderer {
               })),
             });
 
-            const toolInvocationStr = JSON.stringify(toolInvocations);
-            const hasImage = new RegExp(IMAGE_LINK_PATTERN).test(toolInvocationStr);
-            if (hasImage) {
-              // Inject images as a user message
-              const images =
-                await this.plugin.noteContentService.getImagesFromInput(toolInvocationStr);
-              logger.log('Injecting images after tool invocation', images);
-              for (const [path, imagePart] of images) {
+            // Check if any tool result has imagePaths (from READ_CONTENT artifacts)
+            // Convert imagePaths to imageParts
+            const imageParts: Array<[string, ImagePart]> = [];
+            for (const toolInvocation of toolInvocations) {
+              if (toolInvocation.result instanceof ReadContentArtifactImpl) {
+                const artifact = toolInvocation.result;
+                if (artifact.imagePaths && artifact.imagePaths.length > 0) {
+                  imageParts.push(
+                    ...(await this.plugin.userMessageService.getImagePartsFromPaths(
+                      artifact.imagePaths
+                    ))
+                  );
+                }
+              }
+            }
+
+            // Inject images as user messages if present
+            if (imageParts.length > 0) {
+              logger.log('Injecting images after tool invocation', imageParts);
+              for (const [path, imagePart] of imageParts) {
                 result.push({
                   id: uniqueID(),
                   role: 'user',
@@ -1353,11 +1492,30 @@ export class ConversationRenderer {
             }
             continue;
           }
-        } else {
+        } else if (message.type === 'reasoning') {
           result.push({
             id: message.id,
             role: message.role,
             content: message.content,
+            reasoning_content: message.content,
+            parts: [{ type: 'reasoning', reasoning: message.content, details: [] }],
+            ...(message.handlerId && {
+              handlerId: message.handlerId,
+            }),
+          });
+        } else {
+          // message.content from ConversationMessage is always a string
+          let content: string = message.content;
+
+          // Sanitize user messages
+          if (message.role === 'user') {
+            content = this.plugin.userMessageService.sanitizeQuery(content);
+          }
+
+          result.push({
+            id: message.id,
+            role: message.role,
+            content,
             ...(message.handlerId && {
               handlerId: message.handlerId,
             }),
@@ -1431,7 +1589,7 @@ export class ConversationRenderer {
    */
   public async updateConversationFrontmatter(
     conversationTitle: string,
-    properties: Array<{ name: string; value: string }>
+    properties: Array<{ name: string; value: unknown }>
   ): Promise<boolean> {
     try {
       // Get the conversation file
@@ -1535,6 +1693,7 @@ export class ConversationRenderer {
       }
 
       await this.plugin.app.vault.process(file, currentContent => {
+        currentContent = this.removeGeneratingIndicator(currentContent);
         return this.sanitizeConversationContent(currentContent);
       });
 
