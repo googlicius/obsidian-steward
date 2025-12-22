@@ -1,5 +1,5 @@
 import { ToolName } from 'src/solutions/commands/ToolRegistry';
-import z from 'zod';
+import { z } from 'zod/v3';
 import { NormalizedUserDefinedCommand, IVersionedUserDefinedCommand } from './types';
 
 // Export to other versions - Shared Zod schemas

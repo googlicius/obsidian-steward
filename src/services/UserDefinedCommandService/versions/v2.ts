@@ -1,4 +1,4 @@
-import z from 'zod';
+import { z } from 'zod/v3';
 import { NormalizedUserDefinedCommand, IVersionedUserDefinedCommand } from './types';
 import {
   command_name,

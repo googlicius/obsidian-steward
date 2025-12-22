@@ -1,10 +1,10 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { type SuperAgent } from '../SuperAgent';
 import { logger } from 'src/utils/logger';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { OperationError } from 'src/tools/obsidianAPITools';
 import { SysError } from 'src/utils/errors';
@@ -28,7 +28,7 @@ type RevertMoveExecutionResult = {
 };
 
 export class RevertMove {
-  private static readonly revertMoveTool = tool({ parameters: revertMoveToolSchema });
+  private static readonly revertMoveTool = tool({ inputSchema: revertMoveToolSchema });
 
   constructor(private readonly agent: SuperAgent) {}
 
@@ -38,7 +38,7 @@ export class RevertMove {
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, RevertMoveToolArgs> }
+    options: { toolCall: ToolCallPart<RevertMoveToolArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const { toolCall } = options;
@@ -48,10 +48,10 @@ export class RevertMove {
       throw new SysError('RevertMove.handle invoked without handlerId');
     }
 
-    if (toolCall.args.explanation) {
+    if (toolCall.input.explanation) {
       await this.agent.renderer.updateConversationNote({
         path: title,
-        newContent: toolCall.args.explanation,
+        newContent: toolCall.input.explanation,
         command: 'revert_move',
         includeHistory: false,
         lang,
@@ -120,18 +120,22 @@ export class RevertMove {
       includeHistory: false,
     });
 
-    await this.serializeRevertInvocation({
+    await this.agent.serializeInvocation({
+      command: 'revert_move',
       title,
       handlerId,
       toolCall,
-      result: messageId ? `messageRef:${messageId}` : response,
+      result: {
+        type: 'text',
+        value: messageId ? `messageRef:${messageId}` : response,
+      },
     });
 
     // Remove the artifact if revert was successful and artifactId was provided
-    if (toolCall.args.artifactId && revertResult.revertedFiles.length > 0) {
+    if (toolCall.input.artifactId && revertResult.revertedFiles.length > 0) {
       await this.agent.plugin.artifactManagerV2
         .withTitle(title)
-        .removeArtifact(toolCall.args.artifactId, toolCall.args.explanation);
+        .removeArtifact(toolCall.input.artifactId, toolCall.input.explanation);
     }
 
     return {
@@ -141,24 +145,24 @@ export class RevertMove {
 
   private async resolveMoves(params: {
     title: string;
-    toolCall: ToolInvocation<unknown, RevertMoveToolArgs>;
+    toolCall: ToolCallPart<RevertMoveToolArgs>;
     lang?: string | null;
     handlerId: string;
   }): Promise<{ movePairs: Array<[string, string]>; errorMessage?: string }> {
     const { title, toolCall, lang, handlerId } = params;
     const t = getTranslation(lang);
 
-    if (!toolCall.args.artifactId) {
+    if (!toolCall.input.artifactId) {
       const message = t('common.noRecentOperations') || 'No artifact ID provided.';
       return { movePairs: [], errorMessage: message };
     }
 
     const artifact = await this.agent.plugin.artifactManagerV2
       .withTitle(title)
-      .getArtifactById(toolCall.args.artifactId);
+      .getArtifactById(toolCall.input.artifactId);
 
     if (!artifact) {
-      logger.error(`Revert move tool artifact not found: ${toolCall.args.artifactId}`);
+      logger.error(`Revert move tool artifact not found: ${toolCall.input.artifactId}`);
       const message = t('common.noRecentOperations') || 'No recent operations found.';
       return { movePairs: [], errorMessage: message };
     }
@@ -175,11 +179,15 @@ export class RevertMove {
         includeHistory: false,
       });
 
-      await this.serializeRevertInvocation({
+      await this.agent.serializeInvocation({
         title,
         handlerId,
+        command: 'revert_move',
         toolCall,
-        result: messageId ? `messageRef:${messageId}` : message,
+        result: {
+          type: 'text',
+          value: messageId ? `messageRef:${messageId}` : message,
+        },
       });
 
       return { movePairs: [], errorMessage: message };
@@ -271,26 +279,5 @@ export class RevertMove {
       logger.error(`Error reverting move from ${currentPath} to ${originalPath}:`, error);
       return { success: false, originalPath, error: errorMessage };
     }
-  }
-
-  private async serializeRevertInvocation(params: {
-    title: string;
-    handlerId: string;
-    toolCall: ToolInvocation<unknown, RevertMoveToolArgs>;
-    result: string;
-  }): Promise<void> {
-    const { title, handlerId, toolCall, result } = params;
-
-    await this.agent.renderer.serializeToolInvocation({
-      path: title,
-      command: 'revert_move',
-      handlerId,
-      toolInvocations: [
-        {
-          ...toolCall,
-          result,
-        },
-      ],
-    });
   }
 }

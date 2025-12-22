@@ -1,5 +1,5 @@
 import { type SuperAgent } from '../SuperAgent';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { createEditTool, EditArgs } from '../../tools/editContent';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -18,7 +18,7 @@ export class EditHandler {
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, EditArgs> }
+    options: { toolCall: ToolCallPart<EditArgs> }
   ): Promise<AgentResult> {
     const { title, intent, lang } = params;
     const { toolCall } = options;
@@ -29,10 +29,10 @@ export class EditHandler {
     }
 
     // Render explanation
-    if (toolCall.args.explanation) {
+    if (toolCall.input.explanation) {
       await this.agent.renderer.updateConversationNote({
         path: title,
-        newContent: toolCall.args.explanation,
+        newContent: toolCall.input.explanation,
         command: 'edit',
         includeHistory: false,
         lang,
@@ -52,8 +52,8 @@ export class EditHandler {
     const { execute: editToolExecute } = createEditTool({ contentType });
 
     // Get the file to edit
-    const file = toolCall.args.filePath
-      ? await this.agent.plugin.mediaTools.findFileByNameOrPath(toolCall.args.filePath)
+    const file = toolCall.input.filePath
+      ? await this.agent.plugin.mediaTools.findFileByNameOrPath(toolCall.input.filePath)
       : this.agent.plugin.app.workspace.getActiveFile();
 
     if (!file) {
@@ -62,7 +62,7 @@ export class EditHandler {
 
     // Render what will be updated if the artifact type is read_content
     if (artifact?.artifactType === ArtifactType.READ_CONTENT) {
-      for (const operation of toolCall.args.operations) {
+      for (const operation of toolCall.input.operations) {
         await this.agent.renderer.updateConversationNote({
           path: title,
           newContent: this.agent.plugin.noteContentService.formatCallout(
@@ -82,7 +82,7 @@ export class EditHandler {
       }
     }
 
-    const updateInstructions = editToolExecute(toolCall.args);
+    const updateInstructions = editToolExecute(toolCall.input);
 
     // Skip confirmation if no_confirm
     if (intent.no_confirm) {
@@ -138,7 +138,7 @@ export class EditHandler {
     lang?: string | null;
     handlerId: string;
     step?: number;
-    toolCall: ToolInvocation<unknown, EditArgs>;
+    toolCall: ToolCallPart<EditArgs>;
   }): Promise<AgentResult> {
     const { title, filePath, updateInstructions, lang } = params;
     const t = getTranslation(lang);
@@ -199,7 +199,11 @@ export class EditHandler {
         toolInvocations: [
           {
             ...params.toolCall,
-            result: messageId ? `messageRef:${messageId}` : response,
+            type: 'tool-result',
+            output: {
+              type: 'text',
+              value: messageId ? `messageRef:${messageId}` : response,
+            },
           },
         ],
       });

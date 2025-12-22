@@ -1,8 +1,8 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { type SuperAgent } from '../SuperAgent';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { ArtifactType } from 'src/solutions/artifact';
 import { DocWithPath } from 'src/types/types';
 import { MoveOperationV2, OperationError } from 'src/tools/obsidianAPITools';
@@ -53,7 +53,7 @@ type CopyOperationResult = {
 };
 
 export class VaultCopy {
-  private static readonly copyTool = tool({ parameters: copyToolSchema });
+  private static readonly copyTool = tool({ inputSchema: copyToolSchema });
 
   constructor(private readonly agent: SuperAgent) {}
 
@@ -63,11 +63,10 @@ export class VaultCopy {
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, CopyToolArgs> }
+    options: { toolCall: ToolCallPart<CopyToolArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const { toolCall } = options;
-    const args = toolCall.args;
     const t = getTranslation(lang);
 
     if (!handlerId) {
@@ -76,7 +75,7 @@ export class VaultCopy {
 
     await this.agent.renderer.updateConversationNote({
       path: title,
-      newContent: args.explanation,
+      newContent: toolCall.input.explanation,
       command: 'vault_copy',
       includeHistory: false,
       lang,
@@ -99,7 +98,7 @@ export class VaultCopy {
 
     const docs = resolveResult.docs;
 
-    const destinationFolder = args.destinationFolder.trim();
+    const destinationFolder = toolCall.input.destinationFolder.trim();
     if (!destinationFolder) {
       const message = t('copy.noDestination');
       const messageId = await this.agent.renderer.updateConversationNote({
@@ -111,11 +110,15 @@ export class VaultCopy {
         includeHistory: false,
       });
 
-      await this.serializeCopyInvocation({
+      await this.agent.serializeInvocation({
+        command: 'vault_copy',
         title,
         handlerId,
         toolCall,
-        result: messageId ? `messageRef:${messageId}` : message,
+        result: {
+          type: 'text',
+          value: messageId ? `messageRef:${messageId}` : message,
+        },
       });
       return {
         status: IntentResultStatus.ERROR,
@@ -139,11 +142,15 @@ export class VaultCopy {
         includeHistory: false,
       });
 
-      await this.serializeCopyInvocation({
+      await this.agent.serializeInvocation({
+        command: 'vault_copy',
         title,
         handlerId,
         toolCall,
-        result: messageId ? `messageRef:${messageId}` : message,
+        result: {
+          type: 'text',
+          value: messageId ? `messageRef:${messageId}` : message,
+        },
       });
       return {
         status: IntentResultStatus.ERROR,
@@ -159,14 +166,14 @@ export class VaultCopy {
       title,
       docs,
       destinationFolder,
-      explanation: args.explanation,
+      explanation: toolCall.input.explanation,
       lang,
     });
 
     const formattedMessage = this.formatCopyResult({
       result: copyResult,
       destinationFolder,
-      explanation: args.explanation,
+      explanation: toolCall.input.explanation,
       lang,
     });
 
@@ -178,11 +185,15 @@ export class VaultCopy {
       handlerId,
     });
 
-    await this.serializeCopyInvocation({
+    await this.agent.serializeInvocation({
+      command: 'vault_copy',
       title,
       handlerId,
       toolCall,
-      result: resultMessageId ? `messageRef:${resultMessageId}` : formattedMessage,
+      result: {
+        type: 'text',
+        value: resultMessageId ? `messageRef:${resultMessageId}` : formattedMessage,
+      },
     });
 
     return {
@@ -192,21 +203,20 @@ export class VaultCopy {
 
   private async resolveCopyDocs(params: {
     title: string;
-    toolCall: ToolInvocation<unknown, CopyToolArgs>;
+    toolCall: ToolCallPart<CopyToolArgs>;
     lang?: string | null;
     handlerId: string;
   }): Promise<{ docs: DocWithPath[]; responseMessage?: string }> {
     const { title, toolCall, lang, handlerId } = params;
-    const args = toolCall.args;
     const t = getTranslation(lang);
 
     const docs: DocWithPath[] = [];
     const noFilesMessage = t('common.noFilesFound');
 
-    if (args.artifactId) {
+    if (toolCall.input.artifactId) {
       const artifact = await this.agent.plugin.artifactManagerV2
         .withTitle(title)
-        .getArtifactById(args.artifactId);
+        .getArtifactById(toolCall.input.artifactId);
 
       if (!artifact) {
         const message = t('common.noRecentOperations');
@@ -241,8 +251,8 @@ export class VaultCopy {
       }
     }
 
-    if (args.files) {
-      for (const file of args.files) {
+    if (toolCall.input.files) {
+      for (const file of toolCall.input.files) {
         const trimmedPath = file.path.trim();
         if (trimmedPath) {
           docs.push({ path: trimmedPath });
@@ -267,7 +277,7 @@ export class VaultCopy {
   private async respondAndSerializeCopy(params: {
     title: string;
     content: string;
-    toolCall: ToolInvocation<unknown, CopyToolArgs>;
+    toolCall: ToolCallPart<CopyToolArgs>;
     lang?: string | null;
     handlerId: string;
   }): Promise<string> {
@@ -281,11 +291,15 @@ export class VaultCopy {
       includeHistory: false,
     });
 
-    await this.serializeCopyInvocation({
+    await this.agent.serializeInvocation({
+      command: 'vault_copy',
       title,
       handlerId,
       toolCall,
-      result: messageId ? `messageRef:${messageId}` : content,
+      result: {
+        type: 'text',
+        value: messageId ? `messageRef:${messageId}` : content,
+      },
     });
 
     return content;
@@ -386,26 +400,5 @@ export class VaultCopy {
     }
 
     return response;
-  }
-
-  private async serializeCopyInvocation(params: {
-    title: string;
-    handlerId: string;
-    toolCall: ToolInvocation<unknown, CopyToolArgs>;
-    result: string;
-  }): Promise<void> {
-    const { title, handlerId, toolCall, result } = params;
-
-    await this.agent.renderer.serializeToolInvocation({
-      path: title,
-      command: 'vault_copy',
-      handlerId,
-      toolInvocations: [
-        {
-          ...toolCall,
-          result,
-        },
-      ],
-    });
   }
 }

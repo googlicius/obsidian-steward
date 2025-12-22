@@ -1,5 +1,5 @@
 import { generateObject } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type StewardPlugin from 'src/main';
 import { DocWithPath } from 'src/types/types';
 import { logger } from 'src/utils/logger';

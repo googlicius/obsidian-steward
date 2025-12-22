@@ -323,7 +323,7 @@ export default class StewardPlugin extends Plugin {
     this.registerEditorExtension([
       createCommandInputExtension(this, {
         onEnter: this.handleEnter.bind(this),
-        onTyping: this.handleTyping.bind(this),
+        // onTyping: this.handleTyping.bind(this),
         typingDebounceMs: 1000,
       }),
       createStwSelectedBlocksExtension(this),

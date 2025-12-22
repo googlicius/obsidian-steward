@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { type SuperAgent } from '../SuperAgent';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -9,7 +9,7 @@ import { PaginatedSearchResult } from 'src/solutions/search/types';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 import { STOPWORDS } from 'src/solutions/search';
 import { stemmer } from 'src/solutions/search/tokenizer/stemmer';
-import z from 'zod';
+import { z } from 'zod/v3';
 import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
@@ -82,7 +82,7 @@ export interface SearchQueryExtractionV2 {
   lang?: string;
   confidence: number;
   needsLLM: boolean;
-  toolCall?: ToolInvocation<unknown>;
+  toolCall?: ToolCallPart<unknown>;
 }
 
 type HighlighKeywordResult = {
@@ -105,7 +105,7 @@ export type SearchArgs = {
 
 export class Search {
   private static readonly searchTool = tool({
-    parameters: searchQueryExtractionSchema,
+    inputSchema: searchQueryExtractionSchema,
   });
 
   constructor(private readonly agent: SuperAgent) {}
@@ -204,10 +204,10 @@ export class Search {
    */
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, SearchArgs> }
+    options: { toolCall: ToolCallPart<SearchArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId, nextIntent } = params;
-    const { operations, explanation, lang: searchLang } = options.toolCall.args;
+    const { operations, explanation, lang: searchLang } = options.toolCall.input;
     const t = getTranslation(searchLang || lang);
 
     if (!handlerId) {
@@ -336,7 +336,7 @@ export class Search {
     explanation: string,
     lang: string | null | undefined,
     handlerId: string,
-    toolCall: ToolInvocation<unknown, SearchArgs>
+    toolCall: ToolCallPart<SearchArgs>
   ): Promise<AgentResult> {
     const t = getTranslation(lang);
 
@@ -374,7 +374,11 @@ export class Search {
         toolInvocations: [
           {
             ...toolCall,
-            result: `messageRef:${messageId}`,
+            type: 'tool-result',
+            output: {
+              type: 'text',
+              value: `messageRef:${messageId}`,
+            },
           },
         ],
       });
@@ -422,7 +426,11 @@ export class Search {
         toolInvocations: [
           {
             ...toolCall,
-            result: resultText,
+            type: 'tool-result',
+            output: {
+              type: 'text',
+              value: resultText,
+            },
           },
         ],
       });

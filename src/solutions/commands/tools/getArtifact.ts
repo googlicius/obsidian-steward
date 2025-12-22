@@ -1,5 +1,5 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 const getMostRecentArtifactSchema = z.object({
   explanation: z
@@ -20,9 +20,9 @@ export type GetMostRecentArtifactArgs = z.infer<typeof getMostRecentArtifactSche
 export type GetArtifactByIdArgs = z.infer<typeof getArtifactByIdSchema>;
 
 export const getMostRecentArtifact = tool({
-  parameters: getMostRecentArtifactSchema,
+  inputSchema: getMostRecentArtifactSchema,
 });
 
 export const getArtifactById = tool({
-  parameters: getArtifactByIdSchema,
+  inputSchema: getArtifactByIdSchema,
 });

@@ -1,10 +1,10 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { type SuperAgent } from '../SuperAgent';
 import { logger } from 'src/utils/logger';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { SysError } from 'src/utils/errors';
 
@@ -27,7 +27,9 @@ type RevertFrontmatterExecutionResult = {
 };
 
 export class RevertFrontmatter {
-  private static readonly revertFrontmatterTool = tool({ parameters: revertFrontmatterToolSchema });
+  private static readonly revertFrontmatterTool = tool({
+    inputSchema: revertFrontmatterToolSchema,
+  });
 
   constructor(private readonly agent: SuperAgent) {}
 
@@ -37,7 +39,7 @@ export class RevertFrontmatter {
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, RevertFrontmatterToolArgs> }
+    options: { toolCall: ToolCallPart<RevertFrontmatterToolArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const { toolCall } = options;
@@ -47,10 +49,10 @@ export class RevertFrontmatter {
       throw new SysError('RevertFrontmatter.handle invoked without handlerId');
     }
 
-    if (toolCall.args.explanation) {
+    if (toolCall.input.explanation) {
       await this.agent.renderer.updateConversationNote({
         path: title,
-        newContent: toolCall.args.explanation,
+        newContent: toolCall.input.explanation,
         command: 'revert_frontmatter',
         includeHistory: false,
         lang,
@@ -114,18 +116,22 @@ export class RevertFrontmatter {
       includeHistory: false,
     });
 
-    await this.serializeRevertInvocation({
+    await this.agent.serializeInvocation({
+      command: 'revert_frontmatter',
       title,
       handlerId,
       toolCall,
-      result: messageId ? `messageRef:${messageId}` : response,
+      result: {
+        type: 'text',
+        value: messageId ? `messageRef:${messageId}` : response,
+      },
     });
 
     // Remove the artifact if revert was successful and artifactId was provided
-    if (toolCall.args.artifactId && revertResult.revertedFiles.length > 0) {
+    if (toolCall.input.artifactId && revertResult.revertedFiles.length > 0) {
       await this.agent.plugin.artifactManagerV2
         .withTitle(title)
-        .removeArtifact(toolCall.args.artifactId, toolCall.args.explanation);
+        .removeArtifact(toolCall.input.artifactId, toolCall.input.explanation);
     }
 
     return {
@@ -135,7 +141,7 @@ export class RevertFrontmatter {
 
   private async resolveUpdates(params: {
     title: string;
-    toolCall: ToolInvocation<unknown, RevertFrontmatterToolArgs>;
+    toolCall: ToolCallPart<RevertFrontmatterToolArgs>;
     lang?: string | null;
     handlerId: string;
   }): Promise<{
@@ -149,17 +155,17 @@ export class RevertFrontmatter {
     const { title, toolCall, lang, handlerId } = params;
     const t = getTranslation(lang);
 
-    if (!toolCall.args.artifactId) {
+    if (!toolCall.input.artifactId) {
       const message = t('common.noRecentOperations') || 'No artifact ID provided.';
       return { updates: [], errorMessage: message };
     }
 
     const artifact = await this.agent.plugin.artifactManagerV2
       .withTitle(title)
-      .getArtifactById(toolCall.args.artifactId);
+      .getArtifactById(toolCall.input.artifactId);
 
     if (!artifact) {
-      logger.error(`Revert frontmatter tool artifact not found: ${toolCall.args.artifactId}`);
+      logger.error(`Revert frontmatter tool artifact not found: ${toolCall.input.artifactId}`);
       const message = t('common.noRecentOperations') || 'No recent operations found.';
       return { updates: [], errorMessage: message };
     }
@@ -176,11 +182,15 @@ export class RevertFrontmatter {
         includeHistory: false,
       });
 
-      await this.serializeRevertInvocation({
+      await this.agent.serializeInvocation({
+        command: 'revert_frontmatter',
         title,
         handlerId,
         toolCall,
-        result: messageId ? `messageRef:${messageId}` : message,
+        result: {
+          type: 'text',
+          value: messageId ? `messageRef:${messageId}` : message,
+        },
       });
 
       return { updates: [], errorMessage: message };
@@ -258,26 +268,5 @@ export class RevertFrontmatter {
       logger.error(`Error reverting frontmatter for ${path}:`, error);
       return { success: false };
     }
-  }
-
-  private async serializeRevertInvocation(params: {
-    title: string;
-    handlerId: string;
-    toolCall: ToolInvocation<unknown, RevertFrontmatterToolArgs>;
-    result: string;
-  }): Promise<void> {
-    const { title, handlerId, toolCall, result } = params;
-
-    await this.agent.renderer.serializeToolInvocation({
-      path: title,
-      command: 'revert_frontmatter',
-      handlerId,
-      toolInvocations: [
-        {
-          ...toolCall,
-          result,
-        },
-      ],
-    });
   }
 }

@@ -1,5 +1,5 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { COMMAND_DEFINITIONS } from 'src/lib/modelfusion/prompts/commands';
 
 const readCommandQueryTemplate = COMMAND_DEFINITIONS.find(
@@ -26,5 +26,5 @@ export type RequestReadContentArgs = z.infer<typeof requestReadContentSchema>;
  * Shared requestReadContent tool definition
  */
 export const requestReadContentTool = tool({
-  parameters: requestReadContentSchema,
+  inputSchema: requestReadContentSchema,
 });

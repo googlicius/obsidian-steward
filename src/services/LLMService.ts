@@ -230,10 +230,14 @@ export class LLMService {
 
     const languageModel = provider(modelId);
 
+    if (languageModel.specificationVersion === 'v1') {
+      throw new Error(`Language model ${model} is not supported`);
+    }
+
     const generateParams = {
       model: languageModel,
       temperature,
-      maxTokens: maxGenerationTokens,
+      maxOutputTokens: maxGenerationTokens,
     };
 
     if (generateType === 'text') {
@@ -265,13 +269,18 @@ export class LLMService {
     const { overrideModel } = options || {};
     const model = overrideModel || this.plugin.settings.llm.image.model;
     const result = this.getProviderFromModel(model);
-    let imageModel: ImageModel;
+    let imageModel: ImageModel | undefined;
 
     if (result.name === 'openai') {
       imageModel = result.provider.image(result.modelId);
     } else if (result.provider.imageModel) {
-      imageModel = result.provider.imageModel(result.modelId);
-    } else {
+      const imageModelV1OrV2 = result.provider.imageModel(result.modelId);
+      if (imageModelV1OrV2.specificationVersion === 'v2') {
+        imageModel = imageModelV1OrV2;
+      }
+    }
+
+    if (!imageModel) {
       throw new Error(`Image generation not supported for provider: ${result.name}`);
     }
 
@@ -289,14 +298,21 @@ export class LLMService {
     const [provider, model] = speechModelId.split(':');
 
     const result = this.getProviderFromModel(`${provider}:${model}`);
-    let speechModel: SpeechModel;
+    let speechModel: SpeechModel | undefined;
 
     if (result.name === 'openai') {
       speechModel = result.provider.speech(result.modelId);
     } else if (result.provider.speechModel) {
-      speechModel = result.provider.speechModel(result.modelId);
-    } else {
-      throw new Error(`Speech generation not supported for provider: ${result.name}`);
+      const speechModelV1OrV2 = result.provider.speechModel(result.modelId);
+      if (speechModelV1OrV2.specificationVersion === 'v2') {
+        speechModel = speechModelV1OrV2;
+      }
+    }
+
+    if (!speechModel) {
+      throw new Error(
+        `Speech generation not supported for provider: ${result.name} ${result.modelId}`
+      );
     }
 
     return {

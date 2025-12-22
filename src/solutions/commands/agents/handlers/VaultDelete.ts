@@ -1,11 +1,11 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { type SuperAgent } from '../SuperAgent';
 import { logger } from 'src/utils/logger';
 import { NonTrashFile, TrashFile } from 'src/services/TrashCleanupService';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import {
   createArtifactIdSchema,
@@ -66,7 +66,7 @@ type DeleteExecutionResult = {
 };
 
 export class VaultDelete {
-  private static readonly deleteTool = tool({ parameters: deleteToolSchema });
+  private static readonly deleteTool = tool({ inputSchema: deleteToolSchema });
 
   constructor(private readonly agent: SuperAgent) {}
 
@@ -76,7 +76,7 @@ export class VaultDelete {
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, DeleteToolArgs> }
+    options: { toolCall: ToolCallPart<DeleteToolArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const { toolCall } = options;
@@ -86,10 +86,10 @@ export class VaultDelete {
       throw new Error('VaultDelete.handle invoked without handlerId');
     }
 
-    if (toolCall.args.explanation) {
+    if (toolCall.input.explanation) {
       await this.agent.renderer.updateConversationNote({
         path: title,
-        newContent: toolCall.args.explanation,
+        newContent: toolCall.input.explanation,
         command: 'vault_delete',
         includeHistory: false,
         lang,
@@ -156,11 +156,15 @@ export class VaultDelete {
       includeHistory: false,
     });
 
-    await this.serializeDeleteInvocation({
+    await this.agent.serializeInvocation({
+      command: 'vault_delete',
       title,
       handlerId,
       toolCall,
-      result: messageId ? `messageRef:${messageId}` : response,
+      result: {
+        type: 'text',
+        value: messageId ? `messageRef:${messageId}` : response,
+      },
     });
 
     return {
@@ -170,7 +174,7 @@ export class VaultDelete {
 
   private async resolveFilePaths(params: {
     title: string;
-    toolCall: ToolInvocation<unknown, DeleteToolArgs>;
+    toolCall: ToolCallPart<DeleteToolArgs>;
     lang?: string | null;
     handlerId: string;
   }): Promise<{ filePaths: string[]; errorMessage?: string }> {
@@ -180,10 +184,10 @@ export class VaultDelete {
     const filePaths: string[] = [];
     const noFilesMessage = t('common.noFilesFound');
 
-    if (toolCall.args.artifactId) {
+    if (toolCall.input.artifactId) {
       const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(title);
       const resolvedFiles = await artifactManager.resolveFilesFromArtifact(
-        toolCall.args.artifactId
+        toolCall.input.artifactId
       );
 
       if (resolvedFiles.length === 0) {
@@ -195,8 +199,8 @@ export class VaultDelete {
       }
     }
 
-    if (toolCall.args.files) {
-      for (const filePath of toolCall.args.files) {
+    if (toolCall.input.files) {
+      for (const filePath of toolCall.input.files) {
         const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(filePath);
         if (file) {
           filePaths.push(file.path);
@@ -204,10 +208,10 @@ export class VaultDelete {
       }
     }
 
-    if (toolCall.args.filePatterns) {
+    if (toolCall.input.filePatterns) {
       const patternMatchedPaths = this.agent.obsidianAPITools.resolveFilePatterns(
-        toolCall.args.filePatterns.patterns,
-        toolCall.args.filePatterns.folder
+        toolCall.input.filePatterns.patterns,
+        toolCall.input.filePatterns.folder
       );
       filePaths.push(...patternMatchedPaths);
     }
@@ -222,11 +226,15 @@ export class VaultDelete {
         includeHistory: false,
       });
 
-      await this.serializeDeleteInvocation({
+      await this.agent.serializeInvocation({
+        command: 'vault_delete',
         title,
         handlerId,
         toolCall,
-        result: noFilesMessageId ? `messageRef:${noFilesMessageId}` : noFilesMessage,
+        result: {
+          type: 'error-text',
+          value: noFilesMessageId ? `messageRef:${noFilesMessageId}` : noFilesMessage,
+        },
       });
 
       return { filePaths: [], errorMessage: noFilesMessage };
@@ -337,26 +345,5 @@ export class VaultDelete {
       logger.error(`Error moving file ${filePath} to Steward trash:`, error);
       return { success: false, originalPath: filePath };
     }
-  }
-
-  private async serializeDeleteInvocation(params: {
-    title: string;
-    handlerId: string;
-    toolCall: ToolInvocation<unknown, DeleteToolArgs>;
-    result: string;
-  }): Promise<void> {
-    const { title, handlerId, toolCall, result } = params;
-
-    await this.agent.renderer.serializeToolInvocation({
-      path: title,
-      command: 'vault_delete',
-      handlerId,
-      toolInvocations: [
-        {
-          ...toolCall,
-          result,
-        },
-      ],
-    });
   }
 }

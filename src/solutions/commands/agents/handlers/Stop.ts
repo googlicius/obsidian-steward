@@ -1,7 +1,7 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
@@ -14,7 +14,7 @@ export type StopArgs = z.infer<typeof stopSchema>;
 
 export class Stop {
   private static readonly stopTool = tool({
-    parameters: stopSchema,
+    inputSchema: stopSchema,
   });
 
   constructor(private readonly agent: SuperAgent) {}
@@ -28,7 +28,7 @@ export class Stop {
    */
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, StopArgs> }
+    options: { toolCall: ToolCallPart<StopArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const t = getTranslation(lang);

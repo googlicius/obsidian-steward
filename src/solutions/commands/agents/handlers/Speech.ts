@@ -1,8 +1,8 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { experimental_generateSpeech } from 'ai';
@@ -26,7 +26,7 @@ export type SpeechArgs = z.infer<typeof speechSchema>;
 
 export class Speech {
   private static readonly speechTool = tool({
-    parameters: speechSchema,
+    inputSchema: speechSchema,
   });
 
   constructor(private readonly agent: SuperAgent) {}
@@ -48,7 +48,7 @@ export class Speech {
    */
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, SpeechArgs> }
+    options: { toolCall: ToolCallPart<SpeechArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const { toolCall } = options;
@@ -62,7 +62,7 @@ export class Speech {
       // Update conversation with explanation
       await this.agent.renderer.updateConversationNote({
         path: title,
-        newContent: toolCall.args.explanation,
+        newContent: toolCall.input.explanation,
         role: 'Steward',
         includeHistory: false,
         lang,
@@ -79,7 +79,7 @@ export class Speech {
           provider as keyof typeof this.agent.plugin.settings.llm.speech.voices
         ];
 
-      const result = await this.generateAudio(toolCall.args.text, {
+      const result = await this.generateAudio(toolCall.input.text, {
         voice,
         instructions: params.intent.systemPrompts?.join('\n'),
       });
@@ -98,8 +98,10 @@ export class Speech {
           toolInvocations: [
             {
               ...toolCall,
-              result: {
-                error: result.error,
+              type: 'tool-result',
+              output: {
+                type: 'error-text',
+                value: result.error ?? 'Unknown error',
               },
             },
           ],
@@ -137,9 +139,13 @@ export class Speech {
         toolInvocations: [
           {
             ...toolCall,
-            result: {
-              success: true,
-              filePath: result.filePath,
+            type: 'tool-result',
+            output: {
+              type: 'json',
+              value: JSON.stringify({
+                success: true,
+                filePath: result.filePath,
+              }),
             },
           },
         ],
@@ -164,8 +170,10 @@ export class Speech {
         toolInvocations: [
           {
             ...toolCall,
-            result: {
-              error: error instanceof Error ? error.message : String(error),
+            type: 'tool-result',
+            output: {
+              type: 'error-text',
+              value: error instanceof Error ? error.message : String(error),
             },
           },
         ],

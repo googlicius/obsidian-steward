@@ -1,11 +1,11 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { TFile, TFolder } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { logger } from 'src/utils/logger';
 import { type SuperAgent } from '../SuperAgent';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import {
   createArtifactIdSchema,
@@ -106,7 +106,7 @@ type FileWithProperties = {
 
 export class VaultUpdateFrontmatter {
   private static readonly updateFrontmatterTool = tool({
-    parameters: updateFrontmatterToolSchema,
+    inputSchema: updateFrontmatterToolSchema,
   });
 
   constructor(private readonly agent: SuperAgent) {}
@@ -117,7 +117,7 @@ export class VaultUpdateFrontmatter {
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, UpdateFrontmatterToolArgs> }
+    options: { toolCall: ToolCallPart<UpdateFrontmatterToolArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const { toolCall } = options;
@@ -127,10 +127,10 @@ export class VaultUpdateFrontmatter {
       throw new Error('VaultUpdateFrontmatter.handle invoked without handlerId');
     }
 
-    if (toolCall.args.explanation) {
+    if (toolCall.input.explanation) {
       await this.agent.renderer.updateConversationNote({
         path: title,
-        newContent: toolCall.args.explanation,
+        newContent: toolCall.input.explanation,
         command: 'vault_update_frontmatter',
         includeHistory: false,
         lang,
@@ -191,11 +191,15 @@ export class VaultUpdateFrontmatter {
       },
     });
 
-    await this.serializeUpdateInvocation({
+    await this.agent.serializeInvocation({
+      command: 'vault_update_frontmatter',
       title,
       handlerId,
       toolCall,
-      result: formattedMessage,
+      result: {
+        type: 'text',
+        value: formattedMessage,
+      },
     });
 
     return {
@@ -223,7 +227,7 @@ export class VaultUpdateFrontmatter {
 
   private async resolveFiles(params: {
     title: string;
-    toolCall: ToolInvocation<unknown, UpdateFrontmatterToolArgs>;
+    toolCall: ToolCallPart<UpdateFrontmatterToolArgs>;
     lang?: string | null;
     handlerId: string;
   }): Promise<{ files: FileWithProperties[]; errorMessage?: string }> {
@@ -235,10 +239,10 @@ export class VaultUpdateFrontmatter {
     // Determine which files to update
     let filePathsToUpdate: string[] = [];
 
-    if (toolCall.args.artifactId) {
+    if (toolCall.input.artifactId) {
       const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(title);
       const resolvedFiles = await artifactManager.resolveFilesFromArtifact(
-        toolCall.args.artifactId
+        toolCall.input.artifactId
       );
 
       if (resolvedFiles.length > 0) {
@@ -248,8 +252,8 @@ export class VaultUpdateFrontmatter {
     }
 
     // Collect files from files array
-    if (toolCall.args.files) {
-      for (const filePath of toolCall.args.files) {
+    if (toolCall.input.files) {
+      for (const filePath of toolCall.input.files) {
         const trimmedPath = filePath.trim();
         if (trimmedPath) {
           filePathsToUpdate.push(trimmedPath);
@@ -258,9 +262,9 @@ export class VaultUpdateFrontmatter {
     }
 
     // Collect files from folders
-    if (toolCall.args.folders) {
-      const recursive = toolCall.args.folders.recursive ?? false;
-      for (const folderPath of toolCall.args.folders.paths) {
+    if (toolCall.input.folders) {
+      const recursive = toolCall.input.folders.recursive ?? false;
+      for (const folderPath of toolCall.input.folders.paths) {
         const trimmedPath = folderPath.trim();
         if (!trimmedPath) {
           continue;
@@ -280,10 +284,10 @@ export class VaultUpdateFrontmatter {
     }
 
     // Collect files from filePatterns
-    if (toolCall.args.filePatterns) {
+    if (toolCall.input.filePatterns) {
       const patternMatchedPaths = this.agent.obsidianAPITools.resolveFilePatterns(
-        toolCall.args.filePatterns.patterns,
-        toolCall.args.filePatterns.folder
+        toolCall.input.filePatterns.patterns,
+        toolCall.input.filePatterns.folder
       );
       // Only include markdown files from patterns
       for (const path of patternMatchedPaths) {
@@ -300,7 +304,7 @@ export class VaultUpdateFrontmatter {
     // Combine files with properties
     const filesToUpdate: FileWithProperties[] = filePathsToUpdate.map(path => ({
       path,
-      properties: toolCall.args.properties,
+      properties: toolCall.input.properties,
     }));
 
     if (filesToUpdate.length === 0) {
@@ -313,11 +317,15 @@ export class VaultUpdateFrontmatter {
         includeHistory: false,
       });
 
-      await this.serializeUpdateInvocation({
+      await this.agent.serializeInvocation({
+        command: 'vault_update_frontmatter',
         title,
         handlerId,
         toolCall,
-        result: noFilesMessageId ? `messageRef:${noFilesMessageId}` : noFilesMessage,
+        result: {
+          type: 'error-text',
+          value: noFilesMessageId ? `messageRef:${noFilesMessageId}` : noFilesMessage,
+        },
       });
 
       return { files: [], errorMessage: noFilesMessage };
@@ -425,26 +433,5 @@ export class VaultUpdateFrontmatter {
     }
 
     return response;
-  }
-
-  private async serializeUpdateInvocation(params: {
-    title: string;
-    handlerId: string;
-    toolCall: ToolInvocation<unknown, UpdateFrontmatterToolArgs>;
-    result: string;
-  }): Promise<void> {
-    const { title, handlerId, toolCall, result } = params;
-
-    await this.agent.renderer.serializeToolInvocation({
-      path: title,
-      command: 'vault_update_frontmatter',
-      handlerId,
-      toolInvocations: [
-        {
-          ...toolCall,
-          result,
-        },
-      ],
-    });
   }
 }

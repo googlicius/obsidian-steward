@@ -1,8 +1,8 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { type SuperAgent } from '../SuperAgent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 
@@ -65,7 +65,7 @@ function executeCreateToolArgs(args: CreateToolArgs): CreatePlan {
 }
 
 export class VaultCreate {
-  private static readonly createTool = tool({ parameters: createToolSchema });
+  private static readonly createTool = tool({ inputSchema: createToolSchema });
 
   constructor(private readonly agent: SuperAgent) {}
 
@@ -129,7 +129,7 @@ export class VaultCreate {
    */
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, CreateToolArgs> }
+    options: { toolCall: ToolCallPart<CreateToolArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId, intent } = params;
     const { toolCall } = options;
@@ -141,14 +141,14 @@ export class VaultCreate {
 
     await this.agent.renderer.updateConversationNote({
       path: title,
-      newContent: toolCall.args.explanation,
+      newContent: toolCall.input.explanation,
       command: 'vault_create',
       includeHistory: false,
       lang,
       handlerId,
     });
 
-    const plan = executeCreateToolArgs(toolCall.args);
+    const plan = executeCreateToolArgs(toolCall.input);
 
     if (plan.notes.length === 0) {
       await this.agent.renderer.updateConversationNote({
@@ -166,15 +166,6 @@ export class VaultCreate {
         error: new Error('No notes specified for creation'),
       };
     }
-
-    const toolInvocation: ToolInvocation<
-      { createdNotes: string[]; errors: string[] },
-      CreateToolArgs
-    > = {
-      toolName: toolCall.toolName,
-      toolCallId: toolCall.toolCallId,
-      args: toolCall.args,
-    };
 
     if (!intent?.no_confirm) {
       let message = `${t('create.confirmMessage', { count: plan.notes.length })}\n`;
@@ -205,7 +196,7 @@ export class VaultCreate {
             plan,
             lang,
             handlerId,
-            toolCall: toolInvocation,
+            toolCall,
           });
 
           return {
@@ -226,7 +217,7 @@ export class VaultCreate {
       plan,
       lang,
       handlerId,
-      toolCall: toolInvocation,
+      toolCall,
     });
 
     return {
@@ -242,7 +233,7 @@ export class VaultCreate {
     plan: CreatePlan;
     lang?: string | null;
     handlerId: string;
-    toolCall: ToolInvocation<{ createdNotes: string[]; errors: string[] }, CreateToolArgs>;
+    toolCall: ToolCallPart<CreateToolArgs>;
   }): Promise<{
     createdNotes: string[];
     createdNoteLinks: string[];
@@ -314,9 +305,13 @@ export class VaultCreate {
       toolInvocations: [
         {
           ...toolCall,
-          result: {
-            createdNotes: creationResult.createdNotes,
-            errors: creationResult.errors,
+          type: 'tool-result',
+          output: {
+            type: 'json',
+            value: JSON.stringify({
+              createdNotes: creationResult.createdNotes,
+              errors: creationResult.errors,
+            }),
           },
         },
       ],

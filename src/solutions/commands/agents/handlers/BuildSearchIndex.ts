@@ -1,7 +1,6 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
-import { ToolInvocation } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
@@ -15,7 +14,7 @@ export type BuildSearchIndexArgs = z.infer<typeof buildSearchIndexSchema>;
 
 export class BuildSearchIndex {
   private static readonly buildSearchIndexTool = tool({
-    parameters: buildSearchIndexSchema,
+    inputSchema: buildSearchIndexSchema,
   });
 
   constructor(private readonly agent: SuperAgent) {}
@@ -27,10 +26,7 @@ export class BuildSearchIndex {
   /**
    * Handle build search index tool call
    */
-  public async handle(
-    params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, BuildSearchIndexArgs> }
-  ): Promise<AgentResult> {
+  public async handle(params: AgentHandlerParams): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
 
     if (!handlerId) {
@@ -83,7 +79,7 @@ export class BuildSearchIndex {
         return {
           status: IntentResultStatus.NEEDS_CONFIRMATION,
           onConfirmation: () => {
-            return this.performIndexing(title, validFiles, lang, handlerId, options.toolCall);
+            return this.performIndexing(title, validFiles, lang, handlerId);
           },
           onRejection: () => {
             return {
@@ -94,7 +90,7 @@ export class BuildSearchIndex {
       }
 
       // Index doesn't exist, run indexing directly without confirmation
-      return this.performIndexing(title, validFiles, lang, handlerId, options.toolCall);
+      return this.performIndexing(title, validFiles, lang, handlerId);
     } catch (error) {
       logger.error('Error in build search index command:', error);
 
@@ -120,8 +116,7 @@ export class BuildSearchIndex {
     title: string,
     validFiles: TFile[],
     lang: string | null | undefined,
-    handlerId: string,
-    toolCall: ToolInvocation<unknown, BuildSearchIndexArgs>
+    handlerId: string
   ): Promise<AgentResult> {
     const abortService = AbortService.getInstance();
     const operationId = 'build_search_index';

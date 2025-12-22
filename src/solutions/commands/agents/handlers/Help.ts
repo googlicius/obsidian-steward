@@ -1,5 +1,5 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
@@ -12,7 +12,7 @@ export type HelpArgs = z.infer<typeof helpSchema>;
 
 export class Help {
   private static readonly helpTool = tool({
-    parameters: helpSchema,
+    inputSchema: helpSchema,
   });
 
   constructor(private readonly agent: SuperAgent) {}

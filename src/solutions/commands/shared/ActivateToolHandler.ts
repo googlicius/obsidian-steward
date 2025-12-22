@@ -1,7 +1,7 @@
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../types';
 import { ToolName } from '../ToolRegistry';
 import { execute as executeActivateTools, ActivateToolsResult } from '../tools/activateTools';
-import { ToolInvocation } from '../tools/types';
+import { ToolCallPart } from '../tools/types';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { getTranslation } from 'src/i18n';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
@@ -18,7 +18,7 @@ export class ActivateToolHandler {
   public async handle(
     params: AgentHandlerParams,
     options: {
-      toolCall: ToolInvocation<unknown>;
+      toolCall: ToolCallPart<unknown>;
       activeTools: ToolName[];
       availableTools: Record<string, unknown>;
       agent: string;
@@ -26,7 +26,7 @@ export class ActivateToolHandler {
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const { toolCall, activeTools, availableTools, agent } = options;
-    const { tools: requestedTools } = toolCall.args as { tools: ToolName[] };
+    const { tools: requestedTools } = toolCall.input as { tools: ToolName[] };
     const t = getTranslation(lang);
 
     if (!handlerId) {
@@ -35,7 +35,7 @@ export class ActivateToolHandler {
 
     // Validate that requested tools exist in the available tool set
     const validationResult: ActivateToolsResult = await executeActivateTools(
-      toolCall.args as { tools: ToolName[] },
+      toolCall.input as { tools: ToolName[] },
       availableTools
     );
 
@@ -56,7 +56,6 @@ export class ActivateToolHandler {
       includeHistory: false,
       lang,
       handlerId,
-      step: params.invocationCount,
     });
 
     // Serialize the tool invocation with result message
@@ -65,14 +64,17 @@ export class ActivateToolHandler {
       agent,
       command: 'activate-tools',
       handlerId,
-      step: params.invocationCount,
       ...(validationResult.invalidTools && {
         text: `*${t('activateTools.invalidTools', { tools: joinWithConjunction(validationResult.invalidTools, 'and') })}*`,
       }),
       toolInvocations: [
         {
           ...toolCall,
-          result: validationResult,
+          type: 'tool-result',
+          output: {
+            type: 'json',
+            value: JSON.stringify(validationResult),
+          },
         },
       ],
     });

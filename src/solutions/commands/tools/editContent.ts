@@ -1,7 +1,7 @@
 import { tool } from 'ai';
 import { ArtifactType } from 'src/solutions/artifact';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 interface ReplaceInstruction {
   type: 'replace';
@@ -77,7 +77,7 @@ NOTE:
   );
 
   const editTool = tool({
-    parameters: editSchema,
+    inputSchema: editSchema,
   });
 
   function execute(args: EditArgs): UpdateInstruction[] {

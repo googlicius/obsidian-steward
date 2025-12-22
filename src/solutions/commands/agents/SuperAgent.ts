@@ -1,8 +1,8 @@
-import { streamText, Message } from 'ai';
+import { ModelMessage, streamText, UIMessage } from 'ai';
 import { waitForError } from 'src/utils/waitForError';
 import { Agent } from '../Agent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../types';
-import { ToolInvocation } from '../tools/types';
+import { ToolCallPart, ToolResultPart, ToolInvocation } from '../tools/types';
 import { getTranslation } from 'src/i18n';
 import { SystemPromptModifier } from '../SystemPromptModifier';
 import { ToolRegistry, ToolName } from '../ToolRegistry';
@@ -16,7 +16,6 @@ import { SuperAgentHandlers } from './SuperAgentHandlers';
 import { applyMixins } from 'src/utils/applyMixins';
 import { createAskUserTool } from '../tools/askUser';
 import * as handlers from './handlers';
-import { ConversationHistoryMessage } from 'src/types/types';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 import { streamTextWithReasoning } from 'src/utils/textStreamer';
@@ -157,7 +156,7 @@ export class SuperAgent extends Agent {
     activeTools: ToolName[],
     classifiedTasks: string[],
     lang?: string | null
-  ): Promise<ToolInvocation<unknown> | undefined> {
+  ): Promise<ToolCallPart | undefined> {
     // Return undefined if there are multiple classified tasks
     console.log('classified tags', classifiedTasks);
     if (classifiedTasks.length !== 1) {
@@ -181,9 +180,10 @@ export class SuperAgent extends Agent {
 
           if (artifact) {
             return {
+              type: 'tool-call',
               toolName: ToolName.DELETE,
               toolCallId: `manual-tool-call-${uniqueID()}`,
-              args: {
+              input: {
                 artifactId: artifact.id,
                 explanation: '',
               },
@@ -230,9 +230,10 @@ export class SuperAgent extends Agent {
             const toolName = artifactTypeToToolMap[artifact.artifactType];
             if (toolName) {
               return {
+                type: 'tool-call',
                 toolName,
                 toolCallId: `manual-tool-call-${uniqueID()}`,
-                args: {
+                input: {
                   artifactId: artifact.id,
                   explanation: t('revert.revertingArtifact', {
                     artifactType: artifact.artifactType,
@@ -247,50 +248,56 @@ export class SuperAgent extends Agent {
 
       case 'help': {
         return {
+          type: 'tool-call',
           toolName: ToolName.HELP,
           toolCallId: `manual-tool-call-${uniqueID()}`,
-          args: {},
+          input: {},
         };
       }
 
       case 'user_confirm': {
         return {
+          type: 'tool-call',
           toolName: ToolName.USER_CONFIRM,
           toolCallId: `manual-tool-call-${uniqueID()}`,
-          args: {},
+          input: {},
         };
       }
 
       case 'stop': {
         return {
+          type: 'tool-call',
           toolName: ToolName.STOP,
           toolCallId: `manual-tool-call-${uniqueID()}`,
-          args: {},
+          input: {},
         };
       }
 
       case 'thank_you': {
         return {
+          type: 'tool-call',
           toolName: ToolName.THANK_YOU,
           toolCallId: `manual-tool-call-${uniqueID()}`,
-          args: {},
+          input: {},
         };
       }
 
       case 'more': {
         // Handle search_more tool manual calls
         return {
+          type: 'tool-call',
           toolName: ToolName.SEARCH_MORE,
           toolCallId: `manual-tool-call-${uniqueID()}`,
-          args: {},
+          input: {},
         };
       }
 
       case 'build_search_index': {
         return {
+          type: 'tool-call',
           toolName: ToolName.BUILD_SEARCH_INDEX,
           toolCallId: `manual-tool-call-${uniqueID()}`,
-          args: {},
+          input: {},
         };
       }
 
@@ -304,9 +311,10 @@ export class SuperAgent extends Agent {
 
         if (extraction) {
           return {
+            type: 'tool-call',
             toolName: ToolName.SEARCH,
             toolCallId: `manual-tool-call-${uniqueID()}`,
-            args: {
+            input: {
               operations: extraction.operations,
               explanation: extraction.explanation,
               lang: extraction.lang,
@@ -322,9 +330,10 @@ export class SuperAgent extends Agent {
         const quotedText = getQuotedQuery(query);
         if (quotedText) {
           return {
+            type: 'tool-call',
             toolName: ToolName.SPEECH,
             toolCallId: `manual-tool-call-${uniqueID()}`,
-            args: {
+            input: {
               text: quotedText,
               explanation: `Generating audio with: "${quotedText}"`,
               confidence: 1,
@@ -349,7 +358,7 @@ export class SuperAgent extends Agent {
     } = {}
   ): Promise<{
     toolCalls: ToolCalls;
-    conversationHistory: ConversationHistoryMessage[];
+    conversationHistory: ModelMessage[];
   }> {
     const conversationHistory = await this.renderer.extractConversationHistory(params.title, {
       summaryPosition: 1,
@@ -376,14 +385,12 @@ export class SuperAgent extends Agent {
       registry.exclude([ToolName.CONFIRMATION, ToolName.ASK_USER]);
     }
 
-    const messages: Message[] = conversationHistory;
+    const messages: ModelMessage[] = conversationHistory;
 
     // Include user message for the first iteration.
     if (!params.invocationCount) {
-      messages.push({ role: 'user', content: params.intent.query } as unknown as Message);
+      messages.push({ role: 'user', content: params.intent.query });
     }
-
-    console.log('MESSAGES', messages);
 
     // Create an operation-specific abort signal
     const abortSignal = this.plugin.abortService.createAbortController('super-agent');
@@ -532,7 +539,7 @@ NOTE:
     );
 
     let toolCalls: ToolCalls;
-    let conversationHistory: ConversationHistoryMessage[] = [];
+    let conversationHistory: ModelMessage[] = [];
 
     if (options.toolCalls) {
       toolCalls = options.toolCalls as ToolCalls;
@@ -584,6 +591,11 @@ NOTE:
       for (let index = startIndex; index < toolCalls.length; index += 1) {
         const toolCall = toolCalls[index];
         let toolCallResult: AgentResult | undefined;
+
+        if (toolCall.dynamic) {
+          // We don't support dynamic tool call
+          continue;
+        }
 
         switch (toolCall.toolName) {
           case ToolName.LIST: {
@@ -683,11 +695,7 @@ NOTE:
 
             const result = artifact?.id
               ? `artifactRef:${artifact.id}`
-              : {
-                  error:
-                    t('common.noArtifactsFound') ||
-                    'No artifacts found matching the specified types.',
-                };
+              : t('common.noArtifactsFound');
 
             await this.renderer.serializeToolInvocation({
               path: title,
@@ -696,7 +704,11 @@ NOTE:
               toolInvocations: [
                 {
                   ...toolCall,
-                  result,
+                  type: 'tool-result',
+                  output: {
+                    type: 'text',
+                    value: result,
+                  },
                 },
               ],
             });
@@ -706,13 +718,11 @@ NOTE:
           case ToolName.GET_ARTIFACT_BY_ID: {
             const artifact = await this.plugin.artifactManagerV2
               .withTitle(title)
-              .getArtifactById(toolCall.args.artifactId);
+              .getArtifactById(toolCall.input.artifactId);
 
             const result = artifact?.id
               ? `artifactRef:${artifact.id}`
-              : {
-                  error: t('common.artifactNotFound', { artifactId: toolCall.args.artifactId }),
-                };
+              : t('common.artifactNotFound', { artifactId: toolCall.input.artifactId });
 
             await this.renderer.serializeToolInvocation({
               path: title,
@@ -721,7 +731,11 @@ NOTE:
               toolInvocations: [
                 {
                   ...toolCall,
-                  result,
+                  type: 'tool-result',
+                  output: {
+                    type: 'text',
+                    value: result,
+                  },
                 },
               ],
             });
@@ -740,7 +754,7 @@ NOTE:
           case ToolName.ASK_USER: {
             await this.renderer.updateConversationNote({
               path: title,
-              newContent: toolCall.args.message,
+              newContent: toolCall.input.message,
               lang: params.lang,
               handlerId,
             });
@@ -753,7 +767,11 @@ NOTE:
                 toolInvocations: [
                   {
                     ...toolCall,
-                    result: message,
+                    type: 'tool-result',
+                    output: {
+                      type: 'text',
+                      value: message,
+                    },
                   },
                 ],
               });
@@ -812,7 +830,7 @@ NOTE:
           }
 
           case ToolName.BUILD_SEARCH_INDEX: {
-            toolCallResult = await this.buildSearchIndex.handle(params, { toolCall });
+            toolCallResult = await this.buildSearchIndex.handle(params);
             break;
           }
 
@@ -950,6 +968,30 @@ NOTE:
     }
 
     return toolProcessingResult;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public async serializeInvocation<T>(params: {
+    title: string;
+    handlerId: string;
+    command: string;
+    toolCall: ToolCallPart<T>;
+    result: ToolResultPart['output'];
+  }): Promise<void> {
+    await this.renderer.serializeToolInvocation({
+      path: params.title,
+      command: params.command,
+      handlerId: params.handlerId,
+      toolInvocations: [
+        {
+          ...params.toolCall,
+          type: 'tool-result',
+          output: params.result,
+        },
+      ],
+    });
   }
 
   /**

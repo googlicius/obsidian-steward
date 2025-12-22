@@ -1,8 +1,8 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { experimental_generateImage } from 'ai';
@@ -26,7 +26,7 @@ export type ImageArgs = z.infer<typeof imageSchema>;
 
 export class Image {
   private static readonly imageTool = tool({
-    parameters: imageSchema,
+    inputSchema: imageSchema,
   });
 
   constructor(private readonly agent: SuperAgent) {}
@@ -48,7 +48,7 @@ export class Image {
    */
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, ImageArgs> }
+    options: { toolCall: ToolCallPart<ImageArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const { toolCall } = options;
@@ -62,7 +62,7 @@ export class Image {
       // Update conversation with explanation
       await this.agent.renderer.updateConversationNote({
         path: title,
-        newContent: toolCall.args.explanation,
+        newContent: toolCall.input.explanation,
         role: 'Steward',
         includeHistory: false,
         lang,
@@ -70,19 +70,19 @@ export class Image {
       });
 
       // Check confidence level
-      if (toolCall.args.confidence <= 0.7) {
+      if (toolCall.input.confidence <= 0.7) {
         // Return LOW_CONFIDENCE status to trigger context augmentation
         return {
           status: IntentResultStatus.LOW_CONFIDENCE,
           intentType: 'image',
-          explanation: toolCall.args.explanation,
+          explanation: toolCall.input.explanation,
         };
       }
 
       await this.agent.renderer.addGeneratingIndicator(title, t('conversation.generatingImage'));
 
       // Generate the image using the handler's method
-      const result = await this.generateImage(toolCall.args.text);
+      const result = await this.generateImage(toolCall.input.text);
 
       if (!result.success) {
         await this.agent.renderer.updateConversationNote({
@@ -98,8 +98,10 @@ export class Image {
           toolInvocations: [
             {
               ...toolCall,
-              result: {
-                error: result.error,
+              type: 'tool-result',
+              output: {
+                type: 'error-text',
+                value: result.error ?? 'Unknown error',
               },
             },
           ],
@@ -138,9 +140,13 @@ export class Image {
         toolInvocations: [
           {
             ...toolCall,
-            result: {
-              success: true,
-              filePath: result.filePath,
+            type: 'tool-result',
+            output: {
+              type: 'json',
+              value: JSON.stringify({
+                success: true,
+                filePath: result.filePath,
+              }),
             },
           },
         ],
@@ -165,8 +171,10 @@ export class Image {
         toolInvocations: [
           {
             ...toolCall,
-            result: {
-              error: error instanceof Error ? error.message : String(error),
+            type: 'tool-result',
+            output: {
+              type: 'error-text',
+              value: error instanceof Error ? error.message : String(error),
             },
           },
         ],

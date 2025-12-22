@@ -1,5 +1,5 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { ToolName } from '../ToolRegistry';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 
@@ -15,7 +15,7 @@ const activateToolsSchema = z.object({
 export type ActivateToolsArgs = z.infer<typeof activateToolsSchema>;
 
 export const activateTools = tool({
-  parameters: activateToolsSchema,
+  inputSchema: activateToolsSchema,
 });
 
 /**

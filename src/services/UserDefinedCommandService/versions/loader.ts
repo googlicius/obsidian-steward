@@ -1,6 +1,6 @@
 import { logger } from 'src/utils/logger';
 import { IVersionedUserDefinedCommand } from './types';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 /**
  * Result type for loading a versioned command

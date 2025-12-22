@@ -1,4 +1,4 @@
-import { embed, embedMany, cosineSimilarity } from 'ai';
+import { embed, embedMany, cosineSimilarity, EmbeddingModel } from 'ai';
 import { EmbeddingModelV1 } from '@ai-sdk/provider';
 import { EmbeddingsDatabase, EmbeddingEntry } from 'src/database/EmbeddingsDatabase';
 import { logger } from 'src/utils/logger';
@@ -16,7 +16,7 @@ export interface Settings {
   staticClusterValues?: ValueCluster[];
   prefixedClusterValue?: ValueCluster[];
   clusters: ValueCluster[];
-  embeddingModel: EmbeddingModelV1<string>;
+  embeddingModel: EmbeddingModel<string> | EmbeddingModelV1<string>;
   similarityThreshold: number;
   modelName?: string;
   forceRefresh?: boolean;
@@ -66,7 +66,10 @@ export class PersistentEmbeddingSimilarityClassifier {
    * Get model name used for storage
    */
   getModelStorageName(): string {
-    return this.settings.modelName || this.settings.embeddingModel.modelId;
+    if (!this.settings.modelName) {
+      throw new Error('modelName is required in settings for PersistentEmbeddingSimilarityClassifier');
+    }
+    return this.settings.modelName;
   }
 
   /**
@@ -392,7 +395,7 @@ export class PersistentEmbeddingSimilarityClassifier {
       );
 
       const { embeddings: clusterEmbeddings } = await embedMany({
-        model: this.settings.embeddingModel,
+        model: this.settings.embeddingModel as EmbeddingModel<string>,
         values: cluster.values,
       });
 
@@ -513,7 +516,7 @@ export class PersistentEmbeddingSimilarityClassifier {
 
       // Generate embedding for the value
       const { embedding } = await embed({
-        model: this.settings.embeddingModel,
+        model: this.settings.embeddingModel as EmbeddingModel<string>,
         value,
       });
 
@@ -577,7 +580,7 @@ export class PersistentEmbeddingSimilarityClassifier {
     const [embeddingResult, clusterEmbeddings] = await Promise.all([
       Promise.race([
         embed({
-          model: this.settings.embeddingModel,
+          model: this.settings.embeddingModel as EmbeddingModel<string>,
           value,
         }),
         new Promise<null>(resolve => {

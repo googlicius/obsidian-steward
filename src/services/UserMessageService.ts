@@ -92,7 +92,7 @@ export class UserMessageService {
             {
               type: 'image',
               image: resizedImage.imageData,
-              mimeType: resizedImage.mimeType,
+              mediaType: resizedImage.mimeType,
             },
           ]);
         } else {

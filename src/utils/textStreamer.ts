@@ -164,7 +164,7 @@ export async function* streamTextWithReasoning(
     // Type guard to check if chunk has a type property
     const chunkWithType = chunk as {
       type?: string;
-      reasoning?: string;
+      reasoningText?: string;
       textDelta?: string;
       text?: string;
       [key: string]: unknown;
@@ -182,7 +182,7 @@ export async function* streamTextWithReasoning(
       }
 
       // Yield the reasoning content
-      const reasoningText = (chunkWithType.reasoning || chunkWithType.textDelta || '') as string;
+      const reasoningText = (chunkWithType.reasoningText || chunkWithType.textDelta || '') as string;
       if (reasoningText && typeof reasoningText === 'string') {
         yield reasoningText;
       }

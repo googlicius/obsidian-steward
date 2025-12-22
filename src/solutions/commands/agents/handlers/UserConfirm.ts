@@ -1,7 +1,7 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
@@ -13,7 +13,7 @@ export type UserConfirmArgs = z.infer<typeof userConfirmSchema>;
 
 export class UserConfirm {
   private static readonly userConfirmTool = tool({
-    parameters: userConfirmSchema,
+    inputSchema: userConfirmSchema,
   });
 
   constructor(private readonly agent: SuperAgent) {}
@@ -28,7 +28,7 @@ export class UserConfirm {
    */
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, UserConfirmArgs> }
+    options: { toolCall: ToolCallPart<UserConfirmArgs> }
   ): Promise<AgentResult> {
     const { title, intent, lang, handlerId } = params;
 

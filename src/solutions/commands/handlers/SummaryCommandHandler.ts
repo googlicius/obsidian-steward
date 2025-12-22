@@ -1,8 +1,7 @@
 import { CommandHandler, CommandHandlerParams, CommandResult } from '../CommandHandler';
 import { getTranslation } from 'src/i18n';
-import { generateObject } from 'ai';
-import { ConversationHistoryMessage } from 'src/types/types';
-import { z } from 'zod';
+import { generateObject, ModelMessage } from 'ai';
+import { z } from 'zod/v3';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { IntentResultStatus } from '../types';
@@ -97,7 +96,7 @@ export class SummaryCommandHandler extends CommandHandler {
    * Generate a summary of the conversation using LLM
    */
   private async generateSummary(
-    conversationHistory: ConversationHistoryMessage[]
+    conversationHistory: ModelMessage[]
   ): Promise<string> {
     try {
       const llmConfig = await this.plugin.llmService.getLLMConfig();
@@ -117,9 +116,17 @@ The summary will be used to provide context for future parts of the conversation
         messages: [
           {
             role: 'user',
-            content: `Please summarize the following conversation:\n\n${conversationHistory
-              .map(msg => `${msg.role.toUpperCase()}: ${msg.content}`)
-              .join('\n\n')}`,
+            content: 'Please summarize the following conversation',
+
+            // parts: [
+            //   {
+            //     type: 'text',
+
+            //     text: `Please summarize the following conversation:\n\n${conversationHistory
+            //       .map(msg => `${msg.role.toUpperCase()}: ${msg.parts}`)
+            //       .join('\n\n')}`,
+            //   },
+            // ],
           },
         ],
         schema: conversationSummarySchema,

@@ -725,8 +725,11 @@ describe('ConversationRenderer', () => {
           {
             toolName: 'read',
             toolCallId: 'call_123',
-            args: { query: 'test' },
-            result: 'test result',
+            type: 'tool-result',
+            output: {
+              type: 'text',
+              value: 'test result',
+            },
           },
         ],
       });
@@ -763,8 +766,11 @@ describe('ConversationRenderer', () => {
           {
             toolName: 'read',
             toolCallId: 'call_123',
-            args: { query: 'test' },
-            result: 'test result',
+            type: 'tool-result',
+            output: {
+              type: 'text',
+              value: 'test result',
+            },
           },
         ],
       });

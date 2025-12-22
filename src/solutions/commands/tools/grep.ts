@@ -1,5 +1,5 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type StewardPlugin from 'src/main';
 import { TFile, TFolder } from 'obsidian';
 
@@ -37,7 +37,7 @@ export type GrepArgs = z.infer<typeof grepSchema>;
  * Shared grep tool definition
  */
 export const grepTool = tool({
-  parameters: grepSchema,
+  inputSchema: grepSchema,
 });
 
 /**

@@ -1,9 +1,9 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { TFile } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { type SuperAgent } from '../SuperAgent';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ArtifactType } from 'src/solutions/artifact';
 
@@ -43,7 +43,7 @@ type ListToolResult = {
 
 export class VaultList {
   protected static readonly listTool = tool({
-    parameters: listToolSchema,
+    inputSchema: listToolSchema,
   });
 
   constructor(private readonly agent: SuperAgent) {}
@@ -54,7 +54,7 @@ export class VaultList {
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, ListToolArgs> }
+    options: { toolCall: ToolCallPart<ListToolArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const { toolCall } = options;
@@ -65,14 +65,14 @@ export class VaultList {
 
     await this.agent.renderer.updateConversationNote({
       path: title,
-      newContent: toolCall.args.explanation,
+      newContent: toolCall.input.explanation,
       command: 'vault_list',
       includeHistory: false,
       lang,
       handlerId,
     });
 
-    const result = await this.executeListTool(toolCall.args, lang);
+    const result = await this.executeListTool(toolCall.input, lang);
 
     await this.agent.renderer.updateConversationNote({
       path: title,
@@ -102,11 +102,15 @@ export class VaultList {
       resultText += `\n\n${t('list.fullListAvailableInArtifact', { artifactId })}`;
     }
 
-    await this.serializeListInvocation({
+    await this.agent.serializeInvocation({
+      command: 'vault_list',
       title,
       handlerId,
       toolCall,
-      result: resultText,
+      result: {
+        type: 'text',
+        value: resultText,
+      },
     });
 
     return {
@@ -115,11 +119,11 @@ export class VaultList {
   }
 
   private async executeListTool(
-    args: ListToolArgs,
+    input: ListToolArgs,
     lang: string | null | undefined
   ): Promise<ListToolResult> {
-    const folderPath = args.folderPath || '/';
-    const filePattern = args.filePattern?.trim();
+    const folderPath = input.folderPath || '/';
+    const filePattern = input.filePattern?.trim();
     const t = getTranslation(lang);
     const errors: string[] = [];
 
@@ -215,26 +219,5 @@ export class VaultList {
       // If regex is invalid, return false
       return false;
     }
-  }
-
-  private async serializeListInvocation(params: {
-    title: string;
-    handlerId: string;
-    toolCall: ToolInvocation<unknown, ListToolArgs>;
-    result: string;
-  }): Promise<void> {
-    const { title, handlerId, toolCall, result } = params;
-
-    await this.agent.renderer.serializeToolInvocation({
-      path: title,
-      command: 'vault_list',
-      handlerId,
-      toolInvocations: [
-        {
-          ...toolCall,
-          result,
-        },
-      ],
-    });
   }
 }

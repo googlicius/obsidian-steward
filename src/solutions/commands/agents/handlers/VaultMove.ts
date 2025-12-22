@@ -1,11 +1,11 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { type SuperAgent } from '../SuperAgent';
 import { ArtifactType } from 'src/solutions/artifact';
 import { DocWithPath } from 'src/types/types';
 import { MoveOperationV2, OperationError } from 'src/tools/obsidianAPITools';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -89,7 +89,7 @@ type MoveOperationResult = {
 };
 
 export class VaultMove {
-  private static readonly moveTool = tool({ parameters: moveToolSchema });
+  private static readonly moveTool = tool({ inputSchema: moveToolSchema });
 
   constructor(private readonly agent: SuperAgent) {}
 
@@ -99,7 +99,7 @@ export class VaultMove {
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, MoveToolArgs> }
+    options: { toolCall: ToolCallPart<MoveToolArgs> }
   ): Promise<AgentResult> {
     const { title, lang } = params;
     const handlerId = params.handlerId;
@@ -113,7 +113,7 @@ export class VaultMove {
 
     await this.agent.renderer.updateConversationNote({
       path: title,
-      newContent: toolCall.args.explanation,
+      newContent: toolCall.input.explanation,
       command: 'vault_move',
       includeHistory: false,
       lang,
@@ -135,7 +135,7 @@ export class VaultMove {
     }
 
     const docs = resolveResult.docs;
-    const destinationFolder = toolCall.args.destinationFolder.trim();
+    const destinationFolder = toolCall.input.destinationFolder.trim();
 
     if (!destinationFolder) {
       const message = t('move.destinationRequired');
@@ -174,7 +174,7 @@ export class VaultMove {
         status: IntentResultStatus.NEEDS_CONFIRMATION,
         confirmationMessage: message,
         onConfirmation: async (_confirmationMessage: string) => {
-          await this.agent.obsidianAPITools.ensureFolderExists(toolCall.args.destinationFolder);
+          await this.agent.obsidianAPITools.ensureFolderExists(toolCall.input.destinationFolder);
           return this.handle(params, options);
         },
         onRejection: async (_rejectionMessage: string) => {
@@ -197,14 +197,14 @@ export class VaultMove {
       title,
       docs,
       destinationFolder,
-      explanation: toolCall.args.explanation,
+      explanation: toolCall.input.explanation,
       lang,
     });
 
     const formattedMessage = this.formatMoveResult({
       result: moveResult,
       destinationFolder,
-      explanation: toolCall.args.explanation,
+      explanation: toolCall.input.explanation,
       lang,
     });
 
@@ -230,11 +230,15 @@ export class VaultMove {
       });
     }
 
-    await this.serializeMoveInvocation({
+    await this.agent.serializeInvocation({
+      command: 'vault_move',
       title,
       handlerId,
       toolCall,
-      result: messageId ? `messageRef:${messageId}` : formattedMessage,
+      result: {
+        type: 'text',
+        value: messageId ? `messageRef:${messageId}` : formattedMessage,
+      },
     });
 
     return {
@@ -244,20 +248,21 @@ export class VaultMove {
 
   private async resolveMoveDocs(params: {
     title: string;
-    toolCall: ToolInvocation<unknown, MoveToolArgs>;
+    toolCall: ToolCallPart<MoveToolArgs>;
     lang?: string | null;
     handlerId: string;
   }): Promise<{ docs: DocWithPath[]; responseMessage?: string }> {
     const { title, toolCall, lang, handlerId } = params;
-    const args = toolCall.args;
     const t = getTranslation(lang);
 
     const docs: DocWithPath[] = [];
     const noFilesMessage = t('common.noFilesFound');
 
-    if (args.artifactId) {
+    if (toolCall.input.artifactId) {
       const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(title);
-      const resolvedFiles = await artifactManager.resolveFilesFromArtifact(args.artifactId);
+      const resolvedFiles = await artifactManager.resolveFilesFromArtifact(
+        toolCall.input.artifactId
+      );
 
       if (resolvedFiles.length === 0) {
         // No files found in artifact, continue to check other sources
@@ -267,8 +272,8 @@ export class VaultMove {
       }
     }
 
-    if (args.files) {
-      for (const filePath of args.files) {
+    if (toolCall.input.files) {
+      for (const filePath of toolCall.input.files) {
         const trimmedPath = filePath.trim();
         if (trimmedPath) {
           docs.push({ path: trimmedPath });
@@ -276,8 +281,8 @@ export class VaultMove {
       }
     }
 
-    if (args.folders) {
-      for (const folder of args.folders) {
+    if (toolCall.input.folders) {
+      for (const folder of toolCall.input.folders) {
         const trimmedPath = folder.path.trim();
         if (trimmedPath) {
           docs.push({ path: trimmedPath });
@@ -285,10 +290,10 @@ export class VaultMove {
       }
     }
 
-    if (args.filePatterns) {
+    if (toolCall.input.filePatterns) {
       const patternMatchedPaths = this.agent.obsidianAPITools.resolveFilePatterns(
-        args.filePatterns.patterns,
-        args.filePatterns.folder
+        toolCall.input.filePatterns.patterns,
+        toolCall.input.filePatterns.folder
       );
       for (const path of patternMatchedPaths) {
         docs.push({ path });
@@ -312,7 +317,7 @@ export class VaultMove {
   private async respondAndSerializeMove(params: {
     title: string;
     content: string;
-    toolCall: ToolInvocation<unknown, MoveToolArgs>;
+    toolCall: ToolCallPart<MoveToolArgs>;
     lang?: string | null;
     handlerId: string;
   }): Promise<string> {
@@ -326,11 +331,15 @@ export class VaultMove {
       includeHistory: false,
     });
 
-    await this.serializeMoveInvocation({
+    await this.agent.serializeInvocation({
+      command: 'vault_move',
       title,
       handlerId,
       toolCall,
-      result: messageId ? `messageRef:${messageId}` : content,
+      result: {
+        type: 'text',
+        value: messageId ? `messageRef:${messageId}` : content,
+      },
     });
 
     return content;
@@ -450,26 +459,5 @@ export class VaultMove {
     }
 
     return response;
-  }
-
-  private async serializeMoveInvocation(params: {
-    title: string;
-    handlerId: string;
-    toolCall: ToolInvocation<unknown, MoveToolArgs>;
-    result: string;
-  }): Promise<void> {
-    const { title, handlerId, toolCall, result } = params;
-
-    await this.agent.renderer.serializeToolInvocation({
-      path: title,
-      command: 'vault_move',
-      handlerId,
-      toolInvocations: [
-        {
-          ...toolCall,
-          result,
-        },
-      ],
-    });
   }
 }
