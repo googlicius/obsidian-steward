@@ -1,6 +1,7 @@
 const vi = {
   translation: {
     common: {
+      stepLimitReached: 'Tôi đã đạt đến số lượng bước xử lý tối đa. Bạn có muốn tiếp tục không?',
       noFilesFound:
         'Tôi không tìm thấy tập tin nào phù hợp với truy vấn của bạn. Vui lòng thử từ khóa tìm kiếm khác.',
       noRecentOperations: 'Không có thao tác gần đây được tìm thấy.',
@@ -8,37 +9,24 @@ const vi = {
       lowConfidenceConfirmation: 'Tôi không chắc chắn về yêu cầu này. Bạn có muốn tiếp tục không?',
       artifactCreated: 'Artifact {{type}} đã được lưu',
       artifactNotFound: ' Không tìm thấy artifact với ID "{{artifactId}}".',
+      noArtifactsFound: 'Không tìm thấy artifact nào.',
       availableCommands: 'Các lệnh có sẵn',
       builtInCommands: 'Lệnh tích hợp',
       builtInCommandsDesc: 'Những lệnh này có sẵn thông qua /&lt;command&gt',
       userDefinedCommands: 'Lệnh tùy chỉnh',
       noUserDefinedCommands: 'Bạn chưa có lệnh tùy chỉnh nào.',
-      intentCommands: 'Lệnh dựa trên ý định',
-      intentCommandsDesc: 'Những lệnh này có sẵn thông qua xử lý ngôn ngữ tự nhiên',
       commandHelpText: 'Nhập lệnh theo sau bởi truy vấn của bạn để sử dụng.',
-      explanation: 'Giải thích',
-      extractionDetails: 'Chi tiết trích xuất',
       searchDesc: 'Tìm kiếm ghi chú trong kho lưu trữ của bạn',
-      closeDesc: 'Đóng cuộc trò chuyện hiện tại',
-      confirmDesc: 'Xác nhận hoặc từ chối các thao tác',
       imageDesc: 'Tạo hình ảnh',
-      audioDesc: 'Tạo âm thanh từ văn bản',
-      createDesc: 'Tạo ghi chú mới',
-      stopDesc: 'Dừng các thao tác đang diễn ra',
-      helpDesc: 'Hiển thị trợ giúp này',
-      updateDesc: 'Cập nhật nội dung tập tin',
-      generateDesc: 'Tạo nội dung với AI',
-      readDesc: 'Đọc nội dung từ ghi chú',
-      revertDesc: 'Hoàn tác hoặc hoàn tác các thao tác trước đó',
-      vaultDesc:
-        'Thực hiện các thao tác vault (danh sách, tạo, xóa, sao chép, di chuyển, đổi tên, cập nhật frontmatter)',
-      buildSearchIndexDesc: 'Xây dựng chỉ mục tìm kiếm cho ghi chú của bạn',
+      speechDesc: 'Tạo giọng nói từ văn bản',
       cannotDeleteThisType: 'Không thể xóa loại artifact này: {{type}}',
       cannotRevertThisType: 'Không thể hoàn nguyên loại artifact này: {{type}}',
       thisNote: 'ghi chú này',
       errorProcessingCommand: 'Lỗi khi xử lý lệnh {{commandType}}: {{errorMessage}}',
       switchingModelDueToErrors: 'Chuyển từ {{fromModel}} sang {{toModel}} do gặp lỗi',
       thinkingProcess: 'Quá trình suy nghĩ',
+      modelDoesNotSupportImageInputs:
+        'Mô hình {{model}} không hỗ trợ đọc hình ảnh. Vui lòng sử dụng mô hình có khả năng xử lý hình ảnh (ví dụ: gpt-4o, gemini-pro, claude-3-sonnet).',
     },
     trigger: {
       executing: 'Đang thực thi trigger cho lệnh: {{commandName}}',
@@ -96,6 +84,7 @@ const vi = {
     },
     activateTools: {
       invalidTools: 'Công cụ không hợp lệ: `{{tools}}`',
+      invalidDeactivateTools: 'Không thể vô hiệu hóa (chưa kích hoạt): `{{tools}}`',
     },
     rename: {
       processed: 'Tôi đã xử lý {{count}} yêu cầu đổi tên.',
@@ -291,6 +280,8 @@ const vi = {
       summarizing: 'Đang tóm tắt cuộc trò chuyện...',
       continuingProcessing: 'Đang tiếp tục...',
       processingBatch: 'Đang xử lý batch {{current}}/{{total}}...',
+      stepLimitReached:
+        'Tôi đã đạt đến số bước xử lý tối đa. Bạn có muốn tôi tiếp tục với nhiều bước hơn không?',
     },
     // Model fallback messages
     modelFallback: {
@@ -347,9 +338,6 @@ const vi = {
       maxGenerationTokens: 'Số token tạo tối đa (Max Generation Tokens)',
       maxGenerationTokensDesc:
         'Số lượng token tối đa để tạo trong phản hồi (giá trị cao hơn có thể tăng chi phí API)',
-      showExtractionExplanation: 'Hiển thị giải thích trích xuất',
-      showExtractionExplanationDesc:
-        'Hiển thị giải thích chi tiết về các lệnh được trích xuất bao gồm loại lệnh và truy vấn trong ghi chú cuộc trò chuyện',
       ollamaBaseUrl: 'URL cơ sở Ollama',
       ollamaBaseUrlDesc: 'URL cơ sở cho API Ollama (mặc định: {{defaultUrl}})',
       baseUrl: 'URL cơ sở',

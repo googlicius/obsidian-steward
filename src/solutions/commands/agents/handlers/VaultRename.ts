@@ -119,6 +119,7 @@ export class VaultRename {
         toolCall,
         lang,
         handlerId,
+        step: params.invocationCount,
       });
       return {
         status: IntentResultStatus.ERROR,
@@ -135,6 +136,7 @@ export class VaultRename {
         toolCall,
         lang,
         handlerId,
+        step: params.invocationCount,
       });
       return {
         status: IntentResultStatus.ERROR,
@@ -150,6 +152,7 @@ export class VaultRename {
         toolCall,
         lang,
         handlerId,
+        step: params.invocationCount,
       });
       return {
         status: IntentResultStatus.ERROR,
@@ -172,6 +175,7 @@ export class VaultRename {
         toolCall,
         lang,
         handlerId,
+        step: params.invocationCount,
       });
 
       return {
@@ -192,6 +196,7 @@ export class VaultRename {
             toolCall,
             lang,
             handlerId,
+            step: params.invocationCount,
           });
           return {
             status: IntentResultStatus.SUCCESS,
@@ -378,14 +383,16 @@ export class VaultRename {
     toolCall: ToolCallPart<RenameToolArgs>;
     lang?: string | null;
     handlerId: string;
+    step?: number;
   }): Promise<string> {
-    const { title, content, toolCall, lang, handlerId } = params;
+    const { title, content, toolCall, lang, handlerId, step } = params;
     const messageId = await this.agent.renderer.updateConversationNote({
       path: title,
       newContent: content,
       command: 'vault_rename',
       lang,
       handlerId,
+      step,
       includeHistory: false,
     });
 
@@ -393,6 +400,7 @@ export class VaultRename {
       command: 'vault_rename',
       title,
       handlerId,
+      step,
       toolCall,
       result: {
         type: 'text',

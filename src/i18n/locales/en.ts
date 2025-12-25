@@ -1,6 +1,8 @@
 const en = {
   translation: {
     common: {
+      stepLimitReached:
+        'I have reached the maximum number of processing steps. Would you like me to continue?',
       noFilesFound:
         "I couldn't find any files matching your query. Please try a different search term.",
       noRecentOperations: 'No recent operations found.',
@@ -10,6 +12,7 @@ const en = {
         "I'm not entirely sure about this request. Would you like me to proceed anyway?",
       artifactCreated: 'Artifact {{type}} is created',
       artifactNotFound: 'Artifact with ID "{{artifactId}}" not found.',
+      noArtifactsFound: 'No artifacts found.',
       cannotUpdateThisType:
         'Cannot update this type of artifact. Only search results, created notes, read content, and content updates can be updated.',
       availableCommands: 'Available commands',
@@ -17,32 +20,18 @@ const en = {
       builtInCommandsDesc: 'These commands are directly accessible via /&lt;command&gt',
       userDefinedCommands: 'User-Defined commands',
       noUserDefinedCommands: "You don't have any user-defined commands yet.",
-      intentCommands: 'Intent-Based commands',
-      intentCommandsDesc: 'These commands are available through natural language processing',
       commandHelpText: 'Type any command followed by your query to use it.',
-      explanation: 'Explanation',
-      extractionDetails: 'Extraction details',
       searchDesc: 'Search for notes in your vault',
-      closeDesc: 'Close the current conversation',
-      confirmDesc: 'Confirm or reject operations',
       imageDesc: 'Generate images',
-      audioDesc: 'Generate audio from text',
-      createDesc: 'Create new notes',
-      stopDesc: 'Stop ongoing operations',
-      helpDesc: 'Show this help message',
-      updateDesc: 'Update file content',
-      generateDesc: 'Generate content with AI',
-      readDesc: 'Read content from notes',
-      revertDesc: 'Revert or undo previous operations',
-      vaultDesc:
-        'Perform vault operations (list, create, delete, copy, move, rename, update frontmatter)',
-      buildSearchIndexDesc: 'Build the search index for your notes',
+      speechDesc: 'Generate speech from text',
       cannotDeleteThisType: 'Cannot delete this type of artifact: {{type}}',
       cannotRevertThisType: 'Cannot revert this type of artifact: {{type}}',
       thisNote: 'this note',
       errorProcessingCommand: 'Error processing {{commandType}} command: {{errorMessage}}',
       switchingModelDueToErrors: 'Switching from {{fromModel}} to {{toModel}} due to errors',
       thinkingProcess: 'Thinking process',
+      modelDoesNotSupportImageInputs:
+        'Model {{model}} does not support image inputs. Please use a vision-capable model (e.g., gpt-4o, gemini-pro, claude-3-sonnet).',
     },
     trigger: {
       executing: 'Command "{{commandName}}" is executing.',
@@ -120,6 +109,7 @@ const en = {
     },
     activateTools: {
       invalidTools: 'Invalid tools: `{{tools}}`',
+      invalidDeactivateTools: 'Cannot deactivate (not active): `{{tools}}`',
     },
     rename: {
       processed_one: 'I processed {{count}} rename instruction.',
@@ -353,6 +343,8 @@ const en = {
       augmentingContext: 'Augmenting context...',
       continuingProcessing: 'Continuing...',
       processingBatch: 'Processing batch {{current}} of {{total}}...',
+      stepLimitReached:
+        'I have reached the maximum number of processing steps. Would you like me to continue with more steps?',
     },
     // Model fallback messages
     modelFallback: {
@@ -409,9 +401,6 @@ const en = {
       maxGenerationTokens: 'Max generation tokens',
       maxGenerationTokensDesc:
         'Maximum number of tokens to generate in response (higher values may increase API costs)',
-      showExtractionExplanation: 'Show extraction explanation',
-      showExtractionExplanationDesc:
-        'Display detailed explanation of extracted commands including command type and query in the conversation note',
       ollamaBaseUrl: 'Ollama base URL',
       ollamaBaseUrlDesc: 'The base URL for Ollama API (default: {{defaultUrl}})',
       baseUrl: 'Base URL, e.g. a proxy server',

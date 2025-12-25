@@ -118,6 +118,7 @@ When you generate this migration checklist, you must IMMEDIATELY:
 ### 3.3 Additional Manual Fixes (Completed)
 
 The following type errors were fixed after codemods:
+
 - **EmbeddingModel type**: Updated to support both V1 and V2 embedding models
 - **mimeType → mediaType**: Renamed in ImagePart usage (3 files)
 - **ModelMessage type**: Updated SummaryCommandHandler to use correct type

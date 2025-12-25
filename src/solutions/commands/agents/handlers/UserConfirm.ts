@@ -3,8 +3,10 @@ import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { ToolName } from '../../ToolRegistry';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
+import { uniqueID } from 'src/utils/uniqueID';
 
 // USER_CONFIRM tool doesn't need args - it's just a trigger for confirmation flow
 const userConfirmSchema = z.object({});
@@ -105,6 +107,40 @@ export class UserConfirm {
       };
     }
 
+    if (!lastResult.confirmationMessage && !lastResult.toolCall) {
+      return {
+        status: IntentResultStatus.ERROR,
+        error: new Error('UserConfirm invoked without confirmation message or tool call'),
+      };
+    }
+
+    const confirmationToolCall = lastResult.toolCall || {
+      type: 'tool-call',
+      toolCallId: `confirmation-tool-call-${uniqueID()}`,
+      toolName: ToolName.CONFIRMATION,
+      input: {
+        message: lastResult.confirmationMessage || '',
+      },
+    };
+
+    // Serialize the tool call with the result before confirmation or rejection
+    await this.agent.renderer.serializeToolInvocation({
+      path: title,
+      command: confirmationToolCall.toolName,
+      handlerId,
+      step: params.invocationCount,
+      toolInvocations: [
+        {
+          ...confirmationToolCall,
+          type: 'tool-result',
+          output: {
+            type: 'text',
+            value: intent.query,
+          },
+        },
+      ],
+    });
+
     let confirmResult: AgentResult | undefined;
 
     // Handle the confirmation or rejection
@@ -130,13 +166,7 @@ export class UserConfirm {
     }
 
     // Clear the conversation lastResult after handling confirmation
-    if (confirmResult && confirmResult.status === IntentResultStatus.SUCCESS) {
-      this.agent.commandProcessor.clearLastResult(title);
-      // Continue processing the command queue if confirmation was successful
-      await this.agent.commandProcessor.continueProcessing(title);
-    } else if (confirmResult && confirmResult.status === IntentResultStatus.ERROR) {
-      this.agent.commandProcessor.clearLastResult(title);
-    }
+    this.agent.commandProcessor.clearLastResult(title);
 
     return confirmResult || { status: IntentResultStatus.SUCCESS };
   }

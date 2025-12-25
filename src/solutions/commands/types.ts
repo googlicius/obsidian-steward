@@ -1,5 +1,6 @@
 import { SystemPromptItem } from './SystemPromptModifier';
 import { ToolName } from './ToolRegistry';
+import { ToolCallPart } from './tools/types';
 
 /**
  * Represents a single intent in a sequence
@@ -57,9 +58,10 @@ type LowConfidenceResult = {
   explanation?: string;
 };
 
-export type ConfirmationResult = {
+export type ConfirmationResult<T = unknown> = {
   status: IntentResultStatus.NEEDS_CONFIRMATION;
   confirmationMessage?: string;
+  toolCall?: ToolCallPart<T>;
   onConfirmation: (message: string) => Promise<AgentResult> | AgentResult;
   onRejection?: (message: string) => Promise<AgentResult> | AgentResult;
   onFinal?: () => Promise<void> | void;

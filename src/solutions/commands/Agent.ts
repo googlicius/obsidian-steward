@@ -68,7 +68,7 @@ export abstract class Agent {
       return await this.handle(params, ...args);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error(`Error in ${params.intent.type} agent handler:`, error);
+      logger.error(`Error in ${params.intent.type || 'Super'} agent handler:`, error);
 
       const t = getTranslation(params.lang);
       // Render the current error message
@@ -83,6 +83,13 @@ export abstract class Agent {
       const nonRetryAbleError =
         error instanceof Error &&
         ['AbortError', 'TypeError', 'SysError', 'AI_InvalidPromptError'].includes(error.name);
+
+      console.log('error>>>>>>', {
+        error,
+        name: error.name,
+        message: error.message,
+        nonRetryAbleError,
+      });
 
       if (this.plugin.modelFallbackService.isEnabled() && !nonRetryAbleError) {
         const nextModel = await this.plugin.modelFallbackService.switchToNextModel(params.title);

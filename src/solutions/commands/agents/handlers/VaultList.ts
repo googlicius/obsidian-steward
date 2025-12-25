@@ -56,37 +56,38 @@ export class VaultList {
     params: AgentHandlerParams,
     options: { toolCall: ToolCallPart<ListToolArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
     const { toolCall } = options;
 
-    if (!handlerId) {
+    if (!params.handlerId) {
       throw new Error('VaultList.handle invoked without handlerId');
     }
 
     await this.agent.renderer.updateConversationNote({
-      path: title,
+      path: params.title,
       newContent: toolCall.input.explanation,
       command: 'vault_list',
       includeHistory: false,
-      lang,
-      handlerId,
+      lang: params.lang,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
     });
 
-    const result = await this.executeListTool(toolCall.input, lang);
+    const result = await this.executeListTool(toolCall.input, params.lang);
 
     await this.agent.renderer.updateConversationNote({
-      path: title,
+      path: params.title,
       newContent: result.response,
       command: 'vault_list',
-      lang,
-      handlerId,
+      lang: params.lang,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
       includeHistory: false,
     });
 
     const hasMoreFiles = result.files.length > MAX_FILES_TO_SHOW;
     const artifactId = `list_${Date.now()}`;
 
-    await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+    await this.agent.plugin.artifactManagerV2.withTitle(params.title).storeArtifact({
       artifact: {
         artifactType: ArtifactType.LIST_RESULTS,
         paths: result.files,
@@ -96,7 +97,7 @@ export class VaultList {
     });
 
     // Build result string: response text + artifact message if files reached max count
-    const t = getTranslation(lang);
+    const t = getTranslation(params.lang);
     let resultText = result.response;
     if (hasMoreFiles) {
       resultText += `\n\n${t('list.fullListAvailableInArtifact', { artifactId })}`;
@@ -104,8 +105,9 @@ export class VaultList {
 
     await this.agent.serializeInvocation({
       command: 'vault_list',
-      title,
-      handlerId,
+      title: params.title,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
       toolCall,
       result: {
         type: 'text',

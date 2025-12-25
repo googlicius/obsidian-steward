@@ -2,6 +2,7 @@ import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { execute, grepTool, GrepArgs } from '../../tools/grep';
+import { removeUndefined } from 'src/utils/removeUndefined';
 
 export type GrepToolArgs = GrepArgs;
 
@@ -16,37 +17,38 @@ export class VaultGrep {
     params: AgentHandlerParams,
     options: { toolCall: ToolCallPart<GrepToolArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
     const { toolCall } = options;
 
-    if (!handlerId) {
+    if (!params.handlerId) {
       throw new Error('VaultGrep.handle invoked without handlerId');
     }
 
     if (toolCall.input.explanation) {
       await this.agent.renderer.updateConversationNote({
-        path: title,
+        path: params.title,
         newContent: toolCall.input.explanation,
         command: 'vault_grep',
         includeHistory: false,
-        lang,
-        handlerId,
+        lang: params.lang,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
       });
     }
 
     const result = await execute(toolCall.input, this.agent.plugin);
 
     await this.agent.renderer.serializeToolInvocation({
-      path: title,
+      path: params.title,
       command: 'vault_grep',
-      handlerId,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
       toolInvocations: [
         {
           ...toolCall,
           type: 'tool-result',
           output: {
             type: 'json',
-            value: JSON.stringify(result),
+            value: removeUndefined(result),
           },
         },
       ],

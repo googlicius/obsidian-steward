@@ -20,8 +20,8 @@ import { StewardPluginSettings } from 'src/types/interfaces';
 // Define the Zod schema for search operation validation
 const searchOperationSchema = z.object({
   keywords: z.array(z.string()).describe(`General terms or concepts to search for in file content.
-If a term or phrase is wrapped in quotation marks (e.g., "cat or dog"),
-preserve the quotes exactly as is for exact match queries.`),
+If a term or phrase is wrapped in quotation marks (e.g., "cat or dog"), preserve the quotes exactly as is for exact match queries.
+NOTE: keywords only used for searching in file content, not title or filename.`),
   filenames: z.array(z.string()).describe(`Specific file names to search for (without .md extension)
 - Includes only when the user explicitly mentions a file name or note name`),
   folders: z.array(z.string()).describe(`Specific folder paths to search within
@@ -229,6 +229,7 @@ export class Search {
         lang: searchLang || lang,
         command: 'search',
         handlerId,
+        step: params.invocationCount,
       });
       return {
         status: IntentResultStatus.ERROR,
@@ -283,6 +284,7 @@ export class Search {
         command: 'search',
         includeHistory: false,
         handlerId,
+        step: params.invocationCount,
       });
 
       // Check if the next command will operate on the search results
@@ -294,19 +296,23 @@ export class Search {
           lang: searchLang || lang,
           command: 'search',
           handlerId,
+          step: params.invocationCount,
+          includeHistory: false,
         });
 
         return {
           status: IntentResultStatus.NEEDS_CONFIRMATION,
+          confirmationMessage: t('search.confirmMultipleOperations'),
           onConfirmation: async () => {
-            return this.performSearch(
+            return this.performSearch({
               title,
               operations,
               explanation,
-              searchLang || lang,
+              lang: searchLang || lang,
               handlerId,
-              options.toolCall
-            );
+              toolCall: options.toolCall,
+              step: params.invocationCount,
+            });
           },
           onRejection: () => {
             return {
@@ -317,27 +323,30 @@ export class Search {
       }
     }
 
-    return this.performSearch(
+    return this.performSearch({
       title,
       operations,
       explanation,
-      searchLang || lang,
+      lang: searchLang || lang,
       handlerId,
-      options.toolCall
-    );
+      toolCall: options.toolCall,
+      step: params.invocationCount,
+    });
   }
 
   /**
    * Perform the actual search operation
    */
-  private async performSearch(
-    title: string,
-    operations: SearchOperationV2[],
-    explanation: string,
-    lang: string | null | undefined,
-    handlerId: string,
-    toolCall: ToolCallPart<SearchArgs>
-  ): Promise<AgentResult> {
+  private async performSearch(params: {
+    title: string;
+    operations: SearchOperationV2[];
+    explanation: string;
+    lang: string | null | undefined;
+    handlerId: string;
+    toolCall: ToolCallPart<SearchArgs>;
+    step?: number;
+  }): Promise<AgentResult> {
+    const { title, operations, explanation, lang, handlerId, toolCall, step } = params;
     const t = getTranslation(lang);
 
     const queryResult = await this.agent.plugin.searchService.searchV3(operations);
@@ -364,6 +373,7 @@ export class Search {
       command: 'search',
       handlerId,
       includeHistory: false,
+      step,
     });
 
     if (queryResult.conditionResults.length === 0) {
@@ -371,6 +381,7 @@ export class Search {
         path: title,
         command: 'search',
         handlerId,
+        step,
         toolInvocations: [
           {
             ...toolCall,
@@ -423,6 +434,7 @@ export class Search {
         path: title,
         command: 'search',
         handlerId,
+        step,
         toolInvocations: [
           {
             ...toolCall,

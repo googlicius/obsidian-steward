@@ -8,7 +8,6 @@ import { createCalloutSearchResultPostProcessor } from './post-processors/Callou
 import { createUserMessageButtonsProcessor } from './post-processors/UserMessageButtonsProcessor';
 import { createCalloutMetadataProcessor } from './post-processors/CalloutMetadataProcessor';
 import { createStwSelectedPostProcessor } from './post-processors/StwSelectedPostProcessor';
-import { createExtractionDetailsLinkProcessor } from './post-processors/ExtractionDetailsLinkProcessor';
 import { createStewardConversationProcessor } from './post-processors/StewardConversationProcessor';
 import { createSelectedModelProcessor } from './post-processors/SelectedModelProcessor';
 import { createThinkingProcessPostProcessor } from './post-processors/ThinkingProcessPostProcessor';
@@ -372,8 +371,6 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createCalloutSearchResultPostProcessor(this));
 
     this.registerMarkdownPostProcessor(createUserMessageButtonsProcessor(this));
-
-    this.registerMarkdownPostProcessor(createExtractionDetailsLinkProcessor());
 
     this.registerMarkdownPostProcessor(createStewardConversationProcessor(this));
 

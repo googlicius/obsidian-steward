@@ -7,6 +7,8 @@ import { UpdateInstruction } from 'src/solutions/commands/tools/editContent';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
+import { uniqueID } from 'src/utils/uniqueID';
+import { ToolName } from '../../toolNames';
 
 export class EditHandler {
   constructor(private readonly agent: SuperAgent) {}
@@ -102,6 +104,7 @@ export class EditHandler {
       newContent: t('update.applyChangesConfirm'),
       command: 'edit',
       handlerId: params.handlerId,
+      includeHistory: false,
     });
 
     // HandlerID cannot be undefined here. Bypass lint error when using in the callback.
@@ -109,6 +112,7 @@ export class EditHandler {
 
     return {
       status: IntentResultStatus.NEEDS_CONFIRMATION,
+      confirmationMessage: t('update.applyChangesConfirm'),
       onConfirmation: () => {
         return this.performUpdate({
           title,

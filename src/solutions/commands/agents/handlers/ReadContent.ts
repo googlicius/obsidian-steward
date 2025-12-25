@@ -87,7 +87,7 @@ export class ReadContent {
     options: { toolCall: ToolCallPart<ContentReadingArgs>; nextIntent?: Intent }
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
-    const { toolCall, nextIntent } = options;
+    const { toolCall } = options;
     const t = getTranslation(lang);
 
     if (!handlerId) {
@@ -111,12 +111,14 @@ export class ReadContent {
         command: 'read',
         includeHistory: false,
         handlerId,
+        step: params.invocationCount,
       });
 
       await this.agent.renderer.serializeToolInvocation({
         path: title,
         command: 'read',
         handlerId,
+        step: params.invocationCount,
         toolInvocations: [
           {
             ...toolCall,
@@ -141,12 +143,14 @@ export class ReadContent {
         command: 'read',
         includeHistory: false,
         handlerId,
+        step: params.invocationCount,
       });
 
       await this.agent.renderer.serializeToolInvocation({
         path: title,
         command: 'read',
         handlerId,
+        step: params.invocationCount,
         toolInvocations: [
           {
             ...toolCall,
@@ -171,6 +175,7 @@ export class ReadContent {
       includeHistory: false,
       lang: params.lang,
       handlerId,
+      step: params.invocationCount,
     });
 
     // Show found placeholder if available
@@ -183,11 +188,14 @@ export class ReadContent {
         ),
         includeHistory: false,
         handlerId,
+        step: params.invocationCount,
       });
     }
 
-    // Display each block
-    if (!nextIntent || nextIntent.type === 'read') {
+    // Don't render content when toolCall.input.readType is "entire"
+    if (toolCall.input.readType === 'entire') {
+      // Do nothing
+    } else {
       for (const block of result.blocks) {
         if (block.content === '') {
           continue;
@@ -209,12 +217,12 @@ export class ReadContent {
           ),
           includeHistory: false,
           handlerId,
+          step: params.invocationCount,
         });
       }
     }
 
     const artifactId = await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
-      text: `*${t('common.artifactCreated', { type: ArtifactType.READ_CONTENT })}*`,
       artifact: {
         artifactType: ArtifactType.READ_CONTENT,
         readingResult: result,
@@ -226,6 +234,7 @@ export class ReadContent {
       path: title,
       command: 'read',
       handlerId,
+      step: params.invocationCount,
       toolInvocations: [
         {
           ...toolCall,

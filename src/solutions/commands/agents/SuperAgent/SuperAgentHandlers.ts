@@ -1,7 +1,6 @@
-import * as handlers from './handlers';
-import { ActivateToolHandler } from '../shared/ActivateToolHandler';
+import * as handlers from '../handlers';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
-import type { SuperAgent } from './SuperAgent';
+import type { SuperAgent } from '../SuperAgent';
 
 /**
  * Interface for classes that have a renderer property
@@ -11,6 +10,9 @@ interface HasRenderer {
   renderer: ConversationRenderer;
 }
 
+/**
+ * All handlers are lazily declared in this class
+ */
 export class SuperAgentHandlers {
   private _vaultCreate: handlers.VaultCreate;
   private _vaultMove: handlers.VaultMove;
@@ -20,7 +22,7 @@ export class SuperAgentHandlers {
   private _vaultRename: handlers.VaultRename;
   private _vaultUpdateFrontmatter: handlers.VaultUpdateFrontmatter;
   private _vaultGrep: handlers.VaultGrep;
-  private _activateToolHandler: ActivateToolHandler;
+  private _activateToolHandler: handlers.ActivateToolHandler;
   private _revertDelete: handlers.RevertDelete;
   private _revertMove: handlers.RevertMove;
   private _revertFrontmatter: handlers.RevertFrontmatter;
@@ -38,9 +40,17 @@ export class SuperAgentHandlers {
   private _speech: handlers.Speech;
   private _image: handlers.Image;
 
+  /**
+   * Helper method to get this instance typed as SuperAgent
+   * This is safe because SuperAgentHandlers is only used as a mixin for SuperAgent
+   */
+  protected getAgent(): SuperAgent {
+    return this as unknown as SuperAgent;
+  }
+
   public get vaultMove(): handlers.VaultMove {
     if (!this._vaultMove) {
-      this._vaultMove = new handlers.VaultMove(this as unknown as SuperAgent);
+      this._vaultMove = new handlers.VaultMove(this.getAgent());
     }
 
     return this._vaultMove;
@@ -48,7 +58,7 @@ export class SuperAgentHandlers {
 
   public get vaultCopy(): handlers.VaultCopy {
     if (!this._vaultCopy) {
-      this._vaultCopy = new handlers.VaultCopy(this as unknown as SuperAgent);
+      this._vaultCopy = new handlers.VaultCopy(this.getAgent());
     }
 
     return this._vaultCopy;
@@ -56,7 +66,7 @@ export class SuperAgentHandlers {
 
   public get vaultDelete(): handlers.VaultDelete {
     if (!this._vaultDelete) {
-      this._vaultDelete = new handlers.VaultDelete(this as unknown as SuperAgent);
+      this._vaultDelete = new handlers.VaultDelete(this.getAgent());
     }
 
     return this._vaultDelete;
@@ -64,7 +74,7 @@ export class SuperAgentHandlers {
 
   public get vaultCreate(): handlers.VaultCreate {
     if (!this._vaultCreate) {
-      this._vaultCreate = new handlers.VaultCreate(this as unknown as SuperAgent);
+      this._vaultCreate = new handlers.VaultCreate(this.getAgent());
     }
 
     return this._vaultCreate;
@@ -72,7 +82,7 @@ export class SuperAgentHandlers {
 
   public get vaultList(): handlers.VaultList {
     if (!this._vaultList) {
-      this._vaultList = new handlers.VaultList(this as unknown as SuperAgent);
+      this._vaultList = new handlers.VaultList(this.getAgent());
     }
 
     return this._vaultList;
@@ -80,7 +90,7 @@ export class SuperAgentHandlers {
 
   public get vaultRename(): handlers.VaultRename {
     if (!this._vaultRename) {
-      this._vaultRename = new handlers.VaultRename(this as unknown as SuperAgent);
+      this._vaultRename = new handlers.VaultRename(this.getAgent());
     }
 
     return this._vaultRename;
@@ -88,9 +98,7 @@ export class SuperAgentHandlers {
 
   public get vaultUpdateFrontmatter(): handlers.VaultUpdateFrontmatter {
     if (!this._vaultUpdateFrontmatter) {
-      this._vaultUpdateFrontmatter = new handlers.VaultUpdateFrontmatter(
-        this as unknown as SuperAgent
-      );
+      this._vaultUpdateFrontmatter = new handlers.VaultUpdateFrontmatter(this.getAgent());
     }
 
     return this._vaultUpdateFrontmatter;
@@ -98,15 +106,15 @@ export class SuperAgentHandlers {
 
   public get vaultGrep(): handlers.VaultGrep {
     if (!this._vaultGrep) {
-      this._vaultGrep = new handlers.VaultGrep(this as unknown as SuperAgent);
+      this._vaultGrep = new handlers.VaultGrep(this.getAgent());
     }
 
     return this._vaultGrep;
   }
 
-  public get activateToolHandler(): ActivateToolHandler {
+  public get activateToolHandler(): handlers.ActivateToolHandler {
     if (!this._activateToolHandler) {
-      this._activateToolHandler = new ActivateToolHandler(
+      this._activateToolHandler = new handlers.ActivateToolHandler(
         (this as unknown as HasRenderer).renderer
       );
     }
@@ -116,7 +124,7 @@ export class SuperAgentHandlers {
 
   public get revertDelete(): handlers.RevertDelete {
     if (!this._revertDelete) {
-      this._revertDelete = new handlers.RevertDelete(this as unknown as SuperAgent);
+      this._revertDelete = new handlers.RevertDelete(this.getAgent());
     }
 
     return this._revertDelete;
@@ -124,7 +132,7 @@ export class SuperAgentHandlers {
 
   public get revertMove(): handlers.RevertMove {
     if (!this._revertMove) {
-      this._revertMove = new handlers.RevertMove(this as unknown as SuperAgent);
+      this._revertMove = new handlers.RevertMove(this.getAgent());
     }
 
     return this._revertMove;
@@ -132,7 +140,7 @@ export class SuperAgentHandlers {
 
   public get revertFrontmatter(): handlers.RevertFrontmatter {
     if (!this._revertFrontmatter) {
-      this._revertFrontmatter = new handlers.RevertFrontmatter(this as unknown as SuperAgent);
+      this._revertFrontmatter = new handlers.RevertFrontmatter(this.getAgent());
     }
 
     return this._revertFrontmatter;
@@ -140,7 +148,7 @@ export class SuperAgentHandlers {
 
   public get revertRename(): handlers.RevertRename {
     if (!this._revertRename) {
-      this._revertRename = new handlers.RevertRename(this as unknown as SuperAgent);
+      this._revertRename = new handlers.RevertRename(this.getAgent());
     }
 
     return this._revertRename;
@@ -148,7 +156,7 @@ export class SuperAgentHandlers {
 
   public get revertCreate(): handlers.RevertCreate {
     if (!this._revertCreate) {
-      this._revertCreate = new handlers.RevertCreate(this as unknown as SuperAgent);
+      this._revertCreate = new handlers.RevertCreate(this.getAgent());
     }
 
     return this._revertCreate;
@@ -156,7 +164,7 @@ export class SuperAgentHandlers {
 
   public get readContent(): handlers.ReadContent {
     if (!this._readContent) {
-      this._readContent = new handlers.ReadContent(this as unknown as SuperAgent);
+      this._readContent = new handlers.ReadContent(this.getAgent());
     }
 
     return this._readContent;
@@ -164,7 +172,7 @@ export class SuperAgentHandlers {
 
   public get editHandler(): handlers.EditHandler {
     if (!this._editHandler) {
-      this._editHandler = new handlers.EditHandler(this as unknown as SuperAgent);
+      this._editHandler = new handlers.EditHandler(this.getAgent());
     }
 
     return this._editHandler;
@@ -172,7 +180,7 @@ export class SuperAgentHandlers {
 
   public get userConfirm(): handlers.UserConfirm {
     if (!this._userConfirm) {
-      this._userConfirm = new handlers.UserConfirm(this as unknown as SuperAgent);
+      this._userConfirm = new handlers.UserConfirm(this.getAgent());
     }
 
     return this._userConfirm;
@@ -180,7 +188,7 @@ export class SuperAgentHandlers {
 
   public get help(): handlers.Help {
     if (!this._help) {
-      this._help = new handlers.Help(this as unknown as SuperAgent);
+      this._help = new handlers.Help(this.getAgent());
     }
 
     return this._help;
@@ -188,7 +196,7 @@ export class SuperAgentHandlers {
 
   public get stop(): handlers.Stop {
     if (!this._stop) {
-      this._stop = new handlers.Stop(this as unknown as SuperAgent);
+      this._stop = new handlers.Stop(this.getAgent());
     }
 
     return this._stop;
@@ -196,7 +204,7 @@ export class SuperAgentHandlers {
 
   public get thankYou(): handlers.ThankYou {
     if (!this._thankYou) {
-      this._thankYou = new handlers.ThankYou(this as unknown as SuperAgent);
+      this._thankYou = new handlers.ThankYou(this.getAgent());
     }
 
     return this._thankYou;
@@ -204,7 +212,7 @@ export class SuperAgentHandlers {
 
   public get buildSearchIndex(): handlers.BuildSearchIndex {
     if (!this._buildSearchIndex) {
-      this._buildSearchIndex = new handlers.BuildSearchIndex(this as unknown as SuperAgent);
+      this._buildSearchIndex = new handlers.BuildSearchIndex(this.getAgent());
     }
 
     return this._buildSearchIndex;
@@ -212,7 +220,7 @@ export class SuperAgentHandlers {
 
   public get search(): handlers.Search {
     if (!this._search) {
-      this._search = new handlers.Search(this as unknown as SuperAgent);
+      this._search = new handlers.Search(this.getAgent());
     }
 
     return this._search;
@@ -220,7 +228,7 @@ export class SuperAgentHandlers {
 
   public get searchMore(): handlers.SearchMore {
     if (!this._searchMore) {
-      this._searchMore = new handlers.SearchMore(this as unknown as SuperAgent);
+      this._searchMore = new handlers.SearchMore(this.getAgent());
     }
 
     return this._searchMore;
@@ -228,7 +236,7 @@ export class SuperAgentHandlers {
 
   public get speech(): handlers.Speech {
     if (!this._speech) {
-      this._speech = new handlers.Speech(this as unknown as SuperAgent);
+      this._speech = new handlers.Speech(this.getAgent());
     }
 
     return this._speech;
@@ -236,7 +244,7 @@ export class SuperAgentHandlers {
 
   public get image(): handlers.Image {
     if (!this._image) {
-      this._image = new handlers.Image(this as unknown as SuperAgent);
+      this._image = new handlers.Image(this.getAgent());
     }
 
     return this._image;

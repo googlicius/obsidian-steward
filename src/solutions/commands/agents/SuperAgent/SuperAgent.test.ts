@@ -2,11 +2,11 @@ import { SuperAgent } from './SuperAgent';
 import type StewardPlugin from 'src/main';
 import { type App } from 'obsidian';
 import { streamText } from 'ai';
-import { AgentHandlerParams, Intent, IntentResultStatus } from '../types';
-import { ToolName } from '../ToolRegistry';
+import { AgentHandlerParams, Intent, IntentResultStatus } from '../../types';
+import { ToolName } from '../../ToolRegistry';
 import { ArtifactType } from 'src/solutions/artifact';
-import { VaultDelete } from './handlers/VaultDelete';
-import { RevertDelete } from './handlers/RevertDelete';
+import { VaultDelete } from '../handlers/VaultDelete';
+import { RevertDelete } from '../handlers/RevertDelete';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { getClassifier } from 'src/lib/modelfusion';
 
@@ -41,7 +41,13 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
   const mockRenderer = {
     addGeneratingIndicator: jest.fn(),
     updateConversationNote: jest.fn().mockResolvedValue('message-id-123'),
-    streamConversationNote: jest.fn().mockResolvedValue(undefined),
+    streamConversationNote: jest.fn().mockImplementation(async ({ stream }) => {
+      // Consume the stream to ensure textDone resolves
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      for await (const _chunk of stream) {
+        // Consume all chunks
+      }
+    }),
     serializeToolInvocation: jest.fn(),
     extractConversationHistory: jest.fn().mockResolvedValue([]),
     updateConversationFrontmatter: jest.fn(),
@@ -62,6 +68,11 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       embedding: {
         enabled: true,
       },
+      llm: {
+        chat: {
+          model: 'mock-model',
+        },
+      },
     },
     app: mockApp,
     registerEvent: jest.fn(),
@@ -71,6 +82,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
         temperature: 0.2,
       }),
       getEmbeddingSettings: jest.fn().mockReturnValue({}),
+      validateImageSupport: jest.fn(),
     },
     abortService: {
       createAbortController: jest.fn().mockReturnValue(new AbortController()),
@@ -90,15 +102,20 @@ describe('SuperAgent', () => {
   let mockPlugin: jest.Mocked<StewardPlugin>;
   let mockSaveEmbedding: jest.Mock;
 
-  // Mock window for waitForError which uses window.setInterval
+  // Mock window for setTimeout
   beforeAll(() => {
-    // Use Jest's fake timers for setInterval/clearInterval
     global.window = {
       setInterval: (fn: () => void, ms: number) => {
         return setInterval(fn, ms);
       },
       clearInterval: (id: NodeJS.Timeout) => {
         return clearInterval(id);
+      },
+      setTimeout: (fn: () => void, ms: number) => {
+        return setTimeout(fn, ms);
+      },
+      clearTimeout: (id: NodeJS.Timeout) => {
+        return clearTimeout(id);
       },
     } as unknown as Window & typeof globalThis;
   });
@@ -120,19 +137,24 @@ describe('SuperAgent', () => {
     (getClassifier as jest.Mock).mockReturnValue(mockClassifier);
 
     // Set up default streamText mock with a generator that completes immediately
+    // Note: streamText returns { fullStream, toolCalls }, not { textStream, toolCalls }
     (streamText as jest.Mock).mockReturnValue({
-      textStream: {
-        [Symbol.asyncIterator]: async function* () {
-          yield { type: 'text-delta', textDelta: '' };
-          // Generator completes after yielding, signaling end of stream
-        },
-      },
+      fullStream: (async function* () {
+        // Yield a text-delta chunk to signal text content
+        yield { type: 'text-delta', textDelta: '' };
+        // Generator completes after yielding, signaling end of stream
+      })(),
       toolCalls: Promise.resolve([]),
     });
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
+    // Only run pending timers if fake timers are active
+    try {
+      jest.runOnlyPendingTimers();
+    } catch {
+      // Ignore if fake timers are not active
+    }
     jest.useRealTimers();
   });
 
@@ -372,7 +394,7 @@ describe('SuperAgent', () => {
       expect(mockRevertDeleteHandle).toHaveBeenCalledTimes(1);
       const revertCall = mockRevertDeleteHandle.mock.calls[0];
       expect(revertCall[1].toolCall.toolName).toBe(ToolName.REVERT_DELETE);
-      expect(revertCall[1].toolCall.args.artifactId).toBe(artifactId);
+      expect(revertCall[1].toolCall.input.artifactId).toBe(artifactId);
 
       // Verify artifact manager was called to get the artifact
       expect(mockPlugin.artifactManagerV2.withTitle).toHaveBeenCalledWith('test-conversation');
@@ -477,16 +499,16 @@ describe('SuperAgent', () => {
 
       // Mock streamText to return a CONFIRMATION tool call
       (streamText as jest.Mock).mockReturnValue({
-        textStream: {
-          [Symbol.asyncIterator]: async function* () {
-            yield { type: 'text-delta', textDelta: '' };
-          },
-        },
+        fullStream: (async function* () {
+          // Yield a text-delta chunk to signal text content
+          yield { type: 'text-delta', textDelta: '' };
+          // Generator completes after yielding, signaling end of stream
+        })(),
         toolCalls: Promise.resolve([
           {
             toolName: ToolName.CONFIRMATION,
             toolCallId: 'tool-call-1',
-            args: {
+            input: {
               message: 'Do you confirm?',
             },
           },
@@ -575,6 +597,160 @@ describe('SuperAgent', () => {
 
       expect(mockSaveEmbedding).toHaveBeenCalledTimes(1);
       expect(mockSaveEmbedding).toHaveBeenCalledWith('test query', 'vault');
+    });
+
+    it('should NOT saveEmbeddings when ignoreClassify is true', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+        activeTools: [ToolName.LIST],
+        upstreamOptions: {
+          ignoreClassify: true,
+        },
+      };
+
+      // @ts-expect-error - Accessing private method for testing
+      const mockExecuteStreamText = jest.spyOn(superAgent, 'executeStreamText') as jest.SpyInstance;
+
+      mockExecuteStreamText.mockResolvedValue({
+        toolCalls: [],
+        conversationHistory: [
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'test query' }],
+          },
+        ],
+      });
+
+      await superAgent.handle(params);
+
+      // Wait for any pending promises
+      await jest.runAllTimersAsync();
+
+      expect(mockSaveEmbedding).not.toHaveBeenCalled();
+    });
+
+    it('should NOT saveEmbeddings when the settings.embedding.enabled is false', async () => {
+      // Set embedding.enabled to false
+      mockPlugin.settings.embedding.enabled = false;
+
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+        activeTools: [ToolName.LIST],
+      };
+
+      // @ts-expect-error - Accessing private method for testing
+      const mockExecuteStreamText = jest.spyOn(superAgent, 'executeStreamText') as jest.SpyInstance;
+
+      mockExecuteStreamText.mockResolvedValue({
+        toolCalls: [],
+        conversationHistory: [
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'test query' }],
+          },
+        ],
+      });
+
+      await superAgent.handle(params);
+
+      // Wait for any pending promises
+      await jest.runAllTimersAsync();
+
+      expect(mockSaveEmbedding).not.toHaveBeenCalled();
+
+      // Reset for other tests
+      mockPlugin.settings.embedding.enabled = true;
+    });
+
+    it('should NOT saveEmbeddings when classifiedTasks is empty', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+        // No activeTools - this will result in empty classifiedTasks from classifyTasksFromActiveTools
+        activeTools: [],
+      };
+
+      // Mock getClassifier to return a classifier that returns empty classifiedTasks
+      const mockDoClassify = jest.fn().mockResolvedValue(null); // No classification
+      const mockClassifier = {
+        saveEmbedding: mockSaveEmbedding,
+        doClassify: mockDoClassify,
+      };
+
+      (getClassifier as jest.Mock).mockReturnValue(mockClassifier);
+
+      // @ts-expect-error - Accessing private method for testing
+      const mockExecuteStreamText = jest.spyOn(superAgent, 'executeStreamText') as jest.SpyInstance;
+
+      mockExecuteStreamText.mockResolvedValue({
+        toolCalls: [],
+        conversationHistory: [
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'test query' }],
+          },
+        ],
+      });
+
+      await superAgent.handle(params);
+
+      // Wait for any pending promises
+      await jest.runAllTimersAsync();
+
+      // Should not save embedding because classifiedTasks is empty
+      expect(mockSaveEmbedding).not.toHaveBeenCalled();
+    });
+
+    it('should NOT saveEmbeddings when there are more than one user query in the conversation history', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+        activeTools: [ToolName.LIST],
+      };
+
+      // @ts-expect-error - Accessing private method for testing
+      const mockExecuteStreamText = jest.spyOn(superAgent, 'executeStreamText') as jest.SpyInstance;
+
+      // Mock conversation history with more than one user message
+      mockExecuteStreamText.mockResolvedValue({
+        toolCalls: [],
+        conversationHistory: [
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'first query' }],
+          },
+          {
+            role: 'assistant',
+            content: '',
+          },
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'test query' }],
+          },
+        ],
+      });
+
+      await superAgent.handle(params);
+
+      // Wait for any pending promises
+      await jest.runAllTimersAsync();
+
+      // Should not save embedding because there are multiple user messages
+      expect(mockSaveEmbedding).not.toHaveBeenCalled();
     });
   });
 
@@ -724,6 +900,8 @@ describe('SuperAgent', () => {
 
       const mockHandlerInstance = {
         handle: mockHandlerHandle,
+        // Mock extractSearchQueryWithoutLLM for search handler
+        extractSearchQueryWithoutLLM: jest.fn().mockReturnValue(null),
       };
 
       // Set the appropriate handler property
@@ -811,6 +989,92 @@ describe('SuperAgent', () => {
       expect(renderIndicatorSpy).toHaveBeenCalled();
     });
 
+    it('should continue processing when classifiedTasks is a single turn tasks but the current tool calls not belong to the task', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'search',
+          query: 'test query',
+        } as Intent,
+        activeTools: [ToolName.SEARCH, ToolName.LIST], // Both search and list tools
+        invocationCount: 1, // Use classifyTasksFromActiveTools
+      };
+
+      // Mock executeStreamText to return toolCalls with both SEARCH and LIST
+      // @ts-expect-error - Accessing private method for testing
+      const mockExecuteStreamText = jest.spyOn(superAgent, 'executeStreamText') as jest.SpyInstance;
+
+      mockExecuteStreamText.mockResolvedValue({
+        toolCalls: [
+          {
+            toolName: ToolName.SEARCH,
+            toolCallId: 'tool-call-1',
+            input: {},
+          },
+          {
+            toolName: ToolName.LIST,
+            toolCallId: 'tool-call-2',
+            input: {},
+          },
+        ],
+        conversationHistory: [],
+      });
+
+      // Mock search handler
+      const mockSearchHandle = jest.fn().mockResolvedValue({
+        status: IntentResultStatus.SUCCESS,
+      });
+
+      const mockSearchInstance = {
+        handle: mockSearchHandle,
+        extractSearchQueryWithoutLLM: jest.fn().mockReturnValue(null),
+      };
+
+      Object.defineProperty(superAgent, '_search', {
+        value: mockSearchInstance,
+        writable: true,
+        configurable: true,
+      });
+
+      // Mock vaultList handler
+      const mockVaultListHandle = jest.fn().mockResolvedValue({
+        status: IntentResultStatus.SUCCESS,
+      });
+
+      const mockVaultList = {
+        handle: mockVaultListHandle,
+      };
+
+      Object.defineProperty(superAgent, '_vaultList', {
+        value: mockVaultList,
+        writable: true,
+        configurable: true,
+      });
+
+      // Spy on handle to verify it IS called recursively (processing continues)
+      const handleSpy = jest.spyOn(superAgent, 'handle');
+
+      // Mock renderIndicator to verify it IS called (since we continue processing)
+      const renderIndicatorSpy = jest.spyOn(superAgent, 'renderIndicator');
+
+      await superAgent.handle(params, { remainingSteps: 5 });
+
+      // Verify executeStreamText was called
+      expect(mockExecuteStreamText).toHaveBeenCalled();
+
+      // Verify both handlers were called
+      expect(mockSearchHandle).toHaveBeenCalled();
+      expect(mockVaultListHandle).toHaveBeenCalled();
+
+      // Verify handle was called recursively (more than once)
+      // Since LIST doesn't belong to 'search' task, stopProcessingForClassifiedTask should return false
+      // and processing should continue
+      expect(handleSpy.mock.calls.length).toBeGreaterThan(1);
+
+      // Verify renderIndicator was called (since we continue processing)
+      expect(renderIndicatorSpy).toHaveBeenCalled();
+    });
+
     it('should continue processing when classifiedTasks contains a task NOT in SINGLE_TURN_TASKS', async () => {
       const params: AgentHandlerParams = {
         title: 'test-conversation',
@@ -865,6 +1129,150 @@ describe('SuperAgent', () => {
 
       // Verify renderIndicator was called (since we continue processing)
       expect(renderIndicatorSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('handle - max step count', () => {
+    it('should return NEEDS_CONFIRMATION when remainingSteps reaches 0', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+        activeTools: [ToolName.LIST],
+      };
+
+      // @ts-expect-error - Accessing private method for testing
+      const mockExecuteStreamText = jest.spyOn(superAgent, 'executeStreamText') as jest.SpyInstance;
+
+      // Mock executeStreamText to return toolCalls
+      mockExecuteStreamText.mockResolvedValue({
+        toolCalls: [
+          {
+            toolName: ToolName.LIST,
+            toolCallId: 'tool-call-1',
+            input: {},
+          },
+        ],
+        conversationHistory: [],
+      });
+
+      // Mock vaultList handler
+      const mockVaultListHandle = jest.fn().mockResolvedValue({
+        status: IntentResultStatus.SUCCESS,
+      });
+
+      const mockVaultList = {
+        handle: mockVaultListHandle,
+      };
+
+      Object.defineProperty(superAgent, '_vaultList', {
+        value: mockVaultList,
+        writable: true,
+        configurable: true,
+      });
+
+      // Start with remainingSteps = 1, so after processing, nextRemainingSteps = 0
+      const result = await superAgent.handle(params, { remainingSteps: 1 });
+
+      // Verify the result has NEEDS_CONFIRMATION status
+      expect(result.status).toBe(IntentResultStatus.NEEDS_CONFIRMATION);
+
+      // Type narrowing for ConfirmationResult
+      if (result.status === IntentResultStatus.NEEDS_CONFIRMATION) {
+        expect(result.confirmationMessage).toBeDefined();
+        expect(result.onConfirmation).toBeDefined();
+        expect(result.onRejection).toBeDefined();
+      }
+
+      // Verify updateConversationNote was called with the confirmation message
+      expect(mockPlugin.conversationRenderer.updateConversationNote).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: params.title,
+          newContent: expect.any(String),
+          lang: params.lang,
+          handlerId: expect.any(String),
+          includeHistory: false,
+        })
+      );
+    });
+
+    it('should call handle with MAX_STEP_COUNT when onConfirmation is called', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+        activeTools: [ToolName.LIST],
+      };
+
+      // @ts-expect-error - Accessing private method for testing
+      const mockExecuteStreamText = jest.spyOn(superAgent, 'executeStreamText') as jest.SpyInstance;
+
+      // First call: remainingSteps = 1, will return NEEDS_CONFIRMATION
+      mockExecuteStreamText.mockResolvedValueOnce({
+        toolCalls: [
+          {
+            toolName: ToolName.LIST,
+            toolCallId: 'tool-call-1',
+            input: {},
+          },
+        ],
+        conversationHistory: [],
+      });
+
+      // Mock vaultList handler
+      const mockVaultListHandle = jest.fn().mockResolvedValue({
+        status: IntentResultStatus.SUCCESS,
+      });
+
+      const mockVaultList = {
+        handle: mockVaultListHandle,
+      };
+
+      Object.defineProperty(superAgent, '_vaultList', {
+        value: mockVaultList,
+        writable: true,
+        configurable: true,
+      });
+
+      // Spy on handle to verify it's called with MAX_STEP_COUNT
+      const handleSpy = jest.spyOn(superAgent, 'handle');
+
+      // Second call: when onConfirmation is called, should use MAX_STEP_COUNT (20)
+      mockExecuteStreamText.mockResolvedValueOnce({
+        toolCalls: [],
+        conversationHistory: [],
+      });
+
+      // Start with remainingSteps = 1 to trigger NEEDS_CONFIRMATION
+      const result = await superAgent.handle(params, { remainingSteps: 1 });
+
+      // Verify we got NEEDS_CONFIRMATION
+      expect(result.status).toBe(IntentResultStatus.NEEDS_CONFIRMATION);
+
+      // Type narrowing for ConfirmationResult
+      if (result.status === IntentResultStatus.NEEDS_CONFIRMATION) {
+        expect(result.onConfirmation).toBeDefined();
+
+        // Call onConfirmation
+        await result.onConfirmation('confirmed');
+      }
+
+      // Verify handle was called again with remainingSteps = 20 (MAX_STEP_COUNT)
+      expect(handleSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: params.title,
+          intent: params.intent,
+          activeTools: params.activeTools,
+          invocationCount: 1, // Should be incremented
+        }),
+        expect.objectContaining({
+          remainingSteps: 20, // MAX_STEP_COUNT
+        })
+      );
     });
   });
 });

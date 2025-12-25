@@ -44,7 +44,6 @@ export interface StewardPluginSettings {
     temperature: number;
     ollamaBaseUrl?: string; // Deprecated: use providers[provider].baseUrl instead
     maxGenerationTokens?: number; // Maximum number of tokens to generate in response
-    showExtractionExplanation?: boolean; // Show detailed explanation for command extractions
     embeddingModel?: string; // Deprecated: use embedding.model instead
     // Deprecated: use embedding instead
     embedding?: {

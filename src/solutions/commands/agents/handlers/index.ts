@@ -1,3 +1,5 @@
+import { ActivateToolHandler } from './ActivateToolHandler';
+
 export * from './VaultCreate';
 export * from './VaultList';
 export * from './VaultDelete';
@@ -22,3 +24,4 @@ export * from './Search';
 export * from './SearchMore';
 export * from './Speech';
 export * from './Image';
+export * from './ActivateToolHandler';

@@ -67,7 +67,9 @@ export class PersistentEmbeddingSimilarityClassifier {
    */
   getModelStorageName(): string {
     if (!this.settings.modelName) {
-      throw new Error('modelName is required in settings for PersistentEmbeddingSimilarityClassifier');
+      throw new Error(
+        'modelName is required in settings for PersistentEmbeddingSimilarityClassifier'
+      );
     }
     return this.settings.modelName;
   }

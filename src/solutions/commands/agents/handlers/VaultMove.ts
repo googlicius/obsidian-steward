@@ -101,30 +101,30 @@ export class VaultMove {
     params: AgentHandlerParams,
     options: { toolCall: ToolCallPart<MoveToolArgs> }
   ): Promise<AgentResult> {
-    const { title, lang } = params;
-    const handlerId = params.handlerId;
     const { toolCall } = options;
 
-    if (!handlerId) {
+    if (!params.handlerId) {
       throw new Error('VaultMove.handle invoked without handlerId');
     }
 
-    const t = getTranslation(lang);
+    const t = getTranslation(params.lang);
 
     await this.agent.renderer.updateConversationNote({
-      path: title,
+      path: params.title,
       newContent: toolCall.input.explanation,
       command: 'vault_move',
       includeHistory: false,
-      lang,
-      handlerId,
+      lang: params.lang,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
     });
 
     const resolveResult = await this.resolveMoveDocs({
-      title,
+      title: params.title,
       toolCall,
-      lang,
-      handlerId,
+      lang: params.lang,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
     });
 
     if (resolveResult.responseMessage) {
@@ -140,11 +140,12 @@ export class VaultMove {
     if (!destinationFolder) {
       const message = t('move.destinationRequired');
       await this.respondAndSerializeMove({
-        title,
+        title: params.title,
         content: message,
         toolCall,
-        lang,
-        handlerId,
+        lang: params.lang,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
       });
 
       return {
@@ -163,12 +164,15 @@ export class VaultMove {
       )}`;
 
       await this.respondAndSerializeMove({
-        title,
+        title: params.title,
         content: message,
         toolCall,
-        lang,
-        handlerId,
+        lang: params.lang,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
       });
+
+      const handlerId = params.handlerId;
 
       return {
         status: IntentResultStatus.NEEDS_CONFIRMATION,
@@ -180,11 +184,12 @@ export class VaultMove {
         onRejection: async (_rejectionMessage: string) => {
           const cancellationMessage = t('confirmation.operationCancelled');
           await this.respondAndSerializeMove({
-            title,
+            title: params.title,
             content: cancellationMessage,
             toolCall,
-            lang,
+            lang: params.lang,
             handlerId,
+            step: params.invocationCount,
           });
           return {
             status: IntentResultStatus.SUCCESS,
@@ -194,33 +199,34 @@ export class VaultMove {
     }
 
     const moveResult = await this.executeMoveOperation({
-      title,
+      title: params.title,
       docs,
       destinationFolder,
       explanation: toolCall.input.explanation,
-      lang,
+      lang: params.lang,
     });
 
     const formattedMessage = this.formatMoveResult({
       result: moveResult,
       destinationFolder,
       explanation: toolCall.input.explanation,
-      lang,
+      lang: params.lang,
     });
 
     const messageId = await this.agent.renderer.updateConversationNote({
-      path: title,
+      path: params.title,
       newContent: formattedMessage,
       command: 'vault_move',
-      lang,
+      lang: params.lang,
       includeHistory: false,
-      handlerId,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
     });
 
     // Store move results as an artifact if there are any moves
     if (moveResult.movePairs.length > 0) {
       const artifactId = `move_${Date.now()}`;
-      await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+      await this.agent.plugin.artifactManagerV2.withTitle(params.title).storeArtifact({
         artifact: {
           artifactType: ArtifactType.MOVE_RESULTS,
           moves: moveResult.movePairs,
@@ -232,8 +238,9 @@ export class VaultMove {
 
     await this.agent.serializeInvocation({
       command: 'vault_move',
-      title,
-      handlerId,
+      title: params.title,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
       toolCall,
       result: {
         type: 'text',
@@ -251,6 +258,7 @@ export class VaultMove {
     toolCall: ToolCallPart<MoveToolArgs>;
     lang?: string | null;
     handlerId: string;
+    step?: number;
   }): Promise<{ docs: DocWithPath[]; responseMessage?: string }> {
     const { title, toolCall, lang, handlerId } = params;
     const t = getTranslation(lang);
@@ -320,29 +328,31 @@ export class VaultMove {
     toolCall: ToolCallPart<MoveToolArgs>;
     lang?: string | null;
     handlerId: string;
+    step?: number;
   }): Promise<string> {
-    const { title, content, toolCall, lang, handlerId } = params;
     const messageId = await this.agent.renderer.updateConversationNote({
-      path: title,
-      newContent: content,
+      path: params.title,
+      newContent: params.content,
       command: 'vault_move',
-      lang,
-      handlerId,
+      lang: params.lang,
+      handlerId: params.handlerId,
+      step: params.step,
       includeHistory: false,
     });
 
     await this.agent.serializeInvocation({
       command: 'vault_move',
-      title,
-      handlerId,
-      toolCall,
+      title: params.title,
+      handlerId: params.handlerId,
+      step: params.step,
+      toolCall: params.toolCall,
       result: {
         type: 'text',
-        value: messageId ? `messageRef:${messageId}` : content,
+        value: messageId ? `messageRef:${messageId}` : params.content,
       },
     });
 
-    return content;
+    return params.content;
   }
 
   private async executeMoveOperation(params: {

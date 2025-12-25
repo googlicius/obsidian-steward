@@ -1,6 +1,7 @@
 import { ToolName } from './toolNames';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { SUPPORTED_READ } from 'src/services/ContentReadingService';
+import { revertAbleArtifactTypes } from '../artifact';
 
 export interface ToolDefinition {
   name: ToolName;
@@ -24,11 +25,12 @@ export interface ToolMetaDefinition {
  */
 const contentReadingDefinition: ToolMetaDefinition = {
   name: ToolName.CONTENT_READING,
-  description: 'Read content from a note.',
+  description:
+    'Read content from a note, including text, images, audios, videos, etc. Or image files (png, jpg, jpeg, etc.).',
   category: 'content-access',
   guidelines: [
     `Use ${ToolName.CONTENT_READING} to read any type of content, including text, image, audio, video, etc.`,
-    `Analyze the user's query carefully to determine the content to read.`,
+    `When reading multiple files, you MUST make multiple parallel tool calls in the same request (one ${ToolName.CONTENT_READING} call per file). Do NOT read files sequentially one by one. EXCEPT when the user explicitly requests sequential reading.`,
     `After reading, respond a short conclusion of your task. DO NOT respond the elements of the reading result in your final response: Tables, lists, code, blockquote, images, headings, etc.`,
   ],
 };
@@ -44,7 +46,6 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     guidelines: [
       `You MUST use ${ToolName.CONFIRMATION} BEFORE reading the entire content of any note (markdown files). (When readType is "entire"). EXCEPT reading images.`,
       `Use ${ToolName.CONFIRMATION} once for all note(s) to be read.`,
-      `The ${ToolName.CONFIRMATION} tool also pauses the system until the user responds.`,
     ],
     category: 'user-interaction',
   },
@@ -54,7 +55,6 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description: 'Ask the user for additional information or clarification when needed.',
     guidelines: [
       `Use ${ToolName.ASK_USER} when you need clarification or additional information from the user to fulfill their request.`,
-      `The ${ToolName.ASK_USER} tool also pauses the system until the user responds.`,
     ],
     category: 'user-interaction',
   },
@@ -109,10 +109,12 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       'Comprehensive search for notes and files in the vault using keywords, tags, filenames, folders, and properties.',
     guidelines: [
       `Use ${ToolName.SEARCH} tool when the user wants to find files in the vault.
-  - If the query lacks search intention, assume it is the keyword for searching.
+  - If the query lacks search intention, search with two operations: 1. Search by keywords; 2. Search by filenames.
   - If there are any typos in the query, extract both the original and your corrected version
-  - If the query includes or mentions "note", include the property {name: "file_type", value: "md"}`,
+  - If the query includes or mentions "note", include the property {name: "file_type", value: "md"}.
+  - Folders and filenames, use regex to represent user-specified: Exact match: ^<query>$, start with: ^<query>, or contain: <query>.`,
       `The search query can include keywords, file names, folder paths, tags, and other properties.`,
+      `NOTE: ${ToolName.SEARCH} tool cannot access the Steward folder. Use ${ToolName.LIST} instead.`,
     ],
     category: 'vault-access',
   },
@@ -229,11 +231,9 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     name: ToolName.ACTIVATE,
     description: 'Request additional tools to be activated for the current session.',
     guidelines: [
-      `Use ${ToolName.ACTIVATE} when you need another tool that is currently inactive to complete the task.`,
-      `The ${ToolName.ACTIVATE} tool will return the schemas and guidelines of the requested tools.`,
-      `You can also use ${ToolName.ACTIVATE} to activate tools to provide more information for your answer if being asked.`,
-      `You must activate any tool listed under 'OTHER TOOLS' section (inactive). If you call without active, it will fail.`,
-      `You will fail when: 1. Calling inactive tools; 2. Activate tools that are not in the 'OTHER TOOLS' section.`,
+      `Use ${ToolName.ACTIVATE} when you need another tool that is currently inactive to complete the task. It will return the schemas and guidelines of the requested tools.
+  - You MUST activate any tool listed under 'OTHER TOOLS' section (inactive).
+  - You will fail when calling inactive tools.`,
     ],
     category: 'tool-management',
   },
@@ -284,7 +284,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       'Get the most recent artifact from the conversation (searches for artifacts created by vault operations).',
     guidelines: [
       `Use ${ToolName.GET_MOST_RECENT_ARTIFACT} to retrieve the most recent artifact that can be reverted.`,
-      `This is useful when you need to find artifacts to perform revert operations.`,
+      `The ${ToolName.GET_MOST_RECENT_ARTIFACT} tool will only retrieve revert-able artifacts: ${joinWithConjunction(revertAbleArtifactTypes, 'or')}.`,
     ],
     category: 'artifact-access',
   },

@@ -1,7 +1,7 @@
 import { getLanguage, parseYaml, TFile } from 'obsidian';
 import { uniqueID } from '../utils/uniqueID';
 import { getTranslation } from '../i18n';
-import { ConversationHistoryMessage, ConversationMessage, ConversationRole } from '../types/types';
+import { ConversationMessage, ConversationRole } from '../types/types';
 import type StewardPlugin from '../main';
 import { logger } from 'src/utils/logger';
 import {
@@ -10,10 +10,11 @@ import {
   STW_SELECTED_METADATA_PATTERN,
 } from 'src/constants';
 import { prependChunk } from 'src/utils/textStreamer';
-import { ModelMessage, ImagePart, ContentPart, TextPart, FilePart } from 'ai';
+import { ModelMessage, TextPart, FilePart, ImagePart, ReasoningOutput } from 'ai';
 import { ToolCallPart, ToolResultPart } from 'src/solutions/commands/tools/types';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { ArtifactType, ReadContentArtifactImpl } from 'src/solutions/artifact';
+import { removeUndefined } from 'src/utils/removeUndefined';
 
 export class ConversationRenderer {
   static instance: ConversationRenderer;
@@ -242,7 +243,7 @@ export class ConversationRenderer {
     text?: string;
     handlerId?: string;
     step?: number;
-    toolInvocations: ToolResultPart<T>[];
+    toolInvocations: ToolResultPart[];
   }): Promise<string | undefined> {
     try {
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
@@ -297,183 +298,172 @@ export class ConversationRenderer {
   public async deserializeToolInvocations(params: {
     message: ConversationMessage;
     conversationTitle: string;
-  }): Promise<Array<ToolCallPart | ToolResultPart | FilePart | TextPart> | null> {
-    try {
-      // Extract all tool calls from the message content
-      const toolInvocationsMatches = params.message.content.match(
-        /```stw-artifact\n([\s\S]*?)\n```/g
-      );
-      if (!toolInvocationsMatches || toolInvocationsMatches.length === 0) {
-        logger.error('No stw-artifact blocks found in message content');
-        return null;
-      }
-
-      const toolInvocations: Array<ToolCallPart | ToolResultPart | FilePart | TextPart> = [];
-
-      for (const toolInvocationsMatch of toolInvocationsMatches) {
-        const toolInvocationData = JSON.parse(
-          toolInvocationsMatch.replace(/```stw-artifact\n|\n```/g, '')
-        );
-
-        // Ensure toolInvocationData is an array
-        if (!Array.isArray(toolInvocationData)) {
-          logger.error('Tool invocation data should be an array', toolInvocationData);
-          continue;
-        }
-
-        async function resolveToolInvocation(
-          type: 'tool-call' | 'tool-result',
-          toolInvocation: ReturnType<typeof JSON.parse>
-        ): Promise<Array<ToolCallPart | ToolResultPart | FilePart | TextPart>> {
-          switch (type) {
-            case 'tool-call': {
-              const input = toolInvocation.input ?? toolInvocation.args;
-              return [
-                {
-                  type,
-                  toolName: toolInvocation.toolName,
-                  toolCallId: toolInvocation.toolCallId,
-                  input,
-                },
-              ];
-            }
-
-            case 'tool-result':
-            default: {
-              // Resolve the result based on its type (Backward-compatible with AI SDK v4 format)
-              let resolvedOutput: ToolResultPart['output'];
-              const output = toolInvocation.output ?? toolInvocation.result;
-              const additionalParts: Array<TextPart | FilePart> = [];
-
-              try {
-                resolvedOutput = {
-                  type: 'json',
-                  value: JSON.parse(output),
-                };
-              } catch (error) {
-                resolvedOutput = {
-                  type: 'text',
-                  value: output,
-                };
-              }
-
-              if (typeof resolvedOutput.value === 'string') {
-                // Check if it's an artifact reference
-                if (resolvedOutput.value.startsWith('artifactRef:')) {
-                  const artifactId = resolvedOutput.value.substring('artifactRef:'.length);
-                  const artifact = await this.plugin.artifactManagerV2
-                    .withTitle(params.conversationTitle)
-                    .getArtifactById(artifactId);
-                  if (artifact) {
-                    // If the artifact is marked as deleted, then skip sending data, return the deleteReason instead
-                    if (artifact.deleteReason) {
-                      resolvedOutput = {
-                        type: 'json',
-                        value: JSON.stringify({
-                          id: artifact.id,
-                          artifactType: artifact.artifactType,
-                          deleteReason: artifact.deleteReason,
-                          status: 'deleted', // Add this field
-                          // Don't send other fields of the artifact.
-                        }),
-                      };
-                    } else {
-                      resolvedOutput = {
-                        type: 'json',
-                        value: JSON.stringify(artifact),
-                      };
-
-                      // Check if artifact has imagePaths (from READ_CONTENT artifacts)
-                      // Include images in the same content as the tool-result
-                      if (
-                        artifact instanceof ReadContentArtifactImpl &&
-                        artifact.imagePaths &&
-                        artifact.imagePaths.length > 0
-                      ) {
-                        const imageParts =
-                          await this.plugin.userMessageService.getImagePartsFromPaths(
-                            artifact.imagePaths
-                          );
-                        for (const [path, imagePart] of imageParts) {
-                          additionalParts.push(
-                            { type: 'text', text: path },
-                            { type: 'file', data: imagePart.image, mediaType: 'image' }
-                          );
-                        }
-                      }
-                    }
-                  } else {
-                    logger.error(`Artifact not found: ${artifactId}`);
-                    resolvedOutput = {
-                      type: 'error-text',
-                      value: `Artifact not found: ${artifactId}`,
-                    };
-                  }
-                } else if (resolvedOutput.value.startsWith('messageRef:')) {
-                  const messageId = resolvedOutput.value.substring('messageRef:'.length);
-                  const referencedMessage = await this.getMessageById(
-                    params.conversationTitle,
-                    messageId,
-                    true // Exclude tool-hidden content when resolving message references
-                  );
-                  if (referencedMessage) {
-                    resolvedOutput = {
-                      type: 'text',
-                      value: referencedMessage.content,
-                    };
-                  } else {
-                    logger.error(`Message not found: ${messageId}`);
-                    resolvedOutput = {
-                      type: 'error-text',
-                      value: `Message not found: ${messageId}`,
-                    };
-                  }
-                }
-                // Otherwise, it's an inlined result, keep as is
-              }
-
-              return [
-                {
-                  type,
-                  toolName: toolInvocation.toolName,
-                  toolCallId: toolInvocation.toolCallId,
-                  output: resolvedOutput,
-                },
-                ...additionalParts,
-              ];
-            }
-          }
-        }
-
-        for (const toolInvocation of toolInvocationData) {
-          const { toolName, toolCallId, type } = toolInvocation;
-
-          if (!toolName || !toolCallId || !type) {
-            logger.error('Invalid tool call data structure', toolInvocation);
-            continue; // Skip invalid tool calls but continue processing others
-          }
-
-          if (type === 'tool-call') {
-            toolInvocations.push(...(await resolveToolInvocation('tool-call', toolInvocation)));
-            // In the old version, all types are tool-call, we need to handle tool-result here.
-            if (toolInvocation.result) {
-              toolInvocations.push(...(await resolveToolInvocation('tool-result', toolInvocation)));
-            }
-          } else {
-            // In the new version, the input could be included, so handle tool-call here
-            if (toolInvocation.input) {
-              toolInvocations.push(...(await resolveToolInvocation('tool-call', toolInvocation)));
-            }
-            toolInvocations.push(...(await resolveToolInvocation('tool-result', toolInvocation)));
-          }
-        }
-      }
-
-      return toolInvocations.length > 0 ? toolInvocations : null;
-    } catch (error: unknown) {
-      logger.error('Error deserializing tool calls:', error);
+  }): Promise<Array<ToolCallPart | ToolResultPart | FilePart | ImagePart | TextPart> | null> {
+    // Extract all tool calls from the message content
+    const toolInvocationsMatches = params.message.content.match(
+      /```stw-artifact\n([\s\S]*?)\n```/g
+    );
+    if (!toolInvocationsMatches || toolInvocationsMatches.length === 0) {
+      logger.error('No stw-artifact blocks found in message content');
       return null;
     }
+
+    const toolInvocations: Array<ToolCallPart | ToolResultPart | FilePart | ImagePart | TextPart> =
+      [];
+
+    const resolveToolInvocation = async (
+      type: 'tool-call' | 'tool-result',
+      toolInvocation: ReturnType<typeof JSON.parse>
+    ): Promise<Array<ToolCallPart | ToolResultPart | FilePart | ImagePart | TextPart>> => {
+      switch (type) {
+        case 'tool-call': {
+          const input = toolInvocation.input ?? toolInvocation.args;
+          return [
+            {
+              type,
+              toolName: toolInvocation.toolName,
+              toolCallId: toolInvocation.toolCallId,
+              input,
+            },
+          ];
+        }
+
+        case 'tool-result':
+        default: {
+          // Resolve the result based on its type (Backward-compatible with AI SDK v4 format)
+          // let resolvedOutput: ToolResultPart['output'];
+          const output = toolInvocation.output ?? toolInvocation.result;
+          const additionalParts: Array<TextPart | FilePart | ImagePart> = [];
+
+          let resolvedOutput: ToolResultPart['output'] =
+            typeof output === 'string'
+              ? {
+                  type: 'text',
+                  value: output,
+                }
+              : output;
+
+          if (typeof resolvedOutput.value === 'string') {
+            // Check if it's an artifact reference
+            if (resolvedOutput.value.startsWith('artifactRef:')) {
+              const artifactId = resolvedOutput.value.substring('artifactRef:'.length);
+              const artifact = await this.plugin.artifactManagerV2
+                .withTitle(params.conversationTitle)
+                .getArtifactById(artifactId);
+              if (artifact) {
+                // If the artifact is marked as deleted, then skip sending data, return the deleteReason instead
+                if (artifact.deleteReason) {
+                  resolvedOutput = {
+                    type: 'json',
+                    value: removeUndefined({
+                      id: artifact.id,
+                      artifactType: artifact.artifactType,
+                      deleteReason: artifact.deleteReason,
+                      status: 'deleted', // Add this field
+                      // Don't send other fields of the artifact.
+                    }),
+                  };
+                } else {
+                  resolvedOutput = {
+                    type: 'json',
+                    value: removeUndefined(artifact),
+                  };
+
+                  // Check if artifact has imagePaths (from READ_CONTENT artifacts)
+                  // Include images in the same content as the tool-result
+                  if (
+                    artifact instanceof ReadContentArtifactImpl &&
+                    artifact.imagePaths &&
+                    artifact.imagePaths.length > 0
+                  ) {
+                    const imageParts = await this.plugin.userMessageService.getImagePartsFromPaths(
+                      artifact.imagePaths
+                    );
+                    for (const [path, imagePart] of imageParts) {
+                      additionalParts.push({ type: 'text', text: path }, imagePart);
+                    }
+                  }
+                }
+              } else {
+                logger.error(`Artifact not found: ${artifactId}`);
+                resolvedOutput = {
+                  type: 'error-text',
+                  value: `Artifact not found: ${artifactId}`,
+                };
+              }
+            } else if (resolvedOutput.value.startsWith('messageRef:')) {
+              const messageId = resolvedOutput.value.substring('messageRef:'.length);
+              const referencedMessage = await this.getMessageById(
+                params.conversationTitle,
+                messageId,
+                true // Exclude tool-hidden content when resolving message references
+              );
+              if (referencedMessage) {
+                resolvedOutput = {
+                  type: 'text',
+                  value: referencedMessage.content,
+                };
+              } else {
+                logger.error(`Message not found: ${messageId}`);
+                resolvedOutput = {
+                  type: 'error-text',
+                  value: `Message not found: ${messageId}`,
+                };
+              }
+            }
+            // Otherwise, it's an inlined result, keep as is
+          }
+
+          return [
+            {
+              type,
+              toolName: toolInvocation.toolName,
+              toolCallId: toolInvocation.toolCallId,
+              output: resolvedOutput,
+            },
+            ...additionalParts,
+          ];
+        }
+      }
+    };
+
+    for (const toolInvocationsMatch of toolInvocationsMatches) {
+      const toolInvocationData = JSON.parse(
+        toolInvocationsMatch.replace(/```stw-artifact\n|\n```/g, '')
+      );
+
+      // Ensure toolInvocationData is an array
+      if (!Array.isArray(toolInvocationData)) {
+        logger.error('Tool invocation data should be an array', toolInvocationData);
+        continue;
+      }
+
+      for (const toolInvocation of toolInvocationData) {
+        const { toolName, toolCallId, type } = toolInvocation;
+
+        if (!toolName || !toolCallId || !type) {
+          logger.error('Invalid tool call data structure', toolInvocation);
+          continue; // Skip invalid tool calls but continue processing others
+        }
+
+        if (type === 'tool-call') {
+          toolInvocations.push(...(await resolveToolInvocation('tool-call', toolInvocation)));
+          // In the old version, all types are tool-call, we need to handle tool-result here.
+          // Check for both output (new format) and result (old format) for backward compatibility
+          if (toolInvocation.output || toolInvocation.result) {
+            toolInvocations.push(...(await resolveToolInvocation('tool-result', toolInvocation)));
+          }
+        } else {
+          // In the new version, the input could be included, so handle tool-call here
+          if (toolInvocation.input) {
+            toolInvocations.push(...(await resolveToolInvocation('tool-call', toolInvocation)));
+          }
+          toolInvocations.push(...(await resolveToolInvocation('tool-result', toolInvocation)));
+        }
+      }
+    }
+
+    return toolInvocations.length > 0 ? toolInvocations : null;
   }
 
   /**
@@ -1406,11 +1396,12 @@ export class ConversationRenderer {
 
         // Remove stw-thinking block when type is reasoning
         if (metadata.TYPE === 'reasoning') {
-          // Extract content inside stw-thinking code block
-          const stwThinkingRegex = /```stw-thinking\s*([\s\S]*?)\s*```/m;
+          // Extract content inside stw-thinking code block (supports both 3 and 4 backticks for compatibility)
+          const stwThinkingRegex =
+            /````stw-thinking\s*([\s\S]*?)\s*````|```stw-thinking\s*([\s\S]*?)\s*```/m;
           const match = stwThinkingRegex.exec(messageContent);
           if (match) {
-            messageContent = match[1].trim();
+            messageContent = (match[1] || match[2] || '').trim();
           }
         }
 
@@ -1436,6 +1427,9 @@ export class ConversationRenderer {
           ...(metadata.HANDLER_ID && {
             handlerId: metadata.HANDLER_ID,
           }),
+          ...(metadata.STEP !== undefined && {
+            step: parseInt(metadata.STEP, 10),
+          }),
         });
       }
 
@@ -1455,27 +1449,18 @@ export class ConversationRenderer {
     options?: {
       maxMessages?: number;
       summaryPosition?: number;
-      /**
-       * Only include messages with the given handler ID.
-       */
-      handlerId?: string;
     }
   ): Promise<ModelMessage[]> {
-    const { maxMessages = 10, handlerId } = options || {};
+    const { maxMessages = 10 } = options || {};
     let { summaryPosition = 0 } = options || {};
 
     try {
       // Get all messages from the conversation
       const allMessages = await this.extractAllConversationMessages(conversationTitle);
 
-      // Filter by handlerId if provided
-      const messagesToProcess = handlerId
-        ? allMessages.filter(message => 'handlerId' in message && message.handlerId === handlerId)
-        : allMessages;
-
       // Filter out messages where history is explicitly set to false
       const messagesForHistory: (ConversationMessage & { ignored?: boolean })[] =
-        messagesToProcess.filter(message => message.history !== false);
+        allMessages.filter(message => message.history !== false);
 
       // Remove the last message if it is a user message which is just being added.
       if (
@@ -1510,62 +1495,195 @@ export class ConversationRenderer {
       }
 
       // Get messages after the topicStartIndex (either summary or topic start)
-      const messagesToInclude = messagesForHistory
+      const filteredMessages = messagesForHistory
         .slice(topicStartIndex)
-        .filter(message => !message.ignored)
-        .slice(-maxMessages);
+        .filter(message => !message.ignored);
 
-      const result: ModelMessage[] = [];
+      // Slice messages without cutting in the middle of a step
+      const messagesToInclude = this.sliceMessagesPreservingSteps(filteredMessages, maxMessages);
 
-      for (const message of messagesToInclude) {
-        if (message.type === 'tool-invocation') {
-          const toolInvocations = await this.deserializeToolInvocations({
-            message,
-            conversationTitle,
-          });
+      // Group consecutive messages by (handlerId, role, step) for merging
+      const groupedMessages = this.groupMessagesByStep(messagesToInclude);
 
-          if (toolInvocations && toolInvocations.length > 0) {
-            result.push({
-              role: 'assistant',
-              ...(message.handlerId && {
-                handlerId: message.handlerId,
-              }),
-              content: toolInvocations,
-            });
-            continue;
-          }
-        } else if (message.type === 'reasoning') {
-          result.push({
-            role: 'assistant',
-            content: [{ type: 'reasoning', text: message.content }],
-            ...(message.handlerId && {
-              handlerId: message.handlerId,
-            }),
-          });
-        } else {
-          // message.content from ConversationMessage is always a string
-          let content: string = message.content;
+      // Convert grouped messages to ModelMessages
+      const modelMessages: ModelMessage[] = [];
 
-          // Sanitize user messages
-          if (message.role === 'user') {
-            content = this.plugin.userMessageService.sanitizeQuery(content);
-          }
+      for (const group of groupedMessages) {
+        const firstMessage = group[0];
 
-          result.push({
-            role: message.role,
+        // User messages are not grouped by step, process individually
+        if (firstMessage.role === 'user') {
+          const content = this.plugin.userMessageService.sanitizeQuery(firstMessage.content);
+          modelMessages.push({
+            role: 'user',
             content,
-            ...(message.handlerId && {
-              handlerId: message.handlerId,
-            }),
+            ...(firstMessage.handlerId && { handlerId: firstMessage.handlerId }),
+          });
+          continue;
+        }
+
+        // Process assistant/tool messages - collect all parts from the group
+        const assistantParts: (TextPart | ToolCallPart | ReasoningOutput)[] = [];
+        const toolResultParts: ToolResultPart[] = [];
+        const additionalUserParts: (TextPart | FilePart | ImagePart)[] = [];
+
+        for (const message of group) {
+          if (message.type === 'tool-invocation') {
+            const toolInvocations = await this.deserializeToolInvocations({
+              message,
+              conversationTitle,
+            });
+
+            if (toolInvocations && toolInvocations.length > 0) {
+              for (const part of toolInvocations) {
+                if (part.type === 'tool-call') {
+                  assistantParts.push(part);
+                } else if (part.type === 'tool-result') {
+                  toolResultParts.push(part);
+                } else if (part.type === 'text' || part.type === 'file' || part.type === 'image') {
+                  additionalUserParts.push(part);
+                }
+              }
+            }
+          } else if (message.type === 'reasoning') {
+            assistantParts.push({ type: 'reasoning', text: message.content });
+          } else if (message.role === 'assistant') {
+            assistantParts.push({ type: 'text', text: message.content });
+          }
+        }
+
+        // Auto-include empty reasoning content if missing
+        const hasReasoningPart = assistantParts.some(part => part.type === 'reasoning');
+        if (!hasReasoningPart && assistantParts.length > 0) {
+          // Insert empty reasoning at the beginning (reasoning should come before text)
+          assistantParts.unshift({ type: 'reasoning', text: '' });
+        }
+
+        // Push assistant message with all collected parts
+        if (assistantParts.length > 0) {
+          modelMessages.push({
+            role: 'assistant',
+            content: assistantParts,
+            ...(firstMessage.handlerId && { handlerId: firstMessage.handlerId }),
+          });
+        }
+
+        // Push tool message with tool-result parts
+        if (toolResultParts.length > 0) {
+          modelMessages.push({
+            role: 'tool',
+            content: toolResultParts,
+            ...(firstMessage.handlerId && { handlerId: firstMessage.handlerId }),
+          });
+        }
+
+        // Push additional parts (images) as a user message if present
+        if (additionalUserParts.length > 0) {
+          modelMessages.push({
+            role: 'user',
+            content: additionalUserParts,
           });
         }
       }
 
-      return result;
+      return modelMessages;
     } catch (error) {
       logger.error('Error extracting conversation history:', error);
       return [];
     }
+  }
+
+  /**
+   * Slices messages to a maximum count without cutting in the middle of a step.
+   * If the slice would cut through messages with the same (handlerId, step),
+   * it adjusts to include all messages from that step.
+   */
+  private sliceMessagesPreservingSteps(
+    messages: ConversationMessage[],
+    maxMessages: number
+  ): ConversationMessage[] {
+    if (messages.length <= maxMessages) {
+      return messages;
+    }
+
+    // Start with the basic slice from the end
+    let startIndex = messages.length - maxMessages;
+    const firstMessage = messages[startIndex];
+
+    // If the first message has a step, find where this step begins
+    if (firstMessage.step !== undefined && firstMessage.handlerId) {
+      // Look backwards to find the start of this step
+      for (let i = startIndex - 1; i >= 0; i--) {
+        const prevMessage = messages[i];
+        if (
+          prevMessage.handlerId === firstMessage.handlerId &&
+          prevMessage.step === firstMessage.step
+        ) {
+          startIndex = i;
+        } else {
+          break;
+        }
+      }
+    }
+
+    return messages.slice(startIndex);
+  }
+
+  /**
+   * Groups consecutive messages that share the same (handlerId, role, step).
+   * User messages are not grouped (each becomes its own group).
+   * Messages without a step are not grouped with others.
+   */
+  private groupMessagesByStep(messages: ConversationMessage[]): ConversationMessage[][] {
+    const groups: ConversationMessage[][] = [];
+    let currentGroup: ConversationMessage[] = [];
+
+    for (const message of messages) {
+      // User messages always start a new group and are not merged
+      if (message.role === 'user') {
+        if (currentGroup.length > 0) {
+          groups.push(currentGroup);
+          currentGroup = [];
+        }
+        groups.push([message]);
+        continue;
+      }
+
+      // Messages without step or handlerId are not grouped
+      if (message.step === undefined || !message.handlerId) {
+        if (currentGroup.length > 0) {
+          groups.push(currentGroup);
+          currentGroup = [];
+        }
+        groups.push([message]);
+        continue;
+      }
+
+      // Check if this message belongs to the current group
+      if (currentGroup.length > 0) {
+        const lastMessage = currentGroup[currentGroup.length - 1];
+        const sameGroup =
+          lastMessage.handlerId === message.handlerId &&
+          lastMessage.step === message.step &&
+          lastMessage.role !== 'user';
+
+        if (sameGroup) {
+          currentGroup.push(message);
+        } else {
+          groups.push(currentGroup);
+          currentGroup = [message];
+        }
+      } else {
+        currentGroup = [message];
+      }
+    }
+
+    // Don't forget the last group
+    if (currentGroup.length > 0) {
+      groups.push(currentGroup);
+    }
+
+    return groups;
   }
 
   /**

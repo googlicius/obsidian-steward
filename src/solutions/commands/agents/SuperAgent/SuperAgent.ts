@@ -1,27 +1,29 @@
-import { ModelMessage, streamText, UIMessage } from 'ai';
-import { waitForError } from 'src/utils/waitForError';
-import { Agent } from '../Agent';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../types';
-import { ToolCallPart, ToolResultPart, ToolInvocation } from '../tools/types';
+import { ModelMessage, streamText } from 'ai';
+import { Agent } from '../../Agent';
+import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { ToolCallPart, ToolResultPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
-import { SystemPromptModifier } from '../SystemPromptModifier';
-import { ToolRegistry, ToolName } from '../ToolRegistry';
+import { SystemPromptModifier } from '../../SystemPromptModifier';
+import { ToolRegistry, ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
-import { activateTools } from '../tools/activateTools';
-import { ArtifactType } from 'src/solutions/artifact';
-import { getMostRecentArtifact, getArtifactById } from '../tools/getArtifact';
+import { activateTools } from '../../tools/activateTools';
+import { ArtifactType, revertAbleArtifactTypes } from 'src/solutions/artifact';
+import { getMostRecentArtifact, getArtifactById } from '../../tools/getArtifact';
 import { getClassifier } from 'src/lib/modelfusion';
 import { logger } from 'src/utils/logger';
 import { SuperAgentHandlers } from './SuperAgentHandlers';
 import { applyMixins } from 'src/utils/applyMixins';
-import { createAskUserTool } from '../tools/askUser';
-import * as handlers from './handlers';
+import { createAskUserTool } from '../../tools/askUser';
+import * as handlers from '../handlers';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
-import { streamTextWithReasoning } from 'src/utils/textStreamer';
+import { createTextReasoningStream } from 'src/utils/textStreamer';
+import { SysError } from 'src/utils/errors';
 
 /**
- * Map of task names to their associated tool names
+ * Map of task names to their associated tool names.
+ * This is used to determine the tasks for classification based on the active tools.
+ * Defaulting active tools from the classified tasks.
  */
 const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
   vault: new Set([
@@ -75,6 +77,7 @@ const TASK_TO_INDICATOR_MAP: Record<string, string> = {
   edit: 'conversation.updating',
   speech: 'conversation.generatingAudio',
   image: 'conversation.generatingImage',
+  search: 'conversation.searching',
 };
 
 /**
@@ -148,7 +151,7 @@ export class SuperAgent extends Agent {
   }
 
   /**
-   * Craft a tool call without AI help
+   * Client-made tool call without AI
    */
   private async manualToolCall(
     title: string,
@@ -158,7 +161,6 @@ export class SuperAgent extends Agent {
     lang?: string | null
   ): Promise<ToolCallPart | undefined> {
     // Return undefined if there are multiple classified tasks
-    console.log('classified tags', classifiedTasks);
     if (classifiedTasks.length !== 1) {
       return undefined;
     }
@@ -360,77 +362,96 @@ export class SuperAgent extends Agent {
     toolCalls: ToolCalls;
     conversationHistory: ModelMessage[];
   }> {
-    const conversationHistory = await this.renderer.extractConversationHistory(params.title, {
-      summaryPosition: 1,
-    });
+    let timer: number | null = null;
 
-    const llmConfig = await this.plugin.llmService.getLLMConfig({
-      overrideModel: params.intent.model,
-      generateType: 'text',
-    });
+    try {
+      const conversationHistory = await this.renderer.extractConversationHistory(params.title, {
+        summaryPosition: 1,
+      });
 
-    const modifier = new SystemPromptModifier(params.intent.systemPrompts);
-    const additionalSystemPrompts = modifier.getAdditionalSystemPrompts();
+      const llmConfig = await this.plugin.llmService.getLLMConfig({
+        overrideModel: params.intent.model,
+        generateType: 'text',
+      });
 
-    const activeToolNames =
-      params.activeTools && params.activeTools.length > 0
-        ? [...params.activeTools, ToolName.ACTIVATE]
-        : [ToolName.ACTIVATE];
-    const registry = ToolRegistry.buildFromTools(tools, params.intent.tools).setActive(
-      activeToolNames
-    );
+      const modifier = new SystemPromptModifier(params.intent.systemPrompts);
+      const additionalSystemPrompts = modifier.getAdditionalSystemPrompts();
 
-    // Exclude confirmation and ask_user tools if no_confirm is set
-    if (params.intent.no_confirm) {
-      registry.exclude([ToolName.CONFIRMATION, ToolName.ASK_USER]);
-    }
+      const activeToolNames =
+        params.activeTools && params.activeTools.length > 0
+          ? [...params.activeTools, ToolName.ACTIVATE]
+          : [ToolName.ACTIVATE];
+      const registry = ToolRegistry.buildFromTools(tools, params.intent.tools).setActive(
+        activeToolNames
+      );
 
-    const messages: ModelMessage[] = conversationHistory;
+      // Exclude confirmation and ask_user tools if no_confirm is set
+      if (params.intent.no_confirm) {
+        registry.exclude([ToolName.CONFIRMATION, ToolName.ASK_USER]);
+      }
 
-    // Include user message for the first iteration.
-    if (!params.invocationCount) {
-      messages.push({ role: 'user', content: params.intent.query });
-    }
+      const messages = conversationHistory;
 
-    // Create an operation-specific abort signal
-    const abortSignal = this.plugin.abortService.createAbortController('super-agent');
+      // Include user message for the first iteration.
+      if (!params.invocationCount) {
+        messages.push({ role: 'user', content: params.intent.query });
+      }
 
-    // Collect the error from the stream to handle it with our handle function.
-    let streamError: Error | null = null;
+      // Validate image support before sending messages
+      // This will throw an error if images are present but model doesn't support vision
+      this.plugin.llmService.validateImageSupport(
+        params.intent.model || this.plugin.settings.llm.chat.model,
+        messages,
+        params.lang
+      );
 
-    const currentNote = await this.renderer.getConversationProperty<string>(
-      params.title,
-      'current_note'
-    );
+      // Create an operation-specific abort signal
+      const abortSignal = this.plugin.abortService.createAbortController('super-agent');
 
-    // Use streamText instead of generateText
-    const { toolCalls: toolCallsPromise, fullStream } = streamText({
-      ...llmConfig,
-      abortSignal,
-      system: modifier.apply(`You are a helpful assistant who helps users with their Obsidian vault.
+      /**
+       * Create a deferred promise that rejects immediately when an error or abort occurs.
+       * This is needed because AI SDK v5 swallows abort errors and throws NoOutputGeneratedError,
+       * and the polling-based waitForError is too slow to catch errors before promises reject.
+       */
+      let rejectStreamError: (error: Error) => void;
+      const streamErrorPromise = new Promise<never>((_, reject) => {
+        rejectStreamError = reject;
+      });
+
+      const currentNote = await this.renderer.getConversationProperty<string>(
+        params.title,
+        'current_note'
+      );
+
+      // Use streamText instead of generateText
+      const { toolCalls: toolCallsPromise, fullStream } = streamText({
+        ...llmConfig,
+        abortSignal,
+        system:
+          modifier.apply(`You are a helpful assistant who helps users with their Obsidian vault.
 
 Your role is to help users with multiple tasks by using appropriate tools.
 - For generating tasks, you can generate directly.
 - For editing tasks, use ${ToolName.EDIT} tool.
 - For vault management tasks, use the following tools: ${joinWithConjunction(
-        [
-          ToolName.LIST,
-          ToolName.CREATE,
-          ToolName.DELETE,
-          ToolName.COPY,
-          ToolName.MOVE,
-          ToolName.RENAME,
-          ToolName.UPDATE_FRONTMATTER,
-        ],
-        'and'
-      )}.
+            [
+              ToolName.LIST,
+              ToolName.CREATE,
+              ToolName.DELETE,
+              ToolName.COPY,
+              ToolName.MOVE,
+              ToolName.RENAME,
+              ToolName.UPDATE_FRONTMATTER,
+            ],
+            'and'
+          )}.
 - For other tasks, use the appropriate tool(s).
 
 You have access to the following tools:
 ${registry.generateToolsSection()}
 
 OTHER TOOLS:
-${registry.generateOtherToolsSection('No other tools available.', new Set([ToolName.GREP, ToolName.LIST, ToolName.SEARCH, ToolName.IMAGE]))}
+${registry.generateOtherToolsSection('No other tools available.', new Set([ToolName.GREP, ToolName.LIST, ToolName.SEARCH, ToolName.IMAGE, ToolName.CONTENT_READING]))}
 
 GUIDELINES:
 ${registry.generateGuidelinesSection()}
@@ -440,43 +461,60 @@ ${currentNote ? `CURRENT NOTE: ${currentNote}` : ''}
 NOTE:
 - Do NOT repeat the latest tool call result in your final response as it is already rendered in the UI.
 - Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`),
-      messages: [
-        ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
-        ...messages,
-      ],
-      tools: registry.getToolsObject(),
-      onError: ({ error }) => {
-        streamError = error instanceof Error ? error : new Error(String(error));
-      },
-    });
+        messages: [
+          ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
+          ...messages,
+        ],
+        tools: registry.getToolsObject(),
+        onError: ({ error }) => {
+          logger.error('Error in streamText', error);
+          rejectStreamError(error as Error);
+        },
+        onAbort: () => {
+          // AI SDK v5 swallows abort errors and throws NoOutputGeneratedError instead.
+          // We need to reject immediately with the proper AbortError.
+          rejectStreamError(new DOMException('Request aborted', 'AbortError'));
+        },
+      });
 
-    const streamErrorPromise = waitForError(() => streamError);
+      // Create text/reasoning stream with early completion signal
+      const { stream: textReasoningStream, textDone } = createTextReasoningStream(fullStream);
 
-    // Stream the text directly to the conversation note
-    await Promise.race([
-      this.renderer.streamConversationNote({
+      // Stream the text directly to the conversation note (runs in background)
+      const streamPromise = this.renderer.streamConversationNote({
         path: params.title,
-        stream: streamTextWithReasoning(fullStream),
+        stream: textReasoningStream,
         handlerId: params.handlerId,
         step: params.invocationCount,
-      }),
-      streamErrorPromise,
-    ]);
+      });
 
-    // Render indicator after 2 seconds when still waiting for toolCalls.
-    const timer = setTimeout(() => {
-      this.renderIndicator(params.title, params.lang, options?.classifiedTasks);
-    }, 500);
+      // Wait for text/reasoning to finish streaming (before tool calls)
+      await Promise.race([textDone, streamErrorPromise]);
 
-    // Wait for tool calls and extract the result
-    const toolCalls = (await Promise.race([toolCallsPromise, streamErrorPromise])) as ToolCalls;
+      // Render indicator after sometime when still waiting for toolCalls
+      timer = window.setTimeout(() => {
+        this.renderIndicator(params.title, params.lang, options?.classifiedTasks);
+      }, 1000);
 
-    clearTimeout(timer);
+      // Wait for tool calls and extract the result
+      const toolCalls = (await Promise.race([toolCallsPromise, streamErrorPromise])) as ToolCalls;
 
-    return {
-      toolCalls,
-      conversationHistory,
-    };
+      // Ensure the stream is fully consumed (cleanup)
+      await streamPromise.catch(() => {
+        // Ignore errors here, they're handled by streamErrorPromise
+      });
+
+      return {
+        toolCalls,
+        conversationHistory,
+      };
+    } catch (error) {
+      throw error;
+    } finally {
+      if (timer) {
+        clearTimeout(timer);
+      }
+    }
   }
 
   /**
@@ -492,6 +530,10 @@ NOTE:
   ): Promise<AgentResult> {
     const { title, intent, lang } = params;
     const handlerId = params.handlerId ?? uniqueID();
+
+    const MAX_STEP_COUNT = 20;
+    const remainingSteps =
+      typeof options.remainingSteps !== 'undefined' ? options.remainingSteps : MAX_STEP_COUNT;
 
     // Load activeTools from frontmatter if not provided in params
     const activeTools = await this.loadActiveTools(title, params.activeTools);
@@ -518,16 +560,6 @@ NOTE:
           activeTools.push(tool);
         }
       }
-    }
-
-    const MAX_STEP_COUNT = 10;
-    const remainingSteps =
-      typeof options.remainingSteps !== 'undefined' ? options.remainingSteps : MAX_STEP_COUNT;
-
-    if (remainingSteps <= 0) {
-      return {
-        status: IntentResultStatus.SUCCESS,
-      };
     }
 
     const manualToolCall = await this.manualToolCall(
@@ -560,209 +592,76 @@ NOTE:
     }
 
     /**
-     * Wrap a callback with resumption logic to continue processing tool calls after confirmation/user input
+     * Interface for standard tool handlers
      */
-    const wrapCallbackWithResumption = <T extends AgentResult>(
-      originalCallback: (message: string) => Promise<T> | T,
-      currentIndex: number
-    ): ((message: string) => Promise<AgentResult>) => {
-      return async (message: string): Promise<AgentResult> => {
-        const callbackResult = await originalCallback(message);
-        if (!callbackResult || callbackResult.status === IntentResultStatus.SUCCESS) {
-          await this.renderIndicator(title, lang, classifiedTasks);
-          // Resume processing by calling handle again with preserved state
-          return this.handle(
-            {
-              ...params,
-              activeTools,
-            },
-            {
-              remainingSteps,
-              toolCalls,
-              currentToolCallIndex: currentIndex + 1,
-            }
-          );
-        }
-        return callbackResult;
-      };
+    interface StandardToolHandler {
+      handle(
+        params: AgentHandlerParams,
+        options: { toolCall: ToolCallPart<unknown> }
+      ): Promise<AgentResult>;
+    }
+
+    /**
+     * Map of tool names to their handler getters
+     * Handlers that follow the standard pattern: handle(params, { toolCall })
+     */
+    const handlerMap: Partial<Record<ToolName, () => StandardToolHandler>> = {
+      [ToolName.CONTENT_READING]: () => this.readContent,
+      [ToolName.LIST]: () => this.vaultList,
+      [ToolName.CREATE]: () => this.vaultCreate,
+      [ToolName.DELETE]: () => this.vaultDelete,
+      [ToolName.COPY]: () => this.vaultCopy,
+      [ToolName.RENAME]: () => this.vaultRename,
+      [ToolName.MOVE]: () => this.vaultMove,
+      [ToolName.UPDATE_FRONTMATTER]: () => this.vaultUpdateFrontmatter,
+      [ToolName.GREP]: () => this.vaultGrep,
+      [ToolName.REVERT_DELETE]: () => this.revertDelete,
+      [ToolName.REVERT_MOVE]: () => this.revertMove,
+      [ToolName.REVERT_FRONTMATTER]: () => this.revertFrontmatter,
+      [ToolName.REVERT_RENAME]: () => this.revertRename,
+      [ToolName.REVERT_CREATE]: () => this.revertCreate,
+      [ToolName.USER_CONFIRM]: () => this.userConfirm,
+      [ToolName.EDIT]: () => this.editHandler,
+      [ToolName.STOP]: () => this.stop,
+      [ToolName.THANK_YOU]: () => this.thankYou,
+      [ToolName.BUILD_SEARCH_INDEX]: () => this.buildSearchIndex,
+      [ToolName.SEARCH]: () => this.search,
+      [ToolName.SEARCH_MORE]: () => this.searchMore,
+      [ToolName.SPEECH]: () => this.speech,
+      [ToolName.IMAGE]: () => this.image,
+      [ToolName.HELP]: () => this.help,
     };
 
     const processToolCalls = async (startIndex: number): Promise<AgentResult> => {
-      for (let index = startIndex; index < toolCalls.length; index += 1) {
-        const toolCall = toolCalls[index];
-        let toolCallResult: AgentResult | undefined;
+      // Set up timer to show indicator after 2 seconds if processing takes time
+      let timer: number | null = null;
+      timer = window.setTimeout(() => {
+        this.renderIndicator(title, lang, classifiedTasks);
+      }, 2000);
 
-        if (toolCall.dynamic) {
-          // We don't support dynamic tool call
-          continue;
-        }
+      try {
+        for (let index = startIndex; index < toolCalls.length; index += 1) {
+          const toolCall = toolCalls[index];
+          let toolCallResult: AgentResult | undefined;
 
-        switch (toolCall.toolName) {
-          case ToolName.LIST: {
-            toolCallResult = await this.vaultList.handle(params, {
-              toolCall,
-            });
-            break;
+          if (toolCall.dynamic) {
+            // We don't support dynamic tool call
+            continue;
           }
 
-          case ToolName.CREATE: {
-            toolCallResult = await this.vaultCreate.handle(params, {
-              toolCall,
-            });
-            break;
-          }
+          switch (toolCall.toolName) {
+            case ToolName.GET_MOST_RECENT_ARTIFACT: {
+              const artifact = await this.plugin.artifactManagerV2
+                .withTitle(title)
+                .getMostRecentArtifactOfTypes(revertAbleArtifactTypes);
 
-          case ToolName.DELETE: {
-            toolCallResult = await this.vaultDelete.handle(params, {
-              toolCall,
-            });
-            break;
-          }
+              const result = artifact?.id
+                ? `artifactRef:${artifact.id}`
+                : t('common.noArtifactsFound');
 
-          case ToolName.COPY: {
-            toolCallResult = await this.vaultCopy.handle(params, { toolCall });
-            break;
-          }
-
-          case ToolName.RENAME: {
-            toolCallResult = await this.vaultRename.handle(params, { toolCall });
-            break;
-          }
-
-          case ToolName.MOVE: {
-            toolCallResult = await this.vaultMove.handle(params, { toolCall });
-            break;
-          }
-
-          case ToolName.UPDATE_FRONTMATTER: {
-            toolCallResult = await this.vaultUpdateFrontmatter.handle(params, { toolCall });
-            break;
-          }
-
-          case ToolName.GREP: {
-            toolCallResult = await this.vaultGrep.handle(params, { toolCall });
-            break;
-          }
-
-          case ToolName.REVERT_DELETE: {
-            toolCallResult = await this.revertDelete.handle(params, {
-              toolCall,
-            });
-            break;
-          }
-
-          case ToolName.REVERT_MOVE: {
-            toolCallResult = await this.revertMove.handle(params, {
-              toolCall,
-            });
-            break;
-          }
-
-          case ToolName.REVERT_FRONTMATTER: {
-            toolCallResult = await this.revertFrontmatter.handle(params, {
-              toolCall,
-            });
-            break;
-          }
-
-          case ToolName.REVERT_RENAME: {
-            toolCallResult = await this.revertRename.handle(params, {
-              toolCall,
-            });
-            break;
-          }
-
-          case ToolName.REVERT_CREATE: {
-            toolCallResult = await this.revertCreate.handle(params, {
-              toolCall,
-            });
-            break;
-          }
-
-          case ToolName.GET_MOST_RECENT_ARTIFACT: {
-            // Get the most recent artifact from types created by VaultAgent
-            const artifactTypes = [
-              ArtifactType.MOVE_RESULTS,
-              ArtifactType.CREATED_NOTES,
-              ArtifactType.DELETED_FILES,
-              ArtifactType.UPDATE_FRONTMATTER_RESULTS,
-              ArtifactType.RENAME_RESULTS,
-            ];
-
-            const artifact = await this.plugin.artifactManagerV2
-              .withTitle(title)
-              .getMostRecentArtifactOfTypes(artifactTypes);
-
-            const result = artifact?.id
-              ? `artifactRef:${artifact.id}`
-              : t('common.noArtifactsFound');
-
-            await this.renderer.serializeToolInvocation({
-              path: title,
-              command: 'get-artifact',
-              handlerId,
-              toolInvocations: [
-                {
-                  ...toolCall,
-                  type: 'tool-result',
-                  output: {
-                    type: 'text',
-                    value: result,
-                  },
-                },
-              ],
-            });
-            break;
-          }
-
-          case ToolName.GET_ARTIFACT_BY_ID: {
-            const artifact = await this.plugin.artifactManagerV2
-              .withTitle(title)
-              .getArtifactById(toolCall.input.artifactId);
-
-            const result = artifact?.id
-              ? `artifactRef:${artifact.id}`
-              : t('common.artifactNotFound', { artifactId: toolCall.input.artifactId });
-
-            await this.renderer.serializeToolInvocation({
-              path: title,
-              command: 'get-artifact',
-              handlerId,
-              toolInvocations: [
-                {
-                  ...toolCall,
-                  type: 'tool-result',
-                  output: {
-                    type: 'text',
-                    value: result,
-                  },
-                },
-              ],
-            });
-            break;
-          }
-
-          case ToolName.CONTENT_READING: {
-            toolCallResult = await this.readContent.handle(params, {
-              toolCall,
-              nextIntent: params.nextIntent,
-            });
-            break;
-          }
-
-          case ToolName.CONFIRMATION:
-          case ToolName.ASK_USER: {
-            await this.renderer.updateConversationNote({
-              path: title,
-              newContent: toolCall.input.message,
-              lang: params.lang,
-              handlerId,
-            });
-
-            const callBack = async (message: string): Promise<AgentResult> => {
-              // Serialize the tool invocation with the user's response
               await this.renderer.serializeToolInvocation({
                 path: title,
+                command: 'get-artifact',
                 handlerId,
                 toolInvocations: [
                   {
@@ -770,152 +669,148 @@ NOTE:
                     type: 'tool-result',
                     output: {
                       type: 'text',
-                      value: message,
+                      value: result,
                     },
                   },
                 ],
               });
 
-              await this.renderIndicator(title, lang, classifiedTasks);
-
-              // Increment invocation count for recursive call
-              const nextParams = {
-                ...params,
-                activeTools,
-                invocationCount: (params.invocationCount ?? 0) + 1,
+              toolCallResult = {
+                status: IntentResultStatus.SUCCESS,
               };
+              break;
+            }
 
-              return this.handle(nextParams, {
-                remainingSteps,
+            case ToolName.GET_ARTIFACT_BY_ID: {
+              const artifact = await this.plugin.artifactManagerV2
+                .withTitle(title)
+                .getArtifactById(toolCall.input.artifactId);
+
+              const result = artifact?.id
+                ? `artifactRef:${artifact.id}`
+                : t('common.artifactNotFound', { artifactId: toolCall.input.artifactId });
+
+              await this.renderer.serializeToolInvocation({
+                path: title,
+                command: 'get-artifact',
+                handlerId,
+                toolInvocations: [
+                  {
+                    ...toolCall,
+                    type: 'tool-result',
+                    output: {
+                      type: 'text',
+                      value: result,
+                    },
+                  },
+                ],
               });
-            };
 
-            if (toolCall.toolName === ToolName.CONFIRMATION) {
               toolCallResult = {
-                status: IntentResultStatus.NEEDS_CONFIRMATION,
-                onConfirmation: callBack,
+                status: IntentResultStatus.SUCCESS,
               };
-            } else {
-              toolCallResult = {
-                status: IntentResultStatus.NEEDS_USER_INPUT,
-                onUserInput: callBack,
-              };
+              break;
             }
-            break;
-          }
 
-          case ToolName.EDIT: {
-            toolCallResult = await this.editHandler.handle(params, { toolCall });
-            break;
-          }
+            case ToolName.CONFIRMATION:
+            case ToolName.ASK_USER: {
+              await this.renderer.updateConversationNote({
+                path: title,
+                newContent: toolCall.input.message,
+                lang: params.lang,
+                handlerId,
+                includeHistory: false,
+              });
 
-          case ToolName.USER_CONFIRM: {
-            toolCallResult = await this.userConfirm.handle(params, { toolCall });
-            break;
-          }
+              const callBack = async (): Promise<AgentResult> => {
+                await this.renderIndicator(title, lang, classifiedTasks);
 
-          case ToolName.HELP: {
-            toolCallResult = await this.help.handle(params);
-            break;
-          }
+                // Increment invocation count for recursive call
+                const nextParams = {
+                  ...params,
+                  activeTools,
+                  invocationCount: (params.invocationCount ?? 0) + 1,
+                };
 
-          case ToolName.STOP: {
-            toolCallResult = await this.stop.handle(params, { toolCall });
-            break;
-          }
+                return this.handle(nextParams, {
+                  remainingSteps,
+                  toolCalls,
+                  currentToolCallIndex: index + 1,
+                });
+              };
 
-          case ToolName.THANK_YOU: {
-            toolCallResult = await this.thankYou.handle(params, { toolCall });
-            break;
-          }
-
-          case ToolName.BUILD_SEARCH_INDEX: {
-            toolCallResult = await this.buildSearchIndex.handle(params);
-            break;
-          }
-
-          case ToolName.SEARCH: {
-            toolCallResult = await this.search.handle(params, { toolCall });
-            break;
-          }
-
-          case ToolName.SEARCH_MORE: {
-            toolCallResult = await this.searchMore.handle(params, { toolCall });
-            break;
-          }
-
-          case ToolName.ACTIVATE: {
-            toolCallResult = await this.activateToolHandler.handle(params, {
-              toolCall,
-              activeTools,
-              availableTools: tools,
-              agent: 'super',
-            });
-            break;
-          }
-
-          case ToolName.SPEECH: {
-            toolCallResult = await this.speech.handle(params, { toolCall });
-            break;
-          }
-
-          case ToolName.IMAGE: {
-            toolCallResult = await this.image.handle(params, { toolCall });
-            break;
-          }
-
-          default:
-            break;
-        }
-
-        if (!toolCallResult) {
-          continue;
-        }
-
-        if (toolCallResult.status === IntentResultStatus.NEEDS_CONFIRMATION) {
-          const originalOnConfirmation = toolCallResult.onConfirmation;
-          const originalOnFinal = toolCallResult.onFinal;
-          // Wrap the callback to call onFinal before resumption
-          const wrappedCallback = async (message: string) => {
-            const confirmationResult = await originalOnConfirmation(message);
-            if (!confirmationResult || confirmationResult.status === IntentResultStatus.SUCCESS) {
-              if (originalOnFinal) {
-                await originalOnFinal();
+              if (toolCall.toolName === ToolName.CONFIRMATION) {
+                toolCallResult = {
+                  status: IntentResultStatus.NEEDS_CONFIRMATION,
+                  toolCall,
+                  onConfirmation: callBack,
+                };
+              } else {
+                toolCallResult = {
+                  status: IntentResultStatus.NEEDS_USER_INPUT,
+                  onUserInput: callBack,
+                };
               }
+              break;
             }
-            return confirmationResult;
-          };
-          return {
-            ...toolCallResult,
-            onConfirmation: wrapCallbackWithResumption(wrappedCallback, index),
-          };
+
+            case ToolName.ACTIVATE: {
+              toolCallResult = await this.activateToolHandler.handle(params, {
+                toolCall,
+                activeTools,
+                availableTools: tools,
+                agent: 'super',
+              });
+              break;
+            }
+
+            default: {
+              // Try to find handler in the map for standard handlers
+              const handlerGetter = handlerMap[toolCall.toolName];
+              if (handlerGetter) {
+                const handler = handlerGetter();
+                toolCallResult = await handler.handle(params, { toolCall });
+              }
+              break;
+            }
+          }
+
+          if (!toolCallResult) {
+            logger.warn('No tool result', { toolCall });
+            continue;
+          }
+
+          if (toolCallResult.status !== IntentResultStatus.SUCCESS) {
+            return toolCallResult;
+          }
         }
 
-        if (toolCallResult.status === IntentResultStatus.NEEDS_USER_INPUT) {
-          return {
-            ...toolCallResult,
-            onUserInput: wrapCallbackWithResumption(toolCallResult.onUserInput, index),
-          };
-        }
-
-        if (
-          toolCallResult.status === IntentResultStatus.ERROR ||
-          toolCallResult.status === IntentResultStatus.STOP_PROCESSING
-        ) {
-          return toolCallResult;
+        return {
+          status: IntentResultStatus.SUCCESS,
+        };
+      } catch (error) {
+        throw error;
+      } finally {
+        if (timer) {
+          clearTimeout(timer);
         }
       }
-
-      return {
-        status: IntentResultStatus.SUCCESS,
-      };
     };
+    // End processToolCalls function
 
     // Use the saved index if resuming after confirmation, otherwise start from 0
     const startIndex = options.currentToolCallIndex ?? 0;
     const toolProcessingResult = await processToolCalls(startIndex);
 
-    if (toolProcessingResult.status !== IntentResultStatus.SUCCESS || manualToolCall) {
+    if (toolProcessingResult.status !== IntentResultStatus.SUCCESS) {
+      logger.log('Stopping or pausing processing because tool processing result is not success', {
+        status: toolProcessingResult.status,
+      });
+      return toolProcessingResult;
+    }
+
+    if (manualToolCall) {
+      logger.log('Stopping processing because manual tool call is present', { manualToolCall });
       return toolProcessingResult;
     }
 
@@ -926,7 +821,7 @@ NOTE:
     if (
       toolCalls.length > 0 &&
       nextRemainingSteps > 0 &&
-      !this.stopProcessingForClassifiedTask(classifiedTasks)
+      !this.stopProcessingForClassifiedTask(classifiedTasks, toolCalls)
     ) {
       // Update indicator to show we're still working
       await this.renderIndicator(title, lang, classifiedTasks);
@@ -941,6 +836,41 @@ NOTE:
       return this.handle(nextParams, {
         remainingSteps: nextRemainingSteps,
       });
+    }
+
+    if (nextRemainingSteps === 0) {
+      const confirmationMessage = t('common.stepLimitReached');
+
+      await this.renderer.updateConversationNote({
+        path: title,
+        newContent: confirmationMessage,
+        lang,
+        handlerId,
+        includeHistory: false,
+      });
+
+      return {
+        status: IntentResultStatus.NEEDS_CONFIRMATION,
+        confirmationMessage,
+        onConfirmation: async (_message: string) => {
+          // Reset nextRemainingSteps to MAX_STEP_COUNT and continue processing
+          const nextParams = {
+            ...params,
+            activeTools,
+            // Continue the current invocation count so the user'query is not included in the next iteration
+            invocationCount: (params.invocationCount ?? 0) + 1,
+          };
+
+          return this.handle(nextParams, {
+            remainingSteps: MAX_STEP_COUNT,
+          });
+        },
+        onRejection: async (_rejectionMessage: string) => {
+          return {
+            status: IntentResultStatus.SUCCESS,
+          };
+        },
+      };
     }
 
     // Save classified tasks as embedding for the first user query only
@@ -979,11 +909,13 @@ NOTE:
     command: string;
     toolCall: ToolCallPart<T>;
     result: ToolResultPart['output'];
+    step?: number;
   }): Promise<void> {
     await this.renderer.serializeToolInvocation({
       path: params.title,
       command: params.command,
       handlerId: params.handlerId,
+      step: params.step,
       toolInvocations: [
         {
           ...params.toolCall,
@@ -998,14 +930,27 @@ NOTE:
    * Stop processing for specific classified tasks
    * @param classifiedTasks
    */
-  private stopProcessingForClassifiedTask(classifiedTasks: string[]): boolean {
-    if (classifiedTasks.length > 1) return false;
+  private stopProcessingForClassifiedTask(
+    classifiedTasks: string[],
+    toolCalls: ToolCalls
+  ): boolean {
+    if (classifiedTasks.length !== 1) return false;
 
     const task = classifiedTasks[0];
 
-    if (SINGLE_TURN_TASKS.has(task)) return true;
+    if (!SINGLE_TURN_TASKS.has(task)) return false;
 
-    return false;
+    // Check if any of the current tool calls belong to the classified task
+    const taskTools = TASK_TO_TOOLS_MAP[task];
+    if (!taskTools) return false;
+
+    const hasTaskTool = toolCalls.some(toolCall => {
+      if (toolCall.dynamic) return false;
+      return taskTools.has(toolCall.toolName);
+    });
+
+    // Only stop if the task is single-turn AND the current tool calls belong to that task
+    return hasTaskTool;
   }
 
   /**
@@ -1109,5 +1054,5 @@ NOTE:
   }
 }
 
-// Apply mixins to merge SuperAgentHandlers into SuperAgent
+// Apply mixins to merge classes into SuperAgent class
 applyMixins(SuperAgent, [SuperAgentHandlers]);

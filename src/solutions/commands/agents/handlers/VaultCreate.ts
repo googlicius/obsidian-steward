@@ -308,10 +308,10 @@ export class VaultCreate {
           type: 'tool-result',
           output: {
             type: 'json',
-            value: JSON.stringify({
+            value: {
               createdNotes: creationResult.createdNotes,
               errors: creationResult.errors,
-            }),
+            },
           },
         },
       ],

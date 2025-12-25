@@ -50,26 +50,28 @@ export class Speech {
     params: AgentHandlerParams,
     options: { toolCall: ToolCallPart<SpeechArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
     const { toolCall } = options;
-    const t = getTranslation(lang);
+    const t = getTranslation(params.lang);
 
-    if (!handlerId) {
+    if (!params.handlerId) {
       throw new Error('Speech.handle invoked without handlerId');
     }
 
     try {
       // Update conversation with explanation
       await this.agent.renderer.updateConversationNote({
-        path: title,
+        path: params.title,
         newContent: toolCall.input.explanation,
         role: 'Steward',
         includeHistory: false,
-        lang,
-        handlerId,
+        lang: params.lang,
+        handlerId: params.handlerId,
       });
 
-      await this.agent.renderer.addGeneratingIndicator(title, t('conversation.generatingAudio'));
+      await this.agent.renderer.addGeneratingIndicator(
+        params.title,
+        t('conversation.generatingAudio')
+      );
 
       // Generate the audio using the handler's method
       const speechModel = this.agent.plugin.settings.llm.speech.model;
@@ -86,15 +88,17 @@ export class Speech {
 
       if (!result.success) {
         await this.agent.renderer.updateConversationNote({
-          path: title,
+          path: params.title,
           newContent: `*Error generating audio: ${result.error}*`,
-          handlerId,
+          handlerId: params.handlerId,
+          step: params.invocationCount,
         });
 
         await this.agent.renderer.serializeToolInvocation({
-          path: title,
+          path: params.title,
           command: 'speech',
-          handlerId,
+          handlerId: params.handlerId,
+          step: params.invocationCount,
           toolInvocations: [
             {
               ...toolCall,
@@ -114,15 +118,16 @@ export class Speech {
       }
 
       const messageId = await this.agent.renderer.updateConversationNote({
-        path: title,
+        path: params.title,
         newContent: `\n![[${result.filePath}]]`,
         command: 'speech',
-        handlerId,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
       });
 
       // Store the media artifact
       if (messageId && result.filePath) {
-        await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+        await this.agent.plugin.artifactManagerV2.withTitle(params.title).storeArtifact({
           text: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
           artifact: {
             artifactType: ArtifactType.MEDIA_RESULTS,
@@ -133,19 +138,20 @@ export class Speech {
       }
 
       await this.agent.renderer.serializeToolInvocation({
-        path: title,
+        path: params.title,
         command: 'speech',
-        handlerId,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
         toolInvocations: [
           {
             ...toolCall,
             type: 'tool-result',
             output: {
               type: 'json',
-              value: JSON.stringify({
+              value: {
                 success: true,
-                filePath: result.filePath,
-              }),
+                filePath: result.filePath!,
+              },
             },
           },
         ],
@@ -157,16 +163,18 @@ export class Speech {
     } catch (error) {
       logger.error('Error generating audio:', error);
       await this.agent.renderer.updateConversationNote({
-        path: title,
+        path: params.title,
         newContent: `Error generating audio: ${error instanceof Error ? error.message : String(error)}`,
         role: 'Steward',
-        handlerId,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
       });
 
       await this.agent.renderer.serializeToolInvocation({
-        path: title,
+        path: params.title,
         command: 'speech',
-        handlerId,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
         toolInvocations: [
           {
             ...toolCall,

@@ -50,23 +50,23 @@ export class Image {
     params: AgentHandlerParams,
     options: { toolCall: ToolCallPart<ImageArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
     const { toolCall } = options;
-    const t = getTranslation(lang);
+    const t = getTranslation(params.lang);
 
-    if (!handlerId) {
+    if (!params.handlerId) {
       throw new Error('Image.handle invoked without handlerId');
     }
 
     try {
       // Update conversation with explanation
       await this.agent.renderer.updateConversationNote({
-        path: title,
+        path: params.title,
         newContent: toolCall.input.explanation,
         role: 'Steward',
         includeHistory: false,
-        lang,
-        handlerId,
+        lang: params.lang,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
       });
 
       // Check confidence level
@@ -79,22 +79,27 @@ export class Image {
         };
       }
 
-      await this.agent.renderer.addGeneratingIndicator(title, t('conversation.generatingImage'));
+      await this.agent.renderer.addGeneratingIndicator(
+        params.title,
+        t('conversation.generatingImage')
+      );
 
       // Generate the image using the handler's method
       const result = await this.generateImage(toolCall.input.text);
 
       if (!result.success) {
         await this.agent.renderer.updateConversationNote({
-          path: title,
+          path: params.title,
           newContent: `*Error generating image: ${result.error}*`,
-          handlerId,
+          handlerId: params.handlerId,
+          step: params.invocationCount,
         });
 
         await this.agent.renderer.serializeToolInvocation({
-          path: title,
+          path: params.title,
           command: 'image',
-          handlerId,
+          handlerId: params.handlerId,
+          step: params.invocationCount,
           toolInvocations: [
             {
               ...toolCall,
@@ -114,16 +119,17 @@ export class Image {
       }
 
       const messageId = await this.agent.renderer.updateConversationNote({
-        path: title,
+        path: params.title,
         newContent: `\n![[${result.filePath}]]`,
         command: 'image',
-        handlerId,
-        lang,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
+        lang: params.lang,
       });
 
       // Store the media artifact
       if (messageId && result.filePath) {
-        await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+        await this.agent.plugin.artifactManagerV2.withTitle(params.title).storeArtifact({
           text: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
           artifact: {
             artifactType: ArtifactType.MEDIA_RESULTS,
@@ -134,19 +140,20 @@ export class Image {
       }
 
       await this.agent.renderer.serializeToolInvocation({
-        path: title,
+        path: params.title,
         command: 'image',
-        handlerId,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
         toolInvocations: [
           {
             ...toolCall,
             type: 'tool-result',
             output: {
               type: 'json',
-              value: JSON.stringify({
+              value: {
                 success: true,
-                filePath: result.filePath,
-              }),
+                filePath: result.filePath!, // Non-null assertion: filePath is always defined when success is true
+              },
             },
           },
         ],
@@ -158,16 +165,18 @@ export class Image {
     } catch (error) {
       logger.error('Error generating image:', error);
       await this.agent.renderer.updateConversationNote({
-        path: title,
+        path: params.title,
         newContent: `Error generating image: ${error instanceof Error ? error.message : String(error)}`,
         role: 'Steward',
-        handlerId,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
       });
 
       await this.agent.renderer.serializeToolInvocation({
-        path: title,
+        path: params.title,
         command: 'image',
-        handlerId,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
         toolInvocations: [
           {
             ...toolCall,

@@ -65,28 +65,28 @@ export class VaultCopy {
     params: AgentHandlerParams,
     options: { toolCall: ToolCallPart<CopyToolArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
     const { toolCall } = options;
-    const t = getTranslation(lang);
+    const t = getTranslation(params.lang);
 
-    if (!handlerId) {
+    if (!params.handlerId) {
       throw new Error('VaultCopy.handle invoked without handlerId');
     }
 
     await this.agent.renderer.updateConversationNote({
-      path: title,
+      path: params.title,
       newContent: toolCall.input.explanation,
       command: 'vault_copy',
       includeHistory: false,
-      lang,
-      handlerId,
+      lang: params.lang,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
     });
 
     const resolveResult = await this.resolveCopyDocs({
-      title,
+      title: params.title,
       toolCall,
-      lang,
-      handlerId,
+      lang: params.lang,
+      handlerId: params.handlerId,
     });
 
     if (resolveResult.responseMessage) {
@@ -102,19 +102,21 @@ export class VaultCopy {
     if (!destinationFolder) {
       const message = t('copy.noDestination');
       const messageId = await this.agent.renderer.updateConversationNote({
-        path: title,
+        path: params.title,
         newContent: message,
         command: 'vault_copy',
-        lang,
-        handlerId,
+        lang: params.lang,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
         includeHistory: false,
       });
 
       await this.agent.serializeInvocation({
         command: 'vault_copy',
-        title,
-        handlerId,
+        title: params.title,
+        handlerId: params.handlerId,
         toolCall,
+        step: params.invocationCount,
         result: {
           type: 'text',
           value: messageId ? `messageRef:${messageId}` : message,
@@ -134,19 +136,21 @@ export class VaultCopy {
         'copy.createFoldersQuestion'
       )}`;
       const messageId = await this.agent.renderer.updateConversationNote({
-        path: title,
+        path: params.title,
         newContent: message,
         command: 'vault_copy',
-        lang,
-        handlerId,
+        lang: params.lang,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
         includeHistory: false,
       });
 
       await this.agent.serializeInvocation({
         command: 'vault_copy',
-        title,
-        handlerId,
+        title: params.title,
+        handlerId: params.handlerId,
         toolCall,
+        step: params.invocationCount,
         result: {
           type: 'text',
           value: messageId ? `messageRef:${messageId}` : message,
@@ -163,32 +167,34 @@ export class VaultCopy {
     }
 
     const copyResult = await this.executeCopyOperation({
-      title,
+      title: params.title,
       docs,
       destinationFolder,
       explanation: toolCall.input.explanation,
-      lang,
+      lang: params.lang,
     });
 
     const formattedMessage = this.formatCopyResult({
       result: copyResult,
       destinationFolder,
       explanation: toolCall.input.explanation,
-      lang,
+      lang: params.lang,
     });
 
     const resultMessageId = await this.agent.renderer.updateConversationNote({
-      path: title,
+      path: params.title,
       newContent: formattedMessage,
       command: 'vault_copy',
-      lang,
-      handlerId,
+      lang: params.lang,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
     });
 
     await this.agent.serializeInvocation({
       command: 'vault_copy',
-      title,
-      handlerId,
+      title: params.title,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
       toolCall,
       result: {
         type: 'text',

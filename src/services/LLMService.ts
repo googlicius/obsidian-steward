@@ -1,4 +1,4 @@
-import { JSONParseError, TypeValidationError, ImageModel, SpeechModel } from 'ai';
+import { JSONParseError, TypeValidationError, ImageModel, SpeechModel, ModelMessage } from 'ai';
 import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
 import { createDeepSeek, DeepSeekProvider } from '@ai-sdk/deepseek';
 import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/google';
@@ -10,6 +10,7 @@ import type StewardPlugin from 'src/main';
 import { jsonrepair } from 'jsonrepair';
 import { logger } from 'src/utils/logger';
 import { StewardPluginSettings } from 'src/types/interfaces';
+import { getTranslation } from 'src/i18n';
 
 /**
  * Service for managing LLM models and configurations using the AI package
@@ -322,5 +323,88 @@ export class LLMService {
           provider as keyof StewardPluginSettings['llm']['speech']['voices']
         ],
     };
+  }
+
+  /**
+   * Check if a model/provider supports vision/image inputs
+   */
+  private modelSupportsVision(providerName: string, modelId: string): boolean {
+    const modelIdLower = modelId.toLowerCase();
+
+    switch (providerName) {
+      case 'openai':
+        // GPT-4 models with vision support
+        return (
+          modelIdLower.includes('gpt-4o') ||
+          modelIdLower.includes('gpt-4-turbo') ||
+          modelIdLower.includes('gpt-4-vision') ||
+          modelIdLower.includes('gpt-4-0125') ||
+          modelIdLower.includes('gpt-4-1106')
+        );
+
+      case 'google':
+        // Gemini models generally support vision
+        return (
+          modelIdLower.includes('gemini') ||
+          modelIdLower.includes('gemini-pro') ||
+          modelIdLower.includes('gemini-1.5') ||
+          modelIdLower.includes('gemini-2')
+        );
+
+      case 'anthropic':
+        // Claude 3+ models support vision
+        return (
+          modelIdLower.includes('claude-3') ||
+          modelIdLower.includes('claude-sonnet-4') ||
+          modelIdLower.includes('claude-opus') ||
+          modelIdLower.includes('claude-haiku')
+        );
+
+      case 'deepseek':
+        // DeepSeek-V2 and newer support vision
+        return modelIdLower.includes('deepseek-v2');
+
+      case 'groq':
+      case 'ollama':
+        // These providers depend on the specific model, but many don't support vision
+        // We'll be conservative and return false unless explicitly known
+        return false;
+
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Check if messages contain image parts
+   */
+  private messagesContainImages(messages: ModelMessage[]): boolean {
+    for (const message of messages) {
+      if (message.role === 'user' && Array.isArray(message.content)) {
+        for (const part of message.content) {
+          if (part && part.type === 'image') {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Validate that the model supports image inputs if messages contain images
+   * @throws Error if images are present but model doesn't support vision
+   */
+  public validateImageSupport(model: string, messages: ModelMessage[], lang?: string | null): void {
+    if (!this.messagesContainImages(messages)) {
+      return; // No images, no validation needed
+    }
+
+    const { name: providerName, modelId } = this.getProviderFromModel(model);
+
+    if (!this.modelSupportsVision(providerName, modelId)) {
+      const t = getTranslation(lang);
+      throw new Error(t('common.modelDoesNotSupportImageInputs', { model: modelId }));
+    }
   }
 }
