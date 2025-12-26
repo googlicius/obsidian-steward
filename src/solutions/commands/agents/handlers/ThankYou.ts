@@ -29,30 +29,23 @@ export class ThankYou {
     params: AgentHandlerParams,
     options: { toolCall: ToolCallPart<ThankYouArgs> }
   ): Promise<AgentResult> {
-    const { title, nextIntent, lang, handlerId } = params;
+    const { title, lang, handlerId } = params;
     const t = getTranslation(lang);
 
     if (!handlerId) {
       throw new Error('ThankYou.handle invoked without handlerId');
     }
 
-    let responseText: string;
+    // Get a random response from the list
+    const responses = [
+      t('thankYou.response1'),
+      t('thankYou.response2'),
+      t('thankYou.response3'),
+      t('thankYou.response4'),
+      t('thankYou.response5'),
+    ];
 
-    if (nextIntent) {
-      // If nextIntent is present, use a simple response
-      responseText = t('thankYou.simpleResponse');
-    } else {
-      // Get a random response from the list
-      const responses = [
-        t('thankYou.response1'),
-        t('thankYou.response2'),
-        t('thankYou.response3'),
-        t('thankYou.response4'),
-        t('thankYou.response5'),
-      ];
-
-      responseText = responses[Math.floor(Math.random() * responses.length)];
-    }
+    const responseText = responses[Math.floor(Math.random() * responses.length)];
 
     // Use text streamer to simulate typing
     const textStream = createTextStream(responseText);

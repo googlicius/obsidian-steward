@@ -247,8 +247,6 @@ const en = {
       filenames: 'Filenames',
       folders: 'Folders',
       properties: 'Properties',
-      confirmMultipleOperations:
-        'Are these operations correct? Please confirm to proceed with the search.',
       indexNotBuilt: 'Search index is not built yet.',
       buildIndexFirst:
         'Please build the search index first by asking me to "Build search index" or "index my files".',
@@ -316,7 +314,6 @@ const en = {
       response3: 'Glad I could assist!',
       response4: 'Anytime! Let me know if you need anything else.',
       response5: 'Happy to be of service!',
-      simpleResponse: "You're welcome 😊",
     },
     // Conversation states
     conversation: {

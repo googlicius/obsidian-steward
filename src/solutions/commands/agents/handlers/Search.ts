@@ -206,7 +206,7 @@ export class Search {
     params: AgentHandlerParams,
     options: { toolCall: ToolCallPart<SearchArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId, nextIntent } = params;
+    const { title, lang, handlerId } = params;
     const { operations, explanation, lang: searchLang } = options.toolCall.input;
     const t = getTranslation(searchLang || lang);
 
@@ -286,41 +286,6 @@ export class Search {
         handlerId,
         step: params.invocationCount,
       });
-
-      // Check if the next command will operate on the search results
-      if (nextIntent && nextIntent.type.endsWith('_from_artifact')) {
-        // Request confirmation before proceeding
-        await this.agent.renderer.updateConversationNote({
-          path: title,
-          newContent: t('search.confirmMultipleOperations'),
-          lang: searchLang || lang,
-          command: 'search',
-          handlerId,
-          step: params.invocationCount,
-          includeHistory: false,
-        });
-
-        return {
-          status: IntentResultStatus.NEEDS_CONFIRMATION,
-          confirmationMessage: t('search.confirmMultipleOperations'),
-          onConfirmation: async () => {
-            return this.performSearch({
-              title,
-              operations,
-              explanation,
-              lang: searchLang || lang,
-              handlerId,
-              toolCall: options.toolCall,
-              step: params.invocationCount,
-            });
-          },
-          onRejection: () => {
-            return {
-              status: IntentResultStatus.SUCCESS,
-            };
-          },
-        };
-      }
     }
 
     return this.performSearch({

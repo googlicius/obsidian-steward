@@ -1,12 +1,10 @@
 import { ConversationIntentReceivedPayload } from '../../types/events';
-import { CommandHandler } from './CommandHandler';
 import { logger } from '../../utils/logger';
 import type StewardPlugin from 'src/main';
 import { SystemPromptModifier, SystemPromptModification } from './SystemPromptModifier';
 import { Agent } from './Agent';
 import { AgentResult, Intent, IntentResultStatus } from './types';
 import { ToolName } from './ToolRegistry';
-import { uniqueID } from '../../utils/uniqueID';
 
 const VALID_TOOL_NAMES = new Set<string>(Object.values(ToolName));
 
@@ -18,12 +16,6 @@ interface PendingIntent {
 
 export interface ProcessIntentsOptions {
   skipIndicators?: boolean;
-  skipGeneralCommandCheck?: boolean;
-  skipConfirmationCheck?: boolean;
-  /**
-   * If true, the built-in handler will be used in case a user-defined command has the same name as a built-in command.
-   */
-  builtInCommandPrecedence?: boolean;
 
   sendToDownstream?: {
     /**
@@ -38,25 +30,14 @@ export interface ProcessIntentsOptions {
 }
 
 export class CommandProcessor {
-  public readonly id: string;
   /**
    * Store lastResult at conversation title level so it's accessible across processor instances
    */
   private static lastResults: Map<string, AgentResult> = new Map();
   private pendingIntents: Map<string, PendingIntent> = new Map();
-  private userDefinedCommandHandler: CommandHandler | null = null;
   private agentHandlers: Map<string, Agent> = new Map();
 
-  constructor(
-    private readonly plugin: StewardPlugin,
-    id = 'main'
-  ) {
-    this.id = id;
-  }
-
-  get userDefinedCommandService() {
-    return this.plugin.userDefinedCommandService;
-  }
+  constructor(private readonly plugin: StewardPlugin) {}
 
   /**
    * Get the last result for a conversation (stored at conversation title level)
@@ -77,13 +58,6 @@ export class CommandProcessor {
    */
   public clearLastResult(title: string): void {
     CommandProcessor.lastResults.delete(title);
-  }
-
-  /**
-   * Register a user-defined command handler for handling user-defined commands
-   */
-  public registerUserDefinedCommandHandler(handler: CommandHandler): void {
-    this.userDefinedCommandHandler = handler;
   }
 
   /**
@@ -135,7 +109,7 @@ export class CommandProcessor {
     intentType: string,
     options: ProcessIntentsOptions = {}
   ): Promise<void> {
-    const isolatedProcessor = new CommandProcessor(this.plugin, uniqueID());
+    const isolatedProcessor = new CommandProcessor(this.plugin);
 
     const handler = this.agentHandlers.get(intentType);
     if (handler) {
@@ -153,35 +127,6 @@ export class CommandProcessor {
     return this.pendingIntents.has(title);
   }
 
-  private isWaitingForUserInput(title: string): boolean {
-    // Check conversation-level storage (accessible across processors)
-    const lastResult = this.getLastResult(title);
-    if (!lastResult) return false;
-    return lastResult.status === IntentResultStatus.NEEDS_USER_INPUT;
-  }
-
-  private isConfirmation(intents: Intent[]): boolean {
-    if (!intents || intents.length === 0) return false;
-
-    return intents.some(cmd => cmd.type === 'confirm' || cmd.type === 'yes' || cmd.type === 'no');
-  }
-
-  private isGeneralCommand(intents: Intent[]): boolean {
-    return intents.length === 1 && intents[0].type === ' ';
-  }
-
-  private isUserDefinedCommand(commandType: string, builtInCommandPrecedence: boolean): boolean {
-    if (!this.userDefinedCommandService.userDefinedCommands.has(commandType)) {
-      return false;
-    }
-
-    if (this.agentHandlers.has(commandType) && builtInCommandPrecedence) {
-      return false;
-    }
-
-    return true;
-  }
-
   /**
    * Continue processing commands from the current index
    */
@@ -189,8 +134,6 @@ export class CommandProcessor {
     title: string,
     options: ProcessIntentsOptions = {}
   ): Promise<void> {
-    const { builtInCommandPrecedence = false } = options;
-
     const pendingIntent = this.pendingIntents.get(title);
     if (!pendingIntent) {
       logger.warn(`No pending commands for conversation: ${title}`);
@@ -201,27 +144,6 @@ export class CommandProcessor {
 
     // Initialize model fallback state if needed
     await this.plugin.modelFallbackService.initializeState(title);
-
-    // Get stored user-defined command properties once before processing commands
-    const udcCommandName = await this.plugin.conversationRenderer.getConversationProperty<string>(
-      title,
-      'udc_command'
-    );
-    let udcIntentsMap: Map<string, Intent> | undefined;
-
-    if (udcCommandName) {
-      udcIntentsMap = new Map();
-
-      // Use expandUserDefinedCommandIntents to get all intents from the UDC
-      const expandedIntents = this.userDefinedCommandService.expandUserDefinedCommandIntents({
-        type: udcCommandName,
-        query: '',
-      });
-      // Create a map for quick lookup by command type
-      for (const intent of expandedIntents) {
-        udcIntentsMap.set(intent.type, intent);
-      }
-    }
 
     // Process intents sequentially from current index
     for (let i = currentIndex; i < intents.length; i++) {
@@ -234,19 +156,7 @@ export class CommandProcessor {
           type: baseType,
         };
       }
-      const prevIntent = i > 0 ? intents[i - 1] : undefined;
-      const nextIntent = i < intents.length - 1 ? intents[i + 1] : undefined;
       const nextIndex = i + 1;
-
-      // Override properties from stored user-defined command if present (except query)
-      const matchingIntent = udcIntentsMap?.get(baseType);
-      if (matchingIntent) {
-        // Take all intent from the UDC.
-        intent = {
-          ...matchingIntent,
-          query: intent.query,
-        };
-      }
 
       intents[i] = intent;
 
@@ -256,15 +166,7 @@ export class CommandProcessor {
       }
 
       // Find the appropriate handler
-      let handler: Agent | CommandHandler | null = this.agentHandlers.get(baseType) || null;
-
-      // If we have a user-defined command handler, use it regardless of the current handler
-      if (
-        this.userDefinedCommandHandler &&
-        this.isUserDefinedCommand(baseType, builtInCommandPrecedence)
-      ) {
-        handler = this.userDefinedCommandHandler;
-      }
+      const handler = this.agentHandlers.get(baseType) || null;
 
       if (!handler) {
         logger.warn(`No handler for command type: ${intent.type}`);
@@ -280,8 +182,6 @@ export class CommandProcessor {
       const result = await handler.safeHandle({
         title,
         intent,
-        prevIntent,
-        nextIntent,
         lang: payload.lang,
         activeTools: activeToolsFromQuery.length > 0 ? activeToolsFromQuery : undefined,
         upstreamOptions: options.sendToDownstream,
@@ -427,13 +327,6 @@ export class CommandProcessor {
   }
 
   /**
-   * Get the command handler or agent for a specific command type
-   */
-  public getCommandHandlerOrAgent(commandType: string): CommandHandler | Agent | null {
-    return this.agentHandlers.get(commandType) || this.userDefinedCommandHandler;
-  }
-
-  /**
    * Check if a command type has a built-in handler
    */
   public hasBuiltInHandler(commandType: string): boolean {
@@ -445,47 +338,6 @@ export class CommandProcessor {
    */
   public clearIntents(title: string): void {
     this.pendingIntents.delete(title);
-  }
-
-  /**
-   * Handle user input for a pending intent that requested it
-   */
-  private async handleUserInput(title: string, intent: Intent): Promise<void> {
-    // Get lastResult from conversation-level storage (accessible across processors)
-    const lastResult = this.getLastResult(title);
-    if (!lastResult || lastResult.status !== IntentResultStatus.NEEDS_USER_INPUT) {
-      return;
-    }
-
-    const pendingIntent = this.pendingIntents.get(title);
-    if (!pendingIntent) {
-      return;
-    }
-
-    // Call the onUserInput callback with the user's query
-    const result = await lastResult.onUserInput(intent.query);
-
-    // Store lastResult at conversation title level if it still needs input/confirmation
-    if (
-      result.status === IntentResultStatus.NEEDS_CONFIRMATION ||
-      result.status === IntentResultStatus.NEEDS_USER_INPUT
-    ) {
-      this.setLastResult(title, result);
-    } else {
-      this.clearLastResult(title);
-    }
-
-    // Handle the result
-    if (result.status === IntentResultStatus.SUCCESS) {
-      // Continue processing the command queue
-      await this.continueProcessing(title);
-    } else if (result.status === IntentResultStatus.ERROR) {
-      logger.error(`User input handling failed: ${title}`, result.error);
-      this.pendingIntents.delete(title);
-      this.clearLastResult(title);
-    }
-    // If the result is NEEDS_CONFIRMATION or NEEDS_USER_INPUT again,
-    // the command will remain pending and wait for the next input
   }
 
   /**

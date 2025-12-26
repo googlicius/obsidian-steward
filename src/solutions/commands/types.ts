@@ -78,8 +78,6 @@ export type AgentResult =
 export interface AgentHandlerParams<T extends Intent = Intent> {
   title: string;
   intent: T;
-  prevIntent?: Intent;
-  nextIntent?: Intent;
   lang?: string | null;
   /**
    * Handler ID to group all messages issued in one handle function call.

@@ -84,7 +84,7 @@ export class ReadContent {
    */
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolCallPart<ContentReadingArgs>; nextIntent?: Intent }
+    options: { toolCall: ToolCallPart<ContentReadingArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const { toolCall } = options;

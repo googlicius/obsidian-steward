@@ -1,12 +1,10 @@
 import { CommandProcessor } from '../solutions/commands';
-import { UserDefinedCommandHandler } from '../solutions/commands/handlers';
 import { SuperAgent } from '../solutions/commands/agents';
 import type StewardPlugin from '../main';
 import { ToolName } from 'src/solutions/commands/toolNames';
 
 export class CommandProcessorService {
   public readonly commandProcessor: CommandProcessor;
-  private userDefinedCommandHandler: UserDefinedCommandHandler;
 
   constructor(private readonly plugin: StewardPlugin) {
     this.commandProcessor = new CommandProcessor(this.plugin);
@@ -33,27 +31,28 @@ export class CommandProcessorService {
     // Register the image command handler
     const imageHandler = new SuperAgent(this.plugin, [ToolName.IMAGE]);
     this.commandProcessor.registerAgent('image', imageHandler);
-
-    // Register the user-defined command handler
-    this.userDefinedCommandHandler = new UserDefinedCommandHandler(this.plugin);
-    this.commandProcessor.registerUserDefinedCommandHandler(this.userDefinedCommandHandler);
   }
 
   /**
    * Validate if the intent content is required for a specific intent type
    */
   public validateIntentContent(intentType: string, intentContent: string): boolean {
-    const handler = this.commandProcessor.getCommandHandlerOrAgent(intentType);
-    if (!handler) return true;
+    // Check if it's a user-defined command
+    const isUserDefinedCommand =
+      this.plugin.userDefinedCommandService.userDefinedCommands.has(intentType);
+    if (isUserDefinedCommand) {
+      const userDefinedCommand =
+        this.plugin.userDefinedCommandService.userDefinedCommands.get(intentType);
+      const isContentRequired = !!(
+        userDefinedCommand && userDefinedCommand.normalized.query_required
+      );
+      return isContentRequired
+        ? this.plugin.userMessageService.getTextContentWithoutImages(intentContent) !== ''
+        : true;
+    }
 
-    const isContentRequired =
-      typeof handler.isContentRequired === 'function'
-        ? handler.isContentRequired(intentType)
-        : handler.isContentRequired;
-
-    return isContentRequired
-      ? this.plugin.userMessageService.getTextContentWithoutImages(intentContent) !== ''
-      : true;
+    // For built-in commands, content is always allowed (validation happens in the agent)
+    return true;
   }
 
   /**

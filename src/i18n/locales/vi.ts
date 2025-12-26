@@ -183,8 +183,6 @@ const vi = {
       filenames: 'Tên tệp',
       folders: 'Thư mục',
       properties: 'Thuộc tính',
-      confirmMultipleOperations:
-        'Những thao tác này có chính xác không? Vui lòng xác nhận để tiếp tục tìm kiếm.',
       indexNotBuilt: 'Chỉ mục tìm kiếm chưa được xây dựng.',
       buildIndexFirst:
         'Vui lòng xây dựng chỉ mục tìm kiếm trước bằng cách yêu cầu tôi "xây dựng chỉ mục tìm kiếm" hoặc "lập chỉ mục các tệp của tôi".',
@@ -254,7 +252,6 @@ const vi = {
       response3: 'Mình rất vui vì đã có thể hỗ trợ!',
       response4: 'Bất cứ lúc nào! Nếu cần gì thêm thì cứ nói nhé.',
       response5: 'Rất hân hạnh được phục vụ bạn!',
-      simpleResponse: 'Không có gì 😊',
     },
     // Conversation states
     conversation: {

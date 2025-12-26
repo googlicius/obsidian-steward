@@ -186,7 +186,6 @@ const ja = {
       filenames: 'ファイル名',
       folders: 'フォルダ',
       properties: 'プロパティ',
-      confirmMultipleOperations: 'これらの操作は正しいですか？検索を続行するには確認してください。',
       indexNotBuilt: '検索インデックスがまだ構築されていません。',
       buildIndexFirst:
         '先に検索インデックスを構築してください。「検索インデックスを構築」または「ファイルにインデックスを付ける」とおっしゃってください。',
@@ -254,7 +253,6 @@ const ja = {
       response3: 'お力になれてうれしいです！',
       response4: 'いつでもどうぞ！また何かあれば教えてくださいね。',
       response5: 'お役に立てて光栄です！',
-      simpleResponse: 'どういたしまして 😊',
     },
     // Conversation states
     conversation: {

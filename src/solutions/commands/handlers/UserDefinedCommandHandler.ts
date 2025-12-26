@@ -72,14 +72,11 @@ export class UserDefinedCommandHandler extends CommandHandler {
     await this.renderer.updateConversationFrontmatter(title, frontmatterUpdates);
 
     // Process the expanded commands
-    await this.commandProcessor.processIntents(
-      {
-        title,
-        intents: commandIntents,
-        lang,
-      },
-      { builtInCommandPrecedence: true }
-    );
+    await this.commandProcessor.processIntents({
+      title,
+      intents: commandIntents,
+      lang,
+    });
 
     return {
       status: IntentResultStatus.SUCCESS,
