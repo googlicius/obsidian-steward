@@ -193,10 +193,12 @@ interface TextReasoningStreamResult {
  * without waiting for tool call chunks to be processed.
  *
  * @param fullStream The full stream from streamText that contains various chunk types
+ * @param onToolCall Optional callback that gets called when a tool-call chunk is detected
  * @returns Object containing the stream and a promise that resolves when text/reasoning is done
  */
 export function createTextReasoningStream(
-  fullStream: AsyncIterable<unknown>
+  fullStream: AsyncIterable<unknown>,
+  onToolCall?: (toolName: string) => void
 ): TextReasoningStreamResult {
   let resolveTextDone: () => void;
   const textDone = new Promise<void>(resolve => {
@@ -262,7 +264,14 @@ export function createTextReasoningStream(
           yield textContent;
         }
       }
-      // Skip other chunk types (tool-call, etc.)
+      // Handle tool-call chunks
+      else if (chunkWithType.type === 'tool-call' && onToolCall) {
+        const toolName = chunkWithType.toolName as string | undefined;
+        if (toolName && typeof toolName === 'string') {
+          onToolCall(toolName);
+        }
+      }
+      // Skip other chunk types
     }
 
     // If reasoning started but never ended, close it

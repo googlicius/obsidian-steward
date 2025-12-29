@@ -27,9 +27,6 @@ const deleteToolSchema = z
         'Pattern-based file selection for large file sets. Prefer this over the files array to avoid token limits.',
       patternsDescription: 'Array of RegExp patterns to match files for deletion.',
     }),
-    explanation: createExplanationSchema({
-      description: 'A short explanation of why these files should be deleted.',
-    }),
   })
   .refine(
     data =>
@@ -83,18 +80,6 @@ export class VaultDelete {
 
     if (!params.handlerId) {
       throw new Error('VaultDelete.handle invoked without handlerId');
-    }
-
-    if (toolCall.input.explanation) {
-      await this.agent.renderer.updateConversationNote({
-        path: params.title,
-        newContent: toolCall.input.explanation,
-        command: 'vault_delete',
-        includeHistory: false,
-        lang: params.lang,
-        handlerId: params.handlerId,
-        step: params.invocationCount,
-      });
     }
 
     const resolveFilesResult = await this.resolveFilePaths({

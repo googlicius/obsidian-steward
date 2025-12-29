@@ -169,7 +169,7 @@ describe('ObsidianAPITools', () => {
       expect(app.fileManager.renameFile).not.toHaveBeenCalled();
     });
 
-    it('should skip moving file when source and destination are the same', async () => {
+    it('should fail to move file when file is already in the destination', async () => {
       // Mock file existence
       const file = getInstance(TFile, {
         path: 'current-folder/test-file.md',
@@ -209,9 +209,14 @@ describe('ObsidianAPITools', () => {
         operations: [
           {
             destinationFolder: 'current-folder',
-            errors: [],
+            errors: [
+              {
+                path: 'current-folder/test-file.md',
+                message: 'File is already in the destination',
+              },
+            ],
             moved: [],
-            skipped: ['current-folder/test-file.md'],
+            skipped: [],
             sourceQuery: 'test',
           },
         ],

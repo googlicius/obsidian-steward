@@ -18,12 +18,32 @@ export class ActivateToolHandler {
   constructor(private readonly renderer: ConversationRenderer) {}
 
   /**
+   * Add dependent tools to the active tools list.
+   * For example, TODO_LIST_UPDATE is automatically added when TODO_LIST is active.
+   * @param activeTools The array of active tools to modify
+   */
+  public static addDependentTools(activeTools: ToolName[]): void {
+    // Auto-activate TODO_LIST_UPDATE when TODO_LIST is active
+    if (
+      activeTools.includes(ToolName.TODO_LIST) &&
+      !activeTools.includes(ToolName.TODO_LIST_UPDATE)
+    ) {
+      activeTools.push(ToolName.TODO_LIST_UPDATE);
+    }
+
+    // Auto-activate SEARCH_MORE when SEARCH is active
+    if (activeTools.includes(ToolName.SEARCH) && !activeTools.includes(ToolName.SEARCH_MORE)) {
+      activeTools.push(ToolName.SEARCH_MORE);
+    }
+  }
+
+  /**
    * Process an ACTIVATE tool call
    */
   public async handle(
     params: AgentHandlerParams,
     options: {
-      toolCall: ToolCallPart<unknown>;
+      toolCall: ToolCallPart<ActivateToolsArgs>;
       activeTools: ToolName[];
       availableTools: Record<string, unknown>;
       agent: string;
@@ -31,7 +51,6 @@ export class ActivateToolHandler {
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const { toolCall, activeTools, availableTools, agent } = options;
-    const input = toolCall.input as ActivateToolsArgs;
     const t = getTranslation(lang);
 
     if (!handlerId) {
@@ -40,7 +59,7 @@ export class ActivateToolHandler {
 
     // Validate and process tools
     const validationResult: ActivateToolsResult = await executeActivateTools(
-      input,
+      toolCall.input,
       availableTools,
       activeTools
     );
@@ -49,6 +68,9 @@ export class ActivateToolHandler {
     if (validationResult.activatedTools && validationResult.activatedTools.length > 0) {
       activeTools.push(...validationResult.activatedTools);
     }
+
+    // Auto-activate dependent tools
+    ActivateToolHandler.addDependentTools(activeTools);
 
     // Deactivate valid tools
     if (validationResult.deactivatedTools && validationResult.deactivatedTools.length > 0) {
@@ -63,12 +85,12 @@ export class ActivateToolHandler {
 
     // Build status message
     const statusParts: string[] = [];
-    if (input.tools && input.tools.length > 0) {
-      const toolNames = input.tools.map(tool => `\`${tool}\``);
+    if (toolCall.input.tools && toolCall.input.tools.length > 0) {
+      const toolNames = toolCall.input.tools.map(tool => `\`${tool}\``);
       statusParts.push(`Activating ${joinWithConjunction(toolNames, 'and')}`);
     }
-    if (input.deactivate && input.deactivate.length > 0) {
-      const toolNames = input.deactivate.map(tool => `\`${tool}\``);
+    if (toolCall.input.deactivate && toolCall.input.deactivate.length > 0) {
+      const toolNames = toolCall.input.deactivate.map(tool => `\`${tool}\``);
       statusParts.push(`Deactivating ${joinWithConjunction(toolNames, 'and')}`);
     }
     const statusMessage = statusParts.length > 0 ? statusParts.join('. ') + '.' : '';

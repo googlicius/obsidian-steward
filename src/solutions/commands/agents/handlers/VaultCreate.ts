@@ -23,9 +23,6 @@ const createToolSchema = z.object({
     )
     .min(1)
     .describe('The list of notes that must be created.'),
-  explanation: z
-    .string()
-    .describe('A short explanation of what is being created and why it is necessary.'),
 });
 
 export type CreateToolArgs = z.infer<typeof createToolSchema>;
@@ -38,7 +35,6 @@ export type CreateNoteInstruction = {
 export type CreatePlan = {
   folder: string;
   notes: CreateNoteInstruction[];
-  explanation: string;
 };
 
 function executeCreateToolArgs(args: CreateToolArgs): CreatePlan {
@@ -60,7 +56,6 @@ function executeCreateToolArgs(args: CreateToolArgs): CreatePlan {
   return {
     folder,
     notes: normalizedNotes,
-    explanation: args.explanation,
   };
 }
 
@@ -138,15 +133,6 @@ export class VaultCreate {
     if (!handlerId) {
       throw new Error('VaultCreate.handle invoked without handlerId');
     }
-
-    await this.agent.renderer.updateConversationNote({
-      path: title,
-      newContent: toolCall.input.explanation,
-      command: 'vault_create',
-      includeHistory: false,
-      lang,
-      handlerId,
-    });
 
     const plan = executeCreateToolArgs(toolCall.input);
 

@@ -64,9 +64,6 @@ const updateFrontmatterToolSchema = z
       .describe(
         'The list of frontmatter properties to add, update, or delete for all specified files.'
       ),
-    explanation: createExplanationSchema({
-      description: 'A short explanation of why these frontmatter changes are being made.',
-    }),
   })
   .refine(
     data =>
@@ -124,18 +121,6 @@ export class VaultUpdateFrontmatter {
 
     if (!params.handlerId) {
       throw new Error('VaultUpdateFrontmatter.handle invoked without handlerId');
-    }
-
-    if (toolCall.input.explanation) {
-      await this.agent.renderer.updateConversationNote({
-        path: params.title,
-        newContent: toolCall.input.explanation,
-        command: 'vault_update_frontmatter',
-        includeHistory: false,
-        lang: params.lang,
-        handlerId: params.handlerId,
-        step: params.invocationCount,
-      });
     }
 
     const resolveResult = await this.resolveFiles({

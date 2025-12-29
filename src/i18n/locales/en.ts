@@ -68,6 +68,10 @@ const en = {
       generationFailed: 'Failed to generate {{type}}: {{error}}',
       generationError: 'Error generating media: {{error}}',
     },
+    vault: {
+      fileAlreadyInDestination: 'File is already in the destination',
+      itemNotFound: 'Item not found',
+    },
     // Move result messages
     move: {
       noSearchResultsFoundAbortMove: 'No search results found, aborting move command',
@@ -300,6 +304,13 @@ const en = {
       Copy: 'Copy',
       contentCopied: 'Content copied to clipboard',
       copyFailed: 'Failed to copy content to clipboard',
+    },
+    todoList: {
+      todoList: 'To-Do list',
+      pending: 'Pending',
+      inProgress: 'In Progress',
+      completed: 'Completed',
+      step: 'Step {{index}}',
     },
     read: {
       noContentFound: 'No such content found in the editor.',

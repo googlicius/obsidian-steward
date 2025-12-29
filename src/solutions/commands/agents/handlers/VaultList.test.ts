@@ -58,7 +58,7 @@ describe('VaultList', () => {
 
       mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(mockFolder);
 
-      const result = await executeListTool({ folderPath: 'folder', explanation: '' }, null);
+      const result = await executeListTool({ folderPath: 'folder' }, null);
 
       expect(result.files).toEqual(['folder/file1.md', 'folder/file2.txt', 'folder/image.png']);
       expect(result.errors).toBeUndefined();
@@ -92,7 +92,6 @@ describe('VaultList', () => {
         {
           folderPath: 'folder',
           filePattern: `\\.(${IMAGE_EXTENSIONS.join('|')})$`,
-          explanation: '',
         },
         null
       );
@@ -130,7 +129,7 @@ describe('VaultList', () => {
 
       // Pattern to match files containing "test" or "demo"
       const result = await executeListTool(
-        { folderPath: 'folder', filePattern: '(test|demo)', explanation: '' },
+        { folderPath: 'folder', filePattern: '(test|demo)' },
         null
       );
 
@@ -148,10 +147,7 @@ describe('VaultList', () => {
       mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(mockFolder);
 
       // Invalid regex pattern: unclosed bracket
-      const result = await executeListTool(
-        { folderPath: 'folder', filePattern: '[invalid', explanation: '' },
-        null
-      );
+      const result = await executeListTool({ folderPath: 'folder', filePattern: '[invalid' }, null);
 
       expect(result.files).toEqual([]);
       expect(result.errors).toBeDefined();
@@ -163,10 +159,7 @@ describe('VaultList', () => {
     it('should return error when folder does not exist', async () => {
       mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(null);
 
-      const result = await executeListTool(
-        { folderPath: 'non-existent-folder', explanation: '' },
-        null
-      );
+      const result = await executeListTool({ folderPath: 'non-existent-folder' }, null);
 
       expect(result.files).toEqual([]);
       expect(result.errors).toEqual(['Folder not found: non-existent-folder']);
@@ -187,7 +180,7 @@ describe('VaultList', () => {
 
       mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(mockRootFolder);
 
-      const result = await executeListTool({ folderPath: '', explanation: '' }, null);
+      const result = await executeListTool({ folderPath: '' }, null);
 
       expect(result.files).toEqual(['root-file1.md']);
       expect(result.errors).toBeUndefined();
@@ -208,7 +201,7 @@ describe('VaultList', () => {
 
       mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(mockRootFolder);
 
-      const result = await executeListTool({ folderPath: '/', explanation: '' }, null);
+      const result = await executeListTool({ folderPath: '/' }, null);
 
       expect(result.files).toEqual(['root-file1.md']);
       expect(result.errors).toBeUndefined();

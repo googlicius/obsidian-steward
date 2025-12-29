@@ -5,14 +5,11 @@ import { ToolName } from 'src/solutions/commands/ToolRegistry';
  * Shared types used across all versions
  */
 export interface CommandStep {
-  name: string;
+  name?: string;
   system_prompt?: (string | SystemPromptItem)[];
   query: string;
   model?: string;
   no_confirm?: boolean;
-  tools?: {
-    exclude?: ToolName[];
-  };
 }
 
 export interface TriggerCondition {

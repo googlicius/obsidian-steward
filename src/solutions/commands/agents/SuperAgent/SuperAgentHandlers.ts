@@ -39,6 +39,7 @@ export class SuperAgentHandlers {
   private _searchMore: handlers.SearchMore;
   private _speech: handlers.Speech;
   private _image: handlers.Image;
+  private _todoList: handlers.TodoList;
 
   /**
    * Helper method to get this instance typed as SuperAgent
@@ -248,5 +249,13 @@ export class SuperAgentHandlers {
     }
 
     return this._image;
+  }
+
+  public get todoList(): handlers.TodoList {
+    if (!this._todoList) {
+      this._todoList = new handlers.TodoList(this.getAgent());
+    }
+
+    return this._todoList;
   }
 }

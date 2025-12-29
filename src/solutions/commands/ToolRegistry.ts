@@ -1,6 +1,5 @@
 import { ToolName } from './toolNames';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
-import { SUPPORTED_READ } from 'src/services/ContentReadingService';
 import { revertAbleArtifactTypes } from '../artifact';
 
 export interface ToolDefinition {
@@ -128,15 +127,6 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     category: 'vault-access',
   },
 
-  [ToolName.REQUEST_READ_AGENT]: {
-    name: ToolName.REQUEST_READ_AGENT,
-    description: `Request the read agent to read ${joinWithConjunction(SUPPORTED_READ, 'or')} to gather context.`,
-    guidelines: [
-      `Use ${ToolName.REQUEST_READ_AGENT} to request the read agent to read ${joinWithConjunction(SUPPORTED_READ, 'or')} to gather context before performing any other actions.`,
-    ],
-    category: 'content-access',
-  },
-
   [ToolName.GREP]: {
     name: ToolName.GREP,
     description:
@@ -231,9 +221,9 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     name: ToolName.ACTIVATE,
     description: 'Request additional tools to be activated for the current session.',
     guidelines: [
-      `Use ${ToolName.ACTIVATE} when you need another tool that is currently inactive to complete the task. It will return the schemas and guidelines of the requested tools.
-  - You MUST activate any tool listed under 'OTHER TOOLS' section (inactive).
-  - You will fail when calling inactive tools.`,
+      `Use ${ToolName.ACTIVATE} when you need another tool that is currently inactive to complete the task. It will return the schemas and guidelines of the requested tools.`,
+      `Inactive tools are listed under 'OTHER TOOLS' section.`,
+      `Try to activate all tools at once early that are needed to fulfill the user's query.`,
     ],
     category: 'tool-management',
   },
@@ -317,6 +307,28 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     ],
     category: 'content-generation',
   },
+
+  [ToolName.TODO_LIST]: {
+    name: ToolName.TODO_LIST,
+    description:
+      'Create a to-do list for complex tasks. Each step includes a task that will be executed sequentially.',
+    guidelines: [
+      `Use ${ToolName.TODO_LIST} to break down complex tasks into manageable steps.`,
+      `When creating a to-do list, provide an array of steps, each with a task. The task is the only required field for each step.`,
+      `After creating a to-do list, you should execute the first step's task.`,
+    ],
+    category: 'task-management',
+  },
+
+  [ToolName.TODO_LIST_UPDATE]: {
+    name: ToolName.TODO_LIST_UPDATE,
+    description: 'Update the current step index of an existing to-do list.',
+    guidelines: [
+      `Use ${ToolName.TODO_LIST_UPDATE} to update the current step index when moving to the next step in a to-do list.`,
+      `When moving to the next step, you SHOULD call ${ToolName.TODO_LIST_UPDATE} tool in parallel (in the same request) with the tool that performs the next task.`,
+    ],
+    category: 'task-management',
+  },
 };
 
 export class ToolRegistry<T> {
@@ -387,10 +399,15 @@ export class ToolRegistry<T> {
     return lines.join('\n');
   }
 
-  public generateOtherToolsSection(emptyLabel = '', includeDescription?: Set<ToolName>): string {
+  public generateOtherToolsSection(
+    emptyLabel = '',
+    includeDescription?: Set<ToolName>,
+    exclude?: Set<ToolName>
+  ): string {
     const lines: string[] = [];
     for (const [, def] of this.tools) {
       if (this.isActive(def.name)) continue;
+      if (exclude?.has(def.name)) continue;
       const line = includeDescription?.has(def.name)
         ? `- ${def.name} - ${def.description}`
         : `- ${def.name}`;
@@ -408,10 +425,7 @@ export class ToolRegistry<T> {
    * Build a registry from a tools object using centralized metadata.
    * Any missing metadata will default to empty description/guidelines.
    */
-  public static buildFromTools<T extends { [s: string]: unknown }>(
-    tools: T,
-    options?: { exclude?: ToolName[] }
-  ) {
+  public static buildFromTools<T extends { [s: string]: unknown }>(tools: T) {
     const registry = new ToolRegistry<typeof tools>();
     for (const [name, tool] of Object.entries(tools)) {
       const meta = TOOL_DEFINITIONS[name as ToolName];
@@ -423,15 +437,8 @@ export class ToolRegistry<T> {
         category: meta.category,
       });
     }
-    if (options?.exclude?.length) {
-      registry.exclude(options.exclude);
-    }
     return registry;
   }
 }
 
 export { ToolName } from './toolNames';
-
-export type ToolRegistryOptions = {
-  exclude?: ToolName[];
-};

@@ -60,7 +60,6 @@ Set to -1 when:
 If the readType is "entire", leave it null.`
     ),
   confidence: z.number().min(0).max(1).describe(confidenceFragment),
-  explanation: z.string().describe(explanationFragment),
   lang: z
     .string()
     .nullable()
@@ -167,16 +166,6 @@ export class ReadContent {
         status: IntentResultStatus.SUCCESS,
       };
     }
-
-    await this.agent.renderer.updateConversationNote({
-      path: title,
-      newContent: toolCall.input.explanation,
-      command: 'read',
-      includeHistory: false,
-      lang: params.lang,
-      handlerId,
-      step: params.invocationCount,
-    });
 
     // Show found placeholder if available
     if (toolCall.input.foundPlaceholder) {

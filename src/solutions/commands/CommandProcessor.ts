@@ -166,7 +166,14 @@ export class CommandProcessor {
       }
 
       // Find the appropriate handler
-      const handler = this.agentHandlers.get(baseType) || null;
+      // Check if this is a user-defined command first
+      const isUDC = this.plugin.userDefinedCommandService.hasCommand(baseType);
+      let handler = this.agentHandlers.get(baseType) || null;
+
+      // If it's a UDC, try to get UDC agent
+      if (isUDC) {
+        handler = this.agentHandlers.get('udc') || null;
+      }
 
       if (!handler) {
         logger.warn(`No handler for command type: ${intent.type}`);

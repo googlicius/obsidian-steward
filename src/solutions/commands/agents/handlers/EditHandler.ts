@@ -7,8 +7,6 @@ import { UpdateInstruction } from 'src/solutions/commands/tools/editContent';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
-import { uniqueID } from 'src/utils/uniqueID';
-import { ToolName } from '../../toolNames';
 
 export class EditHandler {
   constructor(private readonly agent: SuperAgent) {}

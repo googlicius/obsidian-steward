@@ -379,7 +379,8 @@ export class VaultMove {
 
     const result = await this.agent.obsidianAPITools.moveByOperations(
       moveOperations,
-      filesByOperation
+      filesByOperation,
+      lang
     );
 
     // Convert errors to strings for event emission (backward compatibility)

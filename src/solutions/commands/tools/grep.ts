@@ -21,11 +21,6 @@ export const grepSchema = z.object({
       `The text pattern to search for in note content. Can be a simple string or regex pattern. Only used when checking content in a single file.
 NOTE: ContentPattern can only be used when 'paths' is file paths, NOT folder paths.`
     ),
-  explanation: z
-    .string()
-    .describe(
-      'A brief explanation of why checking these paths or searching for this contentPattern is necessary.'
-    ),
 });
 
 /**

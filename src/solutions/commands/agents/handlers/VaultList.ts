@@ -26,7 +26,6 @@ const listToolSchema = z.object(
       .describe(
         'Optional RegExp pattern to filter files. If not provided, all files will be listed.'
       ),
-    explanation: z.string().describe('A brief explanation of why listing files is necessary.'),
   },
   {
     description: `List all files in a specific folder. NOTE: This tool does not list folders but files only.`,
@@ -61,16 +60,6 @@ export class VaultList {
     if (!params.handlerId) {
       throw new Error('VaultList.handle invoked without handlerId');
     }
-
-    await this.agent.renderer.updateConversationNote({
-      path: params.title,
-      newContent: toolCall.input.explanation,
-      command: 'vault_list',
-      includeHistory: false,
-      lang: params.lang,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
-    });
 
     const result = await this.executeListTool(toolCall.input, params.lang);
 

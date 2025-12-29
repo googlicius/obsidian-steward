@@ -23,18 +23,6 @@ export class VaultGrep {
       throw new Error('VaultGrep.handle invoked without handlerId');
     }
 
-    if (toolCall.input.explanation) {
-      await this.agent.renderer.updateConversationNote({
-        path: params.title,
-        newContent: toolCall.input.explanation,
-        command: 'vault_grep',
-        includeHistory: false,
-        lang: params.lang,
-        handlerId: params.handlerId,
-        step: params.invocationCount,
-      });
-    }
-
     const result = await execute(toolCall.input, this.agent.plugin);
 
     await this.agent.renderer.serializeToolInvocation({

@@ -24,4 +24,5 @@ export * from './Search';
 export * from './SearchMore';
 export * from './Speech';
 export * from './Image';
+export * from './TodoList';
 export * from './ActivateToolHandler';

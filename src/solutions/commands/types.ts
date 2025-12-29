@@ -6,15 +6,11 @@ import { ToolCallPart } from './tools/types';
  * Represents a single intent in a sequence
  */
 export interface Intent {
-  /** @deprecated As we use only one super agent, we don't need to distinguish between intents. */
   type: string;
   query: string;
   systemPrompts?: (string | SystemPromptItem)[];
   model?: string; // Optional model to use for this intent
   no_confirm?: boolean; // Skip confirmation for this intent
-  tools?: {
-    exclude?: ToolName[];
-  };
 }
 
 export interface ContextAugmentationIntent extends Intent {

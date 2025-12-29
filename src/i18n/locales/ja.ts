@@ -240,6 +240,13 @@ const ja = {
       contentCopied: 'コンテンツをクリップボードにコピーしました',
       copyFailed: 'コンテンツのコピーに失敗しました',
     },
+    todoList: {
+      todoList: 'To-Doリスト',
+      pending: '保留中',
+      inProgress: '進行中',
+      completed: '完了',
+      step: 'ステップ {{index}}',
+    },
     read: {
       noContentFound: 'エディタにそのような内容が見つかりませんでした。',
       readEntireContentConfirmation:

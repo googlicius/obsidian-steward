@@ -45,7 +45,6 @@ Final content`;
       const args: GrepArgs = {
         paths: ['test-file.md'],
         contentPattern: 'test',
-        explanation: 'Looking for test occurrences',
       };
 
       const result = await execute(args, mockPlugin);
@@ -83,7 +82,6 @@ line pattern to find`;
       const args: GrepArgs = {
         paths: ['test-file.md'],
         contentPattern: 'multi\nline',
-        explanation: 'Looking for patterns with actual newlines',
       };
 
       const result = await execute(args, mockPlugin);
@@ -114,7 +112,6 @@ line pattern to find`;
       const args: GrepArgs = {
         paths: ['non-existent-file.md'],
         contentPattern: 'test',
-        explanation: 'Testing file not found',
       };
 
       await expect(execute(args, mockPluginWithNoFile)).resolves.toMatchObject({
@@ -137,7 +134,6 @@ line pattern to find`;
 
       const args: GrepArgs = {
         paths: ['non-existent-file.md', 'another-missing-file.md'],
-        explanation: 'Checking if files exist',
       };
       const result = await execute(args, mockPlugin);
 
@@ -174,7 +170,6 @@ line pattern to find`;
 
       const args: GrepArgs = {
         paths: ['existing-file.md', 'non-existent-file.md'],
-        explanation: 'Checking file existence',
       };
       const result = await execute(args, mockPlugin);
 
@@ -211,7 +206,6 @@ line pattern to find`;
 
       const args: GrepArgs = {
         paths: ['existing-folder', 'non-existent-folder'],
-        explanation: 'Checking folder existence',
       };
       const result = await execute(args, mockPlugin);
 
@@ -256,7 +250,6 @@ line pattern to find`;
 
       const args: GrepArgs = {
         paths: ['file.md', 'folder', 'missing.md'],
-        explanation: 'Checking mixed paths',
       };
       const result = await execute(args, mockPlugin);
 
@@ -314,7 +307,6 @@ line pattern to find`;
 
       const args: GrepArgs = {
         paths: ['file1.md', 'file2.md', 'folder', 'missing.md'],
-        explanation: 'Checking multiple paths',
       };
       const result = await execute(args, mockPlugin);
 
@@ -356,7 +348,6 @@ More content here`;
       const args: GrepArgs = {
         paths: ['test-file.md'],
         contentPattern: 'test',
-        explanation: 'Searching for test pattern',
       };
 
       const result = await execute(args, mockPlugin);

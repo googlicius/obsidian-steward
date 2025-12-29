@@ -48,10 +48,6 @@ export const searchQueryExtractionSchema = z.object({
   operations: z.array(searchOperationSchema).describe(`An array of search operations.
 If the user wants to search with different criteria in different locations, return multiple operations.
   `),
-  explanation: z
-    .string()
-    .min(1, 'Explanation must be a non-empty string')
-    .describe(explanationFragment),
   lang: z
     .string()
     .optional()

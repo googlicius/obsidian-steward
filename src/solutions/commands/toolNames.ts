@@ -4,7 +4,6 @@ export enum ToolName {
   ASK_USER = 'askUser',
   EDIT = 'edit',
   GREP = 'grep',
-  REQUEST_READ_AGENT = 'requestReadAgent', // @deprecated
   CREATE = 'create',
   DELETE = 'delete',
   COPY = 'copy',
@@ -29,4 +28,6 @@ export enum ToolName {
   SEARCH_MORE = 'search_more',
   SPEECH = 'speech',
   IMAGE = 'image',
+  TODO_LIST = 'todo_list',
+  TODO_LIST_UPDATE = 'todo_list_update',
 }

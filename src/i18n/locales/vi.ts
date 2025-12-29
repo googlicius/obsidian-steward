@@ -240,6 +240,13 @@ const vi = {
       contentCopied: 'Nội dung đã được sao chép vào clipboard',
       copyFailed: 'Không thể sao chép nội dung vào clipboard',
     },
+    todoList: {
+      todoList: 'Danh sách công việc',
+      pending: 'Pending',
+      inProgress: 'Đang thực hiện',
+      completed: 'Đã hoàn thành',
+      step: 'Bước {{index}}',
+    },
     read: {
       noContentFound: 'Không tìm thấy nội dung như vậy trong trình soạn thảo.',
       readEntireContentConfirmation:

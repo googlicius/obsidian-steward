@@ -36,10 +36,6 @@ DO NOT use this for a paginated list, where the files number is smaller than the
       `Delegate to DataAwarenessAgent to process files in small batches from an artifact. Use this for large file sets to avoid token limits.
 - Use this when: 1. Provided artifact ID (By user, tool call results), 2. The files is a part of a larger list.`
     ),
-  explanation: z
-    .string()
-    .min(1)
-    .describe('Short explanation of the rename operation and why it is required.'),
 });
 
 export type RenameToolArgs = z.infer<typeof renameToolSchema>;
@@ -93,15 +89,6 @@ export class VaultRename {
     }
 
     const t = getTranslation(lang);
-
-    await this.agent.renderer.updateConversationNote({
-      path: title,
-      newContent: toolCall.input.explanation,
-      command: 'vault_rename',
-      includeHistory: false,
-      lang,
-      handlerId,
-    });
 
     // Handle delegation to DataAwarenessAgent
     if (toolCall.input.delegateToAgent) {

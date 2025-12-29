@@ -1,6 +1,6 @@
 import { ModelMessage, streamText } from 'ai';
 import { Agent } from '../../Agent';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentHandlerParams, AgentResult, IntentResultStatus, Intent } from '../../types';
 import { ToolCallPart, ToolResultPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
 import { SystemPromptModifier } from '../../SystemPromptModifier';
@@ -18,7 +18,6 @@ import * as handlers from '../handlers';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 import { createTextReasoningStream } from 'src/utils/textStreamer';
-import { SysError } from 'src/utils/errors';
 
 /**
  * Map of task names to their associated tool names.
@@ -118,6 +117,8 @@ const tools = {
   [ToolName.ACTIVATE]: activateTools,
   [ToolName.SPEECH]: handlers.Speech.getSpeechTool(),
   [ToolName.IMAGE]: handlers.Image.getImageTool(),
+  [ToolName.TODO_LIST]: handlers.TodoList.getTodoListTool(),
+  [ToolName.TODO_LIST_UPDATE]: handlers.TodoList.getTodoListUpdateTool(),
 };
 
 type ToolCalls = Awaited<
@@ -133,18 +134,19 @@ export class SuperAgent extends Agent {
   public async renderIndicator(
     title: string,
     lang?: string | null,
-    classifiedTasks?: string[]
+    toolName?: ToolName
   ): Promise<void> {
     const t = getTranslation(lang);
 
-    // Determine which indicator to use based on classified tasks
+    // Determine which indicator to use
     let indicatorKey = 'conversation.planning'; // Default indicator
 
-    if (classifiedTasks && classifiedTasks.length > 0) {
-      // Use the first task's indicator, or prioritize revert if present
-      const priorityTask = classifiedTasks.includes('revert') ? 'revert' : classifiedTasks[0];
-
-      indicatorKey = TASK_TO_INDICATOR_MAP[priorityTask] || indicatorKey;
+    // Use tool name to determine the indicator
+    if (toolName) {
+      const task = this.getTaskForTool(toolName);
+      if (task) {
+        indicatorKey = TASK_TO_INDICATOR_MAP[task] || indicatorKey;
+      }
     }
 
     await this.renderer.addGeneratingIndicator(title, t(indicatorKey));
@@ -153,7 +155,7 @@ export class SuperAgent extends Agent {
   /**
    * Client-made tool call without AI
    */
-  private async manualToolCall(
+  protected async manualToolCall(
     title: string,
     query: string,
     activeTools: ToolName[],
@@ -353,12 +355,7 @@ export class SuperAgent extends Agent {
   /**
    * Execute streamText with tools and handle streaming
    */
-  private async executeStreamText(
-    params: AgentHandlerParams,
-    options: {
-      classifiedTasks?: string[];
-    } = {}
-  ): Promise<{
+  private async executeStreamText(params: AgentHandlerParams): Promise<{
     toolCalls: ToolCalls;
     conversationHistory: ModelMessage[];
   }> {
@@ -381,9 +378,8 @@ export class SuperAgent extends Agent {
         params.activeTools && params.activeTools.length > 0
           ? [...params.activeTools, ToolName.ACTIVATE]
           : [ToolName.ACTIVATE];
-      const registry = ToolRegistry.buildFromTools(tools, params.intent.tools).setActive(
-        activeToolNames
-      );
+
+      const registry = ToolRegistry.buildFromTools(tools).setActive(activeToolNames);
 
       // Exclude confirmation and ask_user tools if no_confirm is set
       if (params.intent.no_confirm) {
@@ -423,6 +419,11 @@ export class SuperAgent extends Agent {
         'current_note'
       );
 
+      // Generate to-do list prompt only if TODO_LIST_UPDATE tool is active
+      const todoListPrompt = activeToolNames.includes(ToolName.TODO_LIST_UPDATE)
+        ? await this.generateTodoListPrompt(params.title)
+        : '';
+
       // Use streamText instead of generateText
       const { toolCalls: toolCallsPromise, fullStream } = streamText({
         ...llmConfig,
@@ -451,15 +452,27 @@ You have access to the following tools:
 ${registry.generateToolsSection()}
 
 OTHER TOOLS:
-${registry.generateOtherToolsSection('No other tools available.', new Set([ToolName.GREP, ToolName.LIST, ToolName.SEARCH, ToolName.IMAGE, ToolName.CONTENT_READING]))}
+${registry.generateOtherToolsSection(
+  'No other tools available.',
+  new Set([
+    ToolName.GREP,
+    ToolName.LIST,
+    ToolName.SEARCH,
+    ToolName.IMAGE,
+    ToolName.CONTENT_READING,
+    ToolName.TODO_LIST,
+  ]),
+  new Set([ToolName.TODO_LIST_UPDATE, ToolName.SEARCH_MORE])
+)}
 
 GUIDELINES:
 ${registry.generateGuidelinesSection()}
 
-${currentNote ? `CURRENT NOTE: ${currentNote}` : ''}
+${currentNote ? `CURRENT NOTE: ${currentNote}` : ''}${todoListPrompt}
 
 NOTE:
 - Do NOT repeat the latest tool call result in your final response as it is already rendered in the UI.
+- Do NOT mention the tools you use to users. Work silently in the background and only communicate the results or outcomes.
 - Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`),
         messages: [
           ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
@@ -477,8 +490,19 @@ NOTE:
         },
       });
 
-      // Create text/reasoning stream with early completion signal
-      const { stream: textReasoningStream, textDone } = createTextReasoningStream(fullStream);
+      // Track the first tool detected from the stream
+      let firstDetectedTool: ToolName | undefined;
+
+      // Create text/reasoning stream with early completion signal and tool detection
+      const { stream: textReasoningStream, textDone } = createTextReasoningStream(
+        fullStream,
+        (toolName: string) => {
+          // Update indicator when a tool is detected
+          if (!firstDetectedTool) {
+            firstDetectedTool = toolName as ToolName;
+          }
+        }
+      );
 
       // Stream the text directly to the conversation note (runs in background)
       const streamPromise = this.renderer.streamConversationNote({
@@ -492,8 +516,9 @@ NOTE:
       await Promise.race([textDone, streamErrorPromise]);
 
       // Render indicator after sometime when still waiting for toolCalls
+      // Use detected tool if available
       timer = window.setTimeout(() => {
-        this.renderIndicator(params.title, params.lang, options?.classifiedTasks);
+        this.renderIndicator(params.title, params.lang, firstDetectedTool);
       }, 1000);
 
       // Wait for tool calls and extract the result
@@ -524,7 +549,7 @@ NOTE:
     params: AgentHandlerParams,
     options: {
       remainingSteps?: number;
-      toolCalls?: unknown[];
+      toolCalls?: ToolCalls;
       currentToolCallIndex?: number;
     } = {}
   ): Promise<AgentResult> {
@@ -546,6 +571,11 @@ NOTE:
       classifiedTasks = await this.classifyTasksFromQuery(intent.query, params.upstreamOptions);
     }
 
+    // Treat type (Usually from UDC step name) as a classified task
+    if (intent.type.trim().length > 0 && !classifiedTasks.includes(intent.type)) {
+      classifiedTasks.push(intent.type);
+    }
+
     if (!classifiedTasks.length) {
       classifiedTasks = this.classifyTasksFromActiveTools(activeTools);
     }
@@ -553,7 +583,6 @@ NOTE:
     // Default-activate tools based on classified tasks
     const defaultActivateTools = this.getDefaultActivateTools(classifiedTasks);
     if (defaultActivateTools.length > 0) {
-      logger.log(`Default-activating tools: ${joinWithConjunction(defaultActivateTools, 'and')}`);
       // Add defaultActivateTools to activeTools if not already present
       for (const tool of defaultActivateTools) {
         if (!activeTools.includes(tool)) {
@@ -574,19 +603,14 @@ NOTE:
     let conversationHistory: ModelMessage[] = [];
 
     if (options.toolCalls) {
-      toolCalls = options.toolCalls as ToolCalls;
+      toolCalls = options.toolCalls;
     } else if (manualToolCall) {
       toolCalls = [manualToolCall] as ToolCalls;
     } else {
-      const result = await this.executeStreamText(
-        {
-          ...params,
-          activeTools,
-        },
-        {
-          classifiedTasks,
-        }
-      );
+      const result = await this.executeStreamText({
+        ...params,
+        activeTools,
+      });
       toolCalls = result.toolCalls;
       conversationHistory = result.conversationHistory;
     }
@@ -629,14 +653,20 @@ NOTE:
       [ToolName.SEARCH_MORE]: () => this.searchMore,
       [ToolName.SPEECH]: () => this.speech,
       [ToolName.IMAGE]: () => this.image,
+      [ToolName.TODO_LIST]: () => this.todoList,
       [ToolName.HELP]: () => this.help,
     };
 
     const processToolCalls = async (startIndex: number): Promise<AgentResult> => {
       // Set up timer to show indicator after 2 seconds if processing takes time
       let timer: number | null = null;
+      // Get the first tool name from toolCalls if available
+      const firstToolName =
+        toolCalls.length > startIndex && !toolCalls[startIndex]?.dynamic
+          ? toolCalls[startIndex].toolName
+          : undefined;
       timer = window.setTimeout(() => {
-        this.renderIndicator(title, lang, classifiedTasks);
+        this.renderIndicator(title, lang, firstToolName);
       }, 2000);
 
       try {
@@ -723,8 +753,6 @@ NOTE:
               });
 
               const callBack = async (): Promise<AgentResult> => {
-                await this.renderIndicator(title, lang, classifiedTasks);
-
                 // Increment invocation count for recursive call
                 const nextParams = {
                   ...params,
@@ -761,6 +789,11 @@ NOTE:
                 availableTools: tools,
                 agent: 'super',
               });
+              break;
+            }
+
+            case ToolName.TODO_LIST_UPDATE: {
+              toolCallResult = await this.todoList.handleUpdate(params, { toolCall });
               break;
             }
 
@@ -824,11 +857,21 @@ NOTE:
       !this.stopProcessingForClassifiedTask(classifiedTasks, toolCalls)
     ) {
       // Update indicator to show we're still working
-      await this.renderIndicator(title, lang, classifiedTasks);
+      const firstToolName = toolCalls[0].toolName as ToolName;
+      await this.renderIndicator(title, lang, firstToolName);
+
+      // Check if TODO_LIST_UPDATE was called and get next step intent for UDC
+      const wasTodoListUpdateCalled = toolCalls.some(
+        call => !call.dynamic && call.toolName === ToolName.TODO_LIST_UPDATE
+      );
+      const nextStepIntent = wasTodoListUpdateCalled
+        ? await this.getNextUDCStepIntent(title, intent)
+        : null;
 
       // Increment invocation count for recursive call
       const nextParams = {
         ...params,
+        intent: nextStepIntent || intent,
         activeTools,
         invocationCount: (params.invocationCount ?? 0) + 1,
       };
@@ -954,6 +997,45 @@ NOTE:
   }
 
   /**
+   * Generate to-do list prompt from frontmatter state
+   * @param title The conversation title
+   * @returns The formatted to-do list prompt or empty string
+   */
+  private async generateTodoListPrompt(title: string): Promise<string> {
+    // Get to-do list state from frontmatter
+    const todoListState = await this.renderer.getConversationProperty<handlers.TodoListState>(
+      title,
+      'todo_list'
+    );
+
+    // Format to-do list state for system prompt
+    if (!todoListState || !todoListState.steps || todoListState.steps.length === 0) {
+      return '';
+    }
+
+    const currentStep = todoListState.steps[todoListState.currentStepIndex];
+    return `\n\nTO-DO LIST:
+You are working on a to-do list with ${todoListState.steps.length} step(s).
+Current step: ${todoListState.currentStepIndex + 1} of ${todoListState.steps.length}
+Current step task: "${currentStep?.task || 'N/A'}"
+
+Steps:
+${todoListState.steps
+  .map((step, index) => {
+    const status =
+      index < todoListState.currentStepIndex
+        ? '✅ Completed'
+        : index === todoListState.currentStepIndex
+          ? '🔄 In Progress'
+          : '⏳ Pending';
+    return `${index + 1}. ${status}: ${step.task}`;
+  })
+  .join('\n')}
+
+When you complete the current step, use the ${ToolName.TODO_LIST_UPDATE} tool to update the currentStepIndex and move to the next step.`;
+  }
+
+  /**
    * Classify tasks from query using classifier
    */
   private async classifyTasksFromQuery(
@@ -1051,6 +1133,57 @@ NOTE:
     } catch (error) {
       logger.error('Failed to save classified tasks as embedding:', error);
     }
+  }
+
+  /**
+   * Get the next step intent for UDC if TODO_LIST_UPDATE was called
+   * Returns null if not a UDC or no next step available
+   */
+  private async getNextUDCStepIntent(title: string, currentIntent: Intent): Promise<Intent | null> {
+    const udcCommand = await this.renderer.getConversationProperty<string>(title, 'udc_command');
+    if (!udcCommand) {
+      return null;
+    }
+
+    const updatedTodoList = await this.renderer.getConversationProperty<handlers.TodoListState>(
+      title,
+      'todo_list'
+    );
+
+    if (!updatedTodoList || updatedTodoList.currentStepIndex >= updatedTodoList.steps.length) {
+      return null;
+    }
+
+    const nextStep = updatedTodoList.steps[updatedTodoList.currentStepIndex];
+    if (!nextStep) {
+      return null;
+    }
+
+    // Create new intent with only the next step's metadata
+    // Do NOT inherit step-specific fields (model, systemPrompts, no_confirm) from current step
+    return {
+      query: currentIntent.query,
+      type: nextStep.type ?? currentIntent.type,
+      model: nextStep.model,
+      systemPrompts: nextStep.systemPrompts
+        ? await this.plugin.userDefinedCommandService.processSystemPromptsWikilinks(
+            nextStep.systemPrompts
+          )
+        : undefined,
+      no_confirm: nextStep.no_confirm,
+    };
+  }
+
+  /**
+   * Find the task name for a given tool name
+   */
+  private getTaskForTool(toolName: ToolName): string | null {
+    for (const [task, taskTools] of Object.entries(TASK_TO_TOOLS_MAP)) {
+      if (taskTools.has(toolName)) {
+        return task;
+      }
+    }
+    return null;
   }
 }
 

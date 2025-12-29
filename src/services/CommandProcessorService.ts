@@ -1,5 +1,6 @@
 import { CommandProcessor } from '../solutions/commands';
 import { SuperAgent } from '../solutions/commands/agents';
+import { UDCAgent } from '../solutions/commands/agents/UDCAgent/UDCAgent';
 import type StewardPlugin from '../main';
 import { ToolName } from 'src/solutions/commands/toolNames';
 
@@ -19,6 +20,10 @@ export class CommandProcessorService {
     // Register the super agent
     const superAgent = new SuperAgent(this.plugin);
     this.commandProcessor.registerAgent(' ', superAgent);
+
+    // Register the UDC agent for user-defined commands
+    const udcAgent = new UDCAgent(this.plugin);
+    this.commandProcessor.registerAgent('udc', udcAgent);
 
     // Register the search handler
     const superAgentWithSearchTool = new SuperAgent(this.plugin, [ToolName.SEARCH]);
