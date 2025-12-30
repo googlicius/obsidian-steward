@@ -5,7 +5,6 @@ import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
-import { SystemPromptItem } from '../../SystemPromptModifier';
 
 /**
  * Schema for a single to-do list step
@@ -52,7 +51,7 @@ export type TodoListUpdateArgs = z.infer<typeof todoListUpdateSchema>;
 export type TodoStepWithMetadata = TodoStep & {
   type?: string;
   model?: string;
-  systemPrompts?: (string | SystemPromptItem)[];
+  systemPrompts?: string[];
   no_confirm?: boolean;
 };
 
@@ -75,7 +74,7 @@ export interface TodoListState {
     // Optional metadata fields - only populated by UDC, not exposed to AI
     type?: string;
     model?: string;
-    systemPrompts?: (string | SystemPromptItem)[];
+    systemPrompts?: string[];
     no_confirm?: boolean;
   }>;
   currentStep: number;

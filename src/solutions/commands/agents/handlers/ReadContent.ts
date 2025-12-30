@@ -4,10 +4,10 @@ import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus, Intent } from '../../types';
+import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
-import { explanationFragment, confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
+import { confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { logger } from 'src/utils/logger';
 
 export const contentReadingSchema = z.object({
@@ -135,7 +135,7 @@ export class ReadContent {
       };
     }
 
-    if (result.blocks.length === 0) {
+    if (result.file && result.file.path.endsWith('.md') && result.blocks.length === 0) {
       const messageId = await this.agent.renderer.updateConversationNote({
         path: title,
         newContent: `*${t('read.noContentFound')}*`,

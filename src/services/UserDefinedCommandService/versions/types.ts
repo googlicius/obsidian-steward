@@ -1,12 +1,9 @@
-import { SystemPromptItem } from 'src/solutions/commands';
-import { ToolName } from 'src/solutions/commands/ToolRegistry';
-
 /**
  * Shared types used across all versions
  */
 export interface CommandStep {
   name?: string;
-  system_prompt?: (string | SystemPromptItem)[];
+  system_prompt?: string[];
   query: string;
   model?: string;
   no_confirm?: boolean;

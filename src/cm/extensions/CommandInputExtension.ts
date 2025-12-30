@@ -58,6 +58,7 @@ export function createCommandInputExtension(
     createInputExtension(plugin, options),
     createCommandKeymapExtension(plugin, options),
     createSelectedModelExtension(),
+    createPasteHandlerExtension(plugin),
   ];
 }
 
@@ -75,12 +76,10 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
 
         // Attach event listeners
         view.dom.addEventListener('keypress', this.handleKeyPress);
-        view.dom.addEventListener('paste', this.handlePaste);
       }
 
       destroy() {
         this.view.dom.removeEventListener('keypress', this.handleKeyPress);
-        this.view.dom.removeEventListener('paste', this.handlePaste);
 
         // Clear any pending timeout
         if (this.typingDebounceTimeout) {
@@ -184,24 +183,51 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
           }
         }, options.typingDebounceMs || 0);
       };
+    },
+    {
+      decorations: v => v.decorations,
+    }
+  );
+}
 
-      /**
-       * Handle paste events for multi-line indentation
-       */
-      private handlePaste = (event: ClipboardEvent) => {
-        if (!event.clipboardData) return;
+/**
+ * Creates an extension to handle paste events for multi-line indentation
+ */
+function createPasteHandlerExtension(plugin: StewardPlugin): Extension {
+  return Prec.highest(
+    EditorView.domEventHandlers({
+      paste(event: ClipboardEvent, view: EditorView): boolean {
+        // This handler is called BEFORE CodeMirror processes the paste
+
+        if (!event.clipboardData) {
+          return false; // Let default behavior happen
+        }
 
         const pastedText = event.clipboardData.getData('Text');
+        const normalizedPastedText = pastedText.replace(/\r/g, '');
+        const offset = pastedText.length - normalizedPastedText.length;
 
-        const pasteStart = this.view.state.selection.main.head - pastedText.length;
-        const line = this.view.state.doc.lineAt(pasteStart);
+        if (!pastedText) {
+          return false; // Let default behavior happen
+        }
+
+        const { state } = view;
+        const { selection } = state;
+        const { from, to } = selection.main;
+
+        // Get the line at the paste position (before paste happens)
+        const line = state.doc.lineAt(from);
+
         // Check if we're in a command input context
         const isInCommandContext =
           plugin.commandInputService.isCommandLine(line) ||
           plugin.commandInputService.isContinuationLine(line.text);
 
-        if (!isInCommandContext || !pastedText) return; // Normal paste
+        if (!isInCommandContext) {
+          return false; // Let default paste behavior happen
+        }
 
+        // Process pasted lines and add TWO_SPACES_PREFIX to continuation lines
         const pastedLines = pastedText.split('\n');
 
         let fullInsert = '';
@@ -215,16 +241,20 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
         }
 
         event.preventDefault();
-        const newCursorPos = pasteStart + fullInsert.length;
-        this.view.dispatch({
-          changes: { from: pasteStart, to: pasteStart + pastedText.length, insert: fullInsert },
-          selection: { anchor: newCursorPos },
+        const newCursorPos = from + fullInsert.length;
+
+        view.dispatch({
+          changes: {
+            from,
+            to,
+            insert: fullInsert,
+          },
+          selection: { anchor: newCursorPos - offset },
         });
-      };
-    },
-    {
-      decorations: v => v.decorations,
-    }
+
+        return true; // Event handled
+      },
+    })
   );
 }
 
