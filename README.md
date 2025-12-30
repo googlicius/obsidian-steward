@@ -146,16 +146,17 @@ command_name: search_with_context
 steps:
   - name: search
     system_prompt:
-      - '[[My Context Note]]'
-      - '[[Another Context]]'
+      - '[[Search instruction]]' # The content of the "Search instruction" note will be included as the system prompt.
+      - '[[Some note#Instructions]]' # Only the content under the Instructions heading of "Some note" will be included as the system prompt.
     query: $from_user
 ```
 
 When executed:
 
-1. The link `[[My Context Note]]` will be replaced with the actual content of that note
-2. This allows you to maintain complex prompts or contexts in separate notes
-3. You can update the linked notes independently of your command definition
+1. The link `[[Search instruction]]` will be replaced with the full content of that note
+2. The link `[[Some note#Instructions]]` will be replaced with only the content under the "Instructions" heading in that note
+3. This allows you to maintain complex prompts or contexts in separate notes
+4. You can update the linked notes independently of your command definition
 
 ### Automated command triggers
 
