@@ -4,7 +4,6 @@ import { logger } from 'src/utils/logger';
 import { getQualifiedCandidates } from 'src/utils/getQualifiedCandidates';
 import * as CryptoJS from 'crypto-js';
 import { similarity } from 'src/utils/similarity';
-import { getValidCommandTypes } from 'src/lib/modelfusion/prompts/commands';
 
 export interface ValueCluster {
   name: string;
@@ -169,7 +168,20 @@ export class PersistentEmbeddingSimilarityClassifier {
    * @returns true if all command types in the cluster are valid, false otherwise
    */
   private isValidClusterName(clusterName: string): boolean {
-    const validCommandTypes = new Set(getValidCommandTypes());
+    const validCommandTypes = new Set([
+      'search',
+      'image',
+      'speech',
+      'vault',
+      'read',
+      'edit',
+      'create',
+      'delete',
+      'copy',
+      'move',
+      'rename',
+      'update_frontmatter',
+    ]);
     const commandTypes = clusterName.split(':');
 
     for (const commandType of commandTypes) {
@@ -396,7 +408,7 @@ export class PersistentEmbeddingSimilarityClassifier {
       );
 
       const { embeddings: clusterEmbeddings } = await embedMany({
-        model: this.settings.embeddingModel as EmbeddingModel<string>,
+        model: this.settings.embeddingModel,
         values: cluster.values,
       });
 
@@ -517,7 +529,7 @@ export class PersistentEmbeddingSimilarityClassifier {
 
       // Generate embedding for the value
       const { embedding } = await embed({
-        model: this.settings.embeddingModel as EmbeddingModel<string>,
+        model: this.settings.embeddingModel,
         value,
       });
 
@@ -581,7 +593,7 @@ export class PersistentEmbeddingSimilarityClassifier {
     const [embeddingResult, clusterEmbeddings] = await Promise.all([
       Promise.race([
         embed({
-          model: this.settings.embeddingModel as EmbeddingModel<string>,
+          model: this.settings.embeddingModel,
           value,
         }),
         new Promise<null>(resolve => {
