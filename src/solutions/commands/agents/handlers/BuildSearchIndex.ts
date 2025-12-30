@@ -74,10 +74,12 @@ export class BuildSearchIndex {
           newContent: `\n${t('search.confirmRebuildIndexQuestion')}`,
           lang,
           handlerId,
+          includeHistory: false,
         });
 
         return {
           status: IntentResultStatus.NEEDS_CONFIRMATION,
+          confirmationMessage: t('search.confirmRebuildIndexQuestion'),
           onConfirmation: () => {
             return this.performIndexing(title, validFiles, lang, handlerId);
           },

@@ -194,7 +194,7 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
  * Creates an extension to handle paste events for multi-line indentation
  */
 function createPasteHandlerExtension(plugin: StewardPlugin): Extension {
-  return Prec.highest(
+  return Prec.high(
     EditorView.domEventHandlers({
       paste(event: ClipboardEvent, view: EditorView): boolean {
         // This handler is called BEFORE CodeMirror processes the paste
