@@ -9,6 +9,7 @@ import { VaultDelete } from '../handlers/VaultDelete';
 import { RevertDelete } from '../handlers/RevertDelete';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { getClassifier } from 'src/lib/modelfusion';
+import * as handlers from '../handlers';
 
 // Mock individual functions from the ai package
 jest.mock('ai', () => {
@@ -159,7 +160,7 @@ describe('SuperAgent', () => {
   });
 
   describe('handle - vault tasks', () => {
-    it('should include user message only in the first iteration', async () => {
+    it('should include user message as the latest message only in the first iteration', async () => {
       const params: AgentHandlerParams = {
         title: 'test-conversation',
         intent: {
@@ -674,7 +675,7 @@ describe('SuperAgent', () => {
       const params: AgentHandlerParams = {
         title: 'test-conversation',
         intent: {
-          type: 'vault',
+          type: ' ',
           query: 'test query',
         } as Intent,
         // No activeTools - this will result in empty classifiedTasks from classifyTasksFromActiveTools
@@ -863,7 +864,7 @@ describe('SuperAgent', () => {
     });
   });
 
-  describe('handle - stop processing for classified tasks', () => {
+  describe('handle - continue or stop processing', () => {
     it('should stop processing when classifiedTasks contains a single task from SINGLE_TURN_TASKS', async () => {
       const toolName = ToolName.SEARCH;
       const mockHandler = 'search';
@@ -993,7 +994,7 @@ describe('SuperAgent', () => {
       const params: AgentHandlerParams = {
         title: 'test-conversation',
         intent: {
-          type: 'search',
+          type: ' ',
           query: 'test query',
         } as Intent,
         activeTools: [ToolName.SEARCH, ToolName.LIST], // Both search and list tools
@@ -1125,6 +1126,79 @@ describe('SuperAgent', () => {
 
       // Verify handle was called recursively (more than once)
       // Since 'vault' is not in SINGLE_TURN_TASKS, stopProcessingForClassifiedTask returns false
+      expect(handleSpy.mock.calls.length).toBeGreaterThan(1);
+
+      // Verify renderIndicator was called (since we continue processing)
+      expect(renderIndicatorSpy).toHaveBeenCalled();
+    });
+
+    it('should continue processing when there are no tool calls but hasTodoIncomplete is true', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+        activeTools: [ToolName.LIST],
+        invocationCount: 1,
+      };
+
+      // @ts-expect-error - Accessing private method for testing
+      const mockExecuteStreamText = jest.spyOn(superAgent, 'executeStreamText') as jest.SpyInstance;
+
+      // Mock executeStreamText to return NO tool calls (empty array)
+      mockExecuteStreamText.mockResolvedValue({
+        toolCalls: [],
+        conversationHistory: [],
+      });
+
+      // Mock getConversationProperty to return a todo list with incomplete steps
+      const mockTodoListState: handlers.TodoListState = {
+        steps: [
+          {
+            task: 'Step 1',
+            status: 'completed',
+          },
+          {
+            task: 'Step 2',
+            status: 'in_progress', // Incomplete step
+          },
+          {
+            task: 'Step 3',
+            // No status means pending/incomplete
+          },
+        ],
+        currentStep: 2,
+      };
+
+      mockPlugin.conversationRenderer.getConversationProperty = jest
+        .fn()
+        .mockImplementation(async (title: string, property: string) => {
+          if (property === 'todo_list') {
+            return mockTodoListState;
+          }
+          return undefined;
+        });
+
+      // Spy on handle to verify it IS called recursively
+      const handleSpy = jest.spyOn(superAgent, 'handle');
+
+      // Mock renderIndicator to verify it IS called (since we continue processing)
+      const renderIndicatorSpy = jest.spyOn(superAgent, 'renderIndicator');
+
+      await superAgent.handle(params, { remainingSteps: 5 });
+
+      // Verify executeStreamText was called
+      expect(mockExecuteStreamText).toHaveBeenCalled();
+
+      // Verify getConversationProperty was called to check todo list
+      expect(mockPlugin.conversationRenderer.getConversationProperty).toHaveBeenCalledWith(
+        params.title,
+        'todo_list'
+      );
+
+      // Verify handle was called recursively (more than once)
+      // Since hasTodoIncomplete is true, processing should continue
       expect(handleSpy.mock.calls.length).toBeGreaterThan(1);
 
       // Verify renderIndicator was called (since we continue processing)

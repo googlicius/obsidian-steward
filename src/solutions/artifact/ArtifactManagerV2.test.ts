@@ -475,7 +475,7 @@ describe('ArtifactManagerV2', () => {
         '',
         '<!--STW ID:msg2,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->',
         '```stw-artifact',
-        `{"artifactType":"read_content","id":"${artifactId}","readingResult":{"blocks":[]},"deleteReason":"${deleteReason}"}`,
+        `{"artifactType":"read_content","readingResult":{"blocks":[]},"id":"${artifactId}","deleteReason":"${deleteReason}"}`,
         '```',
         '',
         '<!--STW ID:msg3,ROLE:user-->',
