@@ -3,7 +3,6 @@ import { Agent } from '../../Agent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus, Intent } from '../../types';
 import { ToolCallPart, ToolResultPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
-import { SystemPromptModifier } from '../../SystemPromptModifier';
 import { ToolRegistry, ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { activateTools } from '../../tools/activateTools';
@@ -371,9 +370,6 @@ export class SuperAgent extends Agent {
         generateType: 'text',
       });
 
-      const modifier = new SystemPromptModifier(params.intent.systemPrompts);
-      const additionalSystemPrompts = modifier.getAdditionalSystemPrompts();
-
       const activeToolNames =
         params.activeTools && params.activeTools.length > 0
           ? [...params.activeTools, ToolName.ACTIVATE]
@@ -428,24 +424,23 @@ export class SuperAgent extends Agent {
       const { toolCalls: toolCallsPromise, fullStream } = streamText({
         ...llmConfig,
         abortSignal,
-        system:
-          modifier.apply(`You are a helpful assistant who helps users with their Obsidian vault.
+        system: `You are a helpful assistant who helps users with their Obsidian vault.
 
 Your role is to help users with multiple tasks by using appropriate tools.
 - For generating tasks, you can generate directly.
 - For editing tasks, use ${ToolName.EDIT} tool.
 - For vault management tasks, use the following tools: ${joinWithConjunction(
-            [
-              ToolName.LIST,
-              ToolName.CREATE,
-              ToolName.DELETE,
-              ToolName.COPY,
-              ToolName.MOVE,
-              ToolName.RENAME,
-              ToolName.UPDATE_FRONTMATTER,
-            ],
-            'and'
-          )}.
+          [
+            ToolName.LIST,
+            ToolName.CREATE,
+            ToolName.DELETE,
+            ToolName.COPY,
+            ToolName.MOVE,
+            ToolName.RENAME,
+            ToolName.UPDATE_FRONTMATTER,
+          ],
+          'and'
+        )}.
 - For other tasks, use the appropriate tool(s).
 
 You have access to the following tools:
@@ -473,11 +468,8 @@ ${currentNote ? `CURRENT NOTE: ${currentNote}` : ''}${todoListPrompt}
 NOTE:
 - Do NOT repeat the latest tool call result in your final response as it is already rendered in the UI.
 - Do NOT mention the tools you use to users. Work silently in the background and only communicate the results or outcomes.
-- Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`),
-        messages: [
-          ...additionalSystemPrompts.map(prompt => ({ role: 'system' as const, content: prompt })),
-          ...messages,
-        ],
+- Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`,
+        messages,
         tools: registry.getToolsObject(),
         onError: ({ error }) => {
           logger.error('Error in streamText', error);

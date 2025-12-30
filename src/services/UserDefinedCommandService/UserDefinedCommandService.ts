@@ -8,7 +8,6 @@ import { IVersionedUserDefinedCommand, TriggerCondition } from './versions/types
 import { loadUDCVersion } from './versions/loader';
 import { Intent } from 'src/solutions/commands/types';
 import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
-import { SystemPromptModification, SystemPromptModifier } from 'src/solutions/commands';
 
 export class UserDefinedCommandService {
   private static instance: UserDefinedCommandService | null = null;
@@ -860,36 +859,19 @@ export class UserDefinedCommandService {
 
   /**
    * Process wikilinks in system prompts
-   * Only processes string-based prompts, keeps modification objects unchanged
-   * @param systemPrompts Array of system prompt items (strings or modification objects)
+   * Only processes string-based prompts
+   * @param systemPrompts Array of system prompt strings
    * @returns Processed system prompts with wikilinks resolved
    */
-  public async processSystemPromptsWikilinks(
-    systemPrompts: (string | SystemPromptModification)[]
-  ): Promise<(string | SystemPromptModification)[]> {
-    const modifier = new SystemPromptModifier(systemPrompts);
-    const stringPrompts = modifier.getAdditionalSystemPrompts();
-
-    // Process wikilinks only in string-based system prompts
-    if (stringPrompts.length === 0) {
+  public async processSystemPromptsWikilinks(systemPrompts: string[]): Promise<string[]> {
+    if (systemPrompts.length === 0) {
       return systemPrompts;
     }
 
-    const processedStrings = await Promise.all(
-      stringPrompts.map(prompt =>
+    return Promise.all(
+      systemPrompts.map(prompt =>
         this.plugin.noteContentService.processWikilinksInContent(prompt, 2)
       )
     );
-
-    // Reconstruct systemPrompts: replace strings with processed versions, keep modification objects
-    return systemPrompts.map(item => {
-      if (typeof item === 'string') {
-        // Find the corresponding processed string
-        const index = stringPrompts.indexOf(item);
-        return processedStrings[index];
-      }
-      // Keep modification objects unchanged
-      return item;
-    });
   }
 }
