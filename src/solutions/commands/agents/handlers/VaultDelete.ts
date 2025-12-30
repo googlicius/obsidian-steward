@@ -11,10 +11,9 @@ import {
   createArtifactIdSchema,
   createFilesSchemaString,
   createFilePatternsSchema,
-  createExplanationSchema,
 } from './vaultOperationSchemas';
 
-const deleteToolSchema = z
+export const deleteToolSchema = z
   .object({
     artifactId: createArtifactIdSchema({
       description: 'The artifact identifier containing files to delete.',
@@ -29,27 +28,17 @@ const deleteToolSchema = z
     }),
   })
   .refine(
-    data =>
-      Boolean(data.artifactId) ||
-      Boolean(data.files && data.files.length > 0) ||
-      Boolean(
+    data => {
+      const hasArtifactId = Boolean(data.artifactId);
+      const hasFiles = Boolean(data.files && data.files.length > 0);
+      const hasFilePatterns = Boolean(
         data.filePatterns && data.filePatterns.patterns && data.filePatterns.patterns.length > 0
-      ),
+      );
+      const providedCount = [hasArtifactId, hasFiles, hasFilePatterns].filter(Boolean).length;
+      return providedCount === 1;
+    },
     {
-      message: 'Provide either artifactId, files, or filePatterns.',
-    }
-  )
-  .refine(
-    data =>
-      !(
-        data.files &&
-        data.files.length > 0 &&
-        data.filePatterns &&
-        data.filePatterns.patterns &&
-        data.filePatterns.patterns.length > 0
-      ),
-    {
-      message: 'Provide either files or filePatterns, not both.',
+      message: 'Provide exactly one of artifactId, files, or filePatterns.',
     }
   );
 

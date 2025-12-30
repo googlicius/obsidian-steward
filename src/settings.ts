@@ -123,6 +123,7 @@ class StewardSettingTab extends PluginSettingTab {
     this.createProviderSetting('google');
     this.createProviderSetting('groq');
     this.createProviderSetting('anthropic');
+    this.createProviderSetting('ollama');
 
     containerEl.createEl('div', {
       text: `${t('settings.note')}:`,
@@ -139,8 +140,8 @@ class StewardSettingTab extends PluginSettingTab {
       cls: 'setting-item-description',
     });
 
-    // Add LLM settings section
-    new Setting(containerEl).setName(t('settings.llm')).setHeading();
+    // Add Models settings section
+    new Setting(containerEl).setName(t('settings.models')).setHeading();
 
     // Chat Model setting
     this.createModelSetting(
@@ -150,7 +151,7 @@ class StewardSettingTab extends PluginSettingTab {
       {
         currentModelField: 'llm.chat.model',
         customModelsField: 'llm.chat.customModels',
-        placeholder: 'e.g., openai:gpt-5',
+        placeholder: 'provider:model, e.g., openai:gpt-5',
         presetModels: LLM_MODELS,
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.chat.model = modelId;
@@ -270,7 +271,7 @@ class StewardSettingTab extends PluginSettingTab {
       {
         currentModelField: 'embedding.model',
         customModelsField: 'embedding.customModels',
-        placeholder: 'e.g., openai:text-embedding-ada-002',
+        placeholder: 'provider:model, e.g., openai:text-embedding-ada-002',
         presetModels: EMBEDDING_MODELS,
         onSelectChange: async (modelId: string) => {
           const oldModelId = this.plugin.settings.embedding.model;
@@ -359,7 +360,7 @@ class StewardSettingTab extends PluginSettingTab {
       {
         currentModelField: 'llm.speech.model',
         customModelsField: 'llm.speech.customModels',
-        placeholder: 'e.g., openai:tts-1',
+        placeholder: 'provider:model, e.g., openai:tts-1',
         presetModels: SPEECH_MODELS,
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.speech.model = modelId;
@@ -425,7 +426,7 @@ class StewardSettingTab extends PluginSettingTab {
       {
         currentModelField: 'llm.image.model',
         customModelsField: 'llm.image.customModels',
-        placeholder: 'e.g., openai:dall-e-3',
+        placeholder: 'provider:model, e.g., openai:dall-e-3',
         presetModels: IMAGE_MODELS,
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.image.model = modelId;

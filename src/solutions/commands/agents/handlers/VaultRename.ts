@@ -428,6 +428,7 @@ export class VaultRename {
       command: 'vault_rename',
       lang,
       handlerId,
+      includeHistory: false,
     });
 
     // Store rename results as an artifact if there are any renames

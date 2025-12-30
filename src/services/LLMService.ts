@@ -4,8 +4,8 @@ import { createDeepSeek, DeepSeekProvider } from '@ai-sdk/deepseek';
 import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/google';
 import { createGroq, GroqProvider } from '@ai-sdk/groq';
 import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
-import { createOllama, OllamaProvider } from 'ollama-ai-provider';
-import { LLM_MODELS, ProviderNeedApiKey } from 'src/constants';
+import { createOllama, OllamaProvider } from 'ollama-ai-provider-v2';
+import { ProviderNeedApiKey } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { jsonrepair } from 'jsonrepair';
 import { logger } from 'src/utils/logger';
@@ -79,6 +79,23 @@ export class LLMService {
   }
 
   /**
+   * Parse a model string into provider and model ID
+   * Handles model IDs that contain colons (e.g., ollama:llama3.2:3b -> { provider: 'ollama', modelId: 'llama3.2:3b' })
+   * @param model The model string in format provider:modelId
+   * @returns An object with provider and modelId
+   */
+  public parseModel(model: string): { provider: string; modelId: string } {
+    const colonIndex = model.indexOf(':');
+    if (colonIndex === -1) {
+      return { provider: '', modelId: model };
+    }
+    return {
+      provider: model.substring(0, colonIndex),
+      modelId: model.substring(colonIndex + 1),
+    };
+  }
+
+  /**
    * Determine the provider from the model name
    */
   public getProviderFromModel(
@@ -90,47 +107,10 @@ export class LLMService {
     | { modelId: string; name: 'groq'; provider: GroqProvider }
     | { modelId: string; name: 'ollama'; provider: OllamaProvider }
     | { modelId: string; name: 'anthropic'; provider: AnthropicProvider } {
-    let name: string | null = null;
-    let modelId = model;
-
-    if (model.includes(':')) {
-      const [provider, id] = model.split(':');
-      name = provider;
-      modelId = id;
-    }
-
-    // Supports all other models
-    if (!name) {
-      if (
-        model.includes('llama') ||
-        model.includes('mistral') ||
-        model.includes('mixtral') ||
-        model.includes('phi') ||
-        model.includes('gemma') ||
-        model.includes('qwen')
-      ) {
-        // Check if the settings model is in LLM_MODELS to determine default provider
-        const settingsModelOption = LLM_MODELS.find(
-          model => model.id === this.plugin.settings.llm.chat.model
-        );
-        const defaultProvider = settingsModelOption?.id.split(':')[0];
-        name = defaultProvider === 'ollama' ? 'ollama' : 'groq';
-      }
-
-      // For legacy models
-      if (model.startsWith('deepseek')) {
-        name = 'deepseek';
-      } else if (model.startsWith('gemini')) {
-        name = 'google';
-      } else if (model.startsWith('gpt')) {
-        name = 'openai';
-      } else if (model.includes('claude')) {
-        name = 'anthropic';
-      }
-    }
+    const { provider: name, modelId } = this.parseModel(model);
 
     if (!name) {
-      throw new Error(`Model ${model} not found`);
+      throw new Error(`Model ${model} must include a provider prefix (e.g., provider:modelId)`);
     }
 
     // Get baseURL for the provider (users can include CORS proxy in baseURL if needed)
@@ -188,6 +168,11 @@ export class LLMService {
           name,
           provider: createOllama({
             ...(baseURL && { baseURL }),
+            ...(apiKey && {
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+              },
+            }),
           }),
         };
       }
@@ -231,9 +216,9 @@ export class LLMService {
 
     const languageModel = provider(modelId);
 
-    if (languageModel.specificationVersion === 'v1') {
-      throw new Error(`Language model ${model} is not supported`);
-    }
+    // if (languageModel.specificationVersion === 'v1') {
+    //   throw new Error(`Language model ${model} is not supported`);
+    // }
 
     const generateParams = {
       model: languageModel,

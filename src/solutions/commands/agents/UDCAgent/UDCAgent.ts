@@ -65,9 +65,7 @@ export class UDCAgent extends Agent {
             if (!Array.isArray(systemPrompts)) {
               systemPrompts = [];
             }
-            systemPrompts.push(
-              `This step you generate directly, no edit or create. If the current to-do step is not the last step, you MUST call ${ToolName.TODO_LIST_UPDATE} tool while generating your response to ensure the continuation of the to-do list, because the system stops if there is no tool call.`
-            );
+            systemPrompts.push(`This step you generate directly, no edit or create.`);
           }
           return {
             type: expandedIntent.type,
@@ -77,8 +75,6 @@ export class UDCAgent extends Agent {
             no_confirm: expandedIntent.no_confirm,
           };
         });
-
-        console.log('todoListSteps', todoListSteps);
 
         await this.renderer.updateConversationFrontmatter(title, [
           { name: 'udc_command', value: intent.type },

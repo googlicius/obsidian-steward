@@ -27,6 +27,8 @@ const vi = {
       thinkingProcess: 'Quá trình suy nghĩ',
       modelDoesNotSupportImageInputs:
         'Mô hình {{model}} không hỗ trợ đọc hình ảnh. Vui lòng sử dụng mô hình có khả năng xử lý hình ảnh (ví dụ: gpt-4o, gemini-pro, claude-3-sonnet).',
+      invalidOrDynamicToolCall:
+        'Mô hình đã trả về lệnh gọi công cụ không hợp lệ hoặc động (dynamic): "{{toolName}}".',
     },
     trigger: {
       executing: 'Đang thực thi trigger cho lệnh: {{commandName}}',
@@ -88,7 +90,7 @@ const vi = {
     },
     rename: {
       processed: 'Tôi đã xử lý {{count}} yêu cầu đổi tên.',
-      success: 'Đã đổi tên thành công {{count}} tập tin:',
+      success: 'Đã đổi tên thành công {{count}} tập tin.',
       samePath: 'Đã bỏ qua {{count}} tập tin (đường dẫn mới trùng với đường dẫn cũ):',
       fileMissing: 'Đã bỏ qua {{count}} tập tin (không tìm thấy đường dẫn gốc):',
       targetExists: 'Đã bỏ qua {{count}} tập tin (đích đã tồn tại):',
@@ -244,6 +246,7 @@ const vi = {
       todoList: 'Danh sách công việc',
       pending: 'Pending',
       inProgress: 'Đang thực hiện',
+      skipped: 'Đã bỏ qua',
       completed: 'Đã hoàn thành',
       step: 'Bước {{index}}',
     },
@@ -308,6 +311,8 @@ const vi = {
       googleApiKey: 'Khóa API Google',
       groqApiKey: 'Khóa API Groq',
       anthropicApiKey: 'Khóa API Anthropic',
+      ollamaApiKey: 'Khóa API Ollama (Tùy chọn)',
+      ollamaApiKeyDesc: 'Khóa API cho API Ollama',
       enterApiKey: 'Nhập khóa API của bạn',
       apiKeyPlaceholder: '••••••••••••••••••••••',
       errorReenterKey: 'Lỗi: Nhấp để nhập lại khóa',
@@ -323,7 +328,7 @@ const vi = {
       note: 'Lưu ý',
       apiKeyNote1: 'Bạn cần cung cấp khóa API của riêng mình để sử dụng trợ lý AI.',
       apiKeyNote2: 'Tất cả khóa API được lưu trữ với mã hóa.',
-      llm: 'LLM',
+      models: 'Mô hình',
       chatModel: 'Mô hình trò chuyện',
       chatModelDesc:
         'Chọn mô hình AI để sử dụng cho trò chuyện. Bạn cũng có thể thay đổi mô hình trực tiếp trong ô nhập bằng cách gõ m: hoặc model:',

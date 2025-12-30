@@ -28,6 +28,8 @@ const ja = {
       thinkingProcess: '思考過程',
       modelDoesNotSupportImageInputs:
         'モデル {{model}} は画像入力をサポートしていません。画像入力をサポートするモデルを使用してください（例: gpt-4o, gemini-pro, claude-3-sonnet）。',
+      invalidOrDynamicToolCall:
+        'モデルが無効なまたは動的なツールコールを返しました: "{{toolName}}".',
     },
     trigger: {
       executing: 'トリガーコマンドを実行中: {{commandName}}',
@@ -89,7 +91,7 @@ const ja = {
     },
     rename: {
       processed: '{{count}}件のリネーム指示を処理しました。',
-      success: '{{count}}件のファイル名をリネームしました：',
+      success: '{{count}}件のファイル名をリネームしました。',
       samePath: 'パスが変更されていないため{{count}}件をスキップしました：',
       fileMissing: '元のパスが見つからないため{{count}}件をスキップしました：',
       targetExists: 'ターゲットが既に存在するため{{count}}件をスキップしました：',
@@ -244,6 +246,7 @@ const ja = {
       todoList: 'To-Doリスト',
       pending: '保留中',
       inProgress: '進行中',
+      skipped: 'スキップ',
       completed: '完了',
       step: 'ステップ {{index}}',
     },

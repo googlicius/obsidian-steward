@@ -236,7 +236,7 @@ export class ConversationRenderer {
    * The result could be inlined or referenced to a message or an artifact.
    * @returns The message ID for referencing
    */
-  public async serializeToolInvocation<T>(params: {
+  public async serializeToolInvocation(params: {
     path: string;
     command?: string;
     agent?: string;
@@ -1505,11 +1505,18 @@ export class ConversationRenderer {
       // Group consecutive messages by (handlerId, role, step) for merging
       const groupedMessages = this.groupMessagesByStep(messagesToInclude);
 
+      // Find the index of the last assistant group (to only include reasoning for it)
+      const lastAssistantGroupIndex = groupedMessages.findLastIndex(
+        group => group[0].role === 'assistant'
+      );
+
       // Convert grouped messages to ModelMessages
       const modelMessages: ModelMessage[] = [];
 
-      for (const group of groupedMessages) {
+      for (let groupIndex = 0; groupIndex < groupedMessages.length; groupIndex++) {
+        const group = groupedMessages[groupIndex];
         const firstMessage = group[0];
+        const isLastAssistantGroup = groupIndex === lastAssistantGroupIndex;
 
         // User messages are not grouped by step, process individually
         if (firstMessage.role === 'user') {
@@ -1546,17 +1553,22 @@ export class ConversationRenderer {
               }
             }
           } else if (message.type === 'reasoning') {
-            assistantParts.push({ type: 'reasoning', text: message.content });
+            // Only include reasoning for the latest assistant message
+            if (isLastAssistantGroup) {
+              assistantParts.push({ type: 'reasoning', text: message.content });
+            }
           } else if (message.role === 'assistant') {
             assistantParts.push({ type: 'text', text: message.content });
           }
         }
 
-        // Auto-include empty reasoning content if missing
-        const hasReasoningPart = assistantParts.some(part => part.type === 'reasoning');
-        if (!hasReasoningPart && assistantParts.length > 0) {
-          // Insert empty reasoning at the beginning (reasoning should come before text)
-          assistantParts.unshift({ type: 'reasoning', text: '' });
+        // Auto-include empty reasoning content if missing (only for the latest assistant message)
+        if (isLastAssistantGroup) {
+          const hasReasoningPart = assistantParts.some(part => part.type === 'reasoning');
+          if (!hasReasoningPart && assistantParts.length > 0) {
+            // Insert empty reasoning at the beginning (reasoning should come before text)
+            assistantParts.unshift({ type: 'reasoning', text: '' });
+          }
         }
 
         // Push assistant message with all collected parts

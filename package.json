@@ -44,7 +44,7 @@
     "dexie": "^4.0.11",
     "i18next": "^21.10.0",
     "jsonrepair": "^3.13.0",
-    "ollama-ai-provider": "^1.2.0",
+    "ollama-ai-provider-v2": "^1.5.5",
     "zod": "^4.1.8"
   }
 }

@@ -1,14 +1,5 @@
 import * as handlers from '../handlers';
-import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import type { SuperAgent } from '../SuperAgent';
-
-/**
- * Interface for classes that have a renderer property
- * This allows SuperAgentHandlers to access renderer when mixed into SuperAgent
- */
-interface HasRenderer {
-  renderer: ConversationRenderer;
-}
 
 /**
  * All handlers are lazily declared in this class
@@ -40,6 +31,7 @@ export class SuperAgentHandlers {
   private _speech: handlers.Speech;
   private _image: handlers.Image;
   private _todoList: handlers.TodoList;
+  private _dynamic: handlers.Dynamic;
 
   /**
    * Helper method to get this instance typed as SuperAgent
@@ -115,9 +107,7 @@ export class SuperAgentHandlers {
 
   public get activateToolHandler(): handlers.ActivateToolHandler {
     if (!this._activateToolHandler) {
-      this._activateToolHandler = new handlers.ActivateToolHandler(
-        (this as unknown as HasRenderer).renderer
-      );
+      this._activateToolHandler = new handlers.ActivateToolHandler(this.getAgent().renderer);
     }
 
     return this._activateToolHandler;
@@ -257,5 +247,13 @@ export class SuperAgentHandlers {
     }
 
     return this._todoList;
+  }
+
+  public get dynamic(): handlers.Dynamic {
+    if (!this._dynamic) {
+      this._dynamic = new handlers.Dynamic(this.getAgent().renderer);
+    }
+
+    return this._dynamic;
   }
 }

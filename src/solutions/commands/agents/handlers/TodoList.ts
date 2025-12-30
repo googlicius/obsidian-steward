@@ -6,7 +6,6 @@ import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { SystemPromptItem } from '../../SystemPromptModifier';
-import { ToolName } from '../../ToolRegistry';
 
 /**
  * Schema for a single to-do list step
@@ -29,12 +28,16 @@ const todoListSchema = z.object({
  * Schema for the to-do list update tool input
  */
 const todoListUpdateSchema = z.object({
-  currentStepIndex: z.number().int().min(0).describe('The current step index (0-based).'),
-  steps: z
-    .array(todoStepSchema)
+  status: z
+    .enum(['in_progress', 'skipped', 'completed'])
+    .describe('The status of the current step: in_progress, skipped, or completed.'),
+  nextStep: z
+    .number()
+    .int()
+    .min(1)
     .optional()
     .describe(
-      'Optional array of steps to update the to-do list. If not provided, existing steps are kept.'
+      'The step number to move to after updating (1-based). If not provided, stays on the current step.'
     ),
 });
 
@@ -68,13 +71,14 @@ export type TodoListArgsWithMetadata = {
 export interface TodoListState {
   steps: Array<{
     task: string;
+    status?: 'in_progress' | 'skipped' | 'completed';
     // Optional metadata fields - only populated by UDC, not exposed to AI
     type?: string;
     model?: string;
     systemPrompts?: (string | SystemPromptItem)[];
     no_confirm?: boolean;
   }>;
-  currentStepIndex: number;
+  currentStep: number;
 }
 
 export class TodoList {
@@ -106,16 +110,40 @@ export class TodoList {
 
     for (let i = 0; i < state.steps.length; i++) {
       const step = state.steps[i];
-      const isCurrent = i === state.currentStepIndex;
-      const isCompleted = i < state.currentStepIndex;
-      const prefix = isCompleted ? '✅' : isCurrent ? '🔄' : '⏳';
-      const status = isCompleted
-        ? t('todoList.completed')
-        : isCurrent
-          ? t('todoList.inProgress')
-          : t('todoList.pending');
+      const stepNumber = i + 1; // Convert 0-based index to 1-based step number
+      const isCurrent = stepNumber === state.currentStep;
 
-      lines.push(`${prefix} **${t('todoList.step', { index: i + 1 })}** (${status})`);
+      // Determine status: use stored status if available, otherwise infer from position
+      let stepStatus: 'in_progress' | 'skipped' | 'completed' | 'pending';
+      if (step.status) {
+        stepStatus = step.status;
+      } else if (stepNumber < state.currentStep) {
+        stepStatus = 'completed';
+      } else if (isCurrent) {
+        stepStatus = 'in_progress';
+      } else {
+        stepStatus = 'pending';
+      }
+
+      const prefix =
+        stepStatus === 'completed'
+          ? '✅'
+          : stepStatus === 'skipped'
+            ? '⏭️'
+            : stepStatus === 'in_progress'
+              ? '🔄'
+              : '⏳';
+
+      const statusText =
+        stepStatus === 'completed'
+          ? t('todoList.completed')
+          : stepStatus === 'skipped'
+            ? t('todoList.skipped')
+            : stepStatus === 'in_progress'
+              ? t('todoList.inProgress')
+              : t('todoList.pending');
+
+      lines.push(`${prefix} **${t('todoList.step', { index: i + 1 })}** (${statusText})`);
       lines.push(`   Task: ${step.task}`);
       lines.push('');
     }
@@ -132,7 +160,6 @@ export class TodoList {
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const { toolCall } = options;
-    const t = getTranslation(lang);
 
     if (!handlerId) {
       throw new Error('TodoList.handle invoked without handlerId');
@@ -151,7 +178,7 @@ export class TodoList {
       // Create new to-do list state
       const newState: TodoListState = {
         steps,
-        currentStepIndex: 0,
+        currentStep: 1,
       };
 
       // Store in frontmatter
@@ -193,7 +220,7 @@ export class TodoList {
             type: 'tool-result',
             output: {
               type: 'text',
-              value: `To-do list created. Current step: ${newState.currentStepIndex + 1} of ${newState.steps.length}`,
+              value: `To-do list created. Current step: ${newState.currentStep} of ${newState.steps.length}`,
             },
           },
         ],
@@ -220,14 +247,13 @@ export class TodoList {
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const { toolCall } = options;
-    const t = getTranslation(lang);
 
     if (!handlerId) {
       throw new Error('TodoList.handleUpdate invoked without handlerId');
     }
 
     try {
-      const { currentStepIndex, steps } = toolCall.input;
+      const { status, nextStep } = toolCall.input;
 
       // Get existing to-do list state from frontmatter
       const existingState = await this.agent.renderer.getConversationProperty<TodoListState>(
@@ -242,29 +268,37 @@ export class TodoList {
         };
       }
 
-      // Use existing steps if not provided, otherwise use new steps
-      const stepsToUse = steps || existingState.steps;
+      const totalSteps = existingState.steps.length;
+      const currentStep = existingState.currentStep;
 
-      if (!stepsToUse || stepsToUse.length === 0) {
-        return {
-          status: IntentResultStatus.ERROR,
-          error: new Error('To-do list must have at least one step'),
-        };
-      }
+      // Convert 1-based step number to 0-based index for array access
+      const stepIndex = currentStep - 1;
 
-      // Ensure currentStepIndex is within bounds
-      let newCurrentStepIndex = currentStepIndex;
-      if (newCurrentStepIndex >= stepsToUse.length) {
-        newCurrentStepIndex = stepsToUse.length - 1;
+      // Update the status of the current step
+      const updatedSteps = existingState.steps.map((step, index) => {
+        if (index === stepIndex) {
+          return {
+            ...step,
+            status,
+          };
+        }
+        return step;
+      });
+
+      // Determine which step to move to
+      // If nextStep is provided, use it; otherwise stay on the current step
+      let targetStep = nextStep ?? currentStep;
+      if (targetStep > totalSteps) {
+        targetStep = totalSteps;
       }
-      if (newCurrentStepIndex < 0) {
-        newCurrentStepIndex = 0;
+      if (targetStep < 1) {
+        targetStep = 1;
       }
 
       // Create updated state
       const newState: TodoListState = {
-        steps: stepsToUse,
-        currentStepIndex: newCurrentStepIndex,
+        steps: updatedSteps,
+        currentStep: targetStep,
       };
 
       // Store in frontmatter
@@ -309,7 +343,7 @@ export class TodoList {
             type: 'tool-result',
             output: {
               type: 'text',
-              value: `To-do list updated. Current step: ${newState.currentStepIndex + 1} of ${newState.steps.length}`,
+              value: `To-do list updated. Current step: ${newState.currentStep} of ${newState.steps.length}`,
             },
           },
         ],

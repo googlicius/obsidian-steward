@@ -451,7 +451,7 @@ Your role is to help users with multiple tasks by using appropriate tools.
 You have access to the following tools:
 ${registry.generateToolsSection()}
 
-OTHER TOOLS:
+OTHER TOOLS (Inactive):
 ${registry.generateOtherToolsSection(
   'No other tools available.',
   new Set([
@@ -533,8 +533,6 @@ NOTE:
         toolCalls,
         conversationHistory,
       };
-    } catch (error) {
-      throw error;
     } finally {
       if (timer) {
         clearTimeout(timer);
@@ -675,7 +673,7 @@ NOTE:
           let toolCallResult: AgentResult | undefined;
 
           if (toolCall.dynamic) {
-            // We don't support dynamic tool call
+            await this.dynamic.handle(params, { toolCall, tools });
             continue;
           }
 
@@ -821,8 +819,6 @@ NOTE:
         return {
           status: IntentResultStatus.SUCCESS,
         };
-      } catch (error) {
-        throw error;
       } finally {
         if (timer) {
           clearTimeout(timer);
@@ -849,15 +845,18 @@ NOTE:
 
     const nextRemainingSteps = remainingSteps - 1;
 
+    // Check if to-do list has incomplete steps (for UDC "generate" steps that don't use tools)
+    const hasTodoIncomplete = await this.hasTodoListIncompleteSteps(title);
+
     // classifiedTasks = this.classifyTasksFromActiveTools(activeTools);
 
     if (
-      toolCalls.length > 0 &&
+      (toolCalls.length > 0 || hasTodoIncomplete) &&
       nextRemainingSteps > 0 &&
       !this.stopProcessingForClassifiedTask(classifiedTasks, toolCalls)
     ) {
       // Update indicator to show we're still working
-      const firstToolName = toolCalls[0].toolName as ToolName;
+      const firstToolName = toolCalls.length > 0 ? (toolCalls[0].toolName as ToolName) : undefined;
       await this.renderIndicator(title, lang, firstToolName);
 
       // Check if TODO_LIST_UPDATE was called and get next step intent for UDC
@@ -1013,26 +1012,28 @@ NOTE:
       return '';
     }
 
-    const currentStep = todoListState.steps[todoListState.currentStepIndex];
     return `\n\nTO-DO LIST:
 You are working on a to-do list with ${todoListState.steps.length} step(s).
-Current step: ${todoListState.currentStepIndex + 1} of ${todoListState.steps.length}
-Current step task: "${currentStep?.task || 'N/A'}"
+Current step: ${todoListState.currentStep} of ${todoListState.steps.length}
 
 Steps:
 ${todoListState.steps
   .map((step, index) => {
     const status =
-      index < todoListState.currentStepIndex
+      step.status === 'completed'
         ? '✅ Completed'
-        : index === todoListState.currentStepIndex
-          ? '🔄 In Progress'
-          : '⏳ Pending';
+        : step.status === 'skipped'
+          ? '⏭️ Skipped'
+          : step.status === 'in_progress'
+            ? '🔄 In Progress'
+            : '⏳ Pending';
     return `${index + 1}. ${status}: ${step.task}`;
   })
   .join('\n')}
 
-When you complete the current step, use the ${ToolName.TODO_LIST_UPDATE} tool to update the currentStepIndex and move to the next step.`;
+When you complete or skip the current step, use the ${ToolName.TODO_LIST_UPDATE} tool with:
+- status: in_progress, skipped, or completed
+- nextStep: (optional) the step number to move to after updating`;
   }
 
   /**
@@ -1138,6 +1139,7 @@ When you complete the current step, use the ${ToolName.TODO_LIST_UPDATE} tool to
   /**
    * Get the next step intent for UDC if TODO_LIST_UPDATE was called
    * Returns null if not a UDC or no next step available
+   * Skips over completed or skipped steps to find the next pending or in_progress step
    */
   private async getNextUDCStepIntent(title: string, currentIntent: Intent): Promise<Intent | null> {
     const udcCommand = await this.renderer.getConversationProperty<string>(title, 'udc_command');
@@ -1150,11 +1152,35 @@ When you complete the current step, use the ${ToolName.TODO_LIST_UPDATE} tool to
       'todo_list'
     );
 
-    if (!updatedTodoList || updatedTodoList.currentStepIndex >= updatedTodoList.steps.length) {
+    if (!updatedTodoList || updatedTodoList.steps.length === 0) {
       return null;
     }
 
-    const nextStep = updatedTodoList.steps[updatedTodoList.currentStepIndex];
+    // Find the next step that is not completed or skipped
+    // Start from currentStep (1-based) and look for the next pending or in_progress step
+    // Convert 1-based step number to 0-based index for array access
+    let stepIndex = updatedTodoList.currentStep - 1;
+
+    // If current step is completed or skipped, move to next step
+    const currentStep = updatedTodoList.steps[stepIndex];
+    if (currentStep?.status === 'completed' || currentStep?.status === 'skipped') {
+      stepIndex++;
+    }
+
+    // Skip over any completed or skipped steps
+    while (
+      stepIndex < updatedTodoList.steps.length &&
+      (updatedTodoList.steps[stepIndex]?.status === 'completed' ||
+        updatedTodoList.steps[stepIndex]?.status === 'skipped')
+    ) {
+      stepIndex++;
+    }
+
+    if (stepIndex >= updatedTodoList.steps.length) {
+      return null;
+    }
+
+    const nextStep = updatedTodoList.steps[stepIndex];
     if (!nextStep) {
       return null;
     }
@@ -1184,6 +1210,27 @@ When you complete the current step, use the ${ToolName.TODO_LIST_UPDATE} tool to
       }
     }
     return null;
+  }
+
+  /**
+   * Check if the to-do list has incomplete steps (pending or in_progress)
+   * @param title The conversation title
+   * @returns True if there are incomplete steps
+   */
+  private async hasTodoListIncompleteSteps(title: string): Promise<boolean> {
+    const todoListState = await this.renderer.getConversationProperty<handlers.TodoListState>(
+      title,
+      'todo_list'
+    );
+
+    if (!todoListState || !todoListState.steps || todoListState.steps.length === 0) {
+      return false;
+    }
+
+    // Check if any step is not completed and not skipped
+    return todoListState.steps.some(
+      step => step.status !== 'completed' && step.status !== 'skipped'
+    );
   }
 }
 

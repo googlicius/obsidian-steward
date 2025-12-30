@@ -1,5 +1,4 @@
 import { embed, embedMany, cosineSimilarity, EmbeddingModel } from 'ai';
-import { EmbeddingModelV1 } from '@ai-sdk/provider';
 import { EmbeddingsDatabase, EmbeddingEntry } from 'src/database/EmbeddingsDatabase';
 import { logger } from 'src/utils/logger';
 import { getQualifiedCandidates } from 'src/utils/getQualifiedCandidates';
@@ -16,7 +15,7 @@ export interface Settings {
   staticClusterValues?: ValueCluster[];
   prefixedClusterValue?: ValueCluster[];
   clusters: ValueCluster[];
-  embeddingModel: EmbeddingModel<string> | EmbeddingModelV1<string>;
+  embeddingModel: EmbeddingModel<string>;
   similarityThreshold: number;
   modelName?: string;
   forceRefresh?: boolean;

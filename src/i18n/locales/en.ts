@@ -32,6 +32,7 @@ const en = {
       thinkingProcess: 'Thinking process',
       modelDoesNotSupportImageInputs:
         'Model {{model}} does not support image inputs. Please use a vision-capable model (e.g., gpt-4o, gemini-pro, claude-3-sonnet).',
+      invalidOrDynamicToolCall: 'Model returned a dynamic or invalid tool call: "{{toolName}}".',
     },
     trigger: {
       executing: 'Command "{{commandName}}" is executing.',
@@ -118,8 +119,8 @@ const en = {
     rename: {
       processed_one: 'I processed {{count}} rename instruction.',
       processed_other: 'I processed {{count}} rename instructions.',
-      success_one: 'Successfully renamed {{count}} file:',
-      success_other: 'Successfully renamed {{count}} files:',
+      success_one: 'Successfully renamed {{count}} file',
+      success_other: 'Successfully renamed {{count}} files',
       samePath_one: 'Skipped {{count}} file (new path matches current path):',
       samePath_other: 'Skipped {{count}} files (new path matches current path):',
       fileMissing_one: 'Skipped {{count}} file (original path not found):',
@@ -309,6 +310,7 @@ const en = {
       todoList: 'To-Do list',
       pending: 'Pending',
       inProgress: 'In Progress',
+      skipped: 'Skipped',
       completed: 'Completed',
       step: 'Step {{index}}',
     },
@@ -375,6 +377,7 @@ const en = {
       googleApiKey: 'Google API key',
       groqApiKey: 'Groq API key',
       anthropicApiKey: 'Anthropic API key',
+      ollamaApiKey: 'Ollama API key (Optional)',
       enterApiKey: 'Enter your API key',
       apiKeyPlaceholder: '••••••••••••••••••••••',
       errorReenterKey: 'Error: Click to re-enter key',
@@ -390,7 +393,7 @@ const en = {
       note: 'Note',
       apiKeyNote1: 'You need to provide your own API keys to use the AI-powered assistant.',
       apiKeyNote2: 'All API keys are stored with encryption.',
-      llm: 'LLM',
+      models: 'Models',
       chatModel: 'Chat model',
       chatModelDesc:
         'Select the AI model to use for chat. You can also change the model inline in the command input by typing m: or model:',

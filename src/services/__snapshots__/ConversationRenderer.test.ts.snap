@@ -275,10 +275,6 @@ exports[`ConversationRenderer extractConversationHistory should extract a conver
   {
     "content": [
       {
-        "text": "",
-        "type": "reasoning",
-      },
-      {
         "text": "Search results: Haiku About Angular.md, Angular poem.md",
         "type": "text",
       },
@@ -340,10 +336,6 @@ exports[`ConversationRenderer extractConversationHistory should extract conversa
   {
     "content": [
       {
-        "text": "",
-        "type": "reasoning",
-      },
-      {
         "text": "\`\`\`stw-artifact
 First summary about React hooks
 \`\`\`",
@@ -358,10 +350,6 @@ First summary about React hooks
   },
   {
     "content": [
-      {
-        "text": "",
-        "type": "reasoning",
-      },
       {
         "text": "useState is a React Hook that lets you add state to functional components",
         "type": "text",
@@ -397,10 +385,6 @@ exports[`ConversationRenderer extractConversationHistory should extract conversa
   },
   {
     "content": [
-      {
-        "text": "",
-        "type": "reasoning",
-      },
       {
         "text": "I'll search for information about React hooks.",
         "type": "text",
@@ -450,10 +434,6 @@ exports[`ConversationRenderer extractConversationHistory should group messages b
   },
   {
     "content": [
-      {
-        "text": "",
-        "type": "reasoning",
-      },
       {
         "text": "Starting the first step...",
         "type": "text",
@@ -538,10 +518,6 @@ exports[`ConversationRenderer extractConversationHistory should handle conversat
   {
     "content": [
       {
-        "text": "",
-        "type": "reasoning",
-      },
-      {
         "text": "I've found 1 code block above.",
         "type": "text",
       },
@@ -551,10 +527,6 @@ exports[`ConversationRenderer extractConversationHistory should handle conversat
   {
     "content": [
       {
-        "text": "",
-        "type": "reasoning",
-      },
-      {
         "text": "I've updated the code to use a functional update with \`setTodos\`, which removes the need to include \`todos\` as a dependency in the \`useCallback\` hook.",
         "type": "text",
       },
@@ -563,10 +535,6 @@ exports[`ConversationRenderer extractConversationHistory should handle conversat
   },
   {
     "content": [
-      {
-        "text": "",
-        "type": "reasoning",
-      },
       {
         "text": ">[!stw-search-result]
 >
@@ -685,10 +653,6 @@ exports[`ConversationRenderer extractConversationHistory should only include mes
   {
     "content": [
       {
-        "text": "",
-        "type": "reasoning",
-      },
-      {
         "text": "Here's what I found about Angular components:
 
 Angular components are the building blocks of Angular applications.",
@@ -726,10 +690,6 @@ exports[`ConversationRenderer extractConversationHistory should only include the
   {
     "content": [
       {
-        "text": "",
-        "type": "reasoning",
-      },
-      {
         "text": "\`\`\`stw-artifact
 This conversation discusses React hooks, particularly useState, which allows adding state to functional components.
 \`\`\`",
@@ -744,10 +704,6 @@ This conversation discusses React hooks, particularly useState, which allows add
   },
   {
     "content": [
-      {
-        "text": "",
-        "type": "reasoning",
-      },
       {
         "text": "The useEffect hook lets you perform side effects in function components. It runs after render and after every update by default.",
         "type": "text",
