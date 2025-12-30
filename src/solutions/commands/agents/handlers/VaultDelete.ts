@@ -1,20 +1,19 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { type SuperAgent } from '../SuperAgent';
 import { logger } from 'src/utils/logger';
 import { NonTrashFile, TrashFile } from 'src/services/TrashCleanupService';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import {
   createArtifactIdSchema,
   createFilesSchemaString,
   createFilePatternsSchema,
-  createExplanationSchema,
 } from './vaultOperationSchemas';
 
-const deleteToolSchema = z
+export const deleteToolSchema = z
   .object({
     artifactId: createArtifactIdSchema({
       description: 'The artifact identifier containing files to delete.',
@@ -27,32 +26,19 @@ const deleteToolSchema = z
         'Pattern-based file selection for large file sets. Prefer this over the files array to avoid token limits.',
       patternsDescription: 'Array of RegExp patterns to match files for deletion.',
     }),
-    explanation: createExplanationSchema({
-      description: 'A short explanation of why these files should be deleted.',
-    }),
   })
   .refine(
-    data =>
-      Boolean(data.artifactId) ||
-      Boolean(data.files && data.files.length > 0) ||
-      Boolean(
+    data => {
+      const hasArtifactId = Boolean(data.artifactId);
+      const hasFiles = Boolean(data.files && data.files.length > 0);
+      const hasFilePatterns = Boolean(
         data.filePatterns && data.filePatterns.patterns && data.filePatterns.patterns.length > 0
-      ),
+      );
+      const providedCount = [hasArtifactId, hasFiles, hasFilePatterns].filter(Boolean).length;
+      return providedCount === 1;
+    },
     {
-      message: 'Provide either artifactId, files, or filePatterns.',
-    }
-  )
-  .refine(
-    data =>
-      !(
-        data.files &&
-        data.files.length > 0 &&
-        data.filePatterns &&
-        data.filePatterns.patterns &&
-        data.filePatterns.patterns.length > 0
-      ),
-    {
-      message: 'Provide either files or filePatterns, not both.',
+      message: 'Provide exactly one of artifactId, files, or filePatterns.',
     }
   );
 
@@ -66,7 +52,7 @@ type DeleteExecutionResult = {
 };
 
 export class VaultDelete {
-  private static readonly deleteTool = tool({ parameters: deleteToolSchema });
+  private static readonly deleteTool = tool({ inputSchema: deleteToolSchema });
 
   constructor(private readonly agent: SuperAgent) {}
 
@@ -76,32 +62,21 @@ export class VaultDelete {
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, DeleteToolArgs> }
+    options: { toolCall: ToolCallPart<DeleteToolArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
     const { toolCall } = options;
-    const t = getTranslation(lang);
+    const t = getTranslation(params.lang);
 
-    if (!handlerId) {
+    if (!params.handlerId) {
       throw new Error('VaultDelete.handle invoked without handlerId');
     }
 
-    if (toolCall.args.explanation) {
-      await this.agent.renderer.updateConversationNote({
-        path: title,
-        newContent: toolCall.args.explanation,
-        command: 'vault_delete',
-        includeHistory: false,
-        lang,
-        handlerId,
-      });
-    }
-
     const resolveFilesResult = await this.resolveFilePaths({
-      title,
+      title: params.title,
       toolCall,
-      lang,
-      handlerId,
+      lang: params.lang,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
     });
 
     if (resolveFilesResult.errorMessage) {
@@ -122,7 +97,7 @@ export class VaultDelete {
 
     const operationArtifactId = `delete_${Date.now()}`;
     const deleteResult = await this.executeDelete({
-      title,
+      title: params.title,
       filePaths,
       operationArtifactId,
     });
@@ -148,19 +123,25 @@ export class VaultDelete {
     }
 
     const messageId = await this.agent.renderer.updateConversationNote({
-      path: title,
+      path: params.title,
       newContent: response,
       command: 'vault_delete',
-      lang,
-      handlerId,
+      lang: params.lang,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
       includeHistory: false,
     });
 
-    await this.serializeDeleteInvocation({
-      title,
-      handlerId,
+    await this.agent.serializeInvocation({
+      command: 'vault_delete',
+      title: params.title,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
       toolCall,
-      result: messageId ? `messageRef:${messageId}` : response,
+      result: {
+        type: 'text',
+        value: messageId ? `messageRef:${messageId}` : response,
+      },
     });
 
     return {
@@ -170,20 +151,20 @@ export class VaultDelete {
 
   private async resolveFilePaths(params: {
     title: string;
-    toolCall: ToolInvocation<unknown, DeleteToolArgs>;
+    toolCall: ToolCallPart<DeleteToolArgs>;
     lang?: string | null;
     handlerId: string;
+    step?: number;
   }): Promise<{ filePaths: string[]; errorMessage?: string }> {
-    const { title, toolCall, lang, handlerId } = params;
-    const t = getTranslation(lang);
+    const t = getTranslation(params.lang);
 
     const filePaths: string[] = [];
     const noFilesMessage = t('common.noFilesFound');
 
-    if (toolCall.args.artifactId) {
-      const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(title);
+    if (params.toolCall.input.artifactId) {
+      const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(params.title);
       const resolvedFiles = await artifactManager.resolveFilesFromArtifact(
-        toolCall.args.artifactId
+        params.toolCall.input.artifactId
       );
 
       if (resolvedFiles.length === 0) {
@@ -195,8 +176,8 @@ export class VaultDelete {
       }
     }
 
-    if (toolCall.args.files) {
-      for (const filePath of toolCall.args.files) {
+    if (params.toolCall.input.files) {
+      for (const filePath of params.toolCall.input.files) {
         const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(filePath);
         if (file) {
           filePaths.push(file.path);
@@ -204,29 +185,35 @@ export class VaultDelete {
       }
     }
 
-    if (toolCall.args.filePatterns) {
+    if (params.toolCall.input.filePatterns) {
       const patternMatchedPaths = this.agent.obsidianAPITools.resolveFilePatterns(
-        toolCall.args.filePatterns.patterns,
-        toolCall.args.filePatterns.folder
+        params.toolCall.input.filePatterns.patterns,
+        params.toolCall.input.filePatterns.folder
       );
       filePaths.push(...patternMatchedPaths);
     }
 
     if (filePaths.length === 0) {
       const noFilesMessageId = await this.agent.renderer.updateConversationNote({
-        path: title,
+        path: params.title,
         newContent: noFilesMessage,
         command: 'vault_delete',
-        lang,
-        handlerId,
+        lang: params.lang,
+        handlerId: params.handlerId,
+        step: params.step,
         includeHistory: false,
       });
 
-      await this.serializeDeleteInvocation({
-        title,
-        handlerId,
-        toolCall,
-        result: noFilesMessageId ? `messageRef:${noFilesMessageId}` : noFilesMessage,
+      await this.agent.serializeInvocation({
+        command: 'vault_delete',
+        title: params.title,
+        handlerId: params.handlerId,
+        step: params.step,
+        toolCall: params.toolCall,
+        result: {
+          type: 'error-text',
+          value: noFilesMessageId ? `messageRef:${noFilesMessageId}` : noFilesMessage,
+        },
       });
 
       return { filePaths: [], errorMessage: noFilesMessage };
@@ -240,13 +227,12 @@ export class VaultDelete {
     filePaths: string[];
     operationArtifactId: string;
   }): Promise<DeleteExecutionResult> {
-    const { title, filePaths, operationArtifactId } = params;
     const isStwTrash = this.agent.plugin.settings.deleteBehavior.behavior === 'stw_trash';
     const deletedFiles: (TrashFile | NonTrashFile)[] = [];
     const failedFiles: string[] = [];
     const trashFiles: TrashFile[] = [];
 
-    for (const filePath of filePaths) {
+    for (const filePath of params.filePaths) {
       const result = await this.trashFile({ filePath });
       if (!result.success) {
         failedFiles.push(result.originalPath);
@@ -271,14 +257,14 @@ export class VaultDelete {
     if (isStwTrash && trashFiles.length > 0) {
       await this.agent.plugin.trashCleanupService.addFilesToTrash({
         files: trashFiles,
-        artifactId: operationArtifactId,
+        artifactId: params.operationArtifactId,
       });
 
-      await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+      await this.agent.plugin.artifactManagerV2.withTitle(params.title).storeArtifact({
         artifact: {
           artifactType: ArtifactType.DELETED_FILES,
           fileCount: trashFiles.length,
-          id: operationArtifactId,
+          id: params.operationArtifactId,
           createdAt: Date.now(),
         },
       });
@@ -287,7 +273,7 @@ export class VaultDelete {
         deletedFiles,
         trashFiles,
         failedFiles,
-        operationArtifactId,
+        operationArtifactId: params.operationArtifactId,
       };
     }
 
@@ -337,26 +323,5 @@ export class VaultDelete {
       logger.error(`Error moving file ${filePath} to Steward trash:`, error);
       return { success: false, originalPath: filePath };
     }
-  }
-
-  private async serializeDeleteInvocation(params: {
-    title: string;
-    handlerId: string;
-    toolCall: ToolInvocation<unknown, DeleteToolArgs>;
-    result: string;
-  }): Promise<void> {
-    const { title, handlerId, toolCall, result } = params;
-
-    await this.agent.renderer.serializeToolInvocation({
-      path: title,
-      command: 'vault_delete',
-      handlerId,
-      toolInvocations: [
-        {
-          ...toolCall,
-          result,
-        },
-      ],
-    });
   }
 }

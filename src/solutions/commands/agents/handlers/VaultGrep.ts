@@ -1,7 +1,8 @@
 import { type SuperAgent } from '../SuperAgent';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { execute, grepTool, GrepArgs } from '../../tools/grep';
+import { removeUndefined } from 'src/utils/removeUndefined';
 
 export type GrepToolArgs = GrepArgs;
 
@@ -14,36 +15,29 @@ export class VaultGrep {
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, GrepToolArgs> }
+    options: { toolCall: ToolCallPart<GrepToolArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
     const { toolCall } = options;
 
-    if (!handlerId) {
+    if (!params.handlerId) {
       throw new Error('VaultGrep.handle invoked without handlerId');
     }
 
-    if (toolCall.args.explanation) {
-      await this.agent.renderer.updateConversationNote({
-        path: title,
-        newContent: toolCall.args.explanation,
-        command: 'vault_grep',
-        includeHistory: false,
-        lang,
-        handlerId,
-      });
-    }
-
-    const result = await execute(toolCall.args, this.agent.plugin);
+    const result = await execute(toolCall.input, this.agent.plugin);
 
     await this.agent.renderer.serializeToolInvocation({
-      path: title,
+      path: params.title,
       command: 'vault_grep',
-      handlerId,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
       toolInvocations: [
         {
           ...toolCall,
-          result,
+          type: 'tool-result',
+          output: {
+            type: 'json',
+            value: removeUndefined(result),
+          },
         },
       ],
     });

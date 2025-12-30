@@ -1,8 +1,8 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { experimental_generateSpeech } from 'ai';
@@ -26,7 +26,7 @@ export type SpeechArgs = z.infer<typeof speechSchema>;
 
 export class Speech {
   private static readonly speechTool = tool({
-    parameters: speechSchema,
+    inputSchema: speechSchema,
   });
 
   constructor(private readonly agent: SuperAgent) {}
@@ -48,28 +48,30 @@ export class Speech {
    */
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, SpeechArgs> }
+    options: { toolCall: ToolCallPart<SpeechArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
     const { toolCall } = options;
-    const t = getTranslation(lang);
+    const t = getTranslation(params.lang);
 
-    if (!handlerId) {
+    if (!params.handlerId) {
       throw new Error('Speech.handle invoked without handlerId');
     }
 
     try {
       // Update conversation with explanation
       await this.agent.renderer.updateConversationNote({
-        path: title,
-        newContent: toolCall.args.explanation,
+        path: params.title,
+        newContent: toolCall.input.explanation,
         role: 'Steward',
         includeHistory: false,
-        lang,
-        handlerId,
+        lang: params.lang,
+        handlerId: params.handlerId,
       });
 
-      await this.agent.renderer.addGeneratingIndicator(title, t('conversation.generatingAudio'));
+      await this.agent.renderer.addGeneratingIndicator(
+        params.title,
+        t('conversation.generatingAudio')
+      );
 
       // Generate the audio using the handler's method
       const speechModel = this.agent.plugin.settings.llm.speech.model;
@@ -79,27 +81,31 @@ export class Speech {
           provider as keyof typeof this.agent.plugin.settings.llm.speech.voices
         ];
 
-      const result = await this.generateAudio(toolCall.args.text, {
+      const result = await this.generateAudio(toolCall.input.text, {
         voice,
         instructions: params.intent.systemPrompts?.join('\n'),
       });
 
       if (!result.success) {
         await this.agent.renderer.updateConversationNote({
-          path: title,
+          path: params.title,
           newContent: `*Error generating audio: ${result.error}*`,
-          handlerId,
+          handlerId: params.handlerId,
+          step: params.invocationCount,
         });
 
         await this.agent.renderer.serializeToolInvocation({
-          path: title,
+          path: params.title,
           command: 'speech',
-          handlerId,
+          handlerId: params.handlerId,
+          step: params.invocationCount,
           toolInvocations: [
             {
               ...toolCall,
-              result: {
-                error: result.error,
+              type: 'tool-result',
+              output: {
+                type: 'error-text',
+                value: result.error ?? 'Unknown error',
               },
             },
           ],
@@ -112,15 +118,16 @@ export class Speech {
       }
 
       const messageId = await this.agent.renderer.updateConversationNote({
-        path: title,
+        path: params.title,
         newContent: `\n![[${result.filePath}]]`,
         command: 'speech',
-        handlerId,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
       });
 
       // Store the media artifact
       if (messageId && result.filePath) {
-        await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+        await this.agent.plugin.artifactManagerV2.withTitle(params.title).storeArtifact({
           text: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
           artifact: {
             artifactType: ArtifactType.MEDIA_RESULTS,
@@ -131,15 +138,20 @@ export class Speech {
       }
 
       await this.agent.renderer.serializeToolInvocation({
-        path: title,
+        path: params.title,
         command: 'speech',
-        handlerId,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
         toolInvocations: [
           {
             ...toolCall,
-            result: {
-              success: true,
-              filePath: result.filePath,
+            type: 'tool-result',
+            output: {
+              type: 'json',
+              value: {
+                success: true,
+                filePath: result.filePath!,
+              },
             },
           },
         ],
@@ -151,21 +163,25 @@ export class Speech {
     } catch (error) {
       logger.error('Error generating audio:', error);
       await this.agent.renderer.updateConversationNote({
-        path: title,
+        path: params.title,
         newContent: `Error generating audio: ${error instanceof Error ? error.message : String(error)}`,
         role: 'Steward',
-        handlerId,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
       });
 
       await this.agent.renderer.serializeToolInvocation({
-        path: title,
+        path: params.title,
         command: 'speech',
-        handlerId,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
         toolInvocations: [
           {
             ...toolCall,
-            result: {
-              error: error instanceof Error ? error.message : String(error),
+            type: 'tool-result',
+            output: {
+              type: 'error-text',
+              value: error instanceof Error ? error.message : String(error),
             },
           },
         ],

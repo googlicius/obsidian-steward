@@ -1,5 +1,5 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type StewardPlugin from 'src/main';
 import { TFile, TFolder } from 'obsidian';
 
@@ -21,11 +21,6 @@ export const grepSchema = z.object({
       `The text pattern to search for in note content. Can be a simple string or regex pattern. Only used when checking content in a single file.
 NOTE: ContentPattern can only be used when 'paths' is file paths, NOT folder paths.`
     ),
-  explanation: z
-    .string()
-    .describe(
-      'A brief explanation of why checking these paths or searching for this contentPattern is necessary.'
-    ),
 });
 
 /**
@@ -37,7 +32,7 @@ export type GrepArgs = z.infer<typeof grepSchema>;
  * Shared grep tool definition
  */
 export const grepTool = tool({
-  parameters: grepSchema,
+  inputSchema: grepSchema,
 });
 
 /**

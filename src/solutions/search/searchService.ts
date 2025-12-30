@@ -208,11 +208,21 @@ export class SearchService {
    * @param name The name of the document to find
    * @returns The found document or null if not found
    */
-  public async getDocumentByName(name: string): Promise<ConditionResult<IndexedDocument> | null> {
+  public async getFileByName(name: string): Promise<ConditionResult<IndexedDocument> | null> {
     const queryExecutor = new QueryExecutor(this.searchContext);
 
     const queryBuilder = new QueryBuilder<IndexedDocument>();
-    queryBuilder.and(new FilenameCondition([name]));
+    const conditions: Condition[] = [new FilenameCondition([name])];
+
+    // Check if the name contains an extension
+    const lastDotIndex = name.lastIndexOf('.');
+    if (lastDotIndex > 0 && lastDotIndex < name.length - 1) {
+      const extension = name.substring(lastDotIndex + 1).toLowerCase();
+      // Add PropertyCondition to filter by file type
+      conditions.push(new PropertyCondition([{ name: 'file_type', value: extension }]));
+    }
+
+    queryBuilder.and(new AndCondition(...conditions));
 
     const condition = queryBuilder.build();
     const result = await queryExecutor.execute(condition);

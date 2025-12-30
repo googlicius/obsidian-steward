@@ -24,6 +24,14 @@ export enum ArtifactType {
   STW_SELECTED = 'stw_selected',
 }
 
+export const revertAbleArtifactTypes = [
+  ArtifactType.MOVE_RESULTS,
+  ArtifactType.CREATED_NOTES,
+  ArtifactType.DELETED_FILES,
+  ArtifactType.UPDATE_FRONTMATTER_RESULTS,
+  ArtifactType.RENAME_RESULTS,
+];
+
 /**
  * Base interface for all artifacts
  */

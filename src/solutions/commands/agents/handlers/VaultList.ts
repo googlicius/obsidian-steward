@@ -1,9 +1,9 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { TFile } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { type SuperAgent } from '../SuperAgent';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ArtifactType } from 'src/solutions/artifact';
 
@@ -26,7 +26,6 @@ const listToolSchema = z.object(
       .describe(
         'Optional RegExp pattern to filter files. If not provided, all files will be listed.'
       ),
-    explanation: z.string().describe('A brief explanation of why listing files is necessary.'),
   },
   {
     description: `List all files in a specific folder. NOTE: This tool does not list folders but files only.`,
@@ -43,7 +42,7 @@ type ListToolResult = {
 
 export class VaultList {
   protected static readonly listTool = tool({
-    parameters: listToolSchema,
+    inputSchema: listToolSchema,
   });
 
   constructor(private readonly agent: SuperAgent) {}
@@ -54,39 +53,30 @@ export class VaultList {
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, ListToolArgs> }
+    options: { toolCall: ToolCallPart<ListToolArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
     const { toolCall } = options;
 
-    if (!handlerId) {
+    if (!params.handlerId) {
       throw new Error('VaultList.handle invoked without handlerId');
     }
 
-    await this.agent.renderer.updateConversationNote({
-      path: title,
-      newContent: toolCall.args.explanation,
-      command: 'vault_list',
-      includeHistory: false,
-      lang,
-      handlerId,
-    });
-
-    const result = await this.executeListTool(toolCall.args, lang);
+    const result = await this.executeListTool(toolCall.input, params.lang);
 
     await this.agent.renderer.updateConversationNote({
-      path: title,
+      path: params.title,
       newContent: result.response,
       command: 'vault_list',
-      lang,
-      handlerId,
+      lang: params.lang,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
       includeHistory: false,
     });
 
     const hasMoreFiles = result.files.length > MAX_FILES_TO_SHOW;
     const artifactId = `list_${Date.now()}`;
 
-    await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+    await this.agent.plugin.artifactManagerV2.withTitle(params.title).storeArtifact({
       artifact: {
         artifactType: ArtifactType.LIST_RESULTS,
         paths: result.files,
@@ -96,17 +86,22 @@ export class VaultList {
     });
 
     // Build result string: response text + artifact message if files reached max count
-    const t = getTranslation(lang);
+    const t = getTranslation(params.lang);
     let resultText = result.response;
     if (hasMoreFiles) {
       resultText += `\n\n${t('list.fullListAvailableInArtifact', { artifactId })}`;
     }
 
-    await this.serializeListInvocation({
-      title,
-      handlerId,
+    await this.agent.serializeInvocation({
+      command: 'vault_list',
+      title: params.title,
+      handlerId: params.handlerId,
+      step: params.invocationCount,
       toolCall,
-      result: resultText,
+      result: {
+        type: 'text',
+        value: resultText,
+      },
     });
 
     return {
@@ -115,11 +110,11 @@ export class VaultList {
   }
 
   private async executeListTool(
-    args: ListToolArgs,
+    input: ListToolArgs,
     lang: string | null | undefined
   ): Promise<ListToolResult> {
-    const folderPath = args.folderPath || '/';
-    const filePattern = args.filePattern?.trim();
+    const folderPath = input.folderPath || '/';
+    const filePattern = input.filePattern?.trim();
     const t = getTranslation(lang);
     const errors: string[] = [];
 
@@ -215,26 +210,5 @@ export class VaultList {
       // If regex is invalid, return false
       return false;
     }
-  }
-
-  private async serializeListInvocation(params: {
-    title: string;
-    handlerId: string;
-    toolCall: ToolInvocation<unknown, ListToolArgs>;
-    result: string;
-  }): Promise<void> {
-    const { title, handlerId, toolCall, result } = params;
-
-    await this.agent.renderer.serializeToolInvocation({
-      path: title,
-      command: 'vault_list',
-      handlerId,
-      toolInvocations: [
-        {
-          ...toolCall,
-          result,
-        },
-      ],
-    });
   }
 }

@@ -85,14 +85,7 @@ export class ContentReadingService {
     const fileExtension = file.extension.toLowerCase();
     if (fileExtension && fileExtension !== 'md') {
       return {
-        blocks: [
-          {
-            content: '',
-            startLine: 0,
-            endLine: 0,
-            sections: [],
-          },
-        ],
+        blocks: [],
         source: 'entire',
         file: {
           path: file.path,

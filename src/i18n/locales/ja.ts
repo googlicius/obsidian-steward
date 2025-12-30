@@ -1,6 +1,7 @@
 const ja = {
   translation: {
     common: {
+      stepLimitReached: '最大処理ステップ数に達しました。続行しますか？',
       noFilesFound:
         '検索条件に一致するファイルが見つかりませんでした。別の検索語をお試しください。',
       noRecentOperations: '最近の操作が見つかりませんでした。最初にコマンドを実行してください。',
@@ -8,29 +9,16 @@ const ja = {
       lowConfidenceConfirmation: 'このリクエストについては、十分に確信できません。続行しますか？',
       artifactCreated: 'アーティファクト {{type}} が作成されました',
       artifactNotFound: 'アーティファクト ID "{{artifactId}}" が見つかりませんでした。',
+      noArtifactsFound: 'アーティファクトが見つかりませんでした。',
       availableCommands: '利用可能なコマンド',
       builtInCommands: '組み込みコマンド',
       builtInCommandsDesc: 'これらのコマンドは /&lt;command&gt を通じて直接利用できます',
       userDefinedCommands: 'ユーザー定義コマンド',
       noUserDefinedCommands: 'ユーザー定義コマンドはまだありません。',
-      intentCommands: 'インテント基づくコマンド',
-      intentCommandsDesc: 'これらのコマンドは自然言語処理を通じて利用できます',
       commandHelpText: 'コマンドの後にクエリを入力して使用してください。',
       searchDesc: 'ノートを検索する',
-      closeDesc: '現在の会話を閉じる',
-      confirmDesc: '操作を確認または拒否する',
       imageDesc: '画像を生成する',
-      audioDesc: 'テキストから音声を生成する',
-      createDesc: '新しいノートを作成する',
-      stopDesc: '実行中の操作を停止する',
-      helpDesc: 'このヘルプメッセージを表示する',
-      updateDesc: 'ファイルの内容を更新する',
-      generateDesc: 'AIでコンテンツを生成する',
-      readDesc: 'ノートから内容を読み取る',
-      revertDesc: '以前の操作を元に戻す',
-      vaultDesc:
-        'ボルト操作を実行する（リスト、作成、削除、コピー、移動、名前変更、フロントマター更新）',
-      buildSearchIndexDesc: 'ノートの検索インデックスを構築する',
+      speechDesc: 'テキストから音声を生成する',
       cannotDeleteThisType: 'この種類のアーティファクトは削除できません: {{type}}',
       cannotRevertThisType: 'この種類のアーティファクトは元に戻せません: {{type}}',
       thisNote: 'このノート',
@@ -38,6 +26,10 @@ const ja = {
         '{{commandType}}コマンドの処理中にエラーが発生しました: {{errorMessage}}',
       switchingModelDueToErrors: 'エラーのため{{fromModel}}から{{toModel}}に切り替えています',
       thinkingProcess: '思考過程',
+      modelDoesNotSupportImageInputs:
+        'モデル {{model}} は画像入力をサポートしていません。画像入力をサポートするモデルを使用してください（例: gpt-4o, gemini-pro, claude-3-sonnet）。',
+      invalidOrDynamicToolCall:
+        'モデルが無効なまたは動的なツールコールを返しました: "{{toolName}}".',
     },
     trigger: {
       executing: 'トリガーコマンドを実行中: {{commandName}}',
@@ -95,10 +87,11 @@ const ja = {
     },
     activateTools: {
       invalidTools: '無効なツール: `{{tools}}`',
+      invalidDeactivateTools: '非アクティブ化できません（アクティブではありません）: `{{tools}}`',
     },
     rename: {
       processed: '{{count}}件のリネーム指示を処理しました。',
-      success: '{{count}}件のファイル名をリネームしました：',
+      success: '{{count}}件のファイル名をリネームしました。',
       samePath: 'パスが変更されていないため{{count}}件をスキップしました：',
       fileMissing: '元のパスが見つからないため{{count}}件をスキップしました：',
       targetExists: 'ターゲットが既に存在するため{{count}}件をスキップしました：',
@@ -195,7 +188,6 @@ const ja = {
       filenames: 'ファイル名',
       folders: 'フォルダ',
       properties: 'プロパティ',
-      confirmMultipleOperations: 'これらの操作は正しいですか？検索を続行するには確認してください。',
       indexNotBuilt: '検索インデックスがまだ構築されていません。',
       buildIndexFirst:
         '先に検索インデックスを構築してください。「検索インデックスを構築」または「ファイルにインデックスを付ける」とおっしゃってください。',
@@ -250,6 +242,14 @@ const ja = {
       contentCopied: 'コンテンツをクリップボードにコピーしました',
       copyFailed: 'コンテンツのコピーに失敗しました',
     },
+    todoList: {
+      todoList: 'To-Doリスト',
+      pending: '保留中',
+      inProgress: '進行中',
+      skipped: 'スキップ',
+      completed: '完了',
+      step: 'ステップ {{index}}',
+    },
     read: {
       noContentFound: 'エディタにそのような内容が見つかりませんでした。',
       readEntireContentConfirmation:
@@ -263,7 +263,6 @@ const ja = {
       response3: 'お力になれてうれしいです！',
       response4: 'いつでもどうぞ！また何かあれば教えてくださいね。',
       response5: 'お役に立てて光栄です！',
-      simpleResponse: 'どういたしまして 😊',
     },
     // Conversation states
     conversation: {
@@ -289,6 +288,7 @@ const ja = {
       summarizing: '会話を要約中...',
       continuingProcessing: '処理を続行中...',
       processingBatch: 'バッチ {{current}}/{{total}} を処理中...',
+      stepLimitReached: '最大処理ステップ数に達しました。さらにステップを続行しますか？',
     },
     // Model fallback messages
     modelFallback: {

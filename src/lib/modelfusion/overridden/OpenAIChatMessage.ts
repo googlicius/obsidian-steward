@@ -29,7 +29,7 @@ export function user(content: string | Array<TextPart | ImagePart>, options?: { 
                   type: 'image_url',
                   image_url: {
                     url: `data:${
-                      part.mimeType ?? 'image/jpeg'
+                      part.mediaType ?? 'image/jpeg'
                     };base64,${convertDataContentToBase64String(part.image as DataContent)}`,
                     detail: 'high',
                   },

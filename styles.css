@@ -320,6 +320,11 @@ code[class*='language-stw-artifact'] {
     width: 100%;
     max-width: 300px;
   }
+
+  &.stw-model-setting-wrapper {
+    width: 100%;
+    min-width: 300px;
+  }
 }
 
 /* Validation styling for custom model input */

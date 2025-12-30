@@ -1,8 +1,8 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { type SuperAgent } from '../SuperAgent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 
@@ -23,9 +23,6 @@ const createToolSchema = z.object({
     )
     .min(1)
     .describe('The list of notes that must be created.'),
-  explanation: z
-    .string()
-    .describe('A short explanation of what is being created and why it is necessary.'),
 });
 
 export type CreateToolArgs = z.infer<typeof createToolSchema>;
@@ -38,7 +35,6 @@ export type CreateNoteInstruction = {
 export type CreatePlan = {
   folder: string;
   notes: CreateNoteInstruction[];
-  explanation: string;
 };
 
 function executeCreateToolArgs(args: CreateToolArgs): CreatePlan {
@@ -60,12 +56,11 @@ function executeCreateToolArgs(args: CreateToolArgs): CreatePlan {
   return {
     folder,
     notes: normalizedNotes,
-    explanation: args.explanation,
   };
 }
 
 export class VaultCreate {
-  private static readonly createTool = tool({ parameters: createToolSchema });
+  private static readonly createTool = tool({ inputSchema: createToolSchema });
 
   constructor(private readonly agent: SuperAgent) {}
 
@@ -129,7 +124,7 @@ export class VaultCreate {
    */
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, CreateToolArgs> }
+    options: { toolCall: ToolCallPart<CreateToolArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId, intent } = params;
     const { toolCall } = options;
@@ -139,16 +134,7 @@ export class VaultCreate {
       throw new Error('VaultCreate.handle invoked without handlerId');
     }
 
-    await this.agent.renderer.updateConversationNote({
-      path: title,
-      newContent: toolCall.args.explanation,
-      command: 'vault_create',
-      includeHistory: false,
-      lang,
-      handlerId,
-    });
-
-    const plan = executeCreateToolArgs(toolCall.args);
+    const plan = executeCreateToolArgs(toolCall.input);
 
     if (plan.notes.length === 0) {
       await this.agent.renderer.updateConversationNote({
@@ -166,15 +152,6 @@ export class VaultCreate {
         error: new Error('No notes specified for creation'),
       };
     }
-
-    const toolInvocation: ToolInvocation<
-      { createdNotes: string[]; errors: string[] },
-      CreateToolArgs
-    > = {
-      toolName: toolCall.toolName,
-      toolCallId: toolCall.toolCallId,
-      args: toolCall.args,
-    };
 
     if (!intent?.no_confirm) {
       let message = `${t('create.confirmMessage', { count: plan.notes.length })}\n`;
@@ -205,7 +182,7 @@ export class VaultCreate {
             plan,
             lang,
             handlerId,
-            toolCall: toolInvocation,
+            toolCall,
           });
 
           return {
@@ -226,7 +203,7 @@ export class VaultCreate {
       plan,
       lang,
       handlerId,
-      toolCall: toolInvocation,
+      toolCall,
     });
 
     return {
@@ -242,7 +219,7 @@ export class VaultCreate {
     plan: CreatePlan;
     lang?: string | null;
     handlerId: string;
-    toolCall: ToolInvocation<{ createdNotes: string[]; errors: string[] }, CreateToolArgs>;
+    toolCall: ToolCallPart<CreateToolArgs>;
   }): Promise<{
     createdNotes: string[];
     createdNoteLinks: string[];
@@ -314,9 +291,13 @@ export class VaultCreate {
       toolInvocations: [
         {
           ...toolCall,
-          result: {
-            createdNotes: creationResult.createdNotes,
-            errors: creationResult.errors,
+          type: 'tool-result',
+          output: {
+            type: 'json',
+            value: {
+              createdNotes: creationResult.createdNotes,
+              errors: creationResult.errors,
+            },
           },
         },
       ],

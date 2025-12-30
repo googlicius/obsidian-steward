@@ -89,6 +89,10 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     anthropic: {
       apiKey: '',
     },
+    ollama: {
+      apiKey: '',
+      baseUrl: 'http://localhost:11434/api',
+    },
   },
   saltKeyId: '', // Will be generated on first load
   stewardFolder: 'Steward',
@@ -109,9 +113,8 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
       customModels: [],
     },
     temperature: 0.2,
-    ollamaBaseUrl: 'http://localhost:11434', // Deprecated: use providerConfigs instead
+    ollamaBaseUrl: 'http://localhost:11434/api', // Deprecated: use providerConfigs instead
     maxGenerationTokens: 2048, // Default max tokens for generation
-    showExtractionExplanation: true,
     image: {
       model: 'openai:dall-e-3',
       customModels: [],
@@ -196,7 +199,8 @@ export type ProviderNeedApiKey =
   | 'deepseek'
   | 'google'
   | 'groq'
-  | 'anthropic';
+  | 'anthropic'
+  | 'ollama';
 
 // Speech model options
 export interface SpeechModelOption {

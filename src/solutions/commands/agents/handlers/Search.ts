@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { type SuperAgent } from '../SuperAgent';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -9,7 +9,7 @@ import { PaginatedSearchResult } from 'src/solutions/search/types';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 import { STOPWORDS } from 'src/solutions/search';
 import { stemmer } from 'src/solutions/search/tokenizer/stemmer';
-import z from 'zod';
+import { z } from 'zod/v3';
 import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
@@ -20,8 +20,8 @@ import { StewardPluginSettings } from 'src/types/interfaces';
 // Define the Zod schema for search operation validation
 const searchOperationSchema = z.object({
   keywords: z.array(z.string()).describe(`General terms or concepts to search for in file content.
-If a term or phrase is wrapped in quotation marks (e.g., "cat or dog"),
-preserve the quotes exactly as is for exact match queries.`),
+If a term or phrase is wrapped in quotation marks (e.g., "cat or dog"), preserve the quotes exactly as is for exact match queries.
+NOTE: keywords only used for searching in file content, not title or filename.`),
   filenames: z.array(z.string()).describe(`Specific file names to search for (without .md extension)
 - Includes only when the user explicitly mentions a file name or note name`),
   folders: z.array(z.string()).describe(`Specific folder paths to search within
@@ -48,10 +48,6 @@ export const searchQueryExtractionSchema = z.object({
   operations: z.array(searchOperationSchema).describe(`An array of search operations.
 If the user wants to search with different criteria in different locations, return multiple operations.
   `),
-  explanation: z
-    .string()
-    .min(1, 'Explanation must be a non-empty string')
-    .describe(explanationFragment),
   lang: z
     .string()
     .optional()
@@ -82,7 +78,7 @@ export interface SearchQueryExtractionV2 {
   lang?: string;
   confidence: number;
   needsLLM: boolean;
-  toolCall?: ToolInvocation<unknown>;
+  toolCall?: ToolCallPart<unknown>;
 }
 
 type HighlighKeywordResult = {
@@ -105,7 +101,7 @@ export type SearchArgs = {
 
 export class Search {
   private static readonly searchTool = tool({
-    parameters: searchQueryExtractionSchema,
+    inputSchema: searchQueryExtractionSchema,
   });
 
   constructor(private readonly agent: SuperAgent) {}
@@ -204,10 +200,10 @@ export class Search {
    */
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, SearchArgs> }
+    options: { toolCall: ToolCallPart<SearchArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId, nextIntent } = params;
-    const { operations, explanation, lang: searchLang } = options.toolCall.args;
+    const { title, lang, handlerId } = params;
+    const { operations, explanation, lang: searchLang } = options.toolCall.input;
     const t = getTranslation(searchLang || lang);
 
     if (!handlerId) {
@@ -229,6 +225,7 @@ export class Search {
         lang: searchLang || lang,
         command: 'search',
         handlerId,
+        step: params.invocationCount,
       });
       return {
         status: IntentResultStatus.ERROR,
@@ -283,61 +280,34 @@ export class Search {
         command: 'search',
         includeHistory: false,
         handlerId,
+        step: params.invocationCount,
       });
-
-      // Check if the next command will operate on the search results
-      if (nextIntent && nextIntent.type.endsWith('_from_artifact')) {
-        // Request confirmation before proceeding
-        await this.agent.renderer.updateConversationNote({
-          path: title,
-          newContent: t('search.confirmMultipleOperations'),
-          lang: searchLang || lang,
-          command: 'search',
-          handlerId,
-        });
-
-        return {
-          status: IntentResultStatus.NEEDS_CONFIRMATION,
-          onConfirmation: async () => {
-            return this.performSearch(
-              title,
-              operations,
-              explanation,
-              searchLang || lang,
-              handlerId,
-              options.toolCall
-            );
-          },
-          onRejection: () => {
-            return {
-              status: IntentResultStatus.SUCCESS,
-            };
-          },
-        };
-      }
     }
 
-    return this.performSearch(
+    return this.performSearch({
       title,
       operations,
       explanation,
-      searchLang || lang,
+      lang: searchLang || lang,
       handlerId,
-      options.toolCall
-    );
+      toolCall: options.toolCall,
+      step: params.invocationCount,
+    });
   }
 
   /**
    * Perform the actual search operation
    */
-  private async performSearch(
-    title: string,
-    operations: SearchOperationV2[],
-    explanation: string,
-    lang: string | null | undefined,
-    handlerId: string,
-    toolCall: ToolInvocation<unknown, SearchArgs>
-  ): Promise<AgentResult> {
+  private async performSearch(params: {
+    title: string;
+    operations: SearchOperationV2[];
+    explanation: string;
+    lang: string | null | undefined;
+    handlerId: string;
+    toolCall: ToolCallPart<SearchArgs>;
+    step?: number;
+  }): Promise<AgentResult> {
+    const { title, operations, explanation, lang, handlerId, toolCall, step } = params;
     const t = getTranslation(lang);
 
     const queryResult = await this.agent.plugin.searchService.searchV3(operations);
@@ -364,6 +334,7 @@ export class Search {
       command: 'search',
       handlerId,
       includeHistory: false,
+      step,
     });
 
     if (queryResult.conditionResults.length === 0) {
@@ -371,10 +342,15 @@ export class Search {
         path: title,
         command: 'search',
         handlerId,
+        step,
         toolInvocations: [
           {
             ...toolCall,
-            result: `messageRef:${messageId}`,
+            type: 'tool-result',
+            output: {
+              type: 'text',
+              value: `messageRef:${messageId}`,
+            },
           },
         ],
       });
@@ -419,10 +395,15 @@ export class Search {
         path: title,
         command: 'search',
         handlerId,
+        step,
         toolInvocations: [
           {
             ...toolCall,
-            result: resultText,
+            type: 'tool-result',
+            output: {
+              type: 'text',
+              value: resultText,
+            },
           },
         ],
       });

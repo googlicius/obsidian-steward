@@ -156,7 +156,7 @@ describe('ObsidianAPITools', () => {
         operations: [
           {
             destinationFolder: 'destination',
-            errors: [{ path: 'non-existent-file.md', message: 'Item not found' }],
+            errors: [{ path: 'non-existent-file.md', message: 'translated_vault.itemNotFound' }],
             moved: [],
             skipped: [],
             sourceQuery: 'test',
@@ -169,7 +169,7 @@ describe('ObsidianAPITools', () => {
       expect(app.fileManager.renameFile).not.toHaveBeenCalled();
     });
 
-    it('should skip moving file when source and destination are the same', async () => {
+    it('should fail to move file when file is already in the destination', async () => {
       // Mock file existence
       const file = getInstance(TFile, {
         path: 'current-folder/test-file.md',
@@ -209,9 +209,14 @@ describe('ObsidianAPITools', () => {
         operations: [
           {
             destinationFolder: 'current-folder',
-            errors: [],
+            errors: [
+              {
+                path: 'current-folder/test-file.md',
+                message: 'translated_vault.fileAlreadyInDestination',
+              },
+            ],
             moved: [],
-            skipped: ['current-folder/test-file.md'],
+            skipped: [],
             sourceQuery: 'test',
           },
         ],
@@ -226,10 +231,24 @@ describe('ObsidianAPITools', () => {
     it('should move file to the root folder', async () => {
       // Mock file existence
       const file = getInstance(TFile, { path: 'folder/test-file.md', name: 'test-file.md' });
-      jest.spyOn(app.vault, 'getFileByPath').mockReturnValue(file);
+      jest.spyOn(app.vault, 'getFileByPath').mockImplementation((path: string) => {
+        // Return file for source path
+        if (path === 'folder/test-file.md') {
+          return file;
+        }
+        // Destination path should not exist yet
+        return null;
+      });
 
-      // Root folder should be considered as existing; no creation
-      jest.spyOn(app.vault, 'getFolderByPath').mockReturnValue(new TFolder());
+      // Mock folder checks - root folder exists, destination file path doesn't
+      jest.spyOn(app.vault, 'getFolderByPath').mockImplementation((path: string) => {
+        // Root folder exists (so ensureFolderExists won't try to create it)
+        if (path === '/') {
+          return new TFolder();
+        }
+        // Destination file path should not exist as a folder
+        return null;
+      });
 
       // Mock successful file operations
       jest.spyOn(app.fileManager, 'renameFile').mockResolvedValue(undefined);

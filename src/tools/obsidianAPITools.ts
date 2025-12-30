@@ -3,6 +3,7 @@ import { logger } from 'src/utils/logger';
 import { DocWithPath } from 'src/types/types';
 import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
 import { AddInstruction, UpdateInstruction } from 'src/solutions/commands/tools/editContent';
+import { getTranslation } from 'src/i18n';
 
 /**
  * Represents a single move operation with v2 parameters
@@ -173,13 +174,12 @@ export class ObsidianAPITools {
 
   /**
    * Move files based on operations and search results
-   * @param operations Array of MoveOperationV2 objects containing destination folders and keywords
-   * @param filesByOperation Map of operation index to files to move
    * @returns Results of the move operations
    */
   async moveByOperations(
     operations: MoveOperationV2[],
-    filesByOperation: Map<number, DocWithPath[]>
+    filesByOperation: Map<number, DocWithPath[]>,
+    lang?: string | null
   ): Promise<{
     operations: Array<{
       sourceQuery: string;
@@ -190,6 +190,7 @@ export class ObsidianAPITools {
     }>;
     movePairs: Array<[string, string]>; // Array of [originalPath, movedPath] pairs
   }> {
+    const t = getTranslation(lang);
     const operationResults = [];
     const movePairs: Array<[string, string]> = [];
 
@@ -209,21 +210,23 @@ export class ObsidianAPITools {
         const itemPath = result.path;
         if (!itemPath) continue;
 
+        const itemName = itemPath.split('/').pop() || '';
+        const destinationPath = `${operation.destinationFolder}/${itemName}`.replace(/\/+/g, '/');
+
+        // Check if file is already in the destination
+        const destinationFile = this.app.vault.getFileByPath(destinationPath);
+        const destinationFolder = this.app.vault.getFolderByPath(destinationPath);
+        if (destinationFile || destinationFolder) {
+          errors.push({ path: itemPath, message: t('vault.fileAlreadyInDestination') });
+          continue;
+        }
+
         // Determine if this is a file or folder
         const file = this.app.vault.getFileByPath(itemPath);
         const folder = this.app.vault.getFolderByPath(itemPath);
 
         if (!file && !folder) {
-          errors.push({ path: itemPath, message: 'Item not found' });
-          continue;
-        }
-
-        const itemName = itemPath.split('/').pop() || '';
-        const destinationPath = `${operation.destinationFolder}/${itemName}`.replace(/\/+/g, '/');
-
-        // Check if item is already in the destination location
-        if (itemPath === destinationPath) {
-          skipped.push(itemPath);
+          errors.push({ path: itemPath, message: t('vault.itemNotFound') });
           continue;
         }
 

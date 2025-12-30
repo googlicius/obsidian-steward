@@ -1,5 +1,5 @@
 import { ToolName } from 'src/solutions/commands/ToolRegistry';
-import z from 'zod';
+import { z } from 'zod/v3';
 import { NormalizedUserDefinedCommand, IVersionedUserDefinedCommand } from './types';
 
 // Export to other versions - Shared Zod schemas
@@ -45,7 +45,7 @@ const validateSystemPromptModification = (
  * Used across all versions (v1 uses 'commands' field, v2 uses 'steps' field)
  */
 export const commandStepSchema = z.object({
-  name: z.string().min(1, 'Command name is required'),
+  name: z.string().min(1, 'Command name is required').optional(),
   system_prompt: z
     .array(systemPromptItemSchema)
     .optional()
@@ -65,11 +65,6 @@ export const commandStepSchema = z.object({
   query: z.string().min(1, 'Step query is required'),
   model: z.string().optional(),
   no_confirm: z.boolean().optional(),
-  tools: z
-    .object({
-      exclude: z.array(z.enum(Object.values(ToolName) as [string, ...string[]])).optional(),
-    })
-    .optional(),
 });
 
 /**

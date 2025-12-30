@@ -64,17 +64,17 @@ export class ModelSetting {
           name: model.name || model.id,
         })),
         ...getCustomModels().map(model => {
-          const [, id] = model.split(':');
+          const { modelId } = this.plugin.llmService.parseModel(model);
           return {
             id: model,
-            name: id,
+            name: modelId,
           };
         }),
       ];
 
       // Group models by provider
       const modelsByProvider = allModels.reduce<Record<string, typeof allModels>>((acc, model) => {
-        const provider = model.id.split(':')[0];
+        const { provider } = this.plugin.llmService.parseModel(model.id);
         if (!acc[provider]) {
           acc[provider] = [];
         }
@@ -137,7 +137,7 @@ export class ModelSetting {
     const createTextInput = () => {
       // Create wrapper div
       const wrapper = setting.controlEl.createEl('div', {
-        cls: 'stw-setting-wrapper',
+        cls: 'stw-setting-wrapper stw-model-setting-wrapper',
       });
       currentInputWrapper = wrapper;
 

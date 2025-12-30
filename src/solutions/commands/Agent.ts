@@ -68,7 +68,7 @@ export abstract class Agent {
       return await this.handle(params, ...args);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error(`Error in ${params.intent.type} agent handler:`, error);
+      logger.error(`Error in ${params.intent.type || 'Super'} agent handler:`, error);
 
       const t = getTranslation(params.lang);
       // Render the current error message

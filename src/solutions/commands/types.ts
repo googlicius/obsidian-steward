@@ -1,19 +1,16 @@
 import { SystemPromptItem } from './SystemPromptModifier';
 import { ToolName } from './ToolRegistry';
+import { ToolCallPart } from './tools/types';
 
 /**
  * Represents a single intent in a sequence
  */
 export interface Intent {
-  /** @deprecated As we use only one super agent, we don't need to distinguish between intents. */
   type: string;
   query: string;
   systemPrompts?: (string | SystemPromptItem)[];
   model?: string; // Optional model to use for this intent
   no_confirm?: boolean; // Skip confirmation for this intent
-  tools?: {
-    exclude?: ToolName[];
-  };
 }
 
 export interface ContextAugmentationIntent extends Intent {
@@ -57,9 +54,10 @@ type LowConfidenceResult = {
   explanation?: string;
 };
 
-export type ConfirmationResult = {
+export type ConfirmationResult<T = unknown> = {
   status: IntentResultStatus.NEEDS_CONFIRMATION;
   confirmationMessage?: string;
+  toolCall?: ToolCallPart<T>;
   onConfirmation: (message: string) => Promise<AgentResult> | AgentResult;
   onRejection?: (message: string) => Promise<AgentResult> | AgentResult;
   onFinal?: () => Promise<void> | void;
@@ -76,8 +74,6 @@ export type AgentResult =
 export interface AgentHandlerParams<T extends Intent = Intent> {
   title: string;
   intent: T;
-  prevIntent?: Intent;
-  nextIntent?: Intent;
   lang?: string | null;
   /**
    * Handler ID to group all messages issued in one handle function call.

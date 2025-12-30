@@ -1,10 +1,10 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { type SuperAgent } from '../SuperAgent';
 import { logger } from 'src/utils/logger';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { SysError } from 'src/utils/errors';
 
@@ -51,7 +51,7 @@ type RevertDeleteExecutionResult = {
 };
 
 export class RevertDelete {
-  private static readonly revertDeleteTool = tool({ parameters: revertDeleteToolSchema });
+  private static readonly revertDeleteTool = tool({ inputSchema: revertDeleteToolSchema });
 
   constructor(private readonly agent: SuperAgent) {}
 
@@ -61,7 +61,7 @@ export class RevertDelete {
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, RevertDeleteToolArgs> }
+    options: { toolCall: ToolCallPart<RevertDeleteToolArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const { toolCall } = options;
@@ -71,10 +71,10 @@ export class RevertDelete {
       throw new SysError('RevertDelete.handle invoked without handlerId');
     }
 
-    if (toolCall.args.explanation) {
+    if (toolCall.input.explanation) {
       await this.agent.renderer.updateConversationNote({
         path: title,
-        newContent: toolCall.args.explanation,
+        newContent: toolCall.input.explanation,
         command: 'revert_delete',
         includeHistory: false,
         lang,
@@ -138,18 +138,22 @@ export class RevertDelete {
       includeHistory: false,
     });
 
-    await this.serializeRevertInvocation({
+    await this.agent.serializeInvocation({
+      command: 'revert_delete',
       title,
       handlerId,
       toolCall,
-      result: messageId ? `messageRef:${messageId}` : response,
+      result: {
+        type: 'text',
+        value: messageId ? `messageRef:${messageId}` : response,
+      },
     });
 
     // Remove the artifact if revert was successful and artifactId was provided
-    if (toolCall.args.artifactId && revertResult.revertedFiles.length > 0) {
+    if (toolCall.input.artifactId && revertResult.revertedFiles.length > 0) {
       await this.agent.plugin.artifactManagerV2
         .withTitle(title)
-        .removeArtifact(toolCall.args.artifactId, toolCall.args.explanation);
+        .removeArtifact(toolCall.input.artifactId, toolCall.input.explanation);
     }
 
     return {
@@ -159,7 +163,7 @@ export class RevertDelete {
 
   private async resolveTrashFiles(params: {
     title: string;
-    toolCall: ToolInvocation<unknown, RevertDeleteToolArgs>;
+    toolCall: ToolCallPart<RevertDeleteToolArgs>;
     lang?: string | null;
     handlerId: string;
   }): Promise<{ trashFiles: string[]; errorMessage?: string }> {
@@ -169,13 +173,13 @@ export class RevertDelete {
     const trashFiles: string[] = [];
     let noFilesMessage = t('common.noFilesFound');
 
-    if (toolCall.args.artifactId) {
+    if (toolCall.input.artifactId) {
       const artifact = await this.agent.plugin.artifactManagerV2
         .withTitle(title)
-        .getArtifactById(toolCall.args.artifactId);
+        .getArtifactById(toolCall.input.artifactId);
 
       if (!artifact) {
-        logger.error(`Revert delete tool artifact not found: ${toolCall.args.artifactId}`);
+        logger.error(`Revert delete tool artifact not found: ${toolCall.input.artifactId}`);
         noFilesMessage = t('common.noRecentOperations');
       } else if (artifact.artifactType === ArtifactType.DELETED_FILES) {
         // Get all trash metadata
@@ -199,19 +203,23 @@ export class RevertDelete {
           includeHistory: false,
         });
 
-        await this.serializeRevertInvocation({
+        await this.agent.serializeInvocation({
+          command: 'revert_delete',
           title,
           handlerId,
           toolCall,
-          result: messageId ? `messageRef:${messageId}` : message,
+          result: {
+            type: 'text',
+            value: messageId ? `messageRef:${messageId}` : message,
+          },
         });
 
         return { trashFiles: [], errorMessage: message };
       }
     }
 
-    if (toolCall.args.trashFiles) {
-      for (const file of toolCall.args.trashFiles) {
+    if (toolCall.input.trashFiles) {
+      for (const file of toolCall.input.trashFiles) {
         const trimmedPath = file.path.trim();
         if (!trimmedPath) {
           continue;
@@ -230,11 +238,15 @@ export class RevertDelete {
         includeHistory: false,
       });
 
-      await this.serializeRevertInvocation({
+      await this.agent.serializeInvocation({
+        command: 'revert_delete',
         title,
         handlerId,
         toolCall,
-        result: noFilesMessageId ? `messageRef:${noFilesMessageId}` : noFilesMessage,
+        result: {
+          type: 'error-text',
+          value: noFilesMessageId ? `messageRef:${noFilesMessageId}` : noFilesMessage,
+        },
       });
 
       return { trashFiles: [], errorMessage: noFilesMessage };
@@ -319,26 +331,5 @@ export class RevertDelete {
       logger.error(`Error reverting file ${trashPath} to ${metadata.originalPath}:`, error);
       return { success: false, originalPath: metadata.originalPath, trashPath };
     }
-  }
-
-  private async serializeRevertInvocation(params: {
-    title: string;
-    handlerId: string;
-    toolCall: ToolInvocation<unknown, RevertDeleteToolArgs>;
-    result: string;
-  }): Promise<void> {
-    const { title, handlerId, toolCall, result } = params;
-
-    await this.agent.renderer.serializeToolInvocation({
-      path: title,
-      command: 'revert_delete',
-      handlerId,
-      toolInvocations: [
-        {
-          ...toolCall,
-          result,
-        },
-      ],
-    });
   }
 }

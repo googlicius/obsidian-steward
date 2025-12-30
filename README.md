@@ -27,12 +27,10 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
   - [Definitions](#definitions)
   - [Usage](#usage-1)
   - [Example: user-defined command definition](#example-user-defined-command-definition)
-  - [Customizing system prompts](#customizing-system-prompts)
-  - [Excluding tools](#excluding-tools)
+  - [Adding additional system prompts](#adding-additional-system-prompts)
   - [Automated command triggers](#automated-command-triggers)
   - [Creating commands with LLM assistance](#creating-commands-with-llm-assistance)
   - [User-defined command showcases](#user-defined-command-showcases)
-- [Command flow visualization](#command-flow-visualization)
 - [Folder structure](#folder-structure)
 - [Installation](#installation)
 - [Development](#development)
@@ -62,7 +60,7 @@ Steward can be used directly in the editor or by opening the chat interface.
 
 #### Reasoning
 
-<img src="/docs/Steward-Demo-Reasoning.gif" alt="Image read" width="400px">
+<img src="/docs/Steward-Demo-Reasoning-2.gif" alt="Image read" width="400px">
 
 #### Model fallback and revert changes
 
@@ -94,13 +92,12 @@ You can create your own **User-Defined Commands** to automate workflows and comb
 - `model`: (optional, string) The model to use for all commands in this user-defined command
 - `hidden`: (optional, boolean) If true, the command will not appear in the command menu
 - `triggers`: (optional, array) Automatically execute commands when files match specified criteria (see [Trigger fields](#trigger-fields))
-- `commands`: The sequence of built-in or user-defined commands to execute
-  - `system_prompt`: (optional, array) Modify the system prompt for this command (see [Customizing system prompts](#customizing-system-prompts))
-  - `query`: (required if the `query_required` is true, string) The query to send to LLMs, put the `$from_user` as a placeholder for your input
+- `steps`: The sequence of built-in or user-defined commands to execute
+  - `name`: (optional, string) The step name (e.g., `read`, `edit`, `search`, `vault`, `generate`, etc.). This automatically activates the corresponding tools for this step. NOTE: Uses `generate` if you want the AI to respond directly without using tools.
+  - `system_prompt`: (optional, array) Add additional system prompts for this command step (see [Adding additional system prompts](#adding-additional-system-prompts))
+  - `query`: (required if the `query_required` is true, string) The query to send to AIs, put the `$from_user` as a placeholder for your input
   - `model`: (optional, string) The model to use for this specific command step (overrides the command-level model)
   - `no_confirm`: (optional, boolean) If true, skips confirmation prompts for this command step
-  - `tools`: (optional, object) Control which tools are available for this command step (see [Excluding tools](#excluding-tools))
-    - `exclude`: (optional, array) Array of tool names to exclude from this command step
 
 ### Usage
 
@@ -115,7 +112,7 @@ command_name: clean_up
 description: Clean up the vault
 query_required: false
 model: gpt-4o # Optional: Specify a default model for all commands
-commands:
+steps:
   - name: search
     query: 'Notes name starts with Untitled or with tag #delete'
 
@@ -124,16 +121,14 @@ commands:
     model: gpt-3.5-turbo # Optional: Override the model for this specific step
 ```
 
-### Customizing system prompts
+### Adding additional system prompts
 
-You can customize the system prompt for any command step using the `system_prompt` field. This allows you to modify the AI's behavior for specific commands without completely replacing the base prompt.
+Steward uses a single agent (SuperAgent) whose core system prompt is the foundation of its functionality and cannot be modified. However, you can add additional system prompts for any command step using the `system_prompt` field. These additional prompts are appended to the core system prompt, allowing you to provide extra context or instructions for specific command steps.
 
-#### Simple format (strings)
-
-Add additional instructions that will be handled separately:
+Add additional instructions as an array of strings:
 
 ```yaml
-commands:
+steps:
   - name: generate
     system_prompt:
       - '[[My Context Note]]' # Link to a note (content will be included)
@@ -142,139 +137,26 @@ commands:
     query: $from_user
 ```
 
-#### Advanced format (modifications)
-
-Modify specific parts of the base system prompt using operations:
-
-**Remove a guideline:**
-
-```yaml
-commands:
-  - name: read
-    system_prompt:
-      - mode: remove
-        pattern: 'Read ALL notes at once'
-    query: Read the content
-```
-
-**Modify a guideline:**
-
-```yaml
-commands:
-  - name: read
-    system_prompt:
-      - mode: modify
-        pattern: 'Read ALL notes at once'
-        replacement: 'Read notes one at a time'
-        matchType: partial # Options: partial, exact, regex (default: partial)
-    query: $from_user
-```
-
-**Add new content:**
-
-```yaml
-commands:
-  - name: generate
-    system_prompt:
-      - mode: add
-        content: 'You MUST use the generateContent tool to stream content.'
-        pattern: 'Use.*when you need clarification' # Optional: insert after this line
-    query: $from_user
-```
-
-#### Match types
-
-When using `remove` or `modify` mode, you can specify how to match patterns:
-
-- `partial` (default): Matches if the pattern appears anywhere in the line
-- `exact`: Matches only if the entire line equals the pattern
-- `regex`: Treats the pattern as a regular expression
-
-Example:
-
-```yaml
-system_prompt:
-  - mode: remove
-    pattern: 'Read.*notes' # Regex pattern
-    matchType: regex
-```
-
 #### Using links in system prompts
 
 Reference the content of other notes in your vault using Obsidian links:
 
 ```yaml
 command_name: search_with_context
-commands:
+steps:
   - name: search
     system_prompt:
-      - '[[My Context Note]]'
-      - '[[Another Context]]'
+      - '[[Search instruction]]' # The content of the "Search instruction" note will be included as the system prompt.
+      - '[[Some note#Instructions]]' # Only the content under the Instructions heading of "Some note" will be included as the system prompt.
     query: $from_user
 ```
 
 When executed:
 
-1. The link `[[My Context Note]]` will be replaced with the actual content of that note
-2. This allows you to maintain complex prompts or contexts in separate notes
-3. You can update the linked notes independently of your command definition
-
-#### Practical examples
-
-**Sequential Reading (instead of parallel):**
-
-```yaml
-command_name: sequential_read
-commands:
-  - name: read
-    system_prompt:
-      - mode: modify
-        pattern: 'Read ALL notes at once'
-        replacement: 'Read notes one at a time sequentially'
-    query: Read $from_user
-```
-
-**Remove Confirmation Requirements:**
-
-```yaml
-command_name: no-confirm-read
-commands:
-  - name: read
-    system_prompt:
-      - mode: remove
-        pattern: 'MUST use confirmation BEFORE reading the entire'
-    query: Read the entire note $from_user
-```
-
-You can also skip confirmation prompts for individual command steps using the `no_confirm` field.
-
-### Excluding tools
-
-You can exclude specific tools from being available in a command step using the `tools.exclude` field. This removes both the tool from the LLM's available tools and automatically removes related guidelines from the system prompt.
-
-#### Example
-
-Exclude specific tools from a command step:
-
-```yaml
-commands:
-  - name: read
-    tools:
-      exclude: ['confirmation', 'askUser']
-    query: Read the entire content
-```
-
-This example:
-
-1. Removes `confirmation` and `askUser` tools from the LLM's available tools
-2. Automatically removes all guidelines mentioning these tools from the system prompt
-
-#### Notes on `no_confirm` vs excluding the confirmation tool
-
-- Excluding the `confirmation` tool removes it from the LLM's available tools only. The model cannot call it.
-- `no_confirm: true` does two things:
-  1. It removes the `confirmation` and `askUser` tools from the LLM's tool set (same effect as excluding the tool), and
-  2. It also disables the in-app confirmation flow for that command step.
+1. The link `[[Search instruction]]` will be replaced with the full content of that note
+2. The link `[[Some note#Instructions]]` will be replaced with only the content under the "Instructions" heading in that note
+3. This allows you to maintain complex prompts or contexts in separate notes
+4. You can update the linked notes independently of your command definition
 
 ### Automated command triggers
 
@@ -294,7 +176,7 @@ triggers:
     patterns:
       tags: ['#process']
       status: 'pending'
-commands:
+steps:
   - name: read
     query: 'Read the content of $file_name'
   - name: generate
@@ -375,12 +257,6 @@ You can ask Steward to help create user-defined commands using natural language,
 #### Automated command
 
 <img src="/docs/Steward-Demo-Auto-trigger.gif" alt="Flashcard Assist" width="650px">
-
-### Command flow visualization
-
-The following diagram illustrates how commands are processed in Steward:
-
-<img src="/docs/commands-flow.svg" alt="Commands flow" width="600px">
 
 ## Folder structure
 

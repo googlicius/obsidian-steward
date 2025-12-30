@@ -1,6 +1,8 @@
 const en = {
   translation: {
     common: {
+      stepLimitReached:
+        'I have reached the maximum number of processing steps. Would you like me to continue?',
       noFilesFound:
         "I couldn't find any files matching your query. Please try a different search term.",
       noRecentOperations: 'No recent operations found.',
@@ -10,6 +12,7 @@ const en = {
         "I'm not entirely sure about this request. Would you like me to proceed anyway?",
       artifactCreated: 'Artifact {{type}} is created',
       artifactNotFound: 'Artifact with ID "{{artifactId}}" not found.',
+      noArtifactsFound: 'No artifacts found.',
       cannotUpdateThisType:
         'Cannot update this type of artifact. Only search results, created notes, read content, and content updates can be updated.',
       availableCommands: 'Available commands',
@@ -17,32 +20,19 @@ const en = {
       builtInCommandsDesc: 'These commands are directly accessible via /&lt;command&gt',
       userDefinedCommands: 'User-Defined commands',
       noUserDefinedCommands: "You don't have any user-defined commands yet.",
-      intentCommands: 'Intent-Based commands',
-      intentCommandsDesc: 'These commands are available through natural language processing',
       commandHelpText: 'Type any command followed by your query to use it.',
-      explanation: 'Explanation',
-      extractionDetails: 'Extraction details',
       searchDesc: 'Search for notes in your vault',
-      closeDesc: 'Close the current conversation',
-      confirmDesc: 'Confirm or reject operations',
       imageDesc: 'Generate images',
-      audioDesc: 'Generate audio from text',
-      createDesc: 'Create new notes',
-      stopDesc: 'Stop ongoing operations',
-      helpDesc: 'Show this help message',
-      updateDesc: 'Update file content',
-      generateDesc: 'Generate content with AI',
-      readDesc: 'Read content from notes',
-      revertDesc: 'Revert or undo previous operations',
-      vaultDesc:
-        'Perform vault operations (list, create, delete, copy, move, rename, update frontmatter)',
-      buildSearchIndexDesc: 'Build the search index for your notes',
+      speechDesc: 'Generate speech from text',
       cannotDeleteThisType: 'Cannot delete this type of artifact: {{type}}',
       cannotRevertThisType: 'Cannot revert this type of artifact: {{type}}',
       thisNote: 'this note',
       errorProcessingCommand: 'Error processing {{commandType}} command: {{errorMessage}}',
       switchingModelDueToErrors: 'Switching from {{fromModel}} to {{toModel}} due to errors',
       thinkingProcess: 'Thinking process',
+      modelDoesNotSupportImageInputs:
+        'Model {{model}} does not support image inputs. Please use a vision-capable model (e.g., gpt-4o, gemini-pro, claude-3-sonnet).',
+      invalidOrDynamicToolCall: 'Model returned a dynamic or invalid tool call: "{{toolName}}".',
     },
     trigger: {
       executing: 'Command "{{commandName}}" is executing.',
@@ -78,6 +68,10 @@ const en = {
       invalidCommand: 'Invalid media generation command',
       generationFailed: 'Failed to generate {{type}}: {{error}}',
       generationError: 'Error generating media: {{error}}',
+    },
+    vault: {
+      fileAlreadyInDestination: 'File is already in the destination',
+      itemNotFound: 'Item not found',
     },
     // Move result messages
     move: {
@@ -120,12 +114,13 @@ const en = {
     },
     activateTools: {
       invalidTools: 'Invalid tools: `{{tools}}`',
+      invalidDeactivateTools: 'Cannot deactivate (not active): `{{tools}}`',
     },
     rename: {
       processed_one: 'I processed {{count}} rename instruction.',
       processed_other: 'I processed {{count}} rename instructions.',
-      success_one: 'Successfully renamed {{count}} file:',
-      success_other: 'Successfully renamed {{count}} files:',
+      success_one: 'Successfully renamed {{count}} file',
+      success_other: 'Successfully renamed {{count}} files',
       samePath_one: 'Skipped {{count}} file (new path matches current path):',
       samePath_other: 'Skipped {{count}} files (new path matches current path):',
       fileMissing_one: 'Skipped {{count}} file (original path not found):',
@@ -257,8 +252,6 @@ const en = {
       filenames: 'Filenames',
       folders: 'Folders',
       properties: 'Properties',
-      confirmMultipleOperations:
-        'Are these operations correct? Please confirm to proceed with the search.',
       indexNotBuilt: 'Search index is not built yet.',
       buildIndexFirst:
         'Please build the search index first by asking me to "Build search index" or "index my files".',
@@ -313,6 +306,14 @@ const en = {
       contentCopied: 'Content copied to clipboard',
       copyFailed: 'Failed to copy content to clipboard',
     },
+    todoList: {
+      todoList: 'To-Do list',
+      pending: 'Pending',
+      inProgress: 'In Progress',
+      skipped: 'Skipped',
+      completed: 'Completed',
+      step: 'Step {{index}}',
+    },
     read: {
       noContentFound: 'No such content found in the editor.',
       readEntireContentConfirmation:
@@ -326,7 +327,6 @@ const en = {
       response3: 'Glad I could assist!',
       response4: 'Anytime! Let me know if you need anything else.',
       response5: 'Happy to be of service!',
-      simpleResponse: "You're welcome 😊",
     },
     // Conversation states
     conversation: {
@@ -353,6 +353,8 @@ const en = {
       augmentingContext: 'Augmenting context...',
       continuingProcessing: 'Continuing...',
       processingBatch: 'Processing batch {{current}} of {{total}}...',
+      stepLimitReached:
+        'I have reached the maximum number of processing steps. Would you like me to continue with more steps?',
     },
     // Model fallback messages
     modelFallback: {
@@ -375,6 +377,7 @@ const en = {
       googleApiKey: 'Google API key',
       groqApiKey: 'Groq API key',
       anthropicApiKey: 'Anthropic API key',
+      ollamaApiKey: 'Ollama API key (Optional)',
       enterApiKey: 'Enter your API key',
       apiKeyPlaceholder: '••••••••••••••••••••••',
       errorReenterKey: 'Error: Click to re-enter key',
@@ -390,7 +393,7 @@ const en = {
       note: 'Note',
       apiKeyNote1: 'You need to provide your own API keys to use the AI-powered assistant.',
       apiKeyNote2: 'All API keys are stored with encryption.',
-      llm: 'LLM',
+      models: 'Models',
       chatModel: 'Chat model',
       chatModelDesc:
         'Select the AI model to use for chat. You can also change the model inline in the command input by typing m: or model:',
@@ -409,9 +412,6 @@ const en = {
       maxGenerationTokens: 'Max generation tokens',
       maxGenerationTokensDesc:
         'Maximum number of tokens to generate in response (higher values may increase API costs)',
-      showExtractionExplanation: 'Show extraction explanation',
-      showExtractionExplanationDesc:
-        'Display detailed explanation of extracted commands including command type and query in the conversation note',
       ollamaBaseUrl: 'Ollama base URL',
       ollamaBaseUrlDesc: 'The base URL for Ollama API (default: {{defaultUrl}})',
       baseUrl: 'Base URL, e.g. a proxy server',

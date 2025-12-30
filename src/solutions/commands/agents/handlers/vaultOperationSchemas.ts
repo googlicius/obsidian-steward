@@ -1,11 +1,11 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 /**
  * Creates an artifactId schema field for vault operations.
  */
 export function createArtifactIdSchema(params: { description: string }) {
   return z.string().min(1).optional().describe(`${params.description}
-- Use this when: 1. Provided (By user, tool call results), 2. The files is a part of a larger list.`);
+- (Optional) Use this when: 1. Provided by user or tool call results (Do NOT guess), and 2. The files is a part of a larger list.`);
 }
 
 /**

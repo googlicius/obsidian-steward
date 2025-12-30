@@ -1,15 +1,16 @@
-import { JSONParseError, TypeValidationError, ImageModel, SpeechModel } from 'ai';
+import { JSONParseError, TypeValidationError, ImageModel, SpeechModel, ModelMessage } from 'ai';
 import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
 import { createDeepSeek, DeepSeekProvider } from '@ai-sdk/deepseek';
 import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/google';
 import { createGroq, GroqProvider } from '@ai-sdk/groq';
 import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
-import { createOllama, OllamaProvider } from 'ollama-ai-provider';
-import { LLM_MODELS, ProviderNeedApiKey } from 'src/constants';
+import { createOllama, OllamaProvider } from 'ollama-ai-provider-v2';
+import { ProviderNeedApiKey } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { jsonrepair } from 'jsonrepair';
 import { logger } from 'src/utils/logger';
 import { StewardPluginSettings } from 'src/types/interfaces';
+import { getTranslation } from 'src/i18n';
 
 /**
  * Service for managing LLM models and configurations using the AI package
@@ -78,6 +79,23 @@ export class LLMService {
   }
 
   /**
+   * Parse a model string into provider and model ID
+   * Handles model IDs that contain colons (e.g., ollama:llama3.2:3b -> { provider: 'ollama', modelId: 'llama3.2:3b' })
+   * @param model The model string in format provider:modelId
+   * @returns An object with provider and modelId
+   */
+  public parseModel(model: string): { provider: string; modelId: string } {
+    const colonIndex = model.indexOf(':');
+    if (colonIndex === -1) {
+      return { provider: '', modelId: model };
+    }
+    return {
+      provider: model.substring(0, colonIndex),
+      modelId: model.substring(colonIndex + 1),
+    };
+  }
+
+  /**
    * Determine the provider from the model name
    */
   public getProviderFromModel(
@@ -89,47 +107,10 @@ export class LLMService {
     | { modelId: string; name: 'groq'; provider: GroqProvider }
     | { modelId: string; name: 'ollama'; provider: OllamaProvider }
     | { modelId: string; name: 'anthropic'; provider: AnthropicProvider } {
-    let name: string | null = null;
-    let modelId = model;
-
-    if (model.includes(':')) {
-      const [provider, id] = model.split(':');
-      name = provider;
-      modelId = id;
-    }
-
-    // Supports all other models
-    if (!name) {
-      if (
-        model.includes('llama') ||
-        model.includes('mistral') ||
-        model.includes('mixtral') ||
-        model.includes('phi') ||
-        model.includes('gemma') ||
-        model.includes('qwen')
-      ) {
-        // Check if the settings model is in LLM_MODELS to determine default provider
-        const settingsModelOption = LLM_MODELS.find(
-          model => model.id === this.plugin.settings.llm.chat.model
-        );
-        const defaultProvider = settingsModelOption?.id.split(':')[0];
-        name = defaultProvider === 'ollama' ? 'ollama' : 'groq';
-      }
-
-      // For legacy models
-      if (model.startsWith('deepseek')) {
-        name = 'deepseek';
-      } else if (model.startsWith('gemini')) {
-        name = 'google';
-      } else if (model.startsWith('gpt')) {
-        name = 'openai';
-      } else if (model.includes('claude')) {
-        name = 'anthropic';
-      }
-    }
+    const { provider: name, modelId } = this.parseModel(model);
 
     if (!name) {
-      throw new Error(`Model ${model} not found`);
+      throw new Error(`Model ${model} must include a provider prefix (e.g., provider:modelId)`);
     }
 
     // Get baseURL for the provider (users can include CORS proxy in baseURL if needed)
@@ -187,6 +168,11 @@ export class LLMService {
           name,
           provider: createOllama({
             ...(baseURL && { baseURL }),
+            ...(apiKey && {
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+              },
+            }),
           }),
         };
       }
@@ -230,10 +216,14 @@ export class LLMService {
 
     const languageModel = provider(modelId);
 
+    // if (languageModel.specificationVersion === 'v1') {
+    //   throw new Error(`Language model ${model} is not supported`);
+    // }
+
     const generateParams = {
       model: languageModel,
       temperature,
-      maxTokens: maxGenerationTokens,
+      maxOutputTokens: maxGenerationTokens,
     };
 
     if (generateType === 'text') {
@@ -265,13 +255,18 @@ export class LLMService {
     const { overrideModel } = options || {};
     const model = overrideModel || this.plugin.settings.llm.image.model;
     const result = this.getProviderFromModel(model);
-    let imageModel: ImageModel;
+    let imageModel: ImageModel | undefined;
 
     if (result.name === 'openai') {
       imageModel = result.provider.image(result.modelId);
     } else if (result.provider.imageModel) {
-      imageModel = result.provider.imageModel(result.modelId);
-    } else {
+      const imageModelV1OrV2 = result.provider.imageModel(result.modelId);
+      if (imageModelV1OrV2.specificationVersion === 'v2') {
+        imageModel = imageModelV1OrV2;
+      }
+    }
+
+    if (!imageModel) {
       throw new Error(`Image generation not supported for provider: ${result.name}`);
     }
 
@@ -289,14 +284,21 @@ export class LLMService {
     const [provider, model] = speechModelId.split(':');
 
     const result = this.getProviderFromModel(`${provider}:${model}`);
-    let speechModel: SpeechModel;
+    let speechModel: SpeechModel | undefined;
 
     if (result.name === 'openai') {
       speechModel = result.provider.speech(result.modelId);
     } else if (result.provider.speechModel) {
-      speechModel = result.provider.speechModel(result.modelId);
-    } else {
-      throw new Error(`Speech generation not supported for provider: ${result.name}`);
+      const speechModelV1OrV2 = result.provider.speechModel(result.modelId);
+      if (speechModelV1OrV2.specificationVersion === 'v2') {
+        speechModel = speechModelV1OrV2;
+      }
+    }
+
+    if (!speechModel) {
+      throw new Error(
+        `Speech generation not supported for provider: ${result.name} ${result.modelId}`
+      );
     }
 
     return {
@@ -306,5 +308,88 @@ export class LLMService {
           provider as keyof StewardPluginSettings['llm']['speech']['voices']
         ],
     };
+  }
+
+  /**
+   * Check if a model/provider supports vision/image inputs
+   */
+  private modelSupportsVision(providerName: string, modelId: string): boolean {
+    const modelIdLower = modelId.toLowerCase();
+
+    switch (providerName) {
+      case 'openai':
+        // GPT-4 models with vision support
+        return (
+          modelIdLower.includes('gpt-4o') ||
+          modelIdLower.includes('gpt-4-turbo') ||
+          modelIdLower.includes('gpt-4-vision') ||
+          modelIdLower.includes('gpt-4-0125') ||
+          modelIdLower.includes('gpt-4-1106')
+        );
+
+      case 'google':
+        // Gemini models generally support vision
+        return (
+          modelIdLower.includes('gemini') ||
+          modelIdLower.includes('gemini-pro') ||
+          modelIdLower.includes('gemini-1.5') ||
+          modelIdLower.includes('gemini-2')
+        );
+
+      case 'anthropic':
+        // Claude 3+ models support vision
+        return (
+          modelIdLower.includes('claude-3') ||
+          modelIdLower.includes('claude-sonnet-4') ||
+          modelIdLower.includes('claude-opus') ||
+          modelIdLower.includes('claude-haiku')
+        );
+
+      case 'deepseek':
+        // DeepSeek-V2 and newer support vision
+        return modelIdLower.includes('deepseek-v2');
+
+      case 'groq':
+      case 'ollama':
+        // These providers depend on the specific model, but many don't support vision
+        // We'll be conservative and return false unless explicitly known
+        return false;
+
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Check if messages contain image parts
+   */
+  private messagesContainImages(messages: ModelMessage[]): boolean {
+    for (const message of messages) {
+      if (message.role === 'user' && Array.isArray(message.content)) {
+        for (const part of message.content) {
+          if (part && part.type === 'image') {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Validate that the model supports image inputs if messages contain images
+   * @throws Error if images are present but model doesn't support vision
+   */
+  public validateImageSupport(model: string, messages: ModelMessage[], lang?: string | null): void {
+    if (!this.messagesContainImages(messages)) {
+      return; // No images, no validation needed
+    }
+
+    const { name: providerName, modelId } = this.getProviderFromModel(model);
+
+    if (!this.modelSupportsVision(providerName, modelId)) {
+      const t = getTranslation(lang);
+      throw new Error(t('common.modelDoesNotSupportImageInputs', { model: modelId }));
+    }
   }
 }

@@ -16,6 +16,7 @@ const PROVIDER_DISPLAY_NAMES: Record<ProviderNeedApiKey, string> = {
   google: 'Google',
   groq: 'Groq',
   anthropic: 'Anthropic',
+  ollama: 'Ollama',
 };
 
 // Mapping from provider to translation key for API key label
@@ -26,6 +27,7 @@ const PROVIDER_API_KEY_LABELS: Record<ProviderNeedApiKey, string> = {
   google: 'settings.googleApiKey',
   groq: 'settings.groqApiKey',
   anthropic: 'settings.anthropicApiKey',
+  ollama: 'settings.ollamaApiKey',
 };
 
 export class ProviderSetting {
@@ -192,8 +194,7 @@ export class ProviderSetting {
         text: t('settings.baseUrl'),
       });
 
-      const currentBaseUrl =
-        config.baseUrl || this.plugin.settings.llm.providerConfigs[provider]?.baseUrl || '';
+      const currentBaseUrl = config.baseUrl || '';
 
       const baseUrlInput = baseUrlWrapper.createEl('input', {
         type: 'text',

@@ -1,7 +1,7 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
 import { createTextStream } from 'src/utils/textStreamer';
@@ -13,7 +13,7 @@ export type ThankYouArgs = z.infer<typeof thankYouSchema>;
 
 export class ThankYou {
   private static readonly thankYouTool = tool({
-    parameters: thankYouSchema,
+    inputSchema: thankYouSchema,
   });
 
   constructor(private readonly agent: SuperAgent) {}
@@ -27,32 +27,25 @@ export class ThankYou {
    */
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, ThankYouArgs> }
+    options: { toolCall: ToolCallPart<ThankYouArgs> }
   ): Promise<AgentResult> {
-    const { title, nextIntent, lang, handlerId } = params;
+    const { title, lang, handlerId } = params;
     const t = getTranslation(lang);
 
     if (!handlerId) {
       throw new Error('ThankYou.handle invoked without handlerId');
     }
 
-    let responseText: string;
+    // Get a random response from the list
+    const responses = [
+      t('thankYou.response1'),
+      t('thankYou.response2'),
+      t('thankYou.response3'),
+      t('thankYou.response4'),
+      t('thankYou.response5'),
+    ];
 
-    if (nextIntent) {
-      // If nextIntent is present, use a simple response
-      responseText = t('thankYou.simpleResponse');
-    } else {
-      // Get a random response from the list
-      const responses = [
-        t('thankYou.response1'),
-        t('thankYou.response2'),
-        t('thankYou.response3'),
-        t('thankYou.response4'),
-        t('thankYou.response5'),
-      ];
-
-      responseText = responses[Math.floor(Math.random() * responses.length)];
-    }
+    const responseText = responses[Math.floor(Math.random() * responses.length)];
 
     // Use text streamer to simulate typing
     const textStream = createTextStream(responseText);

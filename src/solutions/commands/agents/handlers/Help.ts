@@ -1,9 +1,10 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
+import { ToolCallPart } from '../../tools/types';
 
 // HELP tool doesn't need args
 const helpSchema = z.object({});
@@ -12,7 +13,7 @@ export type HelpArgs = z.infer<typeof helpSchema>;
 
 export class Help {
   private static readonly helpTool = tool({
-    parameters: helpSchema,
+    inputSchema: helpSchema,
   });
 
   constructor(private readonly agent: SuperAgent) {}
@@ -25,7 +26,10 @@ export class Help {
    * Handle help tool call
    * Lists all available built-in and user-defined commands
    */
-  public async handle(params: AgentHandlerParams): Promise<AgentResult> {
+  public async handle(
+    params: AgentHandlerParams,
+    options: { toolCall: ToolCallPart<unknown> }
+  ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
     const t = getTranslation(lang);
 
@@ -47,49 +51,13 @@ export class Help {
           command: '`/search`',
           description: t('common.searchDesc'),
         },
-        {
-          command: '`/close`',
-          description: t('common.closeDesc'),
-        },
-        {
-          command: '`/yes`, `/no`',
-          description: t('common.confirmDesc'),
-        },
         { command: '`/image`', description: t('common.imageDesc') },
-        { command: '`/audio`', description: t('common.audioDesc') },
-        { command: '`/create`', description: t('common.createDesc') },
-        {
-          command: '`/stop`, `/abort`',
-          description: t('common.stopDesc'),
-        },
-        { command: '`/help`', description: t('common.helpDesc') },
+        { command: '`/speech`', description: t('common.speechDesc') },
       ];
 
       // Add built-in commands to content
       for (const cmd of builtInCommandsWithDescriptions) {
         content += `- ${cmd.command} - ${cmd.description}\n`;
-      }
-
-      // Add intent-based commands section
-      content += `\n**${t('common.intentCommands')}:**\n\n`;
-      content += `*${t('common.intentCommandsDesc')}*\n\n`;
-
-      // List of intent-based commands with descriptions
-      const intentCommands = [
-        { command: 'vault', description: t('common.vaultDesc') },
-        { command: 'update', description: t('common.updateDesc') },
-        { command: 'generate', description: t('common.generateDesc') },
-        { command: 'read', description: t('common.readDesc') },
-        { command: 'build_search_index', description: t('common.buildSearchIndexDesc') },
-        {
-          command: 'revert',
-          description: t('common.revertDesc'),
-        },
-      ];
-
-      // Add intent commands to content
-      for (const cmd of intentCommands) {
-        content += `- \`${cmd.command}\` - ${cmd.description}\n`;
       }
 
       // Add user-defined commands section if any exist

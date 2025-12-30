@@ -1,9 +1,9 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { type SuperAgent } from '../SuperAgent';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus, Intent } from '../../types';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
@@ -60,7 +60,6 @@ Set to -1 when:
 If the readType is "entire", leave it null.`
     ),
   confidence: z.number().min(0).max(1).describe(confidenceFragment),
-  explanation: z.string().describe(explanationFragment),
   lang: z
     .string()
     .nullable()
@@ -71,7 +70,7 @@ If the readType is "entire", leave it null.`
 export type ContentReadingArgs = z.infer<typeof contentReadingSchema>;
 
 export class ReadContent {
-  private static readonly contentReadingTool = tool({ parameters: contentReadingSchema });
+  private static readonly contentReadingTool = tool({ inputSchema: contentReadingSchema });
 
   constructor(private readonly agent: SuperAgent) {}
 
@@ -84,10 +83,10 @@ export class ReadContent {
    */
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, ContentReadingArgs>; nextIntent?: Intent }
+    options: { toolCall: ToolCallPart<ContentReadingArgs> }
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
-    const { toolCall, nextIntent } = options;
+    const { toolCall } = options;
     const t = getTranslation(lang);
 
     if (!handlerId) {
@@ -97,7 +96,7 @@ export class ReadContent {
     // Execute the content reading
     let result: ContentReadingResult | string;
     try {
-      result = await this.agent.plugin.contentReadingService.readContent(toolCall.args);
+      result = await this.agent.plugin.contentReadingService.readContent(toolCall.input);
     } catch (error) {
       logger.error('Error in content reading', error);
       result = error instanceof Error ? error.message : String(error);
@@ -111,16 +110,22 @@ export class ReadContent {
         command: 'read',
         includeHistory: false,
         handlerId,
+        step: params.invocationCount,
       });
 
       await this.agent.renderer.serializeToolInvocation({
         path: title,
         command: 'read',
         handlerId,
+        step: params.invocationCount,
         toolInvocations: [
           {
             ...toolCall,
-            result: `messageRef:${messageId}`,
+            type: 'tool-result',
+            output: {
+              type: 'text',
+              value: `messageRef:${messageId}`,
+            },
           },
         ],
       });
@@ -137,16 +142,22 @@ export class ReadContent {
         command: 'read',
         includeHistory: false,
         handlerId,
+        step: params.invocationCount,
       });
 
       await this.agent.renderer.serializeToolInvocation({
         path: title,
         command: 'read',
         handlerId,
+        step: params.invocationCount,
         toolInvocations: [
           {
             ...toolCall,
-            result: `messageRef:${messageId}`,
+            type: 'tool-result',
+            output: {
+              type: 'text',
+              value: `messageRef:${messageId}`,
+            },
           },
         ],
       });
@@ -156,30 +167,24 @@ export class ReadContent {
       };
     }
 
-    await this.agent.renderer.updateConversationNote({
-      path: title,
-      newContent: toolCall.args.explanation,
-      command: 'read',
-      includeHistory: false,
-      lang: params.lang,
-      handlerId,
-    });
-
     // Show found placeholder if available
-    if (toolCall.args.foundPlaceholder) {
+    if (toolCall.input.foundPlaceholder) {
       await this.agent.renderer.updateConversationNote({
         path: title,
-        newContent: toolCall.args.foundPlaceholder.replace(
+        newContent: toolCall.input.foundPlaceholder.replace(
           '{{number}}',
           result.blocks.length.toString()
         ),
         includeHistory: false,
         handlerId,
+        step: params.invocationCount,
       });
     }
 
-    // Display each block
-    if (!nextIntent || nextIntent.type === 'read') {
+    // Don't render content when toolCall.input.readType is "entire"
+    if (toolCall.input.readType === 'entire') {
+      // Do nothing
+    } else {
       for (const block of result.blocks) {
         if (block.content === '') {
           continue;
@@ -201,12 +206,12 @@ export class ReadContent {
           ),
           includeHistory: false,
           handlerId,
+          step: params.invocationCount,
         });
       }
     }
 
     const artifactId = await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
-      text: `*${t('common.artifactCreated', { type: ArtifactType.READ_CONTENT })}*`,
       artifact: {
         artifactType: ArtifactType.READ_CONTENT,
         readingResult: result,
@@ -218,10 +223,15 @@ export class ReadContent {
       path: title,
       command: 'read',
       handlerId,
+      step: params.invocationCount,
       toolInvocations: [
         {
           ...toolCall,
-          result: `artifactRef:${artifactId}`,
+          type: 'tool-result',
+          output: {
+            type: 'text',
+            value: `artifactRef:${artifactId}`,
+          },
         },
       ],
     });

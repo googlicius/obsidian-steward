@@ -1,9 +1,9 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { type SuperAgent } from '../SuperAgent';
-import { ToolInvocation } from '../../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { logger } from 'src/utils/logger';
 import { DataAwarenessAgent } from '../DataAwarenessAgent';
@@ -36,10 +36,6 @@ DO NOT use this for a paginated list, where the files number is smaller than the
       `Delegate to DataAwarenessAgent to process files in small batches from an artifact. Use this for large file sets to avoid token limits.
 - Use this when: 1. Provided artifact ID (By user, tool call results), 2. The files is a part of a larger list.`
     ),
-  explanation: z
-    .string()
-    .min(1)
-    .describe('Short explanation of the rename operation and why it is required.'),
 });
 
 export type RenameToolArgs = z.infer<typeof renameToolSchema>;
@@ -55,7 +51,7 @@ type RenameOperationResult = {
 };
 
 export class VaultRename {
-  private static readonly renameTool = tool({ parameters: renameToolSchema });
+  private static readonly renameTool = tool({ inputSchema: renameToolSchema });
   private _dataAwarenessAgent: DataAwarenessAgent;
 
   constructor(private readonly agent: SuperAgent) {}
@@ -82,7 +78,7 @@ export class VaultRename {
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolInvocation<unknown, RenameToolArgs> }
+    options: { toolCall: ToolCallPart<RenameToolArgs> }
   ): Promise<AgentResult> {
     const { title, lang } = params;
     const handlerId = params.handlerId;
@@ -94,24 +90,15 @@ export class VaultRename {
 
     const t = getTranslation(lang);
 
-    await this.agent.renderer.updateConversationNote({
-      path: title,
-      newContent: toolCall.args.explanation,
-      command: 'vault_rename',
-      includeHistory: false,
-      lang,
-      handlerId,
-    });
-
     // Handle delegation to DataAwarenessAgent
-    if (toolCall.args.delegateToAgent) {
+    if (toolCall.input.delegateToAgent) {
       return this.handleDataAwarenessDelegation(params, {
         toolCall,
       });
     }
 
     // Validate that files are provided when not delegating
-    if (!toolCall.args.files || toolCall.args.files.length === 0) {
+    if (!toolCall.input.files || toolCall.input.files.length === 0) {
       const message = t('rename.noInstructions');
       await this.respondAndSerializeRename({
         title,
@@ -119,6 +106,7 @@ export class VaultRename {
         toolCall,
         lang,
         handlerId,
+        step: params.invocationCount,
       });
       return {
         status: IntentResultStatus.ERROR,
@@ -126,7 +114,7 @@ export class VaultRename {
       };
     }
 
-    const normalization = this.normalizeInstructions({ files: toolCall.args.files });
+    const normalization = this.normalizeInstructions({ files: toolCall.input.files });
     if (normalization.hasInvalid) {
       const message = t('rename.invalidInstruction');
       await this.respondAndSerializeRename({
@@ -135,6 +123,7 @@ export class VaultRename {
         toolCall,
         lang,
         handlerId,
+        step: params.invocationCount,
       });
       return {
         status: IntentResultStatus.ERROR,
@@ -150,6 +139,7 @@ export class VaultRename {
         toolCall,
         lang,
         handlerId,
+        step: params.invocationCount,
       });
       return {
         status: IntentResultStatus.ERROR,
@@ -172,6 +162,7 @@ export class VaultRename {
         toolCall,
         lang,
         handlerId,
+        step: params.invocationCount,
       });
 
       return {
@@ -192,6 +183,7 @@ export class VaultRename {
             toolCall,
             lang,
             handlerId,
+            step: params.invocationCount,
           });
           return {
             status: IntentResultStatus.SUCCESS,
@@ -375,56 +367,42 @@ export class VaultRename {
   private async respondAndSerializeRename(params: {
     title: string;
     content: string;
-    toolCall: ToolInvocation<unknown, RenameToolArgs>;
+    toolCall: ToolCallPart<RenameToolArgs>;
     lang?: string | null;
     handlerId: string;
+    step?: number;
   }): Promise<string> {
-    const { title, content, toolCall, lang, handlerId } = params;
+    const { title, content, toolCall, lang, handlerId, step } = params;
     const messageId = await this.agent.renderer.updateConversationNote({
       path: title,
       newContent: content,
       command: 'vault_rename',
       lang,
       handlerId,
+      step,
       includeHistory: false,
     });
 
-    await this.serializeRenameInvocation({
+    await this.agent.serializeInvocation({
+      command: 'vault_rename',
       title,
       handlerId,
+      step,
       toolCall,
-      result: messageId ? `messageRef:${messageId}` : content,
+      result: {
+        type: 'text',
+        value: messageId ? `messageRef:${messageId}` : content,
+      },
     });
 
     return content;
-  }
-
-  private async serializeRenameInvocation(params: {
-    title: string;
-    handlerId: string;
-    toolCall: ToolInvocation<unknown, RenameToolArgs>;
-    result: string;
-  }): Promise<void> {
-    const { title, handlerId, toolCall, result } = params;
-
-    await this.agent.renderer.serializeToolInvocation({
-      path: title,
-      command: 'vault_rename',
-      handlerId,
-      toolInvocations: [
-        {
-          ...toolCall,
-          result,
-        },
-      ],
-    });
   }
 
   private async finishRename(
     params: AgentHandlerParams,
     options: {
       instructions: RenameInstructions;
-      toolCall: ToolInvocation<unknown, RenameToolArgs>;
+      toolCall: ToolCallPart<RenameToolArgs>;
     }
   ): Promise<AgentResult> {
     const { title, lang } = params;
@@ -450,6 +428,7 @@ export class VaultRename {
       command: 'vault_rename',
       lang,
       handlerId,
+      includeHistory: false,
     });
 
     // Store rename results as an artifact if there are any renames
@@ -469,11 +448,15 @@ export class VaultRename {
       });
     }
 
-    await this.serializeRenameInvocation({
+    await this.agent.serializeInvocation({
+      command: 'vault_rename',
       title,
       handlerId,
       toolCall: options.toolCall,
-      result: messageId ? `messageRef:${messageId}` : formattedMessage,
+      result: {
+        type: 'text',
+        value: messageId ? `messageRef:${messageId}` : formattedMessage,
+      },
     });
 
     return {
@@ -487,7 +470,7 @@ export class VaultRename {
   private async handleDataAwarenessDelegation(
     params: AgentHandlerParams,
     options: {
-      toolCall: ToolInvocation<unknown, RenameToolArgs>;
+      toolCall: ToolCallPart<RenameToolArgs>;
     }
   ): Promise<AgentResult> {
     const { title, lang } = params;
@@ -498,12 +481,12 @@ export class VaultRename {
       throw new Error('VaultRename.handleDataAwarenessDelegation invoked without handlerId');
     }
 
-    if (!toolCall.args.delegateToAgent) {
+    if (!toolCall.input.delegateToAgent) {
       throw new Error('delegateToAgent is required for handleDataAwarenessDelegation');
     }
 
-    const artifactId = toolCall.args.delegateToAgent.artifactId;
-    const query = toolCall.args.delegateToAgent.query;
+    const artifactId = toolCall.input.delegateToAgent.artifactId;
+    const query = toolCall.input.delegateToAgent.query;
 
     const t = getTranslation(lang);
 
