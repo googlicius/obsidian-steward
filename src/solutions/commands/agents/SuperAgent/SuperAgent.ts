@@ -420,9 +420,18 @@ export class SuperAgent extends Agent {
         ? await this.generateTodoListPrompt(params.title)
         : '';
 
+      const model = llmConfig.model;
+
+      // AI SDK v5 only supports v2 models at runtime, not v3
+      // @ai-sdk/openai-compatible v2.x creates v3 models which are incompatible
+      if (model.specificationVersion === 'v3') {
+        throw new Error(`Streaming with v3 models is not supported.`);
+      }
+
       // Use streamText instead of generateText
       const { toolCalls: toolCallsPromise, fullStream } = streamText({
         ...llmConfig,
+        model,
         abortSignal,
         system: `You are a helpful assistant who helps users with their Obsidian vault.
 

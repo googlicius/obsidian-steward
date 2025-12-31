@@ -1,3 +1,4 @@
+import { generateId } from 'ai';
 import { getLanguage, normalizePath, PluginSettingTab, Setting } from 'obsidian';
 import { logger } from './utils/logger';
 import {
@@ -117,6 +118,7 @@ class StewardSettingTab extends PluginSettingTab {
     // Create Providers section
     new Setting(containerEl).setName(t('settings.providers')).setHeading();
 
+    // Display built-in providers
     this.createProviderSetting('openai');
     this.createProviderSetting('elevenlabs');
     this.createProviderSetting('deepseek');
@@ -124,6 +126,46 @@ class StewardSettingTab extends PluginSettingTab {
     this.createProviderSetting('groq');
     this.createProviderSetting('anthropic');
     this.createProviderSetting('ollama');
+
+    // Display custom providers
+    const customProviders = Object.keys(this.plugin.settings.providers).filter(
+      key => this.plugin.settings.providers[key]?.isCustom === true
+    );
+
+    for (const providerKey of customProviders) {
+      this.createProviderSetting(providerKey);
+    }
+
+    // Add "Add new provider" button
+    new Setting(containerEl)
+      .setName(t('settings.addNewProvider'))
+      .setDesc(t('settings.addNewProviderDesc'))
+      .addButton(button => {
+        button
+          .setButtonText(t('settings.addNewProvider'))
+          .setCta()
+          .onClick(async () => {
+            // Generate a unique provider key using generateId
+            let providerKey: string;
+            do {
+              providerKey = `custom-provider-${generateId()}`;
+            } while (this.plugin.settings.providers[providerKey]);
+
+            // Initialize the custom provider
+            this.plugin.settings.providers[providerKey] = {
+              apiKey: '',
+              isCustom: true,
+              compatibility: 'openai',
+              name: providerKey,
+            };
+
+            await this.plugin.saveSettings();
+
+            await sleep(200);
+            // Refresh the settings display
+            this.display();
+          });
+      });
 
     containerEl.createEl('div', {
       text: `${t('settings.note')}:`,

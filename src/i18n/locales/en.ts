@@ -386,6 +386,12 @@ const en = {
       failedToClearApiKey: 'Failed to clear API key. Please try again.',
       edit: 'Edit',
       apiKey: 'API Key',
+      addNewProvider: 'Add new provider',
+      addNewProviderDesc: 'Add a custom provider with its own API key and configuration',
+      providerName: 'Provider name',
+      providerNamePlaceholder: 'Enter provider name (no spaces)',
+      providerNameNoSpaces: 'Provider name cannot contain spaces',
+      providerCompatibility: 'Provider compatibility',
       corsUrl: 'CORS proxy URL',
       corsUrlDesc:
         'CORS proxy URL for all providers (optional). If set, will be prepended to provider base URLs.',

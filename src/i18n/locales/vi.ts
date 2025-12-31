@@ -321,6 +321,12 @@ const vi = {
       failedToClearApiKey: 'Không thể xóa khóa API. Vui lòng thử lại.',
       edit: 'Chỉnh sửa',
       apiKey: 'Khóa API',
+      addNewProvider: 'Thêm nhà cung cấp mới',
+      addNewProviderDesc: 'Thêm nhà cung cấp tùy chỉnh với khóa API và cấu hình riêng',
+      providerName: 'Tên nhà cung cấp',
+      providerNamePlaceholder: 'Nhập tên nhà cung cấp (không có khoảng trắng)',
+      providerNameNoSpaces: 'Tên nhà cung cấp không được chứa khoảng trắng',
+      providerCompatibility: 'Tương thích nhà cung cấp',
       corsUrl: 'URL CORS',
       corsUrlDesc:
         'URL proxy CORS cho tất cả nhà cung cấp (tùy chọn). Nếu được đặt, sẽ được thêm vào trước URL cơ sở của nhà cung cấp.',

@@ -1,11 +1,11 @@
 import { JSONParseError, TypeValidationError, ImageModel, SpeechModel, ModelMessage } from 'ai';
 import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
+import { createOpenAICompatible, OpenAICompatibleProvider } from '@ai-sdk/openai-compatible';
 import { createDeepSeek, DeepSeekProvider } from '@ai-sdk/deepseek';
 import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/google';
 import { createGroq, GroqProvider } from '@ai-sdk/groq';
 import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
 import { createOllama, OllamaProvider } from 'ollama-ai-provider-v2';
-import { ProviderNeedApiKey } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { jsonrepair } from 'jsonrepair';
 import { logger } from 'src/utils/logger';
@@ -43,39 +43,50 @@ export class LLMService {
   }
 
   /**
-   * Get the base URL for a provider
-   * @param provider The provider name
-   * @returns The base URL for the provider
+   * Get provider configuration with decrypted API key
+   * @param provider The provider name (can be a key or display name)
+   * @returns Provider config with decrypted API key
    */
-  public getProviderBaseUrl(provider: string): string | undefined {
-    // Check providers first (new location)
-    if (this.plugin.settings.providers[provider]?.baseUrl) {
-      return this.plugin.settings.providers[provider].baseUrl;
+  private getProviderInfo(provider: string): StewardPluginSettings['providers'][string] & {
+    apiKey: string; // Decrypted API key
+  } {
+    // First, try to find provider directly by key
+    let providerConfig = this.plugin.settings.providers[provider];
+    let providerKey = provider;
+
+    if (!providerConfig) {
+      // Else find the rest - search through all providers from the end to find a match
+      const providerEntries = Object.entries(this.plugin.settings.providers);
+      for (let i = providerEntries.length - 1; i >= 0; i--) {
+        const [key, config] = providerEntries[i];
+        // Check if the provider name matches a custom provider's name field
+        if (config.isCustom && config.name?.toLowerCase() === provider.toLowerCase()) {
+          providerKey = key;
+          providerConfig = config;
+          break;
+        }
+      }
     }
 
-    // Return undefined to use default base URLs from the AI SDK
-    return undefined;
-  }
+    // If not found, throw an error
+    if (!providerConfig) {
+      throw new Error(`Provider ${provider} not found in settings`);
+    }
 
-  /**
-   * Get the decrypted API key for a provider
-   * @param provider The provider name
-   * @returns The decrypted API key or undefined
-   */
-  public getApiKey(provider: ProviderNeedApiKey): string | undefined {
+    // Get decrypted API key (single call)
+    let decryptedApiKey = '';
     try {
-      if (!this.plugin.settings.providers[provider]) {
-        return undefined;
+      if (providerConfig.apiKey) {
+        decryptedApiKey = this.plugin.encryptionService.getDecryptedApiKey(providerKey);
       }
-      const encryptedKey = this.plugin.settings.providers[provider].apiKey;
-      if (!encryptedKey) {
-        return undefined;
-      }
-      return this.plugin.encryptionService.getDecryptedApiKey(provider);
     } catch (error) {
-      logger.error(`Error getting API key for ${provider}:`, error);
-      return undefined;
+      logger.error(`Error getting API key for ${providerKey}:`, error);
     }
+
+    return {
+      ...providerConfig,
+      apiKey: decryptedApiKey,
+    };
   }
 
   /**
@@ -97,28 +108,53 @@ export class LLMService {
 
   /**
    * Determine the provider from the model name
+   * Supports both built-in providers and custom providers (using compatibility)
    */
-  public getProviderFromModel(
-    model: string | `${string}:${string}`
-  ):
-    | { modelId: string; name: 'openai'; provider: OpenAIProvider }
-    | { modelId: string; name: 'deepseek'; provider: DeepSeekProvider }
-    | { modelId: string; name: 'google'; provider: GoogleGenerativeAIProvider }
-    | { modelId: string; name: 'groq'; provider: GroqProvider }
-    | { modelId: string; name: 'ollama'; provider: OllamaProvider }
-    | { modelId: string; name: 'anthropic'; provider: AnthropicProvider } {
+  public getProviderFromModel(model: string | `${string}:${string}`): {
+    modelId: string;
+    name: string;
+    provider:
+      | OpenAIProvider
+      | OpenAICompatibleProvider
+      | DeepSeekProvider
+      | GoogleGenerativeAIProvider
+      | GroqProvider
+      | OllamaProvider
+      | AnthropicProvider;
+  } {
     const { provider: name, modelId } = this.parseModel(model);
 
     if (!name) {
       throw new Error(`Model ${model} must include a provider prefix (e.g., provider:modelId)`);
     }
 
-    // Get baseURL for the provider (users can include CORS proxy in baseURL if needed)
-    const baseURL = this.getProviderBaseUrl(name);
-    const apiKey = this.getApiKey(name as ProviderNeedApiKey);
+    // Get provider configuration with decrypted API key
+    const config = this.getProviderInfo(name);
+    const isCustom = config.isCustom === true;
+    // Calculate standardName from compatibility or provider name
+    const standardName = isCustom && config.compatibility ? config.compatibility : name;
+    const baseURL = config.baseUrl;
+    const apiKey = config.apiKey;
 
-    switch (name) {
+    // Use standard provider name for the switch case
+    switch (standardName) {
       case 'openai': {
+        // Use openai-compatible for custom providers with openai compatibility
+        if (isCustom) {
+          if (!baseURL) {
+            throw new Error(`Custom provider ${name} with OpenAI compatibility requires a baseURL`);
+          }
+          return {
+            modelId,
+            name,
+            provider: createOpenAICompatible({
+              baseURL,
+              name: config.name as string,
+              ...(apiKey && { apiKey }),
+            }),
+          };
+        }
+
         return {
           modelId,
           name,
@@ -189,7 +225,7 @@ export class LLMService {
       }
 
       default:
-        throw new Error(`Provider ${name} not found`);
+        throw new Error(`Provider ${name} (standard: ${standardName}) not found`);
     }
   }
 
@@ -215,10 +251,6 @@ export class LLMService {
     const { provider, modelId } = this.getProviderFromModel(model);
 
     const languageModel = provider(modelId);
-
-    // if (languageModel.specificationVersion === 'v1') {
-    //   throw new Error(`Language model ${model} is not supported`);
-    // }
 
     const generateParams = {
       model: languageModel,
@@ -257,7 +289,7 @@ export class LLMService {
     const result = this.getProviderFromModel(model);
     let imageModel: ImageModel | undefined;
 
-    if (result.name === 'openai') {
+    if (result.name === 'openai' && 'image' in result.provider) {
       imageModel = result.provider.image(result.modelId);
     } else if (result.provider.imageModel) {
       const imageModelV1OrV2 = result.provider.imageModel(result.modelId);
@@ -286,7 +318,7 @@ export class LLMService {
     const result = this.getProviderFromModel(`${provider}:${model}`);
     let speechModel: SpeechModel | undefined;
 
-    if (result.name === 'openai') {
+    if (result.name === 'openai' && 'speech' in result.provider) {
       speechModel = result.provider.speech(result.modelId);
     } else if (result.provider.speechModel) {
       const speechModelV1OrV2 = result.provider.speechModel(result.modelId);

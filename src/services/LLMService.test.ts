@@ -37,6 +37,20 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
           apiKey: '',
           baseUrl: undefined,
         },
+        custom_provider_1: {
+          apiKey: '',
+          baseUrl: 'http://localhost:1234/v1',
+          isCustom: true,
+          name: 'lmstudio',
+          compatibility: 'openai',
+        },
+        custom_provider_2: {
+          apiKey: '1234abcd',
+          baseUrl: 'http://my-custom-provider.com/api',
+          isCustom: true,
+          name: 'YaleLab',
+          compatibility: 'openai',
+        },
       },
     },
     encryptionService: {
@@ -111,6 +125,22 @@ describe('LLMService', () => {
 
         expect(result.name).toBe('ollama');
         expect(result.modelId).toBe('model:version:tag');
+        expect(result.provider).toBeDefined();
+      });
+
+      it('should correctly parse custom provider model', () => {
+        const result = llmService.getProviderFromModel('lmstudio:lmstudio-1-3-70b');
+
+        expect(result.name).toBe('lmstudio');
+        expect(result.modelId).toBe('lmstudio-1-3-70b');
+        expect(result.provider).toBeDefined();
+      });
+
+      it('should correctly parse custom provider model with case insensitive name', () => {
+        const result = llmService.getProviderFromModel('yalelab:gemini-3');
+
+        expect(result.name).toBe('yalelab');
+        expect(result.modelId).toBe('gemini-3');
         expect(result.provider).toBeDefined();
       });
     });
