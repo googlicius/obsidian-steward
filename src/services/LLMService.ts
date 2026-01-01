@@ -54,9 +54,7 @@ export class LLMService {
    * @param provider The provider name (can be a key or display name)
    * @returns Provider config with decrypted API key
    */
-  private getProviderInfo(provider: string): StewardPluginSettings['providers'][string] & {
-    apiKey: string; // Decrypted API key
-  } {
+  private getProviderInfo(provider: string): StewardPluginSettings['providers'][string] {
     // First, try to find provider directly by key
     let providerConfig = this.plugin.settings.providers[provider];
     let providerKey = provider;
@@ -251,7 +249,7 @@ export class LLMService {
       maxGenerationTokens: this.plugin.settings.llm.maxGenerationTokens,
     };
     const model = overrideModel || defaultModel;
-    const { provider, modelId } = this.getProviderFromModel(model);
+    const { provider, modelId, systemPrompt } = this.getProviderFromModel(model);
 
     const languageModel = provider(modelId);
 
@@ -259,6 +257,7 @@ export class LLMService {
       model: languageModel as LanguageModel,
       temperature,
       maxOutputTokens: maxGenerationTokens,
+      systemPrompt,
     };
 
     if (generateType === 'text') {

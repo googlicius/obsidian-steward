@@ -380,7 +380,8 @@ export class SuperAgent extends Agent {
         registry.exclude([ToolName.CONFIRMATION, ToolName.ASK_USER]);
       }
 
-      const messages = conversationHistory;
+      // Create a copy of conversationHistory to avoid mutating the original array
+      const messages = [...conversationHistory];
 
       // Include user message for the first iteration.
       if (!params.invocationCount) {
@@ -420,15 +421,18 @@ export class SuperAgent extends Agent {
 
       const additionalSystemPrompts = params.intent.systemPrompts || [];
 
-      const providerInfo = this.plugin.llmService.getProviderFromModel(
-        params.intent.model || this.plugin.settings.llm.chat.model
-      );
-      if (providerInfo.systemPrompt) {
-        additionalSystemPrompts.push(providerInfo.systemPrompt);
+      if (llmConfig.systemPrompt) {
+        additionalSystemPrompts.push(llmConfig.systemPrompt);
+      }
+
+      if (additionalSystemPrompts.length > 0) {
+        messages.unshift({ role: 'system', content: additionalSystemPrompts.join('\n\n') });
       }
 
       const { toolCalls: toolCallsPromise, fullStream } = streamText({
-        ...llmConfig,
+        model: llmConfig.model,
+        temperature: llmConfig.temperature,
+        maxOutputTokens: llmConfig.maxOutputTokens,
         abortSignal,
         system: `You are a helpful assistant who helps users with their Obsidian vault.
 
@@ -475,7 +479,7 @@ NOTE:
 - Do NOT repeat the latest tool call result in your final response as it is already rendered in the UI.
 - Do NOT mention the tools you use to users. Work silently in the background and only communicate the results or outcomes.
 - Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`,
-        messages: [{ role: 'system', content: additionalSystemPrompts.join('\n\n') }, ...messages],
+        messages,
         tools: registry.getToolsObject(),
         onError: ({ error }) => {
           logger.error('Error in streamText', error);

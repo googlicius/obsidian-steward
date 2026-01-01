@@ -91,6 +91,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     contentReadingService: {
       readContent: jest.fn(),
     },
+    userMessageService: {
+      sanitizeQuery: jest.fn((query: string) => query),
+    },
     conversationRenderer: mockRenderer,
     artifactManagerV2: mockArtifactManager,
   } as unknown as StewardPlugin;
@@ -159,7 +162,7 @@ describe('SuperAgent', () => {
     jest.useRealTimers();
   });
 
-  describe('handle - vault tasks', () => {
+  describe('handle - messages and tool calls', () => {
     it('should include user message as the latest message only in the first iteration', async () => {
       const params: AgentHandlerParams = {
         title: 'test-conversation',
@@ -1347,6 +1350,154 @@ describe('SuperAgent', () => {
           remainingSteps: 20, // MAX_STEP_COUNT
         })
       );
+    });
+  });
+
+  describe('handle - system prompt and fallbacks', () => {
+    it('should include system prompt from provider at the first message', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+      };
+
+      const providerSystemPrompt = 'This is a custom system prompt from the provider';
+
+      // Mock getLLMConfig to return a systemPrompt
+      mockPlugin.llmService.getLLMConfig = jest.fn().mockResolvedValue({
+        model: 'mock-model',
+        temperature: 0.2,
+        maxOutputTokens: 2048,
+        systemPrompt: providerSystemPrompt,
+      });
+
+      // Mock extractConversationHistory to return empty array (first iteration)
+      mockPlugin.conversationRenderer.extractConversationHistory = jest.fn().mockResolvedValue([]);
+
+      await superAgent.handle(params);
+
+      // Verify streamText was called
+      expect(streamText).toHaveBeenCalledTimes(1);
+      const call = (streamText as jest.Mock).mock.calls[0][0];
+
+      // Verify messages array includes system message with provider system prompt
+      expect(call.messages).toBeDefined();
+      expect(call.messages.length).toBeGreaterThan(0);
+      expect(call.messages[0].role).toBe('system');
+      expect(call.messages[0].content).toBe(providerSystemPrompt);
+
+      // Verify user message is also included (should be the second message)
+      expect(call.messages[1].role).toBe('user');
+      expect(call.messages[1].content).toBe('test query');
+    });
+
+    it('should still include the user message at the first message after fallback happens in the first iteration', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+          model: 'original-model',
+        } as Intent,
+      };
+
+      // Mock modelFallbackService to be enabled and return a fallback model
+      const mockModelFallbackService = {
+        isEnabled: jest.fn().mockReturnValue(true),
+        switchToNextModel: jest.fn().mockResolvedValue('fallback-model'),
+        getCurrentModel: jest.fn().mockResolvedValue(undefined),
+      };
+      Object.defineProperty(mockPlugin, 'modelFallbackService', {
+        get: () => mockModelFallbackService,
+        configurable: true,
+      });
+
+      // Mock getLLMConfig to return config
+      mockPlugin.llmService.getLLMConfig = jest.fn().mockResolvedValue({
+        model: 'mock-model',
+        temperature: 0.2,
+        maxOutputTokens: 2048,
+      });
+
+      // Mock extractConversationHistory to return empty array (first iteration, no history yet)
+      // IMPORTANT: Return a NEW array each time to avoid mutation issues
+      mockPlugin.conversationRenderer.extractConversationHistory = jest
+        .fn()
+        .mockImplementation(() => Promise.resolve([]));
+
+      // Make toolCalls promise reject on first call to trigger fallback
+      // Use mockImplementation to trigger onError callback, which is how errors are actually handled
+      let callCount = 0;
+      (streamText as jest.Mock).mockImplementation(config => {
+        callCount++;
+        if (callCount === 1) {
+          // First call: trigger onError callback to simulate an error
+          // This is how errors are actually handled in the real code
+          // Use Promise.resolve().then() to defer to next microtask (works with fake timers)
+          Promise.resolve().then(() => {
+            if (config.onError) {
+              config.onError({ error: new Error('Model error') });
+            }
+          });
+          return {
+            fullStream: (async function* () {
+              yield { type: 'text-delta', textDelta: '' };
+            })(),
+            toolCalls: new Promise(() => {
+              // Never resolves - will be rejected via streamErrorPromise when onError is called
+            }),
+          };
+        } else {
+          // Second call (after fallback): succeed
+          return {
+            fullStream: (async function* () {
+              yield { type: 'text-delta', textDelta: '' };
+            })(),
+            toolCalls: Promise.resolve([]),
+          };
+        }
+      });
+
+      // Call safeHandle (which will handle the fallback)
+      await superAgent.safeHandle(params);
+
+      // Verify modelFallbackService was called
+      expect(mockModelFallbackService.isEnabled).toHaveBeenCalled();
+      expect(mockModelFallbackService.switchToNextModel).toHaveBeenCalledWith('test-conversation');
+
+      // Verify streamText was called twice (first fails, second succeeds after fallback)
+      expect(streamText).toHaveBeenCalledTimes(2);
+
+      // Verify the first call included the user message (invocationCount is undefined/falsy)
+      const firstCall = (streamText as jest.Mock).mock.calls[0][0];
+      expect(firstCall.messages).toBeDefined();
+      expect(firstCall.messages.length).toBeGreaterThan(0);
+      // The user message should be included in the first call
+      const firstCallUserMessage = firstCall.messages.find(
+        (m: { role: string }) => m.role === 'user'
+      );
+      expect(firstCallUserMessage).toBeDefined();
+      expect(firstCallUserMessage.content).toBe('test query');
+
+      // Verify the second call (after fallback) - since history is still empty, user message should still be included
+      expect(mockPlugin.conversationRenderer.extractConversationHistory).toHaveBeenCalledTimes(2);
+
+      // Verify that the second call to streamText includes the user message
+      // Even though invocationCount is 1, since the history is empty, the user message should still be included
+      const secondCall = (streamText as jest.Mock).mock.calls[1][0];
+      expect(secondCall.messages).toBeDefined();
+      expect(Array.isArray(secondCall.messages)).toBe(true);
+
+      console.log('secondCall.messages', secondCall.messages);
+
+      // The user message should still be included in the second call because history is empty
+      const secondCallUserMessage = secondCall.messages.find(
+        (m: { role: string }) => m.role === 'user'
+      );
+      expect(secondCallUserMessage).toBeDefined();
+      expect(secondCallUserMessage.content).toBe('test query');
     });
   });
 });
