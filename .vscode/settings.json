@@ -44,7 +44,7 @@
       "([^\\s]+)"
     ],
     [
-      "classList\\.(add|remove|toggle|replace)\\s*\\(\\s*['\"`]([^'\"`]*)['\"`]",
+      "classList\\.(?:add|remove|toggle|replace|contains)\\s*\\(\\s*['\"`]([^'\"`]*)['\"`]",
       "([^\\s]+)"
     ]
   ],

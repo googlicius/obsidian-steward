@@ -9,7 +9,7 @@ const [, modelId] = EMBEDDING_MODELS[0].id.split(':');
  */
 export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
   // Default embedding model (will be overridden by getClassifier)
-  embeddingModel: openai.textEmbeddingModel(modelId),
+  embeddingModel: openai.embeddingModel(modelId),
 
   // the threshold for the distance between the value and the cluster values:
   similarityThreshold: 0.84,

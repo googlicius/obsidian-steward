@@ -120,9 +120,7 @@ const tools = {
   [ToolName.TODO_LIST_UPDATE]: handlers.TodoList.getTodoListUpdateTool(),
 };
 
-type ToolCalls = Awaited<
-  Awaited<ReturnType<typeof streamText<typeof tools, unknown>>>['toolCalls']
->;
+type ToolCalls = Awaited<Awaited<ReturnType<typeof streamText<typeof tools>>>['toolCalls']>;
 
 export interface SuperAgent extends Agent, SuperAgentHandlers {}
 
@@ -420,18 +418,17 @@ export class SuperAgent extends Agent {
         ? await this.generateTodoListPrompt(params.title)
         : '';
 
-      const model = llmConfig.model;
+      const additionalSystemPrompts = params.intent.systemPrompts || [];
 
-      // AI SDK v5 only supports v2 models at runtime, not v3
-      // @ai-sdk/openai-compatible v2.x creates v3 models which are incompatible
-      if (model.specificationVersion === 'v3') {
-        throw new Error(`Streaming with v3 models is not supported.`);
+      const providerInfo = this.plugin.llmService.getProviderFromModel(
+        params.intent.model || this.plugin.settings.llm.chat.model
+      );
+      if (providerInfo.systemPrompt) {
+        additionalSystemPrompts.push(providerInfo.systemPrompt);
       }
 
-      // Use streamText instead of generateText
       const { toolCalls: toolCallsPromise, fullStream } = streamText({
         ...llmConfig,
-        model,
         abortSignal,
         system: `You are a helpful assistant who helps users with their Obsidian vault.
 
@@ -478,7 +475,7 @@ NOTE:
 - Do NOT repeat the latest tool call result in your final response as it is already rendered in the UI.
 - Do NOT mention the tools you use to users. Work silently in the background and only communicate the results or outcomes.
 - Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`,
-        messages,
+        messages: [{ role: 'system', content: additionalSystemPrompts.join('\n\n') }, ...messages],
         tools: registry.getToolsObject(),
         onError: ({ error }) => {
           logger.error('Error in streamText', error);
@@ -662,7 +659,7 @@ NOTE:
       // Get the first tool name from toolCalls if available
       const firstToolName =
         toolCalls.length > startIndex && !toolCalls[startIndex]?.dynamic
-          ? toolCalls[startIndex].toolName
+          ? (toolCalls[startIndex].toolName as ToolName)
           : undefined;
       timer = window.setTimeout(() => {
         this.renderIndicator(title, lang, firstToolName);
@@ -798,7 +795,8 @@ NOTE:
 
             default: {
               // Try to find handler in the map for standard handlers
-              const handlerGetter = handlerMap[toolCall.toolName];
+              const toolName = toolCall.toolName as ToolName;
+              const handlerGetter = handlerMap[toolName];
               if (handlerGetter) {
                 const handler = handlerGetter();
                 toolCallResult = await handler.handle(params, { toolCall });
@@ -989,7 +987,7 @@ NOTE:
 
     const hasTaskTool = toolCalls.some(toolCall => {
       if (toolCall.dynamic) return false;
-      return taskTools.has(toolCall.toolName);
+      return taskTools.has(toolCall.toolName as ToolName);
     });
 
     // Only stop if the task is single-turn AND the current tool calls belong to that task

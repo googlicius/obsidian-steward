@@ -248,15 +248,8 @@ ${context}
 
 Return the results in the exact format specified by the response schema.`;
 
-      const model = llmConfig.model;
-
-      if (model.specificationVersion === 'v3') {
-        throw Error('Object generation is currently not supported for v3 models');
-      }
-
       const result = await generateObject({
         ...llmConfig,
-        model,
         abortSignal: this.plugin.abortService.createAbortController('data-awareness'),
         schema: this.responseSchema,
         system: this.systemPrompt,

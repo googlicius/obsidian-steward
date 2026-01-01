@@ -1,10 +1,11 @@
-import { getLanguage, Setting, setIcon, setTooltip, PluginSettingTab } from 'obsidian';
+import { getLanguage, Setting, setIcon, setTooltip } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import type StewardPlugin from 'src/main';
 import { ProviderNeedApiKey } from 'src/constants';
 import { logger } from 'src/utils/logger';
 import { Notice } from 'obsidian';
 import { capitalizeString } from 'src/utils/capitalizeString';
+import type StewardSettingTab from 'src/settings';
 
 const lang = getLanguage();
 const t = getTranslation(lang);
@@ -66,9 +67,12 @@ export class ProviderSetting {
    * Create a provider setting with edit interface for API key and base URL
    * Supports both built-in and custom providers
    */
-  public createProviderSetting(provider: string): void {
-    // Access containerEl from the mixed-in class (StewardSettingTab extends PluginSettingTab)
-    const containerEl = (this as unknown as PluginSettingTab).containerEl;
+  public createProviderSetting(
+    this: StewardSettingTab,
+    provider: string,
+    options?: { apiKeyPlaceholder?: string }
+  ): void {
+    const containerEl = this.containerEl;
     if (!containerEl) {
       logger.error('containerEl not available in ProviderSetting');
       return;
@@ -85,8 +89,8 @@ export class ProviderSetting {
           ...(isCustom
             ? {
                 isCustom: true,
-                compatibility: 'openai' as ProviderNeedApiKey,
-                name: provider,
+                compatibility: 'openai',
+                name: '',
               }
             : {}),
         };
@@ -142,11 +146,22 @@ export class ProviderSetting {
 
         deleteLink.addEventListener('click', async e => {
           e.preventDefault();
-          // Remove the provider from settings
-          delete this.plugin.settings.providers[provider];
-          await this.plugin.saveSettings();
-          // Refresh the settings display
-          (this as unknown as PluginSettingTab).display();
+          const isConfirming = deleteLink.getAttribute('data-confirming') === 'true';
+          const providerConfig = getProviderConfig();
+          const needsConfirm = !!providerConfig.name && providerConfig.name.trim() !== '';
+
+          if (isConfirming || !needsConfirm) {
+            // Remove the provider from settings
+            delete this.plugin.settings.providers[provider];
+            await this.plugin.saveSettings();
+            // Refresh the settings display
+            await this.refreshSettingTab();
+          } else {
+            // Update text to "Confirm delete" and set confirming attribute
+            deleteLink.setText(t('settings.confirmDelete'));
+            deleteLink.setAttribute('data-confirming', 'true');
+            deleteLink.classList.add('clickable-icon');
+          }
         });
       }
 
@@ -197,7 +212,7 @@ export class ProviderSetting {
           type: 'text',
           placeholder: t('settings.providerNamePlaceholder'),
           cls: 'text-input',
-          value: providerConfig.name || provider,
+          value: providerConfig.name,
         });
 
         nameInput.addEventListener('change', async e => {
@@ -253,12 +268,14 @@ export class ProviderSetting {
         });
       }
 
+      const API_KEY_PLACEHOLDER = '••••••••••••••••••••••';
+
       // Get current API key placeholder
-      let apiKeyPlaceholder = t('settings.enterApiKey');
+      let apiKeyPlaceholder = options?.apiKeyPlaceholder || t('settings.enterApiKey');
       try {
         const currentKey = this.plugin.encryptionService.getDecryptedApiKey(provider);
         if (currentKey) {
-          apiKeyPlaceholder = t('settings.apiKeyPlaceholder');
+          apiKeyPlaceholder = API_KEY_PLACEHOLDER;
         }
       } catch (error) {
         apiKeyPlaceholder = t('settings.errorReenterKey');
@@ -281,7 +298,7 @@ export class ProviderSetting {
 
       const apiKeyInput = inputContainer.createEl('input', {
         type: 'password',
-        placeholder: apiKeyPlaceholder,
+        placeholder: apiKeyPlaceholder as string,
         cls: 'text-input',
       });
 
@@ -313,7 +330,7 @@ export class ProviderSetting {
         if (value) {
           try {
             await this.plugin.encryptionService.setEncryptedApiKey(provider, value);
-            target.setAttribute('placeholder', t('settings.apiKeyPlaceholder'));
+            target.setAttribute('placeholder', API_KEY_PLACEHOLDER);
             target.value = '';
             // Refresh to show the read-only state and clear button
             recreateInput('edit');
@@ -348,6 +365,36 @@ export class ProviderSetting {
         providerConfig.baseUrl = value;
         await this.plugin.saveSettings();
       });
+
+      // Create System Prompt textarea (only for custom providers)
+      if (isCustom) {
+        const systemPromptWrapper = currentInputWrapper.createEl('div', {
+          cls: 'stw-provider-input-wrapper',
+        });
+
+        systemPromptWrapper.createEl('label', {
+          text: t('settings.systemPrompt'),
+        });
+
+        const systemPromptTextarea = systemPromptWrapper.createEl('textarea', {
+          cls: 'text-input w-full',
+        });
+
+        // Set textarea attributes for better UX
+        systemPromptTextarea.setAttribute('rows', '4');
+        systemPromptTextarea.setAttribute('placeholder', t('settings.systemPromptPlaceholder'));
+
+        if (providerConfig.systemPrompt) {
+          systemPromptTextarea.value = providerConfig.systemPrompt;
+        }
+
+        systemPromptTextarea.addEventListener('change', async e => {
+          const target = e.target as HTMLTextAreaElement;
+          const value = target.value.trim();
+          providerConfig.systemPrompt = value;
+          await this.plugin.saveSettings();
+        });
+      }
     };
 
     // Function to remove current input and create new one

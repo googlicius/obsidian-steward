@@ -18,6 +18,7 @@ export interface StewardPluginSettings {
       isCustom?: boolean; // Mark if this is a custom provider
       compatibility?: string; // Provider compatibility (select from built-in providers)
       name?: string; // Custom provider name (for custom providers only)
+      systemPrompt?: string; // Optional system prompt for custom providers
     };
   };
   saltKeyId: string; // Store just the key ID, not the actual salt

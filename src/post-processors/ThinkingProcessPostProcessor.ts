@@ -24,7 +24,7 @@ export function createThinkingProcessPostProcessor(): MarkdownPostProcessor {
       if (!codeBlocks.length) return;
 
       // Hide the thinking block by default only when there is a toggle link
-      prevSibling.classList.add('stw-hidden');
+      prevSibling.classList.add('hidden');
 
       toggleLink.addEventListener('click', event => {
         event.preventDefault();
@@ -39,11 +39,12 @@ export function createThinkingProcessPostProcessor(): MarkdownPostProcessor {
  */
 function handleClick(linkContainer: HTMLElement, thinkingBlock: HTMLElement): void {
   try {
-    const isVisible = thinkingBlock.classList.contains('stw-visible');
+    const isVisible = thinkingBlock.classList.contains('block');
 
     if (!isVisible) {
-      thinkingBlock.classList.add('stw-visible');
-      linkContainer.classList.add('stw-hidden');
+      thinkingBlock.classList.remove('hidden');
+      thinkingBlock.classList.add('block');
+      linkContainer.classList.add('hidden');
     }
   } catch (error) {
     logger.error('Error handling thinking process toggle click:', error);

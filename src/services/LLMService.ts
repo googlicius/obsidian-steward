@@ -1,4 +1,11 @@
-import { JSONParseError, TypeValidationError, ImageModel, SpeechModel, ModelMessage } from 'ai';
+import {
+  JSONParseError,
+  TypeValidationError,
+  ImageModel,
+  SpeechModel,
+  ModelMessage,
+  LanguageModel,
+} from 'ai';
 import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
 import { createOpenAICompatible, OpenAICompatibleProvider } from '@ai-sdk/openai-compatible';
 import { createDeepSeek, DeepSeekProvider } from '@ai-sdk/deepseek';
@@ -113,6 +120,7 @@ export class LLMService {
   public getProviderFromModel(model: string | `${string}:${string}`): {
     modelId: string;
     name: string;
+    systemPrompt?: string;
     provider:
       | OpenAIProvider
       | OpenAICompatibleProvider
@@ -135,6 +143,16 @@ export class LLMService {
     const standardName = isCustom && config.compatibility ? config.compatibility : name;
     const baseURL = config.baseUrl;
     const apiKey = config.apiKey;
+    const systemPrompt = config.systemPrompt;
+
+    let provider:
+      | OpenAIProvider
+      | OpenAICompatibleProvider
+      | DeepSeekProvider
+      | GoogleGenerativeAIProvider
+      | GroqProvider
+      | OllamaProvider
+      | AnthropicProvider;
 
     // Use standard provider name for the switch case
     switch (standardName) {
@@ -144,89 +162,74 @@ export class LLMService {
           if (!baseURL) {
             throw new Error(`Custom provider ${name} with OpenAI compatibility requires a baseURL`);
           }
-          return {
-            modelId,
-            name,
-            provider: createOpenAICompatible({
-              baseURL,
-              name: config.name as string,
-              ...(apiKey && { apiKey }),
-            }),
-          };
-        }
-
-        return {
-          modelId,
-          name,
-          provider: createOpenAI({
+          provider = createOpenAICompatible({
+            baseURL,
+            name: config.name as string,
+            ...(apiKey && { apiKey }),
+          });
+        } else {
+          provider = createOpenAI({
             ...(baseURL && { baseURL }),
             ...(apiKey && { apiKey }),
-          }),
-        };
+          });
+        }
+        break;
       }
 
       case 'deepseek': {
-        return {
-          modelId,
-          name,
-          provider: createDeepSeek({
-            ...(baseURL && { baseURL }),
-            ...(apiKey && { apiKey }),
-          }),
-        };
+        provider = createDeepSeek({
+          ...(baseURL && { baseURL }),
+          ...(apiKey && { apiKey }),
+        });
+        break;
       }
 
       case 'google': {
-        return {
-          modelId,
-          name,
-          provider: createGoogleGenerativeAI({
-            ...(baseURL && { baseURL }),
-            ...(apiKey && { apiKey }),
-          }),
-        };
+        provider = createGoogleGenerativeAI({
+          ...(baseURL && { baseURL }),
+          ...(apiKey && { apiKey }),
+        });
+        break;
       }
 
       case 'groq': {
-        return {
-          modelId,
-          name,
-          provider: createGroq({
-            ...(baseURL && { baseURL }),
-            ...(apiKey && { apiKey }),
-          }),
-        };
+        provider = createGroq({
+          ...(baseURL && { baseURL }),
+          ...(apiKey && { apiKey }),
+        });
+        break;
       }
 
       case 'ollama': {
-        return {
-          modelId,
-          name,
-          provider: createOllama({
-            ...(baseURL && { baseURL }),
-            ...(apiKey && {
-              headers: {
-                Authorization: `Bearer ${apiKey}`,
-              },
-            }),
+        provider = createOllama({
+          ...(baseURL && { baseURL }),
+          ...(apiKey && {
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+            },
           }),
-        };
+        });
+        break;
       }
 
       case 'anthropic': {
-        return {
-          modelId,
-          name,
-          provider: createAnthropic({
-            ...(baseURL && { baseURL }),
-            ...(apiKey && { apiKey }),
-          }),
-        };
+        provider = createAnthropic({
+          ...(baseURL && { baseURL }),
+          ...(apiKey && { apiKey }),
+        });
+        break;
       }
 
       default:
         throw new Error(`Provider ${name} (standard: ${standardName}) not found`);
     }
+
+    return {
+      modelId,
+      name,
+      ...(systemPrompt && { systemPrompt }),
+      provider,
+    };
   }
 
   /**
@@ -253,7 +256,7 @@ export class LLMService {
     const languageModel = provider(modelId);
 
     const generateParams = {
-      model: languageModel,
+      model: languageModel as LanguageModel,
       temperature,
       maxOutputTokens: maxGenerationTokens,
     };

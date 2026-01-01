@@ -9,11 +9,11 @@ export function getClassifier(
   const llmService = LLMService.getInstance();
   const { provider, modelId } = llmService.getProviderFromModel(embeddingSettings.model);
 
-  const embeddingModel = provider.textEmbeddingModel(modelId);
-
-  if (embeddingModel.specificationVersion === 'v3') {
-    throw new Error('Embedding model specification version v3 is not supported');
+  if (!('embeddingModel' in provider)) {
+    throw new Error(`Embedding is not supported for provider: ${provider.name}`);
   }
+
+  const embeddingModel = provider.embeddingModel(modelId);
 
   return intentClassifier.withSettings({
     embeddingModel,
