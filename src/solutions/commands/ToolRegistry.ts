@@ -22,21 +22,19 @@ export interface ToolMetaDefinition {
  * Centralized tool definition. Handlers can build registries from actual tool instances
  * and this definition will provide consistent prompt text across the app.
  */
-const contentReadingDefinition: ToolMetaDefinition = {
-  name: ToolName.CONTENT_READING,
-  description:
-    'Read content from a note, including text, images, audios, videos, etc. Or image files (png, jpg, jpeg, etc.).',
-  category: 'content-access',
-  guidelines: [
-    `Use ${ToolName.CONTENT_READING} to read any type of content, including text, image, audio, video, etc.`,
-    `When reading multiple files, you MUST make multiple parallel tool calls in the same request (one ${ToolName.CONTENT_READING} call per file). Do NOT read files sequentially one by one. EXCEPT when the user explicitly requests sequential reading.`,
-    `After reading, respond a short conclusion of your task. DO NOT respond the elements of the reading result in your final response: Tables, lists, code, blockquote, images, headings, etc.`,
-  ],
-};
-
 export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   // ReadAgent tool
-  [ToolName.CONTENT_READING]: contentReadingDefinition,
+  [ToolName.CONTENT_READING]: {
+    name: ToolName.CONTENT_READING,
+    description:
+      'Read content from a note, including text, images, audios, videos, etc. Or image files (png, jpg, jpeg, etc.).',
+    category: 'content-access',
+    guidelines: [
+      `Use ${ToolName.CONTENT_READING} to read any type of content, including text, image, audio, video, etc.`,
+      `When reading multiple files, you MUST make multiple parallel tool calls in the same request (one ${ToolName.CONTENT_READING} call per file). Do NOT read files sequentially one by one. EXCEPT when the user explicitly requests sequential reading.`,
+      `After reading, respond a short conclusion of your task. DO NOT respond the elements of the reading result in your final response: Tables, lists, code, blockquote, images, headings, etc.`,
+    ],
+  },
 
   // User interaction tools
   [ToolName.CONFIRMATION]: {
