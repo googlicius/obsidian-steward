@@ -229,7 +229,7 @@ export class DataAwarenessAgent {
     processedFiles: string[];
     failedFiles: Array<{ path: string; error: string }>;
   }> {
-    const { batch, query, model } = params;
+    const { batch, query } = params;
 
     // Build context from file paths
     const context = this.buildContext(batch);
@@ -237,7 +237,7 @@ export class DataAwarenessAgent {
     // Process with LLM
     try {
       const llmConfig = await this.plugin.llmService.getLLMConfig({
-        overrideModel: model,
+        overrideModel: params.model,
         generateType: 'object',
       });
 

@@ -106,9 +106,6 @@ export abstract class Agent {
             logger.warn('Retrying agent with fallback model without handlerId');
           }
 
-          // Increment invocation count for retry
-          params.invocationCount = (params.invocationCount ?? 0) + 1;
-
           return this.safeHandle(params, ...args);
         }
       }

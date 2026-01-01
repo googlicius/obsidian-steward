@@ -1,4 +1,4 @@
-import { getLanguage, Setting } from 'obsidian';
+import { getLanguage, setIcon, Setting, setTooltip } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { DeleteBehavior } from 'src/types/interfaces';
 import type StewardPlugin from 'src/main';
@@ -63,17 +63,26 @@ export class DeleteBehaviorSetting {
       // Initialize with current value
       select.value = this.plugin.settings.deleteBehavior.behavior;
 
-      // Add "Cleanup policy" link (initially hidden if not stw_trash)
-      wrapper
-        .createEl('a', {
-          text: t('settings.cleanupPolicy'),
-          href: '#',
-          cls: 'stw-custom-model-link caret-right',
-        })
-        .addEventListener('click', e => {
-          e.preventDefault();
-          recreateInput('cleanup');
-        });
+      // Add "Cleanup policy" link with help icon (initially hidden if not stw_trash)
+      const linkContainer = wrapper.createEl('div', {
+        cls: 'inline-flex items-center gap-2 justify-end',
+      });
+      const cleanupPolicyLink = linkContainer.createEl('a', {
+        text: t('settings.cleanupPolicy'),
+        href: '#',
+        cls: 'stw-custom-model-link caret-right',
+      });
+      cleanupPolicyLink.addEventListener('click', e => {
+        e.preventDefault();
+        recreateInput('cleanup');
+      });
+
+      // Add question icon with tooltip next to the link
+      const helpIcon = linkContainer.createEl('span', {
+        cls: 'clickable-icon',
+      });
+      setIcon(helpIcon, 'help-circle');
+      setTooltip(helpIcon, t('settings.cleanupPolicyDesc'));
     };
 
     // Function to create cleanup policy dropdown

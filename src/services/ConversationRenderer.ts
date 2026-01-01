@@ -343,7 +343,10 @@ export class ConversationRenderer {
                 }
               : output;
 
-          if (typeof resolvedOutput.value === 'string') {
+          if (
+            resolvedOutput.type !== 'execution-denied' &&
+            typeof resolvedOutput.value === 'string'
+          ) {
             // Check if it's an artifact reference
             if (resolvedOutput.value.startsWith('artifactRef:')) {
               const artifactId = resolvedOutput.value.substring('artifactRef:'.length);

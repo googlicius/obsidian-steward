@@ -15,6 +15,10 @@ export interface StewardPluginSettings {
     [key: string]: {
       apiKey: string; // Encrypted API key
       baseUrl?: string; // Optional base URL for the provider
+      isCustom?: boolean; // Mark if this is a custom provider
+      compatibility?: string; // Provider compatibility (select from built-in providers)
+      name?: string; // Custom provider name (for custom providers only)
+      systemPrompt?: string; // Optional system prompt for custom providers
     };
   };
   saltKeyId: string; // Store just the key ID, not the actual salt

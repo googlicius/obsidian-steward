@@ -120,9 +120,7 @@ const tools = {
   [ToolName.TODO_LIST_UPDATE]: handlers.TodoList.getTodoListUpdateTool(),
 };
 
-type ToolCalls = Awaited<
-  Awaited<ReturnType<typeof streamText<typeof tools, unknown>>>['toolCalls']
->;
+type ToolCalls = Awaited<Awaited<ReturnType<typeof streamText<typeof tools>>>['toolCalls']>;
 
 export interface SuperAgent extends Agent, SuperAgentHandlers {}
 
@@ -382,7 +380,8 @@ export class SuperAgent extends Agent {
         registry.exclude([ToolName.CONFIRMATION, ToolName.ASK_USER]);
       }
 
-      const messages = conversationHistory;
+      // Create a copy of conversationHistory to avoid mutating the original array
+      const messages = [...conversationHistory];
 
       // Include user message for the first iteration.
       if (!params.invocationCount) {
@@ -420,9 +419,20 @@ export class SuperAgent extends Agent {
         ? await this.generateTodoListPrompt(params.title)
         : '';
 
-      // Use streamText instead of generateText
+      const additionalSystemPrompts = params.intent.systemPrompts || [];
+
+      if (llmConfig.systemPrompt) {
+        additionalSystemPrompts.push(llmConfig.systemPrompt);
+      }
+
+      if (additionalSystemPrompts.length > 0) {
+        messages.unshift({ role: 'system', content: additionalSystemPrompts.join('\n\n') });
+      }
+
       const { toolCalls: toolCallsPromise, fullStream } = streamText({
-        ...llmConfig,
+        model: llmConfig.model,
+        temperature: llmConfig.temperature,
+        maxOutputTokens: llmConfig.maxOutputTokens,
         abortSignal,
         system: `You are a helpful assistant who helps users with their Obsidian vault.
 
@@ -653,7 +663,7 @@ NOTE:
       // Get the first tool name from toolCalls if available
       const firstToolName =
         toolCalls.length > startIndex && !toolCalls[startIndex]?.dynamic
-          ? toolCalls[startIndex].toolName
+          ? (toolCalls[startIndex].toolName as ToolName)
           : undefined;
       timer = window.setTimeout(() => {
         this.renderIndicator(title, lang, firstToolName);
@@ -789,7 +799,8 @@ NOTE:
 
             default: {
               // Try to find handler in the map for standard handlers
-              const handlerGetter = handlerMap[toolCall.toolName];
+              const toolName = toolCall.toolName as ToolName;
+              const handlerGetter = handlerMap[toolName];
               if (handlerGetter) {
                 const handler = handlerGetter();
                 toolCallResult = await handler.handle(params, { toolCall });
@@ -980,7 +991,7 @@ NOTE:
 
     const hasTaskTool = toolCalls.some(toolCall => {
       if (toolCall.dynamic) return false;
-      return taskTools.has(toolCall.toolName);
+      return taskTools.has(toolCall.toolName as ToolName);
     });
 
     // Only stop if the task is single-turn AND the current tool calls belong to that task

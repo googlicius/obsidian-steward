@@ -129,7 +129,7 @@ export class EncryptionService {
    * @param provider - The provider to get the API key for (e.g., 'openai', 'elevenlabs', 'deepseek', 'google', 'groq')
    * @returns The decrypted API key or empty string if not set
    */
-  public getDecryptedApiKey(provider: ProviderNeedApiKey): string {
+  public getDecryptedApiKey(provider: string): string {
     if (!this.plugin.settings.providers[provider]) {
       return '';
     }
@@ -152,7 +152,7 @@ export class EncryptionService {
    * @param provider - The provider to set the API key for (e.g., 'openai', 'elevenlabs', 'deepseek', 'google', 'groq')
    * @param apiKey - The API key to encrypt and store
    */
-  public async setEncryptedApiKey(provider: ProviderNeedApiKey, apiKey: string): Promise<void> {
+  public async setEncryptedApiKey(provider: string, apiKey: string): Promise<void> {
     try {
       // Ensure provider config exists
       if (!this.plugin.settings.providers[provider]) {

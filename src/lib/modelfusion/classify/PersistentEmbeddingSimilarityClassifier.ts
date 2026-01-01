@@ -14,7 +14,7 @@ export interface Settings {
   staticClusterValues?: ValueCluster[];
   prefixedClusterValue?: ValueCluster[];
   clusters: ValueCluster[];
-  embeddingModel: EmbeddingModel<string>;
+  embeddingModel: EmbeddingModel;
   similarityThreshold: number;
   modelName?: string;
   forceRefresh?: boolean;

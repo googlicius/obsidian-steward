@@ -1,0 +1,387 @@
+@import 'tailwindcss';
+
+/* Placeholder text classes for different languages */
+:root {
+  --stw-placeholder-text: 'Press Enter to send';
+}
+
+html[data-stw-language='en'] {
+  --stw-placeholder-text: 'Press Enter to send';
+}
+
+html[data-stw-language='ja'] {
+  --stw-placeholder-text: 'Enterキーを押して送信';
+}
+
+html[data-stw-language='vi'] {
+  --stw-placeholder-text: 'Nhấn Enter để gửi';
+}
+
+/* Style for the commands prefix when typing */
+.stw-command-prefix {
+  color: var(--text-accent-hover);
+  font-weight: bold;
+
+  &[has-placeholder='1']:after {
+    content: var(--stw-placeholder-text);
+    position: absolute;
+    font-style: italic;
+    font-size: 0.9em;
+    color: #888;
+    margin-left: var(--size-2-2);
+    margin-top: var(--size-2-1);
+    opacity: 0.7;
+    font-weight: normal;
+    background: none;
+    cursor: text;
+    -webkit-text-fill-color: #888;
+  }
+
+  &.stw-command-prefix-general[has-placeholder='1']:after {
+    margin-left: 0;
+  }
+}
+
+.stw-input-line {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-left: thin solid var(--background-modifier-border);
+  border-right: thin solid var(--background-modifier-border);
+  margin: 0;
+
+  /* First line in a block: add top border */
+  &:not(.stw-input-line + .stw-input-line) {
+    border-top: thin solid var(--background-modifier-border);
+    border-top-left-radius: var(--radius-s);
+    border-top-right-radius: var(--radius-s);
+  }
+
+  /* Last line in a block: add bottom border */
+  &:not(:has(+ .stw-input-line)) {
+    border-bottom: thin solid var(--background-modifier-border);
+    border-bottom-left-radius: var(--radius-s);
+    border-bottom-right-radius: var(--radius-s);
+  }
+
+  /* First line in a block: not preceded by another block line */
+  &:not(.stw-input-line + .stw-input-line) {
+    padding-top: 5px !important;
+  }
+
+  /* Last line in a block: no next sibling is a block line */
+  &:not(:has(+ .stw-input-line)) {
+    padding-bottom: 5px !important;
+  }
+}
+
+.stw-chat {
+  & .inline-embed .markdown-embed-content {
+    max-height: none;
+  }
+
+  & .markdown-embed {
+    --embed-padding: 0 0 15px 0;
+    border: 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+    background-color: transparent;
+  }
+}
+
+.callout[data-callout='stw-search-result'] {
+  --callout-color: var(--callout-success);
+  padding-left: 12px;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    transform 0.1s ease;
+  margin-bottom: 10px !important;
+  position: relative;
+
+  &:active {
+    transform: translateX(2px);
+  }
+
+  & > .callout-title {
+    display: none;
+  }
+}
+
+/* User message callout styling */
+.callout[data-callout='stw-user-message'] {
+  --callout-color: var(--callout-quote);
+  margin-bottom: 10px !important;
+  margin-top: 20px !important;
+  padding-left: 0px;
+  font-weight: calc(var(--font-weight) + var(--bold-modifier));
+  position: relative;
+
+  & > .callout-title {
+    display: none;
+  }
+
+  & > .callout-content {
+    padding-left: 8px;
+  }
+}
+
+.workspace-leaf-content[data-type='steward-conversation'] {
+  .view-content {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-top: 0;
+    overflow: hidden;
+  }
+
+  /* Hide line numbers in steward chat view */
+  .cm-editor .cm-lineNumbers,
+  .cm-editor .cm-gutters {
+    display: none;
+  }
+}
+
+.workspace-leaf-content[data-type='steward-conversation']
+  .view-content
+  > .markdown-source-view.mod-cm6
+  > .cm-editor
+  > .cm-scroller {
+  padding: 15px;
+}
+
+.steward-conversation-header {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  justify-content: flex-end;
+}
+
+.steward-header-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--size-2-2);
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  background-color: transparent;
+  color: var(--text-muted);
+
+  &:hover {
+    color: var(--text-normal);
+  }
+}
+
+.stw-conversation .callout-content :is(ul, p, ol) {
+  margin: 6px 0;
+  line-height: 1.4em;
+  overflow: hidden;
+}
+
+pre[class*='language-stw-artifact'],
+code[class*='language-stw-artifact'] {
+  display: none;
+}
+
+/* Conversation buttons container */
+.stw-conversation-buttons {
+  position: absolute;
+  top: var(--size-2-2);
+  inset-inline-end: var(--size-2-2);
+  display: flex;
+
+  & > .stw-conversation-button {
+    color: var(--icon-color);
+    opacity: var(--icon-opacity);
+    cursor: var(--cursor-link);
+    padding: var(--size-2-1);
+    border-radius: var(--radius-s);
+
+    &:hover {
+      color: var(--icon-color-hover);
+      opacity: var(--icon-opacity-hover);
+      background: var(--background-modifier-hover);
+    }
+  }
+}
+
+/* Callout action buttons */
+.stw-callout-buttons {
+  position: absolute;
+  top: var(--size-2-1);
+  right: var(--size-2-1);
+  display: flex;
+  gap: var(--size-2-2);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+
+  & > .stw-callout-button {
+    background-color: var(--background-modifier-hover);
+    border: none;
+    border-radius: var(--radius-s);
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--size-2-1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
+
+    &:hover {
+      background-color: var(--background-modifier-border);
+      color: var(--text-normal);
+    }
+  }
+}
+
+.callout[data-callout='stw-user-message']:hover .stw-callout-buttons,
+.callout[data-callout='stw-search-result']:hover .stw-callout-buttons {
+  opacity: 1;
+}
+
+.stw-selected-button {
+  background: linear-gradient(to right, #0000ff, #00bebe);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  border-radius: var(--radius-s);
+  border: thin solid var(--background-modifier-border);
+  cursor: pointer;
+  font-size: 0.9em;
+  padding: var(--size-2-1);
+}
+
+.stw-selected-model {
+  color: var(--interactive-accent);
+  border-bottom: 2px dashed var(--background-modifier-border);
+  cursor: default;
+  font-size: 0.86em;
+  padding-right: var(--size-2-1);
+  letter-spacing: 0.02em;
+  display: inline-block;
+}
+
+.stw-squeezed-button {
+  border-radius: var(--radius-s);
+  border: thin solid var(--background-modifier-border);
+  cursor: pointer;
+  font-size: 0.9em;
+  padding: var(--size-2-1);
+  display: inline-flex;
+  align-items: center;
+
+  &:hover {
+    background: var(--background-modifier-hover);
+  }
+}
+
+.stw-mr-2 {
+  margin-right: var(--size-2-2);
+}
+
+/* Custom model link styling */
+.stw-custom-model-link {
+  text-decoration: none;
+  font-size: 0.9em;
+  cursor: pointer;
+
+  &.caret-right {
+    &::after {
+      content: ' ›';
+    }
+  }
+
+  &.caret-left {
+    &::before {
+      content: '‹ ';
+    }
+  }
+}
+
+.stw-setting-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-2);
+
+  &.horizontal {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--size-4-3);
+  }
+
+  &.stw-provider-setting-wrapper {
+    width: 100%;
+    max-width: 400px;
+  }
+
+  &.stw-model-setting-wrapper {
+    width: 100%;
+    min-width: 300px;
+  }
+}
+
+/* Validation styling for custom model input */
+.stw-is-invalid {
+  border-color: var(--text-error) !important;
+  box-shadow: 0 0 0 1px var(--text-error) !important;
+}
+
+/* Custom models delete interface */
+.stw-custom-models-list {
+  margin-top: var(--size-4-2);
+}
+
+.stw-custom-model-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--size-2-1) 0;
+  text-wrap: nowrap;
+  gap: var(--size-4-2);
+}
+
+.stw-no-models {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: var(--size-2-2) 0;
+}
+
+.stw-model-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-1);
+}
+
+.stw-extraction-details-link {
+  font-size: 0.9em;
+}
+
+/* Provider settings styling */
+.stw-provider-input-wrapper {
+  margin-top: var(--size-4-2);
+
+  &:first-child {
+    margin-top: 0;
+  }
+
+  label {
+    display: block;
+    margin-bottom: var(--size-2-2);
+    text-align: left;
+  }
+
+  input {
+    width: 100%;
+    &[readonly] {
+      cursor: auto;
+    }
+  }
+
+  .stw-provider-input-container {
+    display: flex;
+    align-items: center;
+    gap: var(--size-2-1);
+
+    input {
+      flex: 1;
+    }
+  }
+}

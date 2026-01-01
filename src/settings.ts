@@ -1,3 +1,4 @@
+import { generateId } from 'ai';
 import { getLanguage, normalizePath, PluginSettingTab, Setting } from 'obsidian';
 import { logger } from './utils/logger';
 import {
@@ -10,13 +11,13 @@ import {
 import { getTranslation } from './i18n';
 import type StewardPlugin from './main';
 import { StewardPluginSettings } from './types/interfaces';
-import { FolderSuggest } from './settings/FolderSuggest';
 import { ModelSetting } from './settings/ModelSetting';
 import { ModelFallbackSetting } from './settings/ModelFallbackSetting';
 import { DeleteBehaviorSetting } from './settings/DeleteBehaviorSetting';
 import { applyMixins } from './utils/applyMixins';
 import { ProviderSetting } from './settings/ProviderSetting';
 import { getClassifier } from './lib/modelfusion';
+import { FolderSuggest } from './settings/FolderSuggest';
 
 const lang = getLanguage();
 const t = getTranslation(lang);
@@ -67,6 +68,18 @@ class StewardSettingTab extends PluginSettingTab {
     }
   }
 
+  /**
+   * Refresh the settings display and keep the scroll position
+   */
+  public async refreshSettingTab(delay?: number): Promise<void> {
+    if (delay) {
+      await sleep(delay);
+    }
+    const currentScrollPosition = this.containerEl.scrollTop;
+    this.display();
+    this.containerEl.scrollTop = currentScrollPosition;
+  }
+
   display(): void {
     const { containerEl } = this;
 
@@ -85,7 +98,9 @@ class StewardSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           });
 
-        new FolderSuggest(this.app, text.inputEl);
+        text.inputEl.addEventListener('focus', () => {
+          new FolderSuggest(this.app, text.inputEl);
+        });
       });
 
     // Add show role labels toggle
@@ -117,6 +132,7 @@ class StewardSettingTab extends PluginSettingTab {
     // Create Providers section
     new Setting(containerEl).setName(t('settings.providers')).setHeading();
 
+    // Display built-in providers
     this.createProviderSetting('openai');
     this.createProviderSetting('elevenlabs');
     this.createProviderSetting('deepseek');
@@ -124,6 +140,46 @@ class StewardSettingTab extends PluginSettingTab {
     this.createProviderSetting('groq');
     this.createProviderSetting('anthropic');
     this.createProviderSetting('ollama');
+
+    // Display custom providers
+    const customProviders = Object.keys(this.plugin.settings.providers).filter(
+      key => this.plugin.settings.providers[key]?.isCustom === true
+    );
+
+    for (const providerKey of customProviders) {
+      this.createProviderSetting(providerKey, {
+        apiKeyPlaceholder: t('settings.enterApiKeyOptional'),
+      });
+    }
+
+    // Add "Add new provider" button
+    new Setting(containerEl)
+      .setName(t('settings.addNewProvider'))
+      .setDesc(t('settings.addNewProviderDesc'))
+      .addButton(button => {
+        button
+          .setButtonText(t('settings.addNewProvider'))
+          .setCta()
+          .onClick(async () => {
+            // Generate a unique provider key using generateId
+            let providerKey: string;
+            do {
+              providerKey = `provider-${generateId()}`;
+            } while (this.plugin.settings.providers[providerKey]);
+
+            // Initialize the custom provider
+            this.plugin.settings.providers[providerKey] = {
+              apiKey: '',
+              isCustom: true,
+              compatibility: 'openai',
+              name: '',
+            };
+
+            await this.plugin.saveSettings();
+
+            await this.refreshSettingTab(200);
+          });
+      });
 
     containerEl.createEl('div', {
       text: `${t('settings.note')}:`,
