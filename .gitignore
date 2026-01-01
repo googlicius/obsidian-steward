@@ -11,7 +11,7 @@ main.js
 
 # Don't include the compiled styles.css file in the repo.
 # It's built from src/styles.css
-styles.css
+/styles.css
 
 # Exclude sourcemaps
 *.map
