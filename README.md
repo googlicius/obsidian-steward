@@ -138,13 +138,12 @@ Add additional instructions as an array of strings:
 ```yaml
 command_name: my_command
 system_prompt:
-  - '[[My Context Note]]' # Link to a note (content will be included)
+  - '[[#Guidelines]]' # Link to the Guidelines heading (content under the heading will be included)
   - 'Always use formal language'
 steps:
-  - name: generate
-    query: $from_user
-  - name: edit
-    query: 'Review and improve the content'
+  - query: |
+    Read the content above and help me with:
+    $from_user
 ```
 
 **Step-level system prompt (applies only to specific steps):**
@@ -170,6 +169,7 @@ steps:
     system_prompt:
       - '[[Search instruction]]' # The content of the "Search instruction" note will be included as the system prompt.
       - '[[Some note#Instructions]]' # Only the content under the Instructions heading of "Some note" will be included as the system prompt.
+      - '[[#Instructions]]' # Only the content under the Instructions heading of the current note will be included as the system prompt.
     query: $from_user
 ```
 
@@ -177,7 +177,7 @@ When executed:
 
 1. The link `[[Search instruction]]` will be replaced with the full content of that note
 2. The link `[[Some note#Instructions]]` will be replaced with only the content under the "Instructions" heading in that note
-3. This allows you to maintain complex prompts or contexts in separate notes
+3. The link `[[#Instructions]]` will be replaced with only the content under the "Instructions" heading in the **current note** where the User-defined command is defined.
 4. You can update the linked notes independently of your command definition
 
 ### Automated command triggers
