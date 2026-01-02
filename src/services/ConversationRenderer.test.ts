@@ -53,6 +53,9 @@ function createMockPlugin(
     get userMessageService() {
       return mockPlugin._userMessageService;
     },
+    userDefinedCommandService: {
+      buildExtendedPrefixes: jest.fn().mockReturnValue(['/ ', '/search', '/image', '/speech']),
+    },
     artifactManagerV2: {
       withTitle: jest.fn().mockReturnValue({
         getArtifactById: jest.fn().mockResolvedValue(null),
@@ -462,6 +465,58 @@ describe('ConversationRenderer', () => {
         // Same second step
         '<!--STW ID:msg4,ROLE:steward,COMMAND:super,HANDLER_ID:handler1,STEP:2-->',
         'Still on step 2',
+        '',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation');
+
+      expect(history).toMatchSnapshot();
+    });
+
+    it('should include reasoning for all steps in the last turn', async () => {
+      const mockContent = [
+        '<!--STW ID:ab9f7,ROLE:user-->',
+        '>[!stw-user-message]',
+        '>/ Do one more thing',
+        '',
+        '<!--STW ID:reasoning1,ROLE:steward,TYPE:reasoning,HANDLER_ID:handler1,STEP:1-->',
+        '```stw-thinking',
+        'Reasoning for turn 1 step 1',
+        '```',
+        '',
+        '<!--STW ID:cd2e1,ROLE:steward,HANDLER_ID:handler1,STEP:1-->',
+        'Turn 1.1',
+        '',
+        '<!--STW ID:ef83c,ROLE:user-->',
+        '>[!stw-user-message]',
+        '>/ Do multiple things',
+        '',
+        '<!--STW ID:reasoning2,ROLE:steward,TYPE:reasoning,HANDLER_ID:handler2,STEP:1-->',
+        '```stw-thinking',
+        'Reasoning for turn 2 step 1',
+        '```',
+        '',
+        '<!--STW ID:de472,ROLE:steward,HANDLER_ID:handler2,STEP:1-->',
+        'Turn 2.1',
+        '',
+        '<!--STW ID:reasoning3,ROLE:steward,TYPE:reasoning,HANDLER_ID:handler2,STEP:2-->',
+        '```stw-thinking',
+        'Reasoning for turn 2 step 2',
+        '```',
+        '',
+        '<!--STW ID:f13d9,ROLE:steward,HANDLER_ID:handler2,STEP:2-->',
+        'Turn 2.2',
+        '',
+        '<!--STW ID:reasoning4,ROLE:steward,TYPE:reasoning,HANDLER_ID:handler2,STEP:3-->',
+        '```stw-thinking',
+        'Reasoning for turn 2 step 3',
+        '```',
+        '',
+        '<!--STW ID:bb901,ROLE:steward,HANDLER_ID:handler2,STEP:3-->',
+        'Turn 2.3',
         '',
       ].join('\n');
 

@@ -326,10 +326,6 @@ exports[`ConversationRenderer extractConversationHistory should extract a conver
   {
     "content": [
       {
-        "text": "",
-        "type": "reasoning",
-      },
-      {
         "text": "Angular is a platform for building web applications. Here's how to get started:
 
 1. Install Node.js and npm
@@ -353,10 +349,6 @@ exports[`ConversationRenderer extractConversationHistory should extract a simple
   },
   {
     "content": [
-      {
-        "text": "",
-        "type": "reasoning",
-      },
       {
         "text": "Here's what I found about React hooks:
 
@@ -402,10 +394,6 @@ First summary about React hooks
   {
     "content": [
       {
-        "text": "",
-        "type": "reasoning",
-      },
-      {
         "text": "useEffect is a React Hook that lets you synchronize a component with an external system",
         "type": "text",
       },
@@ -432,10 +420,6 @@ exports[`ConversationRenderer extractConversationHistory should extract conversa
   },
   {
     "content": [
-      {
-        "text": "",
-        "type": "reasoning",
-      },
       {
         "input": {
           "query": "React Hooks",
@@ -472,6 +456,10 @@ exports[`ConversationRenderer extractConversationHistory should group messages b
   },
   {
     "content": [
+      {
+        "text": "",
+        "type": "reasoning",
+      },
       {
         "text": "Starting the first step...",
         "type": "text",
@@ -592,10 +580,6 @@ exports[`ConversationRenderer extractConversationHistory should handle conversat
   {
     "content": [
       {
-        "text": "",
-        "type": "reasoning",
-      },
-      {
         "text": "Would you like me to apply the changes?",
         "type": "text",
       },
@@ -682,6 +666,71 @@ exports[`ConversationRenderer extractConversationHistory should include path+ima
 ]
 `;
 
+exports[`ConversationRenderer extractConversationHistory should include reasoning for all steps in the last turn 1`] = `
+[
+  {
+    "content": "/ Do one more thing",
+    "role": "user",
+  },
+  {
+    "content": [
+      {
+        "text": "Turn 1.1",
+        "type": "text",
+      },
+    ],
+    "handlerId": "handler1",
+    "role": "assistant",
+  },
+  {
+    "content": "/ Do multiple things",
+    "role": "user",
+  },
+  {
+    "content": [
+      {
+        "text": "Reasoning for turn 2 step 1",
+        "type": "reasoning",
+      },
+      {
+        "text": "Turn 2.1",
+        "type": "text",
+      },
+    ],
+    "handlerId": "handler2",
+    "role": "assistant",
+  },
+  {
+    "content": [
+      {
+        "text": "Reasoning for turn 2 step 2",
+        "type": "reasoning",
+      },
+      {
+        "text": "Turn 2.2",
+        "type": "text",
+      },
+    ],
+    "handlerId": "handler2",
+    "role": "assistant",
+  },
+  {
+    "content": [
+      {
+        "text": "Reasoning for turn 2 step 3",
+        "type": "reasoning",
+      },
+      {
+        "text": "Turn 2.3",
+        "type": "text",
+      },
+    ],
+    "handlerId": "handler2",
+    "role": "assistant",
+  },
+]
+`;
+
 exports[`ConversationRenderer extractConversationHistory should only include messages from the latest topic 1`] = `
 [
   {
@@ -705,10 +754,6 @@ Angular components are the building blocks of Angular applications.",
   },
   {
     "content": [
-      {
-        "text": "",
-        "type": "reasoning",
-      },
       {
         "text": "Angular components have several lifecycle hooks:
 
@@ -756,10 +801,6 @@ This conversation discusses React hooks, particularly useState, which allows add
   {
     "content": [
       {
-        "text": "",
-        "type": "reasoning",
-      },
-      {
         "text": "You can skip effects by providing a dependency array as the second argument. The effect will only run when values in the array change.",
         "type": "text",
       },
@@ -777,10 +818,6 @@ exports[`ConversationRenderer extractConversationHistory should remove the last 
   },
   {
     "content": [
-      {
-        "text": "",
-        "type": "reasoning",
-      },
       {
         "text": "React hooks are functions.",
         "type": "text",

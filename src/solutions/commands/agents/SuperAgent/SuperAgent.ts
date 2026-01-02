@@ -764,10 +764,10 @@ NOTE:
 
               const callBack = async (): Promise<AgentResult> => {
                 // Increment invocation count for recursive call
+                params.invocationCount = (params.invocationCount ?? 0) + 1;
                 const nextParams = {
                   ...params,
                   activeTools,
-                  invocationCount: (params.invocationCount ?? 0) + 1,
                 };
 
                 return this.handle(nextParams, {
@@ -880,15 +880,11 @@ NOTE:
         ? await this.getNextUDCStepIntent(title, intent)
         : null;
 
-      // Increment invocation count for recursive call
-      const nextParams = {
-        ...params,
-        intent: nextStepIntent || intent,
-        activeTools,
-        invocationCount: (params.invocationCount ?? 0) + 1,
-      };
+      // Continue the current invocation count so the user'query is not included in the next iteration
+      params.invocationCount = (params.invocationCount ?? 0) + 1;
+      params.intent = nextStepIntent || intent;
 
-      return this.handle(nextParams, {
+      return this.handle(params, {
         remainingSteps: nextRemainingSteps,
       });
     }
@@ -909,11 +905,11 @@ NOTE:
         confirmationMessage,
         onConfirmation: async (_message: string) => {
           // Reset nextRemainingSteps to MAX_STEP_COUNT and continue processing
+          // Continue the current invocation count so the user'query is not included in the next iteration
+          params.invocationCount = (params.invocationCount ?? 0) + 1;
           const nextParams = {
             ...params,
             activeTools,
-            // Continue the current invocation count so the user'query is not included in the next iteration
-            invocationCount: (params.invocationCount ?? 0) + 1,
           };
 
           return this.handle(nextParams, {
@@ -940,16 +936,6 @@ NOTE:
           params.upstreamOptions
         );
       }
-    }
-
-    // Save activeTools to frontmatter after successful completion
-    if (toolProcessingResult.status === IntentResultStatus.SUCCESS && activeTools.length > 0) {
-      await this.renderer.updateConversationFrontmatter(title, [
-        {
-          name: 'tools',
-          value: activeTools,
-        },
-      ]);
     }
 
     return toolProcessingResult;
