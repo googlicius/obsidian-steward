@@ -1507,5 +1507,103 @@ describe('SuperAgent', () => {
       expect(secondCallUserMessage).toBeDefined();
       expect(secondCallUserMessage.content).toBe('test query');
     });
+
+    it('should NOT append then user message again after fallback happens in the next iterations', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+          model: 'original-model',
+        } as Intent,
+        invocationCount: 1, // Start with invocationCount > 0 to simulate a subsequent iteration
+      };
+
+      // Mock modelFallbackService to be enabled and return a fallback model
+      const mockModelFallbackService = {
+        isEnabled: jest.fn().mockReturnValue(true),
+        switchToNextModel: jest.fn().mockResolvedValue('fallback-model'),
+        getCurrentModel: jest.fn().mockResolvedValue(undefined),
+      };
+      Object.defineProperty(mockPlugin, 'modelFallbackService', {
+        get: () => mockModelFallbackService,
+        configurable: true,
+      });
+
+      // Mock getLLMConfig to return config
+      mockPlugin.llmService.getLLMConfig = jest.fn().mockResolvedValue({
+        model: 'mock-model',
+        temperature: 0.2,
+        maxOutputTokens: 2048,
+      });
+
+      // Mock extractConversationHistory to return history with user message
+      // This simulates that we're in a subsequent iteration where history already exists
+      const historyMessages = [
+        { role: 'user', content: 'previous query' },
+        { role: 'assistant', content: 'previous response' },
+      ];
+      mockPlugin.conversationRenderer.extractConversationHistory = jest
+        .fn()
+        .mockResolvedValue(historyMessages);
+
+      // Reset addUserMessage mock to track calls
+      mockPlugin.conversationRenderer.addUserMessage = jest
+        .fn()
+        .mockResolvedValue('user-message-id-123');
+
+      // Make toolCalls promise reject on first call to trigger fallback
+      let callCount = 0;
+      (streamText as jest.Mock).mockImplementation(config => {
+        callCount++;
+        if (callCount === 1) {
+          // First call: trigger onError callback to simulate an error
+          Promise.resolve().then(() => {
+            if (config.onError) {
+              config.onError({ error: new Error('Model error') });
+            }
+          });
+          return {
+            fullStream: (async function* () {
+              yield { type: 'text-delta', textDelta: '' };
+            })(),
+            toolCalls: new Promise(() => {
+              // Never resolves - will be rejected via streamErrorPromise when onError is called
+            }),
+          };
+        } else {
+          // Second call (after fallback): succeed
+          return {
+            fullStream: (async function* () {
+              yield { type: 'text-delta', textDelta: '' };
+            })(),
+            toolCalls: Promise.resolve([]),
+          };
+        }
+      });
+
+      // Call safeHandle (which will handle the fallback)
+      await superAgent.safeHandle(params);
+
+      // Verify modelFallbackService was called
+      expect(mockModelFallbackService.isEnabled).toHaveBeenCalled();
+      expect(mockModelFallbackService.switchToNextModel).toHaveBeenCalledWith('test-conversation');
+
+      // Verify streamText was called twice (first fails, second succeeds after fallback)
+      expect(streamText).toHaveBeenCalledTimes(2);
+
+      // Verify addUserMessage was NOT called because invocationCount > 0
+      // This is the key assertion: after fallback, invocationCount is preserved (1),
+      // so the user message should NOT be appended again
+      expect(mockPlugin.conversationRenderer.addUserMessage).not.toHaveBeenCalled();
+
+      // Verify the first call (fallback) does NOT push the user message to messages array
+      const firstCall = (streamText as jest.Mock).mock.calls[0][0];
+      expect(firstCall.messages).toEqual(historyMessages);
+
+      // Verify the second call (after fallback) does NOT push the user message to messages array
+      const secondCall = (streamText as jest.Mock).mock.calls[1][0];
+      expect(secondCall.messages).toEqual(historyMessages);
+    });
   });
 });

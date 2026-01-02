@@ -83,6 +83,20 @@ export class ActivateToolHandler {
     // Update params.activeTools to preserve changes during error retries
     params.activeTools = activeTools;
 
+    // Save activeTools to frontmatter immediately after activation/deactivation
+    // Save whenever there's a change (activation or deactivation), even if array becomes empty
+    const hasActivation =
+      (validationResult.activatedTools && validationResult.activatedTools.length > 0) ||
+      (validationResult.deactivatedTools && validationResult.deactivatedTools.length > 0);
+    if (hasActivation) {
+      await this.renderer.updateConversationFrontmatter(title, [
+        {
+          name: 'tools',
+          value: activeTools,
+        },
+      ]);
+    }
+
     // Build status message
     const statusParts: string[] = [];
     if (toolCall.input.tools && toolCall.input.tools.length > 0) {
