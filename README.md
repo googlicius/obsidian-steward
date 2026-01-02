@@ -62,9 +62,9 @@ Steward can be used directly in the editor or by opening the chat interface.
 
 <img src="/docs/Steward-Demo-Reasoning-2.gif" alt="Image read" width="400px">
 
-#### Model fallback and revert changes
+#### To-do list and revert changes
 
-<img src="/docs/Steward-Demo-Revert-and-model-fallback.gif" alt="Revert" width="400px">
+<img src="/docs/Steward-Demo-Todo-list-and-revert.gif" alt="Revert" width="400px">
 
 #### Update the selection
 
@@ -90,6 +90,7 @@ You can create your own **User-Defined Commands** to automate workflows and comb
 - `command_name`: The name you will use to invoke the command (e.g., `/clean_up`)
 - `query_required`: (optional, boolean) If true, the command requires user input after the prefix
 - `model`: (optional, string) The model to use for all commands in this user-defined command
+- `system_prompt`: (optional, array) Add additional system prompts that apply to all steps in this command (see [Adding additional system prompts](#adding-additional-system-prompts))
 - `hidden`: (optional, boolean) If true, the command will not appear in the command menu
 - `triggers`: (optional, array) Automatically execute commands when files match specified criteria (see [Trigger fields](#trigger-fields))
 - `steps`: The sequence of built-in or user-defined commands to execute
@@ -123,9 +124,30 @@ steps:
 
 ### Adding additional system prompts
 
-Steward uses a single agent (SuperAgent) whose core system prompt is the foundation of its functionality and cannot be modified. However, you can add additional system prompts for any command step using the `system_prompt` field. These additional prompts are appended to the core system prompt, allowing you to provide extra context or instructions for specific command steps.
+Steward uses a single agent (SuperAgent) whose core system prompt is the foundation of its functionality and cannot be modified. However, you can add additional system prompts using the `system_prompt` field. These additional prompts are appended to the core system prompt, allowing you to provide extra context or instructions.
+
+You can add system prompts at two levels:
+
+- **Root level**: Applies to all steps in the command
+- **Step level**: Applies only to that specific step (root-level prompts are applied first, then step-level prompts)
 
 Add additional instructions as an array of strings:
+
+**Root-level system prompt (applies to all steps):**
+
+```yaml
+command_name: my_command
+system_prompt:
+  - '[[My Context Note]]' # Link to a note (content will be included)
+  - 'Always use formal language'
+steps:
+  - name: generate
+    query: $from_user
+  - name: edit
+    query: 'Review and improve the content'
+```
+
+**Step-level system prompt (applies only to specific steps):**
 
 ```yaml
 steps:

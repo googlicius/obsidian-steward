@@ -1500,8 +1500,6 @@ describe('SuperAgent', () => {
       expect(secondCall.messages).toBeDefined();
       expect(Array.isArray(secondCall.messages)).toBe(true);
 
-      console.log('secondCall.messages', secondCall.messages);
-
       // The user message should still be included in the second call because history is empty
       const secondCallUserMessage = secondCall.messages.find(
         (m: { role: string }) => m.role === 'user'
