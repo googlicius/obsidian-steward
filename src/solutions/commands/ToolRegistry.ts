@@ -31,6 +31,9 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     category: 'content-access',
     guidelines: [
       `Use ${ToolName.CONTENT_READING} to read any type of content, including text, image, audio, video, etc.`,
+      `When reading notes:
+  - Specify the number of blocks to read (blocksToRead) carefully from the user's query, Do NOT set -1 unless the user explicitly requests to read the entire content.
+  - Specify the direction to read (readType) carefully from the user's query, Do NOT set "entire" unless the user explicitly requests to read the entire content.`,
       `When reading multiple files, you MUST make multiple parallel tool calls in the same request (one ${ToolName.CONTENT_READING} call per file). Do NOT read files sequentially one by one. EXCEPT when the user explicitly requests sequential reading.`,
       `After reading, respond a short conclusion of your task. DO NOT respond the elements of the reading result in your final response: Tables, lists, code, blockquote, images, headings, etc.`,
     ],

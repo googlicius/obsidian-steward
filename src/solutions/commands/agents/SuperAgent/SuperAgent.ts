@@ -591,6 +591,16 @@ NOTE:
       }
     }
 
+    // Add user message to conversation note for the first iteration
+    if (!params.invocationCount) {
+      await this.renderer.addUserMessage({
+        path: title,
+        newContent: intent.query,
+        step: params.invocationCount,
+        contentFormat: 'hidden',
+      });
+    }
+
     const manualToolCall = await this.manualToolCall(
       title,
       intent.query,
@@ -1194,11 +1204,7 @@ When you complete or skip the current step, use the ${ToolName.TODO_LIST_UPDATE}
       query: currentIntent.query,
       type: nextStep.type ?? currentIntent.type,
       model: nextStep.model,
-      systemPrompts: nextStep.systemPrompts
-        ? await this.plugin.userDefinedCommandService.processSystemPromptsWikilinks(
-            nextStep.systemPrompts
-          )
-        : undefined,
+      systemPrompts: nextStep.systemPrompts,
       no_confirm: nextStep.no_confirm,
     };
   }

@@ -9,6 +9,9 @@ import {
   model,
 } from './v1';
 
+// Version 2 only fields
+const system_prompt = z.array(z.string()).optional();
+
 /**
  * Version 2 Schema - Uses 'steps' field instead of 'commands', no 'hidden' field
  */
@@ -19,6 +22,7 @@ export const userDefinedCommandV2Schema = z.object({
   steps: z.array(commandStepSchema).min(1, 'At least one step is required'),
   file_path,
   model,
+  system_prompt,
   triggers: z.array(triggerConditionSchema).optional(),
 });
 
@@ -35,6 +39,7 @@ export class UserDefinedCommandV2 implements IVersionedUserDefinedCommand {
       steps: this.data.steps as NormalizedUserDefinedCommand['steps'],
       file_path: this.data.file_path || '',
       model: this.data.model,
+      system_prompt: this.data.system_prompt,
       triggers: this.data.triggers,
     };
   }

@@ -46,7 +46,7 @@ export class UDCAgent extends Agent {
     if (!params.invocationCount) {
       try {
         const expandedIntents =
-          this.plugin.userDefinedCommandService.expandUserDefinedCommandIntents(
+          await this.plugin.userDefinedCommandService.expandUserDefinedCommandIntents(
             intent,
             intent.query || ''
           );
@@ -56,6 +56,19 @@ export class UDCAgent extends Agent {
             status: IntentResultStatus.ERROR,
             error: new Error(`User-defined command '${intent.type}' not found or empty`),
           };
+        }
+
+        await this.renderer.updateConversationFrontmatter(title, [
+          { name: 'udc_command', value: intent.type },
+        ]);
+
+        // For single-step commands, skip todo list and delegate directly to SuperAgent
+        if (expandedIntents.length === 1) {
+          // Delegate directly to SuperAgent with the expanded intent
+          return this.superAgent.handle({
+            ...params,
+            intent: expandedIntents[0],
+          });
         }
 
         // Create todo_list state with full metadata
@@ -75,10 +88,6 @@ export class UDCAgent extends Agent {
             no_confirm: expandedIntent.no_confirm,
           };
         });
-
-        await this.renderer.updateConversationFrontmatter(title, [
-          { name: 'udc_command', value: intent.type },
-        ]);
 
         // Create manual tool call to create the todo list with full metadata
         // Note: The schema only defines 'task', but we pass all metadata which will be preserved

@@ -175,7 +175,9 @@ html[data-stw-language='vi'] {
 }
 
 pre[class*='language-stw-artifact'],
-code[class*='language-stw-artifact'] {
+code[class*='language-stw-artifact'],
+pre[class*='language-stw-hidden-from-user'],
+code[class*='language-stw-hidden-from-user'] {
   display: none;
 }
 

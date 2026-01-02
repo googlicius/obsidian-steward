@@ -31,6 +31,7 @@ export interface NormalizedUserDefinedCommand {
   steps: CommandStep[];
   file_path: string;
   model?: string;
+  system_prompt?: string[];
   triggers?: TriggerCondition[];
 }
 

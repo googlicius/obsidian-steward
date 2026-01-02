@@ -560,6 +560,178 @@ describe('ConversationRenderer', () => {
     it('should resolve the tool-invocation output as a message reference', async () => {});
   });
 
+  describe('extractAllConversationMessages', () => {
+    it('should remove the stw-hidden-from-user code block for user messages', async () => {
+      // Mock conversation content with user message in stw-hidden-from-user code block
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:search-->',
+        '```stw-hidden-from-user',
+        '/search How to use React hooks',
+        '```',
+        '',
+        '<!--STW ID:def456,ROLE:steward,COMMAND:search-->',
+        "**Steward:** Here's what I found about React hooks:",
+        '',
+        'React hooks are functions that let you use state and other React features without writing a class.',
+      ].join('\n');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Call the method
+      const messages =
+        await conversationRenderer.extractAllConversationMessages('test-conversation');
+
+      // Verify that the user message content is extracted without the code block wrapper
+      const userMessage = messages.find(msg => msg.role === 'user');
+      expect(userMessage).toBeDefined();
+      expect(userMessage?.content).toBe('/search How to use React hooks');
+    });
+
+    it('should unescape backticks when extracting content from stw-hidden-from-user code block', async () => {
+      // Mock conversation content with user message containing escaped backticks (as they would be stored)
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:generate-->',
+        '```stw-hidden-from-user',
+        'Use \\`useState\\` and \\`useEffect\\` hooks',
+        '```',
+        '',
+        '<!--STW ID:def456,ROLE:steward,COMMAND:generate-->',
+        "**Steward:** Here's how to use React hooks:",
+      ].join('\n');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Call the method
+      const messages =
+        await conversationRenderer.extractAllConversationMessages('test-conversation');
+
+      // Verify that escaped backticks are properly unescaped
+      const userMessage = messages.find(msg => msg.role === 'user');
+      expect(userMessage).toBeDefined();
+      expect(userMessage?.content).toBe('Use `useState` and `useEffect` hooks');
+    });
+  });
+
+  describe('addUserMessage', () => {
+    it('should add a user message to the conversation note with contentFormat default (callout)', async () => {
+      // Mock initial conversation content
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:steward,COMMAND:search-->',
+        "**Steward:** Here's what I found:",
+        '',
+        'React hooks are functions that let you use state.',
+      ].join('\n');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Spy on the vault.process method
+      let processedContent = '';
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, processor) => {
+          processedContent = processor(mockContent);
+          return processedContent;
+        });
+
+      // Call the method with default format (callout)
+      const messageId = await conversationRenderer.addUserMessage({
+        path: 'test-conversation',
+        newContent: '/search How to use React hooks',
+      });
+
+      // Verify that vault.process was called
+      expect(processSpy).toHaveBeenCalledTimes(1);
+
+      // Verify that messageId is returned
+      expect(messageId).toBeDefined();
+
+      // Verify the processed content
+      expect(processedContent).toMatchSnapshot();
+    });
+
+    it('should add a user message to the conversation note with contentFormat hidden', async () => {
+      // Mock initial conversation content
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:steward,COMMAND:search-->',
+        "**Steward:** Here's what I found:",
+        '',
+        'React hooks are functions that let you use state.',
+      ].join('\n');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Spy on the vault.process method
+      let processedContent = '';
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, processor) => {
+          processedContent = processor(mockContent);
+          return processedContent;
+        });
+
+      // Call the method with hidden format
+      const messageId = await conversationRenderer.addUserMessage({
+        path: 'test-conversation',
+        newContent: '/search How to use React hooks',
+        contentFormat: 'hidden',
+      });
+
+      // Verify that vault.process was called
+      expect(processSpy).toHaveBeenCalledTimes(1);
+
+      // Verify that messageId is returned
+      expect(messageId).toBeDefined();
+
+      // Verify the processed content contains the hidden code block
+      expect(processedContent).toMatchSnapshot();
+    });
+
+    it('should preserve the loading indicator when contentFormat is hidden', async () => {
+      // Mock initial conversation content with a loading indicator
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:steward,COMMAND:search-->',
+        "**Steward:** Here's what I found:",
+        '',
+        '*Generating...*',
+      ].join('\n');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Spy on the vault.process method
+      let processedContent = '';
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, processor) => {
+          processedContent = processor(mockContent);
+          return processedContent;
+        });
+
+      // Call the method with hidden format
+      const messageId = await conversationRenderer.addUserMessage({
+        path: 'test-conversation',
+        newContent: '/search How to use React hooks',
+        contentFormat: 'hidden',
+      });
+
+      // Verify that vault.process was called
+      expect(processSpy).toHaveBeenCalledTimes(1);
+
+      // Verify that messageId is returned
+      expect(messageId).toBeDefined();
+      expect(processedContent).toMatchSnapshot();
+    });
+  });
+
   describe('getConversationProperty', () => {
     it('should get an existing property from frontmatter', async () => {
       // Create mock plugin with frontmatter

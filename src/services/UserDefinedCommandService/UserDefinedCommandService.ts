@@ -798,9 +798,19 @@ export class UserDefinedCommandService {
       // Use step model if available, otherwise use command model
       const model = step.model || command.normalized.model;
 
+      // Merge root-level system_prompt with step-level system_prompt
+      // Root-level system_prompt is applied to all steps, step-level system_prompt is appended
+      let systemPrompts: string[] | undefined;
+      if (command.normalized.system_prompt || step.system_prompt) {
+        systemPrompts = [
+          ...(command.normalized.system_prompt || []),
+          ...(step.system_prompt || []),
+        ];
+      }
+
       return {
         type: step.name ?? '',
-        systemPrompts: step.system_prompt,
+        systemPrompts,
         query,
         model,
         no_confirm: step.no_confirm,
@@ -817,12 +827,13 @@ export class UserDefinedCommandService {
 
   /**
    * Recursively expand a list of CommandIntent, flattening user-defined commands and detecting cycles
+   * Processes wikilinks in system prompts after expansion
    */
-  public expandUserDefinedCommandIntents(
+  public async expandUserDefinedCommandIntents(
     intents: Intent | Intent[],
     userInput = '',
     visited: Set<string> = new Set()
-  ): Intent[] {
+  ): Promise<Intent[]> {
     const expanded: Intent[] = [];
 
     intents = Array.isArray(intents) ? intents : [intents];
@@ -849,12 +860,31 @@ export class UserDefinedCommandService {
       visited.add(intent.type);
       const subIntents = this.processUserDefinedCommand(intent.type, intent.query || userInput);
       if (subIntents) {
-        expanded.push(...this.expandUserDefinedCommandIntents(subIntents, userInput, visited));
+        const expandedSubIntents = await this.expandUserDefinedCommandIntents(
+          subIntents,
+          userInput,
+          visited
+        );
+        expanded.push(...expandedSubIntents);
       }
       visited.delete(intent.type);
     }
 
-    return expanded;
+    // Process wikilinks in system prompts for all expanded intents
+    return Promise.all(
+      expanded.map(async intent => {
+        if (intent.systemPrompts && intent.systemPrompts.length > 0) {
+          const processedSystemPrompts = await this.processSystemPromptsWikilinks(
+            intent.systemPrompts
+          );
+          return {
+            ...intent,
+            systemPrompts: processedSystemPrompts,
+          };
+        }
+        return intent;
+      })
+    );
   }
 
   /**
