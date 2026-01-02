@@ -705,11 +705,10 @@ export default class StewardPlugin extends Plugin {
         const notePath = `${folderPath}/${conversationLink}.md`;
 
         if (this.app.vault.getFileByPath(notePath) && conversationLink) {
-          await this.conversationRenderer.updateConversationNote({
+          await this.conversationRenderer.addUserMessage({
             path: conversationLink,
             newContent: fullCommandText,
-            role: 'User',
-            command: intentType,
+            includeHistory: false,
           });
 
           // Clear all lines in the command block

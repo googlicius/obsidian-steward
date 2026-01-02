@@ -1,5 +1,43 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`ConversationRenderer addUserMessage should add a user message to the conversation note with contentFormat default (callout) 1`] = `
+"<!--STW ID:abc123,ROLE:steward,COMMAND:search-->
+**Steward:** Here's what I found:
+
+React hooks are functions that let you use state.
+
+---
+
+<!--STW ID:mock-id-123,ROLE:user-->
+>[!stw-user-message] id:mock-id-123
+>/search How to use React hooks
+"
+`;
+
+exports[`ConversationRenderer addUserMessage should add a user message to the conversation note with contentFormat hidden 1`] = `
+"<!--STW ID:abc123,ROLE:steward,COMMAND:search-->
+**Steward:** Here's what I found:
+
+React hooks are functions that let you use state.
+
+<!--STW ID:mock-id-123,ROLE:user-->
+\`\`\`stw-hidden-from-user
+/search How to use React hooks
+\`\`\`"
+`;
+
+exports[`ConversationRenderer addUserMessage should preserve the loading indicator when contentFormat is hidden 1`] = `
+"<!--STW ID:abc123,ROLE:steward,COMMAND:search-->
+**Steward:** Here's what I found:
+
+<!--STW ID:mock-id-123,ROLE:user-->
+\`\`\`stw-hidden-from-user
+/search How to use React hooks
+\`\`\`
+
+*Generating...*"
+`;
+
 exports[`ConversationRenderer deserializeToolInvocations should deserialize a tool-call with args and result (backward compatibility) 1`] = `
 [
   {

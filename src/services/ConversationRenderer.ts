@@ -470,6 +470,77 @@ export class ConversationRenderer {
   }
 
   /**
+   * Adds a user message to a conversation note
+   */
+  public async addUserMessage(params: {
+    path: string;
+    newContent: string;
+    includeHistory?: boolean;
+    step?: number;
+    contentFormat?: 'callout' | 'hidden';
+  }): Promise<string | undefined> {
+    try {
+      const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+      const notePath = `${folderPath}/${params.path}.md`;
+
+      // Get the file reference
+      const file = this.plugin.app.vault.getFileByPath(notePath);
+      if (!file) {
+        throw new Error(`Note not found: ${notePath}`);
+      }
+
+      // Get message metadata
+      const { messageId, comment } = await this.buildMessageMetadata(params.path, {
+        role: 'User',
+        includeHistory: params.includeHistory ?? true,
+        step: params.step,
+      });
+
+      // Determine content format (default to 'callout' for user messages)
+      const format = params.contentFormat ?? 'callout';
+
+      // Process the file content
+      await this.plugin.app.vault.process(file, currentContent => {
+        const indicator = this.getGeneratingIndicator(currentContent);
+        // Remove the generating indicator and any trailing newlines
+        currentContent = this.removeGeneratingIndicator(currentContent);
+
+        // Format the user message content
+        let contentToAdd = '';
+        if (format === 'hidden') {
+          // Escape backticks in content to prevent breaking the code block
+          const escapedContent = params.newContent.replace(/`/g, '\\`');
+          contentToAdd = `\`\`\`stw-hidden-from-user\n${escapedContent}\n\`\`\``;
+
+          // Preserve the generating indicator if exists
+          if (indicator) {
+            contentToAdd += indicator;
+          }
+        } else {
+          // Add separator before user message
+          currentContent = `${currentContent}\n\n---`;
+
+          const roleText = this.formatRoleText('User', undefined);
+          // Format user message as a callout (default)
+          contentToAdd = this.plugin.noteContentService.formatCallout(
+            `${roleText}${params.newContent}`,
+            'stw-user-message',
+            { id: messageId }
+          );
+        }
+
+        // Return the updated content
+        return `${currentContent}\n\n${comment}\n${contentToAdd}`;
+      });
+
+      return messageId;
+    } catch (error) {
+      logger.error('Error adding user message:', error);
+      return undefined;
+    }
+  }
+
+  /**
    * Updates a conversation note with the given content
    */
   public async updateConversationNote(params: {
@@ -528,6 +599,17 @@ export class ConversationRenderer {
       const file = this.plugin.app.vault.getFileByPath(notePath);
       if (!file) {
         throw new Error(`Note not found: ${notePath}`);
+      }
+
+      // Handle user messages by delegating to addUserMessage
+      const checkRoleName = typeof params.role === 'string' ? params.role : params.role?.name;
+      if (checkRoleName === 'User') {
+        return await this.addUserMessage({
+          path: params.path,
+          newContent: params.newContent,
+          includeHistory: params.includeHistory,
+          step: params.step,
+        });
       }
 
       const { roleName, showLabel } = (() => {
@@ -590,21 +672,9 @@ export class ConversationRenderer {
         }
 
         // Prepare the content to be added
-        let contentToAdd = '';
-
-        if (params.role === 'User') {
-          currentContent = `${currentContent}\n\n---`;
-          // Format user message as a callout
-          contentToAdd = this.plugin.noteContentService.formatCallout(
-            `${this.formatRoleText(params.role, showLabel)}${params.newContent}`,
-            'stw-user-message',
-            { id: messageId }
-          );
-        } else {
-          // For Steward or System messages, use the regular format
-          const roleText = this.formatRoleText(roleName, showLabel);
-          contentToAdd = `${roleText}${params.newContent}`;
-        }
+        // For Steward or System messages, use the regular format
+        const roleText = this.formatRoleText(roleName, showLabel);
+        let contentToAdd = `${roleText}${params.newContent}`;
 
         // Add hidden content after visible content if provided
         if (processedArtifactContent) {
@@ -615,10 +685,10 @@ export class ConversationRenderer {
         return `${currentContent}\n\n${comment}\n${contentToAdd}`;
       });
 
-      if (roleName === 'User') {
-        // Automatically create STW_SELECTED artifact if stw-selected blocks are present
-        await this.createStwSelectedArtifactIfPresent(params.path, params.newContent);
-      }
+      // if (roleName === 'User') {
+      //   // Automatically create STW_SELECTED artifact if stw-selected blocks are present
+      //   await this.createStwSelectedArtifactIfPresent(params.path, params.newContent);
+      // }
 
       return messageId;
     } catch (error) {
@@ -965,52 +1035,34 @@ export class ConversationRenderer {
       // Build initial content based on command type
       let initialContent =
         frontmatter +
-        `<!--STW ID:${messageId},ROLE:user,COMMAND:${commandType}-->\n${userMessage}\n\n`;
+        `<!--STW ID:${messageId},ROLE:user,COMMAND:${commandType},HISTORY:false-->\n${userMessage}\n\n`;
 
-      // Handle vault command with optional tools parameter
-      if (commandType.startsWith('vault')) {
-        // Check if tools parameter is specified to show appropriate message
-        const [, queryString] = commandType.split('?');
-        if (queryString) {
-          const urlParams = new URLSearchParams(queryString);
-          const tools = urlParams.get('tools')?.split(',') || [];
+      switch (commandType) {
+        case 'search':
+          initialContent += `*${t('conversation.searching')}*`;
+          break;
 
-          if (tools.includes('move')) {
-            initialContent += `*${t('conversation.moving')}*`;
-          } else if (tools.includes('copy')) {
-            initialContent += `*${t('conversation.copying')}*`;
-          } else if (tools.includes('delete')) {
-            initialContent += `*${t('conversation.deleting')}*`;
-          }
-        }
-      } else {
-        switch (commandType) {
-          case 'search':
-            initialContent += `*${t('conversation.searching')}*`;
-            break;
+        case 'calc':
+          initialContent += `*${t('conversation.calculating')}*`;
+          break;
 
-          case 'calc':
-            initialContent += `*${t('conversation.calculating')}*`;
-            break;
+        case 'image':
+          initialContent += `*${t('conversation.generatingImage')}*`;
+          break;
 
-          case 'image':
-            initialContent += `*${t('conversation.generatingImage')}*`;
-            break;
+        case 'audio':
+        case 'speak':
+          initialContent += `*${t('conversation.generatingAudio')}*`;
+          break;
 
-          case 'audio':
-          case 'speak':
-            initialContent += `*${t('conversation.generatingAudio')}*`;
-            break;
+        case 'update':
+          initialContent += `*${t('conversation.updating')}*`;
+          break;
 
-          case 'update':
-            initialContent += `*${t('conversation.updating')}*`;
-            break;
-
-          case ' ':
-          default:
-            initialContent += `*${t('conversation.planning')}*`;
-            break;
-        }
+        case ' ':
+        default:
+          initialContent += `*${t('conversation.planning')}*`;
+          break;
       }
 
       // Remove the conversation note if exist
@@ -1354,18 +1406,26 @@ export class ConversationRenderer {
 
         // Clean up the content based on role
         if (metadata.ROLE === 'user') {
-          // Try to extract content from stw-user-message callout
-          const calloutContent = this.plugin.noteContentService.extractCalloutContent(
-            messageContent,
-            'stw-user-message'
-          );
-
-          if (calloutContent) {
-            // Remove the role text if present
-            messageContent = calloutContent.replace(/^\*\*User:\*\* /i, '');
+          // Try to extract content from stw-hidden-from-user code block
+          const stwHiddenRegex = /```stw-hidden-from-user\s*([\s\S]*?)\s*```/m;
+          const hiddenMatch = stwHiddenRegex.exec(messageContent);
+          if (hiddenMatch) {
+            // Extract content from the code block and unescape backticks
+            messageContent = hiddenMatch[1].trim().replace(/\\`/g, '`');
           } else {
-            // For backward compatibility, try the old heading format
-            messageContent = messageContent.replace(/^##### \*\*User:\*\* /m, '');
+            // Try to extract content from stw-user-message callout
+            const calloutContent = this.plugin.noteContentService.extractCalloutContent(
+              messageContent,
+              'stw-user-message'
+            );
+
+            if (calloutContent) {
+              // Remove the role text if present
+              messageContent = calloutContent.replace(/^\*\*User:\*\* /i, '');
+            } else {
+              // For backward compatibility, try the old heading format
+              messageContent = messageContent.replace(/^##### \*\*User:\*\* /m, '');
+            }
           }
         } else if (metadata.ROLE === 'steward') {
           // Special handling for search results
