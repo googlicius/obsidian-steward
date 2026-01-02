@@ -41,6 +41,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
 
   const mockRenderer = {
     addGeneratingIndicator: jest.fn(),
+    addUserMessage: jest.fn().mockResolvedValue('user-message-id-123'),
     updateConversationNote: jest.fn().mockResolvedValue('message-id-123'),
     streamConversationNote: jest.fn().mockImplementation(async ({ stream }) => {
       // Consume the stream to ensure textDone resolves
@@ -1377,6 +1378,15 @@ describe('SuperAgent', () => {
       mockPlugin.conversationRenderer.extractConversationHistory = jest.fn().mockResolvedValue([]);
 
       await superAgent.handle(params);
+
+      // Verify addUserMessage was called for the first iteration
+      expect(mockPlugin.conversationRenderer.addUserMessage).toHaveBeenCalledTimes(1);
+      expect(mockPlugin.conversationRenderer.addUserMessage).toHaveBeenCalledWith({
+        path: 'test-conversation',
+        newContent: 'test query',
+        step: undefined,
+        contentFormat: 'hidden',
+      });
 
       // Verify streamText was called
       expect(streamText).toHaveBeenCalledTimes(1);
