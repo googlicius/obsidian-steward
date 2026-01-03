@@ -19,7 +19,7 @@ import {
 } from './searchEngineV3';
 import { PaginatedSearchResult } from './types';
 import { IndexedDocument } from 'src/database/SearchDatabase';
-import { SearchOperationV2 } from '../commands/handlers/SearchCommandHandler/zSchemas';
+import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
 
 /**
  * SearchService singleton that provides global access to search components
@@ -208,11 +208,21 @@ export class SearchService {
    * @param name The name of the document to find
    * @returns The found document or null if not found
    */
-  public async getDocumentByName(name: string): Promise<ConditionResult<IndexedDocument> | null> {
+  public async getFileByName(name: string): Promise<ConditionResult<IndexedDocument> | null> {
     const queryExecutor = new QueryExecutor(this.searchContext);
 
     const queryBuilder = new QueryBuilder<IndexedDocument>();
-    queryBuilder.and(new FilenameCondition([name]));
+    const conditions: Condition[] = [new FilenameCondition([name])];
+
+    // Check if the name contains an extension
+    const lastDotIndex = name.lastIndexOf('.');
+    if (lastDotIndex > 0 && lastDotIndex < name.length - 1) {
+      const extension = name.substring(lastDotIndex + 1).toLowerCase();
+      // Add PropertyCondition to filter by file type
+      conditions.push(new PropertyCondition([{ name: 'file_type', value: extension }]));
+    }
+
+    queryBuilder.and(new AndCondition(...conditions));
 
     const condition = queryBuilder.build();
     const result = await queryExecutor.execute(condition);

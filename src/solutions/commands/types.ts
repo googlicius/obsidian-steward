@@ -1,5 +1,5 @@
-import { SystemPromptItem } from './SystemPromptModifier';
 import { ToolName } from './ToolRegistry';
+import { ToolCallPart } from './tools/types';
 
 /**
  * Represents a single intent in a sequence
@@ -7,12 +7,9 @@ import { ToolName } from './ToolRegistry';
 export interface Intent {
   type: string;
   query: string;
-  systemPrompts?: (string | SystemPromptItem)[];
+  systemPrompts?: string[];
   model?: string; // Optional model to use for this intent
   no_confirm?: boolean; // Skip confirmation for this intent
-  tools?: {
-    exclude?: ToolName[];
-  };
 }
 
 export interface ContextAugmentationIntent extends Intent {
@@ -26,6 +23,7 @@ export enum IntentResultStatus {
   NEEDS_CONFIRMATION = 'needs_confirmation',
   NEEDS_USER_INPUT = 'needs_user_input',
   LOW_CONFIDENCE = 'low_confidence',
+  STOP_PROCESSING = 'stop_processing',
 }
 
 type UserInputResult = {
@@ -39,6 +37,11 @@ type SuccessResult = {
   nextParams?: Partial<AgentHandlerParams>;
 };
 
+type StopProcessingResult = {
+  status: IntentResultStatus.STOP_PROCESSING;
+  reason?: string;
+};
+
 type ErrorResult = {
   status: IntentResultStatus.ERROR;
   error?: Error | string;
@@ -50,9 +53,10 @@ type LowConfidenceResult = {
   explanation?: string;
 };
 
-export type ConfirmationResult = {
+export type ConfirmationResult<T = unknown> = {
   status: IntentResultStatus.NEEDS_CONFIRMATION;
   confirmationMessage?: string;
+  toolCall?: ToolCallPart<T>;
   onConfirmation: (message: string) => Promise<AgentResult> | AgentResult;
   onRejection?: (message: string) => Promise<AgentResult> | AgentResult;
   onFinal?: () => Promise<void> | void;
@@ -63,19 +67,23 @@ export type AgentResult =
   | UserInputResult
   | SuccessResult
   | ErrorResult
-  | LowConfidenceResult;
+  | LowConfidenceResult
+  | StopProcessingResult;
 
 export interface AgentHandlerParams<T extends Intent = Intent> {
   title: string;
   intent: T;
-  prevIntent?: Intent;
-  nextIntent?: Intent;
   lang?: string | null;
   /**
    * Handler ID to group all messages issued in one handle function call.
    * If not provided, a new ID will be generated.
    */
   handlerId?: string;
+  /**
+   * Count of how many times the handle function has been invoked.
+   * When 0 or undefined, it's the first iteration and user messages should be included.
+   */
+  invocationCount?: number;
   upstreamOptions?: {
     isReloadRequest?: boolean;
     ignoreClassify?: boolean;

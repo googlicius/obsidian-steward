@@ -29,5 +29,18 @@
   ],
   "[properties]": {
     "editor.defaultFormatter": "foxundermoon.shell-format"
-  }
+  },
+  "tailwindCSS.includeLanguages": {
+    "typescript": "javascript",
+    "typescriptreact": "javascript"
+  },
+  "tailwindCSS.experimental.classRegex": [
+    ["className\\s*[:=]\\s*['\"`]([^'\"`]*)['\"`]", "([^\\s]+)"],
+    ["cls\\s*[:=]\\s*['\"`]([^'\"`]*)['\"`]", "([^\\s]+)"],
+    [
+      "classList\\.(?:add|remove|toggle|replace|contains)\\s*\\(\\s*['\"`]([^'\"`]*)['\"`]",
+      "([^\\s]+)"
+    ]
+  ],
+  "tailwindCSS.files.exclude": ["**/.git/**", "**/node_modules/**", "**/.hg/**", "**/.svn/**"]
 }

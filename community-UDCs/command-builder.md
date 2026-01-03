@@ -58,9 +58,9 @@ These commands use natural language processing and work with artifacts:
 - `vault_move` - Move notes from the artifact to a destination
 - `vault_copy` - Copy notes from the artifact to a destination
 - `vault_delete` - Delete notes from the artifact
-- `update_from_artifact` - Update notes from the artifact
+- `edit` - Edit notes from artifacts (read_content, generated_content, or stw_selected)
 
-**Note about artifact-based commands:** Commands like `vault_move`, `vault_copy`, `vault_delete`, and `update_from_artifact` operate on artifacts created by previous commands like `search` or `read`. They work with the results stored in the artifact from the previous command.
+**Note about artifact-based commands:** Commands like `vault_move`, `vault_copy`, `vault_delete`, and `edit` operate on artifacts created by previous commands like `search` or `read`. They work with the results stored in the artifact from the previous command. The `edit` command can also work with `generated_content` or `stw_selected` artifacts, and can collect context itself using the requestReadAgent tool.
 
 #### Example: Basic User-Defined Command
 

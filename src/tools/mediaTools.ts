@@ -47,12 +47,6 @@ export class MediaTools {
       return file;
     }
 
-    // Strategy 2: Check if it's in the media folder
-    file = this.app.vault.getFileByPath(`${this.mediaFolder}/${nameOrPath}`);
-    if (file) {
-      return file;
-    }
-
     // Strategy 3: Use the search service to find the document by name
     const filename = nameOrPath.includes('/')
       ? nameOrPath.split('/').pop() || nameOrPath
@@ -60,7 +54,8 @@ export class MediaTools {
 
     try {
       const searchService = SearchService.getInstance();
-      const result = await searchService.getDocumentByName(filename);
+      const result = await searchService.getFileByName(filename);
+
       if (result && result.document.path) {
         const file = this.app.vault.getFileByPath(result.document.path);
         if (file) {

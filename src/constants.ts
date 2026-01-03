@@ -18,6 +18,8 @@ export const STW_EMBEDDED_CONVERSATION_VIEW_CONFIG = {
  */
 export const IMAGE_LINK_PATTERN = '!\\[\\[(.*?\\.(jpg|jpeg|png|webp|svg))(?:\\|.*?)?\\]\\]';
 
+export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'svg', 'gif'];
+
 /**
  * Stw-selected pattern constants for reuse across the application
  * Pattern to match any stw-selected block (with capture group for splitting)
@@ -59,22 +61,7 @@ export const SELECTED_MODEL_PATTERN = '\\b(m|model):([a-zA-Z0-9_.-]+):([^\\s]+)'
 /**
  * All built-in command that are available to the command menu
  */
-export const COMMAND_PREFIXES = [
-  '/ ',
-  '/search',
-  '/more',
-  '/close',
-  '/yes',
-  '/no',
-  '/image',
-  '/audio',
-  '/speak',
-  '/create',
-  '/stop',
-  '/abort',
-  '/help',
-  '/test',
-];
+export const COMMAND_PREFIXES = ['/ ', '/search', '/image', '/speech'];
 
 /**
  * The 2-space indentation is used to indicate a command line.
@@ -102,6 +89,10 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     anthropic: {
       apiKey: '',
     },
+    ollama: {
+      apiKey: '',
+      baseUrl: 'http://localhost:11434/api',
+    },
   },
   saltKeyId: '', // Will be generated on first load
   stewardFolder: 'Steward',
@@ -122,9 +113,8 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
       customModels: [],
     },
     temperature: 0.2,
-    ollamaBaseUrl: 'http://localhost:11434', // Deprecated: use providerConfigs instead
+    ollamaBaseUrl: 'http://localhost:11434/api', // Deprecated: use providerConfigs instead
     maxGenerationTokens: 2048, // Default max tokens for generation
-    showExtractionExplanation: true,
     image: {
       model: 'openai:dall-e-3',
       customModels: [],
@@ -209,7 +199,8 @@ export type ProviderNeedApiKey =
   | 'deepseek'
   | 'google'
   | 'groq'
-  | 'anthropic';
+  | 'anthropic'
+  | 'ollama';
 
 // Speech model options
 export interface SpeechModelOption {
@@ -259,3 +250,29 @@ export const IMAGE_MODELS: ImageModelOption[] = [
 ];
 
 export const SEARCH_DB_NAME_PREFIX = 'steward_search_';
+
+export const UDC_EXAMPLE_COMMANDS = [
+  {
+    name: 'Ask',
+    definition: `A user-defined command named \`ask\` that help the user with general questions.
+
+#### Definition
+
+\`\`\`YAML
+command_name: ask
+query_required: true
+system_prompt:
+  - "[[#Instructions]]"
+steps:
+  - query: "$from_user"
+\`\`\`
+
+#### Instructions
+
+You are a helpful assistant who interprets the user's query accurately and responds based on their input. Ensure the response is informative, clear, and concise to the user's query.
+
+NOTE:
+Since this section is mainly for Q&A, please refrain from using any tools; instead, respond directly to the user.
+`,
+  },
+];

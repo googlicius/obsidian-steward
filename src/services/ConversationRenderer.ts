@@ -1,14 +1,20 @@
 import { getLanguage, parseYaml, TFile } from 'obsidian';
 import { uniqueID } from '../utils/uniqueID';
-import i18next, { getTranslation } from '../i18n';
-import { ConversationHistoryMessage, ConversationMessage, ConversationRole } from '../types/types';
+import { getTranslation } from '../i18n';
+import { ConversationMessage, ConversationRole } from '../types/types';
 import type StewardPlugin from '../main';
 import { logger } from 'src/utils/logger';
-import { ArtifactType } from 'src/solutions/artifact';
-import { IMAGE_LINK_PATTERN, SELECTED_MODEL_PATTERN } from 'src/constants';
+import {
+  SELECTED_MODEL_PATTERN,
+  STW_SELECTED_PATTERN,
+  STW_SELECTED_METADATA_PATTERN,
+} from 'src/constants';
 import { prependChunk } from 'src/utils/textStreamer';
-import { CoreMessage } from 'ai';
-import { ToolInvocationResult } from 'src/solutions/commands/tools/types';
+import { ModelMessage, TextPart, FilePart, ImagePart, ReasoningOutput } from 'ai';
+import { ToolCallPart, ToolResultPart } from 'src/solutions/commands/tools/types';
+import { MarkdownUtil } from 'src/utils/markdownUtils';
+import { ArtifactType, ReadContentArtifactImpl } from 'src/solutions/artifact';
+import { removeUndefined } from 'src/utils/removeUndefined';
 
 export class ConversationRenderer {
   static instance: ConversationRenderer;
@@ -40,6 +46,59 @@ export class ConversationRenderer {
     const modelId = match[3];
     if (!provider || !modelId) return null;
     return `${provider}:${modelId}`;
+  }
+
+  /**
+   * Extract stw-selected blocks from content and create artifact if found
+   */
+  private async createStwSelectedArtifactIfPresent(title: string, content: string): Promise<void> {
+    if (!content.includes('{{stw-selected')) {
+      return;
+    }
+
+    const stwSelectedMatches = Array.from(content.matchAll(new RegExp(STW_SELECTED_PATTERN, 'g')));
+    if (stwSelectedMatches.length === 0) {
+      return;
+    }
+
+    const selections: Array<{
+      fromLine: number;
+      toLine: number;
+      selection: string;
+      path: string;
+    }> = [];
+
+    for (const match of stwSelectedMatches) {
+      if (match[1]) {
+        const stwBlock = match[1];
+        const metadataMatch = stwBlock.match(new RegExp(STW_SELECTED_METADATA_PATTERN));
+
+        if (metadataMatch) {
+          const [, fromLineStr, toLineStr, escapedSelection, path] = metadataMatch;
+          const fromLine = parseInt(fromLineStr, 10);
+          const toLine = parseInt(toLineStr, 10);
+
+          // Unescape the selection content
+          const selection = new MarkdownUtil(escapedSelection).unescape().decodeURI().getText();
+
+          selections.push({
+            fromLine,
+            toLine,
+            selection,
+            path,
+          });
+        }
+      }
+    }
+
+    if (selections.length > 0) {
+      await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+        artifact: {
+          artifactType: ArtifactType.STW_SELECTED,
+          selections,
+        },
+      });
+    }
   }
 
   /**
@@ -177,13 +236,14 @@ export class ConversationRenderer {
    * The result could be inlined or referenced to a message or an artifact.
    * @returns The message ID for referencing
    */
-  public async serializeToolInvocation<T>(params: {
+  public async serializeToolInvocation(params: {
     path: string;
     command?: string;
     agent?: string;
     text?: string;
     handlerId?: string;
-    toolInvocations: ToolInvocationResult<T>[];
+    step?: number;
+    toolInvocations: ToolResultPart[];
   }): Promise<string | undefined> {
     try {
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
@@ -202,10 +262,13 @@ export class ConversationRenderer {
         agent: params.agent,
         type: 'tool-invocation',
         handlerId: params.handlerId,
+        step: params.step,
       });
 
       // Process the file content
       await this.plugin.app.vault.process(file, currentContent => {
+        const indicator = this.getGeneratingIndicator(currentContent);
+
         // Remove the generating indicator and any trailing newlines
         currentContent = this.removeGeneratingIndicator(currentContent);
 
@@ -213,7 +276,12 @@ export class ConversationRenderer {
 
         contentToAdd += `\`\`\`stw-artifact\n${JSON.stringify(params.toolInvocations)}\n\`\`\``;
 
-        // Return the updated content
+        // Preserve the generating indicator if exists
+        const shouldKeepIndicator = indicator && !params.text;
+        if (shouldKeepIndicator) {
+          contentToAdd += indicator;
+        }
+
         return `${currentContent}\n\n${comment}\n${contentToAdd}`;
       });
 
@@ -226,97 +294,249 @@ export class ConversationRenderer {
 
   /**
    * Deserialize tool calls from a message
-   * @param params - Either a messageId (string) or a ConversationMessage
-   * @returns The deserialized tool call with resolved result
    */
   public async deserializeToolInvocations(params: {
     message: ConversationMessage;
     conversationTitle: string;
-  }): Promise<
-    | {
-        toolName: string;
-        toolCallId: string;
-        args: Record<string, unknown>;
-        result: unknown;
-      }[]
-    | null
-  > {
-    try {
-      // Extract all tool calls from the message content
-      const toolInvocationsMatches = params.message.content.match(
-        /```stw-artifact\n([\s\S]*?)\n```/g
-      );
-      if (!toolInvocationsMatches || toolInvocationsMatches.length === 0) {
-        logger.error('No stw-artifact blocks found in message content');
-        return null;
-      }
+  }): Promise<Array<ToolCallPart | ToolResultPart | FilePart | ImagePart | TextPart> | null> {
+    // Extract all tool calls from the message content
+    const toolInvocationsMatches = params.message.content.match(
+      /```stw-artifact\n([\s\S]*?)\n```/g
+    );
+    if (!toolInvocationsMatches || toolInvocationsMatches.length === 0) {
+      logger.error('No stw-artifact blocks found in message content');
+      return null;
+    }
 
-      const toolInvocations = [];
+    const toolInvocations: Array<ToolCallPart | ToolResultPart | FilePart | ImagePart | TextPart> =
+      [];
 
-      for (const toolInvocationsMatch of toolInvocationsMatches) {
-        const toolInvocationData = JSON.parse(
-          toolInvocationsMatch.replace(/```stw-artifact\n|\n```/g, '')
-        );
-
-        // Ensure toolInvocationData is an array
-        if (!Array.isArray(toolInvocationData)) {
-          logger.error('Tool invocation data should be an array', toolInvocationData);
-          continue;
+    const resolveToolInvocation = async (
+      type: 'tool-call' | 'tool-result',
+      toolInvocation: ReturnType<typeof JSON.parse>
+    ): Promise<Array<ToolCallPart | ToolResultPart | FilePart | ImagePart | TextPart>> => {
+      switch (type) {
+        case 'tool-call': {
+          const input = toolInvocation.input ?? toolInvocation.args;
+          return [
+            {
+              type,
+              toolName: toolInvocation.toolName,
+              toolCallId: toolInvocation.toolCallId,
+              input,
+            },
+          ];
         }
 
-        for (const toolInvocation of toolInvocationData) {
-          const { toolName, toolCallId, args, result } = toolInvocation;
+        case 'tool-result':
+        default: {
+          // Resolve the result based on its type (Backward-compatible with AI SDK v4 format)
+          // let resolvedOutput: ToolResultPart['output'];
+          const output = toolInvocation.output ?? toolInvocation.result;
+          const additionalParts: Array<TextPart | FilePart | ImagePart> = [];
 
-          if (!toolName || !toolCallId || !args) {
-            logger.error('Invalid tool call data structure', toolInvocation);
-            continue; // Skip invalid tool calls but continue processing others
-          }
+          let resolvedOutput: ToolResultPart['output'] =
+            typeof output === 'string'
+              ? {
+                  type: 'text',
+                  value: output,
+                }
+              : output;
 
-          // Resolve the result based on its type
-          let resolvedResult = result;
-
-          if (typeof result === 'string') {
+          if (
+            resolvedOutput.type !== 'execution-denied' &&
+            typeof resolvedOutput.value === 'string'
+          ) {
             // Check if it's an artifact reference
-            if (result.startsWith('artifactRef:')) {
-              const artifactId = result.substring('artifactRef:'.length);
+            if (resolvedOutput.value.startsWith('artifactRef:')) {
+              const artifactId = resolvedOutput.value.substring('artifactRef:'.length);
               const artifact = await this.plugin.artifactManagerV2
                 .withTitle(params.conversationTitle)
                 .getArtifactById(artifactId);
               if (artifact) {
-                resolvedResult = artifact;
+                // If the artifact is marked as deleted, then skip sending data, return the deleteReason instead
+                if (artifact.deleteReason) {
+                  resolvedOutput = {
+                    type: 'json',
+                    value: removeUndefined({
+                      id: artifact.id,
+                      artifactType: artifact.artifactType,
+                      deleteReason: artifact.deleteReason,
+                      status: 'deleted', // Add this field
+                      // Don't send other fields of the artifact.
+                    }),
+                  };
+                } else {
+                  resolvedOutput = {
+                    type: 'json',
+                    value: removeUndefined(artifact),
+                  };
+
+                  // Check if artifact has imagePaths (from READ_CONTENT artifacts)
+                  // Include images in the same content as the tool-result
+                  if (
+                    artifact instanceof ReadContentArtifactImpl &&
+                    artifact.imagePaths &&
+                    artifact.imagePaths.length > 0
+                  ) {
+                    const imageParts = await this.plugin.userMessageService.getImagePartsFromPaths(
+                      artifact.imagePaths
+                    );
+                    for (const [path, imagePart] of imageParts) {
+                      additionalParts.push({ type: 'text', text: path }, imagePart);
+                    }
+                  }
+                }
               } else {
                 logger.error(`Artifact not found: ${artifactId}`);
-                resolvedResult = null;
+                resolvedOutput = {
+                  type: 'error-text',
+                  value: `Artifact not found: ${artifactId}`,
+                };
               }
-            } else if (result.startsWith('messageRef:')) {
-              const messageId = result.substring('messageRef:'.length);
+            } else if (resolvedOutput.value.startsWith('messageRef:')) {
+              const messageId = resolvedOutput.value.substring('messageRef:'.length);
               const referencedMessage = await this.getMessageById(
                 params.conversationTitle,
-                messageId
+                messageId,
+                true // Exclude tool-hidden content when resolving message references
               );
               if (referencedMessage) {
-                resolvedResult = referencedMessage.content;
+                resolvedOutput = {
+                  type: 'text',
+                  value: referencedMessage.content,
+                };
               } else {
                 logger.error(`Message not found: ${messageId}`);
-                resolvedResult = null;
+                resolvedOutput = {
+                  type: 'error-text',
+                  value: `Message not found: ${messageId}`,
+                };
               }
             }
             // Otherwise, it's an inlined result, keep as is
           }
 
-          toolInvocations.push({
-            toolName,
-            toolCallId,
-            args,
-            result: resolvedResult,
-          });
+          return [
+            {
+              type,
+              toolName: toolInvocation.toolName,
+              toolCallId: toolInvocation.toolCallId,
+              output: resolvedOutput,
+            },
+            ...additionalParts,
+          ];
         }
       }
+    };
 
-      return toolInvocations.length > 0 ? toolInvocations : null;
-    } catch (error: unknown) {
-      logger.error('Error deserializing tool calls:', error);
-      return null;
+    for (const toolInvocationsMatch of toolInvocationsMatches) {
+      const toolInvocationData = JSON.parse(
+        toolInvocationsMatch.replace(/```stw-artifact\n|\n```/g, '')
+      );
+
+      // Ensure toolInvocationData is an array
+      if (!Array.isArray(toolInvocationData)) {
+        logger.error('Tool invocation data should be an array', toolInvocationData);
+        continue;
+      }
+
+      for (const toolInvocation of toolInvocationData) {
+        const { toolName, toolCallId, type } = toolInvocation;
+
+        if (!toolName || !toolCallId || !type) {
+          logger.error('Invalid tool call data structure', toolInvocation);
+          continue; // Skip invalid tool calls but continue processing others
+        }
+
+        if (type === 'tool-call') {
+          toolInvocations.push(...(await resolveToolInvocation('tool-call', toolInvocation)));
+          // In the old version, all types are tool-call, we need to handle tool-result here.
+          // Check for both output (new format) and result (old format) for backward compatibility
+          if (toolInvocation.output || toolInvocation.result) {
+            toolInvocations.push(...(await resolveToolInvocation('tool-result', toolInvocation)));
+          }
+        } else {
+          // In the new version, the input could be included, so handle tool-call here
+          if (toolInvocation.input) {
+            toolInvocations.push(...(await resolveToolInvocation('tool-call', toolInvocation)));
+          }
+          toolInvocations.push(...(await resolveToolInvocation('tool-result', toolInvocation)));
+        }
+      }
+    }
+
+    return toolInvocations.length > 0 ? toolInvocations : null;
+  }
+
+  /**
+   * Adds a user message to a conversation note
+   */
+  public async addUserMessage(params: {
+    path: string;
+    newContent: string;
+    includeHistory?: boolean;
+    step?: number;
+    contentFormat?: 'callout' | 'hidden';
+  }): Promise<string | undefined> {
+    try {
+      const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+      const notePath = `${folderPath}/${params.path}.md`;
+
+      // Get the file reference
+      const file = this.plugin.app.vault.getFileByPath(notePath);
+      if (!file) {
+        throw new Error(`Note not found: ${notePath}`);
+      }
+
+      // Get message metadata
+      const { messageId, comment } = await this.buildMessageMetadata(params.path, {
+        role: 'User',
+        includeHistory: params.includeHistory ?? true,
+        step: params.step,
+      });
+
+      // Determine content format (default to 'callout' for user messages)
+      const format = params.contentFormat ?? 'callout';
+
+      // Process the file content
+      await this.plugin.app.vault.process(file, currentContent => {
+        const indicator = this.getGeneratingIndicator(currentContent);
+        // Remove the generating indicator and any trailing newlines
+        currentContent = this.removeGeneratingIndicator(currentContent);
+
+        // Format the user message content
+        let contentToAdd = '';
+        if (format === 'hidden') {
+          // Escape backticks in content to prevent breaking the code block
+          const escapedContent = params.newContent.replace(/`/g, '\\`');
+          contentToAdd = `\`\`\`stw-hidden-from-user\n${escapedContent}\n\`\`\``;
+
+          // Preserve the generating indicator if exists
+          if (indicator) {
+            contentToAdd += indicator;
+          }
+        } else {
+          // Add separator before user message
+          currentContent = `${currentContent}\n\n---`;
+
+          const roleText = this.formatRoleText('User', undefined);
+          // Format user message as a callout (default)
+          contentToAdd = this.plugin.noteContentService.formatCallout(
+            `${roleText}${params.newContent}`,
+            'stw-user-message',
+            { id: messageId }
+          );
+        }
+
+        // Return the updated content
+        return `${currentContent}\n\n${comment}\n${contentToAdd}`;
+      });
+
+      return messageId;
+    } catch (error) {
+      logger.error('Error adding user message:', error);
+      return undefined;
     }
   }
 
@@ -365,6 +585,11 @@ export class ConversationRenderer {
      * Handler ID to group all messages issued in one handle function call.
      */
     handlerId?: string;
+    /**
+     * Step number for grouping messages in one invocation or one streamText function call.
+     * Should be params.invocationCount + 1 when called from handlers.
+     */
+    step?: number;
   }): Promise<string | undefined> {
     try {
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
@@ -374,6 +599,17 @@ export class ConversationRenderer {
       const file = this.plugin.app.vault.getFileByPath(notePath);
       if (!file) {
         throw new Error(`Note not found: ${notePath}`);
+      }
+
+      // Handle user messages by delegating to addUserMessage
+      const checkRoleName = typeof params.role === 'string' ? params.role : params.role?.name;
+      if (checkRoleName === 'User') {
+        return await this.addUserMessage({
+          path: params.path,
+          newContent: params.newContent,
+          includeHistory: params.includeHistory,
+          step: params.step,
+        });
       }
 
       const { roleName, showLabel } = (() => {
@@ -390,6 +626,7 @@ export class ConversationRenderer {
         agent: params.agent,
         includeHistory: params.includeHistory ?? true,
         handlerId: params.handlerId,
+        step: params.step,
       });
 
       // Update language and model properties in the frontmatter if provided
@@ -435,21 +672,9 @@ export class ConversationRenderer {
         }
 
         // Prepare the content to be added
-        let contentToAdd = '';
-
-        if (params.role === 'User') {
-          currentContent = `${currentContent}\n\n---`;
-          // Format user message as a callout
-          contentToAdd = this.plugin.noteContentService.formatCallout(
-            `${this.formatRoleText(params.role, showLabel)}${params.newContent}`,
-            'stw-user-message',
-            { id: messageId }
-          );
-        } else {
-          // For Steward or System messages, use the regular format
-          const roleText = this.formatRoleText(roleName, showLabel);
-          contentToAdd = `${roleText}${params.newContent}`;
-        }
+        // For Steward or System messages, use the regular format
+        const roleText = this.formatRoleText(roleName, showLabel);
+        let contentToAdd = `${roleText}${params.newContent}`;
 
         // Add hidden content after visible content if provided
         if (processedArtifactContent) {
@@ -459,6 +684,11 @@ export class ConversationRenderer {
         // Return the updated content
         return `${currentContent}\n\n${comment}\n${contentToAdd}`;
       });
+
+      // if (roleName === 'User') {
+      //   // Automatically create STW_SELECTED artifact if stw-selected blocks are present
+      //   await this.createStwSelectedArtifactIfPresent(params.path, params.newContent);
+      // }
 
       return messageId;
     } catch (error) {
@@ -481,6 +711,11 @@ export class ConversationRenderer {
     position?: number;
     includeHistory?: boolean;
     handlerId?: string;
+    /**
+     * Step number for grouping messages in one invocation or one AI function call.
+     * Should be params.invocationCount + 1 when called from handlers.
+     */
+    step?: number;
   }): Promise<string | undefined> {
     const folderPath = params.folderPath || `${this.plugin.settings.stewardFolder}/Conversations`;
 
@@ -503,6 +738,8 @@ export class ConversationRenderer {
         return undefined;
       }
 
+      const isReasoning = firstResult.value.includes('stw-thinking');
+
       // Create a stream that includes the first chunk we already retrieved
       const streamWithFirstChunk = prependChunk(firstResult.value, streamIterator);
 
@@ -511,6 +748,10 @@ export class ConversationRenderer {
         command: params.command,
         includeHistory: params.includeHistory ?? true,
         handlerId: params.handlerId,
+        step: params.step,
+        ...(isReasoning && {
+          type: 'reasoning',
+        }),
       });
 
       const roleText = this.formatRoleText(params.role);
@@ -548,31 +789,10 @@ export class ConversationRenderer {
     }
   }
 
-  public async streamFile(file: TFile, stream: AsyncIterable<string>, minLength = 20) {
-    let buffer = '';
-    let trailingContent = '';
-
+  public async streamFile(file: TFile, stream: AsyncIterable<string>) {
     for await (const chunk of stream) {
       await this.plugin.app.vault.process(file, currentContent => {
-        if (trailingContent && currentContent.endsWith(trailingContent)) {
-          currentContent = currentContent.slice(0, -trailingContent.length);
-        }
-
-        currentContent += chunk;
-        buffer = currentContent.slice(-20);
-
-        if (buffer.includes(`<think>`)) {
-          trailingContent = '\n```\n';
-          currentContent = currentContent.replace('<think>', '\n```stw-thinking\n');
-        } else if (buffer.includes(`</think>`)) {
-          currentContent = currentContent.replace(
-            '</think>',
-            `\n\`\`\`\n>[!info] <a class="stw-thinking-process">${i18next.t('common.thinkingProcess')}</a>\n`
-          );
-          trailingContent = '';
-        }
-
-        return currentContent + trailingContent;
+        return currentContent + chunk;
       });
     }
   }
@@ -588,6 +808,7 @@ export class ConversationRenderer {
       type?: string;
       artifactType?: ArtifactType;
       handlerId?: string;
+      step?: number;
     } = {}
   ) {
     const {
@@ -597,6 +818,7 @@ export class ConversationRenderer {
       agent,
       includeHistory,
       handlerId,
+      step,
     } = options;
 
     const metadata: { [x: string]: string | number } = {
@@ -619,6 +841,9 @@ export class ConversationRenderer {
       }),
       ...(handlerId && {
         HANDLER_ID: handlerId,
+      }),
+      ...(step !== undefined && {
+        STEP: step,
       }),
     };
 
@@ -726,10 +951,35 @@ export class ConversationRenderer {
   }
 
   /**
+   * Gets the generating indicator from the end of the content if it exists
+   * @returns The indicator string (including leading newlines) or empty string if not found
+   */
+  public getGeneratingIndicator(content: string): string {
+    const indicatorMatch = content.match(/(\n\n\*.*?\.\.\.\*)$/);
+    return indicatorMatch ? indicatorMatch[1] : '';
+  }
+
+  /**
    * Removes the generating indicator from the content
    */
   public removeGeneratingIndicator(content: string): string {
     return content.replace(/\n\n\*.*?\.\.\.\*$/, '');
+  }
+
+  /**
+   * Removes the generating indicator from the conversation note
+   */
+  public removeIndicator(title: string): Promise<string> {
+    const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+    const notePath = `${folderPath}/${title}.md`;
+    const file = this.plugin.app.vault.getFileByPath(notePath);
+    if (!file) {
+      throw new Error(`Note not found: ${notePath}`);
+    }
+
+    return this.plugin.app.vault.process(file, currentContent => {
+      return this.removeGeneratingIndicator(currentContent);
+    });
   }
 
   /**
@@ -760,13 +1010,20 @@ export class ConversationRenderer {
 
       // Determine model: from query if present, otherwise from settings
       const modelFromQuery = this.extractSelectedModelFromText(content);
-      const currentModel = modelFromQuery || this.plugin.settings.llm.chat.model;
 
-      // Get the current language from settings
-      const currentLanguage = language || getLanguage();
+      const properties = [
+        { name: 'model', value: modelFromQuery || this.plugin.settings.llm.chat.model },
+        { name: 'lang', value: language || getLanguage() },
+      ];
 
-      // Create YAML frontmatter with model and language
-      const frontmatter = `---\nmodel: ${currentModel}\nlang: ${currentLanguage}\n---\n\n`;
+      const activeNote = this.plugin.app.workspace.getActiveFile();
+
+      if (activeNote && !activeNote.name.includes(this.plugin.chatTitle)) {
+        properties.push({ name: 'current_note', value: activeNote.name });
+      }
+
+      // Create YAML frontmatter with model, current_note, and language
+      const frontmatter = `---\n${properties.map(property => `${property.name}: ${property.value}`).join('\n')}\n---\n\n`;
 
       // Format user message as a callout with the role text
       const userMessage = this.plugin.noteContentService.formatCallout(
@@ -778,52 +1035,34 @@ export class ConversationRenderer {
       // Build initial content based on command type
       let initialContent =
         frontmatter +
-        `<!--STW ID:${messageId},ROLE:user,COMMAND:${commandType}-->\n${userMessage}\n\n`;
+        `<!--STW ID:${messageId},ROLE:user,COMMAND:${commandType},HISTORY:false-->\n${userMessage}\n\n`;
 
-      // Handle vault command with optional tools parameter
-      if (commandType.startsWith('vault')) {
-        // Check if tools parameter is specified to show appropriate message
-        const [, queryString] = commandType.split('?');
-        if (queryString) {
-          const urlParams = new URLSearchParams(queryString);
-          const tools = urlParams.get('tools')?.split(',') || [];
+      switch (commandType) {
+        case 'search':
+          initialContent += `*${t('conversation.searching')}*`;
+          break;
 
-          if (tools.includes('move')) {
-            initialContent += `*${t('conversation.moving')}*`;
-          } else if (tools.includes('copy')) {
-            initialContent += `*${t('conversation.copying')}*`;
-          } else if (tools.includes('delete')) {
-            initialContent += `*${t('conversation.deleting')}*`;
-          }
-        }
-      } else {
-        switch (commandType) {
-          case 'search':
-            initialContent += `*${t('conversation.searching')}*`;
-            break;
+        case 'calc':
+          initialContent += `*${t('conversation.calculating')}*`;
+          break;
 
-          case 'calc':
-            initialContent += `*${t('conversation.calculating')}*`;
-            break;
+        case 'image':
+          initialContent += `*${t('conversation.generatingImage')}*`;
+          break;
 
-          case 'image':
-            initialContent += `*${t('conversation.generatingImage')}*`;
-            break;
+        case 'audio':
+        case 'speak':
+          initialContent += `*${t('conversation.generatingAudio')}*`;
+          break;
 
-          case 'audio':
-          case 'speak':
-            initialContent += `*${t('conversation.generatingAudio')}*`;
-            break;
+        case 'update':
+          initialContent += `*${t('conversation.updating')}*`;
+          break;
 
-          case 'update':
-            initialContent += `*${t('conversation.updating')}*`;
-            break;
-
-          case ' ':
-          default:
-            initialContent += `*${t('conversation.orchestrating')}*`;
-            break;
-        }
+        case ' ':
+        default:
+          initialContent += `*${t('conversation.planning')}*`;
+          break;
       }
 
       // Remove the conversation note if exist
@@ -834,6 +1073,9 @@ export class ConversationRenderer {
 
       // Create the conversation note
       await this.plugin.app.vault.create(notePath, initialContent);
+
+      // Automatically create STW_SELECTED artifact if stw-selected blocks are present
+      await this.createStwSelectedArtifactIfPresent(title, content);
     } catch (error) {
       logger.error('Error creating conversation note:', error);
       throw error;
@@ -893,14 +1135,30 @@ export class ConversationRenderer {
   }
 
   /**
+   * Removes content marked with <!--stw-tool-hidden-start--> and <!--stw-tool-hidden-end-->
+   * from the message content. This content is visible in reading view but excluded from
+   * tool call results.
+   * @param content The message content to filter
+   * @returns The filtered content with tool-hidden sections removed
+   */
+  private removeToolHiddenContent(content: string): string {
+    // Match content between <!--stw-tool-hidden-start--> and <!--stw-tool-hidden-end-->
+    // Using non-greedy match to handle multiple sections
+    const toolHiddenRegex = /<!--stw-tool-hidden-start-->[\s\S]*?<!--stw-tool-hidden-end-->/g;
+    return content.replace(toolHiddenRegex, '').trim();
+  }
+
+  /**
    * Gets a specific message by ID from a conversation
    * @param conversationTitle The title of the conversation
    * @param messageId The ID of the message to retrieve
+   * @param excludeToolHidden If true, removes content marked with tool-hidden markers
    * @returns The conversation message, or null if not found
    */
   public async getMessageById(
     conversationTitle: string,
-    messageId: string
+    messageId: string,
+    excludeToolHidden = false
   ): Promise<ConversationMessage | null> {
     try {
       // Get the conversation file
@@ -974,6 +1232,11 @@ export class ConversationRenderer {
       // Remove loading indicators
       messageContent = messageContent.replace(/\*.*?\.\.\.\*$/gm, '');
 
+      // Remove tool-hidden content if requested (for tool call results)
+      if (excludeToolHidden) {
+        messageContent = this.removeToolHiddenContent(messageContent);
+      }
+
       // Convert role from 'steward' to 'assistant'
       const role = metadata.ROLE === 'steward' ? 'assistant' : metadata.ROLE;
 
@@ -1012,7 +1275,7 @@ export class ConversationRenderer {
   public async getMessagesByHandlerId(
     conversationTitle: string,
     handlerId: string
-  ): Promise<ConversationHistoryMessage[]> {
+  ): Promise<ModelMessage[]> {
     try {
       // Get all messages from the conversation
       const allMessages = await this.extractConversationHistory(conversationTitle);
@@ -1143,18 +1406,26 @@ export class ConversationRenderer {
 
         // Clean up the content based on role
         if (metadata.ROLE === 'user') {
-          // Try to extract content from stw-user-message callout
-          const calloutContent = this.plugin.noteContentService.extractCalloutContent(
-            messageContent,
-            'stw-user-message'
-          );
-
-          if (calloutContent) {
-            // Remove the role text if present
-            messageContent = calloutContent.replace(/^\*\*User:\*\* /i, '');
+          // Try to extract content from stw-hidden-from-user code block
+          const stwHiddenRegex = /```stw-hidden-from-user\s*([\s\S]*?)\s*```/m;
+          const hiddenMatch = stwHiddenRegex.exec(messageContent);
+          if (hiddenMatch) {
+            // Extract content from the code block and unescape backticks
+            messageContent = hiddenMatch[1].trim().replace(/\\`/g, '`');
           } else {
-            // For backward compatibility, try the old heading format
-            messageContent = messageContent.replace(/^##### \*\*User:\*\* /m, '');
+            // Try to extract content from stw-user-message callout
+            const calloutContent = this.plugin.noteContentService.extractCalloutContent(
+              messageContent,
+              'stw-user-message'
+            );
+
+            if (calloutContent) {
+              // Remove the role text if present
+              messageContent = calloutContent.replace(/^\*\*User:\*\* /i, '');
+            } else {
+              // For backward compatibility, try the old heading format
+              messageContent = messageContent.replace(/^##### \*\*User:\*\* /m, '');
+            }
           }
         } else if (metadata.ROLE === 'steward') {
           // Special handling for search results
@@ -1186,6 +1457,17 @@ export class ConversationRenderer {
         // Remove loading indicators
         messageContent = messageContent.replace(/\*.*?\.\.\.\*$/gm, '');
 
+        // Remove stw-thinking block when type is reasoning
+        if (metadata.TYPE === 'reasoning') {
+          // Extract content inside stw-thinking code block (supports both 3 and 4 backticks for compatibility)
+          const stwThinkingRegex =
+            /````stw-thinking\s*([\s\S]*?)\s*````|```stw-thinking\s*([\s\S]*?)\s*```/m;
+          const match = stwThinkingRegex.exec(messageContent);
+          if (match) {
+            messageContent = (match[1] || match[2] || '').trim();
+          }
+        }
+
         // Convert role from 'steward' to 'assistant'
         const role = metadata.ROLE === 'steward' ? 'assistant' : metadata.ROLE;
 
@@ -1208,6 +1490,9 @@ export class ConversationRenderer {
           ...(metadata.HANDLER_ID && {
             handlerId: metadata.HANDLER_ID,
           }),
+          ...(metadata.STEP !== undefined && {
+            step: parseInt(metadata.STEP, 10),
+          }),
         });
       }
 
@@ -1228,59 +1513,106 @@ export class ConversationRenderer {
       maxMessages?: number;
       summaryPosition?: number;
     }
-  ): Promise<ConversationHistoryMessage[]> {
+  ): Promise<ModelMessage[]> {
     const { maxMessages = 10 } = options || {};
     let { summaryPosition = 0 } = options || {};
 
-    try {
-      // Get all messages from the conversation
-      const allMessages = await this.extractAllConversationMessages(conversationTitle);
+    // Get all messages from the conversation
+    const allMessages = await this.extractAllConversationMessages(conversationTitle);
 
-      // Filter out messages where history is explicitly set to false
-      const messagesForHistory: (ConversationMessage & { ignored?: boolean })[] =
-        allMessages.filter(message => message.history !== false);
+    // Filter out messages where history is explicitly set to false
+    const messagesForHistory: (ConversationMessage & { ignored?: boolean })[] = allMessages.filter(
+      message => message.history !== false
+    );
 
-      // Remove the last message if it is a user message which is just being added.
-      if (
-        messagesForHistory.length > 0 &&
-        messagesForHistory[messagesForHistory.length - 1].role === 'user'
-      ) {
-        messagesForHistory.pop();
-      }
+    // Remove the last message if it is a user message which is just being added.
+    if (
+      messagesForHistory.length > 0 &&
+      messagesForHistory[messagesForHistory.length - 1].role === 'user'
+    ) {
+      messagesForHistory.pop();
+    }
 
-      // Find the most recent summary message or the start of the latest topic
-      const continuationCommands = [' ', 'confirm', 'thank_you'];
-      let topicStartIndex = 0;
+    const allCommandWithoutPrefixes = this.plugin.userDefinedCommandService
+      .buildExtendedPrefixes()
+      .map(prefix => prefix.replace('/', ''));
+    let topicStartIndex = 0;
 
-      for (let i = messagesForHistory.length - 1; i >= 0; i--) {
-        const message = messagesForHistory[i];
+    for (let i = messagesForHistory.length - 1; i >= 0; i--) {
+      const message = messagesForHistory[i];
 
-        // Check for summary message first (highest priority)
-        if (message.intent === 'summary') {
-          if (summaryPosition === 0) {
-            topicStartIndex = i;
-            break;
-          }
-          messagesForHistory[i].ignored = true;
-          summaryPosition--;
-        }
-
-        if (message.role === 'user' && !continuationCommands.includes(message.intent)) {
-          // Found a message that starts a new topic
+      // Check for summary message first (highest priority)
+      if (message.intent === 'summary') {
+        if (summaryPosition === 0) {
           topicStartIndex = i;
           break;
         }
+        messagesForHistory[i].ignored = true;
+        summaryPosition--;
       }
 
-      // Get messages after the topicStartIndex (either summary or topic start)
-      const messagesToInclude = messagesForHistory
-        .slice(topicStartIndex)
-        .filter(message => !message.ignored)
-        .slice(-maxMessages);
+      // If the user message is a built-in or UDC (but not the general command "/ "), start a new topic
+      if (
+        message.role === 'user' &&
+        message.intent &&
+        message.intent !== ' ' &&
+        allCommandWithoutPrefixes.includes(message.intent)
+      ) {
+        // Found a message that starts a new topic
+        topicStartIndex = i;
+        break;
+      }
+    }
 
-      const result: (ConversationHistoryMessage | CoreMessage)[] = [];
+    // Get messages after the topicStartIndex (either summary or topic start)
+    const filteredMessages = messagesForHistory
+      .slice(topicStartIndex)
+      .filter(message => !message.ignored);
 
-      for (const message of messagesToInclude) {
+    // Slice messages without cutting in the middle of a step
+    const messagesToInclude = this.sliceMessagesPreservingSteps(filteredMessages, maxMessages);
+
+    // Group consecutive messages by (handlerId, role, step) for merging
+    const groupedMessages = this.groupMessagesByStep(messagesToInclude);
+
+    // Find the index of the last assistant group (for auto-including empty reasoning)
+    const lastAssistantGroupIndex = groupedMessages.findLastIndex(
+      group => group[0].role === 'assistant'
+    );
+
+    // Identify the last turn's handlerId (to include reasoning from all steps in that turn)
+    const lastAssistantGroup =
+      lastAssistantGroupIndex >= 0 ? groupedMessages[lastAssistantGroupIndex] : null;
+    const lastTurnHandlerId = lastAssistantGroup?.[0]?.handlerId;
+
+    // Convert grouped messages to ModelMessages
+    const modelMessages: ModelMessage[] = [];
+
+    for (let groupIndex = 0; groupIndex < groupedMessages.length; groupIndex++) {
+      const group = groupedMessages[groupIndex];
+      const firstMessage = group[0];
+      // Check if this group belongs to the last turn (same handlerId)
+      const belongsToLastTurn = lastTurnHandlerId
+        ? firstMessage.handlerId === lastTurnHandlerId
+        : false;
+
+      // User messages are not grouped by step, process individually
+      if (firstMessage.role === 'user') {
+        const content = this.plugin.userMessageService.sanitizeQuery(firstMessage.content);
+        modelMessages.push({
+          role: 'user',
+          content,
+          ...(firstMessage.handlerId && { handlerId: firstMessage.handlerId }),
+        });
+        continue;
+      }
+
+      // Process assistant/tool messages - collect all parts from the group
+      const assistantParts: (TextPart | ToolCallPart | ReasoningOutput)[] = [];
+      const toolResultParts: ToolResultPart[] = [];
+      const additionalUserParts: (TextPart | FilePart | ImagePart)[] = [];
+
+      for (const message of group) {
         if (message.type === 'tool-invocation') {
           const toolInvocations = await this.deserializeToolInvocations({
             message,
@@ -1288,56 +1620,156 @@ export class ConversationRenderer {
           });
 
           if (toolInvocations && toolInvocations.length > 0) {
-            result.push({
-              id: message.id,
-              content: '',
-              role: 'assistant',
-              ...(message.handlerId && {
-                handlerId: message.handlerId,
-              }),
-              parts: toolInvocations.map(toolInvocation => ({
-                type: 'tool-invocation',
-                toolInvocation: {
-                  ...toolInvocation,
-                  state: 'result',
-                },
-              })),
-            });
-
-            const toolInvocationStr = JSON.stringify(toolInvocations);
-            const hasImage = new RegExp(IMAGE_LINK_PATTERN).test(toolInvocationStr);
-            if (hasImage) {
-              // Inject images as a user message
-              const images =
-                await this.plugin.noteContentService.getImagesFromInput(toolInvocationStr);
-              logger.log('Injecting images after tool invocation', images);
-              for (const [path, imagePart] of images) {
-                result.push({
-                  id: uniqueID(),
-                  role: 'user',
-                  content: [{ type: 'text', text: path }, imagePart],
-                });
+            for (const part of toolInvocations) {
+              if (part.type === 'tool-call') {
+                assistantParts.push(part);
+              } else if (part.type === 'tool-result') {
+                toolResultParts.push(part);
+              } else if (part.type === 'text' || part.type === 'file' || part.type === 'image') {
+                additionalUserParts.push(part);
               }
             }
-            continue;
           }
-        } else {
-          result.push({
-            id: message.id,
-            role: message.role,
-            content: message.content,
-            ...(message.handlerId && {
-              handlerId: message.handlerId,
-            }),
-          });
+        } else if (message.type === 'reasoning') {
+          // Include reasoning for all steps in the last turn (same handlerId)
+          if (belongsToLastTurn) {
+            assistantParts.push({ type: 'reasoning', text: message.content });
+          }
+        } else if (message.role === 'assistant') {
+          assistantParts.push({ type: 'text', text: message.content });
         }
       }
 
-      return result as ConversationHistoryMessage[];
-    } catch (error) {
-      logger.error('Error extracting conversation history:', error);
-      return [];
+      // Auto-include empty reasoning content if missing (only for the latest assistant message)
+      if (belongsToLastTurn) {
+        const hasReasoningPart = assistantParts.some(part => part.type === 'reasoning');
+        if (!hasReasoningPart && assistantParts.length > 0) {
+          // Insert empty reasoning at the beginning (reasoning should come before text)
+          assistantParts.unshift({ type: 'reasoning', text: '' });
+        }
+      }
+
+      // Push assistant message with all collected parts
+      if (assistantParts.length > 0) {
+        modelMessages.push({
+          role: 'assistant',
+          content: assistantParts,
+          ...(firstMessage.handlerId && { handlerId: firstMessage.handlerId }),
+        });
+      }
+
+      // Push tool message with tool-result parts
+      if (toolResultParts.length > 0) {
+        modelMessages.push({
+          role: 'tool',
+          content: toolResultParts,
+          ...(firstMessage.handlerId && { handlerId: firstMessage.handlerId }),
+        });
+      }
+
+      // Push additional parts (images) as a user message if present
+      if (additionalUserParts.length > 0) {
+        modelMessages.push({
+          role: 'user',
+          content: additionalUserParts,
+        });
+      }
     }
+
+    return modelMessages;
+  }
+
+  /**
+   * Slices messages to a maximum count without cutting in the middle of a step.
+   * If the slice would cut through messages with the same (handlerId, step),
+   * it adjusts to include all messages from that step.
+   */
+  private sliceMessagesPreservingSteps(
+    messages: ConversationMessage[],
+    maxMessages: number
+  ): ConversationMessage[] {
+    if (messages.length <= maxMessages) {
+      return messages;
+    }
+
+    // Start with the basic slice from the end
+    let startIndex = messages.length - maxMessages;
+    const firstMessage = messages[startIndex];
+
+    // If the first message has a step, find where this step begins
+    if (firstMessage.step !== undefined && firstMessage.handlerId) {
+      // Look backwards to find the start of this step
+      for (let i = startIndex - 1; i >= 0; i--) {
+        const prevMessage = messages[i];
+        if (
+          prevMessage.handlerId === firstMessage.handlerId &&
+          prevMessage.step === firstMessage.step
+        ) {
+          startIndex = i;
+        } else {
+          break;
+        }
+      }
+    }
+
+    return messages.slice(startIndex);
+  }
+
+  /**
+   * Groups consecutive messages that share the same (handlerId, role, step).
+   * User messages are not grouped (each becomes its own group).
+   * Messages without a step are not grouped with others.
+   */
+  private groupMessagesByStep(messages: ConversationMessage[]): ConversationMessage[][] {
+    const groups: ConversationMessage[][] = [];
+    let currentGroup: ConversationMessage[] = [];
+
+    for (const message of messages) {
+      // User messages always start a new group and are not merged
+      if (message.role === 'user') {
+        if (currentGroup.length > 0) {
+          groups.push(currentGroup);
+          currentGroup = [];
+        }
+        groups.push([message]);
+        continue;
+      }
+
+      // Messages without step or handlerId are not grouped
+      if (message.step === undefined || !message.handlerId) {
+        if (currentGroup.length > 0) {
+          groups.push(currentGroup);
+          currentGroup = [];
+        }
+        groups.push([message]);
+        continue;
+      }
+
+      // Check if this message belongs to the current group
+      if (currentGroup.length > 0) {
+        const lastMessage = currentGroup[currentGroup.length - 1];
+        const sameGroup =
+          lastMessage.handlerId === message.handlerId &&
+          lastMessage.step === message.step &&
+          lastMessage.role !== 'user';
+
+        if (sameGroup) {
+          currentGroup.push(message);
+        } else {
+          groups.push(currentGroup);
+          currentGroup = [message];
+        }
+      } else {
+        currentGroup = [message];
+      }
+    }
+
+    // Don't forget the last group
+    if (currentGroup.length > 0) {
+      groups.push(currentGroup);
+    }
+
+    return groups;
   }
 
   /**
@@ -1399,7 +1831,7 @@ export class ConversationRenderer {
    */
   public async updateConversationFrontmatter(
     conversationTitle: string,
-    properties: Array<{ name: string; value: string }>
+    properties: Array<{ name: string; value: unknown }>
   ): Promise<boolean> {
     try {
       // Get the conversation file
@@ -1503,6 +1935,7 @@ export class ConversationRenderer {
       }
 
       await this.plugin.app.vault.process(file, currentContent => {
+        currentContent = this.removeGeneratingIndicator(currentContent);
         return this.sanitizeConversationContent(currentContent);
       });
 

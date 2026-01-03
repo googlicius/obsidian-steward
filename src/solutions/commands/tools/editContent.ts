@@ -1,8 +1,22 @@
 import { tool } from 'ai';
-import { UpdateInstruction } from 'src/lib/modelfusion';
 import { ArtifactType } from 'src/solutions/artifact';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
-import { z } from 'zod';
+import { z } from 'zod/v3';
+
+interface ReplaceInstruction {
+  type: 'replace';
+  fromLine: number;
+  toLine: number;
+  new: string;
+}
+
+export interface AddInstruction {
+  type: 'add';
+  content: string;
+  position: 'beginning' | 'end' | number;
+}
+
+export type UpdateInstruction = ReplaceInstruction | AddInstruction;
 
 /**
  * Type for edit tool arguments
@@ -63,7 +77,7 @@ NOTE:
   );
 
   const editTool = tool({
-    parameters: editSchema,
+    inputSchema: editSchema,
   });
 
   function execute(args: EditArgs): UpdateInstruction[] {

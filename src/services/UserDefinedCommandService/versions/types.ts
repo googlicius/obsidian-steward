@@ -1,18 +1,12 @@
-import { SystemPromptItem } from 'src/solutions/commands';
-import { ToolName } from 'src/solutions/commands/ToolRegistry';
-
 /**
  * Shared types used across all versions
  */
 export interface CommandStep {
-  name: string;
-  system_prompt?: (string | SystemPromptItem)[];
+  name?: string;
+  system_prompt?: string[];
   query: string;
   model?: string;
   no_confirm?: boolean;
-  tools?: {
-    exclude?: ToolName[];
-  };
 }
 
 export interface TriggerCondition {
@@ -37,6 +31,7 @@ export interface NormalizedUserDefinedCommand {
   steps: CommandStep[];
   file_path: string;
   model?: string;
+  system_prompt?: string[];
   triggers?: TriggerCondition[];
 }
 

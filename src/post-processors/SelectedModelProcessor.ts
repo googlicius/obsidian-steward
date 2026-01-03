@@ -41,7 +41,7 @@ export function createSelectedModelProcessor(): MarkdownPostProcessor {
         const [, , provider, modelId] = match;
         const span = document.createElement('span');
         span.textContent = modelId;
-        span.className = 'stw-selected-model review';
+        span.className = 'stw-selected-model ml-1 mr-1';
         span.title = `${provider}:${modelId}`;
 
         replacementElements.push(span);

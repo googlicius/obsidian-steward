@@ -1,75 +1,17 @@
-import { ToolName } from 'src/solutions/commands/ToolRegistry';
-import z from 'zod';
+import { z } from 'zod/v3';
 import { NormalizedUserDefinedCommand, IVersionedUserDefinedCommand } from './types';
 
 // Export to other versions - Shared Zod schemas
-/**
- * Shared Zod schema for SystemPromptModification
- * Used across all versions
- */
-export const systemPromptModificationSchema = z.object({
-  mode: z.enum(['modify', 'remove', 'add']),
-  pattern: z.string().optional(),
-  replacement: z.string().optional(),
-  content: z.string().optional(),
-  matchType: z.enum(['exact', 'partial', 'regex']).optional(),
-});
-
-/**
- * Shared Zod schema for SystemPromptItem
- * Used across all versions
- */
-export const systemPromptItemSchema = z.union([z.string(), systemPromptModificationSchema]);
-
-/**
- * Validation refinement for SystemPromptModification based on mode
- * Used across all versions
- */
-const validateSystemPromptModification = (
-  item: z.infer<typeof systemPromptModificationSchema>
-): boolean => {
-  if (item.mode === 'modify') {
-    return !!item.pattern && !!item.replacement;
-  }
-  if (item.mode === 'remove') {
-    return !!item.pattern;
-  }
-  if (item.mode === 'add') {
-    return !!item.content;
-  }
-  return false;
-};
-
 /**
  * Shared Zod schema for CommandStep
  * Used across all versions (v1 uses 'commands' field, v2 uses 'steps' field)
  */
 export const commandStepSchema = z.object({
-  name: z.string().min(1, 'Command name is required'),
-  system_prompt: z
-    .array(systemPromptItemSchema)
-    .optional()
-    .refine(
-      val => {
-        if (!val) return true;
-        return val.every(item => {
-          if (typeof item === 'string') return true;
-          return validateSystemPromptModification(item);
-        });
-      },
-      {
-        message:
-          'system_prompt modification objects must have valid mode-specific fields (modify: pattern & replacement, remove: pattern, add: content)',
-      }
-    ),
+  name: z.string().min(1, 'Command name is required').optional(),
+  system_prompt: z.array(z.string()).optional(),
   query: z.string().min(1, 'Step query is required'),
   model: z.string().optional(),
   no_confirm: z.boolean().optional(),
-  tools: z
-    .object({
-      exclude: z.array(z.enum(Object.values(ToolName) as [string, ...string[]])).optional(),
-    })
-    .optional(),
 });
 
 /**

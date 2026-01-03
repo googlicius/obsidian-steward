@@ -1,9 +1,11 @@
 import { TFile, EditorRange } from 'obsidian';
 import { isConversationLink } from '../utils/conversationUtils';
 import type StewardPlugin from '../main';
-import { ContentReadingArgs } from '../solutions/commands/handlers/ReadCommandHandler/zSchemas';
+import { ContentReadingArgs } from '../solutions/commands/agents/handlers/ReadContent';
 import { logger } from 'src/utils/logger';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
+
+export const SUPPORTED_READ = ['Image', 'Note contents'];
 
 /**
  * Result of a content reading operation
@@ -64,22 +66,32 @@ export class ContentReadingService {
 
   /**
    * Read content from the editor based on extraction parameters
-   * @param args Content reading parameters
-   * @returns The read blocks, or null if unable to read
    */
   async readContent(args: {
-    noteName: ContentReadingArgs['noteName'];
+    fileName: ContentReadingArgs['fileName'];
     readType: ContentReadingArgs['readType'];
     blocksToRead: ContentReadingArgs['blocksToRead'];
     elementType: ContentReadingArgs['elementType'];
     startLine: ContentReadingArgs['startLine'];
   }): Promise<ContentReadingResult> {
     // Get the file
-    const file = args.noteName
-      ? await this.plugin.mediaTools.findFileByNameOrPath(args.noteName)
+    const file = args.fileName
+      ? await this.plugin.mediaTools.findFileByNameOrPath(args.fileName)
       : this.plugin.app.workspace.getActiveFile();
     if (!file) {
-      throw new Error(`No active file found for note: ${args.noteName}`);
+      throw new Error(`No active file found for note: ${args.fileName}`);
+    }
+
+    const fileExtension = file.extension.toLowerCase();
+    if (fileExtension && fileExtension !== 'md') {
+      return {
+        blocks: [],
+        source: 'entire',
+        file: {
+          path: file.path,
+          name: file.name,
+        },
+      };
     }
 
     switch (args.readType) {

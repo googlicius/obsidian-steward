@@ -8,7 +8,6 @@ import { createCalloutSearchResultPostProcessor } from './post-processors/Callou
 import { createUserMessageButtonsProcessor } from './post-processors/UserMessageButtonsProcessor';
 import { createCalloutMetadataProcessor } from './post-processors/CalloutMetadataProcessor';
 import { createStwSelectedPostProcessor } from './post-processors/StwSelectedPostProcessor';
-import { createExtractionDetailsLinkProcessor } from './post-processors/ExtractionDetailsLinkProcessor';
 import { createStewardConversationProcessor } from './post-processors/StewardConversationProcessor';
 import { createSelectedModelProcessor } from './post-processors/SelectedModelProcessor';
 import { createThinkingProcessPostProcessor } from './post-processors/ThinkingProcessPostProcessor';
@@ -55,6 +54,7 @@ import { ModelFallbackService } from './services/ModelFallbackService';
 import { uniqueID } from './utils/uniqueID';
 import { CommandTrackingService } from './services/CommandTrackingService';
 import { VersionCheckerService } from './services/VersionCheckerService';
+import { UserMessageService } from './services/UserMessageService';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -79,6 +79,7 @@ export default class StewardPlugin extends Plugin {
   _commandInputService: CommandInputService;
   _commandTrackingService: CommandTrackingService;
   _versionCheckerService: VersionCheckerService;
+  _userMessageService: UserMessageService;
 
   get commandInputService(): CommandInputService {
     if (!this._commandInputService) {
@@ -162,6 +163,13 @@ export default class StewardPlugin extends Plugin {
       this._versionCheckerService = VersionCheckerService.getInstance(this);
     }
     return this._versionCheckerService;
+  }
+
+  get userMessageService(): UserMessageService {
+    if (!this._userMessageService) {
+      this._userMessageService = UserMessageService.getInstance(this);
+    }
+    return this._userMessageService;
   }
 
   get conversationRender(): ConversationRenderer {
@@ -314,7 +322,7 @@ export default class StewardPlugin extends Plugin {
     this.registerEditorExtension([
       createCommandInputExtension(this, {
         onEnter: this.handleEnter.bind(this),
-        onTyping: this.handleTyping.bind(this),
+        // onTyping: this.handleTyping.bind(this),
         typingDebounceMs: 1000,
       }),
       createStwSelectedBlocksExtension(this),
@@ -363,8 +371,6 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createCalloutSearchResultPostProcessor(this));
 
     this.registerMarkdownPostProcessor(createUserMessageButtonsProcessor(this));
-
-    this.registerMarkdownPostProcessor(createExtractionDetailsLinkProcessor());
 
     this.registerMarkdownPostProcessor(createStewardConversationProcessor(this));
 
@@ -699,11 +705,10 @@ export default class StewardPlugin extends Plugin {
         const notePath = `${folderPath}/${conversationLink}.md`;
 
         if (this.app.vault.getFileByPath(notePath) && conversationLink) {
-          await this.conversationRenderer.updateConversationNote({
+          await this.conversationRenderer.addUserMessage({
             path: conversationLink,
             newContent: fullCommandText,
-            role: 'User',
-            command: intentType,
+            includeHistory: false,
           });
 
           // Clear all lines in the command block

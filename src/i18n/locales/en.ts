@@ -1,6 +1,8 @@
 const en = {
   translation: {
     common: {
+      stepLimitReached:
+        'I have reached the maximum number of processing steps. Would you like me to continue?',
       noFilesFound:
         "I couldn't find any files matching your query. Please try a different search term.",
       noRecentOperations: 'No recent operations found.',
@@ -9,6 +11,8 @@ const en = {
       lowConfidenceConfirmation:
         "I'm not entirely sure about this request. Would you like me to proceed anyway?",
       artifactCreated: 'Artifact {{type}} is created',
+      artifactNotFound: 'Artifact with ID "{{artifactId}}" not found.',
+      noArtifactsFound: 'No artifacts found.',
       cannotUpdateThisType:
         'Cannot update this type of artifact. Only search results, created notes, read content, and content updates can be updated.',
       availableCommands: 'Available commands',
@@ -16,32 +20,19 @@ const en = {
       builtInCommandsDesc: 'These commands are directly accessible via /&lt;command&gt',
       userDefinedCommands: 'User-Defined commands',
       noUserDefinedCommands: "You don't have any user-defined commands yet.",
-      intentCommands: 'Intent-Based commands',
-      intentCommandsDesc: 'These commands are available through natural language processing',
       commandHelpText: 'Type any command followed by your query to use it.',
-      explanation: 'Explanation',
-      extractionDetails: 'Extraction details',
       searchDesc: 'Search for notes in your vault',
-      closeDesc: 'Close the current conversation',
-      confirmDesc: 'Confirm or reject operations',
       imageDesc: 'Generate images',
-      audioDesc: 'Generate audio from text',
-      createDesc: 'Create new notes',
-      stopDesc: 'Stop ongoing operations',
-      helpDesc: 'Show this help message',
-      updateDesc: 'Update file content',
-      generateDesc: 'Generate content with AI',
-      readDesc: 'Read content from notes',
-      revertDesc: 'Revert or undo previous operations',
-      vaultDesc:
-        'Perform vault operations (list, create, delete, copy, move, rename, update frontmatter)',
-      buildSearchIndexDesc: 'Build the search index for your notes',
+      speechDesc: 'Generate speech from text',
       cannotDeleteThisType: 'Cannot delete this type of artifact: {{type}}',
       cannotRevertThisType: 'Cannot revert this type of artifact: {{type}}',
       thisNote: 'this note',
       errorProcessingCommand: 'Error processing {{commandType}} command: {{errorMessage}}',
       switchingModelDueToErrors: 'Switching from {{fromModel}} to {{toModel}} due to errors',
       thinkingProcess: 'Thinking process',
+      modelDoesNotSupportImageInputs:
+        'Model {{model}} does not support image inputs. Please use a vision-capable model (e.g., gpt-4o, gemini-pro, claude-3-sonnet).',
+      invalidOrDynamicToolCall: 'Model returned a dynamic or invalid tool call: "{{toolName}}".',
     },
     trigger: {
       executing: 'Command "{{commandName}}" is executing.',
@@ -77,6 +68,10 @@ const en = {
       invalidCommand: 'Invalid media generation command',
       generationFailed: 'Failed to generate {{type}}: {{error}}',
       generationError: 'Error generating media: {{error}}',
+    },
+    vault: {
+      fileAlreadyInDestination: 'File is already in the destination',
+      itemNotFound: 'Item not found',
     },
     // Move result messages
     move: {
@@ -117,11 +112,15 @@ const en = {
       tooManyFilesConfirm: 'I am about to copy {{count}} files. Are you sure you want to proceed?',
       cannotCopyThisType: 'I cannot copy this type of artifact: {{type}}',
     },
+    activateTools: {
+      invalidTools: 'Invalid tools: `{{tools}}`',
+      invalidDeactivateTools: 'Cannot deactivate (not active): `{{tools}}`',
+    },
     rename: {
       processed_one: 'I processed {{count}} rename instruction.',
       processed_other: 'I processed {{count}} rename instructions.',
-      success_one: 'Successfully renamed {{count}} file:',
-      success_other: 'Successfully renamed {{count}} files:',
+      success_one: 'Successfully renamed {{count}} file',
+      success_other: 'Successfully renamed {{count}} files',
       samePath_one: 'Skipped {{count}} file (new path matches current path):',
       samePath_other: 'Skipped {{count}} files (new path matches current path):',
       fileMissing_one: 'Skipped {{count}} file (original path not found):',
@@ -140,11 +139,12 @@ const en = {
     },
     create: {
       success_one: 'Successfully created {{noteName}}',
-      success_other: 'Successfully created {{count}} notes: {{noteNames}}',
+      success_other: 'Successfully created {{count}} notes.',
       creatingNote: 'Creating note: {{noteName}}',
       confirmMessage_one: 'I will create the following note:',
       confirmMessage_other: 'I will create the following notes:',
       confirmPrompt: 'Do you want to proceed?',
+      errors: 'Errors:',
     },
     list: {
       noFilesFound: 'No files found.',
@@ -155,6 +155,7 @@ const en = {
       foundFilesInFolder_other: 'I found {{count}} files in {{folder}}',
       moreFiles_one: '... and {{count}} more file',
       moreFiles_other: '... and {{count}} more files',
+      fullListAvailableInArtifact: 'Full list available in artifact ID: {{artifactId}}',
     },
     grep: {
       found_one: 'Found {{count}} path:',
@@ -191,8 +192,8 @@ const en = {
       noContentFound: 'No content found to update.',
       failed_one: 'Failed to update {{count}} file:',
       failed_other: 'Failed to update {{count}} files:',
-      successfullyUpdated_one: 'Successfully updated {{count}} file:',
-      successfullyUpdated_other: 'Successfully updated {{count}} files:',
+      successfullyUpdated_one: 'Successfully updated {{count}} file.',
+      successfullyUpdated_other: 'Successfully updated {{count}} files.',
       foundFiles_one: 'I found {{count}} file to update.',
       foundFiles_other: 'I found {{count}} files to update.',
       skipped_one: 'Skipped {{count}} file:',
@@ -225,18 +226,6 @@ const en = {
       failed_other: 'Failed to revert {{count}} items:',
       revertingArtifact: 'Reverting from artifact `{{artifactType}}`',
     },
-    // Frontmatter update result messages
-    frontmatter: {
-      foundFiles_one: 'I found {{count}} file to update frontmatter for.',
-      foundFiles_other: 'I found {{count}} files to update frontmatter for.',
-      successfullyUpdated_one: 'Successfully updated {{count}} file:',
-      successfullyUpdated_other: 'Successfully updated {{count}} files:',
-      failed_one: 'Failed to update {{count}} file:',
-      failed_other: 'Failed to update {{count}} files:',
-      cannotUpdateThisType: 'Cannot update frontmatter for this type of artifact: {{type}}',
-      propertiesRequired:
-        'Properties are required when using artifactId. Please provide files with properties to update.',
-    },
     // Search result messages
     search: {
       found_one: 'I found {{count}} result:',
@@ -263,8 +252,6 @@ const en = {
       filenames: 'Filenames',
       folders: 'Folders',
       properties: 'Properties',
-      confirmMultipleOperations:
-        'Are these operations correct? Please confirm to proceed with the search.',
       indexNotBuilt: 'Search index is not built yet.',
       buildIndexFirst:
         'Please build the search index first by asking me to "Build search index" or "index my files".',
@@ -319,6 +306,14 @@ const en = {
       contentCopied: 'Content copied to clipboard',
       copyFailed: 'Failed to copy content to clipboard',
     },
+    todoList: {
+      todoList: 'To-Do list',
+      pending: 'Pending',
+      inProgress: 'In Progress',
+      skipped: 'Skipped',
+      completed: 'Completed',
+      step: 'Step {{index}}',
+    },
     read: {
       noContentFound: 'No such content found in the editor.',
       readEntireContentConfirmation:
@@ -332,11 +327,12 @@ const en = {
       response3: 'Glad I could assist!',
       response4: 'Anytime! Let me know if you need anything else.',
       response5: 'Happy to be of service!',
-      simpleResponse: "You're welcome 😊",
     },
     // Conversation states
     conversation: {
       orchestrating: 'Orchestrating...',
+      planning: 'Planning...',
+      working: 'Working...',
       generating: 'Generating...',
       generatingImage: 'Generating image...',
       generatingAudio: 'Generating audio...',
@@ -356,6 +352,9 @@ const en = {
       summarizing: 'Summarizing conversation...',
       augmentingContext: 'Augmenting context...',
       continuingProcessing: 'Continuing...',
+      processingBatch: 'Processing batch {{current}} of {{total}}...',
+      stepLimitReached:
+        'I have reached the maximum number of processing steps. Would you like me to continue with more steps?',
     },
     // Model fallback messages
     modelFallback: {
@@ -378,22 +377,25 @@ const en = {
       googleApiKey: 'Google API key',
       groqApiKey: 'Groq API key',
       anthropicApiKey: 'Anthropic API key',
+      ollamaApiKey: 'Ollama API key (Optional)',
       enterApiKey: 'Enter your API key',
-      apiKeyPlaceholder: '••••••••••••••••••••••',
+      enterApiKeyOptional: 'Enter your API key (optional)',
       errorReenterKey: 'Error: Click to re-enter key',
       clearApiKey: 'Clear API key',
       failedToSaveApiKey: 'Failed to save API key. Please try again.',
       failedToClearApiKey: 'Failed to clear API key. Please try again.',
       edit: 'Edit',
       apiKey: 'API Key',
-      corsUrl: 'CORS proxy URL',
-      corsUrlDesc:
-        'CORS proxy URL for all providers (optional). If set, will be prepended to provider base URLs.',
-      corsUrlPlaceholder: 'Enter CORS proxy URL (optional)',
+      addNewProvider: 'Add new provider',
+      addNewProviderDesc: 'Add a custom provider with its own API key and configuration',
+      providerName: 'Provider name',
+      providerNamePlaceholder: 'Enter provider name (no spaces)',
+      providerNameNoSpaces: 'Provider name cannot contain spaces',
+      providerCompatibility: 'Provider compatibility',
       note: 'Note',
       apiKeyNote1: 'You need to provide your own API keys to use the AI-powered assistant.',
       apiKeyNote2: 'All API keys are stored with encryption.',
-      llm: 'LLM',
+      models: 'Models',
       chatModel: 'Chat model',
       chatModelDesc:
         'Select the AI model to use for chat. You can also change the model inline in the command input by typing m: or model:',
@@ -412,13 +414,13 @@ const en = {
       maxGenerationTokens: 'Max generation tokens',
       maxGenerationTokensDesc:
         'Maximum number of tokens to generate in response (higher values may increase API costs)',
-      showExtractionExplanation: 'Show extraction explanation',
-      showExtractionExplanationDesc:
-        'Display detailed explanation of extracted commands including command type and query in the conversation note',
       ollamaBaseUrl: 'Ollama base URL',
       ollamaBaseUrlDesc: 'The base URL for Ollama API (default: {{defaultUrl}})',
       baseUrl: 'Base URL, e.g. a proxy server',
       baseUrlPlaceholder: 'Enter base URL (leave empty to use default)',
+      systemPrompt: 'System prompt',
+      systemPromptPlaceholder: 'Enter additional instructions for this provider (optional)',
+      systemPromptDesc: 'Additional instructions to provide to this provider',
       speech: 'Speech',
       speechModel: 'Speech model',
       speechModelDesc: 'Select the text-to-speech generation model',
@@ -435,6 +437,7 @@ const en = {
       customModels: 'Custom models',
       noCustomModels: 'No custom models',
       delete: 'Delete',
+      confirmDelete: 'Confirm delete',
       invalidModelFormat:
         'Invalid model format. Please use provider:modelId format (e.g., openai:tts-1)',
       voiceId: 'Voice ID',
@@ -447,7 +450,8 @@ const en = {
       resultsPerPage: 'Results per page',
       resultsPerPageDesc: 'Number of search results to display per page',
       deleteBehavior: 'Delete behavior',
-      deleteBehaviorDesc: 'How to handle file deletion',
+      deleteBehaviorDesc:
+        'How to handle file deletion. Recommended: Use Steward/Trash to allow reverting deletion',
       moveToTrash: 'Move files to {{folder}}',
       useObsidianDeletedFiles: 'Use Obsidian Deleted files setting',
       cleanupPolicy: 'Cleanup policy',

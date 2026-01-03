@@ -2,7 +2,11 @@ import { ConversationRenderer } from './ConversationRenderer';
 import { App, TFile } from 'obsidian';
 import type StewardPlugin from '../main';
 import { NoteContentService } from './NoteContentService';
+import { UserMessageService } from './UserMessageService';
 import { uniqueID } from '../utils/uniqueID';
+import { ReadContentArtifactImpl } from '../solutions/artifact/implements';
+import { ArtifactType } from '../solutions/artifact/types';
+import { ConversationMessage } from '../types/types';
 
 // Mock the uniqueID function
 jest.mock('../utils/uniqueID', () => ({
@@ -46,10 +50,22 @@ function createMockPlugin(
     get noteContentService() {
       return mockPlugin._noteContentService;
     },
+    get userMessageService() {
+      return mockPlugin._userMessageService;
+    },
+    userDefinedCommandService: {
+      buildExtendedPrefixes: jest.fn().mockReturnValue(['/ ', '/search', '/image', '/speech']),
+    },
+    artifactManagerV2: {
+      withTitle: jest.fn().mockReturnValue({
+        getArtifactById: jest.fn().mockResolvedValue(null),
+      }),
+    },
   } as unknown as jest.Mocked<StewardPlugin>;
 
   // Initialize services with the mock plugin
   mockPlugin._noteContentService = NoteContentService.getInstance(mockPlugin);
+  mockPlugin._userMessageService = UserMessageService.getInstance(mockPlugin);
 
   return mockPlugin;
 }
@@ -89,7 +105,7 @@ describe('ConversationRenderer', () => {
       expect(history).toMatchSnapshot();
     });
 
-    it('should extract a conversation with search results', async () => {
+    it('should extract a conversation with search results and not include history that is set to false', async () => {
       // Mock conversation content with search results as a raw string
       const mockContent = [
         '<!--STW ID:abc123,ROLE:user,COMMAND:search-->',
@@ -107,7 +123,7 @@ describe('ConversationRenderer', () => {
         '>[!stw-search-result] line:17,start:25,end:33',
         ">Angular's light, bright. ==#angular==",
         '',
-        '<!--STW ID:ghi789,ROLE:system,COMMAND:search-->',
+        '<!--STW ID:ghi789,ROLE:assistant,COMMAND:search,HISTORY:false-->',
         '**System:** *Artifact search results is created*',
         '',
         '<!--STW ID:ghi789,ROLE:user,COMMAND: -->',
@@ -243,7 +259,7 @@ describe('ConversationRenderer', () => {
         'The useState hook lets you add state to functional components. It returns a state value and a function to update it.',
         '',
         // Summary message in the middle
-        '<!--STW ID:mno345,ROLE:system,COMMAND:summary-->',
+        '<!--STW ID:mno345,ROLE:assistant,COMMAND:summary-->',
         '',
         '```stw-artifact',
         'This conversation discusses React hooks, particularly useState, which allows adding state to functional components.',
@@ -287,7 +303,7 @@ describe('ConversationRenderer', () => {
         "Here's what I found about React hooks",
         '',
         // First summary message (should be included)
-        '<!--STW ID:sum001,ROLE:system,COMMAND:summary-->',
+        '<!--STW ID:sum001,ROLE:assistant,COMMAND:summary-->',
         '```stw-artifact',
         'First summary about React hooks',
         '```',
@@ -367,8 +383,12 @@ describe('ConversationRenderer', () => {
           {
             toolName: 'read',
             toolCallId: 'call_456',
-            args: { query: 'React Hooks' },
-            result: 'I found 1 result',
+            type: 'tool-call',
+            input: { query: 'React Hooks' },
+            output: {
+              type: 'text',
+              value: 'I found 1 result',
+            },
           },
         ]),
         '```',
@@ -384,6 +404,386 @@ describe('ConversationRenderer', () => {
 
       // Use snapshot testing
       expect(history).toMatchSnapshot();
+    });
+
+    it('should group reasoning content in the same assistant message as the tool invocation', async () => {
+      // Mock conversation content with reasoning and tool invocation sharing same handlerId/step
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:super-->',
+        '>[!stw-user-message]',
+        '>/ Help me with React',
+        '',
+        '<!--STW ID:def456,ROLE:steward,COMMAND:super,TYPE:reasoning,HANDLER_ID:handler1,STEP:1-->',
+        '```stw-thinking',
+        'Let me think about this request...',
+        '```',
+        '',
+        '<!--STW ID:ghi789,ROLE:steward,COMMAND:super,TYPE:tool-invocation,HANDLER_ID:handler1,STEP:1-->',
+        '*Searching...*',
+        '',
+        '```stw-artifact',
+        JSON.stringify([
+          {
+            toolName: 'search',
+            toolCallId: 'call_123',
+            type: 'tool-call',
+            input: { query: 'React' },
+            output: { type: 'text', value: 'Found results' },
+          },
+        ]),
+        '```',
+        '',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation');
+
+      expect(history).toMatchSnapshot();
+    });
+
+    it('should group messages by step', async () => {
+      // Mock conversation with multiple messages in the same step
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:super-->',
+        '>[!stw-user-message]',
+        '>/ Do multiple things',
+        '',
+        // First step - text message
+        '<!--STW ID:msg1,ROLE:steward,COMMAND:super,HANDLER_ID:handler1,STEP:1-->',
+        'Starting the first step...',
+        '',
+        // Same step - another text message
+        '<!--STW ID:msg2,ROLE:steward,COMMAND:super,HANDLER_ID:handler1,STEP:1-->',
+        'Continuing the first step...',
+        '',
+        // Second step - different step number
+        '<!--STW ID:msg3,ROLE:steward,COMMAND:super,HANDLER_ID:handler1,STEP:2-->',
+        'Now on step 2',
+        '',
+        // Same second step
+        '<!--STW ID:msg4,ROLE:steward,COMMAND:super,HANDLER_ID:handler1,STEP:2-->',
+        'Still on step 2',
+        '',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation');
+
+      expect(history).toMatchSnapshot();
+    });
+
+    it('should include reasoning for all steps in the last turn', async () => {
+      const mockContent = [
+        '<!--STW ID:ab9f7,ROLE:user-->',
+        '>[!stw-user-message]',
+        '>/ Do one more thing',
+        '',
+        '<!--STW ID:reasoning1,ROLE:steward,TYPE:reasoning,HANDLER_ID:handler1,STEP:1-->',
+        '```stw-thinking',
+        'Reasoning for turn 1 step 1',
+        '```',
+        '',
+        '<!--STW ID:cd2e1,ROLE:steward,HANDLER_ID:handler1,STEP:1-->',
+        'Turn 1.1',
+        '',
+        '<!--STW ID:ef83c,ROLE:user-->',
+        '>[!stw-user-message]',
+        '>/ Do multiple things',
+        '',
+        '<!--STW ID:reasoning2,ROLE:steward,TYPE:reasoning,HANDLER_ID:handler2,STEP:1-->',
+        '```stw-thinking',
+        'Reasoning for turn 2 step 1',
+        '```',
+        '',
+        '<!--STW ID:de472,ROLE:steward,HANDLER_ID:handler2,STEP:1-->',
+        'Turn 2.1',
+        '',
+        '<!--STW ID:reasoning3,ROLE:steward,TYPE:reasoning,HANDLER_ID:handler2,STEP:2-->',
+        '```stw-thinking',
+        'Reasoning for turn 2 step 2',
+        '```',
+        '',
+        '<!--STW ID:f13d9,ROLE:steward,HANDLER_ID:handler2,STEP:2-->',
+        'Turn 2.2',
+        '',
+        '<!--STW ID:reasoning4,ROLE:steward,TYPE:reasoning,HANDLER_ID:handler2,STEP:3-->',
+        '```stw-thinking',
+        'Reasoning for turn 2 step 3',
+        '```',
+        '',
+        '<!--STW ID:bb901,ROLE:steward,HANDLER_ID:handler2,STEP:3-->',
+        'Turn 2.3',
+        '',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation');
+
+      expect(history).toMatchSnapshot();
+    });
+
+    it('should include path+image from the tool invocation as a user message', async () => {
+      // Mock conversation with tool invocation that has image paths and the artifact
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:super-->',
+        '>[!stw-user-message]',
+        '>/ Read this image',
+        '',
+        // Artifact message in the conversation
+        '<!--STW ID:artifact123,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->',
+        '*Artifact read_content is created*',
+        '```stw-artifact',
+        JSON.stringify({
+          artifactType: 'read_content',
+          id: 'artifact123',
+          readingResult: {
+            blocks: [{ content: 'Some content with image ![[image.png]]' }],
+            file: { path: 'notes/test.md' },
+          },
+        }),
+        '```',
+        '',
+        '<!--STW ID:def456,ROLE:steward,COMMAND:super,TYPE:tool-invocation,HANDLER_ID:handler1,STEP:1-->',
+        '*Reading content...*',
+        '',
+        '```stw-artifact',
+        JSON.stringify([
+          {
+            toolName: 'read_content',
+            toolCallId: 'call_789',
+            type: 'tool-call',
+            input: { source: 'selection' },
+            output: { type: 'text', value: 'artifactRef:artifact123' },
+          },
+        ]),
+        '```',
+        '',
+      ].join('\n');
+
+      // Create mock plugin
+      const mockPlugin = createMockPlugin(mockContent);
+
+      // Create a proper ReadContentArtifactImpl instance with imagePaths
+      const mockArtifact = new ReadContentArtifactImpl({
+        artifactType: ArtifactType.READ_CONTENT,
+        id: 'artifact123',
+        readingResult: {
+          source: 'cursor',
+          blocks: [
+            {
+              startLine: 1,
+              endLine: 1,
+              sections: [],
+              content: 'Some content with image ![[image.png]]',
+            },
+          ],
+          file: { path: 'notes/test.md', name: 'test.md' },
+        },
+        imagePaths: ['path/to/image.png'],
+      });
+
+      // Mock the artifact manager to return the ReadContentArtifactImpl instance
+      Object.defineProperty(mockPlugin, 'artifactManagerV2', {
+        value: {
+          withTitle: jest.fn().mockReturnValue({
+            getArtifactById: jest.fn().mockResolvedValue(mockArtifact),
+          }),
+        },
+        writable: true,
+      });
+
+      // Mock userMessageService.getImagePartsFromPaths
+      mockPlugin.userMessageService.getImagePartsFromPaths = jest
+        .fn()
+        .mockResolvedValue([
+          ['path/to/image.png', { type: 'image', image: 'base64data', mediaType: 'image/png' }],
+        ]);
+
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation');
+
+      expect(history).toMatchSnapshot();
+    });
+
+    it('should resolve the tool-invocation output as a message reference', async () => {});
+  });
+
+  describe('extractAllConversationMessages', () => {
+    it('should remove the stw-hidden-from-user code block for user messages', async () => {
+      // Mock conversation content with user message in stw-hidden-from-user code block
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:search-->',
+        '```stw-hidden-from-user',
+        '/search How to use React hooks',
+        '```',
+        '',
+        '<!--STW ID:def456,ROLE:steward,COMMAND:search-->',
+        "**Steward:** Here's what I found about React hooks:",
+        '',
+        'React hooks are functions that let you use state and other React features without writing a class.',
+      ].join('\n');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Call the method
+      const messages =
+        await conversationRenderer.extractAllConversationMessages('test-conversation');
+
+      // Verify that the user message content is extracted without the code block wrapper
+      const userMessage = messages.find(msg => msg.role === 'user');
+      expect(userMessage).toBeDefined();
+      expect(userMessage?.content).toBe('/search How to use React hooks');
+    });
+
+    it('should unescape backticks when extracting content from stw-hidden-from-user code block', async () => {
+      // Mock conversation content with user message containing escaped backticks (as they would be stored)
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:user,COMMAND:generate-->',
+        '```stw-hidden-from-user',
+        'Use \\`useState\\` and \\`useEffect\\` hooks',
+        '```',
+        '',
+        '<!--STW ID:def456,ROLE:steward,COMMAND:generate-->',
+        "**Steward:** Here's how to use React hooks:",
+      ].join('\n');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Call the method
+      const messages =
+        await conversationRenderer.extractAllConversationMessages('test-conversation');
+
+      // Verify that escaped backticks are properly unescaped
+      const userMessage = messages.find(msg => msg.role === 'user');
+      expect(userMessage).toBeDefined();
+      expect(userMessage?.content).toBe('Use `useState` and `useEffect` hooks');
+    });
+  });
+
+  describe('addUserMessage', () => {
+    it('should add a user message to the conversation note with contentFormat default (callout)', async () => {
+      // Mock initial conversation content
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:steward,COMMAND:search-->',
+        "**Steward:** Here's what I found:",
+        '',
+        'React hooks are functions that let you use state.',
+      ].join('\n');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Spy on the vault.process method
+      let processedContent = '';
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, processor) => {
+          processedContent = processor(mockContent);
+          return processedContent;
+        });
+
+      // Call the method with default format (callout)
+      const messageId = await conversationRenderer.addUserMessage({
+        path: 'test-conversation',
+        newContent: '/search How to use React hooks',
+      });
+
+      // Verify that vault.process was called
+      expect(processSpy).toHaveBeenCalledTimes(1);
+
+      // Verify that messageId is returned
+      expect(messageId).toBeDefined();
+
+      // Verify the processed content
+      expect(processedContent).toMatchSnapshot();
+    });
+
+    it('should add a user message to the conversation note with contentFormat hidden', async () => {
+      // Mock initial conversation content
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:steward,COMMAND:search-->',
+        "**Steward:** Here's what I found:",
+        '',
+        'React hooks are functions that let you use state.',
+      ].join('\n');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Spy on the vault.process method
+      let processedContent = '';
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, processor) => {
+          processedContent = processor(mockContent);
+          return processedContent;
+        });
+
+      // Call the method with hidden format
+      const messageId = await conversationRenderer.addUserMessage({
+        path: 'test-conversation',
+        newContent: '/search How to use React hooks',
+        contentFormat: 'hidden',
+      });
+
+      // Verify that vault.process was called
+      expect(processSpy).toHaveBeenCalledTimes(1);
+
+      // Verify that messageId is returned
+      expect(messageId).toBeDefined();
+
+      // Verify the processed content contains the hidden code block
+      expect(processedContent).toMatchSnapshot();
+    });
+
+    it('should preserve the loading indicator when contentFormat is hidden', async () => {
+      // Mock initial conversation content with a loading indicator
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:steward,COMMAND:search-->',
+        "**Steward:** Here's what I found:",
+        '',
+        '*Generating...*',
+      ].join('\n');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Spy on the vault.process method
+      let processedContent = '';
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, processor) => {
+          processedContent = processor(mockContent);
+          return processedContent;
+        });
+
+      // Call the method with hidden format
+      const messageId = await conversationRenderer.addUserMessage({
+        path: 'test-conversation',
+        newContent: '/search How to use React hooks',
+        contentFormat: 'hidden',
+      });
+
+      // Verify that vault.process was called
+      expect(processSpy).toHaveBeenCalledTimes(1);
+
+      // Verify that messageId is returned
+      expect(messageId).toBeDefined();
+      expect(processedContent).toMatchSnapshot();
     });
   });
 
@@ -682,6 +1082,621 @@ describe('ConversationRenderer', () => {
         // Verify that the label is not shown
         expect(processedContent.trim()).toMatchSnapshot();
       }
+    });
+  });
+
+  describe('getGeneratingIndicator', () => {
+    it('should get the generating indicator from the content', () => {
+      const content = 'This is a message\n\n*Generating...*';
+      const indicator = conversationRenderer.getGeneratingIndicator(content);
+      expect(indicator).toEqual('\n\n*Generating...*');
+    });
+
+    it('should return an empty string if no indicator is found', () => {
+      const content = 'This is a message';
+      const indicator = conversationRenderer.getGeneratingIndicator(content);
+      expect(indicator).toEqual('');
+    });
+  });
+
+  describe('serializeToolInvocation', () => {
+    it('should keep indicator when there is an indicator but no visible text is being added', async () => {
+      // Mock conversation content with generating indicator
+      const mockContent = 'Some existing content\n\n*Generating...*';
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Spy on the vault.process method
+      let processedContent = '';
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, processor) => {
+          processedContent = processor(mockContent);
+          return processedContent;
+        });
+
+      // Call serializeToolInvocation without text parameter
+      await conversationRenderer.serializeToolInvocation({
+        path: 'test-conversation',
+        toolInvocations: [
+          {
+            toolName: 'read',
+            toolCallId: 'call_123',
+            type: 'tool-result',
+            output: {
+              type: 'text',
+              value: 'test result',
+            },
+          },
+        ],
+      });
+
+      // Verify that vault.process was called
+      expect(processSpy).toHaveBeenCalledTimes(1);
+
+      // Verify that the indicator is kept in the processed content
+      expect(processedContent).toContain('*Generating...*');
+    });
+
+    it('should not keep indicator when there is an indicator and visible text is being added', async () => {
+      // Mock conversation content with generating indicator
+      const mockContent = 'Some existing content\n\n*Generating...*';
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Spy on the vault.process method
+      let processedContent = '';
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, processor) => {
+          processedContent = processor(mockContent);
+          return processedContent;
+        });
+
+      // Call serializeToolInvocation with text parameter
+      await conversationRenderer.serializeToolInvocation({
+        path: 'test-conversation',
+        text: 'Here are the results:',
+        toolInvocations: [
+          {
+            toolName: 'read',
+            toolCallId: 'call_123',
+            type: 'tool-result',
+            output: {
+              type: 'text',
+              value: 'test result',
+            },
+          },
+        ],
+      });
+
+      // Verify that vault.process was called
+      expect(processSpy).toHaveBeenCalledTimes(1);
+
+      // Verify that the indicator is NOT kept in the processed content
+      expect(processedContent).not.toContain('*Generating...*');
+      // Verify that the text is present
+      expect(processedContent).toContain('Here are the results:');
+    });
+  });
+
+  describe('deserializeToolInvocations', () => {
+    it('should deserialize a tool-call with input and output', async () => {
+      const mockPlugin = createMockPlugin();
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const message: ConversationMessage = {
+        id: 'msg123',
+        role: 'assistant',
+        content: [
+          'Some text before',
+          '',
+          '```stw-artifact',
+          JSON.stringify([
+            {
+              toolName: 'search',
+              toolCallId: 'call_456',
+              type: 'tool-call',
+              input: { query: 'React hooks' },
+              output: {
+                type: 'text',
+                value: 'Found 5 results',
+              },
+            },
+          ]),
+          '```',
+          '',
+          'Some text after',
+        ].join('\n'),
+        intent: 'search',
+        type: 'tool-invocation',
+      };
+
+      const result = await conversationRenderer.deserializeToolInvocations({
+        message,
+        conversationTitle: 'test-conversation',
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should deserialize a tool-call with args and result (backward compatibility)', async () => {
+      const mockPlugin = createMockPlugin();
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const message: ConversationMessage = {
+        id: 'msg123',
+        role: 'assistant',
+        content: [
+          'Some text before',
+          '',
+          '```stw-artifact',
+          JSON.stringify([
+            {
+              toolName: 'read',
+              toolCallId: 'call_789',
+              type: 'tool-call',
+              args: { query: 'TypeScript types' },
+              result: 'Found documentation',
+            },
+          ]),
+          '```',
+          '',
+          'Some text after',
+        ].join('\n'),
+        intent: 'read',
+        type: 'tool-invocation',
+      };
+
+      const result = await conversationRenderer.deserializeToolInvocations({
+        message,
+        conversationTitle: 'test-conversation',
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should deserialize a tool-result type with inline output', async () => {
+      const mockPlugin = createMockPlugin();
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const message: ConversationMessage = {
+        id: 'msg123',
+        role: 'assistant',
+        content: [
+          '```stw-artifact',
+          JSON.stringify([
+            {
+              toolName: 'activate',
+              toolCallId: 'call_111',
+              type: 'tool-result',
+              output: {
+                type: 'text',
+                value: 'Tools activated successfully',
+              },
+            },
+          ]),
+          '```',
+        ].join('\n'),
+        intent: 'activate',
+        type: 'tool-invocation',
+      };
+
+      const result = await conversationRenderer.deserializeToolInvocations({
+        message,
+        conversationTitle: 'test-conversation',
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should deserialize a tool-result with object output', async () => {
+      const mockPlugin = createMockPlugin();
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const message: ConversationMessage = {
+        id: 'msg123',
+        role: 'assistant',
+        content: [
+          '```stw-artifact',
+          JSON.stringify([
+            {
+              toolName: 'activate',
+              toolCallId: 'call_222',
+              type: 'tool-result',
+              output: {
+                type: 'json',
+                value: { status: 'success', tools: ['read', 'write'] },
+              },
+            },
+          ]),
+          '```',
+        ].join('\n'),
+        intent: 'activate',
+        type: 'tool-invocation',
+      };
+
+      const result = await conversationRenderer.deserializeToolInvocations({
+        message,
+        conversationTitle: 'test-conversation',
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should resolve artifactRef to the artifact', async () => {
+      const mockPlugin = createMockPlugin();
+      const mockArtifact = {
+        id: 'artifact123',
+        artifactType: 'read_content',
+        readingResult: {
+          source: 'cursor',
+          blocks: [{ startLine: 1, endLine: 1, sections: [], content: 'Test content' }],
+        },
+      };
+
+      Object.defineProperty(mockPlugin, 'artifactManagerV2', {
+        value: {
+          withTitle: jest.fn().mockReturnValue({
+            getArtifactById: jest.fn().mockResolvedValue(mockArtifact),
+          }),
+        },
+        writable: true,
+      });
+
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const message: ConversationMessage = {
+        id: 'msg123',
+        role: 'assistant',
+        content: [
+          '```stw-artifact',
+          JSON.stringify([
+            {
+              toolName: 'read',
+              toolCallId: 'call_333',
+              type: 'tool-result',
+              output: {
+                type: 'text',
+                value: 'artifactRef:artifact123',
+              },
+            },
+          ]),
+          '```',
+        ].join('\n'),
+        intent: 'read',
+        type: 'tool-invocation',
+      };
+
+      const result = await conversationRenderer.deserializeToolInvocations({
+        message,
+        conversationTitle: 'test-conversation',
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should resolve artifactRef to deleted artifact to not sending the artifact data', async () => {
+      const mockPlugin = createMockPlugin();
+      const mockArtifact = {
+        id: 'artifact456',
+        artifactType: 'read_content',
+        readingResult: {
+          source: 'cursor',
+          blocks: [{ startLine: 1, endLine: 1, sections: [], content: 'Not sending this content' }],
+        },
+        deleteReason: 'User deleted',
+      };
+
+      Object.defineProperty(mockPlugin, 'artifactManagerV2', {
+        value: {
+          withTitle: jest.fn().mockReturnValue({
+            getArtifactById: jest.fn().mockResolvedValue(mockArtifact),
+          }),
+        },
+        writable: true,
+      });
+
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const message: ConversationMessage = {
+        id: 'msg123',
+        role: 'assistant',
+        content: [
+          '```stw-artifact',
+          JSON.stringify([
+            {
+              toolName: 'read',
+              toolCallId: 'call_444',
+              type: 'tool-result',
+              output: {
+                type: 'text',
+                value: 'artifactRef:artifact456',
+              },
+            },
+          ]),
+          '```',
+        ].join('\n'),
+        intent: 'read',
+        type: 'tool-invocation',
+      };
+
+      const result = await conversationRenderer.deserializeToolInvocations({
+        message,
+        conversationTitle: 'test-conversation',
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should return error-text when artifactRef points to non-existent artifact', async () => {
+      const mockPlugin = createMockPlugin();
+
+      Object.defineProperty(mockPlugin, 'artifactManagerV2', {
+        value: {
+          withTitle: jest.fn().mockReturnValue({
+            getArtifactById: jest.fn().mockResolvedValue(undefined),
+          }),
+        },
+        writable: true,
+      });
+
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const message: ConversationMessage = {
+        id: 'msg123',
+        role: 'assistant',
+        content: [
+          '```stw-artifact',
+          JSON.stringify([
+            {
+              toolName: 'read',
+              toolCallId: 'call_555',
+              type: 'tool-result',
+              output: {
+                type: 'text',
+                value: 'artifactRef:nonexistent',
+              },
+            },
+          ]),
+          '```',
+        ].join('\n'),
+        intent: 'read',
+        type: 'tool-invocation',
+      };
+
+      const result = await conversationRenderer.deserializeToolInvocations({
+        message,
+        conversationTitle: 'test-conversation',
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should resolve messageRef to the message content', async () => {
+      const mockContent = [
+        '<!--STW ID:refMsg123,ROLE:assistant,COMMAND:edit-->',
+        'Updated file content here',
+        '',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const message: ConversationMessage = {
+        id: 'msg123',
+        role: 'assistant',
+        content: [
+          '```stw-artifact',
+          JSON.stringify([
+            {
+              toolName: 'edit',
+              toolCallId: 'call_666',
+              type: 'tool-result',
+              output: {
+                type: 'text',
+                value: 'messageRef:refMsg123',
+              },
+            },
+          ]),
+          '```',
+        ].join('\n'),
+        intent: 'edit',
+        type: 'tool-invocation',
+      };
+
+      const result = await conversationRenderer.deserializeToolInvocations({
+        message,
+        conversationTitle: 'test-conversation',
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should return error-text when messageRef points to non-existent message', async () => {
+      const mockPlugin = createMockPlugin();
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const message: ConversationMessage = {
+        id: 'msg123',
+        role: 'assistant',
+        content: [
+          '```stw-artifact',
+          JSON.stringify([
+            {
+              toolName: 'edit',
+              toolCallId: 'call_777',
+              type: 'tool-result',
+              output: {
+                type: 'text',
+                value: 'messageRef:nonexistent',
+              },
+            },
+          ]),
+          '```',
+        ].join('\n'),
+        intent: 'edit',
+        type: 'tool-invocation',
+      };
+
+      const result = await conversationRenderer.deserializeToolInvocations({
+        message,
+        conversationTitle: 'test-conversation',
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should include image parts when artifact has imagePaths', async () => {
+      const mockPlugin = createMockPlugin();
+      const mockArtifact = new ReadContentArtifactImpl({
+        artifactType: ArtifactType.READ_CONTENT,
+        id: 'artifact789',
+        readingResult: {
+          source: 'cursor',
+          blocks: [{ startLine: 1, endLine: 1, sections: [], content: 'Content with image' }],
+        },
+        imagePaths: ['path/to/image1.png', 'path/to/image2.jpg'],
+      });
+
+      Object.defineProperty(mockPlugin, 'artifactManagerV2', {
+        value: {
+          withTitle: jest.fn().mockReturnValue({
+            getArtifactById: jest.fn().mockResolvedValue(mockArtifact),
+          }),
+        },
+        writable: true,
+      });
+
+      mockPlugin.userMessageService.getImagePartsFromPaths = jest.fn().mockResolvedValue([
+        ['path/to/image1.png', { type: 'image', image: 'base64data1', mediaType: 'image/png' }],
+        ['path/to/image2.jpg', { type: 'image', image: 'base64data2', mediaType: 'image/jpeg' }],
+      ]);
+
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const message: ConversationMessage = {
+        id: 'msg123',
+        role: 'assistant',
+        content: [
+          '```stw-artifact',
+          JSON.stringify([
+            {
+              toolName: 'read',
+              toolCallId: 'call_888',
+              type: 'tool-result',
+              output: {
+                type: 'text',
+                value: 'artifactRef:artifact789',
+              },
+            },
+          ]),
+          '```',
+        ].join('\n'),
+        intent: 'read',
+        type: 'tool-invocation',
+      };
+
+      const result = await conversationRenderer.deserializeToolInvocations({
+        message,
+        conversationTitle: 'test-conversation',
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should return null when no stw-artifact blocks are found', async () => {
+      const mockPlugin = createMockPlugin();
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const message: ConversationMessage = {
+        id: 'msg123',
+        role: 'assistant',
+        content: 'This message has no tool invocations',
+        intent: 'search',
+        type: 'tool-invocation',
+      };
+
+      const result = await conversationRenderer.deserializeToolInvocations({
+        message,
+        conversationTitle: 'test-conversation',
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it('should handle tool-call type with both input and output', async () => {
+      const mockPlugin = createMockPlugin();
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const message: ConversationMessage = {
+        id: 'msg123',
+        role: 'assistant',
+        content: [
+          '```stw-artifact',
+          JSON.stringify([
+            {
+              toolName: 'search',
+              toolCallId: 'call_999',
+              type: 'tool-call',
+              input: { query: 'test query' },
+              output: {
+                type: 'text',
+                value: 'Search results here',
+              },
+            },
+          ]),
+          '```',
+        ].join('\n'),
+        intent: 'search',
+        type: 'tool-invocation',
+      };
+
+      const result = await conversationRenderer.deserializeToolInvocations({
+        message,
+        conversationTitle: 'test-conversation',
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should handle tool-result type with input included', async () => {
+      const mockPlugin = createMockPlugin();
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const message: ConversationMessage = {
+        id: 'msg123',
+        role: 'assistant',
+        content: [
+          '```stw-artifact',
+          JSON.stringify([
+            {
+              toolName: 'activate',
+              toolCallId: 'call_aaa',
+              type: 'tool-result',
+              input: { tools: ['read', 'write'] },
+              output: {
+                type: 'json',
+                value: { status: 'activated' },
+              },
+            },
+          ]),
+          '```',
+        ].join('\n'),
+        intent: 'activate',
+        type: 'tool-invocation',
+      };
+
+      const result = await conversationRenderer.deserializeToolInvocations({
+        message,
+        conversationTitle: 'test-conversation',
+      });
+
+      expect(result).toMatchSnapshot();
     });
   });
 });

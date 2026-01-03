@@ -1,6 +1,6 @@
 import { ContextAugmentationIntent, Intent } from 'src/solutions/commands/types';
 import { IndexedDocument } from '../database/SearchDatabase';
-import { SearchQueryExtractionV2 } from 'src/solutions/commands/handlers/SearchCommandHandler/zSchemas';
+import { SearchQueryExtractionV2 } from 'src/solutions/commands/agents/handlers';
 
 export enum Events {
   CONVERSATION_NOTE_CREATED = 'conversation-note-created',

@@ -411,7 +411,7 @@ export class NoteContentService {
             {
               type: 'image',
               image: resizedImage.imageData,
-              mimeType,
+              mediaType: mimeType,
             },
           ]);
         } else {

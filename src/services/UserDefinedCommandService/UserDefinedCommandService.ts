@@ -1,13 +1,13 @@
 import { getLanguage, normalizePath, Notice, TFile, parseYaml } from 'obsidian';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
-import { COMMAND_PREFIXES } from 'src/constants';
-import { SearchOperationV2 } from 'src/solutions/commands/handlers/SearchCommandHandler/zSchemas';
+import { COMMAND_PREFIXES, UDC_EXAMPLE_COMMANDS } from 'src/constants';
 import { StewardChatView } from 'src/views/StewardChatView';
 import i18next from 'i18next';
 import { IVersionedUserDefinedCommand, TriggerCondition } from './versions/types';
 import { loadUDCVersion } from './versions/loader';
 import { Intent } from 'src/solutions/commands/types';
+import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
 
 export class UserDefinedCommandService {
   private static instance: UserDefinedCommandService | null = null;
@@ -73,6 +73,9 @@ export class UserDefinedCommandService {
 
         // Load all command definitions
         await this.loadAllCommands();
+
+        // Auto-create example UDC if folder is empty
+        await this.ensureExampleCommandExists();
       });
 
       this.plugin.registerEvent(
@@ -122,6 +125,42 @@ export class UserDefinedCommandService {
     }
 
     logger.log(`Loaded ${this.userDefinedCommands.size} user-defined commands`);
+  }
+
+  /**
+   * Check if the Commands folder is empty (no markdown files) and create example command if needed
+   */
+  private async ensureExampleCommandExists(): Promise<void> {
+    const folder = this.plugin.app.vault.getFolderByPath(this.commandFolder);
+
+    if (!folder) {
+      return;
+    }
+
+    // Check if folder has any markdown files
+    const hasMarkdownFiles = folder.children.some(
+      file => file instanceof TFile && file.extension === 'md'
+    );
+
+    if (hasMarkdownFiles) {
+      return; // Folder is not empty, no need to create example
+    }
+
+    try {
+      for (const command of UDC_EXAMPLE_COMMANDS) {
+        const commandPath = `${this.commandFolder}/${command.name}.md`;
+        await this.plugin.app.vault.create(commandPath, command.definition);
+        logger.log(`Created example UDC: ${command.name}.md`);
+
+        // Load the newly created command
+        const createdFile = this.plugin.app.vault.getFileByPath(commandPath);
+        if (createdFile) {
+          await this.loadCommandFromFile(createdFile);
+        }
+      }
+    } catch (error) {
+      logger.error('Error creating example UDC:', error);
+    }
   }
 
   /**
@@ -798,13 +837,22 @@ export class UserDefinedCommandService {
       // Use step model if available, otherwise use command model
       const model = step.model || command.normalized.model;
 
+      // Merge root-level system_prompt with step-level system_prompt
+      // Root-level system_prompt is applied to all steps, step-level system_prompt is appended
+      let systemPrompts: string[] | undefined;
+      if (command.normalized.system_prompt || step.system_prompt) {
+        systemPrompts = [
+          ...(command.normalized.system_prompt || []),
+          ...(step.system_prompt || []),
+        ];
+      }
+
       return {
-        type: step.name,
-        systemPrompts: step.system_prompt,
+        type: step.name ?? '',
+        systemPrompts,
         query,
         model,
         no_confirm: step.no_confirm,
-        tools: step.tools,
       };
     });
   }
@@ -818,12 +866,13 @@ export class UserDefinedCommandService {
 
   /**
    * Recursively expand a list of CommandIntent, flattening user-defined commands and detecting cycles
+   * Processes wikilinks in system prompts after expansion
    */
-  public expandUserDefinedCommandIntents(
+  public async expandUserDefinedCommandIntents(
     intents: Intent | Intent[],
     userInput = '',
     visited: Set<string> = new Set()
-  ): Intent[] {
+  ): Promise<Intent[]> {
     const expanded: Intent[] = [];
 
     intents = Array.isArray(intents) ? intents : [intents];
@@ -850,11 +899,48 @@ export class UserDefinedCommandService {
       visited.add(intent.type);
       const subIntents = this.processUserDefinedCommand(intent.type, intent.query || userInput);
       if (subIntents) {
-        expanded.push(...this.expandUserDefinedCommandIntents(subIntents, userInput, visited));
+        const expandedSubIntents = await this.expandUserDefinedCommandIntents(
+          subIntents,
+          userInput,
+          visited
+        );
+        expanded.push(...expandedSubIntents);
       }
       visited.delete(intent.type);
     }
 
-    return expanded;
+    // Process wikilinks in system prompts for all expanded intents
+    return Promise.all(
+      expanded.map(async intent => {
+        if (intent.systemPrompts && intent.systemPrompts.length > 0) {
+          const processedSystemPrompts = await this.processSystemPromptsWikilinks(
+            intent.systemPrompts
+          );
+          return {
+            ...intent,
+            systemPrompts: processedSystemPrompts,
+          };
+        }
+        return intent;
+      })
+    );
+  }
+
+  /**
+   * Process wikilinks in system prompts
+   * Only processes string-based prompts
+   * @param systemPrompts Array of system prompt strings
+   * @returns Processed system prompts with wikilinks resolved
+   */
+  public async processSystemPromptsWikilinks(systemPrompts: string[]): Promise<string[]> {
+    if (systemPrompts.length === 0) {
+      return systemPrompts;
+    }
+
+    return Promise.all(
+      systemPrompts.map(prompt =>
+        this.plugin.noteContentService.processWikilinksInContent(prompt, 2)
+      )
+    );
   }
 }

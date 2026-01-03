@@ -1,5 +1,5 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import type StewardPlugin from 'src/main';
 import { TFile, TFolder } from 'obsidian';
 
@@ -14,17 +14,12 @@ export const grepSchema = z.object({
     .describe(
       'Array of file or folder paths to check for existence. Can also include a single file path to search content in.'
     ),
-  pattern: z
+  contentPattern: z
     .string()
     .optional()
     .describe(
       `The text pattern to search for in note content. Can be a simple string or regex pattern. Only used when checking content in a single file.
-NOTE: Pattern can only be used when 'paths' is file paths, NOT folder paths.`
-    ),
-  explanation: z
-    .string()
-    .describe(
-      'A brief explanation of why checking these paths or searching for this pattern is necessary.'
+NOTE: ContentPattern can only be used when 'paths' is file paths, NOT folder paths.`
     ),
 });
 
@@ -37,7 +32,7 @@ export type GrepArgs = z.infer<typeof grepSchema>;
  * Shared grep tool definition
  */
 export const grepTool = tool({
-  parameters: grepSchema,
+  inputSchema: grepSchema,
 });
 
 /**
@@ -53,7 +48,7 @@ export interface PathExistenceResult {
  * Result type for grep content search
  */
 export interface GrepContentResult {
-  pattern: string;
+  contentPattern: string;
   filePath: string;
   totalMatches: number;
   matches: Array<{
@@ -114,7 +109,7 @@ async function checkNameExistence(
  */
 async function executeContentSearch(
   filePath: string,
-  pattern: string,
+  contentPattern: string,
   plugin: StewardPlugin
 ): Promise<GrepContentResult> {
   // Find the file to search in
@@ -122,7 +117,7 @@ async function executeContentSearch(
 
   if (!file) {
     return {
-      pattern,
+      contentPattern,
       filePath,
       totalMatches: 0,
       matches: [],
@@ -137,10 +132,10 @@ async function executeContentSearch(
   let searchPattern: RegExp;
   try {
     // Try to use as regex first
-    searchPattern = new RegExp(pattern, 'gi');
+    searchPattern = new RegExp(contentPattern, 'gi');
   } catch {
     // If regex fails, escape special characters and search as literal string
-    const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapedPattern = contentPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     searchPattern = new RegExp(escapedPattern, 'gi');
   }
 
@@ -176,7 +171,7 @@ async function executeContentSearch(
   }
 
   const result: GrepContentResult = {
-    pattern,
+    contentPattern,
     filePath: file.path,
     totalMatches: matches.length,
     matches,
@@ -189,11 +184,11 @@ async function executeContentSearch(
  * Execute grep tool - checks path existence or searches content
  */
 export async function execute(args: GrepArgs, plugin: StewardPlugin): Promise<GrepResult> {
-  const { paths, pattern } = args;
+  const { paths, contentPattern } = args;
 
-  // If pattern is provided and only one path, search content
-  if (pattern && paths.length === 1) {
-    const contentResult = await executeContentSearch(paths[0], pattern, plugin);
+  // If contentPattern is provided and only one path, search content
+  if (contentPattern && paths.length === 1) {
+    const contentResult = await executeContentSearch(paths[0], contentPattern, plugin);
     return {
       content: contentResult,
     };

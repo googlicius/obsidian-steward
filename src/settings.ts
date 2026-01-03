@@ -1,3 +1,4 @@
+import { generateId } from 'ai';
 import { getLanguage, normalizePath, PluginSettingTab, Setting } from 'obsidian';
 import { logger } from './utils/logger';
 import {
@@ -10,12 +11,13 @@ import {
 import { getTranslation } from './i18n';
 import type StewardPlugin from './main';
 import { StewardPluginSettings } from './types/interfaces';
-import { FolderSuggest } from './settings/FolderSuggest';
 import { ModelSetting } from './settings/ModelSetting';
 import { ModelFallbackSetting } from './settings/ModelFallbackSetting';
 import { DeleteBehaviorSetting } from './settings/DeleteBehaviorSetting';
 import { applyMixins } from './utils/applyMixins';
 import { ProviderSetting } from './settings/ProviderSetting';
+import { getClassifier } from './lib/modelfusion';
+import { FolderSuggest } from './settings/FolderSuggest';
 
 const lang = getLanguage();
 const t = getTranslation(lang);
@@ -50,6 +52,34 @@ class StewardSettingTab extends PluginSettingTab {
     voiceInput.value = currentVoice || '';
   }
 
+  /**
+   * Clear cached embeddings for a given embedding model
+   * @param embeddingSettings The embedding settings containing the model to clear
+   */
+  private async clearCachedEmbeddings(
+    embeddingSettings: StewardPluginSettings['embedding']
+  ): Promise<void> {
+    try {
+      const classifier = getClassifier(embeddingSettings);
+      await classifier.clearCachedEmbeddings();
+      logger.log(`Cleared cached embeddings for model: ${embeddingSettings.model}`);
+    } catch (error) {
+      logger.error('Error clearing cached embeddings:', error);
+    }
+  }
+
+  /**
+   * Refresh the settings display and keep the scroll position
+   */
+  public async refreshSettingTab(delay?: number): Promise<void> {
+    if (delay) {
+      await sleep(delay);
+    }
+    const currentScrollPosition = this.containerEl.scrollTop;
+    this.display();
+    this.containerEl.scrollTop = currentScrollPosition;
+  }
+
   display(): void {
     const { containerEl } = this;
 
@@ -68,7 +98,9 @@ class StewardSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           });
 
-        new FolderSuggest(this.app, text.inputEl);
+        text.inputEl.addEventListener('focus', () => {
+          new FolderSuggest(this.app, text.inputEl);
+        });
       });
 
     // Add show role labels toggle
@@ -100,12 +132,54 @@ class StewardSettingTab extends PluginSettingTab {
     // Create Providers section
     new Setting(containerEl).setName(t('settings.providers')).setHeading();
 
+    // Display built-in providers
     this.createProviderSetting('openai');
     this.createProviderSetting('elevenlabs');
     this.createProviderSetting('deepseek');
     this.createProviderSetting('google');
     this.createProviderSetting('groq');
     this.createProviderSetting('anthropic');
+    this.createProviderSetting('ollama');
+
+    // Display custom providers
+    const customProviders = Object.keys(this.plugin.settings.providers).filter(
+      key => this.plugin.settings.providers[key]?.isCustom === true
+    );
+
+    for (const providerKey of customProviders) {
+      this.createProviderSetting(providerKey, {
+        apiKeyPlaceholder: t('settings.enterApiKeyOptional'),
+      });
+    }
+
+    // Add "Add new provider" button
+    new Setting(containerEl)
+      .setName(t('settings.addNewProvider'))
+      .setDesc(t('settings.addNewProviderDesc'))
+      .addButton(button => {
+        button
+          .setButtonText(t('settings.addNewProvider'))
+          .setCta()
+          .onClick(async () => {
+            // Generate a unique provider key using generateId
+            let providerKey: string;
+            do {
+              providerKey = `provider-${generateId()}`;
+            } while (this.plugin.settings.providers[providerKey]);
+
+            // Initialize the custom provider
+            this.plugin.settings.providers[providerKey] = {
+              apiKey: '',
+              isCustom: true,
+              compatibility: 'openai',
+              name: '',
+            };
+
+            await this.plugin.saveSettings();
+
+            await this.refreshSettingTab(200);
+          });
+      });
 
     containerEl.createEl('div', {
       text: `${t('settings.note')}:`,
@@ -122,8 +196,8 @@ class StewardSettingTab extends PluginSettingTab {
       cls: 'setting-item-description',
     });
 
-    // Add LLM settings section
-    new Setting(containerEl).setName(t('settings.llm')).setHeading();
+    // Add Models settings section
+    new Setting(containerEl).setName(t('settings.models')).setHeading();
 
     // Chat Model setting
     this.createModelSetting(
@@ -133,7 +207,7 @@ class StewardSettingTab extends PluginSettingTab {
       {
         currentModelField: 'llm.chat.model',
         customModelsField: 'llm.chat.customModels',
-        placeholder: 'e.g., openai:gpt-5',
+        placeholder: 'provider:model, e.g., openai:gpt-5',
         presetModels: LLM_MODELS,
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.chat.model = modelId;
@@ -204,19 +278,6 @@ class StewardSettingTab extends PluginSettingTab {
         text.inputEl.setAttribute('min', '1');
       });
 
-    // Show Extraction Explanation setting
-    new Setting(containerEl)
-      .setName(t('settings.showExtractionExplanation'))
-      .setDesc(t('settings.showExtractionExplanationDesc'))
-      .addToggle(toggle => {
-        toggle
-          .setValue(this.plugin.settings.llm.showExtractionExplanation ?? false)
-          .onChange(async value => {
-            this.plugin.settings.llm.showExtractionExplanation = value;
-            await this.plugin.saveSettings();
-          });
-      });
-
     // Enable Model Fallback setting
     new Setting(containerEl)
       .setName(t('settings.modelFallbackEnabled'))
@@ -266,14 +327,34 @@ class StewardSettingTab extends PluginSettingTab {
       {
         currentModelField: 'embedding.model',
         customModelsField: 'embedding.customModels',
-        placeholder: 'e.g., openai:text-embedding-ada-002',
+        placeholder: 'provider:model, e.g., openai:text-embedding-ada-002',
         presetModels: EMBEDDING_MODELS,
         onSelectChange: async (modelId: string) => {
+          const oldModelId = this.plugin.settings.embedding.model;
+
+          // Clear cached embeddings if the model is changing
+          if (oldModelId !== modelId) {
+            await this.clearCachedEmbeddings({
+              ...this.plugin.settings.embedding,
+              model: oldModelId,
+            });
+          }
+
           this.plugin.settings.embedding.model = modelId;
           await this.plugin.saveSettings();
           this.updateVoiceInput();
         },
         onAddModel: async (modelId: string) => {
+          const oldModelId = this.plugin.settings.embedding.model;
+
+          // Clear cached embeddings if the model is changing
+          if (oldModelId !== modelId) {
+            await this.clearCachedEmbeddings({
+              ...this.plugin.settings.embedding,
+              model: oldModelId,
+            });
+          }
+
           this.plugin.settings.embedding.model = modelId;
 
           // Add to custom models if not already present and not a preset model
@@ -293,7 +374,15 @@ class StewardSettingTab extends PluginSettingTab {
 
           // If this was the selected model, switch to default
           if (this.plugin.settings.embedding.model === modelId) {
-            this.plugin.settings.embedding.model = EMBEDDING_MODELS[0].id;
+            const newModelId = EMBEDDING_MODELS[0].id;
+
+            // Clear cached embeddings for the old model
+            await this.clearCachedEmbeddings({
+              ...this.plugin.settings.embedding,
+              model: modelId,
+            });
+
+            this.plugin.settings.embedding.model = newModelId;
           }
 
           await this.plugin.saveSettings();
@@ -327,7 +416,7 @@ class StewardSettingTab extends PluginSettingTab {
       {
         currentModelField: 'llm.speech.model',
         customModelsField: 'llm.speech.customModels',
-        placeholder: 'e.g., openai:tts-1',
+        placeholder: 'provider:model, e.g., openai:tts-1',
         presetModels: SPEECH_MODELS,
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.speech.model = modelId;
@@ -393,7 +482,7 @@ class StewardSettingTab extends PluginSettingTab {
       {
         currentModelField: 'llm.image.model',
         customModelsField: 'llm.image.customModels',
-        placeholder: 'e.g., openai:dall-e-3',
+        placeholder: 'provider:model, e.g., openai:dall-e-3',
         presetModels: IMAGE_MODELS,
         onSelectChange: async (modelId: string) => {
           this.plugin.settings.llm.image.model = modelId;

@@ -1,26 +1,6 @@
-export enum ToolName {
-  CONTENT_READING = 'contentReading',
-  CONFIRMATION = 'confirmation',
-  ASK_USER = 'askUser',
-  EDIT = 'edit',
-  GREP = 'grep',
-  REQUEST_READ_CONTENT = 'requestReadContent',
-  CREATE = 'create',
-  DELETE = 'delete',
-  COPY = 'copy',
-  RENAME = 'rename',
-  MOVE = 'move',
-  LIST = 'list',
-  UPDATE_FRONTMATTER = 'update_frontmatter',
-  ACTIVATE = 'activate_tools',
-  REVERT_DELETE = 'revert_delete',
-  REVERT_MOVE = 'revert_move',
-  REVERT_FRONTMATTER = 'revert_frontmatter',
-  REVERT_RENAME = 'revert_rename',
-  REVERT_CREATE = 'revert_create',
-  GET_MOST_RECENT_ARTIFACT = 'get_most_recent_artifact',
-  GET_ARTIFACT_BY_ID = 'get_artifact_by_id',
-}
+import { ToolName } from './toolNames';
+import { joinWithConjunction } from 'src/utils/arrayUtils';
+import { revertAbleArtifactTypes } from '../artifact';
 
 export interface ToolDefinition {
   name: ToolName;
@@ -43,15 +23,20 @@ export interface ToolMetaDefinition {
  * and this definition will provide consistent prompt text across the app.
  */
 export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
-  // ReadCommandHandler tool
+  // ReadAgent tool
   [ToolName.CONTENT_READING]: {
     name: ToolName.CONTENT_READING,
-    description: 'Read content from a note.',
+    description:
+      'Read content from a note, including text, images, audios, videos, etc. Or image files (png, jpg, jpeg, etc.).',
+    category: 'content-access',
     guidelines: [
       `Use ${ToolName.CONTENT_READING} to read any type of content, including text, image, audio, video, etc.`,
-      `Read ALL notes at once with multiple ${ToolName.CONTENT_READING} tool calls.`,
+      `When reading notes:
+  - Specify the number of blocks to read (blocksToRead) carefully from the user's query, Do NOT set -1 unless the user explicitly requests to read the entire content.
+  - Specify the direction to read (readType) carefully from the user's query, Do NOT set "entire" unless the user explicitly requests to read the entire content.`,
+      `When reading multiple files, you MUST make multiple parallel tool calls in the same request (one ${ToolName.CONTENT_READING} call per file). Do NOT read files sequentially one by one. EXCEPT when the user explicitly requests sequential reading.`,
+      `After reading, respond a short conclusion of your task. DO NOT respond the elements of the reading result in your final response: Tables, lists, code, blockquote, images, headings, etc.`,
     ],
-    category: 'content-access',
   },
 
   // User interaction tools
@@ -59,9 +44,8 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     name: ToolName.CONFIRMATION,
     description: 'Get confirmation from the user before performing an action.',
     guidelines: [
-      `You MUST use ${ToolName.CONFIRMATION} BEFORE reading the entire content of any note. (When readType is "entire")`,
+      `You MUST use ${ToolName.CONFIRMATION} BEFORE reading the entire content of any note (markdown files). (When readType is "entire"). EXCEPT reading images.`,
       `Use ${ToolName.CONFIRMATION} once for all note(s) to be read.`,
-      `The ${ToolName.CONFIRMATION} tool also pauses the system until the user responds.`,
     ],
     category: 'user-interaction',
   },
@@ -71,19 +55,77 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description: 'Ask the user for additional information or clarification when needed.',
     guidelines: [
       `Use ${ToolName.ASK_USER} when you need clarification or additional information from the user to fulfill their request.`,
-      `The ${ToolName.ASK_USER} tool also pauses the system until the user responds.`,
     ],
     category: 'user-interaction',
   },
 
-  // Generate/Update common tools
-  [ToolName.REQUEST_READ_CONTENT]: {
-    name: ToolName.REQUEST_READ_CONTENT,
-    description: 'Read content from notes to gather context before generating a response.',
+  [ToolName.USER_CONFIRM]: {
+    name: ToolName.USER_CONFIRM,
+    description: 'Handle user confirmation responses (yes/no) for pending operations.',
     guidelines: [
-      `Use ${ToolName.REQUEST_READ_CONTENT} to read the content above/below the current cursor or the entire note.`,
+      `Use ${ToolName.USER_CONFIRM} when the user provides a confirmation response to a pending operation.`,
     ],
-    category: 'content-access',
+    category: 'user-interaction',
+  },
+
+  [ToolName.HELP]: {
+    name: ToolName.HELP,
+    description: 'Display help information listing all available commands.',
+    guidelines: [
+      `Use ${ToolName.HELP} when the user requests help or wants to see available commands.`,
+    ],
+    category: 'user-interaction',
+  },
+
+  [ToolName.STOP]: {
+    name: ToolName.STOP,
+    description: 'Stop all active operations and abort any ongoing processes.',
+    guidelines: [
+      `Use ${ToolName.STOP} when the user requests to stop or cancel ongoing operations.`,
+    ],
+    category: 'user-interaction',
+  },
+
+  [ToolName.THANK_YOU]: {
+    name: ToolName.THANK_YOU,
+    description: 'Respond to user expressions of gratitude.',
+    guidelines: [`Use ${ToolName.THANK_YOU} when the user expresses thanks or gratitude.`],
+    category: 'user-interaction',
+  },
+
+  [ToolName.BUILD_SEARCH_INDEX]: {
+    name: ToolName.BUILD_SEARCH_INDEX,
+    description:
+      'Build or rebuild the search index for the vault to enable fast content searching.',
+    guidelines: [
+      `Use ${ToolName.BUILD_SEARCH_INDEX} when the user requests to build or rebuild the search index.`,
+    ],
+    category: 'vault-access',
+  },
+
+  [ToolName.SEARCH]: {
+    name: ToolName.SEARCH,
+    description:
+      'Comprehensive search for notes and files in the vault using keywords, tags, filenames, folders, and properties.',
+    guidelines: [
+      `Use ${ToolName.SEARCH} tool when the user wants to find files in the vault.
+  - If the query lacks search intention, search with two operations: 1. Search by keywords; 2. Search by filenames.
+  - If there are any typos in the query, extract both the original and your corrected version
+  - If the query includes or mentions "note", include the property {name: "file_type", value: "md"}.
+  - Folders and filenames, use regex to represent user-specified: Exact match: ^<query>$, start with: ^<query>, or contain: <query>.`,
+      `The search query can include keywords, file names, folder paths, tags, and other properties.`,
+      `NOTE: ${ToolName.SEARCH} tool cannot access the Steward folder. Use ${ToolName.LIST} instead.`,
+    ],
+    category: 'vault-access',
+  },
+
+  [ToolName.SEARCH_MORE]: {
+    name: ToolName.SEARCH_MORE,
+    description: 'Display additional pages of search results from the most recent search.',
+    guidelines: [
+      `Use ${ToolName.SEARCH_MORE} when the user requests to see more results from a previous search.`,
+    ],
+    category: 'vault-access',
   },
 
   [ToolName.GREP]: {
@@ -91,8 +133,9 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description:
       'Check if files or folders exist, or search for specific text patterns in note content.',
     guidelines: [
-      `Use ${ToolName.GREP} to check if one or many files or folders exist in the vault.`,
+      `Use ${ToolName.GREP} to check if one or many given file or folder paths exist in the vault. If a folder.`,
       `Use ${ToolName.GREP} to search for specific text patterns in note content when a pattern is provided with a single file path.`,
+      `The ${ToolName.GREP} tool will NOT return the files inside the folder. Use ${ToolName.LIST} to list files instead.`,
     ],
     category: 'vault-access',
   },
@@ -146,7 +189,6 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     guidelines: [
       `Use ${ToolName.RENAME} to change the name or location of files.`,
       `Always provide both the current path and the new path for each file.`,
-      `Set createFolderIfMissing to true when new destination folders are required.`,
     ],
     category: 'vault-access',
   },
@@ -180,10 +222,9 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     name: ToolName.ACTIVATE,
     description: 'Request additional tools to be activated for the current session.',
     guidelines: [
-      `Use ${ToolName.ACTIVATE} when you need another tool that is currently inactive to complete the task.`,
-      `The ${ToolName.ACTIVATE} tool will return the schemas and guidelines of the requested tools.`,
-      `You must activate any tool listed under 'OTHER TOOLS' section (inactive). If you call without active, it will fail.`,
-      `You will fail when: 1. Calling inactive tools; 2. Activate tools that are not in the 'OTHER TOOLS' section.`,
+      `Use ${ToolName.ACTIVATE} when you need another tool that is currently inactive to complete the task. It will return the schemas and guidelines of the requested tools.`,
+      `Inactive tools are listed under 'OTHER TOOLS' section.`,
+      `Try to activate all tools at once early that are needed to fulfill the user's query.`,
     ],
     category: 'tool-management',
   },
@@ -234,7 +275,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       'Get the most recent artifact from the conversation (searches for artifacts created by vault operations).',
     guidelines: [
       `Use ${ToolName.GET_MOST_RECENT_ARTIFACT} to retrieve the most recent artifact that can be reverted.`,
-      `This is useful when you need to find artifacts to perform revert operations.`,
+      `The ${ToolName.GET_MOST_RECENT_ARTIFACT} tool will only retrieve revert-able artifacts: ${joinWithConjunction(revertAbleArtifactTypes, 'or')}.`,
     ],
     category: 'artifact-access',
   },
@@ -247,6 +288,47 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       `This is useful when you have an artifact ID from previous operations or user input.`,
     ],
     category: 'artifact-access',
+  },
+
+  [ToolName.SPEECH]: {
+    name: ToolName.SPEECH,
+    description: 'Generate text content for speech/audio generation.',
+    guidelines: [
+      `Use ${ToolName.SPEECH} when the user wants to generate audio or speech from text.`,
+    ],
+    category: 'content-generation',
+  },
+
+  [ToolName.IMAGE]: {
+    name: ToolName.IMAGE,
+    description: 'Generate image content for image generation.',
+    guidelines: [
+      `Use ${ToolName.IMAGE} when the user wants to generate image from text.`,
+      `NOTE: The ${ToolName.IMAGE} tool is NOT for reading images, the tool cannot read. Use ${ToolName.CONTENT_READING} for reading images.`,
+    ],
+    category: 'content-generation',
+  },
+
+  [ToolName.TODO_LIST]: {
+    name: ToolName.TODO_LIST,
+    description:
+      'Create a to-do list for complex tasks. Each step includes a task that will be executed sequentially.',
+    guidelines: [
+      `Use ${ToolName.TODO_LIST} to break down complex tasks into manageable steps.`,
+      `When creating a to-do list, provide an array of steps, each with a task. The task is the only required field for each step.`,
+      `After creating a to-do list, you should execute the first step's task.`,
+    ],
+    category: 'task-management',
+  },
+
+  [ToolName.TODO_LIST_UPDATE]: {
+    name: ToolName.TODO_LIST_UPDATE,
+    description: 'Update the current step index of an existing to-do list.',
+    guidelines: [
+      `Use ${ToolName.TODO_LIST_UPDATE} to update the current step index when moving to the next step in a to-do list.`,
+      `When moving to the next step, you SHOULD call ${ToolName.TODO_LIST_UPDATE} tool in parallel (in the same request) with the tool that performs the next task.`,
+    ],
+    category: 'task-management',
   },
 };
 
@@ -318,10 +400,15 @@ export class ToolRegistry<T> {
     return lines.join('\n');
   }
 
-  public generateOtherToolsSection(emptyLabel = '', includeDescription?: Set<ToolName>): string {
+  public generateOtherToolsSection(
+    emptyLabel = '',
+    includeDescription?: Set<ToolName>,
+    exclude?: Set<ToolName>
+  ): string {
     const lines: string[] = [];
     for (const [, def] of this.tools) {
       if (this.isActive(def.name)) continue;
+      if (exclude?.has(def.name)) continue;
       const line = includeDescription?.has(def.name)
         ? `- ${def.name} - ${def.description}`
         : `- ${def.name}`;
@@ -339,10 +426,7 @@ export class ToolRegistry<T> {
    * Build a registry from a tools object using centralized metadata.
    * Any missing metadata will default to empty description/guidelines.
    */
-  public static buildFromTools<T extends { [s: string]: unknown }>(
-    tools: T,
-    options?: { exclude?: ToolName[] }
-  ) {
+  public static buildFromTools<T extends { [s: string]: unknown }>(tools: T) {
     const registry = new ToolRegistry<typeof tools>();
     for (const [name, tool] of Object.entries(tools)) {
       const meta = TOOL_DEFINITIONS[name as ToolName];
@@ -354,13 +438,8 @@ export class ToolRegistry<T> {
         category: meta.category,
       });
     }
-    if (options?.exclude?.length) {
-      registry.exclude(options.exclude);
-    }
     return registry;
   }
 }
 
-export type ToolRegistryOptions = {
-  exclude?: ToolName[];
-};
+export { ToolName } from './toolNames';

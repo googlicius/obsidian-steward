@@ -1,43 +1,34 @@
 const vi = {
   translation: {
     common: {
+      stepLimitReached: 'Tôi đã đạt đến số lượng bước xử lý tối đa. Bạn có muốn tiếp tục không?',
       noFilesFound:
         'Tôi không tìm thấy tập tin nào phù hợp với truy vấn của bạn. Vui lòng thử từ khóa tìm kiếm khác.',
       noRecentOperations: 'Không có thao tác gần đây được tìm thấy.',
       noToolCallFound: 'Không tìm thấy lệnh gọi công cụ.',
       lowConfidenceConfirmation: 'Tôi không chắc chắn về yêu cầu này. Bạn có muốn tiếp tục không?',
       artifactCreated: 'Artifact {{type}} đã được lưu',
+      artifactNotFound: ' Không tìm thấy artifact với ID "{{artifactId}}".',
+      noArtifactsFound: 'Không tìm thấy artifact nào.',
       availableCommands: 'Các lệnh có sẵn',
       builtInCommands: 'Lệnh tích hợp',
       builtInCommandsDesc: 'Những lệnh này có sẵn thông qua /&lt;command&gt',
       userDefinedCommands: 'Lệnh tùy chỉnh',
       noUserDefinedCommands: 'Bạn chưa có lệnh tùy chỉnh nào.',
-      intentCommands: 'Lệnh dựa trên ý định',
-      intentCommandsDesc: 'Những lệnh này có sẵn thông qua xử lý ngôn ngữ tự nhiên',
       commandHelpText: 'Nhập lệnh theo sau bởi truy vấn của bạn để sử dụng.',
-      explanation: 'Giải thích',
-      extractionDetails: 'Chi tiết trích xuất',
       searchDesc: 'Tìm kiếm ghi chú trong kho lưu trữ của bạn',
-      closeDesc: 'Đóng cuộc trò chuyện hiện tại',
-      confirmDesc: 'Xác nhận hoặc từ chối các thao tác',
       imageDesc: 'Tạo hình ảnh',
-      audioDesc: 'Tạo âm thanh từ văn bản',
-      createDesc: 'Tạo ghi chú mới',
-      stopDesc: 'Dừng các thao tác đang diễn ra',
-      helpDesc: 'Hiển thị trợ giúp này',
-      updateDesc: 'Cập nhật nội dung tập tin',
-      generateDesc: 'Tạo nội dung với AI',
-      readDesc: 'Đọc nội dung từ ghi chú',
-      revertDesc: 'Hoàn tác hoặc hoàn tác các thao tác trước đó',
-      vaultDesc:
-        'Thực hiện các thao tác vault (danh sách, tạo, xóa, sao chép, di chuyển, đổi tên, cập nhật frontmatter)',
-      buildSearchIndexDesc: 'Xây dựng chỉ mục tìm kiếm cho ghi chú của bạn',
+      speechDesc: 'Tạo giọng nói từ văn bản',
       cannotDeleteThisType: 'Không thể xóa loại artifact này: {{type}}',
       cannotRevertThisType: 'Không thể hoàn nguyên loại artifact này: {{type}}',
       thisNote: 'ghi chú này',
       errorProcessingCommand: 'Lỗi khi xử lý lệnh {{commandType}}: {{errorMessage}}',
       switchingModelDueToErrors: 'Chuyển từ {{fromModel}} sang {{toModel}} do gặp lỗi',
       thinkingProcess: 'Quá trình suy nghĩ',
+      modelDoesNotSupportImageInputs:
+        'Mô hình {{model}} không hỗ trợ đọc hình ảnh. Vui lòng sử dụng mô hình có khả năng xử lý hình ảnh (ví dụ: gpt-4o, gemini-pro, claude-3-sonnet).',
+      invalidOrDynamicToolCall:
+        'Mô hình đã trả về lệnh gọi công cụ không hợp lệ hoặc động (dynamic): "{{toolName}}".',
     },
     trigger: {
       executing: 'Đang thực thi trigger cho lệnh: {{commandName}}',
@@ -93,9 +84,13 @@ const vi = {
       tooManyFilesConfirm: 'Tôi đang sao chép {{count}} ghi chú. Bạn có muốn tiếp tục không?',
       cannotCopyThisType: 'Không thể sao chép loại artifact này: {{type}}',
     },
+    activateTools: {
+      invalidTools: 'Công cụ không hợp lệ: `{{tools}}`',
+      invalidDeactivateTools: 'Không thể vô hiệu hóa (chưa kích hoạt): `{{tools}}`',
+    },
     rename: {
       processed: 'Tôi đã xử lý {{count}} yêu cầu đổi tên.',
-      success: 'Đã đổi tên thành công {{count}} tập tin:',
+      success: 'Đã đổi tên thành công {{count}} tập tin.',
       samePath: 'Đã bỏ qua {{count}} tập tin (đường dẫn mới trùng với đường dẫn cũ):',
       fileMissing: 'Đã bỏ qua {{count}} tập tin (không tìm thấy đường dẫn gốc):',
       targetExists: 'Đã bỏ qua {{count}} tập tin (đích đã tồn tại):',
@@ -111,6 +106,7 @@ const vi = {
     create: {
       success: 'Đã tạo thành công {{count}} ghi chú: {{noteNames}}',
       creatingNote: 'Đang tạo ghi chú: [[{{noteName}}]]',
+      errors: 'Lỗi:',
     },
     list: {
       noFilesFound: 'Không tìm thấy tập tin nào.',
@@ -118,6 +114,7 @@ const vi = {
       foundFiles: 'Tôi đã tìm thấy {{count}} tập tin',
       foundFilesInFolder: 'Tôi đã tìm thấy {{count}} tập tin trong {{folder}}',
       moreFiles: '... và thêm {{count}} tập tin nữa',
+      fullListAvailableInArtifact: 'Danh sách đầy đủ có sẵn trong artifact ID: {{artifactId}}',
     },
     grep: {
       found: 'Đã tìm thấy {{count}} đường dẫn:',
@@ -142,10 +139,10 @@ const vi = {
     // Update result messages
     update: {
       noContentFound: 'Không tìm thấy nội dung để cập nhật.',
-      failed: 'Không thể cập nhật {{count}} tập tin:',
-      successfullyUpdated: 'Đã cập nhật thành công {{count}} tập tin:',
-      foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để cập nhật.',
-      skipped: 'Đã bỏ qua {{count}} tập tin:',
+      failed: 'Không thể cập nhật {{count}} tập tin',
+      successfullyUpdated: 'Đã cập nhật thành công {{count}} tập tin',
+      foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để cập nhật',
+      skipped: 'Đã bỏ qua {{count}} tập tin',
       applyChangesConfirm: 'Bạn có muốn áp dụng các thay đổi này không?',
       noChangesNeeded:
         'Nội dung gốc và nội dung đã cập nhật giống hệt nhau. Không cần thay đổi gì.',
@@ -159,19 +156,10 @@ const vi = {
       operation: 'Thao tác {{num}}: Xóa các tập tin với {{query}}',
     },
     revert: {
-      foundFiles: 'Tôi đã tìm thấy {{count}} mục để hoàn nguyên.',
-      successfullyReverted: 'Đã hoàn nguyên thành công {{count}} mục',
-      failed: 'Không thể hoàn nguyên {{count}} mục:',
+      foundFiles: 'Tôi đã tìm thấy {{count}} mục để hoàn tác.',
+      successfullyReverted: 'Đã hoàn tác thành công {{count}} mục',
+      failed: 'Không thể hoàn tác {{count}} mục:',
       revertingArtifact: 'Đang hoàn tác từ artifact `{{artifactType}}`',
-    },
-    // Frontmatter update result messages
-    frontmatter: {
-      foundFiles: 'Tôi đã tìm thấy {{count}} tập tin để cập nhật frontmatter.',
-      successfullyUpdated: 'Đã cập nhật thành công {{count}} ghi chú:',
-      failed: 'Không thể cập nhật {{count}} ghi chú:',
-      cannotUpdateThisType: 'Không thể cập nhật frontmatter cho loại artifact này: {{type}}',
-      propertiesRequired:
-        'Thuộc tính là bắt buộc khi sử dụng artifactId. Vui lòng cung cấp các tập tin với thuộc tính để cập nhật.',
     },
     // Search result messages
     search: {
@@ -197,8 +185,6 @@ const vi = {
       filenames: 'Tên tệp',
       folders: 'Thư mục',
       properties: 'Thuộc tính',
-      confirmMultipleOperations:
-        'Những thao tác này có chính xác không? Vui lòng xác nhận để tiếp tục tìm kiếm.',
       indexNotBuilt: 'Chỉ mục tìm kiếm chưa được xây dựng.',
       buildIndexFirst:
         'Vui lòng xây dựng chỉ mục tìm kiếm trước bằng cách yêu cầu tôi "xây dựng chỉ mục tìm kiếm" hoặc "lập chỉ mục các tệp của tôi".',
@@ -256,6 +242,14 @@ const vi = {
       contentCopied: 'Nội dung đã được sao chép vào clipboard',
       copyFailed: 'Không thể sao chép nội dung vào clipboard',
     },
+    todoList: {
+      todoList: 'Danh sách công việc',
+      pending: 'Pending',
+      inProgress: 'Đang thực hiện',
+      skipped: 'Đã bỏ qua',
+      completed: 'Đã hoàn thành',
+      step: 'Bước {{index}}',
+    },
     read: {
       noContentFound: 'Không tìm thấy nội dung như vậy trong trình soạn thảo.',
       readEntireContentConfirmation:
@@ -268,11 +262,12 @@ const vi = {
       response3: 'Mình rất vui vì đã có thể hỗ trợ!',
       response4: 'Bất cứ lúc nào! Nếu cần gì thêm thì cứ nói nhé.',
       response5: 'Rất hân hạnh được phục vụ bạn!',
-      simpleResponse: 'Không có gì 😊',
     },
     // Conversation states
     conversation: {
       orchestrating: 'Đang xử lý...',
+      planning: 'Đang xử lý...',
+      working: 'Đang làm việc...',
       generating: 'Đang tạo...',
       generatingImage: 'Đang tạo hình ảnh...',
       generatingAudio: 'Đang tạo âm thanh...',
@@ -291,6 +286,9 @@ const vi = {
       buildingIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
       summarizing: 'Đang tóm tắt cuộc trò chuyện...',
       continuingProcessing: 'Đang tiếp tục...',
+      processingBatch: 'Đang xử lý batch {{current}}/{{total}}...',
+      stepLimitReached:
+        'Tôi đã đạt đến số bước xử lý tối đa. Bạn có muốn tôi tiếp tục với nhiều bước hơn không?',
     },
     // Model fallback messages
     modelFallback: {
@@ -313,22 +311,26 @@ const vi = {
       googleApiKey: 'Khóa API Google',
       groqApiKey: 'Khóa API Groq',
       anthropicApiKey: 'Khóa API Anthropic',
+      ollamaApiKey: 'Khóa API Ollama (Tùy chọn)',
+      ollamaApiKeyDesc: 'Khóa API cho API Ollama',
       enterApiKey: 'Nhập khóa API của bạn',
-      apiKeyPlaceholder: '••••••••••••••••••••••',
+      enterApiKeyOptional: 'Nhập khóa API của bạn (tùy chọn)',
       errorReenterKey: 'Lỗi: Nhấp để nhập lại khóa',
       clearApiKey: 'Xóa khóa API',
       failedToSaveApiKey: 'Không thể lưu khóa API. Vui lòng thử lại.',
       failedToClearApiKey: 'Không thể xóa khóa API. Vui lòng thử lại.',
       edit: 'Chỉnh sửa',
       apiKey: 'Khóa API',
-      corsUrl: 'URL CORS',
-      corsUrlDesc:
-        'URL proxy CORS cho tất cả nhà cung cấp (tùy chọn). Nếu được đặt, sẽ được thêm vào trước URL cơ sở của nhà cung cấp.',
-      corsUrlPlaceholder: 'Nhập URL proxy CORS (tùy chọn)',
+      addNewProvider: 'Thêm nhà cung cấp mới',
+      addNewProviderDesc: 'Thêm nhà cung cấp tùy chỉnh với khóa API và cấu hình riêng',
+      providerName: 'Tên nhà cung cấp',
+      providerNamePlaceholder: 'Nhập tên nhà cung cấp (không có khoảng trắng)',
+      providerNameNoSpaces: 'Tên nhà cung cấp không được chứa khoảng trắng',
+      providerCompatibility: 'Tương thích nhà cung cấp',
       note: 'Lưu ý',
       apiKeyNote1: 'Bạn cần cung cấp khóa API của riêng mình để sử dụng trợ lý AI.',
       apiKeyNote2: 'Tất cả khóa API được lưu trữ với mã hóa.',
-      llm: 'LLM',
+      models: 'Mô hình',
       chatModel: 'Mô hình trò chuyện',
       chatModelDesc:
         'Chọn mô hình AI để sử dụng cho trò chuyện. Bạn cũng có thể thay đổi mô hình trực tiếp trong ô nhập bằng cách gõ m: hoặc model:',
@@ -347,13 +349,13 @@ const vi = {
       maxGenerationTokens: 'Số token tạo tối đa (Max Generation Tokens)',
       maxGenerationTokensDesc:
         'Số lượng token tối đa để tạo trong phản hồi (giá trị cao hơn có thể tăng chi phí API)',
-      showExtractionExplanation: 'Hiển thị giải thích trích xuất',
-      showExtractionExplanationDesc:
-        'Hiển thị giải thích chi tiết về các lệnh được trích xuất bao gồm loại lệnh và truy vấn trong ghi chú cuộc trò chuyện',
       ollamaBaseUrl: 'URL cơ sở Ollama',
       ollamaBaseUrlDesc: 'URL cơ sở cho API Ollama (mặc định: {{defaultUrl}})',
       baseUrl: 'URL cơ sở',
       baseUrlPlaceholder: 'Nhập URL cơ sở (để trống để sử dụng mặc định)',
+      systemPrompt: 'Lời nhắc hệ thống',
+      systemPromptPlaceholder: 'Nhập hướng dẫn bổ sung cho nhà cung cấp này (tùy chọn)',
+      systemPromptDesc: 'Hướng dẫn bổ sung để cung cấp cho nhà cung cấp này',
       speech: 'Giọng nói',
       speechModel: 'Mô hình giọng nói',
       speechModelDesc: 'Chọn mô hình tạo giọng nói từ văn bản',
@@ -370,6 +372,7 @@ const vi = {
       customModels: 'Mô hình tùy chỉnh',
       noCustomModels: 'Không có mô hình tùy chỉnh',
       delete: 'Xóa',
+      confirmDelete: 'Xác nhận xóa',
       invalidModelFormat:
         'Định dạng mô hình không hợp lệ. Vui lòng sử dụng định dạng provider:modelId (ví dụ: openai:tts-1)',
       voiceId: 'ID giọng nói',
@@ -378,11 +381,12 @@ const vi = {
       withoutLLM: 'Tùy chọn khớp tìm kiếm',
       withoutLLMDesc: 'Chế độ tìm kiếm khi truy vấn được bao trong dấu ngoặc kép',
       exactMatch: 'Khớp chính xác',
-      relevantScoring: 'Chấm điểm liên quan',
+      relevantScoring: 'Khớp điểm liên quan',
       resultsPerPage: 'Kết quả mỗi trang',
       resultsPerPageDesc: 'Số lượng kết quả tìm kiếm hiển thị mỗi trang',
       deleteBehavior: 'Hành động xóa',
-      deleteBehaviorDesc: 'Cách xử lý việc xóa tập tin',
+      deleteBehaviorDesc:
+        'Cách xử lý việc xóa tập tin. Khuyến nghị: Sử dụng Steward/Trash để có thể hoàn tác việc xóa',
       moveToTrash: 'Di chuyển tập tin đến {{folder}}',
       useObsidianDeletedFiles: 'Sử dụng cài đặt Xóa tập tin của Obsidian',
       modelFallbackEnabled: 'Bật dự phòng mô hình',

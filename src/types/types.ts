@@ -1,6 +1,6 @@
 import { Editor, App } from 'obsidian';
 import { EditorView } from '@codemirror/view';
-import { Message } from 'ai';
+import { UIMessage } from 'ai';
 
 /**
  * Exposes the Obsidian Editor and Codemirror EditorView
@@ -25,9 +25,11 @@ export type ConversationRole = 'user' | 'assistant' | 'system';
 /**
  * Represents a message in the conversation history
  */
-export interface ConversationHistoryMessage extends Message {
+export interface ConversationHistoryMessage extends UIMessage {
   role: ConversationRole;
   handlerId?: string;
+  step?: number;
+  reasoning_content?: string;
 }
 
 export interface ConversationMessage {
@@ -43,6 +45,10 @@ export interface ConversationMessage {
    * Handler ID to group all messages issued in one handle function call
    */
   handlerId?: string;
+  /**
+   * Step number for grouping messages in one invocation or one AI function call.
+   */
+  step?: number;
 }
 
 export interface DocWithPath {

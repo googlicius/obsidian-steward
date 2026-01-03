@@ -1,6 +1,6 @@
 import { logger } from 'src/utils/logger';
 import { IVersionedUserDefinedCommand } from './types';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 /**
  * Result type for loading a versioned command
@@ -17,9 +17,9 @@ export async function loadUDCVersion(
   filePath: string
 ): Promise<LoadCommandResult> {
   try {
-    // Check for explicit version field, default to version 1 if not specified
+    // Check for explicit version field, default to version 2 if not specified
     const data = rawData as { version?: number; [key: string]: unknown };
-    const explicitVersion = data.version ?? 1;
+    const explicitVersion = data.version ?? 2;
 
     if (explicitVersion === 1) {
       const { UserDefinedCommandV1 } = await import('./v1');

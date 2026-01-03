@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { delay } from './delay';
 
 /**
@@ -143,4 +144,149 @@ export async function* prependChunk<T>(
   for await (const chunk of { [Symbol.asyncIterator]: () => iterator }) {
     yield chunk;
   }
+}
+
+const REASONING_START_TAG = '````stw-thinking\n';
+const REASONING_END_TAG = `\n\`\`\`\`\n>[!info] <a class="stw-thinking-process">${i18next.t('common.thinkingProcess')}</a>\n\n`;
+
+interface StreamChunk {
+  type?: string;
+  reasoningText?: string;
+  textDelta?: string;
+  text?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Escapes triple backticks in reasoning content to prevent breaking the stw-thinking code fence.
+ * Inserts zero-width spaces between backticks to break the pattern without changing visual appearance.
+ * @param text The reasoning text that may contain code blocks
+ * @returns The text with triple backticks escaped
+ */
+function escapeTripleBackticks(text: string): string {
+  // Replace ``` with `[ZWS]`[ZWS]` where ZWS is zero-width space (U+200B)
+  // This breaks the triple backtick pattern to prevent markdown parsers from
+  // interpreting it as a fence delimiter, while maintaining visual appearance
+  const ZWS = '\u200B';
+  return text.replace(/```/g, `\`${ZWS}\`${ZWS}\``);
+}
+
+/**
+ * Checks if the chunk type indicates text/reasoning content
+ */
+function isTextOrReasoningChunk(type: string): boolean {
+  return (
+    type === 'reasoning-delta' || type === 'reasoning' || type === 'text-delta' || type === 'text'
+  );
+}
+
+interface TextReasoningStreamResult {
+  /** The stream that yields text and reasoning content */
+  stream: AsyncGenerator<string, void, unknown>;
+  /** Promise that resolves when text/reasoning streaming is complete (before tool calls) */
+  textDone: Promise<void>;
+}
+
+/**
+ * Creates a text/reasoning stream that signals when streaming is complete.
+ * This function resolves the textDone promise as soon as text/reasoning content finishes streaming,
+ * without waiting for tool call chunks to be processed.
+ *
+ * @param fullStream The full stream from streamText that contains various chunk types
+ * @param onToolCall Optional callback that gets called when a tool-call chunk is detected
+ * @returns Object containing the stream and a promise that resolves when text/reasoning is done
+ */
+export function createTextReasoningStream(
+  fullStream: AsyncIterable<unknown>,
+  onToolCall?: (toolName: string) => void
+): TextReasoningStreamResult {
+  let resolveTextDone: () => void;
+  const textDone = new Promise<void>(resolve => {
+    resolveTextDone = resolve;
+  });
+
+  let hasStartedTextOrReasoning = false;
+  let hasSignaledDone = false;
+
+  async function* generator(): AsyncGenerator<string, void, unknown> {
+    let reasoningStarted = false;
+    let reasoningEnded = false;
+
+    for await (const chunk of fullStream) {
+      const chunkWithType = chunk as StreamChunk;
+
+      if (!chunkWithType.type) {
+        continue;
+      }
+
+      const isTextReasoning = isTextOrReasoningChunk(chunkWithType.type);
+
+      // Signal done when we transition from text/reasoning to other chunk types
+      if (hasStartedTextOrReasoning && !isTextReasoning && !hasSignaledDone) {
+        // Close reasoning tag if needed before signaling done
+        if (reasoningStarted && !reasoningEnded) {
+          reasoningEnded = true;
+          yield REASONING_END_TAG;
+        }
+        hasSignaledDone = true;
+        resolveTextDone();
+      }
+
+      // Handle reasoning chunks
+      if (chunkWithType.type === 'reasoning-delta' || chunkWithType.type === 'reasoning') {
+        hasStartedTextOrReasoning = true;
+
+        if (!reasoningStarted) {
+          reasoningStarted = true;
+          yield REASONING_START_TAG;
+        }
+
+        const reasoningText = (chunkWithType.text ||
+          chunkWithType.reasoningText ||
+          chunkWithType.textDelta ||
+          '') as string;
+
+        if (reasoningText && typeof reasoningText === 'string') {
+          yield escapeTripleBackticks(reasoningText);
+        }
+      }
+      // Handle text chunks
+      else if (chunkWithType.type === 'text-delta' || chunkWithType.type === 'text') {
+        hasStartedTextOrReasoning = true;
+
+        if (reasoningStarted && !reasoningEnded) {
+          reasoningEnded = true;
+          yield REASONING_END_TAG;
+        }
+
+        const textContent = (chunkWithType.textDelta || chunkWithType.text || '') as string;
+        if (textContent && typeof textContent === 'string') {
+          yield textContent;
+        }
+      }
+      // Handle tool-call chunks
+      else if (chunkWithType.type === 'tool-call' && onToolCall) {
+        const toolName = chunkWithType.toolName as string | undefined;
+        if (toolName && typeof toolName === 'string') {
+          onToolCall(toolName);
+        }
+      }
+      // Skip other chunk types
+    }
+
+    // If reasoning started but never ended, close it
+    if (reasoningStarted && !reasoningEnded) {
+      yield REASONING_END_TAG;
+    }
+
+    // Ensure textDone is resolved when stream ends (even if no tool calls followed)
+    if (!hasSignaledDone) {
+      resolveTextDone();
+    }
+  }
+
+  return {
+    stream: generator(),
+    textDone,
+  };
 }

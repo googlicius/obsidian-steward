@@ -30,6 +30,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       stewardFolder: 'Steward',
     },
     registerEvent: jest.fn(),
+    noteContentService: {
+      processWikilinksInContent: jest.fn().mockImplementation(async (content: string) => content),
+    },
   } as unknown as jest.Mocked<StewardPlugin>;
 }
 
@@ -64,6 +67,19 @@ describe('UserDefinedCommandService', () => {
       )
       .mockImplementation(function (this: UserDefinedCommandService) {
         // Simulate successful loading
+        return Promise.resolve();
+      });
+
+    // Mock ensureExampleCommandExists to prevent it from running during tests
+    jest
+      .spyOn(
+        UserDefinedCommandService.prototype as unknown as {
+          ensureExampleCommandExists: () => Promise<void>;
+        },
+        'ensureExampleCommandExists'
+      )
+      .mockImplementation(function (this: UserDefinedCommandService) {
+        // Do nothing during tests
         return Promise.resolve();
       });
 
@@ -238,7 +254,7 @@ describe('UserDefinedCommandService', () => {
   });
 
   describe('expandUserDefinedCommandIntents', () => {
-    it('should expand user-defined commands into their constituent CommandIntents', () => {
+    it('should expand user-defined commands into their constituent CommandIntents', async () => {
       // Arrange
       const mockCommandProcessorService = {
         isBuiltInCommand: jest.fn().mockReturnValue(false),
@@ -272,7 +288,7 @@ describe('UserDefinedCommandService', () => {
       ];
 
       // Execute
-      const result = userDefinedCommandService.expandUserDefinedCommandIntents(
+      const result = await userDefinedCommandService.expandUserDefinedCommandIntents(
         inputIntents,
         'some user input'
       );
@@ -294,7 +310,7 @@ describe('UserDefinedCommandService', () => {
       ]);
     });
 
-    it('should override built-in audio command with custom query and system prompt', () => {
+    it('should override built-in audio command with custom query and system prompt', async () => {
       // Arrange
       const mockCommandProcessorService = {
         isBuiltInCommand: jest.fn().mockImplementation((commandType: string) => {
@@ -334,7 +350,7 @@ describe('UserDefinedCommandService', () => {
       ];
 
       // Execute
-      const result = userDefinedCommandService.expandUserDefinedCommandIntents(
+      const result = await userDefinedCommandService.expandUserDefinedCommandIntents(
         inputIntents,
         'hello world'
       );
@@ -350,7 +366,7 @@ describe('UserDefinedCommandService', () => {
       ]);
     });
 
-    it('should handle model overrides at command and step levels', () => {
+    it('should handle model overrides at command and step levels', async () => {
       // Arrange
       const mockCommandProcessorService = {
         isBuiltInCommand: jest.fn().mockReturnValue(false),
@@ -393,7 +409,7 @@ describe('UserDefinedCommandService', () => {
       ];
 
       // Execute
-      const result = userDefinedCommandService.expandUserDefinedCommandIntents(
+      const result = await userDefinedCommandService.expandUserDefinedCommandIntents(
         inputIntents,
         'test content'
       );

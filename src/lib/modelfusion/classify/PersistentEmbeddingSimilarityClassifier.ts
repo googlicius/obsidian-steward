@@ -1,11 +1,9 @@
-import { embed, embedMany, cosineSimilarity } from 'ai';
-import { EmbeddingModelV1 } from '@ai-sdk/provider';
+import { embed, embedMany, cosineSimilarity, EmbeddingModel } from 'ai';
 import { EmbeddingsDatabase, EmbeddingEntry } from 'src/database/EmbeddingsDatabase';
 import { logger } from 'src/utils/logger';
 import { getQualifiedCandidates } from 'src/utils/getQualifiedCandidates';
 import * as CryptoJS from 'crypto-js';
 import { similarity } from 'src/utils/similarity';
-import { getValidCommandTypes } from 'src/lib/modelfusion/prompts/commands';
 
 export interface ValueCluster {
   name: string;
@@ -16,7 +14,7 @@ export interface Settings {
   staticClusterValues?: ValueCluster[];
   prefixedClusterValue?: ValueCluster[];
   clusters: ValueCluster[];
-  embeddingModel: EmbeddingModelV1<string>;
+  embeddingModel: EmbeddingModel;
   similarityThreshold: number;
   modelName?: string;
   forceRefresh?: boolean;
@@ -66,7 +64,12 @@ export class PersistentEmbeddingSimilarityClassifier {
    * Get model name used for storage
    */
   getModelStorageName(): string {
-    return this.settings.modelName || this.settings.embeddingModel.modelId;
+    if (!this.settings.modelName) {
+      throw new Error(
+        'modelName is required in settings for PersistentEmbeddingSimilarityClassifier'
+      );
+    }
+    return this.settings.modelName;
   }
 
   /**
@@ -165,7 +168,20 @@ export class PersistentEmbeddingSimilarityClassifier {
    * @returns true if all command types in the cluster are valid, false otherwise
    */
   private isValidClusterName(clusterName: string): boolean {
-    const validCommandTypes = new Set(getValidCommandTypes());
+    const validCommandTypes = new Set([
+      'search',
+      'image',
+      'speech',
+      'vault',
+      'read',
+      'edit',
+      'create',
+      'delete',
+      'copy',
+      'move',
+      'rename',
+      'update_frontmatter',
+    ]);
     const commandTypes = clusterName.split(':');
 
     for (const commandType of commandTypes) {
@@ -221,7 +237,7 @@ export class PersistentEmbeddingSimilarityClassifier {
   }
 
   /**
-   * Load embeddings from IndexedDB, detecting which clusters need refresh
+   * Load embeddings of the current embedding model from IndexedDB, detecting which clusters need refresh
    * @returns Object containing loaded embeddings and clusters that need refresh
    */
   private async loadEmbeddingsFromDb(): Promise<{
@@ -365,7 +381,7 @@ export class PersistentEmbeddingSimilarityClassifier {
   }
 
   /**
-   * Get embeddings for all clusters, either from memory, database, or by generating new ones
+   * Get embeddings of the current embedding model for all clusters, either from memory, database, or by generating new ones
    */
   async getEmbeddings(): Promise<EmbeddingCache<string>[]> {
     // Return from memory if already loaded
@@ -498,7 +514,8 @@ export class PersistentEmbeddingSimilarityClassifier {
       // If embedding exists in this cluster and ignoreEmbedding is false, return early
       if (existingEmbedding && !this.settings.ignoreEmbedding) {
         logger.log(
-          `Embedding for value "${value}" under cluster "${clusterName}" of the ${modelName} already exists`
+          `Embedding for value "${value}" under cluster "${clusterName}" of the ${modelName} already exists`,
+          existingEmbedding
         );
         return;
       }
@@ -551,7 +568,7 @@ export class PersistentEmbeddingSimilarityClassifier {
     if (this.settings.staticClusterValues) {
       for (const cluster of this.settings.staticClusterValues) {
         if (cluster.values.includes(value.toLowerCase())) {
-          return this.validateAndHandleCluster(cluster.name);
+          return cluster.name;
         }
       }
     }

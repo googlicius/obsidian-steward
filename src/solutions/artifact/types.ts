@@ -20,7 +20,17 @@ export enum ArtifactType {
   DELETED_FILES = 'deleted_files',
   UPDATE_FRONTMATTER_RESULTS = 'update_frontmatter_results',
   RENAME_RESULTS = 'rename_results',
+  LIST_RESULTS = 'list_results',
+  STW_SELECTED = 'stw_selected',
 }
+
+export const revertAbleArtifactTypes = [
+  ArtifactType.MOVE_RESULTS,
+  ArtifactType.CREATED_NOTES,
+  ArtifactType.DELETED_FILES,
+  ArtifactType.UPDATE_FRONTMATTER_RESULTS,
+  ArtifactType.RENAME_RESULTS,
+];
 
 /**
  * Base interface for all artifacts
@@ -29,6 +39,7 @@ export interface BaseArtifact {
   artifactType: ArtifactType;
   createdAt?: number; // Timestamp when the artifact was created
   id?: string; // ID of the artifact (usually the message ID that created it)
+  deleteReason?: string;
 }
 
 /**
@@ -48,11 +59,12 @@ export interface CreatedNotesArtifact extends BaseArtifact {
 }
 
 /**
- * Read content artifact
+ * Read content artifact interface
  */
 export interface ReadContentArtifact extends BaseArtifact {
   artifactType: ArtifactType.READ_CONTENT;
   readingResult: ContentReadingResult;
+  imagePaths?: string[];
 }
 
 /**
@@ -142,6 +154,30 @@ export interface RenameResultsArtifact extends BaseArtifact {
   renames: Array<[string, string]>; // Array of [originalPath, renamedPath] pairs
 }
 
+/**
+ * List results artifact
+ * Stores the full list of file paths from a list operation
+ */
+export interface ListResultsArtifact extends BaseArtifact {
+  artifactType: ArtifactType.LIST_RESULTS;
+  paths: string[]; // Full list of file paths
+}
+
+/**
+ * STW Selected artifact
+ * Stores selected content blocks from the user's query in the format:
+ * {{stw-selected from:<startLine>,to:<endLine>,selection:<selectionContent>,path:<notePath>}}
+ */
+export interface StwSelectedArtifact extends BaseArtifact {
+  artifactType: ArtifactType.STW_SELECTED;
+  selections: Array<{
+    fromLine: number; // Starting line number (0-based)
+    toLine: number; // Ending line number (0-based)
+    selection: string; // The selected content
+    path: string; // Path to the note file
+  }>;
+}
+
 export type Artifact =
   | SearchResultsArtifact
   | CreatedNotesArtifact
@@ -154,7 +190,9 @@ export type Artifact =
   | DeletedFilesArtifact
   | MoveResultsArtifact
   | UpdateFrontmatterResultsArtifact
-  | RenameResultsArtifact;
+  | RenameResultsArtifact
+  | ListResultsArtifact
+  | StwSelectedArtifact;
 
 export type ArtifactMap = {
   [ArtifactType.SEARCH_RESULTS]: SearchResultsArtifact;
@@ -169,6 +207,8 @@ export type ArtifactMap = {
   [ArtifactType.MOVE_RESULTS]: MoveResultsArtifact;
   [ArtifactType.UPDATE_FRONTMATTER_RESULTS]: UpdateFrontmatterResultsArtifact;
   [ArtifactType.RENAME_RESULTS]: RenameResultsArtifact;
+  [ArtifactType.LIST_RESULTS]: ListResultsArtifact;
+  [ArtifactType.STW_SELECTED]: StwSelectedArtifact;
 };
 
 /**

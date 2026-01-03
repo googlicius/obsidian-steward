@@ -15,6 +15,10 @@ export interface StewardPluginSettings {
     [key: string]: {
       apiKey: string; // Encrypted API key
       baseUrl?: string; // Optional base URL for the provider
+      isCustom?: boolean; // Mark if this is a custom provider
+      compatibility?: string; // Provider compatibility (select from built-in providers)
+      name?: string; // Custom provider name (for custom providers only)
+      systemPrompt?: string; // Optional system prompt for custom providers
     };
   };
   saltKeyId: string; // Store just the key ID, not the actual salt
@@ -44,7 +48,6 @@ export interface StewardPluginSettings {
     temperature: number;
     ollamaBaseUrl?: string; // Deprecated: use providers[provider].baseUrl instead
     maxGenerationTokens?: number; // Maximum number of tokens to generate in response
-    showExtractionExplanation?: boolean; // Show detailed explanation for command extractions
     embeddingModel?: string; // Deprecated: use embedding.model instead
     // Deprecated: use embedding instead
     embedding?: {

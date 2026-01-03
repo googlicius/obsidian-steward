@@ -1,5 +1,5 @@
 import { tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 // LLMs understand of using confirmation tool could be varies:
 // - As very straightforward understanding: If you need to read a note entirely, you need to ask for confirmation.
@@ -23,7 +23,7 @@ export function createAskUserTool(mode: 'confirmation' | 'ask') {
   });
 
   const askUserTool = tool({
-    parameters: askUserSchema,
+    inputSchema: askUserSchema,
   });
 
   return {
