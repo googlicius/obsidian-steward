@@ -8,9 +8,40 @@ import {
   file_path,
   model,
 } from './v1';
+import { WIKI_LINK_PATTERN } from 'src/constants';
 
 // Version 2 only fields
 const system_prompt = z.array(z.string()).optional();
+
+/**
+ * Transform heading-only wikilinks ([[#Heading]]) to include the file path
+ * @param content The content containing wikilinks
+ * @param filePath The file path to use for heading-only wikilinks
+ * @returns The content with transformed wikilinks
+ */
+function transformHeadingOnlyWikilinks(content: string, filePath: string): string {
+  if (!filePath) {
+    return content;
+  }
+
+  // Extract note name from file path (remove extension and get basename)
+  // Handle both "Folder/NoteName.md" and "NoteName.md" formats
+  const pathParts = filePath.split('/');
+  const fileName = pathParts[pathParts.length - 1];
+  const noteName = fileName.replace(/\.md$/, '');
+
+  // Replace [[#Heading]] with [[noteName#Heading]]
+  // Using just the note name (without folder) is standard for Obsidian wikilinks
+  const wikiLinkRegex = new RegExp(WIKI_LINK_PATTERN, 'g');
+  return content.replace(wikiLinkRegex, (match, linkContent) => {
+    // Check if this is a heading-only wikilink (starts with #)
+    if (linkContent.startsWith('#')) {
+      const heading = linkContent.substring(1); // Remove the leading #
+      return `[[${noteName}#${heading}]]`;
+    }
+    return match; // Return unchanged if not a heading-only wikilink
+  });
+}
 
 /**
  * Version 2 Schema - Uses 'steps' field instead of 'commands', no 'hidden' field
@@ -33,13 +64,33 @@ export type UserDefinedCommandV2Data = z.infer<typeof userDefinedCommandV2Schema
  */
 export class UserDefinedCommandV2 implements IVersionedUserDefinedCommand {
   public get normalized(): NormalizedUserDefinedCommand {
+    const filePath = this.data.file_path || '';
+
+    // Transform heading-only wikilinks in root-level system_prompt
+    const transformedSystemPrompt = this.data.system_prompt?.map(prompt =>
+      transformHeadingOnlyWikilinks(prompt, filePath)
+    );
+
+    // Transform heading-only wikilinks in step-level system_prompt
+    const transformedSteps = this.data.steps.map(step => {
+      if (step.system_prompt) {
+        return {
+          ...step,
+          system_prompt: step.system_prompt.map(prompt =>
+            transformHeadingOnlyWikilinks(prompt, filePath)
+          ),
+        };
+      }
+      return step;
+    });
+
     return {
       command_name: this.data.command_name,
       query_required: this.data.query_required,
-      steps: this.data.steps as NormalizedUserDefinedCommand['steps'],
-      file_path: this.data.file_path || '',
+      steps: transformedSteps,
+      file_path: filePath,
       model: this.data.model,
-      system_prompt: this.data.system_prompt,
+      system_prompt: transformedSystemPrompt,
       triggers: this.data.triggers,
     };
   }

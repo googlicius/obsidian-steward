@@ -70,6 +70,19 @@ describe('UserDefinedCommandService', () => {
         return Promise.resolve();
       });
 
+    // Mock ensureExampleCommandExists to prevent it from running during tests
+    jest
+      .spyOn(
+        UserDefinedCommandService.prototype as unknown as {
+          ensureExampleCommandExists: () => Promise<void>;
+        },
+        'ensureExampleCommandExists'
+      )
+      .mockImplementation(function (this: UserDefinedCommandService) {
+        // Do nothing during tests
+        return Promise.resolve();
+      });
+
     userDefinedCommandService = UserDefinedCommandService.getInstance(mockPlugin);
   });
 
