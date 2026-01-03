@@ -1,7 +1,7 @@
 import { getLanguage, normalizePath, Notice, TFile, parseYaml } from 'obsidian';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
-import { COMMAND_PREFIXES } from 'src/constants';
+import { COMMAND_PREFIXES, UDC_EXAMPLE_COMMANDS } from 'src/constants';
 import { StewardChatView } from 'src/views/StewardChatView';
 import i18next from 'i18next';
 import { IVersionedUserDefinedCommand, TriggerCondition } from './versions/types';
@@ -73,6 +73,9 @@ export class UserDefinedCommandService {
 
         // Load all command definitions
         await this.loadAllCommands();
+
+        // Auto-create example UDC if folder is empty
+        await this.ensureExampleCommandExists();
       });
 
       this.plugin.registerEvent(
@@ -122,6 +125,42 @@ export class UserDefinedCommandService {
     }
 
     logger.log(`Loaded ${this.userDefinedCommands.size} user-defined commands`);
+  }
+
+  /**
+   * Check if the Commands folder is empty (no markdown files) and create example command if needed
+   */
+  private async ensureExampleCommandExists(): Promise<void> {
+    const folder = this.plugin.app.vault.getFolderByPath(this.commandFolder);
+
+    if (!folder) {
+      return;
+    }
+
+    // Check if folder has any markdown files
+    const hasMarkdownFiles = folder.children.some(
+      file => file instanceof TFile && file.extension === 'md'
+    );
+
+    if (hasMarkdownFiles) {
+      return; // Folder is not empty, no need to create example
+    }
+
+    try {
+      for (const command of UDC_EXAMPLE_COMMANDS) {
+        const commandPath = `${this.commandFolder}/${command.name}.md`;
+        await this.plugin.app.vault.create(commandPath, command.definition);
+        logger.log(`Created example UDC: ${command.name}.md`);
+
+        // Load the newly created command
+        const createdFile = this.plugin.app.vault.getFileByPath(commandPath);
+        if (createdFile) {
+          await this.loadCommandFromFile(createdFile);
+        }
+      }
+    } catch (error) {
+      logger.error('Error creating example UDC:', error);
+    }
   }
 
   /**

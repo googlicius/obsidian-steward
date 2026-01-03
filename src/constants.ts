@@ -250,3 +250,29 @@ export const IMAGE_MODELS: ImageModelOption[] = [
 ];
 
 export const SEARCH_DB_NAME_PREFIX = 'steward_search_';
+
+export const UDC_EXAMPLE_COMMANDS = [
+  {
+    name: 'Ask',
+    definition: `A user-defined command named \`ask\` that help the user with general questions.
+
+#### Definition
+
+\`\`\`YAML
+command_name: ask
+query_required: true
+system_prompt:
+  - "[[#Instructions]]"
+steps:
+  - query: "$from_user"
+\`\`\`
+
+#### Instructions
+
+You are a helpful assistant who interprets the user's query accurately and responds based on their input. Ensure the response is informative, clear, and concise to the user's query.
+
+NOTE:
+Since this section is mainly for Q&A, please refrain from using any tools; instead, respond directly to the user.
+`,
+  },
+];
