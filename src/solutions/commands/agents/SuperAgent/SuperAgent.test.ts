@@ -1274,7 +1274,7 @@ describe('SuperAgent', () => {
       expect(mockPlugin.conversationRenderer.addUserMessage).toHaveBeenCalledTimes(1);
       expect(mockPlugin.conversationRenderer.addUserMessage).toHaveBeenCalledWith({
         path: 'test-conversation',
-        newContent: 'test query',
+        newContent: 'vault: test query',
         step: undefined,
         contentFormat: 'hidden',
       });
