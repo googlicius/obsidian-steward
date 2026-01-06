@@ -12,12 +12,7 @@ export function createArtifactIdSchema(params: { description: string }) {
  * Creates a files schema field for vault operations with string paths.
  */
 export function createFilesSchemaString(params: { description: string }) {
-  return z
-    .array(z.string().min(1))
-    .optional()
-    .refine(array => !array || array.length > 0, {
-      message: 'files array must include at least one entry when provided.',
-    }).describe(`${params.description}
+  return z.array(z.string()).optional().describe(`${params.description}
 DO NOT use this for a paginated list, where the files number is smaller than the total count.`);
 }
 

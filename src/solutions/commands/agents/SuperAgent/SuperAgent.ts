@@ -593,9 +593,13 @@ NOTE:
 
     // Add user message to conversation note for the first iteration
     if (!params.invocationCount) {
+      let newContent = intent.query;
+      if (intent.type.trim().length > 0) {
+        newContent = `${intent.type}: ${newContent}`;
+      }
       await this.renderer.addUserMessage({
         path: title,
-        newContent: intent.query,
+        newContent,
         step: params.invocationCount,
         contentFormat: 'hidden',
       });
@@ -1042,11 +1046,8 @@ When you complete or skip the current step, use the ${ToolName.TODO_LIST_UPDATE}
     query: string,
     upstreamOptions?: AgentHandlerParams['upstreamOptions']
   ): Promise<string[]> {
-    // Check if classification should be ignored
-    const ignoreClassify =
-      upstreamOptions?.ignoreClassify ?? !this.plugin.settings.embedding.enabled;
-
-    if (ignoreClassify) {
+    // Check if classification should be ignored (only when explicitly set, not when embedding is disabled)
+    if (upstreamOptions?.ignoreClassify) {
       return [];
     }
 
