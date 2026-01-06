@@ -1,0 +1,13 @@
+diff --git a/node_modules/ai/dist/index.mjs b/node_modules/ai/dist/index.mjs
+index f3e132c..70d3089 100644
+--- a/node_modules/ai/dist/index.mjs
++++ b/node_modules/ai/dist/index.mjs
+@@ -424,7 +424,7 @@ function formatWarning({
+ var FIRST_WARNING_INFO_MESSAGE = "AI SDK Warning System: To turn off warning logging, set the AI_SDK_LOG_WARNINGS global to false.";
+ var hasLoggedBefore = false;
+ var logWarnings = (options) => {
+-  if (options.warnings.length === 0) {
++  if (!options || !options.warnings || options.warnings.length === 0) {
+     return;
+   }
+   const logger = globalThis.AI_SDK_LOG_WARNINGS;

@@ -11,7 +11,10 @@ export function getClassifier(
   const { provider, modelId } = llmService.getProviderFromModel(embeddingSettings.model);
 
   // If embedding is disabled or provider doesn't support embeddings, use offline mode (static clusters only)
-  if (!embeddingSettings.enabled || !('embeddingModel' in provider)) {
+  if (
+    !embeddingSettings.enabled ||
+    (!('embeddingModel' in provider) && !provider.textEmbeddingModel)
+  ) {
     if (!embeddingSettings.enabled) {
       logger.log('Embedding is disabled. Using static clusters only.');
     } else {
@@ -27,7 +30,10 @@ export function getClassifier(
     });
   }
 
-  const embeddingModel = provider.embeddingModel(modelId);
+  const embeddingModel =
+    'embeddingModel' in provider
+      ? provider.embeddingModel(modelId)
+      : provider.textEmbeddingModel(modelId);
 
   return intentClassifier.withSettings({
     embeddingModel,

@@ -576,7 +576,7 @@ NOTE:
       classifiedTasks.push(intent.type);
     }
 
-    if (!classifiedTasks.length) {
+    if (!classifiedTasks.length && activeTools.length > 0) {
       classifiedTasks = this.classifyTasksFromActiveTools(activeTools);
     }
 
