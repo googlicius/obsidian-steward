@@ -1,5 +1,5 @@
 diff --git a/node_modules/ai/dist/index.mjs b/node_modules/ai/dist/index.mjs
-index f3e132c..70d3089 100644
+index f3e132c..832c55c 100644
 --- a/node_modules/ai/dist/index.mjs
 +++ b/node_modules/ai/dist/index.mjs
 @@ -424,7 +424,7 @@ function formatWarning({
@@ -11,3 +11,14 @@ index f3e132c..70d3089 100644
      return;
    }
    const logger = globalThis.AI_SDK_LOG_WARNINGS;
+@@ -8287,7 +8287,9 @@ async function embedMany({
+         );
+         for (const result of results) {
+           embeddings.push(...result.embeddings);
+-          warnings.push(...result.warnings);
++          if (result.warnings) {
++            warnings.push(...result.warnings);
++          }
+           responses.push(result.response);
+           tokens += result.usage.tokens;
+           if (result.providerMetadata) {
