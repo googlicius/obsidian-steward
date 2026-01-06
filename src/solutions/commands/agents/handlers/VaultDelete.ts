@@ -14,19 +14,24 @@ import {
 } from './vaultOperationSchemas';
 
 export const deleteToolSchema = z
-  .object({
-    artifactId: createArtifactIdSchema({
-      description: 'The artifact identifier containing files to delete.',
-    }),
-    files: createFilesSchemaString({
-      description: 'The list of files that must be deleted.',
-    }),
-    filePatterns: createFilePatternsSchema({
-      description:
-        'Pattern-based file selection for large file sets. Prefer this over the files array to avoid token limits.',
-      patternsDescription: 'Array of RegExp patterns to match files for deletion.',
-    }),
-  })
+  .object(
+    {
+      artifactId: createArtifactIdSchema({
+        description: 'The artifact identifier containing files to delete.',
+      }),
+      files: createFilesSchemaString({
+        description: 'The list of files that must be deleted.',
+      }),
+      filePatterns: createFilePatternsSchema({
+        description:
+          'Pattern-based file selection for large file sets. Prefer this over the files array to avoid token limits.',
+        patternsDescription: 'Array of RegExp patterns to match files for deletion.',
+      }),
+    },
+    {
+      description: 'Provide exactly ONE of artifactId, files, or filePatterns.',
+    }
+  )
   .refine(
     data => {
       const hasArtifactId = Boolean(data.artifactId);
@@ -38,7 +43,7 @@ export const deleteToolSchema = z
       return providedCount === 1;
     },
     {
-      message: 'Provide exactly one of artifactId, files, or filePatterns.',
+      message: 'You can only provide either artifactId, files, or filePatterns.',
     }
   );
 

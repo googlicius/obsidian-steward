@@ -170,6 +170,7 @@ export class PersistentEmbeddingSimilarityClassifier {
   private isValidClusterName(clusterName: string): boolean {
     const validCommandTypes = new Set([
       'search',
+      'more',
       'image',
       'speech',
       'vault',

@@ -9,7 +9,7 @@ describe('deleteToolSchema', () => {
       expect(result.error.errors).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            message: 'Provide exactly one of artifactId, files, or filePatterns.',
+            message: 'You can only provide either artifactId, files, or filePatterns.',
           }),
         ])
       );
@@ -28,7 +28,7 @@ describe('deleteToolSchema', () => {
       expect(result.error.errors).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            message: 'Provide exactly one of artifactId, files, or filePatterns.',
+            message: 'You can only provide either artifactId, files, or filePatterns.',
           }),
         ])
       );
@@ -108,7 +108,7 @@ describe('deleteToolSchema', () => {
         expect(result.error.errors).toEqual(
           expect.arrayContaining([
             expect.objectContaining({
-              message: 'Provide exactly one of artifactId, files, or filePatterns.',
+              message: 'You can only provide either artifactId, files, or filePatterns.',
             }),
           ])
         );
