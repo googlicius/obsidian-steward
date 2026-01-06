@@ -42,28 +42,55 @@ export class MediaTools {
    */
   async findFileByNameOrPath(nameOrPath: string): Promise<TFile | null> {
     // Strategy 1: Try direct path lookup
-    let file = this.app.vault.getFileByPath(nameOrPath);
+    const file = this.app.vault.getFileByPath(nameOrPath);
     if (file) {
       return file;
     }
 
-    // Strategy 3: Use the search service to find the document by name
+    // Extract filename from path if provided
     const filename = nameOrPath.includes('/')
       ? nameOrPath.split('/').pop() || nameOrPath
       : nameOrPath;
 
-    try {
-      const searchService = SearchService.getInstance();
+    const searchService = SearchService.getInstance();
+    const isIndexBuilt = await searchService.documentStore.isIndexBuilt();
+
+    if (isIndexBuilt) {
+      // Strategy 2: Use the search service to find the document by name
       const result = await searchService.getFileByName(filename);
 
       if (result && result.document.path) {
-        const file = this.app.vault.getFileByPath(result.document.path);
-        if (file) {
-          return file;
+        const foundFile = this.app.vault.getFileByPath(result.document.path);
+        if (foundFile) {
+          return foundFile;
         }
       }
-    } catch (e) {
-      logger.error('Error using searchService in findFileByNameOrPath:', e);
+    } else {
+      // Strategy 3: Scan all files when index is not built
+      const allFiles = this.app.vault.getFiles();
+      const lowerFilename = filename.toLowerCase();
+
+      // Check if filename has an extension
+      const lastDotIndex = filename.lastIndexOf('.');
+      const hasExtension = lastDotIndex > 0 && lastDotIndex < filename.length - 1;
+      const filenameWithoutExt = hasExtension
+        ? filename.substring(0, lastDotIndex).toLowerCase()
+        : lowerFilename;
+
+      // First, try exact match (case-insensitive)
+      for (const vaultFile of allFiles) {
+        if (hasExtension) {
+          // If search term has extension, compare with extension
+          if (vaultFile.name.toLowerCase() === lowerFilename) {
+            return vaultFile;
+          }
+        } else {
+          // If search term has no extension, compare without extension using basename
+          if (vaultFile.basename.toLowerCase() === filenameWithoutExt) {
+            return vaultFile;
+          }
+        }
+      }
     }
 
     return null;

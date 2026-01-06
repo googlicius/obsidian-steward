@@ -223,8 +223,8 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description: 'Request additional tools to be activated for the current session.',
     guidelines: [
       `Use ${ToolName.ACTIVATE} when you need another tool that is currently inactive to complete the task. It will return the schemas and guidelines of the requested tools.`,
-      `Inactive tools are listed under 'OTHER TOOLS' section.`,
-      `Try to activate all tools at once early that are needed to fulfill the user's query.`,
+      `Activate ONLY tools that are needed for the current task.`,
+      `If you need multiple tools, activate them at once (in the same request) that are needed to fulfill the user's query.`,
     ],
     category: 'tool-management',
   },
