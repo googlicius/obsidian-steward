@@ -2,6 +2,7 @@ import { tool } from 'ai';
 import { z } from 'zod/v3';
 import { ToolName } from '../ToolRegistry';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
+import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 const activateToolsSchema = z.object({
   tools: z
@@ -16,6 +17,11 @@ const activateToolsSchema = z.object({
     .describe(
       'List of tool names that should be deactivated. Use this to simplify the guidelines and tool schemas when tools are no longer needed.'
     ),
+  lang: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(userLanguagePrompt.content as string),
 });
 
 export type ActivateToolsArgs = z.infer<typeof activateToolsSchema>;

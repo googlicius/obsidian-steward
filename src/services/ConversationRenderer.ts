@@ -8,6 +8,7 @@ import {
   SELECTED_MODEL_PATTERN,
   STW_SELECTED_PATTERN,
   STW_SELECTED_METADATA_PATTERN,
+  CONFIRMATION_BUTTONS_PATTERN,
 } from 'src/constants';
 import { prependChunk } from 'src/utils/textStreamer';
 import { ModelMessage, TextPart, FilePart, ImagePart, ReasoningOutput } from 'ai';
@@ -243,7 +244,7 @@ export class ConversationRenderer {
     text?: string;
     handlerId?: string;
     step?: number;
-    toolInvocations: ToolResultPart[];
+    toolInvocations: (ToolCallPart | ToolResultPart)[];
   }): Promise<string | undefined> {
     try {
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
@@ -1955,5 +1956,41 @@ export class ConversationRenderer {
     const pathParts = path.split('/');
     const fileName = pathParts[pathParts.length - 1];
     return fileName.replace('.md', '');
+  }
+
+  /**
+   * Render a confirmation buttons marker in the conversation note
+   */
+  public async showConfirmationButtons(conversationTitle: string): Promise<void> {
+    // Get the conversation file
+    const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+    const notePath = `${folderPath}/${conversationTitle}.md`;
+    const file = this.plugin.app.vault.getFileByPath(notePath);
+
+    if (!file) {
+      throw new Error(`Note not found: ${notePath}`);
+    }
+
+    await this.plugin.app.vault.process(file, currentContent => {
+      return `${currentContent}\n\n{{stw-confirmation-buttons ${conversationTitle}}}`;
+    });
+  }
+
+  /**
+   * Remove the confirmation buttons marker from the conversation note
+   */
+  public async removeConfirmationButtons(conversationTitle: string): Promise<void> {
+    // Get the conversation file
+    const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+    const notePath = `${folderPath}/${conversationTitle}.md`;
+    const file = this.plugin.app.vault.getFileByPath(notePath);
+
+    if (!file) {
+      throw new Error(`Note not found: ${notePath}`);
+    }
+
+    await this.plugin.app.vault.process(file, currentContent => {
+      return currentContent.replace(new RegExp(CONFIRMATION_BUTTONS_PATTERN, 'g'), '');
+    });
   }
 }

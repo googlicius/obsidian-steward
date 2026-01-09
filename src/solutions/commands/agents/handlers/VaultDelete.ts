@@ -12,6 +12,7 @@ import {
   createFilesSchemaString,
   createFilePatternsSchema,
 } from './vaultOperationSchemas';
+import { OperationError } from 'src/tools/obsidianAPITools';
 
 export const deleteToolSchema = z
   .object(
@@ -52,7 +53,7 @@ export type DeleteToolArgs = z.infer<typeof deleteToolSchema>;
 type DeleteExecutionResult = {
   deletedFiles: (TrashFile | NonTrashFile)[];
   trashFiles: TrashFile[];
-  failedFiles: string[];
+  failedFiles: OperationError[];
   operationArtifactId?: string;
 };
 
@@ -105,6 +106,7 @@ export class VaultDelete {
       title: params.title,
       filePaths,
       operationArtifactId,
+      lang: params.lang,
     });
 
     let response = t('delete.foundFiles', { count: filePaths.length });
@@ -123,7 +125,10 @@ export class VaultDelete {
       response += `\n\n**${t('delete.failed', { count: deleteResult.failedFiles.length })}**`;
 
       for (const failedPath of deleteResult.failedFiles) {
-        response += `\n- [[${failedPath}]]`;
+        response += `\n- [[${failedPath.path}]]`;
+        if (failedPath.message) {
+          response += `: ${failedPath.message}`;
+        }
       }
     }
 
@@ -231,16 +236,29 @@ export class VaultDelete {
     title: string;
     filePaths: string[];
     operationArtifactId: string;
+    lang?: string | null;
   }): Promise<DeleteExecutionResult> {
+    const t = getTranslation(params.lang);
     const isStwTrash = this.agent.plugin.settings.deleteBehavior.behavior === 'stw_trash';
     const deletedFiles: (TrashFile | NonTrashFile)[] = [];
-    const failedFiles: string[] = [];
+    const failedFiles: OperationError[] = [];
     const trashFiles: TrashFile[] = [];
 
+    const currentConversationPath = this.getCurrentConversationPath(params.title);
+
     for (const filePath of params.filePaths) {
+      // Safety check: skip current conversation note to avoid corrupting ongoing conversation
+      if (this.isCurrentConversationNote(filePath, currentConversationPath)) {
+        failedFiles.push({
+          path: filePath,
+          message: t('delete.cannotDeleteCurrentConversationNote'),
+        });
+        continue;
+      }
+
       const result = await this.trashFile({ filePath });
       if (!result.success) {
-        failedFiles.push(result.originalPath);
+        failedFiles.push({ path: result.originalPath, message: '' });
         continue;
       }
 
@@ -328,5 +346,36 @@ export class VaultDelete {
       logger.error(`Error moving file ${filePath} to Steward trash:`, error);
       return { success: false, originalPath: filePath };
     }
+  }
+
+  /**
+   * Get the full path of the current conversation note
+   */
+  private getCurrentConversationPath(title: string): string {
+    return `${this.agent.plugin.settings.stewardFolder}/Conversations/${title}.md`;
+  }
+
+  /**
+   * Check if a file path matches the current conversation note
+   * Handles both with and without .md extension, and normalized paths
+   */
+  private isCurrentConversationNote(filePath: string, currentConversationPath: string): boolean {
+    // Normalize paths for comparison (handle different path separators and extensions)
+    const normalizedFilePath = filePath.replace(/\\/g, '/');
+    const normalizedConversationPath = currentConversationPath.replace(/\\/g, '/');
+
+    // Check exact match
+    if (normalizedFilePath === normalizedConversationPath) {
+      return true;
+    }
+
+    // Check without .md extension (in case filePath doesn't include it)
+    const conversationPathWithoutExt = normalizedConversationPath.replace(/\.md$/, '');
+    const filePathWithoutExt = normalizedFilePath.replace(/\.md$/, '');
+    if (filePathWithoutExt === conversationPathWithoutExt) {
+      return true;
+    }
+
+    return false;
   }
 }

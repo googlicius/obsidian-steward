@@ -146,6 +146,7 @@ const vi = {
       applyChangesConfirm: 'Bạn có muốn áp dụng các thay đổi này không?',
       noChangesNeeded:
         'Nội dung gốc và nội dung đã cập nhật giống hệt nhau. Không cần thay đổi gì.',
+      changesDenied: 'Người dùng đã từ chối các thay đổi.',
     },
     // Delete result messages
     delete: {
@@ -154,6 +155,7 @@ const vi = {
       failed: 'Không thể xóa {{count}} tập tin:',
       multiDeleteHeader: 'Tôi đã thực hiện {{count}} thao tác xóa:',
       operation: 'Thao tác {{num}}: Xóa các tập tin với {{query}}',
+      cannotDeleteCurrentConversationNote: 'Không thể xóa ghi chú trò chuyện hiện tại',
     },
     revert: {
       foundFiles: 'Tôi đã tìm thấy {{count}} mục để hoàn tác.',
@@ -216,6 +218,8 @@ const vi = {
     },
     // UI elements
     ui: {
+      yes: 'Có',
+      no: 'Không',
       openStewardChat: 'Mở trò chuyện Steward',
       buildingSearchIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
       errorBuildingSearchIndex:

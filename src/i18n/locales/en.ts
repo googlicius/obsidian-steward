@@ -201,6 +201,7 @@ const en = {
       applyChangesConfirm: 'Would you like me to apply the changes?',
       noChangesNeeded: 'The original and updated content are identical. No changes were needed.',
       contentUpdatedSuccessfully: 'Content updated successfully.',
+      changesDenied: 'Changes denied by user.',
     },
     // Delete result messages
     delete: {
@@ -215,6 +216,7 @@ const en = {
       operation: 'Operation {{num}}: Deleting files with {{query}}',
       confirmHeader: 'I found the following files to delete:',
       confirmQuestion: 'Are you sure you want to delete these files? This action cannot be undone.',
+      cannotDeleteCurrentConversationNote: 'Cannot delete the current conversation note',
     },
     // Revert result messages
     revert: {
@@ -282,6 +284,8 @@ const en = {
     },
     // UI elements
     ui: {
+      yes: 'Yes',
+      no: 'No',
       openStewardChat: 'Open Steward chat',
       buildingSearchIndex: 'Building search index...',
       errorBuildingSearchIndex: 'Error building search index. Check console for details.',

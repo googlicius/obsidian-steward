@@ -144,9 +144,9 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     name: ToolName.EDIT,
     description: 'Update content by replacing old content with new content.',
     guidelines: [
-      `Use the ${ToolName.EDIT} tool if you need to update existing content.`,
-      'When updating content, return ONLY the specific changed content, not the entire surrounding context.',
-      `Use ${ToolName.EDIT} to make the actual content changes. (NOTE: You cannot use this tool if a note does not exist.)`,
+      `Use the ${ToolName.EDIT} tool if you need to update existing content.
+  - When updating content, return ONLY the specific changed content, not the entire surrounding context.
+  - Use ${ToolName.EDIT} to make the actual content changes. (NOTE: You cannot use this tool if a note does not exist.)`,
     ],
     category: 'content-edit',
   },
@@ -155,9 +155,9 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     name: ToolName.CREATE,
     description: 'Create new notes and optionally populate them with content.',
     guidelines: [
-      `Use ${ToolName.CREATE} to create every note requested by the user.`,
-      `Provide the exact Markdown content that should be written to the note when available.`,
-      `Ensure each note path includes the .md extension and points to the correct folder.`,
+      `Use ${ToolName.CREATE} to create every note requested by the user.
+  - Provide the exact Markdown content that should be written to the note when available.
+  - Ensure each note path includes the .md extension and points to the correct folder.`,
     ],
     category: 'content-create',
   },
@@ -166,8 +166,8 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     name: ToolName.DELETE,
     description: 'Delete files from the vault using the configured trash behavior.',
     guidelines: [
-      `Use the ${ToolName.DELETE} tool to remove files or notes from the vault.`,
-      `List every file using the list tool (not grep tool) you plan to delete and ensure the paths are accurate.`,
+      `Use the ${ToolName.DELETE} tool to remove files or notes from the vault.
+  - List every file using the list tool (not grep tool) you plan to delete and ensure the paths are accurate.`,
     ],
     category: 'vault-access',
   },
@@ -176,9 +176,9 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     name: ToolName.COPY,
     description: 'Copy files to another folder.',
     guidelines: [
-      `Use ${ToolName.COPY} to duplicate files into another folder.`,
-      `Always provide the destination folder path for the copy operation.`,
-      `Specify the files or artifactId for the copy operation.`,
+      `Use ${ToolName.COPY} to duplicate files into another folder.
+  - Always provide the destination folder path for the copy operation.
+  - Specify the files or artifactId for the copy operation.`,
     ],
     category: 'vault-access',
   },
@@ -197,9 +197,9 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     name: ToolName.MOVE,
     description: 'Move files to another folder.',
     guidelines: [
-      `Use ${ToolName.MOVE} to relocate files to another folder.`,
-      `Always provide the destination folder path for the move operation.`,
-      `Specify the files or artifactId for the move operation.`,
+      `Use ${ToolName.MOVE} to relocate files to another folder.,
+  - Always provide the destination folder path for the move operation.,
+  - Specify the files or artifactId for the move operation.`,
     ],
     category: 'vault-access',
   },
@@ -222,9 +222,9 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     name: ToolName.ACTIVATE,
     description: 'Request additional tools to be activated for the current session.',
     guidelines: [
-      `Use ${ToolName.ACTIVATE} when you need another tool that is currently inactive to complete the task. It will return the schemas and guidelines of the requested tools.`,
-      `Activate ONLY tools that are needed for the current task.`,
-      `If you need multiple tools, activate them at once (in the same request) that are needed to fulfill the user's query.`,
+      `Use ${ToolName.ACTIVATE} when you need other tools currently inactive to complete the task. It will return the schemas and guidelines of the requested tools.
+  - Activate ONLY tools that are needed for the current task.
+  - If you need multiple tools, activate them at once (in the same request) that are needed to fulfill the user's query.`,
     ],
     category: 'tool-management',
   },
@@ -284,8 +284,8 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     name: ToolName.GET_ARTIFACT_BY_ID,
     description: 'Get a specific artifact by its ID from the conversation.',
     guidelines: [
-      `Use ${ToolName.GET_ARTIFACT_BY_ID} to retrieve a specific artifact when you know its ID.`,
-      `This is useful when you have an artifact ID from previous operations or user input.`,
+      `Use ${ToolName.GET_ARTIFACT_BY_ID} to retrieve a specific artifact when you know its ID.
+  - This is useful when you have an artifact ID from previous operations or user input.`,
     ],
     category: 'artifact-access',
   },
@@ -314,9 +314,9 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description:
       'Create a to-do list for complex tasks. Each step includes a task that will be executed sequentially.',
     guidelines: [
-      `Use ${ToolName.TODO_LIST} to break down complex tasks into manageable steps.`,
-      `When creating a to-do list, provide an array of steps, each with a task. The task is the only required field for each step.`,
-      `After creating a to-do list, you should execute the first step's task.`,
+      `Use ${ToolName.TODO_LIST} to break down complex tasks into manageable steps.
+  - When creating a to-do list, provide an array of steps, each with a task. The task is the only required field for each step.
+  - After creating a to-do list, you should execute the first step's task.`,
     ],
     category: 'task-management',
   },
@@ -325,8 +325,8 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     name: ToolName.TODO_LIST_UPDATE,
     description: 'Update the current step index of an existing to-do list.',
     guidelines: [
-      `Use ${ToolName.TODO_LIST_UPDATE} to update the current step index when moving to the next step in a to-do list.`,
-      `When moving to the next step, you SHOULD call ${ToolName.TODO_LIST_UPDATE} tool in parallel (in the same request) with the tool that performs the next task.`,
+      `Use ${ToolName.TODO_LIST_UPDATE} to update the current step index when moving to the next step in a to-do list.
+  - When moving to the next step, you SHOULD call ${ToolName.TODO_LIST_UPDATE} tool in parallel (in the same request) with the tool that performs the next task.`,
     ],
     category: 'task-management',
   },

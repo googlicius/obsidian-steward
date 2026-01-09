@@ -38,6 +38,12 @@ export const STW_SELECTED_PLACEHOLDER = '<stwSelected>';
 export const STW_SQUEEZED_PATTERN = '\\{\\{stw-squeezed \\[\\[([^\\]]+)\\]\\] \\}\\}';
 
 /**
+ * Pattern to match {{stw-confirmation-buttons <title>}} marker
+ * Captures the conversation title in group 1
+ */
+export const CONFIRMATION_BUTTONS_PATTERN = '\\{\\{stw-confirmation-buttons ([^}]+)\\}\\}';
+
+/**
  * Pattern to match any wikilink
  */
 export const WIKI_LINK_PATTERN = '\\[\\[([^\\]]+)\\]\\]';

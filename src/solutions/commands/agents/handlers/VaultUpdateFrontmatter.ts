@@ -11,7 +11,6 @@ import {
   createArtifactIdSchema,
   createFilesSchemaString,
   createFilePatternsSchema,
-  createExplanationSchema,
 } from './vaultOperationSchemas';
 
 const frontmatterPropertySchema = z

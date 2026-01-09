@@ -387,3 +387,8 @@ code[class*='language-stw-hidden-from-user'] {
     }
   }
 }
+
+.stw-confirmation-buttons {
+  display: flex;
+  gap: var(--size-2-2);
+}

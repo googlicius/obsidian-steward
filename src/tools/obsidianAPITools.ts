@@ -397,7 +397,7 @@ export class ObsidianAPITools {
    * Get all files from a folder recursively.
    * Similar to VaultList's approach but collects files recursively.
    */
-  private getFilesFromFolder(folder: TFolder): TFile[] {
+  public getFilesFromFolder(folder: TFolder): TFile[] {
     const files: TFile[] = [];
 
     for (const child of folder.children) {
