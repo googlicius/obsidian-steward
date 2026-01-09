@@ -146,6 +146,7 @@ const ja = {
       skipped: '{{count}}件のファイルをスキップしました：',
       applyChangesConfirm: '変更を適用しますか？',
       noChangesNeeded: '元の内容と更新された内容は同一です。変更は必要ありませんでした。',
+      changesDenied: 'ユーザーによって変更が拒否されました。',
     },
     // Delete result messages
     delete: {
@@ -156,6 +157,7 @@ const ja = {
       operation: '操作{{num}}: {{query}}を含むファイルを削除',
       confirmHeader: '以下のファイルを削除します：',
       confirmQuestion: 'これらのファイルを削除してもよろしいですか？この操作は取り消せません。',
+      cannotDeleteCurrentConversationNote: '現在の会話ノートは削除できません',
     },
     // Revert result messages
     revert: {

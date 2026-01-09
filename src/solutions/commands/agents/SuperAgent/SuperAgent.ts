@@ -17,6 +17,7 @@ import * as handlers from '../handlers';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 import { createTextReasoningStream } from 'src/utils/textStreamer';
+import { SysError } from 'src/utils/errors';
 
 /**
  * Map of task names to their associated tool names.
@@ -429,6 +430,9 @@ export class SuperAgent extends Agent {
         messages.unshift({ role: 'system', content: additionalSystemPrompts.join('\n\n') });
       }
 
+      // Track the tool detected from the stream
+      let detectedTool: ToolName | undefined;
+
       const { toolCalls: toolCallsPromise, fullStream } = streamText({
         model: llmConfig.model,
         temperature: llmConfig.temperature,
@@ -490,21 +494,20 @@ NOTE:
           // We need to reject immediately with the proper AbortError.
           rejectStreamError(new DOMException('Request aborted', 'AbortError'));
         },
+        onChunk: async ({ chunk }) => {
+          if (chunk.type === 'tool-call') {
+            detectedTool = chunk.toolName as ToolName;
+          }
+        },
+        onFinish: ({ finishReason }) => {
+          if (finishReason === 'length') {
+            rejectStreamError(new SysError('Stream finished due to length limit'));
+          }
+        },
       });
 
-      // Track the first tool detected from the stream
-      let firstDetectedTool: ToolName | undefined;
-
       // Create text/reasoning stream with early completion signal and tool detection
-      const { stream: textReasoningStream, textDone } = createTextReasoningStream(
-        fullStream,
-        (toolName: string) => {
-          // Update indicator when a tool is detected
-          if (!firstDetectedTool) {
-            firstDetectedTool = toolName as ToolName;
-          }
-        }
-      );
+      const { stream: textReasoningStream, textDone } = createTextReasoningStream(fullStream);
 
       // Stream the text directly to the conversation note (runs in background)
       const streamPromise = this.renderer.streamConversationNote({
@@ -520,7 +523,7 @@ NOTE:
       // Render indicator after sometime when still waiting for toolCalls
       // Use detected tool if available
       timer = window.setTimeout(() => {
-        this.renderIndicator(params.title, params.lang, firstDetectedTool);
+        this.renderIndicator(params.title, params.lang, detectedTool);
       }, 1000);
 
       // Wait for tool calls and extract the result
@@ -560,7 +563,6 @@ NOTE:
     const remainingSteps =
       typeof options.remainingSteps !== 'undefined' ? options.remainingSteps : MAX_STEP_COUNT;
 
-    // Load activeTools from frontmatter if not provided in params
     const activeTools = await this.loadActiveTools(title, params.activeTools);
 
     const t = getTranslation(lang);
@@ -583,23 +585,32 @@ NOTE:
     // Default-activate tools based on classified tasks
     const defaultActivateTools = this.getDefaultActivateTools(classifiedTasks);
     if (defaultActivateTools.length > 0) {
+      // Track initial length to detect changes
+      const initialLength = activeTools.length;
+
       // Add defaultActivateTools to activeTools if not already present
       for (const tool of defaultActivateTools) {
         if (!activeTools.includes(tool)) {
           activeTools.push(tool);
         }
       }
+
+      // Save activeTools to frontmatter if changes were made
+      if (activeTools.length > initialLength) {
+        await this.renderer.updateConversationFrontmatter(title, [
+          {
+            name: 'tools',
+            value: activeTools,
+          },
+        ]);
+      }
     }
 
     // Add user message to conversation note for the first iteration
     if (!params.invocationCount) {
-      let newContent = intent.query;
-      if (intent.type.trim().length > 0) {
-        newContent = `${intent.type}: ${newContent}`;
-      }
       await this.renderer.addUserMessage({
         path: title,
-        newContent,
+        newContent: intent.query,
         step: params.invocationCount,
         contentFormat: 'hidden',
       });
@@ -693,6 +704,17 @@ NOTE:
             continue;
           }
 
+          // Update language if provided in the tool call input
+          if ('lang' in toolCall.input) {
+            await this.renderer.updateConversationFrontmatter(title, [
+              {
+                name: 'lang',
+                value: toolCall.input.lang,
+              },
+            ]);
+            params.lang = toolCall.input.lang;
+          }
+
           switch (toolCall.toolName) {
             case ToolName.GET_MOST_RECENT_ARTIFACT: {
               const artifact = await this.plugin.artifactManagerV2
@@ -769,12 +791,8 @@ NOTE:
               const callBack = async (): Promise<AgentResult> => {
                 // Increment invocation count for recursive call
                 params.invocationCount = (params.invocationCount ?? 0) + 1;
-                const nextParams = {
-                  ...params,
-                  activeTools,
-                };
 
-                return this.handle(nextParams, {
+                return this.handle(params, {
                   remainingSteps,
                   toolCalls,
                   currentToolCallIndex: index + 1,
@@ -881,7 +899,7 @@ NOTE:
         call => !call.dynamic && call.toolName === ToolName.TODO_LIST_UPDATE
       );
       const nextStepIntent = wasTodoListUpdateCalled
-        ? await this.getNextUDCStepIntent(title, intent)
+        ? await this.getNextTodoListStepIntent(title, intent)
         : null;
 
       // Continue the current invocation count so the user'query is not included in the next iteration
@@ -911,12 +929,8 @@ NOTE:
           // Reset nextRemainingSteps to MAX_STEP_COUNT and continue processing
           // Continue the current invocation count so the user'query is not included in the next iteration
           params.invocationCount = (params.invocationCount ?? 0) + 1;
-          const nextParams = {
-            ...params,
-            activeTools,
-          };
 
-          return this.handle(nextParams, {
+          return this.handle(params, {
             remainingSteps: MAX_STEP_COUNT,
           });
         },
@@ -1137,11 +1151,14 @@ When you complete or skip the current step, use the ${ToolName.TODO_LIST_UPDATE}
   }
 
   /**
-   * Get the next step intent for UDC if TODO_LIST_UPDATE was called
+   * Get the next step intent for TodoList if TODO_LIST_UPDATE was called
    * Returns null if not a UDC or no next step available
    * Skips over completed or skipped steps to find the next pending or in_progress step
    */
-  private async getNextUDCStepIntent(title: string, currentIntent: Intent): Promise<Intent | null> {
+  private async getNextTodoListStepIntent(
+    title: string,
+    currentIntent: Intent
+  ): Promise<Intent | null> {
     const udcCommand = await this.renderer.getConversationProperty<string>(title, 'udc_command');
     if (!udcCommand) {
       return null;
@@ -1161,12 +1178,6 @@ When you complete or skip the current step, use the ${ToolName.TODO_LIST_UPDATE}
     // Convert 1-based step number to 0-based index for array access
     let stepIndex = updatedTodoList.currentStep - 1;
 
-    // If current step is completed or skipped, move to next step
-    const currentStep = updatedTodoList.steps[stepIndex];
-    if (currentStep?.status === 'completed' || currentStep?.status === 'skipped') {
-      stepIndex++;
-    }
-
     // Skip over any completed or skipped steps
     while (
       stepIndex < updatedTodoList.steps.length &&
@@ -1176,20 +1187,25 @@ When you complete or skip the current step, use the ${ToolName.TODO_LIST_UPDATE}
       stepIndex++;
     }
 
-    if (stepIndex >= updatedTodoList.steps.length) {
-      return null;
-    }
-
     const nextStep = updatedTodoList.steps[stepIndex];
     if (!nextStep) {
       return null;
     }
 
+    if (updatedTodoList.createdBy === 'ai') {
+      // Only tasks are different between steps for AI
+      return {
+        ...currentIntent,
+        query: nextStep.task,
+      };
+    }
+
+    // createdBy: udc
     // Create new intent with only the next step's metadata
     // Do NOT inherit step-specific fields (model, systemPrompts, no_confirm) from current step
     return {
-      query: currentIntent.query,
-      type: nextStep.type ?? currentIntent.type,
+      query: nextStep.task,
+      type: nextStep.type ?? '',
       model: nextStep.model,
       systemPrompts: nextStep.systemPrompts,
       no_confirm: nextStep.no_confirm,

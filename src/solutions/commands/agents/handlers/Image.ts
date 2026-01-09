@@ -5,9 +5,10 @@ import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types
 import { ToolCallPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
-import { experimental_generateImage } from 'ai';
+import { generateImage } from 'ai';
 import { ArtifactType } from 'src/solutions/artifact';
-import { explanationFragment, confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
+import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
+import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 // Define the Zod schema for image tool (same as imageExtractionSchema)
 const imageSchema = z.object({
@@ -19,7 +20,11 @@ const imageSchema = z.object({
     .string()
     .min(1, 'Explanation must be a non-empty string')
     .describe(explanationFragment),
-  confidence: z.number().min(0).max(1).describe(confidenceFragment),
+  lang: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(userLanguagePrompt.content as string),
 });
 
 export type ImageArgs = z.infer<typeof imageSchema>;
@@ -68,16 +73,6 @@ export class Image {
         handlerId: params.handlerId,
         step: params.invocationCount,
       });
-
-      // Check confidence level
-      if (toolCall.input.confidence <= 0.7) {
-        // Return LOW_CONFIDENCE status to trigger context augmentation
-        return {
-          status: IntentResultStatus.LOW_CONFIDENCE,
-          intentType: 'image',
-          explanation: toolCall.input.explanation,
-        };
-      }
 
       await this.agent.renderer.addGeneratingIndicator(
         params.title,
@@ -152,7 +147,7 @@ export class Image {
               type: 'json',
               value: {
                 success: true,
-                filePath: result.filePath!, // Non-null assertion: filePath is always defined when success is true
+                filePath: result.filePath,
               },
             },
           },
@@ -210,7 +205,7 @@ export class Image {
       const imageConfig = await this.agent.plugin.llmService.getImageConfig();
 
       // Generate the image
-      const response = await experimental_generateImage({
+      const response = await generateImage({
         abortSignal: this.agent.plugin.abortService.createAbortController('image'),
         ...imageConfig,
         prompt,

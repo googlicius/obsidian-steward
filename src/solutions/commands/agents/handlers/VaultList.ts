@@ -6,6 +6,7 @@ import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ArtifactType } from 'src/solutions/artifact';
+import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 const MAX_FILES_TO_SHOW = 10;
 
@@ -26,6 +27,11 @@ const listToolSchema = z.object(
       .describe(
         'Optional RegExp pattern to filter files. If not provided, all files will be listed.'
       ),
+    lang: z
+      .string()
+      .nullable()
+      .optional()
+      .describe(userLanguagePrompt.content as string),
   },
   {
     description: `List all files in a specific folder. NOTE: This tool does not list folders but files only.`,

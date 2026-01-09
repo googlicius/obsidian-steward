@@ -102,7 +102,7 @@ export class UDCAgent extends Agent {
 
         // Execute the todo list creation
         const todoListHandler = new handlers.TodoList(this.superAgent);
-        await todoListHandler.handle(params, { toolCall: todoListToolCall });
+        await todoListHandler.handle(params, { toolCall: todoListToolCall, createdBy: 'udc' });
 
         // Update user message to guide AI
         const currentStep = todoListSteps[0];

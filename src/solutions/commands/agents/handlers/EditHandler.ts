@@ -34,7 +34,6 @@ export class EditHandler {
         path: title,
         newContent: toolCall.input.explanation,
         command: 'edit',
-        includeHistory: false,
         lang,
         handlerId: params.handlerId,
       });
@@ -122,7 +121,23 @@ export class EditHandler {
           toolCall,
         });
       },
-      onRejection: () => {
+      onRejection: async () => {
+        await this.agent.renderer.serializeToolInvocation({
+          path: title,
+          command: 'edit',
+          handlerId,
+          step: params.invocationCount,
+          toolInvocations: [
+            {
+              ...toolCall,
+              type: 'tool-result',
+              output: {
+                type: 'text',
+                value: t('update.changesDenied'),
+              },
+            },
+          ],
+        });
         return {
           status: IntentResultStatus.SUCCESS,
         };

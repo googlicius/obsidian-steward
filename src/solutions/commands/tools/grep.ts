@@ -2,6 +2,7 @@ import { tool } from 'ai';
 import { z } from 'zod/v3';
 import type StewardPlugin from 'src/main';
 import { TFile, TFolder } from 'obsidian';
+import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 /**
  * Schema for the grep tool parameters
@@ -21,6 +22,11 @@ export const grepSchema = z.object({
       `The text pattern to search for in note content. Can be a simple string or regex pattern. Only used when checking content in a single file.
 NOTE: ContentPattern can only be used when 'paths' is file paths, NOT folder paths.`
     ),
+  lang: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(userLanguagePrompt.content as string),
 });
 
 /**
