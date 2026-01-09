@@ -218,6 +218,8 @@ const vi = {
     },
     // UI elements
     ui: {
+      yes: 'Có',
+      no: 'Không',
       openStewardChat: 'Mở trò chuyện Steward',
       buildingSearchIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
       errorBuildingSearchIndex:

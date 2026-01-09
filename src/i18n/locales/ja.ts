@@ -221,6 +221,8 @@ const ja = {
     },
     // UI elements
     ui: {
+      yes: 'はい',
+      no: 'いいえ',
       openStewardChat: 'Steward chatを開く',
       buildingSearchIndex: '検索インデックスを構築中...',
       errorBuildingSearchIndex:

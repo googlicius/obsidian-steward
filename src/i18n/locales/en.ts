@@ -284,6 +284,8 @@ const en = {
     },
     // UI elements
     ui: {
+      yes: 'Yes',
+      no: 'No',
       openStewardChat: 'Open Steward chat',
       buildingSearchIndex: 'Building search index...',
       errorBuildingSearchIndex: 'Error building search index. Check console for details.',

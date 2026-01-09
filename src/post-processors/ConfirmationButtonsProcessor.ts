@@ -2,6 +2,7 @@ import { MarkdownPostProcessor } from 'obsidian';
 import { findTextNodesWithRegex } from 'src/utils/findTextNode';
 import { CONFIRMATION_BUTTONS_PATTERN } from 'src/constants';
 import type StewardPlugin from 'src/main';
+import { getTranslation } from 'src/i18n';
 
 /**
  * Process {{stw-confirmation-buttons}} markers into Yes/No buttons
@@ -37,7 +38,7 @@ export function createConfirmationButtonsProcessor(plugin: StewardPlugin): Markd
     }
   }
 
-  return el => {
+  return async el => {
     // Early exit: Check if element contains the pattern before expensive DOM traversal
     if (!el.textContent?.includes('{{stw-confirmation-buttons')) {
       return;
@@ -69,6 +70,12 @@ export function createConfirmationButtonsProcessor(plugin: StewardPlugin): Markd
         // Extract conversation title from match (group 1)
         const conversationTitle = match[1]?.trim() || '';
 
+        const lang = await plugin.conversationRenderer.getConversationProperty<string>(
+          conversationTitle,
+          'lang'
+        );
+        const t = getTranslation(lang);
+
         // Create buttons container
         const buttonsContainer = document.createElement('div');
         buttonsContainer.classList.add('stw-confirmation-buttons');
@@ -76,7 +83,7 @@ export function createConfirmationButtonsProcessor(plugin: StewardPlugin): Markd
         // Create Yes button
         buttonsContainer
           .createEl('button', {
-            text: 'Yes',
+            text: t('ui.yes'),
             cls: 'mod-cta',
           })
           .addEventListener('click', (event: MouseEvent) =>
@@ -86,7 +93,7 @@ export function createConfirmationButtonsProcessor(plugin: StewardPlugin): Markd
         // Create No button
         buttonsContainer
           .createEl('button', {
-            text: 'No',
+            text: t('ui.no'),
           })
           .addEventListener('click', (event: MouseEvent) =>
             handleNoClick(event, conversationTitle)
