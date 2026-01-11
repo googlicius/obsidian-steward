@@ -66,7 +66,7 @@ export class ActivateToolHandler {
 
     // Activate valid tools
     if (validationResult.activatedTools && validationResult.activatedTools.length > 0) {
-      activeTools.push(...validationResult.activatedTools);
+      activeTools.push(...(validationResult.activatedTools as ToolName[]));
     }
 
     // Auto-activate dependent tools
@@ -75,7 +75,7 @@ export class ActivateToolHandler {
     // Deactivate valid tools
     if (validationResult.deactivatedTools && validationResult.deactivatedTools.length > 0) {
       const deactivateSet = new Set(validationResult.deactivatedTools);
-      const newActiveTools = activeTools.filter(tool => !deactivateSet.has(tool));
+      const newActiveTools = activeTools.filter(tool => !deactivateSet.has(tool as string));
       activeTools.length = 0;
       activeTools.push(...newActiveTools);
     }

@@ -497,6 +497,14 @@ export class ConversationRenderer {
         step: params.step,
       });
 
+      // Update model property in the frontmatter if a selected model is found
+      const selectedModel = this.extractSelectedModelFromText(params.newContent);
+      if (selectedModel) {
+        await this.updateConversationFrontmatter(params.path, [
+          { name: 'model', value: selectedModel },
+        ]);
+      }
+
       // Determine content format (default to 'callout' for user messages)
       const format = params.contentFormat ?? 'callout';
 
@@ -630,15 +638,10 @@ export class ConversationRenderer {
         step: params.step,
       });
 
-      // Update language and model properties in the frontmatter if provided
+      // Update language property in the frontmatter if provided
       const updatedProperties = [];
       if (params.lang) {
         updatedProperties.push({ name: 'lang', value: params.lang });
-      }
-
-      const selectedModel = this.extractSelectedModelFromText(params.newContent);
-      if (selectedModel) {
-        updatedProperties.push({ name: 'model', value: selectedModel });
       }
 
       if (updatedProperties.length > 0) {

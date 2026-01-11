@@ -1,6 +1,6 @@
 import { ObsidianAPITools } from './obsidianAPITools';
 import { App, TFile, TFolder } from 'obsidian';
-import { MoveOperationV2 } from './obsidianAPITools';
+import { MoveOperation } from './obsidianAPITools';
 import { getInstance } from 'src/utils/getInstance';
 import { DocWithPath } from 'src/types/types';
 
@@ -72,13 +72,9 @@ describe('ObsidianAPITools', () => {
       jest.spyOn(app.vault, 'createFolder').mockResolvedValue(new TFolder());
       jest.spyOn(app.fileManager, 'renameFile').mockResolvedValue(undefined);
 
-      const operations: MoveOperationV2[] = [
+      const operations: MoveOperation[] = [
         {
           destinationFolder: 'destination',
-          keywords: ['test'],
-          filenames: [],
-          folders: [],
-          properties: [],
         },
       ];
 
@@ -107,7 +103,6 @@ describe('ObsidianAPITools', () => {
             errors: [],
             moved: ['destination/test-file.md'],
             skipped: [],
-            sourceQuery: 'test',
           },
         ],
       });
@@ -124,13 +119,9 @@ describe('ObsidianAPITools', () => {
       jest.spyOn(app.vault, 'getFileByPath').mockReturnValue(null);
       jest.spyOn(app.vault, 'getFolderByPath').mockReturnValue(null);
 
-      const operations: MoveOperationV2[] = [
+      const operations: MoveOperation[] = [
         {
           destinationFolder: 'destination',
-          keywords: ['test'],
-          filenames: [],
-          folders: [],
-          properties: [],
         },
       ];
 
@@ -159,7 +150,6 @@ describe('ObsidianAPITools', () => {
             errors: [{ path: 'non-existent-file.md', message: 'translated_vault.itemNotFound' }],
             moved: [],
             skipped: [],
-            sourceQuery: 'test',
           },
         ],
       });
@@ -177,13 +167,9 @@ describe('ObsidianAPITools', () => {
       });
       jest.spyOn(app.vault, 'getFileByPath').mockReturnValue(file);
 
-      const operations: MoveOperationV2[] = [
+      const operations: MoveOperation[] = [
         {
           destinationFolder: 'current-folder',
-          keywords: ['test'],
-          filenames: [],
-          folders: [],
-          properties: [],
         },
       ];
 
@@ -217,7 +203,6 @@ describe('ObsidianAPITools', () => {
             ],
             moved: [],
             skipped: [],
-            sourceQuery: 'test',
           },
         ],
       });
@@ -253,13 +238,9 @@ describe('ObsidianAPITools', () => {
       // Mock successful file operations
       jest.spyOn(app.fileManager, 'renameFile').mockResolvedValue(undefined);
 
-      const operations: MoveOperationV2[] = [
+      const operations: MoveOperation[] = [
         {
           destinationFolder: '/',
-          keywords: ['test'],
-          filenames: [],
-          folders: [],
-          properties: [],
         },
       ];
 
@@ -288,7 +269,6 @@ describe('ObsidianAPITools', () => {
             errors: [],
             moved: ['/test-file.md'],
             skipped: [],
-            sourceQuery: 'test',
           },
         ],
       });

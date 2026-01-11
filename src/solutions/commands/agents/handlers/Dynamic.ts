@@ -41,7 +41,8 @@ export class Dynamic {
     // We provide the error and the valid schema of the tool so the AI can understand the error and fix it
     const errorValue = options.toolCall.error
       ? {
-          message: 'Invalid tool call, please refer to the error for more details.',
+          message:
+            'Invalid tool call, please refer to the error for more details. And refer to the validSchema to see how to use it correctly.',
           error: options.toolCall.error,
           validSchema: tool.inputSchema,
         }

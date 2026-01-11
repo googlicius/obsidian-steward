@@ -785,6 +785,58 @@ describe('ConversationRenderer', () => {
       expect(messageId).toBeDefined();
       expect(processedContent).toMatchSnapshot();
     });
+
+    it('should store the selected model in the frontmatter if it is found in the new content', async () => {
+      // Mock initial conversation content
+      const mockContent = [
+        '<!--STW ID:abc123,ROLE:steward,COMMAND:search-->',
+        "**Steward:** Here's what I found:",
+        '',
+        'React hooks are functions that let you use state.',
+      ].join('\n');
+
+      // Create mock plugin with the conversation content
+      const mockPlugin = createMockPlugin(mockContent);
+
+      // Add fileManager mock to the app
+      const processFrontMatterSpy = jest.fn().mockResolvedValue(undefined);
+      mockPlugin.app.fileManager = {
+        processFrontMatter: processFrontMatterSpy,
+      } as unknown as typeof mockPlugin.app.fileManager;
+
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      // Spy on the vault.process method
+      let processedContent = '';
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, processor) => {
+          processedContent = processor(mockContent);
+          return processedContent;
+        });
+
+      // Call the method with content containing a selected model
+      const messageId = await conversationRenderer.addUserMessage({
+        path: 'test-conversation',
+        newContent: '/ask m:openai:gpt-4 How to use React hooks',
+      });
+
+      // Verify that vault.process was called
+      expect(processSpy).toHaveBeenCalledTimes(1);
+
+      // Verify that messageId is returned
+      expect(messageId).toBeDefined();
+
+      // Verify that processFrontMatter was called with the correct model
+      expect(processFrontMatterSpy).toHaveBeenCalledTimes(1);
+      expect(processFrontMatterSpy).toHaveBeenCalledWith(expect.any(TFile), expect.any(Function));
+
+      // Verify that the frontmatter update function sets the model correctly
+      const frontmatter: Record<string, unknown> = {};
+      const callback = processFrontMatterSpy.mock.calls[0][1];
+      callback(frontmatter);
+      expect(frontmatter.model).toBe('openai:gpt-4');
+    });
   });
 
   describe('getConversationProperty', () => {

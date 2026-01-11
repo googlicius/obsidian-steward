@@ -4,7 +4,7 @@ import { getTranslation } from 'src/i18n';
 import { type SuperAgent } from '../SuperAgent';
 import { ArtifactType } from 'src/solutions/artifact';
 import { DocWithPath } from 'src/types/types';
-import { MoveOperationV2, OperationError } from 'src/tools/obsidianAPITools';
+import { MoveOperation, OperationError } from 'src/tools/obsidianAPITools';
 import { ToolCallPart } from '../../tools/types';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
@@ -13,7 +13,6 @@ import {
   createArtifactIdSchema,
   createFilesSchemaString,
   createFilePatternsSchema,
-  createExplanationSchema,
 } from './vaultOperationSchemas';
 
 const moveToolSchema = z
@@ -49,9 +48,6 @@ const moveToolSchema = z
       .string()
       .min(1)
       .describe('Destination folder path where the files or folders should be moved.'),
-    explanation: createExplanationSchema({
-      description: 'Short explanation of the move operation and why it is required.',
-    }),
   })
   .refine(
     data =>
@@ -108,16 +104,6 @@ export class VaultMove {
     }
 
     const t = getTranslation(params.lang);
-
-    await this.agent.renderer.updateConversationNote({
-      path: params.title,
-      newContent: toolCall.input.explanation,
-      command: 'vault_move',
-      includeHistory: false,
-      lang: params.lang,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
-    });
 
     const resolveResult = await this.resolveMoveDocs({
       title: params.title,
@@ -202,14 +188,12 @@ export class VaultMove {
       title: params.title,
       docs,
       destinationFolder,
-      explanation: toolCall.input.explanation,
       lang: params.lang,
     });
 
     const formattedMessage = this.formatMoveResult({
       result: moveResult,
       destinationFolder,
-      explanation: toolCall.input.explanation,
       lang: params.lang,
     });
 
@@ -359,18 +343,13 @@ export class VaultMove {
     title: string;
     docs: DocWithPath[];
     destinationFolder: string;
-    explanation: string;
     lang?: string | null;
   }): Promise<MoveOperationResult> {
-    const { title, docs, destinationFolder, explanation, lang } = params;
+    const { title, docs, destinationFolder, lang } = params;
 
-    const moveOperations: MoveOperationV2[] = [
+    const moveOperations: MoveOperation[] = [
       {
-        keywords: [explanation],
-        filenames: [],
-        folders: [],
         destinationFolder,
-        properties: [],
       },
     ];
 
@@ -426,16 +405,15 @@ export class VaultMove {
   private formatMoveResult(params: {
     result: MoveOperationResult;
     destinationFolder: string;
-    explanation: string;
     lang?: string | null;
   }): string {
-    const { result, destinationFolder, explanation, lang } = params;
+    const { result, destinationFolder, lang } = params;
     const { moved, skipped, errors } = result;
     const totalCount = moved.length + skipped.length + errors.length;
 
     const t = getTranslation(lang);
     let response = t('move.foundFiles', { count: totalCount });
-    response += `\n\n${t('move.operation', { num: 1, query: explanation, folder: destinationFolder })}`;
+    response += `\n\n${t('move.operation', { num: 1, folder: destinationFolder })}`;
 
     if (moved.length > 0) {
       response += `\n\n**${t('move.successfullyMoved', { count: moved.length })}**`;
