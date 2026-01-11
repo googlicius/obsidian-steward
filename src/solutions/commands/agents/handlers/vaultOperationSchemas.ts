@@ -43,10 +43,3 @@ export function createFilePatternsSchema(params?: {
         'Pattern-based file selection for large file sets. Use this for large file sets to avoid token limits.'
     );
 }
-
-/**
- * Creates an explanation schema field for vault operations.
- */
-export function createExplanationSchema(params: { description: string }) {
-  return z.string().min(1).describe(params.description);
-}

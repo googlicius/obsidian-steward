@@ -1,14 +1,13 @@
 import { App, TFile, TFolder } from 'obsidian';
 import { logger } from 'src/utils/logger';
 import { DocWithPath } from 'src/types/types';
-import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
 import { AddInstruction, UpdateInstruction } from 'src/solutions/commands/tools/editContent';
 import { getTranslation } from 'src/i18n';
 
 /**
  * Represents a single move operation with v2 parameters
  */
-export interface MoveOperationV2 extends SearchOperationV2 {
+export interface MoveOperation {
   destinationFolder: string;
 }
 
@@ -18,14 +17,6 @@ export interface MoveOperationV2 extends SearchOperationV2 {
 export interface OperationError {
   path: string;
   message: string;
-}
-
-/**
- * Represents a single move operation
- */
-export interface MoveOperation {
-  sourceQuery: string;
-  destinationFolder: string;
 }
 
 /**
@@ -177,12 +168,11 @@ export class ObsidianAPITools {
    * @returns Results of the move operations
    */
   async moveByOperations(
-    operations: MoveOperationV2[],
+    operations: MoveOperation[],
     filesByOperation: Map<number, DocWithPath[]>,
     lang?: string | null
   ): Promise<{
     operations: Array<{
-      sourceQuery: string;
       destinationFolder: string;
       moved: string[];
       errors: OperationError[];
@@ -247,7 +237,6 @@ export class ObsidianAPITools {
       }
 
       operationResults.push({
-        sourceQuery: operation.keywords ? operation.keywords.join(', ') : 'Search results',
         destinationFolder: operation.destinationFolder,
         moved,
         errors,
@@ -265,11 +254,10 @@ export class ObsidianAPITools {
    * @returns Results of the copy operations
    */
   async copyByOperations(
-    operations: MoveOperationV2[],
+    operations: MoveOperation[],
     filesByOperation: Map<number, DocWithPath[]>
   ): Promise<{
     operations: Array<{
-      sourceQuery: string;
       destinationFolder: string;
       copied: string[];
       errors: OperationError[];
@@ -325,7 +313,6 @@ export class ObsidianAPITools {
       }
 
       operationResults.push({
-        sourceQuery: operation.keywords ? operation.keywords.join(', ') : 'Search results',
         destinationFolder: operation.destinationFolder,
         copied,
         errors,

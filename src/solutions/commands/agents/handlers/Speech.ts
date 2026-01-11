@@ -155,7 +155,7 @@ export class Speech {
               type: 'json',
               value: {
                 success: true,
-                filePath: result.filePath!,
+                filePath: result.filePath,
               },
             },
           },

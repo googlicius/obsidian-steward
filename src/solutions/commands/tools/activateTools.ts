@@ -6,13 +6,13 @@ import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 const activateToolsSchema = z.object({
   tools: z
-    .array(z.nativeEnum(ToolName))
+    .array(z.string())
     .optional()
     .describe(
       'List of tool names that should be activated for the current task. Only include tools that are currently inactive.'
     ),
   deactivate: z
-    .array(z.nativeEnum(ToolName))
+    .array(z.string())
     .optional()
     .describe(
       'List of tool names that should be deactivated. Use this to simplify the guidelines and tool schemas when tools are no longer needed.'
@@ -35,10 +35,10 @@ export const activateTools = tool({
  */
 export interface ActivateToolsResult {
   message: string;
-  activatedTools?: ToolName[];
-  deactivatedTools?: ToolName[];
-  invalidTools?: ToolName[];
-  invalidDeactivateTools?: ToolName[];
+  activatedTools?: string[];
+  deactivatedTools?: string[];
+  invalidTools?: string[];
+  invalidDeactivateTools?: string[];
 }
 
 /**
@@ -53,8 +53,8 @@ export async function execute(
   const messages: string[] = [];
 
   // Get the set of available tool names
-  const availableToolNames = new Set(Object.keys(availableTools) as ToolName[]);
-  const activeToolNames = new Set(activeTools);
+  const availableToolNames = new Set(Object.keys(availableTools));
+  const activeToolNames = new Set(activeTools.map(tool => tool as string));
 
   // Process activation
   const invalidTools = tools.filter(tool => !availableToolNames.has(tool));
