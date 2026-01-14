@@ -1,6 +1,7 @@
 import { ToolName } from './toolNames';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { revertAbleArtifactTypes } from '../artifact';
+import { EditMode } from './tools/editContent';
 
 export interface ToolDefinition {
   name: ToolName;
@@ -142,11 +143,19 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
 
   [ToolName.EDIT]: {
     name: ToolName.EDIT,
-    description: 'Update content by replacing old content with new content.',
+    description: 'Update content by multiple edit modes.',
     guidelines: [
       `Use the ${ToolName.EDIT} tool if you need to update existing content.
   - When updating content, return ONLY the specific changed content, not the entire surrounding context.
-  - Use ${ToolName.EDIT} to make the actual content changes. (NOTE: You cannot use this tool if a note does not exist.)`,
+  - Use ${ToolName.EDIT} to make the actual content changes. (NOTE: You cannot use this tool if a note does not exist.)
+  - Use the right edit mode to ensure good performance and efficient token usage.`,
+      `Here are available edit modes:
+  - ${EditMode.ADD_TABLE_COLUMN}: Add a column to a table.
+  - ${EditMode.UPDATE_TABLE_COLUMN}: Update a column in a table - Use to update the header, values, or both.
+  - ${EditMode.DELETE_TABLE_COLUMN}: Delete a column from a table.
+  - ${EditMode.REPLACE}: Replace content within a specific line range, or replace the entire file if both fromLine and toLine are omitted.
+  - ${EditMode.INSERT}: Insert content at a specific line number.
+NOTE: Use table modes to edit tables, especially large tables (More than 20 rows).`,
     ],
     category: 'content-edit',
   },
@@ -390,14 +399,18 @@ export class ToolRegistry<T> {
   }
 
   public generateGuidelinesSection(): string {
-    const lines: string[] = [];
+    const sections: string[] = [];
     for (const [, def] of this.tools) {
       if (!this.isActive(def.name)) continue;
+      const guidelines: string[] = [];
       for (const g of def.guidelines) {
-        lines.push(`- ${g}`);
+        guidelines.push(`- ${g}`);
+      }
+      if (guidelines.length > 0) {
+        sections.push(`**${def.name}**\n${guidelines.join('\n')}`);
       }
     }
-    return lines.join('\n');
+    return sections.join('\n\n');
   }
 
   public generateOtherToolsSection(

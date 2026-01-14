@@ -3,7 +3,7 @@ import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { createEditTool, EditArgs } from '../../tools/editContent';
 import { ArtifactType } from 'src/solutions/artifact';
-import { UpdateInstruction } from 'src/solutions/commands/tools/editContent';
+import { EditOperation } from 'src/solutions/commands/tools/editContent';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
@@ -61,23 +61,35 @@ export class EditHandler {
 
     // Render what will be updated if the artifact type is read_content
     if (artifact?.artifactType === ArtifactType.READ_CONTENT) {
+      // Get file content for preview
+      const fileContent = await this.agent.app.vault.read(file);
+
       for (const operation of toolCall.input.operations) {
-        await this.agent.renderer.updateConversationNote({
-          path: title,
-          newContent: this.agent.plugin.noteContentService.formatCallout(
-            operation.newContent,
-            'stw-search-result',
-            {
-              mdContent: new MarkdownUtil(operation.newContent)
-                .escape(true)
-                .encodeForDataset()
-                .getText(),
-            }
-          ),
-          includeHistory: false,
-          lang,
-          handlerId: params.handlerId,
-        });
+        // Preview by applying the instruction to the current file content
+        const contentToRender = this.agent.obsidianAPITools.applyUpdateInstruction(
+          fileContent,
+          operation,
+          this.agent.plugin.noteContentService
+        );
+
+        if (contentToRender) {
+          await this.agent.renderer.updateConversationNote({
+            path: title,
+            newContent: this.agent.plugin.noteContentService.formatCallout(
+              contentToRender,
+              'stw-search-result',
+              {
+                mdContent: new MarkdownUtil(contentToRender)
+                  .escape(true)
+                  .encodeForDataset()
+                  .getText(),
+              }
+            ),
+            includeHistory: false,
+            lang,
+            handlerId: params.handlerId,
+          });
+        }
       }
     }
 
@@ -151,7 +163,7 @@ export class EditHandler {
   private async performUpdate(params: {
     title: string;
     filePath: string;
-    updateInstructions: UpdateInstruction[];
+    updateInstructions: EditOperation[];
     lang?: string | null;
     handlerId: string;
     step?: number;
@@ -172,7 +184,11 @@ export class EditHandler {
       await this.agent.app.vault.process(file, content => {
         // Apply each update instruction in sequence
         for (const instruction of updateInstructions) {
-          const result = this.agent.obsidianAPITools.applyUpdateInstruction(content, instruction);
+          const result = this.agent.obsidianAPITools.applyUpdateInstruction(
+            content,
+            instruction,
+            this.agent.plugin.noteContentService
+          );
 
           if (result !== content) {
             content = result;

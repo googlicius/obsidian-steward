@@ -41,6 +41,7 @@ export const contentReadingSchema = z.object({
 If the mentioned element is NOT one of the predefined types, classify it as "paragraph" so it could be any element closest to the current position.`
     ),
   blocksToRead: z.number().min(-1).default(1).describe(`Number of blocks to read
+A block is a consecutive sequence of lines that contains an element (e.g., paragraph, table, code, list, blockquote, image, heading).
 Set to -1 when:
 - The user requests to read entire content.
 - Reading above or below the cursor and explicitly requesting reading all content from the current position.`),

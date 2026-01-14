@@ -70,6 +70,16 @@ export const SELECTED_MODEL_PATTERN = '\\b(m|model):([a-zA-Z0-9_.-]+):([^\\s]+)'
 export const COMMAND_PREFIXES = ['/ ', '/search', '/image', '/speech'];
 
 /**
+ * Configuration for standard commands indicating whether they require content.
+ */
+export const COMMAND_CONTENT_REQUIRED: Record<string, boolean> = {
+  ' ': true,
+  search: true,
+  image: true,
+  speech: true,
+};
+
+/**
  * The 2-space indentation is used to indicate a command line.
  */
 export const TWO_SPACES_PREFIX = '  ';

@@ -702,14 +702,14 @@ export default class StewardPlugin extends Plugin {
           await this.saveSettings();
         }
         // Look for a conversation link in the previous lines
-        const conversationLink = this.findConversationLinkAbove(view);
+        const conversationTitle = this.findConversationTitleAbove(view);
 
         const folderPath = `${this.settings.stewardFolder}/Conversations`;
-        const notePath = `${folderPath}/${conversationLink}.md`;
+        const notePath = `${folderPath}/${conversationTitle}.md`;
 
-        if (this.app.vault.getFileByPath(notePath) && conversationLink) {
+        if (this.app.vault.getFileByPath(notePath) && conversationTitle) {
           await this.conversationRenderer.addUserMessage({
-            path: conversationLink,
+            path: conversationTitle,
             newContent: fullCommandText,
             includeHistory: false,
           });
@@ -725,13 +725,13 @@ export default class StewardPlugin extends Plugin {
           });
 
           const lang = (await this.conversationRenderer.getConversationProperty(
-            conversationLink,
+            conversationTitle,
             'lang'
           )) as string;
 
           // Emit the conversation note updated event
           eventEmitter.emit(Events.CONVERSATION_INTENT_RECEIVED, {
-            title: conversationLink,
+            title: conversationTitle,
             intents: [
               {
                 type: intentType,
@@ -804,7 +804,7 @@ export default class StewardPlugin extends Plugin {
       return;
     }
 
-    const conversationTitle = this.findConversationLinkAbove(view);
+    const conversationTitle = this.findConversationTitleAbove(view);
 
     if (!conversationTitle) return;
 
@@ -1074,8 +1074,8 @@ export default class StewardPlugin extends Plugin {
     }
   }
 
-  // Function to find a conversation link in the lines above the current cursor
-  findConversationLinkAbove(view: EditorView): string | null {
+  // Function to find a conversation title in the lines above the current cursor
+  findConversationTitleAbove(view: EditorView): string | null {
     const { state } = view;
     const { doc, selection } = state;
     const currentLine = doc.lineAt(selection.main.head);

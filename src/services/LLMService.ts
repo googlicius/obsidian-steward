@@ -214,6 +214,10 @@ export class LLMService {
         provider = createAnthropic({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
+          headers: {
+            // Enable CORS access
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
         });
         break;
       }
