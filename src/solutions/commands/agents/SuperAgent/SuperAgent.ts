@@ -186,10 +186,14 @@ export class SuperAgent extends Agent {
               toolName: ToolName.DELETE,
               toolCallId: `manual-tool-call-${uniqueID()}`,
               input: {
-                artifactId: artifact.id,
-                explanation: '',
+                operations: [
+                  {
+                    mode: 'artifactId',
+                    artifactId: artifact.id,
+                  },
+                ],
               },
-            };
+            } as ToolCallPart<handlers.DeleteToolArgs>;
           }
         }
         return undefined;
@@ -415,6 +419,12 @@ export class SuperAgent extends Agent {
         'current_note'
       );
 
+      let currentPosition: number | null = null;
+      if (currentNote) {
+        const cursor = this.plugin.editor.getCursor();
+        currentPosition = cursor.line;
+      }
+
       // Generate to-do list prompt only if TODO_LIST_UPDATE tool is active
       const todoListPrompt = activeToolNames.includes(ToolName.TODO_LIST_UPDATE)
         ? await this.generateTodoListPrompt(params.title)
@@ -474,10 +484,9 @@ ${registry.generateOtherToolsSection(
   new Set([ToolName.TODO_LIST_UPDATE, ToolName.SEARCH_MORE])
 )}
 
-GUIDELINES:
+TOOLS GUIDELINES:
 ${registry.generateGuidelinesSection()}
-
-${currentNote ? `CURRENT NOTE: ${currentNote}` : ''}${todoListPrompt}
+${currentNote ? `\nCURRENT NOTE: ${currentNote} (Cursor position: ${currentPosition})` : ''}${todoListPrompt}
 
 NOTE:
 - Do NOT repeat the latest tool call result in your final response as it is already rendered in the UI.
@@ -502,6 +511,8 @@ NOTE:
         onFinish: ({ finishReason }) => {
           if (finishReason === 'length') {
             rejectStreamError(new SysError('Stream finished due to length limit'));
+          } else if (finishReason === 'error') {
+            rejectStreamError(new SysError('Stream finished due to error'));
           }
         },
       });

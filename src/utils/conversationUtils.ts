@@ -34,7 +34,7 @@ export function extractConversationTitle(line: string): string | null {
   const linkMatch = line.match(/!\[\[(.*?)\]\]/);
   if (linkMatch && linkMatch[1]) {
     // Extract just the title part if it's a path
-    const titlePath = linkMatch[1];
+    const titlePath = linkMatch[1].replace(/\.md$/, '');
     if (titlePath.includes('/')) {
       return titlePath.split('/').pop() || null;
     }

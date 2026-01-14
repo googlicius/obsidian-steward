@@ -442,4 +442,232 @@ export class NoteContentService {
 
     return mimeTypes[extension.toLowerCase()];
   }
+
+  /**
+   * Adds a new column to a markdown table
+   * @param tableContent The markdown table content (including header, separator, and data rows)
+   * @param newColumnContent The new column content in markdown format (header and values, one per line)
+   * @param position Optional position to insert the column (0-based). If omitted, adds at the end.
+   * @returns The updated table with the new column added
+   */
+  public addColumnToTable(
+    tableContent: string,
+    newColumnContent: string,
+    position?: number
+  ): string {
+    // Split the table into rows
+    const tableRows = tableContent.trim().split('\n');
+
+    // Split the new column content into values (one per line)
+    const newColumnValues = newColumnContent.trim().split('\n');
+
+    // Validate that we have enough values for each row
+    if (newColumnValues.length < tableRows.length) {
+      // Pad with empty cells if not enough values provided
+      while (newColumnValues.length < tableRows.length) {
+        newColumnValues.push('');
+      }
+    }
+
+    // Process each row
+    const updatedRows = tableRows.map((row, rowIndex) => {
+      // Split the row into cells, removing the leading/trailing pipes
+      const trimmedRow = row.trim();
+
+      // Handle rows that start and end with pipes
+      const startsWithPipe = trimmedRow.startsWith('|');
+      const endsWithPipe = trimmedRow.endsWith('|');
+
+      // Extract cells from the row
+      let cells: string[];
+      if (startsWithPipe && endsWithPipe) {
+        // Remove first and last pipe, then split
+        cells = trimmedRow.slice(1, -1).split('|');
+      } else if (startsWithPipe) {
+        cells = trimmedRow.slice(1).split('|');
+      } else if (endsWithPipe) {
+        cells = trimmedRow.slice(0, -1).split('|');
+      } else {
+        cells = trimmedRow.split('|');
+      }
+
+      // Get the new cell value for this row
+      let newCell = newColumnValues[rowIndex] || '';
+
+      // Check if this is the separator row (row index 1, contains dashes)
+      const isSeparatorRow = rowIndex === 1 && cells.every(cell => /^[\s:-]+$/.test(cell));
+
+      if (isSeparatorRow) {
+        // Create a separator cell that matches the style of existing separators
+        const existingSeparator = cells[0].trim();
+        const hasLeftColon = existingSeparator.startsWith(':');
+        const hasRightColon = existingSeparator.endsWith(':');
+
+        // If newCell doesn't look like a separator, generate one
+        if (!/^[\s:-]+$/.test(newCell)) {
+          if (hasLeftColon && hasRightColon) {
+            newCell = ':---:';
+          } else if (hasRightColon) {
+            newCell = '---:';
+          } else if (hasLeftColon) {
+            newCell = ':---';
+          } else {
+            newCell = '---';
+          }
+        }
+      }
+
+      // Determine the insert position
+      const insertPos = position !== undefined ? position : cells.length;
+
+      // Clamp the position to valid range
+      const clampedPos = Math.max(0, Math.min(insertPos, cells.length));
+
+      // Insert the new cell at the specified position
+      cells.splice(clampedPos, 0, newCell.trim());
+
+      // Reconstruct the row with pipes
+      return '|' + cells.join('|') + '|';
+    });
+
+    return updatedRows.join('\n');
+  }
+
+  /**
+   * Edit a column in a markdown table
+   * @param tableContent The markdown table content (including header, separator, and data rows)
+   * @param editedColumnContent The edited column content in markdown format (header and values, one per line)
+   * @param position Optional position of the column to edit (0-based). If omitted, edits the last column.
+   * @returns The updated table with the column edited
+   */
+  public editColumnInTable(
+    tableContent: string,
+    editedColumnContent: string,
+    position?: number
+  ): string {
+    // Split the table into rows
+    const tableRows = tableContent.trim().split('\n');
+
+    // Split the edited column content into values (one per line)
+    const editedColumnValues = editedColumnContent.trim().split('\n');
+
+    // Pad with empty cells if not enough values provided
+    while (editedColumnValues.length < tableRows.length) {
+      editedColumnValues.push('');
+    }
+
+    // Process each row
+    const updatedRows = tableRows.map((row, rowIndex) => {
+      // Split the row into cells
+      const trimmedRow = row.trim();
+
+      // Handle rows that start and end with pipes
+      const startsWithPipe = trimmedRow.startsWith('|');
+      const endsWithPipe = trimmedRow.endsWith('|');
+
+      // Extract cells from the row
+      let cells: string[];
+      if (startsWithPipe && endsWithPipe) {
+        cells = trimmedRow.slice(1, -1).split('|');
+      } else if (startsWithPipe) {
+        cells = trimmedRow.slice(1).split('|');
+      } else if (endsWithPipe) {
+        cells = trimmedRow.slice(0, -1).split('|');
+      } else {
+        cells = trimmedRow.split('|');
+      }
+
+      // Determine the edit position
+      const editPos = position !== undefined ? position : cells.length - 1;
+
+      // Clamp the position to valid range
+      const clampedPos = Math.max(0, Math.min(editPos, cells.length - 1));
+
+      // Get the new cell value for this row
+      let newCellValue = editedColumnValues[rowIndex] || '';
+
+      // Check if this is the separator row (row index 1, contains dashes)
+      const isSeparatorRow = rowIndex === 1 && cells.every(cell => /^[\s:-]+$/.test(cell));
+
+      if (isSeparatorRow) {
+        // Create a separator cell that matches the style of existing separators
+        const existingSeparator = cells[clampedPos].trim();
+        const hasLeftColon = existingSeparator.startsWith(':');
+        const hasRightColon = existingSeparator.endsWith(':');
+
+        // If newCellValue doesn't look like a separator, generate one
+        if (!/^[\s:-]+$/.test(newCellValue)) {
+          if (hasLeftColon && hasRightColon) {
+            newCellValue = ':---:';
+          } else if (hasRightColon) {
+            newCellValue = '---:';
+          } else if (hasLeftColon) {
+            newCellValue = ':---';
+          } else {
+            newCellValue = '---';
+          }
+        }
+      }
+
+      // Replace the cell at the specified position
+      cells[clampedPos] = ` ${newCellValue.trim()} `;
+
+      // Reconstruct the row with pipes
+      return '|' + cells.join('|') + '|';
+    });
+
+    return updatedRows.join('\n');
+  }
+
+  /**
+   * Delete a column from a markdown table
+   * @param tableContent The markdown table content (including header, separator, and data rows)
+   * @param position Optional position of the column to delete (0-based). If omitted, deletes the last column.
+   * @returns The updated table with the column removed
+   */
+  public deleteColumnFromTable(tableContent: string, position?: number): string {
+    // Split the table into rows
+    const tableRows = tableContent.trim().split('\n');
+
+    // Process each row
+    const updatedRows = tableRows.map(row => {
+      // Split the row into cells
+      const trimmedRow = row.trim();
+
+      // Handle rows that start and end with pipes
+      const startsWithPipe = trimmedRow.startsWith('|');
+      const endsWithPipe = trimmedRow.endsWith('|');
+
+      // Extract cells from the row
+      let cells: string[];
+      if (startsWithPipe && endsWithPipe) {
+        cells = trimmedRow.slice(1, -1).split('|');
+      } else if (startsWithPipe) {
+        cells = trimmedRow.slice(1).split('|');
+      } else if (endsWithPipe) {
+        cells = trimmedRow.slice(0, -1).split('|');
+      } else {
+        cells = trimmedRow.split('|');
+      }
+
+      // Don't delete if there's only one column
+      if (cells.length <= 1) {
+        return row;
+      }
+
+      // Determine the delete position
+      const deletePos = position !== undefined ? position : cells.length - 1;
+
+      // Clamp the position to valid range
+      const clampedPos = Math.max(0, Math.min(deletePos, cells.length - 1));
+
+      // Remove the cell at the specified position
+      cells.splice(clampedPos, 1);
+
+      // Reconstruct the row with pipes
+      return '|' + cells.join('|') + '|';
+    });
+
+    return updatedRows.join('\n');
+  }
 }
