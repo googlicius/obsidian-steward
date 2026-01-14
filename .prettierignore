@@ -4,6 +4,7 @@ main.js
 
 # Node modules
 node_modules
+community-UDCs
 
 # Package files
 package-lock.json
