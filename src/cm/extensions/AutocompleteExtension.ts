@@ -107,7 +107,7 @@ export function createAutocompleteExtension(plugin: StewardPlugin): Extension {
       customOptions.push({
         label: '/' + cmd,
         type: 'keyword',
-        detail: 'Custom command',
+        detail: 'User-defined command',
         apply: '/' + cmd + ' ',
       });
     }
@@ -149,14 +149,31 @@ export function createAutocompleteExtension(plugin: StewardPlugin): Extension {
       return lineText === prefix + ' ' || lineText.startsWith(prefix + ' ');
     });
 
-    // Only show model selector for built-in commands
-    if (!matchedBuiltInCommand) return null;
+    let afterCommand: string;
+    let commandLength: number;
 
-    // Get text after the built-in command
-    const afterCommand =
-      matchedBuiltInCommand === '/ '
-        ? lineText.substring(2) // After '/ '
-        : lineText.substring(matchedBuiltInCommand.length + 1); // After command + space
+    if (matchedBuiltInCommand) {
+      // Get text after the built-in command
+      afterCommand =
+        matchedBuiltInCommand === '/ '
+          ? lineText.substring(2) // After '/ '
+          : lineText.substring(matchedBuiltInCommand.length + 1); // After command + space
+      commandLength = matchedBuiltInCommand === '/ ' ? 2 : matchedBuiltInCommand.length + 1;
+    } else {
+      // Check if line starts with a user-defined command
+      const customCommands = plugin.userDefinedCommandService.getCommandNames();
+      const matchedCustomCommand = customCommands.find((cmd: string) => {
+        const commandPrefix = '/' + cmd;
+        return lineText === commandPrefix + ' ' || lineText.startsWith(commandPrefix + ' ');
+      });
+
+      if (!matchedCustomCommand) return null;
+
+      // Get text after the user-defined command
+      const commandPrefix = '/' + matchedCustomCommand;
+      afterCommand = lineText.substring(commandPrefix.length + 1); // After command + space
+      commandLength = commandPrefix.length + 1;
+    }
 
     // Check if matches model selector pattern
     if (!isModelSelectorPattern(afterCommand)) {
@@ -168,7 +185,6 @@ export function createAutocompleteExtension(plugin: StewardPlugin): Extension {
     if (!modelSelectorMatch || modelSelectorMatch.index === undefined) return null;
 
     // Calculate the start position of the selector
-    const commandLength = matchedBuiltInCommand === '/ ' ? 2 : matchedBuiltInCommand.length + 1;
     const selectorStart = line.from + commandLength + modelSelectorMatch.index;
     const selectorLength = modelSelectorMatch[0].length;
 

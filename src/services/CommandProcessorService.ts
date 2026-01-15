@@ -3,6 +3,7 @@ import { SuperAgent } from '../solutions/commands/agents';
 import { UDCAgent } from '../solutions/commands/agents/UDCAgent/UDCAgent';
 import type StewardPlugin from '../main';
 import { ToolName } from 'src/solutions/commands/toolNames';
+import { COMMAND_CONTENT_REQUIRED } from '../constants';
 
 export class CommandProcessorService {
   public readonly commandProcessor: CommandProcessor;
@@ -56,8 +57,17 @@ export class CommandProcessorService {
         : true;
     }
 
-    // For built-in commands, content is always allowed (validation happens in the agent)
-    return true;
+    // Check if it's a built-in command
+    const isContentRequired = COMMAND_CONTENT_REQUIRED[intentType];
+    // If command is explicitly configured, use that value; otherwise default to true for safety
+    if (isContentRequired !== undefined) {
+      return isContentRequired
+        ? this.plugin.userMessageService.getTextContentWithoutImages(intentContent) !== ''
+        : true;
+    }
+
+    // Default to requiring content for unknown built-in commands (safety first)
+    return this.plugin.userMessageService.getTextContentWithoutImages(intentContent) !== '';
   }
 
   /**

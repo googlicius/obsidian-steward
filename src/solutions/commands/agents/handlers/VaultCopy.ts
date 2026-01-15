@@ -5,7 +5,7 @@ import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
 import { ArtifactType } from 'src/solutions/artifact';
 import { DocWithPath } from 'src/types/types';
-import { MoveOperationV2, OperationError } from 'src/tools/obsidianAPITools';
+import { MoveOperation, OperationError } from 'src/tools/obsidianAPITools';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -35,10 +35,6 @@ const copyToolSchema = z
       .string()
       .min(1)
       .describe('Destination folder path where the files should be copied.'),
-    explanation: z
-      .string()
-      .min(1)
-      .describe('Short explanation of the copy operation and why it is required.'),
   })
   .refine(data => Boolean(data.artifactId) || Boolean(data.files && data.files.length > 0), {
     message: 'Provide either artifactId or files.',
@@ -71,16 +67,6 @@ export class VaultCopy {
     if (!params.handlerId) {
       throw new Error('VaultCopy.handle invoked without handlerId');
     }
-
-    await this.agent.renderer.updateConversationNote({
-      path: params.title,
-      newContent: toolCall.input.explanation,
-      command: 'vault_copy',
-      includeHistory: false,
-      lang: params.lang,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
-    });
 
     const resolveResult = await this.resolveCopyDocs({
       title: params.title,
@@ -170,14 +156,12 @@ export class VaultCopy {
       title: params.title,
       docs,
       destinationFolder,
-      explanation: toolCall.input.explanation,
       lang: params.lang,
     });
 
     const formattedMessage = this.formatCopyResult({
       result: copyResult,
       destinationFolder,
-      explanation: toolCall.input.explanation,
       lang: params.lang,
     });
 
@@ -315,18 +299,13 @@ export class VaultCopy {
     title: string;
     docs: DocWithPath[];
     destinationFolder: string;
-    explanation: string;
     lang?: string | null;
   }): Promise<CopyOperationResult> {
-    const { title, docs, destinationFolder, explanation, lang } = params;
+    const { title, docs, destinationFolder, lang } = params;
 
-    const moveOperations: MoveOperationV2[] = [
+    const moveOperations: MoveOperation[] = [
       {
-        keywords: [explanation],
-        filenames: [],
-        folders: [],
         destinationFolder,
-        properties: [],
       },
     ];
 
@@ -372,16 +351,15 @@ export class VaultCopy {
   private formatCopyResult(params: {
     result: CopyOperationResult;
     destinationFolder: string;
-    explanation: string;
     lang?: string | null;
   }): string {
-    const { result, destinationFolder, explanation, lang } = params;
+    const { result, destinationFolder, lang } = params;
     const { copied, skipped, errors } = result;
     const totalCount = copied.length + skipped.length + errors.length;
 
     const t = getTranslation(lang);
     let response = t('copy.foundFiles', { count: totalCount });
-    response += `\n\n${t('copy.operation', { num: 1, query: explanation, folder: destinationFolder })}`;
+    response += `\n\n${t('copy.operation', { num: 1, folder: destinationFolder })}`;
 
     if (copied.length > 0) {
       response += `\n\n**${t('copy.successfullyCopied', { count: copied.length })}**`;

@@ -7,7 +7,8 @@ import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { experimental_generateSpeech } from 'ai';
 import { ArtifactType } from 'src/solutions/artifact';
-import { explanationFragment, confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
+import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
+import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 // Define the Zod schema for speech tool (same as audioExtractionSchema)
 const speechSchema = z.object({
@@ -19,7 +20,11 @@ const speechSchema = z.object({
     .string()
     .min(1, 'Explanation must be a non-empty string')
     .describe(explanationFragment),
-  confidence: z.number().min(0).max(1).describe(confidenceFragment),
+  lang: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(userLanguagePrompt.content as string),
 });
 
 export type SpeechArgs = z.infer<typeof speechSchema>;
@@ -83,7 +88,8 @@ export class Speech {
 
       const result = await this.generateAudio(toolCall.input.text, {
         voice,
-        instructions: params.intent.systemPrompts?.join('\n'),
+        // instructions: params.intent.systemPrompts?.join('\n'), // Not system prompt
+        instructions: 'Pronounce the text clearly and naturally.',
       });
 
       if (!result.success) {
@@ -150,7 +156,7 @@ export class Speech {
               type: 'json',
               value: {
                 success: true,
-                filePath: result.filePath!,
+                filePath: result.filePath,
               },
             },
           },

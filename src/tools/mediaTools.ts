@@ -1,4 +1,4 @@
-import { App, TFile } from 'obsidian';
+import { App, TFile, TFolder } from 'obsidian';
 import { logger } from '../utils/logger';
 import { SearchService } from 'src/solutions/search/searchService';
 
@@ -36,6 +36,51 @@ export class MediaTools {
   }
 
   /**
+   * Parse a file name or path into its components
+   * @param nameOrPath - File name or path (e.g., "folder/subfolder/file.md" or "file.md")
+   * @returns Object containing path, name, basename, and extension
+   */
+  private parseFilePath(nameOrPath: string): {
+    path: string | null;
+    name: string;
+    basename: string;
+    extension: string | null;
+  } {
+    const hasPath = nameOrPath.includes('/');
+    const name = hasPath ? nameOrPath.split('/').pop() || nameOrPath : nameOrPath;
+    const path = hasPath ? nameOrPath.substring(0, nameOrPath.lastIndexOf('/')) : null;
+
+    const lastDotIndex = name.lastIndexOf('.');
+    const hasExtension = lastDotIndex > 0 && lastDotIndex < name.length - 1;
+    const extension = hasExtension ? name.substring(lastDotIndex + 1) : null;
+    const basename = hasExtension ? name.substring(0, lastDotIndex) : name;
+
+    return {
+      path,
+      name,
+      basename,
+      extension,
+    };
+  }
+
+  /**
+   * Get all files from a folder (non-recursive)
+   * @param folder - The folder to get files from
+   * @returns Array of TFile objects in the folder
+   */
+  private getFilesFromFolder(folder: TFolder): TFile[] {
+    const files: TFile[] = [];
+
+    for (const child of folder.children) {
+      if (child instanceof TFile) {
+        files.push(child);
+      }
+    }
+
+    return files;
+  }
+
+  /**
    * Find a file by name or path
    * @param nameOrPath - File name or path
    * @returns The found TFile or null if not found
@@ -47,46 +92,50 @@ export class MediaTools {
       return file;
     }
 
-    // Extract filename from path if provided
-    const filename = nameOrPath.includes('/')
-      ? nameOrPath.split('/').pop() || nameOrPath
-      : nameOrPath;
+    // Parse the nameOrPath into components
+    const parsed = this.parseFilePath(nameOrPath);
+    const { path: folderPath, name, basename, extension } = parsed;
 
     const searchService = SearchService.getInstance();
     const isIndexBuilt = await searchService.documentStore.isIndexBuilt();
 
     if (isIndexBuilt) {
       // Strategy 2: Use the search service to find the document by name
-      const result = await searchService.getFileByName(filename);
+      const result = await searchService.getFileByName(name);
 
       if (result && result.document.path) {
         const foundFile = this.app.vault.getFileByPath(result.document.path);
         if (foundFile) {
-          return foundFile;
+          // If folder path was provided, verify the file is in that folder
+          if (!folderPath || foundFile.path.startsWith(folderPath + '/')) {
+            return foundFile;
+          }
         }
       }
     } else {
-      // Strategy 3: Scan all files when index is not built
-      const allFiles = this.app.vault.getFiles();
-      const lowerFilename = filename.toLowerCase();
+      // Strategy 3: Scan files when index is not built
+      // If folder path is provided, only scan files in that folder
+      const filesToScan = folderPath
+        ? (() => {
+            const folder = this.app.vault.getFolderByPath(folderPath);
+            return folder ? this.getFilesFromFolder(folder) : [];
+          })()
+        : this.app.vault.getFiles();
 
-      // Check if filename has an extension
-      const lastDotIndex = filename.lastIndexOf('.');
-      const hasExtension = lastDotIndex > 0 && lastDotIndex < filename.length - 1;
-      const filenameWithoutExt = hasExtension
-        ? filename.substring(0, lastDotIndex).toLowerCase()
-        : lowerFilename;
+      const lowerName = name.toLowerCase();
+      const lowerBasename = basename.toLowerCase();
+      const hasExtension = extension !== null;
 
-      // First, try exact match (case-insensitive)
-      for (const vaultFile of allFiles) {
+      // Try exact match (case-insensitive)
+      for (const vaultFile of filesToScan) {
         if (hasExtension) {
           // If search term has extension, compare with extension
-          if (vaultFile.name.toLowerCase() === lowerFilename) {
+          if (vaultFile.name.toLowerCase() === lowerName) {
             return vaultFile;
           }
         } else {
           // If search term has no extension, compare without extension using basename
-          if (vaultFile.basename.toLowerCase() === filenameWithoutExt) {
+          if (vaultFile.basename.toLowerCase() === lowerBasename) {
             return vaultFile;
           }
         }

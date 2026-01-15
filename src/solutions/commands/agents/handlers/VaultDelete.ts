@@ -7,52 +7,78 @@ import { logger } from 'src/utils/logger';
 import { NonTrashFile, TrashFile } from 'src/services/TrashCleanupService';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import {
-  createArtifactIdSchema,
-  createFilesSchemaString,
-  createFilePatternsSchema,
-} from './vaultOperationSchemas';
+import { OperationError } from 'src/tools/obsidianAPITools';
 
-export const deleteToolSchema = z
-  .object(
-    {
-      artifactId: createArtifactIdSchema({
-        description: 'The artifact identifier containing files to delete.',
-      }),
-      files: createFilesSchemaString({
-        description: 'The list of files that must be deleted.',
-      }),
-      filePatterns: createFilePatternsSchema({
-        description:
-          'Pattern-based file selection for large file sets. Prefer this over the files array to avoid token limits.',
-        patternsDescription: 'Array of RegExp patterns to match files for deletion.',
-      }),
-    },
-    {
-      description: 'Provide exactly ONE of artifactId, files, or filePatterns.',
-    }
-  )
-  .refine(
-    data => {
-      const hasArtifactId = Boolean(data.artifactId);
-      const hasFiles = Boolean(data.files && data.files.length > 0);
-      const hasFilePatterns = Boolean(
-        data.filePatterns && data.filePatterns.patterns && data.filePatterns.patterns.length > 0
-      );
-      const providedCount = [hasArtifactId, hasFiles, hasFilePatterns].filter(Boolean).length;
-      return providedCount === 1;
-    },
-    {
-      message: 'You can only provide either artifactId, files, or filePatterns.',
-    }
-  );
+export const deleteToolSchema = z.object(
+  {
+    operations: z
+      .array(
+        z.discriminatedUnion('mode', [
+          z.object(
+            {
+              mode: z.literal('artifactId'),
+              artifactId: z
+                .string()
+                .min(1)
+                .describe('The artifact identifier containing files to delete.'),
+            },
+            {
+              description:
+                'Delete by artifactId. Use this when: 1. Provided by user or tool call results (Do NOT guess), and 2. The files is a part of a larger list.',
+            }
+          ),
+          z.object(
+            {
+              mode: z.literal('files'),
+              files: z.array(z.string()).min(1).describe('The list of files that must be deleted.'),
+            },
+            {
+              description:
+                'Delete by file paths. DO NOT use this when you have a paginated list, where the files number is smaller than the total count.',
+            }
+          ),
+          z.object(
+            {
+              mode: z.literal('filePatterns'),
+              filePatterns: z
+                .object({
+                  patterns: z
+                    .array(z.string().min(1))
+                    .min(1)
+                    .describe('Array of RegExp patterns to match files for deletion.'),
+                  folder: z
+                    .string()
+                    .min(1)
+                    .optional()
+                    .describe(
+                      'Optional folder path to limit pattern matching. If not provided, searches entire vault.'
+                    ),
+                })
+                .describe(
+                  'Pattern-based file selection for large file sets. Prefer this over the files array to avoid token limits.'
+                ),
+            },
+            {
+              description:
+                'Delete by file patterns. Pattern-based file selection for large file sets. Prefer this over the files array to avoid token limits.',
+            }
+          ),
+        ])
+      )
+      .min(1)
+      .describe('Array of delete operations to execute.'),
+  },
+  {
+    description: 'A tool to delete files from the vault using various selection methods.',
+  }
+);
 
 export type DeleteToolArgs = z.infer<typeof deleteToolSchema>;
 
 type DeleteExecutionResult = {
   deletedFiles: (TrashFile | NonTrashFile)[];
   trashFiles: TrashFile[];
-  failedFiles: string[];
+  failedFiles: OperationError[];
   operationArtifactId?: string;
 };
 
@@ -105,6 +131,7 @@ export class VaultDelete {
       title: params.title,
       filePaths,
       operationArtifactId,
+      lang: params.lang,
     });
 
     let response = t('delete.foundFiles', { count: filePaths.length });
@@ -123,7 +150,10 @@ export class VaultDelete {
       response += `\n\n**${t('delete.failed', { count: deleteResult.failedFiles.length })}**`;
 
       for (const failedPath of deleteResult.failedFiles) {
-        response += `\n- [[${failedPath}]]`;
+        response += `\n- [[${failedPath.path}]]`;
+        if (failedPath.message) {
+          response += `: ${failedPath.message}`;
+        }
       }
     }
 
@@ -166,36 +196,40 @@ export class VaultDelete {
     const filePaths: string[] = [];
     const noFilesMessage = t('common.noFilesFound');
 
-    if (params.toolCall.input.artifactId) {
-      const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(params.title);
-      const resolvedFiles = await artifactManager.resolveFilesFromArtifact(
-        params.toolCall.input.artifactId
-      );
+    for (const operation of params.toolCall.input.operations) {
+      switch (operation.mode) {
+        case 'artifactId': {
+          const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(params.title);
+          const resolvedFiles = await artifactManager.resolveFilesFromArtifact(
+            operation.artifactId
+          );
 
-      if (resolvedFiles.length === 0) {
-        // No files found in artifact, continue to check other sources
-        // The noFilesMessage will be handled at the end if no files are found
-      } else {
-        // Extract paths from DocWithPath objects
-        filePaths.push(...resolvedFiles.map(file => file.path));
-      }
-    }
+          if (resolvedFiles.length > 0) {
+            // Extract paths from DocWithPath objects
+            filePaths.push(...resolvedFiles.map(file => file.path));
+          }
+          break;
+        }
 
-    if (params.toolCall.input.files) {
-      for (const filePath of params.toolCall.input.files) {
-        const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(filePath);
-        if (file) {
-          filePaths.push(file.path);
+        case 'files': {
+          for (const filePath of operation.files) {
+            const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(filePath);
+            if (file) {
+              filePaths.push(file.path);
+            }
+          }
+          break;
+        }
+
+        case 'filePatterns': {
+          const patternMatchedPaths = this.agent.obsidianAPITools.resolveFilePatterns(
+            operation.filePatterns.patterns,
+            operation.filePatterns.folder
+          );
+          filePaths.push(...patternMatchedPaths);
+          break;
         }
       }
-    }
-
-    if (params.toolCall.input.filePatterns) {
-      const patternMatchedPaths = this.agent.obsidianAPITools.resolveFilePatterns(
-        params.toolCall.input.filePatterns.patterns,
-        params.toolCall.input.filePatterns.folder
-      );
-      filePaths.push(...patternMatchedPaths);
     }
 
     if (filePaths.length === 0) {
@@ -231,16 +265,29 @@ export class VaultDelete {
     title: string;
     filePaths: string[];
     operationArtifactId: string;
+    lang?: string | null;
   }): Promise<DeleteExecutionResult> {
+    const t = getTranslation(params.lang);
     const isStwTrash = this.agent.plugin.settings.deleteBehavior.behavior === 'stw_trash';
     const deletedFiles: (TrashFile | NonTrashFile)[] = [];
-    const failedFiles: string[] = [];
+    const failedFiles: OperationError[] = [];
     const trashFiles: TrashFile[] = [];
 
+    const currentConversationPath = this.getCurrentConversationPath(params.title);
+
     for (const filePath of params.filePaths) {
+      // Safety check: skip current conversation note to avoid corrupting ongoing conversation
+      if (this.isCurrentConversationNote(filePath, currentConversationPath)) {
+        failedFiles.push({
+          path: filePath,
+          message: t('delete.cannotDeleteCurrentConversationNote'),
+        });
+        continue;
+      }
+
       const result = await this.trashFile({ filePath });
       if (!result.success) {
-        failedFiles.push(result.originalPath);
+        failedFiles.push({ path: result.originalPath, message: '' });
         continue;
       }
 
@@ -328,5 +375,36 @@ export class VaultDelete {
       logger.error(`Error moving file ${filePath} to Steward trash:`, error);
       return { success: false, originalPath: filePath };
     }
+  }
+
+  /**
+   * Get the full path of the current conversation note
+   */
+  private getCurrentConversationPath(title: string): string {
+    return `${this.agent.plugin.settings.stewardFolder}/Conversations/${title}.md`;
+  }
+
+  /**
+   * Check if a file path matches the current conversation note
+   * Handles both with and without .md extension, and normalized paths
+   */
+  private isCurrentConversationNote(filePath: string, currentConversationPath: string): boolean {
+    // Normalize paths for comparison (handle different path separators and extensions)
+    const normalizedFilePath = filePath.replace(/\\/g, '/');
+    const normalizedConversationPath = currentConversationPath.replace(/\\/g, '/');
+
+    // Check exact match
+    if (normalizedFilePath === normalizedConversationPath) {
+      return true;
+    }
+
+    // Check without .md extension (in case filePath doesn't include it)
+    const conversationPathWithoutExt = normalizedConversationPath.replace(/\.md$/, '');
+    const filePathWithoutExt = normalizedFilePath.replace(/\.md$/, '');
+    if (filePathWithoutExt === conversationPathWithoutExt) {
+      return true;
+    }
+
+    return false;
   }
 }

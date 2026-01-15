@@ -86,7 +86,7 @@ const en = {
       failed_other: 'Failed to move {{count}} items:',
       multiMoveHeader: 'I performed {{count}} move operation:',
       multiMoveHeader_plural: 'I performed {{count}} move operations:',
-      operation: 'Operation {{num}}: Moving items with {{query}} to {{folder}}',
+      operation: 'Operation {{num}}: Moving items to {{folder}}',
       createFoldersHeader: 'I need to create the following folders before moving files:',
       createFoldersQuestion: 'Would you like me to create these folders?',
       cannotMoveThisType: 'I cannot move this type of artifact: {{type}}',
@@ -105,7 +105,7 @@ const en = {
       failed_other: 'Failed to copy {{count}} files:',
       multiCopyHeader: 'I performed {{count}} copy operation:',
       multiCopyHeader_plural: 'I performed {{count}} copy operations:',
-      operation: 'Operation {{num}}: Copying files with {{query}} to {{folder}}',
+      operation: 'Operation {{num}}: Copying files to {{folder}}',
       noDestination: 'Please specify a destination folder for the copy operation.',
       createFoldersHeader: 'I need to create the following folders before copying files:',
       createFoldersQuestion: 'Would you like me to create these folders?',
@@ -201,6 +201,7 @@ const en = {
       applyChangesConfirm: 'Would you like me to apply the changes?',
       noChangesNeeded: 'The original and updated content are identical. No changes were needed.',
       contentUpdatedSuccessfully: 'Content updated successfully.',
+      changesDenied: 'Changes denied by user.',
     },
     // Delete result messages
     delete: {
@@ -215,6 +216,7 @@ const en = {
       operation: 'Operation {{num}}: Deleting files with {{query}}',
       confirmHeader: 'I found the following files to delete:',
       confirmQuestion: 'Are you sure you want to delete these files? This action cannot be undone.',
+      cannotDeleteCurrentConversationNote: 'Cannot delete the current conversation note',
     },
     // Revert result messages
     revert: {
@@ -282,6 +284,8 @@ const en = {
     },
     // UI elements
     ui: {
+      yes: 'Yes',
+      no: 'No',
       openStewardChat: 'Open Steward chat',
       buildingSearchIndex: 'Building search index...',
       errorBuildingSearchIndex: 'Error building search index. Check console for details.',
@@ -369,15 +373,7 @@ const en = {
       showRoleLabelsDesc: 'Show User/Steward/System labels in conversations',
       debugMode: 'Debug mode',
       debugModeDesc: 'Enable detailed logging in the console for debugging',
-      providers: 'Providers',
       apiKeys: 'API keys', // Deprecated: kept for backward compatibility
-      openaiApiKey: 'OpenAI API key',
-      elevenlabsApiKey: 'ElevenLabs API key',
-      deepseekApiKey: 'DeepSeek API key',
-      googleApiKey: 'Google API key',
-      groqApiKey: 'Groq API key',
-      anthropicApiKey: 'Anthropic API key',
-      ollamaApiKey: 'Ollama API key (Optional)',
       enterApiKey: 'Enter your API key',
       enterApiKeyOptional: 'Enter your API key (optional)',
       errorReenterKey: 'Error: Click to re-enter key',
@@ -475,6 +471,49 @@ const en = {
         moveDown: 'Move down',
         remove: 'Remove',
         noAvailableModels: 'No available models to add',
+      },
+      providers: {
+        providersHeader: 'Providers',
+        openai: {
+          apiKey: 'OpenAI API key',
+          desc: 'Capabilities: Text generation, image input (vision), image generation (DALL-E), speech generation (TTS), reasoning (o-series), embedding.',
+          linkText: 'Visit OpenAI platform',
+        },
+        elevenlabs: {
+          apiKey: 'ElevenLabs API key',
+          desc: 'Capabilities: Speech generation (TTS).',
+          linkText: 'Visit ElevenLabs platform',
+        },
+        deepseek: {
+          apiKey: 'DeepSeek API key',
+          desc: 'Capabilities: Text generation, reasoning.',
+          linkText: 'Visit DeepSeek platform',
+        },
+        google: {
+          apiKey: 'Google API key',
+          desc: 'Capabilities: Text generation, image input (vision), embedding.',
+          linkText: 'Visit Google AI Studio',
+        },
+        groq: {
+          apiKey: 'Groq API key',
+          desc: 'Capabilities: Text generation, reasoning.',
+          linkText: 'Visit Groq platform',
+        },
+        anthropic: {
+          apiKey: 'Anthropic API key',
+          desc: 'Capabilities: Text generation, image input (vision), reasoning.',
+          linkText: 'Visit Anthropic platform',
+        },
+        ollama: {
+          apiKey: 'Ollama API key (Optional)',
+          desc: 'Capabilities: Text generation, embedding, run models locally.',
+          linkText: 'Visit Ollama platform',
+        },
+        hume: {
+          apiKey: 'Hume API key',
+          desc: 'Capabilities: Speech generation (TTS).',
+          linkText: 'Visit Hume platform',
+        },
       },
     },
   },

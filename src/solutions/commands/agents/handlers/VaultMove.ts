@@ -4,80 +4,102 @@ import { getTranslation } from 'src/i18n';
 import { type SuperAgent } from '../SuperAgent';
 import { ArtifactType } from 'src/solutions/artifact';
 import { DocWithPath } from 'src/types/types';
-import { MoveOperationV2, OperationError } from 'src/tools/obsidianAPITools';
+import { MoveOperation, OperationError } from 'src/tools/obsidianAPITools';
 import { ToolCallPart } from '../../tools/types';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import {
-  createArtifactIdSchema,
-  createFilesSchemaString,
-  createFilePatternsSchema,
-  createExplanationSchema,
-} from './vaultOperationSchemas';
 
-const moveToolSchema = z
-  .object({
-    artifactId: createArtifactIdSchema({
-      description: `ID of the artifact containing the files or folders to move.`,
-    }),
-    files: createFilesSchemaString({
-      description: `The list of files that must be moved.`,
-    }),
-    folders: z
+const moveToolSchema = z.object(
+  {
+    operations: z
       .array(
-        z.object({
-          path: z
-            .string()
-            .min(1)
-            // Ensure folders don't have leading/trailing slashes
-            .transform(path => path.replace(/^\/+|\/+$/g, ''))
-            .describe('The full path of the folder to move.'),
-        })
+        z.discriminatedUnion('mode', [
+          z.object(
+            {
+              mode: z.literal('artifactId'),
+              artifactId: z
+                .string()
+                .min(1)
+                .describe('ID of the artifact containing the files or folders to move.'),
+            },
+            {
+              description:
+                'Move by artifactId. Use this when: 1. Provided by user or tool call results (Do NOT guess), and 2. The files is a part of a larger list.',
+            }
+          ),
+          z.object(
+            {
+              mode: z.literal('files'),
+              files: z.array(z.string()).min(1).describe('The list of files that must be moved.'),
+            },
+            {
+              description:
+                'Move by file paths. DO NOT use this when you have a paginated list, where the files number is smaller than the total count.',
+            }
+          ),
+          z.object(
+            {
+              mode: z.literal('folders'),
+              folders: z
+                .array(
+                  z.object({
+                    path: z
+                      .string()
+                      .min(1)
+                      // Ensure folders don't have leading/trailing slashes
+                      .transform(path => path.replace(/^\/+|\/+$/g, ''))
+                      .describe('The full path of the folder to move.'),
+                  })
+                )
+                .min(1)
+                .describe('Explicit list of folders to move.'),
+            },
+            {
+              description: 'Move by folder paths. Moves entire folders to the destination.',
+            }
+          ),
+          z.object(
+            {
+              mode: z.literal('filePatterns'),
+              filePatterns: z
+                .object({
+                  patterns: z
+                    .array(z.string().min(1))
+                    .min(1)
+                    .describe('Array of RegExp patterns to match files for moving.'),
+                  folder: z
+                    .string()
+                    .min(1)
+                    .optional()
+                    .describe(
+                      'Optional folder path to limit pattern matching. If not provided, searches entire vault.'
+                    ),
+                })
+                .describe(
+                  'Pattern-based file selection for large file sets. Use this to avoid token limits.'
+                ),
+            },
+            {
+              description:
+                'Move by file patterns. Pattern-based file selection for large file sets. Use this to avoid token limits.',
+            }
+          ),
+        ])
       )
-      .optional()
-      .refine(array => !array || array.length > 0, {
-        message: 'folders array must include at least one entry when provided.',
-      })
-      .describe('Explicit list of folders to move.'),
-    filePatterns: createFilePatternsSchema({
-      description:
-        'Pattern-based file selection for large file sets. Use this to avoid token limits.',
-      patternsDescription: 'Array of RegExp patterns to match files for moving.',
-    }),
+      .min(1)
+      .describe(
+        'Array of move operations to execute. All operations move to the same destination.'
+      ),
     destinationFolder: z
       .string()
       .min(1)
       .describe('Destination folder path where the files or folders should be moved.'),
-    explanation: createExplanationSchema({
-      description: 'Short explanation of the move operation and why it is required.',
-    }),
-  })
-  .refine(
-    data =>
-      Boolean(data.artifactId) ||
-      Boolean(data.files && data.files.length > 0) ||
-      Boolean(data.folders && data.folders.length > 0) ||
-      Boolean(
-        data.filePatterns && data.filePatterns.patterns && data.filePatterns.patterns.length > 0
-      ),
-    {
-      message: 'Provide at least one of: artifactId, files, folders, or filePatterns.',
-    }
-  )
-  .refine(
-    data =>
-      !(
-        data.files &&
-        data.files.length > 0 &&
-        data.filePatterns &&
-        data.filePatterns.patterns &&
-        data.filePatterns.patterns.length > 0
-      ),
-    {
-      message: 'Provide either files or filePatterns, not both.',
-    }
-  );
+  },
+  {
+    description: 'A tool to move files and folders from the vault to a destination folder.',
+  }
+);
 
 export type MoveToolArgs = z.infer<typeof moveToolSchema>;
 
@@ -108,16 +130,6 @@ export class VaultMove {
     }
 
     const t = getTranslation(params.lang);
-
-    await this.agent.renderer.updateConversationNote({
-      path: params.title,
-      newContent: toolCall.input.explanation,
-      command: 'vault_move',
-      includeHistory: false,
-      lang: params.lang,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
-    });
 
     const resolveResult = await this.resolveMoveDocs({
       title: params.title,
@@ -202,14 +214,12 @@ export class VaultMove {
       title: params.title,
       docs,
       destinationFolder,
-      explanation: toolCall.input.explanation,
       lang: params.lang,
     });
 
     const formattedMessage = this.formatMoveResult({
       result: moveResult,
       destinationFolder,
-      explanation: toolCall.input.explanation,
       lang: params.lang,
     });
 
@@ -266,45 +276,50 @@ export class VaultMove {
     const docs: DocWithPath[] = [];
     const noFilesMessage = t('common.noFilesFound');
 
-    if (toolCall.input.artifactId) {
-      const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(title);
-      const resolvedFiles = await artifactManager.resolveFilesFromArtifact(
-        toolCall.input.artifactId
-      );
+    for (const operation of toolCall.input.operations) {
+      switch (operation.mode) {
+        case 'artifactId': {
+          const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(title);
+          const resolvedFiles = await artifactManager.resolveFilesFromArtifact(
+            operation.artifactId
+          );
 
-      if (resolvedFiles.length === 0) {
-        // No files found in artifact, continue to check other sources
-        // The noFilesMessage will be handled at the end if no files are found
-      } else {
-        docs.push(...resolvedFiles);
-      }
-    }
-
-    if (toolCall.input.files) {
-      for (const filePath of toolCall.input.files) {
-        const trimmedPath = filePath.trim();
-        if (trimmedPath) {
-          docs.push({ path: trimmedPath });
+          if (resolvedFiles.length > 0) {
+            docs.push(...resolvedFiles);
+          }
+          break;
         }
-      }
-    }
 
-    if (toolCall.input.folders) {
-      for (const folder of toolCall.input.folders) {
-        const trimmedPath = folder.path.trim();
-        if (trimmedPath) {
-          docs.push({ path: trimmedPath });
+        case 'files': {
+          for (const filePath of operation.files) {
+            const trimmedPath = filePath.trim();
+            if (trimmedPath) {
+              docs.push({ path: trimmedPath });
+            }
+          }
+          break;
         }
-      }
-    }
 
-    if (toolCall.input.filePatterns) {
-      const patternMatchedPaths = this.agent.obsidianAPITools.resolveFilePatterns(
-        toolCall.input.filePatterns.patterns,
-        toolCall.input.filePatterns.folder
-      );
-      for (const path of patternMatchedPaths) {
-        docs.push({ path });
+        case 'folders': {
+          for (const folder of operation.folders) {
+            const trimmedPath = folder.path.trim();
+            if (trimmedPath) {
+              docs.push({ path: trimmedPath });
+            }
+          }
+          break;
+        }
+
+        case 'filePatterns': {
+          const patternMatchedPaths = this.agent.obsidianAPITools.resolveFilePatterns(
+            operation.filePatterns.patterns,
+            operation.filePatterns.folder
+          );
+          for (const path of patternMatchedPaths) {
+            docs.push({ path });
+          }
+          break;
+        }
       }
     }
 
@@ -359,18 +374,13 @@ export class VaultMove {
     title: string;
     docs: DocWithPath[];
     destinationFolder: string;
-    explanation: string;
     lang?: string | null;
   }): Promise<MoveOperationResult> {
-    const { title, docs, destinationFolder, explanation, lang } = params;
+    const { title, docs, destinationFolder, lang } = params;
 
-    const moveOperations: MoveOperationV2[] = [
+    const moveOperations: MoveOperation[] = [
       {
-        keywords: [explanation],
-        filenames: [],
-        folders: [],
         destinationFolder,
-        properties: [],
       },
     ];
 
@@ -426,16 +436,15 @@ export class VaultMove {
   private formatMoveResult(params: {
     result: MoveOperationResult;
     destinationFolder: string;
-    explanation: string;
     lang?: string | null;
   }): string {
-    const { result, destinationFolder, explanation, lang } = params;
+    const { result, destinationFolder, lang } = params;
     const { moved, skipped, errors } = result;
     const totalCount = moved.length + skipped.length + errors.length;
 
     const t = getTranslation(lang);
     let response = t('move.foundFiles', { count: totalCount });
-    response += `\n\n${t('move.operation', { num: 1, query: explanation, folder: destinationFolder })}`;
+    response += `\n\n${t('move.operation', { num: 1, folder: destinationFolder })}`;
 
     if (moved.length > 0) {
       response += `\n\n**${t('move.successfullyMoved', { count: moved.length })}**`;

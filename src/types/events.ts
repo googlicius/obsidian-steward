@@ -91,7 +91,6 @@ export interface GitOperationRevertedPayload {
 export interface MoveOperationCompletedPayload {
   title: string;
   operations: Array<{
-    sourceQuery: string;
     destinationFolder: string;
     moved: string[];
     errors: string[];
@@ -114,7 +113,6 @@ export interface CopyOperationConfirmedPayload {
 export interface CopyOperationCompletedPayload {
   title: string;
   operations: Array<{
-    sourceQuery: string;
     destinationFolder: string;
     copied: string[];
     errors: string[];

@@ -555,4 +555,151 @@ Content from another linked note. With [[YetAnotherNote]].`);
       expect(result).toBe('Content from the linked note.');
     });
   });
+
+  describe('addColumnToTable', () => {
+    it('should add a column at the end when no position is specified', () => {
+      const table = `|Name|Age|
+|---|---|
+|Alice|30|
+|Bob|25|`;
+
+      const newColumn = `City
+---
+New York
+London`;
+
+      const result = noteContentService.addColumnToTable(table, newColumn);
+
+      expect(result).toBe(`|Name|Age|City|
+|---|---|---|
+|Alice|30|New York|
+|Bob|25|London|`);
+    });
+
+    it('should add a column at the beginning when position is 0', () => {
+      const table = `| Name | Age |
+|------|-----|
+| Alice | 30 |
+| Bob | 25 |`;
+
+      const newColumn = `ID
+---
+1
+2`;
+
+      const result = noteContentService.addColumnToTable(table, newColumn, 0);
+
+      expect(result).toBe(`|ID| Name | Age |
+|---|------|-----|
+|1| Alice | 30 |
+|2| Bob | 25 |`);
+    });
+
+    it('should add a column in the middle when position is specified', () => {
+      const table = `| Name | Age |
+|------|-----|
+| Alice | 30 |
+| Bob | 25 |`;
+
+      const newColumn = `City
+---
+New York
+London`;
+
+      const result = noteContentService.addColumnToTable(table, newColumn, 1);
+
+      expect(result).toBe(`| Name |City| Age |
+|------|---|-----|
+| Alice |New York| 30 |
+| Bob |London| 25 |`);
+    });
+
+    it('should pad with empty cells if new column has fewer values than rows', () => {
+      const table = `| Name | Age |
+|------|-----|
+| Alice | 30 |
+| Bob | 25 |
+| Charlie | 35 |`;
+
+      const newColumn = `City
+---
+NYC`;
+
+      const result = noteContentService.addColumnToTable(table, newColumn);
+
+      expect(result).toBe(`| Name | Age |City|
+|------|-----|---|
+| Alice | 30 |NYC|
+| Bob | 25 ||
+| Charlie | 35 ||`);
+    });
+  });
+
+  describe('deleteColumnFromTable', () => {
+    it('should delete the last column when no position is specified', () => {
+      const table = `| Name | Age | City |
+|------|-----|------|
+| Alice | 30 | NYC |
+| Bob | 25 | LA |`;
+
+      const result = noteContentService.deleteColumnFromTable(table);
+
+      expect(result).toBe(`| Name | Age |
+|------|-----|
+| Alice | 30 |
+| Bob | 25 |`);
+    });
+
+    it('should delete the first column when position is 0', () => {
+      const table = `| Name | Age | City |
+|------|-----|------|
+| Alice | 30 | NYC |
+| Bob | 25 | LA |`;
+
+      const result = noteContentService.deleteColumnFromTable(table, 0);
+
+      expect(result).toBe(`| Age | City |
+|-----|------|
+| 30 | NYC |
+| 25 | LA |`);
+    });
+
+    it('should delete a middle column when position is specified', () => {
+      const table = `| Name | Age | City |
+|------|-----|------|
+| Alice | 30 | NYC |
+| Bob | 25 | LA |`;
+
+      const result = noteContentService.deleteColumnFromTable(table, 1);
+
+      expect(result).toBe(`| Name | City |
+|------|------|
+| Alice | NYC |
+| Bob | LA |`);
+    });
+
+    it('should clamp position to 0 if negative position is provided', () => {
+      const table = `| Name | Age |
+|------|-----|
+| Alice | 30 |`;
+
+      const result = noteContentService.deleteColumnFromTable(table, -5);
+
+      expect(result).toBe(`| Age |
+|-----|
+| 30 |`);
+    });
+
+    it('should clamp position to last column if position exceeds column count', () => {
+      const table = `| Name | Age |
+|------|-----|
+| Alice | 30 |`;
+
+      const result = noteContentService.deleteColumnFromTable(table, 100);
+
+      expect(result).toBe(`| Name |
+|------|
+| Alice |`);
+    });
+  });
 });

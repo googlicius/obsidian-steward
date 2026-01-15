@@ -1,14 +1,14 @@
 import { App, TFile, TFolder } from 'obsidian';
 import { logger } from 'src/utils/logger';
 import { DocWithPath } from 'src/types/types';
-import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
-import { AddInstruction, UpdateInstruction } from 'src/solutions/commands/tools/editContent';
+import { EditOperation } from 'src/solutions/commands/tools/editContent';
 import { getTranslation } from 'src/i18n';
+import { NoteContentService } from 'src/services/NoteContentService';
 
 /**
  * Represents a single move operation with v2 parameters
  */
-export interface MoveOperationV2 extends SearchOperationV2 {
+export interface MoveOperation {
   destinationFolder: string;
 }
 
@@ -18,14 +18,6 @@ export interface MoveOperationV2 extends SearchOperationV2 {
 export interface OperationError {
   path: string;
   message: string;
-}
-
-/**
- * Represents a single move operation
- */
-export interface MoveOperation {
-  sourceQuery: string;
-  destinationFolder: string;
 }
 
 /**
@@ -177,12 +169,11 @@ export class ObsidianAPITools {
    * @returns Results of the move operations
    */
   async moveByOperations(
-    operations: MoveOperationV2[],
+    operations: MoveOperation[],
     filesByOperation: Map<number, DocWithPath[]>,
     lang?: string | null
   ): Promise<{
     operations: Array<{
-      sourceQuery: string;
       destinationFolder: string;
       moved: string[];
       errors: OperationError[];
@@ -247,7 +238,6 @@ export class ObsidianAPITools {
       }
 
       operationResults.push({
-        sourceQuery: operation.keywords ? operation.keywords.join(', ') : 'Search results',
         destinationFolder: operation.destinationFolder,
         moved,
         errors,
@@ -265,11 +255,10 @@ export class ObsidianAPITools {
    * @returns Results of the copy operations
    */
   async copyByOperations(
-    operations: MoveOperationV2[],
+    operations: MoveOperation[],
     filesByOperation: Map<number, DocWithPath[]>
   ): Promise<{
     operations: Array<{
-      sourceQuery: string;
       destinationFolder: string;
       copied: string[];
       errors: OperationError[];
@@ -325,7 +314,6 @@ export class ObsidianAPITools {
       }
 
       operationResults.push({
-        sourceQuery: operation.keywords ? operation.keywords.join(', ') : 'Search results',
         destinationFolder: operation.destinationFolder,
         copied,
         errors,
@@ -338,46 +326,122 @@ export class ObsidianAPITools {
 
   /**
    * Applies an update instruction to the given content
+   * @param noteContentService Optional NoteContentService instance for table operations
    */
-  public applyUpdateInstruction(content: string, updateInstruction: UpdateInstruction): string {
+  public applyUpdateInstruction(
+    content: string,
+    updateInstruction: EditOperation,
+    noteContentService?: NoteContentService
+  ): string {
     let lines = content.split('\n');
 
-    switch (updateInstruction.type) {
+    switch (updateInstruction.mode) {
       case 'replace': {
-        // Extract the original content from the specified lines (0-based indexing)
-        const startLine = Math.max(0, updateInstruction.fromLine);
-        const endLine = Math.min(lines.length - 1, updateInstruction.toLine);
-
-        if (startLine > endLine) {
-          throw new Error(
-            `Invalid line range: fromLine ${updateInstruction.fromLine} > toLine ${updateInstruction.toLine}`
-          );
-        }
-
-        const originalContent = lines.slice(startLine, endLine + 1).join('\n');
-        content = content.replace(originalContent, updateInstruction.new);
-        break;
-      }
-      case 'add': {
-        const addInstruction = updateInstruction as AddInstruction;
-        if (addInstruction.position === 'beginning') {
-          content = addInstruction.content + ' ' + content;
-        } else if (addInstruction.position === 'end') {
-          content = content.endsWith('\n')
-            ? content + addInstruction.content
-            : content + '\n' + addInstruction.content;
-        } else if (typeof addInstruction.position === 'number') {
-          const position = Math.max(0, Math.min(addInstruction.position, lines.length));
-          lines.splice(position, 0, addInstruction.content);
-          content = lines.join('\n');
+        // If both fromLine and toLine are omitted, replace the entire file
+        if (updateInstruction.fromLine === undefined && updateInstruction.toLine === undefined) {
+          content = updateInstruction.content;
         } else {
-          throw new Error('Invalid position value for add instruction');
+          // Extract the original content from the specified lines (0-based indexing)
+          const fromLine = updateInstruction.fromLine ?? 0;
+          const toLine = updateInstruction.toLine ?? lines.length - 1;
+          const startLine = Math.max(0, fromLine);
+          const endLine = Math.min(lines.length - 1, toLine);
+
+          if (startLine > endLine) {
+            throw new Error(`Invalid line range: fromLine ${fromLine} > toLine ${toLine}`);
+          }
+
+          const originalContent = lines.slice(startLine, endLine + 1).join('\n');
+          content = content.replace(originalContent, updateInstruction.content);
         }
         break;
       }
-      default: {
-        const unknownInstruction = updateInstruction as { type: string };
-        throw new Error(`Unsupported update type: ${unknownInstruction.type}`);
+
+      case 'insert': {
+        if (updateInstruction.line === 0) {
+          content = updateInstruction.content + ' ' + content;
+        } else if (updateInstruction.line === lines.length - 1) {
+          content = content.endsWith('\n')
+            ? content + updateInstruction.content
+            : content + '\n' + updateInstruction.content;
+        } else {
+          const position = Math.max(0, Math.min(updateInstruction.line, lines.length));
+          lines.splice(position, 0, updateInstruction.content);
+          content = lines.join('\n');
+        }
+        break;
+      }
+
+      case 'add_table_column': {
+        if (!noteContentService) {
+          throw new Error('NoteContentService is required for table column operations');
+        }
+        // Extract the table content
+        const tableContent = lines
+          .slice(updateInstruction.fromLine, updateInstruction.toLine + 1)
+          .join('\n');
+
+        // Add the column to the table
+        const updatedTable = noteContentService.addColumnToTable(
+          tableContent,
+          updateInstruction.content,
+          updateInstruction.position
+        );
+
+        // Replace the table in the content
+        const beforeTable = lines.slice(0, updateInstruction.fromLine).join('\n');
+        const afterTable = lines.slice(updateInstruction.toLine + 1).join('\n');
+        const parts = [beforeTable, updatedTable, afterTable].filter(part => part !== '');
+        content = parts.join('\n');
+        break;
+      }
+
+      case 'update_table_column': {
+        if (!noteContentService) {
+          throw new Error('NoteContentService is required for table column operations');
+        }
+        // Extract the table content
+        const tableContent = lines
+          .slice(updateInstruction.fromLine, updateInstruction.toLine + 1)
+          .join('\n');
+
+        const updatedTable = noteContentService.editColumnInTable(
+          tableContent,
+          updateInstruction.content,
+          updateInstruction.position
+        );
+
+        // Replace the table in the content
+        const beforeTable = lines.slice(0, updateInstruction.fromLine).join('\n');
+        const afterTable = lines.slice(updateInstruction.toLine + 1).join('\n');
+        const parts = [beforeTable, updatedTable, afterTable].filter(part => part !== '');
+        content = parts.join('\n');
+        break;
+      }
+
+      case 'delete_table_column': {
+        if (!noteContentService) {
+          throw new Error('NoteContentService is required for table column operations');
+        }
+
+        // Extract the table content
+        const tableContent = lines
+          .slice(updateInstruction.fromLine, updateInstruction.toLine + 1)
+          .join('\n');
+
+        // Add the column to the table
+        const updatedTable = noteContentService.deleteColumnFromTable(
+          tableContent,
+          updateInstruction.position
+        );
+
+        // Replace the table in the content
+        const beforeTable = lines.slice(0, updateInstruction.fromLine).join('\n');
+        const afterTable = lines.slice(updateInstruction.toLine + 1).join('\n');
+        const parts = [beforeTable, updatedTable, afterTable].filter(part => part !== '');
+        content = parts.join('\n');
+
+        break;
       }
     }
 
@@ -397,7 +461,7 @@ export class ObsidianAPITools {
    * Get all files from a folder recursively.
    * Similar to VaultList's approach but collects files recursively.
    */
-  private getFilesFromFolder(folder: TFolder): TFile[] {
+  public getFilesFromFolder(folder: TFolder): TFile[] {
     const files: TFile[] = [];
 
     for (const child of folder.children) {

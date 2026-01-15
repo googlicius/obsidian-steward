@@ -32,7 +32,8 @@ export class ReadContentSerializer extends ArtifactSerializer {
     const addImagePathIfValid = (path: string | undefined) => {
       if (!path) return;
       const normalizedPath = path.toLowerCase();
-      const extension = normalizedPath.split('.').pop();
+      const lastIndex = normalizedPath.lastIndexOf('.');
+      const extension = lastIndex > 0 ? normalizedPath.slice(lastIndex + 1) : null;
       if (extension && IMAGE_EXTENSIONS.includes(extension)) {
         imagePaths.add(path);
       }

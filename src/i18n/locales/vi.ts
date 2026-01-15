@@ -63,7 +63,7 @@ const vi = {
       skipped: 'Đã bỏ qua {{count}} mục (đã có trong thư mục đích):',
       failed: 'Không thể di chuyển {{count}} mục:',
       multiMoveHeader: 'Tôi đã thực hiện {{count}} thao tác di chuyển:',
-      operation: 'Thao tác {{num}}: Di chuyển các tập tin và thư mục với {{query}} đến {{folder}}',
+      operation: 'Thao tác {{num}}: Di chuyển các tập tin đến {{folder}}',
       createFoldersHeader: 'Tôi cần tạo các thư mục sau trước khi di chuyển tập tin:',
       createFoldersQuestion: 'Bạn có muốn tôi tạo các thư mục này không?',
       cannotMoveThisType: 'Không thể di chuyển loại artifact này: {{type}}',
@@ -77,7 +77,7 @@ const vi = {
       skipped: 'Đã bỏ qua {{count}} tập tin (đã có trong thư mục đích):',
       failed: 'Không thể sao chép {{count}} tập tin:',
       multiCopyHeader: 'Tôi đã thực hiện {{count}} thao tác sao chép:',
-      operation: 'Thao tác {{num}}: Sao chép các tập tin với {{query}} đến {{folder}}',
+      operation: 'Thao tác {{num}}: Sao chép các tập tin đến {{folder}}',
       noDestination: 'Vui lòng chỉ định thư mục đích cho thao tác sao chép.',
       createFoldersHeader: 'Tôi cần tạo các thư mục sau trước khi sao chép tập tin:',
       createFoldersQuestion: 'Bạn có muốn tôi tạo các thư mục này không?',
@@ -146,6 +146,7 @@ const vi = {
       applyChangesConfirm: 'Bạn có muốn áp dụng các thay đổi này không?',
       noChangesNeeded:
         'Nội dung gốc và nội dung đã cập nhật giống hệt nhau. Không cần thay đổi gì.',
+      changesDenied: 'Người dùng đã từ chối các thay đổi.',
     },
     // Delete result messages
     delete: {
@@ -154,6 +155,7 @@ const vi = {
       failed: 'Không thể xóa {{count}} tập tin:',
       multiDeleteHeader: 'Tôi đã thực hiện {{count}} thao tác xóa:',
       operation: 'Thao tác {{num}}: Xóa các tập tin với {{query}}',
+      cannotDeleteCurrentConversationNote: 'Không thể xóa ghi chú trò chuyện hiện tại',
     },
     revert: {
       foundFiles: 'Tôi đã tìm thấy {{count}} mục để hoàn tác.',
@@ -216,6 +218,8 @@ const vi = {
     },
     // UI elements
     ui: {
+      yes: 'Có',
+      no: 'Không',
       openStewardChat: 'Mở trò chuyện Steward',
       buildingSearchIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
       errorBuildingSearchIndex:
@@ -303,16 +307,7 @@ const vi = {
       showRoleLabelsDesc: 'Hiển thị nhãn User/Steward/System trong cuộc trò chuyện',
       debugMode: 'Chế độ gỡ lỗi',
       debugModeDesc: 'Bật ghi log chi tiết trong console để gỡ lỗi',
-      providers: 'Nhà cung cấp',
       apiKeys: 'Khóa API', // Deprecated: kept for backward compatibility
-      openaiApiKey: 'Khóa API OpenAI',
-      elevenlabsApiKey: 'Khóa API ElevenLabs',
-      deepseekApiKey: 'Khóa API DeepSeek',
-      googleApiKey: 'Khóa API Google',
-      groqApiKey: 'Khóa API Groq',
-      anthropicApiKey: 'Khóa API Anthropic',
-      ollamaApiKey: 'Khóa API Ollama (Tùy chọn)',
-      ollamaApiKeyDesc: 'Khóa API cho API Ollama',
       enterApiKey: 'Nhập khóa API của bạn',
       enterApiKeyOptional: 'Nhập khóa API của bạn (tùy chọn)',
       errorReenterKey: 'Lỗi: Nhấp để nhập lại khóa',
@@ -400,6 +395,49 @@ const vi = {
         moveUp: 'Di chuyển lên',
         moveDown: 'Di chuyển xuống',
         noAvailableModels: 'Không có mô hình nào để thêm',
+      },
+      providers: {
+        providersHeader: 'Nhà cung cấp',
+        openai: {
+          apiKey: 'Khóa API OpenAI',
+          desc: 'Khả năng: Tạo văn bản, đọc hình ảnh (vision), tạo hình ảnh (DALL-E), tạo giọng nói (TTS), suy luận (o-series), embedding.',
+          linkText: 'Truy cập OpenAI Platform',
+        },
+        elevenlabs: {
+          apiKey: 'Khóa API ElevenLabs',
+          desc: 'Khả năng: Tạo giọng nói (TTS).',
+          linkText: 'Truy cập ElevenLabs platform',
+        },
+        deepseek: {
+          apiKey: 'Khóa API DeepSeek',
+          desc: 'Khả năng: Tạo văn bản, suy luận.',
+          linkText: 'Truy cập DeepSeek platform',
+        },
+        google: {
+          apiKey: 'Khóa API Google',
+          desc: 'Khả năng: Tạo văn bản, đọc hình ảnh (vision), embedding.',
+          linkText: 'Truy cập Google AI Studio',
+        },
+        groq: {
+          apiKey: 'Khóa API Groq',
+          desc: 'Khả năng: Tạo văn bản, suy luận.',
+          linkText: 'Truy cập Groq platform',
+        },
+        anthropic: {
+          apiKey: 'Khóa API Anthropic',
+          desc: 'Khả năng: Tạo văn bản, đọc hình ảnh (vision), suy luận.',
+          linkText: 'Truy cập Anthropic platform',
+        },
+        ollama: {
+          apiKey: 'Khóa API Ollama (Tùy chọn)',
+          desc: 'Khả năng: Tạo văn bản, embedding, chạy mô hình cục bộ.',
+          linkText: 'Truy cập Ollama platform',
+        },
+        hume: {
+          apiKey: 'Khóa API Hume',
+          desc: 'Khả năng: Tạo giọng nói (TTS).',
+          linkText: 'Truy cập Hume platform',
+        },
       },
     },
   },

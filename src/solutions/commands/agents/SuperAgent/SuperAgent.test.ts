@@ -783,7 +783,7 @@ describe('SuperAgent', () => {
           {
             toolName,
             toolCallId: 'tool-call-1',
-            args: {},
+            input: {},
           },
         ],
         conversationHistory: [],
@@ -848,7 +848,7 @@ describe('SuperAgent', () => {
           {
             toolName: ToolName.LIST,
             toolCallId: 'tool-call-1',
-            args: {},
+            input: {},
           },
         ],
         conversationHistory: [],
@@ -990,7 +990,7 @@ describe('SuperAgent', () => {
           {
             toolName: ToolName.LIST,
             toolCallId: 'tool-call-1',
-            args: {},
+            input: {},
           },
         ],
         conversationHistory: [],
@@ -1064,6 +1064,7 @@ describe('SuperAgent', () => {
           },
         ],
         currentStep: 2,
+        createdBy: 'ai',
       };
 
       mockPlugin.conversationRenderer.getConversationProperty = jest
@@ -1274,7 +1275,7 @@ describe('SuperAgent', () => {
       expect(mockPlugin.conversationRenderer.addUserMessage).toHaveBeenCalledTimes(1);
       expect(mockPlugin.conversationRenderer.addUserMessage).toHaveBeenCalledWith({
         path: 'test-conversation',
-        newContent: 'vault: test query',
+        newContent: 'test query',
         step: undefined,
         contentFormat: 'hidden',
       });

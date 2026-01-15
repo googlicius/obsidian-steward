@@ -12,12 +12,14 @@ import { createDeepSeek, DeepSeekProvider } from '@ai-sdk/deepseek';
 import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/google';
 import { createGroq, GroqProvider } from '@ai-sdk/groq';
 import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
+import { createElevenLabs, ElevenLabsProvider } from '@ai-sdk/elevenlabs';
 import { createOllama, OllamaProvider } from 'ollama-ai-provider-v2';
 import type StewardPlugin from 'src/main';
 import { jsonrepair } from 'jsonrepair';
 import { logger } from 'src/utils/logger';
 import { StewardPluginSettings } from 'src/types/interfaces';
 import { getTranslation } from 'src/i18n';
+import { createHume, HumeProvider } from '@ai-sdk/hume';
 
 /**
  * Service for managing LLM models and configurations using the AI package
@@ -115,6 +117,21 @@ export class LLMService {
    * Determine the provider from the model name
    * Supports both built-in providers and custom providers (using compatibility)
    */
+  // Overload for ElevenLabs provider
+  public getProviderFromModel(model: `elevenlabs:${string}`): {
+    modelId: string;
+    name: 'elevenlabs';
+    systemPrompt?: string;
+    provider: ElevenLabsProvider;
+  };
+  // Overload for Hume provider
+  public getProviderFromModel(model: `hume:${string}`): {
+    modelId: string;
+    name: 'hume';
+    systemPrompt?: string;
+    provider: HumeProvider;
+  };
+  // Overload for other providers (excluding ElevenLabs)
   public getProviderFromModel(model: string | `${string}:${string}`): {
     modelId: string;
     name: string;
@@ -127,6 +144,22 @@ export class LLMService {
       | GroqProvider
       | OllamaProvider
       | AnthropicProvider;
+  };
+  // Implementation
+  public getProviderFromModel(model: string | `${string}:${string}`): {
+    modelId: string;
+    name: string;
+    systemPrompt?: string;
+    provider:
+      | OpenAIProvider
+      | OpenAICompatibleProvider
+      | DeepSeekProvider
+      | GoogleGenerativeAIProvider
+      | GroqProvider
+      | OllamaProvider
+      | AnthropicProvider
+      | ElevenLabsProvider
+      | HumeProvider;
   } {
     const { provider: name, modelId } = this.parseModel(model);
 
@@ -150,7 +183,9 @@ export class LLMService {
       | GoogleGenerativeAIProvider
       | GroqProvider
       | OllamaProvider
-      | AnthropicProvider;
+      | AnthropicProvider
+      | ElevenLabsProvider
+      | HumeProvider;
 
     // Use standard provider name for the switch case
     switch (standardName) {
@@ -214,6 +249,27 @@ export class LLMService {
         provider = createAnthropic({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
+          headers: {
+            // Enable CORS access
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
+        });
+        break;
+      }
+
+      case 'elevenlabs': {
+        provider = createElevenLabs({
+          ...(baseURL && { baseURL }),
+          ...(apiKey && { apiKey }),
+        });
+
+        break;
+      }
+
+      case 'hume': {
+        provider = createHume({
+          ...(baseURL && { baseURL }),
+          ...(apiKey && { apiKey }),
         });
         break;
       }
@@ -249,7 +305,13 @@ export class LLMService {
       maxGenerationTokens: this.plugin.settings.llm.maxGenerationTokens,
     };
     const model = overrideModel || defaultModel;
-    const { provider, modelId, systemPrompt } = this.getProviderFromModel(model);
+    const { provider, modelId, systemPrompt, name } = this.getProviderFromModel(model);
+
+    if (['elevenlabs', 'hume'].includes(name)) {
+      throw new Error(
+        `${name} provider does not support language models. Use it for speech generation only.`
+      );
+    }
 
     const languageModel = provider(modelId);
 
@@ -291,7 +353,7 @@ export class LLMService {
     const result = this.getProviderFromModel(model);
     let imageModel: ImageModel | undefined;
 
-    if (result.name === 'openai' && 'image' in result.provider) {
+    if ('image' in result.provider) {
       imageModel = result.provider.image(result.modelId);
     } else if (result.provider.imageModel) {
       const imageModelV1OrV2 = result.provider.imageModel(result.modelId);
@@ -320,7 +382,7 @@ export class LLMService {
     const result = this.getProviderFromModel(`${provider}:${model}`);
     let speechModel: SpeechModel | undefined;
 
-    if (result.name === 'openai' && 'speech' in result.provider) {
+    if ('speech' in result.provider) {
       speechModel = result.provider.speech(result.modelId);
     } else if (result.provider.speechModel) {
       const speechModelV1OrV2 = result.provider.speechModel(result.modelId);

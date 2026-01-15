@@ -62,12 +62,24 @@ export abstract class Agent {
     params.intent.query = this.plugin.userMessageService.sanitizeQuery(params.intent.query);
     params.invocationCount = params.invocationCount || 0;
     params.handlerId = params.handlerId || uniqueID();
+    params.lang = params.lang || (await this.loadConversationLang(params.title));
 
     try {
       // Call the original handle method
-      return await this.handle(params, ...args);
+      const result = await this.handle(params, ...args);
+
+      if (result.status === IntentResultStatus.NEEDS_CONFIRMATION) {
+        await this.renderer.showConfirmationButtons(params.title);
+      }
+
+      return result;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'object' && 'error' in error
+            ? error.error.message
+            : String(error);
       logger.error(`Error in ${params.intent.type || 'Super'} agent handler:`, error);
 
       const t = getTranslation(params.lang);
@@ -143,27 +155,35 @@ export abstract class Agent {
    * Load activeTools from conversation frontmatter or use default
    * @param title The conversation title
    * @param paramsActiveTools ActiveTools provided in params (if any)
-   * @returns The activeTools to use
+   * @returns The activeTools to use (merged from params, conversation properties, and default)
    */
   protected async loadActiveTools(
     title: string,
     paramsActiveTools?: ToolName[]
   ): Promise<ToolName[]> {
-    // Use params activeTools if provided
-    if (paramsActiveTools) {
-      return paramsActiveTools;
-    }
-
     // Try to load from frontmatter
     const savedActiveTools = await this.renderer.getConversationProperty<ToolName[]>(
       title,
       'tools'
     );
 
-    // Return saved tools if available, otherwise use default
-    return savedActiveTools && savedActiveTools.length > 0
-      ? savedActiveTools
-      : [...this.activeTools];
+    // Combine all sources: params, saved, and default
+    const allTools: ToolName[] = [
+      ...(paramsActiveTools || []),
+      ...(savedActiveTools || []),
+      ...this.activeTools,
+    ];
+
+    // Remove duplicates and return
+    return Array.from(new Set(allTools));
+  }
+
+  protected async loadConversationLang(
+    title: string,
+    paramsLang?: string | null
+  ): Promise<string | null> {
+    const savedLang = await this.renderer.getConversationProperty<string>(title, 'lang');
+    return paramsLang || savedLang || null;
   }
 
   /**

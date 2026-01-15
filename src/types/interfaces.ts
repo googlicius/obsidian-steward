@@ -70,6 +70,7 @@ export interface StewardPluginSettings {
       voices: {
         openai: string; // OpenAI voice ID (e.g., "alloy", "echo", "fable", "onyx", "nova", "shimmer")
         elevenlabs: string; // ElevenLabs voice ID
+        hume: string; // Hume voice ID
       };
       customModels: string[]; // User-defined custom speech models
     };

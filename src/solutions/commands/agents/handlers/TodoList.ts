@@ -5,6 +5,7 @@ import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
+import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 /**
  * Schema for a single to-do list step
@@ -21,6 +22,11 @@ const todoListSchema = z.object({
     .array(todoStepSchema)
     .min(1)
     .describe('Array of steps in the to-do list. Each step requires a task.'),
+  lang: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(userLanguagePrompt.content as string),
 });
 
 /**
@@ -78,6 +84,7 @@ export interface TodoListState {
     no_confirm?: boolean;
   }>;
   currentStep: number;
+  createdBy: 'udc' | 'ai';
 }
 
 export class TodoList {
@@ -155,10 +162,13 @@ export class TodoList {
    */
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolCallPart<TodoListArgs | TodoListArgsWithMetadata> }
+    options: {
+      toolCall: ToolCallPart<TodoListArgs | TodoListArgsWithMetadata>;
+      createdBy?: TodoListState['createdBy'];
+    }
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
-    const { toolCall } = options;
+    const { toolCall, createdBy = 'ai' } = options;
 
     if (!handlerId) {
       throw new Error('TodoList.handle invoked without handlerId');
@@ -178,6 +188,7 @@ export class TodoList {
       const newState: TodoListState = {
         steps,
         currentStep: 1,
+        createdBy,
       };
 
       // Store in frontmatter
@@ -298,6 +309,7 @@ export class TodoList {
       const newState: TodoListState = {
         steps: updatedSteps,
         currentStep: targetStep,
+        createdBy: existingState.createdBy,
       };
 
       // Store in frontmatter

@@ -64,7 +64,7 @@ const ja = {
       skipped: '{{count}}件のアイテムをスキップしました（すでに移動先に存在）：',
       failed: '{{count}}件のアイテムの移動に失敗しました：',
       multiMoveHeader: '{{count}}件の移動操作を実行しました：',
-      operation: '操作{{num}}: {{query}}を含むファイルとフォルダを{{folder}}に移動',
+      operation: '操作{{num}}: ファイルを{{folder}}に移動',
       createFoldersHeader: 'ファイルを移動する前に以下のフォルダを作成する必要があります：',
       createFoldersQuestion: 'これらのフォルダを作成しますか？',
       cannotMoveThisType: 'この種類のアーティファクトは移動できません: {{type}}',
@@ -78,7 +78,7 @@ const ja = {
       skipped: '{{count}}件のファイルをスキップしました（すでに移動先に存在）：',
       failed: '{{count}}件のファイルのコピーに失敗しました：',
       multiCopyHeader: '{{count}}件のコピー操作を実行しました：',
-      operation: '操作{{num}}: {{query}}を含むファイルを{{folder}}にコピー',
+      operation: '操作{{num}}: ファイルを{{folder}}にコピー',
       noDestination: 'コピー操作の移動先フォルダを指定してください。',
       createFoldersHeader: 'ファイルをコピーする前に以下のフォルダを作成する必要があります：',
       createFoldersQuestion: 'これらのフォルダを作成しますか？',
@@ -146,6 +146,7 @@ const ja = {
       skipped: '{{count}}件のファイルをスキップしました：',
       applyChangesConfirm: '変更を適用しますか？',
       noChangesNeeded: '元の内容と更新された内容は同一です。変更は必要ありませんでした。',
+      changesDenied: 'ユーザーによって変更が拒否されました。',
     },
     // Delete result messages
     delete: {
@@ -156,6 +157,7 @@ const ja = {
       operation: '操作{{num}}: {{query}}を含むファイルを削除',
       confirmHeader: '以下のファイルを削除します：',
       confirmQuestion: 'これらのファイルを削除してもよろしいですか？この操作は取り消せません。',
+      cannotDeleteCurrentConversationNote: '現在の会話ノートは削除できません',
     },
     // Revert result messages
     revert: {
@@ -219,6 +221,8 @@ const ja = {
     },
     // UI elements
     ui: {
+      yes: 'はい',
+      no: 'いいえ',
       openStewardChat: 'Steward chatを開く',
       buildingSearchIndex: '検索インデックスを構築中...',
       errorBuildingSearchIndex:

@@ -1,6 +1,6 @@
 {
   "name": "obsidian-steward",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "This is a sample plugin for Obsidian (https://obsidian.md)",
   "main": "main.js",
   "scripts": {
@@ -12,9 +12,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "postinstall": "patch-package"
   },
-  "postinstall": "patch-package",
   "keywords": [],
   "author": "",
   "license": "MIT",
@@ -45,8 +45,10 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.2",
     "@ai-sdk/deepseek": "^2.0.2",
+    "@ai-sdk/elevenlabs": "^2.0.6",
     "@ai-sdk/google": "^3.0.2",
     "@ai-sdk/groq": "^3.0.2",
+    "@ai-sdk/hume": "^2.0.6",
     "@ai-sdk/openai": "^3.0.2",
     "@ai-sdk/openai-compatible": "^2.0.2",
     "ai": "^6.0.5",
