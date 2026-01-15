@@ -80,13 +80,36 @@ class StewardSettingTab extends PluginSettingTab {
     this.containerEl.scrollTop = currentScrollPosition;
   }
 
+  private addNewSettingGroup(): { settingGroup: HTMLElement; settingItems: HTMLElement } {
+    const settingGroup = this.containerEl.createEl('div', {
+      cls: 'setting-group',
+    });
+
+    let _settingItems: HTMLElement | null = null;
+
+    return {
+      settingGroup,
+
+      get settingItems() {
+        if (!_settingItems) {
+          _settingItems = settingGroup.createEl('div', {
+            cls: 'setting-items',
+          });
+        }
+        return _settingItems;
+      },
+    };
+  }
+
   display(): void {
     const { containerEl } = this;
 
     containerEl.empty();
 
+    const commonSettingGroup = this.addNewSettingGroup();
+
     // Add setting for conversation folder
-    new Setting(containerEl)
+    new Setting(commonSettingGroup.settingItems)
       .setName(t('settings.stewardFolder'))
       .setDesc(t('settings.stewardFolderDesc'))
       .addText(text => {
@@ -104,7 +127,7 @@ class StewardSettingTab extends PluginSettingTab {
       });
 
     // Add show role labels toggle
-    new Setting(containerEl)
+    new Setting(commonSettingGroup.settingItems)
       .setName(t('settings.showRoleLabels'))
       .setDesc(t('settings.showRoleLabelsDesc'))
       .addToggle(toggle =>
@@ -115,7 +138,7 @@ class StewardSettingTab extends PluginSettingTab {
       );
 
     // Add debug mode toggle
-    new Setting(containerEl)
+    new Setting(commonSettingGroup.settingItems)
       .setName(t('settings.debugMode'))
       .setDesc(t('settings.debugModeDesc'))
       .addToggle(toggle =>
@@ -127,20 +150,24 @@ class StewardSettingTab extends PluginSettingTab {
       );
 
     // Add delete behavior setting
-    this.createDeleteBehaviorSetting(containerEl);
+    this.createDeleteBehaviorSetting(commonSettingGroup.settingItems);
+
+    const providerSettingGroup = this.addNewSettingGroup();
 
     // Create Providers section
-    new Setting(containerEl).setName(t('settings.providers.providersHeader')).setHeading();
+    new Setting(providerSettingGroup.settingGroup)
+      .setName(t('settings.providers.providersHeader'))
+      .setHeading();
 
     // Display built-in providers
-    this.createProviderSetting('openai');
-    this.createProviderSetting('deepseek');
-    this.createProviderSetting('google');
-    this.createProviderSetting('groq');
-    this.createProviderSetting('anthropic');
-    this.createProviderSetting('ollama');
-    this.createProviderSetting('elevenlabs');
-    this.createProviderSetting('hume');
+    this.createProviderSetting(providerSettingGroup.settingItems, 'openai');
+    this.createProviderSetting(providerSettingGroup.settingItems, 'deepseek');
+    this.createProviderSetting(providerSettingGroup.settingItems, 'google');
+    this.createProviderSetting(providerSettingGroup.settingItems, 'groq');
+    this.createProviderSetting(providerSettingGroup.settingItems, 'anthropic');
+    this.createProviderSetting(providerSettingGroup.settingItems, 'ollama');
+    this.createProviderSetting(providerSettingGroup.settingItems, 'elevenlabs');
+    this.createProviderSetting(providerSettingGroup.settingItems, 'hume');
 
     // Display custom providers
     const customProviders = Object.keys(this.plugin.settings.providers).filter(
@@ -148,13 +175,13 @@ class StewardSettingTab extends PluginSettingTab {
     );
 
     for (const providerKey of customProviders) {
-      this.createProviderSetting(providerKey, {
+      this.createProviderSetting(providerSettingGroup.settingItems, providerKey, {
         apiKeyPlaceholder: t('settings.enterApiKeyOptional'),
       });
     }
 
     // Add "Add new provider" button
-    new Setting(containerEl)
+    new Setting(providerSettingGroup.settingItems)
       .setName(t('settings.addNewProvider'))
       .setDesc(t('settings.addNewProviderDesc'))
       .addButton(button => {
@@ -182,27 +209,29 @@ class StewardSettingTab extends PluginSettingTab {
           });
       });
 
-    containerEl.createEl('div', {
+    providerSettingGroup.settingGroup.createEl('div', {
       text: `${t('settings.note')}:`,
       cls: 'setting-item-description',
     });
 
-    containerEl.createEl('div', {
+    providerSettingGroup.settingGroup.createEl('div', {
       text: t('settings.apiKeyNote1'),
       cls: 'setting-item-description',
     });
 
-    containerEl.createEl('div', {
+    providerSettingGroup.settingGroup.createEl('div', {
       text: t('settings.apiKeyNote2'),
       cls: 'setting-item-description',
     });
 
+    const modelSettingGroup = this.addNewSettingGroup();
+
     // Add Models settings section
-    new Setting(containerEl).setName(t('settings.models')).setHeading();
+    new Setting(modelSettingGroup.settingGroup).setName(t('settings.models')).setHeading();
 
     // Chat Model setting
     this.createModelSetting(
-      new Setting(containerEl)
+      new Setting(modelSettingGroup.settingItems)
         .setName(t('settings.chatModel'))
         .setDesc(t('settings.chatModelDesc')),
       {
@@ -243,7 +272,7 @@ class StewardSettingTab extends PluginSettingTab {
     );
 
     // Temperature setting
-    new Setting(containerEl)
+    new Setting(modelSettingGroup.settingItems)
       .setName(t('settings.temperature'))
       .setDesc(t('settings.temperatureDesc'))
       .addSlider(slider => {
@@ -258,7 +287,7 @@ class StewardSettingTab extends PluginSettingTab {
       });
 
     // Max Generation Tokens setting
-    new Setting(containerEl)
+    new Setting(modelSettingGroup.settingItems)
       .setName(t('settings.maxGenerationTokens'))
       .setDesc(t('settings.maxGenerationTokensDesc'))
       .addText(text => {
@@ -280,7 +309,7 @@ class StewardSettingTab extends PluginSettingTab {
       });
 
     // Enable Model Fallback setting
-    new Setting(containerEl)
+    new Setting(modelSettingGroup.settingItems)
       .setName(t('settings.modelFallbackEnabled'))
       .setDesc(t('settings.modelFallbackEnabledDesc'))
       .addToggle(toggle => {
@@ -301,16 +330,20 @@ class StewardSettingTab extends PluginSettingTab {
 
     // Fallback Chain setting
     this.createModelFallbackSetting(
-      new Setting(containerEl)
+      new Setting(modelSettingGroup.settingItems)
         .setName(t('settings.fallbackChain'))
         .setDesc(t('settings.fallbackChainDesc'))
     );
 
+    const intentClassificationSettingGroup = this.addNewSettingGroup();
+
     // Intent classification settings section
-    new Setting(containerEl).setName(t('settings.intentClassification')).setHeading();
+    new Setting(intentClassificationSettingGroup.settingGroup)
+      .setName(t('settings.intentClassification'))
+      .setHeading();
 
     // Intent classification Enable/Disable setting
-    new Setting(containerEl)
+    new Setting(intentClassificationSettingGroup.settingItems)
       .setName(t('settings.classificationEnabled'))
       .setDesc(t('settings.classificationEnabledDesc'))
       .addToggle(toggle => {
@@ -322,7 +355,7 @@ class StewardSettingTab extends PluginSettingTab {
 
     // Embedding Model setting
     this.createModelSetting(
-      new Setting(containerEl)
+      new Setting(intentClassificationSettingGroup.settingItems)
         .setName(t('settings.embeddingModel'))
         .setDesc(t('settings.embeddingModelDesc')),
       {
@@ -392,7 +425,7 @@ class StewardSettingTab extends PluginSettingTab {
     );
 
     // Embedding Similarity Threshold setting
-    new Setting(containerEl)
+    new Setting(intentClassificationSettingGroup.settingItems)
       .setName(t('settings.embeddingSimilarityThreshold'))
       .setDesc(t('settings.embeddingSimilarityThresholdDesc'))
       .addSlider(slider => {
@@ -406,12 +439,14 @@ class StewardSettingTab extends PluginSettingTab {
           });
       });
 
+    const speechSettingGroup = this.addNewSettingGroup();
+
     // Speech settings section
-    new Setting(containerEl).setName(t('settings.speech')).setHeading();
+    new Setting(speechSettingGroup.settingGroup).setName(t('settings.speech')).setHeading();
 
     // Create speech model setting
     this.createModelSetting(
-      new Setting(containerEl)
+      new Setting(speechSettingGroup.settingItems)
         .setName(t('settings.speechModel'))
         .setDesc(t('settings.speechModelDesc')),
       {
@@ -452,7 +487,7 @@ class StewardSettingTab extends PluginSettingTab {
     );
 
     // Voice ID setting
-    new Setting(containerEl)
+    new Setting(speechSettingGroup.settingItems)
       .setName(t('settings.voiceId'))
       .setDesc(t('settings.voiceIdDesc'))
       .addText(text => {
@@ -472,12 +507,14 @@ class StewardSettingTab extends PluginSettingTab {
         });
       });
 
+    const imageSettingGroup = this.addNewSettingGroup();
+
     // Add Image section
-    new Setting(containerEl).setName(t('settings.image')).setHeading();
+    new Setting(imageSettingGroup.settingGroup).setName(t('settings.image')).setHeading();
 
     // Image Model setting
     this.createModelSetting(
-      new Setting(containerEl)
+      new Setting(imageSettingGroup.settingItems)
         .setName(t('settings.imageModel'))
         .setDesc(t('settings.imageModelDesc')),
       {
@@ -518,7 +555,7 @@ class StewardSettingTab extends PluginSettingTab {
     );
 
     // Image Size setting
-    new Setting(containerEl)
+    new Setting(imageSettingGroup.settingItems)
       .setName(t('settings.imageSize'))
       .setDesc(t('settings.imageSizeDesc'))
       .addText(text => {
@@ -530,11 +567,13 @@ class StewardSettingTab extends PluginSettingTab {
         });
       });
 
+    const searchSettingGroup = this.addNewSettingGroup();
+
     // Add Search settings section
-    new Setting(containerEl).setName(t('settings.searchSettings')).setHeading();
+    new Setting(searchSettingGroup.settingGroup).setName(t('settings.searchSettings')).setHeading();
 
     // Without LLM setting
-    new Setting(containerEl)
+    new Setting(searchSettingGroup.settingItems)
       .setName(t('settings.withoutLLM'))
       .setDesc(t('settings.withoutLLMDesc'))
       .addDropdown(dropdown => {
@@ -549,7 +588,7 @@ class StewardSettingTab extends PluginSettingTab {
       });
 
     // Results per page setting
-    new Setting(containerEl)
+    new Setting(searchSettingGroup.settingItems)
       .setName(t('settings.resultsPerPage'))
       .setDesc(t('settings.resultsPerPageDesc'))
       .addText(text => {

@@ -115,15 +115,10 @@ export class ProviderSetting {
    */
   public createProviderSetting(
     this: StewardSettingTab,
+    containerEl: HTMLElement,
     provider: string,
     options?: { apiKeyPlaceholder?: string }
   ): void {
-    const containerEl = this.containerEl;
-    if (!containerEl) {
-      logger.error('containerEl not available in ProviderSetting');
-      return;
-    }
-
     const isCustom = this.isCustomProvider(provider);
     const isBuiltIn = this.isBuiltInProvider(provider);
 
