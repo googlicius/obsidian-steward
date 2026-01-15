@@ -131,6 +131,8 @@ export class UserDefinedCommandService {
    * Check if the Commands folder is empty (no markdown files) and create example command if needed
    */
   private async ensureExampleCommandExists(): Promise<void> {
+    await this.plugin.obsidianAPITools.ensureFolderExists(this.commandFolder);
+
     const folder = this.plugin.app.vault.getFolderByPath(this.commandFolder);
 
     if (!folder) {
