@@ -311,7 +311,7 @@ code[class*='language-stw-hidden-from-user'] {
 
   &.stw-provider-setting-wrapper {
     width: 100%;
-    min-width: 400px;
+    min-width: 300px;
   }
 
   &.stw-model-setting-wrapper {
