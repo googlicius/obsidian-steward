@@ -142,6 +142,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
       voices: {
         openai: 'alloy', // Default OpenAI voice
         elevenlabs: 'pNInz6obpgDQGcFmaJgB', // Default ElevenLabs voice
+        hume: 'ee96fb5f-ec1a-4f41-a9ba-6d119e64c8fd',
       },
       customModels: [], // User-defined custom speech models
     },
@@ -216,7 +217,8 @@ export type ProviderNeedApiKey =
   | 'google'
   | 'groq'
   | 'anthropic'
-  | 'ollama';
+  | 'ollama'
+  | 'hume';
 
 // Speech model options
 export interface SpeechModelOption {
@@ -232,6 +234,9 @@ export const SPEECH_MODELS: SpeechModelOption[] = [
   // ElevenLabs Speech Models
   { id: 'elevenlabs:eleven_turbo_v2', name: 'ElevenLabs Turbo v2' },
   { id: 'elevenlabs:eleven_multilingual_v2', name: 'ElevenLabs Multilingual v2' },
+
+  // Hume Speech Models
+  { id: 'hume:no_model_id', name: 'Hume Speech' }, // Hume provider doesn't need a modelId
 ];
 
 // Default voice IDs for each provider

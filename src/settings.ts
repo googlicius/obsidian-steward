@@ -130,16 +130,17 @@ class StewardSettingTab extends PluginSettingTab {
     this.createDeleteBehaviorSetting(containerEl);
 
     // Create Providers section
-    new Setting(containerEl).setName(t('settings.providers')).setHeading();
+    new Setting(containerEl).setName(t('settings.providers.providersHeader')).setHeading();
 
     // Display built-in providers
     this.createProviderSetting('openai');
-    this.createProviderSetting('elevenlabs');
     this.createProviderSetting('deepseek');
     this.createProviderSetting('google');
     this.createProviderSetting('groq');
     this.createProviderSetting('anthropic');
     this.createProviderSetting('ollama');
+    this.createProviderSetting('elevenlabs');
+    this.createProviderSetting('hume');
 
     // Display custom providers
     const customProviders = Object.keys(this.plugin.settings.providers).filter(

@@ -45,8 +45,10 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.2",
     "@ai-sdk/deepseek": "^2.0.2",
+    "@ai-sdk/elevenlabs": "^2.0.6",
     "@ai-sdk/google": "^3.0.2",
     "@ai-sdk/groq": "^3.0.2",
+    "@ai-sdk/hume": "^2.0.6",
     "@ai-sdk/openai": "^3.0.2",
     "@ai-sdk/openai-compatible": "^2.0.2",
     "ai": "^6.0.5",

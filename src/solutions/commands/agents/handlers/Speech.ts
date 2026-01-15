@@ -88,7 +88,8 @@ export class Speech {
 
       const result = await this.generateAudio(toolCall.input.text, {
         voice,
-        instructions: params.intent.systemPrompts?.join('\n'),
+        // instructions: params.intent.systemPrompts?.join('\n'), // Not system prompt
+        instructions: 'Pronounce the text clearly and naturally.',
       });
 
       if (!result.success) {

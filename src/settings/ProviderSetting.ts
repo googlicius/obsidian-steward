@@ -10,26 +10,46 @@ import type StewardSettingTab from 'src/settings';
 const lang = getLanguage();
 const t = getTranslation(lang);
 
-// Mapping from provider to setting display name
-const PROVIDER_DISPLAY_NAMES: Record<ProviderNeedApiKey, string> = {
-  openai: 'OpenAI',
-  elevenlabs: 'ElevenLabs',
-  deepseek: 'DeepSeek',
-  google: 'Google',
-  groq: 'Groq',
-  anthropic: 'Anthropic',
-  ollama: 'Ollama',
-};
-
-// Mapping from provider to translation key for API key label
-const PROVIDER_API_KEY_LABELS: Record<ProviderNeedApiKey, string> = {
-  openai: 'settings.openaiApiKey',
-  elevenlabs: 'settings.elevenlabsApiKey',
-  deepseek: 'settings.deepseekApiKey',
-  google: 'settings.googleApiKey',
-  groq: 'settings.groqApiKey',
-  anthropic: 'settings.anthropicApiKey',
-  ollama: 'settings.ollamaApiKey',
+// Provider configuration mapping
+const PROVIDER_CONFIG: Record<
+  ProviderNeedApiKey,
+  {
+    displayName: string;
+    linkUrl: string;
+  }
+> = {
+  openai: {
+    displayName: 'OpenAI',
+    linkUrl: 'https://platform.openai.com',
+  },
+  elevenlabs: {
+    displayName: 'ElevenLabs',
+    linkUrl: 'https://elevenlabs.io',
+  },
+  deepseek: {
+    displayName: 'DeepSeek',
+    linkUrl: 'https://platform.deepseek.com',
+  },
+  google: {
+    displayName: 'Google',
+    linkUrl: 'https://aistudio.google.com/app/apikey',
+  },
+  groq: {
+    displayName: 'Groq',
+    linkUrl: 'https://console.groq.com',
+  },
+  anthropic: {
+    displayName: 'Anthropic',
+    linkUrl: 'https://console.anthropic.com',
+  },
+  ollama: {
+    displayName: 'Ollama',
+    linkUrl: 'https://ollama.com',
+  },
+  hume: {
+    displayName: 'Hume',
+    linkUrl: 'https://hume.ai',
+  },
 };
 
 // List of built-in providers for compatibility dropdown
@@ -41,6 +61,7 @@ const BUILT_IN_PROVIDERS: ProviderNeedApiKey[] = [
   'groq',
   'anthropic',
   'ollama',
+  'hume',
 ];
 
 export class ProviderSetting {
@@ -61,6 +82,31 @@ export class ProviderSetting {
     return (
       config?.isCustom === true || (!this.isBuiltInProvider(providerKey) && config !== undefined)
     );
+  }
+
+  /**
+   * Create a DocumentFragment with description text and link
+   */
+  private createProviderDescriptionFragment(provider: ProviderNeedApiKey): DocumentFragment | null {
+    const config = PROVIDER_CONFIG[provider];
+
+    if (!config) {
+      return null;
+    }
+
+    const fragment = document.createDocumentFragment();
+    const textNode = document.createTextNode(t(`settings.providers.${provider}.desc`) + ' ');
+    fragment.appendChild(textNode);
+
+    const link = document.createElement('a');
+    link.href = config.linkUrl;
+    link.textContent = t(`settings.providers.${provider}.linkText`);
+    link.setAttribute('target', '_blank');
+    link.setAttribute('rel', 'noopener');
+    fragment.appendChild(link);
+    setTooltip(link, config.linkUrl);
+
+    return fragment;
   }
 
   /**
@@ -104,8 +150,9 @@ export class ProviderSetting {
     let displayName: string;
     let settingName: string;
     if (isBuiltIn) {
-      displayName = t(PROVIDER_API_KEY_LABELS[provider as ProviderNeedApiKey]);
-      settingName = PROVIDER_DISPLAY_NAMES[provider as ProviderNeedApiKey];
+      const providerConfig = PROVIDER_CONFIG[provider as ProviderNeedApiKey];
+      displayName = t(`settings.providers.${provider}.apiKey`);
+      settingName = providerConfig.displayName;
     } else {
       displayName = t('settings.apiKey');
       settingName = this.getDisplayName(config.name || provider);
@@ -113,6 +160,14 @@ export class ProviderSetting {
 
     // Create the Setting instance
     const setting = new Setting(containerEl).setName(settingName);
+
+    // Add description for built-in providers
+    if (isBuiltIn) {
+      const descriptionFragment = this.createProviderDescriptionFragment(provider);
+      if (descriptionFragment) {
+        setting.setDesc(descriptionFragment);
+      }
+    }
 
     let currentInputWrapper: HTMLElement | null = null;
 
@@ -133,7 +188,7 @@ export class ProviderSetting {
     // Function to create normal view (Edit button)
     const createNormalView = () => {
       currentInputWrapper = setting.controlEl.createEl('div', {
-        cls: 'stw-setting-wrapper horizontal',
+        cls: 'stw-setting-wrapper horizontal text-nowrap',
       });
 
       // Add delete link for custom providers (same style as Edit link)
@@ -253,7 +308,7 @@ export class ProviderSetting {
         // Add options for built-in providers
         for (const builtInProvider of BUILT_IN_PROVIDERS) {
           const option = compatibilitySelect.createEl('option', {
-            text: PROVIDER_DISPLAY_NAMES[builtInProvider],
+            text: PROVIDER_CONFIG[builtInProvider].displayName,
             value: builtInProvider,
           });
           if (providerConfig.compatibility === builtInProvider) {
