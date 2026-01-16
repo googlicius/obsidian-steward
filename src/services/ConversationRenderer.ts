@@ -19,6 +19,7 @@ import { removeUndefined } from 'src/utils/removeUndefined';
 
 export class ConversationRenderer {
   static instance: ConversationRenderer;
+  private streamingFiles = new Set<string>();
 
   private constructor(private plugin: StewardPlugin) {}
 
@@ -773,11 +774,26 @@ export class ConversationRenderer {
   }
 
   public async streamFile(file: TFile, stream: AsyncIterable<string>) {
-    for await (const chunk of stream) {
-      await this.plugin.app.vault.process(file, currentContent => {
-        return currentContent + chunk;
-      });
+    // Mark file as streaming
+    this.streamingFiles.add(file.path);
+
+    try {
+      for await (const chunk of stream) {
+        await this.plugin.app.vault.process(file, currentContent => {
+          return currentContent + chunk;
+        });
+      }
+    } finally {
+      // Remove from streaming set when done
+      this.streamingFiles.delete(file.path);
     }
+  }
+
+  /**
+   * Check if a file is currently being streamed
+   */
+  public isStreaming(filePath: string): boolean {
+    return this.streamingFiles.has(filePath);
   }
 
   public async buildMessageMetadata(

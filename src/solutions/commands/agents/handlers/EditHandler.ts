@@ -61,16 +61,29 @@ export class EditHandler {
 
     // Render what will be updated if the artifact type is read_content
     if (artifact?.artifactType === ArtifactType.READ_CONTENT) {
-      // Get file content for preview
-      const fileContent = await this.agent.app.vault.read(file);
-
       for (const operation of toolCall.input.operations) {
         // Preview by applying the instruction to the current file content
-        const contentToRender = this.agent.obsidianAPITools.applyUpdateInstruction(
-          fileContent,
-          operation,
-          this.agent.plugin.noteContentService
-        );
+        let contentToRender = '';
+
+        if (operation.mode === 'replace' || operation.mode === 'insert') {
+          contentToRender = operation.content;
+        } else {
+          // Get file content for preview
+          const fileContent = await this.agent.app.vault.cachedRead(file);
+
+          const modifiedContent = this.agent.obsidianAPITools.applyUpdateInstruction(
+            fileContent,
+            operation,
+            this.agent.plugin.noteContentService
+          );
+
+          if (operation.fromLine !== undefined && operation.toLine !== undefined) {
+            const lines = modifiedContent.split('\n');
+            contentToRender = lines.slice(operation.fromLine, operation.toLine + 1).join('\n');
+          } else {
+            contentToRender = modifiedContent;
+          }
+        }
 
         if (contentToRender) {
           await this.agent.renderer.updateConversationNote({
