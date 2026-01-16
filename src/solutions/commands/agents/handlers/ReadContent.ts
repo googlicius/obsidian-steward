@@ -35,22 +35,21 @@ export const contentReadingSchema = z.object({
   elementType: z
     .enum(['paragraph', 'table', 'code', 'list', 'blockquote', 'image', 'heading'])
     .nullable()
-    .default('paragraph')
+    .default(null)
     .describe(
       `Identify the element type if mentioned.
-If the mentioned element is NOT one of the predefined types, classify it as "paragraph" so it could be any element closest to the current position.`
+If the mentioned element is NOT one of the predefined types, specify elementType as NULL that indicates any element closest to the current position.`
     ),
   blocksToRead: z.number().min(-1).default(1).describe(`Number of blocks to read
 A block is a consecutive sequence of lines that contains an element (e.g., paragraph, table, code, list, blockquote, image, heading).
-Set to -1 when:
-- The user requests to read entire content.
-- Reading above or below the cursor and explicitly requesting reading all content from the current position.`),
+By default, blocksToRead should be 1, except explicitly requesting from the user.
+Set to -1 when: Reading above or below the current position and explicitly requesting reading all content from the current position.`),
   startLine: z
     .number()
     .nullable()
     .default(null)
     .describe(
-      `Specific line number to start reading from (0-based). Leave null to use cursor position.`
+      `Specific line number to start reading from (0-based). Leave NULL to use cursor position.`
     ),
   foundPlaceholder: z
     .string()

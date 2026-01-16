@@ -90,6 +90,9 @@ class StewardSettingTab extends PluginSettingTab {
     return {
       settingGroup,
 
+      /**
+       * Only create setting-items when accessed.
+       */
       get settingItems() {
         if (!_settingItems) {
           _settingItems = settingGroup.createEl('div', {
