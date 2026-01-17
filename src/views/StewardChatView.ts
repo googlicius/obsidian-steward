@@ -87,6 +87,11 @@ export class StewardChatView extends MarkdownView {
         return;
       }
 
+      // Only auto-scroll if the setting is enabled
+      if (!this.plugin.settings.autoScroll) {
+        return;
+      }
+
       // Schedule scroll with debouncing
       this.scheduleScrollToBottom();
     });
@@ -122,7 +127,7 @@ export class StewardChatView extends MarkdownView {
         const lastLine = this.editor.getLine(lastLineNum);
         const position = { line: lastLineNum, ch: lastLine.length };
 
-        this.editor.scrollIntoView({ from: position, to: position }, true);
+        this.editor.scrollIntoView({ from: position, to: position });
       }
     } catch (error) {
       logger.error('Error scrolling to bottom:', error);

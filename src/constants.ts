@@ -116,6 +116,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
   excludedFolders: ['node_modules', 'src', '.git', 'dist'], // Default development folders to exclude
   debug: false, // Debug logging disabled by default
   showPronouns: true, // Show pronouns in chat by default
+  autoScroll: true, // Auto-scroll enabled by default
   audio: {
     model: 'openai', // Default model
     voices: {
@@ -275,13 +276,14 @@ export const SEARCH_DB_NAME_PREFIX = 'steward_search_';
 export const UDC_EXAMPLE_COMMANDS = [
   {
     name: 'Ask',
-    definition: `A user-defined command named \`ask\` that help the user with general questions.
+    definition: `A user-defined command that help the user with general questions.
 
 #### Definition
 
 \`\`\`YAML
 command_name: ask
 query_required: true
+use_tool: false
 system_prompt:
   - "[[#Instructions]]"
 steps:
@@ -290,10 +292,6 @@ steps:
 
 #### Instructions
 
-You are a helpful assistant who interprets the user's query accurately and responds based on their input. Ensure the response is informative, clear, and concise to the user's query.
-
-NOTE:
-Since this section is mainly for Q&A, please refrain from using any tools; instead, respond directly to the user.
-`,
+You are a thoughtful assistant who understands the user's question precisely and responds based on their input. Your answer is informative, clear, concise, and relevant to the question.`,
   },
 ];

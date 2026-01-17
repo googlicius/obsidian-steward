@@ -91,6 +91,7 @@ You can create your own **User-Defined Commands** to automate workflows and comb
 - `query_required`: (optional, boolean) If true, the command requires user input after the prefix
 - `model`: (optional, string) The model to use for all commands in this user-defined command
 - `system_prompt`: (optional, array) Add additional system prompts that apply to all steps in this command (see [Adding additional system prompts](#adding-additional-system-prompts))
+- `use_tool`: (optional, boolean) If false, do not send the tool usage instructions
 - `hidden`: (optional, boolean) If true, the command will not appear in the command menu
 - `triggers`: (optional, array) Automatically execute commands when files match specified criteria (see [Trigger fields](#trigger-fields))
 - `steps`: The sequence of built-in or user-defined commands to execute
@@ -124,7 +125,7 @@ steps:
 
 ### Adding additional system prompts
 
-Steward uses a single agent (SuperAgent) whose core system prompt is the foundation of its functionality and cannot be modified. However, you can add additional system prompts using the `system_prompt` field. These additional prompts are appended to the core system prompt, allowing you to provide extra context or instructions.
+Steward uses a single agent (SuperAgent) whose core system prompt is the foundation of its functionality and is not editable. However, you can add additional system prompts using the `system_prompt` field. These additional prompts are appended to the core system prompt, allowing you to provide extra context or instructions. You can disable sending the core system prompt by setting `use_tool: false`.
 
 You can add system prompts at two levels:
 
