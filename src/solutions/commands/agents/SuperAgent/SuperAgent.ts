@@ -373,10 +373,12 @@ export class SuperAgent extends Agent {
         generateType: 'text',
       });
 
-      const activeToolNames =
-        params.activeTools && params.activeTools.length > 0
+      const shouldUseTools = params.intent.use_tool !== false;
+      const activeToolNames = shouldUseTools
+        ? params.activeTools && params.activeTools.length > 0
           ? [...params.activeTools, ToolName.ACTIVATE]
-          : [ToolName.ACTIVATE];
+          : [ToolName.ACTIVATE]
+        : [];
 
       const registry = ToolRegistry.buildFromTools(tools).setActive(activeToolNames);
 
@@ -430,6 +432,8 @@ export class SuperAgent extends Agent {
         ? await this.generateTodoListPrompt(params.title)
         : '';
 
+      const shouldUseCoreSystemPrompt = shouldUseTools;
+
       const additionalSystemPrompts = params.intent.systemPrompts || [];
 
       if (llmConfig.systemPrompt) {
@@ -443,28 +447,23 @@ export class SuperAgent extends Agent {
       // Track the tool detected from the stream
       let detectedTool: ToolName | undefined;
 
-      const { toolCalls: toolCallsPromise, fullStream } = streamText({
-        model: llmConfig.model,
-        temperature: llmConfig.temperature,
-        maxOutputTokens: llmConfig.maxOutputTokens,
-        abortSignal,
-        system: `You are a helpful assistant who helps users with their Obsidian vault.
+      const coreSystemPrompt = `You are a helpful assistant who helps users with their Obsidian vault.
 
 Your role is to help users with multiple tasks by using appropriate tools.
 - For generating tasks, you can generate directly.
 - For editing tasks, use ${ToolName.EDIT} tool.
 - For vault management tasks, use the following tools: ${joinWithConjunction(
-          [
-            ToolName.LIST,
-            ToolName.CREATE,
-            ToolName.DELETE,
-            ToolName.COPY,
-            ToolName.MOVE,
-            ToolName.RENAME,
-            ToolName.UPDATE_FRONTMATTER,
-          ],
-          'and'
-        )}.
+        [
+          ToolName.LIST,
+          ToolName.CREATE,
+          ToolName.DELETE,
+          ToolName.COPY,
+          ToolName.MOVE,
+          ToolName.RENAME,
+          ToolName.UPDATE_FRONTMATTER,
+        ],
+        'and'
+      )}.
 - For other tasks, use the appropriate tool(s).
 
 You have access to the following tools:
@@ -491,9 +490,16 @@ ${currentNote ? `\nCURRENT NOTE: ${currentNote} (Cursor position: ${currentPosit
 NOTE:
 - Do NOT repeat the latest tool call result in your final response as it is already rendered in the UI.
 - Do NOT mention the tools you use to users. Work silently in the background and only communicate the results or outcomes.
-- Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`,
+- Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`;
+
+      const { toolCalls: toolCallsPromise, fullStream } = streamText({
+        model: llmConfig.model,
+        temperature: llmConfig.temperature,
+        maxOutputTokens: llmConfig.maxOutputTokens,
+        abortSignal,
+        system: shouldUseCoreSystemPrompt ? coreSystemPrompt : undefined,
         messages,
-        tools: registry.getToolsObject(),
+        tools: shouldUseTools ? registry.getToolsObject() : undefined,
         onError: ({ error }) => {
           logger.error('Error in streamText', error);
           rejectStreamError(error as Error);

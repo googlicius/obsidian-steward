@@ -305,6 +305,8 @@ const vi = {
       stewardFolderDesc: 'Thư mục cơ sở nơi dữ liệu Steward sẽ được lưu trữ',
       showRoleLabels: 'Hiển thị nhãn vai trò',
       showRoleLabelsDesc: 'Hiển thị nhãn User/Steward/System trong cuộc trò chuyện',
+      autoScroll: 'Tự động cuộn',
+      autoScrollDesc: 'Tự động cuộn xuống cuối khi có tin nhắn mới',
       debugMode: 'Chế độ gỡ lỗi',
       debugModeDesc: 'Bật ghi log chi tiết trong console để gỡ lỗi',
       apiKeys: 'Khóa API', // Deprecated: kept for backward compatibility

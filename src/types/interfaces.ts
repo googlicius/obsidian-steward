@@ -32,6 +32,7 @@ export interface StewardPluginSettings {
   excludedFolders: string[]; // Folders to exclude from Obsidian search
   debug: boolean; // Enable debug logging
   showPronouns: boolean; // Toggle display of User/Steward pronouns in chat
+  autoScroll: boolean; // Toggle auto-scroll feature in chat
   // Undefined for backward compatibility
   audio:
     | {

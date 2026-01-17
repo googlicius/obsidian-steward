@@ -140,6 +140,17 @@ class StewardSettingTab extends PluginSettingTab {
         })
       );
 
+    // Add auto-scroll toggle
+    new Setting(commonSettingGroup.settingItems)
+      .setName(t('settings.autoScroll'))
+      .setDesc(t('settings.autoScrollDesc'))
+      .addToggle(toggle =>
+        toggle.setValue(this.plugin.settings.autoScroll).onChange(async value => {
+          this.plugin.settings.autoScroll = value;
+          await this.plugin.saveSettings();
+        })
+      );
+
     // Add debug mode toggle
     new Setting(commonSettingGroup.settingItems)
       .setName(t('settings.debugMode'))

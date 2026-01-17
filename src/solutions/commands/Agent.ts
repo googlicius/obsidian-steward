@@ -63,6 +63,11 @@ export abstract class Agent {
     params.invocationCount = params.invocationCount || 0;
     params.handlerId = params.handlerId || uniqueID();
     params.lang = params.lang || (await this.loadConversationLang(params.title));
+    params.intent.use_tool = await this.loadConversationUseTool(
+      params.title,
+      params.intent.use_tool
+    );
+    params.intent.systemPrompts = await this.loadSystemPrompts(params);
 
     try {
       // Call the original handle method
@@ -178,12 +183,49 @@ export abstract class Agent {
     return Array.from(new Set(allTools));
   }
 
-  protected async loadConversationLang(
+  private async loadConversationLang(
     title: string,
     paramsLang?: string | null
   ): Promise<string | null> {
     const savedLang = await this.renderer.getConversationProperty<string>(title, 'lang');
     return paramsLang || savedLang || null;
+  }
+
+  private async loadConversationUseTool(
+    title: string,
+    intentUseTool?: boolean
+  ): Promise<boolean | undefined> {
+    if (intentUseTool !== undefined) {
+      return intentUseTool;
+    }
+
+    return this.renderer.getConversationProperty<boolean>(title, 'use_tool');
+  }
+
+  private async loadSystemPrompts(params: AgentHandlerParams): Promise<string[] | undefined> {
+    if (params.intent.systemPrompts && params.intent.systemPrompts.length > 0) {
+      return params.intent.systemPrompts;
+    }
+
+    const udcCommand = await this.renderer.getConversationProperty<string>(
+      params.title,
+      'udc_command'
+    );
+    if (!udcCommand) {
+      return params.intent.systemPrompts;
+    }
+
+    const command = this.plugin.userDefinedCommandService.userDefinedCommands.get(udcCommand);
+    if (!command || command.getVersion() !== 2) {
+      return params.intent.systemPrompts;
+    }
+
+    const rootSystemPrompts = command.normalized.system_prompt;
+    if (!rootSystemPrompts || rootSystemPrompts.length === 0) {
+      return params.intent.systemPrompts;
+    }
+
+    return this.plugin.userDefinedCommandService.processSystemPromptsWikilinks(rootSystemPrompts);
   }
 
   /**
