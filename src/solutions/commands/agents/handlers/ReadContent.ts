@@ -42,7 +42,7 @@ If the mentioned element is NOT one of the predefined types, specify elementType
     ),
   blocksToRead: z.number().min(-1).default(1).describe(`Number of blocks to read
 A block is a consecutive sequence of lines that contains an element (e.g., paragraph, table, code, list, blockquote, image, heading).
-By default, blocksToRead should be 1, except explicitly requesting from the user.
+Set to 1 if the user doesn't specify the number of blocks.
 Set to -1 when: Reading above or below the current position and explicitly requesting reading all content from the current position.`),
   startLine: z
     .number()

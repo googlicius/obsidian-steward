@@ -371,6 +371,8 @@ const en = {
       stewardFolderDesc: 'Base folder where Steward data will be stored',
       showRoleLabels: 'Show role labels',
       showRoleLabelsDesc: 'Show User/Steward/System labels in conversations',
+      autoScroll: 'Auto-scroll',
+      autoScrollDesc: 'Automatically scroll to the bottom when new messages are added',
       debugMode: 'Debug mode',
       debugModeDesc: 'Enable detailed logging in the console for debugging',
       apiKeys: 'API keys', // Deprecated: kept for backward compatibility

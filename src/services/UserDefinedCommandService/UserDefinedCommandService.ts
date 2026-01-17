@@ -855,6 +855,7 @@ export class UserDefinedCommandService {
         query,
         model,
         no_confirm: step.no_confirm,
+        use_tool: command.normalized.use_tool,
       };
     });
   }

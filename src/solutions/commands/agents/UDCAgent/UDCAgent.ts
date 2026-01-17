@@ -58,9 +58,17 @@ export class UDCAgent extends Agent {
           };
         }
 
-        await this.renderer.updateConversationFrontmatter(title, [
+        const command = this.plugin.userDefinedCommandService.userDefinedCommands.get(intent.type);
+        const useTool = command?.getVersion() === 2 ? command.normalized.use_tool : undefined;
+        const frontmatterUpdates: Array<{ name: string; value: string | boolean }> = [
           { name: 'udc_command', value: intent.type },
-        ]);
+        ];
+
+        if (useTool !== undefined) {
+          frontmatterUpdates.push({ name: 'use_tool', value: useTool });
+        }
+
+        await this.renderer.updateConversationFrontmatter(title, frontmatterUpdates);
 
         // For single-step commands, skip todo list and delegate directly to SuperAgent
         if (expandedIntents.length === 1) {
@@ -114,6 +122,7 @@ export class UDCAgent extends Agent {
           model: currentStep.model,
           systemPrompts: currentStep.systemPrompts,
           no_confirm: currentStep.no_confirm,
+          use_tool: useTool,
         };
 
         // Delegate to SuperAgent with step intent - SuperAgent will handle the rest

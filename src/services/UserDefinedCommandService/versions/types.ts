@@ -33,6 +33,7 @@ export interface NormalizedUserDefinedCommand {
   model?: string;
   system_prompt?: string[];
   triggers?: TriggerCondition[];
+  use_tool?: boolean;
 }
 
 /**
