@@ -27,12 +27,6 @@ export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'svg', 'gif'];
 export const STW_SELECTED_PATTERN = '(\\{\\{stw-selected.*?\\}\\})';
 
 /**
- * The placeholder for the stw-selected blocks in the original query
- * This helps to reduce the complexity for the planner to just put the placeholder rather than extract the stw-selected blocks
- */
-export const STW_SELECTED_PLACEHOLDER = '<stwSelected>';
-
-/**
  * Pattern to match {{stw-squeezed [[<path>]] }}
  */
 export const STW_SQUEEZED_PATTERN = '\\{\\{stw-squeezed \\[\\[([^\\]]+)\\]\\] \\}\\}';

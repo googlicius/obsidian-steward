@@ -5,7 +5,6 @@ import type StewardPlugin from '../../main';
 import type { StewardPluginSettings } from 'src/types/interfaces';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { logger } from 'src/utils/logger';
-import { STW_SELECTED_PATTERN, STW_SELECTED_PLACEHOLDER } from 'src/constants';
 import { type CommandProcessor } from './CommandProcessor';
 import { getTranslation } from 'src/i18n';
 import { ToolName } from './ToolRegistry';
@@ -226,43 +225,5 @@ export abstract class Agent {
     }
 
     return this.plugin.userDefinedCommandService.processSystemPromptsWikilinks(rootSystemPrompts);
-  }
-
-  /**
-   * Restores stw-selected blocks from the original query to the processed agent query.
-   */
-  protected restoreStwSelectedBlocks(params: {
-    originalQuery: string | undefined;
-    query: string;
-  }): string {
-    const { originalQuery, query } = params;
-
-    if (!originalQuery) {
-      return query;
-    }
-
-    if (!originalQuery.includes('{{stw-selected')) {
-      return query;
-    }
-
-    if (!query.includes(STW_SELECTED_PLACEHOLDER)) {
-      return query;
-    }
-
-    const stwSelectedBlocks = Array.from(
-      originalQuery.matchAll(new RegExp(STW_SELECTED_PATTERN, 'g'))
-    );
-
-    if (stwSelectedBlocks.length === 0) {
-      return query;
-    }
-
-    let updatedQuery = query;
-    // Replace all instances of <stwSelected> with the actual stw-selected blocks
-    for (const match of stwSelectedBlocks) {
-      updatedQuery = updatedQuery.replace(STW_SELECTED_PLACEHOLDER, match[0]);
-    }
-
-    return updatedQuery;
   }
 }

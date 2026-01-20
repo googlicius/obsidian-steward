@@ -177,6 +177,7 @@ const ja = {
       useMoreCommand: '次のページを表示するには `/more` と入力してください。',
       noMoreResults: 'これ以上の検索結果はありません。',
       noRecentSearch: '最近の検索が見つかりません。先に検索コマンドを実行してください。',
+      resultAvailableInArtifact: '検索結果はアーティファクトで利用可能です: {{artifactId}}',
       moreResults: '追加の検索結果：',
       paginationStatus: '{{current}}/{{total}}ページ（全{{count}}件）',
       noMorePages: 'これが最後のページです。',

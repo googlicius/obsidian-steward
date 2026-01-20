@@ -153,9 +153,12 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   - ${EditMode.ADD_TABLE_COLUMN}: Add a column to a table.
   - ${EditMode.UPDATE_TABLE_COLUMN}: Update a column in a table - Use to update the header, values, or both.
   - ${EditMode.DELETE_TABLE_COLUMN}: Delete a column from a table.
-  - ${EditMode.REPLACE}: Replace content within a specific line range, or replace the entire file if both fromLine and toLine are omitted.
+  - ${EditMode.REPLACE_BY_LINES}: Replace content within a specific line range, or replace the entire file if both fromLine and toLine are omitted.
+  - ${EditMode.REPLACE_BY_PATTERN}: Replace content matching a pattern across multiple notes from an artifact. Use this when editing multiple files at once.
   - ${EditMode.INSERT}: Insert content at a specific line number.
-NOTE: Use table modes to edit tables, especially large tables (More than 20 rows).`,
+NOTE: 
+  - Use table modes to edit tables, especially large tables (More than 20 rows).
+  - Use one or multiple operations. DO NOT use multiple tool calls or multiple requests.`,
     ],
     category: 'content-edit',
   },
@@ -275,6 +278,14 @@ NOTE: Use table modes to edit tables, especially large tables (More than 20 rows
     name: ToolName.REVERT_CREATE,
     description: 'Revert create operations by deleting files that were previously created.',
     guidelines: [`Use ${ToolName.REVERT_CREATE} to undo file creation operations.`],
+    category: 'vault-access',
+  },
+
+  [ToolName.REVERT_EDIT_RESULTS]: {
+    name: ToolName.REVERT_EDIT_RESULTS,
+    description:
+      'Revert edit operations by restoring original content that was previously modified.',
+    guidelines: [`Use ${ToolName.REVERT_EDIT_RESULTS} to undo content edit operations.`],
     category: 'vault-access',
   },
 

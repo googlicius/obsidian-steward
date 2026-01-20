@@ -17,6 +17,7 @@ export enum ToolName {
   REVERT_FRONTMATTER = 'revert_frontmatter',
   REVERT_RENAME = 'revert_rename',
   REVERT_CREATE = 'revert_create',
+  REVERT_EDIT_RESULTS = 'revert_edit_results',
   GET_MOST_RECENT_ARTIFACT = 'get_most_recent_artifact',
   GET_ARTIFACT_BY_ID = 'get_artifact_by_id',
   USER_CONFIRM = 'user_confirm',

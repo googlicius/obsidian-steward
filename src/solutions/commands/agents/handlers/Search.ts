@@ -388,6 +388,8 @@ export class Search {
 
       if (hasMoreResults) {
         resultText += `\n\n${t('list.fullListAvailableInArtifact', { artifactId })}`;
+      } else {
+        resultText += `\n\n${t('search.resultAvailableInArtifact', { artifactId })}`;
       }
 
       await this.agent.renderer.serializeToolInvocation({

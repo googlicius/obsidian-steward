@@ -9,6 +9,8 @@ import { capitalizeString } from 'src/utils/capitalizeString';
 import { COMMAND_PREFIXES, LLM_MODELS } from 'src/constants';
 import type StewardPlugin from 'src/main';
 
+const MODEL_SELECTOR_PATTERN = '^(m|model):';
+
 /**
  * Extract provider and model name from model ID
  * Format: <provider>:<modelId> (e.g., "openai:gpt-4o")
@@ -41,7 +43,8 @@ function getAllModels(plugin: StewardPlugin): Array<{ id: string; name: string }
  * Matches when text starts with m: or model: followed by optional characters
  */
 function isModelSelectorPattern(text: string): boolean {
-  return /^(m|model):/i.test(text);
+  const regex = new RegExp(MODEL_SELECTOR_PATTERN, 'i');
+  return regex.test(text);
 }
 
 export function createAutocompleteExtension(plugin: StewardPlugin): Extension {
@@ -181,7 +184,7 @@ export function createAutocompleteExtension(plugin: StewardPlugin): Extension {
     }
 
     // Find the position of the model selector in the line
-    const modelSelectorMatch = afterCommand.match(/^\s*(m|model):/i);
+    const modelSelectorMatch = afterCommand.match(new RegExp(MODEL_SELECTOR_PATTERN, 'i'));
     if (!modelSelectorMatch || modelSelectorMatch.index === undefined) return null;
 
     // Calculate the start position of the selector
