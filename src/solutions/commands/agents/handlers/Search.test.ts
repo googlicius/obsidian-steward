@@ -86,7 +86,41 @@ describe('Search', () => {
   });
 
   describe('searchQueryExtractionSchema', () => {
-    it('should split operation with both keywords and tags into two operations', () => {
+    it('should split operation when keywords match tag values', () => {
+      const input = {
+        operations: [
+          {
+            keywords: ['test', 'example'],
+            filenames: ['note'],
+            folders: ['/folder'],
+            properties: [
+              { name: 'tag', value: 'test' },
+              { name: 'status', value: 'completed' },
+            ],
+          },
+        ],
+        confidence: 0.9,
+      };
+
+      const result = searchQueryExtractionSchema.parse(input);
+
+      expect(result.operations).toHaveLength(2);
+      expect(result.operations[0]).toEqual({
+        keywords: ['example'],
+        filenames: ['note'],
+        folders: ['/folder'],
+        properties: [{ name: 'status', value: 'completed' }],
+      });
+      expect(result.operations[1]).toEqual({
+        keywords: [],
+        filenames: ['note'],
+        folders: ['/folder'],
+        properties: [{ name: 'tag', value: 'test' }],
+      });
+      expect(result.confidence).toBe(0.9);
+    });
+
+    it('should NOT split operation when keywords do not match tag values', () => {
       const input = {
         operations: [
           {
@@ -104,20 +138,8 @@ describe('Search', () => {
 
       const result = searchQueryExtractionSchema.parse(input);
 
-      expect(result.operations).toHaveLength(2);
-      expect(result.operations[0]).toEqual({
-        keywords: ['test', 'example'],
-        filenames: ['note'],
-        folders: ['/folder'],
-        properties: [{ name: 'status', value: 'completed' }],
-      });
-      expect(result.operations[1]).toEqual({
-        keywords: [],
-        filenames: ['note'],
-        folders: ['/folder'],
-        properties: [{ name: 'tag', value: 'important' }],
-      });
-      expect(result.confidence).toBe(0.9);
+      expect(result.operations).toHaveLength(1);
+      expect(result.operations[0]).toEqual(input.operations[0]);
     });
 
     it('should keep operation with only keywords unchanged', () => {
@@ -183,17 +205,23 @@ describe('Search', () => {
       expect(result.operations[0]).toEqual(input.operations[0]);
     });
 
-    it('should handle multiple operations, splitting only those with keywords and tags', () => {
+    it('should handle multiple operations, splitting only those with matching keywords and tags', () => {
       const input = {
         operations: [
           {
             keywords: ['test'],
             filenames: [],
             folders: [],
-            properties: [{ name: 'tag', value: 'important' }],
+            properties: [{ name: 'tag', value: 'test' }],
           },
           {
             keywords: ['example'],
+            filenames: [],
+            folders: [],
+            properties: [{ name: 'tag', value: 'important' }],
+          },
+          {
+            keywords: ['sample'],
             filenames: [],
             folders: [],
             properties: [],
@@ -210,10 +238,10 @@ describe('Search', () => {
 
       const result = searchQueryExtractionSchema.parse(input);
 
-      expect(result.operations).toHaveLength(4);
-      // First operation split into two
+      expect(result.operations).toHaveLength(5);
+      // First operation split into two (keyword 'test' matches tag 'test')
       expect(result.operations[0]).toEqual({
-        keywords: ['test'],
+        keywords: [],
         filenames: [],
         folders: [],
         properties: [],
@@ -222,12 +250,14 @@ describe('Search', () => {
         keywords: [],
         filenames: [],
         folders: [],
-        properties: [{ name: 'tag', value: 'important' }],
+        properties: [{ name: 'tag', value: 'test' }],
       });
-      // Second operation unchanged
+      // Second operation unchanged (keyword 'example' does not match tag 'important')
       expect(result.operations[2]).toEqual(input.operations[1]);
-      // Third operation unchanged
+      // Third operation unchanged (no tags)
       expect(result.operations[3]).toEqual(input.operations[2]);
+      // Fourth operation unchanged (no keywords)
+      expect(result.operations[4]).toEqual(input.operations[3]);
     });
 
     it('should preserve filenames and folders when splitting operations', () => {
@@ -238,7 +268,7 @@ describe('Search', () => {
             filenames: ['note1', 'note2'],
             folders: ['/folder1', '/folder2'],
             properties: [
-              { name: 'tag', value: 'important' },
+              { name: 'tag', value: 'test' },
               { name: 'status', value: 'active' },
             ],
           },
@@ -255,7 +285,7 @@ describe('Search', () => {
       expect(result.operations[1].folders).toEqual(['/folder1', '/folder2']);
     });
 
-    it('should handle operation with multiple tags correctly', () => {
+    it('should handle operation with multiple matching keywords and tags correctly', () => {
       const input = {
         operations: [
           {
@@ -263,7 +293,36 @@ describe('Search', () => {
             filenames: [],
             folders: [],
             properties: [
-              { name: 'tag', value: 'important' },
+              { name: 'tag', value: 'test' },
+              { name: 'tag', value: 'example' },
+              { name: 'status', value: 'completed' },
+            ],
+          },
+        ],
+        confidence: 0.9,
+      };
+
+      const result = searchQueryExtractionSchema.parse(input);
+
+      expect(result.operations).toHaveLength(2);
+      expect(result.operations[0].keywords).toEqual([]);
+      expect(result.operations[0].properties).toEqual([{ name: 'status', value: 'completed' }]);
+      expect(result.operations[1].keywords).toEqual([]);
+      expect(result.operations[1].properties).toEqual([
+        { name: 'tag', value: 'test' },
+        { name: 'tag', value: 'example' },
+      ]);
+    });
+
+    it('should handle operation with partial matching keywords and tags', () => {
+      const input = {
+        operations: [
+          {
+            keywords: ['test', 'example', 'sample'],
+            filenames: [],
+            folders: [],
+            properties: [
+              { name: 'tag', value: 'test' },
               { name: 'tag', value: 'urgent' },
               { name: 'status', value: 'completed' },
             ],
@@ -275,13 +334,61 @@ describe('Search', () => {
       const result = searchQueryExtractionSchema.parse(input);
 
       expect(result.operations).toHaveLength(2);
-      expect(result.operations[0].keywords).toEqual(['test', 'example']);
+      expect(result.operations[0].keywords).toEqual(['example', 'sample']);
       expect(result.operations[0].properties).toEqual([{ name: 'status', value: 'completed' }]);
       expect(result.operations[1].keywords).toEqual([]);
       expect(result.operations[1].properties).toEqual([
-        { name: 'tag', value: 'important' },
+        { name: 'tag', value: 'test' },
         { name: 'tag', value: 'urgent' },
       ]);
+    });
+
+    it('should handle case-insensitive matching between keywords and tags', () => {
+      const input = {
+        operations: [
+          {
+            keywords: ['Test', 'Example'],
+            filenames: [],
+            folders: [],
+            properties: [
+              { name: 'tag', value: 'test' },
+              { name: 'tag', value: 'EXAMPLE' },
+            ],
+          },
+        ],
+        confidence: 0.9,
+      };
+
+      const result = searchQueryExtractionSchema.parse(input);
+
+      expect(result.operations).toHaveLength(2);
+      expect(result.operations[0].keywords).toEqual([]);
+      expect(result.operations[0].properties).toEqual([]);
+      expect(result.operations[1].keywords).toEqual([]);
+      expect(result.operations[1].properties).toEqual([
+        { name: 'tag', value: 'test' },
+        { name: 'tag', value: 'EXAMPLE' },
+      ]);
+    });
+
+    it('should not match quoted keywords with tags (quotes are part of the keyword string)', () => {
+      const input = {
+        operations: [
+          {
+            keywords: ['"test"', 'example'],
+            filenames: [],
+            folders: [],
+            properties: [{ name: 'tag', value: 'test' }],
+          },
+        ],
+        confidence: 0.9,
+      };
+
+      const result = searchQueryExtractionSchema.parse(input);
+
+      // Should not split because '"test"' (with quotes) does not match 'test' (without quotes)
+      expect(result.operations).toHaveLength(1);
+      expect(result.operations[0]).toEqual(input.operations[0]);
     });
 
     it('should handle empty operations array', () => {
@@ -303,7 +410,7 @@ describe('Search', () => {
             keywords: ['test'],
             filenames: [],
             folders: [],
-            properties: [{ name: 'tag', value: 'important' }],
+            properties: [{ name: 'tag', value: 'test' }],
           },
         ],
         lang: 'en',
