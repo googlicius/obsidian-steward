@@ -2,6 +2,7 @@ import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { NoteContentService } from './NoteContentService';
 import { TFile } from 'obsidian';
 import type StewardPlugin from 'src/main';
+import { EditOperation } from 'src/solutions/commands/tools/editContent';
 
 // Mock Plugin for testing
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
@@ -700,6 +701,347 @@ NYC`;
       expect(result).toBe(`| Name |
 |------|
 | Alice |`);
+    });
+  });
+
+  describe('computeChanges', () => {
+    it('should compute changes for replace_by_lines operation', () => {
+      const content = 'Line 1\nLine 2\nLine 3\nLine 4';
+      const operation: EditOperation = {
+        mode: 'replace_by_lines',
+        path: 'test.md',
+        content: 'New Line 2',
+        fromLine: 1,
+        toLine: 1,
+      };
+
+      const result = noteContentService.computeChanges(content, [operation]);
+
+      expect(result.changes).toHaveLength(1);
+      expect(result.changes[0]).toMatchObject({
+        startLine: 1,
+        endLine: 1,
+        originalContent: 'Line 2',
+        newContent: 'New Line 2',
+        mode: 'replace_by_lines',
+      });
+      expect(result.modifiedContent).toBe('Line 1\nNew Line 2\nLine 3\nLine 4');
+    });
+
+    it('should compute changes for replace_by_lines replacing entire file', () => {
+      const content = 'Line 1\nLine 2\nLine 3';
+      const operation: EditOperation = {
+        mode: 'replace_by_lines',
+        path: 'test.md',
+        content: 'New Content',
+      };
+
+      const result = noteContentService.computeChanges(content, [operation]);
+
+      expect(result.changes).toHaveLength(1);
+      expect(result.changes[0]).toMatchObject({
+        startLine: 0,
+        endLine: 2,
+        originalContent: content,
+        newContent: 'New Content',
+        mode: 'replace_by_lines',
+      });
+      expect(result.modifiedContent).toBe('New Content');
+    });
+
+    it('should compute changes for insert operation at beginning', () => {
+      const content = 'Line 1\nLine 2';
+      const operation: EditOperation = {
+        mode: 'insert',
+        path: 'test.md',
+        content: 'New Line',
+        line: 0,
+      };
+
+      const result = noteContentService.computeChanges(content, [operation]);
+
+      expect(result.changes).toHaveLength(1);
+      expect(result.changes[0]).toMatchObject({
+        startLine: 0,
+        endLine: 0,
+        originalContent: '',
+        newContent: 'New Line',
+        mode: 'insert',
+      });
+      expect(result.modifiedContent).toBe('New Line Line 1\nLine 2');
+    });
+
+    it('should compute changes for insert operation in middle', () => {
+      const content = 'Line 1\nLine 2\nLine 3';
+      const operation: EditOperation = {
+        mode: 'insert',
+        path: 'test.md',
+        content: 'New Line',
+        line: 1,
+      };
+
+      const result = noteContentService.computeChanges(content, [operation]);
+
+      expect(result.changes).toHaveLength(1);
+      expect(result.changes[0]).toMatchObject({
+        startLine: 1,
+        endLine: 1,
+        originalContent: '',
+        newContent: 'New Line',
+        mode: 'insert',
+      });
+      expect(result.modifiedContent.split('\n')).toEqual([
+        'Line 1',
+        'New Line',
+        'Line 2',
+        'Line 3',
+      ]);
+    });
+
+    it('should compute changes for insert operation at end', () => {
+      const content = 'Line 1\nLine 2';
+      const operation: EditOperation = {
+        mode: 'insert',
+        path: 'test.md',
+        content: 'New Line',
+        line: 2,
+      };
+
+      const result = noteContentService.computeChanges(content, [operation]);
+
+      expect(result.changes).toHaveLength(1);
+      expect(result.changes[0]).toMatchObject({
+        startLine: 2,
+        endLine: 2,
+        originalContent: '',
+        newContent: 'New Line',
+        mode: 'insert',
+      });
+      expect(result.modifiedContent).toBe('Line 1\nLine 2\nNew Line');
+    });
+
+    it('should compute changes for add_table_column operation', () => {
+      const content = '| Name | Age |\n|------|-----|\n| Alice | 30 |';
+      const operation: EditOperation = {
+        mode: 'add_table_column',
+        path: 'test.md',
+        content: 'Status\n---\nActive',
+        fromLine: 0,
+        toLine: 2,
+        insertAfter: 'Age',
+      };
+
+      const result = noteContentService.computeChanges(content, [operation]);
+
+      expect(result.changes).toHaveLength(1);
+      expect(result.changes[0]).toMatchObject({
+        startLine: 0,
+        endLine: 2,
+        mode: 'add_table_column',
+      });
+      expect(result.changes[0].originalContent).toBe(
+        '| Name | Age |\n|------|-----|\n| Alice | 30 |'
+      );
+      expect(result.modifiedContent).toContain('Status');
+      expect(result.modifiedContent).toContain('Active');
+    });
+
+    it('should compute changes for add_table_column operation with insertBefore', () => {
+      const content = '| Name | Age |\n|------|-----|\n| Alice | 30 |';
+      const operation: EditOperation = {
+        mode: 'add_table_column',
+        path: 'test.md',
+        content: 'Status\n---\nActive',
+        fromLine: 0,
+        toLine: 2,
+        insertBefore: 'Age',
+      };
+
+      const result = noteContentService.computeChanges(content, [operation]);
+
+      expect(result.changes).toHaveLength(1);
+      expect(result.changes[0]).toMatchObject({
+        startLine: 0,
+        endLine: 2,
+        mode: 'add_table_column',
+      });
+      expect(result.modifiedContent).toContain('Status');
+      expect(result.modifiedContent).toContain('Active');
+      // Status should be before Age
+      const lines = result.modifiedContent.split('\n');
+      expect(lines[0]).toContain('Status');
+      expect(lines[0].indexOf('Status')).toBeLessThan(lines[0].indexOf('Age'));
+    });
+
+    it('should compute changes for update_table_column operation', () => {
+      const content = '| Name | Age |\n|------|-----|\n| Alice | 30 |';
+      const operation: EditOperation = {
+        mode: 'update_table_column',
+        path: 'test.md',
+        content: 'Age\n---\n31',
+        fromLine: 0,
+        toLine: 2,
+        position: 1,
+      };
+
+      const result = noteContentService.computeChanges(content, [operation]);
+
+      expect(result.changes).toHaveLength(1);
+      expect(result.changes[0]).toMatchObject({
+        startLine: 0,
+        endLine: 2,
+        mode: 'update_table_column',
+      });
+      expect(result.modifiedContent).toContain('31');
+    });
+
+    it('should compute changes for delete_table_column operation', () => {
+      const content = '| Name | Age | Status |\n|------|-----|--------|\n| Alice | 30 | Active |';
+      const operation: EditOperation = {
+        mode: 'delete_table_column',
+        path: 'test.md',
+        fromLine: 0,
+        toLine: 2,
+        position: 2,
+      };
+
+      const result = noteContentService.computeChanges(content, [operation]);
+
+      expect(result.changes).toHaveLength(1);
+      expect(result.changes[0]).toMatchObject({
+        startLine: 0,
+        endLine: 2,
+        mode: 'delete_table_column',
+      });
+      expect(result.modifiedContent).not.toContain('Status');
+      expect(result.modifiedContent).toContain('Name');
+      expect(result.modifiedContent).toContain('Age');
+    });
+
+    it('should compute changes for replace_by_pattern operation', () => {
+      const content = 'Hello world\nHello universe\nHello galaxy';
+      const operation: EditOperation = {
+        mode: 'replace_by_pattern',
+        artifactId: 'test-artifact',
+        searchPattern: 'Hello',
+        replacement: 'Hi',
+      };
+
+      const result = noteContentService.computeChanges(content, [operation]);
+
+      expect(result.changes).toHaveLength(1);
+      expect(result.changes[0]).toMatchObject({
+        originalContent: 'Hello',
+        newContent: 'Hi',
+        mode: 'replace_by_pattern',
+      });
+      expect(result.modifiedContent).toBe('Hi world\nHi universe\nHi galaxy');
+    });
+
+    it('should return null change for replace_by_pattern when no matches found', () => {
+      const content = 'Hello world';
+      const operation: EditOperation = {
+        mode: 'replace_by_pattern',
+        artifactId: 'test-artifact',
+        searchPattern: 'NotFound',
+        replacement: 'Replaced',
+      };
+
+      const result = noteContentService.computeChanges(content, [operation]);
+
+      expect(result.changes).toHaveLength(0);
+      expect(result.modifiedContent).toBe(content);
+    });
+
+    it('should compute changes for multiple sequential operations', () => {
+      const content = 'Line 1\nLine 2\nLine 3';
+      const operations: EditOperation[] = [
+        {
+          mode: 'replace_by_lines',
+          path: 'test.md',
+          content: 'Modified Line 2',
+          fromLine: 1,
+          toLine: 1,
+        },
+        {
+          mode: 'insert',
+          path: 'test.md',
+          content: 'New Line',
+          line: 2,
+        },
+      ];
+
+      const result = noteContentService.computeChanges(content, operations);
+
+      expect(result.changes).toHaveLength(2);
+      expect(result.changes[0].mode).toBe('replace_by_lines');
+      expect(result.changes[1].mode).toBe('insert');
+      expect(result.modifiedContent).toContain('Modified Line 2');
+      expect(result.modifiedContent).toContain('New Line');
+    });
+
+    it('should handle invalid line range gracefully', () => {
+      const content = 'Line 1\nLine 2';
+      const operation: EditOperation = {
+        mode: 'replace_by_lines',
+        path: 'test.md',
+        content: 'New',
+        fromLine: 5,
+        toLine: 3, // Invalid: fromLine > toLine
+      };
+
+      const result = noteContentService.computeChanges(content, [operation]);
+
+      expect(result.changes).toHaveLength(0);
+      expect(result.modifiedContent).toBe(content);
+    });
+
+    it('should include context before and after for changes', () => {
+      const content = 'Line 0\nLine 1\nLine 2\nLine 3\nLine 4';
+      const operation: EditOperation = {
+        mode: 'replace_by_lines',
+        path: 'test.md',
+        content: 'Modified Line 2',
+        fromLine: 2,
+        toLine: 2,
+      };
+
+      const result = noteContentService.computeChanges(content, [operation]);
+
+      expect(result.changes[0].contextBefore).toBeDefined();
+      expect(result.changes[0].contextAfter).toBeDefined();
+    });
+
+    it('should handle table operations with invalid line ranges', () => {
+      const content = '| Name | Age |\n|------|-----|\n| Alice | 30 |';
+      const operation: EditOperation = {
+        mode: 'add_table_column',
+        path: 'test.md',
+        content: 'Status\n---\nActive',
+        fromLine: 10, // Invalid: beyond content length
+        toLine: 5, // Invalid: fromLine > toLine
+        insertAfter: 'Age',
+      };
+
+      const result = noteContentService.computeChanges(content, [operation]);
+
+      expect(result.changes).toHaveLength(0);
+      expect(result.modifiedContent).toBe(content);
+    });
+
+    it('should handle empty content', () => {
+      const content = '';
+      const operation: EditOperation = {
+        mode: 'insert',
+        path: 'test.md',
+        content: 'New Line',
+        line: 0,
+      };
+
+      const result = noteContentService.computeChanges(content, [operation]);
+
+      expect(result.changes).toHaveLength(1);
+      expect(result.modifiedContent).toBe('New Line ');
     });
   });
 });

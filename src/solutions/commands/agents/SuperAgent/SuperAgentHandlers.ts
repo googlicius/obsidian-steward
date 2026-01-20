@@ -19,6 +19,7 @@ export class SuperAgentHandlers {
   private _revertFrontmatter: handlers.RevertFrontmatter;
   private _revertRename: handlers.RevertRename;
   private _revertCreate: handlers.RevertCreate;
+  private _revertEditResults: handlers.RevertEditResults;
   private _readContent: handlers.ReadContent;
   private _editHandler: handlers.EditHandler;
   private _userConfirm: handlers.UserConfirm;
@@ -151,6 +152,14 @@ export class SuperAgentHandlers {
     }
 
     return this._revertCreate;
+  }
+
+  public get revertEditResults(): handlers.RevertEditResults {
+    if (!this._revertEditResults) {
+      this._revertEditResults = new handlers.RevertEditResults(this.getAgent());
+    }
+
+    return this._revertEditResults;
   }
 
   public get readContent(): handlers.ReadContent {

@@ -44,9 +44,64 @@ Examples:
 
 // Define the Zod schema for search query extraction validation
 export const searchQueryExtractionSchema = z.object({
-  operations: z.array(searchOperationSchema).describe(`An array of search operations.
+  operations: z
+    .array(searchOperationSchema)
+    .describe(
+      `An array of search operations.
 If the user wants to search with different criteria in different locations, return multiple operations.
-  `),
+  `
+    )
+    .transform(operations => {
+      const transformedOperations: z.infer<typeof searchOperationSchema>[] = [];
+
+      for (const operation of operations) {
+        const hasKeywords = operation.keywords.length > 0;
+        const tagProperties = operation.properties.filter(prop => prop.name === 'tag');
+        const hasTagProperties = tagProperties.length > 0;
+        const nonTagProperties = operation.properties.filter(prop => prop.name !== 'tag');
+
+        // Instead of spending tokens to tell AIs that keywords are not tags, we will handle it.
+        // Only split if any keyword value matches any tag value
+        if (hasKeywords && hasTagProperties) {
+          const tagValues = tagProperties.map(prop => prop.value.toLowerCase());
+          const matchingKeywords = operation.keywords.filter(keyword =>
+            tagValues.includes(keyword.toLowerCase())
+          );
+          const hasMatchingKeywords = matchingKeywords.length > 0;
+
+          if (hasMatchingKeywords) {
+            // Split into two operations: one for keywords (excluding matching ones), one for tags
+            const nonMatchingKeywords = operation.keywords.filter(
+              keyword => !tagValues.includes(keyword.toLowerCase())
+            );
+
+            // Operation 1: non-matching keywords + non-tag properties (preserve filenames and folders)
+            transformedOperations.push({
+              keywords: nonMatchingKeywords,
+              filenames: operation.filenames,
+              folders: operation.folders,
+              properties: nonTagProperties,
+            });
+
+            // Operation 2: tag properties only (preserve filenames and folders)
+            transformedOperations.push({
+              keywords: [],
+              filenames: operation.filenames,
+              folders: operation.folders,
+              properties: tagProperties,
+            });
+          } else {
+            // No matching keywords and tags, keep operation as is
+            transformedOperations.push(operation);
+          }
+        } else {
+          // Keep operation as is if it doesn't have both keywords and tags
+          transformedOperations.push(operation);
+        }
+      }
+
+      return transformedOperations;
+    }),
   lang: z
     .string()
     .optional()
@@ -388,6 +443,8 @@ export class Search {
 
       if (hasMoreResults) {
         resultText += `\n\n${t('list.fullListAvailableInArtifact', { artifactId })}`;
+      } else {
+        resultText += `\n\n${t('search.resultAvailableInArtifact', { artifactId })}`;
       }
 
       await this.agent.renderer.serializeToolInvocation({

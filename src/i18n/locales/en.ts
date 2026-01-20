@@ -239,6 +239,7 @@ const en = {
       showMoreDetails: 'Type `/more` to show the next 10 results.',
       pagination: 'Page {{current}} of {{total}}',
       useMoreCommand: 'Type `/more` to see the next page of results.',
+      resultAvailableInArtifact: 'The search result is available in the artifact: {{artifactId}}',
       noMoreResults: 'No more search results to show.',
       noRecentSearch: 'No recent search found. Please run a search command first.',
       moreResults: 'Here are more search results:',

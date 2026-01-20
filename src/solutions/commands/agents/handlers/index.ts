@@ -11,6 +11,7 @@ export * from './RevertMove';
 export * from './RevertFrontmatter';
 export * from './RevertRename';
 export * from './RevertCreate';
+export * from './RevertEditResults';
 export * from './ReadContent';
 export * from './EditHandler';
 export * from './UserConfirm';

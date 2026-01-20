@@ -174,6 +174,7 @@ const vi = {
       useMoreCommand: 'Nhập `/more` để xem trang kết quả tiếp theo.',
       noMoreResults: 'Không còn kết quả tìm kiếm nào để hiển thị.',
       noRecentSearch: 'Không tìm thấy tìm kiếm gần đây. Vui lòng thực hiện lệnh tìm kiếm trước.',
+      resultAvailableInArtifact: 'Kết quả tìm kiếm có sẵn trong artifact: {{artifactId}}',
       moreResults: 'Đây là thêm kết quả tìm kiếm:',
       paginationStatus: 'Trang {{current}}/{{total}} (tổng {{count}} kết quả)',
       noMorePages: 'Đây là trang cuối cùng của kết quả.',

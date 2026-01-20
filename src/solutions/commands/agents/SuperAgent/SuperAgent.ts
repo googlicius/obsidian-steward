@@ -41,6 +41,7 @@ const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
     ToolName.REVERT_FRONTMATTER,
     ToolName.REVERT_RENAME,
     ToolName.REVERT_CREATE,
+    ToolName.REVERT_EDIT_RESULTS,
   ]),
   read: new Set([ToolName.CONTENT_READING]),
   edit: new Set([ToolName.EDIT]),
@@ -101,6 +102,7 @@ const tools = {
   [ToolName.REVERT_FRONTMATTER]: handlers.RevertFrontmatter.getRevertFrontmatterTool(),
   [ToolName.REVERT_RENAME]: handlers.RevertRename.getRevertRenameTool(),
   [ToolName.REVERT_CREATE]: handlers.RevertCreate.getRevertCreateTool(),
+  [ToolName.REVERT_EDIT_RESULTS]: handlers.RevertEditResults.getRevertEditResultsTool(),
   [ToolName.CONTENT_READING]: handlers.ReadContent.getContentReadingTool(),
   [ToolName.CONFIRMATION]: confirmationTool,
   [ToolName.ASK_USER]: askUserTool,
@@ -217,6 +219,7 @@ export class SuperAgent extends Agent {
             ArtifactType.DELETED_FILES,
             ArtifactType.UPDATE_FRONTMATTER_RESULTS,
             ArtifactType.RENAME_RESULTS,
+            ArtifactType.EDIT_RESULTS,
           ];
 
           const artifact = await this.plugin.artifactManagerV2
@@ -231,6 +234,7 @@ export class SuperAgent extends Agent {
               [ArtifactType.DELETED_FILES]: ToolName.REVERT_DELETE,
               [ArtifactType.UPDATE_FRONTMATTER_RESULTS]: ToolName.REVERT_FRONTMATTER,
               [ArtifactType.RENAME_RESULTS]: ToolName.REVERT_RENAME,
+              [ArtifactType.EDIT_RESULTS]: ToolName.REVERT_EDIT_RESULTS,
             };
 
             const toolName = artifactTypeToToolMap[artifact.artifactType];
@@ -686,6 +690,7 @@ NOTE:
       [ToolName.REVERT_FRONTMATTER]: () => this.revertFrontmatter,
       [ToolName.REVERT_RENAME]: () => this.revertRename,
       [ToolName.REVERT_CREATE]: () => this.revertCreate,
+      [ToolName.REVERT_EDIT_RESULTS]: () => this.revertEditResults,
       [ToolName.USER_CONFIRM]: () => this.userConfirm,
       [ToolName.EDIT]: () => this.editHandler,
       [ToolName.STOP]: () => this.stop,
