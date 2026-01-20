@@ -44,9 +44,48 @@ Examples:
 
 // Define the Zod schema for search query extraction validation
 export const searchQueryExtractionSchema = z.object({
-  operations: z.array(searchOperationSchema).describe(`An array of search operations.
+  operations: z
+    .array(searchOperationSchema)
+    .describe(
+      `An array of search operations.
 If the user wants to search with different criteria in different locations, return multiple operations.
-  `),
+  `
+    )
+    .transform(operations => {
+      const transformedOperations: z.infer<typeof searchOperationSchema>[] = [];
+
+      for (const operation of operations) {
+        const hasKeywords = operation.keywords.length > 0;
+        const tagProperties = operation.properties.filter(prop => prop.name === 'tag');
+        const hasTagProperties = tagProperties.length > 0;
+        const nonTagProperties = operation.properties.filter(prop => prop.name !== 'tag');
+
+        // Instead of spending tokens to tell AIs that keywords are not tags, we will handle it.
+        // If operation has both keywords and tag properties, split into two operations
+        if (hasKeywords && hasTagProperties) {
+          // Operation 1: keywords + non-tag properties (preserve filenames and folders)
+          transformedOperations.push({
+            keywords: operation.keywords,
+            filenames: operation.filenames,
+            folders: operation.folders,
+            properties: nonTagProperties,
+          });
+
+          // Operation 2: tag properties only (preserve filenames and folders)
+          transformedOperations.push({
+            keywords: [],
+            filenames: operation.filenames,
+            folders: operation.folders,
+            properties: tagProperties,
+          });
+        } else {
+          // Keep operation as is if it doesn't have both keywords and tags
+          transformedOperations.push(operation);
+        }
+      }
+
+      return transformedOperations;
+    }),
   lang: z
     .string()
     .optional()

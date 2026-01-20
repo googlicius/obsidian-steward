@@ -1,4 +1,4 @@
-import { Search } from './Search';
+import { Search, searchQueryExtractionSchema } from './Search';
 import { type SuperAgent } from '../SuperAgent';
 import type StewardPlugin from 'src/main';
 import { IndexedDocument } from 'src/database/SearchDatabase';
@@ -83,6 +83,238 @@ describe('Search', () => {
       renderer: mockPlugin.conversationRenderer,
     } as unknown as jest.Mocked<SuperAgent>;
     search = new Search(mockAgent);
+  });
+
+  describe('searchQueryExtractionSchema', () => {
+    it('should split operation with both keywords and tags into two operations', () => {
+      const input = {
+        operations: [
+          {
+            keywords: ['test', 'example'],
+            filenames: ['note'],
+            folders: ['/folder'],
+            properties: [
+              { name: 'tag', value: 'important' },
+              { name: 'status', value: 'completed' },
+            ],
+          },
+        ],
+        confidence: 0.9,
+      };
+
+      const result = searchQueryExtractionSchema.parse(input);
+
+      expect(result.operations).toHaveLength(2);
+      expect(result.operations[0]).toEqual({
+        keywords: ['test', 'example'],
+        filenames: ['note'],
+        folders: ['/folder'],
+        properties: [{ name: 'status', value: 'completed' }],
+      });
+      expect(result.operations[1]).toEqual({
+        keywords: [],
+        filenames: ['note'],
+        folders: ['/folder'],
+        properties: [{ name: 'tag', value: 'important' }],
+      });
+      expect(result.confidence).toBe(0.9);
+    });
+
+    it('should keep operation with only keywords unchanged', () => {
+      const input = {
+        operations: [
+          {
+            keywords: ['test', 'example'],
+            filenames: [],
+            folders: [],
+            properties: [],
+          },
+        ],
+        confidence: 0.8,
+      };
+
+      const result = searchQueryExtractionSchema.parse(input);
+
+      expect(result.operations).toHaveLength(1);
+      expect(result.operations[0]).toEqual(input.operations[0]);
+    });
+
+    it('should keep operation with only tags unchanged', () => {
+      const input = {
+        operations: [
+          {
+            keywords: [],
+            filenames: [],
+            folders: [],
+            properties: [
+              { name: 'tag', value: 'important' },
+              { name: 'tag', value: 'urgent' },
+            ],
+          },
+        ],
+        confidence: 0.7,
+      };
+
+      const result = searchQueryExtractionSchema.parse(input);
+
+      expect(result.operations).toHaveLength(1);
+      expect(result.operations[0]).toEqual(input.operations[0]);
+    });
+
+    it('should keep operation with keywords and non-tag properties unchanged', () => {
+      const input = {
+        operations: [
+          {
+            keywords: ['test'],
+            filenames: [],
+            folders: [],
+            properties: [
+              { name: 'status', value: 'completed' },
+              { name: 'file_type', value: 'md' },
+            ],
+          },
+        ],
+        confidence: 0.85,
+      };
+
+      const result = searchQueryExtractionSchema.parse(input);
+
+      expect(result.operations).toHaveLength(1);
+      expect(result.operations[0]).toEqual(input.operations[0]);
+    });
+
+    it('should handle multiple operations, splitting only those with keywords and tags', () => {
+      const input = {
+        operations: [
+          {
+            keywords: ['test'],
+            filenames: [],
+            folders: [],
+            properties: [{ name: 'tag', value: 'important' }],
+          },
+          {
+            keywords: ['example'],
+            filenames: [],
+            folders: [],
+            properties: [],
+          },
+          {
+            keywords: [],
+            filenames: [],
+            folders: [],
+            properties: [{ name: 'tag', value: 'urgent' }],
+          },
+        ],
+        confidence: 0.9,
+      };
+
+      const result = searchQueryExtractionSchema.parse(input);
+
+      expect(result.operations).toHaveLength(4);
+      // First operation split into two
+      expect(result.operations[0]).toEqual({
+        keywords: ['test'],
+        filenames: [],
+        folders: [],
+        properties: [],
+      });
+      expect(result.operations[1]).toEqual({
+        keywords: [],
+        filenames: [],
+        folders: [],
+        properties: [{ name: 'tag', value: 'important' }],
+      });
+      // Second operation unchanged
+      expect(result.operations[2]).toEqual(input.operations[1]);
+      // Third operation unchanged
+      expect(result.operations[3]).toEqual(input.operations[2]);
+    });
+
+    it('should preserve filenames and folders when splitting operations', () => {
+      const input = {
+        operations: [
+          {
+            keywords: ['test'],
+            filenames: ['note1', 'note2'],
+            folders: ['/folder1', '/folder2'],
+            properties: [
+              { name: 'tag', value: 'important' },
+              { name: 'status', value: 'active' },
+            ],
+          },
+        ],
+        confidence: 0.95,
+      };
+
+      const result = searchQueryExtractionSchema.parse(input);
+
+      expect(result.operations).toHaveLength(2);
+      expect(result.operations[0].filenames).toEqual(['note1', 'note2']);
+      expect(result.operations[0].folders).toEqual(['/folder1', '/folder2']);
+      expect(result.operations[1].filenames).toEqual(['note1', 'note2']);
+      expect(result.operations[1].folders).toEqual(['/folder1', '/folder2']);
+    });
+
+    it('should handle operation with multiple tags correctly', () => {
+      const input = {
+        operations: [
+          {
+            keywords: ['test', 'example'],
+            filenames: [],
+            folders: [],
+            properties: [
+              { name: 'tag', value: 'important' },
+              { name: 'tag', value: 'urgent' },
+              { name: 'status', value: 'completed' },
+            ],
+          },
+        ],
+        confidence: 0.9,
+      };
+
+      const result = searchQueryExtractionSchema.parse(input);
+
+      expect(result.operations).toHaveLength(2);
+      expect(result.operations[0].keywords).toEqual(['test', 'example']);
+      expect(result.operations[0].properties).toEqual([{ name: 'status', value: 'completed' }]);
+      expect(result.operations[1].keywords).toEqual([]);
+      expect(result.operations[1].properties).toEqual([
+        { name: 'tag', value: 'important' },
+        { name: 'tag', value: 'urgent' },
+      ]);
+    });
+
+    it('should handle empty operations array', () => {
+      const input = {
+        operations: [],
+        confidence: 0.5,
+      };
+
+      const result = searchQueryExtractionSchema.parse(input);
+
+      expect(result.operations).toHaveLength(0);
+      expect(result.confidence).toBe(0.5);
+    });
+
+    it('should preserve lang field when provided', () => {
+      const input = {
+        operations: [
+          {
+            keywords: ['test'],
+            filenames: [],
+            folders: [],
+            properties: [{ name: 'tag', value: 'important' }],
+          },
+        ],
+        lang: 'en',
+        confidence: 0.9,
+      };
+
+      const result = searchQueryExtractionSchema.parse(input);
+
+      expect(result.lang).toBe('en');
+      expect(result.operations).toHaveLength(2);
+    });
   });
 
   describe('formatSearchResults', () => {
