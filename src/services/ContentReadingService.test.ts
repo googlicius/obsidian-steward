@@ -59,6 +59,9 @@ function createMockPlugin(
       metadataCache: {
         getFileCache: jest.fn().mockReturnValue(mockCache),
       },
+      vault: {
+        cachedRead: jest.fn().mockResolvedValue(mockText),
+      },
     },
   } as unknown as jest.Mocked<StewardPlugin>;
 }
@@ -77,7 +80,7 @@ function createSection(type: string, startLine: number, endLine: number): MockSe
 }
 
 describe('ContentReadingService', () => {
-  describe('readContent', () => {
+  describe('readContent - readType above/below/entire', () => {
     it('should read the list above the cursor', async () => {
       // Create mock text content with lists and paragraphs
       const mockText = `This is the first list
@@ -108,8 +111,7 @@ End
         blocksToRead: 1,
         readType: 'above',
         elementType: 'list',
-        fileName: null,
-        startLine: null,
+        fileName: 'test.md',
       });
 
       expect(result).toMatchObject({
@@ -157,8 +159,7 @@ End
         blocksToRead: 1,
         readType: 'above',
         elementType: null,
-        fileName: null,
-        startLine: null,
+        fileName: 'test.md',
       });
 
       expect(result).toMatchObject({
@@ -225,8 +226,7 @@ Multiple lines here.
         blocksToRead: -1,
         readType: 'below',
         elementType: null,
-        fileName: null,
-        startLine: null,
+        fileName: 'test.md',
       });
 
       expect(result).toMatchObject({
@@ -299,8 +299,7 @@ function greet(name) {
         blocksToRead: 1,
         readType: 'below',
         elementType: 'code',
-        fileName: null,
-        startLine: null,
+        fileName: 'test.md',
       });
 
       expect(result).toMatchObject({
@@ -351,8 +350,7 @@ End paragraph`;
         blocksToRead: 1,
         readType: 'above',
         elementType: 'list',
-        fileName: null,
-        startLine: null,
+        fileName: 'test.md',
       });
 
       expect(result).toMatchObject({
@@ -401,16 +399,14 @@ End paragraph`;
         blocksToRead: 1,
         readType: 'above',
         elementType: 'image',
-        fileName: null,
-        startLine: null,
+        fileName: 'test.md',
       });
 
       const result2 = await service.readContent({
         blocksToRead: -1,
         readType: 'above',
         elementType: 'image',
-        fileName: null,
-        startLine: null,
+        fileName: 'test.md',
       });
 
       const expected = {
@@ -455,7 +451,6 @@ End paragraph`;
         blocksToRead: 1,
         readType: 'entire',
         elementType: null,
-        startLine: null,
         fileName: 'image.png',
       });
 
@@ -467,6 +462,288 @@ End paragraph`;
           name: 'image.png',
         },
       });
+    });
+  });
+
+  describe('readContent - readType pattern', () => {
+    it('should find blocks containing a simple pattern', async () => {
+      const mockText = `First paragraph with some text.
+      
+Second paragraph with keyword here.
+
+Third paragraph without the keyword.`;
+
+      const sections = [
+        createSection('paragraph', 0, 0),
+        createSection('paragraph', 2, 2),
+        createSection('paragraph', 4, 4),
+      ];
+
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 });
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: -1,
+        readType: 'pattern',
+        elementType: null,
+        fileName: 'test.md',
+        pattern: 'keyword',
+      });
+
+      expect(result).toMatchObject({
+        blocks: [
+          {
+            content: 'Second paragraph with keyword here.',
+            startLine: 2,
+            endLine: 2,
+            sections: [{ type: 'paragraph', startLine: 2, endLine: 2 }],
+          },
+          {
+            content: 'Third paragraph without the keyword.',
+            startLine: 4,
+            endLine: 4,
+            sections: [{ type: 'paragraph', startLine: 4, endLine: 4 }],
+          },
+        ],
+        source: 'element',
+        file: {
+          name: '',
+          path: '',
+        },
+      });
+    });
+
+    it('should find blocks with case-insensitive pattern matching', async () => {
+      const mockText = `First paragraph with KEYWORD.
+      
+Second paragraph with Keyword.
+
+Third paragraph with keyword.`;
+
+      const sections = [
+        createSection('paragraph', 0, 0),
+        createSection('paragraph', 2, 2),
+        createSection('paragraph', 4, 4),
+      ];
+
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 });
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: -1,
+        readType: 'pattern',
+        elementType: null,
+        fileName: 'test.md',
+        pattern: 'keyword',
+      });
+
+      expect(result.blocks).toHaveLength(3);
+      expect(result.blocks[0].content).toBe('First paragraph with KEYWORD.');
+      expect(result.blocks[1].content).toBe('Second paragraph with Keyword.');
+      expect(result.blocks[2].content).toBe('Third paragraph with keyword.');
+    });
+
+    it('should respect blocksToRead limit', async () => {
+      const mockText = `First paragraph with keyword.
+      
+Second paragraph with keyword.
+
+Third paragraph with keyword.`;
+
+      const sections = [
+        createSection('paragraph', 0, 0),
+        createSection('paragraph', 2, 2),
+        createSection('paragraph', 4, 4),
+      ];
+
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 });
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 2,
+        readType: 'pattern',
+        elementType: null,
+        fileName: 'test.md',
+        pattern: 'keyword',
+      });
+
+      expect(result.blocks).toHaveLength(2);
+    });
+
+    it('should find YAML field in a code block', async () => {
+      const mockText = `Some content before.
+
+\`\`\`yaml
+name: John Doe
+age: 30
+email: john@example.com
+status: active
+\`\`\`
+
+Some content after.`;
+
+      const sections = [
+        createSection('paragraph', 0, 0),
+        createSection('code', 2, 7),
+        createSection('paragraph', 9, 9),
+      ];
+
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 });
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: -1,
+        readType: 'pattern',
+        elementType: null,
+        fileName: 'test.md',
+        pattern: 'email:',
+      });
+
+      expect(result).toMatchObject({
+        blocks: [
+          {
+            content: `\`\`\`yaml
+name: John Doe
+age: 30
+email: john@example.com
+status: active
+\`\`\``,
+            startLine: 2,
+            endLine: 7,
+            sections: [{ type: 'code', startLine: 2, endLine: 7 }],
+          },
+        ],
+        source: 'element',
+      });
+    });
+
+    it('should find YAML field in a paragraph', async () => {
+      const mockText = `Some content before.
+
+Here is some YAML-like content:
+name: Jane Doe
+age: 25
+email: jane@example.com
+status: inactive
+
+Some content after.`;
+
+      const sections = [
+        createSection('paragraph', 0, 0),
+        createSection('paragraph', 2, 6),
+        createSection('paragraph', 8, 8),
+      ];
+
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 });
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: -1,
+        readType: 'pattern',
+        elementType: null,
+        fileName: 'test.md',
+        pattern: 'status:\\s*(active|inactive)',
+      });
+
+      expect(result).toMatchObject({
+        blocks: [
+          {
+            content: `Here is some YAML-like content:
+name: Jane Doe
+age: 25
+email: jane@example.com
+status: inactive`,
+            startLine: 2,
+            endLine: 6,
+            sections: [{ type: 'paragraph', startLine: 2, endLine: 6 }],
+          },
+        ],
+        source: 'element',
+      });
+    });
+
+    it('should return empty blocks when pattern is not provided', async () => {
+      const mockText = `Some content.`;
+
+      const sections = [createSection('paragraph', 0, 0)];
+
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 });
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: -1,
+        readType: 'pattern',
+        elementType: null,
+        fileName: 'test.md',
+      });
+
+      expect(result).toMatchObject({
+        blocks: [],
+        source: 'unknown',
+        file: {
+          name: '',
+          path: '',
+        },
+      });
+    });
+
+    it('should return empty blocks when pattern does not match', async () => {
+      const mockText = `Some content without the pattern.`;
+
+      const sections = [createSection('paragraph', 0, 0)];
+
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 });
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: -1,
+        readType: 'pattern',
+        elementType: null,
+        fileName: 'test.md',
+        pattern: 'nonexistent',
+      });
+
+      expect(result).toMatchObject({
+        blocks: [],
+        source: 'unknown',
+        file: {
+          name: '',
+          path: '',
+        },
+      });
+    });
+
+    it('should find multiple blocks with pattern across different sections', async () => {
+      const mockText = `First paragraph with pattern.
+
+\`\`\`js
+// Code block with pattern
+const pattern = 'test';
+\`\`\`
+
+Third paragraph with pattern again.`;
+
+      const sections = [
+        createSection('paragraph', 0, 0),
+        createSection('code', 2, 5),
+        createSection('paragraph', 7, 7),
+      ];
+
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 });
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: -1,
+        readType: 'pattern',
+        elementType: null,
+        fileName: 'test.md',
+        pattern: 'pattern',
+      });
+
+      expect(result.blocks).toHaveLength(3);
+      expect(result.blocks[0].content).toBe('First paragraph with pattern.');
+      expect(result.blocks[1].content).toContain('pattern');
+      expect(result.blocks[2].content).toBe('Third paragraph with pattern again.');
     });
   });
 });

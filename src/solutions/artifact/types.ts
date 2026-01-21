@@ -65,7 +65,7 @@ export interface CreatedNotesArtifact extends BaseArtifact {
  */
 export interface ReadContentArtifact extends BaseArtifact {
   artifactType: ArtifactType.READ_CONTENT;
-  readingResult: ContentReadingResult;
+  readingResults: ContentReadingResult[];
   imagePaths?: string[];
 }
 
