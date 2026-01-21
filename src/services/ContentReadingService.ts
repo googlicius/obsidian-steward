@@ -68,18 +68,18 @@ export class ContentReadingService {
    * Read content from the editor based on extraction parameters
    */
   async readContent(args: {
-    fileName: ContentReadingArgs['fileName'];
+    fileName: string;
     readType: ContentReadingArgs['readType'];
     blocksToRead: ContentReadingArgs['blocksToRead'];
     elementType: ContentReadingArgs['elementType'];
-    startLine: ContentReadingArgs['startLine'];
+    pattern?: ContentReadingArgs['pattern'];
   }): Promise<ContentReadingResult> {
     // Get the file
     const file = args.fileName
       ? await this.plugin.mediaTools.findFileByNameOrPath(args.fileName)
       : this.plugin.app.workspace.getActiveFile();
     if (!file) {
-      throw new Error(`No active file found for note: ${args.fileName}`);
+      throw new Error(`No file found for note: ${args.fileName}`);
     }
 
     const fileExtension = file.extension.toLowerCase();
@@ -97,20 +97,13 @@ export class ContentReadingService {
     switch (args.readType) {
       case 'above':
       default:
-        return this.readBlocksAboveCursor(
-          file,
-          args.blocksToRead,
-          args.elementType,
-          args.startLine
-        );
+        return this.readBlocksAboveCursor(file, args.blocksToRead, args.elementType);
 
       case 'below':
-        return this.readBlocksBelowCursor(
-          file,
-          args.blocksToRead,
-          args.elementType,
-          args.startLine
-        );
+        return this.readBlocksBelowCursor(file, args.blocksToRead, args.elementType);
+
+      case 'pattern':
+        return await this.readBlocksWithPattern(file, args.blocksToRead, args.pattern);
 
       case 'entire':
         return this.readEntireContent(file);
@@ -122,18 +115,16 @@ export class ContentReadingService {
    * @param file The active file
    * @param blocksToRead Number of blocks to read
    * @param elementType Element type to look for (e.g., "table", "code", "paragraph")
-   * @param startLine Optional line number to start reading from instead of cursor position
    * @returns Blocks above the cursor
    */
   private readBlocksAboveCursor(
     file: TFile,
     blocksToRead: number,
-    elementType: ContentReadingArgs['elementType'] = null,
-    startLine: ContentReadingArgs['startLine'] = null
+    elementType: ContentReadingArgs['elementType'] = null
   ): ContentReadingResult {
     const cursor = this.editor.getCursor();
     const blocks: ContentBlock[] = [];
-    let currentLine = startLine !== null ? startLine : cursor.line;
+    let currentLine = cursor.line;
 
     while (currentLine >= 0) {
       // If we have reached the maximum number of blocks, stop
@@ -171,19 +162,17 @@ export class ContentReadingService {
    * @param file The active file
    * @param blocksToRead Number of blocks to read
    * @param elementType Element type to look for (e.g., "table", "code", "paragraph")
-   * @param startLine Optional line number to start reading from instead of cursor position
    * @returns Blocks below the cursor
    */
   private readBlocksBelowCursor(
     file: TFile,
     blocksToRead: number,
-    elementType: ContentReadingArgs['elementType'] = null,
-    startLine: ContentReadingArgs['startLine'] = null
+    elementType: ContentReadingArgs['elementType'] = null
   ): ContentReadingResult {
     const cursor = this.editor.getCursor();
     const blocks: ContentBlock[] = [];
     const lineCount = this.editor.lineCount();
-    let currentLine = startLine !== null ? startLine : cursor.line;
+    let currentLine = cursor.line;
 
     // Process each line going downward until we reach the end
     while (currentLine < lineCount) {
@@ -215,6 +204,91 @@ export class ContentReadingService {
     }
 
     return this.createContentReadingResult({ file, blocks, elementType });
+  }
+
+  /**
+   * Read blocks that contain a specific pattern
+   * @param file The file to search
+   * @param pattern RegExp pattern to search for
+   * @param blocksToRead Maximum number of blocks to return (-1 for all)
+   * @returns Blocks containing the pattern
+   */
+  private async readBlocksWithPattern(
+    file: TFile,
+    blocksToRead: number,
+    pattern?: string
+  ): Promise<ContentReadingResult> {
+    if (!pattern) {
+      return {
+        blocks: [],
+        source: 'unknown',
+        file: {
+          path: file.path,
+          name: file.name,
+        },
+      };
+    }
+
+    const cache = this.plugin.app.metadataCache.getFileCache(file);
+    if (!cache || !cache.sections) {
+      return {
+        blocks: [],
+        source: 'unknown',
+        file: {
+          path: file.path,
+          name: file.name,
+        },
+      };
+    }
+
+    // Read file content from vault (files are typically not open when reading by pattern)
+    const fileContent = await this.plugin.app.vault.cachedRead(file);
+    const fileLines = fileContent.split('\n');
+    const regex = new RegExp(pattern, 'gi');
+    const matchingBlocks: ContentBlock[] = [];
+
+    // Iterate through all sections and find blocks containing the pattern
+    for (let i = 0; i < cache.sections.length; i++) {
+      // Stop if we've reached the maximum number of blocks
+      if (blocksToRead !== -1 && matchingBlocks.length >= blocksToRead) {
+        break;
+      }
+
+      const section = cache.sections[i];
+      const startLine = section.position.start.line;
+      const endLine = section.position.end.line;
+
+      // Extract content for this section from file lines
+      const content = fileLines.slice(startLine, endLine + 1).join('\n');
+
+      // Check if the content matches the pattern
+      if (regex.test(content)) {
+        // Reset regex lastIndex for next test
+        regex.lastIndex = 0;
+
+        matchingBlocks.push({
+          startLine,
+          endLine,
+          sections: [
+            {
+              type: section.type,
+              startLine,
+              endLine,
+            },
+          ],
+          content,
+        });
+      }
+    }
+
+    return {
+      blocks: matchingBlocks,
+      source: matchingBlocks.length > 0 ? 'element' : 'unknown',
+      file: {
+        path: file.path,
+        name: file.name,
+      },
+    };
   }
 
   /**

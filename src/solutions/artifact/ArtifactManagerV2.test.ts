@@ -73,7 +73,7 @@ describe('ArtifactManagerV2', () => {
         '<!--STW ID:mmmm,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->',
         '*Artifact read_content is created*',
         '```stw-artifact',
-        '{"artifactType":"read_content","readingResult":{"blocks":[{"startLine":82,"endLine":82,"sections":[{"type":"paragraph","startLine":82,"endLine":82}],"content":"testABC"}],"source":"cursor","file":{"path":"Steward/Conversations/Test Conversation.md","name":"Test Conversation.md"},"range":{"from":{"line":82,"ch":0},"to":{"line":82,"ch":7}}},"id":"mmmm"}',
+        '{"artifactType":"read_content","readingResults":[{"blocks":[{"startLine":82,"endLine":82,"sections":[{"type":"paragraph","startLine":82,"endLine":82}],"content":"testABC"}],"source":"cursor","file":{"path":"Steward/Conversations/Test Conversation.md","name":"Test Conversation.md"},"range":{"from":{"line":82,"ch":0},"to":{"line":82,"ch":7}}}],"id":"mmmm"}',
         '```',
         '',
       ].join('\n');
@@ -88,21 +88,23 @@ describe('ArtifactManagerV2', () => {
         {
           id: 'mmmm',
           artifactType: 'read_content',
-          readingResult: {
-            blocks: [
-              {
-                startLine: 82,
-                endLine: 82,
-                sections: [{ type: 'paragraph', startLine: 82, endLine: 82 }],
-                content: 'testABC',
+          readingResults: [
+            {
+              blocks: [
+                {
+                  startLine: 82,
+                  endLine: 82,
+                  sections: [{ type: 'paragraph', startLine: 82, endLine: 82 }],
+                  content: 'testABC',
+                },
+              ],
+              source: 'cursor',
+              file: {
+                path: 'Steward/Conversations/Test Conversation.md',
+                name: 'Test Conversation.md',
               },
-            ],
-            source: 'cursor',
-            file: {
-              path: 'Steward/Conversations/Test Conversation.md',
-              name: 'Test Conversation.md',
             },
-          },
+          ],
         },
       ]);
     });
@@ -232,7 +234,7 @@ describe('ArtifactManagerV2', () => {
         '<!--STW ID:msg2,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->',
         '*Artifact created*',
         '```stw-artifact',
-        `{"artifactType":"read_content","id":"${artifactId}","readingResult":{"blocks":[]}}`,
+        `{"artifactType":"read_content","id":"${artifactId}","readingResults":[{"blocks":[]}]}`,
         '```',
         '',
         '<!--STW ID:msg3,ROLE:user-->',
@@ -287,7 +289,7 @@ describe('ArtifactManagerV2', () => {
         `<!--STW ID:${artifactId},ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->`,
         '*Artifact created*',
         '```stw-artifact',
-        `{"artifactType":"read_content","readingResult":{"blocks":[]}}`,
+        `{"artifactType":"read_content","readingResults":[{"blocks":[]}]}`,
         '```',
         '',
         '<!--STW ID:msg3,ROLE:user-->',
@@ -338,7 +340,7 @@ describe('ArtifactManagerV2', () => {
         '<!--STW ID:msg2,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->',
         '*Artifact created*',
         '```stw-artifact',
-        `{"artifactType":"read_content","id":"${artifactId}","readingResult":{"blocks":[]}}`,
+        `{"artifactType":"read_content","id":"${artifactId}","readingResults":[{"blocks":[]}]}`,
         '```',
       ].join('\n');
 
@@ -385,7 +387,7 @@ describe('ArtifactManagerV2', () => {
         '<!--STW ID:msg2,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->',
         '*Artifact created*',
         '```stw-artifact',
-        `{"artifactType":"read_content","id":"${artifactId}","readingResult":{"blocks":[]}}`,
+        `{"artifactType":"read_content","id":"${artifactId}","readingResults":[{"blocks":[]}]}`,
         '```',
         '',
         '<!--STW ID:msg3,ROLE:assistant,COMMAND:revert_delete-->',
@@ -461,7 +463,7 @@ describe('ArtifactManagerV2', () => {
         '<!--STW ID:msg2,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->',
         '*Artifact created*',
         '```stw-artifact',
-        `{"artifactType":"read_content","id":"${artifactId}","readingResult":{"blocks":[]}}`,
+        `{"artifactType":"read_content","id":"${artifactId}","readingResults":[{"blocks":[]}]}`,
         '```',
         '',
         '<!--STW ID:msg3,ROLE:user-->',
@@ -475,7 +477,7 @@ describe('ArtifactManagerV2', () => {
         '',
         '<!--STW ID:msg2,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->',
         '```stw-artifact',
-        `{"artifactType":"read_content","readingResult":{"blocks":[]},"id":"${artifactId}","deleteReason":"${deleteReason}"}`,
+        `{"artifactType":"read_content","readingResults":[{"blocks":[]}],"id":"${artifactId}","deleteReason":"${deleteReason}"}`,
         '```',
         '',
         '<!--STW ID:msg3,ROLE:user-->',

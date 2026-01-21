@@ -6,7 +6,7 @@ import { ArtifactType, ReadContentArtifact } from './types';
  */
 export class ReadContentArtifactImpl implements ReadContentArtifact {
   artifactType: ArtifactType.READ_CONTENT;
-  readingResult: ContentReadingResult;
+  readingResults: ContentReadingResult[];
   imagePaths?: string[];
   createdAt?: number;
   id?: string;
@@ -14,7 +14,7 @@ export class ReadContentArtifactImpl implements ReadContentArtifact {
 
   constructor(data: ReadContentArtifact) {
     this.artifactType = ArtifactType.READ_CONTENT;
-    this.readingResult = data.readingResult;
+    this.readingResults = data.readingResults;
     this.imagePaths = data.imagePaths;
     this.createdAt = data.createdAt;
     this.id = data.id;
