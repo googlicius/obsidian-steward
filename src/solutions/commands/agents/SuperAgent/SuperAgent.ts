@@ -496,6 +496,8 @@ NOTE:
 - Do NOT mention the tools you use to users. Work silently in the background and only communicate the results or outcomes.
 - Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`;
 
+      type RepairToolCall = Parameters<typeof streamText>[0]['experimental_repairToolCall'];
+
       const { toolCalls: toolCallsPromise, fullStream } = streamText({
         model: llmConfig.model,
         temperature: llmConfig.temperature,
@@ -504,6 +506,7 @@ NOTE:
         system: shouldUseCoreSystemPrompt ? coreSystemPrompt : undefined,
         messages,
         tools: shouldUseTools ? registry.getToolsObject() : undefined,
+        experimental_repairToolCall: llmConfig.repairToolCall as RepairToolCall,
         onError: ({ error }) => {
           logger.error('Error in streamText', error);
           rejectStreamError(error as Error);

@@ -1,10 +1,12 @@
 import {
   JSONParseError,
-  TypeValidationError,
   ImageModel,
   SpeechModel,
   ModelMessage,
   LanguageModel,
+  ToolCallPart,
+  InvalidToolInputError,
+  NoSuchToolError,
 } from 'ai';
 import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
 import { createOpenAICompatible, OpenAICompatibleProvider } from '@ai-sdk/openai-compatible';
@@ -20,6 +22,7 @@ import { logger } from 'src/utils/logger';
 import { StewardPluginSettings } from 'src/types/interfaces';
 import { getTranslation } from 'src/i18n';
 import { createHume, HumeProvider } from '@ai-sdk/hume';
+import { fixUnquotedJSON } from 'src/utils/jsonRepairs';
 
 /**
  * Service for managing LLM models and configurations using the AI package
@@ -320,6 +323,21 @@ export class LLMService {
       temperature,
       maxOutputTokens: maxGenerationTokens,
       systemPrompt,
+      repairToolCall: async (options: {
+        toolCall: ToolCallPart;
+        error: JSONParseError | InvalidToolInputError | NoSuchToolError;
+      }) => {
+        if (options.error instanceof InvalidToolInputError) {
+          try {
+            logger.log('Repairing invalid tool call input', options.error);
+            options.toolCall.input = jsonrepair(options.toolCall.input as string);
+          } catch (error) {
+            logger.warn('Repairing invalid tool call input failed, using fallback...');
+            options.toolCall.input = fixUnquotedJSON(options.toolCall.input as string);
+          }
+        }
+        return options.toolCall;
+      },
     };
 
     if (generateType === 'text') {
@@ -328,19 +346,19 @@ export class LLMService {
 
     return {
       ...generateParams,
-      experimental_repairText: async (options: {
-        text: string;
-        error: JSONParseError | TypeValidationError;
-      }) => {
-        if (options.error instanceof JSONParseError) {
-          logger.log('Repairing JSON', options.error);
-          return jsonrepair(options.text);
-        }
+      // experimental_repairText: async (options: {
+      //   text: string;
+      //   error: JSONParseError | TypeValidationError;
+      // }) => {
+      //   if (options.error instanceof JSONParseError) {
+      //     logger.log('Repairing JSON', options.error);
+      //     return jsonrepair(options.text);
+      //   }
 
-        logger.error('May be TypeValidationError', options.error);
+      //   logger.error('May be TypeValidationError', options.error);
 
-        return options.text;
-      },
+      //   return options.text;
+      // },
     };
   }
 
