@@ -120,7 +120,7 @@ class StewardSettingTab extends PluginSettingTab {
           .setPlaceholder('Steward')
           .setValue(this.plugin.settings.stewardFolder)
           .onChange(async value => {
-            this.plugin.settings.stewardFolder = normalizePath(value) ?? 'Steward';
+            this.plugin.settings.stewardFolder = normalizePath(value);
             await this.plugin.saveSettings();
           });
 

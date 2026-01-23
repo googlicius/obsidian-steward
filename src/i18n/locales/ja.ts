@@ -14,6 +14,7 @@ const ja = {
       builtInCommands: '組み込みコマンド',
       builtInCommandsDesc: 'これらのコマンドは /&lt;command&gt を通じて直接利用できます',
       userDefinedCommands: 'ユーザー定義コマンド',
+      userDefinedCommandsDesc: 'ワークフローを自動化するカスタムコマンドを作成します。',
       noUserDefinedCommands: 'ユーザー定義コマンドはまだありません。',
       commandHelpText: 'コマンドの後にクエリを入力して使用してください。',
       searchDesc: 'ノートを検索する',
@@ -254,6 +255,13 @@ const ja = {
       skipped: 'スキップ',
       completed: '完了',
       step: 'ステップ {{index}}',
+    },
+    documentation: {
+      guidelines: 'ガイドライン',
+      searchGuideline: '検索ガイドライン',
+      udcGuideline: 'ユーザー定義コマンドガイドライン',
+      fetchFailed: 'ドキュメントの取得に失敗しました: {{docName}}',
+      downloading: '{{name}}をダウンロードしています...',
     },
     read: {
       noContentFound: 'エディタにそのような内容が見つかりませんでした。',

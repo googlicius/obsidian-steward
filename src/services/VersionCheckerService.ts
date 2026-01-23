@@ -1,9 +1,8 @@
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
+import { GITHUB_OWNER, GITHUB_REPO } from 'src/constants';
 
 // GitHub repository information
-const GITHUB_OWNER = 'googlicius';
-const GITHUB_REPO = 'obsidian-steward';
 const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
 
 // Cache for the latest release to avoid too many API calls

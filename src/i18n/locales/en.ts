@@ -19,6 +19,7 @@ const en = {
       builtInCommands: 'Built-in commands',
       builtInCommandsDesc: 'These commands are directly accessible via /&lt;command&gt',
       userDefinedCommands: 'User-Defined commands',
+      userDefinedCommandsDesc: 'Create custom commands to automate workflows.',
       noUserDefinedCommands: "You don't have any user-defined commands yet.",
       commandHelpText: 'Type any command followed by your query to use it.',
       searchDesc: 'Search for notes in your vault',
@@ -318,6 +319,13 @@ const en = {
       skipped: 'Skipped',
       completed: 'Completed',
       step: 'Step {{index}}',
+    },
+    documentation: {
+      guidelines: 'Guidelines',
+      searchGuideline: 'Search guideline',
+      udcGuideline: 'User-defined command guideline',
+      fetchFailed: 'Failed to fetch documentation: {{docName}}',
+      downloading: 'Downloading {{name}}...',
     },
     read: {
       noContentFound: 'No such content found in the editor.',

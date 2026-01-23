@@ -14,6 +14,7 @@ const vi = {
       builtInCommands: 'Lệnh tích hợp',
       builtInCommandsDesc: 'Những lệnh này có sẵn thông qua /&lt;command&gt',
       userDefinedCommands: 'Lệnh tùy chỉnh',
+      userDefinedCommandsDesc: 'Tạo lệnh tùy chỉnh để tự động hóa quy trình làm việc.',
       noUserDefinedCommands: 'Bạn chưa có lệnh tùy chỉnh nào.',
       commandHelpText: 'Nhập lệnh theo sau bởi truy vấn của bạn để sử dụng.',
       searchDesc: 'Tìm kiếm ghi chú trong kho lưu trữ của bạn',
@@ -254,6 +255,13 @@ const vi = {
       skipped: 'Đã bỏ qua',
       completed: 'Đã hoàn thành',
       step: 'Bước {{index}}',
+    },
+    documentation: {
+      guidelines: 'Hướng dẫn',
+      searchGuideline: 'Hướng dẫn tìm kiếm',
+      udcGuideline: 'Hướng dẫn lệnh do người dùng định nghĩa',
+      fetchFailed: 'Không thể tải tài liệu: {{docName}}',
+      downloading: 'Đang tải {{name}}...',
     },
     read: {
       noContentFound: 'Không tìm thấy nội dung như vậy trong trình soạn thảo.',

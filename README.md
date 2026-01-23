@@ -29,7 +29,6 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
   - [Example: user-defined command definition](#example-user-defined-command-definition)
   - [Adding additional system prompts](#adding-additional-system-prompts)
   - [Automated command triggers](#automated-command-triggers)
-  - [Creating commands with LLM assistance](#creating-commands-with-llm-assistance)
   - [User-defined command showcases](#user-defined-command-showcases)
 - [Folder structure](#folder-structure)
 - [Installation](#installation)
@@ -258,15 +257,6 @@ triggers:
 3. If all patterns match and are new (for modify events), a conversation note is created automatically
 4. The triggered command executes in this conversation note
 
-### Creating commands with LLM assistance
-
-You can ask Steward to help create user-defined commands using natural language, even without knowing YAML syntax:
-
-1. Simply share the [User-Defined Command Guidelines](docs/User-Defined%20Command%20Guidelines.md) with Steward
-2. Describe what you want your command to do in plain language
-3. Steward will create commands with the proper YAML structure for you
-4. Review, modify if needed, and save to your Commands folder
-
 ### User-defined command showcases
 
 #### User-defined command creation with LLM helps:
@@ -289,6 +279,7 @@ Steward creates the following folder structure in your vault:
 Steward/
 ├── Commands/       # Stores user-defined command definitions
 ├── Conversations/  # Archives past conversations
+├── Docs/           # Fetched documents from this repo
 ├── Release notes/  # Release notes of Steward
 ├── Trash/          # Stores deleted files
 └── Steward chat.md # Current active conversation

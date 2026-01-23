@@ -5,6 +5,13 @@ import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { ToolCallPart } from '../../tools/types';
+import { DOCUMENTATION_FILES } from 'src/constants';
+
+interface BuiltInCommand {
+  command: string;
+  description: string;
+  docName?: string;
+}
 
 // HELP tool doesn't need args
 const helpSchema = z.object({});
@@ -46,10 +53,11 @@ export class Help {
       content += `*${t('common.builtInCommandsDesc')}*\n\n`;
 
       // List of built-in commands with descriptions
-      const builtInCommandsWithDescriptions = [
+      const builtInCommandsWithDescriptions: BuiltInCommand[] = [
         {
           command: '`/search`',
           description: t('common.searchDesc'),
+          docName: DOCUMENTATION_FILES.SEARCH_GUIDELINE,
         },
         { command: '`/image`', description: t('common.imageDesc') },
         { command: '`/speech`', description: t('common.speechDesc') },
@@ -77,6 +85,19 @@ export class Help {
       } else {
         content += `*${t('common.noUserDefinedCommands')}*\n\n`;
       }
+
+      // Add documentation links section
+      content += `\n**${t('documentation.guidelines')}:**\n\n`;
+      const searchDocLink = this.agent.plugin.gitHubResourceService.getDocLink(
+        DOCUMENTATION_FILES.SEARCH_GUIDELINE,
+        t('documentation.searchGuideline')
+      );
+      const udcDocLink = this.agent.plugin.gitHubResourceService.getDocLink(
+        DOCUMENTATION_FILES.USER_DEFINED_COMMAND_GUIDELINE,
+        t('documentation.udcGuideline')
+      );
+      content += `- ${searchDocLink}\n`;
+      content += `- ${udcDocLink}\n`;
 
       // Add help text
       content += `\n${t('common.commandHelpText')}\n`;
