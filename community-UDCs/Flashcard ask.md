@@ -1,5 +1,9 @@
 A user-defined command helps general tasks from the flashcard above the cursor.
 
+> [!INFO] Other language versions:
+> [Flashcard ask (Vietnamese)](obsidian://steward-resource?type=command&name=Flashcard%20ask%20%28Vietnamese%29) - Vietnamese version
+> [Flashcard ask (Japanese)](obsidian://steward-resource?type=command&name=Flashcard%20ask%20%28Japanese%29) - Japanese version
+
 #### Definition:
 
 ```YAML
