@@ -267,25 +267,24 @@ export const IMAGE_MODELS: ImageModelOption[] = [
 
 export const SEARCH_DB_NAME_PREFIX = 'steward_search_';
 
-export const UDC_EXAMPLE_COMMANDS = [
-  {
-    name: 'Ask',
-    definition: `A user-defined command that help the user with general questions.
+// GitHub repository information for fetching documentation
+export const GITHUB_OWNER = 'googlicius';
+export const GITHUB_REPO = 'obsidian-steward';
+export const GITHUB_RAW_BASE_URL = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/main`;
 
-#### Definition
+// Documentation folder name within the Steward folder
+export const DOCS_FOLDER_NAME = 'Docs';
 
-\`\`\`YAML
-command_name: ask
-query_required: true
-use_tool: false
-system_prompt:
-  - "[[#Instructions]]"
-steps:
-  - query: "$from_user"
-\`\`\`
+// Documentation files available for lazy loading from GitHub
+export const DOCUMENTATION_FILES = {
+  SEARCH_GUIDELINE: 'Search guideline',
+  USER_DEFINED_COMMAND_GUIDELINE: 'User-defined command guideline',
+} as const;
 
-#### Instructions
-
-You are a thoughtful assistant who understands the user's question precisely and responds based on their input. Your answer is informative, clear, concise, and relevant to the question.`,
-  },
-];
+// Community user-defined commands available for lazy loading from GitHub
+export const COMMUNITY_COMMANDS = {
+  ASK: 'ask',
+  CLEAN_UP: 'Clean up',
+  FLASHCARD_ASK: 'Flashcard ask',
+  WORD_PROCESSOR: 'Word processor',
+} as const;

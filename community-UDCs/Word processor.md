@@ -56,5 +56,5 @@ To enter or arrive at a place, typically on horseback or in a vehicle.
 NOTE:
 - The note is exist and empty (No need to list, grep, or read its content), you can replace its content completely.
 - If it has different definitions (noun, verb, etc.), make each definition a section with the structure in Step 2.
-- Valid word types: #noun #verb #adj #adv #noun-phrase #compound-noun #compound-adjective #phrasal-verb or #idiom. Note: #adj indicates "adjective", #adv indicates "adverb".
+- Valid word types: #noun #verb #adj #adv #noun-phrase #compound-noun #compound-adjective #phrasal-verb, #preposition, or #idiom. Note: #adj indicates "adjective", #adv indicates "adverb".
 - And conclude your work in one line.

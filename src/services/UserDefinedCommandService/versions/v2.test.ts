@@ -14,9 +14,9 @@ describe('UserDefinedCommandV2', () => {
       const normalized = command.normalized;
 
       expect(normalized.system_prompt).toEqual([
-        '[[MyCommand#Guidelines]]',
+        '[[Steward/Commands/MyCommand#Guidelines]]',
         'Some other text',
-        '[[MyCommand#Instructions]]',
+        '[[Steward/Commands/MyCommand#Instructions]]',
       ]);
     });
 
@@ -42,10 +42,12 @@ describe('UserDefinedCommandV2', () => {
       const normalized = command.normalized;
 
       expect(normalized.steps[0].system_prompt).toEqual([
-        '[[MyCommand#Step1Guidelines]]',
+        '[[Steward/Commands/MyCommand#Step1Guidelines]]',
         'Regular text',
       ]);
-      expect(normalized.steps[1].system_prompt).toEqual(['[[MyCommand#Step2Instructions]]']);
+      expect(normalized.steps[1].system_prompt).toEqual([
+        '[[Steward/Commands/MyCommand#Step2Instructions]]',
+      ]);
     });
 
     it('should transform heading-only wikilinks in both root and step-level system_prompts', () => {
@@ -65,8 +67,10 @@ describe('UserDefinedCommandV2', () => {
       const command = new UserDefinedCommandV2(data);
       const normalized = command.normalized;
 
-      expect(normalized.system_prompt).toEqual(['[[MyCommand#RootGuidelines]]']);
-      expect(normalized.steps[0].system_prompt).toEqual(['[[MyCommand#StepGuidelines]]']);
+      expect(normalized.system_prompt).toEqual(['[[Steward/Commands/MyCommand#RootGuidelines]]']);
+      expect(normalized.steps[0].system_prompt).toEqual([
+        '[[Steward/Commands/MyCommand#StepGuidelines]]',
+      ]);
     });
 
     it('should not transform regular wikilinks (non-heading-only)', () => {
@@ -86,10 +90,10 @@ describe('UserDefinedCommandV2', () => {
       const normalized = command.normalized;
 
       expect(normalized.system_prompt).toEqual([
-        '[[MyCommand#HeadingOnly]]',
+        '[[Steward/Commands/MyCommand#HeadingOnly]]',
         '[[RegularNote]]',
         '[[AnotherNote#Heading]]',
-        '[[MyCommand#AnotherHeadingOnly]]',
+        '[[Steward/Commands/MyCommand#AnotherHeadingOnly]]',
       ]);
     });
 
@@ -104,7 +108,9 @@ describe('UserDefinedCommandV2', () => {
       const command = new UserDefinedCommandV2(data);
       const normalized = command.normalized;
 
-      expect(normalized.system_prompt).toEqual(['[[MyCommand#Guidelines]]']);
+      expect(normalized.system_prompt).toEqual([
+        '[[Steward/Commands/SubFolder/MyCommand#Guidelines]]',
+      ]);
     });
 
     it('should handle file paths without folders', () => {
@@ -133,7 +139,7 @@ describe('UserDefinedCommandV2', () => {
       const normalized = command.normalized;
 
       expect(normalized.system_prompt).toEqual([
-        'Follow [[MyCommand#Guidelines]] and [[MyCommand#Instructions]] for this task',
+        'Follow [[Steward/Commands/MyCommand#Guidelines]] and [[Steward/Commands/MyCommand#Instructions]] for this task',
       ]);
     });
 

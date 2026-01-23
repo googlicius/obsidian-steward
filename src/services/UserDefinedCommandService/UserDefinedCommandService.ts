@@ -1,7 +1,8 @@
 import { getLanguage, normalizePath, Notice, TFile, parseYaml } from 'obsidian';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
-import { COMMAND_PREFIXES, UDC_EXAMPLE_COMMANDS } from 'src/constants';
+import { COMMAND_PREFIXES } from 'src/constants';
+import { EXAMPLE_UDCS } from 'src/example-udcs';
 import { StewardChatView } from 'src/views/StewardChatView';
 import i18next from 'i18next';
 import { IVersionedUserDefinedCommand, TriggerCondition } from './versions/types';
@@ -149,7 +150,7 @@ export class UserDefinedCommandService {
     }
 
     try {
-      for (const command of UDC_EXAMPLE_COMMANDS) {
+      for (const command of EXAMPLE_UDCS) {
         const commandPath = `${this.commandFolder}/${command.name}.md`;
         await this.plugin.app.vault.create(commandPath, command.definition);
         logger.log(`Created example UDC: ${command.name}.md`);
@@ -836,6 +837,10 @@ export class UserDefinedCommandService {
       // Replace $from_user placeholder with cleaned user input
       query = query.replace(/\$from_user/g, cleanedUserInput);
 
+      // Replace $steward placeholder with configured Steward folder
+      const stewardFolder = this.plugin.settings.stewardFolder;
+      query = query.replace(/\$steward/g, stewardFolder);
+
       // Use step model if available, otherwise use command model
       const model = step.model || command.normalized.model;
 
@@ -846,7 +851,7 @@ export class UserDefinedCommandService {
         systemPrompts = [
           ...(command.normalized.system_prompt || []),
           ...(step.system_prompt || []),
-        ];
+        ].map(prompt => prompt.replace(/\$steward/g, stewardFolder));
       }
 
       return {
@@ -933,17 +938,22 @@ export class UserDefinedCommandService {
    * Process wikilinks in system prompts
    * Only processes string-based prompts
    * @param systemPrompts Array of system prompt strings
-   * @returns Processed system prompts with wikilinks resolved
+   * @returns Processed system prompts with wikilinks resolved and placeholders replaced
    */
   public async processSystemPromptsWikilinks(systemPrompts: string[]): Promise<string[]> {
     if (systemPrompts.length === 0) {
       return systemPrompts;
     }
 
-    return Promise.all(
+    const stewardFolder = this.plugin.settings.stewardFolder;
+
+    const processedPrompts = await Promise.all(
       systemPrompts.map(prompt =>
         this.plugin.noteContentService.processWikilinksInContent(prompt, 2)
       )
     );
+
+    // Replace $steward placeholder in resolved content
+    return processedPrompts.map(prompt => prompt.replace(/\$steward/g, stewardFolder));
   }
 }
