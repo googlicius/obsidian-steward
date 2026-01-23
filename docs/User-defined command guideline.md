@@ -11,13 +11,13 @@ Create a note in `Steward/Commands` and add your command YAML in a code block:
 ```yaml
 command_name: clean-up
 query_required: false
-model: gpt-4o  # Optional: Specify a default model for all steps
+model: gpt-4o # Optional: Specify a default model for all steps
 steps:
   - name: search
     query: 'Notes name starts with Untitled or with tag #delete'
   - name: vault
     query: 'Delete them'
-    model: gpt-3.5-turbo  # Optional: Override the model for this specific step
+    model: gpt-3.5-turbo # Optional: Override the model for this specific step
 ```
 
 For commands that require user input:
@@ -27,9 +27,9 @@ command_name: ask
 query_required: true
 use_tool: false
 system_prompt:
-  - "[[#Instructions]]"
+  - '[[#Instructions]]'
 steps:
-  - query: "$from_user"
+  - query: '$from_user'
 ```
 
 ## Key fields
@@ -81,6 +81,7 @@ steps:
 ```
 
 The `system_prompt` field accepts an array of strings. Each string can be:
+
 - **Text**: Plain text instructions (e.g., `'Always use formal language'`)
 - **Link**: Obsidian links to include note content:
   - `[[Note Name]]` - Full content of the note
@@ -116,6 +117,7 @@ steps:
 ```
 
 Trigger fields:
+
 - `events`: List of events to watch: `create`, `modify`, `delete`
 - `folders`: (optional) Folder paths to watch
 - `patterns`: (optional) Pattern matching criteria:
@@ -136,14 +138,16 @@ These placeholders will be replaced with the actual values when the command is e
 Try these ready-to-use commands from the community. Click any link to fetch and install the command in your `Steward/Commands` folder:
 
 > [!INFO]
+>
 > - [Ask](obsidian://steward-resource?type=command&name=ask) - A command that helps with general questions
-> - [Clean up](obsidian://steward-resource?type=command&name=Clean%20up) - Clean up conversation notes in the Steward/Conversations folder (*This is an example of a multiple-step command*)
+> - [Clean up](obsidian://steward-resource?type=command&name=Clean%20up) - Clean up conversation notes in the Steward/Conversations folder (_This is an example of a multiple-step command_)
 > - [Flashcard ask](obsidian://steward-resource?type=command&name=Flashcard%20ask) - Help with tasks from the flashcard above the cursor
-> - [Word processor](obsidian://steward-resource?type=command&name=Word%20processor) - Process newly added English words or phrases. (*This is an example of an automated command*)
+> - [Word processor](obsidian://steward-resource?type=command&name=Word%20processor) - Process newly added English words or phrases. (_This is an example of an automated command_)
 
 When you click a link, the command will be fetched from GitHub and stored in your `Steward/Commands` folder. You can then use it like any other user-defined command.
 
 ## Tips
 
 > [!INFO]
+>
 > - Link system prompts to a heading in the current note (e.g., `[[#Instructions]]`) to keep your prompts alongside the command definition. This makes editing easier and lets you use full markdown formatting.
