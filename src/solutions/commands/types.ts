@@ -10,6 +10,7 @@ export interface Intent {
   systemPrompts?: string[];
   model?: string; // Optional model to use for this intent
   no_confirm?: boolean; // Skip confirmation for this intent
+  use_tool?: boolean;
 }
 
 export interface ContextAugmentationIntent extends Intent {

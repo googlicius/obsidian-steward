@@ -4,6 +4,7 @@ module.exports = {
   roots: ['<rootDir>/src/'],
   transform: {
     '^.+\\.tsx?$': 'ts-jest',
+    '\\.md$': '<rootDir>/src/__mocks__/mdTransformer.js',
   },
   testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.[jt]sx?$',
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],

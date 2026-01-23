@@ -29,7 +29,6 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
   - [Example: user-defined command definition](#example-user-defined-command-definition)
   - [Adding additional system prompts](#adding-additional-system-prompts)
   - [Automated command triggers](#automated-command-triggers)
-  - [Creating commands with LLM assistance](#creating-commands-with-llm-assistance)
   - [User-defined command showcases](#user-defined-command-showcases)
 - [Folder structure](#folder-structure)
 - [Installation](#installation)
@@ -91,6 +90,7 @@ You can create your own **User-Defined Commands** to automate workflows and comb
 - `query_required`: (optional, boolean) If true, the command requires user input after the prefix
 - `model`: (optional, string) The model to use for all commands in this user-defined command
 - `system_prompt`: (optional, array) Add additional system prompts that apply to all steps in this command (see [Adding additional system prompts](#adding-additional-system-prompts))
+- `use_tool`: (optional, boolean) If false, do not send the tool usage instructions
 - `hidden`: (optional, boolean) If true, the command will not appear in the command menu
 - `triggers`: (optional, array) Automatically execute commands when files match specified criteria (see [Trigger fields](#trigger-fields))
 - `steps`: The sequence of built-in or user-defined commands to execute
@@ -124,7 +124,7 @@ steps:
 
 ### Adding additional system prompts
 
-Steward uses a single agent (SuperAgent) whose core system prompt is the foundation of its functionality and cannot be modified. However, you can add additional system prompts using the `system_prompt` field. These additional prompts are appended to the core system prompt, allowing you to provide extra context or instructions.
+Steward uses a single agent (SuperAgent) whose core system prompt is the foundation of its functionality and is not editable. However, you can add additional system prompts using the `system_prompt` field. These additional prompts are appended to the core system prompt, allowing you to provide extra context or instructions. You can disable sending the core system prompt by setting `use_tool: false`.
 
 You can add system prompts at two levels:
 
@@ -257,15 +257,6 @@ triggers:
 3. If all patterns match and are new (for modify events), a conversation note is created automatically
 4. The triggered command executes in this conversation note
 
-### Creating commands with LLM assistance
-
-You can ask Steward to help create user-defined commands using natural language, even without knowing YAML syntax:
-
-1. Simply share the [User-Defined Command Guidelines](docs/User-Defined%20Command%20Guidelines.md) with Steward
-2. Describe what you want your command to do in plain language
-3. Steward will create commands with the proper YAML structure for you
-4. Review, modify if needed, and save to your Commands folder
-
 ### User-defined command showcases
 
 #### User-defined command creation with LLM helps:
@@ -288,6 +279,7 @@ Steward creates the following folder structure in your vault:
 Steward/
 ├── Commands/       # Stores user-defined command definitions
 ├── Conversations/  # Archives past conversations
+├── Docs/           # Fetched documents from this repo
 ├── Release notes/  # Release notes of Steward
 ├── Trash/          # Stores deleted files
 └── Steward chat.md # Current active conversation

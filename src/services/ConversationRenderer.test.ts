@@ -573,18 +573,20 @@ describe('ConversationRenderer', () => {
       const mockArtifact = new ReadContentArtifactImpl({
         artifactType: ArtifactType.READ_CONTENT,
         id: 'artifact123',
-        readingResult: {
-          source: 'cursor',
-          blocks: [
-            {
-              startLine: 1,
-              endLine: 1,
-              sections: [],
-              content: 'Some content with image ![[image.png]]',
-            },
-          ],
-          file: { path: 'notes/test.md', name: 'test.md' },
-        },
+        readingResults: [
+          {
+            source: 'cursor',
+            blocks: [
+              {
+                startLine: 1,
+                endLine: 1,
+                sections: [],
+                content: 'Some content with image ![[image.png]]',
+              },
+            ],
+            file: { path: 'notes/test.md', name: 'test.md' },
+          },
+        ],
         imagePaths: ['path/to/image.png'],
       });
 
@@ -1608,10 +1610,12 @@ describe('ConversationRenderer', () => {
       const mockArtifact = new ReadContentArtifactImpl({
         artifactType: ArtifactType.READ_CONTENT,
         id: 'artifact789',
-        readingResult: {
-          source: 'cursor',
-          blocks: [{ startLine: 1, endLine: 1, sections: [], content: 'Content with image' }],
-        },
+        readingResults: [
+          {
+            source: 'cursor',
+            blocks: [{ startLine: 1, endLine: 1, sections: [], content: 'Content with image' }],
+          },
+        ],
         imagePaths: ['path/to/image1.png', 'path/to/image2.jpg'],
       });
 

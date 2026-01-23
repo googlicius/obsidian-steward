@@ -14,6 +14,7 @@ const vi = {
       builtInCommands: 'Lệnh tích hợp',
       builtInCommandsDesc: 'Những lệnh này có sẵn thông qua /&lt;command&gt',
       userDefinedCommands: 'Lệnh tùy chỉnh',
+      userDefinedCommandsDesc: 'Tạo lệnh tùy chỉnh để tự động hóa quy trình làm việc.',
       noUserDefinedCommands: 'Bạn chưa có lệnh tùy chỉnh nào.',
       commandHelpText: 'Nhập lệnh theo sau bởi truy vấn của bạn để sử dụng.',
       searchDesc: 'Tìm kiếm ghi chú trong kho lưu trữ của bạn',
@@ -174,6 +175,7 @@ const vi = {
       useMoreCommand: 'Nhập `/more` để xem trang kết quả tiếp theo.',
       noMoreResults: 'Không còn kết quả tìm kiếm nào để hiển thị.',
       noRecentSearch: 'Không tìm thấy tìm kiếm gần đây. Vui lòng thực hiện lệnh tìm kiếm trước.',
+      resultAvailableInArtifact: 'Kết quả tìm kiếm có sẵn trong artifact: {{artifactId}}',
       moreResults: 'Đây là thêm kết quả tìm kiếm:',
       paginationStatus: 'Trang {{current}}/{{total}} (tổng {{count}} kết quả)',
       noMorePages: 'Đây là trang cuối cùng của kết quả.',
@@ -254,6 +256,13 @@ const vi = {
       completed: 'Đã hoàn thành',
       step: 'Bước {{index}}',
     },
+    documentation: {
+      guidelines: 'Hướng dẫn',
+      searchGuideline: 'Hướng dẫn tìm kiếm',
+      udcGuideline: 'Hướng dẫn lệnh do người dùng định nghĩa',
+      fetchFailed: 'Không thể tải tài liệu: {{docName}}',
+      downloading: 'Đang tải {{name}}...',
+    },
     read: {
       noContentFound: 'Không tìm thấy nội dung như vậy trong trình soạn thảo.',
       readEntireContentConfirmation:
@@ -305,6 +314,8 @@ const vi = {
       stewardFolderDesc: 'Thư mục cơ sở nơi dữ liệu Steward sẽ được lưu trữ',
       showRoleLabels: 'Hiển thị nhãn vai trò',
       showRoleLabelsDesc: 'Hiển thị nhãn User/Steward/System trong cuộc trò chuyện',
+      autoScroll: 'Tự động cuộn',
+      autoScrollDesc: 'Tự động cuộn xuống cuối khi có tin nhắn mới',
       debugMode: 'Chế độ gỡ lỗi',
       debugModeDesc: 'Bật ghi log chi tiết trong console để gỡ lỗi',
       apiKeys: 'Khóa API', // Deprecated: kept for backward compatibility

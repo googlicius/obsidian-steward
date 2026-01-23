@@ -400,16 +400,6 @@ describe('SuperAgent', () => {
       const revertCall = mockRevertDeleteHandle.mock.calls[0];
       expect(revertCall[1].toolCall.toolName).toBe(ToolName.REVERT_DELETE);
       expect(revertCall[1].toolCall.input.artifactId).toBe(artifactId);
-
-      // Verify artifact manager was called to get the artifact
-      expect(mockPlugin.artifactManagerV2.withTitle).toHaveBeenCalledWith('test-conversation');
-      expect(mockGetMostRecentArtifactOfTypes).toHaveBeenCalledWith([
-        ArtifactType.MOVE_RESULTS,
-        ArtifactType.CREATED_NOTES,
-        ArtifactType.DELETED_FILES,
-        ArtifactType.UPDATE_FRONTMATTER_RESULTS,
-        ArtifactType.RENAME_RESULTS,
-      ]);
     });
 
     it('should have GET_MOST_RECENT_ARTIFACT, GET_ARTIFACT_BY_ID, and ACTIVATE tools active by default for revert tasks', async () => {

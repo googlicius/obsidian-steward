@@ -27,12 +27,6 @@ export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'svg', 'gif'];
 export const STW_SELECTED_PATTERN = '(\\{\\{stw-selected.*?\\}\\})';
 
 /**
- * The placeholder for the stw-selected blocks in the original query
- * This helps to reduce the complexity for the planner to just put the placeholder rather than extract the stw-selected blocks
- */
-export const STW_SELECTED_PLACEHOLDER = '<stwSelected>';
-
-/**
  * Pattern to match {{stw-squeezed [[<path>]] }}
  */
 export const STW_SQUEEZED_PATTERN = '\\{\\{stw-squeezed \\[\\[([^\\]]+)\\]\\] \\}\\}';
@@ -116,6 +110,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
   excludedFolders: ['node_modules', 'src', '.git', 'dist'], // Default development folders to exclude
   debug: false, // Debug logging disabled by default
   showPronouns: true, // Show pronouns in chat by default
+  autoScroll: true, // Auto-scroll enabled by default
   audio: {
     model: 'openai', // Default model
     voices: {
@@ -272,28 +267,24 @@ export const IMAGE_MODELS: ImageModelOption[] = [
 
 export const SEARCH_DB_NAME_PREFIX = 'steward_search_';
 
-export const UDC_EXAMPLE_COMMANDS = [
-  {
-    name: 'Ask',
-    definition: `A user-defined command named \`ask\` that help the user with general questions.
+// GitHub repository information for fetching documentation
+export const GITHUB_OWNER = 'googlicius';
+export const GITHUB_REPO = 'obsidian-steward';
+export const GITHUB_RAW_BASE_URL = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/main`;
 
-#### Definition
+// Documentation folder name within the Steward folder
+export const DOCS_FOLDER_NAME = 'Docs';
 
-\`\`\`YAML
-command_name: ask
-query_required: true
-system_prompt:
-  - "[[#Instructions]]"
-steps:
-  - query: "$from_user"
-\`\`\`
+// Documentation files available for lazy loading from GitHub
+export const DOCUMENTATION_FILES = {
+  SEARCH_GUIDELINE: 'Search guideline',
+  USER_DEFINED_COMMAND_GUIDELINE: 'User-defined command guideline',
+} as const;
 
-#### Instructions
-
-You are a helpful assistant who interprets the user's query accurately and responds based on their input. Ensure the response is informative, clear, and concise to the user's query.
-
-NOTE:
-Since this section is mainly for Q&A, please refrain from using any tools; instead, respond directly to the user.
-`,
-  },
-];
+// Community user-defined commands available for lazy loading from GitHub
+export const COMMUNITY_COMMANDS = {
+  ASK: 'ask',
+  CLEAN_UP: 'Clean up',
+  FLASHCARD_ASK: 'Flashcard ask',
+  WORD_PROCESSOR: 'Word processor',
+} as const;

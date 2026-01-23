@@ -3,7 +3,7 @@ A user-defined command helps general tasks from the flashcard above the cursor.
 #### Definition:
 
 ```YAML
-command_name: flashcard-assist
+command_name: flashcard-ask
 query_required: true
 system_prompt:
   - "[[#Flashcard guidelines]]"

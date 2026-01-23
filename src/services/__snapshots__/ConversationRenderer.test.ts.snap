@@ -177,17 +177,19 @@ exports[`ConversationRenderer deserializeToolInvocations should include image pa
           "path/to/image1.png",
           "path/to/image2.jpg",
         ],
-        "readingResult": {
-          "blocks": [
-            {
-              "content": "Content with image",
-              "endLine": 1,
-              "sections": [],
-              "startLine": 1,
-            },
-          ],
-          "source": "cursor",
-        },
+        "readingResults": [
+          {
+            "blocks": [
+              {
+                "content": "Content with image",
+                "endLine": 1,
+                "sections": [],
+                "startLine": 1,
+              },
+            ],
+            "source": "cursor",
+          },
+        ],
       },
     },
     "toolCallId": "call_888",
@@ -624,21 +626,23 @@ exports[`ConversationRenderer extractConversationHistory should include path+ima
             "imagePaths": [
               "path/to/image.png",
             ],
-            "readingResult": {
-              "blocks": [
-                {
-                  "content": "Some content with image ![[image.png]]",
-                  "endLine": 1,
-                  "sections": [],
-                  "startLine": 1,
+            "readingResults": [
+              {
+                "blocks": [
+                  {
+                    "content": "Some content with image ![[image.png]]",
+                    "endLine": 1,
+                    "sections": [],
+                    "startLine": 1,
+                  },
+                ],
+                "file": {
+                  "name": "test.md",
+                  "path": "notes/test.md",
                 },
-              ],
-              "file": {
-                "name": "test.md",
-                "path": "notes/test.md",
+                "source": "cursor",
               },
-              "source": "cursor",
-            },
+            ],
           },
         },
         "toolCallId": "call_789",

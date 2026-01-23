@@ -9,6 +9,8 @@ import { MarkdownUtil } from 'src/utils/markdownUtils';
 import type StewardPlugin from 'src/main';
 import { ImagePart } from 'ai';
 import { resizeImageWithCanvas } from 'src/utils/resizeImageWithCanvas';
+import { EditOperation } from 'src/solutions/commands/tools/editContent';
+import { Change } from 'src/solutions/artifact/types';
 
 export class NoteContentService {
   private static instance: NoteContentService;
@@ -444,6 +446,62 @@ export class NoteContentService {
   }
 
   /**
+   * Get column position by name from a table
+   * @param tableContent The markdown table content
+   * @param insertAfter Optional name of column to insert after
+   * @param insertBefore Optional name of column to insert before
+   * @returns The calculated position (0-based), or undefined if column not found
+   */
+  private getColumnPositionByName(
+    tableContent: string,
+    insertAfter?: string,
+    insertBefore?: string
+  ): number | undefined {
+    // Split the table into rows
+    const tableRows = tableContent.trim().split('\n');
+    if (tableRows.length === 0) {
+      return undefined;
+    }
+
+    // Get the header row (first row)
+    const headerRow = tableRows[0].trim();
+
+    // Extract cells from the header row
+    let cells: string[];
+    const startsWithPipe = headerRow.startsWith('|');
+    const endsWithPipe = headerRow.endsWith('|');
+
+    if (startsWithPipe && endsWithPipe) {
+      cells = headerRow.slice(1, -1).split('|');
+    } else if (startsWithPipe) {
+      cells = headerRow.slice(1).split('|');
+    } else if (endsWithPipe) {
+      cells = headerRow.slice(0, -1).split('|');
+    } else {
+      cells = headerRow.split('|');
+    }
+
+    // Trim cell values and find the column index
+    const columnNames = cells.map(cell => cell.trim());
+
+    if (insertBefore) {
+      const index = columnNames.findIndex(name => name.trim() === insertBefore.trim());
+      if (index !== -1) {
+        return index;
+      }
+    }
+
+    if (insertAfter) {
+      const index = columnNames.findIndex(name => name.trim() === insertAfter.trim());
+      if (index !== -1) {
+        return index + 1;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
    * Adds a new column to a markdown table
    * @param tableContent The markdown table content (including header, separator, and data rows)
    * @param newColumnContent The new column content in markdown format (header and values, one per line)
@@ -669,5 +727,287 @@ export class NoteContentService {
     });
 
     return updatedRows.join('\n');
+  }
+
+  /**
+   * Compute changes that would result from applying operations to content
+   * Returns both the modified content AND the change set for preview/revert
+   * @param content The original content
+   * @param operations Array of edit operations to apply
+   * @returns Object containing modified content and array of changes
+   */
+  public computeChanges(
+    content: string,
+    operations: EditOperation[]
+  ): {
+    modifiedContent: string;
+    changes: Change[];
+  } {
+    let workingContent = content;
+    const changes: Change[] = [];
+    const lines = content.split('\n');
+
+    // Apply each operation sequentially and track changes
+    for (const operation of operations) {
+      const change = this.computeSingleChange(workingContent, operation);
+
+      if (change) {
+        changes.push(change);
+
+        // Apply the change to working content for next operation
+        workingContent = this.applyChangeToContent(workingContent, operation, change);
+
+        // Update line count for next operation (approximate)
+        lines.length = workingContent.split('\n').length;
+      }
+    }
+
+    return {
+      modifiedContent: workingContent,
+      changes,
+    };
+  }
+
+  /**
+   * Compute a single change from an operation
+   * @param content Current content
+   * @param operation The edit operation
+   * @returns Change object or null if operation doesn't apply
+   */
+  private computeSingleChange(content: string, operation: EditOperation): Change | null {
+    const lines = content.split('\n');
+
+    switch (operation.mode) {
+      case 'replace_by_lines': {
+        if (operation.fromLine === undefined && operation.toLine === undefined) {
+          // Replace entire file
+          return {
+            startLine: 0,
+            endLine: lines.length - 1,
+            originalContent: content,
+            newContent: operation.content,
+            mode: operation.mode,
+          };
+        }
+
+        const fromLine = operation.fromLine ?? 0;
+        const toLine = operation.toLine ?? lines.length - 1;
+        const startLine = Math.max(0, fromLine);
+        const endLine = Math.min(lines.length - 1, toLine);
+
+        if (startLine > endLine) {
+          return null;
+        }
+
+        const originalContent = lines.slice(startLine, endLine + 1).join('\n');
+
+        // Get context (1-2 lines before and after)
+        const contextBefore =
+          startLine > 0 ? lines.slice(Math.max(0, startLine - 2), startLine).join('\n') : undefined;
+        const contextAfter =
+          endLine < lines.length - 1
+            ? lines.slice(endLine + 1, Math.min(lines.length, endLine + 3)).join('\n')
+            : undefined;
+
+        return {
+          startLine,
+          endLine,
+          originalContent,
+          newContent: operation.content,
+          contextBefore,
+          contextAfter,
+          mode: operation.mode,
+        };
+      }
+
+      case 'insert': {
+        const insertLine = Math.max(0, Math.min(operation.line, lines.length));
+
+        // For insert, originalContent is empty
+        const contextBefore =
+          insertLine > 0
+            ? lines.slice(Math.max(0, insertLine - 1), insertLine).join('\n')
+            : undefined;
+        const contextAfter =
+          insertLine < lines.length
+            ? lines.slice(insertLine, Math.min(lines.length, insertLine + 1)).join('\n')
+            : undefined;
+
+        return {
+          startLine: insertLine,
+          endLine: insertLine,
+          originalContent: '',
+          newContent: operation.content,
+          contextBefore,
+          contextAfter,
+          mode: operation.mode,
+        };
+      }
+
+      case 'add_table_column':
+      case 'update_table_column':
+      case 'delete_table_column': {
+        const fromLine = operation.fromLine;
+        const toLine = operation.toLine;
+
+        if (fromLine === undefined || toLine === undefined) {
+          return null;
+        }
+
+        const startLine = Math.max(0, fromLine);
+        const endLine = Math.min(lines.length - 1, toLine);
+
+        if (startLine > endLine) {
+          return null;
+        }
+
+        // Extract original table
+        const originalTable = lines.slice(startLine, endLine + 1).join('\n');
+
+        // Compute new table based on operation
+        let newTable: string;
+        if (operation.mode === 'add_table_column') {
+          // Calculate position from insertAfter or insertBefore
+          let position: number | undefined;
+          if (operation.insertAfter || operation.insertBefore) {
+            position = this.getColumnPositionByName(
+              originalTable,
+              operation.insertAfter,
+              operation.insertBefore
+            );
+          }
+          newTable = this.addColumnToTable(originalTable, operation.content, position);
+        } else if (operation.mode === 'update_table_column') {
+          newTable = this.editColumnInTable(originalTable, operation.content, operation.position);
+        } else {
+          // delete_table_column
+          newTable = this.deleteColumnFromTable(originalTable, operation.position);
+        }
+
+        // Get context
+        const contextBefore =
+          startLine > 0 ? lines.slice(Math.max(0, startLine - 1), startLine).join('\n') : undefined;
+        const contextAfter =
+          endLine < lines.length - 1
+            ? lines.slice(endLine + 1, Math.min(lines.length, endLine + 2)).join('\n')
+            : undefined;
+
+        return {
+          startLine,
+          endLine,
+          originalContent: originalTable,
+          newContent: newTable,
+          contextBefore,
+          contextAfter,
+          mode: operation.mode,
+        };
+      }
+
+      case 'replace_by_pattern': {
+        // For pattern replacement, we need to find all matches
+        const regex = new RegExp(operation.searchPattern, 'g');
+        const matches: RegExpExecArray[] = [];
+        let match: RegExpExecArray | null;
+
+        // Reset regex lastIndex
+        regex.lastIndex = 0;
+
+        while ((match = regex.exec(content)) !== null) {
+          matches.push(match);
+        }
+
+        if (matches.length === 0) {
+          return null;
+        }
+
+        // For pattern replacement, we track the first match's location
+        // The full replacement is tracked as a single change
+        const firstMatch = matches[0];
+        const beforeMatch = content.substring(0, firstMatch.index);
+        const beforeLines = beforeMatch.split('\n');
+        const startLine = beforeLines.length - 1;
+
+        // Calculate end line (approximate, since replacement might span multiple lines)
+        const matchContent = firstMatch[0];
+        const matchLines = matchContent.split('\n');
+        const endLine = startLine + matchLines.length - 1;
+
+        // Get context
+        const allLines = content.split('\n');
+        const contextBefore =
+          startLine > 0
+            ? allLines.slice(Math.max(0, startLine - 1), startLine).join('\n')
+            : undefined;
+        const contextAfter =
+          endLine < allLines.length - 1
+            ? allLines.slice(endLine + 1, Math.min(allLines.length, endLine + 2)).join('\n')
+            : undefined;
+
+        // For pattern replacement, we store the original matched text and replacement
+        // Note: This tracks only the first match's location, but the replacement affects all matches
+        return {
+          startLine,
+          endLine,
+          originalContent: matchContent,
+          newContent: operation.replacement,
+          contextBefore,
+          contextAfter,
+          mode: operation.mode,
+        };
+      }
+
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Apply a change to content (used internally for computing sequential changes)
+   * @param content Current content
+   * @param operation The operation
+   * @param change The computed change
+   * @returns Modified content
+   */
+  private applyChangeToContent(content: string, operation: EditOperation, change: Change): string {
+    const lines = content.split('\n');
+
+    switch (operation.mode) {
+      case 'replace_by_lines': {
+        if (operation.fromLine === undefined && operation.toLine === undefined) {
+          return operation.content;
+        }
+        const originalContent = change.originalContent;
+        return content.replace(originalContent, change.newContent);
+      }
+
+      case 'insert': {
+        if (operation.line === 0) {
+          return change.newContent + ' ' + content;
+        } else if (operation.line >= lines.length - 1) {
+          return content.endsWith('\n')
+            ? content + change.newContent
+            : content + '\n' + change.newContent;
+        } else {
+          const position = Math.max(0, Math.min(operation.line, lines.length));
+          lines.splice(position, 0, change.newContent);
+          return lines.join('\n');
+        }
+      }
+
+      case 'add_table_column':
+      case 'update_table_column':
+      case 'delete_table_column': {
+        const originalTable = change.originalContent;
+        return content.replace(originalTable, change.newContent);
+      }
+
+      case 'replace_by_pattern': {
+        const regex = new RegExp(operation.searchPattern, 'g');
+        return content.replace(regex, operation.replacement);
+      }
+
+      default:
+        return content;
+    }
   }
 }

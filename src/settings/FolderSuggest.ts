@@ -1,4 +1,4 @@
-import { AbstractInputSuggest, type App, type TFolder } from 'obsidian';
+import { AbstractInputSuggest, type App, TFolder } from 'obsidian';
 
 export class FolderSuggest extends AbstractInputSuggest<TFolder> {
   constructor(
@@ -10,19 +10,24 @@ export class FolderSuggest extends AbstractInputSuggest<TFolder> {
 
   getSuggestions(query: string): TFolder[] {
     const allFolders = this.app.vault.getAllFolders();
+    const SLASH_PATTERN = '/';
 
-    // Filter to only level 1 folders (folders directly under root, no slashes in path)
-    const level1Folders = allFolders.filter(folder => {
-      // Level 1 folders have no "/" in their path (excluding root which is empty)
-      return folder.path && !folder.path.includes('/');
+    const slashesCount = query.match(new RegExp(SLASH_PATTERN, 'g'))?.length ?? 0;
+
+    const matchedFolders = allFolders.filter(folder => {
+      const level = folder.path.match(new RegExp(SLASH_PATTERN, 'g'))?.length ?? 0;
+      return level === slashesCount && folder.path.toLowerCase().includes(query.toLowerCase());
     });
 
-    if (!query) {
-      return level1Folders;
+    if (matchedFolders.length === 1) {
+      for (const child of matchedFolders[0].children) {
+        if (child instanceof TFolder) {
+          matchedFolders.push(child);
+        }
+      }
     }
 
-    const lowerQuery = query.toLowerCase();
-    return level1Folders.filter(folder => folder.path.toLowerCase().includes(lowerQuery));
+    return matchedFolders;
   }
 
   renderSuggestion(folder: TFolder, el: HTMLElement): void {

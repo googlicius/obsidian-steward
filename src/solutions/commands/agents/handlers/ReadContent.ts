@@ -11,47 +11,46 @@ import { confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { logger } from 'src/utils/logger';
 
 export const contentReadingSchema = z.object({
-  readType: z.enum(['above', 'below', 'entire']).default('above')
+  readType: z.enum(['above', 'below', 'pattern', 'entire']).default('above')
     .describe(`- "above", "below": Refers to the direction to read from current position.
+- "pattern": The RegExp pattern to search for in the content.
 - "entire": Refers to the entire content of the file.`),
-  fileName: z
-    .string()
-    .nullable()
-    .default(null)
-    .describe(`Name of the file to read from. If not specified, leave it blank`)
-    .transform(value => {
-      if (value === null) return null;
+  fileNames: z
+    .array(z.string())
+    .describe(`Array of file names to read from.`)
+    .transform(values => {
+      if (!values || values.length === 0) return [];
 
-      const normalizedValue = value.trim().toLowerCase();
+      return values
+        .map(value => {
+          const normalizedValue = value.trim().toLowerCase();
 
-      // Check if the value is a reference to the current note
-      if (['current note', 'this note', 'current'].includes(normalizedValue)) {
-        logger.warn(`noteName "${value}" refers to current note. Setting to null.`);
-        return null;
-      }
+          // Check if the value is a reference to the current note
+          if (['current note', 'this note', 'current'].includes(normalizedValue)) {
+            logger.warn(`noteName "${value}" refers to current note. Filtering out.`);
+            return null;
+          }
 
-      return value;
+          return value.trim();
+        })
+        .filter((value): value is string => value !== null);
     }),
   elementType: z
     .enum(['paragraph', 'table', 'code', 'list', 'blockquote', 'image', 'heading'])
     .nullable()
-    .default('paragraph')
+    .default(null)
     .describe(
       `Identify the element type if mentioned.
-If the mentioned element is NOT one of the predefined types, classify it as "paragraph" so it could be any element closest to the current position.`
+If the mentioned element is NOT one of the predefined types, specify elementType as NULL that indicates any element closest to the current position.`
     ),
   blocksToRead: z.number().min(-1).default(1).describe(`Number of blocks to read
 A block is a consecutive sequence of lines that contains an element (e.g., paragraph, table, code, list, blockquote, image, heading).
-Set to -1 when:
-- The user requests to read entire content.
-- Reading above or below the cursor and explicitly requesting reading all content from the current position.`),
-  startLine: z
-    .number()
-    .nullable()
-    .default(null)
-    .describe(
-      `Specific line number to start reading from (0-based). Leave null to use cursor position.`
-    ),
+Set to 1 if the user doesn't specify the number of blocks.
+Set to -1 when: Reading above or below the current position and explicitly requesting reading all content from the current position.`),
+  pattern: z
+    .string()
+    .optional()
+    .describe(`RegExp pattern to search for in the content. Required when readType is "pattern".`),
   foundPlaceholder: z
     .string()
     .optional()
@@ -94,20 +93,36 @@ export class ReadContent {
       throw new Error('ReadContent.handle invoked without handlerId');
     }
 
-    // Execute the content reading
-    let result: ContentReadingResult | string;
-    try {
-      result = await this.agent.plugin.contentReadingService.readContent(toolCall.input);
-    } catch (error) {
-      logger.error('Error in content reading', error);
-      result = error instanceof Error ? error.message : String(error);
+    const { fileNames, ...rest } = toolCall.input;
+
+    const readingResults: ContentReadingResult[] = [];
+    const errors: Array<{ fileName: string | null; error: string }> = [];
+
+    // Read each file
+    for (const fileName of fileNames) {
+      try {
+        const result = await this.agent.plugin.contentReadingService.readContent({
+          ...rest,
+          fileName,
+        });
+        readingResults.push(result);
+      } catch (error) {
+        logger.error(`Error reading content from file: ${fileName ?? 'current file'}`, error);
+        errors.push({
+          fileName,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
-    // Process the result
-    if (typeof result === 'string') {
+    // Handle case where all files failed
+    if (errors.length > 0 && readingResults.length === 0) {
+      const errorMessages = errors
+        .map(e => `${e.fileName ?? 'current file'}: ${e.error}`)
+        .join('\n');
       const messageId = await this.agent.renderer.updateConversationNote({
         path: title,
-        newContent: `*${result}*`,
+        newContent: `*${errorMessages}*`,
         command: 'read',
         includeHistory: false,
         handlerId,
@@ -136,7 +151,30 @@ export class ReadContent {
       };
     }
 
-    if (result.file && result.file.path.endsWith('.md') && result.blocks.length === 0) {
+    // Show errors for partially failed files
+    if (errors.length > 0) {
+      const errorMessages = errors
+        .map(e => `${e.fileName ?? 'current file'}: ${e.error}`)
+        .join('\n');
+      await this.agent.renderer.updateConversationNote({
+        path: title,
+        newContent: `*${errorMessages}*`,
+        command: 'read',
+        includeHistory: false,
+        handlerId,
+        step: params.invocationCount,
+      });
+    }
+
+    // Calculate total blocks across all results
+    const totalBlocks = readingResults.reduce((sum, result) => sum + result.blocks.length, 0);
+
+    // Check if all results have no content (for markdown files)
+    const allEmpty = readingResults.every(
+      result => result.file && result.file.path.endsWith('.md') && result.blocks.length === 0
+    );
+
+    if (allEmpty) {
       const messageId = await this.agent.renderer.updateConversationNote({
         path: title,
         newContent: `*${t('read.noContentFound')}*`,
@@ -168,58 +206,62 @@ export class ReadContent {
       };
     }
 
-    // Show found placeholder if available
-    if (toolCall.input.foundPlaceholder) {
+    // Show found placeholder if available (once for all files)
+    if (toolCall.input.foundPlaceholder && totalBlocks > 0) {
       await this.agent.renderer.updateConversationNote({
         path: title,
-        newContent: toolCall.input.foundPlaceholder.replace(
-          '{{number}}',
-          result.blocks.length.toString()
-        ),
+        newContent: toolCall.input.foundPlaceholder.replace('{{number}}', totalBlocks.toString()),
         includeHistory: false,
         handlerId,
         step: params.invocationCount,
       });
     }
 
-    // Don't render content when toolCall.input.readType is "entire"
-    if (toolCall.input.readType === 'entire') {
-      // Do nothing
-    } else {
-      for (const block of result.blocks) {
-        if (block.content === '') {
-          continue;
-        }
+    // Process each result
+    for (const result of readingResults) {
+      // Skip empty markdown files
+      if (result.file && result.file.path.endsWith('.md') && result.blocks.length === 0) {
+        continue;
+      }
 
-        const endLine = this.agent.plugin.editor.getLine(block.endLine);
-        await this.agent.renderer.updateConversationNote({
-          path: title,
-          newContent: this.agent.plugin.noteContentService.formatCallout(
-            block.content,
-            'stw-search-result',
-            {
-              startLine: block.startLine,
-              endLine: block.endLine,
-              start: 0,
-              end: endLine.length,
-              path: result.file?.path,
-            }
-          ),
-          includeHistory: false,
-          handlerId,
-          step: params.invocationCount,
-        });
+      // Don't render content when toolCall.input.readType is "entire"
+      if (toolCall.input.readType !== 'entire') {
+        for (const block of result.blocks) {
+          if (block.content === '') {
+            continue;
+          }
+
+          const endLine = this.agent.plugin.editor.getLine(block.endLine);
+          await this.agent.renderer.updateConversationNote({
+            path: title,
+            newContent: this.agent.plugin.noteContentService.formatCallout(
+              block.content,
+              'stw-search-result',
+              {
+                startLine: block.startLine,
+                endLine: block.endLine,
+                start: 0,
+                end: endLine.length,
+                path: result.file?.path,
+              }
+            ),
+            includeHistory: false,
+            handlerId,
+            step: params.invocationCount,
+          });
+        }
       }
     }
 
+    // Store single artifact with all reading results
     const artifactId = await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
       artifact: {
         artifactType: ArtifactType.READ_CONTENT,
-        readingResult: result,
+        readingResults,
       },
     });
 
-    // Store the artifact reference for successful reads
+    // Serialize tool invocation once with artifact reference
     await this.agent.renderer.serializeToolInvocation({
       path: title,
       command: 'read',

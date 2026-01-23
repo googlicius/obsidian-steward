@@ -12,6 +12,7 @@ import { WIKI_LINK_PATTERN } from 'src/constants';
 
 // Version 2 only fields
 const system_prompt = z.array(z.string()).optional();
+const use_tool = z.boolean().optional();
 
 /**
  * Transform heading-only wikilinks ([[#Heading]]) to include the file path
@@ -24,20 +25,15 @@ function transformHeadingOnlyWikilinks(content: string, filePath: string): strin
     return content;
   }
 
-  // Extract note name from file path (remove extension and get basename)
-  // Handle both "Folder/NoteName.md" and "NoteName.md" formats
-  const pathParts = filePath.split('/');
-  const fileName = pathParts[pathParts.length - 1];
-  const noteName = fileName.replace(/\.md$/, '');
+  const notePath = filePath.replace(/\.md$/, '');
 
-  // Replace [[#Heading]] with [[noteName#Heading]]
-  // Using just the note name (without folder) is standard for Obsidian wikilinks
+  // Using the full path ensures correct resolution even if multiple files have the same name
   const wikiLinkRegex = new RegExp(WIKI_LINK_PATTERN, 'g');
   return content.replace(wikiLinkRegex, (match, linkContent) => {
     // Check if this is a heading-only wikilink (starts with #)
     if (linkContent.startsWith('#')) {
       const heading = linkContent.substring(1); // Remove the leading #
-      return `[[${noteName}#${heading}]]`;
+      return `[[${notePath}#${heading}]]`;
     }
     return match; // Return unchanged if not a heading-only wikilink
   });
@@ -54,6 +50,7 @@ export const userDefinedCommandV2Schema = z.object({
   file_path,
   model,
   system_prompt,
+  use_tool,
   triggers: z.array(triggerConditionSchema).optional(),
 });
 
@@ -91,6 +88,7 @@ export class UserDefinedCommandV2 implements IVersionedUserDefinedCommand {
       file_path: filePath,
       model: this.data.model,
       system_prompt: transformedSystemPrompt,
+      use_tool: this.data.use_tool,
       triggers: this.data.triggers,
     };
   }

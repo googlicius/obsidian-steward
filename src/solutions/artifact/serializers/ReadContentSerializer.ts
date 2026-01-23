@@ -25,8 +25,6 @@ export class ReadContentSerializer extends ArtifactSerializer {
     // If data is already an artifact, use it directly
     const artifactData: ReadContentArtifact = typeof data === 'string' ? JSON.parse(data) : data;
 
-    // Extract images from all blocks' content
-    const allContent = artifactData.readingResult.blocks.map(block => block.content).join('\n');
     const imagePaths = new Set<string>();
 
     const addImagePathIfValid = (path: string | undefined) => {
@@ -39,15 +37,22 @@ export class ReadContentSerializer extends ArtifactSerializer {
       }
     };
 
-    addImagePathIfValid(artifactData.readingResult.file?.path);
+    // Extract images from all reading results
+    for (const readingResult of artifactData.readingResults) {
+      // Add file path if it's an image
+      addImagePathIfValid(readingResult.file?.path);
 
-    // Extract image links
-    const imageRegex = new RegExp(IMAGE_LINK_PATTERN, 'gi');
-    const matches = allContent.matchAll(imageRegex);
+      // Extract images from all blocks' content
+      const allContent = readingResult.blocks.map(block => block.content).join('\n');
 
-    for (const match of matches) {
-      if (match[1]) {
-        addImagePathIfValid(match[1]);
+      // Extract image links
+      const imageRegex = new RegExp(IMAGE_LINK_PATTERN, 'gi');
+      const matches = allContent.matchAll(imageRegex);
+
+      for (const match of matches) {
+        if (match[1]) {
+          addImagePathIfValid(match[1]);
+        }
       }
     }
 

@@ -1,12 +1,10 @@
-The `/search` command helps you find notes in your vault.
+This guideline shows you how to build search index and search with two modes.
 
 ## Before you start
 
-You need to build the search index first:
+You need to build the search index first, you can run it directly from here:
 
-```
 / Build search index
-```
 
 The index is built and stored locally on your vault.
 
@@ -16,10 +14,9 @@ The index is built and stored locally on your vault.
 
 Wrap your query in quotation marks or search tags only:
 
-```
 /search "quarterly report"
+
 /search #project #urgent
-```
 
 This searches exactly what you type.
 
@@ -27,15 +24,14 @@ This searches exactly what you type.
 
 Type `/search` followed by your query in natural language:
 
-```
 /search notes about project planning
-/search meeting notes from last week
-```
 
-The AI breaks your query into keywords, file names, folders, tags, and frontmatter properties to find relevant notes.
+/search meeting notes from last week
+
+Steward the AI breaks your query into keywords, file names, folders, tags, and frontmatter properties to find relevant notes.
 
 ## Tips
 
-- Be specific for better results
-- Use tags to narrow down results
-- Full results are stored in an artifact you can reference later
+- Be specific for better results.
+- Use tags or wrap your queries in quotation marks for instant results.
+- Full results are stored in an artifact you or Steward can reference later.

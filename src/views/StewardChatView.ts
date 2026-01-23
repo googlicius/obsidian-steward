@@ -1,4 +1,4 @@
-import { MarkdownView, setIcon, setTooltip } from 'obsidian';
+import { MarkdownView, setIcon, setTooltip, EventRef, TFile } from 'obsidian';
 import { STW_CHAT_VIEW_CONFIG } from '../constants';
 import { logger } from 'src/utils/logger';
 import i18next from 'i18next';
@@ -6,6 +6,9 @@ import type { WorkspaceLeaf } from 'obsidian';
 import type StewardPlugin from 'src/main';
 
 export class StewardChatView extends MarkdownView {
+  private autoScrollEventRef: EventRef | null = null;
+  private scrollToBottomTimeout: NodeJS.Timeout | null = null;
+
   constructor(
     leaf: WorkspaceLeaf,
     private plugin: StewardPlugin
@@ -35,9 +38,11 @@ export class StewardChatView extends MarkdownView {
 
     this.createHeader();
     this.disableTitleEditing();
+    this.setupAutoScroll();
   }
 
   async onClose(): Promise<void> {
+    this.cleanupAutoScroll();
     return super.onClose();
   }
 
@@ -47,6 +52,101 @@ export class StewardChatView extends MarkdownView {
    */
   canAcceptExtension(extension: string): boolean {
     return false;
+  }
+
+  /**
+   * Set up auto-scroll listener for streaming content
+   */
+  private setupAutoScroll(): void {
+    // Clean up any existing listener
+    this.cleanupAutoScroll();
+
+    this.autoScrollEventRef = this.app.vault.on('modify', file => {
+      if (!(file instanceof TFile)) {
+        return;
+      }
+
+      // Only handle modifications if the view is visible
+      if (!this.containerEl.isShown()) {
+        return;
+      }
+
+      // Get the current conversation note path (the embedded wikilink)
+      const notePath = this.getCurrentConversationPath();
+      if (!notePath) {
+        return;
+      }
+
+      // Only auto-scroll if this is the conversation note being modified
+      if (file.path !== notePath) {
+        return;
+      }
+
+      // Only auto-scroll during streaming
+      if (!this.plugin.conversationRenderer.isStreaming(file.path)) {
+        return;
+      }
+
+      // Only auto-scroll if the setting is enabled
+      if (!this.plugin.settings.autoScroll) {
+        return;
+      }
+
+      // Schedule scroll with debouncing
+      this.scheduleScrollToBottom();
+    });
+  }
+
+  /**
+   * Schedule a scroll to bottom operation with debouncing
+   */
+  private scheduleScrollToBottom(): void {
+    // Clear existing timeout
+    if (this.scrollToBottomTimeout) {
+      clearTimeout(this.scrollToBottomTimeout);
+    }
+
+    // Schedule scroll with a small delay to batch rapid updates
+    this.scrollToBottomTimeout = setTimeout(() => {
+      this.scrollToBottom();
+      this.scrollToBottomTimeout = null;
+    }, 50);
+  }
+
+  /**
+   * Scroll the editor to the bottom
+   */
+  private scrollToBottom(): void {
+    if (!this.file || !this.containerEl.isShown()) {
+      return;
+    }
+
+    try {
+      const lastLineNum = this.editor.lineCount() - 1;
+      if (lastLineNum >= 0) {
+        const lastLine = this.editor.getLine(lastLineNum);
+        const position = { line: lastLineNum, ch: lastLine.length };
+
+        this.editor.scrollIntoView({ from: position, to: position });
+      }
+    } catch (error) {
+      logger.error('Error scrolling to bottom:', error);
+    }
+  }
+
+  /**
+   * Clean up auto-scroll resources
+   */
+  private cleanupAutoScroll(): void {
+    if (this.autoScrollEventRef) {
+      this.app.vault.offref(this.autoScrollEventRef);
+      this.autoScrollEventRef = null;
+    }
+
+    if (this.scrollToBottomTimeout) {
+      clearTimeout(this.scrollToBottomTimeout);
+      this.scrollToBottomTimeout = null;
+    }
   }
 
   /**
@@ -63,47 +163,43 @@ export class StewardChatView extends MarkdownView {
    * Create the header with buttons
    */
   private createHeader(): void {
-    const viewContent = this.containerEl.querySelector('.view-content');
+    // Create header element and insert it as the first child of stw-chat (containerEl)
+    const headerEl = document.createElement('div');
+    headerEl.className = 'steward-conversation-header';
 
-    // Create header element and insert it before the editor content
-    if (viewContent) {
-      const headerEl = document.createElement('div');
-      headerEl.className = 'steward-conversation-header';
-
-      // Make sure it's the first child of the view-content
-      if (viewContent.firstChild) {
-        viewContent.insertBefore(headerEl, viewContent.firstChild);
-      } else {
-        viewContent.appendChild(headerEl);
-      }
-
-      // New Chat button
-      const newChatBtn = headerEl.createEl('button', {
-        cls: 'steward-header-button clickable-icon',
-      });
-      setIcon(newChatBtn, 'plus-circle');
-      setTooltip(newChatBtn, i18next.t('chat.newChat'));
-      newChatBtn.addEventListener('click', () => this.handleNewChat());
-
-      // History button
-      // const historyBtn = headerEl.createEl('button', {
-      //   cls: 'steward-header-button clickable-icon',
-      // });
-      // setIcon(historyBtn, 'history');
-      // historyBtn.title = i18next.t('chat.history');
-      // historyBtn.addEventListener('click', () => this.handleHistory());
-
-      // Close Chat button
-      const closeBtn = headerEl.createEl('button', {
-        cls: 'steward-header-button clickable-icon',
-      });
-      setIcon(closeBtn, 'x');
-      setTooltip(closeBtn, i18next.t('chat.closeChat'));
-      closeBtn.addEventListener('click', () => {
-        const rightSplit = this.app.workspace.rightSplit;
-        rightSplit.collapse();
-      });
+    // Make sure it's the first child of the container
+    if (this.containerEl.firstChild) {
+      this.containerEl.insertBefore(headerEl, this.containerEl.firstChild);
+    } else {
+      this.containerEl.appendChild(headerEl);
     }
+
+    // New Chat button
+    const newChatBtn = headerEl.createEl('button', {
+      cls: 'steward-header-button clickable-icon',
+    });
+    setIcon(newChatBtn, 'plus-circle');
+    setTooltip(newChatBtn, i18next.t('chat.newChat'));
+    newChatBtn.addEventListener('click', () => this.handleNewChat());
+
+    // History button
+    // const historyBtn = headerEl.createEl('button', {
+    //   cls: 'steward-header-button clickable-icon',
+    // });
+    // setIcon(historyBtn, 'history');
+    // historyBtn.title = i18next.t('chat.history');
+    // historyBtn.addEventListener('click', () => this.handleHistory());
+
+    // Close Chat button
+    const closeBtn = headerEl.createEl('button', {
+      cls: 'steward-header-button clickable-icon',
+    });
+    setIcon(closeBtn, 'x');
+    setTooltip(closeBtn, i18next.t('chat.closeChat'));
+    closeBtn.addEventListener('click', () => {
+      const rightSplit = this.app.workspace.rightSplit;
+      rightSplit.collapse();
+    });
   }
 
   private handleNewChat(): void {
@@ -246,15 +342,38 @@ export class StewardChatView extends MarkdownView {
     }
   }
 
+  /**
+   * Get the current conversation note path from the embedded wikilink
+   * Returns the full normalized file path (with .md extension) or null if not found
+   */
   private getCurrentConversationPath(): string | null {
     const content = this.editor.getValue();
 
-    const conversationPath = content.match(/!\[\[(.*?)\]\]/);
-    if (conversationPath) {
-      return conversationPath[1];
+    const match = content.match(/!\[\[(.*?)\]\]/);
+    if (!match) {
+      return null;
     }
 
-    return null;
+    const conversationPath = match[1];
+    if (!conversationPath) {
+      return null;
+    }
+
+    // Construct the full path to match against file paths
+    // The conversationPath could be:
+    // - Full path: "steward/Conversations/title"
+    // - Just title: "title"
+    let notePath: string;
+    if (conversationPath.includes('/')) {
+      // Already a full path
+      notePath = conversationPath.endsWith('.md') ? conversationPath : `${conversationPath}.md`;
+    } else {
+      // Just the title, construct full path
+      const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+      notePath = `${folderPath}/${conversationPath}.md`;
+    }
+
+    return notePath;
   }
 
   /**

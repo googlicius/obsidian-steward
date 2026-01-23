@@ -41,6 +41,7 @@ const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
     ToolName.REVERT_FRONTMATTER,
     ToolName.REVERT_RENAME,
     ToolName.REVERT_CREATE,
+    ToolName.REVERT_EDIT_RESULTS,
   ]),
   read: new Set([ToolName.CONTENT_READING]),
   edit: new Set([ToolName.EDIT]),
@@ -101,6 +102,7 @@ const tools = {
   [ToolName.REVERT_FRONTMATTER]: handlers.RevertFrontmatter.getRevertFrontmatterTool(),
   [ToolName.REVERT_RENAME]: handlers.RevertRename.getRevertRenameTool(),
   [ToolName.REVERT_CREATE]: handlers.RevertCreate.getRevertCreateTool(),
+  [ToolName.REVERT_EDIT_RESULTS]: handlers.RevertEditResults.getRevertEditResultsTool(),
   [ToolName.CONTENT_READING]: handlers.ReadContent.getContentReadingTool(),
   [ToolName.CONFIRMATION]: confirmationTool,
   [ToolName.ASK_USER]: askUserTool,
@@ -217,6 +219,7 @@ export class SuperAgent extends Agent {
             ArtifactType.DELETED_FILES,
             ArtifactType.UPDATE_FRONTMATTER_RESULTS,
             ArtifactType.RENAME_RESULTS,
+            ArtifactType.EDIT_RESULTS,
           ];
 
           const artifact = await this.plugin.artifactManagerV2
@@ -231,6 +234,7 @@ export class SuperAgent extends Agent {
               [ArtifactType.DELETED_FILES]: ToolName.REVERT_DELETE,
               [ArtifactType.UPDATE_FRONTMATTER_RESULTS]: ToolName.REVERT_FRONTMATTER,
               [ArtifactType.RENAME_RESULTS]: ToolName.REVERT_RENAME,
+              [ArtifactType.EDIT_RESULTS]: ToolName.REVERT_EDIT_RESULTS,
             };
 
             const toolName = artifactTypeToToolMap[artifact.artifactType];
@@ -373,10 +377,12 @@ export class SuperAgent extends Agent {
         generateType: 'text',
       });
 
-      const activeToolNames =
-        params.activeTools && params.activeTools.length > 0
+      const shouldUseTools = params.intent.use_tool !== false;
+      const activeToolNames = shouldUseTools
+        ? params.activeTools && params.activeTools.length > 0
           ? [...params.activeTools, ToolName.ACTIVATE]
-          : [ToolName.ACTIVATE];
+          : [ToolName.ACTIVATE]
+        : [];
 
       const registry = ToolRegistry.buildFromTools(tools).setActive(activeToolNames);
 
@@ -430,6 +436,8 @@ export class SuperAgent extends Agent {
         ? await this.generateTodoListPrompt(params.title)
         : '';
 
+      const shouldUseCoreSystemPrompt = shouldUseTools;
+
       const additionalSystemPrompts = params.intent.systemPrompts || [];
 
       if (llmConfig.systemPrompt) {
@@ -443,28 +451,23 @@ export class SuperAgent extends Agent {
       // Track the tool detected from the stream
       let detectedTool: ToolName | undefined;
 
-      const { toolCalls: toolCallsPromise, fullStream } = streamText({
-        model: llmConfig.model,
-        temperature: llmConfig.temperature,
-        maxOutputTokens: llmConfig.maxOutputTokens,
-        abortSignal,
-        system: `You are a helpful assistant who helps users with their Obsidian vault.
+      const coreSystemPrompt = `You are a helpful assistant who helps users with their Obsidian vault.
 
 Your role is to help users with multiple tasks by using appropriate tools.
 - For generating tasks, you can generate directly.
 - For editing tasks, use ${ToolName.EDIT} tool.
 - For vault management tasks, use the following tools: ${joinWithConjunction(
-          [
-            ToolName.LIST,
-            ToolName.CREATE,
-            ToolName.DELETE,
-            ToolName.COPY,
-            ToolName.MOVE,
-            ToolName.RENAME,
-            ToolName.UPDATE_FRONTMATTER,
-          ],
-          'and'
-        )}.
+        [
+          ToolName.LIST,
+          ToolName.CREATE,
+          ToolName.DELETE,
+          ToolName.COPY,
+          ToolName.MOVE,
+          ToolName.RENAME,
+          ToolName.UPDATE_FRONTMATTER,
+        ],
+        'and'
+      )}.
 - For other tasks, use the appropriate tool(s).
 
 You have access to the following tools:
@@ -491,9 +494,19 @@ ${currentNote ? `\nCURRENT NOTE: ${currentNote} (Cursor position: ${currentPosit
 NOTE:
 - Do NOT repeat the latest tool call result in your final response as it is already rendered in the UI.
 - Do NOT mention the tools you use to users. Work silently in the background and only communicate the results or outcomes.
-- Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`,
+- Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`;
+
+      type RepairToolCall = Parameters<typeof streamText>[0]['experimental_repairToolCall'];
+
+      const { toolCalls: toolCallsPromise, fullStream } = streamText({
+        model: llmConfig.model,
+        temperature: llmConfig.temperature,
+        maxOutputTokens: llmConfig.maxOutputTokens,
+        abortSignal,
+        system: shouldUseCoreSystemPrompt ? coreSystemPrompt : undefined,
         messages,
-        tools: registry.getToolsObject(),
+        tools: shouldUseTools ? registry.getToolsObject() : undefined,
+        experimental_repairToolCall: llmConfig.repairToolCall as RepairToolCall,
         onError: ({ error }) => {
           logger.error('Error in streamText', error);
           rejectStreamError(error as Error);
@@ -680,6 +693,7 @@ NOTE:
       [ToolName.REVERT_FRONTMATTER]: () => this.revertFrontmatter,
       [ToolName.REVERT_RENAME]: () => this.revertRename,
       [ToolName.REVERT_CREATE]: () => this.revertCreate,
+      [ToolName.REVERT_EDIT_RESULTS]: () => this.revertEditResults,
       [ToolName.USER_CONFIRM]: () => this.userConfirm,
       [ToolName.EDIT]: () => this.editHandler,
       [ToolName.STOP]: () => this.stop,

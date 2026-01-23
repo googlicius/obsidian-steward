@@ -22,6 +22,7 @@ export enum ArtifactType {
   RENAME_RESULTS = 'rename_results',
   LIST_RESULTS = 'list_results',
   STW_SELECTED = 'stw_selected',
+  EDIT_RESULTS = 'edit_results',
 }
 
 export const revertAbleArtifactTypes = [
@@ -30,6 +31,7 @@ export const revertAbleArtifactTypes = [
   ArtifactType.DELETED_FILES,
   ArtifactType.UPDATE_FRONTMATTER_RESULTS,
   ArtifactType.RENAME_RESULTS,
+  ArtifactType.EDIT_RESULTS,
 ];
 
 /**
@@ -63,7 +65,7 @@ export interface CreatedNotesArtifact extends BaseArtifact {
  */
 export interface ReadContentArtifact extends BaseArtifact {
   artifactType: ArtifactType.READ_CONTENT;
-  readingResult: ContentReadingResult;
+  readingResults: ContentReadingResult[];
   imagePaths?: string[];
 }
 
@@ -178,6 +180,43 @@ export interface StwSelectedArtifact extends BaseArtifact {
   }>;
 }
 
+/**
+ * Represents a single change made to content
+ */
+export interface Change {
+  // Location info (for display ordering)
+  startLine: number; // Starting line number (0-based) before the change
+  endLine: number; // Ending line number (0-based) before the change
+
+  // Content diff
+  originalContent: string; // What was there before (empty for insert)
+  newContent: string; // What it becomes (empty for delete)
+
+  // Context for matching during revert (optional enhancement)
+  contextBefore?: string; // 1-2 lines before change
+  contextAfter?: string; // 1-2 lines after change
+
+  // Operation metadata (for understanding what happened)
+  mode: string; // EditMode as string
+}
+
+/**
+ * Represents all changes made to a single file
+ */
+export interface FileChangeSet {
+  path: string; // File path that was edited
+  changes: Change[]; // Array of changes made to this file
+}
+
+/**
+ * Edit results artifact
+ * Stores changes made to files for preview and revert purposes
+ */
+export interface EditResultsArtifact extends BaseArtifact {
+  artifactType: ArtifactType.EDIT_RESULTS;
+  files: FileChangeSet[]; // Array of file change sets
+}
+
 export type Artifact =
   | SearchResultsArtifact
   | CreatedNotesArtifact
@@ -192,7 +231,8 @@ export type Artifact =
   | UpdateFrontmatterResultsArtifact
   | RenameResultsArtifact
   | ListResultsArtifact
-  | StwSelectedArtifact;
+  | StwSelectedArtifact
+  | EditResultsArtifact;
 
 export type ArtifactMap = {
   [ArtifactType.SEARCH_RESULTS]: SearchResultsArtifact;
@@ -209,6 +249,7 @@ export type ArtifactMap = {
   [ArtifactType.RENAME_RESULTS]: RenameResultsArtifact;
   [ArtifactType.LIST_RESULTS]: ListResultsArtifact;
   [ArtifactType.STW_SELECTED]: StwSelectedArtifact;
+  [ArtifactType.EDIT_RESULTS]: EditResultsArtifact;
 };
 
 /**

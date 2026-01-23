@@ -19,6 +19,7 @@ const en = {
       builtInCommands: 'Built-in commands',
       builtInCommandsDesc: 'These commands are directly accessible via /&lt;command&gt',
       userDefinedCommands: 'User-Defined commands',
+      userDefinedCommandsDesc: 'Create custom commands to automate workflows.',
       noUserDefinedCommands: "You don't have any user-defined commands yet.",
       commandHelpText: 'Type any command followed by your query to use it.',
       searchDesc: 'Search for notes in your vault',
@@ -239,6 +240,7 @@ const en = {
       showMoreDetails: 'Type `/more` to show the next 10 results.',
       pagination: 'Page {{current}} of {{total}}',
       useMoreCommand: 'Type `/more` to see the next page of results.',
+      resultAvailableInArtifact: 'The search result is available in the artifact: {{artifactId}}',
       noMoreResults: 'No more search results to show.',
       noRecentSearch: 'No recent search found. Please run a search command first.',
       moreResults: 'Here are more search results:',
@@ -318,6 +320,13 @@ const en = {
       completed: 'Completed',
       step: 'Step {{index}}',
     },
+    documentation: {
+      guidelines: 'Guidelines',
+      searchGuideline: 'Search guideline',
+      udcGuideline: 'User-defined command guideline',
+      fetchFailed: 'Failed to fetch documentation: {{docName}}',
+      downloading: 'Downloading {{name}}...',
+    },
     read: {
       noContentFound: 'No such content found in the editor.',
       readEntireContentConfirmation:
@@ -371,6 +380,8 @@ const en = {
       stewardFolderDesc: 'Base folder where Steward data will be stored',
       showRoleLabels: 'Show role labels',
       showRoleLabelsDesc: 'Show User/Steward/System labels in conversations',
+      autoScroll: 'Auto-scroll',
+      autoScrollDesc: 'Automatically scroll to the bottom when new messages are added',
       debugMode: 'Debug mode',
       debugModeDesc: 'Enable detailed logging in the console for debugging',
       apiKeys: 'API keys', // Deprecated: kept for backward compatibility

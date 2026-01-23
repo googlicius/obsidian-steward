@@ -539,9 +539,10 @@ export class ArtifactManagerV2 {
       }
 
       case ArtifactType.READ_CONTENT: {
-        const file = artifact.readingResult.file;
-        if (file) {
-          resolvedFiles.push({ path: file.path });
+        for (const readingResult of artifact.readingResults) {
+          if (readingResult.file) {
+            resolvedFiles.push({ path: readingResult.file.path });
+          }
         }
         break;
       }
