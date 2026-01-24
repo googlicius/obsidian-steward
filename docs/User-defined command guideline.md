@@ -88,7 +88,9 @@ The `system_prompt` field accepts an array of strings. Each string can be:
   - `[[Note Name#Heading]]` - Content under a specific heading
   - `[[#Heading]]` - Content under a heading in the current note
 
-Note: Root-level system prompts are applied first, then step-level prompts are appended.
+> [!INFO] Tips
+>
+> Link system prompts to a heading in the current note (e.g., `[[#Instructions]]`) to keep your prompts alongside the command definition. This makes editing easier and lets you use full markdown formatting.
 
 ## Automated triggers
 
@@ -137,17 +139,11 @@ These placeholders will be replaced with the actual values when the command is e
 
 Try these ready-to-use commands from the community. Click any link to fetch and install the command in your `Steward/Commands` folder:
 
-> [!INFO]
+> [!INFO] Example commands
 >
-> - [Ask](obsidian://steward-resource?type=command&name=ask) - A command that helps with general questions
-> - [Clean up](obsidian://steward-resource?type=command&name=Clean%20up) - Clean up conversation notes in the Steward/Conversations folder (_This is an example of a multiple-step command_)
-> - [Flashcard ask](obsidian://steward-resource?type=command&name=Flashcard%20ask) - Help with tasks from the flashcard above the cursor
-> - [Word processor](obsidian://steward-resource?type=command&name=Word%20processor) - Process newly added English words or phrases. (_This is an example of an automated command_)
+> [Ask](obsidian://steward-resource?type=command&name=ask) - A command that helps with general questions
+> [Clean up](obsidian://steward-resource?type=command&name=Clean%20up) - Clean up conversation notes in the Steward/Conversations folder (_This is an example of a multiple-step command_)
+> [Flashcard ask](obsidian://steward-resource?type=command&name=Flashcard%20ask) - Help with tasks from the flashcard above the cursor
+> [Word processor](obsidian://steward-resource?type=command&name=Word%20processor) - Process newly added English words or phrases. (_This is an example of an automated command_)
 
 When you click a link, the command will be fetched from GitHub and stored in your `Steward/Commands` folder. You can then use it like any other user-defined command.
-
-## Tips
-
-> [!INFO]
->
-> - Link system prompts to a heading in the current note (e.g., `[[#Instructions]]`) to keep your prompts alongside the command definition. This makes editing easier and lets you use full markdown formatting.
