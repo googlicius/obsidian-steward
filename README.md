@@ -257,6 +257,10 @@ triggers:
 3. If all patterns match and are new (for modify events), a conversation note is created automatically
 4. The triggered command executes in this conversation note
 
+### Downloadable resources
+
+Guidelines and community User-defined commands can be downloaded directly from the [Steward repository](https://github.com/googlicius/obsidian-steward). When fetched, guidelines are stored in `Steward/Docs/` and commands are stored in `Steward/Commands/` in your vault. Type `/ Help` or `/ ? ` in the chat to access available guidelines and community commands.
+
 ### User-defined command showcases
 
 #### User-defined command creation with LLM helps:
