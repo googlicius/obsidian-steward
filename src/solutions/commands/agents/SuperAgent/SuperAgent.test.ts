@@ -1488,4 +1488,31 @@ describe('SuperAgent', () => {
       expect(secondCall.messages).toEqual(historyMessages);
     });
   });
+
+  describe('handle - classified tasks', () => {
+    it('should NOT call classifyTasksFromQuery when classifiedTasks is not empty', async () => {
+      const classifyTasksFromQuerySpy = jest.spyOn(
+        superAgent,
+        // @ts-expect-error - Accessing private method for testing
+        'classifyTasksFromQuery'
+      ) as jest.SpyInstance;
+
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'search',
+          query: 'test query',
+        } as Intent,
+        invocationCount: 0, // First invocation
+      };
+
+      await superAgent.handle(params);
+
+      // Verify classifyTasksFromQuery was NOT called because intent.type was set
+      expect(classifyTasksFromQuerySpy).not.toHaveBeenCalled();
+
+      // Clean up
+      classifyTasksFromQuerySpy.mockRestore();
+    });
+  });
 });

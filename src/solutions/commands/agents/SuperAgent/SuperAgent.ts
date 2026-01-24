@@ -593,13 +593,13 @@ NOTE:
 
     let classifiedTasks: string[] = [];
 
-    if (!params.invocationCount) {
-      classifiedTasks = await this.classifyTasksFromQuery(intent.query, params.upstreamOptions);
-    }
-
     // Treat type (Usually from UDC step name) as a classified task
     if (intent.type.trim().length > 0 && !classifiedTasks.includes(intent.type)) {
       classifiedTasks.push(intent.type);
+    }
+
+    if (!params.invocationCount && classifiedTasks.length === 0) {
+      classifiedTasks = await this.classifyTasksFromQuery(intent.query, params.upstreamOptions);
     }
 
     if (!classifiedTasks.length && activeTools.length > 0) {
