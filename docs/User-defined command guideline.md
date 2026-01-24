@@ -90,7 +90,7 @@ The `system_prompt` field accepts an array of strings. Each string can be:
 
 > [!INFO] Tips
 >
-> - Link system prompts to a heading in the current note (e.g., `[[#Instructions]]`) to keep your prompts alongside the command definition. This makes editing easier and lets you use full markdown formatting.
+> Link system prompts to a heading in the current note (e.g., `[[#Instructions]]`) to keep your prompts alongside the command definition. This makes editing easier and lets you use full markdown formatting.
 
 ## Automated triggers
 
