@@ -73,6 +73,10 @@ const en = {
     vault: {
       fileAlreadyInDestination: 'File is already in the destination',
       itemNotFound: 'Item not found',
+      wikilinkNoteNotFound:
+        'Cannot resolve wikilink [[{{wikilink}}]]: Note "{{notePath}}" not found',
+      wikilinkHeadingNotFound:
+        'Cannot resolve wikilink [[{{wikilink}}]]: Heading "{{headingName}}" not found in note "{{notePath}}"',
     },
     // Move result messages
     move: {

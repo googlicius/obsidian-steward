@@ -56,6 +56,14 @@ const vi = {
       newVersionAvailable: 'Phiên bản mới có sẵn',
       newVersionMessage: 'Phiên bản mới của Steward ({{version}}) hiện đã có sẵn!',
     },
+    vault: {
+      fileAlreadyInDestination: 'Tập tin đã có trong thư mục đích',
+      itemNotFound: 'Không tìm thấy mục',
+      wikilinkNoteNotFound:
+        'Không thể giải quyết wikilink [[{{wikilink}}]]: Không tìm thấy ghi chú "{{notePath}}"',
+      wikilinkHeadingNotFound:
+        'Không thể giải quyết wikilink [[{{wikilink}}]]: Không tìm thấy tiêu đề "{{headingName}}" trong ghi chú "{{notePath}}"',
+    },
     // Move result messages
     move: {
       noSearchResultsFoundAbortMove: 'Không tìm thấy kết quả tìm kiếm. Hủy thao tác di chuyển.',
