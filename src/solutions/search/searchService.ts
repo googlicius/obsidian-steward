@@ -58,7 +58,7 @@ export class SearchService {
         'removeStwSelectedPatterns',
         'removeStwSqueezedPatterns',
       ],
-      analyzers: ['stemmer'],
+      analyzers: ['wordDelimiter', 'stemmer'],
     });
 
     this.nameTokenizer = new Tokenizer({
