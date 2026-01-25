@@ -452,6 +452,12 @@ export default class StewardPlugin extends Plugin {
       settingsUpdated = true;
     }
 
+    // Initialize scoring config if it doesn't exist (for backward compatibility)
+    if (!this.settings.search.scoring) {
+      this.settings.search.scoring = DEFAULT_SETTINGS.search.scoring;
+      settingsUpdated = true;
+    }
+
     // Migrate legacy searchDbPrefix/searchDbName to search.searchDbName
     if (!this.settings.search.searchDbName) {
       if (this.settings.searchDbName) {

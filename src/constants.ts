@@ -156,6 +156,15 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     searchDbName: '',
     withoutLLM: 'relevant',
     resultsPerPage: 10,
+    scoring: {
+      maxCoverageBonus: 0.5,
+      filenameMatchBoost: 2.0,
+      filenameBonus: 0.5,
+      maxProximityBonus: 5.0,
+      proximityThreshold: 20,
+      bm25K1: 1.5,
+      bm25B: 0.75,
+    },
   },
   deleteBehavior: {
     behavior: 'stw_trash', // Default to moving files to trash
