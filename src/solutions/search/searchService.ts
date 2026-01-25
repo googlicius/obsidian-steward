@@ -58,7 +58,7 @@ export class SearchService {
         'removeStwSelectedPatterns',
         'removeStwSqueezedPatterns',
       ],
-      analyzers: ['stemmer'],
+      analyzers: ['wordDelimiter', 'stemmer'],
     });
 
     this.nameTokenizer = new Tokenizer({
@@ -77,7 +77,7 @@ export class SearchService {
       contentTokenizer: this.contentTokenizer,
       nameTokenizer: this.nameTokenizer,
     });
-    this.scoring = new Scoring(this.documentStore);
+    this.scoring = new Scoring(this.documentStore, plugin.settings.search.scoring || {});
   }
 
   get searchContext(): SearchContext {

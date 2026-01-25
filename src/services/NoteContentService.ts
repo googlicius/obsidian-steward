@@ -11,6 +11,7 @@ import { ImagePart } from 'ai';
 import { resizeImageWithCanvas } from 'src/utils/resizeImageWithCanvas';
 import { EditOperation } from 'src/solutions/commands/tools/editContent';
 import { Change } from 'src/solutions/artifact/types';
+import i18next from 'src/i18n';
 
 export class NoteContentService {
   private static instance: NoteContentService;
@@ -237,39 +238,58 @@ export class NoteContentService {
     let appendedContent = '\n\n';
 
     for (const wikilink of wikilinks) {
-      try {
-        // Find the file by path
-        const file = this.plugin.app.metadataCache.getFirstLinkpathDest(wikilink.split('#')[0], '');
+      // Find the file by path
+      const notePath = wikilink.split('#')[0];
+      const file = this.plugin.app.metadataCache.getFirstLinkpathDest(notePath, '');
 
-        if (file) {
-          // Read the file content
-          const linkedContent = await this.plugin.app.vault.cachedRead(file);
+      if (!file) {
+        throw new Error(
+          i18next.t('vault.wikilinkNoteNotFound', {
+            wikilink,
+            notePath,
+          })
+        );
+      }
 
-          // Check if there's an anchor
-          const anchorParts = wikilink.split('#');
-          let extractedContent = linkedContent;
+      // Read the file content
+      const linkedContent = await this.plugin.app.vault.cachedRead(file);
 
-          if (anchorParts.length > 1) {
-            // Extract content under the specified heading
-            extractedContent = this.extractContentUnderHeading(linkedContent, anchorParts[1]);
-          }
+      // Check if there's an anchor
+      const anchorParts = wikilink.split('#');
+      let extractedContent = linkedContent;
 
-          // Process nested wikilinks if depth > 1
-          if (depth > 1 && this.extractWikilinks(extractedContent).length > 0) {
-            extractedContent = await this.processWikilinksInContent(extractedContent, depth - 1);
-          }
+      if (anchorParts.length > 1) {
+        const headingName = anchorParts[1];
+        // Check if heading exists in the content
+        const headingRegex = new RegExp(`^(#{1,6})\\s+${this.escapeRegExp(headingName)}\\s*$`, 'm');
+        const headingMatch = linkedContent.match(headingRegex);
 
-          if (mode === 'append') {
-            // Append the content at the end in the specified format
-            appendedContent += `The content of [[${wikilink}]]:\n${extractedContent}\n\n`;
-          } else if (mode === 'replace') {
-            // Replace the wikilink with its content
-            const wikiLinkPattern = new RegExp(`\\[\\[${this.escapeRegExp(wikilink)}\\]\\]`, 'g');
-            processedContent = processedContent.replace(wikiLinkPattern, extractedContent);
-          }
+        if (!headingMatch) {
+          throw new Error(
+            i18next.t('vault.wikilinkHeadingNotFound', {
+              wikilink,
+              headingName,
+              notePath,
+            })
+          );
         }
-      } catch (error) {
-        logger.error(`Error processing wikilink ${wikilink}:`, error);
+
+        // Extract content under the specified heading
+        extractedContent = this.extractContentUnderHeading(linkedContent, headingName);
+      }
+
+      // Process nested wikilinks if depth > 1
+      if (depth > 1 && this.extractWikilinks(extractedContent).length > 0) {
+        extractedContent = await this.processWikilinksInContent(extractedContent, depth - 1);
+      }
+
+      if (mode === 'append') {
+        // Append the content at the end in the specified format
+        appendedContent += `The content of [[${wikilink}]]:\n${extractedContent}\n\n`;
+      } else if (mode === 'replace') {
+        // Replace the wikilink with its content
+        const wikiLinkPattern = new RegExp(`\\[\\[${this.escapeRegExp(wikilink)}\\]\\]`, 'g');
+        processedContent = processedContent.replace(wikiLinkPattern, extractedContent);
       }
     }
 

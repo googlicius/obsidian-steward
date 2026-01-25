@@ -57,18 +57,20 @@ export abstract class Agent {
    * Handle an agent invocation with automatic error handling and model fallback
    */
   public async safeHandle(params: AgentHandlerParams, ...args: unknown[]): Promise<AgentResult> {
-    params.intent.model = await this.getCurrentModel(params.title, params.intent);
-    params.intent.query = this.plugin.userMessageService.sanitizeQuery(params.intent.query);
-    params.invocationCount = params.invocationCount || 0;
-    params.handlerId = params.handlerId || uniqueID();
-    params.lang = params.lang || (await this.loadConversationLang(params.title));
-    params.intent.use_tool = await this.loadConversationUseTool(
-      params.title,
-      params.intent.use_tool
-    );
-    params.intent.systemPrompts = await this.loadSystemPrompts(params);
-
     try {
+      params.intent.model = await this.getCurrentModel(params.title, params.intent);
+      params.intent.query = this.plugin.userMessageService.sanitizeQuery(params.intent.query);
+      params.invocationCount = params.invocationCount || 0;
+      params.handlerId = params.handlerId || uniqueID();
+      params.lang = params.lang || (await this.loadConversationLang(params.title));
+      params.intent.use_tool = await this.loadConversationUseTool(
+        params.title,
+        params.intent.use_tool
+      );
+      params.intent.systemPrompts = await this.loadSystemPrompts(params);
+
+      console.log('systemPrompts', params.intent.systemPrompts);
+
       // Call the original handle method
       const result = await this.handle(params, ...args);
 

@@ -11,6 +11,87 @@ describe('Tokenizer', () => {
 
       expect(tokens).toMatchSnapshot();
     });
+
+    it('should remove leading and trailing underscores and apostrophes from phrases', () => {
+      const tokenizer = new Tokenizer({
+        analyzers: ['wordDelimiter'],
+      });
+
+      const tokens = tokenizer.tokenize('His name is _Lionel Messi_');
+
+      expect(tokens).toMatchObject([
+        {
+          term: 'His',
+        },
+        {
+          term: 'name',
+        },
+        {
+          term: '_Lionel',
+        },
+        {
+          term: 'Messi_',
+        },
+        {
+          term: 'Lionel',
+        },
+        {
+          term: 'Messi',
+        },
+      ]);
+    });
+
+    it('should remove leading and trailing apostrophes from single-quoted strings', () => {
+      const tokenizer = new Tokenizer({
+        analyzers: ['wordDelimiter'],
+      });
+
+      const tokens = tokenizer.tokenize("const name = 'Lionel Messi'");
+
+      expect(tokens).toMatchObject([
+        {
+          term: 'const',
+        },
+        {
+          term: 'name',
+        },
+        {
+          term: '=',
+        },
+        {
+          term: "'Lionel",
+        },
+        {
+          term: "Messi'",
+        },
+        {
+          term: 'Lionel',
+        },
+        {
+          term: 'Messi',
+        },
+      ]);
+    });
+
+    it('should preserve apostrophes in the middle of words (contractions)', () => {
+      const tokenizer = new Tokenizer({
+        analyzers: ['wordDelimiter'],
+      });
+
+      const tokens = tokenizer.tokenize("don't won't it's");
+
+      expect(tokens).toMatchObject([
+        {
+          term: "don't",
+        },
+        {
+          term: "won't",
+        },
+        {
+          term: "it's",
+        },
+      ]);
+    });
   });
 
   describe('stemmer analyzer', () => {

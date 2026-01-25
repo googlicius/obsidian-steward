@@ -6,7 +6,7 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 
 ## Features
 
-- **Built-in search engine**: A TF-IDF based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search.
+- **Built-in search engine**: A BM25-based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search.
 - **Interactive and adaptive chat UI**: One or more chat interfaces made of the slash `/` leveraging Obsidian's editor and reading view features, that is, adaptable to your current themes.
 - **Privacy-focused**: Most actions are executed in the front-end using Obsidian API and local services to avoid exposing your data to LLMs (except for your queries and what you're explicitly provided).
 - **Command-based interaction**: Support for standard commands like search, vault (list, create, delete, copy, move, rename, update frontmatter), update, audio, image generation, and user-defined commands.

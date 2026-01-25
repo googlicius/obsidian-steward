@@ -45,7 +45,7 @@ interface TokenizerConfig {
 const ALL_ANALYZERS: Record<string, Analyzer['process']> = {
   /**
    * Word delimiter analyzer that splits words by dashes and underscores, adding the parts as separate tokens
-   * while preserving the original token
+   * while preserving the original token. Also strips leading and trailing apostrophes and underscores from tokens.
    */
   wordDelimiter: (tokens: Token[]) => {
     const tokenMap = new Map<string, Token>();
@@ -61,12 +61,20 @@ const ALL_ANALYZERS: Record<string, Analyzer['process']> = {
       }
     }
 
-    // Process each original token for splitting
+    // Process each original token for splitting and stripping
     for (const token of tokens) {
-      // Check if token contains dashes or underscores
-      if (token.term.includes('-') || token.term.includes('_')) {
-        // Split the term by dashes and underscores
-        const parts = token.term.split(/[-_]/).filter(Boolean);
+      // Check if token contains dashes, underscores, or leading/trailing apostrophes
+      // Split pattern includes apostrophes to handle 'Messi' → Messi while preserving don't
+      const hasDelimiters = /[-_]/.test(token.term);
+      const hasBoundaryApostrophes = /^[''\u2019]|[''\u2019]$/.test(token.term);
+
+      if (hasDelimiters || hasBoundaryApostrophes) {
+        // Split by dashes, underscores, and boundary apostrophes
+        // Using split with a pattern that matches delimiters and boundary apostrophes
+        const parts = token.term
+          .replace(/^[''\u2019]+|[''\u2019]+$/g, '') // Strip boundary apostrophes first
+          .split(/[-_]/)
+          .filter(Boolean);
 
         // Add each part as a new token if it's not already in the result
         for (const part of parts) {

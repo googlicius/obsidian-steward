@@ -56,6 +56,14 @@ const vi = {
       newVersionAvailable: 'Phiên bản mới có sẵn',
       newVersionMessage: 'Phiên bản mới của Steward ({{version}}) hiện đã có sẵn!',
     },
+    vault: {
+      fileAlreadyInDestination: 'Tập tin đã có trong thư mục đích',
+      itemNotFound: 'Không tìm thấy mục',
+      wikilinkNoteNotFound:
+        'Không thể giải quyết wikilink [[{{wikilink}}]]: Không tìm thấy ghi chú "{{notePath}}"',
+      wikilinkHeadingNotFound:
+        'Không thể giải quyết wikilink [[{{wikilink}}]]: Không tìm thấy tiêu đề "{{headingName}}" trong ghi chú "{{notePath}}"',
+    },
     // Move result messages
     move: {
       noSearchResultsFoundAbortMove: 'Không tìm thấy kết quả tìm kiếm. Hủy thao tác di chuyển.',
@@ -384,12 +392,34 @@ const vi = {
       voiceId: 'ID giọng nói',
       voiceIdDesc: 'Nhập ID giọng nói cho mô hình đã chọn',
       searchSettings: 'Tìm kiếm',
-      withoutLLM: 'Tùy chọn khớp tìm kiếm',
-      withoutLLMDesc: 'Chế độ tìm kiếm khi truy vấn được bao trong dấu ngoặc kép',
+      searchMatchingPreference: 'Tùy chọn khớp tìm kiếm',
+      searchMatchingPreferenceDesc:
+        'Khớp điểm liên quan: Sử dụng thuật toán BM25 để xếp hạng kết quả theo độ liên quan. Khớp chính xác: Chỉ khớp các từ khóa truy vấn chính xác khi truy vấn được bao trong dấu ngoặc kép hoặc chỉ bao gồm các thẻ.',
       exactMatch: 'Khớp chính xác',
       relevantScoring: 'Khớp điểm liên quan',
       resultsPerPage: 'Kết quả mỗi trang',
       resultsPerPageDesc: 'Số lượng kết quả tìm kiếm hiển thị mỗi trang',
+      maxCoverageBonus: 'Điểm bonus coverage tối đa',
+      maxCoverageBonusDesc:
+        'Điểm bonus coverage tối đa cho tài liệu khớp nhiều từ khóa truy vấn (0-2). Giá trị cao hơn bonus tài liệu khớp nhiều từ hơn.',
+      filenameMatchBoost: 'Tăng điểm khớp tên tệp',
+      filenameMatchBoostDesc:
+        'Hệ số tăng điểm cho các từ khóa tìm thấy trong tên tệp (1-5). Giá trị cao hơn tăng tầm quan trọng của khớp tên tệp.',
+      filenameBonus: 'Điểm bonus tên tệp',
+      filenameBonusDesc:
+        'Điểm bonus cố định cho tài liệu có bất kỳ từ khóa nào khớp trong tên tệp (0-2).',
+      maxProximityBonus: 'Điểm bonus proximity tối đa',
+      maxProximityBonusDesc:
+        'Điểm bonus proximity khi các từ khóa truy vấn xuất hiện gần nhau (0-10). Giá trị cao hơn bonus tài liệu có các từ gần nhau.',
+      proximityThreshold: 'Ngưỡng proximity',
+      proximityThresholdDesc:
+        'Khoảng cách tối đa (theo token) giữa các từ khóa truy vấn để được coi là gần nhau (1-100).',
+      bm25K1: 'Tham số BM25 k1',
+      bm25K1Desc:
+        'Điều khiển độ bão hòa tần suất từ (0.5-3). Giá trị cao hơn làm tần suất từ quan trọng hơn. Phạm vi điển hình: 1.2-2.0.',
+      bm25B: 'Tham số BM25 b',
+      bm25BDesc:
+        'Điều khiển chuẩn hóa độ dài tài liệu (0-1). 0 = không chuẩn hóa, 1 = chuẩn hóa đầy đủ. Giá trị điển hình: 0.75.',
       deleteBehavior: 'Hành động xóa',
       deleteBehaviorDesc:
         'Cách xử lý việc xóa tập tin. Khuyến nghị: Sử dụng Steward/Trash để có thể hoàn tác việc xóa',

@@ -945,8 +945,6 @@ export class UserDefinedCommandService {
       return systemPrompts;
     }
 
-    const stewardFolder = this.plugin.settings.stewardFolder;
-
     const processedPrompts = await Promise.all(
       systemPrompts.map(prompt =>
         this.plugin.noteContentService.processWikilinksInContent(prompt, 2)
@@ -954,6 +952,8 @@ export class UserDefinedCommandService {
     );
 
     // Replace $steward placeholder in resolved content
-    return processedPrompts.map(prompt => prompt.replace(/\$steward/g, stewardFolder));
+    return processedPrompts.map(prompt =>
+      prompt.replace(/\$steward/g, this.plugin.settings.stewardFolder)
+    );
   }
 }

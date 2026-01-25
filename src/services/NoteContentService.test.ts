@@ -555,6 +555,54 @@ Content from another linked note. With [[YetAnotherNote]].`);
       expect(mockPlugin.app.vault.cachedRead).toHaveBeenCalledWith(mockFile);
       expect(result).toBe('Content from the linked note.');
     });
+
+    it('should throw error if wikilink note is not found', async () => {
+      // Setup
+      const content = 'This is some content with a wikilink [[NonExistentNote]] and more text.';
+
+      // Mock the app method to return null (note not found)
+      mockPlugin.app.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(null);
+
+      // Execute and verify
+      await expect(noteContentService.processWikilinksInContent(content)).rejects.toThrow(
+        'translated_vault.wikilinkNoteNotFound'
+      );
+
+      // Verify the method was called with correct parameters
+      expect(mockPlugin.app.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith(
+        'NonExistentNote',
+        ''
+      );
+    });
+
+    it('should throw error if wikilink heading is not found', async () => {
+      // Setup
+      const content =
+        'This is some content with a wikilink [[TestNote#NonExistentHeading]] and more text.';
+      const linkedContent = `# Main Title
+
+Some content here.
+
+## Another Heading
+
+More content.`;
+
+      // Mock the app methods
+      mockPlugin.app.metadataCache.getFirstLinkpathDest = jest.fn().mockReturnValue(mockFile);
+      mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue(linkedContent);
+
+      // Execute and verify
+      await expect(noteContentService.processWikilinksInContent(content)).rejects.toThrow(
+        'translated_vault.wikilinkHeadingNotFound'
+      );
+
+      // Verify the methods were called
+      expect(mockPlugin.app.metadataCache.getFirstLinkpathDest).toHaveBeenCalledWith(
+        'TestNote',
+        ''
+      );
+      expect(mockPlugin.app.vault.cachedRead).toHaveBeenCalledWith(mockFile);
+    });
   });
 
   describe('addColumnToTable', () => {

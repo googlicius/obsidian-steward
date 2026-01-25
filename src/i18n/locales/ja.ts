@@ -57,6 +57,14 @@ const ja = {
       newVersionAvailable: '新しいバージョンが利用可能',
       newVersionMessage: 'Stewardの新しいバージョン（{{version}}）が利用可能になりました！',
     },
+    vault: {
+      fileAlreadyInDestination: 'ファイルはすでに移動先に存在します',
+      itemNotFound: 'アイテムが見つかりません',
+      wikilinkNoteNotFound:
+        'ウィキリンク [[{{wikilink}}]] を解決できません: ノート "{{notePath}}" が見つかりません',
+      wikilinkHeadingNotFound:
+        'ウィキリンク [[{{wikilink}}]] を解決できません: ノート "{{notePath}}" に見出し "{{headingName}}" が見つかりません',
+    },
     // Move result messages
     move: {
       noSearchResultsFoundAbortMove: '検索結果が見つかりませんでした。移動コマンドを中止します。',
