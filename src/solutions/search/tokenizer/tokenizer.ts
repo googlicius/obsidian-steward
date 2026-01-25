@@ -333,11 +333,6 @@ export class Tokenizer {
       }
     }
 
-    console.log('tokenizer', {
-      tokens,
-      content,
-    })
-
     return tokens;
   }
 

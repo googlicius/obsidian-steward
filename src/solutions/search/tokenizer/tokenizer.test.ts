@@ -21,22 +21,22 @@ describe('Tokenizer', () => {
 
       expect(tokens).toMatchObject([
         {
-          "term": "His",
+          term: 'His',
         },
         {
-          "term": "name",
+          term: 'name',
         },
         {
-          "term": "_Lionel",
+          term: '_Lionel',
         },
         {
-          "term": "Messi_",
+          term: 'Messi_',
         },
         {
-          "term": "Lionel",
+          term: 'Lionel',
         },
         {
-          "term": "Messi",
+          term: 'Messi',
         },
       ]);
     });
@@ -50,25 +50,25 @@ describe('Tokenizer', () => {
 
       expect(tokens).toMatchObject([
         {
-          "term": "const",
+          term: 'const',
         },
         {
-          "term": "name",
+          term: 'name',
         },
         {
-          "term": "=",
+          term: '=',
         },
         {
-          "term": "'Lionel",
+          term: "'Lionel",
         },
         {
-          "term": "Messi'",
+          term: "Messi'",
         },
         {
-          "term": "Lionel",
+          term: 'Lionel',
         },
         {
-          "term": "Messi",
+          term: 'Messi',
         },
       ]);
     });
@@ -82,13 +82,13 @@ describe('Tokenizer', () => {
 
       expect(tokens).toMatchObject([
         {
-          "term": "don't",
+          term: "don't",
         },
         {
-          "term": "won't",
+          term: "won't",
         },
         {
-          "term": "it's",
+          term: "it's",
         },
       ]);
     });
