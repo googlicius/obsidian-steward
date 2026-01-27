@@ -286,8 +286,8 @@ export const DOCS_FOLDER_NAME = 'Docs';
 
 // Documentation files available for lazy loading from GitHub
 export const DOCUMENTATION_FILES = {
-  SEARCH_GUIDELINE: 'Search guideline',
-  USER_DEFINED_COMMAND_GUIDELINE: 'User-defined command guideline',
+  SEARCH_GUIDELINE: 'Search guideline v2',
+  USER_DEFINED_COMMAND_GUIDELINE: 'User-defined command guideline v2',
 } as const;
 
 // Community user-defined commands available for lazy loading from GitHub

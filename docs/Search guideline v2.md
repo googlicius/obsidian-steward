@@ -1,7 +1,7 @@
 This guideline shows you how to build search index and search with two modes.
 
 > [!NOTE] Search document
-> For technical details on tokenization, BM25 scoring, and configuration, see: [Steward search](obsidian://steward-resource?type=doc&name=Steward%20search%20system)
+> For technical details on tokenization, BM25 scoring, and configuration, see: [Steward search](obsidian://steward-resource?type=doc&name=Steward%20search%20system%20v2)
 
 ## Before you start
 
