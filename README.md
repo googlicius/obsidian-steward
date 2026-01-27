@@ -237,10 +237,6 @@ Guidelines and community User-defined commands can be downloaded directly from t
 
 ### User-defined command showcases
 
-#### User-defined command creation with LLM helps:
-
-<img src="/docs/User-Defined-command-creation.gif" alt="User-Defined command creation" width="650px">
-
 #### Flashcard assist:
 
 <img src="/docs/Flashcard-Assist-command.gif" alt="Flashcard Assist" width="650px">

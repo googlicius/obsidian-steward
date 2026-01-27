@@ -265,10 +265,6 @@ Hướng dẫn và lệnh-do-người-dùng-định-nghĩa từ cộng đồng c
 
 ### Trình diễn lệnh-do-người-dùng-định-nghĩa
 
-#### Tạo lệnh-do-người-dùng-định-nghĩa với sự hỗ trợ của LLM:
-
-<img src="/docs/User-Defined-command-creation.gif" alt="Tạo lệnh-do-người-dùng-định-nghĩa" width="650px">
-
 #### Hỗ trợ flashcard:
 
 <img src="/docs/Flashcard-Assist-command.gif" alt="Hỗ trợ Flashcard" width="650px">
