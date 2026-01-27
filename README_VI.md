@@ -308,13 +308,6 @@ Steward/
 2. Kích hoạt plugin trong cài đặt Obsidian của bạn
 3. Cấu hình API key trong cài đặt plugin
 
-### Sử dụng BRAT (Beta Reviewer's Auto-update Tool)
-
-1. Cài đặt [BRAT](https://github.com/TfTHacker/obsidian42-brat) từ Obsidian Community Plugins
-2. Mở cài đặt BRAT và thêm beta plugin: `googlicius/obsidian-steward`
-3. Kích hoạt plugin trong cài đặt Obsidian của bạn
-4. Cấu hình API key trong cài đặt plugin
-
 ### Cài đặt thủ công
 
 1. Tải phiên bản mới nhất từ [trang releases](https://github.com/googlicius/obsidian-steward/releases)
@@ -356,8 +349,6 @@ Bạn có thể đóng góp Lệnh-do-người-dùng-định-nghĩa (UDC) của 
    - Cách sử dụng
    - Bất kỳ điều kiện tiên quyết hoặc dependencies nào
    - Các kịch bản sử dụng ví dụ
-
-Xem các lệnh hiện có trong thư mục `community-UDCs` như `flashcard-ask.md` để tham khảo.
 
 ## Giấy phép
 

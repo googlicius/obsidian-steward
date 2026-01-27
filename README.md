@@ -280,13 +280,6 @@ Steward/
 2. Enable the plugin in your Obsidian settings
 3. Configure your API keys in the plugin settings
 
-### Using BRAT (Beta Reviewer's Auto-update Tool)
-
-1. Install [BRAT](https://github.com/TfTHacker/obsidian42-brat) from the Obsidian Community Plugins
-2. Open BRAT settings and add the beta plugin: `googlicius/obsidian-steward`
-3. Enable the plugin in your Obsidian settings
-4. Configure your API keys in the plugin settings
-
 ### Manual installation
 
 1. Download the latest release from the [releases page](https://github.com/googlicius/obsidian-steward/releases)
@@ -328,8 +321,6 @@ You can contribute your User-Defined Commands (UDCs) to help the community:
    - How to use it
    - Any prerequisites or dependencies
    - Example usage scenarios
-
-Check out existing commands in the `community-UDCs` folder like `flashcard-ask.md` for reference.
 
 ## License
 
