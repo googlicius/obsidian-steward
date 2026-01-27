@@ -5,6 +5,7 @@
 
 // Import selected example UDC definitions
 import askDefinition from '../../community-UDCs/ask.md';
+import planDefinition from '../../community-UDCs/Plan.md';
 import cleanUpDefinition from '../../community-UDCs/Clean up.md';
 
 export interface ExampleUDC {
@@ -18,6 +19,7 @@ export interface ExampleUDC {
  */
 export const EXAMPLE_UDCS: ExampleUDC[] = [
   { name: 'Ask', definition: askDefinition },
+  { name: 'Plan', definition: planDefinition },
   // Add more example UDCs here:
   { name: 'Clean up', definition: cleanUpDefinition },
   // { name: formatName('word-processor'), definition: wordProcessorDefinition },

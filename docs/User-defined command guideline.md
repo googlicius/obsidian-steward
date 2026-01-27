@@ -142,6 +142,7 @@ Try these ready-to-use commands from the community. Click any link to fetch and 
 > [!INFO] Example commands
 >
 > [Ask](obsidian://steward-resource?type=command&name=ask) - A command that helps with general questions
+> [Plan](obsidian://steward-resource?type=command&name=Plan) - Create a detailed plan (to-do list) and ask for user confirmation before executing
 > [Clean up](obsidian://steward-resource?type=command&name=Clean%20up) - Clean up conversation notes in the Steward/Conversations folder (_This is an example of a multiple-step command_)
 > [Flashcard ask](obsidian://steward-resource?type=command&name=Flashcard%20ask) - Help with tasks from the flashcard above the cursor
 > [Word processor](obsidian://steward-resource?type=command&name=Word%20processor) - Process newly added English words or phrases. (_This is an example of an automated command_)

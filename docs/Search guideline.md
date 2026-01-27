@@ -27,9 +27,9 @@ This searches for either exact matches or relevant results based on what you typ
 
 Type `/search` followed by your query in natural language:
 
-/search notes about project planning
+/search Note names start with "2026"
 
-/search meeting notes from last week
+/search All PDF files in the Media folder
 
 Steward breaks your query into keywords, file names, folders, tags, and frontmatter properties to find relevant notes.
 

@@ -13,6 +13,7 @@ import { WIKI_LINK_PATTERN } from 'src/constants';
 // Version 2 only fields
 const system_prompt = z.array(z.string()).optional();
 const use_tool = z.boolean().optional();
+const show_todo_list = z.boolean().optional();
 
 /**
  * Transform heading-only wikilinks ([[#Heading]]) to include the file path
@@ -51,6 +52,7 @@ export const userDefinedCommandV2Schema = z.object({
   model,
   system_prompt,
   use_tool,
+  show_todo_list,
   triggers: z.array(triggerConditionSchema).optional(),
 });
 
@@ -89,6 +91,7 @@ export class UserDefinedCommandV2 implements IVersionedUserDefinedCommand {
       model: this.data.model,
       system_prompt: transformedSystemPrompt,
       use_tool: this.data.use_tool,
+      show_todo_list: this.data.show_todo_list,
       triggers: this.data.triggers,
     };
   }

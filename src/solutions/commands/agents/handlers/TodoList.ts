@@ -199,14 +199,18 @@ export class TodoList {
         },
       ]);
 
-      // Check if this is a UDC command - skip UI rendering for UDC
+      // Check if this is a UDC command - skip UI rendering for UDC unless show_todo_list is true
       const udcCommand = await this.agent.renderer.getConversationProperty<string>(
         title,
         'udc_command'
       );
+      const showTodoList = await this.agent.renderer.getConversationProperty<boolean>(
+        title,
+        'show_todo_list'
+      );
 
-      // Only render UI if not a UDC command
-      if (!udcCommand) {
+      // Render UI if not a UDC command, or if show_todo_list is explicitly set to true
+      if (!udcCommand || showTodoList) {
         await this.agent.renderer.updateConversationNote({
           path: title,
           newContent: this.formatTodoList(newState, lang),
@@ -320,14 +324,18 @@ export class TodoList {
         },
       ]);
 
-      // Check if this is a UDC command - skip UI rendering for UDC
+      // Check if this is a UDC command - skip UI rendering for UDC unless show_todo_list is true
       const udcCommand = await this.agent.renderer.getConversationProperty<string>(
         title,
         'udc_command'
       );
+      const showTodoList = await this.agent.renderer.getConversationProperty<boolean>(
+        title,
+        'show_todo_list'
+      );
 
-      // Only render UI if not a UDC command
-      if (!udcCommand) {
+      // Render UI if not a UDC command, or if show_todo_list is explicitly set to true
+      if (!udcCommand || showTodoList) {
         // Format and render the to-do list (not in history)
         const formattedList = this.formatTodoList(newState, lang);
 

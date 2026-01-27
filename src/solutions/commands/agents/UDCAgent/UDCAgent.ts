@@ -58,12 +58,17 @@ export class UDCAgent extends Agent {
 
       const command = this.plugin.userDefinedCommandService.userDefinedCommands.get(intent.type);
       const useTool = command?.getVersion() === 2 ? command.normalized.use_tool : undefined;
+      const showTodoList = command?.getVersion() === 2 ? command.normalized.show_todo_list : undefined;
       const frontmatterUpdates: Array<{ name: string; value: string | boolean }> = [
         { name: 'udc_command', value: intent.type },
       ];
 
       if (useTool !== undefined) {
         frontmatterUpdates.push({ name: 'use_tool', value: useTool });
+      }
+
+      if (showTodoList !== undefined) {
+        frontmatterUpdates.push({ name: 'show_todo_list', value: showTodoList });
       }
 
       await this.renderer.updateConversationFrontmatter(title, frontmatterUpdates);

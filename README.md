@@ -2,7 +2,9 @@
 
 [![Build and Test](https://github.com/googlicius/obsidian-steward/actions/workflows/ci.yml/badge.svg)](https://github.com/googlicius/obsidian-steward/actions/workflows/ci.yml)
 
-Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It provides commands like `search`, `vault`, `create`, etc, as building blocks, allowing you to create your own sophisticated commands and automation workflows to automate your boring and repetitive tasks.
+English | [Tiếng Việt](README_VI.md)
+
+Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It offers very fast search, seamless vault management, and powerful automation capabilities. Designed with simplicity and an immersive AI experience in mind, Steward lets you create your own sophisticated commands and workflows to automate your boring and repetitive tasks.
 
 ## Features
 
@@ -346,7 +348,7 @@ You can contribute your User-Defined Commands (UDCs) to help the community:
    - Any prerequisites or dependencies
    - Example usage scenarios
 
-Check out existing commands in the `community-UDCs` folder like `flashcard-assist.md` for reference.
+Check out existing commands in the `community-UDCs` folder like `flashcard-ask.md` for reference.
 
 ## License
 

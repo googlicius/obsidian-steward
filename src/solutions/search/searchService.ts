@@ -52,6 +52,7 @@ export class SearchService {
     this.contentTokenizer = new Tokenizer({
       normalizers: [
         'removeHtmlComments',
+        'splitCamelCase',
         'lowercase',
         'removeSpecialChars',
         'removeDiacritics',
@@ -62,7 +63,7 @@ export class SearchService {
     });
 
     this.nameTokenizer = new Tokenizer({
-      normalizers: ['lowercase', 'removeSpecialChars', 'removeDiacritics'],
+      normalizers: ['splitCamelCase', 'lowercase', 'removeSpecialChars', 'removeDiacritics'],
       analyzers: ['wordDelimiter', 'stemmer'],
     });
 
