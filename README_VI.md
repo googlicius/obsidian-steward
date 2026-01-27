@@ -273,9 +273,22 @@ Hướng dẫn và lệnh-do-người-dùng-định-nghĩa từ cộng đồng c
 
 <img src="/docs/Flashcard-Assist-command.gif" alt="Hỗ trợ Flashcard" width="650px">
 
-#### Lệnh tự động
+#### Lệnh tự động [Word processor](/community-UDCs/Word%20processor.md)
 
-<img src="/docs/Steward-Demo-Auto-trigger.gif" alt="Hỗ trợ Flashcard" width="650px">
+<img src="/docs/Steward-Demo-Automated.gif" alt="Hỗ trợ Flashcard" width="650px">
+
+### Lệnh-do-người-dùng-định-nghĩa từ cộng đồng
+
+Thư mục [community-UDCs](/community-UDCs/) chứa các lệnh-do-người-dùng-định-nghĩa được đóng góp bởi cộng đồng. Các lệnh này thể hiện tính linh hoạt của lệnh-do-người-dùng-định-nghĩa, cho phép bạn tạo các chế độ tương tác tùy chỉnh phù hợp với nhu cầu của bạn.
+
+Các lệnh có sẵn:
+
+- [Ask](/community-UDCs/ask.md) - Đặt câu hỏi mà không thay đổi vault của bạn
+- [Plan](/community-UDCs/Plan.md) - Lên kế hoạch và phác thảo tác vụ trước khi thực thi
+- [Clean up](/community-UDCs/Clean%20up.md) - Dọn dẹp vault bằng cách xóa các ghi chú không mong muốn
+- [Word processor](/community-UDCs/Word%20processor.md) - Xử lý và định dạng văn bản trong ghi chú của bạn
+
+Hãy sử dụng các lệnh này làm nguồn cảm hứng để tạo lệnh riêng của bạn!
 
 ## Cấu trúc thư mục
 
