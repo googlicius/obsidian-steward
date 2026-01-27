@@ -2,7 +2,7 @@
 
 [![Build and Test](https://github.com/googlicius/obsidian-steward/actions/workflows/ci.yml/badge.svg)](https://github.com/googlicius/obsidian-steward/actions/workflows/ci.yml)
 
- [English](README.md) | Tiếng Việt
+[English](README.md) | Tiếng Việt
 
 Steward là một plugin sử dụng Mô hình Ngôn ngữ Lớn (LLM) để tương tác với Obsidian Vault của bạn. Plugin cung cấp khả năng tìm kiếm cực nhanh, quản lý vault liền mạch và tự động hóa mạnh mẽ. Được thiết kế với sự đơn giản và trải nghiệm AI sống động, Steward cho phép bạn tạo các lệnh và quy trình làm việc tinh vi để tự động hóa các tác vụ nhàm chán và lặp đi lặp lại.
 

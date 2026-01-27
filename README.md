@@ -4,8 +4,6 @@
 
 English | [Tiếng Việt](README_VI.md)
 
-[Word processor](/community-UDCs/Word%20processor.md)
-
 Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It offers very fast search, seamless vault management, and powerful automation capabilities. Designed with simplicity and an immersive AI experience in mind, Steward lets you create your own sophisticated commands and workflows to automate your boring and repetitive tasks.
 
 ## Features
