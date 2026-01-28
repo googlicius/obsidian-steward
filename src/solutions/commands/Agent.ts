@@ -69,8 +69,6 @@ export abstract class Agent {
       );
       params.intent.systemPrompts = await this.loadSystemPrompts(params);
 
-      console.log('systemPrompts', params.intent.systemPrompts);
-
       // Call the original handle method
       const result = await this.handle(params, ...args);
 
