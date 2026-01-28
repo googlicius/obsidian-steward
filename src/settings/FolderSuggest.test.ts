@@ -63,8 +63,6 @@ describe('FolderSuggest', () => {
 
       const result = folderSuggest.getSuggestions('');
 
-      console.log('result', result);
-
       expect(result).toEqual([folder1, folder2]);
       expect(result).not.toContain(subfolder);
     });

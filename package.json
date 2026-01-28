@@ -1,6 +1,6 @@
 {
   "name": "obsidian-steward",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "This is a sample plugin for Obsidian (https://obsidian.md)",
   "main": "main.js",
   "scripts": {

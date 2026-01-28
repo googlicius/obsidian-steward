@@ -34,6 +34,7 @@ export interface NormalizedUserDefinedCommand {
   system_prompt?: string[];
   triggers?: TriggerCondition[];
   use_tool?: boolean;
+  show_todo_list?: boolean;
 }
 
 /**

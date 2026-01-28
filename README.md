@@ -2,7 +2,9 @@
 
 [![Build and Test](https://github.com/googlicius/obsidian-steward/actions/workflows/ci.yml/badge.svg)](https://github.com/googlicius/obsidian-steward/actions/workflows/ci.yml)
 
-Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It provides commands like `search`, `vault`, `create`, etc, as building blocks, allowing you to create your own sophisticated commands and automation workflows to automate your boring and repetitive tasks.
+English | [Tiếng Việt](README_VI.md)
+
+Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It offers very fast search, seamless vault management, and powerful automation capabilities. Designed with simplicity and an immersive AI experience in mind, Steward lets you create your own sophisticated commands and workflows to automate your boring and repetitive tasks.
 
 ## Features
 
@@ -218,37 +220,9 @@ steps:
 
 When a command is triggered, you can use these placeholders:
 
-- `$file_name`: The name of the note that triggered the command
-
-#### Practical examples
-
-**Tag-based workflow:**
-
-```yaml
-triggers:
-  - events: [modify]
-    patterns:
-      tags: '#flashcard-gen'
-```
-
-**Property-Based workflow:**
-
-```yaml
-triggers:
-  - events: [modify]
-    patterns:
-      status: 'draft'
-      type: 'article'
-```
-
-**Content pattern matching:**
-
-```yaml
-triggers:
-  - events: [modify]
-    patterns:
-      content: '\\[ \\]|TODO:|FIXME:'
-```
+- `$file_name` - The file name that triggered a command.
+- `$from_user` - User input.
+- `$steward` - Steward folder.
 
 #### How triggers work
 
@@ -263,17 +237,26 @@ Guidelines and community User-defined commands can be downloaded directly from t
 
 ### User-defined command showcases
 
-#### User-defined command creation with LLM helps:
-
-<img src="/docs/User-Defined-command-creation.gif" alt="User-Defined command creation" width="650px">
-
 #### Flashcard assist:
 
 <img src="/docs/Flashcard-Assist-command.gif" alt="Flashcard Assist" width="650px">
 
-#### Automated command
+#### Automated command [Word processor](/community-UDCs/Word%20processor.md)
 
-<img src="/docs/Steward-Demo-Auto-trigger.gif" alt="Flashcard Assist" width="650px">
+<img src="/docs/Steward-Demo-Automated.gif" alt="Flashcard Assist" width="650px">
+
+### Community user-defined commands
+
+The [community-UDCs](/community-UDCs/) folder contains user-defined commands contributed by the community. These commands showcase the flexibility of user-defined commands, allowing you to create custom interaction modes tailored to your needs.
+
+Example commands:
+
+- [Ask](/community-UDCs/ask.md) - Ask questions without making changes to your vault
+- [Plan](/community-UDCs/Plan.md) - Plan and outline tasks before execution
+- [Clean up](/community-UDCs/Clean%20up.md) - Clean up your vault by removing unwanted notes
+- [Word processor](/community-UDCs/Word%20processor.md) - Process and format text in your notes
+
+Feel free to use these as inspiration for creating your own commands!
 
 ## Folder structure
 
@@ -296,13 +279,6 @@ Steward/
 1. Download the plugin from the Obsidian Community Plugins browser
 2. Enable the plugin in your Obsidian settings
 3. Configure your API keys in the plugin settings
-
-### Using BRAT (Beta Reviewer's Auto-update Tool)
-
-1. Install [BRAT](https://github.com/TfTHacker/obsidian42-brat) from the Obsidian Community Plugins
-2. Open BRAT settings and add the beta plugin: `googlicius/obsidian-steward`
-3. Enable the plugin in your Obsidian settings
-4. Configure your API keys in the plugin settings
 
 ### Manual installation
 
@@ -345,8 +321,6 @@ You can contribute your User-Defined Commands (UDCs) to help the community:
    - How to use it
    - Any prerequisites or dependencies
    - Example usage scenarios
-
-Check out existing commands in the `community-UDCs` folder like `flashcard-assist.md` for reference.
 
 ## License
 

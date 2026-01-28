@@ -667,5 +667,45 @@ translated_search.found
 >I ==walked in the park== yesterday.
 `);
     });
+
+    it('should highlight entire camelCase word when matching partial terms', async () => {
+      jest
+        .spyOn(mockPlugin.app.vault, 'cachedRead')
+        .mockResolvedValue('Check the MeetingNotes for details.');
+
+      paginatedSearchResult.conditionResults[0].keywordsMatched = ['meeting'];
+
+      const result = await formatSearchResults({
+        paginatedSearchResult,
+      });
+
+      expect(result).toEqual(`translated_search.found
+
+**1.** [[Test Note.md]]
+
+>[!stw-search-result] line:1,start:10,end:22,path:Test Note.md
+>Check the ==MeetingNotes== for details.
+`);
+    });
+
+    it('should highlight camelCase word with diacritics when searching without accents', async () => {
+      jest
+        .spyOn(mockPlugin.app.vault, 'cachedRead')
+        .mockResolvedValue('Visit the CaféMenu for options.');
+
+      paginatedSearchResult.conditionResults[0].keywordsMatched = ['cafe menu'];
+
+      const result = await formatSearchResults({
+        paginatedSearchResult,
+      });
+
+      expect(result).toEqual(`translated_search.found
+
+**1.** [[Test Note.md]]
+
+>[!stw-search-result] line:1,start:10,end:18,path:Test Note.md
+>Visit the ==CaféMenu== for options.
+`);
+    });
   });
 });

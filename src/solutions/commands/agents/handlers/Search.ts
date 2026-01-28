@@ -9,6 +9,7 @@ import { PaginatedSearchResult } from 'src/solutions/search/types';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 import { STOPWORDS } from 'src/solutions/search';
 import { stemmer } from 'src/solutions/search/tokenizer/stemmer';
+import { splitCamelCase, removeDiacritics } from 'src/solutions/search/tokenizer/tokenizer';
 import { z } from 'zod/v3';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
@@ -572,35 +573,53 @@ export class Search {
   }
 
   /**
-   * Builds a mapping from stemmed terms to their original forms found in the content.
-   * This enables highlighting of original word forms that stem to the same root.
+   * Builds mappings for content highlighting:
+   * - stemmingMap: stemmed term -> [normalized terms] (for matching stemmed forms)
+   * - termToWordMap: normalizedTerm -> [original unsplit words] (for highlighting whole camelCase words)
    */
-  private buildContentStemmingMap(content: string): Map<string, string[]> {
-    const contentMap = new Map<string, string[]>();
+  private buildContentTermMap(content: string): {
+    stemmingMap: Map<string, string[]>;
+    termToWordMap: Map<string, string[]>;
+  } {
+    const stemmingMap = new Map<string, string[]>();
+    const termToWordMap = new Map<string, string[]>();
 
-    // Create a tokenizer without stemming to get original terms
-    const originalTokenizer = this.agent.plugin.searchService.contentTokenizer.withConfig({
-      analyzers: [],
-    });
+    // Extract words from content (before any normalization)
+    const words = content.match(/[\p{L}\p{N}]+/gu) || [];
 
-    // Tokenize content to get original terms
-    const originalTokens = originalTokenizer.tokenize(content);
+    for (const word of words) {
+      // Apply camelCase split + lowercase + diacritic removal to get normalized terms
+      const splitWord = splitCamelCase(word);
+      const terms = splitWord.toLowerCase().split(/\s+/).filter(Boolean);
 
-    // Build mapping: stemmed term -> [original forms that exist in content]
-    for (const token of originalTokens) {
-      const stemmedForm = stemmer(token.term);
+      for (const term of terms) {
+        // Normalize term by removing diacritics for map key
+        const normalizedTerm = removeDiacritics(term);
 
-      if (!contentMap.has(stemmedForm)) {
-        contentMap.set(stemmedForm, []);
-      }
+        // Build termToWordMap: normalizedTerm -> original unsplit words
+        let wordList = termToWordMap.get(normalizedTerm);
+        if (!wordList) {
+          wordList = [];
+          termToWordMap.set(normalizedTerm, wordList);
+        }
+        if (!wordList.includes(word)) {
+          wordList.push(word);
+        }
 
-      const originals = contentMap.get(stemmedForm);
-      if (originals && !originals.includes(token.term)) {
-        originals.push(token.term);
+        // Build stemmingMap: stemmed -> normalized terms
+        const stemmedForm = stemmer(normalizedTerm);
+        let originals = stemmingMap.get(stemmedForm);
+        if (!originals) {
+          originals = [];
+          stemmingMap.set(stemmedForm, originals);
+        }
+        if (!originals.includes(normalizedTerm)) {
+          originals.push(normalizedTerm);
+        }
       }
     }
 
-    return contentMap;
+    return { stemmingMap, termToWordMap };
   }
 
   private highlightKeyword(
@@ -623,26 +642,40 @@ export class Search {
       }
       return acc;
     }, []);
-    const originalKeywordTerms: string[] = [];
-    const contentStemmingMap = this.buildContentStemmingMap(content);
-    // Collect original terms from the stemmed keyword terms
+    const { stemmingMap, termToWordMap } = this.buildContentTermMap(content);
+
+    // Collect original words that should be highlighted
+    const wordsToHighlight = new Set<string>();
     for (const term of stemmedKeywordTerms) {
-      if (contentStemmingMap.has(term)) {
-        originalKeywordTerms.push(...(contentStemmingMap.get(term) as string[]));
+      // Check termToWordMap for direct term matches
+      const directWords = termToWordMap.get(term);
+      if (directWords) {
+        directWords.forEach(w => wordsToHighlight.add(w));
+      }
+
+      // Check stemmingMap for stemmed matches, then find their original words
+      const origTerms = stemmingMap.get(term);
+      if (origTerms) {
+        for (const origTerm of origTerms) {
+          const words = termToWordMap.get(origTerm);
+          if (words) {
+            words.forEach(w => wordsToHighlight.add(w));
+          }
+        }
       }
     }
-    const termsPattern = [...new Set([...stemmedKeywordTerms, ...originalKeywordTerms])].join('|');
+
+    // Escape special regex characters in words
+    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // Build pattern from original words (case-insensitive matching)
+    const wordsPattern = [...wordsToHighlight].map(w => escapeRegex(w)).join('|');
     const tagTermsPattern = tagTerms.join('|');
     const lines = content.split('\n');
     const results: HighlighKeywordResult[] = [];
 
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
       const lineText = lines[lineIndex];
-      const normalizedLineText = lineText
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove combining diacritical marks
-        .normalize('NFC');
 
       if (!lineText.trim()) {
         continue;
@@ -657,20 +690,32 @@ export class Search {
       const linkPathPositions: { start: number; end: number }[] = [];
       let linkMatch: RegExpExecArray | null;
 
-      // Find all markdown link path positions
-      while ((linkMatch = markdownLinkPathRegex.exec(normalizedLineText)) !== null) {
+      // Find all markdown link path positions (using original lineText since we're matching against it)
+      while ((linkMatch = markdownLinkPathRegex.exec(lineText)) !== null) {
         linkPathPositions.push({
           start: linkMatch.index + 2, // Start after "]("
           end: linkMatch.index + linkMatch[0].length - 1, // End before ")"
         });
       }
 
+      // Skip if no words to highlight
+      if (!wordsPattern && !tagTermsPattern) {
+        continue;
+      }
+
       const regex = tagTermsPattern
-        ? new RegExp(`${tagTermsPattern}|\\b(${termsPattern})\\b`, 'gi')
-        : new RegExp(`\\b(${termsPattern})\\b`, 'gi');
+        ? new RegExp(`${tagTermsPattern}|\\b(${wordsPattern})\\b`, 'gi')
+        : wordsPattern
+          ? new RegExp(`\\b(${wordsPattern})\\b`, 'gi')
+          : null;
+
+      if (!regex) {
+        continue;
+      }
+
       let match: RegExpExecArray | null;
 
-      while ((match = regex.exec(normalizedLineText)) !== null) {
+      while ((match = regex.exec(lineText)) !== null) {
         const start = match.index;
         const end = match.index + match[0].length;
 
@@ -685,14 +730,14 @@ export class Search {
         }
 
         lineResults.push({
-          // Get term from the lineText not from the normalized or match[0]
-          term: lineText.slice(start, end),
+          term: match[0],
           start,
           end,
           match: match[0],
         });
 
-        if (!STOPWORDS.has(match[0])) {
+        // Check stopwords using lowercase version
+        if (!STOPWORDS.has(match[0].toLowerCase())) {
           containStopwordsOnly = false;
         }
       }
