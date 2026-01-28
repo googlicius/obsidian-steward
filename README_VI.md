@@ -2,7 +2,7 @@
 
 [![Build and Test](https://github.com/googlicius/obsidian-steward/actions/workflows/ci.yml/badge.svg)](https://github.com/googlicius/obsidian-steward/actions/workflows/ci.yml)
 
- [English](README.md) | Tiếng Việt
+[English](README.md) | Tiếng Việt
 
 Steward là một plugin sử dụng Mô hình Ngôn ngữ Lớn (LLM) để tương tác với Obsidian Vault của bạn. Plugin cung cấp khả năng tìm kiếm cực nhanh, quản lý vault liền mạch và tự động hóa mạnh mẽ. Được thiết kế với sự đơn giản và trải nghiệm AI sống động, Steward cho phép bạn tạo các lệnh và quy trình làm việc tinh vi để tự động hóa các tác vụ nhàm chán và lặp đi lặp lại.
 
@@ -265,17 +265,26 @@ Hướng dẫn và lệnh-do-người-dùng-định-nghĩa từ cộng đồng c
 
 ### Trình diễn lệnh-do-người-dùng-định-nghĩa
 
-#### Tạo lệnh-do-người-dùng-định-nghĩa với sự hỗ trợ của LLM:
-
-<img src="/docs/User-Defined-command-creation.gif" alt="Tạo lệnh-do-người-dùng-định-nghĩa" width="650px">
-
 #### Hỗ trợ flashcard:
 
 <img src="/docs/Flashcard-Assist-command.gif" alt="Hỗ trợ Flashcard" width="650px">
 
-#### Lệnh tự động
+#### Lệnh tự động [Word processor](/community-UDCs/Word%20processor.md)
 
-<img src="/docs/Steward-Demo-Auto-trigger.gif" alt="Hỗ trợ Flashcard" width="650px">
+<img src="/docs/Steward-Demo-Automated.gif" alt="Hỗ trợ Flashcard" width="650px">
+
+### Lệnh-do-người-dùng-định-nghĩa từ cộng đồng
+
+Thư mục [community-UDCs](/community-UDCs/) chứa các lệnh-do-người-dùng-định-nghĩa được đóng góp bởi cộng đồng. Các lệnh này thể hiện tính linh hoạt của lệnh-do-người-dùng-định-nghĩa, cho phép bạn tạo các chế độ tương tác tùy chỉnh phù hợp với nhu cầu của bạn.
+
+Các lệnh có sẵn:
+
+- [Ask](/community-UDCs/ask.md) - Đặt câu hỏi mà không thay đổi vault của bạn
+- [Plan](/community-UDCs/Plan.md) - Lên kế hoạch và phác thảo tác vụ trước khi thực thi
+- [Clean up](/community-UDCs/Clean%20up.md) - Dọn dẹp vault bằng cách xóa các ghi chú không mong muốn
+- [Word processor](/community-UDCs/Word%20processor.md) - Xử lý và định dạng văn bản trong ghi chú của bạn
+
+Hãy sử dụng các lệnh này làm nguồn cảm hứng để tạo lệnh riêng của bạn!
 
 ## Cấu trúc thư mục
 
@@ -298,13 +307,6 @@ Steward/
 1. Tải plugin từ trình duyệt Obsidian Community Plugins
 2. Kích hoạt plugin trong cài đặt Obsidian của bạn
 3. Cấu hình API key trong cài đặt plugin
-
-### Sử dụng BRAT (Beta Reviewer's Auto-update Tool)
-
-1. Cài đặt [BRAT](https://github.com/TfTHacker/obsidian42-brat) từ Obsidian Community Plugins
-2. Mở cài đặt BRAT và thêm beta plugin: `googlicius/obsidian-steward`
-3. Kích hoạt plugin trong cài đặt Obsidian của bạn
-4. Cấu hình API key trong cài đặt plugin
 
 ### Cài đặt thủ công
 
@@ -347,8 +349,6 @@ Bạn có thể đóng góp Lệnh-do-người-dùng-định-nghĩa (UDC) của 
    - Cách sử dụng
    - Bất kỳ điều kiện tiên quyết hoặc dependencies nào
    - Các kịch bản sử dụng ví dụ
-
-Xem các lệnh hiện có trong thư mục `community-UDCs` như `flashcard-ask.md` để tham khảo.
 
 ## Giấy phép
 

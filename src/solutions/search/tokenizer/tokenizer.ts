@@ -19,9 +19,9 @@ export function splitCamelCase(text: string): string {
 }
 
 /**
-   * Removes diacritical marks from text for normalized matching.
-   * Example: "Café" → "Cafe"
-   */
+ * Removes diacritical marks from text for normalized matching.
+ * Example: "Café" → "Cafe"
+ */
 export function removeDiacritics(text: string): string {
   return text
     .normalize('NFD')
