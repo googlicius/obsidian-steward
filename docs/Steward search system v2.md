@@ -44,9 +44,9 @@ BM25 (Best matching 25) ranks documents by relevance. It considers:
 
 For each term:
 
-```
-Score = IDF × (tf × (k1 + 1)) / (tf + k1 × (1 - b + b × docLen / avgDocLen))
-```
+$$
+\text{Score} = \text{IDF} \times \frac{tf \times (k_1 + 1)}{tf + k_1 \times \left(1 - b + b \times \frac{\text{docLen}}{\text{avgDocLen}}\right)}
+$$
 
 Where:
 

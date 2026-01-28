@@ -88,10 +88,6 @@ The `system_prompt` field accepts an array of strings. Each string can be:
   - `[[Note Name#Heading]]` - Content under a specific heading
   - `[[#Heading]]` - Content under a heading in the current note
 
-> [!INFO] Tips
->
-> Link system prompts to a heading in the current note (e.g., `[[#Instructions]]`) to keep your prompts alongside the command definition. This makes editing easier and lets you use full markdown formatting.
-
 ## Automated triggers
 
 Commands can automatically execute when file events occur, for example:
@@ -148,3 +144,9 @@ Try these ready-to-use commands from the community. Click any link to fetch and 
 > [Word processor](obsidian://steward-resource?type=command&name=Word%20processor) - Process newly added English words or phrases. (_This is an example of an automated command_)
 
 When you click a link, the command will be fetched from GitHub and stored in your `Steward/Commands` folder. You can then use it like any other user-defined command.
+
+> [!INFO] Tips
+>
+> Link system prompts to a heading in the current note (e.g., `[[#Instructions]]`) to keep your prompts alongside the command definition. This makes editing easier and lets you use full markdown formatting.
+>
+> Test your commands thoroughly by fine-tuning system prompts, providing constructed outputs, one or few shot examples, and iterating until they work as expected.
