@@ -6,6 +6,14 @@ import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import type { TFile } from 'obsidian';
 import { AbortService } from 'src/services/AbortService';
+import type { PDFPageContent } from 'src/solutions/search/binaryContent/types';
+
+/**
+ * Queue item type definition
+ */
+type QueueItem =
+  | { type: 'file'; file: TFile }
+  | { type: 'pdf-page'; file: TFile; page: PDFPageContent; folderId: number };
 
 // BUILD_SEARCH_INDEX tool doesn't need args
 const buildSearchIndexSchema = z.object({});
@@ -37,11 +45,11 @@ export class BuildSearchIndex {
       const t = getTranslation(lang);
 
       const files = this.agent.plugin.app.vault.getFiles();
-      const validFiles = files.filter(
-        file => !this.agent.plugin.searchService.documentStore.isExcluded(file.path)
-      );
+      const queue: QueueItem[] = files
+        .filter(file => !this.agent.plugin.searchService.documentStore.isExcluded(file.path))
+        .map(file => ({ type: 'file', file }));
 
-      if (validFiles.length === 0) {
+      if (queue.length === 0) {
         await this.agent.renderer.updateConversationNote({
           path: title,
           newContent: t('search.noFilesToIndex'),
@@ -58,7 +66,7 @@ export class BuildSearchIndex {
       await this.agent.renderer.updateConversationNote({
         path: title,
         newContent:
-          t('search.foundFilesForIndex', { count: validFiles.length }) +
+          t('search.foundFilesForIndex', { count: queue.length }) +
           '\n\n' +
           `*${t('search.privacyNotice')}*`,
         lang,
@@ -81,7 +89,7 @@ export class BuildSearchIndex {
           status: IntentResultStatus.NEEDS_CONFIRMATION,
           confirmationMessage: t('search.confirmRebuildIndexQuestion'),
           onConfirmation: () => {
-            return this.performIndexing(title, validFiles, lang, handlerId);
+            return this.performIndexing(title, queue, lang, handlerId);
           },
           onRejection: () => {
             return {
@@ -92,7 +100,7 @@ export class BuildSearchIndex {
       }
 
       // Index doesn't exist, run indexing directly without confirmation
-      return this.performIndexing(title, validFiles, lang, handlerId);
+      return this.performIndexing(title, queue, lang, handlerId);
     } catch (error) {
       logger.error('Error in build search index command:', error);
 
@@ -116,7 +124,7 @@ export class BuildSearchIndex {
    */
   private async performIndexing(
     title: string,
-    validFiles: TFile[],
+    queue: QueueItem[],
     lang: string | null | undefined,
     handlerId: string
   ): Promise<AgentResult> {
@@ -126,9 +134,12 @@ export class BuildSearchIndex {
 
     const t = getTranslation(lang);
 
-    // Build the index by processing each file directly
+    let totalItemsToProcess = queue.length;
+
+    // Track progress
     const indexedFiles: string[] = [];
     const failedFiles: string[] = [];
+    let processedCount = 0;
 
     try {
       await this.agent.renderer.updateConversationNote({
@@ -139,7 +150,9 @@ export class BuildSearchIndex {
       });
 
       let prevMessageId = '';
-      for (const file of validFiles) {
+
+      // Process the queue
+      while (queue.length > 0) {
         // Check if operation was aborted
         if (abortSignal.aborted) {
           return {
@@ -147,13 +160,74 @@ export class BuildSearchIndex {
           };
         }
 
-        try {
-          // Use the indexer's indexFile method directly
-          await this.agent.plugin.searchService.indexer.indexFile(file);
-          indexedFiles.push(file.path);
+        const item = queue.shift();
+        if (!item) break;
 
-          // Update progress every 10 files
-          if (indexedFiles.length % 10 === 0) {
+        try {
+          if (item.type === 'file') {
+            // Handle PDF files by expanding them into pages
+            if (item.file.extension === 'pdf') {
+              try {
+                const extraction = await this.agent.plugin.pdfExtractor.extractText(item.file);
+
+                if (extraction && extraction.pages.length > 0) {
+                  // Get folder ID for the PDF file
+                  const folderPath = item.file.path.substring(0, item.file.path.lastIndexOf('/'));
+                  const folderName = folderPath.split('/').pop() || '';
+                  const folderId = await this.agent.plugin.searchService.indexer.indexFolder(
+                    folderPath,
+                    folderName
+                  );
+
+                  // Create page items
+                  const pageItems: QueueItem[] = extraction.pages.map(page => ({
+                    type: 'pdf-page',
+                    file: item.file,
+                    page,
+                    folderId,
+                  }));
+
+                  // Add pages to the BEGINNING of the queue to process them next
+                  queue.unshift(...pageItems);
+
+                  if (extraction.pages.length > 0) {
+                    totalItemsToProcess += extraction.pages.length - 1;
+                  } else {
+                    totalItemsToProcess -= 1; // It was 1 file, now 0 pages.
+                  }
+                }
+              } catch (e) {
+                logger.error(`Error extracting PDF text for ${item.file.path}:`, e);
+                failedFiles.push(item.file.path);
+                processedCount++; // Failed but processed
+                continue;
+              }
+            }
+
+            // Normal file processing
+            const docsIndexed = await this.agent.plugin.searchService.indexer.indexFile(item.file, {
+              pdfPages: false,
+            });
+
+            if (docsIndexed > 0) {
+              indexedFiles.push(item.file.path);
+            }
+
+            processedCount++;
+          } else if (item.type === 'pdf-page') {
+            // Process PDF page
+            await this.agent.plugin.searchService.indexer.indexPDFPage(
+              item.file,
+              item.page,
+              item.folderId
+            );
+
+            indexedFiles.push(`${item.file.path} (Page ${item.page.pageNumber})`);
+            processedCount++;
+          }
+
+          // Update progress every 10 items
+          if (processedCount % 10 === 0 || queue.length === 0) {
             let completionMessage = `**${t('search.indexedFiles')}:**\n`;
             if (indexedFiles.length > 0) {
               // Take only the last 12 indexed files
@@ -162,14 +236,15 @@ export class BuildSearchIndex {
                 completionMessage += `- ${displayFiles[i]}\n`;
               }
             }
+
             const messageId = await this.agent.renderer.updateConversationNote({
               path: title,
               newContent:
                 completionMessage +
                 '\n\n' +
                 t('search.indexingProgress', {
-                  completed: indexedFiles.length,
-                  total: validFiles.length,
+                  completed: processedCount,
+                  total: totalItemsToProcess,
                 }),
               messageId: prevMessageId,
               includeHistory: false,
@@ -182,14 +257,21 @@ export class BuildSearchIndex {
             }
           }
         } catch (error) {
-          logger.error(`Error indexing file ${file.path}:`, error);
-          failedFiles.push(file.path);
+          const filePath =
+            item.type === 'file'
+              ? item.file.path
+              : `${item.file.path}#page=${item.page.pageNumber}`;
+          logger.error(`Error indexing ${filePath}:`, error);
+          if (item.type === 'file') {
+            failedFiles.push(item.file.path);
+          }
+          processedCount++;
         }
       }
 
       let completionMessage = `**${t('search.indexingCompleted', {
         count: indexedFiles.length,
-        total: validFiles.length,
+        total: totalItemsToProcess,
       })}**\n`;
 
       if (failedFiles.length > 0) {

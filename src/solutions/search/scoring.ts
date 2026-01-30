@@ -1,6 +1,7 @@
 import { termsProximity } from 'src/utils/termsProximity';
 import { IndexedDocument, TermSource } from '../../database/SearchDatabase';
 import { DocumentStore } from './documentStore';
+import { decodePDFPosition, PDF_POSITION_MULTIPLIER } from './binaryContent/types';
 
 export interface ScoredDocument extends IndexedDocument {
   score: number;
@@ -133,6 +134,16 @@ export class Scoring {
     // For single term queries, return a high score since there's no proximity to measure
     if (queryTerms.length === 1) {
       return 0.9;
+    }
+
+    // Decode encoded PDF term positions before calculating proximity
+    for (const [term, positions] of termPositions.entries()) {
+      for (let i = 0; i < positions.length; i++) {
+        if (positions[i] >= PDF_POSITION_MULTIPLIER) {
+          const decodedPos = decodePDFPosition(positions[i]);
+          positions[i] = decodedPos.itemIndex;
+        }
+      }
     }
 
     const { isProximity, minDistances } = termsProximity(

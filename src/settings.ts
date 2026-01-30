@@ -623,6 +623,32 @@ class StewardSettingTab extends PluginSettingTab {
         text.inputEl.setAttribute('max', '100');
       });
 
+    // PDF content search setting
+    new Setting(searchSettingGroup.settingItems)
+      .setName(t('settings.pdfSearchEnabled'))
+      .setDesc(t('settings.pdfSearchEnabledDesc'))
+      .addToggle(toggle => {
+        toggle
+          .setValue(this.plugin.settings.search.pdfSearchEnabled ?? false)
+          .onChange(async value => {
+            this.plugin.settings.search.pdfSearchEnabled = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    // Image OCR search setting
+    new Setting(searchSettingGroup.settingItems)
+      .setName(t('settings.imageSearchEnabled'))
+      .setDesc(t('settings.imageSearchEnabledDesc'))
+      .addToggle(toggle => {
+        toggle
+          .setValue(this.plugin.settings.search.imageSearchEnabled ?? false)
+          .onChange(async value => {
+            this.plugin.settings.search.imageSearchEnabled = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
     // Initialize scoring config if it doesn't exist
     if (!this.plugin.settings.search.scoring) {
       this.plugin.settings.search.scoring = {};

@@ -37,6 +37,11 @@ export class SearchService {
    * Note name tokenizer is used to tokenize the note name or folder name
    */
   public nameTokenizer: Tokenizer;
+  /**
+   * PDF content tokenizer is used to tokenize PDF page content with character positions
+   * for accurate selection highlighting
+   */
+  public pdfTokenizer: Tokenizer;
   public indexer: Indexer;
   public scoring: Scoring;
 
@@ -67,16 +72,23 @@ export class SearchService {
       analyzers: ['wordDelimiter', 'stemmer'],
     });
 
+    // PDF tokenizer with character positions for accurate selection highlighting
+    this.pdfTokenizer = new Tokenizer({
+      normalizers: ['splitCamelCase', 'lowercase', 'removeSpecialChars', 'removeDiacritics'],
+      analyzers: ['wordDelimiter', 'stemmer'],
+    });
+
     this.documentStore = new DocumentStore({
       app: plugin.app,
       dbName: plugin.settings.search.searchDbName,
       excludeFolders: this.excludeFolders,
     });
     this.indexer = new Indexer({
-      app: this.plugin.app,
+      plugin: this.plugin,
       documentStore: this.documentStore,
       contentTokenizer: this.contentTokenizer,
       nameTokenizer: this.nameTokenizer,
+      pdfTokenizer: this.pdfTokenizer,
     });
     this.scoring = new Scoring(this.documentStore, plugin.settings.search.scoring || {});
   }
@@ -168,7 +180,9 @@ export class SearchService {
         andConditions.push(new FolderCondition(folders));
       }
       if (keywords.length > 0) {
-        andConditions.push(new KeywordCondition(keywords));
+        andConditions.push(
+          new KeywordCondition(keywords, this.plugin.settings.search.pdfSearchEnabled)
+        );
       }
       if (properties.length > 0) {
         andConditions.push(new PropertyCondition(properties));

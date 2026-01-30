@@ -91,6 +91,10 @@ export interface StewardPluginSettings {
     searchDbName: string;
     withoutLLM: 'exact' | 'relevant'; // Search mode when query is wrapped in quotation marks
     resultsPerPage: number; // Number of search results per page
+    /** Enable PDF content search (requires internet for first extraction) */
+    pdfSearchEnabled?: boolean;
+    /** Enable image OCR search (requires internet for first extraction) */
+    imageSearchEnabled?: boolean;
     /** BM25 and scoring configuration */
     scoring?: {
       maxCoverageBonus?: number; // Maximum coverage bonus (default: 0.5)

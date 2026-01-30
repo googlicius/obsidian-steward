@@ -16,6 +16,7 @@ import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
 import { SearchService } from './solutions/search';
+import { PDFExtractor } from './solutions/search/binaryContent';
 import { SearchDatabase } from './database/SearchDatabase';
 import { EncryptionService } from './services/EncryptionService';
 import { generateId } from 'ai';
@@ -71,6 +72,7 @@ export default class StewardPlugin extends Plugin {
   // Lazy-loaded services
   _searchService: SearchService;
   _artifactManagerV2: ArtifactManagerV2;
+  _pdfExtractor: PDFExtractor;
   _conversationRenderer: ConversationRenderer;
   _contentReadingService: ContentReadingService;
   _userDefinedCommandService: UserDefinedCommandService;
@@ -96,6 +98,13 @@ export default class StewardPlugin extends Plugin {
       this._searchService = SearchService.getInstance(this);
     }
     return this._searchService;
+  }
+
+  get pdfExtractor(): PDFExtractor {
+    if (!this._pdfExtractor) {
+      this._pdfExtractor = new PDFExtractor(this.app);
+    }
+    return this._pdfExtractor;
   }
 
   get modelFallbackService(): ModelFallbackService {

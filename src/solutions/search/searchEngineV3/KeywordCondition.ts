@@ -8,7 +8,10 @@ import { getQualifiedCandidates } from 'src/utils/getQualifiedCandidates';
  * Condition for keyword search.
  */
 export class KeywordCondition extends Condition<IndexedDocument> {
-  constructor(private keywords: string[]) {
+  constructor(
+    private keywords: string[],
+    private searchPDFContent = false
+  ) {
     super();
   }
 
@@ -46,7 +49,15 @@ export class KeywordCondition extends Condition<IndexedDocument> {
     isExactMatch = false
   ): Promise<IndexedTerm[]> {
     // Use [term+source] index for efficient querying
-    const termSourcePairs = terms.map(term => [term, TermSource.Content]);
+    const termSourcePairs = terms.flatMap(term => {
+      const pairs = [[term, TermSource.Content]];
+
+      if (this.searchPDFContent) {
+        pairs.push([term, TermSource.PDFContent]);
+      }
+
+      return pairs;
+    });
     const queryCollection = this.context.documentStore.terms
       .where('[term+source]')
       .anyOf(termSourcePairs);
@@ -280,6 +291,7 @@ export class KeywordCondition extends Condition<IndexedDocument> {
       }
 
       const termEntries = await this.getTermEntriesForContent(terms);
+
       const documentTermMap = this.groupTermEntriesByDocument(termEntries);
 
       // Get qualified document IDs for this keyword

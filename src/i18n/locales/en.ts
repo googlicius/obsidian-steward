@@ -275,6 +275,10 @@ const en = {
       artifactDescription: 'Search results containing {{count}} documents',
       artifactNote:
         'The full search results are redacted but still can be accessed by other commands that need to work with the search results.',
+      extractingPdf: 'Extracting text from PDF...',
+      pdfExtractionFailed: 'Failed to extract text from PDF: {{error}}',
+      pdfLibraryLoadFailed:
+        'Failed to load PDF library. Please check your internet connection and try again.',
     },
     // Close command messages
     close: {
@@ -482,6 +486,12 @@ const en = {
       bm25B: 'BM25 b parameter',
       bm25BDesc:
         'Controls document length normalization (0-1). 0 = no normalization, 1 = full normalization. Typical value: 0.75.',
+      pdfSearchEnabled: 'Enable PDF content search',
+      pdfSearchEnabledDesc:
+        'Extract and index text from PDF files. Requires internet connection for first extraction.',
+      imageSearchEnabled: 'Enable image text search (OCR)',
+      imageSearchEnabledDesc:
+        'Extract and index text from images using OCR. Requires internet connection for first extraction.',
       deleteBehavior: 'Delete behavior',
       deleteBehaviorDesc:
         'How to handle file deletion. Recommended: Use Steward/Trash to allow reverting deletion',

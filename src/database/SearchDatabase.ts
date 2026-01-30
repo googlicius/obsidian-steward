@@ -20,6 +20,8 @@ export interface IndexedDocument {
 export enum TermSource {
   Content = 0,
   Filename = 1,
+  /** PDF content - positions are encoded as itemIndex * 10000 + charOffset */
+  PDFContent = 2,
 }
 
 /**

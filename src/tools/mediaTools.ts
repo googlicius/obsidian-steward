@@ -82,18 +82,23 @@ export class MediaTools {
 
   /**
    * Find a file by name or path
-   * @param nameOrPath - File name or path
+   * @param nameOrPath - File name or path (fragments like #page=5 are stripped; they do not exist on disk)
    * @returns The found TFile or null if not found
    */
   async findFileByNameOrPath(nameOrPath: string): Promise<TFile | null> {
+    // Strip fragment (e.g. #page=5) – the path physically does not exist
+    const pathWithoutFragment = nameOrPath.includes('#')
+      ? nameOrPath.slice(0, nameOrPath.indexOf('#'))
+      : nameOrPath;
+
     // Strategy 1: Try direct path lookup
-    const file = this.app.vault.getFileByPath(nameOrPath);
+    const file = this.app.vault.getFileByPath(pathWithoutFragment);
     if (file) {
       return file;
     }
 
-    // Parse the nameOrPath into components
-    const parsed = this.parseFilePath(nameOrPath);
+    // Parse the path without fragment into components
+    const parsed = this.parseFilePath(pathWithoutFragment);
     const { path: folderPath, name, basename, extension } = parsed;
 
     const searchService = SearchService.getInstance();

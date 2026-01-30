@@ -156,6 +156,8 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     searchDbName: '',
     withoutLLM: 'relevant',
     resultsPerPage: 10,
+    pdfSearchEnabled: false,
+    imageSearchEnabled: false,
     scoring: {
       maxCoverageBonus: 0.5,
       filenameMatchBoost: 2.0,

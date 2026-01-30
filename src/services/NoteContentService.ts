@@ -322,7 +322,11 @@ export class NoteContentService {
       metadataStr =
         ' ' +
         Object.entries(metadata)
-          .map(([key, value]) => `${key}:${value}`)
+          .map(([key, value]) => {
+            // Escape commas in values to prevent parsing issues (e.g., PDF deep links)
+            const escapedValue = String(value).replace(/,/g, '%2C');
+            return `${key}:${escapedValue}`;
+          })
           .join(',');
     }
 

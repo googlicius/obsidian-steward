@@ -2,6 +2,7 @@ import { MarkdownPostProcessor, MarkdownView, TFile, setIcon, setTooltip, Notice
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import i18next from 'i18next';
+import { parsePDFPagePath } from 'src/solutions/search/binaryContent/types';
 
 /**
  * Creates a markdown post processor that adds click handling to search result callouts.
@@ -43,6 +44,15 @@ export function createCalloutSearchResultPostProcessor(
 
     // If path is provided, get that file
     if (path) {
+      // Check if this is a PDF deep link (contains #page=)
+      const isPdfDeepLink = path.includes('#page=');
+
+      if (isPdfDeepLink) {
+        // const deepLinkData = parsePDFPagePath(path);
+        await plugin.app.workspace.openLinkText(path, path, false);
+        return;
+      }
+
       file = await plugin.mediaTools.findFileByNameOrPath(path);
     }
 

@@ -33,6 +33,7 @@
     "jest": "^29.7.0",
     "js-yaml": "^4.1.1",
     "obsidian": "latest",
+    "pdfjs-dist": "^4.9.155",
     "patch-package": "^8.0.1",
     "postcss": "^8.5.6",
     "postcss-cli": "^11.0.1",

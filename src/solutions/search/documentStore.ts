@@ -5,6 +5,7 @@ import {
   IndexedFolder,
   IndexedTerm,
   IndexedProperty,
+  TermSource,
 } from '../../database/SearchDatabase';
 import { logger } from '../../utils/logger';
 import { IndexedPropertyArray } from './IndexedPropertyArray';
@@ -268,5 +269,74 @@ export class DocumentStore {
   public async getAllPropertyNames(): Promise<string[]> {
     const names = await this.db.properties.orderBy('name').uniqueKeys();
     return names as string[];
+  }
+
+  // ============================================================================
+  // PDF Page Document Methods
+  // ============================================================================
+
+  /**
+   * Get all page-documents for a PDF file.
+   * Page documents have paths in the format: "file.pdf#page=N"
+   * @param pdfPath - The path to the PDF file (without #page=N suffix)
+   * @returns Array of page documents for the PDF
+   */
+  public async getPDFPageDocuments(pdfPath: string): Promise<IndexedDocument[]> {
+    return this.db.documents.where('path').startsWith(`${pdfPath}#page=`).toArray();
+  }
+
+  /**
+   * Delete all page-documents for a PDF file.
+   * Also deletes associated terms and properties.
+   * @param pdfPath - The path to the PDF file (without #page=N suffix)
+   */
+  public async deletePDFPageDocuments(pdfPath: string): Promise<void> {
+    const pageDocuments = await this.getPDFPageDocuments(pdfPath);
+
+    for (const doc of pageDocuments) {
+      if (doc.id !== undefined) {
+        await this.deleteTerms(doc.id);
+        await this.deletePropertiesByDocumentId(doc.id);
+        await this.deleteDocument(doc.id);
+      }
+    }
+  }
+
+  /**
+   * Get terms for multiple documents with a specific source type.
+   * Used to retrieve PDF position data for search result formatting.
+   * @param documentIds - Array of document IDs to query
+   * @param source - Term source type to filter by
+   * @returns Array of indexed terms matching the criteria
+   */
+  public async getTermsByDocumentIdsAndSource(
+    documentIds: number[],
+    source: TermSource
+  ): Promise<IndexedTerm[]> {
+    return this.db.terms
+      .where('documentId')
+      .anyOf(documentIds)
+      .and(term => term.source === source)
+      .toArray();
+  }
+
+  /**
+   * Get terms for documents that match specific term values and source.
+   * Used to find PDF position data for matched keywords.
+   * @param documentIds - Array of document IDs to query
+   * @param termValues - Array of term values to match
+   * @param source - Term source type to filter by
+   * @returns Array of indexed terms matching the criteria
+   */
+  public async getMatchedTermsForDocuments(
+    documentIds: number[],
+    termValues: string[],
+    source: TermSource
+  ): Promise<IndexedTerm[]> {
+    return this.db.terms
+      .where('documentId')
+      .anyOf(documentIds)
+      .and(term => term.source === source && termValues.includes(term.term))
+      .toArray();
   }
 }

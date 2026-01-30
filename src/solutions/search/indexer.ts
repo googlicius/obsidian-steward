@@ -1,24 +1,28 @@
-import { App, TFile, EventRef, MarkdownView, FrontMatterCache } from 'obsidian';
+import { TFile, EventRef, MarkdownView, FrontMatterCache } from 'obsidian';
 import { DocumentStore } from './documentStore';
 import { Tokenizer } from './tokenizer/tokenizer';
 import { TermSource, IndexedProperty } from '../../database/SearchDatabase';
+import { encodePDFPosition, PDFPageContent } from '../search/binaryContent/types';
 import { logger } from '../../utils/logger';
 import { COMMAND_PREFIXES } from '../../constants';
 import { IndexedPropertyArray } from './IndexedPropertyArray';
 import { hashTerms } from '../../utils/arrayUtils';
+import type StewardPlugin from '../../main';
 
 export interface IndexerConfig {
-  app: App;
+  plugin: StewardPlugin;
   documentStore: DocumentStore;
   contentTokenizer: Tokenizer;
   nameTokenizer: Tokenizer;
+  pdfTokenizer: Tokenizer;
 }
 
 export class Indexer {
-  private app: App;
+  private plugin: StewardPlugin;
   private documentStore: DocumentStore;
   private contentTokenizer: Tokenizer;
   private nameTokenizer: Tokenizer;
+  private pdfTokenizer: Tokenizer;
   private indexingQueue: string[] = [];
   private isIndexing = false;
   private isIndexBuilt = false;
@@ -26,11 +30,32 @@ export class Indexer {
   private cachedNotePath: string | null = null;
   private cachedNoteTermsHash: string | null = null;
 
-  constructor({ app, documentStore, contentTokenizer, nameTokenizer }: IndexerConfig) {
-    this.app = app;
+  constructor({
+    plugin,
+    documentStore,
+    contentTokenizer,
+    nameTokenizer,
+    pdfTokenizer,
+  }: IndexerConfig) {
+    this.plugin = plugin;
     this.documentStore = documentStore;
     this.contentTokenizer = contentTokenizer;
     this.nameTokenizer = nameTokenizer;
+    this.pdfTokenizer = pdfTokenizer;
+  }
+
+  /**
+   * Get app instance from plugin
+   */
+  private get app() {
+    return this.plugin.app;
+  }
+
+  /**
+   * Get settings from plugin
+   */
+  private get settings() {
+    return this.plugin.settings;
   }
 
   /**
@@ -190,7 +215,7 @@ export class Indexer {
       const file = this.app.vault.getFileByPath(filePath);
 
       if (file) {
-        await this.indexFile(file);
+        await this.indexFile(file, { pdfPages: true });
       }
     } catch (error) {
       logger.error('Error processing indexing queue:', error);
@@ -206,11 +231,23 @@ export class Indexer {
   /**
    * Index a single file
    */
-  public async indexFile(file: TFile) {
+  public async indexFile(
+    file: TFile,
+    options?: {
+      /** Index each page of a PDF file as a separate document */
+      pdfPages?: boolean;
+    }
+  ): Promise<number> {
+    let documentsIndexed = 0;
     try {
       // Skip files in excluded folders
       if (this.documentStore.isExcluded(file.path)) {
-        return;
+        return documentsIndexed;
+      }
+
+      // Handle PDF files separately (each page becomes a document)
+      if (file.extension === 'pdf' && options?.pdfPages) {
+        documentsIndexed += await this.indexPDFPages(file);
       }
 
       let content = '';
@@ -221,7 +258,7 @@ export class Indexer {
 
         // Skip markdown files with command prefixes
         if (this.containsCommandPrefix(content)) {
-          return;
+          return documentsIndexed;
         }
       } else {
         // For non-markdown files, use the filename as content
@@ -240,9 +277,146 @@ export class Indexer {
       await this.indexTerms(content, documentId, folderId, file.basename);
 
       await this.indexProperties(file, documentId);
+      documentsIndexed++;
     } catch (error) {
       logger.error(`Error indexing file ${file.path}:`, error);
     }
+    return documentsIndexed;
+  }
+
+  /**
+   * Index a PDF file - each page becomes a separate document
+   * @param file The PDF file to index
+   * @returns The number of pages indexed
+   */
+  private async indexPDFPages(file: TFile): Promise<number> {
+    const extraction = await this.plugin.pdfExtractor.extractText(file);
+    if (!extraction || extraction.pages.length === 0) {
+      return 0;
+    }
+
+    // Extract folder info once
+    const folderPath = file.path.substring(0, file.path.lastIndexOf('/'));
+    const folderName = folderPath.split('/').pop() || '';
+    const folderId = await this.indexFolder(folderPath, folderName);
+
+    let pagesIndexed = 0;
+
+    for (const page of extraction.pages) {
+      try {
+        await this.indexPDFPage(file, page, folderId);
+        pagesIndexed++;
+      } catch (error) {
+        logger.error(`Error indexing page ${page.pageNumber} of ${file.path}:`, error);
+      }
+    }
+
+    return pagesIndexed;
+  }
+
+  /**
+   * Index a single PDF page as a document
+   */
+  public async indexPDFPage(file: TFile, page: PDFPageContent, folderId: number): Promise<void> {
+    // Page path format: file.pdf#page=N
+    const pagePath = `${file.path}#page=${page.pageNumber}`;
+    const pageFileName = `${file.basename} (Page ${page.pageNumber})`;
+
+    // Find or create the page document
+    const existingDoc = await this.documentStore.getDocumentByPath(pagePath);
+    const tokenCount = page.fullText.split(/\s+/).length;
+
+    const documentData = {
+      path: pagePath,
+      fileName: pageFileName.toLowerCase(),
+      lastModified: file.stat.mtime,
+      tags: [],
+      tokenCount,
+    };
+
+    let documentId: number;
+
+    if (existingDoc) {
+      documentId = existingDoc.id as number;
+      await this.documentStore.updateDocument(documentId, documentData);
+      await this.documentStore.deleteTerms(documentId);
+      await this.documentStore.deletePropertiesByDocumentId(documentId);
+    } else {
+      documentId = await this.documentStore.storeDocument(documentData);
+    }
+
+    // Index terms with character positions from original content
+    const terms = this.indexPDFPageTerms(page, documentId, folderId);
+    if (terms.length > 0) {
+      await this.documentStore.storeTerms(terms);
+    }
+  }
+
+  /**
+   * Extract and index terms from a PDF page with character-level position tracking
+   */
+  private indexPDFPageTerms(
+    page: PDFPageContent,
+    documentId: number,
+    folderId: number
+  ): Array<{
+    term: string;
+    documentId: number;
+    folderId: number;
+    source: TermSource;
+    frequency: number;
+    positions: number[];
+    isOriginal: boolean;
+  }> {
+    const termMap = new Map<string, { count: number; positions: number[]; isOriginal: boolean }>();
+
+    // Process each text item to get precise character positions
+    for (const textItem of page.textItems) {
+      const originalStr = textItem.str;
+      // Tokenize to get the normalized terms
+      const tokens = this.pdfTokenizer.tokenize(originalStr);
+
+      for (const token of tokens) {
+        // Find the position of the original term in the original string (case-insensitive)
+        const lowerOriginal = originalStr.toLowerCase();
+        const searchTerm = token.term.toLowerCase();
+        let searchStart = 0;
+
+        // For each occurrence of this term (based on token.count)
+        for (let i = 0; i < token.count; i++) {
+          const foundIndex = lowerOriginal.indexOf(searchTerm, searchStart);
+          if (foundIndex !== -1) {
+            // Calculate encoded position: itemIndex * 10000 + charOffset
+            const encodedPosition = encodePDFPosition(textItem.itemIndex, foundIndex);
+
+            const existing = termMap.get(token.term);
+            if (existing) {
+              existing.count++;
+              existing.positions.push(encodedPosition);
+            } else {
+              termMap.set(token.term, {
+                count: 1,
+                positions: [encodedPosition],
+                isOriginal: token.isOriginal ?? true,
+              });
+            }
+
+            searchStart = foundIndex + searchTerm.length;
+          }
+        }
+      }
+    }
+
+    // Convert to array format for storage
+    return Array.from(termMap.entries()).map(([term, data]) => ({
+      term,
+      documentId,
+      folderId,
+      source: TermSource.PDFContent,
+      frequency: data.count,
+      positions: data.positions,
+      isOriginal: data.isOriginal,
+    }));
   }
 
   private async indexProperties(file: TFile, documentId: number) {
@@ -308,7 +482,7 @@ export class Indexer {
   /**
    * Index a folder and return its ID
    */
-  private async indexFolder(folderPath: string, folderName: string): Promise<number> {
+  public async indexFolder(folderPath: string, folderName: string): Promise<number> {
     // Default to 0 if no folder path exists
     if (!folderPath) {
       return 0;
@@ -498,14 +672,27 @@ export class Indexer {
    * Remove a file from the index
    */
   public async removeFromIndex(filePath: string) {
-    const document = await this.documentStore.getDocumentByPath(filePath);
+    // Check if this is a PDF file - PDFs are indexed as multiple page documents
+    const isPDF = filePath.toLowerCase().endsWith('.pdf');
 
-    if (document) {
-      // Delete all terms associated with the document
-      await this.documentStore.deleteTerms(document.id as number);
+    if (isPDF) {
+      // Delete all page documents for this PDF file
+      // This will also delete all associated terms and properties
+      await this.documentStore.deletePDFPageDocuments(filePath);
+    } else {
+      // For regular files, delete the single document
+      const document = await this.documentStore.getDocumentByPath(filePath);
 
-      // Delete the document
-      await this.documentStore.deleteDocument(document.id as number);
+      if (document) {
+        // Delete all terms associated with the document
+        await this.documentStore.deleteTerms(document.id as number);
+
+        // Delete properties associated with the document
+        await this.documentStore.deletePropertiesByDocumentId(document.id as number);
+
+        // Delete the document
+        await this.documentStore.deleteDocument(document.id as number);
+      }
     }
 
     // Get folder ID for this path

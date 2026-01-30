@@ -10,6 +10,8 @@ import { IndexedDocument } from 'src/database/SearchDatabase';
 import { STOPWORDS } from 'src/solutions/search';
 import { stemmer } from 'src/solutions/search/tokenizer/stemmer';
 import { splitCamelCase, removeDiacritics } from 'src/solutions/search/tokenizer/tokenizer';
+import { parsePDFPagePath, decodePDFPosition } from 'src/solutions/search/binaryContent/types';
+import { TermSource } from 'src/database/SearchDatabase';
 import { z } from 'zod/v3';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
@@ -512,54 +514,70 @@ export class Search {
       const result = paginatedSearchResult.conditionResults[index];
       const displayIndex =
         (page - 1) * this.agent.plugin.settings.search.resultsPerPage + index + 1;
-      response += `\n\n**${displayIndex}.** [[${result.document.path}]]\n`;
 
-      // Get the file content directly
-      const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(result.document.path);
+      // Check if this is a PDF page result
+      const pdfPageInfo = parsePDFPagePath(result.document.path);
 
-      if (file && result.keywordsMatched) {
-        try {
-          const fileContent = await this.agent.plugin.app.vault.cachedRead(file);
+      if (pdfPageInfo) {
+        // PDF page result - format with deep link and term-based snippet
+        // Use full path with page number: file.pdf#page=N
+        const pathWithoutExtension = result.document.path.slice(
+          0,
+          result.document.path.lastIndexOf('.')
+        );
+        response += `\n\n**${displayIndex}.** [[${result.document.path}|${pathWithoutExtension} - Page ${pdfPageInfo.pageNumber}]]\n`;
+        response += await this.formatPDFSearchResult(result, pdfPageInfo);
+      } else {
+        // Regular file result
+        response += `\n\n**${displayIndex}.** [[${result.document.path}]]\n`;
 
-          // Get highlighted matches from the entire file content
-          const highlightedMatches = result.keywordsMatched.reduce((acc, keyword) => {
-            return [
-              ...acc,
-              ...this.highlightKeyword(
-                keyword,
-                this.agent.plugin.noteContentService.toMarkdownLink(fileContent)
-              ),
-            ];
-          }, []);
+        // Get the file content directly
+        const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(result.document.path);
 
-          // Show up to 3 highlighted matches
-          const matchesToShow = Math.min(3, highlightedMatches.length);
+        if (file && result.keywordsMatched) {
+          try {
+            const fileContent = await this.agent.plugin.app.vault.cachedRead(file);
 
-          if (matchesToShow > 0) {
-            // Add each highlighted match to the response
-            for (let i = 0; i < matchesToShow; i++) {
-              // Format as a stw-search-result callout with position data
-              const match = highlightedMatches[i];
-              const callout = this.agent.plugin.noteContentService.formatCallout(
-                match.highlightedText.trim(),
-                'stw-search-result',
-                {
-                  line: match.lineNumber,
-                  start: match.termMatches[0].start,
-                  end: match.termMatches[match.termMatches.length - 1].end,
-                  path: result.document.path,
-                }
-              );
-              response += '\n' + callout;
+            // Get highlighted matches from the entire file content
+            const highlightedMatches = result.keywordsMatched.reduce((acc, keyword) => {
+              return [
+                ...acc,
+                ...this.highlightKeyword(
+                  keyword,
+                  this.agent.plugin.noteContentService.toMarkdownLink(fileContent)
+                ),
+              ];
+            }, [] as HighlighKeywordResult[]);
+
+            // Show up to 3 highlighted matches
+            const matchesToShow = Math.min(3, highlightedMatches.length);
+
+            if (matchesToShow > 0) {
+              // Add each highlighted match to the response
+              for (let i = 0; i < matchesToShow; i++) {
+                // Format as a stw-search-result callout with position data
+                const match = highlightedMatches[i];
+                const callout = this.agent.plugin.noteContentService.formatCallout(
+                  match.highlightedText.trim(),
+                  'stw-search-result',
+                  {
+                    line: match.lineNumber,
+                    start: match.termMatches[0].start,
+                    end: match.termMatches[match.termMatches.length - 1].end,
+                    path: result.document.path,
+                  }
+                );
+                response += '\n' + callout;
+              }
+
+              // Show a message for additional matches
+              if (highlightedMatches.length > 3) {
+                response += `\n_${t('search.moreMatches', { count: highlightedMatches.length - 3 })}_`;
+              }
             }
-
-            // Show a message for additional matches
-            if (highlightedMatches.length > 3) {
-              response += `\n_${t('search.moreMatches', { count: highlightedMatches.length - 3 })}_`;
-            }
+          } catch (error) {
+            // Error reading file - continue with next result
           }
-        } catch (error) {
-          // Error reading file - continue with next result
         }
       }
     }
@@ -570,6 +588,160 @@ export class Search {
     }
 
     return response;
+  }
+
+  /**
+   * Format a PDF search result with snippet and deep link
+   * @param result The search result containing the PDF page document
+   * @param pdfPageInfo Parsed PDF page path info (pdfPath and pageNumber)
+   * @returns Formatted markdown string with callout containing snippet and deep link
+   */
+  private async formatPDFSearchResult(
+    result: PaginatedSearchResult<IndexedDocument>['conditionResults'][0],
+    pdfPageInfo: { pdfPath: string; pageNumber: number }
+  ): Promise<string> {
+    const documentId = result.document.id;
+    if (!documentId || !result.keywordsMatched || result.keywordsMatched.length === 0) {
+      return '';
+    }
+
+    // Get all terms for this document to reconstruct content
+    const allTerms =
+      await this.agent.plugin.searchService.documentStore.getTermsByDocumentId(documentId);
+
+    // Filter to PDFContent terms only
+    const pdfTerms = allTerms.filter(
+      t => t.source === TermSource.PDFContent && t.isOriginal === true
+    );
+
+    if (pdfTerms.length === 0) {
+      return '';
+    }
+
+    // Flatten all term occurrences with their positions
+    const termOccurrences: Array<{ term: string; position: number }> = [];
+    for (const term of pdfTerms) {
+      for (const pos of term.positions) {
+        termOccurrences.push({ term: term.term, position: pos });
+      }
+    }
+
+    // Sort by position
+    termOccurrences.sort((a, b) => a.position - b.position);
+
+    // Convert user keywords to tokenized terms for matching
+    // Keywords like "stepladder over" need to be broken into ["stepladder", "over"]
+    const matchedTerms = new Set<string>();
+    for (const keyword of result.keywordsMatched) {
+      const terms = this.agent.plugin.searchService.pdfTokenizer.getUniqueTerms(keyword);
+      for (const term of terms) {
+        matchedTerms.add(term.toLowerCase());
+      }
+    }
+
+    // Find the best cluster of matched terms (where most search terms appear close together)
+    // This prevents picking an isolated "she" when "she dragged the stepladder over" is
+    // the actual phrase the user is looking for
+    let bestClusterStart = -1;
+    let bestClusterScore = 0;
+    const windowSize = 21; // 10 before + 1 center + 10 after
+
+    for (let i = 0; i < termOccurrences.length; i++) {
+      const occ = termOccurrences[i];
+      if (!matchedTerms.has(occ.term.toLowerCase())) {
+        continue; // Skip non-matched terms as cluster centers
+      }
+
+      // Count how many unique matched terms appear in this window
+      const windowStart = Math.max(0, i - 10);
+      const windowEnd = Math.min(termOccurrences.length, i + 11);
+      const termsInWindow = new Set<string>();
+
+      for (let j = windowStart; j < windowEnd; j++) {
+        const termLower = termOccurrences[j].term.toLowerCase();
+        if (matchedTerms.has(termLower)) {
+          termsInWindow.add(termLower);
+        }
+      }
+
+      // Score based on number of unique matched terms in window
+      const score = termsInWindow.size;
+      if (score > bestClusterScore) {
+        bestClusterScore = score;
+        bestClusterStart = i;
+      }
+    }
+
+    if (bestClusterStart === -1) {
+      return '';
+    }
+
+    // Get window of terms around the best cluster center
+    const contextStart = Math.max(0, bestClusterStart - 10);
+    const contextEnd = Math.min(termOccurrences.length, bestClusterStart + 11);
+    const contextTerms = termOccurrences.slice(contextStart, contextEnd);
+    const matchedOccurrence = termOccurrences[bestClusterStart];
+
+    // Build snippet with highlighting
+    let snippet = '';
+    let lastItemIndex = -1;
+
+    for (const occ of contextTerms) {
+      const decoded = decodePDFPosition(occ.position);
+
+      // Add line break if item index changed (different text chunk in PDF)
+      if (lastItemIndex !== -1 && decoded.itemIndex !== lastItemIndex) {
+        snippet += ' ';
+      } else if (snippet.length > 0) {
+        snippet += ' ';
+      }
+
+      // Highlight matched terms
+      if (matchedTerms.has(occ.term.toLowerCase())) {
+        snippet += `==${occ.term}==`;
+      } else {
+        snippet += occ.term;
+      }
+
+      lastItemIndex = decoded.itemIndex;
+    }
+
+    // Find all matched terms in context to create a selection spanning all matches
+    const matchedInContext = contextTerms.filter(occ => matchedTerms.has(occ.term.toLowerCase()));
+
+    if (matchedInContext.length === 0) {
+      return '';
+    }
+
+    // Use first matched term for start position
+    const firstMatch = matchedInContext[0];
+    const firstDecoded = decodePDFPosition(firstMatch.position);
+    const beginIndex = firstDecoded.itemIndex;
+    const beginOffset = firstDecoded.charOffset;
+
+    // Use last matched term for end position
+    const lastMatch = matchedInContext[matchedInContext.length - 1];
+    const lastDecoded = decodePDFPosition(lastMatch.position);
+    const endIndex = lastDecoded.itemIndex;
+    const endOffset = lastDecoded.charOffset + lastMatch.term.length;
+
+    // Create deep link
+    const deepLink = `${pdfPageInfo.pdfPath}#page=${pdfPageInfo.pageNumber}&selection=${beginIndex},${beginOffset},${endIndex},${endOffset}`;
+
+    // Format as callout with deep link reference
+    // Include start/end for validation, isPdf flag for special handling
+    const callout = this.agent.plugin.noteContentService.formatCallout(
+      snippet.trim(),
+      'stw-search-result',
+      {
+        path: deepLink,
+        start: 0, // Required for validation
+        end: 1, // Required for validation
+        line: 1, // Required for validation
+      }
+    );
+
+    return '\n' + callout;
   }
 
   /**

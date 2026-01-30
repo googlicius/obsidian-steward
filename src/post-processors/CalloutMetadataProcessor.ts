@@ -31,7 +31,12 @@ export function createCalloutMetadataProcessor(): MarkdownPostProcessor {
       for (const pair of dataPairs) {
         const [key, value] = pair.split(':').map(s => s.trim());
         if (key && value) {
-          callout.dataset[key] = new MarkdownUtil(value).unescape().decodeFromDataset().getText();
+          // Decode escaped commas (%2C) that were escapedin NoteContentService.formatCallout
+          const decodedValue = value.replace(/%2C/g, ',');
+          callout.dataset[key] = new MarkdownUtil(decodedValue)
+            .unescape()
+            .decodeFromDataset()
+            .getText();
         }
       }
     }
