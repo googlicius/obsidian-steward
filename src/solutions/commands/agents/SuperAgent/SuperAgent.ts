@@ -1091,7 +1091,10 @@ When you complete or skip the current step, use the ${ToolName.TODO_LIST_UPDATE}
     }
 
     const embeddingSettings = this.plugin.llmService.getEmbeddingSettings();
-    const classifier = getClassifier(embeddingSettings, upstreamOptions?.isReloadRequest ?? false);
+    const classifier = await getClassifier(
+      embeddingSettings,
+      upstreamOptions?.isReloadRequest ?? false
+    );
     const clusterName = await classifier.doClassify(query);
 
     if (!clusterName) {
@@ -1158,7 +1161,7 @@ When you complete or skip the current step, use the ${ToolName.TODO_LIST_UPDATE}
 
     try {
       const embeddingSettings = this.plugin.llmService.getEmbeddingSettings();
-      const classifier = getClassifier(
+      const classifier = await getClassifier(
         embeddingSettings,
         upstreamOptions?.isReloadRequest ?? false
       );

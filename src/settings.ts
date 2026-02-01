@@ -60,7 +60,7 @@ class StewardSettingTab extends PluginSettingTab {
     embeddingSettings: StewardPluginSettings['embedding']
   ): Promise<void> {
     try {
-      const classifier = getClassifier(embeddingSettings);
+      const classifier = await getClassifier(embeddingSettings);
       await classifier.clearCachedEmbeddings();
       logger.log(`Cleared cached embeddings for model: ${embeddingSettings.model}`);
     } catch (error) {

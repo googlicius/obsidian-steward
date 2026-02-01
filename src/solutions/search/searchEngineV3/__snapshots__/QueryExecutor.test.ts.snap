@@ -40,6 +40,7 @@ AndCondition {
       "keywords": [
         "black cat",
       ],
+      "searchPDFContent": false,
     },
   ],
   "context": {

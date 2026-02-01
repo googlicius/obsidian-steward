@@ -1,6 +1,25 @@
 import { LLMService } from './LLMService';
 import type StewardPlugin from 'src/main';
 
+// Mock getCdnLib to avoid CDN imports in tests
+jest.mock('src/utils/cdnUrls', () => ({
+  getCdnLib: jest.fn().mockImplementation((key: string) => {
+    const mockProvider = { mockProvider: true };
+    const mocks: Record<string, unknown> = {
+      anthropic: { createAnthropic: () => mockProvider },
+      deepseek: { createDeepSeek: () => mockProvider },
+      google: { createGoogleGenerativeAI: () => mockProvider },
+      groq: { createGroq: () => mockProvider },
+      hume: { createHume: () => mockProvider },
+      elevenLabs: { createElevenLabs: () => mockProvider },
+      ollama: { createOllama: () => mockProvider },
+      openai: { createOpenAI: () => mockProvider },
+      openaiCompatible: { createOpenAICompatible: () => mockProvider },
+    };
+    return Promise.resolve(mocks[key]);
+  }),
+}));
+
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   return {
     settings: {
@@ -70,40 +89,40 @@ describe('LLMService', () => {
 
   describe('getProviderFromModel', () => {
     describe('models with provider prefix', () => {
-      it('should correctly parse model with colon in modelId (ollama:llama3.2:3b)', () => {
-        const result = llmService.getProviderFromModel('ollama:llama3.2:3b');
+      it('should correctly parse model with colon in modelId (ollama:llama3.2:3b)', async () => {
+        const result = await llmService.getProviderFromModel('ollama:llama3.2:3b');
 
         expect(result.name).toBe('ollama');
         expect(result.modelId).toBe('llama3.2:3b');
         expect(result.provider).toBeDefined();
       });
 
-      it('should correctly parse simple provider:model format (openai:gpt-4)', () => {
-        const result = llmService.getProviderFromModel('openai:gpt-4');
+      it('should correctly parse simple provider:model format (openai:gpt-4)', async () => {
+        const result = await llmService.getProviderFromModel('openai:gpt-4');
 
         expect(result.name).toBe('openai');
         expect(result.modelId).toBe('gpt-4');
         expect(result.provider).toBeDefined();
       });
 
-      it('should correctly parse deepseek model', () => {
-        const result = llmService.getProviderFromModel('deepseek:deepseek-chat');
+      it('should correctly parse deepseek model', async () => {
+        const result = await llmService.getProviderFromModel('deepseek:deepseek-chat');
 
         expect(result.name).toBe('deepseek');
         expect(result.modelId).toBe('deepseek-chat');
         expect(result.provider).toBeDefined();
       });
 
-      it('should correctly parse google model', () => {
-        const result = llmService.getProviderFromModel('google:gemini-2.0-flash');
+      it('should correctly parse google model', async () => {
+        const result = await llmService.getProviderFromModel('google:gemini-2.0-flash');
 
         expect(result.name).toBe('google');
         expect(result.modelId).toBe('gemini-2.0-flash');
         expect(result.provider).toBeDefined();
       });
 
-      it('should correctly parse groq model', () => {
-        const result = llmService.getProviderFromModel(
+      it('should correctly parse groq model', async () => {
+        const result = await llmService.getProviderFromModel(
           'groq:meta-llama/llama-4-scout-17b-16e-instruct'
         );
 
@@ -112,32 +131,34 @@ describe('LLMService', () => {
         expect(result.provider).toBeDefined();
       });
 
-      it('should correctly parse anthropic model', () => {
-        const result = llmService.getProviderFromModel('anthropic:claude-3-5-sonnet-20241022');
+      it('should correctly parse anthropic model', async () => {
+        const result = await llmService.getProviderFromModel(
+          'anthropic:claude-3-5-sonnet-20241022'
+        );
 
         expect(result.name).toBe('anthropic');
         expect(result.modelId).toBe('claude-3-5-sonnet-20241022');
         expect(result.provider).toBeDefined();
       });
 
-      it('should handle model with multiple colons in modelId', () => {
-        const result = llmService.getProviderFromModel('ollama:model:version:tag');
+      it('should handle model with multiple colons in modelId', async () => {
+        const result = await llmService.getProviderFromModel('ollama:model:version:tag');
 
         expect(result.name).toBe('ollama');
         expect(result.modelId).toBe('model:version:tag');
         expect(result.provider).toBeDefined();
       });
 
-      it('should correctly parse custom provider model', () => {
-        const result = llmService.getProviderFromModel('lmstudio:lmstudio-1-3-70b');
+      it('should correctly parse custom provider model', async () => {
+        const result = await llmService.getProviderFromModel('lmstudio:lmstudio-1-3-70b');
 
         expect(result.name).toBe('lmstudio');
         expect(result.modelId).toBe('lmstudio-1-3-70b');
         expect(result.provider).toBeDefined();
       });
 
-      it('should correctly parse custom provider model with case insensitive name', () => {
-        const result = llmService.getProviderFromModel('yalelab:gemini-3');
+      it('should correctly parse custom provider model with case insensitive name', async () => {
+        const result = await llmService.getProviderFromModel('yalelab:gemini-3');
 
         expect(result.name).toBe('yalelab');
         expect(result.modelId).toBe('gemini-3');
@@ -146,21 +167,21 @@ describe('LLMService', () => {
     });
 
     describe('provider configuration', () => {
-      it('should pass baseURL to provider when configured', () => {
+      it('should pass baseURL to provider when configured', async () => {
         mockPlugin.settings.providers.ollama.baseUrl = 'http://custom-ollama:11434';
-        const result = llmService.getProviderFromModel('ollama:llama3.2:3b');
+        const result = await llmService.getProviderFromModel('ollama:llama3.2:3b');
 
         expect(result.name).toBe('ollama');
         expect(result.modelId).toBe('llama3.2:3b');
         expect(result.provider).toBeDefined();
       });
 
-      it('should pass apiKey to provider when configured', () => {
+      it('should pass apiKey to provider when configured', async () => {
         mockPlugin.settings.providers.openai.apiKey = 'encrypted-key';
         mockPlugin.encryptionService.getDecryptedApiKey = jest
           .fn()
           .mockReturnValue('decrypted-key');
-        const result = llmService.getProviderFromModel('openai:gpt-4');
+        const result = await llmService.getProviderFromModel('openai:gpt-4');
 
         expect(result.name).toBe('openai');
         expect(result.modelId).toBe('gpt-4');
@@ -170,13 +191,13 @@ describe('LLMService', () => {
     });
 
     describe('error cases', () => {
-      it('should throw error for unknown provider', () => {
-        expect(() => {
-          llmService.getProviderFromModel('unknown-provider:model');
-        }).toThrow('Provider unknown-provider not found');
+      it('should throw error for unknown provider', async () => {
+        await expect(llmService.getProviderFromModel('unknown-provider:model')).rejects.toThrow(
+          'Provider unknown-provider not found'
+        );
       });
 
-      it('should throw error for models without provider prefix (random selection)', () => {
+      it('should throw error for models without provider prefix (random selection)', async () => {
         const modelsWithoutPrefix = [
           'gpt-4-turbo',
           'gpt-3.5-turbo',
@@ -203,9 +224,9 @@ describe('LLMService', () => {
 
         for (let i = 0; i < selectedModels.length; i++) {
           const model = selectedModels[i];
-          expect(() => {
-            llmService.getProviderFromModel(model);
-          }).toThrow(`Model ${model} must include a provider prefix (e.g., provider:modelId)`);
+          await expect(llmService.getProviderFromModel(model)).rejects.toThrow(
+            `Model ${model} must include a provider prefix (e.g., provider:modelId)`
+          );
         }
       });
     });

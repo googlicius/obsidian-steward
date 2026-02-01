@@ -3,18 +3,15 @@ import { intentClassifier } from './intent';
 import { LLMService } from 'src/services/LLMService';
 import { logger } from 'src/utils/logger';
 
-export function getClassifier(
+export async function getClassifier(
   embeddingSettings: StewardPluginSettings['embedding'],
   isReloadRequest = false
 ) {
   const llmService = LLMService.getInstance();
-  const { provider, modelId } = llmService.getProviderFromModel(embeddingSettings.model);
+  const { provider, modelId } = await llmService.getProviderFromModel(embeddingSettings.model);
 
   // If embedding is disabled or provider doesn't support embeddings, use offline mode (static clusters only)
-  if (
-    !embeddingSettings.enabled ||
-    (!('embeddingModel' in provider) && !provider.textEmbeddingModel)
-  ) {
+  if (!embeddingSettings.enabled || !('embeddingModel' in provider)) {
     if (!embeddingSettings.enabled) {
       logger.log('Embedding is disabled. Using static clusters only.');
     } else {
@@ -30,10 +27,7 @@ export function getClassifier(
     });
   }
 
-  const embeddingModel =
-    'embeddingModel' in provider
-      ? provider.embeddingModel(modelId)
-      : provider.textEmbeddingModel(modelId);
+  const embeddingModel = provider.embeddingModel(modelId);
 
   return intentClassifier.withSettings({
     embeddingModel,

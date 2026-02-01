@@ -437,8 +437,8 @@ export default class StewardPlugin extends Plugin {
     this.registerView(STW_CHAT_VIEW_CONFIG.type, leaf => new StewardChatView(leaf, this));
   }
 
-  private initializeClassifier() {
-    const classifier = getClassifier(this.settings.embedding);
+  private async initializeClassifier() {
+    const classifier = await getClassifier(this.settings.embedding);
 
     // Initialize embeddings
     retry(() => classifier.doClassify('initialize'), {
@@ -573,7 +573,9 @@ export default class StewardPlugin extends Plugin {
       this.settings.llm.chat = DEFAULT_SETTINGS.llm.chat;
       // Migrate legacy model to chat.model
       if (this.settings.llm.model) {
-        const provider = LLMService.getInstance(this).getProviderFromModel(this.settings.llm.model);
+        const provider = await LLMService.getInstance(this).getProviderFromModel(
+          this.settings.llm.model
+        );
         this.settings.llm.chat.model = `${provider.name}:${provider.modelId}`;
         this.settings.llm.model = undefined;
       }
