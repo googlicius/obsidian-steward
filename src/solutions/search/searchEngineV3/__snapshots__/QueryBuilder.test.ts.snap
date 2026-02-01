@@ -12,6 +12,7 @@ AndCondition {
       "keywords": [
         "black cat",
       ],
+      "searchPDFContent": false,
     },
   ],
 }
@@ -29,6 +30,7 @@ OrCondition {
       "keywords": [
         "black cat",
       ],
+      "searchPDFContent": false,
     },
   ],
 }
@@ -48,6 +50,7 @@ OrCondition {
           "keywords": [
             "black cat",
           ],
+          "searchPDFContent": false,
         },
       ],
     },
@@ -62,6 +65,7 @@ OrCondition {
           "keywords": [
             "white dog",
           ],
+          "searchPDFContent": false,
         },
       ],
     },

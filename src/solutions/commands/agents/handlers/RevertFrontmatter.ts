@@ -1,4 +1,3 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -7,6 +6,7 @@ import { logger } from 'src/utils/logger';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { SysError } from 'src/utils/errors';
+import { getCdnLib } from 'src/utils/cdnUrls';
 
 const revertFrontmatterToolSchema = z.object({
   artifactId: z
@@ -27,14 +27,11 @@ type RevertFrontmatterExecutionResult = {
 };
 
 export class RevertFrontmatter {
-  private static readonly revertFrontmatterTool = tool({
-    inputSchema: revertFrontmatterToolSchema,
-  });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getRevertFrontmatterTool() {
-    return RevertFrontmatter.revertFrontmatterTool;
+  public static async getRevertFrontmatterTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: revertFrontmatterToolSchema });
   }
 
   public async handle(

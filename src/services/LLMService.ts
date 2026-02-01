@@ -1,27 +1,28 @@
 import {
-  JSONParseError,
+  type JSONParseError,
   ImageModel,
   SpeechModel,
   ModelMessage,
   LanguageModel,
   ToolCallPart,
-  InvalidToolInputError,
-  NoSuchToolError,
+  type InvalidToolInputError,
+  type NoSuchToolError,
 } from 'ai';
-import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
-import { createOpenAICompatible, OpenAICompatibleProvider } from '@ai-sdk/openai-compatible';
-import { createDeepSeek, DeepSeekProvider } from '@ai-sdk/deepseek';
-import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/google';
-import { createGroq, GroqProvider } from '@ai-sdk/groq';
-import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
-import { createElevenLabs, ElevenLabsProvider } from '@ai-sdk/elevenlabs';
-import { createOllama, OllamaProvider } from 'ollama-ai-provider-v2';
+import type { OpenAIProvider } from '@ai-sdk/openai';
+import type { OpenAICompatibleProvider } from '@ai-sdk/openai-compatible';
+import type { DeepSeekProvider } from '@ai-sdk/deepseek';
+import type { GoogleGenerativeAIProvider } from '@ai-sdk/google';
+import type { GroqProvider } from '@ai-sdk/groq';
+import type { ElevenLabsProvider } from '@ai-sdk/elevenlabs';
+import type { HumeProvider } from '@ai-sdk/hume';
+import type { AnthropicProvider } from '@ai-sdk/anthropic';
+import type { OllamaProvider } from 'ollama-ai-provider-v2';
 import type StewardPlugin from 'src/main';
 import { jsonrepair } from 'jsonrepair';
 import { logger } from 'src/utils/logger';
 import { StewardPluginSettings } from 'src/types/interfaces';
 import { getTranslation } from 'src/i18n';
-import { createHume, HumeProvider } from '@ai-sdk/hume';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { fixUnquotedJSON } from 'src/utils/jsonRepairs';
 
 /**
@@ -121,21 +122,21 @@ export class LLMService {
    * Supports both built-in providers and custom providers (using compatibility)
    */
   // Overload for ElevenLabs provider
-  public getProviderFromModel(model: `elevenlabs:${string}`): {
+  public async getProviderFromModel(model: `elevenlabs:${string}`): Promise<{
     modelId: string;
     name: 'elevenlabs';
     systemPrompt?: string;
     provider: ElevenLabsProvider;
-  };
+  }>;
   // Overload for Hume provider
-  public getProviderFromModel(model: `hume:${string}`): {
+  public async getProviderFromModel(model: `hume:${string}`): Promise<{
     modelId: string;
     name: 'hume';
     systemPrompt?: string;
     provider: HumeProvider;
-  };
+  }>;
   // Overload for other providers (excluding ElevenLabs)
-  public getProviderFromModel(model: string | `${string}:${string}`): {
+  public async getProviderFromModel(model: string | `${string}:${string}`): Promise<{
     modelId: string;
     name: string;
     systemPrompt?: string;
@@ -147,9 +148,9 @@ export class LLMService {
       | GroqProvider
       | OllamaProvider
       | AnthropicProvider;
-  };
+  }>;
   // Implementation
-  public getProviderFromModel(model: string | `${string}:${string}`): {
+  public async getProviderFromModel(model: string | `${string}:${string}`): Promise<{
     modelId: string;
     name: string;
     systemPrompt?: string;
@@ -163,7 +164,7 @@ export class LLMService {
       | AnthropicProvider
       | ElevenLabsProvider
       | HumeProvider;
-  } {
+  }> {
     const { provider: name, modelId } = this.parseModel(model);
 
     if (!name) {
@@ -198,13 +199,15 @@ export class LLMService {
           if (!baseURL) {
             throw new Error(`Custom provider ${name} with OpenAI compatibility requires a baseURL`);
           }
-          provider = createOpenAICompatible({
+          const openaiCompatibleLib = await getCdnLib('openaiCompatible');
+          provider = openaiCompatibleLib.createOpenAICompatible({
             baseURL,
             name: config.name as string,
             ...(apiKey && { apiKey }),
           });
         } else {
-          provider = createOpenAI({
+          const openaiLib = await getCdnLib('openai');
+          provider = openaiLib.createOpenAI({
             ...(baseURL && { baseURL }),
             ...(apiKey && { apiKey }),
           });
@@ -213,7 +216,8 @@ export class LLMService {
       }
 
       case 'deepseek': {
-        provider = createDeepSeek({
+        const deepSeekLib = await getCdnLib('deepseek');
+        provider = deepSeekLib.createDeepSeek({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
         });
@@ -221,7 +225,8 @@ export class LLMService {
       }
 
       case 'google': {
-        provider = createGoogleGenerativeAI({
+        const googleLib = await getCdnLib('google');
+        provider = googleLib.createGoogleGenerativeAI({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
         });
@@ -229,7 +234,8 @@ export class LLMService {
       }
 
       case 'groq': {
-        provider = createGroq({
+        const groqLib = await getCdnLib('groq');
+        provider = groqLib.createGroq({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
         });
@@ -237,7 +243,8 @@ export class LLMService {
       }
 
       case 'ollama': {
-        provider = createOllama({
+        const ollamaLib = await getCdnLib('ollama');
+        provider = ollamaLib.createOllama({
           ...(baseURL && { baseURL }),
           ...(apiKey && {
             headers: {
@@ -249,7 +256,8 @@ export class LLMService {
       }
 
       case 'anthropic': {
-        provider = createAnthropic({
+        const anthropicLib = await getCdnLib('anthropic');
+        provider = anthropicLib.createAnthropic({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
           headers: {
@@ -261,7 +269,8 @@ export class LLMService {
       }
 
       case 'elevenlabs': {
-        provider = createElevenLabs({
+        const elevenLabsLib = await getCdnLib('elevenLabs');
+        provider = elevenLabsLib.createElevenLabs({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
         });
@@ -270,7 +279,8 @@ export class LLMService {
       }
 
       case 'hume': {
-        provider = createHume({
+        const humeLib = await getCdnLib('hume');
+        provider = humeLib.createHume({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
         });
@@ -297,6 +307,7 @@ export class LLMService {
     options: { overrideModel?: string; generateType?: 'text' | 'object' } = {}
   ) {
     const { generateType = 'object', overrideModel } = options;
+    const ai = await getCdnLib('ai');
 
     const {
       model: defaultModel,
@@ -308,7 +319,7 @@ export class LLMService {
       maxGenerationTokens: this.plugin.settings.llm.maxGenerationTokens,
     };
     const model = overrideModel || defaultModel;
-    const { provider, modelId, systemPrompt, name } = this.getProviderFromModel(model);
+    const { provider, modelId, systemPrompt, name } = await this.getProviderFromModel(model);
 
     if (['elevenlabs', 'hume'].includes(name)) {
       throw new Error(
@@ -327,7 +338,7 @@ export class LLMService {
         toolCall: ToolCallPart;
         error: JSONParseError | InvalidToolInputError | NoSuchToolError;
       }) => {
-        if (options.error instanceof InvalidToolInputError) {
+        if (options.error instanceof ai.InvalidToolInputError) {
           try {
             logger.log('Repairing invalid tool call input', options.error);
             options.toolCall.input = jsonrepair(options.toolCall.input as string);
@@ -368,16 +379,13 @@ export class LLMService {
   }> {
     const { overrideModel } = options || {};
     const model = overrideModel || this.plugin.settings.llm.image.model;
-    const result = this.getProviderFromModel(model);
+    const result = await this.getProviderFromModel(model);
     let imageModel: ImageModel | undefined;
 
     if ('image' in result.provider) {
       imageModel = result.provider.image(result.modelId);
     } else if (result.provider.imageModel) {
-      const imageModelV1OrV2 = result.provider.imageModel(result.modelId);
-      if (imageModelV1OrV2.specificationVersion === 'v2') {
-        imageModel = imageModelV1OrV2;
-      }
+      imageModel = result.provider.imageModel(result.modelId);
     }
 
     if (!imageModel) {
@@ -397,16 +405,13 @@ export class LLMService {
     const speechModelId = overrideModel || this.plugin.settings.llm.speech.model;
     const [provider, model] = speechModelId.split(':');
 
-    const result = this.getProviderFromModel(`${provider}:${model}`);
+    const result = await this.getProviderFromModel(`${provider}:${model}`);
     let speechModel: SpeechModel | undefined;
 
     if ('speech' in result.provider) {
       speechModel = result.provider.speech(result.modelId);
     } else if (result.provider.speechModel) {
-      const speechModelV1OrV2 = result.provider.speechModel(result.modelId);
-      if (speechModelV1OrV2.specificationVersion === 'v2') {
-        speechModel = speechModelV1OrV2;
-      }
+      speechModel = result.provider.speechModel(result.modelId);
     }
 
     if (!speechModel) {
@@ -494,12 +499,16 @@ export class LLMService {
    * Validate that the model supports image inputs if messages contain images
    * @throws Error if images are present but model doesn't support vision
    */
-  public validateImageSupport(model: string, messages: ModelMessage[], lang?: string | null): void {
+  public async validateImageSupport(
+    model: string,
+    messages: ModelMessage[],
+    lang?: string | null
+  ): Promise<void> {
     if (!this.messagesContainImages(messages)) {
       return; // No images, no validation needed
     }
 
-    const { name: providerName, modelId } = this.getProviderFromModel(model);
+    const { name: providerName, modelId } = await this.getProviderFromModel(model);
 
     if (!this.modelSupportsVision(providerName, modelId)) {
       const t = getTranslation(lang);

@@ -1,4 +1,4 @@
-import { generateObject } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { z } from 'zod/v3';
 import type StewardPlugin from 'src/main';
 import { DocWithPath } from 'src/types/types';
@@ -248,6 +248,7 @@ ${context}
 
 Return the results in the exact format specified by the response schema.`;
 
+      const { generateObject } = await getCdnLib('ai');
       const result = await generateObject({
         ...llmConfig,
         abortSignal: this.plugin.abortService.createAbortController('data-awareness'),

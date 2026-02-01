@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { type SuperAgent } from '../SuperAgent';
@@ -27,12 +27,11 @@ type RevertCreateExecutionResult = {
 };
 
 export class RevertCreate {
-  private static readonly revertCreateTool = tool({ inputSchema: revertCreateToolSchema });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getRevertCreateTool() {
-    return RevertCreate.revertCreateTool;
+  public static async getRevertCreateTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: revertCreateToolSchema });
   }
 
   public async handle(

@@ -1,6 +1,6 @@
 {
   "name": "obsidian-steward",
-  "version": "2.0.5",
+  "version": "2.1.0",
   "description": "This is a sample plugin for Obsidian (https://obsidian.md)",
   "main": "main.js",
   "scripts": {
@@ -19,6 +19,14 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@ai-sdk/anthropic": "3.0.33",
+    "@ai-sdk/deepseek": "^2.0.15",
+    "@ai-sdk/elevenlabs": "^2.0.15",
+    "@ai-sdk/google": "3.0.18",
+    "@ai-sdk/groq": "3.0.19",
+    "@ai-sdk/hume": "^2.0.15",
+    "@ai-sdk/openai": "3.0.23",
+    "@ai-sdk/openai-compatible": "2.0.24",
     "@codemirror/autocomplete": "github:codemirror/autocomplete",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/crypto-js": "^4.2.2",
@@ -27,14 +35,16 @@
     "@types/node": "^16.11.6",
     "@typescript-eslint/eslint-plugin": "5.29.0",
     "@typescript-eslint/parser": "5.29.0",
+    "ai": "^6.0.5",
     "autoprefixer": "^10.4.23",
     "builtin-modules": "3.3.0",
     "esbuild": "0.17.3",
     "jest": "^29.7.0",
     "js-yaml": "^4.1.1",
     "obsidian": "latest",
-    "pdfjs-dist": "^4.9.155",
+    "ollama-ai-provider-v2": "^3.0.3",
     "patch-package": "^8.0.1",
+    "pdfjs-dist": "^4.9.155",
     "postcss": "^8.5.6",
     "postcss-cli": "^11.0.1",
     "prettier": "^3.5.3",
@@ -44,20 +54,10 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.2",
-    "@ai-sdk/deepseek": "^2.0.2",
-    "@ai-sdk/elevenlabs": "^2.0.6",
-    "@ai-sdk/google": "^3.0.2",
-    "@ai-sdk/groq": "^3.0.2",
-    "@ai-sdk/hume": "^2.0.6",
-    "@ai-sdk/openai": "^3.0.2",
-    "@ai-sdk/openai-compatible": "^2.0.2",
-    "ai": "^6.0.5",
     "crypto-js": "^4.2.0",
     "dexie": "^4.0.11",
     "i18next": "^21.10.0",
     "jsonrepair": "^3.13.0",
-    "ollama-ai-provider-v2": "^1.5.5",
     "zod": "^4.1.8"
   }
 }

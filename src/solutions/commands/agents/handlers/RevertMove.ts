@@ -1,4 +1,4 @@
-import { tool } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -28,12 +28,11 @@ type RevertMoveExecutionResult = {
 };
 
 export class RevertMove {
-  private static readonly revertMoveTool = tool({ inputSchema: revertMoveToolSchema });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getRevertMoveTool() {
-    return RevertMove.revertMoveTool;
+  public static async getRevertMoveTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: revertMoveToolSchema });
   }
 
   public async handle(

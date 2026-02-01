@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { type SuperAgent } from '../SuperAgent';
@@ -10,7 +10,7 @@ import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { logger } from 'src/utils/logger';
 
-export const contentReadingSchema = z.object({
+const contentReadingSchema = z.object({
   readType: z.enum(['above', 'below', 'pattern', 'entire']).default('above')
     .describe(`- "above", "below": Refers to the direction to read from current position.
 - "pattern": The RegExp pattern to search for in the content.
@@ -70,12 +70,11 @@ If the readType is "entire", leave it null.`
 export type ContentReadingArgs = z.infer<typeof contentReadingSchema>;
 
 export class ReadContent {
-  private static readonly contentReadingTool = tool({ inputSchema: contentReadingSchema });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getContentReadingTool() {
-    return ReadContent.contentReadingTool;
+  public static async getContentReadingTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: contentReadingSchema });
   }
 
   /**

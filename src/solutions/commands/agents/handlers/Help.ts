@@ -1,4 +1,3 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -6,6 +5,7 @@ import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { ToolCallPart } from '../../tools/types';
 import { DOCUMENTATION_FILES } from 'src/constants';
+import { getCdnLib } from 'src/utils/cdnUrls';
 
 interface BuiltInCommand {
   command: string;
@@ -19,14 +19,13 @@ const helpSchema = z.object({});
 export type HelpArgs = z.infer<typeof helpSchema>;
 
 export class Help {
-  private static readonly helpTool = tool({
-    inputSchema: helpSchema,
-  });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getHelpTool() {
-    return Help.helpTool;
+  public static async getHelpTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({
+      inputSchema: helpSchema,
+    });
   }
 
   /**

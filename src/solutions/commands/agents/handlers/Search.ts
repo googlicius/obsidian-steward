@@ -1,4 +1,4 @@
-import { tool } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -157,14 +157,11 @@ export type SearchArgs = {
 };
 
 export class Search {
-  private static readonly searchTool = tool({
-    inputSchema: searchQueryExtractionSchema,
-  });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getSearchTool() {
-    return Search.searchTool;
+  public static async getSearchTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: searchQueryExtractionSchema });
   }
 
   /**
@@ -644,7 +641,6 @@ export class Search {
     // the actual phrase the user is looking for
     let bestClusterStart = -1;
     let bestClusterScore = 0;
-    const windowSize = 21; // 10 before + 1 center + 10 after
 
     for (let i = 0; i < termOccurrences.length; i++) {
       const occ = termOccurrences[i];
@@ -680,7 +676,6 @@ export class Search {
     const contextStart = Math.max(0, bestClusterStart - 10);
     const contextEnd = Math.min(termOccurrences.length, bestClusterStart + 11);
     const contextTerms = termOccurrences.slice(contextStart, contextEnd);
-    const matchedOccurrence = termOccurrences[bestClusterStart];
 
     // Build snippet with highlighting
     let snippet = '';

@@ -1,6 +1,5 @@
 import { EncryptionService } from './EncryptionService';
 import type StewardPlugin from 'src/main';
-import { generateId } from 'ai';
 
 // Mock vault-specific localStorage
 const vaultLocalStorageMock = (() => {
@@ -61,7 +60,7 @@ describe('EncryptionService', () => {
     it('should create and store a new salt when none exists', () => {
       const mockPlugin = createMockPlugin();
       const encryptionService = EncryptionService.getInstance(mockPlugin);
-      const saltKeyId = generateId();
+      const saltKeyId = 'random-salt-key-id';
 
       // First access should create a new salt (via encryption)
       encryptionService.encrypt('test data', saltKeyId);
@@ -73,7 +72,7 @@ describe('EncryptionService', () => {
     it('should load existing salt from storage when saltKeyId exists', () => {
       const mockPlugin = createMockPlugin();
       const encryptionService = EncryptionService.getInstance(mockPlugin);
-      const saltKeyId = generateId();
+      const saltKeyId = 'random-salt-key-id';
 
       // First encryption - creates the salt
       encryptionService.encrypt('test data', saltKeyId);
@@ -90,7 +89,7 @@ describe('EncryptionService', () => {
     it('should encrypt and decrypt a string', () => {
       const mockPlugin = createMockPlugin();
       const encryptionService = EncryptionService.getInstance(mockPlugin);
-      const saltKeyId = generateId();
+      const saltKeyId = 'random-salt-key-id';
 
       // Test data
       const apiKey = 'sk-test12345abcdefg';

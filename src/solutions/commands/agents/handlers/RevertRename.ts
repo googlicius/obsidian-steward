@@ -1,4 +1,4 @@
-import { tool } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -27,12 +27,11 @@ type RevertRenameExecutionResult = {
 };
 
 export class RevertRename {
-  private static readonly revertRenameTool = tool({ inputSchema: revertRenameToolSchema });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getRevertRenameTool() {
-    return RevertRename.revertRenameTool;
+  public static async getRevertRenameTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: revertRenameToolSchema });
   }
 
   public async handle(

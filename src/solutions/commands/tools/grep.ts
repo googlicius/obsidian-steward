@@ -1,4 +1,3 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
 import type StewardPlugin from 'src/main';
 import { TFile, TFolder } from 'obsidian';
@@ -33,13 +32,6 @@ NOTE: ContentPattern can only be used when 'paths' is file paths, NOT folder pat
  * Type for grep tool arguments
  */
 export type GrepArgs = z.infer<typeof grepSchema>;
-
-/**
- * Shared grep tool definition
- */
-export const grepTool = tool({
-  inputSchema: grepSchema,
-});
 
 /**
  * Result type for file/folder existence check

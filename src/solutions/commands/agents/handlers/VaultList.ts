@@ -1,4 +1,4 @@
-import { tool } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { z } from 'zod/v3';
 import { TFile } from 'obsidian';
 import { getTranslation } from 'src/i18n';
@@ -47,14 +47,11 @@ type ListToolResult = {
 };
 
 export class VaultList {
-  protected static readonly listTool = tool({
-    inputSchema: listToolSchema,
-  });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getListTool() {
-    return VaultList.listTool;
+  public static async getListTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: listToolSchema });
   }
 
   public async handle(

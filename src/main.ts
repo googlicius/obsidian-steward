@@ -19,7 +19,6 @@ import { SearchService } from './solutions/search';
 import { PDFExtractor } from './solutions/search/binaryContent';
 import { SearchDatabase } from './database/SearchDatabase';
 import { EncryptionService } from './services/EncryptionService';
-import { generateId } from 'ai';
 import { formatDateTime } from './utils/dateUtils';
 import { logger } from './utils/logger';
 import { ConversationRenderer } from './services/ConversationRenderer';
@@ -58,6 +57,7 @@ import { CommandTrackingService } from './services/CommandTrackingService';
 import { VersionCheckerService } from './services/VersionCheckerService';
 import { UserMessageService } from './services/UserMessageService';
 import { GitHubResourceService } from './services/GitHubResourceService';
+import { getCdnLib } from './utils/cdnUrls';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -437,8 +437,8 @@ export default class StewardPlugin extends Plugin {
     this.registerView(STW_CHAT_VIEW_CONFIG.type, leaf => new StewardChatView(leaf, this));
   }
 
-  private initializeClassifier() {
-    const classifier = getClassifier(this.settings.embedding);
+  private async initializeClassifier() {
+    const classifier = await getClassifier(this.settings.embedding);
 
     // Initialize embeddings
     retry(() => classifier.doClassify('initialize'), {
@@ -488,6 +488,7 @@ export default class StewardPlugin extends Plugin {
 
     // Setup encryption salt if not already set
     if (!this.settings.saltKeyId) {
+      const { generateId } = await getCdnLib('ai');
       this.settings.saltKeyId = generateId();
       settingsUpdated = true;
     }
@@ -573,7 +574,9 @@ export default class StewardPlugin extends Plugin {
       this.settings.llm.chat = DEFAULT_SETTINGS.llm.chat;
       // Migrate legacy model to chat.model
       if (this.settings.llm.model) {
-        const provider = LLMService.getInstance(this).getProviderFromModel(this.settings.llm.model);
+        const provider = await LLMService.getInstance(this).getProviderFromModel(
+          this.settings.llm.model
+        );
         this.settings.llm.chat.model = `${provider.name}:${provider.modelId}`;
         this.settings.llm.model = undefined;
       }

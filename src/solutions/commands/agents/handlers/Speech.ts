@@ -1,11 +1,10 @@
-import { tool } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
-import { experimental_generateSpeech } from 'ai';
 import { ArtifactType } from 'src/solutions/artifact';
 import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
@@ -30,14 +29,11 @@ const speechSchema = z.object({
 export type SpeechArgs = z.infer<typeof speechSchema>;
 
 export class Speech {
-  private static readonly speechTool = tool({
-    inputSchema: speechSchema,
-  });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getSpeechTool() {
-    return Speech.speechTool;
+  public static async getSpeechTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: speechSchema });
   }
 
   /**
@@ -218,6 +214,7 @@ export class Speech {
       const speechConfig = await this.agent.plugin.llmService.getSpeechConfig();
 
       // Generate the speech
+      const { experimental_generateSpeech } = await getCdnLib('ai');
       const response = await experimental_generateSpeech({
         abortSignal: this.agent.plugin.abortService.createAbortController('audio'),
         ...speechConfig,

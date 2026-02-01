@@ -6,13 +6,15 @@ import { ArtifactType, Change, FileChangeSet } from 'src/solutions/artifact';
 import { EditOperation } from 'src/solutions/commands/tools/editContent';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
+import { getCdnLib } from 'src/utils/cdnUrls';
 
 export class EditHandler {
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getEditTool(contentType: 'in_the_note' | 'in_the_chat') {
-    const { editTool } = createEditTool({ contentType });
-    return editTool;
+  public static async getEditTool(contentType: 'in_the_note' | 'in_the_chat') {
+    const { tool } = await getCdnLib('ai');
+    const { editSchema } = await createEditTool({ contentType });
+    return tool({ inputSchema: editSchema });
   }
 
   public async handle(
@@ -47,7 +49,7 @@ export class EditHandler {
     const contentType =
       artifact?.artifactType === ArtifactType.GENERATED_CONTENT ? 'in_the_chat' : 'in_the_note';
 
-    const { execute: editToolExecute } = createEditTool({ contentType });
+    const { execute: editToolExecute } = await createEditTool({ contentType });
     const operations = editToolExecute(toolCall.input);
 
     // Group operations by file - resolve all files that will be edited

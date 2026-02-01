@@ -1,7 +1,7 @@
 import { SuperAgent } from './SuperAgent';
 import type StewardPlugin from 'src/main';
 import { type App } from 'obsidian';
-import { streamText } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { AgentHandlerParams, Intent, IntentResultStatus } from '../../types';
 import { ToolName } from '../../ToolRegistry';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -11,14 +11,22 @@ import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { getClassifier } from 'src/lib/modelfusion';
 import * as handlers from '../handlers';
 
-// Mock individual functions from the ai package
-jest.mock('ai', () => {
-  const originalModule = jest.requireActual('ai');
+jest.mock('src/utils/cdnUrls', () => {
+  // Create once so every getCdnLib('ai') returns the SAME streamText mock
+  const mockStreamText = jest.fn();
+  const mockTool = jest.fn().mockImplementation((config: unknown) => config);
 
   return {
-    ...originalModule,
-    streamText: jest.fn(),
-    tool: jest.fn().mockImplementation(config => config),
+    getCdnLib: jest.fn().mockImplementation(async (key: string) => {
+      const mocks: Record<string, unknown> = {
+        ai: {
+          streamText: mockStreamText,
+          tool: mockTool,
+        },
+      };
+
+      return Promise.resolve(mocks[key]);
+    }),
   };
 });
 
@@ -106,6 +114,7 @@ describe('SuperAgent', () => {
   let superAgent: SuperAgent;
   let mockPlugin: jest.Mocked<StewardPlugin>;
   let mockSaveEmbedding: jest.Mock;
+  let streamText: jest.Mock;
 
   // Mock window for setTimeout
   beforeAll(() => {
@@ -125,11 +134,15 @@ describe('SuperAgent', () => {
     } as unknown as Window & typeof globalThis;
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     mockPlugin = createMockPlugin();
     superAgent = new SuperAgent(mockPlugin);
+
+    // Get streamText from CDN mock (SuperAgent uses getCdnLib('ai'))
+    const aiLib = await getCdnLib('ai');
+    streamText = aiLib.streamText as jest.Mock;
 
     // Set up default classifier mock for all tests
     mockSaveEmbedding = jest.fn().mockResolvedValue(undefined);
@@ -143,7 +156,7 @@ describe('SuperAgent', () => {
 
     // Set up default streamText mock with a generator that completes immediately
     // Note: streamText returns { fullStream, toolCalls }, not { textStream, toolCalls }
-    (streamText as jest.Mock).mockReturnValue({
+    streamText.mockReturnValue({
       fullStream: (async function* () {
         // Yield a text-delta chunk to signal text content
         yield { type: 'text-delta', textDelta: '' };
@@ -193,8 +206,9 @@ describe('SuperAgent', () => {
       // First iteration - no handlerId
       await superAgent.handle(params);
 
+      // Assert on streamText from CDN (getCdnLib('ai')) - this is what SuperAgent uses
       expect(streamText).toHaveBeenCalledTimes(1);
-      const firstCall = (streamText as jest.Mock).mock.calls[0][0];
+      const firstCall = streamText.mock.calls[0][0];
       expect(firstCall.messages).toHaveLength(1);
       expect(firstCall.messages[0].role).toBe('user');
 
@@ -207,7 +221,7 @@ describe('SuperAgent', () => {
       await superAgent.handle(paramsWithInvocationCount);
 
       expect(streamText).toHaveBeenCalledTimes(2);
-      const secondCall = (streamText as jest.Mock).mock.calls[1][0];
+      const secondCall = streamText.mock.calls[1][0];
 
       // Should have conversation history (user + assistant) but NOT add new user message
       expect(secondCall.messages).toHaveLength(2);
@@ -227,7 +241,7 @@ describe('SuperAgent', () => {
       await superAgent.handle(params);
 
       expect(streamText).toHaveBeenCalledTimes(1);
-      const call = (streamText as jest.Mock).mock.calls[0][0];
+      const call = streamText.mock.calls[0][0];
       const toolsObject = call.tools;
 
       // Check that only ACTIVATE tool is in the tools object (active)
@@ -419,7 +433,7 @@ describe('SuperAgent', () => {
       await superAgent.handle(params);
 
       expect(streamText).toHaveBeenCalledTimes(1);
-      const call = (streamText as jest.Mock).mock.calls[0][0];
+      const call = streamText.mock.calls[0][0];
       const toolsObject = call.tools;
 
       // When classifiedTasks includes 'revert', default tools are activated:
@@ -493,7 +507,7 @@ describe('SuperAgent', () => {
       );
 
       // Mock streamText to return a CONFIRMATION tool call
-      (streamText as jest.Mock).mockReturnValue({
+      streamText.mockReturnValue({
         fullStream: (async function* () {
           // Yield a text-delta chunk to signal text content
           yield { type: 'text-delta', textDelta: '' };
@@ -1272,7 +1286,7 @@ describe('SuperAgent', () => {
 
       // Verify streamText was called
       expect(streamText).toHaveBeenCalledTimes(1);
-      const call = (streamText as jest.Mock).mock.calls[0][0];
+      const call = streamText.mock.calls[0][0];
 
       // Verify messages array includes system message with provider system prompt
       expect(call.messages).toBeDefined();
@@ -1322,7 +1336,7 @@ describe('SuperAgent', () => {
       // Make toolCalls promise reject on first call to trigger fallback
       // Use mockImplementation to trigger onError callback, which is how errors are actually handled
       let callCount = 0;
-      (streamText as jest.Mock).mockImplementation(config => {
+      streamText.mockImplementation(config => {
         callCount++;
         if (callCount === 1) {
           // First call: trigger onError callback to simulate an error
@@ -1363,7 +1377,7 @@ describe('SuperAgent', () => {
       expect(streamText).toHaveBeenCalledTimes(2);
 
       // Verify the first call included the user message (invocationCount is undefined/falsy)
-      const firstCall = (streamText as jest.Mock).mock.calls[0][0];
+      const firstCall = streamText.mock.calls[0][0];
       expect(firstCall.messages).toBeDefined();
       expect(firstCall.messages.length).toBeGreaterThan(0);
       // The user message should be included in the first call
@@ -1378,7 +1392,7 @@ describe('SuperAgent', () => {
 
       // Verify that the second call to streamText includes the user message
       // Even though invocationCount is 1, since the history is empty, the user message should still be included
-      const secondCall = (streamText as jest.Mock).mock.calls[1][0];
+      const secondCall = streamText.mock.calls[1][0];
       expect(secondCall.messages).toBeDefined();
       expect(Array.isArray(secondCall.messages)).toBe(true);
 
@@ -1436,7 +1450,7 @@ describe('SuperAgent', () => {
 
       // Make toolCalls promise reject on first call to trigger fallback
       let callCount = 0;
-      (streamText as jest.Mock).mockImplementation(config => {
+      streamText.mockImplementation(config => {
         callCount++;
         if (callCount === 1) {
           // First call: trigger onError callback to simulate an error
@@ -1480,11 +1494,11 @@ describe('SuperAgent', () => {
       expect(mockPlugin.conversationRenderer.addUserMessage).not.toHaveBeenCalled();
 
       // Verify the first call (fallback) does NOT push the user message to messages array
-      const firstCall = (streamText as jest.Mock).mock.calls[0][0];
+      const firstCall = streamText.mock.calls[0][0];
       expect(firstCall.messages).toEqual(historyMessages);
 
       // Verify the second call (after fallback) does NOT push the user message to messages array
-      const secondCall = (streamText as jest.Mock).mock.calls[1][0];
+      const secondCall = streamText.mock.calls[1][0];
       expect(secondCall.messages).toEqual(historyMessages);
     });
   });

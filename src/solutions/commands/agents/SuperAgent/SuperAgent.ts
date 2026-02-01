@@ -1,4 +1,5 @@
-import { ModelMessage, streamText } from 'ai';
+import { type streamText, type ModelMessage } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { Agent } from '../../Agent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus, Intent } from '../../types';
 import { ToolCallPart, ToolResultPart } from '../../tools/types';
@@ -85,45 +86,52 @@ const TASK_TO_INDICATOR_MAP: Record<string, string> = {
  */
 const SINGLE_TURN_TASKS = new Set(['search', 'search_more']);
 
-const { askUserTool: confirmationTool } = createAskUserTool('confirmation');
-const { askUserTool } = createAskUserTool('ask');
+async function getTools() {
+  // Ensure AI-SDK is loaded and cached.
+  await getCdnLib('ai');
 
-const tools = {
-  [ToolName.LIST]: handlers.VaultList.getListTool(),
-  [ToolName.CREATE]: handlers.VaultCreate.getCreateTool(),
-  [ToolName.DELETE]: handlers.VaultDelete.getDeleteTool(),
-  [ToolName.COPY]: handlers.VaultCopy.getCopyTool(),
-  [ToolName.RENAME]: handlers.VaultRename.getRenameTool(),
-  [ToolName.MOVE]: handlers.VaultMove.getMoveTool(),
-  [ToolName.UPDATE_FRONTMATTER]: handlers.VaultUpdateFrontmatter.getUpdateFrontmatterTool(),
-  [ToolName.GREP]: handlers.VaultGrep.getGrepTool(),
-  [ToolName.REVERT_DELETE]: handlers.RevertDelete.getRevertDeleteTool(),
-  [ToolName.REVERT_MOVE]: handlers.RevertMove.getRevertMoveTool(),
-  [ToolName.REVERT_FRONTMATTER]: handlers.RevertFrontmatter.getRevertFrontmatterTool(),
-  [ToolName.REVERT_RENAME]: handlers.RevertRename.getRevertRenameTool(),
-  [ToolName.REVERT_CREATE]: handlers.RevertCreate.getRevertCreateTool(),
-  [ToolName.REVERT_EDIT_RESULTS]: handlers.RevertEditResults.getRevertEditResultsTool(),
-  [ToolName.CONTENT_READING]: handlers.ReadContent.getContentReadingTool(),
-  [ToolName.CONFIRMATION]: confirmationTool,
-  [ToolName.ASK_USER]: askUserTool,
-  [ToolName.EDIT]: handlers.EditHandler.getEditTool('in_the_note'),
-  [ToolName.USER_CONFIRM]: handlers.UserConfirm.getUserConfirmTool(),
-  [ToolName.HELP]: handlers.Help.getHelpTool(),
-  [ToolName.STOP]: handlers.Stop.getStopTool(),
-  [ToolName.THANK_YOU]: handlers.ThankYou.getThankYouTool(),
-  [ToolName.BUILD_SEARCH_INDEX]: handlers.BuildSearchIndex.getBuildSearchIndexTool(),
-  [ToolName.SEARCH]: handlers.Search.getSearchTool(),
-  [ToolName.SEARCH_MORE]: handlers.SearchMore.getSearchMoreTool(),
-  [ToolName.GET_MOST_RECENT_ARTIFACT]: getMostRecentArtifact,
-  [ToolName.GET_ARTIFACT_BY_ID]: getArtifactById,
-  [ToolName.ACTIVATE]: activateTools,
-  [ToolName.SPEECH]: handlers.Speech.getSpeechTool(),
-  [ToolName.IMAGE]: handlers.Image.getImageTool(),
-  [ToolName.TODO_LIST]: handlers.TodoList.getTodoListTool(),
-  [ToolName.TODO_LIST_UPDATE]: handlers.TodoList.getTodoListUpdateTool(),
-};
+  const { askUserTool: confirmationTool } = await createAskUserTool('confirmation');
+  const { askUserTool } = await createAskUserTool('ask');
 
-type ToolCalls = Awaited<Awaited<ReturnType<typeof streamText<typeof tools>>>['toolCalls']>;
+  return {
+    [ToolName.LIST]: await handlers.VaultList.getListTool(),
+    [ToolName.CREATE]: await handlers.VaultCreate.getCreateTool(),
+    [ToolName.DELETE]: await handlers.VaultDelete.getDeleteTool(),
+    [ToolName.COPY]: await handlers.VaultCopy.getCopyTool(),
+    [ToolName.RENAME]: await handlers.VaultRename.getRenameTool(),
+    [ToolName.MOVE]: await handlers.VaultMove.getMoveTool(),
+    [ToolName.UPDATE_FRONTMATTER]: await handlers.VaultUpdateFrontmatter.getUpdateFrontmatterTool(),
+    [ToolName.GREP]: await handlers.VaultGrep.getGrepTool(),
+    [ToolName.REVERT_DELETE]: await handlers.RevertDelete.getRevertDeleteTool(),
+    [ToolName.REVERT_MOVE]: await handlers.RevertMove.getRevertMoveTool(),
+    [ToolName.REVERT_FRONTMATTER]: await handlers.RevertFrontmatter.getRevertFrontmatterTool(),
+    [ToolName.REVERT_RENAME]: await handlers.RevertRename.getRevertRenameTool(),
+    [ToolName.REVERT_CREATE]: await handlers.RevertCreate.getRevertCreateTool(),
+    [ToolName.REVERT_EDIT_RESULTS]: await handlers.RevertEditResults.getRevertEditResultsTool(),
+    [ToolName.CONTENT_READING]: await handlers.ReadContent.getContentReadingTool(),
+    [ToolName.CONFIRMATION]: confirmationTool,
+    [ToolName.ASK_USER]: askUserTool,
+    [ToolName.EDIT]: await handlers.EditHandler.getEditTool('in_the_note'),
+    [ToolName.USER_CONFIRM]: await handlers.UserConfirm.getUserConfirmTool(),
+    [ToolName.HELP]: await handlers.Help.getHelpTool(),
+    [ToolName.STOP]: await handlers.Stop.getStopTool(),
+    [ToolName.THANK_YOU]: await handlers.ThankYou.getThankYouTool(),
+    [ToolName.BUILD_SEARCH_INDEX]: await handlers.BuildSearchIndex.getBuildSearchIndexTool(),
+    [ToolName.SEARCH]: await handlers.Search.getSearchTool(),
+    [ToolName.SEARCH_MORE]: await handlers.SearchMore.getSearchMoreTool(),
+    [ToolName.GET_MOST_RECENT_ARTIFACT]: await getMostRecentArtifact(),
+    [ToolName.GET_ARTIFACT_BY_ID]: await getArtifactById(),
+    [ToolName.ACTIVATE]: await activateTools(),
+    [ToolName.SPEECH]: await handlers.Speech.getSpeechTool(),
+    [ToolName.IMAGE]: await handlers.Image.getImageTool(),
+    [ToolName.TODO_LIST]: await handlers.TodoList.getTodoListTool(),
+    [ToolName.TODO_LIST_UPDATE]: await handlers.TodoList.getTodoListUpdateTool(),
+  };
+}
+
+type Tools = Awaited<ReturnType<typeof getTools>>;
+
+type ToolCalls = Awaited<Awaited<ReturnType<typeof streamText<Tools>>>['toolCalls']>;
 
 export interface SuperAgent extends Agent, SuperAgentHandlers {}
 
@@ -384,7 +392,9 @@ export class SuperAgent extends Agent {
           : [ToolName.ACTIVATE]
         : [];
 
+      const tools = await getTools();
       const registry = ToolRegistry.buildFromTools(tools).setActive(activeToolNames);
+      const { streamText } = await getCdnLib('ai');
 
       // Exclude confirmation and ask_user tools if no_confirm is set
       if (params.intent.no_confirm) {
@@ -588,6 +598,7 @@ NOTE:
       typeof options.remainingSteps !== 'undefined' ? options.remainingSteps : MAX_STEP_COUNT;
 
     const activeTools = await this.loadActiveTools(title, params.activeTools);
+    const tools = await getTools();
 
     const t = getTranslation(lang);
 
@@ -1091,7 +1102,10 @@ When you complete or skip the current step, use the ${ToolName.TODO_LIST_UPDATE}
     }
 
     const embeddingSettings = this.plugin.llmService.getEmbeddingSettings();
-    const classifier = getClassifier(embeddingSettings, upstreamOptions?.isReloadRequest ?? false);
+    const classifier = await getClassifier(
+      embeddingSettings,
+      upstreamOptions?.isReloadRequest ?? false
+    );
     const clusterName = await classifier.doClassify(query);
 
     if (!clusterName) {
@@ -1158,7 +1172,7 @@ When you complete or skip the current step, use the ${ToolName.TODO_LIST_UPDATE}
 
     try {
       const embeddingSettings = this.plugin.llmService.getEmbeddingSettings();
-      const classifier = getClassifier(
+      const classifier = await getClassifier(
         embeddingSettings,
         upstreamOptions?.isReloadRequest ?? false
       );

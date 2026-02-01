@@ -1,4 +1,4 @@
-import { tool } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { type SuperAgent } from '../SuperAgent';
@@ -49,12 +49,11 @@ type CopyOperationResult = {
 };
 
 export class VaultCopy {
-  private static readonly copyTool = tool({ inputSchema: copyToolSchema });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getCopyTool() {
-    return VaultCopy.copyTool;
+  public static async getCopyTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: copyToolSchema });
   }
 
   public async handle(
