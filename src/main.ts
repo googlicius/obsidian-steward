@@ -19,7 +19,6 @@ import { SearchService } from './solutions/search';
 import { PDFExtractor } from './solutions/search/binaryContent';
 import { SearchDatabase } from './database/SearchDatabase';
 import { EncryptionService } from './services/EncryptionService';
-import { generateId } from 'ai';
 import { formatDateTime } from './utils/dateUtils';
 import { logger } from './utils/logger';
 import { ConversationRenderer } from './services/ConversationRenderer';
@@ -58,6 +57,7 @@ import { CommandTrackingService } from './services/CommandTrackingService';
 import { VersionCheckerService } from './services/VersionCheckerService';
 import { UserMessageService } from './services/UserMessageService';
 import { GitHubResourceService } from './services/GitHubResourceService';
+import { getCdnLib } from './utils/cdnUrls';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -488,6 +488,7 @@ export default class StewardPlugin extends Plugin {
 
     // Setup encryption salt if not already set
     if (!this.settings.saltKeyId) {
+      const { generateId } = await getCdnLib('ai');
       this.settings.saltKeyId = generateId();
       settingsUpdated = true;
     }

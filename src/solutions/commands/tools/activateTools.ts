@@ -1,8 +1,8 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
 import { ToolName } from '../ToolRegistry';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
+import { getCdnLib } from 'src/utils/cdnUrls';
 
 const activateToolsSchema = z.object({
   tools: z
@@ -26,9 +26,10 @@ const activateToolsSchema = z.object({
 
 export type ActivateToolsArgs = z.infer<typeof activateToolsSchema>;
 
-export const activateTools = tool({
-  inputSchema: activateToolsSchema,
-});
+export async function activateTools() {
+  const { tool } = await getCdnLib('ai');
+  return tool({ inputSchema: activateToolsSchema });
+}
 
 /**
  * Result type for activate tools validation

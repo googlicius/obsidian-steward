@@ -1,4 +1,4 @@
-import { tool } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
@@ -13,14 +13,11 @@ const stopSchema = z.object({});
 export type StopArgs = z.infer<typeof stopSchema>;
 
 export class Stop {
-  private static readonly stopTool = tool({
-    inputSchema: stopSchema,
-  });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getStopTool() {
-    return Stop.stopTool;
+  public static async getStopTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: stopSchema });
   }
 
   /**

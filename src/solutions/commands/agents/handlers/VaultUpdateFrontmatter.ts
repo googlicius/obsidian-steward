@@ -1,4 +1,4 @@
-import { tool } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { z } from 'zod/v3';
 import { TFile, TFolder } from 'obsidian';
 import { getTranslation } from 'src/i18n';
@@ -101,14 +101,11 @@ type FileWithProperties = {
 };
 
 export class VaultUpdateFrontmatter {
-  private static readonly updateFrontmatterTool = tool({
-    inputSchema: updateFrontmatterToolSchema,
-  });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getUpdateFrontmatterTool() {
-    return VaultUpdateFrontmatter.updateFrontmatterTool;
+  public static async getUpdateFrontmatterTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: updateFrontmatterToolSchema });
   }
 
   public async handle(

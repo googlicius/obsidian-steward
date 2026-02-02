@@ -1,4 +1,4 @@
-import { tool } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -51,13 +51,13 @@ type RenameOperationResult = {
 };
 
 export class VaultRename {
-  private static readonly renameTool = tool({ inputSchema: renameToolSchema });
   private _dataAwarenessAgent: DataAwarenessAgent;
 
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getRenameTool() {
-    return VaultRename.renameTool;
+  public static async getRenameTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: renameToolSchema });
   }
 
   private get dataAwarenessAgent(): DataAwarenessAgent {

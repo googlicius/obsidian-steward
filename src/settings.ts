@@ -1,4 +1,3 @@
-import { generateId } from 'ai';
 import { getLanguage, normalizePath, PluginSettingTab, Setting } from 'obsidian';
 import { logger } from './utils/logger';
 import {
@@ -18,6 +17,7 @@ import { applyMixins } from './utils/applyMixins';
 import { ProviderSetting } from './settings/ProviderSetting';
 import { getClassifier } from './lib/modelfusion';
 import { FolderSuggest } from './settings/FolderSuggest';
+import { getCdnLib } from './utils/cdnUrls';
 
 const lang = getLanguage();
 const t = getTranslation(lang);
@@ -206,6 +206,7 @@ class StewardSettingTab extends PluginSettingTab {
             // Generate a unique provider key using generateId
             let providerKey: string;
             do {
+              const { generateId } = await getCdnLib('ai');
               providerKey = `provider-${generateId()}`;
             } while (this.plugin.settings.providers[providerKey]);
 

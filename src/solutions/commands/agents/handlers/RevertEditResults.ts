@@ -1,4 +1,3 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType, Change, FileChangeSet } from 'src/solutions/artifact';
@@ -7,6 +6,7 @@ import { logger } from 'src/utils/logger';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { SysError } from 'src/utils/errors';
+import { getCdnLib } from 'src/utils/cdnUrls';
 
 const revertEditResultsToolSchema = z.object({
   artifactId: z
@@ -27,14 +27,11 @@ type RevertEditResultsExecutionResult = {
 };
 
 export class RevertEditResults {
-  private static readonly revertEditResultsTool = tool({
-    inputSchema: revertEditResultsToolSchema,
-  });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getRevertEditResultsTool() {
-    return RevertEditResults.revertEditResultsTool;
+  public static async getRevertEditResultsTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: revertEditResultsToolSchema });
   }
 
   public async handle(

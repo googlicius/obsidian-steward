@@ -1,4 +1,4 @@
-import { tool } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
@@ -15,14 +15,11 @@ const searchMoreSchema = z.object({});
 export type SearchMoreArgs = z.infer<typeof searchMoreSchema>;
 
 export class SearchMore {
-  private static readonly searchMoreTool = tool({
-    inputSchema: searchMoreSchema,
-  });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getSearchMoreTool() {
-    return SearchMore.searchMoreTool;
+  public static async getSearchMoreTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: searchMoreSchema });
   }
 
   /**

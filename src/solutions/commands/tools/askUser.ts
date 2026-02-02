@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getCdnLib } from 'src/utils/cdnUrls';
 
 // LLMs understand of using confirmation tool could be varies:
 // - As very straightforward understanding: If you need to read a note entirely, you need to ask for confirmation.
@@ -9,7 +9,7 @@ import { z } from 'zod/v3';
  * Creates an askUser tool based on the mode
  * @param mode - 'confirmation' for requesting user confirmation, 'ask' for requesting additional information
  */
-export function createAskUserTool(mode: 'confirmation' | 'ask') {
+export async function createAskUserTool(mode: 'confirmation' | 'ask') {
   const messageDescription =
     mode === 'confirmation'
       ? `The message that you ask to get confirmation from the user.
@@ -22,6 +22,7 @@ export function createAskUserTool(mode: 'confirmation' | 'ask') {
     message: z.string().describe(messageDescription),
   });
 
+  const { tool } = await getCdnLib('ai');
   const askUserTool = tool({
     inputSchema: askUserSchema,
   });
@@ -35,4 +36,4 @@ export function createAskUserTool(mode: 'confirmation' | 'ask') {
 /**
  * Type for askUser tool arguments
  */
-export type AskUserArgs = z.infer<ReturnType<typeof createAskUserTool>['askUserSchema']>;
+export type AskUserArgs = z.infer<Awaited<ReturnType<typeof createAskUserTool>>['askUserSchema']>;

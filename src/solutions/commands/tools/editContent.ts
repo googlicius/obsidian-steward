@@ -1,4 +1,3 @@
-import { tool } from 'ai';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { z } from 'zod/v3';
 
@@ -260,10 +259,6 @@ Examples:
     )
   );
 
-  const editTool = tool({
-    inputSchema: editSchema,
-  });
-
   function execute(args: EditArgs): EditOperation[] {
     args = repairEditToolCallArgs(args);
 
@@ -272,7 +267,6 @@ Examples:
 
   return {
     editSchema,
-    editTool,
     execute,
   };
 }

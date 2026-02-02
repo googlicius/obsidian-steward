@@ -1,12 +1,12 @@
 import {
-  JSONParseError,
+  type JSONParseError,
   ImageModel,
   SpeechModel,
   ModelMessage,
   LanguageModel,
   ToolCallPart,
-  InvalidToolInputError,
-  NoSuchToolError,
+  type InvalidToolInputError,
+  type NoSuchToolError,
 } from 'ai';
 import type { OpenAIProvider } from '@ai-sdk/openai';
 import type { OpenAICompatibleProvider } from '@ai-sdk/openai-compatible';
@@ -307,6 +307,7 @@ export class LLMService {
     options: { overrideModel?: string; generateType?: 'text' | 'object' } = {}
   ) {
     const { generateType = 'object', overrideModel } = options;
+    const ai = await getCdnLib('ai');
 
     const {
       model: defaultModel,
@@ -337,7 +338,7 @@ export class LLMService {
         toolCall: ToolCallPart;
         error: JSONParseError | InvalidToolInputError | NoSuchToolError;
       }) => {
-        if (options.error instanceof InvalidToolInputError) {
+        if (options.error instanceof ai.InvalidToolInputError) {
           try {
             logger.log('Repairing invalid tool call input', options.error);
             options.toolCall.input = jsonrepair(options.toolCall.input as string);

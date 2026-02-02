@@ -35,6 +35,7 @@
     "@types/node": "^16.11.6",
     "@typescript-eslint/eslint-plugin": "5.29.0",
     "@typescript-eslint/parser": "5.29.0",
+    "ai": "^6.0.5",
     "autoprefixer": "^10.4.23",
     "builtin-modules": "3.3.0",
     "esbuild": "0.17.3",
@@ -53,7 +54,6 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "ai": "^6.0.5",
     "crypto-js": "^4.2.0",
     "dexie": "^4.0.11",
     "i18next": "^21.10.0",

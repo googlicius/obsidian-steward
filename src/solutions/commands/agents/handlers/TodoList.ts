@@ -1,4 +1,3 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
@@ -6,6 +5,7 @@ import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
+import { getCdnLib } from 'src/utils/cdnUrls';
 
 /**
  * Schema for a single to-do list step
@@ -88,22 +88,16 @@ export interface TodoListState {
 }
 
 export class TodoList {
-  private static readonly todoListTool = tool({
-    inputSchema: todoListSchema,
-  });
-
-  private static readonly todoListUpdateTool = tool({
-    inputSchema: todoListUpdateSchema,
-  });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getTodoListTool() {
-    return TodoList.todoListTool;
+  public static async getTodoListTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: todoListSchema });
   }
 
-  public static getTodoListUpdateTool() {
-    return TodoList.todoListUpdateTool;
+  public static async getTodoListUpdateTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: todoListUpdateSchema });
   }
 
   /**

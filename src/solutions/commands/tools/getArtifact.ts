@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getCdnLib } from 'src/utils/cdnUrls';
 
 const getMostRecentArtifactSchema = z.object({});
 
@@ -10,10 +10,12 @@ const getArtifactByIdSchema = z.object({
 export type GetMostRecentArtifactArgs = z.infer<typeof getMostRecentArtifactSchema>;
 export type GetArtifactByIdArgs = z.infer<typeof getArtifactByIdSchema>;
 
-export const getMostRecentArtifact = tool({
-  inputSchema: getMostRecentArtifactSchema,
-});
+export async function getMostRecentArtifact() {
+  const { tool } = await getCdnLib('ai');
+  return tool({ inputSchema: getMostRecentArtifactSchema });
+}
 
-export const getArtifactById = tool({
-  inputSchema: getArtifactByIdSchema,
-});
+export async function getArtifactById() {
+  const { tool } = await getCdnLib('ai');
+  return tool({ inputSchema: getArtifactByIdSchema });
+}

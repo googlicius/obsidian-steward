@@ -1,11 +1,10 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { type SuperAgent } from '../SuperAgent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
-import { generateImage } from 'ai';
 import { ArtifactType } from 'src/solutions/artifact';
 import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
@@ -30,14 +29,13 @@ const imageSchema = z.object({
 export type ImageArgs = z.infer<typeof imageSchema>;
 
 export class Image {
-  private static readonly imageTool = tool({
-    inputSchema: imageSchema,
-  });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getImageTool() {
-    return Image.imageTool;
+  public static async getImageTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({
+      inputSchema: imageSchema,
+    });
   }
 
   /**
@@ -205,6 +203,7 @@ export class Image {
       const imageConfig = await this.agent.plugin.llmService.getImageConfig();
 
       // Generate the image
+      const { generateImage } = await getCdnLib('ai');
       const response = await generateImage({
         abortSignal: this.agent.plugin.abortService.createAbortController('image'),
         ...imageConfig,

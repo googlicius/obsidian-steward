@@ -1,4 +1,4 @@
-import { tool } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -83,12 +83,11 @@ type DeleteExecutionResult = {
 };
 
 export class VaultDelete {
-  private static readonly deleteTool = tool({ inputSchema: deleteToolSchema });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getDeleteTool() {
-    return VaultDelete.deleteTool;
+  public static async getDeleteTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: deleteToolSchema });
   }
 
   public async handle(

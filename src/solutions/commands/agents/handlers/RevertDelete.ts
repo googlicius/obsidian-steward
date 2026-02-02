@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { type SuperAgent } from '../SuperAgent';
@@ -8,7 +8,7 @@ import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { SysError } from 'src/utils/errors';
 
-const revertDeleteToolSchema = z
+const revertDeleteSchema = z
   .object({
     artifactId: z
       .string()
@@ -43,7 +43,7 @@ const revertDeleteToolSchema = z
     }
   );
 
-export type RevertDeleteToolArgs = z.infer<typeof revertDeleteToolSchema>;
+export type RevertDeleteToolArgs = z.infer<typeof revertDeleteSchema>;
 
 type RevertDeleteExecutionResult = {
   revertedFiles: string[];
@@ -51,12 +51,11 @@ type RevertDeleteExecutionResult = {
 };
 
 export class RevertDelete {
-  private static readonly revertDeleteTool = tool({ inputSchema: revertDeleteToolSchema });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getRevertDeleteTool() {
-    return RevertDelete.revertDeleteTool;
+  public static async getRevertDeleteTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: revertDeleteSchema });
   }
 
   public async handle(

@@ -1,4 +1,4 @@
-import { tool } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
@@ -14,14 +14,11 @@ const userConfirmSchema = z.object({});
 export type UserConfirmArgs = z.infer<typeof userConfirmSchema>;
 
 export class UserConfirm {
-  private static readonly userConfirmTool = tool({
-    inputSchema: userConfirmSchema,
-  });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getUserConfirmTool() {
-    return UserConfirm.userConfirmTool;
+  public static async getUserConfirmTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: userConfirmSchema });
   }
 
   /**

@@ -1,4 +1,4 @@
-import { tool } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
@@ -12,14 +12,11 @@ const thankYouSchema = z.object({});
 export type ThankYouArgs = z.infer<typeof thankYouSchema>;
 
 export class ThankYou {
-  private static readonly thankYouTool = tool({
-    inputSchema: thankYouSchema,
-  });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getThankYouTool() {
-    return ThankYou.thankYouTool;
+  public static async getThankYouTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: thankYouSchema });
   }
 
   /**

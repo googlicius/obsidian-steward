@@ -1,4 +1,3 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -7,6 +6,7 @@ import { logger } from 'src/utils/logger';
 import type { TFile } from 'obsidian';
 import { AbortService } from 'src/services/AbortService';
 import type { PDFPageContent } from 'src/solutions/search/binaryContent/types';
+import { getCdnLib } from 'src/utils/cdnUrls';
 
 /**
  * Queue item type definition
@@ -21,14 +21,11 @@ const buildSearchIndexSchema = z.object({});
 export type BuildSearchIndexArgs = z.infer<typeof buildSearchIndexSchema>;
 
 export class BuildSearchIndex {
-  private static readonly buildSearchIndexTool = tool({
-    inputSchema: buildSearchIndexSchema,
-  });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getBuildSearchIndexTool() {
-    return BuildSearchIndex.buildSearchIndexTool;
+  public static async getBuildSearchIndexTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: buildSearchIndexSchema });
   }
 
   /**

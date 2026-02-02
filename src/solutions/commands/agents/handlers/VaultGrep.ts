@@ -1,16 +1,18 @@
 import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { execute, grepTool, GrepArgs } from '../../tools/grep';
+import { execute, grepSchema, GrepArgs } from '../../tools/grep';
 import { removeUndefined } from 'src/utils/removeUndefined';
+import { getCdnLib } from 'src/utils/cdnUrls';
 
 export type GrepToolArgs = GrepArgs;
 
 export class VaultGrep {
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getGrepTool() {
-    return grepTool;
+  public static async getGrepTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: grepSchema });
   }
 
   public async handle(

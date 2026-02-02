@@ -1,4 +1,4 @@
-import { tool } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -157,14 +157,11 @@ export type SearchArgs = {
 };
 
 export class Search {
-  private static readonly searchTool = tool({
-    inputSchema: searchQueryExtractionSchema,
-  });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getSearchTool() {
-    return Search.searchTool;
+  public static async getSearchTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: searchQueryExtractionSchema });
   }
 
   /**

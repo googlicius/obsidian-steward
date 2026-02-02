@@ -1,4 +1,4 @@
-import { tool } from 'ai';
+import { getCdnLib } from 'src/utils/cdnUrls';
 import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { type SuperAgent } from '../SuperAgent';
@@ -111,12 +111,11 @@ type MoveOperationResult = {
 };
 
 export class VaultMove {
-  private static readonly moveTool = tool({ inputSchema: moveToolSchema });
-
   constructor(private readonly agent: SuperAgent) {}
 
-  public static getMoveTool() {
-    return VaultMove.moveTool;
+  public static async getMoveTool() {
+    const { tool } = await getCdnLib('ai');
+    return tool({ inputSchema: moveToolSchema });
   }
 
   public async handle(

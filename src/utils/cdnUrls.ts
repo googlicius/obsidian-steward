@@ -1,4 +1,5 @@
 const CDN_URLS = {
+  ai: 'https://cdn.jsdelivr.net/npm/ai@6.0.5/+esm',
   anthropic: 'https://cdn.jsdelivr.net/npm/@ai-sdk/anthropic@3.0.33/+esm',
   deepseek: 'https://cdn.jsdelivr.net/npm/@ai-sdk/deepseek@2.0.15/+esm',
   google: 'https://cdn.jsdelivr.net/npm/@ai-sdk/google@3.0.18/+esm',
@@ -11,6 +12,7 @@ const CDN_URLS = {
 } as const;
 
 type CdnLibTypeMap = {
+  ai: typeof import('ai');
   anthropic: typeof import('@ai-sdk/anthropic');
   deepseek: typeof import('@ai-sdk/deepseek');
   google: typeof import('@ai-sdk/google');
@@ -23,6 +25,7 @@ type CdnLibTypeMap = {
 };
 
 const cached = new Map();
+const loadingPromises = new Map();
 
 /**
  * Get library from CDN
@@ -36,8 +39,21 @@ export async function getCdnLib<K extends keyof typeof CDN_URLS>(
   if (cachedLib !== undefined) {
     return cachedLib;
   }
-  const lib = await import(CDN_URLS[key]);
-  cached.set(key, lib);
 
-  return lib;
+  // Prevent multiple concurrent loads
+  const existingPromise = loadingPromises.get(key);
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const loadingPromise = import(CDN_URLS[key]);
+  loadingPromises.set(key, loadingPromise);
+
+  try {
+    const lib = await loadingPromise;
+    cached.set(key, lib);
+    return lib;
+  } finally {
+    loadingPromises.delete(key);
+  }
 }
