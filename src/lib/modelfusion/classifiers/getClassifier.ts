@@ -1,5 +1,5 @@
 import { StewardPluginSettings } from 'src/types/interfaces';
-import { intentClassifier } from './intent';
+import { getIntentClassifier } from './intent';
 import { LLMService } from 'src/services/LLMService';
 import { logger } from 'src/utils/logger';
 
@@ -8,7 +8,11 @@ export async function getClassifier(
   isReloadRequest = false
 ) {
   const llmService = LLMService.getInstance();
-  const { provider, modelId } = await llmService.getProviderFromModel(embeddingSettings.model);
+  const [providerResult, intentClassifier] = await Promise.all([
+    llmService.getProviderFromModel(embeddingSettings.model),
+    getIntentClassifier(),
+  ]);
+  const { provider, modelId } = providerResult;
 
   // If embedding is disabled or provider doesn't support embeddings, use offline mode (static clusters only)
   if (!embeddingSettings.enabled || !('embeddingModel' in provider)) {

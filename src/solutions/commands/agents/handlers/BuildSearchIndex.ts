@@ -7,6 +7,7 @@ import type { TFile } from 'obsidian';
 import { AbortService } from 'src/services/AbortService';
 import type { PDFPageContent } from 'src/solutions/search/binaryContent/types';
 import { getCdnLib } from 'src/utils/cdnUrls';
+import { ToolCallPart } from '../../tools/types';
 
 /**
  * Queue item type definition
@@ -15,8 +16,15 @@ type QueueItem =
   | { type: 'file'; file: TFile }
   | { type: 'pdf-page'; file: TFile; page: PDFPageContent; folderId: number };
 
-// BUILD_SEARCH_INDEX tool doesn't need args
-const buildSearchIndexSchema = z.object({});
+// BUILD_SEARCH_INDEX tool schema
+const buildSearchIndexSchema = z.object({
+  folders: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Optional array of folder paths to limit indexing. If provided, only files within these folders will be indexed.'
+    ),
+});
 
 export type BuildSearchIndexArgs = z.infer<typeof buildSearchIndexSchema>;
 
@@ -31,8 +39,12 @@ export class BuildSearchIndex {
   /**
    * Handle build search index tool call
    */
-  public async handle(params: AgentHandlerParams): Promise<AgentResult> {
+  public async handle(
+    params: AgentHandlerParams,
+    options: { toolCall: ToolCallPart<BuildSearchIndexArgs> }
+  ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
+    const { toolCall } = options;
 
     if (!handlerId) {
       throw new Error('BuildSearchIndex.handle invoked without handlerId');
@@ -41,7 +53,32 @@ export class BuildSearchIndex {
     try {
       const t = getTranslation(lang);
 
-      const files = this.agent.plugin.app.vault.getFiles();
+      let files: TFile[];
+
+      // If folders are specified, collect files from those folders only
+      if (toolCall.input.folders && toolCall.input.folders.length > 0) {
+        files = [];
+        for (const folderPath of toolCall.input.folders) {
+          const trimmedPath = folderPath.trim();
+          if (!trimmedPath) {
+            continue;
+          }
+
+          const folder = this.agent.app.vault.getFolderByPath(trimmedPath);
+          if (!folder) {
+            logger.warn(`Folder not found: ${trimmedPath}`);
+            continue;
+          }
+
+          // Get all files from folder recursively
+          const folderFiles = this.agent.obsidianAPITools.getFilesFromFolder(folder);
+          files.push(...folderFiles);
+        }
+      } else {
+        // No folders specified, get all files from vault
+        files = this.agent.plugin.app.vault.getFiles();
+      }
+
       const queue: QueueItem[] = files
         .filter(file => !this.agent.plugin.searchService.documentStore.isExcluded(file.path))
         .map(file => ({ type: 'file', file }));

@@ -1,13 +1,21 @@
-import { openai } from '@ai-sdk/openai';
 import { PersistentEmbeddingSimilarityClassifier } from '../classify/PersistentEmbeddingSimilarityClassifier';
 import { EMBEDDING_MODELS } from 'src/constants';
+import { getCdnLib } from 'src/utils/cdnUrls';
 
 const [, modelId] = EMBEDDING_MODELS[0].id.split(':');
 
+let cachedIntentClassifier: PersistentEmbeddingSimilarityClassifier | null = null;
+
 /**
- * The intent classifier instance
+ * Get the intent classifier instance (loaded from CDN)
  */
-export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
+export async function getIntentClassifier(): Promise<PersistentEmbeddingSimilarityClassifier> {
+  if (cachedIntentClassifier) {
+    return cachedIntentClassifier;
+  }
+
+  const { openai } = await getCdnLib('openai');
+  const classifier = new PersistentEmbeddingSimilarityClassifier({
   // Default embedding model (will be overridden by getClassifier)
   embeddingModel: openai.embeddingModel(modelId),
 
@@ -253,3 +261,6 @@ export const intentClassifier = new PersistentEmbeddingSimilarityClassifier({
     },
   ],
 });
+  cachedIntentClassifier = classifier;
+  return classifier;
+}
