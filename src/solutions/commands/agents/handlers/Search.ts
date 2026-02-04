@@ -517,7 +517,8 @@ export class Search {
       // Get the file content directly
       const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(result.document.path);
 
-      if (file && result.keywordsMatched) {
+      // Only highlight content for markdown files
+      if (file && file.extension === 'md' && result.keywordsMatched) {
         try {
           const fileContent = await this.agent.plugin.app.vault.cachedRead(file);
 

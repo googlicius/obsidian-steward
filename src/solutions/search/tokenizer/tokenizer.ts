@@ -1,4 +1,4 @@
-import { removeStopwords } from './stopwords';
+import { removeStopwords, STOPWORDS } from './stopwords';
 import { stemmer } from './stemmer';
 import { STW_SELECTED_PATTERN, STW_SQUEEZED_PATTERN } from '../../../constants';
 
@@ -59,10 +59,9 @@ interface Analyzer {
 interface TokenizerConfig {
   removeStopwords?: boolean;
   /**
-   * Threshold for stopword removal (0.0 to 1.0).
-   * If the percentage of stopwords exceeds this threshold, only remove stopwords until the percentage is below the threshold.
-   * Default: 0.5 (50%)
-   * Example: With threshold 0.5, "The lord of the Rings" (60% stopwords) will have some stopwords removed to bring it below 50%
+   * Threshold for stopword removal (0.0 to 1.0). Stopwords are kept only if their percentage exceeds this value.
+   * Higher threshold = stricter removal (harder to keep stopwords, need higher percentage). Default: 0.5
+   * Example: threshold 0.7 means "For a while.md" (66% stopwords) removes stopwords; threshold 0.5 keeps them.
    */
   stopwordThreshold?: number;
   normalizers?: (string | Normalizer)[];
@@ -327,8 +326,21 @@ export class Tokenizer {
     // Split into words and filter empty ones
     const words = normalizedContent.split(/\s+/).filter(Boolean);
 
-    // Remove stopwords if configured
-    const filteredWords = this.config.removeStopwords ? removeStopwords(words) : words;
+    // Remove stopwords if configured, but check threshold first
+    let filteredWords = words;
+    if (this.config.removeStopwords && words.length > 0) {
+      // Calculate stopword percentage
+      const stopwordCount = words.filter(word => STOPWORDS.has(word)).length;
+      const stopwordPercentage = stopwordCount / words.length;
+
+      // If stopword percentage exceeds threshold, skip stopword removal
+      const threshold = this.config.stopwordThreshold ?? 0.5;
+      if (stopwordPercentage > threshold) {
+        filteredWords = words;
+      } else {
+        filteredWords = removeStopwords(words);
+      }
+    }
 
     // Count term frequencies and positions
     const termMap = new Map<string, { count: number; positions: number[] }>();
