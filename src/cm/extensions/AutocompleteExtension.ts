@@ -194,37 +194,39 @@ export function createAutocompleteExtension(plugin: StewardPlugin): Extension {
     // Get all available models
     const allModels = getAllModels(plugin);
 
-    // Group models by provider
-    const modelsByProvider = allModels.reduce<Record<string, typeof allModels>>((acc, model) => {
-      const provider = parseModelId(model.id).provider;
-      if (!acc[provider]) {
-        acc[provider] = [];
-      }
-      acc[provider].push(model);
-      return acc;
-    }, {});
+    // First, identify duplicate model names across providers
+    const modelNameCounts = new Map<string, number>();
+    for (const model of allModels) {
+      const { modelName } = parseModelId(model.id);
+      modelNameCounts.set(modelName, (modelNameCounts.get(modelName) || 0) + 1);
+    }
 
-    // Build completion options grouped by provider
+    // Build completion options
     const options: Completion[] = [];
     // Current model: provider:modelName
     const currentModel = plugin.settings.llm.chat.model;
 
-    for (const [, models] of Object.entries(modelsByProvider)) {
-      // Add models under this provider
-      for (const model of models) {
-        const { modelName } = parseModelId(model.id);
-        const isCurrentModel = model.id === currentModel;
-        const currentText = isCurrentModel ? '(Current)' : '';
+    for (const model of allModels) {
+      const { provider, modelName } = parseModelId(model.id);
+      const isCurrentModel = model.id === currentModel;
+      const currentText = isCurrentModel ? ' (Current)' : '';
 
-        options.push({
-          label:
-            modelName.length > 25
-              ? `${modelName.substring(0, 25)}... ${currentText}`
-              : modelName + ' ' + currentText,
-          type: 'constant',
-          apply: model.id + ' ',
-        });
-      }
+      // Check if this model name appears in multiple providers (is duplicate)
+      const isDuplicate = (modelNameCounts.get(modelName) || 0) > 1;
+
+      // Add provider name only for duplicates
+      const displayName = isDuplicate ? `${modelName} - ${provider}` : modelName;
+
+      const label =
+        displayName.length > 25
+          ? `${displayName.substring(0, 25)}...${currentText}`
+          : displayName + currentText;
+
+      options.push({
+        label,
+        type: 'constant',
+        apply: model.id + ' ',
+      });
     }
 
     if (options.length === 0) return null;
