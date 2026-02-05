@@ -360,8 +360,10 @@ export class ProviderSetting {
           }
         });
 
-        // Add "Use secret storage" link when API key is empty
-        if (!hasApiKey()) {
+        // Add "Use secret storage" link when API key is empty and Obsidian supports SecretComponent
+        const supportsSecretStorage = typeof SecretComponent !== 'undefined';
+
+        if (!hasApiKey() && supportsSecretStorage) {
           const secretStorageLink = apiKeyWrapper.createEl('a', {
             text: t('settings.useSecretStorage'),
             href: '#',
