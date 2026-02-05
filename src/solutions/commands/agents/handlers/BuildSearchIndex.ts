@@ -5,8 +5,6 @@ import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import type { TFile } from 'obsidian';
 import { AbortService } from 'src/services/AbortService';
-// import type { PDFPageContent } from 'src/solutions/search/binaryContent/types';
-// import { getCdnLib } from 'src/utils/cdnUrls';
 import { ToolCallPart } from '../../tools/types';
 import { tool } from 'ai';
 

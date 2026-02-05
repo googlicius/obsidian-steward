@@ -71,7 +71,7 @@ export class FilenameCondition extends Condition<IndexedDocument> {
         switch (parsedName.searchType) {
           case 'contains':
             if (doc.fileName.toLowerCase().includes(parsedName.originalName.toLowerCase())) {
-              score = 1.0;
+              score = 1 + similarity(parsedName.originalName, doc.fileName);
             }
             break;
 

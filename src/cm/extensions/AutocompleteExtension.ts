@@ -12,18 +12,6 @@ import type StewardPlugin from 'src/main';
 const MODEL_SELECTOR_PATTERN = '^(m|model):';
 
 /**
- * Extract provider and model name from model ID
- * Format: <provider>:<modelId> (e.g., "openai:gpt-4o")
- */
-function parseModelId(modelId: string): { provider: string; modelName: string } {
-  const [provider, ...modelParts] = modelId.split(':');
-  return {
-    provider,
-    modelName: modelParts.join(':'),
-  };
-}
-
-/**
  * Get all available models (preset + custom)
  */
 function getAllModels(plugin: StewardPlugin): Array<{ id: string; name: string }> {
@@ -31,10 +19,10 @@ function getAllModels(plugin: StewardPlugin): Array<{ id: string; name: string }
 
   return [
     ...LLM_MODELS.map(model => ({ id: model.id, name: model.name })),
-    ...customModels.map(model => {
-      const { modelName } = parseModelId(model);
-      return { id: model, name: modelName };
-    }),
+    ...customModels.map(model => ({
+      id: model,
+      name: plugin.llmService.getModelDisplayName(model),
+    })),
   ];
 }
 
@@ -197,25 +185,25 @@ export function createAutocompleteExtension(plugin: StewardPlugin): Extension {
     // First, identify duplicate model names across providers
     const modelNameCounts = new Map<string, number>();
     for (const model of allModels) {
-      const { modelName } = parseModelId(model.id);
-      modelNameCounts.set(modelName, (modelNameCounts.get(modelName) || 0) + 1);
+      const { modelId } = plugin.llmService.parseModel(model.id);
+      modelNameCounts.set(modelId, (modelNameCounts.get(modelId) || 0) + 1);
     }
 
     // Build completion options
     const options: Completion[] = [];
-    // Current model: provider:modelName
+    // Current model: provider:modelId
     const currentModel = plugin.settings.llm.chat.model;
 
     for (const model of allModels) {
-      const { provider, modelName } = parseModelId(model.id);
+      const { provider, modelId } = plugin.llmService.parseModel(model.id);
       const isCurrentModel = model.id === currentModel;
       const currentText = isCurrentModel ? ' (Current)' : '';
 
       // Check if this model name appears in multiple providers (is duplicate)
-      const isDuplicate = (modelNameCounts.get(modelName) || 0) > 1;
+      const isDuplicate = (modelNameCounts.get(modelId) || 0) > 1;
 
       // Add provider name only for duplicates
-      const displayName = isDuplicate ? `${modelName} - ${provider}` : modelName;
+      const displayName = isDuplicate ? `${modelId} - ${provider}` : modelId;
 
       const label =
         displayName.length > 25

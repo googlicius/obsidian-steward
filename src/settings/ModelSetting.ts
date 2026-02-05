@@ -63,13 +63,10 @@ export class ModelSetting {
           id: model.id,
           name: model.name || model.id,
         })),
-        ...getCustomModels().map(model => {
-          const { modelId } = this.plugin.llmService.parseModel(model);
-          return {
-            id: model,
-            name: modelId,
-          };
-        }),
+        ...getCustomModels().map(model => ({
+          id: model,
+          name: this.plugin.llmService.getModelDisplayName(model),
+        })),
       ];
 
       // Group models by provider

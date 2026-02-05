@@ -23,13 +23,10 @@ export class ModelFallbackSetting {
         id: model.id,
         name: model.name || model.id,
       })),
-      ...customModels.map(model => {
-        const [, id] = model.split(':');
-        return {
-          id: model,
-          name: id,
-        };
-      }),
+      ...customModels.map(model => ({
+        id: model,
+        name: this.plugin.llmService.getModelDisplayName(model),
+      })),
     ];
   }
 
@@ -175,10 +172,10 @@ export class ModelFallbackSetting {
         cls: 'dropdown',
       });
 
-      // Group available models by provider
+      // Group available models by provider (same logic as ModelSetting)
       const modelsByProvider = availableModels.reduce<Record<string, typeof availableModels>>(
         (acc, model) => {
-          const provider = model.id.split(':')[0];
+          const { provider } = this.plugin.llmService.parseModel(model.id);
           if (!acc[provider]) {
             acc[provider] = [];
           }
