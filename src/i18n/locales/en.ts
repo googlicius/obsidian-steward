@@ -393,6 +393,10 @@ const en = {
       enterApiKeyOptional: 'Enter your API key (optional)',
       errorReenterKey: 'Error: Click to re-enter key',
       clearApiKey: 'Clear API key',
+      useSecretStorage: 'Use secret storage',
+      usingSecretStorage: 'Using secret: {{secretName}}',
+      secretStorageDesc: 'Select a secret from Obsidian Secret Storage',
+      switchToDirectInput: 'Switch to direct input',
       failedToSaveApiKey: 'Failed to save API key. Please try again.',
       failedToClearApiKey: 'Failed to clear API key. Please try again.',
       edit: 'Edit',
@@ -432,6 +436,9 @@ const en = {
       systemPrompt: 'System prompt',
       systemPromptPlaceholder: 'Enter additional instructions for this provider (optional)',
       systemPromptDesc: 'Additional instructions to provide to this provider',
+      providerDescription: 'Description',
+      providerDescriptionPlaceholder:
+        'Enter a description for this provider (optional, supports links)',
       speech: 'Speech',
       speechModel: 'Speech model',
       speechModelDesc: 'Select the text-to-speech generation model',
@@ -513,43 +520,39 @@ const en = {
         providersHeader: 'Providers',
         openai: {
           apiKey: 'OpenAI API key',
-          desc: 'Capabilities: Text generation, image input (vision), image generation (DALL-E), speech generation (TTS), reasoning (o-series), embedding.',
-          linkText: 'Visit OpenAI platform',
+          description:
+            'Capabilities: Text generation, image input (vision), image generation (DALL-E), speech generation (TTS), reasoning (o-series), embedding. https://platform.openai.com',
         },
         elevenlabs: {
           apiKey: 'ElevenLabs API key',
-          desc: 'Capabilities: Speech generation (TTS).',
-          linkText: 'Visit ElevenLabs platform',
+          description: 'Capabilities: Speech generation (TTS). https://elevenlabs.io',
         },
         deepseek: {
           apiKey: 'DeepSeek API key',
-          desc: 'Capabilities: Text generation, reasoning.',
-          linkText: 'Visit DeepSeek platform',
+          description: 'Capabilities: Text generation, reasoning. https://platform.deepseek.com',
         },
         google: {
           apiKey: 'Google API key',
-          desc: 'Capabilities: Text generation, image input (vision), embedding.',
-          linkText: 'Visit Google AI Studio',
+          description:
+            'Capabilities: Text generation, image input (vision), embedding. https://aistudio.google.com/app/apikey',
         },
         groq: {
           apiKey: 'Groq API key',
-          desc: 'Capabilities: Text generation, reasoning.',
-          linkText: 'Visit Groq platform',
+          description: 'Capabilities: Text generation, reasoning. https://console.groq.com',
         },
         anthropic: {
           apiKey: 'Anthropic API key',
-          desc: 'Capabilities: Text generation, image input (vision), reasoning.',
-          linkText: 'Visit Anthropic platform',
+          description:
+            'Capabilities: Text generation, image input (vision), reasoning. https://console.anthropic.com',
         },
         ollama: {
           apiKey: 'Ollama API key (Optional)',
-          desc: 'Capabilities: Text generation, embedding, run models locally.',
-          linkText: 'Visit Ollama platform',
+          description:
+            'Capabilities: Text generation, embedding, run models locally. https://ollama.com',
         },
         hume: {
           apiKey: 'Hume API key',
-          desc: 'Capabilities: Speech generation (TTS).',
-          linkText: 'Visit Hume platform',
+          description: 'Capabilities: Speech generation (TTS). https://hume.ai',
         },
       },
     },

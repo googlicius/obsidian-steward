@@ -1,7 +1,6 @@
 import * as CryptoJS from 'crypto-js';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
-import type { ProviderNeedApiKey } from 'src/constants';
 
 /**
  * Service for handling encryption and decryption using vault-specific storage
@@ -126,25 +125,32 @@ export class EncryptionService {
 
   /**
    * Get the decrypted API key for a specific provider
+   * Supports both direct encrypted keys and Obsidian SecretStorage
    * @param provider - The provider to get the API key for (e.g., 'openai', 'elevenlabs', 'deepseek', 'google', 'groq')
    * @returns The decrypted API key or empty string if not set
    */
   public getDecryptedApiKey(provider: string): string {
-    if (!this.plugin.settings.providers[provider]) {
+    const providerConfig = this.plugin.settings.providers[provider];
+
+    if (!providerConfig) {
       return '';
     }
 
-    const encryptedKey = this.plugin.settings.providers[provider].apiKey;
+    const apiKeyValue = providerConfig.apiKey;
 
-    if (!encryptedKey) {
+    if (!apiKeyValue) {
       return '';
     }
 
-    try {
-      return this.decrypt(encryptedKey, this.plugin.settings.saltKeyId);
-    } catch (error) {
-      throw new Error(`Could not decrypt ${provider} API key`);
+    // Check if using secret storage
+    if (providerConfig.apiKeySource === 'secret') {
+      // apiKey contains the secret name, retrieve from SecretStorage
+      const secret = this.plugin.app.secretStorage.getSecret(apiKeyValue);
+      return secret || '';
     }
+
+    // Default: apiKey is encrypted directly
+    return this.decrypt(apiKeyValue, this.plugin.settings.saltKeyId);
   }
 
   /**
@@ -164,8 +170,9 @@ export class EncryptionService {
       // First encrypt the API key
       const encryptedKey = apiKey ? this.encrypt(apiKey, this.plugin.settings.saltKeyId) : '';
 
-      // Update settings
+      // Update settings - set to direct mode when using this method
       this.plugin.settings.providers[provider].apiKey = encryptedKey;
+      this.plugin.settings.providers[provider].apiKeySource = 'direct';
 
       // Save the settings
       await this.plugin.saveSettings();

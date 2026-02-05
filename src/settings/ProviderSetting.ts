@@ -1,55 +1,26 @@
-import { getLanguage, Setting, setIcon, setTooltip } from 'obsidian';
+import { getLanguage, Setting, setIcon, setTooltip, SecretComponent } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import type StewardPlugin from 'src/main';
 import { ProviderNeedApiKey } from 'src/constants';
 import { logger } from 'src/utils/logger';
 import { Notice } from 'obsidian';
 import { capitalizeString } from 'src/utils/capitalizeString';
+import { createFragmentFromText } from 'src/utils/htmlElementUtils';
 import type StewardSettingTab from 'src/settings';
 
 const lang = getLanguage();
 const t = getTranslation(lang);
 
 // Provider configuration mapping
-const PROVIDER_CONFIG: Record<
-  ProviderNeedApiKey,
-  {
-    displayName: string;
-    linkUrl: string;
-  }
-> = {
-  openai: {
-    displayName: 'OpenAI',
-    linkUrl: 'https://platform.openai.com',
-  },
-  elevenlabs: {
-    displayName: 'ElevenLabs',
-    linkUrl: 'https://elevenlabs.io',
-  },
-  deepseek: {
-    displayName: 'DeepSeek',
-    linkUrl: 'https://platform.deepseek.com',
-  },
-  google: {
-    displayName: 'Google',
-    linkUrl: 'https://aistudio.google.com/app/apikey',
-  },
-  groq: {
-    displayName: 'Groq',
-    linkUrl: 'https://console.groq.com',
-  },
-  anthropic: {
-    displayName: 'Anthropic',
-    linkUrl: 'https://console.anthropic.com',
-  },
-  ollama: {
-    displayName: 'Ollama',
-    linkUrl: 'https://ollama.com',
-  },
-  hume: {
-    displayName: 'Hume',
-    linkUrl: 'https://hume.ai',
-  },
+const PROVIDER_CONFIG: Record<ProviderNeedApiKey, { displayName: string }> = {
+  openai: { displayName: 'OpenAI' },
+  elevenlabs: { displayName: 'ElevenLabs' },
+  deepseek: { displayName: 'DeepSeek' },
+  google: { displayName: 'Google' },
+  groq: { displayName: 'Groq' },
+  anthropic: { displayName: 'Anthropic' },
+  ollama: { displayName: 'Ollama' },
+  hume: { displayName: 'Hume' },
 };
 
 // List of built-in providers for compatibility dropdown
@@ -85,28 +56,15 @@ export class ProviderSetting {
   }
 
   /**
-   * Create a DocumentFragment with description text and link
+   * Get the description for a provider (built-in or custom)
    */
-  private createProviderDescriptionFragment(provider: ProviderNeedApiKey): DocumentFragment | null {
-    const config = PROVIDER_CONFIG[provider];
-
-    if (!config) {
-      return null;
+  private getProviderDescription(provider: string): string | null {
+    if (this.isBuiltInProvider(provider)) {
+      return t(`settings.providers.${provider}.description`);
     }
 
-    const fragment = document.createDocumentFragment();
-    const textNode = document.createTextNode(t(`settings.providers.${provider}.desc`) + ' ');
-    fragment.appendChild(textNode);
-
-    const link = document.createElement('a');
-    link.href = config.linkUrl;
-    link.textContent = t(`settings.providers.${provider}.linkText`);
-    link.setAttribute('target', '_blank');
-    link.setAttribute('rel', 'noopener');
-    fragment.appendChild(link);
-    setTooltip(link, config.linkUrl);
-
-    return fragment;
+    // Custom provider - get description from config
+    return this.plugin.settings.providers[provider]?.description || null;
   }
 
   /**
@@ -156,12 +114,10 @@ export class ProviderSetting {
     // Create the Setting instance
     const setting = new Setting(containerEl).setName(settingName);
 
-    // Add description for built-in providers
-    if (isBuiltIn) {
-      const descriptionFragment = this.createProviderDescriptionFragment(provider);
-      if (descriptionFragment) {
-        setting.setDesc(descriptionFragment);
-      }
+    // Add description for both built-in and custom providers
+    const description = this.getProviderDescription(provider);
+    if (description) {
+      setting.setDesc(createFragmentFromText(description));
     }
 
     let currentInputWrapper: HTMLElement | null = null;
@@ -173,6 +129,14 @@ export class ProviderSetting {
         if (!providerConfig.apiKey) {
           return false;
         }
+
+        // For secret storage, check if secret name is set and valid
+        if (providerConfig.apiKeySource === 'secret') {
+          const secret = this.plugin.app.secretStorage.getSecret(providerConfig.apiKey);
+          return !!secret;
+        }
+
+        // For direct input, try to decrypt
         const decrypted = this.plugin.encryptionService.getDecryptedApiKey(provider);
         return !!decrypted;
       } catch {
@@ -320,19 +284,10 @@ export class ProviderSetting {
 
       const API_KEY_PLACEHOLDER = '••••••••••••••••••••••';
 
-      // Get current API key placeholder
-      let apiKeyPlaceholder = options?.apiKeyPlaceholder || t('settings.enterApiKey');
-      try {
-        const currentKey = this.plugin.encryptionService.getDecryptedApiKey(provider);
-        if (currentKey) {
-          apiKeyPlaceholder = API_KEY_PLACEHOLDER;
-        }
-      } catch (error) {
-        apiKeyPlaceholder = t('settings.errorReenterKey');
-        logger.error(`Error decrypting ${provider} API key in settings:`, error);
-      }
+      // Check if using secret storage
+      const isUsingSecretStorage = providerConfig.apiKeySource === 'secret';
 
-      // Create API key input
+      // Create API key wrapper
       const apiKeyWrapper = currentInputWrapper.createEl('div', {
         cls: 'stw-provider-input-wrapper',
       });
@@ -341,55 +296,139 @@ export class ProviderSetting {
         text: displayName,
       });
 
-      // Create input container with flex layout for input + button
-      const inputContainer = apiKeyWrapper.createEl('div', {
-        cls: 'stw-provider-input-container',
-      });
+      // Helper function to create direct input view
+      const createDirectInputView = () => {
+        // Get current API key placeholder
+        let apiKeyPlaceholder = options?.apiKeyPlaceholder || t('settings.enterApiKey');
+        try {
+          const currentKey = this.plugin.encryptionService.getDecryptedApiKey(provider);
+          if (currentKey) {
+            apiKeyPlaceholder = API_KEY_PLACEHOLDER;
+          }
+        } catch (error) {
+          apiKeyPlaceholder = t('settings.errorReenterKey');
+          logger.error(`Error decrypting ${provider} API key in settings:`, error);
+        }
 
-      const apiKeyInput = inputContainer.createEl('input', {
-        type: 'password',
-        placeholder: apiKeyPlaceholder as string,
-        cls: 'text-input',
-      });
+        // Create input container with flex layout for input + button
+        const inputContainer = apiKeyWrapper.createEl('div', {
+          cls: 'stw-provider-input-container',
+        });
 
-      // Make input read-only if API key is already set
-      if (hasApiKey()) {
-        apiKeyInput.setAttribute('readonly', 'true');
+        const apiKeyInput = inputContainer.createEl('input', {
+          type: 'password',
+          placeholder: apiKeyPlaceholder as string,
+          cls: 'text-input',
+        });
 
-        // Add clear button (cross icon) after the input
-        const clearButton = inputContainer.createEl('button');
-        clearButton.classList.add('clickable-icon');
-        setIcon(clearButton, 'cross');
-        setTooltip(clearButton, t('settings.clearApiKey'));
+        // Make input read-only if API key is already set
+        if (hasApiKey()) {
+          apiKeyInput.setAttribute('readonly', 'true');
 
-        clearButton.addEventListener('click', async () => {
-          try {
-            await this.plugin.encryptionService.setEncryptedApiKey(provider, '');
-            recreateInput('edit');
-          } catch (error) {
-            new Notice(t('settings.failedToClearApiKey'));
-            logger.error(`Error clearing ${provider} API key:`, error);
+          // Add clear button (cross icon) after the input
+          const clearButton = inputContainer.createEl('button');
+          clearButton.classList.add('clickable-icon');
+          setIcon(clearButton, 'cross');
+          setTooltip(clearButton, t('settings.clearApiKey'));
+
+          clearButton.addEventListener('click', async () => {
+            try {
+              await this.plugin.encryptionService.setEncryptedApiKey(provider, '');
+              recreateInput('edit');
+            } catch (error) {
+              new Notice(t('settings.failedToClearApiKey'));
+              logger.error(`Error clearing ${provider} API key:`, error);
+            }
+          });
+        }
+
+        apiKeyInput.addEventListener('change', async e => {
+          const target = e.target as HTMLInputElement;
+          const value = target.value.trim();
+
+          if (value) {
+            try {
+              await this.plugin.encryptionService.setEncryptedApiKey(provider, value);
+              target.setAttribute('placeholder', API_KEY_PLACEHOLDER);
+              target.value = '';
+              // Refresh to show the read-only state and clear button
+              recreateInput('edit');
+            } catch (error) {
+              new Notice(t('settings.failedToSaveApiKey'));
+              logger.error(`Error setting ${provider} API key:`, error);
+            }
           }
         });
-      }
 
-      apiKeyInput.addEventListener('change', async e => {
-        const target = e.target as HTMLInputElement;
-        const value = target.value.trim();
+        // Add "Use secret storage" link when API key is empty
+        if (!hasApiKey()) {
+          const secretStorageLink = apiKeyWrapper.createEl('a', {
+            text: t('settings.useSecretStorage'),
+            href: '#',
+            cls: 'stw-custom-model-link',
+          });
 
-        if (value) {
-          try {
-            await this.plugin.encryptionService.setEncryptedApiKey(provider, value);
-            target.setAttribute('placeholder', API_KEY_PLACEHOLDER);
-            target.value = '';
-            // Refresh to show the read-only state and clear button
+          secretStorageLink.addEventListener('click', async e => {
+            e.preventDefault();
+            // Switch to secret storage mode
+            providerConfig.apiKeySource = 'secret';
+            providerConfig.apiKey = '';
+            await this.plugin.saveSettings();
             recreateInput('edit');
-          } catch (error) {
-            new Notice(t('settings.failedToSaveApiKey'));
-            logger.error(`Error setting ${provider} API key:`, error);
-          }
+          });
         }
-      });
+      };
+
+      // Helper function to create secret storage view
+      const createSecretStorageView = () => {
+        // Create secret component container
+        const secretContainer = apiKeyWrapper.createEl('div', {
+          cls: 'stw-provider-input-container stw-secret-container flex items-center justify-between gap-4',
+        });
+
+        // Add description
+        secretContainer.createEl('div', {
+          text: t('settings.secretStorageDesc'),
+          cls: 'setting-item-description stw-secret-description',
+        });
+
+        // Create wrapper for SecretComponent
+        const secretComponentWrapper = secretContainer.createEl('div', {
+          cls: 'stw-secret-component-wrapper flex items-center gap-2',
+        });
+
+        // Create and mount SecretComponent
+        new SecretComponent(this.app, secretComponentWrapper)
+          .setValue(providerConfig.apiKey || '')
+          .onChange(async (secretName: string) => {
+            providerConfig.apiKey = secretName;
+            providerConfig.apiKeySource = 'secret';
+            await this.plugin.saveSettings();
+          });
+
+        // Add "Switch to direct input" link
+        const switchToDirectLink = apiKeyWrapper.createEl('a', {
+          text: t('settings.switchToDirectInput'),
+          href: '#',
+          cls: 'stw-custom-model-link',
+        });
+
+        switchToDirectLink.addEventListener('click', async e => {
+          e.preventDefault();
+          // Switch to direct input mode
+          providerConfig.apiKeySource = 'direct';
+          providerConfig.apiKey = '';
+          await this.plugin.saveSettings();
+          recreateInput('edit');
+        });
+      };
+
+      // Render appropriate view based on apiKeySource
+      if (isUsingSecretStorage) {
+        createSecretStorageView();
+      } else {
+        createDirectInputView();
+      }
 
       // Create Base URL input
       const baseUrlWrapper = currentInputWrapper.createEl('div', {
@@ -415,6 +454,45 @@ export class ProviderSetting {
         providerConfig.baseUrl = value;
         await this.plugin.saveSettings();
       });
+
+      // Create Description textarea (only for custom providers)
+      if (isCustom) {
+        const descriptionWrapper = currentInputWrapper.createEl('div', {
+          cls: 'stw-provider-input-wrapper',
+        });
+
+        descriptionWrapper.createEl('label', {
+          text: t('settings.providerDescription'),
+        });
+
+        const descriptionTextarea = descriptionWrapper.createEl('textarea', {
+          cls: 'text-input w-full',
+        });
+
+        // Set textarea attributes for better UX
+        descriptionTextarea.setAttribute('rows', '2');
+        descriptionTextarea.setAttribute(
+          'placeholder',
+          t('settings.providerDescriptionPlaceholder')
+        );
+
+        if (providerConfig.description) {
+          descriptionTextarea.value = providerConfig.description;
+        }
+
+        descriptionTextarea.addEventListener('change', async e => {
+          const target = e.target as HTMLTextAreaElement;
+          const value = target.value.trim();
+          providerConfig.description = value;
+          await this.plugin.saveSettings();
+          // Update the description display
+          if (value) {
+            setting.setDesc(createFragmentFromText(value));
+          } else {
+            setting.setDesc('');
+          }
+        });
+      }
 
       // Create System Prompt textarea (only for custom providers)
       if (isCustom) {
