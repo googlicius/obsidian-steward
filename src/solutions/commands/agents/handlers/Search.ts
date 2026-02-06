@@ -9,7 +9,7 @@ import { PaginatedSearchResult } from 'src/solutions/search/types';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 import { STOPWORDS } from 'src/solutions/search';
 import { stemmer } from 'src/solutions/search/tokenizer/stemmer';
-import { splitCamelCase, removeDiacritics } from 'src/solutions/search/tokenizer/tokenizer';
+import { splitCamelCase, removeDiacritics } from 'src/solutions/search/tokenizer/normalizers';
 import { z } from 'zod/v3';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';

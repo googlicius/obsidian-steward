@@ -312,7 +312,7 @@ export class ProviderSetting {
 
         // Create input container with flex layout for input + button
         const inputContainer = apiKeyWrapper.createEl('div', {
-          cls: 'stw-provider-input-container',
+          cls: 'stw-provider-input-container gap-1',
         });
 
         const apiKeyInput = inputContainer.createEl('input', {
@@ -385,13 +385,13 @@ export class ProviderSetting {
       const createSecretStorageView = () => {
         // Create secret component container
         const secretContainer = apiKeyWrapper.createEl('div', {
-          cls: 'stw-provider-input-container stw-secret-container flex items-center justify-between gap-4',
+          cls: 'stw-provider-input-container flex items-center justify-between gap-2',
         });
 
         // Add description
         secretContainer.createEl('div', {
           text: t('settings.secretStorageDesc'),
-          cls: 'setting-item-description stw-secret-description',
+          cls: 'setting-item-description',
         });
 
         // Create wrapper for SecretComponent

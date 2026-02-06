@@ -124,5 +124,55 @@ describe('Tokenizer', () => {
 
       expect(tokenizer.tokenize('My cat is on the table')).toMatchSnapshot();
     });
+
+    it('should keep stopwords if removeStopwords is false', () => {
+      const tokenizer = new Tokenizer({
+        removeStopwords: false,
+      });
+
+      const tokens = tokenizer.tokenize('My cat is on the table');
+
+      expect(tokens).toMatchObject([
+        {
+          term: 'My',
+        },
+        {
+          term: 'cat',
+        },
+        {
+          term: 'is',
+        },
+        {
+          term: 'on',
+        },
+        {
+          term: 'the',
+        },
+        {
+          term: 'table',
+        },
+      ]);
+    });
+
+    it('should keep stopwords if the stopwords percentage exceeds the stopwordThreshold', () => {
+      const tokenizer = new Tokenizer({
+        removeStopwords: true,
+        stopwordThreshold: 0.3,
+      });
+
+      const tokens = tokenizer.tokenize('For a while');
+
+      expect(tokens).toMatchObject([
+        {
+          term: 'For',
+        },
+        {
+          term: 'a',
+        },
+        {
+          term: 'while',
+        },
+      ]);
+    });
   });
 });
