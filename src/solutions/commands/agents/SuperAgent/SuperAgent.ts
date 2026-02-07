@@ -155,13 +155,20 @@ export class SuperAgent extends Agent {
   /**
    * Client-made tool call without AI
    */
-  protected async manualToolCall(
-    title: string,
-    query: string,
-    activeTools: ToolName[],
-    classifiedTasks: string[],
-    lang?: string | null
-  ): Promise<ToolCallPart | undefined> {
+  protected async manualToolCall(params: {
+    title: string;
+    query: string;
+    activeTools: ToolName[];
+    classifiedTasks: string[];
+    lang?: string | null;
+    /**
+     * When set, indicates how the task was classified (static/prefixed/clustered).
+     * For build_search_index, manual tool call (index everything) is only used when matchType is 'static'.
+     */
+    classificationMatchType?: 'static' | 'prefixed' | 'clustered';
+  }): Promise<ToolCallPart | undefined> {
+    const { title, query, activeTools, classifiedTasks, lang, classificationMatchType } = params;
+
     // Return undefined if there are multiple classified tasks
     if (classifiedTasks.length !== 1) {
       return undefined;
@@ -202,16 +209,8 @@ export class SuperAgent extends Agent {
       }
 
       case 'revert': {
-        // Handle revert tool manual calls for simple revert requests
-        const trimmedQuery = query.trim();
-        const words = trimmedQuery.split(/\s+/);
-
-        // Single word revert commands
-        const revertKeywords = ['undo', 'revert', 'rollback', 'cancel'];
-        const isSimpleRevert =
-          words.length === 1 && revertKeywords.includes(trimmedQuery.toLowerCase());
-
-        if (isSimpleRevert) {
+        // Handle revert tool manual calls for static cluster: revert
+        if (classificationMatchType === 'static') {
           // Get the most recent artifact from types created by VaultAgent
           const artifactTypes = [
             ArtifactType.MOVE_RESULTS,
@@ -303,6 +302,11 @@ export class SuperAgent extends Agent {
       }
 
       case 'build_search_index': {
+        // Only use manual tool call (index everything) when static cluster matched.
+        // Clustered match may indicate user wants specific folders (e.g. "index my files in Projects").
+        if (classificationMatchType !== 'static') {
+          return undefined;
+        }
         return {
           type: 'tool-call',
           toolName: ToolName.BUILD_SEARCH_INDEX,
@@ -598,8 +602,15 @@ NOTE:
       classifiedTasks.push(intent.type);
     }
 
+    let classificationMatchType: 'static' | 'prefixed' | 'clustered' | undefined;
+
     if (!params.invocationCount && classifiedTasks.length === 0) {
-      classifiedTasks = await this.classifyTasksFromQuery(intent.query, params.upstreamOptions);
+      const classificationResult = await this.classifyTasksFromQuery(
+        intent.query,
+        params.upstreamOptions
+      );
+      classifiedTasks = classificationResult.tasks;
+      classificationMatchType = classificationResult.matchType;
     }
 
     if (!classifiedTasks.length && activeTools.length > 0) {
@@ -640,13 +651,14 @@ NOTE:
       });
     }
 
-    const manualToolCall = await this.manualToolCall(
+    const manualToolCall = await this.manualToolCall({
       title,
-      intent.query,
+      query: intent.query,
       activeTools,
       classifiedTasks,
-      lang
-    );
+      lang,
+      classificationMatchType,
+    });
 
     let toolCalls: ToolCalls;
     let conversationHistory: ModelMessage[] = [];
@@ -1084,25 +1096,26 @@ When you complete or skip the current step, use the ${ToolName.TODO_LIST_UPDATE}
   private async classifyTasksFromQuery(
     query: string,
     upstreamOptions?: AgentHandlerParams['upstreamOptions']
-  ): Promise<string[]> {
+  ): Promise<{ tasks: string[]; matchType?: 'static' | 'prefixed' | 'clustered' }> {
     // Check if classification should be ignored (only when explicitly set, not when embedding is disabled)
     if (upstreamOptions?.ignoreClassify) {
-      return [];
+      return { tasks: [] };
     }
 
     const embeddingSettings = this.plugin.llmService.getEmbeddingSettings();
     const classifier = getClassifier(embeddingSettings, upstreamOptions?.isReloadRequest ?? false);
-    const clusterName = await classifier.doClassify(query);
+    const result = await classifier.doClassify(query);
 
-    if (!clusterName) {
-      return [];
+    if (!result) {
+      return { tasks: [] };
     }
 
-    logger.log(`The user input was classified as "${clusterName}"`);
+    const { name: clusterName, matchType } = result;
+    logger.log(`The user input was classified as "${clusterName}" (matchType: ${matchType})`);
     // Split cluster name by ':' to get tasks (e.g., "vault:revert" -> ["vault", "revert"])
-    const classifiedTasks = clusterName.split(':').filter(task => task.length > 0);
+    const tasks = clusterName.split(':').filter(task => task.length > 0);
 
-    return classifiedTasks;
+    return { tasks, matchType };
   }
 
   /**

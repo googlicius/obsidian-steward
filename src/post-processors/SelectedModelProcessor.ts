@@ -1,5 +1,5 @@
 import { MarkdownPostProcessor } from 'obsidian';
-import { findTextNodesWithRegex } from 'src/utils/findTextNode';
+import { findTextNodesWithRegex } from 'src/utils/htmlElementUtils';
 import { SELECTED_MODEL_PATTERN, SELECTED_MODEL_PREFIX_PATTERN } from 'src/constants';
 
 /**

@@ -9,7 +9,7 @@ import { PaginatedSearchResult } from 'src/solutions/search/types';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 import { STOPWORDS } from 'src/solutions/search';
 import { stemmer } from 'src/solutions/search/tokenizer/stemmer';
-import { splitCamelCase, removeDiacritics } from 'src/solutions/search/tokenizer/tokenizer';
+import { splitCamelCase, removeDiacritics } from 'src/solutions/search/tokenizer/normalizers';
 import { z } from 'zod/v3';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
@@ -517,7 +517,8 @@ export class Search {
       // Get the file content directly
       const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(result.document.path);
 
-      if (file && result.keywordsMatched) {
+      // Only highlight content for markdown files
+      if (file && file.extension === 'md' && result.keywordsMatched) {
         try {
           const fileContent = await this.agent.plugin.app.vault.cachedRead(file);
 
@@ -573,12 +574,12 @@ export class Search {
   }
 
   /**
-   * Builds mappings for content highlighting:
-   * - stemmingMap: stemmed term -> [normalized terms] (for matching stemmed forms)
-   * - termToWordMap: normalizedTerm -> [original unsplit words] (for highlighting whole camelCase words)
+   * Builds mappings for content highlighting
    */
   private buildContentTermMap(content: string): {
+    /** stemmed term -> [normalized terms] (for matching stemmed forms) */
     stemmingMap: Map<string, string[]>;
+    /** normalizedTerm -> [original unsplit words] (for highlighting whole camelCase words) */
     termToWordMap: Map<string, string[]>;
   } {
     const stemmingMap = new Map<string, string[]>();
@@ -650,7 +651,9 @@ export class Search {
       // Check termToWordMap for direct term matches
       const directWords = termToWordMap.get(term);
       if (directWords) {
-        directWords.forEach(w => wordsToHighlight.add(w));
+        for (const word of directWords) {
+          wordsToHighlight.add(word);
+        }
       }
 
       // Check stemmingMap for stemmed matches, then find their original words
@@ -659,7 +662,9 @@ export class Search {
         for (const origTerm of origTerms) {
           const words = termToWordMap.get(origTerm);
           if (words) {
-            words.forEach(w => wordsToHighlight.add(w));
+            for (const word of words) {
+              wordsToHighlight.add(word);
+            }
           }
         }
       }
@@ -698,16 +703,15 @@ export class Search {
         });
       }
 
-      // Skip if no words to highlight
-      if (!wordsPattern && !tagTermsPattern) {
-        continue;
-      }
+      let regex: RegExp | null = null;
 
-      const regex = tagTermsPattern
-        ? new RegExp(`${tagTermsPattern}|\\b(${wordsPattern})\\b`, 'gi')
-        : wordsPattern
-          ? new RegExp(`\\b(${wordsPattern})\\b`, 'gi')
-          : null;
+      if (tagTermsPattern && wordsPattern) {
+        regex = new RegExp(`${tagTermsPattern}|\\b(${wordsPattern})\\b`, 'gi');
+      } else if (tagTermsPattern) {
+        regex = new RegExp(tagTermsPattern, 'gi');
+      } else if (wordsPattern) {
+        regex = new RegExp(`\\b(${wordsPattern})\\b`, 'gi');
+      }
 
       if (!regex) {
         continue;

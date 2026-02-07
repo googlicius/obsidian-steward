@@ -437,6 +437,7 @@ describe('Search', () => {
 
       const mockFile = new TFile();
       mockFile.path = 'Test Note.md';
+      mockFile.extension = 'md';
 
       // Spy on the mediaTools.findFileByNameOrPath method
       findFileByNameOrPathSpy = jest

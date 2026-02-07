@@ -13,12 +13,24 @@ export interface StewardPluginSettings {
   };
   providers: {
     [key: string]: {
-      apiKey: string; // Encrypted API key
+      /**
+       * API key value - interpretation depends on apiKeySource:
+       * - When apiKeySource is 'direct' or undefined: This is the encrypted API key
+       * - When apiKeySource is 'secret': This is the secret name from Obsidian's SecretStorage
+       */
+      apiKey: string;
+      /**
+       * Indicates where to get the API key:
+       * - 'direct': apiKey contains encrypted API key (default, for backward compatibility)
+       * - 'secret': apiKey contains the secret name from Obsidian's SecretStorage
+       */
+      apiKeySource?: 'direct' | 'secret';
       baseUrl?: string; // Optional base URL for the provider
       isCustom?: boolean; // Mark if this is a custom provider
       compatibility?: string; // Provider compatibility (select from built-in providers)
       name?: string; // Custom provider name (for custom providers only)
       systemPrompt?: string; // Optional system prompt for custom providers
+      description?: string; // Optional description for custom providers (supports links)
     };
   };
   saltKeyId: string; // Store just the key ID, not the actual salt

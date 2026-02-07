@@ -84,6 +84,10 @@ html[data-stw-language='vi'] {
     border-bottom: 1px solid var(--background-modifier-border);
     background-color: transparent;
   }
+
+  .node-insert-event {
+    padding-inline: inherit !important;
+  }
 }
 
 .callout[data-callout='stw-search-result'] {
@@ -302,6 +306,9 @@ code[class*='language-stw-hidden-from-user'] {
   display: flex;
   flex-direction: column;
   gap: var(--size-2-2);
+  padding: var(--size-4-3);
+  border-radius: var(--setting-items-radius);
+  background-color: var(--background-secondary);
 
   &.horizontal {
     flex-direction: row;
@@ -380,7 +387,6 @@ code[class*='language-stw-hidden-from-user'] {
   .stw-provider-input-container {
     display: flex;
     align-items: center;
-    gap: var(--size-2-1);
 
     input {
       flex: 1;

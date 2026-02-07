@@ -208,8 +208,8 @@ const ja = {
       indexingProgress: 'インデックス作成の進捗：{{total}}件中{{completed}}件完了。',
       indexingCompleted:
         '検索インデックスの構築が完了しました！{{total}}件中{{count}}件にインデックスが付けられました。',
-      indexedFiles: '正常にインデックスが付けられたファイル',
-      failedFiles: 'インデックス作成に失敗したファイル',
+      indexedItems: '正常にインデックスが付けられたアイテム',
+      failedItems: 'インデックス作成に失敗したアイテム',
       foundFilesForIndex: '{{count}}件のファイルにインデックスを付けることができます。',
       confirmRebuildIndexQuestion: '検索インデックスを再構築しますか？',
       privacyNotice: '注意：検索インデックスはプライバシーのためにローカルで処理・保存されます。',

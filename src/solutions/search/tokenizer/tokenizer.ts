@@ -1,197 +1,18 @@
-import { removeStopwords } from './stopwords';
-import { stemmer } from './stemmer';
-import { STW_SELECTED_PATTERN, STW_SQUEEZED_PATTERN } from '../../../constants';
-
-/**
- * Splits camelCase and PascalCase words by inserting spaces at case boundaries.
- * Uses Unicode-aware character classes to handle accented characters (e.g., CaféMenu → Café Menu).
- * Examples:
- *   - MeetingNotes → Meeting Notes
- *   - meetingNotes → meeting Notes
- *   - XMLParser → XML Parser
- *   - getHTTPResponse → get HTTP Response
- *   - CaféMenu → Café Menu
- */
-export function splitCamelCase(text: string): string {
-  return text
-    .replace(/(\p{Ll})(\p{Lu})/gu, '$1 $2') // camelCase → camel Case (Unicode lowercase followed by uppercase)
-    .replace(/(\p{Lu}+)(\p{Lu}\p{Ll})/gu, '$1 $2'); // XMLParser → XML Parser
-}
-
-/**
- * Removes diacritical marks from text for normalized matching.
- * Example: "Café" → "Cafe"
- */
-export function removeDiacritics(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .normalize('NFC');
-}
-
-interface Token {
-  term: string;
-  count: number;
-  positions: number[];
-  isOriginal?: boolean; // Whether this term is an original form (not stemmed)
-}
-
-/**
- * Interface for text normalizers that transform content before tokenization.
- * Normalizers handle tasks like case folding, accent removal, or special character handling
- * to standardize text for more effective search and analysis.
- */
-interface Normalizer {
-  name: string;
-  apply: (content: string) => string;
-}
-
-/**
- * Interface for text analyzers that process tokens after tokenization.
- * Analyzers perform tasks like word splitting, stemming, or phrase extraction
- * to enhance the quality of search results and analysis.
- */
-interface Analyzer {
-  name: string;
-  process: (tokens: Token[]) => Token[];
-}
+import { removeStopwords, STOPWORDS } from './stopwords';
+import { ALL_ANALYZERS, Analyzer, Token } from './analyzers';
+import { ALL_NORMALIZERS, Normalizer } from './normalizers';
 
 interface TokenizerConfig {
   removeStopwords?: boolean;
   /**
-   * Threshold for stopword removal (0.0 to 1.0).
-   * If the percentage of stopwords exceeds this threshold, only remove stopwords until the percentage is below the threshold.
-   * Default: 0.5 (50%)
-   * Example: With threshold 0.5, "The lord of the Rings" (60% stopwords) will have some stopwords removed to bring it below 50%
+   * Threshold for stopword removal (0.0 to 1.0). Stopwords are kept only if their percentage exceeds this value.
+   * Higher threshold = stricter removal (harder to keep stopwords, need higher percentage). Default: 0.5
+   * Example: threshold 0.7 means "For a while.md" (66% stopwords) removes stopwords; threshold 0.5 keeps them.
    */
   stopwordThreshold?: number;
   normalizers?: (string | Normalizer)[];
   analyzers?: (string | Analyzer)[];
 }
-
-const ALL_ANALYZERS: Record<string, Analyzer['process']> = {
-  /**
-   * Word delimiter analyzer that splits words by dashes and underscores, adding the parts as separate tokens
-   * while preserving the original token. Also strips leading and trailing apostrophes and underscores from tokens.
-   */
-  wordDelimiter: (tokens: Token[]) => {
-    const tokenMap = new Map<string, Token>();
-
-    // Add all original tokens to the map
-    for (const token of tokens) {
-      const existingToken = tokenMap.get(token.term);
-      if (existingToken) {
-        existingToken.count += token.count;
-        existingToken.positions.push(...token.positions);
-      } else {
-        tokenMap.set(token.term, { ...token });
-      }
-    }
-
-    // Process each original token for splitting and stripping
-    for (const token of tokens) {
-      // Check if token contains dashes, underscores, or leading/trailing apostrophes
-      // Split pattern includes apostrophes to handle 'Messi' → Messi while preserving don't
-      const hasDelimiters = /[-_]/.test(token.term);
-      const hasBoundaryApostrophes = /^[''\u2019]|[''\u2019]$/.test(token.term);
-
-      if (hasDelimiters || hasBoundaryApostrophes) {
-        // Split by dashes, underscores, and boundary apostrophes
-        // Using split with a pattern that matches delimiters and boundary apostrophes
-        const parts = token.term
-          .replace(/^[''\u2019]+|[''\u2019]+$/g, '') // Strip boundary apostrophes first
-          .split(/[-_]/)
-          .filter(Boolean);
-
-        // Add each part as a new token if it's not already in the result
-        for (const part of parts) {
-          // Check if this part already exists using O(1) Map lookup
-          const existingToken = tokenMap.get(part);
-
-          if (existingToken) {
-            // If it exists, merge the positions
-            existingToken.count += 1;
-            existingToken.positions.push(...token.positions);
-          } else {
-            // Otherwise, add a new token
-            tokenMap.set(part, {
-              term: part,
-              count: 1,
-              positions: [...token.positions],
-            });
-          }
-        }
-      }
-    }
-
-    return Array.from(tokenMap.values());
-  },
-
-  /**
-   * Stemmer analyzer that reduces words to their root form using the Porter stemming algorithm
-   * This helps match different forms of the same word (e.g., "running" -> "run", "better" -> "better")
-   * Now preserves both original and stemmed tokens for exact match support
-   */
-  stemmer: (tokens: Token[]) => {
-    const tokenMap = new Map<string, Token>();
-
-    for (const token of tokens) {
-      // Always preserve the original token with isOriginal flag
-      const existingOriginal = tokenMap.get(token.term);
-      if (existingOriginal) {
-        existingOriginal.count += token.count;
-        existingOriginal.positions.push(...token.positions);
-      } else {
-        tokenMap.set(token.term, {
-          ...token,
-          isOriginal: true, // Mark as original
-        });
-      }
-
-      // Add stemmed version if different from original
-      const stemmedTerm = stemmer(token.term);
-      if (stemmedTerm !== token.term) {
-        const existingStemmed = tokenMap.get(stemmedTerm);
-        if (existingStemmed) {
-          // Merge with existing stemmed token
-          existingStemmed.count += token.count;
-          existingStemmed.positions.push(...token.positions);
-        } else {
-          // Add new stemmed token to map
-          tokenMap.set(stemmedTerm, {
-            term: stemmedTerm,
-            count: token.count,
-            positions: [...token.positions],
-            isOriginal: false, // Mark as stemmed
-          });
-        }
-      }
-    }
-
-    // Convert map values to array
-    return Array.from(tokenMap.values());
-  },
-};
-
-const ALL_NORMALIZERS: Record<string, Normalizer['apply']> = {
-  removeHtmlComments: (content: string) => content.replace(/<!--[\s\S]*?-->/g, ' '),
-  /**
-   * Splits camelCase and PascalCase words by inserting spaces at case boundaries.
-   * Must run BEFORE lowercase normalizer to preserve case information.
-   */
-  splitCamelCase,
-  lowercase: (content: string) => content.toLowerCase(),
-  removeSpecialChars: (content: string) =>
-    content
-      .replace(/[^\p{L}\p{N}'\u2019\s#_-]/gu, ' ') // Keep letters, numbers, apostrophes, hashtags, underscores, hyphens
-      .replace(/[#_-]{2,}/g, ' '), // Filter out 2+ consecutive special characters
-  removeDiacritics,
-  removeStwSelectedPatterns: (content: string) =>
-    content.replace(new RegExp(STW_SELECTED_PATTERN, 'g'), ' '),
-  removeStwSqueezedPatterns: (content: string) =>
-    content.replace(new RegExp(STW_SQUEEZED_PATTERN, 'g'), ' '),
-  removeTagPrefix: (content: string) => content.replace(/#([^#\s]+)/g, '$1'),
-};
 
 export class Tokenizer {
   private config: TokenizerConfig;
@@ -327,8 +148,21 @@ export class Tokenizer {
     // Split into words and filter empty ones
     const words = normalizedContent.split(/\s+/).filter(Boolean);
 
-    // Remove stopwords if configured
-    const filteredWords = this.config.removeStopwords ? removeStopwords(words) : words;
+    // Remove stopwords if configured, but check threshold first
+    let filteredWords = words;
+    if (this.config.removeStopwords && words.length > 0) {
+      // Calculate stopword percentage
+      const stopwordCount = words.filter(word => STOPWORDS.has(word)).length;
+      const stopwordPercentage = stopwordCount / words.length;
+
+      // If stopword percentage exceeds threshold, skip stopword removal
+      const threshold = this.config.stopwordThreshold ?? 0.5;
+      if (stopwordPercentage > threshold) {
+        filteredWords = words;
+      } else {
+        filteredWords = removeStopwords(words);
+      }
+    }
 
     // Count term frequencies and positions
     const termMap = new Map<string, { count: number; positions: number[] }>();

@@ -15,30 +15,37 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       providers: {
         openai: {
           apiKey: '',
+          apiKeySource: 'direct',
           baseUrl: undefined,
         },
         deepseek: {
           apiKey: '',
+          apiKeySource: 'direct',
           baseUrl: undefined,
         },
         google: {
           apiKey: '',
+          apiKeySource: 'direct',
           baseUrl: undefined,
         },
         groq: {
           apiKey: '',
+          apiKeySource: 'direct',
           baseUrl: undefined,
         },
         ollama: {
           apiKey: '',
+          apiKeySource: 'direct',
           baseUrl: undefined,
         },
         anthropic: {
           apiKey: '',
+          apiKeySource: 'direct',
           baseUrl: undefined,
         },
         custom_provider_1: {
           apiKey: '',
+          apiKeySource: 'direct',
           baseUrl: 'http://localhost:1234/v1',
           isCustom: true,
           name: 'lmstudio',
@@ -46,6 +53,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
         },
         custom_provider_2: {
           apiKey: '1234abcd',
+          apiKeySource: 'direct',
           baseUrl: 'http://my-custom-provider.com/api',
           isCustom: true,
           name: 'YaleLab',
@@ -155,8 +163,9 @@ describe('LLMService', () => {
         expect(result.provider).toBeDefined();
       });
 
-      it('should pass apiKey to provider when configured', () => {
+      it('should pass apiKey to provider when configured (direct)', () => {
         mockPlugin.settings.providers.openai.apiKey = 'encrypted-key';
+        mockPlugin.settings.providers.openai.apiKeySource = 'direct';
         mockPlugin.encryptionService.getDecryptedApiKey = jest
           .fn()
           .mockReturnValue('decrypted-key');

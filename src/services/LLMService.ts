@@ -117,6 +117,14 @@ export class LLMService {
   }
 
   /**
+   * Return display name for a model id (everything after the first colon).
+   * Use this in settings/UI so model ids with colons (e.g. ollama:llama3.2:3b) are shown in full.
+   */
+  public getModelDisplayName(modelId: string): string {
+    return this.parseModel(modelId).modelId;
+  }
+
+  /**
    * Determine the provider from the model name
    * Supports both built-in providers and custom providers (using compatibility)
    */

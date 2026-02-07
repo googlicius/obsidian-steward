@@ -1,5 +1,5 @@
 import { MarkdownPostProcessor } from 'obsidian';
-import { findTextNodesWithRegex } from 'src/utils/findTextNode';
+import { findTextNodesWithRegex } from 'src/utils/htmlElementUtils';
 import { CONFIRMATION_BUTTONS_PATTERN } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { getTranslation } from 'src/i18n';

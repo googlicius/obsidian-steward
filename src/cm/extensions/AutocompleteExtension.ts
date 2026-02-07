@@ -12,18 +12,6 @@ import type StewardPlugin from 'src/main';
 const MODEL_SELECTOR_PATTERN = '^(m|model):';
 
 /**
- * Extract provider and model name from model ID
- * Format: <provider>:<modelId> (e.g., "openai:gpt-4o")
- */
-function parseModelId(modelId: string): { provider: string; modelName: string } {
-  const [provider, ...modelParts] = modelId.split(':');
-  return {
-    provider,
-    modelName: modelParts.join(':'),
-  };
-}
-
-/**
  * Get all available models (preset + custom)
  */
 function getAllModels(plugin: StewardPlugin): Array<{ id: string; name: string }> {
@@ -31,10 +19,10 @@ function getAllModels(plugin: StewardPlugin): Array<{ id: string; name: string }
 
   return [
     ...LLM_MODELS.map(model => ({ id: model.id, name: model.name })),
-    ...customModels.map(model => {
-      const { modelName } = parseModelId(model);
-      return { id: model, name: modelName };
-    }),
+    ...customModels.map(model => ({
+      id: model,
+      name: plugin.llmService.getModelDisplayName(model),
+    })),
   ];
 }
 
@@ -194,37 +182,39 @@ export function createAutocompleteExtension(plugin: StewardPlugin): Extension {
     // Get all available models
     const allModels = getAllModels(plugin);
 
-    // Group models by provider
-    const modelsByProvider = allModels.reduce<Record<string, typeof allModels>>((acc, model) => {
-      const provider = parseModelId(model.id).provider;
-      if (!acc[provider]) {
-        acc[provider] = [];
-      }
-      acc[provider].push(model);
-      return acc;
-    }, {});
+    // First, identify duplicate model names across providers
+    const modelNameCounts = new Map<string, number>();
+    for (const model of allModels) {
+      const { modelId } = plugin.llmService.parseModel(model.id);
+      modelNameCounts.set(modelId, (modelNameCounts.get(modelId) || 0) + 1);
+    }
 
-    // Build completion options grouped by provider
+    // Build completion options
     const options: Completion[] = [];
-    // Current model: provider:modelName
+    // Current model: provider:modelId
     const currentModel = plugin.settings.llm.chat.model;
 
-    for (const [, models] of Object.entries(modelsByProvider)) {
-      // Add models under this provider
-      for (const model of models) {
-        const { modelName } = parseModelId(model.id);
-        const isCurrentModel = model.id === currentModel;
-        const currentText = isCurrentModel ? '(Current)' : '';
+    for (const model of allModels) {
+      const { provider, modelId } = plugin.llmService.parseModel(model.id);
+      const isCurrentModel = model.id === currentModel;
+      const currentText = isCurrentModel ? ' (Current)' : '';
 
-        options.push({
-          label:
-            modelName.length > 25
-              ? `${modelName.substring(0, 25)}... ${currentText}`
-              : modelName + ' ' + currentText,
-          type: 'constant',
-          apply: model.id + ' ',
-        });
-      }
+      // Check if this model name appears in multiple providers (is duplicate)
+      const isDuplicate = (modelNameCounts.get(modelId) || 0) > 1;
+
+      // Add provider name only for duplicates
+      const displayName = isDuplicate ? `${modelId} - ${provider}` : modelId;
+
+      const label =
+        displayName.length > 25
+          ? `${displayName.substring(0, 25)}...${currentText}`
+          : displayName + currentText;
+
+      options.push({
+        label,
+        type: 'constant',
+        apply: model.id + ' ',
+      });
     }
 
     if (options.length === 0) return null;

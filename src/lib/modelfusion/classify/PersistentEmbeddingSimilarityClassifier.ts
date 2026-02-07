@@ -565,11 +565,19 @@ export class PersistentEmbeddingSimilarityClassifier {
     }
   }
 
-  async doClassify(value: string): Promise<string | null> {
+  /**
+   * Cluster match types:
+   * - static: Exact match in staticClusterValues
+   * - prefixed: Prefix match in prefixedClusterValue
+   * - clustered: Match via embedding similarity
+   */
+  async doClassify(
+    value: string
+  ): Promise<{ name: string; matchType: 'static' | 'prefixed' | 'clustered' } | null> {
     if (this.settings.staticClusterValues) {
       for (const cluster of this.settings.staticClusterValues) {
         if (cluster.values.includes(value.toLowerCase())) {
-          return cluster.name;
+          return { name: cluster.name, matchType: 'static' };
         }
       }
     }
@@ -578,7 +586,8 @@ export class PersistentEmbeddingSimilarityClassifier {
       for (const cluster of this.settings.prefixedClusterValue) {
         for (const clusterValue of cluster.values) {
           if (value.toLowerCase().startsWith(clusterValue.toLowerCase())) {
-            return this.validateAndHandleCluster(cluster.name);
+            const clusterName = this.validateAndHandleCluster(cluster.name);
+            return clusterName ? { name: clusterName, matchType: 'prefixed' } : null;
           }
         }
       }
@@ -644,7 +653,8 @@ export class PersistentEmbeddingSimilarityClassifier {
 
     if (qualifiedCandidates.length > 0) {
       const clusterName = qualifiedCandidates[0].candidate.clusterName;
-      return this.validateAndHandleCluster(clusterName);
+      const validatedName = this.validateAndHandleCluster(clusterName);
+      return validatedName ? { name: validatedName, matchType: 'clustered' } : null;
     }
 
     return null;

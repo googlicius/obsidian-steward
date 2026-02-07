@@ -344,7 +344,7 @@ describe('SuperAgent', () => {
   });
 
   describe('handle - revert tasks', () => {
-    it('should create manual tool call for simple revert with one-word query', async () => {
+    it('should create manual tool call for revert when classificationMatchType is static', async () => {
       const artifactId = 'artifact-123';
       const mockArtifact = {
         id: artifactId,
@@ -377,16 +377,22 @@ describe('SuperAgent', () => {
         configurable: true,
       });
 
+      // Mock classifier to return 'revert' task with 'static' matchType
+      const mockDoClassify = jest.fn().mockResolvedValue({ name: 'revert', matchType: 'static' });
+      const mockClassifier = {
+        saveEmbedding: mockSaveEmbedding,
+        doClassify: mockDoClassify,
+      };
+      (getClassifier as jest.Mock).mockReturnValue(mockClassifier);
+
       const params: AgentHandlerParams = {
         title: 'test-conversation',
         intent: {
-          type: 'revert',
+          type: ' ',
           query: 'undo',
         } as Intent,
-        // Set activeTools with a revert tool to ensure classifyTasksFromActiveTools classifies as 'revert'
-        activeTools: [ToolName.REVERT_DELETE],
-        // Set invocationCount to ensure classifyTasksFromActiveTools is used
-        invocationCount: 1,
+        activeTools: [],
+        // No invocationCount so classifyTasksFromQuery is used (which sets classificationMatchType)
       };
 
       // The manual tool call should bypass streamText

@@ -1,6 +1,6 @@
 import { MarkdownPostProcessor } from 'obsidian';
 import type StewardPlugin from 'src/main';
-import { findTextNodesWithRegex } from 'src/utils/findTextNode';
+import { findTextNodesWithRegex } from 'src/utils/htmlElementUtils';
 import { STW_SELECTED_PATTERN, STW_SELECTED_METADATA_PATTERN } from 'src/constants';
 
 /**

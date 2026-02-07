@@ -65,6 +65,7 @@ export class SearchService {
     this.nameTokenizer = new Tokenizer({
       normalizers: ['splitCamelCase', 'lowercase', 'removeSpecialChars', 'removeDiacritics'],
       analyzers: ['wordDelimiter', 'stemmer'],
+      stopwordThreshold: 0.3,
     });
 
     this.documentStore = new DocumentStore({
