@@ -571,7 +571,9 @@ export class PersistentEmbeddingSimilarityClassifier {
    * - prefixed: Prefix match in prefixedClusterValue
    * - clustered: Match via embedding similarity
    */
-  async doClassify(value: string): Promise<{ name: string; matchType: 'static' | 'prefixed' | 'clustered' } | null> {
+  async doClassify(
+    value: string
+  ): Promise<{ name: string; matchType: 'static' | 'prefixed' | 'clustered' } | null> {
     if (this.settings.staticClusterValues) {
       for (const cluster of this.settings.staticClusterValues) {
         if (cluster.values.includes(value.toLowerCase())) {
