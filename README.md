@@ -9,6 +9,7 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 ## Features
 
 - **Built-in search engine**: A BM25-based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search.
+- **Agent Skills**: Extend Steward with domain-specific knowledge for specialized tasks like creating Obsidian Bases, Canvas files, or your own workflows. Compatible with the [Agent Skills specification](https://agentskills.io/specification).
 - **Interactive and adaptive chat UI**: One or more chat interfaces made of the slash `/` leveraging Obsidian's editor and reading view features, that is, adaptable to your current themes.
 - **Privacy-focused**: Most actions are executed in the front-end using Obsidian API and local services to avoid exposing your data to LLMs (except for your queries and what you're explicitly provided).
 - **Command-based interaction**: Support for standard commands like search, vault (list, create, delete, copy, move, rename, update frontmatter), update, audio, image generation, and user-defined commands.
@@ -24,6 +25,7 @@ Steward is a plugin that utilizes Large Language Models (LLMs) to interact with 
 - [Standard (built-in) commands](#standard-built-in-commands)
   - [Usage](#usage)
   - [Showcases](#showcases)
+- [Skills](#skills)
 - [User-defined commands](#user-defined-commands)
   - [How it works](#how-it-works)
   - [Definitions](#definitions)
@@ -74,6 +76,22 @@ Steward can be used directly in the editor or by opening the chat interface.
 #### Search
 
 <img src="/docs/Stw-Demo-Search-light.gif" alt="Search" width="650px">
+
+## Skills
+
+Skills give Steward domain-specific knowledge for specialized tasks. Each skill is a markdown file in the `Steward/Skills` folder with frontmatter (`name`, `description`) and body content that gets injected into the AI's context when activated.
+
+Skills are activated automatically when the AI detects a relevant task, or you can ask explicitly:
+
+```
+/ Use the obsidian-bases skill to create a table view of my project notes.
+```
+
+Once activated, skills persist for the entire conversation and across app restarts.
+
+You can find ready-to-use skills from the community, such as [Obsidian Skills](https://github.com/kepano/obsidian-skills) for Bases, Canvas, and Markdown. Download skill files and place them in your `Steward/Skills` folder to get started.
+
+For more details, see the [Skills guideline](/docs/Skills%20guideline.md).
 
 ## User-defined commands
 
@@ -268,6 +286,7 @@ Steward/
 ├── Conversations/  # Archives past conversations
 ├── Docs/           # Fetched documents from this repo
 ├── Release notes/  # Release notes of Steward
+├── Skills/         # Agent skills for domain-specific knowledge
 ├── Trash/          # Stores deleted files
 └── Steward chat.md # Current active conversation
 ```
