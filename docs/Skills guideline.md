@@ -14,6 +14,20 @@ Skills are activated automatically by the AI when it detects a relevant task, or
 
 Once activated, skills persist for the entire conversation. They remain available even after reopening the app.
 
+## Disabling a skill
+
+To temporarily disable a skill without removing the file, add `disabled: true` to its frontmatter:
+
+```yaml
+---
+name: my-skill
+description: My skill description
+disabled: true
+---
+```
+
+The skill will be ignored until you remove the `disabled` field or set it to `false`.
+
 ## Community skills
 
 You can find ready-to-use skills for Obsidian from the community:

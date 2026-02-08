@@ -93,6 +93,8 @@ You can find ready-to-use skills from the community, such as [Obsidian Skills](h
 
 For more details, see the [Skills guideline](/docs/Skills%20guideline.md).
 
+<img src="/docs/Skills.gif" alt="Search" width="650px">
+
 ## User-defined commands
 
 You can create your own **User-Defined Commands** to automate workflows and combine multiple built-in or other User-Defined commands into a single, reusable command.

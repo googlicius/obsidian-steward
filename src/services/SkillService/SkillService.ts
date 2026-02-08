@@ -123,6 +123,11 @@ export class SkillService {
         return;
       }
 
+      if (frontmatter.disabled === 'true') {
+        logger.log(`Skill ${frontmatter.name} is disabled.`);
+        return;
+      }
+
       const skill: Skill = {
         name: frontmatter.name,
         description: frontmatter.description,
