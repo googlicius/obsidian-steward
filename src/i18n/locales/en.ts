@@ -20,7 +20,8 @@ const en = {
       builtInCommandsDesc: 'These commands are directly accessible via /&lt;command&gt',
       userDefinedCommands: 'User-Defined commands',
       userDefinedCommandsDesc: 'Create custom commands to automate workflows.',
-      noUserDefinedCommands: "You don't have any user-defined commands yet.",
+      noUserDefinedCommands:
+        "You don't have any user-defined commands yet. See the User-defined command guideline below to get started",
       commandHelpText: 'Type any command followed by your query to use it.',
       searchDesc: 'Search for notes in your vault',
       imageDesc: 'Generate images',
@@ -121,6 +122,14 @@ const en = {
       invalidTools: 'Invalid tools: `{{tools}}`',
       invalidDeactivateTools: 'Cannot deactivate (not active): `{{tools}}`',
     },
+    useSkills: {
+      activating: 'Activating skills: {{skills}}',
+      invalidSkills: 'Skills not found: {{skills}}',
+    },
+    skills: {
+      skills: 'Skills',
+      noSkills: 'No skills loaded. See the Skills guideline below to get started.',
+    },
     rename: {
       processed_one: 'I processed {{count}} rename instruction.',
       processed_other: 'I processed {{count}} rename instructions.',
@@ -143,13 +152,14 @@ const en = {
       unknownError: 'Unknown error.',
     },
     create: {
-      success_one: 'Successfully created {{noteName}}',
-      success_other: 'Successfully created {{count}} notes.',
-      creatingNote: 'Creating note: {{noteName}}',
-      confirmMessage_one: 'I will create the following note:',
-      confirmMessage_other: 'I will create the following notes:',
+      success_one: 'Successfully created {{fileName}}',
+      success_other: 'Successfully created {{count}} files.',
+      creatingFile: 'Creating file: {{fileName}}',
+      confirmMessage_one: 'I will create the following file:',
+      confirmMessage_other: 'I will create the following files:',
       confirmPrompt: 'Do you want to proceed?',
       errors: 'Errors:',
+      contentOmitted: 'Content written to file. Use the read tool to inspect it if needed.',
     },
     list: {
       noFilesFound: 'No files found.',
@@ -328,11 +338,13 @@ const en = {
       guidelines: 'Guidelines',
       searchGuideline: 'Search guideline',
       udcGuideline: 'User-defined command guideline',
+      skillsGuideline: 'Skills guideline',
       fetchFailed: 'Failed to fetch documentation: {{docName}}',
       downloading: 'Downloading {{name}}...',
     },
     read: {
       noContentFound: 'No such content found in the editor.',
+      noFrontmatterFound: 'No frontmatter found in the note.',
       readEntireContentConfirmation:
         'I am about to read the entire content of the {{noteName}} note. Are you sure you want to proceed?',
       unableToReadContent: 'Unable to read content.',

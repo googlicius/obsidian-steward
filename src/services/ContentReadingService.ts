@@ -12,7 +12,7 @@ export const SUPPORTED_READ = ['Image', 'Note contents'];
  */
 export interface ContentReadingResult {
   blocks: ContentBlock[];
-  source: 'cursor' | 'element' | 'entire' | 'unknown';
+  source: 'cursor' | 'element' | 'entire' | 'frontmatter' | 'unknown';
   elementType?: string;
   file?: {
     path: string;
@@ -107,6 +107,9 @@ export class ContentReadingService {
 
       case 'entire':
         return this.readEntireContent(file);
+
+      case 'frontmatter':
+        return this.readFrontmatter(file);
     }
   }
 
@@ -383,6 +386,56 @@ export class ContentReadingService {
     return {
       blocks: [block],
       source: 'entire',
+      file: {
+        path: file.path,
+        name: file.name,
+      },
+    };
+  }
+
+  /**
+   * Read only the YAML frontmatter (properties) of a file.
+   * Useful for collecting metadata from multiple notes without reading the entire content.
+   * @param file The file to read frontmatter from
+   * @returns The frontmatter content as a single block
+   */
+  private async readFrontmatter(file: TFile): Promise<ContentReadingResult> {
+    const cache = this.plugin.app.metadataCache.getFileCache(file);
+
+    if (!cache?.frontmatterPosition) {
+      return {
+        blocks: [],
+        source: 'frontmatter',
+        file: {
+          path: file.path,
+          name: file.name,
+        },
+      };
+    }
+
+    const { start, end } = cache.frontmatterPosition;
+    const fileContent = await this.plugin.app.vault.cachedRead(file);
+    const fileLines = fileContent.split('\n');
+
+    // Extract the frontmatter content (excluding the --- delimiters)
+    const content = fileLines.slice(start.line + 1, end.line).join('\n');
+
+    const block: ContentBlock = {
+      startLine: start.line,
+      endLine: end.line,
+      sections: [
+        {
+          type: 'yaml',
+          startLine: start.line,
+          endLine: end.line,
+        },
+      ],
+      content,
+    };
+
+    return {
+      blocks: [block],
+      source: 'frontmatter',
       file: {
         path: file.path,
         name: file.name,

@@ -121,6 +121,7 @@ const tools = {
   [ToolName.IMAGE]: handlers.Image.getImageTool(),
   [ToolName.TODO_LIST]: handlers.TodoList.getTodoListTool(),
   [ToolName.TODO_LIST_UPDATE]: handlers.TodoList.getTodoListUpdateTool(),
+  [ToolName.USE_SKILLS]: handlers.UseSkills.getUseSkillsTool(),
 };
 
 type ToolCalls = Awaited<Awaited<ReturnType<typeof streamText<typeof tools>>>['toolCalls']>;
@@ -440,6 +441,9 @@ export class SuperAgent extends Agent {
         ? await this.generateTodoListPrompt(params.title)
         : '';
 
+      // Generate skill catalog
+      const skillCatalogPrompt = this.generateSkillCatalogPrompt();
+
       const shouldUseCoreSystemPrompt = shouldUseTools;
 
       const additionalSystemPrompts = params.intent.systemPrompts || [];
@@ -447,6 +451,10 @@ export class SuperAgent extends Agent {
       if (llmConfig.systemPrompt) {
         additionalSystemPrompts.push(llmConfig.systemPrompt);
       }
+
+      // Inject each active skill as a separate system prompt to avoid formatting conflicts
+      const activeSkillPrompts = this.generateActiveSkillPrompts(params.activeSkills || []);
+      additionalSystemPrompts.push(...activeSkillPrompts);
 
       if (additionalSystemPrompts.length > 0) {
         messages.unshift({ role: 'system', content: additionalSystemPrompts.join('\n\n') });
@@ -472,6 +480,7 @@ Your role is to help users with multiple tasks by using appropriate tools.
         ],
         'and'
       )}.
+- For tasks that require domain-specific knowledge, activate the relevant skill(s) first using ${ToolName.USE_SKILLS}.
 - For other tasks, use the appropriate tool(s).
 
 You have access to the following tools:
@@ -493,7 +502,7 @@ ${registry.generateOtherToolsSection(
 
 TOOLS GUIDELINES:
 ${registry.generateGuidelinesSection()}
-${currentNote ? `\nCURRENT NOTE: ${currentNote} (Cursor position: ${currentPosition})` : ''}${todoListPrompt}
+${currentNote ? `\nCURRENT NOTE: ${currentNote} (Cursor position: ${currentPosition})` : ''}${todoListPrompt}${skillCatalogPrompt}
 
 NOTE:
 - Do NOT repeat the latest tool call result in your final response as it is already rendered in the UI.
@@ -592,6 +601,7 @@ NOTE:
       typeof options.remainingSteps !== 'undefined' ? options.remainingSteps : MAX_STEP_COUNT;
 
     const activeTools = await this.loadActiveTools(title, params.activeTools);
+    const activeSkills = await this.loadActiveSkills(title);
 
     const t = getTranslation(lang);
 
@@ -671,6 +681,7 @@ NOTE:
       const result = await this.executeStreamText({
         ...params,
         activeTools,
+        activeSkills,
       });
       toolCalls = result.toolCalls;
       conversationHistory = result.conversationHistory;
@@ -863,6 +874,14 @@ NOTE:
 
             case ToolName.TODO_LIST_UPDATE: {
               toolCallResult = await this.todoList.handleUpdate(params, { toolCall });
+              break;
+            }
+
+            case ToolName.USE_SKILLS: {
+              toolCallResult = await this.useSkills.handle(params, {
+                toolCall,
+                activeSkills,
+              });
               break;
             }
 
@@ -1088,6 +1107,41 @@ ${todoListState.steps
 When you complete or skip the current step, use the ${ToolName.TODO_LIST_UPDATE} tool with:
 - status: in_progress, skipped, or completed
 - nextStep: (optional) the step number to move to after updating`;
+  }
+
+  /**
+   * Generate the skill catalog prompt showing available skills.
+   * @returns The formatted skill catalog section or empty string
+   */
+  private generateSkillCatalogPrompt(): string {
+    const catalog = this.plugin.skillService.getSkillCatalog();
+
+    if (catalog.length === 0) {
+      return '';
+    }
+
+    const entries = catalog.map(entry => `- ${entry.name}: ${entry.description}`).join('\n');
+
+    return `\n\nAVAILABLE SKILLS:
+${entries}
+
+Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-specific knowledge for the task.`;
+  }
+
+  /**
+   * Generate individual system prompts for each active skill.
+   * Each skill gets its own entry to keep content cleanly separated.
+   * @param activeSkillNames Array of active skill names from frontmatter
+   * @returns Array of formatted skill prompts, one per skill
+   */
+  private generateActiveSkillPrompts(activeSkillNames: string[]): string[] {
+    if (activeSkillNames.length === 0) {
+      return [];
+    }
+
+    const { contents } = this.plugin.skillService.getSkillContents(activeSkillNames);
+
+    return Object.entries(contents).map(([name, content]) => `ACTIVE SKILL: ${name}\n${content}`);
   }
 
   /**

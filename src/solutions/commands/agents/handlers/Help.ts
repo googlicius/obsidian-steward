@@ -86,6 +86,21 @@ export class Help {
         content += `*${t('common.noUserDefinedCommands')}*\n\n`;
       }
 
+      // Add skills section
+      content += `\n**${t('skills.skills')}:**\n\n`;
+
+      // List loaded skills from the vault
+      const loadedSkills = this.agent.plugin.skillService.skills;
+      if (loadedSkills.size > 0) {
+        for (const [skillName, skill] of loadedSkills.entries()) {
+          const file = this.agent.app.vault.getFileByPath(skill.filePath);
+          const fileName = file ? file.basename : skill.filePath;
+          content += `- \`${skillName}\` - [[${skill.filePath}|${fileName}]]\n`;
+        }
+      } else {
+        content += `*${t('skills.noSkills')}*\n`;
+      }
+
       // Add documentation links section
       content += `\n**${t('documentation.guidelines')}:**\n\n`;
       const searchDocLink = this.agent.plugin.gitHubResourceService.getDocLink(
@@ -96,8 +111,13 @@ export class Help {
         DOCUMENTATION_FILES.USER_DEFINED_COMMAND_GUIDELINE,
         t('documentation.udcGuideline')
       );
+      const skillsDocLink = this.agent.plugin.gitHubResourceService.getDocLink(
+        DOCUMENTATION_FILES.SKILLS_GUIDELINE,
+        t('documentation.skillsGuideline')
+      );
       content += `- ${searchDocLink}\n`;
       content += `- ${udcDocLink}\n`;
+      content += `- ${skillsDocLink}\n`;
 
       // Add help text
       content += `\n${t('common.commandHelpText')}\n`;

@@ -282,6 +282,7 @@ export const DOCS_FOLDER_NAME = 'Docs';
 export const DOCUMENTATION_FILES = {
   SEARCH_GUIDELINE: 'Search guideline v2',
   USER_DEFINED_COMMAND_GUIDELINE: 'User-defined command guideline v2',
+  SKILLS_GUIDELINE: 'Skills guideline',
 } as const;
 
 // Community user-defined commands available for lazy loading from GitHub

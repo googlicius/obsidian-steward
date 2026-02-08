@@ -15,7 +15,8 @@ const ja = {
       builtInCommandsDesc: 'これらのコマンドは /&lt;command&gt を通じて直接利用できます',
       userDefinedCommands: 'ユーザー定義コマンド',
       userDefinedCommandsDesc: 'ワークフローを自動化するカスタムコマンドを作成します。',
-      noUserDefinedCommands: 'ユーザー定義コマンドはまだありません。',
+      noUserDefinedCommands:
+        'ユーザー定義コマンドはまだありません。下のユーザー定義コマンドガイドラインを参照して始めてください',
       commandHelpText: 'コマンドの後にクエリを入力して使用してください。',
       searchDesc: 'ノートを検索する',
       imageDesc: '画像を生成する',
@@ -98,6 +99,14 @@ const ja = {
       invalidTools: '無効なツール: `{{tools}}`',
       invalidDeactivateTools: '非アクティブ化できません（アクティブではありません）: `{{tools}}`',
     },
+    useSkills: {
+      activating: 'スキルをアクティブ化中: {{skills}}',
+      invalidSkills: 'スキルが見つかりません: {{skills}}',
+    },
+    skills: {
+      skills: 'スキル',
+      noSkills: 'スキルが読み込まれていません。下のスキルガイドラインを参照して始めてください。',
+    },
     rename: {
       processed: '{{count}}件のリネーム指示を処理しました。',
       success: '{{count}}件のファイル名をリネームしました。',
@@ -113,9 +122,10 @@ const ja = {
       unknownError: '不明なエラーが発生しました。',
     },
     create: {
-      success: '{{count}}件のノートを作成しました: {{noteNames}}',
-      creatingNote: 'ノートを作成中: [[{{noteName}}]]',
+      success: '{{count}}件のファイルを作成しました: {{fileNames}}',
+      creatingFile: 'ファイルを作成中: {{fileName}}',
       errors: 'エラー:',
+      contentOmitted: 'ファイルに内容を書き込みました。必要に応じてreadツールで確認してください。',
     },
     list: {
       noFilesFound: 'ファイルは見つかりませんでした。',
@@ -268,11 +278,13 @@ const ja = {
       guidelines: 'ガイドライン',
       searchGuideline: '検索ガイドライン',
       udcGuideline: 'ユーザー定義コマンドガイドライン',
+      skillsGuideline: 'スキルガイドライン',
       fetchFailed: 'ドキュメントの取得に失敗しました: {{docName}}',
       downloading: '{{name}}をダウンロードしています...',
     },
     read: {
       noContentFound: 'エディタにそのような内容が見つかりませんでした。',
+      noFrontmatterFound: 'ノートにフロントマターが見つかりませんでした。',
       readEntireContentConfirmation:
         'このノートの内容をすべて読み込もうとしています。続行しますか？',
       unableToReadContent: '内容を読み込めませんでした。',

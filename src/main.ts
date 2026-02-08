@@ -57,6 +57,7 @@ import { CommandTrackingService } from './services/CommandTrackingService';
 import { VersionCheckerService } from './services/VersionCheckerService';
 import { UserMessageService } from './services/UserMessageService';
 import { GitHubResourceService } from './services/GitHubResourceService';
+import { SkillService } from './services/SkillService';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -80,6 +81,7 @@ export default class StewardPlugin extends Plugin {
   _encryptionService: EncryptionService;
   _commandInputService: CommandInputService;
   _gitHubResourceService: GitHubResourceService;
+  _skillService: SkillService;
   _commandTrackingService: CommandTrackingService;
   _versionCheckerService: VersionCheckerService;
   _userMessageService: UserMessageService;
@@ -182,6 +184,13 @@ export default class StewardPlugin extends Plugin {
     return this._gitHubResourceService;
   }
 
+  get skillService(): SkillService {
+    if (!this._skillService) {
+      this._skillService = SkillService.getInstance(this);
+    }
+    return this._skillService;
+  }
+
   get conversationRender(): ConversationRenderer {
     if (!this._conversationRenderer) {
       this._conversationRenderer = ConversationRenderer.getInstance(this);
@@ -241,6 +250,10 @@ export default class StewardPlugin extends Plugin {
     // Initialize the TrashCleanupService
     this.trashCleanupService = new TrashCleanupService(this);
     this.trashCleanupService.initialize();
+
+    // Initialize the SkillService (loads skills from Steward/Skills folder)
+    // Access triggers lazy initialization and onLayoutReady will load all skills
+    this.skillService;
 
     this.initializeClassifier();
 

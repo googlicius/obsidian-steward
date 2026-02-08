@@ -165,11 +165,12 @@ NOTE:
 
   [ToolName.CREATE]: {
     name: ToolName.CREATE,
-    description: 'Create new notes and optionally populate them with content.',
+    description:
+      'Create new files (notes, canvases, CSS snippets, etc.) and optionally populate them with content.',
     guidelines: [
-      `Use ${ToolName.CREATE} to create every note requested by the user.
-  - Provide the exact Markdown content that should be written to the note when available.
-  - Ensure each note path includes the .md extension and points to the correct folder.`,
+      `Use ${ToolName.CREATE} to create every file requested by the user.
+  - Provide the exact content that should be written to the file when available.
+  - Ensure each file name includes the appropriate extension (e.g. .md, .canvas, .base) and points to the correct folder.`,
     ],
     category: 'content-create',
   },
@@ -349,6 +350,19 @@ NOTE:
   - When moving to the next step, you SHOULD call ${ToolName.TODO_LIST_UPDATE} tool in parallel (in the same request) with the tool that performs the next task.`,
     ],
     category: 'task-management',
+  },
+
+  [ToolName.USE_SKILLS]: {
+    name: ToolName.USE_SKILLS,
+    description:
+      'Activate one or more skills to gain domain-specific knowledge for the current task.',
+    guidelines: [
+      `Use ${ToolName.USE_SKILLS} only when performing tasks that require specific skill knowledge (e.g., creating or editing files in a specialized format).
+  - For answering questions, the skill name and description in the catalog is sufficient — do NOT activate skills just to answer.
+  - Activate skills BEFORE attempting the task that requires that knowledge.
+  - Once activated, skills persist for the entire conversation.`,
+    ],
+    category: 'skill',
   },
 };
 

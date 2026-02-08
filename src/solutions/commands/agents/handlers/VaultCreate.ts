@@ -1,4 +1,5 @@
 import { tool } from 'ai';
+import { parseYaml } from 'obsidian';
 import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -6,56 +7,71 @@ import { ToolCallPart } from '../../tools/types';
 import { type SuperAgent } from '../SuperAgent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 
-const createToolSchema = z.object({
-  folder: z.string().min(1).describe('The folder path where the notes will be created.'),
-  notes: z
+export const createToolSchema = z.object({
+  folder: z.string().min(1).describe('The folder path where the files will be created.'),
+  newFiles: z
     .array(
-      z.object({
-        fileName: z
-          .string()
-          .min(1)
-          .describe('The file name for the note to create. Include the .md extension.'),
-        content: z
-          .string()
-          .optional()
-          .describe('The Markdown content that should be written to the note after creation.'),
-      })
+      z
+        .object({
+          fileName: z
+            .string()
+            .min(1)
+            .describe(
+              'The file name to create. Must include the file extension (e.g. .md, .base, .canvas).'
+            ),
+          content: z
+            .string()
+            .optional()
+            .describe('The content that should be written to the file after creation.'),
+        })
+        .transform(val => {
+          if (!val.fileName.endsWith('.base') || !val.content) {
+            return val;
+          }
+
+          // Extract YAML content from a markdown code block if present
+          const yamlBlockMatch = val.content.trim().match(/^```yaml\s*\n([\s\S]*?)\n```\s*$/i);
+          if (!yamlBlockMatch) {
+            return val;
+          }
+
+          return { ...val, content: yamlBlockMatch[1] };
+        })
     )
     .min(1)
-    .describe('The list of notes that must be created.'),
+    .describe('The list of files that must be created.'),
 });
 
 export type CreateToolArgs = z.infer<typeof createToolSchema>;
 
-export type CreateNoteInstruction = {
+export type CreateFileInstruction = {
   fileName: string;
   content?: string;
 };
 
 export type CreatePlan = {
   folder: string;
-  notes: CreateNoteInstruction[];
+  newFiles: CreateFileInstruction[];
 };
 
 function executeCreateToolArgs(args: CreateToolArgs): CreatePlan {
-  const normalizedNotes: CreateNoteInstruction[] = [];
+  const normalizedFiles: CreateFileInstruction[] = [];
   // Normalize folder path: trim, normalize slashes, remove leading/trailing slashes
   const trimmedFolder = args.folder.trim();
   const folder = trimmedFolder.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 
-  for (const note of args.notes) {
-    const trimmedFileName = note.fileName.trim();
-    const fileName = trimmedFileName.endsWith('.md') ? trimmedFileName : `${trimmedFileName}.md`;
+  for (const file of args.newFiles) {
+    const fileName = file.fileName.trim();
 
-    normalizedNotes.push({
+    normalizedFiles.push({
       fileName,
-      content: note.content && note.content.trim().length > 0 ? note.content : undefined,
+      content: file.content && file.content.trim().length > 0 ? file.content : undefined,
     });
   }
 
   return {
     folder,
-    notes: normalizedNotes,
+    newFiles: normalizedFiles,
   };
 }
 
@@ -71,50 +87,63 @@ export class VaultCreate {
    * Execute the create plan
    */
   private async executePlan(params: { plan: CreatePlan }): Promise<{
-    createdNotes: string[];
-    createdNoteLinks: string[];
+    createdFiles: string[];
+    createdFileLinks: string[];
     errors: string[];
   }> {
-    const createdNotes: string[] = [];
-    const createdNoteLinks: string[] = [];
+    const createdFiles: string[] = [];
+    const createdFileLinks: string[] = [];
     const errors: string[] = [];
     const { plan } = params;
 
     // Ensure folder exists
     await this.agent.obsidianAPITools.ensureFolderExists(plan.folder);
 
-    for (const note of plan.notes) {
-      if (!note.fileName) {
-        errors.push('Note file name is missing');
+    for (const file of plan.newFiles) {
+      if (!file.fileName) {
+        errors.push('File name is missing');
         continue;
       }
 
       // Build full path: folder/fileName
-      const newNotePath = `${plan.folder}/${note.fileName}`;
+      const newFilePath = `${plan.folder}/${file.fileName}`;
+
+      // Validate YAML content for .base files
+      if (file.fileName.endsWith('.base') && file.content) {
+        try {
+          parseYaml(file.content);
+        } catch (yamlError) {
+          const message = yamlError instanceof Error ? yamlError.message : 'Invalid YAML content';
+          errors.push(`Invalid YAML content for ${newFilePath}: ${message}`);
+          continue;
+        }
+      }
 
       try {
-        await this.agent.app.vault.create(newNotePath, '');
-        createdNotes.push(newNotePath);
-        createdNoteLinks.push(`[[${newNotePath}]]`);
+        await this.agent.app.vault.create(newFilePath, '');
+        createdFiles.push(newFilePath);
+        createdFileLinks.push(`[[${newFilePath}]]`);
 
-        if (note.content) {
-          const file = this.agent.app.vault.getFileByPath(newNotePath);
-          if (file) {
-            await this.agent.app.vault.modify(file, note.content);
+        if (file.content) {
+          const vaultFile = this.agent.app.vault.getFileByPath(newFilePath);
+          if (vaultFile) {
+            await this.agent.app.vault.modify(vaultFile, file.content);
           } else {
-            errors.push(`Failed to modify ${newNotePath}: File not found or not a valid file`);
+            errors.push(`Failed to modify ${newFilePath}: File not found or not a valid file`);
           }
         }
-      } catch (noteError) {
+      } catch (createError) {
         const message =
-          noteError instanceof Error ? noteError.message : 'Unknown error while creating the note';
-        errors.push(`Failed to create ${newNotePath}: ${message}`);
+          createError instanceof Error
+            ? createError.message
+            : 'Unknown error while creating the file';
+        errors.push(`Failed to create ${newFilePath}: ${message}`);
       }
     }
 
     return {
-      createdNotes,
-      createdNoteLinks,
+      createdFiles,
+      createdFileLinks,
       errors,
     };
   }
@@ -136,10 +165,10 @@ export class VaultCreate {
 
     const plan = executeCreateToolArgs(toolCall.input);
 
-    if (plan.notes.length === 0) {
+    if (plan.newFiles.length === 0) {
       await this.agent.renderer.updateConversationNote({
         path: title,
-        newContent: '*No notes were specified for creation*',
+        newContent: '*No files were specified for creation*',
         role: 'Steward',
         command: 'vault_create',
         lang,
@@ -149,16 +178,16 @@ export class VaultCreate {
 
       return {
         status: IntentResultStatus.ERROR,
-        error: new Error('No notes specified for creation'),
+        error: new Error('No files specified for creation'),
       };
     }
 
     if (!intent?.no_confirm) {
-      let message = `${t('create.confirmMessage', { count: plan.notes.length })}\n`;
+      let message = `${t('create.confirmMessage', { count: plan.newFiles.length })}\n`;
       message += `\n*Folder:* \`${plan.folder}\`\n`;
 
-      for (const note of plan.notes) {
-        const fullPath = `${plan.folder}/${note.fileName}`;
+      for (const file of plan.newFiles) {
+        const fullPath = `${plan.folder}/${file.fileName}`;
         message += `- \`${fullPath}\`\n`;
       }
 
@@ -221,8 +250,8 @@ export class VaultCreate {
     handlerId: string;
     toolCall: ToolCallPart<CreateToolArgs>;
   }): Promise<{
-    createdNotes: string[];
-    createdNoteLinks: string[];
+    createdFiles: string[];
+    createdFileLinks: string[];
     errors: string[];
   }> {
     const { title, plan, lang, handlerId, toolCall } = params;
@@ -230,11 +259,11 @@ export class VaultCreate {
 
     const creationResult = await this.executePlan({ plan });
 
-    if (creationResult.createdNotes.length > 0) {
+    if (creationResult.createdFiles.length > 0) {
       const messageId = await this.agent.renderer.updateConversationNote({
         path: title,
-        newContent: t('create.creatingNote', {
-          noteName: creationResult.createdNoteLinks.join(', '),
+        newContent: t('create.creatingFile', {
+          fileName: creationResult.createdFileLinks.join(', '),
         }),
         role: 'Steward',
         command: 'vault_create',
@@ -249,7 +278,7 @@ export class VaultCreate {
           })}*`,
           artifact: {
             artifactType: ArtifactType.CREATED_NOTES,
-            paths: creationResult.createdNotes,
+            paths: creationResult.createdFiles,
             createdAt: Date.now(),
           },
         });
@@ -257,10 +286,10 @@ export class VaultCreate {
     }
 
     let resultMessage = '';
-    if (creationResult.createdNotes.length > 0) {
+    if (creationResult.createdFiles.length > 0) {
       resultMessage = `*${t('create.success', {
-        count: creationResult.createdNotes.length,
-        noteName: creationResult.createdNotes.join(', '),
+        count: creationResult.createdFiles.length,
+        fileName: creationResult.createdFiles.join(', '),
       })}*`;
     }
 
@@ -284,18 +313,30 @@ export class VaultCreate {
       command: 'vault_create',
     });
 
+    // Replace file content with a short message to reduce token usage in serialized history
+    const summarizedToolCall = {
+      ...toolCall,
+      input: {
+        ...toolCall.input,
+        newFiles: toolCall.input.newFiles.map(file => ({
+          ...file,
+          content: file.content ? t('create.contentOmitted') : undefined,
+        })),
+      },
+    };
+
     await this.agent.renderer.serializeToolInvocation({
       path: title,
       command: 'vault_create',
       handlerId,
       toolInvocations: [
         {
-          ...toolCall,
+          ...summarizedToolCall,
           type: 'tool-result',
           output: {
             type: 'json',
             value: {
-              createdNotes: creationResult.createdNotes,
+              createdFiles: creationResult.createdFiles,
               errors: creationResult.errors,
             },
           },
