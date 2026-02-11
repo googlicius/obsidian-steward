@@ -5,12 +5,11 @@ import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { ToolCallPart } from '../../tools/types';
-import { DOCUMENTATION_FILES } from 'src/constants';
+import { GITHUB_WIKI_URL, WIKI_PAGES } from 'src/constants';
 
 interface BuiltInCommand {
   command: string;
   description: string;
-  docName?: string;
 }
 
 // HELP tool doesn't need args
@@ -54,11 +53,7 @@ export class Help {
 
       // List of built-in commands with descriptions
       const builtInCommandsWithDescriptions: BuiltInCommand[] = [
-        {
-          command: '`/search`',
-          description: t('common.searchDesc'),
-          docName: DOCUMENTATION_FILES.SEARCH_GUIDELINE,
-        },
+        { command: '`/search`', description: t('common.searchDesc') },
         { command: '`/image`', description: t('common.imageDesc') },
         { command: '`/speech`', description: t('common.speechDesc') },
       ];
@@ -101,23 +96,11 @@ export class Help {
         content += `*${t('skills.noSkills')}*\n`;
       }
 
-      // Add documentation links section
+      // Add wiki links section
       content += `\n**${t('documentation.guidelines')}:**\n\n`;
-      const searchDocLink = this.agent.plugin.gitHubResourceService.getDocLink(
-        DOCUMENTATION_FILES.SEARCH_GUIDELINE,
-        t('documentation.searchGuideline')
-      );
-      const udcDocLink = this.agent.plugin.gitHubResourceService.getDocLink(
-        DOCUMENTATION_FILES.USER_DEFINED_COMMAND_GUIDELINE,
-        t('documentation.udcGuideline')
-      );
-      const skillsDocLink = this.agent.plugin.gitHubResourceService.getDocLink(
-        DOCUMENTATION_FILES.SKILLS_GUIDELINE,
-        t('documentation.skillsGuideline')
-      );
-      content += `- ${searchDocLink}\n`;
-      content += `- ${udcDocLink}\n`;
-      content += `- ${skillsDocLink}\n`;
+      content += `- [${t('documentation.searchGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.SEARCH})\n`;
+      content += `- [${t('documentation.udcGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.USER_DEFINED_COMMANDS})\n`;
+      content += `- [${t('documentation.skillsGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.SKILLS})\n`;
 
       // Add help text
       content += `\n${t('common.commandHelpText')}\n`;

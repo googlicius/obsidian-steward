@@ -265,6 +265,7 @@ export const SEARCH_DB_NAME_PREFIX = 'steward_search_';
 export const GITHUB_OWNER = 'googlicius';
 export const GITHUB_REPO = 'obsidian-steward';
 export const GITHUB_RAW_BASE_URL = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/main`;
+export const GITHUB_WIKI_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/wiki`;
 
 // Documentation folder name within the Steward folder
 export const DOCS_FOLDER_NAME = 'Docs';
@@ -274,6 +275,13 @@ export const DOCUMENTATION_FILES = {
   SEARCH_GUIDELINE: 'Search guideline v2',
   USER_DEFINED_COMMAND_GUIDELINE: 'User-defined command guideline v2',
   SKILLS_GUIDELINE: 'Skills guideline',
+} as const;
+
+// Wiki page slugs corresponding to documentation files
+export const WIKI_PAGES = {
+  SEARCH: 'Search',
+  USER_DEFINED_COMMANDS: 'User-defined-commands',
+  SKILLS: 'Skills',
 } as const;
 
 // Community user-defined commands available for lazy loading from GitHub
