@@ -1,6 +1,6 @@
 import { ToolName } from './toolNames';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
-import { revertAbleArtifactTypes } from '../artifact';
+import { ArtifactType, revertAbleArtifactTypes } from '../artifact';
 import { EditMode } from './tools/editContent';
 
 export interface ToolDefinition {
@@ -37,6 +37,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   - Specify the direction to read (readType) carefully from the user's query, Do NOT set "entire" unless the user explicitly requests to read the entire content.`,
       `When reading multiple files, you MUST make multiple parallel tool calls in the same request (one ${ToolName.CONTENT_READING} call per file). Do NOT read files sequentially one by one. EXCEPT when the user explicitly requests sequential reading.`,
       `After reading, respond a short conclusion of your task. DO NOT respond the elements of the reading result in your final response: Tables, lists, code, blockquote, images, headings, etc.`,
+      `On success, creates artifact: ${ArtifactType.READ_CONTENT}.`,
     ],
   },
 
@@ -116,6 +117,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   - Folders and filenames, use regex to represent user-specified: Exact match: ^<query>$, start with: ^<query>, or contain: <query>.`,
       `The search query can include keywords, file names, folder paths, tags, and other properties.`,
       `NOTE: ${ToolName.SEARCH} tool cannot access the Steward folder. Use ${ToolName.LIST} instead.`,
+      `On success, creates artifact: ${ArtifactType.SEARCH_RESULTS}.`,
     ],
     category: 'vault-access',
   },
@@ -159,17 +161,20 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
 NOTE: 
   - Use table modes to edit tables, especially large tables (More than 20 rows).
   - Use one or multiple operations. DO NOT use multiple tool calls or multiple requests.`,
+      `On success, creates artifact: ${ArtifactType.EDIT_RESULTS}.`,
     ],
     category: 'content-edit',
   },
 
   [ToolName.CREATE]: {
     name: ToolName.CREATE,
-    description: 'Create new notes and optionally populate them with content.',
+    description:
+      'Create new files (notes, canvases, CSS snippets, etc.) and optionally populate them with content.',
     guidelines: [
-      `Use ${ToolName.CREATE} to create every note requested by the user.
-  - Provide the exact Markdown content that should be written to the note when available.
-  - Ensure each note path includes the .md extension and points to the correct folder.`,
+      `Use ${ToolName.CREATE} to create every file requested by the user.
+  - Provide the exact content that should be written to the file when available.
+  - Ensure each file name includes the appropriate extension (e.g. .md, .canvas, .base) and points to the correct folder.`,
+      `On success, creates artifact: ${ArtifactType.CREATED_NOTES}.`,
     ],
     category: 'content-create',
   },
@@ -180,6 +185,7 @@ NOTE:
     guidelines: [
       `Use the ${ToolName.DELETE} tool to remove files or notes from the vault.
   - List every file using the list tool (not grep tool) you plan to delete and ensure the paths are accurate.`,
+      `On success, creates artifact: ${ArtifactType.DELETED_FILES}.`,
     ],
     category: 'vault-access',
   },
@@ -201,6 +207,7 @@ NOTE:
     guidelines: [
       `Use ${ToolName.RENAME} to change the name or location of files.`,
       `Always provide both the current path and the new path for each file.`,
+      `On success, creates artifact: ${ArtifactType.RENAME_RESULTS}.`,
     ],
     category: 'vault-access',
   },
@@ -212,6 +219,7 @@ NOTE:
       `Use ${ToolName.MOVE} to relocate files to another folder.,
   - Always provide the destination folder path for the move operation.,
   - Specify the files or artifactId for the move operation.`,
+      `On success, creates artifact: ${ArtifactType.MOVE_RESULTS}.`,
     ],
     category: 'vault-access',
   },
@@ -219,14 +227,20 @@ NOTE:
   [ToolName.LIST]: {
     name: ToolName.LIST,
     description: 'List files in the vault or a specific folder.',
-    guidelines: [`Use ${ToolName.LIST} to list files in the vault or a specific folder.`],
+    guidelines: [
+      `Use ${ToolName.LIST} to list files in the vault or a specific folder.`,
+      `On success, creates artifact: ${ArtifactType.LIST_RESULTS}.`,
+    ],
     category: 'vault-access',
   },
 
   [ToolName.UPDATE_FRONTMATTER]: {
     name: ToolName.UPDATE_FRONTMATTER,
     description: 'Update frontmatter properties in notes (add, update, or delete properties).',
-    guidelines: [`Use ${ToolName.UPDATE_FRONTMATTER} to modify frontmatter properties in notes.`],
+    guidelines: [
+      `Use ${ToolName.UPDATE_FRONTMATTER} to modify frontmatter properties in notes.`,
+      `On success, creates artifact: ${ArtifactType.UPDATE_FRONTMATTER_RESULTS}.`,
+    ],
     category: 'vault-access',
   },
 
@@ -315,6 +329,7 @@ NOTE:
     description: 'Generate text content for speech/audio generation.',
     guidelines: [
       `Use ${ToolName.SPEECH} when the user wants to generate audio or speech from text.`,
+      `On success, creates artifact: ${ArtifactType.MEDIA_RESULTS}.`,
     ],
     category: 'content-generation',
   },
@@ -325,6 +340,7 @@ NOTE:
     guidelines: [
       `Use ${ToolName.IMAGE} when the user wants to generate image from text.`,
       `NOTE: The ${ToolName.IMAGE} tool is NOT for reading images, the tool cannot read. Use ${ToolName.CONTENT_READING} for reading images.`,
+      `On success, creates artifact: ${ArtifactType.MEDIA_RESULTS}.`,
     ],
     category: 'content-generation',
   },
@@ -347,6 +363,30 @@ NOTE:
     guidelines: [
       `Use ${ToolName.TODO_LIST_UPDATE} to update the current step index when moving to the next step in a to-do list.
   - When moving to the next step, you SHOULD call ${ToolName.TODO_LIST_UPDATE} tool in parallel (in the same request) with the tool that performs the next task.`,
+    ],
+    category: 'task-management',
+  },
+
+  [ToolName.USE_SKILLS]: {
+    name: ToolName.USE_SKILLS,
+    description:
+      'Activate one or more skills to gain domain-specific knowledge for the current task.',
+    guidelines: [
+      `Use ${ToolName.USE_SKILLS} only when performing tasks that require specific skill knowledge (e.g., creating or editing files in a specialized format).
+  - For answering questions, the skill name and description in the catalog is sufficient — do NOT activate skills just to answer.
+  - Activate skills BEFORE attempting the task that requires that knowledge.
+  - Once activated, skills persist for the entire conversation.`,
+    ],
+    category: 'skill',
+  },
+
+  [ToolName.CONCLUDE]: {
+    name: ToolName.CONCLUDE,
+    description:
+      'Conclude the task by providing a brief summary of what you have done. This avoids an extra step just to summarize.',
+    guidelines: [
+      `When you determine this is the last step of your work, call ${ToolName.CONCLUDE} in parallel (in the same request) with the tool that performs the final task.`,
+      `Do NOT call ${ToolName.CONCLUDE} alone — it must always be paired with another tool call in the same request.`,
     ],
     category: 'task-management',
   },

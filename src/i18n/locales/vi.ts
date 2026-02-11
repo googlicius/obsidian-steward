@@ -15,7 +15,8 @@ const vi = {
       builtInCommandsDesc: 'Những lệnh này có sẵn thông qua /&lt;command&gt',
       userDefinedCommands: 'Lệnh tùy chỉnh',
       userDefinedCommandsDesc: 'Tạo lệnh tùy chỉnh để tự động hóa quy trình làm việc.',
-      noUserDefinedCommands: 'Bạn chưa có lệnh tùy chỉnh nào.',
+      noUserDefinedCommands:
+        'Bạn chưa có lệnh tùy chỉnh nào. Xem hướng dẫn Lệnh tùy chỉnh bên dưới để bắt đầu',
       commandHelpText: 'Nhập lệnh theo sau bởi truy vấn của bạn để sử dụng.',
       searchDesc: 'Tìm kiếm ghi chú trong kho lưu trữ của bạn',
       imageDesc: 'Tạo hình ảnh',
@@ -97,6 +98,14 @@ const vi = {
       invalidTools: 'Công cụ không hợp lệ: `{{tools}}`',
       invalidDeactivateTools: 'Không thể vô hiệu hóa (chưa kích hoạt): `{{tools}}`',
     },
+    useSkills: {
+      activating: 'Đang kích hoạt kỹ năng: {{skills}}',
+      invalidSkills: 'Không tìm thấy kỹ năng: {{skills}}',
+    },
+    skills: {
+      skills: 'Kỹ năng',
+      noSkills: 'Chưa có kỹ năng nào được tải. Xem hướng dẫn Kỹ năng bên dưới để bắt đầu.',
+    },
     rename: {
       processed: 'Tôi đã xử lý {{count}} yêu cầu đổi tên.',
       success: 'Đã đổi tên thành công {{count}} tập tin.',
@@ -113,9 +122,10 @@ const vi = {
       unknownError: 'Lỗi không xác định.',
     },
     create: {
-      success: 'Đã tạo thành công {{count}} ghi chú: {{noteNames}}',
-      creatingNote: 'Đang tạo ghi chú: [[{{noteName}}]]',
+      success: 'Đã tạo thành công {{count}} tập tin: {{fileNames}}',
+      creatingFile: 'Đang tạo tập tin: {{fileName}}',
       errors: 'Lỗi:',
+      contentOmitted: 'Nội dung đã được ghi vào tập tin. Sử dụng công cụ read để kiểm tra nếu cần.',
     },
     list: {
       noFilesFound: 'Không tìm thấy tập tin nào.',
@@ -268,11 +278,13 @@ const vi = {
       guidelines: 'Hướng dẫn',
       searchGuideline: 'Hướng dẫn tìm kiếm',
       udcGuideline: 'Hướng dẫn lệnh do người dùng định nghĩa',
+      skillsGuideline: 'Hướng dẫn kỹ năng',
       fetchFailed: 'Không thể tải tài liệu: {{docName}}',
       downloading: 'Đang tải {{name}}...',
     },
     read: {
       noContentFound: 'Không tìm thấy nội dung như vậy trong trình soạn thảo.',
+      noFrontmatterFound: 'Không tìm thấy frontmatter trong ghi chú.',
       readEntireContentConfirmation:
         'Tôi đang đọc toàn bộ nội dung của ghi chú. Bạn có muốn tiếp tục không?',
       unableToReadContent: 'Không thể đọc nội dung.',
@@ -283,6 +295,10 @@ const vi = {
       response3: 'Mình rất vui vì đã có thể hỗ trợ!',
       response4: 'Bất cứ lúc nào! Nếu cần gì thêm thì cứ nói nhé.',
       response5: 'Rất hân hạnh được phục vụ bạn!',
+    },
+    conclude: {
+      validationFailed:
+        'Xác thực kết luận thất bại: không tìm thấy artifact mong đợi. Không sử dụng công cụ conclude nữa — hãy phản hồi bình thường.',
     },
     // Conversation states
     conversation: {
@@ -405,27 +421,6 @@ const vi = {
       relevantScoring: 'Khớp điểm liên quan',
       resultsPerPage: 'Kết quả mỗi trang',
       resultsPerPageDesc: 'Số lượng kết quả tìm kiếm hiển thị mỗi trang',
-      maxCoverageBonus: 'Điểm bonus coverage tối đa',
-      maxCoverageBonusDesc:
-        'Điểm bonus coverage tối đa cho tài liệu khớp nhiều từ khóa truy vấn (0-2). Giá trị cao hơn bonus tài liệu khớp nhiều từ hơn.',
-      filenameMatchBoost: 'Tăng điểm khớp tên tệp',
-      filenameMatchBoostDesc:
-        'Hệ số tăng điểm cho các từ khóa tìm thấy trong tên tệp (1-5). Giá trị cao hơn tăng tầm quan trọng của khớp tên tệp.',
-      filenameBonus: 'Điểm bonus tên tệp',
-      filenameBonusDesc:
-        'Điểm bonus cố định cho tài liệu có bất kỳ từ khóa nào khớp trong tên tệp (0-2).',
-      maxProximityBonus: 'Điểm bonus proximity tối đa',
-      maxProximityBonusDesc:
-        'Điểm bonus proximity khi các từ khóa truy vấn xuất hiện gần nhau (0-10). Giá trị cao hơn bonus tài liệu có các từ gần nhau.',
-      proximityThreshold: 'Ngưỡng proximity',
-      proximityThresholdDesc:
-        'Khoảng cách tối đa (theo token) giữa các từ khóa truy vấn để được coi là gần nhau (1-100).',
-      bm25K1: 'Tham số BM25 k1',
-      bm25K1Desc:
-        'Điều khiển độ bão hòa tần suất từ (0.5-3). Giá trị cao hơn làm tần suất từ quan trọng hơn. Phạm vi điển hình: 1.2-2.0.',
-      bm25B: 'Tham số BM25 b',
-      bm25BDesc:
-        'Điều khiển chuẩn hóa độ dài tài liệu (0-1). 0 = không chuẩn hóa, 1 = chuẩn hóa đầy đủ. Giá trị điển hình: 0.75.',
       deleteBehavior: 'Hành động xóa',
       deleteBehaviorDesc:
         'Cách xử lý việc xóa tập tin. Khuyến nghị: Sử dụng Steward/Trash để có thể hoàn tác việc xóa',

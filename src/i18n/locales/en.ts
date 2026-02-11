@@ -20,7 +20,8 @@ const en = {
       builtInCommandsDesc: 'These commands are directly accessible via /&lt;command&gt',
       userDefinedCommands: 'User-Defined commands',
       userDefinedCommandsDesc: 'Create custom commands to automate workflows.',
-      noUserDefinedCommands: "You don't have any user-defined commands yet.",
+      noUserDefinedCommands:
+        "You don't have any user-defined commands yet. See the User-defined command guideline below to get started",
       commandHelpText: 'Type any command followed by your query to use it.',
       searchDesc: 'Search for notes in your vault',
       imageDesc: 'Generate images',
@@ -121,6 +122,14 @@ const en = {
       invalidTools: 'Invalid tools: `{{tools}}`',
       invalidDeactivateTools: 'Cannot deactivate (not active): `{{tools}}`',
     },
+    useSkills: {
+      activating: 'Activating skills: {{skills}}',
+      invalidSkills: 'Skills not found: {{skills}}',
+    },
+    skills: {
+      skills: 'Skills',
+      noSkills: 'No skills loaded. See the Skills guideline below to get started.',
+    },
     rename: {
       processed_one: 'I processed {{count}} rename instruction.',
       processed_other: 'I processed {{count}} rename instructions.',
@@ -143,13 +152,14 @@ const en = {
       unknownError: 'Unknown error.',
     },
     create: {
-      success_one: 'Successfully created {{noteName}}',
-      success_other: 'Successfully created {{count}} notes.',
-      creatingNote: 'Creating note: {{noteName}}',
-      confirmMessage_one: 'I will create the following note:',
-      confirmMessage_other: 'I will create the following notes:',
+      success_one: 'Successfully created {{fileName}}',
+      success_other: 'Successfully created {{count}} files.',
+      creatingFile: 'Creating file: {{fileName}}',
+      confirmMessage_one: 'I will create the following file:',
+      confirmMessage_other: 'I will create the following files:',
       confirmPrompt: 'Do you want to proceed?',
       errors: 'Errors:',
+      contentOmitted: 'Content written to file. Use the read tool to inspect it if needed.',
     },
     list: {
       noFilesFound: 'No files found.',
@@ -328,11 +338,13 @@ const en = {
       guidelines: 'Guidelines',
       searchGuideline: 'Search guideline',
       udcGuideline: 'User-defined command guideline',
+      skillsGuideline: 'Skills guideline',
       fetchFailed: 'Failed to fetch documentation: {{docName}}',
       downloading: 'Downloading {{name}}...',
     },
     read: {
       noContentFound: 'No such content found in the editor.',
+      noFrontmatterFound: 'No frontmatter found in the note.',
       readEntireContentConfirmation:
         'I am about to read the entire content of the {{noteName}} note. Are you sure you want to proceed?',
       unableToReadContent: 'Unable to read content.',
@@ -344,6 +356,10 @@ const en = {
       response3: 'Glad I could assist!',
       response4: 'Anytime! Let me know if you need anything else.',
       response5: 'Happy to be of service!',
+    },
+    conclude: {
+      validationFailed:
+        'Conclusion validation failed: the expected artifact was not found. Do not use the conclude tool again — respond normally instead.',
     },
     // Conversation states
     conversation: {
@@ -468,27 +484,6 @@ const en = {
       relevantScoring: 'Relevant scoring',
       resultsPerPage: 'Results per page',
       resultsPerPageDesc: 'Number of search results to display per page',
-      maxCoverageBonus: 'Max coverage bonus',
-      maxCoverageBonusDesc:
-        'Maximum bonus score for documents matching more query terms (0-2). Higher values reward documents that match more terms.',
-      filenameMatchBoost: 'Filename match boost',
-      filenameMatchBoostDesc:
-        'Multiplier boost for terms found in filenames (1-5). Higher values increase the importance of filename matches.',
-      filenameBonus: 'Filename bonus',
-      filenameBonusDesc:
-        'Flat bonus score for documents with any term matching in the filename (0-2).',
-      maxProximityBonus: 'Max proximity bonus',
-      maxProximityBonusDesc:
-        'Maximum bonus score when query terms appear close together (0-10). Higher values reward documents where terms are near each other.',
-      proximityThreshold: 'Proximity threshold',
-      proximityThresholdDesc:
-        'Maximum distance (in tokens) between query terms to be considered close together (1-100).',
-      bm25K1: 'BM25 k1 parameter',
-      bm25K1Desc:
-        'Controls term frequency saturation (0.5-3). Higher values make term frequency more important. Typical range: 1.2-2.0.',
-      bm25B: 'BM25 b parameter',
-      bm25BDesc:
-        'Controls document length normalization (0-1). 0 = no normalization, 1 = full normalization. Typical value: 0.75.',
       deleteBehavior: 'Delete behavior',
       deleteBehaviorDesc:
         'How to handle file deletion. Recommended: Use Steward/Trash to allow reverting deletion',

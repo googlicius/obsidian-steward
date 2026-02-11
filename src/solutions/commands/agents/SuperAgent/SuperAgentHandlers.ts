@@ -33,6 +33,8 @@ export class SuperAgentHandlers {
   private _image: handlers.Image;
   private _todoList: handlers.TodoList;
   private _dynamic: handlers.Dynamic;
+  private _useSkills: handlers.UseSkills;
+  private _conclude: handlers.Conclude;
 
   /**
    * Helper method to get this instance typed as SuperAgent
@@ -264,5 +266,24 @@ export class SuperAgentHandlers {
     }
 
     return this._dynamic;
+  }
+
+  public get useSkills(): handlers.UseSkills {
+    if (!this._useSkills) {
+      this._useSkills = new handlers.UseSkills(
+        this.getAgent().renderer,
+        this.getAgent().plugin.skillService
+      );
+    }
+
+    return this._useSkills;
+  }
+
+  public get conclude(): handlers.Conclude {
+    if (!this._conclude) {
+      this._conclude = new handlers.Conclude(this.getAgent());
+    }
+
+    return this._conclude;
   }
 }

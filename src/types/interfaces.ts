@@ -103,16 +103,6 @@ export interface StewardPluginSettings {
     searchDbName: string;
     withoutLLM: 'exact' | 'relevant'; // Search mode when query is wrapped in quotation marks
     resultsPerPage: number; // Number of search results per page
-    /** BM25 and scoring configuration */
-    scoring?: {
-      maxCoverageBonus?: number; // Maximum coverage bonus (default: 0.5)
-      filenameMatchBoost?: number; // Boost multiplier for filename matches (default: 2.0)
-      filenameBonus?: number; // Flat bonus for filename matches (default: 0.5)
-      maxProximityBonus?: number; // Maximum proximity bonus (default: 5.0)
-      proximityThreshold?: number; // Maximum distance for proximity matching (default: 20)
-      bm25K1?: number; // BM25 k1 parameter for term frequency saturation (default: 1.5)
-      bm25B?: number; // BM25 b parameter for length normalization (default: 0.75)
-    };
   };
   deleteBehavior: {
     behavior: 'stw_trash' | 'obsidian_trash'; // How to handle file deletion

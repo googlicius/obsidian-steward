@@ -5,12 +5,11 @@ import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { ToolCallPart } from '../../tools/types';
-import { DOCUMENTATION_FILES } from 'src/constants';
+import { GITHUB_WIKI_URL, WIKI_PAGES } from 'src/constants';
 
 interface BuiltInCommand {
   command: string;
   description: string;
-  docName?: string;
 }
 
 // HELP tool doesn't need args
@@ -54,11 +53,7 @@ export class Help {
 
       // List of built-in commands with descriptions
       const builtInCommandsWithDescriptions: BuiltInCommand[] = [
-        {
-          command: '`/search`',
-          description: t('common.searchDesc'),
-          docName: DOCUMENTATION_FILES.SEARCH_GUIDELINE,
-        },
+        { command: '`/search`', description: t('common.searchDesc') },
         { command: '`/image`', description: t('common.imageDesc') },
         { command: '`/speech`', description: t('common.speechDesc') },
       ];
@@ -86,18 +81,26 @@ export class Help {
         content += `*${t('common.noUserDefinedCommands')}*\n\n`;
       }
 
-      // Add documentation links section
+      // Add skills section
+      content += `\n**${t('skills.skills')}:**\n\n`;
+
+      // List loaded skills from the vault
+      const loadedSkills = this.agent.plugin.skillService.skills;
+      if (loadedSkills.size > 0) {
+        for (const [skillName, skill] of loadedSkills.entries()) {
+          const file = this.agent.app.vault.getFileByPath(skill.filePath);
+          const fileName = file ? file.basename : skill.filePath;
+          content += `- \`${skillName}\` - [[${skill.filePath}|${fileName}]]\n`;
+        }
+      } else {
+        content += `*${t('skills.noSkills')}*\n`;
+      }
+
+      // Add wiki links section
       content += `\n**${t('documentation.guidelines')}:**\n\n`;
-      const searchDocLink = this.agent.plugin.gitHubResourceService.getDocLink(
-        DOCUMENTATION_FILES.SEARCH_GUIDELINE,
-        t('documentation.searchGuideline')
-      );
-      const udcDocLink = this.agent.plugin.gitHubResourceService.getDocLink(
-        DOCUMENTATION_FILES.USER_DEFINED_COMMAND_GUIDELINE,
-        t('documentation.udcGuideline')
-      );
-      content += `- ${searchDocLink}\n`;
-      content += `- ${udcDocLink}\n`;
+      content += `- [${t('documentation.searchGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.SEARCH})\n`;
+      content += `- [${t('documentation.udcGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.USER_DEFINED_COMMANDS})\n`;
+      content += `- [${t('documentation.skillsGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.SKILLS})\n`;
 
       // Add help text
       content += `\n${t('common.commandHelpText')}\n`;

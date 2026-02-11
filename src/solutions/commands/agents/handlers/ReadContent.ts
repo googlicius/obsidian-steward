@@ -11,10 +11,11 @@ import { confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { logger } from 'src/utils/logger';
 
 export const contentReadingSchema = z.object({
-  readType: z.enum(['above', 'below', 'pattern', 'entire']).default('above')
+  readType: z.enum(['above', 'below', 'pattern', 'entire', 'frontmatter']).default('above')
     .describe(`- "above", "below": Refers to the direction to read from current position.
 - "pattern": The RegExp pattern to search for in the content.
-- "entire": Refers to the entire content of the file.`),
+- "entire": Refers to the entire content of the file.
+- "frontmatter": Reads only the YAML frontmatter (properties) of the file. Useful for collecting metadata from multiple notes without reading the entire content.`),
   fileNames: z
     .array(z.string())
     .describe(`Array of file names to read from.`)
@@ -175,9 +176,13 @@ export class ReadContent {
     );
 
     if (allEmpty) {
+      const noContentMessage =
+        toolCall.input.readType === 'frontmatter'
+          ? t('read.noFrontmatterFound')
+          : t('read.noContentFound');
       const messageId = await this.agent.renderer.updateConversationNote({
         path: title,
-        newContent: `*${t('read.noContentFound')}*`,
+        newContent: `*${noContentMessage}*`,
         command: 'read',
         includeHistory: false,
         handlerId,
@@ -224,8 +229,8 @@ export class ReadContent {
         continue;
       }
 
-      // Don't render content when toolCall.input.readType is "entire"
-      if (toolCall.input.readType !== 'entire') {
+      // Don't render content when toolCall.input.readType is "entire" or "frontmatter"
+      if (toolCall.input.readType !== 'entire' && toolCall.input.readType !== 'frontmatter') {
         for (const block of result.blocks) {
           if (block.content === '') {
             continue;

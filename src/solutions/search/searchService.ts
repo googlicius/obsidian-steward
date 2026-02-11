@@ -79,7 +79,7 @@ export class SearchService {
       contentTokenizer: this.contentTokenizer,
       nameTokenizer: this.nameTokenizer,
     });
-    this.scoring = new Scoring(this.documentStore, plugin.settings.search.scoring || {});
+    this.scoring = new Scoring(this.documentStore);
   }
 
   get searchContext(): SearchContext {

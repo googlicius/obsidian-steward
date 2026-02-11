@@ -1,10 +1,10 @@
 import { Condition, ConditionResult } from './Condition';
 import { ParsedRegexPattern } from '../types';
 import { similarity } from 'src/utils/similarity';
-import { IndexedDocument } from 'src/database/SearchDatabase';
+import { IndexedDocument, IndexedTerm, TermSource } from 'src/database/SearchDatabase';
 
 const SIMILARITY_THRESHOLD = 0.7;
-const BOOST = 5;
+const BOOST = 8;
 
 export class FilenameCondition extends Condition<IndexedDocument> {
   constructor(private names: string[]) {
@@ -48,6 +48,34 @@ export class FilenameCondition extends Condition<IndexedDocument> {
     };
   }
 
+  /**
+   * Build term position maps and matched term sets per document from filename-source entries.
+   */
+  private buildDocumentTermMaps(termEntries: IndexedTerm[]) {
+    const termPositions = new Map<number, Map<string, number[]>>();
+    const matchedTerms = new Map<number, Set<string>>();
+
+    for (const entry of termEntries) {
+      if (entry.source !== TermSource.Filename) continue;
+
+      const { documentId, term, positions } = entry;
+
+      if (!termPositions.has(documentId)) {
+        termPositions.set(documentId, new Map());
+        matchedTerms.set(documentId, new Set());
+      }
+
+      const termMap = termPositions.get(documentId);
+      if (termMap) {
+        const existing = termMap.get(term) || [];
+        termMap.set(term, [...existing, ...positions]);
+      }
+      matchedTerms.get(documentId)?.add(term);
+    }
+
+    return { termPositions, matchedTerms };
+  }
+
   async evaluate() {
     const result = new Map<number, ConditionResult<IndexedDocument>>();
 
@@ -64,7 +92,11 @@ export class FilenameCondition extends Condition<IndexedDocument> {
       const documents = await this.context.documentStore.getDocumentsByIds(documentIds);
       const parsedName = this.parseRegexPattern(name);
 
-      // Filter documents by similarity score
+      // Build term position maps for coverage and proximity bonus calculation
+      const { termPositions: docTermPositions, matchedTerms: docMatchedTerms } =
+        this.buildDocumentTermMaps(termEntries);
+
+      // Filter documents by similarity score and apply bonuses
       for (const doc of documents) {
         let score = 0;
 
@@ -89,13 +121,23 @@ export class FilenameCondition extends Condition<IndexedDocument> {
             break;
         }
 
-        // If similarity is above threshold, add to matched documents with score
-        if (score >= SIMILARITY_THRESHOLD) {
-          result.set(doc.id as number, {
-            document: doc,
-            score: score * BOOST,
-          });
-        }
+        if (score < SIMILARITY_THRESHOLD) continue;
+
+        const docId = doc.id as number;
+        const baseScore = score * BOOST;
+
+        // Apply coverage and proximity bonuses from filename terms
+        const totalBonus = this.context.scoring.calculateTotalBonus({
+          termPositions: docTermPositions.get(docId) || new Map(),
+          queryTerms: terms,
+          matchedTermCount: docMatchedTerms.get(docId)?.size ?? 0,
+          totalTermCount: terms.length,
+        });
+
+        result.set(docId, {
+          document: doc,
+          score: baseScore * (1 + totalBonus),
+        });
       }
     }
 

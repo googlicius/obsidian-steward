@@ -746,4 +746,222 @@ Third paragraph with pattern again.`;
       expect(result.blocks[2].content).toBe('Third paragraph with pattern again.');
     });
   });
+
+  describe('readContent - readType frontmatter', () => {
+    it('should read frontmatter from a file with YAML frontmatter', async () => {
+      const mockText = `---
+title: My Note
+tags: [test, example]
+date: 2025-01-15
+---
+
+# My Note
+
+Some content here.`;
+
+      const sections = [
+        createSection('yaml', 0, 4),
+        createSection('heading', 6, 6),
+        createSection('paragraph', 8, 8),
+      ];
+
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 8, ch: 0 });
+
+      // Override the cache to include frontmatterPosition
+      (mockPlugin.app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
+        sections: sections as SectionCache[],
+        frontmatterPosition: {
+          start: { line: 0, col: 0, offset: 0 },
+          end: { line: 4, col: 3, offset: 0 },
+        },
+      });
+
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'frontmatter',
+        elementType: null,
+        fileName: 'test.md',
+      });
+
+      expect(result).toMatchObject({
+        blocks: [
+          {
+            startLine: 0,
+            endLine: 4,
+            sections: [{ type: 'yaml', startLine: 0, endLine: 4 }],
+            content: `title: My Note\ntags: [test, example]\ndate: 2025-01-15`,
+          },
+        ],
+        source: 'frontmatter',
+        file: {
+          name: '',
+          path: '',
+        },
+      });
+    });
+
+    it('should return empty blocks when file has no frontmatter', async () => {
+      const mockText = `# No Frontmatter
+
+Just regular content here.`;
+
+      const sections = [createSection('heading', 0, 0), createSection('paragraph', 2, 2)];
+
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 });
+
+      // Cache has no frontmatter or frontmatterPosition
+      (mockPlugin.app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
+        sections: sections as SectionCache[],
+      });
+
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'frontmatter',
+        elementType: null,
+        fileName: 'test.md',
+      });
+
+      expect(result).toMatchObject({
+        blocks: [],
+        source: 'frontmatter',
+        file: {
+          name: '',
+          path: '',
+        },
+      });
+    });
+
+    it('should return empty blocks when cache is null', async () => {
+      const mockText = `Some content.`;
+
+      const sections = [createSection('paragraph', 0, 0)];
+
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 0, ch: 0 });
+
+      // Return null cache
+      (mockPlugin.app.metadataCache.getFileCache as jest.Mock).mockReturnValue(null);
+
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'frontmatter',
+        elementType: null,
+        fileName: 'test.md',
+      });
+
+      expect(result).toMatchObject({
+        blocks: [],
+        source: 'frontmatter',
+        file: {
+          name: '',
+          path: '',
+        },
+      });
+    });
+
+    it('should read frontmatter with many properties', async () => {
+      const mockText = `---
+title: Project Plan
+author: Alice
+status: draft
+priority: high
+tags: [planning, q1]
+created: 2025-03-01
+---
+
+## Overview
+
+Project details here.`;
+
+      const sections = [
+        createSection('yaml', 0, 7),
+        createSection('heading', 9, 9),
+        createSection('paragraph', 11, 11),
+      ];
+
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 11, ch: 0 });
+
+      (mockPlugin.app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
+        sections: sections as SectionCache[],
+        frontmatterPosition: {
+          start: { line: 0, col: 0, offset: 0 },
+          end: { line: 7, col: 3, offset: 0 },
+        },
+      });
+
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'frontmatter',
+        elementType: null,
+        fileName: 'test.md',
+      });
+
+      expect(result.blocks).toHaveLength(1);
+      expect(result).toMatchObject({
+        blocks: [
+          {
+            startLine: 0,
+            endLine: 7,
+            sections: [{ type: 'yaml', startLine: 0, endLine: 7 }],
+            content: `title: Project Plan
+author: Alice
+status: draft
+priority: high
+tags: [planning, q1]
+created: 2025-03-01`,
+          },
+        ],
+        source: 'frontmatter',
+      });
+    });
+
+    it('should read frontmatter with empty properties', async () => {
+      const mockText = `---
+title:
+tags:
+---
+
+Content.`;
+
+      const sections = [createSection('yaml', 0, 3), createSection('paragraph', 5, 5)];
+
+      const mockPlugin = createMockPlugin(mockText, sections, { line: 5, ch: 0 });
+
+      (mockPlugin.app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
+        sections: sections as SectionCache[],
+        frontmatterPosition: {
+          start: { line: 0, col: 0, offset: 0 },
+          end: { line: 3, col: 3, offset: 0 },
+        },
+      });
+
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'frontmatter',
+        elementType: null,
+        fileName: 'test.md',
+      });
+
+      expect(result).toMatchObject({
+        blocks: [
+          {
+            startLine: 0,
+            endLine: 3,
+            sections: [{ type: 'yaml', startLine: 0, endLine: 3 }],
+            content: `title:\ntags:`,
+          },
+        ],
+        source: 'frontmatter',
+      });
+    });
+  });
 });

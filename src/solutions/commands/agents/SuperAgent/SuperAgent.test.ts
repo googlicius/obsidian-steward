@@ -92,6 +92,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     contentReadingService: {
       readContent: jest.fn(),
     },
+    skillService: {
+      getSkillCatalog: jest.fn().mockReturnValue([]),
+    },
     userMessageService: {
       sanitizeQuery: jest.fn((query: string) => query),
     },
