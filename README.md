@@ -4,7 +4,7 @@
 
 English | [Tiếng Việt](README_VI.md)
 
-Steward is a plugin that utilizes Large Language Models (LLMs) to interact with your Obsidian Vault. It offers very fast search, seamless vault management, and powerful automation capabilities. Designed with simplicity and an immersive AI experience in mind, Steward lets you create your own sophisticated commands and workflows to automate your boring and repetitive tasks.
+Steward is an autonomous AI agent for Obsidian, powered by Large Language Models (LLMs). Equipped with tools and skills, it can search, manage your vault, and handle specialized tasks like creating Bases or Canvas files. Designed with simplicity and an immersive AI experience in mind, Steward lets you create your own commands, skills, and workflows to automate your boring and repetitive tasks.
 
 ## Features
 

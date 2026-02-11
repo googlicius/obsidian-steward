@@ -122,7 +122,18 @@ const tools = {
   [ToolName.TODO_LIST]: handlers.TodoList.getTodoListTool(),
   [ToolName.TODO_LIST_UPDATE]: handlers.TodoList.getTodoListUpdateTool(),
   [ToolName.USE_SKILLS]: handlers.UseSkills.getUseSkillsTool(),
+  [ToolName.CONCLUDE]: handlers.Conclude.getConcludeTool(),
 };
+
+const toolsThatEnableConclude = new Set([
+  ToolName.EDIT,
+  ToolName.MOVE,
+  ToolName.COPY,
+  ToolName.DELETE,
+  ToolName.RENAME,
+  ToolName.CREATE,
+  ToolName.UPDATE_FRONTMATTER,
+]);
 
 type ToolCalls = Awaited<Awaited<ReturnType<typeof streamText<typeof tools>>>['toolCalls']>;
 
@@ -383,10 +394,15 @@ export class SuperAgent extends Agent {
       });
 
       const shouldUseTools = params.intent.use_tool !== false;
+      const baseActiveTools =
+        params.activeTools && params.activeTools.length > 0 ? params.activeTools : [];
+      const hasConcludeEligibleTool = baseActiveTools.some(t => toolsThatEnableConclude.has(t));
       const activeToolNames = shouldUseTools
-        ? params.activeTools && params.activeTools.length > 0
-          ? [...params.activeTools, ToolName.ACTIVATE]
-          : [ToolName.ACTIVATE]
+        ? [
+            ...baseActiveTools,
+            ToolName.ACTIVATE,
+            ...(hasConcludeEligibleTool ? [ToolName.CONCLUDE] : []),
+          ]
         : [];
 
       const registry = ToolRegistry.buildFromTools(tools).setActive(activeToolNames);
@@ -497,7 +513,7 @@ ${registry.generateOtherToolsSection(
     ToolName.CONTENT_READING,
     ToolName.TODO_LIST,
   ]),
-  new Set([ToolName.TODO_LIST_UPDATE, ToolName.SEARCH_MORE])
+  new Set([ToolName.TODO_LIST_UPDATE, ToolName.SEARCH_MORE, ToolName.CONCLUDE])
 )}
 
 TOOLS GUIDELINES:
@@ -728,6 +744,7 @@ NOTE:
       [ToolName.IMAGE]: () => this.image,
       [ToolName.TODO_LIST]: () => this.todoList,
       [ToolName.HELP]: () => this.help,
+      [ToolName.CONCLUDE]: () => this.conclude,
     };
 
     const processToolCalls = async (startIndex: number): Promise<AgentResult> => {
@@ -885,6 +902,19 @@ NOTE:
               break;
             }
 
+            case ToolName.CONCLUDE: {
+              const prevToolCall = toolCalls.length > 1 && toolCalls[index - 1];
+              // The in-parallel tool call incorrect, skip conclusion.
+              if (prevToolCall && prevToolCall.dynamic) {
+                continue;
+              }
+              if (toolCalls.length === 1) {
+                logger.warn(`Conclude tool was called alone.`);
+              }
+              toolCallResult = await this.conclude.handle(params, { toolCall });
+              break;
+            }
+
             default: {
               // Try to find handler in the map for standard handlers
               const toolName = toolCall.toolName as ToolName;
@@ -892,13 +922,15 @@ NOTE:
               if (handlerGetter) {
                 const handler = handlerGetter();
                 toolCallResult = await handler.handle(params, { toolCall });
+              } else {
+                throw new Error(`No handler found for tool: ${toolName}`);
               }
               break;
             }
           }
 
           if (!toolCallResult) {
-            logger.warn('No tool result', { toolCall });
+            logger.warn('No tool result', { toolCall, toolCalls });
             continue;
           }
 

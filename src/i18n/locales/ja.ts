@@ -297,6 +297,10 @@ const ja = {
       response4: 'いつでもどうぞ！また何かあれば教えてくださいね。',
       response5: 'お役に立てて光栄です！',
     },
+    conclude: {
+      validationFailed:
+        '結論の検証に失敗しました：期待されたアーティファクトが見つかりませんでした。concludeツールを再度使用せず、通常通り応答してください。',
+    },
     // Conversation states
     conversation: {
       orchestrating: '処理中...',

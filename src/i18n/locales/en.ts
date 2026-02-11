@@ -357,6 +357,10 @@ const en = {
       response4: 'Anytime! Let me know if you need anything else.',
       response5: 'Happy to be of service!',
     },
+    conclude: {
+      validationFailed:
+        'Conclusion validation failed: the expected artifact was not found. Do not use the conclude tool again — respond normally instead.',
+    },
     // Conversation states
     conversation: {
       orchestrating: 'Orchestrating...',

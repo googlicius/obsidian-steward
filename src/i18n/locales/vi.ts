@@ -296,6 +296,10 @@ const vi = {
       response4: 'Bất cứ lúc nào! Nếu cần gì thêm thì cứ nói nhé.',
       response5: 'Rất hân hạnh được phục vụ bạn!',
     },
+    conclude: {
+      validationFailed:
+        'Xác thực kết luận thất bại: không tìm thấy artifact mong đợi. Không sử dụng công cụ conclude nữa — hãy phản hồi bình thường.',
+    },
     // Conversation states
     conversation: {
       orchestrating: 'Đang xử lý...',
