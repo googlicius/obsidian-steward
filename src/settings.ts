@@ -622,7 +622,6 @@ class StewardSettingTab extends PluginSettingTab {
         text.inputEl.setAttribute('min', '1');
         text.inputEl.setAttribute('max', '100');
       });
-
   }
 }
 

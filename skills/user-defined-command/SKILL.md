@@ -15,37 +15,37 @@ Each command is a markdown file (`.md`) containing one or more YAML code blocks.
 
 ### Command-Level Fields
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `command_name` | string | **Yes** | The name (In kebab-case) to invoke the command (e.g., `clean-up` invoked as `/clean-up`) |
-| `query_required` | boolean | No | If `true`, the command requires user input after the prefix. Default: `false` |
-| `model` | string | No | Default model for all steps (e.g., `gpt-4o`, `gemini-2.5-flash`) |
-| `system_prompt` | array of strings | No | Additional system prompts applied to all steps |
-| `use_tool` | boolean | No | If `false`, disables the core tool usage instructions |
-| `hidden` | boolean | No | If `true`, the command does not appear in the autocomplete menu |
-| `triggers` | array of trigger objects | No | Automatically execute when file events match criteria |
-| `steps` | array of step objects | **Yes** | The sequence of steps to execute |
+| Field            | Type                     | Required | Description                                                                              |
+| ---------------- | ------------------------ | -------- | ---------------------------------------------------------------------------------------- |
+| `command_name`   | string                   | **Yes**  | The name (In kebab-case) to invoke the command (e.g., `clean-up` invoked as `/clean-up`) |
+| `query_required` | boolean                  | No       | If `true`, the command requires user input after the prefix. Default: `false`            |
+| `model`          | string                   | No       | Default model for all steps (e.g., `gpt-4o`, `gemini-2.5-flash`)                         |
+| `system_prompt`  | array of strings         | No       | Additional system prompts applied to all steps                                           |
+| `use_tool`       | boolean                  | No       | If `false`, disables the core tool usage instructions                                    |
+| `hidden`         | boolean                  | No       | If `true`, the command does not appear in the autocomplete menu                          |
+| `triggers`       | array of trigger objects | No       | Automatically execute when file events match criteria                                    |
+| `steps`          | array of step objects    | **Yes**  | The sequence of steps to execute                                                         |
 
 ### Step-Level Fields
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | No | Step name that activates corresponding tools: `read`, `edit`, `search`, `vault`, `generate`, `image`, `speech`. Use `generate` for direct AI response without tools |
-| `query` | string | Conditional | The query to send. Required if `query_required` is `true`. Use `$from_user` as placeholder for user input |
-| `system_prompt` | array of strings | No | Additional system prompts for this step only |
-| `model` | string | No | Model override for this step |
-| `no_confirm` | boolean | No | If `true`, skips confirmation prompts for this step |
+| Field           | Type             | Required    | Description                                                                                                                                                         |
+| --------------- | ---------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`          | string           | No          | Step name that activates corresponding tools: `read`, `edit`, `search`, `vault`, `generate`, `image`, `speech`. Use `generate` for direct AI response without tools |
+| `query`         | string           | Conditional | The query to send. Required if `query_required` is `true`. Use `$from_user` as placeholder for user input                                                           |
+| `system_prompt` | array of strings | No          | Additional system prompts for this step only                                                                                                                        |
+| `model`         | string           | No          | Model override for this step                                                                                                                                        |
+| `no_confirm`    | boolean          | No          | If `true`, skips confirmation prompts for this step                                                                                                                 |
 
 ### Trigger Fields
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `events` | array of strings | **Yes** | Events to watch: `create`, `modify`, `delete` |
-| `folders` | array of strings | No | Folder paths to watch (e.g., `["Inbox", "Daily Notes"]`) |
-| `patterns` | object | No | Pattern matching criteria (all must match) |
-| `patterns.tags` | string or array | No | Tags to match (e.g., `"#todo"` or `["#todo", "#review"]`) |
-| `patterns.content` | string | No | Regex pattern to match file content |
-| `patterns.<property>` | string or array | No | Any frontmatter property name and value to match |
+| Field                 | Type             | Required | Description                                               |
+| --------------------- | ---------------- | -------- | --------------------------------------------------------- |
+| `events`              | array of strings | **Yes**  | Events to watch: `create`, `modify`, `delete`             |
+| `folders`             | array of strings | No       | Folder paths to watch (e.g., `["Inbox", "Daily Notes"]`)  |
+| `patterns`            | object           | No       | Pattern matching criteria (all must match)                |
+| `patterns.tags`       | string or array  | No       | Tags to match (e.g., `"#todo"` or `["#todo", "#review"]`) |
+| `patterns.content`    | string           | No       | Regex pattern to match file content                       |
+| `patterns.<property>` | string or array  | No       | Any frontmatter property name and value to match          |
 
 ## System Prompt Values
 
