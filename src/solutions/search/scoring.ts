@@ -1,6 +1,7 @@
 import { termsProximity } from 'src/utils/termsProximity';
 import { IndexedDocument, TermSource } from '../../database/SearchDatabase';
 import { DocumentStore } from './documentStore';
+import { stemmer } from './tokenizer/stemmer';
 
 export interface ScoredDocument extends IndexedDocument {
   score: number;
@@ -10,7 +11,6 @@ export interface DetailedScoredDocument {
   document: IndexedDocument;
   score: number;
   proximityBonus: number;
-  filenameBonus: number;
   coverageBonus: number;
 }
 
@@ -47,10 +47,10 @@ export class Scoring {
   constructor(documentStore: DocumentStore, config: ScoringConfig = {}) {
     this.documentStore = documentStore;
     this.config = {
-      maxCoverageBonus: 0.5,
+      maxCoverageBonus: 0.3,
       filenameMatchBoost: 2.0,
-      filenameBonus: 0.5,
-      maxProximityBonus: 5,
+      filenameBonus: 0.2,
+      maxProximityBonus: 1.0,
       proximityThreshold: 20,
       bm25K1: 1.5,
       bm25B: 0.75,
@@ -118,8 +118,30 @@ export class Scoring {
     queryTerms: string[]
   ): number {
     const proximityScore = this.calculateProximityScore(termPositions, queryTerms);
-
     return this.config.maxProximityBonus * proximityScore;
+  }
+
+  /**
+   * Calculate the total bonus multiplier from coverage and proximity.
+   * This can be used by any condition to apply consistent bonus scoring.
+   *
+   * @param args.termPositions - Map of term to position arrays in the document
+   * @param args.queryTerms - The query terms used for proximity calculation
+   * @param args.matchedTermCount - Number of query terms matched
+   * @param args.totalTermCount - Total number of query terms
+   * @param args.hasFilenameMatch - Whether any term matched in the filename (adds filename bonus)
+   * @returns The total bonus value to be used as: finalScore = baseScore * (1 + totalBonus)
+   */
+  public calculateTotalBonus(args: {
+    termPositions: Map<string, number[]>;
+    queryTerms: string[];
+    matchedTermCount: number;
+    totalTermCount: number;
+  }): number {
+    const coverageBonus = this.calculateCoverageBonus(args.matchedTermCount, args.totalTermCount);
+    const proximityBonus = this.calculateProximityBonus(args.termPositions, args.queryTerms);
+
+    return coverageBonus + proximityBonus;
   }
 
   public calculateProximityScore(
@@ -164,25 +186,22 @@ export class Scoring {
    * - **Term Score**: `IDF * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * docLen / avgDocLen))`
    *   - `k1` (default 1.5): Controls term frequency saturation. Higher = TF matters more.
    *   - `b` (default 0.75): Controls length normalization. 0 = none, 1 = full normalization.
-   * - Terms found in filenames receive a 2x boost (configurable via `filenameMatchBoost`).
    *
    * ### 2. Bonus Multipliers
    * The base BM25 score is multiplied by `(1 + totalBonus)` where totalBonus is the sum of:
    *
-   * - **Coverage Bonus** (max 0.5): Rewards documents matching more query terms.
+   * - **Coverage Bonus** (max 0.3): Rewards documents matching more query terms.
    *   Uses exponential scaling `maxCoverageBonus * (matchedTerms/totalTerms)^1.5`.
    *
-   * - **Proximity Bonus** (max 5.0): Rewards documents where query terms appear close together.
+   * - **Proximity Bonus** (max 1.0): Rewards documents where query terms appear close together.
    *   Based on average minimum distance between term pairs within `proximityThreshold` tokens.
-   *
-   * - **Filename Bonus** (0.5): Flat bonus for documents with any term matching in the filename.
    *
    * ### Processing Flow
    * 1. Fetch all term occurrences from the document store in a single batch request.
    * 2. Calculate average document length and BM25 IDF for each term.
    * 3. **First pass**: Collect term positions, track filename matches, and build matched terms set.
-   * 4. **Second pass**: Calculate BM25 scores with filename boost.
-   * 5. **Final pass**: Apply coverage, proximity, and filename bonuses to compute final scores.
+   * 4. **Second pass**: Calculate BM25 scores.
+   * 5. **Final pass**: Apply coverage and proximity bonuses to compute final scores.
    *
    * @param documents - Array of indexed documents to score
    * @param terms - Pre-tokenized search terms
@@ -201,7 +220,6 @@ export class Scoring {
           document: doc,
           score: 0,
           proximityBonus: 0,
-          filenameBonus: 0,
           coverageBonus: 0,
         });
       }
@@ -274,24 +292,31 @@ export class Scoring {
     }
 
     // Second pass: calculate BM25 scores
+    // Track scored (documentId, source, stem) to avoid double-counting
+    // original and stemmed forms of the same term (e.g., "fracture" and "fractur")
+    const scoredEntries = new Set<string>();
+
     for (const { results, idf } of termResults) {
       for (const result of results) {
-        const { documentId, frequency, source } = result;
+        const { documentId, frequency, source, term } = result;
 
         // Skip if document is not in our set
         if (!documentIds.includes(documentId)) {
           continue;
         }
 
+        // Deduplicate by (documentId, source, stem) to prevent scoring
+        // both the original and stemmed form of the same word
+        const stemKey = `${documentId}:${source}:${stemmer(term)}`;
+        if (scoredEntries.has(stemKey)) {
+          continue;
+        }
+        scoredEntries.add(stemKey);
+
         const docLength = documentLengths.get(documentId) || 1;
 
         // Calculate BM25 term score
-        let bm25Score = this.calculateBM25TermScore(frequency, docLength, avgDocLength, idf);
-
-        // Apply a boost for filename matches
-        if (source === TermSource.Filename) {
-          bm25Score *= this.config.filenameMatchBoost;
-        }
+        const bm25Score = this.calculateBM25TermScore(frequency, docLength, avgDocLength, idf);
 
         // Add to document scores
         const currentScore = documentScores.get(documentId) || 0;
@@ -313,12 +338,12 @@ export class Scoring {
       const proximityBonus = this.calculateProximityBonus(docTermPositions, terms);
 
       // Apply a bonus for documents with filename matches
-      const filenameBonus = documentHasFilenameMatch.get(documentId)
-        ? this.config.filenameBonus
-        : 0;
+      // const filenameBonus = documentHasFilenameMatch.get(documentId)
+      //   ? this.config.filenameBonus
+      //   : 0;
 
       // Apply combined bonuses
-      const totalBonus = coverageBonus + proximityBonus + filenameBonus;
+      const totalBonus = coverageBonus + proximityBonus;
       const finalScore = currentScore * (1 + totalBonus);
 
       // Find the document
@@ -328,7 +353,6 @@ export class Scoring {
           document,
           score: finalScore,
           proximityBonus,
-          filenameBonus,
           coverageBonus,
         });
       }

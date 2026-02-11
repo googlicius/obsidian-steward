@@ -480,27 +480,6 @@ const en = {
       relevantScoring: 'Relevant scoring',
       resultsPerPage: 'Results per page',
       resultsPerPageDesc: 'Number of search results to display per page',
-      maxCoverageBonus: 'Max coverage bonus',
-      maxCoverageBonusDesc:
-        'Maximum bonus score for documents matching more query terms (0-2). Higher values reward documents that match more terms.',
-      filenameMatchBoost: 'Filename match boost',
-      filenameMatchBoostDesc:
-        'Multiplier boost for terms found in filenames (1-5). Higher values increase the importance of filename matches.',
-      filenameBonus: 'Filename bonus',
-      filenameBonusDesc:
-        'Flat bonus score for documents with any term matching in the filename (0-2).',
-      maxProximityBonus: 'Max proximity bonus',
-      maxProximityBonusDesc:
-        'Maximum bonus score when query terms appear close together (0-10). Higher values reward documents where terms are near each other.',
-      proximityThreshold: 'Proximity threshold',
-      proximityThresholdDesc:
-        'Maximum distance (in tokens) between query terms to be considered close together (1-100).',
-      bm25K1: 'BM25 k1 parameter',
-      bm25K1Desc:
-        'Controls term frequency saturation (0.5-3). Higher values make term frequency more important. Typical range: 1.2-2.0.',
-      bm25B: 'BM25 b parameter',
-      bm25BDesc:
-        'Controls document length normalization (0-1). 0 = no normalization, 1 = full normalization. Typical value: 0.75.',
       deleteBehavior: 'Delete behavior',
       deleteBehaviorDesc:
         'How to handle file deletion. Recommended: Use Steward/Trash to allow reverting deletion',
