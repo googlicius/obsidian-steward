@@ -1,4 +1,5 @@
 import Dexie from 'dexie';
+import * as chrono from 'chrono-node';
 import type { App } from 'obsidian';
 import {
   SearchDatabase,
@@ -241,6 +242,12 @@ export class DocumentStore {
         if (!isNaN(numericValue)) {
           valuesToQuery.push([lowerName, numericValue]);
         }
+
+        // Also try date parsing (ISO 8601 or natural language like "yesterday", "last week")
+        const parsedDate = DocumentStore.parseDate(lowerValue);
+        if (parsedDate && parsedDate !== lowerValue) {
+          valuesToQuery.push([lowerName, parsedDate]);
+        }
       } else {
         // value is a number
         valuesToQuery.push([lowerName, value]);
@@ -248,10 +255,7 @@ export class DocumentStore {
       }
 
       // Use the compound index with anyOf to query all possible values at once
-      properties = await this.db.properties
-        .where('[name+value]')
-        .anyOf(valuesToQuery)
-        .toArray();
+      properties = await this.db.properties.where('[name+value]').anyOf(valuesToQuery).toArray();
     } else {
       // For complex types, fall back to manual filtering
       properties = await this.db.properties
@@ -271,10 +275,73 @@ export class DocumentStore {
   }
 
   /**
+   * ISO 8601 date/datetime pattern.
+   * Matches: YYYY-MM-DD and YYYY-MM-DDTHH:mm:ss (with optional timezone)
+   */
+  private static readonly ISO_DATE_REGEX =
+    /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/;
+
+  /**
+   * Format a Date object as an ISO 8601 date string (YYYY-MM-DD).
+   */
+  private static formatDateToISO(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  /**
+   * Parse a string value into an ISO 8601 date string.
+   * Supports ISO 8601 formats directly, and natural language expressions
+   * like "yesterday", "last week", "2 days ago" via chrono-node.
+   * Returns null if the value cannot be parsed as a date.
+   */
+  private static parseDate(value: string): string | null {
+    // Already ISO 8601 — return as-is
+    if (DocumentStore.ISO_DATE_REGEX.test(value)) {
+      return value;
+    }
+
+    // Try natural language parsing via chrono-node
+    const parsed = chrono.parseDate(value);
+    if (parsed) {
+      return DocumentStore.formatDateToISO(parsed);
+    }
+
+    return null;
+  }
+
+  /**
+   * Resolve a value into a comparable form for range/inequality operators.
+   * Returns a number if the value is numeric, an ISO 8601 date string if it
+   * is a valid date (including natural language), or null if neither.
+   */
+  private resolveComparableValue(value: unknown): number | string | null {
+    if (typeof value === 'number') {
+      return value;
+    }
+
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    // Try numeric first
+    const numericValue = Number(value);
+    if (!isNaN(numericValue)) {
+      return numericValue;
+    }
+
+    // Try date parsing (ISO 8601 or natural language)
+    return DocumentStore.parseDate(value);
+  }
+
+  /**
    * Get documents by property name, value, and comparison operator.
    * Supports: ==, !=, >, <, >=, <=
    * For '==', delegates to getDocumentsByProperty.
    * Range operators (>, <, >=, <=) use Dexie's between() on the [name+value] compound index.
+   * Works with both numeric values and ISO 8601 date/datetime strings.
    */
   public async getDocumentsByPropertyWithOperator(
     name: string,
@@ -287,11 +354,10 @@ export class DocumentStore {
 
     const lowerName = name.toLowerCase();
 
-    // Ensure numeric value for range/inequality operators
-    const numericValue = typeof value === 'number' ? value : Number(value);
-    if (isNaN(numericValue)) {
+    const comparableValue = this.resolveComparableValue(value);
+    if (comparableValue === null) {
       logger.warn(
-        `Cannot use operator "${operator}" with non-numeric value "${value}" for property "${name}"`
+        `Cannot use operator "${operator}" with value "${value}" for property "${name}".`
       );
       return [];
     }
@@ -302,28 +368,28 @@ export class DocumentStore {
       case '>':
         properties = await this.db.properties
           .where('[name+value]')
-          .between([lowerName, numericValue], [lowerName, Dexie.maxKey], false, true)
+          .between([lowerName, comparableValue], [lowerName, Dexie.maxKey], false, true)
           .toArray();
         break;
 
       case '>=':
         properties = await this.db.properties
           .where('[name+value]')
-          .between([lowerName, numericValue], [lowerName, Dexie.maxKey], true, true)
+          .between([lowerName, comparableValue], [lowerName, Dexie.maxKey], true, true)
           .toArray();
         break;
 
       case '<':
         properties = await this.db.properties
           .where('[name+value]')
-          .between([lowerName, Dexie.minKey], [lowerName, numericValue], true, false)
+          .between([lowerName, Dexie.minKey], [lowerName, comparableValue], true, false)
           .toArray();
         break;
 
       case '<=':
         properties = await this.db.properties
           .where('[name+value]')
-          .between([lowerName, Dexie.minKey], [lowerName, numericValue], true, true)
+          .between([lowerName, Dexie.minKey], [lowerName, comparableValue], true, true)
           .toArray();
         break;
 
@@ -331,10 +397,7 @@ export class DocumentStore {
         properties = await this.db.properties
           .where('name')
           .equals(lowerName)
-          .and(prop => {
-            const propNum = typeof prop.value === 'number' ? prop.value : Number(prop.value);
-            return !isNaN(propNum) && propNum !== numericValue;
-          })
+          .and(prop => prop.value !== comparableValue)
           .toArray();
         break;
     }

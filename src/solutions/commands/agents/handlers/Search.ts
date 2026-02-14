@@ -38,14 +38,16 @@ NOTE: keywords only used for searching in file content, not title or filename.`)
 - For file categories: use name: "file_category" and value: category (e.g., "document", "image", "audio", "video", "data", "code")
 - For frontmatter properties: use the property name and value (use number type for numeric values)
 - Use operator for comparisons: "==" (default), "!=", ">", "<", ">=", "<="
+- For date/datetime properties: use ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss) or natural language relative dates (e.g., "today", "yesterday", "last week", "2 days ago", "next month")
 Examples:
 - For images: {name: "file_category", value: "image"}
 - For PDFs: {name: "file_type", value: "pdf"}
 - For notes: {name: "file_type", value: "md"}
 - For documents with status "completed": {name: "status", value: "completed"}
-- For documents with priority 3: {name: "priority", value: 3}
 - For documents with priority greater than 3: {name: "priority", value: 3, operator: ">"}
-- For documents with priority at most 5: {name: "priority", value: 5, operator: "<="}`),
+- For documents with priority at most 5: {name: "priority", value: 5, operator: "<="}
+- For notes created after 2025-01-01: {name: "created", value: "2025-01-01", operator: ">"}
+- For notes modified in the last week: {name: "modified", value: "last week", operator: ">="}`),
 });
 
 // Define the Zod schema for search query extraction validation

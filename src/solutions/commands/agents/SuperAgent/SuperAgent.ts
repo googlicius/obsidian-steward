@@ -83,7 +83,7 @@ const TASK_TO_INDICATOR_MAP: Record<string, string> = {
 /**
  * These tasks should be processed in a single turn (Don't need a last evaluation)
  */
-const SINGLE_TURN_TASKS = new Set(['search_1']);
+const SINGLE_TURN_TASKS = new Set(['search']);
 
 const { askUserTool: confirmationTool } = createAskUserTool('confirmation');
 const { askUserTool } = createAskUserTool('ask');
