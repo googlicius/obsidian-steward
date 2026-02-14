@@ -1,8 +1,15 @@
 import { Condition, ConditionResult } from './Condition';
 import { IndexedDocument } from 'src/database/SearchDatabase';
+import type { PropertyOperator } from 'src/solutions/commands/agents/handlers/Search';
+
+interface PropertyFilter {
+  name: string;
+  value: unknown;
+  operator?: PropertyOperator;
+}
 
 export class PropertyCondition extends Condition<IndexedDocument> {
-  constructor(private properties: Array<{ name: string; value: unknown }>) {
+  constructor(private properties: PropertyFilter[]) {
     super();
   }
 
@@ -22,8 +29,17 @@ export class PropertyCondition extends Condition<IndexedDocument> {
     const result = new Map<number, ConditionResult<IndexedDocument>>();
 
     for (const prop of propertiesToUse) {
-      // Get documents matching this property
-      const docs = await this.context.documentStore.getDocumentsByProperty(prop.name, prop.value);
+      const operator = prop.operator ?? '==';
+
+      // Get documents matching this property (with operator support)
+      const docs =
+        operator === '=='
+          ? await this.context.documentStore.getDocumentsByProperty(prop.name, prop.value)
+          : await this.context.documentStore.getDocumentsByPropertyWithOperator(
+              prop.name,
+              prop.value,
+              operator
+            );
 
       // Skip file_type and file_category from processing matching properties
       if (prop.name === 'file_type' || prop.name === 'file_category') {
@@ -40,6 +56,9 @@ export class PropertyCondition extends Condition<IndexedDocument> {
         continue;
       }
 
+      // Build display string for matched property
+      const operatorDisplay = operator === '==' ? ':' : ` ${operator}`;
+
       // Add documents to the result with their matched properties
       for (const doc of docs) {
         const docId = doc.id as number;
@@ -49,7 +68,7 @@ export class PropertyCondition extends Condition<IndexedDocument> {
         if (prop.name === 'tag') {
           matchedProperties.push(`#${prop.value}`);
         } else {
-          matchedProperties.push(`${prop.name}: ${prop.value}`);
+          matchedProperties.push(`${prop.name}${operatorDisplay} ${prop.value}`);
         }
 
         if (result.has(docId)) {

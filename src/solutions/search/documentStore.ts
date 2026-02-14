@@ -1,3 +1,4 @@
+import Dexie from 'dexie';
 import type { App } from 'obsidian';
 import {
   SearchDatabase,
@@ -8,6 +9,7 @@ import {
 } from '../../database/SearchDatabase';
 import { logger } from '../../utils/logger';
 import { IndexedPropertyArray } from './IndexedPropertyArray';
+import type { PropertyOperator } from 'src/solutions/commands/agents/handlers/Search';
 
 export interface DocumentStoreConfig {
   app: App;
@@ -214,35 +216,48 @@ export class DocumentStore {
   }
 
   /**
-   * Get documents by property name and value
+   * Get documents by property name and value.
+   * Handles type coercion between string and number to account for
+   * mismatches between how values are stored (from YAML) and queried.
    */
   public async getDocumentsByProperty(name: string, value: unknown): Promise<IndexedDocument[]> {
     // Convert name to lowercase for consistency
     const lowerName = name.toLowerCase();
 
-    // Convert value to lowercase if it's a string
-    const lowerValue = typeof value === 'string' ? value.toLowerCase() : value;
-
     let properties: IndexedProperty[] = [];
 
-    // Only use the compound index for string values to avoid type issues
-    if (typeof lowerValue === 'string' || typeof lowerValue === 'number') {
-      // Use the compound index for efficient querying
+    if (typeof value === 'string' || typeof value === 'number') {
+      // Build all possible representations of the value to query at once.
+      // This handles type mismatches between stored values (from YAML parsing)
+      // and query values (from AI or user input).
+      const valuesToQuery: Array<[string, string | number]> = [];
+
+      if (typeof value === 'string') {
+        const lowerValue = value.toLowerCase();
+        valuesToQuery.push([lowerName, lowerValue]);
+
+        // Also try the numeric representation if the string is a valid number
+        const numericValue = Number(lowerValue);
+        if (!isNaN(numericValue)) {
+          valuesToQuery.push([lowerName, numericValue]);
+        }
+      } else {
+        // value is a number
+        valuesToQuery.push([lowerName, value]);
+        valuesToQuery.push([lowerName, String(value)]);
+      }
+
+      // Use the compound index with anyOf to query all possible values at once
       properties = await this.db.properties
         .where('[name+value]')
-        .equals([lowerName, lowerValue])
+        .anyOf(valuesToQuery)
         .toArray();
     } else {
-      // For complex types, fall back to the previous approach
+      // For complex types, fall back to manual filtering
       properties = await this.db.properties
         .where('name')
         .equals(lowerName)
-        .and(prop => {
-          if (typeof prop.value === 'string' && typeof lowerValue === 'string') {
-            return prop.value === lowerValue;
-          }
-          return prop.value === lowerValue;
-        })
+        .and(prop => prop.value === value)
         .toArray();
     }
 
@@ -252,6 +267,83 @@ export class DocumentStore {
     const documentIds = [...new Set(properties.map(p => p.documentId))];
 
     // Return the documents
+    return this.getDocumentsByIds(documentIds);
+  }
+
+  /**
+   * Get documents by property name, value, and comparison operator.
+   * Supports: ==, !=, >, <, >=, <=
+   * For '==', delegates to getDocumentsByProperty.
+   * Range operators (>, <, >=, <=) use Dexie's between() on the [name+value] compound index.
+   */
+  public async getDocumentsByPropertyWithOperator(
+    name: string,
+    value: unknown,
+    operator: PropertyOperator
+  ): Promise<IndexedDocument[]> {
+    if (operator === '==') {
+      return this.getDocumentsByProperty(name, value);
+    }
+
+    const lowerName = name.toLowerCase();
+
+    // Ensure numeric value for range/inequality operators
+    const numericValue = typeof value === 'number' ? value : Number(value);
+    if (isNaN(numericValue)) {
+      logger.warn(
+        `Cannot use operator "${operator}" with non-numeric value "${value}" for property "${name}"`
+      );
+      return [];
+    }
+
+    let properties: IndexedProperty[] = [];
+
+    switch (operator) {
+      case '>':
+        properties = await this.db.properties
+          .where('[name+value]')
+          .between([lowerName, numericValue], [lowerName, Dexie.maxKey], false, true)
+          .toArray();
+        break;
+
+      case '>=':
+        properties = await this.db.properties
+          .where('[name+value]')
+          .between([lowerName, numericValue], [lowerName, Dexie.maxKey], true, true)
+          .toArray();
+        break;
+
+      case '<':
+        properties = await this.db.properties
+          .where('[name+value]')
+          .between([lowerName, Dexie.minKey], [lowerName, numericValue], true, false)
+          .toArray();
+        break;
+
+      case '<=':
+        properties = await this.db.properties
+          .where('[name+value]')
+          .between([lowerName, Dexie.minKey], [lowerName, numericValue], true, true)
+          .toArray();
+        break;
+
+      case '!=':
+        properties = await this.db.properties
+          .where('name')
+          .equals(lowerName)
+          .and(prop => {
+            const propNum = typeof prop.value === 'number' ? prop.value : Number(prop.value);
+            return !isNaN(propNum) && propNum !== numericValue;
+          })
+          .toArray();
+        break;
+    }
+
+    if (properties.length === 0) return [];
+
+    // Get unique document IDs
+    const documentIds = [...new Set(properties.map(p => p.documentId))];
+
     return this.getDocumentsByIds(documentIds);
   }
 

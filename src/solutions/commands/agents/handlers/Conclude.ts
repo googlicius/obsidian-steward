@@ -7,6 +7,7 @@ import { createTextStream } from 'src/utils/textStreamer';
 import { ArtifactType } from 'src/solutions/artifact';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
+import { ToolName } from '../../toolNames';
 
 const concludeSchema = z.object({
   conclusion: z.string().describe('A brief conclusion text summarizing what you have done.'),
@@ -19,6 +20,7 @@ const concludeSchema = z.object({
     .object({
       expectedArtifactType: z
         .string()
+        .optional()
         .describe(
           'The expected artifact type created by the parallel tool. Used to verify the operation succeeded.'
         ),
@@ -26,7 +28,7 @@ const concludeSchema = z.object({
     .describe('Criteria to validate the result of the parallel tool call.'),
 });
 
-export type ConcludeArgs = z.infer<typeof concludeSchema>;
+export type ConcludeInput = z.infer<typeof concludeSchema>;
 
 export class Conclude {
   private static readonly concludeTool = tool({
@@ -48,7 +50,7 @@ export class Conclude {
   public async handle(
     params: AgentHandlerParams,
     options: {
-      toolCall: ToolCallPart<ConcludeArgs>;
+      toolCall: ToolCallPart<ConcludeInput>;
     }
   ): Promise<AgentResult> {
     const { title, handlerId, lang } = params;
@@ -59,7 +61,7 @@ export class Conclude {
     }
 
     // Schema-based validation: check expected artifact type
-    if (!(await this.validateArtifactCriteria(title, toolCall.input.validation))) {
+    if (!(await this.validateArtifactCriteria(title, toolCall.input))) {
       const t = getTranslation(lang);
       const failureMessage = t('conclude.validationFailed');
 
@@ -122,15 +124,26 @@ export class Conclude {
    */
   private async validateArtifactCriteria(
     title: string,
-    validation: ConcludeArgs['validation']
+    concludeInput: ConcludeInput
   ): Promise<boolean> {
+    if (!concludeInput.validation.expectedArtifactType) {
+      switch (concludeInput.parallelToolName) {
+        case ToolName.TODO_LIST_UPDATE:
+          return true;
+
+        default:
+          return false;
+      }
+    }
     const latestArtifact = await this.agent.plugin.artifactManagerV2
       .withTitle(title)
-      .getMostRecentArtifactOfTypes([validation.expectedArtifactType as ArtifactType]);
+      .getMostRecentArtifactOfTypes([
+        concludeInput.validation.expectedArtifactType as ArtifactType,
+      ]);
 
     if (!latestArtifact) {
       logger.warn('Conclude: expected artifact type not found', {
-        expectedArtifactType: validation.expectedArtifactType,
+        expectedArtifactType: concludeInput.validation.expectedArtifactType,
       });
       return false;
     }
