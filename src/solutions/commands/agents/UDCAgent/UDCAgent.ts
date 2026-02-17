@@ -5,6 +5,7 @@ import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { ToolCallPart } from '../../tools/types';
 import { SuperAgent } from '../SuperAgent';
+import { CommandSyntaxParser } from '../../CommandSyntaxParser';
 import * as handlers from '../handlers';
 import type StewardPlugin from 'src/main';
 
@@ -55,6 +56,9 @@ export class UDCAgent extends Agent {
           error: new Error(`User-defined command '${intent.type}' not found or empty`),
         };
       }
+
+      // Ensure the last command-syntax step includes c:conclude to stop the agent loop
+      UDCAgent.ensureConcludeOnLastCommandSyntaxStep(expandedIntents);
 
       const command = this.plugin.userDefinedCommandService.userDefinedCommands.get(intent.type);
       const useTool = command?.getVersion() === 2 ? command.normalized.use_tool : undefined;
@@ -140,5 +144,26 @@ export class UDCAgent extends Agent {
 
     // Fallback to SuperAgent for subsequent invocations
     return this.superAgent.handle(params);
+  }
+
+  /**
+   * If the last expanded intent uses command syntax but does not include `c:conclude`,
+   * append `; c:conclude` to ensure the agent loop terminates after the final step.
+   */
+  private static ensureConcludeOnLastCommandSyntaxStep(intents: Intent[]): void {
+    if (intents.length === 0) {
+      return;
+    }
+
+    const lastIntent = intents[intents.length - 1];
+    if (!CommandSyntaxParser.isCommandSyntax(lastIntent.query)) {
+      return;
+    }
+
+    if (lastIntent.query.includes('c:conclude')) {
+      return;
+    }
+
+    lastIntent.query = `${lastIntent.query.trimEnd()}; c:conclude`;
   }
 }

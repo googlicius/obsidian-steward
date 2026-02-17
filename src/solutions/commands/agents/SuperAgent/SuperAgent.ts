@@ -18,6 +18,7 @@ import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 import { createTextReasoningStream } from 'src/utils/textStreamer';
 import { SysError } from 'src/utils/errors';
+import { CommandSyntaxParser } from '../../CommandSyntaxParser';
 
 /**
  * Map of task names to their associated tool names.
@@ -462,7 +463,14 @@ export class SuperAgent extends Agent {
 
       const shouldUseCoreSystemPrompt = shouldUseTools;
 
-      const additionalSystemPrompts = params.intent.systemPrompts || [];
+      // Resolve wikilinks in system prompts at execution time (they are stored unresolved)
+      const resolvedSystemPrompts =
+        params.intent.systemPrompts && params.intent.systemPrompts.length > 0
+          ? await this.plugin.userDefinedCommandService.processSystemPromptsWikilinks(
+              params.intent.systemPrompts
+            )
+          : [];
+      const additionalSystemPrompts = [...resolvedSystemPrompts];
 
       if (llmConfig.systemPrompt) {
         additionalSystemPrompts.push(llmConfig.systemPrompt);
@@ -677,20 +685,27 @@ NOTE:
       });
     }
 
-    const manualToolCall = await this.manualToolCall({
-      title,
-      query: intent.query,
-      activeTools,
-      classifiedTasks,
-      lang,
-      classificationMatchType,
-    });
+    // Highest priority: command syntax (c:tool --args) bypasses classification and LLM
+    const commandSyntaxToolCalls = CommandSyntaxParser.parseAndConvert(intent.query);
+
+    const manualToolCall = commandSyntaxToolCalls
+      ? undefined
+      : await this.manualToolCall({
+          title,
+          query: intent.query,
+          activeTools,
+          classifiedTasks,
+          lang,
+          classificationMatchType,
+        });
 
     let toolCalls: ToolCalls;
     let conversationHistory: ModelMessage[] = [];
 
     if (options.toolCalls) {
       toolCalls = options.toolCalls;
+    } else if (commandSyntaxToolCalls) {
+      toolCalls = commandSyntaxToolCalls as ToolCalls;
     } else if (manualToolCall) {
       toolCalls = [manualToolCall] as ToolCalls;
     } else {

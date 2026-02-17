@@ -917,21 +917,9 @@ export class UserDefinedCommandService {
       visited.delete(intent.type);
     }
 
-    // Process wikilinks in system prompts for all expanded intents
-    return Promise.all(
-      expanded.map(async intent => {
-        if (intent.systemPrompts && intent.systemPrompts.length > 0) {
-          const processedSystemPrompts = await this.processSystemPromptsWikilinks(
-            intent.systemPrompts
-          );
-          return {
-            ...intent,
-            systemPrompts: processedSystemPrompts,
-          };
-        }
-        return intent;
-      })
-    );
+    // System prompts are kept as-is (with wikilink references unresolved)
+    // They will be resolved at execution time in SuperAgent
+    return expanded;
   }
 
   /**

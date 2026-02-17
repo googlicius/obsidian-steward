@@ -127,6 +127,11 @@ export class Conclude {
     concludeInput: ConcludeInput
   ): Promise<boolean> {
     if (!concludeInput.validation.expectedArtifactType) {
+      // Empty parallelToolName means unconditional conclude (e.g. from command syntax c:conclude)
+      if (!concludeInput.parallelToolName) {
+        return true;
+      }
+
       switch (concludeInput.parallelToolName) {
         case ToolName.TODO_LIST_UPDATE:
           return true;
