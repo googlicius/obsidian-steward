@@ -29,10 +29,10 @@ export class ConversationTitleAgent {
    * Designed to be fire-and-forget so it never blocks the main agent.
    */
   public async generate(params: GenerateTitleParams): Promise<void> {
-    const { title, query, lang } = params;
+    const { title, query } = params;
 
     try {
-      const conversationTitle = await this.resolveTitle(query, lang);
+      const conversationTitle = await this.resolveTitle(query);
 
       if (!conversationTitle) {
         return;
@@ -47,13 +47,13 @@ export class ConversationTitleAgent {
     }
   }
 
-  private async resolveTitle(query: string, lang?: string | null): Promise<string | null> {
+  private async resolveTitle(query: string): Promise<string | null> {
     const staticTitle = await this.tryStaticClassification(query);
     if (staticTitle) {
       return staticTitle;
     }
 
-    return query.split(' ').length <= 10 ? query : this.generateWithLLM(query, lang);
+    return query.split(' ').length <= 10 ? query : this.generateWithLLM(query);
   }
 
   /**
@@ -91,23 +91,27 @@ export class ConversationTitleAgent {
   /**
    * Ask the LLM for a concise, descriptive conversation title.
    */
-  private async generateWithLLM(query: string, lang?: string | null): Promise<string | null> {
+  private async generateWithLLM(query: string): Promise<string | null> {
     try {
       const llmConfig = await this.plugin.llmService.getLLMConfig({
         generateType: 'text',
       });
-
-      const languageInstruction =
-        lang && lang !== 'en' ? `Write the title in language code "${lang}".` : '';
 
       const { text } = await generateText({
         model: llmConfig.model,
         temperature: 0.2,
         maxOutputTokens: 100,
         abortSignal: this.plugin.abortService.createAbortController('conversation-title'),
-        system: `You generate short conversation titles (at most 10 words). 
-Return ONLY the title text, nothing else. No quotes, no punctuation at the end.
-${languageInstruction}`,
+        system: `Your task is to generate a short, descriptive title for a conversation based on the user's query.
+
+ONLY generate a title that describes what the user is asking about.
+
+The title must:
+- Be at most 10 words
+- Describe the TOPIC of the query, not answer it
+- Contain NO markdown syntax, quotes, or punctuation at the end
+- And respect the user's language.
+`,
         prompt: query,
       });
 

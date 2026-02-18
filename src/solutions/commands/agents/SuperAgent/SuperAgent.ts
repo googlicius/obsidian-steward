@@ -19,6 +19,7 @@ import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 import { createTextReasoningStream } from 'src/utils/textStreamer';
 import { SysError } from 'src/utils/errors';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
+import { createStepProcessedQuery, parseStepProcessedQuery } from 'src/utils/stepProcessedQuery';
 
 /**
  * Map of task names to their associated tool names.
@@ -181,6 +182,19 @@ export class SuperAgent extends Agent {
     classificationMatchType?: 'static' | 'prefixed' | 'clustered';
   }): Promise<ToolCallPart | undefined> {
     const { title, query, activeTools, classifiedTasks, lang, classificationMatchType } = params;
+
+    // Client-handled step: command syntax was processed locally, update todo list and move to next step
+    const originalQuery = parseStepProcessedQuery(query);
+    const isCommandSyntaxStepProcessed =
+      originalQuery !== null && CommandSyntaxParser.isCommandSyntax(originalQuery);
+
+    if (isCommandSyntaxStepProcessed && activeTools.includes(ToolName.TODO_LIST_UPDATE)) {
+      const todoListUpdateToolCall = await this.craftTodoListUpdateToolCallManually(title);
+
+      if (todoListUpdateToolCall) {
+        return todoListUpdateToolCall;
+      }
+    }
 
     // Return undefined if there are multiple classified tasks
     if (classifiedTasks.length !== 1) {
@@ -975,11 +989,16 @@ NOTE:
     if (toolProcessingResult.status !== IntentResultStatus.SUCCESS) {
       logger.log('Stopping or pausing processing because tool processing result is not success', {
         status: toolProcessingResult.status,
+        toolCalls,
+        intent,
       });
+      // Ensure the indicator is removed.
+      await this.plugin.conversationRender.removeIndicator(title);
       return toolProcessingResult;
     }
 
-    if (manualToolCall) {
+    // Stop if manual tool call, except todo_list_update
+    if (manualToolCall && manualToolCall.toolName !== ToolName.TODO_LIST_UPDATE) {
       logger.log('Stopping processing because manual tool call is present', { manualToolCall });
       return toolProcessingResult;
     }
@@ -989,17 +1008,11 @@ NOTE:
     // Check if to-do list has incomplete steps (for UDC "generate" steps that don't use tools)
     const hasTodoIncomplete = await this.hasTodoListIncompleteSteps(title);
 
-    // classifiedTasks = this.classifyTasksFromActiveTools(activeTools);
-
     if (
       (toolCalls.length > 0 || hasTodoIncomplete) &&
       nextRemainingSteps > 0 &&
       !this.stopProcessingForClassifiedTask(classifiedTasks, toolCalls)
     ) {
-      // Update indicator to show we're still working
-      const firstToolName = toolCalls.length > 0 ? (toolCalls[0].toolName as ToolName) : undefined;
-      await this.renderIndicator(title, lang, firstToolName);
-
       // Check if TODO_LIST_UPDATE was called and get next step intent for UDC
       const wasTodoListUpdateCalled = toolCalls.some(
         call => !call.dynamic && call.toolName === ToolName.TODO_LIST_UPDATE
@@ -1008,16 +1021,40 @@ NOTE:
         ? await this.getNextTodoListStepIntent(title, intent)
         : null;
 
+      // No next step after TODO_LIST_UPDATE: all steps are done, exit successfully
+      if (wasTodoListUpdateCalled && nextStepIntent === null) {
+        return toolProcessingResult;
+      }
+
       // Continue the current invocation count so the user'query is not included in the next iteration
       params.invocationCount = (params.invocationCount ?? 0) + 1;
-      params.intent = nextStepIntent || {
+      params.intent = nextStepIntent ?? {
         ...intent,
-        // Modify the query to ensure CommandSyntaxParser.isCommandSyntax doesn't recognize it as a command syntax query.
-        query: `The step "${intent.query}" has been processed.`,
+        query: createStepProcessedQuery(intent.query),
       };
+
+      let injectedToolCall;
+
+      if (
+        classifiedTasks.length === 1 &&
+        classifiedTasks[0] === 'generate' &&
+        (await this.isLastTodoListStep(title))
+      ) {
+        injectedToolCall = await this.craftTodoListUpdateToolCallManually(title);
+      }
+
+      if (!injectedToolCall) {
+        // Update indicator to show we're still working
+        const firstToolName =
+          toolCalls.length > 0 ? (toolCalls[0].toolName as ToolName) : undefined;
+        await this.renderIndicator(title, lang, firstToolName);
+      }
 
       return this.handle(params, {
         remainingSteps: nextRemainingSteps,
+        ...(injectedToolCall && {
+          toolCalls: [injectedToolCall] as ToolCalls,
+        }),
       });
     }
 
@@ -1372,9 +1409,28 @@ Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-spec
 
     const result = aPrompts.every((prompt, index) => prompt === bPrompts[index]);
 
-    console.log('isSameIntentConfig', a, b, result);
-
     return result;
+  }
+
+  private async craftTodoListUpdateToolCallManually(title: string): Promise<ToolCallPart | null> {
+    const todoListState = await this.renderer.getConversationProperty<handlers.TodoListState>(
+      title,
+      'todo_list'
+    );
+    const steps = todoListState?.steps;
+    const stepCount = steps?.length ?? 0;
+    if (stepCount === 0 || !todoListState) {
+      return null;
+    }
+    return {
+      type: 'tool-call',
+      toolName: ToolName.TODO_LIST_UPDATE,
+      toolCallId: `manual-tool-call-${uniqueID()}`,
+      input: {
+        status: 'completed',
+        nextStep: Math.min(todoListState.currentStep + 1, stepCount),
+      },
+    };
   }
 
   /**
@@ -1387,6 +1443,24 @@ Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-spec
       }
     }
     return null;
+  }
+
+  /**
+   * Check if the current step is the last step of the to-do list
+   * @param title The conversation title
+   * @returns True if the current step is the last step
+   */
+  private async isLastTodoListStep(title: string): Promise<boolean> {
+    const todoListState = await this.renderer.getConversationProperty<handlers.TodoListState>(
+      title,
+      'todo_list'
+    );
+
+    if (!todoListState || !todoListState.steps || todoListState.steps.length === 0) {
+      return false;
+    }
+
+    return todoListState.currentStep === todoListState.steps.length;
   }
 
   /**

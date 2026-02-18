@@ -40,12 +40,13 @@ export function createHistoryItemPostProcessor(plugin: StewardPlugin): MarkdownP
         const displayText = new MarkdownUtil(match[2]).unescape().getText();
 
         const link = document.createElement('a');
-        link.classList.add('stw-history-item');
         link.textContent = displayText;
-        link.addEventListener('click', () => {
+        link.addEventListener('click', e => {
           const chatLeaf = plugin.getChatLeaf();
           const chatView = chatLeaf.view;
           if (chatView instanceof StewardChatView) {
+            e.preventDefault();
+            e.stopPropagation();
             chatView.openExistingConversation(conversationPath, { showInput: true });
           }
         });

@@ -5,9 +5,9 @@ import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { ToolCallPart } from '../../tools/types';
 import { SuperAgent } from '../SuperAgent';
-import { CommandSyntaxParser } from '../../command-syntax-parser';
 import * as handlers from '../handlers';
 import type StewardPlugin from 'src/main';
+import { CommandSyntaxParser } from '../../command-syntax-parser';
 
 /**
  * Agent for handling User-Defined Commands (UDC)
@@ -149,7 +149,6 @@ export class UDCAgent extends Agent {
   /**
    * Ensure the agent loop terminates after the final step.
    * - If the last intent is command syntax, append `; c:conclude` to it.
-   * - Otherwise (e.g. a generate step), push an extra conclude-only step.
    */
   private static ensureConcludeOnLastStep(intents: Intent[]): void {
     if (intents.length === 0) {
@@ -158,8 +157,7 @@ export class UDCAgent extends Agent {
 
     const lastIntent = intents[intents.length - 1];
 
-    if (lastIntent.type === 'generate' && !CommandSyntaxParser.isCommandSyntax(lastIntent.query)) {
-      intents.push({ type: '', query: 'c:conclude' });
+    if (!CommandSyntaxParser.isCommandSyntax(lastIntent.query)) {
       return;
     }
 

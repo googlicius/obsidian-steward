@@ -324,16 +324,8 @@ export class StewardChatView extends MarkdownView {
         await this.app.vault.create(historyNotePath, content);
       }
 
-      const embedContent = `\n![[History]]\n\n/ `;
+      const embedContent = `\n![[History]]\n`;
       await this.app.vault.modify(this.file, embedContent);
-
-      this.app.workspace.setActiveLeaf(this.leaf, { focus: true });
-
-      const lastLineNum = this.editor.lineCount() - 1;
-      this.editor.setCursor({
-        line: lastLineNum,
-        ch: this.editor.getLine(lastLineNum).length,
-      });
     } catch (error) {
       logger.error('Error loading history:', error);
     }
