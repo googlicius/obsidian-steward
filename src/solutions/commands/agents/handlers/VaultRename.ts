@@ -19,18 +19,19 @@ const dataAwarenessAgentSchema = z.object({
   files: renamesSchema,
 });
 
+export const renameDelegateSchema = z.object({
+  artifactId: z.string().min(1).describe('ID of the artifact containing files to rename.'),
+  query: z
+    .string()
+    .min(1)
+    .describe('Query describing what rename operations to perform on the files.'),
+});
+
 const renameToolSchema = z.object({
   files: renamesSchema.optional()
     .describe(`List of files to rename along with their destination paths.
 DO NOT use this for a paginated list, where the files number is smaller than the total count.`),
-  delegateToAgent: z
-    .object({
-      artifactId: z.string().min(1).describe('ID of the artifact containing files to rename.'),
-      query: z
-        .string()
-        .min(1)
-        .describe('Query describing what rename operations to perform on the files.'),
-    })
+  delegateToAgent: renameDelegateSchema
     .optional()
     .describe(
       `Delegate to DataAwarenessAgent to process files in small batches from an artifact. Use this for large file sets to avoid token limits.

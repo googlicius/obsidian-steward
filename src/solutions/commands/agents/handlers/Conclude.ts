@@ -9,7 +9,7 @@ import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { ToolName } from '../../toolNames';
 
-const concludeSchema = z.object({
+export const concludeSchema = z.object({
   conclusion: z.string().describe('A brief conclusion text summarizing what you have done.'),
   parallelToolName: z
     .string()

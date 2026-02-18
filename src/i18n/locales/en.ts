@@ -56,6 +56,7 @@ const en = {
     chat: {
       newChat: 'New chat',
       history: 'History',
+      noConversations: 'No past conversations found.',
       closeChat: 'Close chat',
       stewardChat: 'Steward chat',
       closeConversation: 'Close conversation',

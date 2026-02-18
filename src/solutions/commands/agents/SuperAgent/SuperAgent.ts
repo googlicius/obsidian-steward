@@ -18,7 +18,7 @@ import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 import { createTextReasoningStream } from 'src/utils/textStreamer';
 import { SysError } from 'src/utils/errors';
-import { CommandSyntaxParser } from '../../CommandSyntaxParser';
+import { CommandSyntaxParser } from '../../command-syntax-parser';
 
 /**
  * Map of task names to their associated tool names.
@@ -417,6 +417,7 @@ export class SuperAgent extends Agent {
       const messages = [...conversationHistory];
 
       // Include user message for the first iteration.
+      // For UDC, we don't need to send task individually (query), the AI will check the to-do list state to decide next step.
       if (!params.invocationCount) {
         messages.push({ role: 'user', content: params.intent.query });
       }
@@ -481,7 +482,9 @@ export class SuperAgent extends Agent {
       additionalSystemPrompts.push(...activeSkillPrompts);
 
       if (additionalSystemPrompts.length > 0) {
-        messages.unshift({ role: 'system', content: additionalSystemPrompts.join('\n\n') });
+        for (const item of additionalSystemPrompts) {
+          messages.unshift({ role: 'system', content: item });
+        }
       }
 
       // Track the tool detected from the stream
@@ -1007,7 +1010,11 @@ NOTE:
 
       // Continue the current invocation count so the user'query is not included in the next iteration
       params.invocationCount = (params.invocationCount ?? 0) + 1;
-      params.intent = nextStepIntent || intent;
+      params.intent = nextStepIntent || {
+        ...intent,
+        // Modify the query to ensure CommandSyntaxParser.isCommandSyntax doesn't recognize it as a command syntax query.
+        query: `The step "${intent.query}" has been processed.`,
+      };
 
       return this.handle(params, {
         remainingSteps: nextRemainingSteps,
@@ -1290,9 +1297,10 @@ Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-spec
   }
 
   /**
-   * Get the next step intent for TodoList if TODO_LIST_UPDATE was called
+   * Get the next step intent for TodoList
    * Returns null if not a UDC or no next step available
    * Skips over completed or skipped steps to find the next pending or in_progress step
+   * @param force When true, skip the current step regardless of its status to return the actual next step
    */
   private async getNextTodoListStepIntent(
     title: string,
@@ -1349,6 +1357,24 @@ Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-spec
       systemPrompts: nextStep.systemPrompts,
       no_confirm: nextStep.no_confirm,
     };
+  }
+
+  /**
+   * Check if two intents have the same configuration (model and systemPrompts)
+   * Used to determine if two steps can be processed in parallel within the same request
+   */
+  private isSameIntentConfig(a: Intent, b: Intent): boolean {
+    if (a.model !== b.model) return false;
+
+    const aPrompts = a.systemPrompts ?? [];
+    const bPrompts = b.systemPrompts ?? [];
+    if (aPrompts.length !== bPrompts.length) return false;
+
+    const result = aPrompts.every((prompt, index) => prompt === bPrompts[index]);
+
+    console.log('isSameIntentConfig', a, b, result);
+
+    return result;
   }
 
   /**

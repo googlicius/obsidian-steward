@@ -9,6 +9,8 @@ import { createMockStreamResponse } from '../utils/textStreamer';
 import i18next from 'i18next';
 import type StewardPlugin from '../main';
 import type { ConversationRenderer } from './ConversationRenderer';
+import { ConversationTitleAgent } from '../solutions/commands/agents/ConversationTitleAgent';
+import { logger } from '../utils/logger';
 
 interface Props {
   plugin: StewardPlugin;
@@ -88,6 +90,8 @@ export class ConversationEventHandler {
   public async handleConversationLinkInserted(
     payload: ConversationLinkInsertedPayload
   ): Promise<void> {
+    this.generateConversationTitle(payload);
+
     await this.plugin.commandProcessorService.commandProcessor.processIntents(
       {
         title: payload.title,
@@ -106,5 +110,21 @@ export class ConversationEventHandler {
         },
       }
     );
+  }
+
+  /**
+   * Fire-and-forget: generate an AI title for the conversation and store it in frontmatter.
+   */
+  private generateConversationTitle(payload: ConversationLinkInsertedPayload): void {
+    const titleAgent = new ConversationTitleAgent(this.plugin);
+    titleAgent
+      .generate({
+        title: payload.title,
+        query: payload.intentQuery,
+        lang: payload.lang,
+      })
+      .catch(error => {
+        logger.error('Failed to generate conversation title:', error);
+      });
   }
 }

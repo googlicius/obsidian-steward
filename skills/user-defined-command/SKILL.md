@@ -1,3 +1,7 @@
+---
+name: user-defined-command
+description: Create and edit Steward user-defined commands (UDCs). Use when the user wants to create, modify, or troubleshoot custom command workflows defined as YAML in the Steward/Commands folder.
+---
 
 # User-Defined Command
 
@@ -77,13 +81,14 @@ c:<tool> [--arg=value]...
 
 ### `c:read` Flags
 
-| Flag        | Type     | Default | Description                                                                    |
-| ----------- | -------- | ------- | ------------------------------------------------------------------------------ |
-| `--type`    | string   | `above` | One of: `above`, `below`, `pattern`, `entire`, `frontmatter`                   |
-| `--files`   | string[] | `[]`    | Comma-separated file names to read from                                        |
-| `--element` | string   | `null`  | One of: `paragraph`, `table`, `code`, `list`, `blockquote`, `image`, `heading` |
-| `--blocks`  | number   | `1`     | Number of blocks to read. Use `-1` for all content from current position       |
-| `--pattern` | string   | —       | RegExp pattern (required when `--type=pattern`)                                |
+| Flag         | Type     | Default | Description                                                                    |
+| ------------ | -------- | ------- | ------------------------------------------------------------------------------ |
+| `--type`     | string   | `above` | One of: `above`, `below`, `pattern`, `entire`, `frontmatter`                   |
+| `--files`    | string[] | `[]`    | Comma-separated file names to read from                                        |
+| `--artifact` | string   | —       | Artifact ID (or `latest`) to resolve file names from.                          |
+| `--element`  | string   | `null`  | One of: `paragraph`, `table`, `code`, `list`, `blockquote`, `image`, `heading` |
+| `--blocks`   | number   | `1`     | Number of blocks to read. Use `-1` for all content from current position       |
+| `--pattern`  | string   | —       | RegExp pattern (required when `--type=pattern`)                                |
 
 ### `c:search` Flags
 
@@ -150,13 +155,6 @@ When composing UDC steps, prefer `c:` command syntax for **deterministic operati
 
 When `c:` syntax is used, the step `name` is still recommended for tool activation but the query is parsed directly, bypassing the AI entirely.
 
-**Important:** When the last step in a UDC uses command syntax, you **must** chain `c:conclude` at the end to stop the agent loop. Without `c:conclude`, the agent will keep looping until it reaches the maximum step count because there is no AI to signal completion.
-
-```
-# Last step MUST end with c:conclude
-query: "c:read --blocks=1 --element=list; c:conclude --text='Read complete'"
-```
-
 ## System Prompt Values
 
 The `system_prompt` field accepts an array of strings. Each string can be:
@@ -173,6 +171,7 @@ These placeholders are replaced with actual values at execution time:
 - `$from_user` — The user's input text
 - `$file_name` — The file name that triggered the command (for triggered commands)
 - `$steward` — The Steward folder path
+- `$active_file` — The file path of the currently active file in the workspace
 
 ## Examples
 

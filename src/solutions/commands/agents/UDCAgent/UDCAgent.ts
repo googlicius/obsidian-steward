@@ -5,7 +5,7 @@ import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { ToolCallPart } from '../../tools/types';
 import { SuperAgent } from '../SuperAgent';
-import { CommandSyntaxParser } from '../../CommandSyntaxParser';
+import { CommandSyntaxParser } from '../../command-syntax-parser';
 import * as handlers from '../handlers';
 import type StewardPlugin from 'src/main';
 
@@ -57,8 +57,8 @@ export class UDCAgent extends Agent {
         };
       }
 
-      // Ensure the last command-syntax step includes c:conclude to stop the agent loop
-      UDCAgent.ensureConcludeOnLastCommandSyntaxStep(expandedIntents);
+      // Ensure the last step includes c:conclude to stop the agent loop
+      UDCAgent.ensureConcludeOnLastStep(expandedIntents);
 
       const command = this.plugin.userDefinedCommandService.userDefinedCommands.get(intent.type);
       const useTool = command?.getVersion() === 2 ? command.normalized.use_tool : undefined;
@@ -94,7 +94,7 @@ export class UDCAgent extends Agent {
           if (!Array.isArray(systemPrompts)) {
             systemPrompts = [];
           }
-          systemPrompts.push(`This step you generate directly, no edit or create.`);
+          systemPrompts.push(`TO-DO LIST: This step you generate directly, no edit or create.`);
         }
         return {
           type: expandedIntent.type,
@@ -126,7 +126,7 @@ export class UDCAgent extends Agent {
       // Create new intent with step metadata
       const stepIntent: Intent = {
         type: currentStep.type ?? '',
-        query: 'Help me with the to-do list, starting with the first step',
+        query: currentStep.task,
         model: currentStep.model,
         systemPrompts: currentStep.systemPrompts,
         no_confirm: currentStep.no_confirm,
@@ -147,16 +147,19 @@ export class UDCAgent extends Agent {
   }
 
   /**
-   * If the last expanded intent uses command syntax but does not include `c:conclude`,
-   * append `; c:conclude` to ensure the agent loop terminates after the final step.
+   * Ensure the agent loop terminates after the final step.
+   * - If the last intent is command syntax, append `; c:conclude` to it.
+   * - Otherwise (e.g. a generate step), push an extra conclude-only step.
    */
-  private static ensureConcludeOnLastCommandSyntaxStep(intents: Intent[]): void {
+  private static ensureConcludeOnLastStep(intents: Intent[]): void {
     if (intents.length === 0) {
       return;
     }
 
     const lastIntent = intents[intents.length - 1];
-    if (!CommandSyntaxParser.isCommandSyntax(lastIntent.query)) {
+
+    if (lastIntent.type === 'generate' && !CommandSyntaxParser.isCommandSyntax(lastIntent.query)) {
+      intents.push({ type: '', query: 'c:conclude' });
       return;
     }
 

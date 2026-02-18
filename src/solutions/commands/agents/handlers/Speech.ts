@@ -11,7 +11,7 @@ import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 // Define the Zod schema for speech tool (same as audioExtractionSchema)
-const speechSchema = z.object({
+export const speechSchema = z.object({
   text: z
     .string()
     .min(1, 'Text must be a non-empty string')

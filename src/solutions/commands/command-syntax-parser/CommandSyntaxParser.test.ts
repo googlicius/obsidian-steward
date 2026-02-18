@@ -1,5 +1,5 @@
 import { CommandSyntaxParser } from './CommandSyntaxParser';
-import { ToolName } from './toolNames';
+import { ToolName } from '../toolNames';
 
 describe('CommandSyntaxParser', () => {
   describe('isCommandSyntax', () => {
@@ -363,9 +363,7 @@ describe('CommandSyntaxParser', () => {
     });
 
     it('should generate unique toolCallIds', () => {
-      const result = CommandSyntaxParser.parseAndConvert(
-        'c:read --blocks=1; c:read --blocks=2'
-      );
+      const result = CommandSyntaxParser.parseAndConvert('c:read --blocks=1; c:read --blocks=2');
       expect(result).not.toBeNull();
       expect(result![0].toolCallId).not.toBe(result![1].toolCallId);
       expect(result![0].toolCallId).toMatch(/^cmd-syntax-/);

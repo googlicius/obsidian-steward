@@ -18,7 +18,7 @@ import { DEFAULT_SETTINGS } from 'src/constants';
 import { StewardPluginSettings } from 'src/types/interfaces';
 
 // Define the Zod schema for search operation validation
-const searchOperationSchema = z.object({
+export const searchOperationSchema = z.object({
   keywords: z.array(z.string()).describe(`General terms or concepts to search for in file content.
 If a term or phrase is wrapped in quotation marks (e.g., "cat or dog"), preserve the quotes exactly as is for exact match queries.
 NOTE: keywords only used for searching in file content, not title or filename.`),
@@ -120,6 +120,8 @@ If the user wants to search with different criteria in different locations, retu
     .max(1)
     .describe(`A number from 0 to 1 indicating confidence in this interpretation`),
 });
+
+export type SearchInput = z.infer<typeof searchQueryExtractionSchema>;
 
 /**
  * Represents a single search operation with v2 parameters

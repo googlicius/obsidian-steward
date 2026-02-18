@@ -841,6 +841,10 @@ export class UserDefinedCommandService {
       const stewardFolder = this.plugin.settings.stewardFolder;
       query = query.replace(/\$steward/g, stewardFolder);
 
+      // Replace $active_file placeholder with the active file path
+      const currentFilePath = this.plugin.app.workspace.getActiveFile()?.path ?? '';
+      query = query.replace(/\$active_file/g, currentFilePath);
+
       // Use step model if available, otherwise use command model
       const model = step.model || command.normalized.model;
 
@@ -851,7 +855,9 @@ export class UserDefinedCommandService {
         systemPrompts = [
           ...(command.normalized.system_prompt || []),
           ...(step.system_prompt || []),
-        ].map(prompt => prompt.replace(/\$steward/g, stewardFolder));
+        ].map(prompt =>
+          prompt.replace(/\$steward/g, stewardFolder).replace(/\$active_file/g, currentFilePath)
+        );
       }
 
       return {

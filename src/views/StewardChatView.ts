@@ -1,6 +1,7 @@
 import { MarkdownView, setIcon, setTooltip, EventRef, TFile } from 'obsidian';
 import { STW_CHAT_VIEW_CONFIG } from '../constants';
 import { logger } from 'src/utils/logger';
+import { MarkdownUtil } from 'src/utils/markdownUtils';
 import i18next from 'i18next';
 import type { WorkspaceLeaf } from 'obsidian';
 import type StewardPlugin from 'src/main';
@@ -183,12 +184,12 @@ export class StewardChatView extends MarkdownView {
     newChatBtn.addEventListener('click', () => this.handleNewChat());
 
     // History button
-    // const historyBtn = headerEl.createEl('button', {
-    //   cls: 'steward-header-button clickable-icon',
-    // });
-    // setIcon(historyBtn, 'history');
-    // historyBtn.title = i18next.t('chat.history');
-    // historyBtn.addEventListener('click', () => this.handleHistory());
+    const historyBtn = headerEl.createEl('button', {
+      cls: 'steward-header-button clickable-icon',
+    });
+    setIcon(historyBtn, 'history');
+    setTooltip(historyBtn, i18next.t('chat.history'));
+    historyBtn.addEventListener('click', () => this.handleHistory());
 
     // Close Chat button
     const closeBtn = headerEl.createEl('button', {
@@ -303,6 +304,72 @@ export class StewardChatView extends MarkdownView {
       logger.error('Error checking for new version:', error);
       // Don't throw - this is a non-critical feature
     }
+  }
+
+  private async handleHistory(): Promise<void> {
+    if (!this.file) {
+      logger.warn('Conversation file not found');
+      return;
+    }
+
+    try {
+      const content = await this.buildHistoryContent();
+
+      const historyNotePath = `${this.plugin.settings.stewardFolder}/History.md`;
+      const existingFile = this.app.vault.getFileByPath(historyNotePath);
+
+      if (existingFile) {
+        await this.app.vault.modify(existingFile, content);
+      } else {
+        await this.app.vault.create(historyNotePath, content);
+      }
+
+      const embedContent = `\n![[History]]\n\n/ `;
+      await this.app.vault.modify(this.file, embedContent);
+
+      this.app.workspace.setActiveLeaf(this.leaf, { focus: true });
+
+      const lastLineNum = this.editor.lineCount() - 1;
+      this.editor.setCursor({
+        line: lastLineNum,
+        ch: this.editor.getLine(lastLineNum).length,
+      });
+    } catch (error) {
+      logger.error('Error loading history:', error);
+    }
+  }
+
+  private async buildHistoryContent(): Promise<string> {
+    const MAX_HISTORY_ITEMS = 50;
+    const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+    const folder = this.app.vault.getFolderByPath(folderPath);
+
+    if (!folder) {
+      return i18next.t('chat.noConversations');
+    }
+
+    const conversationFiles = folder.children
+      .filter((f): f is TFile => f instanceof TFile && f.extension === 'md')
+      .sort((a, b) => {
+        return b.stat.mtime - a.stat.mtime;
+      })
+      .slice(0, MAX_HISTORY_ITEMS);
+
+    if (conversationFiles.length === 0) {
+      return i18next.t('chat.noConversations');
+    }
+
+    const lines: string[] = [];
+    for (const file of conversationFiles) {
+      const cache = this.app.metadataCache.getFileCache(file);
+      const conversationTitle = cache?.frontmatter?.conversation_title;
+      const rawDisplayText = conversationTitle || file.basename;
+      const displayText = new MarkdownUtil(rawDisplayText).escape().getText();
+      const linkPath = file.path.replace(/\.md$/, '');
+      lines.push(`- {{stw-history-item:${linkPath}|${displayText}}}`);
+    }
+
+    return lines.join('\n');
   }
 
   /**

@@ -1,10 +1,11 @@
-import { ToolCallPart } from './tools/types';
+import { ToolCallPart } from '../tools/types';
 import { uniqueID } from 'src/utils/uniqueID';
 import {
   getToolSyntaxMapping,
   type ArgMapping,
   type ToolSyntaxMapping,
 } from './commandSyntaxMappings';
+import { getInputNormalizer } from './normalizers';
 
 const COMMAND_PREFIX = 'c:';
 
@@ -149,9 +150,7 @@ export class CommandSyntaxParser {
   /**
    * Parse a single `c:tool --arg=value ...` segment.
    */
-  private static parseSegment(
-    segment: string
-  ): { command?: ParsedCommand; error?: string } {
+  private static parseSegment(segment: string): { command?: ParsedCommand; error?: string } {
     const trimmed = segment.trim();
 
     if (!trimmed.startsWith(COMMAND_PREFIX)) {
@@ -308,7 +307,10 @@ export class CommandSyntaxParser {
       case 'boolean':
         return raw.toLowerCase() === 'true';
       case 'string[]':
-        return raw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        return raw
+          .split(',')
+          .map(s => s.trim())
+          .filter(s => s.length > 0);
       case 'json': {
         try {
           return JSON.parse(raw);
@@ -328,10 +330,11 @@ export class CommandSyntaxParser {
    * Parse simple property format: "name:value,name2:value2"
    * Returns an array of {name, value} objects suitable for search properties.
    */
-  private static parseSimpleProperties(
-    raw: string
-  ): Array<{ name: string; value: string }> {
-    const pairs = raw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+  private static parseSimpleProperties(raw: string): Array<{ name: string; value: string }> {
+    const pairs = raw
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
     const result: Array<{ name: string; value: string }> = [];
 
     for (const pair of pairs) {
@@ -351,122 +354,13 @@ export class CommandSyntaxParser {
 
   /**
    * Normalize flat input into the structure expected by each tool's schema.
-   * Some tools expect nested structures (e.g. operations arrays, nested objects).
+   * Delegates to the registered {@link InputNormalizer} for the tool, if one exists.
    */
   private static normalizeInput(
     mapping: ToolSyntaxMapping,
     input: Record<string, unknown>
   ): Record<string, unknown> {
-    switch (mapping.toolName) {
-      case 'edit':
-        return CommandSyntaxParser.normalizeEditInput(input);
-      case 'search':
-        return CommandSyntaxParser.normalizeSearchInput(input);
-      case 'delete':
-        return CommandSyntaxParser.normalizeDeleteInput(input);
-      case 'move':
-        return CommandSyntaxParser.normalizeMoveInput(input);
-      case 'conclude':
-        return CommandSyntaxParser.normalizeConcludeInput(input);
-      default:
-        return input;
-    }
-  }
-
-  /**
-   * Edit tool expects: { operations: [{ mode, path, content, ... }], explanation }
-   */
-  private static normalizeEditInput(input: Record<string, unknown>): Record<string, unknown> {
-    const explanation = (input.explanation as string) || 'Command syntax edit';
-    const operation: Record<string, unknown> = {};
-
-    // Move all non-explanation fields into the operation
-    for (const [key, value] of Object.entries(input)) {
-      if (key === 'explanation') {
-        continue;
-      }
-      operation[key] = value;
-    }
-
-    return {
-      operations: [operation],
-      explanation,
-    };
-  }
-
-  /**
-   * Search tool expects: { operations: [{ keywords, filenames, folders, properties }], ... }
-   */
-  private static normalizeSearchInput(input: Record<string, unknown>): Record<string, unknown> {
-    const operation: Record<string, unknown> = {
-      keywords: input.keywords ?? [],
-      filenames: input.filenames ?? [],
-      folders: input.folders ?? [],
-      properties: input.properties ?? [],
-    };
-
-    return {
-      operations: [operation],
-      explanation: `Command syntax search`,
-      confidence: input.confidence ?? 1,
-    };
-  }
-
-  /**
-   * Delete tool expects: { operations: [{ mode, artifactId | files | filePatterns }] }
-   */
-  private static normalizeDeleteInput(input: Record<string, unknown>): Record<string, unknown> {
-    if (input.artifactId) {
-      return {
-        operations: [{ mode: 'artifactId', artifactId: input.artifactId }],
-      };
-    }
-    if (input.files) {
-      return {
-        operations: [{ mode: 'files', files: input.files }],
-      };
-    }
-    // Default: empty operations (will fail at handler level with clear error)
-    return { operations: [] };
-  }
-
-  /**
-   * Move tool expects: { operations: [{ mode, ... }], destinationFolder }
-   */
-  private static normalizeMoveInput(input: Record<string, unknown>): Record<string, unknown> {
-    const destination = input.destinationFolder ?? '';
-
-    if (input.artifactId) {
-      return {
-        operations: [{ mode: 'artifactId', artifactId: input.artifactId }],
-        destinationFolder: destination,
-      };
-    }
-    if (input.files) {
-      return {
-        operations: [{ mode: 'files', files: input.files }],
-        destinationFolder: destination,
-      };
-    }
-    return { operations: [], destinationFolder: destination };
-  }
-
-  /**
-   * Conclude tool expects: { conclusion, parallelToolName, validation: { expectedArtifactType? } }
-   * Wraps the flat expectedArtifactType into the nested validation object.
-   */
-  private static normalizeConcludeInput(
-    input: Record<string, unknown>
-  ): Record<string, unknown> {
-    const validation: Record<string, unknown> = {};
-    if (input.expectedArtifactType) {
-      validation.expectedArtifactType = input.expectedArtifactType;
-    }
-
-    return {
-      conclusion: input.conclusion ?? 'Done.',
-      parallelToolName: input.parallelToolName ?? '',
-      validation,
-    };
+    const normalizer = getInputNormalizer(mapping.toolName);
+    return normalizer ? normalizer.normalize(input) : input;
   }
 }

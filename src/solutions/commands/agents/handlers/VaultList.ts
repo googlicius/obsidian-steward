@@ -10,7 +10,7 @@ import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 const MAX_FILES_TO_SHOW = 10;
 
-const listToolSchema = z.object(
+export const listToolSchema = z.object(
   {
     folderPath: z
       .string()
