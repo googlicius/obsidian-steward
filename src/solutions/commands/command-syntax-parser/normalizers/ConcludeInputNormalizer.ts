@@ -16,7 +16,6 @@ export class ConcludeInputNormalizer implements InputNormalizer {
     }
 
     return {
-      conclusion: input.conclusion ?? 'Done.',
       parallelToolName: input.parallelToolName ?? '',
       validation,
     };

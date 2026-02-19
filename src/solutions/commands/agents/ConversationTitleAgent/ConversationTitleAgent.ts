@@ -99,19 +99,19 @@ export class ConversationTitleAgent {
 
       const { text } = await generateText({
         model: llmConfig.model,
-        temperature: 0.2,
-        maxOutputTokens: 100,
+        temperature: 0.3,
+        maxOutputTokens: 50,
         abortSignal: this.plugin.abortService.createAbortController('conversation-title'),
         system: `Your task is to generate a short, descriptive title for a conversation based on the user's query.
 
 ONLY generate a title that describes what the user is asking about.
 
+DO NOT answer directly to the query.
+
 The title must:
 - Be at most 10 words
 - Describe the TOPIC of the query, not answer it
-- Contain NO markdown syntax, quotes, or punctuation at the end
-- And respect the user's language.
-`,
+- And respect the user's language.`,
         prompt: query,
       });
 

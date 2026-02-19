@@ -97,10 +97,6 @@ export class ReadContent {
 
     const { fileNames: rawFileNames, ...rest } = toolCall.input;
 
-    console.log('input', {
-      input: toolCall.input,
-    });
-
     const fileNames = await this.resolveFileNames(rawFileNames, title);
 
     const readingResults: ContentReadingResult[] = [];

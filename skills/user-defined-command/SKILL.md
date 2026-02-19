@@ -3,7 +3,7 @@ name: user-defined-command
 description: Create and edit Steward user-defined commands (UDCs). Use when the user wants to create, modify, or troubleshoot custom command workflows defined as YAML in the Steward/Commands folder.
 ---
 
-# User-Defined Command
+# User-Defined Command Skill
 
 This skill enables you to create and edit valid Steward user-defined commands — YAML-based command definitions stored as markdown files in the `Steward/Commands` folder.
 
@@ -77,7 +77,7 @@ c:<tool> [--arg=value]...
 | `c:grep`     | Grep                 | `--pattern`, `--paths`                                              |
 | `c:speech`   | Speech               | `--text`                                                            |
 | `c:image`    | Image                | `--prompt`                                                          |
-| `c:conclude` | Conclude (stop)      | `--text` (optional, default: "Done.")                               |
+| `c:conclude` | Conclude (stop)      |                                                                     |
 
 ### `c:read` Flags
 
@@ -185,7 +185,7 @@ steps:
     query: 'c:search --keywords=Untitled --properties=tag:delete'
     no_confirm: true
   - name: vault
-    query: 'c:delete --artifact=latest; c:conclude --text="Clean up complete"'
+    query: 'c:delete --artifact=latest; c:conclude'
     no_confirm: true
 ```
 
@@ -224,7 +224,7 @@ steps:
 command_name: quick-search-delete
 query_required: false
 steps:
-  - query: 'c:search --keywords=Untitled; c:delete --artifact=latest; c:conclude --text="Cleaned up"'
+  - query: 'c:search --keywords=Untitled; c:delete --artifact=latest; c:conclude'
     no_confirm: true
 ```
 
@@ -306,4 +306,3 @@ steps:
 - A command file can contain multiple YAML code blocks, each defining a separate command.
 - Markdown content outside YAML blocks (headings, text, lists) can be referenced by system prompts using `[[#Heading]]` syntax.
 - When composing UDC steps, **prefer `c:` command syntax** for deterministic operations (read, search, delete, move, rename, list, grep, speech, image) to avoid unnecessary AI round trips. Reserve natural language queries for steps that require AI reasoning.
-- When the last step of a UDC uses command syntax, **always chain `c:conclude`** at the end (e.g. `c:read --blocks=1; c:conclude`). Without it, the agent loop will not terminate and will run until the maximum step count is reached.

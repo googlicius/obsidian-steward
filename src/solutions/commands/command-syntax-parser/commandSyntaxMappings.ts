@@ -8,11 +8,7 @@ import { grepSchema } from '../tools/grep';
 import { speechSchema } from '../agents/handlers/Speech';
 import { imageSchema } from '../agents/handlers/Image';
 import { concludeSchema } from '../agents/handlers/Conclude';
-import {
-  artifactModeSchema,
-  filesModeSchema,
-  moveToolSchema,
-} from '../agents/handlers/VaultMove';
+import { artifactModeSchema, filesModeSchema, moveToolSchema } from '../agents/handlers/VaultMove';
 import { renameDelegateSchema } from '../agents/handlers/VaultRename';
 import {
   replaceByLinesSchema,
@@ -201,11 +197,9 @@ export const COMMAND_SYNTAX_MAPPINGS: Record<string, ToolSyntaxMapping> = {
   conclude: {
     toolName: ToolName.CONCLUDE,
     argMap: createArgMap(concludeSchema, {
-      text: 'conclusion',
       parallel: 'parallelToolName',
     }),
     defaults: {
-      conclusion: 'Done.',
       parallelToolName: '',
       validation: {},
     },

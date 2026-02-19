@@ -6,7 +6,7 @@ import { getTranslation } from 'src/i18n';
 import { ToolRegistry, ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { activateTools } from '../../tools/activateTools';
-import { ArtifactType, revertAbleArtifactTypes } from 'src/solutions/artifact';
+import { ArtifactType } from 'src/solutions/artifact';
 import { getMostRecentArtifact, getArtifactById } from '../../tools/getArtifact';
 import { getClassifier } from 'src/lib/modelfusion';
 import { logger } from 'src/utils/logger';
@@ -777,16 +777,18 @@ NOTE:
       [ToolName.TODO_LIST]: () => this.todoList,
       [ToolName.HELP]: () => this.help,
       [ToolName.CONCLUDE]: () => this.conclude,
+      [ToolName.GET_MOST_RECENT_ARTIFACT]: () => this.getMostRecentArtifact,
+      [ToolName.GET_ARTIFACT_BY_ID]: () => this.getArtifactById,
     };
 
     const processToolCalls = async (startIndex: number): Promise<AgentResult> => {
       // Set up timer to show indicator after 2 seconds if processing takes time
-      let timer: number | null = null;
       // Get the first tool name from toolCalls if available
       const firstToolName =
         toolCalls.length > startIndex && !toolCalls[startIndex]?.dynamic
           ? (toolCalls[startIndex].toolName as ToolName)
           : undefined;
+      let timer: number | null = null;
       timer = window.setTimeout(() => {
         this.renderIndicator(title, lang, firstToolName);
       }, 2000);
@@ -813,68 +815,6 @@ NOTE:
           }
 
           switch (toolCall.toolName) {
-            case ToolName.GET_MOST_RECENT_ARTIFACT: {
-              const artifact = await this.plugin.artifactManagerV2
-                .withTitle(title)
-                .getMostRecentArtifactOfTypes(revertAbleArtifactTypes);
-
-              const result = artifact?.id
-                ? `artifactRef:${artifact.id}`
-                : t('common.noArtifactsFound');
-
-              await this.renderer.serializeToolInvocation({
-                path: title,
-                command: 'get-artifact',
-                handlerId,
-                toolInvocations: [
-                  {
-                    ...toolCall,
-                    type: 'tool-result',
-                    output: {
-                      type: 'text',
-                      value: result,
-                    },
-                  },
-                ],
-              });
-
-              toolCallResult = {
-                status: IntentResultStatus.SUCCESS,
-              };
-              break;
-            }
-
-            case ToolName.GET_ARTIFACT_BY_ID: {
-              const artifact = await this.plugin.artifactManagerV2
-                .withTitle(title)
-                .getArtifactById(toolCall.input.artifactId);
-
-              const result = artifact?.id
-                ? `artifactRef:${artifact.id}`
-                : t('common.artifactNotFound', { artifactId: toolCall.input.artifactId });
-
-              await this.renderer.serializeToolInvocation({
-                path: title,
-                command: 'get-artifact',
-                handlerId,
-                toolInvocations: [
-                  {
-                    ...toolCall,
-                    type: 'tool-result',
-                    output: {
-                      type: 'text',
-                      value: result,
-                    },
-                  },
-                ],
-              });
-
-              toolCallResult = {
-                status: IntentResultStatus.SUCCESS,
-              };
-              break;
-            }
-
             case ToolName.CONFIRMATION:
             case ToolName.ASK_USER: {
               await this.renderer.updateConversationNote({

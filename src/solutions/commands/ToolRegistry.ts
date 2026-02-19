@@ -382,11 +382,11 @@ NOTE:
 
   [ToolName.CONCLUDE]: {
     name: ToolName.CONCLUDE,
-    description:
-      'Conclude the task by providing a brief summary of what you have done. This avoids an extra step just to summarize.',
+    description: 'Signal task completion. The client stops sending another request.',
     guidelines: [
       `When you determine this is the last step of your work, call ${ToolName.CONCLUDE} in parallel (in the same request) with the tool that performs the final task.`,
       `Do NOT call ${ToolName.CONCLUDE} alone — it must always be paired with another tool call in the same request.`,
+      `When using ${ToolName.CONCLUDE}, include a brief summary in your text response describing what you have accomplished.`,
     ],
     category: 'task-management',
   },

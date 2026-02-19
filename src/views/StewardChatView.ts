@@ -1,7 +1,6 @@
 import { MarkdownView, setIcon, setTooltip, EventRef, TFile } from 'obsidian';
 import { STW_CHAT_VIEW_CONFIG } from '../constants';
 import { logger } from 'src/utils/logger';
-import { MarkdownUtil } from 'src/utils/markdownUtils';
 import i18next from 'i18next';
 import type { WorkspaceLeaf } from 'obsidian';
 import type StewardPlugin from 'src/main';
@@ -355,10 +354,9 @@ export class StewardChatView extends MarkdownView {
     for (const file of conversationFiles) {
       const cache = this.app.metadataCache.getFileCache(file);
       const conversationTitle = cache?.frontmatter?.conversation_title;
-      const rawDisplayText = conversationTitle || file.basename;
-      const displayText = new MarkdownUtil(rawDisplayText).escape().getText();
+      const displayText = conversationTitle || file.basename;
       const linkPath = file.path.replace(/\.md$/, '');
-      lines.push(`- {{stw-history-item:${linkPath}|${displayText}}}`);
+      lines.push(`- <a data-path="${linkPath}">${displayText}</a>`);
     }
 
     return lines.join('\n');

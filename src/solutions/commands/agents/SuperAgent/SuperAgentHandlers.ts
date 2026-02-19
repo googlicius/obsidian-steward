@@ -35,6 +35,8 @@ export class SuperAgentHandlers {
   private _dynamic: handlers.Dynamic;
   private _useSkills: handlers.UseSkills;
   private _conclude: handlers.Conclude;
+  private _getMostRecentArtifact: handlers.GetMostRecentArtifact;
+  private _getArtifactById: handlers.GetArtifactById;
 
   /**
    * Helper method to get this instance typed as SuperAgent
@@ -285,5 +287,21 @@ export class SuperAgentHandlers {
     }
 
     return this._conclude;
+  }
+
+  public get getMostRecentArtifact(): handlers.GetMostRecentArtifact {
+    if (!this._getMostRecentArtifact) {
+      this._getMostRecentArtifact = new handlers.GetMostRecentArtifact(this.getAgent());
+    }
+
+    return this._getMostRecentArtifact;
+  }
+
+  public get getArtifactById(): handlers.GetArtifactById {
+    if (!this._getArtifactById) {
+      this._getArtifactById = new handlers.GetArtifactById(this.getAgent());
+    }
+
+    return this._getArtifactById;
   }
 }
