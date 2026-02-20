@@ -333,7 +333,13 @@ export class DocumentStore {
     }
 
     // Try date parsing (ISO 8601 or natural language)
-    return DocumentStore.parseDate(value);
+    const parsedDate = DocumentStore.parseDate(value);
+    if (parsedDate) {
+      // Lowercase the date string to match stored values
+      return parsedDate.toLowerCase();
+    }
+
+    return null;
   }
 
   /**

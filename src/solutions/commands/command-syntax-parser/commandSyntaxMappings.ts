@@ -198,6 +198,7 @@ export const COMMAND_SYNTAX_MAPPINGS: Record<string, ToolSyntaxMapping> = {
     toolName: ToolName.CONCLUDE,
     argMap: createArgMap(concludeSchema, {
       parallel: 'parallelToolName',
+      expectedArtifactType: 'validation.expectedArtifactType',
     }),
     defaults: {
       parallelToolName: '',

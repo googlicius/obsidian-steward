@@ -5,7 +5,6 @@ import { EditInputNormalizer } from './EditInputNormalizer';
 import { SearchInputNormalizer } from './SearchInputNormalizer';
 import { DeleteInputNormalizer } from './DeleteInputNormalizer';
 import { MoveInputNormalizer } from './MoveInputNormalizer';
-import { ConcludeInputNormalizer } from './ConcludeInputNormalizer';
 import { RenameInputNormalizer } from './RenameInputNormalizer';
 import { ReadContentInputNormalizer } from './ReadContentInputNormalizer';
 
@@ -16,7 +15,6 @@ const ALL_INPUT_NORMALIZERS: InputNormalizer[] = [
   new DeleteInputNormalizer(),
   new MoveInputNormalizer(),
   new RenameInputNormalizer(),
-  new ConcludeInputNormalizer(),
 ];
 
 const NORMALIZER_MAP = new Map<string, InputNormalizer>(

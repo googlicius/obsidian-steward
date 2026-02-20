@@ -24,6 +24,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
           callback();
           return { events: [] };
         }),
+        getActiveFile: jest.fn(),
       },
     },
     settings: {

@@ -22,6 +22,32 @@ function unwrapZodType(zodType: z.ZodTypeAny): z.ZodTypeAny {
 }
 
 /**
+ * Navigate to a nested field in a Zod schema using dot notation.
+ * @example getNestedZodField(schema, 'validation.expectedArtifactType')
+ */
+function getNestedZodField(
+  schema: z.ZodObject<z.ZodRawShape>,
+  path: string
+): z.ZodTypeAny | undefined {
+  const segments = path.split('.');
+  let current: z.ZodTypeAny = schema;
+
+  for (const segment of segments) {
+    const unwrapped = unwrapZodType(current);
+    if (!(unwrapped instanceof z.ZodObject)) {
+      return undefined;
+    }
+    const field = unwrapped.shape[segment];
+    if (!field) {
+      return undefined;
+    }
+    current = field;
+  }
+
+  return current;
+}
+
+/**
  * Infer the coercion type from a Zod field definition.
  *
  * Maps Zod types to the CLI coercion hints used by {@link CommandSyntaxParser}.
@@ -46,10 +72,38 @@ function inferArgType(zodType: z.ZodTypeAny): ArgMapping['type'] {
 }
 
 /**
+ * Unwrap Zod wrapper types at the type level to get the inner shape.
+ */
+type UnwrapZodType<T> = T extends z.ZodEffects<infer Inner, unknown, unknown>
+  ? UnwrapZodType<Inner>
+  : T extends z.ZodOptional<infer Inner>
+    ? UnwrapZodType<Inner>
+    : T extends z.ZodNullable<infer Inner>
+      ? UnwrapZodType<Inner>
+      : T extends z.ZodDefault<infer Inner>
+        ? UnwrapZodType<Inner>
+        : T;
+
+/**
+ * Type helper to build paths to nested fields in a Zod schema.
+ * Supports dot notation for nested object fields.
+ *
+ * @example
+ * type Paths = NestedPaths<typeof mySchema.shape>
+ * // 'validation' | 'validation.expectedArtifactType' | 'parallelToolName'
+ */
+type NestedPaths<T extends z.ZodRawShape, Prefix extends string = ''> = {
+  [K in keyof T & string]: UnwrapZodType<T[K]> extends z.ZodObject<infer U extends z.ZodRawShape>
+    ? `${Prefix}${K}` | NestedPaths<U, `${Prefix}${K}.`>
+    : `${Prefix}${K}`;
+}[keyof T & string];
+
+/**
  * Build an {@link ArgMapping} record from a Zod object schema and a flag-to-field map.
  *
- * - **`field` names** are type-checked against the schema keys at compile time.
+ * - **`field` names** are type-checked against the schema keys (including nested paths) at compile time.
  * - **`type`** is auto-derived from the Zod definition — never specified manually.
+ * - Supports **nested paths** using dot notation (e.g., `'validation.expectedArtifactType'`)
  *
  * @example
  * ```ts
@@ -57,16 +111,29 @@ function inferArgType(zodType: z.ZodTypeAny): ArgMapping['type'] {
  *   type: 'readType',       // TS error if 'readType' doesn't exist in schema
  *   blocks: 'blocksToRead', // coercion type auto-derived as 'number'
  * })
+ *
+ * // Nested field example:
+ * createArgMap(concludeSchema, {
+ *   parallel: 'parallelToolName',
+ *   expectedArtifactType: 'validation.expectedArtifactType', // nested path
+ * })
  * ```
  */
 export function createArgMap<T extends z.ZodRawShape>(
   schema: z.ZodObject<T>,
-  flagMap: Record<string, Extract<keyof T, string>>
+  flagMap: Record<string, NestedPaths<T>>
 ): Record<string, ArgMapping> {
   const result: Record<string, ArgMapping> = {};
 
   for (const [flag, field] of Object.entries(flagMap)) {
-    const zodField = schema.shape[field];
+    let zodField: z.ZodTypeAny | undefined;
+
+    if (field.includes('.')) {
+      zodField = getNestedZodField(schema, field);
+    } else {
+      zodField = schema.shape[field];
+    }
+
     if (!zodField) {
       throw new Error(
         `createArgMap: field "${field}" (flag "--${flag}") not found in schema shape`

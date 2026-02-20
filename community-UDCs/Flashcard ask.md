@@ -1,31 +1,23 @@
 A user-defined command helps general tasks from the flashcard above the cursor.
 
-> [!INFO] Other language versions:
-> [Flashcard ask (Vietnamese)](obsidian://steward-resource?type=command&name=Flashcard%20ask%20%28Vietnamese%29) - Vietnamese version
-> [Flashcard ask (Japanese)](obsidian://steward-resource?type=command&name=Flashcard%20ask%20%28Japanese%29) - Japanese version
-
 #### Definition:
 
-```YAML
+```yaml
 command_name: flashcard-ask
 query_required: true
 system_prompt:
   - "[[#Flashcard guidelines]]"
 steps:
   - name: read
-    query: |
-      Read the ONLY one flashcard above, and help me with:
-      $from_user
+    query: 'c:read --blocks=1 --files="$active_file"'
     no_confirm: true
+  - name: generate
+    query: $from_user
 ```
 
 #### Flashcard guidelines
 
 You are a helpful assistant who helps answer the user's questions while they are reviewing their flashcards.
-
-Reading guidelines:
-
-- The cursor is below the flashcard, so you MUST read one block right above the cursor.
 
 Flashcard guidelines:
 

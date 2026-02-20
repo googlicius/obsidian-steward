@@ -264,6 +264,29 @@ export class CommandSyntaxParser {
   }
 
   /**
+   * Set a value in an object using dot notation for nested paths.
+   * @example setNestedValue(obj, 'validation.expectedArtifactType', 'note')
+   */
+  private static setNestedValue(
+    obj: Record<string, unknown>,
+    path: string,
+    value: unknown
+  ): void {
+    const segments = path.split('.');
+    let current = obj;
+
+    for (let i = 0; i < segments.length - 1; i++) {
+      const segment = segments[i];
+      if (!current[segment] || typeof current[segment] !== 'object') {
+        current[segment] = {};
+      }
+      current = current[segment] as Record<string, unknown>;
+    }
+
+    current[segments[segments.length - 1]] = value;
+  }
+
+  /**
    * Build the tool input object from raw parsed args and the tool mapping.
    * Applies type coercion based on the ArgMapping type hints, then merges defaults.
    */
@@ -288,7 +311,14 @@ export class CommandSyntaxParser {
         continue;
       }
 
-      input[argMapping.field] = CommandSyntaxParser.coerceValue(rawValue, argMapping);
+      const coercedValue = CommandSyntaxParser.coerceValue(rawValue, argMapping);
+
+      // Support nested field paths (e.g., 'validation.expectedArtifactType')
+      if (argMapping.field.includes('.')) {
+        CommandSyntaxParser.setNestedValue(input, argMapping.field, coercedValue);
+      } else {
+        input[argMapping.field] = coercedValue;
+      }
     }
 
     // Special handling per tool to wrap args in the expected schema structure

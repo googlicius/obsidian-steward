@@ -257,7 +257,6 @@ describe('CommandSyntaxParser', () => {
       expect(toolCalls).toHaveLength(1);
       expect(toolCalls[0].toolName).toBe(ToolName.CONCLUDE);
       expect(toolCalls[0].input).toMatchObject({
-        conclusion: 'Done.',
         parallelToolName: '',
         validation: {},
       });
@@ -269,7 +268,6 @@ describe('CommandSyntaxParser', () => {
 
       expect(toolCalls[0].toolName).toBe(ToolName.CONCLUDE);
       expect(toolCalls[0].input).toMatchObject({
-        conclusion: 'All tasks completed',
         parallelToolName: '',
         validation: {},
       });
@@ -277,12 +275,11 @@ describe('CommandSyntaxParser', () => {
 
     it('should produce conclude tool call with artifact validation', () => {
       const { commands } = CommandSyntaxParser.parse(
-        'c:conclude --text="Done" --parallel=edit --artifact=edit_results'
+        'c:conclude --parallel=edit --expectedArtifactType=edit_results'
       );
       const toolCalls = CommandSyntaxParser.toToolCalls(commands);
 
       expect(toolCalls[0].input).toMatchObject({
-        conclusion: 'Done',
         parallelToolName: 'edit',
         validation: { expectedArtifactType: 'edit_results' },
       });
@@ -377,9 +374,6 @@ describe('CommandSyntaxParser', () => {
       expect(result).toHaveLength(2);
       expect(result![0].toolName).toBe(ToolName.CONTENT_READING);
       expect(result![1].toolName).toBe(ToolName.CONCLUDE);
-      expect(result![1].input).toMatchObject({
-        conclusion: 'Read complete',
-      });
     });
   });
 });

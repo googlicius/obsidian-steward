@@ -932,8 +932,6 @@ NOTE:
         toolCalls,
         intent,
       });
-      // Ensure the indicator is removed.
-      await this.plugin.conversationRender.removeIndicator(title);
       return toolProcessingResult;
     }
 

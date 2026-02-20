@@ -296,11 +296,7 @@ describe('DocumentStore', () => {
     });
 
     it('should find documents with ">" on date-only values', async () => {
-      const results = await store.getDocumentsByPropertyWithOperator(
-        'created',
-        '2024-03-20',
-        '>'
-      );
+      const results = await store.getDocumentsByPropertyWithOperator('created', '2024-03-20', '>');
 
       expect(results).toHaveLength(2);
       const paths = results.map(d => d.path).sort();
@@ -308,11 +304,7 @@ describe('DocumentStore', () => {
     });
 
     it('should find documents with ">=" on date-only values', async () => {
-      const results = await store.getDocumentsByPropertyWithOperator(
-        'created',
-        '2024-03-20',
-        '>='
-      );
+      const results = await store.getDocumentsByPropertyWithOperator('created', '2024-03-20', '>=');
 
       expect(results).toHaveLength(3);
       const paths = results.map(d => d.path).sort();
@@ -320,11 +312,7 @@ describe('DocumentStore', () => {
     });
 
     it('should find documents with "<" on date-only values', async () => {
-      const results = await store.getDocumentsByPropertyWithOperator(
-        'created',
-        '2024-06-01',
-        '<'
-      );
+      const results = await store.getDocumentsByPropertyWithOperator('created', '2024-06-01', '<');
 
       expect(results).toHaveLength(2);
       const paths = results.map(d => d.path).sort();
@@ -332,11 +320,7 @@ describe('DocumentStore', () => {
     });
 
     it('should find documents with "<=" on date-only values', async () => {
-      const results = await store.getDocumentsByPropertyWithOperator(
-        'created',
-        '2024-06-01',
-        '<='
-      );
+      const results = await store.getDocumentsByPropertyWithOperator('created', '2024-06-01', '<=');
 
       expect(results).toHaveLength(3);
       const paths = results.map(d => d.path).sort();
@@ -344,11 +328,7 @@ describe('DocumentStore', () => {
     });
 
     it('should find documents with "!=" on date-only values', async () => {
-      const results = await store.getDocumentsByPropertyWithOperator(
-        'created',
-        '2024-03-20',
-        '!='
-      );
+      const results = await store.getDocumentsByPropertyWithOperator('created', '2024-03-20', '!=');
 
       expect(results).toHaveLength(3);
       const paths = results.map(d => d.path).sort();
@@ -356,21 +336,13 @@ describe('DocumentStore', () => {
     });
 
     it('should return all documents when querying ">" with a date before all entries', async () => {
-      const results = await store.getDocumentsByPropertyWithOperator(
-        'created',
-        '2023-12-31',
-        '>'
-      );
+      const results = await store.getDocumentsByPropertyWithOperator('created', '2023-12-31', '>');
 
       expect(results).toHaveLength(4);
     });
 
     it('should return empty array when querying ">" with a date after all entries', async () => {
-      const results = await store.getDocumentsByPropertyWithOperator(
-        'created',
-        '2025-01-01',
-        '>'
-      );
+      const results = await store.getDocumentsByPropertyWithOperator('created', '2025-01-01', '>');
 
       expect(results).toHaveLength(0);
     });
@@ -397,7 +369,7 @@ describe('DocumentStore', () => {
       ]);
     });
 
-    it('should compare datetimes with ">" correctly within the same day', async () => {
+    it("should compare datetimes with '>' correctly within the same day", async () => {
       const results = await store.getDocumentsByPropertyWithOperator(
         'updated',
         '2024-06-15T12:30:00',
@@ -408,7 +380,7 @@ describe('DocumentStore', () => {
       expect(results[0].path).toBe('notes/evening.md');
     });
 
-    it('should compare datetimes with "<" correctly within the same day', async () => {
+    it("should compare datetimes with '<' correctly within the same day", async () => {
       const results = await store.getDocumentsByPropertyWithOperator(
         'updated',
         '2024-06-15T12:30:00',
@@ -419,7 +391,7 @@ describe('DocumentStore', () => {
       expect(results[0].path).toBe('notes/morning.md');
     });
 
-    it('should compare datetimes with ">=" to include the exact match', async () => {
+    it("should compare datetimes with '>=' to include the exact match", async () => {
       const results = await store.getDocumentsByPropertyWithOperator(
         'updated',
         '2024-06-15T12:30:00',
@@ -431,7 +403,7 @@ describe('DocumentStore', () => {
       expect(paths).toEqual(['notes/evening.md', 'notes/noon.md']);
     });
 
-    it('should compare datetimes with "<=" to include the exact match', async () => {
+    it("should compare datetimes with '<=' to include the exact match", async () => {
       const results = await store.getDocumentsByPropertyWithOperator(
         'updated',
         '2024-06-15T12:30:00',
