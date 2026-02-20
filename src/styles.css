@@ -90,7 +90,8 @@ html[data-stw-language='vi'] {
   }
 }
 
-.callout[data-callout='stw-search-result'] {
+.callout[data-callout='stw-search-result'],
+.callout[data-callout='stw-edit-preview'] {
   --callout-color: var(--callout-success);
   padding-left: 12px;
   cursor: pointer;
@@ -106,6 +107,31 @@ html[data-stw-language='vi'] {
 
   & > .callout-title {
     display: none;
+  }
+}
+
+.callout[data-callout='stw-edit-preview'] {
+  max-height: 200px;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(transparent, var(--background-primary));
+    pointer-events: none;
+  }
+
+  &.stw-expanded {
+    max-height: none;
+    overflow: visible;
+
+    &::after {
+      display: none;
+    }
   }
 }
 
@@ -239,7 +265,8 @@ code[class*='language-stw-hidden-from-user'] {
 }
 
 .callout[data-callout='stw-user-message']:hover .stw-callout-buttons,
-.callout[data-callout='stw-search-result']:hover .stw-callout-buttons {
+.callout[data-callout='stw-search-result']:hover .stw-callout-buttons,
+.callout[data-callout='stw-edit-preview']:hover .stw-callout-buttons {
   opacity: 1;
 }
 

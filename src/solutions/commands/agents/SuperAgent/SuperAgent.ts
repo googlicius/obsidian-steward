@@ -883,6 +883,9 @@ NOTE:
               if (toolCalls.length === 1) {
                 logger.warn(`Conclude tool was called alone.`);
               }
+              if (timer) {
+                clearTimeout(timer);
+              }
               toolCallResult = await this.conclude.handle(params, { toolCall });
               break;
             }

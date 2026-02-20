@@ -1,4 +1,4 @@
-import { DynamicToolCall, Tool } from 'ai';
+import { DynamicToolCall, Tool, asSchema } from 'ai';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
@@ -44,7 +44,7 @@ export class Dynamic {
           message:
             'Invalid tool call, please refer to the error for more details. And refer to the validSchema to see how to use it correctly.',
           error: options.toolCall.error,
-          validSchema: tool.inputSchema,
+          validSchema: asSchema(tool.inputSchema).jsonSchema,
         }
       : {
           message: `Invalid tool call, please refer to the guidelines and schema of the ${options.toolCall.toolName} tool to see how to use it correctly.`,

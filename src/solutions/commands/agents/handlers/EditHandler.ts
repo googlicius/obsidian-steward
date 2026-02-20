@@ -345,7 +345,7 @@ export class EditHandler {
       }
     }
 
-    return this.agent.plugin.noteContentService.formatCallout(preview.trim(), 'stw-search-result');
+    return this.agent.plugin.noteContentService.formatCallout(preview.trim(), 'stw-edit-preview');
   }
 
   /**

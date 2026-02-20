@@ -13,6 +13,7 @@ import { createSelectedModelProcessor } from './post-processors/SelectedModelPro
 import { createThinkingProcessPostProcessor } from './post-processors/ThinkingProcessPostProcessor';
 import { createConfirmationButtonsProcessor } from './post-processors/ConfirmationButtonsProcessor';
 import { createHistoryItemPostProcessor } from './post-processors/HistoryItemPostProcessor';
+import { createCalloutEditPreviewPostProcessor } from './post-processors/CalloutEditPreviewPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -425,6 +426,8 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createCalloutMetadataProcessor());
 
     this.registerMarkdownPostProcessor(createCalloutSearchResultPostProcessor(this));
+
+    this.registerMarkdownPostProcessor(createCalloutEditPreviewPostProcessor());
 
     this.registerMarkdownPostProcessor(createUserMessageButtonsProcessor(this));
 
