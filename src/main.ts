@@ -12,6 +12,7 @@ import { createStewardConversationProcessor } from './post-processors/StewardCon
 import { createSelectedModelProcessor } from './post-processors/SelectedModelProcessor';
 import { createThinkingProcessPostProcessor } from './post-processors/ThinkingProcessPostProcessor';
 import { createConfirmationButtonsProcessor } from './post-processors/ConfirmationButtonsProcessor';
+import { createHistoryItemPostProcessor } from './post-processors/HistoryItemPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -436,6 +437,8 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createThinkingProcessPostProcessor());
 
     this.registerMarkdownPostProcessor(createConfirmationButtonsProcessor(this));
+
+    this.registerMarkdownPostProcessor(createHistoryItemPostProcessor(this));
 
     // Register the custom view type
     this.registerView(STW_CHAT_VIEW_CONFIG.type, leaf => new StewardChatView(leaf, this));

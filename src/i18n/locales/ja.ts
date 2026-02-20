@@ -51,6 +51,7 @@ const ja = {
     chat: {
       newChat: '新しいチャット',
       history: '履歴',
+      noConversations: '過去の会話はありません。',
       closeChat: 'チャットを閉じる',
       stewardChat: 'Stewardチャット',
       closeConversation: '会話を閉じる',

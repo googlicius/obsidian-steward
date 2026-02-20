@@ -7,6 +7,7 @@ import { ToolCallPart } from '../../tools/types';
 import { SuperAgent } from '../SuperAgent';
 import * as handlers from '../handlers';
 import type StewardPlugin from 'src/main';
+import { CommandSyntaxParser } from '../../command-syntax-parser';
 
 /**
  * Agent for handling User-Defined Commands (UDC)
@@ -56,6 +57,9 @@ export class UDCAgent extends Agent {
         };
       }
 
+      // Ensure the last step includes c:conclude to stop the agent loop
+      UDCAgent.ensureConcludeOnLastStep(expandedIntents);
+
       const command = this.plugin.userDefinedCommandService.userDefinedCommands.get(intent.type);
       const useTool = command?.getVersion() === 2 ? command.normalized.use_tool : undefined;
       const showTodoList =
@@ -90,7 +94,7 @@ export class UDCAgent extends Agent {
           if (!Array.isArray(systemPrompts)) {
             systemPrompts = [];
           }
-          systemPrompts.push(`This step you generate directly, no edit or create.`);
+          systemPrompts.push(`TO-DO LIST: This step you generate directly, no edit or create.`);
         }
         return {
           type: expandedIntent.type,
@@ -122,7 +126,7 @@ export class UDCAgent extends Agent {
       // Create new intent with step metadata
       const stepIntent: Intent = {
         type: currentStep.type ?? '',
-        query: 'Help me with the to-do list, starting with the first step',
+        query: currentStep.task,
         model: currentStep.model,
         systemPrompts: currentStep.systemPrompts,
         no_confirm: currentStep.no_confirm,
@@ -140,5 +144,27 @@ export class UDCAgent extends Agent {
 
     // Fallback to SuperAgent for subsequent invocations
     return this.superAgent.handle(params);
+  }
+
+  /**
+   * Ensure the agent loop terminates after the final step.
+   * - If the last intent is command syntax, append `; c:conclude` to it.
+   */
+  private static ensureConcludeOnLastStep(intents: Intent[]): void {
+    if (intents.length === 0) {
+      return;
+    }
+
+    const lastIntent = intents[intents.length - 1];
+
+    if (!CommandSyntaxParser.isCommandSyntax(lastIntent.query)) {
+      return;
+    }
+
+    if (lastIntent.query.includes('c:conclude')) {
+      return;
+    }
+
+    lastIntent.query = `${lastIntent.query.trimEnd()}; c:conclude`;
   }
 }

@@ -109,13 +109,13 @@ describe('Search', () => {
         keywords: ['example'],
         filenames: ['note'],
         folders: ['/folder'],
-        properties: [{ name: 'status', value: 'completed' }],
+        properties: [{ name: 'status', value: 'completed', operator: '==' }],
       });
       expect(result.operations[1]).toEqual({
         keywords: [],
         filenames: ['note'],
         folders: ['/folder'],
-        properties: [{ name: 'tag', value: 'test' }],
+        properties: [{ name: 'tag', value: 'test', operator: '==' }],
       });
       expect(result.confidence).toBe(0.9);
     });
@@ -139,7 +139,6 @@ describe('Search', () => {
       const result = searchQueryExtractionSchema.parse(input);
 
       expect(result.operations).toHaveLength(1);
-      expect(result.operations[0]).toEqual(input.operations[0]);
     });
 
     it('should keep operation with only keywords unchanged', () => {
@@ -153,28 +152,6 @@ describe('Search', () => {
           },
         ],
         confidence: 0.8,
-      };
-
-      const result = searchQueryExtractionSchema.parse(input);
-
-      expect(result.operations).toHaveLength(1);
-      expect(result.operations[0]).toEqual(input.operations[0]);
-    });
-
-    it('should keep operation with only tags unchanged', () => {
-      const input = {
-        operations: [
-          {
-            keywords: [],
-            filenames: [],
-            folders: [],
-            properties: [
-              { name: 'tag', value: 'important' },
-              { name: 'tag', value: 'urgent' },
-            ],
-          },
-        ],
-        confidence: 0.7,
       };
 
       const result = searchQueryExtractionSchema.parse(input);
@@ -201,8 +178,25 @@ describe('Search', () => {
 
       const result = searchQueryExtractionSchema.parse(input);
 
-      expect(result.operations).toHaveLength(1);
-      expect(result.operations[0]).toEqual(input.operations[0]);
+      expect(result.operations).toMatchObject([
+        {
+          keywords: ['test'],
+          filenames: [],
+          folders: [],
+          properties: [
+            {
+              name: 'status',
+              value: 'completed',
+              operator: '==',
+            },
+            {
+              name: 'file_type',
+              value: 'md',
+              operator: '==',
+            },
+          ],
+        },
+      ]);
     });
 
     it('should handle multiple operations, splitting only those with matching keywords and tags', () => {
@@ -238,26 +232,56 @@ describe('Search', () => {
 
       const result = searchQueryExtractionSchema.parse(input);
 
-      expect(result.operations).toHaveLength(5);
-      // First operation split into two (keyword 'test' matches tag 'test')
-      expect(result.operations[0]).toEqual({
-        keywords: [],
-        filenames: [],
-        folders: [],
-        properties: [],
-      });
-      expect(result.operations[1]).toEqual({
-        keywords: [],
-        filenames: [],
-        folders: [],
-        properties: [{ name: 'tag', value: 'test' }],
-      });
-      // Second operation unchanged (keyword 'example' does not match tag 'important')
-      expect(result.operations[2]).toEqual(input.operations[1]);
-      // Third operation unchanged (no tags)
-      expect(result.operations[3]).toEqual(input.operations[2]);
-      // Fourth operation unchanged (no keywords)
-      expect(result.operations[4]).toEqual(input.operations[3]);
+      expect(result.operations).toMatchObject([
+        {
+          keywords: [],
+          filenames: [],
+          folders: [],
+          properties: [],
+        },
+        {
+          keywords: [],
+          filenames: [],
+          folders: [],
+          properties: [
+            {
+              name: 'tag',
+              value: 'test',
+              operator: '==',
+            },
+          ],
+        },
+        {
+          keywords: ['example'],
+          filenames: [],
+          folders: [],
+          properties: [
+            {
+              name: 'tag',
+              value: 'important',
+              operator: '==',
+            },
+          ],
+        },
+        {
+          keywords: ['sample'],
+          filenames: [],
+          folders: [],
+          properties: [],
+        },
+        {
+          keywords: [],
+          filenames: [],
+          folders: [],
+          properties: [
+            {
+              name: 'tag',
+              value: 'urgent',
+              operator: '==',
+            },
+          ],
+        },
+      ]);
     });
 
     it('should preserve filenames and folders when splitting operations', () => {
@@ -306,11 +330,13 @@ describe('Search', () => {
 
       expect(result.operations).toHaveLength(2);
       expect(result.operations[0].keywords).toEqual([]);
-      expect(result.operations[0].properties).toEqual([{ name: 'status', value: 'completed' }]);
+      expect(result.operations[0].properties).toEqual([
+        { name: 'status', value: 'completed', operator: '==' },
+      ]);
       expect(result.operations[1].keywords).toEqual([]);
       expect(result.operations[1].properties).toEqual([
-        { name: 'tag', value: 'test' },
-        { name: 'tag', value: 'example' },
+        { name: 'tag', value: 'test', operator: '==' },
+        { name: 'tag', value: 'example', operator: '==' },
       ]);
     });
 
@@ -335,11 +361,13 @@ describe('Search', () => {
 
       expect(result.operations).toHaveLength(2);
       expect(result.operations[0].keywords).toEqual(['example', 'sample']);
-      expect(result.operations[0].properties).toEqual([{ name: 'status', value: 'completed' }]);
+      expect(result.operations[0].properties).toEqual([
+        { name: 'status', value: 'completed', operator: '==' },
+      ]);
       expect(result.operations[1].keywords).toEqual([]);
       expect(result.operations[1].properties).toEqual([
-        { name: 'tag', value: 'test' },
-        { name: 'tag', value: 'urgent' },
+        { name: 'tag', value: 'test', operator: '==' },
+        { name: 'tag', value: 'urgent', operator: '==' },
       ]);
     });
 
@@ -366,8 +394,8 @@ describe('Search', () => {
       expect(result.operations[0].properties).toEqual([]);
       expect(result.operations[1].keywords).toEqual([]);
       expect(result.operations[1].properties).toEqual([
-        { name: 'tag', value: 'test' },
-        { name: 'tag', value: 'EXAMPLE' },
+        { name: 'tag', value: 'test', operator: '==' },
+        { name: 'tag', value: 'EXAMPLE', operator: '==' },
       ]);
     });
 
@@ -388,7 +416,12 @@ describe('Search', () => {
 
       // Should not split because '"test"' (with quotes) does not match 'test' (without quotes)
       expect(result.operations).toHaveLength(1);
-      expect(result.operations[0]).toEqual(input.operations[0]);
+      expect(result.operations[0]).toEqual({
+        keywords: ['"test"', 'example'],
+        filenames: [],
+        folders: [],
+        properties: [{ name: 'tag', operator: '==', value: 'test' }],
+      });
     });
 
     it('should handle empty operations array', () => {

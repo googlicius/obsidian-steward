@@ -6,7 +6,7 @@ import { getTranslation } from 'src/i18n';
 import { ToolRegistry, ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { activateTools } from '../../tools/activateTools';
-import { ArtifactType, revertAbleArtifactTypes } from 'src/solutions/artifact';
+import { ArtifactType } from 'src/solutions/artifact';
 import { getMostRecentArtifact, getArtifactById } from '../../tools/getArtifact';
 import { getClassifier } from 'src/lib/modelfusion';
 import { logger } from 'src/utils/logger';
@@ -18,6 +18,8 @@ import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 import { createTextReasoningStream } from 'src/utils/textStreamer';
 import { SysError } from 'src/utils/errors';
+import { CommandSyntaxParser } from '../../command-syntax-parser';
+import { createStepProcessedQuery, parseStepProcessedQuery } from 'src/utils/stepProcessedQuery';
 
 /**
  * Map of task names to their associated tool names.
@@ -83,7 +85,7 @@ const TASK_TO_INDICATOR_MAP: Record<string, string> = {
 /**
  * These tasks should be processed in a single turn (Don't need a last evaluation)
  */
-const SINGLE_TURN_TASKS = new Set(['search', 'search_more']);
+const SINGLE_TURN_TASKS = new Set(['search']);
 
 const { askUserTool: confirmationTool } = createAskUserTool('confirmation');
 const { askUserTool } = createAskUserTool('ask');
@@ -180,6 +182,19 @@ export class SuperAgent extends Agent {
     classificationMatchType?: 'static' | 'prefixed' | 'clustered';
   }): Promise<ToolCallPart | undefined> {
     const { title, query, activeTools, classifiedTasks, lang, classificationMatchType } = params;
+
+    // Client-handled step: command syntax was processed locally, update todo list and move to next step
+    const originalQuery = parseStepProcessedQuery(query);
+    const isCommandSyntaxStepProcessed =
+      originalQuery !== null && CommandSyntaxParser.isCommandSyntax(originalQuery);
+
+    if (isCommandSyntaxStepProcessed && activeTools.includes(ToolName.TODO_LIST_UPDATE)) {
+      const todoListUpdateToolCall = await this.craftTodoListUpdateToolCallManually(title);
+
+      if (todoListUpdateToolCall) {
+        return todoListUpdateToolCall;
+      }
+    }
 
     // Return undefined if there are multiple classified tasks
     if (classifiedTasks.length !== 1) {
@@ -416,6 +431,7 @@ export class SuperAgent extends Agent {
       const messages = [...conversationHistory];
 
       // Include user message for the first iteration.
+      // For UDC, we don't need to send task individually (query), the AI will check the to-do list state to decide next step.
       if (!params.invocationCount) {
         messages.push({ role: 'user', content: params.intent.query });
       }
@@ -462,7 +478,14 @@ export class SuperAgent extends Agent {
 
       const shouldUseCoreSystemPrompt = shouldUseTools;
 
-      const additionalSystemPrompts = params.intent.systemPrompts || [];
+      // Resolve wikilinks in system prompts at execution time (they are stored unresolved)
+      const resolvedSystemPrompts =
+        params.intent.systemPrompts && params.intent.systemPrompts.length > 0
+          ? await this.plugin.userDefinedCommandService.processSystemPromptsWikilinks(
+              params.intent.systemPrompts
+            )
+          : [];
+      const additionalSystemPrompts = [...resolvedSystemPrompts];
 
       if (llmConfig.systemPrompt) {
         additionalSystemPrompts.push(llmConfig.systemPrompt);
@@ -473,7 +496,9 @@ export class SuperAgent extends Agent {
       additionalSystemPrompts.push(...activeSkillPrompts);
 
       if (additionalSystemPrompts.length > 0) {
-        messages.unshift({ role: 'system', content: additionalSystemPrompts.join('\n\n') });
+        for (const item of additionalSystemPrompts) {
+          messages.unshift({ role: 'system', content: item });
+        }
       }
 
       // Track the tool detected from the stream
@@ -677,20 +702,27 @@ NOTE:
       });
     }
 
-    const manualToolCall = await this.manualToolCall({
-      title,
-      query: intent.query,
-      activeTools,
-      classifiedTasks,
-      lang,
-      classificationMatchType,
-    });
+    // Highest priority: command syntax (c:tool --args) bypasses classification and LLM
+    const commandSyntaxToolCalls = CommandSyntaxParser.parseAndConvert(intent.query);
+
+    const manualToolCall = commandSyntaxToolCalls
+      ? undefined
+      : await this.manualToolCall({
+          title,
+          query: intent.query,
+          activeTools,
+          classifiedTasks,
+          lang,
+          classificationMatchType,
+        });
 
     let toolCalls: ToolCalls;
     let conversationHistory: ModelMessage[] = [];
 
     if (options.toolCalls) {
       toolCalls = options.toolCalls;
+    } else if (commandSyntaxToolCalls) {
+      toolCalls = commandSyntaxToolCalls as ToolCalls;
     } else if (manualToolCall) {
       toolCalls = [manualToolCall] as ToolCalls;
     } else {
@@ -745,16 +777,18 @@ NOTE:
       [ToolName.TODO_LIST]: () => this.todoList,
       [ToolName.HELP]: () => this.help,
       [ToolName.CONCLUDE]: () => this.conclude,
+      [ToolName.GET_MOST_RECENT_ARTIFACT]: () => this.getMostRecentArtifact,
+      [ToolName.GET_ARTIFACT_BY_ID]: () => this.getArtifactById,
     };
 
     const processToolCalls = async (startIndex: number): Promise<AgentResult> => {
       // Set up timer to show indicator after 2 seconds if processing takes time
-      let timer: number | null = null;
       // Get the first tool name from toolCalls if available
       const firstToolName =
         toolCalls.length > startIndex && !toolCalls[startIndex]?.dynamic
           ? (toolCalls[startIndex].toolName as ToolName)
           : undefined;
+      let timer: number | null = null;
       timer = window.setTimeout(() => {
         this.renderIndicator(title, lang, firstToolName);
       }, 2000);
@@ -781,68 +815,6 @@ NOTE:
           }
 
           switch (toolCall.toolName) {
-            case ToolName.GET_MOST_RECENT_ARTIFACT: {
-              const artifact = await this.plugin.artifactManagerV2
-                .withTitle(title)
-                .getMostRecentArtifactOfTypes(revertAbleArtifactTypes);
-
-              const result = artifact?.id
-                ? `artifactRef:${artifact.id}`
-                : t('common.noArtifactsFound');
-
-              await this.renderer.serializeToolInvocation({
-                path: title,
-                command: 'get-artifact',
-                handlerId,
-                toolInvocations: [
-                  {
-                    ...toolCall,
-                    type: 'tool-result',
-                    output: {
-                      type: 'text',
-                      value: result,
-                    },
-                  },
-                ],
-              });
-
-              toolCallResult = {
-                status: IntentResultStatus.SUCCESS,
-              };
-              break;
-            }
-
-            case ToolName.GET_ARTIFACT_BY_ID: {
-              const artifact = await this.plugin.artifactManagerV2
-                .withTitle(title)
-                .getArtifactById(toolCall.input.artifactId);
-
-              const result = artifact?.id
-                ? `artifactRef:${artifact.id}`
-                : t('common.artifactNotFound', { artifactId: toolCall.input.artifactId });
-
-              await this.renderer.serializeToolInvocation({
-                path: title,
-                command: 'get-artifact',
-                handlerId,
-                toolInvocations: [
-                  {
-                    ...toolCall,
-                    type: 'tool-result',
-                    output: {
-                      type: 'text',
-                      value: result,
-                    },
-                  },
-                ],
-              });
-
-              toolCallResult = {
-                status: IntentResultStatus.SUCCESS,
-              };
-              break;
-            }
-
             case ToolName.CONFIRMATION:
             case ToolName.ASK_USER: {
               await this.renderer.updateConversationNote({
@@ -957,11 +929,14 @@ NOTE:
     if (toolProcessingResult.status !== IntentResultStatus.SUCCESS) {
       logger.log('Stopping or pausing processing because tool processing result is not success', {
         status: toolProcessingResult.status,
+        toolCalls,
+        intent,
       });
       return toolProcessingResult;
     }
 
-    if (manualToolCall) {
+    // Stop if manual tool call, except todo_list_update
+    if (manualToolCall && manualToolCall.toolName !== ToolName.TODO_LIST_UPDATE) {
       logger.log('Stopping processing because manual tool call is present', { manualToolCall });
       return toolProcessingResult;
     }
@@ -971,17 +946,11 @@ NOTE:
     // Check if to-do list has incomplete steps (for UDC "generate" steps that don't use tools)
     const hasTodoIncomplete = await this.hasTodoListIncompleteSteps(title);
 
-    // classifiedTasks = this.classifyTasksFromActiveTools(activeTools);
-
     if (
       (toolCalls.length > 0 || hasTodoIncomplete) &&
       nextRemainingSteps > 0 &&
       !this.stopProcessingForClassifiedTask(classifiedTasks, toolCalls)
     ) {
-      // Update indicator to show we're still working
-      const firstToolName = toolCalls.length > 0 ? (toolCalls[0].toolName as ToolName) : undefined;
-      await this.renderIndicator(title, lang, firstToolName);
-
       // Check if TODO_LIST_UPDATE was called and get next step intent for UDC
       const wasTodoListUpdateCalled = toolCalls.some(
         call => !call.dynamic && call.toolName === ToolName.TODO_LIST_UPDATE
@@ -990,12 +959,40 @@ NOTE:
         ? await this.getNextTodoListStepIntent(title, intent)
         : null;
 
+      // No next step after TODO_LIST_UPDATE: all steps are done, exit successfully
+      if (wasTodoListUpdateCalled && nextStepIntent === null) {
+        return toolProcessingResult;
+      }
+
       // Continue the current invocation count so the user'query is not included in the next iteration
       params.invocationCount = (params.invocationCount ?? 0) + 1;
-      params.intent = nextStepIntent || intent;
+      params.intent = nextStepIntent ?? {
+        ...intent,
+        query: createStepProcessedQuery(intent.query),
+      };
+
+      let injectedToolCall;
+
+      if (
+        classifiedTasks.length === 1 &&
+        classifiedTasks[0] === 'generate' &&
+        (await this.isLastTodoListStep(title))
+      ) {
+        injectedToolCall = await this.craftTodoListUpdateToolCallManually(title);
+      }
+
+      if (!injectedToolCall) {
+        // Update indicator to show we're still working
+        const firstToolName =
+          toolCalls.length > 0 ? (toolCalls[0].toolName as ToolName) : undefined;
+        await this.renderIndicator(title, lang, firstToolName);
+      }
 
       return this.handle(params, {
         remainingSteps: nextRemainingSteps,
+        ...(injectedToolCall && {
+          toolCalls: [injectedToolCall] as ToolCalls,
+        }),
       });
     }
 
@@ -1275,9 +1272,10 @@ Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-spec
   }
 
   /**
-   * Get the next step intent for TodoList if TODO_LIST_UPDATE was called
+   * Get the next step intent for TodoList
    * Returns null if not a UDC or no next step available
    * Skips over completed or skipped steps to find the next pending or in_progress step
+   * @param force When true, skip the current step regardless of its status to return the actual next step
    */
   private async getNextTodoListStepIntent(
     title: string,
@@ -1337,6 +1335,43 @@ Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-spec
   }
 
   /**
+   * Check if two intents have the same configuration (model and systemPrompts)
+   * Used to determine if two steps can be processed in parallel within the same request
+   */
+  private isSameIntentConfig(a: Intent, b: Intent): boolean {
+    if (a.model !== b.model) return false;
+
+    const aPrompts = a.systemPrompts ?? [];
+    const bPrompts = b.systemPrompts ?? [];
+    if (aPrompts.length !== bPrompts.length) return false;
+
+    const result = aPrompts.every((prompt, index) => prompt === bPrompts[index]);
+
+    return result;
+  }
+
+  private async craftTodoListUpdateToolCallManually(title: string): Promise<ToolCallPart | null> {
+    const todoListState = await this.renderer.getConversationProperty<handlers.TodoListState>(
+      title,
+      'todo_list'
+    );
+    const steps = todoListState?.steps;
+    const stepCount = steps?.length ?? 0;
+    if (stepCount === 0 || !todoListState) {
+      return null;
+    }
+    return {
+      type: 'tool-call',
+      toolName: ToolName.TODO_LIST_UPDATE,
+      toolCallId: `manual-tool-call-${uniqueID()}`,
+      input: {
+        status: 'completed',
+        nextStep: Math.min(todoListState.currentStep + 1, stepCount),
+      },
+    };
+  }
+
+  /**
    * Find the task name for a given tool name
    */
   private getTaskForTool(toolName: ToolName): string | null {
@@ -1346,6 +1381,24 @@ Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-spec
       }
     }
     return null;
+  }
+
+  /**
+   * Check if the current step is the last step of the to-do list
+   * @param title The conversation title
+   * @returns True if the current step is the last step
+   */
+  private async isLastTodoListStep(title: string): Promise<boolean> {
+    const todoListState = await this.renderer.getConversationProperty<handlers.TodoListState>(
+      title,
+      'todo_list'
+    );
+
+    if (!todoListState || !todoListState.steps || todoListState.steps.length === 0) {
+      return false;
+    }
+
+    return todoListState.currentStep === todoListState.steps.length;
   }
 
   /**

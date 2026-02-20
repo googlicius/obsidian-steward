@@ -183,12 +183,12 @@ export class StewardChatView extends MarkdownView {
     newChatBtn.addEventListener('click', () => this.handleNewChat());
 
     // History button
-    // const historyBtn = headerEl.createEl('button', {
-    //   cls: 'steward-header-button clickable-icon',
-    // });
-    // setIcon(historyBtn, 'history');
-    // historyBtn.title = i18next.t('chat.history');
-    // historyBtn.addEventListener('click', () => this.handleHistory());
+    const historyBtn = headerEl.createEl('button', {
+      cls: 'steward-header-button clickable-icon',
+    });
+    setIcon(historyBtn, 'history');
+    setTooltip(historyBtn, i18next.t('chat.history'));
+    historyBtn.addEventListener('click', () => this.handleHistory());
 
     // Close Chat button
     const closeBtn = headerEl.createEl('button', {
@@ -303,6 +303,63 @@ export class StewardChatView extends MarkdownView {
       logger.error('Error checking for new version:', error);
       // Don't throw - this is a non-critical feature
     }
+  }
+
+  private async handleHistory(): Promise<void> {
+    if (!this.file) {
+      logger.warn('Conversation file not found');
+      return;
+    }
+
+    try {
+      const content = await this.buildHistoryContent();
+
+      const historyNotePath = `${this.plugin.settings.stewardFolder}/History.md`;
+      const existingFile = this.app.vault.getFileByPath(historyNotePath);
+
+      if (existingFile) {
+        await this.app.vault.modify(existingFile, content);
+      } else {
+        await this.app.vault.create(historyNotePath, content);
+      }
+
+      const embedContent = `\n![[History]]\n`;
+      await this.app.vault.modify(this.file, embedContent);
+    } catch (error) {
+      logger.error('Error loading history:', error);
+    }
+  }
+
+  private async buildHistoryContent(): Promise<string> {
+    const MAX_HISTORY_ITEMS = 50;
+    const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+    const folder = this.app.vault.getFolderByPath(folderPath);
+
+    if (!folder) {
+      return i18next.t('chat.noConversations');
+    }
+
+    const conversationFiles = folder.children
+      .filter((f): f is TFile => f instanceof TFile && f.extension === 'md')
+      .sort((a, b) => {
+        return b.stat.mtime - a.stat.mtime;
+      })
+      .slice(0, MAX_HISTORY_ITEMS);
+
+    if (conversationFiles.length === 0) {
+      return i18next.t('chat.noConversations');
+    }
+
+    const lines: string[] = [];
+    for (const file of conversationFiles) {
+      const cache = this.app.metadataCache.getFileCache(file);
+      const conversationTitle = cache?.frontmatter?.conversation_title;
+      const displayText = conversationTitle || file.basename;
+      const linkPath = file.path.replace(/\.md$/, '');
+      lines.push(`- <a data-path="${linkPath}">${displayText}</a>`);
+    }
+
+    return lines.join('\n');
   }
 
   /**

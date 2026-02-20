@@ -572,7 +572,8 @@ export class PersistentEmbeddingSimilarityClassifier {
    * - clustered: Match via embedding similarity
    */
   async doClassify(
-    value: string
+    value: string,
+    options?: { ignoreEmbedding?: boolean }
   ): Promise<{ name: string; matchType: 'static' | 'prefixed' | 'clustered' } | null> {
     if (this.settings.staticClusterValues) {
       for (const cluster of this.settings.staticClusterValues) {
@@ -594,7 +595,7 @@ export class PersistentEmbeddingSimilarityClassifier {
     }
 
     // If ignoreEmbedding is set, skip the embedding similarity check
-    if (this.settings.ignoreEmbedding) {
+    if (this.settings.ignoreEmbedding || options?.ignoreEmbedding) {
       logger.log('Ignoring embedding similarity check');
       return null;
     }

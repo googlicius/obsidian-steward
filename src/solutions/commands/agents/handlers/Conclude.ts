@@ -3,13 +3,12 @@ import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { createTextStream } from 'src/utils/textStreamer';
 import { ArtifactType } from 'src/solutions/artifact';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
+import { ToolName } from '../../toolNames';
 
-const concludeSchema = z.object({
-  conclusion: z.string().describe('A brief conclusion text summarizing what you have done.'),
+export const concludeSchema = z.object({
   parallelToolName: z
     .string()
     .describe(
@@ -19,14 +18,26 @@ const concludeSchema = z.object({
     .object({
       expectedArtifactType: z
         .string()
+        .optional()
         .describe(
           'The expected artifact type created by the parallel tool. Used to verify the operation succeeded.'
         ),
     })
+    .transform(value => {
+      let expectedArtifactType = value.expectedArtifactType;
+      // Ignore these "artifact type" as they're not exist
+      if (
+        expectedArtifactType &&
+        ['todo_list', 'todo_list_update', 'todo_list_update_results'].includes(expectedArtifactType)
+      ) {
+        expectedArtifactType = undefined;
+      }
+      return { ...value, expectedArtifactType };
+    })
     .describe('Criteria to validate the result of the parallel tool call.'),
 });
 
-export type ConcludeArgs = z.infer<typeof concludeSchema>;
+export type ConcludeInput = z.infer<typeof concludeSchema>;
 
 export class Conclude {
   private static readonly concludeTool = tool({
@@ -41,14 +52,14 @@ export class Conclude {
 
   /**
    * Handle conclude tool call.
-   * Validates artifact criteria. If validation passes, streams the conclusion
-   * text and signals stop. If validation fails, serializes a failure message
-   * so the AI is aware and does not retry the conclude tool.
+   * Validates artifact criteria. If validation passes, signals stop.
+   * If validation fails, serializes a failure message so the AI is aware
+   * and does not retry the conclude tool.
    */
   public async handle(
     params: AgentHandlerParams,
     options: {
-      toolCall: ToolCallPart<ConcludeArgs>;
+      toolCall: ToolCallPart<ConcludeInput>;
     }
   ): Promise<AgentResult> {
     const { title, handlerId, lang } = params;
@@ -59,7 +70,7 @@ export class Conclude {
     }
 
     // Schema-based validation: check expected artifact type
-    if (!(await this.validateArtifactCriteria(title, toolCall.input.validation))) {
+    if (!(await this.validateArtifactCriteria(title, toolCall.input))) {
       const t = getTranslation(lang);
       const failureMessage = t('conclude.validationFailed');
 
@@ -80,14 +91,6 @@ export class Conclude {
       };
     }
 
-    const { conclusion } = toolCall.input;
-
-    if (!conclusion || conclusion.trim().length === 0) {
-      return {
-        status: IntentResultStatus.STOP_PROCESSING,
-      };
-    }
-
     await this.agent.serializeInvocation({
       title,
       handlerId,
@@ -96,20 +99,8 @@ export class Conclude {
       step: params.invocationCount,
       result: {
         type: 'json',
-        value: 'Validation passed and the conclusion is rendered.',
+        value: 'Validation passed. Task completed successfully.',
       },
-    });
-
-    // Stream the conclusion text using textStreamer
-    const textStream = createTextStream(conclusion);
-
-    await this.agent.renderer.streamConversationNote({
-      path: title,
-      stream: textStream,
-      handlerId,
-      step: params.invocationCount,
-      command: 'conclude',
-      includeHistory: false,
     });
 
     return {
@@ -122,15 +113,31 @@ export class Conclude {
    */
   private async validateArtifactCriteria(
     title: string,
-    validation: ConcludeArgs['validation']
+    concludeInput: ConcludeInput
   ): Promise<boolean> {
+    if (!concludeInput.validation.expectedArtifactType) {
+      // Empty parallelToolName means unconditional conclude (e.g. from command syntax c:conclude)
+      if (!concludeInput.parallelToolName) {
+        return true;
+      }
+
+      switch (concludeInput.parallelToolName) {
+        case ToolName.TODO_LIST_UPDATE:
+          return true;
+
+        default:
+          return false;
+      }
+    }
     const latestArtifact = await this.agent.plugin.artifactManagerV2
       .withTitle(title)
-      .getMostRecentArtifactOfTypes([validation.expectedArtifactType as ArtifactType]);
+      .getMostRecentArtifactOfTypes([
+        concludeInput.validation.expectedArtifactType as ArtifactType,
+      ]);
 
     if (!latestArtifact) {
       logger.warn('Conclude: expected artifact type not found', {
-        expectedArtifactType: validation.expectedArtifactType,
+        expectedArtifactType: concludeInput.validation.expectedArtifactType,
       });
       return false;
     }

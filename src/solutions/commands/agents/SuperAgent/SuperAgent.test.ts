@@ -10,6 +10,7 @@ import { RevertDelete } from '../handlers/RevertDelete';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { getClassifier } from 'src/lib/modelfusion';
 import * as handlers from '../handlers';
+import { createStepProcessedQuery } from 'src/utils/stepProcessedQuery';
 
 // Mock individual functions from the ai package
 jest.mock('ai', () => {
@@ -1522,6 +1523,128 @@ describe('SuperAgent', () => {
 
       // Clean up
       classifyTasksFromQuerySpy.mockRestore();
+    });
+  });
+
+  describe('handle - manual tool calls', () => {
+    it('should create a manual tool call TODO_LIST_UPDATE if the current task is client-processed', async () => {
+      const mockTodoListState: handlers.TodoListState = {
+        steps: [
+          { task: 'c:read --blocks=1', status: 'in_progress' },
+          { task: 'c:edit --mode=replace;' },
+        ],
+        currentStep: 1,
+        createdBy: 'udc',
+      };
+
+      mockPlugin.conversationRenderer.getConversationProperty = jest
+        .fn()
+        .mockImplementation(async (_title: string, property: string) => {
+          if (property === 'todo_list') return mockTodoListState;
+          return undefined;
+        });
+
+      const mockTodoListHandleUpdate = jest.fn().mockResolvedValue({
+        status: IntentResultStatus.SUCCESS,
+      });
+
+      const mockTodoList = {
+        handleUpdate: mockTodoListHandleUpdate,
+      } as unknown as handlers.TodoList;
+
+      Object.defineProperty(superAgent, '_todoList', {
+        value: mockTodoList,
+        writable: true,
+        configurable: true,
+      });
+
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'read',
+          query: createStepProcessedQuery('c:read --blocks=1'),
+        } as Intent,
+        activeTools: [ToolName.TODO_LIST_UPDATE],
+        invocationCount: 1,
+      };
+
+      await superAgent.handle(params);
+
+      expect(streamText).not.toHaveBeenCalled();
+      expect(mockTodoListHandleUpdate).toHaveBeenCalledTimes(1);
+      const toolCall = mockTodoListHandleUpdate.mock.calls[0][1].toolCall;
+      expect(toolCall.toolName).toBe(ToolName.TODO_LIST_UPDATE);
+      expect(toolCall.input).toMatchObject({
+        status: 'completed',
+        nextStep: 2,
+      });
+      expect(mockPlugin.conversationRenderer.getConversationProperty).toHaveBeenCalledWith(
+        'test-conversation',
+        'todo_list'
+      );
+    });
+
+    it('should NOT create TODO_LIST_UPDATE when query is not step-processed format', async () => {
+      mockPlugin.conversationRenderer.getConversationProperty = jest
+        .fn()
+        .mockResolvedValue(undefined);
+
+      (mockPlugin.contentReadingService.readContent as jest.Mock).mockResolvedValue({
+        blocks: [{ content: '', startLine: 0, endLine: 0, sections: [] }],
+      });
+
+      const mockTodoListHandleUpdate = jest.fn();
+      Object.defineProperty(superAgent, '_todoList', {
+        value: { handleUpdate: mockTodoListHandleUpdate } as unknown as handlers.TodoList,
+        writable: true,
+        configurable: true,
+      });
+
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'read',
+          query: 'c:read --blocks=1', // Raw command syntax - handled by parseAndConvert, not manualToolCall
+        } as Intent,
+        activeTools: [ToolName.TODO_LIST_UPDATE],
+        invocationCount: 1,
+        handlerId: 'faked',
+      };
+
+      await superAgent.handle(params);
+
+      // Command syntax is handled by CommandSyntaxParser.parseAndConvert (CONTENT_READING).
+      // manualToolCall is bypassed, so we never create a manual TODO_LIST_UPDATE.
+      expect(mockTodoListHandleUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should NOT create TODO_LIST_UPDATE when todo list does not exist', async () => {
+      mockPlugin.conversationRenderer.getConversationProperty = jest
+        .fn()
+        .mockResolvedValue(undefined);
+
+      const mockTodoListHandleUpdate = jest.fn();
+      Object.defineProperty(superAgent, '_todoList', {
+        value: { handleUpdate: mockTodoListHandleUpdate } as unknown as handlers.TodoList,
+        writable: true,
+        configurable: true,
+      });
+
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'read',
+          query: createStepProcessedQuery('c:read --blocks=1'),
+        } as Intent,
+        activeTools: [ToolName.TODO_LIST_UPDATE],
+        invocationCount: 1,
+      };
+
+      await superAgent.handle(params);
+
+      // manualToolCall returns undefined when no todo list, so executeStreamText is used
+      expect(streamText).toHaveBeenCalled();
+      expect(mockTodoListHandleUpdate).not.toHaveBeenCalled();
     });
   });
 });

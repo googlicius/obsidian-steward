@@ -10,81 +10,89 @@ import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 
-const moveToolSchema = z.object(
+export const artifactModeSchema = z.object(
+  {
+    mode: z.literal('artifactId'),
+    artifactId: z
+      .string()
+      .min(1)
+      .describe('ID of the artifact containing the files or folders to move.'),
+  },
+  {
+    description:
+      'Move by artifactId. Use this when: 1. Provided by user or tool call results (Do NOT guess), and 2. The files is a part of a larger list.',
+  }
+);
+
+export const filesModeSchema = z.object(
+  {
+    mode: z.literal('files'),
+    files: z.array(z.string()).min(1).describe('The list of files that must be moved.'),
+  },
+  {
+    description:
+      'Move by file paths. DO NOT use this when you have a paginated list, where the files number is smaller than the total count.',
+  }
+);
+
+export const folderModeSchema = z.object(
+  {
+    mode: z.literal('folders'),
+    folders: z
+      .array(
+        z.object({
+          path: z
+            .string()
+            .min(1)
+            // Ensure folders don't have leading/trailing slashes
+            .transform(path => path.replace(/^\/+|\/+$/g, ''))
+            .describe('The full path of the folder to move.'),
+        })
+      )
+      .min(1)
+      .describe('Explicit list of folders to move.'),
+  },
+  {
+    description: 'Move by folder paths. Moves entire folders to the destination.',
+  }
+);
+
+export const filePatternsModeSchema = z.object(
+  {
+    mode: z.literal('filePatterns'),
+    filePatterns: z
+      .object({
+        patterns: z
+          .array(z.string().min(1))
+          .min(1)
+          .describe('Array of RegExp patterns to match files for moving.'),
+        folder: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            'Optional folder path to limit pattern matching. If not provided, searches entire vault.'
+          ),
+      })
+      .describe(
+        'Pattern-based file selection for large file sets. Use this to avoid token limits.'
+      ),
+  },
+  {
+    description:
+      'Move by file patterns. Pattern-based file selection for large file sets. Use this to avoid token limits.',
+  }
+);
+
+export const moveToolSchema = z.object(
   {
     operations: z
       .array(
         z.discriminatedUnion('mode', [
-          z.object(
-            {
-              mode: z.literal('artifactId'),
-              artifactId: z
-                .string()
-                .min(1)
-                .describe('ID of the artifact containing the files or folders to move.'),
-            },
-            {
-              description:
-                'Move by artifactId. Use this when: 1. Provided by user or tool call results (Do NOT guess), and 2. The files is a part of a larger list.',
-            }
-          ),
-          z.object(
-            {
-              mode: z.literal('files'),
-              files: z.array(z.string()).min(1).describe('The list of files that must be moved.'),
-            },
-            {
-              description:
-                'Move by file paths. DO NOT use this when you have a paginated list, where the files number is smaller than the total count.',
-            }
-          ),
-          z.object(
-            {
-              mode: z.literal('folders'),
-              folders: z
-                .array(
-                  z.object({
-                    path: z
-                      .string()
-                      .min(1)
-                      // Ensure folders don't have leading/trailing slashes
-                      .transform(path => path.replace(/^\/+|\/+$/g, ''))
-                      .describe('The full path of the folder to move.'),
-                  })
-                )
-                .min(1)
-                .describe('Explicit list of folders to move.'),
-            },
-            {
-              description: 'Move by folder paths. Moves entire folders to the destination.',
-            }
-          ),
-          z.object(
-            {
-              mode: z.literal('filePatterns'),
-              filePatterns: z
-                .object({
-                  patterns: z
-                    .array(z.string().min(1))
-                    .min(1)
-                    .describe('Array of RegExp patterns to match files for moving.'),
-                  folder: z
-                    .string()
-                    .min(1)
-                    .optional()
-                    .describe(
-                      'Optional folder path to limit pattern matching. If not provided, searches entire vault.'
-                    ),
-                })
-                .describe(
-                  'Pattern-based file selection for large file sets. Use this to avoid token limits.'
-                ),
-            },
-            {
-              description:
-                'Move by file patterns. Pattern-based file selection for large file sets. Use this to avoid token limits.',
-            }
-          ),
+          artifactModeSchema,
+          filesModeSchema,
+          folderModeSchema,
+          filePatternsModeSchema,
         ])
       )
       .min(1)

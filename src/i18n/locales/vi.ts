@@ -50,6 +50,7 @@ const vi = {
     chat: {
       newChat: 'Cuộc trò chuyện mới',
       history: 'Lịch Sử',
+      noConversations: 'Không có cuộc trò chuyện nào.',
       closeChat: 'Đóng trò chuyện',
       stewardChat: 'Trò chuyện Steward',
       closeConversation: 'Đóng cuộc trò chuyện',

@@ -18,7 +18,7 @@ import { DEFAULT_SETTINGS } from 'src/constants';
 import { StewardPluginSettings } from 'src/types/interfaces';
 
 // Define the Zod schema for search operation validation
-const searchOperationSchema = z.object({
+export const searchOperationSchema = z.object({
   keywords: z.array(z.string()).describe(`General terms or concepts to search for in file content.
 If a term or phrase is wrapped in quotation marks (e.g., "cat or dog"), preserve the quotes exactly as is for exact match queries.
 NOTE: keywords only used for searching in file content, not title or filename.`),
@@ -29,18 +29,25 @@ NOTE: keywords only used for searching in file content, not title or filename.`)
   properties: z.array(
     z.object({
       name: z.string(),
-      value: z.string(),
+      value: z.union([z.string(), z.number()]),
+      operator: z.enum(['==', '!=', '>', '<', '>=', '<=']).default('=='),
     })
   ).describe(`Properties to search for in files:
 - For tags: use name: "tag" and value without # symbol
 - For file types: use name: "file_type" and value: extension (e.g., "md", "pdf", "jpg")
 - For file categories: use name: "file_category" and value: category (e.g., "document", "image", "audio", "video", "data", "code")
-- For frontmatter properties: use the property name and value
+- For frontmatter properties: use the property name and value (use number type for numeric values)
+- Use operator for comparisons: "==" (default), "!=", ">", "<", ">=", "<="
+- For date/datetime properties: use ISO 8601 format (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss) or natural language relative dates (e.g., "today", "yesterday", "last week", "2 days ago", "next month")
 Examples:
 - For images: {name: "file_category", value: "image"}
 - For PDFs: {name: "file_type", value: "pdf"}
 - For notes: {name: "file_type", value: "md"}
-- For documents with status "completed": {name: "status", value: "completed"}`),
+- For documents with status "completed": {name: "status", value: "completed"}
+- For documents with priority greater than 3: {name: "priority", value: 3, operator: ">"}
+- For documents with priority at most 5: {name: "priority", value: 5, operator: "<="}
+- For notes created after 2025-01-01: {name: "created", value: "2025-01-01", operator: ">"}
+- For notes modified in the last week: {name: "modified", value: "last week", operator: ">="}`),
 });
 
 // Define the Zod schema for search query extraction validation
@@ -64,7 +71,7 @@ If the user wants to search with different criteria in different locations, retu
         // Instead of spending tokens to tell AIs that keywords are not tags, we will handle it.
         // Only split if any keyword value matches any tag value
         if (hasKeywords && hasTagProperties) {
-          const tagValues = tagProperties.map(prop => prop.value.toLowerCase());
+          const tagValues = tagProperties.map(prop => String(prop.value).toLowerCase());
           const matchingKeywords = operation.keywords.filter(keyword =>
             tagValues.includes(keyword.toLowerCase())
           );
@@ -114,14 +121,18 @@ If the user wants to search with different criteria in different locations, retu
     .describe(`A number from 0 to 1 indicating confidence in this interpretation`),
 });
 
+export type SearchInput = z.infer<typeof searchQueryExtractionSchema>;
+
 /**
  * Represents a single search operation with v2 parameters
  */
+export type PropertyOperator = '==' | '!=' | '>' | '<' | '>=' | '<=';
+
 export interface SearchOperationV2 {
   keywords: string[];
   filenames: string[];
   folders: string[];
-  properties: Array<{ name: string; value: string }>;
+  properties: Array<{ name: string; value: string | number; operator?: PropertyOperator }>;
 }
 
 /**

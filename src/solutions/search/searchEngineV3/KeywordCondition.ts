@@ -321,10 +321,6 @@ export class KeywordCondition extends Condition<IndexedDocument> {
       }
     }
 
-    console.log('Keyword condition', {
-      documentsMap,
-    });
-
     return documentsMap;
   }
 }

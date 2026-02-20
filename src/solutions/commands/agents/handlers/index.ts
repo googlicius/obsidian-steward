@@ -28,3 +28,5 @@ export * from './Dynamic';
 export * from './ActivateToolHandler';
 export * from './UseSkills';
 export * from './Conclude';
+export * from './GetMostRecentArtifact';
+export * from './GetArtifactById';

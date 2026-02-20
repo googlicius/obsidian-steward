@@ -9,6 +9,7 @@ import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { logger } from 'src/utils/logger';
+import { ARTIFACT_REF_PREFIX } from '../../command-syntax-parser/normalizers/ReadContentInputNormalizer';
 
 export const contentReadingSchema = z.object({
   readType: z.enum(['above', 'below', 'pattern', 'entire', 'frontmatter']).default('above')
@@ -94,12 +95,13 @@ export class ReadContent {
       throw new Error('ReadContent.handle invoked without handlerId');
     }
 
-    const { fileNames, ...rest } = toolCall.input;
+    const { fileNames: rawFileNames, ...rest } = toolCall.input;
+
+    const fileNames = await this.resolveFileNames(rawFileNames, title);
 
     const readingResults: ContentReadingResult[] = [];
     const errors: Array<{ fileName: string | null; error: string }> = [];
 
-    // Read each file
     for (const fileName of fileNames) {
       try {
         const result = await this.agent.plugin.contentReadingService.readContent({
@@ -287,5 +289,59 @@ export class ReadContent {
     return {
       status: IntentResultStatus.SUCCESS,
     };
+  }
+
+  /**
+   * Resolve file names, expanding any `artifact:<id|latest>` entries
+   * into actual file paths via the artifact manager.
+   */
+  private async resolveFileNames(rawFileNames: string[], title: string): Promise<string[]> {
+    const resolved: string[] = [];
+
+    for (const name of rawFileNames) {
+      if (!name.startsWith(ARTIFACT_REF_PREFIX)) {
+        resolved.push(name);
+        continue;
+      }
+
+      const artifactRef = name.slice(ARTIFACT_REF_PREFIX.length);
+      const docs =
+        artifactRef === 'latest'
+          ? await this.resolveLatestArtifactFiles(title)
+          : await this.agent.plugin.artifactManagerV2
+              .withTitle(title)
+              .resolveFilesFromArtifact(artifactRef);
+
+      if (docs.length === 0) {
+        logger.warn(`No files resolved from artifact reference: ${artifactRef}`);
+        continue;
+      }
+
+      for (const doc of docs) {
+        resolved.push(doc.path);
+      }
+    }
+
+    return resolved;
+  }
+
+  private async resolveLatestArtifactFiles(title: string) {
+    const ARTIFACT_SUPPORTED_TYPES: ArtifactType[] = [
+      ArtifactType.SEARCH_RESULTS,
+      ArtifactType.CREATED_NOTES,
+      ArtifactType.READ_CONTENT,
+      ArtifactType.MEDIA_RESULTS,
+      ArtifactType.LIST_RESULTS,
+    ];
+
+    const manager = this.agent.plugin.artifactManagerV2.withTitle(title);
+    const artifact = await manager.getMostRecentArtifactOfTypes(ARTIFACT_SUPPORTED_TYPES);
+
+    if (!artifact?.id) {
+      logger.warn('No recent artifact found for "latest" reference');
+      return [];
+    }
+
+    return manager.resolveFilesFromArtifact(artifact.id);
   }
 }
