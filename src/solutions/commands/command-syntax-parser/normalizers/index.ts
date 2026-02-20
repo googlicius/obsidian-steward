@@ -18,7 +18,7 @@ const ALL_INPUT_NORMALIZERS: InputNormalizer[] = [
 ];
 
 const NORMALIZER_MAP = new Map<string, InputNormalizer>(
-  ALL_INPUT_NORMALIZERS.map(n => [n.toolName, n]),
+  ALL_INPUT_NORMALIZERS.map(n => [n.toolName, n])
 );
 
 /**

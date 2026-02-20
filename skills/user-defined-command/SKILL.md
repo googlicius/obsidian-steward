@@ -66,18 +66,18 @@ c:<tool> [--arg=value]...
 
 ### Command Reference
 
-| Alias        | Tool                 | Flags                                                               |
-| ------------ | -------------------- | ------------------------------------------------------------------- |
-| `c:read`     | Content Reading      | `--type`, `--files`, `--element`, `--blocks`, `--pattern`           |
-| `c:search`   | Search               | `--keywords`, `--filenames`, `--folders`, `--properties`            |
-| `c:delete`   | Delete               | `--artifact`, `--files`                                             |
-| `c:list`     | List                 | `--folder`, `--pattern`                                             |
-| `c:move`     | Move                 | `--artifact`, `--files`, `--destination`                            |
-| `c:rename`   | Rename               | `--artifact`, `--pattern`, `--replace`                              |
-| `c:grep`     | Grep                 | `--pattern`, `--paths`                                              |
-| `c:speech`   | Speech               | `--text`                                                            |
-| `c:image`    | Image                | `--prompt`                                                          |
-| `c:conclude` | Conclude (stop)      |                                                                     |
+| Alias        | Tool            | Flags                                                     |
+| ------------ | --------------- | --------------------------------------------------------- |
+| `c:read`     | Content Reading | `--type`, `--files`, `--element`, `--blocks`, `--pattern` |
+| `c:search`   | Search          | `--keywords`, `--filenames`, `--folders`, `--properties`  |
+| `c:delete`   | Delete          | `--artifact`, `--files`                                   |
+| `c:list`     | List            | `--folder`, `--pattern`                                   |
+| `c:move`     | Move            | `--artifact`, `--files`, `--destination`                  |
+| `c:rename`   | Rename          | `--artifact`, `--pattern`, `--replace`                    |
+| `c:grep`     | Grep            | `--pattern`, `--paths`                                    |
+| `c:speech`   | Speech          | `--text`                                                  |
+| `c:image`    | Image           | `--prompt`                                                |
+| `c:conclude` | Conclude (stop) |                                                           |
 
 ### `c:read` Flags
 
@@ -105,6 +105,7 @@ c:<tool> [--arg=value]...
 | ------------ | -------- | -------------------------------------- |
 | `--artifact` | string   | Artifact ID containing files to delete |
 | `--files`    | string[] | Comma-separated file paths to delete   |
+
 One of `--artifact` or `--files` is required.
 
 ### `c:list` Flags
@@ -121,6 +122,7 @@ One of `--artifact` or `--files` is required.
 | `--artifact`    | string   | Artifact ID containing files to move |
 | `--files`       | string[] | Comma-separated file paths to move   |
 | `--destination` | string   | Destination folder path              |
+
 One of `--artifact` or `--files` is required, along with `--destination`.
 
 ### `c:rename` Flags
@@ -143,12 +145,14 @@ One of `--artifact` or `--files` is required, along with `--destination`.
 When composing UDC steps, prefer `c:` command syntax for **deterministic operations** to avoid unnecessary AI round trips. Reserve natural language queries for steps that require **AI reasoning** (e.g., content generation, summarization, complex editing decisions).
 
 **Use command syntax when the step:**
+
 - Reads content from a known location (`c:read`)
 - Searches with specific criteria (`c:search`)
 - Performs file operations: delete, move, rename, list, grep
 - Generates speech or images from known text/prompts (`c:speech`, `c:image`)
 
 **Use natural language when the step:**
+
 - Needs AI to generate, summarize, or transform content
 - Requires the AI to decide what to edit or how to structure output
 - Involves complex reasoning about the content

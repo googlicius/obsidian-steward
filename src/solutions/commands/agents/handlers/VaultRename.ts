@@ -31,12 +31,10 @@ const renameToolSchema = z.object({
   files: renamesSchema.optional()
     .describe(`List of files to rename along with their destination paths.
 DO NOT use this for a paginated list, where the files number is smaller than the total count.`),
-  delegateToAgent: renameDelegateSchema
-    .optional()
-    .describe(
-      `Delegate to DataAwarenessAgent to process files in small batches from an artifact. Use this for large file sets to avoid token limits.
+  delegateToAgent: renameDelegateSchema.optional().describe(
+    `Delegate to DataAwarenessAgent to process files in small batches from an artifact. Use this for large file sets to avoid token limits.
 - Use this when: 1. Provided artifact ID (By user, tool call results), 2. The files is a part of a larger list.`
-    ),
+  ),
 });
 
 export type RenameToolArgs = z.infer<typeof renameToolSchema>;

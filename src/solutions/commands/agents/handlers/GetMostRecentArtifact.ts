@@ -37,9 +37,7 @@ export class GetMostRecentArtifact {
       .withTitle(title)
       .getMostRecentArtifactOfTypes(revertAbleArtifactTypes);
 
-    const result = artifact?.id
-      ? `artifactRef:${artifact.id}`
-      : t('common.noArtifactsFound');
+    const result = artifact?.id ? `artifactRef:${artifact.id}` : t('common.noArtifactsFound');
 
     await this.agent.renderer.serializeToolInvocation({
       path: title,

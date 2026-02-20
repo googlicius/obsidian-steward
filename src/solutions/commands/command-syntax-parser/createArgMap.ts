@@ -74,15 +74,16 @@ function inferArgType(zodType: z.ZodTypeAny): ArgMapping['type'] {
 /**
  * Unwrap Zod wrapper types at the type level to get the inner shape.
  */
-type UnwrapZodType<T> = T extends z.ZodEffects<infer Inner, unknown, unknown>
-  ? UnwrapZodType<Inner>
-  : T extends z.ZodOptional<infer Inner>
+type UnwrapZodType<T> =
+  T extends z.ZodEffects<infer Inner, unknown, unknown>
     ? UnwrapZodType<Inner>
-    : T extends z.ZodNullable<infer Inner>
+    : T extends z.ZodOptional<infer Inner>
       ? UnwrapZodType<Inner>
-      : T extends z.ZodDefault<infer Inner>
+      : T extends z.ZodNullable<infer Inner>
         ? UnwrapZodType<Inner>
-        : T;
+        : T extends z.ZodDefault<infer Inner>
+          ? UnwrapZodType<Inner>
+          : T;
 
 /**
  * Type helper to build paths to nested fields in a Zod schema.

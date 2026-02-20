@@ -267,11 +267,7 @@ export class CommandSyntaxParser {
    * Set a value in an object using dot notation for nested paths.
    * @example setNestedValue(obj, 'validation.expectedArtifactType', 'note')
    */
-  private static setNestedValue(
-    obj: Record<string, unknown>,
-    path: string,
-    value: unknown
-  ): void {
+  private static setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
     const segments = path.split('.');
     let current = obj;
 
