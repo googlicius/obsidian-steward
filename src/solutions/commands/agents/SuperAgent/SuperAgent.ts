@@ -904,9 +904,6 @@ NOTE:
               if (toolCalls.length === 1) {
                 logger.warn(`Conclude tool was called alone.`);
               }
-              if (timer) {
-                clearTimeout(timer);
-              }
               toolCallResult = await this.conclude.handle(params, { toolCall });
               break;
             }
@@ -931,6 +928,12 @@ NOTE:
               }
               break;
             }
+          }
+
+          // Clear timeout for these specific tool calls
+          if (timer && [ToolName.CONCLUDE, ToolName.TODO_LIST_UPDATE].includes(toolCall.toolName)) {
+            clearTimeout(timer);
+            await this.renderer.removeIndicator(title);
           }
 
           if (!toolCallResult) {
