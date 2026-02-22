@@ -281,6 +281,9 @@ export default class StewardPlugin extends Plugin {
     // Cleanup the trash cleanup service
     this.trashCleanupService.cleanup();
 
+    // Cleanup orphaned temp streaming files
+    this.cleanupTempStreamFiles();
+
     // Cleanup current database and remove saltKeyId from localStorage
     retry(async () => {
       const data = await this.loadData();
@@ -1219,6 +1222,19 @@ export default class StewardPlugin extends Plugin {
         logger.error('Failed to ensure required folders:', error);
       }
     });
+  }
+
+  private cleanupTempStreamFiles(): void {
+    const tmpFolder = this.app.vault.getFolderByPath(`${this.settings.stewardFolder}/tmp`);
+    if (!tmpFolder) return;
+
+    for (const child of tmpFolder.children) {
+      if (child.name.startsWith('stw_stream_')) {
+        this.app.vault.delete(child).catch(() => {
+          // Ignore errors during cleanup
+        });
+      }
+    }
   }
 
   /**

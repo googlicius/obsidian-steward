@@ -5,6 +5,7 @@ import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { ToolCallPart } from '../../tools/types';
 import { type SuperAgent } from '../SuperAgent';
+import { type ToolContentStreamInfo } from '../SuperAgent/SuperAgentToolContentStream';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 
 export const createToolSchema = z.object({
@@ -153,10 +154,13 @@ export class VaultCreate {
    */
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolCallPart<CreateToolArgs> }
+    options: {
+      toolCall: ToolCallPart<CreateToolArgs>;
+      toolContentStreamInfo?: ToolContentStreamInfo;
+    }
   ): Promise<AgentResult> {
     const { title, lang, handlerId, intent } = params;
-    const { toolCall } = options;
+    const { toolCall, toolContentStreamInfo } = options;
     const t = getTranslation(lang);
 
     if (!handlerId) {
@@ -166,6 +170,10 @@ export class VaultCreate {
     const plan = executeCreateToolArgs(toolCall.input);
 
     if (plan.newFiles.length === 0) {
+      if (toolContentStreamInfo) {
+        await this.agent.deleteTempStreamFile(toolContentStreamInfo.tempFilePath);
+      }
+
       await this.agent.renderer.updateConversationNote({
         path: title,
         newContent: '*No files were specified for creation*',
@@ -212,6 +220,7 @@ export class VaultCreate {
             lang,
             handlerId,
             toolCall,
+            toolContentStreamInfo,
           });
 
           return {
@@ -219,6 +228,9 @@ export class VaultCreate {
           };
         },
         onRejection: async (_rejectionMessage: string) => {
+          if (toolContentStreamInfo) {
+            await this.agent.deleteTempStreamFile(toolContentStreamInfo.tempFilePath);
+          }
           this.agent.commandProcessor.deleteNextPendingIntent(title);
           return {
             status: IntentResultStatus.SUCCESS,
@@ -233,6 +245,7 @@ export class VaultCreate {
       lang,
       handlerId,
       toolCall,
+      toolContentStreamInfo,
     });
 
     return {
@@ -249,15 +262,21 @@ export class VaultCreate {
     lang?: string | null;
     handlerId: string;
     toolCall: ToolCallPart<CreateToolArgs>;
+    toolContentStreamInfo?: ToolContentStreamInfo;
   }): Promise<{
     createdFiles: string[];
     createdFileLinks: string[];
     errors: string[];
   }> {
-    const { title, plan, lang, handlerId, toolCall } = params;
+    const { title, plan, lang, handlerId, toolCall, toolContentStreamInfo } = params;
     const t = getTranslation(lang);
 
     const creationResult = await this.executePlan({ plan });
+
+    // Clean up temp stream file if it was used for preview
+    if (toolContentStreamInfo) {
+      await this.agent.deleteTempStreamFile(toolContentStreamInfo.tempFilePath);
+    }
 
     if (creationResult.createdFiles.length > 0) {
       const messageId = await this.agent.renderer.updateConversationNote({

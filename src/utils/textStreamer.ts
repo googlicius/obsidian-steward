@@ -180,35 +180,94 @@ function isTextOrReasoningChunk(type: string): boolean {
   );
 }
 
-interface TextReasoningStreamResult {
-  /** The stream that yields text and reasoning content */
-  stream: AsyncGenerator<string, void, unknown>;
-  /** Promise that resolves when text/reasoning streaming is complete (before tool calls) */
+export interface ToolContentDelta {
+  toolCallId: string;
+  toolName: string;
+  contentDelta: string;
+}
+
+interface LLMStreamResult {
+  textStream: AsyncGenerator<string, void, unknown>;
   textDone: Promise<void>;
+  toolContentStream: AsyncGenerator<ToolContentDelta, void, unknown>;
+}
+
+interface ToolContentStreamingConfig {
+  targetTools: Set<string>;
+  createExtractor: (toolName: string) => { feed: (delta: string) => string };
 }
 
 /**
- * Creates a text/reasoning stream that signals when streaming is complete.
- * This function resolves the textDone promise as soon as text/reasoning content finishes streaming,
- * without waiting for tool call chunks to be processed.
- *
- * @param fullStream The full stream from streamText that contains various chunk types
- * @param onToolCall Optional callback that gets called when a tool-call chunk is detected
- * @returns Object containing the stream and a promise that resolves when text/reasoning is done
+ * Simple async queue for pushing items from one generator and pulling from another.
+ * Used to bridge the single-consumer fullStream into two output streams.
  */
-export function createTextReasoningStream(
+class AsyncQueue<T> {
+  private queue: T[] = [];
+  private resolve: (() => void) | null = null;
+  private done = false;
+
+  push(item: T): void {
+    this.queue.push(item);
+    if (this.resolve) {
+      this.resolve();
+      this.resolve = null;
+    }
+  }
+
+  close(): void {
+    this.done = true;
+    if (this.resolve) {
+      this.resolve();
+      this.resolve = null;
+    }
+  }
+
+  async *iterate(): AsyncGenerator<T, void, unknown> {
+    while (true) {
+      while (this.queue.length > 0) {
+        const item = this.queue.shift();
+        if (item !== undefined) yield item;
+      }
+      if (this.done) return;
+      await new Promise<void>(r => {
+        this.resolve = r;
+      });
+    }
+  }
+}
+
+/**
+ * Creates text/reasoning and tool-content streams from the AI SDK fullStream.
+ *
+ * - `textStream` yields text and reasoning content (same as the old createTextReasoningStream)
+ * - `textDone` resolves when text/reasoning streaming is complete (before tool calls)
+ * - `toolContentStream` yields extracted content field deltas from tool call arguments
+ *   for tools listed in `toolContentStreaming.targetTools`
+ *
+ * Both streams are driven by the same `for await` loop over fullStream (single consumer).
+ * Tool-call-delta data is pushed into a shared queue that toolContentStream reads from.
+ */
+export function createLLMStream(
   fullStream: AsyncIterable<unknown>,
-  onToolCall?: (toolName: string) => void
-): TextReasoningStreamResult {
+  options?: {
+    toolContentStreaming?: ToolContentStreamingConfig;
+  }
+): LLMStreamResult {
   let resolveTextDone: () => void;
   const textDone = new Promise<void>(resolve => {
     resolveTextDone = resolve;
   });
 
+  const toolContentQueue = new AsyncQueue<ToolContentDelta>();
+  const streamingConfig = options?.toolContentStreaming;
+
+  // Per-tool-call extractors keyed by toolCallId
+  const extractors = new Map<string, { feed: (delta: string) => string; toolName: string }>();
+
   let hasStartedTextOrReasoning = false;
   let hasSignaledDone = false;
 
-  async function* generator(): AsyncGenerator<string, void, unknown> {
+  async function* textGenerator(): AsyncGenerator<string, void, unknown> {
     let reasoningStarted = false;
     let reasoningEnded = false;
 
@@ -223,7 +282,6 @@ export function createTextReasoningStream(
 
       // Signal done when we transition from text/reasoning to other chunk types
       if (hasStartedTextOrReasoning && !isTextReasoning && !hasSignaledDone) {
-        // Close reasoning tag if needed before signaling done
         if (reasoningStarted && !reasoningEnded) {
           reasoningEnded = true;
           yield REASONING_END_TAG;
@@ -232,46 +290,86 @@ export function createTextReasoningStream(
         resolveTextDone();
       }
 
-      // Handle reasoning chunks
-      if (chunkWithType.type === 'reasoning-delta' || chunkWithType.type === 'reasoning') {
-        hasStartedTextOrReasoning = true;
+      switch (chunkWithType.type) {
+        case 'reasoning-delta':
+        case 'reasoning': {
+          hasStartedTextOrReasoning = true;
 
-        if (!reasoningStarted) {
-          reasoningStarted = true;
-          yield REASONING_START_TAG;
+          if (!reasoningStarted) {
+            reasoningStarted = true;
+            yield REASONING_START_TAG;
+          }
+
+          const reasoningText = (chunkWithType.text ||
+            chunkWithType.reasoningText ||
+            chunkWithType.textDelta ||
+            '') as string;
+
+          if (reasoningText && typeof reasoningText === 'string') {
+            yield escapeTripleBackticks(reasoningText);
+          }
+          break;
         }
 
-        const reasoningText = (chunkWithType.text ||
-          chunkWithType.reasoningText ||
-          chunkWithType.textDelta ||
-          '') as string;
+        case 'text-delta':
+        case 'text': {
+          hasStartedTextOrReasoning = true;
 
-        if (reasoningText && typeof reasoningText === 'string') {
-          yield escapeTripleBackticks(reasoningText);
+          if (reasoningStarted && !reasoningEnded) {
+            reasoningEnded = true;
+            yield REASONING_END_TAG;
+          }
+
+          const textContent = (chunkWithType.textDelta || chunkWithType.text || '') as string;
+          if (textContent && typeof textContent === 'string') {
+            yield textContent;
+          }
+          break;
         }
+
+        case 'tool-input-start': {
+          if (!streamingConfig) break;
+
+          const toolName = chunkWithType.toolName as string;
+          const toolCallId = chunkWithType.id as string;
+
+          if (toolName && toolCallId && streamingConfig.targetTools.has(toolName)) {
+            const extractor = streamingConfig.createExtractor(toolName);
+            extractors.set(toolCallId, { feed: extractor.feed.bind(extractor), toolName });
+          }
+          break;
+        }
+
+        case 'tool-input-delta': {
+          const toolCallId = chunkWithType.id as string;
+          const inputTextDelta = chunkWithType.delta as string;
+          const entry = toolCallId ? extractors.get(toolCallId) : undefined;
+
+          if (entry && inputTextDelta) {
+            const contentDelta = entry.feed(inputTextDelta);
+            if (contentDelta) {
+              toolContentQueue.push({
+                toolCallId,
+                toolName: entry.toolName,
+                contentDelta,
+              });
+            }
+          }
+          break;
+        }
+
+        case 'tool-input-end': {
+          const endToolCallId = chunkWithType.id as string;
+          if (endToolCallId) {
+            extractors.delete(endToolCallId);
+          }
+          break;
+        }
+
+        // tool-call, finish, etc. - no special handling needed
+        default:
+          break;
       }
-      // Handle text chunks
-      else if (chunkWithType.type === 'text-delta' || chunkWithType.type === 'text') {
-        hasStartedTextOrReasoning = true;
-
-        if (reasoningStarted && !reasoningEnded) {
-          reasoningEnded = true;
-          yield REASONING_END_TAG;
-        }
-
-        const textContent = (chunkWithType.textDelta || chunkWithType.text || '') as string;
-        if (textContent && typeof textContent === 'string') {
-          yield textContent;
-        }
-      }
-      // Handle tool-call chunks
-      else if (chunkWithType.type === 'tool-call' && onToolCall) {
-        const toolName = chunkWithType.toolName as string | undefined;
-        if (toolName && typeof toolName === 'string') {
-          onToolCall(toolName);
-        }
-      }
-      // Skip other chunk types
     }
 
     // If reasoning started but never ended, close it
@@ -279,14 +377,17 @@ export function createTextReasoningStream(
       yield REASONING_END_TAG;
     }
 
-    // Ensure textDone is resolved when stream ends (even if no tool calls followed)
     if (!hasSignaledDone) {
       resolveTextDone();
     }
+
+    // Signal the tool content queue that no more items will be pushed
+    toolContentQueue.close();
   }
 
   return {
-    stream: generator(),
+    textStream: textGenerator(),
     textDone,
+    toolContentStream: toolContentQueue.iterate(),
   };
 }

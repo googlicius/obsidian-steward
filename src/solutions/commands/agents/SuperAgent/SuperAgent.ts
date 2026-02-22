@@ -11,15 +11,16 @@ import { getMostRecentArtifact, getArtifactById } from '../../tools/getArtifact'
 import { getClassifier } from 'src/lib/modelfusion';
 import { logger } from 'src/utils/logger';
 import { SuperAgentHandlers } from './SuperAgentHandlers';
+import { SuperAgentToolContentStream, ToolContentStreamInfo } from './SuperAgentToolContentStream';
 import { applyMixins } from 'src/utils/applyMixins';
 import { createAskUserTool } from '../../tools/askUser';
 import * as handlers from '../handlers';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
-import { createTextReasoningStream } from 'src/utils/textStreamer';
+import { createLLMStream } from 'src/utils/textStreamer';
 import { SysError } from 'src/utils/errors';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
-import { createStepProcessedQuery, parseStepProcessedQuery } from 'src/utils/stepProcessedQuery';
+import { createStepProcessedQuery, parseStepProcessedQuery } from './stepProcessedQuery';
 
 /**
  * Map of task names to their associated tool names.
@@ -139,7 +140,7 @@ const toolsThatEnableConclude = new Set([
 
 type ToolCalls = Awaited<Awaited<ReturnType<typeof streamText<typeof tools>>>['toolCalls']>;
 
-export interface SuperAgent extends Agent, SuperAgentHandlers {}
+export interface SuperAgent extends Agent, SuperAgentHandlers, SuperAgentToolContentStream {}
 
 export class SuperAgent extends Agent {
   /**
@@ -395,6 +396,7 @@ export class SuperAgent extends Agent {
   private async executeStreamText(params: AgentHandlerParams): Promise<{
     toolCalls: ToolCalls;
     conversationHistory: ModelMessage[];
+    toolContentStreamInfo?: ToolContentStreamInfo;
   }> {
     let timer: number | null = null;
 
@@ -584,19 +586,32 @@ NOTE:
         },
       });
 
-      // Create text/reasoning stream with early completion signal and tool detection
-      const { stream: textReasoningStream, textDone } = createTextReasoningStream(fullStream);
+      // Create text/reasoning stream and tool content stream from the fullStream
+      const { textStream, textDone, toolContentStream } = createLLMStream(fullStream, {
+        toolContentStreaming: {
+          targetTools: new Set([ToolName.EDIT, ToolName.CREATE]),
+          createExtractor: (toolName: string) => this.createToolContentExtractor(toolName),
+        },
+      });
 
       // Stream the text directly to the conversation note (runs in background)
       const streamPromise = this.renderer.streamConversationNote({
         path: params.title,
-        stream: textReasoningStream,
+        stream: textStream,
         handlerId: params.handlerId,
         step: params.invocationCount,
       });
 
       // Wait for text/reasoning to finish streaming (before tool calls)
       await Promise.race([textDone, streamErrorPromise]);
+
+      // Start consuming tool content stream in background (creates temp files, renders callouts)
+      const toolContentStreamPromise = this.consumeToolContentStream({
+        title: params.title,
+        toolContentStream,
+        handlerId: params.handlerId,
+        lang: params.lang,
+      });
 
       // Render indicator after sometime when still waiting for toolCalls
       // Use detected tool if available
@@ -607,6 +622,9 @@ NOTE:
       // Wait for tool calls and extract the result
       const toolCalls = (await Promise.race([toolCallsPromise, streamErrorPromise])) as ToolCalls;
 
+      // Wait for tool content stream consumption to finish
+      const toolContentStreamInfo = await toolContentStreamPromise;
+
       // Ensure the stream is fully consumed (cleanup)
       await streamPromise.catch(() => {
         // Ignore errors here, they're handled by streamErrorPromise
@@ -615,6 +633,7 @@ NOTE:
       return {
         toolCalls,
         conversationHistory,
+        toolContentStreamInfo,
       };
     } finally {
       if (timer) {
@@ -718,6 +737,7 @@ NOTE:
 
     let toolCalls: ToolCalls;
     let conversationHistory: ModelMessage[] = [];
+    let toolContentStreamInfo: ToolContentStreamInfo | undefined;
 
     if (options.toolCalls) {
       toolCalls = options.toolCalls;
@@ -733,6 +753,7 @@ NOTE:
       });
       toolCalls = result.toolCalls;
       conversationHistory = result.conversationHistory;
+      toolContentStreamInfo = result.toolContentStreamInfo;
     }
 
     /**
@@ -741,7 +762,7 @@ NOTE:
     interface StandardToolHandler {
       handle(
         params: AgentHandlerParams,
-        options: { toolCall: ToolCallPart<unknown> }
+        options: { toolCall: ToolCallPart<unknown>; toolContentStreamInfo?: ToolContentStreamInfo }
       ): Promise<AgentResult>;
     }
 
@@ -896,7 +917,15 @@ NOTE:
               const handlerGetter = handlerMap[toolName];
               if (handlerGetter) {
                 const handler = handlerGetter();
-                toolCallResult = await handler.handle(params, { toolCall });
+                // Pass toolContentStreamInfo if the tool call matches
+                const streamInfo =
+                  toolContentStreamInfo?.toolCallId === toolCall.toolCallId
+                    ? toolContentStreamInfo
+                    : undefined;
+                toolCallResult = await handler.handle(params, {
+                  toolCall,
+                  toolContentStreamInfo: streamInfo,
+                });
               } else {
                 throw new Error(`No handler found for tool: ${toolName}`);
               }
@@ -1427,4 +1456,4 @@ Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-spec
 }
 
 // Apply mixins to merge classes into SuperAgent class
-applyMixins(SuperAgent, [SuperAgentHandlers]);
+applyMixins(SuperAgent, [SuperAgentHandlers, SuperAgentToolContentStream]);

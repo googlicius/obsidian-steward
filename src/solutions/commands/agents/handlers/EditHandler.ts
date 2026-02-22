@@ -1,4 +1,5 @@
 import { type SuperAgent } from '../SuperAgent';
+import { type ToolContentStreamInfo } from '../SuperAgent/SuperAgentToolContentStream';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { createEditTool, EditArgs } from '../../tools/editContent';
@@ -17,10 +18,10 @@ export class EditHandler {
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolCallPart<EditArgs> }
+    options: { toolCall: ToolCallPart<EditArgs>; toolContentStreamInfo?: ToolContentStreamInfo }
   ): Promise<AgentResult> {
     const { title, intent, lang } = params;
-    const { toolCall } = options;
+    const { toolCall, toolContentStreamInfo } = options;
     const t = getTranslation(lang);
 
     if (!params.handlerId) {
@@ -54,32 +55,25 @@ export class EditHandler {
     const filesToOperations = await this.groupOperationsByFile(title, operations);
 
     if (filesToOperations.size === 0) {
+      // Clean up temp file if streaming was active
+      if (toolContentStreamInfo) {
+        await this.agent.deleteTempStreamFile(toolContentStreamInfo.tempFilePath);
+      }
       throw new Error('No files found to edit');
     }
 
-    // Render preview for all files
-    for (const [filePath, fileOperations] of filesToOperations.entries()) {
-      const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(filePath);
-      if (!file) {
-        continue;
-      }
-
-      const fileContent = await this.agent.app.vault.cachedRead(file);
-      const { changes } = this.agent.plugin.noteContentService.computeChanges(
-        fileContent,
-        fileOperations
-      );
-
-      if (changes.length > 0) {
-        const previewContent = this.renderChangesPreview(file.path, changes);
-        await this.agent.renderer.updateConversationNote({
-          path: title,
-          newContent: previewContent,
-          includeHistory: false,
-          lang,
-          handlerId: params.handlerId,
-        });
-      }
+    // If streaming was active, replace the temp embed callout with the final computed preview.
+    // Otherwise, render preview normally.
+    if (toolContentStreamInfo) {
+      await this.replaceStreamedPreview({
+        title,
+        filesToOperations,
+        toolContentStreamInfo,
+        lang,
+        handlerId: params.handlerId,
+      });
+    } else {
+      await this.renderPreview({ title, filesToOperations, lang, handlerId: params.handlerId });
     }
 
     // Skip confirmation if no_confirm
@@ -152,28 +146,31 @@ export class EditHandler {
   ): Promise<Map<string, EditOperation[]>> {
     const filesToOperations = new Map<string, EditOperation[]>();
 
+    const addOperation = (filePath: string, operation: EditOperation) => {
+      const ops = filesToOperations.get(filePath) || [];
+      ops.push(operation);
+      filesToOperations.set(filePath, ops);
+    };
+
     for (const operation of operations) {
       if (operation.mode === 'replace_by_pattern') {
-        // Resolve files from artifact for pattern-based operations
-        const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(title);
-        const resolvedFiles = await artifactManager.resolveFilesFromArtifact(operation.artifactId);
+        if (operation.path) {
+          const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(operation.path);
+          if (file) addOperation(file.path, operation);
+        } else if (operation.artifactId) {
+          const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(title);
+          const resolvedFiles = await artifactManager.resolveFilesFromArtifact(
+            operation.artifactId
+          );
 
-        for (const doc of resolvedFiles) {
-          const file = this.agent.app.vault.getFileByPath(doc.path);
-          if (file) {
-            const existingOps = filesToOperations.get(file.path) || [];
-            existingOps.push(operation);
-            filesToOperations.set(file.path, existingOps);
+          for (const doc of resolvedFiles) {
+            const file = this.agent.app.vault.getFileByPath(doc.path);
+            if (file) addOperation(file.path, operation);
           }
         }
       } else if ('path' in operation) {
-        // Single-file operation
         const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(operation.path);
-        if (file) {
-          const existingOps = filesToOperations.get(file.path) || [];
-          existingOps.push(operation);
-          filesToOperations.set(file.path, existingOps);
-        }
+        if (file) addOperation(file.path, operation);
       }
     }
 
@@ -322,6 +319,92 @@ export class EditHandler {
           ? new Error(`Failed to update ${failedFiles.length} files`)
           : undefined,
     };
+  }
+
+  /**
+   * Render preview for all files (non-streaming path)
+   */
+  private async renderPreview(params: {
+    title: string;
+    filesToOperations: Map<string, EditOperation[]>;
+    lang?: string | null;
+    handlerId: string;
+  }): Promise<void> {
+    const { title, filesToOperations, lang, handlerId } = params;
+
+    for (const [filePath, fileOperations] of filesToOperations.entries()) {
+      const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(filePath);
+      if (!file) continue;
+
+      const fileContent = await this.agent.app.vault.cachedRead(file);
+      const { changes } = this.agent.plugin.noteContentService.computeChanges(
+        fileContent,
+        fileOperations
+      );
+
+      if (changes.length > 0) {
+        const previewContent = this.renderChangesPreview(file.path, changes);
+        await this.agent.renderer.updateConversationNote({
+          path: title,
+          newContent: previewContent,
+          includeHistory: false,
+          lang,
+          handlerId,
+        });
+      }
+    }
+  }
+
+  /**
+   * Replace the streamed temp file embed with the final computed preview.
+   * The callout with `![[temp_file]]` was already rendered during streaming.
+   */
+  private async replaceStreamedPreview(params: {
+    title: string;
+    filesToOperations: Map<string, EditOperation[]>;
+    toolContentStreamInfo: ToolContentStreamInfo;
+    lang?: string | null;
+    handlerId: string;
+  }): Promise<void> {
+    const { title, filesToOperations, toolContentStreamInfo, lang, handlerId } = params;
+
+    // Build the final preview content for all files
+    let finalPreview = '';
+    for (const [filePath, fileOperations] of filesToOperations.entries()) {
+      const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(filePath);
+      if (!file) continue;
+
+      const fileContent = await this.agent.app.vault.cachedRead(file);
+      const { changes } = this.agent.plugin.noteContentService.computeChanges(
+        fileContent,
+        fileOperations
+      );
+
+      if (changes.length > 0) {
+        finalPreview += this.renderChangesPreview(file.path, changes);
+      }
+    }
+
+    // Replace the temp embed callout with the final preview in the conversation note
+    const tempEmbed = this.agent.plugin.noteContentService.formatCallout(
+      `![[${toolContentStreamInfo.tempFilePath}]]`,
+      'stw-edit-preview',
+      { streaming: 'true' }
+    );
+
+    if (finalPreview) {
+      await this.agent.renderer.updateConversationNote({
+        path: title,
+        newContent: finalPreview,
+        replacePlaceHolder: tempEmbed,
+        includeHistory: false,
+        lang,
+        handlerId,
+      });
+    }
+
+    // Delete the temp file
+    await this.agent.deleteTempStreamFile(toolContentStreamInfo.tempFilePath);
   }
 
   /**

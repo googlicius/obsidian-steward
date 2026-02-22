@@ -156,9 +156,9 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   - ${EditMode.UPDATE_TABLE_COLUMN}: Update a column in a table - Use to update the header, values, or both.
   - ${EditMode.DELETE_TABLE_COLUMN}: Delete a column from a table.
   - ${EditMode.REPLACE_BY_LINES}: Replace content within a specific line range, or replace the entire file if both fromLine and toLine are omitted.
-  - ${EditMode.REPLACE_BY_PATTERN}: Replace content matching a pattern across multiple notes from an artifact. Use this when editing multiple files at once.
+  - ${EditMode.REPLACE_BY_PATTERN}: Replace content matching a pattern in a single note by path, or across multiple notes from an artifact. Requires either artifactId or path.
   - ${EditMode.INSERT}: Insert content at a specific line number.
-NOTE: 
+NOTE:
   - Use table modes to edit tables, especially large tables (More than 20 rows).
   - Use one or multiple operations. DO NOT use multiple tool calls or multiple requests.`,
       `On success, creates artifact: ${ArtifactType.EDIT_RESULTS}.`,

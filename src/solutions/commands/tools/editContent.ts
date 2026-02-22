@@ -209,13 +209,25 @@ export const insertSchema = z.object({
 export const replaceByPatternSchema = z.object(
   {
     mode: z.literal('replace_by_pattern'),
-    artifactId: z.string().min(1).describe('The artifact identifier containing notes to edit.'),
+    artifactId: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        'The artifact identifier containing notes to edit. Either artifactId or path must be provided.'
+      ),
+    path: z
+      .string()
+      .optional()
+      .describe(
+        'The path of the EXISTING note to edit. Either artifactId or path must be provided.'
+      ),
     searchPattern: z.string().min(1).describe('The RegExp pattern to search for in the notes.'),
     replacement: z.string().describe('The content to replace the matched pattern with.'),
   },
   {
     description:
-      'Replace by pattern mode: Replace content matching a pattern across multiple notes from an artifact. Use this when editing multiple files at once.',
+      'Replace by pattern mode: Replace content matching a pattern in a single note by path, or across multiple notes from an artifact.',
   }
 );
 
@@ -267,14 +279,15 @@ export function createEditTool(params: { contentType: 'in_the_note' | 'in_the_ch
 function repairEditToolCallArgs(args: EditArgs): EditArgs {
   const repairedArgs = { ...args };
 
-  // Unescape the content
   for (const operation of repairedArgs.operations) {
     if ('content' in operation) {
       operation.content = new MarkdownUtil(operation.content).unescape().getText();
     }
-    // Unescape replacement if present
     if ('replacement' in operation) {
       operation.replacement = new MarkdownUtil(operation.replacement).unescape().getText();
+    }
+    if (operation.mode === 'replace_by_pattern' && !operation.artifactId && !operation.path) {
+      throw new Error('replace_by_pattern requires either artifactId or path');
     }
   }
 

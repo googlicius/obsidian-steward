@@ -10,7 +10,7 @@ import { RevertDelete } from '../handlers/RevertDelete';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { getClassifier } from 'src/lib/modelfusion';
 import * as handlers from '../handlers';
-import { createStepProcessedQuery } from 'src/utils/stepProcessedQuery';
+import { createStepProcessedQuery } from './stepProcessedQuery';
 
 // Mock individual functions from the ai package
 jest.mock('ai', () => {

@@ -125,6 +125,10 @@ html[data-stw-language='vi'] {
     pointer-events: none;
   }
 
+  &[data-streaming='true']::after {
+    display: none;
+  }
+
   &.stw-expanded {
     max-height: none;
     overflow: visible;
@@ -132,6 +136,11 @@ html[data-stw-language='vi'] {
     &::after {
       display: none;
     }
+  }
+
+  & .internal-embed {
+    margin: 0;
+    padding: 0;
   }
 }
 
