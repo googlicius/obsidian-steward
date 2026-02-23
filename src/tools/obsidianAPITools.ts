@@ -152,12 +152,14 @@ export class ObsidianAPITools {
    * @param folderPath The folder path to ensure exists
    */
   public async ensureFolderExists(folderPath: string): Promise<void> {
-    // Skip if folder already exists
+    if (!folderPath || folderPath === '/') {
+      return;
+    }
+
     if (this.app.vault.getFolderByPath(folderPath)) {
       return;
     }
 
-    // Create the folder
     logger.log(`Creating folder ${folderPath}`);
     await this.app.vault.createFolder(folderPath);
   }

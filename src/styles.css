@@ -2,19 +2,19 @@
 
 /* Placeholder text classes for different languages */
 :root {
-  --stw-placeholder-text: 'Press Enter to send';
+  --stw-placeholder-text: 'Enter to send, m: change model, @ attach files/folders';
 }
 
 html[data-stw-language='en'] {
-  --stw-placeholder-text: 'Press Enter to send';
+  --stw-placeholder-text: 'Enter to send, m: change model, @ attach files/folders';
 }
 
 html[data-stw-language='ja'] {
-  --stw-placeholder-text: 'Enterキーを押して送信';
+  --stw-placeholder-text: 'Enterで送信, m: モデル変更, @ ファイル/フォルダ添付';
 }
 
 html[data-stw-language='vi'] {
-  --stw-placeholder-text: 'Nhấn Enter để gửi';
+  --stw-placeholder-text: 'Enter để gửi, m: đổi mô hình, @ đính kèm tệp/thư mục';
 }
 
 /* Style for the commands prefix when typing */
@@ -26,7 +26,7 @@ html[data-stw-language='vi'] {
     content: var(--stw-placeholder-text);
     position: absolute;
     font-style: italic;
-    font-size: 0.9em;
+    font-size: 0.85em;
     color: #888;
     margin-left: var(--size-2-2);
     margin-top: var(--size-2-1);
@@ -90,7 +90,8 @@ html[data-stw-language='vi'] {
   }
 }
 
-.callout[data-callout='stw-search-result'] {
+.callout[data-callout='stw-search-result'],
+.callout[data-callout='stw-edit-preview'] {
   --callout-color: var(--callout-success);
   padding-left: 12px;
   cursor: pointer;
@@ -106,6 +107,40 @@ html[data-stw-language='vi'] {
 
   & > .callout-title {
     display: none;
+  }
+}
+
+.callout[data-callout='stw-edit-preview'] {
+  max-height: 200px;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(transparent, var(--background-primary));
+    pointer-events: none;
+  }
+
+  &[data-streaming='true']::after {
+    display: none;
+  }
+
+  &.stw-expanded {
+    max-height: none;
+    overflow: visible;
+
+    &::after {
+      display: none;
+    }
+  }
+
+  & .internal-embed {
+    margin: 0;
+    padding: 0;
   }
 }
 
@@ -239,11 +274,12 @@ code[class*='language-stw-hidden-from-user'] {
 }
 
 .callout[data-callout='stw-user-message']:hover .stw-callout-buttons,
-.callout[data-callout='stw-search-result']:hover .stw-callout-buttons {
+.callout[data-callout='stw-search-result']:hover .stw-callout-buttons,
+.callout[data-callout='stw-edit-preview']:hover .stw-callout-buttons {
   opacity: 1;
 }
 
-.stw-selected-button {
+.stw-source-button {
   background: linear-gradient(to right, #0000ff, #00bebe);
   -webkit-background-clip: text;
   background-clip: text;
@@ -397,4 +433,16 @@ code[class*='language-stw-hidden-from-user'] {
 .stw-confirmation-buttons {
   display: flex;
   gap: var(--size-2-2);
+}
+
+.stw-autocomplete-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 4px;
+  color: var(--text-muted);
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
 }

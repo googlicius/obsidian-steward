@@ -60,9 +60,9 @@ Is the image above a lake, pond, reservoir, or sea?`;
       expect(imageLinks).toEqual(['Pasted image 20250222171626.png']);
     });
 
-    it('should extract images from stw-selected blocks', () => {
-      const content = `Here is a selected block with an image:
-{{stw-selected from:0,to:4,selection: ${new MarkdownUtil('This contains an image: ![[image2.jpg]] and some text').escape().getText()},path:test.md}}`;
+    it('should extract images from stw-source blocks', () => {
+      const content = `Here is a source block with an image:
+{{stw-source type:selected,path:test.md,from:0,to:4,selection: ${new MarkdownUtil('This contains an image: ![[image2.jpg]] and some text').escape().getText()}}}`;
       const imageLinks = noteContentService.extractImageLinks(content);
       expect(imageLinks).toEqual(['image2.jpg']);
     });

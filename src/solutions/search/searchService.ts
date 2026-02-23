@@ -56,7 +56,7 @@ export class SearchService {
         'lowercase',
         'removeSpecialChars',
         'removeDiacritics',
-        'removeStwSelectedPatterns',
+        'removeStwSourcePatterns',
         'removeStwSqueezedPatterns',
       ],
       analyzers: ['wordDelimiter', 'stemmer'],

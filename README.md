@@ -102,7 +102,7 @@ For the full guide on creating and using User-Defined Commands, see the [User-de
 
 #### Automated command [Word processor](/community-UDCs/Word%20processor.md)
 
-<img src="/docs/Steward-Demo-Automated.gif" alt="Flashcard Assist" width="650px">
+<img src="/docs/Steward-Demo-Automated.gif" alt="Automated workflow" width="650px">
 
 ### Community user-defined commands
 

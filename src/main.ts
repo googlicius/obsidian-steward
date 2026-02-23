@@ -7,12 +7,13 @@ import { CommandInputService } from './services/CommandInputService';
 import { createCalloutSearchResultPostProcessor } from './post-processors/CalloutSearchResultPostProcessor';
 import { createUserMessageButtonsProcessor } from './post-processors/UserMessageButtonsProcessor';
 import { createCalloutMetadataProcessor } from './post-processors/CalloutMetadataProcessor';
-import { createStwSelectedPostProcessor } from './post-processors/StwSelectedPostProcessor';
+import { createStwSourcePostProcessor } from './post-processors/StwSourcePostProcessor';
 import { createStewardConversationProcessor } from './post-processors/StewardConversationProcessor';
 import { createSelectedModelProcessor } from './post-processors/SelectedModelProcessor';
 import { createThinkingProcessPostProcessor } from './post-processors/ThinkingProcessPostProcessor';
 import { createConfirmationButtonsProcessor } from './post-processors/ConfirmationButtonsProcessor';
 import { createHistoryItemPostProcessor } from './post-processors/HistoryItemPostProcessor';
+import { createCalloutEditPreviewPostProcessor } from './post-processors/CalloutEditPreviewPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -46,7 +47,7 @@ import { MediaTools } from './tools/mediaTools';
 import { NoteContentService } from './services/NoteContentService';
 import { LLMService } from './services/LLMService';
 import stewardIcon from './assets/steward-icon.svg';
-import { createStwSelectedBlocksExtension } from './cm/extensions/StwSelectedBlockExtension';
+import { createStwSourceBlocksExtension } from './cm/extensions/StwSourceBlockExtension';
 import { createStwSqueezedBlocksExtension } from './cm/extensions/StwSqueezedBlockExtension';
 import { createAutocompleteExtension } from './cm/extensions/AutocompleteExtension';
 import { capitalizeString } from './utils/capitalizeString';
@@ -280,6 +281,9 @@ export default class StewardPlugin extends Plugin {
     // Cleanup the trash cleanup service
     this.trashCleanupService.cleanup();
 
+    // Cleanup orphaned temp streaming files
+    this.cleanupTempStreamFiles();
+
     // Cleanup current database and remove saltKeyId from localStorage
     retry(async () => {
       const data = await this.loadData();
@@ -381,7 +385,7 @@ export default class StewardPlugin extends Plugin {
         // onTyping: this.handleTyping.bind(this),
         typingDebounceMs: 1000,
       }),
-      createStwSelectedBlocksExtension(this),
+      createStwSourceBlocksExtension(this),
       createStwSqueezedBlocksExtension(this),
       createAutocompleteExtension(this),
     ]);
@@ -426,11 +430,13 @@ export default class StewardPlugin extends Plugin {
 
     this.registerMarkdownPostProcessor(createCalloutSearchResultPostProcessor(this));
 
+    this.registerMarkdownPostProcessor(createCalloutEditPreviewPostProcessor());
+
     this.registerMarkdownPostProcessor(createUserMessageButtonsProcessor(this));
 
     this.registerMarkdownPostProcessor(createStewardConversationProcessor(this));
 
-    this.registerMarkdownPostProcessor(createStwSelectedPostProcessor(this));
+    this.registerMarkdownPostProcessor(createStwSourcePostProcessor(this));
 
     this.registerMarkdownPostProcessor(createSelectedModelProcessor());
 
@@ -1216,6 +1222,19 @@ export default class StewardPlugin extends Plugin {
         logger.error('Failed to ensure required folders:', error);
       }
     });
+  }
+
+  private cleanupTempStreamFiles(): void {
+    const tmpFolder = this.app.vault.getFolderByPath(`${this.settings.stewardFolder}/tmp`);
+    if (!tmpFolder) return;
+
+    for (const child of tmpFolder.children) {
+      if (child.name.startsWith('stw_stream_')) {
+        this.app.vault.delete(child).catch(() => {
+          // Ignore errors during cleanup
+        });
+      }
+    }
   }
 
   /**

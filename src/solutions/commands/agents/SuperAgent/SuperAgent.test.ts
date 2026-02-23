@@ -10,7 +10,7 @@ import { RevertDelete } from '../handlers/RevertDelete';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { getClassifier } from 'src/lib/modelfusion';
 import * as handlers from '../handlers';
-import { createStepProcessedQuery } from 'src/utils/stepProcessedQuery';
+import { createStepProcessedQuery } from './stepProcessedQuery';
 
 // Mock individual functions from the ai package
 jest.mock('ai', () => {
@@ -42,6 +42,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
 
   const mockRenderer = {
     addGeneratingIndicator: jest.fn(),
+    removeIndicator: jest.fn(),
     addUserMessage: jest.fn().mockResolvedValue('user-message-id-123'),
     updateConversationNote: jest.fn().mockResolvedValue('message-id-123'),
     streamConversationNote: jest.fn().mockImplementation(async ({ stream }) => {
