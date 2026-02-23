@@ -223,12 +223,9 @@ When creating flashcards for users:
 
 Hello :: Hola
 
-
 Goodbye :: Adiós
 
-
 Please ::: Por favor
-
 
 #flashcards/Spanish/Verbs
 
@@ -236,22 +233,17 @@ Please ::: Por favor
 
 yo :: estoy
 
-
 tú :: estás
 
-
 él/ella :: está
-
 
 nosotros :: estamos
 
 @end
 
-
 What is the past tense of "ir"?
 ?
 Fui, fuiste, fue, fuimos, fueron
-
 
 #flashcards/Spanish/Numbers
 

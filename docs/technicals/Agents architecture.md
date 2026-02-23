@@ -148,16 +148,16 @@ flowchart TD
 
 The classifier maps user queries to task categories. Each category determines which tools are activated and whether a manual shortcut is available.
 
-| Category | Description |
-|---|---|
-| Vault | File operations: create, list, delete, copy, move, rename, update metadata, grep |
-| Search | Searching notes by keywords, properties, filenames, or folders |
-| Edit | Modifying existing note content |
-| Read | Reading note content |
-| Revert | Undoing a previous operation |
-| Speech | Generating audio from text |
-| Image | Generating images |
-| Build search index | Indexing vault files for search |
+| Category           | Description                                                                      |
+| ------------------ | -------------------------------------------------------------------------------- |
+| Vault              | File operations: create, list, delete, copy, move, rename, update metadata, grep |
+| Search             | Searching notes by keywords, properties, filenames, or folders                   |
+| Edit               | Modifying existing note content                                                  |
+| Read               | Reading note content                                                             |
+| Revert             | Undoing a previous operation                                                     |
+| Speech             | Generating audio from text                                                       |
+| Image              | Generating images                                                                |
+| Build search index | Indexing vault files for search                                                  |
 
 ### Tool content streaming
 

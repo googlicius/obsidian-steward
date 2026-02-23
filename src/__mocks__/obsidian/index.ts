@@ -61,7 +61,8 @@ export class App {
 }
 
 // Mock specific functions
-export const normalizePath = (path: string): string => path.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '');
+export const normalizePath = (path: string): string =>
+  path.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '');
 export const setIcon = jest.fn();
 export const setTooltip = jest.fn();
 export const getLanguage = jest.fn().mockReturnValue('en');

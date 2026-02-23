@@ -2,7 +2,10 @@ import { autocompletion } from '@codemirror/autocomplete';
 import { Extension } from '@codemirror/state';
 import type StewardPlugin from 'src/main';
 import { createCommandCompletionSource } from './commandCompletionSource';
-import { createDatasourceCompletionSource, datasourceIconRenderer } from './datasourceCompletionSource';
+import {
+  createDatasourceCompletionSource,
+  datasourceIconRenderer,
+} from './datasourceCompletionSource';
 import { createModelCompletionSource } from './modelCompletionSource';
 
 export function createAutocompleteExtension(plugin: StewardPlugin): Extension {

@@ -226,5 +226,4 @@ export class PartialJsonFieldExtractor {
     }
     return String.fromCharCode(codePoint);
   }
-
 }
