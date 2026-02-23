@@ -1,5 +1,5 @@
 import { tool } from 'ai';
-import { parseYaml } from 'obsidian';
+import { normalizePath, parseYaml } from 'obsidian';
 import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -107,7 +107,7 @@ export class VaultCreate {
       }
 
       // Build full path: folder/fileName
-      const newFilePath = `${plan.folder}/${file.fileName}`;
+      const newFilePath = normalizePath(`${plan.folder}/${file.fileName}`);
 
       // Validate YAML content for .base files
       if (file.fileName.endsWith('.base') && file.content) {
@@ -190,12 +190,23 @@ export class VaultCreate {
       };
     }
 
+    // If streaming was active, replace the temp embed callout with the final content preview
+    if (toolContentStreamInfo) {
+      await this.replaceStreamedPreview({
+        title,
+        plan,
+        toolContentStreamInfo,
+        lang,
+        handlerId,
+      });
+    }
+
     if (!intent?.no_confirm) {
       let message = `${t('create.confirmMessage', { count: plan.newFiles.length })}\n`;
       message += `\n*Folder:* \`${plan.folder}\`\n`;
 
       for (const file of plan.newFiles) {
-        const fullPath = `${plan.folder}/${file.fileName}`;
+        const fullPath = normalizePath(`${plan.folder}/${file.fileName}`);
         message += `- \`${fullPath}\`\n`;
       }
 
@@ -220,7 +231,6 @@ export class VaultCreate {
             lang,
             handlerId,
             toolCall,
-            toolContentStreamInfo,
           });
 
           return {
@@ -228,9 +238,6 @@ export class VaultCreate {
           };
         },
         onRejection: async (_rejectionMessage: string) => {
-          if (toolContentStreamInfo) {
-            await this.agent.deleteTempStreamFile(toolContentStreamInfo.tempFilePath);
-          }
           this.agent.commandProcessor.deleteNextPendingIntent(title);
           return {
             status: IntentResultStatus.SUCCESS,
@@ -245,7 +252,6 @@ export class VaultCreate {
       lang,
       handlerId,
       toolCall,
-      toolContentStreamInfo,
     });
 
     return {
@@ -262,21 +268,15 @@ export class VaultCreate {
     lang?: string | null;
     handlerId: string;
     toolCall: ToolCallPart<CreateToolArgs>;
-    toolContentStreamInfo?: ToolContentStreamInfo;
   }): Promise<{
     createdFiles: string[];
     createdFileLinks: string[];
     errors: string[];
   }> {
-    const { title, plan, lang, handlerId, toolCall, toolContentStreamInfo } = params;
+    const { title, plan, lang, handlerId, toolCall } = params;
     const t = getTranslation(lang);
 
     const creationResult = await this.executePlan({ plan });
-
-    // Clean up temp stream file if it was used for preview
-    if (toolContentStreamInfo) {
-      await this.agent.deleteTempStreamFile(toolContentStreamInfo.tempFilePath);
-    }
 
     if (creationResult.createdFiles.length > 0) {
       const messageId = await this.agent.renderer.updateConversationNote({
@@ -364,5 +364,64 @@ export class VaultCreate {
     });
 
     return creationResult;
+  }
+
+  /**
+   * Build a preview of the files to be created, wrapped in callout(s).
+   */
+  private renderCreatePreview(plan: CreatePlan): string {
+    let preview = '';
+
+    for (const file of plan.newFiles) {
+      if (!file.content) continue;
+      const fullPath = normalizePath(`${plan.folder}/${file.fileName}`);
+      const filePreview = `**File:** \`${fullPath}\`\n\n${file.content}`;
+      preview += this.agent.plugin.noteContentService.formatCallout(
+        filePreview,
+        'stw-edit-preview'
+      );
+      preview += '\n';
+    }
+
+    return preview.trimEnd();
+  }
+
+  /**
+   * Replace the streamed temp file embed with the final creating content preview.
+   * The callout with `![[temp_file]]` was already rendered during streaming.
+   */
+  private async replaceStreamedPreview(params: {
+    title: string;
+    plan: CreatePlan;
+    toolContentStreamInfo: ToolContentStreamInfo;
+    lang?: string | null;
+    handlerId: string;
+  }): Promise<void> {
+    const { title, plan, toolContentStreamInfo, lang, handlerId } = params;
+
+    const finalPreview = this.renderCreatePreview(plan);
+
+    const tempEmbed = this.agent.plugin.noteContentService.formatCallout(
+      `![[${toolContentStreamInfo.tempFilePath}]]`,
+      'stw-edit-preview',
+      { streaming: 'true' }
+    );
+
+    if (finalPreview) {
+      await this.agent.renderer.updateConversationNote({
+        path: title,
+        newContent: finalPreview,
+        replacePlaceHolder: tempEmbed,
+        includeHistory: false,
+        lang,
+        handlerId,
+      });
+    }
+
+    // Delete the temp file if it has content
+    const tempFile = this.agent.app.vault.getFileByPath(toolContentStreamInfo.tempFilePath);
+    if (tempFile && tempFile.stat.size > 0) {
+      await this.agent.deleteTempStreamFile(toolContentStreamInfo.tempFilePath);
+    }
   }
 }

@@ -42,6 +42,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
 
   const mockRenderer = {
     addGeneratingIndicator: jest.fn(),
+    removeIndicator: jest.fn(),
     addUserMessage: jest.fn().mockResolvedValue('user-message-id-123'),
     updateConversationNote: jest.fn().mockResolvedValue('message-id-123'),
     streamConversationNote: jest.fn().mockImplementation(async ({ stream }) => {

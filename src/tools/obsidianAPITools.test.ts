@@ -391,4 +391,39 @@ describe('ObsidianAPITools', () => {
       expect(result).toEqual(['folder/test.md', 'test-folder/file.md']);
     });
   });
+
+  describe('ensureFolderExists', () => {
+    it('should skip when folderPath is empty', async () => {
+      await obsidianAPITools.ensureFolderExists('');
+
+      expect(app.vault.getFolderByPath).not.toHaveBeenCalled();
+      expect(app.vault.createFolder).not.toHaveBeenCalled();
+    });
+
+    it('should skip when folderPath is "/"', async () => {
+      await obsidianAPITools.ensureFolderExists('/');
+
+      expect(app.vault.getFolderByPath).not.toHaveBeenCalled();
+      expect(app.vault.createFolder).not.toHaveBeenCalled();
+    });
+
+    it('should skip when folder already exists', async () => {
+      const folder = getInstance(TFolder, { path: 'existing-folder' });
+      jest.spyOn(app.vault, 'getFolderByPath').mockReturnValue(folder);
+
+      await obsidianAPITools.ensureFolderExists('existing-folder');
+
+      expect(app.vault.getFolderByPath).toHaveBeenCalledWith('existing-folder');
+      expect(app.vault.createFolder).not.toHaveBeenCalled();
+    });
+
+    it('should create folder when it does not exist', async () => {
+      jest.spyOn(app.vault, 'getFolderByPath').mockReturnValue(null);
+
+      await obsidianAPITools.ensureFolderExists('new-folder');
+
+      expect(app.vault.getFolderByPath).toHaveBeenCalledWith('new-folder');
+      expect(app.vault.createFolder).toHaveBeenCalledWith('new-folder');
+    });
+  });
 });

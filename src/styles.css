@@ -2,19 +2,19 @@
 
 /* Placeholder text classes for different languages */
 :root {
-  --stw-placeholder-text: 'Press Enter to send';
+  --stw-placeholder-text: 'Enter to send, m: change model, @ attach files/folders';
 }
 
 html[data-stw-language='en'] {
-  --stw-placeholder-text: 'Press Enter to send';
+  --stw-placeholder-text: 'Enter to send, m: change model, @ attach files/folders';
 }
 
 html[data-stw-language='ja'] {
-  --stw-placeholder-text: 'Enterキーを押して送信';
+  --stw-placeholder-text: 'Enterで送信, m: モデル変更, @ ファイル/フォルダ添付';
 }
 
 html[data-stw-language='vi'] {
-  --stw-placeholder-text: 'Nhấn Enter để gửi';
+  --stw-placeholder-text: 'Enter để gửi, m: đổi mô hình, @ đính kèm tệp/thư mục';
 }
 
 /* Style for the commands prefix when typing */
@@ -26,7 +26,7 @@ html[data-stw-language='vi'] {
     content: var(--stw-placeholder-text);
     position: absolute;
     font-style: italic;
-    font-size: 0.9em;
+    font-size: 0.85em;
     color: #888;
     margin-left: var(--size-2-2);
     margin-top: var(--size-2-1);

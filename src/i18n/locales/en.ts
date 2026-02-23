@@ -319,7 +319,7 @@ const en = {
       decryptionError: 'Failed to decrypt API key. Please re-enter it in settings.',
       encryptionError: 'Failed to encrypt API key. Please try again.',
       welcomeMessage:
-        'Welcome to your always-available Steward chat. Type below to interact, type `/ ?` to see available commands, or type `@` to reference files and folders.',
+        'Welcome to your always-available Steward chat. Type below to interact or type `/ ?` to see available commands.',
       commandPlaceholder: 'Press Enter to send',
       addToInlineConversation: 'Steward: Add to the inline conversation',
       addToChat: 'Steward: Add to the chat',

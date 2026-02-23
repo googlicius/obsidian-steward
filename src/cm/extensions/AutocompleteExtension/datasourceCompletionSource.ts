@@ -2,7 +2,7 @@ import { CompletionContext, CompletionResult, Completion } from '@codemirror/aut
 import { EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { MarkdownView, setIcon, TFile, TFolder } from 'obsidian';
-import { COMMAND_PREFIXES } from 'src/constants';
+import { TWO_SPACES_PREFIX } from 'src/constants';
 import type StewardPlugin from 'src/main';
 
 const DATASOURCE_FILE_TYPE = 'stw-file';
@@ -21,22 +21,24 @@ export function createDatasourceCompletionSource(plugin: StewardPlugin) {
     const line = state.doc.lineAt(pos);
     const lineText = line.text;
 
-    if (!lineText.startsWith('/')) return null;
+    const inputPrefix = plugin.commandInputService.getInputPrefix(line, state.doc);
+    if (!inputPrefix) return null;
 
-    const commandEnd = findCommandEnd(lineText, plugin);
-    if (commandEnd === -1) return null;
+    const contentStart = lineText.startsWith(TWO_SPACES_PREFIX)
+      ? TWO_SPACES_PREFIX.length
+      : lineText.indexOf(' ') + 1;
 
-    const afterCommand = lineText.substring(commandEnd);
-    const atIndex = afterCommand.lastIndexOf('@');
+    const lineContent = lineText.substring(contentStart);
+    const atIndex = lineContent.lastIndexOf('@');
     if (atIndex === -1) return null;
 
-    const charBeforeAt = atIndex > 0 ? afterCommand[atIndex - 1] : ' ';
+    const charBeforeAt = atIndex > 0 ? lineContent[atIndex - 1] : ' ';
     if (charBeforeAt !== ' ') return null;
 
-    const keyword = afterCommand.substring(atIndex + 1);
+    const keyword = lineContent.substring(atIndex + 1);
     if (keyword.includes(' ')) return null;
 
-    const absoluteAtPos = line.from + commandEnd + atIndex;
+    const absoluteAtPos = line.from + contentStart + atIndex;
 
     const options: Completion[] = [];
     const lowerKeyword = keyword.toLowerCase();
@@ -133,33 +135,6 @@ function isPathExcluded(path: string, patterns: string[]): boolean {
     }
   }
   return false;
-}
-
-/**
- * Finds the end position of a recognized command prefix in the line text.
- * Returns the index right after the command + trailing space, or -1 if no command is found.
- */
-function findCommandEnd(lineText: string, plugin: StewardPlugin): number {
-  const matchedBuiltIn = COMMAND_PREFIXES.find(prefix => {
-    if (prefix === '/ ') {
-      return lineText === '/ ' || lineText.startsWith('/ ');
-    }
-    return lineText === prefix + ' ' || lineText.startsWith(prefix + ' ');
-  });
-
-  if (matchedBuiltIn) {
-    return matchedBuiltIn === '/ ' ? 2 : matchedBuiltIn.length + 1;
-  }
-
-  const customCommands = plugin.userDefinedCommandService.getCommandNames();
-  const matchedCustom = customCommands.find((cmd: string) => {
-    const commandPrefix = '/' + cmd;
-    return lineText === commandPrefix + ' ' || lineText.startsWith(commandPrefix + ' ');
-  });
-
-  if (!matchedCustom) return -1;
-
-  return ('/' + matchedCustom).length + 1;
 }
 
 function buildFileCompletion(file: TFile, boost?: number): Completion {
