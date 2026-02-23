@@ -35,6 +35,10 @@ html[data-stw-language='vi'] {
     background: none;
     cursor: text;
     -webkit-text-fill-color: #888;
+    max-width: calc(100% - var(--size-2-2));
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &.stw-command-prefix-general[has-placeholder='1']:after {
