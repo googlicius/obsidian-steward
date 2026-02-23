@@ -259,7 +259,7 @@ const vi = {
       decryptionError: 'Không thể giải mã khóa API. Vui lòng nhập lại trong cài đặt.',
       encryptionError: 'Không thể mã hóa khóa API. Vui lòng thử lại.',
       welcomeMessage:
-        'Chào mừng đến với trò chuyện Steward luôn sẵn sàng. Gõ bên dưới để tương tác.',
+        'Chào mừng đến với trò chuyện Steward luôn sẵn sàng. Gõ bên dưới để tương tác, gõ `/ ?` để xem các lệnh có sẵn, hoặc gõ `@` để tham chiếu tệp và thư mục.',
       commandPlaceholder: 'Nhấn Enter để gửi',
       addToInlineConversation: 'Steward: Thêm vào cuộc trò chuyện nội tuyến',
       addToChat: 'Steward: Thêm vào trò chuyện',

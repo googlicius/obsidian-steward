@@ -1,8 +1,8 @@
 import {
   IMAGE_LINK_PATTERN,
   WIKI_LINK_PATTERN,
-  STW_SELECTED_PATTERN,
-  STW_SELECTED_METADATA_PATTERN,
+  STW_SOURCE_PATTERN,
+  STW_SOURCE_METADATA_PATTERN,
 } from 'src/constants';
 import { logger } from 'src/utils/logger';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
@@ -82,28 +82,29 @@ export class NoteContentService {
       }
     }
 
-    // Early check if content has stw-selected blocks
-    if (!content.includes('{{stw-selected')) {
+    // Early check if content has stw-source blocks
+    if (!content.includes('{{stw-source')) {
       return imagePaths;
     }
 
-    // Extract images from stw-selected blocks
-    const stwSelectedMatches = content.matchAll(new RegExp(STW_SELECTED_PATTERN, 'g'));
+    // Extract images from stw-source blocks
+    const stwSourceMatches = content.matchAll(new RegExp(STW_SOURCE_PATTERN, 'g'));
 
-    for (const stwMatch of stwSelectedMatches) {
+    for (const stwMatch of stwSourceMatches) {
       if (stwMatch[1]) {
         const stwBlock = stwMatch[1];
-        const metadataMatch = stwBlock.match(new RegExp(STW_SELECTED_METADATA_PATTERN));
+        const metadataMatch = stwBlock.match(new RegExp(STW_SOURCE_METADATA_PATTERN));
 
         if (metadataMatch) {
-          const [, , , escapedSelection] = metadataMatch;
-          // Unescape the selection content
-          const unescapedSelection = new MarkdownUtil(escapedSelection)
-            .unescape()
-            .decodeURI()
-            .getText();
-          const selectionImagePaths = this.extractImageLinks(unescapedSelection);
-          imagePaths.push(...selectionImagePaths);
+          const [, , , , , escapedSelection] = metadataMatch;
+          if (escapedSelection) {
+            const unescapedSelection = new MarkdownUtil(escapedSelection)
+              .unescape()
+              .decodeURI()
+              .getText();
+            const selectionImagePaths = this.extractImageLinks(unescapedSelection);
+            imagePaths.push(...selectionImagePaths);
+          }
         }
       }
     }

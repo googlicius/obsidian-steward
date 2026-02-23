@@ -6,8 +6,8 @@ import type StewardPlugin from '../main';
 import { logger } from 'src/utils/logger';
 import {
   SELECTED_MODEL_PATTERN,
-  STW_SELECTED_PATTERN,
-  STW_SELECTED_METADATA_PATTERN,
+  STW_SOURCE_PATTERN,
+  STW_SOURCE_METADATA_PATTERN,
   CONFIRMATION_BUTTONS_PATTERN,
 } from 'src/constants';
 import { prependChunk } from 'src/utils/textStreamer';
@@ -51,39 +51,42 @@ export class ConversationRenderer {
   }
 
   /**
-   * Extract stw-selected blocks from content and create artifact if found
+   * Extract stw-source blocks from content and create artifact if found
    */
-  private async createStwSelectedArtifactIfPresent(title: string, content: string): Promise<void> {
-    if (!content.includes('{{stw-selected')) {
+  private async createStwSourceArtifactIfPresent(title: string, content: string): Promise<void> {
+    if (!content.includes('{{stw-source')) {
       return;
     }
 
-    const stwSelectedMatches = Array.from(content.matchAll(new RegExp(STW_SELECTED_PATTERN, 'g')));
-    if (stwSelectedMatches.length === 0) {
+    const stwSourceMatches = Array.from(content.matchAll(new RegExp(STW_SOURCE_PATTERN, 'g')));
+    if (stwSourceMatches.length === 0) {
       return;
     }
 
     const selections: Array<{
-      fromLine: number;
-      toLine: number;
-      selection: string;
+      sourceType: string;
       path: string;
+      fromLine?: number;
+      toLine?: number;
+      selection: string;
     }> = [];
 
-    for (const match of stwSelectedMatches) {
+    for (const match of stwSourceMatches) {
       if (match[1]) {
         const stwBlock = match[1];
-        const metadataMatch = stwBlock.match(new RegExp(STW_SELECTED_METADATA_PATTERN));
+        const metadataMatch = stwBlock.match(new RegExp(STW_SOURCE_METADATA_PATTERN));
 
         if (metadataMatch) {
-          const [, fromLineStr, toLineStr, escapedSelection, path] = metadataMatch;
-          const fromLine = parseInt(fromLineStr, 10);
-          const toLine = parseInt(toLineStr, 10);
+          const [, sourceType, path, fromLineStr, toLineStr, escapedSelection] = metadataMatch;
+          const fromLine = fromLineStr !== undefined ? parseInt(fromLineStr, 10) : undefined;
+          const toLine = toLineStr !== undefined ? parseInt(toLineStr, 10) : undefined;
 
-          // Unescape the selection content
-          const selection = new MarkdownUtil(escapedSelection).unescape().decodeURI().getText();
+          const selection = escapedSelection
+            ? new MarkdownUtil(escapedSelection).unescape().decodeURI().getText()
+            : '';
 
           selections.push({
+            sourceType,
             fromLine,
             toLine,
             selection,
@@ -96,7 +99,7 @@ export class ConversationRenderer {
     if (selections.length > 0) {
       await this.plugin.artifactManagerV2.withTitle(title).storeArtifact({
         artifact: {
-          artifactType: ArtifactType.STW_SELECTED,
+          artifactType: ArtifactType.STW_SOURCE,
           selections,
         },
       });
@@ -670,8 +673,8 @@ export class ConversationRenderer {
       });
 
       // if (roleName === 'User') {
-      //   // Automatically create STW_SELECTED artifact if stw-selected blocks are present
-      //   await this.createStwSelectedArtifactIfPresent(params.path, params.newContent);
+      //   // Automatically create STW_SOURCE artifact if stw-source blocks are present
+      //   await this.createStwSourceArtifactIfPresent(params.path, params.newContent);
       // }
 
       return messageId;
@@ -1056,8 +1059,8 @@ export class ConversationRenderer {
       // Create the conversation note
       await this.plugin.app.vault.create(notePath, initialContent);
 
-      // Automatically create STW_SELECTED artifact if stw-selected blocks are present
-      await this.createStwSelectedArtifactIfPresent(title, content);
+      // Automatically create STW_SOURCE artifact if stw-source blocks are present
+      await this.createStwSourceArtifactIfPresent(title, content);
     } catch (error) {
       logger.error('Error creating conversation note:', error);
       throw error;

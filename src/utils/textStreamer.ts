@@ -149,13 +149,42 @@ export async function* prependChunk<T>(
 const REASONING_START_TAG = '````stw-thinking\n';
 const REASONING_END_TAG = `\n\`\`\`\`\n>[!info] <a class="stw-thinking-process">${i18next.t('common.thinkingProcess')}</a>\n\n`;
 
-interface StreamChunk {
-  type?: string;
+interface StreamChunkReasoning {
+  type: 'reasoning-delta' | 'reasoning';
+  text?: string;
   reasoningText?: string;
   textDelta?: string;
-  text?: string;
-  [key: string]: unknown;
 }
+
+interface StreamChunkText {
+  type: 'text-delta' | 'text';
+  textDelta?: string;
+  text?: string;
+}
+
+interface StreamChunkToolInputStart {
+  type: 'tool-input-start';
+  toolName: string;
+  id: string;
+}
+
+interface StreamChunkToolInputDelta {
+  type: 'tool-input-delta';
+  id: string;
+  delta: string;
+}
+
+interface StreamChunkToolInputEnd {
+  type: 'tool-input-end';
+  id: string;
+}
+
+type StreamChunk =
+  | StreamChunkReasoning
+  | StreamChunkText
+  | StreamChunkToolInputStart
+  | StreamChunkToolInputDelta
+  | StreamChunkToolInputEnd;
 
 /**
  * Escapes triple backticks in reasoning content to prevent breaking the stw-thinking code fence.
@@ -300,12 +329,10 @@ export function createLLMStream(
             yield REASONING_START_TAG;
           }
 
-          const reasoningText = (chunkWithType.text ||
-            chunkWithType.reasoningText ||
-            chunkWithType.textDelta ||
-            '') as string;
+          const reasoningText =
+            chunkWithType.text || chunkWithType.reasoningText || chunkWithType.textDelta || '';
 
-          if (reasoningText && typeof reasoningText === 'string') {
+          if (reasoningText) {
             yield escapeTripleBackticks(reasoningText);
           }
           break;
@@ -320,8 +347,8 @@ export function createLLMStream(
             yield REASONING_END_TAG;
           }
 
-          const textContent = (chunkWithType.textDelta || chunkWithType.text || '') as string;
-          if (textContent && typeof textContent === 'string') {
+          const textContent = chunkWithType.textDelta || chunkWithType.text || '';
+          if (textContent) {
             yield textContent;
           }
           break;
@@ -330,8 +357,7 @@ export function createLLMStream(
         case 'tool-input-start': {
           if (!streamingConfig) break;
 
-          const toolName = chunkWithType.toolName as string;
-          const toolCallId = chunkWithType.id as string;
+          const { toolName, id: toolCallId } = chunkWithType;
 
           if (toolName && toolCallId && streamingConfig.targetTools.has(toolName)) {
             const extractor = streamingConfig.createExtractor(toolName);
@@ -341,8 +367,7 @@ export function createLLMStream(
         }
 
         case 'tool-input-delta': {
-          const toolCallId = chunkWithType.id as string;
-          const inputTextDelta = chunkWithType.delta as string;
+          const { id: toolCallId, delta: inputTextDelta } = chunkWithType;
           const entry = toolCallId ? extractors.get(toolCallId) : undefined;
 
           if (entry && inputTextDelta) {
@@ -359,7 +384,7 @@ export function createLLMStream(
         }
 
         case 'tool-input-end': {
-          const endToolCallId = chunkWithType.id as string;
+          const { id: endToolCallId } = chunkWithType;
           if (endToolCallId) {
             extractors.delete(endToolCallId);
           }

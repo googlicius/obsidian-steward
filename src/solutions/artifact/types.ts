@@ -21,7 +21,7 @@ export enum ArtifactType {
   UPDATE_FRONTMATTER_RESULTS = 'update_frontmatter_results',
   RENAME_RESULTS = 'rename_results',
   LIST_RESULTS = 'list_results',
-  STW_SELECTED = 'stw_selected',
+  STW_SOURCE = 'stw_source',
   EDIT_RESULTS = 'edit_results',
 }
 
@@ -166,17 +166,19 @@ export interface ListResultsArtifact extends BaseArtifact {
 }
 
 /**
- * STW Selected artifact
- * Stores selected content blocks from the user's query in the format:
- * {{stw-selected from:<startLine>,to:<endLine>,selection:<selectionContent>,path:<notePath>}}
+ * STW Source artifact
+ * Stores source content blocks from the user's query in the format:
+ * {{stw-source type:<sourceType>,path:<notePath>,from:<startLine>,to:<endLine>,selection:<selectionContent>}}
+ * The from, to, and selection fields are optional (omitted for file/folder source types).
  */
-export interface StwSelectedArtifact extends BaseArtifact {
-  artifactType: ArtifactType.STW_SELECTED;
+export interface StwSourceArtifact extends BaseArtifact {
+  artifactType: ArtifactType.STW_SOURCE;
   selections: Array<{
-    fromLine: number; // Starting line number (0-based)
-    toLine: number; // Ending line number (0-based)
-    selection: string; // The selected content
-    path: string; // Path to the note file
+    sourceType: string; // Source type: 'selected', 'file', 'folder', etc.
+    path: string; // Path to the note file or folder
+    fromLine?: number; // Starting line number (0-based), omitted for file/folder
+    toLine?: number; // Ending line number (0-based), omitted for file/folder
+    selection: string; // The selected content (empty for file/folder)
   }>;
 }
 
@@ -231,7 +233,7 @@ export type Artifact =
   | UpdateFrontmatterResultsArtifact
   | RenameResultsArtifact
   | ListResultsArtifact
-  | StwSelectedArtifact
+  | StwSourceArtifact
   | EditResultsArtifact;
 
 export type ArtifactMap = {
@@ -248,7 +250,7 @@ export type ArtifactMap = {
   [ArtifactType.UPDATE_FRONTMATTER_RESULTS]: UpdateFrontmatterResultsArtifact;
   [ArtifactType.RENAME_RESULTS]: RenameResultsArtifact;
   [ArtifactType.LIST_RESULTS]: ListResultsArtifact;
-  [ArtifactType.STW_SELECTED]: StwSelectedArtifact;
+  [ArtifactType.STW_SOURCE]: StwSourceArtifact;
   [ArtifactType.EDIT_RESULTS]: EditResultsArtifact;
 };
 

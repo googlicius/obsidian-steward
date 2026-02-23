@@ -279,7 +279,7 @@ code[class*='language-stw-hidden-from-user'] {
   opacity: 1;
 }
 
-.stw-selected-button {
+.stw-source-button {
   background: linear-gradient(to right, #0000ff, #00bebe);
   -webkit-background-clip: text;
   background-clip: text;
@@ -433,4 +433,16 @@ code[class*='language-stw-hidden-from-user'] {
 .stw-confirmation-buttons {
   display: flex;
   gap: var(--size-2-2);
+}
+
+.stw-autocomplete-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 4px;
+  color: var(--text-muted);
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
 }

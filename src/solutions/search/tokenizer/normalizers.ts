@@ -1,4 +1,4 @@
-import { STW_SELECTED_PATTERN, STW_SQUEEZED_PATTERN } from '../../../constants';
+import { STW_SOURCE_PATTERN, STW_SQUEEZED_PATTERN } from '../../../constants';
 
 /**
  * Interface for text normalizers that transform content before tokenization.
@@ -50,8 +50,8 @@ export const ALL_NORMALIZERS: Record<string, Normalizer['apply']> = {
       .replace(/[^\p{L}\p{N}'\u2019\s#_-]/gu, ' ') // Keep letters, numbers, apostrophes, hashtags, underscores, hyphens
       .replace(/[#_-]{2,}/g, ' '), // Filter out 2+ consecutive special characters
   removeDiacritics,
-  removeStwSelectedPatterns: (content: string) =>
-    content.replace(new RegExp(STW_SELECTED_PATTERN, 'g'), ' '),
+  removeStwSourcePatterns: (content: string) =>
+    content.replace(new RegExp(STW_SOURCE_PATTERN, 'g'), ' '),
   removeStwSqueezedPatterns: (content: string) =>
     content.replace(new RegExp(STW_SQUEEZED_PATTERN, 'g'), ' '),
   removeTagPrefix: (content: string) => content.replace(/#([^#\s]+)/g, '$1'),

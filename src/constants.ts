@@ -21,10 +21,10 @@ export const IMAGE_LINK_PATTERN = '!\\[\\[(.*?\\.(jpg|jpeg|png|webp|svg))(?:\\|.
 export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'svg', 'gif'];
 
 /**
- * Stw-selected pattern constants for reuse across the application
- * Pattern to match any stw-selected block (with capture group for splitting)
+ * Stw-source pattern constants for reuse across the application
+ * Pattern to match any stw-source block (with capture group for splitting)
  */
-export const STW_SELECTED_PATTERN = '(\\{\\{stw-selected.*?\\}\\})';
+export const STW_SOURCE_PATTERN = '(\\{\\{stw-source.*?\\}\\})';
 
 /**
  * Pattern to match {{stw-squeezed [[<path>]] }}
@@ -43,10 +43,11 @@ export const CONFIRMATION_BUTTONS_PATTERN = '\\{\\{stw-confirmation-buttons ([^}
 export const WIKI_LINK_PATTERN = '\\[\\[([^\\]]+)\\]\\]';
 
 /**
- * Pattern to extract metadata from stw-selected blocks
+ * Pattern to extract metadata from stw-source blocks
+ * Captures: type (group 1), path (group 2), from (group 3, optional), to (group 4, optional), selection (group 5, optional)
  */
-export const STW_SELECTED_METADATA_PATTERN =
-  '\\{\\{stw-selected from:(\\d+),to:(\\d+),selection:(.+?),path:(.+?)\\}\\}';
+export const STW_SOURCE_METADATA_PATTERN =
+  '\\{\\{stw-source type:(\\w+),path:(.+?)(?:,from:(\\d+),to:(\\d+),selection:(.+?))?\\s*\\}\\}';
 
 /**
  * Pattern to extract extracted model prefix m: or model:

@@ -261,7 +261,7 @@ const ja = {
       decryptionError: 'APIキーの復号に失敗しました。設定で再度入力してください。',
       encryptionError: 'APIキーの暗号化に失敗しました。もう一度お試しください。',
       welcomeMessage:
-        'いつでも利用可能なStewardチャットへようこそ。以下に入力して対話してください。',
+        'いつでも利用可能なStewardチャットへようこそ。以下に入力して対話するか、`/ ?` でコマンド一覧を表示、`@` でファイルやフォルダを参照できます。',
       commandPlaceholder: '送信するにはEnterを押してください',
       Copy: 'コピー',
       contentCopied: 'コンテンツをクリップボードにコピーしました',

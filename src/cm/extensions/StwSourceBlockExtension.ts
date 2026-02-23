@@ -7,16 +7,15 @@ import {
   RangeSet,
 } from '@codemirror/state';
 import { Decoration, WidgetType, EditorView, DecorationSet } from '@codemirror/view';
-import { STW_SELECTED_METADATA_PATTERN, STW_SELECTED_PATTERN } from 'src/constants';
+import { STW_SOURCE_METADATA_PATTERN, STW_SOURCE_PATTERN } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 
 // Define an effect to trigger recomputation of widgets
 const updateWidgets = StateEffect.define();
 
-export function createStwSelectedBlocksExtension(plugin: StewardPlugin) {
-  // Widget for rendering the {{stw-selected...}} block
-  class StwSelectedBlockWidget extends WidgetType {
+export function createStwSourceBlocksExtension(plugin: StewardPlugin) {
+  class StwSourceBlockWidget extends WidgetType {
     constructor(private content: string) {
       super();
     }
@@ -24,21 +23,26 @@ export function createStwSelectedBlocksExtension(plugin: StewardPlugin) {
     toDOM() {
       const span = document.createElement('span');
 
-      // Parse the metadata to extract note name and line numbers
-      const metadataMatch = this.content.match(new RegExp(STW_SELECTED_METADATA_PATTERN));
+      const metadataMatch = this.content.match(new RegExp(STW_SOURCE_METADATA_PATTERN));
 
       if (metadataMatch) {
-        const [, fromLine, toLine, , filePath] = metadataMatch;
-        const fileName = filePath.split('/').pop()?.replace(/\.md$/, '') || 'Unknown';
-        // Display 1-based line numbers (add 1 to 0-based stored values)
-        const displayFromLine = parseInt(fromLine) + 1;
-        const displayToLine = parseInt(toLine) + 1;
-        span.textContent = `@${fileName} (${displayFromLine}-${displayToLine})`;
+        const [, sourceType, filePath, fromLine, toLine] = metadataMatch;
+        const fileName = filePath.split('/').pop()?.replace(/\.md$/, '') || filePath;
 
-        // Handles navigation to the selected block
+        if (fromLine !== undefined && toLine !== undefined) {
+          const displayFromLine = parseInt(fromLine) + 1;
+          const displayToLine = parseInt(toLine) + 1;
+          span.textContent = `@${fileName} (${displayFromLine}-${displayToLine})`;
+        } else if (sourceType === 'folder') {
+          span.textContent = `@${filePath}`;
+        } else {
+          span.textContent = `@${fileName}`;
+        }
+
         span.addEventListener('click', async () => {
           try {
-            // Check if the target file is different from the current file
+            if (sourceType === 'folder') return;
+
             const currentFile = plugin.app.workspace.getActiveFile();
             const targetFile = await plugin.mediaTools.findFileByNameOrPath(filePath);
 
@@ -47,18 +51,17 @@ export function createStwSelectedBlocksExtension(plugin: StewardPlugin) {
               return;
             }
 
-            // If the target file is not the current file, open it first
             if (!currentFile || currentFile.path !== filePath) {
               const mainLeaf = await plugin.getMainLeaf();
               await mainLeaf.openFile(targetFile);
               await sleep(100);
             }
 
-            // Line numbers are now stored as 0-based, so no need to subtract 1
+            if (fromLine === undefined || toLine === undefined) return;
+
             const startLineNum = parseInt(fromLine);
             const endLineNum = parseInt(toLine);
 
-            // Validate line numbers are within document bounds
             const docLineCount = plugin.editor.lineCount();
             if (startLineNum < 0 || endLineNum >= docLineCount || startLineNum > endLineNum) {
               logger.warn(
@@ -74,36 +77,32 @@ export function createStwSelectedBlocksExtension(plugin: StewardPlugin) {
             plugin.editor.setSelection(from, to);
             plugin.editor.scrollIntoView({ from, to });
           } catch (error) {
-            logger.error('Error navigating to selected block:', error);
+            logger.error('Error navigating to source block:', error);
           }
         });
       } else {
-        // Fallback to original content if parsing fails
         span.textContent = this.content;
       }
 
-      span.className = 'stw-selected-button';
+      span.className = 'stw-source-button';
 
       return span;
     }
 
     ignoreEvent() {
-      // Ignore all events (prevents editing or interaction inside)
       return true;
     }
 
-    eq(other: StwSelectedBlockWidget) {
+    eq(other: StwSourceBlockWidget) {
       return this.content === other.content;
     }
   }
 
-  // Function to find all `stw-selected...` ranges in the document
   function findProtectedRanges(doc: Text) {
     const ranges = [];
-    const text = doc.sliceString(0, doc.length); // Get full document as string
+    const text = doc.sliceString(0, doc.length);
 
-    // Use regex to find all {{stw-selected...}} patterns
-    const pattern = new RegExp(STW_SELECTED_PATTERN, 'g');
+    const pattern = new RegExp(STW_SOURCE_PATTERN, 'g');
     let match;
 
     while ((match = pattern.exec(text)) !== null) {
@@ -115,7 +114,6 @@ export function createStwSelectedBlocksExtension(plugin: StewardPlugin) {
     return ranges;
   }
 
-  // Helper to compute the decoration set
   function computeDecorationsAndRanges(state: EditorState) {
     const decorationBuilder = new RangeSetBuilder<Decoration>();
     const atomicRangeBuilder = new RangeSetBuilder<Decoration>();
@@ -126,12 +124,11 @@ export function createStwSelectedBlocksExtension(plugin: StewardPlugin) {
         from,
         to,
         Decoration.replace({
-          widget: new StwSelectedBlockWidget(content),
+          widget: new StwSourceBlockWidget(content),
           inclusive: false,
         })
       );
 
-      // Add the same range to the atomic ranges builder
       atomicRangeBuilder.add(from, to, Decoration.mark({}));
     }
 
@@ -141,7 +138,7 @@ export function createStwSelectedBlocksExtension(plugin: StewardPlugin) {
     };
   }
 
-  const stwSelectedBlocksField = StateField.define<{
+  const stwSourceBlocksField = StateField.define<{
     decorations: DecorationSet;
     atomicRanges: RangeSet<Decoration>;
   }>({
@@ -150,7 +147,6 @@ export function createStwSelectedBlocksExtension(plugin: StewardPlugin) {
     },
 
     update(value, tr) {
-      // Recompute on any transaction (doc change) or explicit update effect
       if (tr.docChanged || tr.effects.some(e => e.is(updateWidgets))) {
         return computeDecorationsAndRanges(tr.state);
       }
@@ -169,5 +165,5 @@ export function createStwSelectedBlocksExtension(plugin: StewardPlugin) {
     },
   });
 
-  return [stwSelectedBlocksField];
+  return [stwSourceBlocksField];
 }
