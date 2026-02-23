@@ -280,6 +280,7 @@ export const DOCUMENTATION_FILES = {
 
 // Wiki page slugs corresponding to documentation files
 export const WIKI_PAGES = {
+  GET_STARTED: 'Get-started',
   SEARCH: 'Search',
   USER_DEFINED_COMMANDS: 'User-defined-commands',
   SKILLS: 'Skills',

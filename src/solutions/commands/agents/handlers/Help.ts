@@ -96,8 +96,17 @@ export class Help {
         content += `*${t('skills.noSkills')}*\n`;
       }
 
+      // Add tips section
+      content += `\n**${t('documentation.tips')}:**\n\n`;
+      content += `- ${t('documentation.tipNewLines')}\n`;
+      content += `- ${t('documentation.tipChangeModel')}\n`;
+      content += `- ${t('documentation.tipAttachContext')}\n`;
+      content += `- ${t('documentation.tipStop')}\n`;
+      content += `- ${t('documentation.tipRevert')}\n`;
+
       // Add wiki links section
       content += `\n**${t('documentation.guidelines')}:**\n\n`;
+      content += `- [${t('documentation.getStartedGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.GET_STARTED})\n`;
       content += `- [${t('documentation.searchGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.SEARCH})\n`;
       content += `- [${t('documentation.udcGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.USER_DEFINED_COMMANDS})\n`;
       content += `- [${t('documentation.skillsGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.SKILLS})\n`;
