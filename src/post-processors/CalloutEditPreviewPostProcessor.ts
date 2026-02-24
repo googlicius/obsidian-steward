@@ -21,6 +21,9 @@ export function createCalloutEditPreviewPostProcessor(): MarkdownPostProcessor {
         const target = event.target as HTMLElement;
         if (target.tagName === 'A') return;
 
+        // Skip toggle if the user select something.
+        if (callout.classList.contains('stw-expanded') && hasSelectedTextInCallout(callout)) return;
+
         event.preventDefault();
         event.stopPropagation();
         callout.classList.toggle('stw-expanded');
@@ -42,4 +45,13 @@ function setupAutoScroll(callout: HTMLElement): void {
 
   const observer = new MutationObserver(scrollToBottom);
   observer.observe(callout, { childList: true, subtree: true, characterData: true });
+}
+
+function hasSelectedTextInCallout(callout: HTMLElement): boolean {
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) return false;
+  if (!selection.toString().trim()) return false;
+
+  const range = selection.getRangeAt(0);
+  return range.intersectsNode(callout);
 }

@@ -52,23 +52,23 @@ Steward can be used directly in the editor or by opening the chat interface.
 
 #### Update directly in the editor
 
-<img src="/docs/Update-In-Editor.gif" alt="Update directly in the editor" width="400px">
+<img src="/docs/images/Update-In-Editor.gif" alt="Update directly in the editor" width="400px">
 
 #### Reasoning
 
-<img src="/docs/Steward-Demo-Reasoning-2.gif" alt="Image read" width="400px">
+<img src="/docs/images/Steward-Demo-Reasoning-2.gif" alt="Image read" width="400px">
 
 #### To-do list and revert changes
 
-<img src="/docs/Steward-Demo-Todo-list-and-revert.gif" alt="Revert" width="400px">
+<img src="/docs/images/Steward-Demo-Todo-list-and-revert.gif" alt="Revert" width="400px">
 
 #### Update the selection
 
-<img src="/docs/Stw-Demo-Update-selected-text-complex.gif" alt="Update selection" width="650px">
+<img src="/docs/images/Stw-Demo-Update-selected-text-complex.gif" alt="Update selection" width="650px">
 
 #### Search
 
-<img src="/docs/Stw-Demo-Search-light.gif" alt="Search" width="650px">
+<img src="/docs/images/Stw-Demo-Search-light.gif" alt="Search" width="650px">
 
 ## Skills
 
@@ -86,7 +86,7 @@ You can find ready-to-use skills from the community, such as [Obsidian Skills](h
 
 For more details, see the [Skills wiki](https://github.com/googlicius/obsidian-steward/wiki/Skills).
 
-<img src="/docs/Skills.gif" alt="Skills" width="650px">
+<img src="/docs/images/Skills.gif" alt="Skills" width="650px">
 
 ## User-defined commands
 
@@ -98,11 +98,11 @@ For the full guide on creating and using User-Defined Commands, see the [User-de
 
 #### Flashcard assist:
 
-<img src="/docs/Flashcard-Assist-command.gif" alt="Flashcard Assist" width="650px">
+<img src="/docs/images/Flashcard-Assist-command.gif" alt="Flashcard Assist" width="650px">
 
 #### Automated command [Word processor](/community-UDCs/Word%20processor.md)
 
-<img src="/docs/Steward-Demo-Automated.gif" alt="Automated workflow" width="650px">
+<img src="/docs/images/Steward-Demo-Automated.gif" alt="Automated workflow" width="650px">
 
 ### Community user-defined commands
 

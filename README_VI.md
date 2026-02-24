@@ -57,23 +57,23 @@ Steward có thể được sử dụng trực tiếp trong trình soạn thảo 
 
 #### Cập nhật trực tiếp trong trình soạn thảo
 
-<img src="/docs/Update-In-Editor.gif" alt="Cập nhật trực tiếp trong trình soạn thảo" width="400px">
+<img src="/docs/images/Update-In-Editor.gif" alt="Cập nhật trực tiếp trong trình soạn thảo" width="400px">
 
 #### Suy luận
 
-<img src="/docs/Steward-Demo-Reasoning-2.gif" alt="Đọc hình ảnh" width="400px">
+<img src="/docs/images/Steward-Demo-Reasoning-2.gif" alt="Đọc hình ảnh" width="400px">
 
 #### Danh sách việc cần làm và hoàn tác thay đổi
 
-<img src="/docs/Steward-Demo-Todo-list-and-revert.gif" alt="Hoàn tác" width="400px">
+<img src="/docs/images/Steward-Demo-Todo-list-and-revert.gif" alt="Hoàn tác" width="400px">
 
 #### Cập nhật vùng chọn
 
-<img src="/docs/Stw-Demo-Update-selected-text-complex.gif" alt="Cập nhật vùng chọn" width="650px">
+<img src="/docs/images/Stw-Demo-Update-selected-text-complex.gif" alt="Cập nhật vùng chọn" width="650px">
 
 #### Tìm kiếm
 
-<img src="/docs/Stw-Demo-Search-light.gif" alt="Tìm kiếm" width="650px">
+<img src="/docs/images/Stw-Demo-Search-light.gif" alt="Tìm kiếm" width="650px">
 
 ## Lệnh do người dùng định nghĩa
 
@@ -267,11 +267,11 @@ Hướng dẫn và lệnh-do-người-dùng-định-nghĩa từ cộng đồng c
 
 #### Hỗ trợ flashcard:
 
-<img src="/docs/Flashcard-Assist-command.gif" alt="Hỗ trợ Flashcard" width="650px">
+<img src="/docs/images/Flashcard-Assist-command.gif" alt="Hỗ trợ Flashcard" width="650px">
 
 #### Lệnh tự động [Word processor](/community-UDCs/Word%20processor.md)
 
-<img src="/docs/Steward-Demo-Automated.gif" alt="Hỗ trợ Flashcard" width="650px">
+<img src="/docs/images/Steward-Demo-Automated.gif" alt="Hỗ trợ Flashcard" width="650px">
 
 ### Lệnh-do-người-dùng-định-nghĩa từ cộng đồng
 
