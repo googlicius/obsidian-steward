@@ -30,3 +30,4 @@ export * from './UseSkills';
 export * from './Conclude';
 export * from './GetMostRecentArtifact';
 export * from './GetArtifactById';
+export * from './RecallCompactedContext';

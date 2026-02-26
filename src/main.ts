@@ -60,6 +60,7 @@ import { VersionCheckerService } from './services/VersionCheckerService';
 import { UserMessageService } from './services/UserMessageService';
 import { GitHubResourceService } from './services/GitHubResourceService';
 import { SkillService } from './services/SkillService';
+import { CompactionOrchestrator } from './solutions/compaction';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -87,6 +88,7 @@ export default class StewardPlugin extends Plugin {
   _commandTrackingService: CommandTrackingService;
   _versionCheckerService: VersionCheckerService;
   _userMessageService: UserMessageService;
+  _compactionOrchestrator: CompactionOrchestrator;
 
   get commandInputService(): CommandInputService {
     if (!this._commandInputService) {
@@ -191,6 +193,13 @@ export default class StewardPlugin extends Plugin {
       this._skillService = SkillService.getInstance(this);
     }
     return this._skillService;
+  }
+
+  get compactionOrchestrator(): CompactionOrchestrator {
+    if (!this._compactionOrchestrator) {
+      this._compactionOrchestrator = new CompactionOrchestrator(this);
+    }
+    return this._compactionOrchestrator;
   }
 
   get conversationRender(): ConversationRenderer {

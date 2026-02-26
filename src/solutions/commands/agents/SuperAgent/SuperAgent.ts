@@ -126,6 +126,7 @@ const tools = {
   [ToolName.TODO_LIST_UPDATE]: handlers.TodoList.getTodoListUpdateTool(),
   [ToolName.USE_SKILLS]: handlers.UseSkills.getUseSkillsTool(),
   [ToolName.CONCLUDE]: handlers.Conclude.getConcludeTool(),
+  [ToolName.RECALL_COMPACTED_CONTEXT]: handlers.RecallCompactedContext.getRecallCompactedContextTool(),
 };
 
 const toolsThatEnableConclude = new Set([
@@ -405,6 +406,13 @@ export class SuperAgent extends Agent {
         summaryPosition: 1,
       });
 
+      // Run compaction orchestrator — may produce a system message to inject
+      const compactionResult = await this.plugin.compactionOrchestrator.run({
+        conversationTitle: params.title,
+        visibleWindowSize: 10,
+        lang: params.lang,
+      });
+
       const llmConfig = await this.plugin.llmService.getLLMConfig({
         overrideModel: params.intent.model,
         generateType: 'text',
@@ -414,11 +422,13 @@ export class SuperAgent extends Agent {
       const baseActiveTools =
         params.activeTools && params.activeTools.length > 0 ? params.activeTools : [];
       const hasConcludeEligibleTool = baseActiveTools.some(t => toolsThatEnableConclude.has(t));
+      const hasCompactionContext = !!compactionResult.systemMessage;
       const activeToolNames = shouldUseTools
         ? [
             ...baseActiveTools,
             ToolName.ACTIVATE,
             ...(hasConcludeEligibleTool ? [ToolName.CONCLUDE] : []),
+            ...(hasCompactionContext ? [ToolName.RECALL_COMPACTED_CONTEXT] : []),
           ]
         : [];
 
@@ -496,6 +506,11 @@ export class SuperAgent extends Agent {
       // Inject each active skill as a separate system prompt to avoid formatting conflicts
       const activeSkillPrompts = this.generateActiveSkillPrompts(params.activeSkills || []);
       additionalSystemPrompts.push(...activeSkillPrompts);
+
+      // Inject compacted conversation context when available
+      if (compactionResult.systemMessage) {
+        additionalSystemPrompts.push(compactionResult.systemMessage);
+      }
 
       if (additionalSystemPrompts.length > 0) {
         for (const item of additionalSystemPrompts) {
@@ -800,6 +815,7 @@ NOTE:
       [ToolName.CONCLUDE]: () => this.conclude,
       [ToolName.GET_MOST_RECENT_ARTIFACT]: () => this.getMostRecentArtifact,
       [ToolName.GET_ARTIFACT_BY_ID]: () => this.getArtifactById,
+      [ToolName.RECALL_COMPACTED_CONTEXT]: () => this.recallCompactedContext,
     };
 
     const processToolCalls = async (startIndex: number): Promise<AgentResult> => {

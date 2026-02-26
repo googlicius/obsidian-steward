@@ -37,6 +37,7 @@ export class SuperAgentHandlers {
   private _conclude: handlers.Conclude;
   private _getMostRecentArtifact: handlers.GetMostRecentArtifact;
   private _getArtifactById: handlers.GetArtifactById;
+  private _recallCompactedContext: handlers.RecallCompactedContext;
 
   /**
    * Helper method to get this instance typed as SuperAgent
@@ -303,5 +304,13 @@ export class SuperAgentHandlers {
     }
 
     return this._getArtifactById;
+  }
+
+  public get recallCompactedContext(): handlers.RecallCompactedContext {
+    if (!this._recallCompactedContext) {
+      this._recallCompactedContext = new handlers.RecallCompactedContext(this.getAgent());
+    }
+
+    return this._recallCompactedContext;
   }
 }

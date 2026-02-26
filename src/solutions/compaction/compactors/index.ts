@@ -1,0 +1,9 @@
+export { ReadContentCompactor } from './ReadContentCompactor';
+export { EditCompactor } from './EditCompactor';
+export { CreateCompactor } from './CreateCompactor';
+export { RenameCompactor } from './RenameCompactor';
+export { CopyCompactor } from './CopyCompactor';
+export { MoveCompactor } from './MoveCompactor';
+export { DeleteCompactor } from './DeleteCompactor';
+export { ImageCompactor } from './ImageCompactor';
+export { SpeechCompactor } from './SpeechCompactor';

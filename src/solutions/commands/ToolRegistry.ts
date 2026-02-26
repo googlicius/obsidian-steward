@@ -390,6 +390,17 @@ NOTE:
     ],
     category: 'task-management',
   },
+
+  [ToolName.RECALL_COMPACTED_CONTEXT]: {
+    name: ToolName.RECALL_COMPACTED_CONTEXT,
+    description:
+      'Recall (retrieve) full content of earlier compacted messages by their messageIds.',
+    guidelines: [
+      `Use ${ToolName.RECALL_COMPACTED_CONTEXT} when you need full content from earlier messages that have been compacted.`,
+      `Provide messageIds from the compacted conversation index (format: <id>, e.g. msg-abc123).`,
+    ],
+    category: 'context-retrieval',
+  },
 };
 
 export class ToolRegistry<T> {

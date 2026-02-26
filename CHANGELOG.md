@@ -5,7 +5,7 @@ All notable changes to Obsidian Steward will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.1.1] - 2026-02-20
+## [2.2.0] - 2026-02-24
 
 ### Added
 
@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Search - Multiple Operators Support**: Search frontmatter fields using comparison operators: `==`, `!=`, `>`, `<`, `>=`, `<=`.
 - **Search - Relative Date Queries**: Use natural date expressions like `today`, `yesterday`, `last month`, etc. in search queries.
 - **Conversation History**: View and manage past conversation threads with titles.
+- **Tool call content streaming**: Stream tool content in the conversation to demonstrate what Steward is working on instead of showing the loading indicator.
 
 ### Changed
 
