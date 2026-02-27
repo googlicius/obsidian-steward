@@ -1,4 +1,5 @@
 import { MarkdownPostProcessor } from 'obsidian';
+import { hasSelectedTextInElement, setupAutoScroll } from 'src/utils/scrollUtils';
 
 /**
  * Creates a markdown post processor that adds click-to-expand behavior
@@ -22,7 +23,7 @@ export function createCalloutEditPreviewPostProcessor(): MarkdownPostProcessor {
         if (target.tagName === 'A') return;
 
         // Skip toggle if the user select something.
-        if (callout.classList.contains('stw-expanded') && hasSelectedTextInCallout(callout)) return;
+        if (callout.classList.contains('stw-expanded') && hasSelectedTextInElement(callout)) return;
 
         event.preventDefault();
         event.stopPropagation();
@@ -34,24 +35,4 @@ export function createCalloutEditPreviewPostProcessor(): MarkdownPostProcessor {
       }
     }
   };
-}
-
-function setupAutoScroll(callout: HTMLElement): void {
-  const scrollToBottom = () => {
-    callout.scrollTop = callout.scrollHeight;
-  };
-
-  scrollToBottom();
-
-  const observer = new MutationObserver(scrollToBottom);
-  observer.observe(callout, { childList: true, subtree: true, characterData: true });
-}
-
-function hasSelectedTextInCallout(callout: HTMLElement): boolean {
-  const selection = window.getSelection();
-  if (!selection || selection.isCollapsed || selection.rangeCount === 0) return false;
-  if (!selection.toString().trim()) return false;
-
-  const range = selection.getRangeAt(0);
-  return range.intersectsNode(callout);
 }

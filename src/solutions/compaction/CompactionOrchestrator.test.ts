@@ -511,6 +511,73 @@ describe('CompactionOrchestrator', () => {
       expect(listEntry).toBeUndefined();
     });
 
+    it('when group contains procedural message and tool-invocation, takes tool-invocation only', async () => {
+      const toolContent =
+        '```stw-artifact\n[{"toolName":"content_reading","toolCallId":"call-1","type":"tool-result","output":{"artifactType":"read_content","readingResults":[{"file":{"path":"Notes/epsilon.md","name":"epsilon.md"}}]}}]\n```';
+      const proceduralMsg = createMessage({
+        id: '40yvw',
+        content: "Now I'll read the epsilon note for you.",
+        role: 'assistant',
+        step: 6,
+        handlerId: 'h1',
+      });
+      const toolInvocationMsg = createMessage({
+        id: 'mt8hz',
+        content: toolContent,
+        role: 'assistant',
+        type: 'tool-invocation',
+        step: 6,
+        handlerId: 'h1',
+      });
+      const messages = [
+        ...Array.from({ length: 8 }, (_, i) =>
+          createMessage({ id: `msg-${i}`, content: `Message ${i}.` })
+        ),
+        proceduralMsg,
+        toolInvocationMsg,
+        ...Array.from({ length: 12 }, (_, i) =>
+          createMessage({ id: `msg-after-${i}`, content: `After ${i}.`, role: 'assistant' })
+        ),
+      ];
+      mockPlugin.conversationRenderer.extractAllConversationMessages = jest
+        .fn()
+        .mockResolvedValue(messages);
+      mockPlugin.conversationRenderer.getConversationProperty = jest
+        .fn()
+        .mockResolvedValue(createEmptyCompactionData());
+      mockPlugin.conversationRenderer.deserializeToolInvocations = jest.fn().mockResolvedValue([
+        {
+          type: 'tool-result',
+          toolName: 'content_reading',
+          toolCallId: 'call-1',
+          output: {
+            artifactType: 'read_content',
+            readingResults: [
+              { blocks: [], source: '', file: { path: 'Notes/epsilon.md', name: 'epsilon.md' } },
+            ],
+          },
+        },
+      ]);
+
+      const result = await orchestrator.run({
+        conversationTitle: CONVERSATION_TITLE,
+        visibleWindowSize: 10,
+        config: { turnThreshold: 5 },
+      });
+
+      const proceduralEntry = result.data.messages.find(m => m.messageId === '40yvw');
+      const toolEntry = result.data.messages.find(
+        m => m.type === 'tool' && m.messageId === 'mt8hz'
+      );
+      expect(proceduralEntry).toBeUndefined();
+      expect(toolEntry).toBeDefined();
+      expect(toolEntry).toMatchObject({
+        type: 'tool',
+        messageId: 'mt8hz',
+        toolName: 'content_reading',
+      });
+    });
+
     it('excludes groups with only invalid tool calls (AI_InvalidToolInputError) from compaction', async () => {
       const invalidToolContent =
         '```stw-artifact\n[{"toolName":"edit","toolCallId":"call-1","type":"tool-result","output":"AI_InvalidToolInputError: invalid input"}]\n```';

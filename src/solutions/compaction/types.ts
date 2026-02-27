@@ -14,11 +14,12 @@ export interface CompactedMessageEntry {
   handlerId?: string;
   role: string;
   /**
-   * - original: content is the original text (or a short excerpt)
+   * - original: content is the full original text
+   * - excerpt: content was truncated due to length; use recall_compacted_context for full text
    * - summarized: content is an AI-generated summary
    * - deleted: message was procedural filler; content replaced with [deleted]
    */
-  contentMode: 'original' | 'summarized' | 'deleted';
+  contentMode: 'original' | 'excerpt' | 'summarized' | 'deleted';
   content: string;
   wordCount: number;
 }

@@ -78,6 +78,10 @@ html[data-stw-language='vi'] {
     max-height: none;
   }
 
+  & .inline-title {
+    display: none;
+  }
+
   & .markdown-embed {
     --embed-padding: 0 0 15px 0;
     border: 0;
@@ -95,15 +99,8 @@ html[data-stw-language='vi'] {
   --callout-color: var(--callout-success);
   padding-left: 12px;
   cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    transform 0.1s ease;
   margin-bottom: 10px !important;
   position: relative;
-
-  &:active {
-    transform: translateX(2px);
-  }
 
   & > .callout-title {
     display: none;
@@ -141,6 +138,13 @@ html[data-stw-language='vi'] {
   & .internal-embed {
     margin: 0;
     padding: 0;
+  }
+}
+
+pre.language-stw-thinking {
+  &[data-streaming='true'] {
+    max-height: 100px;
+    overflow: hidden;
   }
 }
 

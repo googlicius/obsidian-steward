@@ -37,7 +37,6 @@ export class StewardChatView extends MarkdownView {
     this.containerEl.classList.add('stw-chat');
 
     this.createHeader();
-    this.disableTitleEditing();
     this.setupAutoScroll();
   }
 
@@ -146,16 +145,6 @@ export class StewardChatView extends MarkdownView {
     if (this.scrollToBottomTimeout) {
       clearTimeout(this.scrollToBottomTimeout);
       this.scrollToBottomTimeout = null;
-    }
-  }
-
-  /**
-   * Disables editing of the title element by setting contenteditable to false
-   */
-  private disableTitleEditing(): void {
-    const titleEl = this.containerEl.querySelector('.inline-title');
-    if (titleEl instanceof HTMLElement) {
-      titleEl.contentEditable = 'false';
     }
   }
 

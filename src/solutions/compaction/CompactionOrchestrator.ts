@@ -249,7 +249,8 @@ export class CompactionOrchestrator {
 
       const rawContent = message.content.trim();
       const wordCount = countWords(rawContent);
-      const shortContent = rawContent.length > 400 ? `${rawContent.slice(0, 400)}...` : rawContent;
+      const isTruncated = rawContent.length > 400;
+      const shortContent = isTruncated ? `${rawContent.slice(0, 400)}...` : rawContent;
       const shouldSummarize =
         isAssistantGenerated(message.role) && wordCount > SUMMARY_WORD_THRESHOLD;
 
@@ -259,7 +260,7 @@ export class CompactionOrchestrator {
         step: message.step,
         handlerId: message.handlerId,
         role: message.role,
-        contentMode: 'original',
+        contentMode: shouldSummarize ? 'original' : isTruncated ? 'excerpt' : 'original',
         content: shouldSummarize ? rawContent : shortContent,
         wordCount,
       };
@@ -310,7 +311,10 @@ export class CompactionOrchestrator {
 
       if (!shouldKeepGroup) continue;
 
-      const filtered = group.filter(m => this.shouldIncludeMessage(m));
+      const hasToolInvocation = toolInvocationMessages.length > 0;
+      const filtered = hasToolInvocation
+        ? group.filter(m => m.type === 'tool-invocation' && this.shouldIncludeMessage(m))
+        : group.filter(m => this.shouldIncludeMessage(m));
       result.push(...filtered);
     }
 
@@ -428,7 +432,7 @@ export class CompactionOrchestrator {
       '',
       'IMPORTANT: Always use recall_compacted_context with messageIds from the index to retrieve full content when needed. DO NOT guess or make up information—base your response only on retrieved content.',
       '',
-      'Format: <role> (<messageId>, <type>): <preview>. Example: User (msg-abc123, original): Hello... | Assistant (msg-xyz789, summarized): ... | Assistant (msg-def456, compacted): [content_reading] {...}',
+      'Format: <role> (<messageId>, <type>): <preview>. Example: User (msg-abc123, original): Hello | Assistant (msg-xyz789, excerpt): ... | Assistant (msg-abc124, summarized): ... | Assistant (msg-def456, compacted): [content_reading] {...}',
       '',
     ];
 
@@ -437,6 +441,8 @@ export class CompactionOrchestrator {
     }
 
     lines.push('Compacted context:');
+    const separator = '\n---\n';
+    const entryLines: string[] = [];
     for (const entry of entries) {
       const contentModeLabel =
         entry.type === 'tool' ? 'compacted' : (entry as CompactedMessageEntry).contentMode;
@@ -447,13 +453,14 @@ export class CompactionOrchestrator {
         const label = entry.role === 'user' ? 'User' : 'Assistant';
         const preview =
           entry.content.length > 220 ? `${entry.content.slice(0, 220)}...` : entry.content;
-        lines.push(`${label} ${prefix}: ${preview}`);
+        entryLines.push(`${label} ${prefix}: ${preview}`);
       } else {
         const metaStr = JSON.stringify(entry.metadata);
         const truncated = metaStr.length > 300 ? `${metaStr.slice(0, 300)}...` : metaStr;
-        lines.push(`Assistant ${prefix}: [${entry.toolName}] ${truncated}`);
+        entryLines.push(`Assistant ${prefix}: [${entry.toolName}] ${truncated}`);
       }
     }
+    lines.push(entryLines.join(separator));
 
     return lines.join('\n');
   }
