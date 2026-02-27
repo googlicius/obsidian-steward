@@ -127,6 +127,11 @@ const en = {
       activating: 'Activating skills: {{skills}}',
       invalidSkills: 'Skills not found: {{skills}}',
     },
+    switchCapacity: {
+      confirm: 'Would you like me to switch to agent mode?',
+      enabled: 'Switched to tool and skill mode.',
+      cancelled: 'Kept the current mode. Tool and skill mode was not enabled.',
+    },
     skills: {
       skills: 'Skills',
       noSkills: 'No skills loaded. See the Skills guideline below to get started.',
@@ -435,6 +440,19 @@ const en = {
       apiKeyNote1: 'You need to provide your own API keys to use the AI-powered assistant.',
       apiKeyNote2: 'All API keys are stored with encryption.',
       models: 'Models',
+      agentModels: 'Agent models',
+      compactionSummaryAgentEnabled: 'Enable compaction summary agent',
+      compactionSummaryAgentEnabledDesc:
+        'Enable automatic summarization of long assistant messages during compaction.',
+      compactionSummaryAgentModel: 'Compaction summary model',
+      compactionSummaryAgentModelDesc:
+        'Model used by CompactionSummaryAgent. Defaults to the chat model when not set.',
+      conversationTitleAgentEnabled: 'Enable conversation title agent',
+      conversationTitleAgentEnabledDesc:
+        'Enable automatic conversation title generation for new conversations.',
+      conversationTitleAgentModel: 'Conversation title model',
+      conversationTitleAgentModelDesc:
+        'Model used by ConversationTitleAgent. Defaults to the chat model when not set.',
       chatModel: 'Chat model',
       chatModelDesc:
         'Select the AI model to use for chat. You can also change the model inline in the command input by typing m: or model:',

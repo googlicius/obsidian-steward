@@ -34,6 +34,7 @@ export class SuperAgentHandlers {
   private _todoList: handlers.TodoList;
   private _dynamic: handlers.Dynamic;
   private _useSkills: handlers.UseSkills;
+  private _switchAgentCapacity: handlers.SwitchAgentCapacity;
   private _conclude: handlers.Conclude;
   private _getMostRecentArtifact: handlers.GetMostRecentArtifact;
   private _getArtifactById: handlers.GetArtifactById;
@@ -280,6 +281,14 @@ export class SuperAgentHandlers {
     }
 
     return this._useSkills;
+  }
+
+  public get switchAgentCapacity(): handlers.SwitchAgentCapacity {
+    if (!this._switchAgentCapacity) {
+      this._switchAgentCapacity = new handlers.SwitchAgentCapacity(this.getAgent());
+    }
+
+    return this._switchAgentCapacity;
   }
 
   public get conclude(): handlers.Conclude {

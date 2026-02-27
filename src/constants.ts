@@ -146,6 +146,18 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
       enabled: true,
       fallbackChain: [], // Empty by default - users must configure
     },
+    agents: {
+      compactionSummary: {
+        enabled: true,
+        model: 'openai:gpt-4-turbo-preview',
+        customModels: [],
+      },
+      conversationTitle: {
+        enabled: true,
+        model: 'openai:gpt-4-turbo-preview',
+        customModels: [],
+      },
+    },
   },
   embedding: {
     enabled: true, // Embedding functionality enabled by default

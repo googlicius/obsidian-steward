@@ -125,8 +125,10 @@ const tools = {
   [ToolName.TODO_LIST]: handlers.TodoList.getTodoListTool(),
   [ToolName.TODO_LIST_UPDATE]: handlers.TodoList.getTodoListUpdateTool(),
   [ToolName.USE_SKILLS]: handlers.UseSkills.getUseSkillsTool(),
+  [ToolName.SWITCH_AGENT_CAPACITY]: handlers.SwitchAgentCapacity.getSwitchAgentCapacityTool(),
   [ToolName.CONCLUDE]: handlers.Conclude.getConcludeTool(),
-  [ToolName.RECALL_COMPACTED_CONTEXT]: handlers.RecallCompactedContext.getRecallCompactedContextTool(),
+  [ToolName.RECALL_COMPACTED_CONTEXT]:
+    handlers.RecallCompactedContext.getRecallCompactedContextTool(),
 };
 
 const toolsThatEnableConclude = new Set([
@@ -430,7 +432,7 @@ export class SuperAgent extends Agent {
             ...(hasConcludeEligibleTool ? [ToolName.CONCLUDE] : []),
             ...(hasCompactionContext ? [ToolName.RECALL_COMPACTED_CONTEXT] : []),
           ]
-        : [];
+        : [ToolName.SWITCH_AGENT_CAPACITY];
 
       const registry = ToolRegistry.buildFromTools(tools).setActive(activeToolNames);
 
@@ -567,6 +569,15 @@ NOTE:
 - Do NOT mention the tools you use to users. Work silently in the background and only communicate the results or outcomes.
 - Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`;
 
+      const disabledToolModeSystemPrompt = `You are a helpful assistant who helps users with their Obsidian vault.
+
+Tools are currently disabled for this conversation.
+You can use exactly one tool to switch mode:
+- ${ToolName.SWITCH_AGENT_CAPACITY}: switch to tool/skill mode.
+
+If the user asks for work that requires tools, call ${ToolName.SWITCH_AGENT_CAPACITY} first.
+After the switch is confirmed, continue the task and use tools as needed.`;
+
       type RepairToolCall = Parameters<typeof streamText>[0]['experimental_repairToolCall'];
 
       const { toolCalls: toolCallsPromise, fullStream } = streamText({
@@ -574,9 +585,9 @@ NOTE:
         temperature: llmConfig.temperature,
         maxOutputTokens: llmConfig.maxOutputTokens,
         abortSignal,
-        system: shouldUseCoreSystemPrompt ? coreSystemPrompt : undefined,
+        system: shouldUseCoreSystemPrompt ? coreSystemPrompt : disabledToolModeSystemPrompt,
         messages,
-        tools: shouldUseTools ? registry.getToolsObject() : undefined,
+        tools: registry.getToolsObject(),
         experimental_repairToolCall: llmConfig.repairToolCall as RepairToolCall,
         onError: ({ error }) => {
           logger.error('Error in streamText', error);
@@ -834,6 +845,15 @@ NOTE:
         for (let index = startIndex; index < toolCalls.length; index += 1) {
           const toolCall = toolCalls[index];
           let toolCallResult: AgentResult | undefined;
+          const continueProcessingFromNextTool = async (): Promise<AgentResult> => {
+            params.invocationCount = (params.invocationCount ?? 0) + 1;
+
+            return this.handle(params, {
+              remainingSteps,
+              toolCalls,
+              currentToolCallIndex: index + 1,
+            });
+          };
 
           if (toolCall.dynamic) {
             await this.dynamic.handle(params, { toolCall, tools });
@@ -907,6 +927,14 @@ NOTE:
               toolCallResult = await this.useSkills.handle(params, {
                 toolCall,
                 activeSkills,
+              });
+              break;
+            }
+
+            case ToolName.SWITCH_AGENT_CAPACITY: {
+              toolCallResult = await this.switchAgentCapacity.handle(params, {
+                toolCall,
+                continueFromNextTool: continueProcessingFromNextTool,
               });
               break;
             }

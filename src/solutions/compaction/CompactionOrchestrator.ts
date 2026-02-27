@@ -44,14 +44,6 @@ const COMPACTABLE_TOOL_NAMES = new Set<string>([
 ]);
 const SUMMARY_WORD_THRESHOLD = 100;
 
-function estimateTokensFromMessages(messages: ConversationMessage[]): number {
-  let chars = 0;
-  for (const message of messages) {
-    chars += message.content.length;
-  }
-  return Math.ceil(chars / 4);
-}
-
 function countWords(content: string): number {
   const words = content.trim().split(/\s+/).filter(Boolean);
   return words.length;
@@ -144,30 +136,11 @@ export class CompactionOrchestrator {
 
     const { conversationTitle } = params;
     const visibleWindowSize = params.visibleWindowSize ?? DEFAULT_VISIBLE_HISTORY_WINDOW;
-    const allMessages = await this.renderer.extractAllConversationMessages(conversationTitle);
-    const messagesForHistory = allMessages.filter(m => m.history !== false);
-    if (
-      messagesForHistory.length > 0 &&
-      messagesForHistory[messagesForHistory.length - 1].role === 'user'
-    ) {
-      messagesForHistory.pop();
-    }
-
-    const messageCount = messagesForHistory.length;
-    const groups = this.renderer.groupMessagesByStep(messagesForHistory);
-    const messagesFromKeptGroups = this.filterGroupsToCompact(groups);
-    const outOfWindowIds = new Set(
-      messagesForHistory.slice(0, Math.max(0, messageCount - visibleWindowSize)).map(m => m.id)
-    );
-    const outOfWindowMessages = messagesFromKeptGroups.filter(m => outOfWindowIds.has(m.id));
+    const { messageCount, outOfWindowMessages } = await this.getMessagesToCompact({
+      conversationTitle,
+      visibleWindowSize,
+    });
     if (outOfWindowMessages.length === 0) {
-      return { data: await this.store.load(conversationTitle) };
-    }
-
-    const turnTriggered = outOfWindowMessages.length > config.turnThreshold;
-    const tokenTriggered = estimateTokensFromMessages(outOfWindowMessages) > config.tokenBudget;
-
-    if (!turnTriggered && !tokenTriggered) {
       return { data: await this.store.load(conversationTitle) };
     }
 
@@ -175,6 +148,10 @@ export class CompactionOrchestrator {
     const pending = getPendingOutOfWindowMessages({
       outOfWindowMessages,
       lastCompactedMessageId: data.lastCompactedMessageId,
+    });
+    console.log('RUN', {
+      outOfWindowMessages,
+      pending,
     });
     if (pending.length === 0) {
       return {
@@ -206,6 +183,34 @@ export class CompactionOrchestrator {
         totalMessages: messageCount,
       }),
       data,
+    };
+  }
+
+  private async getMessagesToCompact(params: {
+    conversationTitle: string;
+    visibleWindowSize: number;
+  }): Promise<{ messageCount: number; outOfWindowMessages: ConversationMessage[] }> {
+    const { conversationTitle, visibleWindowSize } = params;
+    const allMessages = await this.renderer.extractAllConversationMessages(conversationTitle);
+    const messagesForHistory = allMessages.filter(m => m.history !== false);
+    if (
+      messagesForHistory.length > 0 &&
+      messagesForHistory[messagesForHistory.length - 1].role === 'user'
+    ) {
+      messagesForHistory.pop();
+    }
+
+    const messageCount = messagesForHistory.length;
+    const groups = this.renderer.groupMessagesByStep(messagesForHistory);
+    const messagesFromKeptGroups = this.filterGroupsToCompact(groups);
+    const outOfWindowIds = new Set(
+      messagesForHistory.slice(0, Math.max(0, messageCount - visibleWindowSize)).map(m => m.id)
+    );
+    const outOfWindowMessages = messagesFromKeptGroups.filter(m => outOfWindowIds.has(m.id));
+
+    return {
+      messageCount,
+      outOfWindowMessages,
     };
   }
 
@@ -249,8 +254,6 @@ export class CompactionOrchestrator {
 
       const rawContent = message.content.trim();
       const wordCount = countWords(rawContent);
-      const isTruncated = rawContent.length > 400;
-      const shortContent = isTruncated ? `${rawContent.slice(0, 400)}...` : rawContent;
       const shouldSummarize =
         isAssistantGenerated(message.role) && wordCount > SUMMARY_WORD_THRESHOLD;
 
@@ -260,8 +263,8 @@ export class CompactionOrchestrator {
         step: message.step,
         handlerId: message.handlerId,
         role: message.role,
-        contentMode: shouldSummarize ? 'original' : isTruncated ? 'excerpt' : 'original',
-        content: shouldSummarize ? rawContent : shortContent,
+        contentMode: 'original',
+        content: rawContent,
         wordCount,
       };
       newEntries.push(entry);
@@ -432,7 +435,7 @@ export class CompactionOrchestrator {
       '',
       'IMPORTANT: Always use recall_compacted_context with messageIds from the index to retrieve full content when needed. DO NOT guess or make up information—base your response only on retrieved content.',
       '',
-      'Format: <role> (<messageId>, <type>): <preview>. Example: User (msg-abc123, original): Hello | Assistant (msg-xyz789, excerpt): ... | Assistant (msg-abc124, summarized): ... | Assistant (msg-def456, compacted): [content_reading] {...}',
+      'Format: <role> (<messageId>, <type>): <preview>. Example: User (msg-abc123, original): Hello | Assistant (msg-xyz789, original): Detailed explanation | Assistant (msg-abc124, summarized): Concise summary | Assistant (msg-def456, compacted): [content_reading] {...}',
       '',
     ];
 
@@ -451,13 +454,10 @@ export class CompactionOrchestrator {
 
       if (entry.type === 'message') {
         const label = entry.role === 'user' ? 'User' : 'Assistant';
-        const preview =
-          entry.content.length > 220 ? `${entry.content.slice(0, 220)}...` : entry.content;
-        entryLines.push(`${label} ${prefix}: ${preview}`);
+        entryLines.push(`${label} ${prefix}: ${entry.content}`);
       } else {
         const metaStr = JSON.stringify(entry.metadata);
-        const truncated = metaStr.length > 300 ? `${metaStr.slice(0, 300)}...` : metaStr;
-        entryLines.push(`Assistant ${prefix}: [${entry.toolName}] ${truncated}`);
+        entryLines.push(`Assistant ${prefix}: [${entry.toolName}] ${metaStr}`);
       }
     }
     lines.push(entryLines.join(separator));

@@ -103,6 +103,11 @@ const vi = {
       activating: 'Đang kích hoạt kỹ năng: {{skills}}',
       invalidSkills: 'Không tìm thấy kỹ năng: {{skills}}',
     },
+    switchCapacity: {
+      confirm: 'Bạn có muốn tôi chuyển sang chế độ agent không?',
+      enabled: 'Đã chuyển sang chế độ agent.',
+      cancelled: 'Giữ nguyên chế độ hiện tại. Chế độ agent chưa được bật.',
+    },
     skills: {
       skills: 'Kỹ năng',
       noSkills: 'Chưa có kỹ năng nào được tải. Xem hướng dẫn Kỹ năng bên dưới để bắt đầu.',

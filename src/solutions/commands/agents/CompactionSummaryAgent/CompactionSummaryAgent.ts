@@ -3,6 +3,8 @@ import { z } from 'zod/v3';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 
+const MAX_SUMMARY_WORDS = 80;
+
 const summarizationResultSchema = z.object({
   results: z.array(
     z.object({
@@ -52,7 +54,7 @@ export class CompactionSummaryAgent {
         abortSignal: this.plugin.abortService.createAbortController('compaction-summary'),
         system: `You are summarizing assistant messages for conversation compaction.
 For each message:
-- If it has meaningful content (facts, decisions, explanations), output type "summarized" with a 1-3 sentence summary. Preserve factual details and entities.
+- If it has meaningful content (facts, decisions, explanations), output type "summarized" with a 1-3 sentence summary. Keep the summary at or below ${MAX_SUMMARY_WORDS} words. Preserve factual details and entities.
 - If it is only procedural filler (e.g. "I'll read the content for you", "Let me search", acknowledgments with no substance), output type "deleted" with empty text.
 Return exactly one result per message in the same order. Each result must have messageId, text, and type.`,
         prompt: `Summarize or mark as deleted:\n\n${promptItems}`,
@@ -62,7 +64,17 @@ Return exactly one result per message in the same order. Each result must have m
         }),
       });
 
-      return result.output.results ?? [];
+      const output = result.output.results ?? [];
+      const normalizedResults: SummarizationResultItem[] = [];
+      for (const item of output) {
+        if (item.type !== 'summarized') {
+          normalizedResults.push({ ...item, text: '' });
+          continue;
+        }
+        normalizedResults.push(item);
+      }
+
+      return normalizedResults;
     } catch (error) {
       logger.error('CompactionSummaryAgent: batch summarization failed', error);
       return [];

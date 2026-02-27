@@ -104,6 +104,11 @@ const ja = {
       activating: 'スキルをアクティブ化中: {{skills}}',
       invalidSkills: 'スキルが見つかりません: {{skills}}',
     },
+    switchCapacity: {
+      confirm: 'エージェントモードに切り替えますか？',
+      enabled: 'ツールとスキルのモードに切り替えました。',
+      cancelled: '現在のモードを維持しました。ツールとスキルのモードは有効化されませんでした。',
+    },
     skills: {
       skills: 'スキル',
       noSkills: 'スキルが読み込まれていません。下のスキルガイドラインを参照して始めてください。',

@@ -32,6 +32,7 @@ export enum ToolName {
   TODO_LIST = 'todo_list',
   TODO_LIST_UPDATE = 'todo_list_update',
   USE_SKILLS = 'use_skills',
+  SWITCH_AGENT_CAPACITY = 'switch_agent_capacity',
   CONCLUDE = 'conclude',
   RECALL_COMPACTED_CONTEXT = 'recall_compacted_context',
 }

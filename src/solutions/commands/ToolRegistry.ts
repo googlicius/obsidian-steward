@@ -380,6 +380,17 @@ NOTE:
     category: 'skill',
   },
 
+  [ToolName.SWITCH_AGENT_CAPACITY]: {
+    name: ToolName.SWITCH_AGENT_CAPACITY,
+    description:
+      'Switch the current conversation from direct response mode to tool and skill mode.',
+    guidelines: [
+      `Use ${ToolName.SWITCH_AGENT_CAPACITY} when tools are disabled and the task needs tool-based execution.`,
+      `Call ${ToolName.SWITCH_AGENT_CAPACITY} first to switch to tool/skill mode, then continue by using ${ToolName.ACTIVATE} and other required tools.`,
+    ],
+    category: 'tool-management',
+  },
+
   [ToolName.CONCLUDE]: {
     name: ToolName.CONCLUDE,
     description: 'Signal task completion. The client stops sending another request.',
