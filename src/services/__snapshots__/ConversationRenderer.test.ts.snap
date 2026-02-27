@@ -328,6 +328,10 @@ exports[`ConversationRenderer extractConversationHistory should extract a conver
   {
     "content": [
       {
+        "text": "",
+        "type": "reasoning",
+      },
+      {
         "text": "Angular is a platform for building web applications. Here's how to get started:
 
 1. Install Node.js and npm
@@ -352,6 +356,10 @@ exports[`ConversationRenderer extractConversationHistory should extract a simple
   {
     "content": [
       {
+        "text": "",
+        "type": "reasoning",
+      },
+      {
         "text": "Here's what I found about React hooks:
 
 React hooks are functions that let you use state and other React features without writing a class.",
@@ -365,6 +373,19 @@ React hooks are functions that let you use state and other React features withou
 
 exports[`ConversationRenderer extractConversationHistory should extract conversation with summary in the second position 1`] = `
 [
+  {
+    "content": "/ React hooks",
+    "role": "user",
+  },
+  {
+    "content": [
+      {
+        "text": "Here's what I found about React hooks",
+        "type": "text",
+      },
+    ],
+    "role": "assistant",
+  },
   {
     "content": [
       {
@@ -396,6 +417,10 @@ First summary about React hooks
   {
     "content": [
       {
+        "text": "",
+        "type": "reasoning",
+      },
+      {
         "text": "useEffect is a React Hook that lets you synchronize a component with an external system",
         "type": "text",
       },
@@ -414,6 +439,10 @@ exports[`ConversationRenderer extractConversationHistory should extract conversa
   {
     "content": [
       {
+        "text": "",
+        "type": "reasoning",
+      },
+      {
         "text": "I'll search for information about React hooks.",
         "type": "text",
       },
@@ -422,6 +451,10 @@ exports[`ConversationRenderer extractConversationHistory should extract conversa
   },
   {
     "content": [
+      {
+        "text": "",
+        "type": "reasoning",
+      },
       {
         "input": {
           "query": "React Hooks",
@@ -546,6 +579,10 @@ exports[`ConversationRenderer extractConversationHistory should handle conversat
   {
     "content": [
       {
+        "text": "",
+        "type": "reasoning",
+      },
+      {
         "text": "I've found 1 code block above.",
         "type": "text",
       },
@@ -555,6 +592,10 @@ exports[`ConversationRenderer extractConversationHistory should handle conversat
   {
     "content": [
       {
+        "text": "",
+        "type": "reasoning",
+      },
+      {
         "text": "I've updated the code to use a functional update with \`setTodos\`, which removes the need to include \`todos\` as a dependency in the \`useCallback\` hook.",
         "type": "text",
       },
@@ -563,6 +604,10 @@ exports[`ConversationRenderer extractConversationHistory should handle conversat
   },
   {
     "content": [
+      {
+        "text": "",
+        "type": "reasoning",
+      },
       {
         "text": ">[!stw-search-result]
 >
@@ -581,6 +626,10 @@ exports[`ConversationRenderer extractConversationHistory should handle conversat
   },
   {
     "content": [
+      {
+        "text": "",
+        "type": "reasoning",
+      },
       {
         "text": "Would you like me to apply the changes?",
         "type": "text",
@@ -666,6 +715,91 @@ exports[`ConversationRenderer extractConversationHistory should include path+ima
       },
     ],
     "role": "user",
+  },
+]
+`;
+
+exports[`ConversationRenderer extractConversationHistory should include reasoning field in a switch mode flow 1`] = `
+[
+  {
+    "content": "Use your flashcard skill and create 2 flashcards",
+    "role": "user",
+  },
+  {
+    "content": [
+      {
+        "text": "Would you like me to switch to agent mode?",
+        "type": "text",
+      },
+    ],
+    "handlerId": "handler-simple",
+    "role": "assistant",
+  },
+  {
+    "content": "Yes",
+    "role": "user",
+  },
+  {
+    "content": [
+      {
+        "text": "",
+        "type": "reasoning",
+      },
+      {
+        "input": {},
+        "toolCallId": "manual-tool-call-1",
+        "toolName": "user_confirm",
+        "type": "tool-call",
+      },
+    ],
+    "handlerId": "handler-confirm",
+    "role": "assistant",
+  },
+  {
+    "content": [
+      {
+        "output": {
+          "type": "text",
+          "value": "Yes",
+        },
+        "toolCallId": "manual-tool-call-1",
+        "toolName": "user_confirm",
+        "type": "tool-result",
+      },
+    ],
+    "handlerId": "handler-confirm",
+    "role": "tool",
+  },
+  {
+    "content": [
+      {
+        "text": "",
+        "type": "reasoning",
+      },
+      {
+        "input": {},
+        "toolCallId": "call_00_switch",
+        "toolName": "switch_agent_capacity",
+        "type": "tool-call",
+      },
+    ],
+    "handlerId": "handler-simple",
+    "role": "assistant",
+  },
+  {
+    "content": [
+      {
+        "output": {
+          "type": "text",
+          "value": "Switched to tool and skill mode.",
+        },
+        "toolCallId": "call_00_switch",
+        "toolName": "switch_agent_capacity",
+        "type": "tool-result",
+      },
+    ],
+    "handlerId": "handler-simple",
+    "role": "tool",
   },
 ]
 `;
@@ -759,6 +893,10 @@ Angular components are the building blocks of Angular applications.",
   {
     "content": [
       {
+        "text": "",
+        "type": "reasoning",
+      },
+      {
         "text": "Angular components have several lifecycle hooks:
 
 1. ngOnInit: Called after the component is initialized
@@ -774,6 +912,32 @@ Angular components are the building blocks of Angular applications.",
 
 exports[`ConversationRenderer extractConversationHistory should only include the summary message and messages after it 1`] = `
 [
+  {
+    "content": "/search React hooks",
+    "role": "user",
+  },
+  {
+    "content": [
+      {
+        "text": "Here's what I found about React hooks. React hooks let you use state and other React features without writing a class.",
+        "type": "text",
+      },
+    ],
+    "role": "assistant",
+  },
+  {
+    "content": "How do I use useState?",
+    "role": "user",
+  },
+  {
+    "content": [
+      {
+        "text": "The useState hook lets you add state to functional components. It returns a state value and a function to update it.",
+        "type": "text",
+      },
+    ],
+    "role": "assistant",
+  },
   {
     "content": [
       {
@@ -805,6 +969,10 @@ This conversation discusses React hooks, particularly useState, which allows add
   {
     "content": [
       {
+        "text": "",
+        "type": "reasoning",
+      },
+      {
         "text": "You can skip effects by providing a dependency array as the second argument. The effect will only run when values in the array change.",
         "type": "text",
       },
@@ -822,6 +990,10 @@ exports[`ConversationRenderer extractConversationHistory should remove the last 
   },
   {
     "content": [
+      {
+        "text": "",
+        "type": "reasoning",
+      },
       {
         "text": "React hooks are functions.",
         "type": "text",

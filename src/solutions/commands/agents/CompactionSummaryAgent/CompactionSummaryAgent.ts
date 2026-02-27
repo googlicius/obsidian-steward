@@ -32,12 +32,15 @@ export class CompactionSummaryAgent {
     items: Array<{ messageId: string; content: string }>;
     lang?: string | null;
   }): Promise<SummarizationResultItem[]> {
+    if (!this.plugin.settings.llm.agents.compactionSummary.enabled) return [];
+
     const { items } = params;
     if (items.length === 0) return [];
 
     try {
       const llmConfig = await this.plugin.llmService.getLLMConfig({
         generateType: 'text',
+        overrideModel: this.plugin.settings.llm.agents.compactionSummary.model,
       });
 
       const promptItems = items

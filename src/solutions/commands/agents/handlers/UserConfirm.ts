@@ -3,10 +3,8 @@ import { z } from 'zod/v3';
 import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { ToolName } from '../../ToolRegistry';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
-import { uniqueID } from 'src/utils/uniqueID';
 
 // USER_CONFIRM tool doesn't need args - it's just a trigger for confirmation flow
 const userConfirmSchema = z.object({});
@@ -33,6 +31,7 @@ export class UserConfirm {
     options: { toolCall: ToolCallPart<UserConfirmArgs> }
   ): Promise<AgentResult> {
     const { title, intent, lang, handlerId } = params;
+    const { toolCall } = options;
 
     const t = getTranslation(lang);
 
@@ -114,24 +113,15 @@ export class UserConfirm {
       };
     }
 
-    const confirmationToolCall = lastResult.toolCall || {
-      type: 'tool-call',
-      toolCallId: `confirmation-tool-call-${uniqueID()}`,
-      toolName: ToolName.CONFIRMATION,
-      input: {
-        message: lastResult.confirmationMessage || '',
-      },
-    };
-
     // Serialize the tool call with the result before confirmation or rejection
     await this.agent.renderer.serializeToolInvocation({
       path: title,
-      command: confirmationToolCall.toolName,
+      command: toolCall.toolName,
       handlerId,
       step: params.invocationCount,
       toolInvocations: [
         {
-          ...confirmationToolCall,
+          ...toolCall,
           type: 'tool-result',
           output: {
             type: 'text',

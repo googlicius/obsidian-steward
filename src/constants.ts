@@ -149,12 +149,12 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     agents: {
       compactionSummary: {
         enabled: true,
-        model: 'openai:gpt-4-turbo-preview',
+        model: '',
         customModels: [],
       },
       conversationTitle: {
         enabled: true,
-        model: 'openai:gpt-4-turbo-preview',
+        model: '',
         customModels: [],
       },
     },

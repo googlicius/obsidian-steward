@@ -94,12 +94,12 @@ export interface StewardPluginSettings {
     agents: {
       compactionSummary: {
         enabled: boolean; // Enable/disable CompactionSummaryAgent
-        model?: string; // Optional model override, fallback to chat model when missing
+        model: string; // Model override, empty string = use chat model
         customModels: string[]; // User-defined custom models for CompactionSummaryAgent
       };
       conversationTitle: {
         enabled: boolean; // Enable/disable ConversationTitleAgent
-        model?: string; // Optional model override, fallback to chat model when missing
+        model: string; // Model override, empty string = use chat model
         customModels: string[]; // User-defined custom models for ConversationTitleAgent
       };
     };

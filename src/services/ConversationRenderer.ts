@@ -1401,16 +1401,15 @@ export class ConversationRenderer {
    */
   private async convertConversationMessagesToModelMessages(
     conversationTitle: string,
-    groupedMessages: ConversationMessage[][],
-    lastTurnHandlerId?: string
+    groupedMessages: ConversationMessage[][]
   ): Promise<ModelMessage[]> {
     const modelMessages: ModelMessage[] = [];
+    const lastUserGroupIndex = groupedMessages.findLastIndex(group => group[0].role === 'user');
 
-    for (const group of groupedMessages) {
+    for (let groupIndex = 0; groupIndex < groupedMessages.length; groupIndex++) {
+      const group = groupedMessages[groupIndex];
       const firstMessage = group[0];
-      const belongsToLastTurn = lastTurnHandlerId
-        ? firstMessage.handlerId === lastTurnHandlerId
-        : false;
+      const belongsToLastTurn = lastUserGroupIndex >= 0 && groupIndex > lastUserGroupIndex;
 
       // User messages are not grouped by step, process individually
       if (firstMessage.role === 'user') {
@@ -1828,19 +1827,15 @@ export class ConversationRenderer {
     conversationTitle: string,
     options?: {
       maxMessages?: number;
-      summaryPosition?: number;
     }
   ): Promise<ModelMessage[]> {
     const { maxMessages = 10 } = options || {};
-    let { summaryPosition = 0 } = options || {};
 
     // Get all messages from the conversation
     const allMessages = await this.extractAllConversationMessages(conversationTitle);
 
     // Filter out messages where history is explicitly set to false
-    const messagesForHistory: (ConversationMessage & { ignored?: boolean })[] = allMessages.filter(
-      message => message.history !== false
-    );
+    const messagesForHistory = allMessages.filter(message => message.history !== false);
 
     // Remove the last message if it is a user message which is just being added.
     if (
@@ -1858,16 +1853,6 @@ export class ConversationRenderer {
     for (let i = messagesForHistory.length - 1; i >= 0; i--) {
       const message = messagesForHistory[i];
 
-      // Check for summary message first (highest priority)
-      if (message.intent === 'summary') {
-        if (summaryPosition === 0) {
-          topicStartIndex = i;
-          break;
-        }
-        messagesForHistory[i].ignored = true;
-        summaryPosition--;
-      }
-
       // If the user message is a built-in or UDC (but not the general command "/ "), start a new topic
       if (
         message.role === 'user' &&
@@ -1881,10 +1866,8 @@ export class ConversationRenderer {
       }
     }
 
-    // Get messages after the topicStartIndex (either summary or topic start)
-    const filteredMessages = messagesForHistory
-      .slice(topicStartIndex)
-      .filter(message => !message.ignored);
+    // Get messages after the topicStartIndex
+    const filteredMessages = messagesForHistory.slice(topicStartIndex);
 
     // Slice messages without cutting in the middle of a step
     const messagesToInclude = this.sliceMessagesPreservingSteps(filteredMessages, maxMessages);
@@ -1892,21 +1875,7 @@ export class ConversationRenderer {
     // Group consecutive messages by (handlerId, role, step) for merging
     const groupedMessages = this.groupMessagesByStep(messagesToInclude);
 
-    // Find the index of the last assistant group (for auto-including empty reasoning)
-    const lastAssistantGroupIndex = groupedMessages.findLastIndex(
-      group => group[0].role === 'assistant'
-    );
-
-    // Identify the last turn's handlerId (to include reasoning from all steps in that turn)
-    const lastAssistantGroup =
-      lastAssistantGroupIndex >= 0 ? groupedMessages[lastAssistantGroupIndex] : null;
-    const lastTurnHandlerId = lastAssistantGroup?.[0]?.handlerId;
-
-    return this.convertConversationMessagesToModelMessages(
-      conversationTitle,
-      groupedMessages,
-      lastTurnHandlerId ?? undefined
-    );
+    return this.convertConversationMessagesToModelMessages(conversationTitle, groupedMessages);
   }
 
   /**

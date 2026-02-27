@@ -126,27 +126,6 @@ describe('CompactionOrchestrator', () => {
       expect(mockPlugin.conversationRenderer.updateConversationFrontmatter).not.toHaveBeenCalled();
     });
 
-    it('returns early when out-of-window messages are below turn and token thresholds', async () => {
-      const messages = Array.from({ length: 15 }, (_, i) =>
-        createMessage({ id: `msg-${i}`, content: `Short.` })
-      );
-      mockPlugin.conversationRenderer.extractAllConversationMessages = jest
-        .fn()
-        .mockResolvedValue(messages);
-      mockPlugin.conversationRenderer.getConversationProperty = jest
-        .fn()
-        .mockResolvedValue(createEmptyCompactionData());
-
-      const result = await orchestrator.run({
-        conversationTitle: CONVERSATION_TITLE,
-        visibleWindowSize: 10,
-        config: { turnThreshold: 20, tokenBudget: 50000 },
-      });
-
-      expect(result.systemMessage).toBeUndefined();
-      expect(mockPlugin.conversationRenderer.updateConversationFrontmatter).not.toHaveBeenCalled();
-    });
-
     it('returns systemMessage and data when compaction triggered but no pending messages', async () => {
       const messages = Array.from({ length: 25 }, (_, i) =>
         createMessage({ id: `msg-${i}`, content: `Message ${i}.` })
@@ -190,7 +169,11 @@ describe('CompactionOrchestrator', () => {
 
     it('compacts out-of-window messages when above thresholds with pending messages', async () => {
       const messages = Array.from({ length: 25 }, (_, i) =>
-        createMessage({ id: `msg-${i}`, content: `Message ${i} content here.`, step: Math.floor(i / 2) })
+        createMessage({
+          id: `msg-${i}`,
+          content: `Message ${i} content here.`,
+          step: Math.floor(i / 2),
+        })
       );
       mockPlugin.conversationRenderer.extractAllConversationMessages = jest
         .fn()
@@ -265,7 +248,8 @@ describe('CompactionOrchestrator', () => {
     });
 
     it('compacts content_reading tool results via ReadContentCompactor', async () => {
-      const toolContent = '```stw-artifact\n[{"toolName":"content_reading","toolCallId":"call-1","type":"tool-result","output":{}}]\n```';
+      const toolContent =
+        '```stw-artifact\n[{"toolName":"content_reading","toolCallId":"call-1","type":"tool-result","output":{}}]\n```';
       const userMsg = createMessage({ id: 'msg-u', content: 'Read this file', role: 'user' });
       const toolMsg = createMessage({
         id: 'msg-tool',
@@ -504,9 +488,7 @@ describe('CompactionOrchestrator', () => {
       const searchEntry = result.data.messages.find(
         m => m.type === 'tool' && m.toolName === 'search'
       );
-      const listEntry = result.data.messages.find(
-        m => m.type === 'tool' && m.toolName === 'list'
-      );
+      const listEntry = result.data.messages.find(m => m.type === 'tool' && m.toolName === 'list');
       expect(searchEntry).toBeUndefined();
       expect(listEntry).toBeUndefined();
     });

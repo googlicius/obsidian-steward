@@ -349,6 +349,126 @@ class StewardSettingTab extends PluginSettingTab {
         .setDesc(t('settings.fallbackChainDesc'))
     );
 
+    const conversationTitleAgentSettingGroup = this.addNewSettingGroup();
+
+    new Setting(conversationTitleAgentSettingGroup.settingGroup)
+      .setName(t('settings.conversationTitleAgent'))
+      .setHeading();
+
+    new Setting(conversationTitleAgentSettingGroup.settingItems)
+      .setName(t('settings.conversationTitleAgentEnabled'))
+      .setDesc(t('settings.conversationTitleAgentEnabledDesc'))
+      .addToggle(toggle => {
+        toggle
+          .setValue(this.plugin.settings.llm.agents.conversationTitle.enabled)
+          .onChange(async value => {
+            this.plugin.settings.llm.agents.conversationTitle.enabled = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    this.createModelSetting(
+      new Setting(conversationTitleAgentSettingGroup.settingItems)
+        .setName(t('settings.conversationTitleAgentModel'))
+        .setDesc(t('settings.conversationTitleAgentModelDesc')),
+      {
+        currentModelField: 'llm.agents.conversationTitle.model',
+        customModelsField: 'llm.agents.conversationTitle.customModels',
+        placeholder: 'provider:model, e.g., openai:gpt-5',
+        presetModels: LLM_MODELS,
+        includeEmptyOption: true,
+        onSelectChange: async (modelId: string) => {
+          this.plugin.settings.llm.agents.conversationTitle.model = modelId;
+          await this.plugin.saveSettings();
+        },
+        onAddModel: async (modelId: string) => {
+          this.plugin.settings.llm.agents.conversationTitle.model = modelId;
+
+          const isPresetModel = LLM_MODELS.some(model => model.id === modelId);
+          const customModels = this.plugin.settings.llm.agents.conversationTitle.customModels || [];
+
+          if (!isPresetModel && !customModels.includes(modelId)) {
+            customModels.push(modelId);
+            this.plugin.settings.llm.agents.conversationTitle.customModels = customModels;
+          }
+
+          await this.plugin.saveSettings();
+        },
+        onDeleteModel: async (modelId: string) => {
+          this.plugin.settings.llm.agents.conversationTitle.customModels =
+            this.plugin.settings.llm.agents.conversationTitle.customModels.filter(
+              id => id !== modelId
+            );
+
+          if (this.plugin.settings.llm.agents.conversationTitle.model === modelId) {
+            this.plugin.settings.llm.agents.conversationTitle.model = '';
+          }
+
+          await this.plugin.saveSettings();
+        },
+      }
+    );
+
+    const compactionSummaryAgentSettingGroup = this.addNewSettingGroup();
+
+    new Setting(compactionSummaryAgentSettingGroup.settingGroup)
+      .setName(t('settings.compactionSummaryAgent'))
+      .setHeading();
+
+    new Setting(compactionSummaryAgentSettingGroup.settingItems)
+      .setName(t('settings.compactionSummaryAgentEnabled'))
+      .setDesc(t('settings.compactionSummaryAgentEnabledDesc'))
+      .addToggle(toggle => {
+        toggle
+          .setValue(this.plugin.settings.llm.agents.compactionSummary.enabled)
+          .onChange(async value => {
+            this.plugin.settings.llm.agents.compactionSummary.enabled = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    this.createModelSetting(
+      new Setting(compactionSummaryAgentSettingGroup.settingItems)
+        .setName(t('settings.compactionSummaryAgentModel'))
+        .setDesc(t('settings.compactionSummaryAgentModelDesc')),
+      {
+        currentModelField: 'llm.agents.compactionSummary.model',
+        customModelsField: 'llm.agents.compactionSummary.customModels',
+        placeholder: 'provider:model, e.g., openai:gpt-5',
+        presetModels: LLM_MODELS,
+        includeEmptyOption: true,
+        onSelectChange: async (modelId: string) => {
+          this.plugin.settings.llm.agents.compactionSummary.model = modelId;
+          await this.plugin.saveSettings();
+        },
+        onAddModel: async (modelId: string) => {
+          this.plugin.settings.llm.agents.compactionSummary.model = modelId;
+
+          const isPresetModel = LLM_MODELS.some(model => model.id === modelId);
+          const customModels = this.plugin.settings.llm.agents.compactionSummary.customModels || [];
+
+          if (!isPresetModel && !customModels.includes(modelId)) {
+            customModels.push(modelId);
+            this.plugin.settings.llm.agents.compactionSummary.customModels = customModels;
+          }
+
+          await this.plugin.saveSettings();
+        },
+        onDeleteModel: async (modelId: string) => {
+          this.plugin.settings.llm.agents.compactionSummary.customModels =
+            this.plugin.settings.llm.agents.compactionSummary.customModels.filter(
+              id => id !== modelId
+            );
+
+          if (this.plugin.settings.llm.agents.compactionSummary.model === modelId) {
+            this.plugin.settings.llm.agents.compactionSummary.model = '';
+          }
+
+          await this.plugin.saveSettings();
+        },
+      }
+    );
+
     const intentClassificationSettingGroup = this.addNewSettingGroup();
 
     // Intent classification settings section

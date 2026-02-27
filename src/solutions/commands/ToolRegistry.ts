@@ -386,7 +386,7 @@ NOTE:
       'Switch the current conversation from direct response mode to tool and skill mode.',
     guidelines: [
       `Use ${ToolName.SWITCH_AGENT_CAPACITY} when tools are disabled and the task needs tool-based execution.`,
-      `Call ${ToolName.SWITCH_AGENT_CAPACITY} first to switch to tool/skill mode, then continue by using ${ToolName.ACTIVATE} and other required tools.`,
+      `Call ${ToolName.SWITCH_AGENT_CAPACITY} first to switch to agent mode, then continue by using ${ToolName.ACTIVATE} and other required tools.`,
     ],
     category: 'tool-management',
   },

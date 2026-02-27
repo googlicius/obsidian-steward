@@ -404,9 +404,7 @@ export class SuperAgent extends Agent {
     let timer: number | null = null;
 
     try {
-      const conversationHistory = await this.renderer.extractConversationHistory(params.title, {
-        summaryPosition: 1,
-      });
+      const conversationHistory = await this.renderer.extractConversationHistory(params.title);
 
       // Run compaction orchestrator — may produce a system message to inject
       const compactionResult = await this.plugin.compactionOrchestrator.run({
@@ -573,7 +571,7 @@ NOTE:
 
 Tools are currently disabled for this conversation.
 You can use exactly one tool to switch mode:
-- ${ToolName.SWITCH_AGENT_CAPACITY}: switch to tool/skill mode.
+- ${ToolName.SWITCH_AGENT_CAPACITY}: switch to agent mode.
 
 If the user asks for work that requires tools, call ${ToolName.SWITCH_AGENT_CAPACITY} first.
 After the switch is confirmed, continue the task and use tools as needed.`;

@@ -378,6 +378,21 @@ const vi = {
       apiKeyNote1: 'Bạn cần cung cấp khóa API của riêng mình để sử dụng trợ lý AI.',
       apiKeyNote2: 'Tất cả khóa API được lưu trữ với mã hóa.',
       models: 'Mô hình',
+      conversationTitleAgent: 'Conversation title agent',
+      compactionSummaryAgent: 'Compaction summary agent',
+      useChatModel: 'Dùng mô hình chat (mặc định)',
+      compactionSummaryAgentEnabled: 'Bật compaction summary agent',
+      compactionSummaryAgentEnabledDesc:
+        'Bật tóm tắt tự động cho các tin nhắn trợ lý dài trong quá trình nén ngữ cảnh.',
+      compactionSummaryAgentModel: 'Mô hình của compaction summary agent',
+      compactionSummaryAgentModelDesc:
+        'Mô hình được dùng bởi CompactionSummaryAgent. Để trống để dùng mô hình chat.',
+      conversationTitleAgentEnabled: 'Bật conversation title agent',
+      conversationTitleAgentEnabledDesc:
+        'Bật tạo tiêu đề cuộc trò chuyện tự động cho cuộc trò chuyện mới.',
+      conversationTitleAgentModel: 'Mô hình của conversation title agent',
+      conversationTitleAgentModelDesc:
+        'Mô hình được dùng bởi ConversationTitleAgent. Để trống để dùng mô hình chat.',
       chatModel: 'Mô hình trò chuyện',
       chatModelDesc:
         'Chọn mô hình AI để sử dụng cho trò chuyện. Bạn cũng có thể thay đổi mô hình trực tiếp trong ô nhập bằng cách gõ m: hoặc model:',

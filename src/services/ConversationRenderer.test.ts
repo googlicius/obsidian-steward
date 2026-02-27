@@ -335,12 +335,9 @@ describe('ConversationRenderer', () => {
       const mockPlugin = createMockPlugin(mockContent);
       conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
-      // Call the method with summaryPosition = 1 to get the second summary
-      const history = await conversationRenderer.extractConversationHistory('test-conversation', {
-        summaryPosition: 1,
-      });
+      const history = await conversationRenderer.extractConversationHistory('test-conversation');
 
-      // Verify that only messages after the second summary are included
+      // Verify extracted history from the most recent topic
       expect(history).toMatchSnapshot();
     });
 
@@ -429,6 +426,75 @@ describe('ConversationRenderer', () => {
             type: 'tool-call',
             input: { query: 'React' },
             output: { type: 'text', value: 'Found results' },
+          },
+        ]),
+        '```',
+        '',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation');
+
+      expect(history).toMatchSnapshot();
+    });
+
+    it('should include reasoning field in a switch mode flow', async () => {
+      const mockContent = [
+        '<!--STW ID:user1,ROLE:user,COMMAND:ask,HISTORY:false-->',
+        '>[!stw-user-message] id:user1',
+        '>/ask Use your flashcard skill and create 2 flashcards',
+        '',
+        '<!--STW ID:user2,ROLE:user,STEP:0-->',
+        '```stw-hidden-from-user',
+        'Use your flashcard skill and create 2 flashcards',
+        '```',
+        '',
+        '<!--STW ID:reason1,ROLE:steward,TYPE:reasoning,HANDLER_ID:handler-simple,STEP:0-->',
+        '```stw-thinking',
+        'The user wants me to switch to tool mode first.',
+        '```',
+        '',
+        '<!--STW ID:assistant1,ROLE:steward,COMMAND:switch-agent-capacity,HANDLER_ID:handler-simple,STEP:0-->',
+        'Would you like me to switch to agent mode?',
+        '',
+        '<!--STW ID:user3,ROLE:user,STEP:0-->',
+        '```stw-hidden-from-user',
+        'Yes',
+        '```',
+        '',
+        '<!--STW ID:assistant2,ROLE:assistant,COMMAND:user_confirm,TYPE:tool-invocation,HANDLER_ID:handler-confirm,STEP:0-->',
+        '```stw-artifact',
+        JSON.stringify([
+          {
+            type: 'tool-result',
+            toolName: 'user_confirm',
+            toolCallId: 'manual-tool-call-1',
+            input: {},
+            output: {
+              type: 'text',
+              value: 'Yes',
+            },
+          },
+        ]),
+        '```',
+        '',
+        '<!--STW ID:assistant3,ROLE:steward,COMMAND:switch-agent-capacity,HISTORY:false,HANDLER_ID:handler-simple,STEP:0-->',
+        'Switched to tool and skill mode.',
+        '',
+        '<!--STW ID:assistant4,ROLE:assistant,COMMAND:switch-agent-capacity,TYPE:tool-invocation,HANDLER_ID:handler-simple,STEP:0-->',
+        '```stw-artifact',
+        JSON.stringify([
+          {
+            type: 'tool-result',
+            toolCallId: 'call_00_switch',
+            toolName: 'switch_agent_capacity',
+            input: {},
+            output: {
+              type: 'text',
+              value: 'Switched to tool and skill mode.',
+            },
           },
         ]),
         '```',

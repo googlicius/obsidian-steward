@@ -149,10 +149,6 @@ export class CompactionOrchestrator {
       outOfWindowMessages,
       lastCompactedMessageId: data.lastCompactedMessageId,
     });
-    console.log('RUN', {
-      outOfWindowMessages,
-      pending,
-    });
     if (pending.length === 0) {
       return {
         systemMessage: this.buildSystemMessage({

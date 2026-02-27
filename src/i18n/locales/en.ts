@@ -440,19 +440,21 @@ const en = {
       apiKeyNote1: 'You need to provide your own API keys to use the AI-powered assistant.',
       apiKeyNote2: 'All API keys are stored with encryption.',
       models: 'Models',
-      agentModels: 'Agent models',
+      conversationTitleAgent: 'Conversation title agent',
+      compactionSummaryAgent: 'Compaction summary agent',
+      useChatModel: 'Use chat model (default)',
       compactionSummaryAgentEnabled: 'Enable compaction summary agent',
       compactionSummaryAgentEnabledDesc:
         'Enable automatic summarization of long assistant messages during compaction.',
       compactionSummaryAgentModel: 'Compaction summary model',
       compactionSummaryAgentModelDesc:
-        'Model used by CompactionSummaryAgent. Defaults to the chat model when not set.',
+        'Model used by CompactionSummaryAgent. Leave empty to use the chat model.',
       conversationTitleAgentEnabled: 'Enable conversation title agent',
       conversationTitleAgentEnabledDesc:
         'Enable automatic conversation title generation for new conversations.',
       conversationTitleAgentModel: 'Conversation title model',
       conversationTitleAgentModelDesc:
-        'Model used by ConversationTitleAgent. Defaults to the chat model when not set.',
+        'Model used by ConversationTitleAgent. Leave empty to use the chat model.',
       chatModel: 'Chat model',
       chatModelDesc:
         'Select the AI model to use for chat. You can also change the model inline in the command input by typing m: or model:',

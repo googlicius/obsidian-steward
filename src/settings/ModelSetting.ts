@@ -24,6 +24,9 @@ export class ModelSetting {
       onSelectChange: (modelId: string) => Promise<void>;
       onAddModel: (modelId: string) => Promise<void>;
       onDeleteModel: (modelId: string) => Promise<void>;
+      includeEmptyOption?: boolean;
+      emptyOptionLabel?: string;
+      emptyOptionValue?: string;
     }
   ): void {
     const { validationPattern = /^[a-zA-Z0-9_.-]+:[^\s]+$/ } = options;
@@ -56,6 +59,12 @@ export class ModelSetting {
       const select = wrapper.createEl('select', {
         cls: 'dropdown',
       });
+
+      if (options.includeEmptyOption) {
+        const emptyOption = select.createEl('option');
+        emptyOption.textContent = options.emptyOptionLabel || t('settings.useChatModel');
+        emptyOption.value = options.emptyOptionValue || '';
+      }
 
       // Combine preset models and custom models
       const allModels = [

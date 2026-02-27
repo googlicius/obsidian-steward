@@ -638,6 +638,22 @@ export default class StewardPlugin extends Plugin {
       settingsUpdated = true;
     }
 
+    if (!this.settings.llm.agents) {
+      this.settings.llm.agents = DEFAULT_SETTINGS.llm.agents;
+      settingsUpdated = true;
+    } else {
+      if (!this.settings.llm.agents.compactionSummary) {
+        this.settings.llm.agents.compactionSummary =
+          DEFAULT_SETTINGS.llm.agents.compactionSummary;
+        settingsUpdated = true;
+      }
+      if (!this.settings.llm.agents.conversationTitle) {
+        this.settings.llm.agents.conversationTitle =
+          DEFAULT_SETTINGS.llm.agents.conversationTitle;
+        settingsUpdated = true;
+      }
+    }
+
     // Migrate ollamaBaseUrl to providers if it exists
     if (this.settings.llm.ollamaBaseUrl) {
       // Ensure ollama provider exists

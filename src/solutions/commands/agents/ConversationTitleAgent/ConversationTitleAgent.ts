@@ -29,6 +29,10 @@ export class ConversationTitleAgent {
    * Designed to be fire-and-forget so it never blocks the main agent.
    */
   public async generate(params: GenerateTitleParams): Promise<void> {
+    if (!this.plugin.settings.llm.agents.conversationTitle.enabled) {
+      return;
+    }
+
     const { title, query } = params;
 
     try {
@@ -95,6 +99,7 @@ export class ConversationTitleAgent {
     try {
       const llmConfig = await this.plugin.llmService.getLLMConfig({
         generateType: 'text',
+        overrideModel: this.plugin.settings.llm.agents.conversationTitle.model,
       });
 
       const { text } = await generateText({
