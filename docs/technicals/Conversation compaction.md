@@ -2,132 +2,114 @@
 
 ## Overview
 
-Conversation compaction is a memory strategy for long conversations. It reduces prompt size while preserving the ability to recover earlier details when needed.
-
-The system keeps a recent message window in raw form and compacts older messages into a structured index. This allows Steward to stay context-aware across long sessions without sending the full history on every model call.
-
-The design goal is simple:
-
-- Keep recent context fully visible.
-- Keep older context lightweight but traceable.
-- Keep chronological ordering so earlier and later events still align.
-- Support targeted recall of one or many compacted messages.
+Conversation compaction reduces the amount of history sent to the language model while preserving the ability to recall any message in full. Messages outside a sliding window are compacted or summarized so the agent can operate on long conversations without hitting context limits. Compacted entries remain in chronological order. The agent can retrieve full content for any compacted message using a dedicated recall tool.
 
 ## How it works
 
-### High-level flow
+### Message classification and treatment
+
+Out-of-window messages are processed one by one and treated differently based on type:
+
+- **Tool result messages** — Compacted on the client side only. The full tool output stays in the conversation file. The context sent to the model contains only the tool name, IDs, and lightweight metadata (e.g. file paths read, paths edited). This metadata is enough for the agent to decide when to recall.
+- **Long assistant-generated messages** — Summarized asynchronously. The summary replaces the full text in the compacted index. The original content remains in the conversation file and is available on recall.
+- **User messages and short assistant messages** — Stored in full in the compacted index. No summarization.
+
+All compacted entries are appended to a single ordered list, so the timeline is preserved.
+
+### Compaction flow
 
 ```mermaid
 flowchart TD
-    A[Conversation grows] --> B[Keep recent window as raw context]
-    B --> C[Select out-of-window messages]
-    C --> D[Compact messages and tool results into index]
-    D --> E[Summarize long assistant messages]
-    E --> F[Inject compacted context into model prompt]
-    F --> G{Need exact old detail?}
-    G -->|Yes| H[Call recall_compacted_context with message IDs]
-    G -->|No| I[Continue normally]
-    H --> J[Recovered full messages are added back to context]
+    subgraph Input["Out-of-window messages"]
+        M1[User message]
+        M2[Tool result message]
+        M3[Long assistant message]
+    end
+
+    subgraph Processing["Processing"]
+        M1 --> K1[Keep full content]
+        M2 --> C1[Compact on client only]
+        M3 --> S1[Summarize]
+    end
+
+    subgraph Storage["Stored compacted entries"]
+        C1 --> T[Tool: ID + metadata only]
+        S1 --> MS[Message: summary]
+        K1 --> MO[Message: original]
+    end
+
+    subgraph Recall["Agent recall"]
+        T --> R[recall_compacted_context]
+        MS --> R
+        MO --> R
+        R --> F[Full content restored from conversation file]
+    end
+
+    Input --> Processing
+    Processing --> Storage
+    Storage --> Recall
 ```
 
-### 1) Out-of-window messages are compacted in chronological order
+### Decision chart
 
-When a conversation exceeds the active window, older entries are compacted and stored in a single ordered list.
+| Message type | Treatment | What the agent sees | Full content |
+|--------------|-----------|---------------------|--------------|
+| Tool result | Compact on client only | Tool name + metadata (IDs, paths, etc.) | Available via recall |
+| Long assistant-generated | Summarize | 1–3 sentence summary | Available via recall |
+| User or short assistant | Keep original | Full text | Already in context |
 
-- The compacted list includes both message entries and compacted tool-result entries.
-- Entries are appended in the same order as original conversation progression.
-- Chronological order is preserved even after compaction, so downstream reasoning still follows the original timeline.
+### Recall flow
 
-This means Steward can see a compact timeline of prior context instead of losing it.
+When the agent needs details from a compacted message, it invokes the recall tool with one or more message IDs from the compacted index. The system loads the raw messages from the conversation file and returns them in the same format as live history. The agent receives the full content — including exact quotes, file contents, and tool outputs — that were not included in the summarized or compacted preview.
 
-### 2) Tool call results are compacted to IDs and metadata
+```mermaid
+sequenceDiagram
+    participant A as Agent
+    participant R as Recall handler
+    participant F as Conversation file
 
-For supported tools, the system stores a compact representation instead of full payload output.
-
-- The compact entry keeps the message ID, tool type, and minimal metadata.
-- Metadata is tool-specific (for example, read paths, edited paths, renamed mappings, moved destination, generated artifact output path).
-- Heavy payload content is excluded from prompt context.
-
-Even though payload is compacted, each compacted entry still points back to the original message by ID, which enables full recall later.
-
-### 3) Long messages are summarized
-
-Long assistant-generated messages are processed asynchronously and converted into short summaries when they exceed a configured length threshold.
-
-- Messages with meaningful content are summarized.
-- Procedural filler can be removed from compacted text representation.
-- Summaries preserve key entities and facts as much as possible.
-
-This reduces context size while still keeping semantic value.
-
-### 4) Recall one or many compacted messages
-
-If exact historical detail is required, the agent can call `recall_compacted_context` with one or many message IDs.
-
-- The tool accepts multiple IDs in one call.
-- IDs can be passed with or without the `msg-` prefix.
-- The response returns recovered messages plus a list of missing IDs if some messages cannot be found.
-
-This gives Steward a precise "on-demand memory fetch" path for details that were compacted or summarized.
-
-## What is stored in compacted memory
-
-Compacted memory is stored as structured conversation metadata and includes:
-
-- Ordered compacted entries (messages and tool results).
-- Boundary markers for the latest compacted point.
-- Compaction timestamp and schema version.
-
-Each entry remains addressable by message ID, which is the anchor for targeted recall.
-
-## Use cases
-
-### Use case 1: List all names and places from earlier notes, even outside the active window
-
-Scenario:
-
-- The user has a long conversation where many notes were read over time.
-- Earlier note reads are out-of-window and only compacted references remain in prompt context.
-- The user asks: "List all names and places mentioned in all notes we read so far."
-
-How Steward handles it:
-
-1. Steward scans compacted context and identifies relevant message IDs (especially earlier read results).
-2. Steward calls `recall_compacted_context` with those IDs in one or more batches.
-3. Steward extracts names and places from recovered full content.
-4. Steward returns a complete consolidated list.
-
-Result:
-
-- Steward can answer across the full conversation history, not just the recent window.
-
-### Use case 2: Provide exact quotes that are not present in summaries
-
-Scenario:
-
-- A long assistant response was summarized during compaction.
-- The user asks for the exact original quote or exact generated paragraph.
-
-How Steward handles it:
-
-1. Steward identifies that compacted content is summarized and not quote-safe.
-2. Steward recalls the original message by ID using `recall_compacted_context`.
-3. Steward extracts the exact text span from the recovered original.
-4. Steward returns the quote verbatim.
-
-Result:
-
-- Steward can provide exact wording even when compacted context only contains a summary.
+    A->>A: Sees compacted index with msg-abc123, msg-def456
+    A->>R: recall_compacted_context(messageIds: [abc123, def456])
+    R->>F: Load raw messages by ID
+    F-->>R: Full message content
+    R->>R: Convert to model format
+    R-->>A: Full messages (tool results, long text, etc.)
+```
 
 ## Key decisions
 
-- **Chronological compact index** keeps compacted memory understandable and traceable.
-- **Metadata-first tool compaction** keeps prompt size small while retaining recovery pointers.
-- **Asynchronous summarization** avoids blocking primary user interaction flow.
-- **Explicit recall tool** ensures exactness is retrievable instead of guessed.
+- **Client-side only for tool results** — Tool outputs are never summarized by the model. They are reduced to metadata (paths, IDs) locally. The full output stays in the conversation file. This avoids loss of accuracy and keeps recall deterministic.
+- **Chronological order** — Messages and tool results are stored in a single ordered array. The agent always sees the timeline as it happened.
+- **Async summarization** — Long assistant messages are summarized in the background. The main agent flow is not blocked.
+- **Recall from source** — Recall always reads from the conversation file, not from any cached summary. The agent gets the original content.
 
-## Needs improvement
+## Use cases
 
-- Smarter automatic ID selection for recall in highly dense histories.
-- Better grouping for bulk recall when many related compacted entries exist.
-- Stronger safeguards to automatically trigger recall before quote-level answers.
+### List all names and places across previously read notes
+
+In a long conversation, the agent has read dozens of notes that are now out of window. The compacted index shows entries like:
+
+```
+Assistant (msg-xyz789, compacted): [content_reading] {"files":[{"path":"Project/Meeting.md","name":"Meeting.md"},...],"note":"3 more path(s) omitted; use recall_compacted_context for full list"}
+```
+
+The agent needs to collect all person names and place names mentioned in those notes. It calls the recall tool with the relevant message IDs. The full content of each content-reading result is returned, and the agent can extract the requested entities.
+
+### Provide exact quotes or generated content not in the summary
+
+A long assistant reply was summarized to: "Explained the three-step process for setting up the workflow and listed the main requirements." The user asks: "What was the exact second step you mentioned?" The summary does not contain that detail. The agent calls the recall tool with that message ID, receives the full original text, and returns the exact quote.
+
+### Verify what was edited in a previous step
+
+The compacted index shows: `Assistant (msg-abc123, compacted): [edit] {"editedPaths":["Tasks/Todo.md"],"note":"2 more path(s) omitted"}`. The user asks whether a specific file was modified. The agent recalls that message to get the full edit output, including the exact changes made.
+
+### Cross-reference information from multiple compacted sources
+
+The user asks a question that requires combining information from several notes read earlier in the conversation. The agent identifies the relevant compacted message IDs from the index, recalls them in a single call, and uses the full content to answer.
+
+## Important notes
+
+- The compacted index is the agent’s primary view of older history. The agent must use the recall tool when it needs information not present in the index. Guessing or inventing content is incorrect.
+- Message IDs in the index use the format `msg-<id>`. The recall tool accepts IDs with or without the `msg-` prefix.
+- When the user deletes messages from the conversation, the compaction store is pruned to remove entries for those messages, keeping the index in sync with the conversation.
+- Compaction runs before each agent request. Only messages outside the visible window are compacted; recent messages are always sent in full.
