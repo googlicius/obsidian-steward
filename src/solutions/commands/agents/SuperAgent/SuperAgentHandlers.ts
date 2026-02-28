@@ -1,5 +1,22 @@
+import { ToolName } from '../../ToolRegistry';
 import * as handlers from '../handlers';
 import type { SuperAgent } from '../SuperAgent';
+
+/**
+ * Tool names that have path extraction for guardrails
+ */
+const GUARDRAILS_TOOL_NAMES: Set<ToolName> = new Set([
+  ToolName.LIST,
+  ToolName.CREATE,
+  ToolName.DELETE,
+  ToolName.CONTENT_READING,
+  ToolName.EDIT,
+  ToolName.GREP,
+  ToolName.MOVE,
+  ToolName.RENAME,
+  ToolName.COPY,
+  ToolName.UPDATE_FRONTMATTER,
+]);
 
 /**
  * All handlers are lazily declared in this class
@@ -321,5 +338,32 @@ export class SuperAgentHandlers {
     }
 
     return this._recallCompactedContext;
+  }
+
+  /**
+   * Extract paths from tool input for guardrails checks.
+   * Uses lazy-loaded handlers; only loads the handler for the given tool.
+   */
+  public getPathsForGuardrails(toolName: ToolName, input: unknown): string[] {
+    if (!GUARDRAILS_TOOL_NAMES.has(toolName)) return [];
+
+    const handlerGetters: Partial<Record<ToolName, () => { extractPathsForGuardrails(input: unknown): string[] }>> = {
+      [ToolName.LIST]: () => this.vaultList,
+      [ToolName.CREATE]: () => this.vaultCreate,
+      [ToolName.DELETE]: () => this.vaultDelete,
+      [ToolName.CONTENT_READING]: () => this.readContent,
+      [ToolName.EDIT]: () => this.editHandler,
+      [ToolName.GREP]: () => this.vaultGrep,
+      [ToolName.MOVE]: () => this.vaultMove,
+      [ToolName.RENAME]: () => this.vaultRename,
+      [ToolName.COPY]: () => this.vaultCopy,
+      [ToolName.UPDATE_FRONTMATTER]: () => this.vaultUpdateFrontmatter,
+    };
+
+    const getter = handlerGetters[toolName];
+    if (!getter) return [];
+
+    const handler = getter();
+    return handler.extractPathsForGuardrails(input);
   }
 }

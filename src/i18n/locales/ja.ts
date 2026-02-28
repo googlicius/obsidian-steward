@@ -104,6 +104,16 @@ const ja = {
       activating: 'スキルをアクティブ化中: {{skills}}',
       invalidSkills: 'スキルが見つかりません: {{skills}}',
     },
+    guardrails: {
+      rules: 'ルール',
+      noRulesDefined: 'ガードレールルールは定義されていません。',
+      statusValid: '✅ 有効',
+      statusInvalid: '無効: {{errors}}',
+      violation:
+        'ガードレールによりアクションがブロックされました。ルール: {{rules}}。パス: {{paths}}。禁止アクション: {{actions}}。処理を停止するか、禁止リストにない別のアクションを試してください。',
+      violationHuman:
+        'ガードレールによりアクションがブロックされました。ルール: {{rules}}。パス: {{paths}}。',
+    },
     switchCapacity: {
       confirm: 'エージェントモードに切り替えますか？',
       enabled: 'ツールとスキルのモードに切り替えました。',
@@ -287,6 +297,7 @@ const ja = {
       searchGuideline: '検索ガイドライン',
       udcGuideline: 'ユーザー定義コマンドガイドライン',
       skillsGuideline: 'スキルガイドライン',
+      guardrailsGuideline: 'ガードレール',
       tipNewLines: '`Shift+Enter`で改行を追加',
       tipChangeModel: '`m:` または `model:` でモデルを変更',
       tipAttachContext: '`@` でファイル/フォルダを添付',

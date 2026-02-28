@@ -21,6 +21,8 @@ import { createLLMStream } from 'src/utils/textStreamer';
 import { SysError } from 'src/utils/errors';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { createStepProcessedQuery, parseStepProcessedQuery } from './stepProcessedQuery';
+import { createToolHandlerChain } from '../middleware/createToolHandlerChain';
+import { createGuardrailsMiddleware } from 'src/services/GuardrailsRuleService/guardrailsMiddleware';
 
 /**
  * Map of task names to their associated tool names.
@@ -432,7 +434,9 @@ export class SuperAgent extends Agent {
           ]
         : [ToolName.SWITCH_AGENT_CAPACITY];
 
-      const registry = ToolRegistry.buildFromTools(tools).setActive(activeToolNames);
+      const registry = ToolRegistry.buildFromTools(tools)
+        .setActive(activeToolNames)
+        .setAdditionalGuidelines(this.plugin.guardrailsRuleService.getInstructionsByTool());
 
       // Exclude confirmation and ask_user tools if no_confirm is set
       if (params.intent.no_confirm) {
@@ -788,6 +792,7 @@ After the switch is confirmed, continue the task and use tools as needed.`;
         params: AgentHandlerParams,
         options: { toolCall: ToolCallPart<unknown>; toolContentStreamInfo?: ToolContentStreamInfo }
       ): Promise<AgentResult>;
+      extractPathsForGuardrails?(input: unknown): string[];
     }
 
     /**
@@ -877,7 +882,8 @@ After the switch is confirmed, continue the task and use tools as needed.`;
                 newContent: toolCall.input.message,
                 lang: params.lang,
                 handlerId,
-                includeHistory: false,
+                command: toolCall.toolName,
+                step: params.invocationCount,
               });
 
               const callBack = async (): Promise<AgentResult> => {
@@ -951,23 +957,42 @@ After the switch is confirmed, continue the task and use tools as needed.`;
             }
 
             default: {
-              // Try to find handler in the map for standard handlers
               const toolName = toolCall.toolName as ToolName;
               const handlerGetter = handlerMap[toolName];
-              if (handlerGetter) {
-                const handler = handlerGetter();
-                // Pass toolContentStreamInfo if the tool call matches
-                const streamInfo =
-                  toolContentStreamInfo?.toolCallId === toolCall.toolCallId
-                    ? toolContentStreamInfo
-                    : undefined;
-                toolCallResult = await handler.handle(params, {
-                  toolCall,
-                  toolContentStreamInfo: streamInfo,
-                });
-              } else {
+              if (!handlerGetter) {
                 throw new Error(`No handler found for tool: ${toolName}`);
               }
+              const streamInfo =
+                toolContentStreamInfo?.toolCallId === toolCall.toolCallId
+                  ? toolContentStreamInfo
+                  : undefined;
+              const invokeHandler = (ctx: {
+                params: AgentHandlerParams;
+                toolCall: ToolCallPart;
+                toolName: ToolName;
+                toolContentStreamInfo?: ToolContentStreamInfo;
+              }) => {
+                const handlerGetter = handlerMap[ctx.toolName];
+                if (!handlerGetter) {
+                  throw new Error(`No handler found for tool: ${ctx.toolName}`);
+                }
+                const handler = handlerGetter();
+                return handler.handle(ctx.params, {
+                  toolCall: ctx.toolCall,
+                  toolContentStreamInfo: ctx.toolContentStreamInfo,
+                });
+              };
+              const toolHandlerChain = createToolHandlerChain({
+                middlewares: [createGuardrailsMiddleware(this.plugin)],
+                handler: invokeHandler,
+              });
+              toolCallResult = await toolHandlerChain({
+                params,
+                toolCall,
+                toolName,
+                toolContentStreamInfo: streamInfo,
+                agent: this,
+              });
               break;
             }
           }

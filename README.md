@@ -2,21 +2,18 @@
 
 [![Build and Test](https://github.com/googlicius/obsidian-steward/actions/workflows/ci.yml/badge.svg)](https://github.com/googlicius/obsidian-steward/actions/workflows/ci.yml)
 
-English | [Tiếng Việt](README_VI.md)
-
 Steward is an autonomous AI agent for Obsidian, powered by Large Language Models (LLMs). Equipped with tools and skills, it can search, manage your vault, and handle specialized tasks like creating Bases or Canvas files. Designed with simplicity and an immersive AI experience in mind, Steward lets you create your own commands, skills, and workflows to automate your boring and repetitive tasks.
 
 ## Features
 
 - **Built-in search engine**: A BM25-based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search.
 - **Agent Skills**: Extend Steward with domain-specific knowledge for specialized tasks like creating Obsidian Bases, Canvas files, or your own workflows. Compatible with the [Agent Skills specification](https://agentskills.io/specification).
+- **Guardrails**: Restrict which folders and files Steward can access with rules that block actions on sensitive paths.
 - **Interactive and adaptive chat UI**: One or more chat interfaces made of the slash `/` leveraging Obsidian's editor and reading view features, that is, adaptable to your current themes.
 - **Privacy-focused**: Most actions are executed in the front-end using Obsidian API and local services to avoid exposing your data to LLMs (except for your queries and what you're explicitly provided).
 - **Command-based interaction**: Support for standard commands like search, vault (list, create, delete, copy, move, rename, update frontmatter), update, audio, image generation, and user-defined commands.
 - **Model flexibility**: Use your favorite AI models, including OpenAI, Gemini, DeepSeek, Ollama, etc.
 - **Model fallback**: Automatically switches to alternative models when errors occur, ensuring robust command execution.
-- **Intent caching**: Utilizes embeddings to cache similar queries, so subsequent requests require fewer tokens for LLM processing.
-- **Multi-language support**: Use Steward in your preferred language.
 - **User-defined commands**: Create your own command workflows by combining multiple commands with specific LLM models and settings of your choice.
 
 ## Table of contents
@@ -26,6 +23,7 @@ Steward is an autonomous AI agent for Obsidian, powered by Large Language Models
   - [Usage](#usage)
   - [Showcases](#showcases)
 - [Skills](#skills)
+- [Guardrails](#guardrails)
 - [User-defined commands](#user-defined-commands)
 - [Folder structure](#folder-structure)
 - [Installation](#installation)
@@ -88,6 +86,16 @@ For more details, see the [Skills wiki](https://github.com/googlicius/obsidian-s
 
 <img src="/docs/images/Skills.gif" alt="Skills" width="650px">
 
+## Guardrails
+
+Guardrails let you restrict which folders and files the AI can access. Define safety rules to block read, list, create, edit, delete, and other actions on sensitive paths.
+
+For more details, see the [Guardrails wiki](https://github.com/googlicius/obsidian-steward/wiki/Guardrails).
+
+You can use the [Guardrails skill](https://github.com/googlicius/obsidian-steward/tree/main/skills/guardrails) to create and edit rules in natural language. Activate the skill and ask Steward to set up or modify rules for you.
+
+<img src="/docs/images/Steward-Demo-Guardrails.gif" alt="Guardrails" width="650px">
+
 ## User-defined commands
 
 You can create your own **User-Defined Commands** to automate workflows and combine multiple built-in or other User-Defined commands into a single, reusable command. Commands are defined as YAML blocks in markdown files inside the `Steward/Commands` folder, and they're available with autocomplete just like built-in commands.
@@ -123,6 +131,7 @@ Steward/
 ├── Conversations/  # Archives past conversations
 ├── Docs/           # Fetched documents from this repo
 ├── Release notes/  # Release notes of Steward
+├── Rules/          # Guardrails rules (one file per rule)
 ├── Skills/         # Agent skills for domain-specific knowledge
 ├── Trash/          # Stores deleted files
 └── Steward chat.md # Current active conversation

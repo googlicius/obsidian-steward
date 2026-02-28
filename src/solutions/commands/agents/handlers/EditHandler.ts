@@ -1,3 +1,4 @@
+import { normalizePath } from 'obsidian';
 import { type SuperAgent } from '../SuperAgent';
 import { type ToolContentStreamInfo } from '../SuperAgent/SuperAgentToolContentStream';
 import { ToolCallPart } from '../../tools/types';
@@ -14,6 +15,16 @@ export class EditHandler {
   public static getEditTool(contentType: 'in_the_note' | 'in_the_chat') {
     const { editTool } = createEditTool({ contentType });
     return editTool;
+  }
+
+  public extractPathsForGuardrails(input: EditArgs): string[] {
+    const paths: string[] = [];
+    for (const op of input.operations) {
+      if ('path' in op && typeof op.path === 'string' && op.path) {
+        paths.push(normalizePath(op.path));
+      }
+    }
+    return paths;
   }
 
   public async handle(

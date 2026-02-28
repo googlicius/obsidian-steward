@@ -81,6 +81,14 @@ export class VaultCreate {
 
   constructor(private readonly agent: SuperAgent) {}
 
+  public extractPathsForGuardrails(input: CreateToolArgs): string[] {
+    const paths: string[] = [normalizePath(input.folder)];
+    for (const file of input.newFiles) {
+      paths.push(normalizePath(`${input.folder}/${file.fileName}`));
+    }
+    return paths;
+  }
+
   public static getCreateTool() {
     return VaultCreate.createTool;
   }

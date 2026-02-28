@@ -60,6 +60,7 @@ import { VersionCheckerService } from './services/VersionCheckerService';
 import { UserMessageService } from './services/UserMessageService';
 import { GitHubResourceService } from './services/GitHubResourceService';
 import { SkillService } from './services/SkillService';
+import { GuardrailsRuleService } from './services/GuardrailsRuleService/GuardrailsRuleService';
 import { CompactionOrchestrator } from './solutions/compaction';
 
 export default class StewardPlugin extends Plugin {
@@ -85,6 +86,7 @@ export default class StewardPlugin extends Plugin {
   _commandInputService: CommandInputService;
   _gitHubResourceService: GitHubResourceService;
   _skillService: SkillService;
+  _guardrailsRuleService: GuardrailsRuleService;
   _commandTrackingService: CommandTrackingService;
   _versionCheckerService: VersionCheckerService;
   _userMessageService: UserMessageService;
@@ -195,6 +197,13 @@ export default class StewardPlugin extends Plugin {
     return this._skillService;
   }
 
+  get guardrailsRuleService(): GuardrailsRuleService {
+    if (!this._guardrailsRuleService) {
+      this._guardrailsRuleService = GuardrailsRuleService.getInstance(this);
+    }
+    return this._guardrailsRuleService;
+  }
+
   get compactionOrchestrator(): CompactionOrchestrator {
     if (!this._compactionOrchestrator) {
       this._compactionOrchestrator = new CompactionOrchestrator(this);
@@ -265,6 +274,9 @@ export default class StewardPlugin extends Plugin {
     // Initialize the SkillService (loads skills from Steward/Skills folder)
     // Access triggers lazy initialization and onLayoutReady will load all skills
     this.skillService;
+
+    // Initialize the GuardrailsRuleService (loads rules from Steward/Rules folder)
+    this.guardrailsRuleService;
 
     this.initializeClassifier();
 
@@ -643,13 +655,11 @@ export default class StewardPlugin extends Plugin {
       settingsUpdated = true;
     } else {
       if (!this.settings.llm.agents.compactionSummary) {
-        this.settings.llm.agents.compactionSummary =
-          DEFAULT_SETTINGS.llm.agents.compactionSummary;
+        this.settings.llm.agents.compactionSummary = DEFAULT_SETTINGS.llm.agents.compactionSummary;
         settingsUpdated = true;
       }
       if (!this.settings.llm.agents.conversationTitle) {
-        this.settings.llm.agents.conversationTitle =
-          DEFAULT_SETTINGS.llm.agents.conversationTitle;
+        this.settings.llm.agents.conversationTitle = DEFAULT_SETTINGS.llm.agents.conversationTitle;
         settingsUpdated = true;
       }
     }
@@ -1243,6 +1253,10 @@ export default class StewardPlugin extends Plugin {
         // Ensure Release notes folder exists
         const releaseNotesFolder = `${this.settings.stewardFolder}/Release notes`;
         await this.obsidianAPITools.ensureFolderExists(releaseNotesFolder);
+
+        // Ensure Rules folder exists for guardrails
+        const rulesFolder = `${this.settings.stewardFolder}/Rules`;
+        await this.obsidianAPITools.ensureFolderExists(rulesFolder);
       } catch (error) {
         logger.error('Failed to ensure required folders:', error);
       }

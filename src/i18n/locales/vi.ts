@@ -103,6 +103,15 @@ const vi = {
       activating: 'Đang kích hoạt kỹ năng: {{skills}}',
       invalidSkills: 'Không tìm thấy kỹ năng: {{skills}}',
     },
+    guardrails: {
+      rules: 'Quy tắc',
+      noRulesDefined: 'Chưa có quy tắc guardrails nào.',
+      statusValid: '✅ Hợp lệ',
+      statusInvalid: 'Không hợp lệ: {{errors}}',
+      violation:
+        'Hành động bị chặn bởi guardrails. Quy tắc: {{rules}}. Đường dẫn: {{paths}}. Hành động bị chặn: {{actions}}. Dừng xử lý hoặc thử các hành động khác không nằm trong danh sách bị chặn.',
+      violationHuman: 'Hành động bị chặn bởi guardrails. Quy tắc: {{rules}}. Đường dẫn: {{paths}}.',
+    },
     switchCapacity: {
       confirm: 'Bạn có muốn tôi chuyển sang chế độ agent không?',
       enabled: 'Đã chuyển sang chế độ agent.',
@@ -287,6 +296,7 @@ const vi = {
       searchGuideline: 'Hướng dẫn tìm kiếm',
       udcGuideline: 'Hướng dẫn lệnh do người dùng định nghĩa',
       skillsGuideline: 'Hướng dẫn kỹ năng',
+      guardrailsGuideline: 'Guardrails',
       tipNewLines: 'Nhấn `Shift+Enter` để xuống dòng',
       tipChangeModel: 'Gõ `m:` hoặc `model:` để đổi mô hình',
       tipAttachContext: 'Gõ `@` để đính kèm tệp/thư mục',

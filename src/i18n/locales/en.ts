@@ -127,6 +127,15 @@ const en = {
       activating: 'Activating skills: {{skills}}',
       invalidSkills: 'Skills not found: {{skills}}',
     },
+    guardrails: {
+      rules: 'Rules',
+      noRulesDefined: 'No guardrails rules defined.',
+      statusValid: '✅ Valid',
+      statusInvalid: 'Invalid: {{errors}}',
+      violation:
+        'Action blocked by guardrails. Rules: {{rules}}. Paths: {{paths}}. Blocked actions: {{actions}}. Stop processing or try other actions that are not in the blocked list.',
+      violationHuman: 'Action blocked by guardrails. Rules: {{rules}}. Paths: {{paths}}.',
+    },
     switchCapacity: {
       confirm: 'Would you like me to switch to agent mode?',
       enabled: 'Switched to tool and skill mode.',
@@ -347,6 +356,7 @@ const en = {
       searchGuideline: 'Search guideline',
       udcGuideline: 'User-defined command guideline',
       skillsGuideline: 'Skills guideline',
+      guardrailsGuideline: 'Guardrails',
       tipNewLines: 'Press `Shift+Enter` to add new lines',
       tipChangeModel: 'Type `m:` or `model:` to change model',
       tipAttachContext: 'Type `@` to attach files/folders',

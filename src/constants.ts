@@ -27,6 +27,11 @@ export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'svg', 'gif'];
 export const STW_SOURCE_PATTERN = '(\\{\\{stw-source.*?\\}\\})';
 
 /**
+ * Pattern to match {{stw-rules}} marker for guardrails display
+ */
+export const STW_RULES_PATTERN = '(\\{\\{stw-rules.*?\\}\\})';
+
+/**
  * Pattern to match {{stw-squeezed [[<path>]] }}
  */
 export const STW_SQUEEZED_PATTERN = '\\{\\{stw-squeezed \\[\\[([^\\]]+)\\]\\] \\}\\}';
@@ -296,6 +301,7 @@ export const WIKI_PAGES = {
   SEARCH: 'Search',
   USER_DEFINED_COMMANDS: 'User-defined-commands',
   SKILLS: 'Skills',
+  GUARDRAILS: 'Guardrails',
 } as const;
 
 // Community user-defined commands available for lazy loading from GitHub

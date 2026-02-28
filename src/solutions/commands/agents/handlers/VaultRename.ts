@@ -1,5 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { normalizePath } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { type SuperAgent } from '../SuperAgent';
@@ -54,6 +55,16 @@ export class VaultRename {
   private _dataAwarenessAgent: DataAwarenessAgent;
 
   constructor(private readonly agent: SuperAgent) {}
+
+  public extractPathsForGuardrails(input: RenameToolArgs): string[] {
+    if (!input.files) return [];
+    const paths: string[] = [];
+    for (const f of input.files) {
+      paths.push(normalizePath(f.path));
+      paths.push(normalizePath(f.newPath));
+    }
+    return paths;
+  }
 
   public static getRenameTool() {
     return VaultRename.renameTool;

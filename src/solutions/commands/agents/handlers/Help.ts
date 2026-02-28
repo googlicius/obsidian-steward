@@ -104,12 +104,27 @@ export class Help {
       content += `- ${t('documentation.tipStop')}\n`;
       content += `- ${t('documentation.tipRevert')}\n`;
 
+      // Add defined rules section
+      content += `\n**${t('guardrails.rules')}:**\n\n`;
+      const rules = this.agent.plugin.guardrailsRuleService.getRules();
+      if (rules.length > 0) {
+        for (const rule of rules) {
+          const file = this.agent.app.vault.getFileByPath(rule.path);
+          if (file) {
+            content += `- \`${rule.name}\` - [[${file.basename}]]\n`;
+          }
+        }
+      } else {
+        content += `*${t('guardrails.noRulesDefined')}*\n`;
+      }
+
       // Add wiki links section
       content += `\n**${t('documentation.guidelines')}:**\n\n`;
       content += `- [${t('documentation.getStartedGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.GET_STARTED})\n`;
       content += `- [${t('documentation.searchGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.SEARCH})\n`;
       content += `- [${t('documentation.udcGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.USER_DEFINED_COMMANDS})\n`;
       content += `- [${t('documentation.skillsGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.SKILLS})\n`;
+      content += `- [${t('documentation.guardrailsGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.GUARDRAILS})\n`;
 
       // Add help text
       content += `\n${t('common.commandHelpText')}\n`;
