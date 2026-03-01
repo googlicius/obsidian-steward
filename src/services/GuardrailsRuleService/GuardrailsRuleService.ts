@@ -255,15 +255,4 @@ export class GuardrailsRuleService {
     return map;
   }
 
-  public validateRule(rule: GuardrailsRule | Record<string, unknown>): {
-    valid: boolean;
-    errors: string[];
-  } {
-    const validation = this.validateRuleFrontmatter(rule);
-
-    if (validation.valid) {
-      return { valid: true, errors: [] };
-    }
-    return { valid: false, errors: validation.errors };
-  }
 }

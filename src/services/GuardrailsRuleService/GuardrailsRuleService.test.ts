@@ -26,19 +26,51 @@ describe('GuardrailsRuleService', () => {
     service = GuardrailsRuleService.getInstance();
   });
 
-  describe('validateRule', () => {
+  describe('validateRuleFrontmatter', () => {
+    let validateRuleFrontmatter: GuardrailsRuleService['validateRuleFrontmatter'];
+
+    beforeEach(() => {
+      validateRuleFrontmatter = service['validateRuleFrontmatter'].bind(service);
+    });
+
     it('returns valid for correct rule', () => {
-      const result = service.validateRule({
+      const result = validateRuleFrontmatter({
         name: 'No secrets',
         targets: ['Secrets/', '*.key'],
         actions: ['read', 'list', 'create'],
       });
       expect(result.valid).toBe(true);
-      expect(result.errors).toEqual([]);
+      if (result.valid) {
+        expect(result.data.name).toBe('No secrets');
+        expect(result.data.targets).toEqual(['Secrets/', '*.key']);
+      }
+    });
+
+    it('returns invalid when name is missing', () => {
+      const result = validateRuleFrontmatter({
+        targets: ['folder/'],
+        actions: ['read'],
+      });
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.errors.some(e => e.includes('Rule name is required'))).toBe(true);
+      }
+    });
+
+    it('returns invalid when targets is empty', () => {
+      const result = validateRuleFrontmatter({
+        name: 'Test',
+        targets: [],
+        actions: ['read'],
+      });
+      expect(result.valid).toBe(false);
+      if (!result.valid) {
+        expect(result.errors.some(e => e.includes('At least one target'))).toBe(true);
+      }
     });
 
     it('returns valid for rule with optional fields', () => {
-      const result = service.validateRule({
+      const result = validateRuleFrontmatter({
         name: 'Test rule',
         targets: ['folder/'],
         actions: ['read'],
@@ -48,17 +80,8 @@ describe('GuardrailsRuleService', () => {
       expect(result.valid).toBe(true);
     });
 
-    it('returns invalid when name is missing', () => {
-      const result = service.validateRule({
-        targets: ['folder/'],
-        actions: ['read'],
-      });
-      expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.includes('Rule name is required'))).toBe(true);
-    });
-
     it('returns invalid when name is empty', () => {
-      const result = service.validateRule({
+      const result = validateRuleFrontmatter({
         name: '',
         targets: ['folder/'],
         actions: ['read'],
@@ -66,18 +89,8 @@ describe('GuardrailsRuleService', () => {
       expect(result.valid).toBe(false);
     });
 
-    it('returns invalid when targets is empty', () => {
-      const result = service.validateRule({
-        name: 'Test',
-        targets: [],
-        actions: ['read'],
-      });
-      expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.includes('At least one target'))).toBe(true);
-    });
-
     it('returns invalid when actions contains invalid value', () => {
-      const result = service.validateRule({
+      const result = validateRuleFrontmatter({
         name: 'Test',
         targets: ['folder/'],
         actions: ['invalid_action'],
@@ -86,7 +99,7 @@ describe('GuardrailsRuleService', () => {
     });
 
     it('accepts enabled as string false', () => {
-      const result = service.validateRule({
+      const result = validateRuleFrontmatter({
         name: 'Disabled rule',
         targets: ['folder/'],
         actions: ['read'],

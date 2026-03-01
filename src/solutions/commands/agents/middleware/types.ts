@@ -6,7 +6,6 @@ import type { ToolContentStreamInfo } from '../SuperAgent/SuperAgentToolContentS
 export interface ToolHandlerMiddlewareContext {
   params: AgentHandlerParams;
   toolCall: ToolCallPart;
-  toolName: ToolName;
   toolContentStreamInfo?: ToolContentStreamInfo;
   /** Agent instance, used e.g. by guardrails to extract paths from handlers */
   agent?: { getPathsForGuardrails(toolName: ToolName, input: unknown): string[] };

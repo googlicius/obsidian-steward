@@ -6,21 +6,20 @@ import { getTranslation } from 'src/i18n';
 import { ToolRegistry, ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { activateTools } from '../../tools/activateTools';
-import { ArtifactType } from 'src/solutions/artifact';
 import { getMostRecentArtifact, getArtifactById } from '../../tools/getArtifact';
 import { getClassifier } from 'src/lib/modelfusion';
 import { logger } from 'src/utils/logger';
 import { SuperAgentHandlers } from './SuperAgentHandlers';
 import { SuperAgentToolContentStream, ToolContentStreamInfo } from './SuperAgentToolContentStream';
+import { SuperAgentManualToolCall } from './SuperAgentManualToolCall';
 import { applyMixins } from 'src/utils/applyMixins';
 import { createAskUserTool } from '../../tools/askUser';
 import * as handlers from '../handlers';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
-import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 import { createLLMStream } from 'src/utils/textStreamer';
 import { SysError } from 'src/utils/errors';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
-import { createStepProcessedQuery, parseStepProcessedQuery } from './stepProcessedQuery';
+import { createStepProcessedQuery } from './stepProcessedQuery';
 import { createToolHandlerChain } from '../middleware/createToolHandlerChain';
 import { createGuardrailsMiddleware } from 'src/services/GuardrailsRuleService/guardrailsMiddleware';
 
@@ -145,7 +144,11 @@ const toolsThatEnableConclude = new Set([
 
 type ToolCalls = Awaited<Awaited<ReturnType<typeof streamText<typeof tools>>>['toolCalls']>;
 
-export interface SuperAgent extends Agent, SuperAgentHandlers, SuperAgentToolContentStream {}
+export interface SuperAgent
+  extends Agent,
+    SuperAgentHandlers,
+    SuperAgentToolContentStream,
+    SuperAgentManualToolCall {}
 
 export class SuperAgent extends Agent {
   /**
@@ -170,229 +173,6 @@ export class SuperAgent extends Agent {
     }
 
     await this.renderer.addGeneratingIndicator(title, t(indicatorKey));
-  }
-
-  /**
-   * Client-made tool call without AI
-   */
-  protected async manualToolCall(params: {
-    title: string;
-    query: string;
-    activeTools: ToolName[];
-    classifiedTasks: string[];
-    lang?: string | null;
-    /**
-     * When set, indicates how the task was classified (static/prefixed/clustered).
-     * For build_search_index, manual tool call (index everything) is only used when matchType is 'static'.
-     */
-    classificationMatchType?: 'static' | 'prefixed' | 'clustered';
-  }): Promise<ToolCallPart | undefined> {
-    const { title, query, activeTools, classifiedTasks, lang, classificationMatchType } = params;
-
-    // Client-handled step: command syntax was processed locally, update todo list and move to next step
-    const originalQuery = parseStepProcessedQuery(query);
-    const isCommandSyntaxStepProcessed =
-      originalQuery !== null && CommandSyntaxParser.isCommandSyntax(originalQuery);
-
-    if (isCommandSyntaxStepProcessed && activeTools.includes(ToolName.TODO_LIST_UPDATE)) {
-      const todoListUpdateToolCall = await this.craftTodoListUpdateToolCallManually(title);
-
-      if (todoListUpdateToolCall) {
-        return todoListUpdateToolCall;
-      }
-    }
-
-    // Return undefined if there are multiple classified tasks
-    if (classifiedTasks.length !== 1) {
-      return undefined;
-    }
-
-    const task = classifiedTasks[0];
-    const t = getTranslation(lang);
-
-    switch (task) {
-      case 'vault': {
-        // Handle DELETE tool manual calls (vault task)
-        if (activeTools.length === 1 && activeTools.includes(ToolName.DELETE)) {
-          const artifact = await this.plugin.artifactManagerV2
-            .withTitle(title)
-            .getMostRecentArtifactOfTypes([
-              ArtifactType.SEARCH_RESULTS,
-              ArtifactType.CREATED_NOTES,
-              ArtifactType.LIST_RESULTS,
-            ]);
-
-          if (artifact) {
-            return {
-              type: 'tool-call',
-              toolName: ToolName.DELETE,
-              toolCallId: `manual-tool-call-${uniqueID()}`,
-              input: {
-                operations: [
-                  {
-                    mode: 'artifactId',
-                    artifactId: artifact.id,
-                  },
-                ],
-              },
-            } as ToolCallPart<handlers.DeleteToolArgs>;
-          }
-        }
-        return undefined;
-      }
-
-      case 'revert': {
-        // Handle revert tool manual calls for static cluster: revert
-        if (classificationMatchType === 'static') {
-          // Get the most recent artifact from types created by VaultAgent
-          const artifactTypes = [
-            ArtifactType.MOVE_RESULTS,
-            ArtifactType.CREATED_NOTES,
-            ArtifactType.DELETED_FILES,
-            ArtifactType.UPDATE_FRONTMATTER_RESULTS,
-            ArtifactType.RENAME_RESULTS,
-            ArtifactType.EDIT_RESULTS,
-          ];
-
-          const artifact = await this.plugin.artifactManagerV2
-            .withTitle(title)
-            .getMostRecentArtifactOfTypes(artifactTypes);
-
-          if (artifact?.id) {
-            // Map artifact type to the appropriate revert tool
-            const artifactTypeToToolMap: Partial<Record<ArtifactType, ToolName>> = {
-              [ArtifactType.MOVE_RESULTS]: ToolName.REVERT_MOVE,
-              [ArtifactType.CREATED_NOTES]: ToolName.REVERT_CREATE,
-              [ArtifactType.DELETED_FILES]: ToolName.REVERT_DELETE,
-              [ArtifactType.UPDATE_FRONTMATTER_RESULTS]: ToolName.REVERT_FRONTMATTER,
-              [ArtifactType.RENAME_RESULTS]: ToolName.REVERT_RENAME,
-              [ArtifactType.EDIT_RESULTS]: ToolName.REVERT_EDIT_RESULTS,
-            };
-
-            const toolName = artifactTypeToToolMap[artifact.artifactType];
-            if (toolName) {
-              return {
-                type: 'tool-call',
-                toolName,
-                toolCallId: `manual-tool-call-${uniqueID()}`,
-                input: {
-                  artifactId: artifact.id,
-                  explanation: t('revert.revertingArtifact', {
-                    artifactType: artifact.artifactType,
-                  }),
-                },
-              };
-            }
-          }
-        }
-        return undefined;
-      }
-
-      case 'help': {
-        return {
-          type: 'tool-call',
-          toolName: ToolName.HELP,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
-          input: {},
-        };
-      }
-
-      case 'user_confirm': {
-        return {
-          type: 'tool-call',
-          toolName: ToolName.USER_CONFIRM,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
-          input: {},
-        };
-      }
-
-      case 'stop': {
-        return {
-          type: 'tool-call',
-          toolName: ToolName.STOP,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
-          input: {},
-        };
-      }
-
-      case 'thank_you': {
-        return {
-          type: 'tool-call',
-          toolName: ToolName.THANK_YOU,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
-          input: {},
-        };
-      }
-
-      case 'more': {
-        // Handle search_more tool manual calls
-        return {
-          type: 'tool-call',
-          toolName: ToolName.SEARCH_MORE,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
-          input: {},
-        };
-      }
-
-      case 'build_search_index': {
-        // Only use manual tool call (index everything) when static cluster matched.
-        // Clustered match may indicate user wants specific folders (e.g. "index my files in Projects").
-        if (classificationMatchType !== 'static') {
-          return undefined;
-        }
-        return {
-          type: 'tool-call',
-          toolName: ToolName.BUILD_SEARCH_INDEX,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
-          input: {},
-        };
-      }
-
-      case 'search': {
-        // Handle search tool manual calls
-        const extraction = this.search.extractSearchQueryWithoutLLM({
-          query,
-          searchSettings: this.plugin.settings.search,
-          lang,
-        });
-
-        if (extraction) {
-          return {
-            type: 'tool-call',
-            toolName: ToolName.SEARCH,
-            toolCallId: `manual-tool-call-${uniqueID()}`,
-            input: {
-              operations: extraction.operations,
-              explanation: extraction.explanation,
-              lang: extraction.lang,
-              confidence: extraction.confidence,
-            },
-          };
-        }
-        return undefined;
-      }
-
-      case 'speech': {
-        // Handle speech tool manual calls
-        const quotedText = getQuotedQuery(query);
-        if (quotedText) {
-          return {
-            type: 'tool-call',
-            toolName: ToolName.SPEECH,
-            toolCallId: `manual-tool-call-${uniqueID()}`,
-            input: {
-              text: quotedText,
-              explanation: `Generating audio with: "${quotedText}"`,
-              confidence: 1,
-            },
-          };
-        }
-        return undefined;
-      }
-
-      default:
-        return undefined;
-    }
   }
 
   /**
@@ -790,7 +570,11 @@ After the switch is confirmed, continue the task and use tools as needed.`;
     interface StandardToolHandler {
       handle(
         params: AgentHandlerParams,
-        options: { toolCall: ToolCallPart<unknown>; toolContentStreamInfo?: ToolContentStreamInfo }
+        options: {
+          toolCall: ToolCallPart<unknown>;
+          continueFromNextTool?: () => Promise<AgentResult>;
+          toolContentStreamInfo?: ToolContentStreamInfo;
+        }
       ): Promise<AgentResult>;
       extractPathsForGuardrails?(input: unknown): string[];
     }
@@ -935,14 +719,6 @@ After the switch is confirmed, continue the task and use tools as needed.`;
               break;
             }
 
-            case ToolName.SWITCH_AGENT_CAPACITY: {
-              toolCallResult = await this.switchAgentCapacity.handle(params, {
-                toolCall,
-                continueFromNextTool: continueProcessingFromNextTool,
-              });
-              break;
-            }
-
             case ToolName.CONCLUDE: {
               const prevToolCall = toolCalls.length > 1 && toolCalls[index - 1];
               // The in-parallel tool call incorrect, skip conclusion.
@@ -957,10 +733,9 @@ After the switch is confirmed, continue the task and use tools as needed.`;
             }
 
             default: {
-              const toolName = toolCall.toolName as ToolName;
-              const handlerGetter = handlerMap[toolName];
+              const handlerGetter = handlerMap[toolCall.toolName];
               if (!handlerGetter) {
-                throw new Error(`No handler found for tool: ${toolName}`);
+                throw new Error(`No handler found for tool: ${toolCall.toolName}`);
               }
               const streamInfo =
                 toolContentStreamInfo?.toolCallId === toolCall.toolCallId
@@ -980,6 +755,7 @@ After the switch is confirmed, continue the task and use tools as needed.`;
                 return handler.handle(ctx.params, {
                   toolCall: ctx.toolCall,
                   toolContentStreamInfo: ctx.toolContentStreamInfo,
+                  continueFromNextTool: continueProcessingFromNextTool,
                 });
               };
               const toolHandlerChain = createToolHandlerChain({
@@ -989,7 +765,6 @@ After the switch is confirmed, continue the task and use tools as needed.`;
               toolCallResult = await toolHandlerChain({
                 params,
                 toolCall,
-                toolName,
                 toolContentStreamInfo: streamInfo,
                 agent: this,
               });
@@ -1452,27 +1227,6 @@ Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-spec
     return result;
   }
 
-  private async craftTodoListUpdateToolCallManually(title: string): Promise<ToolCallPart | null> {
-    const todoListState = await this.renderer.getConversationProperty<handlers.TodoListState>(
-      title,
-      'todo_list'
-    );
-    const steps = todoListState?.steps;
-    const stepCount = steps?.length ?? 0;
-    if (stepCount === 0 || !todoListState) {
-      return null;
-    }
-    return {
-      type: 'tool-call',
-      toolName: ToolName.TODO_LIST_UPDATE,
-      toolCallId: `manual-tool-call-${uniqueID()}`,
-      input: {
-        status: 'completed',
-        nextStep: Math.min(todoListState.currentStep + 1, stepCount),
-      },
-    };
-  }
-
   /**
    * Find the task name for a given tool name
    */
@@ -1526,4 +1280,8 @@ Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-spec
 }
 
 // Apply mixins to merge classes into SuperAgent class
-applyMixins(SuperAgent, [SuperAgentHandlers, SuperAgentToolContentStream]);
+applyMixins(SuperAgent, [
+  SuperAgentHandlers,
+  SuperAgentToolContentStream,
+  SuperAgentManualToolCall,
+]);

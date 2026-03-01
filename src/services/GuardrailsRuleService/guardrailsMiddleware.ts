@@ -7,6 +7,7 @@ import type {
   ToolHandlerMiddlewareContext,
 } from 'src/solutions/commands/agents/middleware/types';
 import type StewardPlugin from 'src/main';
+import { ToolName } from 'src/solutions/commands/toolNames';
 
 function pathMatchesTarget(path: string, target: string): boolean {
   const normalizedPath = normalizePath(path);
@@ -30,12 +31,13 @@ export function createGuardrailsMiddleware(plugin: StewardPlugin): ToolHandlerMi
     ctx: ToolHandlerMiddlewareContext,
     next: () => Promise<AgentResult>
   ): Promise<AgentResult> {
-    const rules = plugin.guardrailsRuleService.getRulesForTool(ctx.toolName);
+    const toolName = ctx.toolCall.toolName as ToolName;
+    const rules = plugin.guardrailsRuleService.getRulesForTool(toolName);
     if (rules.length === 0) {
       return next();
     }
 
-    const paths = ctx.agent?.getPathsForGuardrails(ctx.toolName, ctx.toolCall.input) ?? [];
+    const paths = ctx.agent?.getPathsForGuardrails(toolName, ctx.toolCall.input) ?? [];
     if (paths.length === 0) {
       return next();
     }
