@@ -70,6 +70,10 @@ Steward can be used directly in the editor or by opening the chat interface.
 
 <img src="/docs/Stw-Demo-Search-light.gif" alt="Search" width="650px">
 
+#### Search with operators: `<`, `<=`, `>=` or Relative Date Queries
+
+<img src="/docs/Steward-Demo-Search-operators.gif" alt="Search" width="650px">
+
 ## Skills
 
 Skills give Steward domain-specific knowledge for specialized tasks. Each skill is a markdown file in the `Steward/Skills` folder with frontmatter (`name`, `description`) and body content that gets injected into the AI's context when activated.
