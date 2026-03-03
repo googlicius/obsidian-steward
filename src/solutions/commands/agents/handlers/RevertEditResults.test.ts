@@ -1,5 +1,5 @@
 import { RevertEditResults } from './RevertEditResults';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type StewardPlugin from 'src/main';
 import { ArtifactType, Change, FileChangeSet } from 'src/solutions/artifact';
 import { TFile, type App } from 'obsidian';
@@ -37,7 +37,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
 
 describe('RevertEditResults', () => {
   let revertEditResults: RevertEditResults;
-  let mockAgent: jest.Mocked<SuperAgent>;
+  let mockAgent: jest.Mocked<AgentHandlerContext>;
   let mockPlugin: jest.Mocked<StewardPlugin>;
 
   beforeEach(() => {
@@ -47,7 +47,7 @@ describe('RevertEditResults', () => {
       renderer: mockPlugin.conversationRenderer,
       app: mockPlugin.app,
       serializeInvocation: jest.fn(),
-    } as unknown as jest.Mocked<SuperAgent>;
+    } as unknown as jest.Mocked<AgentHandlerContext>;
     revertEditResults = new RevertEditResults(mockAgent);
   });
 

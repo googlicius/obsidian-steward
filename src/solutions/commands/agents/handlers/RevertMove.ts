@@ -2,7 +2,7 @@ import { tool } from 'ai';
 import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { logger } from 'src/utils/logger';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -30,7 +30,7 @@ type RevertMoveExecutionResult = {
 export class RevertMove {
   private static readonly revertMoveTool = tool({ inputSchema: revertMoveToolSchema });
 
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public static getRevertMoveTool() {
     return RevertMove.revertMoveTool;

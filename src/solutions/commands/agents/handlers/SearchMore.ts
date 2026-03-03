@@ -1,6 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod/v3';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { Search } from './Search';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
@@ -19,7 +20,10 @@ export class SearchMore {
     inputSchema: searchMoreSchema,
   });
 
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(
+    private readonly agent: AgentHandlerContext,
+    private readonly searchHandler: Search
+  ) {}
 
   public static getSearchMoreTool() {
     return SearchMore.searchMoreTool;
@@ -113,7 +117,7 @@ export class SearchMore {
       }
 
       // Format the results using the Search handler's format method
-      const response = await this.agent.search.formatSearchResults({
+      const response = await this.searchHandler.formatSearchResults({
         paginatedSearchResult,
         page,
         lang,

@@ -1,5 +1,5 @@
 import { VaultList } from './VaultList';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { TFile, TFolder } from 'obsidian';
 import { getInstance } from 'src/utils/getInstance';
 import type StewardPlugin from 'src/main';
@@ -17,14 +17,14 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
 
 describe('VaultList', () => {
   let vaultList: VaultList;
-  let mockAgent: jest.Mocked<SuperAgent>;
+  let mockAgent: jest.Mocked<AgentHandlerContext>;
   let mockPlugin: jest.Mocked<StewardPlugin>;
 
   beforeEach(() => {
     mockPlugin = createMockPlugin();
     mockAgent = {
       app: mockPlugin.app,
-    } as unknown as jest.Mocked<SuperAgent>;
+    } as unknown as jest.Mocked<AgentHandlerContext>;
     vaultList = new VaultList(mockAgent);
   });
 

@@ -2,7 +2,7 @@ import { tool } from 'ai';
 import { z } from 'zod/v3';
 import { normalizePath } from 'obsidian';
 import { getTranslation } from 'src/i18n';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { ArtifactType } from 'src/solutions/artifact';
 import { DocWithPath } from 'src/types/types';
@@ -52,7 +52,7 @@ type CopyOperationResult = {
 export class VaultCopy {
   private static readonly copyTool = tool({ inputSchema: copyToolSchema });
 
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: CopyToolArgs): string[] {
     const paths: string[] = [normalizePath(input.destinationFolder)];

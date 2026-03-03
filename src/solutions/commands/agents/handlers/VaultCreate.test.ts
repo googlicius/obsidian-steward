@@ -1,8 +1,8 @@
 import { createToolSchema, VaultCreate, type CreateToolArgs } from './VaultCreate';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { type ToolCallPart } from '../../tools/types';
 
-function createMockAgent(): jest.Mocked<SuperAgent> {
+function createMockAgent(): jest.Mocked<AgentHandlerContext> {
   return {
     app: {
       vault: {
@@ -25,7 +25,7 @@ function createMockAgent(): jest.Mocked<SuperAgent> {
         }),
       },
     },
-  } as unknown as jest.Mocked<SuperAgent>;
+  } as unknown as jest.Mocked<AgentHandlerContext>;
 }
 
 function createToolCall(input: CreateToolArgs): ToolCallPart<CreateToolArgs> {
@@ -136,7 +136,7 @@ describe('VaultCreate', () => {
   });
 
   describe('executeCreatePlan', () => {
-    let mockAgent: jest.Mocked<SuperAgent>;
+    let mockAgent: jest.Mocked<AgentHandlerContext>;
     let vaultCreate: VaultCreate;
 
     beforeEach(() => {

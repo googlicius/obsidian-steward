@@ -1,5 +1,5 @@
 import { z } from 'zod/v3';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
@@ -31,7 +31,7 @@ export type BuildSearchIndexArgs = z.infer<typeof buildSearchIndexSchema>;
 
 export class BuildSearchIndex {
   private static readonly buildSearchIndexTool = tool({ inputSchema: buildSearchIndexSchema });
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public static getBuildSearchIndexTool() {
     return BuildSearchIndex.buildSearchIndexTool;

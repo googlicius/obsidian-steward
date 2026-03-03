@@ -3,7 +3,7 @@ import { z } from 'zod/v3';
 import { normalizePath } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { logger } from 'src/utils/logger';
 import { NonTrashFile, TrashFile } from 'src/services/TrashCleanupService';
 import { ToolCallPart } from '../../tools/types';
@@ -86,7 +86,7 @@ type DeleteExecutionResult = {
 export class VaultDelete {
   private static readonly deleteTool = tool({ inputSchema: deleteToolSchema });
 
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: DeleteToolArgs): string[] {
     const paths: string[] = [];

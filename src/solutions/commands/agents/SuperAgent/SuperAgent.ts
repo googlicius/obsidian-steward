@@ -12,6 +12,7 @@ import { logger } from 'src/utils/logger';
 import { SuperAgentHandlers } from './SuperAgentHandlers';
 import { SuperAgentToolContentStream, ToolContentStreamInfo } from './SuperAgentToolContentStream';
 import { SuperAgentManualToolCall } from './SuperAgentManualToolCall';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { applyMixins } from 'src/utils/applyMixins';
 import { createAskUserTool } from '../../tools/askUser';
 import * as handlers from '../handlers';
@@ -146,11 +147,12 @@ type ToolCalls = Awaited<Awaited<ReturnType<typeof streamText<typeof tools>>>['t
 
 export interface SuperAgent
   extends Agent,
+    AgentHandlerContext,
     SuperAgentHandlers,
     SuperAgentToolContentStream,
     SuperAgentManualToolCall {}
 
-export class SuperAgent extends Agent {
+export class SuperAgent extends Agent implements AgentHandlerContext {
   /**
    * Render the loading indicator for the super agent
    */

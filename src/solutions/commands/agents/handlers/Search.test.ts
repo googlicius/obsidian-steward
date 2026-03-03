@@ -1,5 +1,5 @@
 import { Search, searchQueryExtractionSchema } from './Search';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type StewardPlugin from 'src/main';
 import { IndexedDocument } from 'src/database/SearchDatabase';
 import { PaginatedSearchResult } from 'src/solutions/search/types';
@@ -73,7 +73,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
 
 describe('Search', () => {
   let search: Search;
-  let mockAgent: jest.Mocked<SuperAgent>;
+  let mockAgent: jest.Mocked<AgentHandlerContext>;
   let mockPlugin: jest.Mocked<StewardPlugin>;
 
   beforeEach(() => {
@@ -81,7 +81,7 @@ describe('Search', () => {
     mockAgent = {
       plugin: mockPlugin,
       renderer: mockPlugin.conversationRenderer,
-    } as unknown as jest.Mocked<SuperAgent>;
+    } as unknown as jest.Mocked<AgentHandlerContext>;
     search = new Search(mockAgent);
   });
 

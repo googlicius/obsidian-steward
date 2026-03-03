@@ -4,7 +4,7 @@ import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { ToolCallPart } from '../../tools/types';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { type ToolContentStreamInfo } from '../SuperAgent/SuperAgentToolContentStream';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 
@@ -79,7 +79,7 @@ function executeCreateToolArgs(args: CreateToolArgs): CreatePlan {
 export class VaultCreate {
   private static readonly createTool = tool({ inputSchema: createToolSchema });
 
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: CreateToolArgs): string[] {
     const paths: string[] = [normalizePath(input.folder)];

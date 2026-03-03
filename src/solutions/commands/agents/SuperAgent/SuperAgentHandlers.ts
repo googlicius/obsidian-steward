@@ -1,5 +1,6 @@
 import { ToolName } from '../../ToolRegistry';
 import * as handlers from '../handlers';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type { SuperAgent } from '../SuperAgent';
 
 /**
@@ -58,10 +59,11 @@ export class SuperAgentHandlers {
   private _recallCompactedContext: handlers.RecallCompactedContext;
 
   /**
-   * Helper method to get this instance typed as SuperAgent
-   * This is safe because SuperAgentHandlers is only used as a mixin for SuperAgent
+   * Helper method to get this instance typed as AgentHandlerContext.
+   * SuperAgent implements AgentHandlerContext; this is safe because SuperAgentHandlers
+   * is only used as a mixin for SuperAgent.
    */
-  protected getAgent(): SuperAgent {
+  protected getAgent(): AgentHandlerContext {
     return this as unknown as SuperAgent;
   }
 
@@ -251,7 +253,7 @@ export class SuperAgentHandlers {
 
   public get searchMore(): handlers.SearchMore {
     if (!this._searchMore) {
-      this._searchMore = new handlers.SearchMore(this.getAgent());
+      this._searchMore = new handlers.SearchMore(this.getAgent(), this.search);
     }
 
     return this._searchMore;

@@ -3,7 +3,7 @@ import { z } from 'zod/v3';
 import { normalizePath } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
@@ -75,7 +75,7 @@ export type ContentReadingArgs = z.infer<typeof contentReadingSchema>;
 export class ReadContent {
   private static readonly contentReadingTool = tool({ inputSchema: contentReadingSchema });
 
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: ContentReadingArgs): string[] {
     return input.fileNames.map(f => normalizePath(f));

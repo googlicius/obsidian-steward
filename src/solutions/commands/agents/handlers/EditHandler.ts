@@ -1,5 +1,5 @@
 import { normalizePath } from 'obsidian';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { type ToolContentStreamInfo } from '../SuperAgent/SuperAgentToolContentStream';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -10,7 +10,7 @@ import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 
 export class EditHandler {
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public static getEditTool(contentType: 'in_the_note' | 'in_the_chat') {
     const { editTool } = createEditTool({ contentType });
