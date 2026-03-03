@@ -10,6 +10,7 @@ export * from './AgentManualToolCall';
 export * from './AgentStreamTextExecutor';
 export * from './AgentToolCallExecutor';
 export * from './SuperAgent/SuperAgent';
+export * from './SubAgent/SubAgent';
 export * from './DataAwarenessAgent/DataAwarenessAgent';
 export * from './UDCAgent/UDCAgent';
 export * from './ConversationTitleAgent/ConversationTitleAgent';

@@ -4,8 +4,8 @@ export const AgentConfigSchema = z.object({
   id: z.string().min(1),
   name: z.string().optional(),
   default: z.boolean().optional(),
-  /** Factory: 'super' | 'udc' | 'title' | 'compaction_summary' */
-  factory: z.enum(['super', 'udc', 'title', 'compaction_summary']),
+  /** Factory: 'super' | 'subagent' | 'udc' | 'title' | 'compaction_summary' */
+  factory: z.enum(['super', 'subagent', 'udc', 'title', 'compaction_summary']),
   /** For factory 'super': tools to activate. Empty = all tools. */
   tools: z.array(z.string()).optional(),
   /** For factory 'udc': UDC command ID */

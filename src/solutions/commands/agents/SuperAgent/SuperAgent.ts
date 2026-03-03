@@ -5,8 +5,6 @@ import { ToolCallPart, ToolResultPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
 import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
-import { activateTools } from '../../tools/activateTools';
-import { getMostRecentArtifact, getArtifactById } from '../../tools/getArtifact';
 import { getClassifier } from 'src/lib/modelfusion';
 import { logger } from 'src/utils/logger';
 import { AgentHandlers } from '../AgentHandlers';
@@ -16,10 +14,10 @@ import { AgentToolCallExecutor } from '../AgentToolCallExecutor';
 import { SuperAgentToolContentStream, ToolContentStreamInfo } from './SuperAgentToolContentStream';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { applyMixins } from 'src/utils/applyMixins';
-import { createAskUserTool } from '../../tools/askUser';
 import * as handlers from '../handlers';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { createStepProcessedQuery } from './stepProcessedQuery';
+import { SUPER_AGENT_TOOLS } from '../agentTools';
 
 /**
  * Map of task names to their associated tool names.
@@ -87,48 +85,7 @@ const TASK_TO_INDICATOR_MAP: Record<string, string> = {
  */
 const SINGLE_TURN_TASKS = new Set(['search']);
 
-const { askUserTool: confirmationTool } = createAskUserTool('confirmation');
-const { askUserTool } = createAskUserTool('ask');
-
-const tools = {
-  [ToolName.LIST]: handlers.VaultList.getListTool(),
-  [ToolName.CREATE]: handlers.VaultCreate.getCreateTool(),
-  [ToolName.DELETE]: handlers.VaultDelete.getDeleteTool(),
-  [ToolName.COPY]: handlers.VaultCopy.getCopyTool(),
-  [ToolName.RENAME]: handlers.VaultRename.getRenameTool(),
-  [ToolName.MOVE]: handlers.VaultMove.getMoveTool(),
-  [ToolName.UPDATE_FRONTMATTER]: handlers.VaultUpdateFrontmatter.getUpdateFrontmatterTool(),
-  [ToolName.GREP]: handlers.VaultGrep.getGrepTool(),
-  [ToolName.REVERT_DELETE]: handlers.RevertDelete.getRevertDeleteTool(),
-  [ToolName.REVERT_MOVE]: handlers.RevertMove.getRevertMoveTool(),
-  [ToolName.REVERT_FRONTMATTER]: handlers.RevertFrontmatter.getRevertFrontmatterTool(),
-  [ToolName.REVERT_RENAME]: handlers.RevertRename.getRevertRenameTool(),
-  [ToolName.REVERT_CREATE]: handlers.RevertCreate.getRevertCreateTool(),
-  [ToolName.REVERT_EDIT_RESULTS]: handlers.RevertEditResults.getRevertEditResultsTool(),
-  [ToolName.CONTENT_READING]: handlers.ReadContent.getContentReadingTool(),
-  [ToolName.CONFIRMATION]: confirmationTool,
-  [ToolName.ASK_USER]: askUserTool,
-  [ToolName.EDIT]: handlers.EditHandler.getEditTool('in_the_note'),
-  [ToolName.USER_CONFIRM]: handlers.UserConfirm.getUserConfirmTool(),
-  [ToolName.HELP]: handlers.Help.getHelpTool(),
-  [ToolName.STOP]: handlers.Stop.getStopTool(),
-  [ToolName.THANK_YOU]: handlers.ThankYou.getThankYouTool(),
-  [ToolName.BUILD_SEARCH_INDEX]: handlers.BuildSearchIndex.getBuildSearchIndexTool(),
-  [ToolName.SEARCH]: handlers.Search.getSearchTool(),
-  [ToolName.SEARCH_MORE]: handlers.SearchMore.getSearchMoreTool(),
-  [ToolName.GET_MOST_RECENT_ARTIFACT]: getMostRecentArtifact,
-  [ToolName.GET_ARTIFACT_BY_ID]: getArtifactById,
-  [ToolName.ACTIVATE]: activateTools,
-  [ToolName.SPEECH]: handlers.Speech.getSpeechTool(),
-  [ToolName.IMAGE]: handlers.Image.getImageTool(),
-  [ToolName.TODO_LIST]: handlers.TodoList.getTodoListTool(),
-  [ToolName.TODO_LIST_UPDATE]: handlers.TodoList.getTodoListUpdateTool(),
-  [ToolName.USE_SKILLS]: handlers.UseSkills.getUseSkillsTool(),
-  [ToolName.SWITCH_AGENT_CAPACITY]: handlers.SwitchAgentCapacity.getSwitchAgentCapacityTool(),
-  [ToolName.CONCLUDE]: handlers.Conclude.getConcludeTool(),
-  [ToolName.RECALL_COMPACTED_CONTEXT]:
-    handlers.RecallCompactedContext.getRecallCompactedContextTool(),
-};
+const tools = SUPER_AGENT_TOOLS;
 
 const toolsThatEnableConclude = new Set([
   ToolName.EDIT,

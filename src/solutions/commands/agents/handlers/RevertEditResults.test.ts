@@ -5,6 +5,7 @@ import { ArtifactType, Change, FileChangeSet } from 'src/solutions/artifact';
 import { TFile, type App } from 'obsidian';
 import { ToolCallPart } from '../../tools/types';
 import { RevertEditResultsToolArgs } from './RevertEditResults';
+import { ToolName } from '../../toolNames';
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   const mockApp = {
@@ -99,7 +100,7 @@ describe('RevertEditResults', () => {
       const toolCall: ToolCallPart<RevertEditResultsToolArgs> = {
         type: 'tool-call',
         toolCallId: 'call-123',
-        toolName: 'revert_edit_results',
+        toolName: ToolName.REVERT_EDIT_RESULTS,
         input: {
           artifactId: 'artifact-123',
           explanation: 'Revert test',
@@ -185,7 +186,7 @@ describe('RevertEditResults', () => {
       const toolCall: ToolCallPart<RevertEditResultsToolArgs> = {
         type: 'tool-call',
         toolCallId: 'call-123',
-        toolName: 'revert_edit_results',
+        toolName: ToolName.REVERT_EDIT_RESULTS,
         input: {
           artifactId: 'artifact-123',
           explanation: 'Revert multiple changes',
@@ -257,7 +258,7 @@ describe('RevertEditResults', () => {
       const toolCall: ToolCallPart<RevertEditResultsToolArgs> = {
         type: 'tool-call',
         toolCallId: 'call-123',
-        toolName: 'revert_edit_results',
+        toolName: ToolName.REVERT_EDIT_RESULTS,
         input: {
           artifactId: 'artifact-123',
           explanation: 'Revert insertion',
@@ -329,7 +330,7 @@ describe('RevertEditResults', () => {
       const toolCall: ToolCallPart<RevertEditResultsToolArgs> = {
         type: 'tool-call',
         toolCallId: 'call-123',
-        toolName: 'revert_edit_results',
+        toolName: ToolName.REVERT_EDIT_RESULTS,
         input: {
           artifactId: 'artifact-123',
           explanation: 'Revert deletion',
@@ -402,7 +403,7 @@ describe('RevertEditResults', () => {
       const toolCall: ToolCallPart<RevertEditResultsToolArgs> = {
         type: 'tool-call',
         toolCallId: 'call-123',
-        toolName: 'revert_edit_results',
+        toolName: ToolName.REVERT_EDIT_RESULTS,
         input: {
           artifactId: 'artifact-123',
           explanation: 'Revert with context',
@@ -498,7 +499,7 @@ describe('RevertEditResults', () => {
       const toolCall: ToolCallPart<RevertEditResultsToolArgs> = {
         type: 'tool-call',
         toolCallId: 'call-123',
-        toolName: 'revert_edit_results',
+        toolName: ToolName.REVERT_EDIT_RESULTS,
         input: {
           artifactId: 'artifact-123',
           explanation: 'Revert multiple files',
@@ -555,7 +556,7 @@ describe('RevertEditResults', () => {
       const toolCall: ToolCallPart<RevertEditResultsToolArgs> = {
         type: 'tool-call',
         toolCallId: 'call-123',
-        toolName: 'revert_edit_results',
+        toolName: ToolName.REVERT_EDIT_RESULTS,
         input: {
           artifactId: 'artifact-123',
           explanation: 'Revert nonexistent file',

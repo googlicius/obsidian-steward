@@ -73,7 +73,7 @@ export class AgentToolCallExecutor {
 
     const firstToolName =
       params.toolCalls.length > params.startIndex && !params.toolCalls[params.startIndex]?.dynamic
-        ? (params.toolCalls[params.startIndex].toolName as ToolName)
+        ? params.toolCalls[params.startIndex].toolName
         : undefined;
     let timer: number | null = null;
     timer = window.setTimeout(() => {
@@ -200,7 +200,7 @@ export class AgentToolCallExecutor {
               toolCall: ToolCallPart<Record<string, unknown>>;
               toolContentStreamInfo?: ToolContentStreamInfo;
             }) => {
-              const toolName = ctx.toolCall.toolName as ToolName;
+              const toolName = ctx.toolCall.toolName;
               const nestedHandlerGetter = handlerMap[toolName];
               if (!nestedHandlerGetter) {
                 throw new Error(`No handler found for tool: ${toolName}`);
