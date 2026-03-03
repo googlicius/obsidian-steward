@@ -5,7 +5,7 @@ import type StewardPlugin from '../../main';
 import type { StewardPluginSettings } from 'src/types/interfaces';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { logger } from 'src/utils/logger';
-import { type CommandProcessor } from './CommandProcessor';
+import type { IntentProcessor } from './IntentProcessor';
 import { getTranslation } from 'src/i18n';
 import { ToolName } from './ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
@@ -37,7 +37,7 @@ export abstract class Agent {
     return this.plugin.settings;
   }
 
-  get commandProcessor(): CommandProcessor {
+  get commandProcessor(): IntentProcessor {
     return this.plugin.commandProcessorService.commandProcessor;
   }
 

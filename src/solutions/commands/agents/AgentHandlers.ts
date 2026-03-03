@@ -1,7 +1,20 @@
-import { ToolName } from '../../ToolRegistry';
-import * as handlers from '../handlers';
-import type { AgentHandlerContext } from '../AgentHandlerContext';
-import type { SuperAgent } from '../SuperAgent';
+import { ToolName } from '../ToolRegistry';
+import * as handlers from './handlers';
+import type { AgentHandlerContext } from './AgentHandlerContext';
+import type { AgentHandlerParams, AgentResult } from '../types';
+import type { ToolCallPart } from '../tools/types';
+
+export interface StandardToolHandler {
+  handle(
+    params: AgentHandlerParams,
+    options: {
+      toolCall: ToolCallPart<unknown>;
+      continueFromNextTool?: () => Promise<AgentResult>;
+      toolContentStreamInfo?: unknown;
+    }
+  ): Promise<AgentResult>;
+  extractPathsForGuardrails?(input: unknown): string[];
+}
 
 /**
  * Tool names that have path extraction for guardrails
@@ -20,9 +33,10 @@ const GUARDRAILS_TOOL_NAMES: Set<ToolName> = new Set([
 ]);
 
 /**
- * All handlers are lazily declared in this class
+ * All handlers are lazily declared in this class.
+ * Agent-agnostic mixin that can be applied to any agent implementing AgentHandlerContext.
  */
-export class SuperAgentHandlers {
+export class AgentHandlers {
   private _vaultCreate: handlers.VaultCreate;
   private _vaultMove: handlers.VaultMove;
   private _vaultCopy: handlers.VaultCopy;
@@ -58,60 +72,37 @@ export class SuperAgentHandlers {
   private _getArtifactById: handlers.GetArtifactById;
   private _recallCompactedContext: handlers.RecallCompactedContext;
 
-  /**
-   * Helper method to get this instance typed as AgentHandlerContext.
-   * SuperAgent implements AgentHandlerContext; this is safe because SuperAgentHandlers
-   * is only used as a mixin for SuperAgent.
-   */
   protected getAgent(): AgentHandlerContext {
-    return this as unknown as SuperAgent;
+    return this as unknown as AgentHandlerContext;
   }
 
   public get vaultMove(): handlers.VaultMove {
-    if (!this._vaultMove) {
-      this._vaultMove = new handlers.VaultMove(this.getAgent());
-    }
-
+    if (!this._vaultMove) this._vaultMove = new handlers.VaultMove(this.getAgent());
     return this._vaultMove;
   }
 
   public get vaultCopy(): handlers.VaultCopy {
-    if (!this._vaultCopy) {
-      this._vaultCopy = new handlers.VaultCopy(this.getAgent());
-    }
-
+    if (!this._vaultCopy) this._vaultCopy = new handlers.VaultCopy(this.getAgent());
     return this._vaultCopy;
   }
 
   public get vaultDelete(): handlers.VaultDelete {
-    if (!this._vaultDelete) {
-      this._vaultDelete = new handlers.VaultDelete(this.getAgent());
-    }
-
+    if (!this._vaultDelete) this._vaultDelete = new handlers.VaultDelete(this.getAgent());
     return this._vaultDelete;
   }
 
   public get vaultCreate(): handlers.VaultCreate {
-    if (!this._vaultCreate) {
-      this._vaultCreate = new handlers.VaultCreate(this.getAgent());
-    }
-
+    if (!this._vaultCreate) this._vaultCreate = new handlers.VaultCreate(this.getAgent());
     return this._vaultCreate;
   }
 
   public get vaultList(): handlers.VaultList {
-    if (!this._vaultList) {
-      this._vaultList = new handlers.VaultList(this.getAgent());
-    }
-
+    if (!this._vaultList) this._vaultList = new handlers.VaultList(this.getAgent());
     return this._vaultList;
   }
 
   public get vaultRename(): handlers.VaultRename {
-    if (!this._vaultRename) {
-      this._vaultRename = new handlers.VaultRename(this.getAgent());
-    }
-
+    if (!this._vaultRename) this._vaultRename = new handlers.VaultRename(this.getAgent());
     return this._vaultRename;
   }
 
@@ -119,15 +110,11 @@ export class SuperAgentHandlers {
     if (!this._vaultUpdateFrontmatter) {
       this._vaultUpdateFrontmatter = new handlers.VaultUpdateFrontmatter(this.getAgent());
     }
-
     return this._vaultUpdateFrontmatter;
   }
 
   public get vaultGrep(): handlers.VaultGrep {
-    if (!this._vaultGrep) {
-      this._vaultGrep = new handlers.VaultGrep(this.getAgent());
-    }
-
+    if (!this._vaultGrep) this._vaultGrep = new handlers.VaultGrep(this.getAgent());
     return this._vaultGrep;
   }
 
@@ -135,23 +122,16 @@ export class SuperAgentHandlers {
     if (!this._activateToolHandler) {
       this._activateToolHandler = new handlers.ActivateToolHandler(this.getAgent().renderer);
     }
-
     return this._activateToolHandler;
   }
 
   public get revertDelete(): handlers.RevertDelete {
-    if (!this._revertDelete) {
-      this._revertDelete = new handlers.RevertDelete(this.getAgent());
-    }
-
+    if (!this._revertDelete) this._revertDelete = new handlers.RevertDelete(this.getAgent());
     return this._revertDelete;
   }
 
   public get revertMove(): handlers.RevertMove {
-    if (!this._revertMove) {
-      this._revertMove = new handlers.RevertMove(this.getAgent());
-    }
-
+    if (!this._revertMove) this._revertMove = new handlers.RevertMove(this.getAgent());
     return this._revertMove;
   }
 
@@ -159,23 +139,16 @@ export class SuperAgentHandlers {
     if (!this._revertFrontmatter) {
       this._revertFrontmatter = new handlers.RevertFrontmatter(this.getAgent());
     }
-
     return this._revertFrontmatter;
   }
 
   public get revertRename(): handlers.RevertRename {
-    if (!this._revertRename) {
-      this._revertRename = new handlers.RevertRename(this.getAgent());
-    }
-
+    if (!this._revertRename) this._revertRename = new handlers.RevertRename(this.getAgent());
     return this._revertRename;
   }
 
   public get revertCreate(): handlers.RevertCreate {
-    if (!this._revertCreate) {
-      this._revertCreate = new handlers.RevertCreate(this.getAgent());
-    }
-
+    if (!this._revertCreate) this._revertCreate = new handlers.RevertCreate(this.getAgent());
     return this._revertCreate;
   }
 
@@ -183,55 +156,36 @@ export class SuperAgentHandlers {
     if (!this._revertEditResults) {
       this._revertEditResults = new handlers.RevertEditResults(this.getAgent());
     }
-
     return this._revertEditResults;
   }
 
   public get readContent(): handlers.ReadContent {
-    if (!this._readContent) {
-      this._readContent = new handlers.ReadContent(this.getAgent());
-    }
-
+    if (!this._readContent) this._readContent = new handlers.ReadContent(this.getAgent());
     return this._readContent;
   }
 
   public get editHandler(): handlers.EditHandler {
-    if (!this._editHandler) {
-      this._editHandler = new handlers.EditHandler(this.getAgent());
-    }
-
+    if (!this._editHandler) this._editHandler = new handlers.EditHandler(this.getAgent());
     return this._editHandler;
   }
 
   public get userConfirm(): handlers.UserConfirm {
-    if (!this._userConfirm) {
-      this._userConfirm = new handlers.UserConfirm(this.getAgent());
-    }
-
+    if (!this._userConfirm) this._userConfirm = new handlers.UserConfirm(this.getAgent());
     return this._userConfirm;
   }
 
   public get help(): handlers.Help {
-    if (!this._help) {
-      this._help = new handlers.Help(this.getAgent());
-    }
-
+    if (!this._help) this._help = new handlers.Help(this.getAgent());
     return this._help;
   }
 
   public get stop(): handlers.Stop {
-    if (!this._stop) {
-      this._stop = new handlers.Stop(this.getAgent());
-    }
-
+    if (!this._stop) this._stop = new handlers.Stop(this.getAgent());
     return this._stop;
   }
 
   public get thankYou(): handlers.ThankYou {
-    if (!this._thankYou) {
-      this._thankYou = new handlers.ThankYou(this.getAgent());
-    }
-
+    if (!this._thankYou) this._thankYou = new handlers.ThankYou(this.getAgent());
     return this._thankYou;
   }
 
@@ -239,55 +193,36 @@ export class SuperAgentHandlers {
     if (!this._buildSearchIndex) {
       this._buildSearchIndex = new handlers.BuildSearchIndex(this.getAgent());
     }
-
     return this._buildSearchIndex;
   }
 
   public get search(): handlers.Search {
-    if (!this._search) {
-      this._search = new handlers.Search(this.getAgent());
-    }
-
+    if (!this._search) this._search = new handlers.Search(this.getAgent());
     return this._search;
   }
 
   public get searchMore(): handlers.SearchMore {
-    if (!this._searchMore) {
-      this._searchMore = new handlers.SearchMore(this.getAgent(), this.search);
-    }
-
+    if (!this._searchMore) this._searchMore = new handlers.SearchMore(this.getAgent(), this.search);
     return this._searchMore;
   }
 
   public get speech(): handlers.Speech {
-    if (!this._speech) {
-      this._speech = new handlers.Speech(this.getAgent());
-    }
-
+    if (!this._speech) this._speech = new handlers.Speech(this.getAgent());
     return this._speech;
   }
 
   public get image(): handlers.Image {
-    if (!this._image) {
-      this._image = new handlers.Image(this.getAgent());
-    }
-
+    if (!this._image) this._image = new handlers.Image(this.getAgent());
     return this._image;
   }
 
   public get todoList(): handlers.TodoList {
-    if (!this._todoList) {
-      this._todoList = new handlers.TodoList(this.getAgent());
-    }
-
+    if (!this._todoList) this._todoList = new handlers.TodoList(this.getAgent());
     return this._todoList;
   }
 
   public get dynamic(): handlers.Dynamic {
-    if (!this._dynamic) {
-      this._dynamic = new handlers.Dynamic(this.getAgent().renderer);
-    }
-
+    if (!this._dynamic) this._dynamic = new handlers.Dynamic(this.getAgent().renderer);
     return this._dynamic;
   }
 
@@ -298,7 +233,6 @@ export class SuperAgentHandlers {
         this.getAgent().plugin.skillService
       );
     }
-
     return this._useSkills;
   }
 
@@ -306,15 +240,11 @@ export class SuperAgentHandlers {
     if (!this._switchAgentCapacity) {
       this._switchAgentCapacity = new handlers.SwitchAgentCapacity(this.getAgent());
     }
-
     return this._switchAgentCapacity;
   }
 
   public get conclude(): handlers.Conclude {
-    if (!this._conclude) {
-      this._conclude = new handlers.Conclude(this.getAgent());
-    }
-
+    if (!this._conclude) this._conclude = new handlers.Conclude(this.getAgent());
     return this._conclude;
   }
 
@@ -322,15 +252,11 @@ export class SuperAgentHandlers {
     if (!this._getMostRecentArtifact) {
       this._getMostRecentArtifact = new handlers.GetMostRecentArtifact(this.getAgent());
     }
-
     return this._getMostRecentArtifact;
   }
 
   public get getArtifactById(): handlers.GetArtifactById {
-    if (!this._getArtifactById) {
-      this._getArtifactById = new handlers.GetArtifactById(this.getAgent());
-    }
-
+    if (!this._getArtifactById) this._getArtifactById = new handlers.GetArtifactById(this.getAgent());
     return this._getArtifactById;
   }
 
@@ -338,8 +264,45 @@ export class SuperAgentHandlers {
     if (!this._recallCompactedContext) {
       this._recallCompactedContext = new handlers.RecallCompactedContext(this.getAgent());
     }
-
     return this._recallCompactedContext;
+  }
+
+  /**
+   * Map of tool names to their standard handlers.
+   */
+  public getToolHandlerMap(): Partial<Record<ToolName, () => StandardToolHandler>> {
+    return {
+      [ToolName.CONTENT_READING]: () => this.readContent,
+      [ToolName.LIST]: () => this.vaultList,
+      [ToolName.CREATE]: () => this.vaultCreate,
+      [ToolName.DELETE]: () => this.vaultDelete,
+      [ToolName.COPY]: () => this.vaultCopy,
+      [ToolName.RENAME]: () => this.vaultRename,
+      [ToolName.MOVE]: () => this.vaultMove,
+      [ToolName.UPDATE_FRONTMATTER]: () => this.vaultUpdateFrontmatter,
+      [ToolName.GREP]: () => this.vaultGrep,
+      [ToolName.REVERT_DELETE]: () => this.revertDelete,
+      [ToolName.REVERT_MOVE]: () => this.revertMove,
+      [ToolName.REVERT_FRONTMATTER]: () => this.revertFrontmatter,
+      [ToolName.REVERT_RENAME]: () => this.revertRename,
+      [ToolName.REVERT_CREATE]: () => this.revertCreate,
+      [ToolName.REVERT_EDIT_RESULTS]: () => this.revertEditResults,
+      [ToolName.USER_CONFIRM]: () => this.userConfirm,
+      [ToolName.EDIT]: () => this.editHandler,
+      [ToolName.STOP]: () => this.stop,
+      [ToolName.THANK_YOU]: () => this.thankYou,
+      [ToolName.BUILD_SEARCH_INDEX]: () => this.buildSearchIndex,
+      [ToolName.SEARCH]: () => this.search,
+      [ToolName.SEARCH_MORE]: () => this.searchMore,
+      [ToolName.SPEECH]: () => this.speech,
+      [ToolName.IMAGE]: () => this.image,
+      [ToolName.TODO_LIST]: () => this.todoList,
+      [ToolName.HELP]: () => this.help,
+      [ToolName.CONCLUDE]: () => this.conclude,
+      [ToolName.GET_MOST_RECENT_ARTIFACT]: () => this.getMostRecentArtifact,
+      [ToolName.GET_ARTIFACT_BY_ID]: () => this.getArtifactById,
+      [ToolName.RECALL_COMPACTED_CONTEXT]: () => this.recallCompactedContext,
+    };
   }
 
   /**
@@ -349,7 +312,9 @@ export class SuperAgentHandlers {
   public getPathsForGuardrails(toolName: ToolName, input: unknown): string[] {
     if (!GUARDRAILS_TOOL_NAMES.has(toolName)) return [];
 
-    const handlerGetters: Partial<Record<ToolName, () => { extractPathsForGuardrails(input: unknown): string[] }>> = {
+    const handlerGetters: Partial<
+      Record<ToolName, () => { extractPathsForGuardrails(input: unknown): string[] }>
+    > = {
       [ToolName.LIST]: () => this.vaultList,
       [ToolName.CREATE]: () => this.vaultCreate,
       [ToolName.DELETE]: () => this.vaultDelete,

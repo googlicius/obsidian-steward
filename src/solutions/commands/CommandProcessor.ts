@@ -1,6 +1,7 @@
 import { ConversationIntentReceivedPayload } from '../../types/events';
 import { logger } from '../../utils/logger';
 import type StewardPlugin from 'src/main';
+import type { ProcessIntentsOptions } from './IntentProcessor';
 import { Agent } from './Agent';
 import { AgentResult, Intent, IntentResultStatus } from './types';
 import { ToolName } from './ToolRegistry';
@@ -13,21 +14,9 @@ interface PendingIntent {
   payload: ConversationIntentReceivedPayload;
 }
 
-export interface ProcessIntentsOptions {
-  skipIndicators?: boolean;
-
-  sendToDownstream?: {
-    /**
-     * If true, indicates this is a reload request
-     */
-    isReloadRequest?: boolean;
-    /**
-     * If true, skip the classification check
-     */
-    ignoreClassify?: boolean;
-  };
-}
-
+/**
+ * @deprecated Use AgentRunner with DEFAULT_AGENT_CONFIGS instead. Will be removed in a future version.
+ */
 export class CommandProcessor {
   /**
    * Store lastResult at conversation title level so it's accessible across processor instances

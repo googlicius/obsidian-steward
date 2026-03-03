@@ -1,22 +1,26 @@
-import { ToolCallPart } from '../../tools/types';
+import { ToolCallPart } from '../tools/types';
 import { ArtifactType } from 'src/solutions/artifact';
 import { getTranslation } from 'src/i18n';
 import { uniqueID } from 'src/utils/uniqueID';
-import { ToolName } from '../../ToolRegistry';
-import { parseStepProcessedQuery } from './stepProcessedQuery';
-import { CommandSyntaxParser } from '../../command-syntax-parser';
+import { ToolName } from '../ToolRegistry';
+import { parseStepProcessedQuery } from './SuperAgent/stepProcessedQuery';
+import { CommandSyntaxParser } from '../command-syntax-parser';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
-import * as handlers from '../handlers';
-import type { SuperAgent } from '../SuperAgent';
+import * as handlers from './handlers';
+import type { AgentHandlerContext } from './AgentHandlerContext';
 
-function asSuperAgent(instance: SuperAgentManualToolCall): SuperAgent {
-  return instance as unknown as SuperAgent;
+interface ManualToolCallAgentContext extends AgentHandlerContext {
+  search: handlers.Search;
+}
+
+function asManualToolCallAgent(instance: AgentManualToolCall): ManualToolCallAgentContext {
+  return instance as unknown as ManualToolCallAgentContext;
 }
 
 /**
- * Mixin providing client-made tool call logic without AI
+ * Mixin providing client-made tool call logic without AI.
  */
-export class SuperAgentManualToolCall {
+export class AgentManualToolCall {
   /**
    * Client-made tool call without AI
    */
@@ -32,7 +36,7 @@ export class SuperAgentManualToolCall {
      */
     classificationMatchType?: 'static' | 'prefixed' | 'clustered';
   }): Promise<ToolCallPart | undefined> {
-    const agent = asSuperAgent(this);
+    const agent = asManualToolCallAgent(this);
     const { title, query, activeTools, classifiedTasks, lang, classificationMatchType } = params;
 
     // Client-handled step: command syntax was processed locally, update todo list and move to next step
@@ -242,7 +246,7 @@ export class SuperAgentManualToolCall {
   }
 
   protected async craftTodoListUpdateToolCallManually(title: string): Promise<ToolCallPart | null> {
-    const agent = asSuperAgent(this);
+    const agent = asManualToolCallAgent(this);
     const todoListState = await agent.renderer.getConversationProperty<handlers.TodoListState>(
       title,
       'todo_list'

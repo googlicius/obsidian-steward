@@ -2,7 +2,7 @@ import type { App } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import type { ObsidianAPITools } from 'src/tools/obsidianAPITools';
-import type { CommandProcessor } from '../CommandProcessor';
+import type { IntentProcessor } from '../IntentProcessor';
 import type { ToolCallPart, ToolResultPart } from '../tools/types';
 
 /**
@@ -15,7 +15,7 @@ export interface AgentHandlerContext {
   readonly plugin: StewardPlugin;
   readonly obsidianAPITools: ObsidianAPITools;
   readonly app: App;
-  readonly commandProcessor: CommandProcessor;
+  readonly commandProcessor: IntentProcessor;
 
   /**
    * Serialize a tool invocation result to the conversation note.
