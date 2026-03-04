@@ -9,7 +9,12 @@ import { type ToolContentStreamInfo } from '../SuperAgent/SuperAgentToolContentS
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 
 export const createToolSchema = z.object({
-  folder: z.string().min(1).describe('The folder path where the files will be created.'),
+  folder: z
+    .string()
+    .min(1)
+    .optional()
+    .default('/')
+    .describe('Optional folder path where files will be created. Defaults to "/" (root folder).'),
   newFiles: z
     .array(
       z
@@ -58,7 +63,7 @@ export type CreatePlan = {
 function executeCreateToolArgs(args: CreateToolArgs): CreatePlan {
   const normalizedFiles: CreateFileInstruction[] = [];
   // Normalize folder path: trim, normalize slashes, remove leading/trailing slashes
-  const trimmedFolder = args.folder.trim();
+  const trimmedFolder = (args.folder ?? '/').trim();
   const folder = trimmedFolder.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
 
   for (const file of args.newFiles) {

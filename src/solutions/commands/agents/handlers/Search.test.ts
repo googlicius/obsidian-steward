@@ -1,4 +1,4 @@
-import { Search, searchQueryExtractionSchema } from './Search';
+import { Search, searchQueryExtractionSchema, type SearchArgs } from './Search';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type StewardPlugin from 'src/main';
 import { IndexedDocument } from 'src/database/SearchDatabase';
@@ -454,6 +454,65 @@ describe('Search', () => {
 
       expect(result.lang).toBe('en');
       expect(result.operations).toHaveLength(2);
+    });
+  });
+
+  describe('extractPathsForGuardrails', () => {
+    it('returns normalized folder paths from operations', () => {
+      const input: SearchArgs = {
+        operations: [
+          {
+            keywords: ['secret'],
+            filenames: [],
+            folders: ['Secrets/', '/Work/Plans/'],
+            properties: [],
+          },
+        ],
+        explanation: 'test',
+        confidence: 1,
+      };
+
+      const paths = search.extractPathsForGuardrails(input);
+
+      expect(paths).toEqual(['Secrets', 'Work/Plans']);
+    });
+
+    it('returns root path for unscoped search operations', () => {
+      const input: SearchArgs = {
+        operations: [
+          {
+            keywords: ['anything'],
+            filenames: [],
+            folders: [],
+            properties: [],
+          },
+        ],
+        explanation: 'test',
+        confidence: 1,
+      };
+
+      const paths = search.extractPathsForGuardrails(input);
+
+      expect(paths).toEqual(['/']);
+    });
+
+    it('converts root marker folder to root path', () => {
+      const input: SearchArgs = {
+        operations: [
+          {
+            keywords: [],
+            filenames: [],
+            folders: ['^/$'],
+            properties: [],
+          },
+        ],
+        explanation: 'test',
+        confidence: 1,
+      };
+
+      const paths = search.extractPathsForGuardrails(input);
+
+      expect(paths).toEqual(['/']);
     });
   });
 

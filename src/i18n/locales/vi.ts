@@ -149,6 +149,8 @@ const vi = {
       foundFilesInFolder: 'Tôi đã tìm thấy {{count}} tập tin trong {{folder}}',
       moreFiles: '... và thêm {{count}} tập tin nữa',
       fullListAvailableInArtifact: 'Danh sách đầy đủ có sẵn trong artifact ID: {{artifactId}}',
+      fullListInArtifactUseFilePattern:
+        'Danh sách đầy đủ có sẵn trong artifact ID: {{artifactId}}. Hãy dùng filePattern cụ thể để thu hẹp kết quả.',
     },
     grep: {
       found: 'Đã tìm thấy {{count}} đường dẫn:',

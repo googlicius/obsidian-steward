@@ -13,7 +13,7 @@ import { splitCamelCase, removeDiacritics } from 'src/solutions/search/tokenizer
 import { z } from 'zod/v3';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
-import { getLanguage } from 'obsidian';
+import { getLanguage, normalizePath } from 'obsidian';
 import { DEFAULT_SETTINGS } from 'src/constants';
 import { StewardPluginSettings } from 'src/types/interfaces';
 
@@ -174,6 +174,39 @@ export class Search {
 
   public static getSearchTool() {
     return Search.searchTool;
+  }
+
+  public extractPathsForGuardrails(input: SearchArgs): string[] {
+    const paths = new Set<string>();
+
+    for (const operation of input.operations) {
+      if (operation.folders.length === 0) {
+        paths.add('/');
+        continue;
+      }
+
+      for (const folder of operation.folders) {
+        if (folder === '^/$') {
+          paths.add('/');
+          continue;
+        }
+
+        const sanitizedFolder = folder.trim().replace(/^\/+|\/+$/g, '');
+        if (!sanitizedFolder) {
+          paths.add('/');
+          continue;
+        }
+
+        const normalizedFolder = normalizePath(sanitizedFolder);
+        paths.add(normalizedFolder);
+      }
+    }
+
+    if (paths.size === 0) {
+      paths.add('/');
+    }
+
+    return [...paths];
   }
 
   /**

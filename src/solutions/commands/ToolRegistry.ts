@@ -383,11 +383,12 @@ NOTE:
   [ToolName.SPAWN_SUBAGENT]: {
     name: ToolName.SPAWN_SUBAGENT,
     description:
-      'Use when a task can be split into delegated jobs, especially to keep each job focused and reduce token usage when token limits might be hit.',
+      'Use when a task can be split into independent jobs, especially to keep each job focused and reduce token usage when token limits might be hit.',
     guidelines: [
       `Provide clear job queries for each subagent job. Use the optional tools list to delegate only the needed tools for each job.`,
-      `Tools delegated to subagents can be selected from the tool set even if they are currently inactive in the parent. Delegated tools are automatically activated in the subagent.`,
-      `After ${ToolName.SPAWN_SUBAGENT} returns, use its summarized results to continue or finalize in the parent conversation.`,
+      `Subagents run in parallel, so ensure jobs are not depend on each other.`,
+      `Tools delegated to subagents can be selected from the tool set even if they are currently inactive.`,
+      `After ${ToolName.SPAWN_SUBAGENT} returns, use its summarized results to continue or finalize in the conversation.`,
     ],
     category: 'orchestration',
   },

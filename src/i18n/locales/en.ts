@@ -186,6 +186,8 @@ const en = {
       moreFiles_one: '... and {{count}} more file',
       moreFiles_other: '... and {{count}} more files',
       fullListAvailableInArtifact: 'Full list available in artifact ID: {{artifactId}}',
+      fullListInArtifactUseFilePattern:
+        'Full list available in artifact ID: {{artifactId}}. Use a specific filePattern to narrow down results.',
     },
     grep: {
       found_one: 'Found {{count}} path:',

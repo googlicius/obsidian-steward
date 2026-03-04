@@ -64,6 +64,39 @@ describe('VaultList', () => {
       expect(result.errors).toBeUndefined();
     });
 
+    it('should include direct subfolders and exclude nested files', async () => {
+      const nestedFile = getInstance(TFile, {
+        path: 'vehicles/cars/sedan.md',
+        name: 'sedan.md',
+      });
+      const subFolder = getInstance(TFolder, {
+        path: 'vehicles/cars',
+        name: 'cars',
+        children: [nestedFile],
+      });
+      const note1 = getInstance(TFile, {
+        path: 'vehicles/note1.md',
+        name: 'note1.md',
+      });
+      const note2 = getInstance(TFile, {
+        path: 'vehicles/note2.md',
+        name: 'note2.md',
+      });
+
+      const mockFolder = getInstance(TFolder, {
+        path: 'vehicles',
+        children: [subFolder, note1, note2],
+      });
+
+      mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(mockFolder);
+
+      const result = await executeListTool({ folderPath: 'vehicles' }, null);
+
+      expect(result.files).toEqual(['vehicles/cars/', 'vehicles/note1.md', 'vehicles/note2.md']);
+      expect(result.files).not.toContain('vehicles/cars/sedan.md');
+      expect(result.errors).toBeUndefined();
+    });
+
     it('should list all images', async () => {
       // Create mock files
       const file1 = getInstance(TFile, {

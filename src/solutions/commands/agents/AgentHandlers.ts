@@ -21,6 +21,7 @@ export interface StandardToolHandler {
  */
 const GUARDRAILS_TOOL_NAMES: Set<ToolName> = new Set([
   ToolName.LIST,
+  ToolName.SEARCH,
   ToolName.CREATE,
   ToolName.DELETE,
   ToolName.CONTENT_READING,
@@ -325,6 +326,7 @@ export class AgentHandlers {
       Record<ToolName, () => { extractPathsForGuardrails(input: unknown): string[] }>
     > = {
       [ToolName.LIST]: () => this.vaultList,
+      [ToolName.SEARCH]: () => this.search,
       [ToolName.CREATE]: () => this.vaultCreate,
       [ToolName.DELETE]: () => this.vaultDelete,
       [ToolName.CONTENT_READING]: () => this.readContent,

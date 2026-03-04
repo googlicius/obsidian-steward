@@ -1,5 +1,6 @@
 import type StewardPlugin from 'src/main';
 import { GuardrailsRuleService } from './GuardrailsRuleService';
+import { ToolName } from 'src/solutions/commands/ToolRegistry';
 
 function createMockPlugin(): StewardPlugin {
   return {
@@ -106,6 +107,25 @@ describe('GuardrailsRuleService', () => {
         enabled: 'false',
       });
       expect(result.valid).toBe(true);
+    });
+  });
+
+  describe('getRulesForTool', () => {
+    it('applies list rules to search tool', () => {
+      service['rules'] = [
+        {
+          name: 'No secret listing',
+          path: 'Steward/Rules/no-secret-listing.md',
+          targets: ['Secrets/'],
+          actions: ['list'],
+          enabled: true,
+        },
+      ];
+
+      const rules = service.getRulesForTool(ToolName.SEARCH);
+
+      expect(rules).toHaveLength(1);
+      expect(rules[0].name).toBe('No secret listing');
     });
   });
 });

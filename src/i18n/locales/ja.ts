@@ -151,6 +151,8 @@ const ja = {
       moreFiles: '... さらに {{count}} 件のファイルがあります',
       fullListAvailableInArtifact:
         '完全なリストはアーティファクト ID: {{artifactId}} で利用可能です',
+      fullListInArtifactUseFilePattern:
+        '完全なリストはアーティファクト ID: {{artifactId}} で利用可能です。結果を絞り込むには、より具体的な filePattern を使用してください。',
     },
     grep: {
       found: '{{count}} 件のパスが見つかりました：',

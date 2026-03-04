@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod/v3';
-import { normalizePath, TFile } from 'obsidian';
+import { normalizePath, TFile, TFolder } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
@@ -34,7 +34,7 @@ export const listToolSchema = z.object(
       .describe(userLanguagePrompt.content as string),
   },
   {
-    description: `List all files in a specific folder. NOTE: This tool does not list folders but files only.`,
+    description: `List direct files and subfolders in a specific folder (non-recursive).`,
   }
 );
 
@@ -74,16 +74,6 @@ export class VaultList {
 
     const result = await this.executeListTool(toolCall.input, params.lang);
 
-    await this.agent.renderer.updateConversationNote({
-      path: params.title,
-      newContent: result.response,
-      command: 'vault_list',
-      lang: params.lang,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
-      includeHistory: false,
-    });
-
     const hasMoreFiles = result.files.length > MAX_FILES_TO_SHOW;
     const artifactId = `list_${Date.now()}`;
 
@@ -100,7 +90,7 @@ export class VaultList {
     const t = getTranslation(params.lang);
     let resultText = result.response;
     if (hasMoreFiles) {
-      resultText += `\n\n${t('list.fullListAvailableInArtifact', { artifactId })}`;
+      resultText += `\n\n${t('list.fullListInArtifactUseFilePattern', { artifactId })}`;
     }
 
     await this.agent.serializeInvocation({
@@ -158,24 +148,26 @@ export class VaultList {
       };
     }
 
-    // Collect files from folder
-    const files: TFile[] = [];
+    // Collect direct files and subfolders only (non-recursive)
+    const listedPaths: string[] = [];
     for (const child of folder.children) {
-      if (child instanceof TFile) {
-        // Apply pattern filter if provided
-        if (filePattern) {
-          if (this.matchesPattern(child.name, filePattern)) {
-            files.push(child);
-          }
-        } else {
-          files.push(child);
-        }
+      if (!(child instanceof TFile) && !(child instanceof TFolder)) {
+        continue;
       }
+
+      if (filePattern && !this.matchesPattern(child.name, filePattern)) {
+        continue;
+      }
+
+      if (child instanceof TFolder) {
+        listedPaths.push(`${child.path}/`);
+        continue;
+      }
+
+      listedPaths.push(child.path);
     }
 
-    const filePaths = files.map(file => file.path);
-
-    if (files.length === 0) {
+    if (listedPaths.length === 0) {
       const messageKey = folderPath ? 'list.noFilesFoundInFolder' : 'list.noFilesFound';
       return {
         response: t(messageKey, { folder: folderPath }),
@@ -184,19 +176,19 @@ export class VaultList {
       };
     }
 
-    const fileLinks: string[] = [];
-    for (let index = 0; index < files.length && index < MAX_FILES_TO_SHOW; index += 1) {
-      const file = files[index];
-      fileLinks.push(`- [[${file.path}]]`);
+    const itemLines: string[] = [];
+    for (let index = 0; index < listedPaths.length && index < MAX_FILES_TO_SHOW; index += 1) {
+      itemLines.push(`- ${listedPaths[index]}`);
     }
 
-    const moreCount = files.length > MAX_FILES_TO_SHOW ? files.length - MAX_FILES_TO_SHOW : 0;
+    const moreCount =
+      listedPaths.length > MAX_FILES_TO_SHOW ? listedPaths.length - MAX_FILES_TO_SHOW : 0;
 
     const headerKey = folderPath ? 'list.foundFilesInFolder' : 'list.foundFiles';
     let response = `${t(headerKey, {
-      count: files.length,
+      count: listedPaths.length,
       folder: folderPath,
-    })}:\n\n${fileLinks.join('\n')}`;
+    })}:\n\n${itemLines.join('\n')}`;
 
     if (moreCount > 0) {
       response += `\n\n${t('list.moreFiles', { count: moreCount })}`;
@@ -204,7 +196,7 @@ export class VaultList {
 
     return {
       response,
-      files: filePaths,
+      files: listedPaths,
       errors: errors.length > 0 ? errors : undefined,
     };
   }
