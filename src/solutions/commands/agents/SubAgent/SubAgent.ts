@@ -23,13 +23,24 @@ export interface SubAgent
     AgentToolCallExecutor {}
 
 export class SubAgent extends Agent implements AgentHandlerContext {
+  private static readonly CORE_SYSTEM_PROMPT = `You are a subagent worker in Obsidian Steward.
+
+Your role:
+- Execute only the delegated job from the parent agent.
+- Prefer tool-based execution when tools are available.
+- Keep responses concise and task-focused.
+
+Rules:
+- Do not change scope beyond the delegated job.
+- Do not ask unrelated follow-up questions.`;
+
   public async renderIndicator(
     title: string,
     lang?: string | null,
     _toolName?: ToolName
   ): Promise<void> {
     const t = getTranslation(lang);
-    await this.renderer.addGeneratingIndicator(title, t('conversation.planning'));
+    await this.renderer.addGeneratingIndicator(title, t('conversation.working'));
   }
 
   public async handle(
@@ -72,6 +83,7 @@ export class SubAgent extends Agent implements AgentHandlerContext {
     }
 
     const toolProcessingResult = await this.executeToolCalls({
+      agentId: 'subagent',
       title: params.title,
       lang: params.lang,
       handlerId,
@@ -133,7 +145,9 @@ export class SubAgent extends Agent implements AgentHandlerContext {
       params.lang
     );
 
-    const additionalSystemPrompts = params.intent.systemPrompts ? [...params.intent.systemPrompts] : [];
+    const additionalSystemPrompts = params.intent.systemPrompts
+      ? [...params.intent.systemPrompts]
+      : [];
     if (llmConfig.systemPrompt) {
       additionalSystemPrompts.push(llmConfig.systemPrompt);
     }
@@ -148,7 +162,8 @@ export class SubAgent extends Agent implements AgentHandlerContext {
       model: llmConfig.model,
       temperature: llmConfig.temperature,
       maxOutputTokens: llmConfig.maxOutputTokens,
-      abortSignal: this.plugin.abortService.createAbortController('sub-agent'),
+      abortSignal: this.plugin.abortService.createAbortController(),
+      system: SubAgent.CORE_SYSTEM_PROMPT,
       messages,
       tools: registry.getToolsObject(),
       experimental_repairToolCall: llmConfig.repairToolCall as Parameters<

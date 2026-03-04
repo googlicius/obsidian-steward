@@ -51,5 +51,6 @@ export const SUPER_AGENT_TOOLS = {
   [ToolName.CONFIRMATION]: confirmationTool,
   [ToolName.ASK_USER]: askUserTool,
   [ToolName.USER_CONFIRM]: handlers.UserConfirm.getUserConfirmTool(),
+  [ToolName.SPAWN_SUBAGENT]: handlers.SpawnSubagent.getSpawnSubagentTool(),
   [ToolName.SWITCH_AGENT_CAPACITY]: handlers.SwitchAgentCapacity.getSwitchAgentCapacityTool(),
 } as const;

@@ -56,6 +56,7 @@ function asAgentToolCallExecutor(instance: AgentToolCallExecutor): AgentToolCall
 
 export class AgentToolCallExecutor {
   protected async executeToolCalls(params: {
+    agentId: string;
     title: string;
     lang?: string | null;
     handlerId: string;
@@ -152,7 +153,23 @@ export class AgentToolCallExecutor {
               toolCall,
               activeTools: params.activeTools,
               availableTools: params.availableTools,
-              agent: 'super',
+              agent: params.agentId,
+            });
+            break;
+          }
+
+          case ToolName.SPAWN_SUBAGENT: {
+            const spawnHandler = handlerMap[ToolName.SPAWN_SUBAGENT] as
+              | (() => handlers.SpawnSubagent)
+              | undefined;
+            if (!spawnHandler) {
+              throw new Error(
+                `AgentToolCallExecuter: No handler found for tool: ${ToolName.SPAWN_SUBAGENT}`
+              );
+            }
+            toolCallResult = await spawnHandler().handle(params.agentParams, {
+              toolCall: toolCall as ToolCallPart<handlers.SpawnSubagentArgs>,
+              parentAgentId: params.agentId,
             });
             break;
           }
@@ -189,7 +206,11 @@ export class AgentToolCallExecutor {
           default: {
             const handlerGetter = handlerMap[toolCall.toolName];
             if (!handlerGetter) {
-              throw new Error(`No handler found for tool: ${toolCall.toolName}`);
+              console.log('>>>>>>>>>>', {
+                agent,
+                handlerMap,
+              });
+              throw new Error(`No handler found for tool (1): ${toolCall.toolName}`);
             }
             const streamInfo =
               params.toolContentStreamInfo?.toolCallId === toolCall.toolCallId
@@ -203,7 +224,7 @@ export class AgentToolCallExecutor {
               const toolName = ctx.toolCall.toolName;
               const nestedHandlerGetter = handlerMap[toolName];
               if (!nestedHandlerGetter) {
-                throw new Error(`No handler found for tool: ${toolName}`);
+                throw new Error(`No handler found for tool (2): ${toolName}`);
               }
               const handler = nestedHandlerGetter();
               return handler.handle(ctx.params, {

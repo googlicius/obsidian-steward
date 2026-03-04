@@ -9,6 +9,15 @@ export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
     factory: 'super',
     tools: [], // All tools
     canUseTools: true,
+    canSpawnSubagents: true,
+    allowedSubagents: ['subagent'],
+  },
+  {
+    id: 'subagent',
+    name: 'Sub Agent',
+    factory: 'subagent',
+    canUseTools: true,
+    canSpawnSubagents: false,
   },
   {
     id: 'udc',

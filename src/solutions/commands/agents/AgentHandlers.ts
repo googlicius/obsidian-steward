@@ -66,6 +66,7 @@ export class AgentHandlers {
   private _todoList: handlers.TodoList;
   private _dynamic: handlers.Dynamic;
   private _useSkills: handlers.UseSkills;
+  private _spawnSubagent: handlers.SpawnSubagent;
   private _switchAgentCapacity: handlers.SwitchAgentCapacity;
   private _conclude: handlers.Conclude;
   private _getMostRecentArtifact: handlers.GetMostRecentArtifact;
@@ -236,6 +237,11 @@ export class AgentHandlers {
     return this._useSkills;
   }
 
+  public get spawnSubagent(): handlers.SpawnSubagent {
+    if (!this._spawnSubagent) this._spawnSubagent = new handlers.SpawnSubagent(this.getAgent());
+    return this._spawnSubagent;
+  }
+
   public get switchAgentCapacity(): handlers.SwitchAgentCapacity {
     if (!this._switchAgentCapacity) {
       this._switchAgentCapacity = new handlers.SwitchAgentCapacity(this.getAgent());
@@ -256,7 +262,8 @@ export class AgentHandlers {
   }
 
   public get getArtifactById(): handlers.GetArtifactById {
-    if (!this._getArtifactById) this._getArtifactById = new handlers.GetArtifactById(this.getAgent());
+    if (!this._getArtifactById)
+      this._getArtifactById = new handlers.GetArtifactById(this.getAgent());
     return this._getArtifactById;
   }
 
@@ -298,10 +305,12 @@ export class AgentHandlers {
       [ToolName.IMAGE]: () => this.image,
       [ToolName.TODO_LIST]: () => this.todoList,
       [ToolName.HELP]: () => this.help,
+      [ToolName.SPAWN_SUBAGENT]: () => this.spawnSubagent,
       [ToolName.CONCLUDE]: () => this.conclude,
       [ToolName.GET_MOST_RECENT_ARTIFACT]: () => this.getMostRecentArtifact,
       [ToolName.GET_ARTIFACT_BY_ID]: () => this.getArtifactById,
       [ToolName.RECALL_COMPACTED_CONTEXT]: () => this.recallCompactedContext,
+      [ToolName.SWITCH_AGENT_CAPACITY]: () => this.switchAgentCapacity,
     };
   }
 

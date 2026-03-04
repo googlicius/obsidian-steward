@@ -250,6 +250,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
     }
 
     const toolProcessingResult = await this.executeToolCalls({
+      agentId: 'super',
       title,
       lang,
       handlerId,

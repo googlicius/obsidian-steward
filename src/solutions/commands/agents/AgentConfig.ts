@@ -14,6 +14,14 @@ export const AgentConfigSchema = z.object({
   contentRequired: z.boolean().optional(),
   /** Whether this agent is allowed to use tools (default: true). */
   canUseTools: z.boolean().optional(),
+  /** Whether this agent can spawn subagents. */
+  canSpawnSubagents: z.boolean().optional(),
+  /** Allowed child agent IDs this agent may spawn. */
+  allowedSubagents: z.array(z.string()).optional(),
+  /** Default tools to pass to spawned subagents. */
+  subagentTools: z.array(z.string()).optional(),
+  /** Default system prompts to pass to spawned subagents. */
+  subagentSystemPrompts: z.array(z.string()).optional(),
 });
 
 export type AgentConfig = z.infer<typeof AgentConfigSchema>;
