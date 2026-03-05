@@ -9,23 +9,29 @@ import { ArtifactType } from 'src/solutions/artifact';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 const MAX_FILES_TO_SHOW = 10;
+const LIST_ITEM_TYPES = ['both', 'files', 'folders'] as const;
+type ListItemType = (typeof LIST_ITEM_TYPES)[number];
 
 export const listToolSchema = z.object(
   {
     folderPath: z
       .string()
       .transform(val => {
-        // Sanitize folderPath: remove leading and trailing slashes, then trim
-        let sanitized = val.trim();
-        sanitized = sanitized.replace(/^\/+|\/+$/g, '');
-        return sanitized;
+        return normalizePath(val);
       })
       .describe('The folder path to list files from. Specify / to lists from the root.'),
     filePattern: z
       .string()
       .optional()
       .describe(
-        'Optional RegExp pattern to filter files. If not provided, all files will be listed.'
+        'Optional RegExp pattern to filter item names. If not provided, all matching items will be listed.'
+      ),
+    itemType: z
+      .enum(LIST_ITEM_TYPES)
+      .optional()
+      .default('both')
+      .describe(
+        'Optional result type filter: both for files and folders, files for files only, folders for folders only.'
       ),
     lang: z
       .string()
@@ -116,6 +122,7 @@ export class VaultList {
   ): Promise<ListToolResult> {
     const folderPath = input.folderPath || '/';
     const filePattern = input.filePattern?.trim();
+    const itemType = input.itemType ?? 'both';
     const t = getTranslation(lang);
     const errors: string[] = [];
 
@@ -140,7 +147,7 @@ export class VaultList {
     if (!folder) {
       const errorMessage = `Folder not found: ${folderPath}`;
       errors.push(errorMessage);
-      const messageKey = folderPath ? 'list.noFilesFoundInFolder' : 'list.noFilesFound';
+      const messageKey = folderPath ? 'list.noItemsFoundInFolder' : 'list.noItemsFound';
       return {
         response: t(messageKey, { folder: folderPath }),
         files: [],
@@ -152,6 +159,10 @@ export class VaultList {
     const listedPaths: string[] = [];
     for (const child of folder.children) {
       if (!(child instanceof TFile) && !(child instanceof TFolder)) {
+        continue;
+      }
+
+      if (!this.shouldIncludeItemType({ child, itemType })) {
         continue;
       }
 
@@ -168,7 +179,7 @@ export class VaultList {
     }
 
     if (listedPaths.length === 0) {
-      const messageKey = folderPath ? 'list.noFilesFoundInFolder' : 'list.noFilesFound';
+      const messageKey = folderPath ? 'list.noItemsFoundInFolder' : 'list.noItemsFound';
       return {
         response: t(messageKey, { folder: folderPath }),
         files: [],
@@ -184,14 +195,14 @@ export class VaultList {
     const moreCount =
       listedPaths.length > MAX_FILES_TO_SHOW ? listedPaths.length - MAX_FILES_TO_SHOW : 0;
 
-    const headerKey = folderPath ? 'list.foundFilesInFolder' : 'list.foundFiles';
+    const headerKey = folderPath ? 'list.foundItemsInFolder' : 'list.foundItems';
     let response = `${t(headerKey, {
       count: listedPaths.length,
       folder: folderPath,
     })}:\n\n${itemLines.join('\n')}`;
 
     if (moreCount > 0) {
-      response += `\n\n${t('list.moreFiles', { count: moreCount })}`;
+      response += `\n\n${t('list.moreItems', { count: moreCount })}`;
     }
 
     return {
@@ -213,5 +224,23 @@ export class VaultList {
       // If regex is invalid, return false
       return false;
     }
+  }
+
+  private shouldIncludeItemType({
+    child,
+    itemType,
+  }: {
+    child: TFile | TFolder;
+    itemType: ListItemType;
+  }): boolean {
+    if (itemType === 'both') {
+      return true;
+    }
+
+    if (itemType === 'files') {
+      return child instanceof TFile;
+    }
+
+    return child instanceof TFolder;
   }
 }

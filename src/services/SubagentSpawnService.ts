@@ -4,19 +4,20 @@ import type { AgentConfig } from 'src/solutions/commands/agents/AgentConfig';
 import { DEFAULT_AGENT_CONFIGS } from 'src/solutions/commands/agents/defaultAgents';
 import { createAgentFromConfig } from 'src/solutions/commands/agents/AgentFactory';
 import type { Agent } from 'src/solutions/commands/Agent';
-import type { ToolName } from 'src/solutions/commands/ToolRegistry';
+import { ToolName } from 'src/solutions/commands/ToolRegistry';
 import type { AgentHandlerParams } from 'src/solutions/commands/types';
 import { DEFAULT_INTENT_TYPE } from 'src/solutions/commands/agents/intentHelpers';
 
 export interface SpawnSubagentJob {
-  query: string;
+  task: string;
   tools?: ToolName[];
+  inactiveTools?: ToolName[];
   systemPrompts?: string[];
 }
 
 export interface SubagentRunResult {
   childTitle: string;
-  query: string;
+  task: string;
   status: 'done' | 'failed';
   summary: string;
   error?: string;
@@ -45,8 +46,17 @@ export class SubagentSpawnService {
     return `${parentTitle}__subagent_${uniqueID()}`;
   }
 
+  private mergeActiveTools(defaultTools?: ToolName[], jobTools?: ToolName[]): ToolName[] {
+    const merged = new Set<ToolName>([...(defaultTools || []), ...(jobTools || [])]);
+    if (merged.size === 0) {
+      merged.add(ToolName.ACTIVATE);
+    }
+    return Array.from(merged);
+  }
+
   private async extractChildSummary(childTitle: string): Promise<string> {
-    const messages = await this.plugin.conversationRenderer.extractAllConversationMessages(childTitle);
+    const messages =
+      await this.plugin.conversationRenderer.extractAllConversationMessages(childTitle);
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       const message = messages[i];
       if (message.role === 'assistant' && message.content.trim().length > 0) {
@@ -80,7 +90,7 @@ export class SubagentSpawnService {
       if (!childAgent) {
         return {
           childTitle,
-          query: job.query,
+          task: job.task,
           status: 'failed',
           summary: '',
           error: 'Subagent is not runnable.',
@@ -89,44 +99,44 @@ export class SubagentSpawnService {
 
       await params.onStatus?.('queued', {
         childTitle,
-        query: job.query,
+        task: job.task,
       });
 
       await this.plugin.conversationRenderer.createConversationNote(
         childTitle,
         DEFAULT_INTENT_TYPE,
-        job.query,
+        job.task,
         params.lang || undefined
       );
 
       await params.onStatus?.('running', {
         childTitle,
-        query: job.query,
+        task: job.task,
       });
 
       try {
+        const mergedActiveTools = this.mergeActiveTools(params.defaultTools, job.tools);
         const childParams: AgentHandlerParams = {
           title: childTitle,
           intent: {
             type: DEFAULT_INTENT_TYPE,
-            query: job.query,
-            systemPrompts: [
-              ...(params.defaultSystemPrompts || []),
-              ...(job.systemPrompts || []),
-            ],
+            query: job.task,
+            no_confirm: true,
+            systemPrompts: [...(params.defaultSystemPrompts || []), ...(job.systemPrompts || [])],
           },
           lang: params.lang,
           handlerId: params.handlerId,
           // Child agent iterations are independent from the parent invocation step.
           invocationCount: 0,
-          activeTools: [...(params.defaultTools || []), ...(job.tools || [])],
+          activeTools: mergedActiveTools,
+          inactiveTools: job.inactiveTools,
         };
 
         await childAgent.safeHandle(childParams);
         const summary = await this.extractChildSummary(childTitle);
         const done: SubagentRunResult = {
           childTitle,
-          query: job.query,
+          task: job.task,
           status: 'done',
           summary,
         };
@@ -135,7 +145,7 @@ export class SubagentSpawnService {
       } catch (error) {
         const failure: SubagentRunResult = {
           childTitle,
-          query: job.query,
+          task: job.task,
           status: 'failed',
           summary: '',
           error: error instanceof Error ? error.message : String(error),

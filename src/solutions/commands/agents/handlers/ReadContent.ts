@@ -333,7 +333,7 @@ export class ReadContent {
   private async resolveLatestArtifactFiles(title: string) {
     const ARTIFACT_SUPPORTED_TYPES: ArtifactType[] = [
       ArtifactType.SEARCH_RESULTS,
-      ArtifactType.CREATED_NOTES,
+      ArtifactType.CREATED_PATHS,
       ArtifactType.READ_CONTENT,
       ArtifactType.MEDIA_RESULTS,
       ArtifactType.LIST_RESULTS,

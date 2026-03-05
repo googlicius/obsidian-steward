@@ -68,7 +68,7 @@ export class AgentManualToolCall {
             .withTitle(title)
             .getMostRecentArtifactOfTypes([
               ArtifactType.SEARCH_RESULTS,
-              ArtifactType.CREATED_NOTES,
+              ArtifactType.CREATED_PATHS,
               ArtifactType.LIST_RESULTS,
             ]);
 
@@ -97,7 +97,7 @@ export class AgentManualToolCall {
           // Get the most recent artifact from types created by VaultAgent
           const artifactTypes = [
             ArtifactType.MOVE_RESULTS,
-            ArtifactType.CREATED_NOTES,
+            ArtifactType.CREATED_PATHS,
             ArtifactType.DELETED_FILES,
             ArtifactType.UPDATE_FRONTMATTER_RESULTS,
             ArtifactType.RENAME_RESULTS,
@@ -112,7 +112,7 @@ export class AgentManualToolCall {
             // Map artifact type to the appropriate revert tool
             const artifactTypeToToolMap: Partial<Record<ArtifactType, ToolName>> = {
               [ArtifactType.MOVE_RESULTS]: ToolName.REVERT_MOVE,
-              [ArtifactType.CREATED_NOTES]: ToolName.REVERT_CREATE,
+              [ArtifactType.CREATED_PATHS]: ToolName.REVERT_CREATE,
               [ArtifactType.DELETED_FILES]: ToolName.REVERT_DELETE,
               [ArtifactType.UPDATE_FRONTMATTER_RESULTS]: ToolName.REVERT_FRONTMATTER,
               [ArtifactType.RENAME_RESULTS]: ToolName.REVERT_RENAME,

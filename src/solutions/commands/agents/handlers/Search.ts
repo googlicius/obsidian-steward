@@ -458,9 +458,6 @@ export class Search {
     // Store the search results in the artifact manager
     else {
       const artifactId = await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
-        text: `*${t('common.artifactCreated', {
-          type: ArtifactType.SEARCH_RESULTS,
-        })}*`,
         artifact: {
           artifactType: ArtifactType.SEARCH_RESULTS,
           originalResults: queryResult.conditionResults,
@@ -483,7 +480,7 @@ export class Search {
       let resultText = `${t('search.found', { count: totalCount })}\n\n${filePaths.join('\n')}`;
 
       if (moreCount > 0) {
-        resultText += `\n\n${t('list.moreFiles', { count: moreCount })}`;
+        resultText += `\n\n${t('list.moreItems', { count: moreCount })}`;
       }
 
       if (hasMoreResults) {

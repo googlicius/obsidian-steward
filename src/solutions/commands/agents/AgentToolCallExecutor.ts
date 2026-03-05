@@ -13,25 +13,10 @@ import * as handlers from './handlers';
 import type { TodoListUpdateArgs } from './handlers/TodoList';
 import type { UseSkillsArgs } from './handlers/UseSkills';
 import type { ConcludeInput } from './handlers/Conclude';
+import { ToolHandlerMiddlewareContext } from './middleware/types';
 
 interface AgentToolCallExecutorContext {
   plugin: StewardPlugin;
-  renderer: {
-    updateConversationFrontmatter: (
-      title: string,
-      updates: Array<{ name: string; value: unknown }>
-    ) => Promise<void>;
-    updateConversationNote: (params: {
-      path: string;
-      newContent: string;
-      lang?: string | null;
-      handlerId?: string;
-      command?: string;
-      step?: number;
-      includeHistory?: boolean;
-    }) => Promise<void>;
-    removeIndicator: (title: string) => Promise<void>;
-  };
   renderIndicator(title: string, lang?: string | null, toolName?: ToolName): Promise<void>;
   handle: (
     params: AgentHandlerParams,
@@ -103,7 +88,7 @@ export class AgentToolCallExecutor {
         }
 
         if ('lang' in toolCall.input) {
-          await agent.renderer.updateConversationFrontmatter(params.title, [
+          await agent.plugin.conversationRenderer.updateConversationFrontmatter(params.title, [
             {
               name: 'lang',
               value: toolCall.input.lang,
@@ -115,7 +100,7 @@ export class AgentToolCallExecutor {
         switch (toolCall.toolName) {
           case ToolName.CONFIRMATION:
           case ToolName.ASK_USER: {
-            await agent.renderer.updateConversationNote({
+            await agent.plugin.conversationRenderer.updateConversationNote({
               path: params.title,
               newContent: toolCall.input.message as string,
               lang: params.agentParams.lang,
@@ -204,27 +189,15 @@ export class AgentToolCallExecutor {
           }
 
           default: {
-            const handlerGetter = handlerMap[toolCall.toolName];
-            if (!handlerGetter) {
-              console.log('>>>>>>>>>>', {
-                agent,
-                handlerMap,
-              });
-              throw new Error(`No handler found for tool (1): ${toolCall.toolName}`);
-            }
             const streamInfo =
               params.toolContentStreamInfo?.toolCallId === toolCall.toolCallId
                 ? params.toolContentStreamInfo
                 : undefined;
-            const invokeHandler = (ctx: {
-              params: AgentHandlerParams;
-              toolCall: ToolCallPart<Record<string, unknown>>;
-              toolContentStreamInfo?: ToolContentStreamInfo;
-            }) => {
+            const invokeHandler = (ctx: ToolHandlerMiddlewareContext) => {
               const toolName = ctx.toolCall.toolName;
               const nestedHandlerGetter = handlerMap[toolName];
               if (!nestedHandlerGetter) {
-                throw new Error(`No handler found for tool (2): ${toolName}`);
+                throw new Error(`No handler found for tool: ${toolName}`);
               }
               const handler = nestedHandlerGetter();
               return handler.handle(ctx.params, {
@@ -249,7 +222,7 @@ export class AgentToolCallExecutor {
 
         if (timer && [ToolName.CONCLUDE, ToolName.TODO_LIST_UPDATE].includes(toolCall.toolName)) {
           clearTimeout(timer);
-          await agent.renderer.removeIndicator(params.title);
+          await agent.plugin.conversationRenderer.removeIndicator(params.title);
         }
 
         if (!toolCallResult) {

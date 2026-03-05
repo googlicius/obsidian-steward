@@ -10,7 +10,7 @@ export enum ArtifactType {
   SEARCH_RESULTS = 'search_results',
   MOVE_RESULTS = 'move_results',
   CALCULATION_RESULTS = 'calculation_results',
-  CREATED_NOTES = 'created_notes',
+  CREATED_PATHS = 'created_paths',
   READ_CONTENT = 'read_content',
   CONTENT_UPDATE = 'content_update',
   GENERATED_CONTENT = 'generated_content',
@@ -27,7 +27,7 @@ export enum ArtifactType {
 
 export const revertAbleArtifactTypes = [
   ArtifactType.MOVE_RESULTS,
-  ArtifactType.CREATED_NOTES,
+  ArtifactType.CREATED_PATHS,
   ArtifactType.DELETED_FILES,
   ArtifactType.UPDATE_FRONTMATTER_RESULTS,
   ArtifactType.RENAME_RESULTS,
@@ -53,10 +53,10 @@ export interface SearchResultsArtifact extends BaseArtifact {
 }
 
 /**
- * Created notes artifact
+ * Created paths artifact
  */
-export interface CreatedNotesArtifact extends BaseArtifact {
-  artifactType: ArtifactType.CREATED_NOTES;
+export interface CreatedPathsArtifact extends BaseArtifact {
+  artifactType: ArtifactType.CREATED_PATHS;
   paths: string[];
 }
 
@@ -221,7 +221,7 @@ export interface EditResultsArtifact extends BaseArtifact {
 
 export type Artifact =
   | SearchResultsArtifact
-  | CreatedNotesArtifact
+  | CreatedPathsArtifact
   | ReadContentArtifact
   | ContentUpdateArtifact
   | GeneratedContentArtifact
@@ -238,7 +238,7 @@ export type Artifact =
 
 export type ArtifactMap = {
   [ArtifactType.SEARCH_RESULTS]: SearchResultsArtifact;
-  [ArtifactType.CREATED_NOTES]: CreatedNotesArtifact;
+  [ArtifactType.CREATED_PATHS]: CreatedPathsArtifact;
   [ArtifactType.READ_CONTENT]: ReadContentArtifact;
   [ArtifactType.CONTENT_UPDATE]: ContentUpdateArtifact;
   [ArtifactType.GENERATED_CONTENT]: GeneratedContentArtifact;

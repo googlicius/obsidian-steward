@@ -125,7 +125,6 @@ export class Image {
       // Store the media artifact
       if (messageId && result.filePath) {
         await this.agent.plugin.artifactManagerV2.withTitle(params.title).storeArtifact({
-          text: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
           artifact: {
             artifactType: ArtifactType.MEDIA_RESULTS,
             paths: [result.filePath],

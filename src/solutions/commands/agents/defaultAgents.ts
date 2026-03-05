@@ -10,6 +10,7 @@ export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
     tools: [], // All tools
     canUseTools: true,
     canSpawnSubagents: true,
+    subagentTools: [ToolName.ACTIVATE],
     allowedSubagents: ['subagent'],
   },
   {

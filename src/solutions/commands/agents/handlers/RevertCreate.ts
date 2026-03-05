@@ -7,6 +7,7 @@ import { logger } from 'src/utils/logger';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { SysError } from 'src/utils/errors';
+import { TFile } from 'obsidian';
 
 const revertCreateToolSchema = z.object({
   artifactId: z
@@ -161,7 +162,7 @@ export class RevertCreate {
       return { filePaths: [], errorMessage: message };
     }
 
-    if (artifact.artifactType !== ArtifactType.CREATED_NOTES) {
+    if (artifact.artifactType !== ArtifactType.CREATED_PATHS) {
       const message = t('common.cannotRevertThisType', { type: artifact.artifactType });
 
       const messageId = await this.agent.renderer.updateConversationNote({
@@ -200,7 +201,8 @@ export class RevertCreate {
     const revertedFiles: string[] = [];
     const failedFiles: string[] = [];
 
-    for (const filePath of filePaths) {
+    const sortedPaths = [...filePaths].sort((left, right) => right.length - left.length);
+    for (const filePath of sortedPaths) {
       const result = await this.revertFileCreation({ filePath });
       if (!result.success) {
         failedFiles.push(filePath);
@@ -219,7 +221,7 @@ export class RevertCreate {
   private async revertFileCreation(params: { filePath: string }): Promise<{ success: boolean }> {
     const { filePath } = params;
 
-    const file = this.agent.app.vault.getFileByPath(filePath);
+    const file = this.agent.app.vault.getAbstractFileByPath(filePath);
 
     if (!file) {
       logger.warn(`File not found for revert create: ${filePath}`);
@@ -228,8 +230,15 @@ export class RevertCreate {
     }
 
     try {
-      // Delete the file to revert its creation
-      await this.agent.app.vault.delete(file);
+      if (file instanceof TFile) {
+        // Delete the file to revert its creation
+        await this.agent.app.vault.delete(file);
+        return {
+          success: true,
+        };
+      }
+
+      await this.agent.app.vault.delete(file, true);
 
       return {
         success: true,

@@ -505,7 +505,7 @@ export class ArtifactManagerV2 {
 
   /**
    * Resolve files from an artifact
-   * Supported artifact types: SEARCH_RESULTS, CREATED_NOTES, READ_CONTENT, LIST_RESULTS
+   * Supported artifact types: SEARCH_RESULTS, CREATED_PATHS, READ_CONTENT, LIST_RESULTS
    * @param artifactId The ID of the artifact to resolve files from
    * @returns Array of DocWithPath objects containing file paths
    */
@@ -531,7 +531,7 @@ export class ArtifactManagerV2 {
         break;
       }
 
-      case ArtifactType.CREATED_NOTES: {
+      case ArtifactType.CREATED_PATHS: {
         for (const path of artifact.paths) {
           resolvedFiles.push({ path });
         }
@@ -556,7 +556,7 @@ export class ArtifactManagerV2 {
 
       default: {
         logger.warn(
-          `Unsupported artifact type for resolving files: ${artifact.artifactType}. Supported types: search_results, created_notes, read_content, list_results`
+          `Unsupported artifact type for resolving files: ${artifact.artifactType}. Supported types: search_results, created_paths, read_content, list_results`
         );
         return [];
       }

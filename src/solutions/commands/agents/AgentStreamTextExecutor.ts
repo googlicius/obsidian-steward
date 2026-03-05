@@ -8,7 +8,11 @@ import { ToolRegistry, ToolName } from '../ToolRegistry';
 import type { AgentHandlerParams } from '../types';
 import { SuperAgentSystemPromptBuilder } from './SystemPromptBuilder';
 import type { ToolContentStreamInfo } from './SuperAgent/SuperAgentToolContentStream';
-import type { TodoListState } from './handlers/TodoList';
+import {
+  generateActiveSkillPrompts,
+  generateSkillCatalogPrompt,
+  generateTodoListPrompt,
+} from './agentUtils';
 
 export interface StreamTextExecutorAgentContext {
   plugin: StewardPlugin;
@@ -114,9 +118,14 @@ export class AgentStreamTextExecutor {
       }
 
       const todoListPrompt = activeToolNames.includes(ToolName.TODO_LIST_UPDATE)
-        ? await this.generateTodoListPrompt(params.title)
+        ? await generateTodoListPrompt({
+            renderer: agent.renderer,
+            title: params.title,
+          })
         : '';
-      const skillCatalogPrompt = this.generateSkillCatalogPrompt();
+      const skillCatalogPrompt = generateSkillCatalogPrompt({
+        plugin: agent.plugin,
+      });
       const shouldUseCoreSystemPrompt = shouldUseTools;
 
       const resolvedSystemPrompts =
@@ -131,7 +140,10 @@ export class AgentStreamTextExecutor {
         additionalSystemPrompts.push(llmConfig.systemPrompt);
       }
 
-      const activeSkillPrompts = this.generateActiveSkillPrompts(params.activeSkills || []);
+      const activeSkillPrompts = generateActiveSkillPrompts({
+        plugin: agent.plugin,
+        activeSkillNames: params.activeSkills || [],
+      });
       additionalSystemPrompts.push(...activeSkillPrompts);
 
       if (compactionResult.systemMessage) {
@@ -233,74 +245,4 @@ export class AgentStreamTextExecutor {
     }
   }
 
-  /**
-   * Generate to-do list prompt from frontmatter state.
-   */
-  protected async generateTodoListPrompt(title: string): Promise<string> {
-    const agent = asStreamTextExecutorAgent(this);
-    const todoListState = await agent.renderer.getConversationProperty<TodoListState>(
-      title,
-      'todo_list'
-    );
-
-    if (!todoListState || !todoListState.steps || todoListState.steps.length === 0) {
-      return '';
-    }
-
-    return `\n\nTO-DO LIST:
-You are working on a to-do list with ${todoListState.steps.length} step(s).
-Current step: ${todoListState.currentStep} of ${todoListState.steps.length}
-
-Steps:
-${todoListState.steps
-  .map((step, index) => {
-    const status =
-      step.status === 'completed'
-        ? '✅ Completed'
-        : step.status === 'skipped'
-          ? '⏭️ Skipped'
-          : step.status === 'in_progress'
-            ? '🔄 In Progress'
-            : '⏳ Pending';
-    return `${index + 1}. ${status}: ${step.task}`;
-  })
-  .join('\n')}
-
-When you complete or skip the current step, use the ${ToolName.TODO_LIST_UPDATE} tool with:
-- status: in_progress, skipped, or completed
-- nextStep: (optional) the step number to move to after updating`;
-  }
-
-  /**
-   * Generate the skill catalog prompt showing available skills.
-   */
-  protected generateSkillCatalogPrompt(): string {
-    const agent = asStreamTextExecutorAgent(this);
-    const catalog = agent.plugin.skillService.getSkillCatalog();
-
-    if (catalog.length === 0) {
-      return '';
-    }
-
-    const entries = catalog.map(entry => `- ${entry.name}: ${entry.description}`).join('\n');
-
-    return `\n\nAVAILABLE SKILLS:
-${entries}
-
-Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-specific knowledge for the task.`;
-  }
-
-  /**
-   * Generate individual system prompts for each active skill.
-   */
-  protected generateActiveSkillPrompts(activeSkillNames: string[]): string[] {
-    if (activeSkillNames.length === 0) {
-      return [];
-    }
-
-    const agent = asStreamTextExecutorAgent(this);
-    const { contents } = agent.plugin.skillService.getSkillContents(activeSkillNames);
-
-    return Object.entries(contents).map(([name, content]) => `ACTIVE SKILL: ${name}\n${content}`);
-  }
 }

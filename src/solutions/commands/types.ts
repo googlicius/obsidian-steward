@@ -90,5 +90,6 @@ export interface AgentHandlerParams<T extends Intent = Intent> {
     ignoreClassify?: boolean;
   };
   activeTools?: ToolName[];
+  inactiveTools?: ToolName[]; // When provided, the tool set is activeTools + inactiveTools.
   activeSkills?: string[];
 }

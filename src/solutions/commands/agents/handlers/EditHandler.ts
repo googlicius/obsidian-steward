@@ -29,10 +29,14 @@ export class EditHandler {
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolCallPart<EditArgs>; toolContentStreamInfo?: ToolContentStreamInfo }
+    options: {
+      toolCall: ToolCallPart<EditArgs>;
+      toolContentStreamInfo?: ToolContentStreamInfo;
+      continueFromNextTool?: () => Promise<AgentResult>;
+    }
   ): Promise<AgentResult> {
     const { title, intent, lang } = params;
-    const { toolCall, toolContentStreamInfo } = options;
+    const { toolCall, toolContentStreamInfo, continueFromNextTool } = options;
     const t = getTranslation(lang);
 
     if (!params.handlerId) {
@@ -121,6 +125,7 @@ export class EditHandler {
           handlerId,
           step: params.invocationCount,
           toolCall,
+          continueFromNextTool,
         });
       },
       onRejection: async () => {
@@ -140,6 +145,11 @@ export class EditHandler {
             },
           ],
         });
+
+        if (continueFromNextTool) {
+          return continueFromNextTool();
+        }
+
         return {
           status: IntentResultStatus.SUCCESS,
         };
@@ -198,8 +208,9 @@ export class EditHandler {
     handlerId: string;
     step?: number;
     toolCall: ToolCallPart<EditArgs>;
+    continueFromNextTool?: () => Promise<AgentResult>;
   }): Promise<AgentResult> {
-    const { title, filesToOperations, lang } = params;
+    const { title, filesToOperations, lang, continueFromNextTool } = params;
     const t = getTranslation(lang);
 
     const updatedFiles: string[] = [];
@@ -322,6 +333,10 @@ export class EditHandler {
         },
       ],
     });
+
+    if (continueFromNextTool) {
+      return continueFromNextTool();
+    }
 
     return {
       status: failedFiles.length > 0 ? IntentResultStatus.ERROR : IntentResultStatus.SUCCESS,

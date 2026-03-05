@@ -62,6 +62,7 @@ import { GitHubResourceService } from './services/GitHubResourceService';
 import { SkillService } from './services/SkillService';
 import { GuardrailsRuleService } from './services/GuardrailsRuleService/GuardrailsRuleService';
 import { CompactionOrchestrator } from './solutions/compaction';
+import { SubagentSpawnService } from './services/SubagentSpawnService';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -91,6 +92,7 @@ export default class StewardPlugin extends Plugin {
   _versionCheckerService: VersionCheckerService;
   _userMessageService: UserMessageService;
   _compactionOrchestrator: CompactionOrchestrator;
+  _subAgentSpawnService: SubagentSpawnService;
 
   get commandInputService(): CommandInputService {
     if (!this._commandInputService) {
@@ -202,6 +204,13 @@ export default class StewardPlugin extends Plugin {
       this._guardrailsRuleService = GuardrailsRuleService.getInstance(this);
     }
     return this._guardrailsRuleService;
+  }
+
+  get subAgentSpawnService(): SubagentSpawnService {
+    if (!this._subAgentSpawnService) {
+      this._subAgentSpawnService = new SubagentSpawnService(this);
+    }
+    return this._subAgentSpawnService;
   }
 
   get compactionOrchestrator(): CompactionOrchestrator {

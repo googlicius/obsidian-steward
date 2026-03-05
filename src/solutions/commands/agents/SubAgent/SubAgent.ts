@@ -1,4 +1,4 @@
-import { generateText, streamText } from 'ai';
+import { streamText } from 'ai';
 import { Agent } from '../../Agent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart, ToolResultPart } from '../../tools/types';
@@ -9,7 +9,7 @@ import { applyMixins } from 'src/utils/applyMixins';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { AgentHandlers } from '../AgentHandlers';
 import { AgentToolCallExecutor } from '../AgentToolCallExecutor';
-import { ToolRegistry } from '../../ToolRegistry';
+import { AgentGenerateTextExecutor } from '../AgentGenerateTextExecutor';
 import { SUBAGENT_TOOLS } from '../agentTools';
 
 const tools = SUBAGENT_TOOLS;
@@ -20,7 +20,8 @@ export interface SubAgent
   extends Agent,
     AgentHandlerContext,
     AgentHandlers,
-    AgentToolCallExecutor {}
+    AgentToolCallExecutor,
+    AgentGenerateTextExecutor {}
 
 export class SubAgent extends Agent implements AgentHandlerContext {
   private static readonly CORE_SYSTEM_PROMPT = `You are a subagent worker in Obsidian Steward.
@@ -59,6 +60,7 @@ Rules:
     }
 
     const activeTools = await this.loadActiveTools(params.title, params.activeTools);
+    const inactiveTools = params.inactiveTools || [];
     const activeSkills = await this.loadActiveSkills(params.title);
 
     if (!params.invocationCount) {
@@ -74,10 +76,13 @@ Rules:
     if (options.toolCalls) {
       toolCalls = options.toolCalls;
     } else {
-      const streamResult = await this.executeGenerateText({
+      const streamResult = await this.executeGenerateText<ToolCalls>({
         ...params,
         activeTools,
+        inactiveTools,
         activeSkills,
+        tools,
+        coreSystemPrompt: SubAgent.CORE_SYSTEM_PROMPT,
       });
       toolCalls = streamResult.toolCalls;
     }
@@ -107,83 +112,12 @@ Rules:
       return toolProcessingResult;
     }
 
+    await this.renderIndicator(params.title);
+
     params.invocationCount = (params.invocationCount ?? 0) + 1;
     return this.handle(params, {
       remainingSteps: nextRemainingSteps,
     });
-  }
-
-  private async executeGenerateText(
-    params: AgentHandlerParams & {
-      activeTools: ToolName[];
-      activeSkills: string[];
-    }
-  ): Promise<{
-    toolCalls: ToolCalls;
-  }> {
-    const conversationHistory = await this.renderer.extractConversationHistory(params.title);
-    const llmConfig = await this.plugin.llmService.getLLMConfig({
-      overrideModel: params.intent.model,
-      generateType: 'text',
-    });
-
-    const shouldUseTools = params.intent.use_tool !== false;
-    const activeToolNames = shouldUseTools ? params.activeTools : [];
-
-    const registry = ToolRegistry.buildFromTools(tools)
-      .setActive(activeToolNames)
-      .setAdditionalGuidelines(this.plugin.guardrailsRuleService.getInstructionsByTool());
-
-    const messages = [...conversationHistory];
-    if (!params.invocationCount) {
-      messages.push({ role: 'user', content: params.intent.query });
-    }
-
-    this.plugin.llmService.validateImageSupport(
-      params.intent.model || this.plugin.settings.llm.chat.model,
-      messages,
-      params.lang
-    );
-
-    const additionalSystemPrompts = params.intent.systemPrompts
-      ? [...params.intent.systemPrompts]
-      : [];
-    if (llmConfig.systemPrompt) {
-      additionalSystemPrompts.push(llmConfig.systemPrompt);
-    }
-
-    if (additionalSystemPrompts.length > 0) {
-      for (const item of additionalSystemPrompts) {
-        messages.unshift({ role: 'system', content: item });
-      }
-    }
-
-    const result = await generateText({
-      model: llmConfig.model,
-      temperature: llmConfig.temperature,
-      maxOutputTokens: llmConfig.maxOutputTokens,
-      abortSignal: this.plugin.abortService.createAbortController(),
-      system: SubAgent.CORE_SYSTEM_PROMPT,
-      messages,
-      tools: registry.getToolsObject(),
-      experimental_repairToolCall: llmConfig.repairToolCall as Parameters<
-        typeof generateText
-      >[0]['experimental_repairToolCall'],
-    });
-
-    if (result.text && result.text.trim().length > 0) {
-      await this.renderer.updateConversationNote({
-        path: params.title,
-        newContent: result.text,
-        lang: params.lang,
-        handlerId: params.handlerId,
-        step: params.invocationCount,
-      });
-    }
-
-    return {
-      toolCalls: result.toolCalls as ToolCalls,
-    };
   }
 
   public async serializeInvocation<T>(params: {
@@ -210,4 +144,4 @@ Rules:
   }
 }
 
-applyMixins(SubAgent, [AgentHandlers, AgentToolCallExecutor]);
+applyMixins(SubAgent, [AgentHandlers, AgentToolCallExecutor, AgentGenerateTextExecutor]);

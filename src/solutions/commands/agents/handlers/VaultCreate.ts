@@ -3,80 +3,101 @@ import { normalizePath, parseYaml } from 'obsidian';
 import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
+import { ToolName } from 'src/solutions/commands/toolNames';
 import { ToolCallPart } from '../../tools/types';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { type ToolContentStreamInfo } from '../SuperAgent/SuperAgentToolContentStream';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 
-export const createToolSchema = z.object({
-  folder: z
-    .string()
-    .min(1)
-    .optional()
-    .default('/')
-    .describe('Optional folder path where files will be created. Defaults to "/" (root folder).'),
-  newFiles: z
-    .array(
-      z
-        .object({
-          fileName: z
-            .string()
-            .min(1)
-            .describe(
-              'The file name to create. Must include the file extension (e.g. .md, .base, .canvas).'
-            ),
-          content: z
-            .string()
-            .optional()
-            .describe('The content that should be written to the file after creation.'),
-        })
-        .transform(val => {
-          if (!val.fileName.endsWith('.base') || !val.content) {
-            return val;
-          }
+export const createToolSchema = z
+  .object({
+    newFolders: z
+      .array(
+        z
+          .string()
+          .min(1)
+          .describe(
+            'The folder path to create. This can include nested segments (e.g. projects/q1).'
+          )
+      )
+      .optional()
+      .default([])
+      .describe('Optional list of folder paths to create.'),
+    newFiles: z
+      .array(
+        z
+          .object({
+            filePath: z
+              .string()
+              .min(1)
+              .describe(
+                'The full file path to create, including extension (e.g. notes/todo.md, styles/theme.css).'
+              ),
+            content: z
+              .string()
+              .optional()
+              .describe('The content that should be written to the file after creation.'),
+          })
+          .transform(val => {
+            if (!val.filePath.endsWith('.base') || !val.content) {
+              return val;
+            }
 
-          // Extract YAML content from a markdown code block if present
-          const yamlBlockMatch = val.content.trim().match(/^```yaml\s*\n([\s\S]*?)\n```\s*$/i);
-          if (!yamlBlockMatch) {
-            return val;
-          }
+            // Extract YAML content from a markdown code block if present
+            const yamlBlockMatch = val.content.trim().match(/^```yaml\s*\n([\s\S]*?)\n```\s*$/i);
+            if (!yamlBlockMatch) {
+              return val;
+            }
 
-          return { ...val, content: yamlBlockMatch[1] };
-        })
-    )
-    .min(1)
-    .describe('The list of files that must be created.'),
-});
+            return { ...val, content: yamlBlockMatch[1] };
+          })
+      )
+      .optional()
+      .default([])
+      .describe('Optional list of files to create.'),
+  })
+  .refine(data => data.newFolders.length > 0 || data.newFiles.length > 0, {
+    message: 'Provide at least one folder path or file path to create.',
+  });
 
 export type CreateToolArgs = z.infer<typeof createToolSchema>;
 
 export type CreateFileInstruction = {
-  fileName: string;
+  filePath: string;
   content?: string;
 };
 
 export type CreatePlan = {
-  folder: string;
+  newFolders: string[];
   newFiles: CreateFileInstruction[];
 };
 
 function executeCreateToolArgs(args: CreateToolArgs): CreatePlan {
+  const normalizedFolders: string[] = [];
   const normalizedFiles: CreateFileInstruction[] = [];
-  // Normalize folder path: trim, normalize slashes, remove leading/trailing slashes
-  const trimmedFolder = (args.folder ?? '/').trim();
-  const folder = trimmedFolder.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+
+  for (const folderPath of args.newFolders) {
+    const normalizedFolder = normalizePath(folderPath.trim()).replace(/^\/+|\/+$/g, '');
+    if (!normalizedFolder) {
+      continue;
+    }
+    normalizedFolders.push(normalizedFolder);
+  }
 
   for (const file of args.newFiles) {
-    const fileName = file.fileName.trim();
+    const filePath = normalizePath(file.filePath.trim()).replace(/^\/+/g, '');
+    if (!filePath) {
+      continue;
+    }
 
     normalizedFiles.push({
-      fileName,
+      filePath,
       content: file.content && file.content.trim().length > 0 ? file.content : undefined,
     });
   }
 
   return {
-    folder,
+    newFolders: normalizedFolders,
     newFiles: normalizedFiles,
   };
 }
@@ -87,9 +108,12 @@ export class VaultCreate {
   constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: CreateToolArgs): string[] {
-    const paths: string[] = [normalizePath(input.folder)];
-    for (const file of input.newFiles) {
-      paths.push(normalizePath(`${input.folder}/${file.fileName}`));
+    const paths: string[] = [];
+    for (const folderPath of input.newFolders ?? []) {
+      paths.push(normalizePath(folderPath));
+    }
+    for (const file of input.newFiles ?? []) {
+      paths.push(normalizePath(file.filePath));
     }
     return paths;
   }
@@ -101,29 +125,65 @@ export class VaultCreate {
    * Execute the create plan
    */
   private async executePlan(params: { plan: CreatePlan }): Promise<{
-    createdFiles: string[];
-    createdFileLinks: string[];
+    createdPaths: string[];
     errors: string[];
   }> {
+    const createdFolders: string[] = [];
     const createdFiles: string[] = [];
-    const createdFileLinks: string[] = [];
     const errors: string[] = [];
     const { plan } = params;
 
-    // Ensure folder exists
-    await this.agent.obsidianAPITools.ensureFolderExists(plan.folder);
-
-    for (const file of plan.newFiles) {
-      if (!file.fileName) {
-        errors.push('File name is missing');
+    for (const folderPath of plan.newFolders) {
+      if (!folderPath) {
+        errors.push('Folder path is missing');
         continue;
       }
 
-      // Build full path: folder/fileName
-      const newFilePath = normalizePath(`${plan.folder}/${file.fileName}`);
+      try {
+        const existed = Boolean(this.agent.app.vault.getFolderByPath(folderPath));
+        await this.agent.obsidianAPITools.ensureFolderExists(folderPath);
+        if (!existed) {
+          createdFolders.push(folderPath);
+        }
+      } catch (createFolderError) {
+        const message =
+          createFolderError instanceof Error
+            ? createFolderError.message
+            : 'Unknown error while creating the folder';
+        errors.push(`Failed to create ${folderPath}: ${message}`);
+      }
+    }
+
+    for (const file of plan.newFiles) {
+      if (!file.filePath) {
+        errors.push('File path is missing');
+        continue;
+      }
+
+      const newFilePath = normalizePath(file.filePath);
+      const segments = newFilePath.split('/').filter(Boolean);
+      const parentFolder =
+        segments.length > 1 ? normalizePath(segments.slice(0, segments.length - 1).join('/')) : '';
+
+      if (parentFolder) {
+        try {
+          const existed = Boolean(this.agent.app.vault.getFolderByPath(parentFolder));
+          await this.agent.obsidianAPITools.ensureFolderExists(parentFolder);
+          if (!existed && !createdFolders.includes(parentFolder)) {
+            createdFolders.push(parentFolder);
+          }
+        } catch (createFolderError) {
+          const message =
+            createFolderError instanceof Error
+              ? createFolderError.message
+              : 'Unknown error while creating the folder';
+          errors.push(`Failed to create ${parentFolder}: ${message}`);
+          continue;
+        }
+      }
 
       // Validate YAML content for .base files
-      if (file.fileName.endsWith('.base') && file.content) {
+      if (file.filePath.endsWith('.base') && file.content) {
         try {
           parseYaml(file.content);
         } catch (yamlError) {
@@ -136,7 +196,6 @@ export class VaultCreate {
       try {
         await this.agent.app.vault.create(newFilePath, '');
         createdFiles.push(newFilePath);
-        createdFileLinks.push(`[[${newFilePath}]]`);
 
         if (file.content) {
           const vaultFile = this.agent.app.vault.getFileByPath(newFilePath);
@@ -156,8 +215,7 @@ export class VaultCreate {
     }
 
     return {
-      createdFiles,
-      createdFileLinks,
+      createdPaths: [...createdFolders, ...createdFiles],
       errors,
     };
   }
@@ -170,10 +228,11 @@ export class VaultCreate {
     options: {
       toolCall: ToolCallPart<CreateToolArgs>;
       toolContentStreamInfo?: ToolContentStreamInfo;
+      continueFromNextTool?: () => Promise<AgentResult>;
     }
   ): Promise<AgentResult> {
     const { title, lang, handlerId, intent } = params;
-    const { toolCall, toolContentStreamInfo } = options;
+    const { toolCall, toolContentStreamInfo, continueFromNextTool } = options;
     const t = getTranslation(lang);
 
     if (!handlerId) {
@@ -182,14 +241,14 @@ export class VaultCreate {
 
     const plan = executeCreateToolArgs(toolCall.input);
 
-    if (plan.newFiles.length === 0) {
+    if (plan.newFolders.length === 0 && plan.newFiles.length === 0) {
       if (toolContentStreamInfo) {
         await this.agent.deleteTempStreamFile(toolContentStreamInfo.tempFilePath);
       }
 
       await this.agent.renderer.updateConversationNote({
         path: title,
-        newContent: '*No files were specified for creation*',
+        newContent: `*${t('create.noTargets')}*`,
         role: 'Steward',
         command: 'vault_create',
         lang,
@@ -199,7 +258,7 @@ export class VaultCreate {
 
       return {
         status: IntentResultStatus.ERROR,
-        error: new Error('No files specified for creation'),
+        error: new Error(t('create.noTargets')),
       };
     }
 
@@ -215,12 +274,14 @@ export class VaultCreate {
     }
 
     if (!intent?.no_confirm) {
-      let message = `${t('create.confirmMessage', { count: plan.newFiles.length })}\n`;
-      message += `\n*Folder:* \`${plan.folder}\`\n`;
+      const totalItems = plan.newFolders.length + plan.newFiles.length;
+      let message = `${t('create.confirmMessage', { count: totalItems })}\n`;
 
+      for (const folderPath of plan.newFolders) {
+        message += `- \`${folderPath}\`\n`;
+      }
       for (const file of plan.newFiles) {
-        const fullPath = normalizePath(`${plan.folder}/${file.fileName}`);
-        message += `- \`${fullPath}\`\n`;
+        message += `- \`${normalizePath(file.filePath)}\`\n`;
       }
 
       message += `\n${t('create.confirmPrompt')}`;
@@ -246,12 +307,21 @@ export class VaultCreate {
             toolCall,
           });
 
+          if (continueFromNextTool) {
+            return continueFromNextTool();
+          }
+
           return {
             status: IntentResultStatus.SUCCESS,
           };
         },
         onRejection: async (_rejectionMessage: string) => {
           this.agent.commandProcessor.deleteNextPendingIntent(title);
+
+          if (continueFromNextTool) {
+            return continueFromNextTool();
+          }
+
           return {
             status: IntentResultStatus.SUCCESS,
           };
@@ -282,8 +352,7 @@ export class VaultCreate {
     handlerId: string;
     toolCall: ToolCallPart<CreateToolArgs>;
   }): Promise<{
-    createdFiles: string[];
-    createdFileLinks: string[];
+    createdPaths: string[];
     errors: string[];
   }> {
     const { title, plan, lang, handlerId, toolCall } = params;
@@ -291,11 +360,12 @@ export class VaultCreate {
 
     const creationResult = await this.executePlan({ plan });
 
-    if (creationResult.createdFiles.length > 0) {
+    if (creationResult.createdPaths.length > 0) {
+      const createdPathPreview = creationResult.createdPaths.map(path => `\`${path}\``).join(', ');
       const messageId = await this.agent.renderer.updateConversationNote({
         path: title,
-        newContent: t('create.creatingFile', {
-          fileName: creationResult.createdFileLinks.join(', '),
+        newContent: t('create.creatingPath', {
+          path: createdPathPreview,
         }),
         role: 'Steward',
         command: 'vault_create',
@@ -305,12 +375,9 @@ export class VaultCreate {
 
       if (messageId) {
         await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
-          text: `*${t('common.artifactCreated', {
-            type: ArtifactType.CREATED_NOTES,
-          })}*`,
           artifact: {
-            artifactType: ArtifactType.CREATED_NOTES,
-            paths: creationResult.createdFiles,
+            artifactType: ArtifactType.CREATED_PATHS,
+            paths: creationResult.createdPaths,
             createdAt: Date.now(),
           },
         });
@@ -318,10 +385,9 @@ export class VaultCreate {
     }
 
     let resultMessage = '';
-    if (creationResult.createdFiles.length > 0) {
+    if (creationResult.createdPaths.length > 0) {
       resultMessage = `*${t('create.success', {
-        count: creationResult.createdFiles.length,
-        fileName: creationResult.createdFiles.join(', '),
+        count: creationResult.createdPaths.length,
       })}*`;
     }
 
@@ -350,9 +416,11 @@ export class VaultCreate {
       ...toolCall,
       input: {
         ...toolCall.input,
-        newFiles: toolCall.input.newFiles.map(file => ({
+        newFiles: (toolCall.input.newFiles ?? []).map(file => ({
           ...file,
-          content: file.content ? t('create.contentOmitted') : undefined,
+          content: file.content
+            ? t('create.contentOmitted', { toolName: ToolName.CONTENT_READING })
+            : undefined,
         })),
       },
     };
@@ -368,7 +436,7 @@ export class VaultCreate {
           output: {
             type: 'json',
             value: {
-              createdFiles: creationResult.createdFiles,
+              createdPaths: creationResult.createdPaths,
               errors: creationResult.errors,
             },
           },
@@ -387,7 +455,7 @@ export class VaultCreate {
 
     for (const file of plan.newFiles) {
       if (!file.content) continue;
-      const fullPath = normalizePath(`${plan.folder}/${file.fileName}`);
+      const fullPath = normalizePath(file.filePath);
       const filePreview = `**File:** \`${fullPath}\`\n\n${file.content}`;
       preview += this.agent.plugin.noteContentService.formatCallout(
         filePreview,

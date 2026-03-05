@@ -7,7 +7,6 @@ const ja = {
       noRecentOperations: '最近の操作が見つかりませんでした。最初にコマンドを実行してください。',
       noToolCallFound: 'ツールコールが見つかりませんでした。',
       lowConfidenceConfirmation: 'このリクエストについては、十分に確信できません。続行しますか？',
-      artifactCreated: 'アーティファクト {{type}} が作成されました',
       artifactNotFound: 'アーティファクト ID "{{artifactId}}" が見つかりませんでした。',
       noArtifactsFound: 'アーティファクトが見つかりませんでした。',
       availableCommands: '利用可能なコマンド',
@@ -138,17 +137,21 @@ const ja = {
       unknownError: '不明なエラーが発生しました。',
     },
     create: {
-      success: '{{count}}件のファイルを作成しました: {{fileNames}}',
-      creatingFile: 'ファイルを作成中: {{fileName}}',
+      success: '{{count}}件の項目を作成しました。',
+      creatingPath: '作成中: {{path}}',
+      confirmMessage: '以下のパスを作成します:',
+      confirmPrompt: '続行しますか？',
       errors: 'エラー:',
-      contentOmitted: 'ファイルに内容を書き込みました。必要に応じてreadツールで確認してください。',
+      noTargets: '作成するフォルダパスまたはファイルパスが指定されていません。',
+      contentOmitted:
+        'トークン節約のため内容は省略されています。必要に応じて{{toolName}}ツールで確認してください。',
     },
     list: {
-      noFilesFound: 'ファイルは見つかりませんでした。',
-      noFilesFoundInFolder: '{{folder}} ではファイルが見つかりませんでした。',
-      foundFiles: '{{count}} 件のファイルを見つけました',
-      foundFilesInFolder: '{{folder}} で {{count}} 件のファイルを見つけました',
-      moreFiles: '... さらに {{count}} 件のファイルがあります',
+      noItemsFound: '項目は見つかりませんでした。',
+      noItemsFoundInFolder: '{{folder}} では項目が見つかりませんでした。',
+      foundItems: '{{count}} 件の項目を見つけました',
+      foundItemsInFolder: '{{folder}} で {{count}} 件の項目を見つけました',
+      moreItems: '... さらに {{count}} 件の項目があります',
       fullListAvailableInArtifact:
         '完全なリストはアーティファクト ID: {{artifactId}} で利用可能です',
       fullListInArtifactUseFilePattern:

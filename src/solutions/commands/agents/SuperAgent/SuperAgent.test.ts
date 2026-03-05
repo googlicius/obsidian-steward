@@ -310,7 +310,7 @@ describe('SuperAgent', () => {
       expect(mockPlugin.artifactManagerV2.withTitle).toHaveBeenCalledWith('test-conversation');
       expect(mockGetMostRecentArtifactOfTypes).toHaveBeenCalledWith([
         ArtifactType.SEARCH_RESULTS,
-        ArtifactType.CREATED_NOTES,
+        ArtifactType.CREATED_PATHS,
         ArtifactType.LIST_RESULTS,
       ]);
     });

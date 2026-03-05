@@ -35,14 +35,6 @@ ${registry.generateToolsSection()}
 OTHER TOOLS (Inactive):
 ${registry.generateOtherToolsSection(
   'No other tools available.',
-  new Set([
-    ToolName.GREP,
-    ToolName.LIST,
-    ToolName.SEARCH,
-    ToolName.IMAGE,
-    ToolName.CONTENT_READING,
-    ToolName.TODO_LIST,
-  ]),
   new Set([ToolName.TODO_LIST_UPDATE, ToolName.SEARCH_MORE, ToolName.CONCLUDE])
 )}
 
@@ -51,7 +43,6 @@ ${registry.generateGuidelinesSection()}
 ${currentNote ? `\nCURRENT NOTE: ${currentNote} (Cursor position: ${currentPosition})` : ''}${todoListPrompt}${skillCatalogPrompt}
 
 NOTE:
-- Do NOT repeat the latest tool call result in your final response as it is already rendered in the UI.
 - Do NOT mention the tools you use to users. Work silently in the background and only communicate the results or outcomes.
 - Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`;
   }

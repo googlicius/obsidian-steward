@@ -58,7 +58,7 @@ describe('VaultList', () => {
 
       mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(mockFolder);
 
-      const result = await executeListTool({ folderPath: 'folder' }, null);
+      const result = await executeListTool({ folderPath: 'folder', itemType: 'both' }, null);
 
       expect(result.files).toEqual(['folder/file1.md', 'folder/file2.txt', 'folder/image.png']);
       expect(result.errors).toBeUndefined();
@@ -90,7 +90,7 @@ describe('VaultList', () => {
 
       mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(mockFolder);
 
-      const result = await executeListTool({ folderPath: 'vehicles' }, null);
+      const result = await executeListTool({ folderPath: 'vehicles', itemType: 'both' }, null);
 
       expect(result.files).toEqual(['vehicles/cars/', 'vehicles/note1.md', 'vehicles/note2.md']);
       expect(result.files).not.toContain('vehicles/cars/sedan.md');
@@ -125,6 +125,7 @@ describe('VaultList', () => {
         {
           folderPath: 'folder',
           filePattern: `\\.(${IMAGE_EXTENSIONS.join('|')})$`,
+          itemType: 'both',
         },
         null
       );
@@ -162,7 +163,7 @@ describe('VaultList', () => {
 
       // Pattern to match files containing "test" or "demo"
       const result = await executeListTool(
-        { folderPath: 'folder', filePattern: '(test|demo)' },
+        { folderPath: 'folder', filePattern: '(test|demo)', itemType: 'both' },
         null
       );
 
@@ -180,7 +181,10 @@ describe('VaultList', () => {
       mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(mockFolder);
 
       // Invalid regex pattern: unclosed bracket
-      const result = await executeListTool({ folderPath: 'folder', filePattern: '[invalid' }, null);
+      const result = await executeListTool(
+        { folderPath: 'folder', filePattern: '[invalid', itemType: 'both' },
+        null
+      );
 
       expect(result.files).toEqual([]);
       expect(result.errors).toBeDefined();
@@ -192,7 +196,10 @@ describe('VaultList', () => {
     it('should return error when folder does not exist', async () => {
       mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(null);
 
-      const result = await executeListTool({ folderPath: 'non-existent-folder' }, null);
+      const result = await executeListTool(
+        { folderPath: 'non-existent-folder', itemType: 'both' },
+        null
+      );
 
       expect(result.files).toEqual([]);
       expect(result.errors).toEqual(['Folder not found: non-existent-folder']);
@@ -213,7 +220,7 @@ describe('VaultList', () => {
 
       mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(mockRootFolder);
 
-      const result = await executeListTool({ folderPath: '' }, null);
+      const result = await executeListTool({ folderPath: '', itemType: 'both' }, null);
 
       expect(result.files).toEqual(['root-file1.md']);
       expect(result.errors).toBeUndefined();
@@ -234,11 +241,80 @@ describe('VaultList', () => {
 
       mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(mockRootFolder);
 
-      const result = await executeListTool({ folderPath: '/' }, null);
+      const result = await executeListTool({ folderPath: '/', itemType: 'both' }, null);
 
       expect(result.files).toEqual(['root-file1.md']);
       expect(result.errors).toBeUndefined();
       expect(mockPlugin.app.vault.getFolderByPath).toHaveBeenCalledWith('/');
+    });
+
+    it('should list only files when itemType is files', async () => {
+      const note = getInstance(TFile, {
+        path: 'vehicles/note1.md',
+        name: 'note1.md',
+      });
+      const subFolder = getInstance(TFolder, {
+        path: 'vehicles/cars',
+        name: 'cars',
+        children: [],
+      });
+      const mockFolder = getInstance(TFolder, {
+        path: 'vehicles',
+        children: [subFolder, note],
+      });
+
+      mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(mockFolder);
+
+      const result = await executeListTool({ folderPath: 'vehicles', itemType: 'files' }, null);
+
+      expect(result.files).toEqual(['vehicles/note1.md']);
+      expect(result.errors).toBeUndefined();
+    });
+
+    it('should list only folders when itemType is folders', async () => {
+      const note = getInstance(TFile, {
+        path: 'vehicles/note1.md',
+        name: 'note1.md',
+      });
+      const subFolder = getInstance(TFolder, {
+        path: 'vehicles/cars',
+        name: 'cars',
+        children: [],
+      });
+      const mockFolder = getInstance(TFolder, {
+        path: 'vehicles',
+        children: [subFolder, note],
+      });
+
+      mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(mockFolder);
+
+      const result = await executeListTool({ folderPath: 'vehicles', itemType: 'folders' }, null);
+
+      expect(result.files).toEqual(['vehicles/cars/']);
+      expect(result.errors).toBeUndefined();
+    });
+
+    it('should list files and folders when itemType is both', async () => {
+      const note = getInstance(TFile, {
+        path: 'vehicles/note1.md',
+        name: 'note1.md',
+      });
+      const subFolder = getInstance(TFolder, {
+        path: 'vehicles/cars',
+        name: 'cars',
+        children: [],
+      });
+      const mockFolder = getInstance(TFolder, {
+        path: 'vehicles',
+        children: [subFolder, note],
+      });
+
+      mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(mockFolder);
+
+      const result = await executeListTool({ folderPath: 'vehicles', itemType: 'both' }, null);
+
+      expect(result.files).toEqual(['vehicles/cars/', 'vehicles/note1.md']);
+      expect(result.errors).toBeUndefined();
     });
   });
 });

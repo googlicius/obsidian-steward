@@ -5,19 +5,16 @@ import type { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ToolName } from '../../ToolRegistry';
 import { getTranslation } from 'src/i18n';
-import {
-  SubagentSpawnService,
-  type SpawnSubagentJob,
-  type SubagentRunResult,
-} from 'src/services/SubagentSpawnService';
+import { type SpawnSubagentJob } from 'src/services/SubagentSpawnService';
 import { DEFAULT_AGENT_CONFIGS } from '../defaultAgents';
 
 const spawnSubagentSchema = z.object({
   jobs: z
     .array(
       z.object({
-        query: z.string().min(1),
+        task: z.string().min(1),
         tools: z.array(z.string()).optional(),
+        inactiveTools: z.array(z.string()).optional(),
         systemPrompts: z.array(z.string()).optional(),
       })
     )
@@ -28,7 +25,7 @@ export type SpawnSubagentArgs = z.infer<typeof spawnSubagentSchema>;
 
 interface SpawnRunState {
   childTitle: string;
-  query: string;
+  task: string;
   status: 'queued' | 'running' | 'done' | 'failed';
   summary?: string;
   error?: string;
@@ -117,57 +114,51 @@ export class SpawnSubagent {
     }
 
     const normalizedJobs: SpawnSubagentJob[] = toolCall.input.jobs.map(job => ({
-      query: job.query,
+      task: job.task,
       tools: job.tools as ToolName[] | undefined,
+      inactiveTools: job.inactiveTools as ToolName[] | undefined,
       systemPrompts: job.systemPrompts,
     }));
 
-    const spawnService = new SubagentSpawnService(this.agent.plugin);
-    await this.agent.renderer.addGeneratingIndicator(title, t('conversation.planning'));
+    await this.agent.renderer.addGeneratingIndicator(title, t('conversation.working'));
 
-    let runs: SubagentRunResult[] = [];
-    try {
-      runs = await spawnService.runJobs({
-        parentTitle: title,
-        jobs: normalizedJobs,
-        lang,
-        handlerId,
-        step: params.invocationCount,
-        defaultTools: (parentConfig.subagentTools || []) as ToolName[],
-        defaultSystemPrompts: parentConfig.subagentSystemPrompts || [],
-        onStatus: async (status, patch) => {
-          if (status === 'running') {
-            if (patch?.childTitle) {
-              const subagentEmbed = this.agent.plugin.noteContentService.formatCallout(
-                `![[${patch.childTitle}]]`,
-                'stw-edit-preview',
-                { streaming: 'true' }
-              );
-              await this.agent.renderer.updateConversationNote({
-                path: title,
-                newContent: subagentEmbed,
-                lang,
-                handlerId,
-                includeHistory: false,
-              });
-            }
-
-            await this.agent.renderer.addGeneratingIndicator(title, t('conversation.working'));
+    const runs = await this.agent.plugin.subAgentSpawnService.runJobs({
+      parentTitle: title,
+      jobs: normalizedJobs,
+      lang,
+      handlerId,
+      step: params.invocationCount,
+      defaultTools: (parentConfig.subagentTools || []) as ToolName[],
+      defaultSystemPrompts: parentConfig.subagentSystemPrompts || [],
+      onStatus: async (status, patch) => {
+        if (status === 'running') {
+          if (patch?.childTitle) {
+            const subagentEmbed = this.agent.plugin.noteContentService.formatCallout(
+              `![[${patch.childTitle}]]`,
+              'stw-edit-preview',
+              { streaming: 'true' }
+            );
+            await this.agent.renderer.updateConversationNote({
+              path: title,
+              newContent: subagentEmbed,
+              lang,
+              handlerId,
+              includeHistory: false,
+            });
           }
 
-          await this.updateRunState(title, {
-            childTitle: patch?.childTitle || '',
-            query: patch?.query || '',
-            status,
-            summary: patch?.summary,
-            error: patch?.error,
-          });
-        },
-      });
-    } finally {
-      await this.agent.renderer.addGeneratingIndicator(title, t('conversation.updating'));
-      await this.agent.renderer.removeIndicator(title);
-    }
+          await this.agent.renderer.addGeneratingIndicator(title, t('conversation.working'));
+        }
+
+        await this.updateRunState(title, {
+          childTitle: patch?.childTitle || '',
+          task: patch?.task || '',
+          status,
+          summary: patch?.summary,
+          error: patch?.error,
+        });
+      },
+    });
 
     const succeeded = runs.filter(run => run.status === 'done');
     const failed = runs.filter(run => run.status === 'failed');
@@ -186,7 +177,7 @@ export class SpawnSubagent {
           failed: failed.length,
           runs: runs.map(run => ({
             childTitle: run.childTitle,
-            query: run.query,
+            task: run.task,
             status: run.status,
             summary: run.summary,
             error: run.error,

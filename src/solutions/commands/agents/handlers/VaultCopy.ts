@@ -235,7 +235,7 @@ export class VaultCopy {
         for (const result of artifact.originalResults) {
           docs.push({ path: result.document.path });
         }
-      } else if (artifact.artifactType === ArtifactType.CREATED_NOTES) {
+      } else if (artifact.artifactType === ArtifactType.CREATED_PATHS) {
         for (const path of artifact.paths) {
           docs.push({ path });
         }
