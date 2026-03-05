@@ -124,6 +124,7 @@ export class SpawnSubagent {
 
     const runs = await this.agent.plugin.subAgentSpawnService.runJobs({
       parentTitle: title,
+      parentAgentId,
       jobs: normalizedJobs,
       lang,
       handlerId,

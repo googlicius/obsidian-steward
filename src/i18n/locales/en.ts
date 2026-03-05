@@ -14,7 +14,6 @@ const en = {
       noArtifactsFound: 'No artifacts found.',
       cannotUpdateThisType:
         'Cannot update this type of artifact. Only search results, created notes, read content, and content updates can be updated.',
-      availableCommands: 'Available commands',
       builtInCommands: 'Built-in commands',
       builtInCommandsDesc: 'These commands are directly accessible via /&lt;command&gt',
       userDefinedCommands: 'User-Defined commands',

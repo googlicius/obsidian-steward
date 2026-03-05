@@ -68,6 +68,7 @@ export class SubagentSpawnService {
 
   public async runJobs(params: {
     parentTitle: string;
+    parentAgentId: string;
     jobs: SpawnSubagentJob[];
     lang?: string | null;
     handlerId: string;
@@ -108,6 +109,9 @@ export class SubagentSpawnService {
         job.task,
         params.lang || undefined
       );
+      await this.plugin.conversationRenderer.updateConversationFrontmatter(childTitle, [
+        { name: 'parent', value: params.parentAgentId },
+      ]);
 
       await params.onStatus?.('running', {
         childTitle,

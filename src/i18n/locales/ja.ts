@@ -9,7 +9,6 @@ const ja = {
       lowConfidenceConfirmation: 'このリクエストについては、十分に確信できません。続行しますか？',
       artifactNotFound: 'アーティファクト ID "{{artifactId}}" が見つかりませんでした。',
       noArtifactsFound: 'アーティファクトが見つかりませんでした。',
-      availableCommands: '利用可能なコマンド',
       builtInCommands: '組み込みコマンド',
       builtInCommandsDesc: 'これらのコマンドは /&lt;command&gt を通じて直接利用できます',
       userDefinedCommands: 'ユーザー定義コマンド',

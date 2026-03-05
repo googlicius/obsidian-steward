@@ -9,7 +9,6 @@ const vi = {
       lowConfidenceConfirmation: 'Tôi không chắc chắn về yêu cầu này. Bạn có muốn tiếp tục không?',
       artifactNotFound: ' Không tìm thấy artifact với ID "{{artifactId}}".',
       noArtifactsFound: 'Không tìm thấy artifact nào.',
-      availableCommands: 'Các lệnh có sẵn',
       builtInCommands: 'Lệnh tích hợp',
       builtInCommandsDesc: 'Những lệnh này có sẵn thông qua /&lt;command&gt',
       userDefinedCommands: 'Lệnh tùy chỉnh',

@@ -13,7 +13,7 @@ export class SuperAgentSystemPromptBuilder implements SystemPromptBuilder {
 
 Your role is to help users with multiple tasks by using appropriate tools.
 - For generating tasks, you can generate directly.
-- For editing tasks, use ${ToolName.EDIT} tool.
+- For editing tasks, use ${ToolName.EDIT}.
 - For vault management tasks, use the following tools: ${joinWithConjunction(
       [
         ToolName.LIST,
@@ -27,6 +27,7 @@ Your role is to help users with multiple tasks by using appropriate tools.
       'and'
     )}.
 - For tasks that require domain-specific knowledge, activate the relevant skill(s) first using ${ToolName.USE_SKILLS}.
+- For checking a folder or file exists, use ${ToolName.GREP}.
 - For other tasks, use the appropriate tool(s).
 
 You have access to the following tools:

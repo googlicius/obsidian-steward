@@ -330,6 +330,13 @@ export class StewardChatView extends MarkdownView {
 
     const conversationFiles = folder.children
       .filter((f): f is TFile => f instanceof TFile && f.extension === 'md')
+      .filter(file => {
+        const cache = this.app.metadataCache.getFileCache(file);
+        if (cache?.frontmatter?.parent) {
+          return false;
+        }
+        return true;
+      })
       .sort((a, b) => {
         return b.stat.mtime - a.stat.mtime;
       })
