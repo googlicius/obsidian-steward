@@ -112,7 +112,9 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
       activeSkillNames: params.activeSkills || [],
     });
 
-    const additionalSystemPrompts = params.intent.systemPrompts ? [...params.intent.systemPrompts] : [];
+    const additionalSystemPrompts = params.intent.systemPrompts
+      ? [...params.intent.systemPrompts]
+      : [];
     if (llmConfig.systemPrompt) {
       additionalSystemPrompts.push(llmConfig.systemPrompt);
     }

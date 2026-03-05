@@ -39,7 +39,8 @@ const BASE_AGENT_TOOLS = {
   [ToolName.TODO_LIST_UPDATE]: handlers.TodoList.getTodoListUpdateTool(),
   [ToolName.USE_SKILLS]: handlers.UseSkills.getUseSkillsTool(),
   [ToolName.CONCLUDE]: handlers.Conclude.getConcludeTool(),
-  [ToolName.RECALL_COMPACTED_CONTEXT]: handlers.RecallCompactedContext.getRecallCompactedContextTool(),
+  [ToolName.RECALL_COMPACTED_CONTEXT]:
+    handlers.RecallCompactedContext.getRecallCompactedContextTool(),
 } as const;
 
 export const SUBAGENT_TOOLS = {

@@ -135,9 +135,9 @@ describe('AgentGenerateTextExecutor', () => {
       } as Intent,
     };
 
-    mockPlugin.skillService.getSkillCatalog = jest.fn().mockReturnValue([
-      { name: 'search-skill', description: 'Search effectively' },
-    ]);
+    mockPlugin.skillService.getSkillCatalog = jest
+      .fn()
+      .mockReturnValue([{ name: 'search-skill', description: 'Search effectively' }]);
     mockPlugin.skillService.getSkillContents = jest.fn().mockReturnValue({
       contents: {
         'search-skill': 'Use semantic + exact search',

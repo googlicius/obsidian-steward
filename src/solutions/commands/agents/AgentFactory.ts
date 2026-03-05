@@ -38,7 +38,7 @@ export function createAgentFromConfig(
       return new CompactionSummaryAgent(plugin);
     default: {
       const _exhaustive: never = config.factory;
-      throw new Error(`Unknown agent factory: ${(_exhaustive as string)}`);
+      throw new Error(`Unknown agent factory: ${_exhaustive as string}`);
     }
   }
 }

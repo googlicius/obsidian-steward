@@ -110,10 +110,7 @@ export class CompactionStore {
    * @param content The current file content (after deletion)
    * @returns True if data was changed and saved
    */
-  public async pruneDeletedMessages(
-    conversationTitle: string,
-    content: string
-  ): Promise<boolean> {
+  public async pruneDeletedMessages(conversationTitle: string, content: string): Promise<boolean> {
     const data = await this.load(conversationTitle);
     if (data.messages.length === 0) return false;
 
@@ -123,10 +120,7 @@ export class CompactionStore {
 
     if (data.messages.length === originalLength) return false;
 
-    if (
-      data.lastCompactedMessageId &&
-      !existingIds.has(data.lastCompactedMessageId)
-    ) {
+    if (data.lastCompactedMessageId && !existingIds.has(data.lastCompactedMessageId)) {
       const lastEntry = data.messages[data.messages.length - 1];
       data.lastCompactedMessageId = lastEntry?.messageId;
       data.lastCompactedStep = lastEntry?.type === 'message' ? lastEntry.step : undefined;

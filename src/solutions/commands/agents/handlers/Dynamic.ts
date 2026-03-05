@@ -22,7 +22,9 @@ export class Dynamic {
     return error instanceof NoSuchToolError;
   }
 
-  private isInvalidToolError(error: unknown): error is InvalidToolInputError | InvalidArgumentError {
+  private isInvalidToolError(
+    error: unknown
+  ): error is InvalidToolInputError | InvalidArgumentError {
     return error instanceof InvalidToolInputError || error instanceof InvalidArgumentError;
   }
 

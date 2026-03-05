@@ -152,7 +152,10 @@ describe('VaultCreate', () => {
       const toolCall = createToolCall({
         newFolders: [],
         newFiles: [
-          { filePath: 'notes/note1.md', content: 'This is a long note content that should be omitted' },
+          {
+            filePath: 'notes/note1.md',
+            content: 'This is a long note content that should be omitted',
+          },
         ],
       });
 
