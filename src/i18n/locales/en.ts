@@ -258,6 +258,11 @@ const en = {
       failed_one: 'Failed to revert {{count}} item:',
       failed_other: 'Failed to revert {{count}} items:',
       revertingArtifact: 'Reverting from artifact `{{artifactType}}`',
+      revertingLatestQuery: 'Reverting all operations from the latest user query',
+      noOperationsInLatestQuery: 'No revertable operations were found in the latest user query.',
+      latestQuerySummary:
+        'Reverted {{revertedArtifacts}} of {{totalArtifacts}} artifact operation(s) from the latest query.',
+      failedArtifactsHeader: 'Artifacts with remaining failures',
     },
     // Search result messages
     search: {

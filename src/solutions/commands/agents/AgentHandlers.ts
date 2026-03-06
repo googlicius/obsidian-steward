@@ -47,12 +47,7 @@ export class AgentHandlers {
   private _vaultUpdateFrontmatter: handlers.VaultUpdateFrontmatter;
   private _vaultGrep: handlers.VaultGrep;
   private _activateToolHandler: handlers.ActivateToolHandler;
-  private _revertDelete: handlers.RevertDelete;
-  private _revertMove: handlers.RevertMove;
-  private _revertFrontmatter: handlers.RevertFrontmatter;
-  private _revertRename: handlers.RevertRename;
-  private _revertCreate: handlers.RevertCreate;
-  private _revertEditResults: handlers.RevertEditResults;
+  private _revertLatestQuery: handlers.RevertLatestQuery;
   private _readContent: handlers.ReadContent;
   private _editHandler: handlers.EditHandler;
   private _userConfirm: handlers.UserConfirm;
@@ -127,38 +122,11 @@ export class AgentHandlers {
     return this._activateToolHandler;
   }
 
-  public get revertDelete(): handlers.RevertDelete {
-    if (!this._revertDelete) this._revertDelete = new handlers.RevertDelete(this.getAgent());
-    return this._revertDelete;
-  }
-
-  public get revertMove(): handlers.RevertMove {
-    if (!this._revertMove) this._revertMove = new handlers.RevertMove(this.getAgent());
-    return this._revertMove;
-  }
-
-  public get revertFrontmatter(): handlers.RevertFrontmatter {
-    if (!this._revertFrontmatter) {
-      this._revertFrontmatter = new handlers.RevertFrontmatter(this.getAgent());
+  public get revertLatestQuery(): handlers.RevertLatestQuery {
+    if (!this._revertLatestQuery) {
+      this._revertLatestQuery = new handlers.RevertLatestQuery(this.getAgent());
     }
-    return this._revertFrontmatter;
-  }
-
-  public get revertRename(): handlers.RevertRename {
-    if (!this._revertRename) this._revertRename = new handlers.RevertRename(this.getAgent());
-    return this._revertRename;
-  }
-
-  public get revertCreate(): handlers.RevertCreate {
-    if (!this._revertCreate) this._revertCreate = new handlers.RevertCreate(this.getAgent());
-    return this._revertCreate;
-  }
-
-  public get revertEditResults(): handlers.RevertEditResults {
-    if (!this._revertEditResults) {
-      this._revertEditResults = new handlers.RevertEditResults(this.getAgent());
-    }
-    return this._revertEditResults;
+    return this._revertLatestQuery;
   }
 
   public get readContent(): handlers.ReadContent {
@@ -289,12 +257,7 @@ export class AgentHandlers {
       [ToolName.MOVE]: () => this.vaultMove,
       [ToolName.UPDATE_FRONTMATTER]: () => this.vaultUpdateFrontmatter,
       [ToolName.GREP]: () => this.vaultGrep,
-      [ToolName.REVERT_DELETE]: () => this.revertDelete,
-      [ToolName.REVERT_MOVE]: () => this.revertMove,
-      [ToolName.REVERT_FRONTMATTER]: () => this.revertFrontmatter,
-      [ToolName.REVERT_RENAME]: () => this.revertRename,
-      [ToolName.REVERT_CREATE]: () => this.revertCreate,
-      [ToolName.REVERT_EDIT_RESULTS]: () => this.revertEditResults,
+      [ToolName.REVERT]: () => this.revertLatestQuery,
       [ToolName.USER_CONFIRM]: () => this.userConfirm,
       [ToolName.EDIT]: () => this.editHandler,
       [ToolName.STOP]: () => this.stop,

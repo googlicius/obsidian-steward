@@ -6,7 +6,7 @@ import { AgentHandlerParams, Intent, IntentResultStatus } from '../../types';
 import { ToolName } from '../../ToolRegistry';
 import { ArtifactType } from 'src/solutions/artifact';
 import { VaultDelete } from '../handlers/VaultDelete';
-import { RevertDelete } from '../handlers/RevertDelete';
+import { RevertLatestQuery } from '../handlers/RevertLatestQuery';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { getClassifier } from 'src/lib/modelfusion';
 import * as handlers from '../handlers';
@@ -364,34 +364,19 @@ describe('SuperAgent', () => {
 
   describe('handle - revert tasks', () => {
     it('should create manual tool call for revert when classificationMatchType is static', async () => {
-      const artifactId = 'artifact-123';
-      const mockArtifact = {
-        id: artifactId,
-        artifactType: ArtifactType.DELETED_FILES,
-        createdAt: Date.now(),
-      };
-
-      // Create a mock artifact manager that returns the artifact
-      const mockGetMostRecentArtifactOfTypes = jest.fn().mockResolvedValue(mockArtifact);
-      mockPlugin.artifactManagerV2.withTitle = jest.fn().mockReturnValue({
-        getMostRecentArtifactOfTypes: mockGetMostRecentArtifactOfTypes,
-        storeArtifact: jest.fn().mockResolvedValue('artifact-id-123'),
-        getArtifactById: jest.fn(),
-      });
-
-      // Mock RevertDelete.handle to return success
-      const mockRevertDeleteHandle = jest.fn().mockResolvedValue({
+      // Mock RevertLatestQuery.handle to return success
+      const mockRevertLatestQueryHandle = jest.fn().mockResolvedValue({
         status: IntentResultStatus.SUCCESS,
       });
 
-      // Access the private _revertDelete property and replace it with a mock
-      const mockRevertDelete = {
-        handle: mockRevertDeleteHandle,
-      } as unknown as RevertDelete;
+      // Access the private _revertLatestQuery property and replace it with a mock
+      const mockRevertLatestQuery = {
+        handle: mockRevertLatestQueryHandle,
+      } as unknown as RevertLatestQuery;
 
       // Use Object.defineProperty to set the private property
-      Object.defineProperty(superAgent, '_revertDelete', {
-        value: mockRevertDelete,
+      Object.defineProperty(superAgent, '_revertLatestQuery', {
+        value: mockRevertLatestQuery,
         writable: true,
         configurable: true,
       });
@@ -420,11 +405,10 @@ describe('SuperAgent', () => {
       // Should not call streamText because manual tool call was created
       expect(streamText).not.toHaveBeenCalled();
 
-      // Verify RevertDelete.handle was called with the correct manual tool call
-      expect(mockRevertDeleteHandle).toHaveBeenCalledTimes(1);
-      const revertCall = mockRevertDeleteHandle.mock.calls[0];
-      expect(revertCall[1].toolCall.toolName).toBe(ToolName.REVERT_DELETE);
-      expect(revertCall[1].toolCall.input.artifactId).toBe(artifactId);
+      // Verify RevertLatestQuery.handle was called with the correct manual tool call
+      expect(mockRevertLatestQueryHandle).toHaveBeenCalledTimes(1);
+      const revertCall = mockRevertLatestQueryHandle.mock.calls[0];
+      expect(revertCall[1].toolCall.toolName).toBe(ToolName.REVERT);
     });
 
     it('should have GET_MOST_RECENT_ARTIFACT, GET_ARTIFACT_BY_ID, and ACTIVATE tools active by default for revert tasks', async () => {
@@ -434,10 +418,10 @@ describe('SuperAgent', () => {
           type: 'revert',
           query: 'revert something',
         } as Intent,
-        // Set activeTools with a revert tool to ensure classifyTasksFromActiveTools classifies as 'revert'
+        // Set activeTools with revert to ensure classifyTasksFromActiveTools classifies as 'revert'
         // This will activate the default tools: GET_MOST_RECENT_ARTIFACT, GET_ARTIFACT_BY_ID
-        // Plus ACTIVATE tool, and the revert tool itself will also be active
-        activeTools: [ToolName.REVERT_DELETE],
+        // Plus ACTIVATE tool, and revert itself will also be active
+        activeTools: [ToolName.REVERT],
         invocationCount: 1,
       };
 
@@ -450,7 +434,7 @@ describe('SuperAgent', () => {
       // When classifiedTasks includes 'revert', default tools are activated:
       // GET_MOST_RECENT_ARTIFACT, GET_ARTIFACT_BY_ID
       // Plus ACTIVATE tool
-      // Plus the revert tool from activeTools (REVERT_DELETE)
+      // Plus the revert tool from activeTools (REVERT)
       expect(toolsObject).toBeDefined();
 
       // Verify default tools are active
@@ -459,13 +443,7 @@ describe('SuperAgent', () => {
       expect(toolsObject[ToolName.ACTIVATE]).toBeDefined();
 
       // The revert tool from activeTools is also active
-      expect(toolsObject[ToolName.REVERT_DELETE]).toBeDefined();
-
-      // Verify other revert tools are NOT active (they need to be activated via ACTIVATE tool)
-      expect(toolsObject[ToolName.REVERT_MOVE]).toBeUndefined();
-      expect(toolsObject[ToolName.REVERT_CREATE]).toBeUndefined();
-      expect(toolsObject[ToolName.REVERT_FRONTMATTER]).toBeUndefined();
-      expect(toolsObject[ToolName.REVERT_RENAME]).toBeUndefined();
+      expect(toolsObject[ToolName.REVERT]).toBeDefined();
     });
 
     it('should not create manual tool call for multi-word query', async () => {

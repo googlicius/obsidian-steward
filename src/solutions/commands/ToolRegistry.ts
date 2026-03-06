@@ -263,51 +263,13 @@ NOTE:
     category: 'tool-management',
   },
 
-  [ToolName.REVERT_DELETE]: {
-    name: ToolName.REVERT_DELETE,
+  [ToolName.REVERT]: {
+    name: ToolName.REVERT,
     description:
-      'Revert deleted files by restoring them from the trash folder to their original locations.',
+      'Revert all revertable operations produced by the latest user query, including subagents.',
     guidelines: [
-      `Use ${ToolName.REVERT_DELETE} to restore files that were previously deleted.`,
-      `Specify the artifactId containing deleted files to restore, or provide specific trash file paths.`,
-      `Files will be restored to their original paths as recorded in the trash metadata.`,
+      `Use ${ToolName.REVERT} to undo the latest user query end-to-end in reverse chronological order.`,
     ],
-    category: 'vault-access',
-  },
-
-  [ToolName.REVERT_MOVE]: {
-    name: ToolName.REVERT_MOVE,
-    description: 'Revert move operations by moving files back to their original locations.',
-    guidelines: [`Use ${ToolName.REVERT_MOVE} to undo file move operations.`],
-    category: 'vault-access',
-  },
-
-  [ToolName.REVERT_FRONTMATTER]: {
-    name: ToolName.REVERT_FRONTMATTER,
-    description: 'Revert frontmatter updates by restoring original frontmatter properties.',
-    guidelines: [`Use ${ToolName.REVERT_FRONTMATTER} to undo frontmatter property changes.`],
-    category: 'vault-access',
-  },
-
-  [ToolName.REVERT_RENAME]: {
-    name: ToolName.REVERT_RENAME,
-    description: 'Revert rename operations by renaming files back to their original names.',
-    guidelines: [`Use ${ToolName.REVERT_RENAME} to undo file rename operations.`],
-    category: 'vault-access',
-  },
-
-  [ToolName.REVERT_CREATE]: {
-    name: ToolName.REVERT_CREATE,
-    description: 'Revert create operations by deleting files that were previously created.',
-    guidelines: [`Use ${ToolName.REVERT_CREATE} to undo file creation operations.`],
-    category: 'vault-access',
-  },
-
-  [ToolName.REVERT_EDIT_RESULTS]: {
-    name: ToolName.REVERT_EDIT_RESULTS,
-    description:
-      'Revert edit operations by restoring original content that was previously modified.',
-    guidelines: [`Use ${ToolName.REVERT_EDIT_RESULTS} to undo content edit operations.`],
     category: 'vault-access',
   },
 

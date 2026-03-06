@@ -200,6 +200,12 @@ const vi = {
       successfullyReverted: 'Đã hoàn tác thành công {{count}} mục',
       failed: 'Không thể hoàn tác {{count}} mục:',
       revertingArtifact: 'Đang hoàn tác từ artifact `{{artifactType}}`',
+      revertingLatestQuery: 'Đang hoàn tác toàn bộ thao tác từ truy vấn người dùng gần nhất',
+      noOperationsInLatestQuery:
+        'Không tìm thấy thao tác nào có thể hoàn tác trong truy vấn người dùng gần nhất.',
+      latestQuerySummary:
+        'Đã hoàn tác {{revertedArtifacts}} trên tổng số {{totalArtifacts}} thao tác artifact của truy vấn gần nhất.',
+      failedArtifactsHeader: 'Các artifact vẫn còn lỗi',
     },
     // Search result messages
     search: {

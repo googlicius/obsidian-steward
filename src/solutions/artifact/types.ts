@@ -40,7 +40,8 @@ export const revertAbleArtifactTypes = [
 export interface BaseArtifact {
   artifactType: ArtifactType;
   createdAt?: number; // Timestamp when the artifact was created
-  id?: string; // ID of the artifact (usually the message ID that created it)
+  id?: string; // Logical artifact ID (can differ from message ID)
+  messageId?: string; // STW message ID that contains this artifact
   deleteReason?: string;
 }
 

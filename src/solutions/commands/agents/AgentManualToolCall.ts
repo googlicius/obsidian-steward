@@ -94,46 +94,14 @@ export class AgentManualToolCall {
       case 'revert': {
         // Handle revert tool manual calls for static cluster: revert
         if (classificationMatchType === 'static') {
-          // Get the most recent artifact from types created by VaultAgent
-          const artifactTypes = [
-            ArtifactType.MOVE_RESULTS,
-            ArtifactType.CREATED_PATHS,
-            ArtifactType.DELETED_FILES,
-            ArtifactType.UPDATE_FRONTMATTER_RESULTS,
-            ArtifactType.RENAME_RESULTS,
-            ArtifactType.EDIT_RESULTS,
-          ];
-
-          const artifact = await agent.plugin.artifactManagerV2
-            .withTitle(title)
-            .getMostRecentArtifactOfTypes(artifactTypes);
-
-          if (artifact?.id) {
-            // Map artifact type to the appropriate revert tool
-            const artifactTypeToToolMap: Partial<Record<ArtifactType, ToolName>> = {
-              [ArtifactType.MOVE_RESULTS]: ToolName.REVERT_MOVE,
-              [ArtifactType.CREATED_PATHS]: ToolName.REVERT_CREATE,
-              [ArtifactType.DELETED_FILES]: ToolName.REVERT_DELETE,
-              [ArtifactType.UPDATE_FRONTMATTER_RESULTS]: ToolName.REVERT_FRONTMATTER,
-              [ArtifactType.RENAME_RESULTS]: ToolName.REVERT_RENAME,
-              [ArtifactType.EDIT_RESULTS]: ToolName.REVERT_EDIT_RESULTS,
-            };
-
-            const toolName = artifactTypeToToolMap[artifact.artifactType];
-            if (toolName) {
-              return {
-                type: 'tool-call',
-                toolName,
-                toolCallId: `manual-tool-call-${uniqueID()}`,
-                input: {
-                  artifactId: artifact.id,
-                  explanation: t('revert.revertingArtifact', {
-                    artifactType: artifact.artifactType,
-                  }),
-                },
-              };
-            }
-          }
+          return {
+            type: 'tool-call',
+            toolName: ToolName.REVERT,
+            toolCallId: `manual-tool-call-${uniqueID()}`,
+            input: {
+              explanation: t('revert.revertingLatestQuery'),
+            },
+          };
         }
         return undefined;
       }

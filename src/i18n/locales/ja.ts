@@ -204,6 +204,12 @@ const ja = {
       successfullyReverted: '{{count}}件のファイルを元に戻しました',
       failed: '{{count}}件のファイルの元に戻しに失敗しました：',
       revertingArtifact: '`{{artifactType}}`から元に戻しています',
+      revertingLatestQuery: '最新のユーザークエリで行った操作を元に戻しています',
+      noOperationsInLatestQuery:
+        '最新のユーザークエリで元に戻せる操作が見つかりませんでした。',
+      latestQuerySummary:
+        '最新クエリのアーティファクト操作 {{totalArtifacts}} 件中 {{revertedArtifacts}} 件を元に戻しました。',
+      failedArtifactsHeader: '一部失敗が残っているアーティファクト',
     },
     // Search result messages
     search: {
