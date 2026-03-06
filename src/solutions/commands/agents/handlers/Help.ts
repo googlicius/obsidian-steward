@@ -85,12 +85,13 @@ export class Help {
       content += `\n### ${t('skills.skills')}\n\n`;
 
       // List loaded skills from the vault
-      const loadedSkills = this.agent.plugin.skillService.skills;
-      if (loadedSkills.size > 0) {
-        for (const [skillName, skill] of loadedSkills.entries()) {
+      const loadedSkills = this.agent.plugin.skillService.getAllSkills();
+      if (loadedSkills.length > 0) {
+        for (const skill of loadedSkills) {
           const file = this.agent.app.vault.getFileByPath(skill.filePath);
           const fileName = file ? file.basename : skill.filePath;
-          content += `- \`${skillName}\` - [[${skill.filePath}|${fileName}]]\n`;
+          const disabledLabel = skill.enabled ? '' : ` ${t('common.disabledMark')}`;
+          content += `- \`${skill.name}\`${disabledLabel} - [[${skill.filePath}|${fileName}]]\n`;
         }
       } else {
         content += `*${t('skills.noSkills')}*\n`;
@@ -98,12 +99,13 @@ export class Help {
 
       // Add defined rules section
       content += `\n### ${t('guardrails.rules')}\n\n`;
-      const rules = this.agent.plugin.guardrailsRuleService.getRules();
+      const rules = this.agent.plugin.guardrailsRuleService.getAllRules();
       if (rules.length > 0) {
         for (const rule of rules) {
           const file = this.agent.app.vault.getFileByPath(rule.path);
           if (file) {
-            content += `- \`${rule.name}\` - [[${file.basename}]]\n`;
+            const disabledLabel = rule.enabled === false ? ` ${t('common.disabledMark')}` : '';
+            content += `- \`${rule.name}\`${disabledLabel} - [[${file.basename}]]\n`;
           }
         }
       } else {

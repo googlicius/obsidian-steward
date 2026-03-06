@@ -19,6 +19,7 @@ const vi = {
       searchDesc: 'Tìm kiếm ghi chú trong kho lưu trữ của bạn',
       imageDesc: 'Tạo hình ảnh',
       speechDesc: 'Tạo giọng nói từ văn bản',
+      disabledMark: '(đã tắt)',
       cannotDeleteThisType: 'Không thể xóa loại artifact này: {{type}}',
       cannotRevertThisType: 'Không thể hoàn nguyên loại artifact này: {{type}}',
       thisNote: 'ghi chú này',

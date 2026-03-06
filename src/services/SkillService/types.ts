@@ -10,6 +10,8 @@ export interface Skill {
   content: string;
   /** Source file path in the vault */
   filePath: string;
+  /** Whether the skill is enabled */
+  enabled: boolean;
 }
 
 /**

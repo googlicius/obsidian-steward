@@ -19,6 +19,7 @@ const ja = {
       searchDesc: 'ノートを検索する',
       imageDesc: '画像を生成する',
       speechDesc: 'テキストから音声を生成する',
+      disabledMark: '（無効）',
       cannotDeleteThisType: 'この種類のアーティファクトは削除できません: {{type}}',
       cannotRevertThisType: 'この種類のアーティファクトは元に戻せません: {{type}}',
       thisNote: 'このノート',

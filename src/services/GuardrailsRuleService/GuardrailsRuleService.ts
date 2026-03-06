@@ -227,6 +227,10 @@ export class GuardrailsRuleService {
     return this.rules.filter(r => r.enabled !== false);
   }
 
+  public getAllRules(): GuardrailsRule[] {
+    return [...this.rules];
+  }
+
   public getRulesForTool(toolName: ToolName): GuardrailsRule[] {
     const actions = TOOL_TO_ACTIONS[toolName];
     if (!actions) return [];

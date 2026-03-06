@@ -24,6 +24,7 @@ const en = {
       searchDesc: 'Search for notes in your vault',
       imageDesc: 'Generate images',
       speechDesc: 'Generate speech from text',
+      disabledMark: '(disabled)',
       cannotDeleteThisType: 'Cannot delete this type of artifact: {{type}}',
       cannotRevertThisType: 'Cannot revert this type of artifact: {{type}}',
       thisNote: 'this note',
