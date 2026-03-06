@@ -1,5 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { normalizePath } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { type SuperAgent } from '../SuperAgent';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -122,6 +123,24 @@ export class VaultMove {
   private static readonly moveTool = tool({ inputSchema: moveToolSchema });
 
   constructor(private readonly agent: SuperAgent) {}
+
+  public extractPathsForGuardrails(input: MoveToolArgs): string[] {
+    const paths: string[] = [normalizePath(input.destinationFolder)];
+    for (const op of input.operations) {
+      if (op.mode === 'files') {
+        for (const f of op.files) {
+          paths.push(normalizePath(f));
+        }
+      } else if (op.mode === 'folders') {
+        for (const f of op.folders) {
+          paths.push(normalizePath(f.path));
+        }
+      } else if (op.mode === 'filePatterns' && op.filePatterns.folder) {
+        paths.push(normalizePath(op.filePatterns.folder));
+      }
+    }
+    return paths;
+  }
 
   public static getMoveTool() {
     return VaultMove.moveTool;

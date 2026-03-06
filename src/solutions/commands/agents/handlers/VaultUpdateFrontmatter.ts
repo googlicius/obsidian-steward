@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod/v3';
-import { TFile, TFolder } from 'obsidian';
+import { normalizePath, TFile, TFolder } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { logger } from 'src/utils/logger';
@@ -13,13 +13,33 @@ import {
   createFilePatternsSchema,
 } from './vaultOperationSchemas';
 
+type FrontmatterValue =
+  | string
+  | number
+  | boolean
+  | null
+  | FrontmatterValue[]
+  | { [key: string]: FrontmatterValue };
+
+const frontmatterValueSchema: z.ZodType<FrontmatterValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(frontmatterValueSchema),
+    z.record(frontmatterValueSchema),
+  ])
+);
+
 const frontmatterPropertySchema = z
   .object({
     name: z.string().min(1).describe('The name of the frontmatter property.'),
-    value: z
-      .union([z.string(), z.number(), z.boolean(), z.array(z.string()), z.null()])
+    value: frontmatterValueSchema
       .optional()
-      .describe('The value to set for the property. Omit or set null to delete the property.'),
+      .describe(
+        'The value to set for the property. Supports primitives, arrays, and objects. Omit or set null to delete the property.'
+      ),
   })
   .describe(
     'A frontmatter property operation (add/update if value is provided, delete if omitted).'
@@ -96,7 +116,7 @@ type FileWithProperties = {
   path: string;
   properties: Array<{
     name: string;
-    value?: string | number | boolean | string[] | null;
+    value?: FrontmatterValue;
   }>;
 };
 
@@ -106,6 +126,24 @@ export class VaultUpdateFrontmatter {
   });
 
   constructor(private readonly agent: SuperAgent) {}
+
+  public extractPathsForGuardrails(input: UpdateFrontmatterToolArgs): string[] {
+    const paths: string[] = [];
+    if (input.files) {
+      for (const f of input.files) {
+        paths.push(normalizePath(f));
+      }
+    }
+    if (input.folders?.paths) {
+      for (const p of input.folders.paths) {
+        paths.push(normalizePath(p));
+      }
+    }
+    if (input.filePatterns?.folder) {
+      paths.push(normalizePath(input.filePatterns.folder));
+    }
+    return paths;
+  }
 
   public static getUpdateFrontmatterTool() {
     return VaultUpdateFrontmatter.updateFrontmatterTool;

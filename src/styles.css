@@ -1,20 +1,20 @@
 @import 'tailwindcss';
 
-/* Placeholder text classes for different languages */
+/* Placeholder and hint text for different languages */
 :root {
-  --stw-placeholder-text: 'Enter to send, m: change model, @ attach files/folders';
+  --stw-placeholder-text: 'Press Enter to send';
 }
 
 html[data-stw-language='en'] {
-  --stw-placeholder-text: 'Enter to send, m: change model, @ attach files/folders';
+  --stw-placeholder-text: 'Press Enter to send';
 }
 
 html[data-stw-language='ja'] {
-  --stw-placeholder-text: 'Enterで送信, m: モデル変更, @ ファイル/フォルダ添付';
+  --stw-placeholder-text: 'Enterで送信';
 }
 
 html[data-stw-language='vi'] {
-  --stw-placeholder-text: 'Enter để gửi, m: đổi mô hình, @ đính kèm tệp/thư mục';
+  --stw-placeholder-text: 'Nhấn Enter để gửi';
 }
 
 /* Style for the commands prefix when typing */
@@ -78,6 +78,10 @@ html[data-stw-language='vi'] {
     max-height: none;
   }
 
+  & .inline-title {
+    display: none;
+  }
+
   & .markdown-embed {
     --embed-padding: 0 0 15px 0;
     border: 0;
@@ -95,15 +99,8 @@ html[data-stw-language='vi'] {
   --callout-color: var(--callout-success);
   padding-left: 12px;
   cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    transform 0.1s ease;
   margin-bottom: 10px !important;
   position: relative;
-
-  &:active {
-    transform: translateX(2px);
-  }
 
   & > .callout-title {
     display: none;
@@ -141,6 +138,13 @@ html[data-stw-language='vi'] {
   & .internal-embed {
     margin: 0;
     padding: 0;
+  }
+}
+
+pre.language-stw-thinking {
+  &[data-streaming='true'] {
+    max-height: 100px;
+    overflow: hidden;
   }
 }
 

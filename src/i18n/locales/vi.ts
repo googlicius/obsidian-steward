@@ -103,6 +103,20 @@ const vi = {
       activating: 'Đang kích hoạt kỹ năng: {{skills}}',
       invalidSkills: 'Không tìm thấy kỹ năng: {{skills}}',
     },
+    guardrails: {
+      rules: 'Quy tắc',
+      noRulesDefined: 'Chưa có quy tắc guardrails nào.',
+      statusValid: '✅ Hợp lệ',
+      statusInvalid: 'Không hợp lệ: {{errors}}',
+      violation:
+        'Hành động bị chặn bởi guardrails. Quy tắc: {{rules}}. Đường dẫn: {{paths}}. Hành động bị chặn: {{actions}}. Dừng xử lý hoặc thử các hành động khác không nằm trong danh sách bị chặn.',
+      violationHuman: 'Hành động bị chặn bởi guardrails. Quy tắc: {{rules}}. Đường dẫn: {{paths}}.',
+    },
+    switchCapacity: {
+      confirm: 'Bạn có muốn tôi chuyển sang chế độ agent không?',
+      enabled: 'Đã chuyển sang chế độ agent.',
+      cancelled: 'Giữ nguyên chế độ hiện tại. Chế độ agent chưa được bật.',
+    },
     skills: {
       skills: 'Kỹ năng',
       noSkills: 'Chưa có kỹ năng nào được tải. Xem hướng dẫn Kỹ năng bên dưới để bắt đầu.',
@@ -277,9 +291,17 @@ const vi = {
     },
     documentation: {
       guidelines: 'Hướng dẫn',
+      tips: 'Mẹo',
+      getStartedGuideline: 'Bắt đầu',
       searchGuideline: 'Hướng dẫn tìm kiếm',
       udcGuideline: 'Hướng dẫn lệnh do người dùng định nghĩa',
       skillsGuideline: 'Hướng dẫn kỹ năng',
+      guardrailsGuideline: 'Guardrails',
+      tipNewLines: 'Nhấn `Shift+Enter` để xuống dòng',
+      tipChangeModel: 'Gõ `m:` hoặc `model:` để đổi mô hình',
+      tipAttachContext: 'Gõ `@` để đính kèm tệp/thư mục',
+      tipStop: 'Nhấn `ESC` hoặc gõ `Stop` để dừng',
+      tipRevert: 'Gõ `Undo` để hoàn tác thay đổi cuối',
       fetchFailed: 'Không thể tải tài liệu: {{docName}}',
       downloading: 'Đang tải {{name}}...',
     },
@@ -366,6 +388,21 @@ const vi = {
       apiKeyNote1: 'Bạn cần cung cấp khóa API của riêng mình để sử dụng trợ lý AI.',
       apiKeyNote2: 'Tất cả khóa API được lưu trữ với mã hóa.',
       models: 'Mô hình',
+      conversationTitleAgent: 'Conversation title agent',
+      compactionSummaryAgent: 'Compaction summary agent',
+      useChatModel: 'Dùng mô hình chat (mặc định)',
+      compactionSummaryAgentEnabled: 'Bật compaction summary agent',
+      compactionSummaryAgentEnabledDesc:
+        'Bật tóm tắt tự động cho các tin nhắn trợ lý dài trong quá trình nén ngữ cảnh.',
+      compactionSummaryAgentModel: 'Mô hình của compaction summary agent',
+      compactionSummaryAgentModelDesc:
+        'Mô hình được dùng bởi CompactionSummaryAgent. Để trống để dùng mô hình chat.',
+      conversationTitleAgentEnabled: 'Bật conversation title agent',
+      conversationTitleAgentEnabledDesc:
+        'Bật tạo tiêu đề cuộc trò chuyện tự động cho cuộc trò chuyện mới.',
+      conversationTitleAgentModel: 'Mô hình của conversation title agent',
+      conversationTitleAgentModelDesc:
+        'Mô hình được dùng bởi ConversationTitleAgent. Để trống để dùng mô hình chat.',
       chatModel: 'Mô hình trò chuyện',
       chatModelDesc:
         'Chọn mô hình AI để sử dụng cho trò chuyện. Bạn cũng có thể thay đổi mô hình trực tiếp trong ô nhập bằng cách gõ m: hoặc model:',

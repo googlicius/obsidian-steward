@@ -104,6 +104,21 @@ const ja = {
       activating: 'スキルをアクティブ化中: {{skills}}',
       invalidSkills: 'スキルが見つかりません: {{skills}}',
     },
+    guardrails: {
+      rules: 'ルール',
+      noRulesDefined: 'ガードレールルールは定義されていません。',
+      statusValid: '✅ 有効',
+      statusInvalid: '無効: {{errors}}',
+      violation:
+        'ガードレールによりアクションがブロックされました。ルール: {{rules}}。パス: {{paths}}。禁止アクション: {{actions}}。処理を停止するか、禁止リストにない別のアクションを試してください。',
+      violationHuman:
+        'ガードレールによりアクションがブロックされました。ルール: {{rules}}。パス: {{paths}}。',
+    },
+    switchCapacity: {
+      confirm: 'エージェントモードに切り替えますか？',
+      enabled: 'ツールとスキルのモードに切り替えました。',
+      cancelled: '現在のモードを維持しました。ツールとスキルのモードは有効化されませんでした。',
+    },
     skills: {
       skills: 'スキル',
       noSkills: 'スキルが読み込まれていません。下のスキルガイドラインを参照して始めてください。',
@@ -277,9 +292,17 @@ const ja = {
     },
     documentation: {
       guidelines: 'ガイドライン',
+      tips: 'ヒント',
+      getStartedGuideline: 'はじめに',
       searchGuideline: '検索ガイドライン',
       udcGuideline: 'ユーザー定義コマンドガイドライン',
       skillsGuideline: 'スキルガイドライン',
+      guardrailsGuideline: 'ガードレール',
+      tipNewLines: '`Shift+Enter`で改行を追加',
+      tipChangeModel: '`m:` または `model:` でモデルを変更',
+      tipAttachContext: '`@` でファイル/フォルダを添付',
+      tipStop: '`ESC` または `Stop` で生成を停止',
+      tipRevert: '`Undo` で最後の変更を元に戻す',
       fetchFailed: 'ドキュメントの取得に失敗しました: {{docName}}',
       downloading: '{{name}}をダウンロードしています...',
     },

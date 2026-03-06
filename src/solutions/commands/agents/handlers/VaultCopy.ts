@@ -1,5 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { normalizePath } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
@@ -52,6 +53,16 @@ export class VaultCopy {
   private static readonly copyTool = tool({ inputSchema: copyToolSchema });
 
   constructor(private readonly agent: SuperAgent) {}
+
+  public extractPathsForGuardrails(input: CopyToolArgs): string[] {
+    const paths: string[] = [normalizePath(input.destinationFolder)];
+    if (input.files) {
+      for (const f of input.files) {
+        paths.push(normalizePath(f.path));
+      }
+    }
+    return paths;
+  }
 
   public static getCopyTool() {
     return VaultCopy.copyTool;

@@ -127,6 +127,20 @@ const en = {
       activating: 'Activating skills: {{skills}}',
       invalidSkills: 'Skills not found: {{skills}}',
     },
+    guardrails: {
+      rules: 'Rules',
+      noRulesDefined: 'No guardrails rules defined.',
+      statusValid: '✅ Valid',
+      statusInvalid: 'Invalid: {{errors}}',
+      violation:
+        'Action blocked by guardrails. Rules: {{rules}}. Paths: {{paths}}. Blocked actions: {{actions}}. Stop processing or try other actions that are not in the blocked list.',
+      violationHuman: 'Action blocked by guardrails. Rules: {{rules}}. Paths: {{paths}}.',
+    },
+    switchCapacity: {
+      confirm: 'Would you like me to switch to agent mode?',
+      enabled: 'Switched to tool and skill mode.',
+      cancelled: 'Kept the current mode. Tool and skill mode was not enabled.',
+    },
     skills: {
       skills: 'Skills',
       noSkills: 'No skills loaded. See the Skills guideline below to get started.',
@@ -337,9 +351,17 @@ const en = {
     },
     documentation: {
       guidelines: 'Guidelines',
+      tips: 'Tips',
+      getStartedGuideline: 'Get started',
       searchGuideline: 'Search guideline',
       udcGuideline: 'User-defined command guideline',
       skillsGuideline: 'Skills guideline',
+      guardrailsGuideline: 'Guardrails',
+      tipNewLines: 'Press `Shift+Enter` to add new lines',
+      tipChangeModel: 'Type `m:` or `model:` to change model',
+      tipAttachContext: 'Type `@` to attach files/folders',
+      tipStop: 'Press `ESC` or type `Stop` to stop generation',
+      tipRevert: 'Type `Undo` to revert the last change',
       fetchFailed: 'Failed to fetch documentation: {{docName}}',
       downloading: 'Downloading {{name}}...',
     },
@@ -428,6 +450,21 @@ const en = {
       apiKeyNote1: 'You need to provide your own API keys to use the AI-powered assistant.',
       apiKeyNote2: 'All API keys are stored with encryption.',
       models: 'Models',
+      conversationTitleAgent: 'Conversation title agent',
+      compactionSummaryAgent: 'Compaction summary agent',
+      useChatModel: 'Use chat model (default)',
+      compactionSummaryAgentEnabled: 'Enable compaction summary agent',
+      compactionSummaryAgentEnabledDesc:
+        'Enable automatic summarization of long assistant messages during compaction.',
+      compactionSummaryAgentModel: 'Compaction summary model',
+      compactionSummaryAgentModelDesc:
+        'Model used by CompactionSummaryAgent. Leave empty to use the chat model.',
+      conversationTitleAgentEnabled: 'Enable conversation title agent',
+      conversationTitleAgentEnabledDesc:
+        'Enable automatic conversation title generation for new conversations.',
+      conversationTitleAgentModel: 'Conversation title model',
+      conversationTitleAgentModelDesc:
+        'Model used by ConversationTitleAgent. Leave empty to use the chat model.',
       chatModel: 'Chat model',
       chatModelDesc:
         'Select the AI model to use for chat. You can also change the model inline in the command input by typing m: or model:',

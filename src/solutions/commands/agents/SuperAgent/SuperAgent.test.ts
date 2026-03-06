@@ -11,6 +11,7 @@ import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { getClassifier } from 'src/lib/modelfusion';
 import * as handlers from '../handlers';
 import { createStepProcessedQuery } from './stepProcessedQuery';
+import { COMPACTION_SCHEMA_VERSION } from 'src/solutions/compaction/types';
 
 // Mock individual functions from the ai package
 jest.mock('ai', () => {
@@ -101,7 +102,16 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       sanitizeQuery: jest.fn((query: string) => query),
     },
     conversationRenderer: mockRenderer,
+    guardrailsRuleService: {
+      getInstructionsByTool: jest.fn().mockReturnValue(new Map()),
+      getRulesForTool: jest.fn().mockReturnValue([]),
+    },
     artifactManagerV2: mockArtifactManager,
+    compactionOrchestrator: {
+      run: jest.fn().mockResolvedValue({
+        data: { version: COMPACTION_SCHEMA_VERSION, messages: [] },
+      }),
+    },
   } as unknown as StewardPlugin;
 
   return mockPlugin as unknown as jest.Mocked<StewardPlugin>;

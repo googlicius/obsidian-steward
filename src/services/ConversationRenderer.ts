@@ -468,6 +468,32 @@ export class ConversationRenderer {
   }
 
   /**
+   * Extracts tool names from a tool-invocation message content (sync, no artifact resolution).
+   * Used for filtering groups by compactability before full deserialization.
+   */
+  public extractToolNamesFromToolInvocation(content: string): string[] {
+    const matches = content.match(/```stw-artifact\n([\s\S]*?)\n```/g);
+    if (!matches?.length) return [];
+
+    const names: string[] = [];
+    for (const match of matches) {
+      try {
+        const jsonStr = match.replace(/```stw-artifact\n|\n```/g, '');
+        const data = JSON.parse(jsonStr);
+        if (!Array.isArray(data)) continue;
+        for (const item of data) {
+          if (item?.toolName && typeof item.toolName === 'string') {
+            names.push(item.toolName);
+          }
+        }
+      } catch {
+        // Skip malformed blocks
+      }
+    }
+    return names;
+  }
+
+  /**
    * Adds a user message to a conversation note
    */
   public async addUserMessage(params: {
@@ -1231,11 +1257,343 @@ export class ConversationRenderer {
         ...(metadata.HANDLER_ID && {
           handlerId: metadata.HANDLER_ID,
         }),
+        ...(metadata.STEP !== undefined && {
+          step: parseInt(metadata.STEP, 10),
+        }),
       };
     } catch (error) {
       logger.error('Error getting message by ID:', error);
       return null;
     }
+  }
+
+  /**
+   * Converts a single ConversationMessage to model parts for building ModelMessages.
+   * Used by convertMessageToModelFormat and extractConversationHistory.
+   */
+  private async convertMessageToParts(
+    conversationTitle: string,
+    message: ConversationMessage
+  ): Promise<
+    | { role: 'user'; content: string; handlerId?: string }
+    | {
+        role: 'assistant';
+        assistantParts: (TextPart | ToolCallPart | ReasoningOutput)[];
+        toolResultParts: ToolResultPart[];
+        additionalUserParts: (TextPart | FilePart | ImagePart)[];
+        handlerId?: string;
+      }
+    | null
+  > {
+    if (message.role === 'user') {
+      const content = this.plugin.userMessageService.sanitizeQuery(message.content);
+      return {
+        role: 'user',
+        content,
+        ...(message.handlerId && { handlerId: message.handlerId }),
+      };
+    }
+
+    if (message.role === 'assistant' && message.type === 'reasoning') {
+      return {
+        role: 'assistant',
+        assistantParts: [{ type: 'reasoning', text: message.content }],
+        toolResultParts: [],
+        additionalUserParts: [],
+        ...(message.handlerId && { handlerId: message.handlerId }),
+      };
+    }
+
+    if (message.role === 'assistant' && message.type !== 'tool-invocation') {
+      return {
+        role: 'assistant',
+        assistantParts: [{ type: 'text', text: message.content }],
+        toolResultParts: [],
+        additionalUserParts: [],
+        ...(message.handlerId && { handlerId: message.handlerId }),
+      };
+    }
+
+    if (message.role === 'assistant' && message.type === 'tool-invocation') {
+      const toolInvocations = await this.deserializeToolInvocations({
+        message,
+        conversationTitle,
+      });
+      if (!toolInvocations || toolInvocations.length === 0) {
+        return null;
+      }
+
+      const assistantParts: (TextPart | ToolCallPart | ReasoningOutput)[] = [];
+      const toolResultParts: ToolResultPart[] = [];
+      const additionalUserParts: (TextPart | FilePart | ImagePart)[] = [];
+
+      for (const part of toolInvocations) {
+        if (part.type === 'tool-call') {
+          assistantParts.push(part);
+        } else if (part.type === 'tool-result') {
+          toolResultParts.push(part);
+        } else if (part.type === 'text' || part.type === 'file' || part.type === 'image') {
+          additionalUserParts.push(part);
+        }
+      }
+
+      return {
+        role: 'assistant',
+        assistantParts,
+        toolResultParts,
+        additionalUserParts,
+        ...(message.handlerId && { handlerId: message.handlerId }),
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Converts a ConversationMessage to ModelMessage[] format (same as extractConversationHistory).
+   * For tool-invocation messages, deserializes and returns assistant + tool messages.
+   */
+  public async convertMessageToModelFormat(
+    conversationTitle: string,
+    message: ConversationMessage
+  ): Promise<ModelMessage[]> {
+    const parts = await this.convertMessageToParts(conversationTitle, message);
+    if (!parts) {
+      return [];
+    }
+
+    if (parts.role === 'user') {
+      return [
+        {
+          role: 'user',
+          content: parts.content,
+          ...(parts.handlerId && { handlerId: parts.handlerId }),
+        },
+      ];
+    }
+
+    const result: ModelMessage[] = [];
+    if (parts.assistantParts.length > 0) {
+      result.push({
+        role: 'assistant',
+        content: parts.assistantParts,
+        ...(parts.handlerId && { handlerId: parts.handlerId }),
+      });
+    }
+    if (parts.toolResultParts.length > 0) {
+      result.push({
+        role: 'tool',
+        content: parts.toolResultParts,
+        ...(parts.handlerId && { handlerId: parts.handlerId }),
+      });
+    }
+    if (parts.additionalUserParts.length > 0) {
+      result.push({ role: 'user', content: parts.additionalUserParts });
+    }
+
+    return result;
+  }
+
+  /**
+   * Converts grouped conversation messages to ModelMessage[] format.
+   * Handles user messages individually, merges assistant/tool messages by step,
+   * and optionally includes reasoning only for the last turn.
+   */
+  private async convertConversationMessagesToModelMessages(
+    conversationTitle: string,
+    groupedMessages: ConversationMessage[][]
+  ): Promise<ModelMessage[]> {
+    const modelMessages: ModelMessage[] = [];
+    const lastUserGroupIndex = groupedMessages.findLastIndex(group => group[0].role === 'user');
+
+    for (let groupIndex = 0; groupIndex < groupedMessages.length; groupIndex++) {
+      const group = groupedMessages[groupIndex];
+      const firstMessage = group[0];
+      const belongsToLastTurn = lastUserGroupIndex >= 0 && groupIndex > lastUserGroupIndex;
+
+      // User messages are not grouped by step, process individually
+      if (firstMessage.role === 'user') {
+        const userParts = await this.convertMessageToParts(conversationTitle, firstMessage);
+        if (userParts && userParts.role === 'user') {
+          modelMessages.push({
+            role: 'user',
+            content: userParts.content,
+            ...(userParts.handlerId && { handlerId: userParts.handlerId }),
+          });
+        }
+        continue;
+      }
+
+      // Process assistant/tool messages - collect all parts from the group via convertMessageToParts
+      const assistantParts: (TextPart | ToolCallPart | ReasoningOutput)[] = [];
+      const toolResultParts: ToolResultPart[] = [];
+      const additionalUserParts: (TextPart | FilePart | ImagePart)[] = [];
+
+      for (const message of group) {
+        if (message.type === 'reasoning' && !belongsToLastTurn) {
+          continue;
+        }
+
+        const parts = await this.convertMessageToParts(conversationTitle, message);
+        if (!parts || parts.role === 'user') {
+          continue;
+        }
+
+        assistantParts.push(...parts.assistantParts);
+        toolResultParts.push(...parts.toolResultParts);
+        additionalUserParts.push(...parts.additionalUserParts);
+      }
+
+      // Auto-include empty reasoning content if missing (only for the latest assistant message)
+      if (belongsToLastTurn) {
+        const hasReasoningPart = assistantParts.some(part => part.type === 'reasoning');
+        if (!hasReasoningPart && assistantParts.length > 0) {
+          assistantParts.unshift({ type: 'reasoning', text: '' });
+        }
+      }
+
+      if (assistantParts.length > 0) {
+        modelMessages.push({
+          role: 'assistant',
+          content: assistantParts,
+          ...(firstMessage.handlerId && { handlerId: firstMessage.handlerId }),
+        });
+      }
+
+      if (toolResultParts.length > 0) {
+        modelMessages.push({
+          role: 'tool',
+          content: toolResultParts,
+          ...(firstMessage.handlerId && { handlerId: firstMessage.handlerId }),
+        });
+      }
+
+      if (additionalUserParts.length > 0) {
+        modelMessages.push({
+          role: 'user',
+          content: additionalUserParts,
+        });
+      }
+    }
+
+    return modelMessages;
+  }
+
+  /**
+   * Converts messages for compaction: strips reasoning, uses model format.
+   * Returns entries with clean content (no reasoning) and messageIds for stw_compaction.
+   */
+  public async convertMessagesForCompaction(
+    conversationTitle: string,
+    messages: ConversationMessage[]
+  ): Promise<
+    Array<
+      | {
+          type: 'message';
+          messageId: string;
+          role: string;
+          step?: number;
+          handlerId?: string;
+          content: string;
+          wordCount: number;
+        }
+      | {
+          type: 'tool';
+          messageId: string;
+          toolName: string;
+          toolResult: ToolResultPart;
+        }
+    >
+  > {
+    const grouped = this.groupMessagesByStep(messages);
+    const entries: Array<
+      | {
+          type: 'message';
+          messageId: string;
+          role: string;
+          step?: number;
+          handlerId?: string;
+          content: string;
+          wordCount: number;
+        }
+      | {
+          type: 'tool';
+          messageId: string;
+          toolName: string;
+          toolResult: ToolResultPart;
+        }
+    > = [];
+
+    for (const group of grouped) {
+      const firstMessage = group[0];
+      const belongsToLastTurn = false;
+
+      if (firstMessage.role === 'user') {
+        const userParts = await this.convertMessageToParts(conversationTitle, firstMessage);
+        if (userParts && userParts.role === 'user') {
+          const content = userParts.content.trim();
+          entries.push({
+            type: 'message',
+            messageId: firstMessage.id,
+            role: 'user',
+            step: firstMessage.step,
+            handlerId: firstMessage.handlerId,
+            content,
+            wordCount: this.countWords(content),
+          });
+        }
+        continue;
+      }
+
+      const assistantParts: (TextPart | ToolCallPart | ReasoningOutput)[] = [];
+      const toolResultParts: ToolResultPart[] = [];
+
+      for (const message of group) {
+        if (message.type === 'reasoning' && !belongsToLastTurn) continue;
+        const parts = await this.convertMessageToParts(conversationTitle, message);
+        if (!parts || parts.role === 'user') continue;
+        assistantParts.push(...parts.assistantParts);
+        toolResultParts.push(...parts.toolResultParts);
+      }
+
+      const textParts = assistantParts.filter((p): p is TextPart => p.type === 'text');
+      const textContent = textParts
+        .map(p => p.text)
+        .join(' ')
+        .trim();
+
+      if (textContent.length > 0 && toolResultParts.length === 0) {
+        const primaryMsg = group.find(m => m.type !== 'reasoning') ?? firstMessage;
+        entries.push({
+          type: 'message',
+          messageId: primaryMsg.id,
+          role: 'assistant',
+          step: primaryMsg.step,
+          handlerId: primaryMsg.handlerId,
+          content: textContent,
+          wordCount: this.countWords(textContent),
+        });
+      }
+
+      if (toolResultParts.length > 0) {
+        const toolInvocationMsg = group.find(m => m.type === 'tool-invocation') ?? firstMessage;
+        for (const tr of toolResultParts) {
+          entries.push({
+            type: 'tool',
+            messageId: toolInvocationMsg.id,
+            toolName: tr.toolName,
+            toolResult: tr,
+          });
+        }
+      }
+    }
+
+    return entries;
+  }
+
+  private countWords(content: string): number {
+    const words = content.trim().split(/\s+/).filter(Boolean);
+    return words.length;
   }
 
   /**
@@ -1469,19 +1827,15 @@ export class ConversationRenderer {
     conversationTitle: string,
     options?: {
       maxMessages?: number;
-      summaryPosition?: number;
     }
   ): Promise<ModelMessage[]> {
     const { maxMessages = 10 } = options || {};
-    let { summaryPosition = 0 } = options || {};
 
     // Get all messages from the conversation
     const allMessages = await this.extractAllConversationMessages(conversationTitle);
 
     // Filter out messages where history is explicitly set to false
-    const messagesForHistory: (ConversationMessage & { ignored?: boolean })[] = allMessages.filter(
-      message => message.history !== false
-    );
+    const messagesForHistory = allMessages.filter(message => message.history !== false);
 
     // Remove the last message if it is a user message which is just being added.
     if (
@@ -1499,16 +1853,6 @@ export class ConversationRenderer {
     for (let i = messagesForHistory.length - 1; i >= 0; i--) {
       const message = messagesForHistory[i];
 
-      // Check for summary message first (highest priority)
-      if (message.intent === 'summary') {
-        if (summaryPosition === 0) {
-          topicStartIndex = i;
-          break;
-        }
-        messagesForHistory[i].ignored = true;
-        summaryPosition--;
-      }
-
       // If the user message is a built-in or UDC (but not the general command "/ "), start a new topic
       if (
         message.role === 'user' &&
@@ -1522,10 +1866,8 @@ export class ConversationRenderer {
       }
     }
 
-    // Get messages after the topicStartIndex (either summary or topic start)
-    const filteredMessages = messagesForHistory
-      .slice(topicStartIndex)
-      .filter(message => !message.ignored);
+    // Get messages after the topicStartIndex
+    const filteredMessages = messagesForHistory.slice(topicStartIndex);
 
     // Slice messages without cutting in the middle of a step
     const messagesToInclude = this.sliceMessagesPreservingSteps(filteredMessages, maxMessages);
@@ -1533,108 +1875,7 @@ export class ConversationRenderer {
     // Group consecutive messages by (handlerId, role, step) for merging
     const groupedMessages = this.groupMessagesByStep(messagesToInclude);
 
-    // Find the index of the last assistant group (for auto-including empty reasoning)
-    const lastAssistantGroupIndex = groupedMessages.findLastIndex(
-      group => group[0].role === 'assistant'
-    );
-
-    // Identify the last turn's handlerId (to include reasoning from all steps in that turn)
-    const lastAssistantGroup =
-      lastAssistantGroupIndex >= 0 ? groupedMessages[lastAssistantGroupIndex] : null;
-    const lastTurnHandlerId = lastAssistantGroup?.[0]?.handlerId;
-
-    // Convert grouped messages to ModelMessages
-    const modelMessages: ModelMessage[] = [];
-
-    for (let groupIndex = 0; groupIndex < groupedMessages.length; groupIndex++) {
-      const group = groupedMessages[groupIndex];
-      const firstMessage = group[0];
-      // Check if this group belongs to the last turn (same handlerId)
-      const belongsToLastTurn = lastTurnHandlerId
-        ? firstMessage.handlerId === lastTurnHandlerId
-        : false;
-
-      // User messages are not grouped by step, process individually
-      if (firstMessage.role === 'user') {
-        const content = this.plugin.userMessageService.sanitizeQuery(firstMessage.content);
-        modelMessages.push({
-          role: 'user',
-          content,
-          ...(firstMessage.handlerId && { handlerId: firstMessage.handlerId }),
-        });
-        continue;
-      }
-
-      // Process assistant/tool messages - collect all parts from the group
-      const assistantParts: (TextPart | ToolCallPart | ReasoningOutput)[] = [];
-      const toolResultParts: ToolResultPart[] = [];
-      const additionalUserParts: (TextPart | FilePart | ImagePart)[] = [];
-
-      for (const message of group) {
-        if (message.type === 'tool-invocation') {
-          const toolInvocations = await this.deserializeToolInvocations({
-            message,
-            conversationTitle,
-          });
-
-          if (toolInvocations && toolInvocations.length > 0) {
-            for (const part of toolInvocations) {
-              if (part.type === 'tool-call') {
-                assistantParts.push(part);
-              } else if (part.type === 'tool-result') {
-                toolResultParts.push(part);
-              } else if (part.type === 'text' || part.type === 'file' || part.type === 'image') {
-                additionalUserParts.push(part);
-              }
-            }
-          }
-        } else if (message.type === 'reasoning') {
-          // Include reasoning for all steps in the last turn (same handlerId)
-          if (belongsToLastTurn) {
-            assistantParts.push({ type: 'reasoning', text: message.content });
-          }
-        } else if (message.role === 'assistant') {
-          assistantParts.push({ type: 'text', text: message.content });
-        }
-      }
-
-      // Auto-include empty reasoning content if missing (only for the latest assistant message)
-      if (belongsToLastTurn) {
-        const hasReasoningPart = assistantParts.some(part => part.type === 'reasoning');
-        if (!hasReasoningPart && assistantParts.length > 0) {
-          // Insert empty reasoning at the beginning (reasoning should come before text)
-          assistantParts.unshift({ type: 'reasoning', text: '' });
-        }
-      }
-
-      // Push assistant message with all collected parts
-      if (assistantParts.length > 0) {
-        modelMessages.push({
-          role: 'assistant',
-          content: assistantParts,
-          ...(firstMessage.handlerId && { handlerId: firstMessage.handlerId }),
-        });
-      }
-
-      // Push tool message with tool-result parts
-      if (toolResultParts.length > 0) {
-        modelMessages.push({
-          role: 'tool',
-          content: toolResultParts,
-          ...(firstMessage.handlerId && { handlerId: firstMessage.handlerId }),
-        });
-      }
-
-      // Push additional parts (images) as a user message if present
-      if (additionalUserParts.length > 0) {
-        modelMessages.push({
-          role: 'user',
-          content: additionalUserParts,
-        });
-      }
-    }
-
-    return modelMessages;
+    return this.convertConversationMessagesToModelMessages(conversationTitle, groupedMessages);
   }
 
   /**
@@ -1678,7 +1919,7 @@ export class ConversationRenderer {
    * User messages are not grouped (each becomes its own group).
    * Messages without a step are not grouped with others.
    */
-  private groupMessagesByStep(messages: ConversationMessage[]): ConversationMessage[][] {
+  public groupMessagesByStep(messages: ConversationMessage[]): ConversationMessage[][] {
     const groups: ConversationMessage[][] = [];
     let currentGroup: ConversationMessage[] = [];
 
@@ -1881,6 +2122,18 @@ export class ConversationRenderer {
       logger.error('Error sanitizing conversation note:', error);
       return false;
     }
+  }
+
+  /**
+   * Extracts all message IDs present in conversation content (from <!--STW ID:xxx --> blocks).
+   */
+  public extractMessageIdsFromContent(content: string): Set<string> {
+    const ids = new Set<string>();
+    const regex = /<!--STW ID:([^,>\s]+)/gi;
+    for (const match of content.matchAll(regex)) {
+      if (match[1]) ids.add(match[1]);
+    }
+    return ids;
   }
 
   /**

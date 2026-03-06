@@ -6,21 +6,22 @@ import { getTranslation } from 'src/i18n';
 import { ToolRegistry, ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { activateTools } from '../../tools/activateTools';
-import { ArtifactType } from 'src/solutions/artifact';
 import { getMostRecentArtifact, getArtifactById } from '../../tools/getArtifact';
 import { getClassifier } from 'src/lib/modelfusion';
 import { logger } from 'src/utils/logger';
 import { SuperAgentHandlers } from './SuperAgentHandlers';
 import { SuperAgentToolContentStream, ToolContentStreamInfo } from './SuperAgentToolContentStream';
+import { SuperAgentManualToolCall } from './SuperAgentManualToolCall';
 import { applyMixins } from 'src/utils/applyMixins';
 import { createAskUserTool } from '../../tools/askUser';
 import * as handlers from '../handlers';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
-import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 import { createLLMStream } from 'src/utils/textStreamer';
 import { SysError } from 'src/utils/errors';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
-import { createStepProcessedQuery, parseStepProcessedQuery } from './stepProcessedQuery';
+import { createStepProcessedQuery } from './stepProcessedQuery';
+import { createToolHandlerChain } from '../middleware/createToolHandlerChain';
+import { createGuardrailsMiddleware } from 'src/services/GuardrailsRuleService/guardrailsMiddleware';
 
 /**
  * Map of task names to their associated tool names.
@@ -125,7 +126,10 @@ const tools = {
   [ToolName.TODO_LIST]: handlers.TodoList.getTodoListTool(),
   [ToolName.TODO_LIST_UPDATE]: handlers.TodoList.getTodoListUpdateTool(),
   [ToolName.USE_SKILLS]: handlers.UseSkills.getUseSkillsTool(),
+  [ToolName.SWITCH_AGENT_CAPACITY]: handlers.SwitchAgentCapacity.getSwitchAgentCapacityTool(),
   [ToolName.CONCLUDE]: handlers.Conclude.getConcludeTool(),
+  [ToolName.RECALL_COMPACTED_CONTEXT]:
+    handlers.RecallCompactedContext.getRecallCompactedContextTool(),
 };
 
 const toolsThatEnableConclude = new Set([
@@ -140,7 +144,11 @@ const toolsThatEnableConclude = new Set([
 
 type ToolCalls = Awaited<Awaited<ReturnType<typeof streamText<typeof tools>>>['toolCalls']>;
 
-export interface SuperAgent extends Agent, SuperAgentHandlers, SuperAgentToolContentStream {}
+export interface SuperAgent
+  extends Agent,
+    SuperAgentHandlers,
+    SuperAgentToolContentStream,
+    SuperAgentManualToolCall {}
 
 export class SuperAgent extends Agent {
   /**
@@ -168,229 +176,6 @@ export class SuperAgent extends Agent {
   }
 
   /**
-   * Client-made tool call without AI
-   */
-  protected async manualToolCall(params: {
-    title: string;
-    query: string;
-    activeTools: ToolName[];
-    classifiedTasks: string[];
-    lang?: string | null;
-    /**
-     * When set, indicates how the task was classified (static/prefixed/clustered).
-     * For build_search_index, manual tool call (index everything) is only used when matchType is 'static'.
-     */
-    classificationMatchType?: 'static' | 'prefixed' | 'clustered';
-  }): Promise<ToolCallPart | undefined> {
-    const { title, query, activeTools, classifiedTasks, lang, classificationMatchType } = params;
-
-    // Client-handled step: command syntax was processed locally, update todo list and move to next step
-    const originalQuery = parseStepProcessedQuery(query);
-    const isCommandSyntaxStepProcessed =
-      originalQuery !== null && CommandSyntaxParser.isCommandSyntax(originalQuery);
-
-    if (isCommandSyntaxStepProcessed && activeTools.includes(ToolName.TODO_LIST_UPDATE)) {
-      const todoListUpdateToolCall = await this.craftTodoListUpdateToolCallManually(title);
-
-      if (todoListUpdateToolCall) {
-        return todoListUpdateToolCall;
-      }
-    }
-
-    // Return undefined if there are multiple classified tasks
-    if (classifiedTasks.length !== 1) {
-      return undefined;
-    }
-
-    const task = classifiedTasks[0];
-    const t = getTranslation(lang);
-
-    switch (task) {
-      case 'vault': {
-        // Handle DELETE tool manual calls (vault task)
-        if (activeTools.length === 1 && activeTools.includes(ToolName.DELETE)) {
-          const artifact = await this.plugin.artifactManagerV2
-            .withTitle(title)
-            .getMostRecentArtifactOfTypes([
-              ArtifactType.SEARCH_RESULTS,
-              ArtifactType.CREATED_NOTES,
-              ArtifactType.LIST_RESULTS,
-            ]);
-
-          if (artifact) {
-            return {
-              type: 'tool-call',
-              toolName: ToolName.DELETE,
-              toolCallId: `manual-tool-call-${uniqueID()}`,
-              input: {
-                operations: [
-                  {
-                    mode: 'artifactId',
-                    artifactId: artifact.id,
-                  },
-                ],
-              },
-            } as ToolCallPart<handlers.DeleteToolArgs>;
-          }
-        }
-        return undefined;
-      }
-
-      case 'revert': {
-        // Handle revert tool manual calls for static cluster: revert
-        if (classificationMatchType === 'static') {
-          // Get the most recent artifact from types created by VaultAgent
-          const artifactTypes = [
-            ArtifactType.MOVE_RESULTS,
-            ArtifactType.CREATED_NOTES,
-            ArtifactType.DELETED_FILES,
-            ArtifactType.UPDATE_FRONTMATTER_RESULTS,
-            ArtifactType.RENAME_RESULTS,
-            ArtifactType.EDIT_RESULTS,
-          ];
-
-          const artifact = await this.plugin.artifactManagerV2
-            .withTitle(title)
-            .getMostRecentArtifactOfTypes(artifactTypes);
-
-          if (artifact?.id) {
-            // Map artifact type to the appropriate revert tool
-            const artifactTypeToToolMap: Partial<Record<ArtifactType, ToolName>> = {
-              [ArtifactType.MOVE_RESULTS]: ToolName.REVERT_MOVE,
-              [ArtifactType.CREATED_NOTES]: ToolName.REVERT_CREATE,
-              [ArtifactType.DELETED_FILES]: ToolName.REVERT_DELETE,
-              [ArtifactType.UPDATE_FRONTMATTER_RESULTS]: ToolName.REVERT_FRONTMATTER,
-              [ArtifactType.RENAME_RESULTS]: ToolName.REVERT_RENAME,
-              [ArtifactType.EDIT_RESULTS]: ToolName.REVERT_EDIT_RESULTS,
-            };
-
-            const toolName = artifactTypeToToolMap[artifact.artifactType];
-            if (toolName) {
-              return {
-                type: 'tool-call',
-                toolName,
-                toolCallId: `manual-tool-call-${uniqueID()}`,
-                input: {
-                  artifactId: artifact.id,
-                  explanation: t('revert.revertingArtifact', {
-                    artifactType: artifact.artifactType,
-                  }),
-                },
-              };
-            }
-          }
-        }
-        return undefined;
-      }
-
-      case 'help': {
-        return {
-          type: 'tool-call',
-          toolName: ToolName.HELP,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
-          input: {},
-        };
-      }
-
-      case 'user_confirm': {
-        return {
-          type: 'tool-call',
-          toolName: ToolName.USER_CONFIRM,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
-          input: {},
-        };
-      }
-
-      case 'stop': {
-        return {
-          type: 'tool-call',
-          toolName: ToolName.STOP,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
-          input: {},
-        };
-      }
-
-      case 'thank_you': {
-        return {
-          type: 'tool-call',
-          toolName: ToolName.THANK_YOU,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
-          input: {},
-        };
-      }
-
-      case 'more': {
-        // Handle search_more tool manual calls
-        return {
-          type: 'tool-call',
-          toolName: ToolName.SEARCH_MORE,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
-          input: {},
-        };
-      }
-
-      case 'build_search_index': {
-        // Only use manual tool call (index everything) when static cluster matched.
-        // Clustered match may indicate user wants specific folders (e.g. "index my files in Projects").
-        if (classificationMatchType !== 'static') {
-          return undefined;
-        }
-        return {
-          type: 'tool-call',
-          toolName: ToolName.BUILD_SEARCH_INDEX,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
-          input: {},
-        };
-      }
-
-      case 'search': {
-        // Handle search tool manual calls
-        const extraction = this.search.extractSearchQueryWithoutLLM({
-          query,
-          searchSettings: this.plugin.settings.search,
-          lang,
-        });
-
-        if (extraction) {
-          return {
-            type: 'tool-call',
-            toolName: ToolName.SEARCH,
-            toolCallId: `manual-tool-call-${uniqueID()}`,
-            input: {
-              operations: extraction.operations,
-              explanation: extraction.explanation,
-              lang: extraction.lang,
-              confidence: extraction.confidence,
-            },
-          };
-        }
-        return undefined;
-      }
-
-      case 'speech': {
-        // Handle speech tool manual calls
-        const quotedText = getQuotedQuery(query);
-        if (quotedText) {
-          return {
-            type: 'tool-call',
-            toolName: ToolName.SPEECH,
-            toolCallId: `manual-tool-call-${uniqueID()}`,
-            input: {
-              text: quotedText,
-              explanation: `Generating audio with: "${quotedText}"`,
-              confidence: 1,
-            },
-          };
-        }
-        return undefined;
-      }
-
-      default:
-        return undefined;
-    }
-  }
-
-  /**
    * Execute streamText with tools and handle streaming
    */
   private async executeStreamText(params: AgentHandlerParams): Promise<{
@@ -401,8 +186,13 @@ export class SuperAgent extends Agent {
     let timer: number | null = null;
 
     try {
-      const conversationHistory = await this.renderer.extractConversationHistory(params.title, {
-        summaryPosition: 1,
+      const conversationHistory = await this.renderer.extractConversationHistory(params.title);
+
+      // Run compaction orchestrator — may produce a system message to inject
+      const compactionResult = await this.plugin.compactionOrchestrator.run({
+        conversationTitle: params.title,
+        visibleWindowSize: 10,
+        lang: params.lang,
       });
 
       const llmConfig = await this.plugin.llmService.getLLMConfig({
@@ -414,15 +204,19 @@ export class SuperAgent extends Agent {
       const baseActiveTools =
         params.activeTools && params.activeTools.length > 0 ? params.activeTools : [];
       const hasConcludeEligibleTool = baseActiveTools.some(t => toolsThatEnableConclude.has(t));
+      const hasCompactionContext = !!compactionResult.systemMessage;
       const activeToolNames = shouldUseTools
         ? [
             ...baseActiveTools,
             ToolName.ACTIVATE,
             ...(hasConcludeEligibleTool ? [ToolName.CONCLUDE] : []),
+            ...(hasCompactionContext ? [ToolName.RECALL_COMPACTED_CONTEXT] : []),
           ]
-        : [];
+        : [ToolName.SWITCH_AGENT_CAPACITY];
 
-      const registry = ToolRegistry.buildFromTools(tools).setActive(activeToolNames);
+      const registry = ToolRegistry.buildFromTools(tools)
+        .setActive(activeToolNames)
+        .setAdditionalGuidelines(this.plugin.guardrailsRuleService.getInstructionsByTool());
 
       // Exclude confirmation and ask_user tools if no_confirm is set
       if (params.intent.no_confirm) {
@@ -497,6 +291,11 @@ export class SuperAgent extends Agent {
       const activeSkillPrompts = this.generateActiveSkillPrompts(params.activeSkills || []);
       additionalSystemPrompts.push(...activeSkillPrompts);
 
+      // Inject compacted conversation context when available
+      if (compactionResult.systemMessage) {
+        additionalSystemPrompts.push(compactionResult.systemMessage);
+      }
+
       if (additionalSystemPrompts.length > 0) {
         for (const item of additionalSystemPrompts) {
           messages.unshift({ role: 'system', content: item });
@@ -552,6 +351,15 @@ NOTE:
 - Do NOT mention the tools you use to users. Work silently in the background and only communicate the results or outcomes.
 - Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`;
 
+      const disabledToolModeSystemPrompt = `You are a helpful assistant who helps users with their Obsidian vault.
+
+Tools are currently disabled for this conversation.
+You can use exactly one tool to switch mode:
+- ${ToolName.SWITCH_AGENT_CAPACITY}: switch to agent mode.
+
+If the user asks for work that requires tools, call ${ToolName.SWITCH_AGENT_CAPACITY} first.
+After the switch is confirmed, continue the task and use tools as needed.`;
+
       type RepairToolCall = Parameters<typeof streamText>[0]['experimental_repairToolCall'];
 
       const { toolCalls: toolCallsPromise, fullStream } = streamText({
@@ -559,9 +367,9 @@ NOTE:
         temperature: llmConfig.temperature,
         maxOutputTokens: llmConfig.maxOutputTokens,
         abortSignal,
-        system: shouldUseCoreSystemPrompt ? coreSystemPrompt : undefined,
+        system: shouldUseCoreSystemPrompt ? coreSystemPrompt : disabledToolModeSystemPrompt,
         messages,
-        tools: shouldUseTools ? registry.getToolsObject() : undefined,
+        tools: registry.getToolsObject(),
         experimental_repairToolCall: llmConfig.repairToolCall as RepairToolCall,
         onError: ({ error }) => {
           logger.error('Error in streamText', error);
@@ -762,8 +570,13 @@ NOTE:
     interface StandardToolHandler {
       handle(
         params: AgentHandlerParams,
-        options: { toolCall: ToolCallPart<unknown>; toolContentStreamInfo?: ToolContentStreamInfo }
+        options: {
+          toolCall: ToolCallPart<unknown>;
+          continueFromNextTool?: () => Promise<AgentResult>;
+          toolContentStreamInfo?: ToolContentStreamInfo;
+        }
       ): Promise<AgentResult>;
+      extractPathsForGuardrails?(input: unknown): string[];
     }
 
     /**
@@ -800,6 +613,7 @@ NOTE:
       [ToolName.CONCLUDE]: () => this.conclude,
       [ToolName.GET_MOST_RECENT_ARTIFACT]: () => this.getMostRecentArtifact,
       [ToolName.GET_ARTIFACT_BY_ID]: () => this.getArtifactById,
+      [ToolName.RECALL_COMPACTED_CONTEXT]: () => this.recallCompactedContext,
     };
 
     const processToolCalls = async (startIndex: number): Promise<AgentResult> => {
@@ -818,6 +632,15 @@ NOTE:
         for (let index = startIndex; index < toolCalls.length; index += 1) {
           const toolCall = toolCalls[index];
           let toolCallResult: AgentResult | undefined;
+          const continueProcessingFromNextTool = async (): Promise<AgentResult> => {
+            params.invocationCount = (params.invocationCount ?? 0) + 1;
+
+            return this.handle(params, {
+              remainingSteps,
+              toolCalls,
+              currentToolCallIndex: index + 1,
+            });
+          };
 
           if (toolCall.dynamic) {
             await this.dynamic.handle(params, { toolCall, tools });
@@ -843,7 +666,8 @@ NOTE:
                 newContent: toolCall.input.message,
                 lang: params.lang,
                 handlerId,
-                includeHistory: false,
+                command: toolCall.toolName,
+                step: params.invocationCount,
               });
 
               const callBack = async (): Promise<AgentResult> => {
@@ -909,23 +733,42 @@ NOTE:
             }
 
             default: {
-              // Try to find handler in the map for standard handlers
-              const toolName = toolCall.toolName as ToolName;
-              const handlerGetter = handlerMap[toolName];
-              if (handlerGetter) {
-                const handler = handlerGetter();
-                // Pass toolContentStreamInfo if the tool call matches
-                const streamInfo =
-                  toolContentStreamInfo?.toolCallId === toolCall.toolCallId
-                    ? toolContentStreamInfo
-                    : undefined;
-                toolCallResult = await handler.handle(params, {
-                  toolCall,
-                  toolContentStreamInfo: streamInfo,
-                });
-              } else {
-                throw new Error(`No handler found for tool: ${toolName}`);
+              const handlerGetter = handlerMap[toolCall.toolName];
+              if (!handlerGetter) {
+                throw new Error(`No handler found for tool: ${toolCall.toolName}`);
               }
+              const streamInfo =
+                toolContentStreamInfo?.toolCallId === toolCall.toolCallId
+                  ? toolContentStreamInfo
+                  : undefined;
+              const invokeHandler = (ctx: {
+                params: AgentHandlerParams;
+                toolCall: ToolCallPart;
+                toolName: ToolName;
+                toolContentStreamInfo?: ToolContentStreamInfo;
+              }) => {
+                const toolName = ctx.toolCall.toolName as ToolName;
+                const handlerGetter = handlerMap[toolName];
+                if (!handlerGetter) {
+                  throw new Error(`No handler found for tool: ${toolName}`);
+                }
+                const handler = handlerGetter();
+                return handler.handle(ctx.params, {
+                  toolCall: ctx.toolCall,
+                  toolContentStreamInfo: ctx.toolContentStreamInfo,
+                  continueFromNextTool: continueProcessingFromNextTool,
+                });
+              };
+              const toolHandlerChain = createToolHandlerChain({
+                middlewares: [createGuardrailsMiddleware(this.plugin)],
+                handler: invokeHandler,
+              });
+              toolCallResult = await toolHandlerChain({
+                params,
+                toolCall,
+                toolContentStreamInfo: streamInfo,
+                agent: this,
+              });
               break;
             }
           }
@@ -1385,27 +1228,6 @@ Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-spec
     return result;
   }
 
-  private async craftTodoListUpdateToolCallManually(title: string): Promise<ToolCallPart | null> {
-    const todoListState = await this.renderer.getConversationProperty<handlers.TodoListState>(
-      title,
-      'todo_list'
-    );
-    const steps = todoListState?.steps;
-    const stepCount = steps?.length ?? 0;
-    if (stepCount === 0 || !todoListState) {
-      return null;
-    }
-    return {
-      type: 'tool-call',
-      toolName: ToolName.TODO_LIST_UPDATE,
-      toolCallId: `manual-tool-call-${uniqueID()}`,
-      input: {
-        status: 'completed',
-        nextStep: Math.min(todoListState.currentStep + 1, stepCount),
-      },
-    };
-  }
-
   /**
    * Find the task name for a given tool name
    */
@@ -1459,4 +1281,8 @@ Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-spec
 }
 
 // Apply mixins to merge classes into SuperAgent class
-applyMixins(SuperAgent, [SuperAgentHandlers, SuperAgentToolContentStream]);
+applyMixins(SuperAgent, [
+  SuperAgentHandlers,
+  SuperAgentToolContentStream,
+  SuperAgentManualToolCall,
+]);

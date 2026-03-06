@@ -1,5 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { normalizePath } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { type SuperAgent } from '../SuperAgent';
@@ -86,6 +87,20 @@ export class VaultDelete {
   private static readonly deleteTool = tool({ inputSchema: deleteToolSchema });
 
   constructor(private readonly agent: SuperAgent) {}
+
+  public extractPathsForGuardrails(input: DeleteToolArgs): string[] {
+    const paths: string[] = [];
+    for (const op of input.operations) {
+      if (op.mode === 'files') {
+        for (const f of op.files) {
+          paths.push(normalizePath(f));
+        }
+      } else if (op.mode === 'filePatterns' && op.filePatterns.folder) {
+        paths.push(normalizePath(op.filePatterns.folder));
+      }
+    }
+    return paths;
+  }
 
   public static getDeleteTool() {
     return VaultDelete.deleteTool;

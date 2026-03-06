@@ -380,6 +380,17 @@ NOTE:
     category: 'skill',
   },
 
+  [ToolName.SWITCH_AGENT_CAPACITY]: {
+    name: ToolName.SWITCH_AGENT_CAPACITY,
+    description:
+      'Switch the current conversation from direct response mode to tool and skill mode.',
+    guidelines: [
+      `Use ${ToolName.SWITCH_AGENT_CAPACITY} when tools are disabled and the task needs tool-based execution.`,
+      `Call ${ToolName.SWITCH_AGENT_CAPACITY} first to switch to agent mode, then continue by using ${ToolName.ACTIVATE} and other required tools.`,
+    ],
+    category: 'tool-management',
+  },
+
   [ToolName.CONCLUDE]: {
     name: ToolName.CONCLUDE,
     description: 'Signal task completion. The client stops sending another request.',
@@ -390,12 +401,29 @@ NOTE:
     ],
     category: 'task-management',
   },
+
+  [ToolName.RECALL_COMPACTED_CONTEXT]: {
+    name: ToolName.RECALL_COMPACTED_CONTEXT,
+    description:
+      'Recall (retrieve) full content of earlier compacted messages by their messageIds.',
+    guidelines: [
+      `Use ${ToolName.RECALL_COMPACTED_CONTEXT} when you need full content from earlier messages that have been compacted.`,
+      `Provide messageIds from the compacted conversation index (format: <id>, e.g. msg-abc123).`,
+    ],
+    category: 'context-retrieval',
+  },
 };
 
 export class ToolRegistry<T> {
   private readonly tools: Map<ToolName, ToolDefinition> = new Map();
   private readonly excluded: Set<ToolName> = new Set();
   private activeTools: Set<ToolName> | null = null;
+  private additionalGuidelines: Map<ToolName, string[]> = new Map();
+
+  public setAdditionalGuidelines(guidelines: Map<ToolName, string[]>): this {
+    this.additionalGuidelines = guidelines;
+    return this;
+  }
 
   public register(def: ToolDefinition): this {
     this.tools.set(def.name, def);
@@ -456,6 +484,12 @@ export class ToolRegistry<T> {
       const guidelines: string[] = [];
       for (const g of def.guidelines) {
         guidelines.push(`- ${g}`);
+      }
+      const extra = this.additionalGuidelines.get(def.name);
+      if (extra && extra.length > 0) {
+        for (const g of extra) {
+          guidelines.push(`- ${g}`);
+        }
       }
       if (guidelines.length > 0) {
         sections.push(`**${def.name}**\n${guidelines.join('\n')}`);

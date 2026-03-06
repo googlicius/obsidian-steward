@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod/v3';
-import { TFile } from 'obsidian';
+import { normalizePath, TFile } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { type SuperAgent } from '../SuperAgent';
 import { ToolCallPart } from '../../tools/types';
@@ -52,6 +52,11 @@ export class VaultList {
   });
 
   constructor(private readonly agent: SuperAgent) {}
+
+  public extractPathsForGuardrails(input: ListToolArgs): string[] {
+    const folderPath = input.folderPath ?? '';
+    return [normalizePath(folderPath || '/')];
+  }
 
   public static getListTool() {
     return VaultList.listTool;

@@ -91,6 +91,18 @@ export interface StewardPluginSettings {
       enabled: boolean; // Enable/disable automatic model fallback
       fallbackChain: string[]; // Ordered list of models to try as fallbacks
     };
+    agents: {
+      compactionSummary: {
+        enabled: boolean; // Enable/disable CompactionSummaryAgent
+        model: string; // Model override, empty string = use chat model
+        customModels: string[]; // User-defined custom models for CompactionSummaryAgent
+      };
+      conversationTitle: {
+        enabled: boolean; // Enable/disable ConversationTitleAgent
+        model: string; // Model override, empty string = use chat model
+        customModels: string[]; // User-defined custom models for ConversationTitleAgent
+      };
+    };
   };
   embedding: {
     enabled: boolean; // Enable/disable embedding functionality

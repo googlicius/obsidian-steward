@@ -27,6 +27,8 @@ export * from './TodoList';
 export * from './Dynamic';
 export * from './ActivateToolHandler';
 export * from './UseSkills';
+export * from './SwitchAgentCapacity';
 export * from './Conclude';
 export * from './GetMostRecentArtifact';
 export * from './GetArtifactById';
+export * from './RecallCompactedContext';

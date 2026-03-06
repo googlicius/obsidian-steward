@@ -1,5 +1,22 @@
+import { ToolName } from '../../ToolRegistry';
 import * as handlers from '../handlers';
 import type { SuperAgent } from '../SuperAgent';
+
+/**
+ * Tool names that have path extraction for guardrails
+ */
+const GUARDRAILS_TOOL_NAMES: Set<ToolName> = new Set([
+  ToolName.LIST,
+  ToolName.CREATE,
+  ToolName.DELETE,
+  ToolName.CONTENT_READING,
+  ToolName.EDIT,
+  ToolName.GREP,
+  ToolName.MOVE,
+  ToolName.RENAME,
+  ToolName.COPY,
+  ToolName.UPDATE_FRONTMATTER,
+]);
 
 /**
  * All handlers are lazily declared in this class
@@ -34,9 +51,11 @@ export class SuperAgentHandlers {
   private _todoList: handlers.TodoList;
   private _dynamic: handlers.Dynamic;
   private _useSkills: handlers.UseSkills;
+  private _switchAgentCapacity: handlers.SwitchAgentCapacity;
   private _conclude: handlers.Conclude;
   private _getMostRecentArtifact: handlers.GetMostRecentArtifact;
   private _getArtifactById: handlers.GetArtifactById;
+  private _recallCompactedContext: handlers.RecallCompactedContext;
 
   /**
    * Helper method to get this instance typed as SuperAgent
@@ -281,6 +300,14 @@ export class SuperAgentHandlers {
     return this._useSkills;
   }
 
+  public get switchAgentCapacity(): handlers.SwitchAgentCapacity {
+    if (!this._switchAgentCapacity) {
+      this._switchAgentCapacity = new handlers.SwitchAgentCapacity(this.getAgent());
+    }
+
+    return this._switchAgentCapacity;
+  }
+
   public get conclude(): handlers.Conclude {
     if (!this._conclude) {
       this._conclude = new handlers.Conclude(this.getAgent());
@@ -303,5 +330,42 @@ export class SuperAgentHandlers {
     }
 
     return this._getArtifactById;
+  }
+
+  public get recallCompactedContext(): handlers.RecallCompactedContext {
+    if (!this._recallCompactedContext) {
+      this._recallCompactedContext = new handlers.RecallCompactedContext(this.getAgent());
+    }
+
+    return this._recallCompactedContext;
+  }
+
+  /**
+   * Extract paths from tool input for guardrails checks.
+   * Uses lazy-loaded handlers; only loads the handler for the given tool.
+   */
+  public getPathsForGuardrails(toolName: ToolName, input: unknown): string[] {
+    if (!GUARDRAILS_TOOL_NAMES.has(toolName)) return [];
+
+    const handlerGetters: Partial<
+      Record<ToolName, () => { extractPathsForGuardrails(input: unknown): string[] }>
+    > = {
+      [ToolName.LIST]: () => this.vaultList,
+      [ToolName.CREATE]: () => this.vaultCreate,
+      [ToolName.DELETE]: () => this.vaultDelete,
+      [ToolName.CONTENT_READING]: () => this.readContent,
+      [ToolName.EDIT]: () => this.editHandler,
+      [ToolName.GREP]: () => this.vaultGrep,
+      [ToolName.MOVE]: () => this.vaultMove,
+      [ToolName.RENAME]: () => this.vaultRename,
+      [ToolName.COPY]: () => this.vaultCopy,
+      [ToolName.UPDATE_FRONTMATTER]: () => this.vaultUpdateFrontmatter,
+    };
+
+    const getter = handlerGetters[toolName];
+    if (!getter) return [];
+
+    const handler = getter();
+    return handler.extractPathsForGuardrails(input);
   }
 }
