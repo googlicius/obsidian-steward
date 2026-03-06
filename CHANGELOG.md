@@ -5,6 +5,22 @@ All notable changes to Obsidian Steward will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-03-06
+
+### Added
+
+- **Conversation Compaction**: Added conversation compaction to keep long chats performant while preserving full-message recall.
+- **Guardrails**: Added Guardrails support to restrict file and folder access with rule-based protections.
+- **Switch to agent capacity tool**: Added a new tool to switch agent capacity directly from command flow.
+
+### Changed
+
+- Updated thinking block rendering to apply a max-height for better readability in long responses.
+
+### Fixed
+
+- Fixed broken placeholder text in the command input on mobile.
+
 ## [2.2.0] - 2026-02-24
 
 ### Added
