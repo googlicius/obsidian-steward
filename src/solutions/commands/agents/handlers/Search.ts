@@ -1,5 +1,5 @@
 import { tool } from 'ai';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
@@ -13,7 +13,7 @@ import { splitCamelCase, removeDiacritics } from 'src/solutions/search/tokenizer
 import { z } from 'zod/v3';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
-import { getLanguage } from 'obsidian';
+import { getLanguage, normalizePath } from 'obsidian';
 import { DEFAULT_SETTINGS } from 'src/constants';
 import { StewardPluginSettings } from 'src/types/interfaces';
 
@@ -170,10 +170,43 @@ export class Search {
     inputSchema: searchQueryExtractionSchema,
   });
 
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public static getSearchTool() {
     return Search.searchTool;
+  }
+
+  public extractPathsForGuardrails(input: SearchArgs): string[] {
+    const paths = new Set<string>();
+
+    for (const operation of input.operations) {
+      if (operation.folders.length === 0) {
+        paths.add('/');
+        continue;
+      }
+
+      for (const folder of operation.folders) {
+        if (folder === '^/$') {
+          paths.add('/');
+          continue;
+        }
+
+        const sanitizedFolder = folder.trim().replace(/^\/+|\/+$/g, '');
+        if (!sanitizedFolder) {
+          paths.add('/');
+          continue;
+        }
+
+        const normalizedFolder = normalizePath(sanitizedFolder);
+        paths.add(normalizedFolder);
+      }
+    }
+
+    if (paths.size === 0) {
+      paths.add('/');
+    }
+
+    return [...paths];
   }
 
   /**
@@ -425,9 +458,6 @@ export class Search {
     // Store the search results in the artifact manager
     else {
       const artifactId = await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
-        text: `*${t('common.artifactCreated', {
-          type: ArtifactType.SEARCH_RESULTS,
-        })}*`,
         artifact: {
           artifactType: ArtifactType.SEARCH_RESULTS,
           originalResults: queryResult.conditionResults,
@@ -450,7 +480,7 @@ export class Search {
       let resultText = `${t('search.found', { count: totalCount })}\n\n${filePaths.join('\n')}`;
 
       if (moreCount > 0) {
-        resultText += `\n\n${t('list.moreFiles', { count: moreCount })}`;
+        resultText += `\n\n${t('list.moreItems', { count: moreCount })}`;
       }
 
       if (hasMoreResults) {

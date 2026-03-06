@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod/v3';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
@@ -22,7 +22,7 @@ export class Help {
     inputSchema: helpSchema,
   });
 
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public static getHelpTool() {
     return Help.helpTool;
@@ -45,11 +45,10 @@ export class Help {
 
     try {
       // Format the commands list
-      let content = `${t('common.availableCommands')}\n\n`;
+      let content = '';
 
       // Add built-in commands section with descriptions
-      content += `**${t('common.builtInCommands')}:**\n\n`;
-      content += `*${t('common.builtInCommandsDesc')}*\n\n`;
+      content += `### ${t('common.builtInCommands')}\n\n`;
 
       // List of built-in commands with descriptions
       const builtInCommandsWithDescriptions: BuiltInCommand[] = [
@@ -62,10 +61,11 @@ export class Help {
       for (const cmd of builtInCommandsWithDescriptions) {
         content += `- ${cmd.command} - ${cmd.description}\n`;
       }
+      content += `\n*${t('common.builtInCommandsDesc')}*\n`;
 
       // Add user-defined commands section if any exist
       const userDefinedCommands = this.agent.plugin.userDefinedCommandService.userDefinedCommands;
-      content += `\n**${t('common.userDefinedCommands')}:**\n\n`;
+      content += `\n### ${t('common.userDefinedCommands')}\n\n`;
       if (userDefinedCommands.size > 0) {
         // Convert Map to array
         const sortedCommands = Array.from(userDefinedCommands.entries());
@@ -82,7 +82,7 @@ export class Help {
       }
 
       // Add skills section
-      content += `\n**${t('skills.skills')}:**\n\n`;
+      content += `\n### ${t('skills.skills')}\n\n`;
 
       // List loaded skills from the vault
       const loadedSkills = this.agent.plugin.skillService.skills;
@@ -96,16 +96,8 @@ export class Help {
         content += `*${t('skills.noSkills')}*\n`;
       }
 
-      // Add tips section
-      content += `\n**${t('documentation.tips')}:**\n\n`;
-      content += `- ${t('documentation.tipNewLines')}\n`;
-      content += `- ${t('documentation.tipChangeModel')}\n`;
-      content += `- ${t('documentation.tipAttachContext')}\n`;
-      content += `- ${t('documentation.tipStop')}\n`;
-      content += `- ${t('documentation.tipRevert')}\n`;
-
       // Add defined rules section
-      content += `\n**${t('guardrails.rules')}:**\n\n`;
+      content += `\n### ${t('guardrails.rules')}\n\n`;
       const rules = this.agent.plugin.guardrailsRuleService.getRules();
       if (rules.length > 0) {
         for (const rule of rules) {
@@ -118,8 +110,16 @@ export class Help {
         content += `*${t('guardrails.noRulesDefined')}*\n`;
       }
 
+      // Add tips section
+      content += `\n### ${t('documentation.tips')}\n\n`;
+      content += `- ${t('documentation.tipNewLines')}\n`;
+      content += `- ${t('documentation.tipChangeModel')}\n`;
+      content += `- ${t('documentation.tipAttachContext')}\n`;
+      content += `- ${t('documentation.tipStop')}\n`;
+      content += `- ${t('documentation.tipRevert')}\n`;
+
       // Add wiki links section
-      content += `\n**${t('documentation.guidelines')}:**\n\n`;
+      content += `\n### ${t('documentation.guidelines')}\n\n`;
       content += `- [${t('documentation.getStartedGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.GET_STARTED})\n`;
       content += `- [${t('documentation.searchGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.SEARCH})\n`;
       content += `- [${t('documentation.udcGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.USER_DEFINED_COMMANDS})\n`;

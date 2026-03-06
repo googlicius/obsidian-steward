@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod/v3';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
@@ -34,7 +34,7 @@ export class Speech {
     inputSchema: speechSchema,
   });
 
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public static getSpeechTool() {
     return Speech.speechTool;
@@ -134,7 +134,6 @@ export class Speech {
       // Store the media artifact
       if (messageId && result.filePath) {
         await this.agent.plugin.artifactManagerV2.withTitle(params.title).storeArtifact({
-          text: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
           artifact: {
             artifactType: ArtifactType.MEDIA_RESULTS,
             paths: [result.filePath],

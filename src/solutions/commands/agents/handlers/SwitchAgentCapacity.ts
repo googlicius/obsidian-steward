@@ -3,7 +3,7 @@ import { z } from 'zod/v3';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 
 const switchAgentCapacitySchema = z.object({});
 
@@ -14,7 +14,7 @@ export class SwitchAgentCapacity {
     inputSchema: switchAgentCapacitySchema,
   });
 
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public static getSwitchAgentCapacityTool() {
     return SwitchAgentCapacity.switchAgentCapacityTool;

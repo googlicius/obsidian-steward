@@ -7,10 +7,8 @@ const vi = {
       noRecentOperations: 'Không có thao tác gần đây được tìm thấy.',
       noToolCallFound: 'Không tìm thấy lệnh gọi công cụ.',
       lowConfidenceConfirmation: 'Tôi không chắc chắn về yêu cầu này. Bạn có muốn tiếp tục không?',
-      artifactCreated: 'Artifact {{type}} đã được lưu',
       artifactNotFound: ' Không tìm thấy artifact với ID "{{artifactId}}".',
       noArtifactsFound: 'Không tìm thấy artifact nào.',
-      availableCommands: 'Các lệnh có sẵn',
       builtInCommands: 'Lệnh tích hợp',
       builtInCommandsDesc: 'Những lệnh này có sẵn thông qua /&lt;command&gt',
       userDefinedCommands: 'Lệnh tùy chỉnh',
@@ -137,18 +135,24 @@ const vi = {
       unknownError: 'Lỗi không xác định.',
     },
     create: {
-      success: 'Đã tạo thành công {{count}} tập tin: {{fileNames}}',
-      creatingFile: 'Đang tạo tập tin: {{fileName}}',
+      success: 'Đã tạo thành công {{count}} mục.',
+      creatingPath: 'Đang tạo: {{path}}',
+      confirmMessage: 'Tôi sẽ tạo các đường dẫn sau:',
+      confirmPrompt: 'Bạn có muốn tiếp tục không?',
       errors: 'Lỗi:',
-      contentOmitted: 'Nội dung đã được ghi vào tập tin. Sử dụng công cụ read để kiểm tra nếu cần.',
+      noTargets: 'Không có đường dẫn thư mục hoặc đường dẫn tập tin nào được chỉ định để tạo.',
+      contentOmitted:
+        'Nội dung đã được lược bỏ để tiết kiệm token. Sử dụng công cụ {{toolName}} để kiểm tra nếu cần.',
     },
     list: {
-      noFilesFound: 'Không tìm thấy tập tin nào.',
-      noFilesFoundInFolder: 'Không tìm thấy tập tin nào trong {{folder}}.',
-      foundFiles: 'Tôi đã tìm thấy {{count}} tập tin',
-      foundFilesInFolder: 'Tôi đã tìm thấy {{count}} tập tin trong {{folder}}',
-      moreFiles: '... và thêm {{count}} tập tin nữa',
+      noItemsFound: 'Không tìm thấy mục nào.',
+      noItemsFoundInFolder: 'Không tìm thấy mục nào trong {{folder}}.',
+      foundItems: 'Tôi đã tìm thấy {{count}} mục',
+      foundItemsInFolder: 'Tôi đã tìm thấy {{count}} mục trong {{folder}}',
+      moreItems: '... và thêm {{count}} mục nữa',
       fullListAvailableInArtifact: 'Danh sách đầy đủ có sẵn trong artifact ID: {{artifactId}}',
+      fullListInArtifactUseFilePattern:
+        'Danh sách đầy đủ có sẵn trong artifact ID: {{artifactId}}. Hãy dùng filePattern cụ thể để thu hẹp kết quả.',
     },
     grep: {
       found: 'Đã tìm thấy {{count}} đường dẫn:',
@@ -196,6 +200,12 @@ const vi = {
       successfullyReverted: 'Đã hoàn tác thành công {{count}} mục',
       failed: 'Không thể hoàn tác {{count}} mục:',
       revertingArtifact: 'Đang hoàn tác từ artifact `{{artifactType}}`',
+      revertingLatestQuery: 'Đang hoàn tác toàn bộ thao tác từ truy vấn người dùng gần nhất',
+      noOperationsInLatestQuery:
+        'Không tìm thấy thao tác nào có thể hoàn tác trong truy vấn người dùng gần nhất.',
+      latestQuerySummary:
+        'Đã hoàn tác {{revertedArtifacts}} trên tổng số {{totalArtifacts}} thao tác artifact của truy vấn gần nhất.',
+      failedArtifactsHeader: 'Các artifact vẫn còn lỗi',
     },
     // Search result messages
     search: {

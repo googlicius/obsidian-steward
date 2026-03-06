@@ -10,6 +10,7 @@ export interface ToolDefinition {
   guidelines: string[];
   required?: boolean;
   category?: string;
+  showDescriptionWhenInactive?: boolean;
 }
 
 export interface ToolMetaDefinition {
@@ -17,6 +18,7 @@ export interface ToolMetaDefinition {
   description: string;
   guidelines: string[];
   category?: string;
+  showDescriptionWhenInactive?: boolean;
 }
 
 /**
@@ -39,6 +41,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       `After reading, respond a short conclusion of your task. DO NOT respond the elements of the reading result in your final response: Tables, lists, code, blockquote, images, headings, etc.`,
       `On success, creates artifact: ${ArtifactType.READ_CONTENT}.`,
     ],
+    showDescriptionWhenInactive: true,
   },
 
   // User interaction tools
@@ -120,6 +123,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       `On success, creates artifact: ${ArtifactType.SEARCH_RESULTS}.`,
     ],
     category: 'vault-access',
+    showDescriptionWhenInactive: true,
   },
 
   [ToolName.SEARCH_MORE]: {
@@ -141,6 +145,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       `The ${ToolName.GREP} tool will NOT return the files inside the folder. Use ${ToolName.LIST} to list files instead.`,
     ],
     category: 'vault-access',
+    showDescriptionWhenInactive: true,
   },
 
   [ToolName.EDIT]: {
@@ -169,12 +174,14 @@ NOTE:
   [ToolName.CREATE]: {
     name: ToolName.CREATE,
     description:
-      'Create new files (notes, canvases, CSS snippets, etc.) and optionally populate them with content.',
+      'Create new folders and files (notes, canvases, CSS snippets, etc.) and optionally populate file content.',
     guidelines: [
-      `Use ${ToolName.CREATE} to create every file requested by the user.
-  - Provide the exact content that should be written to the file when available.
-  - Ensure each file name includes the appropriate extension (e.g. .md, .canvas, .base) and points to the correct folder.`,
-      `On success, creates artifact: ${ArtifactType.CREATED_NOTES}.`,
+      `Use ${ToolName.CREATE} to create folders and files requested by the user.
+  - Use newFolders for folder paths.
+  - Use newFiles with filePath (not fileName) for file creation.
+  - Ensure each filePath includes the appropriate extension (e.g. .md, .canvas, .base).
+  - Provide the exact content that should be written to a file when available.`,
+      `On success, creates artifact: ${ArtifactType.CREATED_PATHS}.`,
     ],
     category: 'content-create',
   },
@@ -232,6 +239,7 @@ NOTE:
       `On success, creates artifact: ${ArtifactType.LIST_RESULTS}.`,
     ],
     category: 'vault-access',
+    showDescriptionWhenInactive: true,
   },
 
   [ToolName.UPDATE_FRONTMATTER]: {
@@ -255,51 +263,13 @@ NOTE:
     category: 'tool-management',
   },
 
-  [ToolName.REVERT_DELETE]: {
-    name: ToolName.REVERT_DELETE,
+  [ToolName.REVERT]: {
+    name: ToolName.REVERT,
     description:
-      'Revert deleted files by restoring them from the trash folder to their original locations.',
+      'Revert all revertable operations produced by the latest user query, including subagents.',
     guidelines: [
-      `Use ${ToolName.REVERT_DELETE} to restore files that were previously deleted.`,
-      `Specify the artifactId containing deleted files to restore, or provide specific trash file paths.`,
-      `Files will be restored to their original paths as recorded in the trash metadata.`,
+      `Use ${ToolName.REVERT} to undo the latest user query end-to-end in reverse chronological order.`,
     ],
-    category: 'vault-access',
-  },
-
-  [ToolName.REVERT_MOVE]: {
-    name: ToolName.REVERT_MOVE,
-    description: 'Revert move operations by moving files back to their original locations.',
-    guidelines: [`Use ${ToolName.REVERT_MOVE} to undo file move operations.`],
-    category: 'vault-access',
-  },
-
-  [ToolName.REVERT_FRONTMATTER]: {
-    name: ToolName.REVERT_FRONTMATTER,
-    description: 'Revert frontmatter updates by restoring original frontmatter properties.',
-    guidelines: [`Use ${ToolName.REVERT_FRONTMATTER} to undo frontmatter property changes.`],
-    category: 'vault-access',
-  },
-
-  [ToolName.REVERT_RENAME]: {
-    name: ToolName.REVERT_RENAME,
-    description: 'Revert rename operations by renaming files back to their original names.',
-    guidelines: [`Use ${ToolName.REVERT_RENAME} to undo file rename operations.`],
-    category: 'vault-access',
-  },
-
-  [ToolName.REVERT_CREATE]: {
-    name: ToolName.REVERT_CREATE,
-    description: 'Revert create operations by deleting files that were previously created.',
-    guidelines: [`Use ${ToolName.REVERT_CREATE} to undo file creation operations.`],
-    category: 'vault-access',
-  },
-
-  [ToolName.REVERT_EDIT_RESULTS]: {
-    name: ToolName.REVERT_EDIT_RESULTS,
-    description:
-      'Revert edit operations by restoring original content that was previously modified.',
-    guidelines: [`Use ${ToolName.REVERT_EDIT_RESULTS} to undo content edit operations.`],
     category: 'vault-access',
   },
 
@@ -343,6 +313,7 @@ NOTE:
       `On success, creates artifact: ${ArtifactType.MEDIA_RESULTS}.`,
     ],
     category: 'content-generation',
+    showDescriptionWhenInactive: true,
   },
 
   [ToolName.TODO_LIST]: {
@@ -355,6 +326,7 @@ NOTE:
   - After creating a to-do list, you should execute the first step's task.`,
     ],
     category: 'task-management',
+    showDescriptionWhenInactive: true,
   },
 
   [ToolName.TODO_LIST_UPDATE]: {
@@ -380,12 +352,26 @@ NOTE:
     category: 'skill',
   },
 
+  [ToolName.SPAWN_SUBAGENT]: {
+    name: ToolName.SPAWN_SUBAGENT,
+    description:
+      'Use when a task can be split into independent jobs, especially to keep each job focused and reduce token usage when token limits might be hit.',
+    guidelines: [
+      `Provide clear job queries for each subagent job. Use tools for immediately required actions and inactiveTools for optional verification/pre-check tools the subagent may activate later.`,
+      `For jobs that create, edit, move, or delete content, include enough inactiveTools to verify results before concluding (for example: ${ToolName.CONTENT_READING}, ${ToolName.GREP}, ${ToolName.SEARCH}, ${ToolName.LIST}).`,
+      `Subagents run in parallel, so ensure jobs do not depend on each other.`,
+      `Subagents can activate only when needed; keep tools minimal but include a verification path via inactiveTools.`,
+      `After ${ToolName.SPAWN_SUBAGENT} returns, use its summarized results to continue or finalize in the conversation.`,
+    ],
+    category: 'orchestration',
+    showDescriptionWhenInactive: true,
+  },
+
   [ToolName.SWITCH_AGENT_CAPACITY]: {
     name: ToolName.SWITCH_AGENT_CAPACITY,
     description:
       'Switch the current conversation from direct response mode to tool and skill mode.',
     guidelines: [
-      `Use ${ToolName.SWITCH_AGENT_CAPACITY} when tools are disabled and the task needs tool-based execution.`,
       `Call ${ToolName.SWITCH_AGENT_CAPACITY} first to switch to agent mode, then continue by using ${ToolName.ACTIVATE} and other required tools.`,
     ],
     category: 'tool-management',
@@ -498,16 +484,12 @@ export class ToolRegistry<T> {
     return sections.join('\n\n');
   }
 
-  public generateOtherToolsSection(
-    emptyLabel = '',
-    includeDescription?: Set<ToolName>,
-    exclude?: Set<ToolName>
-  ): string {
+  public generateOtherToolsSection(emptyLabel = '', exclude?: Set<ToolName>): string {
     const lines: string[] = [];
     for (const [, def] of this.tools) {
       if (this.isActive(def.name)) continue;
       if (exclude?.has(def.name)) continue;
-      const line = includeDescription?.has(def.name)
+      const line = def.showDescriptionWhenInactive
         ? `- ${def.name} - ${def.description}`
         : `- ${def.name}`;
       lines.push(line);
@@ -534,6 +516,7 @@ export class ToolRegistry<T> {
         description: meta.description,
         guidelines: meta.guidelines,
         category: meta.category,
+        showDescriptionWhenInactive: meta.showDescriptionWhenInactive,
       });
     }
     return registry;

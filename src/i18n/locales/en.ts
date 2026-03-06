@@ -10,12 +10,10 @@ const en = {
       noToolCallFound: 'No tool call found.',
       lowConfidenceConfirmation:
         "I'm not entirely sure about this request. Would you like me to proceed anyway?",
-      artifactCreated: 'Artifact {{type}} is created',
       artifactNotFound: 'Artifact with ID "{{artifactId}}" not found.',
       noArtifactsFound: 'No artifacts found.',
       cannotUpdateThisType:
         'Cannot update this type of artifact. Only search results, created notes, read content, and content updates can be updated.',
-      availableCommands: 'Available commands',
       builtInCommands: 'Built-in commands',
       builtInCommandsDesc: 'These commands are directly accessible via /&lt;command&gt',
       userDefinedCommands: 'User-Defined commands',
@@ -167,25 +165,28 @@ const en = {
       unknownError: 'Unknown error.',
     },
     create: {
-      success_one: 'Successfully created {{fileName}}',
-      success_other: 'Successfully created {{count}} files.',
-      creatingFile: 'Creating file: {{fileName}}',
-      confirmMessage_one: 'I will create the following file:',
-      confirmMessage_other: 'I will create the following files:',
+      success: 'Successfully created {{count}} items.',
+      creatingPath: 'Creating: {{path}}',
+      confirmMessage_one: 'I will create the following path:',
+      confirmMessage_other: 'I will create the following paths:',
       confirmPrompt: 'Do you want to proceed?',
       errors: 'Errors:',
-      contentOmitted: 'Content written to file. Use the read tool to inspect it if needed.',
+      noTargets: 'No folder paths or file paths were specified for creation.',
+      contentOmitted:
+        'Content was omitted to save tokens. Use the {{toolName}} tool to inspect it if needed.',
     },
     list: {
-      noFilesFound: 'No files found.',
-      noFilesFoundInFolder: 'No files found in {{folder}}.',
-      foundFiles_one: 'I found {{count}} file',
-      foundFiles_other: 'I found {{count}} files',
-      foundFilesInFolder_one: 'I found {{count}} file in {{folder}}',
-      foundFilesInFolder_other: 'I found {{count}} files in {{folder}}',
-      moreFiles_one: '... and {{count}} more file',
-      moreFiles_other: '... and {{count}} more files',
+      noItemsFound: 'No items found.',
+      noItemsFoundInFolder: 'No items found in {{folder}}.',
+      foundItems_one: 'I found {{count}} item',
+      foundItems_other: 'I found {{count}} items',
+      foundItemsInFolder_one: 'I found {{count}} item in {{folder}}',
+      foundItemsInFolder_other: 'I found {{count}} items in {{folder}}',
+      moreItems_one: '... and {{count}} more item',
+      moreItems_other: '... and {{count}} more items',
       fullListAvailableInArtifact: 'Full list available in artifact ID: {{artifactId}}',
+      fullListInArtifactUseFilePattern:
+        'Full list available in artifact ID: {{artifactId}}. Use a specific filePattern to narrow down results.',
     },
     grep: {
       found_one: 'Found {{count}} path:',
@@ -257,6 +258,11 @@ const en = {
       failed_one: 'Failed to revert {{count}} item:',
       failed_other: 'Failed to revert {{count}} items:',
       revertingArtifact: 'Reverting from artifact `{{artifactType}}`',
+      revertingLatestQuery: 'Reverting all operations from the latest user query',
+      noOperationsInLatestQuery: 'No revertable operations were found in the latest user query.',
+      latestQuerySummary:
+        'Reverted {{revertedArtifacts}} of {{totalArtifacts}} artifact operation(s) from the latest query.',
+      failedArtifactsHeader: 'Artifacts with remaining failures',
     },
     // Search result messages
     search: {

@@ -1,0 +1,247 @@
+import { streamText } from 'ai';
+import type StewardPlugin from 'src/main';
+import { type App } from 'obsidian';
+import {
+  AgentStreamTextExecutor,
+  type StreamTextExecutorAgentContext,
+} from './AgentStreamTextExecutor';
+import { ToolName } from '../ToolRegistry';
+import type { AgentHandlerParams, Intent } from '../types';
+import type { ToolContentStreamInfo } from './SuperAgent/SuperAgentToolContentStream';
+
+jest.mock('ai', () => {
+  const originalModule = jest.requireActual('ai');
+
+  return {
+    ...originalModule,
+    streamText: jest.fn(),
+    tool: jest.fn().mockImplementation(config => config),
+  };
+});
+
+function createMockPlugin(): jest.Mocked<StewardPlugin> {
+  const mockApp = {
+    vault: {
+      cachedRead: jest.fn().mockResolvedValue(''),
+    },
+  } as unknown as App;
+
+  const mockRenderer = {
+    addGeneratingIndicator: jest.fn(),
+    removeIndicator: jest.fn(),
+    addUserMessage: jest.fn().mockResolvedValue('user-message-id-123'),
+    updateConversationNote: jest.fn().mockResolvedValue('message-id-123'),
+    streamConversationNote: jest.fn().mockImplementation(async ({ stream }) => {
+      for await (const _chunk of stream) {
+        void _chunk;
+      }
+    }),
+    serializeToolInvocation: jest.fn(),
+    extractConversationHistory: jest.fn().mockResolvedValue([]),
+    updateConversationFrontmatter: jest.fn(),
+    getConversationProperty: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const mockPlugin = {
+    settings: {
+      stewardFolder: 'Steward',
+      embedding: {
+        enabled: true,
+      },
+      llm: {
+        chat: {
+          model: 'mock-model',
+        },
+      },
+    },
+    app: mockApp,
+    registerEvent: jest.fn(),
+    llmService: {
+      getLLMConfig: jest.fn().mockResolvedValue({
+        model: 'mock-model',
+        temperature: 0.2,
+      }),
+      getEmbeddingSettings: jest.fn().mockReturnValue({}),
+      validateImageSupport: jest.fn(),
+    },
+    abortService: {
+      createAbortController: jest.fn().mockReturnValue(new AbortController()),
+    },
+    skillService: {
+      getSkillCatalog: jest.fn().mockReturnValue([]),
+      getSkillContents: jest.fn().mockReturnValue({ contents: {} }),
+    },
+    userMessageService: {
+      sanitizeQuery: jest.fn((query: string) => query),
+    },
+    userDefinedCommandService: {
+      processSystemPromptsWikilinks: jest.fn().mockImplementation(async prompts => prompts),
+      hasCommand: jest.fn().mockReturnValue(false),
+    },
+    conversationRenderer: mockRenderer,
+    guardrailsRuleService: {
+      getInstructionsByTool: jest.fn().mockReturnValue(new Map()),
+    },
+    compactionOrchestrator: {
+      run: jest.fn().mockResolvedValue({
+        systemMessage: undefined,
+      }),
+    },
+    editor: {
+      getCursor: jest.fn().mockReturnValue({ line: 0 }),
+    },
+  } as unknown as StewardPlugin;
+
+  return mockPlugin as unknown as jest.Mocked<StewardPlugin>;
+}
+
+class TestAgent extends AgentStreamTextExecutor implements StreamTextExecutorAgentContext {
+  constructor(
+    public plugin: StewardPlugin,
+    public renderer: StewardPlugin['conversationRenderer']
+  ) {
+    super();
+  }
+
+  public async renderIndicator(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  public createToolContentExtractor(): { feed: (delta: string) => string } {
+    return {
+      feed: (delta: string) => delta,
+    };
+  }
+
+  public async consumeToolContentStream(): Promise<ToolContentStreamInfo | undefined> {
+    return undefined;
+  }
+
+  public async executeForTest(params: AgentHandlerParams) {
+    return this.executeStreamText({
+      ...params,
+      activeTools: [],
+      activeSkills: [],
+      tools: {},
+      toolsThatEnableConclude: new Set<ToolName>(),
+    });
+  }
+}
+
+describe('AgentStreamTextExecutor', () => {
+  let testAgent: TestAgent;
+  let mockPlugin: jest.Mocked<StewardPlugin>;
+
+  beforeAll(() => {
+    global.window = {
+      setInterval: (fn: () => void, ms: number) => setInterval(fn, ms),
+      clearInterval: (id: NodeJS.Timeout) => clearInterval(id),
+      setTimeout: (fn: () => void, ms: number) => setTimeout(fn, ms),
+      clearTimeout: (id: NodeJS.Timeout) => clearTimeout(id),
+    } as unknown as Window & typeof globalThis;
+  });
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    mockPlugin = createMockPlugin();
+    testAgent = new TestAgent(mockPlugin, mockPlugin.conversationRenderer);
+
+    (streamText as jest.Mock).mockReturnValue({
+      fullStream: (async function* () {
+        yield { type: 'text-delta', textDelta: '' };
+      })(),
+      toolCalls: Promise.resolve([]),
+    });
+  });
+
+  afterEach(() => {
+    try {
+      jest.runOnlyPendingTimers();
+    } catch {
+      // Ignore timer errors when fake timers are not active
+    }
+    jest.useRealTimers();
+  });
+
+  describe('system prompt and fallbacks', () => {
+    it('should include system prompt from provider at the first message', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+      };
+
+      const providerSystemPrompt = 'This is a custom system prompt from the provider';
+
+      mockPlugin.llmService.getLLMConfig = jest.fn().mockResolvedValue({
+        model: 'mock-model',
+        temperature: 0.2,
+        maxOutputTokens: 2048,
+        systemPrompt: providerSystemPrompt,
+      });
+
+      mockPlugin.conversationRenderer.extractConversationHistory = jest.fn().mockResolvedValue([]);
+
+      await testAgent.executeForTest(params);
+
+      expect(streamText).toHaveBeenCalledTimes(1);
+      const call = (streamText as jest.Mock).mock.calls[0][0];
+      expect(call.messages).toBeDefined();
+      expect(call.messages.length).toBeGreaterThan(0);
+      expect(call.messages[0].role).toBe('system');
+      expect(call.messages[0].content).toBe(providerSystemPrompt);
+      expect(call.messages[1].role).toBe('user');
+      expect(call.messages[1].content).toBe('test query');
+    });
+
+    it('should include user message when invocationCount is undefined', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+      };
+
+      mockPlugin.conversationRenderer.extractConversationHistory = jest
+        .fn()
+        .mockImplementation(() => Promise.resolve([]));
+
+      await testAgent.executeForTest(params);
+
+      expect(streamText).toHaveBeenCalledTimes(1);
+      const call = (streamText as jest.Mock).mock.calls[0][0];
+      const userMessage = call.messages.find((m: { role: string }) => m.role === 'user');
+      expect(userMessage).toBeDefined();
+      expect(userMessage.content).toBe('test query');
+    });
+
+    it('should NOT append user message when invocationCount is greater than 0', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+        invocationCount: 1,
+      };
+
+      const historyMessages = [
+        { role: 'user', content: 'previous query' },
+        { role: 'assistant', content: 'previous response' },
+      ];
+      mockPlugin.conversationRenderer.extractConversationHistory = jest
+        .fn()
+        .mockResolvedValue(historyMessages);
+
+      await testAgent.executeForTest(params);
+
+      expect(streamText).toHaveBeenCalledTimes(1);
+      const call = (streamText as jest.Mock).mock.calls[0][0];
+      expect(call.messages).toEqual(historyMessages);
+    });
+  });
+});

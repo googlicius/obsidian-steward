@@ -4,7 +4,7 @@ import { normalizePath, TFile, TFolder } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { logger } from 'src/utils/logger';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import {
@@ -125,7 +125,7 @@ export class VaultUpdateFrontmatter {
     inputSchema: updateFrontmatterToolSchema,
   });
 
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: UpdateFrontmatterToolArgs): string[] {
     const paths: string[] = [];

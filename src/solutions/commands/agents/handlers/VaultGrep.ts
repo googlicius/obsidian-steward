@@ -1,5 +1,5 @@
 import { normalizePath } from 'obsidian';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { execute, grepTool, GrepArgs } from '../../tools/grep';
@@ -8,7 +8,7 @@ import { removeUndefined } from 'src/utils/removeUndefined';
 export type GrepToolArgs = GrepArgs;
 
 export class VaultGrep {
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: GrepToolArgs): string[] {
     return input.paths.map(p => normalizePath(p));

@@ -6,6 +6,7 @@ import {
   ArtifactMap,
   ArtifactSerializer,
   ArtifactType,
+  revertAbleArtifactTypes,
 } from 'src/solutions/artifact/types';
 import {
   JsonArtifactSerializer,
@@ -227,6 +228,11 @@ export class ArtifactManagerV2 {
       if (!params.artifact.id) {
         params.artifact.id = messageId;
       }
+      params.artifact.messageId = messageId;
+
+      if (typeof params.artifact.createdAt !== 'number') {
+        params.artifact.createdAt = Date.now();
+      }
 
       // Process the file content
       await this.plugin.app.vault.process(file, currentContent => {
@@ -301,6 +307,9 @@ export class ArtifactManagerV2 {
           const result = await serializer
             .injectTitle(this.conversationTitle)
             .deserialize(message.content);
+          if (message.id) {
+            result.messageId = message.id;
+          }
           if (!result.id && message.id) {
             result.id = message.id;
           }
@@ -326,7 +335,40 @@ export class ArtifactManagerV2 {
   public async getArtifactById(artifactId: string): Promise<Artifact | undefined> {
     // Get all artifacts from cache or load them if not available
     const artifacts = await this.getAllArtifacts();
-    return artifacts.find(artifact => artifact.id === artifactId);
+    return artifacts.find(
+      artifact => artifact.id === artifactId || artifact.messageId === artifactId
+    );
+  }
+
+  /**
+   * Get artifacts by IDs while preserving input order.
+   */
+  public async getArtifactsByIds(artifactIds: string[]): Promise<Artifact[]> {
+    if (artifactIds.length === 0) {
+      return [];
+    }
+
+    const artifacts = await this.getAllArtifacts();
+    const artifactMap = new Map<string, Artifact>();
+    for (const artifact of artifacts) {
+      if (artifact.id) {
+        artifactMap.set(artifact.id, artifact);
+      }
+      if (artifact.messageId) {
+        artifactMap.set(artifact.messageId, artifact);
+      }
+    }
+
+    const orderedArtifacts: Artifact[] = [];
+    for (const artifactId of artifactIds) {
+      const artifact = artifactMap.get(artifactId);
+      if (!artifact) {
+        continue;
+      }
+      orderedArtifacts.push(artifact);
+    }
+
+    return orderedArtifacts;
   }
 
   /**
@@ -363,6 +405,14 @@ export class ArtifactManagerV2 {
     }
 
     return filteredArtifacts[filteredArtifacts.length - 1];
+  }
+
+  /**
+   * Get all revertable artifacts for the current conversation.
+   */
+  public async getAllRevertableArtifacts(): Promise<Artifact[]> {
+    const artifacts = await this.getAllArtifacts();
+    return artifacts.filter(artifact => revertAbleArtifactTypes.includes(artifact.artifactType));
   }
 
   /**
@@ -505,7 +555,7 @@ export class ArtifactManagerV2 {
 
   /**
    * Resolve files from an artifact
-   * Supported artifact types: SEARCH_RESULTS, CREATED_NOTES, READ_CONTENT, LIST_RESULTS
+   * Supported artifact types: SEARCH_RESULTS, CREATED_PATHS, READ_CONTENT, LIST_RESULTS
    * @param artifactId The ID of the artifact to resolve files from
    * @returns Array of DocWithPath objects containing file paths
    */
@@ -531,7 +581,7 @@ export class ArtifactManagerV2 {
         break;
       }
 
-      case ArtifactType.CREATED_NOTES: {
+      case ArtifactType.CREATED_PATHS: {
         for (const path of artifact.paths) {
           resolvedFiles.push({ path });
         }
@@ -556,7 +606,7 @@ export class ArtifactManagerV2 {
 
       default: {
         logger.warn(
-          `Unsupported artifact type for resolving files: ${artifact.artifactType}. Supported types: search_results, created_notes, read_content, list_results`
+          `Unsupported artifact type for resolving files: ${artifact.artifactType}. Supported types: search_results, created_paths, read_content, list_results`
         );
         return [];
       }

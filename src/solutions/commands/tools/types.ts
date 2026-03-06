@@ -1,4 +1,5 @@
 import { ToolCallPart as AI_ToolCallPart, ToolResultPart as AI_ToolResultPart } from 'ai';
+import { ToolName } from '../toolNames';
 
 export type ToolInvocation<T, ARGS = Record<string, unknown>> = {
   toolName: string;
@@ -20,6 +21,7 @@ export type ToolInvocationResult<T, ARGS = Record<string, unknown>> = {
 
 export type ToolCallPart<INPUT = Record<string, unknown>> = AI_ToolCallPart & {
   input: INPUT;
+  toolName: ToolName;
 };
 
 export type ToolResultPart<OUTPUT = unknown> = AI_ToolResultPart & {
