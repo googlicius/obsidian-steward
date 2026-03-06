@@ -747,9 +747,10 @@ After the switch is confirmed, continue the task and use tools as needed.`;
                 toolName: ToolName;
                 toolContentStreamInfo?: ToolContentStreamInfo;
               }) => {
-                const handlerGetter = handlerMap[ctx.toolName];
+                const toolName = ctx.toolCall.toolName as ToolName;
+                const handlerGetter = handlerMap[toolName];
                 if (!handlerGetter) {
-                  throw new Error(`No handler found for tool: ${ctx.toolName}`);
+                  throw new Error(`No handler found for tool: ${toolName}`);
                 }
                 const handler = handlerGetter();
                 return handler.handle(ctx.params, {

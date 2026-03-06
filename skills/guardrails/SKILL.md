@@ -25,20 +25,19 @@ Keep the rule body brief plus the verification query.
 
 Include a **verification query** in each rule's documentation. This is a Steward command that would trigger the rule (and get blocked), so users can quickly confirm the rule works. Format:
 
-
 - **Format:** Commands start with `/ ` (slash + space); put the command on its own line
 - **Content:** A natural-language request that would perform one of the restricted actions on a target (e.g., list, read, create, edit)
   Add it in the rule body, e.g. under a **Verify** or **Test** section.
 
 ## Frontmatter Format
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `name` | Yes | A short identifier for the rule (e.g., "No secrets access") |
-| `targets` | Yes | Array of path patterns (folders or files). Use `folder/` for folders, `*.ext` for file types |
-| `actions` | Yes | Array of actions to restrict: `read`, `list`, `create`, `edit`, `delete`, `grep`, `move`, `rename`, `copy`, `update_frontmatter` |
-| `instruction` | No | Optional override only when the user explicitly requires strict guidance. Default is no instruction; violations are serialized for the AI to adapt |
-| `enabled` | No | Set to `false` to disable a rule. Default is `true` |
+| Field         | Required | Description                                                                                                                                        |
+| ------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | Yes      | A short identifier for the rule (e.g., "No secrets access")                                                                                        |
+| `targets`     | Yes      | Array of path patterns (folders or files). Use `folder/` for folders, `*.ext` for file types                                                       |
+| `actions`     | Yes      | Array of actions to restrict: `read`, `list`, `create`, `edit`, `delete`, `grep`, `move`, `rename`, `copy`, `update_frontmatter`                   |
+| `instruction` | No       | Optional override only when the user explicitly requires strict guidance. Default is no instruction; violations are serialized for the AI to adapt |
+| `enabled`     | No       | Set to `false` to disable a rule. Default is `true`                                                                                                |
 
 ## Example Rule File
 
@@ -47,9 +46,9 @@ Create `Steward/Rules/No secrets.md`:
 ```md
 ---
 name: No secrets access
-targets: ["Secrets/", "*.key", "Credentials/"]
+targets: ['Secrets/', '*.key', 'Credentials/']
 actions: [read, list, create, edit, delete, grep]
-instruction: "Never read, list, create, or modify files in Secrets/ or *.key"
+instruction: 'Never read, list, create, or modify files in Secrets/ or *.key'
 enabled: true
 ---
 
@@ -65,7 +64,7 @@ Create `Steward/Rules/No private edits.md`:
 ```md
 ---
 name: No private edits
-targets: ["Private/"]
+targets: ['Private/']
 actions: [edit, delete]
 enabled: true
 ---

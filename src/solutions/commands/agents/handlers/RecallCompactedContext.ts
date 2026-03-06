@@ -46,10 +46,7 @@ export async function resolveRecallCompactedContext(params: {
       continue;
     }
 
-    const modelMessages = await renderer.convertMessageToModelFormat(
-      conversationTitle,
-      rawMessage
-    );
+    const modelMessages = await renderer.convertMessageToModelFormat(conversationTitle, rawMessage);
     for (const msg of modelMessages) {
       messages.push(msg);
     }

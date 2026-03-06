@@ -347,7 +347,9 @@ export class SuperAgentHandlers {
   public getPathsForGuardrails(toolName: ToolName, input: unknown): string[] {
     if (!GUARDRAILS_TOOL_NAMES.has(toolName)) return [];
 
-    const handlerGetters: Partial<Record<ToolName, () => { extractPathsForGuardrails(input: unknown): string[] }>> = {
+    const handlerGetters: Partial<
+      Record<ToolName, () => { extractPathsForGuardrails(input: unknown): string[] }>
+    > = {
       [ToolName.LIST]: () => this.vaultList,
       [ToolName.CREATE]: () => this.vaultCreate,
       [ToolName.DELETE]: () => this.vaultDelete,

@@ -254,5 +254,4 @@ export class GuardrailsRuleService {
     }
     return map;
   }
-
 }

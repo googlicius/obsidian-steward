@@ -52,11 +52,11 @@ flowchart TD
 
 ### Decision chart
 
-| Message type | Treatment | What the agent sees | Full content |
-|--------------|-----------|---------------------|--------------|
-| Tool result | Compact on client only | Tool name + metadata (IDs, paths, etc.) | Available via recall |
-| Long assistant-generated | Summarize | 1–3 sentence summary | Available via recall |
-| User or short assistant | Keep original | Full text | Already in context |
+| Message type             | Treatment              | What the agent sees                     | Full content         |
+| ------------------------ | ---------------------- | --------------------------------------- | -------------------- |
+| Tool result              | Compact on client only | Tool name + metadata (IDs, paths, etc.) | Available via recall |
+| Long assistant-generated | Summarize              | 1–3 sentence summary                    | Available via recall |
+| User or short assistant  | Keep original          | Full text                               | Already in context   |
 
 ### Recall flow
 

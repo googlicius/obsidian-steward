@@ -102,6 +102,10 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       sanitizeQuery: jest.fn((query: string) => query),
     },
     conversationRenderer: mockRenderer,
+    guardrailsRuleService: {
+      getInstructionsByTool: jest.fn().mockReturnValue(new Map()),
+      getRulesForTool: jest.fn().mockReturnValue([]),
+    },
     artifactManagerV2: mockArtifactManager,
     compactionOrchestrator: {
       run: jest.fn().mockResolvedValue({
