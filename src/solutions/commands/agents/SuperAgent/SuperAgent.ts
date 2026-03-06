@@ -132,6 +132,8 @@ const tools = {
     handlers.RecallCompactedContext.getRecallCompactedContextTool(),
 };
 
+// Test
+
 const toolsThatEnableConclude = new Set([
   ToolName.EDIT,
   ToolName.MOVE,
