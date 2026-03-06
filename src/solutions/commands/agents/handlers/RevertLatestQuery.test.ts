@@ -128,6 +128,7 @@ describe('RevertLatestQuery', () => {
       {
         artifactType: ArtifactType.CREATED_PATHS,
         id: 'p-a1',
+        messageId: 'p-a1',
         createdAt: 100,
         paths: ['Parent/New.md'],
       },
@@ -136,6 +137,7 @@ describe('RevertLatestQuery', () => {
       {
         artifactType: ArtifactType.CREATED_PATHS,
         id: 'c-a1',
+        messageId: 'c-a1',
         createdAt: 200,
         paths: ['Child/New.md'],
       },
@@ -165,6 +167,13 @@ describe('RevertLatestQuery', () => {
               type: 'tool-invocation',
             },
             { id: 'u-2', role: 'user', content: 'revert', intent: 'revert' },
+            {
+              id: 'a-after-1',
+              role: 'assistant',
+              content: 'Reverting all operations from the latest user query',
+              intent: 'revert_latest_query',
+              type: 'text',
+            },
           ];
         }
         if (title === 'conversation__subagent_1') {
@@ -206,12 +215,14 @@ describe('RevertLatestQuery', () => {
       {
         artifactType: ArtifactType.CREATED_PATHS,
         id: 'a-1',
+        messageId: 'a-1',
         createdAt: 100,
         paths: ['A.md'],
       },
       {
         artifactType: ArtifactType.CREATED_PATHS,
         id: 'a-2',
+        messageId: 'a-2',
         createdAt: 90,
         paths: ['B.md'],
       },
@@ -236,6 +247,13 @@ describe('RevertLatestQuery', () => {
         artifactType: ArtifactType.CREATED_PATHS,
       },
       { id: 'u-2', role: 'user', content: 'revert', intent: 'revert' },
+      {
+        id: 'a-after-2',
+        role: 'assistant',
+        content: 'Reverting all operations from the latest user query',
+        intent: 'revert_latest_query',
+        type: 'text',
+      },
     ]);
 
     mockPlugin.app.vault.getAbstractFileByPath = jest.fn((path: string) => createMockFile(path));
