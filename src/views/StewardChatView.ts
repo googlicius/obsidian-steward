@@ -352,7 +352,7 @@ export class StewardChatView extends MarkdownView {
       const conversationTitle = cache?.frontmatter?.conversation_title;
       const displayText = conversationTitle || file.basename;
       const linkPath = file.path.replace(/\.md$/, '');
-      lines.push(`- <a data-path="${linkPath}">${displayText}</a>`);
+      lines.push(`- <a class="stw-history-link" data-path="${linkPath}">${displayText}</a>`);
     }
 
     return lines.join('\n');

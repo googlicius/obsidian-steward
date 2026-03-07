@@ -217,6 +217,72 @@ pre.language-stw-thinking {
   overflow: hidden;
 }
 
+.stw-history-list {
+  padding-top: var(--size-4-2);
+
+  li {
+    display: block;
+    width: 100%;
+    margin-inline-start: 0 !important;
+
+    & > .list-bullet {
+      display: none;
+    }
+
+    .stw-history-item {
+      display: flex;
+      align-items: center;
+      gap: var(--size-2-2);
+      width: 100%;
+      min-height: 30px;
+      border-radius: var(--radius-s);
+      padding: 0 var(--size-2-1);
+
+      .stw-history-link {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-decoration: none;
+        color: var(--text-normal);
+        line-height: 1.35;
+
+        &:visited {
+          color: var(--text-normal);
+        }
+
+        &:hover,
+        &:focus-visible {
+          color: var(--text-muted);
+          text-decoration: none;
+        }
+      }
+
+      .stw-history-delete-button {
+        margin-left: auto;
+        opacity: 0;
+        color: var(--icon-color);
+
+        &:hover {
+          color: var(--icon-color-hover);
+          background: var(--background-modifier-hover);
+        }
+      }
+
+      &:hover .stw-history-delete-button,
+      &:focus-within .stw-history-delete-button {
+        opacity: var(--icon-opacity-hover);
+      }
+
+      &:hover,
+      &:focus-within {
+        background: var(--background-modifier-hover);
+      }
+    }
+  }
+}
+
 pre[class*='language-stw-artifact'],
 code[class*='language-stw-artifact'],
 pre[class*='language-stw-hidden-from-user'],

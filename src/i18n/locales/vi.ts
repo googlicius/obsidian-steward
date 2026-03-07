@@ -53,6 +53,7 @@ const vi = {
       closeChat: 'Đóng trò chuyện',
       stewardChat: 'Trò chuyện Steward',
       closeConversation: 'Đóng cuộc trò chuyện',
+      deleteHistoryItem: 'Xóa khỏi lịch sử',
       conversationClosed: 'Cuộc trò chuyện đã được đóng',
       newVersionAvailable: 'Phiên bản mới có sẵn',
       newVersionMessage: 'Phiên bản mới của Steward ({{version}}) hiện đã có sẵn!',

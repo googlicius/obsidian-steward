@@ -59,6 +59,7 @@ const en = {
       closeChat: 'Close chat',
       stewardChat: 'Steward chat',
       closeConversation: 'Close conversation',
+      deleteHistoryItem: 'Delete from history',
       conversationClosed: 'Conversation closed',
       squeezeConversation: 'Squeeze conversation',
       expandConversation: 'Expand conversation',

@@ -54,6 +54,7 @@ const ja = {
       closeChat: 'チャットを閉じる',
       stewardChat: 'Stewardチャット',
       closeConversation: '会話を閉じる',
+      deleteHistoryItem: '履歴から削除',
       conversationClosed: '会話を閉じました',
       newVersionAvailable: '新しいバージョンが利用可能',
       newVersionMessage: 'Stewardの新しいバージョン（{{version}}）が利用可能になりました！',
