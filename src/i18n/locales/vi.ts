@@ -138,8 +138,8 @@ const vi = {
     },
     create: {
       success: 'Đã tạo thành công {{count}} mục.',
-      creatingPath: 'Đang tạo: {{path}}',
-      confirmMessage: 'Tôi sẽ tạo các đường dẫn sau:',
+      creatingPath: 'Đang tạo: {{item}}',
+      confirmMessage: 'Tôi sẽ tạo các mục sau:',
       confirmPrompt: 'Bạn có muốn tiếp tục không?',
       errors: 'Lỗi:',
       noTargets: 'Không có đường dẫn thư mục hoặc đường dẫn tập tin nào được chỉ định để tạo.',
@@ -323,6 +323,9 @@ const vi = {
       readEntireContentConfirmation:
         'Tôi đang đọc toàn bộ nội dung của ghi chú. Bạn có muốn tiếp tục không?',
       unableToReadContent: 'Không thể đọc nội dung.',
+      reviewSummary: 'Đọc: {{summary}}',
+      reviewType: '{{value}}',
+      reviewPattern: '`{{value}}`',
     },
     thankYou: {
       response1: 'Không có gì! Rất vui khi được giúp bạn.',

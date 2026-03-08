@@ -136,7 +136,7 @@ export class SpawnSubagent {
           if (patch?.childTitle) {
             const subagentEmbed = this.agent.plugin.noteContentService.formatCallout(
               `![[${patch.childTitle}]]`,
-              'stw-edit-preview',
+              'stw-review',
               { streaming: 'true' }
             );
             await this.agent.renderer.updateConversationNote({

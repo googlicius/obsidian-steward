@@ -229,39 +229,21 @@ export class ReadContent {
       });
     }
 
-    // Process each result
-    for (const result of readingResults) {
-      // Skip empty markdown files
-      if (result.file && result.file.path.endsWith('.md') && result.blocks.length === 0) {
-        continue;
-      }
-
-      // Don't render content when toolCall.input.readType is "entire" or "frontmatter"
-      if (toolCall.input.readType !== 'entire' && toolCall.input.readType !== 'frontmatter') {
-        for (const block of result.blocks) {
-          if (block.content === '') {
-            continue;
-          }
-
-          const endLine = this.agent.plugin.editor.getLine(block.endLine);
-          await this.agent.renderer.updateConversationNote({
-            path: title,
-            newContent: this.agent.plugin.noteContentService.formatCallout(
-              block.content,
-              'stw-search-result',
-              {
-                startLine: block.startLine,
-                endLine: block.endLine,
-                start: 0,
-                end: endLine.length,
-                path: result.file?.path,
-              }
-            ),
-            includeHistory: false,
-            handlerId,
-            step: params.invocationCount,
-          });
-        }
+    // Don't render content when toolCall.input.readType is "entire" or "frontmatter"
+    if (toolCall.input.readType !== 'entire' && toolCall.input.readType !== 'frontmatter') {
+      const reviewContent = this.buildReviewCalloutContent({
+        readingResults,
+        input: toolCall.input,
+        lang,
+      });
+      if (reviewContent) {
+        await this.agent.renderer.updateConversationNote({
+          path: title,
+          newContent: reviewContent,
+          includeHistory: false,
+          handlerId,
+          step: params.invocationCount,
+        });
       }
     }
 
@@ -348,5 +330,61 @@ export class ReadContent {
     }
 
     return manager.resolveFilesFromArtifact(artifact.id);
+  }
+
+  private buildReviewCalloutContent(params: {
+    readingResults: ContentReadingResult[];
+    input: ContentReadingArgs;
+    lang?: string | null;
+  }): string {
+    const { readingResults, input, lang } = params;
+    const t = getTranslation(lang);
+    const sections: Array<{ path?: string; content: string }> = [];
+
+    for (const result of readingResults) {
+      const blocks: string[] = [];
+
+      for (const block of result.blocks) {
+        if (block.content.trim() === '') {
+          continue;
+        }
+        blocks.push(block.content);
+      }
+
+      if (blocks.length === 0) {
+        continue;
+      }
+
+      sections.push({
+        path: result.file?.path,
+        content: blocks.join('\n\n'),
+      });
+    }
+
+    if (sections.length === 0) {
+      return '';
+    }
+
+    const includeFileLinks = sections.length > 1;
+    const renderedSections: string[] = [];
+
+    for (const section of sections) {
+      if (includeFileLinks && section.path) {
+        renderedSections.push(`[[${section.path}]]\n\n${section.content}`);
+        continue;
+      }
+      renderedSections.push(section.content);
+    }
+
+    const summaryParts: string[] = [t('read.reviewType', { value: input.readType })];
+
+    if (input.pattern?.trim()) {
+      summaryParts.push(t('read.reviewPattern', { value: input.pattern.trim() }));
+    }
+
+    const summaryLine = t('read.reviewSummary', { summary: summaryParts.join(', ') });
+    const content = `${summaryLine}\n\n${renderedSections.join('\n\n---\n\n')}`;
+
+    return this.agent.plugin.noteContentService.formatCallout(content, 'stw-review');
   }
 }

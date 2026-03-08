@@ -95,7 +95,7 @@ html[data-stw-language='vi'] {
 }
 
 .callout[data-callout='stw-search-result'],
-.callout[data-callout='stw-edit-preview'] {
+.callout[data-callout='stw-review'] {
   --callout-color: var(--callout-success);
   padding-left: 12px;
   cursor: pointer;
@@ -107,7 +107,7 @@ html[data-stw-language='vi'] {
   }
 }
 
-.callout[data-callout='stw-edit-preview'] {
+.callout[data-callout='stw-review'] {
   max-height: 200px;
   overflow: hidden;
 

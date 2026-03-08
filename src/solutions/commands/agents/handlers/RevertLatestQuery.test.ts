@@ -143,7 +143,7 @@ describe('RevertLatestQuery', () => {
       },
     ]);
 
-    const spawnContent = ['>[!stw-edit-preview]', '>![[conversation__subagent_1]]'].join('\n');
+    const spawnContent = ['>[!stw-review]', '>![[conversation__subagent_1]]'].join('\n');
 
     mockAgent.renderer.extractAllConversationMessages = jest
       .fn()

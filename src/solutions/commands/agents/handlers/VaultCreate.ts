@@ -361,11 +361,22 @@ export class VaultCreate {
     const creationResult = await this.executePlan({ plan });
 
     if (creationResult.createdPaths.length > 0) {
-      const createdPathPreview = creationResult.createdPaths.map(path => `\`${path}\``).join(', ');
+      const createdItemPreviews: string[] = [];
+      for (const createdPath of creationResult.createdPaths) {
+        const createdFile = this.agent.app.vault.getFileByPath(createdPath);
+        if (createdFile) {
+          createdItemPreviews.push(`[[${createdPath}]]`);
+          continue;
+        }
+
+        createdItemPreviews.push(`\`${createdPath}\``);
+      }
+
+      const createdItemPreview = createdItemPreviews.join(', ');
       const messageId = await this.agent.renderer.updateConversationNote({
         path: title,
         newContent: t('create.creatingPath', {
-          path: createdPathPreview,
+          item: createdItemPreview,
         }),
         role: 'Steward',
         command: 'vault_create',
@@ -459,7 +470,7 @@ export class VaultCreate {
       const filePreview = `**File:** \`${fullPath}\`\n\n${file.content}`;
       preview += this.agent.plugin.noteContentService.formatCallout(
         filePreview,
-        'stw-edit-preview'
+        'stw-review'
       );
       preview += '\n';
     }
@@ -484,7 +495,7 @@ export class VaultCreate {
 
     const tempEmbed = this.agent.plugin.noteContentService.formatCallout(
       `![[${toolContentStreamInfo.tempFilePath}]]`,
-      'stw-edit-preview',
+      'stw-review',
       { streaming: 'true' }
     );
 

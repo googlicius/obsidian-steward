@@ -112,7 +112,7 @@ export class SuperAgentToolContentStream {
             path: title,
             newContent: agent.plugin.noteContentService.formatCallout(
               `![[${tempFilePath}]]`,
-              'stw-edit-preview',
+              'stw-review',
               { streaming: 'true' }
             ),
             handlerId,

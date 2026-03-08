@@ -414,7 +414,7 @@ export class EditHandler {
     // Replace the temp embed callout with the final preview in the conversation note
     const tempEmbed = this.agent.plugin.noteContentService.formatCallout(
       `![[${toolContentStreamInfo.tempFilePath}]]`,
-      'stw-edit-preview',
+      'stw-review',
       { streaming: 'true' }
     );
 
@@ -454,7 +454,7 @@ export class EditHandler {
       }
     }
 
-    return this.agent.plugin.noteContentService.formatCallout(preview.trim(), 'stw-edit-preview');
+    return this.agent.plugin.noteContentService.formatCallout(preview.trim(), 'stw-review');
   }
 
   /**

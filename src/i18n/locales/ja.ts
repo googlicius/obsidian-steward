@@ -139,8 +139,8 @@ const ja = {
     },
     create: {
       success: '{{count}}件の項目を作成しました。',
-      creatingPath: '作成中: {{path}}',
-      confirmMessage: '以下のパスを作成します:',
+      creatingPath: '作成中: {{item}}',
+      confirmMessage: '以下の項目を作成します:',
       confirmPrompt: '続行しますか？',
       errors: 'エラー:',
       noTargets: '作成するフォルダパスまたはファイルパスが指定されていません。',
@@ -323,6 +323,9 @@ const ja = {
       readEntireContentConfirmation:
         'このノートの内容をすべて読み込もうとしています。続行しますか？',
       unableToReadContent: '内容を読み込めませんでした。',
+      reviewSummary: '読み取り: {{summary}}',
+      reviewType: '{{value}}',
+      reviewPattern: '`{{value}}`',
     },
     // Thank you responses
     thankYou: {

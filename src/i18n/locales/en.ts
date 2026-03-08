@@ -168,9 +168,9 @@ const en = {
     },
     create: {
       success: 'Successfully created {{count}} items.',
-      creatingPath: 'Creating: {{path}}',
-      confirmMessage_one: 'I will create the following path:',
-      confirmMessage_other: 'I will create the following paths:',
+      creatingPath: 'Creating: {{item}}',
+      confirmMessage_one: 'I will create the following item:',
+      confirmMessage_other: 'I will create the following items:',
       confirmPrompt: 'Do you want to proceed?',
       errors: 'Errors:',
       noTargets: 'No folder paths or file paths were specified for creation.',
@@ -379,6 +379,9 @@ const en = {
       readEntireContentConfirmation:
         'I am about to read the entire content of the {{noteName}} note. Are you sure you want to proceed?',
       unableToReadContent: 'Unable to read content.',
+      reviewSummary: 'Read: {{summary}}',
+      reviewType: '{{value}}',
+      reviewPattern: '`{{value}}`',
     },
     // Thank you responses
     thankYou: {
