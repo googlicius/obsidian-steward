@@ -4,7 +4,8 @@ import { createArgMap } from './createArgMap';
 import { contentReadingSchema } from '../agents/handlers/ReadContent';
 import { searchOperationSchema } from '../agents/handlers/Search';
 import { listToolSchema } from '../agents/handlers/VaultList';
-import { grepSchema } from '../tools/grep';
+import { grepSchema } from '../agents/handlers/VaultGrep';
+import { existsSchema } from '../agents/handlers/VaultExists';
 import { speechSchema } from '../agents/handlers/Speech';
 import { imageSchema } from '../agents/handlers/Image';
 import { concludeSchema } from '../agents/handlers/Conclude';
@@ -168,6 +169,13 @@ export const COMMAND_SYNTAX_MAPPINGS: Record<string, ToolSyntaxMapping> = {
     toolName: ToolName.GREP,
     argMap: createArgMap(grepSchema, {
       pattern: 'contentPattern',
+      paths: 'paths',
+    }),
+  },
+
+  exists: {
+    toolName: ToolName.EXISTS,
+    argMap: createArgMap(existsSchema, {
       paths: 'paths',
     }),
   },

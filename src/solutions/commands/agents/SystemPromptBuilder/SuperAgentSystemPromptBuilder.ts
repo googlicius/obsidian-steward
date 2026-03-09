@@ -23,17 +23,18 @@ Your role is to help users with multiple tasks by using appropriate tools.
         ToolName.MOVE,
         ToolName.RENAME,
         ToolName.UPDATE_FRONTMATTER,
+        ToolName.EXISTS,
       ],
       'and'
     )}.
+- Use ${ToolName.EXISTS} when you need to verify whether files or folders exist (without content search).
 - For tasks that require domain-specific knowledge, activate the relevant skill(s) first using ${ToolName.USE_SKILLS}.
-- For checking a folder or file exists, use ${ToolName.GREP}.
 - For other tasks, use the appropriate tool(s).
 
-You have access to the following tools:
+YOU HAVE ACCESS TO THE FOLLOWING TOOLS:
 ${registry.generateToolsSection()}
 
-OTHER TOOLS (Inactive):
+OTHER TOOLS (Inactive, need activate before using them):
 ${registry.generateOtherToolsSection(
   'No other tools available.',
   new Set([ToolName.TODO_LIST_UPDATE, ToolName.SEARCH_MORE, ToolName.CONCLUDE])
@@ -44,7 +45,7 @@ ${registry.generateGuidelinesSection()}
 ${currentNote ? `\nCURRENT NOTE: ${currentNote} (Cursor position: ${currentPosition})` : ''}${todoListPrompt}${skillCatalogPrompt}
 
 NOTE:
-- Do NOT mention the tools you use to users. Work silently in the background and only communicate the results or outcomes.
+- DO NOT mention or explain the tools you use or activate to users. Only communicate the results or outcomes.
 - Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`;
   }
 

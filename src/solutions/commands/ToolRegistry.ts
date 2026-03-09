@@ -33,12 +33,10 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       'Read content from a note, including text, images, audios, videos, etc. Or image files (png, jpg, jpeg, etc.).',
     category: 'content-access',
     guidelines: [
-      `Use ${ToolName.CONTENT_READING} to read any type of content, including text, image, audio, video, etc.`,
       `When reading notes:
   - Specify the number of blocks to read (blocksToRead) carefully from the user's query, Do NOT set -1 unless the user explicitly requests to read the entire content.
   - Specify the direction to read (readType) carefully from the user's query, Do NOT set "entire" unless the user explicitly requests to read the entire content.`,
-      `When reading multiple files, you MUST make multiple parallel tool calls in the same request (one ${ToolName.CONTENT_READING} call per file). Do NOT read files sequentially one by one. EXCEPT when the user explicitly requests sequential reading.`,
-      `After reading, respond a short conclusion of your task. DO NOT respond the elements of the reading result in your final response: Tables, lists, code, blockquote, images, headings, etc.`,
+      `When reading multiple files, you MUST make multiple parallel tool calls in the same request (one ${ToolName.CONTENT_READING} call per file). Do NOT read files sequentially one by one. EXCEPT when the user explicitly requests it.`,
       `On success, creates artifact: ${ArtifactType.READ_CONTENT}.`,
     ],
     showDescriptionWhenInactive: true,
@@ -67,9 +65,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   [ToolName.USER_CONFIRM]: {
     name: ToolName.USER_CONFIRM,
     description: 'Handle user confirmation responses (yes/no) for pending operations.',
-    guidelines: [
-      `Use ${ToolName.USER_CONFIRM} when the user provides a confirmation response to a pending operation.`,
-    ],
+    guidelines: [],
     category: 'user-interaction',
   },
 
@@ -85,9 +81,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   [ToolName.STOP]: {
     name: ToolName.STOP,
     description: 'Stop all active operations and abort any ongoing processes.',
-    guidelines: [
-      `Use ${ToolName.STOP} when the user requests to stop or cancel ongoing operations.`,
-    ],
+    guidelines: [],
     category: 'user-interaction',
   },
 
@@ -138,22 +132,30 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   [ToolName.GREP]: {
     name: ToolName.GREP,
     description:
-      'Check if files or folders exist, or search for specific text patterns in note content.',
+      'Locate matching CONTENT across files, folders, or glob patterns using literal or regex search.',
     guidelines: [
-      `Use ${ToolName.GREP} to check if one or many given file or folder paths exist in the vault. If a folder.`,
-      `Use ${ToolName.GREP} to search for specific text patterns in note content when a pattern is provided with a single file path.`,
-      `The ${ToolName.GREP} tool will NOT return the files inside the folder. Use ${ToolName.LIST} to list files instead.`,
+      `Use caseSensitive, isRegex, contextLines, and maxResults to control matching behavior and output size.`,
+      `If you need to find file/folder names by pattern, use ${ToolName.LIST}, the ${ToolName.GREP} cannot do that.`,
+      `The ${ToolName.GREP} tool does NOT validate path existence. Use ${ToolName.EXISTS} when you need existence validation.`,
     ],
+    category: 'vault-access',
+    showDescriptionWhenInactive: true,
+  },
+
+  [ToolName.EXISTS]: {
+    name: ToolName.EXISTS,
+    description: 'Check whether files or folders exist and identify their type.',
+    guidelines: [`The result includes path, exists, and type (file, folder, or null).`],
     category: 'vault-access',
     showDescriptionWhenInactive: true,
   },
 
   [ToolName.EDIT]: {
     name: ToolName.EDIT,
-    description: 'Update content by multiple edit modes.',
+    description:
+      'Update content by multiple edit modes, Use if you need to update existing content.',
     guidelines: [
-      `Use the ${ToolName.EDIT} tool if you need to update existing content.
-  - When updating content, return ONLY the specific changed content, not the entire surrounding context.
+      `- When updating content, return ONLY the specific changed content, not the entire surrounding context.
   - Use ${ToolName.EDIT} to make the actual content changes. (NOTE: You cannot use this tool if a note does not exist.)
   - Use the right edit mode to ensure good performance and efficient token usage.`,
       `Here are available edit modes:
@@ -174,10 +176,9 @@ NOTE:
   [ToolName.CREATE]: {
     name: ToolName.CREATE,
     description:
-      'Create new folders and files (notes, canvases, CSS snippets, etc.) and optionally populate file content.',
+      'Create new folders and files (notes, canvases, bases, etc.) and optionally populate file content.',
     guidelines: [
-      `Use ${ToolName.CREATE} to create folders and files requested by the user.
-  - Use newFolders for folder paths.
+      `- Use newFolders for folder paths.
   - Use newFiles with filePath (not fileName) for file creation.
   - Ensure each filePath includes the appropriate extension (e.g. .md, .canvas, .base).
   - Provide the exact content that should be written to a file when available.`,
@@ -190,8 +191,7 @@ NOTE:
     name: ToolName.DELETE,
     description: 'Delete files from the vault using the configured trash behavior.',
     guidelines: [
-      `Use the ${ToolName.DELETE} tool to remove files or notes from the vault.
-  - List every file using the list tool (not grep tool) you plan to delete and ensure the paths are accurate.`,
+      `- List every file using the ${ToolName.LIST} tool (NOT ${ToolName.GREP}) you plan to delete and ensure the paths are accurate.`,
       `On success, creates artifact: ${ArtifactType.DELETED_FILES}.`,
     ],
     category: 'vault-access',
@@ -201,8 +201,7 @@ NOTE:
     name: ToolName.COPY,
     description: 'Copy files to another folder.',
     guidelines: [
-      `Use ${ToolName.COPY} to duplicate files into another folder.
-  - Always provide the destination folder path for the copy operation.
+      `- Always provide the destination folder path for the copy operation.
   - Specify the files or artifactId for the copy operation.`,
     ],
     category: 'vault-access',
@@ -212,7 +211,6 @@ NOTE:
     name: ToolName.RENAME,
     description: 'Rename files to a new path or filename.',
     guidelines: [
-      `Use ${ToolName.RENAME} to change the name or location of files.`,
       `Always provide both the current path and the new path for each file.`,
       `On success, creates artifact: ${ArtifactType.RENAME_RESULTS}.`,
     ],
@@ -223,8 +221,7 @@ NOTE:
     name: ToolName.MOVE,
     description: 'Move files to another folder.',
     guidelines: [
-      `Use ${ToolName.MOVE} to relocate files to another folder.,
-  - Always provide the destination folder path for the move operation.,
+      `- Always provide the destination folder path for the move operation.,
   - Specify the files or artifactId for the move operation.`,
       `On success, creates artifact: ${ArtifactType.MOVE_RESULTS}.`,
     ],
@@ -233,11 +230,9 @@ NOTE:
 
   [ToolName.LIST]: {
     name: ToolName.LIST,
-    description: 'List files in the vault or a specific folder.',
-    guidelines: [
-      `Use ${ToolName.LIST} to list files in the vault or a specific folder.`,
-      `On success, creates artifact: ${ArtifactType.LIST_RESULTS}.`,
-    ],
+    description:
+      'List direct files and subfolders in a folder (non-recursive) and optionally filter names with filePattern.',
+    guidelines: [`On success, creates artifact: ${ArtifactType.LIST_RESULTS}.`],
     category: 'vault-access',
     showDescriptionWhenInactive: true,
   },
@@ -254,11 +249,11 @@ NOTE:
 
   [ToolName.ACTIVATE]: {
     name: ToolName.ACTIVATE,
-    description: 'Request additional tools to be activated for the current session.',
+    description:
+      'Request additional tools to be activated for the current session. Use when you need other tools currently inactive to complete the task. It will return the schemas and guidelines of the requested tools.',
     guidelines: [
-      `Use ${ToolName.ACTIVATE} when you need other tools currently inactive to complete the task. It will return the schemas and guidelines of the requested tools.
-  - Activate ONLY tools that are needed for the current task.
-  - If you need multiple tools, activate them at once (in the same request) that are needed to fulfill the user's query.`,
+      `Activate ONLY tools that are needed for the current task.`,
+      `If you need multiple tools, activate them at once (in the same request) that are needed to fulfill the user's query.`,
     ],
     category: 'tool-management',
   },
@@ -319,11 +314,10 @@ NOTE:
   [ToolName.TODO_LIST]: {
     name: ToolName.TODO_LIST,
     description:
-      'Create a to-do list for complex tasks. Each step includes a task that will be executed sequentially.',
+      'Create a to-do list for complex tasks by breaking down into manageable steps. Each step includes a task that will be executed sequentially.',
     guidelines: [
-      `Use ${ToolName.TODO_LIST} to break down complex tasks into manageable steps.
-  - When creating a to-do list, provide an array of steps, each with a task. The task is the only required field for each step.
-  - After creating a to-do list, you should execute the first step's task.`,
+      `When creating a to-do list, provide an array of steps, each with a task. The task is the only required field for each step.`,
+      `After creating a to-do list, you should execute the first step's task.`,
     ],
     category: 'task-management',
     showDescriptionWhenInactive: true,

@@ -6,6 +6,7 @@ export * from './VaultMove';
 export * from './VaultRename';
 export * from './VaultUpdateFrontmatter';
 export * from './VaultGrep';
+export * from './VaultExists';
 export * from './RevertLatestQuery';
 export * from './ReadContent';
 export * from './EditHandler';

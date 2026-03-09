@@ -34,6 +34,7 @@ const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
     ToolName.RENAME,
     ToolName.UPDATE_FRONTMATTER,
     ToolName.GREP,
+    ToolName.EXISTS,
   ]),
   revert: new Set([ToolName.REVERT]),
   read: new Set([ToolName.CONTENT_READING]),

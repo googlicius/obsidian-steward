@@ -27,6 +27,7 @@ const GUARDRAILS_TOOL_NAMES: Set<ToolName> = new Set([
   ToolName.CONTENT_READING,
   ToolName.EDIT,
   ToolName.GREP,
+  ToolName.EXISTS,
   ToolName.MOVE,
   ToolName.RENAME,
   ToolName.COPY,
@@ -46,6 +47,7 @@ export class AgentHandlers {
   private _vaultRename: handlers.VaultRename;
   private _vaultUpdateFrontmatter: handlers.VaultUpdateFrontmatter;
   private _vaultGrep: handlers.VaultGrep;
+  private _vaultExists: handlers.VaultExists;
   private _activateToolHandler: handlers.ActivateToolHandler;
   private _revertLatestQuery: handlers.RevertLatestQuery;
   private _readContent: handlers.ReadContent;
@@ -113,6 +115,11 @@ export class AgentHandlers {
   public get vaultGrep(): handlers.VaultGrep {
     if (!this._vaultGrep) this._vaultGrep = new handlers.VaultGrep(this.getAgent());
     return this._vaultGrep;
+  }
+
+  public get vaultExists(): handlers.VaultExists {
+    if (!this._vaultExists) this._vaultExists = new handlers.VaultExists(this.getAgent());
+    return this._vaultExists;
   }
 
   public get activateToolHandler(): handlers.ActivateToolHandler {
@@ -257,6 +264,7 @@ export class AgentHandlers {
       [ToolName.MOVE]: () => this.vaultMove,
       [ToolName.UPDATE_FRONTMATTER]: () => this.vaultUpdateFrontmatter,
       [ToolName.GREP]: () => this.vaultGrep,
+      [ToolName.EXISTS]: () => this.vaultExists,
       [ToolName.REVERT]: () => this.revertLatestQuery,
       [ToolName.USER_CONFIRM]: () => this.userConfirm,
       [ToolName.EDIT]: () => this.editHandler,
@@ -295,6 +303,7 @@ export class AgentHandlers {
       [ToolName.CONTENT_READING]: () => this.readContent,
       [ToolName.EDIT]: () => this.editHandler,
       [ToolName.GREP]: () => this.vaultGrep,
+      [ToolName.EXISTS]: () => this.vaultExists,
       [ToolName.MOVE]: () => this.vaultMove,
       [ToolName.RENAME]: () => this.vaultRename,
       [ToolName.COPY]: () => this.vaultCopy,

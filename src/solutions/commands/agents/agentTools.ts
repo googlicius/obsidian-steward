@@ -16,6 +16,7 @@ const BASE_AGENT_TOOLS = {
   [ToolName.MOVE]: handlers.VaultMove.getMoveTool(),
   [ToolName.UPDATE_FRONTMATTER]: handlers.VaultUpdateFrontmatter.getUpdateFrontmatterTool(),
   [ToolName.GREP]: handlers.VaultGrep.getGrepTool(),
+  [ToolName.EXISTS]: handlers.VaultExists.getExistsTool(),
   [ToolName.REVERT]: handlers.RevertLatestQuery.getRevertTool(),
   [ToolName.CONTENT_READING]: handlers.ReadContent.getContentReadingTool(),
   [ToolName.EDIT]: handlers.EditHandler.getEditTool('in_the_note'),

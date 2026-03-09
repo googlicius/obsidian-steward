@@ -5,6 +5,7 @@ export type GuardrailsAction =
   | 'edit'
   | 'delete'
   | 'grep'
+  | 'exists'
   | 'move'
   | 'rename'
   | 'copy'

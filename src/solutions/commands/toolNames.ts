@@ -4,6 +4,7 @@ export enum ToolName {
   ASK_USER = 'askUser',
   EDIT = 'edit',
   GREP = 'grep',
+  EXISTS = 'exists',
   CREATE = 'create',
   DELETE = 'delete',
   COPY = 'copy',
