@@ -73,7 +73,7 @@ export class VaultGrep {
 
   public extractPathsForGuardrails(input: GrepToolArgs): string[] {
     if (!input.paths || input.paths.length === 0) {
-      return [];
+      return ['/'];
     }
 
     return input.paths.map(p => normalizePath(p));

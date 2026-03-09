@@ -1,7 +1,7 @@
 import { streamText } from 'ai';
 import { Agent } from '../../Agent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { ToolCallPart, ToolResultPart } from '../../tools/types';
+import { ToolCallPart, ToolResultPart, TypedToolCallPart } from '../../tools/types';
 import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { getTranslation } from 'src/i18n';
@@ -95,7 +95,7 @@ Rules:
       agentParams: params,
       remainingSteps,
       toolCalls: toolCalls as unknown as Array<
-        ToolCallPart<Record<string, unknown>> & { dynamic?: boolean }
+        TypedToolCallPart & { dynamic?: boolean }
       >,
       startIndex: options.currentToolCallIndex ?? 0,
       activeTools,

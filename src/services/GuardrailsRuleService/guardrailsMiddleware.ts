@@ -12,6 +12,12 @@ import { ToolName } from 'src/solutions/commands/toolNames';
 function pathMatchesTarget(path: string, target: string): boolean {
   const normalizedPath = normalizePath(path);
   const normalizedTarget = normalizePath(target);
+  const trimmedPath = path.trim();
+
+  // Root scope may normalize differently depending on runtime context.
+  if (trimmedPath === '/' || normalizedPath === '/' || normalizedPath === '') {
+    return true;
+  }
 
   if (normalizedTarget.endsWith('/')) {
     const prefix = normalizedTarget.replace(/\/+$/, '');

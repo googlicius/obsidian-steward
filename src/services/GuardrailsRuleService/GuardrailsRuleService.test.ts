@@ -127,5 +127,22 @@ describe('GuardrailsRuleService', () => {
       expect(rules).toHaveLength(1);
       expect(rules[0].name).toBe('No secret listing');
     });
+
+    it('applies read rules to grep tool', () => {
+      service['rules'] = [
+        {
+          name: 'No secret read',
+          path: 'Steward/Rules/no-secret-read.md',
+          targets: ['Secrets/'],
+          actions: ['read'],
+          enabled: true,
+        },
+      ];
+
+      const rules = service.getRulesForTool(ToolName.GREP);
+
+      expect(rules).toHaveLength(1);
+      expect(rules[0].name).toBe('No secret read');
+    });
   });
 });

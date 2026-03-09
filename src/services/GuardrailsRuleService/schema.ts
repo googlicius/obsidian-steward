@@ -6,7 +6,6 @@ const guardrailsActionSchema = z.enum([
   'create',
   'edit',
   'delete',
-  'grep',
   'exists',
   'move',
   'rename',

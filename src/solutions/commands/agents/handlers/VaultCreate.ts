@@ -468,10 +468,7 @@ export class VaultCreate {
       if (!file.content) continue;
       const fullPath = normalizePath(file.filePath);
       const filePreview = `**File:** \`${fullPath}\`\n\n${file.content}`;
-      preview += this.agent.plugin.noteContentService.formatCallout(
-        filePreview,
-        'stw-review'
-      );
+      preview += this.agent.plugin.noteContentService.formatCallout(filePreview, 'stw-review');
       preview += '\n';
     }
 

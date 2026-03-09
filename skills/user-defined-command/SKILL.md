@@ -66,18 +66,18 @@ c:<tool> [--arg=value]...
 
 ### Command Reference
 
-| Alias        | Tool            | Flags                                                     |
-| ------------ | --------------- | --------------------------------------------------------- |
-| `c:read`     | Content Reading | `--type`, `--files`, `--element`, `--blocks`, `--pattern` |
-| `c:search`   | Search          | `--keywords`, `--filenames`, `--folders`, `--properties`  |
-| `c:delete`   | Delete          | `--artifact`, `--files`                                   |
-| `c:list`     | List            | `--folder`, `--pattern`                                   |
-| `c:move`     | Move            | `--artifact`, `--files`, `--destination`                  |
-| `c:rename`   | Rename          | `--artifact`, `--pattern`, `--replace`                    |
+| Alias        | Tool            | Flags                                                                                    |
+| ------------ | --------------- | ---------------------------------------------------------------------------------------- |
+| `c:read`     | Content Reading | `--type`, `--files`, `--element`, `--blocks`, `--pattern`                                |
+| `c:search`   | Search          | `--keywords`, `--filenames`, `--folders`, `--properties`                                 |
+| `c:delete`   | Delete          | `--artifact`, `--files`                                                                  |
+| `c:list`     | List            | `--folder`, `--pattern`                                                                  |
+| `c:move`     | Move            | `--artifact`, `--files`, `--destination`                                                 |
+| `c:rename`   | Rename          | `--artifact`, `--pattern`, `--replace`                                                   |
 | `c:grep`     | Grep            | `--pattern`, `--paths`, `--caseSensitive`, `--isRegex`, `--contextLines`, `--maxResults` |
-| `c:speech`   | Speech          | `--text`                                                  |
-| `c:image`    | Image           | `--prompt`                                                |
-| `c:conclude` | Conclude (stop) |                                                           |
+| `c:speech`   | Speech          | `--text`                                                                                 |
+| `c:image`    | Image           | `--prompt`                                                                               |
+| `c:conclude` | Conclude (stop) |                                                                                          |
 
 ### `c:read` Flags
 
@@ -135,14 +135,14 @@ One of `--artifact` or `--files` is required, along with `--destination`.
 
 ### `c:grep` Flags
 
-| Flag              | Type     | Default | Description                                                                                           |
-| ----------------- | -------- | ------- | ----------------------------------------------------------------------------------------------------- |
-| `--pattern`       | string   | —       | Text or RegExp pattern to search for in file content                                                  |
-| `--paths`         | string[] | all     | Comma-separated files, folders, or glob patterns to search (e.g. `src`, `docs/a.md`, `**/*.ts`)     |
-| `--caseSensitive` | boolean  | `true`  | Whether matching is case-sensitive                                                                    |
-| `--isRegex`       | boolean  | `false` | Treat `--pattern` as a regular expression instead of literal text                                     |
-| `--contextLines`  | number   | `0`     | Number of lines before and after each match to include (0-10)                                         |
-| `--maxResults`    | number   | `50`    | Maximum returned matches (1-500). `totalMatches` may be higher when results are truncated            |
+| Flag              | Type     | Default | Description                                                                                     |
+| ----------------- | -------- | ------- | ----------------------------------------------------------------------------------------------- |
+| `--pattern`       | string   | —       | Text or RegExp pattern to search for in file content                                            |
+| `--paths`         | string[] | all     | Comma-separated files, folders, or glob patterns to search (e.g. `src`, `docs/a.md`, `**/*.ts`) |
+| `--caseSensitive` | boolean  | `true`  | Whether matching is case-sensitive                                                              |
+| `--isRegex`       | boolean  | `false` | Treat `--pattern` as a regular expression instead of literal text                               |
+| `--contextLines`  | number   | `0`     | Number of lines before and after each match to include (0-10)                                   |
+| `--maxResults`    | number   | `50`    | Maximum returned matches (1-500). `totalMatches` may be higher when results are truncated       |
 
 ### Composing Steps
 

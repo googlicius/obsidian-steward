@@ -1,7 +1,7 @@
 import { ModelMessage, streamText } from 'ai';
 import { Agent } from '../../Agent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus, Intent } from '../../types';
-import { ToolCallPart, ToolResultPart } from '../../tools/types';
+import { ToolCallPart, ToolResultPart, TypedToolCallPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
 import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
@@ -251,7 +251,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
       agentParams: params,
       remainingSteps,
       toolCalls: toolCalls as unknown as Array<
-        ToolCallPart<Record<string, unknown>> & { dynamic?: boolean }
+        TypedToolCallPart & { dynamic?: boolean }
       >,
       startIndex: options.currentToolCallIndex ?? 0,
       activeTools,

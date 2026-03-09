@@ -19,7 +19,7 @@ const TOOL_TO_ACTIONS: Partial<Record<ToolName, GuardrailsAction[]>> = {
   [ToolName.SEARCH]: ['list'],
   [ToolName.CREATE]: ['create'],
   [ToolName.DELETE]: ['delete'],
-  [ToolName.GREP]: ['grep'],
+  [ToolName.GREP]: ['read'],
   [ToolName.EXISTS]: ['exists'],
   [ToolName.EDIT]: ['edit'],
   [ToolName.MOVE]: ['move'],

@@ -5,14 +5,11 @@ import { createGuardrailsMiddleware } from 'src/services/GuardrailsRuleService/g
 import { createToolHandlerChain } from './middleware/createToolHandlerChain';
 import type { AgentHandlerParams, AgentResult } from '../types';
 import { IntentResultStatus } from '../types';
-import type { ToolCallPart } from '../tools/types';
+import type { TypedToolCallPart } from '../tools/types';
 import { ToolName } from '../ToolRegistry';
 import type { ToolContentStreamInfo } from './SuperAgent/SuperAgentToolContentStream';
 import type { StandardToolHandler } from './AgentHandlers';
 import * as handlers from './handlers';
-import type { TodoListUpdateArgs } from './handlers/TodoList';
-import type { UseSkillsArgs } from './handlers/UseSkills';
-import type { ConcludeInput } from './handlers/Conclude';
 import { ToolHandlerMiddlewareContext } from './middleware/types';
 
 interface AgentToolCallExecutorContext {
@@ -28,6 +25,7 @@ interface AgentToolCallExecutorContext {
   ) => Promise<AgentResult>;
   getToolHandlerMap(): Partial<Record<ToolName, () => StandardToolHandler>>;
   getPathsForGuardrails(toolName: ToolName, input: unknown): string[];
+  filterInputForGuardrails(toolCall: TypedToolCallPart, allowedPaths: string[]): unknown | null;
   dynamic: handlers.Dynamic;
   activateToolHandler: handlers.ActivateToolHandler;
   todoList: handlers.TodoList;
@@ -47,7 +45,7 @@ export class AgentToolCallExecutor {
     handlerId: string;
     agentParams: AgentHandlerParams;
     remainingSteps: number;
-    toolCalls: Array<ToolCallPart<Record<string, unknown>> & { dynamic?: boolean }>;
+    toolCalls: Array<TypedToolCallPart & { dynamic?: boolean }>;
     startIndex: number;
     activeTools: ToolName[];
     activeSkills: string[];
@@ -102,7 +100,7 @@ export class AgentToolCallExecutor {
           case ToolName.ASK_USER: {
             await agent.plugin.conversationRenderer.updateConversationNote({
               path: params.title,
-              newContent: toolCall.input.message as string,
+              newContent: toolCall.input.message,
               lang: params.agentParams.lang,
               handlerId: params.handlerId,
               command: toolCall.toolName,
@@ -153,7 +151,7 @@ export class AgentToolCallExecutor {
               );
             }
             toolCallResult = await spawnHandler().handle(params.agentParams, {
-              toolCall: toolCall as ToolCallPart<handlers.SpawnSubagentArgs>,
+              toolCall,
               parentAgentId: params.agentId,
             });
             break;
@@ -161,14 +159,14 @@ export class AgentToolCallExecutor {
 
           case ToolName.TODO_LIST_UPDATE: {
             toolCallResult = await agent.todoList.handleUpdate(params.agentParams, {
-              toolCall: toolCall as ToolCallPart<TodoListUpdateArgs>,
+              toolCall,
             });
             break;
           }
 
           case ToolName.USE_SKILLS: {
             toolCallResult = await agent.useSkills.handle(params.agentParams, {
-              toolCall: toolCall as ToolCallPart<UseSkillsArgs>,
+              toolCall,
               activeSkills: params.activeSkills,
             });
             break;
@@ -183,7 +181,7 @@ export class AgentToolCallExecutor {
               logger.warn(`Conclude tool was called alone.`);
             }
             toolCallResult = await agent.conclude.handle(params.agentParams, {
-              toolCall: toolCall as ToolCallPart<ConcludeInput>,
+              toolCall,
             });
             break;
           }

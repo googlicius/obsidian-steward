@@ -35,7 +35,7 @@ Include a **verification query** in each rule's documentation. This is a Steward
 | ------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `name`        | Yes      | A short identifier for the rule (e.g., "No secrets access")                                                                                        |
 | `targets`     | Yes      | Array of path patterns (folders or files). Use `folder/` for folders, `*.ext` for file types                                                       |
-| `actions`     | Yes      | Array of actions to restrict: `read`, `list`, `create`, `edit`, `delete`, `grep`, `move`, `rename`, `copy`, `update_frontmatter`                   |
+| `actions`     | Yes      | Array of actions to restrict: `read`, `list`, `create`, `edit`, `delete`, `move`, `rename`, `copy`, `update_frontmatter`                           |
 | `instruction` | No       | Optional override only when the user explicitly requires strict guidance. Default is no instruction; violations are serialized for the AI to adapt |
 | `enabled`     | No       | Set to `false` to disable a rule. Default is `true`                                                                                                |
 
@@ -47,7 +47,7 @@ Create `Steward/Rules/No secrets.md`:
 ---
 name: No secrets access
 targets: ['Secrets/', '*.key', 'Credentials/']
-actions: [read, list, create, edit, delete, grep]
+actions: [read, list, create, edit, delete]
 instruction: 'Never read, list, create, or modify files in Secrets/ or *.key'
 enabled: true
 ---
