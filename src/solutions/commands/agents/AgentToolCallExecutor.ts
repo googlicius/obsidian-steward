@@ -1,3 +1,4 @@
+import { NoSuchToolError } from 'ai';
 import type { DynamicToolCall, Tool } from 'ai';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
@@ -78,8 +79,27 @@ export class AgentToolCallExecutor {
         };
 
         if (toolCall.dynamic) {
+          const prevToolCall = index > 0 ? params.toolCalls[index - 1] : undefined;
+          const dynamicToolCall = toolCall as unknown as DynamicToolCall;
+          const isNoSuchToolAfterActivate =
+            prevToolCall &&
+            !prevToolCall.dynamic &&
+            prevToolCall.toolName === ToolName.ACTIVATE &&
+            dynamicToolCall.error instanceof NoSuchToolError;
+
+          // Start a new LLM turn if previous is activate_tools
+          if (isNoSuchToolAfterActivate) {
+            logger.warn(
+              `Start a new LLM turn as the previous tool call is activate_tools, and the ${toolCall.toolName} isn't active yet.`
+            );
+            params.agentParams.invocationCount = (params.agentParams.invocationCount ?? 0) + 1;
+            return agent.handle(params.agentParams, {
+              remainingSteps: params.remainingSteps,
+            });
+          }
+
           await agent.dynamic.handle(params.agentParams, {
-            toolCall: toolCall as unknown as DynamicToolCall,
+            toolCall: dynamicToolCall,
             tools: params.availableTools,
           });
           continue;

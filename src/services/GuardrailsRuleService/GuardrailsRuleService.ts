@@ -20,12 +20,12 @@ const TOOL_TO_ACTIONS: Partial<Record<ToolName, GuardrailsAction[]>> = {
   [ToolName.CREATE]: ['create'],
   [ToolName.DELETE]: ['delete'],
   [ToolName.GREP]: ['read'],
-  [ToolName.EXISTS]: ['exists'],
+  [ToolName.EXISTS]: ['read', 'list'],
   [ToolName.EDIT]: ['edit'],
   [ToolName.MOVE]: ['move'],
   [ToolName.RENAME]: ['rename'],
   [ToolName.COPY]: ['copy'],
-  [ToolName.UPDATE_FRONTMATTER]: ['update_frontmatter'],
+  [ToolName.UPDATE_FRONTMATTER]: ['edit'],
 };
 
 export class GuardrailsRuleService {

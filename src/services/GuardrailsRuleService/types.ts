@@ -4,11 +4,9 @@ export type GuardrailsAction =
   | 'create'
   | 'edit'
   | 'delete'
-  | 'exists'
   | 'move'
   | 'rename'
-  | 'copy'
-  | 'update_frontmatter';
+  | 'copy';
 
 export interface GuardrailsRule {
   name: string;

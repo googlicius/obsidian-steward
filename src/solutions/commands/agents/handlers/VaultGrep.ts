@@ -6,6 +6,15 @@ import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { removeUndefined } from 'src/utils/removeUndefined';
 
+const GLOB_CHARACTERS_REGEX = /[*?[\]{}]/;
+
+const grepPathSchema = z
+  .string()
+  .min(1)
+  .refine(path => !GLOB_CHARACTERS_REGEX.test(path), {
+    message: 'Glob patterns are not supported in paths. Use explicit file or folder paths.',
+  });
+
 export const grepSchema = z.object({
   contentPattern: z
     .string()
@@ -14,11 +23,9 @@ export const grepSchema = z.object({
       "The search content pattern to match against file CONTENTS only. Supports regex (e.g. 'function\\s+myFn') or literal strings."
     ),
   paths: z
-    .array(z.string())
-    .optional()
-    .describe(
-      "Files, directories, or glob patterns to search within (e.g. ['src/', '**/*.ts']). Defaults to the entire working directory if omitted."
-    ),
+    .array(grepPathSchema)
+    .min(1)
+    .describe("Files or directories to search within (e.g. ['src/', 'src/index.ts'])."),
   caseSensitive: z
     .boolean()
     .optional()
@@ -72,11 +79,7 @@ export class VaultGrep {
   constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: GrepToolArgs): string[] {
-    if (!input.paths || input.paths.length === 0) {
-      return ['/'];
-    }
-
-    return input.paths.map(p => normalizePath(p));
+    return this.normalizeInputPaths(input.paths);
   }
 
   public static getGrepTool() {
@@ -217,85 +220,14 @@ export class VaultGrep {
     return new RegExp(escapedPattern, flags);
   }
 
-  private hasGlobCharacters(path: string): boolean {
-    return /[*?[\]{}]/.test(path);
-  }
-
-  private globToRegExp(globPattern: string): RegExp {
-    const normalizedPattern = normalizePath(globPattern);
-    let regexString = '^';
-
-    for (let index = 0; index < normalizedPattern.length; index += 1) {
-      const char = normalizedPattern[index];
-      const nextChar = normalizedPattern[index + 1];
-      const nextNextChar = normalizedPattern[index + 2];
-
-      // `**/` should match zero or more path segments.
-      // Example: `src/**/*` should match both `src/a.md` and `src/nested/a.md`.
-      if (char === '*' && nextChar === '*' && nextNextChar === '/') {
-        regexString += '(?:.*/)?';
-        index += 2;
-        continue;
-      }
-
-      if (char === '*' && nextChar === '*') {
-        regexString += '.*';
-        index += 1;
-        continue;
-      }
-
-      if (char === '*') {
-        regexString += '[^/]*';
-        continue;
-      }
-
-      if (char === '?') {
-        regexString += '[^/]';
-        continue;
-      }
-
-      if ('\\.^$+|()[]{}'.includes(char)) {
-        regexString += `\\${char}`;
-        continue;
-      }
-
-      regexString += char;
-    }
-
-    regexString += '$';
-
-    return new RegExp(regexString);
-  }
-
-  private async resolveFilesForGrep(params: { paths?: string[] }): Promise<TFile[]> {
+  private async resolveFilesForGrep(params: { paths: string[] }): Promise<TFile[]> {
     const { paths } = params;
     const plugin = this.agent.plugin;
-    const allFiles = plugin.app.vault.getFiles();
-
-    if (!paths || paths.length === 0) {
-      return allFiles;
-    }
+    const normalizedPaths = this.normalizeInputPaths(paths);
 
     const filesByPath = new Map<string, TFile>();
 
-    for (const rawPath of paths) {
-      const normalizedPath = normalizePath(rawPath).replace(/\/$/, '');
-      if (normalizedPath === '') {
-        continue;
-      }
-
-      if (this.hasGlobCharacters(normalizedPath)) {
-        const globRegex = this.globToRegExp(normalizedPath);
-        for (const file of allFiles) {
-          if (!globRegex.test(file.path)) {
-            continue;
-          }
-
-          filesByPath.set(file.path, file);
-        }
-        continue;
-      }
-
+    for (const normalizedPath of normalizedPaths) {
       const abstractFile = plugin.app.vault.getAbstractFileByPath(normalizedPath);
       if (abstractFile instanceof TFile) {
         filesByPath.set(abstractFile.path, abstractFile);
@@ -303,12 +235,8 @@ export class VaultGrep {
       }
 
       if (abstractFile instanceof TFolder) {
-        const folderPrefix = `${abstractFile.path}/`;
-        for (const file of allFiles) {
-          if (!file.path.startsWith(folderPrefix)) {
-            continue;
-          }
-
+        const folderFiles = this.agent.obsidianAPITools.getFilesFromFolder(abstractFile);
+        for (const file of folderFiles) {
           filesByPath.set(file.path, file);
         }
         continue;
@@ -321,5 +249,17 @@ export class VaultGrep {
     }
 
     return Array.from(filesByPath.values());
+  }
+
+  private normalizeInputPaths(paths: string[]): string[] {
+    const normalizedPaths: string[] = [];
+    for (const rawPath of paths) {
+      const normalizedPath = normalizePath(rawPath).replace(/\/$/, '');
+      if (normalizedPath === '') {
+        continue;
+      }
+      normalizedPaths.push(normalizedPath);
+    }
+    return normalizedPaths;
   }
 }

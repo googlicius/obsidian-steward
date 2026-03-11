@@ -12,19 +12,26 @@ const MAX_FILES_TO_SHOW = 10;
 const LIST_ITEM_TYPES = ['both', 'files', 'folders'] as const;
 type ListItemType = (typeof LIST_ITEM_TYPES)[number];
 
-export const listToolSchema = z.object(
+export const listToolArgMapSchema = z.object(
   {
     folderPath: z
       .string()
+      .optional()
       .transform(val => {
-        return normalizePath(val);
+        if (!val?.trim()) {
+          return undefined;
+        }
+
+        return normalizePath(val.trim());
       })
-      .describe('The folder path to list files from. Specify / to lists from the root.'),
+      .describe(
+        'Optional folder path to list files from. Specify / to list from the root. If not provided, filePattern is required.'
+      ),
     filePattern: z
       .string()
       .optional()
       .describe(
-        'Optional RegExp pattern to filter item names. If not provided, all matching items will be listed.'
+        'Optional RegExp pattern to filter item names. Required when folderPath is not provided.'
       ),
     itemType: z
       .enum(LIST_ITEM_TYPES)
@@ -43,6 +50,29 @@ export const listToolSchema = z.object(
     description: `List direct files and subfolders in a specific folder (non-recursive).`,
   }
 );
+
+export const listToolSchema = listToolArgMapSchema.superRefine((args, ctx) => {
+  const hasFolderPath = Boolean(args.folderPath?.trim());
+  const hasFilePattern = Boolean(args.filePattern?.trim());
+
+  if (hasFolderPath || hasFilePattern) {
+    return;
+  }
+
+  const message = 'Either folderPath or filePattern must be provided.';
+
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message,
+    path: ['folderPath'],
+  });
+
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message,
+    path: ['filePattern'],
+  });
+});
 
 export type ListToolArgs = z.infer<typeof listToolSchema>;
 

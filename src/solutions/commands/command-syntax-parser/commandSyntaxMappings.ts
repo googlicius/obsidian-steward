@@ -3,7 +3,7 @@ import { createArgMap } from './createArgMap';
 
 import { contentReadingSchema } from '../agents/handlers/ReadContent';
 import { searchOperationSchema } from '../agents/handlers/Search';
-import { listToolSchema } from '../agents/handlers/VaultList';
+import { listToolArgMapSchema } from '../agents/handlers/VaultList';
 import { grepSchema } from '../agents/handlers/VaultGrep';
 import { existsSchema } from '../agents/handlers/VaultExists';
 import { speechSchema } from '../agents/handlers/Speech';
@@ -136,7 +136,7 @@ export const COMMAND_SYNTAX_MAPPINGS: Record<string, ToolSyntaxMapping> = {
 
   list: {
     toolName: ToolName.LIST,
-    argMap: createArgMap(listToolSchema, {
+    argMap: createArgMap(listToolArgMapSchema, {
       folder: 'folderPath',
       pattern: 'filePattern',
     }),

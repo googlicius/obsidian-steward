@@ -1,13 +1,14 @@
 import { TFile, TFolder } from 'obsidian';
 import type { App } from 'obsidian';
 import type StewardPlugin from 'src/main';
-import { VaultGrep, type GrepToolArgs } from './VaultGrep';
+import { VaultGrep, grepSchema, type GrepToolArgs } from './VaultGrep';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 
 function createArgs(
   overrides: Partial<GrepToolArgs> & Pick<GrepToolArgs, 'contentPattern'>
 ): GrepToolArgs {
   return {
+    paths: ['src'],
     caseSensitive: true,
     isRegex: false,
     contextLines: 0,
@@ -59,6 +60,11 @@ function createFile(path: string): TFile {
   return Object.assign(new TFile(), { path, name });
 }
 
+function createFolder(path: string): TFolder {
+  const name = path.split('/').pop() ?? path;
+  return Object.assign(new TFolder(), { path, name });
+}
+
 function setupExecuteGrep(params: {
   files: Array<{ path: string; content: string }>;
   pathMap?: Record<string, TFile | TFolder>;
@@ -74,7 +80,21 @@ function setupExecuteGrep(params: {
     fileContentByPath,
     pathMap: params.pathMap,
   });
-  const mockAgent = { plugin } as unknown as AgentHandlerContext;
+  const mockAgent = {
+    plugin,
+    obsidianAPITools: {
+      getFilesFromFolder: jest.fn().mockImplementation((folder: TFolder) => {
+        const folderPrefix = `${folder.path}/`;
+        const folderFiles: TFile[] = [];
+        for (const file of files) {
+          if (file.path.startsWith(folderPrefix)) {
+            folderFiles.push(file);
+          }
+        }
+        return folderFiles;
+      }),
+    },
+  } as unknown as AgentHandlerContext;
   const vaultGrep = new VaultGrep(mockAgent);
 
   return vaultGrep['executeGrep'].bind(vaultGrep) as (args: GrepToolArgs) => Promise<{
@@ -92,41 +112,30 @@ function setupExecuteGrep(params: {
 }
 
 describe('VaultGrep', () => {
-  it('supports shallow glob search in src/*', async () => {
+  it('requires paths in schema', () => {
+    const result = grepSchema.safeParse({
+      contentPattern: 'useState',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('supports searching files under a folder path', async () => {
     const executeGrep = setupExecuteGrep({
       files: [
         { path: 'src/note.md', content: 'useState in root note' },
         { path: 'src/view.canvas', content: 'contains useState in canvas' },
         { path: 'src/sub/deep.base', content: 'useState in nested base' },
       ],
+      pathMap: {
+        src: createFolder('src'),
+      },
     });
 
     const result = await executeGrep(
       createArgs({
         contentPattern: 'useState',
-        paths: ['src/*'],
-      })
-    );
-
-    expect(result.searchedFiles).toBe(2);
-    expect(result.totalMatches).toBe(2);
-    expect(result.matches.map(match => match.file)).toEqual(['src/note.md', 'src/view.canvas']);
-  });
-
-  it('supports recursive glob search in src/**/*', async () => {
-    const executeGrep = setupExecuteGrep({
-      files: [
-        { path: 'src/components/state.md', content: 'useState appears here' },
-        { path: 'src/components/ui.canvas', content: 'also useState in canvas' },
-        { path: 'src/data/store.base', content: 'useState in base file' },
-        { path: 'docs/readme.md', content: 'useState outside src' },
-      ],
-    });
-
-    const result = await executeGrep(
-      createArgs({
-        contentPattern: 'useState',
-        paths: ['src/**/*'],
+        paths: ['src'],
       })
     );
 
@@ -134,19 +143,23 @@ describe('VaultGrep', () => {
     expect(result.totalMatches).toBe(3);
   });
 
-  it('supports multiple glob paths', async () => {
+  it('supports multiple folder paths', async () => {
     const executeGrep = setupExecuteGrep({
       files: [
         { path: 'src/app.md', content: 'TODO: finalize app logic' },
         { path: 'tests/spec.canvas', content: 'TODO: visual test note' },
         { path: 'notes/backlog.base', content: 'TODO but outside selected globs' },
       ],
+      pathMap: {
+        src: createFolder('src'),
+        tests: createFolder('tests'),
+      },
     });
 
     const result = await executeGrep(
       createArgs({
         contentPattern: 'TODO',
-        paths: ['src/**/*', 'tests/**/*'],
+        paths: ['src', 'tests'],
       })
     );
 
@@ -198,34 +211,13 @@ describe('VaultGrep', () => {
     });
   });
 
-  it('supports extension glob filtering', async () => {
-    const executeGrep = setupExecuteGrep({
-      files: [
-        { path: 'src/logger.ts', content: 'console.log("ts file")' },
-        { path: 'src/note.md', content: 'console.log in markdown' },
-        { path: 'src/graph.canvas', content: 'console.log in canvas' },
-      ],
+  it('rejects glob paths in schema', () => {
+    const result = grepSchema.safeParse({
+      contentPattern: 'console.log',
+      paths: ['**/*.ts'],
     });
 
-    const result = await executeGrep(
-      createArgs({
-        contentPattern: 'console.log',
-        paths: ['**/*.ts'],
-      })
-    );
-
-    expect(result).toMatchObject({
-      matches: [
-        {
-          file: 'src/logger.ts',
-          line: 1,
-          content: 'console.log("ts file")',
-        },
-      ],
-      totalMatches: 1,
-      truncated: false,
-      searchedFiles: 1,
-    });
+    expect(result.success).toBe(false);
   });
 
   it('supports regex search patterns', async () => {
@@ -235,13 +227,16 @@ describe('VaultGrep', () => {
         { path: 'src/diagram.canvas', content: 'function beta(' },
         { path: 'src/config.base', content: 'const fn = () => {}' },
       ],
+      pathMap: {
+        src: createFolder('src'),
+      },
     });
 
     const result = await executeGrep(
       createArgs({
         contentPattern: 'function\\s+\\w+\\(',
         isRegex: true,
-        paths: ['src/**/*'],
+        paths: ['src'],
       })
     );
 
@@ -263,13 +258,16 @@ describe('VaultGrep', () => {
         { path: 'src/two.base', content: 'TODO: second item' },
         { path: 'src/three.canvas', content: 'ToDo: third item' },
       ],
+      pathMap: {
+        src: createFolder('src'),
+      },
     });
 
     const result = await executeGrep(
       createArgs({
         contentPattern: 'todo',
         caseSensitive: false,
-        paths: ['src/**/*'],
+        paths: ['src'],
       })
     );
 
@@ -292,13 +290,16 @@ describe('VaultGrep', () => {
           ].join('\n'),
         },
       ],
+      pathMap: {
+        src: createFolder('src'),
+      },
     });
 
     const result = await executeGrep(
       createArgs({
         contentPattern: 'throw new Error',
         contextLines: 3,
-        paths: ['src/**/*'],
+        paths: ['src'],
       })
     );
 
@@ -328,13 +329,16 @@ describe('VaultGrep', () => {
           ),
         },
       ],
+      pathMap: {
+        src: createFolder('src'),
+      },
     });
 
     const result = await executeGrep(
       createArgs({
         contentPattern: 'import',
         maxResults: 10,
-        paths: ['src/**/*'],
+        paths: ['src'],
       })
     );
 
@@ -355,5 +359,27 @@ describe('VaultGrep', () => {
       truncated: true,
       searchedFiles: 2,
     });
+  });
+
+  it('returns explicit paths for guardrails checks', () => {
+    const plugin = createMockPlugin({
+      files: [],
+    });
+    const mockAgent = {
+      plugin,
+      obsidianAPITools: {
+        getFilesFromFolder: jest.fn().mockReturnValue([]),
+      },
+    } as unknown as AgentHandlerContext;
+    const vaultGrep = new VaultGrep(mockAgent);
+
+    const paths = vaultGrep.extractPathsForGuardrails(
+      createArgs({
+        contentPattern: 'token',
+        paths: ['Secret/token.key'],
+      })
+    );
+
+    expect(paths).toEqual(['Secret/token.key']);
   });
 });
