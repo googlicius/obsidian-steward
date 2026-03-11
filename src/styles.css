@@ -70,6 +70,17 @@ html[data-stw-language='vi'] {
   /* Last line in a block: no next sibling is a block line */
   &:not(:has(+ .stw-input-line)) {
     padding-bottom: 5px !important;
+
+    /* Model name, provider */
+    &[data-stw-model]:after {
+      content: attr(data-stw-model);
+      display: block;
+      margin-top: var(--size-2-2);
+      padding-top: var(--size-2-2);
+      padding-left: var(--size-2-2);
+      font-size: var(--font-ui-smaller);
+      color: var(--text-muted);
+    }
   }
 }
 
@@ -372,16 +383,6 @@ code[class*='language-stw-hidden-from-user'] {
     outline: 2px solid var(--interactive-accent);
     outline-offset: 1px;
   }
-}
-
-.stw-selected-model {
-  color: var(--interactive-accent);
-  border-bottom: 2px dashed var(--background-modifier-border);
-  cursor: default;
-  font-size: 0.86em;
-  padding-right: var(--size-2-1);
-  letter-spacing: 0.02em;
-  display: inline-block;
 }
 
 .stw-squeezed-button {

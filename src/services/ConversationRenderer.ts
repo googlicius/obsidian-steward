@@ -5,7 +5,6 @@ import { ConversationMessage, ConversationRole } from '../types/types';
 import type StewardPlugin from '../main';
 import { logger } from 'src/utils/logger';
 import {
-  SELECTED_MODEL_PATTERN,
   STW_SOURCE_PATTERN,
   STW_SOURCE_METADATA_PATTERN,
   CONFIRMATION_BUTTONS_PATTERN,
@@ -32,22 +31,6 @@ export class ConversationRenderer {
       throw new Error('ConversationRenderer not initialized');
     }
     return ConversationRenderer.instance;
-  }
-
-  /**
-   * Extract selected model from a text using SELECTED_MODEL_PATTERN.
-   * Returns in the format "provider:modelId" or null if not found.
-   */
-  public extractSelectedModelFromText(text: string | undefined | null): string | null {
-    if (!text) return null;
-    const regex = new RegExp(SELECTED_MODEL_PATTERN, 'i');
-    const match = regex.exec(text);
-    if (!match) return null;
-
-    const provider = match[2];
-    const modelId = match[3];
-    if (!provider || !modelId) return null;
-    return `${provider}:${modelId}`;
   }
 
   /**
@@ -512,14 +495,6 @@ export class ConversationRenderer {
         includeHistory: params.includeHistory ?? true,
         step: params.step,
       });
-
-      // Update model property in the frontmatter if a selected model is found
-      const selectedModel = this.extractSelectedModelFromText(params.newContent);
-      if (selectedModel) {
-        await this.updateConversationFrontmatter(params.path, [
-          { name: 'model', value: selectedModel },
-        ]);
-      }
 
       // Determine content format (default to 'callout' for user messages)
       const format = params.contentFormat ?? 'callout';
@@ -1019,11 +994,8 @@ export class ConversationRenderer {
       // Get translation function with the appropriate language
       const t = getTranslation(language);
 
-      // Determine model: from query if present, otherwise from settings
-      const modelFromQuery = this.extractSelectedModelFromText(content);
-
       const properties = [
-        { name: 'model', value: modelFromQuery || this.plugin.settings.llm.chat.model },
+        { name: 'model', value: this.plugin.settings.llm.chat.model },
         { name: 'lang', value: language || getLanguage() },
       ];
 
