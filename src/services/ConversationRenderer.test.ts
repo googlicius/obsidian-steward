@@ -854,7 +854,7 @@ describe('ConversationRenderer', () => {
       expect(processedContent).toMatchSnapshot();
     });
 
-    it('should store the selected model in the frontmatter if it is found in the new content', async () => {
+    it.skip('should store the selected model in the frontmatter if it is found in the new content', async () => {
       // Mock initial conversation content
       const mockContent = [
         '<!--STW ID:abc123,ROLE:steward,COMMAND:search-->',

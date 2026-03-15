@@ -117,6 +117,27 @@ export class LLMService {
   }
 
   /**
+   * Format the model to a friendly label {model} | {provider}
+   */
+  public formatModelLabel(model: string): string {
+    if (!model) {
+      return '';
+    }
+
+    const { provider, modelId } = this.parseModel(model);
+
+    if (!provider) {
+      return modelId || model;
+    }
+
+    if (!modelId) {
+      return provider;
+    }
+
+    return `${modelId} | ${provider}`;
+  }
+
+  /**
    * Return display name for a model id (everything after the first colon).
    * Use this in settings/UI so model ids with colons (e.g. ollama:llama3.2:3b) are shown in full.
    */

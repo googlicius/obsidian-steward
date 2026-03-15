@@ -10,7 +10,6 @@ import { createCalloutMetadataProcessor } from './post-processors/CalloutMetadat
 import { createStwSourcePostProcessor } from './post-processors/StwSourcePostProcessor';
 import { createStewardConversationProcessor } from './post-processors/StewardConversationProcessor';
 import { createHistoryPostProcessor } from './post-processors/HistoryPostProcessor';
-import { createSelectedModelProcessor } from './post-processors/SelectedModelProcessor';
 import { createThinkingProcessPostProcessor } from './post-processors/ThinkingProcessPostProcessor';
 import { createConfirmationButtonsProcessor } from './post-processors/ConfirmationButtonsProcessor';
 import { createCalloutEditPreviewPostProcessor } from './post-processors/CalloutEditPreviewPostProcessor';
@@ -468,8 +467,6 @@ export default class StewardPlugin extends Plugin {
 
     this.registerMarkdownPostProcessor(createStwSourcePostProcessor(this));
 
-    this.registerMarkdownPostProcessor(createSelectedModelProcessor());
-
     this.registerMarkdownPostProcessor(createThinkingProcessPostProcessor());
 
     this.registerMarkdownPostProcessor(createConfirmationButtonsProcessor(this));
@@ -801,13 +798,6 @@ export default class StewardPlugin extends Plugin {
 
     (async () => {
       try {
-        // Extract and update settings if a selected model is found in the query
-        const selectedModel =
-          this.conversationRenderer.extractSelectedModelFromText(fullCommandText);
-        if (selectedModel) {
-          this.settings.llm.chat.model = selectedModel;
-          await this.saveSettings();
-        }
         // Look for a conversation link in the previous lines
         const conversationTitle = this.findConversationTitleAbove(view);
 
@@ -896,104 +886,6 @@ export default class StewardPlugin extends Plugin {
     })();
 
     return true;
-  }
-
-  /**
-   * Handle typing in command input to trigger summarization when appropriate
-   */
-  private async handleTyping(event: KeyboardEvent, view: EditorView): Promise<void> {
-    const { state } = view;
-    const { doc, selection } = state;
-
-    const line = doc.lineAt(selection.main.head);
-
-    if ('general' !== this.commandInputService.getInputPrefix(line, doc)) {
-      return;
-    }
-
-    const conversationTitle = this.findConversationTitleAbove(view);
-
-    if (!conversationTitle) return;
-
-    try {
-      // Check if we need to generate a summary
-      await this.checkAndGenerateSummary(conversationTitle, view, line);
-    } catch (error) {
-      logger.error('Error in handleTyping:', error);
-    }
-  }
-
-  /**
-   * Check if we need to generate a summary and do so if needed
-   * @param conversationTitle The conversation title
-   */
-  private async checkAndGenerateSummary(
-    conversationTitle: string,
-    view: EditorView,
-    line: Line
-  ): Promise<void> {
-    try {
-      if (this.commandProcessorService.isProcessing(conversationTitle)) {
-        logger.log('Commands are in processing, skipping summary generation');
-        return;
-      }
-
-      // Get all messages from the conversation
-      const allMessages =
-        await this.conversationRenderer.extractAllConversationMessages(conversationTitle);
-
-      let shouldRunSummary = false;
-
-      // Check messages from newest to oldest
-      for (let i = allMessages.length - 1; i >= 0; i--) {
-        const message = allMessages[i];
-
-        // If we find a summary message first, no need to generate a new summary
-        if (message.intent === 'summary') {
-          break;
-        }
-
-        // Stopped generation, no need to summarize
-        if (message.intent === 'stop') {
-          break;
-        }
-
-        // If we find a generate message first, we need to generate a summary
-        if (message.intent === 'generate') {
-          const commandBlock = this.commandInputService.getCommandBlock(view, line);
-          const fullCommandText = this.commandInputService.getCommandBlockContent(commandBlock);
-
-          if (fullCommandText.substring(2) !== '') {
-            shouldRunSummary = true;
-          }
-          break;
-        }
-      }
-
-      if (shouldRunSummary) {
-        logger.log('Generating summary for conversation:', conversationTitle);
-
-        await this.commandProcessorService.commandProcessor.processCommandInIsolation(
-          {
-            title: conversationTitle,
-            intents: [
-              {
-                type: 'summary',
-                query: '',
-              },
-            ],
-          },
-          'summary',
-          {
-            skipIndicators: true,
-          }
-        );
-
-        logger.log('Summary generated successfully for conversation:', conversationTitle);
-      }
-    } catch (error) {
-      logger.error('Error checking and generating summary:', error);
-    }
   }
 
   /**
@@ -1169,7 +1061,7 @@ export default class StewardPlugin extends Plugin {
    * Stop all running operations
    * Can be called from ESC key or stop command
    */
-  public stopOperations(): void {
+  private stopOperations(): void {
     const activeOperationsCount = this.abortService.getActiveOperationsCount();
 
     if (activeOperationsCount > 0) {
@@ -1181,11 +1073,14 @@ export default class StewardPlugin extends Plugin {
     }
   }
 
-  // Function to find a conversation title in the lines above the current cursor
-  findConversationTitleAbove(view: EditorView): string | null {
+  // Function to find a conversation title in the lines above a target line
+  public findConversationTitleAbove(view: EditorView, fromLineNumber?: number): string | null {
     const { state } = view;
     const { doc, selection } = state;
-    const currentLine = doc.lineAt(selection.main.head);
+    const currentLine =
+      fromLineNumber && fromLineNumber > 0
+        ? doc.line(Math.min(fromLineNumber, doc.lines))
+        : doc.lineAt(selection.main.head);
 
     // Check up to 10 lines above the current one
     let lineNumber = currentLine.number - 1;
@@ -1207,6 +1102,23 @@ export default class StewardPlugin extends Plugin {
     return null;
   }
 
+  public async getCurrentConversationModelLabel(params: {
+    conversationTitle: string;
+    forceRefresh?: boolean;
+  }): Promise<string> {
+    const conversationModel = await this.conversationRenderer.getConversationProperty<string>(
+      params.conversationTitle,
+      'model',
+      params.forceRefresh
+    );
+
+    if (conversationModel) {
+      return this.llmService.formatModelLabel(conversationModel);
+    }
+
+    return this.llmService.formatModelLabel(this.settings.llm.chat.model);
+  }
+
   async getMainLeaf(): Promise<WorkspaceLeaf> {
     return this.app.workspace.getMostRecentLeaf() ?? this.app.workspace.getLeaf();
   }
@@ -1215,7 +1127,7 @@ export default class StewardPlugin extends Plugin {
    * Excludes specified folders from Obsidian search and updates the SearchService
    * @param foldersToExclude - Array of folder names to exclude from search
    */
-  async excludeFoldersFromSearch(foldersToExclude: string[]): Promise<void> {
+  private async excludeFoldersFromSearch(foldersToExclude: string[]): Promise<void> {
     try {
       // Get the app's config
       // @ts-ignore - Accessing internal Obsidian API

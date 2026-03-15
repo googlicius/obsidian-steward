@@ -30,28 +30,10 @@ describe('UserMessageService', () => {
   });
 
   describe('sanitizeQuery', () => {
-    it('should remove selected model pattern with "model:" prefix from query', () => {
-      const query = '/ model:openai:gpt-4   test query';
-      const result = userMessageService.sanitizeQuery(query);
-      expect(result).toBe('/ test query');
-    });
-
     it('should handle query with slash "/ "', () => {
       const query = '/ test query';
       const result = userMessageService.sanitizeQuery(query);
       expect(result).toBe('/ test query');
-    });
-
-    it('should handle query with slash "/ " and selected model pattern', () => {
-      const query = '/ m:openai:gpt-4-turbo-preview test query';
-      const result = userMessageService.sanitizeQuery(query);
-      expect(result).toBe('/ test query');
-    });
-
-    it('should handle query with slash "/ " and only model pattern', () => {
-      const query = '/ m:openai:gpt-4-turbo-preview';
-      const result = userMessageService.sanitizeQuery(query);
-      expect(result).toBe('/');
     });
   });
 

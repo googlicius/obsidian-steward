@@ -60,11 +60,6 @@ export const STW_SOURCE_METADATA_PATTERN =
 export const SELECTED_MODEL_PREFIX_PATTERN = '\\b(m|model):';
 
 /**
- * Pattern to match selected model: `m:<provider>:<modelId>` or `model:<provider>:<modelId>`
- */
-export const SELECTED_MODEL_PATTERN = '\\b(m|model):([a-zA-Z0-9_.-]+):([^\\s]+)';
-
-/**
  * All built-in command that are available to the command menu
  */
 export const COMMAND_PREFIXES = ['/ ', '/search', '/image', '/speech'];
@@ -78,6 +73,8 @@ export const COMMAND_CONTENT_REQUIRED: Record<string, boolean> = {
   image: true,
   speech: true,
 };
+
+export const MODEL_CHANGED = 'model_changed';
 
 /**
  * The 2-space indentation is used to indicate a command line.

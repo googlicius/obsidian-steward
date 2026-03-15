@@ -1,5 +1,5 @@
 import { ImagePart, TextPart } from 'ai';
-import { IMAGE_EXTENSIONS, IMAGE_LINK_PATTERN, SELECTED_MODEL_PATTERN } from 'src/constants';
+import { IMAGE_EXTENSIONS, IMAGE_LINK_PATTERN } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { resizeImageWithCanvas } from 'src/utils/resizeImageWithCanvas';
@@ -65,14 +65,12 @@ export class UserMessageService {
   }
 
   /**
-   * Sanitize the query by removing the selected model pattern.
+   * Sanitize the query.
    */
   public sanitizeQuery(query: string): string {
-    const regex = new RegExp(SELECTED_MODEL_PATTERN + '\\s*', 'gi');
-    const sanitized = query.replace(regex, '');
     // Replace multiple consecutive spaces with a single space
-    const normalized = sanitized.replace(/\s+/g, ' ');
-    return normalized.trim();
+    query = query.replace(/\s+/g, ' ');
+    return query.trim();
   }
 
   public async getImagePartsFromPaths(paths: string[]): Promise<Array<[string, ImagePart]>> {
