@@ -94,7 +94,7 @@ export function createModelCompletionSource(plugin: StewardPlugin) {
 
           void persistSelectedModel(view, model.id, lineNumber);
           view.dispatch({
-            changes: { from: from - matches[0][0].length, to, insert: '' },
+            changes: { from: from - lastMatch[0].length, to, insert: '' },
           });
           view.dom.dispatchEvent(new CustomEvent(MODEL_CHANGED));
         },
