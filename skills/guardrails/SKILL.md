@@ -35,7 +35,7 @@ Include a **verification query** in each rule's documentation. This is a Steward
 | ------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `name`        | Yes      | A short identifier for the rule (e.g., "No secrets access")                                                                                        |
 | `targets`     | Yes      | Array of path patterns (folders or files). Use `folder/` for folders, `*.ext` for file types                                                       |
-| `actions`     | Yes      | Array of actions to restrict: `read`, `list`, `create`, `edit`, `delete`, `move`, `rename`, `copy`                           |
+| `actions`     | Yes      | Array of actions to restrict: `read`, `list`, `create`, `edit`, `delete`, `move`, `rename`, `copy`                                                 |
 | `instruction` | No       | Optional override only when the user explicitly requires strict guidance. Default is no instruction; violations are serialized for the AI to adapt |
 | `enabled`     | No       | Set to `false` to disable a rule. Default is `true`                                                                                                |
 

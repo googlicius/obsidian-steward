@@ -250,9 +250,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
       handlerId,
       agentParams: params,
       remainingSteps,
-      toolCalls: toolCalls as unknown as Array<
-        TypedToolCallPart & { dynamic?: boolean }
-      >,
+      toolCalls: toolCalls as unknown as Array<TypedToolCallPart & { dynamic?: boolean }>,
       startIndex: options.currentToolCallIndex ?? 0,
       activeTools,
       activeSkills,
