@@ -3,6 +3,58 @@ import { EventRef, MarkdownPostProcessor, setIcon, setTooltip, TFile } from 'obs
 import type StewardPlugin from 'src/main';
 
 export function createStewardConversationProcessor(plugin: StewardPlugin): MarkdownPostProcessor {
+  const pendingTitleUpdateMap = new Map<
+    string,
+    { embedEl: Element; eventRef: EventRef; timeoutId: number }
+  >();
+
+  const unsubscribeTitleUpdate = (key: string) => {
+    const value = pendingTitleUpdateMap.get(key);
+    if (!value) return;
+
+    clearTimeout(value.timeoutId);
+    plugin.app.metadataCache.offref(value.eventRef);
+    pendingTitleUpdateMap.delete(key);
+  };
+
+  const subscribeToTitleUpdate = (path: string, embedEl: Element) => {
+    if (pendingTitleUpdateMap.has(path)) return;
+
+    const updateTitleAndCleanup = async (file: TFile) => {
+      const pendingTitleUpdate = pendingTitleUpdateMap.get(file.path);
+      if (!pendingTitleUpdate) return;
+
+      const updated = await updateConversationTitleInEmbed(pendingTitleUpdate.embedEl, file.path);
+
+      if (!updated) return;
+
+      // Clean up the event listener and timeout
+      unsubscribeTitleUpdate(file.path);
+    };
+
+    // Register the event listener
+    const eventRef = plugin.app.metadataCache.on('changed', updateTitleAndCleanup);
+
+    // Set a timeout to clean up the event listener after 5 seconds
+    const timeoutId = window.setTimeout(() => {
+      unsubscribeTitleUpdate(path);
+    }, 5000);
+
+    pendingTitleUpdateMap.set(path, {
+      embedEl,
+      eventRef,
+      timeoutId,
+    });
+  };
+
+  plugin.register(() => {
+    for (const key of pendingTitleUpdateMap.keys()) {
+      unsubscribeTitleUpdate(key);
+    }
+
+    pendingTitleUpdateMap.clear();
+  });
+
   const handleCloseButtonClick = (event: MouseEvent, conversationPath: string) => {
     conversationPath = conversationPath.replace('.md', '');
     const conversationTitle = conversationPath.split('/').pop();
@@ -71,44 +123,16 @@ export function createStewardConversationProcessor(plugin: StewardPlugin): Markd
 
       const embedEl = el.closest('.markdown-embed');
       if (embedEl) {
-        // Add stw-conversation class to the embed
+        // Add stw-conversation class for event-driven indicator updates
         embedEl.classList.add('stw-conversation');
 
         // Update the conversation title
-        await updateConversationTitleInEmbed(embedEl, ctx.sourcePath);
+        const updated = await updateConversationTitleInEmbed(embedEl, ctx.sourcePath);
 
-        // Register metadata cache change listener for this specific file
-        let eventRef: EventRef | null = null;
-        let timeoutId: number | null = null;
-
-        const updateTitleAndCleanup = async (file: TFile) => {
-          if (file.path === ctx.sourcePath) {
-            const updated = await updateConversationTitleInEmbed(embedEl, ctx.sourcePath);
-
-            if (!updated) return;
-
-            // Clean up the event listener and timeout
-            if (eventRef) {
-              plugin.app.metadataCache.offref(eventRef);
-              eventRef = null;
-            }
-            if (timeoutId) {
-              clearTimeout(timeoutId);
-              timeoutId = null;
-            }
-          }
-        };
-
-        // Register the event listener
-        eventRef = plugin.app.metadataCache.on('changed', updateTitleAndCleanup);
-
-        // Set a timeout to clean up the event listener after 5 seconds
-        timeoutId = window.setTimeout(() => {
-          if (eventRef) {
-            plugin.app.metadataCache.offref(eventRef);
-            eventRef = null;
-          }
-        }, 5000);
+        // The initial update is false, then subscribe
+        if (!updated) {
+          subscribeToTitleUpdate(ctx.sourcePath, embedEl);
+        }
 
         // delete the markdown-embed-link element
         const markdownEmbedLink = embedEl.querySelector('.markdown-embed-link');
@@ -118,11 +142,11 @@ export function createStewardConversationProcessor(plugin: StewardPlugin): Markd
 
         // Create button container for better positioning
         const buttonContainer = document.createElement('div');
-        buttonContainer.classList.add('stw-conversation-buttons');
+        buttonContainer.classList.add('conversation-buttons');
 
         // Add squeeze button
         const squeezeButton = document.createElement('button');
-        squeezeButton.classList.add('stw-conversation-button', 'clickable-icon');
+        squeezeButton.classList.add('conversation-button', 'clickable-icon');
         setTooltip(squeezeButton, i18next.t('chat.squeezeConversation'));
         setIcon(squeezeButton, 'minimize-2');
         squeezeButton.addEventListener('click', (event: MouseEvent) => {
@@ -134,7 +158,7 @@ export function createStewardConversationProcessor(plugin: StewardPlugin): Markd
 
         // Add close button
         const closeButton = document.createElement('button');
-        closeButton.classList.add('stw-conversation-button', 'clickable-icon');
+        closeButton.classList.add('conversation-button', 'clickable-icon');
         setTooltip(closeButton, i18next.t('chat.closeConversation'));
         setIcon(closeButton, 'x');
         closeButton.addEventListener('click', (event: MouseEvent) => {

@@ -157,10 +157,6 @@ export class AgentRunner {
         continue;
       }
 
-      if (!options.skipIndicators && agent.renderIndicator) {
-        await agent.renderIndicator(title, payload.lang);
-      }
-
       const canUseTools = config?.canUseTools !== false;
       if (!canUseTools) {
         intent = {

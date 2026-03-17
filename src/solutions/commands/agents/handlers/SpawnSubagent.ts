@@ -147,8 +147,6 @@ export class SpawnSubagent {
               includeHistory: false,
             });
           }
-
-          await this.agent.renderer.addGeneratingIndicator(title, t('conversation.working'));
         }
 
         await this.updateRunState(title, {

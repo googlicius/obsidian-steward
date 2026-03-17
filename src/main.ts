@@ -1,4 +1,4 @@
-import { Notice, Plugin, WorkspaceLeaf, addIcon } from 'obsidian';
+import { Notice, Plugin, WorkspaceLeaf, addIcon, getLanguage } from 'obsidian';
 import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
@@ -13,6 +13,7 @@ import { createHistoryPostProcessor } from './post-processors/HistoryPostProcess
 import { createThinkingProcessPostProcessor } from './post-processors/ThinkingProcessPostProcessor';
 import { createConfirmationButtonsProcessor } from './post-processors/ConfirmationButtonsProcessor';
 import { createCalloutEditPreviewPostProcessor } from './post-processors/CalloutEditPreviewPostProcessor';
+import { createConversationIndicatorProcessor } from './post-processors/ConversationIndicatorProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -463,6 +464,8 @@ export default class StewardPlugin extends Plugin {
 
     this.registerMarkdownPostProcessor(createUserMessageButtonsProcessor(this));
 
+    this.registerMarkdownPostProcessor(createConversationIndicatorProcessor(this));
+
     this.registerMarkdownPostProcessor(createStewardConversationProcessor(this));
 
     this.registerMarkdownPostProcessor(createStwSourcePostProcessor(this));
@@ -847,7 +850,21 @@ export default class StewardPlugin extends Plugin {
           ? capitalizeString(intentType)
           : `${capitalizeString(intentType.trim()) || 'General'} ${formattedDate}`;
 
-        await this.conversationRenderer.createConversationNote(title, intentType, intentQuery);
+        const conversationLanguage = getLanguage();
+        const indicatorText = this.conversationRenderer.getIndicatorTextByIntentType(
+          intentType,
+          conversationLanguage
+        );
+        await this.conversationRenderer.createConversationNote(title, {
+          intent: {
+            type: intentType,
+            query: intentQuery,
+          },
+          properties: [
+            { name: 'lang', value: conversationLanguage },
+            { name: 'indicator_text', value: indicatorText },
+          ],
+        });
 
         // Insert the conversation link directly here instead of using the event
         const linkText = `![[${this.settings.stewardFolder}/Conversations/${title}]]\n\n`;
@@ -877,6 +894,12 @@ export default class StewardPlugin extends Plugin {
           intentQuery,
           // We don't know the language here, the extraction will update it later
         });
+
+        // Render indicator
+        // setTimeout(() => {
+        //   const indicatorText = this.conversationRender.getIndicatorTextByCommandType(intentType);
+        //   this.conversationRender.addGeneratingIndicator(title, indicatorText);
+        // });
 
         return true;
       } catch (error) {

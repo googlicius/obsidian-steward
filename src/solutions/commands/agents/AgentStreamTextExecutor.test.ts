@@ -132,17 +132,7 @@ describe('AgentStreamTextExecutor', () => {
   let testAgent: TestAgent;
   let mockPlugin: jest.Mocked<StewardPlugin>;
 
-  beforeAll(() => {
-    global.window = {
-      setInterval: (fn: () => void, ms: number) => setInterval(fn, ms),
-      clearInterval: (id: NodeJS.Timeout) => clearInterval(id),
-      setTimeout: (fn: () => void, ms: number) => setTimeout(fn, ms),
-      clearTimeout: (id: NodeJS.Timeout) => clearTimeout(id),
-    } as unknown as Window & typeof globalThis;
-  });
-
   beforeEach(() => {
-    jest.useFakeTimers();
     jest.clearAllMocks();
     mockPlugin = createMockPlugin();
     testAgent = new TestAgent(mockPlugin, mockPlugin.conversationRenderer);
@@ -153,15 +143,6 @@ describe('AgentStreamTextExecutor', () => {
       })(),
       toolCalls: Promise.resolve([]),
     });
-  });
-
-  afterEach(() => {
-    try {
-      jest.runOnlyPendingTimers();
-    } catch {
-      // Ignore timer errors when fake timers are not active
-    }
-    jest.useRealTimers();
   });
 
   describe('system prompt and fallbacks', () => {

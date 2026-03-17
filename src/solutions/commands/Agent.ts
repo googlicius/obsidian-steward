@@ -130,6 +130,8 @@ export abstract class Agent {
         status: IntentResultStatus.ERROR,
         error: error instanceof Error ? error : new Error(errorMessage),
       };
+    } finally {
+      await this.plugin.conversationRender.removeIndicator(params.title);
     }
   }
 

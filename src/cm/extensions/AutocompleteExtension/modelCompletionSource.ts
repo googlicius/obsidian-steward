@@ -1,12 +1,8 @@
 import { CompletionContext, CompletionResult, Completion } from '@codemirror/autocomplete';
 import { EditorView } from '@codemirror/view';
-import {
-  LLM_MODELS,
-  MODEL_CHANGED,
-  SELECTED_MODEL_PREFIX_PATTERN,
-  TWO_SPACES_PREFIX,
-} from 'src/constants';
+import { LLM_MODELS, SELECTED_MODEL_PREFIX_PATTERN, TWO_SPACES_PREFIX } from 'src/constants';
 import type StewardPlugin from 'src/main';
+import { Events, type ModelChangedPayload } from 'src/types/events';
 
 function getAllModels(plugin: StewardPlugin): Array<{ id: string; name: string }> {
   const customModels: string[] = (plugin.settings.llm.chat.customModels as string[]) || [];
@@ -96,7 +92,14 @@ export function createModelCompletionSource(plugin: StewardPlugin) {
           view.dispatch({
             changes: { from: from - lastMatch[0].length, to, insert: '' },
           });
-          view.dom.dispatchEvent(new CustomEvent(MODEL_CHANGED));
+          const modelChangedPayload: ModelChangedPayload = {
+            modelId: model.id,
+          };
+          view.dom.dispatchEvent(
+            new CustomEvent<ModelChangedPayload>(Events.MODEL_CHANGED, {
+              detail: modelChangedPayload,
+            })
+          );
         },
       };
     });

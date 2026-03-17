@@ -2,6 +2,7 @@ import type { ConversationIntentReceivedPayload } from '../../types/events';
 import type { AgentResult } from './types';
 
 export interface ProcessIntentsOptions {
+  /** @deprecated */
   skipIndicators?: boolean;
   sendToDownstream?: {
     isReloadRequest?: boolean;

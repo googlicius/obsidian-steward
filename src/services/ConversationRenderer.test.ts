@@ -817,8 +817,8 @@ describe('ConversationRenderer', () => {
       expect(processedContent).toMatchSnapshot();
     });
 
-    it('should preserve the loading indicator when contentFormat is hidden', async () => {
-      // Mock initial conversation content with a loading indicator
+    it('should append hidden content without in-content indicator handling', async () => {
+      // Mock initial conversation content with a loading-like text
       const mockContent = [
         '<!--STW ID:abc123,ROLE:steward,COMMAND:search-->',
         "**Steward:** Here's what I found:",
@@ -851,7 +851,9 @@ describe('ConversationRenderer', () => {
 
       // Verify that messageId is returned
       expect(messageId).toBeDefined();
-      expect(processedContent).toMatchSnapshot();
+      expect(processedContent).toContain('*Generating...*');
+      expect(processedContent).toContain('```stw-hidden-from-user');
+      expect(processedContent).toContain('/search How to use React hooks');
     });
 
     it.skip('should store the selected model in the frontmatter if it is found in the new content', async () => {
@@ -1205,23 +1207,9 @@ describe('ConversationRenderer', () => {
     });
   });
 
-  describe('getGeneratingIndicator', () => {
-    it('should get the generating indicator from the content', () => {
-      const content = 'This is a message\n\n*Generating...*';
-      const indicator = conversationRenderer.getGeneratingIndicator(content);
-      expect(indicator).toEqual('\n\n*Generating...*');
-    });
-
-    it('should return an empty string if no indicator is found', () => {
-      const content = 'This is a message';
-      const indicator = conversationRenderer.getGeneratingIndicator(content);
-      expect(indicator).toEqual('');
-    });
-  });
-
   describe('serializeToolInvocation', () => {
-    it('should keep indicator when there is an indicator but no visible text is being added', async () => {
-      // Mock conversation content with generating indicator
+    it('should keep existing content when no visible text is being added', async () => {
+      // Mock conversation content with a loading-like text
       const mockContent = 'Some existing content\n\n*Generating...*';
 
       // Create mock plugin with the conversation content
@@ -1256,12 +1244,12 @@ describe('ConversationRenderer', () => {
       // Verify that vault.process was called
       expect(processSpy).toHaveBeenCalledTimes(1);
 
-      // Verify that the indicator is kept in the processed content
+      // Existing content is not transformed by serializeToolInvocation.
       expect(processedContent).toContain('*Generating...*');
     });
 
-    it('should not keep indicator when there is an indicator and visible text is being added', async () => {
-      // Mock conversation content with generating indicator
+    it('should keep existing content when visible text is being added', async () => {
+      // Mock conversation content with a loading-like text
       const mockContent = 'Some existing content\n\n*Generating...*';
 
       // Create mock plugin with the conversation content
@@ -1297,8 +1285,8 @@ describe('ConversationRenderer', () => {
       // Verify that vault.process was called
       expect(processSpy).toHaveBeenCalledTimes(1);
 
-      // Verify that the indicator is NOT kept in the processed content
-      expect(processedContent).not.toContain('*Generating...*');
+      // Existing content is not transformed by serializeToolInvocation.
+      expect(processedContent).toContain('*Generating...*');
       // Verify that the text is present
       expect(processedContent).toContain('Here are the results:');
     });
