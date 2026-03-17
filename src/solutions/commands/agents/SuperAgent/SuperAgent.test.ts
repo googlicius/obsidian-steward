@@ -126,26 +126,7 @@ describe('SuperAgent', () => {
   let mockPlugin: jest.Mocked<StewardPlugin>;
   let mockSaveEmbedding: jest.Mock;
 
-  // Mock window for setTimeout
-  beforeAll(() => {
-    global.window = {
-      setInterval: (fn: () => void, ms: number) => {
-        return setInterval(fn, ms);
-      },
-      clearInterval: (id: NodeJS.Timeout) => {
-        return clearInterval(id);
-      },
-      setTimeout: (fn: () => void, ms: number) => {
-        return setTimeout(fn, ms);
-      },
-      clearTimeout: (id: NodeJS.Timeout) => {
-        return clearTimeout(id);
-      },
-    } as unknown as Window & typeof globalThis;
-  });
-
   beforeEach(() => {
-    jest.useFakeTimers();
     jest.clearAllMocks();
     mockPlugin = createMockPlugin();
     superAgent = new SuperAgent(mockPlugin);
@@ -170,16 +151,6 @@ describe('SuperAgent', () => {
       })(),
       toolCalls: Promise.resolve([]),
     });
-  });
-
-  afterEach(() => {
-    // Only run pending timers if fake timers are active
-    try {
-      jest.runOnlyPendingTimers();
-    } catch {
-      // Ignore if fake timers are not active
-    }
-    jest.useRealTimers();
   });
 
   describe('handle - messages and tool calls', () => {
@@ -589,9 +560,8 @@ describe('SuperAgent', () => {
 
       await superAgent.handle(params);
 
-      // Wait for the promise to resolve since saveEmbedding is called without awaiting
-      // With fake timers, we need to run all timers and flush promises
-      await jest.runAllTimersAsync();
+      // Wait for unawaited saveEmbedding promise callback to settle.
+      await Promise.resolve();
 
       expect(mockSaveEmbedding).toHaveBeenCalledTimes(1);
       expect(mockSaveEmbedding).toHaveBeenCalledWith('test query', 'vault');
@@ -625,8 +595,8 @@ describe('SuperAgent', () => {
 
       await superAgent.handle(params);
 
-      // Wait for any pending promises
-      await jest.runAllTimersAsync();
+      // Wait for unawaited saveEmbedding promise callback to settle.
+      await Promise.resolve();
 
       expect(mockSaveEmbedding).not.toHaveBeenCalled();
     });
@@ -659,8 +629,8 @@ describe('SuperAgent', () => {
 
       await superAgent.handle(params);
 
-      // Wait for any pending promises
-      await jest.runAllTimersAsync();
+      // Wait for unawaited saveEmbedding promise callback to settle.
+      await Promise.resolve();
 
       expect(mockSaveEmbedding).not.toHaveBeenCalled();
 
@@ -703,8 +673,8 @@ describe('SuperAgent', () => {
 
       await superAgent.handle(params);
 
-      // Wait for any pending promises
-      await jest.runAllTimersAsync();
+      // Wait for unawaited saveEmbedding promise callback to settle.
+      await Promise.resolve();
 
       // Should not save embedding because classifiedTasks is empty
       expect(mockSaveEmbedding).not.toHaveBeenCalled();
@@ -744,8 +714,8 @@ describe('SuperAgent', () => {
 
       await superAgent.handle(params);
 
-      // Wait for any pending promises
-      await jest.runAllTimersAsync();
+      // Wait for unawaited saveEmbedding promise callback to settle.
+      await Promise.resolve();
 
       // Should not save embedding because there are multiple user messages
       expect(mockSaveEmbedding).not.toHaveBeenCalled();
@@ -800,9 +770,6 @@ describe('SuperAgent', () => {
         configurable: true,
       });
 
-      // Mock renderIndicator to verify it's NOT called (since we stop processing)
-      const renderIndicatorSpy = jest.spyOn(superAgent, 'renderIndicator');
-
       // Spy on handle to verify it's not called recursively
       const handleSpy = jest.spyOn(superAgent, 'handle');
 
@@ -813,9 +780,6 @@ describe('SuperAgent', () => {
 
       // Verify the handler was called
       expect(mockHandlerHandle).toHaveBeenCalledTimes(1);
-
-      // Verify renderIndicator was NOT called (since stopProcessingForClassifiedTask returns true)
-      expect(renderIndicatorSpy).not.toHaveBeenCalled();
 
       // Verify handle was NOT called recursively (should only be called once - the initial call)
       // Since stopProcessingForClassifiedTask returns true, the recursive call at line 840 should not happen

@@ -222,12 +222,6 @@ pre.language-stw-thinking {
   }
 }
 
-.stw-conversation .callout-content :is(ul, p, ol) {
-  margin: 6px 0;
-  line-height: 1.4em;
-  overflow: hidden;
-}
-
 .stw-history-list {
   padding-top: var(--size-4-2);
 
@@ -301,24 +295,49 @@ code[class*='language-stw-hidden-from-user'] {
   display: none;
 }
 
-/* Conversation buttons container */
-.stw-conversation-buttons {
-  position: absolute;
-  top: var(--size-2-2);
-  inset-inline-end: var(--size-2-2);
-  display: flex;
+/* Conversation embed indicator */
+.stw-conversation-indicator {
+  & .generating-indicator {
+    display: flex;
+    align-items: center;
+    margin-top: var(--size-2-2);
+    padding: var(--embed-padding);
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.9em;
 
-  & > .stw-conversation-button {
-    color: var(--icon-color);
-    opacity: var(--icon-opacity);
-    cursor: var(--cursor-link);
-    padding: var(--size-2-1);
-    border-radius: var(--radius-s);
+    &.hidden {
+      display: none;
+    }
+  }
+}
 
-    &:hover {
-      color: var(--icon-color-hover);
-      opacity: var(--icon-opacity-hover);
-      background: var(--background-modifier-hover);
+/* Conversation embed (buttons, callout content) */
+.stw-conversation {
+  & .callout-content :is(ul, p, ol) {
+    margin: 6px 0;
+    line-height: 1.4em;
+    overflow: hidden;
+  }
+
+  & .conversation-buttons {
+    position: absolute;
+    top: var(--size-2-2);
+    inset-inline-end: var(--size-2-2);
+    display: flex;
+
+    & > .conversation-button {
+      color: var(--icon-color);
+      opacity: var(--icon-opacity);
+      cursor: var(--cursor-link);
+      padding: var(--size-2-1);
+      border-radius: var(--radius-s);
+
+      &:hover {
+        color: var(--icon-color-hover);
+        opacity: var(--icon-opacity-hover);
+        background: var(--background-modifier-hover);
+      }
     }
   }
 }

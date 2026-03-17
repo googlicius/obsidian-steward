@@ -27,11 +27,6 @@ export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'svg', 'gif'];
 export const STW_SOURCE_PATTERN = '(\\{\\{stw-source.*?\\}\\})';
 
 /**
- * Pattern to match {{stw-rules}} marker for guardrails display
- */
-export const STW_RULES_PATTERN = '(\\{\\{stw-rules.*?\\}\\})';
-
-/**
  * Pattern to match {{stw-squeezed [[<path>]] }}
  */
 export const STW_SQUEEZED_PATTERN = '\\{\\{stw-squeezed \\[\\[([^\\]]+)\\]\\] \\}\\}';
@@ -73,8 +68,6 @@ export const COMMAND_CONTENT_REQUIRED: Record<string, boolean> = {
   image: true,
   speech: true,
 };
-
-export const MODEL_CHANGED = 'model_changed';
 
 /**
  * The 2-space indentation is used to indicate a command line.

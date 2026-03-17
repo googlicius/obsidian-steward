@@ -7,8 +7,9 @@ import {
   keymap,
 } from '@codemirror/view';
 import { Extension, Line, Prec } from '@codemirror/state';
-import { MODEL_CHANGED, TWO_SPACES_PREFIX } from 'src/constants';
+import { TWO_SPACES_PREFIX } from 'src/constants';
 import type StewardPlugin from 'src/main';
+import { Events, type ModelChangedPayload } from 'src/types/events';
 
 export interface CommandInputOptions {
   /**
@@ -65,12 +66,12 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
 
         // Attach event listeners
         view.dom.addEventListener('keypress', this.handleKeyPress);
-        view.dom.addEventListener(MODEL_CHANGED, this.handleModelChanged);
+        view.dom.addEventListener(Events.MODEL_CHANGED, this.handleModelChanged);
       }
 
       destroy() {
         this.view.dom.removeEventListener('keypress', this.handleKeyPress);
-        this.view.dom.removeEventListener(MODEL_CHANGED, this.handleModelChanged);
+        this.view.dom.removeEventListener(Events.MODEL_CHANGED, this.handleModelChanged);
 
         // Clear any pending timeout
         if (this.typingDebounceTimeout) {
@@ -201,7 +202,9 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
         }
       }
 
-      private handleModelChanged = (event: CustomEvent) => {
+      private handleModelChanged = (event: Event) => {
+        const modelChangedEvent = event as CustomEvent<ModelChangedPayload>;
+        if (!modelChangedEvent.detail.modelId) return;
         void this.buildDecorations();
       };
 

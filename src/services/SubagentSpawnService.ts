@@ -1,4 +1,5 @@
 import type StewardPlugin from 'src/main';
+import { getLanguage } from 'obsidian';
 import { uniqueID } from 'src/utils/uniqueID';
 import type { AgentConfig } from 'src/solutions/commands/agents/AgentConfig';
 import { DEFAULT_AGENT_CONFIGS } from 'src/solutions/commands/agents/defaultAgents';
@@ -103,12 +104,21 @@ export class SubagentSpawnService {
         task: job.task,
       });
 
-      await this.plugin.conversationRenderer.createConversationNote(
-        childTitle,
+      const conversationLanguage = params.lang || getLanguage();
+      const indicatorText = this.plugin.conversationRenderer.getIndicatorTextByIntentType(
         DEFAULT_INTENT_TYPE,
-        job.task,
-        params.lang || undefined
+        conversationLanguage
       );
+      await this.plugin.conversationRenderer.createConversationNote(childTitle, {
+        intent: {
+          type: DEFAULT_INTENT_TYPE,
+          query: job.task,
+        },
+        properties: [
+          { name: 'lang', value: conversationLanguage },
+          { name: 'indicator_text', value: indicatorText },
+        ],
+      });
       await this.plugin.conversationRenderer.updateConversationFrontmatter(childTitle, [
         { name: 'parent', value: params.parentAgentId },
       ]);

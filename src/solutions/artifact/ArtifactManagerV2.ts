@@ -236,9 +236,6 @@ export class ArtifactManagerV2 {
 
       // Process the file content
       await this.plugin.app.vault.process(file, currentContent => {
-        // Remove any generating indicator
-        currentContent = this.plugin.conversationRenderer.removeGeneratingIndicator(currentContent);
-
         let contentToAdd = params.text ? `${params.text}\n` : '';
 
         contentToAdd += serializer.serialize(params.artifact);
