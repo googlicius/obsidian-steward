@@ -41,14 +41,6 @@ export class Speech {
   }
 
   /**
-   * Render the loading indicator for the speech command
-   */
-  public async renderIndicator(title: string, lang?: string): Promise<void> {
-    const t = getTranslation(lang);
-    await this.agent.renderer.addGeneratingIndicator(title, t('conversation.generatingAudio'));
-  }
-
-  /**
    * Handle a speech tool call
    */
   public async handle(

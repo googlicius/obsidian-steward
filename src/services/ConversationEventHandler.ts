@@ -104,7 +104,6 @@ export class ConversationEventHandler {
         lang: payload.lang,
       },
       {
-        skipIndicators: true,
         sendToDownstream: {
           isReloadRequest: false,
         },

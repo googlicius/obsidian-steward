@@ -4,7 +4,7 @@ import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES } from 'src/constants';
 import { EXAMPLE_UDCS } from 'src/example-udcs';
 import { StewardChatView } from 'src/views/StewardChatView';
-import i18next from 'i18next';
+import i18next, { t } from 'i18next';
 import { IVersionedUserDefinedCommand, TriggerCondition } from './versions/types';
 import { loadUDCVersion } from './versions/loader';
 import { Intent } from 'src/solutions/commands/types';
@@ -696,6 +696,7 @@ export class UserDefinedCommandService {
         `source_file: ${file.name}`,
         `created: ${new Date().toISOString()}`,
         `lang: ${getLanguage()}`,
+        `indicator_text: ${t('conversation.planning')}`,
         '---',
         '',
       ].join('\n');

@@ -7,14 +7,17 @@ import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { ToolRegistry, ToolName } from '../ToolRegistry';
 import type { AgentHandlerParams } from '../types';
 import { SuperAgentSystemPromptBuilder } from './SystemPromptBuilder';
-import type { ToolContentStreamInfo } from './SuperAgent/SuperAgentToolContentStream';
+import {
+  type ToolContentStreamInfo,
+  isToolContentStreamConsumer,
+} from './ToolContentStreamConsumer';
 import {
   generateActiveSkillPrompts,
   generateSkillCatalogPrompt,
   generateTodoListPrompt,
 } from './agentUtils';
 
-export interface StreamTextExecutorAgentContext {
+export interface StreamTextExecutorContext {
   plugin: StewardPlugin;
   renderer: ConversationRenderer;
   renderIndicator(title: string, lang?: string | null, toolName?: ToolName): Promise<void>;
@@ -31,10 +34,13 @@ export interface StreamTextExecutorAgentContext {
   }): Promise<ToolContentStreamInfo | undefined>;
 }
 
-function asStreamTextExecutorAgent(
-  instance: AgentStreamTextExecutor
-): StreamTextExecutorAgentContext {
-  return instance as unknown as StreamTextExecutorAgentContext;
+function asAgent(instance: AgentStreamTextExecutor): StreamTextExecutorContext {
+  if (!isToolContentStreamConsumer(instance)) {
+    throw new Error(
+      'Agent must implement ToolContentStreamConsumer interface to use executeStreamText'
+    );
+  }
+  return instance as unknown as StreamTextExecutorContext;
 }
 
 export class AgentStreamTextExecutor {
@@ -50,7 +56,7 @@ export class AgentStreamTextExecutor {
     conversationHistory: ModelMessage[];
     toolContentStreamInfo?: ToolContentStreamInfo;
   }> {
-    const agent = asStreamTextExecutorAgent(this);
+    const agent = asAgent(this);
 
     const conversationHistory = await agent.renderer.extractConversationHistory(params.title);
 
@@ -182,7 +188,12 @@ export class AgentStreamTextExecutor {
       onAbort: () => {
         rejectStreamError(new DOMException('Request aborted', 'AbortError'));
       },
-      onFinish: ({ finishReason, toolCalls }) => {
+      onChunk: ({ chunk }) => {
+        if (chunk.type === 'tool-input-start') {
+          agent.renderIndicator(params.title, params.lang, chunk.toolName as ToolName);
+        }
+      },
+      onFinish: ({ finishReason }) => {
         if (finishReason === 'length') {
           rejectStreamError(new SysError('Stream finished due to length limit'));
         } else if (finishReason === 'error') {

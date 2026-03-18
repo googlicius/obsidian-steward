@@ -8,14 +8,13 @@ import type { AgentHandlerParams, AgentResult } from '../types';
 import { IntentResultStatus } from '../types';
 import type { TypedToolCallPart } from '../tools/types';
 import { ToolName } from '../ToolRegistry';
-import type { ToolContentStreamInfo } from './SuperAgent/SuperAgentToolContentStream';
+import type { ToolContentStreamInfo } from './ToolContentStreamConsumer';
 import type { StandardToolHandler } from './AgentHandlers';
 import * as handlers from './handlers';
 import { ToolHandlerMiddlewareContext } from './middleware/types';
 
 interface AgentToolCallExecutorContext {
   plugin: StewardPlugin;
-  renderIndicator(title: string, lang?: string | null, toolName?: ToolName): Promise<void>;
   handle: (
     params: AgentHandlerParams,
     options?: {
@@ -55,15 +54,6 @@ export class AgentToolCallExecutor {
   }): Promise<AgentResult> {
     const agent = asAgentToolCallExecutor(this);
     const handlerMap = agent.getToolHandlerMap();
-
-    const firstToolName =
-      params.toolCalls.length > params.startIndex && !params.toolCalls[params.startIndex]?.dynamic
-        ? params.toolCalls[params.startIndex].toolName
-        : undefined;
-
-    if (firstToolName) {
-      agent.renderIndicator(params.title, params.lang, firstToolName);
-    }
 
     for (let index = params.startIndex; index < params.toolCalls.length; index += 1) {
       const toolCall = params.toolCalls[index];

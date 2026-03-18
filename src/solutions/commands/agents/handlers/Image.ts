@@ -41,14 +41,6 @@ export class Image {
   }
 
   /**
-   * Render the loading indicator for the image command
-   */
-  public async renderIndicator(title: string, lang?: string): Promise<void> {
-    const t = getTranslation(lang);
-    await this.agent.renderer.addGeneratingIndicator(title, t('conversation.generatingImage'));
-  }
-
-  /**
    * Handle an image tool call
    */
   public async handle(

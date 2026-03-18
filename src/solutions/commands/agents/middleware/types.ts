@@ -1,7 +1,7 @@
 import type { AgentHandlerParams, AgentResult } from '../../types';
 import type { ToolCallPart } from '../../tools/types';
 import type { ToolName } from '../../ToolRegistry';
-import type { ToolContentStreamInfo } from '../SuperAgent/SuperAgentToolContentStream';
+import type { ToolContentStreamInfo } from '../ToolContentStreamConsumer';
 
 export interface ToolHandlerMiddlewareContext {
   params: AgentHandlerParams;

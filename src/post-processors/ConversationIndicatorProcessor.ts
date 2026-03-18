@@ -1,12 +1,18 @@
 import { MarkdownPostProcessor } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import { Events, type ConversationIndicatorChangedPayload } from 'src/types/events';
+import { logger } from 'src/utils/logger';
 
 function normalizeConversationSrc(path: string, stewardFolder: string): string {
   const base = `${stewardFolder}/Conversations/`;
   const withoutExt = path.replace(/\.md$/i, '');
   if (withoutExt.startsWith(base)) return withoutExt;
   return `${base}${withoutExt}`;
+}
+
+function buildIndicatorEmbedSelector(normalizedSrc: string): string {
+  const normalizedTitle = normalizedSrc.split('/').pop() || normalizedSrc;
+  return `.stw-conversation-indicator[src*="${CSS.escape(normalizedTitle)}"]`;
 }
 
 function setGeneratingIndicatorState(params: {
@@ -17,7 +23,10 @@ function setGeneratingIndicatorState(params: {
   indicatorFor: string;
 }): void {
   const contentEl = params.embedEl.querySelector(':scope > .markdown-embed-content');
-  if (!contentEl) return;
+  if (!contentEl) {
+    logger.warn('No contentEl found', params);
+    return;
+  }
 
   const indicatorSelector = `:scope > .generating-indicator[data-stw-indicator-for="${CSS.escape(
     params.indicatorFor
@@ -56,12 +65,9 @@ export function createConversationIndicatorProcessor(plugin: StewardPlugin): Mar
   const handleIndicatorChanged = (event: CustomEvent<ConversationIndicatorChangedPayload>) => {
     const { conversationPath, active, indicatorText } = event.detail;
     const normalizedSrc = normalizeConversationSrc(conversationPath, plugin.settings.stewardFolder);
-    const normalizedTitle = normalizedSrc.split('/').pop() || normalizedSrc;
-    const selector = [
-      `.stw-conversation-indicator[src="${CSS.escape(normalizedSrc)}"]`,
-      `.stw-conversation-indicator[src="${CSS.escape(normalizedTitle)}"]`,
-    ].join(', ');
+    const selector = buildIndicatorEmbedSelector(normalizedSrc);
     const embeds = document.querySelectorAll(selector);
+
     if (embeds.length === 0) return;
 
     for (let i = 0; i < embeds.length; i++) {

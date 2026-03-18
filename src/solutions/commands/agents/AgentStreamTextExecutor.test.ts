@@ -1,13 +1,13 @@
 import { streamText } from 'ai';
 import type StewardPlugin from 'src/main';
 import { type App } from 'obsidian';
-import {
-  AgentStreamTextExecutor,
-  type StreamTextExecutorAgentContext,
-} from './AgentStreamTextExecutor';
+import { AgentStreamTextExecutor, type StreamTextExecutorContext } from './AgentStreamTextExecutor';
 import { ToolName } from '../ToolRegistry';
 import type { AgentHandlerParams, Intent } from '../types';
-import type { ToolContentStreamInfo } from './SuperAgent/SuperAgentToolContentStream';
+import {
+  type ToolContentStreamInfo,
+  TOOL_CONTENT_STREAM_CONSUMER_SYMBOL,
+} from './ToolContentStreamConsumer';
 
 jest.mock('ai', () => {
   const originalModule = jest.requireActual('ai');
@@ -95,7 +95,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
   return mockPlugin as unknown as jest.Mocked<StewardPlugin>;
 }
 
-class TestAgent extends AgentStreamTextExecutor implements StreamTextExecutorAgentContext {
+class TestAgent extends AgentStreamTextExecutor implements StreamTextExecutorContext {
+  [TOOL_CONTENT_STREAM_CONSUMER_SYMBOL] = true as const;
+
   constructor(
     public plugin: StewardPlugin,
     public renderer: StewardPlugin['conversationRenderer']

@@ -5,6 +5,31 @@ All notable changes to Obsidian Steward will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-03-18
+
+### Added
+
+- **Revert multiple operations**: Revert multiple operations from the latest user query.
+- **SubAgent**: New SubAgent system for spawning dedicated agents with specific capabilities.
+- **SPAWN_SUBAGENT tool**: Tool to spawn subagents for specialized tasks.
+- **Conversation title in embed**: Update embed title with generated `conversation_title` from frontmatter.
+
+### Changed
+
+- **Command input**: Show current model and provider in the input for better visibility.
+- **Guardrails**: Refactored grep tool handling, moved existence checking to a separate tool (`vaultExists`).
+- **History view**: Enhanced history view with improved UI; don't show subagent notes in history.
+- **VaultCreate**: Can now create empty folders.
+- **VaultList**: Improved rendering and search behavior; block search if blocklist is set.
+- **Dynamic handler**: Handle `no_stool_error` more gracefully.
+- **Edit review**: Updated for generic use across different operations.
+- **Help view**: Now lists disabled rules and skills for better visibility.
+- **Title agent**: Added another channel to set conversation title via tool schemas.
+
+### Fixed
+
+- Fixed conversation indicators using DOM events instead of file content to avoid mixing indicator and generating content.
+
 ## [2.3.0] - 2026-03-06
 
 ### Added
