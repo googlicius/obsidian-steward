@@ -166,6 +166,12 @@ export class AgentRunner {
         intents[i] = intent;
       }
 
+      setTimeout(() => {
+        if (agent.renderIndicator) {
+          agent.renderIndicator(title, payload.lang);
+        }
+      }, 50);
+
       const result = await agent.safeHandle({
         title,
         intent,

@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Skills**: Replaced `use_skills` tool with `read_content`—skills are now read on demand by path instead of being activated and persisted. Simpler flow with fewer moving parts.
 - **Command input**: Show current model and provider in the input for better visibility.
 - **Guardrails**: Refactored grep tool handling, moved existence checking to a separate tool (`vaultExists`).
 - **History view**: Enhanced history view with improved UI; don't show subagent notes in history.
