@@ -64,7 +64,6 @@ class TestAgent extends GenerateTextExecutor {
     options: {
       activeTools?: ToolName[];
       inactiveTools?: ToolName[];
-      activeSkills?: string[];
       tools?: NonNullable<Parameters<typeof generateText>[0]['tools']>;
     } = {}
   ) {
@@ -72,7 +71,6 @@ class TestAgent extends GenerateTextExecutor {
       ...params,
       activeTools: options.activeTools || [],
       inactiveTools: options.inactiveTools || [],
-      activeSkills: options.activeSkills || [],
       tools: (options.tools || {}) as NonNullable<Parameters<typeof generateText>[0]['tools']> & {
         [s: string]: unknown;
       },
@@ -126,7 +124,7 @@ describe('GenerateTextExecutor', () => {
     expect(systemText).toContain('Current step: 1 of 1');
   });
 
-  it('includes skill catalog and active skill prompts', async () => {
+  it('includes skill catalog with path and read_content instruction', async () => {
     const params: AgentHandlerParams = {
       title: 'test-conversation',
       intent: {
@@ -135,17 +133,15 @@ describe('GenerateTextExecutor', () => {
       } as Intent,
     };
 
-    mockPlugin.skillService.getSkillCatalog = jest
-      .fn()
-      .mockReturnValue([{ name: 'search-skill', description: 'Search effectively' }]);
-    mockPlugin.skillService.getSkillContents = jest.fn().mockReturnValue({
-      contents: {
-        'search-skill': 'Use semantic + exact search',
+    mockPlugin.skillService.getSkillCatalog = jest.fn().mockReturnValue([
+      {
+        name: 'search-skill',
+        description: 'Search effectively',
+        path: 'Steward/Skills/search/SKILL.md',
       },
-    });
+    ]);
 
     await testAgent.executeForTest(params, {
-      activeSkills: ['search-skill'],
       tools: {},
     });
 
@@ -156,9 +152,9 @@ describe('GenerateTextExecutor', () => {
       .join('\n');
 
     expect(systemText).toContain('AVAILABLE SKILLS:');
-    expect(systemText).toContain('- search-skill: Search effectively');
-    expect(systemText).toContain('ACTIVE SKILL: search-skill');
-    expect(systemText).toContain('Use semantic + exact search');
+    expect(systemText).toContain('- search-skill: Search effectively (path: Steward/Skills/search/SKILL.md)');
+    expect(systemText).toContain('content_reading');
+    expect(systemText).toContain('readType');
   });
 
   it('includes tool instructions prompt when tools are enabled', async () => {

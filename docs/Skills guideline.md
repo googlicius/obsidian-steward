@@ -2,17 +2,17 @@ This guideline shows you how to use Skills to give Steward domain-specific knowl
 
 ## How it works
 
-Skills are markdown files in the `Steward/Skills` folder. Each skill contains instructions and knowledge about a specific topic (e.g., Obsidian Bases, Canvas, or your own domain). When activated in a conversation, the skill's content is provided to the AI as context so it can handle tasks more effectively.
+Skills are markdown files in the `Steward/Skills` folder. Each skill contains instructions and knowledge about a specific topic (e.g., Obsidian Bases, Canvas, or your own domain). When the AI needs domain-specific knowledge, it reads the skill file using the read_content tool. The skill catalog (names, descriptions, and paths) is shown in the system prompt so the AI knows which skills are available and how to read them.
 
 For the full Skills spec, see [Agent Skills specification](https://agentskills.io/specification).
 
 ## Using skills
 
-Skills are activated automatically by the AI when it detects a relevant task, or you can ask Steward to use a specific skill:
+Skills are read on demand by the AI when it detects a relevant task, or you can ask Steward to use a specific skill:
 
 / Use the obsidian-bases skill to create a table view of my project notes.
 
-Once activated, skills persist for the entire conversation. They remain available even after reopening the app.
+The AI will read the skill file when needed. The read content is stored in the conversation, so it remains available for the rest of the conversation.
 
 ## Disabling a skill
 

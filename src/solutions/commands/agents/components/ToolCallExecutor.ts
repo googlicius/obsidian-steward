@@ -29,7 +29,6 @@ interface ToolCallExecutorContext {
   dynamic: handlers.Dynamic;
   activateToolHandler: handlers.ActivateToolHandler;
   todoList: handlers.TodoList;
-  useSkills: handlers.UseSkills;
   conclude: handlers.Conclude;
 }
 
@@ -48,7 +47,6 @@ export class ToolCallExecutor {
     toolCalls: Array<TypedToolCallPart & { dynamic?: boolean }>;
     startIndex: number;
     activeTools: ToolName[];
-    activeSkills: string[];
     availableTools: { [x: string]: Tool };
     toolContentStreamInfo?: ToolContentStreamInfo;
   }): Promise<AgentResult> {
@@ -169,14 +167,6 @@ export class ToolCallExecutor {
         case ToolName.TODO_LIST_UPDATE: {
           toolCallResult = await agent.todoList.handleUpdate(params.agentParams, {
             toolCall,
-          });
-          break;
-        }
-
-        case ToolName.USE_SKILLS: {
-          toolCallResult = await agent.useSkills.handle(params.agentParams, {
-            toolCall,
-            activeSkills: params.activeSkills,
           });
           break;
         }

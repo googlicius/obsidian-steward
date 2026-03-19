@@ -28,7 +28,7 @@ Your role is to help users with multiple tasks by using appropriate tools.
       'and'
     )}.
 - Use ${ToolName.EXISTS} when you need to verify whether files or folders exist (without content search).
-- For tasks that require domain-specific knowledge, activate the relevant skill(s) first using ${ToolName.USE_SKILLS}.
+- For tasks that require domain-specific knowledge, use ${ToolName.CONTENT_READING} to read the relevant skill file by path with readType: "entire".
 - For other tasks, use the appropriate tool(s).
 
 YOU HAVE ACCESS TO THE FOLLOWING TOOLS:

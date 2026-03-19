@@ -33,7 +33,6 @@ const BASE_AGENT_TOOLS = {
   [ToolName.IMAGE]: handlers.Image.getImageTool(),
   [ToolName.TODO_LIST]: handlers.TodoList.getTodoListTool(),
   [ToolName.TODO_LIST_UPDATE]: handlers.TodoList.getTodoListUpdateTool(),
-  [ToolName.USE_SKILLS]: handlers.UseSkills.getUseSkillsTool(),
   [ToolName.CONCLUDE]: handlers.Conclude.getConcludeTool(),
   [ToolName.RECALL_COMPACTED_CONTEXT]:
     handlers.RecallCompactedContext.getRecallCompactedContextTool(),

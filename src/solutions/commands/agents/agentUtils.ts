@@ -54,24 +54,12 @@ export function generateSkillCatalogPrompt(params: GenerateSkillCatalogPromptPar
     return '';
   }
 
-  const entries = catalog.map(entry => `- ${entry.name}: ${entry.description}`).join('\n');
+  const entries = catalog
+    .map(entry => `- ${entry.name}: ${entry.description} (path: ${entry.path})`)
+    .join('\n');
 
   return `\n\nAVAILABLE SKILLS:
 ${entries}
 
-Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-specific knowledge for the task.`;
-}
-
-type GenerateActiveSkillPromptsParams = {
-  plugin: StewardPlugin;
-  activeSkillNames: string[];
-};
-
-export function generateActiveSkillPrompts(params: GenerateActiveSkillPromptsParams): string[] {
-  if (params.activeSkillNames.length === 0) {
-    return [];
-  }
-
-  const { contents } = params.plugin.skillService.getSkillContents(params.activeSkillNames);
-  return Object.entries(contents).map(([name, content]) => `ACTIVE SKILL: ${name}\n${content}`);
+When you need domain-specific knowledge for the task, use ${ToolName.CONTENT_READING} to read the skill file by path with readType: "entire".`;
 }
