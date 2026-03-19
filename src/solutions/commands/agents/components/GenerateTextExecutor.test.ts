@@ -1,8 +1,8 @@
 import { generateText } from 'ai';
 import type StewardPlugin from 'src/main';
-import { AgentGenerateTextExecutor } from './AgentGenerateTextExecutor';
-import type { AgentHandlerParams, Intent } from '../types';
-import { ToolName } from '../ToolRegistry';
+import { GenerateTextExecutor } from './GenerateTextExecutor';
+import type { AgentHandlerParams, Intent } from '../../types';
+import { ToolName } from '../../ToolRegistry';
 
 jest.mock('ai', () => {
   const originalModule = jest.requireActual('ai');
@@ -51,7 +51,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
   return mockPlugin as unknown as jest.Mocked<StewardPlugin>;
 }
 
-class TestAgent extends AgentGenerateTextExecutor {
+class TestAgent extends GenerateTextExecutor {
   constructor(
     public plugin: StewardPlugin,
     public renderer: StewardPlugin['conversationRenderer']
@@ -81,7 +81,7 @@ class TestAgent extends AgentGenerateTextExecutor {
   }
 }
 
-describe('AgentGenerateTextExecutor', () => {
+describe('GenerateTextExecutor', () => {
   let testAgent: TestAgent;
   let mockPlugin: jest.Mocked<StewardPlugin>;
 

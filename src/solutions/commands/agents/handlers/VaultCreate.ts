@@ -6,7 +6,7 @@ import { ArtifactType } from 'src/solutions/artifact';
 import { ToolName } from 'src/solutions/commands/toolNames';
 import { ToolCallPart } from '../../tools/types';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
-import { type ToolContentStreamInfo } from '../ToolContentStreamConsumer';
+import { type ToolContentStreamInfo } from '../components/ToolContentStreamConsumer';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 
 export const createToolSchema = z

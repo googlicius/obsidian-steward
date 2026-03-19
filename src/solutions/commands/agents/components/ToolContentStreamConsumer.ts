@@ -1,6 +1,6 @@
-import { ToolName } from '../ToolRegistry';
+import { ToolName } from '../../ToolRegistry';
 import { ToolContentDelta } from 'src/utils/textStreamer';
-import { PartialJsonFieldExtractor } from './SuperAgent/partialJsonFieldExtractor';
+import { PartialJsonFieldExtractor } from './partialJsonFieldExtractor';
 import { logger } from 'src/utils/logger';
 import type { App } from 'obsidian';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';

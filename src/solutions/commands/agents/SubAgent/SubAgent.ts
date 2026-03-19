@@ -7,9 +7,8 @@ import { uniqueID } from 'src/utils/uniqueID';
 import { getTranslation } from 'src/i18n';
 import { applyMixins } from 'src/utils/applyMixins';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
-import { AgentHandlers } from '../AgentHandlers';
-import { AgentToolCallExecutor } from '../AgentToolCallExecutor';
-import { AgentGenerateTextExecutor } from '../AgentGenerateTextExecutor';
+import { Handlers } from '../components/Handlers';
+import * as components from '../components';
 import { SUBAGENT_TOOLS } from '../agentTools';
 
 const tools = SUBAGENT_TOOLS;
@@ -19,9 +18,9 @@ type ToolCalls = Awaited<Awaited<ReturnType<typeof streamText<typeof tools>>>['t
 export interface SubAgent
   extends Agent,
     AgentHandlerContext,
-    AgentHandlers,
-    AgentToolCallExecutor,
-    AgentGenerateTextExecutor {}
+    Handlers,
+    components.ToolCallExecutor,
+    components.GenerateTextExecutor {}
 
 export class SubAgent extends Agent implements AgentHandlerContext {
   private static readonly CORE_SYSTEM_PROMPT = `You are a subagent worker in Obsidian Steward.
@@ -142,4 +141,4 @@ Rules:
   }
 }
 
-applyMixins(SubAgent, [AgentHandlers, AgentToolCallExecutor, AgentGenerateTextExecutor]);
+applyMixins(SubAgent, [Handlers, components.ToolCallExecutor, components.GenerateTextExecutor]);

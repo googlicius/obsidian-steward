@@ -1,19 +1,19 @@
 import { generateText } from 'ai';
 import type StewardPlugin from 'src/main';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
-import type { AgentHandlerParams } from '../types';
-import { ToolRegistry, ToolName } from '../ToolRegistry';
+import type { AgentHandlerParams } from '../../types';
+import { ToolRegistry, ToolName } from '../../ToolRegistry';
 import {
   generateActiveSkillPrompts,
   generateSkillCatalogPrompt,
   generateTodoListPrompt,
-} from './agentUtils';
+} from '../agentUtils';
 
 type GenerateTextToolSet = NonNullable<Parameters<typeof generateText>[0]['tools']> & {
   [s: string]: unknown;
 };
 
-type AgentGenerateTextParams = AgentHandlerParams & {
+type GenerateTextExecutorParams = AgentHandlerParams & {
   activeTools: ToolName[];
   inactiveTools: ToolName[];
   activeSkills: string[];
@@ -21,18 +21,18 @@ type AgentGenerateTextParams = AgentHandlerParams & {
   coreSystemPrompt: string;
 };
 
-interface AgentGenerateTextExecutorContext {
+interface GenerateTextExecutorContext {
   plugin: StewardPlugin;
   renderer: ConversationRenderer;
 }
 
-function asAgentGenerateTextExecutorContext(
-  instance: AgentGenerateTextExecutor
-): AgentGenerateTextExecutorContext {
-  return instance as unknown as AgentGenerateTextExecutorContext;
+function asGenerateTextExecutorContext(
+  instance: GenerateTextExecutor
+): GenerateTextExecutorContext {
+  return instance as unknown as GenerateTextExecutorContext;
 }
 
-export class AgentGenerateTextExecutor {
+export class GenerateTextExecutor {
   protected getToolSubset(params: {
     activeTools: ToolName[];
     inactiveTools?: ToolName[];
@@ -64,11 +64,11 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
   }
 
   protected async executeGenerateText<TToolCalls = unknown>(
-    params: AgentGenerateTextParams
+    params: GenerateTextExecutorParams
   ): Promise<{
     toolCalls: TToolCalls;
   }> {
-    const agent = asAgentGenerateTextExecutorContext(this);
+    const agent = asGenerateTextExecutorContext(this);
     const conversationHistory = await agent.renderer.extractConversationHistory(params.title);
     const llmConfig = await agent.plugin.llmService.getLLMConfig({
       overrideModel: params.intent.model,

@@ -1,26 +1,26 @@
-import { ToolCallPart } from '../tools/types';
+import { ToolCallPart } from '../../tools/types';
 import { ArtifactType } from 'src/solutions/artifact';
 import { getTranslation } from 'src/i18n';
 import { uniqueID } from 'src/utils/uniqueID';
-import { ToolName } from '../ToolRegistry';
-import { parseStepProcessedQuery } from './SuperAgent/stepProcessedQuery';
-import { CommandSyntaxParser } from '../command-syntax-parser';
+import { ToolName } from '../../ToolRegistry';
+import { parseStepProcessedQuery } from '../SuperAgent/stepProcessedQuery';
+import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
-import * as handlers from './handlers';
-import type { AgentHandlerContext } from './AgentHandlerContext';
+import * as handlers from '../handlers';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 
 interface ManualToolCallAgentContext extends AgentHandlerContext {
   search: handlers.Search;
 }
 
-function asManualToolCallAgent(instance: AgentManualToolCall): ManualToolCallAgentContext {
+function asManualToolCallAgent(instance: ManualToolCall): ManualToolCallAgentContext {
   return instance as unknown as ManualToolCallAgentContext;
 }
 
 /**
  * Mixin providing client-made tool call logic without AI.
  */
-export class AgentManualToolCall {
+export class ManualToolCall {
   /**
    * Client-made tool call without AI
    */

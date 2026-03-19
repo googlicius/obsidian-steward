@@ -1,8 +1,8 @@
-import { ToolName } from '../ToolRegistry';
-import * as handlers from './handlers';
-import type { AgentHandlerContext } from './AgentHandlerContext';
-import type { AgentHandlerParams, AgentResult } from '../types';
-import type { ToolCallPart } from '../tools/types';
+import { ToolName } from '../../ToolRegistry';
+import * as handlers from '../handlers';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { AgentHandlerParams, AgentResult } from '../../types';
+import type { ToolCallPart } from '../../tools/types';
 
 export interface StandardToolHandler {
   handle(
@@ -38,7 +38,7 @@ const GUARDRAILS_TOOL_NAMES: Set<ToolName> = new Set([
  * All handlers are lazily declared in this class.
  * Agent-agnostic mixin that can be applied to any agent implementing AgentHandlerContext.
  */
-export class AgentHandlers {
+export class Handlers {
   private _vaultCreate: handlers.VaultCreate;
   private _vaultMove: handlers.VaultMove;
   private _vaultCopy: handlers.VaultCopy;

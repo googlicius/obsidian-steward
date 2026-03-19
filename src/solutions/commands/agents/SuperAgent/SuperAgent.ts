@@ -7,18 +7,13 @@ import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { getClassifier } from 'src/lib/modelfusion';
 import { logger } from 'src/utils/logger';
-import { AgentHandlers } from '../AgentHandlers';
-import { AgentManualToolCall } from '../AgentManualToolCall';
-import { AgentStreamTextExecutor } from '../AgentStreamTextExecutor';
-import { AgentToolCallExecutor } from '../AgentToolCallExecutor';
-import { ToolContentStreamConsumer, ToolContentStreamInfo } from '../ToolContentStreamConsumer';
+import * as components from '../components';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { applyMixins } from 'src/utils/applyMixins';
 import * as handlers from '../handlers';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { createStepProcessedQuery } from './stepProcessedQuery';
 import { SUPER_AGENT_TOOLS } from '../agentTools';
-import { TOOL_CONTENT_STREAM_CONSUMER_SYMBOL } from '../ToolContentStreamConsumer';
 
 /**
  * Map of task names to their associated tool names.
@@ -97,14 +92,14 @@ type ToolCalls = Awaited<Awaited<ReturnType<typeof streamText<typeof tools>>>['t
 export interface SuperAgent
   extends Agent,
     AgentHandlerContext,
-    AgentHandlers,
-    ToolContentStreamConsumer,
-    AgentManualToolCall,
-    AgentStreamTextExecutor,
-    AgentToolCallExecutor {}
+    components.Handlers,
+    components.ToolContentStreamConsumer,
+    components.ManualToolCall,
+    components.StreamTextExecutor,
+    components.ToolCallExecutor {}
 
 export class SuperAgent extends Agent implements AgentHandlerContext {
-  public [TOOL_CONTENT_STREAM_CONSUMER_SYMBOL] = true as const;
+  public [components.TOOL_CONTENT_STREAM_CONSUMER_SYMBOL] = true as const;
 
   /**
    * Render the loading indicator for the super agent
@@ -225,7 +220,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
 
     let toolCalls: ToolCalls;
     let conversationHistory: ModelMessage[] = [];
-    let toolContentStreamInfo: ToolContentStreamInfo | undefined;
+    let toolContentStreamInfo: components.ToolContentStreamInfo | undefined;
 
     if (options.toolCalls) {
       toolCalls = options.toolCalls;
@@ -647,9 +642,9 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
 
 // Apply mixins to merge classes into SuperAgent class
 applyMixins(SuperAgent, [
-  AgentHandlers,
-  ToolContentStreamConsumer,
-  AgentManualToolCall,
-  AgentStreamTextExecutor,
-  AgentToolCallExecutor,
+  components.Handlers,
+  components.ToolContentStreamConsumer,
+  components.ManualToolCall,
+  components.StreamTextExecutor,
+  components.ToolCallExecutor,
 ]);

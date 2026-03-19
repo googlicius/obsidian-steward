@@ -40,7 +40,7 @@ export class SubagentSpawnService {
     if (!('safeHandle' in product) || typeof product.safeHandle !== 'function') {
       return null;
     }
-    return product as Agent;
+    return product;
   }
 
   private buildChildTitle(parentTitle: string): string {

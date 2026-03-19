@@ -1,6 +1,6 @@
 import { normalizePath } from 'obsidian';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
-import { type ToolContentStreamInfo } from '../ToolContentStreamConsumer';
+import { type ToolContentStreamInfo } from '../components';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { createEditTool, EditArgs } from '../../tools/editContent';

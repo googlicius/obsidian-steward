@@ -4,9 +4,9 @@ import { logger } from 'src/utils/logger';
 import { createLLMStream } from 'src/utils/textStreamer';
 import { SysError } from 'src/utils/errors';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
-import { ToolRegistry, ToolName } from '../ToolRegistry';
-import type { AgentHandlerParams } from '../types';
-import { SuperAgentSystemPromptBuilder } from './SystemPromptBuilder';
+import { ToolRegistry, ToolName } from '../../ToolRegistry';
+import type { AgentHandlerParams } from '../../types';
+import { SuperAgentSystemPromptBuilder } from '../SystemPromptBuilder';
 import {
   type ToolContentStreamInfo,
   isToolContentStreamConsumer,
@@ -15,7 +15,7 @@ import {
   generateActiveSkillPrompts,
   generateSkillCatalogPrompt,
   generateTodoListPrompt,
-} from './agentUtils';
+} from '../agentUtils';
 
 export interface StreamTextExecutorContext {
   plugin: StewardPlugin;
@@ -34,7 +34,7 @@ export interface StreamTextExecutorContext {
   }): Promise<ToolContentStreamInfo | undefined>;
 }
 
-function asAgent(instance: AgentStreamTextExecutor): StreamTextExecutorContext {
+function asAgent(instance: StreamTextExecutor): StreamTextExecutorContext {
   if (!isToolContentStreamConsumer(instance)) {
     throw new Error(
       'Agent must implement ToolContentStreamConsumer interface to use executeStreamText'
@@ -43,7 +43,7 @@ function asAgent(instance: AgentStreamTextExecutor): StreamTextExecutorContext {
   return instance as unknown as StreamTextExecutorContext;
 }
 
-export class AgentStreamTextExecutor {
+export class StreamTextExecutor {
   protected async executeStreamText<TToolCalls = unknown>(
     params: AgentHandlerParams & {
       activeTools: ToolName[];

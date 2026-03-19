@@ -1,9 +1,9 @@
 import { streamText } from 'ai';
 import type StewardPlugin from 'src/main';
 import { type App } from 'obsidian';
-import { AgentStreamTextExecutor, type StreamTextExecutorContext } from './AgentStreamTextExecutor';
-import { ToolName } from '../ToolRegistry';
-import type { AgentHandlerParams, Intent } from '../types';
+import { StreamTextExecutor, type StreamTextExecutorContext } from './StreamTextExecutor';
+import { ToolName } from '../../ToolRegistry';
+import type { AgentHandlerParams, Intent } from '../../types';
 import {
   type ToolContentStreamInfo,
   TOOL_CONTENT_STREAM_CONSUMER_SYMBOL,
@@ -95,7 +95,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
   return mockPlugin as unknown as jest.Mocked<StewardPlugin>;
 }
 
-class TestAgent extends AgentStreamTextExecutor implements StreamTextExecutorContext {
+class TestAgent extends StreamTextExecutor implements StreamTextExecutorContext {
   [TOOL_CONTENT_STREAM_CONSUMER_SYMBOL] = true as const;
 
   constructor(
@@ -130,7 +130,7 @@ class TestAgent extends AgentStreamTextExecutor implements StreamTextExecutorCon
   }
 }
 
-describe('AgentStreamTextExecutor', () => {
+describe('StreamTextExecutor', () => {
   let testAgent: TestAgent;
   let mockPlugin: jest.Mocked<StewardPlugin>;
 

@@ -76,7 +76,7 @@ export type UnknownToolCallPart = ToolCallPartOf<
 >;
 
 /**
- * The full discriminated union used by AgentToolCallExecutor.
+ * The full discriminated union used by ToolCallExecutor.
  * TypeScript narrows `input` automatically inside each `case` arm.
  */
 export type TypedToolCallPart = KnownToolCallPart | UnknownToolCallPart;

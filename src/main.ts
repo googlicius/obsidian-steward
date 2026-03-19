@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { Notice, Plugin, WorkspaceLeaf, addIcon, getLanguage } from 'obsidian';
 import i18next from './i18n';
 import StewardSettingTab from './settings';

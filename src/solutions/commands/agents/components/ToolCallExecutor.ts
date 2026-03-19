@@ -3,17 +3,17 @@ import type { DynamicToolCall, Tool } from 'ai';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { createGuardrailsMiddleware } from 'src/services/GuardrailsRuleService/guardrailsMiddleware';
-import { createToolHandlerChain } from './middleware/createToolHandlerChain';
-import type { AgentHandlerParams, AgentResult } from '../types';
-import { IntentResultStatus } from '../types';
-import type { TypedToolCallPart } from '../tools/types';
-import { ToolName } from '../ToolRegistry';
+import { createToolHandlerChain } from '../middleware/createToolHandlerChain';
+import type { AgentHandlerParams, AgentResult } from '../../types';
+import { IntentResultStatus } from '../../types';
+import type { TypedToolCallPart } from '../../tools/types';
+import { ToolName } from '../../ToolRegistry';
 import type { ToolContentStreamInfo } from './ToolContentStreamConsumer';
-import type { StandardToolHandler } from './AgentHandlers';
-import * as handlers from './handlers';
-import { ToolHandlerMiddlewareContext } from './middleware/types';
+import type { StandardToolHandler } from './Handlers';
+import * as handlers from '../handlers';
+import { ToolHandlerMiddlewareContext } from '../middleware/types';
 
-interface AgentToolCallExecutorContext {
+interface ToolCallExecutorContext {
   plugin: StewardPlugin;
   handle: (
     params: AgentHandlerParams,
@@ -33,11 +33,11 @@ interface AgentToolCallExecutorContext {
   conclude: handlers.Conclude;
 }
 
-function asAgentToolCallExecutor(instance: AgentToolCallExecutor): AgentToolCallExecutorContext {
-  return instance as unknown as AgentToolCallExecutorContext;
+function asToolCallExecutor(instance: ToolCallExecutor): ToolCallExecutorContext {
+  return instance as unknown as ToolCallExecutorContext;
 }
 
-export class AgentToolCallExecutor {
+export class ToolCallExecutor {
   protected async executeToolCalls(params: {
     agentId: string;
     title: string;
@@ -52,7 +52,7 @@ export class AgentToolCallExecutor {
     availableTools: { [x: string]: Tool };
     toolContentStreamInfo?: ToolContentStreamInfo;
   }): Promise<AgentResult> {
-    const agent = asAgentToolCallExecutor(this);
+    const agent = asToolCallExecutor(this);
     const handlerMap = agent.getToolHandlerMap();
 
     for (let index = params.startIndex; index < params.toolCalls.length; index += 1) {
@@ -156,7 +156,7 @@ export class AgentToolCallExecutor {
             | undefined;
           if (!spawnHandler) {
             throw new Error(
-              `AgentToolCallExecuter: No handler found for tool: ${ToolName.SPAWN_SUBAGENT}`
+              `ToolCallExecutor: No handler found for tool: ${ToolName.SPAWN_SUBAGENT}`
             );
           }
           toolCallResult = await spawnHandler().handle(params.agentParams, {
