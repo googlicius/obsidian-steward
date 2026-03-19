@@ -12,7 +12,6 @@ import {
   isToolContentStreamConsumer,
 } from './ToolContentStreamConsumer';
 import {
-  generateActiveSkillPrompts,
   generateSkillCatalogPrompt,
   generateTodoListPrompt,
 } from '../agentUtils';
@@ -47,7 +46,6 @@ export class StreamTextExecutor {
   protected async executeStreamText<TToolCalls = unknown>(
     params: AgentHandlerParams & {
       activeTools: ToolName[];
-      activeSkills: string[];
       tools: NonNullable<Parameters<typeof streamText>[0]['tools']> & { [s: string]: unknown };
       toolsThatEnableConclude: Set<ToolName>;
     }
@@ -142,12 +140,6 @@ export class StreamTextExecutor {
     if (llmConfig.systemPrompt) {
       additionalSystemPrompts.push(llmConfig.systemPrompt);
     }
-
-    const activeSkillPrompts = generateActiveSkillPrompts({
-      plugin: agent.plugin,
-      activeSkillNames: params.activeSkills || [],
-    });
-    additionalSystemPrompts.push(...activeSkillPrompts);
 
     if (compactionResult.systemMessage) {
       additionalSystemPrompts.push(compactionResult.systemMessage);

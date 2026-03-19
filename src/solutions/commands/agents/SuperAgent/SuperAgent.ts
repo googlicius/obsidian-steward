@@ -144,7 +144,6 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
       typeof options.remainingSteps !== 'undefined' ? options.remainingSteps : MAX_STEP_COUNT;
 
     const activeTools = await this.loadActiveTools(title, params.activeTools);
-    const activeSkills = await this.loadActiveSkills(title);
 
     const t = getTranslation(lang);
 
@@ -232,7 +231,6 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
       const result = await this.executeStreamText<ToolCalls>({
         ...params,
         activeTools,
-        activeSkills,
         tools,
         toolsThatEnableConclude,
       });
@@ -251,7 +249,6 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
       toolCalls: toolCalls as unknown as Array<TypedToolCallPart & { dynamic?: boolean }>,
       startIndex: options.currentToolCallIndex ?? 0,
       activeTools,
-      activeSkills,
       availableTools: tools,
       toolContentStreamInfo,
     });

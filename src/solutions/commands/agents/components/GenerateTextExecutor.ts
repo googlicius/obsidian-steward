@@ -4,7 +4,6 @@ import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import type { AgentHandlerParams } from '../../types';
 import { ToolRegistry, ToolName } from '../../ToolRegistry';
 import {
-  generateActiveSkillPrompts,
   generateSkillCatalogPrompt,
   generateTodoListPrompt,
 } from '../agentUtils';
@@ -16,7 +15,6 @@ type GenerateTextToolSet = NonNullable<Parameters<typeof generateText>[0]['tools
 type GenerateTextExecutorParams = AgentHandlerParams & {
   activeTools: ToolName[];
   inactiveTools: ToolName[];
-  activeSkills: string[];
   tools: GenerateTextToolSet;
   coreSystemPrompt: string;
 };
@@ -107,10 +105,6 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
     const skillCatalogPrompt = generateSkillCatalogPrompt({
       plugin: agent.plugin,
     });
-    const activeSkillPrompts = generateActiveSkillPrompts({
-      plugin: agent.plugin,
-      activeSkillNames: params.activeSkills || [],
-    });
 
     const additionalSystemPrompts = params.intent.systemPrompts
       ? [...params.intent.systemPrompts]
@@ -125,10 +119,6 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
 
     if (skillCatalogPrompt) {
       additionalSystemPrompts.push(skillCatalogPrompt);
-    }
-
-    if (activeSkillPrompts.length > 0) {
-      additionalSystemPrompts.push(...activeSkillPrompts);
     }
 
     if (shouldUseTools) {

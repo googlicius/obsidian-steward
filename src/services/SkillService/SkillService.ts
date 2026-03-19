@@ -207,6 +207,7 @@ export class SkillService {
       entries.push({
         name: skill.name,
         description: skill.description,
+        path: skill.filePath,
       });
     }
 

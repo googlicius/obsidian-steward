@@ -63,7 +63,6 @@ export class Handlers {
   private _image: handlers.Image;
   private _todoList: handlers.TodoList;
   private _dynamic: handlers.Dynamic;
-  private _useSkills: handlers.UseSkills;
   private _spawnSubagent: handlers.SpawnSubagent;
   private _switchAgentCapacity: handlers.SwitchAgentCapacity;
   private _conclude: handlers.Conclude;
@@ -201,16 +200,6 @@ export class Handlers {
   public get dynamic(): handlers.Dynamic {
     if (!this._dynamic) this._dynamic = new handlers.Dynamic(this.getAgent().renderer);
     return this._dynamic;
-  }
-
-  public get useSkills(): handlers.UseSkills {
-    if (!this._useSkills) {
-      this._useSkills = new handlers.UseSkills(
-        this.getAgent().renderer,
-        this.getAgent().plugin.skillService
-      );
-    }
-    return this._useSkills;
   }
 
   public get spawnSubagent(): handlers.SpawnSubagent {

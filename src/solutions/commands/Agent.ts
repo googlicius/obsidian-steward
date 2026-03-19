@@ -184,16 +184,6 @@ export abstract class Agent {
     return Array.from(new Set(allTools));
   }
 
-  /**
-   * Load active skills from conversation frontmatter
-   * @param title The conversation title
-   * @returns The active skill names persisted in the conversation
-   */
-  protected async loadActiveSkills(title: string): Promise<string[]> {
-    const savedSkills = await this.renderer.getConversationProperty<string[]>(title, 'skills');
-    return savedSkills || [];
-  }
-
   private async loadConversationLang(
     title: string,
     paramsLang?: string | null

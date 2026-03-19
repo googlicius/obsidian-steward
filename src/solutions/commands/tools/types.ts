@@ -3,7 +3,6 @@ import { ToolName } from '../toolNames';
 import type { ActivateToolsArgs } from './activateTools';
 import type { SpawnSubagentArgs } from '../agents/handlers/SpawnSubagent';
 import type { TodoListUpdateArgs } from '../agents/handlers/TodoList';
-import type { UseSkillsArgs } from '../agents/handlers/UseSkills';
 import type { ConcludeInput } from '../agents/handlers/Conclude';
 import type { ExistsToolArgs } from '../agents/handlers/VaultExists';
 import type { ContentReadingArgs } from '../agents/handlers/ReadContent';
@@ -62,7 +61,6 @@ export type KnownToolCallPart =
   | ToolCallPartOf<ToolName.ACTIVATE, ActivateToolsArgs>
   | ToolCallPartOf<ToolName.SPAWN_SUBAGENT, SpawnSubagentArgs>
   | ToolCallPartOf<ToolName.TODO_LIST_UPDATE, TodoListUpdateArgs>
-  | ToolCallPartOf<ToolName.USE_SKILLS, UseSkillsArgs>
   | ToolCallPartOf<ToolName.CONCLUDE, ConcludeInput>
   | ToolCallPartOf<ToolName.EXISTS, ExistsToolArgs>
   | ToolCallPartOf<ToolName.CONTENT_READING, ContentReadingArgs>

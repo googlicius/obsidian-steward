@@ -333,19 +333,6 @@ NOTE:
     category: 'task-management',
   },
 
-  [ToolName.USE_SKILLS]: {
-    name: ToolName.USE_SKILLS,
-    description:
-      'Activate one or more skills to gain domain-specific knowledge for the current task.',
-    guidelines: [
-      `Use ${ToolName.USE_SKILLS} only when performing tasks that require specific skill knowledge (e.g., creating or editing files in a specialized format).
-  - For answering questions, the skill name and description in the catalog is sufficient — do NOT activate skills just to answer.
-  - Activate skills BEFORE attempting the task that requires that knowledge.
-  - Once activated, skills persist for the entire conversation.`,
-    ],
-    category: 'skill',
-  },
-
   [ToolName.SPAWN_SUBAGENT]: {
     name: ToolName.SPAWN_SUBAGENT,
     description:

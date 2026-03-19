@@ -123,7 +123,6 @@ class TestAgent extends StreamTextExecutor implements StreamTextExecutorContext 
     return this.executeStreamText({
       ...params,
       activeTools: [],
-      activeSkills: [],
       tools: {},
       toolsThatEnableConclude: new Set<ToolName>(),
     });

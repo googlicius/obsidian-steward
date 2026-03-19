@@ -60,7 +60,6 @@ Rules:
 
     const activeTools = await this.loadActiveTools(params.title, params.activeTools);
     const inactiveTools = params.inactiveTools || [];
-    const activeSkills = await this.loadActiveSkills(params.title);
 
     if (!params.invocationCount) {
       await this.renderer.addUserMessage({
@@ -79,7 +78,6 @@ Rules:
         ...params,
         activeTools,
         inactiveTools,
-        activeSkills,
         tools,
         coreSystemPrompt: SubAgent.CORE_SYSTEM_PROMPT,
       });
@@ -96,7 +94,6 @@ Rules:
       toolCalls: toolCalls as unknown as Array<TypedToolCallPart & { dynamic?: boolean }>,
       startIndex: options.currentToolCallIndex ?? 0,
       activeTools,
-      activeSkills,
       availableTools: tools,
     });
 

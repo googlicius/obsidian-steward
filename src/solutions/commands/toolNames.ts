@@ -27,7 +27,6 @@ export enum ToolName {
   IMAGE = 'image',
   TODO_LIST = 'todo_list',
   TODO_LIST_UPDATE = 'todo_list_update',
-  USE_SKILLS = 'use_skills',
   SPAWN_SUBAGENT = 'spawn_subagent',
   SWITCH_AGENT_CAPACITY = 'switch_agent_capacity',
   CONCLUDE = 'conclude',
