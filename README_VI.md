@@ -92,7 +92,7 @@ Bạn có thể tạo **Lệnh-do-người-dùng-định-nghĩa** riêng để t
 - `query_required`: (tùy chọn, boolean) Nếu true, lệnh yêu cầu đầu vào từ người dùng sau tiền tố
 - `model`: (tùy chọn, string) Mô hình sử dụng cho tất cả các lệnh trong lệnh-do-người-dùng-định-nghĩa này
 - `system_prompt`: (tùy chọn, array) Thêm system prompt bổ sung áp dụng cho tất cả các bước trong lệnh này (xem [Thêm system prompt bổ sung](#thêm-system-prompt-bổ-sung))
-- `use_tool`: (tùy chọn, boolean) Nếu false, không gửi hướng dẫn sử dụng công cụ
+- `tools`: (tùy chọn, mảng tên công cụ) Giới hạn các công cụ Super Agent được phép; bỏ qua để dùng đủ bộ. Dùng `[switch_agent_capacity]` cho hội thoại thuần cho đến khi người dùng bật đủ agent. Nếu liệt kê hơn năm công cụ, `activate_tools` được thêm tự động nếu thiếu.
 - `hidden`: (tùy chọn, boolean) Nếu true, lệnh sẽ không xuất hiện trong menu lệnh
 - `triggers`: (tùy chọn, array) Tự động thực thi lệnh khi file đáp ứng tiêu chí được chỉ định (xem [Các trường trigger](#các-trường-trigger))
 - `steps`: Chuỗi các lệnh tích hợp hoặc do người dùng định nghĩa để thực thi
@@ -126,7 +126,7 @@ steps:
 
 ### Thêm system prompt bổ sung
 
-Steward sử dụng một agent duy nhất (SuperAgent) có system prompt cốt lõi là nền tảng chức năng của nó và không thể chỉnh sửa. Tuy nhiên, bạn có thể thêm system prompt bổ sung bằng trường `system_prompt`. Các prompt bổ sung này được nối vào system prompt cốt lõi, cho phép bạn cung cấp thêm ngữ cảnh hoặc hướng dẫn. Bạn có thể vô hiệu hóa việc gửi system prompt cốt lõi bằng cách đặt `use_tool: false`.
+Steward sử dụng một agent duy nhất (SuperAgent) có system prompt cốt lõi là nền tảng chức năng của nó và không thể chỉnh sửa. Tuy nhiên, bạn có thể thêm system prompt bổ sung bằng trường `system_prompt`. Các prompt bổ sung này được nối vào system prompt cốt lõi, cho phép bạn cung cấp thêm ngữ cảnh hoặc hướng dẫn. Bạn có thể giới hạn công cụ ở chế độ hội thoại bằng `tools: [switch_agent_capacity]` cho đến khi người dùng xác nhận chuyển sang đầy đủ công cụ.
 
 Bạn có thể thêm system prompt ở hai cấp độ:
 

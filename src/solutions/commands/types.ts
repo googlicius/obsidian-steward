@@ -10,7 +10,8 @@ export interface Intent {
   systemPrompts?: string[];
   model?: string; // Optional model to use for this intent
   no_confirm?: boolean; // Skip confirmation for this intent
-  use_tool?: boolean;
+  /** When set, limits which Super Agent tools are available (UDC / narrow mode). Omit = full tool set. */
+  tools?: ToolName[];
 }
 
 export interface ContextAugmentationIntent extends Intent {

@@ -59,6 +59,20 @@ class TestAgent extends GenerateTextExecutor {
     super();
   }
 
+  public getValidToolNames(): ReadonlySet<ToolName> {
+    // Return a set of all possible tool names for testing
+    return new Set([
+      ToolName.TODO_LIST_UPDATE,
+      ToolName.CONTENT_READING,
+      ToolName.ACTIVATE,
+      ToolName.LIST,
+      ToolName.CREATE,
+      ToolName.DELETE,
+      ToolName.EDIT,
+      ToolName.SEARCH,
+    ]);
+  }
+
   public async executeForTest(
     params: AgentHandlerParams,
     options: {

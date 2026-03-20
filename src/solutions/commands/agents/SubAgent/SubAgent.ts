@@ -13,6 +13,10 @@ import { SUBAGENT_TOOLS } from '../agentTools';
 
 const tools = SUBAGENT_TOOLS;
 
+const SUBAGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = new Set(
+  Object.keys(SUBAGENT_TOOLS) as ToolName[]
+);
+
 type ToolCalls = Awaited<Awaited<ReturnType<typeof streamText<typeof tools>>>['toolCalls']>;
 
 export interface SubAgent
@@ -23,6 +27,10 @@ export interface SubAgent
     components.GenerateTextExecutor {}
 
 export class SubAgent extends Agent implements AgentHandlerContext {
+  public getValidToolNames(): ReadonlySet<ToolName> {
+    return SUBAGENT_VALID_TOOL_NAMES;
+  }
+
   private static readonly CORE_SYSTEM_PROMPT = `You are a subagent worker in Obsidian Steward.
 
 Your role:

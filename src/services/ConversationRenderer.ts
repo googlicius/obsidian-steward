@@ -1879,14 +1879,18 @@ export class ConversationRenderer {
    */
   public async updateConversationFrontmatter(
     conversationTitle: string,
-    properties: Array<{ name: string; value: unknown }>
+    properties: Array<{ name: string; value?: unknown; delete?: boolean }>
   ): Promise<boolean> {
     try {
       const file = this.getConversationFileByName(conversationTitle);
 
       await this.plugin.app.fileManager.processFrontMatter(file, frontmatter => {
-        for (const { name, value } of properties) {
-          frontmatter[name] = value;
+        for (const prop of properties) {
+          if (prop.delete) {
+            delete frontmatter[prop.name];
+            continue;
+          }
+          frontmatter[prop.name] = prop.value;
         }
       });
 

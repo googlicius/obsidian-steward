@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **User-defined commands**: Replaced `use_tool` with `tools` (explicit Super Agent tool allowlist). Omit `tools` for the full set; use `[switch_agent_capacity]` for chat-only until the user switches. Legacy `use_tool` in `.md` definitions is migrated on load (e.g. `false` → `tools: [switch_agent_capacity]`). Conversation frontmatter uses `allowed_tools` instead of `use_tool`.
+- **SuperAgent system prompt**: Task guidance is built from the active tool set; `switch_agent_capacity` guidelines describe direct-response vs full-agent mode.
 - **Skills**: Replaced `use_skills` tool with `read_content`—skills are now read on demand by path instead of being activated and persisted. Simpler flow with fewer moving parts.
 - **Command input**: Show current model and provider in the input for better visibility.
 - **Guardrails**: Refactored grep tool handling, moved existence checking to a separate tool (`vaultExists`).

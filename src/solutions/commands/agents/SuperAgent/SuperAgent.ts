@@ -15,6 +15,10 @@ import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { createStepProcessedQuery } from './stepProcessedQuery';
 import { SUPER_AGENT_TOOLS } from '../agentTools';
 
+const SUPER_AGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = new Set(
+  Object.keys(SUPER_AGENT_TOOLS) as ToolName[]
+);
+
 /**
  * Map of task names to their associated tool names.
  * This is used to determine the tasks for classification based on the active tools.
@@ -100,6 +104,10 @@ export interface SuperAgent
 
 export class SuperAgent extends Agent implements AgentHandlerContext {
   public [components.TOOL_CONTENT_STREAM_CONSUMER_SYMBOL] = true as const;
+
+  public getValidToolNames(): ReadonlySet<ToolName> {
+    return SUPER_AGENT_VALID_TOOL_NAMES;
+  }
 
   /**
    * Render the loading indicator for the super agent

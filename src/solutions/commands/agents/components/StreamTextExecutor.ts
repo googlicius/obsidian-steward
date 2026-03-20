@@ -1,45 +1,30 @@
 import { ModelMessage, streamText } from 'ai';
-import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { createLLMStream } from 'src/utils/textStreamer';
 import { SysError } from 'src/utils/errors';
-import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { ToolRegistry, ToolName } from '../../ToolRegistry';
 import type { AgentHandlerParams } from '../../types';
 import { SuperAgentSystemPromptBuilder } from '../SystemPromptBuilder';
+import { applyMixins } from 'src/utils/applyMixins';
+import { ToolIntentResolution } from './ToolIntentResolution';
 import {
   type ToolContentStreamInfo,
   isToolContentStreamConsumer,
+  ToolContentStreamConsumer,
 } from './ToolContentStreamConsumer';
-import {
-  generateSkillCatalogPrompt,
-  generateTodoListPrompt,
-} from '../agentUtils';
+import { generateSkillCatalogPrompt, generateTodoListPrompt } from '../agentUtils';
+import { Agent } from '../../Agent';
 
-export interface StreamTextExecutorContext {
-  plugin: StewardPlugin;
-  renderer: ConversationRenderer;
-  renderIndicator(title: string, lang?: string | null, toolName?: ToolName): Promise<void>;
-  createToolContentExtractor(toolName: string): { feed: (delta: string) => string };
-  consumeToolContentStream(params: {
-    title: string;
-    toolContentStream: AsyncGenerator<{
-      toolCallId: string;
-      toolName: string;
-      contentDelta: string;
-    }>;
-    handlerId?: string;
-    lang?: string | null;
-  }): Promise<ToolContentStreamInfo | undefined>;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-interface -- declaration merge: adds ToolIntentResolution to class instance type
+export interface StreamTextExecutor extends ToolIntentResolution {}
 
-function asAgent(instance: StreamTextExecutor): StreamTextExecutorContext {
+function asAgent(instance: StreamTextExecutor) {
   if (!isToolContentStreamConsumer(instance)) {
     throw new Error(
       'Agent must implement ToolContentStreamConsumer interface to use executeStreamText'
     );
   }
-  return instance as unknown as StreamTextExecutorContext;
+  return instance as unknown as Agent & ToolContentStreamConsumer;
 }
 
 export class StreamTextExecutor {
@@ -69,21 +54,48 @@ export class StreamTextExecutor {
       generateType: 'text',
     });
 
-    const shouldUseTools = params.intent.use_tool !== false;
-    const hasConcludeEligibleTool = params.activeTools.some(t =>
+    const allSuperAgentKeys = [...agent.getValidToolNames()] as ToolName[];
+    const declaredNormalized = this.normalizeDeclaredTools(
+      params.intent.tools,
+      agent.getValidToolNames()
+    );
+    const expandedDeclared =
+      declaredNormalized === null ? [] : this.expandSuperAgentDeclaredTools(declaredNormalized);
+
+    const hasCompactionContext = !!compactionResult.systemMessage;
+    const hasConcludeEligibleDeclared =
+      declaredNormalized !== null &&
+      expandedDeclared.some(t => params.toolsThatEnableConclude.has(t));
+
+    const effectiveAllowedNames = this.buildSuperAgentEffectiveAllowedNames({
+      declaredNormalized,
+      expandedDeclared,
+      allToolKeys: allSuperAgentKeys,
+      toolsThatEnableConclude: params.toolsThatEnableConclude,
+      hasConcludeEligibleDeclaredTool: hasConcludeEligibleDeclared,
+      hasCompactionContext,
+    });
+    const effectiveAllowed = new Set(effectiveAllowedNames);
+
+    const filteredTools = this.filterToolsObject(
+      params.tools,
+      effectiveAllowed
+    ) as typeof params.tools;
+
+    const hasConcludeEligibleForRuntime = [...effectiveAllowed].some(t =>
       params.toolsThatEnableConclude.has(t)
     );
-    const hasCompactionContext = !!compactionResult.systemMessage;
-    const activeToolNames = shouldUseTools
-      ? [
-          ...params.activeTools,
-          ToolName.ACTIVATE,
-          ...(hasConcludeEligibleTool ? [ToolName.CONCLUDE] : []),
-          ...(hasCompactionContext ? [ToolName.RECALL_COMPACTED_CONTEXT] : []),
-        ]
-      : [ToolName.SWITCH_AGENT_CAPACITY];
 
-    const registry = ToolRegistry.buildFromTools(params.tools)
+    const activeToolNames = this.resolveStreamActiveToolNames({
+      declaredNormalized,
+      expandedDeclared,
+      effectiveAllowed,
+      conversationActiveTools: params.activeTools,
+      hasConcludeEligibleForRuntime,
+      hasCompactionContext,
+    });
+
+    const registry = ToolRegistry.buildFromTools(filteredTools)
       .setActive(activeToolNames)
       .setAdditionalGuidelines(agent.plugin.guardrailsRuleService.getInstructionsByTool());
 
@@ -124,10 +136,15 @@ export class StreamTextExecutor {
           title: params.title,
         })
       : '';
-    const skillCatalogPrompt = generateSkillCatalogPrompt({
-      plugin: agent.plugin,
-    });
-    const shouldUseCoreSystemPrompt = shouldUseTools;
+    const includeSkillCatalog =
+      !params.intent.tools ||
+      params.intent.tools.length === 0 ||
+      params.intent.tools.includes(ToolName.CONTENT_READING);
+    const skillCatalogPrompt = includeSkillCatalog
+      ? generateSkillCatalogPrompt({
+          plugin: agent.plugin,
+        })
+      : '';
 
     const resolvedSystemPrompts =
       params.intent.systemPrompts && params.intent.systemPrompts.length > 0
@@ -160,7 +177,6 @@ export class StreamTextExecutor {
       todoListPrompt,
       skillCatalogPrompt,
     });
-    const disabledToolModeSystemPrompt = systemPromptBuilder.buildDisabledToolsPrompt();
 
     type RepairToolCall = Parameters<typeof streamText>[0]['experimental_repairToolCall'];
 
@@ -169,7 +185,7 @@ export class StreamTextExecutor {
       temperature: llmConfig.temperature,
       maxOutputTokens: llmConfig.maxOutputTokens,
       abortSignal,
-      system: shouldUseCoreSystemPrompt ? coreSystemPrompt : disabledToolModeSystemPrompt,
+      system: coreSystemPrompt,
       messages,
       tools: registry.getToolsObject() as NonNullable<Parameters<typeof streamText>[0]['tools']>,
       experimental_repairToolCall: llmConfig.repairToolCall as RepairToolCall,
@@ -182,7 +198,7 @@ export class StreamTextExecutor {
       },
       onChunk: ({ chunk }) => {
         if (chunk.type === 'tool-input-start') {
-          agent.renderIndicator(params.title, params.lang, chunk.toolName as ToolName);
+          agent.renderIndicator?.(params.title, params.lang, chunk.toolName as ToolName);
         }
       },
       onFinish: ({ finishReason }) => {
@@ -231,3 +247,5 @@ export class StreamTextExecutor {
     };
   }
 }
+
+applyMixins(StreamTextExecutor, [ToolIntentResolution]);

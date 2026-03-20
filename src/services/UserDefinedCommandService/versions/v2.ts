@@ -1,4 +1,5 @@
 import { z } from 'zod/v3';
+import { ToolName } from 'src/solutions/commands/ToolRegistry';
 import { NormalizedUserDefinedCommand, IVersionedUserDefinedCommand } from './types';
 import {
   command_name,
@@ -12,7 +13,7 @@ import { WIKI_LINK_PATTERN } from 'src/constants';
 
 // Version 2 only fields
 const system_prompt = z.array(z.string()).optional();
-const use_tool = z.boolean().optional();
+const tools = z.array(z.nativeEnum(ToolName)).optional();
 const show_todo_list = z.boolean().optional();
 
 /**
@@ -51,7 +52,7 @@ export const userDefinedCommandV2Schema = z.object({
   file_path,
   model,
   system_prompt,
-  use_tool,
+  tools,
   show_todo_list,
   triggers: z.array(triggerConditionSchema).optional(),
 });
@@ -90,7 +91,7 @@ export class UserDefinedCommandV2 implements IVersionedUserDefinedCommand {
       file_path: filePath,
       model: this.data.model,
       system_prompt: transformedSystemPrompt,
-      use_tool: this.data.use_tool,
+      tools: this.data.tools,
       show_todo_list: this.data.show_todo_list,
       triggers: this.data.triggers,
     };

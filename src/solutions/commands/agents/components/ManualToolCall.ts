@@ -8,13 +8,10 @@ import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 import * as handlers from '../handlers';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { Handlers } from './Handlers';
 
-interface ManualToolCallAgentContext extends AgentHandlerContext {
-  search: handlers.Search;
-}
-
-function asManualToolCallAgent(instance: ManualToolCall): ManualToolCallAgentContext {
-  return instance as unknown as ManualToolCallAgentContext;
+function asAgent(instance: ManualToolCall) {
+  return instance as unknown as AgentHandlerContext & Handlers;
 }
 
 /**
@@ -36,7 +33,7 @@ export class ManualToolCall {
      */
     classificationMatchType?: 'static' | 'prefixed' | 'clustered';
   }): Promise<ToolCallPart | undefined> {
-    const agent = asManualToolCallAgent(this);
+    const agent = asAgent(this);
     const { title, query, activeTools, classifiedTasks, lang, classificationMatchType } = params;
 
     // Client-handled step: command syntax was processed locally, update todo list and move to next step
@@ -214,7 +211,7 @@ export class ManualToolCall {
   }
 
   protected async craftTodoListUpdateToolCallManually(title: string): Promise<ToolCallPart | null> {
-    const agent = asManualToolCallAgent(this);
+    const agent = asAgent(this);
     const todoListState = await agent.renderer.getConversationProperty<handlers.TodoListState>(
       title,
       'todo_list'

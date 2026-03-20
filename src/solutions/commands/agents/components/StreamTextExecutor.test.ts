@@ -1,7 +1,7 @@
 import { streamText } from 'ai';
 import type StewardPlugin from 'src/main';
 import { type App } from 'obsidian';
-import { StreamTextExecutor, type StreamTextExecutorContext } from './StreamTextExecutor';
+import { StreamTextExecutor } from './StreamTextExecutor';
 import { ToolName } from '../../ToolRegistry';
 import type { AgentHandlerParams, Intent } from '../../types';
 import {
@@ -95,7 +95,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
   return mockPlugin as unknown as jest.Mocked<StewardPlugin>;
 }
 
-class TestAgent extends StreamTextExecutor implements StreamTextExecutorContext {
+class TestAgent extends StreamTextExecutor {
   [TOOL_CONTENT_STREAM_CONSUMER_SYMBOL] = true as const;
 
   constructor(
@@ -103,6 +103,23 @@ class TestAgent extends StreamTextExecutor implements StreamTextExecutorContext 
     public renderer: StewardPlugin['conversationRenderer']
   ) {
     super();
+  }
+
+  public getValidToolNames(): ReadonlySet<ToolName> {
+    // Return a set of all possible tool names for testing
+    return new Set([
+      ToolName.TODO_LIST_UPDATE,
+      ToolName.CONTENT_READING,
+      ToolName.ACTIVATE,
+      ToolName.LIST,
+      ToolName.CREATE,
+      ToolName.DELETE,
+      ToolName.EDIT,
+      ToolName.SEARCH,
+      ToolName.SWITCH_AGENT_CAPACITY,
+      ToolName.CONCLUDE,
+      ToolName.RECALL_COMPACTED_CONTEXT,
+    ]);
   }
 
   public async renderIndicator(): Promise<void> {

@@ -20,9 +20,4 @@ export interface SystemPromptBuilder {
    * Build the core system prompt when tools are enabled.
    */
   buildCorePrompt(context: SuperAgentCorePromptContext): string;
-
-  /**
-   * Build the system prompt when tools are disabled (e.g. switch-to-agent mode).
-   */
-  buildDisabledToolsPrompt(): string;
 }

@@ -1,6 +1,21 @@
-import { ToolName } from '../../ToolRegistry';
+import { ToolRegistry, TOOL_DEFINITIONS, ToolName } from '../../ToolRegistry';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import type { SuperAgentCorePromptContext, SystemPromptBuilder } from './types';
+
+const CATEGORY_LABEL: Record<string, string> = {
+  'content-access': 'Reading note and media content',
+  'user-interaction': 'User interaction and confirmations',
+  'vault-access': 'Vault listing, search, and file operations',
+  'content-edit': 'Editing existing content',
+  'content-create': 'Creating new content',
+  'artifact-access': 'Working with prior tool results (artifacts)',
+  'content-generation': 'Speech, image, and generated media',
+  'task-management': 'Task flow and completion signals',
+  'tool-management': 'Activating optional tools and mode switching',
+  orchestration: 'Delegating work to subagents',
+  'context-retrieval': 'Recalling compacted conversation context',
+  general: 'General tools',
+};
 
 /**
  * Builds system prompts for the SuperAgent.
@@ -9,27 +24,11 @@ export class SuperAgentSystemPromptBuilder implements SystemPromptBuilder {
   public buildCorePrompt(context: SuperAgentCorePromptContext): string {
     const { registry, currentNote, currentPosition, todoListPrompt, skillCatalogPrompt } = context;
 
+    const taskSection = this.buildTaskInstructionsFromRegistry(registry);
+
     return `You are a helpful assistant who helps users with their Obsidian vault.
 
-Your role is to help users with multiple tasks by using appropriate tools.
-- For generating tasks, you can generate directly.
-- For editing tasks, use ${ToolName.EDIT}.
-- For vault management tasks, use the following tools: ${joinWithConjunction(
-      [
-        ToolName.LIST,
-        ToolName.CREATE,
-        ToolName.DELETE,
-        ToolName.COPY,
-        ToolName.MOVE,
-        ToolName.RENAME,
-        ToolName.UPDATE_FRONTMATTER,
-        ToolName.EXISTS,
-      ],
-      'and'
-    )}.
-- Use ${ToolName.EXISTS} when you need to verify whether files or folders exist (without content search).
-- For tasks that require domain-specific knowledge, use ${ToolName.CONTENT_READING} to read the relevant skill file by path with readType: "entire".
-- For other tasks, use the appropriate tool(s).
+${taskSection}
 
 YOU HAVE ACCESS TO THE FOLLOWING TOOLS:
 ${registry.generateToolsSection()}
@@ -49,14 +48,43 @@ NOTE:
 - Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`;
   }
 
-  public buildDisabledToolsPrompt(): string {
-    return `You are a helpful assistant who helps users with their Obsidian vault.
+  private buildTaskInstructionsFromRegistry(registry: ToolRegistry<unknown>): string {
+    const active = registry.listActiveToolNames();
+    if (active.length === 0) {
+      return 'Your role is to assist using the tools provided below.';
+    }
+    if (active.length === 1 && active[0] === ToolName.SWITCH_AGENT_CAPACITY) {
+      return `Your role is to help the user in direct-response mode. When they need vault tools, skills, or other agent capabilities, use ${ToolName.SWITCH_AGENT_CAPACITY} so they can confirm switching to full agent mode.`;
+    }
 
-Tools are currently disabled for this conversation.
-You can use exactly one tool to switch mode:
-- ${ToolName.SWITCH_AGENT_CAPACITY}: switch to agent mode.
+    const byCategory = new Map<string, ToolName[]>();
+    for (let i = 0; i < active.length; i++) {
+      const name = active[i];
+      const meta = TOOL_DEFINITIONS[name];
+      const category = meta?.category ?? 'general';
+      const bucket = byCategory.get(category);
+      if (bucket) {
+        bucket.push(name);
+      } else {
+        byCategory.set(category, [name]);
+      }
+    }
 
-If the user asks for work that requires tools, call ${ToolName.SWITCH_AGENT_CAPACITY} first.
-After the switch is confirmed, continue the task and use tools as needed.`;
+    const lines: string[] = [
+      'Your role is to help users with their Obsidian vault using the tools available in this conversation.',
+      'Apply tools by area:',
+    ];
+    for (const [category, toolsInCat] of byCategory) {
+      const label = CATEGORY_LABEL[category] ?? category;
+      lines.push(`- ${label}: ${joinWithConjunction(toolsInCat, 'and')}.`);
+    }
+
+    if (!active.includes(ToolName.EDIT) && !active.includes(ToolName.CREATE) && active.length > 2) {
+      lines.push(
+        '- When no available tool is needed, answer directly in your message (generation and explanation without file changes).'
+      );
+    }
+
+    return lines.join('\n');
   }
 }

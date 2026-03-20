@@ -59,7 +59,9 @@ export class SwitchAgentCapacity {
           step: params.invocationCount,
           toolCall,
         });
-        params.intent.use_tool = true;
+        // Full tool surface: frontmatter `allowed_tools` is cleared; drop intent restriction so
+        // resolution uses all tools (switch_agent_capacity is omitted from the full surface).
+        params.intent.tools = undefined;
         if (!continueFromNextTool) {
           return {
             status: IntentResultStatus.SUCCESS,
@@ -113,7 +115,7 @@ export class SwitchAgentCapacity {
     const t = getTranslation(lang);
 
     await this.agent.renderer.updateConversationFrontmatter(title, [
-      { name: 'use_tool', value: true },
+      { name: 'allowed_tools', delete: true },
     ]);
 
     const enabledMessage = t('switchCapacity.enabled');

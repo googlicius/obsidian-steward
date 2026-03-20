@@ -45,13 +45,19 @@ export abstract class Agent {
    * Render a loading indicator for the agent
    * @param title The conversation title
    * @param lang The language code
+   * @param toolName The tool name being executed
    */
-  public renderIndicator?(title: string, lang?: string | null): Promise<void>;
+  public renderIndicator?(title: string, lang?: string | null, toolName?: ToolName): Promise<void>;
 
   /**
    * Handle an agent invocation
    */
   public abstract handle(params: AgentHandlerParams, ...args: unknown[]): Promise<AgentResult>;
+
+  /**
+   * Tool names valid for resolving declared `intent.tools` (frontmatter / UDC).
+   */
+  public abstract getValidToolNames(): ReadonlySet<ToolName>;
 
   /**
    * Handle an agent invocation with automatic error handling and model fallback
@@ -63,10 +69,7 @@ export abstract class Agent {
       params.invocationCount = params.invocationCount || 0;
       params.handlerId = params.handlerId || uniqueID();
       params.lang = params.lang || (await this.loadConversationLang(params.title));
-      params.intent.use_tool = await this.loadConversationUseTool(
-        params.title,
-        params.intent.use_tool
-      );
+      params.intent.tools = await this.resolveIntentTools(params.title, params.intent.tools);
       params.intent.systemPrompts = await this.loadSystemPrompts(params);
 
       // Call the original handle method
@@ -192,15 +195,24 @@ export abstract class Agent {
     return paramsLang || savedLang || null;
   }
 
-  private async loadConversationUseTool(
+  /**
+   * Merge intent tools from the intent and conversation frontmatter (`allowed_tools`).
+   */
+  private async resolveIntentTools(
     title: string,
-    intentUseTool?: boolean
-  ): Promise<boolean | undefined> {
-    if (intentUseTool !== undefined) {
-      return intentUseTool;
+    intentTools?: ToolName[]
+  ): Promise<ToolName[] | undefined> {
+    if (intentTools && intentTools.length > 0) {
+      return intentTools;
     }
-
-    return this.renderer.getConversationProperty<boolean>(title, 'use_tool');
+    const fromFrontmatter = await this.renderer.getConversationProperty<ToolName[]>(
+      title,
+      'allowed_tools'
+    );
+    if (fromFrontmatter && fromFrontmatter.length > 0) {
+      return fromFrontmatter;
+    }
+    return undefined;
   }
 
   private async loadSystemPrompts(params: AgentHandlerParams): Promise<string[] | undefined> {

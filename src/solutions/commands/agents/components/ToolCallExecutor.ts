@@ -1,6 +1,5 @@
 import { NoSuchToolError } from 'ai';
 import type { DynamicToolCall, Tool } from 'ai';
-import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { createGuardrailsMiddleware } from 'src/services/GuardrailsRuleService/guardrailsMiddleware';
 import { createToolHandlerChain } from '../middleware/createToolHandlerChain';
@@ -9,31 +8,13 @@ import { IntentResultStatus } from '../../types';
 import type { TypedToolCallPart } from '../../tools/types';
 import { ToolName } from '../../ToolRegistry';
 import type { ToolContentStreamInfo } from './ToolContentStreamConsumer';
-import type { StandardToolHandler } from './Handlers';
+import type { Handlers } from './Handlers';
 import * as handlers from '../handlers';
 import { ToolHandlerMiddlewareContext } from '../middleware/types';
+import { type Agent } from '../../Agent';
 
-interface ToolCallExecutorContext {
-  plugin: StewardPlugin;
-  handle: (
-    params: AgentHandlerParams,
-    options?: {
-      remainingSteps?: number;
-      toolCalls?: unknown;
-      currentToolCallIndex?: number;
-    }
-  ) => Promise<AgentResult>;
-  getToolHandlerMap(): Partial<Record<ToolName, () => StandardToolHandler>>;
-  getPathsForGuardrails(toolName: ToolName, input: unknown): string[];
-  filterInputForGuardrails(toolCall: TypedToolCallPart, allowedPaths: string[]): unknown | null;
-  dynamic: handlers.Dynamic;
-  activateToolHandler: handlers.ActivateToolHandler;
-  todoList: handlers.TodoList;
-  conclude: handlers.Conclude;
-}
-
-function asToolCallExecutor(instance: ToolCallExecutor): ToolCallExecutorContext {
-  return instance as unknown as ToolCallExecutorContext;
+function asAgent(instance: ToolCallExecutor) {
+  return instance as unknown as Agent & Handlers;
 }
 
 export class ToolCallExecutor {
@@ -50,7 +31,7 @@ export class ToolCallExecutor {
     availableTools: { [x: string]: Tool };
     toolContentStreamInfo?: ToolContentStreamInfo;
   }): Promise<AgentResult> {
-    const agent = asToolCallExecutor(this);
+    const agent = asAgent(this);
     const handlerMap = agent.getToolHandlerMap();
 
     for (let index = params.startIndex; index < params.toolCalls.length; index += 1) {

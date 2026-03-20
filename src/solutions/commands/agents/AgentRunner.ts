@@ -7,6 +7,7 @@ import { AgentResult, Intent, IntentResultStatus } from '../types';
 import type { AgentConfig } from './AgentConfig';
 import { createAgentFromConfig } from './AgentFactory';
 import { DEFAULT_INTENT_TYPE, extractToolsFromQuery, parseIntentType } from './intentHelpers';
+import { ToolName } from '../ToolRegistry';
 
 interface PendingIntent {
   intents: Intent[];
@@ -161,7 +162,7 @@ export class AgentRunner {
       if (!canUseTools) {
         intent = {
           ...intent,
-          use_tool: false,
+          tools: [ToolName.SWITCH_AGENT_CAPACITY],
         };
         intents[i] = intent;
       }

@@ -1,12 +1,10 @@
 import { generateText } from 'ai';
-import type StewardPlugin from 'src/main';
-import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import type { AgentHandlerParams } from '../../types';
 import { ToolRegistry, ToolName } from '../../ToolRegistry';
-import {
-  generateSkillCatalogPrompt,
-  generateTodoListPrompt,
-} from '../agentUtils';
+import { generateSkillCatalogPrompt, generateTodoListPrompt } from '../agentUtils';
+import { applyMixins } from 'src/utils/applyMixins';
+import { ToolIntentResolution } from './ToolIntentResolution';
+import { Agent } from '../../Agent';
 
 type GenerateTextToolSet = NonNullable<Parameters<typeof generateText>[0]['tools']> & {
   [s: string]: unknown;
@@ -19,16 +17,12 @@ type GenerateTextExecutorParams = AgentHandlerParams & {
   coreSystemPrompt: string;
 };
 
-interface GenerateTextExecutorContext {
-  plugin: StewardPlugin;
-  renderer: ConversationRenderer;
+function asAgent(instance: GenerateTextExecutor) {
+  return instance as unknown as Agent;
 }
 
-function asGenerateTextExecutorContext(
-  instance: GenerateTextExecutor
-): GenerateTextExecutorContext {
-  return instance as unknown as GenerateTextExecutorContext;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-interface -- declaration merge: adds ToolIntentResolution to class instance type
+export interface GenerateTextExecutor extends ToolIntentResolution {}
 
 export class GenerateTextExecutor {
   protected getToolSubset(params: {
@@ -66,19 +60,41 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
   ): Promise<{
     toolCalls: TToolCalls;
   }> {
-    const agent = asGenerateTextExecutorContext(this);
+    const agent = asAgent(this);
     const conversationHistory = await agent.renderer.extractConversationHistory(params.title);
     const llmConfig = await agent.plugin.llmService.getLLMConfig({
       overrideModel: params.intent.model,
       generateType: 'text',
     });
 
-    const shouldUseTools = params.intent.use_tool !== false;
-    const activeToolNames = shouldUseTools ? params.activeTools : [];
+    const declared = this.normalizeDeclaredTools(params.intent.tools, agent.getValidToolNames());
+    let toolsForModel = params.tools;
+    let activeForSubset = params.activeTools;
+    let inactiveForSubset = params.inactiveTools || [];
+
+    if (declared !== null) {
+      const expanded = this.expandSubagentDeclaredTools(declared);
+      toolsForModel = this.filterToolsObject(
+        params.tools,
+        new Set(expanded)
+      ) as GenerateTextToolSet;
+      if (declared.length <= this.declaredToolsSmallThreshold) {
+        activeForSubset = expanded;
+        inactiveForSubset = [];
+      } else {
+        activeForSubset = params.activeTools.filter(t => expanded.includes(t));
+      }
+    }
+
+    const expandedForSwitchCheck =
+      declared === null ? [] : this.expandSubagentDeclaredTools(declared);
+    const switchOnly = declared !== null && this.isSwitchAgentCapacityOnly(expandedForSwitchCheck);
+    const shouldUseTools = !switchOnly;
+    const activeToolNames = shouldUseTools ? activeForSubset : [];
     const selectedTools = this.getToolSubset({
-      activeTools: params.activeTools,
-      inactiveTools: params.inactiveTools,
-      tools: params.tools,
+      activeTools: activeForSubset,
+      inactiveTools: inactiveForSubset,
+      tools: toolsForModel,
     });
 
     const registry = ToolRegistry.buildFromTools(selectedTools)
@@ -102,9 +118,15 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
           title: params.title,
         })
       : '';
-    const skillCatalogPrompt = generateSkillCatalogPrompt({
-      plugin: agent.plugin,
-    });
+    const includeSkillCatalog =
+      !params.intent.tools ||
+      params.intent.tools.length === 0 ||
+      params.intent.tools.includes(ToolName.CONTENT_READING);
+    const skillCatalogPrompt = includeSkillCatalog
+      ? generateSkillCatalogPrompt({
+          plugin: agent.plugin,
+        })
+      : '';
 
     const additionalSystemPrompts = params.intent.systemPrompts
       ? [...params.intent.systemPrompts]
@@ -159,3 +181,5 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
     };
   }
 }
+
+applyMixins(GenerateTextExecutor, [ToolIntentResolution]);

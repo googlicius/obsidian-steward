@@ -353,7 +353,7 @@ NOTE:
     description:
       'Switch the current conversation from direct response mode to tool and skill mode.',
     guidelines: [
-      `Call ${ToolName.SWITCH_AGENT_CAPACITY} first to switch to agent mode, then continue by using ${ToolName.ACTIVATE} and other required tools.`,
+      `When this tool is available alongside a small tool set, the user may still be in a limited mode: call ${ToolName.SWITCH_AGENT_CAPACITY} when they need the full agent so they can confirm. After confirmation, continue with vault and content tools as needed. This tool is not offered when the conversation already has the full Super Agent tool surface.`,
     ],
     category: 'tool-management',
   },
@@ -424,6 +424,19 @@ export class ToolRegistry<T> {
     }
 
     return this.activeTools.has(name);
+  }
+
+  /**
+   * Tool names that are active (exposed to the model) in this registry.
+   */
+  public listActiveToolNames(): ToolName[] {
+    const names: ToolName[] = [];
+    for (const [name] of this.tools) {
+      if (this.isActive(name)) {
+        names.push(name);
+      }
+    }
+    return names;
   }
 
   public getToolsObject(): T {
