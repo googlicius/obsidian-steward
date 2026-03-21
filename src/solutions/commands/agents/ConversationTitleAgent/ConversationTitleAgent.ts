@@ -1,4 +1,5 @@
-import { generateText } from 'ai';
+import { generateText, Output } from 'ai';
+import { z } from 'zod/v3';
 import { getClassifier } from 'src/lib/modelfusion';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
@@ -7,8 +8,14 @@ import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 interface GenerateTitleParams {
   title: string;
   query: string;
-  lang?: string | null;
 }
+
+const conversationTitleResultSchema = z.object({
+  title: z.string(),
+  lang: z.string().nullable(),
+});
+
+export type ConversationTitleResult = z.infer<typeof conversationTitleResultSchema>;
 
 /**
  * Lightweight agent that generates an AI-powered conversation title
@@ -26,38 +33,59 @@ export class ConversationTitleAgent {
 
   /**
    * Generate and persist a conversation title.
-   * Designed to be fire-and-forget so it never blocks the main agent.
    */
-  public async generate(params: GenerateTitleParams): Promise<void> {
+  public async generate(params: GenerateTitleParams): Promise<ConversationTitleResult | null> {
     if (!this.plugin.settings.llm.agents.conversationTitle.enabled) {
-      return;
+      return null;
     }
 
     const { title, query } = params;
 
     try {
-      const conversationTitle = await this.resolveTitle(query);
+      const conversationTitleResult = await this.resolveTitle(query);
 
-      if (!conversationTitle) {
-        return;
+      if (!conversationTitleResult) {
+        return null;
       }
 
-      await this.renderer.updateConversationFrontmatter(title, [
-        { name: 'conversation_title', value: conversationTitle },
+      const frontmatterUpdates: Array<{ name: string; value: unknown }> = [
+        { name: 'conversation_title', value: conversationTitleResult.title },
         { name: 'created_at', value: new Date() },
-      ]);
+      ];
+
+      if (conversationTitleResult.lang) {
+        frontmatterUpdates.push({ name: 'lang', value: conversationTitleResult.lang });
+      }
+
+      await this.renderer.updateConversationFrontmatter(title, frontmatterUpdates);
+      return conversationTitleResult;
     } catch (error) {
       logger.error('ConversationTitleAgent failed to generate title:', error);
+      return null;
     }
   }
 
-  private async resolveTitle(query: string): Promise<string | null> {
+  private async resolveTitle(query: string): Promise<ConversationTitleResult | null> {
     const staticTitle = await this.tryStaticClassification(query);
     if (staticTitle) {
-      return staticTitle;
+      return {
+        title: staticTitle,
+        lang: null,
+      };
     }
 
-    return query.split(' ').length <= 10 ? query : this.generateWithLLM(query);
+    if (query.split(' ').length <= 10) {
+      return {
+        title: query,
+        lang: null,
+      };
+    }
+
+    const generated = await this.generateWithLLM(query);
+    if (generated) {
+      return generated;
+    }
+    return null;
   }
 
   /**
@@ -95,32 +123,33 @@ export class ConversationTitleAgent {
   /**
    * Ask the LLM for a concise, descriptive conversation title.
    */
-  private async generateWithLLM(query: string): Promise<string | null> {
+  private async generateWithLLM(query: string): Promise<ConversationTitleResult | null> {
     try {
       const llmConfig = await this.plugin.llmService.getLLMConfig({
         generateType: 'text',
         overrideModel: this.plugin.settings.llm.agents.conversationTitle.model,
       });
 
-      const { text } = await generateText({
+      const result = await generateText({
         model: llmConfig.model,
         temperature: 0.3,
         maxOutputTokens: 50,
         abortSignal: this.plugin.abortService.createAbortController('conversation-title'),
-        system: `Your task is to generate a short, descriptive title for a conversation based on the user's query.
+        system: `Generate a short conversation title and detect the user's language.
 
-ONLY generate a title that describes what the user is asking about.
+Return a JSON object with:
+- title: a concise title (max 10 words) describing the topic, not the answer, respect the user's language.
+- lang: the detected language code (for example "en", "vi", "ja"), or null if unclear
 
-DO NOT answer directly to the query.
-
-The title must:
-- Be at most 10 words
-- Describe the TOPIC of the query, not answer it
-- And respect the user's language.`,
+Do not include any extra keys.`,
         prompt: query,
+        output: Output.object({
+          schema: conversationTitleResultSchema,
+          name: 'ConversationTitleResult',
+        }),
       });
 
-      const cleaned = text
+      const cleaned = result.output.title
         .trim()
         .replace(/^["']|["']$/g, '')
         .replace(/[.!?]+$/, '');
@@ -129,7 +158,12 @@ The title must:
         return null;
       }
 
-      return cleaned;
+      const detectedLang = result.output.lang?.trim().toLowerCase() || null;
+
+      return {
+        title: cleaned,
+        lang: detectedLang,
+      };
     } catch (error) {
       logger.error('ConversationTitleAgent LLM generation failed:', error);
       return null;

@@ -4,11 +4,16 @@ import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES } from 'src/constants';
 import { EXAMPLE_UDCS } from 'src/example-udcs';
 import { StewardChatView } from 'src/views/StewardChatView';
-import i18next from 'i18next';
+import i18next, { t } from 'i18next';
 import { IVersionedUserDefinedCommand, TriggerCondition } from './versions/types';
 import { loadUDCVersion } from './versions/loader';
 import { Intent } from 'src/solutions/commands/types';
 import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
+import {
+  migrateRawUdcObject,
+  replaceFirstYamlFenceContent,
+  stringifyUdcYaml,
+} from './migrateUdcLegacyUseTool';
 
 export class UserDefinedCommandService {
   private static instance: UserDefinedCommandService | null = null;
@@ -193,27 +198,61 @@ export class UserDefinedCommandService {
       }> = [];
 
       // Process only the first YAML block
+      let fileContent = content;
       const yamlContent = yamlBlocks[0];
       try {
-        const rawData = parseYaml(yamlContent);
-
-        // Load and validate using version-aware loader (async imports)
-        const result = await loadUDCVersion(rawData, file.path);
-
-        if (!result.success) {
-          // Collect errors from parse function
-          const commandName = rawData.command_name || 'unknown';
+        const parsed = parseYaml(yamlContent);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
           validationErrors.push({
-            commandName,
-            errors: result.errors,
+            commandName: 'unknown',
+            errors: [
+              i18next.t('validation.yamlError'),
+              'Command definition must be a YAML mapping',
+            ],
           });
         } else {
-          // Successfully loaded - store the command
-          const versionedCommand = result.command;
-          this.userDefinedCommands.set(versionedCommand.normalized.command_name, versionedCommand);
-          logger.log(
-            `Loaded user-defined command: ${versionedCommand.normalized.command_name} (v${versionedCommand.getVersion()})`
+          const dataObj = parsed as Record<string, unknown>;
+          const migrated = migrateRawUdcObject(dataObj);
+          const rawData: Record<string, unknown> = migrated.data;
+
+          if (migrated.changed) {
+            try {
+              const newInner = stringifyUdcYaml(migrated.data);
+              const updatedMarkdown = replaceFirstYamlFenceContent(fileContent, newInner);
+              if (updatedMarkdown !== fileContent) {
+                await this.plugin.app.vault.modify(file, updatedMarkdown);
+                fileContent = updatedMarkdown;
+                logger.log(`Migrated legacy use_tool in UDC file: ${file.path}`);
+              }
+            } catch (persistError) {
+              logger.error(`Failed to persist UDC migration for ${file.path}:`, persistError);
+            }
+          }
+
+          // Load and validate using version-aware loader (async imports)
+          const result = await loadUDCVersion(
+            rawData as { command_name: string; version?: number; [key: string]: unknown },
+            file.path
           );
+
+          if (!result.success) {
+            // Collect errors from parse function
+            const commandName = (rawData.command_name as string) || 'unknown';
+            validationErrors.push({
+              commandName,
+              errors: result.errors,
+            });
+          } else {
+            // Successfully loaded - store the command
+            const versionedCommand = result.command;
+            this.userDefinedCommands.set(
+              versionedCommand.normalized.command_name,
+              versionedCommand
+            );
+            logger.log(
+              `Loaded user-defined command: ${versionedCommand.normalized.command_name} (v${versionedCommand.getVersion()})`
+            );
+          }
         }
       } catch (yamlError) {
         const errorMsg = yamlError instanceof Error ? yamlError.message : String(yamlError);
@@ -696,6 +735,7 @@ export class UserDefinedCommandService {
         `source_file: ${file.name}`,
         `created: ${new Date().toISOString()}`,
         `lang: ${getLanguage()}`,
+        `indicator_text: ${t('conversation.planning')}`,
         '---',
         '',
       ].join('\n');
@@ -866,7 +906,7 @@ export class UserDefinedCommandService {
         query,
         model,
         no_confirm: step.no_confirm,
-        use_tool: command.normalized.use_tool,
+        tools: command.normalized.tools,
       };
     });
   }

@@ -1,31 +1,44 @@
 import { tool } from 'ai';
 import { z } from 'zod/v3';
-import { normalizePath, TFile } from 'obsidian';
+import { normalizePath, TFile, TFolder } from 'obsidian';
 import { getTranslation } from 'src/i18n';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ArtifactType } from 'src/solutions/artifact';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 const MAX_FILES_TO_SHOW = 10;
+const LIST_ITEM_TYPES = ['both', 'files', 'folders'] as const;
+type ListItemType = (typeof LIST_ITEM_TYPES)[number];
 
-export const listToolSchema = z.object(
+export const listToolArgMapSchema = z.object(
   {
     folderPath: z
       .string()
+      .optional()
       .transform(val => {
-        // Sanitize folderPath: remove leading and trailing slashes, then trim
-        let sanitized = val.trim();
-        sanitized = sanitized.replace(/^\/+|\/+$/g, '');
-        return sanitized;
+        if (!val?.trim()) {
+          return undefined;
+        }
+
+        return normalizePath(val.trim());
       })
-      .describe('The folder path to list files from. Specify / to lists from the root.'),
+      .describe(
+        'Optional folder path to list files from. Specify / to list from the root. If not provided, filePattern is required.'
+      ),
     filePattern: z
       .string()
       .optional()
       .describe(
-        'Optional RegExp pattern to filter files. If not provided, all files will be listed.'
+        'Optional RegExp pattern to filter item names. Required when folderPath is not provided.'
+      ),
+    itemType: z
+      .enum(LIST_ITEM_TYPES)
+      .optional()
+      .default('both')
+      .describe(
+        'Optional result type filter: both for files and folders, files for files only, folders for folders only.'
       ),
     lang: z
       .string()
@@ -34,9 +47,32 @@ export const listToolSchema = z.object(
       .describe(userLanguagePrompt.content as string),
   },
   {
-    description: `List all files in a specific folder. NOTE: This tool does not list folders but files only.`,
+    description: `List direct files and subfolders in a specific folder (non-recursive).`,
   }
 );
+
+export const listToolSchema = listToolArgMapSchema.superRefine((args, ctx) => {
+  const hasFolderPath = Boolean(args.folderPath?.trim());
+  const hasFilePattern = Boolean(args.filePattern?.trim());
+
+  if (hasFolderPath || hasFilePattern) {
+    return;
+  }
+
+  const message = 'Either folderPath or filePattern must be provided.';
+
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message,
+    path: ['folderPath'],
+  });
+
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message,
+    path: ['filePattern'],
+  });
+});
 
 export type ListToolArgs = z.infer<typeof listToolSchema>;
 
@@ -51,7 +87,7 @@ export class VaultList {
     inputSchema: listToolSchema,
   });
 
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: ListToolArgs): string[] {
     const folderPath = input.folderPath ?? '';
@@ -74,16 +110,6 @@ export class VaultList {
 
     const result = await this.executeListTool(toolCall.input, params.lang);
 
-    await this.agent.renderer.updateConversationNote({
-      path: params.title,
-      newContent: result.response,
-      command: 'vault_list',
-      lang: params.lang,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
-      includeHistory: false,
-    });
-
     const hasMoreFiles = result.files.length > MAX_FILES_TO_SHOW;
     const artifactId = `list_${Date.now()}`;
 
@@ -100,7 +126,7 @@ export class VaultList {
     const t = getTranslation(params.lang);
     let resultText = result.response;
     if (hasMoreFiles) {
-      resultText += `\n\n${t('list.fullListAvailableInArtifact', { artifactId })}`;
+      resultText += `\n\n${t('list.fullListInArtifactUseFilePattern', { artifactId })}`;
     }
 
     await this.agent.serializeInvocation({
@@ -126,6 +152,7 @@ export class VaultList {
   ): Promise<ListToolResult> {
     const folderPath = input.folderPath || '/';
     const filePattern = input.filePattern?.trim();
+    const itemType = input.itemType ?? 'both';
     const t = getTranslation(lang);
     const errors: string[] = [];
 
@@ -150,7 +177,7 @@ export class VaultList {
     if (!folder) {
       const errorMessage = `Folder not found: ${folderPath}`;
       errors.push(errorMessage);
-      const messageKey = folderPath ? 'list.noFilesFoundInFolder' : 'list.noFilesFound';
+      const messageKey = folderPath ? 'list.noItemsFoundInFolder' : 'list.noItemsFound';
       return {
         response: t(messageKey, { folder: folderPath }),
         files: [],
@@ -158,25 +185,31 @@ export class VaultList {
       };
     }
 
-    // Collect files from folder
-    const files: TFile[] = [];
+    // Collect direct files and subfolders only (non-recursive)
+    const listedPaths: string[] = [];
     for (const child of folder.children) {
-      if (child instanceof TFile) {
-        // Apply pattern filter if provided
-        if (filePattern) {
-          if (this.matchesPattern(child.name, filePattern)) {
-            files.push(child);
-          }
-        } else {
-          files.push(child);
-        }
+      if (!(child instanceof TFile) && !(child instanceof TFolder)) {
+        continue;
       }
+
+      if (!this.shouldIncludeItemType({ child, itemType })) {
+        continue;
+      }
+
+      if (filePattern && !this.matchesPattern(child.name, filePattern)) {
+        continue;
+      }
+
+      if (child instanceof TFolder) {
+        listedPaths.push(`${child.path}/`);
+        continue;
+      }
+
+      listedPaths.push(child.path);
     }
 
-    const filePaths = files.map(file => file.path);
-
-    if (files.length === 0) {
-      const messageKey = folderPath ? 'list.noFilesFoundInFolder' : 'list.noFilesFound';
+    if (listedPaths.length === 0) {
+      const messageKey = folderPath ? 'list.noItemsFoundInFolder' : 'list.noItemsFound';
       return {
         response: t(messageKey, { folder: folderPath }),
         files: [],
@@ -184,27 +217,27 @@ export class VaultList {
       };
     }
 
-    const fileLinks: string[] = [];
-    for (let index = 0; index < files.length && index < MAX_FILES_TO_SHOW; index += 1) {
-      const file = files[index];
-      fileLinks.push(`- [[${file.path}]]`);
+    const itemLines: string[] = [];
+    for (let index = 0; index < listedPaths.length && index < MAX_FILES_TO_SHOW; index += 1) {
+      itemLines.push(`- ${listedPaths[index]}`);
     }
 
-    const moreCount = files.length > MAX_FILES_TO_SHOW ? files.length - MAX_FILES_TO_SHOW : 0;
+    const moreCount =
+      listedPaths.length > MAX_FILES_TO_SHOW ? listedPaths.length - MAX_FILES_TO_SHOW : 0;
 
-    const headerKey = folderPath ? 'list.foundFilesInFolder' : 'list.foundFiles';
+    const headerKey = folderPath ? 'list.foundItemsInFolder' : 'list.foundItems';
     let response = `${t(headerKey, {
-      count: files.length,
+      count: listedPaths.length,
       folder: folderPath,
-    })}:\n\n${fileLinks.join('\n')}`;
+    })}:\n\n${itemLines.join('\n')}`;
 
     if (moreCount > 0) {
-      response += `\n\n${t('list.moreFiles', { count: moreCount })}`;
+      response += `\n\n${t('list.moreItems', { count: moreCount })}`;
     }
 
     return {
       response,
-      files: filePaths,
+      files: listedPaths,
       errors: errors.length > 0 ? errors : undefined,
     };
   }
@@ -221,5 +254,23 @@ export class VaultList {
       // If regex is invalid, return false
       return false;
     }
+  }
+
+  private shouldIncludeItemType({
+    child,
+    itemType,
+  }: {
+    child: TFile | TFolder;
+    itemType: ListItemType;
+  }): boolean {
+    if (itemType === 'both') {
+      return true;
+    }
+
+    if (itemType === 'files') {
+      return child instanceof TFile;
+    }
+
+    return child instanceof TFolder;
   }
 }

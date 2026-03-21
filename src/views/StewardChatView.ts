@@ -330,6 +330,13 @@ export class StewardChatView extends MarkdownView {
 
     const conversationFiles = folder.children
       .filter((f): f is TFile => f instanceof TFile && f.extension === 'md')
+      .filter(file => {
+        const cache = this.app.metadataCache.getFileCache(file);
+        if (cache?.frontmatter?.parent) {
+          return false;
+        }
+        return true;
+      })
       .sort((a, b) => {
         return b.stat.mtime - a.stat.mtime;
       })
@@ -341,14 +348,23 @@ export class StewardChatView extends MarkdownView {
 
     const lines: string[] = [];
     for (const file of conversationFiles) {
-      const cache = this.app.metadataCache.getFileCache(file);
-      const conversationTitle = cache?.frontmatter?.conversation_title;
-      const displayText = conversationTitle || file.basename;
+      const displayText = this.buildHistoryDisplayText(file);
       const linkPath = file.path.replace(/\.md$/, '');
-      lines.push(`- <a data-path="${linkPath}">${displayText}</a>`);
+      lines.push(`- <a class="stw-history-link" data-path="${linkPath}">${displayText}</a>`);
     }
 
     return lines.join('\n');
+  }
+
+  private buildHistoryDisplayText(file: TFile): string {
+    const cache = this.app.metadataCache.getFileCache(file);
+    const rawTitle = cache?.frontmatter?.conversation_title;
+    if (typeof rawTitle !== 'string' || !rawTitle.trim()) {
+      return file.basename;
+    }
+
+    // Wrap Obsidian tag-like tokens so they are rendered as plain text.
+    return rawTitle.replace(/(^|\s)(#[\p{L}\p{N}_/-]+)/gu, '$1`$2`');
   }
 
   /**

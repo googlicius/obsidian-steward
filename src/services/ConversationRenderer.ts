@@ -1,11 +1,10 @@
-import { getLanguage, parseYaml, TFile } from 'obsidian';
+import { parseYaml, TFile } from 'obsidian';
 import { uniqueID } from '../utils/uniqueID';
 import { getTranslation } from '../i18n';
 import { ConversationMessage, ConversationRole } from '../types/types';
 import type StewardPlugin from '../main';
 import { logger } from 'src/utils/logger';
 import {
-  SELECTED_MODEL_PATTERN,
   STW_SOURCE_PATTERN,
   STW_SOURCE_METADATA_PATTERN,
   CONFIRMATION_BUTTONS_PATTERN,
@@ -16,6 +15,7 @@ import { ToolCallPart, ToolResultPart } from 'src/solutions/commands/tools/types
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { ArtifactType, ReadContentArtifactImpl } from 'src/solutions/artifact';
 import { removeUndefined } from 'src/utils/removeUndefined';
+import { Events } from 'src/types/events';
 
 export class ConversationRenderer {
   static instance: ConversationRenderer;
@@ -32,22 +32,6 @@ export class ConversationRenderer {
       throw new Error('ConversationRenderer not initialized');
     }
     return ConversationRenderer.instance;
-  }
-
-  /**
-   * Extract selected model from a text using SELECTED_MODEL_PATTERN.
-   * Returns in the format "provider:modelId" or null if not found.
-   */
-  public extractSelectedModelFromText(text: string | undefined | null): string | null {
-    if (!text) return null;
-    const regex = new RegExp(SELECTED_MODEL_PATTERN, 'i');
-    const match = regex.exec(text);
-    if (!match) return null;
-
-    const provider = match[2];
-    const modelId = match[3];
-    if (!provider || !modelId) return null;
-    return `${provider}:${modelId}`;
   }
 
   /**
@@ -146,96 +130,6 @@ export class ConversationRenderer {
     return newContent;
   }
 
-  public async updateTheTitle(
-    title: string,
-    newTitle: string,
-    options?: {
-      strategy: 'vaultEvent' | 'cmDispatch';
-    }
-  ): Promise<string> {
-    const { strategy = 'cmDispatch' } = options || {};
-
-    const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
-
-    // Get the current file
-    const currentFile = this.plugin.app.vault.getFileByPath(`${folderPath}/${title}.md`);
-    const currentNote = this.plugin.app.workspace.getActiveFile();
-
-    if (!currentFile || !currentNote) {
-      return title;
-    }
-
-    const existingFile = this.plugin.app.vault.getFileByPath(`${folderPath}/${newTitle}.md`);
-    if (existingFile) {
-      await this.plugin.app.fileManager.trashFile(existingFile);
-    }
-
-    await this.plugin.app.fileManager.renameFile(currentFile, `${folderPath}/${newTitle}.md`);
-
-    const currentNoteContent = await this.plugin.app.vault.read(currentNote);
-    // Automatically updated by Obsidian
-    if (currentNoteContent.includes(`![[${newTitle}]]`)) {
-      return newTitle;
-    }
-
-    if (strategy === 'cmDispatch') {
-      const editorView = this.plugin.editor.cm;
-      const { state } = editorView;
-      const { doc } = state;
-
-      try {
-        const cursorPos = state.selection.main.head;
-        const cursorLine = doc.lineAt(cursorPos);
-
-        // Find the line 2 lines above the current cursor position
-        const targetLineNumber = Math.max(1, cursorLine.number - 2);
-        const targetLine = doc.line(targetLineNumber);
-
-        const lineText = targetLine.text;
-        const oldLinkText = `![[${folderPath}/${title}]]`;
-
-        if (lineText.includes(oldLinkText)) {
-          editorView.dispatch({
-            changes: {
-              from: targetLine.from,
-              to: targetLine.to,
-              insert: `![[${folderPath}/${newTitle}]]`,
-            },
-          });
-
-          logger.log(`Updated embed link to ${newTitle}`);
-
-          return newTitle;
-        } else {
-          logger.log(`No embed link found on line ${targetLineNumber} to update`);
-          return title;
-        }
-      } catch (error) {
-        logger.error('Error updating embed link with CodeMirror dispatch:', error);
-        return title;
-      }
-    } else {
-      return new Promise(resolve => {
-        const eventRef = this.plugin.app.vault.on('modify', async file => {
-          if (file instanceof TFile && file.path === currentNote.path) {
-            // Off ref immediately
-            await this.plugin.app.vault.process(file, currentContent => {
-              return currentContent.replace(`${folderPath}/${title}`, `${folderPath}/${newTitle}`);
-            });
-            this.plugin.app.vault.offref(eventRef);
-            resolve(newTitle);
-          }
-        });
-
-        // Ensure the event is off
-        setTimeout(() => {
-          this.plugin.app.vault.offref(eventRef);
-          resolve(newTitle);
-        }, 3000);
-      });
-    }
-  }
-
   /**
    * Serialize tool calls to a conversation note.
    * The result could be inlined or referenced to a message or an artifact.
@@ -265,21 +159,9 @@ export class ConversationRenderer {
 
       // Process the file content
       await this.plugin.app.vault.process(file, currentContent => {
-        const indicator = this.getGeneratingIndicator(currentContent);
-
-        // Remove the generating indicator and any trailing newlines
-        currentContent = this.removeGeneratingIndicator(currentContent);
-
         let contentToAdd = params.text ? `${params.text}\n` : '';
 
         contentToAdd += `\`\`\`stw-artifact\n${JSON.stringify(params.toolInvocations)}\n\`\`\``;
-
-        // Preserve the generating indicator if exists
-        const shouldKeepIndicator = indicator && !params.text;
-        if (shouldKeepIndicator) {
-          contentToAdd += indicator;
-        }
-
         return `${currentContent}\n\n${comment}\n${contentToAdd}`;
       });
 
@@ -513,34 +395,17 @@ export class ConversationRenderer {
         step: params.step,
       });
 
-      // Update model property in the frontmatter if a selected model is found
-      const selectedModel = this.extractSelectedModelFromText(params.newContent);
-      if (selectedModel) {
-        await this.updateConversationFrontmatter(params.path, [
-          { name: 'model', value: selectedModel },
-        ]);
-      }
-
       // Determine content format (default to 'callout' for user messages)
       const format = params.contentFormat ?? 'callout';
 
       // Process the file content
       await this.plugin.app.vault.process(file, currentContent => {
-        const indicator = this.getGeneratingIndicator(currentContent);
-        // Remove the generating indicator and any trailing newlines
-        currentContent = this.removeGeneratingIndicator(currentContent);
-
         // Format the user message content
         let contentToAdd = '';
         if (format === 'hidden') {
           // Escape backticks in content to prevent breaking the code block
           const escapedContent = params.newContent.replace(/`/g, '\\`');
           contentToAdd = `\`\`\`stw-hidden-from-user\n${escapedContent}\n\`\`\``;
-
-          // Preserve the generating indicator if exists
-          if (indicator) {
-            contentToAdd += indicator;
-          }
         } else {
           // Add separator before user message
           currentContent = `${currentContent}\n\n---`;
@@ -659,9 +524,6 @@ export class ConversationRenderer {
 
       // Process the file content
       await this.plugin.app.vault.process(file, currentContent => {
-        // Remove the generating indicator and any trailing newlines
-        currentContent = this.removeGeneratingIndicator(currentContent);
-
         let processedArtifactContent = '';
         if (params.artifactContent) {
           // Escape backticks in artifact content to prevent breaking the code block
@@ -773,9 +635,6 @@ export class ConversationRenderer {
 
       // Write the initial content
       await this.plugin.app.vault.process(file, currentContent => {
-        // Remove the generating indicator and any trailing newlines
-        currentContent = this.removeGeneratingIndicator(currentContent);
-
         // Prepare the initial content with metadata
         const initialContent = `${currentContent}\n\n${comment}\n${roleText}`;
 
@@ -955,42 +814,70 @@ export class ConversationRenderer {
   }
 
   /**
-   * Adds a generating indicator to a conversation note
+   * Shows the generating indicator via DOM event.
    */
   public async addGeneratingIndicator(path: string, indicatorText: string): Promise<void> {
-    const file = this.getConversationFileByName(path);
-
-    await this.plugin.app.vault.process(file, currentContent => {
-      currentContent = this.removeGeneratingIndicator(currentContent);
-      return `${currentContent}\n\n*${indicatorText}*`;
+    this.emitConversationIndicatorChanged({
+      conversationPath: path,
+      active: true,
+      indicatorText,
     });
   }
 
   /**
-   * Gets the generating indicator from the end of the content if it exists
-   * @returns The indicator string (including leading newlines) or empty string if not found
+   * Hides the generating indicator via DOM event.
    */
-  public getGeneratingIndicator(content: string): string {
-    const indicatorMatch = content.match(/(\n\n\*.*?\.\.\.\*)$/);
-    return indicatorMatch ? indicatorMatch[1] : '';
-  }
-
-  /**
-   * Removes the generating indicator from the content
-   */
-  public removeGeneratingIndicator(content: string): string {
-    return content.replace(/\n\n\*.*?\.\.\.\*$/, '');
-  }
-
-  /**
-   * Removes the generating indicator from the conversation note
-   */
-  public removeIndicator(title: string): Promise<string> {
-    const file = this.getConversationFileByName(title);
-
-    return this.plugin.app.vault.process(file, currentContent => {
-      return this.removeGeneratingIndicator(currentContent);
+  public async removeIndicator(title: string): Promise<void> {
+    this.emitConversationIndicatorChanged({
+      conversationPath: title,
+      active: false,
     });
+    this.updateConversationFrontmatter(title, [
+      {
+        name: 'indicator_text',
+        value: undefined,
+      },
+    ]);
+  }
+
+  public getIndicatorTextByIntentType(intentType: string, language?: string): string {
+    const t = getTranslation(language);
+
+    if (intentType === 'search') {
+      return t('conversation.searching');
+    }
+
+    if (intentType === 'image') {
+      return t('conversation.generatingImage');
+    }
+
+    if (intentType === 'audio' || intentType === 'speech') {
+      return t('conversation.generatingAudio');
+    }
+
+    if (intentType === 'worker') {
+      return t('conversation.working');
+    }
+
+    return t('conversation.planning');
+  }
+
+  private emitConversationIndicatorChanged(params: {
+    conversationPath: string;
+    active: boolean;
+    indicatorText?: string;
+  }): void {
+    document.dispatchEvent(
+      new CustomEvent(Events.CONVERSATION_INDICATOR_CHANGED, {
+        detail: {
+          conversationPath: params.conversationPath,
+          active: params.active,
+          ...(params.indicatorText && {
+            indicatorText: params.indicatorText,
+          }),
+        },
+      })
+    );
   }
 
   /**
@@ -998,9 +885,13 @@ export class ConversationRenderer {
    */
   public async createConversationNote(
     title: string,
-    commandType: string,
-    content: string,
-    language?: string
+    options: {
+      properties?: Array<{ name: string; value: unknown }>;
+      intent: {
+        type: string;
+        query: string;
+      };
+    }
   ): Promise<void> {
     try {
       // Get the configured folder for conversations
@@ -1016,65 +907,30 @@ export class ConversationRenderer {
       // Generate a message ID
       const messageId = uniqueID();
 
-      // Get translation function with the appropriate language
-      const t = getTranslation(language);
-
-      // Determine model: from query if present, otherwise from settings
-      const modelFromQuery = this.extractSelectedModelFromText(content);
-
-      const properties = [
-        { name: 'model', value: modelFromQuery || this.plugin.settings.llm.chat.model },
-        { name: 'lang', value: language || getLanguage() },
+      const frontmatterProperties = [
+        { name: 'model', value: this.plugin.settings.llm.chat.model },
+        ...(options.properties || []),
       ];
 
       const activeNote = this.plugin.app.workspace.getActiveFile();
 
       if (activeNote && !activeNote.name.includes(this.plugin.chatTitle)) {
-        properties.push({ name: 'current_note', value: activeNote.name });
+        frontmatterProperties.push({ name: 'current_note', value: activeNote.name });
       }
 
       // Create YAML frontmatter with model, current_note, and language
-      const frontmatter = `---\n${properties.map(property => `${property.name}: ${property.value}`).join('\n')}\n---\n\n`;
+      const frontmatter = `---\n${frontmatterProperties.map(property => `${property.name}: ${property.value}`).join('\n')}\n---\n\n`;
 
       // Format user message as a callout with the role text
       const userMessage = this.plugin.noteContentService.formatCallout(
-        `${this.formatRoleText('User')}/${commandType.trim()} ${content}`,
+        `${this.formatRoleText('User')}/${options.intent.type.trim()} ${options.intent.query}`,
         'stw-user-message',
         { id: messageId }
       );
 
-      // Build initial content based on command type
-      let initialContent =
+      const initialContent =
         frontmatter +
-        `<!--STW ID:${messageId},ROLE:user,COMMAND:${commandType},HISTORY:false-->\n${userMessage}\n\n`;
-
-      switch (commandType) {
-        case 'search':
-          initialContent += `*${t('conversation.searching')}*`;
-          break;
-
-        case 'calc':
-          initialContent += `*${t('conversation.calculating')}*`;
-          break;
-
-        case 'image':
-          initialContent += `*${t('conversation.generatingImage')}*`;
-          break;
-
-        case 'audio':
-        case 'speak':
-          initialContent += `*${t('conversation.generatingAudio')}*`;
-          break;
-
-        case 'update':
-          initialContent += `*${t('conversation.updating')}*`;
-          break;
-
-        case ' ':
-        default:
-          initialContent += `*${t('conversation.planning')}*`;
-          break;
-      }
+        `<!--STW ID:${messageId},ROLE:user,COMMAND:${options.intent.type},HISTORY:false-->\n${userMessage}\n\n`;
 
       // Remove the conversation note if exist
       const existingFile = this.plugin.app.vault.getFileByPath(notePath);
@@ -1086,7 +942,7 @@ export class ConversationRenderer {
       await this.plugin.app.vault.create(notePath, initialContent);
 
       // Automatically create STW_SOURCE artifact if stw-source blocks are present
-      await this.createStwSourceArtifactIfPresent(title, content);
+      await this.createStwSourceArtifactIfPresent(title, options.intent.query);
     } catch (error) {
       logger.error('Error creating conversation note:', error);
       throw error;
@@ -2023,14 +1879,18 @@ export class ConversationRenderer {
    */
   public async updateConversationFrontmatter(
     conversationTitle: string,
-    properties: Array<{ name: string; value: unknown }>
+    properties: Array<{ name: string; value?: unknown; delete?: boolean }>
   ): Promise<boolean> {
     try {
       const file = this.getConversationFileByName(conversationTitle);
 
       await this.plugin.app.fileManager.processFrontMatter(file, frontmatter => {
-        for (const { name, value } of properties) {
-          frontmatter[name] = value;
+        for (const prop of properties) {
+          if (prop.delete) {
+            delete frontmatter[prop.name];
+            continue;
+          }
+          frontmatter[prop.name] = prop.value;
         }
       });
 
@@ -2113,7 +1973,6 @@ export class ConversationRenderer {
       }
 
       await this.plugin.app.vault.process(file, currentContent => {
-        currentContent = this.removeGeneratingIndicator(currentContent);
         return this.sanitizeConversationContent(currentContent);
       });
 

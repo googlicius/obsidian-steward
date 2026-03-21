@@ -104,7 +104,6 @@ export class ConversationEventHandler {
         lang: payload.lang,
       },
       {
-        skipIndicators: true,
         sendToDownstream: {
           isReloadRequest: false,
         },
@@ -113,7 +112,7 @@ export class ConversationEventHandler {
   }
 
   /**
-   * Fire-and-forget: generate an AI title for the conversation and store it in frontmatter.
+   * Fire-and-forget: Generate and persist an AI title (and optionally language) for the conversation.
    */
   private generateConversationTitle(payload: ConversationLinkInsertedPayload): void {
     const titleAgent = new ConversationTitleAgent(this.plugin);
@@ -121,7 +120,6 @@ export class ConversationEventHandler {
       .generate({
         title: payload.title,
         query: payload.intentQuery,
-        lang: payload.lang,
       })
       .catch(error => {
         logger.error('Failed to generate conversation title:', error);

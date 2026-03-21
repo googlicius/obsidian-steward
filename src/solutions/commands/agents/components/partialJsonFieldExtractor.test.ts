@@ -234,7 +234,7 @@ describe('PartialJsonFieldExtractor', () => {
     it('should extract content from newFiles entry', () => {
       const extractor = new PartialJsonFieldExtractor('content');
       const json =
-        '{"folder":"notes","newFiles":[{"fileName":"test.md","content":"# Title\\n\\nBody text"}]}';
+        '{"newFolders":["notes"],"newFiles":[{"filePath":"notes/test.md","content":"# Title\\n\\nBody text"}]}';
       const result = extractor.feed(json);
       expect(result).toBe('# Title\n\nBody text');
     });
@@ -242,7 +242,7 @@ describe('PartialJsonFieldExtractor', () => {
     it('should extract content from multiple files', () => {
       const extractor = new PartialJsonFieldExtractor('content');
       const json =
-        '{"folder":"notes","newFiles":[{"fileName":"a.md","content":"File A"},{"fileName":"b.md","content":"File B"}]}';
+        '{"newFiles":[{"filePath":"notes/a.md","content":"File A"},{"filePath":"notes/b.md","content":"File B"}]}';
       const result = extractor.feed(json);
       expect(result).toBe('File AFile B');
     });
@@ -250,7 +250,7 @@ describe('PartialJsonFieldExtractor', () => {
     it('should handle file without content', () => {
       const extractor = new PartialJsonFieldExtractor('content');
       const json =
-        '{"folder":"notes","newFiles":[{"fileName":"empty.md"},{"fileName":"full.md","content":"has content"}]}';
+        '{"newFiles":[{"filePath":"notes/empty.md"},{"filePath":"notes/full.md","content":"has content"}]}';
       const result = extractor.feed(json);
       expect(result).toBe('has content');
     });

@@ -13,17 +13,19 @@ import {
 
 const RULES_FOLDER_NAME = 'Rules';
 
-const TOOL_TO_ACTION: Partial<Record<ToolName, GuardrailsAction>> = {
-  [ToolName.CONTENT_READING]: 'read',
-  [ToolName.LIST]: 'list',
-  [ToolName.CREATE]: 'create',
-  [ToolName.DELETE]: 'delete',
-  [ToolName.GREP]: 'grep',
-  [ToolName.EDIT]: 'edit',
-  [ToolName.MOVE]: 'move',
-  [ToolName.RENAME]: 'rename',
-  [ToolName.COPY]: 'copy',
-  [ToolName.UPDATE_FRONTMATTER]: 'update_frontmatter',
+const TOOL_TO_ACTIONS: Partial<Record<ToolName, GuardrailsAction[]>> = {
+  [ToolName.CONTENT_READING]: ['read'],
+  [ToolName.LIST]: ['list'],
+  [ToolName.SEARCH]: ['list'],
+  [ToolName.CREATE]: ['create'],
+  [ToolName.DELETE]: ['delete'],
+  [ToolName.GREP]: ['read'],
+  [ToolName.EXISTS]: ['read', 'list'],
+  [ToolName.EDIT]: ['edit'],
+  [ToolName.MOVE]: ['move'],
+  [ToolName.RENAME]: ['rename'],
+  [ToolName.COPY]: ['copy'],
+  [ToolName.UPDATE_FRONTMATTER]: ['edit'],
 };
 
 export class GuardrailsRuleService {
@@ -226,12 +228,16 @@ export class GuardrailsRuleService {
     return this.rules.filter(r => r.enabled !== false);
   }
 
+  public getAllRules(): GuardrailsRule[] {
+    return [...this.rules];
+  }
+
   public getRulesForTool(toolName: ToolName): GuardrailsRule[] {
-    const action = TOOL_TO_ACTION[toolName];
-    if (!action) return [];
+    const actions = TOOL_TO_ACTIONS[toolName];
+    if (!actions) return [];
 
     const enabled = this.getRules();
-    return enabled.filter(rule => rule.actions.includes(action));
+    return enabled.filter(rule => actions.some(action => rule.actions.includes(action)));
   }
 
   public getInstructionsForTool(toolName: ToolName): string[] {
@@ -245,7 +251,7 @@ export class GuardrailsRuleService {
 
   public getInstructionsByTool(): Map<ToolName, string[]> {
     const map = new Map<ToolName, string[]>();
-    const toolNames = Object.keys(TOOL_TO_ACTION) as ToolName[];
+    const toolNames = Object.keys(TOOL_TO_ACTIONS) as ToolName[];
     for (const toolName of toolNames) {
       const instructions = this.getInstructionsForTool(toolName);
       if (instructions.length > 0) {

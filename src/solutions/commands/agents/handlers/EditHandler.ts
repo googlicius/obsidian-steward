@@ -1,6 +1,6 @@
 import { normalizePath } from 'obsidian';
-import { type SuperAgent } from '../SuperAgent';
-import { type ToolContentStreamInfo } from '../SuperAgent/SuperAgentToolContentStream';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
+import { type ToolContentStreamInfo } from '../components';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { createEditTool, EditArgs } from '../../tools/editContent';
@@ -10,7 +10,7 @@ import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 
 export class EditHandler {
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public static getEditTool(contentType: 'in_the_note' | 'in_the_chat') {
     const { editTool } = createEditTool({ contentType });
@@ -29,10 +29,14 @@ export class EditHandler {
 
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolCallPart<EditArgs>; toolContentStreamInfo?: ToolContentStreamInfo }
+    options: {
+      toolCall: ToolCallPart<EditArgs>;
+      toolContentStreamInfo?: ToolContentStreamInfo;
+      continueFromNextTool?: () => Promise<AgentResult>;
+    }
   ): Promise<AgentResult> {
     const { title, intent, lang } = params;
-    const { toolCall, toolContentStreamInfo } = options;
+    const { toolCall, toolContentStreamInfo, continueFromNextTool } = options;
     const t = getTranslation(lang);
 
     if (!params.handlerId) {
@@ -121,6 +125,7 @@ export class EditHandler {
           handlerId,
           step: params.invocationCount,
           toolCall,
+          continueFromNextTool,
         });
       },
       onRejection: async () => {
@@ -140,6 +145,11 @@ export class EditHandler {
             },
           ],
         });
+
+        if (continueFromNextTool) {
+          return continueFromNextTool();
+        }
+
         return {
           status: IntentResultStatus.SUCCESS,
         };
@@ -198,8 +208,9 @@ export class EditHandler {
     handlerId: string;
     step?: number;
     toolCall: ToolCallPart<EditArgs>;
+    continueFromNextTool?: () => Promise<AgentResult>;
   }): Promise<AgentResult> {
-    const { title, filesToOperations, lang } = params;
+    const { title, filesToOperations, lang, continueFromNextTool } = params;
     const t = getTranslation(lang);
 
     const updatedFiles: string[] = [];
@@ -323,6 +334,10 @@ export class EditHandler {
       ],
     });
 
+    if (continueFromNextTool) {
+      return continueFromNextTool();
+    }
+
     return {
       status: failedFiles.length > 0 ? IntentResultStatus.ERROR : IntentResultStatus.SUCCESS,
       error:
@@ -399,7 +414,7 @@ export class EditHandler {
     // Replace the temp embed callout with the final preview in the conversation note
     const tempEmbed = this.agent.plugin.noteContentService.formatCallout(
       `![[${toolContentStreamInfo.tempFilePath}]]`,
-      'stw-edit-preview',
+      'stw-review',
       { streaming: 'true' }
     );
 
@@ -439,7 +454,7 @@ export class EditHandler {
       }
     }
 
-    return this.agent.plugin.noteContentService.formatCallout(preview.trim(), 'stw-edit-preview');
+    return this.agent.plugin.noteContentService.formatCallout(preview.trim(), 'stw-review');
   }
 
   /**

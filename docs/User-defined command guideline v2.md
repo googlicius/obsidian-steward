@@ -25,7 +25,8 @@ For commands that require user input:
 ```yaml
 command_name: ask
 query_required: true
-use_tool: false
+tools:
+  - switch_agent_capacity
 system_prompt:
   - '[[#Instructions]]'
 steps:
@@ -40,7 +41,7 @@ steps:
 - `query_required`: (optional, boolean) If true, the command requires user input after the prefix
 - `model`: (optional, string) The model to use for all steps in this command
 - `system_prompt`: (optional, array) Add additional system prompts that apply to all steps in this command (see [[#Adding system prompts]])
-- `use_tool`: (optional, boolean) If false, do not send the tool usage instructions
+- `tools`: (optional, array of tool names) Limits which Super Agent tools this command may use. Omit for the full tool set. Use `[switch_agent_capacity]` for conversational-only commands until the user switches to full agent mode. If more than five tools are listed, `activate_tools` is included automatically when missing so optional tools can be activated during the run.
 - `hidden`: (optional, boolean) If true, the command will not appear in the command menu
 - `triggers`: (optional, array) Automatically execute commands when files match specified criteria (see [[#Automated triggers]])
 - `steps`: The sequence of built-in or user-defined commands to execute

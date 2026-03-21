@@ -1,4 +1,5 @@
-import { Notice, Plugin, WorkspaceLeaf, addIcon } from 'obsidian';
+import 'reflect-metadata';
+import { Notice, Plugin, WorkspaceLeaf, addIcon, getLanguage } from 'obsidian';
 import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
@@ -9,11 +10,11 @@ import { createUserMessageButtonsProcessor } from './post-processors/UserMessage
 import { createCalloutMetadataProcessor } from './post-processors/CalloutMetadataProcessor';
 import { createStwSourcePostProcessor } from './post-processors/StwSourcePostProcessor';
 import { createStewardConversationProcessor } from './post-processors/StewardConversationProcessor';
-import { createSelectedModelProcessor } from './post-processors/SelectedModelProcessor';
+import { createHistoryPostProcessor } from './post-processors/HistoryPostProcessor';
 import { createThinkingProcessPostProcessor } from './post-processors/ThinkingProcessPostProcessor';
 import { createConfirmationButtonsProcessor } from './post-processors/ConfirmationButtonsProcessor';
-import { createHistoryItemPostProcessor } from './post-processors/HistoryItemPostProcessor';
 import { createCalloutEditPreviewPostProcessor } from './post-processors/CalloutEditPreviewPostProcessor';
+import { createConversationIndicatorProcessor } from './post-processors/ConversationIndicatorProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -62,6 +63,7 @@ import { GitHubResourceService } from './services/GitHubResourceService';
 import { SkillService } from './services/SkillService';
 import { GuardrailsRuleService } from './services/GuardrailsRuleService/GuardrailsRuleService';
 import { CompactionOrchestrator } from './solutions/compaction';
+import { SubagentSpawnService } from './services/SubagentSpawnService';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -91,6 +93,7 @@ export default class StewardPlugin extends Plugin {
   _versionCheckerService: VersionCheckerService;
   _userMessageService: UserMessageService;
   _compactionOrchestrator: CompactionOrchestrator;
+  _subAgentSpawnService: SubagentSpawnService;
 
   get commandInputService(): CommandInputService {
     if (!this._commandInputService) {
@@ -202,6 +205,13 @@ export default class StewardPlugin extends Plugin {
       this._guardrailsRuleService = GuardrailsRuleService.getInstance(this);
     }
     return this._guardrailsRuleService;
+  }
+
+  get subAgentSpawnService(): SubagentSpawnService {
+    if (!this._subAgentSpawnService) {
+      this._subAgentSpawnService = new SubagentSpawnService(this);
+    }
+    return this._subAgentSpawnService;
   }
 
   get compactionOrchestrator(): CompactionOrchestrator {
@@ -455,17 +465,17 @@ export default class StewardPlugin extends Plugin {
 
     this.registerMarkdownPostProcessor(createUserMessageButtonsProcessor(this));
 
+    this.registerMarkdownPostProcessor(createConversationIndicatorProcessor(this));
+
     this.registerMarkdownPostProcessor(createStewardConversationProcessor(this));
 
     this.registerMarkdownPostProcessor(createStwSourcePostProcessor(this));
-
-    this.registerMarkdownPostProcessor(createSelectedModelProcessor());
 
     this.registerMarkdownPostProcessor(createThinkingProcessPostProcessor());
 
     this.registerMarkdownPostProcessor(createConfirmationButtonsProcessor(this));
 
-    this.registerMarkdownPostProcessor(createHistoryItemPostProcessor(this));
+    this.registerMarkdownPostProcessor(createHistoryPostProcessor(this));
 
     // Register the custom view type
     this.registerView(STW_CHAT_VIEW_CONFIG.type, leaf => new StewardChatView(leaf, this));
@@ -792,13 +802,6 @@ export default class StewardPlugin extends Plugin {
 
     (async () => {
       try {
-        // Extract and update settings if a selected model is found in the query
-        const selectedModel =
-          this.conversationRenderer.extractSelectedModelFromText(fullCommandText);
-        if (selectedModel) {
-          this.settings.llm.chat.model = selectedModel;
-          await this.saveSettings();
-        }
         // Look for a conversation link in the previous lines
         const conversationTitle = this.findConversationTitleAbove(view);
 
@@ -848,7 +851,21 @@ export default class StewardPlugin extends Plugin {
           ? capitalizeString(intentType)
           : `${capitalizeString(intentType.trim()) || 'General'} ${formattedDate}`;
 
-        await this.conversationRenderer.createConversationNote(title, intentType, intentQuery);
+        const conversationLanguage = getLanguage();
+        const indicatorText = this.conversationRenderer.getIndicatorTextByIntentType(
+          intentType,
+          conversationLanguage
+        );
+        await this.conversationRenderer.createConversationNote(title, {
+          intent: {
+            type: intentType,
+            query: intentQuery,
+          },
+          properties: [
+            { name: 'lang', value: conversationLanguage },
+            { name: 'indicator_text', value: indicatorText },
+          ],
+        });
 
         // Insert the conversation link directly here instead of using the event
         const linkText = `![[${this.settings.stewardFolder}/Conversations/${title}]]\n\n`;
@@ -879,6 +896,12 @@ export default class StewardPlugin extends Plugin {
           // We don't know the language here, the extraction will update it later
         });
 
+        // Render indicator
+        // setTimeout(() => {
+        //   const indicatorText = this.conversationRender.getIndicatorTextByCommandType(intentType);
+        //   this.conversationRender.addGeneratingIndicator(title, indicatorText);
+        // });
+
         return true;
       } catch (error) {
         logger.error('Error in handleEnter:', error);
@@ -887,104 +910,6 @@ export default class StewardPlugin extends Plugin {
     })();
 
     return true;
-  }
-
-  /**
-   * Handle typing in command input to trigger summarization when appropriate
-   */
-  private async handleTyping(event: KeyboardEvent, view: EditorView): Promise<void> {
-    const { state } = view;
-    const { doc, selection } = state;
-
-    const line = doc.lineAt(selection.main.head);
-
-    if ('general' !== this.commandInputService.getInputPrefix(line, doc)) {
-      return;
-    }
-
-    const conversationTitle = this.findConversationTitleAbove(view);
-
-    if (!conversationTitle) return;
-
-    try {
-      // Check if we need to generate a summary
-      await this.checkAndGenerateSummary(conversationTitle, view, line);
-    } catch (error) {
-      logger.error('Error in handleTyping:', error);
-    }
-  }
-
-  /**
-   * Check if we need to generate a summary and do so if needed
-   * @param conversationTitle The conversation title
-   */
-  private async checkAndGenerateSummary(
-    conversationTitle: string,
-    view: EditorView,
-    line: Line
-  ): Promise<void> {
-    try {
-      if (this.commandProcessorService.isProcessing(conversationTitle)) {
-        logger.log('Commands are in processing, skipping summary generation');
-        return;
-      }
-
-      // Get all messages from the conversation
-      const allMessages =
-        await this.conversationRenderer.extractAllConversationMessages(conversationTitle);
-
-      let shouldRunSummary = false;
-
-      // Check messages from newest to oldest
-      for (let i = allMessages.length - 1; i >= 0; i--) {
-        const message = allMessages[i];
-
-        // If we find a summary message first, no need to generate a new summary
-        if (message.intent === 'summary') {
-          break;
-        }
-
-        // Stopped generation, no need to summarize
-        if (message.intent === 'stop') {
-          break;
-        }
-
-        // If we find a generate message first, we need to generate a summary
-        if (message.intent === 'generate') {
-          const commandBlock = this.commandInputService.getCommandBlock(view, line);
-          const fullCommandText = this.commandInputService.getCommandBlockContent(commandBlock);
-
-          if (fullCommandText.substring(2) !== '') {
-            shouldRunSummary = true;
-          }
-          break;
-        }
-      }
-
-      if (shouldRunSummary) {
-        logger.log('Generating summary for conversation:', conversationTitle);
-
-        await this.commandProcessorService.commandProcessor.processCommandInIsolation(
-          {
-            title: conversationTitle,
-            intents: [
-              {
-                type: 'summary',
-                query: '',
-              },
-            ],
-          },
-          'summary',
-          {
-            skipIndicators: true,
-          }
-        );
-
-        logger.log('Summary generated successfully for conversation:', conversationTitle);
-      }
-    } catch (error) {
-      logger.error('Error checking and generating summary:', error);
-    }
   }
 
   /**
@@ -1160,7 +1085,7 @@ export default class StewardPlugin extends Plugin {
    * Stop all running operations
    * Can be called from ESC key or stop command
    */
-  public stopOperations(): void {
+  private stopOperations(): void {
     const activeOperationsCount = this.abortService.getActiveOperationsCount();
 
     if (activeOperationsCount > 0) {
@@ -1172,11 +1097,14 @@ export default class StewardPlugin extends Plugin {
     }
   }
 
-  // Function to find a conversation title in the lines above the current cursor
-  findConversationTitleAbove(view: EditorView): string | null {
+  // Function to find a conversation title in the lines above a target line
+  public findConversationTitleAbove(view: EditorView, fromLineNumber?: number): string | null {
     const { state } = view;
     const { doc, selection } = state;
-    const currentLine = doc.lineAt(selection.main.head);
+    const currentLine =
+      fromLineNumber && fromLineNumber > 0
+        ? doc.line(Math.min(fromLineNumber, doc.lines))
+        : doc.lineAt(selection.main.head);
 
     // Check up to 10 lines above the current one
     let lineNumber = currentLine.number - 1;
@@ -1198,6 +1126,23 @@ export default class StewardPlugin extends Plugin {
     return null;
   }
 
+  public async getCurrentConversationModelLabel(params: {
+    conversationTitle: string;
+    forceRefresh?: boolean;
+  }): Promise<string> {
+    const conversationModel = await this.conversationRenderer.getConversationProperty<string>(
+      params.conversationTitle,
+      'model',
+      params.forceRefresh
+    );
+
+    if (conversationModel) {
+      return this.llmService.formatModelLabel(conversationModel);
+    }
+
+    return this.llmService.formatModelLabel(this.settings.llm.chat.model);
+  }
+
   async getMainLeaf(): Promise<WorkspaceLeaf> {
     return this.app.workspace.getMostRecentLeaf() ?? this.app.workspace.getLeaf();
   }
@@ -1206,7 +1151,7 @@ export default class StewardPlugin extends Plugin {
    * Excludes specified folders from Obsidian search and updates the SearchService
    * @param foldersToExclude - Array of folder names to exclude from search
    */
-  async excludeFoldersFromSearch(foldersToExclude: string[]): Promise<void> {
+  private async excludeFoldersFromSearch(foldersToExclude: string[]): Promise<void> {
     try {
       // Get the app's config
       // @ts-ignore - Accessing internal Obsidian API

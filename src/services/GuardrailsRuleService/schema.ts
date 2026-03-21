@@ -6,11 +6,9 @@ const guardrailsActionSchema = z.enum([
   'create',
   'edit',
   'delete',
-  'grep',
   'move',
   'rename',
   'copy',
-  'update_frontmatter',
 ]);
 
 export const guardrailsRuleFrontmatterSchema = z.object({

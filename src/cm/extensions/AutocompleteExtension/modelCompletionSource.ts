@@ -1,8 +1,8 @@
 import { CompletionContext, CompletionResult, Completion } from '@codemirror/autocomplete';
-import { COMMAND_PREFIXES, LLM_MODELS } from 'src/constants';
+import { EditorView } from '@codemirror/view';
+import { LLM_MODELS, SELECTED_MODEL_PREFIX_PATTERN, TWO_SPACES_PREFIX } from 'src/constants';
 import type StewardPlugin from 'src/main';
-
-const MODEL_SELECTOR_PATTERN = '^(m|model):';
+import { Events, type ModelChangedPayload } from 'src/types/events';
 
 function getAllModels(plugin: StewardPlugin): Array<{ id: string; name: string }> {
   const customModels: string[] = (plugin.settings.llm.chat.customModels as string[]) || [];
@@ -16,97 +16,99 @@ function getAllModels(plugin: StewardPlugin): Array<{ id: string; name: string }
   ];
 }
 
-function isModelSelectorPattern(text: string): boolean {
-  const regex = new RegExp(MODEL_SELECTOR_PATTERN, 'i');
-  return regex.test(text);
-}
-
 export function createModelCompletionSource(plugin: StewardPlugin) {
-  return (context: CompletionContext): CompletionResult | null => {
-    const { state, pos } = context;
-    const line = state.doc.lineAt(pos);
-    const lineText = line.text;
+  /**
+   * Persist the selected model in the setting for new conversation or in the conversation note frontmatter for the current chat.
+   */
+  async function persistSelectedModel(
+    view: EditorView,
+    selectedModel: string,
+    lineNumber: number
+  ): Promise<void> {
+    const conversationTitle = plugin.findConversationTitleAbove(view, lineNumber);
+    const folderPath = `${plugin.settings.stewardFolder}/Conversations`;
+    const notePath = `${folderPath}/${conversationTitle}.md`;
+    const hasCurrentConversation = conversationTitle && plugin.app.vault.getFileByPath(notePath);
 
-    if (!lineText.startsWith('/')) return null;
-
-    const matchedBuiltInCommand = COMMAND_PREFIXES.find(prefix => {
-      if (prefix === '/ ') {
-        return lineText === '/ ' || lineText.startsWith('/ ');
-      }
-      return lineText === prefix + ' ' || lineText.startsWith(prefix + ' ');
-    });
-
-    let afterCommand: string;
-    let commandLength: number;
-
-    if (matchedBuiltInCommand) {
-      afterCommand =
-        matchedBuiltInCommand === '/ '
-          ? lineText.substring(2)
-          : lineText.substring(matchedBuiltInCommand.length + 1);
-      commandLength = matchedBuiltInCommand === '/ ' ? 2 : matchedBuiltInCommand.length + 1;
-    } else {
-      const customCommands = plugin.userDefinedCommandService.getCommandNames();
-      const matchedCustomCommand = customCommands.find((cmd: string) => {
-        const commandPrefix = '/' + cmd;
-        return lineText === commandPrefix + ' ' || lineText.startsWith(commandPrefix + ' ');
-      });
-
-      if (!matchedCustomCommand) return null;
-
-      const commandPrefix = '/' + matchedCustomCommand;
-      afterCommand = lineText.substring(commandPrefix.length + 1);
-      commandLength = commandPrefix.length + 1;
+    if (hasCurrentConversation) {
+      await plugin.conversationRenderer.updateConversationFrontmatter(conversationTitle, [
+        { name: 'model', value: selectedModel },
+      ]);
+      return;
     }
 
-    if (!isModelSelectorPattern(afterCommand)) return null;
+    plugin.settings.llm.chat.model = selectedModel;
+    await plugin.saveSettings();
+  }
 
-    const modelSelectorMatch = afterCommand.match(new RegExp(MODEL_SELECTOR_PATTERN, 'i'));
-    if (!modelSelectorMatch || modelSelectorMatch.index === undefined) return null;
+  return (context: CompletionContext): CompletionResult | null => {
+    const line = context.state.doc.lineAt(context.pos);
 
-    const selectorStart = line.from + commandLength + modelSelectorMatch.index;
-    const selectorLength = modelSelectorMatch[0].length;
+    const inputPrefix = plugin.commandInputService.getInputPrefix(line, context.state.doc);
+    if (!inputPrefix) return null;
+
+    const contentStart = line.text.startsWith(TWO_SPACES_PREFIX)
+      ? TWO_SPACES_PREFIX.length
+      : line.text.indexOf(' ') + 1;
+
+    const lineContent = line.text.substring(contentStart);
+    const modelPattern = new RegExp(SELECTED_MODEL_PREFIX_PATTERN, 'gi');
+    const matches = Array.from(lineContent.matchAll(modelPattern));
+
+    if (matches.length === 0) return null;
+
+    const lastMatch = matches[matches.length - 1];
+    const lastMatchIndex = lastMatch.index ?? 0;
+    const afterMatch = lineContent.slice(lastMatchIndex + lastMatch[0].length);
+
+    if (lastMatchIndex > 0 && lineContent[lastMatchIndex - 1] !== ' ') return null;
+    if (afterMatch.includes(' ')) return null;
 
     const allModels = getAllModels(plugin);
-
-    const modelNameCounts = new Map<string, number>();
-    for (const model of allModels) {
-      const { modelId } = plugin.llmService.parseModel(model.id);
-      modelNameCounts.set(modelId, (modelNameCounts.get(modelId) || 0) + 1);
-    }
-
-    const options: Completion[] = [];
     const currentModel = plugin.settings.llm.chat.model;
 
-    for (const model of allModels) {
+    const duplicateIds = new Set(
+      allModels
+        .map(m => plugin.llmService.parseModel(m.id).modelId)
+        .filter((id, _, arr) => arr.indexOf(id) !== arr.lastIndexOf(id))
+    );
+
+    const options: Completion[] = allModels.map(model => {
       const { provider, modelId } = plugin.llmService.parseModel(model.id);
-      const isCurrentModel = model.id === currentModel;
-      const currentText = isCurrentModel ? ' (Current)' : '';
-
-      const isDuplicate = (modelNameCounts.get(modelId) || 0) > 1;
-      const displayName = isDuplicate ? `${modelId} - ${provider}` : modelId;
-
+      const isCurrent = model.id === currentModel;
+      const displayName = duplicateIds.has(modelId) ? `${modelId} - ${provider}` : modelId;
       const label =
         displayName.length > 25
-          ? `${displayName.substring(0, 25)}...${currentText}`
-          : displayName + currentText;
+          ? `${displayName.slice(0, 25)}...${isCurrent ? ' (Current)' : ''}`
+          : `${displayName}${isCurrent ? ' (Current)' : ''}`;
 
-      options.push({
+      return {
         label,
-        type: 'constant',
-        apply: model.id + ' ',
-      });
-    }
+        type: 'constant' as const,
+        apply: (view, _completion, from, to) => {
+          const lineNumber = view.state.doc.lineAt(from).number;
 
-    if (options.length === 0) return null;
+          void persistSelectedModel(view, model.id, lineNumber);
+          view.dispatch({
+            changes: { from: from - lastMatch[0].length, to, insert: '' },
+          });
+          const modelChangedPayload: ModelChangedPayload = {
+            modelId: model.id,
+          };
+          view.dom.dispatchEvent(
+            new CustomEvent<ModelChangedPayload>(Events.MODEL_CHANGED, {
+              detail: modelChangedPayload,
+            })
+          );
+        },
+      };
+    });
 
     return {
-      from: selectorStart + selectorLength,
+      from: line.from + contentStart + lastMatchIndex + lastMatch[0].length,
       options,
       filter: true,
-      validFor: text => {
-        return /^[\w:.-]*$/i.test(text);
-      },
+      validFor: /^[\w:.-]*$/i,
     };
   };
 }

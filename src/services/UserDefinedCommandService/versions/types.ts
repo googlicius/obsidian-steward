@@ -1,3 +1,5 @@
+import type { ToolName } from 'src/solutions/commands/ToolRegistry';
+
 /**
  * Shared types used across all versions
  */
@@ -33,7 +35,8 @@ export interface NormalizedUserDefinedCommand {
   model?: string;
   system_prompt?: string[];
   triggers?: TriggerCondition[];
-  use_tool?: boolean;
+  /** Subset of Super Agent tool names this command may use. Omit = full tool set. */
+  tools?: ToolName[];
   show_todo_list?: boolean;
 }
 

@@ -2,7 +2,7 @@ import { tool } from 'ai';
 import { z } from 'zod/v3';
 import { normalizePath } from 'obsidian';
 import { getTranslation } from 'src/i18n';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ArtifactType } from 'src/solutions/artifact';
 import { DocWithPath } from 'src/types/types';
 import { MoveOperation, OperationError } from 'src/tools/obsidianAPITools';
@@ -122,7 +122,7 @@ type MoveOperationResult = {
 export class VaultMove {
   private static readonly moveTool = tool({ inputSchema: moveToolSchema });
 
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: MoveToolArgs): string[] {
     const paths: string[] = [normalizePath(input.destinationFolder)];

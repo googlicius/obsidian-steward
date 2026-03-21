@@ -15,16 +15,16 @@ Each command is a markdown file (`.md`) containing one or more YAML code blocks.
 
 ### Command-Level Fields
 
-| Field            | Type                     | Required | Description                                                                              |
-| ---------------- | ------------------------ | -------- | ---------------------------------------------------------------------------------------- |
-| `command_name`   | string                   | **Yes**  | The name (In kebab-case) to invoke the command (e.g., `clean-up` invoked as `/clean-up`) |
-| `query_required` | boolean                  | No       | If `true`, the command requires user input after the prefix. Default: `false`            |
-| `model`          | string                   | No       | Default model for all steps (e.g., `gpt-4o`, `gemini-2.5-flash`)                         |
-| `system_prompt`  | array of strings         | No       | Additional system prompts applied to all steps                                           |
-| `use_tool`       | boolean                  | No       | If `false`, disables the core tool usage instructions                                    |
-| `hidden`         | boolean                  | No       | If `true`, the command does not appear in the autocomplete menu                          |
-| `triggers`       | array of trigger objects | No       | Automatically execute when file events match criteria                                    |
-| `steps`          | array of step objects    | **Yes**  | The sequence of steps to execute                                                         |
+| Field            | Type                     | Required | Description                                                                                                                                                                                               |
+| ---------------- | ------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `command_name`   | string                   | **Yes**  | The name (In kebab-case) to invoke the command (e.g., `clean-up` invoked as `/clean-up`)                                                                                                                  |
+| `query_required` | boolean                  | No       | If `true`, the command requires user input after the prefix. Default: `false`                                                                                                                             |
+| `model`          | string                   | No       | Default model for all steps (e.g., `gpt-4o`, `gemini-2.5-flash`)                                                                                                                                          |
+| `system_prompt`  | array of strings         | No       | Additional system prompts applied to all steps                                                                                                                                                            |
+| `tools`          | array of strings         | No       | Super Agent tool names allowed for this command; omit for full set. Use `[switch_agent_capacity]` for chat-only until the user switches. If more than five tools, `activate_tools` is added when missing. |
+| `hidden`         | boolean                  | No       | If `true`, the command does not appear in the autocomplete menu                                                                                                                                           |
+| `triggers`       | array of trigger objects | No       | Automatically execute when file events match criteria                                                                                                                                                     |
+| `steps`          | array of step objects    | **Yes**  | The sequence of steps to execute                                                                                                                                                                          |
 
 ### Step-Level Fields
 
@@ -66,18 +66,18 @@ c:<tool> [--arg=value]...
 
 ### Command Reference
 
-| Alias        | Tool            | Flags                                                     |
-| ------------ | --------------- | --------------------------------------------------------- |
-| `c:read`     | Content Reading | `--type`, `--files`, `--element`, `--blocks`, `--pattern` |
-| `c:search`   | Search          | `--keywords`, `--filenames`, `--folders`, `--properties`  |
-| `c:delete`   | Delete          | `--artifact`, `--files`                                   |
-| `c:list`     | List            | `--folder`, `--pattern`                                   |
-| `c:move`     | Move            | `--artifact`, `--files`, `--destination`                  |
-| `c:rename`   | Rename          | `--artifact`, `--pattern`, `--replace`                    |
-| `c:grep`     | Grep            | `--pattern`, `--paths`                                    |
-| `c:speech`   | Speech          | `--text`                                                  |
-| `c:image`    | Image           | `--prompt`                                                |
-| `c:conclude` | Conclude (stop) |                                                           |
+| Alias        | Tool            | Flags                                                                                    |
+| ------------ | --------------- | ---------------------------------------------------------------------------------------- |
+| `c:read`     | Content Reading | `--type`, `--files`, `--element`, `--blocks`, `--pattern`                                |
+| `c:search`   | Search          | `--keywords`, `--filenames`, `--folders`, `--properties`                                 |
+| `c:delete`   | Delete          | `--artifact`, `--files`                                                                  |
+| `c:list`     | List            | `--folder`, `--pattern`                                                                  |
+| `c:move`     | Move            | `--artifact`, `--files`, `--destination`                                                 |
+| `c:rename`   | Rename          | `--artifact`, `--pattern`, `--replace`                                                   |
+| `c:grep`     | Grep            | `--pattern`, `--paths`, `--caseSensitive`, `--isRegex`, `--contextLines`, `--maxResults` |
+| `c:speech`   | Speech          | `--text`                                                                                 |
+| `c:image`    | Image           | `--prompt`                                                                               |
+| `c:conclude` | Conclude (stop) |                                                                                          |
 
 ### `c:read` Flags
 
@@ -135,10 +135,14 @@ One of `--artifact` or `--files` is required, along with `--destination`.
 
 ### `c:grep` Flags
 
-| Flag        | Type     | Description                                          |
-| ----------- | -------- | ---------------------------------------------------- |
-| `--pattern` | string   | Text or RegExp pattern to search for in file content |
-| `--paths`   | string[] | Comma-separated folder paths to search within        |
+| Flag              | Type     | Default | Description                                                                                     |
+| ----------------- | -------- | ------- | ----------------------------------------------------------------------------------------------- |
+| `--pattern`       | string   | —       | Text or RegExp pattern to search for in file content                                            |
+| `--paths`         | string[] | all     | Comma-separated files, folders, or glob patterns to search (e.g. `src`, `docs/a.md`, `**/*.ts`) |
+| `--caseSensitive` | boolean  | `true`  | Whether matching is case-sensitive                                                              |
+| `--isRegex`       | boolean  | `false` | Treat `--pattern` as a regular expression instead of literal text                               |
+| `--contextLines`  | number   | `0`     | Number of lines before and after each match to include (0-10)                                   |
+| `--maxResults`    | number   | `50`    | Maximum returned matches (1-500). `totalMatches` may be higher when results are truncated       |
 
 ### Composing Steps
 
@@ -237,7 +241,8 @@ steps:
 ```yaml
 command_name: ask
 query_required: true
-use_tool: false
+tools:
+  - switch_agent_capacity
 system_prompt:
   - '[[#Instructions]]'
 steps:
@@ -302,7 +307,7 @@ steps:
 - `command_name` and `steps` are always required.
 - Step `name` determines which tools are available. Omitting `name` uses the default tool set.
 - When `query_required` is `true`, at least one step must use `$from_user` in its `query`.
-- When `use_tool` is `false`, the core system prompt with tool instructions is not sent — useful for pure conversational commands.
+- When `tools` is `[switch_agent_capacity]`, only that tool is available until the user confirms switching to full agent mode — useful for pure conversational commands.
 - System prompts and instructions referenced via `[[#Heading]]` should be placed BELOW the YAML code block, not above it.
 - System prompts with wiki links are resolved at execution time. If a linked note or heading does not exist, an error occurs and the command will stop.
 - For triggered commands, ensure the `query` in steps uses `$file_name` to reference the triggering file.

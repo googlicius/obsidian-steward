@@ -5,10 +5,26 @@ import type StewardPlugin from '../../main';
 import type { StewardPluginSettings } from 'src/types/interfaces';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { logger } from 'src/utils/logger';
-import { type CommandProcessor } from './CommandProcessor';
+import type { IntentProcessor } from './IntentProcessor';
 import { getTranslation } from 'src/i18n';
 import { ToolName } from './ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
+import type { ToolRegistry } from './ToolRegistry';
+
+export interface AgentCorePromptContext {
+  /** Tool registry for this turn: drives active/inactive tool sections and per-tool guidelines in the core prompt. */
+  readonly registry: ToolRegistry<unknown>;
+  /**if any; anchors “current file” context. */
+  readonly currentNote: string | null;
+  /** 0-based line of the cursor in `currentNote`, when the editor is focused on that note. */
+  readonly currentPosition: number | null;
+  /** Extra system text when a to-do list is active (steps, current step, `todo_list_update` usage). */
+  readonly todoListPrompt: string;
+  /** Extra system text listing available skills and how to read skill files via `content_reading`. */
+  readonly skillCatalogPrompt: string;
+  /** Declared or full allowed tool set for this conversation (UDC / narrow mode); used for task instruction lines, not only active tools. */
+  readonly availableTools: ToolName[];
+}
 
 export abstract class Agent {
   constructor(
@@ -37,7 +53,7 @@ export abstract class Agent {
     return this.plugin.settings;
   }
 
-  get commandProcessor(): CommandProcessor {
+  get commandProcessor(): IntentProcessor {
     return this.plugin.commandProcessorService.commandProcessor;
   }
 
@@ -45,13 +61,25 @@ export abstract class Agent {
    * Render a loading indicator for the agent
    * @param title The conversation title
    * @param lang The language code
+   * @param toolName The tool name being executed
    */
-  public renderIndicator?(title: string, lang?: string | null): Promise<void>;
+  public renderIndicator?(title: string, lang?: string | null, toolName?: ToolName): Promise<void>;
 
   /**
    * Handle an agent invocation
    */
   public abstract handle(params: AgentHandlerParams, ...args: unknown[]): Promise<AgentResult>;
+
+  /**
+   * Tool names valid for resolving declared `intent.tools` (frontmatter / UDC).
+   */
+  public abstract getValidToolNames(): ReadonlySet<ToolName>;
+
+  /**
+   * Build the core system prompt for this agent.
+   * Stream executors can pass rich context while text executors can omit it.
+   */
+  public abstract buildCorePrompt(context?: AgentCorePromptContext): string;
 
   /**
    * Handle an agent invocation with automatic error handling and model fallback
@@ -63,10 +91,7 @@ export abstract class Agent {
       params.invocationCount = params.invocationCount || 0;
       params.handlerId = params.handlerId || uniqueID();
       params.lang = params.lang || (await this.loadConversationLang(params.title));
-      params.intent.use_tool = await this.loadConversationUseTool(
-        params.title,
-        params.intent.use_tool
-      );
+      params.intent.tools = await this.resolveIntentTools(params.title, params.intent.tools);
       params.intent.systemPrompts = await this.loadSystemPrompts(params);
 
       // Call the original handle method
@@ -130,6 +155,8 @@ export abstract class Agent {
         status: IntentResultStatus.ERROR,
         error: error instanceof Error ? error : new Error(errorMessage),
       };
+    } finally {
+      await this.plugin.conversationRender.removeIndicator(params.title);
     }
   }
 
@@ -182,16 +209,6 @@ export abstract class Agent {
     return Array.from(new Set(allTools));
   }
 
-  /**
-   * Load active skills from conversation frontmatter
-   * @param title The conversation title
-   * @returns The active skill names persisted in the conversation
-   */
-  protected async loadActiveSkills(title: string): Promise<string[]> {
-    const savedSkills = await this.renderer.getConversationProperty<string[]>(title, 'skills');
-    return savedSkills || [];
-  }
-
   private async loadConversationLang(
     title: string,
     paramsLang?: string | null
@@ -200,15 +217,24 @@ export abstract class Agent {
     return paramsLang || savedLang || null;
   }
 
-  private async loadConversationUseTool(
+  /**
+   * Merge intent tools from the intent and conversation frontmatter (`allowed_tools`).
+   */
+  private async resolveIntentTools(
     title: string,
-    intentUseTool?: boolean
-  ): Promise<boolean | undefined> {
-    if (intentUseTool !== undefined) {
-      return intentUseTool;
+    intentTools?: ToolName[]
+  ): Promise<ToolName[] | undefined> {
+    if (intentTools && intentTools.length > 0) {
+      return intentTools;
     }
-
-    return this.renderer.getConversationProperty<boolean>(title, 'use_tool');
+    const fromFrontmatter = await this.renderer.getConversationProperty<ToolName[]>(
+      title,
+      'allowed_tools'
+    );
+    if (fromFrontmatter && fromFrontmatter.length > 0) {
+      return fromFrontmatter;
+    }
+    return undefined;
   }
 
   private async loadSystemPrompts(params: AgentHandlerParams): Promise<string[] | undefined> {

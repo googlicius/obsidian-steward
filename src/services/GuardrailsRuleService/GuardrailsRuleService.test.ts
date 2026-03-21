@@ -1,5 +1,6 @@
 import type StewardPlugin from 'src/main';
 import { GuardrailsRuleService } from './GuardrailsRuleService';
+import { ToolName } from 'src/solutions/commands/ToolRegistry';
 
 function createMockPlugin(): StewardPlugin {
   return {
@@ -106,6 +107,42 @@ describe('GuardrailsRuleService', () => {
         enabled: 'false',
       });
       expect(result.valid).toBe(true);
+    });
+  });
+
+  describe('getRulesForTool', () => {
+    it('applies list rules to search tool', () => {
+      service['rules'] = [
+        {
+          name: 'No secret listing',
+          path: 'Steward/Rules/no-secret-listing.md',
+          targets: ['Secrets/'],
+          actions: ['list'],
+          enabled: true,
+        },
+      ];
+
+      const rules = service.getRulesForTool(ToolName.SEARCH);
+
+      expect(rules).toHaveLength(1);
+      expect(rules[0].name).toBe('No secret listing');
+    });
+
+    it('applies read rules to grep tool', () => {
+      service['rules'] = [
+        {
+          name: 'No secret read',
+          path: 'Steward/Rules/no-secret-read.md',
+          targets: ['Secrets/'],
+          actions: ['read'],
+          enabled: true,
+        },
+      ];
+
+      const rules = service.getRulesForTool(ToolName.GREP);
+
+      expect(rules).toHaveLength(1);
+      expect(rules[0].name).toBe('No secret read');
     });
   });
 });

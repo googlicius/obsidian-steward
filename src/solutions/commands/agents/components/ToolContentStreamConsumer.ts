@@ -2,7 +2,9 @@ import { ToolName } from '../../ToolRegistry';
 import { ToolContentDelta } from 'src/utils/textStreamer';
 import { PartialJsonFieldExtractor } from './partialJsonFieldExtractor';
 import { logger } from 'src/utils/logger';
-import type { SuperAgent } from '../SuperAgent';
+import type { App } from 'obsidian';
+import type { ConversationRenderer } from 'src/services/ConversationRenderer';
+import type StewardPlugin from 'src/main';
 
 export interface ToolContentStreamInfo {
   toolCallId: string;
@@ -10,23 +12,39 @@ export interface ToolContentStreamInfo {
   tempFilePath: string;
 }
 
-/**
- * Casts the mixin instance to SuperAgent.
- * Safe because SuperAgentToolContentStream is only used as a mixin for SuperAgent.
- */
-function asSuperAgent(instance: SuperAgentToolContentStream): SuperAgent {
-  return instance as unknown as SuperAgent;
+export interface ToolContentStreamConsumerHost {
+  plugin: StewardPlugin;
+  renderer: ConversationRenderer;
+  obsidianAPITools: {
+    ensureFolderExists(path: string): Promise<void>;
+  };
+  app: App;
 }
 
-export class SuperAgentToolContentStream {
+export const TOOL_CONTENT_STREAM_CONSUMER_SYMBOL = Symbol('ToolContentStreamConsumer');
+
+export interface ToolContentStreamConsumer {
+  [TOOL_CONTENT_STREAM_CONSUMER_SYMBOL]: true;
+  createToolContentExtractor(toolName: string): { feed: (delta: string) => string };
+  consumeToolContentStream(params: {
+    title: string;
+    toolContentStream: AsyncGenerator<ToolContentDelta, void, unknown>;
+    handlerId?: string;
+    lang?: string | null;
+  }): Promise<ToolContentStreamInfo | undefined>;
+}
+
+function asHost(instance: ToolContentStreamConsumer): ToolContentStreamConsumerHost {
+  return instance as unknown as ToolContentStreamConsumerHost;
+}
+
+export class ToolContentStreamConsumer {
+  public [TOOL_CONTENT_STREAM_CONSUMER_SYMBOL] = true as const;
+
   private get tmpFolderPath(): string {
-    return `${asSuperAgent(this).plugin.settings.stewardFolder}/tmp`;
+    return `${asHost(this).plugin.settings.stewardFolder}/tmp`;
   }
 
-  /**
-   * Creates a PartialJsonFieldExtractor appropriate for the given tool.
-   * Edit tool requires mode=replace_by_lines; create tool extracts content unconditionally.
-   */
   public createToolContentExtractor(toolName: string): { feed: (delta: string) => string } {
     if (toolName === ToolName.EDIT) {
       return new PartialJsonFieldExtractor('content', { requiredMode: 'replace_by_lines' });
@@ -34,59 +52,45 @@ export class SuperAgentToolContentStream {
     return new PartialJsonFieldExtractor('content');
   }
 
-  /**
-   * Creates a temporary streaming file and returns its vault path.
-   */
   private async createTempStreamFile(toolCallId: string): Promise<string> {
-    const agent = asSuperAgent(this);
+    const host = asHost(this);
     const folderPath = this.tmpFolderPath;
-    await agent.obsidianAPITools.ensureFolderExists(folderPath);
+    await host.obsidianAPITools.ensureFolderExists(folderPath);
     const filePath = `${folderPath}/stw_stream_${toolCallId}.md`;
-    await agent.app.vault.create(filePath, '');
+    await host.app.vault.create(filePath, '');
     return filePath;
   }
 
-  /**
-   * Appends content to a temporary streaming file.
-   */
   private async appendToTempFile(filePath: string, content: string): Promise<void> {
-    const file = asSuperAgent(this).app.vault.getFileByPath(filePath);
+    const host = asHost(this);
+    const file = host.app.vault.getFileByPath(filePath);
     if (!file) return;
-    await asSuperAgent(this).app.vault.process(file, current => current + content);
+    await host.app.vault.process(file, current => current + content);
   }
 
-  /**
-   * Deletes a temporary streaming file if it exists.
-   */
   public async deleteTempStreamFile(filePath: string): Promise<void> {
-    const file = asSuperAgent(this).app.vault.getFileByPath(filePath);
+    const host = asHost(this);
+    const file = host.app.vault.getFileByPath(filePath);
     if (file) {
-      await asSuperAgent(this).app.vault.delete(file);
+      await host.app.vault.delete(file);
     }
   }
 
-  /**
-   * Cleans up all orphaned temp streaming files in the tmp folder.
-   */
   public async cleanupTempFiles(): Promise<void> {
-    const folder = asSuperAgent(this).app.vault.getFolderByPath(this.tmpFolderPath);
+    const host = asHost(this);
+    const folder = host.app.vault.getFolderByPath(this.tmpFolderPath);
     if (!folder) return;
 
     const files = folder.children.filter(f => f.name.startsWith('stw_stream_'));
     for (const file of files) {
       try {
-        await asSuperAgent(this).app.vault.delete(file);
+        await host.app.vault.delete(file);
       } catch {
         // Ignore deletion errors during cleanup
       }
     }
   }
 
-  /**
-   * Consumes the toolContentStream in background: creates a temp file on first delta,
-   * renders a preview callout with an embed, and appends subsequent deltas.
-   * Returns a promise that resolves with the stream info when consumption is done.
-   */
   public async consumeToolContentStream(params: {
     title: string;
     toolContentStream: AsyncGenerator<ToolContentDelta, void, unknown>;
@@ -94,7 +98,7 @@ export class SuperAgentToolContentStream {
     lang?: string | null;
   }): Promise<ToolContentStreamInfo | undefined> {
     const { title, toolContentStream, handlerId, lang } = params;
-    const agent = asSuperAgent(this);
+    const host = asHost(this);
 
     try {
       let info: ToolContentStreamInfo | undefined;
@@ -108,11 +112,11 @@ export class SuperAgentToolContentStream {
             tempFilePath,
           };
 
-          await agent.renderer.updateConversationNote({
+          await host.renderer.updateConversationNote({
             path: title,
-            newContent: agent.plugin.noteContentService.formatCallout(
+            newContent: host.plugin.noteContentService.formatCallout(
               `![[${tempFilePath}]]`,
-              'stw-edit-preview',
+              'stw-review',
               { streaming: 'true' }
             ),
             handlerId,
@@ -130,4 +134,13 @@ export class SuperAgentToolContentStream {
       return undefined;
     }
   }
+}
+
+export function isToolContentStreamConsumer(obj: unknown): obj is ToolContentStreamConsumer {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    TOOL_CONTENT_STREAM_CONSUMER_SYMBOL in obj &&
+    obj[TOOL_CONTENT_STREAM_CONSUMER_SYMBOL] === true
+  );
 }

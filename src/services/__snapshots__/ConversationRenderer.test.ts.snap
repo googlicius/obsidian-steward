@@ -26,18 +26,6 @@ React hooks are functions that let you use state.
 \`\`\`"
 `;
 
-exports[`ConversationRenderer addUserMessage should preserve the loading indicator when contentFormat is hidden 1`] = `
-"<!--STW ID:abc123,ROLE:steward,COMMAND:search-->
-**Steward:** Here's what I found:
-
-<!--STW ID:mock-id-123,ROLE:user-->
-\`\`\`stw-hidden-from-user
-/search How to use React hooks
-\`\`\`
-
-*Generating...*"
-`;
-
 exports[`ConversationRenderer deserializeToolInvocations should deserialize a tool-call with args and result (backward compatibility) 1`] = `
 [
   {

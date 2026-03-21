@@ -27,11 +27,6 @@ export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'svg', 'gif'];
 export const STW_SOURCE_PATTERN = '(\\{\\{stw-source.*?\\}\\})';
 
 /**
- * Pattern to match {{stw-rules}} marker for guardrails display
- */
-export const STW_RULES_PATTERN = '(\\{\\{stw-rules.*?\\}\\})';
-
-/**
  * Pattern to match {{stw-squeezed [[<path>]] }}
  */
 export const STW_SQUEEZED_PATTERN = '\\{\\{stw-squeezed \\[\\[([^\\]]+)\\]\\] \\}\\}';
@@ -58,11 +53,6 @@ export const STW_SOURCE_METADATA_PATTERN =
  * Pattern to extract extracted model prefix m: or model:
  */
 export const SELECTED_MODEL_PREFIX_PATTERN = '\\b(m|model):';
-
-/**
- * Pattern to match selected model: `m:<provider>:<modelId>` or `model:<provider>:<modelId>`
- */
-export const SELECTED_MODEL_PATTERN = '\\b(m|model):([a-zA-Z0-9_.-]+):([^\\s]+)';
 
 /**
  * All built-in command that are available to the command menu

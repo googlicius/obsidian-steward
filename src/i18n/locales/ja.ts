@@ -7,10 +7,8 @@ const ja = {
       noRecentOperations: '最近の操作が見つかりませんでした。最初にコマンドを実行してください。',
       noToolCallFound: 'ツールコールが見つかりませんでした。',
       lowConfidenceConfirmation: 'このリクエストについては、十分に確信できません。続行しますか？',
-      artifactCreated: 'アーティファクト {{type}} が作成されました',
       artifactNotFound: 'アーティファクト ID "{{artifactId}}" が見つかりませんでした。',
       noArtifactsFound: 'アーティファクトが見つかりませんでした。',
-      availableCommands: '利用可能なコマンド',
       builtInCommands: '組み込みコマンド',
       builtInCommandsDesc: 'これらのコマンドは /&lt;command&gt を通じて直接利用できます',
       userDefinedCommands: 'ユーザー定義コマンド',
@@ -21,6 +19,7 @@ const ja = {
       searchDesc: 'ノートを検索する',
       imageDesc: '画像を生成する',
       speechDesc: 'テキストから音声を生成する',
+      disabledMark: '（無効）',
       cannotDeleteThisType: 'この種類のアーティファクトは削除できません: {{type}}',
       cannotRevertThisType: 'この種類のアーティファクトは元に戻せません: {{type}}',
       thisNote: 'このノート',
@@ -55,6 +54,7 @@ const ja = {
       closeChat: 'チャットを閉じる',
       stewardChat: 'Stewardチャット',
       closeConversation: '会話を閉じる',
+      deleteHistoryItem: '履歴から削除',
       conversationClosed: '会話を閉じました',
       newVersionAvailable: '新しいバージョンが利用可能',
       newVersionMessage: 'Stewardの新しいバージョン（{{version}}）が利用可能になりました！',
@@ -138,19 +138,25 @@ const ja = {
       unknownError: '不明なエラーが発生しました。',
     },
     create: {
-      success: '{{count}}件のファイルを作成しました: {{fileNames}}',
-      creatingFile: 'ファイルを作成中: {{fileName}}',
+      success: '{{count}}件の項目を作成しました。',
+      creatingPath: '作成中: {{item}}',
+      confirmMessage: '以下の項目を作成します:',
+      confirmPrompt: '続行しますか？',
       errors: 'エラー:',
-      contentOmitted: 'ファイルに内容を書き込みました。必要に応じてreadツールで確認してください。',
+      noTargets: '作成するフォルダパスまたはファイルパスが指定されていません。',
+      contentOmitted:
+        'トークン節約のため内容は省略されています。必要に応じて{{toolName}}ツールで確認してください。',
     },
     list: {
-      noFilesFound: 'ファイルは見つかりませんでした。',
-      noFilesFoundInFolder: '{{folder}} ではファイルが見つかりませんでした。',
-      foundFiles: '{{count}} 件のファイルを見つけました',
-      foundFilesInFolder: '{{folder}} で {{count}} 件のファイルを見つけました',
-      moreFiles: '... さらに {{count}} 件のファイルがあります',
+      noItemsFound: '項目は見つかりませんでした。',
+      noItemsFoundInFolder: '{{folder}} では項目が見つかりませんでした。',
+      foundItems: '{{count}} 件の項目を見つけました',
+      foundItemsInFolder: '{{folder}} で {{count}} 件の項目を見つけました',
+      moreItems: '... さらに {{count}} 件の項目があります',
       fullListAvailableInArtifact:
         '完全なリストはアーティファクト ID: {{artifactId}} で利用可能です',
+      fullListInArtifactUseFilePattern:
+        '完全なリストはアーティファクト ID: {{artifactId}} で利用可能です。結果を絞り込むには、より具体的な filePattern を使用してください。',
     },
     grep: {
       found: '{{count}} 件のパスが見つかりました：',
@@ -200,6 +206,11 @@ const ja = {
       successfullyReverted: '{{count}}件のファイルを元に戻しました',
       failed: '{{count}}件のファイルの元に戻しに失敗しました：',
       revertingArtifact: '`{{artifactType}}`から元に戻しています',
+      revertingLatestQuery: '最新のユーザークエリで行った操作を元に戻しています',
+      noOperationsInLatestQuery: '最新のユーザークエリで元に戻せる操作が見つかりませんでした。',
+      latestQuerySummary:
+        '最新クエリのアーティファクト操作 {{totalArtifacts}} 件中 {{revertedArtifacts}} 件を元に戻しました。',
+      failedArtifactsHeader: '一部失敗が残っているアーティファクト',
     },
     // Search result messages
     search: {
@@ -312,6 +323,9 @@ const ja = {
       readEntireContentConfirmation:
         'このノートの内容をすべて読み込もうとしています。続行しますか？',
       unableToReadContent: '内容を読み込めませんでした。',
+      reviewSummary: '読み取り: {{summary}}',
+      reviewType: '{{value}}',
+      reviewPattern: '`{{value}}`',
     },
     // Thank you responses
     thankYou: {
