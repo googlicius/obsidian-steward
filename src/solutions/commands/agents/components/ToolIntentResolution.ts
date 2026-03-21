@@ -74,9 +74,7 @@ export class ToolIntentResolution {
   }
 
   protected isSwitchAgentCapacityOnly(declaredExpanded: ToolName[]): boolean {
-    return (
-      declaredExpanded.length === 1 && declaredExpanded[0] === ToolName.SWITCH_AGENT_CAPACITY
-    );
+    return declaredExpanded.length === 1 && declaredExpanded[0] === ToolName.SWITCH_AGENT_CAPACITY;
   }
 
   protected filterToolsObject<T extends Record<string, unknown>>(

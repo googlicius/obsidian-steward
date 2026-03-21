@@ -15,16 +15,16 @@ Each command is a markdown file (`.md`) containing one or more YAML code blocks.
 
 ### Command-Level Fields
 
-| Field            | Type                     | Required | Description                                                                              |
-| ---------------- | ------------------------ | -------- | ---------------------------------------------------------------------------------------- |
-| `command_name`   | string                   | **Yes**  | The name (In kebab-case) to invoke the command (e.g., `clean-up` invoked as `/clean-up`) |
-| `query_required` | boolean                  | No       | If `true`, the command requires user input after the prefix. Default: `false`            |
-| `model`          | string                   | No       | Default model for all steps (e.g., `gpt-4o`, `gemini-2.5-flash`)                         |
-| `system_prompt`  | array of strings         | No       | Additional system prompts applied to all steps                                           |
+| Field            | Type                     | Required | Description                                                                                                                                                                                               |
+| ---------------- | ------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `command_name`   | string                   | **Yes**  | The name (In kebab-case) to invoke the command (e.g., `clean-up` invoked as `/clean-up`)                                                                                                                  |
+| `query_required` | boolean                  | No       | If `true`, the command requires user input after the prefix. Default: `false`                                                                                                                             |
+| `model`          | string                   | No       | Default model for all steps (e.g., `gpt-4o`, `gemini-2.5-flash`)                                                                                                                                          |
+| `system_prompt`  | array of strings         | No       | Additional system prompts applied to all steps                                                                                                                                                            |
 | `tools`          | array of strings         | No       | Super Agent tool names allowed for this command; omit for full set. Use `[switch_agent_capacity]` for chat-only until the user switches. If more than five tools, `activate_tools` is added when missing. |
-| `hidden`         | boolean                  | No       | If `true`, the command does not appear in the autocomplete menu                          |
-| `triggers`       | array of trigger objects | No       | Automatically execute when file events match criteria                                    |
-| `steps`          | array of step objects    | **Yes**  | The sequence of steps to execute                                                         |
+| `hidden`         | boolean                  | No       | If `true`, the command does not appear in the autocomplete menu                                                                                                                                           |
+| `triggers`       | array of trigger objects | No       | Automatically execute when file events match criteria                                                                                                                                                     |
+| `steps`          | array of step objects    | **Yes**  | The sequence of steps to execute                                                                                                                                                                          |
 
 ### Step-Level Fields
 

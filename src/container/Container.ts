@@ -61,10 +61,10 @@ export class Container {
       return provider.value as T;
     }
 
-    const instance = this.construct<T>(
-      provider.implementation as Constructor<T>,
-      [...resolutionStack, token]
-    );
+    const instance = this.construct<T>(provider.implementation as Constructor<T>, [
+      ...resolutionStack,
+      token,
+    ]);
 
     if (provider.lifecycle === Lifecycle.Singleton) {
       this.singletons.set(token, instance);

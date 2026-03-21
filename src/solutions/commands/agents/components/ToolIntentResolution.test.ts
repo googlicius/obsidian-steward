@@ -57,10 +57,7 @@ describe('ToolIntentResolution', () => {
 
     it('deduplicates and keeps order of first occurrence', () => {
       expect(
-        normalizeDeclaredTools(
-          [ToolName.LIST, ToolName.LIST, ToolName.EDIT],
-          MOCK_SUPER_VALID
-        )
+        normalizeDeclaredTools([ToolName.LIST, ToolName.LIST, ToolName.EDIT], MOCK_SUPER_VALID)
       ).toEqual([ToolName.LIST, ToolName.EDIT]);
     });
   });
@@ -140,8 +137,7 @@ describe('ToolIntentResolution', () => {
       sut = new ToolIntentResolution();
       expandSuperAgentDeclaredTools = sut['expandSuperAgentDeclaredTools'].bind(sut);
       buildSuperAgentEffectiveAllowedNames = sut['buildSuperAgentEffectiveAllowedNames'].bind(sut);
-      resolveStreamActiveToolNames =
-        sut['resolveStreamActiveToolNames'].bind(sut);
+      resolveStreamActiveToolNames = sut['resolveStreamActiveToolNames'].bind(sut);
     });
 
     it('uses all effective tools when original declared count <= threshold (even if expanded grew)', () => {

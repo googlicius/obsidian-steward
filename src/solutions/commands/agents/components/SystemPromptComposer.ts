@@ -19,16 +19,11 @@ const VAULT_MANAGEMENT_TOOLS: ToolName[] = [
  * that are shared across SuperAgent and SubAgent executors.
  */
 export class SystemPromptComposer {
-  protected buildTaskInstructionsFromAvailableTools(
-    availableTools: readonly ToolName[]
-  ): string {
+  protected buildTaskInstructionsFromAvailableTools(availableTools: readonly ToolName[]): string {
     if (availableTools.length === 0) {
       return 'Your role is to assist using the tools provided below.';
     }
-    if (
-      availableTools.length === 1 &&
-      availableTools[0] === ToolName.SWITCH_AGENT_CAPACITY
-    ) {
+    if (availableTools.length === 1 && availableTools[0] === ToolName.SWITCH_AGENT_CAPACITY) {
       return `Your role is to help the user in direct-response mode. When they need vault tools, skills, or other agent capabilities, use ${ToolName.SWITCH_AGENT_CAPACITY} so they can confirm switching to full agent mode.`;
     }
 

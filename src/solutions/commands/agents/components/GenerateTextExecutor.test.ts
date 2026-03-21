@@ -169,7 +169,9 @@ describe('GenerateTextExecutor', () => {
       .join('\n');
 
     expect(systemText).toContain('AVAILABLE SKILLS:');
-    expect(systemText).toContain('- search-skill: Search effectively (path: Steward/Skills/search/SKILL.md)');
+    expect(systemText).toContain(
+      '- search-skill: Search effectively (path: Steward/Skills/search/SKILL.md)'
+    );
     expect(systemText).toContain('content_reading');
     expect(systemText).toContain('readType');
   });

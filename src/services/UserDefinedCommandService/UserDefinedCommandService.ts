@@ -205,7 +205,10 @@ export class UserDefinedCommandService {
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
           validationErrors.push({
             commandName: 'unknown',
-            errors: [i18next.t('validation.yamlError'), 'Command definition must be a YAML mapping'],
+            errors: [
+              i18next.t('validation.yamlError'),
+              'Command definition must be a YAML mapping',
+            ],
           });
         } else {
           const dataObj = parsed as Record<string, unknown>;
@@ -242,7 +245,10 @@ export class UserDefinedCommandService {
           } else {
             // Successfully loaded - store the command
             const versionedCommand = result.command;
-            this.userDefinedCommands.set(versionedCommand.normalized.command_name, versionedCommand);
+            this.userDefinedCommands.set(
+              versionedCommand.normalized.command_name,
+              versionedCommand
+            );
             logger.log(
               `Loaded user-defined command: ${versionedCommand.normalized.command_name} (v${versionedCommand.getVersion()})`
             );
