@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod/v3';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
@@ -34,18 +34,10 @@ export class Image {
     inputSchema: imageSchema,
   });
 
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public static getImageTool() {
     return Image.imageTool;
-  }
-
-  /**
-   * Render the loading indicator for the image command
-   */
-  public async renderIndicator(title: string, lang?: string): Promise<void> {
-    const t = getTranslation(lang);
-    await this.agent.renderer.addGeneratingIndicator(title, t('conversation.generatingImage'));
   }
 
   /**
@@ -125,7 +117,6 @@ export class Image {
       // Store the media artifact
       if (messageId && result.filePath) {
         await this.agent.plugin.artifactManagerV2.withTitle(params.title).storeArtifact({
-          text: `*${t('common.artifactCreated', { type: ArtifactType.MEDIA_RESULTS })}*`,
           artifact: {
             artifactType: ArtifactType.MEDIA_RESULTS,
             paths: [result.filePath],

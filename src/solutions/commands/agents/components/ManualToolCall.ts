@@ -3,20 +3,21 @@ import { ArtifactType } from 'src/solutions/artifact';
 import { getTranslation } from 'src/i18n';
 import { uniqueID } from 'src/utils/uniqueID';
 import { ToolName } from '../../ToolRegistry';
-import { parseStepProcessedQuery } from './stepProcessedQuery';
+import { parseStepProcessedQuery } from '../SuperAgent/stepProcessedQuery';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 import * as handlers from '../handlers';
-import type { SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { Handlers } from './Handlers';
 
-function asSuperAgent(instance: SuperAgentManualToolCall): SuperAgent {
-  return instance as unknown as SuperAgent;
+function asAgent(instance: ManualToolCall) {
+  return instance as unknown as AgentHandlerContext & Handlers;
 }
 
 /**
- * Mixin providing client-made tool call logic without AI
+ * Mixin providing client-made tool call logic without AI.
  */
-export class SuperAgentManualToolCall {
+export class ManualToolCall {
   /**
    * Client-made tool call without AI
    */
@@ -32,7 +33,7 @@ export class SuperAgentManualToolCall {
      */
     classificationMatchType?: 'static' | 'prefixed' | 'clustered';
   }): Promise<ToolCallPart | undefined> {
-    const agent = asSuperAgent(this);
+    const agent = asAgent(this);
     const { title, query, activeTools, classifiedTasks, lang, classificationMatchType } = params;
 
     // Client-handled step: command syntax was processed locally, update todo list and move to next step
@@ -64,7 +65,7 @@ export class SuperAgentManualToolCall {
             .withTitle(title)
             .getMostRecentArtifactOfTypes([
               ArtifactType.SEARCH_RESULTS,
-              ArtifactType.CREATED_NOTES,
+              ArtifactType.CREATED_PATHS,
               ArtifactType.LIST_RESULTS,
             ]);
 
@@ -90,46 +91,14 @@ export class SuperAgentManualToolCall {
       case 'revert': {
         // Handle revert tool manual calls for static cluster: revert
         if (classificationMatchType === 'static') {
-          // Get the most recent artifact from types created by VaultAgent
-          const artifactTypes = [
-            ArtifactType.MOVE_RESULTS,
-            ArtifactType.CREATED_NOTES,
-            ArtifactType.DELETED_FILES,
-            ArtifactType.UPDATE_FRONTMATTER_RESULTS,
-            ArtifactType.RENAME_RESULTS,
-            ArtifactType.EDIT_RESULTS,
-          ];
-
-          const artifact = await agent.plugin.artifactManagerV2
-            .withTitle(title)
-            .getMostRecentArtifactOfTypes(artifactTypes);
-
-          if (artifact?.id) {
-            // Map artifact type to the appropriate revert tool
-            const artifactTypeToToolMap: Partial<Record<ArtifactType, ToolName>> = {
-              [ArtifactType.MOVE_RESULTS]: ToolName.REVERT_MOVE,
-              [ArtifactType.CREATED_NOTES]: ToolName.REVERT_CREATE,
-              [ArtifactType.DELETED_FILES]: ToolName.REVERT_DELETE,
-              [ArtifactType.UPDATE_FRONTMATTER_RESULTS]: ToolName.REVERT_FRONTMATTER,
-              [ArtifactType.RENAME_RESULTS]: ToolName.REVERT_RENAME,
-              [ArtifactType.EDIT_RESULTS]: ToolName.REVERT_EDIT_RESULTS,
-            };
-
-            const toolName = artifactTypeToToolMap[artifact.artifactType];
-            if (toolName) {
-              return {
-                type: 'tool-call',
-                toolName,
-                toolCallId: `manual-tool-call-${uniqueID()}`,
-                input: {
-                  artifactId: artifact.id,
-                  explanation: t('revert.revertingArtifact', {
-                    artifactType: artifact.artifactType,
-                  }),
-                },
-              };
-            }
-          }
+          return {
+            type: 'tool-call',
+            toolName: ToolName.REVERT,
+            toolCallId: `manual-tool-call-${uniqueID()}`,
+            input: {
+              explanation: t('revert.revertingLatestQuery'),
+            },
+          };
         }
         return undefined;
       }
@@ -242,7 +211,7 @@ export class SuperAgentManualToolCall {
   }
 
   protected async craftTodoListUpdateToolCallManually(title: string): Promise<ToolCallPart | null> {
-    const agent = asSuperAgent(this);
+    const agent = asAgent(this);
     const todoListState = await agent.renderer.getConversationProperty<handlers.TodoListState>(
       title,
       'todo_list'

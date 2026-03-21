@@ -201,7 +201,8 @@ describe('ArtifactManagerV2', () => {
       expect(artifacts).toMatchObject([
         {
           artifactType: 'generated_content',
-          messageId: 'def456',
+          messageId: '3w307',
+          id: '3w307',
           content: [
             'Pokemon table:',
             '',
@@ -477,7 +478,7 @@ describe('ArtifactManagerV2', () => {
         '',
         '<!--STW ID:msg2,ROLE:assistant,TYPE:artifact,ARTIFACT_TYPE:read_content,HISTORY:false-->',
         '```stw-artifact',
-        `{"artifactType":"read_content","readingResults":[{"blocks":[]}],"id":"${artifactId}","deleteReason":"${deleteReason}"}`,
+        `{"artifactType":"read_content","readingResults":[{"blocks":[]}],"id":"${artifactId}","deleteReason":"${deleteReason}","messageId":"msg2"}`,
         '```',
         '',
         '<!--STW ID:msg3,ROLE:user-->',

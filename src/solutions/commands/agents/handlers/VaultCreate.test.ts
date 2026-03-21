@@ -1,12 +1,13 @@
 import { createToolSchema, VaultCreate, type CreateToolArgs } from './VaultCreate';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { type ToolCallPart } from '../../tools/types';
 
-function createMockAgent(): jest.Mocked<SuperAgent> {
+function createMockAgent(): jest.Mocked<AgentHandlerContext> {
   return {
     app: {
       vault: {
         create: jest.fn().mockResolvedValue(undefined),
+        getFolderByPath: jest.fn().mockReturnValue(null),
         getFileByPath: jest.fn().mockReturnValue({ path: 'mock' }),
         modify: jest.fn().mockResolvedValue(undefined),
       },
@@ -25,7 +26,7 @@ function createMockAgent(): jest.Mocked<SuperAgent> {
         }),
       },
     },
-  } as unknown as jest.Mocked<SuperAgent>;
+  } as unknown as jest.Mocked<AgentHandlerContext>;
 }
 
 function createToolCall(input: CreateToolArgs): ToolCallPart<CreateToolArgs> {
@@ -39,12 +40,20 @@ function createToolCall(input: CreateToolArgs): ToolCallPart<CreateToolArgs> {
 
 describe('VaultCreate', () => {
   describe('createToolSchema', () => {
+    it('should reject when both newFolders and newFiles are empty', () => {
+      const result = createToolSchema.safeParse({
+        newFolders: [],
+        newFiles: [],
+      });
+
+      expect(result.success).toBe(false);
+    });
+
     it('should extract YAML from a code block for .base files', () => {
       const input = {
-        folder: 'my-folder',
         newFiles: [
           {
-            fileName: 'config.base',
+            filePath: 'my-folder/config.base',
             content: '```yaml\nkey: value\nnested:\n  foo: bar\n```',
           },
         ],
@@ -57,10 +66,9 @@ describe('VaultCreate', () => {
 
     it('should extract YAML from a code block with case-insensitive tag', () => {
       const input = {
-        folder: 'my-folder',
         newFiles: [
           {
-            fileName: 'config.base',
+            filePath: 'my-folder/config.base',
             content: '```YAML\ntitle: Hello\n```',
           },
         ],
@@ -73,10 +81,9 @@ describe('VaultCreate', () => {
 
     it('should leave .base content unchanged when no code block is present', () => {
       const input = {
-        folder: 'my-folder',
         newFiles: [
           {
-            fileName: 'config.base',
+            filePath: 'my-folder/config.base',
             content: 'key: value\nnested:\n  foo: bar',
           },
         ],
@@ -89,10 +96,9 @@ describe('VaultCreate', () => {
 
     it('should not transform content for non-.base files', () => {
       const input = {
-        folder: 'my-folder',
         newFiles: [
           {
-            fileName: 'readme.md',
+            filePath: 'my-folder/readme.md',
             content: '```yaml\nkey: value\n```',
           },
         ],
@@ -105,10 +111,9 @@ describe('VaultCreate', () => {
 
     it('should not transform .base content when it is undefined', () => {
       const input = {
-        folder: 'my-folder',
         newFiles: [
           {
-            fileName: 'empty.base',
+            filePath: 'my-folder/empty.base',
           },
         ],
       };
@@ -120,10 +125,9 @@ describe('VaultCreate', () => {
 
     it('should handle .base content with surrounding whitespace around the code block', () => {
       const input = {
-        folder: 'my-folder',
         newFiles: [
           {
-            fileName: 'config.base',
+            filePath: 'my-folder/config.base',
             content: '  \n```yaml\nstatus: active\n```\n  ',
           },
         ],
@@ -136,7 +140,7 @@ describe('VaultCreate', () => {
   });
 
   describe('executeCreatePlan', () => {
-    let mockAgent: jest.Mocked<SuperAgent>;
+    let mockAgent: jest.Mocked<AgentHandlerContext>;
     let vaultCreate: VaultCreate;
 
     beforeEach(() => {
@@ -146,15 +150,21 @@ describe('VaultCreate', () => {
 
     it('should replace file content with omitted message in serialized tool invocation', async () => {
       const toolCall = createToolCall({
-        folder: 'notes',
+        newFolders: [],
         newFiles: [
-          { fileName: 'note1.md', content: 'This is a long note content that should be omitted' },
+          {
+            filePath: 'notes/note1.md',
+            content: 'This is a long note content that should be omitted',
+          },
         ],
       });
 
       await vaultCreate.executeCreatePlan({
         title: 'test-conversation',
-        plan: { folder: 'notes', newFiles: [{ fileName: 'note1.md', content: 'Some content' }] },
+        plan: {
+          newFolders: [],
+          newFiles: [{ filePath: 'notes/note1.md', content: 'Some content' }],
+        },
         lang: 'en',
         handlerId: 'handler-1',
         toolCall,
@@ -168,7 +178,7 @@ describe('VaultCreate', () => {
 
       expect(toolInvocation.input.newFiles).toMatchObject([
         {
-          fileName: 'note1.md',
+          filePath: 'notes/note1.md',
           content: 'translated_create.contentOmitted',
         },
       ]);
@@ -176,13 +186,13 @@ describe('VaultCreate', () => {
 
     it('should keep content as undefined for files without content', async () => {
       const toolCall = createToolCall({
-        folder: 'notes',
-        newFiles: [{ fileName: 'empty.md' }],
+        newFolders: [],
+        newFiles: [{ filePath: 'notes/empty.md' }],
       });
 
       await vaultCreate.executeCreatePlan({
         title: 'test-conversation',
-        plan: { folder: 'notes', newFiles: [{ fileName: 'empty.md' }] },
+        plan: { newFolders: [], newFiles: [{ filePath: 'notes/empty.md' }] },
         lang: 'en',
         handlerId: 'handler-1',
         toolCall,
@@ -194,7 +204,7 @@ describe('VaultCreate', () => {
 
       expect(toolInvocation.input.newFiles).toMatchObject([
         {
-          fileName: 'empty.md',
+          filePath: 'notes/empty.md',
           content: undefined,
         },
       ]);
@@ -202,22 +212,22 @@ describe('VaultCreate', () => {
 
     it('should handle mixed files with and without content', async () => {
       const toolCall = createToolCall({
-        folder: 'project',
+        newFolders: ['project/assets'],
         newFiles: [
-          { fileName: 'readme.md', content: '# Project\nLong description here...' },
-          { fileName: 'empty.md' },
-          { fileName: 'config.base', content: 'key: value' },
+          { filePath: 'project/readme.md', content: '# Project\nLong description here...' },
+          { filePath: 'project/empty.md' },
+          { filePath: 'project/config.base', content: 'key: value' },
         ],
       });
 
       await vaultCreate.executeCreatePlan({
         title: 'test-conversation',
         plan: {
-          folder: 'project',
+          newFolders: ['project/assets'],
           newFiles: [
-            { fileName: 'readme.md', content: '# Project\nLong description here...' },
-            { fileName: 'empty.md' },
-            { fileName: 'config.base', content: 'key: value' },
+            { filePath: 'project/readme.md', content: '# Project\nLong description here...' },
+            { filePath: 'project/empty.md' },
+            { filePath: 'project/config.base', content: 'key: value' },
           ],
         },
         lang: 'en',
@@ -231,22 +241,25 @@ describe('VaultCreate', () => {
       const serializedFiles = toolInvocation.input.newFiles;
 
       expect(serializedFiles).toMatchObject([
-        { fileName: 'readme.md', content: 'translated_create.contentOmitted' },
-        { fileName: 'empty.md', content: undefined },
-        { fileName: 'config.base', content: 'translated_create.contentOmitted' },
+        { filePath: 'project/readme.md', content: 'translated_create.contentOmitted' },
+        { filePath: 'project/empty.md', content: undefined },
+        { filePath: 'project/config.base', content: 'translated_create.contentOmitted' },
       ]);
     });
 
     it('should preserve the original toolCall input without mutating it', async () => {
       const originalContent = 'This content should remain unchanged on the original object';
       const toolCall = createToolCall({
-        folder: 'notes',
-        newFiles: [{ fileName: 'note.md', content: originalContent }],
+        newFolders: [],
+        newFiles: [{ filePath: 'notes/note.md', content: originalContent }],
       });
 
       await vaultCreate.executeCreatePlan({
         title: 'test-conversation',
-        plan: { folder: 'notes', newFiles: [{ fileName: 'note.md', content: originalContent }] },
+        plan: {
+          newFolders: [],
+          newFiles: [{ filePath: 'notes/note.md', content: originalContent }],
+        },
         lang: 'en',
         handlerId: 'handler-1',
         toolCall,
@@ -256,15 +269,18 @@ describe('VaultCreate', () => {
       expect(toolCall.input.newFiles[0].content).toBe(originalContent);
     });
 
-    it('should include createdFiles and errors in the serialized output', async () => {
+    it('should include createdPaths and errors in the serialized output', async () => {
       const toolCall = createToolCall({
-        folder: 'notes',
-        newFiles: [{ fileName: 'note.md', content: 'content' }],
+        newFolders: ['notes'],
+        newFiles: [{ filePath: 'notes/note.md', content: 'content' }],
       });
 
       await vaultCreate.executeCreatePlan({
         title: 'test-conversation',
-        plan: { folder: 'notes', newFiles: [{ fileName: 'note.md', content: 'content' }] },
+        plan: {
+          newFolders: ['notes'],
+          newFiles: [{ filePath: 'notes/note.md', content: 'content' }],
+        },
         lang: 'en',
         handlerId: 'handler-1',
         toolCall,
@@ -277,7 +293,7 @@ describe('VaultCreate', () => {
       expect(toolInvocation.output).toEqual({
         type: 'json',
         value: {
-          createdFiles: ['notes/note.md'],
+          createdPaths: ['notes', 'notes/note.md'],
           errors: [],
         },
       });

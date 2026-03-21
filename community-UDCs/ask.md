@@ -5,7 +5,8 @@ A command that helps the user with general questions.
 ```YAML
 command_name: ask
 query_required: true
-use_tool: false
+tools:
+  - switch_agent_capacity
 system_prompt:
   - "[[#Instructions]]"
 steps:

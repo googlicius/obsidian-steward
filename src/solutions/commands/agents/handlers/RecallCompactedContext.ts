@@ -1,6 +1,6 @@
 import { tool } from 'ai';
 import { z } from 'zod/v3';
-import { type SuperAgent } from '../SuperAgent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import type { ModelMessage } from 'ai';
@@ -27,7 +27,7 @@ export interface RecallCompactedContextResult {
 }
 
 export async function resolveRecallCompactedContext(params: {
-  renderer: SuperAgent['renderer'];
+  renderer: AgentHandlerContext['renderer'];
   conversationTitle: string;
   args: RecallCompactedContextArgs;
 }): Promise<RecallCompactedContextResult> {
@@ -60,7 +60,7 @@ export class RecallCompactedContext {
     inputSchema: recallCompactedContextSchema,
   });
 
-  constructor(private readonly agent: SuperAgent) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public static getRecallCompactedContextTool() {
     return RecallCompactedContext.recallCompactedContextTool;

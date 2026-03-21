@@ -8,6 +8,7 @@ import { SuperAgent } from '../SuperAgent';
 import * as handlers from '../handlers';
 import type StewardPlugin from 'src/main';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
+import type { AgentCorePromptContext } from '../../Agent';
 
 /**
  * Agent for handling User-Defined Commands (UDC)
@@ -19,6 +20,14 @@ export class UDCAgent extends Agent {
   constructor(plugin: StewardPlugin) {
     super(plugin, [ToolName.TODO_LIST_UPDATE]);
     this.superAgent = new SuperAgent(plugin);
+  }
+
+  public getValidToolNames(): ReadonlySet<ToolName> {
+    return this.superAgent.getValidToolNames();
+  }
+
+  public buildCorePrompt(context?: AgentCorePromptContext): string {
+    return 'No instruction';
   }
 
   /**
@@ -61,15 +70,15 @@ export class UDCAgent extends Agent {
       UDCAgent.ensureConcludeOnLastStep(expandedIntents);
 
       const command = this.plugin.userDefinedCommandService.userDefinedCommands.get(intent.type);
-      const useTool = command?.getVersion() === 2 ? command.normalized.use_tool : undefined;
+      const udcTools = command?.getVersion() === 2 ? command.normalized.tools : undefined;
       const showTodoList =
         command?.getVersion() === 2 ? command.normalized.show_todo_list : undefined;
-      const frontmatterUpdates: Array<{ name: string; value: string | boolean }> = [
+      const frontmatterUpdates: Array<{ name: string; value: string | boolean | string[] }> = [
         { name: 'udc_command', value: intent.type },
       ];
 
-      if (useTool !== undefined) {
-        frontmatterUpdates.push({ name: 'use_tool', value: useTool });
+      if (udcTools && udcTools.length > 0) {
+        frontmatterUpdates.push({ name: 'allowed_tools', value: udcTools });
       }
 
       if (showTodoList !== undefined) {
@@ -130,7 +139,7 @@ export class UDCAgent extends Agent {
         model: currentStep.model,
         systemPrompts: currentStep.systemPrompts,
         no_confirm: currentStep.no_confirm,
-        use_tool: useTool,
+        tools: udcTools,
       };
 
       // Delegate to SuperAgent with step intent - SuperAgent will handle the rest

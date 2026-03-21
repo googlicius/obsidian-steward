@@ -3,6 +3,7 @@ import type { ToolResultCompactor, CompactedToolResult, CompactorParams } from '
 import { truncatePathsWithNote } from './pathExtractor';
 
 interface CreateOutput {
+  createdPaths?: string[];
   createdFiles?: string[];
   errors?: string[];
 }
@@ -16,7 +17,7 @@ export class CreateCompactor implements ToolResultCompactor {
 
   compact(params: CompactorParams): CompactedToolResult {
     const output = params.output as CreateOutput | undefined;
-    const allPaths = output?.createdFiles ?? [];
+    const allPaths = output?.createdPaths ?? output?.createdFiles ?? [];
     const { paths, note } = truncatePathsWithNote(allPaths);
     return {
       toolName: this.toolName,

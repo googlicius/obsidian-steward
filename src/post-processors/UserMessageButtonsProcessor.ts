@@ -118,18 +118,6 @@ export function createUserMessageButtonsProcessor(plugin: StewardPlugin): Markdo
         }
       }
 
-      // Update the frontmatter with the selected model if present.
-      const currentModel = await plugin.conversationRenderer.getConversationProperty(
-        title,
-        'model'
-      );
-      const selectedModel = plugin.conversationRenderer.extractSelectedModelFromText(cleanContent);
-      if (selectedModel && selectedModel !== currentModel) {
-        await plugin.conversationRenderer.updateConversationFrontmatter(title, [
-          { name: 'model', value: selectedModel },
-        ]);
-      }
-
       // Process the command
       await plugin.commandProcessorService.commandProcessor.processIntents(
         {

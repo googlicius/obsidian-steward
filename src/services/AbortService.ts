@@ -7,6 +7,13 @@ export class AbortService {
   private static instance: AbortService;
   private abortControllers: Map<string, AbortController> = new Map();
 
+  private generateOperationId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `op-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
   /**
    * Get the singleton instance of the AbortService
    */
@@ -19,18 +26,20 @@ export class AbortService {
 
   /**
    * Create a new abort controller for a specific operation
-   * @param operationId Unique identifier for the operation
+   * @param operationId Unique identifier for the operation. If not provided, a random ID is used.
    * @returns The abort signal from the created controller
    */
-  public createAbortController(operationId: string): AbortSignal {
+  public createAbortController(operationId?: string): AbortSignal {
+    const resolvedOperationId = operationId || this.generateOperationId();
+
     // If an existing controller exists for this operation, abort it first
-    if (this.abortControllers.has(operationId)) {
-      this.abortOperation(operationId);
+    if (this.abortControllers.has(resolvedOperationId)) {
+      this.abortOperation(resolvedOperationId);
     }
 
     // Create a new abort controller
     const controller = new AbortController();
-    this.abortControllers.set(operationId, controller);
+    this.abortControllers.set(resolvedOperationId, controller);
 
     return controller.signal;
   }

@@ -70,6 +70,17 @@ html[data-stw-language='vi'] {
   /* Last line in a block: no next sibling is a block line */
   &:not(:has(+ .stw-input-line)) {
     padding-bottom: 5px !important;
+
+    /* Model name, provider */
+    &[data-stw-model]:after {
+      content: attr(data-stw-model);
+      display: block;
+      margin-top: var(--size-2-2);
+      padding-top: var(--size-2-2);
+      padding-left: var(--size-2-2);
+      font-size: var(--font-ui-smaller);
+      color: var(--text-muted);
+    }
   }
 }
 
@@ -95,7 +106,7 @@ html[data-stw-language='vi'] {
 }
 
 .callout[data-callout='stw-search-result'],
-.callout[data-callout='stw-edit-preview'] {
+.callout[data-callout='stw-review'] {
   --callout-color: var(--callout-success);
   padding-left: 12px;
   cursor: pointer;
@@ -107,7 +118,7 @@ html[data-stw-language='vi'] {
   }
 }
 
-.callout[data-callout='stw-edit-preview'] {
+.callout[data-callout='stw-review'] {
   max-height: 200px;
   overflow: hidden;
 
@@ -211,10 +222,70 @@ pre.language-stw-thinking {
   }
 }
 
-.stw-conversation .callout-content :is(ul, p, ol) {
-  margin: 6px 0;
-  line-height: 1.4em;
-  overflow: hidden;
+.stw-history-list {
+  padding-top: var(--size-4-2);
+
+  li {
+    display: block;
+    width: 100%;
+    margin-inline-start: 0 !important;
+
+    & > .list-bullet {
+      display: none;
+    }
+
+    .stw-history-item {
+      display: flex;
+      align-items: center;
+      gap: var(--size-2-2);
+      width: 100%;
+      min-height: 30px;
+      border-radius: var(--radius-s);
+      padding: 0 var(--size-2-1);
+
+      .stw-history-link {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-decoration: none;
+        color: var(--text-normal);
+        line-height: 1.35;
+
+        &:visited {
+          color: var(--text-normal);
+        }
+
+        &:hover,
+        &:focus-visible {
+          color: var(--text-muted);
+          text-decoration: none;
+        }
+      }
+
+      .stw-history-delete-button {
+        margin-left: auto;
+        opacity: 0;
+        color: var(--icon-color);
+
+        &:hover {
+          color: var(--icon-color-hover);
+          background: var(--background-modifier-hover);
+        }
+      }
+
+      &:hover .stw-history-delete-button,
+      &:focus-within .stw-history-delete-button {
+        opacity: var(--icon-opacity-hover);
+      }
+
+      &:hover,
+      &:focus-within {
+        background: var(--background-modifier-hover);
+      }
+    }
+  }
 }
 
 pre[class*='language-stw-artifact'],
@@ -224,24 +295,49 @@ code[class*='language-stw-hidden-from-user'] {
   display: none;
 }
 
-/* Conversation buttons container */
-.stw-conversation-buttons {
-  position: absolute;
-  top: var(--size-2-2);
-  inset-inline-end: var(--size-2-2);
-  display: flex;
+/* Conversation embed indicator */
+.stw-conversation-indicator {
+  & .generating-indicator {
+    display: flex;
+    align-items: center;
+    margin-top: var(--size-2-2);
+    padding: var(--embed-padding);
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.9em;
 
-  & > .stw-conversation-button {
-    color: var(--icon-color);
-    opacity: var(--icon-opacity);
-    cursor: var(--cursor-link);
-    padding: var(--size-2-1);
-    border-radius: var(--radius-s);
+    &.hidden {
+      display: none;
+    }
+  }
+}
 
-    &:hover {
-      color: var(--icon-color-hover);
-      opacity: var(--icon-opacity-hover);
-      background: var(--background-modifier-hover);
+/* Conversation embed (buttons, callout content) */
+.stw-conversation {
+  & .callout-content :is(ul, p, ol) {
+    margin: 6px 0;
+    line-height: 1.4em;
+    overflow: hidden;
+  }
+
+  & .conversation-buttons {
+    position: absolute;
+    top: var(--size-2-2);
+    inset-inline-end: var(--size-2-2);
+    display: flex;
+
+    & > .conversation-button {
+      color: var(--icon-color);
+      opacity: var(--icon-opacity);
+      cursor: var(--cursor-link);
+      padding: var(--size-2-1);
+      border-radius: var(--radius-s);
+
+      &:hover {
+        color: var(--icon-color-hover);
+        opacity: var(--icon-opacity-hover);
+        background: var(--background-modifier-hover);
+      }
     }
   }
 }
@@ -284,25 +380,28 @@ code[class*='language-stw-hidden-from-user'] {
 }
 
 .stw-source-button {
-  background: linear-gradient(to right, #0000ff, #00bebe);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  background-color: var(--background-primary);
+  color: var(--text-muted);
   border-radius: var(--radius-s);
   border: thin solid var(--background-modifier-border);
   cursor: pointer;
   font-size: 0.9em;
   padding: var(--size-2-1);
-}
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
 
-.stw-selected-model {
-  color: var(--interactive-accent);
-  border-bottom: 2px dashed var(--background-modifier-border);
-  cursor: default;
-  font-size: 0.86em;
-  padding-right: var(--size-2-1);
-  letter-spacing: 0.02em;
-  display: inline-block;
+  &:hover {
+    background-color: var(--background-modifier-hover);
+    color: var(--text-normal);
+    border-color: var(--background-modifier-border-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--interactive-accent);
+    outline-offset: 1px;
+  }
 }
 
 .stw-squeezed-button {

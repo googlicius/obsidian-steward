@@ -10,6 +10,7 @@ export interface ToolDefinition {
   guidelines: string[];
   required?: boolean;
   category?: string;
+  showDescriptionWhenInactive?: boolean;
 }
 
 export interface ToolMetaDefinition {
@@ -17,6 +18,7 @@ export interface ToolMetaDefinition {
   description: string;
   guidelines: string[];
   category?: string;
+  showDescriptionWhenInactive?: boolean;
 }
 
 /**
@@ -31,14 +33,13 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       'Read content from a note, including text, images, audios, videos, etc. Or image files (png, jpg, jpeg, etc.).',
     category: 'content-access',
     guidelines: [
-      `Use ${ToolName.CONTENT_READING} to read any type of content, including text, image, audio, video, etc.`,
       `When reading notes:
   - Specify the number of blocks to read (blocksToRead) carefully from the user's query, Do NOT set -1 unless the user explicitly requests to read the entire content.
   - Specify the direction to read (readType) carefully from the user's query, Do NOT set "entire" unless the user explicitly requests to read the entire content.`,
-      `When reading multiple files, you MUST make multiple parallel tool calls in the same request (one ${ToolName.CONTENT_READING} call per file). Do NOT read files sequentially one by one. EXCEPT when the user explicitly requests sequential reading.`,
-      `After reading, respond a short conclusion of your task. DO NOT respond the elements of the reading result in your final response: Tables, lists, code, blockquote, images, headings, etc.`,
+      `When reading multiple files, you MUST make multiple parallel tool calls in the same request (one ${ToolName.CONTENT_READING} call per file). Do NOT read files sequentially one by one. EXCEPT when the user explicitly requests it.`,
       `On success, creates artifact: ${ArtifactType.READ_CONTENT}.`,
     ],
+    showDescriptionWhenInactive: true,
   },
 
   // User interaction tools
@@ -64,9 +65,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   [ToolName.USER_CONFIRM]: {
     name: ToolName.USER_CONFIRM,
     description: 'Handle user confirmation responses (yes/no) for pending operations.',
-    guidelines: [
-      `Use ${ToolName.USER_CONFIRM} when the user provides a confirmation response to a pending operation.`,
-    ],
+    guidelines: [],
     category: 'user-interaction',
   },
 
@@ -82,9 +81,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   [ToolName.STOP]: {
     name: ToolName.STOP,
     description: 'Stop all active operations and abort any ongoing processes.',
-    guidelines: [
-      `Use ${ToolName.STOP} when the user requests to stop or cancel ongoing operations.`,
-    ],
+    guidelines: [],
     category: 'user-interaction',
   },
 
@@ -120,6 +117,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       `On success, creates artifact: ${ArtifactType.SEARCH_RESULTS}.`,
     ],
     category: 'vault-access',
+    showDescriptionWhenInactive: true,
   },
 
   [ToolName.SEARCH_MORE]: {
@@ -134,21 +132,30 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   [ToolName.GREP]: {
     name: ToolName.GREP,
     description:
-      'Check if files or folders exist, or search for specific text patterns in note content.',
+      'Locate matching CONTENT across files, folders, or glob patterns using literal or regex search.',
     guidelines: [
-      `Use ${ToolName.GREP} to check if one or many given file or folder paths exist in the vault. If a folder.`,
-      `Use ${ToolName.GREP} to search for specific text patterns in note content when a pattern is provided with a single file path.`,
-      `The ${ToolName.GREP} tool will NOT return the files inside the folder. Use ${ToolName.LIST} to list files instead.`,
+      `Use caseSensitive, isRegex, contextLines, and maxResults to control matching behavior and output size.`,
+      `If you need to find file/folder names by pattern, use ${ToolName.LIST}, the ${ToolName.GREP} cannot do that.`,
+      `The ${ToolName.GREP} tool does NOT validate path existence. Use ${ToolName.EXISTS} when you need existence validation.`,
     ],
     category: 'vault-access',
+    showDescriptionWhenInactive: true,
+  },
+
+  [ToolName.EXISTS]: {
+    name: ToolName.EXISTS,
+    description: 'Check whether files or folders exist and identify their type.',
+    guidelines: [`The result includes path, exists, and type (file, folder, or null).`],
+    category: 'vault-access',
+    showDescriptionWhenInactive: true,
   },
 
   [ToolName.EDIT]: {
     name: ToolName.EDIT,
-    description: 'Update content by multiple edit modes.',
+    description:
+      'Update content by multiple edit modes, Use if you need to update existing content.',
     guidelines: [
-      `Use the ${ToolName.EDIT} tool if you need to update existing content.
-  - When updating content, return ONLY the specific changed content, not the entire surrounding context.
+      `- When updating content, return ONLY the specific changed content, not the entire surrounding context.
   - Use ${ToolName.EDIT} to make the actual content changes. (NOTE: You cannot use this tool if a note does not exist.)
   - Use the right edit mode to ensure good performance and efficient token usage.`,
       `Here are available edit modes:
@@ -169,12 +176,13 @@ NOTE:
   [ToolName.CREATE]: {
     name: ToolName.CREATE,
     description:
-      'Create new files (notes, canvases, CSS snippets, etc.) and optionally populate them with content.',
+      'Create new folders and files (notes, canvases, bases, etc.) and optionally populate file content.',
     guidelines: [
-      `Use ${ToolName.CREATE} to create every file requested by the user.
-  - Provide the exact content that should be written to the file when available.
-  - Ensure each file name includes the appropriate extension (e.g. .md, .canvas, .base) and points to the correct folder.`,
-      `On success, creates artifact: ${ArtifactType.CREATED_NOTES}.`,
+      `- Use newFolders for folder paths.
+  - Use newFiles with filePath (not fileName) for file creation.
+  - Ensure each filePath includes the appropriate extension (e.g. .md, .canvas, .base).
+  - Provide the exact content that should be written to a file when available.`,
+      `On success, creates artifact: ${ArtifactType.CREATED_PATHS}.`,
     ],
     category: 'content-create',
   },
@@ -183,8 +191,7 @@ NOTE:
     name: ToolName.DELETE,
     description: 'Delete files from the vault using the configured trash behavior.',
     guidelines: [
-      `Use the ${ToolName.DELETE} tool to remove files or notes from the vault.
-  - List every file using the list tool (not grep tool) you plan to delete and ensure the paths are accurate.`,
+      `- List every file using the ${ToolName.LIST} tool (NOT ${ToolName.GREP}) you plan to delete and ensure the paths are accurate.`,
       `On success, creates artifact: ${ArtifactType.DELETED_FILES}.`,
     ],
     category: 'vault-access',
@@ -194,8 +201,7 @@ NOTE:
     name: ToolName.COPY,
     description: 'Copy files to another folder.',
     guidelines: [
-      `Use ${ToolName.COPY} to duplicate files into another folder.
-  - Always provide the destination folder path for the copy operation.
+      `- Always provide the destination folder path for the copy operation.
   - Specify the files or artifactId for the copy operation.`,
     ],
     category: 'vault-access',
@@ -205,7 +211,6 @@ NOTE:
     name: ToolName.RENAME,
     description: 'Rename files to a new path or filename.',
     guidelines: [
-      `Use ${ToolName.RENAME} to change the name or location of files.`,
       `Always provide both the current path and the new path for each file.`,
       `On success, creates artifact: ${ArtifactType.RENAME_RESULTS}.`,
     ],
@@ -216,8 +221,7 @@ NOTE:
     name: ToolName.MOVE,
     description: 'Move files to another folder.',
     guidelines: [
-      `Use ${ToolName.MOVE} to relocate files to another folder.,
-  - Always provide the destination folder path for the move operation.,
+      `- Always provide the destination folder path for the move operation.,
   - Specify the files or artifactId for the move operation.`,
       `On success, creates artifact: ${ArtifactType.MOVE_RESULTS}.`,
     ],
@@ -226,12 +230,11 @@ NOTE:
 
   [ToolName.LIST]: {
     name: ToolName.LIST,
-    description: 'List files in the vault or a specific folder.',
-    guidelines: [
-      `Use ${ToolName.LIST} to list files in the vault or a specific folder.`,
-      `On success, creates artifact: ${ArtifactType.LIST_RESULTS}.`,
-    ],
+    description:
+      'List direct files and subfolders in a folder (non-recursive) and optionally filter names with filePattern.',
+    guidelines: [`On success, creates artifact: ${ArtifactType.LIST_RESULTS}.`],
     category: 'vault-access',
+    showDescriptionWhenInactive: true,
   },
 
   [ToolName.UPDATE_FRONTMATTER]: {
@@ -246,60 +249,22 @@ NOTE:
 
   [ToolName.ACTIVATE]: {
     name: ToolName.ACTIVATE,
-    description: 'Request additional tools to be activated for the current session.',
+    description:
+      'Request additional tools to be activated for the current session. Use when you need other tools currently inactive to complete the task. It will return the schemas and guidelines of the requested tools.',
     guidelines: [
-      `Use ${ToolName.ACTIVATE} when you need other tools currently inactive to complete the task. It will return the schemas and guidelines of the requested tools.
-  - Activate ONLY tools that are needed for the current task.
-  - If you need multiple tools, activate them at once (in the same request) that are needed to fulfill the user's query.`,
+      `Activate ONLY tools that are needed for the current task.`,
+      `If you need multiple tools, activate them at once (in the same request) that are needed to fulfill the user's query.`,
     ],
     category: 'tool-management',
   },
 
-  [ToolName.REVERT_DELETE]: {
-    name: ToolName.REVERT_DELETE,
+  [ToolName.REVERT]: {
+    name: ToolName.REVERT,
     description:
-      'Revert deleted files by restoring them from the trash folder to their original locations.',
+      'Revert all revertable operations produced by the latest user query, including subagents.',
     guidelines: [
-      `Use ${ToolName.REVERT_DELETE} to restore files that were previously deleted.`,
-      `Specify the artifactId containing deleted files to restore, or provide specific trash file paths.`,
-      `Files will be restored to their original paths as recorded in the trash metadata.`,
+      `Use ${ToolName.REVERT} to undo the latest user query end-to-end in reverse chronological order.`,
     ],
-    category: 'vault-access',
-  },
-
-  [ToolName.REVERT_MOVE]: {
-    name: ToolName.REVERT_MOVE,
-    description: 'Revert move operations by moving files back to their original locations.',
-    guidelines: [`Use ${ToolName.REVERT_MOVE} to undo file move operations.`],
-    category: 'vault-access',
-  },
-
-  [ToolName.REVERT_FRONTMATTER]: {
-    name: ToolName.REVERT_FRONTMATTER,
-    description: 'Revert frontmatter updates by restoring original frontmatter properties.',
-    guidelines: [`Use ${ToolName.REVERT_FRONTMATTER} to undo frontmatter property changes.`],
-    category: 'vault-access',
-  },
-
-  [ToolName.REVERT_RENAME]: {
-    name: ToolName.REVERT_RENAME,
-    description: 'Revert rename operations by renaming files back to their original names.',
-    guidelines: [`Use ${ToolName.REVERT_RENAME} to undo file rename operations.`],
-    category: 'vault-access',
-  },
-
-  [ToolName.REVERT_CREATE]: {
-    name: ToolName.REVERT_CREATE,
-    description: 'Revert create operations by deleting files that were previously created.',
-    guidelines: [`Use ${ToolName.REVERT_CREATE} to undo file creation operations.`],
-    category: 'vault-access',
-  },
-
-  [ToolName.REVERT_EDIT_RESULTS]: {
-    name: ToolName.REVERT_EDIT_RESULTS,
-    description:
-      'Revert edit operations by restoring original content that was previously modified.',
-    guidelines: [`Use ${ToolName.REVERT_EDIT_RESULTS} to undo content edit operations.`],
     category: 'vault-access',
   },
 
@@ -343,18 +308,19 @@ NOTE:
       `On success, creates artifact: ${ArtifactType.MEDIA_RESULTS}.`,
     ],
     category: 'content-generation',
+    showDescriptionWhenInactive: true,
   },
 
   [ToolName.TODO_LIST]: {
     name: ToolName.TODO_LIST,
     description:
-      'Create a to-do list for complex tasks. Each step includes a task that will be executed sequentially.',
+      'Create a to-do list for complex tasks by breaking down into manageable steps. Each step includes a task that will be executed sequentially.',
     guidelines: [
-      `Use ${ToolName.TODO_LIST} to break down complex tasks into manageable steps.
-  - When creating a to-do list, provide an array of steps, each with a task. The task is the only required field for each step.
-  - After creating a to-do list, you should execute the first step's task.`,
+      `When creating a to-do list, provide an array of steps, each with a task. The task is the only required field for each step.`,
+      `After creating a to-do list, you should execute the first step's task.`,
     ],
     category: 'task-management',
+    showDescriptionWhenInactive: true,
   },
 
   [ToolName.TODO_LIST_UPDATE]: {
@@ -367,17 +333,19 @@ NOTE:
     category: 'task-management',
   },
 
-  [ToolName.USE_SKILLS]: {
-    name: ToolName.USE_SKILLS,
+  [ToolName.SPAWN_SUBAGENT]: {
+    name: ToolName.SPAWN_SUBAGENT,
     description:
-      'Activate one or more skills to gain domain-specific knowledge for the current task.',
+      'Use when a task can be split into independent jobs, especially to keep each job focused and reduce token usage when token limits might be hit.',
     guidelines: [
-      `Use ${ToolName.USE_SKILLS} only when performing tasks that require specific skill knowledge (e.g., creating or editing files in a specialized format).
-  - For answering questions, the skill name and description in the catalog is sufficient — do NOT activate skills just to answer.
-  - Activate skills BEFORE attempting the task that requires that knowledge.
-  - Once activated, skills persist for the entire conversation.`,
+      `Provide clear job queries for each subagent job. Use tools for immediately required actions and inactiveTools for optional verification/pre-check tools the subagent may activate later.`,
+      `For jobs that create, edit, move, or delete content, include enough inactiveTools to verify results before concluding (for example: ${ToolName.CONTENT_READING}, ${ToolName.GREP}, ${ToolName.SEARCH}, ${ToolName.LIST}).`,
+      `Subagents run in parallel, so ensure jobs do not depend on each other.`,
+      `Subagents can activate only when needed; keep tools minimal but include a verification path via inactiveTools.`,
+      `After ${ToolName.SPAWN_SUBAGENT} returns, use its summarized results to continue or finalize in the conversation.`,
     ],
-    category: 'skill',
+    category: 'orchestration',
+    showDescriptionWhenInactive: true,
   },
 
   [ToolName.SWITCH_AGENT_CAPACITY]: {
@@ -385,8 +353,7 @@ NOTE:
     description:
       'Switch the current conversation from direct response mode to tool and skill mode.',
     guidelines: [
-      `Use ${ToolName.SWITCH_AGENT_CAPACITY} when tools are disabled and the task needs tool-based execution.`,
-      `Call ${ToolName.SWITCH_AGENT_CAPACITY} first to switch to agent mode, then continue by using ${ToolName.ACTIVATE} and other required tools.`,
+      `When this tool is available alongside a small tool set, the user may still be in a limited mode: call ${ToolName.SWITCH_AGENT_CAPACITY} when they need the full agent so they can confirm. After confirmation, continue with vault and content tools as needed. This tool is not offered when the conversation already has the full Super Agent tool surface.`,
     ],
     category: 'tool-management',
   },
@@ -459,6 +426,19 @@ export class ToolRegistry<T> {
     return this.activeTools.has(name);
   }
 
+  /**
+   * Tool names that are active (exposed to the model) in this registry.
+   */
+  public listActiveToolNames(): ToolName[] {
+    const names: ToolName[] = [];
+    for (const [name] of this.tools) {
+      if (this.isActive(name)) {
+        names.push(name);
+      }
+    }
+    return names;
+  }
+
   public getToolsObject(): T {
     const obj: Record<string, unknown> = {};
     for (const [name, def] of this.tools) {
@@ -498,16 +478,12 @@ export class ToolRegistry<T> {
     return sections.join('\n\n');
   }
 
-  public generateOtherToolsSection(
-    emptyLabel = '',
-    includeDescription?: Set<ToolName>,
-    exclude?: Set<ToolName>
-  ): string {
+  public generateOtherToolsSection(emptyLabel = '', exclude?: Set<ToolName>): string {
     const lines: string[] = [];
     for (const [, def] of this.tools) {
       if (this.isActive(def.name)) continue;
       if (exclude?.has(def.name)) continue;
-      const line = includeDescription?.has(def.name)
+      const line = def.showDescriptionWhenInactive
         ? `- ${def.name} - ${def.description}`
         : `- ${def.name}`;
       lines.push(line);
@@ -534,6 +510,7 @@ export class ToolRegistry<T> {
         description: meta.description,
         guidelines: meta.guidelines,
         category: meta.category,
+        showDescriptionWhenInactive: meta.showDescriptionWhenInactive,
       });
     }
     return registry;

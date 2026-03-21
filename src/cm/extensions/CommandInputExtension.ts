@@ -5,20 +5,11 @@ import {
   ViewPlugin,
   ViewUpdate,
   keymap,
-  WidgetType,
 } from '@codemirror/view';
-import {
-  Extension,
-  Line,
-  Prec,
-  EditorState,
-  StateField,
-  RangeSetBuilder,
-  Text,
-  RangeSet,
-} from '@codemirror/state';
-import { SELECTED_MODEL_PATTERN, TWO_SPACES_PREFIX } from 'src/constants';
+import { Extension, Line, Prec } from '@codemirror/state';
+import { TWO_SPACES_PREFIX } from 'src/constants';
 import type StewardPlugin from 'src/main';
+import { Events, type ModelChangedPayload } from 'src/types/events';
 
 export interface CommandInputOptions {
   /**
@@ -57,29 +48,30 @@ export function createCommandInputExtension(
   return [
     createInputExtension(plugin, options),
     createCommandKeymapExtension(plugin, options),
-    createSelectedModelExtension(),
     createPasteHandlerExtension(plugin),
   ];
 }
 
 // Add syntax highlighting for command prefixes and toolbar for command inputs
 function createInputExtension(plugin: StewardPlugin, options: CommandInputOptions = {}): Extension {
-  const commandInputLineDecor = Decoration.line({ class: 'stw-input-line' });
-
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet;
       private typingDebounceTimeout: number | null = null;
+      private decorationBuildRequestId = 0;
 
       constructor(private view: EditorView) {
-        this.decorations = this.buildDecorations();
+        this.decorations = Decoration.none;
+        void this.buildDecorations();
 
         // Attach event listeners
         view.dom.addEventListener('keypress', this.handleKeyPress);
+        view.dom.addEventListener(Events.MODEL_CHANGED, this.handleModelChanged);
       }
 
       destroy() {
         this.view.dom.removeEventListener('keypress', this.handleKeyPress);
+        this.view.dom.removeEventListener(Events.MODEL_CHANGED, this.handleModelChanged);
 
         // Clear any pending timeout
         if (this.typingDebounceTimeout) {
@@ -89,7 +81,7 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
 
       update(update: ViewUpdate) {
         if (update.docChanged || update.viewportChanged) {
-          this.decorations = this.buildDecorations();
+          void this.buildDecorations();
         }
       }
 
@@ -98,10 +90,12 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
        * - Command prefix,
        * - Command line and continuation lines background.
        */
-      private buildDecorations() {
+      private async buildDecorations(): Promise<void> {
+        const requestId = ++this.decorationBuildRequestId;
         const decorations = [];
-        const { state } = this.view;
-        const { doc } = state;
+        let extendedPrefixes: string[] | null = null;
+        let modelLabel: string | undefined;
+        let isAsync = false;
 
         // Get visible range instead of processing the entire document
         const { from, to } = this.view.viewport;
@@ -109,45 +103,84 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
         // Process only the visible lines
         let pos = from;
         while (pos <= to) {
-          const line = doc.lineAt(pos);
+          const line = this.view.state.doc.lineAt(pos);
           const lineText = line.text;
 
           // Fast check for any command prefix
-          if (lineText.startsWith('/')) {
-            const extendedPrefixes = plugin.userDefinedCommandService.buildExtendedPrefixes();
-            const matchedPrefix = extendedPrefixes.find(prefix => lineText.startsWith(prefix));
+          if (!lineText.startsWith('/')) {
+            pos = line.to + 1;
+            continue;
+          }
 
-            if (matchedPrefix) {
-              const prefixFrom = line.from + lineText.indexOf(matchedPrefix);
-              const prefixTo = prefixFrom + matchedPrefix.length;
+          if (!extendedPrefixes) {
+            extendedPrefixes = plugin.userDefinedCommandService.buildExtendedPrefixes();
+          }
 
-              const command = matchedPrefix === '/ ' ? 'general' : matchedPrefix.replace('/', '');
-              const hasPlaceholder = hasCommandPlaceholder(line, matchedPrefix);
+          const matchedPrefix = extendedPrefixes.find(prefix => lineText.startsWith(prefix));
 
-              decorations.push(
-                // Add decoration for the entire line
-                commandInputLineDecor.range(line.from),
+          if (matchedPrefix) {
+            const prefixFrom = line.from + lineText.indexOf(matchedPrefix);
+            const prefixTo = prefixFrom + matchedPrefix.length;
 
-                // Add decoration for the command prefix
-                Decoration.mark({
-                  class: `stw-command-prefix stw-command-prefix-${command}`,
-                  ...(hasPlaceholder && {
-                    attributes: { 'has-placeholder': '1' },
-                  }),
-                }).range(prefixFrom, prefixTo)
-              );
+            if (!modelLabel) {
+              const conversationTitle = plugin.findConversationTitleAbove(this.view, line.number);
+              if (conversationTitle) {
+                modelLabel = await plugin.getCurrentConversationModelLabel({
+                  conversationTitle,
+                  forceRefresh: true,
+                });
+                isAsync = true;
+              } else {
+                const commandName = matchedPrefix.replace('/', '').trim();
+                let commandModel = '';
 
-              // Check for continuation lines
-              let nextLineNum = line.number + 1;
-              while (nextLineNum <= doc.lines) {
-                const nextLine = doc.line(nextLineNum);
-                if (plugin.commandInputService.isContinuationLine(nextLine.text)) {
-                  // Add decoration for continuation line
-                  decorations.push(commandInputLineDecor.range(nextLine.from));
-                  nextLineNum++;
-                } else {
-                  break;
+                if (plugin.userDefinedCommandService.hasCommand(commandName)) {
+                  commandModel = plugin.userDefinedCommandService.userDefinedCommands.get(
+                    commandName
+                  )?.normalized.model as string;
                 }
+
+                if (!commandModel) {
+                  commandModel = plugin.settings.llm.chat.model;
+                }
+
+                modelLabel = plugin.llmService.formatModelLabel(commandModel);
+              }
+            }
+
+            const commandInputLineDecor = Decoration.line({
+              class: 'stw-input-line',
+              attributes: {
+                'data-stw-model': modelLabel,
+              },
+            });
+
+            const command = matchedPrefix === '/ ' ? 'general' : matchedPrefix.replace('/', '');
+            const hasPlaceholder = hasCommandPlaceholder(line, matchedPrefix);
+
+            decorations.push(
+              // Add decoration for the entire line
+              commandInputLineDecor.range(line.from),
+
+              // Add decoration for the command prefix
+              Decoration.mark({
+                class: `stw-command-prefix stw-command-prefix-${command}`,
+                ...(hasPlaceholder && {
+                  attributes: { 'has-placeholder': '1' },
+                }),
+              }).range(prefixFrom, prefixTo)
+            );
+
+            // Check for continuation lines
+            let nextLineNum = line.number + 1;
+            while (nextLineNum <= this.view.state.doc.lines) {
+              const nextLine = this.view.state.doc.line(nextLineNum);
+              if (plugin.commandInputService.isContinuationLine(nextLine.text)) {
+                // Add decoration for continuation line
+                decorations.push(commandInputLineDecor.range(nextLine.from));
+                nextLineNum++;
+              } else {
+                break;
               }
             }
           }
@@ -156,8 +189,24 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
           pos = line.to + 1;
         }
 
-        return Decoration.set(decorations);
+        if (requestId !== this.decorationBuildRequestId) {
+          return;
+        }
+
+        this.decorations = Decoration.set(decorations);
+
+        if (isAsync) {
+          setTimeout(() => {
+            this.view.dispatch({});
+          });
+        }
       }
+
+      private handleModelChanged = (event: Event) => {
+        const modelChangedEvent = event as CustomEvent<ModelChangedPayload>;
+        if (!modelChangedEvent.detail.modelId) return;
+        void this.buildDecorations();
+      };
 
       private handleKeyPress = (event: KeyboardEvent) => {
         // Clear any existing timeout
@@ -211,12 +260,10 @@ function createPasteHandlerExtension(plugin: StewardPlugin): Extension {
           return false; // Let default behavior happen
         }
 
-        const { state } = view;
-        const { selection } = state;
-        const { from, to } = selection.main;
+        const { from, to } = view.state.selection.main;
 
         // Get the line at the paste position (before paste happens)
-        const line = state.doc.lineAt(from);
+        const line = view.state.doc.lineAt(from);
 
         // Check if we're in a command input context
         const isInCommandContext =
@@ -319,119 +366,4 @@ function createCommandKeymapExtension(
       },
     ])
   );
-}
-
-/**
- * Extension to display selected model as a widget
- * Pattern: `m:<provider>:<modelId>` or `model:<provider>:<modelId>`
- * Display as `<modelId>`
- */
-export function createSelectedModelExtension(): Extension {
-  // Widget for rendering the model selector
-  class SelectedModelWidget extends WidgetType {
-    constructor(
-      private selectorPrefix: string,
-      private provider: string,
-      private modelId: string
-    ) {
-      super();
-    }
-
-    toDOM() {
-      const span = document.createElement('span');
-      span.textContent = this.modelId;
-      span.className = 'stw-selected-model';
-      span.title = `${this.provider}:${this.modelId}`;
-      return span;
-    }
-
-    ignoreEvent() {
-      return true;
-    }
-
-    eq(other: SelectedModelWidget) {
-      return (
-        this.selectorPrefix === other.selectorPrefix &&
-        this.provider === other.provider &&
-        this.modelId === other.modelId
-      );
-    }
-  }
-
-  // Function to find all model selector patterns in the document
-  function findModelSelectorRanges(doc: Text) {
-    const ranges = [];
-    const text = doc.sliceString(0, doc.length);
-
-    const regex = new RegExp(SELECTED_MODEL_PATTERN, 'gi');
-    let match;
-
-    while ((match = regex.exec(text)) !== null) {
-      const from = match.index;
-      const to = from + match[0].length;
-      const selectorPrefix = match[1].toLowerCase();
-      const provider = match[2];
-      const modelId = match[3];
-
-      ranges.push({ from, to, selectorPrefix, provider, modelId });
-    }
-
-    return ranges;
-  }
-
-  // Helper to compute the decoration set
-  function computeDecorationsAndRanges(state: EditorState) {
-    const decorationBuilder = new RangeSetBuilder<Decoration>();
-    const atomicRangeBuilder = new RangeSetBuilder<Decoration>();
-    const ranges = findModelSelectorRanges(state.doc);
-
-    for (const { from, to, selectorPrefix, provider, modelId } of ranges) {
-      decorationBuilder.add(
-        from,
-        to,
-        Decoration.replace({
-          widget: new SelectedModelWidget(selectorPrefix, provider, modelId),
-          inclusive: false,
-        })
-      );
-
-      // Add the same range to the atomic ranges builder
-      atomicRangeBuilder.add(from, to, Decoration.mark({}));
-    }
-
-    return {
-      decorations: decorationBuilder.finish(),
-      atomicRanges: atomicRangeBuilder.finish(),
-    };
-  }
-
-  const selectedModelField = StateField.define<{
-    decorations: DecorationSet;
-    atomicRanges: RangeSet<Decoration>;
-  }>({
-    create(state) {
-      return computeDecorationsAndRanges(state);
-    },
-
-    update(value, tr) {
-      // Recompute on any transaction (doc change)
-      if (tr.docChanged) {
-        return computeDecorationsAndRanges(tr.state);
-      }
-
-      return {
-        decorations: value.decorations.map(tr.changes),
-        atomicRanges: value.atomicRanges.map(tr.changes),
-      };
-    },
-
-    provide(field) {
-      return [
-        EditorView.decorations.from(field, value => value.decorations),
-        EditorView.atomicRanges.from(field, value => () => value.atomicRanges),
-      ];
-    },
-  });
-
-  return [selectedModelField];
 }

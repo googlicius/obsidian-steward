@@ -11,7 +11,7 @@ import { Skill, SkillCatalogEntry } from './types';
 export class SkillService {
   private static instance: SkillService | null = null;
 
-  /** Map of skill name -> Skill */
+  /** Map of skill name -> Skill (including enabled/disabled status) */
   public skills: Map<string, Skill> = new Map();
 
   private constructor(private plugin: StewardPlugin) {
@@ -123,19 +123,22 @@ export class SkillService {
         return;
       }
 
-      if (frontmatter.disabled === 'true') {
-        logger.log(`Skill ${frontmatter.name} is disabled.`);
-        return;
-      }
+      const enabled = frontmatter.disabled !== 'true';
 
       const skill: Skill = {
         name: frontmatter.name,
         description: frontmatter.description,
         content: body.trim(),
         filePath: file.path,
+        enabled,
       };
 
       this.skills.set(skill.name, skill);
+      if (!enabled) {
+        logger.log(`Loaded skill: ${skill.name} from ${file.path} (disabled)`);
+        return;
+      }
+
       logger.log(`Loaded skill: ${skill.name} from ${file.path}`);
     } catch (error) {
       logger.error(`Error loading skill from file ${file.path}:`, error);
@@ -197,9 +200,14 @@ export class SkillService {
     const entries: SkillCatalogEntry[] = [];
 
     for (const skill of this.skills.values()) {
+      if (!skill.enabled) {
+        continue;
+      }
+
       entries.push({
         name: skill.name,
         description: skill.description,
+        path: skill.filePath,
       });
     }
 
@@ -222,7 +230,7 @@ export class SkillService {
 
     for (const name of skillNames) {
       const skill = this.skills.get(name);
-      if (skill) {
+      if (skill && skill.enabled) {
         activatedSkills.push(name);
         contents[name] = skill.content;
       } else {
@@ -237,13 +245,31 @@ export class SkillService {
    * Check if any skills are loaded
    */
   public hasSkills(): boolean {
-    return this.skills.size > 0;
+    for (const skill of this.skills.values()) {
+      if (skill.enabled) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
    * Get all loaded skill names
    */
   public getSkillNames(): string[] {
-    return Array.from(this.skills.keys());
+    const names: string[] = [];
+    for (const [name, skill] of this.skills.entries()) {
+      if (skill.enabled) {
+        names.push(name);
+      }
+    }
+    return names;
+  }
+
+  /**
+   * Get all skills, including disabled ones
+   */
+  public getAllSkills(): Skill[] {
+    return Array.from(this.skills.values());
   }
 }

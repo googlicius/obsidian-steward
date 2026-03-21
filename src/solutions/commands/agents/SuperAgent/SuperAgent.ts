@@ -1,27 +1,24 @@
 import { ModelMessage, streamText } from 'ai';
 import { Agent } from '../../Agent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus, Intent } from '../../types';
-import { ToolCallPart, ToolResultPart } from '../../tools/types';
+import { ToolCallPart, ToolResultPart, TypedToolCallPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
-import { ToolRegistry, ToolName } from '../../ToolRegistry';
+import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
-import { activateTools } from '../../tools/activateTools';
-import { getMostRecentArtifact, getArtifactById } from '../../tools/getArtifact';
 import { getClassifier } from 'src/lib/modelfusion';
 import { logger } from 'src/utils/logger';
-import { SuperAgentHandlers } from './SuperAgentHandlers';
-import { SuperAgentToolContentStream, ToolContentStreamInfo } from './SuperAgentToolContentStream';
-import { SuperAgentManualToolCall } from './SuperAgentManualToolCall';
+import * as components from '../components';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { applyMixins } from 'src/utils/applyMixins';
-import { createAskUserTool } from '../../tools/askUser';
 import * as handlers from '../handlers';
-import { joinWithConjunction } from 'src/utils/arrayUtils';
-import { createLLMStream } from 'src/utils/textStreamer';
-import { SysError } from 'src/utils/errors';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { createStepProcessedQuery } from './stepProcessedQuery';
-import { createToolHandlerChain } from '../middleware/createToolHandlerChain';
-import { createGuardrailsMiddleware } from 'src/services/GuardrailsRuleService/guardrailsMiddleware';
+import { SUPER_AGENT_TOOLS } from '../agentTools';
+import type { AgentCorePromptContext } from '../../Agent';
+
+const SUPER_AGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = new Set(
+  Object.keys(SUPER_AGENT_TOOLS) as ToolName[]
+);
 
 /**
  * Map of task names to their associated tool names.
@@ -38,15 +35,9 @@ const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
     ToolName.RENAME,
     ToolName.UPDATE_FRONTMATTER,
     ToolName.GREP,
+    ToolName.EXISTS,
   ]),
-  revert: new Set([
-    ToolName.REVERT_DELETE,
-    ToolName.REVERT_MOVE,
-    ToolName.REVERT_FRONTMATTER,
-    ToolName.REVERT_RENAME,
-    ToolName.REVERT_CREATE,
-    ToolName.REVERT_EDIT_RESULTS,
-  ]),
+  revert: new Set([ToolName.REVERT]),
   read: new Set([ToolName.CONTENT_READING]),
   edit: new Set([ToolName.EDIT]),
   user_confirm: new Set([ToolName.USER_CONFIRM]),
@@ -89,48 +80,7 @@ const TASK_TO_INDICATOR_MAP: Record<string, string> = {
  */
 const SINGLE_TURN_TASKS = new Set(['search']);
 
-const { askUserTool: confirmationTool } = createAskUserTool('confirmation');
-const { askUserTool } = createAskUserTool('ask');
-
-const tools = {
-  [ToolName.LIST]: handlers.VaultList.getListTool(),
-  [ToolName.CREATE]: handlers.VaultCreate.getCreateTool(),
-  [ToolName.DELETE]: handlers.VaultDelete.getDeleteTool(),
-  [ToolName.COPY]: handlers.VaultCopy.getCopyTool(),
-  [ToolName.RENAME]: handlers.VaultRename.getRenameTool(),
-  [ToolName.MOVE]: handlers.VaultMove.getMoveTool(),
-  [ToolName.UPDATE_FRONTMATTER]: handlers.VaultUpdateFrontmatter.getUpdateFrontmatterTool(),
-  [ToolName.GREP]: handlers.VaultGrep.getGrepTool(),
-  [ToolName.REVERT_DELETE]: handlers.RevertDelete.getRevertDeleteTool(),
-  [ToolName.REVERT_MOVE]: handlers.RevertMove.getRevertMoveTool(),
-  [ToolName.REVERT_FRONTMATTER]: handlers.RevertFrontmatter.getRevertFrontmatterTool(),
-  [ToolName.REVERT_RENAME]: handlers.RevertRename.getRevertRenameTool(),
-  [ToolName.REVERT_CREATE]: handlers.RevertCreate.getRevertCreateTool(),
-  [ToolName.REVERT_EDIT_RESULTS]: handlers.RevertEditResults.getRevertEditResultsTool(),
-  [ToolName.CONTENT_READING]: handlers.ReadContent.getContentReadingTool(),
-  [ToolName.CONFIRMATION]: confirmationTool,
-  [ToolName.ASK_USER]: askUserTool,
-  [ToolName.EDIT]: handlers.EditHandler.getEditTool('in_the_note'),
-  [ToolName.USER_CONFIRM]: handlers.UserConfirm.getUserConfirmTool(),
-  [ToolName.HELP]: handlers.Help.getHelpTool(),
-  [ToolName.STOP]: handlers.Stop.getStopTool(),
-  [ToolName.THANK_YOU]: handlers.ThankYou.getThankYouTool(),
-  [ToolName.BUILD_SEARCH_INDEX]: handlers.BuildSearchIndex.getBuildSearchIndexTool(),
-  [ToolName.SEARCH]: handlers.Search.getSearchTool(),
-  [ToolName.SEARCH_MORE]: handlers.SearchMore.getSearchMoreTool(),
-  [ToolName.GET_MOST_RECENT_ARTIFACT]: getMostRecentArtifact,
-  [ToolName.GET_ARTIFACT_BY_ID]: getArtifactById,
-  [ToolName.ACTIVATE]: activateTools,
-  [ToolName.SPEECH]: handlers.Speech.getSpeechTool(),
-  [ToolName.IMAGE]: handlers.Image.getImageTool(),
-  [ToolName.TODO_LIST]: handlers.TodoList.getTodoListTool(),
-  [ToolName.TODO_LIST_UPDATE]: handlers.TodoList.getTodoListUpdateTool(),
-  [ToolName.USE_SKILLS]: handlers.UseSkills.getUseSkillsTool(),
-  [ToolName.SWITCH_AGENT_CAPACITY]: handlers.SwitchAgentCapacity.getSwitchAgentCapacityTool(),
-  [ToolName.CONCLUDE]: handlers.Conclude.getConcludeTool(),
-  [ToolName.RECALL_COMPACTED_CONTEXT]:
-    handlers.RecallCompactedContext.getRecallCompactedContextTool(),
-};
+const tools = SUPER_AGENT_TOOLS;
 
 const toolsThatEnableConclude = new Set([
   ToolName.EDIT,
@@ -146,11 +96,48 @@ type ToolCalls = Awaited<Awaited<ReturnType<typeof streamText<typeof tools>>>['t
 
 export interface SuperAgent
   extends Agent,
-    SuperAgentHandlers,
-    SuperAgentToolContentStream,
-    SuperAgentManualToolCall {}
+    AgentHandlerContext,
+    components.Handlers,
+    components.ToolContentStreamConsumer,
+    components.ManualToolCall,
+    components.StreamTextExecutor,
+    components.ToolCallExecutor {}
 
-export class SuperAgent extends Agent {
+export class SuperAgent extends Agent implements AgentHandlerContext {
+  public [components.TOOL_CONTENT_STREAM_CONSUMER_SYMBOL] = true as const;
+
+  public getValidToolNames(): ReadonlySet<ToolName> {
+    return SUPER_AGENT_VALID_TOOL_NAMES;
+  }
+
+  public buildCorePrompt(context?: AgentCorePromptContext): string {
+    if (!context) {
+      return 'You are a helpful assistant who helps users with their Obsidian vault.';
+    }
+    const taskSection = this.buildTaskInstructionsFromAvailableTools(context.availableTools);
+
+    return `You are a helpful assistant who helps users with their Obsidian vault.
+
+${taskSection}
+
+YOU HAVE ACCESS TO THE FOLLOWING TOOLS:
+${context.registry.generateToolsSection()}
+
+OTHER TOOLS (Inactive, need activate before using them):
+${context.registry.generateOtherToolsSection(
+  'No other tools available.',
+  new Set([ToolName.TODO_LIST_UPDATE, ToolName.SEARCH_MORE, ToolName.CONCLUDE])
+)}
+
+TOOLS GUIDELINES:
+${context.registry.generateGuidelinesSection()}
+${context.currentNote ? `\nCURRENT NOTE: ${context.currentNote} (Cursor position: ${context.currentPosition})` : ''}${context.todoListPrompt}${context.skillCatalogPrompt}
+
+NOTE:
+- DO NOT mention or explain the tools you use or activate to users. Only communicate the results or outcomes.
+- Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`;
+  }
+
   /**
    * Render the loading indicator for the super agent
    */
@@ -176,281 +163,6 @@ export class SuperAgent extends Agent {
   }
 
   /**
-   * Execute streamText with tools and handle streaming
-   */
-  private async executeStreamText(params: AgentHandlerParams): Promise<{
-    toolCalls: ToolCalls;
-    conversationHistory: ModelMessage[];
-    toolContentStreamInfo?: ToolContentStreamInfo;
-  }> {
-    let timer: number | null = null;
-
-    try {
-      const conversationHistory = await this.renderer.extractConversationHistory(params.title);
-
-      // Run compaction orchestrator — may produce a system message to inject
-      const compactionResult = await this.plugin.compactionOrchestrator.run({
-        conversationTitle: params.title,
-        visibleWindowSize: 10,
-        lang: params.lang,
-      });
-
-      const llmConfig = await this.plugin.llmService.getLLMConfig({
-        overrideModel: params.intent.model,
-        generateType: 'text',
-      });
-
-      const shouldUseTools = params.intent.use_tool !== false;
-      const baseActiveTools =
-        params.activeTools && params.activeTools.length > 0 ? params.activeTools : [];
-      const hasConcludeEligibleTool = baseActiveTools.some(t => toolsThatEnableConclude.has(t));
-      const hasCompactionContext = !!compactionResult.systemMessage;
-      const activeToolNames = shouldUseTools
-        ? [
-            ...baseActiveTools,
-            ToolName.ACTIVATE,
-            ...(hasConcludeEligibleTool ? [ToolName.CONCLUDE] : []),
-            ...(hasCompactionContext ? [ToolName.RECALL_COMPACTED_CONTEXT] : []),
-          ]
-        : [ToolName.SWITCH_AGENT_CAPACITY];
-
-      const registry = ToolRegistry.buildFromTools(tools)
-        .setActive(activeToolNames)
-        .setAdditionalGuidelines(this.plugin.guardrailsRuleService.getInstructionsByTool());
-
-      // Exclude confirmation and ask_user tools if no_confirm is set
-      if (params.intent.no_confirm) {
-        registry.exclude([ToolName.CONFIRMATION, ToolName.ASK_USER]);
-      }
-
-      // Create a copy of conversationHistory to avoid mutating the original array
-      const messages = [...conversationHistory];
-
-      // Include user message for the first iteration.
-      // For UDC, we don't need to send task individually (query), the AI will check the to-do list state to decide next step.
-      if (!params.invocationCount) {
-        messages.push({ role: 'user', content: params.intent.query });
-      }
-
-      // Validate image support before sending messages
-      // This will throw an error if images are present but model doesn't support vision
-      this.plugin.llmService.validateImageSupport(
-        params.intent.model || this.plugin.settings.llm.chat.model,
-        messages,
-        params.lang
-      );
-
-      // Create an operation-specific abort signal
-      const abortSignal = this.plugin.abortService.createAbortController('super-agent');
-
-      /**
-       * Create a deferred promise that rejects immediately when an error or abort occurs.
-       * This is needed because AI SDK v5 swallows abort errors and throws NoOutputGeneratedError,
-       * and the polling-based waitForError is too slow to catch errors before promises reject.
-       */
-      let rejectStreamError: (error: Error) => void;
-      const streamErrorPromise = new Promise<never>((_, reject) => {
-        rejectStreamError = reject;
-      });
-
-      const currentNote = await this.renderer.getConversationProperty<string>(
-        params.title,
-        'current_note'
-      );
-
-      let currentPosition: number | null = null;
-      if (currentNote) {
-        const cursor = this.plugin.editor.getCursor();
-        currentPosition = cursor.line;
-      }
-
-      // Generate to-do list prompt only if TODO_LIST_UPDATE tool is active
-      const todoListPrompt = activeToolNames.includes(ToolName.TODO_LIST_UPDATE)
-        ? await this.generateTodoListPrompt(params.title)
-        : '';
-
-      // Generate skill catalog
-      const skillCatalogPrompt = this.generateSkillCatalogPrompt();
-
-      const shouldUseCoreSystemPrompt = shouldUseTools;
-
-      // Resolve wikilinks in system prompts at execution time (they are stored unresolved)
-      const resolvedSystemPrompts =
-        params.intent.systemPrompts && params.intent.systemPrompts.length > 0
-          ? await this.plugin.userDefinedCommandService.processSystemPromptsWikilinks(
-              params.intent.systemPrompts
-            )
-          : [];
-      const additionalSystemPrompts = [...resolvedSystemPrompts];
-
-      if (llmConfig.systemPrompt) {
-        additionalSystemPrompts.push(llmConfig.systemPrompt);
-      }
-
-      // Inject each active skill as a separate system prompt to avoid formatting conflicts
-      const activeSkillPrompts = this.generateActiveSkillPrompts(params.activeSkills || []);
-      additionalSystemPrompts.push(...activeSkillPrompts);
-
-      // Inject compacted conversation context when available
-      if (compactionResult.systemMessage) {
-        additionalSystemPrompts.push(compactionResult.systemMessage);
-      }
-
-      if (additionalSystemPrompts.length > 0) {
-        for (const item of additionalSystemPrompts) {
-          messages.unshift({ role: 'system', content: item });
-        }
-      }
-
-      // Track the tool detected from the stream
-      let detectedTool: ToolName | undefined;
-
-      const coreSystemPrompt = `You are a helpful assistant who helps users with their Obsidian vault.
-
-Your role is to help users with multiple tasks by using appropriate tools.
-- For generating tasks, you can generate directly.
-- For editing tasks, use ${ToolName.EDIT} tool.
-- For vault management tasks, use the following tools: ${joinWithConjunction(
-        [
-          ToolName.LIST,
-          ToolName.CREATE,
-          ToolName.DELETE,
-          ToolName.COPY,
-          ToolName.MOVE,
-          ToolName.RENAME,
-          ToolName.UPDATE_FRONTMATTER,
-        ],
-        'and'
-      )}.
-- For tasks that require domain-specific knowledge, activate the relevant skill(s) first using ${ToolName.USE_SKILLS}.
-- For other tasks, use the appropriate tool(s).
-
-You have access to the following tools:
-${registry.generateToolsSection()}
-
-OTHER TOOLS (Inactive):
-${registry.generateOtherToolsSection(
-  'No other tools available.',
-  new Set([
-    ToolName.GREP,
-    ToolName.LIST,
-    ToolName.SEARCH,
-    ToolName.IMAGE,
-    ToolName.CONTENT_READING,
-    ToolName.TODO_LIST,
-  ]),
-  new Set([ToolName.TODO_LIST_UPDATE, ToolName.SEARCH_MORE, ToolName.CONCLUDE])
-)}
-
-TOOLS GUIDELINES:
-${registry.generateGuidelinesSection()}
-${currentNote ? `\nCURRENT NOTE: ${currentNote} (Cursor position: ${currentPosition})` : ''}${todoListPrompt}${skillCatalogPrompt}
-
-NOTE:
-- Do NOT repeat the latest tool call result in your final response as it is already rendered in the UI.
-- Do NOT mention the tools you use to users. Work silently in the background and only communicate the results or outcomes.
-- Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`;
-
-      const disabledToolModeSystemPrompt = `You are a helpful assistant who helps users with their Obsidian vault.
-
-Tools are currently disabled for this conversation.
-You can use exactly one tool to switch mode:
-- ${ToolName.SWITCH_AGENT_CAPACITY}: switch to agent mode.
-
-If the user asks for work that requires tools, call ${ToolName.SWITCH_AGENT_CAPACITY} first.
-After the switch is confirmed, continue the task and use tools as needed.`;
-
-      type RepairToolCall = Parameters<typeof streamText>[0]['experimental_repairToolCall'];
-
-      const { toolCalls: toolCallsPromise, fullStream } = streamText({
-        model: llmConfig.model,
-        temperature: llmConfig.temperature,
-        maxOutputTokens: llmConfig.maxOutputTokens,
-        abortSignal,
-        system: shouldUseCoreSystemPrompt ? coreSystemPrompt : disabledToolModeSystemPrompt,
-        messages,
-        tools: registry.getToolsObject(),
-        experimental_repairToolCall: llmConfig.repairToolCall as RepairToolCall,
-        onError: ({ error }) => {
-          logger.error('Error in streamText', error);
-          rejectStreamError(error as Error);
-        },
-        onAbort: () => {
-          // AI SDK v5 swallows abort errors and throws NoOutputGeneratedError instead.
-          // We need to reject immediately with the proper AbortError.
-          rejectStreamError(new DOMException('Request aborted', 'AbortError'));
-        },
-        onChunk: async ({ chunk }) => {
-          if (chunk.type === 'tool-call') {
-            detectedTool = chunk.toolName as ToolName;
-          }
-        },
-        onFinish: ({ finishReason }) => {
-          if (finishReason === 'length') {
-            rejectStreamError(new SysError('Stream finished due to length limit'));
-          } else if (finishReason === 'error') {
-            rejectStreamError(new SysError('Stream finished due to error'));
-          }
-        },
-      });
-
-      // Create text/reasoning stream and tool content stream from the fullStream
-      const { textStream, textDone, toolContentStream } = createLLMStream(fullStream, {
-        toolContentStreaming: {
-          targetTools: new Set([ToolName.EDIT, ToolName.CREATE]),
-          createExtractor: (toolName: string) => this.createToolContentExtractor(toolName),
-        },
-      });
-
-      // Stream the text directly to the conversation note (runs in background)
-      const streamPromise = this.renderer.streamConversationNote({
-        path: params.title,
-        stream: textStream,
-        handlerId: params.handlerId,
-        step: params.invocationCount,
-      });
-
-      // Wait for text/reasoning to finish streaming (before tool calls)
-      await Promise.race([textDone, streamErrorPromise]);
-
-      // Start consuming tool content stream in background (creates temp files, renders callouts)
-      const toolContentStreamPromise = this.consumeToolContentStream({
-        title: params.title,
-        toolContentStream,
-        handlerId: params.handlerId,
-        lang: params.lang,
-      });
-
-      // Render indicator after sometime when still waiting for toolCalls
-      // Use detected tool if available
-      timer = window.setTimeout(() => {
-        this.renderIndicator(params.title, params.lang, detectedTool);
-      }, 1000);
-
-      // Wait for tool calls and extract the result
-      const toolCalls = (await Promise.race([toolCallsPromise, streamErrorPromise])) as ToolCalls;
-
-      // Wait for tool content stream consumption to finish
-      const toolContentStreamInfo = await toolContentStreamPromise;
-
-      // Ensure the stream is fully consumed (cleanup)
-      await streamPromise.catch(() => {
-        // Ignore errors here, they're handled by streamErrorPromise
-      });
-
-      return {
-        toolCalls,
-        conversationHistory,
-        toolContentStreamInfo,
-      };
-    } finally {
-      if (timer) {
-        clearTimeout(timer);
-      }
-    }
-  }
-
-  /**
    * Handle a super agent invocation
    */
   public async handle(
@@ -469,7 +181,6 @@ After the switch is confirmed, continue the task and use tools as needed.`;
       typeof options.remainingSteps !== 'undefined' ? options.remainingSteps : MAX_STEP_COUNT;
 
     const activeTools = await this.loadActiveTools(title, params.activeTools);
-    const activeSkills = await this.loadActiveSkills(title);
 
     const t = getTranslation(lang);
 
@@ -545,7 +256,7 @@ After the switch is confirmed, continue the task and use tools as needed.`;
 
     let toolCalls: ToolCalls;
     let conversationHistory: ModelMessage[] = [];
-    let toolContentStreamInfo: ToolContentStreamInfo | undefined;
+    let toolContentStreamInfo: components.ToolContentStreamInfo | undefined;
 
     if (options.toolCalls) {
       toolCalls = options.toolCalls;
@@ -554,255 +265,30 @@ After the switch is confirmed, continue the task and use tools as needed.`;
     } else if (manualToolCall) {
       toolCalls = [manualToolCall] as ToolCalls;
     } else {
-      const result = await this.executeStreamText({
+      const result = await this.executeStreamText<ToolCalls>({
         ...params,
         activeTools,
-        activeSkills,
+        tools,
+        toolsThatEnableConclude,
       });
       toolCalls = result.toolCalls;
       conversationHistory = result.conversationHistory;
       toolContentStreamInfo = result.toolContentStreamInfo;
     }
 
-    /**
-     * Interface for standard tool handlers
-     */
-    interface StandardToolHandler {
-      handle(
-        params: AgentHandlerParams,
-        options: {
-          toolCall: ToolCallPart<unknown>;
-          continueFromNextTool?: () => Promise<AgentResult>;
-          toolContentStreamInfo?: ToolContentStreamInfo;
-        }
-      ): Promise<AgentResult>;
-      extractPathsForGuardrails?(input: unknown): string[];
-    }
-
-    /**
-     * Map of tool names to their handler getters
-     * Handlers that follow the standard pattern: handle(params, { toolCall })
-     */
-    const handlerMap: Partial<Record<ToolName, () => StandardToolHandler>> = {
-      [ToolName.CONTENT_READING]: () => this.readContent,
-      [ToolName.LIST]: () => this.vaultList,
-      [ToolName.CREATE]: () => this.vaultCreate,
-      [ToolName.DELETE]: () => this.vaultDelete,
-      [ToolName.COPY]: () => this.vaultCopy,
-      [ToolName.RENAME]: () => this.vaultRename,
-      [ToolName.MOVE]: () => this.vaultMove,
-      [ToolName.UPDATE_FRONTMATTER]: () => this.vaultUpdateFrontmatter,
-      [ToolName.GREP]: () => this.vaultGrep,
-      [ToolName.REVERT_DELETE]: () => this.revertDelete,
-      [ToolName.REVERT_MOVE]: () => this.revertMove,
-      [ToolName.REVERT_FRONTMATTER]: () => this.revertFrontmatter,
-      [ToolName.REVERT_RENAME]: () => this.revertRename,
-      [ToolName.REVERT_CREATE]: () => this.revertCreate,
-      [ToolName.REVERT_EDIT_RESULTS]: () => this.revertEditResults,
-      [ToolName.USER_CONFIRM]: () => this.userConfirm,
-      [ToolName.EDIT]: () => this.editHandler,
-      [ToolName.STOP]: () => this.stop,
-      [ToolName.THANK_YOU]: () => this.thankYou,
-      [ToolName.BUILD_SEARCH_INDEX]: () => this.buildSearchIndex,
-      [ToolName.SEARCH]: () => this.search,
-      [ToolName.SEARCH_MORE]: () => this.searchMore,
-      [ToolName.SPEECH]: () => this.speech,
-      [ToolName.IMAGE]: () => this.image,
-      [ToolName.TODO_LIST]: () => this.todoList,
-      [ToolName.HELP]: () => this.help,
-      [ToolName.CONCLUDE]: () => this.conclude,
-      [ToolName.GET_MOST_RECENT_ARTIFACT]: () => this.getMostRecentArtifact,
-      [ToolName.GET_ARTIFACT_BY_ID]: () => this.getArtifactById,
-      [ToolName.RECALL_COMPACTED_CONTEXT]: () => this.recallCompactedContext,
-    };
-
-    const processToolCalls = async (startIndex: number): Promise<AgentResult> => {
-      // Set up timer to show indicator after 2 seconds if processing takes time
-      // Get the first tool name from toolCalls if available
-      const firstToolName =
-        toolCalls.length > startIndex && !toolCalls[startIndex]?.dynamic
-          ? (toolCalls[startIndex].toolName as ToolName)
-          : undefined;
-      let timer: number | null = null;
-      timer = window.setTimeout(() => {
-        this.renderIndicator(title, lang, firstToolName);
-      }, 2000);
-
-      try {
-        for (let index = startIndex; index < toolCalls.length; index += 1) {
-          const toolCall = toolCalls[index];
-          let toolCallResult: AgentResult | undefined;
-          const continueProcessingFromNextTool = async (): Promise<AgentResult> => {
-            params.invocationCount = (params.invocationCount ?? 0) + 1;
-
-            return this.handle(params, {
-              remainingSteps,
-              toolCalls,
-              currentToolCallIndex: index + 1,
-            });
-          };
-
-          if (toolCall.dynamic) {
-            await this.dynamic.handle(params, { toolCall, tools });
-            continue;
-          }
-
-          // Update language if provided in the tool call input
-          if ('lang' in toolCall.input) {
-            await this.renderer.updateConversationFrontmatter(title, [
-              {
-                name: 'lang',
-                value: toolCall.input.lang,
-              },
-            ]);
-            params.lang = toolCall.input.lang;
-          }
-
-          switch (toolCall.toolName) {
-            case ToolName.CONFIRMATION:
-            case ToolName.ASK_USER: {
-              await this.renderer.updateConversationNote({
-                path: title,
-                newContent: toolCall.input.message,
-                lang: params.lang,
-                handlerId,
-                command: toolCall.toolName,
-                step: params.invocationCount,
-              });
-
-              const callBack = async (): Promise<AgentResult> => {
-                // Increment invocation count for recursive call
-                params.invocationCount = (params.invocationCount ?? 0) + 1;
-
-                return this.handle(params, {
-                  remainingSteps,
-                  toolCalls,
-                  currentToolCallIndex: index + 1,
-                });
-              };
-
-              if (toolCall.toolName === ToolName.CONFIRMATION) {
-                toolCallResult = {
-                  status: IntentResultStatus.NEEDS_CONFIRMATION,
-                  toolCall,
-                  onConfirmation: callBack,
-                };
-              } else {
-                toolCallResult = {
-                  status: IntentResultStatus.NEEDS_USER_INPUT,
-                  onUserInput: callBack,
-                };
-              }
-              break;
-            }
-
-            case ToolName.ACTIVATE: {
-              toolCallResult = await this.activateToolHandler.handle(params, {
-                toolCall,
-                activeTools,
-                availableTools: tools,
-                agent: 'super',
-              });
-              break;
-            }
-
-            case ToolName.TODO_LIST_UPDATE: {
-              toolCallResult = await this.todoList.handleUpdate(params, { toolCall });
-              break;
-            }
-
-            case ToolName.USE_SKILLS: {
-              toolCallResult = await this.useSkills.handle(params, {
-                toolCall,
-                activeSkills,
-              });
-              break;
-            }
-
-            case ToolName.CONCLUDE: {
-              const prevToolCall = toolCalls.length > 1 && toolCalls[index - 1];
-              // The in-parallel tool call incorrect, skip conclusion.
-              if (prevToolCall && prevToolCall.dynamic) {
-                continue;
-              }
-              if (toolCalls.length === 1) {
-                logger.warn(`Conclude tool was called alone.`);
-              }
-              toolCallResult = await this.conclude.handle(params, { toolCall });
-              break;
-            }
-
-            default: {
-              const handlerGetter = handlerMap[toolCall.toolName];
-              if (!handlerGetter) {
-                throw new Error(`No handler found for tool: ${toolCall.toolName}`);
-              }
-              const streamInfo =
-                toolContentStreamInfo?.toolCallId === toolCall.toolCallId
-                  ? toolContentStreamInfo
-                  : undefined;
-              const invokeHandler = (ctx: {
-                params: AgentHandlerParams;
-                toolCall: ToolCallPart;
-                toolName: ToolName;
-                toolContentStreamInfo?: ToolContentStreamInfo;
-              }) => {
-                const toolName = ctx.toolCall.toolName as ToolName;
-                const handlerGetter = handlerMap[toolName];
-                if (!handlerGetter) {
-                  throw new Error(`No handler found for tool: ${toolName}`);
-                }
-                const handler = handlerGetter();
-                return handler.handle(ctx.params, {
-                  toolCall: ctx.toolCall,
-                  toolContentStreamInfo: ctx.toolContentStreamInfo,
-                  continueFromNextTool: continueProcessingFromNextTool,
-                });
-              };
-              const toolHandlerChain = createToolHandlerChain({
-                middlewares: [createGuardrailsMiddleware(this.plugin)],
-                handler: invokeHandler,
-              });
-              toolCallResult = await toolHandlerChain({
-                params,
-                toolCall,
-                toolContentStreamInfo: streamInfo,
-                agent: this,
-              });
-              break;
-            }
-          }
-
-          // Clear timeout for these specific tool calls
-          if (timer && [ToolName.CONCLUDE, ToolName.TODO_LIST_UPDATE].includes(toolCall.toolName)) {
-            clearTimeout(timer);
-            await this.renderer.removeIndicator(title);
-          }
-
-          if (!toolCallResult) {
-            logger.warn('No tool result', { toolCall, toolCalls });
-            continue;
-          }
-
-          if (toolCallResult.status !== IntentResultStatus.SUCCESS) {
-            return toolCallResult;
-          }
-        }
-
-        return {
-          status: IntentResultStatus.SUCCESS,
-        };
-      } finally {
-        if (timer) {
-          clearTimeout(timer);
-        }
-      }
-    };
-    // End processToolCalls function
-
-    // Use the saved index if resuming after confirmation, otherwise start from 0
-    const startIndex = options.currentToolCallIndex ?? 0;
-    const toolProcessingResult = await processToolCalls(startIndex);
+    const toolProcessingResult = await this.executeToolCalls({
+      agentId: 'super',
+      title,
+      lang,
+      handlerId,
+      agentParams: params,
+      remainingSteps,
+      toolCalls: toolCalls as unknown as Array<TypedToolCallPart & { dynamic?: boolean }>,
+      startIndex: options.currentToolCallIndex ?? 0,
+      activeTools,
+      availableTools: tools,
+      toolContentStreamInfo,
+    });
 
     if (toolProcessingResult.status !== IntentResultStatus.SUCCESS) {
       logger.log('Stopping or pausing processing because tool processing result is not success', {
@@ -976,82 +462,6 @@ After the switch is confirmed, continue the task and use tools as needed.`;
   }
 
   /**
-   * Generate to-do list prompt from frontmatter state
-   * @param title The conversation title
-   * @returns The formatted to-do list prompt or empty string
-   */
-  private async generateTodoListPrompt(title: string): Promise<string> {
-    // Get to-do list state from frontmatter
-    const todoListState = await this.renderer.getConversationProperty<handlers.TodoListState>(
-      title,
-      'todo_list'
-    );
-
-    // Format to-do list state for system prompt
-    if (!todoListState || !todoListState.steps || todoListState.steps.length === 0) {
-      return '';
-    }
-
-    return `\n\nTO-DO LIST:
-You are working on a to-do list with ${todoListState.steps.length} step(s).
-Current step: ${todoListState.currentStep} of ${todoListState.steps.length}
-
-Steps:
-${todoListState.steps
-  .map((step, index) => {
-    const status =
-      step.status === 'completed'
-        ? '✅ Completed'
-        : step.status === 'skipped'
-          ? '⏭️ Skipped'
-          : step.status === 'in_progress'
-            ? '🔄 In Progress'
-            : '⏳ Pending';
-    return `${index + 1}. ${status}: ${step.task}`;
-  })
-  .join('\n')}
-
-When you complete or skip the current step, use the ${ToolName.TODO_LIST_UPDATE} tool with:
-- status: in_progress, skipped, or completed
-- nextStep: (optional) the step number to move to after updating`;
-  }
-
-  /**
-   * Generate the skill catalog prompt showing available skills.
-   * @returns The formatted skill catalog section or empty string
-   */
-  private generateSkillCatalogPrompt(): string {
-    const catalog = this.plugin.skillService.getSkillCatalog();
-
-    if (catalog.length === 0) {
-      return '';
-    }
-
-    const entries = catalog.map(entry => `- ${entry.name}: ${entry.description}`).join('\n');
-
-    return `\n\nAVAILABLE SKILLS:
-${entries}
-
-Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-specific knowledge for the task.`;
-  }
-
-  /**
-   * Generate individual system prompts for each active skill.
-   * Each skill gets its own entry to keep content cleanly separated.
-   * @param activeSkillNames Array of active skill names from frontmatter
-   * @returns Array of formatted skill prompts, one per skill
-   */
-  private generateActiveSkillPrompts(activeSkillNames: string[]): string[] {
-    if (activeSkillNames.length === 0) {
-      return [];
-    }
-
-    const { contents } = this.plugin.skillService.getSkillContents(activeSkillNames);
-
-    return Object.entries(contents).map(([name, content]) => `ACTIVE SKILL: ${name}\n${content}`);
-  }
-
-  /**
    * Classify tasks from query using classifier
    */
   private async classifyTasksFromQuery(
@@ -1213,22 +623,6 @@ Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-spec
   }
 
   /**
-   * Check if two intents have the same configuration (model and systemPrompts)
-   * Used to determine if two steps can be processed in parallel within the same request
-   */
-  private isSameIntentConfig(a: Intent, b: Intent): boolean {
-    if (a.model !== b.model) return false;
-
-    const aPrompts = a.systemPrompts ?? [];
-    const bPrompts = b.systemPrompts ?? [];
-    if (aPrompts.length !== bPrompts.length) return false;
-
-    const result = aPrompts.every((prompt, index) => prompt === bPrompts[index]);
-
-    return result;
-  }
-
-  /**
    * Find the task name for a given tool name
    */
   private getTaskForTool(toolName: ToolName): string | null {
@@ -1282,7 +676,9 @@ Use the ${ToolName.USE_SKILLS} tool to activate skills when you need domain-spec
 
 // Apply mixins to merge classes into SuperAgent class
 applyMixins(SuperAgent, [
-  SuperAgentHandlers,
-  SuperAgentToolContentStream,
-  SuperAgentManualToolCall,
+  components.Handlers,
+  components.ToolContentStreamConsumer,
+  components.ManualToolCall,
+  components.StreamTextExecutor,
+  components.ToolCallExecutor,
 ]);

@@ -3,7 +3,7 @@ import { hasSelectedTextInElement, setupAutoScroll } from 'src/utils/scrollUtils
 
 /**
  * Creates a markdown post processor that adds click-to-expand behavior
- * on stw-edit-preview callouts. These callouts are height-limited by default
+ * on stw-review callouts. These callouts are height-limited by default
  * and expand fully when clicked by toggling the `stw-expanded` CSS class.
  *
  * When `data-streaming="true"` is set (during active streaming), a MutationObserver
@@ -11,7 +11,7 @@ import { hasSelectedTextInElement, setupAutoScroll } from 'src/utils/scrollUtils
  */
 export function createCalloutEditPreviewPostProcessor(): MarkdownPostProcessor {
   return el => {
-    const callouts = el.querySelectorAll('.callout[data-callout="stw-edit-preview"]');
+    const callouts = el.querySelectorAll('.callout[data-callout="stw-review"]');
 
     if (!callouts.length) return;
 

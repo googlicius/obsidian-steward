@@ -238,6 +238,16 @@ describe('CommandSyntaxParser', () => {
       });
     });
 
+    it('should produce exists tool call', () => {
+      const { commands } = CommandSyntaxParser.parse('c:exists --paths=src,README.md');
+      const toolCalls = CommandSyntaxParser.toToolCalls(commands);
+
+      expect(toolCalls[0].toolName).toBe(ToolName.EXISTS);
+      expect(toolCalls[0].input).toMatchObject({
+        paths: ['src', 'README.md'],
+      });
+    });
+
     it('should produce speech tool call with defaults', () => {
       const { commands } = CommandSyntaxParser.parse('c:speech --text="Hello world"');
       const toolCalls = CommandSyntaxParser.toToolCalls(commands);
