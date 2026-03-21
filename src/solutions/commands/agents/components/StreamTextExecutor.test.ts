@@ -8,6 +8,7 @@ import {
   type ToolContentStreamInfo,
   TOOL_CONTENT_STREAM_CONSUMER_SYMBOL,
 } from './ToolContentStreamConsumer';
+import type { AgentCorePromptContext } from '../../Agent';
 
 jest.mock('ai', () => {
   const originalModule = jest.requireActual('ai');
@@ -134,6 +135,10 @@ class TestAgent extends StreamTextExecutor {
 
   public async consumeToolContentStream(): Promise<ToolContentStreamInfo | undefined> {
     return undefined;
+  }
+
+  public buildCorePrompt(_context?: AgentCorePromptContext): string {
+    return 'test-core-system-prompt';
   }
 
   public async executeForTest(params: AgentHandlerParams) {
