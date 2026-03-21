@@ -14,6 +14,7 @@ import * as handlers from '../handlers';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { createStepProcessedQuery } from './stepProcessedQuery';
 import { SUPER_AGENT_TOOLS } from '../agentTools';
+import type { AgentCorePromptContext } from '../../Agent';
 
 const SUPER_AGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = new Set(
   Object.keys(SUPER_AGENT_TOOLS) as ToolName[]
@@ -107,6 +108,34 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
 
   public getValidToolNames(): ReadonlySet<ToolName> {
     return SUPER_AGENT_VALID_TOOL_NAMES;
+  }
+
+  public buildCorePrompt(context?: AgentCorePromptContext): string {
+    if (!context) {
+      return 'You are a helpful assistant who helps users with their Obsidian vault.';
+    }
+    const taskSection = this.buildTaskInstructionsFromAvailableTools(context.availableTools);
+
+    return `You are a helpful assistant who helps users with their Obsidian vault.
+
+${taskSection}
+
+YOU HAVE ACCESS TO THE FOLLOWING TOOLS:
+${context.registry.generateToolsSection()}
+
+OTHER TOOLS (Inactive, need activate before using them):
+${context.registry.generateOtherToolsSection(
+  'No other tools available.',
+  new Set([ToolName.TODO_LIST_UPDATE, ToolName.SEARCH_MORE, ToolName.CONCLUDE])
+)}
+
+TOOLS GUIDELINES:
+${context.registry.generateGuidelinesSection()}
+${context.currentNote ? `\nCURRENT NOTE: ${context.currentNote} (Cursor position: ${context.currentPosition})` : ''}${context.todoListPrompt}${context.skillCatalogPrompt}
+
+NOTE:
+- DO NOT mention or explain the tools you use or activate to users. Only communicate the results or outcomes.
+- Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`;
   }
 
   /**

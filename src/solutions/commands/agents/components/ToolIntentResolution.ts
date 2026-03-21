@@ -136,17 +136,22 @@ export class ToolIntentResolution {
     effectiveAllowed: ReadonlySet<ToolName>;
     /** Tools that were active in the conversation (from previous turns) */
     conversationActiveTools: ToolName[];
-    /** Whether any conclude-eligible tool is available in effectiveAllowed */
-    hasConcludeEligibleForRuntime: boolean;
+    /** Set of tool names that enable conclude (e.g., edit, create, delete - tools that modify vault) */
+    toolsThatEnableConclude: ReadonlySet<ToolName>;
     /** Whether compacted context is available for recall */
     hasCompactionContext: boolean;
   }): ToolName[] {
+    // Check if any conclude-eligible tool is currently active in the conversation
+    const hasConcludeEligibleActive = params.conversationActiveTools.some(t =>
+      params.toolsThatEnableConclude.has(t)
+    );
+
     // No declared tools restriction: use full active set with management tools
     if (params.declaredNormalized === null) {
       return this.uniqueToolNames([
         ...params.conversationActiveTools,
         ToolName.ACTIVATE,
-        ...(params.hasConcludeEligibleForRuntime ? [ToolName.CONCLUDE] : []),
+        ...(hasConcludeEligibleActive ? [ToolName.CONCLUDE] : []),
         ...(params.hasCompactionContext ? [ToolName.RECALL_COMPACTED_CONTEXT] : []),
       ]);
     }
@@ -170,7 +175,7 @@ export class ToolIntentResolution {
     return this.uniqueToolNames([
       ...filteredConversation,
       ...(params.effectiveAllowed.has(ToolName.ACTIVATE) ? [ToolName.ACTIVATE] : []),
-      ...(params.hasConcludeEligibleForRuntime && params.effectiveAllowed.has(ToolName.CONCLUDE)
+      ...(hasConcludeEligibleActive && params.effectiveAllowed.has(ToolName.CONCLUDE)
         ? [ToolName.CONCLUDE]
         : []),
       ...(params.hasCompactionContext &&

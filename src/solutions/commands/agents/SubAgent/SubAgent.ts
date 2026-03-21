@@ -10,6 +10,7 @@ import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { Handlers } from '../components/Handlers';
 import * as components from '../components';
 import { SUBAGENT_TOOLS } from '../agentTools';
+import type { AgentCorePromptContext } from '../../Agent';
 
 const tools = SUBAGENT_TOOLS;
 
@@ -31,7 +32,8 @@ export class SubAgent extends Agent implements AgentHandlerContext {
     return SUBAGENT_VALID_TOOL_NAMES;
   }
 
-  private static readonly CORE_SYSTEM_PROMPT = `You are a subagent worker in Obsidian Steward.
+  public buildCorePrompt(_context?: AgentCorePromptContext): string {
+    return `You are a subagent worker in Obsidian Steward.
 
 Your role:
 - Execute only the delegated job from the parent agent.
@@ -41,6 +43,7 @@ Your role:
 Rules:
 - Do not change scope beyond the delegated job.
 - Do not ask unrelated follow-up questions.`;
+  }
 
   public async renderIndicator(
     title: string,
@@ -87,7 +90,6 @@ Rules:
         activeTools,
         inactiveTools,
         tools,
-        coreSystemPrompt: SubAgent.CORE_SYSTEM_PROMPT,
       });
       toolCalls = streamResult.toolCalls;
     }

@@ -169,7 +169,7 @@ describe('ToolIntentResolution', () => {
         expandedDeclared: expanded,
         effectiveAllowed: effective,
         conversationActiveTools: [],
-        hasConcludeEligibleForRuntime: false,
+        toolsThatEnableConclude: new Set(),
         hasCompactionContext: false,
       });
       expect(active.sort()).toEqual([...effective].sort());
@@ -183,7 +183,7 @@ describe('ToolIntentResolution', () => {
         expandedDeclared: expanded,
         effectiveAllowed: effective,
         conversationActiveTools: [],
-        hasConcludeEligibleForRuntime: false,
+        toolsThatEnableConclude: new Set(),
         hasCompactionContext: false,
       });
       expect(active).toEqual([ToolName.SWITCH_AGENT_CAPACITY]);

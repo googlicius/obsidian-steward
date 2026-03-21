@@ -1,5 +1,4 @@
 export * from './AgentConfig';
-export * from './SystemPromptBuilder';
 export * from './AgentFactory';
 export * from './AgentRunner';
 export * from './defaultAgents';

@@ -73,6 +73,10 @@ class TestAgent extends GenerateTextExecutor {
     ]);
   }
 
+  public buildCorePrompt(): string {
+    return 'core-system-prompt';
+  }
+
   public async executeForTest(
     params: AgentHandlerParams,
     options: {
@@ -88,7 +92,6 @@ class TestAgent extends GenerateTextExecutor {
       tools: (options.tools || {}) as NonNullable<Parameters<typeof generateText>[0]['tools']> & {
         [s: string]: unknown;
       },
-      coreSystemPrompt: 'core-system-prompt',
     });
   }
 }

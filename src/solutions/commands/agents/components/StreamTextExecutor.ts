@@ -4,19 +4,18 @@ import { createLLMStream } from 'src/utils/textStreamer';
 import { SysError } from 'src/utils/errors';
 import { ToolRegistry, ToolName } from '../../ToolRegistry';
 import type { AgentHandlerParams } from '../../types';
-import { SuperAgentSystemPromptBuilder } from '../SystemPromptBuilder';
 import { applyMixins } from 'src/utils/applyMixins';
 import { ToolIntentResolution } from './ToolIntentResolution';
+import { SystemPromptComposer } from './SystemPromptComposer';
 import {
   type ToolContentStreamInfo,
   isToolContentStreamConsumer,
   ToolContentStreamConsumer,
 } from './ToolContentStreamConsumer';
-import { generateSkillCatalogPrompt, generateTodoListPrompt } from '../agentUtils';
 import { Agent } from '../../Agent';
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface -- declaration merge: adds ToolIntentResolution to class instance type
-export interface StreamTextExecutor extends ToolIntentResolution {}
+// eslint-disable-next-line @typescript-eslint/no-empty-interface -- declaration merge: adds mixin types to class instance
+export interface StreamTextExecutor extends ToolIntentResolution, SystemPromptComposer {}
 
 function asAgent(instance: StreamTextExecutor) {
   if (!isToolContentStreamConsumer(instance)) {
@@ -82,16 +81,12 @@ export class StreamTextExecutor {
       effectiveAllowed
     ) as typeof params.tools;
 
-    const hasConcludeEligibleForRuntime = [...effectiveAllowed].some(t =>
-      params.toolsThatEnableConclude.has(t)
-    );
-
     const activeToolNames = this.resolveStreamActiveToolNames({
       declaredNormalized,
       expandedDeclared,
       effectiveAllowed,
       conversationActiveTools: params.activeTools,
-      hasConcludeEligibleForRuntime,
+      toolsThatEnableConclude: params.toolsThatEnableConclude,
       hasCompactionContext,
     });
 
@@ -131,7 +126,7 @@ export class StreamTextExecutor {
     }
 
     const todoListPrompt = activeToolNames.includes(ToolName.TODO_LIST_UPDATE)
-      ? await generateTodoListPrompt({
+      ? await this.generateTodoListPrompt({
           renderer: agent.renderer,
           title: params.title,
         })
@@ -141,7 +136,7 @@ export class StreamTextExecutor {
       params.intent.tools.length === 0 ||
       params.intent.tools.includes(ToolName.CONTENT_READING);
     const skillCatalogPrompt = includeSkillCatalog
-      ? generateSkillCatalogPrompt({
+      ? this.generateSkillCatalogPrompt({
           plugin: agent.plugin,
         })
       : '';
@@ -168,10 +163,9 @@ export class StreamTextExecutor {
       }
     }
 
-    // let detectedTool: ToolName | undefined;
-    const systemPromptBuilder = new SuperAgentSystemPromptBuilder();
-    const coreSystemPrompt = systemPromptBuilder.buildCorePrompt({
+    const coreSystemPrompt = agent.buildCorePrompt({
       registry,
+      availableTools: declaredNormalized ?? allSuperAgentKeys,
       currentNote,
       currentPosition,
       todoListPrompt,
@@ -248,4 +242,4 @@ export class StreamTextExecutor {
   }
 }
 
-applyMixins(StreamTextExecutor, [ToolIntentResolution]);
+applyMixins(StreamTextExecutor, [ToolIntentResolution, SystemPromptComposer]);

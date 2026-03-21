@@ -221,6 +221,7 @@ describe('SuperAgent', () => {
       const toolsObject = call.tools;
 
       // Check that only ACTIVATE tool is in the tools object (active)
+      // CONCLUDE is not active because no vault-modifying tools are active yet
       expect(toolsObject).toBeDefined();
       expect(Object.keys(toolsObject).length).toBe(1);
       expect(toolsObject[ToolName.ACTIVATE]).toBeDefined();

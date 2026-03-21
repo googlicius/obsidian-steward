@@ -9,6 +9,22 @@ import type { IntentProcessor } from './IntentProcessor';
 import { getTranslation } from 'src/i18n';
 import { ToolName } from './ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
+import type { ToolRegistry } from './ToolRegistry';
+
+export interface AgentCorePromptContext {
+  /** Tool registry for this turn: drives active/inactive tool sections and per-tool guidelines in the core prompt. */
+  readonly registry: ToolRegistry<unknown>;
+  /**if any; anchors “current file” context. */
+  readonly currentNote: string | null;
+  /** 0-based line of the cursor in `currentNote`, when the editor is focused on that note. */
+  readonly currentPosition: number | null;
+  /** Extra system text when a to-do list is active (steps, current step, `todo_list_update` usage). */
+  readonly todoListPrompt: string;
+  /** Extra system text listing available skills and how to read skill files via `content_reading`. */
+  readonly skillCatalogPrompt: string;
+  /** Declared or full allowed tool set for this conversation (UDC / narrow mode); used for task instruction lines, not only active tools. */
+  readonly availableTools: ToolName[];
+}
 
 export abstract class Agent {
   constructor(
@@ -58,6 +74,12 @@ export abstract class Agent {
    * Tool names valid for resolving declared `intent.tools` (frontmatter / UDC).
    */
   public abstract getValidToolNames(): ReadonlySet<ToolName>;
+
+  /**
+   * Build the core system prompt for this agent.
+   * Stream executors can pass rich context while text executors can omit it.
+   */
+  public abstract buildCorePrompt(context?: AgentCorePromptContext): string;
 
   /**
    * Handle an agent invocation with automatic error handling and model fallback

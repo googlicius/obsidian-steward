@@ -1,9 +1,9 @@
 import { generateText } from 'ai';
 import type { AgentHandlerParams } from '../../types';
 import { ToolRegistry, ToolName } from '../../ToolRegistry';
-import { generateSkillCatalogPrompt, generateTodoListPrompt } from '../agentUtils';
 import { applyMixins } from 'src/utils/applyMixins';
 import { ToolIntentResolution } from './ToolIntentResolution';
+import { SystemPromptComposer } from './SystemPromptComposer';
 import { Agent } from '../../Agent';
 
 type GenerateTextToolSet = NonNullable<Parameters<typeof generateText>[0]['tools']> & {
@@ -14,15 +14,14 @@ type GenerateTextExecutorParams = AgentHandlerParams & {
   activeTools: ToolName[];
   inactiveTools: ToolName[];
   tools: GenerateTextToolSet;
-  coreSystemPrompt: string;
 };
 
 function asAgent(instance: GenerateTextExecutor) {
   return instance as unknown as Agent;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface -- declaration merge: adds ToolIntentResolution to class instance type
-export interface GenerateTextExecutor extends ToolIntentResolution {}
+// eslint-disable-next-line @typescript-eslint/no-empty-interface -- declaration merge: adds mixin types to class instance
+export interface GenerateTextExecutor extends ToolIntentResolution, SystemPromptComposer {}
 
 export class GenerateTextExecutor {
   protected getToolSubset(params: {
@@ -113,7 +112,7 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
     );
 
     const todoListPrompt = activeToolNames.includes(ToolName.TODO_LIST_UPDATE)
-      ? await generateTodoListPrompt({
+      ? await this.generateTodoListPrompt({
           renderer: agent.renderer,
           title: params.title,
         })
@@ -123,7 +122,7 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
       params.intent.tools.length === 0 ||
       params.intent.tools.includes(ToolName.CONTENT_READING);
     const skillCatalogPrompt = includeSkillCatalog
-      ? generateSkillCatalogPrompt({
+      ? this.generateSkillCatalogPrompt({
           plugin: agent.plugin,
         })
       : '';
@@ -160,7 +159,7 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
       temperature: llmConfig.temperature,
       maxOutputTokens: llmConfig.maxOutputTokens,
       abortSignal: agent.plugin.abortService.createAbortController(),
-      system: params.coreSystemPrompt,
+      system: agent.buildCorePrompt(),
       messages,
       tools: registry.getToolsObject() as NonNullable<Parameters<typeof generateText>[0]['tools']>,
       experimental_repairToolCall: llmConfig.repairToolCall as RepairToolCall,
@@ -182,4 +181,4 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
   }
 }
 
-applyMixins(GenerateTextExecutor, [ToolIntentResolution]);
+applyMixins(GenerateTextExecutor, [ToolIntentResolution, SystemPromptComposer]);

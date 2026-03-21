@@ -8,6 +8,7 @@ import { SuperAgent } from '../SuperAgent';
 import * as handlers from '../handlers';
 import type StewardPlugin from 'src/main';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
+import type { AgentCorePromptContext } from '../../Agent';
 
 /**
  * Agent for handling User-Defined Commands (UDC)
@@ -23,6 +24,10 @@ export class UDCAgent extends Agent {
 
   public getValidToolNames(): ReadonlySet<ToolName> {
     return this.superAgent.getValidToolNames();
+  }
+
+  public buildCorePrompt(context?: AgentCorePromptContext): string {
+    return 'No instruction';
   }
 
   /**
