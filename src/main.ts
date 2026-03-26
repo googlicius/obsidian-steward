@@ -1,5 +1,4 @@
-import 'reflect-metadata';
-import { Notice, Plugin, WorkspaceLeaf, addIcon, getLanguage } from 'obsidian';
+import { App, Notice, Plugin, PluginManifest, WorkspaceLeaf, addIcon, getLanguage } from 'obsidian';
 import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
@@ -65,11 +64,12 @@ import { GuardrailsRuleService } from './services/GuardrailsRuleService/Guardrai
 import { CompactionOrchestrator } from './solutions/compaction';
 import { SubagentSpawnService } from './services/SubagentSpawnService';
 
+const moduleEvaluationStartedAt = performance.now();
+console.log('[Steward] module evaluation started');
+
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
-  obsidianAPITools: ObsidianAPITools;
   chatTitle = 'Steward chat';
-  commandProcessorService: CommandProcessorService;
   conversationEventHandler: ConversationEventHandler;
   llmService: LLMService;
   trashCleanupService: TrashCleanupService;
@@ -94,6 +94,31 @@ export default class StewardPlugin extends Plugin {
   _userMessageService: UserMessageService;
   _compactionOrchestrator: CompactionOrchestrator;
   _subAgentSpawnService: SubagentSpawnService;
+  _obsidianAPITools: ObsidianAPITools;
+  _commandProcessorService: CommandProcessorService;
+
+  constructor(app: App, manifest: PluginManifest) {
+    super(app, manifest);
+    console.log(
+      '[Steward] plugin constructor invoked after',
+      `${(performance.now() - moduleEvaluationStartedAt).toFixed(1)} ms`,
+      'from module evaluation start'
+    );
+  }
+
+  get obsidianAPITools(): ObsidianAPITools {
+    if (!this._obsidianAPITools) {
+      this._obsidianAPITools = new ObsidianAPITools(this.app);
+    }
+    return this._obsidianAPITools;
+  }
+
+  get commandProcessorService(): CommandProcessorService {
+    if (!this._commandProcessorService) {
+      this._commandProcessorService = new CommandProcessorService(this);
+    }
+    return this._commandProcessorService;
+  }
 
   get commandInputService(): CommandInputService {
     if (!this._commandInputService) {
@@ -221,13 +246,6 @@ export default class StewardPlugin extends Plugin {
     return this._compactionOrchestrator;
   }
 
-  get conversationRender(): ConversationRenderer {
-    if (!this._conversationRenderer) {
-      this._conversationRenderer = ConversationRenderer.getInstance(this);
-    }
-    return this._conversationRenderer;
-  }
-
   get editor(): ObsidianEditor {
     return this.app.workspace.activeEditor?.editor as ObsidianEditor;
   }
@@ -237,21 +255,26 @@ export default class StewardPlugin extends Plugin {
   }
 
   async onload() {
+    const onloadStartTime = performance.now();
+    console.time('[Steward] onload total');
+
+    const settingsLoadStartTime = performance.now();
     const settingsUpdated = await this.loadSettings();
+    console.log(
+      '[Steward] loadSettings...',
+      `${(performance.now() - settingsLoadStartTime).toFixed(1)} ms`
+    );
 
     if (settingsUpdated) {
+      const settingsSaveStartTime = performance.now();
       await this.saveSettings();
+      console.log(
+        '[Steward] saveSettings',
+        `${(performance.now() - settingsSaveStartTime).toFixed(1)} ms`
+      );
     }
 
-    // Clean up old search databases
-    this.cleanupOldSearchDatabases();
-
-    // Initialize the search service
-    await this.searchService.initialize();
-
-    // Initialize the ObsidianAPITools with the SearchTool
-    this.obsidianAPITools = new ObsidianAPITools(this.app);
-
+    const coreInitStartTime = performance.now();
     // Initialize the LLM service
     this.llmService = LLMService.getInstance(this);
 
@@ -265,7 +288,12 @@ export default class StewardPlugin extends Plugin {
     this.addRibbonIcon(SMILE_CHAT_ICON_ID, i18next.t('ui.openStewardChat'), async () => {
       await this.openChat();
     });
+    console.log(
+      '[Steward] initializeCoreServices',
+      `${(performance.now() - coreInitStartTime).toFixed(1)} ms`
+    );
 
+    const registrationStartTime = performance.now();
     this.registerStuffs();
 
     // This adds a settings tab so the user can configure various aspects of the plugin
@@ -273,9 +301,6 @@ export default class StewardPlugin extends Plugin {
 
     // Initialize the conversation event handler
     this.conversationEventHandler = new ConversationEventHandler({ plugin: this });
-
-    // Initialize the CommandProcessorService
-    this.commandProcessorService = new CommandProcessorService(this);
 
     // Initialize the TrashCleanupService
     this.trashCleanupService = new TrashCleanupService(this);
@@ -287,19 +312,42 @@ export default class StewardPlugin extends Plugin {
 
     // Initialize the GuardrailsRuleService (loads rules from Steward/Rules folder)
     this.guardrailsRuleService;
+    console.log(
+      '[Steward] registerCommandsAndServices',
+      `${(performance.now() - registrationStartTime).toFixed(1)} ms`
+    );
 
-    this.initializeClassifier();
+    const layoutReadyRegistrationStartTime = performance.now();
+    this.app.workspace.onLayoutReady(() => {
+      // Clean up old search databases
+      this.cleanupOldSearchDatabases();
 
-    // Ensure required folders exist
-    this.ensureRequiredFolders();
+      // Initialize the search service
+      this.searchService.initialize();
 
-    // Exclude steward folders from search
-    this.excludeFoldersFromSearch([
-      `${this.settings.stewardFolder}/Conversations`,
-      `${this.settings.stewardFolder}/Commands`,
-      'Excalidraw',
-      'copilot*',
-    ]);
+      this.initializeClassifier();
+
+      // Ensure required folders exist
+      this.ensureRequiredFolders();
+
+      // Exclude steward folders from search
+      this.excludeFoldersFromSearch([
+        `${this.settings.stewardFolder}/Conversations`,
+        `${this.settings.stewardFolder}/Commands`,
+        'Excalidraw',
+        'copilot*',
+      ]);
+    });
+    console.log(
+      '[Steward] registerOnLayoutReady',
+      `${(performance.now() - layoutReadyRegistrationStartTime).toFixed(1)} ms`
+    );
+
+    console.timeEnd('[Steward] onload total');
+    console.log(
+      '[Steward] onload finished in',
+      `${(performance.now() - onloadStartTime).toFixed(1)} ms`
+    );
   }
 
   onunload() {

@@ -74,7 +74,7 @@ export function createGuardrailsMiddleware(plugin: StewardPlugin): ToolHandlerMi
         rules: uniqueViolated.join(', '),
         paths: paths.join(', '),
       });
-      await plugin.conversationRender.updateConversationNote({
+      await plugin.conversationRenderer.updateConversationNote({
         path: ctx.params.title,
         newContent: `*${humanMessage}*`,
         command: 'guardrails',
@@ -96,7 +96,7 @@ export function createGuardrailsMiddleware(plugin: StewardPlugin): ToolHandlerMi
       actions: blockedActions.join(', '),
     });
 
-    await plugin.conversationRender.serializeToolInvocation({
+    await plugin.conversationRenderer.serializeToolInvocation({
       path: ctx.params.title,
       command: 'guardrails',
       handlerId: ctx.params.handlerId ?? '',
