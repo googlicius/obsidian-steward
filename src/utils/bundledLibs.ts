@@ -20,7 +20,6 @@ export type BundledLibKey = keyof BundledLibModules;
 type BundledLibsRegistry = Record<BundledLibKey, BundledLibModules[BundledLibKey]>;
 
 let registryPromise: Promise<BundledLibsRegistry> | null = null;
-const cachedModuleByKey = new Map<BundledLibKey, BundledLibModules[BundledLibKey]>();
 
 function ensureBundledLibsRegistryLoaded(): Promise<BundledLibsRegistry> {
   if (!registryPromise) {
@@ -43,21 +42,15 @@ function ensureBundledLibsRegistryLoaded(): Promise<BundledLibsRegistry> {
 
 /**
  * Returns the given module from the compressed bundle inside `main.js`.
- * First call decompresses and evaluates the shared chunk; results are cached per key.
+ * The first load decompresses and evaluates the shared chunk; the same registry is reused afterward.
  */
 export async function getBundledLib<K extends BundledLibKey>(
   key: K
 ): Promise<BundledLibModules[K]> {
-  const fromCache = cachedModuleByKey.get(key);
-  if (fromCache !== undefined) {
-    return fromCache as BundledLibModules[K];
-  }
-
   const registry = await ensureBundledLibsRegistryLoaded();
   const mod = registry[key];
   if (mod === undefined) {
     throw new Error(`[Steward] Missing bundled lib key: ${String(key)}`);
   }
-  cachedModuleByKey.set(key, mod);
   return mod as BundledLibModules[K];
 }
