@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -88,22 +88,20 @@ export interface TodoListState {
 }
 
 export class TodoList {
-  private static readonly todoListTool = tool({
-    inputSchema: todoListSchema,
-  });
-
-  private static readonly todoListUpdateTool = tool({
-    inputSchema: todoListUpdateSchema,
-  });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
-  public static getTodoListTool() {
-    return TodoList.todoListTool;
+  public static async getTodoListTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: todoListSchema,
+    });
   }
 
-  public static getTodoListUpdateTool() {
-    return TodoList.todoListUpdateTool;
+  public static async getTodoListUpdateTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: todoListUpdateSchema,
+    });
   }
 
   /**

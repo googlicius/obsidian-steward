@@ -1,7 +1,7 @@
-import { generateText, Output } from 'ai';
 import { z } from 'zod/v3';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
+import { getBundledLib } from 'src/utils/bundledLibs';
 
 const MAX_SUMMARY_WORDS = 80;
 
@@ -42,6 +42,8 @@ export class CompactionSummaryAgent {
         generateType: 'text',
         overrideModel: this.plugin.settings.llm.agents.compactionSummary.model,
       });
+
+      const { generateText, Output } = await getBundledLib('ai');
 
       const promptItems = items
         .map(

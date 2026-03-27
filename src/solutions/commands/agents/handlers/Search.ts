@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
@@ -166,14 +166,13 @@ export type SearchArgs = {
 };
 
 export class Search {
-  private static readonly searchTool = tool({
-    inputSchema: searchQueryExtractionSchema,
-  });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
-  public static getSearchTool() {
-    return Search.searchTool;
+  public static async getSearchTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: searchQueryExtractionSchema,
+    });
   }
 
   public extractPathsForGuardrails(input: SearchArgs): string[] {

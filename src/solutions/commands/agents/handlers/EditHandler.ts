@@ -12,8 +12,8 @@ import { logger } from 'src/utils/logger';
 export class EditHandler {
   constructor(private readonly agent: AgentHandlerContext) {}
 
-  public static getEditTool(contentType: 'in_the_note' | 'in_the_chat') {
-    const { editTool } = createEditTool({ contentType });
+  public static async getEditTool(contentType: 'in_the_note' | 'in_the_chat') {
+    const { editTool } = await createEditTool({ contentType });
     return editTool;
   }
 
@@ -63,7 +63,7 @@ export class EditHandler {
     const contentType =
       artifact?.artifactType === ArtifactType.GENERATED_CONTENT ? 'in_the_chat' : 'in_the_note';
 
-    const { execute: editToolExecute } = createEditTool({ contentType });
+    const { execute: editToolExecute } = await createEditTool({ contentType });
     const operations = editToolExecute(toolCall.input);
 
     // Group operations by file - resolve all files that will be edited

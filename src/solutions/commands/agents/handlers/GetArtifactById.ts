@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -12,14 +12,13 @@ const getArtifactByIdSchema = z.object({
 export type GetArtifactByIdArgs = z.infer<typeof getArtifactByIdSchema>;
 
 export class GetArtifactById {
-  private static readonly getArtifactByIdTool = tool({
-    inputSchema: getArtifactByIdSchema,
-  });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
-  public static getGetArtifactByIdTool() {
-    return GetArtifactById.getArtifactByIdTool;
+  public static async getGetArtifactByIdTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: getArtifactByIdSchema,
+    });
   }
 
   public async handle(

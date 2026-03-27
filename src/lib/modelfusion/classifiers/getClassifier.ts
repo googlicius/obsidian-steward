@@ -1,14 +1,15 @@
 import { StewardPluginSettings } from 'src/types/interfaces';
-import { intentClassifier } from './intent';
+import { getIntentClassifier } from './intent';
 import { LLMService } from 'src/services/LLMService';
 import { logger } from 'src/utils/logger';
 
-export function getClassifier(
+export async function getClassifier(
   embeddingSettings: StewardPluginSettings['embedding'],
   isReloadRequest = false
 ) {
   const llmService = LLMService.getInstance();
-  const { provider, modelId } = llmService.getProviderFromModel(embeddingSettings.model);
+  const { provider, modelId } = await llmService.getProviderFromModel(embeddingSettings.model);
+  const base = await getIntentClassifier();
 
   // If embedding is disabled or provider doesn't support embeddings, use offline mode (static clusters only)
   if (
@@ -22,8 +23,8 @@ export function getClassifier(
         `Embedding is not supported for provider: ${provider.name}. Using static clusters only.`
       );
     }
-    return intentClassifier.withSettings({
-      // Keep the default embedding model from intentClassifier (won't be used)
+    return base.withSettings({
+      // Keep the default embedding model from base classifier (won't be used)
       // Set ignoreEmbedding to true so it only uses static clusters and prefixed clusters
       ignoreEmbedding: true,
       similarityThreshold: embeddingSettings.similarityThreshold,
@@ -35,7 +36,7 @@ export function getClassifier(
       ? provider.embeddingModel(modelId)
       : provider.textEmbeddingModel(modelId);
 
-  return intentClassifier.withSettings({
+  return base.withSettings({
     embeddingModel,
     modelName:
       modelId === 'text-embedding-ada-002'

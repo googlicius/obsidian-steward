@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { normalizePath, TFile, TFolder } from 'obsidian';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { z } from 'zod/v3';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
@@ -74,16 +74,15 @@ export type GrepOutput = {
 };
 
 export class VaultGrep {
-  private static readonly grepTool = tool({ inputSchema: grepSchema });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: GrepToolArgs): string[] {
     return this.normalizeInputPaths(input.paths);
   }
 
-  public static getGrepTool() {
-    return VaultGrep.grepTool;
+  public static async getGrepTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({ inputSchema: grepSchema });
   }
 
   private async executeGrep(args: GrepToolArgs): Promise<GrepOutput> {

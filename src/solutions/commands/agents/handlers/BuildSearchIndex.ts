@@ -6,7 +6,7 @@ import { logger } from 'src/utils/logger';
 import type { TFile } from 'obsidian';
 import { AbortService } from 'src/services/AbortService';
 import { ToolCallPart } from '../../tools/types';
-import { tool } from 'ai';
+import { getBundledLib } from 'src/utils/bundledLibs';
 
 type PDFPageContent = unknown;
 
@@ -30,11 +30,11 @@ const buildSearchIndexSchema = z.object({
 export type BuildSearchIndexArgs = z.infer<typeof buildSearchIndexSchema>;
 
 export class BuildSearchIndex {
-  private static readonly buildSearchIndexTool = tool({ inputSchema: buildSearchIndexSchema });
   constructor(private readonly agent: AgentHandlerContext) {}
 
-  public static getBuildSearchIndexTool() {
-    return BuildSearchIndex.buildSearchIndexTool;
+  public static async getBuildSearchIndexTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({ inputSchema: buildSearchIndexSchema });
   }
 
   /**

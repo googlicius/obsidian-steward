@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
@@ -50,8 +50,6 @@ type CopyOperationResult = {
 };
 
 export class VaultCopy {
-  private static readonly copyTool = tool({ inputSchema: copyToolSchema });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: CopyToolArgs): string[] {
@@ -64,8 +62,9 @@ export class VaultCopy {
     return paths;
   }
 
-  public static getCopyTool() {
-    return VaultCopy.copyTool;
+  public static async getCopyTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({ inputSchema: copyToolSchema });
   }
 
   public async handle(
