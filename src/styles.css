@@ -51,6 +51,7 @@ html[data-stw-language='vi'] {
 
   &.HyperMD-codeblock {
     background-color: var(--stw-input-bg) !important;
+    border-radius: 0 !important;
   }
 
   /* First line in a block: add top border */

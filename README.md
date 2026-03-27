@@ -104,7 +104,7 @@ For the full guide on creating and using User-Defined Commands, see the [User-de
 
 ### Showcases
 
-#### Flashcard assist:
+#### Flashcard assist [Flashcard ask](/community-UDCs/Flashcard%20ask.md)
 
 <img src="/docs/images/Steward-Demo-Flashcard.gif" alt="Flashcard Assist" width="650px">
 

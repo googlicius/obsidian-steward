@@ -42,7 +42,7 @@ export class UDCAgent extends Agent {
    * Handle a UDC invocation
    */
   public async handle(params: AgentHandlerParams): Promise<AgentResult> {
-    const { title, intent } = params;
+    const { title, intent, lang } = params;
 
     // Check if this is actually a UDC
     const isUserDefinedCommand = this.plugin.userDefinedCommandService.hasCommand(intent.type);
@@ -124,6 +124,17 @@ export class UDCAgent extends Agent {
           steps: todoListSteps,
         },
       };
+
+      const t = getTranslation(lang);
+      const todoListBootstrapGuide = t('conversation.udcTodoListBootstrapGuide', {
+        commandName: intent.type.trim(),
+      });
+      await this.renderer.addUserMessage({
+        path: title,
+        newContent: todoListBootstrapGuide,
+        step: params.invocationCount,
+        contentFormat: 'hidden',
+      });
 
       // Execute the todo list creation
       const todoListHandler = new handlers.TodoList(this.superAgent);
