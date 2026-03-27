@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
@@ -18,14 +18,13 @@ const helpSchema = z.object({});
 export type HelpArgs = z.infer<typeof helpSchema>;
 
 export class Help {
-  private static readonly helpTool = tool({
-    inputSchema: helpSchema,
-  });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
-  public static getHelpTool() {
-    return Help.helpTool;
+  public static async getHelpTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: helpSchema,
+    });
   }
 
   /**

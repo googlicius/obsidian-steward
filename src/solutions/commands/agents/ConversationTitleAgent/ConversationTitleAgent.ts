@@ -1,9 +1,9 @@
-import { generateText, Output } from 'ai';
 import { z } from 'zod/v3';
 import { getClassifier } from 'src/lib/modelfusion';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
+import { getBundledLib } from 'src/utils/bundledLibs';
 
 interface GenerateTitleParams {
   title: string;
@@ -95,7 +95,7 @@ export class ConversationTitleAgent {
   private async tryStaticClassification(query: string): Promise<string | null> {
     try {
       const embeddingSettings = this.plugin.llmService.getEmbeddingSettings();
-      const classifier = getClassifier(embeddingSettings, false);
+      const classifier = await getClassifier(embeddingSettings, false);
       const result = await classifier.doClassify(query, { ignoreEmbedding: true });
 
       if (!result) {
@@ -129,6 +129,8 @@ export class ConversationTitleAgent {
         generateType: 'text',
         overrideModel: this.plugin.settings.llm.agents.conversationTitle.model,
       });
+
+      const { generateText, Output } = await getBundledLib('ai');
 
       const result = await generateText({
         model: llmConfig.model,

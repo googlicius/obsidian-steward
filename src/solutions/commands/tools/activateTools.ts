@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { ToolName } from '../ToolRegistry';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
@@ -26,9 +26,12 @@ const activateToolsSchema = z.object({
 
 export type ActivateToolsArgs = z.infer<typeof activateToolsSchema>;
 
-export const activateTools = tool({
-  inputSchema: activateToolsSchema,
-});
+export async function getActivateToolsTool() {
+  const { tool } = await getBundledLib('ai');
+  return tool({
+    inputSchema: activateToolsSchema,
+  });
+}
 
 /**
  * Result type for activate tools validation

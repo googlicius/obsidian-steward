@@ -1,15 +1,30 @@
-import { generateText } from 'ai';
 import { getClassifier } from 'src/lib/modelfusion';
 import type StewardPlugin from 'src/main';
 import { ConversationTitleAgent } from './ConversationTitleAgent';
 
-jest.mock('ai', () => {
-  const originalModule = jest.requireActual('ai');
+jest.mock('src/utils/bundledLibs', () => {
+  const actual =
+    jest.requireActual<typeof import('src/utils/bundledLibs')>('src/utils/bundledLibs');
+  const aiActual = jest.requireActual<typeof import('ai')>('ai');
+  const mockGenerateText = jest.fn();
   return {
-    ...originalModule,
-    generateText: jest.fn(),
+    ...actual,
+    __mockGenerateText: mockGenerateText,
+    getBundledLib: jest.fn((key: unknown) => {
+      if (key === 'ai') {
+        return Promise.resolve({ ...aiActual, generateText: mockGenerateText });
+      }
+      return actual.getBundledLib(key as never);
+    }),
   };
 });
+
+function getMockGenerateText(): jest.Mock {
+  const mockedBundledLibs = jest.requireMock('src/utils/bundledLibs') as {
+    __mockGenerateText: jest.Mock;
+  };
+  return mockedBundledLibs.__mockGenerateText;
+}
 
 jest.mock('src/lib/modelfusion', () => ({
   getClassifier: jest.fn(),
@@ -51,7 +66,7 @@ describe('ConversationTitleAgent', () => {
     mockPlugin = createMockPlugin();
     agent = new ConversationTitleAgent(mockPlugin);
 
-    (getClassifier as jest.Mock).mockReturnValue({
+    (getClassifier as jest.Mock).mockResolvedValue({
       doClassify: jest.fn().mockResolvedValue(null),
     });
   });
@@ -76,7 +91,7 @@ describe('ConversationTitleAgent', () => {
   });
 
   it('does not call generateWithLLM when static classification returns a title', async () => {
-    (getClassifier as jest.Mock).mockReturnValue({
+    (getClassifier as jest.Mock).mockResolvedValue({
       doClassify: jest.fn().mockResolvedValue({
         matchType: 'static',
         name: 'knowledge_base',
@@ -101,7 +116,7 @@ describe('ConversationTitleAgent', () => {
   });
 
   it('sets lang when generateWithLLM is used', async () => {
-    (generateText as jest.Mock).mockResolvedValue({
+    getMockGenerateText().mockResolvedValue({
       output: {
         title: 'Migration Plan',
         lang: 'VI',
@@ -113,7 +128,7 @@ describe('ConversationTitleAgent', () => {
       query: 'please help me design a complete migration plan for this legacy api architecture',
     });
 
-    expect(generateText).toHaveBeenCalledTimes(1);
+    expect(getMockGenerateText()).toHaveBeenCalledTimes(1);
     expect(result).toEqual({
       title: 'Migration Plan',
       lang: 'vi',

@@ -1,4 +1,11 @@
-import {
+import type StewardPlugin from 'src/main';
+import { jsonrepair } from 'jsonrepair';
+import { logger } from 'src/utils/logger';
+import { StewardPluginSettings } from 'src/types/interfaces';
+import { getTranslation } from 'src/i18n';
+import { fixUnquotedJSON } from 'src/utils/jsonRepairs';
+import { getBundledLib } from 'src/utils/bundledLibs';
+import type {
   JSONParseError,
   ImageModel,
   SpeechModel,
@@ -8,21 +15,15 @@ import {
   InvalidToolInputError,
   NoSuchToolError,
 } from 'ai';
-import { createOpenAI, OpenAIProvider } from '@ai-sdk/openai';
-import { createOpenAICompatible, OpenAICompatibleProvider } from '@ai-sdk/openai-compatible';
-import { createDeepSeek, DeepSeekProvider } from '@ai-sdk/deepseek';
-import { createGoogleGenerativeAI, GoogleGenerativeAIProvider } from '@ai-sdk/google';
-import { createGroq, GroqProvider } from '@ai-sdk/groq';
-import { AnthropicProvider, createAnthropic } from '@ai-sdk/anthropic';
-import { createElevenLabs, ElevenLabsProvider } from '@ai-sdk/elevenlabs';
-import { createOllama, OllamaProvider } from 'ollama-ai-provider-v2';
-import type StewardPlugin from 'src/main';
-import { jsonrepair } from 'jsonrepair';
-import { logger } from 'src/utils/logger';
-import { StewardPluginSettings } from 'src/types/interfaces';
-import { getTranslation } from 'src/i18n';
-import { createHume, HumeProvider } from '@ai-sdk/hume';
-import { fixUnquotedJSON } from 'src/utils/jsonRepairs';
+import type { OpenAIProvider } from '@ai-sdk/openai';
+import type { OpenAICompatibleProvider } from '@ai-sdk/openai-compatible';
+import type { DeepSeekProvider } from '@ai-sdk/deepseek';
+import type { GoogleGenerativeAIProvider } from '@ai-sdk/google';
+import type { GroqProvider } from '@ai-sdk/groq';
+import type { AnthropicProvider } from '@ai-sdk/anthropic';
+import type { ElevenLabsProvider } from '@ai-sdk/elevenlabs';
+import type { HumeProvider } from '@ai-sdk/hume';
+import type { OllamaProvider } from 'ollama-ai-provider-v2';
 
 /**
  * Service for managing LLM models and configurations using the AI package
@@ -150,21 +151,21 @@ export class LLMService {
    * Supports both built-in providers and custom providers (using compatibility)
    */
   // Overload for ElevenLabs provider
-  public getProviderFromModel(model: `elevenlabs:${string}`): {
+  public getProviderFromModel(model: `elevenlabs:${string}`): Promise<{
     modelId: string;
     name: 'elevenlabs';
     systemPrompt?: string;
     provider: ElevenLabsProvider;
-  };
+  }>;
   // Overload for Hume provider
-  public getProviderFromModel(model: `hume:${string}`): {
+  public getProviderFromModel(model: `hume:${string}`): Promise<{
     modelId: string;
     name: 'hume';
     systemPrompt?: string;
     provider: HumeProvider;
-  };
+  }>;
   // Overload for other providers (excluding ElevenLabs)
-  public getProviderFromModel(model: string | `${string}:${string}`): {
+  public getProviderFromModel(model: string | `${string}:${string}`): Promise<{
     modelId: string;
     name: string;
     systemPrompt?: string;
@@ -176,9 +177,10 @@ export class LLMService {
       | GroqProvider
       | OllamaProvider
       | AnthropicProvider;
-  };
+  }>;
+
   // Implementation
-  public getProviderFromModel(model: string | `${string}:${string}`): {
+  public async getProviderFromModel(model: string | `${string}:${string}`): Promise<{
     modelId: string;
     name: string;
     systemPrompt?: string;
@@ -192,7 +194,7 @@ export class LLMService {
       | AnthropicProvider
       | ElevenLabsProvider
       | HumeProvider;
-  } {
+  }> {
     const { provider: name, modelId } = this.parseModel(model);
 
     if (!name) {
@@ -227,12 +229,14 @@ export class LLMService {
           if (!baseURL) {
             throw new Error(`Custom provider ${name} with OpenAI compatibility requires a baseURL`);
           }
+          const { createOpenAICompatible } = await getBundledLib('openaiCompatible');
           provider = createOpenAICompatible({
             baseURL,
             name: config.name as string,
             ...(apiKey && { apiKey }),
           });
         } else {
+          const { createOpenAI } = await getBundledLib('openai');
           provider = createOpenAI({
             ...(baseURL && { baseURL }),
             ...(apiKey && { apiKey }),
@@ -242,6 +246,7 @@ export class LLMService {
       }
 
       case 'deepseek': {
+        const { createDeepSeek } = await getBundledLib('deepseek');
         provider = createDeepSeek({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
@@ -250,6 +255,7 @@ export class LLMService {
       }
 
       case 'google': {
+        const { createGoogleGenerativeAI } = await getBundledLib('google');
         provider = createGoogleGenerativeAI({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
@@ -258,6 +264,7 @@ export class LLMService {
       }
 
       case 'groq': {
+        const { createGroq } = await getBundledLib('groq');
         provider = createGroq({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
@@ -266,6 +273,7 @@ export class LLMService {
       }
 
       case 'ollama': {
+        const { createOllama } = await getBundledLib('ollama');
         provider = createOllama({
           ...(baseURL && { baseURL }),
           ...(apiKey && {
@@ -278,6 +286,7 @@ export class LLMService {
       }
 
       case 'anthropic': {
+        const { createAnthropic } = await getBundledLib('anthropic');
         provider = createAnthropic({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
@@ -290,6 +299,7 @@ export class LLMService {
       }
 
       case 'elevenlabs': {
+        const { createElevenLabs } = await getBundledLib('elevenLabs');
         provider = createElevenLabs({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
@@ -299,6 +309,7 @@ export class LLMService {
       }
 
       case 'hume': {
+        const { createHume } = await getBundledLib('hume');
         provider = createHume({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
@@ -337,7 +348,7 @@ export class LLMService {
       maxGenerationTokens: this.plugin.settings.llm.maxGenerationTokens,
     };
     const model = overrideModel || defaultModel;
-    const { provider, modelId, systemPrompt, name } = this.getProviderFromModel(model);
+    const { provider, modelId, systemPrompt, name } = await this.getProviderFromModel(model);
 
     if (['elevenlabs', 'hume'].includes(name)) {
       throw new Error(
@@ -356,6 +367,7 @@ export class LLMService {
         toolCall: ToolCallPart;
         error: JSONParseError | InvalidToolInputError | NoSuchToolError;
       }) => {
+        const { InvalidToolInputError } = await getBundledLib('ai');
         if (options.error instanceof InvalidToolInputError) {
           try {
             logger.log('Repairing invalid tool call input', options.error);
@@ -397,16 +409,13 @@ export class LLMService {
   }> {
     const { overrideModel } = options || {};
     const model = overrideModel || this.plugin.settings.llm.image.model;
-    const result = this.getProviderFromModel(model);
+    const result = await this.getProviderFromModel(model);
     let imageModel: ImageModel | undefined;
 
     if ('image' in result.provider) {
       imageModel = result.provider.image(result.modelId);
     } else if (result.provider.imageModel) {
-      const imageModelV1OrV2 = result.provider.imageModel(result.modelId);
-      if (imageModelV1OrV2.specificationVersion === 'v2') {
-        imageModel = imageModelV1OrV2;
-      }
+      imageModel = result.provider.imageModel(result.modelId);
     }
 
     if (!imageModel) {
@@ -426,16 +435,13 @@ export class LLMService {
     const speechModelId = overrideModel || this.plugin.settings.llm.speech.model;
     const [provider, model] = speechModelId.split(':');
 
-    const result = this.getProviderFromModel(`${provider}:${model}`);
+    const result = await this.getProviderFromModel(`${provider}:${model}`);
     let speechModel: SpeechModel | undefined;
 
     if ('speech' in result.provider) {
       speechModel = result.provider.speech(result.modelId);
     } else if (result.provider.speechModel) {
-      const speechModelV1OrV2 = result.provider.speechModel(result.modelId);
-      if (speechModelV1OrV2.specificationVersion === 'v2') {
-        speechModel = speechModelV1OrV2;
-      }
+      speechModel = result.provider.speechModel(result.modelId);
     }
 
     if (!speechModel) {
@@ -528,7 +534,10 @@ export class LLMService {
       return; // No images, no validation needed
     }
 
-    const { name: providerName, modelId } = this.getProviderFromModel(model);
+    const { provider: providerName, modelId } = this.parseModel(model);
+    if (!providerName) {
+      throw new Error(`Model ${model} must include a provider prefix (e.g., provider:modelId)`);
+    }
 
     if (!this.modelSupportsVision(providerName, modelId)) {
       const t = getTranslation(lang);

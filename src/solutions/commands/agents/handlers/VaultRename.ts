@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -51,7 +51,6 @@ type RenameOperationResult = {
 };
 
 export class VaultRename {
-  private static readonly renameTool = tool({ inputSchema: renameToolSchema });
   private _dataAwarenessAgent: DataAwarenessAgent;
 
   constructor(private readonly agent: AgentHandlerContext) {}
@@ -66,8 +65,9 @@ export class VaultRename {
     return paths;
   }
 
-  public static getRenameTool() {
-    return VaultRename.renameTool;
+  public static async getRenameTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({ inputSchema: renameToolSchema });
   }
 
   private get dataAwarenessAgent(): DataAwarenessAgent {

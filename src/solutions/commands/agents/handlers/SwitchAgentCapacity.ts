@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
@@ -10,14 +10,13 @@ const switchAgentCapacitySchema = z.object({});
 export type SwitchAgentCapacityArgs = z.infer<typeof switchAgentCapacitySchema>;
 
 export class SwitchAgentCapacity {
-  private static readonly switchAgentCapacityTool = tool({
-    inputSchema: switchAgentCapacitySchema,
-  });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
-  public static getSwitchAgentCapacityTool() {
-    return SwitchAgentCapacity.switchAgentCapacityTool;
+  public static async getSwitchAgentCapacityTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: switchAgentCapacitySchema,
+    });
   }
 
   public async handle(

@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -32,14 +32,13 @@ interface SpawnRunState {
 }
 
 export class SpawnSubagent {
-  private static readonly spawnSubagentTool = tool({
-    inputSchema: spawnSubagentSchema,
-  });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
-  public static getSpawnSubagentTool() {
-    return SpawnSubagent.spawnSubagentTool;
+  public static async getSpawnSubagentTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: spawnSubagentSchema,
+    });
   }
 
   private async updateRunState(title: string, runPatch: SpawnRunState): Promise<void> {

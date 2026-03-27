@@ -1,52 +1,186 @@
 import { ToolName } from '../ToolRegistry';
 import * as handlers from './handlers';
-import { activateTools } from '../tools/activateTools';
-import { getMostRecentArtifact, getArtifactById } from '../tools/getArtifact';
+import { getActivateToolsTool } from '../tools/activateTools';
 import { createAskUserTool } from '../tools/askUser';
+import type { Tool } from 'ai';
 
-const { askUserTool: confirmationTool } = createAskUserTool('confirmation');
-const { askUserTool } = createAskUserTool('ask');
+/** Subagent tool names (sync list for validation before the tools map is loaded). */
+const SUBAGENT_TOOL_NAME_LIST = [
+  ToolName.LIST,
+  ToolName.CREATE,
+  ToolName.DELETE,
+  ToolName.COPY,
+  ToolName.RENAME,
+  ToolName.MOVE,
+  ToolName.UPDATE_FRONTMATTER,
+  ToolName.GREP,
+  ToolName.EXISTS,
+  ToolName.REVERT,
+  ToolName.CONTENT_READING,
+  ToolName.EDIT,
+  ToolName.HELP,
+  ToolName.STOP,
+  ToolName.THANK_YOU,
+  ToolName.BUILD_SEARCH_INDEX,
+  ToolName.SEARCH,
+  ToolName.SEARCH_MORE,
+  ToolName.GET_MOST_RECENT_ARTIFACT,
+  ToolName.GET_ARTIFACT_BY_ID,
+  ToolName.ACTIVATE,
+  ToolName.SPEECH,
+  ToolName.IMAGE,
+  ToolName.TODO_LIST,
+  ToolName.TODO_LIST_UPDATE,
+  ToolName.CONCLUDE,
+  ToolName.RECALL_COMPACTED_CONTEXT,
+] as const;
 
-const BASE_AGENT_TOOLS = {
-  [ToolName.LIST]: handlers.VaultList.getListTool(),
-  [ToolName.CREATE]: handlers.VaultCreate.getCreateTool(),
-  [ToolName.DELETE]: handlers.VaultDelete.getDeleteTool(),
-  [ToolName.COPY]: handlers.VaultCopy.getCopyTool(),
-  [ToolName.RENAME]: handlers.VaultRename.getRenameTool(),
-  [ToolName.MOVE]: handlers.VaultMove.getMoveTool(),
-  [ToolName.UPDATE_FRONTMATTER]: handlers.VaultUpdateFrontmatter.getUpdateFrontmatterTool(),
-  [ToolName.GREP]: handlers.VaultGrep.getGrepTool(),
-  [ToolName.EXISTS]: handlers.VaultExists.getExistsTool(),
-  [ToolName.REVERT]: handlers.RevertLatestQuery.getRevertTool(),
-  [ToolName.CONTENT_READING]: handlers.ReadContent.getContentReadingTool(),
-  [ToolName.EDIT]: handlers.EditHandler.getEditTool('in_the_note'),
-  [ToolName.HELP]: handlers.Help.getHelpTool(),
-  [ToolName.STOP]: handlers.Stop.getStopTool(),
-  [ToolName.THANK_YOU]: handlers.ThankYou.getThankYouTool(),
-  [ToolName.BUILD_SEARCH_INDEX]: handlers.BuildSearchIndex.getBuildSearchIndexTool(),
-  [ToolName.SEARCH]: handlers.Search.getSearchTool(),
-  [ToolName.SEARCH_MORE]: handlers.SearchMore.getSearchMoreTool(),
-  [ToolName.GET_MOST_RECENT_ARTIFACT]: getMostRecentArtifact,
-  [ToolName.GET_ARTIFACT_BY_ID]: getArtifactById,
-  [ToolName.ACTIVATE]: activateTools,
-  [ToolName.SPEECH]: handlers.Speech.getSpeechTool(),
-  [ToolName.IMAGE]: handlers.Image.getImageTool(),
-  [ToolName.TODO_LIST]: handlers.TodoList.getTodoListTool(),
-  [ToolName.TODO_LIST_UPDATE]: handlers.TodoList.getTodoListUpdateTool(),
-  [ToolName.CONCLUDE]: handlers.Conclude.getConcludeTool(),
-  [ToolName.RECALL_COMPACTED_CONTEXT]:
+const SUPER_ONLY_TOOL_NAMES = [
+  ToolName.CONFIRMATION,
+  ToolName.ASK_USER,
+  ToolName.USER_CONFIRM,
+  ToolName.SPAWN_SUBAGENT,
+  ToolName.SWITCH_AGENT_CAPACITY,
+] as const;
+
+export const SUBAGENT_TOOL_NAMES: ReadonlySet<ToolName> = new Set(SUBAGENT_TOOL_NAME_LIST);
+
+export const SUPER_AGENT_TOOL_NAMES: ReadonlySet<ToolName> = new Set([
+  ...SUBAGENT_TOOL_NAME_LIST,
+  ...SUPER_ONLY_TOOL_NAMES,
+]);
+
+export type AgentToolsRecord = Record<string, Tool> & { [s: string]: unknown };
+
+async function buildBaseAgentTools(): Promise<AgentToolsRecord> {
+  const [
+    listTool,
+    createTool,
+    deleteTool,
+    copyTool,
+    renameTool,
+    moveTool,
+    updateFrontmatterTool,
+    grepTool,
+    existsTool,
+    revertTool,
+    contentReadingTool,
+    editTool,
+    helpTool,
+    stopTool,
+    thankYouTool,
+    buildSearchIndexTool,
+    searchTool,
+    searchMoreTool,
+    getMostRecentArtifactTool,
+    getArtifactByIdTool,
+    speechTool,
+    imageTool,
+    todoListTool,
+    todoListUpdateTool,
+    concludeTool,
+    recallCompactedContextTool,
+    activateToolsTool,
+  ] = await Promise.all([
+    handlers.VaultList.getListTool(),
+    handlers.VaultCreate.getCreateTool(),
+    handlers.VaultDelete.getDeleteTool(),
+    handlers.VaultCopy.getCopyTool(),
+    handlers.VaultRename.getRenameTool(),
+    handlers.VaultMove.getMoveTool(),
+    handlers.VaultUpdateFrontmatter.getUpdateFrontmatterTool(),
+    handlers.VaultGrep.getGrepTool(),
+    handlers.VaultExists.getExistsTool(),
+    handlers.RevertLatestQuery.getRevertTool(),
+    handlers.ReadContent.getContentReadingTool(),
+    handlers.EditHandler.getEditTool('in_the_note'),
+    handlers.Help.getHelpTool(),
+    handlers.Stop.getStopTool(),
+    handlers.ThankYou.getThankYouTool(),
+    handlers.BuildSearchIndex.getBuildSearchIndexTool(),
+    handlers.Search.getSearchTool(),
+    handlers.SearchMore.getSearchMoreTool(),
+    handlers.GetMostRecentArtifact.getGetMostRecentArtifactTool(),
+    handlers.GetArtifactById.getGetArtifactByIdTool(),
+    handlers.Speech.getSpeechTool(),
+    handlers.Image.getImageTool(),
+    handlers.TodoList.getTodoListTool(),
+    handlers.TodoList.getTodoListUpdateTool(),
+    handlers.Conclude.getConcludeTool(),
     handlers.RecallCompactedContext.getRecallCompactedContextTool(),
-} as const;
+    getActivateToolsTool(),
+  ]);
 
-export const SUBAGENT_TOOLS = {
-  ...BASE_AGENT_TOOLS,
-} as const;
+  return {
+    [ToolName.LIST]: listTool,
+    [ToolName.CREATE]: createTool,
+    [ToolName.DELETE]: deleteTool,
+    [ToolName.COPY]: copyTool,
+    [ToolName.RENAME]: renameTool,
+    [ToolName.MOVE]: moveTool,
+    [ToolName.UPDATE_FRONTMATTER]: updateFrontmatterTool,
+    [ToolName.GREP]: grepTool,
+    [ToolName.EXISTS]: existsTool,
+    [ToolName.REVERT]: revertTool,
+    [ToolName.CONTENT_READING]: contentReadingTool,
+    [ToolName.EDIT]: editTool,
+    [ToolName.HELP]: helpTool,
+    [ToolName.STOP]: stopTool,
+    [ToolName.THANK_YOU]: thankYouTool,
+    [ToolName.BUILD_SEARCH_INDEX]: buildSearchIndexTool,
+    [ToolName.SEARCH]: searchTool,
+    [ToolName.SEARCH_MORE]: searchMoreTool,
+    [ToolName.GET_MOST_RECENT_ARTIFACT]: getMostRecentArtifactTool,
+    [ToolName.GET_ARTIFACT_BY_ID]: getArtifactByIdTool,
+    [ToolName.ACTIVATE]: activateToolsTool,
+    [ToolName.SPEECH]: speechTool,
+    [ToolName.IMAGE]: imageTool,
+    [ToolName.TODO_LIST]: todoListTool,
+    [ToolName.TODO_LIST_UPDATE]: todoListUpdateTool,
+    [ToolName.CONCLUDE]: concludeTool,
+    [ToolName.RECALL_COMPACTED_CONTEXT]: recallCompactedContextTool,
+  } as AgentToolsRecord;
+}
 
-export const SUPER_AGENT_TOOLS = {
-  ...BASE_AGENT_TOOLS,
-  [ToolName.CONFIRMATION]: confirmationTool,
-  [ToolName.ASK_USER]: askUserTool,
-  [ToolName.USER_CONFIRM]: handlers.UserConfirm.getUserConfirmTool(),
-  [ToolName.SPAWN_SUBAGENT]: handlers.SpawnSubagent.getSpawnSubagentTool(),
-  [ToolName.SWITCH_AGENT_CAPACITY]: handlers.SwitchAgentCapacity.getSwitchAgentCapacityTool(),
-} as const;
+let baseAgentToolsPromise: Promise<AgentToolsRecord> | null = null;
+let superAgentToolsPromise: Promise<AgentToolsRecord> | null = null;
+
+function getBaseAgentTools(): Promise<AgentToolsRecord> {
+  if (!baseAgentToolsPromise) {
+    baseAgentToolsPromise = buildBaseAgentTools();
+  }
+  return baseAgentToolsPromise;
+}
+
+export async function getSubagentTools(): Promise<AgentToolsRecord> {
+  return getBaseAgentTools();
+}
+
+export async function getSuperAgentTools(): Promise<AgentToolsRecord> {
+  if (!superAgentToolsPromise) {
+    superAgentToolsPromise = getBaseAgentTools().then(async base => {
+      const [
+        confirmationBundle,
+        askBundle,
+        userConfirmTool,
+        spawnSubagentTool,
+        switchAgentCapacityTool,
+      ] = await Promise.all([
+        createAskUserTool('confirmation'),
+        createAskUserTool('ask'),
+        handlers.UserConfirm.getUserConfirmTool(),
+        handlers.SpawnSubagent.getSpawnSubagentTool(),
+        handlers.SwitchAgentCapacity.getSwitchAgentCapacityTool(),
+      ]);
+      return {
+        ...base,
+        [ToolName.CONFIRMATION]: confirmationBundle.askUserTool,
+        [ToolName.ASK_USER]: askBundle.askUserTool,
+        [ToolName.USER_CONFIRM]: userConfirmTool,
+        [ToolName.SPAWN_SUBAGENT]: spawnSubagentTool,
+        [ToolName.SWITCH_AGENT_CAPACITY]: switchAgentCapacityTool,
+      };
+    });
+  }
+  return superAgentToolsPromise;
+}

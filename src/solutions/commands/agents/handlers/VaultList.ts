@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath, TFile, TFolder } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
@@ -83,10 +83,6 @@ type ListToolResult = {
 };
 
 export class VaultList {
-  protected static readonly listTool = tool({
-    inputSchema: listToolSchema,
-  });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: ListToolArgs): string[] {
@@ -94,8 +90,11 @@ export class VaultList {
     return [normalizePath(folderPath || '/')];
   }
 
-  public static getListTool() {
-    return VaultList.listTool;
+  public static async getListTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: listToolSchema,
+    });
   }
 
   public async handle(

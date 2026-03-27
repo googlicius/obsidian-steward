@@ -1,12 +1,15 @@
-import { generateText } from 'ai';
 import type { AgentHandlerParams } from '../../types';
 import { ToolRegistry, ToolName } from '../../ToolRegistry';
 import { applyMixins } from 'src/utils/applyMixins';
 import { ToolIntentResolution } from './ToolIntentResolution';
 import { SystemPromptComposer } from './SystemPromptComposer';
 import { Agent } from '../../Agent';
+import { getBundledLib } from 'src/utils/bundledLibs';
+import type { generateText } from 'ai';
 
-type GenerateTextToolSet = NonNullable<Parameters<typeof generateText>[0]['tools']> & {
+type AiGenerateTextParams = Parameters<typeof generateText>[0];
+
+type GenerateTextToolSet = NonNullable<AiGenerateTextParams['tools']> & {
   [s: string]: unknown;
 };
 
@@ -152,7 +155,9 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
       }
     }
 
-    type RepairToolCall = Parameters<typeof generateText>[0]['experimental_repairToolCall'];
+    type RepairToolCall = AiGenerateTextParams['experimental_repairToolCall'];
+
+    const { generateText } = await getBundledLib('ai');
 
     const result = await generateText({
       model: llmConfig.model,
@@ -161,7 +166,7 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
       abortSignal: agent.plugin.abortService.createAbortController(),
       system: agent.buildCorePrompt(),
       messages,
-      tools: registry.getToolsObject() as NonNullable<Parameters<typeof generateText>[0]['tools']>,
+      tools: registry.getToolsObject() as NonNullable<AiGenerateTextParams['tools']>,
       experimental_repairToolCall: llmConfig.repairToolCall as RepairToolCall,
     });
 

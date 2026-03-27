@@ -1,6 +1,6 @@
-import { NoSuchToolError } from 'ai';
-import type { DynamicToolCall, Tool } from 'ai';
 import { logger } from 'src/utils/logger';
+import { getBundledLib } from 'src/utils/bundledLibs';
+import type { DynamicToolCall, Tool } from 'ai';
 import { createGuardrailsMiddleware } from 'src/services/GuardrailsRuleService/guardrailsMiddleware';
 import { createToolHandlerChain } from '../middleware/createToolHandlerChain';
 import type { AgentHandlerParams, AgentResult } from '../../types';
@@ -33,6 +33,7 @@ export class ToolCallExecutor {
   }): Promise<AgentResult> {
     const agent = asAgent(this);
     const handlerMap = agent.getToolHandlerMap();
+    const { NoSuchToolError } = await getBundledLib('ai');
 
     for (let index = params.startIndex; index < params.toolCalls.length; index += 1) {
       const toolCall = params.toolCalls[index];
