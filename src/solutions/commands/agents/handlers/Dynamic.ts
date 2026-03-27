@@ -30,9 +30,7 @@ export class Dynamic {
     InvalidToolInputErrorCtor: typeof InvalidToolInputError,
     InvalidArgumentErrorCtor: typeof InvalidArgumentError
   ): error is InvalidToolInputError | InvalidArgumentError {
-    return (
-      error instanceof InvalidToolInputErrorCtor || error instanceof InvalidArgumentErrorCtor
-    );
+    return error instanceof InvalidToolInputErrorCtor || error instanceof InvalidArgumentErrorCtor;
   }
 
   private getErrorValue(options: {

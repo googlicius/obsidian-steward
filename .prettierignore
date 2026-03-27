@@ -9,5 +9,8 @@ community-UDCs
 # Package files
 package-lock.json
 
+# Generated files
+src/generated
+
 # Other generated files
-.obsidian 
+.obsidian

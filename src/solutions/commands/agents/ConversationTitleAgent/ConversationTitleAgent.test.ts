@@ -3,7 +3,8 @@ import type StewardPlugin from 'src/main';
 import { ConversationTitleAgent } from './ConversationTitleAgent';
 
 jest.mock('src/utils/bundledLibs', () => {
-  const actual = jest.requireActual<typeof import('src/utils/bundledLibs')>('src/utils/bundledLibs');
+  const actual =
+    jest.requireActual<typeof import('src/utils/bundledLibs')>('src/utils/bundledLibs');
   const aiActual = jest.requireActual<typeof import('ai')>('ai');
   const mockGenerateText = jest.fn();
   return {

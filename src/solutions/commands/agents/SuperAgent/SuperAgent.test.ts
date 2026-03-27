@@ -14,7 +14,8 @@ import { COMPACTION_SCHEMA_VERSION } from 'src/solutions/compaction/types';
 
 /** `streamText` is loaded via `getBundledLib('ai')` in production; tests stub that path. */
 jest.mock('src/utils/bundledLibs', () => {
-  const actual = jest.requireActual<typeof import('src/utils/bundledLibs')>('src/utils/bundledLibs');
+  const actual =
+    jest.requireActual<typeof import('src/utils/bundledLibs')>('src/utils/bundledLibs');
   const aiActual = jest.requireActual<typeof import('ai')>('ai');
   const mockStreamText = jest.fn();
   const mockTool = jest.fn().mockImplementation((config: unknown) => config);

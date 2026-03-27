@@ -40,7 +40,17 @@ export async function getIntentClassifier(): Promise<PersistentEmbeddingSimilari
       },
       {
         name: 'user_confirm' as const,
-        values: ['yes', 'no', 'confirm', 'ok', 'go ahead', 'approve', 'reject', 'proceed', 'cancel'],
+        values: [
+          'yes',
+          'no',
+          'confirm',
+          'ok',
+          'go ahead',
+          'approve',
+          'reject',
+          'proceed',
+          'cancel',
+        ],
       },
       {
         name: 'close' as const,

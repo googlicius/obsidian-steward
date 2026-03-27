@@ -159,14 +159,19 @@ export async function getSubagentTools(): Promise<AgentToolsRecord> {
 export async function getSuperAgentTools(): Promise<AgentToolsRecord> {
   if (!superAgentToolsPromise) {
     superAgentToolsPromise = getBaseAgentTools().then(async base => {
-      const [confirmationBundle, askBundle, userConfirmTool, spawnSubagentTool, switchAgentCapacityTool] =
-        await Promise.all([
-          createAskUserTool('confirmation'),
-          createAskUserTool('ask'),
-          handlers.UserConfirm.getUserConfirmTool(),
-          handlers.SpawnSubagent.getSpawnSubagentTool(),
-          handlers.SwitchAgentCapacity.getSwitchAgentCapacityTool(),
-        ]);
+      const [
+        confirmationBundle,
+        askBundle,
+        userConfirmTool,
+        spawnSubagentTool,
+        switchAgentCapacityTool,
+      ] = await Promise.all([
+        createAskUserTool('confirmation'),
+        createAskUserTool('ask'),
+        handlers.UserConfirm.getUserConfirmTool(),
+        handlers.SpawnSubagent.getSpawnSubagentTool(),
+        handlers.SwitchAgentCapacity.getSwitchAgentCapacityTool(),
+      ]);
       return {
         ...base,
         [ToolName.CONFIRMATION]: confirmationBundle.askUserTool,

@@ -10,7 +10,8 @@ import {
 import type { AgentCorePromptContext } from '../../Agent';
 
 jest.mock('src/utils/bundledLibs', () => {
-  const actual = jest.requireActual<typeof import('src/utils/bundledLibs')>('src/utils/bundledLibs');
+  const actual =
+    jest.requireActual<typeof import('src/utils/bundledLibs')>('src/utils/bundledLibs');
   const aiActual = jest.requireActual<typeof import('ai')>('ai');
   const mockStreamText = jest.fn();
   const mockTool = jest.fn().mockImplementation((config: unknown) => config);

@@ -1,6 +1,6 @@
 /**
  * Bundled separately by scripts/build-bundled-libs.mjs, compressed, and loaded at runtime
- * (Excalidraw-style) so the main bundle does not parse/execute these dependencies at plugin startup.
+ * so the main bundle does not parse/execute these dependencies at plugin startup.
  */
 import * as ai from 'ai';
 import * as anthropic from '@ai-sdk/anthropic';

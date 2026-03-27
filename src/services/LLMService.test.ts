@@ -2,7 +2,8 @@ import { LLMService } from './LLMService';
 import type StewardPlugin from 'src/main';
 
 jest.mock('src/utils/bundledLibs', () => {
-  const actual = jest.requireActual<typeof import('src/utils/bundledLibs')>('src/utils/bundledLibs');
+  const actual =
+    jest.requireActual<typeof import('src/utils/bundledLibs')>('src/utils/bundledLibs');
   return {
     ...actual,
     getBundledLib: jest.fn(async (key: unknown) => {
@@ -152,7 +153,9 @@ describe('LLMService', () => {
       });
 
       it('should correctly parse anthropic model', async () => {
-        const result = await llmService.getProviderFromModel('anthropic:claude-3-5-sonnet-20241022');
+        const result = await llmService.getProviderFromModel(
+          'anthropic:claude-3-5-sonnet-20241022'
+        );
 
         expect(result.name).toBe('anthropic');
         expect(result.modelId).toBe('claude-3-5-sonnet-20241022');
