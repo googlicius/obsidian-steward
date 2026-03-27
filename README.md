@@ -106,7 +106,7 @@ For the full guide on creating and using User-Defined Commands, see the [User-de
 
 #### Flashcard assist:
 
-<img src="/docs/images/Flashcard-Assist-command.gif" alt="Flashcard Assist" width="650px">
+<img src="/docs/images/Steward-Demo-Flashcard.gif" alt="Flashcard Assist" width="650px">
 
 #### Automated command [Word processor](/community-UDCs/Word%20processor.md)
 
