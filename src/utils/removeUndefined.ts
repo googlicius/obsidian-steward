@@ -1,4 +1,4 @@
-import { JSONValue } from 'ai';
+import type { JSONValue } from 'ai';
 
 export function removeUndefined<T extends object>(obj: T): JSONValue {
   const result: Record<string, JSONValue> = {};

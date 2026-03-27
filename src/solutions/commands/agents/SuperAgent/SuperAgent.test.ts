@@ -1,7 +1,6 @@
 import { SuperAgent } from './SuperAgent';
 import type StewardPlugin from 'src/main';
 import { type App } from 'obsidian';
-import { streamText } from 'ai';
 import { AgentHandlerParams, Intent, IntentResultStatus } from '../../types';
 import { ToolName } from '../../ToolRegistry';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -13,16 +12,32 @@ import * as handlers from '../handlers';
 import { createStepProcessedQuery } from './stepProcessedQuery';
 import { COMPACTION_SCHEMA_VERSION } from 'src/solutions/compaction/types';
 
-// Mock individual functions from the ai package
-jest.mock('ai', () => {
-  const originalModule = jest.requireActual('ai');
-
+/** `streamText` is loaded via `getBundledLib('ai')` in production; tests stub that path. */
+jest.mock('src/utils/bundledLibs', () => {
+  const actual = jest.requireActual<typeof import('src/utils/bundledLibs')>('src/utils/bundledLibs');
+  const aiActual = jest.requireActual<typeof import('ai')>('ai');
+  const mockStreamText = jest.fn();
+  const mockTool = jest.fn().mockImplementation((config: unknown) => config);
   return {
-    ...originalModule,
-    streamText: jest.fn(),
-    tool: jest.fn().mockImplementation(config => config),
+    ...actual,
+    __mockStreamText: mockStreamText,
+    getBundledLib: jest.fn(async (key: unknown) => {
+      if (key === 'ai') {
+        return {
+          ...aiActual,
+          streamText: mockStreamText,
+          tool: mockTool,
+        };
+      }
+      return actual.getBundledLib(key as never);
+    }),
   };
 });
+
+function getMockStreamText(): jest.Mock {
+  const mocked = jest.requireMock('src/utils/bundledLibs') as { __mockStreamText: jest.Mock };
+  return mocked.__mockStreamText;
+}
 
 // Mock uniqueID
 jest.mock('src/utils/uniqueID', () => ({
@@ -139,11 +154,11 @@ describe('SuperAgent', () => {
       doClassify: mockDoClassify,
     };
 
-    (getClassifier as jest.Mock).mockReturnValue(mockClassifier);
+    (getClassifier as jest.Mock).mockResolvedValue(mockClassifier);
 
     // Set up default streamText mock with a generator that completes immediately
     // Note: streamText returns { fullStream, toolCalls }, not { textStream, toolCalls }
-    (streamText as jest.Mock).mockReturnValue({
+    getMockStreamText().mockReturnValue({
       fullStream: (async function* () {
         // Yield a text-delta chunk to signal text content
         yield { type: 'text-delta', textDelta: '' };
@@ -183,8 +198,8 @@ describe('SuperAgent', () => {
       // First iteration - no handlerId
       await superAgent.handle(params);
 
-      expect(streamText).toHaveBeenCalledTimes(1);
-      const firstCall = (streamText as jest.Mock).mock.calls[0][0];
+      expect(getMockStreamText()).toHaveBeenCalledTimes(1);
+      const firstCall = getMockStreamText().mock.calls[0][0];
       expect(firstCall.messages).toHaveLength(1);
       expect(firstCall.messages[0].role).toBe('user');
 
@@ -196,8 +211,8 @@ describe('SuperAgent', () => {
       };
       await superAgent.handle(paramsWithInvocationCount);
 
-      expect(streamText).toHaveBeenCalledTimes(2);
-      const secondCall = (streamText as jest.Mock).mock.calls[1][0];
+      expect(getMockStreamText()).toHaveBeenCalledTimes(2);
+      const secondCall = getMockStreamText().mock.calls[1][0];
 
       // Should have conversation history (user + assistant) but NOT add new user message
       expect(secondCall.messages).toHaveLength(2);
@@ -216,8 +231,8 @@ describe('SuperAgent', () => {
 
       await superAgent.handle(params);
 
-      expect(streamText).toHaveBeenCalledTimes(1);
-      const call = (streamText as jest.Mock).mock.calls[0][0];
+      expect(getMockStreamText()).toHaveBeenCalledTimes(1);
+      const call = getMockStreamText().mock.calls[0][0];
       const toolsObject = call.tools;
 
       // Check that only ACTIVATE tool is in the tools object (active)
@@ -276,7 +291,7 @@ describe('SuperAgent', () => {
       await superAgent.handle(params);
 
       // Should not call streamText because manual tool call was created
-      expect(streamText).not.toHaveBeenCalled();
+      expect(getMockStreamText()).not.toHaveBeenCalled();
 
       // Verify artifact manager was called to get the artifact
       expect(mockPlugin.artifactManagerV2.withTitle).toHaveBeenCalledWith('test-conversation');
@@ -310,7 +325,7 @@ describe('SuperAgent', () => {
       await superAgent.handle(params);
 
       // Should call streamText because manual tool call is not created when multiple tools are active
-      expect(streamText).toHaveBeenCalledTimes(1);
+      expect(getMockStreamText()).toHaveBeenCalledTimes(1);
     });
 
     it('should not create manual tool call when no artifact exists', async () => {
@@ -330,7 +345,7 @@ describe('SuperAgent', () => {
       await superAgent.handle(params);
 
       // Should call streamText because no artifact exists
-      expect(streamText).toHaveBeenCalledTimes(1);
+      expect(getMockStreamText()).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -359,7 +374,7 @@ describe('SuperAgent', () => {
         saveEmbedding: mockSaveEmbedding,
         doClassify: mockDoClassify,
       };
-      (getClassifier as jest.Mock).mockReturnValue(mockClassifier);
+      (getClassifier as jest.Mock).mockResolvedValue(mockClassifier);
 
       const params: AgentHandlerParams = {
         title: 'test-conversation',
@@ -375,7 +390,7 @@ describe('SuperAgent', () => {
       await superAgent.handle(params);
 
       // Should not call streamText because manual tool call was created
-      expect(streamText).not.toHaveBeenCalled();
+      expect(getMockStreamText()).not.toHaveBeenCalled();
 
       // Verify RevertLatestQuery.handle was called with the correct manual tool call
       expect(mockRevertLatestQueryHandle).toHaveBeenCalledTimes(1);
@@ -399,8 +414,8 @@ describe('SuperAgent', () => {
 
       await superAgent.handle(params);
 
-      expect(streamText).toHaveBeenCalledTimes(1);
-      const call = (streamText as jest.Mock).mock.calls[0][0];
+      expect(getMockStreamText()).toHaveBeenCalledTimes(1);
+      const call = getMockStreamText().mock.calls[0][0];
       const toolsObject = call.tools;
 
       // When classifiedTasks includes 'revert', default tools are activated:
@@ -445,7 +460,7 @@ describe('SuperAgent', () => {
       await superAgent.handle(params);
 
       // Should call streamText because manual tool call is not created for multi-word queries
-      expect(streamText).toHaveBeenCalledTimes(1);
+      expect(getMockStreamText()).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -468,7 +483,7 @@ describe('SuperAgent', () => {
       );
 
       // Mock streamText to return a CONFIRMATION tool call
-      (streamText as jest.Mock).mockReturnValue({
+      getMockStreamText().mockReturnValue({
         fullStream: (async function* () {
           // Yield a text-delta chunk to signal text content
           yield { type: 'text-delta', textDelta: '' };
@@ -657,7 +672,7 @@ describe('SuperAgent', () => {
         doClassify: mockDoClassify,
       };
 
-      (getClassifier as jest.Mock).mockReturnValue(mockClassifier);
+      (getClassifier as jest.Mock).mockResolvedValue(mockClassifier);
 
       // @ts-expect-error - Accessing private method for testing
       const mockExecuteStreamText = jest.spyOn(superAgent, 'executeStreamText') as jest.SpyInstance;
@@ -1275,7 +1290,7 @@ describe('SuperAgent', () => {
 
       await superAgent.handle(params);
 
-      expect(streamText).not.toHaveBeenCalled();
+      expect(getMockStreamText()).not.toHaveBeenCalled();
       expect(mockTodoListHandleUpdate).toHaveBeenCalledTimes(1);
       const toolCall = mockTodoListHandleUpdate.mock.calls[0][1].toolCall;
       expect(toolCall.toolName).toBe(ToolName.TODO_LIST_UPDATE);
@@ -1348,7 +1363,7 @@ describe('SuperAgent', () => {
       await superAgent.handle(params);
 
       // manualToolCall returns undefined when no todo list, so executeStreamText is used
-      expect(streamText).toHaveBeenCalled();
+      expect(getMockStreamText()).toHaveBeenCalled();
       expect(mockTodoListHandleUpdate).not.toHaveBeenCalled();
     });
   });

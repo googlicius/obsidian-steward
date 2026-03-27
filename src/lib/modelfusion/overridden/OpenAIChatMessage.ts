@@ -1,4 +1,4 @@
-import { DataContent, ImagePart, TextPart } from 'ai';
+import type { DataContent, ImagePart, TextPart } from 'ai';
 import { uint8ArrayToBase64 } from './Uint8Utils';
 
 export function convertDataContentToBase64String(content: DataContent): string {

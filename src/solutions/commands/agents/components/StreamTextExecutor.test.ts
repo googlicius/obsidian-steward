@@ -1,4 +1,3 @@
-import { streamText } from 'ai';
 import type StewardPlugin from 'src/main';
 import { type App } from 'obsidian';
 import { StreamTextExecutor } from './StreamTextExecutor';
@@ -10,15 +9,31 @@ import {
 } from './ToolContentStreamConsumer';
 import type { AgentCorePromptContext } from '../../Agent';
 
-jest.mock('ai', () => {
-  const originalModule = jest.requireActual('ai');
-
+jest.mock('src/utils/bundledLibs', () => {
+  const actual = jest.requireActual<typeof import('src/utils/bundledLibs')>('src/utils/bundledLibs');
+  const aiActual = jest.requireActual<typeof import('ai')>('ai');
+  const mockStreamText = jest.fn();
+  const mockTool = jest.fn().mockImplementation((config: unknown) => config);
   return {
-    ...originalModule,
-    streamText: jest.fn(),
-    tool: jest.fn().mockImplementation(config => config),
+    ...actual,
+    __mockStreamText: mockStreamText,
+    getBundledLib: jest.fn(async (key: unknown) => {
+      if (key === 'ai') {
+        return {
+          ...aiActual,
+          streamText: mockStreamText,
+          tool: mockTool,
+        };
+      }
+      return actual.getBundledLib(key as never);
+    }),
   };
 });
+
+function getMockStreamText(): jest.Mock {
+  const mocked = jest.requireMock('src/utils/bundledLibs') as { __mockStreamText: jest.Mock };
+  return mocked.__mockStreamText;
+}
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   const mockApp = {
@@ -160,7 +175,7 @@ describe('StreamTextExecutor', () => {
     mockPlugin = createMockPlugin();
     testAgent = new TestAgent(mockPlugin, mockPlugin.conversationRenderer);
 
-    (streamText as jest.Mock).mockReturnValue({
+    getMockStreamText().mockReturnValue({
       fullStream: (async function* () {
         yield { type: 'text-delta', textDelta: '' };
       })(),
@@ -191,8 +206,8 @@ describe('StreamTextExecutor', () => {
 
       await testAgent.executeForTest(params);
 
-      expect(streamText).toHaveBeenCalledTimes(1);
-      const call = (streamText as jest.Mock).mock.calls[0][0];
+      expect(getMockStreamText()).toHaveBeenCalledTimes(1);
+      const call = getMockStreamText().mock.calls[0][0];
       expect(call.messages).toBeDefined();
       expect(call.messages.length).toBeGreaterThan(0);
       expect(call.messages[0].role).toBe('system');
@@ -216,8 +231,8 @@ describe('StreamTextExecutor', () => {
 
       await testAgent.executeForTest(params);
 
-      expect(streamText).toHaveBeenCalledTimes(1);
-      const call = (streamText as jest.Mock).mock.calls[0][0];
+      expect(getMockStreamText()).toHaveBeenCalledTimes(1);
+      const call = getMockStreamText().mock.calls[0][0];
       const userMessage = call.messages.find((m: { role: string }) => m.role === 'user');
       expect(userMessage).toBeDefined();
       expect(userMessage.content).toBe('test query');
@@ -243,8 +258,8 @@ describe('StreamTextExecutor', () => {
 
       await testAgent.executeForTest(params);
 
-      expect(streamText).toHaveBeenCalledTimes(1);
-      const call = (streamText as jest.Mock).mock.calls[0][0];
+      expect(getMockStreamText()).toHaveBeenCalledTimes(1);
+      const call = getMockStreamText().mock.calls[0][0];
       expect(call.messages).toEqual(historyMessages);
     });
   });

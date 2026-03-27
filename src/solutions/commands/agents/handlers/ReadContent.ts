@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -73,16 +73,15 @@ If the readType is "entire", leave it null.`
 export type ContentReadingArgs = z.infer<typeof contentReadingSchema>;
 
 export class ReadContent {
-  private static readonly contentReadingTool = tool({ inputSchema: contentReadingSchema });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: ContentReadingArgs): string[] {
     return input.fileNames.map(f => normalizePath(f));
   }
 
-  public static getContentReadingTool() {
-    return ReadContent.contentReadingTool;
+  public static async getContentReadingTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({ inputSchema: contentReadingSchema });
   }
 
   /**

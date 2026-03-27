@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath, TFile, TFolder } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -121,10 +121,6 @@ type FileWithProperties = {
 };
 
 export class VaultUpdateFrontmatter {
-  private static readonly updateFrontmatterTool = tool({
-    inputSchema: updateFrontmatterToolSchema,
-  });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: UpdateFrontmatterToolArgs): string[] {
@@ -145,8 +141,11 @@ export class VaultUpdateFrontmatter {
     return paths;
   }
 
-  public static getUpdateFrontmatterTool() {
-    return VaultUpdateFrontmatter.updateFrontmatterTool;
+  public static async getUpdateFrontmatterTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: updateFrontmatterToolSchema,
+    });
   }
 
   public async handle(

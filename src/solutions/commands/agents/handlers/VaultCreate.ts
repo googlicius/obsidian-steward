@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { normalizePath, parseYaml } from 'obsidian';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { z } from 'zod/v3';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -103,8 +103,6 @@ function executeCreateToolArgs(args: CreateToolArgs): CreatePlan {
 }
 
 export class VaultCreate {
-  private static readonly createTool = tool({ inputSchema: createToolSchema });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: CreateToolArgs): string[] {
@@ -118,8 +116,9 @@ export class VaultCreate {
     return paths;
   }
 
-  public static getCreateTool() {
-    return VaultCreate.createTool;
+  public static async getCreateTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({ inputSchema: createToolSchema });
   }
   /**
    * Execute the create plan

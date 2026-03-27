@@ -1,5 +1,5 @@
-import { generateObject } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import type StewardPlugin from 'src/main';
 import { DocWithPath } from 'src/types/types';
 import { logger } from 'src/utils/logger';
@@ -248,6 +248,7 @@ ${context}
 
 Return the results in the exact format specified by the response schema.`;
 
+      const { generateObject } = await getBundledLib('ai');
       const result = await generateObject({
         ...llmConfig,
         abortSignal: this.plugin.abortService.createAbortController('data-awareness'),

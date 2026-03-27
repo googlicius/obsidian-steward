@@ -1,4 +1,4 @@
-import { ToolCallPart as AI_ToolCallPart, ToolResultPart as AI_ToolResultPart } from 'ai';
+import type { ToolCallPart as AI_ToolCallPart, ToolResultPart as AI_ToolResultPart } from 'ai';
 import { ToolName } from '../toolNames';
 import type { ActivateToolsArgs } from './activateTools';
 import type { SpawnSubagentArgs } from '../agents/handlers/SpawnSubagent';

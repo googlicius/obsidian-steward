@@ -10,7 +10,7 @@ import {
   CONFIRMATION_BUTTONS_PATTERN,
 } from 'src/constants';
 import { prependChunk } from 'src/utils/textStreamer';
-import { ModelMessage, TextPart, FilePart, ImagePart, ReasoningOutput } from 'ai';
+import type { ModelMessage, TextPart, FilePart, ImagePart, ReasoningOutput } from 'ai';
 import { ToolCallPart, ToolResultPart } from 'src/solutions/commands/tools/types';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { ArtifactType, ReadContentArtifactImpl } from 'src/solutions/artifact';

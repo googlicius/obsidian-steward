@@ -7,7 +7,7 @@ import {
 import { logger } from 'src/utils/logger';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import type StewardPlugin from 'src/main';
-import { ImagePart } from 'ai';
+import type { ImagePart } from 'ai';
 import { resizeImageWithCanvas } from 'src/utils/resizeImageWithCanvas';
 import { EditOperation } from 'src/solutions/commands/tools/editContent';
 import { Change } from 'src/solutions/artifact/types';

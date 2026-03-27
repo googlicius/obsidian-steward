@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -56,14 +56,13 @@ export async function resolveRecallCompactedContext(params: {
 }
 
 export class RecallCompactedContext {
-  private static readonly recallCompactedContextTool = tool({
-    inputSchema: recallCompactedContextSchema,
-  });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
-  public static getRecallCompactedContextTool() {
-    return RecallCompactedContext.recallCompactedContextTool;
+  public static async getRecallCompactedContextTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: recallCompactedContextSchema,
+    });
   }
 
   public async handle(

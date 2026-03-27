@@ -1,4 +1,4 @@
-import { App, Notice, Plugin, PluginManifest, WorkspaceLeaf, addIcon, getLanguage } from 'obsidian';
+import { Notice, Plugin, WorkspaceLeaf, addIcon, getLanguage } from 'obsidian';
 import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
@@ -20,8 +20,8 @@ import { ObsidianAPITools } from './tools/obsidianAPITools';
 import { SearchService } from './solutions/search';
 import { SearchDatabase } from './database/SearchDatabase';
 import { EncryptionService } from './services/EncryptionService';
-import { generateId } from 'ai';
 import { formatDateTime } from './utils/dateUtils';
+import { getBundledLib } from './utils/bundledLibs';
 import { logger } from './utils/logger';
 import { ConversationRenderer } from './services/ConversationRenderer';
 import { ArtifactManagerV2 } from './solutions/artifact/ArtifactManagerV2';
@@ -64,9 +64,6 @@ import { GuardrailsRuleService } from './services/GuardrailsRuleService/Guardrai
 import { CompactionOrchestrator } from './solutions/compaction';
 import { SubagentSpawnService } from './services/SubagentSpawnService';
 
-const moduleEvaluationStartedAt = performance.now();
-console.log('[Steward] module evaluation started');
-
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
   chatTitle = 'Steward chat';
@@ -96,15 +93,6 @@ export default class StewardPlugin extends Plugin {
   _subAgentSpawnService: SubagentSpawnService;
   _obsidianAPITools: ObsidianAPITools;
   _commandProcessorService: CommandProcessorService;
-
-  constructor(app: App, manifest: PluginManifest) {
-    super(app, manifest);
-    console.log(
-      '[Steward] plugin constructor invoked after',
-      `${(performance.now() - moduleEvaluationStartedAt).toFixed(1)} ms`,
-      'from module evaluation start'
-    );
-  }
 
   get obsidianAPITools(): ObsidianAPITools {
     if (!this._obsidianAPITools) {
@@ -255,26 +243,12 @@ export default class StewardPlugin extends Plugin {
   }
 
   async onload() {
-    const onloadStartTime = performance.now();
-    console.time('[Steward] onload total');
-
-    const settingsLoadStartTime = performance.now();
     const settingsUpdated = await this.loadSettings();
-    console.log(
-      '[Steward] loadSettings...',
-      `${(performance.now() - settingsLoadStartTime).toFixed(1)} ms`
-    );
 
     if (settingsUpdated) {
-      const settingsSaveStartTime = performance.now();
       await this.saveSettings();
-      console.log(
-        '[Steward] saveSettings',
-        `${(performance.now() - settingsSaveStartTime).toFixed(1)} ms`
-      );
     }
 
-    const coreInitStartTime = performance.now();
     // Initialize the LLM service
     this.llmService = LLMService.getInstance(this);
 
@@ -288,12 +262,7 @@ export default class StewardPlugin extends Plugin {
     this.addRibbonIcon(SMILE_CHAT_ICON_ID, i18next.t('ui.openStewardChat'), async () => {
       await this.openChat();
     });
-    console.log(
-      '[Steward] initializeCoreServices',
-      `${(performance.now() - coreInitStartTime).toFixed(1)} ms`
-    );
 
-    const registrationStartTime = performance.now();
     this.registerStuffs();
 
     // This adds a settings tab so the user can configure various aspects of the plugin
@@ -312,20 +281,15 @@ export default class StewardPlugin extends Plugin {
 
     // Initialize the GuardrailsRuleService (loads rules from Steward/Rules folder)
     this.guardrailsRuleService;
-    console.log(
-      '[Steward] registerCommandsAndServices',
-      `${(performance.now() - registrationStartTime).toFixed(1)} ms`
-    );
 
-    const layoutReadyRegistrationStartTime = performance.now();
-    this.app.workspace.onLayoutReady(() => {
+    this.app.workspace.onLayoutReady(async () => {
       // Clean up old search databases
       this.cleanupOldSearchDatabases();
 
       // Initialize the search service
       this.searchService.initialize();
 
-      this.initializeClassifier();
+      await this.initializeClassifier();
 
       // Ensure required folders exist
       this.ensureRequiredFolders();
@@ -338,16 +302,6 @@ export default class StewardPlugin extends Plugin {
         'copilot*',
       ]);
     });
-    console.log(
-      '[Steward] registerOnLayoutReady',
-      `${(performance.now() - layoutReadyRegistrationStartTime).toFixed(1)} ms`
-    );
-
-    console.timeEnd('[Steward] onload total');
-    console.log(
-      '[Steward] onload finished in',
-      `${(performance.now() - onloadStartTime).toFixed(1)} ms`
-    );
   }
 
   onunload() {
@@ -529,8 +483,8 @@ export default class StewardPlugin extends Plugin {
     this.registerView(STW_CHAT_VIEW_CONFIG.type, leaf => new StewardChatView(leaf, this));
   }
 
-  private initializeClassifier() {
-    const classifier = getClassifier(this.settings.embedding);
+  private async initializeClassifier() {
+    const classifier = await getClassifier(this.settings.embedding);
 
     // Initialize embeddings
     retry(() => classifier.doClassify('initialize'), {
@@ -574,6 +528,7 @@ export default class StewardPlugin extends Plugin {
 
     // Setup encryption salt if not already set
     if (!this.settings.saltKeyId) {
+      const { generateId } = await getBundledLib('ai');
       this.settings.saltKeyId = generateId();
       settingsUpdated = true;
     }
@@ -659,7 +614,9 @@ export default class StewardPlugin extends Plugin {
       this.settings.llm.chat = DEFAULT_SETTINGS.llm.chat;
       // Migrate legacy model to chat.model
       if (this.settings.llm.model) {
-        const provider = LLMService.getInstance(this).getProviderFromModel(this.settings.llm.model);
+        const provider = await LLMService.getInstance(this).getProviderFromModel(
+          this.settings.llm.model
+        );
         this.settings.llm.chat.model = `${provider.name}:${provider.modelId}`;
         this.settings.llm.model = undefined;
       }

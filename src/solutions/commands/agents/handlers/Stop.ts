@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -13,14 +13,13 @@ const stopSchema = z.object({});
 export type StopArgs = z.infer<typeof stopSchema>;
 
 export class Stop {
-  private static readonly stopTool = tool({
-    inputSchema: stopSchema,
-  });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
-  public static getStopTool() {
-    return Stop.stopTool;
+  public static async getStopTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: stopSchema,
+    });
   }
 
   /**

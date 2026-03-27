@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { TFile } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { Artifact, ArtifactType, Change } from 'src/solutions/artifact';
@@ -38,14 +38,13 @@ type FailedArtifactSummary = {
 };
 
 export class RevertLatestQuery {
-  private static readonly revertTool = tool({
-    inputSchema: revertSchema,
-  });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
-  public static getRevertTool() {
-    return RevertLatestQuery.revertTool;
+  public static async getRevertTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: revertSchema,
+    });
   }
 
   public async handle(

@@ -12,18 +12,17 @@ jest.mock('../agentTools', () => {
     'conclude',
     'recall_compacted_context',
   ] as const;
-  const SUPER_AGENT_TOOLS: Record<string, object> = {};
-  for (let i = 0; i < keys.length; i++) {
-    SUPER_AGENT_TOOLS[keys[i]] = {};
-  }
-  return { SUPER_AGENT_TOOLS };
+  return {
+    SUPER_AGENT_TOOL_NAMES: new Set(keys),
+    getSuperAgentTools: async () => ({}),
+  };
 });
 
 import { ToolName } from '../../ToolRegistry';
-import { SUPER_AGENT_TOOLS } from '../agentTools';
+import { SUPER_AGENT_TOOL_NAMES } from '../agentTools';
 import { ToolIntentResolution } from './ToolIntentResolution';
 
-const MOCK_SUPER_VALID = new Set(Object.keys(SUPER_AGENT_TOOLS) as ToolName[]);
+const MOCK_SUPER_VALID = SUPER_AGENT_TOOL_NAMES;
 
 const ALL_SUPER_KEYS: ToolName[] = [
   ToolName.LIST,

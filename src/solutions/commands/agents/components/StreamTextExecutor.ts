@@ -1,4 +1,3 @@
-import { ModelMessage, streamText } from 'ai';
 import { logger } from 'src/utils/logger';
 import { createLLMStream } from 'src/utils/textStreamer';
 import { SysError } from 'src/utils/errors';
@@ -13,6 +12,10 @@ import {
   ToolContentStreamConsumer,
 } from './ToolContentStreamConsumer';
 import { Agent } from '../../Agent';
+import { getBundledLib } from 'src/utils/bundledLibs';
+import type { ModelMessage, streamText } from 'ai';
+
+type AiStreamTextParams = Parameters<typeof streamText>[0];
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface -- declaration merge: adds mixin types to class instance
 export interface StreamTextExecutor extends ToolIntentResolution, SystemPromptComposer {}
@@ -30,7 +33,7 @@ export class StreamTextExecutor {
   protected async executeStreamText<TToolCalls = unknown>(
     params: AgentHandlerParams & {
       activeTools: ToolName[];
-      tools: NonNullable<Parameters<typeof streamText>[0]['tools']> & { [s: string]: unknown };
+      tools: NonNullable<AiStreamTextParams['tools']> & { [s: string]: unknown };
       toolsThatEnableConclude: Set<ToolName>;
     }
   ): Promise<{
@@ -172,7 +175,9 @@ export class StreamTextExecutor {
       skillCatalogPrompt,
     });
 
-    type RepairToolCall = Parameters<typeof streamText>[0]['experimental_repairToolCall'];
+    type RepairToolCall = AiStreamTextParams['experimental_repairToolCall'];
+
+    const { streamText } = await getBundledLib('ai');
 
     const { toolCalls: toolCallsPromise, fullStream } = streamText({
       model: llmConfig.model,
@@ -181,7 +186,7 @@ export class StreamTextExecutor {
       abortSignal,
       system: coreSystemPrompt,
       messages,
-      tools: registry.getToolsObject() as NonNullable<Parameters<typeof streamText>[0]['tools']>,
+      tools: registry.getToolsObject() as NonNullable<AiStreamTextParams['tools']>,
       experimental_repairToolCall: llmConfig.repairToolCall as RepairToolCall,
       onError: ({ error }) => {
         logger.error('Error in streamText', error);

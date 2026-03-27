@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "npm run dev:css & node esbuild.config.mjs",
     "dev:css": "postcss src/styles.css -o styles.css --watch",
+    "build:bundled-libs": "node scripts/build-bundled-libs.mjs",
     "build": "tsc -noEmit -skipLibCheck && npm run build:css && node esbuild.config.mjs production",
     "build:css": "postcss src/styles.css -o styles.css",
     "version": "node version-bump.mjs && git add manifest.json versions.json",
@@ -59,6 +60,7 @@
     "i18next": "^21.10.0",
     "jsonrepair": "^3.13.0",
     "ollama-ai-provider-v2": "^1.5.5",
+    "lz-string": "^1.5.0",
     "zod": "^4.1.8"
   }
 }

@@ -1,11 +1,11 @@
-import {
+import type {
   DynamicToolCall,
   Tool,
-  asSchema,
   NoSuchToolError,
   InvalidToolInputError,
   InvalidArgumentError,
 } from 'ai';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
@@ -18,23 +18,34 @@ import { logger } from 'src/utils/logger';
 export class Dynamic {
   constructor(private readonly renderer: ConversationRenderer) {}
 
-  private isNoSuchToolError(error: unknown): error is NoSuchToolError {
-    return error instanceof NoSuchToolError;
+  private isNoSuchToolError(
+    error: unknown,
+    NoSuchToolErrorCtor: typeof NoSuchToolError
+  ): error is NoSuchToolError {
+    return error instanceof NoSuchToolErrorCtor;
   }
 
   private isInvalidToolError(
-    error: unknown
+    error: unknown,
+    InvalidToolInputErrorCtor: typeof InvalidToolInputError,
+    InvalidArgumentErrorCtor: typeof InvalidArgumentError
   ): error is InvalidToolInputError | InvalidArgumentError {
-    return error instanceof InvalidToolInputError || error instanceof InvalidArgumentError;
+    return (
+      error instanceof InvalidToolInputErrorCtor || error instanceof InvalidArgumentErrorCtor
+    );
   }
 
   private getErrorValue(options: {
     toolCall: DynamicToolCall;
     tool?: Tool;
+    aiModule: Awaited<ReturnType<typeof getBundledLib<'ai'>>>;
   }): Record<string, unknown> {
-    const error = options.toolCall.error;
+    const { toolCall, tool: toolDef, aiModule } = options;
+    const error = toolCall.error;
+    const { NoSuchToolError: NoSuchToolErr, InvalidToolInputError: InvalidToolInputErr } = aiModule;
+    const { InvalidArgumentError: InvalidArgumentErr, asSchema } = aiModule;
 
-    if (this.isNoSuchToolError(error)) {
+    if (this.isNoSuchToolError(error, NoSuchToolErr)) {
       return {
         message:
           'No such tool found. If you need this tool, call `activate_tools` first before using it.',
@@ -42,12 +53,12 @@ export class Dynamic {
       };
     }
 
-    if (this.isInvalidToolError(error)) {
+    if (this.isInvalidToolError(error, InvalidToolInputErr, InvalidArgumentErr)) {
       return {
         message:
           'Invalid tool call, please refer to the error for more details. And refer to the validSchema to see how to use it correctly.',
         error,
-        validSchema: options.tool ? asSchema(options.tool.inputSchema).jsonSchema : undefined,
+        validSchema: toolDef ? asSchema(toolDef.inputSchema).jsonSchema : undefined,
       };
     }
 
@@ -82,14 +93,14 @@ export class Dynamic {
     });
 
     const tool = options.tools[options.toolCall.toolName];
+    const aiModule = await getBundledLib('ai');
 
-    // Build error payload based on concrete error type so AI can self-correct.
     const errorValue = this.getErrorValue({
       toolCall: options.toolCall,
       tool,
+      aiModule,
     });
 
-    // Remove error field before serializing
     const toolCallWithoutError = {
       ...options.toolCall,
       error: undefined,

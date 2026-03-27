@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -40,14 +40,13 @@ export const concludeSchema = z.object({
 export type ConcludeInput = z.infer<typeof concludeSchema>;
 
 export class Conclude {
-  private static readonly concludeTool = tool({
-    inputSchema: concludeSchema,
-  });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
-  public static getConcludeTool() {
-    return Conclude.concludeTool;
+  public static async getConcludeTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: concludeSchema,
+    });
   }
 
   /**
