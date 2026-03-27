@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { z } from 'zod/v3';
 
 export enum EditMode {
@@ -10,13 +10,6 @@ export enum EditMode {
   DELETE_TABLE_COLUMN = 'delete_table_column',
   REPLACE_BY_PATTERN = 'replace_by_pattern',
 }
-
-/**
- * Type for edit tool arguments
- */
-export type EditArgs = z.infer<ReturnType<typeof createEditTool>['editSchema']>;
-
-export type EditOperation = EditArgs['operations'][number];
 
 /**
  * Field name mappings for auto-correction
@@ -231,34 +224,39 @@ export const replaceByPatternSchema = z.object(
   }
 );
 
-export function createEditTool(params: { contentType: 'in_the_note' | 'in_the_chat' }) {
-  /**
-   * Schema for the edit tool parameters
-   */
-  const editSchema = z.preprocess(
-    fixFieldNames,
-    z.object(
-      {
-        operations: z.array(
-          z.discriminatedUnion('mode', [
-            addTableColumnSchema,
-            updateTableColumnSchema,
-            deleteTableColumnSchema,
-            replaceByLinesSchema,
-            insertSchema,
-            replaceByPatternSchema,
-          ])
-        ),
-        explanation: z
-          .string()
-          .describe('A brief explanation of what changes are being made and why.'),
-      },
-      {
-        description: `Edit tool used to update existing notes. It won't be able to create a new note automatically.`,
-      }
-    )
-  );
+/**
+ * Schema for the edit tool parameters (shared; createEditTool only bundles it for the AI SDK).
+ */
+const editSchema = z.preprocess(
+  fixFieldNames,
+  z.object(
+    {
+      operations: z.array(
+        z.discriminatedUnion('mode', [
+          addTableColumnSchema,
+          updateTableColumnSchema,
+          deleteTableColumnSchema,
+          replaceByLinesSchema,
+          insertSchema,
+          replaceByPatternSchema,
+        ])
+      ),
+      explanation: z
+        .string()
+        .describe('A brief explanation of what changes are being made and why.'),
+    },
+    {
+      description: `Edit tool used to update existing notes. It won't be able to create a new note automatically.`,
+    }
+  )
+);
 
+export type EditArgs = z.infer<typeof editSchema>;
+
+export type EditOperation = EditArgs['operations'][number];
+
+export async function createEditTool(_params: { contentType: 'in_the_note' | 'in_the_chat' }) {
+  const { tool } = await getBundledLib('ai');
   const editTool = tool({
     inputSchema: editSchema,
   });

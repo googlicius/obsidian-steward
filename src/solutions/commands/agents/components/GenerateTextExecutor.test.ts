@@ -1,16 +1,34 @@
-import { generateText } from 'ai';
 import type StewardPlugin from 'src/main';
 import { GenerateTextExecutor } from './GenerateTextExecutor';
 import type { AgentHandlerParams, Intent } from '../../types';
 import { ToolName } from '../../ToolRegistry';
+import type { generateText } from 'ai';
 
-jest.mock('ai', () => {
-  const originalModule = jest.requireActual('ai');
+type AiGenerateTextParams = Parameters<typeof generateText>[0];
+
+jest.mock('src/utils/bundledLibs', () => {
+  const actual =
+    jest.requireActual<typeof import('src/utils/bundledLibs')>('src/utils/bundledLibs');
+  const aiActual = jest.requireActual<typeof import('ai')>('ai');
+  const mockGenerateText = jest.fn();
   return {
-    ...originalModule,
-    generateText: jest.fn(),
+    ...actual,
+    __mockGenerateText: mockGenerateText,
+    getBundledLib: jest.fn((key: unknown) => {
+      if (key === 'ai') {
+        return Promise.resolve({ ...aiActual, generateText: mockGenerateText });
+      }
+      return actual.getBundledLib(key as never);
+    }),
   };
 });
+
+function getMockGenerateText(): jest.Mock {
+  const mockedBundledLibs = jest.requireMock('src/utils/bundledLibs') as {
+    __mockGenerateText: jest.Mock;
+  };
+  return mockedBundledLibs.__mockGenerateText;
+}
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   const mockRenderer = {
@@ -82,14 +100,14 @@ class TestAgent extends GenerateTextExecutor {
     options: {
       activeTools?: ToolName[];
       inactiveTools?: ToolName[];
-      tools?: NonNullable<Parameters<typeof generateText>[0]['tools']>;
+      tools?: NonNullable<AiGenerateTextParams['tools']>;
     } = {}
   ) {
     return this.executeGenerateText({
       ...params,
       activeTools: options.activeTools || [],
       inactiveTools: options.inactiveTools || [],
-      tools: (options.tools || {}) as NonNullable<Parameters<typeof generateText>[0]['tools']> & {
+      tools: (options.tools || {}) as NonNullable<AiGenerateTextParams['tools']> & {
         [s: string]: unknown;
       },
     });
@@ -105,7 +123,7 @@ describe('GenerateTextExecutor', () => {
     mockPlugin = createMockPlugin();
     testAgent = new TestAgent(mockPlugin, mockPlugin.conversationRenderer);
 
-    (generateText as jest.Mock).mockResolvedValue({
+    getMockGenerateText().mockResolvedValue({
       text: '',
       toolCalls: [],
     });
@@ -131,7 +149,7 @@ describe('GenerateTextExecutor', () => {
       tools: {},
     });
 
-    const call = (generateText as jest.Mock).mock.calls[0][0];
+    const call = getMockGenerateText().mock.calls[0][0];
     const systemText = call.messages
       .filter((message: { role: string }) => message.role === 'system')
       .map((message: { content: string }) => message.content)
@@ -162,7 +180,7 @@ describe('GenerateTextExecutor', () => {
       tools: {},
     });
 
-    const call = (generateText as jest.Mock).mock.calls[0][0];
+    const call = getMockGenerateText().mock.calls[0][0];
     const systemText = call.messages
       .filter((message: { role: string }) => message.role === 'system')
       .map((message: { content: string }) => message.content)
@@ -190,7 +208,7 @@ describe('GenerateTextExecutor', () => {
       tools: {},
     });
 
-    const call = (generateText as jest.Mock).mock.calls[0][0];
+    const call = getMockGenerateText().mock.calls[0][0];
     const systemText = call.messages
       .filter((message: { role: string }) => message.role === 'system')
       .map((message: { content: string }) => message.content)

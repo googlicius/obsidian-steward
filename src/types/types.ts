@@ -1,6 +1,6 @@
 import { Editor, App } from 'obsidian';
 import { EditorView } from '@codemirror/view';
-import { UIMessage } from 'ai';
+import type { UIMessage } from 'ai';
 
 /**
  * Exposes the Obsidian Editor and Codemirror EditorView

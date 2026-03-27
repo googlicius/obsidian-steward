@@ -1,4 +1,3 @@
-import { streamText } from 'ai';
 import { Agent } from '../../Agent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart, ToolResultPart, TypedToolCallPart } from '../../tools/types';
@@ -9,16 +8,12 @@ import { applyMixins } from 'src/utils/applyMixins';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { Handlers } from '../components/Handlers';
 import * as components from '../components';
-import { SUBAGENT_TOOLS } from '../agentTools';
+import { getSubagentTools, SUBAGENT_TOOL_NAMES } from '../agentTools';
 import type { AgentCorePromptContext } from '../../Agent';
 
-const tools = SUBAGENT_TOOLS;
+const SUBAGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUBAGENT_TOOL_NAMES;
 
-const SUBAGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = new Set(
-  Object.keys(SUBAGENT_TOOLS) as ToolName[]
-);
-
-type ToolCalls = Awaited<Awaited<ReturnType<typeof streamText<typeof tools>>>['toolCalls']>;
+type ToolCalls = Array<TypedToolCallPart & { dynamic?: boolean }>;
 
 export interface SubAgent
   extends Agent,
@@ -64,6 +59,7 @@ Rules:
   ): Promise<AgentResult> {
     const handlerId = params.handlerId ?? uniqueID();
     const remainingSteps = options.remainingSteps ?? 12;
+    const tools = await getSubagentTools();
 
     if (remainingSteps <= 0) {
       return { status: IntentResultStatus.SUCCESS };

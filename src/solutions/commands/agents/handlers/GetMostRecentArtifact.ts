@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -11,14 +11,13 @@ const getMostRecentArtifactSchema = z.object({});
 export type GetMostRecentArtifactArgs = z.infer<typeof getMostRecentArtifactSchema>;
 
 export class GetMostRecentArtifact {
-  private static readonly getMostRecentArtifactTool = tool({
-    inputSchema: getMostRecentArtifactSchema,
-  });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
-  public static getGetMostRecentArtifactTool() {
-    return GetMostRecentArtifact.getMostRecentArtifactTool;
+  public static async getGetMostRecentArtifactTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: getMostRecentArtifactSchema,
+    });
   }
 
   public async handle(

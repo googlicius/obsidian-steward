@@ -1,4 +1,3 @@
-import 'reflect-metadata';
 import { Notice, Plugin, WorkspaceLeaf, addIcon, getLanguage } from 'obsidian';
 import i18next from './i18n';
 import StewardSettingTab from './settings';
@@ -21,8 +20,8 @@ import { ObsidianAPITools } from './tools/obsidianAPITools';
 import { SearchService } from './solutions/search';
 import { SearchDatabase } from './database/SearchDatabase';
 import { EncryptionService } from './services/EncryptionService';
-import { generateId } from 'ai';
 import { formatDateTime } from './utils/dateUtils';
+import { getBundledLib } from './utils/bundledLibs';
 import { logger } from './utils/logger';
 import { ConversationRenderer } from './services/ConversationRenderer';
 import { ArtifactManagerV2 } from './solutions/artifact/ArtifactManagerV2';
@@ -67,9 +66,7 @@ import { SubagentSpawnService } from './services/SubagentSpawnService';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
-  obsidianAPITools: ObsidianAPITools;
   chatTitle = 'Steward chat';
-  commandProcessorService: CommandProcessorService;
   conversationEventHandler: ConversationEventHandler;
   llmService: LLMService;
   trashCleanupService: TrashCleanupService;
@@ -94,6 +91,22 @@ export default class StewardPlugin extends Plugin {
   _userMessageService: UserMessageService;
   _compactionOrchestrator: CompactionOrchestrator;
   _subAgentSpawnService: SubagentSpawnService;
+  _obsidianAPITools: ObsidianAPITools;
+  _commandProcessorService: CommandProcessorService;
+
+  get obsidianAPITools(): ObsidianAPITools {
+    if (!this._obsidianAPITools) {
+      this._obsidianAPITools = new ObsidianAPITools(this.app);
+    }
+    return this._obsidianAPITools;
+  }
+
+  get commandProcessorService(): CommandProcessorService {
+    if (!this._commandProcessorService) {
+      this._commandProcessorService = new CommandProcessorService(this);
+    }
+    return this._commandProcessorService;
+  }
 
   get commandInputService(): CommandInputService {
     if (!this._commandInputService) {
@@ -221,13 +234,6 @@ export default class StewardPlugin extends Plugin {
     return this._compactionOrchestrator;
   }
 
-  get conversationRender(): ConversationRenderer {
-    if (!this._conversationRenderer) {
-      this._conversationRenderer = ConversationRenderer.getInstance(this);
-    }
-    return this._conversationRenderer;
-  }
-
   get editor(): ObsidianEditor {
     return this.app.workspace.activeEditor?.editor as ObsidianEditor;
   }
@@ -242,15 +248,6 @@ export default class StewardPlugin extends Plugin {
     if (settingsUpdated) {
       await this.saveSettings();
     }
-
-    // Clean up old search databases
-    this.cleanupOldSearchDatabases();
-
-    // Initialize the search service
-    await this.searchService.initialize();
-
-    // Initialize the ObsidianAPITools with the SearchTool
-    this.obsidianAPITools = new ObsidianAPITools(this.app);
 
     // Initialize the LLM service
     this.llmService = LLMService.getInstance(this);
@@ -274,9 +271,6 @@ export default class StewardPlugin extends Plugin {
     // Initialize the conversation event handler
     this.conversationEventHandler = new ConversationEventHandler({ plugin: this });
 
-    // Initialize the CommandProcessorService
-    this.commandProcessorService = new CommandProcessorService(this);
-
     // Initialize the TrashCleanupService
     this.trashCleanupService = new TrashCleanupService(this);
     this.trashCleanupService.initialize();
@@ -288,18 +282,26 @@ export default class StewardPlugin extends Plugin {
     // Initialize the GuardrailsRuleService (loads rules from Steward/Rules folder)
     this.guardrailsRuleService;
 
-    this.initializeClassifier();
+    this.app.workspace.onLayoutReady(async () => {
+      // Clean up old search databases
+      this.cleanupOldSearchDatabases();
 
-    // Ensure required folders exist
-    this.ensureRequiredFolders();
+      // Initialize the search service
+      this.searchService.initialize();
 
-    // Exclude steward folders from search
-    this.excludeFoldersFromSearch([
-      `${this.settings.stewardFolder}/Conversations`,
-      `${this.settings.stewardFolder}/Commands`,
-      'Excalidraw',
-      'copilot*',
-    ]);
+      await this.initializeClassifier();
+
+      // Ensure required folders exist
+      this.ensureRequiredFolders();
+
+      // Exclude steward folders from search
+      this.excludeFoldersFromSearch([
+        `${this.settings.stewardFolder}/Conversations`,
+        `${this.settings.stewardFolder}/Commands`,
+        'Excalidraw',
+        'copilot*',
+      ]);
+    });
   }
 
   onunload() {
@@ -481,8 +483,8 @@ export default class StewardPlugin extends Plugin {
     this.registerView(STW_CHAT_VIEW_CONFIG.type, leaf => new StewardChatView(leaf, this));
   }
 
-  private initializeClassifier() {
-    const classifier = getClassifier(this.settings.embedding);
+  private async initializeClassifier() {
+    const classifier = await getClassifier(this.settings.embedding);
 
     // Initialize embeddings
     retry(() => classifier.doClassify('initialize'), {
@@ -526,6 +528,7 @@ export default class StewardPlugin extends Plugin {
 
     // Setup encryption salt if not already set
     if (!this.settings.saltKeyId) {
+      const { generateId } = await getBundledLib('ai');
       this.settings.saltKeyId = generateId();
       settingsUpdated = true;
     }
@@ -611,7 +614,9 @@ export default class StewardPlugin extends Plugin {
       this.settings.llm.chat = DEFAULT_SETTINGS.llm.chat;
       // Migrate legacy model to chat.model
       if (this.settings.llm.model) {
-        const provider = LLMService.getInstance(this).getProviderFromModel(this.settings.llm.model);
+        const provider = await LLMService.getInstance(this).getProviderFromModel(
+          this.settings.llm.model
+        );
         this.settings.llm.chat.model = `${provider.name}:${provider.modelId}`;
         this.settings.llm.model = undefined;
       }

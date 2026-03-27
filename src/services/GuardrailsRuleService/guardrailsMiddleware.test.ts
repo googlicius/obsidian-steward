@@ -62,7 +62,7 @@ function createPluginMock(rules: GuardrailsRule[]): {
     guardrailsRuleService: {
       getRulesForTool,
     },
-    conversationRender: {
+    conversationRenderer: {
       updateConversationNote,
       serializeToolInvocation,
     },

@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type { Search } from './Search';
 import { ToolCallPart } from '../../tools/types';
@@ -16,17 +16,16 @@ const searchMoreSchema = z.object({});
 export type SearchMoreArgs = z.infer<typeof searchMoreSchema>;
 
 export class SearchMore {
-  private static readonly searchMoreTool = tool({
-    inputSchema: searchMoreSchema,
-  });
-
   constructor(
     private readonly agent: AgentHandlerContext,
     private readonly searchHandler: Search
   ) {}
 
-  public static getSearchMoreTool() {
-    return SearchMore.searchMoreTool;
+  public static async getSearchMoreTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: searchMoreSchema,
+    });
   }
 
   /**

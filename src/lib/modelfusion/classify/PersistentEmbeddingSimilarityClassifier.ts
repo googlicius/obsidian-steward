@@ -1,4 +1,5 @@
-import { embed, embedMany, cosineSimilarity, EmbeddingModel } from 'ai';
+import { EmbeddingModel } from 'ai';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { EmbeddingsDatabase, EmbeddingEntry } from 'src/database/EmbeddingsDatabase';
 import { logger } from 'src/utils/logger';
 import { getQualifiedCandidates } from 'src/utils/getQualifiedCandidates';
@@ -408,6 +409,8 @@ export class PersistentEmbeddingSimilarityClassifier {
         `Generating embeddings for cluster "${cluster.name}" (${cluster.values.length} values)`
       );
 
+      const { embedMany } = await getBundledLib('ai');
+
       const { embeddings: clusterEmbeddings } = await embedMany({
         model: this.settings.embeddingModel,
         values: cluster.values,
@@ -529,6 +532,7 @@ export class PersistentEmbeddingSimilarityClassifier {
       }
 
       // Generate embedding for the value
+      const { embed } = await getBundledLib('ai');
       const { embedding } = await embed({
         model: this.settings.embeddingModel,
         value,
@@ -599,6 +603,8 @@ export class PersistentEmbeddingSimilarityClassifier {
       logger.log('Ignoring embedding similarity check');
       return null;
     }
+
+    const { cosineSimilarity, embed } = await getBundledLib('ai');
 
     // Race between getEmbeddings and timeout
     const [embeddingResult, clusterEmbeddings] = await Promise.all([

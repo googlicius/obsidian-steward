@@ -1,4 +1,4 @@
-import { ModelMessage, streamText } from 'ai';
+import type { ModelMessage } from 'ai';
 import { Agent } from '../../Agent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus, Intent } from '../../types';
 import { ToolCallPart, ToolResultPart, TypedToolCallPart } from '../../tools/types';
@@ -13,12 +13,10 @@ import { applyMixins } from 'src/utils/applyMixins';
 import * as handlers from '../handlers';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { createStepProcessedQuery } from './stepProcessedQuery';
-import { SUPER_AGENT_TOOLS } from '../agentTools';
+import { getSuperAgentTools, SUPER_AGENT_TOOL_NAMES } from '../agentTools';
 import type { AgentCorePromptContext } from '../../Agent';
 
-const SUPER_AGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = new Set(
-  Object.keys(SUPER_AGENT_TOOLS) as ToolName[]
-);
+const SUPER_AGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUPER_AGENT_TOOL_NAMES;
 
 /**
  * Map of task names to their associated tool names.
@@ -80,8 +78,6 @@ const TASK_TO_INDICATOR_MAP: Record<string, string> = {
  */
 const SINGLE_TURN_TASKS = new Set(['search']);
 
-const tools = SUPER_AGENT_TOOLS;
-
 const toolsThatEnableConclude = new Set([
   ToolName.EDIT,
   ToolName.MOVE,
@@ -92,7 +88,7 @@ const toolsThatEnableConclude = new Set([
   ToolName.UPDATE_FRONTMATTER,
 ]);
 
-type ToolCalls = Awaited<Awaited<ReturnType<typeof streamText<typeof tools>>>['toolCalls']>;
+type ToolCalls = Array<TypedToolCallPart & { dynamic?: boolean }>;
 
 export interface SuperAgent
   extends Agent,
@@ -181,6 +177,7 @@ NOTE:
       typeof options.remainingSteps !== 'undefined' ? options.remainingSteps : MAX_STEP_COUNT;
 
     const activeTools = await this.loadActiveTools(title, params.activeTools);
+    const tools = await getSuperAgentTools();
 
     const t = getTranslation(lang);
 
@@ -474,7 +471,10 @@ NOTE:
     }
 
     const embeddingSettings = this.plugin.llmService.getEmbeddingSettings();
-    const classifier = getClassifier(embeddingSettings, upstreamOptions?.isReloadRequest ?? false);
+    const classifier = await getClassifier(
+      embeddingSettings,
+      upstreamOptions?.isReloadRequest ?? false
+    );
     const result = await classifier.doClassify(query);
 
     if (!result) {
@@ -542,7 +542,7 @@ NOTE:
 
     try {
       const embeddingSettings = this.plugin.llmService.getEmbeddingSettings();
-      const classifier = getClassifier(
+      const classifier = await getClassifier(
         embeddingSettings,
         upstreamOptions?.isReloadRequest ?? false
       );

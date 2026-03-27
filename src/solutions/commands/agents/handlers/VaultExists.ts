@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { normalizePath, TFile, TFolder } from 'obsidian';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { z } from 'zod/v3';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
@@ -37,14 +37,13 @@ export type ExistsOutput = {
 };
 
 export class VaultExists {
-  private static readonly existsTool = tool({
-    inputSchema: existsSchema,
-  });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
-  public static getExistsTool() {
-    return VaultExists.existsTool;
+  public static async getExistsTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: existsSchema,
+    });
   }
 
   public extractPathsForGuardrails(input: ExistsToolArgs): string[] {

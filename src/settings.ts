@@ -1,5 +1,5 @@
-import { generateId } from 'ai';
 import { getLanguage, normalizePath, PluginSettingTab, Setting } from 'obsidian';
+import { getBundledLib } from './utils/bundledLibs';
 import { logger } from './utils/logger';
 import {
   LLM_MODELS,
@@ -60,7 +60,7 @@ class StewardSettingTab extends PluginSettingTab {
     embeddingSettings: StewardPluginSettings['embedding']
   ): Promise<void> {
     try {
-      const classifier = getClassifier(embeddingSettings);
+      const classifier = await getClassifier(embeddingSettings);
       await classifier.clearCachedEmbeddings();
       logger.log(`Cleared cached embeddings for model: ${embeddingSettings.model}`);
     } catch (error) {
@@ -203,6 +203,7 @@ class StewardSettingTab extends PluginSettingTab {
           .setButtonText(t('settings.addNewProvider'))
           .setCta()
           .onClick(async () => {
+            const { generateId } = await getBundledLib('ai');
             // Generate a unique provider key using generateId
             let providerKey: string;
             do {

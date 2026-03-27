@@ -1,5 +1,5 @@
-import { tool } from 'ai';
 import { z } from 'zod/v3';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
@@ -120,8 +120,6 @@ type MoveOperationResult = {
 };
 
 export class VaultMove {
-  private static readonly moveTool = tool({ inputSchema: moveToolSchema });
-
   constructor(private readonly agent: AgentHandlerContext) {}
 
   public extractPathsForGuardrails(input: MoveToolArgs): string[] {
@@ -142,8 +140,9 @@ export class VaultMove {
     return paths;
   }
 
-  public static getMoveTool() {
-    return VaultMove.moveTool;
+  public static async getMoveTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({ inputSchema: moveToolSchema });
   }
 
   public async handle(

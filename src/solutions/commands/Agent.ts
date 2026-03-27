@@ -156,7 +156,7 @@ export abstract class Agent {
         error: error instanceof Error ? error : new Error(errorMessage),
       };
     } finally {
-      await this.plugin.conversationRender.removeIndicator(params.title);
+      await this.plugin.conversationRenderer.removeIndicator(params.title);
     }
   }
 

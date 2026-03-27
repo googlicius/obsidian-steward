@@ -221,8 +221,8 @@ NOTE:
     name: ToolName.MOVE,
     description: 'Move files to another folder.',
     guidelines: [
-      `- Always provide the destination folder path for the move operation.,
-  - Specify the files or artifactId for the move operation.`,
+      'Always provide the destination folder path for the move operation.',
+      'Specify the files or artifactId for the move operation.',
       `On success, creates artifact: ${ArtifactType.MOVE_RESULTS}.`,
     ],
     category: 'vault-access',
