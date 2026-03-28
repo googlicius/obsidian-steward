@@ -275,8 +275,7 @@ export class CommandInputService {
     }
     const withoutLeadingTabs = text.slice(start);
     return (
-      withoutLeadingTabs.startsWith(TWO_SPACES_PREFIX) &&
-      !withoutLeadingTabs.startsWith('   ')
+      withoutLeadingTabs.startsWith(TWO_SPACES_PREFIX) && !withoutLeadingTabs.startsWith('   ')
     );
   }
 
