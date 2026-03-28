@@ -33,7 +33,6 @@ import {
   SEARCH_DB_NAME_PREFIX,
   SMILE_CHAT_ICON_ID,
   STW_CHAT_VIEW_CONFIG,
-  TWO_SPACES_PREFIX,
 } from './constants';
 import { StewardChatView } from './views/StewardChatView';
 import { Events } from './types/events';
@@ -744,7 +743,10 @@ export default class StewardPlugin extends Plugin {
         const prevLine = doc.line(currentLineNum);
 
         // If we find a non-continuation line that's not a command, break
-        if (!prevLine.text.startsWith(TWO_SPACES_PREFIX) && !prevLine.text.startsWith('/')) {
+        if (
+          !this.commandInputService.isContinuationLine(prevLine.text) &&
+          !prevLine.text.startsWith('/')
+        ) {
           break;
         }
 

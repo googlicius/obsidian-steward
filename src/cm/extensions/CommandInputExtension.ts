@@ -96,6 +96,8 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
         const decorations = [];
         let extendedPrefixes: string[] | null = null;
         let modelLabel: string | undefined;
+        // Track if we fetched data asynchronously (e.g., model label from conversation title)
+        // so we can trigger a view update after decorations are set
         let isAsync = false;
 
         // Get visible range instead of processing the entire document
@@ -130,6 +132,7 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
                   conversationTitle,
                   forceRefresh: true,
                 });
+                // Mark that we performed an async operation (await above)
                 isAsync = true;
               } else {
                 const commandName = matchedPrefix.replace('/', '').trim();
@@ -196,6 +199,8 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
 
         this.decorations = Decoration.set(decorations);
 
+        // If we performed async operations, dispatch an empty transaction to trigger
+        // a view update and re-render the decorations with the fetched data
         if (isAsync) {
           setTimeout(() => {
             this.view.dispatch({});
@@ -267,11 +272,9 @@ function createPasteHandlerExtension(plugin: StewardPlugin): Extension {
         const line = view.state.doc.lineAt(from);
 
         // Check if we're in a command input context
-        const isInCommandContext =
-          plugin.commandInputService.isCommandLine(line) ||
-          plugin.commandInputService.isContinuationLine(line.text);
+        const inputPrefix = plugin.commandInputService.getInputPrefix(line, view.state.doc);
 
-        if (!isInCommandContext) {
+        if (!inputPrefix) {
           return false; // Let default paste behavior happen
         }
 
