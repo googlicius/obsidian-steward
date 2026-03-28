@@ -5,6 +5,7 @@ import { MarkdownUtil } from 'src/utils/markdownUtils';
 import type StewardPlugin from 'src/main';
 import { StewardChatView } from 'src/views/StewardChatView';
 import { logger } from 'src/utils/logger';
+import { TWO_SPACES_PREFIX } from 'src/constants';
 
 /**
  * Service for handling command input operations in the editor
@@ -268,7 +269,15 @@ export class CommandInputService {
   }
 
   public isContinuationLine(text: string): boolean {
-    return text.startsWith('  ') && !text.startsWith('   ');
+    let start = 0;
+    for (; start < text.length; start++) {
+      if (text.charAt(start) !== '\t') break;
+    }
+    const withoutLeadingTabs = text.slice(start);
+    return (
+      withoutLeadingTabs.startsWith(TWO_SPACES_PREFIX) &&
+      !withoutLeadingTabs.startsWith('   ')
+    );
   }
 
   public isGeneralCommandLine(line: Line): boolean {
@@ -297,7 +306,7 @@ export class CommandInputService {
         const prevLine = doc.line(currentLineNum);
 
         // If we find a non-continuation line that's not a command, break
-        if (!prevLine.text.startsWith('  ') && !prevLine.text.startsWith('/')) {
+        if (!this.isContinuationLine(prevLine.text) && !prevLine.text.startsWith('/')) {
           break;
         }
 
