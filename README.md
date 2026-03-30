@@ -7,12 +7,12 @@ Steward is an autonomous AI agent for Obsidian, powered by Large Language Models
 ## Features
 
 - **Built-in search engine**: A BM25-based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search.
-- **Agent Skills**: Extend Steward with domain-specific knowledge for specialized tasks like creating Obsidian Bases, Canvas files, or your own workflows. Compatible with the [Agent Skills specification](https://agentskills.io/specification).
+- **Autonomous agent capacity**: Tools, skills, subagents, and Model Context Protocol (MCP). Skills are compatible with the [Agent Skills specification](https://agentskills.io/specification).
 - **Guardrails**: Restrict which folders and files Steward can access with rules that block actions on sensitive paths.
-- **Interactive and adaptive chat UI**: One or more chat interfaces made of the slash `/` leveraging Obsidian's editor and reading view features, that is, adaptable to your current themes.
+- **Interactive and adaptive chat UI**: The chat interfaces made of the slash `/` leveraging Obsidian's editor and reading view features, adaptable to your current themes. Most editor formats are supported natively: bold, italic, wikilinks, lists, and fenced code blocks, etc.
 - **Privacy-focused**: Most actions are executed in the front-end using Obsidian API, command syntaxes, artifacts, and local services to avoid exposing your data to LLMs (except for your queries and what you're explicitly provided).
 - **Responsiveness and transparency**: Responds in real-time with streaming text generation, thinking, and even tool content. All messages are serialized to the corresponding note.
-- **Model flexibility**: Use your favorite AI models, including OpenAI, Gemini, DeepSeek, Ollama, etc.
+- **Model flexibility**: Use your favorite AI models, including OpenAI, Gemini, DeepSeek, Ollama, and OpenAI Compatible, etc.
 - **Model fallback**: Automatically switches to alternative models when errors occur, ensuring robust command execution.
 - **User-defined commands**: Create your own command workflows by combining multiple commands with specific LLM models and settings of your choice.
 

@@ -11,6 +11,7 @@ import * as groq from '@ai-sdk/groq';
 import * as hume from '@ai-sdk/hume';
 import * as ollama from 'ollama-ai-provider-v2';
 import * as openai from '@ai-sdk/openai';
+import * as mcp from '@ai-sdk/mcp';
 import * as openaiCompatible from '@ai-sdk/openai-compatible';
 
 export type StewardBundledLibsRegistry = {
@@ -24,7 +25,8 @@ export type StewardBundledLibsRegistry = {
   ollama: typeof ollama;
   openai: typeof openai;
   openaiCompatible: typeof openaiCompatible;
+  mcp: typeof mcp;
 };
 
-export { ai, anthropic, deepseek, google, groq, hume, ollama, openai, openaiCompatible };
+export { ai, anthropic, deepseek, google, groq, hume, ollama, openai, openaiCompatible, mcp };
 export { elevenlabs as elevenLabs };

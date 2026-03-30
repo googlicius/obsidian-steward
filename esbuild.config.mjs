@@ -27,6 +27,7 @@ const context = await esbuild.context({
     '@ai-sdk/hume',
     '@ai-sdk/openai',
     '@ai-sdk/openai-compatible',
+    '@ai-sdk/mcp',
     'ollama-ai-provider-v2',
     ...sharedExternal,
   ],

@@ -13,6 +13,7 @@ export type BundledLibModules = {
   ollama: typeof import('ollama-ai-provider-v2');
   openai: typeof import('@ai-sdk/openai');
   openaiCompatible: typeof import('@ai-sdk/openai-compatible');
+  mcp: typeof import('@ai-sdk/mcp');
 };
 
 export type BundledLibKey = keyof BundledLibModules;
