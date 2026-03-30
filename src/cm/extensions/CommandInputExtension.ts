@@ -46,6 +46,7 @@ export function createCommandInputExtension(
   options: CommandInputOptions = {}
 ): Extension {
   return [
+    createArrowDownNewLineExtension(plugin),
     createInputExtension(plugin, options),
     createCommandKeymapExtension(plugin, options),
     createPasteHandlerExtension(plugin),
@@ -95,6 +96,8 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
         const decorations = [];
         let extendedPrefixes: string[] | null = null;
         let modelLabel: string | undefined;
+        // Track if we fetched data asynchronously (e.g., model label from conversation title)
+        // so we can trigger a view update after decorations are set
         let isAsync = false;
 
         // Get visible range instead of processing the entire document
@@ -129,6 +132,7 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
                   conversationTitle,
                   forceRefresh: true,
                 });
+                // Mark that we performed an async operation (await above)
                 isAsync = true;
               } else {
                 const commandName = matchedPrefix.replace('/', '').trim();
@@ -195,6 +199,8 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
 
         this.decorations = Decoration.set(decorations);
 
+        // If we performed async operations, dispatch an empty transaction to trigger
+        // a view update and re-render the decorations with the fetched data
         if (isAsync) {
           setTimeout(() => {
             this.view.dispatch({});
@@ -266,11 +272,9 @@ function createPasteHandlerExtension(plugin: StewardPlugin): Extension {
         const line = view.state.doc.lineAt(from);
 
         // Check if we're in a command input context
-        const isInCommandContext =
-          plugin.commandInputService.isCommandLine(line) ||
-          plugin.commandInputService.isContinuationLine(line.text);
+        const inputPrefix = plugin.commandInputService.getInputPrefix(line, view.state.doc);
 
-        if (!isInCommandContext) {
+        if (!inputPrefix) {
           return false; // Let default paste behavior happen
         }
 
@@ -306,6 +310,44 @@ function createPasteHandlerExtension(plugin: StewardPlugin): Extension {
 }
 
 /**
+ * DOM keydown handler so "exit" from the last line of a command block works reliably.
+ * Obsidian often handles ArrowDown before CodeMirror keymap runs. Use a high-precedence
+ */
+function createArrowDownNewLineExtension(plugin: StewardPlugin): Extension {
+  return Prec.high(
+    EditorView.domEventHandlers({
+      keydown(event: KeyboardEvent, view: EditorView): boolean {
+        if (event.key !== 'ArrowDown' || event.altKey || event.ctrlKey || event.metaKey) {
+          return false;
+        }
+        if (event.shiftKey) return false;
+
+        if (event.isComposing) return false;
+
+        const { state } = view;
+        const sel = state.selection.main;
+        if (!sel.empty) return false;
+
+        const doc = state.doc;
+        const line = doc.lineAt(sel.head);
+
+        if (line.number !== doc.lines) return false;
+
+        if (!plugin.commandInputService.getInputPrefix(line, doc)) return false;
+
+        event.preventDefault();
+        view.dispatch({
+          changes: { from: line.to, to: line.to, insert: '\n' },
+          selection: { anchor: line.to + 1 },
+          scrollIntoView: true,
+        });
+        return true;
+      },
+    })
+  );
+}
+
+/**
  * Add keymap with high precedence
  */
 function createCommandKeymapExtension(
@@ -321,6 +363,38 @@ function createCommandKeymapExtension(
             return options.onEnter(view);
           }
           return false;
+        },
+      },
+      {
+        key: 'Backspace',
+        run: view => {
+          const { state } = view;
+          const sel = state.selection.main;
+          if (!sel.empty) return false;
+
+          const pos = sel.head;
+          const doc = state.doc;
+          const line = doc.lineAt(pos);
+
+          const linePrefix = plugin.commandInputService.getInputPrefix(line, doc);
+          if (!linePrefix) return false;
+          if (plugin.commandInputService.isCommandLine(line)) return false;
+
+          const rel = pos - line.from;
+          if (rel > TWO_SPACES_PREFIX.length) return false;
+
+          if (line.number < 2) return false;
+
+          const prevLine = doc.line(line.number - 1);
+          const mergeStart = Math.max(rel, TWO_SPACES_PREFIX.length);
+          const inserted = line.text.slice(mergeStart);
+
+          view.dispatch({
+            changes: { from: prevLine.to, to: line.to, insert: inserted },
+            selection: { anchor: prevLine.to },
+          });
+
+          return true;
         },
       },
       {
