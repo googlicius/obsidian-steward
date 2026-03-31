@@ -69,6 +69,7 @@ export class Handlers {
   private _getMostRecentArtifact: handlers.GetMostRecentArtifact;
   private _getArtifactById: handlers.GetArtifactById;
   private _recallCompactedContext: handlers.RecallCompactedContext;
+  private _mcpToolHandler: handlers.McpToolHandler;
 
   protected getAgent(): AgentHandlerContext {
     return this as unknown as AgentHandlerContext;
@@ -237,6 +238,13 @@ export class Handlers {
       this._recallCompactedContext = new handlers.RecallCompactedContext(this.getAgent());
     }
     return this._recallCompactedContext;
+  }
+
+  public get mcpToolHandler(): handlers.McpToolHandler {
+    if (!this._mcpToolHandler) {
+      this._mcpToolHandler = new handlers.McpToolHandler(this.getAgent());
+    }
+    return this._mcpToolHandler;
   }
 
   /**

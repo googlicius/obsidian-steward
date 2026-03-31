@@ -143,22 +143,20 @@ async function buildBaseAgentTools(): Promise<AgentToolsRecord> {
 }
 
 let baseAgentToolsPromise: Promise<AgentToolsRecord> | null = null;
-let superAgentToolsPromise: Promise<AgentToolsRecord> | null = null;
+let superAgentOnlyToolsPromise: Promise<AgentToolsRecord> | null = null;
 
-function getBaseAgentTools(): Promise<AgentToolsRecord> {
+/** Cached subagent (shared) tool implementations without MCP. */
+export function loadSubagentToolsBase(): Promise<AgentToolsRecord> {
   if (!baseAgentToolsPromise) {
     baseAgentToolsPromise = buildBaseAgentTools();
   }
   return baseAgentToolsPromise;
 }
 
-export async function getSubagentTools(): Promise<AgentToolsRecord> {
-  return getBaseAgentTools();
-}
-
-export async function getSuperAgentTools(): Promise<AgentToolsRecord> {
-  if (!superAgentToolsPromise) {
-    superAgentToolsPromise = getBaseAgentTools().then(async base => {
+/** Cached super-agent tool implementations without MCP. */
+export function loadSuperAgentToolsBase(): Promise<AgentToolsRecord> {
+  if (!superAgentOnlyToolsPromise) {
+    superAgentOnlyToolsPromise = loadSubagentToolsBase().then(async base => {
       const [
         confirmationBundle,
         askBundle,
@@ -179,8 +177,8 @@ export async function getSuperAgentTools(): Promise<AgentToolsRecord> {
         [ToolName.USER_CONFIRM]: userConfirmTool,
         [ToolName.SPAWN_SUBAGENT]: spawnSubagentTool,
         [ToolName.SWITCH_AGENT_CAPACITY]: switchAgentCapacityTool,
-      };
+      } as AgentToolsRecord;
     });
   }
-  return superAgentToolsPromise;
+  return superAgentOnlyToolsPromise;
 }

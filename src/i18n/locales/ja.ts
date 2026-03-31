@@ -31,6 +31,13 @@ const ja = {
         'モデル {{model}} は画像入力をサポートしていません。画像入力をサポートするモデルを使用してください（例: gpt-4o, gemini-pro, claude-3-sonnet）。',
       invalidOrDynamicToolCall:
         'モデルが無効なまたは動的なツールコールを返しました: "{{toolName}}".',
+      statusValid: '✅ 有効',
+      statusInvalid: '無効: {{errors}}',
+    },
+    mcp: {
+      noConfigBlock:
+        'transport（http または sse）、url、必要に応じて headers を含む ```json``` ブロックを追加してください。',
+      invalidJson: 'MCP 設定ブロックの JSON が不正です: {{message}}',
     },
     trigger: {
       executing: 'トリガーコマンドを実行中: {{commandName}}',
@@ -107,8 +114,6 @@ const ja = {
     guardrails: {
       rules: 'ルール',
       noRulesDefined: 'ガードレールルールは定義されていません。',
-      statusValid: '✅ 有効',
-      statusInvalid: '無効: {{errors}}',
       violation:
         'ガードレールによりアクションがブロックされました。ルール: {{rules}}。パス: {{paths}}。禁止アクション: {{actions}}。処理を停止するか、禁止リストにない別のアクションを試してください。',
       violationHuman:

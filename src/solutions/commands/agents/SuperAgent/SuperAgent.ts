@@ -13,7 +13,7 @@ import { applyMixins } from 'src/utils/applyMixins';
 import * as handlers from '../handlers';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { createStepProcessedQuery } from './stepProcessedQuery';
-import { getSuperAgentTools, SUPER_AGENT_TOOL_NAMES } from '../agentTools';
+import { type AgentToolsRecord, loadSuperAgentToolsBase, SUPER_AGENT_TOOL_NAMES } from '../agentTools';
 import type { AgentCorePromptContext } from '../../Agent';
 
 const SUPER_AGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUPER_AGENT_TOOL_NAMES;
@@ -177,7 +177,7 @@ NOTE:
       typeof options.remainingSteps !== 'undefined' ? options.remainingSteps : MAX_STEP_COUNT;
 
     const activeTools = await this.loadActiveTools(title, params.activeTools);
-    const tools = await getSuperAgentTools();
+    const tools = await this.getSuperAgentTools(title);
 
     const t = getTranslation(lang);
 
@@ -429,6 +429,18 @@ NOTE:
         },
       ],
     });
+  }
+
+
+
+  private async getSuperAgentTools(conversationTitle: string): Promise<AgentToolsRecord> {
+    const baseTools = await loadSuperAgentToolsBase();
+    const mcp = await this.plugin.mcpService.getMcpToolsForConversation(conversationTitle);
+    return {
+      ...baseTools,
+      ...mcp.inactive,
+      ...mcp.active,
+    } as AgentToolsRecord;
   }
 
   /**

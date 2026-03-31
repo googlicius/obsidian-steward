@@ -24,6 +24,7 @@ Steward is an autonomous AI agent for Obsidian, powered by Large Language Models
   - [Showcases](#showcases)
 - [Skills](#skills)
 - [Guardrails](#guardrails)
+- [MCP](#mcp)
 - [User-defined commands](#user-defined-commands)
 - [Folder structure](#folder-structure)
 - [Installation](#installation)
@@ -96,6 +97,12 @@ You can use the [Guardrails skill](https://github.com/googlicius/obsidian-stewar
 
 <img src="/docs/images/Steward-Demo-Guardrails.gif" alt="Guardrails" width="650px">
 
+## MCP
+
+Steward can connect to remote [Model Context Protocol](https://modelcontextprotocol.io/) servers. Define each server as a markdown note in the `Steward/MCP` folder with YAML frontmatter and a JSON configuration block (`transport`, `url`, optional `headers`). Use `$secret:name` placeholders in string values to pull credentials from Obsidian’s secret storage.
+
+For the full format, examples, and troubleshooting, see the [MCP wiki](https://github.com/googlicius/obsidian-steward/wiki/MCP).
+
 ## User-defined commands
 
 You can create your own **User-Defined Commands** to automate workflows and combine multiple built-in or other User-Defined commands into a single, reusable command. Commands are defined as YAML blocks in markdown files inside the `Steward/Commands` folder, and they're available with autocomplete just like built-in commands.
@@ -129,6 +136,7 @@ Steward creates the following folder structure in your vault:
 Steward/
 ├── Commands/       # Stores user-defined command definitions
 ├── Conversations/  # Archives past conversations
+├── MCP/            # MCP server definitions (one markdown note per server)
 ├── Docs/           # Fetched documents from this repo
 ├── Release notes/  # Release notes of Steward
 ├── Rules/          # Guardrails rules (one file per rule)

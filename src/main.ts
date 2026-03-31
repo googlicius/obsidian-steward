@@ -62,6 +62,7 @@ import { SkillService } from './services/SkillService';
 import { GuardrailsRuleService } from './services/GuardrailsRuleService/GuardrailsRuleService';
 import { CompactionOrchestrator } from './solutions/compaction';
 import { SubagentSpawnService } from './services/SubagentSpawnService';
+import { MCPService } from './services/MCPService';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -84,6 +85,7 @@ export default class StewardPlugin extends Plugin {
   _commandInputService: CommandInputService;
   _gitHubResourceService: GitHubResourceService;
   _skillService: SkillService;
+  _mcpService: MCPService;
   _guardrailsRuleService: GuardrailsRuleService;
   _commandTrackingService: CommandTrackingService;
   _versionCheckerService: VersionCheckerService;
@@ -219,6 +221,13 @@ export default class StewardPlugin extends Plugin {
     return this._guardrailsRuleService;
   }
 
+  get mcpService(): MCPService {
+    if (!this._mcpService) {
+      this._mcpService = MCPService.getInstance(this);
+    }
+    return this._mcpService;
+  }
+
   get subAgentSpawnService(): SubagentSpawnService {
     if (!this._subAgentSpawnService) {
       this._subAgentSpawnService = new SubagentSpawnService(this);
@@ -281,6 +290,9 @@ export default class StewardPlugin extends Plugin {
     // Initialize the GuardrailsRuleService (loads rules from Steward/Rules folder)
     this.guardrailsRuleService;
 
+    // Initialize the MCPService (loads MCP definitions from Steward/MCP folder)
+    this.mcpService;
+
     this.app.workspace.onLayoutReady(async () => {
       // Clean up old search databases
       this.cleanupOldSearchDatabases();
@@ -315,6 +327,10 @@ export default class StewardPlugin extends Plugin {
 
     // Cleanup orphaned temp streaming files
     this.cleanupTempStreamFiles();
+
+    if (this._mcpService) {
+      void this._mcpService.closeAll();
+    }
 
     // Cleanup current database and remove saltKeyId from localStorage
     retry(async () => {
@@ -1209,6 +1225,10 @@ export default class StewardPlugin extends Plugin {
         // Ensure Rules folder exists for guardrails
         const rulesFolder = `${this.settings.stewardFolder}/Rules`;
         await this.obsidianAPITools.ensureFolderExists(rulesFolder);
+
+        // Ensure MCP folder exists for MCP definitions
+        const mcpFolder = `${this.settings.stewardFolder}/MCP`;
+        await this.obsidianAPITools.ensureFolderExists(mcpFolder);
       } catch (error) {
         logger.error('Failed to ensure required folders:', error);
       }

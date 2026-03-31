@@ -30,6 +30,13 @@ const vi = {
         'Mô hình {{model}} không hỗ trợ đọc hình ảnh. Vui lòng sử dụng mô hình có khả năng xử lý hình ảnh (ví dụ: gpt-4o, gemini-pro, claude-3-sonnet).',
       invalidOrDynamicToolCall:
         'Mô hình đã trả về lệnh gọi công cụ không hợp lệ hoặc động (dynamic): "{{toolName}}".',
+      statusValid: '✅ Hợp lệ',
+      statusInvalid: 'Không hợp lệ: {{errors}}',
+    },
+    mcp: {
+      noConfigBlock:
+        'Thêm khối ```json``` gồm transport (http hoặc sse), url và tùy chọn headers.',
+      invalidJson: 'JSON trong khối cấu hình MCP không hợp lệ: {{message}}',
     },
     trigger: {
       executing: 'Đang thực thi trigger cho lệnh: {{commandName}}',
@@ -106,8 +113,6 @@ const vi = {
     guardrails: {
       rules: 'Quy tắc',
       noRulesDefined: 'Chưa có quy tắc guardrails nào.',
-      statusValid: '✅ Hợp lệ',
-      statusInvalid: 'Không hợp lệ: {{errors}}',
       violation:
         'Hành động bị chặn bởi guardrails. Quy tắc: {{rules}}. Đường dẫn: {{paths}}. Hành động bị chặn: {{actions}}. Dừng xử lý hoặc thử các hành động khác không nằm trong danh sách bị chặn.',
       violationHuman: 'Hành động bị chặn bởi guardrails. Quy tắc: {{rules}}. Đường dẫn: {{paths}}.',
