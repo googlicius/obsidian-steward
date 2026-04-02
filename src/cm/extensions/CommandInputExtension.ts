@@ -380,10 +380,25 @@ function createCommandKeymapExtension(
           if (!linePrefix) return false;
           if (plugin.commandInputService.isCommandLine(line)) return false;
 
-          const rel = pos - line.from;
-          if (rel > TWO_SPACES_PREFIX.length) return false;
-
           if (line.number < 2) return false;
+
+          const rel = pos - line.from;
+          const tabCount = plugin.commandInputService.getLeadingTabCount(line.text);
+          const prefixEnd = tabCount + TWO_SPACES_PREFIX.length;
+
+          // Leading tabs + mandatory two spaces: never delete those spaces first — remove a tab
+          // so the line stays a valid continuation line (Obsidian often strips both spaces at once).
+          if (tabCount > 0 && rel > tabCount && rel <= prefixEnd) {
+            const tabRemoveFrom = line.from + tabCount - 1;
+            view.dispatch({
+              changes: { from: tabRemoveFrom, to: tabRemoveFrom + 1, insert: '' },
+              selection: { anchor: pos - 1 },
+            });
+            return true;
+          }
+
+          // Merge with previous line only when the line has no leading tabs (prefix is just two spaces).
+          if (tabCount !== 0 || rel > TWO_SPACES_PREFIX.length) return false;
 
           const prevLine = doc.line(line.number - 1);
           const mergeStart = Math.max(rel, TWO_SPACES_PREFIX.length);

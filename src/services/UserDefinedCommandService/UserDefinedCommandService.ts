@@ -15,6 +15,10 @@ import {
   stringifyUdcYaml,
 } from './migrateUdcLegacyUseTool';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 export class UserDefinedCommandService {
   private static instance: UserDefinedCommandService | null = null;
   // Store versioned commands - normalized format is accessed via normalize()
@@ -174,99 +178,110 @@ export class UserDefinedCommandService {
   /**
    * Load command definition from a file
    * @param file The file to load commands from
-   * @param shouldRenderErrors Whether to render validation errors (only on modify events)
    */
-  private async loadCommandFromFile(file: TFile, shouldRenderErrors = false): Promise<void> {
+  private async loadCommandFromFile(file: TFile): Promise<void> {
     try {
       // First, remove any existing commands from this file
       this.removeCommandsFromFile(file.path);
 
       const content = await this.plugin.app.vault.cachedRead(file);
+      const parsedDoc = this.extractFrontmatterAndBody(content);
+      const enabledFromFrontmatter = this.toBoolean(parsedDoc.frontmatter.enabled, true);
 
       // Extract YAML blocks from the content
       const yamlBlocks = await this.extractYamlBlocks(content);
-
-      // Only process the first YAML block as the command definition
-      // Other YAML blocks are ignored (they may be examples or referenced content for system prompts)
-      if (yamlBlocks.length === 0) {
-        return;
-      }
 
       const validationErrors: Array<{
         commandName: string;
         errors: string[];
       }> = [];
 
-      // Process only the first YAML block
-      let fileContent = content;
-      const yamlContent = yamlBlocks[0];
-      try {
-        const parsed = parseYaml(yamlContent);
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-          validationErrors.push({
-            commandName: 'unknown',
-            errors: [
-              i18next.t('validation.yamlError'),
-              'Command definition must be a YAML mapping',
-            ],
-          });
-        } else {
-          const dataObj = parsed as Record<string, unknown>;
-          const migrated = migrateRawUdcObject(dataObj);
-          const rawData: Record<string, unknown> = migrated.data;
+      let definitionValid = false;
+      let statusErrorMessages: string[] = [];
 
-          if (migrated.changed) {
-            try {
-              const newInner = stringifyUdcYaml(migrated.data);
-              const updatedMarkdown = replaceFirstYamlFenceContent(fileContent, newInner);
-              if (updatedMarkdown !== fileContent) {
-                await this.plugin.app.vault.modify(file, updatedMarkdown);
-                fileContent = updatedMarkdown;
-                logger.log(`Migrated legacy use_tool in UDC file: ${file.path}`);
-              }
-            } catch (persistError) {
-              logger.error(`Failed to persist UDC migration for ${file.path}:`, persistError);
-            }
-          }
-
-          // Load and validate using version-aware loader (async imports)
-          const result = await loadUDCVersion(
-            rawData as { command_name: string; version?: number; [key: string]: unknown },
-            file.path
-          );
-
-          if (!result.success) {
-            // Collect errors from parse function
-            const commandName = (rawData.command_name as string) || 'unknown';
+      // Only process the first YAML block as the command definition
+      // Other YAML blocks are ignored (they may be examples or referenced content for system prompts)
+      if (yamlBlocks.length === 0) {
+        statusErrorMessages = [i18next.t('validation.noCommandYamlBlock')];
+      } else {
+        // Process only the first YAML block
+        let fileContent = content;
+        const yamlContent = yamlBlocks[0];
+        try {
+          const parsed = parseYaml(yamlContent);
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
             validationErrors.push({
-              commandName,
-              errors: result.errors,
+              commandName: 'unknown',
+              errors: [
+                i18next.t('validation.yamlError'),
+                'Command definition must be a YAML mapping',
+              ],
             });
           } else {
-            // Successfully loaded - store the command
-            const versionedCommand = result.command;
-            this.userDefinedCommands.set(
-              versionedCommand.normalized.command_name,
-              versionedCommand
+            const dataObj = parsed as Record<string, unknown>;
+            const migrated = migrateRawUdcObject(dataObj);
+            const rawData: Record<string, unknown> = migrated.data;
+
+            if (migrated.changed) {
+              try {
+                const newInner = stringifyUdcYaml(migrated.data);
+                const updatedMarkdown = replaceFirstYamlFenceContent(fileContent, newInner);
+                if (updatedMarkdown !== fileContent) {
+                  await this.plugin.app.vault.modify(file, updatedMarkdown);
+                  fileContent = updatedMarkdown;
+                  logger.log(`Migrated legacy use_tool in UDC file: ${file.path}`);
+                }
+              } catch (persistError) {
+                logger.error(`Failed to persist UDC migration for ${file.path}:`, persistError);
+              }
+            }
+
+            // Load and validate using version-aware loader (async imports)
+            const result = await loadUDCVersion(
+              rawData as { command_name: string; version?: number; [key: string]: unknown },
+              file.path
             );
-            logger.log(
-              `Loaded user-defined command: ${versionedCommand.normalized.command_name} (v${versionedCommand.getVersion()})`
-            );
+
+            if (!result.success) {
+              // Collect errors from parse function
+              const commandName = (rawData.command_name as string) || 'unknown';
+              validationErrors.push({
+                commandName,
+                errors: result.errors,
+              });
+            } else {
+              definitionValid = true;
+              if (enabledFromFrontmatter) {
+                const versionedCommand = result.command;
+                this.userDefinedCommands.set(
+                  versionedCommand.normalized.command_name,
+                  versionedCommand
+                );
+                logger.log(
+                  `Loaded user-defined command: ${versionedCommand.normalized.command_name} (v${versionedCommand.getVersion()})`
+                );
+              }
+            }
           }
+        } catch (yamlError) {
+          const errorMsg = yamlError instanceof Error ? yamlError.message : String(yamlError);
+          validationErrors.push({
+            commandName: 'unknown',
+            errors: [i18next.t('validation.yamlError'), errorMsg],
+          });
+          logger.error(`Invalid YAML in file ${file.path}:`, yamlError);
         }
-      } catch (yamlError) {
-        const errorMsg = yamlError instanceof Error ? yamlError.message : String(yamlError);
-        validationErrors.push({
-          commandName: 'unknown',
-          errors: [i18next.t('validation.yamlError'), errorMsg],
-        });
-        logger.error(`Invalid YAML in file ${file.path}:`, yamlError);
+
+        if (validationErrors.length > 0) {
+          statusErrorMessages = this.flattenValidationErrors(validationErrors);
+        }
       }
 
-      // Render validation result on modify events (errors or success message)
-      if (shouldRenderErrors) {
-        await this.renderValidationErrors(file, validationErrors);
-      }
+      const validForStatus = definitionValid && validationErrors.length === 0 && yamlBlocks.length > 0;
+      await this.applyUdcValidationFrontmatter(parsedDoc, file, {
+        valid: validForStatus,
+        errorMessages: validForStatus ? [] : statusErrorMessages,
+      });
     } catch (error) {
       logger.error(`Error loading command from file ${file.path}:`, error);
     }
@@ -438,105 +453,109 @@ export class UserDefinedCommandService {
     return true;
   }
 
-  /**
-   * Render validation errors or success message in a dedicated note
-   */
-  private async renderValidationErrors(
-    sourceFile: TFile,
-    validationErrors: Array<{
-      commandName: string;
-      errors: string[];
-    }>
-  ): Promise<void> {
+  private flattenValidationErrors(
+    validationErrors: Array<{ commandName: string; errors: string[] }>
+  ): string[] {
+    const messages: string[] = [];
+    for (const info of validationErrors) {
+      const joined = info.errors.join(', ');
+      if (info.commandName === 'unknown') {
+        messages.push(joined);
+        continue;
+      }
+      messages.push(`${info.commandName}: ${joined}`);
+    }
+    return messages;
+  }
+
+  private buildUdcDefinitionStatusMessage(valid: boolean, errors?: string[]): string {
+    if (valid) {
+      return i18next.t('common.statusValid');
+    }
+    const combinedErrors = (errors ?? []).join('; ');
+    return i18next.t('common.statusInvalid', { errors: combinedErrors });
+  }
+
+  private extractFrontmatterAndBody(content: string): {
+    frontmatter: Record<string, unknown>;
+    body: string;
+  } {
+    const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n?/;
+    const match = content.match(frontmatterRegex);
+    if (!match || !match[1]) {
+      return {
+        frontmatter: {},
+        body: content,
+      };
+    }
+
+    let parsedFrontmatter: Record<string, unknown> = {};
     try {
-      const stewardFolder = this.plugin.settings.stewardFolder;
-      const validationNotePath = `${stewardFolder}/UDC-validation-errors.md`;
-
-      const errorDescription = i18next.t('validation.errorDescription');
-
-      let errorContent = '';
-      errorContent += `**Source file:** [[${sourceFile.basename}]]\n\n`;
-      errorContent += '```stw-artifact\n';
-      errorContent += `**Last updated:** ${new Date().toLocaleString()}\n`;
-      errorContent += '```\n\n';
-      errorContent += `---\n\n`;
-
-      if (validationErrors.length === 0) {
-        // No errors - show success message
-        const successMessage = i18next.t('validation.successMessage');
-        const successCallout = this.plugin.noteContentService.formatCallout(
-          successMessage,
-          'success'
-        );
-        errorContent += successCallout;
-      } else {
-        // Has errors - show error details
-        errorContent += `${errorDescription}\n\n`;
-
-        for (const errorInfo of validationErrors) {
-          const commandError = i18next.t('validation.commandError', {
-            commandName: errorInfo.commandName,
-          });
-          errorContent += `**${commandError}**\n\n`;
-
-          // Format errors as callout
-          const errorList = errorInfo.errors.map(err => `- ${err}`).join('\n');
-          const errorCallout = this.plugin.noteContentService.formatCallout(errorList, 'error');
-          errorContent += errorCallout + '\n';
-        }
-
-        errorContent += `---\n\n`;
-      }
-
-      // Check if the validation note already exists
-      const existingFile = this.plugin.app.vault.getFileByPath(validationNotePath);
-
-      if (existingFile) {
-        // Update existing file
-        await this.plugin.app.vault.modify(existingFile, errorContent);
-      } else {
-        // Create new file
-        await this.plugin.app.vault.create(validationNotePath, errorContent);
-      }
-
-      // Only show notice if there are errors
-      if (validationErrors.length > 0) {
-        const leaf = this.plugin.getChatLeaf();
-        if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(validationNotePath)) {
-          // Show notice with link to open the chat and view errors
-          const noticeEl = document.createDocumentFragment();
-          const text = noticeEl.createEl('span');
-          text.textContent = i18next.t('validation.errorDetected', {
-            fileName: sourceFile.basename,
-          });
-
-          // Add line break
-          noticeEl.createEl('br');
-
-          const link = noticeEl.createEl('a', {
-            text: i18next.t('validation.openValidationNote'),
-            href: '#',
-          });
-          link.addEventListener('click', async e => {
-            e.preventDefault();
-
-            // Open the chat
-            await this.plugin.openChat({ revealLeaf: true });
-
-            // Get the chat view and open the validation note
-            const leaf = this.plugin.getChatLeaf();
-            const view = leaf.view;
-
-            if (view instanceof StewardChatView) {
-              await view.openExistingConversation(validationNotePath);
-            }
-          });
-
-          new Notice(noticeEl, 10000);
-        }
+      const parsedYaml = parseYaml(match[1]);
+      if (isRecord(parsedYaml)) {
+        parsedFrontmatter = parsedYaml;
       }
     } catch (error) {
-      logger.error('Error rendering validation errors:', error);
+      logger.warn('Failed to parse UDC note frontmatter', error);
+    }
+
+    const body = content.slice(match[0].length);
+    return {
+      frontmatter: parsedFrontmatter,
+      body,
+    };
+  }
+
+  private toBoolean(value: unknown, fallback: boolean): boolean {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const lowered = value.toLowerCase().trim();
+      if (lowered === 'true') {
+        return true;
+      }
+      if (lowered === 'false') {
+        return false;
+      }
+    }
+    return fallback;
+  }
+
+  private async applyUdcValidationFrontmatter(
+    parsedDoc: { frontmatter: Record<string, unknown> },
+    file: TFile,
+    params: { valid: boolean; errorMessages: string[] }
+  ): Promise<void> {
+    const newStatus = this.buildUdcDefinitionStatusMessage(
+      params.valid,
+      params.valid ? undefined : params.errorMessages
+    );
+    const currentStatusRaw = parsedDoc.frontmatter.status;
+    const currentStatus = typeof currentStatusRaw === 'string' ? currentStatusRaw : undefined;
+    const enabledKeyMissing = !Object.prototype.hasOwnProperty.call(
+      parsedDoc.frontmatter,
+      'enabled'
+    );
+
+    const needsStatusUpdate = currentStatus !== newStatus;
+    const needsEnabledDefault = enabledKeyMissing;
+
+    if (!needsStatusUpdate && !needsEnabledDefault) {
+      return;
+    }
+
+    try {
+      await this.plugin.app.fileManager.processFrontMatter(file, fm => {
+        if (needsStatusUpdate) {
+          fm.status = newStatus;
+        }
+        if (needsEnabledDefault) {
+          fm.enabled = true;
+        }
+      });
+    } catch (error) {
+      logger.error(`Failed to update UDC frontmatter for ${file.path}`, error);
     }
   }
 
@@ -545,7 +564,7 @@ export class UserDefinedCommandService {
    */
   private async handleFileModification(file: TFile): Promise<void> {
     if (this.isCommandFile(file)) {
-      await this.loadCommandFromFile(file, true); // Render errors on modify
+      await this.loadCommandFromFile(file);
     } else {
       // Add to pending queue - will check triggers when metadata cache updates
       this.pendingTriggerChecks.set(file.path, 'modify');
