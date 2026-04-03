@@ -12,12 +12,8 @@ jest.mock('src/utils/bundledLibs', () => {
           return import('@ai-sdk/openai');
         case 'openaiCompatible':
           return import('@ai-sdk/openai-compatible');
-        case 'deepseek':
-          return import('@ai-sdk/deepseek');
         case 'google':
           return import('@ai-sdk/google');
-        case 'groq':
-          return import('@ai-sdk/groq');
         case 'anthropic':
           return import('@ai-sdk/anthropic');
         case 'elevenLabs':
@@ -53,7 +49,10 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
         deepseek: {
           apiKey: '',
           apiKeySource: 'direct',
-          baseUrl: undefined,
+          baseUrl: 'https://api.deepseek.com/v1',
+          isCustom: true,
+          compatibility: 'openai',
+          name: 'DeepSeek',
         },
         google: {
           apiKey: '',
@@ -63,7 +62,10 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
         groq: {
           apiKey: '',
           apiKeySource: 'direct',
-          baseUrl: undefined,
+          baseUrl: 'https://api.groq.com/openai/v1',
+          isCustom: true,
+          compatibility: 'openai',
+          name: 'Groq',
         },
         ollama: {
           apiKey: '',

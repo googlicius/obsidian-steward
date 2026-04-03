@@ -104,6 +104,13 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
         systemMessage: undefined,
       }),
     },
+    mcpService: {
+      getMcpToolsForConversation: jest.fn().mockResolvedValue({
+        active: {} as Record<string, unknown>,
+        inactive: {} as Record<string, unknown>,
+      }),
+      isMCPToolName: jest.fn().mockReturnValue(false),
+    },
     editor: {
       getCursor: jest.fn().mockReturnValue({ line: 0 }),
     },

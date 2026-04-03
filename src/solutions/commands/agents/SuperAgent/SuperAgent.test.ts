@@ -132,6 +132,13 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
         data: { version: COMPACTION_SCHEMA_VERSION, messages: [] },
       }),
     },
+    mcpService: {
+      getMcpToolsForConversation: jest.fn().mockResolvedValue({
+        active: {} as Record<string, unknown>,
+        inactive: {} as Record<string, unknown>,
+      }),
+      isMCPToolName: jest.fn().mockReturnValue(false),
+    },
   } as unknown as StewardPlugin;
 
   return mockPlugin as unknown as jest.Mocked<StewardPlugin>;

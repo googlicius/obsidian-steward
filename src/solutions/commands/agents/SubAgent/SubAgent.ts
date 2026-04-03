@@ -120,8 +120,6 @@ Rules:
     });
   }
 
-
-
   private async getSubagentTools(conversationTitle: string): Promise<AgentToolsRecord> {
     const baseTools = await loadSubagentToolsBase();
     const mcp = await this.plugin.mcpService.getMcpToolsForConversation(conversationTitle);

@@ -34,8 +34,7 @@ const vi = {
       statusInvalid: 'Không hợp lệ: {{errors}}',
     },
     mcp: {
-      noConfigBlock:
-        'Thêm khối ```json``` gồm transport (http hoặc sse), url và tùy chọn headers.',
+      noConfigBlock: 'Thêm khối ```json``` gồm transport (http hoặc sse), url và tùy chọn headers.',
       invalidJson: 'JSON trong khối cấu hình MCP không hợp lệ: {{message}}',
     },
     trigger: {
@@ -510,18 +509,10 @@ const vi = {
           apiKey: 'Khóa API ElevenLabs',
           description: 'Khả năng: Tạo giọng nói (TTS). https://elevenlabs.io',
         },
-        deepseek: {
-          apiKey: 'Khóa API DeepSeek',
-          description: 'Khả năng: Tạo văn bản, suy luận. https://platform.deepseek.com',
-        },
         google: {
           apiKey: 'Khóa API Google',
           description:
             'Khả năng: Tạo văn bản, đọc hình ảnh (vision), embedding. https://aistudio.google.com/app/apikey',
-        },
-        groq: {
-          apiKey: 'Khóa API Groq',
-          description: 'Khả năng: Tạo văn bản, suy luận. https://console.groq.com',
         },
         anthropic: {
           apiKey: 'Khóa API Anthropic',
