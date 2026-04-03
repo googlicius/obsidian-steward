@@ -126,7 +126,7 @@ export class EncryptionService {
   /**
    * Get the decrypted API key for a specific provider
    * Supports both direct encrypted keys and Obsidian SecretStorage
-   * @param provider - The provider to get the API key for (e.g., 'openai', 'elevenlabs', 'deepseek', 'google', 'groq')
+   * @param provider - Settings key for the provider (e.g. 'openai', or a custom provider key)
    * @returns The decrypted API key or empty string if not set
    */
   public getDecryptedApiKey(provider: string): string {
@@ -155,7 +155,7 @@ export class EncryptionService {
 
   /**
    * Securely set and encrypt an API key for a specific provider
-   * @param provider - The provider to set the API key for (e.g., 'openai', 'elevenlabs', 'deepseek', 'google', 'groq')
+   * @param provider - Settings key for the provider (e.g. 'openai', or a custom provider key)
    * @param apiKey - The API key to encrypt and store
    */
   public async setEncryptedApiKey(provider: string, apiKey: string): Promise<void> {

@@ -53,6 +53,13 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       }),
       validateImageSupport: jest.fn(),
     },
+    mcpService: {
+      getMcpToolsForConversation: jest.fn().mockResolvedValue({
+        active: {} as Record<string, unknown>,
+        inactive: {} as Record<string, unknown>,
+      }),
+      isMCPToolName: jest.fn().mockReturnValue(false),
+    },
     abortService: {
       createAbortController: jest.fn().mockReturnValue(new AbortController()),
     },

@@ -13,7 +13,11 @@ import { applyMixins } from 'src/utils/applyMixins';
 import * as handlers from '../handlers';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { createStepProcessedQuery } from './stepProcessedQuery';
-import { type AgentToolsRecord, loadSuperAgentToolsBase, SUPER_AGENT_TOOL_NAMES } from '../agentTools';
+import {
+  type AgentToolsRecord,
+  loadSuperAgentToolsBase,
+  SUPER_AGENT_TOOL_NAMES,
+} from '../agentTools';
 import type { AgentCorePromptContext } from '../../Agent';
 
 const SUPER_AGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUPER_AGENT_TOOL_NAMES;
@@ -430,8 +434,6 @@ NOTE:
       ],
     });
   }
-
-
 
   private async getSuperAgentTools(conversationTitle: string): Promise<AgentToolsRecord> {
     const baseTools = await loadSuperAgentToolsBase();

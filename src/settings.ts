@@ -175,9 +175,7 @@ class StewardSettingTab extends PluginSettingTab {
 
     // Display built-in providers
     this.createProviderSetting(providerSettingGroup.settingItems, 'openai');
-    this.createProviderSetting(providerSettingGroup.settingItems, 'deepseek');
     this.createProviderSetting(providerSettingGroup.settingItems, 'google');
-    this.createProviderSetting(providerSettingGroup.settingItems, 'groq');
     this.createProviderSetting(providerSettingGroup.settingItems, 'anthropic');
     this.createProviderSetting(providerSettingGroup.settingItems, 'ollama');
     this.createProviderSetting(providerSettingGroup.settingItems, 'elevenlabs');
