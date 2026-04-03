@@ -158,7 +158,7 @@ export class MCPService {
         if (!(file instanceof TFile) || !this.isMCPDefinitionPath(file.path)) {
           return;
         }
-        this.loadDefinitionFromFile(file);
+        void this.loadDefinitionFromFile(file);
       })
     );
 
@@ -167,7 +167,7 @@ export class MCPService {
         if (!(file instanceof TFile) || !this.isMCPDefinitionPath(file.path)) {
           return;
         }
-        this.loadDefinitionFromFile(file);
+        void this.loadDefinitionFromFile(file);
       })
     );
 
@@ -177,6 +177,17 @@ export class MCPService {
           return;
         }
         this.removeDefinitionByPath(file.path);
+      })
+    );
+
+    this.plugin.registerEvent(
+      this.plugin.app.vault.on('rename', (file, oldPath) => {
+        if (this.isMCPDefinitionPath(oldPath)) {
+          this.removeDefinitionByPath(oldPath);
+        }
+        if (file instanceof TFile && this.isMCPDefinitionPath(file.path)) {
+          void this.loadDefinitionFromFile(file);
+        }
       })
     );
   }

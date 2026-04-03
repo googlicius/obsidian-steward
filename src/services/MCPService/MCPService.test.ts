@@ -17,6 +17,9 @@ function createMockPlugin(): StewardPlugin {
     registerEvent: jest.fn(),
     app: {
       workspace: { onLayoutReady: jest.fn() },
+      metadataCache: {
+        on: jest.fn().mockReturnValue({}),
+      },
       vault: {
         on: jest.fn().mockReturnValue({}),
         cachedRead: jest.fn(),
