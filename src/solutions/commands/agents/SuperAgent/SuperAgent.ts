@@ -13,7 +13,11 @@ import { applyMixins } from 'src/utils/applyMixins';
 import * as handlers from '../handlers';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { createStepProcessedQuery } from './stepProcessedQuery';
-import { type AgentToolsRecord, loadSuperAgentToolsBase, SUPER_AGENT_TOOL_NAMES } from '../agentTools';
+import {
+  type AgentToolsRecord,
+  loadSuperAgentToolsBase,
+  SUPER_AGENT_TOOL_NAMES,
+} from '../agentTools';
 import type { AgentCorePromptContext } from '../../Agent';
 
 const SUPER_AGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUPER_AGENT_TOOL_NAMES;
@@ -431,8 +435,6 @@ NOTE:
     });
   }
 
-
-
   private async getSuperAgentTools(conversationTitle: string): Promise<AgentToolsRecord> {
     const baseTools = await loadSuperAgentToolsBase();
     const mcp = await this.plugin.mcpService.getMcpToolsForConversation(conversationTitle);
@@ -624,13 +626,24 @@ NOTE:
 
     // createdBy: udc
     // Create new intent with only the next step's metadata
-    // Do NOT inherit step-specific fields (model, systemPrompts, no_confirm) from current step
+    // Do NOT inherit step-specific fields (model, systemPrompts, no_confirm) from current step.
+    // Tool allowlist is command-level: keep it on every step. Recursive handle() does not re-run
+    // safeHandle/resolveIntentTools, so we must set tools here or fall back to frontmatter.
+    let commandLevelTools = currentIntent.tools;
+    if (!commandLevelTools || commandLevelTools.length === 0) {
+      commandLevelTools = await this.renderer.getConversationProperty<ToolName[]>(
+        title,
+        'allowed_tools'
+      );
+    }
+
     return {
       query: nextStep.task,
       type: nextStep.type ?? '',
       model: nextStep.model,
       systemPrompts: nextStep.systemPrompts,
       no_confirm: nextStep.no_confirm,
+      tools: commandLevelTools && commandLevelTools.length > 0 ? commandLevelTools : undefined,
     };
   }
 

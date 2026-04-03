@@ -277,7 +277,8 @@ export class UserDefinedCommandService {
         }
       }
 
-      const validForStatus = definitionValid && validationErrors.length === 0 && yamlBlocks.length > 0;
+      const validForStatus =
+        definitionValid && validationErrors.length === 0 && yamlBlocks.length > 0;
       await this.applyUdcValidationFrontmatter(parsedDoc, file, {
         valid: validForStatus,
         errorMessages: validForStatus ? [] : statusErrorMessages,

@@ -20,10 +20,8 @@ const context = await esbuild.context({
   external: [
     'ai',
     '@ai-sdk/anthropic',
-    '@ai-sdk/deepseek',
     '@ai-sdk/elevenlabs',
     '@ai-sdk/google',
-    '@ai-sdk/groq',
     '@ai-sdk/hume',
     '@ai-sdk/openai',
     '@ai-sdk/openai-compatible',

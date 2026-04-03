@@ -120,9 +120,7 @@ steps:
         basename: 'test-udc',
         extension: 'md',
       });
-      mockPlugin.app.vault.cachedRead = jest
-        .fn()
-        .mockResolvedValue(udcNoteBody(validV2Yaml));
+      mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue(udcNoteBody(validV2Yaml));
 
       const fm: Record<string, unknown> = {};
       mockPlugin.app.fileManager.processFrontMatter = jest

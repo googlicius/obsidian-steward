@@ -17,6 +17,9 @@ function createMockPlugin(): StewardPlugin {
     registerEvent: jest.fn(),
     app: {
       workspace: { onLayoutReady: jest.fn() },
+      metadataCache: {
+        on: jest.fn().mockReturnValue({}),
+      },
       vault: {
         on: jest.fn().mockReturnValue({}),
         cachedRead: jest.fn(),
@@ -386,24 +389,26 @@ not json
       const echoTool = { execute: jest.fn() };
       const pingTool = { execute: jest.fn() };
       (getBundledLib as jest.Mock).mockResolvedValue({
-        createMCPClient: jest.fn().mockImplementation(async ({ transport }: { transport: { url: string } }) => ({
-          tools: jest.fn().mockImplementation(async () => {
-            if (transport.url === 'http://a') {
-              return { echo: echoTool };
-            }
-            if (transport.url === 'http://b') {
-              return { ping: pingTool };
-            }
-            return {};
-          }),
-          close: jest.fn().mockResolvedValue(undefined),
-        })),
+        createMCPClient: jest
+          .fn()
+          .mockImplementation(async ({ transport }: { transport: { url: string } }) => ({
+            tools: jest.fn().mockImplementation(async () => {
+              if (transport.url === 'http://a') {
+                return { echo: echoTool };
+              }
+              if (transport.url === 'http://b') {
+                return { ping: pingTool };
+              }
+              return {};
+            }),
+            close: jest.fn().mockResolvedValue(undefined),
+          })),
       });
 
       const { active, inactive } = await service.getMcpToolsForConversation('Chat 1');
 
-      expect(active).toEqual({ 'mcp__srv_a__echo': echoTool });
-      expect(inactive).toEqual({ 'mcp__srv_b__ping': pingTool });
+      expect(active).toEqual({ mcp__srv_a__echo: echoTool });
+      expect(inactive).toEqual({ mcp__srv_b__ping: pingTool });
     });
 
     it('skips definitions that are disabled or have no config', async () => {
@@ -453,7 +458,7 @@ not json
 
       expect(getBundledLib).toHaveBeenCalledTimes(1);
       expect(active).toEqual({});
-      expect(inactive).toEqual({ 'mcp__ok__t': onlyTool });
+      expect(inactive).toEqual({ mcp__ok__t: onlyTool });
     });
 
     it('skips definitions where server connection fails', async () => {
@@ -483,20 +488,22 @@ not json
 
       const goodTool = { execute: jest.fn() };
       (getBundledLib as jest.Mock).mockResolvedValue({
-        createMCPClient: jest.fn().mockImplementation(async ({ transport }: { transport: { url: string } }) => {
-          if (transport.url === 'http://bad') {
-            throw new Error('connection refused');
-          }
-          return {
-            tools: jest.fn().mockResolvedValue({ u: goodTool }),
-            close: jest.fn().mockResolvedValue(undefined),
-          };
-        }),
+        createMCPClient: jest
+          .fn()
+          .mockImplementation(async ({ transport }: { transport: { url: string } }) => {
+            if (transport.url === 'http://bad') {
+              throw new Error('connection refused');
+            }
+            return {
+              tools: jest.fn().mockResolvedValue({ u: goodTool }),
+              close: jest.fn().mockResolvedValue(undefined),
+            };
+          }),
       });
 
       const { inactive } = await service.getMcpToolsForConversation('Y');
 
-      expect(inactive).toEqual({ 'mcp__good__u': goodTool });
+      expect(inactive).toEqual({ mcp__good__u: goodTool });
       expect(Object.keys(inactive)).toHaveLength(1);
       expect(logger.warn).toHaveBeenCalledWith(
         'Failed to connect MCP server for Steward/MCP/bad-conn.md',

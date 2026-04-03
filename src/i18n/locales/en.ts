@@ -38,7 +38,8 @@ const en = {
       statusInvalid: 'Invalid: {{errors}}',
     },
     mcp: {
-      noConfigBlock: 'Add a ```json``` block with transport (http or sse), url, and optional headers.',
+      noConfigBlock:
+        'Add a ```json``` block with transport (http or sse), url, and optional headers.',
       invalidJson: 'Invalid JSON in MCP config block: {{message}}',
     },
     trigger: {
@@ -578,18 +579,10 @@ const en = {
           apiKey: 'ElevenLabs API key',
           description: 'Capabilities: Speech generation (TTS). https://elevenlabs.io',
         },
-        deepseek: {
-          apiKey: 'DeepSeek API key',
-          description: 'Capabilities: Text generation, reasoning. https://platform.deepseek.com',
-        },
         google: {
           apiKey: 'Google API key',
           description:
             'Capabilities: Text generation, image input (vision), embedding. https://aistudio.google.com/app/apikey',
-        },
-        groq: {
-          apiKey: 'Groq API key',
-          description: 'Capabilities: Text generation, reasoning. https://console.groq.com',
         },
         anthropic: {
           apiKey: 'Anthropic API key',
