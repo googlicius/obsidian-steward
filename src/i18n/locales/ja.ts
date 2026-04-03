@@ -66,6 +66,7 @@ const ja = {
       conversationClosed: '会話を閉じました',
       newVersionAvailable: '新しいバージョンが利用可能',
       newVersionMessage: 'Stewardの新しいバージョン（{{version}}）が利用可能になりました！',
+      modelCompletionCurrentMark: '（現在）',
     },
     vault: {
       fileAlreadyInDestination: 'ファイルはすでに移動先に存在します',

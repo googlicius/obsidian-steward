@@ -67,23 +67,18 @@ export function createModelCompletionSource(plugin: StewardPlugin) {
     const allModels = getAllModels(plugin);
     const currentModel = plugin.settings.llm.chat.model;
 
-    const duplicateIds = new Set(
-      allModels
-        .map(m => plugin.llmService.parseModel(m.id).modelId)
-        .filter((id, _, arr) => arr.indexOf(id) !== arr.lastIndexOf(id))
-    );
-
     const options: Completion[] = allModels.map(model => {
       const { provider, modelId } = plugin.llmService.parseModel(model.id);
       const isCurrent = model.id === currentModel;
-      const displayName = duplicateIds.has(modelId) ? `${modelId} - ${provider}` : modelId;
-      const label =
-        displayName.length > 25
-          ? `${displayName.slice(0, 25)}...${isCurrent ? ' (Current)' : ''}`
-          : `${displayName}${isCurrent ? ' (Current)' : ''}`;
+      const displayLabel =
+        modelId.length > 25
+          ? `${modelId.slice(0, 25)}...${isCurrent ? ' (Current)' : ''}`
+          : `${modelId}${isCurrent ? ' (Current)' : ''}`;
 
       return {
-        label,
+        label: modelId,
+        displayLabel,
+        section: provider,
         type: 'constant' as const,
         apply: (view, _completion, from, to) => {
           const lineNumber = view.state.doc.lineAt(from).number;

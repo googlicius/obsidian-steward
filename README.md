@@ -51,23 +51,23 @@ Steward can be used directly in the editor or by opening the chat interface.
 
 #### Update directly in the editor
 
-<img src="/docs/images/Update-In-Editor.gif" alt="Update directly in the editor" width="400px">
+<img src="/README.assets/Update-In-Editor.gif" alt="Update directly in the editor" width="400px">
 
 #### Reasoning
 
-<img src="/docs/images/Steward-Demo-Reasoning-2.gif" alt="Image read" width="400px">
+<img src="/README.assets/Steward-Demo-Reasoning-2.gif" alt="Image read" width="400px">
 
 #### To-do list and revert changes
 
-<img src="/docs/images/Steward-Demo-Todo-list-and-revert.gif" alt="Revert" width="400px">
+<img src="/README.assets/Steward-Demo-Todo-list-and-revert.gif" alt="Revert" width="400px">
 
 #### Update the selection
 
-<img src="/docs/images/Stw-Demo-Update-selected-text-complex.gif" alt="Update selection" width="650px">
+<img src="/README.assets/Stw-Demo-Update-selected-text-complex.gif" alt="Update selection" width="650px">
 
 #### Search
 
-<img src="/docs/images/Stw-Demo-Search-light.gif" alt="Search" width="650px">
+<img src="/README.assets/Stw-Demo-Search-light.gif" alt="Search" width="650px">
 
 ## Skills
 
@@ -85,7 +85,7 @@ You can find ready-to-use skills from the community, such as [Obsidian Skills](h
 
 For more details, see the [Skills wiki](https://github.com/googlicius/obsidian-steward/wiki/Skills).
 
-<img src="/docs/images/Skills.gif" alt="Skills" width="650px">
+<img src="/README.assets/Skills.gif" alt="Skills" width="650px">
 
 ## Guardrails
 
@@ -95,13 +95,15 @@ For more details, see the [Guardrails wiki](https://github.com/googlicius/obsidi
 
 You can use the [Guardrails skill](https://github.com/googlicius/obsidian-steward/tree/main/skills/guardrails) to create and edit rules in natural language. Activate the skill and ask Steward to set up or modify rules for you.
 
-<img src="/docs/images/Steward-Demo-Guardrails.gif" alt="Guardrails" width="650px">
+<img src="/README.assets/Steward-Demo-Guardrails.gif" alt="Guardrails" width="650px">
 
 ## MCP
 
 Steward can connect to remote [Model Context Protocol](https://modelcontextprotocol.io/) servers. Define each server as a markdown note in the `Steward/MCP` folder with YAML frontmatter and a JSON configuration block (`transport`, `url`, optional `headers`). Use `$secret:name` placeholders in string values to pull credentials from Obsidian’s secret storage.
 
 For the full format, examples, and troubleshooting, see the [MCP wiki](https://github.com/googlicius/obsidian-steward/wiki/MCP).
+
+<img src="/README.assets/Steward-Demo-MCP.gif" alt="Guardrails" width="650px">
 
 ## User-defined commands
 
@@ -113,11 +115,11 @@ For the full guide on creating and using User-Defined Commands, see the [User-de
 
 #### Flashcard assist [Flashcard ask](/community-UDCs/Flashcard%20ask.md)
 
-<img src="/docs/images/Steward-Demo-Flashcard.gif" alt="Flashcard Assist" width="650px">
+<img src="/README.assets/Steward-Demo-Flashcard.gif" alt="Flashcard Assist" width="650px">
 
 #### Automated command [Word processor](/community-UDCs/Word%20processor.md)
 
-<img src="/docs/images/Steward-Demo-Automated.gif" alt="Automated workflow" width="650px">
+<img src="/README.assets/Steward-Demo-Automated.gif" alt="Automated workflow" width="650px">
 
 ### Community user-defined commands
 

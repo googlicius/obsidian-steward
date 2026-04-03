@@ -73,6 +73,7 @@ const en = {
       expandConversation: 'Expand conversation',
       newVersionAvailable: 'New version available',
       newVersionMessage: 'A new version of Steward ({{version}}) is now available!',
+      modelCompletionCurrentMark: ' (Current)',
     },
     // Media generation messages
     media: {
