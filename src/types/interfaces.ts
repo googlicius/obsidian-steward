@@ -1,4 +1,5 @@
 export interface StewardPluginSettings {
+  settingsSchemaVersion: number; // Version for sequential settings schema migrations
   mySetting: string;
   /**
    * Deprecated: use providers instead

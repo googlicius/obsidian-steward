@@ -43,7 +43,7 @@ export class GenerateTextExecutor {
   }
 
   protected buildToolInstructionsSystemPrompt(
-    registry: ToolRegistry<Partial<GenerateTextToolSet>>
+    registry: ToolRegistry<Record<string, unknown>>
   ): string {
     const guidelines = registry.generateGuidelinesSection();
     const inactiveTools = registry.generateOtherToolsSection('No inactive tools available.');
@@ -98,9 +98,24 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
       inactiveTools: inactiveForSubset,
       tools: toolsForModel,
     });
+    let activeMcpTools: Record<string, unknown> = {};
+    let inactiveMcpTools: Record<string, unknown> = {};
+    if (shouldUseTools) {
+      const mcpTools = await agent.plugin.mcpService.getMcpToolsForConversation(params.title);
+      activeMcpTools = mcpTools.active;
+      inactiveMcpTools = mcpTools.inactive;
+    }
+    const allActiveToolNames = shouldUseTools
+      ? [...activeToolNames, ...Object.keys(activeMcpTools)]
+      : [];
+    const toolsForRegistry = {
+      ...selectedTools,
+      ...(shouldUseTools ? inactiveMcpTools : {}),
+      ...(shouldUseTools ? activeMcpTools : {}),
+    };
 
-    const registry = ToolRegistry.buildFromTools(selectedTools)
-      .setActive(activeToolNames)
+    const registry = ToolRegistry.buildFromTools(toolsForRegistry)
+      .setActive(allActiveToolNames)
       .setAdditionalGuidelines(agent.plugin.guardrailsRuleService.getInstructionsByTool());
 
     const messages = [...conversationHistory];

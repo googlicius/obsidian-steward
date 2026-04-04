@@ -80,6 +80,7 @@ export class ActivateToolHandler {
       activeTools.push(...newActiveTools);
     }
 
+    console.log('Update active tools', activeTools);
     // Update params.activeTools to preserve changes during error retries
     params.activeTools = activeTools;
 

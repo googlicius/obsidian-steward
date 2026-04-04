@@ -5,9 +5,7 @@ import { BUNDLED_LIBS_LZ_B64 } from '../generated/bundledLibsPayload';
 export type BundledLibModules = {
   ai: typeof import('ai');
   anthropic: typeof import('@ai-sdk/anthropic');
-  deepseek: typeof import('@ai-sdk/deepseek');
   google: typeof import('@ai-sdk/google');
-  groq: typeof import('@ai-sdk/groq');
   hume: typeof import('@ai-sdk/hume');
   elevenLabs: typeof import('@ai-sdk/elevenlabs');
   ollama: typeof import('ollama-ai-provider-v2');

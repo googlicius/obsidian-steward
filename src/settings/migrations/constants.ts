@@ -1,0 +1,1 @@
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 2;

@@ -1,4 +1,5 @@
-import { TFolder } from 'obsidian';
+import { TFile, TFolder } from 'obsidian';
+import i18next from 'src/i18n';
 import { UserDefinedCommandService } from './UserDefinedCommandService';
 import type StewardPlugin from 'src/main';
 import { getInstance } from 'src/utils/getInstance';
@@ -89,6 +90,153 @@ describe('UserDefinedCommandService', () => {
 
   it('should be defined', () => {
     expect(userDefinedCommandService).toBeDefined();
+  });
+
+  describe('loadCommandFromFile', () => {
+    const commandFilePath = 'Steward/Commands/test-udc.md';
+
+    function udcNoteBody(yamlInner: string): string {
+      return ['```yaml', yamlInner.trim(), '```'].join('\n');
+    }
+
+    const validV2Yaml = `
+command_name: udc_load_test
+steps:
+  - name: read
+    query: test query
+`;
+
+    beforeEach(() => {
+      mockPlugin.app.vault.cachedRead = jest.fn();
+      mockPlugin.app.vault.modify = jest.fn().mockResolvedValue(undefined);
+      mockPlugin.app.fileManager = {
+        processFrontMatter: jest.fn().mockResolvedValue(undefined),
+      } as unknown as typeof mockPlugin.app.fileManager;
+    });
+
+    it('sets enabled: true and status to valid when frontmatter omits enabled and YAML is valid', async () => {
+      const file = getInstance(TFile, {
+        path: commandFilePath,
+        basename: 'test-udc',
+        extension: 'md',
+      });
+      mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue(udcNoteBody(validV2Yaml));
+
+      const fm: Record<string, unknown> = {};
+      mockPlugin.app.fileManager.processFrontMatter = jest
+        .fn()
+        .mockImplementation((_f, fn: (x: Record<string, unknown>) => void) => {
+          fn(fm);
+          return Promise.resolve();
+        });
+
+      await userDefinedCommandService['loadCommandFromFile'](file);
+
+      expect(fm.enabled).toBe(true);
+      expect(fm.status).toBe(i18next.t('common.statusValid'));
+      expect(userDefinedCommandService.hasCommand('udc_load_test')).toBe(true);
+    });
+
+    it('does not call processFrontMatter when enabled and status already match', async () => {
+      const file = getInstance(TFile, {
+        path: commandFilePath,
+        basename: 'test-udc',
+        extension: 'md',
+      });
+      const note = [
+        '---',
+        'enabled: true',
+        `status: ${JSON.stringify(i18next.t('common.statusValid'))}`,
+        '---',
+        '',
+        udcNoteBody(validV2Yaml),
+      ].join('\n');
+      mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue(note);
+
+      await userDefinedCommandService['loadCommandFromFile'](file);
+
+      expect(mockPlugin.app.fileManager.processFrontMatter).not.toHaveBeenCalled();
+      expect(userDefinedCommandService.hasCommand('udc_load_test')).toBe(true);
+    });
+
+    it('sets status to invalid when no yaml code block is present', async () => {
+      const file = getInstance(TFile, {
+        path: commandFilePath,
+        basename: 'test-udc',
+        extension: 'md',
+      });
+      mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue('# No command block\n');
+
+      const fm: Record<string, unknown> = {};
+      mockPlugin.app.fileManager.processFrontMatter = jest
+        .fn()
+        .mockImplementation((_f, fn: (x: Record<string, unknown>) => void) => {
+          fn(fm);
+          return Promise.resolve();
+        });
+
+      await userDefinedCommandService['loadCommandFromFile'](file);
+
+      expect(fm.enabled).toBe(true);
+      expect(fm.status).toBe(
+        i18next.t('common.statusInvalid', {
+          errors: i18next.t('validation.noCommandYamlBlock'),
+        })
+      );
+      expect(userDefinedCommandService.userDefinedCommands.size).toBe(0);
+    });
+
+    it('sets status to invalid when command YAML fails validation', async () => {
+      const file = getInstance(TFile, {
+        path: commandFilePath,
+        basename: 'test-udc',
+        extension: 'md',
+      });
+      const badYaml = `
+command_name: invalid name
+steps:
+  - query: x
+`;
+      mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue(udcNoteBody(badYaml));
+
+      const fm: Record<string, unknown> = {};
+      mockPlugin.app.fileManager.processFrontMatter = jest
+        .fn()
+        .mockImplementation((_f, fn: (x: Record<string, unknown>) => void) => {
+          fn(fm);
+          return Promise.resolve();
+        });
+
+      await userDefinedCommandService['loadCommandFromFile'](file);
+
+      expect(fm.enabled).toBe(true);
+      expect(fm.status).not.toBe(i18next.t('common.statusValid'));
+      expect(String(fm.status)).toContain('Invalid');
+      expect(userDefinedCommandService.hasCommand('invalid name')).toBe(false);
+    });
+
+    it('does not register the command when enabled is false but still records valid status', async () => {
+      const file = getInstance(TFile, {
+        path: commandFilePath,
+        basename: 'test-udc',
+        extension: 'md',
+      });
+      const note = ['---', 'enabled: false', '---', '', udcNoteBody(validV2Yaml)].join('\n');
+      mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue(note);
+
+      const fm: Record<string, unknown> = {};
+      mockPlugin.app.fileManager.processFrontMatter = jest
+        .fn()
+        .mockImplementation((_f, fn: (x: Record<string, unknown>) => void) => {
+          fn(fm);
+          return Promise.resolve();
+        });
+
+      await userDefinedCommandService['loadCommandFromFile'](file);
+
+      expect(fm.status).toBe(i18next.t('common.statusValid'));
+      expect(userDefinedCommandService.hasCommand('udc_load_test')).toBe(false);
+    });
   });
 
   describe('removeCommandsFromFile', () => {

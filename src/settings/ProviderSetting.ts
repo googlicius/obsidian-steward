@@ -15,9 +15,7 @@ const t = getTranslation(lang);
 const PROVIDER_CONFIG: Record<ProviderNeedApiKey, { displayName: string }> = {
   openai: { displayName: 'OpenAI' },
   elevenlabs: { displayName: 'ElevenLabs' },
-  deepseek: { displayName: 'DeepSeek' },
   google: { displayName: 'Google' },
-  groq: { displayName: 'Groq' },
   anthropic: { displayName: 'Anthropic' },
   ollama: { displayName: 'Ollama' },
   hume: { displayName: 'Hume' },
@@ -27,9 +25,7 @@ const PROVIDER_CONFIG: Record<ProviderNeedApiKey, { displayName: string }> = {
 const BUILT_IN_PROVIDERS: ProviderNeedApiKey[] = [
   'openai',
   'elevenlabs',
-  'deepseek',
   'google',
-  'groq',
   'anthropic',
   'ollama',
   'hume',

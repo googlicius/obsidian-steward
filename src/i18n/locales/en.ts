@@ -34,6 +34,13 @@ const en = {
       modelDoesNotSupportImageInputs:
         'Model {{model}} does not support image inputs. Please use a vision-capable model (e.g., gpt-4o, gemini-pro, claude-3-sonnet).',
       invalidOrDynamicToolCall: 'Model returned a dynamic or invalid tool call: "{{toolName}}".',
+      statusValid: '✅ Valid',
+      statusInvalid: 'Invalid: {{errors}}',
+    },
+    mcp: {
+      noConfigBlock:
+        'Add a ```json``` block with transport (http or sse), url, and optional headers.',
+      invalidJson: 'Invalid JSON in MCP config block: {{message}}',
     },
     trigger: {
       executing: 'Command "{{commandName}}" is executing.',
@@ -50,6 +57,7 @@ const en = {
       commandError: 'Command: {{commandName}}',
       yamlError: 'Invalid YAML syntax',
       successMessage: 'All command definitions are valid! ✅',
+      noCommandYamlBlock: 'No ```yaml``` command definition block found in the note.',
     },
     // Chat UI elements
     chat: {
@@ -65,6 +73,7 @@ const en = {
       expandConversation: 'Expand conversation',
       newVersionAvailable: 'New version available',
       newVersionMessage: 'A new version of Steward ({{version}}) is now available!',
+      modelCompletionCurrentMark: ' (Current)',
     },
     // Media generation messages
     media: {
@@ -130,8 +139,6 @@ const en = {
     guardrails: {
       rules: 'Rules',
       noRulesDefined: 'No guardrails rules defined.',
-      statusValid: '✅ Valid',
-      statusInvalid: 'Invalid: {{errors}}',
       violation:
         'Action blocked by guardrails. Rules: {{rules}}. Paths: {{paths}}. Blocked actions: {{actions}}. Stop processing or try other actions that are not in the blocked list.',
       violationHuman: 'Action blocked by guardrails. Rules: {{rules}}. Paths: {{paths}}.',
@@ -573,18 +580,10 @@ const en = {
           apiKey: 'ElevenLabs API key',
           description: 'Capabilities: Speech generation (TTS). https://elevenlabs.io',
         },
-        deepseek: {
-          apiKey: 'DeepSeek API key',
-          description: 'Capabilities: Text generation, reasoning. https://platform.deepseek.com',
-        },
         google: {
           apiKey: 'Google API key',
           description:
             'Capabilities: Text generation, image input (vision), embedding. https://aistudio.google.com/app/apikey',
-        },
-        groq: {
-          apiKey: 'Groq API key',
-          description: 'Capabilities: Text generation, reasoning. https://console.groq.com',
         },
         anthropic: {
           apiKey: 'Anthropic API key',

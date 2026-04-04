@@ -269,14 +269,20 @@ export class CommandInputService {
   }
 
   public isContinuationLine(text: string): boolean {
-    let start = 0;
-    for (; start < text.length; start++) {
-      if (text.charAt(start) !== '\t') break;
-    }
+    const start = this.getLeadingTabCount(text);
     const withoutLeadingTabs = text.slice(start);
     return (
       withoutLeadingTabs.startsWith(TWO_SPACES_PREFIX) && !withoutLeadingTabs.startsWith('   ')
     );
+  }
+
+  /** Count of leading tab characters (for continuation-line indent). */
+  public getLeadingTabCount(text: string): number {
+    let start = 0;
+    for (; start < text.length; start++) {
+      if (text.charAt(start) !== '\t') break;
+    }
+    return start;
   }
 
   public isGeneralCommandLine(line: Line): boolean {

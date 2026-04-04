@@ -47,9 +47,9 @@ export class ToolCallExecutor {
         });
       };
 
-      if (toolCall.dynamic) {
+      const dynamicToolCall = toolCall as unknown as DynamicToolCall;
+      if (toolCall.dynamic && dynamicToolCall.error) {
         const prevToolCall = index > 0 ? params.toolCalls[index - 1] : undefined;
-        const dynamicToolCall = toolCall as unknown as DynamicToolCall;
         const isNoSuchToolAfterActivate =
           prevToolCall &&
           !prevToolCall.dynamic &&
@@ -168,6 +168,14 @@ export class ToolCallExecutor {
         }
 
         default: {
+          if (agent.plugin.mcpService.isMCPToolName(toolCall.toolName as string)) {
+            toolCallResult = await agent.mcpToolHandler.handle(params.agentParams, {
+              toolCall,
+              messages: [],
+            });
+            break;
+          }
+
           const streamInfo =
             params.toolContentStreamInfo?.toolCallId === toolCall.toolCallId
               ? params.toolContentStreamInfo

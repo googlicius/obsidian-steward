@@ -14,7 +14,7 @@ jest.mock('../agentTools', () => {
   ] as const;
   return {
     SUPER_AGENT_TOOL_NAMES: new Set(keys),
-    getSuperAgentTools: async () => ({}),
+    loadSuperAgentToolsBase: async () => ({}),
   };
 });
 

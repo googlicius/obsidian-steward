@@ -1,4 +1,4 @@
 #!/bin/sh
 while true; do
-  timeout 10s ollama pull deepseek-r1
+  timeout 10s ollama pull gemma4:latest
 done

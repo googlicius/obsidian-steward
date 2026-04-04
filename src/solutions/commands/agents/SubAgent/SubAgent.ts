@@ -8,7 +8,7 @@ import { applyMixins } from 'src/utils/applyMixins';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { Handlers } from '../components/Handlers';
 import * as components from '../components';
-import { getSubagentTools, SUBAGENT_TOOL_NAMES } from '../agentTools';
+import { type AgentToolsRecord, loadSubagentToolsBase, SUBAGENT_TOOL_NAMES } from '../agentTools';
 import type { AgentCorePromptContext } from '../../Agent';
 
 const SUBAGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUBAGENT_TOOL_NAMES;
@@ -59,7 +59,7 @@ Rules:
   ): Promise<AgentResult> {
     const handlerId = params.handlerId ?? uniqueID();
     const remainingSteps = options.remainingSteps ?? 12;
-    const tools = await getSubagentTools();
+    const tools = await this.getSubagentTools(params.title);
 
     if (remainingSteps <= 0) {
       return { status: IntentResultStatus.SUCCESS };
@@ -118,6 +118,16 @@ Rules:
     return this.handle(params, {
       remainingSteps: nextRemainingSteps,
     });
+  }
+
+  private async getSubagentTools(conversationTitle: string): Promise<AgentToolsRecord> {
+    const baseTools = await loadSubagentToolsBase();
+    const mcp = await this.plugin.mcpService.getMcpToolsForConversation(conversationTitle);
+    return {
+      ...baseTools,
+      ...mcp.inactive,
+      ...mcp.active,
+    } as AgentToolsRecord;
   }
 
   public async serializeInvocation<T>(params: {

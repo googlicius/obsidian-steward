@@ -30,6 +30,12 @@ const vi = {
         'Mô hình {{model}} không hỗ trợ đọc hình ảnh. Vui lòng sử dụng mô hình có khả năng xử lý hình ảnh (ví dụ: gpt-4o, gemini-pro, claude-3-sonnet).',
       invalidOrDynamicToolCall:
         'Mô hình đã trả về lệnh gọi công cụ không hợp lệ hoặc động (dynamic): "{{toolName}}".',
+      statusValid: '✅ Hợp lệ',
+      statusInvalid: 'Không hợp lệ: {{errors}}',
+    },
+    mcp: {
+      noConfigBlock: 'Thêm khối ```json``` gồm transport (http hoặc sse), url và tùy chọn headers.',
+      invalidJson: 'JSON trong khối cấu hình MCP không hợp lệ: {{message}}',
     },
     trigger: {
       executing: 'Đang thực thi trigger cho lệnh: {{commandName}}',
@@ -44,6 +50,7 @@ const vi = {
       commandError: 'Lệnh: {{commandName}}',
       yamlError: 'Cú pháp YAML không hợp lệ',
       successMessage: 'Tất cả các định nghĩa lệnh đều hợp lệ! ✅',
+      noCommandYamlBlock: 'Không tìm thấy khối định nghĩa lệnh ```yaml``` trong ghi chú.',
     },
     // Chat UI elements
     chat: {
@@ -106,8 +113,6 @@ const vi = {
     guardrails: {
       rules: 'Quy tắc',
       noRulesDefined: 'Chưa có quy tắc guardrails nào.',
-      statusValid: '✅ Hợp lệ',
-      statusInvalid: 'Không hợp lệ: {{errors}}',
       violation:
         'Hành động bị chặn bởi guardrails. Quy tắc: {{rules}}. Đường dẫn: {{paths}}. Hành động bị chặn: {{actions}}. Dừng xử lý hoặc thử các hành động khác không nằm trong danh sách bị chặn.',
       violationHuman: 'Hành động bị chặn bởi guardrails. Quy tắc: {{rules}}. Đường dẫn: {{paths}}.',
@@ -504,18 +509,10 @@ const vi = {
           apiKey: 'Khóa API ElevenLabs',
           description: 'Khả năng: Tạo giọng nói (TTS). https://elevenlabs.io',
         },
-        deepseek: {
-          apiKey: 'Khóa API DeepSeek',
-          description: 'Khả năng: Tạo văn bản, suy luận. https://platform.deepseek.com',
-        },
         google: {
           apiKey: 'Khóa API Google',
           description:
             'Khả năng: Tạo văn bản, đọc hình ảnh (vision), embedding. https://aistudio.google.com/app/apikey',
-        },
-        groq: {
-          apiKey: 'Khóa API Groq',
-          description: 'Khả năng: Tạo văn bản, suy luận. https://console.groq.com',
         },
         anthropic: {
           apiKey: 'Khóa API Anthropic',
