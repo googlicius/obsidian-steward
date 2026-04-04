@@ -103,7 +103,7 @@ Steward can connect to remote [Model Context Protocol](https://modelcontextproto
 
 For the full format, examples, and troubleshooting, see the [MCP wiki](https://github.com/googlicius/obsidian-steward/wiki/MCP).
 
-<img src="/README.assets/Steward-Demo-MCP.gif" alt="Guardrails" width="650px">
+<img src="/README.assets/Steward-Demo-MCP.gif" alt="MCP" width="650px">
 
 ## User-defined commands
 
