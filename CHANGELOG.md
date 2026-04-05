@@ -23,7 +23,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Moved model selection section to settings; moved GIF to README.assets folder.
 
-[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.4.0...2.6.0)
+[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.5.1...2.6.0)
+
+## [2.5.1] - 2026-03-26
+
+### Changed
+
+- Add a user message before the creating to-do list tool call.
+- **Command input**: ArrowDown newline on last line; Backspace merge continuation.
+
+[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.5.0...2.5.1)
+
+## [2.5.0] - 2026-03-22
+
+### Added
+
+- **Performance**: Defer AI-SDK parsing to improve startup time.
+
+[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.4.0...2.5.0)
 
 ## [2.4.0] - 2026-03-18
 
