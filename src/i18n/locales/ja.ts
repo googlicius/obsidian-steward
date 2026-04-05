@@ -20,6 +20,14 @@ const ja = {
       imageDesc: '画像を生成する',
       speechDesc: 'テキストから音声を生成する',
       disabledMark: '（無効）',
+      helpTableCommand: 'コマンド',
+      helpTableDescription: '説明',
+      helpTableNote: 'ノート',
+      helpTableName: '名前',
+      helpTableStatus: '状態',
+      helpStatusEnabled: '有効',
+      helpStatusDisabled: '無効',
+      helpTableServerId: 'サーバー ID',
       cannotDeleteThisType: 'この種類のアーティファクトは削除できません: {{type}}',
       cannotRevertThisType: 'この種類のアーティファクトは元に戻せません: {{type}}',
       thisNote: 'このノート',
@@ -38,6 +46,10 @@ const ja = {
       noConfigBlock:
         'transport（http または sse）、url、必要に応じて headers を含む ```json``` ブロックを追加してください。',
       invalidJson: 'MCP 設定ブロックの JSON が不正です: {{message}}',
+      helpSection: 'MCP サーバー',
+      noServers:
+        'MCP サーバーが見つかりません。`{{folder}}` 以下に定義ノート（Markdown）を追加し、必要に応じてプラグインを再読み込みしてください。',
+      helpNoteAlias: 'MCP',
     },
     trigger: {
       executing: 'トリガーコマンドを実行中: {{commandName}}',
@@ -129,6 +141,8 @@ const ja = {
     skills: {
       skills: 'スキル',
       noSkills: 'スキルが読み込まれていません。下のスキルガイドラインを参照して始めてください。',
+      scaffoldDefaultName: 'new-skill',
+      scaffoldDefaultDescription: 'このスキルが何の役に立つか説明してください。',
     },
     rename: {
       processed: '{{count}}件のリネーム指示を処理しました。',
@@ -316,6 +330,7 @@ const ja = {
       udcGuideline: 'ユーザー定義コマンドガイドライン',
       skillsGuideline: 'スキルガイドライン',
       guardrailsGuideline: 'ガードレール',
+      mcpGuideline: 'MCP サーバー',
       tipNewLines: '`Shift+Enter`で改行を追加',
       tipChangeModel: '`m:` または `model:` でモデルを変更',
       tipAttachContext: '`@` でファイル/フォルダを添付',

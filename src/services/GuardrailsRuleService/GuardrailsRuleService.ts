@@ -1,5 +1,4 @@
 import { TFile, TFolder } from 'obsidian';
-import { parseYaml } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import i18next from 'src/i18n';
 import { logger } from 'src/utils/logger';
@@ -146,9 +145,9 @@ export class GuardrailsRuleService {
 
       if (!frontmatter) {
         const content = await this.plugin.app.vault.cachedRead(file);
-        const match = content.match(/^---\s*\n([\s\S]*?)\n---/);
-        if (match) {
-          frontmatter = parseYaml(match[1]) as Record<string, unknown> | null;
+        const parsed = this.plugin.noteContentService.parseMarkdownFrontmatter(content);
+        if (Object.keys(parsed.frontmatter).length > 0) {
+          frontmatter = parsed.frontmatter;
         }
       }
 

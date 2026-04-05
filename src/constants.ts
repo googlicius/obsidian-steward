@@ -279,6 +279,7 @@ export const WIKI_PAGES = {
   USER_DEFINED_COMMANDS: 'User-defined-commands',
   SKILLS: 'Skills',
   GUARDRAILS: 'Guardrails',
+  MCP: 'MCP',
 } as const;
 
 // Community user-defined commands available for lazy loading from GitHub

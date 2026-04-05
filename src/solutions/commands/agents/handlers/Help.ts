@@ -17,6 +17,29 @@ const helpSchema = z.object({});
 
 export type HelpArgs = z.infer<typeof helpSchema>;
 
+/** Normalizes cell text; pipes stay literal so `[[path|alias]]` wikilinks work in Obsidian tables. */
+function normalizeMarkdownTableCell(value: string): string {
+  return value.replace(/\r?\n/g, ' ');
+}
+
+function formatMarkdownTable(headers: string[], rows: string[][]): string {
+  if (rows.length === 0) {
+    return '';
+  }
+  const lines: string[] = [];
+  lines.push(`| ${headers.map(normalizeMarkdownTableCell).join(' | ')} |`);
+  lines.push(`| ${headers.map(() => '---').join(' | ')} |`);
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    lines.push(`| ${row.map(normalizeMarkdownTableCell).join(' | ')} |`);
+  }
+  return `${lines.join('\n')}\n`;
+}
+
+function wikilinkInTable(path: string, displayName: string): string {
+  return `[[${path}\\|${displayName}]]`;
+}
+
 export class Help {
   constructor(private readonly agent: AgentHandlerContext) {}
 
@@ -43,75 +66,121 @@ export class Help {
     }
 
     try {
-      // Format the commands list
       let content = '';
 
-      // Add built-in commands section with descriptions
       content += `### ${t('common.builtInCommands')}\n\n`;
 
-      // List of built-in commands with descriptions
       const builtInCommandsWithDescriptions: BuiltInCommand[] = [
         { command: '`/search`', description: t('common.searchDesc') },
         { command: '`/image`', description: t('common.imageDesc') },
         { command: '`/speech`', description: t('common.speechDesc') },
       ];
 
-      // Add built-in commands to content
-      for (const cmd of builtInCommandsWithDescriptions) {
-        content += `- ${cmd.command} - ${cmd.description}\n`;
+      const builtInRows: string[][] = [];
+      for (let i = 0; i < builtInCommandsWithDescriptions.length; i++) {
+        const cmd = builtInCommandsWithDescriptions[i];
+        builtInRows.push([cmd.command, cmd.description]);
       }
+      content += formatMarkdownTable(
+        [t('common.helpTableCommand'), t('common.helpTableDescription')],
+        builtInRows
+      );
       content += `\n*${t('common.builtInCommandsDesc')}*\n`;
 
-      // Add user-defined commands section if any exist
       const userDefinedCommands = this.agent.plugin.userDefinedCommandService.userDefinedCommands;
       content += `\n### ${t('common.userDefinedCommands')}\n\n`;
       if (userDefinedCommands.size > 0) {
-        // Convert Map to array
         const sortedCommands = Array.from(userDefinedCommands.entries());
-
-        for (const [cmdName, cmdDef] of sortedCommands) {
-          const file = this.agent.app.vault.getFileByPath(cmdDef.normalized.file_path);
-          const fileName = file ? file.basename : cmdDef.normalized.file_path;
+        const udcRows: string[][] = [];
+        for (let i = 0; i < sortedCommands.length; i++) {
+          const entry = sortedCommands[i];
+          const cmdName = entry[0];
+          const cmdDef = entry[1];
           const slash = cmdDef.isHidden() ? '' : '/';
-
-          content += `- \`${slash}${cmdName}\` - [[${cmdDef.normalized.file_path}|${fileName}]]\n`;
+          const noteLink = wikilinkInTable(cmdDef.normalized.file_path, 'Link');
+          udcRows.push([`\`${slash}${cmdName}\``, noteLink]);
         }
+        content += formatMarkdownTable(
+          [t('common.helpTableCommand'), t('common.helpTableNote')],
+          udcRows
+        );
       } else {
         content += `*${t('common.noUserDefinedCommands')}*\n\n`;
       }
 
-      // Add skills section
       content += `\n### ${t('skills.skills')}\n\n`;
 
-      // List loaded skills from the vault
       const loadedSkills = this.agent.plugin.skillService.getAllSkills();
       if (loadedSkills.length > 0) {
-        for (const skill of loadedSkills) {
-          const file = this.agent.app.vault.getFileByPath(skill.filePath);
-          const fileName = file ? file.basename : skill.filePath;
-          const disabledLabel = skill.enabled ? '' : ` ${t('common.disabledMark')}`;
-          content += `- \`${skill.name}\`${disabledLabel} - [[${skill.filePath}|${fileName}]]\n`;
+        const skillRows: string[][] = [];
+        for (let i = 0; i < loadedSkills.length; i++) {
+          const skill = loadedSkills[i];
+          const noteLink = wikilinkInTable(skill.filePath, 'SKILL');
+          const status = skill.enabled
+            ? t('common.helpStatusEnabled')
+            : t('common.helpStatusDisabled');
+          skillRows.push([`\`${skill.name}\``, status, noteLink]);
         }
+        content += formatMarkdownTable(
+          [t('common.helpTableName'), t('common.helpTableStatus'), t('common.helpTableNote')],
+          skillRows
+        );
       } else {
         content += `*${t('skills.noSkills')}*\n`;
       }
 
-      // Add defined rules section
       content += `\n### ${t('guardrails.rules')}\n\n`;
       const rules = this.agent.plugin.guardrailsRuleService.getAllRules();
       if (rules.length > 0) {
-        for (const rule of rules) {
+        const ruleRows: string[][] = [];
+        for (let i = 0; i < rules.length; i++) {
+          const rule = rules[i];
           const file = this.agent.app.vault.getFileByPath(rule.path);
-          if (file) {
-            const disabledLabel = rule.enabled === false ? ` ${t('common.disabledMark')}` : '';
-            content += `- \`${rule.name}\`${disabledLabel} - [[${file.basename}]]\n`;
+          if (!file) {
+            continue;
           }
+          const noteLink = wikilinkInTable(rule.path, 'Link');
+          const status =
+            rule.enabled === false ? t('common.helpStatusDisabled') : t('common.helpStatusEnabled');
+          ruleRows.push([`\`${rule.name}\``, status, noteLink]);
+        }
+        if (ruleRows.length > 0) {
+          content += formatMarkdownTable(
+            [t('common.helpTableName'), t('common.helpTableStatus'), t('common.helpTableNote')],
+            ruleRows
+          );
+        } else {
+          content += `*${t('guardrails.noRulesDefined')}*\n`;
         }
       } else {
         content += `*${t('guardrails.noRulesDefined')}*\n`;
       }
 
-      // Add tips section
+      content += `\n### ${t('mcp.helpSection')}\n\n`;
+      const mcpDefinitions = this.agent.plugin.mcpService.getAllDefinitions();
+      if (mcpDefinitions.length > 0) {
+        const mcpRows: string[][] = [];
+        for (let i = 0; i < mcpDefinitions.length; i++) {
+          const def = mcpDefinitions[i];
+          const status = def.enabled
+            ? t('common.helpStatusEnabled')
+            : t('common.helpStatusDisabled');
+          const noteLink = wikilinkInTable(def.path, t('mcp.helpNoteAlias'));
+          mcpRows.push([`\`${def.name}\``, `\`${def.serverId}\``, status, noteLink]);
+        }
+        content += formatMarkdownTable(
+          [
+            t('common.helpTableName'),
+            t('common.helpTableServerId'),
+            t('common.helpTableStatus'),
+            t('common.helpTableNote'),
+          ],
+          mcpRows
+        );
+      } else {
+        content += `*${t('mcp.noServers', { folder: this.agent.plugin.mcpService.mcpFolder })}*\n`;
+      }
+
       content += `\n### ${t('documentation.tips')}\n\n`;
       content += `- ${t('documentation.tipNewLines')}\n`;
       content += `- ${t('documentation.tipChangeModel')}\n`;
@@ -119,18 +188,16 @@ export class Help {
       content += `- ${t('documentation.tipStop')}\n`;
       content += `- ${t('documentation.tipRevert')}\n`;
 
-      // Add wiki links section
       content += `\n### ${t('documentation.guidelines')}\n\n`;
       content += `- [${t('documentation.getStartedGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.GET_STARTED})\n`;
       content += `- [${t('documentation.searchGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.SEARCH})\n`;
       content += `- [${t('documentation.udcGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.USER_DEFINED_COMMANDS})\n`;
       content += `- [${t('documentation.skillsGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.SKILLS})\n`;
       content += `- [${t('documentation.guardrailsGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.GUARDRAILS})\n`;
+      content += `- [${t('documentation.mcpGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.MCP})\n`;
 
-      // Add help text
       content += `\n${t('common.commandHelpText')}\n`;
 
-      // Update the conversation note with the commands list
       await this.agent.renderer.updateConversationNote({
         path: title,
         newContent: content,

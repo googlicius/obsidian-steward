@@ -25,3 +25,8 @@ export interface MCPConnectedServer {
   client: MCPClient;
   tools: Record<string, unknown>;
 }
+
+/** Per-definition MCP session: live connection or a failed attempt (no retries until cache cleared). */
+export type MCPConnectionCacheEntry =
+  | { kind: 'connected'; server: MCPConnectedServer }
+  | { kind: 'failed' };

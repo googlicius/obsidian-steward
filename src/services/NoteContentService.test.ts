@@ -1092,4 +1092,38 @@ NYC`;
       expect(result.modifiedContent).toBe('New Line ');
     });
   });
+
+  describe('parseMarkdownFrontmatter', () => {
+    it('returns empty frontmatter and full body when there is no fence', () => {
+      const content = '# Title\n\nBody';
+      const result = noteContentService.parseMarkdownFrontmatter(content);
+      expect(result.frontmatter).toEqual({});
+      expect(result.body).toBe(content);
+    });
+
+    it('parses YAML and splits body after closing delimiter', () => {
+      const content = `---
+name: Test
+nested:
+  key: val
+---
+# Hi
+
+More`;
+      const result = noteContentService.parseMarkdownFrontmatter(content);
+      expect(result.frontmatter.name).toBe('Test');
+      expect(result.frontmatter.nested).toEqual({ key: 'val' });
+      expect(result.body).toBe('# Hi\n\nMore');
+    });
+
+    it('returns empty frontmatter when YAML parses to a non-object document', () => {
+      const content = `---
+plain scalar root is not a record
+---
+Body`;
+      const result = noteContentService.parseMarkdownFrontmatter(content);
+      expect(result.frontmatter).toEqual({});
+      expect(result.body).toBe('Body');
+    });
+  });
 });

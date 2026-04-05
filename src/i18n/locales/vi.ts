@@ -20,6 +20,14 @@ const vi = {
       imageDesc: 'Tạo hình ảnh',
       speechDesc: 'Tạo giọng nói từ văn bản',
       disabledMark: '(đã tắt)',
+      helpTableCommand: 'Lệnh',
+      helpTableDescription: 'Mô tả',
+      helpTableNote: 'Ghi chú',
+      helpTableName: 'Tên',
+      helpTableStatus: 'Trạng thái',
+      helpStatusEnabled: 'Bật',
+      helpStatusDisabled: 'Tắt',
+      helpTableServerId: 'ID máy chủ',
       cannotDeleteThisType: 'Không thể xóa loại artifact này: {{type}}',
       cannotRevertThisType: 'Không thể hoàn nguyên loại artifact này: {{type}}',
       thisNote: 'ghi chú này',
@@ -36,6 +44,10 @@ const vi = {
     mcp: {
       noConfigBlock: 'Thêm khối ```json``` gồm transport (http hoặc sse), url và tùy chọn headers.',
       invalidJson: 'JSON trong khối cấu hình MCP không hợp lệ: {{message}}',
+      helpSection: 'Máy chủ MCP',
+      noServers:
+        'Chưa có máy chủ MCP. Thêm ghi chú định nghĩa (Markdown) trong `{{folder}}`, sau đó khởi động lại hoặc tải lại plugin nếu cần.',
+      helpNoteAlias: 'MCP',
     },
     trigger: {
       executing: 'Đang thực thi trigger cho lệnh: {{commandName}}',
@@ -125,6 +137,8 @@ const vi = {
     skills: {
       skills: 'Kỹ năng',
       noSkills: 'Chưa có kỹ năng nào được tải. Xem hướng dẫn Kỹ năng bên dưới để bắt đầu.',
+      scaffoldDefaultName: 'new-skill',
+      scaffoldDefaultDescription: 'Mô tả kỹ năng này giúp gì.',
     },
     rename: {
       processed: 'Tôi đã xử lý {{count}} yêu cầu đổi tên.',
@@ -314,6 +328,7 @@ const vi = {
       udcGuideline: 'Hướng dẫn lệnh do người dùng định nghĩa',
       skillsGuideline: 'Hướng dẫn kỹ năng',
       guardrailsGuideline: 'Guardrails',
+      mcpGuideline: 'Máy chủ MCP',
       tipNewLines: 'Nhấn `Shift+Enter` để xuống dòng',
       tipChangeModel: 'Gõ `m:` hoặc `model:` để đổi mô hình',
       tipAttachContext: 'Gõ `@` để đính kèm tệp/thư mục',

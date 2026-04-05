@@ -5,6 +5,7 @@ import i18next from 'src/i18n';
 import { getInstance } from 'src/utils/getInstance';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { logger } from 'src/utils/logger';
+import { NoteContentService } from 'src/services/NoteContentService';
 import { MCPService } from './MCPService';
 
 jest.mock('src/utils/bundledLibs', () => ({
@@ -12,7 +13,7 @@ jest.mock('src/utils/bundledLibs', () => ({
 }));
 
 function createMockPlugin(): StewardPlugin {
-  return {
+  const plugin = {
     settings: { stewardFolder: 'Steward' },
     registerEvent: jest.fn(),
     app: {
@@ -40,6 +41,10 @@ function createMockPlugin(): StewardPlugin {
       getFilesFromFolder: jest.fn().mockReturnValue([]),
     },
   } as unknown as StewardPlugin;
+  const noteContentService = NoteContentService.getInstance(plugin);
+  (plugin as unknown as { noteContentService: NoteContentService }).noteContentService =
+    noteContentService;
+  return plugin;
 }
 
 describe('MCPService', () => {
@@ -487,19 +492,18 @@ not json
       });
 
       const goodTool = { execute: jest.fn() };
-      (getBundledLib as jest.Mock).mockResolvedValue({
-        createMCPClient: jest
-          .fn()
-          .mockImplementation(async ({ transport }: { transport: { url: string } }) => {
-            if (transport.url === 'http://bad') {
-              throw new Error('connection refused');
-            }
-            return {
-              tools: jest.fn().mockResolvedValue({ u: goodTool }),
-              close: jest.fn().mockResolvedValue(undefined),
-            };
-          }),
-      });
+      const createMCPClient = jest
+        .fn()
+        .mockImplementation(async ({ transport }: { transport: { url: string } }) => {
+          if (transport.url === 'http://bad') {
+            throw new Error('connection refused');
+          }
+          return {
+            tools: jest.fn().mockResolvedValue({ u: goodTool }),
+            close: jest.fn().mockResolvedValue(undefined),
+          };
+        });
+      (getBundledLib as jest.Mock).mockResolvedValue({ createMCPClient });
 
       const { inactive } = await service.getMcpToolsForConversation('Y');
 
@@ -509,6 +513,9 @@ not json
         'Failed to connect MCP server for Steward/MCP/bad-conn.md',
         expect.any(Error)
       );
+
+      await service.getMcpToolsForConversation('Y');
+      expect(createMCPClient).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -516,10 +523,13 @@ not json
     it('closes the MCP client and removes cached connection', async () => {
       const mockClose = jest.fn().mockResolvedValue(undefined);
       const path = 'Steward/MCP/gone.md';
-      service['connectedByPath'].set(path, {
-        definitionPath: path,
-        client: { close: mockClose } as unknown as MCPClient,
-        tools: {},
+      service['connectionCacheByPath'].set(path, {
+        kind: 'connected',
+        server: {
+          definitionPath: path,
+          client: { close: mockClose } as unknown as MCPClient,
+          tools: {},
+        },
       });
       service['definitionsByPath'].set(path, {
         path,
@@ -535,8 +545,36 @@ not json
 
       await Promise.resolve();
       expect(mockClose).toHaveBeenCalled();
-      expect(service['connectedByPath'].has(path)).toBe(false);
+      expect(service['connectionCacheByPath'].has(path)).toBe(false);
       expect(service['definitionsByPath'].has(path)).toBe(false);
+    });
+  });
+
+  describe('getAllDefinitions', () => {
+    it('returns definitions sorted by name then path', () => {
+      service['definitionsByPath'].clear();
+      service['definitionsByPath'].set('Steward/MCP/b.md', {
+        path: 'Steward/MCP/b.md',
+        serverId: 'b',
+        name: 'Beta',
+        description: '',
+        enabled: true,
+        message: '',
+        config: { transport: 'http', url: 'http://b', enabled: true },
+      });
+      service['definitionsByPath'].set('Steward/MCP/a.md', {
+        path: 'Steward/MCP/a.md',
+        serverId: 'a',
+        name: 'Alpha',
+        description: '',
+        enabled: false,
+        message: '',
+        config: null,
+      });
+
+      const all = service.getAllDefinitions();
+
+      expect(all.map(d => d.serverId)).toEqual(['a', 'b']);
     });
   });
 });

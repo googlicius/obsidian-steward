@@ -25,6 +25,14 @@ const en = {
       imageDesc: 'Generate images',
       speechDesc: 'Generate speech from text',
       disabledMark: '(disabled)',
+      helpTableCommand: 'Command',
+      helpTableDescription: 'Description',
+      helpTableNote: 'Note',
+      helpTableName: 'Name',
+      helpTableStatus: 'Status',
+      helpStatusEnabled: 'Enabled',
+      helpStatusDisabled: 'Disabled',
+      helpTableServerId: 'Server ID',
       cannotDeleteThisType: 'Cannot delete this type of artifact: {{type}}',
       cannotRevertThisType: 'Cannot revert this type of artifact: {{type}}',
       thisNote: 'this note',
@@ -41,6 +49,10 @@ const en = {
       noConfigBlock:
         'Add a ```json``` block with transport (http or sse), url, and optional headers.',
       invalidJson: 'Invalid JSON in MCP config block: {{message}}',
+      helpSection: 'MCP servers',
+      noServers:
+        'No MCP servers found. Add definition notes (markdown) under `{{folder}}`, then restart or reload the plugin if needed.',
+      helpNoteAlias: 'MCP',
     },
     trigger: {
       executing: 'Command "{{commandName}}" is executing.',
@@ -151,6 +163,8 @@ const en = {
     skills: {
       skills: 'Skills',
       noSkills: 'No skills loaded. See the Skills guideline below to get started.',
+      scaffoldDefaultName: 'new-skill',
+      scaffoldDefaultDescription: 'Describe what this skill helps with.',
     },
     rename: {
       processed_one: 'I processed {{count}} rename instruction.',
@@ -372,6 +386,7 @@ const en = {
       udcGuideline: 'User-defined command guideline',
       skillsGuideline: 'Skills guideline',
       guardrailsGuideline: 'Guardrails',
+      mcpGuideline: 'MCP servers',
       tipNewLines: 'Press `Shift+Enter` to add new lines',
       tipChangeModel: 'Type `m:` or `model:` to change model',
       tipAttachContext: 'Type `@` to attach files/folders',

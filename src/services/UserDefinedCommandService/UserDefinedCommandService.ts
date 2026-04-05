@@ -5,6 +5,7 @@ import { COMMAND_PREFIXES } from 'src/constants';
 import { EXAMPLE_UDCS } from 'src/example-udcs';
 import { StewardChatView } from 'src/views/StewardChatView';
 import i18next, { t } from 'i18next';
+import { z } from 'zod/v3';
 import { IVersionedUserDefinedCommand, TriggerCondition } from './versions/types';
 import { loadUDCVersion } from './versions/loader';
 import { Intent } from 'src/solutions/commands/types';
@@ -15,9 +16,9 @@ import {
   stringifyUdcYaml,
 } from './migrateUdcLegacyUseTool';
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
+const udcNoteFrontmatterSchema = z.object({
+  enabled: z.boolean().optional(),
+});
 
 export class UserDefinedCommandService {
   private static instance: UserDefinedCommandService | null = null;
@@ -185,8 +186,9 @@ export class UserDefinedCommandService {
       this.removeCommandsFromFile(file.path);
 
       const content = await this.plugin.app.vault.cachedRead(file);
-      const parsedDoc = this.extractFrontmatterAndBody(content);
-      const enabledFromFrontmatter = this.toBoolean(parsedDoc.frontmatter.enabled, true);
+      const parsedDoc = this.plugin.noteContentService.parseMarkdownFrontmatter(content);
+      const fmParsed = udcNoteFrontmatterSchema.safeParse(parsedDoc.frontmatter);
+      const enabledFromFrontmatter = !fmParsed.success || fmParsed.data.enabled !== false;
 
       // Extract YAML blocks from the content
       const yamlBlocks = await this.extractYamlBlocks(content);
@@ -475,52 +477,6 @@ export class UserDefinedCommandService {
     }
     const combinedErrors = (errors ?? []).join('; ');
     return i18next.t('common.statusInvalid', { errors: combinedErrors });
-  }
-
-  private extractFrontmatterAndBody(content: string): {
-    frontmatter: Record<string, unknown>;
-    body: string;
-  } {
-    const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n?/;
-    const match = content.match(frontmatterRegex);
-    if (!match || !match[1]) {
-      return {
-        frontmatter: {},
-        body: content,
-      };
-    }
-
-    let parsedFrontmatter: Record<string, unknown> = {};
-    try {
-      const parsedYaml = parseYaml(match[1]);
-      if (isRecord(parsedYaml)) {
-        parsedFrontmatter = parsedYaml;
-      }
-    } catch (error) {
-      logger.warn('Failed to parse UDC note frontmatter', error);
-    }
-
-    const body = content.slice(match[0].length);
-    return {
-      frontmatter: parsedFrontmatter,
-      body,
-    };
-  }
-
-  private toBoolean(value: unknown, fallback: boolean): boolean {
-    if (typeof value === 'boolean') {
-      return value;
-    }
-    if (typeof value === 'string') {
-      const lowered = value.toLowerCase().trim();
-      if (lowered === 'true') {
-        return true;
-      }
-      if (lowered === 'false') {
-        return false;
-      }
-    }
-    return fallback;
   }
 
   private async applyUdcValidationFrontmatter(

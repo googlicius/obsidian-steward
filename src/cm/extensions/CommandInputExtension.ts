@@ -10,6 +10,7 @@ import { Extension, Line, Prec } from '@codemirror/state';
 import { TWO_SPACES_PREFIX } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { Events, type ModelChangedPayload } from 'src/types/events';
+import { completionStatus } from '@codemirror/autocomplete';
 
 export interface CommandInputOptions {
   /**
@@ -323,6 +324,9 @@ function createArrowDownNewLineExtension(plugin: StewardPlugin): Extension {
         if (event.shiftKey) return false;
 
         if (event.isComposing) return false;
+
+        // While completions are open or loading, skip
+        if (completionStatus(view.state)) return false;
 
         const { state } = view;
         const sel = state.selection.main;

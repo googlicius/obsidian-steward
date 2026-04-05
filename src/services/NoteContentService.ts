@@ -4,6 +4,7 @@ import {
   STW_SOURCE_PATTERN,
   STW_SOURCE_METADATA_PATTERN,
 } from 'src/constants';
+import { parseYaml } from 'obsidian';
 import { logger } from 'src/utils/logger';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import type StewardPlugin from 'src/main';
@@ -12,6 +13,10 @@ import { resizeImageWithCanvas } from 'src/utils/resizeImageWithCanvas';
 import { EditOperation } from 'src/solutions/commands/tools/editContent';
 import { Change } from 'src/solutions/artifact/types';
 import i18next from 'src/i18n';
+
+function isMarkdownFrontmatterRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
 export class NoteContentService {
   private static instance: NoteContentService;
@@ -30,6 +35,40 @@ export class NoteContentService {
       throw new Error('NoteContentService not initialized');
     }
     return NoteContentService.instance;
+  }
+
+  /**
+   * Split a markdown note into YAML frontmatter (parsed with Obsidian's parseYaml) and body.
+   * Matches the opening `---` / closing `---` fence at the start of the file (same rules as MCP / UDC).
+   */
+  public parseMarkdownFrontmatter(content: string): {
+    frontmatter: Record<string, unknown>;
+    body: string;
+  } {
+    const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n?/;
+    const match = content.match(frontmatterRegex);
+    if (!match || !match[1]) {
+      return {
+        frontmatter: {},
+        body: content,
+      };
+    }
+
+    let parsedFrontmatter: Record<string, unknown> = {};
+    try {
+      const parsedYaml = parseYaml(match[1]);
+      if (isMarkdownFrontmatterRecord(parsedYaml)) {
+        parsedFrontmatter = parsedYaml;
+      }
+    } catch (error) {
+      logger.warn('Failed to parse markdown YAML frontmatter', error);
+    }
+
+    const body = content.slice(match[0].length);
+    return {
+      frontmatter: parsedFrontmatter,
+      body,
+    };
   }
 
   /**

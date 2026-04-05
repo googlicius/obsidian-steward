@@ -1,10 +1,23 @@
-import { normalizePath, parseYaml, TFile } from 'obsidian';
+import { normalizePath, TFile } from 'obsidian';
 import type { ModelMessage } from 'ai';
 import type StewardPlugin from 'src/main';
 import i18next from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { getBundledLib } from 'src/utils/bundledLibs';
-import { MCPConnectedServer, MCPDefinition, MCPServerConfig, mcpServerConfigSchema } from './types';
+import { z } from 'zod/v3';
+import {
+  MCPConnectedServer,
+  MCPConnectionCacheEntry,
+  MCPDefinition,
+  MCPServerConfig,
+  mcpServerConfigSchema,
+} from './types';
+
+const mcpDefinitionFrontmatterSchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  enabled: z.boolean().optional(),
+});
 
 const MCP_FOLDER_NAME = 'MCP';
 const CONVERSATION_TOOLS_FRONTMATTER_KEY = 'tools';
@@ -27,7 +40,7 @@ export class MCPService {
   private static instance: MCPService | null = null;
 
   private definitionsByPath: Map<string, MCPDefinition> = new Map();
-  private connectedByPath: Map<string, MCPConnectedServer> = new Map();
+  private connectionCacheByPath: Map<string, MCPConnectionCacheEntry> = new Map();
 
   private constructor(private plugin: StewardPlugin) {
     this.initialize();
@@ -48,6 +61,21 @@ export class MCPService {
 
   public get mcpFolder(): string {
     return `${this.plugin.settings.stewardFolder}/${MCP_FOLDER_NAME}`;
+  }
+
+  /**
+   * All MCP definitions loaded from the vault (Steward/MCP), sorted by display name then path.
+   */
+  public getAllDefinitions(): MCPDefinition[] {
+    const list = Array.from(this.definitionsByPath.values());
+    list.sort((a, b) => {
+      const byName = a.name.localeCompare(b.name);
+      if (byName !== 0) {
+        return byName;
+      }
+      return a.path.localeCompare(b.path);
+    });
+    return list;
   }
 
   public isMCPToolName(toolName: string): boolean {
@@ -136,14 +164,17 @@ export class MCPService {
   }
 
   public async closeAll(): Promise<void> {
-    const connectedServers = Array.from(this.connectedByPath.values());
-    this.connectedByPath.clear();
+    const entries = Array.from(this.connectionCacheByPath.values());
+    this.connectionCacheByPath.clear();
 
-    for (const connectedServer of connectedServers) {
+    for (const entry of entries) {
+      if (entry.kind !== 'connected') {
+        continue;
+      }
       try {
-        await connectedServer.client.close();
+        await entry.server.client.close();
       } catch (error) {
-        logger.warn(`Error closing MCP client for ${connectedServer.definitionPath}`, error);
+        logger.warn(`Error closing MCP client for ${entry.server.definitionPath}`, error);
       }
     }
   }
@@ -228,7 +259,7 @@ export class MCPService {
       return;
     }
 
-    const parsedForStatus = this.extractFrontmatterAndBody(content);
+    const parsedForStatus = this.plugin.noteContentService.parseMarkdownFrontmatter(content);
     const currentStatusRaw = parsedForStatus.frontmatter.status;
     const currentStatus = typeof currentStatusRaw === 'string' ? currentStatusRaw : undefined;
     const enabledKeyMissing = !Object.prototype.hasOwnProperty.call(
@@ -281,20 +312,22 @@ export class MCPService {
     definition: MCPDefinition;
     configValidationErrors: string[];
   } {
-    const parsedMarkdown = this.extractFrontmatterAndBody(params.content);
+    const parsedMarkdown = this.plugin.noteContentService.parseMarkdownFrontmatter(params.content);
     const frontmatter = parsedMarkdown.frontmatter;
     const jsonBlock = this.extractFirstJsonBlock(parsedMarkdown.body);
 
     const validation = this.validateServerConfigJson(jsonBlock.jsonContent, params.filePath);
     const config = validation.errors.length === 0 ? validation.config : null;
-    const enabledFromFrontmatter = this.toBoolean(frontmatter.enabled, true);
+
+    const fmParsed = mcpDefinitionFrontmatterSchema.safeParse(frontmatter);
+    const fm = fmParsed.success ? fmParsed.data : {};
+
+    const enabledFromFrontmatter = fm.enabled !== false;
     const enabledFromConfig = config !== null && config.enabled !== false;
     const enabled = enabledFromFrontmatter && enabledFromConfig;
 
-    const nameValue = this.toString(frontmatter.name);
-    const descriptionValue = this.toString(frontmatter.description);
-    const name = nameValue || params.fileBasename;
-    const description = descriptionValue || '';
+    const name = fm.name?.trim() || params.fileBasename;
+    const description = fm.description?.trim() ?? '';
 
     const message = jsonBlock.bodyWithoutJson.trim();
     const serverId = this.serverIdFromBasename(params.fileBasename);
@@ -359,36 +392,6 @@ export class MCPService {
     }
   }
 
-  private extractFrontmatterAndBody(content: string): {
-    frontmatter: Record<string, unknown>;
-    body: string;
-  } {
-    const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n?/;
-    const match = content.match(frontmatterRegex);
-    if (!match || !match[1]) {
-      return {
-        frontmatter: {},
-        body: content,
-      };
-    }
-
-    let parsedFrontmatter: Record<string, unknown> = {};
-    try {
-      const parsedYaml = parseYaml(match[1]);
-      if (isRecord(parsedYaml)) {
-        parsedFrontmatter = parsedYaml;
-      }
-    } catch (error) {
-      logger.warn('Failed to parse MCP frontmatter', error);
-    }
-
-    const body = content.slice(match[0].length);
-    return {
-      frontmatter: parsedFrontmatter,
-      body,
-    };
-  }
-
   private extractFirstJsonBlock(body: string): {
     jsonContent: string | null;
     bodyWithoutJson: string;
@@ -449,29 +452,6 @@ export class MCPService {
     });
   }
 
-  private toBoolean(value: unknown, fallback: boolean): boolean {
-    if (typeof value === 'boolean') {
-      return value;
-    }
-    if (typeof value === 'string') {
-      const lowered = value.toLowerCase().trim();
-      if (lowered === 'true') {
-        return true;
-      }
-      if (lowered === 'false') {
-        return false;
-      }
-    }
-    return fallback;
-  }
-
-  private toString(value: unknown): string {
-    if (typeof value === 'string') {
-      return value.trim();
-    }
-    return '';
-  }
-
   /** Stable segment for `mcp__{serverId}__{tool}`; derived from note basename only. */
   private serverIdFromBasename(fileBasename: string): string {
     const id = fileBasename
@@ -504,9 +484,12 @@ export class MCPService {
 
   private async ensureServerConnected(path: string): Promise<MCPConnectedServer | null> {
     const normalizedPath = normalizePath(path);
-    const existing = this.connectedByPath.get(normalizedPath);
-    if (existing) {
-      return existing;
+    const cached = this.connectionCacheByPath.get(normalizedPath);
+    if (cached) {
+      if (cached.kind === 'failed') {
+        return null;
+      }
+      return cached.server;
     }
 
     const definition = this.definitionsByPath.get(normalizedPath);
@@ -539,10 +522,12 @@ export class MCPService {
         client,
         tools: prefixedTools,
       };
-      this.connectedByPath.set(normalizedPath, connectedServer);
+      const entry: MCPConnectionCacheEntry = { kind: 'connected', server: connectedServer };
+      this.connectionCacheByPath.set(normalizedPath, entry);
       return connectedServer;
     } catch (error) {
       logger.warn(`Failed to connect MCP server for ${normalizedPath}`, error);
+      this.connectionCacheByPath.set(normalizedPath, { kind: 'failed' });
       return null;
     }
   }
@@ -550,13 +535,17 @@ export class MCPService {
   private removeDefinitionByPath(path: string): void {
     const normalizedPath = normalizePath(path);
     this.definitionsByPath.delete(normalizedPath);
-    const existing = this.connectedByPath.get(normalizedPath);
-    if (!existing) {
+    const cached = this.connectionCacheByPath.get(normalizedPath);
+    if (!cached) {
       return;
     }
 
-    this.connectedByPath.delete(normalizedPath);
-    existing.client.close().catch(error => {
+    this.connectionCacheByPath.delete(normalizedPath);
+    if (cached.kind !== 'connected') {
+      return;
+    }
+
+    cached.server.client.close().catch(error => {
       logger.warn(`Error closing MCP client for ${normalizedPath}`, error);
     });
   }
