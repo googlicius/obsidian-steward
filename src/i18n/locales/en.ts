@@ -25,6 +25,14 @@ const en = {
       imageDesc: 'Generate images',
       speechDesc: 'Generate speech from text',
       disabledMark: '(disabled)',
+      helpTableCommand: 'Command',
+      helpTableDescription: 'Description',
+      helpTableNote: 'Note',
+      helpTableName: 'Name',
+      helpTableStatus: 'Status',
+      helpStatusEnabled: 'Enabled',
+      helpStatusDisabled: 'Disabled',
+      helpTableServerId: 'Server ID',
       cannotDeleteThisType: 'Cannot delete this type of artifact: {{type}}',
       cannotRevertThisType: 'Cannot revert this type of artifact: {{type}}',
       thisNote: 'this note',
@@ -34,6 +42,17 @@ const en = {
       modelDoesNotSupportImageInputs:
         'Model {{model}} does not support image inputs. Please use a vision-capable model (e.g., gpt-4o, gemini-pro, claude-3-sonnet).',
       invalidOrDynamicToolCall: 'Model returned a dynamic or invalid tool call: "{{toolName}}".',
+      statusValid: '✅ Valid',
+      statusInvalid: 'Invalid: {{errors}}',
+    },
+    mcp: {
+      noConfigBlock:
+        'Add a ```json``` block with transport (http or sse), url, and optional headers.',
+      invalidJson: 'Invalid JSON in MCP config block: {{message}}',
+      helpSection: 'MCP servers',
+      noServers:
+        'No MCP servers found. Add definition notes (markdown) under `{{folder}}`, then restart or reload the plugin if needed.',
+      helpNoteAlias: 'MCP',
     },
     trigger: {
       executing: 'Command "{{commandName}}" is executing.',
@@ -50,6 +69,7 @@ const en = {
       commandError: 'Command: {{commandName}}',
       yamlError: 'Invalid YAML syntax',
       successMessage: 'All command definitions are valid! ✅',
+      noCommandYamlBlock: 'No ```yaml``` command definition block found in the note.',
     },
     // Chat UI elements
     chat: {
@@ -65,6 +85,7 @@ const en = {
       expandConversation: 'Expand conversation',
       newVersionAvailable: 'New version available',
       newVersionMessage: 'A new version of Steward ({{version}}) is now available!',
+      modelCompletionCurrentMark: ' (Current)',
     },
     // Media generation messages
     media: {
@@ -130,8 +151,6 @@ const en = {
     guardrails: {
       rules: 'Rules',
       noRulesDefined: 'No guardrails rules defined.',
-      statusValid: '✅ Valid',
-      statusInvalid: 'Invalid: {{errors}}',
       violation:
         'Action blocked by guardrails. Rules: {{rules}}. Paths: {{paths}}. Blocked actions: {{actions}}. Stop processing or try other actions that are not in the blocked list.',
       violationHuman: 'Action blocked by guardrails. Rules: {{rules}}. Paths: {{paths}}.',
@@ -144,6 +163,8 @@ const en = {
     skills: {
       skills: 'Skills',
       noSkills: 'No skills loaded. See the Skills guideline below to get started.',
+      scaffoldDefaultName: 'new-skill',
+      scaffoldDefaultDescription: 'Describe what this skill helps with.',
     },
     rename: {
       processed_one: 'I processed {{count}} rename instruction.',
@@ -365,6 +386,7 @@ const en = {
       udcGuideline: 'User-defined command guideline',
       skillsGuideline: 'Skills guideline',
       guardrailsGuideline: 'Guardrails',
+      mcpGuideline: 'MCP servers',
       tipNewLines: 'Press `Shift+Enter` to add new lines',
       tipChangeModel: 'Type `m:` or `model:` to change model',
       tipAttachContext: 'Type `@` to attach files/folders',
@@ -573,18 +595,10 @@ const en = {
           apiKey: 'ElevenLabs API key',
           description: 'Capabilities: Speech generation (TTS). https://elevenlabs.io',
         },
-        deepseek: {
-          apiKey: 'DeepSeek API key',
-          description: 'Capabilities: Text generation, reasoning. https://platform.deepseek.com',
-        },
         google: {
           apiKey: 'Google API key',
           description:
             'Capabilities: Text generation, image input (vision), embedding. https://aistudio.google.com/app/apikey',
-        },
-        groq: {
-          apiKey: 'Groq API key',
-          description: 'Capabilities: Text generation, reasoning. https://console.groq.com',
         },
         anthropic: {
           apiKey: 'Anthropic API key',

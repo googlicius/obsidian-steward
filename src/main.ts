@@ -21,19 +21,13 @@ import { SearchService } from './solutions/search';
 import { SearchDatabase } from './database/SearchDatabase';
 import { EncryptionService } from './services/EncryptionService';
 import { formatDateTime } from './utils/dateUtils';
-import { getBundledLib } from './utils/bundledLibs';
 import { logger } from './utils/logger';
 import { ConversationRenderer } from './services/ConversationRenderer';
 import { ArtifactManagerV2 } from './solutions/artifact/ArtifactManagerV2';
 import { ContentReadingService } from './services/ContentReadingService';
 import { StewardPluginSettings } from './types/interfaces';
 import { Line, Text } from '@codemirror/state';
-import {
-  DEFAULT_SETTINGS,
-  SEARCH_DB_NAME_PREFIX,
-  SMILE_CHAT_ICON_ID,
-  STW_CHAT_VIEW_CONFIG,
-} from './constants';
+import { DEFAULT_SETTINGS, SMILE_CHAT_ICON_ID, STW_CHAT_VIEW_CONFIG } from './constants';
 import { StewardChatView } from './views/StewardChatView';
 import { Events } from './types/events';
 import { ObsidianEditor, ExtendedApp } from './types/types';
@@ -53,7 +47,6 @@ import { capitalizeString } from './utils/capitalizeString';
 import { AbortService } from './services/AbortService';
 import { TrashCleanupService } from './services/TrashCleanupService';
 import { ModelFallbackService } from './services/ModelFallbackService';
-import { uniqueID } from './utils/uniqueID';
 import { CommandTrackingService } from './services/CommandTrackingService';
 import { VersionCheckerService } from './services/VersionCheckerService';
 import { UserMessageService } from './services/UserMessageService';
@@ -62,6 +55,8 @@ import { SkillService } from './services/SkillService';
 import { GuardrailsRuleService } from './services/GuardrailsRuleService/GuardrailsRuleService';
 import { CompactionOrchestrator } from './solutions/compaction';
 import { SubagentSpawnService } from './services/SubagentSpawnService';
+import { MCPService } from './services/MCPService';
+import { runSettingsSchemaMigrations } from './settings/migrations/settingsSchemaMigrations';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -84,6 +79,7 @@ export default class StewardPlugin extends Plugin {
   _commandInputService: CommandInputService;
   _gitHubResourceService: GitHubResourceService;
   _skillService: SkillService;
+  _mcpService: MCPService;
   _guardrailsRuleService: GuardrailsRuleService;
   _commandTrackingService: CommandTrackingService;
   _versionCheckerService: VersionCheckerService;
@@ -219,6 +215,13 @@ export default class StewardPlugin extends Plugin {
     return this._guardrailsRuleService;
   }
 
+  get mcpService(): MCPService {
+    if (!this._mcpService) {
+      this._mcpService = MCPService.getInstance(this);
+    }
+    return this._mcpService;
+  }
+
   get subAgentSpawnService(): SubagentSpawnService {
     if (!this._subAgentSpawnService) {
       this._subAgentSpawnService = new SubagentSpawnService(this);
@@ -281,6 +284,9 @@ export default class StewardPlugin extends Plugin {
     // Initialize the GuardrailsRuleService (loads rules from Steward/Rules folder)
     this.guardrailsRuleService;
 
+    // Initialize the MCPService (loads MCP definitions from Steward/MCP folder)
+    this.mcpService;
+
     this.app.workspace.onLayoutReady(async () => {
       // Clean up old search databases
       this.cleanupOldSearchDatabases();
@@ -315,6 +321,10 @@ export default class StewardPlugin extends Plugin {
 
     // Cleanup orphaned temp streaming files
     this.cleanupTempStreamFiles();
+
+    if (this._mcpService) {
+      void this._mcpService.closeAll();
+    }
 
     // Cleanup current database and remove saltKeyId from localStorage
     retry(async () => {
@@ -492,225 +502,36 @@ export default class StewardPlugin extends Plugin {
   }
 
   private async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const rawSettings = (await this.loadData()) as Partial<StewardPluginSettings> | null;
+    const fromVersion = this.resolveSettingsSchemaVersion(rawSettings);
 
-    // Update logger debug setting
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, rawSettings || {});
+    this.settings.settingsSchemaVersion = fromVersion;
+
+    const migrationResult = await runSettingsSchemaMigrations({
+      plugin: this,
+      settings: this.settings,
+      fromVersion,
+    });
+
     logger.setDebug(this.settings.debug);
+    return migrationResult.changed;
+  }
 
-    // Check and update missing settings
-    let settingsUpdated = false;
-
-    // Ensure search object exists
-    if (!this.settings.search) {
-      this.settings.search = DEFAULT_SETTINGS.search;
-      settingsUpdated = true;
+  private resolveSettingsSchemaVersion(rawSettings: Partial<StewardPluginSettings> | null): number {
+    if (!rawSettings || typeof rawSettings !== 'object') {
+      return 0;
     }
 
-    // Migrate legacy searchDbPrefix/searchDbName to search.searchDbName
-    if (!this.settings.search.searchDbName) {
-      if (this.settings.searchDbName) {
-        // Prefer explicitly set top-level value if present
-        this.settings.search.searchDbName = this.settings.searchDbName;
-      } else if (this.settings.searchDbPrefix) {
-        // If searchDbPrefix exists, copy it
-        this.settings.search.searchDbName = this.settings.searchDbPrefix;
-      } else {
-        // Generate new db name
-        const vaultName = this.app.vault.getName();
-        this.settings.search.searchDbName = `${SEARCH_DB_NAME_PREFIX}${vaultName}_${uniqueID()}`;
-      }
-      // Clear deprecated fields
-      this.settings.searchDbName = undefined;
-      this.settings.searchDbPrefix = undefined;
-      settingsUpdated = true;
+    if (!Number.isInteger(rawSettings.settingsSchemaVersion)) {
+      return 0;
     }
 
-    // Setup encryption salt if not already set
-    if (!this.settings.saltKeyId) {
-      const { generateId } = await getBundledLib('ai');
-      this.settings.saltKeyId = generateId();
-      settingsUpdated = true;
+    if ((rawSettings.settingsSchemaVersion as number) < 0) {
+      return 0;
     }
 
-    // Set encryption version if not already set
-    if (!this.settings.encryptionVersion) {
-      this.settings.encryptionVersion = 1;
-      settingsUpdated = true;
-    }
-
-    // Initialize providers if not already set
-    if (!this.settings.providers) {
-      this.settings.providers = {};
-      settingsUpdated = true;
-    }
-
-    // Always migrate apiKeys to providers structure
-    if (this.settings.apiKeys) {
-      const legacyApiKeys = this.settings.apiKeys;
-      const providersToMigrate: Array<keyof typeof legacyApiKeys> = [
-        'openai',
-        'elevenlabs',
-        'deepseek',
-        'google',
-        'groq',
-        'anthropic',
-      ];
-
-      for (const provider of providersToMigrate) {
-        if (legacyApiKeys[provider]) {
-          if (!this.settings.providers[provider]) {
-            this.settings.providers[provider] = {
-              apiKey: legacyApiKeys[provider],
-            };
-          } else {
-            // If provider already exists but apiKey is empty, migrate it
-            if (!this.settings.providers[provider].apiKey) {
-              this.settings.providers[provider].apiKey = legacyApiKeys[provider];
-            }
-          }
-        } else {
-          // Initialize provider even if no API key exists
-          if (!this.settings.providers[provider]) {
-            this.settings.providers[provider] = {
-              apiKey: '',
-            };
-          }
-        }
-      }
-
-      // Clear deprecated apiKeys field
-      delete this.settings.apiKeys;
-      settingsUpdated = true;
-    }
-
-    // Migrate baseUrl from providerConfigs to providers
-    if (this.settings.llm.providerConfigs) {
-      for (const [provider, config] of Object.entries(this.settings.llm.providerConfigs)) {
-        if (config?.baseUrl) {
-          // Ensure provider exists in providers
-          if (!this.settings.providers[provider]) {
-            this.settings.providers[provider] = {
-              apiKey: '',
-            };
-          }
-          // Migrate baseUrl if not already set in providers
-          if (!this.settings.providers[provider].baseUrl) {
-            this.settings.providers[provider].baseUrl = config.baseUrl;
-            settingsUpdated = true;
-          }
-        }
-      }
-    }
-
-    // Initialize providerConfigs if not already set
-    if (!this.settings.llm.providerConfigs) {
-      this.settings.llm.providerConfigs = {};
-      settingsUpdated = true;
-    }
-
-    // Initialize chat if not already set
-    if (!this.settings.llm.chat) {
-      this.settings.llm.chat = DEFAULT_SETTINGS.llm.chat;
-      // Migrate legacy model to chat.model
-      if (this.settings.llm.model) {
-        const provider = await LLMService.getInstance(this).getProviderFromModel(
-          this.settings.llm.model
-        );
-        this.settings.llm.chat.model = `${provider.name}:${provider.modelId}`;
-        this.settings.llm.model = undefined;
-      }
-      settingsUpdated = true;
-    }
-
-    // Initialize embedding if not already set
-    if (!this.settings.embedding) {
-      this.settings.embedding = DEFAULT_SETTINGS.embedding;
-      settingsUpdated = true;
-    }
-
-    // Migrate embedding from llm.embedding to top-level embedding
-    if (this.settings.llm.embedding) {
-      // Migrate existing embedding settings
-      this.settings.embedding.model = this.settings.llm.embedding.model;
-      this.settings.embedding.customModels = this.settings.llm.embedding.customModels || [];
-      // Keep enabled as true by default for existing users
-      if (this.settings.embedding.enabled === undefined) {
-        this.settings.embedding.enabled = true;
-      }
-
-      // Clear old embedding settings
-      this.settings.llm.embedding = undefined;
-      settingsUpdated = true;
-    }
-
-    // Migrate legacy embeddingModel to embedding.model
-    if (this.settings.llm.embeddingModel) {
-      this.settings.embedding.model = this.settings.llm.embeddingModel;
-      this.settings.llm.embeddingModel = undefined;
-      settingsUpdated = true;
-    }
-
-    // Initialize speech if not already set
-    if (!this.settings.llm.speech) {
-      this.settings.llm.speech = DEFAULT_SETTINGS.llm.speech;
-      // Remove legacy config
-      this.settings.audio = undefined;
-      settingsUpdated = true;
-    }
-
-    // Initialize image model if not already set
-    if (!this.settings.llm.image?.model) {
-      this.settings.llm.image = DEFAULT_SETTINGS.llm.image;
-      settingsUpdated = true;
-    }
-
-    if (!this.settings.llm.agents) {
-      this.settings.llm.agents = DEFAULT_SETTINGS.llm.agents;
-      settingsUpdated = true;
-    } else {
-      if (!this.settings.llm.agents.compactionSummary) {
-        this.settings.llm.agents.compactionSummary = DEFAULT_SETTINGS.llm.agents.compactionSummary;
-        settingsUpdated = true;
-      }
-      if (!this.settings.llm.agents.conversationTitle) {
-        this.settings.llm.agents.conversationTitle = DEFAULT_SETTINGS.llm.agents.conversationTitle;
-        settingsUpdated = true;
-      }
-    }
-
-    // Migrate ollamaBaseUrl to providers if it exists
-    if (this.settings.llm.ollamaBaseUrl) {
-      // Ensure ollama provider exists
-      if (!this.settings.providers.ollama) {
-        this.settings.providers.ollama = {
-          apiKey: '',
-        };
-      }
-      // Migrate baseUrl to providers
-      if (!this.settings.providers.ollama.baseUrl) {
-        this.settings.providers.ollama.baseUrl = this.settings.llm.ollamaBaseUrl;
-      }
-      // Also keep in providerConfigs for backward compatibility (deprecated)
-      if (!this.settings.llm.providerConfigs.ollama) {
-        this.settings.llm.providerConfigs.ollama = {};
-      }
-      if (!this.settings.llm.providerConfigs.ollama.baseUrl) {
-        this.settings.llm.providerConfigs.ollama.baseUrl = this.settings.llm.ollamaBaseUrl;
-      }
-      this.settings.llm.ollamaBaseUrl = undefined;
-      settingsUpdated = true;
-    }
-
-    // Migrate deleteBehavior from string to object structure
-    if (typeof this.settings.deleteBehavior === 'string') {
-      this.settings.deleteBehavior = {
-        behavior: this.settings.deleteBehavior as 'stw_trash' | 'obsidian_trash',
-        cleanupPolicy: 'never', // Default cleanup policy for existing users
-      };
-      settingsUpdated = true;
-    }
-
-    return settingsUpdated;
+    return rawSettings.settingsSchemaVersion as number;
   }
 
   async saveSettings() {
@@ -1209,6 +1030,10 @@ export default class StewardPlugin extends Plugin {
         // Ensure Rules folder exists for guardrails
         const rulesFolder = `${this.settings.stewardFolder}/Rules`;
         await this.obsidianAPITools.ensureFolderExists(rulesFolder);
+
+        // Ensure MCP folder exists for MCP definitions
+        const mcpFolder = `${this.settings.stewardFolder}/MCP`;
+        await this.obsidianAPITools.ensureFolderExists(mcpFolder);
       } catch (error) {
         logger.error('Failed to ensure required folders:', error);
       }

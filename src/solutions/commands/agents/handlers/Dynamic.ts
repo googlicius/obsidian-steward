@@ -33,30 +33,32 @@ export class Dynamic {
     return error instanceof InvalidToolInputErrorCtor || error instanceof InvalidArgumentErrorCtor;
   }
 
-  private getErrorValue(options: {
+  private async getErrorValue(options: {
     toolCall: DynamicToolCall;
     tool?: Tool;
-    aiModule: Awaited<ReturnType<typeof getBundledLib<'ai'>>>;
-  }): Record<string, unknown> {
-    const { toolCall, tool: toolDef, aiModule } = options;
-    const error = toolCall.error;
-    const { NoSuchToolError: NoSuchToolErr, InvalidToolInputError: InvalidToolInputErr } = aiModule;
-    const { InvalidArgumentError: InvalidArgumentErr, asSchema } = aiModule;
+  }): Promise<Record<string, unknown>> {
+    const aiLib = await getBundledLib('ai');
 
-    if (this.isNoSuchToolError(error, NoSuchToolErr)) {
+    if (this.isNoSuchToolError(options.toolCall.error, aiLib.NoSuchToolError)) {
       return {
         message:
           'No such tool found. If you need this tool, call `activate_tools` first before using it.',
-        error,
+        error: options.toolCall.error,
       };
     }
 
-    if (this.isInvalidToolError(error, InvalidToolInputErr, InvalidArgumentErr)) {
+    if (
+      this.isInvalidToolError(
+        options.toolCall.error,
+        aiLib.InvalidToolInputError,
+        aiLib.InvalidArgumentError
+      )
+    ) {
       return {
         message:
           'Invalid tool call, please refer to the error for more details. And refer to the validSchema to see how to use it correctly.',
-        error,
-        validSchema: toolDef ? asSchema(toolDef.inputSchema).jsonSchema : undefined,
+        error: options.toolCall.error,
+        validSchema: options.tool ? aiLib.asSchema(options.tool.inputSchema).jsonSchema : undefined,
       };
     }
 
@@ -91,12 +93,10 @@ export class Dynamic {
     });
 
     const tool = options.tools[options.toolCall.toolName];
-    const aiModule = await getBundledLib('ai');
 
-    const errorValue = this.getErrorValue({
+    const errorValue = await this.getErrorValue({
       toolCall: options.toolCall,
       tool,
-      aiModule,
     });
 
     const toolCallWithoutError = {

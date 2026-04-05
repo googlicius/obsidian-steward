@@ -20,6 +20,14 @@ const ja = {
       imageDesc: '画像を生成する',
       speechDesc: 'テキストから音声を生成する',
       disabledMark: '（無効）',
+      helpTableCommand: 'コマンド',
+      helpTableDescription: '説明',
+      helpTableNote: 'ノート',
+      helpTableName: '名前',
+      helpTableStatus: '状態',
+      helpStatusEnabled: '有効',
+      helpStatusDisabled: '無効',
+      helpTableServerId: 'サーバー ID',
       cannotDeleteThisType: 'この種類のアーティファクトは削除できません: {{type}}',
       cannotRevertThisType: 'この種類のアーティファクトは元に戻せません: {{type}}',
       thisNote: 'このノート',
@@ -31,6 +39,17 @@ const ja = {
         'モデル {{model}} は画像入力をサポートしていません。画像入力をサポートするモデルを使用してください（例: gpt-4o, gemini-pro, claude-3-sonnet）。',
       invalidOrDynamicToolCall:
         'モデルが無効なまたは動的なツールコールを返しました: "{{toolName}}".',
+      statusValid: '✅ 有効',
+      statusInvalid: '無効: {{errors}}',
+    },
+    mcp: {
+      noConfigBlock:
+        'transport（http または sse）、url、必要に応じて headers を含む ```json``` ブロックを追加してください。',
+      invalidJson: 'MCP 設定ブロックの JSON が不正です: {{message}}',
+      helpSection: 'MCP サーバー',
+      noServers:
+        'MCP サーバーが見つかりません。`{{folder}}` 以下に定義ノート（Markdown）を追加し、必要に応じてプラグインを再読み込みしてください。',
+      helpNoteAlias: 'MCP',
     },
     trigger: {
       executing: 'トリガーコマンドを実行中: {{commandName}}',
@@ -45,6 +64,7 @@ const ja = {
       commandError: 'コマンド: {{commandName}}',
       yamlError: '無効なYAML構文',
       successMessage: 'すべてのコマンド定義が有効です！✅',
+      noCommandYamlBlock: 'ノートに ```yaml``` のコマンド定義ブロックがありません。',
     },
     // Chat UI elements
     chat: {
@@ -58,6 +78,7 @@ const ja = {
       conversationClosed: '会話を閉じました',
       newVersionAvailable: '新しいバージョンが利用可能',
       newVersionMessage: 'Stewardの新しいバージョン（{{version}}）が利用可能になりました！',
+      modelCompletionCurrentMark: '（現在）',
     },
     vault: {
       fileAlreadyInDestination: 'ファイルはすでに移動先に存在します',
@@ -107,8 +128,6 @@ const ja = {
     guardrails: {
       rules: 'ルール',
       noRulesDefined: 'ガードレールルールは定義されていません。',
-      statusValid: '✅ 有効',
-      statusInvalid: '無効: {{errors}}',
       violation:
         'ガードレールによりアクションがブロックされました。ルール: {{rules}}。パス: {{paths}}。禁止アクション: {{actions}}。処理を停止するか、禁止リストにない別のアクションを試してください。',
       violationHuman:
@@ -122,6 +141,8 @@ const ja = {
     skills: {
       skills: 'スキル',
       noSkills: 'スキルが読み込まれていません。下のスキルガイドラインを参照して始めてください。',
+      scaffoldDefaultName: 'new-skill',
+      scaffoldDefaultDescription: 'このスキルが何の役に立つか説明してください。',
     },
     rename: {
       processed: '{{count}}件のリネーム指示を処理しました。',
@@ -309,6 +330,7 @@ const ja = {
       udcGuideline: 'ユーザー定義コマンドガイドライン',
       skillsGuideline: 'スキルガイドライン',
       guardrailsGuideline: 'ガードレール',
+      mcpGuideline: 'MCP サーバー',
       tipNewLines: '`Shift+Enter`で改行を追加',
       tipChangeModel: '`m:` または `model:` でモデルを変更',
       tipAttachContext: '`@` でファイル/フォルダを添付',

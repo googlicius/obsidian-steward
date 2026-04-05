@@ -83,6 +83,7 @@ export class StreamTextExecutor {
       params.tools,
       effectiveAllowed
     ) as typeof params.tools;
+    const mcpTools = await agent.plugin.mcpService.getMcpToolsForConversation(params.title);
 
     const activeToolNames = this.resolveStreamActiveToolNames({
       declaredNormalized,
@@ -92,9 +93,15 @@ export class StreamTextExecutor {
       toolsThatEnableConclude: params.toolsThatEnableConclude,
       hasCompactionContext,
     });
+    const allActiveToolNames = [...activeToolNames, ...Object.keys(mcpTools.active)];
+    const toolsForRegistry = {
+      ...filteredTools,
+      ...mcpTools.active,
+      ...mcpTools.inactive,
+    };
 
-    const registry = ToolRegistry.buildFromTools(filteredTools)
-      .setActive(activeToolNames)
+    const registry = ToolRegistry.buildFromTools(toolsForRegistry)
+      .setActive(allActiveToolNames)
       .setAdditionalGuidelines(agent.plugin.guardrailsRuleService.getInstructionsByTool());
 
     if (params.intent.no_confirm) {

@@ -4,7 +4,7 @@ import { ArtifactType, revertAbleArtifactTypes } from '../artifact';
 import { EditMode } from './tools/editContent';
 
 export interface ToolDefinition {
-  name: ToolName;
+  name: string;
   tool: unknown;
   description: string;
   guidelines: string[];
@@ -382,12 +382,12 @@ NOTE:
 };
 
 export class ToolRegistry<T> {
-  private readonly tools: Map<ToolName, ToolDefinition> = new Map();
-  private readonly excluded: Set<ToolName> = new Set();
-  private activeTools: Set<ToolName> | null = null;
-  private additionalGuidelines: Map<ToolName, string[]> = new Map();
+  private readonly tools: Map<string, ToolDefinition> = new Map();
+  private readonly excluded: Set<string> = new Set();
+  private activeTools: Set<string> | null = null;
+  private additionalGuidelines: Map<string, string[]> = new Map();
 
-  public setAdditionalGuidelines(guidelines: Map<ToolName, string[]>): this {
+  public setAdditionalGuidelines(guidelines: Map<string, string[]>): this {
     this.additionalGuidelines = guidelines;
     return this;
   }
@@ -397,14 +397,14 @@ export class ToolRegistry<T> {
     return this;
   }
 
-  public exclude(names: ToolName[]): this {
+  public exclude(names: readonly string[]): this {
     for (const name of names) {
       this.excluded.add(name);
     }
     return this;
   }
 
-  public setActive(names?: readonly ToolName[]): this {
+  public setActive(names?: readonly string[]): this {
     if (typeof names === 'undefined') {
       this.activeTools = null;
       return this;
@@ -414,7 +414,7 @@ export class ToolRegistry<T> {
     return this;
   }
 
-  private isActive(name: ToolName): boolean {
+  private isActive(name: string): boolean {
     if (this.excluded.has(name)) {
       return false;
     }
@@ -429,8 +429,8 @@ export class ToolRegistry<T> {
   /**
    * Tool names that are active (exposed to the model) in this registry.
    */
-  public listActiveToolNames(): ToolName[] {
-    const names: ToolName[] = [];
+  public listActiveToolNames(): string[] {
+    const names: string[] = [];
     for (const [name] of this.tools) {
       if (this.isActive(name)) {
         names.push(name);
@@ -478,7 +478,7 @@ export class ToolRegistry<T> {
     return sections.join('\n\n');
   }
 
-  public generateOtherToolsSection(emptyLabel = '', exclude?: Set<ToolName>): string {
+  public generateOtherToolsSection(emptyLabel = '', exclude?: Set<string>): string {
     const lines: string[] = [];
     for (const [, def] of this.tools) {
       if (this.isActive(def.name)) continue;
@@ -505,15 +505,29 @@ export class ToolRegistry<T> {
     for (const [name, tool] of Object.entries(tools)) {
       const meta = TOOL_DEFINITIONS[name as ToolName];
       registry.register({
-        name: name as ToolName,
+        name,
         tool,
-        description: meta.description,
-        guidelines: meta.guidelines,
-        category: meta.category,
-        showDescriptionWhenInactive: meta.showDescriptionWhenInactive,
+        description: meta?.description ?? ToolRegistry.extractFallbackDescription(tool),
+        guidelines: meta?.guidelines ?? [],
+        category: meta?.category,
+        showDescriptionWhenInactive: meta?.showDescriptionWhenInactive ?? true,
       });
     }
     return registry;
+  }
+
+  private static extractFallbackDescription(tool: unknown): string {
+    if (!tool || typeof tool !== 'object') {
+      return '';
+    }
+    if (!('description' in tool)) {
+      return '';
+    }
+    const description = (tool as { description?: unknown }).description;
+    if (typeof description !== 'string') {
+      return '';
+    }
+    return description;
   }
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "obsidian-steward",
-  "version": "2.5.1",
+  "version": "2.6.0",
   "description": "This is a sample plugin for Obsidian (https://obsidian.md)",
   "main": "main.js",
   "scripts": {
@@ -21,11 +21,10 @@
   "license": "MIT",
   "devDependencies": {
     "@ai-sdk/anthropic": "^3.0.2",
-    "@ai-sdk/deepseek": "^2.0.2",
     "@ai-sdk/elevenlabs": "^2.0.6",
     "@ai-sdk/google": "^3.0.2",
-    "@ai-sdk/groq": "^3.0.2",
     "@ai-sdk/hume": "^2.0.6",
+    "@ai-sdk/mcp": "^1.0.30",
     "@ai-sdk/openai": "^3.0.2",
     "@ai-sdk/openai-compatible": "^2.0.2",
     "@codemirror/autocomplete": "github:codemirror/autocomplete",
@@ -43,8 +42,8 @@
     "fake-indexeddb": "^6.2.5",
     "jest": "^29.7.0",
     "js-yaml": "^4.1.1",
-    "ollama-ai-provider-v2": "^1.5.5",
     "obsidian": "latest",
+    "ollama-ai-provider-v2": "^1.5.5",
     "patch-package": "^8.0.1",
     "postcss": "^8.5.6",
     "postcss-cli": "^11.0.1",

@@ -17,9 +17,7 @@ import type {
 } from 'ai';
 import type { OpenAIProvider } from '@ai-sdk/openai';
 import type { OpenAICompatibleProvider } from '@ai-sdk/openai-compatible';
-import type { DeepSeekProvider } from '@ai-sdk/deepseek';
 import type { GoogleGenerativeAIProvider } from '@ai-sdk/google';
-import type { GroqProvider } from '@ai-sdk/groq';
 import type { AnthropicProvider } from '@ai-sdk/anthropic';
 import type { ElevenLabsProvider } from '@ai-sdk/elevenlabs';
 import type { HumeProvider } from '@ai-sdk/hume';
@@ -172,9 +170,7 @@ export class LLMService {
     provider:
       | OpenAIProvider
       | OpenAICompatibleProvider
-      | DeepSeekProvider
       | GoogleGenerativeAIProvider
-      | GroqProvider
       | OllamaProvider
       | AnthropicProvider;
   }>;
@@ -187,9 +183,7 @@ export class LLMService {
     provider:
       | OpenAIProvider
       | OpenAICompatibleProvider
-      | DeepSeekProvider
       | GoogleGenerativeAIProvider
-      | GroqProvider
       | OllamaProvider
       | AnthropicProvider
       | ElevenLabsProvider
@@ -213,9 +207,7 @@ export class LLMService {
     let provider:
       | OpenAIProvider
       | OpenAICompatibleProvider
-      | DeepSeekProvider
       | GoogleGenerativeAIProvider
-      | GroqProvider
       | OllamaProvider
       | AnthropicProvider
       | ElevenLabsProvider
@@ -245,27 +237,9 @@ export class LLMService {
         break;
       }
 
-      case 'deepseek': {
-        const { createDeepSeek } = await getBundledLib('deepseek');
-        provider = createDeepSeek({
-          ...(baseURL && { baseURL }),
-          ...(apiKey && { apiKey }),
-        });
-        break;
-      }
-
       case 'google': {
         const { createGoogleGenerativeAI } = await getBundledLib('google');
         provider = createGoogleGenerativeAI({
-          ...(baseURL && { baseURL }),
-          ...(apiKey && { apiKey }),
-        });
-        break;
-      }
-
-      case 'groq': {
-        const { createGroq } = await getBundledLib('groq');
-        provider = createGroq({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
         });

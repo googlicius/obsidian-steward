@@ -1,4 +1,5 @@
 import { StewardPluginSettings } from './types/interfaces';
+import { CURRENT_SETTINGS_SCHEMA_VERSION } from './settings/migrations/constants';
 
 export const SMILE_CHAT_ICON_ID = 'smile-chat-icon';
 
@@ -75,6 +76,7 @@ export const COMMAND_CONTENT_REQUIRED: Record<string, boolean> = {
 export const TWO_SPACES_PREFIX = '  ';
 
 export const DEFAULT_SETTINGS: StewardPluginSettings = {
+  settingsSchemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION,
   mySetting: 'default',
   providers: {
     openai: {
@@ -83,13 +85,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     elevenlabs: {
       apiKey: '',
     },
-    deepseek: {
-      apiKey: '',
-    },
     google: {
-      apiKey: '',
-    },
-    groq: {
       apiKey: '',
     },
     anthropic: {
@@ -185,16 +181,9 @@ export const LLM_MODELS: ModelOption[] = [
   { id: 'openai:o3', name: 'O3', isReasoning: true },
   { id: 'openai:o4-mini', name: 'O4 Mini', isReasoning: true },
 
-  // DeepSeek models
-  { id: 'deepseek:deepseek-chat', name: 'DeepSeek Chat' },
-  { id: 'deepseek:deepseek-reasoner', name: 'DeepSeek Reasoner', isReasoning: true },
-
   // Google models
   { id: 'google:gemini-3-pro-preview', name: 'Gemini 3 Pro', isReasoning: true },
   { id: 'google:gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
-
-  // Groq models
-  { id: 'groq:meta-llama/llama-4-scout-17b-16e-instruct', name: 'Llama 4 Scout 17B' },
 
   // Ollama models
   { id: 'ollama:llama3.1:latest', name: 'Llama 3.1 8B' },
@@ -210,9 +199,7 @@ export const LLM_MODELS: ModelOption[] = [
 export type ProviderNeedApiKey =
   | 'openai'
   | 'elevenlabs'
-  | 'deepseek'
   | 'google'
-  | 'groq'
   | 'anthropic'
   | 'ollama'
   | 'hume';
@@ -292,6 +279,7 @@ export const WIKI_PAGES = {
   USER_DEFINED_COMMANDS: 'User-defined-commands',
   SKILLS: 'Skills',
   GUARDRAILS: 'Guardrails',
+  MCP: 'MCP',
 } as const;
 
 // Community user-defined commands available for lazy loading from GitHub

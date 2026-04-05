@@ -16,17 +16,17 @@ The AI will read the skill file when needed. The read content is stored in the c
 
 ## Disabling a skill
 
-To temporarily disable a skill without removing the file, add `disabled: true` to its frontmatter:
+To temporarily disable a skill without removing the file, set `enabled` to `false` in its frontmatter (same idea as Steward guardrails rules):
 
 ```yaml
 ---
 name: my-skill
 description: My skill description
-disabled: true
+enabled: false
 ---
 ```
 
-The skill will be ignored until you remove the `disabled` field or set it to `false`.
+The skill is active when `enabled` is omitted or `true`. Older skills that still use `disabled: true` are treated as disabled when `enabled` is not set.
 
 ## Community skills
 

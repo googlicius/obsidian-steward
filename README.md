@@ -7,12 +7,12 @@ Steward is an autonomous AI agent for Obsidian, powered by Large Language Models
 ## Features
 
 - **Built-in search engine**: A BM25-based search with relevant scoring and typo tolerance that is significantly faster than the native Obsidian search.
-- **Agent Skills**: Extend Steward with domain-specific knowledge for specialized tasks like creating Obsidian Bases, Canvas files, or your own workflows. Compatible with the [Agent Skills specification](https://agentskills.io/specification).
+- **Autonomous agent capacity**: Tools, skills, subagents, and Model Context Protocol (MCP). Skills are compatible with the [Agent Skills specification](https://agentskills.io/specification).
 - **Guardrails**: Restrict which folders and files Steward can access with rules that block actions on sensitive paths.
-- **Interactive and adaptive chat UI**: One or more chat interfaces made of the slash `/` leveraging Obsidian's editor and reading view features, that is, adaptable to your current themes.
+- **Interactive and adaptive chat UI**: The chat interfaces made of the slash `/` leveraging Obsidian's editor and reading view features, adaptable to your current themes. Most editor formats are supported natively: bold, italic, wikilinks, lists, and fenced code blocks, etc.
 - **Privacy-focused**: Most actions are executed in the front-end using Obsidian API, command syntaxes, artifacts, and local services to avoid exposing your data to LLMs (except for your queries and what you're explicitly provided).
 - **Responsiveness and transparency**: Responds in real-time with streaming text generation, thinking, and even tool content. All messages are serialized to the corresponding note.
-- **Model flexibility**: Use your favorite AI models, including OpenAI, Gemini, DeepSeek, Ollama, etc.
+- **Model flexibility**: Use your favorite AI models, including OpenAI, Gemini, DeepSeek, Ollama, and OpenAI Compatible, etc.
 - **Model fallback**: Automatically switches to alternative models when errors occur, ensuring robust command execution.
 - **User-defined commands**: Create your own command workflows by combining multiple commands with specific LLM models and settings of your choice.
 
@@ -24,6 +24,7 @@ Steward is an autonomous AI agent for Obsidian, powered by Large Language Models
   - [Showcases](#showcases)
 - [Skills](#skills)
 - [Guardrails](#guardrails)
+- [MCP](#mcp)
 - [User-defined commands](#user-defined-commands)
 - [Folder structure](#folder-structure)
 - [Installation](#installation)
@@ -50,23 +51,23 @@ Steward can be used directly in the editor or by opening the chat interface.
 
 #### Update directly in the editor
 
-<img src="/docs/images/Update-In-Editor.gif" alt="Update directly in the editor" width="400px">
+<img src="/README.assets/Update-In-Editor.gif" alt="Update directly in the editor" width="400px">
 
 #### Reasoning
 
-<img src="/docs/images/Steward-Demo-Reasoning-2.gif" alt="Image read" width="400px">
+<img src="/README.assets/Steward-Demo-Reasoning-2.gif" alt="Image read" width="400px">
 
 #### To-do list and revert changes
 
-<img src="/docs/images/Steward-Demo-Todo-list-and-revert.gif" alt="Revert" width="400px">
+<img src="/README.assets/Steward-Demo-Todo-list-and-revert.gif" alt="Revert" width="400px">
 
 #### Update the selection
 
-<img src="/docs/images/Stw-Demo-Update-selected-text-complex.gif" alt="Update selection" width="650px">
+<img src="/README.assets/Stw-Demo-Update-selected-text-complex.gif" alt="Update selection" width="650px">
 
 #### Search
 
-<img src="/docs/images/Stw-Demo-Search-light.gif" alt="Search" width="650px">
+<img src="/README.assets/Stw-Demo-Search-light.gif" alt="Search" width="650px">
 
 ## Skills
 
@@ -84,7 +85,7 @@ You can find ready-to-use skills from the community, such as [Obsidian Skills](h
 
 For more details, see the [Skills wiki](https://github.com/googlicius/obsidian-steward/wiki/Skills).
 
-<img src="/docs/images/Skills.gif" alt="Skills" width="650px">
+<img src="/README.assets/Skills.gif" alt="Skills" width="650px">
 
 ## Guardrails
 
@@ -94,7 +95,15 @@ For more details, see the [Guardrails wiki](https://github.com/googlicius/obsidi
 
 You can use the [Guardrails skill](https://github.com/googlicius/obsidian-steward/tree/main/skills/guardrails) to create and edit rules in natural language. Activate the skill and ask Steward to set up or modify rules for you.
 
-<img src="/docs/images/Steward-Demo-Guardrails.gif" alt="Guardrails" width="650px">
+<img src="/README.assets/Steward-Demo-Guardrails.gif" alt="Guardrails" width="650px">
+
+## MCP
+
+Steward can connect to remote [Model Context Protocol](https://modelcontextprotocol.io/) servers. Define each server as a markdown note in the `Steward/MCP` folder with YAML frontmatter and a JSON configuration block (`transport`, `url`, optional `headers`). Use `$secret:name` placeholders in string values to pull credentials from Obsidian’s secret storage.
+
+For the full format, examples, and troubleshooting, see the [MCP wiki](https://github.com/googlicius/obsidian-steward/wiki/MCP).
+
+<img src="/README.assets/Steward-Demo-MCP.gif" alt="MCP" width="650px">
 
 ## User-defined commands
 
@@ -106,11 +115,11 @@ For the full guide on creating and using User-Defined Commands, see the [User-de
 
 #### Flashcard assist [Flashcard ask](/community-UDCs/Flashcard%20ask.md)
 
-<img src="/docs/images/Steward-Demo-Flashcard.gif" alt="Flashcard Assist" width="650px">
+<img src="/README.assets/Steward-Demo-Flashcard.gif" alt="Flashcard Assist" width="650px">
 
 #### Automated command [Word processor](/community-UDCs/Word%20processor.md)
 
-<img src="/docs/images/Steward-Demo-Automated.gif" alt="Automated workflow" width="650px">
+<img src="/README.assets/Steward-Demo-Automated.gif" alt="Automated workflow" width="650px">
 
 ### Community user-defined commands
 
@@ -129,6 +138,7 @@ Steward creates the following folder structure in your vault:
 Steward/
 ├── Commands/       # Stores user-defined command definitions
 ├── Conversations/  # Archives past conversations
+├── MCP/            # MCP server definitions (one markdown note per server)
 ├── Docs/           # Fetched documents from this repo
 ├── Release notes/  # Release notes of Steward
 ├── Rules/          # Guardrails rules (one file per rule)

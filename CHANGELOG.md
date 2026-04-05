@@ -5,6 +5,26 @@ All notable changes to Obsidian Steward will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2026-04-06
+
+### Added
+
+- **MCP (Model Context Protocol)**: Add MCP capacity to integrate with external MCP servers.
+- **Validation status in frontmatter**: Write validation status to frontmatter for user-defined commands.
+
+### Changed
+
+- **Command input**: Fixed continuation lines after leading tabs; aligned paste prefix check.
+- **User-defined commands**: Improved handling of continuation line deletion.
+- **Built-in providers**: Removed DeepSeek and Groq as built-in providers.
+- **Settings**: Added settings migration framework for future version upgrades.
+
+### Refactored
+
+- Moved model selection section to settings; moved GIF to README.assets folder.
+
+[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.4.0...2.6.0)
+
 ## [2.4.0] - 2026-03-18
 
 ### Added
