@@ -126,8 +126,7 @@ export class SkillService {
   private async ensureSkillNoteFrontmatter(file: TFile): Promise<void> {
     try {
       const initialContent = await this.plugin.app.vault.cachedRead(file);
-      const initialParsed =
-        this.plugin.noteContentService.parseMarkdownFrontmatter(initialContent);
+      const initialParsed = this.plugin.noteContentService.parseMarkdownFrontmatter(initialContent);
       await this.migrateLegacySkillDisabledFrontmatter(file, initialParsed.frontmatter);
 
       await this.plugin.app.fileManager.processFrontMatter(file, fm => {
