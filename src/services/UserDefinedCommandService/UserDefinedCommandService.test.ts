@@ -1,5 +1,6 @@
 import { TFile, TFolder } from 'obsidian';
 import i18next from 'src/i18n';
+import { NoteContentService } from 'src/services/NoteContentService';
 import { UserDefinedCommandService } from './UserDefinedCommandService';
 import type StewardPlugin from 'src/main';
 import { getInstance } from 'src/utils/getInstance';
@@ -34,6 +35,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     registerEvent: jest.fn(),
     noteContentService: {
       processWikilinksInContent: jest.fn().mockImplementation(async (content: string) => content),
+      parseMarkdownFrontmatter: NoteContentService.prototype.parseMarkdownFrontmatter.bind(
+        {} as NoteContentService
+      ),
     },
   } as unknown as jest.Mocked<StewardPlugin>;
 }
