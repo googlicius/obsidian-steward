@@ -17,11 +17,18 @@ const mcpDefinitionFrontmatterSchema = z.object({
   name: z.string().optional(),
   description: z.string().optional(),
   enabled: z.boolean().optional(),
+  /** JSON array string or YAML string array of MCP tool names from list_tools. */
+  tools: z.unknown().optional(),
+  message: z.string().optional(),
 });
 
 const MCP_FOLDER_NAME = 'MCP';
 const CONVERSATION_TOOLS_FRONTMATTER_KEY = 'tools';
 const MCP_TOOL_PREFIX = 'mcp__';
+
+/** Model-facing only (not i18n): tells the LLM the MCP server is disconnected. */
+const MCP_OFFLINE_TOOL_DESCRIPTION =
+  'This MCP tool is unavailable because the server is not connected';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -41,6 +48,8 @@ export class MCPService {
 
   private definitionsByPath: Map<string, MCPDefinition> = new Map();
   private connectionCacheByPath: Map<string, MCPConnectionCacheEntry> = new Map();
+  /** Avoid concurrent list_tools refresh for the same MCP note. */
+  private toolRefreshInFlight: Set<string> = new Set();
 
   private constructor(private plugin: StewardPlugin) {
     this.initialize();
@@ -127,15 +136,28 @@ export class MCPService {
       }
 
       const connected = await this.ensureServerConnected(definition.path);
-      if (!connected) {
+      if (connected) {
+        for (const toolEntry of Object.entries(connected.tools)) {
+          const toolName = toolEntry[0];
+          const tool = toolEntry[1];
+          const bucket = activatedNames.has(toolName) ? active : inactive;
+          bucket[toolName] = tool;
+        }
         continue;
       }
 
-      for (const toolEntry of Object.entries(connected.tools)) {
-        const toolName = toolEntry[0];
-        const tool = toolEntry[1];
-        const bucket = activatedNames.has(toolName) ? active : inactive;
-        bucket[toolName] = tool;
+      if (definition.cachedToolNames.length === 0) {
+        continue;
+      }
+
+      for (let i = 0; i < definition.cachedToolNames.length; i++) {
+        const bareName = definition.cachedToolNames[i];
+        const prefixedName = `${MCP_TOOL_PREFIX}${definition.serverId}__${bareName}`;
+        const bucket = activatedNames.has(prefixedName) ? active : inactive;
+        bucket[prefixedName] = {
+          description: MCP_OFFLINE_TOOL_DESCRIPTION,
+          execute: () => Promise.resolve(MCP_OFFLINE_TOOL_DESCRIPTION),
+        };
       }
     }
 
@@ -182,19 +204,19 @@ export class MCPService {
   private initialize(): void {
     this.plugin.app.workspace.onLayoutReady(async () => {
       await this.loadAllDefinitions();
+
+      this.plugin.registerEvent(
+        this.plugin.app.vault.on('create', file => {
+          if (!(file instanceof TFile) || !this.isMCPDefinitionPath(file.path)) {
+            return;
+          }
+          void this.loadDefinitionFromFile(file);
+        })
+      );
     });
 
     this.plugin.registerEvent(
       this.plugin.app.vault.on('modify', file => {
-        if (!(file instanceof TFile) || !this.isMCPDefinitionPath(file.path)) {
-          return;
-        }
-        void this.loadDefinitionFromFile(file);
-      })
-    );
-
-    this.plugin.registerEvent(
-      this.plugin.app.vault.on('create', file => {
         if (!(file instanceof TFile) || !this.isMCPDefinitionPath(file.path)) {
           return;
         }
@@ -219,6 +241,15 @@ export class MCPService {
         if (file instanceof TFile && this.isMCPDefinitionPath(file.path)) {
           void this.loadDefinitionFromFile(file);
         }
+      })
+    );
+
+    this.plugin.registerEvent(
+      this.plugin.app.metadataCache.on('changed', async file => {
+        if (!(file instanceof TFile) || !this.isMCPDefinitionPath(file.path)) {
+          return;
+        }
+        void this.handleMetadataCacheChanged(file);
       })
     );
   }
@@ -266,6 +297,10 @@ export class MCPService {
       parsedForStatus.frontmatter,
       'enabled'
     );
+    const toolsKeyMissing = !Object.prototype.hasOwnProperty.call(
+      parsedForStatus.frontmatter,
+      'tools'
+    );
 
     const { definition, configValidationErrors } = this.parseDefinition({
       filePath: normalizedPath,
@@ -282,16 +317,52 @@ export class MCPService {
     const needsStatusUpdate = currentStatus !== newStatus;
     const needsEnabledDefault = enabledKeyMissing;
 
-    if (needsStatusUpdate || needsEnabledDefault) {
+    if (needsStatusUpdate || needsEnabledDefault || toolsKeyMissing) {
       await this.plugin.app.fileManager.processFrontMatter(file, fm => {
         if (needsStatusUpdate) {
           fm.status = newStatus;
         }
         if (needsEnabledDefault) {
-          fm.enabled = true;
+          fm.enabled = false;
+        }
+        if (toolsKeyMissing) {
+          fm.tools = i18next.t('mcp.toolsPlaceholder');
         }
       });
     }
+  }
+
+  /**
+   * Metadata-cache driven hook for frontmatter changes.
+   * Uses metadataCache frontmatter because it reflects checkbox/property edits quickly.
+   */
+  private async handleMetadataCacheChanged(file: TFile): Promise<void> {
+    const fileCache = this.plugin.app.metadataCache.getFileCache(file);
+    const frontmatter = fileCache?.frontmatter as Record<string, unknown> | undefined;
+    const isEnabled = frontmatter?.enabled === true;
+    if (!isEnabled) {
+      return;
+    }
+
+    const statusRaw = frontmatter?.status;
+    const statusStr = typeof statusRaw === 'string' ? statusRaw : undefined;
+    if (statusStr !== i18next.t('common.statusValid')) {
+      return;
+    }
+
+    const toolsRaw = frontmatter?.tools;
+    const listedToolNames = this.parseCachedToolNamesFromFrontmatter(toolsRaw);
+    if (listedToolNames.length > 0) {
+      return;
+    }
+
+    const normalizedPath = normalizePath(file.path);
+    const definition = this.definitionsByPath.get(normalizedPath);
+    if (!definition || !definition.config) {
+      return;
+    }
+
+    await this.refreshCachedToolNamesFromServer(file, normalizedPath);
   }
 
   private async ensureDefinitionLoaded(path: string): Promise<void> {
@@ -322,15 +393,17 @@ export class MCPService {
     const fmParsed = mcpDefinitionFrontmatterSchema.safeParse(frontmatter);
     const fm = fmParsed.success ? fmParsed.data : {};
 
-    const enabledFromFrontmatter = fm.enabled !== false;
-    const enabledFromConfig = config !== null && config.enabled !== false;
-    const enabled = enabledFromFrontmatter && enabledFromConfig;
+    const enabled = fm.enabled === true;
 
     const name = fm.name?.trim() || params.fileBasename;
     const description = fm.description?.trim() ?? '';
 
     const message = jsonBlock.bodyWithoutJson.trim();
     const serverId = this.serverIdFromBasename(params.fileBasename);
+    const rawTools = 'tools' in frontmatter ? frontmatter.tools : undefined;
+    const cachedToolNames = this.parseCachedToolNamesFromFrontmatter(rawTools);
+    const connectionMessageRaw = fm.message;
+    const connectionMessage = typeof connectionMessageRaw === 'string' ? connectionMessageRaw : '';
 
     return {
       definition: {
@@ -341,6 +414,8 @@ export class MCPService {
         enabled,
         message,
         config,
+        cachedToolNames,
+        connectionMessage,
       },
       configValidationErrors: validation.errors,
     };
@@ -352,6 +427,89 @@ export class MCPService {
     }
     const combinedErrors = (errors ?? []).join('; ');
     return i18next.t('common.statusInvalid', { errors: combinedErrors });
+  }
+
+  private parseCachedToolNamesFromFrontmatter(raw: unknown): string[] {
+    if (raw == null) {
+      return [];
+    }
+    if (Array.isArray(raw)) {
+      const out: string[] = [];
+      for (let i = 0; i < raw.length; i++) {
+        const item = raw[i];
+        if (typeof item === 'string' && item.length > 0) {
+          out.push(item);
+        }
+      }
+      return out;
+    }
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (!trimmed.startsWith('[')) {
+        return [];
+      }
+      try {
+        const parsed = JSON.parse(trimmed) as unknown;
+        if (!Array.isArray(parsed)) {
+          return [];
+        }
+        const out: string[] = [];
+        for (let i = 0; i < parsed.length; i++) {
+          const item = parsed[i];
+          if (typeof item === 'string' && item.length > 0) {
+            out.push(item);
+          }
+        }
+        return out;
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
+
+  private async refreshCachedToolNamesFromServer(
+    file: TFile,
+    normalizedPath: string
+  ): Promise<void> {
+    if (this.toolRefreshInFlight.has(normalizedPath)) {
+      return;
+    }
+    const definition = this.definitionsByPath.get(normalizedPath);
+    if (!definition || !definition.config) {
+      return;
+    }
+
+    this.toolRefreshInFlight.add(normalizedPath);
+    try {
+      const mcpLib = await getBundledLib('mcp');
+      const client = await mcpLib.createMCPClient({
+        transport: {
+          type: definition.config.transport,
+          url: definition.config.url,
+          headers: definition.config.headers,
+        },
+      });
+      try {
+        const discoveredTools = await client.tools();
+        const bareNames = Object.keys(discoveredTools);
+        await this.plugin.app.fileManager.processFrontMatter(file, fm => {
+          fm.tools = JSON.stringify(bareNames);
+          fm.message = undefined;
+        });
+      } finally {
+        await client.close().catch(error => {
+          logger.warn(`Error closing MCP client after tool refresh ${normalizedPath}`, error);
+        });
+      }
+    } catch (error) {
+      logger.warn(`Failed to refresh MCP tool names for ${normalizedPath}`, error);
+      await this.plugin.app.fileManager.processFrontMatter(file, fm => {
+        fm.message = i18next.t('mcp.connectionFailedRetry');
+      });
+    } finally {
+      this.toolRefreshInFlight.delete(normalizedPath);
+    }
   }
 
   private validateServerConfigJson(

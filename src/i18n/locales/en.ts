@@ -53,6 +53,11 @@ const en = {
       noServers:
         'No MCP servers found. Add definition notes (markdown) under `{{folder}}`, then restart or reload the plugin if needed.',
       helpNoteAlias: 'MCP',
+      toolsPlaceholder: 'Check enabled to discover and list tool names from this MCP server.',
+      connectionFailedRetry:
+        'Could not connect to this MCP server. Re-check the enabled field in this MCP note to retry.',
+      activateToolsMcpHint:
+        'For MCP tools: ensure the MCP server is running and re-check enabled on the MCP definition note if execution fails.',
     },
     trigger: {
       executing: 'Command "{{commandName}}" is executing.',

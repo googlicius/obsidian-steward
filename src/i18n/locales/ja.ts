@@ -50,6 +50,12 @@ const ja = {
       noServers:
         'MCP サーバーが見つかりません。`{{folder}}` 以下に定義ノート（Markdown）を追加し、必要に応じてプラグインを再読み込みしてください。',
       helpNoteAlias: 'MCP',
+      toolsPlaceholder:
+        'enabled をオンにすると、この MCP サーバーのツール名を取得して一覧できます。',
+      connectionFailedRetry:
+        'この MCP サーバーに接続できませんでした。この MCP ノートの enabled を確認して再試行してください。',
+      activateToolsMcpHint:
+        'MCP ツール: サーバーが起動していること、失敗時は MCP 定義ノートで enabled を確認してください。',
     },
     trigger: {
       executing: 'トリガーコマンドを実行中: {{commandName}}',

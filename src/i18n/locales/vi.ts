@@ -48,6 +48,11 @@ const vi = {
       noServers:
         'Chưa có máy chủ MCP. Thêm ghi chú định nghĩa (Markdown) trong `{{folder}}`, sau đó khởi động lại hoặc tải lại plugin nếu cần.',
       helpNoteAlias: 'MCP',
+      toolsPlaceholder: 'Bật enabled để khám phá và liệt kê tên công cụ từ máy chủ MCP này.',
+      connectionFailedRetry:
+        'Không kết nối được máy chủ MCP này. Hãy bật lại mục enabled trong ghi chú MCP này để thử lại.',
+      activateToolsMcpHint:
+        'Với công cụ MCP: hãy đảm bảo máy chủ MCP đang chạy và kiểm tra lại enabled trong ghi chú định nghĩa MCP nếu thực thi thất bại.',
     },
     trigger: {
       executing: 'Đang thực thi trigger cho lệnh: {{commandName}}',
