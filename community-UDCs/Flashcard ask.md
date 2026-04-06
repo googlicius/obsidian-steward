@@ -7,6 +7,9 @@ command_name: flashcard-ask
 query_required: true
 system_prompt:
   - "[[#Flashcard guidelines]]"
+tools:
+  - content_reading
+  - switch_agent_capacity
 steps:
   - name: read
     query: 'c:read --blocks=1 --files="$active_file"'

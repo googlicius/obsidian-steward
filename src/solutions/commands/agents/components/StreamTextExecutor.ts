@@ -72,6 +72,7 @@ export class StreamTextExecutor {
     const effectiveAllowedNames = this.buildSuperAgentEffectiveAllowedNames({
       declaredNormalized,
       expandedDeclared,
+      conversationActiveTools: params.activeTools,
       allToolKeys: allSuperAgentKeys,
       toolsThatEnableConclude: params.toolsThatEnableConclude,
       hasConcludeEligibleDeclaredTool: hasConcludeEligibleDeclared,
