@@ -1255,7 +1255,7 @@ describe('SuperAgent', () => {
   });
 
   describe('handle - manual tool calls', () => {
-    it('should create a manual tool call TODO_LIST_UPDATE if the current task is client-processed', async () => {
+    it('should create a manual tool call TODO_WRITE (update) if the current task is client-processed', async () => {
       const mockTodoListState: handlers.TodoListState = {
         steps: [
           { task: 'c:read --blocks=1', status: 'in_progress' },
@@ -1272,12 +1272,12 @@ describe('SuperAgent', () => {
           return undefined;
         });
 
-      const mockTodoListHandleUpdate = jest.fn().mockResolvedValue({
+      const mockTodoListHandle = jest.fn().mockResolvedValue({
         status: IntentResultStatus.SUCCESS,
       });
 
       const mockTodoList = {
-        handleUpdate: mockTodoListHandleUpdate,
+        handle: mockTodoListHandle,
       } as unknown as handlers.TodoList;
 
       Object.defineProperty(superAgent, '_todoList', {
@@ -1292,19 +1292,24 @@ describe('SuperAgent', () => {
           type: 'read',
           query: createStepProcessedQuery('c:read --blocks=1'),
         } as Intent,
-        activeTools: [ToolName.TODO_LIST_UPDATE],
+        activeTools: [ToolName.TODO_WRITE],
         invocationCount: 1,
       };
 
       await superAgent.handle(params);
 
       expect(getMockStreamText()).not.toHaveBeenCalled();
-      expect(mockTodoListHandleUpdate).toHaveBeenCalledTimes(1);
-      const toolCall = mockTodoListHandleUpdate.mock.calls[0][1].toolCall;
-      expect(toolCall.toolName).toBe(ToolName.TODO_LIST_UPDATE);
+      expect(mockTodoListHandle).toHaveBeenCalledTimes(1);
+      const toolCall = mockTodoListHandle.mock.calls[0][1].toolCall;
+      expect(toolCall.toolName).toBe(ToolName.TODO_WRITE);
       expect(toolCall.input).toMatchObject({
-        status: 'completed',
-        nextStep: 2,
+        operations: [
+          {
+            operation: 'update',
+            status: 'completed',
+            nextStep: 2,
+          },
+        ],
       });
       expect(mockPlugin.conversationRenderer.getConversationProperty).toHaveBeenCalledWith(
         'test-conversation',
@@ -1312,7 +1317,7 @@ describe('SuperAgent', () => {
       );
     });
 
-    it('should NOT create TODO_LIST_UPDATE when query is not step-processed format', async () => {
+    it('should NOT create TODO_WRITE update when query is not step-processed format', async () => {
       mockPlugin.conversationRenderer.getConversationProperty = jest
         .fn()
         .mockResolvedValue(undefined);
@@ -1321,9 +1326,9 @@ describe('SuperAgent', () => {
         blocks: [{ content: '', startLine: 0, endLine: 0, sections: [] }],
       });
 
-      const mockTodoListHandleUpdate = jest.fn();
+      const mockTodoListHandle = jest.fn();
       Object.defineProperty(superAgent, '_todoList', {
-        value: { handleUpdate: mockTodoListHandleUpdate } as unknown as handlers.TodoList,
+        value: { handle: mockTodoListHandle } as unknown as handlers.TodoList,
         writable: true,
         configurable: true,
       });
@@ -1334,7 +1339,7 @@ describe('SuperAgent', () => {
           type: 'read',
           query: 'c:read --blocks=1', // Raw command syntax - handled by parseAndConvert, not manualToolCall
         } as Intent,
-        activeTools: [ToolName.TODO_LIST_UPDATE],
+        activeTools: [ToolName.TODO_WRITE],
         invocationCount: 1,
         handlerId: 'faked',
       };
@@ -1342,18 +1347,18 @@ describe('SuperAgent', () => {
       await superAgent.handle(params);
 
       // Command syntax is handled by CommandSyntaxParser.parseAndConvert (CONTENT_READING).
-      // manualToolCall is bypassed, so we never create a manual TODO_LIST_UPDATE.
-      expect(mockTodoListHandleUpdate).not.toHaveBeenCalled();
+      // manualToolCall is bypassed, so we never create a manual TODO_WRITE update.
+      expect(mockTodoListHandle).not.toHaveBeenCalled();
     });
 
-    it('should NOT create TODO_LIST_UPDATE when todo list does not exist', async () => {
+    it('should NOT create TODO_WRITE update when todo list does not exist', async () => {
       mockPlugin.conversationRenderer.getConversationProperty = jest
         .fn()
         .mockResolvedValue(undefined);
 
-      const mockTodoListHandleUpdate = jest.fn();
+      const mockTodoListHandle = jest.fn();
       Object.defineProperty(superAgent, '_todoList', {
-        value: { handleUpdate: mockTodoListHandleUpdate } as unknown as handlers.TodoList,
+        value: { handle: mockTodoListHandle } as unknown as handlers.TodoList,
         writable: true,
         configurable: true,
       });
@@ -1364,7 +1369,7 @@ describe('SuperAgent', () => {
           type: 'read',
           query: createStepProcessedQuery('c:read --blocks=1'),
         } as Intent,
-        activeTools: [ToolName.TODO_LIST_UPDATE],
+        activeTools: [ToolName.TODO_WRITE],
         invocationCount: 1,
       };
 
@@ -1372,7 +1377,77 @@ describe('SuperAgent', () => {
 
       // manualToolCall returns undefined when no todo list, so executeStreamText is used
       expect(getMockStreamText()).toHaveBeenCalled();
-      expect(mockTodoListHandleUpdate).not.toHaveBeenCalled();
+      expect(mockTodoListHandle).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getNextTodoListStepIntent', () => {
+    it('includes UDC root system_prompt on subsequent steps', async () => {
+      const rootPrompt = 'Root prompt: $steward / $active_file';
+
+      // SuperAgent reads UDC root prompts via plugin.userDefinedCommandService
+      if (!mockPlugin.userDefinedCommandService?.userDefinedCommands) {
+        Object.assign(mockPlugin, {
+          userDefinedCommandService: {
+            userDefinedCommands: new Map(),
+            replacePlaceholders: (content: string) =>
+              content
+                .replace(/\$steward/g, mockPlugin.settings.stewardFolder)
+                .replace(/\$active_file/g, ''),
+            processSystemPromptsWikilinks: async (systemPrompts: string[]) =>
+              systemPrompts.map((p: string) =>
+                p
+                  .replace(/\$steward/g, mockPlugin.settings.stewardFolder)
+                  .replace(/\$active_file/g, '')
+              ),
+          },
+        });
+      }
+
+      // Register a v2 UDC command with root system_prompt
+      mockPlugin.userDefinedCommandService.userDefinedCommands.set('flashcard', {
+        getVersion: () => 2,
+        normalized: {
+          command_name: 'flashcard',
+          file_path: 'Steward/Commands/flashcard.md',
+          steps: [],
+          system_prompt: [rootPrompt],
+        },
+      } as unknown as import('src/services/UserDefinedCommandService/versions/types').IVersionedUserDefinedCommand);
+
+      const mockTodoListState: handlers.TodoListState = {
+        steps: [
+          { task: 'Step 1', status: 'completed' },
+          { task: 'Step 2', type: 'read' },
+        ],
+        currentStep: 2,
+        createdBy: 'udc',
+      };
+
+      mockPlugin.conversationRenderer.getConversationProperty = jest
+        .fn()
+        .mockImplementation(async (_title: string, property: string) => {
+          if (property === 'udc_command') return 'flashcard';
+          if (property === 'todo_list') return mockTodoListState;
+          if (property === 'allowed_tools') return [ToolName.CONTENT_READING];
+          return undefined;
+        });
+
+      // @ts-expect-error - Accessing private method for testing
+      const next = await superAgent.getNextTodoListStepIntent('test-conversation', {
+        type: 'read',
+        query: 'Step 1',
+        tools: [ToolName.CONTENT_READING],
+      } as Intent);
+
+      expect(next).not.toBeNull();
+      expect(next).toMatchObject({
+        type: 'read',
+        query: 'Step 2',
+      });
+      expect((next as Intent).systemPrompts).toEqual([
+        `Root prompt: ${mockPlugin.settings.stewardFolder} / `,
+      ]);
     });
   });
 });

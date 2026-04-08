@@ -5,7 +5,6 @@ import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
-import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 /**
  * Schema for a single to-do list step
@@ -14,25 +13,16 @@ const todoStepSchema = z.object({
   task: z.string().describe('The task to execute for this step'),
 });
 
-/**
- * Schema for the to-do list tool input (create only)
- */
-const todoListSchema = z.object({
+const todoWriteCreateSchema = z.object({
+  operation: z.literal('create'),
   steps: z
     .array(todoStepSchema)
     .min(1)
     .describe('Array of steps in the to-do list. Each step requires a task.'),
-  lang: z
-    .string()
-    .nullable()
-    .optional()
-    .describe(userLanguagePrompt.content as string),
 });
 
-/**
- * Schema for the to-do list update tool input
- */
-const todoListUpdateSchema = z.object({
+const todoWriteUpdateSchema = z.object({
+  operation: z.literal('update'),
   status: z
     .enum(['in_progress', 'skipped', 'completed'])
     .describe('The status of the current step: in_progress, skipped, or completed.'),
@@ -46,9 +36,50 @@ const todoListUpdateSchema = z.object({
     ),
 });
 
+/** Single create/update op (nested discriminatedUnion; root schema is a plain object for provider JSON Schema). */
+const todoWriteOperationSchema = z.discriminatedUnion('operation', [
+  todoWriteCreateSchema,
+  todoWriteUpdateSchema,
+]);
+
+const todoWriteSchema = z.object(
+  {
+    operations: z
+      .array(todoWriteOperationSchema)
+      .min(1)
+      .max(1)
+      .describe(
+        'Exactly one operation: create a new to-do list or update the current step of the active list.'
+      ),
+  },
+  {
+    description:
+      'Create or update a to-do list for multi-step tasks. Use a single-element operations array, same pattern as the edit and delete tools.',
+  }
+);
+
 export type TodoStep = z.infer<typeof todoStepSchema>;
-export type TodoListArgs = z.infer<typeof todoListSchema>;
-export type TodoListUpdateArgs = z.infer<typeof todoListUpdateSchema>;
+export type TodoWriteArgs = z.infer<typeof todoWriteSchema>;
+export type TodoWriteOperation = z.infer<typeof todoWriteOperationSchema>;
+
+/**
+ * Whether this tool input is a todo_write update (operations[0].operation === 'update').
+ * Exported for SuperAgent / manual tool routing.
+ */
+export function isTodoWriteUpdateToolInput(input: unknown): boolean {
+  if (input === null || typeof input !== 'object') {
+    return false;
+  }
+  const operations = (input as { operations?: unknown }).operations;
+  if (!Array.isArray(operations) || operations.length === 0) {
+    return false;
+  }
+  const first = operations[0];
+  if (first === null || typeof first !== 'object') {
+    return false;
+  }
+  return (first as { operation?: string }).operation === 'update';
+}
 
 /**
  * Extended step type that supports UDC metadata
@@ -62,10 +93,15 @@ export type TodoStepWithMetadata = TodoStep & {
 };
 
 /**
- * Extended todo list args that supports UDC metadata in steps
+ * Manual / UDC create call with metadata on steps (not in Zod schema; passed only from our code).
  */
-export type TodoListArgsWithMetadata = {
-  steps: TodoStepWithMetadata[];
+export type TodoWriteCreateArgsWithMetadata = {
+  operations: [
+    {
+      operation: 'create';
+      steps: TodoStepWithMetadata[];
+    },
+  ];
 };
 
 /**
@@ -87,25 +123,20 @@ export interface TodoListState {
   createdBy: 'udc' | 'ai';
 }
 
+type StepDisplayStatus = 'in_progress' | 'skipped' | 'completed' | 'pending';
+
 export class TodoList {
   constructor(private readonly agent: AgentHandlerContext) {}
 
-  public static async getTodoListTool() {
+  public static async getTodoWriteTool() {
     const { tool } = await getBundledLib('ai');
     return tool({
-      inputSchema: todoListSchema,
-    });
-  }
-
-  public static async getTodoListUpdateTool() {
-    const { tool } = await getBundledLib('ai');
-    return tool({
-      inputSchema: todoListUpdateSchema,
+      inputSchema: todoWriteSchema,
     });
   }
 
   /**
-   * Format the to-do list for display
+   * Format the to-do list for display in the conversation note
    */
   private formatTodoList(state: TodoListState, lang?: string | null): string {
     const t = getTranslation(lang);
@@ -114,20 +145,8 @@ export class TodoList {
 
     for (let i = 0; i < state.steps.length; i++) {
       const step = state.steps[i];
-      const stepNumber = i + 1; // Convert 0-based index to 1-based step number
-      const isCurrent = stepNumber === state.currentStep;
-
-      // Determine status: use stored status if available, otherwise infer from position
-      let stepStatus: 'in_progress' | 'skipped' | 'completed' | 'pending';
-      if (step.status) {
-        stepStatus = step.status;
-      } else if (stepNumber < state.currentStep) {
-        stepStatus = 'completed';
-      } else if (isCurrent) {
-        stepStatus = 'in_progress';
-      } else {
-        stepStatus = 'pending';
-      }
+      const stepNumber = i + 1;
+      const stepStatus = TodoList.inferStepStatus(step, stepNumber, state.currentStep);
 
       const prefix =
         stepStatus === 'completed'
@@ -155,25 +174,131 @@ export class TodoList {
     return lines.join('\n');
   }
 
+  private static inferStepStatus(
+    step: TodoListState['steps'][number],
+    stepNumber: number,
+    currentStep: number
+  ): StepDisplayStatus {
+    if (step.status) {
+      return step.status;
+    }
+    if (stepNumber < currentStep) {
+      return 'completed';
+    }
+    if (stepNumber === currentStep) {
+      return 'in_progress';
+    }
+    return 'pending';
+  }
+
+  /** English labels for todo_write tool results (model-facing only). */
+  private static toolResultStatusLabel(stepStatus: StepDisplayStatus): string {
+    if (stepStatus === 'completed') {
+      return 'Completed';
+    }
+    if (stepStatus === 'skipped') {
+      return 'Skipped';
+    }
+    if (stepStatus === 'in_progress') {
+      return 'In progress';
+    }
+    return 'Pending';
+  }
+
   /**
-   * Handle to-do list tool call
+   * Rich tool result: steps, statuses, current step, UDC instructions, completion.
+   * Kept in English for the model; not localized.
+   */
+  private async buildTodoWriteToolResultText(state: TodoListState): Promise<string> {
+    const lines: string[] = [];
+
+    lines.push('Steps:');
+    for (let i = 0; i < state.steps.length; i++) {
+      const step = state.steps[i];
+      const stepNumber = i + 1;
+      const stepStatus = TodoList.inferStepStatus(step, stepNumber, state.currentStep);
+      const label = TodoList.toolResultStatusLabel(stepStatus);
+      lines.push(`${stepNumber}. [${label}] ${step.task}`);
+    }
+
+    lines.push(`\nCurrent step: ${state.currentStep} of ${state.steps.length}`);
+
+    const curIdx = state.currentStep - 1;
+    const curStep = state.steps[curIdx];
+    // UDC: step-level system_prompt text is surfaced here only (todo_write result), not merged into
+    // API system messages; root command system_prompt is applied separately on the intent.
+    if (state.createdBy === 'udc' && curStep) {
+      if (curStep.systemPrompts && curStep.systemPrompts.length > 0) {
+        const resolved =
+          await this.agent.plugin.userDefinedCommandService.processSystemPromptsWikilinks(
+            curStep.systemPrompts
+          );
+        lines.push('\nINSTRUCTIONS FOR THE CURRENT STEP:');
+        for (let i = 0; i < resolved.length; i++) {
+          lines.push(resolved[i]);
+        }
+      }
+      if (curStep.type === 'generate') {
+        lines.push(
+          '\n[From System] For this step, respond directly only — do not use edit or create tools.'
+        );
+      }
+    }
+
+    const allFinished = state.steps.every((s, i) => {
+      const n = i + 1;
+      const st = TodoList.inferStepStatus(s, n, state.currentStep);
+      return st === 'completed' || st === 'skipped';
+    });
+    if (allFinished) {
+      lines.push('');
+      lines.push('All tasks in this to-do list are completed or skipped.');
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Create or update a to-do list via todo_write
    */
   public async handle(
     params: AgentHandlerParams,
     options: {
-      toolCall: ToolCallPart<TodoListArgs | TodoListArgsWithMetadata>;
+      toolCall: ToolCallPart<TodoWriteArgs | TodoWriteCreateArgsWithMetadata>;
       createdBy?: TodoListState['createdBy'];
     }
   ): Promise<AgentResult> {
+    const operations = options.toolCall.input.operations;
+    if (!operations || operations.length !== 1) {
+      return {
+        status: IntentResultStatus.ERROR,
+        error: new Error('todo_write requires exactly one entry in operations.'),
+      };
+    }
+    const op = operations[0];
+    if (op.operation === 'create') {
+      return this.handleCreate(
+        params,
+        options.toolCall as ToolCallPart<TodoWriteCreateArgsWithMetadata>,
+        options.createdBy
+      );
+    }
+    return this.handleUpdate(params, options.toolCall as ToolCallPart<TodoWriteArgs>);
+  }
+
+  private async handleCreate(
+    params: AgentHandlerParams,
+    toolCall: ToolCallPart<TodoWriteCreateArgsWithMetadata>,
+    createdBy: TodoListState['createdBy'] = 'ai'
+  ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
-    const { toolCall, createdBy = 'ai' } = options;
 
     if (!handlerId) {
-      throw new Error('TodoList.handle invoked without handlerId');
+      throw new Error('TodoList.handleCreate invoked without handlerId');
     }
 
     try {
-      const { steps } = toolCall.input;
+      const steps = toolCall.input.operations[0].steps;
 
       if (!steps || steps.length === 0) {
         return {
@@ -182,14 +307,12 @@ export class TodoList {
         };
       }
 
-      // Create new to-do list state
       const newState: TodoListState = {
         steps,
         currentStep: 1,
         createdBy,
       };
 
-      // Store in frontmatter
       await this.agent.renderer.updateConversationFrontmatter(title, [
         {
           name: 'todo_list',
@@ -197,7 +320,6 @@ export class TodoList {
         },
       ]);
 
-      // Check if this is a UDC command - skip UI rendering for UDC unless show_todo_list is true
       const udcCommand = await this.agent.renderer.getConversationProperty<string>(
         title,
         'udc_command'
@@ -207,12 +329,11 @@ export class TodoList {
         'show_todo_list'
       );
 
-      // Render UI if not a UDC command, or if show_todo_list is explicitly set to true
       if (!udcCommand || showTodoList) {
         await this.agent.renderer.updateConversationNote({
           path: title,
           newContent: this.formatTodoList(newState, lang),
-          command: 'todo_list',
+          command: 'todo_write',
           includeHistory: false,
           lang,
           handlerId,
@@ -220,10 +341,11 @@ export class TodoList {
         });
       }
 
-      // Serialize the tool invocation
+      const outputText = await this.buildTodoWriteToolResultText(newState);
+
       await this.agent.renderer.serializeToolInvocation({
         path: title,
-        command: 'todo_list',
+        command: 'todo_write',
         handlerId,
         step: params.invocationCount,
         toolInvocations: [
@@ -232,7 +354,7 @@ export class TodoList {
             type: 'tool-result',
             output: {
               type: 'text',
-              value: `To-do list created. Current step: ${newState.currentStep} of ${newState.steps.length}`,
+              value: outputText,
             },
           },
         ],
@@ -242,7 +364,7 @@ export class TodoList {
         status: IntentResultStatus.SUCCESS,
       };
     } catch (error) {
-      logger.error('Error handling to-do list:', error);
+      logger.error('Error handling todo_write:', error);
       return {
         status: IntentResultStatus.ERROR,
         error: error instanceof Error ? error : new Error(String(error)),
@@ -250,24 +372,24 @@ export class TodoList {
     }
   }
 
-  /**
-   * Handle to-do list update tool call
-   */
-  public async handleUpdate(
+  private async handleUpdate(
     params: AgentHandlerParams,
-    options: { toolCall: ToolCallPart<TodoListUpdateArgs> }
+    toolCall: ToolCallPart<TodoWriteArgs>
   ): Promise<AgentResult> {
     const { title, lang, handlerId } = params;
-    const { toolCall } = options;
 
     if (!handlerId) {
       throw new Error('TodoList.handleUpdate invoked without handlerId');
     }
 
     try {
-      const { status, nextStep } = toolCall.input;
+      const updateOp = toolCall.input.operations[0] as Extract<
+        TodoWriteOperation,
+        { operation: 'update' }
+      >;
+      const status = updateOp.status;
+      const nextStep = updateOp.nextStep;
 
-      // Get existing to-do list state from frontmatter
       const existingState = await this.agent.renderer.getConversationProperty<TodoListState>(
         title,
         'todo_list'
@@ -276,17 +398,16 @@ export class TodoList {
       if (!existingState || !existingState.steps || existingState.steps.length === 0) {
         return {
           status: IntentResultStatus.ERROR,
-          error: new Error('No existing to-do list found. Create one first using todo_list tool.'),
+          error: new Error(
+            'No existing to-do list found. Create one first with todo_write operations: [{ operation: "create", steps: [...] }].'
+          ),
         };
       }
 
       const totalSteps = existingState.steps.length;
       const currentStep = existingState.currentStep;
-
-      // Convert 1-based step number to 0-based index for array access
       const stepIndex = currentStep - 1;
 
-      // Update the status of the current step
       const updatedSteps = existingState.steps.map((step, index) => {
         if (index === stepIndex) {
           return {
@@ -297,8 +418,6 @@ export class TodoList {
         return step;
       });
 
-      // Determine which step to move to
-      // If nextStep is provided, use it; otherwise stay on the current step
       let targetStep = nextStep ?? currentStep;
       if (targetStep > totalSteps) {
         targetStep = totalSteps;
@@ -307,14 +426,12 @@ export class TodoList {
         targetStep = 1;
       }
 
-      // Create updated state
       const newState: TodoListState = {
         steps: updatedSteps,
         currentStep: targetStep,
         createdBy: existingState.createdBy,
       };
 
-      // Store in frontmatter
       await this.agent.renderer.updateConversationFrontmatter(title, [
         {
           name: 'todo_list',
@@ -322,7 +439,6 @@ export class TodoList {
         },
       ]);
 
-      // Check if this is a UDC command - skip UI rendering for UDC unless show_todo_list is true
       const udcCommand = await this.agent.renderer.getConversationProperty<string>(
         title,
         'udc_command'
@@ -332,15 +448,13 @@ export class TodoList {
         'show_todo_list'
       );
 
-      // Render UI if not a UDC command, or if show_todo_list is explicitly set to true
       if (!udcCommand || showTodoList) {
-        // Format and render the to-do list (not in history)
         const formattedList = this.formatTodoList(newState, lang);
 
         await this.agent.renderer.updateConversationNote({
           path: title,
           newContent: formattedList,
-          command: 'todo_list_update',
+          command: 'todo_write',
           includeHistory: false,
           lang,
           handlerId,
@@ -348,10 +462,11 @@ export class TodoList {
         });
       }
 
-      // Serialize the tool invocation
+      const outputText = await this.buildTodoWriteToolResultText(newState);
+
       await this.agent.renderer.serializeToolInvocation({
         path: title,
-        command: 'todo_list_update',
+        command: 'todo_write',
         handlerId,
         step: params.invocationCount,
         toolInvocations: [
@@ -360,18 +475,17 @@ export class TodoList {
             type: 'tool-result',
             output: {
               type: 'text',
-              value: `To-do list updated. Current step: ${newState.currentStep} of ${newState.steps.length}`,
+              value: outputText,
             },
           },
         ],
       });
 
-      // Return success - let SuperAgent decide what to do next
       return {
         status: IntentResultStatus.SUCCESS,
       };
     } catch (error) {
-      logger.error('Error handling to-do list update:', error);
+      logger.error('Error handling todo_write update:', error);
       return {
         status: IntentResultStatus.ERROR,
         error: error instanceof Error ? error : new Error(String(error)),

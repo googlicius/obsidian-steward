@@ -129,12 +129,6 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
       params.lang
     );
 
-    const todoListPrompt = activeToolNames.includes(ToolName.TODO_LIST_UPDATE)
-      ? await this.generateTodoListPrompt({
-          renderer: agent.renderer,
-          title: params.title,
-        })
-      : '';
     const includeSkillCatalog =
       !params.intent.tools ||
       params.intent.tools.length === 0 ||
@@ -150,10 +144,6 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
       : [];
     if (llmConfig.systemPrompt) {
       additionalSystemPrompts.push(llmConfig.systemPrompt);
-    }
-
-    if (todoListPrompt) {
-      additionalSystemPrompts.push(todoListPrompt);
     }
 
     if (skillCatalogPrompt) {

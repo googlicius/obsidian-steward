@@ -5,6 +5,7 @@ import { UserDefinedCommandService } from './UserDefinedCommandService';
 import type StewardPlugin from 'src/main';
 import { getInstance } from 'src/utils/getInstance';
 import { UserDefinedCommandV1, type UserDefinedCommandV1Data } from './versions/v1';
+import { UserDefinedCommandV2, type UserDefinedCommandV2Data } from './versions/v2';
 import { Intent } from 'src/solutions/commands/types';
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
@@ -460,6 +461,71 @@ steps:
           query: 'Create note about some user input',
           systemPrompts: undefined,
         },
+      ]);
+    });
+
+    it('does not copy root-level system_prompt onto each expanded step intent', async () => {
+      const mockCommandProcessorService = {
+        isBuiltInCommand: jest.fn().mockReturnValue(false),
+      };
+
+      Object.defineProperty(userDefinedCommandService, 'commandProcessorService', {
+        get: jest.fn().mockReturnValue(mockCommandProcessorService),
+      });
+
+      const v2Data: UserDefinedCommandV2Data = {
+        command_name: 'udcRootOnlyPrompt',
+        file_path: 'path/to/udc.md',
+        system_prompt: ['[[Steward/Commands/Flashcard ask#Flashcard guidelines]]'],
+        steps: [
+          { name: 'read', query: 'Read $from_user' },
+          { name: 'generate', query: 'Ask $from_user' },
+        ],
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'udcRootOnlyPrompt',
+        new UserDefinedCommandV2(v2Data)
+      );
+
+      const result = await userDefinedCommandService.expandUserDefinedCommandIntents(
+        [{ type: 'udcRootOnlyPrompt', query: 'hello' }],
+        'hello'
+      );
+
+      expect(result).toMatchObject([
+        { type: 'read', systemPrompts: undefined },
+        { type: 'generate', systemPrompts: undefined },
+      ]);
+    });
+
+    it('puts only step-level system_prompt on each expanded intent (no merge with root)', async () => {
+      const mockCommandProcessorService = {
+        isBuiltInCommand: jest.fn().mockReturnValue(false),
+      };
+
+      Object.defineProperty(userDefinedCommandService, 'commandProcessorService', {
+        get: jest.fn().mockReturnValue(mockCommandProcessorService),
+      });
+
+      const v2Data: UserDefinedCommandV2Data = {
+        command_name: 'udcStepPrompt',
+        file_path: 'path/to/udc.md',
+        system_prompt: ['root baseline'],
+        steps: [
+          { name: 'read', query: 'Read $from_user' },
+          { name: 'generate', query: 'Ask $from_user', system_prompt: ['step extra'] },
+        ],
+      };
+      userDefinedCommandService.userDefinedCommands.set('udcStepPrompt', new UserDefinedCommandV2(v2Data));
+
+      const result = await userDefinedCommandService.expandUserDefinedCommandIntents(
+        [{ type: 'udcStepPrompt', query: 'hello' }],
+        'hello'
+      );
+
+      expect(result).toMatchObject([
+        { type: 'read', systemPrompts: undefined },
+        { type: 'generate', systemPrompts: ['step extra'] },
       ]);
     });
 

@@ -448,7 +448,7 @@ const en = {
       continuingProcessing: 'Continuing...',
       processingBatch: 'Processing batch {{current}} of {{total}}...',
       udcTodoListBootstrapGuide:
-        '[On system behalf] A multi-step user-defined command (`/{{commandName}}`) is running. The following todo_list tool call was injected by the system to register the step plan; it is not something the end user typed.',
+        '[On system behalf] A multi-step user-defined command (`/{{commandName}}`) is running. The following todo_write tool call was injected by the system to register the step plan; it is not something the end user typed.',
       stepLimitReached:
         'I have reached the maximum number of processing steps. Would you like me to continue with more steps?',
     },

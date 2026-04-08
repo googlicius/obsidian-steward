@@ -843,37 +843,17 @@ export class UserDefinedCommandService {
     // Convert the user-defined command steps to CommandIntent objects
     return command.normalized.steps.map(step => {
       // Replace placeholders with actual values
-      let query = step.query;
-
-      // Replace $file_name placeholder if fileName was extracted
-      if (fileName) {
-        query = query.replace(/\$file_name/g, fileName);
-      }
-
-      // Replace $from_user placeholder with cleaned user input
-      query = query.replace(/\$from_user/g, cleanedUserInput);
-
-      // Replace $steward placeholder with configured Steward folder
-      const stewardFolder = this.plugin.settings.stewardFolder;
-      query = query.replace(/\$steward/g, stewardFolder);
-
-      // Replace $active_file placeholder with the active file path
-      const currentFilePath = this.plugin.app.workspace.getActiveFile()?.path ?? '';
-      query = query.replace(/\$active_file/g, currentFilePath);
+      const query = this.replacePlaceholders(step.query, {
+        fileName,
+        userInput: cleanedUserInput,
+      });
 
       // Use step model if available, otherwise use command model
       const model = step.model || command.normalized.model;
 
-      // Merge root-level system_prompt with step-level system_prompt
-      // Root-level system_prompt is applied to all steps, step-level system_prompt is appended
       let systemPrompts: string[] | undefined;
-      if (command.normalized.system_prompt || step.system_prompt) {
-        systemPrompts = [
-          ...(command.normalized.system_prompt || []),
-          ...(step.system_prompt || []),
-        ].map(prompt =>
-          prompt.replace(/\$steward/g, stewardFolder).replace(/\$active_file/g, currentFilePath)
-        );
+      if (step.system_prompt && step.system_prompt.length > 0) {
+        systemPrompts = step.system_prompt.map(prompt => this.replacePlaceholders(prompt));
       }
 
       return {
@@ -945,6 +925,42 @@ export class UserDefinedCommandService {
   }
 
   /**
+   * Replaces supported UDC placeholders in authored strings (queries/system prompts):
+   * `$steward`, `$active_file`, `$file_name`, `$from_user`.
+   */
+  public replacePlaceholders(
+    content: string,
+    /** Replacement values */
+    options: { fileName?: string; userInput?: string } = {}
+  ): string {
+    if (content.length === 0) {
+      return content;
+    }
+
+    const stewardFolder = this.plugin.settings.stewardFolder;
+    const activeFilePath = this.plugin.app.workspace.getActiveFile()?.path ?? '';
+    let replaced = content;
+
+    if (options.fileName && replaced.includes('$file_name')) {
+      replaced = replaced.replace(/\$file_name/g, options.fileName);
+    }
+
+    if (options.userInput && replaced.includes('$from_user')) {
+      replaced = replaced.replace(/\$from_user/g, options.userInput);
+    }
+
+    if (replaced.includes('$steward')) {
+      replaced = replaced.replace(/\$steward/g, stewardFolder);
+    }
+
+    if (replaced.includes('$active_file')) {
+      replaced = replaced.replace(/\$active_file/g, activeFilePath);
+    }
+
+    return replaced;
+  }
+
+  /**
    * Process wikilinks in system prompts
    * Only processes string-based prompts
    * @param systemPrompts Array of system prompt strings
@@ -961,9 +977,6 @@ export class UserDefinedCommandService {
       )
     );
 
-    // Replace $steward placeholder in resolved content
-    return processedPrompts.map(prompt =>
-      prompt.replace(/\$steward/g, this.plugin.settings.stewardFolder)
-    );
+    return processedPrompts.map(prompt => this.replacePlaceholders(prompt));
   }
 }

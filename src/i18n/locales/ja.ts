@@ -392,7 +392,7 @@ const ja = {
       continuingProcessing: '処理を続行中...',
       processingBatch: 'バッチ {{current}}/{{total}} を処理中...',
       udcTodoListBootstrapGuide:
-        '[システムより] 複数ステップのユーザー定義コマンド（`/{{commandName}}`）を実行中です。続く todo_list のツール呼び出しは、ステップ計画を登録するためにシステムが挿入したものであり、エンドユーザーが入力したものではありません。',
+        '[システムより] 複数ステップのユーザー定義コマンド（`/{{commandName}}`）を実行中です。続く todo_write のツール呼び出しは、ステップ計画を登録するためにシステムが挿入したものであり、エンドユーザーが入力したものではありません。',
       stepLimitReached: '最大処理ステップ数に達しました。さらにステップを続行しますか？',
     },
     // Model fallback messages

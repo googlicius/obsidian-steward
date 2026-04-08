@@ -9,6 +9,7 @@ import * as handlers from '../handlers';
 import type StewardPlugin from 'src/main';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
 import type { AgentCorePromptContext } from '../../Agent';
+import type { IVersionedUserDefinedCommand } from 'src/services/UserDefinedCommandService/versions/types';
 
 /**
  * Agent for handling User-Defined Commands (UDC)
@@ -18,7 +19,7 @@ export class UDCAgent extends Agent {
   private superAgent: SuperAgent;
 
   constructor(plugin: StewardPlugin) {
-    super(plugin, [ToolName.TODO_LIST_UPDATE]);
+    super(plugin, [ToolName.TODO_WRITE]);
     this.superAgent = new SuperAgent(plugin);
   }
 
@@ -89,39 +90,35 @@ export class UDCAgent extends Agent {
 
       // For single-step commands, skip todo list and delegate directly to SuperAgent
       if (expandedIntents.length === 1) {
-        // Delegate directly to SuperAgent with the expanded intent
+        const expanded = expandedIntents[0];
+        // Root system_prompt only on the intent; step-level stays off the API system messages
+        // (multi-step delivers step text via todo_write tool results only).
         return this.superAgent.handle({
           ...params,
-          intent: expandedIntents[0],
+          intent: {
+            ...expanded,
+            systemPrompts: await this.resolveUdcSystemPrompts(command),
+          },
         });
       }
 
-      // Create todo_list state with full metadata
+      // Create todo_list state with full metadata (step instructions stay on steps for tool results)
       const todoListSteps = expandedIntents.map(expandedIntent => {
-        let systemPrompts = expandedIntent.systemPrompts;
-        if (expandedIntent.type === 'generate') {
-          if (!Array.isArray(systemPrompts)) {
-            systemPrompts = [];
-          }
-          systemPrompts.push(`TO-DO LIST: This step you generate directly, no edit or create.`);
-        }
         return {
           type: expandedIntent.type,
           task: expandedIntent.query,
           model: expandedIntent.model,
-          systemPrompts,
+          systemPrompts: expandedIntent.systemPrompts,
           no_confirm: expandedIntent.no_confirm,
         };
       });
 
-      // Create manual tool call to create the todo list with full metadata
-      // Note: The schema only defines 'task', but we pass all metadata which will be preserved
-      const todoListToolCall: ToolCallPart<handlers.TodoListArgsWithMetadata> = {
+      const todoWriteToolCall: ToolCallPart<handlers.TodoWriteCreateArgsWithMetadata> = {
         type: 'tool-call' as const,
-        toolName: ToolName.TODO_LIST,
+        toolName: ToolName.TODO_WRITE,
         toolCallId: `manual-tool-call-${uniqueID()}`,
         input: {
-          steps: todoListSteps,
+          operations: [{ operation: 'create', steps: todoListSteps }],
         },
       };
 
@@ -136,34 +133,50 @@ export class UDCAgent extends Agent {
         contentFormat: 'hidden',
       });
 
-      // Execute the todo list creation
       const todoListHandler = new handlers.TodoList(this.superAgent);
-      await todoListHandler.handle(params, { toolCall: todoListToolCall, createdBy: 'udc' });
+      await todoListHandler.handle(params, { toolCall: todoWriteToolCall, createdBy: 'udc' });
 
-      // Update user message to guide AI
       const currentStep = todoListSteps[0];
 
-      // Create new intent with step metadata
       const stepIntent: Intent = {
         type: currentStep.type ?? '',
         query: currentStep.task,
         model: currentStep.model,
-        systemPrompts: currentStep.systemPrompts,
         no_confirm: currentStep.no_confirm,
         tools: udcTools,
+        systemPrompts: await this.resolveUdcSystemPrompts(command),
       };
 
-      // Delegate to SuperAgent with step intent - SuperAgent will handle the rest
+      console.log('step intent', stepIntent);
+
       return this.superAgent.handle({
         ...params,
         intent: stepIntent,
-        activeTools: [ToolName.TODO_LIST_UPDATE],
+        activeTools: [ToolName.TODO_WRITE],
         invocationCount: 1,
       });
     }
 
     // Fallback to SuperAgent for subsequent invocations
     return this.superAgent.handle(params);
+  }
+
+  private async resolveUdcSystemPrompts(
+    command: IVersionedUserDefinedCommand | undefined
+  ): Promise<string[] | undefined> {
+    if (command?.getVersion() !== 2) {
+      return undefined;
+    }
+
+    const root = command.normalized.system_prompt;
+    if (!root || root.length === 0) {
+      return undefined;
+    }
+
+    const udc = this.plugin.userDefinedCommandService;
+    const rootLines = root.map(line => udc.replacePlaceholders(line));
+
+    return udc.processSystemPromptsWikilinks(rootLines);
   }
 
   /**

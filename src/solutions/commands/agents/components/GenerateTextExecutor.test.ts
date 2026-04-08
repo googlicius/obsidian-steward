@@ -87,7 +87,7 @@ class TestAgent extends GenerateTextExecutor {
   public getValidToolNames(): ReadonlySet<ToolName> {
     // Return a set of all possible tool names for testing
     return new Set([
-      ToolName.TODO_LIST_UPDATE,
+      ToolName.TODO_WRITE,
       ToolName.CONTENT_READING,
       ToolName.ACTIVATE,
       ToolName.LIST,
@@ -136,7 +136,7 @@ describe('GenerateTextExecutor', () => {
     });
   });
 
-  it('includes todoListPrompt when TODO_LIST_UPDATE is active', async () => {
+  it('does not inject todo list state into system prompt when TODO_WRITE is active', async () => {
     const params: AgentHandlerParams = {
       title: 'test-conversation',
       intent: {
@@ -152,7 +152,7 @@ describe('GenerateTextExecutor', () => {
     });
 
     await testAgent.executeForTest(params, {
-      activeTools: [ToolName.TODO_LIST_UPDATE],
+      activeTools: [ToolName.TODO_WRITE],
       tools: {},
     });
 
@@ -162,8 +162,8 @@ describe('GenerateTextExecutor', () => {
       .map((message: { content: string }) => message.content)
       .join('\n');
 
-    expect(systemText).toContain('TO-DO LIST:');
-    expect(systemText).toContain('Current step: 1 of 1');
+    expect(systemText).not.toContain('TO-DO LIST:');
+    expect(systemText).not.toContain('Current step: 1 of 1');
   });
 
   it('includes skill catalog with path and read_content instruction', async () => {

@@ -8,7 +8,7 @@ jest.mock('../agentTools', () => {
     'rename',
     'edit',
     'content_reading',
-    'todo_list_update',
+    'todo_write',
     'confirmation',
     'ask_user',
     'switch_agent_capacity',
@@ -37,7 +37,7 @@ const ALL_SUPER_KEYS: ToolName[] = [
   ToolName.RENAME,
   ToolName.EDIT,
   ToolName.CONTENT_READING,
-  ToolName.TODO_LIST_UPDATE,
+  ToolName.TODO_WRITE,
   ToolName.CONFIRMATION,
   ToolName.ASK_USER,
   ToolName.SWITCH_AGENT_CAPACITY,
@@ -143,7 +143,7 @@ describe('ToolIntentResolution', () => {
         declaredNormalized: declared,
         expandedDeclared: expanded,
         conversationActiveTools: [
-          ToolName.TODO_LIST_UPDATE,
+          ToolName.TODO_WRITE,
           ToolName.CONFIRMATION,
           ToolName.ASK_USER,
         ],
@@ -154,7 +154,7 @@ describe('ToolIntentResolution', () => {
       });
       expect(names).toContain(ToolName.CONTENT_READING);
       expect(names).toContain(ToolName.SWITCH_AGENT_CAPACITY);
-      expect(names).toContain(ToolName.TODO_LIST_UPDATE);
+      expect(names).toContain(ToolName.TODO_WRITE);
       expect(names).toContain(ToolName.CONFIRMATION);
       expect(names).toContain(ToolName.ASK_USER);
     });
@@ -165,7 +165,7 @@ describe('ToolIntentResolution', () => {
       const names = buildSuperAgentEffectiveAllowedNames({
         declaredNormalized: declared,
         expandedDeclared: expanded,
-        conversationActiveTools: [ToolName.CREATE, ToolName.TODO_LIST_UPDATE],
+        conversationActiveTools: [ToolName.CREATE, ToolName.TODO_WRITE],
         allToolKeys: [ToolName.LIST, ToolName.EDIT, ToolName.SWITCH_AGENT_CAPACITY] as ToolName[],
         toolsThatEnableConclude: new Set(),
         hasConcludeEligibleDeclaredTool: false,
@@ -174,7 +174,7 @@ describe('ToolIntentResolution', () => {
       expect(names).toContain(ToolName.LIST);
       expect(names).toContain(ToolName.SWITCH_AGENT_CAPACITY);
       expect(names).not.toContain(ToolName.CREATE);
-      expect(names).not.toContain(ToolName.TODO_LIST_UPDATE);
+      expect(names).not.toContain(ToolName.TODO_WRITE);
     });
   });
 
@@ -245,7 +245,7 @@ describe('ToolIntentResolution', () => {
           declaredNormalized: declared,
           expandedDeclared: expanded,
           conversationActiveTools: [
-            ToolName.TODO_LIST_UPDATE,
+            ToolName.TODO_WRITE,
             ToolName.CONFIRMATION,
             ToolName.ASK_USER,
           ],
@@ -260,7 +260,7 @@ describe('ToolIntentResolution', () => {
         expandedDeclared: expanded,
         effectiveAllowed: effective,
         conversationActiveTools: [
-          ToolName.TODO_LIST_UPDATE,
+          ToolName.TODO_WRITE,
           ToolName.CONFIRMATION,
           ToolName.ASK_USER,
         ],
@@ -268,7 +268,7 @@ describe('ToolIntentResolution', () => {
         hasCompactionContext: false,
       });
       expect([...active].sort()).toEqual([...effective].sort());
-      expect(active).toContain(ToolName.TODO_LIST_UPDATE);
+      expect(active).toContain(ToolName.TODO_WRITE);
     });
   });
 

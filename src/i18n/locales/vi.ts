@@ -388,7 +388,7 @@ const vi = {
       continuingProcessing: 'Đang tiếp tục...',
       processingBatch: 'Đang xử lý batch {{current}}/{{total}}...',
       udcTodoListBootstrapGuide:
-        '[Thay mặt hệ thống] Lệnh do người dùng định nghĩa nhiều bước (`/{{commandName}}`) đang chạy. Lệnh gọi todo_list tiếp theo do hệ thống chèn vào để đăng ký kế hoạch các bước; đây không phải do người dùng cuối nhập.',
+        '[Thay mặt hệ thống] Lệnh do người dùng định nghĩa nhiều bước (`/{{commandName}}`) đang chạy. Lệnh gọi todo_write tiếp theo do hệ thống chèn vào để đăng ký kế hoạch các bước; đây không phải do người dùng cuối nhập.',
       stepLimitReached:
         'Tôi đã đạt đến số bước xử lý tối đa. Bạn có muốn tôi tiếp tục với nhiều bước hơn không?',
     },

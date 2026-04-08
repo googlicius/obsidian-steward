@@ -19,18 +19,9 @@ export class ActivateToolHandler {
 
   /**
    * Add dependent tools to the active tools list.
-   * For example, TODO_LIST_UPDATE is automatically added when TODO_LIST is active.
    * @param activeTools The array of active tools to modify
    */
   public static addDependentTools(activeTools: ToolName[]): void {
-    // Auto-activate TODO_LIST_UPDATE when TODO_LIST is active
-    if (
-      activeTools.includes(ToolName.TODO_LIST) &&
-      !activeTools.includes(ToolName.TODO_LIST_UPDATE)
-    ) {
-      activeTools.push(ToolName.TODO_LIST_UPDATE);
-    }
-
     // Auto-activate SEARCH_MORE when SEARCH is active
     if (activeTools.includes(ToolName.SEARCH) && !activeTools.includes(ToolName.SEARCH_MORE)) {
       activeTools.push(ToolName.SEARCH_MORE);

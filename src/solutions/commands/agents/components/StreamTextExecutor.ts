@@ -136,12 +136,6 @@ export class StreamTextExecutor {
       currentPosition = cursor.line;
     }
 
-    const todoListPrompt = activeToolNames.includes(ToolName.TODO_LIST_UPDATE)
-      ? await this.generateTodoListPrompt({
-          renderer: agent.renderer,
-          title: params.title,
-        })
-      : '';
     const includeSkillCatalog =
       !params.intent.tools ||
       params.intent.tools.length === 0 ||
@@ -179,7 +173,6 @@ export class StreamTextExecutor {
       availableTools: declaredNormalized ?? allSuperAgentKeys,
       currentNote,
       currentPosition,
-      todoListPrompt,
       skillCatalogPrompt,
     });
 

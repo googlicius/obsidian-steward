@@ -272,7 +272,7 @@ export class Handlers {
       [ToolName.SEARCH_MORE]: () => this.searchMore,
       [ToolName.SPEECH]: () => this.speech,
       [ToolName.IMAGE]: () => this.image,
-      [ToolName.TODO_LIST]: () => this.todoList,
+      [ToolName.TODO_WRITE]: () => this.todoList,
       [ToolName.HELP]: () => this.help,
       [ToolName.SPAWN_SUBAGENT]: () => this.spawnSubagent,
       [ToolName.CONCLUDE]: () => this.conclude,

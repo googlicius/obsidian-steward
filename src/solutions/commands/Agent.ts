@@ -18,8 +18,6 @@ export interface AgentCorePromptContext {
   readonly currentNote: string | null;
   /** 0-based line of the cursor in `currentNote`, when the editor is focused on that note. */
   readonly currentPosition: number | null;
-  /** Extra system text when a to-do list is active (steps, current step, `todo_list_update` usage). */
-  readonly todoListPrompt: string;
   /** Extra system text listing available skills and how to read skill files via `content_reading`. */
   readonly skillCatalogPrompt: string;
   /** Declared or full allowed tool set for this conversation (UDC / narrow mode); used for task instruction lines, not only active tools. */
