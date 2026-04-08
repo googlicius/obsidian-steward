@@ -147,8 +147,6 @@ export class UDCAgent extends Agent {
         systemPrompts: await this.resolveUdcSystemPrompts(command),
       };
 
-      console.log('step intent', stepIntent);
-
       return this.superAgent.handle({
         ...params,
         intent: stepIntent,

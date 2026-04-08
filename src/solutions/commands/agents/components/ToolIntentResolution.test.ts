@@ -142,11 +142,7 @@ describe('ToolIntentResolution', () => {
       const names = buildSuperAgentEffectiveAllowedNames({
         declaredNormalized: declared,
         expandedDeclared: expanded,
-        conversationActiveTools: [
-          ToolName.TODO_WRITE,
-          ToolName.CONFIRMATION,
-          ToolName.ASK_USER,
-        ],
+        conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER],
         allToolKeys: ALL_SUPER_KEYS,
         toolsThatEnableConclude: new Set(),
         hasConcludeEligibleDeclaredTool: false,
@@ -244,11 +240,7 @@ describe('ToolIntentResolution', () => {
         buildSuperAgentEffectiveAllowedNames({
           declaredNormalized: declared,
           expandedDeclared: expanded,
-          conversationActiveTools: [
-            ToolName.TODO_WRITE,
-            ToolName.CONFIRMATION,
-            ToolName.ASK_USER,
-          ],
+          conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER],
           allToolKeys: ALL_SUPER_KEYS,
           toolsThatEnableConclude: new Set(),
           hasConcludeEligibleDeclaredTool: false,
@@ -259,11 +251,7 @@ describe('ToolIntentResolution', () => {
         declaredNormalized: declared,
         expandedDeclared: expanded,
         effectiveAllowed: effective,
-        conversationActiveTools: [
-          ToolName.TODO_WRITE,
-          ToolName.CONFIRMATION,
-          ToolName.ASK_USER,
-        ],
+        conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER],
         toolsThatEnableConclude: new Set(),
         hasCompactionContext: false,
       });

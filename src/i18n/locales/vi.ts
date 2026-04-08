@@ -319,10 +319,6 @@ const vi = {
     },
     todoList: {
       todoList: 'Danh sách công việc',
-      pending: 'Pending',
-      inProgress: 'Đang thực hiện',
-      skipped: 'Đã bỏ qua',
-      completed: 'Đã hoàn thành',
       step: 'Bước {{index}}',
     },
     documentation: {

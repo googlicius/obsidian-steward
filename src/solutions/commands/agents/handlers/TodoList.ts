@@ -136,6 +136,34 @@ export class TodoList {
   }
 
   /**
+   * Remove the last steward message for this conversation's visible to-do list (command: todo_write)
+   * so we only keep one rendered list in the note.
+   */
+  private async removePreviousTodoListDisplayMessage(conversationTitle: string): Promise<void> {
+    const prev = await this.agent.renderer.findMostRecentMessageMetadata({
+      conversationTitle,
+      command: 'todo_write',
+      role: 'steward',
+    });
+    if (prev?.ID) {
+      await this.agent.renderer.deleteMessageById(conversationTitle, prev.ID);
+    }
+  }
+
+  private static checkboxTokenForStepStatus(status: StepDisplayStatus): string {
+    if (status === 'completed') {
+      return '[x]';
+    }
+    if (status === 'skipped') {
+      return '[-]';
+    }
+    if (status === 'in_progress') {
+      return '[>]';
+    }
+    return '[ ]';
+  }
+
+  /**
    * Format the to-do list for display in the conversation note
    */
   private formatTodoList(state: TodoListState, lang?: string | null): string {
@@ -147,28 +175,8 @@ export class TodoList {
       const step = state.steps[i];
       const stepNumber = i + 1;
       const stepStatus = TodoList.inferStepStatus(step, stepNumber, state.currentStep);
-
-      const prefix =
-        stepStatus === 'completed'
-          ? '✅'
-          : stepStatus === 'skipped'
-            ? '⏭️'
-            : stepStatus === 'in_progress'
-              ? '🔄'
-              : '⏳';
-
-      const statusText =
-        stepStatus === 'completed'
-          ? t('todoList.completed')
-          : stepStatus === 'skipped'
-            ? t('todoList.skipped')
-            : stepStatus === 'in_progress'
-              ? t('todoList.inProgress')
-              : t('todoList.pending');
-
-      lines.push(`${prefix} **${t('todoList.step', { index: i + 1 })}** (${statusText})`);
-      lines.push(`   Task: ${step.task}`);
-      lines.push('');
+      const box = TodoList.checkboxTokenForStepStatus(stepStatus);
+      lines.push(`- ${box} **${t('todoList.step', { index: i + 1 })}** ${step.task}`);
     }
 
     return lines.join('\n');
@@ -330,6 +338,7 @@ export class TodoList {
       );
 
       if (!udcCommand || showTodoList) {
+        await this.removePreviousTodoListDisplayMessage(title);
         await this.agent.renderer.updateConversationNote({
           path: title,
           newContent: this.formatTodoList(newState, lang),
@@ -449,6 +458,7 @@ export class TodoList {
       );
 
       if (!udcCommand || showTodoList) {
+        await this.removePreviousTodoListDisplayMessage(title);
         const formattedList = this.formatTodoList(newState, lang);
 
         await this.agent.renderer.updateConversationNote({

@@ -131,6 +131,86 @@ export class ConversationRenderer {
   }
 
   /**
+   * Escapes a string for safe use inside a RegExp.
+   */
+  private escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
+   * Parses metadata from an STW block comment (STW ID + comma-separated KEY:value fields).
+   * The first segment is always `STW ID:...` and is stored as `ID`, so `ID:` inside `HANDLER_ID:` is not
+   * treated as the message id (unlike a naive /([A-Z]+):/ sweep over the whole comment).
+   */
+  private parseStwCommentMetadataFields(fullComment: string): Record<string, string> {
+    const inner = fullComment
+      .replace(/^<!--\s*/, '')
+      .replace(/\s*-->$/, '')
+      .trim();
+    const parts = inner.split(',');
+    const metadata: Record<string, string> = {};
+
+    for (let i = 0; i < parts.length; i += 1) {
+      const part = parts[i].trim();
+      if (i === 0) {
+        const stwIdMatch = /^STW ID:(.+)$/.exec(part);
+        if (stwIdMatch) {
+          metadata.ID = stwIdMatch[1].trim();
+        }
+        continue;
+      }
+
+      const colonIndex = part.indexOf(':');
+      if (colonIndex === -1) {
+        continue;
+      }
+
+      const key = part.slice(0, colonIndex).trim();
+      const value = part.slice(colonIndex + 1).trim();
+      if (key) {
+        metadata[key] = value;
+      }
+    }
+
+    return metadata;
+  }
+
+  /**
+   * Pure: removes exactly one message block — from its STW comment through the line before the next STW comment (or EOF).
+   * Same STW block boundaries as ArtifactManagerV2.removeArtifact for one block.
+   * @returns Updated content, or null when no block exists for the given messageId
+   */
+  private getContentWithSingleMessageRemoved(content: string, messageId: string): string | null {
+    const messageStartRegex = new RegExp(`<!--STW ID:${this.escapeRegExp(messageId)}[^>]*-->`, 'i');
+    const stwCommentRegex = /<!--STW ID:[^>]*-->/i;
+
+    const lines = content.split('\n');
+    let startLineIndex = -1;
+    for (let i = 0; i < lines.length; i += 1) {
+      if (messageStartRegex.test(lines[i])) {
+        startLineIndex = i;
+        break;
+      }
+    }
+
+    if (startLineIndex === -1) {
+      return null;
+    }
+
+    let endLineIndex = lines.length;
+    for (let i = startLineIndex + 1; i < lines.length; i += 1) {
+      if (stwCommentRegex.test(lines[i])) {
+        endLineIndex = i;
+        break;
+      }
+    }
+
+    const newLines = [...lines];
+    newLines.splice(startLineIndex, endLineIndex - startLineIndex);
+    return newLines.join('\n');
+  }
+
+  /**
    * Serialize tool calls to a conversation note.
    * The result could be inlined or referenced to a message or an artifact.
    * @returns The message ID for referencing
@@ -792,18 +872,7 @@ export class ConversationRenderer {
       if (matches.length > 0) {
         const lastMatch = matches[matches.length - 1];
         const fullComment = lastMatch[0];
-
-        // Parse all metadata fields
-        const metadataObject: Record<string, string> = {};
-        const metadataRegex = /([A-Z]+):([^,]+)(?=,|-->)/gi;
-        let metadataMatch;
-
-        while ((metadataMatch = metadataRegex.exec(fullComment)) !== null) {
-          const [, key, value] = metadataMatch;
-          metadataObject[key] = value;
-        }
-
-        return metadataObject;
+        return this.parseStwCommentMetadataFields(fullComment);
       }
 
       return null;
@@ -974,18 +1043,7 @@ export class ConversationRenderer {
       // If a match is found, parse it into an object
       if (matches.length > 0) {
         const fullComment = matches[0][0];
-
-        // Parse all metadata fields
-        const metadataObject: Record<string, string> = {};
-        const metadataRegex = /([A-Z]+):([^,]+)(?=,|-->)/gi;
-        let metadataMatch;
-
-        while ((metadataMatch = metadataRegex.exec(fullComment)) !== null) {
-          const [, key, value] = metadataMatch;
-          metadataObject[key] = value;
-        }
-
-        return metadataObject;
+        return this.parseStwCommentMetadataFields(fullComment);
       }
 
       return null;
@@ -1036,16 +1094,7 @@ export class ConversationRenderer {
         return null;
       }
 
-      // Parse metadata from the comment block
-      const metadataStr = match[0].replace(/<!--STW |-->/g, '');
-      const metadata: Record<string, string> = {};
-      const pairs = metadataStr.split(',');
-      for (const pair of pairs) {
-        const [key, value] = pair.split(':');
-        if (key && value) {
-          metadata[key] = value;
-        }
-      }
+      const metadata = this.parseStwCommentMetadataFields(match[0]);
 
       // Get the message content
       const startPos = (match.index ?? 0) + match[0].length;
@@ -1926,6 +1975,34 @@ export class ConversationRenderer {
       return true;
     } catch (error) {
       logger.error('Error deleting message and below:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Deletes a single message (one STW block) from a conversation note. Messages below it are kept.
+   * @param conversationTitle The title of the conversation
+   * @param messageId The ID of the message to remove (must match the STW comment line)
+   * @returns True if a message was removed, false if not found or on error
+   */
+  public async deleteMessageById(conversationTitle: string, messageId: string): Promise<boolean> {
+    try {
+      const file = this.getConversationFileByName(conversationTitle);
+
+      let deleted = false;
+      await this.plugin.app.vault.process(file, currentContent => {
+        const nextContent = this.getContentWithSingleMessageRemoved(currentContent, messageId);
+        if (nextContent === null) {
+          logger.warn(`Message with ID ${messageId} not found in ${file.path}`);
+          return currentContent;
+        }
+        deleted = true;
+        return nextContent;
+      });
+
+      return deleted;
+    } catch (error) {
+      logger.error('Error deleting message by ID:', error);
       return false;
     }
   }

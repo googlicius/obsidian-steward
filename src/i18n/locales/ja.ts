@@ -322,10 +322,6 @@ const ja = {
     },
     todoList: {
       todoList: 'To-Doリスト',
-      pending: '保留中',
-      inProgress: '進行中',
-      skipped: 'スキップ',
-      completed: '完了',
       step: 'ステップ {{index}}',
     },
     documentation: {

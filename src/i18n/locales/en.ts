@@ -377,10 +377,6 @@ const en = {
     },
     todoList: {
       todoList: 'To-Do list',
-      pending: 'Pending',
-      inProgress: 'In Progress',
-      skipped: 'Skipped',
-      completed: 'Completed',
       step: 'Step {{index}}',
     },
     documentation: {

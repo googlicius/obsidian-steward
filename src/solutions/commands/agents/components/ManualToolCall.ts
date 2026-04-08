@@ -210,7 +210,9 @@ export class ManualToolCall {
     }
   }
 
-  protected async craftTodoWriteUpdateToolCallManually(title: string): Promise<ToolCallPart | null> {
+  protected async craftTodoWriteUpdateToolCallManually(
+    title: string
+  ): Promise<ToolCallPart | null> {
     const agent = asAgent(this);
     const todoListState = await agent.renderer.getConversationProperty<handlers.TodoListState>(
       title,

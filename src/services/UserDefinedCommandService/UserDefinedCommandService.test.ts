@@ -516,7 +516,10 @@ steps:
           { name: 'generate', query: 'Ask $from_user', system_prompt: ['step extra'] },
         ],
       };
-      userDefinedCommandService.userDefinedCommands.set('udcStepPrompt', new UserDefinedCommandV2(v2Data));
+      userDefinedCommandService.userDefinedCommands.set(
+        'udcStepPrompt',
+        new UserDefinedCommandV2(v2Data)
+      );
 
       const result = await userDefinedCommandService.expandUserDefinedCommandIntents(
         [{ type: 'udcStepPrompt', query: 'hello' }],
