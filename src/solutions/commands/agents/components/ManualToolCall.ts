@@ -231,7 +231,7 @@ export class ManualToolCall {
         operations: [
           {
             operation: 'update' as const,
-            status: 'completed' as const,
+            currentStepStatus: 'completed' as const,
             nextStep: Math.min(todoListState.currentStep + 1, stepCount),
           },
         ],

@@ -1306,7 +1306,7 @@ describe('SuperAgent', () => {
         operations: [
           {
             operation: 'update',
-            status: 'completed',
+            currentStepStatus: 'completed',
             nextStep: 2,
           },
         ],

@@ -8,7 +8,13 @@ import { applyMixins } from 'src/utils/applyMixins';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { Handlers } from '../components/Handlers';
 import * as components from '../components';
-import { type AgentToolsRecord, loadSubagentToolsBase, SUBAGENT_TOOL_NAMES } from '../agentTools';
+import {
+  type AgentToolsRecord,
+  loadGoogleTools,
+  loadSubagentToolsBase,
+  SUBAGENT_TOOL_NAMES,
+} from '../agentTools';
+import { isGoogleModel } from '../googleUtils';
 import type { AgentCorePromptContext } from '../../Agent';
 
 const SUBAGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUBAGENT_TOOL_NAMES;
@@ -59,7 +65,8 @@ Rules:
   ): Promise<AgentResult> {
     const handlerId = params.handlerId ?? uniqueID();
     const remainingSteps = options.remainingSteps ?? 12;
-    const tools = await this.getSubagentTools(params.title);
+    const chatModel = params.intent.model ?? this.plugin.settings.llm.chat.model;
+    const tools = await this.getSubagentTools(params.title, chatModel);
 
     if (remainingSteps <= 0) {
       return { status: IntentResultStatus.SUCCESS };
@@ -120,11 +127,16 @@ Rules:
     });
   }
 
-  private async getSubagentTools(conversationTitle: string): Promise<AgentToolsRecord> {
+  private async getSubagentTools(
+    conversationTitle: string,
+    modelId?: string | null
+  ): Promise<AgentToolsRecord> {
     const baseTools = await loadSubagentToolsBase();
+    const googleTools = isGoogleModel(modelId) ? await loadGoogleTools() : {};
     const mcp = await this.plugin.mcpService.getMcpToolsForConversation(conversationTitle);
     return {
       ...baseTools,
+      ...googleTools,
       ...mcp.inactive,
       ...mcp.active,
     } as AgentToolsRecord;

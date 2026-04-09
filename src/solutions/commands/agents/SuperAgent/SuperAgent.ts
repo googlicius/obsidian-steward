@@ -15,10 +15,12 @@ import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { createStepProcessedQuery } from './stepProcessedQuery';
 import {
   type AgentToolsRecord,
+  loadGoogleTools,
   loadSuperAgentToolsBase,
   SUPER_AGENT_TOOL_NAMES,
 } from '../agentTools';
 import type { AgentCorePromptContext } from '../../Agent';
+import { isGoogleModel } from '../googleUtils';
 
 const SUPER_AGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUPER_AGENT_TOOL_NAMES;
 
@@ -181,7 +183,8 @@ NOTE:
       typeof options.remainingSteps !== 'undefined' ? options.remainingSteps : MAX_STEP_COUNT;
 
     const activeTools = await this.loadActiveTools(title, params.activeTools);
-    const tools = await this.getSuperAgentTools(title);
+    const chatModel = intent.model ?? this.plugin.settings.llm.chat.model;
+    const tools = await this.getSuperAgentTools(title, chatModel);
 
     const t = getTranslation(lang);
 
@@ -440,11 +443,17 @@ NOTE:
     });
   }
 
-  private async getSuperAgentTools(conversationTitle: string): Promise<AgentToolsRecord> {
+  private async getSuperAgentTools(
+    conversationTitle: string,
+    modelId?: string
+  ): Promise<AgentToolsRecord> {
     const baseTools = await loadSuperAgentToolsBase();
+    const googleTools = modelId && isGoogleModel(modelId) ? await loadGoogleTools() : {};
+
     const mcp = await this.plugin.mcpService.getMcpToolsForConversation(conversationTitle);
     return {
       ...baseTools,
+      ...googleTools,
       ...mcp.inactive,
       ...mcp.active,
     } as AgentToolsRecord;

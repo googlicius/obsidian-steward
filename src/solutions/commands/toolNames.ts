@@ -3,6 +3,7 @@ export enum ToolName {
   CONFIRMATION = 'confirmation',
   ASK_USER = 'askUser',
   EDIT = 'edit',
+  ADD_TABLE_COLUMN = 'edit:add_table_column',
   GREP = 'grep',
   EXISTS = 'exists',
   CREATE = 'create',

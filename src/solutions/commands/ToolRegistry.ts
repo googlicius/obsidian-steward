@@ -314,11 +314,11 @@ NOTE:
   [ToolName.TODO_WRITE]: {
     name: ToolName.TODO_WRITE,
     description:
-      'Create or update a to-do list for complex tasks. Pass a single-item operations array (same shape as edit/delete tools): one object with operation "create" and steps, or operation "update" with status and optional nextStep.',
+      'Create or update a to-do list for complex tasks. Pass a single-item operations array: one object with operation "create" and steps, or operation "update" with currentStepStatus and optional nextStep.',
     guidelines: [
       `Always use { "operations": [ { ... } ] } with exactly one element (create or update).`,
       `When creating a list, use operations: [{ operation: "create", steps: [...] }]. Each step needs a task. After creating, execute the first step.`,
-      `When you complete or skip the current step, use operations: [{ operation: "update", status, nextStep? }].`,
+      `When you complete or skip the current step, use operations: [{ operation: "update", currentStepStatus, nextStep? }]. currentStepStatus is for the current step only (not the step you move to via nextStep).`,
       `When moving to the next step, you SHOULD call ${ToolName.TODO_WRITE} in parallel (in the same request) with the tool that performs the next task.`,
       `Read the latest tool result from ${ToolName.TODO_WRITE} for current steps, statuses, and any step-specific instructions. If all tasks are completed or skipped, stop the plan.`,
     ],

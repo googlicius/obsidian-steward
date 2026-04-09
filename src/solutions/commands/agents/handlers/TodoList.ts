@@ -23,7 +23,7 @@ const todoWriteCreateSchema = z.object({
 
 const todoWriteUpdateSchema = z.object({
   operation: z.literal('update'),
-  status: z
+  currentStepStatus: z
     .enum(['in_progress', 'skipped', 'completed'])
     .describe('The status of the current step: in_progress, skipped, or completed.'),
   nextStep: z
@@ -54,23 +54,141 @@ const todoWriteSchema = z.object(
   },
   {
     description:
-      'Create or update a to-do list for multi-step tasks. Use a single-element operations array, same pattern as the edit and delete tools.',
+      'Create or update a to-do list for multi-step tasks. Use a single-element operations array.',
+  }
+);
+
+/**
+ * Gemini/Gemma: one entry in `operations`, each item is a flat object (`operation` enum + fields)
+ * — no JSON Schema oneOf on that item. Root `operations` matches serialized primary shape so the
+ * model sees the same structure in history and on the next turn.
+ */
+const googleTodoWriteOperationSchema = z
+  .object({
+    operation: z
+      .enum(['create', 'update'])
+      .describe(
+        'create: new list (requires steps). update: set current step status (requires currentStepStatus).'
+      ),
+    steps: z
+      .array(todoStepSchema)
+      .min(1)
+      .optional()
+      .describe('Required for create. Omit for update.'),
+    currentStepStatus: z
+      .enum(['in_progress', 'skipped', 'completed'])
+      .optional()
+      .describe('The status of the current step: in_progress, skipped, or completed.'),
+    nextStep: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe('Optional for update: 1-based step to move to after updating. Omit for create.'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.operation === 'create') {
+      if (data.steps === undefined || data.steps.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'steps is required when operation is create',
+          path: ['steps'],
+        });
+      }
+      if (data.currentStepStatus !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'currentStepStatus must be omitted when operation is create',
+          path: ['currentStepStatus'],
+        });
+      }
+      if (data.nextStep !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'nextStep must be omitted when operation is create',
+          path: ['nextStep'],
+        });
+      }
+      return;
+    }
+
+    if (data.currentStepStatus === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'currentStepStatus is required when operation is update',
+        path: ['currentStepStatus'],
+      });
+    }
+    if (data.steps !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'steps must be omitted when operation is update',
+        path: ['steps'],
+      });
+    }
+  })
+  .transform((data): z.infer<typeof todoWriteOperationSchema> => {
+    if (data.operation === 'create') {
+      const steps = data.steps;
+      if (steps === undefined || steps.length === 0) {
+        throw new Error('google todo_write: create requires steps after validation');
+      }
+      return {
+        operation: 'create',
+        steps,
+      };
+    }
+
+    type UpdateOp = Extract<z.infer<typeof todoWriteOperationSchema>, { operation: 'update' }>;
+    const currentStepStatus = data.currentStepStatus;
+    if (currentStepStatus === undefined) {
+      throw new Error('google todo_write: update requires currentStepStatus after validation');
+    }
+    const single: UpdateOp = {
+      operation: 'update',
+      currentStepStatus,
+    };
+    if (data.nextStep !== undefined) {
+      single.nextStep = data.nextStep;
+    }
+    return single;
+  });
+
+export const googleTodoWriteSchema = z.object(
+  {
+    operations: z
+      .array(googleTodoWriteOperationSchema)
+      .min(1)
+      .max(1)
+      .describe(
+        'Exactly one operation: create a new to-do list or update the current step of the active list.'
+      ),
+  },
+  {
+    description:
+      'Create or update a to-do list for multi-step tasks. Use a single-element operations array.',
   }
 );
 
 export type TodoStep = z.infer<typeof todoStepSchema>;
 export type TodoWriteArgs = z.infer<typeof todoWriteSchema>;
 export type TodoWriteOperation = z.infer<typeof todoWriteOperationSchema>;
+export type GoogleTodoWriteModelInput = z.input<typeof googleTodoWriteSchema>;
 
 /**
- * Whether this tool input is a todo_write update (operations[0].operation === 'update').
+ * Whether this tool input is a todo_write update (primary: operations[0].operation === 'update';
+ * Gemini flat: top-level operation === 'update').
  * Exported for SuperAgent / manual tool routing.
  */
 export function isTodoWriteUpdateToolInput(input: unknown): boolean {
   if (input === null || typeof input !== 'object') {
     return false;
   }
-  const operations = (input as { operations?: unknown }).operations;
+  const record = input as { operation?: string; operations?: unknown };
+  if (record.operation === 'update') {
+    return true;
+  }
+  const operations = record.operations;
   if (!Array.isArray(operations) || operations.length === 0) {
     return false;
   }
@@ -133,6 +251,11 @@ export class TodoList {
     return tool({
       inputSchema: todoWriteSchema,
     });
+  }
+
+  public static async getGoogleTodoWriteTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({ inputSchema: googleTodoWriteSchema });
   }
 
   /**
@@ -396,7 +519,7 @@ export class TodoList {
         TodoWriteOperation,
         { operation: 'update' }
       >;
-      const status = updateOp.status;
+      const currentStepStatus = updateOp.currentStepStatus;
       const nextStep = updateOp.nextStep;
 
       const existingState = await this.agent.renderer.getConversationProperty<TodoListState>(
@@ -408,7 +531,7 @@ export class TodoList {
         return {
           status: IntentResultStatus.ERROR,
           error: new Error(
-            'No existing to-do list found. Create one first with todo_write operations: [{ operation: "create", steps: [...] }].'
+            'No existing to-do list found. Create one first with todo_write operations: [{ operation: "create", steps: [...] }]; updates use currentStepStatus and optional nextStep.'
           ),
         };
       }
@@ -421,7 +544,7 @@ export class TodoList {
         if (index === stepIndex) {
           return {
             ...step,
-            status,
+            status: currentStepStatus,
           };
         }
         return step;

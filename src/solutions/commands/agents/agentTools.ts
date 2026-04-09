@@ -135,10 +135,25 @@ async function buildBaseAgentTools(): Promise<AgentToolsRecord> {
     [ToolName.TODO_WRITE]: todoWriteTool,
     [ToolName.CONCLUDE]: concludeTool,
     [ToolName.RECALL_COMPACTED_CONTEXT]: recallCompactedContextTool,
-  } as AgentToolsRecord;
+  };
+}
+
+async function buildGoogleAgentTools(): Promise<AgentToolsRecord> {
+  const [todoWriteTool, deleteTool, moveTool] = await Promise.all([
+    handlers.TodoList.getGoogleTodoWriteTool(),
+    handlers.VaultDelete.getGoogleDeleteTool(),
+    handlers.VaultMove.getGoogleMoveTool(),
+  ]);
+
+  return {
+    [ToolName.TODO_WRITE]: todoWriteTool,
+    [ToolName.DELETE]: deleteTool,
+    [ToolName.MOVE]: moveTool,
+  };
 }
 
 let baseAgentToolsPromise: Promise<AgentToolsRecord> | null = null;
+let googleToolsPromise: Promise<AgentToolsRecord> | null = null;
 let superAgentOnlyToolsPromise: Promise<AgentToolsRecord> | null = null;
 
 /** Cached subagent (shared) tool implementations without MCP. */
@@ -147,6 +162,14 @@ export function loadSubagentToolsBase(): Promise<AgentToolsRecord> {
     baseAgentToolsPromise = buildBaseAgentTools();
   }
   return baseAgentToolsPromise;
+}
+
+/** Cached Google tool implementations. */
+export function loadGoogleTools(): Promise<AgentToolsRecord> {
+  if (!googleToolsPromise) {
+    googleToolsPromise = buildGoogleAgentTools();
+  }
+  return googleToolsPromise;
 }
 
 /** Cached super-agent tool implementations without MCP. */

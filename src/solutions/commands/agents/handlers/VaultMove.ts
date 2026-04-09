@@ -36,48 +36,45 @@ export const filesModeSchema = z.object(
   }
 );
 
+const moveFolderEntrySchema = z.object({
+  path: z
+    .string()
+    .min(1)
+    // Ensure folders don't have leading/trailing slashes
+    .transform(path => path.replace(/^\/+|\/+$/g, ''))
+    .describe('The full path of the folder to move.'),
+});
+
 export const folderModeSchema = z.object(
   {
     mode: z.literal('folders'),
-    folders: z
-      .array(
-        z.object({
-          path: z
-            .string()
-            .min(1)
-            // Ensure folders don't have leading/trailing slashes
-            .transform(path => path.replace(/^\/+|\/+$/g, ''))
-            .describe('The full path of the folder to move.'),
-        })
-      )
-      .min(1)
-      .describe('Explicit list of folders to move.'),
+    folders: z.array(moveFolderEntrySchema).min(1).describe('Explicit list of folders to move.'),
   },
   {
     description: 'Move by folder paths. Moves entire folders to the destination.',
   }
 );
 
+const moveFilePatternsInnerSchema = z
+  .object({
+    patterns: z
+      .array(z.string().min(1))
+      .min(1)
+      .describe('Array of RegExp patterns to match files for moving.'),
+    folder: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        'Optional folder path to limit pattern matching. If not provided, searches entire vault.'
+      ),
+  })
+  .describe('Pattern-based file selection for large file sets. Use this to avoid token limits.');
+
 export const filePatternsModeSchema = z.object(
   {
     mode: z.literal('filePatterns'),
-    filePatterns: z
-      .object({
-        patterns: z
-          .array(z.string().min(1))
-          .min(1)
-          .describe('Array of RegExp patterns to match files for moving.'),
-        folder: z
-          .string()
-          .min(1)
-          .optional()
-          .describe(
-            'Optional folder path to limit pattern matching. If not provided, searches entire vault.'
-          ),
-      })
-      .describe(
-        'Pattern-based file selection for large file sets. Use this to avoid token limits.'
-      ),
+    filePatterns: moveFilePatternsInnerSchema,
   },
   {
     description:
@@ -85,17 +82,17 @@ export const filePatternsModeSchema = z.object(
   }
 );
 
+const moveOperationSchema = z.discriminatedUnion('mode', [
+  artifactModeSchema,
+  filesModeSchema,
+  folderModeSchema,
+  filePatternsModeSchema,
+]);
+
 export const moveToolSchema = z.object(
   {
     operations: z
-      .array(
-        z.discriminatedUnion('mode', [
-          artifactModeSchema,
-          filesModeSchema,
-          folderModeSchema,
-          filePatternsModeSchema,
-        ])
-      )
+      .array(moveOperationSchema)
       .min(1)
       .describe(
         'Array of move operations to execute. All operations move to the same destination.'
@@ -110,7 +107,185 @@ export const moveToolSchema = z.object(
   }
 );
 
+/**
+ * Gemini/Gemma: flat fields per operation (`mode` enum + optionals), no oneOf per item.
+ * Root shape matches primary move tool (operations + destinationFolder).
+ */
+const googleMoveOperationSchema = z
+  .object({
+    mode: z
+      .enum(['artifactId', 'files', 'folders', 'filePatterns'])
+      .describe(
+        'artifactId: move files from an artifact. files: move listed paths. folders: move whole folders. filePatterns: move by regex.'
+      ),
+    artifactId: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Required when mode is artifactId. ID of the artifact containing items to move.'),
+    files: z
+      .array(z.string())
+      .min(1)
+      .optional()
+      .describe('Required when mode is files. File paths to move.'),
+    folders: z
+      .array(
+        z.object({
+          path: z.string().min(1).describe('The full path of the folder to move.'),
+        })
+      )
+      .min(1)
+      .optional()
+      .describe('Required when mode is folders. Folders to move.'),
+    filePatterns: moveFilePatternsInnerSchema
+      .optional()
+      .describe('Required when mode is filePatterns.'),
+  })
+  .superRefine((data, ctx) => {
+    const forbid = (
+      field: 'artifactId' | 'files' | 'folders' | 'filePatterns',
+      modeLabel: string
+    ) => {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${field} must be omitted when mode is ${modeLabel}`,
+        path: [field],
+      });
+    };
+
+    if (data.mode === 'artifactId') {
+      if (data.artifactId === undefined || data.artifactId.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'artifactId is required when mode is artifactId',
+          path: ['artifactId'],
+        });
+      }
+      if (data.files !== undefined) {
+        forbid('files', 'artifactId');
+      }
+      if (data.folders !== undefined) {
+        forbid('folders', 'artifactId');
+      }
+      if (data.filePatterns !== undefined) {
+        forbid('filePatterns', 'artifactId');
+      }
+      return;
+    }
+
+    if (data.mode === 'files') {
+      if (data.files === undefined || data.files.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'files is required when mode is files',
+          path: ['files'],
+        });
+      }
+      if (data.artifactId !== undefined) {
+        forbid('artifactId', 'files');
+      }
+      if (data.folders !== undefined) {
+        forbid('folders', 'files');
+      }
+      if (data.filePatterns !== undefined) {
+        forbid('filePatterns', 'files');
+      }
+      return;
+    }
+
+    if (data.mode === 'folders') {
+      if (data.folders === undefined || data.folders.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'folders is required when mode is folders',
+          path: ['folders'],
+        });
+      }
+      if (data.artifactId !== undefined) {
+        forbid('artifactId', 'folders');
+      }
+      if (data.files !== undefined) {
+        forbid('files', 'folders');
+      }
+      if (data.filePatterns !== undefined) {
+        forbid('filePatterns', 'folders');
+      }
+      return;
+    }
+
+    if (data.filePatterns === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'filePatterns is required when mode is filePatterns',
+        path: ['filePatterns'],
+      });
+    } else if (data.filePatterns.patterns.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'filePatterns.patterns must be non-empty when mode is filePatterns',
+        path: ['filePatterns', 'patterns'],
+      });
+    }
+    if (data.artifactId !== undefined) {
+      forbid('artifactId', 'filePatterns');
+    }
+    if (data.files !== undefined) {
+      forbid('files', 'filePatterns');
+    }
+    if (data.folders !== undefined) {
+      forbid('folders', 'filePatterns');
+    }
+  })
+  .transform((data): z.infer<typeof moveOperationSchema> => {
+    if (data.mode === 'artifactId') {
+      const artifactId = data.artifactId;
+      if (artifactId === undefined || artifactId.length === 0) {
+        throw new Error('google vault_move: artifactId missing after validation');
+      }
+      return { mode: 'artifactId' as const, artifactId };
+    }
+    if (data.mode === 'files') {
+      const files = data.files;
+      if (files === undefined || files.length === 0) {
+        throw new Error('google vault_move: files missing after validation');
+      }
+      return { mode: 'files' as const, files };
+    }
+    if (data.mode === 'folders') {
+      const folders = data.folders;
+      if (folders === undefined || folders.length === 0) {
+        throw new Error('google vault_move: folders missing after validation');
+      }
+      return {
+        mode: 'folders' as const,
+        folders: folders.map(entry => ({
+          path: entry.path.replace(/^\/+|\/+$/g, ''),
+        })),
+      };
+    }
+    const filePatterns = data.filePatterns;
+    if (filePatterns === undefined) {
+      throw new Error('google vault_move: filePatterns missing after validation');
+    }
+    return { mode: 'filePatterns' as const, filePatterns };
+  });
+
+export const googleMoveToolSchema = z.object(
+  {
+    operations: z.array(googleMoveOperationSchema).min(1).describe('Array of move operations.'),
+    destinationFolder: z
+      .string()
+      .min(1)
+      .describe('Destination folder path where the files or folders should be moved.'),
+  },
+  {
+    description:
+      'A tool to move files and folders from the vault to a destination folder (Gemini-friendly items, no oneOf per element).',
+  }
+);
+
 export type MoveToolArgs = z.infer<typeof moveToolSchema>;
+export type GoogleMoveToolModelInput = z.input<typeof googleMoveToolSchema>;
 
 type MoveOperationResult = {
   moved: string[];
@@ -143,6 +318,11 @@ export class VaultMove {
   public static async getMoveTool() {
     const { tool } = await getBundledLib('ai');
     return tool({ inputSchema: moveToolSchema });
+  }
+
+  public static async getGoogleMoveTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({ inputSchema: googleMoveToolSchema });
   }
 
   public async handle(
