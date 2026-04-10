@@ -14,6 +14,7 @@ import { createThinkingProcessPostProcessor } from './post-processors/ThinkingPr
 import { createConfirmationButtonsProcessor } from './post-processors/ConfirmationButtonsProcessor';
 import { createCalloutEditPreviewPostProcessor } from './post-processors/CalloutEditPreviewPostProcessor';
 import { createConversationIndicatorProcessor } from './post-processors/ConversationIndicatorProcessor';
+import { createCliTranscriptPostProcessor } from './post-processors/CliTranscriptPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -57,6 +58,7 @@ import { CompactionOrchestrator } from './solutions/compaction';
 import { SubagentSpawnService } from './services/SubagentSpawnService';
 import { MCPService } from './services/MCPService';
 import { runSettingsSchemaMigrations } from './settings/migrations/settingsSchemaMigrations';
+import { CliSessionService } from './services/CliSessionService/CliSessionService';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -88,6 +90,14 @@ export default class StewardPlugin extends Plugin {
   _subAgentSpawnService: SubagentSpawnService;
   _obsidianAPITools: ObsidianAPITools;
   _commandProcessorService: CommandProcessorService;
+  _cliSessionService: CliSessionService;
+
+  get cliSessionService(): CliSessionService {
+    if (!this._cliSessionService) {
+      this._cliSessionService = new CliSessionService(this);
+    }
+    return this._cliSessionService;
+  }
 
   get obsidianAPITools(): ObsidianAPITools {
     if (!this._obsidianAPITools) {
@@ -310,6 +320,8 @@ export default class StewardPlugin extends Plugin {
   }
 
   onunload() {
+    this._cliSessionService?.disposeAll();
+
     // Remove the language attribute from the HTML element
     document.documentElement.removeAttribute('data-stw-language');
 
@@ -483,6 +495,8 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createStwSourcePostProcessor(this));
 
     this.registerMarkdownPostProcessor(createThinkingProcessPostProcessor());
+
+    this.registerMarkdownPostProcessor(createCliTranscriptPostProcessor());
 
     this.registerMarkdownPostProcessor(createConfirmationButtonsProcessor(this));
 
@@ -675,9 +689,10 @@ export default class StewardPlugin extends Plugin {
 
         // Create a title now so we can safely refer to it later
         const formattedDate = formatDateTime();
-        const title = ['search', 'help', 'audio', 'image'].includes(intentType)
+        const rawTitle = ['search', 'help', 'audio', 'image'].includes(intentType)
           ? capitalizeString(intentType)
           : `${capitalizeString(intentType.trim()) || 'General'} ${formattedDate}`;
+        const title = this.sanitizeVaultNoteTitle(rawTitle);
 
         const conversationLanguage = getLanguage();
         const indicatorText = this.conversationRenderer.getIndicatorTextByIntentType(
@@ -723,12 +738,6 @@ export default class StewardPlugin extends Plugin {
           intentQuery,
           // We don't know the language here, the extraction will update it later
         });
-
-        // Render indicator
-        // setTimeout(() => {
-        //   const indicatorText = this.conversationRender.getIndicatorTextByCommandType(intentType);
-        //   this.conversationRender.addGeneratingIndicator(title, indicatorText);
-        // });
 
         return true;
       } catch (error) {
@@ -1078,5 +1087,14 @@ export default class StewardPlugin extends Plugin {
     } catch (error) {
       logger.error('Error during search database cleanup:', error);
     }
+  }
+
+  private sanitizeVaultNoteTitle(name: string): string {
+    const INVALID_VAULT_FILE_NAME_CHARS = /[*"<>:\\/|?]/g;
+    const collapsed = name.replace(INVALID_VAULT_FILE_NAME_CHARS, '').replace(/\s+/g, ' ').trim();
+    if (collapsed.length > 0) {
+      return collapsed;
+    }
+    return 'Conversation';
   }
 }

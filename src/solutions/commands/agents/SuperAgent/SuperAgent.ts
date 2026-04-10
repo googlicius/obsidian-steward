@@ -52,6 +52,7 @@ const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
   search: new Set([ToolName.SEARCH]),
   speech: new Set([ToolName.SPEECH]),
   image: new Set([ToolName.IMAGE]),
+  '>': new Set([ToolName.SHELL]),
 };
 
 /**
@@ -69,7 +70,7 @@ const TASK_DEFAULT_ACTIVATE_TOOLS: Record<string, ToolName[]> = {
 /**
  * Map of task names to their loading indicator translation keys
  */
-const TASK_TO_INDICATOR_MAP: Record<string, string> = {
+const TASK_TO_INDICATOR_MAP: Record<string, string | undefined> = {
   vault: 'conversation.working',
   revert: 'conversation.reverting',
   read: 'conversation.readingContent',
@@ -77,6 +78,7 @@ const TASK_TO_INDICATOR_MAP: Record<string, string> = {
   speech: 'conversation.generatingAudio',
   image: 'conversation.generatingImage',
   search: 'conversation.searching',
+  '>': undefined,
 };
 
 /**

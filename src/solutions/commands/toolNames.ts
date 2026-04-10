@@ -3,7 +3,12 @@ export enum ToolName {
   CONFIRMATION = 'confirmation',
   ASK_USER = 'askUser',
   EDIT = 'edit',
-  ADD_TABLE_COLUMN = 'edit:add_table_column',
+  // ADD_TABLE_COLUMN = 'edit:add_table_column',
+  // REPLACE_BY_LINES = 'edit:replace_by_lines',
+  // INSERT = 'edit:insert',
+  // REPLACE_BY_PATTERN = 'edit:replace_by_pattern',
+  // UPDATE_TABLE_COLUMN = 'edit:update_table_column',
+  // DELETE_TABLE_COLUMN = 'edit:delete_table_column',
   GREP = 'grep',
   EXISTS = 'exists',
   CREATE = 'create',
@@ -31,4 +36,6 @@ export enum ToolName {
   SWITCH_AGENT_CAPACITY = 'switch_agent_capacity',
   CONCLUDE = 'conclude',
   RECALL_COMPACTED_CONTEXT = 'recall_compacted_context',
+  /** Client-side manual tool only; not exposed to LLM tool registries. */
+  SHELL = 'shell',
 }

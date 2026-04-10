@@ -122,6 +122,16 @@ export interface StewardPluginSettings {
     cleanupPolicy?: 'never' | '7days' | '30days' | '90days' | '1year'; // When to permanently delete files from stw_trash
   };
   lastSeenVersion?: string; // Last version the user has seen (for version notifications)
+  /**
+   * Local CLI bridge (Gemini CLI, shell transcript mode). Desktop only; requires Node child_process.
+   */
+  cli: {
+    enabled: boolean;
+    /** Override shell for `/>` (empty = powershell.exe on Windows, /bin/bash elsewhere). */
+    shellExecutable: string;
+    /** Working directory; empty = vault root path. */
+    workingDirectory: string;
+  };
 }
 
 export type DeleteBehavior = StewardPluginSettings['deleteBehavior'];

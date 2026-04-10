@@ -24,6 +24,7 @@ const en = {
       searchDesc: 'Search for notes in your vault',
       imageDesc: 'Generate images',
       speechDesc: 'Generate speech from text',
+      terminalDesc: 'Open a local shell session (`/>`; transcript mode)',
       disabledMark: '(disabled)',
       helpTableCommand: 'Command',
       helpTableDescription: 'Description',
@@ -44,6 +45,13 @@ const en = {
       invalidOrDynamicToolCall: 'Model returned a dynamic or invalid tool call: "{{toolName}}".',
       statusValid: '✅ Valid',
       statusInvalid: 'Invalid: {{errors}}',
+    },
+    cli: {
+      disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
+      spawnFailed: 'Could not start CLI process: {{message}}',
+      shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
+      processEndedSignal: '(Process ended: signal {{signal}})',
+      processEndedCode: '(Process exited with code {{code}})',
     },
     mcp: {
       noConfigBlock:
@@ -428,6 +436,7 @@ const en = {
       generatingAudio: 'Generating audio...',
       moving: 'Moving...',
       searching: 'Searching...',
+      cliTranscript: 'Running local CLI...',
       calculating: 'Calculating...',
       reverting: 'Reverting changes...',
       revertSuccess: 'Successfully reverted the last change.',
@@ -570,6 +579,16 @@ const en = {
       days30: '30 days',
       days90: '90 days',
       year1: '1 year',
+      cliBridge: 'Local CLI bridge',
+      cliBridgeDesc:
+        'Run a local shell from conversations (`/>`). Desktop only; runs processes on your machine (security risk if misused). Output is transcript-only (no full terminal UI).',
+      cliBridgeEnabled: 'Enable local CLI bridge',
+      cliBridgeEnabledDesc: 'Allows `/>` to spawn a local shell process.',
+      cliShellExecutable: 'Shell executable (optional)',
+      cliShellExecutableDesc:
+        'Override shell for `/>`. Leave empty for PowerShell on Windows or /bin/bash on macOS/Linux.',
+      cliWorkingDirectory: 'Working directory (optional)',
+      cliWorkingDirectoryDesc: 'Empty = vault root. CLI processes start in this folder.',
       modelFallbackEnabled: 'Enable model fallback',
       modelFallbackEnabledDesc:
         'Automatically switch to backup models when the primary model fails',

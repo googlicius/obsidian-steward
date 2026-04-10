@@ -916,6 +916,10 @@ export class ConversationRenderer {
       return t('conversation.searching');
     }
 
+    if (intentType === '>') {
+      return t('conversation.cliTranscript');
+    }
+
     if (intentType === 'image') {
       return t('conversation.generatingImage');
     }
@@ -2105,7 +2109,7 @@ export class ConversationRenderer {
     });
   }
 
-  private getConversationFileByName(name: string): TFile {
+  public getConversationFileByName(name: string): TFile {
     const sanitizedName = name.replace(/\.md$/, '');
     const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
     const notePath = `${folderPath}/${sanitizedName}.md`;

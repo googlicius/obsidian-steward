@@ -741,6 +741,47 @@ class StewardSettingTab extends PluginSettingTab {
         text.inputEl.setAttribute('min', '1');
         text.inputEl.setAttribute('max', '100');
       });
+
+    // Add CLI setting section
+    const cliSettingGroup = this.addNewSettingGroup();
+
+    new Setting(cliSettingGroup.settingGroup).setName(t('settings.cliBridge')).setHeading();
+
+    new Setting(cliSettingGroup.settingItems)
+      .setName(t('settings.cliBridgeEnabled'))
+      .setDesc(t('settings.cliBridgeEnabledDesc'))
+      .addToggle(toggle =>
+        toggle.setValue(this.plugin.settings.cli.enabled).onChange(async value => {
+          this.plugin.settings.cli.enabled = value;
+          await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(cliSettingGroup.settingItems)
+      .setName(t('settings.cliShellExecutable'))
+      .setDesc(t('settings.cliShellExecutableDesc'))
+      .addText(text =>
+        text
+          .setPlaceholder('powershell.exe or /bin/bash')
+          .setValue(this.plugin.settings.cli.shellExecutable)
+          .onChange(async value => {
+            this.plugin.settings.cli.shellExecutable = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(cliSettingGroup.settingItems)
+      .setName(t('settings.cliWorkingDirectory'))
+      .setDesc(t('settings.cliWorkingDirectoryDesc'))
+      .addText(text =>
+        text
+          .setPlaceholder('')
+          .setValue(this.plugin.settings.cli.workingDirectory)
+          .onChange(async value => {
+            this.plugin.settings.cli.workingDirectory = value;
+            await this.plugin.saveSettings();
+          })
+      );
   }
 }
 

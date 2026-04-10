@@ -58,7 +58,7 @@ export const SELECTED_MODEL_PREFIX_PATTERN = '\\b(m|model):';
 /**
  * All built-in command that are available to the command menu
  */
-export const COMMAND_PREFIXES = ['/ ', '/search', '/image', '/speech'];
+export const COMMAND_PREFIXES = ['/ ', '/search', '/image', '/speech', '/>'];
 
 /**
  * Configuration for standard commands indicating whether they require content.
@@ -68,6 +68,7 @@ export const COMMAND_CONTENT_REQUIRED: Record<string, boolean> = {
   search: true,
   image: true,
   speech: true,
+  '>': false,
 };
 
 /**
@@ -166,6 +167,11 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     cleanupPolicy: 'never', // Default to never automatically delete
   },
   lastSeenVersion: undefined, // Will be set when user sees a version notification
+  cli: {
+    enabled: false,
+    shellExecutable: '',
+    workingDirectory: '',
+  },
 };
 
 // Model options grouped by provider

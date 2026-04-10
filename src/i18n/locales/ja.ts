@@ -19,6 +19,7 @@ const ja = {
       searchDesc: 'ノートを検索する',
       imageDesc: '画像を生成する',
       speechDesc: 'テキストから音声を生成する',
+      terminalDesc: 'Open a local shell (`/>`; transcript mode).',
       disabledMark: '（無効）',
       helpTableCommand: 'コマンド',
       helpTableDescription: '説明',
@@ -41,6 +42,13 @@ const ja = {
         'モデルが無効なまたは動的なツールコールを返しました: "{{toolName}}".',
       statusValid: '✅ 有効',
       statusInvalid: '無効: {{errors}}',
+    },
+    cli: {
+      disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
+      spawnFailed: 'Could not start CLI process: {{message}}',
+      shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
+      processEndedSignal: '(Process ended: signal {{signal}})',
+      processEndedCode: '(Process exited with code {{code}})',
     },
     mcp: {
       noConfigBlock:
@@ -373,6 +381,7 @@ const ja = {
       generatingAudio: '音声を生成中...',
       moving: '移動中...',
       searching: '検索中...',
+      cliTranscript: 'Running local CLI...',
       calculating: '計算中...',
       reverting: '変更を元に戻しています...',
       revertSuccess: '最後の変更を正常に元に戻しました。',

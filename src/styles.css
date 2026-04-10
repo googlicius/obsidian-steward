@@ -555,3 +555,26 @@ code[class*='language-stw-hidden-from-user'] {
     height: 14px;
   }
 }
+
+/* CLI transcript: cursor is a direct child of pre (outside hljs code) so it stays visible. */
+pre.stw-cli-transcript-active > .stw-cli-transcript-cursor {
+  display: block;
+  width: 0.55ch;
+  min-width: 6px;
+  height: 1.15em;
+  margin-top: 0.2em;
+  background-color: var(--text-normal);
+  animation: stw-cli-transcript-cursor-blink 1s steps(2, jump-end) infinite;
+}
+
+@keyframes stw-cli-transcript-cursor-blink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}

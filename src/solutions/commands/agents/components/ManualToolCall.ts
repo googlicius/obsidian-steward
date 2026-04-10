@@ -205,6 +205,15 @@ export class ManualToolCall {
         return undefined;
       }
 
+      case '>': {
+        return {
+          type: 'tool-call',
+          toolName: ToolName.SHELL,
+          toolCallId: `manual-tool-call-${uniqueID()}`,
+          input: { argsLine: query },
+        };
+      }
+
       default:
         return undefined;
     }

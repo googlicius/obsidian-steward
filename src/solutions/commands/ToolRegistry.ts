@@ -372,6 +372,15 @@ NOTE:
     ],
     category: 'context-retrieval',
   },
+
+  [ToolName.SHELL]: {
+    name: ToolName.SHELL,
+    description:
+      'Internal: start or continue a local shell transcript for the conversation. Not available to the model.',
+    guidelines: ['Used only for client-side manual tool calls. Do not reference in prompts.'],
+    category: 'internal',
+    showDescriptionWhenInactive: false,
+  },
 };
 
 export class ToolRegistry<T> {
