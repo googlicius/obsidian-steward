@@ -8,7 +8,9 @@ import { UserDefinedCommandV1, type UserDefinedCommandV1Data } from './versions/
 import { UserDefinedCommandV2, type UserDefinedCommandV2Data } from './versions/v2';
 import { Intent } from 'src/solutions/commands/types';
 
-function createMockPlugin(): jest.Mocked<StewardPlugin> {
+function createMockPlugin(
+  overrides: Partial<jest.Mocked<StewardPlugin>> = {}
+): jest.Mocked<StewardPlugin> {
   return {
     app: {
       metadataCache: {
@@ -17,6 +19,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       },
       vault: {
         read: jest.fn(),
+        cachedRead: jest.fn(),
         getAbstractFileByPath: jest.fn(),
         on: jest.fn().mockReturnValue({ events: [] }),
         createFolder: jest.fn(),
@@ -40,6 +43,13 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
         {} as NoteContentService
       ),
     },
+    conversationRenderer: {
+      getConversationFileByName: jest.fn(),
+    },
+    cliSessionService: {
+      getSession: jest.fn(),
+    },
+    ...overrides,
   } as unknown as jest.Mocked<StewardPlugin>;
 }
 
@@ -651,6 +661,66 @@ steps:
           systemPrompts: undefined,
         },
       ]);
+    });
+
+    it('expands $ and {{}} and omits --resume when no CliSession', async () => {
+      mockPlugin.cliSessionService.getSession = jest.fn().mockReturnValue(undefined);
+
+      const mockCommandProcessorService = { isBuiltInCommand: jest.fn().mockReturnValue(false) };
+      Object.defineProperty(userDefinedCommandService, 'commandProcessorService', {
+        get: jest.fn().mockReturnValue(mockCommandProcessorService),
+      });
+
+      const v2Data: UserDefinedCommandV2Data = {
+        command_name: 'geminiUdc',
+        file_path: 'path/to/gemini.md',
+        steps: [
+          {
+            name: 'shell',
+            query: 'gemini --prompt {{from_user}}{{#cli_continuing}} --resume{{/cli_continuing}}',
+          },
+        ],
+      };
+      userDefinedCommandService.userDefinedCommands.set('geminiUdc', new UserDefinedCommandV2(v2Data));
+
+      const result = await userDefinedCommandService.expandUserDefinedCommandIntents(
+        [{ type: 'geminiUdc', query: 'hello' }],
+        'hello',
+        new Set(),
+        'my-conv'
+      );
+
+      expect(result[0].query).toBe('gemini --prompt hello');
+    });
+
+    it('adds --resume when CliSession is active', async () => {
+      mockPlugin.cliSessionService.getSession = jest.fn().mockReturnValue({ child: {} });
+
+      const mockCommandProcessorService = { isBuiltInCommand: jest.fn().mockReturnValue(false) };
+      Object.defineProperty(userDefinedCommandService, 'commandProcessorService', {
+        get: jest.fn().mockReturnValue(mockCommandProcessorService),
+      });
+
+      const v2Data: UserDefinedCommandV2Data = {
+        command_name: 'geminiUdc3',
+        file_path: 'path/to/gemini.md',
+        steps: [
+          {
+            name: 'shell',
+            query: 'gemini --prompt {{from_user}}{{#cli_continuing}} --resume{{/cli_continuing}}',
+          },
+        ],
+      };
+      userDefinedCommandService.userDefinedCommands.set('geminiUdc3', new UserDefinedCommandV2(v2Data));
+
+      const result = await userDefinedCommandService.expandUserDefinedCommandIntents(
+        [{ type: 'geminiUdc3', query: 'hello' }],
+        'hello',
+        new Set(),
+        'my-conv'
+      );
+
+      expect(result[0].query).toBe('gemini --prompt hello --resume');
     });
   });
 });

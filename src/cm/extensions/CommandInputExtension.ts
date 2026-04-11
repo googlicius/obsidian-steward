@@ -120,14 +120,20 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
             extendedPrefixes = plugin.userDefinedCommandService.buildExtendedPrefixes();
           }
 
+          /** Prefix with slash "/" */
           const matchedPrefix = extendedPrefixes.find(prefix => lineText.startsWith(prefix));
 
           if (matchedPrefix) {
             const prefixFrom = line.from + lineText.indexOf(matchedPrefix);
             const prefixTo = prefixFrom + matchedPrefix.length;
+            const conversationTitle = plugin.findConversationTitleAbove(this.view, line.number);
 
-            if (!modelLabel) {
-              const conversationTitle = plugin.findConversationTitleAbove(this.view, line.number);
+            const cli =
+              matchedPrefix === '/>' ||
+              (conversationTitle &&
+                plugin.cliSessionService.getSession(conversationTitle) !== undefined);
+
+            if (!modelLabel && !cli) {
               if (conversationTitle) {
                 modelLabel = await plugin.getCurrentConversationModelLabel({
                   conversationTitle,
@@ -156,7 +162,9 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
             const commandInputLineDecor = Decoration.line({
               class: 'stw-input-line',
               attributes: {
-                'data-stw-model': modelLabel,
+                ...(modelLabel && {
+                  'data-stw-model': modelLabel,
+                }),
               },
             });
 

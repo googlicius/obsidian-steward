@@ -52,6 +52,7 @@ const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
   search: new Set([ToolName.SEARCH]),
   speech: new Set([ToolName.SPEECH]),
   image: new Set([ToolName.IMAGE]),
+  shell: new Set([ToolName.SHELL]),
   '>': new Set([ToolName.SHELL]),
 };
 
@@ -198,6 +199,13 @@ NOTE:
     }
 
     let classificationMatchType: 'static' | 'prefixed' | 'clustered' | undefined;
+
+    if (classifiedTasks.length === 0) {
+      const cliSession = this.plugin.cliSessionService.getSession(title);
+      if (cliSession) {
+        classifiedTasks.push('>');
+      }
+    }
 
     if (!params.invocationCount && classifiedTasks.length === 0) {
       const classificationResult = await this.classifyTasksFromQuery(

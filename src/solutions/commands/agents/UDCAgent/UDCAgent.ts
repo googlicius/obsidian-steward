@@ -57,7 +57,9 @@ export class UDCAgent extends Agent {
       const expandedIntents =
         await this.plugin.userDefinedCommandService.expandUserDefinedCommandIntents(
           intent,
-          intent.query || ''
+          intent.query || '',
+          new Set(),
+          title
         );
 
       if (!expandedIntents || expandedIntents.length === 0) {

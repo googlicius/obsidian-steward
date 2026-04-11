@@ -1,4 +1,5 @@
 import { getLanguage, normalizePath, Notice, TFile, parseYaml } from 'obsidian';
+import Mustache from 'mustache';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES } from 'src/constants';
@@ -6,7 +7,11 @@ import { EXAMPLE_UDCS } from 'src/example-udcs';
 import { StewardChatView } from 'src/views/StewardChatView';
 import i18next, { t } from 'i18next';
 import { z } from 'zod/v3';
-import { IVersionedUserDefinedCommand, TriggerCondition } from './versions/types';
+import {
+  IVersionedUserDefinedCommand,
+  TriggerCondition,
+  type UdcTemplateContext,
+} from './versions/types';
 import { loadUDCVersion } from './versions/loader';
 import { Intent } from 'src/solutions/commands/types';
 import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
@@ -827,7 +832,11 @@ export class UserDefinedCommandService {
   /**
    * Process a user-defined command with user input
    */
-  private processUserDefinedCommand(commandName: string, userInput: string): Intent[] | null {
+  private async processUserDefinedCommand(
+    commandName: string,
+    userInput: string,
+    conversationTitle?: string
+  ): Promise<Intent[] | null> {
     const command = this.userDefinedCommands.get(commandName);
 
     if (!command) {
@@ -840,31 +849,95 @@ export class UserDefinedCommandService {
     // Remove the fileName marker from userInput
     const cleanedUserInput = userInput.replace(/__file:[^_]+__/g, '').trim();
 
-    // Convert the user-defined command steps to CommandIntent objects
-    return command.normalized.steps.map(step => {
-      // Replace placeholders with actual values
-      const query = this.replacePlaceholders(step.query, {
+    const steps: Intent[] = [];
+    for (const step of command.normalized.steps) {
+      const query = await this.expandAuthoredString(step.query, {
         fileName,
-        userInput: cleanedUserInput,
+        cleanedUserInput,
+        conversationTitle,
       });
 
-      // Use step model if available, otherwise use command model
       const model = step.model || command.normalized.model;
 
       let systemPrompts: string[] | undefined;
       if (step.system_prompt && step.system_prompt.length > 0) {
-        systemPrompts = step.system_prompt.map(prompt => this.replacePlaceholders(prompt));
+        systemPrompts = await Promise.all(
+          step.system_prompt.map(prompt =>
+            this.expandAuthoredString(prompt, {
+              fileName,
+              cleanedUserInput,
+              conversationTitle,
+            })
+          )
+        );
       }
 
-      return {
+      steps.push({
         type: step.name ?? '',
         systemPrompts,
         query,
         model,
         no_confirm: step.no_confirm,
         tools: command.normalized.tools,
-      };
+      });
+    }
+
+    return steps;
+  }
+
+  /**
+   * Expand `$...` placeholders, then Mustache `{{...}}` when `conversationTitle` is set (chat / UDC with title).
+   */
+  private async expandAuthoredString(
+    content: string,
+    params: {
+      fileName: string;
+      cleanedUserInput: string;
+      conversationTitle?: string;
+    }
+  ): Promise<string> {
+    let out = this.replacePlaceholders(content, {
+      fileName: params.fileName,
+      userInput: params.cleanedUserInput,
     });
+    if (params.conversationTitle) {
+      const ctx = this.buildUdcTemplateContext(params.conversationTitle, {
+        fileName: params.fileName,
+        userInput: params.cleanedUserInput,
+      });
+      out = this.renderMustacheTemplate(out, ctx);
+    }
+    return out;
+  }
+
+  private renderMustacheTemplate(template: string, view: UdcTemplateContext): string {
+    const previousEscape = Mustache.escape;
+    Mustache.escape = (text: string) => String(text);
+    try {
+      return Mustache.render(template, view);
+    } finally {
+      Mustache.escape = previousEscape;
+    }
+  }
+
+  /**
+   * @public for tests — builds Mustache context for a conversation turn.
+   */
+  public buildUdcTemplateContext(
+    conversationTitle: string,
+    options: { fileName: string; userInput: string }
+  ): UdcTemplateContext {
+    return {
+      from_user: options.userInput,
+      file_name: options.fileName,
+      steward: this.plugin.settings.stewardFolder,
+      active_file: this.plugin.app.workspace.getActiveFile()?.path ?? '',
+      cli_continuing: this.computeCliContinuing(conversationTitle),
+    };
+  }
+
+  private computeCliContinuing(conversationTitle: string): boolean {
+    return this.plugin.cliSessionService.getSession(conversationTitle) !== undefined;
   }
 
   /**
@@ -881,7 +954,8 @@ export class UserDefinedCommandService {
   public async expandUserDefinedCommandIntents(
     intents: Intent | Intent[],
     userInput = '',
-    visited: Set<string> = new Set()
+    visited: Set<string> = new Set(),
+    conversationTitle?: string
   ): Promise<Intent[]> {
     const expanded: Intent[] = [];
 
@@ -907,12 +981,17 @@ export class UserDefinedCommandService {
       }
 
       visited.add(intent.type);
-      const subIntents = this.processUserDefinedCommand(intent.type, intent.query || userInput);
+      const subIntents = await this.processUserDefinedCommand(
+        intent.type,
+        intent.query || userInput,
+        conversationTitle
+      );
       if (subIntents) {
         const expandedSubIntents = await this.expandUserDefinedCommandIntents(
           subIntents,
           userInput,
-          visited
+          visited,
+          conversationTitle
         );
         expanded.push(...expandedSubIntents);
       }
