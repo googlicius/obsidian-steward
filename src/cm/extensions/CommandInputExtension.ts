@@ -11,6 +11,7 @@ import { TWO_SPACES_PREFIX } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { Events, type ModelChangedPayload } from 'src/types/events';
 import { completionStatus } from '@codemirror/autocomplete';
+import { cliSessionDecorationRefresh } from 'src/services/CommandInputService';
 
 export interface CommandInputOptions {
   /**
@@ -82,7 +83,10 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged) {
+        const cliSessionChanged = update.transactions.some(
+          tr => tr.annotation(cliSessionDecorationRefresh) === true
+        );
+        if (update.docChanged || update.viewportChanged || cliSessionChanged) {
           void this.buildDecorations();
         }
       }

@@ -24,6 +24,10 @@ export class CliSessionService {
 
   constructor(private readonly plugin: StewardPlugin) {}
 
+  private refreshCommandInputDecorations(): void {
+    this.plugin.commandInputService.notifyCliSessionDecorationRefresh();
+  }
+
   private async writeBufferedCliOutput(params: {
     conversationTitle: string;
     streamMarker: string;
@@ -98,14 +102,11 @@ export class CliSessionService {
     const streamMarker = session.streamMarker;
     const shouldKill = params.killProcess !== false;
     if (shouldKill) {
-      try {
-        session.child.kill();
-      } catch {
-        // ignore
-      }
+      this.interruptSession(session);
     }
     this.plugin.abortService.abortOperation(session.operationId);
     this.sessions.delete(params.conversationTitle);
+    this.refreshCommandInputDecorations();
     void this.removeStreamMarkerFromNote({
       conversationTitle: params.conversationTitle,
       streamMarker,
@@ -114,12 +115,7 @@ export class CliSessionService {
 
   public buildShellSpawnConfig(): { file: string; args: string[] } | null {
     const configured = this.plugin.settings.cli.shellExecutable.trim();
-    const shell =
-      configured !== ''
-        ? configured
-        : process.platform === 'win32'
-          ? 'powershell.exe'
-          : '/bin/bash';
+    const shell = configured !== '' ? configured : isWin ? 'powershell.exe' : '/bin/bash';
     return { file: shell, args: [] };
   }
 
@@ -204,6 +200,7 @@ export class CliSessionService {
       operationId: '',
     };
     this.sessions.set(params.conversationTitle, session);
+    this.refreshCommandInputDecorations();
 
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');

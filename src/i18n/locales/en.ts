@@ -400,7 +400,7 @@ const en = {
       tipChangeModel: 'Type `m:` or `model:` to change model',
       tipAttachContext: 'Type `@` to attach files/folders',
       tipStop: 'Press `ESC` or type `Stop` to stop generation',
-      tipRevert: 'Type `Undo` to revert the last change',
+      tipRevert: 'Type `Undo` to revert the last changes',
       fetchFailed: 'Failed to fetch documentation: {{docName}}',
       downloading: 'Downloading {{name}}...',
     },

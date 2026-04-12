@@ -1,11 +1,15 @@
 import { Editor, Notice } from 'obsidian';
-import { Line, Text } from '@codemirror/state';
+import { Annotation, Line, Text } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import type StewardPlugin from 'src/main';
 import { StewardChatView } from 'src/views/StewardChatView';
 import { logger } from 'src/utils/logger';
 import { TWO_SPACES_PREFIX } from 'src/constants';
+import type { ObsidianEditor } from 'src/types/types';
+
+/** Transaction annotation: CLI session started/ended; command-line decorations must re-run. */
+export const cliSessionDecorationRefresh = Annotation.define<boolean>();
 
 /**
  * Service for handling command input operations in the editor
@@ -378,6 +382,18 @@ export class CommandInputService {
     }
 
     return content.trim();
+  }
+
+  /**
+   * Rebuild command input decorations (model label vs CLI) after session state changes without a doc edit.
+   */
+  public notifyCliSessionDecorationRefresh(): void {
+    const editor = this.getEditor();
+    const cm = (editor as ObsidianEditor).cm;
+    if (!cm) {
+      return;
+    }
+    cm.dispatch({ annotations: cliSessionDecorationRefresh.of(true) });
   }
 
   /**
