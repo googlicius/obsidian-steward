@@ -369,6 +369,35 @@ function createCommandKeymapExtension(
   return Prec.high(
     keymap.of([
       {
+        key: 'Ctrl-c',
+        run: view => {
+          const selection = view.state.selection.main;
+          if (!selection.empty) {
+            return false;
+          }
+
+          const doc = view.state.doc;
+          const line = doc.lineAt(selection.head);
+          const inputPrefix = plugin.commandInputService.getInputPrefix(line, doc);
+          if (!inputPrefix) {
+            return false;
+          }
+
+          const conversationTitle = plugin.findConversationTitleAbove(view, line.number);
+          if (!conversationTitle) {
+            return false;
+          }
+
+          const session = plugin.cliSessionService.getSession(conversationTitle);
+          if (!session) {
+            return false;
+          }
+
+          plugin.cliSessionService.interruptSession(session);
+          return true;
+        },
+      },
+      {
         key: 'Enter',
         run: view => {
           if (options.onEnter) {

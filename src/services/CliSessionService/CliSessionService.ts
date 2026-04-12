@@ -3,6 +3,9 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import i18next from 'i18next';
+
+const isWin = process.platform === 'win32';
+
 export interface CliSession {
   conversationTitle: string;
   child: ChildProcessWithoutNullStreams;
@@ -143,26 +146,37 @@ export class CliSessionService {
     await this.flushOutput(session, force);
   }
 
+  public interruptSession(session: CliSession): void {
+    if (!session.child.pid) {
+      logger.warn('No such process');
+      return;
+    }
+
+    try {
+      if (isWin) {
+        spawn('taskkill', ['/pid', String(session.child.pid), '/f', '/t'], {
+          shell: true,
+          windowsHide: true,
+        });
+      } else {
+        process.kill(-session.child.pid, 'SIGINT');
+      }
+    } catch (error) {
+      logger.error('CliSessionService interruptSession failed:', error);
+    }
+  }
+
   /**
    * Spawn a shell for {@link conversationTitle} and register stdout/stderr listeners.
-   * Caller must update the note (intro block). Replaces any existing session for that title (call {@link endSession} first).
    */
   public startShellProcess(params: {
     conversationTitle: string;
     streamMarker: string;
   }): { ok: true } | { ok: false; errorMessage: string } {
     const cwd = this.resolveWorkingDirectory();
-    const operationId = `cli-${params.conversationTitle}`;
-    this.plugin.abortService.createAbortController(operationId);
-    const abortSignal = this.plugin.abortService.getAbortSignal(operationId);
-    if (!abortSignal) {
-      logger.error('CliSessionService: missing abort signal');
-      return { ok: false, errorMessage: 'missing abort signal' };
-    }
 
     const spawnConfig = this.buildShellSpawnConfig();
     if (!spawnConfig) {
-      this.plugin.abortService.abortOperation(operationId);
       return { ok: false, errorMessage: 'no shell configuration' };
     }
 
@@ -173,10 +187,11 @@ export class CliSessionService {
         env: process.env,
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true,
+        shell: true,
+        detached: !isWin,
       }) as ChildProcessWithoutNullStreams;
     } catch (error) {
       logger.error('CliSessionService spawn failed:', error);
-      this.plugin.abortService.abortOperation(operationId);
       return { ok: false, errorMessage: String(error) };
     }
 
@@ -186,13 +201,9 @@ export class CliSessionService {
       streamMarker: params.streamMarker,
       outputBuffer: '',
       flushTimer: null,
-      operationId,
+      operationId: '',
     };
     this.sessions.set(params.conversationTitle, session);
-
-    abortSignal.addEventListener('abort', () => {
-      this.killChildIfCurrent(params.conversationTitle, child);
-    });
 
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
@@ -203,7 +214,6 @@ export class CliSessionService {
     child.stderr.on('data', (chunk: string) => {
       this.appendOutput(params.conversationTitle, chunk, true);
     });
-
     child.on('error', err => {
       logger.error('CliSessionService child error:', err);
       this.appendOutput(params.conversationTitle, `\n[error] ${String(err)}\n`, true);
@@ -227,18 +237,6 @@ export class CliSessionService {
     return { ok: true };
   }
 
-  private killChildIfCurrent(title: string, child: ChildProcessWithoutNullStreams): void {
-    const session = this.sessions.get(title);
-    if (!session || session.child !== child) {
-      return;
-    }
-    try {
-      child.kill('SIGTERM');
-    } catch {
-      // ignore
-    }
-  }
-
   private appendOutput(conversationTitle: string, chunk: string, isStderr: boolean): void {
     const session = this.sessions.get(conversationTitle);
     if (!session) {
@@ -257,7 +255,7 @@ export class CliSessionService {
     session.flushTimer = window.setTimeout(() => {
       session.flushTimer = null;
       void this.flushOutput(session, false);
-    }, 200);
+    }, 100);
   }
 
   private async flushOutput(session: CliSession, force: boolean): Promise<void> {

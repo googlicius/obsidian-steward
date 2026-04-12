@@ -1,14 +1,6 @@
 import { MarkdownPostProcessor } from 'obsidian';
-import { CLI_STREAM_MARKER_REGEX } from 'src/services/CliSessionService/cliTranscriptMarker';
+import { CLI_STREAM_MARKER_PATTERN } from 'src/services/CliSessionService/cliTranscriptMarker';
 import { findTextNodesWithRegex } from 'src/utils/htmlElementUtils';
-
-/**
- * Regex used only to locate text nodes; must not use the `g` flag so {@link findTextNodesWithRegex}
- * does not advance `lastIndex` across nodes.
- */
-const CLI_STREAM_MARKER_REGEX_FOR_SEARCH = new RegExp(CLI_STREAM_MARKER_REGEX.source);
-
-const CLI_STREAM_MARKER_REGEX_GLOBAL = new RegExp(CLI_STREAM_MARKER_REGEX.source, 'g');
 
 function clearPreCursorUi(pre: HTMLElement): void {
   pre.classList.remove('stw-cli-transcript-active');
@@ -19,7 +11,8 @@ function clearPreCursorUi(pre: HTMLElement): void {
 }
 
 function stripMarkersFromCode(code: HTMLElement): boolean {
-  const textNodes = findTextNodesWithRegex(code, CLI_STREAM_MARKER_REGEX_FOR_SEARCH);
+  const regexForSearch = new RegExp(CLI_STREAM_MARKER_PATTERN);
+  const textNodes = findTextNodesWithRegex(code, regexForSearch);
   let strippedAny = false;
 
   for (let j = 0; j < textNodes.length; j++) {
@@ -28,8 +21,8 @@ function stripMarkersFromCode(code: HTMLElement): boolean {
       continue;
     }
     const before = textNode.textContent ?? '';
-    CLI_STREAM_MARKER_REGEX_GLOBAL.lastIndex = 0;
-    const after = before.replace(CLI_STREAM_MARKER_REGEX_GLOBAL, '');
+    const regexGlobal = new RegExp(CLI_STREAM_MARKER_PATTERN, 'g');
+    const after = before.replace(regexGlobal, '');
     if (after === before) {
       continue;
     }
@@ -60,7 +53,8 @@ export function createCliTranscriptPostProcessor(): MarkdownPostProcessor {
       }
 
       const raw = code.textContent ?? '';
-      if (!CLI_STREAM_MARKER_REGEX.test(raw)) {
+      const testRegex = new RegExp(CLI_STREAM_MARKER_PATTERN);
+      if (!testRegex.test(raw)) {
         clearPreCursorUi(pre);
         continue;
       }
