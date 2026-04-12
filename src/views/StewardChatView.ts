@@ -8,6 +8,7 @@ import type StewardPlugin from 'src/main';
 export class StewardChatView extends MarkdownView {
   private autoScrollEventRef: EventRef | null = null;
   private scrollToBottomTimeout: NodeJS.Timeout | null = null;
+  private dockToggleBtn: HTMLButtonElement | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -38,6 +39,12 @@ export class StewardChatView extends MarkdownView {
 
     this.createHeader();
     this.setupAutoScroll();
+
+    this.registerEvent(
+      this.app.workspace.on('layout-change', () => {
+        this.refreshDockToggleButton();
+      })
+    );
   }
 
   async onClose(): Promise<void> {
@@ -179,16 +186,26 @@ export class StewardChatView extends MarkdownView {
     setTooltip(historyBtn, i18next.t('chat.history'));
     historyBtn.addEventListener('click', () => this.handleHistory());
 
-    // Close Chat button
-    const closeBtn = headerEl.createEl('button', {
+    // Move chat between sidebar and main editor
+    this.dockToggleBtn = headerEl.createEl('button', {
       cls: 'steward-header-button clickable-icon',
     });
-    setIcon(closeBtn, 'x');
-    setTooltip(closeBtn, i18next.t('chat.closeChat'));
-    closeBtn.addEventListener('click', () => {
-      const rightSplit = this.app.workspace.rightSplit;
-      rightSplit.collapse();
+    this.refreshDockToggleButton();
+    this.dockToggleBtn.addEventListener('click', () => {
+      void this.plugin.toggleChatDockFromView(this.leaf);
     });
+  }
+
+  private refreshDockToggleButton(): void {
+    if (!this.dockToggleBtn) {
+      return;
+    }
+    const inRight = this.plugin.leafIsInRightSidebar(this.leaf);
+    setIcon(this.dockToggleBtn, inRight ? 'arrow-left' : 'arrow-right');
+    setTooltip(
+      this.dockToggleBtn,
+      i18next.t(inRight ? 'chat.moveChatToMain' : 'chat.moveChatToRight')
+    );
   }
 
   private handleNewChat(): void {

@@ -46,6 +46,8 @@ export interface StewardPluginSettings {
   debug: boolean; // Enable debug logging
   showPronouns: boolean; // Toggle display of User/Steward pronouns in chat
   autoScroll: boolean; // Toggle auto-scroll feature in chat
+  /** Where the Steward chat pane should open: main editor area or right sidebar */
+  chatViewDock: 'main' | 'right';
   // Undefined for backward compatibility
   audio:
     | {

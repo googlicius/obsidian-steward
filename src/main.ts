@@ -1,4 +1,4 @@
-import { Notice, Plugin, WorkspaceLeaf, addIcon, getLanguage } from 'obsidian';
+import { Notice, Plugin, WorkspaceLeaf, WorkspaceParent, addIcon, getLanguage } from 'obsidian';
 import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
@@ -749,27 +749,88 @@ export default class StewardPlugin extends Plugin {
     return true;
   }
 
+  public leafIsInRightSidebar(leaf: WorkspaceLeaf): boolean {
+    for (let p: WorkspaceParent | null = leaf.parent; p; p = p.parent) {
+      if (p === this.app.workspace.rightSplit) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private async relocateChatLeafToDock(
+    currentLeaf: WorkspaceLeaf,
+    targetDock: 'main' | 'right'
+  ): Promise<WorkspaceLeaf> {
+    const collapseRightAfterMove = targetDock === 'main' && this.leafIsInRightSidebar(currentLeaf);
+
+    const state = currentLeaf.getViewState();
+    let newLeaf: WorkspaceLeaf;
+    if (targetDock === 'right') {
+      const rightLeaf = this.app.workspace.getRightLeaf(false);
+      if (!rightLeaf) {
+        throw new Error('Failed to get right sidebar leaf');
+      }
+      newLeaf = rightLeaf;
+    } else {
+      newLeaf = this.app.workspace.getLeaf('tab');
+    }
+
+    await newLeaf.setViewState(state);
+    currentLeaf.detach();
+
+    if (collapseRightAfterMove) {
+      this.app.workspace.rightSplit.collapse();
+    }
+
+    return newLeaf;
+  }
+
   /**
-   * Gets or creates the leaf for the chat
-   * @returns The leaf containing the chat
+   * Gets or creates the leaf for the chat in the configured dock ({@link StewardPluginSettings.chatViewDock}).
    */
-  public getChatLeaf(): WorkspaceLeaf {
-    // Try to find existing leaf by view type
+  public async getChatLeaf(): Promise<WorkspaceLeaf> {
+    const dock = this.settings.chatViewDock;
     const leaves = this.app.workspace.getLeavesOfType(STW_CHAT_VIEW_CONFIG.type);
 
-    // Use the first leaf if available
     if (leaves.length > 0) {
-      return leaves[0];
+      const leaf = leaves[0];
+      return leaf;
     }
 
-    // If no leaf found, create a new one
-    const leaf = this.app.workspace.getRightLeaf(false);
-
-    if (!leaf) {
-      throw new Error('Failed to create or find a leaf for the chat');
+    if (dock === 'right') {
+      const leaf = this.app.workspace.getRightLeaf(false);
+      if (!leaf) {
+        throw new Error('Failed to create or find a leaf for the chat');
+      }
+      return leaf;
     }
 
-    return leaf;
+    return this.app.workspace.getLeaf('tab');
+  }
+
+  /**
+   * Toggle chat between the right sidebar and the main editor; updates {@link StewardPluginSettings.chatViewDock}.
+   */
+  public async toggleChatDockFromView(currentLeaf: WorkspaceLeaf): Promise<void> {
+    const newDoc: StewardPluginSettings['chatViewDock'] = this.leafIsInRightSidebar(currentLeaf)
+      ? 'main'
+      : 'right';
+    this.settings.chatViewDock = newDoc;
+    await this.saveSettings();
+
+    const newLeaf = await this.relocateChatLeafToDock(currentLeaf, newDoc);
+    await this.app.workspace.revealLeaf(newLeaf);
+    this.app.workspace.setActiveLeaf(newLeaf);
+
+    const commandInputService =
+      newLeaf.view instanceof StewardChatView
+        ? this.commandInputService.withEditor(newLeaf.view.editor)
+        : this.commandInputService;
+
+    setTimeout(() => {
+      commandInputService.focus();
+    }, 500);
   }
 
   public async openChat({ revealLeaf = true }: { revealLeaf?: boolean } = {}): Promise<void> {
@@ -794,7 +855,7 @@ export default class StewardPlugin extends Plugin {
         await this.app.vault.create(notePath, initialContent);
       }
 
-      const leaf = this.getChatLeaf();
+      const leaf = await this.getChatLeaf();
 
       // Use our custom view
       await leaf.setViewState({

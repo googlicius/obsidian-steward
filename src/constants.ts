@@ -104,6 +104,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
   debug: false, // Debug logging disabled by default
   showPronouns: true, // Show pronouns in chat by default
   autoScroll: true, // Auto-scroll enabled by default
+  chatViewDock: 'right',
   audio: {
     model: 'openai', // Default model
     voices: {

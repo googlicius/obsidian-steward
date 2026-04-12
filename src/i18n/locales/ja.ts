@@ -83,9 +83,10 @@ const ja = {
     // Chat UI elements
     chat: {
       newChat: '新しいチャット',
+      moveChatToMain: 'チャットをメインエディタへ移動',
+      moveChatToRight: 'チャットを右サイドバーへ移動',
       history: '履歴',
       noConversations: '過去の会話はありません。',
-      closeChat: 'チャットを閉じる',
       stewardChat: 'Stewardチャット',
       closeConversation: '会話を閉じる',
       deleteHistoryItem: '履歴から削除',

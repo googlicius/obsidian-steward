@@ -87,9 +87,10 @@ const en = {
     // Chat UI elements
     chat: {
       newChat: 'New chat',
+      moveChatToMain: 'Move chat to main editor',
+      moveChatToRight: 'Move chat to right sidebar',
       history: 'History',
       noConversations: 'No past conversations found.',
-      closeChat: 'Close chat',
       stewardChat: 'Steward chat',
       closeConversation: 'Close conversation',
       deleteHistoryItem: 'Delete from history',

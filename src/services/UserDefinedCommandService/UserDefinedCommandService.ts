@@ -690,7 +690,7 @@ export class UserDefinedCommandService {
         await this.plugin.openChat({ revealLeaf: true });
 
         // Get the chat view and open the conversation
-        const leaf = this.plugin.getChatLeaf();
+        const leaf = await this.plugin.getChatLeaf();
         const view = leaf.view;
 
         if (view instanceof StewardChatView) {
@@ -741,7 +741,7 @@ export class UserDefinedCommandService {
       });
 
       // Show notice if the chat view is not visible
-      const leaf = this.plugin.getChatLeaf();
+      const leaf = await this.plugin.getChatLeaf();
       if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
         new Notice(
           getNoticeEl(
@@ -751,7 +751,7 @@ export class UserDefinedCommandService {
         );
       }
     } catch (error) {
-      const leaf = this.plugin.getChatLeaf();
+      const leaf = await this.plugin.getChatLeaf();
       if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
         new Notice(
           getNoticeEl(

@@ -80,9 +80,10 @@ const vi = {
     // Chat UI elements
     chat: {
       newChat: 'Cuộc trò chuyện mới',
+      moveChatToMain: 'Chuyển trò chuyện sang trình soạn thảo chính',
+      moveChatToRight: 'Chuyển trò chuyện sang thanh bên phải',
       history: 'Lịch Sử',
       noConversations: 'Không có cuộc trò chuyện nào.',
-      closeChat: 'Đóng trò chuyện',
       stewardChat: 'Trò chuyện Steward',
       closeConversation: 'Đóng cuộc trò chuyện',
       deleteHistoryItem: 'Xóa khỏi lịch sử',
