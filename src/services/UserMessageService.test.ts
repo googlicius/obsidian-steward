@@ -35,6 +35,35 @@ describe('UserMessageService', () => {
       const result = userMessageService.sanitizeQuery(query);
       expect(result).toBe('/ test query');
     });
+
+    it('should collapse multiple spaces on a single line', () => {
+      expect(userMessageService.sanitizeQuery('hello    world')).toBe('hello world');
+      expect(userMessageService.sanitizeQuery('a \t b')).toBe('a b');
+    });
+
+    it('should trim leading and trailing whitespace on the whole query', () => {
+      expect(userMessageService.sanitizeQuery('  padded ')).toBe('padded');
+    });
+
+    it('should keep a multiline query with normalized lines', () => {
+      const query = '  first line  \n second line  \nthird';
+      const result = userMessageService.sanitizeQuery(query);
+      expect(result).toBe('first line\nsecond line\nthird');
+    });
+
+    it('should preserve blank lines between paragraphs', () => {
+      const query = 'paragraph one\n\nparagraph two';
+      expect(userMessageService.sanitizeQuery(query)).toBe('paragraph one\n\nparagraph two');
+    });
+
+    it('should normalize CRLF to LF between lines', () => {
+      const query = 'line one\r\nline two';
+      expect(userMessageService.sanitizeQuery(query)).toBe('line one\nline two');
+    });
+
+    it('should return empty string for whitespace-only input', () => {
+      expect(userMessageService.sanitizeQuery('   \n\t  ')).toBe('');
+    });
   });
 
   describe('hasReadableContent', () => {

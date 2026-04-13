@@ -48,6 +48,8 @@ const en = {
     },
     cli: {
       disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
+      desktopOnly:
+        'The local CLI shell is only available in Obsidian on desktop. Mobile does not support local processes.',
       spawnFailed: 'Could not start CLI process: {{message}}',
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',

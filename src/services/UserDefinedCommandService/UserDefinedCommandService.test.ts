@@ -681,7 +681,10 @@ steps:
           },
         ],
       };
-      userDefinedCommandService.userDefinedCommands.set('geminiUdc', new UserDefinedCommandV2(v2Data));
+      userDefinedCommandService.userDefinedCommands.set(
+        'geminiUdc',
+        new UserDefinedCommandV2(v2Data)
+      );
 
       const result = await userDefinedCommandService.expandUserDefinedCommandIntents(
         [{ type: 'geminiUdc', query: 'hello' }],
@@ -711,7 +714,10 @@ steps:
           },
         ],
       };
-      userDefinedCommandService.userDefinedCommands.set('geminiUdc3', new UserDefinedCommandV2(v2Data));
+      userDefinedCommandService.userDefinedCommands.set(
+        'geminiUdc3',
+        new UserDefinedCommandV2(v2Data)
+      );
 
       const result = await userDefinedCommandService.expandUserDefinedCommandIntents(
         [{ type: 'geminiUdc3', query: 'hello' }],

@@ -397,7 +397,7 @@ function createCommandKeymapExtension(
             return false;
           }
 
-          plugin.cliSessionService.interruptSession(session);
+          void plugin.cliSessionService.interruptSession(session);
           return true;
         },
       },

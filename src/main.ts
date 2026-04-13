@@ -59,6 +59,7 @@ import { SubagentSpawnService } from './services/SubagentSpawnService';
 import { MCPService } from './services/MCPService';
 import { runSettingsSchemaMigrations } from './settings/migrations/settingsSchemaMigrations';
 import { CliSessionService } from './services/CliSessionService/CliSessionService';
+import { NodePtyInstallerScriptService } from './services/NodePtyInstallerScriptService/NodePtyInstallerScriptService';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -1104,6 +1105,8 @@ export default class StewardPlugin extends Plugin {
         // Ensure MCP folder exists for MCP definitions
         const mcpFolder = `${this.settings.stewardFolder}/MCP`;
         await this.obsidianAPITools.ensureFolderExists(mcpFolder);
+
+        await new NodePtyInstallerScriptService(this).sync();
       } catch (error) {
         logger.error('Failed to ensure required folders:', error);
       }

@@ -1,11 +1,5 @@
-import { uniqueID } from 'src/utils/uniqueID';
-
-/** Prefix for the HTML comment anchor used in vault text (insertion point for streamed CLI output). */
-export const CLI_STREAM_MARKER_PREFIX = '<!--stw-cli-stream:';
-
-/** String pattern for matching a full stream marker comment (5-character base-36 id). */
-export const CLI_STREAM_MARKER_PATTERN = '<!--stw-cli-stream:[a-z0-9]+-->';
-
-export function buildCliStreamMarker(): string {
-  return `${CLI_STREAM_MARKER_PREFIX}${uniqueID()}-->`;
-}
+/**
+ * Vault-only HTML comment anchor: insertion point for streamed CLI output inside ```cli-transcript```.
+ * One active marker per conversation note (see CliSessionService + CliHandler segment flow).
+ */
+export const CLI_STREAM_MARKER = '<!--stw-cli-stream-->';

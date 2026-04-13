@@ -1,8 +1,11 @@
-import { FileSystemAdapter } from 'obsidian';
-import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
+import { FileSystemAdapter, Platform } from 'obsidian';
+import type { ChildProcessWithoutNullStreams } from 'child_process';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
+import { loadNodeModule } from 'src/utils/loadNodeModule';
 import i18next from 'i18next';
+
+const SENTINEL_MARKER = `__STEWARD_DONE__`;
 
 const isWin = process.platform === 'win32';
 
@@ -13,6 +16,7 @@ export interface CliSession {
   outputBuffer: string;
   flushTimer: number | null;
   operationId: string;
+  pendingSentinelMarker: string | null; // marker we're waiting for
 }
 
 function sanitizeFenceContent(text: string): string {
@@ -23,6 +27,20 @@ export class CliSessionService {
   private sessions: Map<string, CliSession> = new Map();
 
   constructor(private readonly plugin: StewardPlugin) {}
+
+  /**
+   * Removes every line that contains the done sentinel (e.g. `echo __STEWARD_DONE__` noise).
+   * Other lines and their order are preserved.
+   */
+  private stripSentinelMarker(chunk: string): string {
+    if (!chunk.includes(SENTINEL_MARKER)) {
+      return chunk;
+    }
+    return chunk
+      .split(/\r?\n/)
+      .filter(line => !line.includes(SENTINEL_MARKER))
+      .join('\n');
+  }
 
   private refreshCommandInputDecorations(): void {
     this.plugin.commandInputService.notifyCliSessionDecorationRefresh();
@@ -74,13 +92,6 @@ export class CliSessionService {
     }
   }
 
-  public replaceStreamMarker(conversationTitle: string, newMarker: string): void {
-    const session = this.sessions.get(conversationTitle);
-    if (session) {
-      session.streamMarker = newMarker;
-    }
-  }
-
   public disposeAll(): void {
     const titles = Array.from(this.sessions.keys());
     for (let i = 0; i < titles.length; i++) {
@@ -88,38 +99,13 @@ export class CliSessionService {
     }
   }
 
-  /**
-   * @param killProcess - When false, the child has already exited (e.g. natural close).
-   */
-  public endSession(params: { conversationTitle: string; killProcess?: boolean }): void {
-    const session = this.sessions.get(params.conversationTitle);
-    if (!session) {
-      return;
-    }
-    if (session.flushTimer !== null) {
-      window.clearTimeout(session.flushTimer);
-    }
-    const streamMarker = session.streamMarker;
-    const shouldKill = params.killProcess !== false;
-    if (shouldKill) {
-      this.interruptSession(session);
-    }
-    this.plugin.abortService.abortOperation(session.operationId);
-    this.sessions.delete(params.conversationTitle);
-    this.refreshCommandInputDecorations();
-    void this.removeStreamMarkerFromNote({
-      conversationTitle: params.conversationTitle,
-      streamMarker,
-    });
-  }
-
-  public buildShellSpawnConfig(): { file: string; args: string[] } | null {
+  private buildShellSpawnConfig(): { file: string; args: string[] } | null {
     const configured = this.plugin.settings.cli.shellExecutable.trim();
     const shell = configured !== '' ? configured : isWin ? 'powershell.exe' : '/bin/bash';
     return { file: shell, args: [] };
   }
 
-  public resolveWorkingDirectory(): string {
+  private resolveWorkingDirectory(): string {
     const configured = this.plugin.settings.cli.workingDirectory.trim();
     if (configured !== '') {
       return configured;
@@ -142,15 +128,24 @@ export class CliSessionService {
     await this.flushOutput(session, force);
   }
 
-  public interruptSession(session: CliSession): void {
+  public async interruptSession(session: CliSession): Promise<void> {
+    if (!Platform.isDesktopApp) {
+      return;
+    }
     if (!session.child.pid) {
       logger.warn('No such process');
       return;
     }
 
+    const cp = await loadNodeModule('child_process').catch(error => {
+      logger.error('CliSessionService interruptSession failed to load child_process:', error);
+    });
+
+    if (!cp) return;
+
     try {
       if (isWin) {
-        spawn('taskkill', ['/pid', String(session.child.pid), '/f', '/t'], {
+        cp.spawn('taskkill', ['/pid', String(session.child.pid), '/f', '/t'], {
           shell: true,
           windowsHide: true,
         });
@@ -165,10 +160,14 @@ export class CliSessionService {
   /**
    * Spawn a shell for {@link conversationTitle} and register stdout/stderr listeners.
    */
-  public startShellProcess(params: {
+  public async startShellProcess(params: {
     conversationTitle: string;
     streamMarker: string;
-  }): { ok: true } | { ok: false; errorMessage: string } {
+  }): Promise<{ ok: true } | { ok: false; errorMessage: string }> {
+    if (!Platform.isDesktopApp) {
+      return { ok: false, errorMessage: i18next.t('cli.desktopOnly') };
+    }
+
     const cwd = this.resolveWorkingDirectory();
 
     const spawnConfig = this.buildShellSpawnConfig();
@@ -176,9 +175,17 @@ export class CliSessionService {
       return { ok: false, errorMessage: 'no shell configuration' };
     }
 
+    const cp = await loadNodeModule('child_process').catch(error => {
+      logger.error('CliSessionService failed to load child_process:', error);
+    });
+
+    if (!cp) {
+      return { ok: false, errorMessage: 'CliSessionService failed to load child_process.' };
+    }
+
     let child: ChildProcessWithoutNullStreams;
     try {
-      child = spawn(spawnConfig.file, spawnConfig.args, {
+      child = cp.spawn(spawnConfig.file, spawnConfig.args, {
         cwd,
         env: process.env,
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -198,6 +205,7 @@ export class CliSessionService {
       outputBuffer: '',
       flushTimer: null,
       operationId: '',
+      pendingSentinelMarker: null,
     };
     this.sessions.set(params.conversationTitle, session);
     this.refreshCommandInputDecorations();
@@ -234,14 +242,65 @@ export class CliSessionService {
     return { ok: true };
   }
 
+  /**
+   * @param killProcess - When false, the child has already exited (e.g. natural close).
+   */
+  public endSession(params: { conversationTitle: string; killProcess?: boolean }): void {
+    const session = this.sessions.get(params.conversationTitle);
+    if (!session) {
+      return;
+    }
+    if (session.flushTimer !== null) {
+      window.clearTimeout(session.flushTimer);
+    }
+    const streamMarker = session.streamMarker;
+    const shouldKill = params.killProcess !== false;
+    if (shouldKill) {
+      void this.interruptSession(session);
+    }
+    this.plugin.abortService.abortOperation(session.operationId);
+    this.sessions.delete(params.conversationTitle);
+    this.refreshCommandInputDecorations();
+    void this.removeStreamMarkerFromNote({
+      conversationTitle: params.conversationTitle,
+      streamMarker,
+    });
+  }
+
+  public appendSentinelMarker(session: CliSession, argsLine: string) {
+    session.pendingSentinelMarker = SENTINEL_MARKER;
+
+    // Write the real command, then immediately echo the sentinel
+    session.child.stdin.write(`${argsLine}\necho ${SENTINEL_MARKER}\n`);
+  }
+
   private appendOutput(conversationTitle: string, chunk: string, isStderr: boolean): void {
     const session = this.sessions.get(conversationTitle);
     if (!session) {
       logger.warn('CLI session not found');
       return;
     }
-    const prefix = isStderr ? '[stderr] ' : '';
-    session.outputBuffer += `${prefix}${chunk}`;
+
+    const stripped = this.stripSentinelMarker(chunk);
+
+    // Check for and strip the sentinel line
+    if (session.pendingSentinelMarker && chunk.includes(SENTINEL_MARKER)) {
+      session.pendingSentinelMarker = null;
+
+      // If there was real content in this chunk before the sentinel, handle it normally
+      if (stripped.trim()) {
+        session.outputBuffer += stripped;
+      }
+
+      // No output at all before the sentinel → inject the placeholder
+      if (!session.outputBuffer) {
+        session.outputBuffer += '(No output)\n';
+      }
+    } else {
+      const prefix = isStderr ? '[stderr] ' : '';
+      session.outputBuffer += `${prefix}${stripped}`;
+    }
+
     this.scheduleFlush(session);
   }
 

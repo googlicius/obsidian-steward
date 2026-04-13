@@ -2,7 +2,7 @@ import { z } from 'zod/v3';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import i18next from 'i18next';
 import { logger } from 'src/utils/logger';
-import { buildCliStreamMarker } from 'src/services/CliSessionService/cliTranscriptMarker';
+import { CLI_STREAM_MARKER } from 'src/services/CliSessionService/cliTranscriptMarker';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 
@@ -39,9 +39,7 @@ export class CliHandler {
     } catch (error) {
       logger.error('CliHandler beginNextTranscriptSegment strip marker failed:', error);
     }
-    const newMarker = buildCliStreamMarker();
-    this.cliSessionService.replaceStreamMarker(conversationTitle, newMarker);
-    const fenced = `\n\n\`\`\`cli-transcript\n${newMarker}\n\`\`\`\n`;
+    const fenced = `\n\n\`\`\`cli-transcript\n${CLI_STREAM_MARKER}\n\`\`\`\n`;
     await this.agent.renderer.updateConversationNote({
       path: conversationTitle,
       newContent: fenced,
@@ -54,9 +52,6 @@ export class CliHandler {
     conversationTitle: string;
     argsLine: string;
   }): Promise<boolean> {
-    if (!this.agent.plugin.settings.cli.enabled) {
-      return false;
-    }
     const session = this.cliSessionService.getSession(params.conversationTitle);
     if (!session) {
       return false;
@@ -67,7 +62,7 @@ export class CliHandler {
     await this.beginNextTranscriptSegment(params.conversationTitle);
     const live = this.cliSessionService.getSession(params.conversationTitle);
     if (params.argsLine.length > 0 && live && !live.child.stdin.writableEnded) {
-      live.child.stdin.write(`${params.argsLine}\n`);
+      this.cliSessionService.appendSentinelMarker(live, params.argsLine);
     }
     return true;
   }
@@ -91,10 +86,9 @@ export class CliHandler {
       killProcess: true,
     });
 
-    const streamMarker = buildCliStreamMarker();
-    const started = this.cliSessionService.startShellProcess({
+    const started = await this.cliSessionService.startShellProcess({
       conversationTitle: params.conversationTitle,
-      streamMarker,
+      streamMarker: CLI_STREAM_MARKER,
     });
 
     if (!started.ok) {
@@ -109,7 +103,7 @@ export class CliHandler {
     }
 
     const initialBody = i18next.t('cli.shellTranscriptIntro');
-    const newContent = `${initialBody}\n\n\`\`\`cli-transcript\n${streamMarker}\n\`\`\`\n`;
+    const newContent = `${initialBody}\n\n\`\`\`cli-transcript\n${CLI_STREAM_MARKER}\n\`\`\`\n`;
 
     await this.agent.renderer.updateConversationNote({
       path: params.conversationTitle,
@@ -120,7 +114,8 @@ export class CliHandler {
 
     const session = this.cliSessionService.getSession(params.conversationTitle);
     if (params.argsLine.length > 0 && session && !session.child.stdin.writableEnded) {
-      session.child.stdin.write(`${params.argsLine}\n`);
+      // session.child.stdin.write(`${params.argsLine}\n`);
+      this.cliSessionService.appendSentinelMarker(session, params.argsLine);
     }
   }
 

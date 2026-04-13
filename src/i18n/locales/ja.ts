@@ -45,6 +45,8 @@ const ja = {
     },
     cli: {
       disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
+      desktopOnly:
+        'ローカルCLIシェルはObsidianデスクトップ版でのみ利用できます。モバイルではローカルプロセスは利用できません。',
       spawnFailed: 'Could not start CLI process: {{message}}',
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',

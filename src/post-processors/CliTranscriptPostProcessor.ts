@@ -1,5 +1,5 @@
 import { MarkdownPostProcessor } from 'obsidian';
-import { CLI_STREAM_MARKER_PATTERN } from 'src/services/CliSessionService/cliTranscriptMarker';
+import { CLI_STREAM_MARKER } from 'src/services/CliSessionService/cliTranscriptMarker';
 import { findTextNodesWithRegex } from 'src/utils/htmlElementUtils';
 
 function clearPreCursorUi(pre: HTMLElement): void {
@@ -11,7 +11,7 @@ function clearPreCursorUi(pre: HTMLElement): void {
 }
 
 function stripMarkersFromCode(code: HTMLElement): boolean {
-  const regexForSearch = new RegExp(CLI_STREAM_MARKER_PATTERN);
+  const regexForSearch = new RegExp(CLI_STREAM_MARKER);
   const textNodes = findTextNodesWithRegex(code, regexForSearch);
   let strippedAny = false;
 
@@ -21,7 +21,7 @@ function stripMarkersFromCode(code: HTMLElement): boolean {
       continue;
     }
     const before = textNode.textContent ?? '';
-    const regexGlobal = new RegExp(CLI_STREAM_MARKER_PATTERN, 'g');
+    const regexGlobal = new RegExp(CLI_STREAM_MARKER, 'g');
     const after = before.replace(regexGlobal, '');
     if (after === before) {
       continue;
@@ -53,7 +53,7 @@ export function createCliTranscriptPostProcessor(): MarkdownPostProcessor {
       }
 
       const raw = code.textContent ?? '';
-      const testRegex = new RegExp(CLI_STREAM_MARKER_PATTERN);
+      const testRegex = new RegExp(CLI_STREAM_MARKER);
       if (!testRegex.test(raw)) {
         clearPreCursorUi(pre);
         continue;
