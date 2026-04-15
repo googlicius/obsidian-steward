@@ -1,4 +1,12 @@
-import { Notice, Plugin, WorkspaceLeaf, WorkspaceParent, addIcon, getLanguage } from 'obsidian';
+import {
+  Notice,
+  Platform,
+  Plugin,
+  WorkspaceLeaf,
+  WorkspaceParent,
+  addIcon,
+  getLanguage,
+} from 'obsidian';
 import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
@@ -59,6 +67,7 @@ import { SubagentSpawnService } from './services/SubagentSpawnService';
 import { MCPService } from './services/MCPService';
 import { runSettingsSchemaMigrations } from './settings/migrations/settingsSchemaMigrations';
 import { CliSessionService } from './services/CliSessionService/CliSessionService';
+import { PtyCompanionService } from './services/PtyCompanionService/PtyCompanionService';
 import { NodePtyInstallerScriptService } from './services/NodePtyInstallerScriptService/NodePtyInstallerScriptService';
 
 export default class StewardPlugin extends Plugin {
@@ -92,12 +101,20 @@ export default class StewardPlugin extends Plugin {
   _obsidianAPITools: ObsidianAPITools;
   _commandProcessorService: CommandProcessorService;
   _cliSessionService: CliSessionService;
+  _ptyCompanionService: PtyCompanionService;
 
   get cliSessionService(): CliSessionService {
     if (!this._cliSessionService) {
       this._cliSessionService = new CliSessionService(this);
     }
     return this._cliSessionService;
+  }
+
+  get ptyCompanionService(): PtyCompanionService {
+    if (!this._ptyCompanionService) {
+      this._ptyCompanionService = new PtyCompanionService(this);
+    }
+    return this._ptyCompanionService;
   }
 
   get obsidianAPITools(): ObsidianAPITools {
@@ -298,6 +315,10 @@ export default class StewardPlugin extends Plugin {
     // Initialize the MCPService (loads MCP definitions from Steward/MCP folder)
     this.mcpService;
 
+    if (Platform.isDesktopApp) {
+      await this.ptyCompanionService.start();
+    }
+
     this.app.workspace.onLayoutReady(async () => {
       // Clean up old search databases
       this.cleanupOldSearchDatabases();
@@ -322,6 +343,7 @@ export default class StewardPlugin extends Plugin {
 
   onunload() {
     this._cliSessionService?.disposeAll();
+    void this._ptyCompanionService?.stop();
 
     // Remove the language attribute from the HTML element
     document.documentElement.removeAttribute('data-stw-language');

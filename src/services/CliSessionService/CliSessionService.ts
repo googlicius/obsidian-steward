@@ -4,6 +4,11 @@ import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { loadNodeModule } from 'src/utils/loadNodeModule';
 import i18next from 'i18next';
+import stripAnsi from 'strip-ansi';
+import {
+  createRemotePtySession,
+  type RemotePtyChildShim,
+} from 'src/solutions/pty-companion/client';
 
 const SENTINEL_MARKER = `__STEWARD_DONE__`;
 
@@ -11,16 +16,24 @@ const isWin = process.platform === 'win32';
 
 export interface CliSession {
   conversationTitle: string;
-  child: ChildProcessWithoutNullStreams;
+  child: ChildProcessWithoutNullStreams | RemotePtyChildShim;
   streamMarker: string;
   outputBuffer: string;
   flushTimer: number | null;
   operationId: string;
   pendingSentinelMarker: string | null; // marker we're waiting for
+  /** When set, {@link interruptSession} forwards to the PTY companion instead of OS signals. */
+  remoteKill?: () => void;
 }
 
 function sanitizeFenceContent(text: string): string {
   return text.replace(/```/g, '`\u200b`\u200b`');
+}
+
+/** PTY and rich shells emit CSI/SGR escapes; notes are plain text — strip for readability. */
+function normalizeCliOutputForNote(text: string): string {
+  const plain = stripAnsi(text);
+  return plain.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 }
 
 export class CliSessionService {
@@ -117,6 +130,15 @@ export class CliSessionService {
     return '';
   }
 
+  /** Env for spawned shells: discourage color/CSI when writing output into Markdown. */
+  private cliChildEnv(): NodeJS.ProcessEnv {
+    return {
+      ...process.env,
+      TERM: 'dumb',
+      NO_COLOR: '1',
+    };
+  }
+
   public async flushOutputForConversation(
     conversationTitle: string,
     force: boolean
@@ -130,6 +152,10 @@ export class CliSessionService {
 
   public async interruptSession(session: CliSession): Promise<void> {
     if (!Platform.isDesktopApp) {
+      return;
+    }
+    if (session.remoteKill) {
+      session.remoteKill();
       return;
     }
     if (!session.child.pid) {
@@ -175,6 +201,72 @@ export class CliSessionService {
       return { ok: false, errorMessage: 'no shell configuration' };
     }
 
+    const companion = this.plugin.ptyCompanionService.getConnectionParams();
+    if (companion) {
+      let child: RemotePtyChildShim;
+      let remoteKill: () => void;
+      try {
+        const created = await createRemotePtySession({
+          connection: companion,
+          spawn: {
+            file: spawnConfig.file,
+            args: spawnConfig.args,
+            cwd,
+            env: this.cliChildEnv(),
+          },
+        });
+        child = created.child;
+        remoteKill = created.remoteKill;
+      } catch (error) {
+        logger.error('CliSessionService remote PTY spawn failed:', error);
+        return { ok: false, errorMessage: String(error) };
+      }
+
+      const session: CliSession = {
+        conversationTitle: params.conversationTitle,
+        child,
+        streamMarker: params.streamMarker,
+        outputBuffer: '',
+        flushTimer: null,
+        operationId: '',
+        pendingSentinelMarker: null,
+        remoteKill,
+      };
+      this.sessions.set(params.conversationTitle, session);
+      this.refreshCommandInputDecorations();
+
+      child.stdout.setEncoding('utf8');
+      child.stderr.setEncoding('utf8');
+
+      child.stdout.on('data', (chunk: string) => {
+        this.appendOutput(params.conversationTitle, chunk, false);
+      });
+      child.stderr.on('data', (chunk: string) => {
+        this.appendOutput(params.conversationTitle, chunk, true);
+      });
+      child.on('error', err => {
+        logger.error('CliSessionService child error:', err);
+        this.appendOutput(params.conversationTitle, `\n[error] ${String(err)}\n`, true);
+      });
+
+      child.on('close', (code, signal) => {
+        const current = this.sessions.get(params.conversationTitle);
+        if (!current || current.child !== child) {
+          return;
+        }
+        const exitNote =
+          signal !== null
+            ? i18next.t('cli.processEndedSignal', { signal: String(signal) })
+            : i18next.t('cli.processEndedCode', { code: String(code) });
+        this.appendOutput(params.conversationTitle, `\n${exitNote}\n`, false);
+        void this.flushOutput(current, true).then(() => {
+          this.endSession({ conversationTitle: params.conversationTitle, killProcess: false });
+        });
+      });
+
+      return { ok: true };
+    }
+
     const cp = await loadNodeModule('child_process').catch(error => {
       logger.error('CliSessionService failed to load child_process:', error);
     });
@@ -187,7 +279,7 @@ export class CliSessionService {
     try {
       child = cp.spawn(spawnConfig.file, spawnConfig.args, {
         cwd,
-        env: process.env,
+        env: this.cliChildEnv(),
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true,
         shell: true,
@@ -321,7 +413,7 @@ export class CliSessionService {
     const toWrite = session.outputBuffer;
     session.outputBuffer = '';
     const marker = session.streamMarker;
-    const safe = sanitizeFenceContent(toWrite);
+    const safe = sanitizeFenceContent(normalizeCliOutputForNote(toWrite));
     try {
       await this.writeBufferedCliOutput({
         conversationTitle: session.conversationTitle,
