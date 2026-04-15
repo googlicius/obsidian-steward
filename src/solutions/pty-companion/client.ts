@@ -21,7 +21,10 @@ export type RemotePtyChildShim = {
   stdin: { writableEnded: boolean; write(chunk: string): boolean };
   stdout: EventEmitter & { setEncoding(enc: BufferEncoding): EventEmitter };
   stderr: EventEmitter & { setEncoding(enc: BufferEncoding): EventEmitter };
-  on(event: 'close', listener: (code: number | null, signal: NodeJS.Signals | null) => void): RemotePtyChildShim;
+  on(
+    event: 'close',
+    listener: (code: number | null, signal: NodeJS.Signals | null) => void
+  ): RemotePtyChildShim;
   on(event: 'error', listener: (err: Error) => void): RemotePtyChildShim;
   on(event: string, listener: (...args: unknown[]) => void): RemotePtyChildShim;
 };
@@ -93,10 +96,7 @@ export function createRemotePtySession(params: {
         });
 
         socket.on('error', (err: unknown) => {
-          procEmitter.emit(
-            'error',
-            err instanceof Error ? err : new Error(String(err))
-          );
+          procEmitter.emit('error', err instanceof Error ? err : new Error(String(err)));
         });
 
         socket.on('exit', (payload: { exitCode: number; signal?: number }) => {

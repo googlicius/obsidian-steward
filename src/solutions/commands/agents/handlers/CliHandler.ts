@@ -3,6 +3,7 @@ import type { AgentHandlerContext } from '../AgentHandlerContext';
 import i18next from 'i18next';
 import { logger } from 'src/utils/logger';
 import { CLI_STREAM_MARKER } from 'src/services/CliSessionService/cliTranscriptMarker';
+import { isInteractiveCliCommand } from 'src/services/CliSessionService/CliSessionService';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 
@@ -59,6 +60,18 @@ export class CliHandler {
     if (session.child.stdin.writableEnded) {
       return false;
     }
+    if (params.argsLine.length > 0) {
+      // End the session if different mode.
+      const wantsInteractive = isInteractiveCliCommand(params.argsLine);
+      const sessionIsInteractive = session.cliMode === 'interactive';
+      if (wantsInteractive !== sessionIsInteractive) {
+        this.cliSessionService.endSession({
+          conversationTitle: params.conversationTitle,
+          killProcess: true,
+        });
+        return false;
+      }
+    }
     await this.beginNextTranscriptSegment(params.conversationTitle);
     const live = this.cliSessionService.getSession(params.conversationTitle);
     if (params.argsLine.length > 0 && live && !live.child.stdin.writableEnded) {
@@ -89,6 +102,7 @@ export class CliHandler {
     const started = await this.cliSessionService.startShellProcess({
       conversationTitle: params.conversationTitle,
       streamMarker: CLI_STREAM_MARKER,
+      initialArgsLine: params.argsLine,
     });
 
     if (!started.ok) {

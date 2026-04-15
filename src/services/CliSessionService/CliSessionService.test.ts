@@ -11,6 +11,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
 function createSession(overrides: Partial<CliSession> = {}): CliSession {
   return {
     conversationTitle: 'test-conv',
+    cliMode: 'transcript',
     child: { pid: 1 } as unknown as ChildProcessWithoutNullStreams,
     streamMarker: '<!-- stream -->',
     outputBuffer: '',

@@ -14,8 +14,19 @@ const SENTINEL_MARKER = `__STEWARD_DONE__`;
 
 const isWin = process.platform === 'win32';
 
+export type CliSessionMode = 'transcript' | 'interactive';
+
+/** Simple routing: interactive (node-pty) when the command line starts with any supported app (trimmed, case-insensitive). */
+export function isInteractiveCliCommand(argsLine: string): boolean {
+  const trimmed = argsLine.trimStart().toLowerCase();
+  const supportedInteractiveApps = ['vim', 'gemini'];
+  return supportedInteractiveApps.filter(app => trimmed.startsWith(app)).length > 0;
+}
+
 export interface CliSession {
   conversationTitle: string;
+  /** Transcript uses child_process + sentinel; interactive uses remote PTY (vim, …). */
+  cliMode: CliSessionMode;
   child: ChildProcessWithoutNullStreams | RemotePtyChildShim;
   streamMarker: string;
   outputBuffer: string;
@@ -139,6 +150,16 @@ export class CliSessionService {
     };
   }
 
+  /** Env for PTY-backed interactive shells (actual TTY semantics). */
+  private cliInteractiveChildEnv(): NodeJS.ProcessEnv {
+    const base = { ...process.env };
+    delete base.NO_COLOR;
+    return {
+      ...base,
+      TERM: 'xterm-256color',
+    };
+  }
+
   public async flushOutputForConversation(
     conversationTitle: string,
     force: boolean
@@ -189,6 +210,8 @@ export class CliSessionService {
   public async startShellProcess(params: {
     conversationTitle: string;
     streamMarker: string;
+    /** Used to choose PTY vs child_process on first spawn (empty → transcript). */
+    initialArgsLine?: string;
   }): Promise<{ ok: true } | { ok: false; errorMessage: string }> {
     if (!Platform.isDesktopApp) {
       return { ok: false, errorMessage: i18next.t('cli.desktopOnly') };
@@ -201,8 +224,21 @@ export class CliSessionService {
       return { ok: false, errorMessage: 'no shell configuration' };
     }
 
-    const companion = this.plugin.ptyCompanionService.getConnectionParams();
-    if (companion) {
+    const initialLine = params.initialArgsLine ?? '';
+    const useInteractivePty = isInteractiveCliCommand(initialLine);
+    const companion = useInteractivePty
+      ? this.plugin.ptyCompanionService.getConnectionParams()
+      : null;
+
+    if (useInteractivePty) {
+      if (!companion) {
+        return {
+          ok: false,
+          errorMessage:
+            'Interactive commands (e.g. vim) need the PTY companion running with node-pty available.',
+        };
+      }
+
       let child: RemotePtyChildShim;
       let remoteKill: () => void;
       try {
@@ -212,7 +248,7 @@ export class CliSessionService {
             file: spawnConfig.file,
             args: spawnConfig.args,
             cwd,
-            env: this.cliChildEnv(),
+            env: this.cliInteractiveChildEnv(),
           },
         });
         child = created.child;
@@ -224,6 +260,7 @@ export class CliSessionService {
 
       const session: CliSession = {
         conversationTitle: params.conversationTitle,
+        cliMode: 'interactive',
         child,
         streamMarker: params.streamMarker,
         outputBuffer: '',
@@ -292,6 +329,7 @@ export class CliSessionService {
 
     const session: CliSession = {
       conversationTitle: params.conversationTitle,
+      cliMode: 'transcript',
       child,
       streamMarker: params.streamMarker,
       outputBuffer: '',
@@ -360,6 +398,11 @@ export class CliSessionService {
   }
 
   public appendSentinelMarker(session: CliSession, argsLine: string) {
+    if (session.cliMode === 'interactive') {
+      session.child.stdin.write(`${argsLine}\n`);
+      return;
+    }
+
     session.pendingSentinelMarker = SENTINEL_MARKER;
 
     // Write the real command, then immediately echo the sentinel
