@@ -1,5 +1,5 @@
 /**
- * Bundles heavy npm dependencies (currently ai + @ai-sdk/* + ollama) into one IIFE,
+ * Bundles heavy npm dependencies (ai + @ai-sdk/* + ollama + node-pty JS + @xterm/*) into one IIFE,
  * LZ-compresses it, and emits src/generated/bundledLibsPayload.ts for runtime loading
  * (see src/utils/bundledLibs.ts).
  */

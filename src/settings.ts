@@ -774,6 +774,19 @@ class StewardSettingTab extends PluginSettingTab {
       );
 
     new Setting(cliSettingGroup.settingItems)
+      .setName(t('settings.cliNodePtyNativePath'))
+      .setDesc(t('settings.cliNodePtyNativePathDesc'))
+      .addText(text =>
+        text
+          .setPlaceholder('')
+          .setValue(this.plugin.settings.cli.nodePtyNativePath ?? '')
+          .onChange(async value => {
+            this.plugin.settings.cli.nodePtyNativePath = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(cliSettingGroup.settingItems)
       .setName(t('settings.cliInteractivePrograms'))
       .setDesc(t('settings.cliInteractiveProgramsDesc'))
       .addTextArea(text =>

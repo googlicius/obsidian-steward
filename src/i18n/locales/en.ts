@@ -55,6 +55,12 @@ const en = {
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
       processEndedCode: '(Process exited with code {{code}})',
+      ptyNativePathUnavailable:
+        'Interactive CLI needs a local folder vault (FileSystemAdapter) so the node-pty native bundle path can be resolved.',
+      ptyNativeBundleMissing:
+        'The node-pty native bundle folder is missing or is not a directory: {{path}}. Run the Steward installer script or set a valid folder in CLI settings.',
+      inputLineCaptionShellPrefix: 'Shell',
+      inputLineCaptionShellActive: 'Shell, Ctrl+C to exit',
     },
     mcp: {
       noConfigBlock:
@@ -592,6 +598,9 @@ const en = {
         'Override shell for `/>`. Leave empty for PowerShell on Windows or /bin/bash on macOS/Linux.',
       cliWorkingDirectory: 'Working directory (optional)',
       cliWorkingDirectoryDesc: 'Empty = vault root. CLI processes start in this folder.',
+      cliNodePtyNativePath: 'node-pty native bundle folder (optional)',
+      cliNodePtyNativePathDesc:
+        'Folder containing the extracted node-pty-prebuilt tree (native binaries). Empty = your Steward folder + /node-pty-prebuilt under the vault. Absolute path or path relative to the vault root.',
       cliInteractivePrograms: 'Additional interactive programs',
       cliInteractiveProgramsDesc:
         'Comma or newline separated program names treated as interactive mode for `/>` (e.g., nvim, lazygit, htop). Built-ins include vim, vi, nvim, nano, less, more, man, top, htop, btop, lazygit, tig, ranger, gemini.',

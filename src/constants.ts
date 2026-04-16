@@ -173,6 +173,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     shellExecutable: '',
     workingDirectory: '',
     interactivePrograms: '',
+    nodePtyNativePath: '',
   },
 };
 

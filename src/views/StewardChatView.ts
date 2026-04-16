@@ -349,7 +349,8 @@ export class StewardChatView extends MarkdownView {
       .filter((f): f is TFile => f instanceof TFile && f.extension === 'md')
       .filter(file => {
         const cache = this.app.metadataCache.getFileCache(file);
-        if (cache?.frontmatter?.parent) {
+        // Exclude notes are from subagents and has host_conversation
+        if (cache?.frontmatter?.parent || cache?.frontmatter?.host_conversation) {
           return false;
         }
         return true;

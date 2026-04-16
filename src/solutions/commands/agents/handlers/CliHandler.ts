@@ -147,39 +147,66 @@ export class CliHandler {
     });
   }
 
-  private async resolveTargetConversationTitle(params: {
+  /**
+   * Picks the conversation key used for {@link CliSessionService} routing without creating the xterm note.
+   * For first-time interactive from a host note, that key is the deterministic xterm title so we can spawn first.
+   */
+  private async resolveShellSessionConversationTitle(params: {
     conversationTitle: string;
     argsLine: string;
-  }): Promise<string> {
+  }): Promise<{
+    shellSessionTitle: string;
+    hostConversationTitleForSpawn?: string;
+    materializeXtermFromHostTitle?: string;
+  }> {
     if (
-      !isInteractiveCliCommand(params.argsLine, this.cliSessionService.getSupportedInteractiveApps())
+      !isInteractiveCliCommand(
+        params.argsLine,
+        this.cliSessionService.getSupportedInteractiveApps()
+      )
     ) {
-      return params.conversationTitle;
+      return { shellSessionTitle: params.conversationTitle };
     }
 
-    const hostConversationTitle = await this.cliSessionService.getCliXtermHostConversationTitle(
+    const linkedHost = await this.cliSessionService.getCliXtermHostConversationTitle(
       params.conversationTitle
     );
-    if (hostConversationTitle) {
-      return params.conversationTitle;
+    if (linkedHost) {
+      return { shellSessionTitle: params.conversationTitle };
     }
 
-    const xtermConversationTitle = await this.cliSessionService.ensureCliXtermConversationNote({
-      hostConversationTitle: params.conversationTitle,
+    const shellSessionTitle = this.cliSessionService.getCliXtermNoteTitleForHost(
+      params.conversationTitle
+    );
+    return {
+      shellSessionTitle,
+      hostConversationTitleForSpawn: params.conversationTitle,
+      materializeXtermFromHostTitle: params.conversationTitle,
+    };
+  }
+
+  /** Creates the xterm conversation note and host UX after interactive shell spawn succeeded. */
+  private async materializeCliXtermConversationAfterSpawn(params: {
+    hostConversationTitle: string;
+    xtermConversationTitle: string;
+    argsLine: string;
+  }): Promise<void> {
+    await this.cliSessionService.ensureCliXtermConversationNote({
+      hostConversationTitle: params.hostConversationTitle,
       query: params.argsLine,
     });
 
-    const hostSession = this.cliSessionService.getSession(params.conversationTitle);
+    const hostSession = this.cliSessionService.getSession(params.hostConversationTitle);
     if (hostSession && hostSession.cliMode === 'transcript') {
-      await this.beginNextTranscriptSegment(params.conversationTitle);
+      await this.beginNextTranscriptSegment(params.hostConversationTitle);
       this.cliSessionService.appendInfoTextToTranscript(
-        params.conversationTitle,
+        params.hostConversationTitle,
         i18next.t('cli.openingInteractiveTerminal')
       );
-      await this.cliSessionService.flushOutputForConversation(params.conversationTitle, true);
+      await this.cliSessionService.flushOutputForConversation(params.hostConversationTitle, true);
     } else {
       await this.agent.renderer.updateConversationNote({
-        path: params.conversationTitle,
+        path: params.hostConversationTitle,
         newContent: i18next.t('cli.openingInteractiveTerminal'),
         command: 'cli',
         includeHistory: false,
@@ -187,11 +214,9 @@ export class CliHandler {
     }
 
     await this.replaceConversationEmbedInActiveNote({
-      sourceConversationTitle: params.conversationTitle,
-      targetConversationTitle: xtermConversationTitle,
+      sourceConversationTitle: params.hostConversationTitle,
+      targetConversationTitle: params.xtermConversationTitle,
     });
-
-    return xtermConversationTitle;
   }
 
   private async isCliXtermConversation(conversationTitle: string): Promise<boolean> {
@@ -270,43 +295,42 @@ export class CliHandler {
   private async startSession(params: {
     conversationTitle: string;
     argsLine: string;
+    hostConversationTitle?: string;
+    /** When set, create the xterm note and host UX only after the shell spawns successfully. */
+    materializeXtermFromHostTitle?: string;
   }): Promise<void> {
     this.cliSessionService.endSession({
       conversationTitle: params.conversationTitle,
       killProcess: true,
     });
 
-    const hostConversationTitle =
-      (await this.cliSessionService.getCliXtermHostConversationTitle(params.conversationTitle)) ??
-      params.conversationTitle;
-
-    const wantsInteractive = isInteractiveCliCommand(
-      params.argsLine,
-      this.cliSessionService.getSupportedInteractiveApps()
-    );
-    const hostTranscriptSession = this.cliSessionService.getSession(hostConversationTitle);
-    const inheritedWorkingDirectory =
-      wantsInteractive && hostTranscriptSession?.cliMode === 'transcript'
-        ? hostTranscriptSession.preferredWorkingDirectory
-        : undefined;
-
     const started = await this.cliSessionService.startShellProcess({
       conversationTitle: params.conversationTitle,
-      hostConversationTitle,
+      hostConversationTitle: params.hostConversationTitle,
       streamMarker: CLI_STREAM_MARKER,
-      workingDirectory: inheritedWorkingDirectory,
       initialArgsLine: params.argsLine,
     });
+
+    const errorNotePath =
+      params.materializeXtermFromHostTitle ?? params.conversationTitle;
 
     if (!started.ok) {
       const message = i18next.t('cli.spawnFailed', { message: started.errorMessage });
       await this.agent.renderer.updateConversationNote({
-        path: params.conversationTitle,
+        path: errorNotePath,
         newContent: message,
         command: 'cli',
         includeHistory: false,
       });
       return;
+    }
+
+    if (params.materializeXtermFromHostTitle) {
+      await this.materializeCliXtermConversationAfterSpawn({
+        hostConversationTitle: params.materializeXtermFromHostTitle,
+        xtermConversationTitle: params.conversationTitle,
+        argsLine: params.argsLine,
+      });
     }
 
     const session = this.cliSessionService.getSession(params.conversationTitle);
@@ -354,20 +378,22 @@ export class CliHandler {
     const parsed = shellToolInputSchema.safeParse(options.toolCall.input);
     const argsLine = parsed.success ? parsed.data.argsLine : '';
 
-    const targetConversationTitle = await this.resolveTargetConversationTitle({
+    const routing = await this.resolveShellSessionConversationTitle({
       conversationTitle: params.title,
       argsLine,
     });
 
     const continued = await this.tryContinueSession({
-      conversationTitle: targetConversationTitle,
+      conversationTitle: routing.shellSessionTitle,
       argsLine,
     });
 
     if (!continued) {
       await this.startSession({
-        conversationTitle: targetConversationTitle,
+        conversationTitle: routing.shellSessionTitle,
         argsLine,
+        hostConversationTitle: routing.hostConversationTitleForSpawn,
+        materializeXtermFromHostTitle: routing.materializeXtermFromHostTitle,
       });
     }
 

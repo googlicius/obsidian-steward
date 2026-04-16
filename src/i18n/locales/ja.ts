@@ -52,6 +52,12 @@ const ja = {
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
       processEndedCode: '(Process exited with code {{code}})',
+      ptyNativePathUnavailable:
+        'インタラクティブ CLI には、node-pty のネイティブバンドルパスを解決できるローカルフォルダ保管庫（FileSystemAdapter）が必要です。',
+      ptyNativeBundleMissing:
+        'node-pty のネイティブバンドルフォルダが見つからないか、フォルダではありません: {{path}}。Steward のインストールスクリプトを実行するか、CLI 設定で有効なフォルダを指定してください。',
+      inputLineCaptionShellPrefix: 'シェル',
+      inputLineCaptionShellActive: 'シェル（Ctrl+C で終了）',
     },
     mcp: {
       noConfigBlock:

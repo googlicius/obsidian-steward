@@ -12,6 +12,9 @@ export type BundledLibModules = {
   openai: typeof import('@ai-sdk/openai');
   openaiCompatible: typeof import('@ai-sdk/openai-compatible');
   mcp: typeof import('@ai-sdk/mcp');
+  nodePty: typeof import('node-pty');
+  xterm: typeof import('@xterm/xterm');
+  xtermAddonFit: typeof import('@xterm/addon-fit');
 };
 
 export type BundledLibKey = keyof BundledLibModules;

@@ -49,6 +49,12 @@ const vi = {
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
       processEndedCode: '(Process exited with code {{code}})',
+      ptyNativePathUnavailable:
+        'CLI tương tác cần vault lưu trên ổ đĩa (FileSystemAdapter) để xác định thư mục native của node-pty.',
+      ptyNativeBundleMissing:
+        'Thư mục native node-pty không tồn tại hoặc không phải thư mục: {{path}}. Chạy script cài đặt của Steward hoặc đặt đường dẫn hợp lệ trong cài đặt CLI.',
+      inputLineCaptionShellPrefix: 'Shell',
+      inputLineCaptionShellActive: 'Shell, nhấn Ctrl+C để thoát',
     },
     mcp: {
       noConfigBlock: 'Thêm khối ```json``` gồm transport (http hoặc sse), url và tùy chọn headers.',
@@ -522,6 +528,9 @@ const vi = {
         'Override shell for `/>`. Leave empty for PowerShell on Windows or /bin/bash on macOS/Linux.',
       cliWorkingDirectory: 'Working directory (optional)',
       cliWorkingDirectoryDesc: 'Empty = vault root. CLI processes start in this folder.',
+      cliNodePtyNativePath: 'Thư mục native node-pty (tùy chọn)',
+      cliNodePtyNativePathDesc:
+        'Thư mục chứa cây node-pty-prebuilt đã giải nén (file .node). Để trống = thư mục Steward trong vault + /node-pty-prebuilt. Đường dẫn tuyệt đối hoặc tương đối gốc vault.',
       cliInteractivePrograms: 'Additional interactive programs',
       cliInteractiveProgramsDesc:
         'Comma or newline separated program names treated as interactive mode for `/>` (e.g., nvim, lazygit, htop). Built-ins include vim, vi, nvim, nano, less, more, man, top, htop, btop, lazygit, tig, ranger, gemini.',

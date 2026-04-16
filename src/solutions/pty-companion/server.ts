@@ -1,7 +1,6 @@
 import { createServer } from 'http';
-import { randomBytes } from 'crypto';
 import type { Server as HttpServer } from 'http';
-import type pty from 'node-pty';
+import type { IPty } from 'node-pty';
 import { Server } from 'socket.io';
 import {
   PTY_COMPANION_HOST,
@@ -12,6 +11,8 @@ import {
 import { FileSystemAdapter, normalizePath } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import path from 'path';
+import { uniqueID } from 'src/utils/uniqueID';
+import { getBundledLib } from 'src/utils/bundledLibs';
 
 /**
  * Absolute path to the extracted `node-pty-prebuilt` tree under the vault (desktop / local only).
@@ -23,9 +24,19 @@ export function resolveVaultPtyNativePath(plugin: StewardPlugin): string | null 
     return null;
   }
   const vaultRoot = adapter.getBasePath();
-  const relative = normalizePath(`${plugin.settings.stewardFolder}/node-pty-prebuilt`);
+  const configured =
+    typeof plugin.settings.cli.nodePtyNativePath === 'string'
+      ? plugin.settings.cli.nodePtyNativePath.trim()
+      : '';
+  const relative =
+    configured !== ''
+      ? normalizePath(configured)
+      : normalizePath(`${plugin.settings.stewardFolder}/node-pty-prebuilt`);
+  if (path.isAbsolute(relative)) {
+    return path.normalize(relative);
+  }
   const segments = relative.split('/').filter(s => s.length > 0);
-  return path.posix.join(vaultRoot, ...segments);
+  return path.join(vaultRoot, ...segments);
 }
 
 export type PtyCompanionServerHandle = {
@@ -45,7 +56,7 @@ export function startPtyCompanionServer(plugin: StewardPlugin): Promise<PtyCompa
   return new Promise((resolve, reject) => {
     let settled = false;
     const httpServer: HttpServer = createServer();
-    const authToken = randomBytes(24).toString('hex');
+    const authToken = uniqueID();
 
     const io = new Server(httpServer, {
       cors: { origin: 'app://obsidian.md' },
@@ -63,7 +74,7 @@ export function startPtyCompanionServer(plugin: StewardPlugin): Promise<PtyCompa
     });
 
     io.on('connection', socket => {
-      let term: pty.IPty | null = null;
+      let term: IPty | null = null;
 
       const cleanup = (): void => {
         if (term) {
@@ -95,38 +106,38 @@ export function startPtyCompanionServer(plugin: StewardPlugin): Promise<PtyCompa
           }
           // Patched node-pty only: upstream does not read this env (see patches/node-pty+*.patch).
           process.env.NODE_PTY_NATIVE_MODULE_DIR = ptyBinaryPath;
-          try {
-            const cols = typeof payload.cols === 'number' ? payload.cols : DEFAULT_COLS;
-            const rows = typeof payload.rows === 'number' ? payload.rows : DEFAULT_ROWS;
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const ptyMod = require('node-pty') as typeof pty;
-            term = ptyMod.spawn(payload.file, payload.args, {
-              name: 'xterm-256color',
-              cols,
-              rows,
-              cwd: payload.cwd,
-              env: payload.env ?? process.env,
+          void (async () => {
+            try {
+              const pty = await getBundledLib('nodePty');
+              const cols = typeof payload.cols === 'number' ? payload.cols : DEFAULT_COLS;
+              const rows = typeof payload.rows === 'number' ? payload.rows : DEFAULT_ROWS;
+              term = pty.spawn(payload.file, payload.args, {
+                name: 'xterm-256color',
+                cols,
+                rows,
+                cwd: payload.cwd,
+                env: payload.env ?? process.env,
+              });
+            } catch (e) {
+              ack?.({ ok: false, error: String(e) });
+              return;
+            }
+
+            term.onData((data: string) => {
+              socket.emit('data', data);
             });
-            // term
-          } catch (e) {
-            ack?.({ ok: false, error: String(e) });
-            return;
-          }
 
-          term.onData((data: string) => {
-            socket.emit('data', data);
-          });
+            term.onExit(({ exitCode, signal }) => {
+              const payloadOut: PtyCompanionExitPayload = {
+                exitCode,
+                signal: signal ?? undefined,
+              };
+              socket.emit('exit', payloadOut);
+              cleanup();
+            });
 
-          term.onExit(({ exitCode, signal }) => {
-            const payloadOut: PtyCompanionExitPayload = {
-              exitCode,
-              signal: signal ?? undefined,
-            };
-            socket.emit('exit', payloadOut);
-            cleanup();
-          });
-
-          ack?.({ ok: true, pid: term.pid });
+            ack?.({ ok: true, pid: term.pid });
+          })();
         }
       );
 

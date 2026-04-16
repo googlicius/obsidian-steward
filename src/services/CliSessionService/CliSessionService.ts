@@ -6,12 +6,11 @@ import { loadNodeModule } from 'src/utils/loadNodeModule';
 import i18next from 'i18next';
 import stripAnsi from 'strip-ansi';
 import { dump as yamlDump } from 'js-yaml';
-import path from 'path';
-import os from 'os';
 import {
   createRemotePtySession,
   type RemotePtyChildShim,
 } from 'src/solutions/pty-companion/client';
+import { resolveVaultPtyNativePath } from 'src/solutions/pty-companion/server';
 import { CLI_XTERM_MARKER } from './constants';
 
 const SENTINEL_MARKER = `__STEWARD_DONE__`;
@@ -75,12 +74,7 @@ export interface CliSession {
   outputBuffer: string;
   flushTimer: number | null;
   operationId: string;
-  pendingSentinelMarker: string | null; // marker we're waiting for
-  /**
-   * Logical cwd for this session only (updated on `cd` in transcript mode).
-   * Each new session starts from the configured CLI working directory (vault root or settings).
-   */
-  preferredWorkingDirectory: string;
+  pendingSentinelMarker: string | null;
   /** When set, {@link interruptSession} forwards to the PTY companion instead of OS signals. */
   remoteKill?: () => void;
 }
@@ -212,56 +206,6 @@ export class CliSessionService {
     return '';
   }
 
-  private extractCdTarget(argsLine: string): string | null {
-    const firstLine = argsLine.split(/\r?\n/)[0]?.trim() ?? '';
-    if (firstLine.length === 0) {
-      return null;
-    }
-
-    const commandOnly = firstLine.split(/&&|\|\||;/)[0]?.trim() ?? '';
-    const match = /^cd(?:\s+(.+))?$/i.exec(commandOnly);
-    if (!match) {
-      return null;
-    }
-
-    const rawTarget = (match[1] ?? '').trim();
-    if (rawTarget === '' || rawTarget === '~') {
-      return os.homedir();
-    }
-    if (rawTarget === '-') {
-      return null;
-    }
-
-    let normalizedTarget = rawTarget;
-    if (
-      (normalizedTarget.startsWith('"') && normalizedTarget.endsWith('"')) ||
-      (normalizedTarget.startsWith("'") && normalizedTarget.endsWith("'"))
-    ) {
-      normalizedTarget = normalizedTarget.slice(1, -1);
-    }
-
-    if (normalizedTarget.startsWith('~')) {
-      const withoutTilde = normalizedTarget.slice(1).replace(/^[/\\]/, '');
-      return path.join(os.homedir(), withoutTilde);
-    }
-
-    return normalizedTarget;
-  }
-
-  private trackWorkingDirectoryFromTranscriptCommand(params: {
-    session: CliSession;
-    argsLine: string;
-  }): void {
-    const cdTarget = this.extractCdTarget(params.argsLine);
-    if (!cdTarget) {
-      return;
-    }
-
-    const current = params.session.preferredWorkingDirectory;
-    const nextPath = path.isAbsolute(cdTarget) ? cdTarget : path.resolve(current, cdTarget);
-    params.session.preferredWorkingDirectory = path.normalize(nextPath);
-  }
-
   private sanitizeConversationTitleForVault(rawTitle: string): string {
     const invalidChars = /[*"<>:\\/|?]/g;
     const collapsed = rawTitle.replace(invalidChars, '').replace(/\s+/g, ' ').trim();
@@ -269,6 +213,14 @@ export class CliSessionService {
       return collapsed;
     }
     return 'cli_xterm';
+  }
+
+  /**
+   * Stable vault conversation title for the host's interactive (xterm) note, without creating the file.
+   * Matches {@link ensureCliXtermConversationNote} naming so the shell can spawn before the note exists.
+   */
+  public getCliXtermNoteTitleForHost(hostConversationTitle: string): string {
+    return this.sanitizeConversationTitleForVault(`cli_xterm__${hostConversationTitle.trim()}`);
   }
 
   private escapeRegExp(value: string): string {
@@ -379,9 +331,7 @@ export class CliSessionService {
       normalizedQuery.length > 0
         ? `${normalizedQuery} - ${shellConfig?.fileName}`
         : shellConfig?.fileName;
-    const xtermTitle = this.sanitizeConversationTitleForVault(
-      `cli_xterm__${hostConversationTitle}`
-    );
+    const xtermTitle = this.getCliXtermNoteTitleForHost(hostConversationTitle);
 
     const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
     const notePath = `${folderPath}/${xtermTitle}.md`;
@@ -568,6 +518,26 @@ export class CliSessionService {
       : null;
 
     if (useInteractivePty) {
+      const ptyNativeDir = resolveVaultPtyNativePath(this.plugin);
+      if (!ptyNativeDir) {
+        return { ok: false, errorMessage: i18next.t('cli.ptyNativePathUnavailable') };
+      }
+
+      let bundlePresent = false;
+      try {
+        const fsMod = await loadNodeModule('fs');
+        bundlePresent =
+          fsMod.existsSync(ptyNativeDir) && fsMod.statSync(ptyNativeDir).isDirectory();
+      } catch {
+        bundlePresent = false;
+      }
+      if (!bundlePresent) {
+        return {
+          ok: false,
+          errorMessage: i18next.t('cli.ptyNativeBundleMissing', { path: ptyNativeDir }),
+        };
+      }
+
       if (!companion) {
         return {
           ok: false,
@@ -605,7 +575,6 @@ export class CliSessionService {
         flushTimer: null,
         operationId: '',
         pendingSentinelMarker: null,
-        preferredWorkingDirectory: cwd,
         remoteKill,
       });
 
@@ -645,7 +614,6 @@ export class CliSessionService {
       flushTimer: null,
       operationId: '',
       pendingSentinelMarker: null,
-      preferredWorkingDirectory: cwd,
     });
 
     return { ok: true };
@@ -682,11 +650,6 @@ export class CliSessionService {
       session.child.stdin.write(`${argsLine}\n`);
       return;
     }
-
-    this.trackWorkingDirectoryFromTranscriptCommand({
-      session,
-      argsLine,
-    });
 
     session.pendingSentinelMarker = SENTINEL_MARKER;
 

@@ -4,6 +4,7 @@
  */
 export interface LoadableNodeModuleMap {
   child_process: typeof import('child_process');
+  fs: typeof import('fs');
 }
 
 export type LoadableNodeModuleSpecifier = keyof LoadableNodeModuleMap;
