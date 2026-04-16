@@ -23,6 +23,7 @@ import { createConfirmationButtonsProcessor } from './post-processors/Confirmati
 import { createCalloutEditPreviewPostProcessor } from './post-processors/CalloutEditPreviewPostProcessor';
 import { createConversationIndicatorProcessor } from './post-processors/ConversationIndicatorProcessor';
 import { createCliTranscriptPostProcessor } from './post-processors/CliTranscriptPostProcessor';
+import { createCliXtermPostProcessor } from './post-processors/CliXtermPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -520,6 +521,7 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createThinkingProcessPostProcessor());
 
     this.registerMarkdownPostProcessor(createCliTranscriptPostProcessor());
+    this.registerMarkdownPostProcessor(createCliXtermPostProcessor(this));
 
     this.registerMarkdownPostProcessor(createConfirmationButtonsProcessor(this));
 

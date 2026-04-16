@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '@xterm/xterm/css/xterm.css';
 
 /* Placeholder and hint text for different languages */
 :root {
@@ -578,3 +579,24 @@ pre.stw-cli-transcript-active > .stw-cli-transcript-cursor {
     opacity: 1;
   }
 }
+
+.stw-cli-xterm {
+  width: 100%;
+  min-height: 320px;
+  overflow: hidden;
+  background: var(--background-primary);
+  color: var(--text-normal);
+
+  .xterm {
+    height: 100%;
+    font-family: var(--font-monospace);
+  }
+
+  .xterm-viewport {
+    background: var(--background-primary) !important;
+  }
+}
+
+/* .stw-cli-xterm-container {
+  padding: var(--size-2-2);
+} */

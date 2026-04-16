@@ -5,26 +5,69 @@ import { logger } from 'src/utils/logger';
 import { loadNodeModule } from 'src/utils/loadNodeModule';
 import i18next from 'i18next';
 import stripAnsi from 'strip-ansi';
+import { dump as yamlDump } from 'js-yaml';
+import path from 'path';
+import os from 'os';
 import {
   createRemotePtySession,
   type RemotePtyChildShim,
 } from 'src/solutions/pty-companion/client';
+import { CLI_XTERM_MARKER } from './constants';
 
 const SENTINEL_MARKER = `__STEWARD_DONE__`;
 
 const isWin = process.platform === 'win32';
+const BUILT_IN_INTERACTIVE_APPS = [
+  'vim',
+  'vi',
+  'nvim',
+  'nano',
+  'gemini',
+  'claude',
+  'qwen',
+  'hermes',
+];
 
 export type CliSessionMode = 'transcript' | 'interactive';
 
 /** Simple routing: interactive (node-pty) when the command line starts with any supported app (trimmed, case-insensitive). */
-export function isInteractiveCliCommand(argsLine: string): boolean {
-  const trimmed = argsLine.trimStart().toLowerCase();
-  const supportedInteractiveApps = ['vim', 'gemini'];
-  return supportedInteractiveApps.filter(app => trimmed.startsWith(app)).length > 0;
+export function isInteractiveCliCommand(
+  argsLine: string,
+  supportedInteractiveApps = BUILT_IN_INTERACTIVE_APPS
+): boolean {
+  const firstLine = argsLine.trimStart().split(/\r?\n/)[0] ?? '';
+  if (firstLine.length === 0) {
+    return false;
+  }
+
+  const firstSegment = firstLine.split(/&&|\|\||;/)[0]?.trim() ?? '';
+  if (firstSegment.length === 0) {
+    return false;
+  }
+
+  const firstToken = firstSegment.split(/\s+/)[0]?.toLowerCase() ?? '';
+  if (firstToken.length === 0) {
+    return false;
+  }
+
+  const normalizedToken = firstToken.endsWith('.exe') ? firstToken.slice(0, -4) : firstToken;
+
+  for (let i = 0; i < supportedInteractiveApps.length; i++) {
+    const app = supportedInteractiveApps[i].trim().toLowerCase();
+    if (app.length === 0) {
+      continue;
+    }
+    if (normalizedToken === app || firstToken === app) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export interface CliSession {
   conversationTitle: string;
+  hostConversationTitle: string;
   /** Transcript uses child_process + sentinel; interactive uses remote PTY (vim, …). */
   cliMode: CliSessionMode;
   child: ChildProcessWithoutNullStreams | RemotePtyChildShim;
@@ -33,6 +76,11 @@ export interface CliSession {
   flushTimer: number | null;
   operationId: string;
   pendingSentinelMarker: string | null; // marker we're waiting for
+  /**
+   * Logical cwd for this session only (updated on `cd` in transcript mode).
+   * Each new session starts from the configured CLI working directory (vault root or settings).
+   */
+  preferredWorkingDirectory: string;
   /** When set, {@link interruptSession} forwards to the PTY companion instead of OS signals. */
   remoteKill?: () => void;
 }
@@ -123,10 +171,33 @@ export class CliSessionService {
     }
   }
 
-  private buildShellSpawnConfig(): { file: string; args: string[] } | null {
+  public appendInfoTextToTranscript(conversationTitle: string, text: string): void {
+    const normalized = text.trim();
+    if (normalized.length === 0) {
+      return;
+    }
+    this.appendOutput(conversationTitle, `${normalized}\n`, false);
+  }
+
+  public getSupportedInteractiveApps(): string[] {
+    const configured = this.plugin.settings.cli.interactivePrograms ?? '';
+    const dynamicPrograms = configured
+      .split(/[,\n]/)
+      .map(app => app.trim().toLowerCase())
+      .filter(app => app.length > 0);
+
+    const unique = new Set<string>(BUILT_IN_INTERACTIVE_APPS);
+    for (let i = 0; i < dynamicPrograms.length; i++) {
+      unique.add(dynamicPrograms[i]);
+    }
+    return Array.from(unique);
+  }
+
+  private buildShellSpawnConfig(): { file: string; fileName: string; args: string[] } | null {
     const configured = this.plugin.settings.cli.shellExecutable.trim();
     const shell = configured !== '' ? configured : isWin ? 'powershell.exe' : '/bin/bash';
-    return { file: shell, args: [] };
+    const fileName = shell.split('.')[0];
+    return { file: shell, fileName, args: [] };
   }
 
   private resolveWorkingDirectory(): string {
@@ -139,6 +210,227 @@ export class CliSessionService {
       return adapter.getBasePath();
     }
     return '';
+  }
+
+  private extractCdTarget(argsLine: string): string | null {
+    const firstLine = argsLine.split(/\r?\n/)[0]?.trim() ?? '';
+    if (firstLine.length === 0) {
+      return null;
+    }
+
+    const commandOnly = firstLine.split(/&&|\|\||;/)[0]?.trim() ?? '';
+    const match = /^cd(?:\s+(.+))?$/i.exec(commandOnly);
+    if (!match) {
+      return null;
+    }
+
+    const rawTarget = (match[1] ?? '').trim();
+    if (rawTarget === '' || rawTarget === '~') {
+      return os.homedir();
+    }
+    if (rawTarget === '-') {
+      return null;
+    }
+
+    let normalizedTarget = rawTarget;
+    if (
+      (normalizedTarget.startsWith('"') && normalizedTarget.endsWith('"')) ||
+      (normalizedTarget.startsWith("'") && normalizedTarget.endsWith("'"))
+    ) {
+      normalizedTarget = normalizedTarget.slice(1, -1);
+    }
+
+    if (normalizedTarget.startsWith('~')) {
+      const withoutTilde = normalizedTarget.slice(1).replace(/^[/\\]/, '');
+      return path.join(os.homedir(), withoutTilde);
+    }
+
+    return normalizedTarget;
+  }
+
+  private trackWorkingDirectoryFromTranscriptCommand(params: {
+    session: CliSession;
+    argsLine: string;
+  }): void {
+    const cdTarget = this.extractCdTarget(params.argsLine);
+    if (!cdTarget) {
+      return;
+    }
+
+    const current = params.session.preferredWorkingDirectory;
+    const nextPath = path.isAbsolute(cdTarget) ? cdTarget : path.resolve(current, cdTarget);
+    params.session.preferredWorkingDirectory = path.normalize(nextPath);
+  }
+
+  private sanitizeConversationTitleForVault(rawTitle: string): string {
+    const invalidChars = /[*"<>:\\/|?]/g;
+    const collapsed = rawTitle.replace(invalidChars, '').replace(/\s+/g, ' ').trim();
+    if (collapsed.length > 0) {
+      return collapsed;
+    }
+    return 'cli_xterm';
+  }
+
+  private escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  private replaceEmbedInText(params: {
+    content: string;
+    sourceConversationTitle: string;
+    targetConversationTitle: string;
+    addInputBelow?: boolean;
+  }): { updatedContent: string; didReplace: boolean } {
+    const escapedSource = this.escapeRegExp(params.sourceConversationTitle);
+    const escapedFolder = this.escapeRegExp(this.plugin.settings.stewardFolder);
+    const sourceEmbedPattern = new RegExp(
+      `!\\[\\[(?:${escapedFolder}\\/Conversations\\/)?${escapedSource}(?:\\.md)?\\]\\]`
+    );
+    const match = sourceEmbedPattern.exec(params.content);
+    if (!match || typeof match.index !== 'number') {
+      return { updatedContent: params.content, didReplace: false };
+    }
+
+    const replacementEmbed = `![[${this.plugin.settings.stewardFolder}/Conversations/${params.targetConversationTitle}]]`;
+    const before = params.content.slice(0, match.index);
+    const after = params.content.slice(match.index + match[0].length);
+    if (!params.addInputBelow) {
+      return {
+        updatedContent: `${before}${replacementEmbed}${after}`,
+        didReplace: true,
+      };
+    }
+
+    const trimmedAfterStart = after.trimStart();
+    if (trimmedAfterStart.startsWith('/')) {
+      return {
+        updatedContent: `${before}${replacementEmbed}${after}`,
+        didReplace: true,
+      };
+    }
+
+    return {
+      updatedContent: `${before}${replacementEmbed}\n\n/ ${after}`,
+      didReplace: true,
+    };
+  }
+
+  private async restoreHostConversationEmbedIfNeeded(
+    xtermConversationTitle: string
+  ): Promise<void> {
+    const hostConversationTitle =
+      await this.getCliXtermHostConversationTitle(xtermConversationTitle);
+    if (!hostConversationTitle) {
+      return;
+    }
+
+    const activeEditor = this.plugin.editor;
+    if (activeEditor) {
+      const editorContent = activeEditor.getValue();
+      const transformed = this.replaceEmbedInText({
+        content: editorContent,
+        sourceConversationTitle: xtermConversationTitle,
+        targetConversationTitle: hostConversationTitle,
+        addInputBelow: true,
+      });
+      if (transformed.didReplace) {
+        activeEditor.setValue(transformed.updatedContent);
+        return;
+      }
+    }
+
+    const activeFile = this.plugin.app.workspace.getActiveFile();
+    if (!activeFile) {
+      return;
+    }
+    await this.plugin.app.vault.process(activeFile, content => {
+      const transformed = this.replaceEmbedInText({
+        content,
+        sourceConversationTitle: xtermConversationTitle,
+        targetConversationTitle: hostConversationTitle,
+        addInputBelow: true,
+      });
+      if (!transformed.didReplace) {
+        return content;
+      }
+      return transformed.updatedContent;
+    });
+  }
+
+  public async getCliXtermHostConversationTitle(conversationTitle: string): Promise<string | null> {
+    const host = await this.plugin.conversationRenderer.getConversationProperty<string>(
+      conversationTitle,
+      'host_conversation'
+    );
+    if (!host || host.trim().length === 0) {
+      return null;
+    }
+    return host.trim();
+  }
+
+  public async ensureCliXtermConversationNote(params: {
+    hostConversationTitle: string;
+    query?: string;
+  }): Promise<string> {
+    const hostConversationTitle = params.hostConversationTitle.trim();
+    const normalizedQuery = params.query?.split(/\r?\n/)[0]?.trim() ?? '';
+    const shellConfig = this.buildShellSpawnConfig();
+    const conversationTitle =
+      normalizedQuery.length > 0
+        ? `${normalizedQuery} - ${shellConfig?.fileName}`
+        : shellConfig?.fileName;
+    const xtermTitle = this.sanitizeConversationTitleForVault(
+      `cli_xterm__${hostConversationTitle}`
+    );
+
+    const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
+    const notePath = `${folderPath}/${xtermTitle}.md`;
+
+    const folderExists = this.plugin.app.vault.getFolderByPath(folderPath);
+    if (!folderExists) {
+      await this.plugin.app.vault.createFolder(folderPath);
+    }
+
+    const file = this.plugin.app.vault.getFileByPath(notePath);
+    if (!file) {
+      const frontmatter = yamlDump(
+        {
+          host_conversation: hostConversationTitle,
+          session: xtermTitle,
+          conversation_title: conversationTitle,
+        },
+        { lineWidth: -1 }
+      ).trimEnd();
+      const initialContent = `---\n${frontmatter}\n---\n\n${CLI_XTERM_MARKER}\n`;
+      await this.plugin.app.vault.create(notePath, initialContent);
+    } else {
+      await this.plugin.app.vault.process(file, content => {
+        if (content.includes(CLI_XTERM_MARKER)) {
+          return content;
+        }
+        return `${content.trimEnd()}\n\n${CLI_XTERM_MARKER}\n`;
+      });
+    }
+
+    const ensuredFile = this.plugin.app.vault.getFileByPath(notePath);
+    if (ensuredFile) {
+      await this.plugin.app.fileManager.processFrontMatter(ensuredFile, frontmatter => {
+        const frontmatterAsRecord = frontmatter as Record<string, unknown>;
+        const keys = Object.keys(frontmatterAsRecord);
+        for (let i = 0; i < keys.length; i++) {
+          const key = keys[i];
+          if (key === 'host_conversation' || key === 'session' || key === 'conversation_title') {
+            continue;
+          }
+          delete frontmatterAsRecord[key];
+        }
+        frontmatterAsRecord.host_conversation = hostConversationTitle;
+        frontmatterAsRecord.session = xtermTitle;
+        frontmatterAsRecord.conversation_title = conversationTitle;
+      });
+    }
+
+    return xtermTitle;
   }
 
   /** Env for spawned shells: discourage color/CSI when writing output into Markdown. */
@@ -205,11 +497,52 @@ export class CliSessionService {
   }
 
   /**
+   * Stores the session and attaches shared stream / lifecycle handlers for transcript and remote PTY children.
+   */
+  private registerCliSession(session: CliSession): void {
+    const { conversationTitle, child } = session;
+
+    this.sessions.set(conversationTitle, session);
+    this.refreshCommandInputDecorations();
+
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+
+    child.stdout.on('data', (chunk: string) => {
+      this.appendOutput(conversationTitle, chunk, false);
+    });
+    child.stderr.on('data', (chunk: string) => {
+      this.appendOutput(conversationTitle, chunk, true);
+    });
+    child.on('error', err => {
+      logger.error('CliSessionService child error:', err);
+      this.appendOutput(conversationTitle, `\n[error] ${String(err)}\n`, true);
+    });
+
+    child.on('close', (code, signal) => {
+      const current = this.sessions.get(conversationTitle);
+      if (!current || current.child !== child) {
+        return;
+      }
+      const exitNote =
+        signal !== null
+          ? i18next.t('cli.processEndedSignal', { signal: String(signal) })
+          : i18next.t('cli.processEndedCode', { code: String(code) });
+      this.appendOutput(conversationTitle, `\n${exitNote}\n`, false);
+      void this.flushOutput(current, true).then(() => {
+        this.endSession({ conversationTitle, killProcess: false });
+      });
+    });
+  }
+
+  /**
    * Spawn a shell for {@link conversationTitle} and register stdout/stderr listeners.
    */
   public async startShellProcess(params: {
     conversationTitle: string;
+    hostConversationTitle?: string;
     streamMarker: string;
+    workingDirectory?: string;
     /** Used to choose PTY vs child_process on first spawn (empty → transcript). */
     initialArgsLine?: string;
   }): Promise<{ ok: true } | { ok: false; errorMessage: string }> {
@@ -217,7 +550,8 @@ export class CliSessionService {
       return { ok: false, errorMessage: i18next.t('cli.desktopOnly') };
     }
 
-    const cwd = this.resolveWorkingDirectory();
+    const hostConversationTitle = params.hostConversationTitle ?? params.conversationTitle;
+    const cwd = params.workingDirectory ?? this.resolveWorkingDirectory();
 
     const spawnConfig = this.buildShellSpawnConfig();
     if (!spawnConfig) {
@@ -225,7 +559,10 @@ export class CliSessionService {
     }
 
     const initialLine = params.initialArgsLine ?? '';
-    const useInteractivePty = isInteractiveCliCommand(initialLine);
+    const useInteractivePty = isInteractiveCliCommand(
+      initialLine,
+      this.getSupportedInteractiveApps()
+    );
     const companion = useInteractivePty
       ? this.plugin.ptyCompanionService.getConnectionParams()
       : null;
@@ -258,8 +595,9 @@ export class CliSessionService {
         return { ok: false, errorMessage: String(error) };
       }
 
-      const session: CliSession = {
+      this.registerCliSession({
         conversationTitle: params.conversationTitle,
+        hostConversationTitle,
         cliMode: 'interactive',
         child,
         streamMarker: params.streamMarker,
@@ -267,38 +605,8 @@ export class CliSessionService {
         flushTimer: null,
         operationId: '',
         pendingSentinelMarker: null,
+        preferredWorkingDirectory: cwd,
         remoteKill,
-      };
-      this.sessions.set(params.conversationTitle, session);
-      this.refreshCommandInputDecorations();
-
-      child.stdout.setEncoding('utf8');
-      child.stderr.setEncoding('utf8');
-
-      child.stdout.on('data', (chunk: string) => {
-        this.appendOutput(params.conversationTitle, chunk, false);
-      });
-      child.stderr.on('data', (chunk: string) => {
-        this.appendOutput(params.conversationTitle, chunk, true);
-      });
-      child.on('error', err => {
-        logger.error('CliSessionService child error:', err);
-        this.appendOutput(params.conversationTitle, `\n[error] ${String(err)}\n`, true);
-      });
-
-      child.on('close', (code, signal) => {
-        const current = this.sessions.get(params.conversationTitle);
-        if (!current || current.child !== child) {
-          return;
-        }
-        const exitNote =
-          signal !== null
-            ? i18next.t('cli.processEndedSignal', { signal: String(signal) })
-            : i18next.t('cli.processEndedCode', { code: String(code) });
-        this.appendOutput(params.conversationTitle, `\n${exitNote}\n`, false);
-        void this.flushOutput(current, true).then(() => {
-          this.endSession({ conversationTitle: params.conversationTitle, killProcess: false });
-        });
       });
 
       return { ok: true };
@@ -327,8 +635,9 @@ export class CliSessionService {
       return { ok: false, errorMessage: String(error) };
     }
 
-    const session: CliSession = {
+    this.registerCliSession({
       conversationTitle: params.conversationTitle,
+      hostConversationTitle,
       cliMode: 'transcript',
       child,
       streamMarker: params.streamMarker,
@@ -336,37 +645,7 @@ export class CliSessionService {
       flushTimer: null,
       operationId: '',
       pendingSentinelMarker: null,
-    };
-    this.sessions.set(params.conversationTitle, session);
-    this.refreshCommandInputDecorations();
-
-    child.stdout.setEncoding('utf8');
-    child.stderr.setEncoding('utf8');
-
-    child.stdout.on('data', (chunk: string) => {
-      this.appendOutput(params.conversationTitle, chunk, false);
-    });
-    child.stderr.on('data', (chunk: string) => {
-      this.appendOutput(params.conversationTitle, chunk, true);
-    });
-    child.on('error', err => {
-      logger.error('CliSessionService child error:', err);
-      this.appendOutput(params.conversationTitle, `\n[error] ${String(err)}\n`, true);
-    });
-
-    child.on('close', (code, signal) => {
-      const current = this.sessions.get(params.conversationTitle);
-      if (!current || current.child !== child) {
-        return;
-      }
-      const exitNote =
-        signal !== null
-          ? i18next.t('cli.processEndedSignal', { signal: String(signal) })
-          : i18next.t('cli.processEndedCode', { code: String(code) });
-      this.appendOutput(params.conversationTitle, `\n${exitNote}\n`, false);
-      void this.flushOutput(current, true).then(() => {
-        this.endSession({ conversationTitle: params.conversationTitle, killProcess: false });
-      });
+      preferredWorkingDirectory: cwd,
     });
 
     return { ok: true };
@@ -391,6 +670,7 @@ export class CliSessionService {
     this.plugin.abortService.abortOperation(session.operationId);
     this.sessions.delete(params.conversationTitle);
     this.refreshCommandInputDecorations();
+    void this.restoreHostConversationEmbedIfNeeded(params.conversationTitle);
     void this.removeStreamMarkerFromNote({
       conversationTitle: params.conversationTitle,
       streamMarker,
@@ -402,6 +682,11 @@ export class CliSessionService {
       session.child.stdin.write(`${argsLine}\n`);
       return;
     }
+
+    this.trackWorkingDirectoryFromTranscriptCommand({
+      session,
+      argsLine,
+    });
 
     session.pendingSentinelMarker = SENTINEL_MARKER;
 

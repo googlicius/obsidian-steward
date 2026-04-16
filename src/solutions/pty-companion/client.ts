@@ -19,6 +19,7 @@ export type RemotePtyConnectionParams = {
 export type RemotePtyChildShim = {
   pid: number | undefined;
   stdin: { writableEnded: boolean; write(chunk: string): boolean };
+  resize?(cols: number, rows: number): void;
   stdout: EventEmitter & { setEncoding(enc: BufferEncoding): EventEmitter };
   stderr: EventEmitter & { setEncoding(enc: BufferEncoding): EventEmitter };
   on(
@@ -127,6 +128,18 @@ export function createRemotePtySession(params: {
               socket.emit('input', chunk);
               return true;
             },
+          },
+          resize(cols: number, rows: number): void {
+            if (disposed) {
+              return;
+            }
+            if (!Number.isFinite(cols) || !Number.isFinite(rows)) {
+              return;
+            }
+            socket.emit('resize', {
+              cols: Math.max(2, Math.floor(cols)),
+              rows: Math.max(1, Math.floor(rows)),
+            });
           },
           stdout,
           stderr,

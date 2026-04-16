@@ -45,6 +45,7 @@ const vi = {
     cli: {
       disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
       spawnFailed: 'Could not start CLI process: {{message}}',
+      openingInteractiveTerminal: 'Đang mở terminal...',
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
       processEndedCode: '(Process exited with code {{code}})',
@@ -521,6 +522,9 @@ const vi = {
         'Override shell for `/>`. Leave empty for PowerShell on Windows or /bin/bash on macOS/Linux.',
       cliWorkingDirectory: 'Working directory (optional)',
       cliWorkingDirectoryDesc: 'Empty = vault root. CLI processes start in this folder.',
+      cliInteractivePrograms: 'Additional interactive programs',
+      cliInteractiveProgramsDesc:
+        'Comma or newline separated program names treated as interactive mode for `/>` (e.g., nvim, lazygit, htop). Built-ins include vim, vi, nvim, nano, less, more, man, top, htop, btop, lazygit, tig, ranger, gemini.',
       modelFallbackEnabled: 'Bật dự phòng mô hình',
       modelFallbackEnabledDesc: 'Tự động chuyển sang mô hình dự phòng khi mô hình chính gặp lỗi',
       fallbackChain: 'Chuỗi dự phòng',

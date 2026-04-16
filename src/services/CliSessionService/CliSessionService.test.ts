@@ -11,6 +11,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
 function createSession(overrides: Partial<CliSession> = {}): CliSession {
   return {
     conversationTitle: 'test-conv',
+    hostConversationTitle: 'test-conv',
     cliMode: 'transcript',
     child: { pid: 1 } as unknown as ChildProcessWithoutNullStreams,
     streamMarker: '<!-- stream -->',
@@ -18,6 +19,7 @@ function createSession(overrides: Partial<CliSession> = {}): CliSession {
     flushTimer: null,
     operationId: '',
     pendingSentinelMarker: null,
+    preferredWorkingDirectory: '/tmp/steward-cli-test',
     ...overrides,
   };
 }

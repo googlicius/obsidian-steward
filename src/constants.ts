@@ -169,9 +169,10 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
   },
   lastSeenVersion: undefined, // Will be set when user sees a version notification
   cli: {
-    enabled: false,
+    enabled: true,
     shellExecutable: '',
     workingDirectory: '',
+    interactivePrograms: '',
   },
 };
 

@@ -748,16 +748,6 @@ class StewardSettingTab extends PluginSettingTab {
     new Setting(cliSettingGroup.settingGroup).setName(t('settings.cliBridge')).setHeading();
 
     new Setting(cliSettingGroup.settingItems)
-      .setName(t('settings.cliBridgeEnabled'))
-      .setDesc(t('settings.cliBridgeEnabledDesc'))
-      .addToggle(toggle =>
-        toggle.setValue(this.plugin.settings.cli.enabled).onChange(async value => {
-          this.plugin.settings.cli.enabled = value;
-          await this.plugin.saveSettings();
-        })
-      );
-
-    new Setting(cliSettingGroup.settingItems)
       .setName(t('settings.cliShellExecutable'))
       .setDesc(t('settings.cliShellExecutableDesc'))
       .addText(text =>
@@ -779,6 +769,19 @@ class StewardSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.cli.workingDirectory)
           .onChange(async value => {
             this.plugin.settings.cli.workingDirectory = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(cliSettingGroup.settingItems)
+      .setName(t('settings.cliInteractivePrograms'))
+      .setDesc(t('settings.cliInteractiveProgramsDesc'))
+      .addTextArea(text =>
+        text
+          .setPlaceholder('nvim, nano, htop')
+          .setValue(this.plugin.settings.cli.interactivePrograms ?? '')
+          .onChange(async value => {
+            this.plugin.settings.cli.interactivePrograms = value;
             await this.plugin.saveSettings();
           })
       );

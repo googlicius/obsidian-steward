@@ -51,6 +51,7 @@ const en = {
       desktopOnly:
         'The local CLI shell is only available in Obsidian on desktop. Mobile does not support local processes.',
       spawnFailed: 'Could not start CLI process: {{message}}',
+      openingInteractiveTerminal: 'Opening interactive terminal...',
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
       processEndedCode: '(Process exited with code {{code}})',
@@ -591,6 +592,9 @@ const en = {
         'Override shell for `/>`. Leave empty for PowerShell on Windows or /bin/bash on macOS/Linux.',
       cliWorkingDirectory: 'Working directory (optional)',
       cliWorkingDirectoryDesc: 'Empty = vault root. CLI processes start in this folder.',
+      cliInteractivePrograms: 'Additional interactive programs',
+      cliInteractiveProgramsDesc:
+        'Comma or newline separated program names treated as interactive mode for `/>` (e.g., nvim, lazygit, htop). Built-ins include vim, vi, nvim, nano, less, more, man, top, htop, btop, lazygit, tig, ranger, gemini.',
       modelFallbackEnabled: 'Enable model fallback',
       modelFallbackEnabledDesc:
         'Automatically switch to backup models when the primary model fails',

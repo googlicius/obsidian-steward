@@ -48,6 +48,7 @@ const ja = {
       desktopOnly:
         'ローカルCLIシェルはObsidianデスクトップ版でのみ利用できます。モバイルではローカルプロセスは利用できません。',
       spawnFailed: 'Could not start CLI process: {{message}}',
+      openingInteractiveTerminal: 'ホスト会話でインタラクティブターミナルを開いています...',
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
       processEndedCode: '(Process exited with code {{code}})',

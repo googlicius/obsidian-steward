@@ -133,6 +133,8 @@ export interface StewardPluginSettings {
     shellExecutable: string;
     /** Working directory; empty = vault root path. */
     workingDirectory: string;
+    /** Additional interactive programs (comma/newline separated), merged with built-ins. */
+    interactivePrograms: string;
   };
 }
 

@@ -1,5 +1,5 @@
 import { MarkdownPostProcessor } from 'obsidian';
-import { CLI_STREAM_MARKER } from 'src/services/CliSessionService/cliTranscriptMarker';
+import { CLI_STREAM_MARKER } from 'src/services/CliSessionService/constants';
 import { findTextNodesWithRegex } from 'src/utils/htmlElementUtils';
 
 function clearPreCursorUi(pre: HTMLElement): void {
