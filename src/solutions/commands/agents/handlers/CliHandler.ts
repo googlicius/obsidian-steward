@@ -2,7 +2,11 @@ import { z } from 'zod/v3';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import i18next from 'i18next';
 import { logger } from 'src/utils/logger';
-import { CLI_STREAM_MARKER, CLI_XTERM_MARKER } from 'src/services/CliSessionService/constants';
+import {
+  CLI_STREAM_MARKER,
+  CLI_XTERM_MARKER,
+  getCliStreamMarkerPlaceholder,
+} from 'src/services/CliSessionService/constants';
 import { isInteractiveCliCommand } from 'src/services/CliSessionService/CliSessionService';
 import { TWO_SPACES_PREFIX } from 'src/constants';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
@@ -198,12 +202,10 @@ export class CliHandler {
 
     const hostSession = this.cliSessionService.getSession(params.hostConversationTitle);
     if (hostSession && hostSession.cliMode === 'transcript') {
-      await this.beginNextTranscriptSegment(params.hostConversationTitle);
-      this.cliSessionService.appendInfoTextToTranscript(
+      await this.beginNextTranscriptSegment(
         params.hostConversationTitle,
-        i18next.t('cli.openingInteractiveTerminal')
+        `${i18next.t('cli.openingInteractiveTerminal')}\n${getCliStreamMarkerPlaceholder({ hidden: true })}`
       );
-      await this.cliSessionService.flushOutputForConversation(params.hostConversationTitle, true);
     } else {
       await this.agent.renderer.updateConversationNote({
         path: params.hostConversationTitle,
@@ -219,37 +221,29 @@ export class CliHandler {
     });
   }
 
-  private async isCliXtermConversation(conversationTitle: string): Promise<boolean> {
-    const host = await this.cliSessionService.getCliXtermHostConversationTitle(conversationTitle);
-    return host !== null;
-  }
-
-  private async beginNextTranscriptSegment(conversationTitle: string): Promise<void> {
+  private async beginNextTranscriptSegment(
+    conversationTitle: string,
+    initialContent = getCliStreamMarkerPlaceholder()
+  ): Promise<void> {
     const session = this.cliSessionService.getSession(conversationTitle);
-    if (!session) {
+    if (!session || session.cliMode === 'interactive') {
       return;
     }
-    if (
-      session.cliMode === 'interactive' &&
-      (await this.isCliXtermConversation(conversationTitle))
-    ) {
-      return;
-    }
-    const markerToStrip = session.streamMarker;
     this.cliSessionService.cancelFlushTimer(session);
     await this.cliSessionService.flushOutputForConversation(conversationTitle, true);
     try {
       const file = this.agent.renderer.getConversationFileByName(conversationTitle);
       await this.agent.app.vault.process(file, content => {
-        if (!content.includes(markerToStrip)) {
+        const markerRegex = new RegExp(CLI_STREAM_MARKER, 'g');
+        if (!markerRegex.test(content)) {
           return content;
         }
-        return content.replace(markerToStrip, '');
+        return content.replace(markerRegex, '');
       });
     } catch (error) {
       logger.error('CliHandler beginNextTranscriptSegment strip marker failed:', error);
     }
-    const fenced = `\n\n\`\`\`cli-transcript\n${CLI_STREAM_MARKER}\n\`\`\`\n`;
+    const fenced = `\n\n\`\`\`cli-transcript\n${initialContent}\n\`\`\`\n`;
     await this.agent.renderer.updateConversationNote({
       path: conversationTitle,
       newContent: fenced,
@@ -259,30 +253,27 @@ export class CliHandler {
   }
 
   private async tryContinueSession(params: {
+    /** Whether the interactive or the non-interactive conversation note */
     conversationTitle: string;
+    /** User query */
     argsLine: string;
   }): Promise<boolean> {
     const session = this.cliSessionService.getSession(params.conversationTitle);
     if (!session) {
       return false;
     }
+    if (session.cliMode === 'interactive') {
+      // There will be no continue query in interactive mode there because it performs in a terminal.
+      return false;
+    }
     if (session.child.stdin.writableEnded) {
       return false;
     }
     if (params.argsLine.length > 0) {
-      // End the session if different mode.
-      const wantsInteractive = isInteractiveCliCommand(
-        params.argsLine,
-        this.cliSessionService.getSupportedInteractiveApps()
-      );
-      const sessionIsInteractive = session.cliMode === 'interactive';
-      if (wantsInteractive !== sessionIsInteractive) {
-        this.cliSessionService.endSession({
-          conversationTitle: params.conversationTitle,
-          killProcess: true,
-        });
-        return false;
-      }
+      this.cliSessionService.recordCdCommandsFromQuery({
+        conversationTitle: params.conversationTitle,
+        argsLine: params.argsLine,
+      });
     }
     await this.beginNextTranscriptSegment(params.conversationTitle);
     const live = this.cliSessionService.getSession(params.conversationTitle);
@@ -296,6 +287,7 @@ export class CliHandler {
     conversationTitle: string;
     argsLine: string;
     hostConversationTitle?: string;
+    workingDirectory?: string;
     /** When set, create the xterm note and host UX only after the shell spawns successfully. */
     materializeXtermFromHostTitle?: string;
   }): Promise<void> {
@@ -307,14 +299,15 @@ export class CliHandler {
     const started = await this.cliSessionService.startShellProcess({
       conversationTitle: params.conversationTitle,
       hostConversationTitle: params.hostConversationTitle,
-      streamMarker: CLI_STREAM_MARKER,
+      streamMarker: getCliStreamMarkerPlaceholder(),
+      workingDirectory: params.workingDirectory,
       initialArgsLine: params.argsLine,
     });
 
-    const errorNotePath =
-      params.materializeXtermFromHostTitle ?? params.conversationTitle;
+    const errorNotePath = params.materializeXtermFromHostTitle ?? params.conversationTitle;
 
     if (!started.ok) {
+      // TODO Include an instruction to install node-pty runtime in the message.
       const message = i18next.t('cli.spawnFailed', { message: started.errorMessage });
       await this.agent.renderer.updateConversationNote({
         path: errorNotePath,
@@ -334,11 +327,9 @@ export class CliHandler {
     }
 
     const session = this.cliSessionService.getSession(params.conversationTitle);
-    const isInteractiveXterm =
-      session?.cliMode === 'interactive' &&
-      (await this.isCliXtermConversation(params.conversationTitle));
+    const isInteractive = session?.cliMode === 'interactive';
 
-    if (isInteractiveXterm) {
+    if (isInteractive) {
       const file = this.agent.renderer.getConversationFileByName(params.conversationTitle);
       await this.agent.app.vault.process(file, content => {
         if (content.includes(CLI_XTERM_MARKER)) {
@@ -348,7 +339,7 @@ export class CliHandler {
       });
     } else {
       const initialBody = i18next.t('cli.shellTranscriptIntro');
-      const newContent = `${initialBody}\n\n\`\`\`cli-transcript\n${CLI_STREAM_MARKER}\n\`\`\`\n`;
+      const newContent = `${initialBody}\n\n\`\`\`cli-transcript\n${getCliStreamMarkerPlaceholder()}\n\`\`\`\n`;
 
       await this.agent.renderer.updateConversationNote({
         path: params.conversationTitle,
@@ -359,7 +350,10 @@ export class CliHandler {
     }
 
     if (params.argsLine.length > 0 && session && !session.child.stdin.writableEnded) {
-      // session.child.stdin.write(`${params.argsLine}\n`);
+      this.cliSessionService.recordCdCommandsFromQuery({
+        conversationTitle: params.conversationTitle,
+        argsLine: params.argsLine,
+      });
       this.cliSessionService.appendSentinelMarker(session, params.argsLine);
     }
   }
@@ -389,10 +383,25 @@ export class CliHandler {
     });
 
     if (!continued) {
+      const wantsInteractive = isInteractiveCliCommand(
+        argsLine,
+        this.cliSessionService.getSupportedInteractiveApps()
+      );
+      let workingDirectory: string | undefined;
+      if (wantsInteractive) {
+        const transcriptConversationTitle =
+          routing.hostConversationTitleForSpawn ?? routing.shellSessionTitle;
+        workingDirectory =
+          await this.cliSessionService.resolveWorkingDirectoryFromTranscriptCdHistory(
+            transcriptConversationTitle
+          );
+      }
+
       await this.startSession({
         conversationTitle: routing.shellSessionTitle,
         argsLine,
         hostConversationTitle: routing.hostConversationTitleForSpawn,
+        workingDirectory,
         materializeXtermFromHostTitle: routing.materializeXtermFromHostTitle,
       });
     }

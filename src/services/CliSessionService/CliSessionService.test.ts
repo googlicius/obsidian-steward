@@ -41,7 +41,9 @@ function createPluginForEndSessionDefaults(): jest.Mocked<StewardPlugin> {
       notifyCliSessionDecorationRefresh: jest.fn(),
     } as unknown as StewardPlugin['commandInputService'],
     conversationRenderer: {
-      getConversationFileByName: jest.fn().mockReturnValue({ path: 'Steward/Conversations/test-conv.md' }),
+      getConversationFileByName: jest
+        .fn()
+        .mockReturnValue({ path: 'Steward/Conversations/test-conv.md' }),
       getConversationProperty: jest.fn().mockResolvedValue(null),
     } as unknown as StewardPlugin['conversationRenderer'],
     app: {
@@ -58,11 +60,12 @@ function createSession(overrides: Partial<CliSession> = {}): CliSession {
     hostConversationTitle: 'test-conv',
     cliMode: 'transcript',
     child: { pid: 1 } as unknown as ChildProcessWithoutNullStreams,
-    streamMarker: '<!-- stream -->',
     outputBuffer: '',
     flushTimer: null,
     operationId: 'op-1',
     pendingSentinelMarker: null,
+    hideStreamMarkerNextFlush: false,
+    cdCommandHistory: [],
     ...overrides,
   };
 }
@@ -108,7 +111,9 @@ function createPluginForLifecycle(): {
   const vaultProcess = jest.fn();
   const getActiveFile = jest.fn();
 
-  getConversationFileByName.mockImplementation(() => ({ path: 'Steward/Conversations/test-conv.md' }));
+  getConversationFileByName.mockImplementation(() => ({
+    path: 'Steward/Conversations/test-conv.md',
+  }));
   vaultProcess.mockImplementation(async (_file: unknown, fn: (c: string) => string) => {
     noteContentRef.value = fn(noteContentRef.value);
   });
@@ -148,7 +153,7 @@ function createPluginForLifecycle(): {
 
 describe('CliSessionService', () => {
   let service: CliSessionService;
-  let stripSentinelMarker: (chunk: string) => string;
+  let stripSentinelMarker: (chunk: string) => { stripped: boolean; content: string };
   let appendOutput: (conversationTitle: string, chunk: string, isStderr: boolean) => void;
 
   beforeEach(() => {
@@ -169,17 +174,26 @@ describe('CliSessionService', () => {
   describe('stripSentinelMarker', () => {
     it('removes only lines that contain the sentinel and keeps the rest', () => {
       const chunk = `line one\nline two\necho ${SENTINEL}\nnoise after\nmore`;
-      expect(stripSentinelMarker(chunk)).toBe('line one\nline two\nnoise after\nmore');
+      expect(stripSentinelMarker(chunk)).toEqual({
+        stripped: true,
+        content: 'line one\nline two\nnoise after\nmore',
+      });
     });
 
     it('returns the chunk unchanged when the sentinel is absent', () => {
       const chunk = `line one\nline two\n`;
-      expect(stripSentinelMarker(chunk)).toBe(chunk);
+      expect(stripSentinelMarker(chunk)).toEqual({
+        stripped: false,
+        content: chunk,
+      });
     });
 
     it('removes the sentinel line but keeps following lines', () => {
       const chunk = `${SENTINEL}\nrest`;
-      expect(stripSentinelMarker(chunk)).toBe('rest');
+      expect(stripSentinelMarker(chunk)).toEqual({
+        stripped: true,
+        content: 'rest',
+      });
     });
   });
 
@@ -197,6 +211,7 @@ describe('CliSessionService', () => {
       appendOutput(session.conversationTitle, `hello\nworld\necho ${SENTINEL}\nafter\n`, false);
       expect(session.pendingSentinelMarker).toBeNull();
       expect(session.outputBuffer).toBe('hello\nworld\nafter\n');
+      expect(session.hideStreamMarkerNextFlush).toBe(true);
       expectBufferHasNoSentinel(session);
     });
 
@@ -208,6 +223,7 @@ describe('CliSessionService', () => {
       registerSession(service, session);
       appendOutput(session.conversationTitle, `echo ${SENTINEL}\n`, false);
       expect(session.outputBuffer).toBe('(No output)\n');
+      expect(session.hideStreamMarkerNextFlush).toBe(true);
       expectBufferHasNoSentinel(session);
     });
 
@@ -219,6 +235,7 @@ describe('CliSessionService', () => {
       registerSession(service, session);
       appendOutput(session.conversationTitle, `${SENTINEL}\n`, false);
       expect(session.outputBuffer).toBe('already here\n');
+      expect(session.hideStreamMarkerNextFlush).toBe(true);
       expectBufferHasNoSentinel(session);
     });
 
@@ -227,6 +244,7 @@ describe('CliSessionService', () => {
       registerSession(service, session);
       appendOutput(session.conversationTitle, `err\n${SENTINEL}\n`, true);
       expect(session.outputBuffer).toBe('[stderr] err\n');
+      expect(session.hideStreamMarkerNextFlush).toBe(true);
       expectBufferHasNoSentinel(session);
     });
 
@@ -235,7 +253,27 @@ describe('CliSessionService', () => {
       registerSession(service, session);
       appendOutput(session.conversationTitle, `out\n${SENTINEL}\ntail\n`, false);
       expect(session.outputBuffer).toBe('x\nout\ntail\n');
+      expect(session.hideStreamMarkerNextFlush).toBe(true);
       expectBufferHasNoSentinel(session);
+    });
+  });
+
+  describe('updateStreamMarkerInNote', () => {
+    it('can replace active stream markers with hidden placeholders', async () => {
+      const lifecycle = createPluginForLifecycle();
+      service = new CliSessionService(lifecycle.plugin);
+      lifecycle.noteContentRef.value = 'before <!--stw-cli-stream--> after';
+      const updateStreamMarkerInNote = service['updateStreamMarkerInNote'].bind(
+        service
+      ) as (params: { conversationTitle: string; action: 'remove' | 'hide' }) => Promise<void>;
+      await updateStreamMarkerInNote({
+        conversationTitle: 'test-conv',
+        action: 'hide',
+      });
+      await flushMicrotasks();
+
+      expect(lifecycle.noteContentRef.value).toContain('<!--stw-cli-stream-hide-->');
+      expect(lifecycle.noteContentRef.value).not.toContain('<!--stw-cli-stream-->');
     });
   });
 
@@ -250,7 +288,9 @@ describe('CliSessionService', () => {
 
     it('returns immediately on non-desktop without loading child_process', async () => {
       isDesktopApp = false;
-      const session = createSession({ child: { pid: 42 } as unknown as ChildProcessWithoutNullStreams });
+      const session = createSession({
+        child: { pid: 42 } as unknown as ChildProcessWithoutNullStreams,
+      });
       await interruptService.interruptSession(session);
       expect(loadNodeModuleMock).not.toHaveBeenCalled();
     });
@@ -387,7 +427,7 @@ describe('CliSessionService', () => {
       });
     });
 
-    describe('removeStreamMarkerFromNote (async)', () => {
+    describe('updateStreamMarkerInNote via endSession (async)', () => {
       let lifecycle: ReturnType<typeof createPluginForLifecycle>;
 
       beforeEach(() => {
@@ -402,7 +442,7 @@ describe('CliSessionService', () => {
       it('removes the stream marker string from the note content when present', async () => {
         const marker = '<!--stw-cli-stream-->';
         lifecycle.noteContentRef.value = `a${marker}b`;
-        const session = createSession({ streamMarker: marker });
+        const session = createSession();
         registerSession(service, session);
         service.endSession({ conversationTitle: session.conversationTitle });
         await flushMicrotasks();
@@ -411,9 +451,8 @@ describe('CliSessionService', () => {
       });
 
       it('leaves note content unchanged when the marker is absent', async () => {
-        const marker = '<!--stw-cli-stream-->';
         lifecycle.noteContentRef.value = 'plain note';
-        const session = createSession({ streamMarker: marker });
+        const session = createSession();
         registerSession(service, session);
         lifecycle.vaultProcess.mockClear();
         service.endSession({ conversationTitle: session.conversationTitle });
@@ -438,6 +477,161 @@ describe('CliSessionService', () => {
       expect(lifecycle.abortOperation).toHaveBeenCalledWith(session.operationId);
       expect(lifecycle.notifyRefresh).toHaveBeenCalled();
       expect(service.getSession(session.conversationTitle)).toBeUndefined();
+    });
+  });
+
+  describe('recordCdCommandsFromQuery', () => {
+    it('does nothing when no session exists for the given title', () => {
+      expect(() => {
+        service.recordCdCommandsFromQuery({
+          conversationTitle: 'nonexistent',
+          argsLine: 'cd /foo',
+        });
+      }).not.toThrow();
+    });
+
+    it('leaves cdCommandHistory unchanged when argsLine is empty', () => {
+      const session = createSession({ cdCommandHistory: [] });
+      registerSession(service, session);
+      service.recordCdCommandsFromQuery({
+        conversationTitle: session.conversationTitle,
+        argsLine: '',
+      });
+      expect(session.cdCommandHistory).toEqual([]);
+    });
+
+    it('leaves cdCommandHistory unchanged when argsLine has no cd commands', () => {
+      const session = createSession({ cdCommandHistory: [] });
+      registerSession(service, session);
+      service.recordCdCommandsFromQuery({
+        conversationTitle: session.conversationTitle,
+        argsLine: 'ls -la && echo hello',
+      });
+      expect(session.cdCommandHistory).toEqual([]);
+    });
+
+    it('ignores segments where "cd" is a prefix of another word (e.g. cdstuff)', () => {
+      const session = createSession({ cdCommandHistory: [] });
+      registerSession(service, session);
+      service.recordCdCommandsFromQuery({
+        conversationTitle: session.conversationTitle,
+        argsLine: 'cdstuff /foo',
+      });
+      expect(session.cdCommandHistory).toEqual([]);
+    });
+
+    it('appends a single cd command to an empty history', () => {
+      const session = createSession({ cdCommandHistory: [] });
+      registerSession(service, session);
+      service.recordCdCommandsFromQuery({
+        conversationTitle: session.conversationTitle,
+        argsLine: 'cd /home/user',
+      });
+      expect(session.cdCommandHistory).toEqual(['cd /home/user']);
+    });
+
+    it('appends a bare cd with no path', () => {
+      const session = createSession({ cdCommandHistory: [] });
+      registerSession(service, session);
+      service.recordCdCommandsFromQuery({
+        conversationTitle: session.conversationTitle,
+        argsLine: 'cd',
+      });
+      expect(session.cdCommandHistory).toEqual(['cd']);
+    });
+
+    it('appends cd commands split by &&', () => {
+      const session = createSession({ cdCommandHistory: [] });
+      registerSession(service, session);
+      service.recordCdCommandsFromQuery({
+        conversationTitle: session.conversationTitle,
+        argsLine: 'cd /foo && echo done',
+      });
+      expect(session.cdCommandHistory).toEqual(['cd /foo']);
+    });
+
+    it('appends cd commands split by ||', () => {
+      const session = createSession({ cdCommandHistory: [] });
+      registerSession(service, session);
+      service.recordCdCommandsFromQuery({
+        conversationTitle: session.conversationTitle,
+        argsLine: 'cd /foo || echo fail',
+      });
+      expect(session.cdCommandHistory).toEqual(['cd /foo']);
+    });
+
+    it('appends multiple cd commands split by ;', () => {
+      const session = createSession({ cdCommandHistory: [] });
+      registerSession(service, session);
+      service.recordCdCommandsFromQuery({
+        conversationTitle: session.conversationTitle,
+        argsLine: 'cd /foo; cd /bar',
+      });
+      expect(session.cdCommandHistory).toEqual(['cd /foo', 'cd /bar']);
+    });
+
+    it('appends multiple cd commands split by newline', () => {
+      const session = createSession({ cdCommandHistory: [] });
+      registerSession(service, session);
+      service.recordCdCommandsFromQuery({
+        conversationTitle: session.conversationTitle,
+        argsLine: 'cd /foo\ncd /bar',
+      });
+      expect(session.cdCommandHistory).toEqual(['cd /foo', 'cd /bar']);
+    });
+
+    it('appends multiple cd commands split by \\r\\n', () => {
+      const session = createSession({ cdCommandHistory: [] });
+      registerSession(service, session);
+      service.recordCdCommandsFromQuery({
+        conversationTitle: session.conversationTitle,
+        argsLine: 'cd /foo\r\ncd /bar',
+      });
+      expect(session.cdCommandHistory).toEqual(['cd /foo', 'cd /bar']);
+    });
+
+    it('is case-insensitive when matching cd', () => {
+      const session = createSession({ cdCommandHistory: [] });
+      registerSession(service, session);
+      service.recordCdCommandsFromQuery({
+        conversationTitle: session.conversationTitle,
+        argsLine: 'CD /foo && Cd /bar',
+      });
+      expect(session.cdCommandHistory).toEqual(['CD /foo', 'Cd /bar']);
+    });
+
+    it('extracts only cd segments from a mixed compound argsLine', () => {
+      const session = createSession({ cdCommandHistory: [] });
+      registerSession(service, session);
+      service.recordCdCommandsFromQuery({
+        conversationTitle: session.conversationTitle,
+        argsLine: 'ls && cd /proj && echo hi; cd /tmp',
+      });
+      expect(session.cdCommandHistory).toEqual(['cd /proj', 'cd /tmp']);
+    });
+
+    it('appends to existing history entries', () => {
+      const session = createSession({ cdCommandHistory: ['cd /existing'] });
+      registerSession(service, session);
+      service.recordCdCommandsFromQuery({
+        conversationTitle: session.conversationTitle,
+        argsLine: 'cd /new',
+      });
+      expect(session.cdCommandHistory).toEqual(['cd /existing', 'cd /new']);
+    });
+
+    it('caps cdCommandHistory at 200 entries keeping the most recent', () => {
+      const initial = Array.from({ length: 200 }, (_, i) => `cd /dir-${i}`);
+      const session = createSession({ cdCommandHistory: [...initial] });
+      registerSession(service, session);
+      service.recordCdCommandsFromQuery({
+        conversationTitle: session.conversationTitle,
+        argsLine: 'cd /overflow-1; cd /overflow-2',
+      });
+      expect(session.cdCommandHistory).toHaveLength(200);
+      expect(session.cdCommandHistory.at(-1)).toBe('cd /overflow-2');
+      expect(session.cdCommandHistory.at(-2)).toBe('cd /overflow-1');
+      expect(session.cdCommandHistory[0]).toBe('cd /dir-2');
     });
   });
 });

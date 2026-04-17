@@ -16,7 +16,7 @@ const context = await esbuild.context({
   },
   entryPoints: ['src/main.ts'],
   bundle: true,
-  loader: { '.svg': 'text', '.md': 'text', '.json': 'json' },
+  loader: { '.svg': 'text', '.md': 'text' },
   external: [
     'ai',
     '@ai-sdk/anthropic',

@@ -596,7 +596,3 @@ pre.stw-cli-transcript-active > .stw-cli-transcript-cursor {
     background: var(--background-primary) !important;
   }
 }
-
-/* .stw-cli-xterm-container {
-  padding: var(--size-2-2);
-} */

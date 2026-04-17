@@ -11,9 +11,13 @@ import {
   type RemotePtyChildShim,
 } from 'src/solutions/pty-companion/client';
 import { resolveVaultPtyNativePath } from 'src/solutions/pty-companion/server';
-import { CLI_XTERM_MARKER } from './constants';
+import { CLI_STREAM_MARKER, CLI_XTERM_MARKER, getCliStreamMarkerPlaceholder } from './constants';
 
 const SENTINEL_MARKER = `__STEWARD_DONE__`;
+const PWD_START = '__STEWARD_PWD_START__';
+const PWD_END = '__STEWARD_PWD_END__';
+
+const CLI_NOTE_PREFIX = 'cli_interactive';
 
 const isWin = process.platform === 'win32';
 const BUILT_IN_INTERACTIVE_APPS = [
@@ -70,11 +74,13 @@ export interface CliSession {
   /** Transcript uses child_process + sentinel; interactive uses remote PTY (vim, …). */
   cliMode: CliSessionMode;
   child: ChildProcessWithoutNullStreams | RemotePtyChildShim;
-  streamMarker: string;
   outputBuffer: string;
   flushTimer: number | null;
   operationId: string;
   pendingSentinelMarker: string | null;
+  hideStreamMarkerNextFlush: boolean;
+  /** Ordered transcript `cd` commands used to reconstruct cwd when switching to interactive PTY. */
+  cdCommandHistory: string[];
   /** When set, {@link interruptSession} forwards to the PTY companion instead of OS signals. */
   remoteKill?: () => void;
 }
@@ -94,56 +100,33 @@ export class CliSessionService {
 
   constructor(private readonly plugin: StewardPlugin) {}
 
-  /**
-   * Removes every line that contains the done sentinel (e.g. `echo __STEWARD_DONE__` noise).
-   * Other lines and their order are preserved.
-   */
-  private stripSentinelMarker(chunk: string): string {
-    if (!chunk.includes(SENTINEL_MARKER)) {
-      return chunk;
-    }
-    return chunk
-      .split(/\r?\n/)
-      .filter(line => !line.includes(SENTINEL_MARKER))
-      .join('\n');
-  }
-
   private refreshCommandInputDecorations(): void {
     this.plugin.commandInputService.notifyCliSessionDecorationRefresh();
   }
 
-  private async writeBufferedCliOutput(params: {
+  private async updateStreamMarkerInNote(params: {
     conversationTitle: string;
-    streamMarker: string;
-    text: string;
-  }): Promise<void> {
-    const file = this.plugin.conversationRenderer.getConversationFileByName(
-      params.conversationTitle
-    );
-    await this.plugin.app.vault.process(file, content => {
-      if (!content.includes(params.streamMarker)) {
-        return content;
-      }
-      return content.replace(params.streamMarker, `${params.text}${params.streamMarker}`);
-    });
-  }
-
-  private async removeStreamMarkerFromNote(params: {
-    conversationTitle: string;
-    streamMarker: string;
+    action: 'remove' | 'hide';
   }): Promise<void> {
     try {
       const file = this.plugin.conversationRenderer.getConversationFileByName(
         params.conversationTitle
       );
       await this.plugin.app.vault.process(file, content => {
-        if (!content.includes(params.streamMarker)) {
+        const streamMarkerRegex = new RegExp(CLI_STREAM_MARKER, 'g');
+        if (!streamMarkerRegex.test(content)) {
           return content;
         }
-        return content.replace(params.streamMarker, '');
+        if (params.action === 'hide') {
+          return content.replace(
+            streamMarkerRegex,
+            getCliStreamMarkerPlaceholder({ hidden: true })
+          );
+        }
+        return content.replace(streamMarkerRegex, '');
       });
     } catch (error) {
-      logger.error('CliSessionService removeStreamMarker failed:', error);
+      logger.error('CliSessionService updateStreamMarkerInNote failed:', error);
     }
   }
 
@@ -212,7 +195,7 @@ export class CliSessionService {
     if (collapsed.length > 0) {
       return collapsed;
     }
-    return 'cli_xterm';
+    return CLI_NOTE_PREFIX;
   }
 
   /**
@@ -220,11 +203,149 @@ export class CliSessionService {
    * Matches {@link ensureCliXtermConversationNote} naming so the shell can spawn before the note exists.
    */
   public getCliXtermNoteTitleForHost(hostConversationTitle: string): string {
-    return this.sanitizeConversationTitleForVault(`cli_xterm__${hostConversationTitle.trim()}`);
+    return this.sanitizeConversationTitleForVault(
+      `${CLI_NOTE_PREFIX}_${hostConversationTitle.trim()}`
+    );
   }
 
   private escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  private extractCdCommandsFromArgsLine(argsLine: string): string[] {
+    if (argsLine.trim().length === 0) {
+      return [];
+    }
+    const segments = argsLine
+      .split(/\r?\n|&&|\|\||;/)
+      .map(segment => segment.trim())
+      .filter(segment => segment.length > 0);
+    const cdCommands: string[] = [];
+    for (let i = 0; i < segments.length; i++) {
+      const segment = segments[i];
+      if (!/^cd(?:\s+|$)/i.test(segment)) {
+        continue;
+      }
+      cdCommands.push(segment);
+    }
+    return cdCommands;
+  }
+
+  public recordCdCommandsFromQuery(params: { conversationTitle: string; argsLine: string }): void {
+    const session = this.sessions.get(params.conversationTitle);
+    if (!session) {
+      return;
+    }
+    const cdCommands = this.extractCdCommandsFromArgsLine(params.argsLine);
+    if (cdCommands.length === 0) {
+      return;
+    }
+    session.cdCommandHistory.push(...cdCommands);
+    if (session.cdCommandHistory.length > 200) {
+      session.cdCommandHistory = session.cdCommandHistory.slice(-200);
+    }
+  }
+
+  private parsePwdProbeOutput(output: string): string | null {
+    if (output.trim().length === 0) {
+      return null;
+    }
+    const lines = output.replace(/\r/g, '').split('\n');
+    const startIndex = lines.findIndex(l => l.includes(PWD_START));
+    if (startIndex < 0) {
+      return null;
+    }
+    const endIndex = lines.findIndex((l, i) => i > startIndex && l.includes(PWD_END));
+    if (endIndex < 0) {
+      return null;
+    }
+    const inner = lines.slice(startIndex + 1, endIndex);
+    for (let i = inner.length - 1; i >= 0; i--) {
+      const candidate = inner[i].trim();
+      if (candidate.length > 0) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Returns the probe binary and args needed to replay {@link cdCommands} and print the resolved
+   * working directory between sentinels.
+   *
+   * The probe shell is chosen based on the OS — not the user's configured shell — because the
+   * resulting path must be in the format that the OS's native process-spawn APIs accept.
+   * On Windows that means a Windows path (from PowerShell); on other platforms a POSIX path
+   * (from the system sh).
+   *
+   * TODO: Windows + POSIX shell (e.g. bash.exe / Git Bash) edge case — cd commands stored from a
+   * bash session use POSIX-style paths which PowerShell cannot replay directly.  Conversion
+   * (cygpath / WSL path mapping) is deferred for a future iteration.
+   */
+  private buildPwdProbe(cdCommands: string[]): { file: string; args: string[] } {
+    if (isWin) {
+      const scriptLines = [...cdCommands];
+      scriptLines.push(`Write-Output "${PWD_START}"`);
+      scriptLines.push('(Get-Location).Path');
+      scriptLines.push(`Write-Output "${PWD_END}"`);
+      return {
+        file: 'powershell.exe',
+        args: ['-NoProfile', '-NonInteractive', '-Command', scriptLines.join(';\n')],
+      };
+    }
+
+    const scriptLines = [...cdCommands];
+    scriptLines.push(`printf '%s\\n' "${PWD_START}"`);
+    scriptLines.push('pwd');
+    scriptLines.push(`printf '%s\\n' "${PWD_END}"`);
+    return {
+      file: '/bin/sh',
+      args: ['-c', scriptLines.join('\n')],
+    };
+  }
+
+  private async probeWorkingDirectoryFromCdHistory(cdCommands: string[]): Promise<string | null> {
+    if (cdCommands.length === 0) {
+      return null;
+    }
+    const cp = await loadNodeModule('child_process').catch(error => {
+      logger.error('CliSessionService failed to load child_process for cwd probe:', error);
+    });
+    if (!cp) {
+      return null;
+    }
+
+    const probe = this.buildPwdProbe(cdCommands);
+    const startingCwd = this.resolveWorkingDirectory();
+
+    return new Promise(resolve => {
+      let stdout = '';
+      const child = cp.spawn(probe.file, probe.args, {
+        cwd: startingCwd,
+        env: this.cliChildEnv(),
+        stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true,
+        shell: false,
+      });
+      child.stdout.setEncoding('utf8');
+      child.stdout.on('data', (chunk: string) => {
+        stdout += chunk;
+      });
+      child.once('error', () => resolve(null));
+      child.once('close', () => {
+        resolve(this.parsePwdProbeOutput(stdout));
+      });
+    });
+  }
+
+  public async resolveWorkingDirectoryFromTranscriptCdHistory(
+    conversationTitle: string
+  ): Promise<string | undefined> {
+    const session = this.sessions.get(conversationTitle);
+    if (!session || session.cliMode !== 'transcript') {
+      return undefined;
+    }
+    return (await this.probeWorkingDirectoryFromCdHistory(session.cdCommandHistory)) ?? undefined;
   }
 
   private replaceEmbedInText(params: {
@@ -570,11 +691,12 @@ export class CliSessionService {
         hostConversationTitle,
         cliMode: 'interactive',
         child,
-        streamMarker: params.streamMarker,
         outputBuffer: '',
         flushTimer: null,
         operationId: '',
         pendingSentinelMarker: null,
+        hideStreamMarkerNextFlush: false,
+        cdCommandHistory: [],
         remoteKill,
       });
 
@@ -598,7 +720,7 @@ export class CliSessionService {
         windowsHide: true,
         shell: true,
         detached: !isWin,
-      }) as ChildProcessWithoutNullStreams;
+      });
     } catch (error) {
       logger.error('CliSessionService spawn failed:', error);
       return { ok: false, errorMessage: String(error) };
@@ -609,11 +731,12 @@ export class CliSessionService {
       hostConversationTitle,
       cliMode: 'transcript',
       child,
-      streamMarker: params.streamMarker,
       outputBuffer: '',
       flushTimer: null,
       operationId: '',
       pendingSentinelMarker: null,
+      hideStreamMarkerNextFlush: false,
+      cdCommandHistory: [],
     });
 
     return { ok: true };
@@ -630,7 +753,6 @@ export class CliSessionService {
     if (session.flushTimer !== null) {
       window.clearTimeout(session.flushTimer);
     }
-    const streamMarker = session.streamMarker;
     const shouldKill = params.killProcess !== false;
     if (shouldKill) {
       void this.interruptSession(session);
@@ -639,22 +761,40 @@ export class CliSessionService {
     this.sessions.delete(params.conversationTitle);
     this.refreshCommandInputDecorations();
     void this.restoreHostConversationEmbedIfNeeded(params.conversationTitle);
-    void this.removeStreamMarkerFromNote({
+    void this.updateStreamMarkerInNote({
       conversationTitle: params.conversationTitle,
-      streamMarker,
+      action: 'remove',
     });
   }
 
   public appendSentinelMarker(session: CliSession, argsLine: string) {
+    const shellFile = this.buildShellSpawnConfig()?.file ?? '';
+    const eol = this.ptySubmitLineEnding(shellFile);
     if (session.cliMode === 'interactive') {
-      session.child.stdin.write(`${argsLine}\n`);
+      session.child.stdin.write(`${argsLine}${eol}`);
       return;
     }
 
     session.pendingSentinelMarker = SENTINEL_MARKER;
 
     // Write the real command, then immediately echo the sentinel
-    session.child.stdin.write(`${argsLine}\necho ${SENTINEL_MARKER}\n`);
+    session.child.stdin.write(`${argsLine}${eol}echo ${SENTINEL_MARKER}${eol}`);
+  }
+
+  /**
+   * Line ending to inject after a full command when writing to a shell's stdin (PTY or piped).
+   * POSIX-family shells (bash, sh, zsh, fish, dash) always use LF, even when hosted on Windows.
+   * Native Windows shells (powershell, cmd, pwsh) require CRLF on Windows so the line is submitted.
+   */
+  private ptySubmitLineEnding(shellFile: string): string {
+    if (!isWin) {
+      return '\n';
+    }
+    const base = shellFile.split(/[\\/]/).pop() ?? shellFile;
+    const name = base.replace(/\.exe$/i, '').toLowerCase();
+    const posixShells = ['bash', 'sh', 'zsh', 'fish', 'dash'];
+    const isPosix = posixShells.some(s => name === s || name.endsWith(s));
+    return isPosix ? '\n' : '\r\n';
   }
 
   private appendOutput(conversationTitle: string, chunk: string, isStderr: boolean): void {
@@ -664,15 +804,19 @@ export class CliSessionService {
       return;
     }
 
-    const stripped = this.stripSentinelMarker(chunk);
+    const stripResult = this.stripSentinelMarker(chunk);
+
+    if (stripResult.stripped) {
+      session.hideStreamMarkerNextFlush = true;
+    }
 
     // Check for and strip the sentinel line
     if (session.pendingSentinelMarker && chunk.includes(SENTINEL_MARKER)) {
       session.pendingSentinelMarker = null;
 
       // If there was real content in this chunk before the sentinel, handle it normally
-      if (stripped.trim()) {
-        session.outputBuffer += stripped;
+      if (stripResult.content.trim()) {
+        session.outputBuffer += stripResult.content;
       }
 
       // No output at all before the sentinel → inject the placeholder
@@ -681,10 +825,30 @@ export class CliSessionService {
       }
     } else {
       const prefix = isStderr ? '[stderr] ' : '';
-      session.outputBuffer += `${prefix}${stripped}`;
+      session.outputBuffer += `${prefix}${stripResult.content}`;
     }
 
     this.scheduleFlush(session);
+  }
+
+  /**
+   * Removes every line that contains the done sentinel (e.g. `echo __STEWARD_DONE__` noise).
+   * Other lines and their order are preserved.
+   */
+  private stripSentinelMarker(chunk: string): { stripped: boolean; content: string } {
+    if (!chunk.includes(SENTINEL_MARKER)) {
+      return {
+        stripped: false,
+        content: chunk,
+      };
+    }
+    return {
+      stripped: true,
+      content: chunk
+        .split(/\r?\n/)
+        .filter(line => !line.includes(SENTINEL_MARKER))
+        .join('\n'),
+    };
   }
 
   private scheduleFlush(session: CliSession): void {
@@ -703,16 +867,28 @@ export class CliSessionService {
     }
     const toWrite = session.outputBuffer;
     session.outputBuffer = '';
-    const marker = session.streamMarker;
     const safe = sanitizeFenceContent(normalizeCliOutputForNote(toWrite));
     try {
-      await this.writeBufferedCliOutput({
-        conversationTitle: session.conversationTitle,
-        streamMarker: marker,
-        text: safe,
+      const file = this.plugin.conversationRenderer.getConversationFileByName(
+        session.conversationTitle
+      );
+      await this.plugin.app.vault.process(file, content => {
+        const streamMarkerRegex = new RegExp(CLI_STREAM_MARKER);
+        if (!streamMarkerRegex.test(content)) {
+          return content;
+        }
+        return content.replace(streamMarkerRegex, marker => `${safe}${marker}`);
       });
+      if (session.hideStreamMarkerNextFlush) {
+        session.hideStreamMarkerNextFlush = false;
+        await this.updateStreamMarkerInNote({
+          conversationTitle: session.conversationTitle,
+          action: 'hide',
+        });
+      }
     } catch (error) {
       logger.error('CliSessionService flush failed:', error);
+      session.hideStreamMarkerNextFlush = false;
     }
   }
 }
