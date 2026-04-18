@@ -19,7 +19,7 @@ const vi = {
       searchDesc: 'Tìm kiếm ghi chú trong kho lưu trữ của bạn',
       imageDesc: 'Tạo hình ảnh',
       speechDesc: 'Tạo giọng nói từ văn bản',
-      terminalDesc: 'Open a local shell (`/>`; transcript mode).',
+      terminalDesc: 'Dùng `/>` để bắt đầu chế độ shell.',
       disabledMark: '(đã tắt)',
       helpTableCommand: 'Lệnh',
       helpTableDescription: 'Mô tả',
@@ -46,7 +46,8 @@ const vi = {
     },
     cli: {
       disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
-      spawnFailed: 'Could not start CLI process: {{message}}',
+      spawnFailed:
+        '{{message}}\n\nCó trình cài cho từng nền tảng trong thư mục Steward; chạy từ thư mục gốc vault:',
       openingInteractiveTerminal: 'Đang mở terminal...',
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
@@ -57,6 +58,10 @@ const vi = {
         'Thư mục native node-pty không tồn tại hoặc không phải thư mục: {{path}}. Chạy script cài đặt của Steward hoặc đặt đường dẫn hợp lệ trong cài đặt CLI.',
       inputLineCaptionShellPrefix: 'Shell',
       inputLineCaptionShellActive: 'Shell, nhấn Ctrl+C để thoát',
+      nodePtyInstallWindowsHeading: 'Cài trên Windows',
+      nodePtyInstallUnixHeading: 'Cài trên Mac / Linux',
+      seeCliWiki:
+        'Xem [CLI]({{cliDoc}}) để biết chế độ transcript so với interactive và cách cài node-pty.',
     },
     mcp: {
       noConfigBlock: 'Thêm khối ```json``` gồm transport (http hoặc sse), url và tùy chọn headers.',
@@ -522,7 +527,7 @@ const vi = {
       useObsidianDeletedFiles: 'Sử dụng cài đặt Xóa tập tin của Obsidian',
       cliBridge: 'Local CLI bridge',
       cliBridgeDesc:
-        'Run a local shell from conversations (`/>`). Desktop only; runs processes on your machine (security risk if misused). Output is transcript-only (no full terminal UI).',
+        'Chạy shell cục bộ từ hội thoại (`/>`). Chỉ trên desktop; thực thi tiến trình trên máy bạn (rủi ro bảo mật nếu lạm dụng). Hầu hết lệnh dùng transcript (luồng output); chương trình được hỗ trợ có thể dùng TTY tương tác khi đã cài node-pty.',
       cliBridgeEnabled: 'Enable local CLI bridge',
       cliBridgeEnabledDesc: 'Allows `/>` to spawn a local shell process.',
       cliShellExecutable: 'Shell executable (optional)',

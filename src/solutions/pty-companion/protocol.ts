@@ -11,9 +11,7 @@ export type PtyCompanionSpawnPayload = {
   rows?: number;
 };
 
-export type PtyCompanionSpawnAck =
-  | { ok: true; pid: number }
-  | { ok: false; error: string };
+export type PtyCompanionSpawnAck = { ok: true; pid: number } | { ok: false; error: string };
 
 export type PtyCompanionExitPayload = {
   exitCode: number;

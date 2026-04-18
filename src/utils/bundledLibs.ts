@@ -15,6 +15,9 @@ export type BundledLibModules = {
   nodePty: typeof import('node-pty');
   xterm: typeof import('@xterm/xterm');
   xtermAddonFit: typeof import('@xterm/addon-fit');
+  socketIo: typeof import('socket.io');
+  socketIoClient: typeof import('socket.io-client');
+  stripAnsi: typeof import('strip-ansi');
 };
 
 export type BundledLibKey = keyof BundledLibModules;

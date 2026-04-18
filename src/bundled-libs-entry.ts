@@ -14,6 +14,9 @@ import * as openaiCompatible from '@ai-sdk/openai-compatible';
 import * as nodePty from 'node-pty';
 import * as xterm from '@xterm/xterm';
 import * as xtermAddonFit from '@xterm/addon-fit';
+import * as socketIo from 'socket.io';
+import * as socketIoClient from 'socket.io-client';
+import stripAnsi from 'strip-ansi';
 
 export type StewardBundledLibsRegistry = {
   ai: typeof ai;
@@ -28,6 +31,9 @@ export type StewardBundledLibsRegistry = {
   nodePty: typeof nodePty;
   xterm: typeof xterm;
   xtermAddonFit: typeof xtermAddonFit;
+  socketIo: typeof socketIo;
+  socketIoClient: typeof socketIoClient;
+  stripAnsi: typeof stripAnsi;
 };
 
 export {
@@ -42,5 +48,8 @@ export {
   nodePty,
   xterm,
   xtermAddonFit,
+  socketIo,
+  socketIoClient,
+  stripAnsi,
 };
 export { elevenlabs as elevenLabs };

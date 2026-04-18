@@ -3,22 +3,22 @@ name: xterm interactive CLI UI
 overview: When `cliMode === 'interactive'`, append a plain status line to the conversation note, mount xterm via a post-processor at the location tied to the user’s vim-prefixed command from the command input (any surface that uses that input—not limited to StewardChatView). Use only non–dot-prefixed vault paths. Transcript → vim upgrades the session without a full endSession teardown. Full vertical output, page scrolls. xterm packages already in package.json.
 todos:
   - id: conversation-status-line
-    content: "On interactive start: append plain markdown to conversation note (opening interactive terminal); avoid fenced/cli-transcript blocks so nothing is stripped"
+    content: 'On interactive start: append plain markdown to conversation note (opening interactive terminal); avoid fenced/cli-transcript blocks so nothing is stripped'
     status: pending
   - id: transcript-to-interactive
-    content: "If active session is transcript and user submits vim… from command input: start interactive PTY without endSession/kill teardown—transition in place (replace child, set cliMode)"
+    content: 'If active session is transcript and user submits vim… from command input: start interactive PTY without endSession/kill teardown—transition in place (replace child, set cliMode)'
     status: pending
   - id: pty-resize-client
     content: Expose resize on RemotePtyChildShim; emit server resize event
     status: pending
   - id: session-sink
-    content: "CliSessionService: vault PTY stream off for interactive; terminal sink API; exit cleanup"
+    content: 'CliSessionService: vault PTY stream off for interactive; terminal sink API; exit cleanup'
     status: pending
   - id: command-input-anchor
-    content: "On vim command from command input: write xterm anchor into the conversation note at that interaction’s location (not StewardChatView-specific); post-processor mounts xterm + binds session"
+    content: 'On vim command from command input: write xterm anchor into the conversation note at that interaction’s location (not StewardChatView-specific); post-processor mounts xterm + binds session'
     status: pending
   - id: post-processor
-    content: "CliXtermPostProcessor: mount xterm, stdin/stdout wiring, full-buffer layout (no inner scroll), cleanup"
+    content: 'CliXtermPostProcessor: mount xterm, stdin/stdout wiring, full-buffer layout (no inner scroll), cleanup'
     status: pending
   - id: xterm-css
     content: Ensure xterm theme CSS is included in styles build if not already wired
@@ -44,7 +44,7 @@ isProject: false
 
 ### 1. Conversation note status (interactive start)
 
-When entering interactive mode, **append a short plain markdown** message to the conversation note (interactive terminal opening). Use **plain markdown only** (paragraph, callout, etc.)—**not** inside a ` 
+When entering interactive mode, **append a short plain markdown** message to the conversation note (interactive terminal opening). Use **plain markdown only** (paragraph, callout, etc.)—**not** inside a `
 
 ```cli-transcript` **or any fence** that existing tooling strips or treats as a stream anchor.
 
@@ -54,11 +54,11 @@ When entering interactive mode, **append a short plain markdown** message to the
 - When the user submits a **command that starts with `vim`** (same rule as today’s interactive routing, e.g. trim + case-insensitive prefix) **via the command input**, the plugin should **open the terminal anchored at the location associated with that command** in the **conversation note** (wherever the steward pipeline records that turn)—this applies to **any** UI that feeds the same command input, **not only** `[StewardChatView](src/views/StewardChatView.ts)`.
 - A **post-processor** still mounts xterm when preview renders the marker block / token written into the note for that session.
 
-(Optional: keep or drop a short `**/>`** marker as an implementation detail for the embed point; if kept, it is **in addition** to the vim-from-input flow, not the only path.)
+(Optional: keep or drop a short `**/>`** marker as an implementation detail for the embed point; if kept, it is **in addition\*\* to the vim-from-input flow, not the only path.)
 
 ### 3. Transcript → vim: **do not close the current session**
 
-- If the **current** CLI session is **transcript** (`child_process`) and the user submits `**vim…`** from the command input:
+- If the **current** CLI session is **transcript** (`child_process`) and the user submits `**vim…`\*\* from the command input:
   - **Start interactive** (PTY, `cliMode: 'interactive'`) **without** the usual full teardown (`endSession` + kill + map delete) that would “close” the session from the user’s perspective.
   - **Transition in place:** e.g. kill only the transcript `child` if it must be replaced, spawn PTY, update the same `CliSession` (or equivalent) so conversation title, stream marker, and note context stay continuous—**no** blank-slate session as if the user had started over.
 - Contrast: today `[CliHandler.startSession](src/solutions/commands/agents/handlers/CliHandler.ts)` may call `endSession({ killProcess: true })` before `startShellProcess`; this path should **not** apply when **upgrading** transcript → interactive for the same conversation.
@@ -96,8 +96,6 @@ sequenceDiagram
   CliSessionService->>Vault: on PTY exit: cleanup + endSession as needed
 ```
 
-
-
 ## Implementation sections
 
 ### 1. Styling
@@ -110,7 +108,7 @@ sequenceDiagram
 
 ### 3. CliSessionService + CliHandler
 
-- `**upgradeTranscriptToInteractive` (or equivalent):** if `getSession` exists, `cliMode === 'transcript'`, and new command is vim: dispose `child_process` child only as needed, create remote PTY, set `cliMode: 'interactive'`, reattach listeners, preserve `conversationTitle` / markers / `operationId` per product rules.
+- `**upgradeTranscriptToInteractive` (or equivalent):\*\* if `getSession` exists, `cliMode === 'transcript'`, and new command is vim: dispose `child_process` child only as needed, create remote PTY, set `cliMode: 'interactive'`, reattach listeners, preserve `conversationTitle` / markers / `operationId` per product rules.
 - **Fresh interactive:** unchanged except anchor + status writes.
 - **Vault:** plain status line; **no** dot-prefixed paths for any helper note.
 - **Interactive:** no raw PTY in `appendOutput`; use terminal sink from post-processor.
@@ -126,7 +124,6 @@ sequenceDiagram
 
 ## Files likely touched
 
-
 | Area                           | Files                                                                                                                                 |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
 | PTY client                     | `[src/solutions/pty-companion/client.ts](src/solutions/pty-companion/client.ts)`                                                      |
@@ -136,9 +133,7 @@ sequenceDiagram
 | Post-processor                 | new `CliXtermPostProcessor.ts`, `[src/main.ts](src/main.ts)`                                                                          |
 | Styles                         | `[src/styles.css](src/styles.css)`                                                                                                    |
 
-
 ## Out of scope (follow-ups)
 
 - Optional plain-text log on exit.
 - Performance caps for unbounded row growth.
-

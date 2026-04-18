@@ -1,4 +1,7 @@
-import { NodePtyInstallerScriptService, parseStewardInstallerMeta } from './NodePtyInstallerScriptService';
+import {
+  NodePtyInstallerScriptService,
+  parseStewardInstallerMeta,
+} from './NodePtyInstallerScriptService';
 import type StewardPlugin from 'src/main';
 import {
   NODE_PTY_INSTALLER_LATEST_BASENAME,
@@ -157,12 +160,16 @@ describe('NodePtyInstallerScriptService', () => {
       expect(created).toContain('# steward-installer-meta:');
       expect(created).toContain('plugin-version=3.0.0');
       expect(created).toContain('DEFAULT_OS_ARCH="${DEFAULT_OS_ARCH:-win32-x64}"');
+      expect(created).toContain('node-pty prebuilt installed successfully.');
       const createdPs1 = files.get(latestPs1Path);
       expect(createdPs1).toEqual(expect.any(String));
       expect(createdPs1).toContain('# steward-installer-meta:');
       expect(createdPs1).toContain('plugin-version=3.0.0');
-      expect(createdPs1).toContain("$DEFAULT_OS_ARCH = if ($null -ne $env:DEFAULT_OS_ARCH -and $env:DEFAULT_OS_ARCH -ne '') {");
+      expect(createdPs1).toContain(
+        "$DEFAULT_OS_ARCH = if ($null -ne $env:DEFAULT_OS_ARCH -and $env:DEFAULT_OS_ARCH -ne '') {"
+      );
       expect(createdPs1).toContain("  'win32-x64'");
+      expect(createdPs1).toContain('node-pty prebuilt installed successfully.');
     });
 
     it('does nothing when latest script content is unchanged', async () => {

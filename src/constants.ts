@@ -294,6 +294,7 @@ export const WIKI_PAGES = {
   SKILLS: 'Skills',
   GUARDRAILS: 'Guardrails',
   MCP: 'MCP',
+  CLI: 'CLI',
 } as const;
 
 // Community user-defined commands available for lazy loading from GitHub

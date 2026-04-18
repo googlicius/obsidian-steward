@@ -56,9 +56,7 @@ export function createStwSqueezedBlocksExtension(plugin: StewardPlugin) {
               const embedPath = forwardService.getConversationEmbedPath(conversationPath);
               const shouldAppendInput =
                 forwardService.shouldAppendInputLineForConversation(conversationPath);
-              const insert = shouldAppendInput
-                ? `![[${embedPath}]]\n\n/ `
-                : `![[${embedPath}]]`;
+              const insert = shouldAppendInput ? `![[${embedPath}]]\n\n/ ` : `![[${embedPath}]]`;
               editorView.dispatch({
                 changes: {
                   from: widgetPos,

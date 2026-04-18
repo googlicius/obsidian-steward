@@ -19,7 +19,7 @@ const ja = {
       searchDesc: 'ノートを検索する',
       imageDesc: '画像を生成する',
       speechDesc: 'テキストから音声を生成する',
-      terminalDesc: 'Open a local shell (`/>`; transcript mode).',
+      terminalDesc: '`/>` でローカルシェルモードを開始。',
       disabledMark: '（無効）',
       helpTableCommand: 'コマンド',
       helpTableDescription: '説明',
@@ -49,7 +49,8 @@ const ja = {
       disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
       desktopOnly:
         'ローカルCLIシェルはObsidianデスクトップ版でのみ利用できます。モバイルではローカルプロセスは利用できません。',
-      spawnFailed: 'Could not start CLI process: {{message}}',
+      spawnFailed:
+        '{{message}}\n\n各プラットフォーム用のインストーラーは Steward フォルダにあります。vault のルートフォルダから実行してください:',
       openingInteractiveTerminal: 'ホスト会話でインタラクティブターミナルを開いています...',
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
@@ -60,6 +61,10 @@ const ja = {
         'node-pty のネイティブバンドルフォルダが見つからないか、フォルダではありません: {{path}}。Steward のインストールスクリプトを実行するか、CLI 設定で有効なフォルダを指定してください。',
       inputLineCaptionShellPrefix: 'シェル',
       inputLineCaptionShellActive: 'シェル（Ctrl+C で終了）',
+      nodePtyInstallWindowsHeading: 'Windows でインストール',
+      nodePtyInstallUnixHeading: 'Mac / Linux でインストール',
+      seeCliWiki:
+        'トランスクリプトとインタラクティブの違いや node-pty のセットアップは [CLI]({{cliDoc}}) を参照してください。',
     },
     mcp: {
       noConfigBlock:

@@ -1,7 +1,13 @@
 import { z } from 'zod/v3';
+import { normalizePath } from 'obsidian';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import i18next from 'i18next';
 import { logger } from 'src/utils/logger';
+import { GITHUB_WIKI_URL, WIKI_PAGES } from 'src/constants';
+import {
+  NODE_PTY_INSTALLER_LATEST_BASENAME,
+  NODE_PTY_INSTALLER_LATEST_PS1_BASENAME,
+} from 'src/constants/nodePtyInstallerConstants';
 import {
   CLI_STREAM_MARKER,
   CLI_XTERM_MARKER,
@@ -23,6 +29,29 @@ export class CliHandler {
 
   private get cliSessionService() {
     return this.agent.plugin.cliSessionService;
+  }
+
+  private buildCliSpawnFailedNoteContent(params: { errorMessage: string }): string {
+    const stewardFolder = normalizePath(this.agent.plugin.settings.stewardFolder);
+
+    const cliDoc = `${GITHUB_WIKI_URL}/${WIKI_PAGES.CLI}`;
+    return [
+      i18next.t('cli.spawnFailed', { message: params.errorMessage }),
+      '',
+      `**${i18next.t('cli.nodePtyInstallWindowsHeading')}**`,
+      '',
+      '```powershell',
+      `powershell -NoProfile -ExecutionPolicy Bypass -File "${stewardFolder}/${NODE_PTY_INSTALLER_LATEST_PS1_BASENAME}"`,
+      '```',
+      '',
+      `**${i18next.t('cli.nodePtyInstallUnixHeading')}**`,
+      '',
+      '```bash',
+      `bash "${stewardFolder}/${NODE_PTY_INSTALLER_LATEST_BASENAME}"`,
+      '```',
+      '',
+      i18next.t('cli.seeCliWiki', { cliDoc }),
+    ].join('\n');
   }
 
   /**
@@ -185,13 +214,11 @@ export class CliHandler {
     const errorNotePath = params.materializeXtermFromHostTitle ?? params.conversationTitle;
 
     if (!started.ok) {
-      // TODO Include an instruction to install node-pty runtime in the message.
-      const message = i18next.t('cli.spawnFailed', { message: started.errorMessage });
+      const message = this.buildCliSpawnFailedNoteContent({ errorMessage: started.errorMessage });
       await this.agent.renderer.updateConversationNote({
         path: errorNotePath,
         newContent: message,
         command: 'cli',
-        includeHistory: false,
       });
       return;
     }

@@ -291,7 +291,17 @@ export class WikilinkForwardService {
 
     if (!params.addInputBelow) {
       const removeEnd = this.findTrailingInputBlockEnd(params.content, embedEnd);
-      const after = params.content.slice(removeEnd);
+      let after = params.content.slice(removeEnd);
+      // Removing the `/ …` block also consumes the newline that sat before the following
+      // line; restore a single `\n` so the next line stays on its own line (not glued to `]]`).
+      if (
+        removeEnd > embedEnd &&
+        after.length > 0 &&
+        after.charAt(0) !== '\n' &&
+        after.charAt(0) !== '\r'
+      ) {
+        after = `\n${after}`;
+      }
       return { updatedContent: `${before}${replacementEmbed}${after}`, didReplace: true };
     }
 

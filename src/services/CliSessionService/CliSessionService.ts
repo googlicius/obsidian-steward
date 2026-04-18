@@ -4,8 +4,8 @@ import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { loadNodeModule } from 'src/utils/loadNodeModule';
 import i18next from 'i18next';
-import stripAnsi from 'strip-ansi';
 import { dump as yamlDump } from 'js-yaml';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import {
   createRemotePtySession,
   type RemotePtyChildShim,
@@ -90,12 +90,6 @@ function sanitizeFenceContent(text: string): string {
   return text.replace(/```/g, '`\u200b`\u200b`');
 }
 
-/** PTY and rich shells emit CSI/SGR escapes; notes are plain text — strip for readability. */
-function normalizeCliOutputForNote(text: string): string {
-  const plain = stripAnsi(text);
-  return plain.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-}
-
 export class CliSessionService {
   private sessions: Map<string, CliSession> = new Map();
 
@@ -103,6 +97,13 @@ export class CliSessionService {
 
   private refreshCommandInputDecorations(): void {
     this.plugin.commandInputService.notifyCliSessionDecorationRefresh();
+  }
+
+  /** PTY and rich shells emit CSI/SGR escapes; notes are plain text — strip for readability. */
+  private async normalizeCliOutputForNote(text: string): Promise<string> {
+    const stripAnsi = await getBundledLib('stripAnsi');
+    const plain = stripAnsi(text);
+    return plain.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   }
 
   private async updateStreamMarkerInNote(params: {
@@ -795,7 +796,7 @@ export class CliSessionService {
     }
     const toWrite = session.outputBuffer;
     session.outputBuffer = '';
-    const safe = sanitizeFenceContent(normalizeCliOutputForNote(toWrite));
+    const safe = sanitizeFenceContent(await this.normalizeCliOutputForNote(toWrite));
     try {
       const file = this.plugin.conversationRenderer.getConversationFileByName(
         session.conversationTitle

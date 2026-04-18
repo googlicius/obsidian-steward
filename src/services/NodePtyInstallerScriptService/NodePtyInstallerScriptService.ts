@@ -5,6 +5,7 @@ import { compareSemverVersions } from 'src/utils/compareSemver';
 import {
   NODE_PTY_INSTALLER_LATEST_BASENAME,
   NODE_PTY_INSTALLER_LATEST_PS1_BASENAME,
+  NODE_PTY_INSTALLER_POST_INSTALL_FOOTER_LINES,
   NODE_PTY_INSTALLER_TEMPLATE_VERSION,
   NODE_PTY_PREBUILT_OWNER,
   NODE_PTY_PREBUILT_PACKAGE_VERSION,
@@ -15,6 +16,19 @@ import {
 import { getNodePtyPrebuiltOsArchForCurrentProcess } from './nodePtyInstallEnv';
 
 const INSTALLER_META_LINE_PREFIX = '# steward-installer-meta:';
+
+function formatBashPostInstallFooter(): string {
+  return NODE_PTY_INSTALLER_POST_INSTALL_FOOTER_LINES.map(
+    line => `printf '%s\\n' ${JSON.stringify(line)}`
+  ).join('\n');
+}
+
+function formatPowerShellPostInstallFooter(): string {
+  return NODE_PTY_INSTALLER_POST_INSTALL_FOOTER_LINES.map(line => {
+    const escaped = line.replace(/'/g, "''");
+    return `Write-Host '${escaped}'`;
+  }).join('\n');
+}
 
 export type ParsedInstallerMeta = {
   pluginVersion: string | null;
@@ -127,6 +141,7 @@ curl -fsSL "$URL" -o "$TMP"
 tar -xzf "$TMP" -C "$DEST_DIR"
 rm -f "$TMP"
 echo "Extracted into $DEST_DIR"
+${formatBashPostInstallFooter()}
 `;
 }
 
@@ -148,9 +163,9 @@ function buildInstallerPowerShellBody(params: {
     `# steward-installer-meta: plugin-version=${params.pluginVersion} template=${tmpl} prebuilt-pkg=${pkgVer} node=${nodeVer} node-modules=${nodeMod}`,
     '#',
     `# Downloads node-pty-prebuilt-multiarch **node-v${nodeMod}** (Node ${nodeVer}.x ABI).`,
-    '# Uses independent Node.js (not Obsidian\'s embedded Node).',
+    "# Uses independent Node.js (not Obsidian's embedded Node).",
     '#',
-    '# Defaults match Obsidian\'s host when this file was generated. Override OS_ARCH if needed:',
+    "# Defaults match Obsidian's host when this file was generated. Override OS_ARCH if needed:",
     `#   \\$env:OS_ARCH = 'linux-x64'; .\\${NODE_PTY_INSTALLER_LATEST_PS1_BASENAME}`,
     '#',
     `# macOS / Linux / Git Bash on Windows: prefer ${NODE_PTY_INSTALLER_LATEST_BASENAME}.`,
@@ -189,13 +204,13 @@ function buildInstallerPowerShellBody(params: {
     '}',
     '',
     'function Resolve-StwWinArch {',
-    '  if ($env:PROCESSOR_ARCHITECTURE -eq \'x86\') {',
+    "  if ($env:PROCESSOR_ARCHITECTURE -eq 'x86') {",
     "    return 'win32-ia32'",
     '  }',
     "  return 'win32-x64'",
     '}',
     '',
-    'if ($env:STW_USE_RUNTIME_PLATFORM -eq \'1\') {',
+    "if ($env:STW_USE_RUNTIME_PLATFORM -eq '1') {",
     '  $OS_ARCH = Resolve-StwWinArch',
     "} elseif ($null -ne $env:OS_ARCH -and $env:OS_ARCH -ne '') {",
     '  $OS_ARCH = $env:OS_ARCH',
@@ -206,7 +221,7 @@ function buildInstallerPowerShellBody(params: {
     '$ver = $NODE_PTY_PREBUILT_VERSION.Trim()',
     '$ASSET = "node-pty-prebuilt-multiarch-v$ver-node-v$NODE_MODULES-$OS_ARCH.tar.gz"',
     `$URL = "https://github.com/${owner}/${repo}/releases/download/v$ver/$ASSET"`,
-    '$TMP = Join-Path $DestDir \'.stw-node-pty-download.tar.gz\'',
+    "$TMP = Join-Path $DestDir '.stw-node-pty-download.tar.gz'",
     '',
     'New-Item -ItemType Directory -Force -Path $DestDir | Out-Null',
     '',
@@ -231,6 +246,7 @@ function buildInstallerPowerShellBody(params: {
     '',
     'Remove-Item -Force $TMP -ErrorAction SilentlyContinue',
     'Write-Host "Extracted into $DestDir"',
+    formatPowerShellPostInstallFooter(),
   ].join('\n');
 }
 
@@ -301,7 +317,10 @@ export class NodePtyInstallerScriptService {
       const prevContent = await this.plugin.app.vault.read(shFile);
       const { pluginVersion: embeddedVersion } = parseStewardInstallerMeta(prevContent);
 
-      if (embeddedVersion && compareSemverVersions(params.currentPluginVersion, embeddedVersion) > 0) {
+      if (
+        embeddedVersion &&
+        compareSemverVersions(params.currentPluginVersion, embeddedVersion) > 0
+      ) {
         const versionedShPath = `${params.stewardFolder}/${buildNodePtyInstallerVersionedBasename(embeddedVersion)}`;
         await this.removeIfExists(versionedShPath);
         await this.plugin.app.fileManager.renameFile(shFile, versionedShPath);
