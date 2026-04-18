@@ -9,7 +9,9 @@ jest.mock('src/utils/bundledLibs', () => ({
     if (key === 'mustache') {
       return jest.requireActual<typeof import('mustache')>('mustache');
     }
-    throw new Error(`Unexpected getBundledLib key in UserDefinedCommandService tests: ${String(key)}`);
+    throw new Error(
+      `Unexpected getBundledLib key in UserDefinedCommandService tests: ${String(key)}`
+    );
   }),
 }));
 import type StewardPlugin from 'src/main';

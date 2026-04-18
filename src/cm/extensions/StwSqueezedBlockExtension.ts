@@ -17,7 +17,10 @@ import i18next from 'i18next';
  * Label for a squeezed conversation chip: `conversation_title` from the note when set,
  * otherwise the conversation basename (resolved via `wikilinkForwardService.getConversationFile`).
  */
-function getSqueezedConversationDisplayTitle(plugin: StewardPlugin, conversationPath: string): string {
+function getSqueezedConversationDisplayTitle(
+  plugin: StewardPlugin,
+  conversationPath: string
+): string {
   const lastSegment = conversationPath.split('/').pop();
   const fallbackTitle = lastSegment ? lastSegment.replace(/\.md$/, '') : '';
   if (!fallbackTitle) {
