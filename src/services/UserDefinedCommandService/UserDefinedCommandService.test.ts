@@ -2,6 +2,16 @@ import { TFile, TFolder } from 'obsidian';
 import i18next from 'src/i18n';
 import { NoteContentService } from 'src/services/NoteContentService';
 import { UserDefinedCommandService } from './UserDefinedCommandService';
+
+/** Production loads Mustache via compressed bundled libs; evaluating that chunk in Jest breaks (Node shims). */
+jest.mock('src/utils/bundledLibs', () => ({
+  getBundledLib: jest.fn(async (key: unknown) => {
+    if (key === 'mustache') {
+      return jest.requireActual<typeof import('mustache')>('mustache');
+    }
+    throw new Error(`Unexpected getBundledLib key in UserDefinedCommandService tests: ${String(key)}`);
+  }),
+}));
 import type StewardPlugin from 'src/main';
 import { getInstance } from 'src/utils/getInstance';
 import { UserDefinedCommandV1, type UserDefinedCommandV1Data } from './versions/v1';

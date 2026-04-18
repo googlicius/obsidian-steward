@@ -18,6 +18,7 @@ export type BundledLibModules = {
   socketIo: typeof import('socket.io');
   socketIoClient: typeof import('socket.io-client');
   stripAnsi: typeof import('strip-ansi');
+  mustache: typeof import('mustache');
 };
 
 export type BundledLibKey = keyof BundledLibModules;

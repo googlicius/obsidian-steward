@@ -33,6 +33,7 @@ const context = await esbuild.context({
     'socket.io',
     'socket.io-client',
     'strip-ansi',
+    'mustache',
     ...sharedExternal,
   ],
   format: 'cjs',

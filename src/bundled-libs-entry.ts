@@ -17,6 +17,8 @@ import * as xtermAddonFit from '@xterm/addon-fit';
 import * as socketIo from 'socket.io';
 import * as socketIoClient from 'socket.io-client';
 import stripAnsi from 'strip-ansi';
+// Mustache is CJS (`module.exports = Mustache`); default import unwraps to the real module object.
+import mustache from 'mustache';
 
 export type StewardBundledLibsRegistry = {
   ai: typeof ai;
@@ -34,6 +36,7 @@ export type StewardBundledLibsRegistry = {
   socketIo: typeof socketIo;
   socketIoClient: typeof socketIoClient;
   stripAnsi: typeof stripAnsi;
+  mustache: typeof mustache;
 };
 
 export {
@@ -51,5 +54,6 @@ export {
   socketIo,
   socketIoClient,
   stripAnsi,
+  mustache,
 };
 export { elevenlabs as elevenLabs };

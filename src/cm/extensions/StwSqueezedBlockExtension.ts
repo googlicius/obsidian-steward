@@ -13,6 +13,31 @@ import { setIcon, setTooltip } from 'obsidian';
 import { SMILE_CHAT_ICON_ID, STW_SQUEEZED_PATTERN } from 'src/constants';
 import i18next from 'i18next';
 
+/**
+ * Label for a squeezed conversation chip: `conversation_title` from the note when set,
+ * otherwise the conversation basename (resolved via `wikilinkForwardService.getConversationFile`).
+ */
+function getSqueezedConversationDisplayTitle(plugin: StewardPlugin, conversationPath: string): string {
+  const lastSegment = conversationPath.split('/').pop();
+  const fallbackTitle = lastSegment ? lastSegment.replace(/\.md$/, '') : '';
+  if (!fallbackTitle) {
+    return 'Conversation';
+  }
+
+  const conversationFile = plugin.wikilinkForwardService.getConversationFile(conversationPath);
+  if (!conversationFile) {
+    return fallbackTitle;
+  }
+
+  const cache = plugin.app.metadataCache.getFileCache(conversationFile);
+  const rawTitle = cache?.frontmatter?.conversation_title;
+  if (typeof rawTitle !== 'string' || !rawTitle.trim()) {
+    return fallbackTitle;
+  }
+
+  return rawTitle.trim();
+}
+
 // Define an effect to trigger recomputation of widgets
 const updateWidgets = StateEffect.define();
 
@@ -30,14 +55,14 @@ export function createStwSqueezedBlocksExtension(plugin: StewardPlugin) {
       const match = this.content.match(new RegExp(STW_SQUEEZED_PATTERN));
 
       if (match) {
-        const [, conversationPath] = match;
-        const conversationTitle = conversationPath.split('/').pop() || 'Conversation';
+        const conversationPath = match[1];
+        const displayTitle = getSqueezedConversationDisplayTitle(plugin, conversationPath);
 
         // Add Steward icon directly to the span
         setIcon(span, SMILE_CHAT_ICON_ID);
 
         // Add conversation title directly after the icon
-        span.appendChild(document.createTextNode(' ' + conversationTitle));
+        span.appendChild(document.createTextNode(' ' + displayTitle));
         setTooltip(span, i18next.t('chat.expandConversation'));
 
         // Handles expanding the squeezed conversation

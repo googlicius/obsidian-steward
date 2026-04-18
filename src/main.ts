@@ -732,10 +732,10 @@ export default class StewardPlugin extends Plugin {
         const title = this.sanitizeVaultNoteTitle(rawTitle);
 
         const conversationLanguage = getLanguage();
-        const indicatorText = this.conversationRenderer.getIndicatorTextByIntentType(
-          intentType,
-          conversationLanguage
-        );
+        // const indicatorText = this.conversationRenderer.getIndicatorTextByIntentType(
+        //   intentType,
+        //   conversationLanguage
+        // );
         await this.conversationRenderer.createConversationNote(title, {
           intent: {
             type: intentType,
@@ -743,7 +743,7 @@ export default class StewardPlugin extends Plugin {
           },
           properties: [
             { name: 'lang', value: conversationLanguage },
-            { name: 'indicator_text', value: indicatorText },
+            // { name: 'indicator_text', value: indicatorText },
           ],
         });
 

@@ -1,6 +1,6 @@
 /**
  * Bundles heavy npm dependencies (ai + @ai-sdk/* + ollama + node-pty JS + @xterm/* + socket.io +
- * socket.io-client + strip-ansi) into one IIFE,
+ * socket.io-client + strip-ansi + mustache) into one IIFE,
  * LZ-compresses it, and emits src/generated/bundledLibsPayload.ts for runtime loading
  * (see src/utils/bundledLibs.ts).
  */
