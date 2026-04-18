@@ -386,32 +386,38 @@ export class StewardChatView extends MarkdownView {
   }
 
   /**
-   * Open an existing conversation in the chat by replacing current content with an embed
+   * Open an existing conversation in the chat by replacing current content with an embed.
+   *
+   * If the requested note declares `continued_to` / `forwarded_to`, the embed points at
+   * the terminal note after following that chain (multi-hop when several forwards are chained).
+   * The `/ ` input line is appended unless the terminal note is a `cli_interactive*` terminal
+   * or carries a `trigger` frontmatter key.
    */
-  public async openExistingConversation(
-    conversationPath: string,
-    options: { showInput?: boolean } = {}
-  ): Promise<void> {
+  public async openExistingConversation(conversationPath: string): Promise<void> {
     if (!this.file) {
       logger.warn('Conversation file not found');
       return;
     }
 
     try {
-      // Create the embed syntax
-      let embedContent = `\n![[${conversationPath}]]\n\n`;
+      const forwardService = this.plugin.wikilinkForwardService;
+      const originalTitle = conversationPath.split('/').pop()?.replace(/\.md$/, '') ?? '';
+      const resolvedTitle = forwardService.resolveForwardedChainTerminalTitle(originalTitle);
 
-      if (options.showInput) {
+      const embedPath =
+        resolvedTitle && resolvedTitle !== originalTitle
+          ? forwardService.getConversationEmbedPath(resolvedTitle)
+          : conversationPath;
+
+      let embedContent = `\n![[${embedPath}]]\n\n`;
+      if (resolvedTitle && forwardService.shouldAppendInputLineForConversation(resolvedTitle)) {
         embedContent += '/ ';
       }
 
-      // Replace the entire file content with the embed
       await this.app.vault.modify(this.file, embedContent);
 
-      // Set the leaf as active and focus it
       this.app.workspace.setActiveLeaf(this.leaf, { focus: true });
 
-      // Set the cursor to the last line
       const lastLineNum = this.editor.lineCount() - 1;
       this.editor.setCursor({
         line: lastLineNum,

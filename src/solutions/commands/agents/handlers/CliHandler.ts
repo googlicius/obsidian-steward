@@ -8,7 +8,6 @@ import {
   getCliStreamMarkerPlaceholder,
 } from 'src/services/CliSessionService/constants';
 import { isInteractiveCliCommand } from 'src/services/CliSessionService/CliSessionService';
-import { TWO_SPACES_PREFIX } from 'src/constants';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 
@@ -24,131 +23,6 @@ export class CliHandler {
 
   private get cliSessionService() {
     return this.agent.plugin.cliSessionService;
-  }
-
-  private escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-
-  private indexToEditorPosition(text: string, index: number): { line: number; ch: number } {
-    const boundedIndex = Math.max(0, Math.min(index, text.length));
-    let line = 0;
-    let lineStart = 0;
-
-    for (let i = 0; i < boundedIndex; i++) {
-      if (text.charAt(i) !== '\n') {
-        continue;
-      }
-      line += 1;
-      lineStart = i + 1;
-    }
-
-    return {
-      line,
-      ch: boundedIndex - lineStart,
-    };
-  }
-
-  private transformEmbedAndInputBlock(params: {
-    content: string;
-    sourceEmbedPattern: RegExp;
-    replacementEmbed: string;
-  }): { updatedContent: string; didReplace: boolean } {
-    const match = params.sourceEmbedPattern.exec(params.content);
-    if (!match || typeof match.index !== 'number') {
-      return { updatedContent: params.content, didReplace: false };
-    }
-
-    const embedStart = match.index;
-    const embedEnd = match.index + match[0].length;
-    let removeEnd = embedEnd;
-    let cursor = embedEnd;
-
-    while (cursor < params.content.length) {
-      const char = params.content.charAt(cursor);
-      if (char !== '\n' && char !== '\r' && char !== ' ' && char !== '\t') {
-        break;
-      }
-      cursor += 1;
-    }
-
-    const lineStart = cursor;
-    if (lineStart >= params.content.length || params.content.charAt(lineStart) !== '/') {
-      const updatedContent =
-        params.content.slice(0, embedStart) +
-        params.replacementEmbed +
-        params.content.slice(embedEnd);
-      return { updatedContent, didReplace: true };
-    }
-
-    let lineEnd = params.content.indexOf('\n', lineStart);
-    if (lineEnd === -1) {
-      lineEnd = params.content.length;
-    } else {
-      lineEnd += 1;
-    }
-    removeEnd = lineEnd;
-
-    while (removeEnd < params.content.length) {
-      const nextLineEndRaw = params.content.indexOf('\n', removeEnd);
-      const nextLineEnd = nextLineEndRaw === -1 ? params.content.length : nextLineEndRaw;
-      const rawLine = params.content.slice(removeEnd, nextLineEnd).replace(/\r$/, '');
-      if (!rawLine.startsWith(TWO_SPACES_PREFIX)) {
-        break;
-      }
-      removeEnd = nextLineEndRaw === -1 ? nextLineEnd : nextLineEnd + 1;
-    }
-
-    const updatedContent =
-      params.content.slice(0, embedStart) +
-      params.replacementEmbed +
-      params.content.slice(removeEnd);
-    return { updatedContent, didReplace: true };
-  }
-
-  private async replaceConversationEmbedInActiveNote(params: {
-    sourceConversationTitle: string;
-    targetConversationTitle: string;
-  }): Promise<void> {
-    const escapedSource = this.escapeRegExp(params.sourceConversationTitle);
-    const escapedFolder = this.escapeRegExp(this.agent.plugin.settings.stewardFolder);
-    const sourceEmbedPattern = new RegExp(
-      `!\\[\\[(?:${escapedFolder}\\/Conversations\\/)?${escapedSource}(?:\\.md)?\\]\\]`
-    );
-    const replacementEmbed = `![[${this.agent.plugin.settings.stewardFolder}/Conversations/${params.targetConversationTitle}]]`;
-
-    const activeEditor = this.agent.plugin.editor;
-    if (activeEditor) {
-      const editorContent = activeEditor.getValue();
-      const transformed = this.transformEmbedAndInputBlock({
-        content: editorContent,
-        sourceEmbedPattern,
-        replacementEmbed,
-      });
-      if (transformed.didReplace) {
-        const from = this.indexToEditorPosition(editorContent, 0);
-        const to = this.indexToEditorPosition(editorContent, editorContent.length);
-        activeEditor.replaceRange(transformed.updatedContent, from, to);
-        return;
-      }
-    }
-
-    const activeFile = this.agent.app.workspace.getActiveFile();
-    if (!activeFile) {
-      return;
-    }
-
-    await this.agent.app.vault.process(activeFile, content => {
-      const transformed = this.transformEmbedAndInputBlock({
-        content,
-        sourceEmbedPattern,
-        replacementEmbed,
-      });
-      if (!transformed.didReplace) {
-        return content;
-      }
-      return transformed.updatedContent;
-    });
   }
 
   /**
@@ -215,7 +89,11 @@ export class CliHandler {
       });
     }
 
-    await this.replaceConversationEmbedInActiveNote({
+    // Declare that the host conversation is (temporarily) forwarded to the xterm note.
+    // WikilinkForwardService listens for this metadata change and rewrites `![[host]]`
+    // embeds to `![[xterm]]` (stripping the trailing `/ ` input line) across backlinks.
+    // The forward is cleared when the xterm session ends — see CliSessionService.
+    await this.agent.plugin.wikilinkForwardService.setForwardedTo({
       sourceConversationTitle: params.hostConversationTitle,
       targetConversationTitle: params.xtermConversationTitle,
     });

@@ -44,6 +44,11 @@ export const CONFIRMATION_BUTTONS_PATTERN = '\\{\\{stw-confirmation-buttons ([^}
 export const WIKI_LINK_PATTERN = '\\[\\[([^\\]]+)\\]\\]';
 
 /**
+ * Pattern to match embed wikilinks ![[...]] (group 1: inner link text, may include |alias)
+ */
+export const EMBED_WIKILINK_PATTERN = '!\\[\\[([^\\]]+)\\]\\]';
+
+/**
  * Pattern to extract metadata from stw-source blocks
  * Captures: type (group 1), path (group 2), from (group 3, optional), to (group 4, optional), selection (group 5, optional)
  */

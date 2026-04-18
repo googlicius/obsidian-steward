@@ -139,6 +139,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       }),
       isMCPToolName: jest.fn().mockReturnValue(false),
     },
+    cliSessionService: {
+      getSession: jest.fn(),
+    },
   } as unknown as StewardPlugin;
 
   return mockPlugin as unknown as jest.Mocked<StewardPlugin>;

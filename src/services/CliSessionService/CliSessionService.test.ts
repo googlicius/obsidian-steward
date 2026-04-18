@@ -1,10 +1,6 @@
 import type { ChildProcessWithoutNullStreams } from 'child_process';
 import { loadNodeModule } from 'src/utils/loadNodeModule';
-import {
-  BUILT_IN_INTERACTIVE_APPS,
-  CliSessionService,
-  type CliSession,
-} from './CliSessionService';
+import { BUILT_IN_INTERACTIVE_APPS, CliSessionService, type CliSession } from './CliSessionService';
 import type StewardPlugin from 'src/main';
 
 let isDesktopApp = true;
@@ -63,6 +59,9 @@ function createPluginForEndSessionDefaults(): jest.Mocked<StewardPlugin> {
         .mockReturnValue({ path: 'Steward/Conversations/test-conv.md' }),
       getConversationProperty: jest.fn().mockResolvedValue(null),
     } as unknown as StewardPlugin['conversationRenderer'],
+    wikilinkForwardService: {
+      setForwardedTo: jest.fn().mockResolvedValue(undefined),
+    } as unknown as StewardPlugin['wikilinkForwardService'],
     app: {
       vault: { process: vaultProcess },
       workspace: { getActiveFile: jest.fn().mockReturnValue(null) },
@@ -99,19 +98,6 @@ async function flushMicrotasks(): Promise<void> {
   });
 }
 
-/** StewardPlugin types `editor` as a read-only getter; plain test doubles need a defined property. */
-function attachTestEditorToPlugin(
-  plugin: jest.Mocked<StewardPlugin>,
-  editor: { getValue: () => string; setValue: jest.Mock }
-): void {
-  Object.defineProperty(plugin, 'editor', {
-    configurable: true,
-    enumerable: true,
-    writable: true,
-    value: editor,
-  });
-}
-
 function createPluginForLifecycle(): {
   plugin: jest.Mocked<StewardPlugin>;
   noteContentRef: { value: string };
@@ -144,6 +130,9 @@ function createPluginForLifecycle(): {
     conversationRenderer: {
       getConversationFileByName,
     } as unknown as StewardPlugin['conversationRenderer'],
+    wikilinkForwardService: {
+      setForwardedTo: jest.fn().mockResolvedValue(undefined),
+    } as unknown as StewardPlugin['wikilinkForwardService'],
     app: {
       vault: {
         process: vaultProcess,
@@ -396,9 +385,10 @@ describe('CliSessionService', () => {
       });
     });
 
-    describe('restoreHostConversationEmbedIfNeeded (async)', () => {
+    describe('markXtermAsForwardedToHost (async)', () => {
       let lifecycle: ReturnType<typeof createPluginForLifecycle>;
       let getHostTitleSpy: jest.SpyInstance;
+      let setForwardedToMock: jest.Mock;
 
       beforeEach(() => {
         lifecycle = createPluginForLifecycle();
@@ -407,40 +397,32 @@ describe('CliSessionService', () => {
           .spyOn(service as unknown as { scheduleFlush: () => void }, 'scheduleFlush')
           .mockImplementation(() => {});
         getHostTitleSpy = jest.spyOn(service, 'getCliXtermHostConversationTitle');
+        setForwardedToMock = lifecycle.plugin.wikilinkForwardService
+          .setForwardedTo as unknown as jest.Mock;
       });
 
-      it('skips restore when getCliXtermHostConversationTitle returns null', async () => {
-        const setValue = jest.fn();
-        attachTestEditorToPlugin(lifecycle.plugin, {
-          getValue: () => '![[Steward/Conversations/cli_xterm__Host]]',
-          setValue,
-        });
+      it('does not call setForwardedTo when getCliXtermHostConversationTitle returns null', async () => {
         getHostTitleSpy.mockResolvedValue(null);
         const session = createSession({ conversationTitle: 'cli_xterm__Host' });
         registerSession(service, session);
         service.endSession({ conversationTitle: session.conversationTitle });
         await flushMicrotasks();
-        expect(setValue).not.toHaveBeenCalled();
+        expect(setForwardedToMock).not.toHaveBeenCalled();
       });
 
-      it('updates the active editor content when the embed pattern matches', async () => {
+      it('declares the xterm conversation as forwarded to its host', async () => {
         const xtermTitle = 'cli_xterm__MyHost';
         const hostTitle = 'MyHost';
-        const before = `intro\n![[Steward/Conversations/${xtermTitle}]]\n/ tail`;
-        const setValue = jest.fn();
-        attachTestEditorToPlugin(lifecycle.plugin, {
-          getValue: () => before,
-          setValue,
-        });
         getHostTitleSpy.mockResolvedValue(hostTitle);
         const session = createSession({ conversationTitle: xtermTitle });
         registerSession(service, session);
         service.endSession({ conversationTitle: session.conversationTitle });
         await flushMicrotasks();
-        expect(setValue).toHaveBeenCalledTimes(1);
-        expect(setValue).toHaveBeenCalledWith(
-          `intro\n![[Steward/Conversations/${hostTitle}]]\n/ tail`
-        );
+        expect(setForwardedToMock).toHaveBeenCalledTimes(1);
+        expect(setForwardedToMock).toHaveBeenCalledWith({
+          sourceConversationTitle: xtermTitle,
+          targetConversationTitle: hostTitle,
+        });
       });
     });
 
@@ -654,16 +636,12 @@ describe('CliSessionService', () => {
 
   describe('getSupportedInteractiveApps', () => {
     it('returns built-in apps when interactivePrograms is empty', () => {
-      const svc = new CliSessionService(
-        createPluginWithCliInteractivePrograms('')
-      );
+      const svc = new CliSessionService(createPluginWithCliInteractivePrograms(''));
       expect(svc.getSupportedInteractiveApps()).toEqual([...BUILT_IN_INTERACTIVE_APPS]);
     });
 
     it('treats undefined interactivePrograms like empty string', () => {
-      const svc = new CliSessionService(
-        createPluginWithCliInteractivePrograms(undefined)
-      );
+      const svc = new CliSessionService(createPluginWithCliInteractivePrograms(undefined));
       expect(svc.getSupportedInteractiveApps()).toEqual([...BUILT_IN_INTERACTIVE_APPS]);
     });
 
@@ -679,9 +657,7 @@ describe('CliSessionService', () => {
     });
 
     it('splits on newlines as well as commas', () => {
-      const svc = new CliSessionService(
-        createPluginWithCliInteractivePrograms('foo\nbar,baz')
-      );
+      const svc = new CliSessionService(createPluginWithCliInteractivePrograms('foo\nbar,baz'));
       expect(svc.getSupportedInteractiveApps()).toEqual([
         ...BUILT_IN_INTERACTIVE_APPS,
         'foo',
@@ -691,9 +667,7 @@ describe('CliSessionService', () => {
     });
 
     it('dedupes repeats in config and overlaps with built-ins', () => {
-      const svc = new CliSessionService(
-        createPluginWithCliInteractivePrograms('vim, VIM ,nano')
-      );
+      const svc = new CliSessionService(createPluginWithCliInteractivePrograms('vim, VIM ,nano'));
       const list = svc.getSupportedInteractiveApps();
       expect(list.filter(a => a === 'vim')).toHaveLength(1);
       expect(list.filter(a => a === 'nano')).toHaveLength(1);
@@ -701,9 +675,7 @@ describe('CliSessionService', () => {
     });
 
     it('appends new unique apps in first-seen order', () => {
-      const svc = new CliSessionService(
-        createPluginWithCliInteractivePrograms('zed\ncursor\nzed')
-      );
+      const svc = new CliSessionService(createPluginWithCliInteractivePrograms('zed\ncursor\nzed'));
       expect(svc.getSupportedInteractiveApps()).toEqual([
         ...BUILT_IN_INTERACTIVE_APPS,
         'zed',

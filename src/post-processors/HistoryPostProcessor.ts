@@ -114,7 +114,7 @@ export function createHistoryPostProcessor(plugin: StewardPlugin): MarkdownPostP
             return;
           }
 
-          await chatView.openExistingConversation(conversationPath, { showInput: true });
+          await chatView.openExistingConversation(conversationPath);
         })();
       });
 

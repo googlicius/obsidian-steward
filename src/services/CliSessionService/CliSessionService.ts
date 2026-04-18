@@ -210,10 +210,6 @@ export class CliSessionService {
     );
   }
 
-  private escapeRegExp(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  }
-
   private extractCdCommandsFromArgsLine(argsLine: string): string[] {
     if (argsLine.trim().length === 0) {
       return [];
@@ -350,85 +346,18 @@ export class CliSessionService {
     return (await this.probeWorkingDirectoryFromCdHistory(session.cdCommandHistory)) ?? undefined;
   }
 
-  private replaceEmbedInText(params: {
-    content: string;
-    sourceConversationTitle: string;
-    targetConversationTitle: string;
-    addInputBelow?: boolean;
-  }): { updatedContent: string; didReplace: boolean } {
-    const escapedSource = this.escapeRegExp(params.sourceConversationTitle);
-    const escapedFolder = this.escapeRegExp(this.plugin.settings.stewardFolder);
-    const sourceEmbedPattern = new RegExp(
-      `!\\[\\[(?:${escapedFolder}\\/Conversations\\/)?${escapedSource}(?:\\.md)?\\]\\]`
-    );
-    const match = sourceEmbedPattern.exec(params.content);
-    if (!match || typeof match.index !== 'number') {
-      return { updatedContent: params.content, didReplace: false };
-    }
-
-    const replacementEmbed = `![[${this.plugin.settings.stewardFolder}/Conversations/${params.targetConversationTitle}]]`;
-    const before = params.content.slice(0, match.index);
-    const after = params.content.slice(match.index + match[0].length);
-    if (!params.addInputBelow) {
-      return {
-        updatedContent: `${before}${replacementEmbed}${after}`,
-        didReplace: true,
-      };
-    }
-
-    const trimmedAfterStart = after.trimStart();
-    if (trimmedAfterStart.startsWith('/')) {
-      return {
-        updatedContent: `${before}${replacementEmbed}${after}`,
-        didReplace: true,
-      };
-    }
-
-    return {
-      updatedContent: `${before}${replacementEmbed}\n\n/ ${after}`,
-      didReplace: true,
-    };
-  }
-
-  private async restoreHostConversationEmbedIfNeeded(
-    xtermConversationTitle: string
-  ): Promise<void> {
+  /**
+   * When the xterm session ends, declare that the xterm note is forwarded to the host.
+   */
+  private async markXtermAsForwardedToHost(xtermConversationTitle: string): Promise<void> {
     const hostConversationTitle =
       await this.getCliXtermHostConversationTitle(xtermConversationTitle);
     if (!hostConversationTitle) {
       return;
     }
-
-    const activeEditor = this.plugin.editor;
-    if (activeEditor) {
-      const editorContent = activeEditor.getValue();
-      const transformed = this.replaceEmbedInText({
-        content: editorContent,
-        sourceConversationTitle: xtermConversationTitle,
-        targetConversationTitle: hostConversationTitle,
-        addInputBelow: true,
-      });
-      if (transformed.didReplace) {
-        activeEditor.setValue(transformed.updatedContent);
-        return;
-      }
-    }
-
-    const activeFile = this.plugin.app.workspace.getActiveFile();
-    if (!activeFile) {
-      return;
-    }
-    await this.plugin.app.vault.process(activeFile, content => {
-      const transformed = this.replaceEmbedInText({
-        content,
-        sourceConversationTitle: xtermConversationTitle,
-        targetConversationTitle: hostConversationTitle,
-        addInputBelow: true,
-      });
-      if (!transformed.didReplace) {
-        return content;
-      }
-      return transformed.updatedContent;
+    await this.plugin.wikilinkForwardService.setForwardedTo({
+      sourceConversationTitle: xtermConversationTitle,
+      targetConversationTitle: hostConversationTitle,
     });
   }
 
@@ -669,10 +598,9 @@ export class CliSessionService {
         };
       }
 
-      let child: RemotePtyChildShim;
-      let remoteKill: () => void;
+      let ptySession: Awaited<ReturnType<typeof createRemotePtySession>>;
       try {
-        const created = await createRemotePtySession({
+        ptySession = await createRemotePtySession({
           connection: companion,
           spawn: {
             file: spawnConfig.file,
@@ -681,8 +609,6 @@ export class CliSessionService {
             env: this.cliInteractiveChildEnv(),
           },
         });
-        child = created.child;
-        remoteKill = created.remoteKill;
       } catch (error) {
         logger.error('CliSessionService remote PTY spawn failed:', error);
         return { ok: false, errorMessage: String(error) };
@@ -692,14 +618,14 @@ export class CliSessionService {
         conversationTitle: params.conversationTitle,
         hostConversationTitle,
         cliMode: 'interactive',
-        child,
+        child: ptySession.child,
         outputBuffer: '',
         flushTimer: null,
         operationId: '',
         pendingSentinelMarker: null,
         hideStreamMarkerNextFlush: false,
         cdCommandHistory: [],
-        remoteKill,
+        remoteKill: ptySession.remoteKill,
       });
 
       return { ok: true };
@@ -762,7 +688,7 @@ export class CliSessionService {
     this.plugin.abortService.abortOperation(session.operationId);
     this.sessions.delete(params.conversationTitle);
     this.refreshCommandInputDecorations();
-    void this.restoreHostConversationEmbedIfNeeded(params.conversationTitle);
+    void this.markXtermAsForwardedToHost(params.conversationTitle);
     void this.updateStreamMarkerInNote({
       conversationTitle: params.conversationTitle,
       action: 'remove',

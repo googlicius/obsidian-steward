@@ -52,12 +52,18 @@ export function createStwSqueezedBlocksExtension(plugin: StewardPlugin) {
             const widgetPos = text.indexOf(this.content);
 
             if (widgetPos >= 0) {
-              // Replace the squeezed format with the conversation link
+              const forwardService = plugin.wikilinkForwardService;
+              const embedPath = forwardService.getConversationEmbedPath(conversationPath);
+              const shouldAppendInput =
+                forwardService.shouldAppendInputLineForConversation(conversationPath);
+              const insert = shouldAppendInput
+                ? `![[${embedPath}]]\n\n/ `
+                : `![[${embedPath}]]`;
               editorView.dispatch({
                 changes: {
                   from: widgetPos,
                   to: widgetPos + this.content.length,
-                  insert: `![[${plugin.settings.stewardFolder}/Conversations/${conversationPath}]]\n\n/ `,
+                  insert,
                 },
               });
             }

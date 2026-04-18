@@ -70,6 +70,7 @@ import { runSettingsSchemaMigrations } from './settings/migrations/settingsSchem
 import { CliSessionService } from './services/CliSessionService/CliSessionService';
 import { PtyCompanionService } from './services/PtyCompanionService/PtyCompanionService';
 import { NodePtyInstallerScriptService } from './services/NodePtyInstallerScriptService/NodePtyInstallerScriptService';
+import { WikilinkForwardService } from './services/WikilinkForwardService/WikilinkForwardService';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -103,12 +104,20 @@ export default class StewardPlugin extends Plugin {
   _commandProcessorService: CommandProcessorService;
   _cliSessionService: CliSessionService;
   _ptyCompanionService: PtyCompanionService;
+  _wikilinkForwardService: WikilinkForwardService;
 
   get cliSessionService(): CliSessionService {
     if (!this._cliSessionService) {
       this._cliSessionService = new CliSessionService(this);
     }
     return this._cliSessionService;
+  }
+
+  get wikilinkForwardService(): WikilinkForwardService {
+    if (!this._wikilinkForwardService) {
+      this._wikilinkForwardService = new WikilinkForwardService(this);
+    }
+    return this._wikilinkForwardService;
   }
 
   get ptyCompanionService(): PtyCompanionService {
@@ -467,6 +476,9 @@ export default class StewardPlugin extends Plugin {
       createStwSqueezedBlocksExtension(this),
       createAutocompleteExtension(this),
     ]);
+
+    // Wire up event-driven conversation-forwarding rewrites.
+    this.wikilinkForwardService.registerEvents();
 
     // Register context menu for editor
     this.registerEvent(

@@ -1,5 +1,5 @@
 import { getLanguage, normalizePath, Notice, TFile, parseYaml } from 'obsidian';
-import Mustache from 'mustache';
+import * as Mustache from 'mustache';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES } from 'src/constants';
@@ -911,13 +911,9 @@ export class UserDefinedCommandService {
   }
 
   private renderMustacheTemplate(template: string, view: UdcTemplateContext): string {
-    const previousEscape = Mustache.escape;
-    Mustache.escape = (text: string) => String(text);
-    try {
-      return Mustache.render(template, view);
-    } finally {
-      Mustache.escape = previousEscape;
-    }
+    return Mustache.render(template, view, undefined, {
+      escape: (text: string) => String(text),
+    });
   }
 
   /**
