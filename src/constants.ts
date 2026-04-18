@@ -44,6 +44,11 @@ export const CONFIRMATION_BUTTONS_PATTERN = '\\{\\{stw-confirmation-buttons ([^}
 export const WIKI_LINK_PATTERN = '\\[\\[([^\\]]+)\\]\\]';
 
 /**
+ * Pattern to match embed wikilinks ![[...]] (group 1: inner link text, may include |alias)
+ */
+export const EMBED_WIKILINK_PATTERN = '!\\[\\[([^\\]]+)\\]\\]';
+
+/**
  * Pattern to extract metadata from stw-source blocks
  * Captures: type (group 1), path (group 2), from (group 3, optional), to (group 4, optional), selection (group 5, optional)
  */
@@ -169,9 +174,11 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
   },
   lastSeenVersion: undefined, // Will be set when user sees a version notification
   cli: {
-    enabled: false,
+    enabled: true,
     shellExecutable: '',
     workingDirectory: '',
+    interactivePrograms: '',
+    nodePtyNativePath: '',
   },
 };
 
@@ -287,6 +294,7 @@ export const WIKI_PAGES = {
   SKILLS: 'Skills',
   GUARDRAILS: 'Guardrails',
   MCP: 'MCP',
+  CLI: 'CLI',
 } as const;
 
 // Community user-defined commands available for lazy loading from GitHub

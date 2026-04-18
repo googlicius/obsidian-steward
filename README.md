@@ -15,6 +15,7 @@ Steward is an autonomous AI agent for Obsidian, powered by Large Language Models
 - **Model flexibility**: Use your favorite AI models, including OpenAI, Gemini, DeepSeek, Ollama, and OpenAI Compatible, etc.
 - **Model fallback**: Automatically switches to alternative models when errors occur, ensuring robust command execution.
 - **User-defined commands**: Create your own command workflows by combining multiple commands with specific LLM models and settings of your choice.
+- **Shell and terminal (desktop)**: Run shell sessions from Steward directly in the Obsidian editor.
 
 ## Table of contents
 
@@ -25,6 +26,7 @@ Steward is an autonomous AI agent for Obsidian, powered by Large Language Models
 - [Skills](#skills)
 - [Guardrails](#guardrails)
 - [MCP](#mcp)
+- [Shell commands and terminal](#shell-commands-and-terminal)
 - [User-defined commands](#user-defined-commands)
 - [Folder structure](#folder-structure)
 - [Installation](#installation)
@@ -104,6 +106,14 @@ Steward can connect to remote [Model Context Protocol](https://modelcontextproto
 For the full format, examples, and troubleshooting, see the [MCP wiki](https://github.com/googlicius/obsidian-steward/wiki/MCP).
 
 <img src="/README.assets/Steward-Demo-MCP.gif" alt="MCP" width="650px">
+
+## Shell commands and terminal
+
+On **desktop**, Steward can start shell sessions from the chat or editor. Use **`/>`** to enter shell mode: most commands run in **transcript** mode, streamed directly in the conversation. Or programs such as `vim` use **interactive** mode—a real TTY via **node-pty** when the native bundle is installed (for example `/>vim`).
+
+Native binaries need to be installed in order to use interactive mode.
+
+For modes, installers, built-in interactive programs, and settings, see the **[CLI wiki](https://github.com/googlicius/obsidian-steward/wiki/CLI)**.
 
 ## User-defined commands
 

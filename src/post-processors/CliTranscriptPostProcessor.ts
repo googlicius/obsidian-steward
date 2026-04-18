@@ -1,5 +1,8 @@
 import { MarkdownPostProcessor } from 'obsidian';
-import { CLI_STREAM_MARKER } from 'src/services/CliSessionService/cliTranscriptMarker';
+import {
+  CLI_STREAM_MARKER,
+  getCliStreamMarkerPlaceholder,
+} from 'src/services/CliSessionService/constants';
 import { findTextNodesWithRegex } from 'src/utils/htmlElementUtils';
 
 function clearPreCursorUi(pre: HTMLElement): void {
@@ -53,8 +56,8 @@ export function createCliTranscriptPostProcessor(): MarkdownPostProcessor {
       }
 
       const raw = code.textContent ?? '';
-      const testRegex = new RegExp(CLI_STREAM_MARKER);
-      if (!testRegex.test(raw)) {
+      const streamRegex = new RegExp(CLI_STREAM_MARKER);
+      if (!streamRegex.test(raw)) {
         clearPreCursorUi(pre);
         continue;
       }
@@ -62,6 +65,10 @@ export function createCliTranscriptPostProcessor(): MarkdownPostProcessor {
       clearPreCursorUi(pre);
       const stripped = stripMarkersFromCode(code);
       if (!stripped) {
+        continue;
+      }
+
+      if (!raw.includes(getCliStreamMarkerPlaceholder())) {
         continue;
       }
 

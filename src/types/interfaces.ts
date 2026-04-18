@@ -133,6 +133,13 @@ export interface StewardPluginSettings {
     shellExecutable: string;
     /** Working directory; empty = vault root path. */
     workingDirectory: string;
+    /** Additional interactive programs (comma/newline separated), merged with built-ins. */
+    interactivePrograms: string;
+    /**
+     * Directory containing the extracted `node-pty-prebuilt` tree (native `.node` binaries).
+     * Empty = `stewardFolder/node-pty-prebuilt` under the vault. Absolute path or path relative to the vault root.
+     */
+    nodePtyNativePath: string;
   };
 }
 

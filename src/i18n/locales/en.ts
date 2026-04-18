@@ -24,7 +24,7 @@ const en = {
       searchDesc: 'Search for notes in your vault',
       imageDesc: 'Generate images',
       speechDesc: 'Generate speech from text',
-      terminalDesc: 'Open a local shell session (`/>`; transcript mode)',
+      terminalDesc: 'Use `/>` to start local shell mode',
       disabledMark: '(disabled)',
       helpTableCommand: 'Command',
       helpTableDescription: 'Description',
@@ -45,15 +45,28 @@ const en = {
       invalidOrDynamicToolCall: 'Model returned a dynamic or invalid tool call: "{{toolName}}".',
       statusValid: '✅ Valid',
       statusInvalid: 'Invalid: {{errors}}',
+      and: 'and',
+      or: 'or',
     },
     cli: {
       disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
       desktopOnly:
         'The local CLI shell is only available in Obsidian on desktop. Mobile does not support local processes.',
-      spawnFailed: 'Could not start CLI process: {{message}}',
+      spawnFailed:
+        '{{message}}\n\nThere are installers for each platform in your Steward folder; run them from your vault root folder:',
+      openingInteractiveTerminal: 'Opening interactive terminal...',
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
       processEndedCode: '(Process exited with code {{code}})',
+      ptyNativePathUnavailable:
+        'Interactive CLI needs a local folder vault (FileSystemAdapter) so the node-pty native bundle path can be resolved.',
+      ptyNativeBundleMissing:
+        'The node-pty native bundle folder is missing or is not a directory: {{path}}. Run the Steward installer script or set a valid folder in CLI settings.',
+      inputLineCaptionShellPrefix: 'Shell',
+      inputLineCaptionShellActive: 'Shell, Ctrl+C to exit',
+      nodePtyInstallWindowsHeading: 'Install on Windows',
+      nodePtyInstallUnixHeading: 'Install on Mac / Linux',
+      seeCliWiki: 'See [CLI]({{cliDoc}}) for transcript vs interactive mode and node-pty setup.',
     },
     mcp: {
       noConfigBlock:
@@ -583,7 +596,7 @@ const en = {
       year1: '1 year',
       cliBridge: 'Local CLI bridge',
       cliBridgeDesc:
-        'Run a local shell from conversations (`/>`). Desktop only; runs processes on your machine (security risk if misused). Output is transcript-only (no full terminal UI).',
+        'Run a local shell from conversations (`/>`). Desktop only; runs processes on your machine (security risk if misused). Most commands use transcript (streamed output); supported programs can use an interactive TTY when node-pty is installed.',
       cliBridgeEnabled: 'Enable local CLI bridge',
       cliBridgeEnabledDesc: 'Allows `/>` to spawn a local shell process.',
       cliShellExecutable: 'Shell executable (optional)',
@@ -591,6 +604,12 @@ const en = {
         'Override shell for `/>`. Leave empty for PowerShell on Windows or /bin/bash on macOS/Linux.',
       cliWorkingDirectory: 'Working directory (optional)',
       cliWorkingDirectoryDesc: 'Empty = vault root. CLI processes start in this folder.',
+      cliNodePtyNativePath: 'node-pty native bundle folder (optional)',
+      cliNodePtyNativePathDesc:
+        'Folder containing the extracted node-pty-prebuilt tree (native binaries). Empty = your Steward folder + /node-pty-prebuilt under the vault. Absolute path or path relative to the vault root.',
+      cliInteractivePrograms: 'Additional interactive programs',
+      cliInteractiveProgramsDesc:
+        'Comma or newline separated program names treated as interactive mode for `/>` (e.g., nvim, lazygit, htop). Built-ins include {{builtInsList}}.',
       modelFallbackEnabled: 'Enable model fallback',
       modelFallbackEnabledDesc:
         'Automatically switch to backup models when the primary model fails',

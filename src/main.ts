@@ -1,4 +1,12 @@
-import { Notice, Plugin, WorkspaceLeaf, WorkspaceParent, addIcon, getLanguage } from 'obsidian';
+import {
+  Notice,
+  Platform,
+  Plugin,
+  WorkspaceLeaf,
+  WorkspaceParent,
+  addIcon,
+  getLanguage,
+} from 'obsidian';
 import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
@@ -15,6 +23,7 @@ import { createConfirmationButtonsProcessor } from './post-processors/Confirmati
 import { createCalloutEditPreviewPostProcessor } from './post-processors/CalloutEditPreviewPostProcessor';
 import { createConversationIndicatorProcessor } from './post-processors/ConversationIndicatorProcessor';
 import { createCliTranscriptPostProcessor } from './post-processors/CliTranscriptPostProcessor';
+import { createCliXtermPostProcessor } from './post-processors/CliXtermPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -59,7 +68,9 @@ import { SubagentSpawnService } from './services/SubagentSpawnService';
 import { MCPService } from './services/MCPService';
 import { runSettingsSchemaMigrations } from './settings/migrations/settingsSchemaMigrations';
 import { CliSessionService } from './services/CliSessionService/CliSessionService';
+import { PtyCompanionService } from './services/PtyCompanionService/PtyCompanionService';
 import { NodePtyInstallerScriptService } from './services/NodePtyInstallerScriptService/NodePtyInstallerScriptService';
+import { WikilinkForwardService } from './services/WikilinkForwardService/WikilinkForwardService';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
@@ -92,12 +103,28 @@ export default class StewardPlugin extends Plugin {
   _obsidianAPITools: ObsidianAPITools;
   _commandProcessorService: CommandProcessorService;
   _cliSessionService: CliSessionService;
+  _ptyCompanionService: PtyCompanionService;
+  _wikilinkForwardService: WikilinkForwardService;
 
   get cliSessionService(): CliSessionService {
     if (!this._cliSessionService) {
       this._cliSessionService = new CliSessionService(this);
     }
     return this._cliSessionService;
+  }
+
+  get wikilinkForwardService(): WikilinkForwardService {
+    if (!this._wikilinkForwardService) {
+      this._wikilinkForwardService = new WikilinkForwardService(this);
+    }
+    return this._wikilinkForwardService;
+  }
+
+  get ptyCompanionService(): PtyCompanionService {
+    if (!this._ptyCompanionService) {
+      this._ptyCompanionService = new PtyCompanionService(this);
+    }
+    return this._ptyCompanionService;
   }
 
   get obsidianAPITools(): ObsidianAPITools {
@@ -298,6 +325,10 @@ export default class StewardPlugin extends Plugin {
     // Initialize the MCPService (loads MCP definitions from Steward/MCP folder)
     this.mcpService;
 
+    if (Platform.isDesktopApp) {
+      await this.ptyCompanionService.start();
+    }
+
     this.app.workspace.onLayoutReady(async () => {
       // Clean up old search databases
       this.cleanupOldSearchDatabases();
@@ -322,6 +353,7 @@ export default class StewardPlugin extends Plugin {
 
   onunload() {
     this._cliSessionService?.disposeAll();
+    void this._ptyCompanionService?.stop();
 
     // Remove the language attribute from the HTML element
     document.documentElement.removeAttribute('data-stw-language');
@@ -445,6 +477,9 @@ export default class StewardPlugin extends Plugin {
       createAutocompleteExtension(this),
     ]);
 
+    // Wire up event-driven conversation-forwarding rewrites.
+    this.wikilinkForwardService.registerEvents();
+
     // Register context menu for editor
     this.registerEvent(
       this.app.workspace.on('editor-menu', (menu, editor) => {
@@ -498,6 +533,7 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createThinkingProcessPostProcessor());
 
     this.registerMarkdownPostProcessor(createCliTranscriptPostProcessor());
+    this.registerMarkdownPostProcessor(createCliXtermPostProcessor(this));
 
     this.registerMarkdownPostProcessor(createConfirmationButtonsProcessor(this));
 
@@ -696,10 +732,10 @@ export default class StewardPlugin extends Plugin {
         const title = this.sanitizeVaultNoteTitle(rawTitle);
 
         const conversationLanguage = getLanguage();
-        const indicatorText = this.conversationRenderer.getIndicatorTextByIntentType(
-          intentType,
-          conversationLanguage
-        );
+        // const indicatorText = this.conversationRenderer.getIndicatorTextByIntentType(
+        //   intentType,
+        //   conversationLanguage
+        // );
         await this.conversationRenderer.createConversationNote(title, {
           intent: {
             type: intentType,
@@ -707,7 +743,7 @@ export default class StewardPlugin extends Plugin {
           },
           properties: [
             { name: 'lang', value: conversationLanguage },
-            { name: 'indicator_text', value: indicatorText },
+            // { name: 'indicator_text', value: indicatorText },
           ],
         });
 

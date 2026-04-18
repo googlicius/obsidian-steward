@@ -1,0 +1,174 @@
+diff --git a/node_modules/node-pty/lib/utils.js b/node_modules/node-pty/lib/utils.js
+index af7918b..a806878 100644
+--- a/node_modules/node-pty/lib/utils.js
++++ b/node_modules/node-pty/lib/utils.js
+@@ -3,6 +3,7 @@
+  * Copyright (c) 2017, Daniel Imms (MIT License).
+  * Copyright (c) 2018, Microsoft Corporation (MIT License).
+  */
++var path = require("path");
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.loadNativeModule = exports.assign = void 0;
+ function assign(target) {
+@@ -14,12 +15,58 @@ function assign(target) {
+     return target;
+ }
+ exports.assign = assign;
++/**
++ * Optional absolute path to prebuilt natives (Steward / Electron):
++ * - Directory: extracted node-pty-prebuilt root, or build/Release, or prebuilds/<platform>-<arch>
++ * - File: exact path to name.node (e.g. .../conpty.node) when basename matches requested binding
++ *
++ * Read at load time; set before the first terminal spawn. node-pty caches the native module
++ * for the process after the first successful load.
++ */
+ function loadNativeModule(name) {
+     // Check build, debug, and then prebuilds.
+     var dirs = ['build/Release', 'build/Debug', "prebuilds/" + process.platform + "-" + process.arch];
+     // Check relative to the parent dir for unbundled and then the current dir for bundled
+     var relative = ['..', '.'];
+     var lastError;
++    var rootOverride = process.env.NODE_PTY_NATIVE_MODULE_DIR || process.env.NODE_PTY_PREBUILT_PATH;
++    if (typeof rootOverride === 'string') {
++        var trimmed = rootOverride.trim();
++        if (trimmed.length > 0) {
++            var absRoot = path.isAbsolute(trimmed) ? trimmed : path.resolve(trimmed);
++            var tryRequireAbs = function (absFile) {
++                try {
++                    return { dir: path.dirname(absFile) + path.sep, module: require(absFile) };
++                }
++                catch (e) {
++                    lastError = e;
++                    return null;
++                }
++            };
++            if (path.extname(absRoot).toLowerCase() === '.node') {
++                if (path.basename(absRoot) === name + ".node") {
++                    var hitFile = tryRequireAbs(absRoot);
++                    if (hitFile) {
++                        return hitFile;
++                    }
++                }
++            }
++            else {
++                var candidates = [
++                    path.join(absRoot, name + ".node"),
++                    path.join(absRoot, "build", "Release", name + ".node"),
++                    path.join(absRoot, "build", "Debug", name + ".node"),
++                    path.join(absRoot, "prebuilds", process.platform + "-" + process.arch, name + ".node"),
++                ];
++                for (var ci = 0; ci < candidates.length; ci++) {
++                    var hitDir = tryRequireAbs(candidates[ci]);
++                    if (hitDir) {
++                        return hitDir;
++                    }
++                }
++            }
++        }
++    }
+     for (var _i = 0, dirs_1 = dirs; _i < dirs_1.length; _i++) {
+         var d = dirs_1[_i];
+         for (var _a = 0, relative_1 = relative; _a < relative_1.length; _a++) {
+diff --git a/node_modules/node-pty/lib/windowsConoutConnection.js b/node_modules/node-pty/lib/windowsConoutConnection.js
+index 1be15ca..4bffdac 100644
+--- a/node_modules/node-pty/lib/windowsConoutConnection.js
++++ b/node_modules/node-pty/lib/windowsConoutConnection.js
+@@ -41,6 +41,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.ConoutConnection = void 0;
+ var worker_threads_1 = require("worker_threads");
++var net_1 = require("net");
+ var conout_1 = require("./shared/conout");
+ var path_1 = require("path");
+ var eventEmitter2_1 = require("./eventEmitter2");
+@@ -69,21 +70,45 @@ var ConoutConnection = /** @class */ (function () {
+         this._useConptyDll = _useConptyDll;
+         this._isDisposed = false;
+         this._onReady = new eventEmitter2_1.EventEmitter2();
++        this._worker = undefined;
++        this._relayServer = undefined;
++        this._conoutSideSocket = undefined;
+         var workerData = {
+             conoutPipeName: _conoutPipeName
+         };
+         var scriptPath = __dirname.replace('node_modules.asar', 'node_modules.asar.unpacked');
+-        this._worker = new worker_threads_1.Worker(path_1.join(scriptPath, 'worker/conoutSocketWorker.js'), { workerData: workerData });
+-        this._worker.on('message', function (message) {
+-            switch (message) {
+-                case 1 /* READY */:
+-                    _this._onReady.fire();
+-                    return;
+-                default:
+-                    console.warn('Unexpected ConoutWorkerMessage', message);
+-            }
+-        });
++        try {
++            this._worker = new worker_threads_1.Worker(path_1.join(scriptPath, 'worker/conoutSocketWorker.js'), { workerData: workerData });
++            this._worker.on('message', function (message) {
++                switch (message) {
++                    case 1 /* READY */:
++                        _this._onReady.fire();
++                        return;
++                    default:
++                        console.warn('Unexpected ConoutWorkerMessage', message);
++                }
++            });
++        }
++        catch (_err) {
++            // Electron renderer: worker_threads.Worker may throw (V8 platform does not support Workers).
++            // Mirrors worker/conoutSocketWorker.js on the main thread; rare ConPTY close deadlocks possible.
++            this._startMainThreadConoutBridge();
++        }
+     }
++    ConoutConnection.prototype._startMainThreadConoutBridge = function () {
++        var _this = this;
++        var conoutSocket = new net_1.Socket();
++        conoutSocket.setEncoding('utf8');
++        conoutSocket.connect(this._conoutPipeName, function () {
++            _this._conoutSideSocket = conoutSocket;
++            _this._relayServer = net_1.createServer(function (workerSocket) {
++                conoutSocket.pipe(workerSocket);
++            });
++            _this._relayServer.listen(conout_1.getWorkerPipeName(_this._conoutPipeName), function () {
++                _this._onReady.fire();
++            });
++        });
++    };
+     Object.defineProperty(ConoutConnection.prototype, "onReady", {
+         get: function () { return this._onReady.event; },
+         enumerable: false,
+@@ -110,12 +135,29 @@ var ConoutConnection = /** @class */ (function () {
+     ConoutConnection.prototype._destroySocket = function () {
+         return __awaiter(this, void 0, void 0, function () {
+             return __generator(this, function (_a) {
+-                switch (_a.label) {
+-                    case 0: return [4 /*yield*/, this._worker.terminate()];
+-                    case 1:
+-                        _a.sent();
+-                        return [2 /*return*/];
++                if (this._worker) {
++                    switch (_a.label) {
++                        case 0: return [4 /*yield*/, this._worker.terminate()];
++                        case 1:
++                            _a.sent();
++                            return [2 /*return*/];
++                    }
++                }
++                if (this._relayServer) {
++                    try {
++                        this._relayServer.close();
++                    }
++                    catch (_b) { }
++                    this._relayServer = undefined;
++                }
++                if (this._conoutSideSocket) {
++                    try {
++                        this._conoutSideSocket.destroy();
++                    }
++                    catch (_c) { }
++                    this._conoutSideSocket = undefined;
+                 }
++                return [2 /*return*/];
+             });
+         });
+     };

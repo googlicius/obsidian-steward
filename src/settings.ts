@@ -18,6 +18,8 @@ import { applyMixins } from './utils/applyMixins';
 import { ProviderSetting } from './settings/ProviderSetting';
 import { getClassifier } from './lib/modelfusion';
 import { FolderSuggest } from './settings/FolderSuggest';
+import { BUILT_IN_INTERACTIVE_APPS } from './services/CliSessionService/CliSessionService';
+import { joinWithConjunction } from './utils/arrayUtils';
 
 const lang = getLanguage();
 const t = getTranslation(lang);
@@ -748,16 +750,6 @@ class StewardSettingTab extends PluginSettingTab {
     new Setting(cliSettingGroup.settingGroup).setName(t('settings.cliBridge')).setHeading();
 
     new Setting(cliSettingGroup.settingItems)
-      .setName(t('settings.cliBridgeEnabled'))
-      .setDesc(t('settings.cliBridgeEnabledDesc'))
-      .addToggle(toggle =>
-        toggle.setValue(this.plugin.settings.cli.enabled).onChange(async value => {
-          this.plugin.settings.cli.enabled = value;
-          await this.plugin.saveSettings();
-        })
-      );
-
-    new Setting(cliSettingGroup.settingItems)
       .setName(t('settings.cliShellExecutable'))
       .setDesc(t('settings.cliShellExecutableDesc'))
       .addText(text =>
@@ -779,6 +771,36 @@ class StewardSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.cli.workingDirectory)
           .onChange(async value => {
             this.plugin.settings.cli.workingDirectory = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(cliSettingGroup.settingItems)
+      .setName(t('settings.cliNodePtyNativePath'))
+      .setDesc(t('settings.cliNodePtyNativePathDesc'))
+      .addText(text =>
+        text
+          .setPlaceholder('')
+          .setValue(this.plugin.settings.cli.nodePtyNativePath ?? '')
+          .onChange(async value => {
+            this.plugin.settings.cli.nodePtyNativePath = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(cliSettingGroup.settingItems)
+      .setName(t('settings.cliInteractivePrograms'))
+      .setDesc(
+        t('settings.cliInteractiveProgramsDesc', {
+          builtInsList: joinWithConjunction(BUILT_IN_INTERACTIVE_APPS, 'and'),
+        })
+      )
+      .addTextArea(text =>
+        text
+          .setPlaceholder('nvim, nano, htop')
+          .setValue(this.plugin.settings.cli.interactivePrograms ?? '')
+          .onChange(async value => {
+            this.plugin.settings.cli.interactivePrograms = value;
             await this.plugin.saveSettings();
           })
       );

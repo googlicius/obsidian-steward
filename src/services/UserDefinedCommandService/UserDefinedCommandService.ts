@@ -1,5 +1,5 @@
 import { getLanguage, normalizePath, Notice, TFile, parseYaml } from 'obsidian';
-import Mustache from 'mustache';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES } from 'src/constants';
@@ -905,19 +905,19 @@ export class UserDefinedCommandService {
         fileName: params.fileName,
         userInput: params.cleanedUserInput,
       });
-      out = this.renderMustacheTemplate(out, ctx);
+      out = await this.renderMustacheTemplate(out, ctx);
     }
     return out;
   }
 
-  private renderMustacheTemplate(template: string, view: UdcTemplateContext): string {
-    const previousEscape = Mustache.escape;
-    Mustache.escape = (text: string) => String(text);
-    try {
-      return Mustache.render(template, view);
-    } finally {
-      Mustache.escape = previousEscape;
-    }
+  private async renderMustacheTemplate(
+    template: string,
+    view: UdcTemplateContext
+  ): Promise<string> {
+    const mustache = await getBundledLib('mustache');
+    return mustache.render(template, view, undefined, {
+      escape: (text: string) => String(text),
+    });
   }
 
   /**
