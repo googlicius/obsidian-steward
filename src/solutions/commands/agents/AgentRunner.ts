@@ -171,7 +171,7 @@ export class AgentRunner {
         if (agent.renderIndicator) {
           agent.renderIndicator(title, payload.lang);
         }
-      }, 50);
+      });
 
       const result = await agent.safeHandle({
         title,
