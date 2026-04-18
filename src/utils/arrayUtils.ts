@@ -1,3 +1,5 @@
+import { getTranslation } from 'src/i18n';
+
 /**
  * Joins an array with a conjunction word before the last item
  * @example joinWithConjunction(['apple', 'banana', 'orange'], 'and') => 'apple, banana, and orange'
@@ -6,7 +8,7 @@
 export function joinWithConjunction(
   array: string[],
   conjunction: 'and' | 'or',
-  separator = ', '
+  options: { separator?: string; lang?: string } = {}
 ): string {
   if (!array || array.length === 0) {
     return '';
@@ -16,11 +18,14 @@ export function joinWithConjunction(
     return array[0];
   }
 
+  const { separator = ', ', lang } = options;
+  const t = getTranslation(lang);
+
   if (array.length === 2) {
-    return `${array[0]} ${conjunction} ${array[1]}`;
+    return `${array[0]} ${t(`common.${conjunction}`)} ${array[1]}`;
   }
 
-  return `${array.slice(0, -1).join(separator)}${separator}${conjunction} ${array[array.length - 1]}`;
+  return `${array.slice(0, -1).join(separator)}${separator}${t(`common.${conjunction}`)} ${array[array.length - 1]}`;
 }
 
 export function removeConsecutiveItems(array: string[]): string[] {

@@ -45,6 +45,8 @@ const en = {
       invalidOrDynamicToolCall: 'Model returned a dynamic or invalid tool call: "{{toolName}}".',
       statusValid: '✅ Valid',
       statusInvalid: 'Invalid: {{errors}}',
+      and: 'and',
+      or: 'or',
     },
     cli: {
       disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
@@ -603,7 +605,7 @@ const en = {
         'Folder containing the extracted node-pty-prebuilt tree (native binaries). Empty = your Steward folder + /node-pty-prebuilt under the vault. Absolute path or path relative to the vault root.',
       cliInteractivePrograms: 'Additional interactive programs',
       cliInteractiveProgramsDesc:
-        'Comma or newline separated program names treated as interactive mode for `/>` (e.g., nvim, lazygit, htop). Built-ins include vim, vi, nvim, nano, less, more, man, top, htop, btop, lazygit, tig, ranger, gemini.',
+        'Comma or newline separated program names treated as interactive mode for `/>` (e.g., nvim, lazygit, htop). Built-ins include {{builtInsList}}.',
       modelFallbackEnabled: 'Enable model fallback',
       modelFallbackEnabledDesc:
         'Automatically switch to backup models when the primary model fails',

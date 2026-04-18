@@ -41,6 +41,8 @@ const vi = {
         'Mô hình đã trả về lệnh gọi công cụ không hợp lệ hoặc động (dynamic): "{{toolName}}".',
       statusValid: '✅ Hợp lệ',
       statusInvalid: 'Không hợp lệ: {{errors}}',
+      and: 'và',
+      or: 'hoặc',
     },
     cli: {
       disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
@@ -533,7 +535,7 @@ const vi = {
         'Thư mục chứa cây node-pty-prebuilt đã giải nén (file .node). Để trống = thư mục Steward trong vault + /node-pty-prebuilt. Đường dẫn tuyệt đối hoặc tương đối gốc vault.',
       cliInteractivePrograms: 'Additional interactive programs',
       cliInteractiveProgramsDesc:
-        'Comma or newline separated program names treated as interactive mode for `/>` (e.g., nvim, lazygit, htop). Built-ins include vim, vi, nvim, nano, less, more, man, top, htop, btop, lazygit, tig, ranger, gemini.',
+        'Tên chương trình phân tách bằng dấu phẩy hoặc xuống dòng được coi là chế độ tương tác cho `/>` (ví dụ: nvim, lazygit, htop). Chương trình tích hợp gồm {{builtInsList}}.',
       modelFallbackEnabled: 'Bật dự phòng mô hình',
       modelFallbackEnabledDesc: 'Tự động chuyển sang mô hình dự phòng khi mô hình chính gặp lỗi',
       fallbackChain: 'Chuỗi dự phòng',

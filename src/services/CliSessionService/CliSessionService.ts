@@ -20,7 +20,8 @@ const PWD_END = '__STEWARD_PWD_END__';
 const CLI_NOTE_PREFIX = 'cli_interactive';
 
 const isWin = process.platform === 'win32';
-const BUILT_IN_INTERACTIVE_APPS = [
+
+export const BUILT_IN_INTERACTIVE_APPS = [
   'vim',
   'vi',
   'nvim',
@@ -159,8 +160,9 @@ export class CliSessionService {
   public getSupportedInteractiveApps(): string[] {
     const configured = this.plugin.settings.cli.interactivePrograms ?? '';
     const dynamicPrograms = configured
+      .toLowerCase()
       .split(/[,\n]/)
-      .map(app => app.trim().toLowerCase())
+      .map(app => app.trim())
       .filter(app => app.length > 0);
 
     const unique = new Set<string>(BUILT_IN_INTERACTIVE_APPS);

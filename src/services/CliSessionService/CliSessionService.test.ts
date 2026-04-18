@@ -1,6 +1,10 @@
 import type { ChildProcessWithoutNullStreams } from 'child_process';
 import { loadNodeModule } from 'src/utils/loadNodeModule';
-import { CliSessionService, type CliSession } from './CliSessionService';
+import {
+  BUILT_IN_INTERACTIVE_APPS,
+  CliSessionService,
+  type CliSession,
+} from './CliSessionService';
 import type StewardPlugin from 'src/main';
 
 let isDesktopApp = true;
@@ -27,6 +31,19 @@ const loadNodeModuleMock = loadNodeModule as jest.MockedFunction<typeof loadNode
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   return {} as unknown as jest.Mocked<StewardPlugin>;
+}
+
+function createPluginWithCliInteractivePrograms(
+  interactivePrograms: string | undefined
+): jest.Mocked<StewardPlugin> {
+  return {
+    ...createMockPlugin(),
+    settings: {
+      cli: {
+        interactivePrograms,
+      },
+    } as unknown as StewardPlugin['settings'],
+  } as unknown as jest.Mocked<StewardPlugin>;
 }
 
 /** Minimal plugin so {@link CliSessionService.endSession} can run (abort, decorations, async vault paths). */
@@ -632,6 +649,66 @@ describe('CliSessionService', () => {
       expect(session.cdCommandHistory.at(-1)).toBe('cd /overflow-2');
       expect(session.cdCommandHistory.at(-2)).toBe('cd /overflow-1');
       expect(session.cdCommandHistory[0]).toBe('cd /dir-2');
+    });
+  });
+
+  describe('getSupportedInteractiveApps', () => {
+    it('returns built-in apps when interactivePrograms is empty', () => {
+      const svc = new CliSessionService(
+        createPluginWithCliInteractivePrograms('')
+      );
+      expect(svc.getSupportedInteractiveApps()).toEqual([...BUILT_IN_INTERACTIVE_APPS]);
+    });
+
+    it('treats undefined interactivePrograms like empty string', () => {
+      const svc = new CliSessionService(
+        createPluginWithCliInteractivePrograms(undefined)
+      );
+      expect(svc.getSupportedInteractiveApps()).toEqual([...BUILT_IN_INTERACTIVE_APPS]);
+    });
+
+    it('merges comma-separated custom entries (lower-cased, trimmed) after built-ins', () => {
+      const svc = new CliSessionService(
+        createPluginWithCliInteractivePrograms(' Emacs ,  rustup ')
+      );
+      expect(svc.getSupportedInteractiveApps()).toEqual([
+        ...BUILT_IN_INTERACTIVE_APPS,
+        'emacs',
+        'rustup',
+      ]);
+    });
+
+    it('splits on newlines as well as commas', () => {
+      const svc = new CliSessionService(
+        createPluginWithCliInteractivePrograms('foo\nbar,baz')
+      );
+      expect(svc.getSupportedInteractiveApps()).toEqual([
+        ...BUILT_IN_INTERACTIVE_APPS,
+        'foo',
+        'bar',
+        'baz',
+      ]);
+    });
+
+    it('dedupes repeats in config and overlaps with built-ins', () => {
+      const svc = new CliSessionService(
+        createPluginWithCliInteractivePrograms('vim, VIM ,nano')
+      );
+      const list = svc.getSupportedInteractiveApps();
+      expect(list.filter(a => a === 'vim')).toHaveLength(1);
+      expect(list.filter(a => a === 'nano')).toHaveLength(1);
+      expect(list).toEqual([...BUILT_IN_INTERACTIVE_APPS]);
+    });
+
+    it('appends new unique apps in first-seen order', () => {
+      const svc = new CliSessionService(
+        createPluginWithCliInteractivePrograms('zed\ncursor\nzed')
+      );
+      expect(svc.getSupportedInteractiveApps()).toEqual([
+        ...BUILT_IN_INTERACTIVE_APPS,
+        'zed',
+        'cursor',
+      ]);
     });
   });
 });

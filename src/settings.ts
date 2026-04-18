@@ -18,6 +18,8 @@ import { applyMixins } from './utils/applyMixins';
 import { ProviderSetting } from './settings/ProviderSetting';
 import { getClassifier } from './lib/modelfusion';
 import { FolderSuggest } from './settings/FolderSuggest';
+import { BUILT_IN_INTERACTIVE_APPS } from './services/CliSessionService/CliSessionService';
+import { joinWithConjunction } from './utils/arrayUtils';
 
 const lang = getLanguage();
 const t = getTranslation(lang);
@@ -788,7 +790,11 @@ class StewardSettingTab extends PluginSettingTab {
 
     new Setting(cliSettingGroup.settingItems)
       .setName(t('settings.cliInteractivePrograms'))
-      .setDesc(t('settings.cliInteractiveProgramsDesc'))
+      .setDesc(
+        t('settings.cliInteractiveProgramsDesc', {
+          builtInsList: joinWithConjunction(BUILT_IN_INTERACTIVE_APPS, 'and'),
+        })
+      )
       .addTextArea(text =>
         text
           .setPlaceholder('nvim, nano, htop')

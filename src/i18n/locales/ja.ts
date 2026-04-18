@@ -42,6 +42,8 @@ const ja = {
         'モデルが無効なまたは動的なツールコールを返しました: "{{toolName}}".',
       statusValid: '✅ 有効',
       statusInvalid: '無効: {{errors}}',
+      and: 'と',
+      or: 'または',
     },
     cli: {
       disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
