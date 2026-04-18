@@ -19,7 +19,12 @@ const PWD_END = '__STEWARD_PWD_END__';
 
 const CLI_NOTE_PREFIX = 'cli_interactive';
 
-const isWin = process.platform === 'win32';
+function isWindows(): boolean {
+  if (typeof process === 'undefined') {
+    return false;
+  }
+  return process.platform === 'win32';
+}
 
 export const BUILT_IN_INTERACTIVE_APPS = [
   'vim',
@@ -175,7 +180,7 @@ export class CliSessionService {
 
   private buildShellSpawnConfig(): { file: string; fileName: string; args: string[] } | null {
     const configured = this.plugin.settings.cli.shellExecutable.trim();
-    const shell = configured !== '' ? configured : isWin ? 'powershell.exe' : '/bin/bash';
+    const shell = configured !== '' ? configured : isWindows() ? 'powershell.exe' : '/bin/bash';
     const fileName = shell.split('.')[0];
     return { file: shell, fileName, args: [] };
   }
@@ -282,7 +287,7 @@ export class CliSessionService {
    * (cygpath / WSL path mapping) is deferred for a future iteration.
    */
   private buildPwdProbe(cdCommands: string[]): { file: string; args: string[] } {
-    if (isWin) {
+    if (isWindows()) {
       const scriptLines = [...cdCommands];
       scriptLines.push(`Write-Output "${PWD_START}"`);
       scriptLines.push('(Get-Location).Path');
@@ -486,7 +491,7 @@ export class CliSessionService {
     if (!cp) return;
 
     try {
-      if (isWin) {
+      if (isWindows()) {
         cp.spawn('taskkill', ['/pid', String(session.child.pid), '/f', '/t'], {
           shell: true,
           windowsHide: true,
@@ -648,7 +653,7 @@ export class CliSessionService {
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true,
         shell: true,
-        detached: !isWin,
+        detached: !isWindows(),
       });
     } catch (error) {
       logger.error('CliSessionService spawn failed:', error);
@@ -716,7 +721,7 @@ export class CliSessionService {
    * Native Windows shells (powershell, cmd, pwsh) require CRLF on Windows so the line is submitted.
    */
   private ptySubmitLineEnding(shellFile: string): string {
-    if (!isWin) {
+    if (!isWindows()) {
       return '\n';
     }
     const base = shellFile.split(/[\\/]/).pop() ?? shellFile;
