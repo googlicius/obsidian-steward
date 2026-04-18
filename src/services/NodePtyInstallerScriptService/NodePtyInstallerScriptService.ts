@@ -271,7 +271,7 @@ export class NodePtyInstallerScriptService {
         latestPs1Path,
       });
 
-      const defaultOsArch = getNodePtyPrebuiltOsArchForCurrentProcess();
+      const defaultOsArch = await getNodePtyPrebuiltOsArchForCurrentProcess();
       const shBody = buildInstallerScriptBody({
         pluginVersion: currentPluginVersion,
         defaultOsArch,

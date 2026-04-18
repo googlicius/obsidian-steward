@@ -5,6 +5,8 @@
 export interface LoadableNodeModuleMap {
   child_process: typeof import('child_process');
   fs: typeof import('fs');
+  http: typeof import('http');
+  path: typeof import('path');
 }
 
 export type LoadableNodeModuleSpecifier = keyof LoadableNodeModuleMap;

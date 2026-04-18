@@ -1,5 +1,3 @@
-import { createServer } from 'http';
-import type { Server as HttpServer } from 'http';
 import type { IPty } from 'node-pty';
 import {
   PTY_COMPANION_HOST,
@@ -7,36 +5,11 @@ import {
   type PtyCompanionSpawnAck,
   type PtyCompanionSpawnPayload,
 } from './protocol';
-import { FileSystemAdapter, normalizePath } from 'obsidian';
+import { resolveVaultPtyNativePath } from './resolveVaultPtyNativePath';
 import type StewardPlugin from 'src/main';
-import path from 'path';
 import { uniqueID } from 'src/utils/uniqueID';
 import { getBundledLib } from 'src/utils/bundledLibs';
-
-/**
- * Absolute path to the extracted `node-pty-prebuilt` tree under the vault (desktop / local only).
- * Patched `node-pty` resolves `conpty.node` / `pty.node` from this root (see `prebuilds/<platform>-<arch>` etc.).
- */
-export function resolveVaultPtyNativePath(plugin: StewardPlugin): string | null {
-  const adapter = plugin.app.vault.adapter;
-  if (!(adapter instanceof FileSystemAdapter)) {
-    return null;
-  }
-  const vaultRoot = adapter.getBasePath();
-  const configured =
-    typeof plugin.settings.cli.nodePtyNativePath === 'string'
-      ? plugin.settings.cli.nodePtyNativePath.trim()
-      : '';
-  const relative =
-    configured !== ''
-      ? normalizePath(configured)
-      : normalizePath(`${plugin.settings.stewardFolder}/node-pty-prebuilt`);
-  if (path.isAbsolute(relative)) {
-    return path.normalize(relative);
-  }
-  const segments = relative.split('/').filter(s => s.length > 0);
-  return path.join(vaultRoot, ...segments);
-}
+import { loadNodeModule } from 'src/utils/loadNodeModule';
 
 export type PtyCompanionServerHandle = {
   port: number;
@@ -53,10 +26,13 @@ const DEFAULT_ROWS = 24;
  */
 export function startPtyCompanionServer(plugin: StewardPlugin): Promise<PtyCompanionServerHandle> {
   return (async () => {
-    const { Server } = await getBundledLib('socketIo');
+    const [http, { Server }] = await Promise.all([
+      loadNodeModule('http'),
+      getBundledLib('socketIo'),
+    ]);
     return new Promise<PtyCompanionServerHandle>((resolve, reject) => {
       let settled = false;
-      const httpServer: HttpServer = createServer();
+      const httpServer = http.createServer();
       const authToken = uniqueID();
 
       const io = new Server(httpServer, {
@@ -100,14 +76,14 @@ export function startPtyCompanionServer(plugin: StewardPlugin): Promise<PtyCompa
               ack?.({ ok: false, error: 'invalid spawn payload' });
               return;
             }
-            const ptyBinaryPath = resolveVaultPtyNativePath(plugin);
-            if (!ptyBinaryPath) {
-              ack?.({ ok: false, error: 'local vault path unavailable for node-pty runtime' });
-              return;
-            }
-            // Patched node-pty only: upstream does not read this env (see patches/node-pty+*.patch).
-            process.env.NODE_PTY_NATIVE_MODULE_DIR = ptyBinaryPath;
             void (async () => {
+              const ptyBinaryPath = await resolveVaultPtyNativePath(plugin);
+              if (!ptyBinaryPath) {
+                ack?.({ ok: false, error: 'local vault path unavailable for node-pty runtime' });
+                return;
+              }
+              // Patched node-pty only: upstream does not read this env (see patches/node-pty+*.patch).
+              process.env.NODE_PTY_NATIVE_MODULE_DIR = ptyBinaryPath;
               try {
                 const pty = await getBundledLib('nodePty');
                 const cols = typeof payload.cols === 'number' ? payload.cols : DEFAULT_COLS;

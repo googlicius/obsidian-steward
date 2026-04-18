@@ -10,7 +10,7 @@ import {
   createRemotePtySession,
   type RemotePtyChildShim,
 } from 'src/solutions/pty-companion/client';
-import { resolveVaultPtyNativePath } from 'src/solutions/pty-companion/server';
+import { resolveVaultPtyNativePath } from 'src/solutions/pty-companion/resolveVaultPtyNativePath';
 import { CLI_STREAM_MARKER, CLI_XTERM_MARKER, getCliStreamMarkerPlaceholder } from './constants';
 
 const SENTINEL_MARKER = `__STEWARD_DONE__`;
@@ -571,7 +571,7 @@ export class CliSessionService {
       : null;
 
     if (useInteractivePty) {
-      const ptyNativeDir = resolveVaultPtyNativePath(this.plugin);
+      const ptyNativeDir = await resolveVaultPtyNativePath(this.plugin);
       if (!ptyNativeDir) {
         return { ok: false, errorMessage: i18next.t('cli.ptyNativePathUnavailable') };
       }
