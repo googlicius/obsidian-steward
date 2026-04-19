@@ -103,7 +103,7 @@ const ja = {
       moveChatToRight: 'チャットを右サイドバーへ移動',
       history: '履歴',
       noConversations: '過去の会話はありません。',
-      stewardChat: 'Stewardチャット',
+      stewardChat: 'チャット',
       closeConversation: '会話を閉じる',
       deleteHistoryItem: '履歴から削除',
       conversationClosed: '会話を閉じました',
@@ -321,7 +321,7 @@ const ja = {
     ui: {
       yes: 'はい',
       no: 'いいえ',
-      openStewardChat: 'Steward chatを開く',
+      openStewardChat: 'チャットを開く',
       buildingSearchIndex: '検索インデックスを構築中...',
       errorBuildingSearchIndex:
         '検索インデックスの構築中にエラーが発生しました。詳細はコンソールを確認してください。',
@@ -338,7 +338,7 @@ const ja = {
       decryptionError: 'APIキーの復号に失敗しました。設定で再度入力してください。',
       encryptionError: 'APIキーの暗号化に失敗しました。もう一度お試しください。',
       welcomeMessage:
-        'いつでも利用可能なStewardチャットへようこそ。以下に入力して対話するか、`/ ?` でコマンド一覧を表示できます。',
+        'Stewardへようこそ。以下に入力して対話するか、`/ ?` でコマンド一覧を表示できます。',
       commandPlaceholder: '送信するにはEnterを押してください',
       Copy: 'コピー',
       contentCopied: 'コンテンツをクリップボードにコピーしました',

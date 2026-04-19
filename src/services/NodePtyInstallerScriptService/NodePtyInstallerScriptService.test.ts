@@ -4,9 +4,8 @@ import {
 } from './NodePtyInstallerScriptService';
 import type StewardPlugin from 'src/main';
 import {
-  NODE_PTY_INSTALLER_LATEST_BASENAME,
-  NODE_PTY_INSTALLER_LATEST_PS1_BASENAME,
-  buildNodePtyInstallerVersionedBasename,
+  NODE_PTY_INSTALLER_PS1_BASENAME,
+  NODE_PTY_INSTALLER_SH_BASENAME,
 } from 'src/constants/nodePtyInstallerConstants';
 
 let isDesktopApp = true;
@@ -132,8 +131,10 @@ describe('NodePtyInstallerScriptService', () => {
   });
 
   describe('sync', () => {
-    const latestPath = `Steward/${NODE_PTY_INSTALLER_LATEST_BASENAME}`;
-    const latestPs1Path = `Steward/${NODE_PTY_INSTALLER_LATEST_PS1_BASENAME}`;
+    const shPath = `Steward/${NODE_PTY_INSTALLER_SH_BASENAME}`;
+    const ps1Path = `Steward/${NODE_PTY_INSTALLER_PS1_BASENAME}`;
+    const legacyShPath = 'Steward/install-node-pty-runtime-latest.sh';
+    const legacyPs1Path = 'Steward/install-node-pty-runtime-latest.ps1';
 
     it('skips on mobile (non-desktop)', async () => {
       isDesktopApp = false;
@@ -148,19 +149,19 @@ describe('NodePtyInstallerScriptService', () => {
       expect(plugin.app.fileManager.renameFile).not.toHaveBeenCalled();
     });
 
-    it('creates latest script when no script exists yet', async () => {
+    it('creates installer scripts when no script exists yet', async () => {
       const { plugin, files } = createFakePlugin({ pluginVersion: '3.0.0' });
       const service = new NodePtyInstallerScriptService(plugin);
 
       await service.sync();
 
       expect(plugin.app.vault.create).toHaveBeenCalledTimes(2);
-      const created = files.get(latestPath);
+      const created = files.get(shPath);
       expect(created).toEqual(expect.any(String));
       expect(created).toContain('# steward-installer-meta:');
       expect(created).toContain('plugin-version=3.0.0');
       expect(created).toContain('DEFAULT_OS_ARCH="${DEFAULT_OS_ARCH:-win32-x64}"');
-      const createdPs1 = files.get(latestPs1Path);
+      const createdPs1 = files.get(ps1Path);
       expect(createdPs1).toEqual(expect.any(String));
       expect(createdPs1).toContain('# steward-installer-meta:');
       expect(createdPs1).toContain('plugin-version=3.0.0');
@@ -170,12 +171,12 @@ describe('NodePtyInstallerScriptService', () => {
       expect(createdPs1).toContain("  'win32-x64'");
     });
 
-    it('does nothing when latest script content is unchanged', async () => {
+    it('does nothing when installer script content is unchanged', async () => {
       const { plugin, files } = createFakePlugin({ pluginVersion: '3.0.0' });
       const service = new NodePtyInstallerScriptService(plugin);
 
       await service.sync();
-      const firstBody = files.get(latestPath);
+      const firstBody = files.get(shPath);
       expect(firstBody).toEqual(expect.any(String));
 
       // Reset call counts and re-run with existing exact content
@@ -190,16 +191,16 @@ describe('NodePtyInstallerScriptService', () => {
       expect(plugin.app.fileManager.renameFile).not.toHaveBeenCalled();
     });
 
-    it('modifies latest script when content differs', async () => {
+    it('modifies installer script when content differs', async () => {
       const { plugin, files } = createFakePlugin({ pluginVersion: '3.0.0' });
       const service = new NodePtyInstallerScriptService(plugin);
 
       await service.sync();
-      const firstBody = files.get(latestPath);
+      const firstBody = files.get(shPath);
       expect(firstBody).toEqual(expect.any(String));
 
       // Mutate on-disk content to diverge from the newly generated one
-      files.set(latestPath, `${firstBody}\n# extra\n`);
+      files.set(shPath, `${firstBody}\n# extra\n`);
 
       (plugin.app.vault.create as jest.Mock).mockClear();
       (plugin.app.vault.modify as jest.Mock).mockClear();
@@ -208,46 +209,61 @@ describe('NodePtyInstallerScriptService', () => {
 
       expect(plugin.app.vault.create).not.toHaveBeenCalled();
       expect(plugin.app.vault.modify).toHaveBeenCalledTimes(1);
-      const latestNow = files.get(latestPath);
-      expect(latestNow).toBe(firstBody);
+      const shNow = files.get(shPath);
+      expect(shNow).toBe(firstBody);
     });
 
-    it('retains old latest file as versioned when plugin upgrades, then writes new latest', async () => {
-      const oldVersion = '2.9.0';
-      const newVersion = '3.0.0';
-      const oldLatestBody = `#!/usr/bin/env bash
-# steward-installer-meta: plugin-version=${oldVersion} template=4 prebuilt-pkg=0.13.1 node=20 node-modules=115
+    it('migrates legacy -latest installer filenames to canonical names', async () => {
+      const oldBody = `#!/usr/bin/env bash
+# steward-installer-meta: plugin-version=2.9.0 template=4 prebuilt-pkg=0.13.1 node=20 node-modules=115
 echo "old"
 `;
-
-      const versionedPath = `Steward/${buildNodePtyInstallerVersionedBasename(oldVersion)}`;
-      const preexistingVersioned = `#!/usr/bin/env bash
-echo "preexisting versioned"
+      const oldPs1 = `# steward-installer-meta: plugin-version=2.9.0 template=4 prebuilt-pkg=0.13.1 node=20 node-modules=115
 `;
 
       const { plugin, files } = createFakePlugin({
-        pluginVersion: newVersion,
+        pluginVersion: '3.0.0',
         initialFiles: {
-          [latestPath]: oldLatestBody,
-          [versionedPath]: preexistingVersioned,
+          [legacyShPath]: oldBody,
+          [legacyPs1Path]: oldPs1,
         },
       });
       const service = new NodePtyInstallerScriptService(plugin);
 
       await service.sync();
 
-      // Preexisting versioned file should be removed first then replaced via rename.
-      expect(plugin.app.vault.delete).toHaveBeenCalledTimes(1);
-      expect(plugin.app.fileManager.renameFile).toHaveBeenCalledTimes(1);
+      expect(plugin.app.fileManager.renameFile).toHaveBeenCalledTimes(2);
+      expect(files.has(legacyShPath)).toBe(false);
+      expect(files.has(legacyPs1Path)).toBe(false);
+      const shNow = files.get(shPath);
+      expect(shNow).toEqual(expect.any(String));
+      expect(shNow).toContain('plugin-version=3.0.0');
+    });
 
-      // The versioned script should still be the old body (from renamed latest).
-      expect(files.get(versionedPath)).toBe(oldLatestBody);
+    it('updates installer in place when plugin version increases (no versioned rename)', async () => {
+      const oldVersion = '2.9.0';
+      const newVersion = '3.0.0';
+      const oldShBody = `#!/usr/bin/env bash
+# steward-installer-meta: plugin-version=${oldVersion} template=4 prebuilt-pkg=0.13.1 node=20 node-modules=115
+echo "old"
+`;
 
-      // Latest should be regenerated for the new plugin version.
-      const latestBody = files.get(latestPath);
-      expect(latestBody).toEqual(expect.any(String));
-      expect(latestBody).toContain('plugin-version=3.0.0');
-      expect(latestBody).not.toBe(oldLatestBody);
+      const { plugin, files } = createFakePlugin({
+        pluginVersion: newVersion,
+        initialFiles: {
+          [shPath]: oldShBody,
+        },
+      });
+      const service = new NodePtyInstallerScriptService(plugin);
+
+      await service.sync();
+
+      expect(plugin.app.fileManager.renameFile).not.toHaveBeenCalled();
+      expect(plugin.app.vault.modify).toHaveBeenCalled();
+      const shNow = files.get(shPath);
+      expect(shNow).toEqual(expect.any(String));
+      expect(shNow).toContain('plugin-version=3.0.0');
+      expect(shNow).not.toBe(oldShBody);
     });
   });
 });

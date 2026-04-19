@@ -66,7 +66,9 @@ export class ConversationEventHandler {
   }
 
   private async initializeChat(file: TFile): Promise<void> {
-    if (!file.name.startsWith('Steward chat')) {
+    const base = file.basename;
+    const title = this.plugin.chatTitle;
+    if (base !== title && !base.startsWith(`${title} `)) {
       return;
     }
 

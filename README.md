@@ -42,7 +42,7 @@ Steward can be used directly in the editor or by opening the chat interface.
 
 ### Usage
 
-1. Click the "Open Steward chat" icon to open the chat
+1. Click the "Open chat" icon to open the chat
 2. Type after the `/ ` in the chat or the active editor to interact or type `/ ?` to see available commands
 3. To add a new line in the command input, press `Shift+Enter` (uses 2-space indentation)
 4. To change the model, in the input, type `m:` or `model:` and select from the dropdown.
@@ -154,7 +154,9 @@ Steward/
 ├── Rules/          # Guardrails rules (one file per rule)
 ├── Skills/         # Agent skills for domain-specific knowledge
 ├── Trash/          # Stores deleted files
-└── Steward chat.md # Current active conversation
+├── install-node-pty-runtime.sh   # Downloads node-pty prebuilt (macOS, Linux, Git Bash)
+├── install-node-pty-runtime.ps1  # Downloads node-pty prebuilt (Windows PowerShell)
+└── Chat.md                       # Current active conversation
 ```
 
 ## Installation

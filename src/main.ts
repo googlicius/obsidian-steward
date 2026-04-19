@@ -74,7 +74,7 @@ import { WikilinkForwardService } from './services/WikilinkForwardService/Wikili
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
-  chatTitle = 'Steward chat';
+  chatTitle = 'Chat';
   conversationEventHandler: ConversationEventHandler;
   llmService: LLMService;
   trashCleanupService: TrashCleanupService;
@@ -882,14 +882,19 @@ export default class StewardPlugin extends Plugin {
         await this.app.vault.createFolder(folderPath);
       }
 
-      // Check if the chat note exists, create if not
-      const noteExists = this.app.vault.getFileByPath(notePath);
-      if (!noteExists) {
-        // Build initial content
-        const initialContent = '';
+      // Prefer new note name; migrate legacy "Steward chat.md" once if present
+      let chatFile = this.app.vault.getFileByPath(notePath);
+      if (!chatFile) {
+        const legacyPath = `${folderPath}/Steward chat.md`;
+        const legacyFile = this.app.vault.getFileByPath(legacyPath);
+        if (legacyFile) {
+          await this.app.fileManager.renameFile(legacyFile, notePath);
+          chatFile = this.app.vault.getFileByPath(notePath);
+        }
+      }
 
-        // Create the chat note
-        await this.app.vault.create(notePath, initialContent);
+      if (!chatFile) {
+        await this.app.vault.create(notePath, '');
       }
 
       const leaf = await this.getChatLeaf();

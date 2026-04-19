@@ -5,8 +5,8 @@ import i18next from 'i18next';
 import { logger } from 'src/utils/logger';
 import { GITHUB_WIKI_URL, WIKI_PAGES } from 'src/constants';
 import {
-  NODE_PTY_INSTALLER_LATEST_BASENAME,
-  NODE_PTY_INSTALLER_LATEST_PS1_BASENAME,
+  NODE_PTY_INSTALLER_SH_BASENAME,
+  NODE_PTY_INSTALLER_PS1_BASENAME,
 } from 'src/constants/nodePtyInstallerConstants';
 import {
   CLI_STREAM_MARKER,
@@ -41,13 +41,13 @@ export class CliHandler {
       `**${i18next.t('cli.nodePtyInstallWindowsHeading')}**`,
       '',
       '```powershell',
-      `powershell -NoProfile -ExecutionPolicy Bypass -File "${stewardFolder}/${NODE_PTY_INSTALLER_LATEST_PS1_BASENAME}"`,
+      `powershell -NoProfile -ExecutionPolicy Bypass -File "${stewardFolder}/${NODE_PTY_INSTALLER_PS1_BASENAME}"`,
       '```',
       '',
       `**${i18next.t('cli.nodePtyInstallUnixHeading')}**`,
       '',
       '```bash',
-      `bash "${stewardFolder}/${NODE_PTY_INSTALLER_LATEST_BASENAME}"`,
+      `bash "${stewardFolder}/${NODE_PTY_INSTALLER_SH_BASENAME}"`,
       '```',
       '',
       i18next.t('cli.seeCliWiki', { cliDoc }),

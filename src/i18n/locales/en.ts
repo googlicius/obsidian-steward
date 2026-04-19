@@ -106,7 +106,7 @@ const en = {
       moveChatToRight: 'Move chat to right sidebar',
       history: 'History',
       noConversations: 'No past conversations found.',
-      stewardChat: 'Steward chat',
+      stewardChat: 'Chat',
       closeConversation: 'Close conversation',
       deleteHistoryItem: 'Delete from history',
       conversationClosed: 'Conversation closed',
@@ -374,7 +374,7 @@ const en = {
     ui: {
       yes: 'Yes',
       no: 'No',
-      openStewardChat: 'Open Steward chat',
+      openStewardChat: 'Open chat',
       buildingSearchIndex: 'Building search index...',
       errorBuildingSearchIndex: 'Error building search index. Check console for details.',
       buildingIndexes: 'Steward: Building indexes...',
@@ -390,7 +390,7 @@ const en = {
       decryptionError: 'Failed to decrypt API key. Please re-enter it in settings.',
       encryptionError: 'Failed to encrypt API key. Please try again.',
       welcomeMessage:
-        'Welcome to your always-available Steward chat. Type below to interact or type `/ ?` to see available commands.',
+        'Welcome to Steward. Type below to interact or type `/ ?` to see available commands.',
       commandPlaceholder: 'Press Enter to send',
       addToInlineConversation: 'Steward: Add to the inline conversation',
       addToChat: 'Steward: Add to the chat',

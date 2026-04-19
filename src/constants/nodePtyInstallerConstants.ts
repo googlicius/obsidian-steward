@@ -24,16 +24,8 @@ export const NODE_PTY_INSTALLER_POST_INSTALL_FOOTER_LINES: readonly string[] = [
   'Adjust the shell executable, working directory, and add extra interactive programs.',
 ];
 
-export const NODE_PTY_INSTALLER_LATEST_BASENAME = 'install-node-pty-runtime-latest.sh';
+/** Bash installer written into the Steward folder (macOS, Linux, Git Bash). */
+export const NODE_PTY_INSTALLER_SH_BASENAME = 'install-node-pty-runtime.sh';
 
-export const NODE_PTY_INSTALLER_LATEST_PS1_BASENAME = 'install-node-pty-runtime-latest.ps1';
-
-export function buildNodePtyInstallerVersionedBasename(pluginVersion: string): string {
-  const clean = pluginVersion.replace(/^v/i, '');
-  return `install-node-pty-runtime-${clean}.sh`;
-}
-
-export function buildNodePtyInstallerVersionedPs1Basename(pluginVersion: string): string {
-  const clean = pluginVersion.replace(/^v/i, '');
-  return `install-node-pty-runtime-${clean}.ps1`;
-}
+/** PowerShell installer written into the Steward folder (native Windows). */
+export const NODE_PTY_INSTALLER_PS1_BASENAME = 'install-node-pty-runtime.ps1';

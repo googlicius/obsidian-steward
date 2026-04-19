@@ -72,7 +72,9 @@ function ensureBundledDesktopLibsRegistryLoaded(): Promise<BundledDesktopLibsReg
         globalThis as unknown as { __stewardBundledDesktopLibs?: BundledDesktopLibsRegistry }
       ).__stewardBundledDesktopLibs;
       if (!registry) {
-        throw new Error('[Steward] Bundled desktop libs chunk did not define __stewardBundledDesktopLibs');
+        throw new Error(
+          '[Steward] Bundled desktop libs chunk did not define __stewardBundledDesktopLibs'
+        );
       }
       return registry;
     })();

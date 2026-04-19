@@ -98,7 +98,7 @@ const vi = {
       moveChatToRight: 'Chuyển trò chuyện sang thanh bên phải',
       history: 'Lịch Sử',
       noConversations: 'Không có cuộc trò chuyện nào.',
-      stewardChat: 'Trò chuyện Steward',
+      stewardChat: 'Chat',
       closeConversation: 'Đóng cuộc trò chuyện',
       deleteHistoryItem: 'Xóa khỏi lịch sử',
       conversationClosed: 'Cuộc trò chuyện đã được đóng',
@@ -313,7 +313,7 @@ const vi = {
     ui: {
       yes: 'Có',
       no: 'Không',
-      openStewardChat: 'Mở trò chuyện Steward',
+      openStewardChat: 'Mở chat',
       buildingSearchIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
       errorBuildingSearchIndex:
         'Lỗi khi xây dựng chỉ mục tìm kiếm. Kiểm tra bảng điều khiển để biết chi tiết.',
@@ -331,7 +331,7 @@ const vi = {
       decryptionError: 'Không thể giải mã khóa API. Vui lòng nhập lại trong cài đặt.',
       encryptionError: 'Không thể mã hóa khóa API. Vui lòng thử lại.',
       welcomeMessage:
-        'Chào mừng đến với trò chuyện Steward luôn sẵn sàng. Gõ bên dưới để tương tác hoặc gõ `/ ?` để xem các lệnh có sẵn.',
+        'Chào mừng đến với Steward. Gõ bên dưới để tương tác hoặc gõ `/ ?` để xem các lệnh có sẵn.',
       commandPlaceholder: 'Nhấn Enter để gửi',
       addToInlineConversation: 'Steward: Thêm vào cuộc trò chuyện nội tuyến',
       addToChat: 'Steward: Thêm vào trò chuyện',
