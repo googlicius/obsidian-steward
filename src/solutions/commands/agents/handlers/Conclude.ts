@@ -28,7 +28,13 @@ export const concludeSchema = z.object({
       // Ignore these "artifact type" as they're not exist
       if (
         expectedArtifactType &&
-        ['todo_list', 'todo_list_update', 'todo_list_update_results'].includes(expectedArtifactType)
+        [
+          'todo_list',
+          'todo_list_update',
+          'todo_list_update_results',
+          'todo_write',
+          'todo_write_results',
+        ].includes(expectedArtifactType)
       ) {
         expectedArtifactType = undefined;
       }
@@ -121,7 +127,7 @@ export class Conclude {
       }
 
       switch (concludeInput.parallelToolName) {
-        case ToolName.TODO_LIST_UPDATE:
+        case ToolName.TODO_WRITE:
           return true;
 
         default:

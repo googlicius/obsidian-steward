@@ -24,6 +24,7 @@ const en = {
       searchDesc: 'Search for notes in your vault',
       imageDesc: 'Generate images',
       speechDesc: 'Generate speech from text',
+      terminalDesc: 'Use `/>` to start local shell mode',
       disabledMark: '(disabled)',
       helpTableCommand: 'Command',
       helpTableDescription: 'Description',
@@ -44,6 +45,28 @@ const en = {
       invalidOrDynamicToolCall: 'Model returned a dynamic or invalid tool call: "{{toolName}}".',
       statusValid: '✅ Valid',
       statusInvalid: 'Invalid: {{errors}}',
+      and: 'and',
+      or: 'or',
+    },
+    cli: {
+      disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
+      desktopOnly:
+        'The local CLI shell is only available in Obsidian on desktop. Mobile does not support local processes.',
+      spawnFailed:
+        '{{message}}\n\nThere are installers for each platform in your Steward folder; run them from your vault root folder:',
+      openingInteractiveTerminal: 'Opening interactive terminal...',
+      shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
+      processEndedSignal: '(Process ended: signal {{signal}})',
+      processEndedCode: '(Process exited with code {{code}})',
+      ptyNativePathUnavailable:
+        'Interactive CLI needs a local folder vault (FileSystemAdapter) so the node-pty native bundle path can be resolved.',
+      ptyNativeBundleMissing:
+        'The node-pty native bundle folder is missing or is not a directory: {{path}}. Run the Steward installer script or set a valid folder in CLI settings.',
+      inputLineCaptionShellPrefix: 'Shell',
+      inputLineCaptionShellActive: 'Shell, Ctrl+C to exit',
+      nodePtyInstallWindowsHeading: 'Install on Windows',
+      nodePtyInstallUnixHeading: 'Install on Mac / Linux',
+      seeCliWiki: 'See [CLI]({{cliDoc}}) for transcript vs interactive mode and node-pty setup.',
     },
     mcp: {
       noConfigBlock:
@@ -53,6 +76,11 @@ const en = {
       noServers:
         'No MCP servers found. Add definition notes (markdown) under `{{folder}}`, then restart or reload the plugin if needed.',
       helpNoteAlias: 'MCP',
+      toolsPlaceholder: 'Check enabled to discover and list tool names from this MCP server.',
+      connectionFailedRetry:
+        'Could not connect to this MCP server. Re-check the enabled field in this MCP note to retry.',
+      activateToolsMcpHint:
+        'For MCP tools: ensure the MCP server is running and re-check enabled on the MCP definition note if execution fails.',
     },
     trigger: {
       executing: 'Command "{{commandName}}" is executing.',
@@ -74,10 +102,11 @@ const en = {
     // Chat UI elements
     chat: {
       newChat: 'New chat',
+      moveChatToMain: 'Move chat to main editor',
+      moveChatToRight: 'Move chat to right sidebar',
       history: 'History',
       noConversations: 'No past conversations found.',
-      closeChat: 'Close chat',
-      stewardChat: 'Steward chat',
+      stewardChat: 'Chat',
       closeConversation: 'Close conversation',
       deleteHistoryItem: 'Delete from history',
       conversationClosed: 'Conversation closed',
@@ -295,9 +324,8 @@ const en = {
       matches: 'Matches:',
       moreMatches: '... and {{count}} more match',
       moreMatches_plural: '... and {{count}} more matches',
-      showMoreDetails: 'Type `/more` to show the next 10 results.',
       pagination: 'Page {{current}} of {{total}}',
-      useMoreCommand: 'Type `/more` to see the next page of results.',
+      useMoreCommand: 'Type `/ more` to see the next page of results.',
       resultAvailableInArtifact: 'The search result is available in the artifact: {{artifactId}}',
       noMoreResults: 'No more search results to show.',
       noRecentSearch: 'No recent search found. Please run a search command first.',
@@ -346,7 +374,7 @@ const en = {
     ui: {
       yes: 'Yes',
       no: 'No',
-      openStewardChat: 'Open Steward chat',
+      openStewardChat: 'Open chat',
       buildingSearchIndex: 'Building search index...',
       errorBuildingSearchIndex: 'Error building search index. Check console for details.',
       buildingIndexes: 'Steward: Building indexes...',
@@ -362,7 +390,7 @@ const en = {
       decryptionError: 'Failed to decrypt API key. Please re-enter it in settings.',
       encryptionError: 'Failed to encrypt API key. Please try again.',
       welcomeMessage:
-        'Welcome to your always-available Steward chat. Type below to interact or type `/ ?` to see available commands.',
+        'Welcome to Steward. Type below to interact or type `/ ?` to see available commands.',
       commandPlaceholder: 'Press Enter to send',
       addToInlineConversation: 'Steward: Add to the inline conversation',
       addToChat: 'Steward: Add to the chat',
@@ -372,10 +400,6 @@ const en = {
     },
     todoList: {
       todoList: 'To-Do list',
-      pending: 'Pending',
-      inProgress: 'In Progress',
-      skipped: 'Skipped',
-      completed: 'Completed',
       step: 'Step {{index}}',
     },
     documentation: {
@@ -391,7 +415,7 @@ const en = {
       tipChangeModel: 'Type `m:` or `model:` to change model',
       tipAttachContext: 'Type `@` to attach files/folders',
       tipStop: 'Press `ESC` or type `Stop` to stop generation',
-      tipRevert: 'Type `Undo` to revert the last change',
+      tipRevert: 'Type `Undo` to revert the last changes',
       fetchFailed: 'Failed to fetch documentation: {{docName}}',
       downloading: 'Downloading {{name}}...',
     },
@@ -427,6 +451,7 @@ const en = {
       generatingAudio: 'Generating audio...',
       moving: 'Moving...',
       searching: 'Searching...',
+      cliTranscript: 'Running local CLI...',
       calculating: 'Calculating...',
       reverting: 'Reverting changes...',
       revertSuccess: 'Successfully reverted the last change.',
@@ -443,7 +468,7 @@ const en = {
       continuingProcessing: 'Continuing...',
       processingBatch: 'Processing batch {{current}} of {{total}}...',
       udcTodoListBootstrapGuide:
-        '[On system behalf] A multi-step user-defined command (`/{{commandName}}`) is running. The following todo_list tool call was injected by the system to register the step plan; it is not something the end user typed.',
+        '[On system behalf] A multi-step user-defined command (`/{{commandName}}`) is running. The following todo_write tool call was injected by the system to register the step plan; it is not something the end user typed.',
       stepLimitReached:
         'I have reached the maximum number of processing steps. Would you like me to continue with more steps?',
     },
@@ -569,6 +594,22 @@ const en = {
       days30: '30 days',
       days90: '90 days',
       year1: '1 year',
+      cliBridge: 'Local CLI bridge',
+      cliBridgeDesc:
+        'Run a local shell from conversations (`/>`). Desktop only; runs processes on your machine (security risk if misused). Most commands use transcript (streamed output); supported programs can use an interactive TTY when node-pty is installed.',
+      cliBridgeEnabled: 'Enable local CLI bridge',
+      cliBridgeEnabledDesc: 'Allows `/>` to spawn a local shell process.',
+      cliShellExecutable: 'Shell executable (optional)',
+      cliShellExecutableDesc:
+        'Override shell for `/>`. Leave empty for PowerShell on Windows or /bin/bash on macOS/Linux.',
+      cliWorkingDirectory: 'Working directory (optional)',
+      cliWorkingDirectoryDesc: 'Empty = vault root. CLI processes start in this folder.',
+      cliNodePtyNativePath: 'node-pty native bundle folder (optional)',
+      cliNodePtyNativePathDesc:
+        'Folder containing the extracted node-pty-prebuilt tree (native binaries). Empty = your Steward folder + /node-pty-prebuilt under the vault. Absolute path or path relative to the vault root.',
+      cliInteractivePrograms: 'Additional interactive programs',
+      cliInteractiveProgramsDesc:
+        'Comma or newline separated program names treated as interactive mode for `/>` (e.g., nvim, lazygit, htop). Built-ins include {{builtInsList}}.',
       modelFallbackEnabled: 'Enable model fallback',
       modelFallbackEnabledDesc:
         'Automatically switch to backup models when the primary model fails',

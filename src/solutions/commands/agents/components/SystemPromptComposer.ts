@@ -1,8 +1,6 @@
 import type StewardPlugin from 'src/main';
-import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { ToolName } from '../../ToolRegistry';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
-import type { TodoListState } from '../handlers/TodoList';
 
 const VAULT_MANAGEMENT_TOOLS: ToolName[] = [
   ToolName.LIST,
@@ -15,7 +13,7 @@ const VAULT_MANAGEMENT_TOOLS: ToolName[] = [
 ];
 
 /**
- * Mixin: composes reusable prompt sections (task instructions, to-do list, skill catalog)
+ * Mixin: composes reusable prompt sections (task instructions, skill catalog)
  * that are shared across SuperAgent and SubAgent executors.
  */
 export class SystemPromptComposer {
@@ -64,43 +62,6 @@ export class SystemPromptComposer {
     }
 
     return lines.join('\n');
-  }
-
-  protected async generateTodoListPrompt(params: {
-    renderer: ConversationRenderer;
-    title: string;
-  }): Promise<string> {
-    const todoListState = await params.renderer.getConversationProperty<TodoListState>(
-      params.title,
-      'todo_list'
-    );
-
-    if (!todoListState || !todoListState.steps || todoListState.steps.length === 0) {
-      return '';
-    }
-
-    return `\n\nTO-DO LIST:
-You are working on a to-do list with ${todoListState.steps.length} step(s).
-Current step: ${todoListState.currentStep} of ${todoListState.steps.length}
-
-Steps:
-${todoListState.steps
-  .map((step, index) => {
-    const status =
-      step.status === 'completed'
-        ? '✅ Completed'
-        : step.status === 'skipped'
-          ? '⏭️ Skipped'
-          : step.status === 'in_progress'
-            ? '🔄 In Progress'
-            : '⏳ Pending';
-    return `${index + 1}. ${status}: ${step.task}`;
-  })
-  .join('\n')}
-
-When you complete or skip the current step, use the ${ToolName.TODO_LIST_UPDATE} tool with:
-- status: in_progress, skipped, or completed
-- nextStep: (optional) the step number to move to after updating`;
   }
 
   protected generateSkillCatalogPrompt(params: { plugin: StewardPlugin }): string {

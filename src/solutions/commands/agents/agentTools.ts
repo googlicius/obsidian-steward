@@ -29,8 +29,7 @@ const SUBAGENT_TOOL_NAME_LIST = [
   ToolName.ACTIVATE,
   ToolName.SPEECH,
   ToolName.IMAGE,
-  ToolName.TODO_LIST,
-  ToolName.TODO_LIST_UPDATE,
+  ToolName.TODO_WRITE,
   ToolName.CONCLUDE,
   ToolName.RECALL_COMPACTED_CONTEXT,
 ] as const;
@@ -76,8 +75,7 @@ async function buildBaseAgentTools(): Promise<AgentToolsRecord> {
     getArtifactByIdTool,
     speechTool,
     imageTool,
-    todoListTool,
-    todoListUpdateTool,
+    todoWriteTool,
     concludeTool,
     recallCompactedContextTool,
     activateToolsTool,
@@ -104,8 +102,7 @@ async function buildBaseAgentTools(): Promise<AgentToolsRecord> {
     handlers.GetArtifactById.getGetArtifactByIdTool(),
     handlers.Speech.getSpeechTool(),
     handlers.Image.getImageTool(),
-    handlers.TodoList.getTodoListTool(),
-    handlers.TodoList.getTodoListUpdateTool(),
+    handlers.TodoList.getTodoWriteTool(),
     handlers.Conclude.getConcludeTool(),
     handlers.RecallCompactedContext.getRecallCompactedContextTool(),
     getActivateToolsTool(),
@@ -135,14 +132,28 @@ async function buildBaseAgentTools(): Promise<AgentToolsRecord> {
     [ToolName.ACTIVATE]: activateToolsTool,
     [ToolName.SPEECH]: speechTool,
     [ToolName.IMAGE]: imageTool,
-    [ToolName.TODO_LIST]: todoListTool,
-    [ToolName.TODO_LIST_UPDATE]: todoListUpdateTool,
+    [ToolName.TODO_WRITE]: todoWriteTool,
     [ToolName.CONCLUDE]: concludeTool,
     [ToolName.RECALL_COMPACTED_CONTEXT]: recallCompactedContextTool,
-  } as AgentToolsRecord;
+  };
+}
+
+async function buildGoogleAgentTools(): Promise<AgentToolsRecord> {
+  const [todoWriteTool, deleteTool, moveTool] = await Promise.all([
+    handlers.TodoList.getGoogleTodoWriteTool(),
+    handlers.VaultDelete.getGoogleDeleteTool(),
+    handlers.VaultMove.getGoogleMoveTool(),
+  ]);
+
+  return {
+    [ToolName.TODO_WRITE]: todoWriteTool,
+    [ToolName.DELETE]: deleteTool,
+    [ToolName.MOVE]: moveTool,
+  };
 }
 
 let baseAgentToolsPromise: Promise<AgentToolsRecord> | null = null;
+let googleToolsPromise: Promise<AgentToolsRecord> | null = null;
 let superAgentOnlyToolsPromise: Promise<AgentToolsRecord> | null = null;
 
 /** Cached subagent (shared) tool implementations without MCP. */
@@ -151,6 +162,14 @@ export function loadSubagentToolsBase(): Promise<AgentToolsRecord> {
     baseAgentToolsPromise = buildBaseAgentTools();
   }
   return baseAgentToolsPromise;
+}
+
+/** Cached Google tool implementations. */
+export function loadGoogleTools(): Promise<AgentToolsRecord> {
+  if (!googleToolsPromise) {
+    googleToolsPromise = buildGoogleAgentTools();
+  }
+  return googleToolsPromise;
 }
 
 /** Cached super-agent tool implementations without MCP. */

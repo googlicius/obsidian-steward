@@ -178,10 +178,10 @@ NOTE:
     description:
       'Create new folders and files (notes, canvases, bases, etc.) and optionally populate file content.',
     guidelines: [
-      `- Use newFolders for folder paths.
-  - Use newFiles with filePath (not fileName) for file creation.
-  - Ensure each filePath includes the appropriate extension (e.g. .md, .canvas, .base).
-  - Provide the exact content that should be written to a file when available.`,
+      `Use newFolders for folder paths.`,
+      'Use newFiles with filePath (not fileName) for file creation.',
+      'Ensure each filePath includes the appropriate extension (e.g. .md, .canvas, .base).',
+      'Provide the exact content that should be written to a file when available.',
       `On success, creates artifact: ${ArtifactType.CREATED_PATHS}.`,
     ],
     category: 'content-create',
@@ -311,26 +311,19 @@ NOTE:
     showDescriptionWhenInactive: true,
   },
 
-  [ToolName.TODO_LIST]: {
-    name: ToolName.TODO_LIST,
+  [ToolName.TODO_WRITE]: {
+    name: ToolName.TODO_WRITE,
     description:
-      'Create a to-do list for complex tasks by breaking down into manageable steps. Each step includes a task that will be executed sequentially.',
+      'Create or update a to-do list for complex tasks. Pass a single-item operations array: one object with operation "create" and steps, or operation "update" with currentStepStatus and optional nextStep.',
     guidelines: [
-      `When creating a to-do list, provide an array of steps, each with a task. The task is the only required field for each step.`,
-      `After creating a to-do list, you should execute the first step's task.`,
+      `Always use { "operations": [ { ... } ] } with exactly one element (create or update).`,
+      `When creating a list, use operations: [{ operation: "create", steps: [...] }]. Each step needs a task. After creating, execute the first step.`,
+      `When you complete or skip the current step, use operations: [{ operation: "update", currentStepStatus, nextStep? }]. currentStepStatus is for the current step only (not the step you move to via nextStep).`,
+      `When moving to the next step, you SHOULD call ${ToolName.TODO_WRITE} in parallel (in the same request) with the tool that performs the next task.`,
+      `Read the latest tool result from ${ToolName.TODO_WRITE} for current steps, statuses, and any step-specific instructions. If all tasks are completed or skipped, stop the plan.`,
     ],
     category: 'task-management',
     showDescriptionWhenInactive: true,
-  },
-
-  [ToolName.TODO_LIST_UPDATE]: {
-    name: ToolName.TODO_LIST_UPDATE,
-    description: 'Update the current step index of an existing to-do list.',
-    guidelines: [
-      `Use ${ToolName.TODO_LIST_UPDATE} to update the current step index when moving to the next step in a to-do list.
-  - When moving to the next step, you SHOULD call ${ToolName.TODO_LIST_UPDATE} tool in parallel (in the same request) with the tool that performs the next task.`,
-    ],
-    category: 'task-management',
   },
 
   [ToolName.SPAWN_SUBAGENT]: {
@@ -378,6 +371,15 @@ NOTE:
       `Provide messageIds from the compacted conversation index (format: <id>, e.g. msg-abc123).`,
     ],
     category: 'context-retrieval',
+  },
+
+  [ToolName.SHELL]: {
+    name: ToolName.SHELL,
+    description:
+      'Internal: start or continue a local shell transcript for the conversation. Not available to the model.',
+    guidelines: ['Used only for client-side manual tool calls. Do not reference in prompts.'],
+    category: 'internal',
+    showDescriptionWhenInactive: false,
   },
 };
 

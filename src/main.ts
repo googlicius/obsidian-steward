@@ -1,4 +1,12 @@
-import { Notice, Plugin, WorkspaceLeaf, addIcon, getLanguage } from 'obsidian';
+import {
+  Notice,
+  Platform,
+  Plugin,
+  WorkspaceLeaf,
+  WorkspaceParent,
+  addIcon,
+  getLanguage,
+} from 'obsidian';
 import i18next from './i18n';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
@@ -14,6 +22,8 @@ import { createThinkingProcessPostProcessor } from './post-processors/ThinkingPr
 import { createConfirmationButtonsProcessor } from './post-processors/ConfirmationButtonsProcessor';
 import { createCalloutEditPreviewPostProcessor } from './post-processors/CalloutEditPreviewPostProcessor';
 import { createConversationIndicatorProcessor } from './post-processors/ConversationIndicatorProcessor';
+import { createCliTranscriptPostProcessor } from './post-processors/CliTranscriptPostProcessor';
+import { createCliXtermPostProcessor } from './post-processors/CliXtermPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -57,10 +67,14 @@ import { CompactionOrchestrator } from './solutions/compaction';
 import { SubagentSpawnService } from './services/SubagentSpawnService';
 import { MCPService } from './services/MCPService';
 import { runSettingsSchemaMigrations } from './settings/migrations/settingsSchemaMigrations';
+import { CliSessionService } from './services/CliSessionService/CliSessionService';
+import { PtyCompanionService } from './services/PtyCompanionService/PtyCompanionService';
+import { NodePtyInstallerScriptService } from './services/NodePtyInstallerScriptService/NodePtyInstallerScriptService';
+import { WikilinkForwardService } from './services/WikilinkForwardService/WikilinkForwardService';
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;
-  chatTitle = 'Steward chat';
+  chatTitle = 'Chat';
   conversationEventHandler: ConversationEventHandler;
   llmService: LLMService;
   trashCleanupService: TrashCleanupService;
@@ -88,6 +102,30 @@ export default class StewardPlugin extends Plugin {
   _subAgentSpawnService: SubagentSpawnService;
   _obsidianAPITools: ObsidianAPITools;
   _commandProcessorService: CommandProcessorService;
+  _cliSessionService: CliSessionService;
+  _ptyCompanionService: PtyCompanionService;
+  _wikilinkForwardService: WikilinkForwardService;
+
+  get cliSessionService(): CliSessionService {
+    if (!this._cliSessionService) {
+      this._cliSessionService = new CliSessionService(this);
+    }
+    return this._cliSessionService;
+  }
+
+  get wikilinkForwardService(): WikilinkForwardService {
+    if (!this._wikilinkForwardService) {
+      this._wikilinkForwardService = new WikilinkForwardService(this);
+    }
+    return this._wikilinkForwardService;
+  }
+
+  get ptyCompanionService(): PtyCompanionService {
+    if (!this._ptyCompanionService) {
+      this._ptyCompanionService = new PtyCompanionService(this);
+    }
+    return this._ptyCompanionService;
+  }
 
   get obsidianAPITools(): ObsidianAPITools {
     if (!this._obsidianAPITools) {
@@ -287,6 +325,10 @@ export default class StewardPlugin extends Plugin {
     // Initialize the MCPService (loads MCP definitions from Steward/MCP folder)
     this.mcpService;
 
+    if (Platform.isDesktopApp) {
+      await this.ptyCompanionService.start();
+    }
+
     this.app.workspace.onLayoutReady(async () => {
       // Clean up old search databases
       this.cleanupOldSearchDatabases();
@@ -310,6 +352,9 @@ export default class StewardPlugin extends Plugin {
   }
 
   onunload() {
+    this._cliSessionService?.disposeAll();
+    void this._ptyCompanionService?.stop();
+
     // Remove the language attribute from the HTML element
     document.documentElement.removeAttribute('data-stw-language');
 
@@ -432,6 +477,9 @@ export default class StewardPlugin extends Plugin {
       createAutocompleteExtension(this),
     ]);
 
+    // Wire up event-driven conversation-forwarding rewrites.
+    this.wikilinkForwardService.registerEvents();
+
     // Register context menu for editor
     this.registerEvent(
       this.app.workspace.on('editor-menu', (menu, editor) => {
@@ -483,6 +531,9 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createStwSourcePostProcessor(this));
 
     this.registerMarkdownPostProcessor(createThinkingProcessPostProcessor());
+
+    this.registerMarkdownPostProcessor(createCliTranscriptPostProcessor());
+    this.registerMarkdownPostProcessor(createCliXtermPostProcessor(this));
 
     this.registerMarkdownPostProcessor(createConfirmationButtonsProcessor(this));
 
@@ -675,15 +726,16 @@ export default class StewardPlugin extends Plugin {
 
         // Create a title now so we can safely refer to it later
         const formattedDate = formatDateTime();
-        const title = ['search', 'help', 'audio', 'image'].includes(intentType)
+        const rawTitle = ['search', 'help', 'audio', 'image'].includes(intentType)
           ? capitalizeString(intentType)
           : `${capitalizeString(intentType.trim()) || 'General'} ${formattedDate}`;
+        const title = this.sanitizeVaultNoteTitle(rawTitle);
 
         const conversationLanguage = getLanguage();
-        const indicatorText = this.conversationRenderer.getIndicatorTextByIntentType(
-          intentType,
-          conversationLanguage
-        );
+        // const indicatorText = this.conversationRenderer.getIndicatorTextByIntentType(
+        //   intentType,
+        //   conversationLanguage
+        // );
         await this.conversationRenderer.createConversationNote(title, {
           intent: {
             type: intentType,
@@ -691,7 +743,7 @@ export default class StewardPlugin extends Plugin {
           },
           properties: [
             { name: 'lang', value: conversationLanguage },
-            { name: 'indicator_text', value: indicatorText },
+            // { name: 'indicator_text', value: indicatorText },
           ],
         });
 
@@ -724,12 +776,6 @@ export default class StewardPlugin extends Plugin {
           // We don't know the language here, the extraction will update it later
         });
 
-        // Render indicator
-        // setTimeout(() => {
-        //   const indicatorText = this.conversationRender.getIndicatorTextByCommandType(intentType);
-        //   this.conversationRender.addGeneratingIndicator(title, indicatorText);
-        // });
-
         return true;
       } catch (error) {
         logger.error('Error in handleEnter:', error);
@@ -740,27 +786,88 @@ export default class StewardPlugin extends Plugin {
     return true;
   }
 
+  public leafIsInRightSidebar(leaf: WorkspaceLeaf): boolean {
+    for (let p: WorkspaceParent | null = leaf.parent; p; p = p.parent) {
+      if (p === this.app.workspace.rightSplit) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private async relocateChatLeafToDock(
+    currentLeaf: WorkspaceLeaf,
+    targetDock: 'main' | 'right'
+  ): Promise<WorkspaceLeaf> {
+    const collapseRightAfterMove = targetDock === 'main' && this.leafIsInRightSidebar(currentLeaf);
+
+    const state = currentLeaf.getViewState();
+    let newLeaf: WorkspaceLeaf;
+    if (targetDock === 'right') {
+      const rightLeaf = this.app.workspace.getRightLeaf(false);
+      if (!rightLeaf) {
+        throw new Error('Failed to get right sidebar leaf');
+      }
+      newLeaf = rightLeaf;
+    } else {
+      newLeaf = this.app.workspace.getLeaf('tab');
+    }
+
+    await newLeaf.setViewState(state);
+    currentLeaf.detach();
+
+    if (collapseRightAfterMove) {
+      this.app.workspace.rightSplit.collapse();
+    }
+
+    return newLeaf;
+  }
+
   /**
-   * Gets or creates the leaf for the chat
-   * @returns The leaf containing the chat
+   * Gets or creates the leaf for the chat in the configured dock ({@link StewardPluginSettings.chatViewDock}).
    */
-  public getChatLeaf(): WorkspaceLeaf {
-    // Try to find existing leaf by view type
+  public async getChatLeaf(): Promise<WorkspaceLeaf> {
+    const dock = this.settings.chatViewDock;
     const leaves = this.app.workspace.getLeavesOfType(STW_CHAT_VIEW_CONFIG.type);
 
-    // Use the first leaf if available
     if (leaves.length > 0) {
-      return leaves[0];
+      const leaf = leaves[0];
+      return leaf;
     }
 
-    // If no leaf found, create a new one
-    const leaf = this.app.workspace.getRightLeaf(false);
-
-    if (!leaf) {
-      throw new Error('Failed to create or find a leaf for the chat');
+    if (dock === 'right') {
+      const leaf = this.app.workspace.getRightLeaf(false);
+      if (!leaf) {
+        throw new Error('Failed to create or find a leaf for the chat');
+      }
+      return leaf;
     }
 
-    return leaf;
+    return this.app.workspace.getLeaf('tab');
+  }
+
+  /**
+   * Toggle chat between the right sidebar and the main editor; updates {@link StewardPluginSettings.chatViewDock}.
+   */
+  public async toggleChatDockFromView(currentLeaf: WorkspaceLeaf): Promise<void> {
+    const newDoc: StewardPluginSettings['chatViewDock'] = this.leafIsInRightSidebar(currentLeaf)
+      ? 'main'
+      : 'right';
+    this.settings.chatViewDock = newDoc;
+    await this.saveSettings();
+
+    const newLeaf = await this.relocateChatLeafToDock(currentLeaf, newDoc);
+    await this.app.workspace.revealLeaf(newLeaf);
+    this.app.workspace.setActiveLeaf(newLeaf);
+
+    const commandInputService =
+      newLeaf.view instanceof StewardChatView
+        ? this.commandInputService.withEditor(newLeaf.view.editor)
+        : this.commandInputService;
+
+    setTimeout(() => {
+      commandInputService.focus();
+    }, 500);
   }
 
   public async openChat({ revealLeaf = true }: { revealLeaf?: boolean } = {}): Promise<void> {
@@ -775,17 +882,22 @@ export default class StewardPlugin extends Plugin {
         await this.app.vault.createFolder(folderPath);
       }
 
-      // Check if the chat note exists, create if not
-      const noteExists = this.app.vault.getFileByPath(notePath);
-      if (!noteExists) {
-        // Build initial content
-        const initialContent = '';
-
-        // Create the chat note
-        await this.app.vault.create(notePath, initialContent);
+      // Prefer new note name; migrate legacy "Steward chat.md" once if present
+      let chatFile = this.app.vault.getFileByPath(notePath);
+      if (!chatFile) {
+        const legacyPath = `${folderPath}/Steward chat.md`;
+        const legacyFile = this.app.vault.getFileByPath(legacyPath);
+        if (legacyFile) {
+          await this.app.fileManager.renameFile(legacyFile, notePath);
+          chatFile = this.app.vault.getFileByPath(notePath);
+        }
       }
 
-      const leaf = this.getChatLeaf();
+      if (!chatFile) {
+        await this.app.vault.create(notePath, '');
+      }
+
+      const leaf = await this.getChatLeaf();
 
       // Use our custom view
       await leaf.setViewState({
@@ -1034,6 +1146,8 @@ export default class StewardPlugin extends Plugin {
         // Ensure MCP folder exists for MCP definitions
         const mcpFolder = `${this.settings.stewardFolder}/MCP`;
         await this.obsidianAPITools.ensureFolderExists(mcpFolder);
+
+        await new NodePtyInstallerScriptService(this).sync();
       } catch (error) {
         logger.error('Failed to ensure required folders:', error);
       }
@@ -1078,5 +1192,14 @@ export default class StewardPlugin extends Plugin {
     } catch (error) {
       logger.error('Error during search database cleanup:', error);
     }
+  }
+
+  private sanitizeVaultNoteTitle(name: string): string {
+    const INVALID_VAULT_FILE_NAME_CHARS = /[*"<>:\\/|?]/g;
+    const collapsed = name.replace(INVALID_VAULT_FILE_NAME_CHARS, '').replace(/\s+/g, ' ').trim();
+    if (collapsed.length > 0) {
+      return collapsed;
+    }
+    return 'Conversation';
   }
 }

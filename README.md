@@ -15,6 +15,7 @@ Steward is an autonomous AI agent for Obsidian, powered by Large Language Models
 - **Model flexibility**: Use your favorite AI models, including OpenAI, Gemini, DeepSeek, Ollama, and OpenAI Compatible, etc.
 - **Model fallback**: Automatically switches to alternative models when errors occur, ensuring robust command execution.
 - **User-defined commands**: Create your own command workflows by combining multiple commands with specific LLM models and settings of your choice.
+- **Shell and terminal (desktop)**: Run shell sessions from Steward directly in the Obsidian editor.
 
 ## Table of contents
 
@@ -25,6 +26,7 @@ Steward is an autonomous AI agent for Obsidian, powered by Large Language Models
 - [Skills](#skills)
 - [Guardrails](#guardrails)
 - [MCP](#mcp)
+- [Shell commands and terminal](#shell-commands-and-terminal)
 - [User-defined commands](#user-defined-commands)
 - [Folder structure](#folder-structure)
 - [Installation](#installation)
@@ -40,7 +42,7 @@ Steward can be used directly in the editor or by opening the chat interface.
 
 ### Usage
 
-1. Click the "Open Steward chat" icon to open the chat
+1. Click the "Open chat" icon to open the chat
 2. Type after the `/ ` in the chat or the active editor to interact or type `/ ?` to see available commands
 3. To add a new line in the command input, press `Shift+Enter` (uses 2-space indentation)
 4. To change the model, in the input, type `m:` or `model:` and select from the dropdown.
@@ -105,6 +107,14 @@ For the full format, examples, and troubleshooting, see the [MCP wiki](https://g
 
 <img src="/README.assets/Steward-Demo-MCP.gif" alt="MCP" width="650px">
 
+## Shell commands and terminal
+
+On **desktop**, Steward can start shell sessions from the chat or editor. Use **`/>`** to enter shell mode: most commands run in **transcript** mode, streamed directly in the conversation. Or programs such as `vim` use **interactive** mode—a real TTY via **node-pty** when the native bundle is installed (for example `/>vim`).
+
+Native binaries need to be installed in order to use interactive mode.
+
+For modes, installers, built-in interactive programs, and settings, see the **[CLI wiki](https://github.com/googlicius/obsidian-steward/wiki/CLI)**.
+
 ## User-defined commands
 
 You can create your own **User-Defined Commands** to automate workflows and combine multiple built-in or other User-Defined commands into a single, reusable command. Commands are defined as YAML blocks in markdown files inside the `Steward/Commands` folder, and they're available with autocomplete just like built-in commands.
@@ -144,7 +154,9 @@ Steward/
 ├── Rules/          # Guardrails rules (one file per rule)
 ├── Skills/         # Agent skills for domain-specific knowledge
 ├── Trash/          # Stores deleted files
-└── Steward chat.md # Current active conversation
+├── install-node-pty-runtime.sh   # Downloads node-pty prebuilt (macOS, Linux, Git Bash)
+├── install-node-pty-runtime.ps1  # Downloads node-pty prebuilt (Windows PowerShell)
+└── Chat.md                       # Current active conversation
 ```
 
 ## Installation

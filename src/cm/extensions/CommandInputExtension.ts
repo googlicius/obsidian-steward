@@ -9,8 +9,10 @@ import {
 import { Extension, Line, Prec } from '@codemirror/state';
 import { TWO_SPACES_PREFIX } from 'src/constants';
 import type StewardPlugin from 'src/main';
+import i18next from 'src/i18n';
 import { Events, type ModelChangedPayload } from 'src/types/events';
 import { completionStatus } from '@codemirror/autocomplete';
+import { cliSessionDecorationRefresh } from 'src/services/CommandInputService';
 
 export interface CommandInputOptions {
   /**
@@ -82,7 +84,10 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
       }
 
       update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged) {
+        const cliSessionChanged = update.transactions.some(
+          tr => tr.annotation(cliSessionDecorationRefresh) === true
+        );
+        if (update.docChanged || update.viewportChanged || cliSessionChanged) {
           void this.buildDecorations();
         }
       }
@@ -96,7 +101,8 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
         const requestId = ++this.decorationBuildRequestId;
         const decorations = [];
         let extendedPrefixes: string[] | null = null;
-        let modelLabel: string | undefined;
+        /** Cached model display label for the active conversation (fetched at most once per build). */
+        let cachedConversationModelLabel: string | undefined;
         // Track if we fetched data asynchronously (e.g., model label from conversation title)
         // so we can trigger a view update after decorations are set
         let isAsync = false;
@@ -120,43 +126,55 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
             extendedPrefixes = plugin.userDefinedCommandService.buildExtendedPrefixes();
           }
 
+          /** Prefix with slash "/" */
           const matchedPrefix = extendedPrefixes.find(prefix => lineText.startsWith(prefix));
 
           if (matchedPrefix) {
             const prefixFrom = line.from + lineText.indexOf(matchedPrefix);
             const prefixTo = prefixFrom + matchedPrefix.length;
+            const conversationTitle = plugin.findConversationTitleAbove(this.view, line.number);
 
-            if (!modelLabel) {
-              const conversationTitle = plugin.findConversationTitleAbove(this.view, line.number);
-              if (conversationTitle) {
-                modelLabel = await plugin.getCurrentConversationModelLabel({
+            const hasShellSession =
+              !!conversationTitle &&
+              plugin.cliSessionService.getSession(conversationTitle) !== undefined;
+            const isShellPrefix = matchedPrefix === '/>';
+
+            let lineCaption: string | undefined;
+            if (hasShellSession || isShellPrefix) {
+              lineCaption = hasShellSession
+                ? i18next.t('cli.inputLineCaptionShellActive')
+                : i18next.t('cli.inputLineCaptionShellPrefix');
+            } else if (conversationTitle) {
+              if (cachedConversationModelLabel === undefined) {
+                cachedConversationModelLabel = await plugin.getCurrentConversationModelLabel({
                   conversationTitle,
                   forceRefresh: true,
                 });
-                // Mark that we performed an async operation (await above)
                 isAsync = true;
-              } else {
-                const commandName = matchedPrefix.replace('/', '').trim();
-                let commandModel = '';
-
-                if (plugin.userDefinedCommandService.hasCommand(commandName)) {
-                  commandModel = plugin.userDefinedCommandService.userDefinedCommands.get(
-                    commandName
-                  )?.normalized.model as string;
-                }
-
-                if (!commandModel) {
-                  commandModel = plugin.settings.llm.chat.model;
-                }
-
-                modelLabel = plugin.llmService.formatModelLabel(commandModel);
               }
+              lineCaption = cachedConversationModelLabel;
+            } else {
+              const commandName = matchedPrefix.replace('/', '').trim();
+              let commandModel = '';
+
+              if (plugin.userDefinedCommandService.hasCommand(commandName)) {
+                commandModel = plugin.userDefinedCommandService.userDefinedCommands.get(commandName)
+                  ?.normalized.model as string;
+              }
+
+              if (!commandModel) {
+                commandModel = plugin.settings.llm.chat.model;
+              }
+
+              lineCaption = plugin.llmService.formatModelLabel(commandModel);
             }
 
             const commandInputLineDecor = Decoration.line({
               class: 'stw-input-line',
               attributes: {
-                'data-stw-model': modelLabel,
+                ...(lineCaption && {
+                  'data-stw-input-caption': lineCaption,
+                }),
               },
             });
 
@@ -360,6 +378,35 @@ function createCommandKeymapExtension(
 ): Extension {
   return Prec.high(
     keymap.of([
+      {
+        key: 'Ctrl-c',
+        run: view => {
+          const selection = view.state.selection.main;
+          if (!selection.empty) {
+            return false;
+          }
+
+          const doc = view.state.doc;
+          const line = doc.lineAt(selection.head);
+          const inputPrefix = plugin.commandInputService.getInputPrefix(line, doc);
+          if (!inputPrefix) {
+            return false;
+          }
+
+          const conversationTitle = plugin.findConversationTitleAbove(view, line.number);
+          if (!conversationTitle) {
+            return false;
+          }
+
+          const session = plugin.cliSessionService.getSession(conversationTitle);
+          if (!session) {
+            return false;
+          }
+
+          void plugin.cliSessionService.interruptSession(session);
+          return true;
+        },
+      },
       {
         key: 'Enter',
         run: view => {

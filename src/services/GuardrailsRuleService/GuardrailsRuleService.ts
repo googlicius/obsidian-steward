@@ -97,18 +97,18 @@ export class GuardrailsRuleService {
     try {
       this.plugin.app.workspace.onLayoutReady(async () => {
         await this.loadRules();
+
+        this.plugin.registerEvent(
+          this.plugin.app.vault.on('create', file => {
+            if (file instanceof TFile && this.isInRulesFolder(file.path)) {
+              this.reloadRule(file);
+            }
+          })
+        );
       });
 
       this.plugin.registerEvent(
         this.plugin.app.vault.on('modify', file => {
-          if (file instanceof TFile && this.isInRulesFolder(file.path)) {
-            this.reloadRule(file);
-          }
-        })
-      );
-
-      this.plugin.registerEvent(
-        this.plugin.app.vault.on('create', file => {
           if (file instanceof TFile && this.isInRulesFolder(file.path)) {
             this.reloadRule(file);
           }

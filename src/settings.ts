@@ -18,6 +18,8 @@ import { applyMixins } from './utils/applyMixins';
 import { ProviderSetting } from './settings/ProviderSetting';
 import { getClassifier } from './lib/modelfusion';
 import { FolderSuggest } from './settings/FolderSuggest';
+import { BUILT_IN_INTERACTIVE_APPS } from './services/CliSessionService/CliSessionService';
+import { joinWithConjunction } from './utils/arrayUtils';
 
 const lang = getLanguage();
 const t = getTranslation(lang);
@@ -741,6 +743,67 @@ class StewardSettingTab extends PluginSettingTab {
         text.inputEl.setAttribute('min', '1');
         text.inputEl.setAttribute('max', '100');
       });
+
+    // Add CLI setting section
+    const cliSettingGroup = this.addNewSettingGroup();
+
+    new Setting(cliSettingGroup.settingGroup).setName(t('settings.cliBridge')).setHeading();
+
+    new Setting(cliSettingGroup.settingItems)
+      .setName(t('settings.cliShellExecutable'))
+      .setDesc(t('settings.cliShellExecutableDesc'))
+      .addText(text =>
+        text
+          .setPlaceholder('powershell.exe or /bin/bash')
+          .setValue(this.plugin.settings.cli.shellExecutable)
+          .onChange(async value => {
+            this.plugin.settings.cli.shellExecutable = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(cliSettingGroup.settingItems)
+      .setName(t('settings.cliWorkingDirectory'))
+      .setDesc(t('settings.cliWorkingDirectoryDesc'))
+      .addText(text =>
+        text
+          .setPlaceholder('')
+          .setValue(this.plugin.settings.cli.workingDirectory)
+          .onChange(async value => {
+            this.plugin.settings.cli.workingDirectory = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(cliSettingGroup.settingItems)
+      .setName(t('settings.cliNodePtyNativePath'))
+      .setDesc(t('settings.cliNodePtyNativePathDesc'))
+      .addText(text =>
+        text
+          .setPlaceholder('')
+          .setValue(this.plugin.settings.cli.nodePtyNativePath ?? '')
+          .onChange(async value => {
+            this.plugin.settings.cli.nodePtyNativePath = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(cliSettingGroup.settingItems)
+      .setName(t('settings.cliInteractivePrograms'))
+      .setDesc(
+        t('settings.cliInteractiveProgramsDesc', {
+          builtInsList: joinWithConjunction(BUILT_IN_INTERACTIVE_APPS, 'and'),
+        })
+      )
+      .addTextArea(text =>
+        text
+          .setPlaceholder('nvim, nano, htop')
+          .setValue(this.plugin.settings.cli.interactivePrograms ?? '')
+          .onChange(async value => {
+            this.plugin.settings.cli.interactivePrograms = value;
+            await this.plugin.saveSettings();
+          })
+      );
   }
 }
 

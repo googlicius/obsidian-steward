@@ -19,6 +19,7 @@ const vi = {
       searchDesc: 'Tìm kiếm ghi chú trong kho lưu trữ của bạn',
       imageDesc: 'Tạo hình ảnh',
       speechDesc: 'Tạo giọng nói từ văn bản',
+      terminalDesc: 'Dùng `/>` để bắt đầu chế độ shell.',
       disabledMark: '(đã tắt)',
       helpTableCommand: 'Lệnh',
       helpTableDescription: 'Mô tả',
@@ -40,6 +41,27 @@ const vi = {
         'Mô hình đã trả về lệnh gọi công cụ không hợp lệ hoặc động (dynamic): "{{toolName}}".',
       statusValid: '✅ Hợp lệ',
       statusInvalid: 'Không hợp lệ: {{errors}}',
+      and: 'và',
+      or: 'hoặc',
+    },
+    cli: {
+      disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
+      spawnFailed:
+        '{{message}}\n\nCó trình cài cho từng nền tảng trong thư mục Steward; chạy từ thư mục gốc vault:',
+      openingInteractiveTerminal: 'Đang mở terminal...',
+      shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
+      processEndedSignal: '(Process ended: signal {{signal}})',
+      processEndedCode: '(Process exited with code {{code}})',
+      ptyNativePathUnavailable:
+        'CLI tương tác cần vault lưu trên ổ đĩa (FileSystemAdapter) để xác định thư mục native của node-pty.',
+      ptyNativeBundleMissing:
+        'Thư mục native node-pty không tồn tại hoặc không phải thư mục: {{path}}. Chạy script cài đặt của Steward hoặc đặt đường dẫn hợp lệ trong cài đặt CLI.',
+      inputLineCaptionShellPrefix: 'Shell',
+      inputLineCaptionShellActive: 'Shell, nhấn Ctrl+C để thoát',
+      nodePtyInstallWindowsHeading: 'Cài trên Windows',
+      nodePtyInstallUnixHeading: 'Cài trên Mac / Linux',
+      seeCliWiki:
+        'Xem [CLI]({{cliDoc}}) để biết chế độ transcript so với interactive và cách cài node-pty.',
     },
     mcp: {
       noConfigBlock: 'Thêm khối ```json``` gồm transport (http hoặc sse), url và tùy chọn headers.',
@@ -48,6 +70,11 @@ const vi = {
       noServers:
         'Chưa có máy chủ MCP. Thêm ghi chú định nghĩa (Markdown) trong `{{folder}}`, sau đó khởi động lại hoặc tải lại plugin nếu cần.',
       helpNoteAlias: 'MCP',
+      toolsPlaceholder: 'Bật enabled để khám phá và liệt kê tên công cụ từ máy chủ MCP này.',
+      connectionFailedRetry:
+        'Không kết nối được máy chủ MCP này. Hãy bật lại mục enabled trong ghi chú MCP này để thử lại.',
+      activateToolsMcpHint:
+        'Với công cụ MCP: hãy đảm bảo máy chủ MCP đang chạy và kiểm tra lại enabled trong ghi chú định nghĩa MCP nếu thực thi thất bại.',
     },
     trigger: {
       executing: 'Đang thực thi trigger cho lệnh: {{commandName}}',
@@ -67,10 +94,11 @@ const vi = {
     // Chat UI elements
     chat: {
       newChat: 'Cuộc trò chuyện mới',
+      moveChatToMain: 'Chuyển trò chuyện sang trình soạn thảo chính',
+      moveChatToRight: 'Chuyển trò chuyện sang thanh bên phải',
       history: 'Lịch Sử',
       noConversations: 'Không có cuộc trò chuyện nào.',
-      closeChat: 'Đóng trò chuyện',
-      stewardChat: 'Trò chuyện Steward',
+      stewardChat: 'Chat',
       closeConversation: 'Đóng cuộc trò chuyện',
       deleteHistoryItem: 'Xóa khỏi lịch sử',
       conversationClosed: 'Cuộc trò chuyện đã được đóng',
@@ -234,9 +262,8 @@ const vi = {
       noResults: 'Không tìm thấy kết quả nào. Bạn muốn thử từ khóa tìm kiếm khác không?',
       matches: 'Kết quả phù hợp:',
       moreMatches: '... và {{count}} kết quả khác',
-      showMoreDetails: 'Nhập `/more` để xem thêm 10 kết quả tiếp theo.',
       pagination: 'Trang {{current}}/{{total}}',
-      useMoreCommand: 'Nhập `/more` để xem trang kết quả tiếp theo.',
+      useMoreCommand: 'Nhập `/ more` để xem trang kết quả tiếp theo.',
       noMoreResults: 'Không còn kết quả tìm kiếm nào để hiển thị.',
       noRecentSearch: 'Không tìm thấy tìm kiếm gần đây. Vui lòng thực hiện lệnh tìm kiếm trước.',
       resultAvailableInArtifact: 'Kết quả tìm kiếm có sẵn trong artifact: {{artifactId}}',
@@ -286,7 +313,7 @@ const vi = {
     ui: {
       yes: 'Có',
       no: 'Không',
-      openStewardChat: 'Mở trò chuyện Steward',
+      openStewardChat: 'Mở chat',
       buildingSearchIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
       errorBuildingSearchIndex:
         'Lỗi khi xây dựng chỉ mục tìm kiếm. Kiểm tra bảng điều khiển để biết chi tiết.',
@@ -304,7 +331,7 @@ const vi = {
       decryptionError: 'Không thể giải mã khóa API. Vui lòng nhập lại trong cài đặt.',
       encryptionError: 'Không thể mã hóa khóa API. Vui lòng thử lại.',
       welcomeMessage:
-        'Chào mừng đến với trò chuyện Steward luôn sẵn sàng. Gõ bên dưới để tương tác hoặc gõ `/ ?` để xem các lệnh có sẵn.',
+        'Chào mừng đến với Steward. Gõ bên dưới để tương tác hoặc gõ `/ ?` để xem các lệnh có sẵn.',
       commandPlaceholder: 'Nhấn Enter để gửi',
       addToInlineConversation: 'Steward: Thêm vào cuộc trò chuyện nội tuyến',
       addToChat: 'Steward: Thêm vào trò chuyện',
@@ -314,10 +341,6 @@ const vi = {
     },
     todoList: {
       todoList: 'Danh sách công việc',
-      pending: 'Pending',
-      inProgress: 'Đang thực hiện',
-      skipped: 'Đã bỏ qua',
-      completed: 'Đã hoàn thành',
       step: 'Bước {{index}}',
     },
     documentation: {
@@ -368,6 +391,7 @@ const vi = {
       generatingAudio: 'Đang tạo âm thanh...',
       moving: 'Đang di chuyển...',
       searching: 'Đang tìm kiếm...',
+      cliTranscript: 'Running local CLI...',
       calculating: 'Đang tính toán...',
       reverting: 'Đang hoàn tác thay đổi...',
       revertSuccess: 'Đã hoàn tác thay đổi cuối cùng thành công.',
@@ -383,7 +407,7 @@ const vi = {
       continuingProcessing: 'Đang tiếp tục...',
       processingBatch: 'Đang xử lý batch {{current}}/{{total}}...',
       udcTodoListBootstrapGuide:
-        '[Thay mặt hệ thống] Lệnh do người dùng định nghĩa nhiều bước (`/{{commandName}}`) đang chạy. Lệnh gọi todo_list tiếp theo do hệ thống chèn vào để đăng ký kế hoạch các bước; đây không phải do người dùng cuối nhập.',
+        '[Thay mặt hệ thống] Lệnh do người dùng định nghĩa nhiều bước (`/{{commandName}}`) đang chạy. Lệnh gọi todo_write tiếp theo do hệ thống chèn vào để đăng ký kế hoạch các bước; đây không phải do người dùng cuối nhập.',
       stepLimitReached:
         'Tôi đã đạt đến số bước xử lý tối đa. Bạn có muốn tôi tiếp tục với nhiều bước hơn không?',
     },
@@ -501,6 +525,22 @@ const vi = {
         'Cách xử lý việc xóa tập tin. Khuyến nghị: Sử dụng Steward/Trash để có thể hoàn tác việc xóa',
       moveToTrash: 'Di chuyển tập tin đến {{folder}}',
       useObsidianDeletedFiles: 'Sử dụng cài đặt Xóa tập tin của Obsidian',
+      cliBridge: 'Local CLI bridge',
+      cliBridgeDesc:
+        'Chạy shell cục bộ từ hội thoại (`/>`). Chỉ trên desktop; thực thi tiến trình trên máy bạn (rủi ro bảo mật nếu lạm dụng). Hầu hết lệnh dùng transcript (luồng output); chương trình được hỗ trợ có thể dùng TTY tương tác khi đã cài node-pty.',
+      cliBridgeEnabled: 'Enable local CLI bridge',
+      cliBridgeEnabledDesc: 'Allows `/>` to spawn a local shell process.',
+      cliShellExecutable: 'Shell executable (optional)',
+      cliShellExecutableDesc:
+        'Override shell for `/>`. Leave empty for PowerShell on Windows or /bin/bash on macOS/Linux.',
+      cliWorkingDirectory: 'Working directory (optional)',
+      cliWorkingDirectoryDesc: 'Empty = vault root. CLI processes start in this folder.',
+      cliNodePtyNativePath: 'Thư mục native node-pty (tùy chọn)',
+      cliNodePtyNativePathDesc:
+        'Thư mục chứa cây node-pty-prebuilt đã giải nén (file .node). Để trống = thư mục Steward trong vault + /node-pty-prebuilt. Đường dẫn tuyệt đối hoặc tương đối gốc vault.',
+      cliInteractivePrograms: 'Additional interactive programs',
+      cliInteractiveProgramsDesc:
+        'Tên chương trình phân tách bằng dấu phẩy hoặc xuống dòng được coi là chế độ tương tác cho `/>` (ví dụ: nvim, lazygit, htop). Chương trình tích hợp gồm {{builtInsList}}.',
       modelFallbackEnabled: 'Bật dự phòng mô hình',
       modelFallbackEnabledDesc: 'Tự động chuyển sang mô hình dự phòng khi mô hình chính gặp lỗi',
       fallbackChain: 'Chuỗi dự phòng',

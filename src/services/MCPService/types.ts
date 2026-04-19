@@ -5,7 +5,6 @@ export const mcpServerConfigSchema = z.object({
   transport: z.enum(['http', 'sse']),
   url: z.string().min(1),
   headers: z.record(z.string()).optional(),
-  enabled: z.boolean().optional().default(true),
 });
 
 export type MCPServerConfig = z.infer<typeof mcpServerConfigSchema>;
@@ -18,6 +17,10 @@ export interface MCPDefinition {
   enabled: boolean;
   message: string;
   config: MCPServerConfig | null;
+  /** Tool names from MCP `list_tools`, persisted in note frontmatter `tools` (JSON array). */
+  cachedToolNames: string[];
+  /** Last connection outcome / retry hint; frontmatter `connection_message`. */
+  connectionMessage: string;
 }
 
 export interface MCPConnectedServer {

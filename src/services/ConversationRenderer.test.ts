@@ -1809,4 +1809,138 @@ describe('ConversationRenderer', () => {
       expect(result).toMatchSnapshot();
     });
   });
+
+  describe('findMostRecentMessageMetadata', () => {
+    const mockMessages = [
+      '<!--STW ID:1cwa3,ROLE:steward,HANDLER_ID:sfg5b,STEP:1-->',
+      'content 1',
+      '',
+      '<!--STW ID:ddbp6,ROLE:steward,COMMAND:todo_write,HISTORY:false,HANDLER_ID:sfg5b,STEP:1-->',
+      'content 2',
+    ].join('\n');
+
+    it('should return correct todo_write metadata', async () => {
+      const mockPlugin = createMockPlugin(mockMessages);
+      const renderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const result = await renderer.findMostRecentMessageMetadata({
+        conversationTitle: 'test-conversation',
+        role: 'steward',
+        command: 'todo_write',
+      });
+
+      expect(result).toMatchObject({
+        ID: 'ddbp6',
+        ROLE: 'steward',
+        COMMAND: 'todo_write',
+        HISTORY: 'false',
+        HANDLER_ID: 'sfg5b',
+        STEP: '1',
+      });
+    });
+  });
+
+  describe('deleteMessageById', () => {
+    const threeMessageContent = [
+      '<!--STW ID:abc123,ROLE:user,COMMAND:search-->',
+      '##### **User:** /search React hooks',
+      '',
+      '<!--STW ID:def456,ROLE:steward,COMMAND:search-->',
+      "**Steward:** Here's what I found:",
+      '',
+      'React hooks are functions that let you use state.',
+      '',
+      '<!--STW ID:ghi789,ROLE:user,COMMAND:-->',
+      '##### **User:** Thanks!',
+    ].join('\n');
+
+    it('should remove only the middle message and keep the rest', async () => {
+      const mockPlugin = createMockPlugin(threeMessageContent);
+      let modifiedContent = '';
+
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, callback) => {
+          modifiedContent = callback(threeMessageContent);
+          return Promise.resolve(modifiedContent);
+        });
+
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const result = await conversationRenderer.deleteMessageById('test-conversation', 'def456');
+
+      expect(result).toBe(true);
+      expect(processSpy).toHaveBeenCalledTimes(1);
+      expect(modifiedContent).toContain('<!--STW ID:abc123,ROLE:user,COMMAND:search-->');
+      expect(modifiedContent).toContain('<!--STW ID:ghi789,ROLE:user,COMMAND:-->');
+      expect(modifiedContent).not.toContain('<!--STW ID:def456,ROLE:steward,COMMAND:search-->');
+      expect(modifiedContent).not.toContain("Here's what I found:");
+    });
+
+    it('should remove only the first message', async () => {
+      const mockPlugin = createMockPlugin(threeMessageContent);
+      let modifiedContent = '';
+
+      jest.spyOn(mockPlugin.app.vault, 'process').mockImplementation(async (file, callback) => {
+        modifiedContent = callback(threeMessageContent);
+        return Promise.resolve(modifiedContent);
+      });
+
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const result = await conversationRenderer.deleteMessageById('test-conversation', 'abc123');
+      expect(result).toBe(true);
+      expect(modifiedContent).not.toContain('<!--STW ID:abc123');
+      expect(modifiedContent).toContain('<!--STW ID:def456');
+      expect(modifiedContent).toContain('<!--STW ID:ghi789');
+    });
+
+    it('should remove only the last message', async () => {
+      const mockPlugin = createMockPlugin(threeMessageContent);
+      let modifiedContent = '';
+
+      jest.spyOn(mockPlugin.app.vault, 'process').mockImplementation(async (file, callback) => {
+        modifiedContent = callback(threeMessageContent);
+        return Promise.resolve(modifiedContent);
+      });
+
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const result = await conversationRenderer.deleteMessageById('test-conversation', 'ghi789');
+      expect(result).toBe(true);
+      expect(modifiedContent).toContain('<!--STW ID:abc123');
+      expect(modifiedContent).toContain('<!--STW ID:def456');
+      expect(modifiedContent).not.toContain('<!--STW ID:ghi789');
+    });
+
+    it('should return false when the message ID is not found', async () => {
+      const mockPlugin = createMockPlugin(threeMessageContent);
+
+      const processSpy = jest
+        .spyOn(mockPlugin.app.vault, 'process')
+        .mockImplementation(async (file, cb) => {
+          return Promise.resolve(cb(threeMessageContent));
+        });
+
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const result = await conversationRenderer.deleteMessageById(
+        'test-conversation',
+        'missing-id'
+      );
+
+      expect(result).toBe(false);
+      expect(processSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return false when the conversation file does not exist', async () => {
+      const mockPlugin = createMockPlugin();
+      mockPlugin.app.vault.getFileByPath = jest.fn().mockReturnValue(null);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const result = await conversationRenderer.deleteMessageById('missing-conversation', 'abc123');
+
+      expect(result).toBe(false);
+    });
+  });
 });

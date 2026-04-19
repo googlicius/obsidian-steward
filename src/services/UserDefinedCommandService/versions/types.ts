@@ -1,6 +1,20 @@
 import type { ToolName } from 'src/solutions/commands/ToolRegistry';
 
 /**
+ * Context object for `{{...}}` Mustache segments in UDC step `query` / `system_prompt`.
+ * `$...` placeholders are expanded first; then Mustache runs when a `conversationTitle` is available.
+ * HTML escaping is disabled during Mustache render so shell/CLI strings stay literal.
+ */
+export interface UdcTemplateContext {
+  from_user: string;
+  file_name: string;
+  steward: string;
+  active_file: string;
+  /** True when a Steward CLI shell session is active for this conversation. */
+  cli_continuing: boolean;
+}
+
+/**
  * Shared types used across all versions
  */
 export interface CommandStep {

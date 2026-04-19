@@ -18,7 +18,7 @@ interface PendingIntent {
 export type { ProcessIntentsOptions } from '../IntentProcessor';
 
 /** Config IDs that handle intents (excludes title, compaction_summary). */
-const INTENT_ROUTING_IDS = new Set(['super', 'subagent', 'udc', 'search', 'speech', 'image']);
+const INTENT_ROUTING_IDS = new Set(['super', 'subagent', 'udc', 'search', 'speech', 'image', '>']);
 
 export class AgentRunner {
   private static lastResults: Map<string, AgentResult> = new Map();
@@ -171,7 +171,7 @@ export class AgentRunner {
         if (agent.renderIndicator) {
           agent.renderIndicator(title, payload.lang);
         }
-      }, 50);
+      });
 
       const result = await agent.safeHandle({
         title,

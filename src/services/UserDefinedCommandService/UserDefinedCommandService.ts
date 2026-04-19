@@ -1,4 +1,5 @@
 import { getLanguage, normalizePath, Notice, TFile, parseYaml } from 'obsidian';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES } from 'src/constants';
@@ -6,7 +7,11 @@ import { EXAMPLE_UDCS } from 'src/example-udcs';
 import { StewardChatView } from 'src/views/StewardChatView';
 import i18next, { t } from 'i18next';
 import { z } from 'zod/v3';
-import { IVersionedUserDefinedCommand, TriggerCondition } from './versions/types';
+import {
+  IVersionedUserDefinedCommand,
+  TriggerCondition,
+  type UdcTemplateContext,
+} from './versions/types';
 import { loadUDCVersion } from './versions/loader';
 import { Intent } from 'src/solutions/commands/types';
 import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
@@ -685,7 +690,7 @@ export class UserDefinedCommandService {
         await this.plugin.openChat({ revealLeaf: true });
 
         // Get the chat view and open the conversation
-        const leaf = this.plugin.getChatLeaf();
+        const leaf = await this.plugin.getChatLeaf();
         const view = leaf.view;
 
         if (view instanceof StewardChatView) {
@@ -736,7 +741,7 @@ export class UserDefinedCommandService {
       });
 
       // Show notice if the chat view is not visible
-      const leaf = this.plugin.getChatLeaf();
+      const leaf = await this.plugin.getChatLeaf();
       if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
         new Notice(
           getNoticeEl(
@@ -746,7 +751,7 @@ export class UserDefinedCommandService {
         );
       }
     } catch (error) {
-      const leaf = this.plugin.getChatLeaf();
+      const leaf = await this.plugin.getChatLeaf();
       if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
         new Notice(
           getNoticeEl(
@@ -827,7 +832,11 @@ export class UserDefinedCommandService {
   /**
    * Process a user-defined command with user input
    */
-  private processUserDefinedCommand(commandName: string, userInput: string): Intent[] | null {
+  private async processUserDefinedCommand(
+    commandName: string,
+    userInput: string,
+    conversationTitle?: string
+  ): Promise<Intent[] | null> {
     const command = this.userDefinedCommands.get(commandName);
 
     if (!command) {
@@ -840,51 +849,95 @@ export class UserDefinedCommandService {
     // Remove the fileName marker from userInput
     const cleanedUserInput = userInput.replace(/__file:[^_]+__/g, '').trim();
 
-    // Convert the user-defined command steps to CommandIntent objects
-    return command.normalized.steps.map(step => {
-      // Replace placeholders with actual values
-      let query = step.query;
+    const steps: Intent[] = [];
+    for (const step of command.normalized.steps) {
+      const query = await this.expandAuthoredString(step.query, {
+        fileName,
+        cleanedUserInput,
+        conversationTitle,
+      });
 
-      // Replace $file_name placeholder if fileName was extracted
-      if (fileName) {
-        query = query.replace(/\$file_name/g, fileName);
-      }
-
-      // Replace $from_user placeholder with cleaned user input
-      query = query.replace(/\$from_user/g, cleanedUserInput);
-
-      // Replace $steward placeholder with configured Steward folder
-      const stewardFolder = this.plugin.settings.stewardFolder;
-      query = query.replace(/\$steward/g, stewardFolder);
-
-      // Replace $active_file placeholder with the active file path
-      const currentFilePath = this.plugin.app.workspace.getActiveFile()?.path ?? '';
-      query = query.replace(/\$active_file/g, currentFilePath);
-
-      // Use step model if available, otherwise use command model
       const model = step.model || command.normalized.model;
 
-      // Merge root-level system_prompt with step-level system_prompt
-      // Root-level system_prompt is applied to all steps, step-level system_prompt is appended
       let systemPrompts: string[] | undefined;
-      if (command.normalized.system_prompt || step.system_prompt) {
-        systemPrompts = [
-          ...(command.normalized.system_prompt || []),
-          ...(step.system_prompt || []),
-        ].map(prompt =>
-          prompt.replace(/\$steward/g, stewardFolder).replace(/\$active_file/g, currentFilePath)
+      if (step.system_prompt && step.system_prompt.length > 0) {
+        systemPrompts = await Promise.all(
+          step.system_prompt.map(prompt =>
+            this.expandAuthoredString(prompt, {
+              fileName,
+              cleanedUserInput,
+              conversationTitle,
+            })
+          )
         );
       }
 
-      return {
+      steps.push({
         type: step.name ?? '',
         systemPrompts,
         query,
         model,
         no_confirm: step.no_confirm,
         tools: command.normalized.tools,
-      };
+      });
+    }
+
+    return steps;
+  }
+
+  /**
+   * Expand `$...` placeholders, then Mustache `{{...}}` when `conversationTitle` is set (chat / UDC with title).
+   */
+  private async expandAuthoredString(
+    content: string,
+    params: {
+      fileName: string;
+      cleanedUserInput: string;
+      conversationTitle?: string;
+    }
+  ): Promise<string> {
+    let out = this.replacePlaceholders(content, {
+      fileName: params.fileName,
+      userInput: params.cleanedUserInput,
     });
+    if (params.conversationTitle) {
+      const ctx = this.buildUdcTemplateContext(params.conversationTitle, {
+        fileName: params.fileName,
+        userInput: params.cleanedUserInput,
+      });
+      out = await this.renderMustacheTemplate(out, ctx);
+    }
+    return out;
+  }
+
+  private async renderMustacheTemplate(
+    template: string,
+    view: UdcTemplateContext
+  ): Promise<string> {
+    const mustache = await getBundledLib('mustache');
+    return mustache.render(template, view, undefined, {
+      escape: (text: string) => String(text),
+    });
+  }
+
+  /**
+   * @public for tests — builds Mustache context for a conversation turn.
+   */
+  public buildUdcTemplateContext(
+    conversationTitle: string,
+    options: { fileName: string; userInput: string }
+  ): UdcTemplateContext {
+    return {
+      from_user: options.userInput,
+      file_name: options.fileName,
+      steward: this.plugin.settings.stewardFolder,
+      active_file: this.plugin.app.workspace.getActiveFile()?.path ?? '',
+      cli_continuing: this.computeCliContinuing(conversationTitle),
+    };
+  }
+
+  private computeCliContinuing(conversationTitle: string): boolean {
+    return this.plugin.cliSessionService.getSession(conversationTitle) !== undefined;
   }
 
   /**
@@ -901,7 +954,8 @@ export class UserDefinedCommandService {
   public async expandUserDefinedCommandIntents(
     intents: Intent | Intent[],
     userInput = '',
-    visited: Set<string> = new Set()
+    visited: Set<string> = new Set(),
+    conversationTitle?: string
   ): Promise<Intent[]> {
     const expanded: Intent[] = [];
 
@@ -927,12 +981,17 @@ export class UserDefinedCommandService {
       }
 
       visited.add(intent.type);
-      const subIntents = this.processUserDefinedCommand(intent.type, intent.query || userInput);
+      const subIntents = await this.processUserDefinedCommand(
+        intent.type,
+        intent.query || userInput,
+        conversationTitle
+      );
       if (subIntents) {
         const expandedSubIntents = await this.expandUserDefinedCommandIntents(
           subIntents,
           userInput,
-          visited
+          visited,
+          conversationTitle
         );
         expanded.push(...expandedSubIntents);
       }
@@ -942,6 +1001,42 @@ export class UserDefinedCommandService {
     // System prompts are kept as-is (with wikilink references unresolved)
     // They will be resolved at execution time in SuperAgent
     return expanded;
+  }
+
+  /**
+   * Replaces supported UDC placeholders in authored strings (queries/system prompts):
+   * `$steward`, `$active_file`, `$file_name`, `$from_user`.
+   */
+  public replacePlaceholders(
+    content: string,
+    /** Replacement values */
+    options: { fileName?: string; userInput?: string } = {}
+  ): string {
+    if (content.length === 0) {
+      return content;
+    }
+
+    const stewardFolder = this.plugin.settings.stewardFolder;
+    const activeFilePath = this.plugin.app.workspace.getActiveFile()?.path ?? '';
+    let replaced = content;
+
+    if (options.fileName && replaced.includes('$file_name')) {
+      replaced = replaced.replace(/\$file_name/g, options.fileName);
+    }
+
+    if (options.userInput && replaced.includes('$from_user')) {
+      replaced = replaced.replace(/\$from_user/g, options.userInput);
+    }
+
+    if (replaced.includes('$steward')) {
+      replaced = replaced.replace(/\$steward/g, stewardFolder);
+    }
+
+    if (replaced.includes('$active_file')) {
+      replaced = replaced.replace(/\$active_file/g, activeFilePath);
+    }
+
+    return replaced;
   }
 
   /**
@@ -961,9 +1056,6 @@ export class UserDefinedCommandService {
       )
     );
 
-    // Replace $steward placeholder in resolved content
-    return processedPrompts.map(prompt =>
-      prompt.replace(/\$steward/g, this.plugin.settings.stewardFolder)
-    );
+    return processedPrompts.map(prompt => this.replacePlaceholders(prompt));
   }
 }

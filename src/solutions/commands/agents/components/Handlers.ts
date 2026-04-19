@@ -70,6 +70,7 @@ export class Handlers {
   private _getArtifactById: handlers.GetArtifactById;
   private _recallCompactedContext: handlers.RecallCompactedContext;
   private _mcpToolHandler: handlers.McpToolHandler;
+  private _cliHandler: handlers.CliHandler;
 
   protected getAgent(): AgentHandlerContext {
     return this as unknown as AgentHandlerContext;
@@ -247,6 +248,13 @@ export class Handlers {
     return this._mcpToolHandler;
   }
 
+  public get cliHandler(): handlers.CliHandler {
+    if (!this._cliHandler) {
+      this._cliHandler = new handlers.CliHandler(this.getAgent());
+    }
+    return this._cliHandler;
+  }
+
   /**
    * Map of tool names to their standard handlers.
    */
@@ -272,7 +280,7 @@ export class Handlers {
       [ToolName.SEARCH_MORE]: () => this.searchMore,
       [ToolName.SPEECH]: () => this.speech,
       [ToolName.IMAGE]: () => this.image,
-      [ToolName.TODO_LIST]: () => this.todoList,
+      [ToolName.TODO_WRITE]: () => this.todoList,
       [ToolName.HELP]: () => this.help,
       [ToolName.SPAWN_SUBAGENT]: () => this.spawnSubagent,
       [ToolName.CONCLUDE]: () => this.conclude,
@@ -280,6 +288,7 @@ export class Handlers {
       [ToolName.GET_ARTIFACT_BY_ID]: () => this.getArtifactById,
       [ToolName.RECALL_COMPACTED_CONTEXT]: () => this.recallCompactedContext,
       [ToolName.SWITCH_AGENT_CAPACITY]: () => this.switchAgentCapacity,
+      [ToolName.SHELL]: () => this.cliHandler,
     };
   }
 

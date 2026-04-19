@@ -37,15 +37,16 @@ export class ConversationEventHandler {
       })
     );
 
-    this.plugin.registerEvent(
-      // Listen for file creations
-      this.plugin.app.vault.on('create', async file => {
-        if (file instanceof TFile) {
-          this.initializeChat(file);
-          // this.initializeIntroduction(file);
-        }
-      })
-    );
+    this.plugin.app.workspace.onLayoutReady(() => {
+      this.plugin.registerEvent(
+        this.plugin.app.vault.on('create', async file => {
+          if (file instanceof TFile) {
+            this.initializeChat(file);
+            // this.initializeIntroduction(file);
+          }
+        })
+      );
+    });
 
     // Listen for user commands in conversation
     eventEmitter.on(
@@ -65,7 +66,9 @@ export class ConversationEventHandler {
   }
 
   private async initializeChat(file: TFile): Promise<void> {
-    if (!file.name.startsWith('Steward chat')) {
+    const base = file.basename;
+    const title = this.plugin.chatTitle;
+    if (base !== title && !base.startsWith(`${title} `)) {
       return;
     }
 

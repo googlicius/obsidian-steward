@@ -93,6 +93,7 @@ export class ToolIntentResolution {
   protected buildSuperAgentEffectiveAllowedNames(params: {
     declaredNormalized: ToolName[] | null;
     expandedDeclared: ToolName[];
+    conversationActiveTools: ToolName[];
     allToolKeys: readonly ToolName[];
     toolsThatEnableConclude: ReadonlySet<ToolName>;
     hasConcludeEligibleDeclaredTool: boolean;
@@ -101,6 +102,7 @@ export class ToolIntentResolution {
     const {
       declaredNormalized,
       expandedDeclared,
+      conversationActiveTools,
       allToolKeys,
       hasConcludeEligibleDeclaredTool,
       hasCompactionContext,
@@ -111,6 +113,13 @@ export class ToolIntentResolution {
       return allToolKeys.filter(name => name !== ToolName.SWITCH_AGENT_CAPACITY);
     }
     const effective = new Set<ToolName>(expandedDeclared);
+    for (let i = 0; i < conversationActiveTools.length; i++) {
+      const activeToolName = conversationActiveTools[i];
+      if (!allSet.has(activeToolName)) {
+        continue;
+      }
+      effective.add(activeToolName);
+    }
 
     if (hasConcludeEligibleDeclaredTool && allSet.has(ToolName.CONCLUDE)) {
       effective.add(ToolName.CONCLUDE);

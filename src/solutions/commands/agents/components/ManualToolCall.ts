@@ -41,11 +41,11 @@ export class ManualToolCall {
     const isCommandSyntaxStepProcessed =
       originalQuery !== null && CommandSyntaxParser.isCommandSyntax(originalQuery);
 
-    if (isCommandSyntaxStepProcessed && activeTools.includes(ToolName.TODO_LIST_UPDATE)) {
-      const todoListUpdateToolCall = await this.craftTodoListUpdateToolCallManually(title);
+    if (isCommandSyntaxStepProcessed && activeTools.includes(ToolName.TODO_WRITE)) {
+      const todoWriteUpdateToolCall = await this.craftTodoWriteUpdateToolCallManually(title);
 
-      if (todoListUpdateToolCall) {
-        return todoListUpdateToolCall;
+      if (todoWriteUpdateToolCall) {
+        return todoWriteUpdateToolCall;
       }
     }
 
@@ -205,12 +205,23 @@ export class ManualToolCall {
         return undefined;
       }
 
+      case '>': {
+        return {
+          type: 'tool-call',
+          toolName: ToolName.SHELL,
+          toolCallId: `manual-tool-call-${uniqueID()}`,
+          input: { argsLine: query },
+        };
+      }
+
       default:
         return undefined;
     }
   }
 
-  protected async craftTodoListUpdateToolCallManually(title: string): Promise<ToolCallPart | null> {
+  protected async craftTodoWriteUpdateToolCallManually(
+    title: string
+  ): Promise<ToolCallPart | null> {
     const agent = asAgent(this);
     const todoListState = await agent.renderer.getConversationProperty<handlers.TodoListState>(
       title,
@@ -223,11 +234,16 @@ export class ManualToolCall {
     }
     return {
       type: 'tool-call',
-      toolName: ToolName.TODO_LIST_UPDATE,
+      toolName: ToolName.TODO_WRITE,
       toolCallId: `manual-tool-call-${uniqueID()}`,
       input: {
-        status: 'completed',
-        nextStep: Math.min(todoListState.currentStep + 1, stepCount),
+        operations: [
+          {
+            operation: 'update' as const,
+            currentStepStatus: 'completed' as const,
+            nextStep: Math.min(todoListState.currentStep + 1, stepCount),
+          },
+        ],
       },
     };
   }

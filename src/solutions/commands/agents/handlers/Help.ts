@@ -74,6 +74,7 @@ export class Help {
         { command: '`/search`', description: t('common.searchDesc') },
         { command: '`/image`', description: t('common.imageDesc') },
         { command: '`/speech`', description: t('common.speechDesc') },
+        { command: '`/>`', description: t('common.terminalDesc') },
       ];
 
       const builtInRows: string[][] = [];

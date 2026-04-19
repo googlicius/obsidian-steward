@@ -2,12 +2,27 @@ import { TFile, TFolder } from 'obsidian';
 import i18next from 'src/i18n';
 import { NoteContentService } from 'src/services/NoteContentService';
 import { UserDefinedCommandService } from './UserDefinedCommandService';
+
+/** Production loads Mustache via compressed bundled libs; evaluating that chunk in Jest breaks (Node shims). */
+jest.mock('src/utils/bundledLibs', () => ({
+  getBundledLib: jest.fn(async (key: unknown) => {
+    if (key === 'mustache') {
+      return jest.requireActual<typeof import('mustache')>('mustache');
+    }
+    throw new Error(
+      `Unexpected getBundledLib key in UserDefinedCommandService tests: ${String(key)}`
+    );
+  }),
+}));
 import type StewardPlugin from 'src/main';
 import { getInstance } from 'src/utils/getInstance';
 import { UserDefinedCommandV1, type UserDefinedCommandV1Data } from './versions/v1';
+import { UserDefinedCommandV2, type UserDefinedCommandV2Data } from './versions/v2';
 import { Intent } from 'src/solutions/commands/types';
 
-function createMockPlugin(): jest.Mocked<StewardPlugin> {
+function createMockPlugin(
+  overrides: Partial<jest.Mocked<StewardPlugin>> = {}
+): jest.Mocked<StewardPlugin> {
   return {
     app: {
       metadataCache: {
@@ -16,6 +31,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       },
       vault: {
         read: jest.fn(),
+        cachedRead: jest.fn(),
         getAbstractFileByPath: jest.fn(),
         on: jest.fn().mockReturnValue({ events: [] }),
         createFolder: jest.fn(),
@@ -39,6 +55,13 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
         {} as NoteContentService
       ),
     },
+    conversationRenderer: {
+      getConversationFileByName: jest.fn(),
+    },
+    cliSessionService: {
+      getSession: jest.fn(),
+    },
+    ...overrides,
   } as unknown as jest.Mocked<StewardPlugin>;
 }
 
@@ -463,6 +486,74 @@ steps:
       ]);
     });
 
+    it('does not copy root-level system_prompt onto each expanded step intent', async () => {
+      const mockCommandProcessorService = {
+        isBuiltInCommand: jest.fn().mockReturnValue(false),
+      };
+
+      Object.defineProperty(userDefinedCommandService, 'commandProcessorService', {
+        get: jest.fn().mockReturnValue(mockCommandProcessorService),
+      });
+
+      const v2Data: UserDefinedCommandV2Data = {
+        command_name: 'udcRootOnlyPrompt',
+        file_path: 'path/to/udc.md',
+        system_prompt: ['[[Steward/Commands/Flashcard ask#Flashcard guidelines]]'],
+        steps: [
+          { name: 'read', query: 'Read $from_user' },
+          { name: 'generate', query: 'Ask $from_user' },
+        ],
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'udcRootOnlyPrompt',
+        new UserDefinedCommandV2(v2Data)
+      );
+
+      const result = await userDefinedCommandService.expandUserDefinedCommandIntents(
+        [{ type: 'udcRootOnlyPrompt', query: 'hello' }],
+        'hello'
+      );
+
+      expect(result).toMatchObject([
+        { type: 'read', systemPrompts: undefined },
+        { type: 'generate', systemPrompts: undefined },
+      ]);
+    });
+
+    it('puts only step-level system_prompt on each expanded intent (no merge with root)', async () => {
+      const mockCommandProcessorService = {
+        isBuiltInCommand: jest.fn().mockReturnValue(false),
+      };
+
+      Object.defineProperty(userDefinedCommandService, 'commandProcessorService', {
+        get: jest.fn().mockReturnValue(mockCommandProcessorService),
+      });
+
+      const v2Data: UserDefinedCommandV2Data = {
+        command_name: 'udcStepPrompt',
+        file_path: 'path/to/udc.md',
+        system_prompt: ['root baseline'],
+        steps: [
+          { name: 'read', query: 'Read $from_user' },
+          { name: 'generate', query: 'Ask $from_user', system_prompt: ['step extra'] },
+        ],
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'udcStepPrompt',
+        new UserDefinedCommandV2(v2Data)
+      );
+
+      const result = await userDefinedCommandService.expandUserDefinedCommandIntents(
+        [{ type: 'udcStepPrompt', query: 'hello' }],
+        'hello'
+      );
+
+      expect(result).toMatchObject([
+        { type: 'read', systemPrompts: undefined },
+        { type: 'generate', systemPrompts: ['step extra'] },
+      ]);
+    });
+
     it('should override built-in audio command with custom query and system prompt', async () => {
       // Arrange
       const mockCommandProcessorService = {
@@ -582,6 +673,72 @@ steps:
           systemPrompts: undefined,
         },
       ]);
+    });
+
+    it('expands $ and {{}} and omits --resume when no CliSession', async () => {
+      mockPlugin.cliSessionService.getSession = jest.fn().mockReturnValue(undefined);
+
+      const mockCommandProcessorService = { isBuiltInCommand: jest.fn().mockReturnValue(false) };
+      Object.defineProperty(userDefinedCommandService, 'commandProcessorService', {
+        get: jest.fn().mockReturnValue(mockCommandProcessorService),
+      });
+
+      const v2Data: UserDefinedCommandV2Data = {
+        command_name: 'geminiUdc',
+        file_path: 'path/to/gemini.md',
+        steps: [
+          {
+            name: 'shell',
+            query: 'gemini --prompt {{from_user}}{{#cli_continuing}} --resume{{/cli_continuing}}',
+          },
+        ],
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'geminiUdc',
+        new UserDefinedCommandV2(v2Data)
+      );
+
+      const result = await userDefinedCommandService.expandUserDefinedCommandIntents(
+        [{ type: 'geminiUdc', query: 'hello' }],
+        'hello',
+        new Set(),
+        'my-conv'
+      );
+
+      expect(result[0].query).toBe('gemini --prompt hello');
+    });
+
+    it('adds --resume when CliSession is active', async () => {
+      mockPlugin.cliSessionService.getSession = jest.fn().mockReturnValue({ child: {} });
+
+      const mockCommandProcessorService = { isBuiltInCommand: jest.fn().mockReturnValue(false) };
+      Object.defineProperty(userDefinedCommandService, 'commandProcessorService', {
+        get: jest.fn().mockReturnValue(mockCommandProcessorService),
+      });
+
+      const v2Data: UserDefinedCommandV2Data = {
+        command_name: 'geminiUdc3',
+        file_path: 'path/to/gemini.md',
+        steps: [
+          {
+            name: 'shell',
+            query: 'gemini --prompt {{from_user}}{{#cli_continuing}} --resume{{/cli_continuing}}',
+          },
+        ],
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'geminiUdc3',
+        new UserDefinedCommandV2(v2Data)
+      );
+
+      const result = await userDefinedCommandService.expandUserDefinedCommandIntents(
+        [{ type: 'geminiUdc3', query: 'hello' }],
+        'hello',
+        new Set(),
+        'my-conv'
+      );
+
+      expect(result[0].query).toBe('gemini --prompt hello --resume');
     });
   });
 });

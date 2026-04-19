@@ -15,17 +15,19 @@ import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { createStepProcessedQuery } from './stepProcessedQuery';
 import {
   type AgentToolsRecord,
+  loadGoogleTools,
   loadSuperAgentToolsBase,
   SUPER_AGENT_TOOL_NAMES,
 } from '../agentTools';
 import type { AgentCorePromptContext } from '../../Agent';
+import { isGoogleModel } from '../googleUtils';
 
 const SUPER_AGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUPER_AGENT_TOOL_NAMES;
 
 /**
- * Map of task names to their associated tool names.
- * This is used to determine the tasks for classification based on the active tools.
- * Defaulting active tools from the classified tasks.
+ * Map of classifier task label → tool names (used with `TASK_DEFAULT_ACTIVATE_TOOLS`).
+ * Tool availability for a turn also comes from `ToolIntentResolution` (declared/allowed/active,
+ * UDC `allowed_tools`, frontmatter `tools`, conclude / compaction), not a separate dependency graph.
  */
 const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
   vault: new Set([
@@ -50,6 +52,8 @@ const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
   search: new Set([ToolName.SEARCH]),
   speech: new Set([ToolName.SPEECH]),
   image: new Set([ToolName.IMAGE]),
+  shell: new Set([ToolName.SHELL]),
+  '>': new Set([ToolName.SHELL]),
 };
 
 /**
@@ -67,7 +71,7 @@ const TASK_DEFAULT_ACTIVATE_TOOLS: Record<string, ToolName[]> = {
 /**
  * Map of task names to their loading indicator translation keys
  */
-const TASK_TO_INDICATOR_MAP: Record<string, string> = {
+const TASK_TO_INDICATOR_MAP: Record<string, string | undefined> = {
   vault: 'conversation.working',
   revert: 'conversation.reverting',
   read: 'conversation.readingContent',
@@ -75,6 +79,7 @@ const TASK_TO_INDICATOR_MAP: Record<string, string> = {
   speech: 'conversation.generatingAudio',
   image: 'conversation.generatingImage',
   search: 'conversation.searching',
+  '>': undefined,
 };
 
 /**
@@ -126,12 +131,12 @@ ${context.registry.generateToolsSection()}
 OTHER TOOLS (Inactive, need activate before using them):
 ${context.registry.generateOtherToolsSection(
   'No other tools available.',
-  new Set([ToolName.TODO_LIST_UPDATE, ToolName.SEARCH_MORE, ToolName.CONCLUDE])
+  new Set([ToolName.SEARCH_MORE, ToolName.CONCLUDE])
 )}
 
 TOOLS GUIDELINES:
 ${context.registry.generateGuidelinesSection()}
-${context.currentNote ? `\nCURRENT NOTE: ${context.currentNote} (Cursor position: ${context.currentPosition})` : ''}${context.todoListPrompt}${context.skillCatalogPrompt}
+${context.currentNote ? `\nCURRENT NOTE: ${context.currentNote} (Cursor position: ${context.currentPosition})` : ''}${context.skillCatalogPrompt}
 
 NOTE:
 - DO NOT mention or explain the tools you use or activate to users. Only communicate the results or outcomes.
@@ -181,7 +186,8 @@ NOTE:
       typeof options.remainingSteps !== 'undefined' ? options.remainingSteps : MAX_STEP_COUNT;
 
     const activeTools = await this.loadActiveTools(title, params.activeTools);
-    const tools = await this.getSuperAgentTools(title);
+    const chatModel = intent.model ?? this.plugin.settings.llm.chat.model;
+    const tools = await this.getSuperAgentTools(title, chatModel);
 
     const t = getTranslation(lang);
 
@@ -193,6 +199,13 @@ NOTE:
     }
 
     let classificationMatchType: 'static' | 'prefixed' | 'clustered' | undefined;
+
+    if (classifiedTasks.length === 0) {
+      const cliSession = this.plugin.cliSessionService.getSession(title);
+      if (cliSession) {
+        classifiedTasks.push('>');
+      }
+    }
 
     if (!params.invocationCount && classifiedTasks.length === 0) {
       const classificationResult = await this.classifyTasksFromQuery(
@@ -300,8 +313,12 @@ NOTE:
       return toolProcessingResult;
     }
 
-    // Stop if manual tool call, except todo_list_update
-    if (manualToolCall && manualToolCall.toolName !== ToolName.TODO_LIST_UPDATE) {
+    // Stop if manual tool call, except todo_write (update) injected for client-processed steps
+    const isManualTodoWriteUpdate =
+      manualToolCall &&
+      manualToolCall.toolName === ToolName.TODO_WRITE &&
+      handlers.isTodoWriteUpdateToolInput(manualToolCall.input);
+    if (manualToolCall && !isManualTodoWriteUpdate) {
       logger.log('Stopping processing because manual tool call is present', { manualToolCall });
       return toolProcessingResult;
     }
@@ -316,16 +333,17 @@ NOTE:
       nextRemainingSteps > 0 &&
       !this.stopProcessingForClassifiedTask(classifiedTasks, toolCalls)
     ) {
-      // Check if TODO_LIST_UPDATE was called and get next step intent for UDC
-      const wasTodoListUpdateCalled = toolCalls.some(
-        call => !call.dynamic && call.toolName === ToolName.TODO_LIST_UPDATE
+      const wasTodoWriteUpdateCalled = toolCalls.some(
+        call =>
+          !call.dynamic &&
+          call.toolName === ToolName.TODO_WRITE &&
+          handlers.isTodoWriteUpdateToolInput(call.input)
       );
-      const nextStepIntent = wasTodoListUpdateCalled
+      const nextStepIntent = wasTodoWriteUpdateCalled
         ? await this.getNextTodoListStepIntent(title, intent)
         : null;
 
-      // No next step after TODO_LIST_UPDATE: all steps are done, exit successfully
-      if (wasTodoListUpdateCalled && nextStepIntent === null) {
+      if (wasTodoWriteUpdateCalled && nextStepIntent === null) {
         return toolProcessingResult;
       }
 
@@ -343,7 +361,7 @@ NOTE:
         classifiedTasks[0] === 'generate' &&
         (await this.isLastTodoListStep(title))
       ) {
-        injectedToolCall = await this.craftTodoListUpdateToolCallManually(title);
+        injectedToolCall = await this.craftTodoWriteUpdateToolCallManually(title);
       }
 
       if (!injectedToolCall) {
@@ -435,11 +453,17 @@ NOTE:
     });
   }
 
-  private async getSuperAgentTools(conversationTitle: string): Promise<AgentToolsRecord> {
+  private async getSuperAgentTools(
+    conversationTitle: string,
+    modelId?: string
+  ): Promise<AgentToolsRecord> {
     const baseTools = await loadSuperAgentToolsBase();
+    const googleTools = modelId && isGoogleModel(modelId) ? await loadGoogleTools() : {};
+
     const mcp = await this.plugin.mcpService.getMcpToolsForConversation(conversationTitle);
     return {
       ...baseTools,
+      ...googleTools,
       ...mcp.inactive,
       ...mcp.active,
     } as AgentToolsRecord;
@@ -583,11 +607,6 @@ NOTE:
     title: string,
     currentIntent: Intent
   ): Promise<Intent | null> {
-    const udcCommand = await this.renderer.getConversationProperty<string>(title, 'udc_command');
-    if (!udcCommand) {
-      return null;
-    }
-
     const updatedTodoList = await this.renderer.getConversationProperty<handlers.TodoListState>(
       title,
       'todo_list'
@@ -625,8 +644,13 @@ NOTE:
     }
 
     // createdBy: udc
+    const udcCommand = await this.renderer.getConversationProperty<string>(title, 'udc_command');
+    if (!udcCommand) {
+      return null;
+    }
+
     // Create new intent with only the next step's metadata
-    // Do NOT inherit step-specific fields (model, systemPrompts, no_confirm) from current step.
+    // Do NOT inherit step-specific fields (model, no_confirm) from current step.
     // Tool allowlist is command-level: keep it on every step. Recursive handle() does not re-run
     // safeHandle/resolveIntentTools, so we must set tools here or fall back to frontmatter.
     let commandLevelTools = currentIntent.tools;
@@ -637,13 +661,26 @@ NOTE:
       );
     }
 
+    // Root v2 system_prompt should persist across all UDC steps. We intentionally do NOT merge
+    // per-step system_prompt here; step-level instructions are surfaced via todo_write tool results.
+    let systemPrompts: string[] | undefined;
+    const udc = this.plugin.userDefinedCommandService;
+    const command = udc.userDefinedCommands.get(udcCommand);
+    if (command?.getVersion() === 2) {
+      const root = command.normalized.system_prompt;
+      if (root && root.length > 0) {
+        const rootLines = root.map(line => udc.replacePlaceholders(line));
+        systemPrompts = await udc.processSystemPromptsWikilinks(rootLines);
+      }
+    }
+
     return {
       query: nextStep.task,
       type: nextStep.type ?? '',
       model: nextStep.model,
-      systemPrompts: nextStep.systemPrompts,
       no_confirm: nextStep.no_confirm,
       tools: commandLevelTools && commandLevelTools.length > 0 ? commandLevelTools : undefined,
+      systemPrompts,
     };
   }
 

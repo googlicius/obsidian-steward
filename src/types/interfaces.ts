@@ -46,6 +46,8 @@ export interface StewardPluginSettings {
   debug: boolean; // Enable debug logging
   showPronouns: boolean; // Toggle display of User/Steward pronouns in chat
   autoScroll: boolean; // Toggle auto-scroll feature in chat
+  /** Where the Steward chat pane should open: main editor area or right sidebar */
+  chatViewDock: 'main' | 'right';
   // Undefined for backward compatibility
   audio:
     | {
@@ -122,6 +124,23 @@ export interface StewardPluginSettings {
     cleanupPolicy?: 'never' | '7days' | '30days' | '90days' | '1year'; // When to permanently delete files from stw_trash
   };
   lastSeenVersion?: string; // Last version the user has seen (for version notifications)
+  /**
+   * Local CLI bridge (Gemini CLI, shell transcript mode). Desktop only; requires Node child_process.
+   */
+  cli: {
+    enabled: boolean;
+    /** Override shell for `/>` (empty = powershell.exe on Windows, /bin/bash elsewhere). */
+    shellExecutable: string;
+    /** Working directory; empty = vault root path. */
+    workingDirectory: string;
+    /** Additional interactive programs (comma/newline separated), merged with built-ins. */
+    interactivePrograms: string;
+    /**
+     * Directory containing the extracted `node-pty-prebuilt` tree (native `.node` binaries).
+     * Empty = `stewardFolder/node-pty-prebuilt` under the vault. Absolute path or path relative to the vault root.
+     */
+    nodePtyNativePath: string;
+  };
 }
 
 export type DeleteBehavior = StewardPluginSettings['deleteBehavior'];

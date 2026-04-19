@@ -44,6 +44,11 @@ export const CONFIRMATION_BUTTONS_PATTERN = '\\{\\{stw-confirmation-buttons ([^}
 export const WIKI_LINK_PATTERN = '\\[\\[([^\\]]+)\\]\\]';
 
 /**
+ * Pattern to match embed wikilinks ![[...]] (group 1: inner link text, may include |alias)
+ */
+export const EMBED_WIKILINK_PATTERN = '!\\[\\[([^\\]]+)\\]\\]';
+
+/**
  * Pattern to extract metadata from stw-source blocks
  * Captures: type (group 1), path (group 2), from (group 3, optional), to (group 4, optional), selection (group 5, optional)
  */
@@ -58,7 +63,7 @@ export const SELECTED_MODEL_PREFIX_PATTERN = '\\b(m|model):';
 /**
  * All built-in command that are available to the command menu
  */
-export const COMMAND_PREFIXES = ['/ ', '/search', '/image', '/speech'];
+export const COMMAND_PREFIXES = ['/ ', '/search', '/image', '/speech', '/>'];
 
 /**
  * Configuration for standard commands indicating whether they require content.
@@ -68,6 +73,7 @@ export const COMMAND_CONTENT_REQUIRED: Record<string, boolean> = {
   search: true,
   image: true,
   speech: true,
+  '>': false,
 };
 
 /**
@@ -103,6 +109,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
   debug: false, // Debug logging disabled by default
   showPronouns: true, // Show pronouns in chat by default
   autoScroll: true, // Auto-scroll enabled by default
+  chatViewDock: 'right',
   audio: {
     model: 'openai', // Default model
     voices: {
@@ -166,6 +173,13 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     cleanupPolicy: 'never', // Default to never automatically delete
   },
   lastSeenVersion: undefined, // Will be set when user sees a version notification
+  cli: {
+    enabled: true,
+    shellExecutable: '',
+    workingDirectory: '',
+    interactivePrograms: '',
+    nodePtyNativePath: '',
+  },
 };
 
 // Model options grouped by provider
@@ -280,6 +294,7 @@ export const WIKI_PAGES = {
   SKILLS: 'Skills',
   GUARDRAILS: 'Guardrails',
   MCP: 'MCP',
+  CLI: 'CLI',
 } as const;
 
 // Community user-defined commands available for lazy loading from GitHub

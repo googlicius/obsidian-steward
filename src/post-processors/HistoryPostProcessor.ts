@@ -105,15 +105,17 @@ export function createHistoryPostProcessor(plugin: StewardPlugin): MarkdownPostP
 
       linkEl.classList.add('stw-history-link');
       linkEl.addEventListener('click', event => {
-        const chatLeaf = plugin.getChatLeaf();
-        const chatView = chatLeaf.view;
-        if (!(chatView instanceof StewardChatView)) {
-          return;
-        }
-
         event.preventDefault();
         event.stopPropagation();
-        chatView.openExistingConversation(conversationPath, { showInput: true });
+        void (async () => {
+          const chatLeaf = await plugin.getChatLeaf();
+          const chatView = chatLeaf.view;
+          if (!(chatView instanceof StewardChatView)) {
+            return;
+          }
+
+          await chatView.openExistingConversation(conversationPath);
+        })();
       });
 
       const hasDeleteButton = historyItem.querySelector('.stw-history-delete-button');

@@ -5,6 +5,26 @@ All notable changes to Obsidian Steward will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - 2026-04-18
+
+### Added
+
+- **CLI**: Local CLI bridge (`/>`) for running shell commands.
+- **CLI**: Node-pty integration and xterm.js-based interactive terminal sessions (second-build bundle, prebuilt installers, PowerShell installer path, Shell caption).
+- **CLI**: Ctrl+C keybinding to interrupt CLI sessions.
+- **CLI**: Start remote sessions only when a command needs interactive mode; hide the stream marker when the stream completes; probe `cd` commands to track the session working directory.
+- **Chat**: Move the chat view between the main editor and the right sidebar.
+
+### Changed
+
+- **TODO**: Consolidate `TODO_LIST` and `TODO_LIST_UPDATE` into `TODO_WRITE`.
+- **UDC**: Template engine support for user-defined command definitions.
+- **Agents**: Google model tool schemas; support for pre-activated tools from UDC declarations.
+- **Conversation**: `deleteMessageById` and improved STW metadata parsing.
+- **MCP**: Discover and cache MCP tool names; offline stub tools for unavailable servers.
+
+[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.6.0...2.7.0)
+
 ## [2.6.0] - 2026-04-06
 
 ### Added
@@ -23,7 +43,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Moved model selection section to settings; moved GIF to README.assets folder.
 
-[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.4.0...2.6.0)
+[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.5.1...2.6.0)
+
+## [2.5.1] - 2026-03-26
+
+### Changed
+
+- Add a user message before the creating to-do list tool call.
+- **Command input**: ArrowDown newline on last line; Backspace merge continuation.
+
+[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.5.0...2.5.1)
+
+## [2.5.0] - 2026-03-22
+
+### Added
+
+- **Performance**: Defer AI-SDK parsing to improve startup time.
+
+[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.4.0...2.5.0)
 
 ## [2.4.0] - 2026-03-18
 

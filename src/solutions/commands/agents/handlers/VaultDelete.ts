@@ -10,62 +10,62 @@ import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { OperationError } from 'src/tools/obsidianAPITools';
 
+const deleteFilePatternsSchema = z
+  .object({
+    patterns: z
+      .array(z.string().min(1))
+      .min(1)
+      .describe('Array of RegExp patterns to match files for deletion.'),
+    folder: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        'Optional folder path to limit pattern matching. If not provided, searches entire vault.'
+      ),
+  })
+  .describe(
+    'Pattern-based file selection for large file sets. Prefer this over the files array to avoid token limits.'
+  );
+
+/** One delete op (discriminatedUnion — used by default providers). */
+const deleteOperationSchema = z.discriminatedUnion('mode', [
+  z.object(
+    {
+      mode: z.literal('artifactId'),
+      artifactId: z.string().min(1).describe('The artifact identifier containing files to delete.'),
+    },
+    {
+      description:
+        'Delete by artifactId. Use this when: 1. Provided by user or tool call results (Do NOT guess), and 2. The files is a part of a larger list.',
+    }
+  ),
+  z.object(
+    {
+      mode: z.literal('files'),
+      files: z.array(z.string()).min(1).describe('The list of files that must be deleted.'),
+    },
+    {
+      description:
+        'Delete by file paths. DO NOT use this when you have a paginated list, where the files number is smaller than the total count.',
+    }
+  ),
+  z.object(
+    {
+      mode: z.literal('filePatterns'),
+      filePatterns: deleteFilePatternsSchema,
+    },
+    {
+      description:
+        'Delete by file patterns. Pattern-based file selection for large file sets. Prefer this over the files array to avoid token limits.',
+    }
+  ),
+]);
+
 export const deleteToolSchema = z.object(
   {
     operations: z
-      .array(
-        z.discriminatedUnion('mode', [
-          z.object(
-            {
-              mode: z.literal('artifactId'),
-              artifactId: z
-                .string()
-                .min(1)
-                .describe('The artifact identifier containing files to delete.'),
-            },
-            {
-              description:
-                'Delete by artifactId. Use this when: 1. Provided by user or tool call results (Do NOT guess), and 2. The files is a part of a larger list.',
-            }
-          ),
-          z.object(
-            {
-              mode: z.literal('files'),
-              files: z.array(z.string()).min(1).describe('The list of files that must be deleted.'),
-            },
-            {
-              description:
-                'Delete by file paths. DO NOT use this when you have a paginated list, where the files number is smaller than the total count.',
-            }
-          ),
-          z.object(
-            {
-              mode: z.literal('filePatterns'),
-              filePatterns: z
-                .object({
-                  patterns: z
-                    .array(z.string().min(1))
-                    .min(1)
-                    .describe('Array of RegExp patterns to match files for deletion.'),
-                  folder: z
-                    .string()
-                    .min(1)
-                    .optional()
-                    .describe(
-                      'Optional folder path to limit pattern matching. If not provided, searches entire vault.'
-                    ),
-                })
-                .describe(
-                  'Pattern-based file selection for large file sets. Prefer this over the files array to avoid token limits.'
-                ),
-            },
-            {
-              description:
-                'Delete by file patterns. Pattern-based file selection for large file sets. Prefer this over the files array to avoid token limits.',
-            }
-          ),
-        ])
-      )
+      .array(deleteOperationSchema)
       .min(1)
       .describe('Array of delete operations to execute.'),
   },
@@ -74,7 +74,146 @@ export const deleteToolSchema = z.object(
   }
 );
 
+/**
+ * Gemini/Gemma: flat fields per operation (`mode` enum + optionals), no oneOf per item.
+ * Root `operations` matches the primary tool shape for serialized history.
+ */
+const googleDeleteOperationSchema = z
+  .object({
+    mode: z
+      .enum(['artifactId', 'files', 'filePatterns'])
+      .describe(
+        'artifactId: delete files from an artifact. files: delete listed paths. filePatterns: delete by regex patterns.'
+      ),
+    artifactId: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        'Required when mode is artifactId. The artifact identifier containing files to delete.'
+      ),
+    files: z
+      .array(z.string())
+      .min(1)
+      .optional()
+      .describe('Required when mode is files. Paths or names of files to delete.'),
+    filePatterns: deleteFilePatternsSchema
+      .optional()
+      .describe('Required when mode is filePatterns. Pattern-based file selection.'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.mode === 'artifactId') {
+      if (data.artifactId === undefined || data.artifactId.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'artifactId is required when mode is artifactId',
+          path: ['artifactId'],
+        });
+      }
+      if (data.files !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'files must be omitted when mode is artifactId',
+          path: ['files'],
+        });
+      }
+      if (data.filePatterns !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'filePatterns must be omitted when mode is artifactId',
+          path: ['filePatterns'],
+        });
+      }
+      return;
+    }
+
+    if (data.mode === 'files') {
+      if (data.files === undefined || data.files.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'files is required when mode is files',
+          path: ['files'],
+        });
+      }
+      if (data.artifactId !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'artifactId must be omitted when mode is files',
+          path: ['artifactId'],
+        });
+      }
+      if (data.filePatterns !== undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'filePatterns must be omitted when mode is files',
+          path: ['filePatterns'],
+        });
+      }
+      return;
+    }
+
+    if (data.filePatterns === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'filePatterns is required when mode is filePatterns',
+        path: ['filePatterns'],
+      });
+    } else if (data.filePatterns.patterns.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'filePatterns.patterns must be non-empty when mode is filePatterns',
+        path: ['filePatterns', 'patterns'],
+      });
+    }
+    if (data.artifactId !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'artifactId must be omitted when mode is filePatterns',
+        path: ['artifactId'],
+      });
+    }
+    if (data.files !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'files must be omitted when mode is filePatterns',
+        path: ['files'],
+      });
+    }
+  })
+  .transform((data): z.infer<typeof deleteOperationSchema> => {
+    if (data.mode === 'artifactId') {
+      const artifactId = data.artifactId;
+      if (artifactId === undefined || artifactId.length === 0) {
+        throw new Error('google vault_delete: artifactId missing after validation');
+      }
+      return { mode: 'artifactId' as const, artifactId };
+    }
+    if (data.mode === 'files') {
+      const files = data.files;
+      if (files === undefined || files.length === 0) {
+        throw new Error('google vault_delete: files missing after validation');
+      }
+      return { mode: 'files' as const, files };
+    }
+    const filePatterns = data.filePatterns;
+    if (filePatterns === undefined) {
+      throw new Error('google vault_delete: filePatterns missing after validation');
+    }
+    return { mode: 'filePatterns' as const, filePatterns };
+  });
+
+export const googleDeleteToolSchema = z.object(
+  {
+    operations: z.array(googleDeleteOperationSchema).min(1).describe('Array of delete operations.'),
+  },
+  {
+    description:
+      'A tool to delete files from the vault using various selection methods (Gemini-friendly items, no oneOf per element).',
+  }
+);
+
 export type DeleteToolArgs = z.infer<typeof deleteToolSchema>;
+export type GoogleDeleteToolModelInput = z.input<typeof googleDeleteToolSchema>;
 
 type DeleteExecutionResult = {
   deletedFiles: (TrashFile | NonTrashFile)[];
@@ -103,6 +242,11 @@ export class VaultDelete {
   public static async getDeleteTool() {
     const { tool } = await getBundledLib('ai');
     return tool({ inputSchema: deleteToolSchema });
+  }
+
+  public static async getGoogleDeleteTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({ inputSchema: googleDeleteToolSchema });
   }
 
   public async handle(

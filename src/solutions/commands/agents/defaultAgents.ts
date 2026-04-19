@@ -47,6 +47,14 @@ export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
     tools: [ToolName.IMAGE],
     canUseTools: true,
   },
+  /** `/>` local shell / CLI transcript; intent base type is `>`. */
+  {
+    id: '>',
+    name: 'Shell Agent',
+    factory: 'super',
+    tools: [], // All super tools (shell uses manual SHELL tool path)
+    canUseTools: true,
+  },
   {
     id: 'title',
     name: 'Conversation Title Agent',

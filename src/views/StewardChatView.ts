@@ -8,6 +8,7 @@ import type StewardPlugin from 'src/main';
 export class StewardChatView extends MarkdownView {
   private autoScrollEventRef: EventRef | null = null;
   private scrollToBottomTimeout: NodeJS.Timeout | null = null;
+  private dockToggleBtn: HTMLButtonElement | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -38,6 +39,12 @@ export class StewardChatView extends MarkdownView {
 
     this.createHeader();
     this.setupAutoScroll();
+
+    this.registerEvent(
+      this.app.workspace.on('layout-change', () => {
+        this.refreshDockToggleButton();
+      })
+    );
   }
 
   async onClose(): Promise<void> {
@@ -179,16 +186,26 @@ export class StewardChatView extends MarkdownView {
     setTooltip(historyBtn, i18next.t('chat.history'));
     historyBtn.addEventListener('click', () => this.handleHistory());
 
-    // Close Chat button
-    const closeBtn = headerEl.createEl('button', {
+    // Move chat between sidebar and main editor
+    this.dockToggleBtn = headerEl.createEl('button', {
       cls: 'steward-header-button clickable-icon',
     });
-    setIcon(closeBtn, 'x');
-    setTooltip(closeBtn, i18next.t('chat.closeChat'));
-    closeBtn.addEventListener('click', () => {
-      const rightSplit = this.app.workspace.rightSplit;
-      rightSplit.collapse();
+    this.refreshDockToggleButton();
+    this.dockToggleBtn.addEventListener('click', () => {
+      void this.plugin.toggleChatDockFromView(this.leaf);
     });
+  }
+
+  private refreshDockToggleButton(): void {
+    if (!this.dockToggleBtn) {
+      return;
+    }
+    const inRight = this.plugin.leafIsInRightSidebar(this.leaf);
+    setIcon(this.dockToggleBtn, inRight ? 'arrow-left' : 'arrow-right');
+    setTooltip(
+      this.dockToggleBtn,
+      i18next.t(inRight ? 'chat.moveChatToMain' : 'chat.moveChatToRight')
+    );
   }
 
   private handleNewChat(): void {
@@ -332,7 +349,8 @@ export class StewardChatView extends MarkdownView {
       .filter((f): f is TFile => f instanceof TFile && f.extension === 'md')
       .filter(file => {
         const cache = this.app.metadataCache.getFileCache(file);
-        if (cache?.frontmatter?.parent) {
+        // Exclude notes are from subagents and has host_conversation
+        if (cache?.frontmatter?.parent || cache?.frontmatter?.host_conversation) {
           return false;
         }
         return true;
@@ -368,32 +386,38 @@ export class StewardChatView extends MarkdownView {
   }
 
   /**
-   * Open an existing conversation in the chat by replacing current content with an embed
+   * Open an existing conversation in the chat by replacing current content with an embed.
+   *
+   * If the requested note declares `continued_to` / `forwarded_to`, the embed points at
+   * the terminal note after following that chain (multi-hop when several forwards are chained).
+   * The `/ ` input line is appended unless the terminal note is a `cli_interactive*` terminal
+   * or carries a `trigger` frontmatter key.
    */
-  public async openExistingConversation(
-    conversationPath: string,
-    options: { showInput?: boolean } = {}
-  ): Promise<void> {
+  public async openExistingConversation(conversationPath: string): Promise<void> {
     if (!this.file) {
       logger.warn('Conversation file not found');
       return;
     }
 
     try {
-      // Create the embed syntax
-      let embedContent = `\n![[${conversationPath}]]\n\n`;
+      const forwardService = this.plugin.wikilinkForwardService;
+      const originalTitle = conversationPath.split('/').pop()?.replace(/\.md$/, '') ?? '';
+      const resolvedTitle = forwardService.resolveForwardedChainTerminalTitle(originalTitle);
 
-      if (options.showInput) {
+      const embedPath =
+        resolvedTitle && resolvedTitle !== originalTitle
+          ? forwardService.getConversationEmbedPath(resolvedTitle)
+          : conversationPath;
+
+      let embedContent = `\n![[${embedPath}]]\n\n`;
+      if (resolvedTitle && forwardService.shouldAppendInputLineForConversation(resolvedTitle)) {
         embedContent += '/ ';
       }
 
-      // Replace the entire file content with the embed
       await this.app.vault.modify(this.file, embedContent);
 
-      // Set the leaf as active and focus it
       this.app.workspace.setActiveLeaf(this.leaf, { focus: true });
 
-      // Set the cursor to the last line
       const lastLineNum = this.editor.lineCount() - 1;
       this.editor.setCursor({
         line: lastLineNum,

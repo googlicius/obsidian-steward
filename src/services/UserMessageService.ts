@@ -65,12 +65,15 @@ export class UserMessageService {
   }
 
   /**
-   * Sanitize the query.
+   * Sanitize the query: trim outer whitespace, collapse horizontal whitespace
+   * within each line, preserve line breaks.
    */
   public sanitizeQuery(query: string): string {
-    // Replace multiple consecutive spaces with a single space
-    query = query.replace(/\s+/g, ' ');
-    return query.trim();
+    return query
+      .split(/\r\n|\r|\n/)
+      .map(line => line.replace(/[ \t]+/g, ' ').trim())
+      .join('\n')
+      .trim();
   }
 
   public async getImagePartsFromPaths(paths: string[]): Promise<Array<[string, ImagePart]>> {

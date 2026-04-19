@@ -146,8 +146,8 @@ export class ToolCallExecutor {
           break;
         }
 
-        case ToolName.TODO_LIST_UPDATE: {
-          toolCallResult = await agent.todoList.handleUpdate(params.agentParams, {
+        case ToolName.TODO_WRITE: {
+          toolCallResult = await agent.todoList.handle(params.agentParams, {
             toolCall,
           });
           break;
@@ -207,7 +207,7 @@ export class ToolCallExecutor {
         }
       }
 
-      if ([ToolName.CONCLUDE, ToolName.TODO_LIST_UPDATE].includes(toolCall.toolName)) {
+      if ([ToolName.CONCLUDE, ToolName.TODO_WRITE].includes(toolCall.toolName)) {
         await agent.plugin.conversationRenderer.removeIndicator(params.title);
       }
 

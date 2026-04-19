@@ -2,7 +2,7 @@ import type { ToolCallPart as AI_ToolCallPart, ToolResultPart as AI_ToolResultPa
 import { ToolName } from '../toolNames';
 import type { ActivateToolsArgs } from './activateTools';
 import type { SpawnSubagentArgs } from '../agents/handlers/SpawnSubagent';
-import type { TodoListUpdateArgs } from '../agents/handlers/TodoList';
+import type { TodoWriteArgs } from '../agents/handlers/TodoList';
 import type { ConcludeInput } from '../agents/handlers/Conclude';
 import type { ExistsToolArgs } from '../agents/handlers/VaultExists';
 import type { ContentReadingArgs } from '../agents/handlers/ReadContent';
@@ -60,7 +60,7 @@ export type KnownToolCallPart =
   | ToolCallPartOf<ToolName.ASK_USER, ConfirmationInput>
   | ToolCallPartOf<ToolName.ACTIVATE, ActivateToolsArgs>
   | ToolCallPartOf<ToolName.SPAWN_SUBAGENT, SpawnSubagentArgs>
-  | ToolCallPartOf<ToolName.TODO_LIST_UPDATE, TodoListUpdateArgs>
+  | ToolCallPartOf<ToolName.TODO_WRITE, TodoWriteArgs>
   | ToolCallPartOf<ToolName.CONCLUDE, ConcludeInput>
   | ToolCallPartOf<ToolName.EXISTS, ExistsToolArgs>
   | ToolCallPartOf<ToolName.CONTENT_READING, ContentReadingArgs>

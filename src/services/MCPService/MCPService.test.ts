@@ -20,6 +20,7 @@ function createMockPlugin(): StewardPlugin {
       workspace: { onLayoutReady: jest.fn() },
       metadataCache: {
         on: jest.fn().mockReturnValue({}),
+        getFileCache: jest.fn().mockReturnValue(null),
       },
       vault: {
         on: jest.fn().mockReturnValue({}),
@@ -69,6 +70,7 @@ describe('MCPService', () => {
       const content = `---
 name: My MCP
 description: Test server
+enabled: true
 ---
 Some instructions.
 
@@ -87,7 +89,6 @@ Some instructions.
       expect(definition.config).toEqual({
         transport: 'http',
         url: 'https://example.com/mcp',
-        enabled: true,
       });
       expect(definition.enabled).toBe(true);
     });
@@ -122,6 +123,375 @@ No json here.
         content,
       });
       expect(configValidationErrors).toContain(i18next.t('mcp.noConfigBlock'));
+    });
+  });
+
+  describe('parseCachedToolNamesFromFrontmatter', () => {
+    let parseCachedToolNamesFromFrontmatter: MCPService['parseCachedToolNamesFromFrontmatter'];
+
+    beforeEach(() => {
+      parseCachedToolNamesFromFrontmatter =
+        service['parseCachedToolNamesFromFrontmatter'].bind(service);
+    });
+
+    it('returns an empty array for null and undefined', () => {
+      expect(parseCachedToolNamesFromFrontmatter(null)).toEqual([]);
+      expect(parseCachedToolNamesFromFrontmatter(undefined)).toEqual([]);
+    });
+
+    it('parses YAML-style string arrays', () => {
+      expect(parseCachedToolNamesFromFrontmatter(['a', 'b'])).toEqual(['a', 'b']);
+      expect(parseCachedToolNamesFromFrontmatter(['a', '', 'b'])).toEqual(['a', 'b']);
+    });
+
+    it('ignores non-string entries in YAML arrays', () => {
+      expect(parseCachedToolNamesFromFrontmatter(['ok', 1, null, 'z'] as unknown[])).toEqual([
+        'ok',
+        'z',
+      ]);
+    });
+
+    it('parses JSON array strings', () => {
+      expect(parseCachedToolNamesFromFrontmatter('["echo","ping"]')).toEqual(['echo', 'ping']);
+      expect(parseCachedToolNamesFromFrontmatter('  ["x"]  ')).toEqual(['x']);
+      expect(parseCachedToolNamesFromFrontmatter('[]')).toEqual([]);
+    });
+
+    it('returns an empty array for placeholder or non-array JSON strings', () => {
+      expect(parseCachedToolNamesFromFrontmatter('Check enabled to list tools')).toEqual([]);
+      expect(parseCachedToolNamesFromFrontmatter('{}')).toEqual([]);
+      expect(parseCachedToolNamesFromFrontmatter('["bad"')).toEqual([]);
+    });
+
+    it('returns an empty array for unsupported raw types', () => {
+      expect(parseCachedToolNamesFromFrontmatter(42)).toEqual([]);
+      expect(parseCachedToolNamesFromFrontmatter({ x: 1 })).toEqual([]);
+    });
+  });
+
+  describe('refreshCachedToolNamesFromServer', () => {
+    const mcpPath = 'Steward/MCP/refresh-test.md';
+
+    it('returns early when definition is missing', async () => {
+      const file = getInstance(TFile, {
+        path: mcpPath,
+        basename: 'refresh-test',
+        extension: 'md',
+      });
+      await service['refreshCachedToolNamesFromServer'](file, mcpPath);
+      expect(getBundledLib).not.toHaveBeenCalled();
+      expect(mockPlugin.app.fileManager.processFrontMatter).not.toHaveBeenCalled();
+    });
+
+    it('returns early when definition has no config', async () => {
+      const file = getInstance(TFile, {
+        path: mcpPath,
+        basename: 'refresh-test',
+        extension: 'md',
+      });
+      service['definitionsByPath'].set(mcpPath, {
+        path: mcpPath,
+        serverId: 'refresh_test',
+        name: 'refresh',
+        description: '',
+        enabled: true,
+        message: '',
+        config: null,
+        cachedToolNames: [],
+        connectionMessage: '',
+      });
+      await service['refreshCachedToolNamesFromServer'](file, mcpPath);
+      expect(getBundledLib).not.toHaveBeenCalled();
+    });
+
+    it('writes tools JSON and clears message on success', async () => {
+      const file = getInstance(TFile, {
+        path: mcpPath,
+        basename: 'refresh-test',
+        extension: 'md',
+      });
+      service['definitionsByPath'].set(mcpPath, {
+        path: mcpPath,
+        serverId: 'refresh_test',
+        name: 'refresh',
+        description: '',
+        enabled: true,
+        message: '',
+        config: { transport: 'http', url: 'http://localhost' },
+        cachedToolNames: [],
+        connectionMessage: '',
+      });
+
+      const mockClose = jest.fn().mockResolvedValue(undefined);
+      const mockTools = jest.fn().mockResolvedValue({ a: {}, b: {} });
+      (getBundledLib as jest.Mock).mockResolvedValue({
+        createMCPClient: jest.fn().mockResolvedValue({
+          tools: mockTools,
+          close: mockClose,
+        }),
+      });
+
+      const fmUpdates: Record<string, unknown> = {};
+      mockPlugin.app.fileManager.processFrontMatter = jest
+        .fn()
+        .mockImplementation((_f, fn: (x: Record<string, unknown>) => void) => {
+          fn(fmUpdates);
+          return Promise.resolve();
+        });
+
+      await service['refreshCachedToolNamesFromServer'](file, mcpPath);
+
+      expect(getBundledLib).toHaveBeenCalledWith('mcp');
+      expect(mockTools).toHaveBeenCalled();
+      expect(mockClose).toHaveBeenCalled();
+      const written = JSON.parse(fmUpdates.tools as string) as string[];
+      expect(written.sort()).toEqual(['a', 'b']);
+      expect(fmUpdates.message).toBeUndefined();
+    });
+
+    it('writes connection retry message on failure', async () => {
+      const file = getInstance(TFile, {
+        path: mcpPath,
+        basename: 'refresh-test',
+        extension: 'md',
+      });
+      service['definitionsByPath'].set(mcpPath, {
+        path: mcpPath,
+        serverId: 'refresh_test',
+        name: 'refresh',
+        description: '',
+        enabled: true,
+        message: '',
+        config: {
+          transport: 'http',
+          url: 'http://localhost',
+        },
+        cachedToolNames: [],
+        connectionMessage: '',
+      });
+
+      (getBundledLib as jest.Mock).mockResolvedValue({
+        createMCPClient: jest.fn().mockRejectedValue(new Error('econnrefused')),
+      });
+
+      const fmUpdates: Record<string, unknown> = {};
+      mockPlugin.app.fileManager.processFrontMatter = jest
+        .fn()
+        .mockImplementation((_f, fn: (x: Record<string, unknown>) => void) => {
+          fn(fmUpdates);
+          return Promise.resolve();
+        });
+
+      await service['refreshCachedToolNamesFromServer'](file, mcpPath);
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        `Failed to refresh MCP tool names for ${mcpPath}`,
+        expect.any(Error)
+      );
+      expect(fmUpdates.message).toBe(i18next.t('mcp.connectionFailedRetry'));
+    });
+
+    it('skips when a refresh is already in flight for the same path', async () => {
+      const file = getInstance(TFile, {
+        path: mcpPath,
+        basename: 'refresh-test',
+        extension: 'md',
+      });
+      service['definitionsByPath'].set(mcpPath, {
+        path: mcpPath,
+        serverId: 'refresh_test',
+        name: 'refresh',
+        description: '',
+        enabled: true,
+        message: '',
+        config: { transport: 'http', url: 'http://localhost' },
+        cachedToolNames: [],
+        connectionMessage: '',
+      });
+
+      let releaseFirst: () => void = () => {};
+      const firstGate = new Promise<void>(resolve => {
+        releaseFirst = resolve;
+      });
+
+      const createMCPClient = jest.fn().mockImplementation(async () => {
+        await firstGate;
+        return {
+          tools: jest.fn().mockResolvedValue({ x: {} }),
+          close: jest.fn().mockResolvedValue(undefined),
+        };
+      });
+      (getBundledLib as jest.Mock).mockResolvedValue({ createMCPClient });
+
+      const p1 = service['refreshCachedToolNamesFromServer'](file, mcpPath);
+      const p2 = service['refreshCachedToolNamesFromServer'](file, mcpPath);
+
+      await Promise.resolve();
+      expect(createMCPClient).toHaveBeenCalledTimes(1);
+
+      releaseFirst();
+      await Promise.all([p1, p2]);
+      expect(createMCPClient).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('handleMetadataCacheChanged', () => {
+    const mcpPath = 'Steward/MCP/meta-enabled.md';
+
+    const mockRefreshCachedToolNames = (impl: jest.Mock): void => {
+      const svc = service as unknown as {
+        refreshCachedToolNamesFromServer: (f: TFile, p: string) => Promise<void>;
+      };
+      svc.refreshCachedToolNamesFromServer = impl as typeof svc.refreshCachedToolNamesFromServer;
+    };
+
+    it('does nothing when frontmatter enabled is not true', async () => {
+      const file = getInstance(TFile, {
+        path: mcpPath,
+        basename: 'meta-enabled',
+        extension: 'md',
+      });
+      (mockPlugin.app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
+        frontmatter: { enabled: false },
+      });
+      const refreshMock = jest.fn().mockResolvedValue(undefined);
+      mockRefreshCachedToolNames(refreshMock);
+
+      await service['handleMetadataCacheChanged'](file);
+
+      expect(refreshMock).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when tool names are already listed', async () => {
+      const file = getInstance(TFile, {
+        path: mcpPath,
+        basename: 'meta-enabled',
+        extension: 'md',
+      });
+      (mockPlugin.app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
+        frontmatter: {
+          enabled: true,
+          status: i18next.t('common.statusValid'),
+          tools: ['a'],
+        },
+      });
+      const refreshMock = jest.fn().mockResolvedValue(undefined);
+      mockRefreshCachedToolNames(refreshMock);
+
+      await service['handleMetadataCacheChanged'](file);
+
+      expect(refreshMock).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when there is no in-memory definition or config', async () => {
+      const file = getInstance(TFile, {
+        path: mcpPath,
+        basename: 'meta-enabled',
+        extension: 'md',
+      });
+      (mockPlugin.app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
+        frontmatter: { enabled: true },
+      });
+      const refreshMock = jest.fn().mockResolvedValue(undefined);
+      mockRefreshCachedToolNames(refreshMock);
+
+      await service['handleMetadataCacheChanged'](file);
+
+      expect(refreshMock).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when definition exists but config is null', async () => {
+      const file = getInstance(TFile, {
+        path: mcpPath,
+        basename: 'meta-enabled',
+        extension: 'md',
+      });
+      (mockPlugin.app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
+        frontmatter: { enabled: true, status: i18next.t('common.statusValid') },
+      });
+      service['definitionsByPath'].set(mcpPath, {
+        path: mcpPath,
+        serverId: 'meta_enabled',
+        name: 'meta',
+        description: '',
+        enabled: true,
+        message: '',
+        config: null,
+        cachedToolNames: [],
+        connectionMessage: '',
+      });
+      const refreshMock = jest.fn().mockResolvedValue(undefined);
+      mockRefreshCachedToolNames(refreshMock);
+
+      await service['handleMetadataCacheChanged'](file);
+
+      expect(refreshMock).not.toHaveBeenCalled();
+    });
+
+    it('calls refreshCachedToolNamesFromServer when enabled, tools empty, and config exists', async () => {
+      const file = getInstance(TFile, {
+        path: mcpPath,
+        basename: 'meta-enabled',
+        extension: 'md',
+      });
+      (mockPlugin.app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
+        frontmatter: {
+          enabled: true,
+          status: i18next.t('common.statusValid'),
+          tools: i18next.t('mcp.toolsPlaceholder'),
+        },
+      });
+      service['definitionsByPath'].set(mcpPath, {
+        path: mcpPath,
+        serverId: 'meta_enabled',
+        name: 'meta',
+        description: '',
+        enabled: false,
+        message: '',
+        config: { transport: 'http', url: 'http://localhost' },
+        cachedToolNames: [],
+        connectionMessage: '',
+      });
+
+      const refreshMock = jest.fn().mockResolvedValue(undefined);
+      mockRefreshCachedToolNames(refreshMock);
+
+      await service['handleMetadataCacheChanged'](file);
+
+      expect(refreshMock).toHaveBeenCalledWith(file, mcpPath);
+    });
+
+    it('does nothing when note status is not valid', async () => {
+      const file = getInstance(TFile, {
+        path: mcpPath,
+        basename: 'meta-enabled',
+        extension: 'md',
+      });
+      (mockPlugin.app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
+        frontmatter: {
+          enabled: true,
+          status: i18next.t('common.statusInvalid', { errors: 'bad config' }),
+          tools: i18next.t('mcp.toolsPlaceholder'),
+        },
+      });
+      service['definitionsByPath'].set(mcpPath, {
+        path: mcpPath,
+        serverId: 'meta_enabled',
+        name: 'meta',
+        description: '',
+        enabled: true,
+        message: '',
+        config: { transport: 'http', url: 'http://localhost' },
+        cachedToolNames: [],
+        connectionMessage: '',
+      });
+
+      const refreshMock = jest.fn().mockResolvedValue(undefined);
+      mockRefreshCachedToolNames(refreshMock);
+
+      await service['handleMetadataCacheChanged'](file);
+
+      expect(refreshMock).not.toHaveBeenCalled();
     });
   });
 
@@ -173,7 +543,9 @@ No json here.
         description: '',
         enabled: true,
         message: '',
-        config: { transport: 'http', url: 'http://localhost', enabled: true },
+        config: { transport: 'http', url: 'http://localhost' },
+        cachedToolNames: [],
+        connectionMessage: '',
       });
 
       const first = await service['ensureServerConnected'](path);
@@ -187,7 +559,7 @@ No json here.
   });
 
   describe('loadDefinitionFromFile', () => {
-    it('sets enabled: true in frontmatter when the enabled key is missing', async () => {
+    it('sets enabled: false and tools placeholder when keys are missing', async () => {
       const file = getInstance(TFile, {
         path: 'Steward/MCP/no-enabled-key.md',
         basename: 'no-enabled-key',
@@ -210,7 +582,8 @@ name: No Enabled Key
 
       await service['loadDefinitionFromFile'](file);
 
-      expect(fm.enabled).toBe(true);
+      expect(fm.enabled).toBe(false);
+      expect(fm.tools).toBe(i18next.t('mcp.toolsPlaceholder'));
       expect(mockPlugin.app.fileManager.processFrontMatter).toHaveBeenCalled();
     });
 
@@ -230,7 +603,9 @@ name: No Enabled Key
         description: '',
         enabled: true,
         message: '',
-        config: { transport: 'http', url: 'http://x', enabled: true },
+        config: { transport: 'http', url: 'http://x' },
+        cachedToolNames: [],
+        connectionMessage: '',
       });
 
       await service['loadDefinitionFromFile'](file);
@@ -250,6 +625,9 @@ name: No Enabled Key
       });
       mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue(`---
 name: Loaded
+enabled: true
+tools:
+  - x
 ---
 \`\`\`json
 {"transport":"http","url":"http://localhost"}
@@ -268,7 +646,8 @@ name: Loaded
       const def = service['definitionsByPath'].get('Steward/MCP/loadme.md');
       expect(def?.name).toBe('Loaded');
       expect(def?.config?.url).toBe('http://localhost');
-      expect(fm.enabled).toBe(true);
+      expect(def?.enabled).toBe(true);
+      expect(def?.cachedToolNames).toEqual(['x']);
       expect(fm.status).toBe(i18next.t('common.statusValid'));
     });
 
@@ -296,7 +675,8 @@ not json
       await service['loadDefinitionFromFile'](file);
 
       expect(mockPlugin.app.fileManager.processFrontMatter).toHaveBeenCalled();
-      expect(fm.enabled).toBe(true);
+      expect(fm.enabled).toBe(false);
+      expect(fm.tools).toBe(i18next.t('mcp.toolsPlaceholder'));
       expect(fm.status).not.toBe(i18next.t('common.statusValid'));
       expect(String(fm.status)).not.toBe('');
     });
@@ -379,7 +759,9 @@ not json
         description: '',
         enabled: true,
         message: '',
-        config: { transport: 'http', url: 'http://a', enabled: true },
+        config: { transport: 'http', url: 'http://a' },
+        cachedToolNames: [],
+        connectionMessage: '',
       });
       service['definitionsByPath'].set(pathB, {
         path: pathB,
@@ -388,7 +770,9 @@ not json
         description: '',
         enabled: true,
         message: '',
-        config: { transport: 'http', url: 'http://b', enabled: true },
+        config: { transport: 'http', url: 'http://b' },
+        cachedToolNames: [],
+        connectionMessage: '',
       });
 
       const echoTool = { execute: jest.fn() };
@@ -430,7 +814,9 @@ not json
         description: '',
         enabled: true,
         message: '',
-        config: { transport: 'http', url: 'http://ok', enabled: true },
+        config: { transport: 'http', url: 'http://ok' },
+        cachedToolNames: [],
+        connectionMessage: '',
       });
       service['definitionsByPath'].set(disabledPath, {
         path: disabledPath,
@@ -439,7 +825,9 @@ not json
         description: '',
         enabled: false,
         message: '',
-        config: { transport: 'http', url: 'http://off', enabled: true },
+        config: { transport: 'http', url: 'http://off' },
+        cachedToolNames: [],
+        connectionMessage: '',
       });
       service['definitionsByPath'].set(noConfigPath, {
         path: noConfigPath,
@@ -449,6 +837,8 @@ not json
         enabled: true,
         message: '',
         config: null,
+        cachedToolNames: [],
+        connectionMessage: '',
       });
 
       const onlyTool = { execute: jest.fn() };
@@ -479,7 +869,9 @@ not json
         description: '',
         enabled: true,
         message: '',
-        config: { transport: 'http', url: 'http://good', enabled: true },
+        config: { transport: 'http', url: 'http://good' },
+        cachedToolNames: [],
+        connectionMessage: '',
       });
       service['definitionsByPath'].set(badPath, {
         path: badPath,
@@ -488,7 +880,9 @@ not json
         description: '',
         enabled: true,
         message: '',
-        config: { transport: 'http', url: 'http://bad', enabled: true },
+        config: { transport: 'http', url: 'http://bad' },
+        cachedToolNames: [],
+        connectionMessage: '',
       });
 
       const goodTool = { execute: jest.fn() };
@@ -517,6 +911,47 @@ not json
       await service.getMcpToolsForConversation('Y');
       expect(createMCPClient).toHaveBeenCalledTimes(2);
     });
+
+    it('uses name-only stub tools when connection fails but cached tool names exist', async () => {
+      mockPlugin.conversationRenderer.getConversationProperty = jest.fn().mockResolvedValue([]);
+
+      const badPath = 'Steward/MCP/bad-stub.md';
+      service['definitionsByPath'].set(badPath, {
+        path: badPath,
+        serverId: 'bad_stub',
+        name: 'bad stub',
+        description: '',
+        enabled: true,
+        message: '',
+        config: { transport: 'http', url: 'http://bad' },
+        cachedToolNames: ['echo'],
+        connectionMessage: 'offline',
+      });
+
+      (getBundledLib as jest.Mock).mockImplementation(async (lib: string) => {
+        if (lib === 'mcp') {
+          return {
+            createMCPClient: jest.fn().mockRejectedValue(new Error('connection refused')),
+          };
+        }
+        return {};
+      });
+
+      const offlineMsg = 'This MCP tool is unavailable because the server is not connected';
+
+      const { inactive } = await service.getMcpToolsForConversation('Z');
+
+      const key = 'mcp__bad_stub__echo';
+      expect(inactive[key]).toBeDefined();
+      const stub = inactive[key] as {
+        description?: string;
+        execute: (input: unknown, ctx: unknown) => Promise<unknown>;
+        inputSchema?: unknown;
+      };
+      expect(stub.description).toBe(offlineMsg);
+      expect(stub.inputSchema).toBeUndefined();
+      await expect(stub.execute({}, { messages: [], toolCallId: '1' })).resolves.toBe(offlineMsg);
+    });
   });
 
   describe('removeDefinitionByPath', () => {
@@ -538,7 +973,9 @@ not json
         description: '',
         enabled: true,
         message: '',
-        config: { transport: 'http', url: 'http://x', enabled: true },
+        config: { transport: 'http', url: 'http://x' },
+        cachedToolNames: [],
+        connectionMessage: '',
       });
 
       service['removeDefinitionByPath'](path);
@@ -560,7 +997,9 @@ not json
         description: '',
         enabled: true,
         message: '',
-        config: { transport: 'http', url: 'http://b', enabled: true },
+        config: { transport: 'http', url: 'http://b' },
+        cachedToolNames: [],
+        connectionMessage: '',
       });
       service['definitionsByPath'].set('Steward/MCP/a.md', {
         path: 'Steward/MCP/a.md',
@@ -570,6 +1009,8 @@ not json
         enabled: false,
         message: '',
         config: null,
+        cachedToolNames: [],
+        connectionMessage: '',
       });
 
       const all = service.getAllDefinitions();

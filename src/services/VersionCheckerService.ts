@@ -1,6 +1,7 @@
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { GITHUB_OWNER, GITHUB_REPO } from 'src/constants';
+import { compareSemverVersions } from 'src/utils/compareSemver';
 
 // GitHub repository information
 const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
@@ -35,31 +36,6 @@ export class VersionCheckerService {
     }
 
     return VersionCheckerService.instance;
-  }
-
-  /**
-   * Compares two semantic version strings
-   * @param v1 First version string
-   * @param v2 Second version string
-   * @returns 1 if v1 > v2, -1 if v1 < v2, 0 if equal
-   */
-  private compareVersions(v1: string, v2: string): number {
-    // Remove 'v' prefix if present for comparison
-    const cleanV1 = v1.replace(/^v/i, '');
-    const cleanV2 = v2.replace(/^v/i, '');
-
-    const parts1 = cleanV1.split('.').map(Number);
-    const parts2 = cleanV2.split('.').map(Number);
-
-    for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-      const part1 = parts1[i] || 0;
-      const part2 = parts2[i] || 0;
-
-      if (part1 > part2) return 1;
-      if (part1 < part2) return -1;
-    }
-
-    return 0;
   }
 
   /**
@@ -157,7 +133,7 @@ export class VersionCheckerService {
     const versionToCompare = lastSeenVersion || currentVersion;
 
     // If latest version is newer than the version to compare, return it with body
-    if (this.compareVersions(latestRelease.version, versionToCompare) > 0) {
+    if (compareSemverVersions(latestRelease.version, versionToCompare) > 0) {
       return latestRelease;
     }
 

@@ -7,6 +7,10 @@ jest.mock('../agentTools', () => {
     'move',
     'rename',
     'edit',
+    'content_reading',
+    'todo_write',
+    'confirmation',
+    'ask_user',
     'switch_agent_capacity',
     'activate_tools',
     'conclude',
@@ -32,6 +36,10 @@ const ALL_SUPER_KEYS: ToolName[] = [
   ToolName.MOVE,
   ToolName.RENAME,
   ToolName.EDIT,
+  ToolName.CONTENT_READING,
+  ToolName.TODO_WRITE,
+  ToolName.CONFIRMATION,
+  ToolName.ASK_USER,
   ToolName.SWITCH_AGENT_CAPACITY,
   ToolName.ACTIVATE,
   ToolName.CONCLUDE,
@@ -104,10 +112,12 @@ describe('ToolIntentResolution', () => {
 
   describe('buildSuperAgentEffectiveAllowedNames', () => {
     let sut: ToolIntentResolution;
+    let expandSuperAgentDeclaredTools: ToolIntentResolution['expandSuperAgentDeclaredTools'];
     let buildSuperAgentEffectiveAllowedNames: ToolIntentResolution['buildSuperAgentEffectiveAllowedNames'];
 
     beforeEach(() => {
       sut = new ToolIntentResolution();
+      expandSuperAgentDeclaredTools = sut['expandSuperAgentDeclaredTools'].bind(sut);
       buildSuperAgentEffectiveAllowedNames = sut['buildSuperAgentEffectiveAllowedNames'].bind(sut);
     });
 
@@ -115,6 +125,7 @@ describe('ToolIntentResolution', () => {
       const names = buildSuperAgentEffectiveAllowedNames({
         declaredNormalized: null,
         expandedDeclared: [],
+        conversationActiveTools: [],
         allToolKeys: ALL_SUPER_KEYS,
         toolsThatEnableConclude: new Set([ToolName.EDIT]),
         hasConcludeEligibleDeclaredTool: false,
@@ -123,6 +134,43 @@ describe('ToolIntentResolution', () => {
       expect(names).not.toContain(ToolName.SWITCH_AGENT_CAPACITY);
       expect(names).toContain(ToolName.LIST);
       expect(names.length).toBe(ALL_SUPER_KEYS.length - 1);
+    });
+
+    it('merges conversation active tools into effective allowed (UDC pre-activated tools)', () => {
+      const declared = [ToolName.CONTENT_READING, ToolName.SWITCH_AGENT_CAPACITY];
+      const expanded = expandSuperAgentDeclaredTools(declared);
+      const names = buildSuperAgentEffectiveAllowedNames({
+        declaredNormalized: declared,
+        expandedDeclared: expanded,
+        conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER],
+        allToolKeys: ALL_SUPER_KEYS,
+        toolsThatEnableConclude: new Set(),
+        hasConcludeEligibleDeclaredTool: false,
+        hasCompactionContext: false,
+      });
+      expect(names).toContain(ToolName.CONTENT_READING);
+      expect(names).toContain(ToolName.SWITCH_AGENT_CAPACITY);
+      expect(names).toContain(ToolName.TODO_WRITE);
+      expect(names).toContain(ToolName.CONFIRMATION);
+      expect(names).toContain(ToolName.ASK_USER);
+    });
+
+    it('ignores conversation active tools not present in allToolKeys', () => {
+      const declared = [ToolName.LIST];
+      const expanded = expandSuperAgentDeclaredTools(declared);
+      const names = buildSuperAgentEffectiveAllowedNames({
+        declaredNormalized: declared,
+        expandedDeclared: expanded,
+        conversationActiveTools: [ToolName.CREATE, ToolName.TODO_WRITE],
+        allToolKeys: [ToolName.LIST, ToolName.EDIT, ToolName.SWITCH_AGENT_CAPACITY] as ToolName[],
+        toolsThatEnableConclude: new Set(),
+        hasConcludeEligibleDeclaredTool: false,
+        hasCompactionContext: false,
+      });
+      expect(names).toContain(ToolName.LIST);
+      expect(names).toContain(ToolName.SWITCH_AGENT_CAPACITY);
+      expect(names).not.toContain(ToolName.CREATE);
+      expect(names).not.toContain(ToolName.TODO_WRITE);
     });
   });
 
@@ -153,6 +201,7 @@ describe('ToolIntentResolution', () => {
         buildSuperAgentEffectiveAllowedNames({
           declaredNormalized: declared,
           expandedDeclared: expanded,
+          conversationActiveTools: [],
           allToolKeys: ALL_SUPER_KEYS,
           toolsThatEnableConclude: new Set(),
           hasConcludeEligibleDeclaredTool: false,
@@ -167,7 +216,7 @@ describe('ToolIntentResolution', () => {
         toolsThatEnableConclude: new Set(),
         hasCompactionContext: false,
       });
-      expect(active.sort()).toEqual([...effective].sort());
+      expect([...active].sort()).toEqual([...effective].sort());
     });
 
     it('returns only switch for switch-only expanded set', () => {
@@ -182,6 +231,32 @@ describe('ToolIntentResolution', () => {
         hasCompactionContext: false,
       });
       expect(active).toEqual([ToolName.SWITCH_AGENT_CAPACITY]);
+    });
+
+    it('keeps pre-activated tools in stream active list for small UDC-declared sets', () => {
+      const declared = [ToolName.CONTENT_READING, ToolName.SWITCH_AGENT_CAPACITY];
+      const expanded = expandSuperAgentDeclaredTools(declared);
+      const effective = new Set(
+        buildSuperAgentEffectiveAllowedNames({
+          declaredNormalized: declared,
+          expandedDeclared: expanded,
+          conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER],
+          allToolKeys: ALL_SUPER_KEYS,
+          toolsThatEnableConclude: new Set(),
+          hasConcludeEligibleDeclaredTool: false,
+          hasCompactionContext: false,
+        })
+      );
+      const active = resolveStreamActiveToolNames({
+        declaredNormalized: declared,
+        expandedDeclared: expanded,
+        effectiveAllowed: effective,
+        conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER],
+        toolsThatEnableConclude: new Set(),
+        hasCompactionContext: false,
+      });
+      expect([...active].sort()).toEqual([...effective].sort());
+      expect(active).toContain(ToolName.TODO_WRITE);
     });
   });
 

@@ -19,6 +19,7 @@ const ja = {
       searchDesc: 'ノートを検索する',
       imageDesc: '画像を生成する',
       speechDesc: 'テキストから音声を生成する',
+      terminalDesc: '`/>` でローカルシェルモードを開始。',
       disabledMark: '（無効）',
       helpTableCommand: 'コマンド',
       helpTableDescription: '説明',
@@ -41,6 +42,29 @@ const ja = {
         'モデルが無効なまたは動的なツールコールを返しました: "{{toolName}}".',
       statusValid: '✅ 有効',
       statusInvalid: '無効: {{errors}}',
+      and: 'と',
+      or: 'または',
+    },
+    cli: {
+      disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
+      desktopOnly:
+        'ローカルCLIシェルはObsidianデスクトップ版でのみ利用できます。モバイルではローカルプロセスは利用できません。',
+      spawnFailed:
+        '{{message}}\n\n各プラットフォーム用のインストーラーは Steward フォルダにあります。vault のルートフォルダから実行してください:',
+      openingInteractiveTerminal: 'ホスト会話でインタラクティブターミナルを開いています...',
+      shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
+      processEndedSignal: '(Process ended: signal {{signal}})',
+      processEndedCode: '(Process exited with code {{code}})',
+      ptyNativePathUnavailable:
+        'インタラクティブ CLI には、node-pty のネイティブバンドルパスを解決できるローカルフォルダ保管庫（FileSystemAdapter）が必要です。',
+      ptyNativeBundleMissing:
+        'node-pty のネイティブバンドルフォルダが見つからないか、フォルダではありません: {{path}}。Steward のインストールスクリプトを実行するか、CLI 設定で有効なフォルダを指定してください。',
+      inputLineCaptionShellPrefix: 'シェル',
+      inputLineCaptionShellActive: 'シェル（Ctrl+C で終了）',
+      nodePtyInstallWindowsHeading: 'Windows でインストール',
+      nodePtyInstallUnixHeading: 'Mac / Linux でインストール',
+      seeCliWiki:
+        'トランスクリプトとインタラクティブの違いや node-pty のセットアップは [CLI]({{cliDoc}}) を参照してください。',
     },
     mcp: {
       noConfigBlock:
@@ -50,6 +74,12 @@ const ja = {
       noServers:
         'MCP サーバーが見つかりません。`{{folder}}` 以下に定義ノート（Markdown）を追加し、必要に応じてプラグインを再読み込みしてください。',
       helpNoteAlias: 'MCP',
+      toolsPlaceholder:
+        'enabled をオンにすると、この MCP サーバーのツール名を取得して一覧できます。',
+      connectionFailedRetry:
+        'この MCP サーバーに接続できませんでした。この MCP ノートの enabled を確認して再試行してください。',
+      activateToolsMcpHint:
+        'MCP ツール: サーバーが起動していること、失敗時は MCP 定義ノートで enabled を確認してください。',
     },
     trigger: {
       executing: 'トリガーコマンドを実行中: {{commandName}}',
@@ -69,10 +99,11 @@ const ja = {
     // Chat UI elements
     chat: {
       newChat: '新しいチャット',
+      moveChatToMain: 'チャットをメインエディタへ移動',
+      moveChatToRight: 'チャットを右サイドバーへ移動',
       history: '履歴',
       noConversations: '過去の会話はありません。',
-      closeChat: 'チャットを閉じる',
-      stewardChat: 'Stewardチャット',
+      stewardChat: 'チャット',
       closeConversation: '会話を閉じる',
       deleteHistoryItem: '履歴から削除',
       conversationClosed: '会話を閉じました',
@@ -239,9 +270,8 @@ const ja = {
       noResults: '結果が見つかりませんでした。別の検索語をお試しください。',
       matches: '一致箇所：',
       moreMatches: '... 他に{{count}}件の一致',
-      showMoreDetails: '次の10件の結果を表示するには `/more` と入力してください。',
       pagination: '{{current}}/{{total}}ページ',
-      useMoreCommand: '次のページを表示するには `/more` と入力してください。',
+      useMoreCommand: '次のページを表示するには `/ more` と入力してください。',
       noMoreResults: 'これ以上の検索結果はありません。',
       noRecentSearch: '最近の検索が見つかりません。先に検索コマンドを実行してください。',
       resultAvailableInArtifact: '検索結果はアーティファクトで利用可能です: {{artifactId}}',
@@ -291,7 +321,7 @@ const ja = {
     ui: {
       yes: 'はい',
       no: 'いいえ',
-      openStewardChat: 'Steward chatを開く',
+      openStewardChat: 'チャットを開く',
       buildingSearchIndex: '検索インデックスを構築中...',
       errorBuildingSearchIndex:
         '検索インデックスの構築中にエラーが発生しました。詳細はコンソールを確認してください。',
@@ -308,7 +338,7 @@ const ja = {
       decryptionError: 'APIキーの復号に失敗しました。設定で再度入力してください。',
       encryptionError: 'APIキーの暗号化に失敗しました。もう一度お試しください。',
       welcomeMessage:
-        'いつでも利用可能なStewardチャットへようこそ。以下に入力して対話するか、`/ ?` でコマンド一覧を表示できます。',
+        'Stewardへようこそ。以下に入力して対話するか、`/ ?` でコマンド一覧を表示できます。',
       commandPlaceholder: '送信するにはEnterを押してください',
       Copy: 'コピー',
       contentCopied: 'コンテンツをクリップボードにコピーしました',
@@ -316,10 +346,6 @@ const ja = {
     },
     todoList: {
       todoList: 'To-Doリスト',
-      pending: '保留中',
-      inProgress: '進行中',
-      skipped: 'スキップ',
-      completed: '完了',
       step: 'ステップ {{index}}',
     },
     documentation: {
@@ -371,6 +397,7 @@ const ja = {
       generatingAudio: '音声を生成中...',
       moving: '移動中...',
       searching: '検索中...',
+      cliTranscript: 'Running local CLI...',
       calculating: '計算中...',
       reverting: '変更を元に戻しています...',
       revertSuccess: '最後の変更を正常に元に戻しました。',
@@ -386,7 +413,7 @@ const ja = {
       continuingProcessing: '処理を続行中...',
       processingBatch: 'バッチ {{current}}/{{total}} を処理中...',
       udcTodoListBootstrapGuide:
-        '[システムより] 複数ステップのユーザー定義コマンド（`/{{commandName}}`）を実行中です。続く todo_list のツール呼び出しは、ステップ計画を登録するためにシステムが挿入したものであり、エンドユーザーが入力したものではありません。',
+        '[システムより] 複数ステップのユーザー定義コマンド（`/{{commandName}}`）を実行中です。続く todo_write のツール呼び出しは、ステップ計画を登録するためにシステムが挿入したものであり、エンドユーザーが入力したものではありません。',
       stepLimitReached: '最大処理ステップ数に達しました。さらにステップを続行しますか？',
     },
     // Model fallback messages

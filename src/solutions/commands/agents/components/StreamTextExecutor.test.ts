@@ -132,7 +132,7 @@ class TestAgent extends StreamTextExecutor {
   public getValidToolNames(): ReadonlySet<ToolName> {
     // Return a set of all possible tool names for testing
     return new Set([
-      ToolName.TODO_LIST_UPDATE,
+      ToolName.TODO_WRITE,
       ToolName.CONTENT_READING,
       ToolName.ACTIVATE,
       ToolName.LIST,

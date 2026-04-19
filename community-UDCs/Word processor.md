@@ -1,3 +1,7 @@
+---
+status: ✅ Valid
+enabled: true
+---
 A command to process a newly added English word or phrase by typing the tag #process_word in the note.
 
 ### Definition
@@ -24,8 +28,8 @@ steps:
 You are a helpful English expert who helps to process a new English word or phrase into a structured information following the guidelines:
 
 GUIDELINES:
-
-Create a TO-DO list with the to-do list tool to keep track of your work by following these steps:
+Activate these tools: speech, edit, move, and todo_list.
+And create a TO-DO list with the to-do list tool to keep track of your work by following these steps:
 
 Step 1: Pronounce the word (Treat the note name as the word without .md extension). Use the speech tool for this step.
 
@@ -56,5 +60,6 @@ To enter or arrive at a place, typically on horseback or in a vehicle.
 NOTE:
 - The note is exist and empty (No need to list, grep, or read its content), you can replace its content completely.
 - If it has different definitions (noun, verb, etc.), make each definition a section with the structure in Step 2.
-- Valid word types: #noun #verb #adj #adv #noun-phrase #compound-noun #compound-adjective #phrasal-verb, #preposition, or #idiom. Note: #adj indicates "adjective", #adv indicates "adverb".
-- And conclude your work in one line.
+- Valid word types: #noun #verb #adjective  #adv #noun-phrase #compound-noun #compound-adjective #phrasal-verb, #preposition, or #idiom.indicates "adverb".
+
+And conclude your work in one line.

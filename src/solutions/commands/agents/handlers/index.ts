@@ -29,3 +29,4 @@ export * from './GetMostRecentArtifact';
 export * from './GetArtifactById';
 export * from './RecallCompactedContext';
 export * from './McpToolHandler';
+export * from './CliHandler';

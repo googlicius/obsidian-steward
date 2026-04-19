@@ -50,6 +50,15 @@ export class SkillService {
     try {
       this.plugin.app.workspace.onLayoutReady(async () => {
         await this.loadAllSkills();
+
+        this.plugin.registerEvent(
+          this.plugin.app.vault.on('create', file => {
+            if (!(file instanceof TFile) || !this.isSkillFile(file)) {
+              return;
+            }
+            void this.onMarkdownUnderSkillsChanged(file);
+          })
+        );
       });
 
       // Watch for file modifications
@@ -58,16 +67,6 @@ export class SkillService {
           if (file instanceof TFile && this.isSkillFile(file)) {
             this.loadSkillFromFile(file);
           }
-        })
-      );
-
-      // Watch for file creation
-      this.plugin.registerEvent(
-        this.plugin.app.vault.on('create', file => {
-          if (!(file instanceof TFile) || !this.isSkillFile(file)) {
-            return;
-          }
-          void this.onMarkdownUnderSkillsChanged(file);
         })
       );
 
