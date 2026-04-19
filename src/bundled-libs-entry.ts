@@ -11,10 +11,8 @@ import * as ollama from 'ollama-ai-provider-v2';
 import * as openai from '@ai-sdk/openai';
 import * as mcp from '@ai-sdk/mcp';
 import * as openaiCompatible from '@ai-sdk/openai-compatible';
-import * as nodePty from 'node-pty';
 import * as xterm from '@xterm/xterm';
 import * as xtermAddonFit from '@xterm/addon-fit';
-import * as socketIo from 'socket.io';
 import * as socketIoClient from 'socket.io-client';
 import stripAnsi from 'strip-ansi';
 // Mustache is CJS (`module.exports = Mustache`); default import unwraps to the real module object.
@@ -30,10 +28,8 @@ export type StewardBundledLibsRegistry = {
   openai: typeof openai;
   openaiCompatible: typeof openaiCompatible;
   mcp: typeof mcp;
-  nodePty: typeof nodePty;
   xterm: typeof xterm;
   xtermAddonFit: typeof xtermAddonFit;
-  socketIo: typeof socketIo;
   socketIoClient: typeof socketIoClient;
   stripAnsi: typeof stripAnsi;
   mustache: typeof mustache;
@@ -48,10 +44,8 @@ export {
   openai,
   openaiCompatible,
   mcp,
-  nodePty,
   xterm,
   xtermAddonFit,
-  socketIo,
   socketIoClient,
   stripAnsi,
   mustache,

@@ -8,7 +8,7 @@ import {
 import { resolveVaultPtyNativePath } from './resolveVaultPtyNativePath';
 import type StewardPlugin from 'src/main';
 import { uniqueID } from 'src/utils/uniqueID';
-import { getBundledLib } from 'src/utils/bundledLibs';
+import { getBundledDesktopLib } from 'src/utils/bundledLibs';
 import { loadNodeModule } from 'src/utils/loadNodeModule';
 
 export type PtyCompanionServerHandle = {
@@ -28,7 +28,7 @@ export function startPtyCompanionServer(plugin: StewardPlugin): Promise<PtyCompa
   return (async () => {
     const [http, { Server }] = await Promise.all([
       loadNodeModule('http'),
-      getBundledLib('socketIo'),
+      getBundledDesktopLib('socketIo'),
     ]);
     return new Promise<PtyCompanionServerHandle>((resolve, reject) => {
       let settled = false;
@@ -85,7 +85,7 @@ export function startPtyCompanionServer(plugin: StewardPlugin): Promise<PtyCompa
               // Patched node-pty only: upstream does not read this env (see patches/node-pty+*.patch).
               process.env.NODE_PTY_NATIVE_MODULE_DIR = ptyBinaryPath;
               try {
-                const pty = await getBundledLib('nodePty');
+                const pty = await getBundledDesktopLib('nodePty');
                 const cols = typeof payload.cols === 'number' ? payload.cols : DEFAULT_COLS;
                 const rows = typeof payload.rows === 'number' ? payload.rows : DEFAULT_ROWS;
                 term = pty.spawn(payload.file, payload.args, {
