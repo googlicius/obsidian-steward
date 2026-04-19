@@ -151,6 +151,10 @@ async function mountInteractiveTerminal(params: {
     };
     resizePty(term.cols, term.rows);
 
+    if (session.ptyScrollback.length > 0) {
+      term.write(session.ptyScrollback);
+    }
+
     const onStdout = (chunk: string): void => {
       if (typeof chunk !== 'string' || chunk.length === 0) {
         return;

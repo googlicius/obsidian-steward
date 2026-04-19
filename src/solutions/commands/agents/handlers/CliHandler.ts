@@ -35,7 +35,7 @@ export class CliHandler {
     const stewardFolder = normalizePath(this.agent.plugin.settings.stewardFolder);
 
     if (!Platform.isDesktopApp) {
-      return i18next.t('cli.spawnFailed', { message: params.errorMessage });
+      return params.errorMessage;
     }
 
     const cliDoc = `${GITHUB_WIKI_URL}/${WIKI_PAGES.CLI}`;

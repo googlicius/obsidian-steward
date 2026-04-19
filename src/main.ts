@@ -533,6 +533,7 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createThinkingProcessPostProcessor());
 
     this.registerMarkdownPostProcessor(createCliTranscriptPostProcessor());
+
     this.registerMarkdownPostProcessor(createCliXtermPostProcessor(this));
 
     this.registerMarkdownPostProcessor(createConfirmationButtonsProcessor(this));
