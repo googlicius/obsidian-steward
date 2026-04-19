@@ -66,7 +66,8 @@ const en = {
       inputLineCaptionShellActive: 'Shell, Ctrl+C to exit',
       nodePtyInstallWindowsHeading: 'Install on Windows',
       nodePtyInstallUnixHeading: 'Install on Mac / Linux',
-      seeCliWiki: 'See [CLI]({{cliDoc}}) for transcript vs interactive mode and node-pty setup.',
+      seeCliWiki:
+        'It would take up from 5 ~ 6 MB based on your platform.\n\nSee [CLI]({{cliDoc}}) for transcript vs interactive mode and node-pty setup.',
     },
     mcp: {
       noConfigBlock:

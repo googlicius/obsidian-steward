@@ -103,8 +103,6 @@ async function mountInteractiveTerminal(params: {
   try {
     const xtermLib = await getBundledLib('xterm');
     const fitLib = await getBundledLib('xtermAddonFit');
-    const TerminalCtor = xtermLib.Terminal;
-    const FitAddonCtor = fitLib.FitAddon;
 
     const styleTarget =
       params.container.closest('.workspace-leaf-content') ?? document.documentElement;
@@ -121,7 +119,7 @@ async function mountInteractiveTerminal(params: {
       'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
     );
 
-    const term = new TerminalCtor({
+    const term = new xtermLib.Terminal({
       cursorBlink: true,
       convertEol: false,
       fontFamily: monoFont,
@@ -133,7 +131,7 @@ async function mountInteractiveTerminal(params: {
         selectionBackground,
       },
     });
-    const fitAddon = new FitAddonCtor();
+    const fitAddon = new fitLib.FitAddon();
     term.loadAddon(fitAddon);
     term.open(params.container);
     fitAddon.fit();
