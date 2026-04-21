@@ -33,13 +33,14 @@ function isWindows(): boolean {
 
 export const BUILT_IN_INTERACTIVE_APPS = [
   'vim',
-  'vi',
   'nvim',
   'nano',
+  'htop',
   'gemini',
   'claude',
   'qwen',
   'hermes',
+  'obsidian',
 ];
 
 export type CliSessionMode = 'transcript' | 'interactive';
