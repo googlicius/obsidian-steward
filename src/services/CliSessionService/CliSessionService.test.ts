@@ -82,6 +82,7 @@ function createSession(overrides: Partial<CliSession> = {}): CliSession {
     pendingSentinelMarker: null,
     hideStreamMarkerNextFlush: false,
     cdCommandHistory: [],
+    ptyScrollback: '',
     ...overrides,
   };
 }

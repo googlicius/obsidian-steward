@@ -55,10 +55,6 @@ Steward can be used directly in the editor or by opening the chat interface.
 
 <img src="/README.assets/Update-In-Editor.gif" alt="Update directly in the editor" width="400px">
 
-#### Reasoning
-
-<img src="/README.assets/Steward-Demo-Reasoning-2.gif" alt="Image read" width="400px">
-
 #### To-do list and revert changes
 
 <img src="/README.assets/Steward-Demo-Todo-list-and-revert.gif" alt="Revert" width="400px">
@@ -101,7 +97,7 @@ You can use the [Guardrails skill](https://github.com/googlicius/obsidian-stewar
 
 ## MCP
 
-Steward can connect to remote [Model Context Protocol](https://modelcontextprotocol.io/) servers. Define each server as a markdown note in the `Steward/MCP` folder with YAML frontmatter and a JSON configuration block (`transport`, `url`, optional `headers`). Use `$secret:name` placeholders in string values to pull credentials from Obsidian’s secret storage.
+You can connect to remote [Model Context Protocol](https://modelcontextprotocol.io/) servers. Define each server as a markdown note in the `Steward/MCP` folder with YAML frontmatter and a JSON configuration block (`transport`, `url`, optional `headers`). Use `$secret:name` placeholders in string values to pull credentials from Obsidian’s secret storage.
 
 For the full format, examples, and troubleshooting, see the [MCP wiki](https://github.com/googlicius/obsidian-steward/wiki/MCP).
 
@@ -109,11 +105,13 @@ For the full format, examples, and troubleshooting, see the [MCP wiki](https://g
 
 ## Shell commands and terminal
 
-On **desktop**, Steward can start shell sessions from the chat or editor. Use **`/>`** to enter shell mode: most commands run in **transcript** mode, streamed directly in the conversation. Or programs such as `vim` use **interactive** mode—a real TTY via **node-pty** when the native bundle is installed (for example `/>vim`).
+On **desktop**, you can start shell sessions from the chat or editor. Use **`/>`** to enter shell mode: most commands run in **transcript** mode, streamed directly in the conversation. Or programs such as `vim` use **interactive** mode—a real TTY via **node-pty** when the native bundle is installed (for example `/>vim`).
 
 Native binaries need to be installed in order to use interactive mode.
 
 For modes, installers, built-in interactive programs, and settings, see the **[CLI wiki](https://github.com/googlicius/obsidian-steward/wiki/CLI)**.
+
+<img src="/README.assets/Steward-Demo-CLI.gif" alt="CLI" width="650px">
 
 ## User-defined commands
 

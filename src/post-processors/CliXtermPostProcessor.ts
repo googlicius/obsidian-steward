@@ -1,13 +1,208 @@
 import { MarkdownPostProcessor, type MarkdownPostProcessorContext } from 'obsidian';
+import type { Terminal } from '@xterm/xterm';
 import type StewardPlugin from 'src/main';
 import { CLI_XTERM_MARKER } from 'src/services/CliSessionService/constants';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { findTextNodesWithRegex } from 'src/utils/htmlElementUtils';
 
+const CLI_XTERM_MIN_ROWS = 24; // Xterm default
+const CLI_XTERM_MAX_ROWS = 40; // To Fill the gap between the terminal and the editor.
+
+function computeIdealRows(term: Terminal): number {
+  if (term.buffer.active.type === 'alternate') {
+    return CLI_XTERM_MIN_ROWS;
+  }
+  const lineCount = term.buffer.active.length;
+  return Math.min(Math.max(lineCount, CLI_XTERM_MIN_ROWS), CLI_XTERM_MAX_ROWS);
+}
+
+function syncTerminalSize(params: {
+  term: Terminal;
+  scrollWrap: HTMLElement;
+  xtermHost: HTMLElement;
+  resizePty: (cols: number, rows: number) => void;
+}): void {
+  const idealRows = computeIdealRows(params.term);
+  if (params.term.rows !== idealRows) {
+    params.term.resize(params.term.cols, idealRows);
+    params.resizePty(params.term.cols, idealRows);
+  }
+  updateCliXtermScrollWrapHeight({
+    term: params.term,
+    scrollWrap: params.scrollWrap,
+    xtermHost: params.xtermHost,
+  });
+}
+
+/** Total scroll extent for the outer (Obsidian) scroller: one CSS pixel per buffer line. */
+function updateCliXtermScrollWrapHeight(params: {
+  term: Terminal;
+  scrollWrap: HTMLElement;
+  xtermHost: HTMLElement;
+}): void {
+  const rowPx = measureCliXtermRowPx({
+    xtermHost: params.xtermHost,
+    terminalRows: params.term.rows,
+  });
+  if (rowPx <= 0) {
+    return;
+  }
+  const lineCount = params.term.buffer.active.length;
+  params.scrollWrap.style.height = `${lineCount * rowPx}px`;
+}
+
+function measureCliXtermRowPx(params: { xtermHost: HTMLElement; terminalRows: number }): number {
+  const firstRow = params.xtermHost.querySelector('.xterm-rows > div');
+  if (firstRow instanceof HTMLElement) {
+    const h = firstRow.getBoundingClientRect().height;
+    if (h > 0) {
+      return h;
+    }
+  }
+  if (params.terminalRows > 0) {
+    const xtermRoot = params.xtermHost.querySelector('.xterm');
+    if (xtermRoot instanceof HTMLElement) {
+      const h = xtermRoot.getBoundingClientRect().height;
+      if (h > 0) {
+        return h / params.terminalRows;
+      }
+    }
+  }
+  return 0;
+}
+
+/** Walks up the DOM to find the first vertically-scrollable ancestor. */
+function findScrollableAncestor(el: HTMLElement): HTMLElement | null {
+  let parent: HTMLElement | null = el.parentElement;
+  while (parent && parent !== document.body) {
+    const style = window.getComputedStyle(parent);
+    if (/(auto|scroll|overlay)/.test(style.overflowY)) {
+      return parent;
+    }
+    parent = parent.parentElement;
+  }
+  return null;
+}
+
+/**
+ * Two-way scroll sync between the editor's scroller and xterm's viewport:
+ *   - editor scroll → `term.scrollLines(delta)` so xterm's visible content
+ *     matches the sticky translate.
+ *   - `term.onScroll` (new output, programmatic scroll) → scroll the editor
+ *     by the matching delta so the sticky translate stays aligned with
+ *     `buffer.active.viewportY * rowPx`.
+ * A pair of flags prevents the two directions from chasing each other.
+ */
+function setupCliXtermScrollSync(params: {
+  term: Terminal;
+  scrollWrap: HTMLElement;
+  xtermHost: HTMLElement;
+  invalidateCache: () => void;
+}): { teardown: () => void; invalidateCache: () => void } {
+  const scrollParent = findScrollableAncestor(params.scrollWrap);
+  if (!scrollParent) {
+    return { teardown: () => undefined, invalidateCache: () => undefined };
+  }
+
+  let applyingToTerm = false;
+  // Counter instead of boolean: incremented before each scrollBy, decremented
+  // in a rAF after the resulting scroll event has fired, so concurrent
+  // xterm→editor scrolls do not clear the guard too early.
+  let editorScrollGuard = 0;
+
+  // ── cached measurements ──────────────────────────────────────────────────
+  // rowPx and wrapOffsetTop are stable between resizes; recomputed only in
+  // the ResizeObserver callback via invalidateCache().
+  let cachedRowPx = 0;
+  let cachedWrapOffsetTop = 0; // scrollWrap top relative to scrollParent top
+
+  const computeWrapOffsetTop = (): number => {
+    const wrapRect = params.scrollWrap.getBoundingClientRect();
+    const parentRect = scrollParent.getBoundingClientRect();
+    return wrapRect.top - parentRect.top + scrollParent.scrollTop;
+  };
+
+  const invalidateCache = (): void => {
+    cachedRowPx = measureCliXtermRowPx({
+      xtermHost: params.xtermHost,
+      terminalRows: params.term.rows,
+    });
+    cachedWrapOffsetTop = computeWrapOffsetTop();
+  };
+  invalidateCache();
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const onEditorScroll = (): void => {
+    if (editorScrollGuard > 0) {
+      return;
+    }
+    if (cachedRowPx <= 0) {
+      return;
+    }
+    const scrolled = scrollParent.scrollTop - cachedWrapOffsetTop;
+    const maxScrollback = Math.max(0, params.term.buffer.active.length - params.term.rows);
+    const targetLine = Math.min(Math.max(Math.round(scrolled / cachedRowPx), 0), maxScrollback);
+    const delta = targetLine - params.term.buffer.active.viewportY;
+    if (delta === 0) {
+      return;
+    }
+    applyingToTerm = true;
+    params.term.scrollLines(delta);
+    applyingToTerm = false;
+  };
+
+  const offTermScroll = params.term.onScroll(() => {
+    if (applyingToTerm) {
+      return;
+    }
+    if (cachedRowPx <= 0) {
+      return;
+    }
+    const desiredScrollTop =
+      cachedWrapOffsetTop + params.term.buffer.active.viewportY * cachedRowPx;
+    const scrollDelta = desiredScrollTop - scrollParent.scrollTop;
+    if (Math.abs(scrollDelta) < 0.5) {
+      return;
+    }
+    editorScrollGuard += 1;
+    scrollParent.scrollBy({ top: scrollDelta });
+    // scrollBy fires the scroll event asynchronously; defer the decrement
+    // until after that event has been processed so onEditorScroll ignores it.
+    window.requestAnimationFrame(() => {
+      editorScrollGuard = Math.max(0, editorScrollGuard - 1);
+    });
+  });
+
+  scrollParent.addEventListener('scroll', onEditorScroll, { passive: true });
+
+  return {
+    teardown: () => {
+      offTermScroll.dispose();
+      scrollParent.removeEventListener('scroll', onEditorScroll);
+    },
+    invalidateCache,
+  };
+}
+
 function readCssVariable(target: Element, variableName: string, fallback: string): string {
   const value = window.getComputedStyle(target).getPropertyValue(variableName).trim();
   if (value.length > 0) {
     return value;
+  }
+  return fallback;
+}
+
+/**
+ * Find the first non-transparent bg ancestor element
+ */
+function readComputedBackground(element: Element, fallback: string): string {
+  let current: Element | null = element;
+  while (current) {
+    const bg = window.getComputedStyle(current).backgroundColor;
+    if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') {
+      return bg;
+    }
+    current = current.parentElement;
   }
   return fallback;
 }
@@ -103,12 +298,9 @@ async function mountInteractiveTerminal(params: {
   try {
     const xtermLib = await getBundledLib('xterm');
     const fitLib = await getBundledLib('xtermAddonFit');
-    const TerminalCtor = xtermLib.Terminal;
-    const FitAddonCtor = fitLib.FitAddon;
 
-    const styleTarget =
-      params.container.closest('.workspace-leaf-content') ?? document.documentElement;
-    const background = readCssVariable(styleTarget, '--background-primary', '#1e1e1e');
+    const styleTarget = params.container.closest('.workspace-leaf') ?? document.documentElement;
+    const background = readComputedBackground(styleTarget, '#1e1e1e');
     const foreground = readCssVariable(styleTarget, '--text-normal', '#dddddd');
     const selectionBackground = readCssVariable(
       styleTarget,
@@ -121,7 +313,7 @@ async function mountInteractiveTerminal(params: {
       'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
     );
 
-    const term = new TerminalCtor({
+    const term = new xtermLib.Terminal({
       cursorBlink: true,
       convertEol: false,
       fontFamily: monoFont,
@@ -133,14 +325,19 @@ async function mountInteractiveTerminal(params: {
         selectionBackground,
       },
     });
-    const fitAddon = new FitAddonCtor();
+    const fitAddon = new fitLib.FitAddon();
     term.loadAddon(fitAddon);
-    term.open(params.container);
+
+    const scrollWrap = document.createElement('div');
+    scrollWrap.className = 'stw-cli-xterm-scroll-wrap';
+    const xtermHost = document.createElement('div');
+    xtermHost.className = 'stw-cli-xterm-host';
+    scrollWrap.appendChild(xtermHost);
+    params.container.appendChild(scrollWrap);
+
+    term.open(xtermHost);
     fitAddon.fit();
     term.focus();
-    window.setTimeout(() => {
-      term.focus();
-    }, 0);
 
     const resizePty = (cols: number, rows: number): void => {
       const childWithResize = session.child as {
@@ -151,7 +348,53 @@ async function mountInteractiveTerminal(params: {
       }
       childWithResize.resize(cols, rows);
     };
+
+    // --- build the shared sync call --------------------------------
+    const syncSize = (): void => syncTerminalSize({ term, scrollWrap, xtermHost, resizePty });
+
+    // rAF-throttled version for high-frequency write events
+    let syncSizeRafPending = false;
+    const syncSizeThrottled = (): void => {
+      if (syncSizeRafPending) return;
+      syncSizeRafPending = true;
+      window.requestAnimationFrame(() => {
+        syncSizeRafPending = false;
+        syncSize();
+        // Ensure scrolls terminal to the cursor.
+        const buf = term.buffer.active;
+        if (buf.viewportY >= buf.baseY) {
+          term.scrollToLine(buf.baseY);
+        }
+      });
+    };
+
+    syncSize();
+
+    const offWriteParsed = term.onWriteParsed(syncSizeThrottled);
+
+    const offBufferChange = term.buffer.onBufferChange(() => {
+      syncSize();
+    });
+
+    let invalidateSyncCache = (): void => undefined;
+    const scrollSync = setupCliXtermScrollSync({
+      term,
+      scrollWrap,
+      xtermHost,
+      invalidateCache: () => invalidateSyncCache(),
+    });
+    invalidateSyncCache = scrollSync.invalidateCache;
+
     resizePty(term.cols, term.rows);
+
+    if (session.ptyScrollback.length > 0) {
+      term.write(session.ptyScrollback, () => {
+        syncSize();
+        window.requestAnimationFrame(() => {
+          term.scrollToLine(term.buffer.active.baseY);
+        });
+      });
+    }
 
     const onStdout = (chunk: string): void => {
       if (typeof chunk !== 'string' || chunk.length === 0) {
@@ -173,13 +416,17 @@ async function mountInteractiveTerminal(params: {
     session.child.stderr.on('data', onStderr);
 
     const resizeObserver = new ResizeObserver(() => {
-      fitAddon.fit();
       resizePty(term.cols, term.rows);
+      invalidateSyncCache();
+      syncSize(); // recheck rows too in case font metrics changed
     });
     resizeObserver.observe(params.container);
 
     const cleanup = (): void => {
       onInputDisposable.dispose();
+      offWriteParsed.dispose();
+      offBufferChange.dispose();
+      scrollSync.teardown();
       resizeObserver.disconnect();
       session.child.stdout.removeListener('data', onStdout);
       session.child.stderr.removeListener('data', onStderr);
@@ -187,14 +434,20 @@ async function mountInteractiveTerminal(params: {
       delete params.container.dataset.stwCliXtermMounted;
     };
 
+    // Watch only the containing leaf instead of all of document.body to
+    // avoid the MutationObserver firing on every DOM change in the app.
+    const observerRoot =
+      params.container.closest('.workspace-leaf-content') ??
+      params.container.closest('.workspace-leaf') ??
+      document.body;
     const removalWatcher = new MutationObserver(() => {
-      if (document.body.contains(params.container)) {
+      if (observerRoot.contains(params.container)) {
         return;
       }
       removalWatcher.disconnect();
       cleanup();
     });
-    removalWatcher.observe(document.body, {
+    removalWatcher.observe(observerRoot, {
       childList: true,
       subtree: true,
     });

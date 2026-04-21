@@ -582,17 +582,64 @@ pre.stw-cli-transcript-active > .stw-cli-transcript-cursor {
 
 .stw-cli-xterm {
   width: 100%;
-  min-height: 320px;
-  overflow: hidden;
   background: var(--background-primary);
   color: var(--text-normal);
 
-  .xterm {
-    height: 100%;
-    font-family: var(--font-monospace);
+  .stw-cli-xterm-scroll-wrap {
+    position: relative;
+    width: 100%;
   }
 
-  .xterm-viewport {
-    background: var(--background-primary) !important;
+  .stw-cli-xterm-host {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    min-height: 320px;
   }
+
+  /* .xterm {
+    height: 100%;
+    font-family: var(--font-monospace);
+  } */
+
+  .xterm-viewport {
+    overflow: hidden !important;
+    scrollbar-width: none;
+  }
+
+  .xterm-viewport::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  .xterm .scrollbar,
+  .xterm-screen > .scrollbar {
+    display: none !important;
+  }
+}
+
+/*
+ * When the xterm is rendered inside a markdown embed (`![[...]]`), Obsidian
+ * wraps it in its own scroll container (`.markdown-embed-content` +
+ * `.markdown-preview-view` both have `overflow: auto`). `position: sticky`
+ * binds to the nearest non-`visible` overflow ancestor, so without these
+ * overrides it would stick to the embed's inner (non-scrolling) container
+ * instead of the actual editor scroller. Scoped to embeds that contain our
+ * terminal so other embeds are unaffected.
+ */
+.internal-embed:has(.stw-cli-xterm) {
+  contain: none !important;
+}
+
+.markdown-embed-content:has(.stw-cli-xterm) {
+  overflow: visible !important;
+  max-height: none !important;
+  height: auto !important;
+}
+
+.markdown-embed-content:has(.stw-cli-xterm) > .markdown-preview-view,
+.markdown-embed-content:has(.stw-cli-xterm) .markdown-preview-sizer {
+  overflow: visible !important;
+  height: auto !important;
 }

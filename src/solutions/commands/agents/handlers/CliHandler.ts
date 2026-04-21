@@ -1,5 +1,5 @@
 import { z } from 'zod/v3';
-import { normalizePath } from 'obsidian';
+import { normalizePath, Platform } from 'obsidian';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import i18next from 'i18next';
 import { logger } from 'src/utils/logger';
@@ -33,6 +33,10 @@ export class CliHandler {
 
   private buildCliSpawnFailedNoteContent(params: { errorMessage: string }): string {
     const stewardFolder = normalizePath(this.agent.plugin.settings.stewardFolder);
+
+    if (!Platform.isDesktopApp) {
+      return params.errorMessage;
+    }
 
     const cliDoc = `${GITHUB_WIKI_URL}/${WIKI_PAGES.CLI}`;
     return [
