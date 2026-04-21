@@ -582,8 +582,6 @@ pre.stw-cli-transcript-active > .stw-cli-transcript-cursor {
 
 .stw-cli-xterm {
   width: 100%;
-  background: var(--background-primary);
-  color: var(--text-normal);
 
   .stw-cli-xterm-scroll-wrap {
     position: relative;
@@ -596,11 +594,6 @@ pre.stw-cli-transcript-active > .stw-cli-transcript-cursor {
     width: 100%;
     min-height: 320px;
   }
-
-  /* .xterm {
-    height: 100%;
-    font-family: var(--font-monospace);
-  } */
 
   .xterm-viewport {
     overflow: hidden !important;
