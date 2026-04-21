@@ -5,8 +5,34 @@ import { CLI_XTERM_MARKER } from 'src/services/CliSessionService/constants';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { findTextNodesWithRegex } from 'src/utils/htmlElementUtils';
 
-/** Fixed row count for the xterm viewport. `FitAddon` is still used for cols. */
-// const CLI_XTERM_DEFAULT_ROWS = 30;
+const CLI_XTERM_MIN_ROWS = 24; // Xterm default
+const CLI_XTERM_MAX_ROWS = 40; // To Fill the gap between the terminal and the editor.
+
+function computeIdealRows(term: Terminal): number {
+  if (term.buffer.active.type === 'alternate') {
+    return CLI_XTERM_MIN_ROWS;
+  }
+  const lineCount = term.buffer.active.length;
+  return Math.min(Math.max(lineCount, CLI_XTERM_MIN_ROWS), CLI_XTERM_MAX_ROWS);
+}
+
+function syncTerminalSize(params: {
+  term: Terminal;
+  scrollWrap: HTMLElement;
+  xtermHost: HTMLElement;
+  resizePty: (cols: number, rows: number) => void;
+}): void {
+  const idealRows = computeIdealRows(params.term);
+  if (params.term.rows !== idealRows) {
+    params.term.resize(params.term.cols, idealRows);
+    params.resizePty(params.term.cols, idealRows);
+  }
+  updateCliXtermScrollWrapHeight({
+    term: params.term,
+    scrollWrap: params.scrollWrap,
+    xtermHost: params.xtermHost,
+  });
+}
 
 /** Total scroll extent for the outer (Obsidian) scroller: one CSS pixel per buffer line. */
 function updateCliXtermScrollWrapHeight(params: {
@@ -166,6 +192,21 @@ function readCssVariable(target: Element, variableName: string, fallback: string
   return fallback;
 }
 
+/**
+ * Find the first non-transparent bg ancestor element
+ */
+function readComputedBackground(element: Element, fallback: string): string {
+  let current: Element | null = element;
+  while (current) {
+    const bg = window.getComputedStyle(current).backgroundColor;
+    if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)') {
+      return bg;
+    }
+    current = current.parentElement;
+  }
+  return fallback;
+}
+
 function extractSourceConversationTitle(sourcePath: string): string {
   const filename = sourcePath.split('/').pop() ?? sourcePath;
   return filename.replace(/\.md$/i, '');
@@ -259,7 +300,7 @@ async function mountInteractiveTerminal(params: {
     const fitLib = await getBundledLib('xtermAddonFit');
 
     const styleTarget = params.container.closest('.workspace-leaf') ?? document.documentElement;
-    const background = readCssVariable(styleTarget, '--background-primary', '#1e1e1e');
+    const background = readComputedBackground(styleTarget, '#1e1e1e');
     const foreground = readCssVariable(styleTarget, '--text-normal', '#dddddd');
     const selectionBackground = readCssVariable(
       styleTarget,
@@ -294,37 +335,45 @@ async function mountInteractiveTerminal(params: {
     scrollWrap.appendChild(xtermHost);
     params.container.appendChild(scrollWrap);
 
-    /** Runs fit to compute cols, then forces row count back to `CLI_XTERM_DEFAULT_ROWS`. */
-    // const fitColsKeepRows = (): void => {
-    //   fitAddon.fit();
-    //   if (term.rows !== CLI_XTERM_DEFAULT_ROWS) {
-    //     term.resize(term.cols, CLI_XTERM_DEFAULT_ROWS);
-    //   }
-    // };
-
     term.open(xtermHost);
-    // fitColsKeepRows();
+    fitAddon.fit();
     term.focus();
 
-    let heightRafPending = false;
-    const refreshScrollWrapHeight = (): void => {
-      if (heightRafPending) {
+    const resizePty = (cols: number, rows: number): void => {
+      const childWithResize = session.child as {
+        resize?: (nextCols: number, nextRows: number) => void;
+      };
+      if (typeof childWithResize.resize !== 'function') {
         return;
       }
-      heightRafPending = true;
+      childWithResize.resize(cols, rows);
+    };
+
+    // --- build the shared sync call --------------------------------
+    const syncSize = (): void => syncTerminalSize({ term, scrollWrap, xtermHost, resizePty });
+
+    // rAF-throttled version for high-frequency write events
+    let syncSizeRafPending = false;
+    const syncSizeThrottled = (): void => {
+      if (syncSizeRafPending) return;
+      syncSizeRafPending = true;
       window.requestAnimationFrame(() => {
-        heightRafPending = false;
-        updateCliXtermScrollWrapHeight({ term, scrollWrap, xtermHost });
+        syncSizeRafPending = false;
+        syncSize();
+        // Ensure scrolls terminal to the cursor.
+        const buf = term.buffer.active;
+        if (buf.viewportY >= buf.baseY) {
+          term.scrollToLine(buf.baseY);
+        }
       });
     };
-    refreshScrollWrapHeight();
 
-    const offWriteParsed = term.onWriteParsed(() => {
-      refreshScrollWrapHeight();
-      const buf = term.buffer.active;
-      if (buf.viewportY >= buf.baseY) {
-        term.scrollToLine(buf.baseY);
-      }
+    syncSize();
+
+    const offWriteParsed = term.onWriteParsed(syncSizeThrottled);
+
+    const offBufferChange = term.buffer.onBufferChange(() => {
+      syncSize();
     });
 
     let invalidateSyncCache = (): void => undefined;
@@ -336,25 +385,14 @@ async function mountInteractiveTerminal(params: {
     });
     invalidateSyncCache = scrollSync.invalidateCache;
 
-    const resizePty = (cols: number, rows: number): void => {
-      const childWithResize = session.child as {
-        resize?: (nextCols: number, nextRows: number) => void;
-      };
-      if (typeof childWithResize.resize !== 'function') {
-        return;
-      }
-      childWithResize.resize(cols, rows);
-    };
     resizePty(term.cols, term.rows);
 
     if (session.ptyScrollback.length > 0) {
-      term.write(session.ptyScrollback);
-      // After ptyScrollback is fully parsed the wrap height has been updated
-      // (via onWriteParsed → rAF). A second rAF ensures we run after that
-      // rAF completes so the wrap is tall enough before the scroll sync
-      // pushes the editor scroller down to show the cursor.
-      window.requestAnimationFrame(() => {
-        term.scrollToLine(term.buffer.active.baseY);
+      term.write(session.ptyScrollback, () => {
+        syncSize();
+        window.requestAnimationFrame(() => {
+          term.scrollToLine(term.buffer.active.baseY);
+        });
       });
     }
 
@@ -378,16 +416,16 @@ async function mountInteractiveTerminal(params: {
     session.child.stderr.on('data', onStderr);
 
     const resizeObserver = new ResizeObserver(() => {
-      // fitColsKeepRows();
       resizePty(term.cols, term.rows);
-      refreshScrollWrapHeight();
       invalidateSyncCache();
+      syncSize(); // recheck rows too in case font metrics changed
     });
     resizeObserver.observe(params.container);
 
     const cleanup = (): void => {
       onInputDisposable.dispose();
       offWriteParsed.dispose();
+      offBufferChange.dispose();
       scrollSync.teardown();
       resizeObserver.disconnect();
       session.child.stdout.removeListener('data', onStdout);
