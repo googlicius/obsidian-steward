@@ -13,6 +13,7 @@ import * as mcp from '@ai-sdk/mcp';
 import * as openaiCompatible from '@ai-sdk/openai-compatible';
 import * as xterm from '@xterm/xterm';
 import * as xtermAddonFit from '@xterm/addon-fit';
+import * as xtermAddonSerialize from '@xterm/addon-serialize';
 import * as socketIoClient from 'socket.io-client';
 import stripAnsi from 'strip-ansi';
 // Mustache is CJS (`module.exports = Mustache`); default import unwraps to the real module object.
@@ -30,6 +31,7 @@ export type StewardBundledLibsRegistry = {
   mcp: typeof mcp;
   xterm: typeof xterm;
   xtermAddonFit: typeof xtermAddonFit;
+  xtermAddonSerialize: typeof xtermAddonSerialize;
   socketIoClient: typeof socketIoClient;
   stripAnsi: typeof stripAnsi;
   mustache: typeof mustache;
@@ -46,6 +48,7 @@ export {
   mcp,
   xterm,
   xtermAddonFit,
+  xtermAddonSerialize,
   socketIoClient,
   stripAnsi,
   mustache,

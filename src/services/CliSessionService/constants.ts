@@ -10,6 +10,3 @@ export function getCliStreamMarkerPlaceholder(params?: { hidden?: boolean }): st
 
 /** The placeholder to process xterm terminal */
 export const CLI_XTERM_MARKER = '{{stw-cli-xterm}}';
-
-/** Max bytes of raw PTY output kept on the session for xterm remounts (embed navigation). */
-export const PTY_SCROLLBACK_MAX_BYTES = 512 * 1024;
