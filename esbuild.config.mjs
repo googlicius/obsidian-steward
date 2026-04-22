@@ -30,6 +30,7 @@ const context = await esbuild.context({
     'node-pty',
     '@xterm/xterm',
     '@xterm/addon-fit',
+    '@xterm/addon-serialize',
     'socket.io',
     'socket.io-client',
     'strip-ansi',

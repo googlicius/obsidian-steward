@@ -14,6 +14,7 @@ export type BundledLibModules = {
   openaiCompatible: typeof import('@ai-sdk/openai-compatible');
   mcp: typeof import('@ai-sdk/mcp');
   xterm: typeof import('@xterm/xterm');
+  xtermAddonSerialize: typeof import('@xterm/addon-serialize');
   xtermAddonFit: typeof import('@xterm/addon-fit');
   socketIoClient: typeof import('socket.io-client');
   stripAnsi: typeof import('strip-ansi');

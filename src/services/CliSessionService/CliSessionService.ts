@@ -11,12 +11,7 @@ import {
   type RemotePtyChildShim,
 } from 'src/solutions/pty-companion/client';
 import { resolveVaultPtyNativePath } from 'src/solutions/pty-companion/resolveVaultPtyNativePath';
-import {
-  PTY_SCROLLBACK_MAX_BYTES,
-  CLI_STREAM_MARKER,
-  CLI_XTERM_MARKER,
-  getCliStreamMarkerPlaceholder,
-} from './constants';
+import { CLI_STREAM_MARKER, CLI_XTERM_MARKER, getCliStreamMarkerPlaceholder } from './constants';
 
 const SENTINEL_MARKER = `__STEWARD_DONE__`;
 const PWD_START = '__STEWARD_PWD_START__';
@@ -96,10 +91,14 @@ export interface CliSession {
   /** When set, {@link interruptSession} forwards to the PTY companion instead of OS signals. */
   remoteKill?: () => void;
   /**
-   * Raw combined stdout/stderr from the PTY for {@link cliMode} interactive sessions.
-   * Used to repaint xterm after the embed preview is torn down and recreated.
+   * Interactive-only: last xterm buffer snapshot when the embed is torn down.
+   * Omitted for transcript sessions.
    */
-  ptyScrollback: string;
+  xtermSnapshot?: {
+    serializedState: string;
+    cols: number;
+    rows: number;
+  };
 }
 
 function sanitizeFenceContent(text: string): string {
@@ -113,21 +112,6 @@ export class CliSessionService {
 
   private refreshCommandInputDecorations(): void {
     this.plugin.commandInputService.notifyCliSessionDecorationRefresh();
-  }
-
-  private recordPtyScrollback(session: CliSession, chunk: string): void {
-    if (session.cliMode !== 'interactive') {
-      return;
-    }
-    if (typeof chunk !== 'string' || chunk.length === 0) {
-      return;
-    }
-    const next = session.ptyScrollback + chunk;
-    if (next.length <= PTY_SCROLLBACK_MAX_BYTES) {
-      session.ptyScrollback = next;
-      return;
-    }
-    session.ptyScrollback = next.slice(-PTY_SCROLLBACK_MAX_BYTES);
   }
 
   /** PTY and rich shells emit CSI/SGR escapes; notes are plain text — strip for readability. */
@@ -541,11 +525,9 @@ export class CliSessionService {
     session.child.stderr.setEncoding('utf8');
 
     session.child.stdout.on('data', (chunk: string) => {
-      this.recordPtyScrollback(session, chunk);
       this.appendOutput(session.conversationTitle, chunk, false);
     });
     session.child.stderr.on('data', (chunk: string) => {
-      this.recordPtyScrollback(session, chunk);
       this.appendOutput(session.conversationTitle, chunk, true);
     });
     session.child.on('error', err => {
@@ -661,7 +643,6 @@ export class CliSessionService {
         hideStreamMarkerNextFlush: false,
         cdCommandHistory: [],
         remoteKill: ptySession.remoteKill,
-        ptyScrollback: '',
       });
 
       return { ok: true };
@@ -701,7 +682,6 @@ export class CliSessionService {
       pendingSentinelMarker: null,
       hideStreamMarkerNextFlush: false,
       cdCommandHistory: [],
-      ptyScrollback: '',
     });
 
     return { ok: true };

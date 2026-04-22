@@ -4,25 +4,57 @@ import type StewardPlugin from 'src/main';
 import { CLI_XTERM_MARKER } from 'src/services/CliSessionService/constants';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { findTextNodesWithRegex } from 'src/utils/htmlElementUtils';
+import { type RemotePtyChildShim } from 'src/solutions/pty-companion/client';
 
 const CLI_XTERM_MIN_ROWS = 24; // Xterm default
-const CLI_XTERM_MAX_ROWS = 40; // To Fill the gap between the terminal and the editor.
+const CLI_XTERM_MAX_ROWS = 40; // Hard ceiling so the terminal never grows beyond a sensible size.
 
-function computeIdealRows(term: Terminal): number {
-  if (term.buffer.active.type === 'alternate') {
+/**
+ * Derive how many rows can fit inside the scrollable editor viewport.
+ * Falls back to {@link CLI_XTERM_MAX_ROWS} when the parent or row metrics are unknown.
+ */
+function computeMaxRowsFromScroller(params: {
+  scrollParent: HTMLElement | null;
+  rowPx: number;
+}): number {
+  if (!params.scrollParent || params.rowPx <= 0) {
+    return CLI_XTERM_MAX_ROWS;
+  }
+  const available = params.scrollParent.clientHeight;
+  if (available <= 0) {
+    return CLI_XTERM_MAX_ROWS;
+  }
+  const rows = Math.floor(available / params.rowPx);
+  return Math.max(1, Math.min(rows, CLI_XTERM_MAX_ROWS));
+}
+
+function computeIdealRows(params: { term: Terminal; maxRows: number }): number {
+  if (params.term.buffer.active.type === 'alternate') {
     return CLI_XTERM_MIN_ROWS;
   }
-  const lineCount = term.buffer.active.length;
-  return Math.min(Math.max(lineCount, CLI_XTERM_MIN_ROWS), CLI_XTERM_MAX_ROWS);
+  const lineCount = params.term.buffer.active.length;
+  if (lineCount <= CLI_XTERM_MIN_ROWS) {
+    return CLI_XTERM_MIN_ROWS;
+  }
+  return params.maxRows;
 }
 
 function syncTerminalSize(params: {
   term: Terminal;
   scrollWrap: HTMLElement;
   xtermHost: HTMLElement;
+  scrollParent: HTMLElement | null;
   resizePty: (cols: number, rows: number) => void;
 }): void {
-  const idealRows = computeIdealRows(params.term);
+  const rowPx = measureCliXtermRowPx({
+    xtermHost: params.xtermHost,
+    terminalRows: params.term.rows,
+  });
+  const maxRows = computeMaxRowsFromScroller({
+    scrollParent: params.scrollParent,
+    rowPx,
+  });
+  const idealRows = computeIdealRows({ term: params.term, maxRows });
   if (params.term.rows !== idealRows) {
     params.term.resize(params.term.cols, idealRows);
     params.resizePty(params.term.cols, idealRows);
@@ -97,9 +129,10 @@ function setupCliXtermScrollSync(params: {
   term: Terminal;
   scrollWrap: HTMLElement;
   xtermHost: HTMLElement;
+  scrollParent: HTMLElement | null;
   invalidateCache: () => void;
 }): { teardown: () => void; invalidateCache: () => void } {
-  const scrollParent = findScrollableAncestor(params.scrollWrap);
+  const scrollParent = params.scrollParent;
   if (!scrollParent) {
     return { teardown: () => undefined, invalidateCache: () => undefined };
   }
@@ -298,6 +331,8 @@ async function mountInteractiveTerminal(params: {
   try {
     const xtermLib = await getBundledLib('xterm');
     const fitLib = await getBundledLib('xtermAddonFit');
+    const serializeLib = await getBundledLib('xtermAddonSerialize');
+    const serializeAddon = new serializeLib.SerializeAddon();
 
     const styleTarget = params.container.closest('.workspace-leaf') ?? document.documentElement;
     const background = readComputedBackground(styleTarget, '#1e1e1e');
@@ -327,6 +362,7 @@ async function mountInteractiveTerminal(params: {
     });
     const fitAddon = new fitLib.FitAddon();
     term.loadAddon(fitAddon);
+    term.loadAddon(serializeAddon);
 
     const scrollWrap = document.createElement('div');
     scrollWrap.className = 'stw-cli-xterm-scroll-wrap';
@@ -335,14 +371,10 @@ async function mountInteractiveTerminal(params: {
     scrollWrap.appendChild(xtermHost);
     params.container.appendChild(scrollWrap);
 
-    term.open(xtermHost);
-    fitAddon.fit();
-    term.focus();
+    const scrollParent = findScrollableAncestor(scrollWrap);
 
     const resizePty = (cols: number, rows: number): void => {
-      const childWithResize = session.child as {
-        resize?: (nextCols: number, nextRows: number) => void;
-      };
+      const childWithResize = session.child as RemotePtyChildShim;
       if (typeof childWithResize.resize !== 'function') {
         return;
       }
@@ -350,7 +382,8 @@ async function mountInteractiveTerminal(params: {
     };
 
     // --- build the shared sync call --------------------------------
-    const syncSize = (): void => syncTerminalSize({ term, scrollWrap, xtermHost, resizePty });
+    const syncSize = (): void =>
+      syncTerminalSize({ term, scrollWrap, xtermHost, scrollParent, resizePty });
 
     // rAF-throttled version for high-frequency write events
     let syncSizeRafPending = false;
@@ -381,20 +414,30 @@ async function mountInteractiveTerminal(params: {
       term,
       scrollWrap,
       xtermHost,
+      scrollParent,
       invalidateCache: () => invalidateSyncCache(),
     });
     invalidateSyncCache = scrollSync.invalidateCache;
 
-    resizePty(term.cols, term.rows);
-
-    if (session.ptyScrollback.length > 0) {
-      term.write(session.ptyScrollback, () => {
+    const snap = session.xtermSnapshot;
+    if (snap !== undefined && snap.serializedState.length > 0) {
+      const snapCols = snap.cols > 0 ? snap.cols : term.cols;
+      const snapRows = snap.rows > 0 ? snap.rows : term.rows;
+      term.resize(snapCols, snapRows);
+      resizePty(snapCols, snapRows);
+      term.write(snap.serializedState, () => {
         syncSize();
         window.requestAnimationFrame(() => {
           term.scrollToLine(term.buffer.active.baseY);
         });
       });
+    } else {
+      resizePty(term.cols, term.rows);
     }
+
+    term.open(xtermHost);
+    fitAddon.fit();
+    term.focus();
 
     const onStdout = (chunk: string): void => {
       if (typeof chunk !== 'string' || chunk.length === 0) {
@@ -423,6 +466,13 @@ async function mountInteractiveTerminal(params: {
     resizeObserver.observe(params.container);
 
     const cleanup = (): void => {
+      // Store the snapshot for restoration.
+      session.xtermSnapshot = {
+        serializedState: serializeAddon.serialize(),
+        cols: term.cols,
+        rows: term.rows,
+      };
+
       onInputDisposable.dispose();
       offWriteParsed.dispose();
       offBufferChange.dispose();
