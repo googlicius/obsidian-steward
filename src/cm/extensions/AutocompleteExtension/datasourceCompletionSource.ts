@@ -4,6 +4,7 @@ import { EditorView } from '@codemirror/view';
 import { MarkdownView, setIcon, TFile, TFolder } from 'obsidian';
 import { TWO_SPACES_PREFIX } from 'src/constants';
 import type StewardPlugin from 'src/main';
+import { decodePath, encodePath } from 'src/utils/pathEncoding';
 
 const DATASOURCE_FILE_TYPE = 'stw-file';
 const DATASOURCE_FOLDER_TYPE = 'stw-folder';
@@ -13,6 +14,7 @@ const MAX_RESULTS = 10;
  * Creates a completion source for datasource references (files and folders).
  *
  * Triggers when the user types `@` after a command prefix (e.g., `/ @`, `/search @keyword`).
+ * Inserts a short `@vault/path` reference (files and folders); line selections use `{{stw-source ...}}`.
  * Files and folders matching Obsidian's excluded files config or plugin excluded folders are hidden.
  */
 export function createDatasourceCompletionSource(plugin: StewardPlugin) {
@@ -36,33 +38,36 @@ export function createDatasourceCompletionSource(plugin: StewardPlugin) {
     if (charBeforeAt !== ' ') return null;
 
     const keyword = lineContent.substring(atIndex + 1);
-    if (keyword.includes(' ')) return null;
 
     const absoluteAtPos = line.from + contentStart + atIndex;
 
+    const lastSlashIndex = keyword.lastIndexOf('/');
+    const folderPath = lastSlashIndex === -1 ? '' : keyword.substring(0, lastSlashIndex);
+    const nameFilter = lastSlashIndex === -1 ? keyword : keyword.substring(lastSlashIndex + 1);
+    const lowerNameFilter = nameFilter.toLowerCase();
+
     const options: Completion[] = [];
-    const lowerKeyword = keyword.toLowerCase();
     const excludePatterns = getExcludePatterns(plugin);
 
     const mainLeafFile = getMainLeafFile(plugin);
-    if (!lowerKeyword && mainLeafFile) {
+    if (!folderPath && !lowerNameFilter && mainLeafFile) {
       options.push(buildFileCompletion(mainLeafFile, 10));
     }
 
-    const allFiles = plugin.app.vault.getFiles();
-    for (const file of allFiles) {
+    const resolved = resolveDatasources({ plugin, folderPath });
+
+    for (const file of resolved.files) {
       if (options.length >= MAX_RESULTS) break;
       if (mainLeafFile && file.path === mainLeafFile.path) continue;
       if (isPathExcluded(file.path, excludePatterns)) continue;
-      if (lowerKeyword && !file.name.toLowerCase().includes(lowerKeyword)) continue;
+      if (lowerNameFilter && !file.name.toLowerCase().includes(lowerNameFilter)) continue;
       options.push(buildFileCompletion(file));
     }
 
-    const allFolders = plugin.app.vault.getAllFolders();
-    for (const folder of allFolders) {
+    for (const folder of resolved.folders) {
       if (options.length >= MAX_RESULTS) break;
       if (isPathExcluded(folder.path, excludePatterns)) continue;
-      if (lowerKeyword && !folder.name.toLowerCase().includes(lowerKeyword)) continue;
+      if (lowerNameFilter && !folder.name.toLowerCase().includes(lowerNameFilter)) continue;
       options.push(buildFolderCompletion(folder));
     }
 
@@ -95,6 +100,49 @@ export function datasourceIconRenderer(
   setIcon(iconEl, iconName);
 
   return iconEl;
+}
+
+/**
+ * Resolves candidate files and folders for datasource completion.
+ *
+ * - When `folderPath` is empty (root, default), returns all files and folders in the vault.
+ * - When `folderPath` points to an existing folder, returns that folder's direct children only.
+ * - Accepts both raw (`My folder`) and encoded (`My%20folder`) segments for robustness.
+ */
+function resolveDatasources(params: { plugin: StewardPlugin; folderPath: string }): {
+  files: TFile[];
+  folders: TFolder[];
+} {
+  const plugin = params.plugin;
+  const folderPath = params.folderPath;
+
+  if (!folderPath) {
+    return {
+      files: plugin.app.vault.getFiles(),
+      folders: plugin.app.vault.getAllFolders(),
+    };
+  }
+
+  const folder =
+    plugin.app.vault.getFolderByPath(folderPath) ??
+    plugin.app.vault.getFolderByPath(decodePath(folderPath));
+
+  if (!folder) {
+    return { files: [], folders: [] };
+  }
+
+  const files: TFile[] = [];
+  const folders: TFolder[] = [];
+  for (const child of folder.children) {
+    if (child instanceof TFile) {
+      files.push(child);
+      continue;
+    }
+    if (child instanceof TFolder) {
+      folders.push(child);
+    }
+  }
+  return { files, folders };
 }
 
 /**
@@ -139,17 +187,17 @@ function isPathExcluded(path: string, patterns: string[]): boolean {
 
 function buildFileCompletion(file: TFile, boost?: number): Completion {
   return {
-    label: file.name,
+    label: file.path,
     type: DATASOURCE_FILE_TYPE,
-    apply: `{{stw-source type:file,path:${file.path}}} `,
+    apply: `@${encodePath(file.path)} `,
     boost,
   };
 }
 
 function buildFolderCompletion(folder: TFolder): Completion {
   return {
-    label: folder.name,
+    label: `${folder.path}/`,
     type: DATASOURCE_FOLDER_TYPE,
-    apply: `{{stw-source type:folder,path:${folder.path}}} `,
+    apply: `@${encodePath(folder.path)}/ `,
   };
 }

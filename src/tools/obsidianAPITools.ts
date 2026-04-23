@@ -325,19 +325,35 @@ export class ObsidianAPITools {
   }
 
   /**
-   * Get all files from a folder recursively.
-   * Similar to VaultList's approach but collects files recursively.
+   * Get files from one or more folders, optionally filtering by file extension and recursion.
+   *
+   * @param folder - A single TFolder or an array of TFolders to collect files from.
+   * @param options.recursive - When true, recurse into sub-folders. Defaults to true.
+   * @param options.extensions - Whitelist of file extensions (without the leading dot, e.g. `['md', 'canvas']`).
+   *   When omitted, all extensions are included.
    */
-  public getFilesFromFolder(folder: TFolder): TFile[] {
+  public getFilesFromFolder(
+    folder: TFolder | TFolder[],
+    options: { recursive?: boolean; extensions?: string[] } = {}
+  ): TFile[] {
+    const { recursive = true, extensions } = options;
+    const folders = Array.isArray(folder) ? folder : [folder];
     const files: TFile[] = [];
 
-    for (const child of folder.children) {
-      if (child instanceof TFile) {
-        files.push(child);
-      } else if (child instanceof TFolder) {
-        // Recursively process subfolders
-        files.push(...this.getFilesFromFolder(child));
+    const collectFromFolder = (f: TFolder): void => {
+      for (const child of f.children) {
+        if (child instanceof TFile) {
+          if (!extensions || extensions.includes(child.extension)) {
+            files.push(child);
+          }
+        } else if (child instanceof TFolder && recursive) {
+          collectFromFolder(child);
+        }
       }
+    };
+
+    for (const f of folders) {
+      collectFromFolder(f);
     }
 
     return files;

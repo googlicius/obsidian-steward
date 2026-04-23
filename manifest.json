@@ -1,7 +1,7 @@
 {
   "id": "steward",
   "name": "Steward",
-  "version": "2.7.2",
+  "version": "2.7.3",
   "minAppVersion": "1.8.0",
   "description": "An AI agent equipped with agent capacity, fast search, flexible commands, vault management, and terminals for other CLI-based agents, such as Claude, Gemini, etc.",
   "author": "Dang Nguyen",

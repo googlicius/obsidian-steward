@@ -28,6 +28,15 @@ export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'svg', 'gif'];
 export const STW_SOURCE_PATTERN = '(\\{\\{stw-source.*?\\}\\})';
 
 /**
+ * Short file/folder reference in command input: @path. Path is segment-encoded
+ * (per-segment encodeURIComponent) so spaces in names are %20, not raw spaces.
+ * The captured path must end with `/` (folder) or `.ext` (file extension)
+ * so a match aligns naturally with something that was inserted by the datasource
+ * completion. Selection / line-range references still use {{stw-source ...}}.
+ */
+export const STW_SOURCE_AT_PATH_PATTERN = '@([^\\s@]+(?:\\/|\\.[A-Za-z0-9]{1,10}))';
+
+/**
  * Pattern to match {{stw-squeezed [[<path>]] }}
  */
 export const STW_SQUEEZED_PATTERN = '\\{\\{stw-squeezed \\[\\[([^\\]]+)\\]\\] \\}\\}';

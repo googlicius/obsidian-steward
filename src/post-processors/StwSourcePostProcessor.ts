@@ -28,16 +28,16 @@ export function createStwSourcePostProcessor(plugin: StewardPlugin): MarkdownPos
           if (metadataMatch) {
             const [, sourceType, filePath, fromLine, toLine] = metadataMatch;
             const span = document.createElement('span');
-            const fileName = filePath.split('/').pop()?.replace(/\.md$/, '') || filePath;
+            const baseName = filePath.split('/').pop() || filePath;
 
             if (fromLine !== undefined && toLine !== undefined) {
               const displayFromLine = parseInt(fromLine) + 1;
               const displayToLine = parseInt(toLine) + 1;
-              span.textContent = `@${fileName} (${displayFromLine}-${displayToLine})`;
+              span.textContent = `@${baseName} (${displayFromLine}-${displayToLine})`;
             } else if (sourceType === 'folder') {
-              span.textContent = `@${filePath}`;
+              span.textContent = `@${baseName}/`;
             } else {
-              span.textContent = `@${fileName}`;
+              span.textContent = `@${baseName}`;
             }
 
             span.addClass('stw-source-button', 'stw-mr-2');
