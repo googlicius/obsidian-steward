@@ -40,22 +40,18 @@ export const BUILT_IN_INTERACTIVE_APPS = [
 
 export type CliSessionMode = 'transcript' | 'interactive';
 
-/** Simple routing: interactive (node-pty) when the command line starts with any supported app (trimmed, case-insensitive). */
-export function isInteractiveCliCommand(
-  argsLine: string,
-  supportedInteractiveApps = BUILT_IN_INTERACTIVE_APPS
+const SHELL_CHAIN_SPLIT = /&&|\|\||;/g;
+
+function firstSegmentTokenMatchesInteractiveApp(
+  segment: string,
+  supportedInteractiveApps: string[]
 ): boolean {
-  const firstLine = argsLine.trimStart().split(/\r?\n/)[0] ?? '';
-  if (firstLine.length === 0) {
+  const trimmed = segment.trim();
+  if (trimmed.length === 0) {
     return false;
   }
 
-  const firstSegment = firstLine.split(/&&|\|\||;/)[0]?.trim() ?? '';
-  if (firstSegment.length === 0) {
-    return false;
-  }
-
-  const firstToken = firstSegment.split(/\s+/)[0]?.toLowerCase() ?? '';
+  const firstToken = trimmed.split(/\s+/)[0]?.toLowerCase() ?? '';
   if (firstToken.length === 0) {
     return false;
   }
@@ -69,6 +65,37 @@ export function isInteractiveCliCommand(
     }
     if (normalizedToken === app || firstToken === app) {
       return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Interactive (node-pty) when any line, or any `&&` / `||` / `;` chain segment on a line, starts
+ * with a supported app (first token, case-insensitive, optional `.exe` strip on Windows).
+ */
+export function isInteractiveCliCommand(
+  argsLine: string,
+  supportedInteractiveApps = BUILT_IN_INTERACTIVE_APPS
+): boolean {
+  const trimmed = argsLine.trim();
+  if (trimmed.length === 0) {
+    return false;
+  }
+
+  const lines = trimmed.split(/\r?\n/);
+  for (let l = 0; l < lines.length; l++) {
+    const line = lines[l].trim();
+    if (line.length === 0) {
+      continue;
+    }
+
+    const segments = line.split(SHELL_CHAIN_SPLIT);
+    for (let s = 0; s < segments.length; s++) {
+      if (firstSegmentTokenMatchesInteractiveApp(segments[s], supportedInteractiveApps)) {
+        return true;
+      }
     }
   }
 
