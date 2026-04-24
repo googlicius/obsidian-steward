@@ -376,10 +376,13 @@ NOTE:
   [ToolName.SHELL]: {
     name: ToolName.SHELL,
     description:
-      'Internal: start or continue a local shell transcript for the conversation. Not available to the model.',
-    guidelines: ['Used only for client-side manual tool calls. Do not reference in prompts.'],
-    category: 'internal',
-    showDescriptionWhenInactive: false,
+      'Run local a shell command or open an interactive terminal in the current conversation. Use only when the user EXPLICITLY wants to run a command (Linux, Windows, etc.). For example: cd, cat, pwd, ls, etc,. Or TUI apps: vim, htop, cli-agents (gemini, claude, etc.)',
+    guidelines: [
+      `The user is always being asked for confirmation before running the command.`,
+      `Put the exact shell line in argsLine when the user explicitly wants it executed on the host.`,
+    ],
+    category: 'cli',
+    showDescriptionWhenInactive: true,
   },
 };
 

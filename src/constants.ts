@@ -75,6 +75,12 @@ export const SELECTED_MODEL_PREFIX_PATTERN = '\\b(m|model):';
 export const COMMAND_PREFIXES = ['/ ', '/search', '/image', '/speech', '/>'];
 
 /**
+ * Prefix for client-generated tool call IDs (manual client tool calls, UDC manual steps).
+ * Model tool calls from the AI SDK use different IDs; handlers may use this to skip model-only UX.
+ */
+export const MANUAL_TOOL_CALL_ID_PREFIX = 'manual-tool-call-';
+
+/**
  * Configuration for standard commands indicating whether they require content.
  */
 export const COMMAND_CONTENT_REQUIRED: Record<string, boolean> = {

@@ -36,6 +36,6 @@ export enum ToolName {
   SWITCH_AGENT_CAPACITY = 'switch_agent_capacity',
   CONCLUDE = 'conclude',
   RECALL_COMPACTED_CONTEXT = 'recall_compacted_context',
-  /** Client-side manual tool only; not exposed to LLM tool registries. */
+  /** Local shell transcript; model may call it — execution always requires user confirmation in the client. */
   SHELL = 'shell',
 }

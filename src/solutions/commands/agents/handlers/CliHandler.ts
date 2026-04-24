@@ -3,6 +3,7 @@ import { normalizePath, Platform } from 'obsidian';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import i18next from 'i18next';
 import { logger } from 'src/utils/logger';
+import { getBundledLib } from 'src/utils/bundledLibs';
 import { GITHUB_WIKI_URL, WIKI_PAGES } from 'src/constants';
 import {
   NODE_PTY_INSTALLER_SH_BASENAME,
@@ -16,9 +17,17 @@ import {
 import { isInteractiveCliCommand } from 'src/services/CliSessionService/CliSessionService';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
+import { ToolName } from '../../ToolRegistry';
+import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
 
-const shellToolInputSchema = z.object({
-  argsLine: z.string().optional().default(''),
+export const shellToolInputSchema = z.object({
+  argsLine: z
+    .string()
+    .optional()
+    .default('')
+    .describe(
+      'Single line to send to the local shell transcript for this conversation (e.g. a shell command). Leave empty to start or continue a shell session without sending a line yet.'
+    ),
 });
 
 export type ShellToolInput = z.infer<typeof shellToolInputSchema>;
@@ -26,6 +35,13 @@ export type ShellToolInput = z.infer<typeof shellToolInputSchema>;
 /** Local shell transcript orchestration; session state lives in {@link CliSessionService}. */
 export class CliHandler {
   constructor(private readonly agent: AgentHandlerContext) {}
+
+  public static async getShellTool() {
+    const { tool } = await getBundledLib('ai');
+    return tool({
+      inputSchema: shellToolInputSchema,
+    });
+  }
 
   private get cliSessionService() {
     return this.agent.plugin.cliSessionService;
@@ -254,7 +270,6 @@ export class CliHandler {
         path: params.conversationTitle,
         newContent,
         command: 'cli',
-        includeHistory: false,
       });
     }
 
@@ -268,19 +283,9 @@ export class CliHandler {
   }
 
   /**
-   * Manual shell session: continue stdin or start a new local shell transcript for this conversation.
+   * Runs the shell session logic (see {@link CliHandler.handle} for model-side confirmation).
    */
-  public async handle(
-    params: AgentHandlerParams,
-    options: {
-      toolCall: ToolCallPart<ShellToolInput>;
-      continueFromNextTool?: () => Promise<AgentResult>;
-      toolContentStreamInfo?: unknown;
-    }
-  ): Promise<AgentResult> {
-    const parsed = shellToolInputSchema.safeParse(options.toolCall.input);
-    const argsLine = parsed.success ? parsed.data.argsLine : '';
-
+  private async runShellSession(params: AgentHandlerParams, argsLine: string): Promise<void> {
     const routing = await this.resolveShellSessionConversationTitle({
       conversationTitle: params.title,
       argsLine,
@@ -314,7 +319,65 @@ export class CliHandler {
         materializeXtermFromHostTitle: routing.materializeXtermFromHostTitle,
       });
     }
+  }
 
+  /**
+   * Shell transcript for this conversation. Model-invoked tool calls require user confirmation;
+   * client manual shell calls (toolCallId starts with MANUAL_TOOL_CALL_ID_PREFIX; e.g. `/>` input) run immediately.
+   */
+  public async handle(
+    params: AgentHandlerParams,
+    options: {
+      toolCall: ToolCallPart<ShellToolInput>;
+      continueFromNextTool?: () => Promise<AgentResult>;
+    }
+  ): Promise<AgentResult> {
+    const argsLine = options.toolCall.input?.argsLine ?? '';
+    const { title, lang, handlerId } = params;
+    const continueFromNextTool = options.continueFromNextTool;
+    const isManualClientShellCall = options.toolCall.toolCallId.startsWith(
+      MANUAL_TOOL_CALL_ID_PREFIX
+    );
+
+    if (!isManualClientShellCall) {
+      const trimmed = argsLine.trim();
+      const displayCommand =
+        trimmed.length > 0 ? argsLine : i18next.t('cli.shellConfirmEmptyCommand');
+      const message = i18next.t('cli.confirmExecuteShell', { command: displayCommand });
+
+      await this.agent.renderer.updateConversationNote({
+        path: title,
+        newContent: message,
+        lang,
+        handlerId,
+        command: ToolName.SHELL,
+      });
+
+      return {
+        status: IntentResultStatus.NEEDS_CONFIRMATION,
+        confirmationMessage: message,
+        onConfirmation: async (_confirmationMessage: string) => {
+          await this.runShellSession(params, argsLine);
+          if (continueFromNextTool) {
+            return continueFromNextTool();
+          }
+          return {
+            status: IntentResultStatus.SUCCESS,
+          };
+        },
+        onRejection: async (_rejectionMessage: string) => {
+          this.agent.commandProcessor.deleteNextPendingIntent(title);
+          if (continueFromNextTool) {
+            return continueFromNextTool();
+          }
+          return {
+            status: IntentResultStatus.SUCCESS,
+          };
+        },
+      };
+    }
+
+    await this.runShellSession(params, argsLine);
     return {
       status: IntentResultStatus.SUCCESS,
     };
