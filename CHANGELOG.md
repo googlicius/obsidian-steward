@@ -5,6 +5,41 @@ All notable changes to Obsidian Steward will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.3] - 2026-04-26
+
+### Added
+
+- **SHELL tool** for models
+- **UDC**: Allow multiple UDC definitions in a single markdown file
+
+### Changed
+
+- **Datasource**: Path completion and source-ref handling
+- **CLI**: `isInteractiveCliCommand` — a query is treated as an interactive command when it contains a supported interactive program
+- **Agents**: Keep the agent loop continuing for model-made shell calls
+
+[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.7.2...2.7.3)
+
+## [2.7.2] - 2026-04-25
+
+### Changed
+
+- **CLI**: Improve xterm state preservation on embed remount. Replaces `ptyScrollback` with xterm serialization via `@xterm/addon-serialize`, which captures full terminal state (screen content, cursor position, scroll offset) instead of only raw PTY output, for better UX when navigating away and back to an interactive CLI embed.
+
+[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.7.1...2.7.2)
+
+## [2.7.1] - 2026-04-24
+
+### Changed
+
+- **CLI**: Restore terminal after navigating back
+
+### Fixed
+
+- **CLI**: Two-way scroll sync for embedded terminals
+
+[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.7.0...2.7.1)
+
 ## [2.7.0] - 2026-04-18
 
 ### Added
