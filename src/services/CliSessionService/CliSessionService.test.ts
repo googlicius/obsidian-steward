@@ -1,6 +1,11 @@
 import type { ChildProcessWithoutNullStreams } from 'child_process';
 import { loadNodeModule } from 'src/utils/loadNodeModule';
-import { BUILT_IN_INTERACTIVE_APPS, CliSessionService, type CliSession } from './CliSessionService';
+import {
+  BUILT_IN_INTERACTIVE_APPS,
+  CliSessionService,
+  isInteractiveCliCommand,
+  type CliSession,
+} from './CliSessionService';
 import type StewardPlugin from 'src/main';
 
 let isDesktopApp = true;
@@ -631,6 +636,26 @@ describe('CliSessionService', () => {
       expect(session.cdCommandHistory.at(-1)).toBe('cd /overflow-2');
       expect(session.cdCommandHistory.at(-2)).toBe('cd /overflow-1');
       expect(session.cdCommandHistory[0]).toBe('cd /dir-2');
+    });
+  });
+
+  describe('isInteractiveCliCommand', () => {
+    it('is true when a later line starts with a supported app (e.g. cd then vim)', () => {
+      expect(
+        isInteractiveCliCommand('cd Archived\nvim Welcome.md', BUILT_IN_INTERACTIVE_APPS)
+      ).toBe(true);
+    });
+
+    it('is true when a later && segment starts with a supported app', () => {
+      expect(isInteractiveCliCommand('cd /tmp && nvim file.txt', BUILT_IN_INTERACTIVE_APPS)).toBe(
+        true
+      );
+    });
+
+    it('is false when no line or chain segment starts with a supported app', () => {
+      expect(isInteractiveCliCommand('cd Archived\necho done', BUILT_IN_INTERACTIVE_APPS)).toBe(
+        false
+      );
     });
   });
 

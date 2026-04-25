@@ -62,6 +62,9 @@ const vi = {
       nodePtyInstallUnixHeading: 'Cài trên Mac / Linux',
       seeCliWiki:
         'Xem [CLI]({{cliDoc}}) để biết chế độ transcript so với interactive và cách cài node-pty.',
+      confirmExecuteShell:
+        'Tôi sẽ chạy lệnh này. Vui lòng xác nhận hoặc hủy.\n\n```shell\n{{command}}\n```',
+      shellConfirmEmptyCommand: '(dòng trống — bắt đầu hoặc tiếp tục shell mà không gửi lệnh)',
     },
     mcp: {
       noConfigBlock: 'Thêm khối ```json``` gồm transport (http hoặc sse), url và tùy chọn headers.',

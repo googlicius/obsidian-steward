@@ -15,7 +15,7 @@ export function createConfirmationButtonsProcessor(plugin: StewardPlugin): Markd
         title: conversationTitle,
         intents: [
           {
-            type: ' ',
+            type: 'user_confirm',
             query: 'Yes',
           },
         ],
@@ -30,7 +30,7 @@ export function createConfirmationButtonsProcessor(plugin: StewardPlugin): Markd
         title: conversationTitle,
         intents: [
           {
-            type: ' ',
+            type: 'user_confirm',
             query: 'No',
           },
         ],

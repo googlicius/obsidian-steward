@@ -54,6 +54,9 @@ function createMockPlugin(
       parseMarkdownFrontmatter: NoteContentService.prototype.parseMarkdownFrontmatter.bind(
         {} as NoteContentService
       ),
+      parseHeadingLine: NoteContentService.prototype.parseHeadingLine.bind(
+        {} as NoteContentService
+      ),
     },
     conversationRenderer: {
       getConversationFileByName: jest.fn(),
@@ -126,6 +129,62 @@ describe('UserDefinedCommandService', () => {
       return ['```yaml', yamlInner.trim(), '```'].join('\n');
     }
 
+    function buildMarkdownSections(content: string) {
+      const lines = content.split('\n');
+      const sections: Array<{
+        type: string;
+        position: {
+          start: { line: number; col: number; offset: number };
+          end: { line: number; col: number; offset: number };
+        };
+      }> = [];
+
+      let lineIndex = 0;
+      while (lineIndex < lines.length) {
+        const line = lines[lineIndex];
+        const codeFenceMatch = line.match(/^```/);
+        if (codeFenceMatch) {
+          let endLine = lineIndex;
+          for (let i = lineIndex + 1; i < lines.length; i++) {
+            if (lines[i].match(/^```/)) {
+              endLine = i;
+              break;
+            }
+          }
+          sections.push({
+            type: 'code',
+            position: {
+              start: { line: lineIndex, col: 0, offset: 0 },
+              end: { line: endLine, col: lines[endLine].length, offset: 0 },
+            },
+          });
+          lineIndex = endLine + 1;
+          continue;
+        }
+
+        if (line.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/)) {
+          sections.push({
+            type: 'heading',
+            position: {
+              start: { line: lineIndex, col: 0, offset: 0 },
+              end: { line: lineIndex, col: line.length, offset: 0 },
+            },
+          });
+        }
+
+        lineIndex++;
+      }
+
+      return sections;
+    }
+
+    function mockCommandFileContent(content: string): void {
+      mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue(content);
+      mockPlugin.app.metadataCache.getFileCache = jest.fn().mockReturnValue({
+        sections: buildMarkdownSections(content),
+      });
+    }
+
     const validV2Yaml = `
 command_name: udc_load_test
 steps:
@@ -147,7 +206,7 @@ steps:
         basename: 'test-udc',
         extension: 'md',
       });
-      mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue(udcNoteBody(validV2Yaml));
+      mockCommandFileContent(udcNoteBody(validV2Yaml));
 
       const fm: Record<string, unknown> = {};
       mockPlugin.app.fileManager.processFrontMatter = jest
@@ -178,7 +237,7 @@ steps:
         '',
         udcNoteBody(validV2Yaml),
       ].join('\n');
-      mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue(note);
+      mockCommandFileContent(note);
 
       await userDefinedCommandService['loadCommandFromFile'](file);
 
@@ -192,7 +251,7 @@ steps:
         basename: 'test-udc',
         extension: 'md',
       });
-      mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue('# No command block\n');
+      mockCommandFileContent('# No command block\n');
 
       const fm: Record<string, unknown> = {};
       mockPlugin.app.fileManager.processFrontMatter = jest
@@ -224,7 +283,7 @@ command_name: invalid name
 steps:
   - query: x
 `;
-      mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue(udcNoteBody(badYaml));
+      mockCommandFileContent(udcNoteBody(badYaml));
 
       const fm: Record<string, unknown> = {};
       mockPlugin.app.fileManager.processFrontMatter = jest
@@ -249,7 +308,7 @@ steps:
         extension: 'md',
       });
       const note = ['---', 'enabled: false', '---', '', udcNoteBody(validV2Yaml)].join('\n');
-      mockPlugin.app.vault.cachedRead = jest.fn().mockResolvedValue(note);
+      mockCommandFileContent(note);
 
       const fm: Record<string, unknown> = {};
       mockPlugin.app.fileManager.processFrontMatter = jest
@@ -263,6 +322,102 @@ steps:
 
       expect(fm.status).toBe(i18next.t('common.statusValid'));
       expect(userDefinedCommandService.hasCommand('udc_load_test')).toBe(false);
+    });
+
+    it('loads multiple UDC YAML blocks from one markdown file', async () => {
+      const file = getInstance(TFile, {
+        path: commandFilePath,
+        basename: 'test-udc',
+        extension: 'md',
+      });
+      const note = [
+        udcNoteBody(`
+command_name: first_udc
+steps:
+  - query: first query
+`),
+        '',
+        udcNoteBody(`
+command_name: second_udc
+steps:
+  - query: second query
+`),
+      ].join('\n');
+      mockCommandFileContent(note);
+
+      const fm: Record<string, unknown> = {};
+      mockPlugin.app.fileManager.processFrontMatter = jest
+        .fn()
+        .mockImplementation((_f, fn: (x: Record<string, unknown>) => void) => {
+          fn(fm);
+          return Promise.resolve();
+        });
+
+      await userDefinedCommandService['loadCommandFromFile'](file);
+
+      expect(fm.status).toBe(i18next.t('common.statusValid'));
+      expect(userDefinedCommandService.hasCommand('first_udc')).toBe(true);
+      expect(userDefinedCommandService.hasCommand('second_udc')).toBe(true);
+    });
+
+    it('ignores UDC-looking YAML under a collected system prompt heading', async () => {
+      const file = getInstance(TFile, {
+        path: commandFilePath,
+        basename: 'test-udc',
+        extension: 'md',
+      });
+      const note = [
+        udcNoteBody(`
+command_name: main_udc
+system_prompt:
+  - "[[#Guidelines]]"
+steps:
+  - query: main query
+`),
+        '',
+        '## Guidelines',
+        '',
+        'This section is prompt content.',
+        '',
+        udcNoteBody(`
+command_name: prompt_example_udc
+steps:
+  - query: example only
+`),
+        '',
+        '### Nested Prompt Detail',
+        '',
+        udcNoteBody(`
+command_name: nested_prompt_example_udc
+steps:
+  - query: nested example only
+`),
+        '',
+        '## Related Commands',
+        '',
+        udcNoteBody(`
+command_name: sibling_udc
+steps:
+  - query: sibling query
+`),
+      ].join('\n');
+      mockCommandFileContent(note);
+
+      const fm: Record<string, unknown> = {};
+      mockPlugin.app.fileManager.processFrontMatter = jest
+        .fn()
+        .mockImplementation((_f, fn: (x: Record<string, unknown>) => void) => {
+          fn(fm);
+          return Promise.resolve();
+        });
+
+      await userDefinedCommandService['loadCommandFromFile'](file);
+
+      expect(fm.status).toBe(i18next.t('common.statusValid'));
+      expect(userDefinedCommandService.hasCommand('main_udc')).toBe(true);
+      expect(userDefinedCommandService.hasCommand('sibling_udc')).toBe(true);
+      expect(userDefinedCommandService.hasCommand('prompt_example_udc')).toBe(false);
+      expect(userDefinedCommandService.hasCommand('nested_prompt_example_udc')).toBe(false);
     });
   });
 

@@ -6,6 +6,7 @@ import { ToolName } from '../../ToolRegistry';
 import { parseStepProcessedQuery } from '../SuperAgent/stepProcessedQuery';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
+import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
 import * as handlers from '../handlers';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type { Handlers } from './Handlers';
@@ -73,7 +74,7 @@ export class ManualToolCall {
             return {
               type: 'tool-call',
               toolName: ToolName.DELETE,
-              toolCallId: `manual-tool-call-${uniqueID()}`,
+              toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}${uniqueID()}`,
               input: {
                 operations: [
                   {
@@ -94,7 +95,7 @@ export class ManualToolCall {
           return {
             type: 'tool-call',
             toolName: ToolName.REVERT,
-            toolCallId: `manual-tool-call-${uniqueID()}`,
+            toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}${uniqueID()}`,
             input: {
               explanation: t('revert.revertingLatestQuery'),
             },
@@ -107,7 +108,7 @@ export class ManualToolCall {
         return {
           type: 'tool-call',
           toolName: ToolName.HELP,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
+          toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}${uniqueID()}`,
           input: {},
         };
       }
@@ -116,7 +117,7 @@ export class ManualToolCall {
         return {
           type: 'tool-call',
           toolName: ToolName.USER_CONFIRM,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
+          toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}${uniqueID()}`,
           input: {},
         };
       }
@@ -125,7 +126,7 @@ export class ManualToolCall {
         return {
           type: 'tool-call',
           toolName: ToolName.STOP,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
+          toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}${uniqueID()}`,
           input: {},
         };
       }
@@ -134,7 +135,7 @@ export class ManualToolCall {
         return {
           type: 'tool-call',
           toolName: ToolName.THANK_YOU,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
+          toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}${uniqueID()}`,
           input: {},
         };
       }
@@ -144,7 +145,7 @@ export class ManualToolCall {
         return {
           type: 'tool-call',
           toolName: ToolName.SEARCH_MORE,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
+          toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}${uniqueID()}`,
           input: {},
         };
       }
@@ -158,7 +159,7 @@ export class ManualToolCall {
         return {
           type: 'tool-call',
           toolName: ToolName.BUILD_SEARCH_INDEX,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
+          toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}${uniqueID()}`,
           input: {},
         };
       }
@@ -175,7 +176,7 @@ export class ManualToolCall {
           return {
             type: 'tool-call',
             toolName: ToolName.SEARCH,
-            toolCallId: `manual-tool-call-${uniqueID()}`,
+            toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}${uniqueID()}`,
             input: {
               operations: extraction.operations,
               explanation: extraction.explanation,
@@ -194,7 +195,7 @@ export class ManualToolCall {
           return {
             type: 'tool-call',
             toolName: ToolName.SPEECH,
-            toolCallId: `manual-tool-call-${uniqueID()}`,
+            toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}${uniqueID()}`,
             input: {
               text: quotedText,
               explanation: `Generating audio with: "${quotedText}"`,
@@ -209,7 +210,7 @@ export class ManualToolCall {
         return {
           type: 'tool-call',
           toolName: ToolName.SHELL,
-          toolCallId: `manual-tool-call-${uniqueID()}`,
+          toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}${uniqueID()}`,
           input: { argsLine: query },
         };
       }
@@ -235,7 +236,7 @@ export class ManualToolCall {
     return {
       type: 'tool-call',
       toolName: ToolName.TODO_WRITE,
-      toolCallId: `manual-tool-call-${uniqueID()}`,
+      toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}${uniqueID()}`,
       input: {
         operations: [
           {

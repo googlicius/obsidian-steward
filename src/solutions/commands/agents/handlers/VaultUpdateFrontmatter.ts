@@ -1,6 +1,6 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
-import { normalizePath, TFile, TFolder } from 'obsidian';
+import { normalizePath, TFolder } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import { logger } from 'src/utils/logger';
@@ -230,24 +230,6 @@ export class VaultUpdateFrontmatter {
     };
   }
 
-  /**
-   * Get all markdown files from a folder, optionally recursively
-   */
-  private getMarkdownFilesFromFolder(folder: TFolder, recursive = false): TFile[] {
-    const markdownFiles: TFile[] = [];
-
-    for (const child of folder.children) {
-      if (child instanceof TFile && child.extension === 'md') {
-        markdownFiles.push(child);
-      } else if (child instanceof TFolder && recursive) {
-        // Recursively process subfolders only if recursive is true
-        markdownFiles.push(...this.getMarkdownFilesFromFolder(child, recursive));
-      }
-    }
-
-    return markdownFiles;
-  }
-
   private async resolveFiles(params: {
     title: string;
     toolCall: ToolCallPart<UpdateFrontmatterToolArgs>;
@@ -287,6 +269,8 @@ export class VaultUpdateFrontmatter {
     // Collect files from folders
     if (params.toolCall.input.folders) {
       const recursive = params.toolCall.input.folders.recursive ?? false;
+      const resolvedFolders: TFolder[] = [];
+
       for (const folderPath of params.toolCall.input.folders.paths) {
         const trimmedPath = folderPath.trim();
         if (!trimmedPath) {
@@ -299,10 +283,15 @@ export class VaultUpdateFrontmatter {
           continue;
         }
 
-        const markdownFiles = this.getMarkdownFilesFromFolder(folder, recursive);
-        for (const file of markdownFiles) {
-          filePathsToUpdate.push(file.path);
-        }
+        resolvedFolders.push(folder);
+      }
+
+      if (resolvedFolders.length > 0) {
+        const markdownFiles = this.agent.obsidianAPITools.getFilesFromFolder(resolvedFolders, {
+          recursive,
+          extensions: ['md'],
+        });
+        filePathsToUpdate.push(...markdownFiles.map(file => file.path));
       }
     }
 

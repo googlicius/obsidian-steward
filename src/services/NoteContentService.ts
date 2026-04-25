@@ -213,22 +213,14 @@ export class NoteContentService {
    */
   public extractContentUnderHeading(content: string, headingText: string): string {
     const result: string[] = [];
-
-    // Find the heading directly
-    const headingRegex = new RegExp(`^(#{1,6})\\s+${this.escapeRegExp(headingText)}\\s*$`, 'm');
-    const headingMatch = content.match(headingRegex);
-
+    const headingMatch = this.findHeadingLine(content, headingText);
     if (!headingMatch) {
       return '';
     }
 
-    // Get heading level and position
-    const headingLevel = headingMatch[1].length;
-    const headingPosition = content.indexOf(headingMatch[0]);
-
-    // Start iterating from the position after the heading
-    const contentAfterHeading = content.substring(headingPosition + headingMatch[0].length);
-    const remainingLines = contentAfterHeading.split('\n');
+    const lines = content.split('\n');
+    const headingLevel = headingMatch.level;
+    const remainingLines = lines.slice(headingMatch.lineIndex + 1);
 
     // Skip the first empty line if it exists
     const startIndex = remainingLines[0].trim() === '' ? 1 : 0;
@@ -236,16 +228,9 @@ export class NoteContentService {
     for (let i = startIndex; i < remainingLines.length; i++) {
       const line = remainingLines[i];
 
-      // Check if this line is a heading
-      const nextHeadingMatch = line.match(/^(#{1,6})\s+(.+)$/);
-
-      if (nextHeadingMatch) {
-        const level = nextHeadingMatch[1].length; // Number of # symbols
-
-        // If we find a heading of same or higher level, stop
-        if (level <= headingLevel) {
-          break;
-        }
+      const nextHeading = this.parseHeadingLine(line);
+      if (nextHeading && nextHeading.level <= headingLevel) {
+        break;
       }
 
       // Add this line to the result
@@ -253,6 +238,38 @@ export class NoteContentService {
     }
 
     return result.join('\n').trim();
+  }
+
+  public parseHeadingLine(line: string): { level: number; text: string } | null {
+    const match = line.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/);
+    if (!match) {
+      return null;
+    }
+
+    return {
+      level: match[1].length,
+      text: match[2].trim(),
+    };
+  }
+
+  private findHeadingLine(
+    content: string,
+    headingText: string
+  ): { lineIndex: number; level: number } | null {
+    const lines = content.split('\n');
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      const heading = this.parseHeadingLine(lines[lineIndex]);
+      if (!heading || heading.text !== headingText) {
+        continue;
+      }
+
+      return {
+        lineIndex,
+        level: heading.level,
+      };
+    }
+
+    return null;
   }
 
   /**
@@ -300,11 +317,7 @@ export class NoteContentService {
 
       if (anchorParts.length > 1) {
         const headingName = anchorParts[1];
-        // Check if heading exists in the content
-        const headingRegex = new RegExp(`^(#{1,6})\\s+${this.escapeRegExp(headingName)}\\s*$`, 'm');
-        const headingMatch = linkedContent.match(headingRegex);
-
-        if (!headingMatch) {
+        if (!this.findHeadingLine(linkedContent, headingName)) {
           throw new Error(
             i18next.t('vault.wikilinkHeadingNotFound', {
               wikilink,

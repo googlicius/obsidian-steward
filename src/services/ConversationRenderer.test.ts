@@ -7,6 +7,7 @@ import { uniqueID } from '../utils/uniqueID';
 import { ReadContentArtifactImpl } from '../solutions/artifact/implements';
 import { ArtifactType } from '../solutions/artifact/types';
 import { ConversationMessage } from '../types/types';
+import { MANUAL_TOOL_CALL_ID_PREFIX } from '../constants';
 
 // Mock the uniqueID function
 jest.mock('../utils/uniqueID', () => ({
@@ -470,7 +471,7 @@ describe('ConversationRenderer', () => {
           {
             type: 'tool-result',
             toolName: 'user_confirm',
-            toolCallId: 'manual-tool-call-1',
+            toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}1`,
             input: {},
             output: {
               type: 'text',

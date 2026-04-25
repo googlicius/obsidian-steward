@@ -482,9 +482,10 @@ export class ConversationRenderer {
       await this.plugin.app.vault.process(file, currentContent => {
         // Format the user message content
         let contentToAdd = '';
+        const sanitizedContent = this.plugin.userMessageService.sanitizeQuery(params.newContent);
         if (format === 'hidden') {
           // Escape backticks in content to prevent breaking the code block
-          const escapedContent = params.newContent.replace(/`/g, '\\`');
+          const escapedContent = sanitizedContent.replace(/`/g, '\\`');
           contentToAdd = `\`\`\`stw-hidden-from-user\n${escapedContent}\n\`\`\``;
         } else {
           // Add separator before user message
@@ -493,7 +494,7 @@ export class ConversationRenderer {
           const roleText = this.formatRoleText('User', undefined);
           // Format user message as a callout (default)
           contentToAdd = this.plugin.noteContentService.formatCallout(
-            `${roleText}${params.newContent}`,
+            `${roleText}${sanitizedContent}`,
             'stw-user-message',
             { id: messageId }
           );
@@ -994,9 +995,11 @@ export class ConversationRenderer {
       // Create YAML frontmatter with model, current_note, and language
       const frontmatter = `---\n${frontmatterProperties.map(property => `${property.name}: ${property.value}`).join('\n')}\n---\n\n`;
 
+      const sanitizedQuery = this.plugin.userMessageService.sanitizeQuery(options.intent.query);
+
       // Format user message as a callout with the role text
       const userMessage = this.plugin.noteContentService.formatCallout(
-        `${this.formatRoleText('User')}/${options.intent.type.trim()} ${options.intent.query}`,
+        `${this.formatRoleText('User')}/${options.intent.type.trim()} ${sanitizedQuery}`,
         'stw-user-message',
         { id: messageId }
       );

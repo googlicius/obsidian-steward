@@ -1,7 +1,8 @@
 import type { ImagePart, TextPart } from 'ai';
-import { IMAGE_EXTENSIONS, IMAGE_LINK_PATTERN } from 'src/constants';
+import { IMAGE_EXTENSIONS, IMAGE_LINK_PATTERN, STW_SOURCE_AT_PATH_PATTERN } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
+import { decodePath } from 'src/utils/pathEncoding';
 import { resizeImageWithCanvas } from 'src/utils/resizeImageWithCanvas';
 
 export class UserMessageService {
@@ -66,13 +67,21 @@ export class UserMessageService {
 
   /**
    * Sanitize the query: trim outer whitespace, collapse horizontal whitespace
-   * within each line, preserve line breaks.
+   * within each line, preserve line breaks. Short `@path` datasource references
+   * are stripped of the leading `@` and URL-decoded so the LLM sees a clean
+   * path (e.g. `@Notes/My%20Note.md` -> `Notes/My Note.md`). Only tokens that
+   * match STW_SOURCE_AT_PATH_PATTERN and are preceded by whitespace or line
+   * start are rewritten; stray `@` characters are left untouched.
    */
   public sanitizeQuery(query: string): string {
+    const atRefRegex = new RegExp('(^|\\s)' + STW_SOURCE_AT_PATH_PATTERN, 'g');
     return query
       .split(/\r\n|\r|\n/)
       .map(line => line.replace(/[ \t]+/g, ' ').trim())
       .join('\n')
+      .replace(atRefRegex, (_match, leading: string, encodedPath: string) => {
+        return `${leading}${decodePath(encodedPath)}`;
+      })
       .trim();
   }
 

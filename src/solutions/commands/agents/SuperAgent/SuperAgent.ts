@@ -174,6 +174,11 @@ NOTE:
     params: AgentHandlerParams,
     options: {
       remainingSteps?: number;
+      /**
+       * Usage:
+       * 1. Resume the same tool-call batch after an interruption
+       * 2. Inject a synthetic tool call
+       */
       toolCalls?: ToolCalls;
       currentToolCallIndex?: number;
     } = {}
@@ -200,7 +205,8 @@ NOTE:
 
     let classificationMatchType: 'static' | 'prefixed' | 'clustered' | undefined;
 
-    if (classifiedTasks.length === 0) {
+    // Only classify as a shell task (>) for a fresh user turn.
+    if (!params.invocationCount && classifiedTasks.length === 0) {
       const cliSession = this.plugin.cliSessionService.getSession(title);
       if (cliSession) {
         classifiedTasks.push('>');
@@ -257,16 +263,19 @@ NOTE:
     // Highest priority: command syntax (c:tool --args) bypasses classification and LLM
     const commandSyntaxToolCalls = CommandSyntaxParser.parseAndConvert(intent.query);
 
-    const manualToolCall = commandSyntaxToolCalls
-      ? undefined
-      : await this.manualToolCall({
-          title,
-          query: intent.query,
-          activeTools,
-          classifiedTasks,
-          lang,
-          classificationMatchType,
-        });
+    const isResumingToolCalls = !!options.toolCalls;
+
+    const manualToolCall =
+      isResumingToolCalls || commandSyntaxToolCalls
+        ? undefined
+        : await this.manualToolCall({
+            title,
+            query: intent.query,
+            activeTools,
+            classifiedTasks,
+            lang,
+            classificationMatchType,
+          });
 
     let toolCalls: ToolCalls;
     let conversationHistory: ModelMessage[] = [];

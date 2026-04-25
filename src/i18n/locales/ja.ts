@@ -65,6 +65,9 @@ const ja = {
       nodePtyInstallUnixHeading: 'Mac / Linux でインストール',
       seeCliWiki:
         'トランスクリプトとインタラクティブの違いや node-pty のセットアップは [CLI]({{cliDoc}}) を参照してください。',
+      confirmExecuteShell:
+        'この会話で次の**ローカルシェル**コマンドを実行します。続行するかキャンセルするか、ご確認ください。\n\n```\n{{command}}\n```',
+      shellConfirmEmptyCommand: '（空行 — 入力なしでシェルを開始または継続）',
     },
     mcp: {
       noConfigBlock:

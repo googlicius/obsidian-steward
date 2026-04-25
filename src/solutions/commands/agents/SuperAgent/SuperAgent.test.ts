@@ -1382,6 +1382,41 @@ describe('SuperAgent', () => {
       expect(getMockStreamText()).toHaveBeenCalled();
       expect(mockTodoListHandle).not.toHaveBeenCalled();
     });
+
+    it('should not create a manual tool call when resuming existing tool calls', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: '>',
+          query: 'git status',
+        } as Intent,
+        activeTools: [ToolName.SHELL],
+        invocationCount: 1,
+      };
+
+      type HandleOptions = NonNullable<Parameters<SuperAgent['handle']>[1]>;
+      const resumedToolCalls: NonNullable<HandleOptions['toolCalls']> = [
+        {
+          type: 'tool-call',
+          toolName: ToolName.SHELL,
+          toolCallId: 'tool-call-1',
+          input: { argsLine: 'git status' },
+        },
+      ];
+
+      // @ts-expect-error - Accessing protected method for testing
+      const manualToolCallSpy = jest.spyOn(superAgent, 'manualToolCall') as jest.SpyInstance;
+
+      const result = await superAgent.handle(params, {
+        remainingSteps: 1,
+        toolCalls: resumedToolCalls,
+        currentToolCallIndex: 1,
+      });
+
+      expect(manualToolCallSpy).not.toHaveBeenCalled();
+      expect(getMockStreamText()).not.toHaveBeenCalled();
+      expect(result.status).toBe(IntentResultStatus.NEEDS_CONFIRMATION);
+    });
   });
 
   describe('getNextTodoListStepIntent', () => {

@@ -32,6 +32,7 @@ const SUBAGENT_TOOL_NAME_LIST = [
   ToolName.TODO_WRITE,
   ToolName.CONCLUDE,
   ToolName.RECALL_COMPACTED_CONTEXT,
+  ToolName.SHELL,
 ] as const;
 
 const SUPER_ONLY_TOOL_NAMES = [
@@ -79,6 +80,7 @@ async function buildBaseAgentTools(): Promise<AgentToolsRecord> {
     concludeTool,
     recallCompactedContextTool,
     activateToolsTool,
+    shellTool,
   ] = await Promise.all([
     handlers.VaultList.getListTool(),
     handlers.VaultCreate.getCreateTool(),
@@ -106,6 +108,7 @@ async function buildBaseAgentTools(): Promise<AgentToolsRecord> {
     handlers.Conclude.getConcludeTool(),
     handlers.RecallCompactedContext.getRecallCompactedContextTool(),
     getActivateToolsTool(),
+    handlers.CliHandler.getShellTool(),
   ]);
 
   return {
@@ -135,6 +138,7 @@ async function buildBaseAgentTools(): Promise<AgentToolsRecord> {
     [ToolName.TODO_WRITE]: todoWriteTool,
     [ToolName.CONCLUDE]: concludeTool,
     [ToolName.RECALL_COMPACTED_CONTEXT]: recallCompactedContextTool,
+    [ToolName.SHELL]: shellTool,
   };
 }
 

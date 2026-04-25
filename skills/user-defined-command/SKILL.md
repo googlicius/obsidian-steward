@@ -11,6 +11,8 @@ This skill enables you to create and edit valid Steward user-defined commands â€
 
 Each command is a markdown file (`.md`) containing one or more YAML code blocks. The file can also contain plain text, headings, and other markdown content that can be referenced by system prompts.
 
+After creating or updating a UDC note, re-read the file and check the frontmatter `status`. If it is invalid, use the status error to fix the YAML and re-read again.
+
 ## YAML Schema
 
 ### Command-Level Fields
@@ -305,6 +307,7 @@ steps:
 - Do NOT add any heading at the beginning of the note. A short introduction should be the first content in the file.
 - The YAML block MUST be inside a fenced code block with the `yaml` language tag.
 - `command_name` and `steps` are always required.
+- After creating or editing a UDC file, re-read it and verify the frontmatter `status` is valid.
 - Step `name` determines which tools are available. Omitting `name` uses the default tool set.
 - When `query_required` is `true`, at least one step must use `$from_user` in its `query`.
 - When `tools` is `[switch_agent_capacity]`, only that tool is available until the user confirms switching to full agent mode â€” useful for pure conversational commands.

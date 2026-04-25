@@ -7,6 +7,7 @@ import { ToolCallPart } from '../../tools/types';
 import { SuperAgent } from '../SuperAgent';
 import * as handlers from '../handlers';
 import type StewardPlugin from 'src/main';
+import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
 import type { AgentCorePromptContext } from '../../Agent';
 import type { IVersionedUserDefinedCommand } from 'src/services/UserDefinedCommandService/versions/types';
@@ -118,7 +119,7 @@ export class UDCAgent extends Agent {
       const todoWriteToolCall: ToolCallPart<handlers.TodoWriteCreateArgsWithMetadata> = {
         type: 'tool-call' as const,
         toolName: ToolName.TODO_WRITE,
-        toolCallId: `manual-tool-call-${uniqueID()}`,
+        toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}${uniqueID()}`,
         input: {
           operations: [{ operation: 'create', steps: todoListSteps }],
         },
