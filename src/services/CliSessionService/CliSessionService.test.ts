@@ -647,15 +647,15 @@ describe('CliSessionService', () => {
     });
 
     it('is true when a later && segment starts with a supported app', () => {
-      expect(
-        isInteractiveCliCommand('cd /tmp && nvim file.txt', BUILT_IN_INTERACTIVE_APPS)
-      ).toBe(true);
+      expect(isInteractiveCliCommand('cd /tmp && nvim file.txt', BUILT_IN_INTERACTIVE_APPS)).toBe(
+        true
+      );
     });
 
     it('is false when no line or chain segment starts with a supported app', () => {
-      expect(
-        isInteractiveCliCommand('cd Archived\necho done', BUILT_IN_INTERACTIVE_APPS)
-      ).toBe(false);
+      expect(isInteractiveCliCommand('cd Archived\necho done', BUILT_IN_INTERACTIVE_APPS)).toBe(
+        false
+      );
     });
   });
 

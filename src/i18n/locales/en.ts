@@ -69,7 +69,7 @@ const en = {
       seeCliWiki:
         'It would take up from 5 ~ 6 MB based on your platform.\n\nSee [CLI]({{cliDoc}}) for transcript vs interactive mode and node-pty setup.',
       confirmExecuteShell:
-        'I will run this command. Please confirm or cancel.\n\n```cli-transcript\n{{command}}\n```',
+        'I will run this command. Please confirm or cancel.\n\n```shell\n{{command}}\n```',
       shellConfirmEmptyCommand: '(empty line — start or continue shell without sending input yet)',
     },
     mcp: {

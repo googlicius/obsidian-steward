@@ -2,7 +2,7 @@ import { getLanguage, normalizePath, Notice, TFile, parseYaml } from 'obsidian';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
-import { COMMAND_PREFIXES } from 'src/constants';
+import { COMMAND_PREFIXES, WIKI_LINK_PATTERN } from 'src/constants';
 import { EXAMPLE_UDCS } from 'src/example-udcs';
 import { StewardChatView } from 'src/views/StewardChatView';
 import i18next, { t } from 'i18next';
@@ -15,15 +15,26 @@ import {
 import { loadUDCVersion } from './versions/loader';
 import { Intent } from 'src/solutions/commands/types';
 import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
-import {
-  migrateRawUdcObject,
-  replaceFirstYamlFenceContent,
-  stringifyUdcYaml,
-} from './migrateUdcLegacyUseTool';
+import { migrateRawUdcObject, stringifyUdcYaml } from './migrateUdcLegacyUseTool';
 
 const udcNoteFrontmatterSchema = z.object({
   enabled: z.boolean().optional(),
 });
+
+interface UdcYamlBlock {
+  content: string;
+  startLine: number;
+  endLine: number;
+}
+
+interface UdcYamlReplacement {
+  block: UdcYamlBlock;
+  newInner: string;
+}
+
+interface UdcCommandYamlBlock extends UdcYamlBlock {
+  data: Record<string, unknown>;
+}
 
 export class UserDefinedCommandService {
   private static instance: UserDefinedCommandService | null = null;
@@ -195,8 +206,7 @@ export class UserDefinedCommandService {
       const fmParsed = udcNoteFrontmatterSchema.safeParse(parsedDoc.frontmatter);
       const enabledFromFrontmatter = !fmParsed.success || fmParsed.data.enabled !== false;
 
-      // Extract YAML blocks from the content
-      const yamlBlocks = await this.extractYamlBlocks(content);
+      const commandYamlBlocks = this.collectCommandYamlBlocks(file, content);
 
       const validationErrors: Array<{
         commandName: string;
@@ -206,41 +216,21 @@ export class UserDefinedCommandService {
       let definitionValid = false;
       let statusErrorMessages: string[] = [];
 
-      // Only process the first YAML block as the command definition
-      // Other YAML blocks are ignored (they may be examples or referenced content for system prompts)
-      if (yamlBlocks.length === 0) {
+      if (commandYamlBlocks.length === 0) {
         statusErrorMessages = [i18next.t('validation.noCommandYamlBlock')];
       } else {
-        // Process only the first YAML block
-        let fileContent = content;
-        const yamlContent = yamlBlocks[0];
-        try {
-          const parsed = parseYaml(yamlContent);
-          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-            validationErrors.push({
-              commandName: 'unknown',
-              errors: [
-                i18next.t('validation.yamlError'),
-                'Command definition must be a YAML mapping',
-              ],
-            });
-          } else {
-            const dataObj = parsed as Record<string, unknown>;
-            const migrated = migrateRawUdcObject(dataObj);
+        const yamlReplacements: UdcYamlReplacement[] = [];
+
+        for (const yamlBlock of commandYamlBlocks) {
+          try {
+            const migrated = migrateRawUdcObject(yamlBlock.data);
             const rawData: Record<string, unknown> = migrated.data;
 
             if (migrated.changed) {
-              try {
-                const newInner = stringifyUdcYaml(migrated.data);
-                const updatedMarkdown = replaceFirstYamlFenceContent(fileContent, newInner);
-                if (updatedMarkdown !== fileContent) {
-                  await this.plugin.app.vault.modify(file, updatedMarkdown);
-                  fileContent = updatedMarkdown;
-                  logger.log(`Migrated legacy use_tool in UDC file: ${file.path}`);
-                }
-              } catch (persistError) {
-                logger.error(`Failed to persist UDC migration for ${file.path}:`, persistError);
-              }
+              yamlReplacements.push({
+                block: yamlBlock,
+                newInner: stringifyUdcYaml(migrated.data),
+              });
             }
 
             // Load and validate using version-aware loader (async imports)
@@ -256,27 +246,44 @@ export class UserDefinedCommandService {
                 commandName,
                 errors: result.errors,
               });
-            } else {
-              definitionValid = true;
-              if (enabledFromFrontmatter) {
-                const versionedCommand = result.command;
-                this.userDefinedCommands.set(
-                  versionedCommand.normalized.command_name,
-                  versionedCommand
-                );
+              continue;
+            }
+
+            definitionValid = true;
+            if (enabledFromFrontmatter) {
+              const versionedCommand = result.command;
+              this.userDefinedCommands.set(
+                versionedCommand.normalized.command_name,
+                versionedCommand
+              );
+              logger.log(
+                `Loaded user-defined command: ${versionedCommand.normalized.command_name} (v${versionedCommand.getVersion()})`
+              );
+            }
+          } catch (yamlError) {
+            const errorMsg = yamlError instanceof Error ? yamlError.message : String(yamlError);
+            validationErrors.push({
+              commandName: 'unknown',
+              errors: [i18next.t('validation.yamlError'), errorMsg],
+            });
+            logger.error(`Invalid YAML in file ${file.path}:`, yamlError);
+          }
+        }
+
+        if (yamlReplacements.length > 0) {
+          try {
+            const updatedMarkdown = this.replaceYamlFenceContents(content, yamlReplacements);
+            if (updatedMarkdown !== content) {
+              await this.plugin.app.vault.modify(file, updatedMarkdown);
+              for (const replacement of yamlReplacements) {
                 logger.log(
-                  `Loaded user-defined command: ${versionedCommand.normalized.command_name} (v${versionedCommand.getVersion()})`
+                  `Migrated legacy use_tool in UDC file: ${file.path} at line ${replacement.block.startLine + 1}`
                 );
               }
             }
+          } catch (persistError) {
+            logger.error(`Failed to persist UDC migration for ${file.path}:`, persistError);
           }
-        } catch (yamlError) {
-          const errorMsg = yamlError instanceof Error ? yamlError.message : String(yamlError);
-          validationErrors.push({
-            commandName: 'unknown',
-            errors: [i18next.t('validation.yamlError'), errorMsg],
-          });
-          logger.error(`Invalid YAML in file ${file.path}:`, yamlError);
         }
 
         if (validationErrors.length > 0) {
@@ -285,7 +292,7 @@ export class UserDefinedCommandService {
       }
 
       const validForStatus =
-        definitionValid && validationErrors.length === 0 && yamlBlocks.length > 0;
+        definitionValid && validationErrors.length === 0 && commandYamlBlocks.length > 0;
       await this.applyUdcValidationFrontmatter(parsedDoc, file, {
         valid: validForStatus,
         errorMessages: validForStatus ? [] : statusErrorMessages,
@@ -317,20 +324,127 @@ export class UserDefinedCommandService {
   }
 
   /**
-   * Extract YAML blocks from markdown content
+   * Walk Obsidian's markdown section cache and collect UDC YAML blocks.
+   * A block is a command only when it is YAML, has `command_name`, and is not inside
+   * a heading linked from an earlier command's system_prompt.
    */
-  private async extractYamlBlocks(content: string): Promise<string[]> {
-    const yamlBlocks: string[] = [];
-    const yamlRegex = /```yaml\s*([\s\S]*?)\s*```/gi;
-
-    let match;
-    while ((match = yamlRegex.exec(content)) !== null) {
-      if (match[1]) {
-        yamlBlocks.push(match[1]);
-      }
+  private collectCommandYamlBlocks(file: TFile, content: string): UdcCommandYamlBlock[] {
+    const cache = this.plugin.app.metadataCache.getFileCache(file);
+    if (!cache?.sections) {
+      return [];
     }
 
-    return yamlBlocks;
+    const lines = content.split('\n');
+    const commandYamlBlocks: UdcCommandYamlBlock[] = [];
+    const systemPromptHeadingNames = new Set<string>();
+    let activeSystemPromptHeadingLevel: number | null = null;
+
+    for (const section of cache.sections) {
+      if (section.type === 'heading') {
+        const headingInfo = this.plugin.noteContentService.parseHeadingLine(
+          lines[section.position.start.line] ?? ''
+        );
+        if (!headingInfo) {
+          continue;
+        }
+
+        if (activeSystemPromptHeadingLevel !== null) {
+          if (headingInfo.level <= activeSystemPromptHeadingLevel) {
+            activeSystemPromptHeadingLevel = null;
+          } else {
+            continue;
+          }
+        }
+
+        if (systemPromptHeadingNames.has(headingInfo.text)) {
+          activeSystemPromptHeadingLevel = headingInfo.level;
+        }
+
+        continue;
+      }
+
+      if (section.type !== 'code' || activeSystemPromptHeadingLevel !== null) {
+        continue;
+      }
+
+      const startLine = section.position.start.line;
+      const endLine = section.position.end.line;
+      const openingFence = lines[startLine]?.trim() ?? '';
+      if (!/^```(?:ya?ml)(?:\s|$)/i.test(openingFence)) {
+        continue;
+      }
+
+      const yamlBlock: UdcYamlBlock = {
+        startLine,
+        endLine,
+        content: lines.slice(startLine + 1, endLine).join('\n'),
+      };
+      let parsed: unknown;
+      try {
+        parsed = parseYaml(yamlBlock.content);
+      } catch {
+        continue;
+      }
+
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        continue;
+      }
+
+      const data = parsed as Record<string, unknown>;
+      if (typeof data.command_name !== 'string') {
+        continue;
+      }
+
+      commandYamlBlocks.push({
+        ...yamlBlock,
+        data,
+      });
+
+      this.collectHeadingOnlyWikilinks(yamlBlock.content, systemPromptHeadingNames);
+    }
+
+    return commandYamlBlocks;
+  }
+
+  private collectHeadingOnlyWikilinks(content: string, headingNames: Set<string>): void {
+    const wikiLinkRegex = new RegExp(WIKI_LINK_PATTERN, 'g');
+    for (const match of content.matchAll(wikiLinkRegex)) {
+      const linkContent = match[1];
+      if (!linkContent) {
+        continue;
+      }
+
+      const linkTarget = linkContent.split('|')[0].trim();
+      if (!linkTarget.startsWith('#')) {
+        continue;
+      }
+
+      const headingName = linkTarget.substring(1).trim();
+      if (headingName.length === 0) {
+        continue;
+      }
+
+      headingNames.add(headingName);
+    }
+  }
+
+  private replaceYamlFenceContents(content: string, replacements: UdcYamlReplacement[]): string {
+    const lines = content.split('\n');
+    const sortedReplacements = [...replacements].sort(
+      (a, b) => b.block.startLine - a.block.startLine
+    );
+
+    for (const replacement of sortedReplacements) {
+      lines.splice(
+        replacement.block.startLine,
+        replacement.block.endLine - replacement.block.startLine + 1,
+        '```yaml',
+        ...replacement.newInner.trimEnd().split('\n'),
+        '```'
+      );
+    }
+
+    return lines.join('\n');
   }
 
   /**

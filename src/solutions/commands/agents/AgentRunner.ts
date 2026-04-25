@@ -6,7 +6,7 @@ import { Agent } from '../Agent';
 import { AgentResult, Intent, IntentResultStatus } from '../types';
 import type { AgentConfig } from './AgentConfig';
 import { createAgentFromConfig } from './AgentFactory';
-import { DEFAULT_INTENT_TYPE, extractToolsFromQuery, parseIntentType } from './intentHelpers';
+import { extractToolsFromQuery, parseIntentType } from './intentHelpers';
 import { ToolName } from '../ToolRegistry';
 
 interface PendingIntent {
@@ -32,10 +32,9 @@ export class AgentRunner {
 
   /**
    * Resolve intent baseType to agent config id.
-   * Maps ' ' to 'super', UDC commands to 'udc', else returns baseType.
    */
   private resolveAgentId(baseType: string): string {
-    if (baseType === DEFAULT_INTENT_TYPE || baseType === '') {
+    if (['', 'user_confirm'].includes(baseType.trim())) {
       return 'super';
     }
     if (this.plugin.userDefinedCommandService.hasCommand(baseType)) {

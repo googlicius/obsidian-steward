@@ -40,7 +40,7 @@ export const BUILT_IN_INTERACTIVE_APPS = [
 
 export type CliSessionMode = 'transcript' | 'interactive';
 
-const SHELL_CHAIN_SPLIT = /&&|\|\||;/g;
+const SHELL_CHAIN_SPLIT = /&&|\|\||;/;
 
 function firstSegmentTokenMatchesInteractiveApp(
   segment: string,
@@ -497,6 +497,11 @@ export class CliSessionService {
     };
   }
 
+  /**
+   * Flush output manually when:
+   * - Start a new segment
+   * - Start a interactive session from an existing transcript session.
+   */
   public async flushOutputForConversation(
     conversationTitle: string,
     force: boolean

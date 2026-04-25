@@ -63,7 +63,7 @@ const vi = {
       seeCliWiki:
         'Xem [CLI]({{cliDoc}}) để biết chế độ transcript so với interactive và cách cài node-pty.',
       confirmExecuteShell:
-        'Tôi sẽ chạy lệnh này. Vui lòng xác nhận hoặc hủy.\n\n```\n{{command}}\n```',
+        'Tôi sẽ chạy lệnh này. Vui lòng xác nhận hoặc hủy.\n\n```shell\n{{command}}\n```',
       shellConfirmEmptyCommand: '(dòng trống — bắt đầu hoặc tiếp tục shell mà không gửi lệnh)',
     },
     mcp: {
