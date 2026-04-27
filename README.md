@@ -137,6 +137,7 @@ The [community-UDCs](/community-UDCs/) folder contains user-defined commands con
 - [Plan](/community-UDCs/Plan.md) - Plan and outline tasks before execution
 - [Clean up](/community-UDCs/Clean%20up.md) - Clean up your vault by removing unwanted notes
 - [Word processor](/community-UDCs/Word%20processor.md) - Process and format text in your notes
+- [Git sync setup](/community-UDCs/Git%20sync%20setup.md) - SOPS + Git clean/smudge filters; scaffolds `Steward/Commands/Git commands.md` with shell-only git lines
 
 ## Folder structure
 

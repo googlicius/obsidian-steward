@@ -1,4 +1,4 @@
-import { normalizePath } from 'obsidian';
+import { normalizePath, TFile } from 'obsidian';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { type ToolContentStreamInfo } from '../components';
 import { ToolCallPart } from '../../tools/types';
@@ -167,17 +167,20 @@ export class EditHandler {
   ): Promise<Map<string, EditOperation[]>> {
     const filesToOperations = new Map<string, EditOperation[]>();
 
-    const addOperation = (filePath: string, operation: EditOperation) => {
-      const ops = filesToOperations.get(filePath) || [];
-      ops.push(operation);
-      filesToOperations.set(filePath, ops);
+    const addIfResolvedFile = async (pathStr: string, operation: EditOperation) => {
+      const normalized = normalizePath(pathStr);
+      const resolved = await this.agent.plugin.vaultService.resolvePathExistence(normalized);
+      if (resolved.exists && resolved.type === 'file') {
+        const ops = filesToOperations.get(resolved.path) || [];
+        ops.push(operation);
+        filesToOperations.set(resolved.path, ops);
+      }
     };
 
     for (const operation of operations) {
       if (operation.mode === 'replace_by_pattern') {
         if (operation.path) {
-          const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(operation.path);
-          if (file) addOperation(file.path, operation);
+          await addIfResolvedFile(operation.path, operation);
         } else if (operation.artifactId) {
           const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(title);
           const resolvedFiles = await artifactManager.resolveFilesFromArtifact(
@@ -185,13 +188,11 @@ export class EditHandler {
           );
 
           for (const doc of resolvedFiles) {
-            const file = this.agent.app.vault.getFileByPath(doc.path);
-            if (file) addOperation(file.path, operation);
+            await addIfResolvedFile(doc.path, operation);
           }
         }
       } else if ('path' in operation) {
-        const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(operation.path);
-        if (file) addOperation(file.path, operation);
+        await addIfResolvedFile(operation.path, operation);
       }
     }
 
@@ -221,8 +222,8 @@ export class EditHandler {
     // Process each file
     for (const [filePath, fileOperations] of filesToOperations.entries()) {
       try {
-        const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(filePath);
-        if (!file) {
+        const resolvedFile = await this.agent.plugin.vaultService.resolvePathExistence(filePath);
+        if (!resolvedFile.exists) {
           failedFiles.push({ path: filePath, error: 'File not found' });
           continue;
         }
@@ -230,34 +231,63 @@ export class EditHandler {
         // Track changes and apply updates atomically
         let fileChangeSet: FileChangeSet | null = null;
 
-        await this.agent.app.vault.process(file, currentContent => {
-          // Compute changes based on current file content
+        if (resolvedFile.abstractFile && resolvedFile.abstractFile instanceof TFile) {
+          const file = resolvedFile.abstractFile;
+
+          await this.agent.app.vault.process(file, currentContent => {
+            // Compute changes based on current file content
+            const { modifiedContent, changes } =
+              this.agent.plugin.noteContentService.computeChanges(currentContent, fileOperations);
+
+            // Check if content actually changed
+            const normalizedOriginal = this.normalizeContent(currentContent);
+            const normalizedModified = this.normalizeContent(modifiedContent);
+            const contentChanged = normalizedOriginal !== normalizedModified;
+
+            if (!contentChanged) {
+              // Return original content if no changes
+              return currentContent;
+            }
+
+            // Store changes for artifact creation
+            if (changes.length > 0) {
+              fileChangeSet = {
+                path: filePath,
+                changes,
+              };
+            }
+
+            // Return the modified content
+            return normalizedModified;
+          });
+        } else if (resolvedFile.type === 'file') {
+          const adapter = this.agent.app.vault.adapter;
+          const currentContent = await adapter.read(filePath);
           const { modifiedContent, changes } = this.agent.plugin.noteContentService.computeChanges(
             currentContent,
             fileOperations
           );
-
-          // Check if content actually changed
           const normalizedOriginal = this.normalizeContent(currentContent);
           const normalizedModified = this.normalizeContent(modifiedContent);
           const contentChanged = normalizedOriginal !== normalizedModified;
 
-          if (!contentChanged) {
-            // Return original content if no changes
-            return currentContent;
-          }
-
-          // Store changes for artifact creation
-          if (changes.length > 0) {
+          if (contentChanged && changes.length > 0) {
             fileChangeSet = {
               path: filePath,
               changes,
             };
+            await adapter.write(filePath, normalizedModified);
           }
-
-          // Return the modified content
-          return normalizedModified;
-        });
+        } else {
+          failedFiles.push({
+            path: filePath,
+            error:
+              resolvedFile.type === 'folder'
+                ? 'Path is a folder, not a file'
+                : 'Cannot edit this path',
+          });
+          continue;
+        }
 
         if (fileChangeSet) {
           updatedFiles.push(filePath);
@@ -348,6 +378,20 @@ export class EditHandler {
   }
 
   /**
+   * Read plaintext for edit preview / apply. Uses the vault TFile when indexed; otherwise the adapter (hidden paths).
+   */
+  private async readFileTextForEdit(filePath: string): Promise<string | null> {
+    const resolved = await this.agent.plugin.vaultService.resolvePathExistence(filePath);
+    if (!resolved.exists || resolved.type !== 'file') {
+      return null;
+    }
+    if (resolved.abstractFile instanceof TFile) {
+      return this.agent.app.vault.cachedRead(resolved.abstractFile);
+    }
+    return this.agent.app.vault.adapter.read(filePath);
+  }
+
+  /**
    * Render preview for all files (non-streaming path)
    */
   private async renderPreview(params: {
@@ -359,17 +403,16 @@ export class EditHandler {
     const { title, filesToOperations, lang, handlerId } = params;
 
     for (const [filePath, fileOperations] of filesToOperations.entries()) {
-      const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(filePath);
-      if (!file) continue;
+      const fileContent = await this.readFileTextForEdit(filePath);
+      if (fileContent === null) continue;
 
-      const fileContent = await this.agent.app.vault.cachedRead(file);
       const { changes } = this.agent.plugin.noteContentService.computeChanges(
         fileContent,
         fileOperations
       );
 
       if (changes.length > 0) {
-        const previewContent = this.renderChangesPreview(file.path, changes);
+        const previewContent = this.renderChangesPreview(filePath, changes);
         await this.agent.renderer.updateConversationNote({
           path: title,
           newContent: previewContent,
@@ -397,17 +440,16 @@ export class EditHandler {
     // Build the final preview content for all files
     let finalPreview = '';
     for (const [filePath, fileOperations] of filesToOperations.entries()) {
-      const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(filePath);
-      if (!file) continue;
+      const fileContent = await this.readFileTextForEdit(filePath);
+      if (fileContent === null) continue;
 
-      const fileContent = await this.agent.app.vault.cachedRead(file);
       const { changes } = this.agent.plugin.noteContentService.computeChanges(
         fileContent,
         fileOperations
       );
 
       if (changes.length > 0) {
-        finalPreview += this.renderChangesPreview(file.path, changes);
+        finalPreview += this.renderChangesPreview(filePath, changes);
       }
     }
 

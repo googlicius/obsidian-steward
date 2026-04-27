@@ -281,9 +281,9 @@ export class VaultRename {
 
     for (const instruction of instructions) {
       const { path, newPath } = instruction;
-      const file = this.agent.app.vault.getFileByPath(path);
 
-      if (!file) {
+      const fromResolved = await this.agent.plugin.vaultService.resolvePathExistence(path);
+      if (!fromResolved.exists || fromResolved.type !== 'file') {
         missingFiles.push(path);
         continue;
       }
@@ -293,14 +293,14 @@ export class VaultRename {
         continue;
       }
 
-      const existing = this.agent.app.vault.getAbstractFileByPath(newPath);
-      if (existing) {
+      const toResolved = await this.agent.plugin.vaultService.resolvePathExistence(newPath);
+      if (toResolved.exists) {
         conflicts.push(newPath);
         continue;
       }
 
       try {
-        await this.agent.app.fileManager.renameFile(file, newPath);
+        await this.agent.plugin.vaultService.rename(path, newPath);
         renamed.push({ from: path, to: newPath });
       } catch (error) {
         const errorMessage =

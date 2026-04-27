@@ -1,10 +1,11 @@
-import { normalizePath, TFile, TFolder } from 'obsidian';
+import { normalizePath } from 'obsidian';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { z } from 'zod/v3';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { removeUndefined } from 'src/utils/removeUndefined';
+import type { PathExistenceResult } from 'src/services/VaultService/VaultService';
 
 const existsPathSchema = z.string().transform(value => {
   const normalizedPath = normalizePath(value.trim());
@@ -26,11 +27,7 @@ export const existsSchema = z.object({
 
 export type ExistsToolArgs = z.infer<typeof existsSchema>;
 
-export type PathExistenceResult = {
-  path: string;
-  exists: boolean;
-  type: 'file' | 'folder' | null;
-};
+export type { PathExistenceResult };
 
 export type ExistsOutput = {
   paths: PathExistenceResult[];
@@ -89,31 +86,16 @@ export class VaultExists {
   }
 
   private async executeExists(input: ExistsToolArgs): Promise<ExistsOutput> {
-    const pathResults: PathExistenceResult[] = [];
+    const pathResults: Omit<PathExistenceResult, 'abstractFile'>[] = [];
+
+    const vaultService = this.agent.plugin.vaultService;
 
     for (const path of input.paths) {
-      const abstractFile =
-        this.agent.plugin.app.vault.getAbstractFileByPath(path) ||
-        (await this.agent.plugin.mediaTools.findFileByNameOrPath(path));
-
-      if (!abstractFile) {
-        pathResults.push({
-          path,
-          exists: false,
-          type: null,
-        });
-        continue;
-      }
-
+      const resolvedPaths = await vaultService.resolvePathExistence(path);
       pathResults.push({
-        path: abstractFile.path,
-        exists: true,
-        type:
-          abstractFile instanceof TFile
-            ? 'file'
-            : abstractFile instanceof TFolder
-              ? 'folder'
-              : null,
+        exists: resolvedPaths.exists,
+        path: resolvedPaths.path,
+        type: resolvedPaths.type,
       });
     }
 

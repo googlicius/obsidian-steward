@@ -350,6 +350,7 @@ export class CliHandler {
         path: params.conversationTitle,
         newContent,
         command: 'cli',
+        includeHistory: false,
       });
     }
 
@@ -461,6 +462,7 @@ export class CliHandler {
       lang,
       handlerId,
       command: ToolName.SHELL,
+      includeHistory: false,
     });
 
     return {
@@ -494,6 +496,21 @@ export class CliHandler {
       },
       onRejection: async (_rejectionMessage: string) => {
         this.agent.commandProcessor.deleteNextPendingIntent(title);
+
+        if (params.handlerId) {
+          await this.agent.serializeInvocation({
+            command: ToolName.SHELL,
+            title: params.title,
+            handlerId: params.handlerId,
+            step: params.invocationCount,
+            toolCall: options.toolCall,
+            result: {
+              type: 'text',
+              value: i18next.t('confirmation.operationCancelled'),
+            },
+          });
+        }
+
         if (options.continueFromNextTool) {
           return options.continueFromNextTool();
         }

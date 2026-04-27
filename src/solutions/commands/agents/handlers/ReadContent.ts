@@ -112,6 +112,27 @@ export class ReadContent {
           ...rest,
           fileName,
         });
+        if (typeof result === 'string') {
+          await this.agent.renderer.serializeToolInvocation({
+            path: title,
+            command: 'read',
+            handlerId,
+            step: params.invocationCount,
+            toolInvocations: [
+              {
+                ...toolCall,
+                type: 'tool-result',
+                output: {
+                  type: 'text',
+                  value: result,
+                },
+              },
+            ],
+          });
+          return {
+            status: IntentResultStatus.SUCCESS,
+          };
+        }
         readingResults.push(result);
       } catch (error) {
         logger.error(`Error reading content from file: ${fileName ?? 'current file'}`, error);
@@ -159,7 +180,7 @@ export class ReadContent {
     }
 
     // Show errors for partially failed files
-    if (errors.length > 0) {
+    if (errors.length > 0 && readingResults.length > 0) {
       const errorMessages = errors
         .map(e => `${e.fileName ?? 'current file'}: ${e.error}`)
         .join('\n');
@@ -177,9 +198,11 @@ export class ReadContent {
     const totalBlocks = readingResults.reduce((sum, result) => sum + result.blocks.length, 0);
 
     // Check if all results have no content (for markdown files)
-    const allEmpty = readingResults.every(
-      result => result.file && result.file.path.endsWith('.md') && result.blocks.length === 0
-    );
+    const allEmpty =
+      readingResults.length > 0 &&
+      readingResults.every(
+        result => result.file && result.file.path.endsWith('.md') && result.blocks.length === 0
+      );
 
     if (allEmpty) {
       const noContentMessage =

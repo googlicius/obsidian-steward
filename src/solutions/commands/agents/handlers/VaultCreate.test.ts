@@ -9,7 +9,6 @@ function createMockAgent(): jest.Mocked<AgentHandlerContext> {
         create: jest.fn().mockResolvedValue(undefined),
         getFolderByPath: jest.fn().mockReturnValue(null),
         getFileByPath: jest.fn().mockReturnValue({ path: 'mock' }),
-        modify: jest.fn().mockResolvedValue(undefined),
       },
     },
     obsidianAPITools: {

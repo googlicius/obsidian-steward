@@ -1,9 +1,10 @@
-import { TFile, EditorRange } from 'obsidian';
+import { TFile, EditorRange, normalizePath } from 'obsidian';
 import { isConversationLink } from '../utils/conversationUtils';
 import type StewardPlugin from '../main';
 import { ContentReadingArgs } from '../solutions/commands/agents/handlers/ReadContent';
 import { logger } from 'src/utils/logger';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
+import { isHiddenPath } from 'src/utils/pathUtils';
 
 export const SUPPORTED_READ = ['Image', 'Note contents'];
 
@@ -73,7 +74,11 @@ export class ContentReadingService {
     blocksToRead: ContentReadingArgs['blocksToRead'];
     elementType: ContentReadingArgs['elementType'];
     pattern?: ContentReadingArgs['pattern'];
-  }): Promise<ContentReadingResult> {
+  }): Promise<ContentReadingResult | string> {
+    if (isHiddenPath(normalizePath(args.fileName))) {
+      return `This file is on a hidden (dot-prefixed) path, the read tool uses vault API cannot see hidden files. Use the shell tool to read it. Path: ${args.fileName}`;
+    }
+
     // Get the file
     const file = args.fileName
       ? await this.plugin.mediaTools.findFileByNameOrPath(args.fileName)

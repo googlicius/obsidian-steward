@@ -416,12 +416,13 @@ export class RevertLatestQuery {
     const failedFiles: string[] = [];
 
     for (const [originalPath, renamedPath] of params.artifact.renames) {
-      const file = this.agent.app.vault.getFileByPath(renamedPath);
-      if (!file) {
+      const source = await this.agent.plugin.vaultService.resolvePathExistence(renamedPath);
+      if (!source.exists || source.type !== 'file') {
         failedFiles.push(renamedPath);
         continue;
       }
-      if (this.agent.app.vault.getFileByPath(originalPath)) {
+      const dest = await this.agent.plugin.vaultService.resolvePathExistence(originalPath);
+      if (dest.exists) {
         failedFiles.push(originalPath);
         continue;
       }
@@ -430,7 +431,7 @@ export class RevertLatestQuery {
         if (originalFolder) {
           await this.agent.obsidianAPITools.ensureFolderExists(originalFolder);
         }
-        await this.agent.app.fileManager.renameFile(file, originalPath);
+        await this.agent.plugin.vaultService.rename(renamedPath, originalPath);
         revertedFiles.push(originalPath);
       } catch (error) {
         logger.error(`Error reverting rename ${renamedPath} -> ${originalPath}:`, error);
@@ -543,12 +544,15 @@ export class RevertLatestQuery {
         failedFiles.push(trashPath);
         continue;
       }
-      const file = this.agent.app.vault.getFileByPath(trashPath);
-      if (!file) {
+      const inTrash = await this.agent.plugin.vaultService.resolvePathExistence(trashPath);
+      if (!inTrash.exists || inTrash.type !== 'file') {
         failedFiles.push(trashPath);
         continue;
       }
-      if (this.agent.app.vault.getFileByPath(fileMetadata.originalPath)) {
+      const originalOccupied = await this.agent.plugin.vaultService.resolvePathExistence(
+        fileMetadata.originalPath
+      );
+      if (originalOccupied.exists) {
         failedFiles.push(fileMetadata.originalPath);
         continue;
       }
@@ -560,7 +564,7 @@ export class RevertLatestQuery {
         if (folderPath) {
           await this.agent.obsidianAPITools.ensureFolderExists(folderPath);
         }
-        await this.agent.app.fileManager.renameFile(file, fileMetadata.originalPath);
+        await this.agent.plugin.vaultService.rename(trashPath, fileMetadata.originalPath);
         await this.agent.plugin.trashCleanupService.removeFileFromTrash(trashPath);
         revertedFiles.push(fileMetadata.originalPath);
       } catch (error) {

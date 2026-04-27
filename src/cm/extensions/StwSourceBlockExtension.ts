@@ -7,7 +7,7 @@ import {
 } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
-import { decodePath } from 'src/utils/pathEncoding';
+import { decodePath } from 'src/utils/pathUtils';
 import { completionStatus } from '@codemirror/autocomplete';
 
 // Define an effect to trigger recomputation of widgets

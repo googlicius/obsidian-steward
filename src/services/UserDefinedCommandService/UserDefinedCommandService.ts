@@ -206,6 +206,11 @@ export class UserDefinedCommandService {
       const fmParsed = udcNoteFrontmatterSchema.safeParse(parsedDoc.frontmatter);
       const enabledFromFrontmatter = !fmParsed.success || fmParsed.data.enabled !== false;
 
+      if (!parsedDoc.body) {
+        console.warn(`Stop loading command from "${file.name}", the body is empty`);
+        return;
+      }
+
       const commandYamlBlocks = this.collectCommandYamlBlocks(file, content);
 
       const validationErrors: Array<{

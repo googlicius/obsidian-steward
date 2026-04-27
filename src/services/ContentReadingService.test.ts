@@ -1,7 +1,15 @@
-import { ContentReadingService } from './ContentReadingService';
+import { ContentReadingService, type ContentReadingResult } from './ContentReadingService';
 import { TFile, EditorPosition, CachedMetadata, SectionCache } from 'obsidian';
 import type StewardPlugin from '../main';
 import { getInstance } from 'src/utils/getInstance';
+
+function assertContentReadingResult(
+  value: ContentReadingResult | string
+): asserts value is ContentReadingResult {
+  if (typeof value === 'string') {
+    throw new Error('Expected ContentReadingResult, got model hint string');
+  }
+}
 
 /**
  * Section definition for mocking cache.sections
@@ -134,6 +142,24 @@ End
           to: { ch: 8, line: 6 },
         },
       });
+    });
+
+    it('returns a shell hint string for hidden (dot) paths before file resolution (vault API never sees them)', async () => {
+      const mockPlugin = createMockPlugin('secret', [], { line: 0, ch: 0 });
+      const findFile = mockPlugin.mediaTools.findFileByNameOrPath as jest.Mock;
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'entire',
+        elementType: null,
+        fileName: '.steward/config.md',
+      });
+
+      expect(findFile).not.toHaveBeenCalled();
+      expect(typeof result).toBe('string');
+      expect(result).toContain('.steward/config.md');
+      expect(result).toMatch(/local shell tool/i);
     });
 
     it('should read the list with 2 items above the cursor at non-null input line', async () => {
@@ -536,6 +562,7 @@ Third paragraph with keyword.`;
         fileName: 'test.md',
         pattern: 'keyword',
       });
+      assertContentReadingResult(result);
 
       expect(result.blocks).toHaveLength(3);
       expect(result.blocks[0].content).toBe('First paragraph with KEYWORD.');
@@ -566,6 +593,7 @@ Third paragraph with keyword.`;
         fileName: 'test.md',
         pattern: 'keyword',
       });
+      assertContentReadingResult(result);
 
       expect(result.blocks).toHaveLength(2);
     });
@@ -739,6 +767,7 @@ Third paragraph with pattern again.`;
         fileName: 'test.md',
         pattern: 'pattern',
       });
+      assertContentReadingResult(result);
 
       expect(result.blocks).toHaveLength(3);
       expect(result.blocks[0].content).toBe('First paragraph with pattern.');
@@ -902,6 +931,7 @@ Project details here.`;
         elementType: null,
         fileName: 'test.md',
       });
+      assertContentReadingResult(result);
 
       expect(result.blocks).toHaveLength(1);
       expect(result).toMatchObject({

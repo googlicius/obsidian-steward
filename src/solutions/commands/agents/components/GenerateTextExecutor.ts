@@ -5,7 +5,7 @@ import { ToolIntentResolution } from './ToolIntentResolution';
 import { SystemPromptComposer } from './SystemPromptComposer';
 import { Agent } from '../../Agent';
 import { getBundledLib } from 'src/utils/bundledLibs';
-import type { generateText } from 'ai';
+import type { generateText, LanguageModelUsage } from 'ai';
 
 type AiGenerateTextParams = Parameters<typeof generateText>[0];
 
@@ -61,6 +61,7 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
     params: GenerateTextExecutorParams
   ): Promise<{
     toolCalls: TToolCalls;
+    totalUsage: LanguageModelUsage;
   }> {
     const agent = asAgent(this);
     const conversationHistory = await agent.renderer.extractConversationHistory(params.title);
@@ -187,6 +188,7 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
 
     return {
       toolCalls: result.toolCalls as TToolCalls,
+      totalUsage: result.totalUsage,
     };
   }
 }
