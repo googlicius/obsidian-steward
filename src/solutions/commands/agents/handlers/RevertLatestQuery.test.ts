@@ -51,6 +51,10 @@ describe('RevertLatestQuery', () => {
       },
     } as unknown as App;
 
+    const vaultServiceDelete = jest.fn(async (target: string | TFile) =>
+      mockApp.vault.delete(typeof target === 'string' ? createMockFile(target) : target)
+    );
+
     const mockRenderer = {
       extractAllConversationMessages: jest.fn(),
       updateConversationNote: jest.fn().mockResolvedValue('message-id'),
@@ -71,6 +75,17 @@ describe('RevertLatestQuery', () => {
         getAllMetadata: jest.fn().mockResolvedValue({ files: {} }),
         getFileMetadata: jest.fn(),
         removeFileFromTrash: jest.fn(),
+      },
+      vaultService: {
+        resolvePathExistence: jest.fn(async (path: string) => ({
+          path,
+          exists: true,
+          type: 'file' as const,
+          abstractFile: createMockFile(path),
+        })),
+        delete: vaultServiceDelete,
+        rename: jest.fn().mockResolvedValue(undefined),
+        trashFile: jest.fn().mockResolvedValue(undefined),
       },
     } as unknown as jest.Mocked<StewardPlugin>;
 

@@ -19,7 +19,7 @@ const vi = {
       searchDesc: 'Tìm kiếm ghi chú trong kho lưu trữ của bạn',
       imageDesc: 'Tạo hình ảnh',
       speechDesc: 'Tạo giọng nói từ văn bản',
-      terminalDesc: 'Dùng `/>` để bắt đầu chế độ shell.',
+      terminalDesc: 'Bắt đầu chế độ shell.',
       disabledMark: '(đã tắt)',
       helpTableCommand: 'Lệnh',
       helpTableDescription: 'Mô tả',
@@ -43,6 +43,7 @@ const vi = {
       statusInvalid: 'Không hợp lệ: {{errors}}',
       and: 'và',
       or: 'hoặc',
+      skipped: 'Đã bỏ qua',
     },
     cli: {
       disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
@@ -316,6 +317,8 @@ const vi = {
     ui: {
       yes: 'Có',
       no: 'Không',
+      run: 'Chạy',
+      orTypeToSkip: 'hoặc gõ để bỏ qua',
       openStewardChat: 'Mở chat',
       buildingSearchIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
       errorBuildingSearchIndex:
@@ -358,7 +361,7 @@ const vi = {
       tipNewLines: 'Nhấn `Shift+Enter` để xuống dòng',
       tipChangeModel: 'Gõ `m:` hoặc `model:` để đổi mô hình',
       tipAttachContext: 'Gõ `@` để đính kèm tệp/thư mục',
-      tipStop: 'Nhấn `ESC` hoặc gõ `Stop` để dừng',
+      tipStop: 'Nhấn `ESC` hoặc `Ctrl-C` để dừng các thao tác đang chạy',
       tipRevert: 'Gõ `Undo` để hoàn tác thay đổi cuối',
       fetchFailed: 'Không thể tải tài liệu: {{docName}}',
       downloading: 'Đang tải {{name}}...',

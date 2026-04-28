@@ -396,6 +396,7 @@ export class CompactionOrchestrator {
     if (items.length === 0) return;
 
     const results = await this.summaryAgent.summarizeMessagesBatch({
+      conversationTitle: params.conversationTitle,
       items,
       lang: params.lang,
     });

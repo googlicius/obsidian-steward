@@ -37,12 +37,13 @@ export class Stop {
     }
 
     // Get the count of active operations before stopping
-    const activeOperationsCount = this.agent.plugin.abortService.getActiveOperationsCount();
+    const activeOperationsCount = this.agent.plugin.abortService.getActiveOperationsCount(title);
 
-    this.agent.plugin.abortService.abortAllOperations();
+    this.agent.plugin.abortService.abortConversation(title);
 
-    // Log the action
-    logger.log(`Stop command received - aborted all operations (${activeOperationsCount} active)`);
+    logger.log(
+      `Stop command received - aborted operations for conversation (${activeOperationsCount} active before stop)`
+    );
 
     // Prepare the response message
     let responseMessage = t('stop.stopped');

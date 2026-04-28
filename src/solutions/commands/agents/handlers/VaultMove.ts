@@ -381,21 +381,21 @@ export class VaultMove {
         'move.createFoldersQuestion'
       )}`;
 
-      await this.respondAndSerializeMove({
-        title: params.title,
-        content: message,
-        toolCall,
-        lang: params.lang,
-        handlerId: params.handlerId,
-        step: params.invocationCount,
-      });
-
       const handlerId = params.handlerId;
 
       return {
         status: IntentResultStatus.NEEDS_CONFIRMATION,
         confirmationMessage: message,
+        toolCall: options.toolCall,
         onConfirmation: async (_confirmationMessage: string) => {
+          await this.respondAndSerializeMove({
+            title: params.title,
+            content: message,
+            toolCall,
+            lang: params.lang,
+            handlerId,
+            step: params.invocationCount,
+          });
           await this.agent.obsidianAPITools.ensureFolderExists(toolCall.input.destinationFolder);
           return this.handle(params, options);
         },

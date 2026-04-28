@@ -250,6 +250,15 @@ NOTE:
       }
     }
 
+    if (!params.invocationCount && intent.type.trim() !== 'user_confirm') {
+      await this.skipPendingConfirmation({
+        title,
+        handlerId,
+        step: params.invocationCount,
+        lang: params.lang ?? undefined,
+      });
+    }
+
     // Add user message to conversation note for the first iteration
     if (!params.invocationCount) {
       await this.renderer.addUserMessage({
@@ -434,6 +443,46 @@ NOTE:
     }
 
     return toolProcessingResult;
+  }
+
+  /**
+   * When the user sends a new message instead of confirming/rejecting via Yes/No,
+   * persist the pending tool call with a skip result so history stays consistent.
+   */
+  private async skipPendingConfirmation(params: {
+    title: string;
+    handlerId: string;
+    step?: number;
+    lang?: string;
+  }): Promise<void> {
+    const lastResult = this.commandProcessor.getLastResult(params.title);
+    if (!lastResult || lastResult.status !== IntentResultStatus.NEEDS_CONFIRMATION) {
+      return;
+    }
+
+    const t = getTranslation(params.lang);
+
+    await this.renderer.removeConfirmationButtons(params.title, t('common.skipped'));
+
+    const toolCall = lastResult.toolCall;
+    if (!toolCall) {
+      this.commandProcessor.clearLastResult(params.title);
+      return;
+    }
+
+    await this.serializeInvocation({
+      title: params.title,
+      command: String(toolCall.toolName),
+      handlerId: params.handlerId,
+      step: params.step,
+      toolCall,
+      result: {
+        type: 'text',
+        value: 'This tool call was skipped by the user.',
+      },
+    });
+
+    this.commandProcessor.clearLastResult(params.title);
   }
 
   /**

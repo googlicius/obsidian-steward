@@ -371,9 +371,10 @@ export class VaultDelete {
 
         case 'files': {
           for (const filePath of operation.files) {
-            const file = await this.agent.plugin.mediaTools.findFileByNameOrPath(filePath);
-            if (file) {
-              filePaths.push(file.path);
+            const normalized = normalizePath(filePath.trim());
+            const resolved = await this.agent.plugin.vaultService.resolvePathExistence(normalized);
+            if (resolved.exists && resolved.type === 'file') {
+              filePaths.push(resolved.path);
             }
           }
           break;
@@ -494,35 +495,41 @@ export class VaultDelete {
     };
   }
 
+  /** Handle trash file for both Steward trash and Vault trash */
   private async trashFile(params: {
     filePath: string;
   }): Promise<{ success: boolean; trashPath?: string; originalPath: string }> {
     const { filePath } = params;
     const deleteBehavior = this.agent.plugin.settings.deleteBehavior.behavior;
-    const file = this.agent.app.vault.getFileByPath(filePath);
-
-    if (!file) {
-      return { success: false, originalPath: filePath };
-    }
-
     if (deleteBehavior !== 'stw_trash') {
       try {
-        await this.agent.app.fileManager.trashFile(file);
+        await this.agent.plugin.vaultService.trashFile(filePath);
         return { success: true, originalPath: filePath };
       } catch (error) {
-        logger.error(`Error deleting file ${filePath} using Obsidian trash:`, error);
+        logger.error(`Error trashing file ${filePath} using Obsidian trash:`, error);
         return { success: false, originalPath: filePath };
       }
     }
 
+    const resolved = await this.agent.plugin.vaultService.resolvePathExistence(filePath);
+    if (!resolved.exists || (resolved.type !== 'file' && resolved.type !== 'folder')) {
+      return { success: false, originalPath: filePath };
+    }
+
+    const sourcePath = resolved.path;
+    const adapter = this.agent.app.vault.adapter;
     const trashFolder = `${this.agent.plugin.settings.stewardFolder}/Trash`;
-    const extension = file.extension ? `.${file.extension}` : '';
-    const uniqueFileName = `${file.basename}_${Date.now()}${extension}`;
+    const { baseName, extensionWithDot } = this.splitVaultFileNameForTrash(sourcePath);
+    const uniqueFileName = `${baseName}_${Date.now()}${extensionWithDot}`;
 
     try {
       await this.agent.obsidianAPITools.ensureFolderExists(trashFolder);
       const trashPath = `${trashFolder}/${uniqueFileName}`;
-      await this.agent.app.fileManager.renameFile(file, trashPath);
+      if (resolved.abstractFile) {
+        await this.agent.app.fileManager.renameFile(resolved.abstractFile, trashPath);
+      } else {
+        await adapter.rename(sourcePath, trashPath);
+      }
 
       return {
         success: true,
@@ -533,6 +540,28 @@ export class VaultDelete {
       logger.error(`Error moving file ${filePath} to Steward trash:`, error);
       return { success: false, originalPath: filePath };
     }
+  }
+
+  /**
+   * Basename and extension (with leading dot) from a vault path, for unique trash filenames.
+   * Mirrors TFile.base/extension enough for our rename pattern.
+   */
+  private splitVaultFileNameForTrash(vaultPath: string): {
+    baseName: string;
+    extensionWithDot: string;
+  } {
+    const segment = vaultPath.split('/').pop() ?? '';
+    if (!segment.includes('.')) {
+      return { baseName: segment, extensionWithDot: '' };
+    }
+    const lastDot = segment.lastIndexOf('.');
+    if (lastDot <= 0) {
+      return { baseName: segment, extensionWithDot: '' };
+    }
+    return {
+      baseName: segment.slice(0, lastDot),
+      extensionWithDot: segment.slice(lastDot),
+    };
   }
 
   /**

@@ -6,6 +6,7 @@ import {
   isInteractiveCliCommand,
   type CliSession,
 } from './CliSessionService';
+import { AbortOperationKeys } from 'src/constants';
 import type StewardPlugin from 'src/main';
 
 let isDesktopApp = true;
@@ -478,7 +479,10 @@ describe('CliSessionService', () => {
       registerSession(service, session);
       service.endSession({ conversationTitle: session.conversationTitle });
 
-      expect(lifecycle.abortOperation).toHaveBeenCalledWith(session.operationId);
+      expect(lifecycle.abortOperation).toHaveBeenCalledWith(
+        session.conversationTitle,
+        AbortOperationKeys.CLI_SESSION
+      );
       expect(lifecycle.notifyRefresh).toHaveBeenCalled();
       expect(service.getSession(session.conversationTitle)).toBeUndefined();
     });

@@ -35,6 +35,7 @@ import { logger } from './utils/logger';
 import { ConversationRenderer } from './services/ConversationRenderer';
 import { ArtifactManagerV2 } from './solutions/artifact/ArtifactManagerV2';
 import { ContentReadingService } from './services/ContentReadingService';
+import { VaultService } from './services/VaultService/VaultService';
 import { StewardPluginSettings } from './types/interfaces';
 import { Line, Text } from '@codemirror/state';
 import { DEFAULT_SETTINGS, SMILE_CHAT_ICON_ID, STW_CHAT_VIEW_CONFIG } from './constants';
@@ -85,6 +86,7 @@ export default class StewardPlugin extends Plugin {
   _artifactManagerV2: ArtifactManagerV2;
   _conversationRenderer: ConversationRenderer;
   _contentReadingService: ContentReadingService;
+  _vaultService: VaultService;
   _userDefinedCommandService: UserDefinedCommandService;
   _mediaTools: MediaTools;
   _noteContentService: NoteContentService;
@@ -188,6 +190,13 @@ export default class StewardPlugin extends Plugin {
       this._contentReadingService = ContentReadingService.getInstance(this);
     }
     return this._contentReadingService;
+  }
+
+  get vaultService(): VaultService {
+    if (!this._vaultService) {
+      this._vaultService = VaultService.getInstance(this);
+    }
+    return this._vaultService;
   }
 
   get userDefinedCommandService(): UserDefinedCommandService {

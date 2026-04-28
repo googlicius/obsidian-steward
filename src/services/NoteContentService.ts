@@ -50,7 +50,7 @@ export class NoteContentService {
     if (!match || !match[1]) {
       return {
         frontmatter: {},
-        body: content,
+        body: content.trim(),
       };
     }
 
@@ -64,7 +64,7 @@ export class NoteContentService {
       logger.warn('Failed to parse markdown YAML frontmatter', error);
     }
 
-    const body = content.slice(match[0].length);
+    const body = content.slice(match[0].length).trim();
     return {
       frontmatter: parsedFrontmatter,
       body,

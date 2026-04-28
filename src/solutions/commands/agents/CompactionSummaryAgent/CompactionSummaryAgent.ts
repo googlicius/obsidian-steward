@@ -1,5 +1,6 @@
 import { z } from 'zod/v3';
 import type StewardPlugin from 'src/main';
+import { AbortOperationKeys } from 'src/constants';
 import { logger } from 'src/utils/logger';
 import { getBundledLib } from 'src/utils/bundledLibs';
 
@@ -29,6 +30,7 @@ export class CompactionSummaryAgent {
    * Returns structured results: summarized (1-3 sentence summary) or deleted (procedural filler).
    */
   public async summarizeMessagesBatch(params: {
+    conversationTitle: string;
     items: Array<{ messageId: string; content: string }>;
     lang?: string | null;
   }): Promise<SummarizationResultItem[]> {
@@ -56,7 +58,10 @@ export class CompactionSummaryAgent {
         model: llmConfig.model,
         temperature: 0.2,
         maxOutputTokens: Math.min(600, 150 * items.length),
-        abortSignal: this.plugin.abortService.createAbortController('compaction-summary'),
+        abortSignal: this.plugin.abortService.createAbortController(
+          params.conversationTitle,
+          AbortOperationKeys.COMPACTION_SUMMARY
+        ),
         system: `You are summarizing assistant messages for conversation compaction.
 For each message:
 - If it has meaningful content (facts, decisions, explanations), output type "summarized" with a 1-3 sentence summary. Keep the summary at or below ${MAX_SUMMARY_WORDS} words. Preserve factual details and entities.

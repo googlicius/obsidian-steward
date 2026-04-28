@@ -2,7 +2,7 @@ import type { ImagePart, TextPart } from 'ai';
 import { IMAGE_EXTENSIONS, IMAGE_LINK_PATTERN, STW_SOURCE_AT_PATH_PATTERN } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
-import { decodePath } from 'src/utils/pathEncoding';
+import { decodePath } from 'src/utils/pathUtils';
 import { resizeImageWithCanvas } from 'src/utils/resizeImageWithCanvas';
 
 export class UserMessageService {

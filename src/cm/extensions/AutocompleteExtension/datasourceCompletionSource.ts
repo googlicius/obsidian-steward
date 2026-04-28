@@ -4,7 +4,7 @@ import { EditorView } from '@codemirror/view';
 import { MarkdownView, setIcon, TFile, TFolder } from 'obsidian';
 import { TWO_SPACES_PREFIX } from 'src/constants';
 import type StewardPlugin from 'src/main';
-import { decodePath, encodePath } from 'src/utils/pathEncoding';
+import { decodePath, encodePath } from 'src/utils/pathUtils';
 
 const DATASOURCE_FILE_TYPE = 'stw-file';
 const DATASOURCE_FOLDER_TYPE = 'stw-folder';

@@ -398,13 +398,13 @@ function createCommandKeymapExtension(
             return false;
           }
 
+          const aborted = plugin.abortService.abortConversation(conversationTitle);
           const session = plugin.cliSessionService.getSession(conversationTitle);
-          if (!session) {
-            return false;
+          if (session) {
+            void plugin.cliSessionService.interruptSession(session);
           }
 
-          void plugin.cliSessionService.interruptSession(session);
-          return true;
+          return aborted > 0 || Boolean(session);
         },
       },
       {

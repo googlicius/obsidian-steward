@@ -2,6 +2,7 @@ import { z } from 'zod/v3';
 import { getClassifier } from 'src/lib/modelfusion';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
+import { AbortOperationKeys } from 'src/constants';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { getBundledLib } from 'src/utils/bundledLibs';
 
@@ -42,7 +43,7 @@ export class ConversationTitleAgent {
     const { title, query } = params;
 
     try {
-      const conversationTitleResult = await this.resolveTitle(query);
+      const conversationTitleResult = await this.resolveTitle(query, title);
 
       if (!conversationTitleResult) {
         return null;
@@ -65,7 +66,10 @@ export class ConversationTitleAgent {
     }
   }
 
-  private async resolveTitle(query: string): Promise<ConversationTitleResult | null> {
+  private async resolveTitle(
+    query: string,
+    conversationTitle: string
+  ): Promise<ConversationTitleResult | null> {
     const staticTitle = await this.tryStaticClassification(query);
     if (staticTitle) {
       return {
@@ -81,7 +85,7 @@ export class ConversationTitleAgent {
       };
     }
 
-    const generated = await this.generateWithLLM(query);
+    const generated = await this.generateWithLLM(query, conversationTitle);
     if (generated) {
       return generated;
     }
@@ -123,7 +127,10 @@ export class ConversationTitleAgent {
   /**
    * Ask the LLM for a concise, descriptive conversation title.
    */
-  private async generateWithLLM(query: string): Promise<ConversationTitleResult | null> {
+  private async generateWithLLM(
+    query: string,
+    conversationTitle: string
+  ): Promise<ConversationTitleResult | null> {
     try {
       const llmConfig = await this.plugin.llmService.getLLMConfig({
         generateType: 'text',
@@ -136,7 +143,10 @@ export class ConversationTitleAgent {
         model: llmConfig.model,
         temperature: 0.3,
         maxOutputTokens: 50,
-        abortSignal: this.plugin.abortService.createAbortController('conversation-title'),
+        abortSignal: this.plugin.abortService.createAbortController(
+          conversationTitle,
+          AbortOperationKeys.CONVERSATION_TITLE
+        ),
         system: `Generate a short conversation title and detect the user's language.
 
 Return a JSON object with:

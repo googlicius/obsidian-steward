@@ -153,13 +153,13 @@ export class VaultCreate {
       }
     }
 
-    for (const file of plan.newFiles) {
-      if (!file.filePath) {
+    for (const fileInstruction of plan.newFiles) {
+      if (!fileInstruction.filePath) {
         errors.push('File path is missing');
         continue;
       }
 
-      const newFilePath = normalizePath(file.filePath);
+      const newFilePath = normalizePath(fileInstruction.filePath);
       const segments = newFilePath.split('/').filter(Boolean);
       const parentFolder =
         segments.length > 1 ? normalizePath(segments.slice(0, segments.length - 1).join('/')) : '';
@@ -182,9 +182,9 @@ export class VaultCreate {
       }
 
       // Validate YAML content for .base files
-      if (file.filePath.endsWith('.base') && file.content) {
+      if (fileInstruction.filePath.endsWith('.base') && fileInstruction.content) {
         try {
-          parseYaml(file.content);
+          parseYaml(fileInstruction.content);
         } catch (yamlError) {
           const message = yamlError instanceof Error ? yamlError.message : 'Invalid YAML content';
           errors.push(`Invalid YAML content for ${newFilePath}: ${message}`);
@@ -193,17 +193,9 @@ export class VaultCreate {
       }
 
       try {
-        await this.agent.app.vault.create(newFilePath, '');
+        const initialContent = fileInstruction.content ?? '';
+        await this.agent.app.vault.create(newFilePath, initialContent);
         createdFiles.push(newFilePath);
-
-        if (file.content) {
-          const vaultFile = this.agent.app.vault.getFileByPath(newFilePath);
-          if (vaultFile) {
-            await this.agent.app.vault.modify(vaultFile, file.content);
-          } else {
-            errors.push(`Failed to modify ${newFilePath}: File not found or not a valid file`);
-          }
-        }
       } catch (createError) {
         const message =
           createError instanceof Error
@@ -292,11 +284,13 @@ export class VaultCreate {
         command: 'vault_create',
         lang,
         handlerId,
+        includeHistory: false,
       });
 
       return {
         status: IntentResultStatus.NEEDS_CONFIRMATION,
         confirmationMessage: message,
+        toolCall,
         onConfirmation: async (_confirmationMessage: string) => {
           await this.executeCreatePlan({
             title,
@@ -316,6 +310,18 @@ export class VaultCreate {
         },
         onRejection: async (_rejectionMessage: string) => {
           this.agent.commandProcessor.deleteNextPendingIntent(title);
+
+          await this.agent.serializeInvocation({
+            title,
+            command: 'vault_create',
+            handlerId,
+            step: params.invocationCount,
+            toolCall,
+            result: {
+              type: 'text',
+              value: t('confirmation.operationCancelled'),
+            },
+          });
 
           if (continueFromNextTool) {
             return continueFromNextTool();

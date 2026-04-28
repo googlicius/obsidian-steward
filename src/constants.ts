@@ -1,6 +1,26 @@
 import { StewardPluginSettings } from './types/interfaces';
 import { CURRENT_SETTINGS_SCHEMA_VERSION } from './settings/migrations/constants';
 
+/**
+ * Canonical operation keys passed to AbortService (scoped by conversationTitle).
+ */
+export const AbortOperationKeys = {
+  SUPER_AGENT: 'super-agent',
+  BUILD_SEARCH_INDEX: 'build_search_index',
+  COMPACTION_SUMMARY: 'compaction-summary',
+  CONVERSATION_TITLE: 'conversation-title',
+  AUDIO: 'audio',
+  IMAGE: 'image',
+  CLI_SESSION: 'cli-session',
+  /** Single in-flight batch per conversation (sequential mode). */
+  DATA_AWARENESS: 'data-awareness',
+} as const;
+
+/** Includes {@link AbortOperationKeys} plus dynamic keys such as {@code data-awareness-batch-0}. */
+export type AbortOperationKey =
+  | (typeof AbortOperationKeys)[keyof typeof AbortOperationKeys]
+  | string;
+
 export const SMILE_CHAT_ICON_ID = 'smile-chat-icon';
 
 export const STW_CHAT_VIEW_CONFIG = {
@@ -42,10 +62,11 @@ export const STW_SOURCE_AT_PATH_PATTERN = '@([^\\s@]+(?:\\/|\\.[A-Za-z0-9]{1,10}
 export const STW_SQUEEZED_PATTERN = '\\{\\{stw-squeezed \\[\\[([^\\]]+)\\]\\] \\}\\}';
 
 /**
- * Pattern to match {{stw-confirmation-buttons <title>}} marker
- * Captures the conversation title in group 1
+ * Matches {{stw-confirmation-buttons title:…,confirm:…?,reject:…?}} — URI-encoded segments,
+ * analogous to {@link STW_SOURCE_METADATA_PATTERN}. Capture groups 1–3 : title : confirm : reject .
  */
-export const CONFIRMATION_BUTTONS_PATTERN = '\\{\\{stw-confirmation-buttons ([^}]+)\\}\\}';
+export const CONFIRMATION_BUTTONS_PATTERN =
+  '\\{\\{stw-confirmation-buttons title:([^,]+)(?:,confirm:([^,]*))?(?:,reject:([^}]*))?\\}\\}';
 
 /**
  * Pattern to match any wikilink

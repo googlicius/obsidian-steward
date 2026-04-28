@@ -24,3 +24,13 @@ export function decodePath(encodedPath: string): string {
     })
     .join('/');
 }
+
+/**
+ * Check if a path is hidden from Obsidian vault
+ * by checking if the name or any folder starts with dot
+ */
+export function isHiddenPath(path: string) {
+  const parts = path.split('/');
+
+  return parts.some(part => part.startsWith('.'));
+}

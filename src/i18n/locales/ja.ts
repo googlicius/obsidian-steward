@@ -324,6 +324,8 @@ const ja = {
     ui: {
       yes: 'はい',
       no: 'いいえ',
+      run: '実行',
+      orTypeToSkip: 'または入力でスキップ',
       openStewardChat: 'チャットを開く',
       buildingSearchIndex: '検索インデックスを構築中...',
       errorBuildingSearchIndex:
@@ -363,7 +365,7 @@ const ja = {
       tipNewLines: '`Shift+Enter`で改行を追加',
       tipChangeModel: '`m:` または `model:` でモデルを変更',
       tipAttachContext: '`@` でファイル/フォルダを添付',
-      tipStop: '`ESC` または `Stop` で生成を停止',
+      tipStop: '`ESC` または `Ctrl-C` で実行中の処理を停止します',
       tipRevert: '`Undo` で最後の変更を元に戻す',
       fetchFailed: 'ドキュメントの取得に失敗しました: {{docName}}',
       downloading: '{{name}}をダウンロードしています...',

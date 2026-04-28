@@ -37,6 +37,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   - Specify the number of blocks to read (blocksToRead) carefully from the user's query, Do NOT set -1 unless the user explicitly requests to read the entire content.
   - Specify the direction to read (readType) carefully from the user's query, Do NOT set "entire" unless the user explicitly requests to read the entire content.`,
       `When reading multiple files, you MUST make multiple parallel tool calls in the same request (one ${ToolName.CONTENT_READING} call per file). Do NOT read files sequentially one by one. EXCEPT when the user explicitly requests it.`,
+      `To read or inspect hidden (dot-prefixed) files or paths under a hidden folder, use the ${ToolName.SHELL} tool (e.g. cat, type, or Get-Content) from the vault root; the read tool cannot use the editor for those paths.`,
       `On success, creates artifact: ${ArtifactType.READ_CONTENT}.`,
     ],
     showDescriptionWhenInactive: true,

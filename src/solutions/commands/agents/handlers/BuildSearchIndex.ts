@@ -1,6 +1,7 @@
 import { z } from 'zod/v3';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AbortOperationKeys } from 'src/constants';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import type { TFile } from 'obsidian';
@@ -164,8 +165,10 @@ export class BuildSearchIndex {
     handlerId: string
   ): Promise<AgentResult> {
     const abortService = AbortService.getInstance();
-    const operationId = 'build_search_index';
-    const abortSignal = abortService.createAbortController(operationId);
+    const abortSignal = abortService.createAbortController(
+      title,
+      AbortOperationKeys.BUILD_SEARCH_INDEX
+    );
 
     const t = getTranslation(lang);
 
@@ -289,8 +292,7 @@ export class BuildSearchIndex {
         error,
       };
     } finally {
-      // Always clean up the abort controller
-      abortService.abortOperation(operationId);
+      abortService.abortOperation(title, AbortOperationKeys.BUILD_SEARCH_INDEX);
     }
   }
 }

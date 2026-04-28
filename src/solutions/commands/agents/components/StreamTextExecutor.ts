@@ -14,6 +14,8 @@ import {
 import { Agent } from '../../Agent';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type { ModelMessage, streamText } from 'ai';
+import { AbortOperationKeys } from 'src/constants';
+import { SUPER_AGENT_MAX_CONVERSATION_MESSAGES } from '../SuperAgent/superAgentConstants';
 
 type AiStreamTextParams = Parameters<typeof streamText>[0];
 
@@ -43,7 +45,9 @@ export class StreamTextExecutor {
   }> {
     const agent = asAgent(this);
 
-    const conversationHistory = await agent.renderer.extractConversationHistory(params.title);
+    const conversationHistory = await agent.renderer.extractConversationHistory(params.title, {
+      maxMessages: SUPER_AGENT_MAX_CONVERSATION_MESSAGES,
+    });
 
     const compactionResult = await agent.plugin.compactionOrchestrator.run({
       conversationTitle: params.title,
@@ -120,7 +124,10 @@ export class StreamTextExecutor {
       params.lang
     );
 
-    const abortSignal = agent.plugin.abortService.createAbortController('super-agent');
+    const abortSignal = agent.plugin.abortService.createAbortController(
+      params.title,
+      AbortOperationKeys.SUPER_AGENT
+    );
 
     let rejectStreamError: (error: Error) => void;
     const streamErrorPromise = new Promise<never>((_, reject) => {

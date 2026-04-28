@@ -27,10 +27,9 @@ export class UserConfirm {
    */
   public async handle(
     params: AgentHandlerParams,
-    options: { toolCall: ToolCallPart<UserConfirmArgs> }
+    _options: { toolCall: ToolCallPart<UserConfirmArgs> }
   ): Promise<AgentResult> {
     const { title, intent, lang, handlerId } = params;
-    const { toolCall } = options;
 
     const t = getTranslation(lang);
 
@@ -112,24 +111,6 @@ export class UserConfirm {
       };
     }
 
-    // Serialize the tool call with the result before confirmation or rejection
-    await this.agent.renderer.serializeToolInvocation({
-      path: title,
-      command: toolCall.toolName,
-      handlerId,
-      step: params.invocationCount,
-      toolInvocations: [
-        {
-          ...toolCall,
-          type: 'tool-result',
-          output: {
-            type: 'text',
-            value: intent.query,
-          },
-        },
-      ],
-    });
-
     let confirmResult: AgentResult | undefined;
 
     // Handle the confirmation or rejection
@@ -145,6 +126,7 @@ export class UserConfirm {
         newContent: `*${t('confirmation.operationCancelled')}*`,
         lang,
         handlerId,
+        includeHistory: false,
       });
     }
 
@@ -168,9 +150,7 @@ export class UserConfirm {
   }
 
   /**
-   * Check if a message is a clear confirmation response (yes/no)
-   * @param intent The intent to check
-   * @returns An object with the response type or null if not a clear response
+   * Check if a message is a clear confirmation response (yes/no).
    */
   private isConfirmIntent(intent: {
     type: string;

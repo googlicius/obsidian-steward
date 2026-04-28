@@ -68,7 +68,13 @@ export class Help {
     try {
       let content = '';
 
-      content += `### ${t('common.builtInCommands')}\n\n`;
+      content += `- ${t('documentation.tipNewLines')}\n`;
+      content += `- ${t('documentation.tipChangeModel')}\n`;
+      content += `- ${t('documentation.tipAttachContext')}\n`;
+      content += `- ${t('documentation.tipStop')}\n`;
+      content += `- ${t('documentation.tipRevert')}\n`;
+
+      content += `\n### ${t('common.builtInCommands')}\n\n`;
 
       const builtInCommandsWithDescriptions: BuiltInCommand[] = [
         { command: '`/search`', description: t('common.searchDesc') },
@@ -181,13 +187,6 @@ export class Help {
       } else {
         content += `*${t('mcp.noServers', { folder: this.agent.plugin.mcpService.mcpFolder })}*\n`;
       }
-
-      content += `\n### ${t('documentation.tips')}\n\n`;
-      content += `- ${t('documentation.tipNewLines')}\n`;
-      content += `- ${t('documentation.tipChangeModel')}\n`;
-      content += `- ${t('documentation.tipAttachContext')}\n`;
-      content += `- ${t('documentation.tipStop')}\n`;
-      content += `- ${t('documentation.tipRevert')}\n`;
 
       content += `\n### ${t('documentation.guidelines')}\n\n`;
       content += `- [${t('documentation.getStartedGuideline')}](${GITHUB_WIKI_URL}/${WIKI_PAGES.GET_STARTED})\n`;
