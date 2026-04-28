@@ -109,4 +109,71 @@ export class VaultService {
     }
     await this.plugin.app.vault.adapter.rename(fromResolved.path, newPath);
   }
+
+  /**
+   * Permanently delete a file or folder (not OS/vault trash). Same idea as {@link Vault#delete}:
+   * pass a {@link TAbstractFile}, or a vault path string when the item may be hidden from the index.
+   */
+  async delete(target: TAbstractFile): Promise<void>;
+  async delete(path: string): Promise<void>;
+  async delete(target: TAbstractFile | string): Promise<void> {
+    if (typeof target !== 'string') {
+      if (target instanceof TFolder) {
+        await this.plugin.app.vault.delete(target, true);
+      } else {
+        await this.plugin.app.vault.delete(target);
+      }
+      return;
+    }
+
+    const resolved = await this.resolvePathExistence(target);
+    if (!resolved.exists || !resolved.type) {
+      throw new Error(`Cannot delete: path does not exist: ${target}`);
+    }
+    if (resolved.abstractFile) {
+      if (resolved.abstractFile instanceof TFolder) {
+        await this.plugin.app.vault.delete(resolved.abstractFile, true);
+      } else {
+        await this.plugin.app.vault.delete(resolved.abstractFile);
+      }
+      return;
+    }
+
+    const { adapter } = this.plugin.app.vault;
+    if (resolved.type === 'file') {
+      await adapter.remove(resolved.path);
+    } else {
+      await adapter.rmdir(resolved.path, true);
+    }
+  }
+
+  /**
+   * Move a file or folder into Obsidian’s trash (as in {@link FileManager.trashFile}). For items
+   * only on disk (hidden from the index), uses {@link DataAdapter.trashSystem} and falls back to
+   * {@link DataAdapter.trashLocal}.
+   */
+  async trashFile(target: TAbstractFile): Promise<void>;
+  async trashFile(path: string): Promise<void>;
+  async trashFile(target: TAbstractFile | string): Promise<void> {
+    if (typeof target !== 'string') {
+      await this.plugin.app.fileManager.trashFile(target);
+      return;
+    }
+
+    const resolved = await this.resolvePathExistence(target);
+    if (!resolved.exists || (resolved.type !== 'file' && resolved.type !== 'folder')) {
+      throw new Error(
+        `Cannot trash: path is not a file or folder, or does not exist: ${target}`
+      );
+    }
+    if (resolved.abstractFile) {
+      await this.plugin.app.fileManager.trashFile(resolved.abstractFile);
+      return;
+    }
+    const { adapter } = this.plugin.app.vault;
+    const movedToSystem = await adapter.trashSystem(resolved.path);
+    if (!movedToSystem) {
+      await adapter.trashLocal(resolved.path);
+    }
+  }
 }

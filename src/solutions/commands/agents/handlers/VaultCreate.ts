@@ -290,6 +290,7 @@ export class VaultCreate {
       return {
         status: IntentResultStatus.NEEDS_CONFIRMATION,
         confirmationMessage: message,
+        toolCall,
         onConfirmation: async (_confirmationMessage: string) => {
           await this.executeCreatePlan({
             title,

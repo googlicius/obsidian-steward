@@ -5,6 +5,7 @@ import { ContentReadingArgs } from '../solutions/commands/agents/handlers/ReadCo
 import { logger } from 'src/utils/logger';
 import { IMAGE_LINK_PATTERN } from 'src/constants';
 import { isHiddenPath } from 'src/utils/pathUtils';
+import { ToolName } from 'src/solutions/commands/toolNames';
 
 export const SUPPORTED_READ = ['Image', 'Note contents'];
 
@@ -76,7 +77,7 @@ export class ContentReadingService {
     pattern?: ContentReadingArgs['pattern'];
   }): Promise<ContentReadingResult | string> {
     if (isHiddenPath(normalizePath(args.fileName))) {
-      return `This file is on a hidden (dot-prefixed) path, the read tool uses vault API cannot see hidden files. Use the shell tool to read it. Path: ${args.fileName}`;
+      return `This is a hidden (dot-prefixed) path, the read tool uses vault API cannot see hidden files. Use the ${ToolName.SHELL} tool to read it. Path: ${args.fileName}`;
     }
 
     // Get the file

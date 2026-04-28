@@ -117,6 +117,7 @@ export class EditHandler {
     return {
       status: IntentResultStatus.NEEDS_CONFIRMATION,
       confirmationMessage: t('update.applyChangesConfirm'),
+      toolCall: options.toolCall,
       onConfirmation: () => {
         return this.performUpdate({
           title,

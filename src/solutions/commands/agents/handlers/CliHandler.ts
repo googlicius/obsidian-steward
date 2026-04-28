@@ -468,6 +468,7 @@ export class CliHandler {
     return {
       status: IntentResultStatus.NEEDS_CONFIRMATION,
       confirmationMessage: message,
+      toolCall: options.toolCall,
       onConfirmation: async (_confirmationMessage: string) => {
         const runResult = await this.runShellSession(params, argsLine);
 

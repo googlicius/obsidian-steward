@@ -1,6 +1,5 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
-import { TFile } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { Artifact, ArtifactType, Change } from 'src/solutions/artifact';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
@@ -383,18 +382,13 @@ export class RevertLatestQuery {
     );
 
     for (const filePath of sortedPaths) {
-      const file = this.agent.app.vault.getAbstractFileByPath(filePath);
-      if (!file) {
+      const resolved = await this.agent.plugin.vaultService.resolvePathExistence(filePath);
+      if (!resolved.exists) {
         revertedFiles.push(filePath);
         continue;
       }
       try {
-        if (file instanceof TFile) {
-          await this.agent.app.vault.delete(file);
-          revertedFiles.push(filePath);
-          continue;
-        }
-        await this.agent.app.vault.delete(file, true);
+        await this.agent.plugin.vaultService.delete(filePath);
         revertedFiles.push(filePath);
       } catch (error) {
         logger.error(`Error reverting created path ${filePath}:`, error);

@@ -88,35 +88,9 @@ creation_rules:
 
 Replace `PUBLIC_KEY` with the user's real age public key. You fill that in during **Phase 3** (below), usually by running `age-keygen -y <path-to-private-key>` in an approved shell and pasting the printed line into `creation_rules`.
 
-### Phases
-
-If everything is good then create a todo list following these phases.
-
-0. **Age key** — Ask the user (in plain text, no tool use) if they already have a key, otherwise generate one.
-
-1. **Config** —
-
-   ```ini
-   [filter "sops"]
-   clean  = sops --encrypt --input-type binary /dev/stdin
-   smudge = sops --decrypt --input-type binary /dev/stdin
-   required = true
-   [diff "sops"]
-   textconv = sops --decrypt
-   ```
-
-   Apply with `git config` as appropriate (`--local` vs `--global`). If `/dev/stdin` fails on Windows, use Git Bash or the current SOPS docs for stdin on that OS.
-
-2. **`.gitattributes`** — create/edit in the repo root with **File templates** (vault tools if the root is the vault; otherwise guide the user). Ask the user (no tool call) which **files or directories** they want encrypted for working on this.
-
-3. **`.sops.yaml`** — create at the repo root with **File templates**. For each `age:` field, substitute the real public key (not the literal `PUBLIC_KEY`): typically `age-keygen -y` on the user’s private key file via shell, then paste that one line into the YAML (never put the private key file or its contents in the vault).
-
-4. **Optional** — `git add --renormalize .` only if they need it and understand the impact.
-
-5. **`Git commands.md`** — unless **Skip** above: `create` at `$steward/Commands/Git commands.md` with three UDCs: 
+**Git commands.md**
 
 ````markdown
-#### Example `Git commands.md` body
 
 ```yaml
 command_name: git-status
@@ -142,11 +116,39 @@ steps:
     query: "git add -A && git commit -m $from_user && git push"
 ```
 ````
-6. **Test the setup** — confirm the filter pipeline end-to-end:
+
+### Phases
+
+If everything is good then create a todo list following these phases.
+
+1. **Age key** — (IMPORTANT) Ask the user (in plain text, no tool use) if they already have a key, otherwise generate one in the current vault root.
+
+2. **Config** —
+
+   ```ini
+   [filter "sops"]
+   clean  = sops --encrypt --input-type <input-type> --filename-override %f /dev/stdin
+   smudge = sops --decrypt --input-type <input-type> --filename-override %f /dev/stdin
+   required = true
+   [diff "sops"]
+   textconv = sops --decrypt
+   ```
+
+   Apply with `git config` as appropriate (`--local` vs `--global`). If `/dev/stdin` fails on Windows, use Git Bash or the current SOPS docs for stdin on that OS.
+
+3. **`.gitattributes`** — create/edit in the repo root with **File templates** (vault tools if the root is the vault; otherwise guide the user). Ask the user in plain text (No tool call) which **files or directories** they want encrypted for working on this.
+
+4. **`.sops.yaml`** — create at the repo root with **File templates**. For each `age:` field, substitute the real public key (not the literal `PUBLIC_KEY`): typically `age-keygen -y` on the user’s private key file via shell, then paste that one line into the YAML (never put the private key file or its contents in the vault).
+
+5. **.gitignore** — Add these directories: Steward/Conversations/ Steward/Trash/ Steward/tmp/ Steward/node-pty-prebuilt/, and the age key file (if it's in the vault) to the .gitignore file, if already tracked, remove from tracking.
+
+6. **`Git commands.md`** — unless **Skip** above: `create` at `$steward/Commands/Git commands.md` with three user-defined commands (Check the "Git commands.md" in the "File templates" section).
+
+7. **Test the setup** — confirm the filter pipeline end-to-end:
    - Working tree: the file in the editor / vault should read as **normal format** after the smudge filter.
    - Object store: after `git add` (or on `HEAD` once committed), `git show :<path>` or `git show HEAD:<path>` for that file should look **SOPS-encrypted** (not plain text).
    - Optional: `git diff` on that path should be readable (textconv + decrypt).
    - If any check fails, fix config or files before **Close**.
-   - Clean test files after finishing.
+   - If test files created, remove them after finishing.
 
-7. **Close** — short summary; if **Phase 5** ran, point to `/git-status`, `/git-commit`, `/git-commit-push`. Remind (Important): back up keys if newly generated, never commit private key material, verify on another clone if needed.
+8. **Close** — short summary; if **Phase 5** ran, point to `/git-status`, `/git-commit`, `/git-commit-push`. Remind (Important): back up keys if newly generated, never commit private key material, verify on another clone if needed.

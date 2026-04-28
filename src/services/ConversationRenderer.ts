@@ -2104,11 +2104,15 @@ export class ConversationRenderer {
   /**
    * Remove the confirmation buttons marker from the conversation note
    */
-  public async removeConfirmationButtons(conversationTitle: string): Promise<void> {
+  public async removeConfirmationButtons(
+    conversationTitle: string,
+    message?: string
+  ): Promise<void> {
     const file = this.getConversationFileByName(conversationTitle);
 
     await this.plugin.app.vault.process(file, currentContent => {
-      return currentContent.replace(new RegExp(CONFIRMATION_BUTTONS_PATTERN, 'g'), '');
+      currentContent = currentContent.replace(new RegExp(CONFIRMATION_BUTTONS_PATTERN, 'g'), '');
+      return message ? `${currentContent}\n*${message}*` : currentContent;
     });
   }
 

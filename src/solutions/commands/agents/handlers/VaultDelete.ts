@@ -1,6 +1,6 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
-import { normalizePath, TFile } from 'obsidian';
+import { normalizePath } from 'obsidian';
 import { getTranslation } from 'src/i18n';
 import { ArtifactType } from 'src/solutions/artifact';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
@@ -495,38 +495,29 @@ export class VaultDelete {
     };
   }
 
+  /** Handle trash file for both Steward trash and Vault trash */
   private async trashFile(params: {
     filePath: string;
   }): Promise<{ success: boolean; trashPath?: string; originalPath: string }> {
     const { filePath } = params;
     const deleteBehavior = this.agent.plugin.settings.deleteBehavior.behavior;
-    const resolved = await this.agent.plugin.vaultService.resolvePathExistence(filePath);
-
-    if (!resolved.exists || resolved.type !== 'file') {
-      return { success: false, originalPath: filePath };
-    }
-
-    const sourcePath = resolved.path;
-    const tFile = resolved.abstractFile instanceof TFile ? resolved.abstractFile : null;
-    const adapter = this.agent.app.vault.adapter;
-
     if (deleteBehavior !== 'stw_trash') {
       try {
-        if (tFile) {
-          await this.agent.app.fileManager.trashFile(tFile);
-        } else {
-          const movedToSystem = await adapter.trashSystem(sourcePath);
-          if (!movedToSystem) {
-            await adapter.trashLocal(sourcePath);
-          }
-        }
+        await this.agent.plugin.vaultService.trashFile(filePath);
         return { success: true, originalPath: filePath };
       } catch (error) {
-        logger.error(`Error deleting file ${filePath} using Obsidian trash:`, error);
+        logger.error(`Error trashing file ${filePath} using Obsidian trash:`, error);
         return { success: false, originalPath: filePath };
       }
     }
 
+    const resolved = await this.agent.plugin.vaultService.resolvePathExistence(filePath);
+    if (!resolved.exists || (resolved.type !== 'file' && resolved.type !== 'folder')) {
+      return { success: false, originalPath: filePath };
+    }
+
+    const sourcePath = resolved.path;
+    const adapter = this.agent.app.vault.adapter;
     const trashFolder = `${this.agent.plugin.settings.stewardFolder}/Trash`;
     const { baseName, extensionWithDot } = this.splitVaultFileNameForTrash(sourcePath);
     const uniqueFileName = `${baseName}_${Date.now()}${extensionWithDot}`;
@@ -534,8 +525,8 @@ export class VaultDelete {
     try {
       await this.agent.obsidianAPITools.ensureFolderExists(trashFolder);
       const trashPath = `${trashFolder}/${uniqueFileName}`;
-      if (tFile) {
-        await this.agent.app.fileManager.renameFile(tFile, trashPath);
+      if (resolved.abstractFile) {
+        await this.agent.app.fileManager.renameFile(resolved.abstractFile, trashPath);
       } else {
         await adapter.rename(sourcePath, trashPath);
       }

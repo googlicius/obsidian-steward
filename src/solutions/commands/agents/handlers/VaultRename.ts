@@ -178,6 +178,7 @@ export class VaultRename {
       return {
         status: IntentResultStatus.NEEDS_CONFIRMATION,
         confirmationMessage: message,
+        toolCall: options.toolCall,
         onConfirmation: async (_confirmationMessage: string) => {
           for (const folder of missingFolders) {
             await this.agent.obsidianAPITools.ensureFolderExists(folder);

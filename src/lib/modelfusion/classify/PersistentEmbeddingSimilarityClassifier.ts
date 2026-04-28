@@ -604,67 +604,74 @@ export class PersistentEmbeddingSimilarityClassifier {
       return null;
     }
 
-    const { cosineSimilarity, embed } = await getBundledLib('ai');
+    try {
+      const { cosineSimilarity, embed } = await getBundledLib('ai');
 
-    // Race between getEmbeddings and timeout
-    const [embeddingResult, clusterEmbeddings] = await Promise.all([
-      Promise.race([
-        embed({
-          model: this.settings.embeddingModel,
-          value,
-        }),
-        new Promise<null>(resolve => {
-          setTimeout(() => {
-            resolve(null);
-          }, 2000);
-        }),
-      ]),
-      Promise.race([
-        this.getEmbeddings(),
-        new Promise<null>(resolve => {
-          setTimeout(() => {
-            resolve(null);
-          }, 2000);
-        }),
-      ]),
-    ]);
+      // Race between getEmbeddings and timeout
+      const [embeddingResult, clusterEmbeddings] = await Promise.all([
+        Promise.race([
+          embed({
+            model: this.settings.embeddingModel,
+            value,
+          }),
+          new Promise<null>(resolve => {
+            setTimeout(() => {
+              resolve(null);
+            }, 2000);
+          }),
+        ]),
+        Promise.race([
+          this.getEmbeddings(),
+          new Promise<null>(resolve => {
+            setTimeout(() => {
+              resolve(null);
+            }, 2000);
+          }),
+        ]),
+      ]);
 
-    if (!clusterEmbeddings) {
-      logger.warn('Cluster embeddings not found or timed out.');
+      if (!clusterEmbeddings) {
+        logger.warn('Cluster embeddings not found or timed out.');
+        return null;
+      }
+
+      if (!embeddingResult) {
+        logger.warn('Embedding not found or timed out.');
+        return null;
+      }
+
+      const candidates = clusterEmbeddings.map(item => {
+        return {
+          candidate: {
+            clusterName: item.clusterName,
+            clusterValue: item.clusterValue,
+            id: item.id,
+          },
+          score: cosineSimilarity(embeddingResult.embedding, item.embedding),
+        };
+      });
+
+      const qualifiedCandidates = getQualifiedCandidates(candidates, {
+        minCount: 1,
+        minThreshold: this.settings.similarityThreshold,
+        bucketSize: 0.01,
+      });
+
+      logger.log(`Found ${qualifiedCandidates.length} qualified candidates`, qualifiedCandidates);
+
+      if (qualifiedCandidates.length > 0) {
+        const clusterName = qualifiedCandidates[0].candidate.clusterName;
+        const validatedName = this.validateAndHandleCluster(clusterName);
+        return validatedName ? { name: validatedName, matchType: 'clustered' } : null;
+      }
+
       return null;
+    } catch (error) {
+      if (error instanceof Error) {
+        error.message = `[Classification] ${error.message}`;
+      }
+      throw error;
     }
-
-    if (!embeddingResult) {
-      logger.warn('Embedding not found or timed out.');
-      return null;
-    }
-
-    const candidates = clusterEmbeddings.map(item => {
-      return {
-        candidate: {
-          clusterName: item.clusterName,
-          clusterValue: item.clusterValue,
-          id: item.id,
-        },
-        score: cosineSimilarity(embeddingResult.embedding, item.embedding),
-      };
-    });
-
-    const qualifiedCandidates = getQualifiedCandidates(candidates, {
-      minCount: 1,
-      minThreshold: this.settings.similarityThreshold,
-      bucketSize: 0.01,
-    });
-
-    logger.log(`Found ${qualifiedCandidates.length} qualified candidates`, qualifiedCandidates);
-
-    if (qualifiedCandidates.length > 0) {
-      const clusterName = qualifiedCandidates[0].candidate.clusterName;
-      const validatedName = this.validateAndHandleCluster(clusterName);
-      return validatedName ? { name: validatedName, matchType: 'clustered' } : null;
-    }
-
-    return null;
   }
 
   get settingsForEvent(): Partial<Settings> {

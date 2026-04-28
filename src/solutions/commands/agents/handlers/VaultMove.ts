@@ -386,6 +386,7 @@ export class VaultMove {
       return {
         status: IntentResultStatus.NEEDS_CONFIRMATION,
         confirmationMessage: message,
+        toolCall: options.toolCall,
         onConfirmation: async (_confirmationMessage: string) => {
           await this.respondAndSerializeMove({
             title: params.title,
