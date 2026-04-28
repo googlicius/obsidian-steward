@@ -42,10 +42,11 @@ export const STW_SOURCE_AT_PATH_PATTERN = '@([^\\s@]+(?:\\/|\\.[A-Za-z0-9]{1,10}
 export const STW_SQUEEZED_PATTERN = '\\{\\{stw-squeezed \\[\\[([^\\]]+)\\]\\] \\}\\}';
 
 /**
- * Pattern to match {{stw-confirmation-buttons <title>}} marker
- * Captures the conversation title in group 1
+ * Matches {{stw-confirmation-buttons title:…,confirm:…?,reject:…?}} — URI-encoded segments,
+ * analogous to {@link STW_SOURCE_METADATA_PATTERN}. Capture groups 1–3 : title : confirm : reject .
  */
-export const CONFIRMATION_BUTTONS_PATTERN = '\\{\\{stw-confirmation-buttons ([^}]+)\\}\\}';
+export const CONFIRMATION_BUTTONS_PATTERN =
+  '\\{\\{stw-confirmation-buttons title:([^,]+)(?:,confirm:([^,]*))?(?:,reject:([^}]*))?\\}\\}';
 
 /**
  * Pattern to match any wikilink

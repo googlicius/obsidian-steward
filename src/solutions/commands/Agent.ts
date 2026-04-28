@@ -96,7 +96,7 @@ export abstract class Agent {
       const result = await this.handle(params, ...args);
 
       if (result.status === IntentResultStatus.NEEDS_CONFIRMATION) {
-        await this.renderer.showConfirmationButtons(params.title);
+        await this.renderer.showConfirmationButtons(params.title, result.buttonLabels);
       }
 
       return result;

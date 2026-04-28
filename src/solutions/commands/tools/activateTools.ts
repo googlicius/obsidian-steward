@@ -1,8 +1,22 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
-import { ToolName } from '../ToolRegistry';
+import { ToolName } from '../toolNames';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
+
+/** Characters that appear in registered tool names (see ToolName). Strips model junk like `<|\"|…`. */
+const ALLOWED_TOOL_NAME_CHAR_SET = new Set(
+  Object.values(ToolName).flatMap(name => [...name])
+);
+
+function stripToolNameCharsNotInToolSet(raw: string): string {
+  return [...raw].filter(ch => ALLOWED_TOOL_NAME_CHAR_SET.has(ch)).join('');
+}
+
+function sanitizeActivateToolsNameList(arr: string[] | undefined): string[] | undefined {
+  if (arr === undefined) return undefined;
+  return arr.map(stripToolNameCharsNotInToolSet).filter(s => s.length > 0);
+}
 
 const activateToolsSchema = z.object({
   tools: z
@@ -10,13 +24,15 @@ const activateToolsSchema = z.object({
     .optional()
     .describe(
       'List of tool names that should be activated for the current task. Only include tools that are currently inactive.'
-    ),
+    )
+    .transform(sanitizeActivateToolsNameList),
   deactivate: z
     .array(z.string())
     .optional()
     .describe(
       'List of tool names that should be deactivated. Use this to simplify the guidelines and tool schemas when tools are no longer needed.'
-    ),
+    )
+    .transform(sanitizeActivateToolsNameList),
   lang: z
     .string()
     .nullable()

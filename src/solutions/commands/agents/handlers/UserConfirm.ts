@@ -150,9 +150,7 @@ export class UserConfirm {
   }
 
   /**
-   * Check if a message is a clear confirmation response (yes/no)
-   * @param intent The intent to check
-   * @returns An object with the response type or null if not a clear response
+   * Check if a message is a clear confirmation response (yes/no).
    */
   private isConfirmIntent(intent: {
     type: string;

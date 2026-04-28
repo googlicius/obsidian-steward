@@ -43,6 +43,7 @@ const vi = {
       statusInvalid: 'Không hợp lệ: {{errors}}',
       and: 'và',
       or: 'hoặc',
+      skipped: 'Đã bỏ qua',
     },
     cli: {
       disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
@@ -316,6 +317,7 @@ const vi = {
     ui: {
       yes: 'Có',
       no: 'Không',
+      run: 'Chạy',
       openStewardChat: 'Mở chat',
       buildingSearchIndex: 'Đang xây dựng chỉ mục tìm kiếm...',
       errorBuildingSearchIndex:

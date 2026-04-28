@@ -324,6 +324,7 @@ const ja = {
     ui: {
       yes: 'はい',
       no: 'いいえ',
+      run: '実行',
       openStewardChat: 'チャットを開く',
       buildingSearchIndex: '検索インデックスを構築中...',
       errorBuildingSearchIndex:

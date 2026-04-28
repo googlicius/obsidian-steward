@@ -251,10 +251,11 @@ NOTE:
     }
 
     if (!params.invocationCount && intent.type.trim() !== 'user_confirm') {
-      await this.discardPendingConfirmation({
+      await this.skipPendingConfirmation({
         title,
         handlerId,
         step: params.invocationCount,
+        lang: params.lang ?? undefined,
       });
     }
 
@@ -446,19 +447,22 @@ NOTE:
 
   /**
    * When the user sends a new message instead of confirming/rejecting via Yes/No,
-   * persist the pending tool call with a discard result so history stays consistent.
+   * persist the pending tool call with a skip result so history stays consistent.
    */
-  private async discardPendingConfirmation(params: {
+  private async skipPendingConfirmation(params: {
     title: string;
     handlerId: string;
     step?: number;
+    lang?: string;
   }): Promise<void> {
     const lastResult = this.commandProcessor.getLastResult(params.title);
     if (!lastResult || lastResult.status !== IntentResultStatus.NEEDS_CONFIRMATION) {
       return;
     }
 
-    await this.renderer.removeConfirmationButtons(params.title, 'Skipped');
+    const t = getTranslation(params.lang);
+
+    await this.renderer.removeConfirmationButtons(params.title, t('common.skipped'));
 
     const toolCall = lastResult.toolCall;
     if (!toolCall) {
@@ -474,7 +478,7 @@ NOTE:
       toolCall,
       result: {
         type: 'text',
-        value: 'This toolCall was discarded because the user has another idea',
+        value: 'This tool call was skipped by the user.',
       },
     });
 

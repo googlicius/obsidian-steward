@@ -4,11 +4,20 @@ import { CONFIRMATION_BUTTONS_PATTERN } from 'src/constants';
 import type StewardPlugin from 'src/main';
 import { getTranslation } from 'src/i18n';
 
+function decodeMarkerSeg(raw: string | undefined): string | undefined {
+  if (raw == null || raw === '') return undefined;
+  try {
+    return decodeURIComponent(raw.trim());
+  } catch {
+    return raw.trim();
+  }
+}
+
 /**
- * Process {{stw-confirmation-buttons}} markers into Yes/No buttons
+ * Process {{stw-confirmation-buttons}} markers into confirm/reject buttons (default Yes / No).
  */
 export function createConfirmationButtonsProcessor(plugin: StewardPlugin): MarkdownPostProcessor {
-  function handleYesClick(event: MouseEvent, conversationTitle?: string) {
+  function handleAffirmativeClick(_event: MouseEvent, conversationTitle: string | undefined) {
     if (conversationTitle) {
       plugin.conversationRenderer.removeConfirmationButtons(conversationTitle);
       plugin.commandProcessorService.commandProcessor.processIntents({
@@ -23,7 +32,7 @@ export function createConfirmationButtonsProcessor(plugin: StewardPlugin): Markd
     }
   }
 
-  function handleNoClick(event: MouseEvent, conversationTitle?: string) {
+  function handleRejectClick(_event: MouseEvent, conversationTitle: string | undefined) {
     if (conversationTitle) {
       plugin.conversationRenderer.removeConfirmationButtons(conversationTitle);
       plugin.commandProcessorService.commandProcessor.processIntents({
@@ -67,37 +76,36 @@ export function createConfirmationButtonsProcessor(plugin: StewardPlugin): Markd
           }
         }
 
-        // Extract conversation title from match (group 1)
-        const conversationTitle = match[1]?.trim() || '';
+        const [, titleEnc, confirmEnc, rejectEnc] = match;
+        const convTitle = decodeMarkerSeg(titleEnc) ?? '';
 
         const lang = await plugin.conversationRenderer.getConversationProperty<string>(
-          conversationTitle,
+          convTitle,
           'lang'
         );
         const t = getTranslation(lang);
+
+        const affirmativeText = decodeMarkerSeg(confirmEnc) ?? t('ui.yes');
+        const rejectText = decodeMarkerSeg(rejectEnc) ?? t('ui.no');
 
         // Create buttons container
         const buttonsContainer = document.createElement('div');
         buttonsContainer.classList.add('stw-confirmation-buttons');
 
-        // Create Yes button
         buttonsContainer
           .createEl('button', {
-            text: t('ui.yes'),
+            text: affirmativeText,
             cls: 'mod-cta',
           })
           .addEventListener('click', (event: MouseEvent) =>
-            handleYesClick(event, conversationTitle)
+            handleAffirmativeClick(event, convTitle)
           );
 
-        // Create No button
         buttonsContainer
           .createEl('button', {
-            text: t('ui.no'),
+            text: rejectText,
           })
-          .addEventListener('click', (event: MouseEvent) =>
-            handleNoClick(event, conversationTitle)
-          );
+          .addEventListener('click', (event: MouseEvent) => handleRejectClick(event, convTitle));
 
         replacementElements.push(buttonsContainer);
 

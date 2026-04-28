@@ -20,6 +20,7 @@ import { ToolCallPart } from '../../tools/types';
 import { ToolName } from '../../ToolRegistry';
 import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
 import { retry } from 'src/utils/retry';
+import { getTranslation } from 'src/i18n';
 
 export const shellToolInputSchema = z.object({
   argsLine: z
@@ -455,6 +456,7 @@ export class CliHandler {
     const displayCommand =
       trimmed.length > 0 ? argsLine : i18next.t('cli.shellConfirmEmptyCommand');
     const message = i18next.t('cli.confirmExecuteShell', { command: displayCommand });
+    const t = getTranslation(lang);
 
     await this.agent.renderer.updateConversationNote({
       path: title,
@@ -468,6 +470,10 @@ export class CliHandler {
     return {
       status: IntentResultStatus.NEEDS_CONFIRMATION,
       confirmationMessage: message,
+      buttonLabels: {
+        confirm: t('ui.run'),
+        reject: t('ui.no'),
+      },
       toolCall: options.toolCall,
       onConfirmation: async (_confirmationMessage: string) => {
         const runResult = await this.runShellSession(params, argsLine);
@@ -485,6 +491,12 @@ export class CliHandler {
                 ? `messageRef:${runResult.messageId}`
                 : 'Shell command was executed.',
             },
+          });
+
+          // Model-created session: tear down transcript session automatically.
+          this.cliSessionService.endSession({
+            conversationTitle: params.title,
+            killProcess: true,
           });
         }
 

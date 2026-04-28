@@ -58,6 +58,11 @@ type LowConfidenceResult = {
 export type ConfirmationResult<T = unknown> = {
   status: IntentResultStatus.NEEDS_CONFIRMATION;
   confirmationMessage?: string;
+  /** Resolved labels for the note markers; omit for default Yes / No. */
+  buttonLabels?: {
+    confirm?: string;
+    reject?: string;
+  };
   toolCall?: ToolCallPart<T>;
   onConfirmation: (message: string) => Promise<AgentResult> | AgentResult;
   onRejection?: (message: string) => Promise<AgentResult> | AgentResult;

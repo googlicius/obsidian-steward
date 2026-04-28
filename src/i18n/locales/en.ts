@@ -47,6 +47,7 @@ const en = {
       statusInvalid: 'Invalid: {{errors}}',
       and: 'and',
       or: 'or',
+      skipped: 'Skipped',
     },
     cli: {
       disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
@@ -378,6 +379,7 @@ const en = {
     ui: {
       yes: 'Yes',
       no: 'No',
+      run: 'Run',
       openStewardChat: 'Open chat',
       buildingSearchIndex: 'Building search index...',
       errorBuildingSearchIndex: 'Error building search index. Check console for details.',

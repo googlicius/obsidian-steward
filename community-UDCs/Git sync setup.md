@@ -2,7 +2,7 @@
 status: ✅ Valid
 enabled: true
 ---
-This command walks through a **Git** + **SOPS** clean/smudge setup (ciphertext in the repo, readable files in the vault) and scaffolds `Steward/Commands/Git commands.md` for one-line `shell` UDCs. Copy this file to `Steward/Commands`, then run `/git-sync-setup`.
+This command walks through a **Git** + **SOPS** clean/smudge setup (ciphertext in the repo, readable files in the vault). Copy this file to `Steward/Commands`, then run `/git-sync-setup`.
 
 **What will be installed or verified:**
 
@@ -37,7 +37,7 @@ Obsidian sync with Git + SOPS setup
 
 ### Objective
 
-Enable **encrypted-at-rest content in Git** (remote and object store) with a **plain local working tree**: configure **SOPS** with **age**, **Git clean/smudge**, **.gitattributes** and **.sops.yaml** (use **File templates**), then **optional** `Git commands.md` shell helpers. Outcome: the user can sync without putting readable secrets in Git for the chosen paths, and understands key handling and normal `git` workflows.
+Enable **encrypted-at-rest content in Git** (remote and object store) with a **plain local working tree**: configure **SOPS** with **age**, **Git clean/smudge**, **.gitattributes** and **.sops.yaml** (use **File templates**). Outcome: the user can sync without putting readable secrets in Git for the chosen paths, and understands key handling and normal `git` workflows.
 
 ### Early stop
 
@@ -53,9 +53,8 @@ Halt or stop when one of the following applies.
 
 After the **Early stop** checks and confirming `git`, `sops` (install with user approval if missing), and `age`, continue by following these rules.
 
-- **Progress:** Use `todo_write` to track **Phases** (1–7) and the **Skip `Git commands.md`** rule; keep statuses in sync as you finish or skip each phase.
+- **Progress:** Use `todo_write` to track **Phases**; keep statuses in sync as you finish or skip each phase.
 - Shell: one full command per approval; use `git -C <root> …` if the git root is not the vault.
-- **Skip `Git commands.md`:** With `exists`, if `$steward/Commands/Git commands.md` is present, **do not** create or overwrite it; skip that sub-step and mention the file is left as-is.
 - Use the `shell` tool to read dot-prefixed files, the `read_content` tool can only read vault files that visible to users.
 
 ### File templates (default)
@@ -88,35 +87,6 @@ creation_rules:
 
 Replace `PUBLIC_KEY` with the user's real age public key. You fill that in during **Phase 3** (below), usually by running `age-keygen -y <path-to-private-key>` in an approved shell and pasting the printed line into `creation_rules`.
 
-**Git commands.md**
-
-````markdown
-
-```yaml
-command_name: git-status
-query_required: false
-steps:
-  - name: ">"
-    query: "git status"
-```
-
-```yaml
-command_name: git-commit
-query_required: true
-steps:
-  - name: ">"
-    query: "git add -A && git commit -m $from_user"
-```
-
-```yaml
-command_name: git-commit-push
-query_required: true
-steps:
-  - name: ">"
-    query: "git add -A && git commit -m $from_user && git push"
-```
-````
-
 ### Phases
 
 If everything is good then create a todo list following these phases.
@@ -140,15 +110,13 @@ If everything is good then create a todo list following these phases.
 
 4. **`.sops.yaml`** — create at the repo root with **File templates**. For each `age:` field, substitute the real public key (not the literal `PUBLIC_KEY`): typically `age-keygen -y` on the user’s private key file via shell, then paste that one line into the YAML (never put the private key file or its contents in the vault).
 
-5. **.gitignore** — Add these directories: Steward/Conversations/ Steward/Trash/ Steward/tmp/ Steward/node-pty-prebuilt/, and the age key file (if it's in the vault) to the .gitignore file, if already tracked, remove from tracking.
+5. **git** — check if git repo is initialized for this vault, if not, initialize it, and add these directories: Steward/Conversations/ Steward/Trash/ Steward/tmp/ Steward/node-pty-prebuilt/, and the age key file (if it's in the vault) to the .gitignore file, if already tracked, remove from tracking.
 
-6. **`Git commands.md`** — unless **Skip** above: `create` at `$steward/Commands/Git commands.md` with three user-defined commands (Check the "Git commands.md" in the "File templates" section).
-
-7. **Test the setup** — confirm the filter pipeline end-to-end:
+6. **Test the setup** — confirm the filter pipeline end-to-end:
    - Working tree: the file in the editor / vault should read as **normal format** after the smudge filter.
    - Object store: after `git add` (or on `HEAD` once committed), `git show :<path>` or `git show HEAD:<path>` for that file should look **SOPS-encrypted** (not plain text).
    - Optional: `git diff` on that path should be readable (textconv + decrypt).
    - If any check fails, fix config or files before **Close**.
    - If test files created, remove them after finishing.
 
-8. **Close** — short summary; if **Phase 5** ran, point to `/git-status`, `/git-commit`, `/git-commit-push`. Remind (Important): back up keys if newly generated, never commit private key material, verify on another clone if needed.
+7. **Close** — short summary; Remind (Important): back up keys if newly generated, never commit private key material, verify on another clone if needed.

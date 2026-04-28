@@ -2093,11 +2093,19 @@ export class ConversationRenderer {
   /**
    * Render a confirmation buttons marker in the conversation note
    */
-  public async showConfirmationButtons(conversationTitle: string): Promise<void> {
+  public async showConfirmationButtons(
+    conversationTitle: string,
+    buttonLabels?: { confirm?: string; reject?: string }
+  ): Promise<void> {
+    let inner = `title:${conversationTitle}`;
+    if (buttonLabels?.confirm != null) inner += `,confirm:${buttonLabels.confirm}`;
+    if (buttonLabels?.reject != null) inner += `,reject:${buttonLabels.reject}`;
+    const marker = `{{stw-confirmation-buttons ${inner}}}`;
+
     const file = this.getConversationFileByName(conversationTitle);
 
     await this.plugin.app.vault.process(file, currentContent => {
-      return `${currentContent}\n\n{{stw-confirmation-buttons ${conversationTitle}}}`;
+      return `${currentContent}\n\n${marker}`;
     });
   }
 
@@ -2110,9 +2118,19 @@ export class ConversationRenderer {
   ): Promise<void> {
     const file = this.getConversationFileByName(conversationTitle);
 
+    message = message ? `*${message}*` : '';
+
     await this.plugin.app.vault.process(file, currentContent => {
-      currentContent = currentContent.replace(new RegExp(CONFIRMATION_BUTTONS_PATTERN, 'g'), '');
-      return message ? `${currentContent}\n*${message}*` : currentContent;
+      return currentContent.replace(
+        new RegExp(CONFIRMATION_BUTTONS_PATTERN, 'g'),
+        (full, titleEnc) => {
+          try {
+            return decodeURIComponent(titleEnc.trim()) === conversationTitle ? message : full;
+          } catch {
+            return full;
+          }
+        }
+      );
     });
   }
 
