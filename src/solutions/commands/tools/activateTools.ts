@@ -5,9 +5,7 @@ import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 /** Characters that appear in registered tool names (see ToolName). Strips model junk like `<|\"|…`. */
-const ALLOWED_TOOL_NAME_CHAR_SET = new Set(
-  Object.values(ToolName).flatMap(name => [...name])
-);
+const ALLOWED_TOOL_NAME_CHAR_SET = new Set(Object.values(ToolName).flatMap(name => [...name]));
 
 function stripToolNameCharsNotInToolSet(raw: string): string {
   return [...raw].filter(ch => ALLOWED_TOOL_NAME_CHAR_SET.has(ch)).join('');

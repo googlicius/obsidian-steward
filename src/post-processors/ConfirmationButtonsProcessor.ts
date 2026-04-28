@@ -107,6 +107,11 @@ export function createConfirmationButtonsProcessor(plugin: StewardPlugin): Markd
           })
           .addEventListener('click', (event: MouseEvent) => handleRejectClick(event, convTitle));
 
+        buttonsContainer.createEl('span', {
+          cls: 'hint',
+          text: t('ui.orTypeToSkip'),
+        });
+
         replacementElements.push(buttonsContainer);
 
         lastIndex = match.index + match[0].length;

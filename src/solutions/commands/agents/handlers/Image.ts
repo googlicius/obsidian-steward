@@ -6,6 +6,7 @@ import { ToolCallPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/solutions/artifact';
+import { AbortOperationKeys } from 'src/constants';
 import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
@@ -70,7 +71,7 @@ export class Image {
       );
 
       // Generate the image using the handler's method
-      const result = await this.generateImage(toolCall.input.text);
+      const result = await this.generateImage(params.title, toolCall.input.text);
 
       if (!result.success) {
         await this.agent.renderer.updateConversationNote({
@@ -181,6 +182,7 @@ export class Image {
   }
 
   private async generateImage(
+    conversationTitle: string,
     prompt: string
   ): Promise<{ success: boolean; filePath?: string; error?: string }> {
     try {
@@ -195,7 +197,10 @@ export class Image {
 
       const { generateImage } = await getBundledLib('ai');
       const response = await generateImage({
-        abortSignal: this.agent.plugin.abortService.createAbortController('image'),
+        abortSignal: this.agent.plugin.abortService.createAbortController(
+          conversationTitle,
+          AbortOperationKeys.IMAGE
+        ),
         ...imageConfig,
         prompt,
       });

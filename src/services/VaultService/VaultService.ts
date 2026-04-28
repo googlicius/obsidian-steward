@@ -99,9 +99,7 @@ export class VaultService {
 
     const fromResolved = await this.resolvePathExistence(from);
     if (!fromResolved.exists || (fromResolved.type !== 'file' && fromResolved.type !== 'folder')) {
-      throw new Error(
-        `Cannot rename: source is not a file or folder, or does not exist: ${from}`
-      );
+      throw new Error(`Cannot rename: source is not a file or folder, or does not exist: ${from}`);
     }
     if (fromResolved.abstractFile) {
       await this.plugin.app.fileManager.renameFile(fromResolved.abstractFile, newPath);
@@ -162,9 +160,7 @@ export class VaultService {
 
     const resolved = await this.resolvePathExistence(target);
     if (!resolved.exists || (resolved.type !== 'file' && resolved.type !== 'folder')) {
-      throw new Error(
-        `Cannot trash: path is not a file or folder, or does not exist: ${target}`
-      );
+      throw new Error(`Cannot trash: path is not a file or folder, or does not exist: ${target}`);
     }
     if (resolved.abstractFile) {
       await this.plugin.app.fileManager.trashFile(resolved.abstractFile);

@@ -153,13 +153,12 @@ End
         blocksToRead: 1,
         readType: 'entire',
         elementType: null,
-        fileName: '.steward/config.md',
+        fileName: '.config/my-file.md',
       });
 
       expect(findFile).not.toHaveBeenCalled();
       expect(typeof result).toBe('string');
-      expect(result).toContain('.steward/config.md');
-      expect(result).toMatch(/local shell tool/i);
+      expect(result).toContain('.config/my-file.md');
     });
 
     it('should read the list with 2 items above the cursor at non-null input line', async () => {

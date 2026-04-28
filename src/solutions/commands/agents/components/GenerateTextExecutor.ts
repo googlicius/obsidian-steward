@@ -169,7 +169,7 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
       model: llmConfig.model,
       temperature: llmConfig.temperature,
       maxOutputTokens: llmConfig.maxOutputTokens,
-      abortSignal: agent.plugin.abortService.createAbortController(),
+      abortSignal: agent.plugin.abortService.createAbortController(params.title),
       system: agent.buildCorePrompt(),
       messages,
       tools: registry.getToolsObject() as NonNullable<AiGenerateTextParams['tools']>,

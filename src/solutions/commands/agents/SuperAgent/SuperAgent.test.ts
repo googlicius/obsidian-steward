@@ -70,9 +70,22 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       }
     }),
     serializeToolInvocation: jest.fn(),
+    removeConfirmationButtons: jest.fn(),
     extractConversationHistory: jest.fn().mockResolvedValue([]),
     updateConversationFrontmatter: jest.fn(),
     getConversationProperty: jest.fn().mockResolvedValue(undefined),
+  };
+
+  const mockCommandProcessor = {
+    getLastResult: jest.fn().mockReturnValue(undefined),
+    setLastResult: jest.fn(),
+    clearLastResult: jest.fn(),
+    processIntents: jest.fn(),
+    processCommandInIsolation: jest.fn(),
+    isProcessing: jest.fn(),
+    deleteNextPendingIntent: jest.fn(),
+    hasBuiltInHandler: jest.fn(),
+    clearIntents: jest.fn(),
   };
 
   const mockArtifactManager = {
@@ -142,9 +155,26 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     cliSessionService: {
       getSession: jest.fn(),
     },
+    commandProcessorService: {
+      commandProcessor: mockCommandProcessor,
+    },
   } as unknown as StewardPlugin;
 
   return mockPlugin as unknown as jest.Mocked<StewardPlugin>;
+}
+
+/** `createMockPlugin` sets this at runtime; StewardPlugin typing does not expose the test mock shape. */
+function getTestCommandProcessorMocks(plugin: StewardPlugin): {
+  getLastResult: jest.Mock;
+  clearLastResult: jest.Mock;
+} {
+  return (
+    plugin as unknown as {
+      commandProcessorService: {
+        commandProcessor: { getLastResult: jest.Mock; clearLastResult: jest.Mock };
+      };
+    }
+  ).commandProcessorService.commandProcessor;
 }
 
 describe('SuperAgent', () => {
@@ -1486,6 +1516,146 @@ describe('SuperAgent', () => {
       expect((next as Intent).systemPrompts).toEqual([
         `Root prompt: ${mockPlugin.settings.stewardFolder} / `,
       ]);
+    });
+  });
+
+  describe('handle - skip pending confirmation', () => {
+    it('serializes pending NEEDS_CONFIRMATION tool call as skipped on first turn when intent is not user_confirm', async () => {
+      const title = 'conv-skip-pending-confirm';
+      const handlerId = 'handler-skip-confirm';
+      const pendingToolCall = {
+        toolName: ToolName.CONFIRMATION,
+        toolCallId: 'pending-confirm-1',
+        input: { message: 'Proceed?' },
+      };
+
+      const commandProcessor = getTestCommandProcessorMocks(mockPlugin);
+
+      commandProcessor.getLastResult.mockReturnValue({
+        status: IntentResultStatus.NEEDS_CONFIRMATION,
+        toolCall: pendingToolCall,
+        onConfirmation: jest.fn(),
+      });
+
+      const params: AgentHandlerParams = {
+        title,
+        handlerId,
+        intent: {
+          type: 'vault',
+          query: 'A new message instead of Yes/No',
+        } as Intent,
+        activeTools: [ToolName.LIST],
+      };
+
+      // @ts-expect-error - Accessing private method for testing
+      jest.spyOn(superAgent, 'executeStreamText').mockResolvedValue({
+        toolCalls: [],
+        conversationHistory: [],
+      });
+
+      await superAgent.handle(params);
+
+      expect(mockPlugin.conversationRenderer.removeConfirmationButtons).toHaveBeenCalledWith(
+        title,
+        expect.any(String)
+      );
+
+      expect(mockPlugin.conversationRenderer.serializeToolInvocation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: title,
+          command: String(ToolName.CONFIRMATION),
+          handlerId,
+          toolInvocations: [
+            expect.objectContaining({
+              toolName: pendingToolCall.toolName,
+              toolCallId: pendingToolCall.toolCallId,
+              input: pendingToolCall.input,
+              type: 'tool-result',
+              output: {
+                type: 'text',
+                value: 'This tool call was skipped by the user.',
+              },
+            }),
+          ],
+        })
+      );
+
+      expect(commandProcessor.clearLastResult).toHaveBeenCalledWith(title);
+    });
+
+    it('does not skip pending confirmation when intent type is user_confirm', async () => {
+      const title = 'conv-user-confirm-path';
+      const handlerId = 'handler-user-confirm';
+      const commandProcessor = getTestCommandProcessorMocks(mockPlugin);
+
+      commandProcessor.getLastResult.mockReturnValue({
+        status: IntentResultStatus.NEEDS_CONFIRMATION,
+        toolCall: {
+          toolName: ToolName.CONFIRMATION,
+          toolCallId: 'pending-1',
+          input: { message: 'OK?' },
+        },
+        onConfirmation: jest.fn(),
+      });
+
+      const params: AgentHandlerParams = {
+        title,
+        handlerId,
+        intent: {
+          type: 'user_confirm',
+          query: 'yes',
+        } as Intent,
+        activeTools: [ToolName.LIST],
+      };
+
+      // @ts-expect-error - Accessing private method for testing
+      jest.spyOn(superAgent, 'executeStreamText').mockResolvedValue({
+        toolCalls: [],
+        conversationHistory: [],
+      });
+
+      await superAgent.handle(params);
+
+      expect(mockPlugin.conversationRenderer.removeConfirmationButtons).not.toHaveBeenCalled();
+      expect(mockPlugin.conversationRenderer.serializeToolInvocation).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          toolInvocations: expect.arrayContaining([
+            expect.objectContaining({
+              output: {
+                type: 'text',
+                value: 'This tool call was skipped by the user.',
+              },
+            }),
+          ]),
+        })
+      );
+    });
+
+    it('does nothing when there is no pending NEEDS_CONFIRMATION result', async () => {
+      const title = 'conv-no-pending';
+      const commandProcessor = getTestCommandProcessorMocks(mockPlugin);
+
+      commandProcessor.getLastResult.mockReturnValue(undefined);
+
+      const params: AgentHandlerParams = {
+        title,
+        intent: {
+          type: 'vault',
+          query: 'ordinary message',
+        } as Intent,
+        activeTools: [ToolName.LIST],
+      };
+
+      // @ts-expect-error - Accessing private method for testing
+      jest.spyOn(superAgent, 'executeStreamText').mockResolvedValue({
+        toolCalls: [],
+        conversationHistory: [],
+      });
+
+      await superAgent.handle(params);
+
+      expect(mockPlugin.conversationRenderer.removeConfirmationButtons).not.toHaveBeenCalled();
+      expect(commandProcessor.clearLastResult).not.toHaveBeenCalled();
     });
   });
 });

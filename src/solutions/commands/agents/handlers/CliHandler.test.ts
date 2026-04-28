@@ -26,10 +26,7 @@ function createMockAgent(): jest.Mocked<AgentHandlerContext> {
   } as unknown as jest.Mocked<AgentHandlerContext>;
 }
 
-function createShellToolCall(
-  toolCallId: string,
-  argsLine: string
-): ToolCallPart<ShellToolInput> {
+function createShellToolCall(toolCallId: string, argsLine: string): ToolCallPart<ShellToolInput> {
   return {
     type: 'tool-call',
     toolCallId,
@@ -64,7 +61,10 @@ describe('CliHandler', () => {
 
     it('runs the shell session immediately when the tool call is client-made (manual prefix)', async () => {
       const runShellSessionSpy = jest
-        .spyOn(handler as unknown as { runShellSession: CliHandler['runShellSession'] }, 'runShellSession')
+        .spyOn(
+          handler as unknown as { runShellSession: CliHandler['runShellSession'] },
+          'runShellSession'
+        )
         .mockResolvedValue({ messageId: 'msg-manual' });
 
       const result = await handler.handle(baseParams('Conv-A'), {
@@ -94,7 +94,10 @@ describe('CliHandler', () => {
 
     it('after confirmation, tears down the transcript session for model runs (endSession)', async () => {
       const runShellSessionSpy = jest
-        .spyOn(handler as unknown as { runShellSession: CliHandler['runShellSession'] }, 'runShellSession')
+        .spyOn(
+          handler as unknown as { runShellSession: CliHandler['runShellSession'] },
+          'runShellSession'
+        )
         .mockResolvedValue({ messageId: 'msg-ai' });
 
       const result = await handler.handle(baseParams('Conv-C'), {

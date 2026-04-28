@@ -6,6 +6,7 @@ import { ToolCallPart } from '../../tools/types';
 import { getTranslation } from 'src/i18n';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/solutions/artifact';
+import { AbortOperationKeys } from 'src/constants';
 import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
@@ -76,7 +77,7 @@ export class Speech {
           provider as keyof typeof this.agent.plugin.settings.llm.speech.voices
         ];
 
-      const result = await this.generateAudio(toolCall.input.text, {
+      const result = await this.generateAudio(params.title, toolCall.input.text, {
         voice,
         // instructions: params.intent.systemPrompts?.join('\n'), // Not system prompt
         instructions: 'Pronounce the text clearly and naturally.',
@@ -190,6 +191,7 @@ export class Speech {
   }
 
   private async generateAudio(
+    conversationTitle: string,
     text: string,
     options?: {
       voice?: string;
@@ -208,7 +210,10 @@ export class Speech {
 
       const { experimental_generateSpeech } = await getBundledLib('ai');
       const response = await experimental_generateSpeech({
-        abortSignal: this.agent.plugin.abortService.createAbortController('audio'),
+        abortSignal: this.agent.plugin.abortService.createAbortController(
+          conversationTitle,
+          AbortOperationKeys.AUDIO
+        ),
         ...speechConfig,
         ...options,
         text,

@@ -1,11 +1,14 @@
 import { logger } from '../utils/logger';
 
 /**
- * Service for managing abort controllers to cancel ongoing operations
+ * Manages AbortControllers keyed by `(conversationTitle, operationKey)`.
+ * Multiple concurrent operations may run per conversation; Escape calls {@link abortAllOperations};
+ * Ctrl-C / Stop-tool use {@link abortConversation} for one note title.
  */
 export class AbortService {
   private static instance: AbortService;
-  private abortControllers: Map<string, AbortController> = new Map();
+  /** conversationTitle → operationKey → controller */
+  private readonly byConversation = new Map<string, Map<string, AbortController>>();
 
   private generateOperationId(): string {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -14,9 +17,15 @@ export class AbortService {
     return `op-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }
 
-  /**
-   * Get the singleton instance of the AbortService
-   */
+  private getInnerMap(conversationTitle: string): Map<string, AbortController> {
+    let inner = this.byConversation.get(conversationTitle);
+    if (!inner) {
+      inner = new Map();
+      this.byConversation.set(conversationTitle, inner);
+    }
+    return inner;
+  }
+
   public static getInstance(): AbortService {
     if (!AbortService.instance) {
       AbortService.instance = new AbortService();
@@ -25,59 +34,59 @@ export class AbortService {
   }
 
   /**
-   * Create a new abort controller for a specific operation
-   * @param operationId Unique identifier for the operation. If not provided, a random ID is used.
-   * @returns The abort signal from the created controller
+   * Create a controller for `(conversationTitle, operationKey)`. If an entry already exists for
+   * that pair, it is aborted first. Omit `operationKey` to allocate a random id (no replacement).
    */
-  public createAbortController(operationId?: string): AbortSignal {
-    const resolvedOperationId = operationId || this.generateOperationId();
+  public createAbortController(conversationTitle: string, operationKey?: string): AbortSignal {
+    const resolvedKey = operationKey ?? this.generateOperationId();
+    const inner = this.getInnerMap(conversationTitle);
 
-    // If an existing controller exists for this operation, abort it first
-    if (this.abortControllers.has(resolvedOperationId)) {
-      this.abortOperation(resolvedOperationId);
+    if (inner.has(resolvedKey)) {
+      this.abortOperation(conversationTitle, resolvedKey);
     }
 
-    // Create a new abort controller
     const controller = new AbortController();
-    this.abortControllers.set(resolvedOperationId, controller);
-
+    inner.set(resolvedKey, controller);
     return controller.signal;
   }
 
   /**
-   * Get an existing abort signal for an operation
-   * @param operationId Unique identifier for the operation
-   * @returns The abort signal or undefined if not found
+   * @param conversationTitle - When omitted, total count across all conversations.
    */
-  public getAbortSignal(operationId: string): AbortSignal | undefined {
-    const controller = this.abortControllers.get(operationId);
-    return controller?.signal;
+  public getActiveOperationsCount(conversationTitle?: string): number {
+    if (conversationTitle !== undefined && conversationTitle !== '') {
+      return this.byConversation.get(conversationTitle)?.size ?? 0;
+    }
+
+    let total = 0;
+    for (const inner of this.byConversation.values()) {
+      total += inner.size;
+    }
+    return total;
+  }
+
+  public getAbortSignal(conversationTitle: string, operationKey: string): AbortSignal | undefined {
+    return this.byConversation.get(conversationTitle)?.get(operationKey)?.signal;
   }
 
   /**
-   * Get the number of active operations
-   * @returns The count of active operations
+   * Abort one `(conversationTitle, operationKey)`. Removes the controller from the registry.
    */
-  public getActiveOperationsCount(): number {
-    return this.abortControllers.size;
-  }
+  public abortOperation(conversationTitle: string, operationKey: string): boolean {
+    const inner = this.byConversation.get(conversationTitle);
+    const controller = inner?.get(operationKey);
 
-  /**
-   * Abort a specific operation
-   * @param operationId Unique identifier for the operation to abort
-   * @returns true if the operation was aborted, false if not found
-   */
-  public abortOperation(operationId: string): boolean {
-    const controller = this.abortControllers.get(operationId);
-
-    if (controller) {
+    if (controller && inner) {
       try {
         controller.abort();
-        this.abortControllers.delete(operationId);
-        logger.log(`Aborted operation: ${operationId}`);
+        inner.delete(operationKey);
+        if (inner.size === 0) {
+          this.byConversation.delete(conversationTitle);
+        }
+        logger.log(`Aborted operation: ${conversationTitle} / ${operationKey}`);
         return true;
       } catch (error) {
-        logger.error(`Error aborting operation ${operationId}:`, error);
+        logger.error(`Error aborting operation ${conversationTitle}/${operationKey}:`, error);
       }
     }
 
@@ -85,15 +94,31 @@ export class AbortService {
   }
 
   /**
-   * Abort all ongoing operations
+   * Abort every operation registered for this conversation note.
+   * @returns Number of controllers that were aborted
    */
-  public abortAllOperations(): void {
-    // Create a copy of the keys to avoid modification during iteration
-    const operationIds = Array.from(this.abortControllers.keys());
+  public abortConversation(conversationTitle: string): number {
+    const inner = this.byConversation.get(conversationTitle);
+    if (!inner || inner.size === 0) {
+      return 0;
+    }
 
-    // Abort each operation
-    for (const operationId of operationIds) {
-      this.abortOperation(operationId);
+    const keys = Array.from(inner.keys());
+    let count = 0;
+    for (const operationKey of keys) {
+      if (this.abortOperation(conversationTitle, operationKey)) {
+        count += 1;
+      }
+    }
+
+    return count;
+  }
+
+  /** Abort everything (e.g. global Escape handler). */
+  public abortAllOperations(): void {
+    const titles = Array.from(this.byConversation.keys());
+    for (const conversationTitle of titles) {
+      this.abortConversation(conversationTitle);
     }
   }
 }

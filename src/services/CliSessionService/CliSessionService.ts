@@ -12,6 +12,7 @@ import {
 } from 'src/solutions/pty-companion/client';
 import { resolveVaultPtyNativePath } from 'src/solutions/pty-companion/resolveVaultPtyNativePath';
 import { CLI_STREAM_MARKER, CLI_XTERM_MARKER, getCliStreamMarkerPlaceholder } from './constants';
+import { AbortOperationKeys } from 'src/constants';
 
 const SENTINEL_MARKER = `__STEWARD_DONE__`;
 const PWD_START = '__STEWARD_PWD_START__';
@@ -734,7 +735,10 @@ export class CliSessionService {
     if (shouldKill) {
       void this.interruptSession(session);
     }
-    this.plugin.abortService.abortOperation(session.operationId);
+    this.plugin.abortService.abortOperation(
+      session.conversationTitle,
+      AbortOperationKeys.CLI_SESSION
+    );
     this.sessions.delete(params.conversationTitle);
     this.refreshCommandInputDecorations();
     void this.markXtermAsForwardedToHost(params.conversationTitle);

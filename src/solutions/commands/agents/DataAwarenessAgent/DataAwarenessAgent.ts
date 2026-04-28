@@ -1,6 +1,7 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type StewardPlugin from 'src/main';
+import { AbortOperationKeys } from 'src/constants';
 import { DocWithPath } from 'src/types/types';
 import { logger } from 'src/utils/logger';
 import { getTranslation } from 'src/i18n';
@@ -149,11 +150,13 @@ export class DataAwarenessAgent {
         });
       }
 
-      const batchPromises = batches.map(batch =>
+      const batchPromises = batches.map((batch, index) =>
         this.processBatch<T>({
           batch,
           query,
           model,
+          conversationTitle: title,
+          operationKey: `data-awareness-batch-${index}`,
         })
       );
 
@@ -188,6 +191,8 @@ export class DataAwarenessAgent {
           batch,
           query,
           model,
+          conversationTitle: title,
+          operationKey: AbortOperationKeys.DATA_AWARENESS,
         });
 
         allResults.push(...batchResult.results);
@@ -224,6 +229,8 @@ export class DataAwarenessAgent {
     batch: DocWithPath[];
     query: string;
     model?: string;
+    conversationTitle: string;
+    operationKey: string;
   }): Promise<{
     results: T[];
     processedFiles: string[];
@@ -251,7 +258,10 @@ Return the results in the exact format specified by the response schema.`;
       const { generateObject } = await getBundledLib('ai');
       const result = await generateObject({
         ...llmConfig,
-        abortSignal: this.plugin.abortService.createAbortController('data-awareness'),
+        abortSignal: this.plugin.abortService.createAbortController(
+          params.conversationTitle,
+          params.operationKey
+        ),
         schema: this.responseSchema,
         system: this.systemPrompt,
         prompt: userMessage,

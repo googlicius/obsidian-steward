@@ -542,7 +542,15 @@ code[class*='language-stw-hidden-from-user'] {
 
 .stw-confirmation-buttons {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--size-2-2);
+
+  > .hint {
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
 }
 
 .stw-autocomplete-icon {

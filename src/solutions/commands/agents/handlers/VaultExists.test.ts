@@ -147,12 +147,16 @@ describe('VaultExists', () => {
   });
 
   it('uses the vault adapter when the path is hidden from the abstract file tree (e.g. dot-prefixed)', async () => {
-    const exists = jest.fn().mockImplementation((p: string) => Promise.resolve(p === '.steward/config.md'));
-    const stat = jest.fn().mockImplementation((p: string) =>
-      p === '.steward/config.md'
-        ? Promise.resolve({ type: 'file' as const, ctime: 0, mtime: 0, size: 1 })
-        : Promise.resolve(null)
-    );
+    const exists = jest
+      .fn()
+      .mockImplementation((p: string) => Promise.resolve(p === '.steward/config.md'));
+    const stat = jest
+      .fn()
+      .mockImplementation((p: string) =>
+        p === '.steward/config.md'
+          ? Promise.resolve({ type: 'file' as const, ctime: 0, mtime: 0, size: 1 })
+          : Promise.resolve(null)
+      );
 
     const executeExists = setupExecuteExists({
       pathMap: {},

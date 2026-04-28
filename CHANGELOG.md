@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **SHELL tool** for models
 - **UDC**: Allow multiple UDC definitions in a single markdown file
+- **Vault**: Support hidden files and folders
+- **Confirm**: Serialize tool calls when the user skips confirmation
+- **Confirm**: Custom confirmation button labels and auto-destroy model-made CLI sessions
+- **Abort**: Per-conversation abort tracking with operation keys
 
 ### Changed
 
