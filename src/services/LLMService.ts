@@ -221,14 +221,14 @@ export class LLMService {
           if (!baseURL) {
             throw new Error(`Custom provider ${name} with OpenAI compatibility requires a baseURL`);
           }
-          const { createOpenAICompatible } = await getBundledLib('openaiCompatible');
+          const { createOpenAICompatible } = await getBundledLib('@ai-sdk/openai-compatible');
           provider = createOpenAICompatible({
             baseURL,
             name: config.name as string,
             ...(apiKey && { apiKey }),
           });
         } else {
-          const { createOpenAI } = await getBundledLib('openai');
+          const { createOpenAI } = await getBundledLib('@ai-sdk/openai');
           provider = createOpenAI({
             ...(baseURL && { baseURL }),
             ...(apiKey && { apiKey }),
@@ -238,7 +238,7 @@ export class LLMService {
       }
 
       case 'google': {
-        const { createGoogleGenerativeAI } = await getBundledLib('google');
+        const { createGoogleGenerativeAI } = await getBundledLib('@ai-sdk/google');
         provider = createGoogleGenerativeAI({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
@@ -247,7 +247,7 @@ export class LLMService {
       }
 
       case 'ollama': {
-        const { createOllama } = await getBundledLib('ollama');
+        const { createOllama } = await getBundledLib('ollama-ai-provider-v2');
         provider = createOllama({
           ...(baseURL && { baseURL }),
           ...(apiKey && {
@@ -260,7 +260,7 @@ export class LLMService {
       }
 
       case 'anthropic': {
-        const { createAnthropic } = await getBundledLib('anthropic');
+        const { createAnthropic } = await getBundledLib('@ai-sdk/anthropic');
         provider = createAnthropic({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
@@ -273,7 +273,7 @@ export class LLMService {
       }
 
       case 'elevenlabs': {
-        const { createElevenLabs } = await getBundledLib('elevenLabs');
+        const { createElevenLabs } = await getBundledLib('@ai-sdk/elevenlabs');
         provider = createElevenLabs({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
@@ -283,7 +283,7 @@ export class LLMService {
       }
 
       case 'hume': {
-        const { createHume } = await getBundledLib('hume');
+        const { createHume } = await getBundledLib('@ai-sdk/hume');
         provider = createHume({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),

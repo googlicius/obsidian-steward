@@ -15,7 +15,7 @@ export async function getIntentClassifier(): Promise<PersistentEmbeddingSimilari
     return cachedIntentClassifier;
   }
 
-  const { openai } = await getBundledLib('openai');
+  const { openai } = await getBundledLib('@ai-sdk/openai');
   const classifier = new PersistentEmbeddingSimilarityClassifier({
     // Default embedding model (will be overridden by getClassifier)
     embeddingModel: openai.embeddingModel(modelId),

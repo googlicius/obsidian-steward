@@ -241,7 +241,7 @@ No json here.
 
       await service['refreshCachedToolNamesFromServer'](file, mcpPath);
 
-      expect(getBundledLib).toHaveBeenCalledWith('mcp');
+      expect(getBundledLib).toHaveBeenCalledWith('@ai-sdk/mcp');
       expect(mockTools).toHaveBeenCalled();
       expect(mockClose).toHaveBeenCalled();
       const written = JSON.parse(fmUpdates.tools as string) as string[];
@@ -553,7 +553,7 @@ No json here.
 
       expect(first).not.toBeNull();
       expect(second).toBe(first);
-      expect(getBundledLib).toHaveBeenCalledWith('mcp');
+      expect(getBundledLib).toHaveBeenCalledWith('@ai-sdk/mcp');
       expect(mockTools).toHaveBeenCalledTimes(1);
     });
   });
@@ -929,7 +929,7 @@ not json
       });
 
       (getBundledLib as jest.Mock).mockImplementation(async (lib: string) => {
-        if (lib === 'mcp') {
+        if (lib === '@ai-sdk/mcp') {
           return {
             createMCPClient: jest.fn().mockRejectedValue(new Error('connection refused')),
           };

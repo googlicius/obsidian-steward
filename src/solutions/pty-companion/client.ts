@@ -40,7 +40,7 @@ export function createRemotePtySession(params: {
   spawn: PtyCompanionSpawnPayload;
 }): Promise<{ child: RemotePtyChildShim; remoteKill: () => void; dispose: () => void }> {
   return (async () => {
-    const { io } = await getBundledLib('socketIoClient');
+    const { io } = await getBundledLib('socket.io-client');
     const url = `http://${PTY_COMPANION_HOST}:${params.connection.port}`;
     const socket: Socket = io(url, {
       auth: { token: params.connection.authToken },

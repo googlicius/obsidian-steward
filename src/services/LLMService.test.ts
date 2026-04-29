@@ -8,19 +8,19 @@ jest.mock('src/utils/bundledLibs', () => {
     ...actual,
     getBundledLib: jest.fn(async (key: unknown) => {
       switch (key) {
-        case 'openai':
+        case '@ai-sdk/openai':
           return import('@ai-sdk/openai');
-        case 'openaiCompatible':
+        case '@ai-sdk/openai-compatible':
           return import('@ai-sdk/openai-compatible');
-        case 'google':
+        case '@ai-sdk/google':
           return import('@ai-sdk/google');
-        case 'anthropic':
+        case '@ai-sdk/anthropic':
           return import('@ai-sdk/anthropic');
-        case 'elevenLabs':
+        case '@ai-sdk/elevenlabs':
           return import('@ai-sdk/elevenlabs');
-        case 'hume':
+        case '@ai-sdk/hume':
           return import('@ai-sdk/hume');
-        case 'ollama':
+        case 'ollama-ai-provider-v2':
           return import('ollama-ai-provider-v2');
         default:
           return actual.getBundledLib(key as never);

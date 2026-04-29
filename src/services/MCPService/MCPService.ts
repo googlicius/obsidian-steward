@@ -482,7 +482,7 @@ export class MCPService {
 
     this.toolRefreshInFlight.add(normalizedPath);
     try {
-      const mcpLib = await getBundledLib('mcp');
+      const mcpLib = await getBundledLib('@ai-sdk/mcp');
       const client = await mcpLib.createMCPClient({
         transport: {
           type: definition.config.transport,
@@ -655,7 +655,7 @@ export class MCPService {
       return null;
     }
 
-    const mcpLib = await getBundledLib('mcp');
+    const mcpLib = await getBundledLib('@ai-sdk/mcp');
     try {
       const client = await mcpLib.createMCPClient({
         transport: {

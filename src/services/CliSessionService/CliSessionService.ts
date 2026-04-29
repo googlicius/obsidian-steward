@@ -37,6 +37,8 @@ export const BUILT_IN_INTERACTIVE_APPS = [
   'qwen',
   'hermes',
   'obsidian',
+  'sudo',
+  'npx',
 ];
 
 export type CliSessionMode = 'transcript' | 'interactive';
@@ -144,7 +146,7 @@ export class CliSessionService {
 
   /** PTY and rich shells emit CSI/SGR escapes; notes are plain text — strip for readability. */
   private async normalizeCliOutputForNote(text: string): Promise<string> {
-    const stripAnsi = await getBundledLib('stripAnsi');
+    const stripAnsi = await getBundledLib('strip-ansi');
     const plain = stripAnsi(text);
     return plain.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   }

@@ -146,13 +146,6 @@ export class ToolCallExecutor {
           break;
         }
 
-        case ToolName.TODO_WRITE: {
-          toolCallResult = await agent.todoList.handle(params.agentParams, {
-            toolCall,
-          });
-          break;
-        }
-
         case ToolName.CONCLUDE: {
           const prevToolCall = params.toolCalls.length > 1 && params.toolCalls[index - 1];
           if (prevToolCall && prevToolCall.dynamic) {

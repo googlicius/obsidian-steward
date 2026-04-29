@@ -1,6 +1,8 @@
 /**
  * Bundled separately by scripts/build-bundled-libs.mjs, compressed, and loaded at runtime
  * so the main bundle does not parse/execute these dependencies at plugin startup.
+ *
+ * Registry keys match npm package names so `getBundledLib` keys align with `import('…')` specifiers.
  */
 import * as ai from 'ai';
 import * as anthropic from '@ai-sdk/anthropic';
@@ -19,38 +21,24 @@ import stripAnsi from 'strip-ansi';
 // Mustache is CJS (`module.exports = Mustache`); default import unwraps to the real module object.
 import mustache from 'mustache';
 
-export type StewardBundledLibsRegistry = {
-  ai: typeof ai;
-  anthropic: typeof anthropic;
-  elevenLabs: typeof elevenlabs;
-  google: typeof google;
-  hume: typeof hume;
-  ollama: typeof ollama;
-  openai: typeof openai;
-  openaiCompatible: typeof openaiCompatible;
-  mcp: typeof mcp;
-  xterm: typeof xterm;
-  xtermAddonFit: typeof xtermAddonFit;
-  xtermAddonSerialize: typeof xtermAddonSerialize;
-  socketIoClient: typeof socketIoClient;
-  stripAnsi: typeof stripAnsi;
-  mustache: typeof mustache;
-};
-
-export {
+const bundledLibs = {
   ai,
-  anthropic,
-  google,
-  hume,
-  ollama,
-  openai,
-  openaiCompatible,
-  mcp,
-  xterm,
-  xtermAddonFit,
-  xtermAddonSerialize,
-  socketIoClient,
-  stripAnsi,
+  '@ai-sdk/anthropic': anthropic,
+  '@ai-sdk/elevenlabs': elevenlabs,
+  '@ai-sdk/google': google,
+  '@ai-sdk/hume': hume,
+  'ollama-ai-provider-v2': ollama,
+  '@ai-sdk/openai': openai,
+  '@ai-sdk/openai-compatible': openaiCompatible,
+  '@ai-sdk/mcp': mcp,
+  '@xterm/xterm': xterm,
+  '@xterm/addon-fit': xtermAddonFit,
+  '@xterm/addon-serialize': xtermAddonSerialize,
+  'socket.io-client': socketIoClient,
+  'strip-ansi': stripAnsi,
   mustache,
 };
-export { elevenlabs as elevenLabs };
+
+export type BundledLibs = typeof bundledLibs;
+
+export default bundledLibs;

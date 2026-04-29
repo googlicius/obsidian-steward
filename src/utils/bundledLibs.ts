@@ -1,29 +1,27 @@
 import { decompressFromBase64 } from 'lz-string';
 import { BUNDLED_DESKTOP_LIBS_LZ_B64 } from '../generated/bundledDesktopLibsPayload';
 import { BUNDLED_LIBS_LZ_B64 } from '../generated/bundledLibsPayload';
+import type { BundledLibs } from 'src/bundled-libs-entry';
+import type { BundledDesktopLibs } from 'src/bundled-libs-desktop-entry';
 
-/** Maps loader keys to the same shapes as `import('…')` for each bundled package. */
-export type BundledLibModules = {
-  ai: typeof import('ai');
-  anthropic: typeof import('@ai-sdk/anthropic');
-  google: typeof import('@ai-sdk/google');
-  hume: typeof import('@ai-sdk/hume');
-  elevenLabs: typeof import('@ai-sdk/elevenlabs');
-  ollama: typeof import('ollama-ai-provider-v2');
-  openai: typeof import('@ai-sdk/openai');
-  openaiCompatible: typeof import('@ai-sdk/openai-compatible');
-  mcp: typeof import('@ai-sdk/mcp');
-  xterm: typeof import('@xterm/xterm');
-  xtermAddonSerialize: typeof import('@xterm/addon-serialize');
-  xtermAddonFit: typeof import('@xterm/addon-fit');
-  socketIoClient: typeof import('socket.io-client');
-  stripAnsi: typeof import('strip-ansi');
-  mustache: typeof import('mustache');
-};
+/**
+ * esbuild IIFE + `export default` yields an interop object on `globalThis`:
+ * `{ __esModule: true, default: <actual registry> }`.
+ */
+function unwrapBundledRegistry<T extends object>(raw: unknown): T {
+  if (!raw || typeof raw !== 'object') {
+    throw new Error('[Steward] Bundled registry is missing or invalid');
+  }
+  const d = (raw as { default?: unknown }).default;
+  if (d !== undefined && d !== null && typeof d === 'object') {
+    return d as T;
+  }
+  return raw as T;
+}
 
-export type BundledLibKey = keyof BundledLibModules;
+type BundledLibKey = keyof BundledLibs;
 
-type BundledLibsRegistry = Record<BundledLibKey, BundledLibModules[BundledLibKey]>;
+type BundledLibsRegistry = Record<BundledLibKey, BundledLibs[BundledLibKey]>;
 
 let registryPromise: Promise<BundledLibsRegistry> | null = null;
 
@@ -35,28 +33,21 @@ function ensureBundledLibsRegistryLoaded(): Promise<BundledLibsRegistry> {
         throw new Error('[Steward] Failed to decompress bundled libs payload');
       }
       (0, eval)(code);
-      const registry = (globalThis as unknown as { __stewardBundledLibs?: BundledLibsRegistry })
-        .__stewardBundledLibs;
-      if (!registry) {
+      const raw = (globalThis as unknown as { __stewardBundledLibs?: unknown }).__stewardBundledLibs;
+      if (!raw) {
         throw new Error('[Steward] Bundled libs chunk did not define __stewardBundledLibs');
       }
-      return registry;
+      return unwrapBundledRegistry<BundledLibsRegistry>(raw);
     })();
   }
   return registryPromise;
 }
 
-/** Desktop-only bundled modules (`src/bundled-libs-desktop-entry.ts`). */
-export type BundledDesktopLibModules = {
-  nodePty: typeof import('node-pty');
-  socketIo: typeof import('socket.io');
-};
-
-export type BundledDesktopLibKey = keyof BundledDesktopLibModules;
+export type BundledDesktopLibKey = keyof BundledDesktopLibs;
 
 type BundledDesktopLibsRegistry = Record<
   BundledDesktopLibKey,
-  BundledDesktopLibModules[BundledDesktopLibKey]
+  BundledDesktopLibs[BundledDesktopLibKey]
 >;
 
 let desktopRegistryPromise: Promise<BundledDesktopLibsRegistry> | null = null;
@@ -69,15 +60,14 @@ function ensureBundledDesktopLibsRegistryLoaded(): Promise<BundledDesktopLibsReg
         throw new Error('[Steward] Failed to decompress bundled desktop libs payload');
       }
       (0, eval)(code);
-      const registry = (
-        globalThis as unknown as { __stewardBundledDesktopLibs?: BundledDesktopLibsRegistry }
-      ).__stewardBundledDesktopLibs;
-      if (!registry) {
+      const raw = (globalThis as unknown as { __stewardBundledDesktopLibs?: unknown })
+        .__stewardBundledDesktopLibs;
+      if (!raw) {
         throw new Error(
           '[Steward] Bundled desktop libs chunk did not define __stewardBundledDesktopLibs'
         );
       }
-      return registry;
+      return unwrapBundledRegistry<BundledDesktopLibsRegistry>(raw);
     })();
   }
   return desktopRegistryPromise;
@@ -87,15 +77,13 @@ function ensureBundledDesktopLibsRegistryLoaded(): Promise<BundledDesktopLibsReg
  * Returns the given module from the compressed bundle inside `main.js`.
  * The first load decompresses and evaluates the shared chunk; the same registry is reused afterward.
  */
-export async function getBundledLib<K extends BundledLibKey>(
-  key: K
-): Promise<BundledLibModules[K]> {
+export async function getBundledLib<K extends BundledLibKey>(key: K): Promise<BundledLibs[K]> {
   const registry = await ensureBundledLibsRegistryLoaded();
   const mod = registry[key];
   if (mod === undefined) {
     throw new Error(`[Steward] Missing bundled lib key: ${String(key)}`);
   }
-  return mod as BundledLibModules[K];
+  return mod as BundledLibs[K];
 }
 
 /**
@@ -103,11 +91,11 @@ export async function getBundledLib<K extends BundledLibKey>(
  */
 export async function getBundledDesktopLib<K extends BundledDesktopLibKey>(
   key: K
-): Promise<BundledDesktopLibModules[K]> {
+): Promise<BundledDesktopLibs[K]> {
   const registry = await ensureBundledDesktopLibsRegistryLoaded();
   const mod = registry[key];
   if (mod === undefined) {
     throw new Error(`[Steward] Missing bundled desktop lib key: ${String(key)}`);
   }
-  return mod as BundledDesktopLibModules[K];
+  return mod as BundledDesktopLibs[K];
 }
