@@ -74,6 +74,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     extractConversationHistory: jest.fn().mockResolvedValue([]),
     updateConversationFrontmatter: jest.fn(),
     getConversationProperty: jest.fn().mockResolvedValue(undefined),
+    recordTokenUsage: jest.fn().mockResolvedValue(undefined),
   };
 
   const mockCommandProcessor = {

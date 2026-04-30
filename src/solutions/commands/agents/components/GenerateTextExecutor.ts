@@ -61,6 +61,7 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
     params: GenerateTextExecutorParams
   ): Promise<{
     toolCalls: TToolCalls;
+    usage: LanguageModelUsage | undefined;
     totalUsage: LanguageModelUsage;
   }> {
     const agent = asAgent(this);
@@ -188,6 +189,7 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
 
     return {
       toolCalls: result.toolCalls as TToolCalls,
+      usage: result.usage,
       totalUsage: result.totalUsage,
     };
   }

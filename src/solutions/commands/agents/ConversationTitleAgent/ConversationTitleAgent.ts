@@ -5,6 +5,7 @@ import type StewardPlugin from 'src/main';
 import { AbortOperationKeys } from 'src/constants';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { getBundledLib } from 'src/utils/bundledLibs';
+import { USAGE_AGENT_KEY } from 'src/services/ConversationRender/Frontmatter';
 
 interface GenerateTitleParams {
   title: string;
@@ -160,6 +161,17 @@ Do not include any extra keys.`,
           name: 'ConversationTitleResult',
         }),
       });
+
+      try {
+        await this.renderer.recordTokenUsage(
+          conversationTitle,
+          USAGE_AGENT_KEY.title,
+          result.usage,
+          result.totalUsage
+        );
+      } catch (usageError) {
+        logger.error('Failed to record ConversationTitleAgent token usage', usageError);
+      }
 
       const cleaned = result.output.title
         .trim()

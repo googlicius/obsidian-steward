@@ -188,6 +188,34 @@ describe('StreamTextExecutor', () => {
         yield { type: 'text-delta', textDelta: '' };
       })(),
       toolCalls: Promise.resolve([]),
+      usage: Promise.resolve({
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        inputTokenDetails: {
+          noCacheTokens: undefined,
+          cacheReadTokens: undefined,
+          cacheWriteTokens: undefined,
+        },
+        outputTokenDetails: {
+          textTokens: undefined,
+          reasoningTokens: undefined,
+        },
+      }),
+      totalUsage: Promise.resolve({
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        inputTokenDetails: {
+          noCacheTokens: undefined,
+          cacheReadTokens: undefined,
+          cacheWriteTokens: undefined,
+        },
+        outputTokenDetails: {
+          textTokens: undefined,
+          reasoningTokens: undefined,
+        },
+      }),
     });
   });
 

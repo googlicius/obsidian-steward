@@ -3,6 +3,7 @@ import type StewardPlugin from 'src/main';
 import { AbortOperationKeys } from 'src/constants';
 import { logger } from 'src/utils/logger';
 import { getBundledLib } from 'src/utils/bundledLibs';
+import { USAGE_AGENT_KEY } from 'src/services/ConversationRender/Frontmatter';
 
 const MAX_SUMMARY_WORDS = 80;
 
@@ -73,6 +74,19 @@ Return exactly one result per message in the same order. Each result must have m
           name: 'SummarizationResults',
         }),
       });
+
+      if (params.conversationTitle) {
+        try {
+          await this.plugin.conversationRenderer.recordTokenUsage(
+            params.conversationTitle,
+            USAGE_AGENT_KEY.compaction,
+            result.usage,
+            result.totalUsage
+          );
+        } catch (usageError) {
+          logger.error('Failed to record CompactionSummaryAgent token usage', usageError);
+        }
+      }
 
       const output = result.output.results ?? [];
       const normalizedResults: SummarizationResultItem[] = [];

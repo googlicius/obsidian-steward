@@ -112,7 +112,6 @@ export class DataAwarenessAgent {
 
     const t = getTranslation(lang);
 
-    // Resolve files from artifact
     const resolvedFiles = await this.plugin.artifactManagerV2
       .withTitle(title)
       .resolveFilesFromArtifact(artifactId);
@@ -127,14 +126,12 @@ export class DataAwarenessAgent {
       };
     }
 
-    // Process files in batches
     const batches = this.createBatches(resolvedFiles, batchSize);
     const allResults: T[] = [];
     const processedFiles: string[] = [];
     const failedFiles: Array<{ path: string; error: string }> = [];
 
     if (parallel) {
-      // Process batches in parallel
       if (batches.length > 1 && handlerId) {
         const t = getTranslation(lang);
         await this.plugin.conversationRenderer.updateConversationNote({
@@ -168,11 +165,9 @@ export class DataAwarenessAgent {
         failedFiles.push(...batchResult.failedFiles);
       }
     } else {
-      // Process batches sequentially (default)
       for (let i = 0; i < batches.length; i++) {
         const batch = batches[i];
 
-        // Render batch processing message
         if (batches.length > 1 && handlerId) {
           await this.plugin.conversationRenderer.updateConversationNote({
             path: title,
@@ -238,10 +233,8 @@ export class DataAwarenessAgent {
   }> {
     const { batch, query } = params;
 
-    // Build context from file paths
     const context = this.buildContext(batch);
 
-    // Process with LLM
     try {
       const llmConfig = await this.plugin.llmService.getLLMConfig({
         overrideModel: params.model,
@@ -267,8 +260,6 @@ Return the results in the exact format specified by the response schema.`;
         prompt: userMessage,
       });
 
-      // Extract results from the generated object
-      // The result.object should match the response schema structure
       const results = this.extractResults<T>(result.object);
 
       return {
@@ -280,7 +271,6 @@ Return the results in the exact format specified by the response schema.`;
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('Error processing batch with LLM:', error);
 
-      // Return all files as failed
       const allFailedFiles = batch.map(f => ({
         path: f.path,
         error: errorMessage,

@@ -13,7 +13,7 @@ import {
 } from './ToolContentStreamConsumer';
 import { Agent } from '../../Agent';
 import { getBundledLib } from 'src/utils/bundledLibs';
-import type { ModelMessage, streamText } from 'ai';
+import type { LanguageModelUsage, ModelMessage, streamText } from 'ai';
 import { AbortOperationKeys } from 'src/constants';
 import { SUPER_AGENT_MAX_CONVERSATION_MESSAGES } from '../SuperAgent/superAgentConstants';
 
@@ -42,6 +42,8 @@ export class StreamTextExecutor {
     toolCalls: TToolCalls;
     conversationHistory: ModelMessage[];
     toolContentStreamInfo?: ToolContentStreamInfo;
+    usage?: LanguageModelUsage;
+    totalUsage?: LanguageModelUsage;
   }> {
     const agent = asAgent(this);
 
@@ -187,7 +189,7 @@ export class StreamTextExecutor {
 
     const { streamText } = await getBundledLib('ai');
 
-    const { toolCalls: toolCallsPromise, fullStream } = streamText({
+    const streamTextResult = streamText({
       model: llmConfig.model,
       temperature: llmConfig.temperature,
       maxOutputTokens: llmConfig.maxOutputTokens,
@@ -216,6 +218,12 @@ export class StreamTextExecutor {
         }
       },
     });
+    const {
+      toolCalls: toolCallsPromise,
+      fullStream,
+      totalUsage: totalUsagePromise,
+      usage: usagePromise,
+    } = streamTextResult;
 
     const { textStream, textDone, toolContentStream } = createLLMStream(fullStream, {
       toolContentStreaming: {
@@ -251,6 +259,8 @@ export class StreamTextExecutor {
       toolCalls,
       conversationHistory,
       toolContentStreamInfo,
+      usage: await usagePromise,
+      totalUsage: await totalUsagePromise,
     };
   }
 }

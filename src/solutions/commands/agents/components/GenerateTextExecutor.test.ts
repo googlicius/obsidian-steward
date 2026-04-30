@@ -133,6 +133,34 @@ describe('GenerateTextExecutor', () => {
     getMockGenerateText().mockResolvedValue({
       text: '',
       toolCalls: [],
+      usage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        inputTokenDetails: {
+          noCacheTokens: undefined,
+          cacheReadTokens: undefined,
+          cacheWriteTokens: undefined,
+        },
+        outputTokenDetails: {
+          textTokens: undefined,
+          reasoningTokens: undefined,
+        },
+      },
+      totalUsage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        inputTokenDetails: {
+          noCacheTokens: undefined,
+          cacheReadTokens: undefined,
+          cacheWriteTokens: undefined,
+        },
+        outputTokenDetails: {
+          textTokens: undefined,
+          reasoningTokens: undefined,
+        },
+      },
     });
   });
 
