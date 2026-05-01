@@ -153,11 +153,12 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
       elevenlabs: 'pNInz6obpgDQGcFmaJgB',
     },
   },
-  llm: {
-    chat: {
-      model: 'openai:gpt-4-turbo-preview',
-      customModels: [],
-    },
+    llm: {
+      chat: {
+        model: 'openai:gpt-4-turbo-preview',
+        customModels: [],
+      },
+      modelContextLengths: {},
     temperature: 0.2,
     ollamaBaseUrl: 'http://localhost:11434/api', // Deprecated: use providerConfigs instead
     maxGenerationTokens: 2048, // Default max tokens for generation

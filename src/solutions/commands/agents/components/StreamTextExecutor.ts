@@ -51,9 +51,17 @@ export class StreamTextExecutor {
       maxMessages: SUPER_AGENT_MAX_CONVERSATION_MESSAGES,
     });
 
+    const visibleWindowSize =
+      await agent.plugin.compactionTokenService.resolveCompactionVisibleWindowSize({
+        conversationTitle: params.title,
+        conversationHistory,
+        model:
+          params.intent.model?.trim() || agent.plugin.settings.llm.chat.model,
+      });
+
     const compactionResult = await agent.plugin.compactionOrchestrator.run({
       conversationTitle: params.title,
-      visibleWindowSize: 10,
+      visibleWindowSize,
       lang: params.lang,
     });
 

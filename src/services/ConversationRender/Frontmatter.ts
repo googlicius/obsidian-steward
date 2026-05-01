@@ -1,3 +1,4 @@
+import type { LanguageModelUsage } from 'ai';
 import { parseYaml } from 'obsidian';
 import { logger } from 'src/utils/logger';
 import type { ConversationRenderer } from '../ConversationRenderer';
@@ -23,67 +24,44 @@ export function usageFrontmatterPropertyName(agent: string): string {
 
 type FrontmatterHost = Pick<ConversationRenderer, 'plugin' | 'getConversationFileByName'>;
 
-export type TokenUsagePayload = {
-  inputTokens?: number | undefined;
-  outputTokens?: number | undefined;
-  totalTokens?: number | undefined;
-  inputTokenDetails?: { cacheReadTokens?: number | undefined } | undefined;
-};
+type FrontmatterHostWithConversationProps = Pick<
+  ConversationRenderer,
+  'plugin' | 'getConversationFileByName' | 'getConversationProperty'
+>;
 
-/** Maps a single usage snapshot to frontmatter fields (no accumulation). */
-function normalizeUsage(usage: TokenUsagePayload | undefined): Record<string, unknown> | undefined {
-  if (!usage) {
-    return undefined;
-  }
-  const block: Record<string, unknown> = {};
-  if (usage.inputTokens !== undefined) {
-    block.input = usage.inputTokens;
-  }
-  if (usage.outputTokens !== undefined) {
-    block.output = usage.outputTokens;
-  }
-  if (usage.totalTokens !== undefined) {
-    block.total = usage.totalTokens;
-  }
-  const cacheRead = usage.inputTokenDetails?.cacheReadTokens;
-  if (cacheRead !== undefined) {
-    block.cached = cacheRead;
-    block.last_cache_read = cacheRead;
-  }
-  return Object.keys(block).length > 0 ? block : undefined;
-}
+/** Nested block under `usage_<agent>` when both last-step and cumulative usage are recorded (see recordTokenUsage). */
+type AgentUsageFrontmatterBlock = {
+  usage: LanguageModelUsage;
+  totalUsage: LanguageModelUsage;
+};
 
 export class Frontmatter {
   /**
    * Writes token usage for this agent under `usage_<agent>` in the note frontmatter.
-   * Values are stored as provided (last write wins; no running totals).
+   * Values are stored as provided (last write wins; no running totals): full {@link LanguageModelUsage}
+   * objects from the SDK.
    *
-   * When both `usage` and `totalUsage` are set (e.g. last step vs cumulative), the value is
-   * `{ usage: { ... }, totalUsage: { ... } }`. Otherwise a single snapshot is stored flat
-   * as `{ input, output, total, ... }`.
+   * When both `usage` and `totalUsage` are set, stored shape is `{ usage, totalUsage }`. Otherwise the single
+   * provided snapshot is stored at the top level.
    */
   public async recordTokenUsage(
     this: FrontmatterHost,
     conversationTitle: string,
     agent: string,
-    usage: TokenUsagePayload | undefined,
-    totalUsage?: TokenUsagePayload | undefined
+    usage: LanguageModelUsage | undefined,
+    totalUsage?: LanguageModelUsage | undefined
   ): Promise<void> {
     if (!agent || !agent.trim()) {
       return;
     }
-    const u = normalizeUsage(usage);
-    const tu = normalizeUsage(totalUsage);
-    if (!u && !tu) {
+    if (!usage && !totalUsage) {
       return;
     }
     const propertyKey = usageFrontmatterPropertyName(agent);
-    let stored: Record<string, unknown>;
-    if (u && tu) {
-      stored = { usage: u, totalUsage: tu };
-    } else {
-      stored = u ?? tu ?? {};
-    }
+    const stored =
+      usage !== undefined && totalUsage !== undefined
+        ? { usage, totalUsage }
+        : (usage ?? totalUsage);
     try {
       const file = this.getConversationFileByName(conversationTitle);
       await this.plugin.app.fileManager.processFrontMatter(file, frontmatter => {
@@ -92,6 +70,36 @@ export class Frontmatter {
     } catch (error) {
       logger.error('Error recording token usage in conversation frontmatter:', error);
     }
+  }
+
+  /**
+   * Last-recorded prompt/input tokens for an agent from `usage_<agent>` (see recordTokenUsage).
+   * Expects nested `{ usage, totalUsage }`; reads prompt size from `usage` (last LLM call), not `totalUsage`.
+   */
+  public async getRecordedInputTokensForAgent(
+    this: FrontmatterHostWithConversationProps,
+    conversationTitle: string,
+    agent: string,
+    forceRefresh?: boolean
+  ): Promise<number | undefined> {
+    if (!agent?.trim()) {
+      return undefined;
+    }
+    const key = usageFrontmatterPropertyName(agent);
+    const block = await this.getConversationProperty<AgentUsageFrontmatterBlock | undefined>(
+      conversationTitle,
+      key,
+      forceRefresh
+    );
+    if (!block?.usage) {
+      return undefined;
+    }
+
+    const raw = block.usage.inputTokens;
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0) {
+      return undefined;
+    }
+    return Math.floor(raw);
   }
 
   /**

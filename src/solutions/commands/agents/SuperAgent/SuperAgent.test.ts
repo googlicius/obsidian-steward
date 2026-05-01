@@ -75,6 +75,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     updateConversationFrontmatter: jest.fn(),
     getConversationProperty: jest.fn().mockResolvedValue(undefined),
     recordTokenUsage: jest.fn().mockResolvedValue(undefined),
+    getRecordedInputTokensForAgent: jest.fn().mockResolvedValue(undefined),
   };
 
   const mockCommandProcessor = {
@@ -106,6 +107,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       llm: {
         chat: {
           model: 'mock-model',
+          customModels: [],
         },
       },
     },
@@ -145,6 +147,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       run: jest.fn().mockResolvedValue({
         data: { version: COMPACTION_SCHEMA_VERSION, messages: [] },
       }),
+    },
+    compactionTokenService: {
+      resolveCompactionVisibleWindowSize: jest.fn().mockResolvedValue(10),
     },
     mcpService: {
       getMcpToolsForConversation: jest.fn().mockResolvedValue({

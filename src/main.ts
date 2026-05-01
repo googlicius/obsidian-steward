@@ -65,6 +65,7 @@ import { GitHubResourceService } from './services/GitHubResourceService';
 import { SkillService } from './services/SkillService';
 import { GuardrailsRuleService } from './services/GuardrailsRuleService/GuardrailsRuleService';
 import { CompactionOrchestrator } from './solutions/compaction';
+import { CompactionTokenService } from './services/CompactionTokenService';
 import { SubagentSpawnService } from './services/SubagentSpawnService';
 import { MCPService } from './services/MCPService';
 import { runSettingsSchemaMigrations } from './settings/migrations/settingsSchemaMigrations';
@@ -101,6 +102,7 @@ export default class StewardPlugin extends Plugin {
   _versionCheckerService: VersionCheckerService;
   _userMessageService: UserMessageService;
   _compactionOrchestrator: CompactionOrchestrator;
+  _compactionTokenService: CompactionTokenService;
   _subAgentSpawnService: SubagentSpawnService;
   _obsidianAPITools: ObsidianAPITools;
   _commandProcessorService: CommandProcessorService;
@@ -281,6 +283,13 @@ export default class StewardPlugin extends Plugin {
       this._compactionOrchestrator = new CompactionOrchestrator(this);
     }
     return this._compactionOrchestrator;
+  }
+
+  get compactionTokenService(): CompactionTokenService {
+    if (!this._compactionTokenService) {
+      this._compactionTokenService = new CompactionTokenService(this);
+    }
+    return this._compactionTokenService;
   }
 
   get editor(): ObsidianEditor {

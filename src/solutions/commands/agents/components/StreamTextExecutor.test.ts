@@ -68,6 +68,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       llm: {
         chat: {
           model: 'mock-model',
+          customModels: [],
         },
       },
     },
@@ -103,6 +104,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       run: jest.fn().mockResolvedValue({
         systemMessage: undefined,
       }),
+    },
+    compactionTokenService: {
+      resolveCompactionVisibleWindowSize: jest.fn().mockResolvedValue(10),
     },
     mcpService: {
       getMcpToolsForConversation: jest.fn().mockResolvedValue({
@@ -297,6 +301,55 @@ describe('StreamTextExecutor', () => {
       expect(getMockStreamText()).toHaveBeenCalledTimes(1);
       const call = getMockStreamText().mock.calls[0][0];
       expect(call.messages).toEqual(historyMessages);
+    });
+
+    it('narrows compaction visible window when token pressure exceeds threshold', async () => {
+      mockPlugin.compactionTokenService.resolveCompactionVisibleWindowSize = jest
+        .fn()
+        .mockResolvedValue(5);
+
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+      };
+
+      mockPlugin.conversationRenderer.extractConversationHistory = jest.fn().mockResolvedValue([]);
+
+      await testAgent.executeForTest(params);
+
+      expect(mockPlugin.compactionOrchestrator.run).toHaveBeenCalledWith(
+        expect.objectContaining({
+          visibleWindowSize: 5,
+          conversationTitle: 'test-conversation',
+        })
+      );
+    });
+
+    it('uses default compaction visible window when under token threshold', async () => {
+      mockPlugin.compactionTokenService.resolveCompactionVisibleWindowSize = jest
+        .fn()
+        .mockResolvedValue(10);
+
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+      };
+
+      mockPlugin.conversationRenderer.extractConversationHistory = jest.fn().mockResolvedValue([]);
+
+      await testAgent.executeForTest(params);
+
+      expect(mockPlugin.compactionOrchestrator.run).toHaveBeenCalledWith(
+        expect.objectContaining({
+          visibleWindowSize: 10,
+        })
+      );
     });
   });
 });

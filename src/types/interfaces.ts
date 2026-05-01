@@ -61,6 +61,8 @@ export interface StewardPluginSettings {
       model: string; // The chat model (e.g., gpt-4-turbo-preview, llama3.2)
       customModels: string[]; // User-defined custom chat models
     };
+    /** Full model key `provider:modelId` → context tokens (optional overrides) */
+    modelContextLengths?: Record<string, number>;
     temperature: number;
     ollamaBaseUrl?: string; // Deprecated: use providers[provider].baseUrl instead
     maxGenerationTokens?: number; // Maximum number of tokens to generate in response

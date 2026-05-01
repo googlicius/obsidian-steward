@@ -29,6 +29,43 @@ import type { OllamaProvider } from 'ollama-ai-provider-v2';
 export class LLMService {
   private static instance: LLMService | null = null;
 
+  /** When model id is unknown / unmatched — compaction threshold denominator fallback */
+  private static readonly DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK = 128_000;
+
+  private static readonly MODEL_CONTEXT_DEFAULT_ENTRIES: ReadonlyArray<readonly [string, number]> =
+    [
+      ['gpt-5.5', 1_050_000],
+      ['gpt-5.4-nano', 400_000],
+      ['gpt-5.4-mini', 400_000],
+      ['gpt-5.4', 1_050_000],
+      ['gpt-5.1-chat', 128_000],
+      ['gpt-5', 400_000],
+      ['gpt-4.1', 1_047_576],
+      ['gpt-4-turbo', 128_000],
+      ['gpt-4o-mini', 128_000],
+      ['gpt-4o', 128_000],
+      ['gpt-4', 128_000],
+      ['gpt-3.5-turbo', 16_385],
+      ['gpt-3.5', 16_385],
+      ['claude-opus-4', 200_000],
+      ['claude-sonnet-4', 200_000],
+      ['claude-3', 200_000],
+      ['claude', 200_000],
+      ['gemini-2', 1_048_576],
+      ['gemini-1.5', 1_048_576],
+      ['gemini', 1_048_576],
+      ['deepseek-reasoner', 128_000],
+      ['deepseek-chat', 128_000],
+      ['deepseek', 128_000],
+      ['llama3', 131_072],
+      ['llama', 131_072],
+      ['qwen', 131_072],
+    ];
+
+  private static readonly SORTED_MODEL_CONTEXT_DEFAULTS = [
+    ...LLMService.MODEL_CONTEXT_DEFAULT_ENTRIES,
+  ].sort((a, b) => b[0].length - a[0].length);
+
   private constructor(private plugin: StewardPlugin) {}
 
   /**
@@ -113,6 +150,34 @@ export class LLMService {
       provider: model.substring(0, colonIndex),
       modelId: model.substring(colonIndex + 1),
     };
+  }
+
+  /**
+   * Resolved chat context window in tokens for compaction thresholds (`provider:modelId`).
+   * Optional overrides: settings.llm.modelContextLengths[`fullModelKey`].
+   */
+  public getModelContextLengthTokens(model: string): number {
+    const trimmed = model?.trim() ?? '';
+    if (!trimmed) {
+      return LLMService.DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK;
+    }
+
+    const overrides = this.plugin.settings.llm.modelContextLengths ?? {};
+    const override = overrides[trimmed];
+    if (typeof override === 'number' && override > 0 && Number.isFinite(override)) {
+      return Math.floor(override);
+    }
+
+    const { provider, modelId } = this.parseModel(trimmed);
+    const haystack = `${trimmed} ${modelId} ${provider}`.toLowerCase();
+
+    for (const [pattern, tokens] of LLMService.SORTED_MODEL_CONTEXT_DEFAULTS) {
+      if (haystack.includes(pattern.toLowerCase())) {
+        return tokens;
+      }
+    }
+
+    return LLMService.DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK;
   }
 
   /**
