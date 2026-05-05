@@ -681,6 +681,79 @@ describe('ConversationRenderer', () => {
       expect(history).toMatchSnapshot();
     });
 
+    it('extractConversationHistory includes every compacted message when includeCompactedMessage is true', async () => {
+      const mockContent = [
+        '<!--STW ID:cmp1,ROLE:steward,COMMAND:compacted-->',
+        '```stw-hidden-from-user',
+        'COMPACTED BLOCK ONE',
+        '```',
+        '',
+        '<!--STW ID:usr1,ROLE:user,COMMAND:search-->',
+        '##### **User:** /search Angular',
+        '',
+        '<!--STW ID:asst1,ROLE:steward,COMMAND:search-->',
+        'Angular overview text.',
+        '',
+        '<!--STW ID:cmp2,ROLE:steward,COMMAND:compacted-->',
+        '```stw-hidden-from-user',
+        'COMPACTED BLOCK TWO',
+        '```',
+        '',
+        '<!--STW ID:asst2,ROLE:steward,COMMAND:generate-->',
+        'Final answer after compaction.',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation', {
+        includeCompactedMessage: true,
+      });
+
+      expect(history.hasCompactionContext).toBe(true);
+      const joined = JSON.stringify(history.messages);
+      expect(joined).toContain('COMPACTED BLOCK ONE');
+      expect(joined).toContain('COMPACTED BLOCK TWO');
+      expect(joined).toContain('Final answer after compaction.');
+      expect(joined).not.toContain('Angular overview text.');
+    });
+
+    it('extractConversationHistory excludes compacted summaries when includeCompactedMessage is false', async () => {
+      const mockContent = [
+        '<!--STW ID:cmp1,ROLE:steward,COMMAND:compacted-->',
+        '```stw-hidden-from-user',
+        'COMPACTED BLOCK ONE',
+        '```',
+        '',
+        '<!--STW ID:usr1,ROLE:user,COMMAND:search-->',
+        '##### **User:** /search Angular',
+        '',
+        '<!--STW ID:asst1,ROLE:steward,COMMAND:search-->',
+        'Angular overview text.',
+        '',
+        '<!--STW ID:cmp2,ROLE:steward,COMMAND:compacted-->',
+        '```stw-hidden-from-user',
+        'COMPACTED BLOCK TWO',
+        '```',
+        '',
+        '<!--STW ID:asst2,ROLE:steward,COMMAND:generate-->',
+        'Final answer after compaction.',
+      ].join('\n');
+
+      const mockPlugin = createMockPlugin(mockContent);
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const history = await conversationRenderer.extractConversationHistory('test-conversation', {
+        includeCompactedMessage: false,
+      });
+
+      expect(history.hasCompactionContext).toBe(false);
+      const joined = JSON.stringify(history.messages);
+      expect(joined).not.toContain('COMPACTED BLOCK ONE');
+      expect(joined).not.toContain('COMPACTED BLOCK TWO');
+      expect(joined).toContain('Final answer after compaction.');
+    });
+
     it('should resolve the tool-invocation output as a message reference', async () => {});
   });
 

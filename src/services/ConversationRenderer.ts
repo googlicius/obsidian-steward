@@ -22,6 +22,31 @@ import { Events } from 'src/types/events';
 // eslint-disable-next-line @typescript-eslint/no-empty-interface -- declaration merge: class body + mixin prototype
 export interface ConversationRenderer extends ToolSerialization, Frontmatter {}
 
+/** User or assistant text row produced for compaction token budgeting. */
+type ConversationCompactionMessageEntry = {
+  type: 'message';
+  messageId: string;
+  role: string;
+  step?: number;
+  handlerId?: string;
+  content: string;
+  wordCount: number;
+  command?: string;
+};
+
+/** Tool row for compaction: paired tool-call + tool-result from the same invocation. */
+type ConversationCompactionToolEntry = {
+  type: 'tool';
+  messageId: string;
+  toolName: string;
+  toolResult: ToolResultPart;
+  toolCall: ToolCallPart;
+};
+
+type ConversationCompactionEntry =
+  | ConversationCompactionMessageEntry
+  | ConversationCompactionToolEntry;
+
 export class ConversationRenderer {
   static instance: ConversationRenderer;
   private streamingFiles = new Set<string>();
@@ -1152,49 +1177,32 @@ export class ConversationRenderer {
   }
 
   /**
+   * Counts existing compaction summary blocks in the note (`COMMAND:compacted`).
+   * Used when appending a new compaction so formatting can skip duplicate guidelines.
+   */
+  public async countCompactedMessageBlocks(conversationTitle: string): Promise<number> {
+    const messages = await this.extractAllConversationMessages(conversationTitle);
+    let count = 0;
+    for (let i = 0; i < messages.length; i++) {
+      if (messages[i].intent === 'compacted') {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
    * Converts messages for compaction: strips reasoning, uses model format.
    * Returns entries with clean content (no reasoning) and messageIds for stw_compaction.
    */
-  public async convertMessagesForCompaction(
-    conversationTitle: string,
-    messages: ConversationMessage[]
-  ): Promise<
-    Array<
-      | {
-          type: 'message';
-          messageId: string;
-          role: string;
-          step?: number;
-          handlerId?: string;
-          content: string;
-          wordCount: number;
-        }
-      | {
-          type: 'tool';
-          messageId: string;
-          toolName: string;
-          toolResult: ToolResultPart;
-        }
-    >
-  > {
+  public async getMessagesForCompaction(
+    conversationTitle: string
+  ): Promise<ConversationCompactionEntry[]> {
+    const messages = await this.extractConversationMessagesForHistory(conversationTitle, {
+      includeCompactedMessage: false,
+    });
     const grouped = this.groupMessagesByStep(messages);
-    const entries: Array<
-      | {
-          type: 'message';
-          messageId: string;
-          role: string;
-          step?: number;
-          handlerId?: string;
-          content: string;
-          wordCount: number;
-        }
-      | {
-          type: 'tool';
-          messageId: string;
-          toolName: string;
-          toolResult: ToolResultPart;
-        }
-    > = [];
+    const entries: ConversationCompactionEntry[] = [];
 
     for (const group of grouped) {
       const firstMessage = group[0];
@@ -1218,14 +1226,42 @@ export class ConversationRenderer {
       }
 
       const assistantParts: (TextPart | ToolCallPart | ReasoningOutput)[] = [];
-      const toolResultParts: ToolResultPart[] = [];
+      let groupHadToolResults = false;
 
       for (const message of group) {
         if (message.type === 'reasoning' && !belongsToLastTurn) continue;
         const parts = await this.convertMessageToParts(conversationTitle, message);
         if (!parts || parts.role === 'user') continue;
+
         assistantParts.push(...parts.assistantParts);
-        toolResultParts.push(...parts.toolResultParts);
+
+        if (parts.toolResultParts.length > 0) {
+          groupHadToolResults = true;
+          for (const tr of parts.toolResultParts) {
+            const toolCall = parts.assistantParts.find(
+              (p): p is ToolCallPart => p.type === 'tool-call' && p.toolCallId === tr.toolCallId
+            );
+            if (!toolCall) {
+              logger.warn(
+                'getMessagesForCompaction: tool-result without paired tool-call in same message; skipping',
+                {
+                  toolCallId: tr.toolCallId,
+                  toolName: tr.toolName,
+                  conversationTitle,
+                  messageId: message.id,
+                }
+              );
+              continue;
+            }
+            entries.push({
+              type: 'tool',
+              messageId: message.id,
+              toolName: tr.toolName,
+              toolResult: tr,
+              toolCall,
+            });
+          }
+        }
       }
 
       const textParts = assistantParts.filter((p): p is TextPart => p.type === 'text');
@@ -1234,7 +1270,8 @@ export class ConversationRenderer {
         .join(' ')
         .trim();
 
-      if (textContent.length > 0 && toolResultParts.length === 0) {
+      // Only collect standalone text - Not part of a tool call.
+      if (textContent.length > 0 && !groupHadToolResults) {
         const primaryMsg = group.find(m => m.type !== 'reasoning') ?? firstMessage;
         entries.push({
           type: 'message',
@@ -1245,18 +1282,6 @@ export class ConversationRenderer {
           content: textContent,
           wordCount: this.countWords(textContent),
         });
-      }
-
-      if (toolResultParts.length > 0) {
-        const toolInvocationMsg = group.find(m => m.type === 'tool-invocation') ?? firstMessage;
-        for (const tr of toolResultParts) {
-          entries.push({
-            type: 'tool',
-            messageId: toolInvocationMsg.id,
-            toolName: tr.toolName,
-            toolResult: tr,
-          });
-        }
       }
     }
 
@@ -1280,7 +1305,8 @@ export class ConversationRenderer {
   ): Promise<ModelMessage[]> {
     try {
       // Get all messages from the conversation
-      const allMessages = await this.extractConversationHistory(conversationTitle);
+      const historyResult = await this.extractConversationHistory(conversationTitle);
+      const allMessages = historyResult.messages;
 
       // Filter messages by handler ID
       return allMessages.filter(
@@ -1498,18 +1524,39 @@ export class ConversationRenderer {
   public async extractConversationHistory(
     conversationTitle: string,
     options?: {
-      maxMessages?: number;
+      maxMessages?: number | null;
+      includeCompactedMessage?: boolean;
     }
-  ): Promise<ModelMessage[]> {
-    const { maxMessages = 10 } = options || {};
+  ): Promise<{ messages: ModelMessage[]; hasCompactionContext: boolean }> {
+    const messagesToInclude = await this.extractConversationMessagesForHistory(
+      conversationTitle,
+      options
+    );
+    const hasCompactionContext = messagesToInclude.some(
+      message => message.intent === 'compacted' || message.type === 'compacted'
+    );
 
-    // Get all messages from the conversation
+    // Group consecutive messages by (handlerId, role, step) for merging
+    const groupedMessages = this.groupMessagesByStep(messagesToInclude);
+    const messages = await this.convertConversationMessagesToModelMessages(
+      conversationTitle,
+      groupedMessages
+    );
+    return { messages, hasCompactionContext };
+  }
+
+  private async extractConversationMessagesForHistory(
+    conversationTitle: string,
+    options?: {
+      maxMessages?: number | null;
+      includeCompactedMessage?: boolean;
+    }
+  ): Promise<ConversationMessage[]> {
+    const { maxMessages = null, includeCompactedMessage = true } = options || {};
+
     const allMessages = await this.extractAllConversationMessages(conversationTitle);
-
-    // Filter out messages where history is explicitly set to false
     const messagesForHistory = allMessages.filter(message => message.history !== false);
 
-    // Remove the last message if it is a user message which is just being added.
     if (
       messagesForHistory.length > 0 &&
       messagesForHistory[messagesForHistory.length - 1].role === 'user'
@@ -1524,30 +1571,54 @@ export class ConversationRenderer {
 
     for (let i = messagesForHistory.length - 1; i >= 0; i--) {
       const message = messagesForHistory[i];
-
-      // If the user message is a built-in or UDC (but not the general command "/ "), start a new topic
       if (
         message.role === 'user' &&
         message.intent &&
         message.intent !== ' ' &&
         allCommandWithoutPrefixes.includes(message.intent)
       ) {
-        // Found a message that starts a new topic
         topicStartIndex = i;
         break;
       }
     }
 
-    // Get messages after the topicStartIndex
-    const filteredMessages = messagesForHistory.slice(topicStartIndex);
+    let filteredMessages: ConversationMessage[];
 
-    // Slice messages without cutting in the middle of a step
-    const messagesToInclude = this.sliceMessagesPreservingSteps(filteredMessages, maxMessages);
+    const compactedEntries = this.collectCompactedMessages(messagesForHistory);
+    if (compactedEntries.length > 0) {
+      const maxCompactedIndex = compactedEntries[compactedEntries.length - 1].index;
+      if (includeCompactedMessage) {
+        const startIndex = Math.max(maxCompactedIndex + 1, topicStartIndex);
+        filteredMessages = [
+          ...compactedEntries.map(entry => entry.message),
+          ...messagesForHistory.slice(startIndex),
+        ];
+      } else {
+        const startIndex = maxCompactedIndex + 1;
+        filteredMessages = messagesForHistory.slice(startIndex);
+      }
+    } else {
+      filteredMessages = messagesForHistory.slice(topicStartIndex);
+    }
+    return maxMessages === null
+      ? filteredMessages
+      : this.sliceMessagesPreservingSteps(filteredMessages, maxMessages);
+  }
 
-    // Group consecutive messages by (handlerId, role, step) for merging
-    const groupedMessages = this.groupMessagesByStep(messagesToInclude);
-
-    return this.convertConversationMessagesToModelMessages(conversationTitle, groupedMessages);
+  /**
+   * All messages with intent `compacted`, in ascending index order.
+   * The latest compaction is the last entry (largest index).
+   */
+  private collectCompactedMessages(
+    messages: ConversationMessage[]
+  ): { index: number; message: ConversationMessage }[] {
+    const result: { index: number; message: ConversationMessage }[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      if (messages[i].intent === 'compacted') {
+        result.push({ index: i, message: messages[i] });
+      }
+    }
+    return result;
   }
 
   /**

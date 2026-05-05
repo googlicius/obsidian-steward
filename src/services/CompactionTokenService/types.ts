@@ -1,8 +1,4 @@
-/**
- * Compaction schema version — bump when the frontmatter layout changes
- * so stale caches are automatically invalidated.
- */
-export const COMPACTION_SCHEMA_VERSION = 4;
+import type { ToolCallPart } from 'src/solutions/commands/tools/types';
 
 /**
  * Compact representation of a text message (user or assistant).
@@ -37,7 +33,6 @@ export interface CompactedToolEntry {
 export type CompactedEntry = CompactedMessageEntry | CompactedToolEntry;
 
 export interface CompactionData {
-  version: number;
   /** Single ordered array: messages and tool results in chronological order */
   messages: CompactedEntry[];
   lastCompactedMessageId?: string;
@@ -61,6 +56,8 @@ export interface ToolResultCompactor {
 export interface CompactorParams {
   messageId: string;
   output: unknown;
+  /** Paired tool-call from the same invocation (same toolCallId as the compacted result). */
+  toolCall: ToolCallPart;
 }
 
 /**

@@ -10,7 +10,6 @@ import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { getClassifier } from 'src/lib/modelfusion';
 import * as handlers from '../handlers';
 import { createStepProcessedQuery } from './stepProcessedQuery';
-import { COMPACTION_SCHEMA_VERSION } from 'src/solutions/compaction/types';
 
 /** `streamText` is loaded via `getBundledLib('ai')` in production; tests stub that path. */
 jest.mock('src/utils/bundledLibs', () => {
@@ -71,7 +70,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     }),
     serializeToolInvocation: jest.fn(),
     removeConfirmationButtons: jest.fn(),
-    extractConversationHistory: jest.fn().mockResolvedValue([]),
+    extractConversationHistory: jest
+      .fn()
+      .mockResolvedValue({ messages: [], hasCompactionContext: false }),
     updateConversationFrontmatter: jest.fn(),
     getConversationProperty: jest.fn().mockResolvedValue(undefined),
     recordTokenUsage: jest.fn().mockResolvedValue(undefined),
@@ -143,14 +144,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       getRulesForTool: jest.fn().mockReturnValue([]),
     },
     artifactManagerV2: mockArtifactManager,
-    compactionOrchestrator: {
-      run: jest.fn().mockResolvedValue({
-        data: { version: COMPACTION_SCHEMA_VERSION, messages: [] },
-      }),
-    },
-    compactionTokenService: {
-      resolveCompactionVisibleWindowSize: jest.fn().mockResolvedValue(10),
-    },
+    compactionTokenService: {},
     mcpService: {
       getMcpToolsForConversation: jest.fn().mockResolvedValue({
         active: {} as Record<string, unknown>,
@@ -225,22 +219,24 @@ describe('SuperAgent', () => {
         } as Intent,
       };
 
-      // Mock extractConversationHistory to return empty array for first call
-      // and conversation history for subsequent calls
+      // Mock compaction-scoped history for each iteration
       mockPlugin.conversationRenderer.extractConversationHistory = jest
         .fn()
-        .mockResolvedValueOnce([]) // First call - no history
-        .mockResolvedValueOnce([
+        .mockResolvedValueOnce({ messages: [], hasCompactionContext: false }) // First call - no history
+        .mockResolvedValueOnce({
           // Second call - should have user message and assistant response from first iteration
-          {
-            role: 'user',
-            content: [{ type: 'text', text: 'test query' }],
-          },
-          {
-            role: 'assistant',
-            content: '',
-          },
-        ]);
+          messages: [
+            {
+              role: 'user',
+              content: [{ type: 'text', text: 'test query' }],
+            },
+            {
+              role: 'assistant',
+              content: '',
+            },
+          ],
+          hasCompactionContext: false,
+        });
 
       // First iteration - no handlerId
       await superAgent.handle(params);

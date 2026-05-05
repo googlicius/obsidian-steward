@@ -1,24 +1,36 @@
 import type StewardPlugin from 'src/main';
+import { ToolName } from 'src/solutions/commands/toolNames';
+import type { CompactionData } from './types';
 import {
   COMPACTION_PROMPT_THRESHOLD_PERCENT,
-  COMPACTION_VISIBLE_WINDOW_DEFAULT,
-  COMPACTION_VISIBLE_WINDOW_MIN,
   CompactionTokenService,
   estimatePromptTokensRoughFromMessages,
 } from './CompactionTokenService';
+import { ShellCompactor } from './compactors/ShellCompactor';
+import type { ToolCallPart } from 'src/solutions/commands/tools/types';
 
-function createMockPlugin(options?: {
-  contextLengthTokens?: number;
-  recordedPromptTokens?: number | undefined;
-}): jest.Mocked<StewardPlugin> {
-  const contextLengthTokens = options?.contextLengthTokens ?? 128_000;
-  const recorded = options?.recordedPromptTokens;
+function createMockPlugin(): jest.Mocked<StewardPlugin> {
   return {
     llmService: {
-      getModelContextLengthTokens: jest.fn().mockReturnValue(contextLengthTokens),
+      getModelContextLengthTokens: jest.fn().mockReturnValue(128_000),
     },
     conversationRenderer: {
-      getRecordedInputTokensForAgent: jest.fn().mockResolvedValue(recorded),
+      extractConversationHistory: jest.fn().mockResolvedValue([]),
+      updateConversationNote: jest.fn(),
+      updateMessageMetadata: jest.fn(),
+      getMessagesForCompaction: jest.fn(),
+      getRecordedInputTokensForAgent: jest.fn(),
+      countCompactedMessageBlocks: jest.fn().mockResolvedValue(0),
+    },
+    settings: {
+      llm: {
+        agents: {
+          compactionSummary: {
+            enabled: false,
+            model: '',
+          },
+        },
+      },
     },
   } as unknown as jest.Mocked<StewardPlugin>;
 }
@@ -38,10 +50,12 @@ describe('CompactionTokenService', () => {
     });
 
     it('returns true at equality', () => {
+      const contextLength = 128_000;
+      const threshold = Math.round(contextLength * COMPACTION_PROMPT_THRESHOLD_PERCENT);
       expect(
         shouldTriggerCompactionByTokens({
-          promptTokens: 64_000,
-          contextLength: 128_000,
+          promptTokens: threshold,
+          contextLength,
           thresholdPercent: COMPACTION_PROMPT_THRESHOLD_PERCENT,
         })
       ).toBe(true);
@@ -84,46 +98,86 @@ describe('CompactionTokenService', () => {
     });
   });
 
-  describe('resolveCompactionVisibleWindowSize', () => {
-    it('shrinks window when recorded prompt tokens exceed threshold', async () => {
-      const mockPlugin = createMockPlugin({ recordedPromptTokens: 70_000 });
-      const service = new CompactionTokenService(mockPlugin);
+  describe('buildCompactedMessage', () => {
+    let service: CompactionTokenService;
+    let buildCompactedMessage: (
+      data: CompactionData,
+      params: { compactIndex: number }
+    ) => string;
 
-      await expect(
-        service.resolveCompactionVisibleWindowSize({
-          conversationTitle: 't',
-          conversationHistory: [],
-          model: 'x',
-        })
-      ).resolves.toBe(Math.max(COMPACTION_VISIBLE_WINDOW_MIN, Math.floor(COMPACTION_VISIBLE_WINDOW_DEFAULT / 2)));
+    beforeEach(() => {
+      service = new CompactionTokenService(createMockPlugin());
+      buildCompactedMessage = service['buildCompactedMessage'].bind(service);
     });
 
-    it('uses fallback estimate when recorded tokens missing', async () => {
-      const mockPlugin = createMockPlugin({ recordedPromptTokens: undefined });
-      const service = new CompactionTokenService(mockPlugin);
-      const pad = 'x'.repeat(280_000);
+    const sampleData: CompactionData = {
+      messages: [
+        {
+          type: 'message',
+          messageId: 'id1',
+          role: 'user',
+          contentMode: 'original',
+          content: 'Hello',
+          wordCount: 1,
+        },
+      ],
+    };
 
-      await expect(
-        service.resolveCompactionVisibleWindowSize({
-          conversationTitle: 't',
-          conversationHistory: [{ role: 'user', content: pad }],
-          model: 'x',
-        })
-      ).resolves.toBe(Math.max(COMPACTION_VISIBLE_WINDOW_MIN, Math.floor(COMPACTION_VISIBLE_WINDOW_DEFAULT / 2)));
+    it('includes compaction guideline and Compact #1 for the first block', () => {
+      const text = buildCompactedMessage(sampleData, { compactIndex: 1 });
+      expect(text).toContain('COMPACTED CONVERSATION CONTEXT');
+      expect(text).toContain('IMPORTANT:');
+      expect(text).toContain('Compact #1');
+      expect(text).toContain('Compacted context:');
     });
 
-    it('returns default visible window when under threshold', async () => {
-      const mockPlugin = createMockPlugin({ recordedPromptTokens: 1000 });
-      const service = new CompactionTokenService(mockPlugin);
-
-      await expect(
-        service.resolveCompactionVisibleWindowSize({
-          conversationTitle: 't',
-          conversationHistory: [],
-          model: 'x',
-        })
-      ).resolves.toBe(COMPACTION_VISIBLE_WINDOW_DEFAULT);
+    it('omits guideline for Compact #2+ and keeps label', () => {
+      const text = buildCompactedMessage(sampleData, { compactIndex: 2 });
+      expect(text).not.toContain('IMPORTANT:');
+      expect(text).not.toContain('COMPACTED CONVERSATION CONTEXT');
+      expect(text).toContain('Compact #2');
+      expect(text).toContain('Compacted context:');
     });
+  });
+});
+
+describe('ShellCompactor', () => {
+  it('stores argsLine from tool call input in metadata', () => {
+    const shellToolCall = {
+      type: 'tool-call' as const,
+      toolName: ToolName.SHELL,
+      toolCallId: 'call_shell',
+      input: { argsLine: 'npm run build' },
+    } satisfies ToolCallPart;
+
+    const result = new ShellCompactor().compact({
+      messageId: 'msg1',
+      output: { type: 'text', value: 'messageRef:abc' },
+      toolCall: shellToolCall,
+    });
+
+    expect(result.toolName).toBe(ToolName.SHELL);
+    expect(result.metadata.argsLine).toBe('npm run build');
+    expect(typeof result.metadata.output).toBe('string');
+    expect(String(result.metadata.output)).toContain(ToolName.RECALL_COMPACTED_CONTEXT);
+  });
+
+  it('uses empty string when argsLine is missing', () => {
+    const shellToolCall = {
+      type: 'tool-call' as const,
+      toolName: ToolName.SHELL,
+      toolCallId: 'call_shell',
+      input: {},
+    } satisfies ToolCallPart;
+
+    const result = new ShellCompactor().compact({
+      messageId: 'msg1',
+      output: { type: 'text', value: 'ok' },
+      toolCall: shellToolCall,
+    });
+
+    expect(result.metadata.argsLine).toBe('');
+    expect(String(result.metadata.output)).toContain(ToolName.RECALL_COMPACTED_CONTEXT);
   });
 });
 

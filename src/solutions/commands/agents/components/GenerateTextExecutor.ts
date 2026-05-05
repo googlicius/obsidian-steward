@@ -65,7 +65,7 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
     totalUsage: LanguageModelUsage;
   }> {
     const agent = asAgent(this);
-    const conversationHistory = await agent.renderer.extractConversationHistory(params.title);
+    const historyResult = await agent.renderer.extractConversationHistory(params.title);
     const llmConfig = await agent.plugin.llmService.getLLMConfig({
       overrideModel: params.intent.model,
       generateType: 'text',
@@ -120,7 +120,7 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
       .setActive(allActiveToolNames)
       .setAdditionalGuidelines(agent.plugin.guardrailsRuleService.getInstructionsByTool());
 
-    const messages = [...conversationHistory];
+    const messages = [...historyResult.messages];
     if (!params.invocationCount) {
       messages.push({ role: 'user', content: params.intent.query });
     }

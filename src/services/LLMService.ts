@@ -23,48 +23,49 @@ import type { ElevenLabsProvider } from '@ai-sdk/elevenlabs';
 import type { HumeProvider } from '@ai-sdk/hume';
 import type { OllamaProvider } from 'ollama-ai-provider-v2';
 
+/** When model id is unknown / unmatched — compaction threshold denominator fallback */
+const DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK = 128_000;
+const MODEL_CONTEXT_LENGTH_DEBUG = null;
+
+const MODEL_CONTEXT_DEFAULT_ENTRIES: ReadonlyArray<readonly [string, number]> = [
+  ['gpt-5.5', 1_050_000],
+  ['gpt-5.4-nano', 400_000],
+  ['gpt-5.4-mini', 400_000],
+  ['gpt-5.4', 1_050_000],
+  ['gpt-5.1-chat', 128_000],
+  ['gpt-5', 400_000],
+  ['gpt-4.1', 1_047_576],
+  ['gpt-4-turbo', 128_000],
+  ['gpt-4o-mini', 128_000],
+  ['gpt-4o', 128_000],
+  ['gpt-4', 128_000],
+  ['gpt-3.5-turbo', 16_385],
+  ['gpt-3.5', 16_385],
+  ['claude-opus-4', 200_000],
+  ['claude-sonnet-4', 200_000],
+  ['claude-3', 200_000],
+  ['claude', 200_000],
+  ['gemini-2', 1_048_576],
+  ['gemini-1.5', 1_048_576],
+  ['gemini', 1_048_576],
+  ['deepseek-reasoner', 128_000],
+  ['deepseek-chat', 128_000],
+  ['deepseek', 128_000],
+  ['llama3', 131_072],
+  ['llama', 131_072],
+  ['qwen', 131_072],
+];
+
 /**
  * Service for managing LLM models and configurations using the AI package
  */
 export class LLMService {
   private static instance: LLMService | null = null;
 
-  /** When model id is unknown / unmatched — compaction threshold denominator fallback */
-  private static readonly DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK = 128_000;
-
-  private static readonly MODEL_CONTEXT_DEFAULT_ENTRIES: ReadonlyArray<readonly [string, number]> =
-    [
-      ['gpt-5.5', 1_050_000],
-      ['gpt-5.4-nano', 400_000],
-      ['gpt-5.4-mini', 400_000],
-      ['gpt-5.4', 1_050_000],
-      ['gpt-5.1-chat', 128_000],
-      ['gpt-5', 400_000],
-      ['gpt-4.1', 1_047_576],
-      ['gpt-4-turbo', 128_000],
-      ['gpt-4o-mini', 128_000],
-      ['gpt-4o', 128_000],
-      ['gpt-4', 128_000],
-      ['gpt-3.5-turbo', 16_385],
-      ['gpt-3.5', 16_385],
-      ['claude-opus-4', 200_000],
-      ['claude-sonnet-4', 200_000],
-      ['claude-3', 200_000],
-      ['claude', 200_000],
-      ['gemini-2', 1_048_576],
-      ['gemini-1.5', 1_048_576],
-      ['gemini', 1_048_576],
-      ['deepseek-reasoner', 128_000],
-      ['deepseek-chat', 128_000],
-      ['deepseek', 128_000],
-      ['llama3', 131_072],
-      ['llama', 131_072],
-      ['qwen', 131_072],
-    ];
-
-  private static readonly SORTED_MODEL_CONTEXT_DEFAULTS = [
-    ...LLMService.MODEL_CONTEXT_DEFAULT_ENTRIES,
-  ].sort((a, b) => b[0].length - a[0].length);
+  /** Sorting descending by key length enforces “specific-first, generic-last” matching and avoids wrong context-length resolution. */
+  private static readonly SORTED_MODEL_CONTEXT_DEFAULTS = [...MODEL_CONTEXT_DEFAULT_ENTRIES].sort(
+    (a, b) => b[0].length - a[0].length
+  );
 
   private constructor(private plugin: StewardPlugin) {}
 
@@ -159,7 +160,11 @@ export class LLMService {
   public getModelContextLengthTokens(model: string): number {
     const trimmed = model?.trim() ?? '';
     if (!trimmed) {
-      return LLMService.DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK;
+      return DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK;
+    }
+
+    if (MODEL_CONTEXT_LENGTH_DEBUG) {
+      return MODEL_CONTEXT_LENGTH_DEBUG;
     }
 
     const overrides = this.plugin.settings.llm.modelContextLengths ?? {};
@@ -177,7 +182,7 @@ export class LLMService {
       }
     }
 
-    return LLMService.DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK;
+    return DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK;
   }
 
   /**

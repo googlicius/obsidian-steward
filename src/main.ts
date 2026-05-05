@@ -64,7 +64,6 @@ import { UserMessageService } from './services/UserMessageService';
 import { GitHubResourceService } from './services/GitHubResourceService';
 import { SkillService } from './services/SkillService';
 import { GuardrailsRuleService } from './services/GuardrailsRuleService/GuardrailsRuleService';
-import { CompactionOrchestrator } from './solutions/compaction';
 import { CompactionTokenService } from './services/CompactionTokenService';
 import { SubagentSpawnService } from './services/SubagentSpawnService';
 import { MCPService } from './services/MCPService';
@@ -81,6 +80,7 @@ export default class StewardPlugin extends Plugin {
   llmService: LLMService;
   trashCleanupService: TrashCleanupService;
   abortService: AbortService;
+  compactionTokenService: CompactionTokenService;
 
   // Lazy-loaded services
   _searchService: SearchService;
@@ -101,8 +101,6 @@ export default class StewardPlugin extends Plugin {
   _commandTrackingService: CommandTrackingService;
   _versionCheckerService: VersionCheckerService;
   _userMessageService: UserMessageService;
-  _compactionOrchestrator: CompactionOrchestrator;
-  _compactionTokenService: CompactionTokenService;
   _subAgentSpawnService: SubagentSpawnService;
   _obsidianAPITools: ObsidianAPITools;
   _commandProcessorService: CommandProcessorService;
@@ -278,20 +276,6 @@ export default class StewardPlugin extends Plugin {
     return this._subAgentSpawnService;
   }
 
-  get compactionOrchestrator(): CompactionOrchestrator {
-    if (!this._compactionOrchestrator) {
-      this._compactionOrchestrator = new CompactionOrchestrator(this);
-    }
-    return this._compactionOrchestrator;
-  }
-
-  get compactionTokenService(): CompactionTokenService {
-    if (!this._compactionTokenService) {
-      this._compactionTokenService = new CompactionTokenService(this);
-    }
-    return this._compactionTokenService;
-  }
-
   get editor(): ObsidianEditor {
     return this.app.workspace.activeEditor?.editor as ObsidianEditor;
   }
@@ -307,12 +291,6 @@ export default class StewardPlugin extends Plugin {
       await this.saveSettings();
     }
 
-    // Initialize the LLM service
-    this.llmService = LLMService.getInstance(this);
-
-    // Initialize the AbortService
-    this.abortService = AbortService.getInstance();
-
     // Register custom icon using imported SVG
     addIcon(SMILE_CHAT_ICON_ID, stewardIcon);
 
@@ -326,28 +304,37 @@ export default class StewardPlugin extends Plugin {
     // This adds a settings tab so the user can configure various aspects of the plugin
     this.addSettingTab(new StewardSettingTab(this));
 
-    // Initialize the conversation event handler
-    this.conversationEventHandler = new ConversationEventHandler({ plugin: this });
-
-    // Initialize the TrashCleanupService
-    this.trashCleanupService = new TrashCleanupService(this);
-    this.trashCleanupService.initialize();
-
-    // Initialize the SkillService (loads skills from Steward/Skills folder)
-    // Access triggers lazy initialization and onLayoutReady will load all skills
-    this.skillService;
-
-    // Initialize the GuardrailsRuleService (loads rules from Steward/Rules folder)
-    this.guardrailsRuleService;
-
-    // Initialize the MCPService (loads MCP definitions from Steward/MCP folder)
-    this.mcpService;
-
-    if (Platform.isDesktopApp) {
-      await this.ptyCompanionService.start();
-    }
-
     this.app.workspace.onLayoutReady(async () => {
+      // Initialize the LLM service
+      this.llmService = LLMService.getInstance(this);
+
+      // Initialize the AbortService
+      this.abortService = AbortService.getInstance();
+
+      // Initialize the CompactionTokenService
+      this.compactionTokenService = new CompactionTokenService(this);
+
+      // Initialize the conversation event handler
+      this.conversationEventHandler = new ConversationEventHandler({ plugin: this });
+
+      // Initialize the TrashCleanupService
+      this.trashCleanupService = new TrashCleanupService(this);
+      this.trashCleanupService.initialize();
+
+      // Initialize the SkillService (loads skills from Steward/Skills folder)
+      // Access triggers lazy initialization and onLayoutReady will load all skills
+      this.skillService;
+
+      // Initialize the GuardrailsRuleService (loads rules from Steward/Rules folder)
+      this.guardrailsRuleService;
+
+      // Initialize the MCPService (loads MCP definitions from Steward/MCP folder)
+      this.mcpService;
+
+      if (Platform.isDesktopApp) {
+        await this.ptyCompanionService.start();
+      }
+
       // Clean up old search databases
       this.cleanupOldSearchDatabases();
 

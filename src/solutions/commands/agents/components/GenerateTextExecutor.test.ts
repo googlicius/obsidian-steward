@@ -32,7 +32,9 @@ function getMockGenerateText(): jest.Mock {
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   const mockRenderer = {
-    extractConversationHistory: jest.fn().mockResolvedValue([]),
+    extractConversationHistory: jest
+      .fn()
+      .mockResolvedValue({ messages: [], hasCompactionContext: false }),
     updateConversationNote: jest.fn().mockResolvedValue('message-id-123'),
     getConversationProperty: jest.fn().mockResolvedValue(undefined),
   };

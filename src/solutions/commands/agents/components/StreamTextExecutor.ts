@@ -15,7 +15,8 @@ import { Agent } from '../../Agent';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type { LanguageModelUsage, ModelMessage, streamText } from 'ai';
 import { AbortOperationKeys } from 'src/constants';
-import { SUPER_AGENT_MAX_CONVERSATION_MESSAGES } from '../SuperAgent/superAgentConstants';
+import { eventEmitter } from 'src/services/EventEmitter';
+import { Events } from 'src/types/events';
 
 type AiStreamTextParams = Parameters<typeof streamText>[0];
 
@@ -47,23 +48,10 @@ export class StreamTextExecutor {
   }> {
     const agent = asAgent(this);
 
-    const conversationHistory = await agent.renderer.extractConversationHistory(params.title, {
-      maxMessages: SUPER_AGENT_MAX_CONVERSATION_MESSAGES,
-    });
-
-    const visibleWindowSize =
-      await agent.plugin.compactionTokenService.resolveCompactionVisibleWindowSize({
-        conversationTitle: params.title,
-        conversationHistory,
-        model:
-          params.intent.model?.trim() || agent.plugin.settings.llm.chat.model,
-      });
-
-    const compactionResult = await agent.plugin.compactionOrchestrator.run({
-      conversationTitle: params.title,
-      visibleWindowSize,
-      lang: params.lang,
-    });
+    const modelForStream = params.intent.model?.trim() || agent.plugin.settings.llm.chat.model;
+    const historyResult = await agent.plugin.conversationRenderer.extractConversationHistory(
+      params.title
+    );
 
     const llmConfig = await agent.plugin.llmService.getLLMConfig({
       overrideModel: params.intent.model,
@@ -78,7 +66,6 @@ export class StreamTextExecutor {
     const expandedDeclared =
       declaredNormalized === null ? [] : this.expandSuperAgentDeclaredTools(declaredNormalized);
 
-    const hasCompactionContext = !!compactionResult.systemMessage;
     const hasConcludeEligibleDeclared =
       declaredNormalized !== null &&
       expandedDeclared.some(t => params.toolsThatEnableConclude.has(t));
@@ -90,7 +77,7 @@ export class StreamTextExecutor {
       allToolKeys: allSuperAgentKeys,
       toolsThatEnableConclude: params.toolsThatEnableConclude,
       hasConcludeEligibleDeclaredTool: hasConcludeEligibleDeclared,
-      hasCompactionContext,
+      hasCompactionContext: historyResult.hasCompactionContext,
     });
     const effectiveAllowed = new Set(effectiveAllowedNames);
 
@@ -106,7 +93,7 @@ export class StreamTextExecutor {
       effectiveAllowed,
       conversationActiveTools: params.activeTools,
       toolsThatEnableConclude: params.toolsThatEnableConclude,
-      hasCompactionContext,
+      hasCompactionContext: historyResult.hasCompactionContext,
     });
     const allActiveToolNames = [...activeToolNames, ...Object.keys(mcpTools.active)];
     const toolsForRegistry = {
@@ -123,7 +110,7 @@ export class StreamTextExecutor {
       registry.exclude([ToolName.CONFIRMATION, ToolName.ASK_USER]);
     }
 
-    const messages = [...conversationHistory];
+    const messages = [...historyResult.messages];
     if (!params.invocationCount) {
       messages.push({ role: 'user', content: params.intent.query });
     }
@@ -173,10 +160,6 @@ export class StreamTextExecutor {
 
     if (llmConfig.systemPrompt) {
       additionalSystemPrompts.push(llmConfig.systemPrompt);
-    }
-
-    if (compactionResult.systemMessage) {
-      additionalSystemPrompts.push(compactionResult.systemMessage);
     }
 
     if (additionalSystemPrompts.length > 0) {
@@ -263,12 +246,22 @@ export class StreamTextExecutor {
       // Ignore errors here, they're handled by streamErrorPromise
     });
 
+    const usage = await usagePromise;
+    const totalUsage = await totalUsagePromise;
+
+    eventEmitter.emit(Events.EXECUTED_STREAM_TEXT, {
+      conversationTitle: params.title,
+      lang: params.lang,
+      model: modelForStream,
+      promptTokens: usage?.inputTokens,
+    });
+
     return {
       toolCalls,
-      conversationHistory,
+      conversationHistory: historyResult.messages,
       toolContentStreamInfo,
-      usage: await usagePromise,
-      totalUsage: await totalUsagePromise,
+      usage,
+      totalUsage,
     };
   }
 }

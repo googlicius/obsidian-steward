@@ -100,14 +100,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     guardrailsRuleService: {
       getInstructionsByTool: jest.fn().mockReturnValue(new Map()),
     },
-    compactionOrchestrator: {
-      run: jest.fn().mockResolvedValue({
-        systemMessage: undefined,
-      }),
-    },
-    compactionTokenService: {
-      resolveCompactionVisibleWindowSize: jest.fn().mockResolvedValue(10),
-    },
+    compactionTokenService: {},
     mcpService: {
       getMcpToolsForConversation: jest.fn().mockResolvedValue({
         active: {} as Record<string, unknown>,
@@ -242,7 +235,9 @@ describe('StreamTextExecutor', () => {
         systemPrompt: providerSystemPrompt,
       });
 
-      mockPlugin.conversationRenderer.extractConversationHistory = jest.fn().mockResolvedValue([]);
+      mockPlugin.conversationRenderer.extractConversationHistory = jest
+        .fn()
+        .mockResolvedValue({ messages: [], hasCompactionContext: false });
 
       await testAgent.executeForTest(params);
 
@@ -267,7 +262,9 @@ describe('StreamTextExecutor', () => {
 
       mockPlugin.conversationRenderer.extractConversationHistory = jest
         .fn()
-        .mockImplementation(() => Promise.resolve([]));
+        .mockImplementation(() =>
+          Promise.resolve({ messages: [], hasCompactionContext: false })
+        );
 
       await testAgent.executeForTest(params);
 
@@ -294,7 +291,7 @@ describe('StreamTextExecutor', () => {
       ];
       mockPlugin.conversationRenderer.extractConversationHistory = jest
         .fn()
-        .mockResolvedValue(historyMessages);
+        .mockResolvedValue({ messages: historyMessages, hasCompactionContext: false });
 
       await testAgent.executeForTest(params);
 
@@ -303,10 +300,11 @@ describe('StreamTextExecutor', () => {
       expect(call.messages).toEqual(historyMessages);
     });
 
-    it('narrows compaction visible window when token pressure exceeds threshold', async () => {
-      mockPlugin.compactionTokenService.resolveCompactionVisibleWindowSize = jest
+    it('loads conversation history via extractConversationHistory with compaction-aware options', async () => {
+      const historyMessages = [{ role: 'assistant', content: 'COMPACTED CONVERSATION CONTEXT' }];
+      mockPlugin.conversationRenderer.extractConversationHistory = jest
         .fn()
-        .mockResolvedValue(5);
+        .mockResolvedValue({ messages: historyMessages, hasCompactionContext: true });
 
       const params: AgentHandlerParams = {
         title: 'test-conversation',
@@ -316,39 +314,10 @@ describe('StreamTextExecutor', () => {
         } as Intent,
       };
 
-      mockPlugin.conversationRenderer.extractConversationHistory = jest.fn().mockResolvedValue([]);
-
       await testAgent.executeForTest(params);
 
-      expect(mockPlugin.compactionOrchestrator.run).toHaveBeenCalledWith(
-        expect.objectContaining({
-          visibleWindowSize: 5,
-          conversationTitle: 'test-conversation',
-        })
-      );
-    });
-
-    it('uses default compaction visible window when under token threshold', async () => {
-      mockPlugin.compactionTokenService.resolveCompactionVisibleWindowSize = jest
-        .fn()
-        .mockResolvedValue(10);
-
-      const params: AgentHandlerParams = {
-        title: 'test-conversation',
-        intent: {
-          type: 'vault',
-          query: 'test query',
-        } as Intent,
-      };
-
-      mockPlugin.conversationRenderer.extractConversationHistory = jest.fn().mockResolvedValue([]);
-
-      await testAgent.executeForTest(params);
-
-      expect(mockPlugin.compactionOrchestrator.run).toHaveBeenCalledWith(
-        expect.objectContaining({
-          visibleWindowSize: 10,
-        })
+      expect(mockPlugin.conversationRenderer.extractConversationHistory).toHaveBeenCalledWith(
+        'test-conversation'
       );
     });
   });
