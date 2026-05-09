@@ -5,6 +5,21 @@ All notable changes to Obsidian Steward will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.0] - 2026-05-10
+
+### Added
+
+- **Conversation**: Conversation rendering services with usage records
+
+### Changed
+
+- **Compaction**: Compact conversations using token context length instead of message count
+- **Compaction**: When nearing the context threshold, compact by token amount
+- **Bundled libs**: Move Dexie, CryptoJS, chrono-node, and i18next to the second build
+- **Bundled libs**: Use the same names as the original modules for bundled libraries
+
+[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.7.3...2.8.0)
+
 ## [2.7.3] - 2026-04-26
 
 ### Added

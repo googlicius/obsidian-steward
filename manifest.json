@@ -1,11 +1,11 @@
 {
-  "id": "steward",
-  "name": "Steward",
-  "version": "2.7.3",
-  "minAppVersion": "1.8.0",
-  "description": "An AI agent equipped with agent capacity, fast search, flexible commands, vault management, and terminals for other CLI-based agents, such as Claude, Gemini, etc.",
-  "author": "Dang Nguyen",
-  "authorUrl": "https://github.com/googlicius",
-  "fundingUrl": "https://coff.ee/dang.nguyen",
-  "isDesktopOnly": false
+	"id": "steward",
+	"name": "Steward",
+	"version": "2.8.0",
+	"minAppVersion": "1.8.0",
+	"description": "An AI agent equipped with agent capacity, fast search, flexible commands, vault management, and terminals for other CLI-based agents, such as Claude, Gemini, etc.",
+	"author": "Dang Nguyen",
+	"authorUrl": "https://github.com/googlicius",
+	"fundingUrl": "https://coff.ee/dang.nguyen",
+	"isDesktopOnly": false
 }
