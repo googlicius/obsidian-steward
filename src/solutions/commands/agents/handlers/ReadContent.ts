@@ -1,7 +1,7 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath } from 'obsidian';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ArtifactType } from 'src/solutions/artifact';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
@@ -11,6 +11,8 @@ import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { logger } from 'src/utils/logger';
 import { ARTIFACT_REF_PREFIX } from '../../command-syntax-parser/normalizers/ReadContentInputNormalizer';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 export const contentReadingSchema = z.object({
   readType: z.enum(['above', 'below', 'pattern', 'entire', 'frontmatter']).default('above')

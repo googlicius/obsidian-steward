@@ -1,7 +1,9 @@
-import i18next from 'i18next';
 import { MarkdownPostProcessor, TFile, setIcon, setTooltip } from 'obsidian';
 import type StewardPlugin from 'src/main';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { StewardChatView } from 'src/views/StewardChatView';
+
+const { i18next } = getBundledInternal('i18n');
 
 function removeHistoryLinkFromContent(params: {
   content: string;

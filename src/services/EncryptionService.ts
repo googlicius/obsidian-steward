@@ -1,6 +1,8 @@
-import * as CryptoJS from 'crypto-js';
 import { logger } from 'src/utils/logger';
+import { getBundledSyncLibSync } from 'src/utils/bundledLibs';
 import type StewardPlugin from 'src/main';
+
+const CryptoJS = getBundledSyncLibSync('crypto-js');
 
 /**
  * Service for handling encryption and decryption using vault-specific storage

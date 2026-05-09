@@ -2,7 +2,7 @@ import type StewardPlugin from 'src/main';
 import { jsonrepair } from 'jsonrepair';
 import { logger } from 'src/utils/logger';
 import { StewardPluginSettings } from 'src/types/interfaces';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { fixUnquotedJSON } from 'src/utils/jsonRepairs';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type {
@@ -22,6 +22,8 @@ import type { AnthropicProvider } from '@ai-sdk/anthropic';
 import type { ElevenLabsProvider } from '@ai-sdk/elevenlabs';
 import type { HumeProvider } from '@ai-sdk/hume';
 import type { OllamaProvider } from 'ollama-ai-provider-v2';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 /** When model id is unknown / unmatched — compaction threshold denominator fallback */
 const DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK = 128_000;

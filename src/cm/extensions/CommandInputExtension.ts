@@ -9,10 +9,12 @@ import {
 import { Extension, Line, Prec } from '@codemirror/state';
 import { TWO_SPACES_PREFIX } from 'src/constants';
 import type StewardPlugin from 'src/main';
-import i18next from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { Events, type ModelChangedPayload } from 'src/types/events';
 import { completionStatus } from '@codemirror/autocomplete';
 import { cliSessionDecorationRefresh } from 'src/services/CommandInputService';
+
+const { i18next } = getBundledInternal('i18n');
 
 export interface CommandInputOptions {
   /**
@@ -166,7 +168,9 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
                 commandModel = plugin.settings.llm.chat.model;
               }
 
-              lineCaption = plugin.llmService.formatModelLabel(commandModel);
+              lineCaption = plugin.llmService
+                ? plugin.llmService.formatModelLabel(commandModel)
+                : commandModel;
             }
 
             const commandInputLineDecor = Decoration.line({

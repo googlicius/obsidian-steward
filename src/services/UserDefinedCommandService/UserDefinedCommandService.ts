@@ -5,7 +5,7 @@ import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES, WIKI_LINK_PATTERN } from 'src/constants';
 import { EXAMPLE_UDCS } from 'src/example-udcs';
 import { StewardChatView } from 'src/views/StewardChatView';
-import i18next, { t } from 'i18next';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { z } from 'zod/v3';
 import {
   IVersionedUserDefinedCommand,
@@ -16,6 +16,9 @@ import { loadUDCVersion } from './versions/loader';
 import { Intent } from 'src/solutions/commands/types';
 import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
 import { migrateRawUdcObject, stringifyUdcYaml } from './migrateUdcLegacyUseTool';
+
+const { i18next } = getBundledInternal('i18n');
+const t = i18next.t.bind(i18next);
 
 const udcNoteFrontmatterSchema = z.object({
   enabled: z.boolean().optional(),

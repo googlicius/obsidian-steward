@@ -7,10 +7,12 @@ import type {
 } from 'ai';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { removeUndefined } from 'src/utils/removeUndefined';
 import { logger } from 'src/utils/logger';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 /**
  * Handles dynamic tool calls that are not supported

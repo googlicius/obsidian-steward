@@ -3,7 +3,9 @@ import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 const getArtifactByIdSchema = z.object({
   artifactId: z.string().min(1).describe('The ID of the artifact to retrieve.'),

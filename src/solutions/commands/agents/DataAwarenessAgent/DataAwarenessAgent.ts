@@ -4,7 +4,9 @@ import type StewardPlugin from 'src/main';
 import { AbortOperationKeys } from 'src/constants';
 import { DocWithPath } from 'src/types/types';
 import { logger } from 'src/utils/logger';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 export interface DataAwarenessResult<T = unknown> {
   /**

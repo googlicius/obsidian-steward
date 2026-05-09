@@ -1,13 +1,15 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath } from 'obsidian';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ArtifactType } from 'src/solutions/artifact';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { logger } from 'src/utils/logger';
 import { DataAwarenessAgent } from '../DataAwarenessAgent';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 const renamesSchema = z.array(
   z.object({

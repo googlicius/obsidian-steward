@@ -1,7 +1,8 @@
 import { MarkdownPostProcessor, MarkdownView, TFile, setIcon, setTooltip, Notice } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
-import i18next from 'i18next';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+const { i18next } = getBundledInternal('i18n');
 
 /**
  * Creates a markdown post processor that adds click handling to search result callouts.

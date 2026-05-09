@@ -7,7 +7,7 @@ import {
   addIcon,
   getLanguage,
 } from 'obsidian';
-import i18next from './i18n';
+import { getBundledInternal } from './utils/bundledInternals';
 import StewardSettingTab from './settings';
 import { EditorView } from '@codemirror/view';
 import { createCommandInputExtension } from './cm/extensions/CommandInputExtension';
@@ -72,6 +72,8 @@ import { CliSessionService } from './services/CliSessionService/CliSessionServic
 import { PtyCompanionService } from './services/PtyCompanionService/PtyCompanionService';
 import { NodePtyInstallerScriptService } from './services/NodePtyInstallerScriptService/NodePtyInstallerScriptService';
 import { WikilinkForwardService } from './services/WikilinkForwardService/WikilinkForwardService';
+
+const { i18next } = getBundledInternal('i18n');
 
 export default class StewardPlugin extends Plugin {
   settings: StewardPluginSettings;

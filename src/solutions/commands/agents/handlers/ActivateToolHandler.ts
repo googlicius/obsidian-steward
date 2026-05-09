@@ -7,9 +7,11 @@ import {
 } from '../../tools/activateTools';
 import { ToolCallPart } from '../../tools/types';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { removeUndefined } from 'src/utils/removeUndefined';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 /**
  * Handles the ACTIVATE tool logic shared across agents

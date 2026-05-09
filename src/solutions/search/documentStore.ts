@@ -1,6 +1,5 @@
-import Dexie from 'dexie';
-import * as chrono from 'chrono-node';
 import type { App } from 'obsidian';
+import { getBundledSyncLibSync } from 'src/utils/bundledLibs';
 import {
   SearchDatabase,
   IndexedDocument,
@@ -11,6 +10,8 @@ import {
 import { logger } from '../../utils/logger';
 import { IndexedPropertyArray } from './IndexedPropertyArray';
 import type { PropertyOperator } from 'src/solutions/commands/agents/handlers/Search';
+
+const Dexie = getBundledSyncLibSync('dexie');
 
 export interface DocumentStoreConfig {
   app: App;
@@ -304,6 +305,7 @@ export class DocumentStore {
     }
 
     // Try natural language parsing via chrono-node
+    const chrono = getBundledSyncLibSync('chrono-node');
     const parsed = chrono.parseDate(value);
     if (parsed) {
       return DocumentStore.formatDateToISO(parsed);

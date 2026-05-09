@@ -1,6 +1,6 @@
 import { TFile, TFolder } from 'obsidian';
 import type StewardPlugin from 'src/main';
-import i18next from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 import { ToolName } from 'src/solutions/commands/ToolRegistry';
 import type { GuardrailsAction, GuardrailsRule } from './types';
@@ -9,6 +9,8 @@ import {
   type GuardrailsRuleFrontmatterData,
   type ValidateRuleResult,
 } from './schema';
+
+const { i18next } = getBundledInternal('i18n');
 
 const RULES_FOLDER_NAME = 'Rules';
 

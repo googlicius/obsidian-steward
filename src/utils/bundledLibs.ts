@@ -1,8 +1,10 @@
 import { decompressFromBase64 } from 'lz-string';
 import { BUNDLED_DESKTOP_LIBS_LZ_B64 } from '../generated/bundledDesktopLibsPayload';
 import { BUNDLED_LIBS_LZ_B64 } from '../generated/bundledLibsPayload';
+import { BUNDLED_SYNC_LIBS_LZ_B64 } from '../generated/bundledSyncLibsPayload';
 import type { BundledLibs } from 'src/bundled-libs-entry';
 import type { BundledDesktopLibs } from 'src/bundled-libs-desktop-entry';
+import type { BundledSyncLibs } from 'src/bundled-libs-sync-entry';
 
 /**
  * esbuild IIFE + `export default` yields an interop object on `globalThis`:
@@ -74,6 +76,36 @@ function ensureBundledDesktopLibsRegistryLoaded(): Promise<BundledDesktopLibsReg
   return desktopRegistryPromise;
 }
 
+export type BundledSyncLibKey = keyof BundledSyncLibs;
+
+type BundledSyncLibsRegistry = Record<
+  BundledSyncLibKey,
+  BundledSyncLibs[BundledSyncLibKey]
+>;
+
+let syncRegistry: BundledSyncLibsRegistry | null = null;
+
+function ensureBundledSyncLibsRegistryLoadedSync(): BundledSyncLibsRegistry {
+  if (syncRegistry) {
+    return syncRegistry;
+  }
+
+  const code = decompressFromBase64(BUNDLED_SYNC_LIBS_LZ_B64);
+  if (!code) {
+    throw new Error('[Steward] Failed to decompress bundled sync libs payload');
+  }
+
+  (0, eval)(code);
+  const raw = (globalThis as unknown as { __stewardBundledSyncLibs?: unknown })
+    .__stewardBundledSyncLibs;
+  if (!raw) {
+    throw new Error('[Steward] Bundled sync libs chunk did not define __stewardBundledSyncLibs');
+  }
+
+  syncRegistry = unwrapBundledRegistry<BundledSyncLibsRegistry>(raw);
+  return syncRegistry;
+}
+
 /**
  * Returns the given module from the compressed bundle inside `main.js`.
  * The first load decompresses and evaluates the shared chunk; the same registry is reused afterward.
@@ -99,4 +131,13 @@ export async function getBundledDesktopLib<K extends BundledDesktopLibKey>(
     throw new Error(`[Steward] Missing bundled desktop lib key: ${String(key)}`);
   }
   return mod as BundledDesktopLibs[K];
+}
+
+export function getBundledSyncLibSync<K extends BundledSyncLibKey>(key: K): BundledSyncLibs[K] {
+  const registry = ensureBundledSyncLibsRegistryLoadedSync();
+  const mod = registry[key];
+  if (mod === undefined) {
+    throw new Error(`[Steward] Missing bundled sync lib key: ${String(key)}`);
+  }
+  return mod as BundledSyncLibs[K];
 }

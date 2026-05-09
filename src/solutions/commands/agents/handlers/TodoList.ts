@@ -3,8 +3,10 @@ import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 /**
  * Schema for a single to-do list step

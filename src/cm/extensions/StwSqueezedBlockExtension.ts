@@ -11,7 +11,8 @@ import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { setIcon, setTooltip } from 'obsidian';
 import { SMILE_CHAT_ICON_ID, STW_SQUEEZED_PATTERN } from 'src/constants';
-import i18next from 'i18next';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+const { i18next } = getBundledInternal('i18n');
 
 /**
  * Label for a squeezed conversation chip: `conversation_title` from the note when set,

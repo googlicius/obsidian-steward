@@ -1,7 +1,7 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath, TFolder } from 'obsidian';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ArtifactType } from 'src/solutions/artifact';
 import { logger } from 'src/utils/logger';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
@@ -12,6 +12,8 @@ import {
   createFilesSchemaString,
   createFilePatternsSchema,
 } from './vaultOperationSchemas';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 type FrontmatterValue =
   | string

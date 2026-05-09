@@ -3,8 +3,10 @@ import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { createTextStream } from 'src/utils/textStreamer';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 // THANK_YOU tool doesn't need args
 const thankYouSchema = z.object({});

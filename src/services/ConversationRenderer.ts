@@ -1,6 +1,6 @@
 import { TFile } from 'obsidian';
 import { uniqueID } from '../utils/uniqueID';
-import { getTranslation } from '../i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ConversationMessage, ConversationRole } from '../types/types';
 import type StewardPlugin from '../main';
 import { logger } from 'src/utils/logger';
@@ -18,6 +18,8 @@ import { applyMixins } from 'src/utils/applyMixins';
 import { ToolSerialization } from './ConversationRender/ToolSerialization';
 import { Frontmatter } from './ConversationRender/Frontmatter';
 import { Events } from 'src/types/events';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface -- declaration merge: class body + mixin prototype
 export interface ConversationRenderer extends ToolSerialization, Frontmatter {}

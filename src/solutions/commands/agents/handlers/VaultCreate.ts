@@ -1,13 +1,15 @@
 import { normalizePath, parseYaml } from 'obsidian';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { z } from 'zod/v3';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ArtifactType } from 'src/solutions/artifact';
 import { ToolName } from 'src/solutions/commands/toolNames';
 import { ToolCallPart } from '../../tools/types';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { type ToolContentStreamInfo } from '../components/ToolContentStreamConsumer';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 export const createToolSchema = z
   .object({

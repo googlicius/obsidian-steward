@@ -1,8 +1,9 @@
 import { App, TFile, TFolder } from 'obsidian';
 import { logger } from 'src/utils/logger';
 import { DocWithPath } from 'src/types/types';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 
+const { getTranslation } = getBundledInternal('i18n');
 /**
  * Represents a single move operation with v2 parameters
  */

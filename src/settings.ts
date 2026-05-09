@@ -8,7 +8,7 @@ import {
   IMAGE_MODELS,
   DEFAULT_VOICES,
 } from './constants';
-import { getTranslation } from './i18n';
+import { getBundledInternal } from './utils/bundledInternals';
 import type StewardPlugin from './main';
 import { StewardPluginSettings } from './types/interfaces';
 import { ModelSetting } from './settings/ModelSetting';
@@ -22,6 +22,7 @@ import { BUILT_IN_INTERACTIVE_APPS } from './services/CliSessionService/CliSessi
 import { joinWithConjunction } from './utils/arrayUtils';
 
 const lang = getLanguage();
+const { getTranslation } = getBundledInternal('i18n');
 const t = getTranslation(lang);
 
 // Define interface that combines all mixins

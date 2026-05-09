@@ -1,12 +1,14 @@
 import { TFile } from 'obsidian';
 import type { MCPClient } from '@ai-sdk/mcp';
 import type StewardPlugin from 'src/main';
-import i18next from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { getInstance } from 'src/utils/getInstance';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { logger } from 'src/utils/logger';
 import { NoteContentService } from 'src/services/NoteContentService';
 import { MCPService } from './MCPService';
+
+const { i18next } = getBundledInternal('i18n');
 
 jest.mock('src/utils/bundledLibs', () => ({
   getBundledLib: jest.fn(),

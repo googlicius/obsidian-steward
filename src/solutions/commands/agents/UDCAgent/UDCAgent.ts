@@ -1,6 +1,6 @@
 import { Agent } from '../../Agent';
 import { AgentHandlerParams, AgentResult, Intent, IntentResultStatus } from '../../types';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { ToolCallPart } from '../../tools/types';
@@ -11,6 +11,8 @@ import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
 import type { AgentCorePromptContext } from '../../Agent';
 import type { IVersionedUserDefinedCommand } from 'src/services/UserDefinedCommandService/versions/types';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 /**
  * Agent for handling User-Defined Commands (UDC)

@@ -1,6 +1,8 @@
-import i18next from 'i18next';
 import { EventRef, MarkdownPostProcessor, setIcon, setTooltip, TFile } from 'obsidian';
 import type StewardPlugin from 'src/main';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+
+const { i18next } = getBundledInternal('i18n');
 
 export function createStewardConversationProcessor(plugin: StewardPlugin): MarkdownPostProcessor {
   const pendingTitleUpdateMap = new Map<

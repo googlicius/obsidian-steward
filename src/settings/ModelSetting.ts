@@ -1,9 +1,10 @@
 import { getLanguage, setIcon, Setting, setTooltip } from 'obsidian';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import type StewardPlugin from 'src/main';
 import { capitalizeString } from 'src/utils/capitalizeString';
 import { get } from 'src/utils/lodash-like';
 
+const { getTranslation } = getBundledInternal('i18n');
 const lang = getLanguage();
 const t = getTranslation(lang);
 

@@ -2,8 +2,10 @@ import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 const switchAgentCapacitySchema = z.object({});
 

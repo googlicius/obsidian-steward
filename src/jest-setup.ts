@@ -11,29 +11,30 @@ declare global {
   }
 }
 
-// Global mock for i18next
-jest.mock('i18next', () => ({
-  __esModule: true,
-  default: {
+const i18nBundleMock = {
+  i18next: {
     t: jest.fn().mockImplementation((key: string) => `translated_${key}`),
     language: 'en',
     changeLanguage: jest.fn(),
     init: jest.fn(),
     getFixedT: jest.fn().mockImplementation(() => (key: string) => `translated_${key}`),
   },
-}));
-
-// Global mock for i18n module
-jest.mock('./i18n', () => ({
   getTranslation: jest.fn().mockImplementation(() => {
     return (key: string) => `translated_${key}`;
   }),
-  __esModule: true,
-  default: {
-    t: jest.fn().mockImplementation((key: string) => `translated_${key}`),
-    language: 'en',
-    changeLanguage: jest.fn(),
-  },
+  updateLanguageAttribute: jest.fn(),
+};
+
+jest.mock('src/utils/bundledInternals', () => ({
+  ensureBundledInternalsLoadedSync: jest.fn(() => ({
+    i18n: i18nBundleMock,
+  })),
+  getBundledInternal: jest.fn((key: string) => {
+    if (key === 'i18n') {
+      return i18nBundleMock;
+    }
+    throw new Error(`Unexpected getBundledInternal key in test: ${String(key)}`);
+  }),
 }));
 
 // Mock logger

@@ -1,5 +1,5 @@
 import { normalizePath } from 'obsidian';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { IntentResultStatus } from 'src/solutions/commands/types';
 import type { AgentResult } from 'src/solutions/commands/types';
 import type {
@@ -8,6 +8,8 @@ import type {
 } from 'src/solutions/commands/agents/middleware/types';
 import type StewardPlugin from 'src/main';
 import { ToolName } from 'src/solutions/commands/toolNames';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 function pathMatchesTarget(path: string, target: string): boolean {
   const normalizedPath = normalizePath(path);

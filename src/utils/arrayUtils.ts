@@ -1,5 +1,6 @@
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 
+const { getTranslation } = getBundledInternal('i18n');
 /**
  * Joins an array with a conjunction word before the last item
  * @example joinWithConjunction(['apple', 'banana', 'orange'], 'and') => 'apple, banana, and orange'

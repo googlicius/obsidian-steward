@@ -1,9 +1,11 @@
 import { normalizePath, TFile } from 'obsidian';
-import i18next from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { z } from 'zod/v3';
 import { Skill, SkillCatalogEntry } from './types';
+
+const { i18next } = getBundledInternal('i18n');
 
 const skillFrontmatterSchema = z.object({
   name: z.string().refine(s => s.trim().length > 0),

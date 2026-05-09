@@ -1,7 +1,9 @@
 import { TFile, TFolder } from 'obsidian';
-import i18next from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { NoteContentService } from 'src/services/NoteContentService';
 import { UserDefinedCommandService } from './UserDefinedCommandService';
+
+const { i18next } = getBundledInternal('i18n');
 
 /** Production loads Mustache via compressed bundled libs; evaluating that chunk in Jest breaks (Node shims). */
 jest.mock('src/utils/bundledLibs', () => ({

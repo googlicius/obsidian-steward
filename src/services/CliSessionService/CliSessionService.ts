@@ -3,7 +3,6 @@ import type { ChildProcessWithoutNullStreams } from 'child_process';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { loadNodeModule } from 'src/utils/loadNodeModule';
-import i18next from 'i18next';
 import { dump as yamlDump } from 'js-yaml';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import {
@@ -13,6 +12,9 @@ import {
 import { resolveVaultPtyNativePath } from 'src/solutions/pty-companion/resolveVaultPtyNativePath';
 import { CLI_STREAM_MARKER, CLI_XTERM_MARKER, getCliStreamMarkerPlaceholder } from './constants';
 import { AbortOperationKeys } from 'src/constants';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+
+const { i18next } = getBundledInternal('i18n');
 
 const SENTINEL_MARKER = `__STEWARD_DONE__`;
 const PWD_START = '__STEWARD_PWD_START__';

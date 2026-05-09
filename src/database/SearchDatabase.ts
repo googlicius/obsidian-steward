@@ -1,6 +1,9 @@
-import Dexie, { Table } from 'dexie';
+import type { Table } from 'dexie';
+import { getBundledSyncLibSync } from 'src/utils/bundledLibs';
 import { logger } from '../utils/logger';
 import { SEARCH_DB_NAME_PREFIX } from 'src/constants';
+
+const Dexie = getBundledSyncLibSync('dexie');
 
 /**
  * Document in the search index

@@ -1,7 +1,6 @@
 import { z } from 'zod/v3';
 import { normalizePath, Platform } from 'obsidian';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
-import i18next from 'i18next';
 import { logger } from 'src/utils/logger';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { GITHUB_WIKI_URL, WIKI_PAGES } from 'src/constants';
@@ -20,7 +19,9 @@ import { ToolCallPart } from '../../tools/types';
 import { ToolName } from '../../ToolRegistry';
 import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
 import { retry } from 'src/utils/retry';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+
+const { i18next, getTranslation } = getBundledInternal('i18n');
 
 export const shellToolInputSchema = z.object({
   argsLine: z

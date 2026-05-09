@@ -1,7 +1,7 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath } from 'obsidian';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ArtifactType } from 'src/solutions/artifact';
 import { DocWithPath } from 'src/types/types';
@@ -10,6 +10,8 @@ import { ToolCallPart } from '../../tools/types';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 export const artifactModeSchema = z.object(
   {

@@ -2,7 +2,7 @@ import type { ModelMessage } from 'ai';
 import { Agent } from '../../Agent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus, Intent } from '../../types';
 import { ToolCallPart, ToolResultPart, TypedToolCallPart } from '../../tools/types';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { getClassifier } from 'src/lib/modelfusion';
@@ -22,6 +22,8 @@ import {
 import type { AgentCorePromptContext } from '../../Agent';
 import { isGoogleModel } from '../googleUtils';
 import { USAGE_AGENT_KEY } from 'src/services/ConversationRender/Frontmatter';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 const SUPER_AGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUPER_AGENT_TOOL_NAMES;
 

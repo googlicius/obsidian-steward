@@ -1,12 +1,14 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { Artifact, ArtifactType, Change } from 'src/solutions/artifact';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { logger } from 'src/utils/logger';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { SysError } from 'src/utils/errors';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 const revertSchema = z.object({
   explanation: z
