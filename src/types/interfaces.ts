@@ -58,7 +58,7 @@ export interface StewardPluginSettings {
   llm: {
     model?: string; // Deprecated: use chat.model instead
     chat: {
-      model: string; // The chat model (e.g., gpt-4-turbo-preview, llama3.2)
+      model: string; // The chat model (e.g., ollama:gemma4:31b-cloud, openai:gpt-4o)
       customModels: string[]; // User-defined custom chat models
     };
     /** Full model key `provider:modelId` → context tokens (optional overrides) */

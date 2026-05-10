@@ -55,6 +55,8 @@ const MODEL_CONTEXT_DEFAULT_ENTRIES: ReadonlyArray<readonly [string, number]> = 
   ['deepseek', 128_000],
   ['llama3', 131_072],
   ['llama', 131_072],
+  ['gemma4', 128_000],
+  ['gemma', 128_000],
   ['qwen', 131_072],
 ];
 
