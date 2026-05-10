@@ -78,10 +78,7 @@ function ensureBundledDesktopLibsRegistryLoaded(): Promise<BundledDesktopLibsReg
 
 export type BundledSyncLibKey = keyof BundledSyncLibs;
 
-type BundledSyncLibsRegistry = Record<
-  BundledSyncLibKey,
-  BundledSyncLibs[BundledSyncLibKey]
->;
+type BundledSyncLibsRegistry = Record<BundledSyncLibKey, BundledSyncLibs[BundledSyncLibKey]>;
 
 let syncRegistry: BundledSyncLibsRegistry | null = null;
 

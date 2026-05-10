@@ -100,10 +100,7 @@ describe('CompactionTokenService', () => {
 
   describe('buildCompactedMessage', () => {
     let service: CompactionTokenService;
-    let buildCompactedMessage: (
-      data: CompactionData,
-      params: { compactIndex: number }
-    ) => string;
+    let buildCompactedMessage: (data: CompactionData, params: { compactIndex: number }) => string;
 
     beforeEach(() => {
       service = new CompactionTokenService(createMockPlugin());
@@ -187,8 +184,8 @@ describe('estimatePromptTokensRoughFromMessages', () => {
   });
 
   it('ceil(JSON.stringify(messages).length / 4)', () => {
-    expect(
-      estimatePromptTokensRoughFromMessages([{ role: 'user', content: 'abcd' }])
-    ).toBe(Math.ceil(JSON.stringify([{ role: 'user', content: 'abcd' }]).length / 4));
+    expect(estimatePromptTokensRoughFromMessages([{ role: 'user', content: 'abcd' }])).toBe(
+      Math.ceil(JSON.stringify([{ role: 'user', content: 'abcd' }]).length / 4)
+    );
   });
 });

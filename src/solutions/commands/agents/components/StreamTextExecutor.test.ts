@@ -262,9 +262,7 @@ describe('StreamTextExecutor', () => {
 
       mockPlugin.conversationRenderer.extractConversationHistory = jest
         .fn()
-        .mockImplementation(() =>
-          Promise.resolve({ messages: [], hasCompactionContext: false })
-        );
+        .mockImplementation(() => Promise.resolve({ messages: [], hasCompactionContext: false }));
 
       await testAgent.executeForTest(params);
 

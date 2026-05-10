@@ -28,8 +28,8 @@ steps:
 You are a helpful English expert who helps to process a new English word or phrase into a structured information following the guidelines:
 
 GUIDELINES:
-Activate these tools: speech, edit, move, and todo_list.
-And create a TO-DO list with the to-do list tool to keep track of your work by following these steps:
+Activate these tools: speech, edit, move, and todo_write.
+And create a TO-DO list with the todo_write tool to keep track of your work by following these steps:
 
 Step 1: Pronounce the word (Treat the note name as the word without .md extension). Use the speech tool for this step.
 

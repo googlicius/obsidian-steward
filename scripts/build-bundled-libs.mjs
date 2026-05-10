@@ -99,10 +99,9 @@ function getBundleConfig({ entryPoints, globalName, outFile, exportConst }) {
     minify: true,
     write: false,
     external: sharedExternal,
-    plugins:
-      entryPoints.includes('internal/bundled-internals-entry.ts')
-        ? [noSrcRuntimeImportsForInternalsPlugin()]
-        : [],
+    plugins: entryPoints.includes('internal/bundled-internals-entry.ts')
+      ? [noSrcRuntimeImportsForInternalsPlugin()]
+      : [],
     define: {
       'process.env.NODE_ENV': '"production"',
     },

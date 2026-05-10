@@ -171,4 +171,18 @@ describe('UserDefinedCommandV2', () => {
       expect(normalized.system_prompt).toEqual(['[[#Guidelines]]']);
     });
   });
+
+  describe('step cli.shell', () => {
+    it('should preserve cli.shell on normalized steps', () => {
+      const data: UserDefinedCommandV2Data = {
+        command_name: 'shell_cmd',
+        file_path: 'Steward/Commands/s.md',
+        steps: [{ query: 'echo 1', cli: { shell: '/bin/zsh' } }, { query: 'echo 2' }],
+      };
+
+      const command = new UserDefinedCommandV2(data);
+      expect(command.normalized.steps[0].cli).toEqual({ shell: '/bin/zsh' });
+      expect(command.normalized.steps[1].cli).toBeUndefined();
+    });
+  });
 });

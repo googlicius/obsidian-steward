@@ -3,6 +3,7 @@ import process from 'process';
 import { sharedExternal } from './esbuild.shared.mjs';
 import path from 'path';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function noInternalRuntimeImportsPlugin() {
   return {
     name: 'no-internal-runtime-imports',
@@ -45,7 +46,7 @@ const context = await esbuild.context({
   },
   entryPoints: ['src/main.ts'],
   bundle: true,
-  plugins: [noInternalRuntimeImportsPlugin()],
+  plugins: [],
   loader: { '.svg': 'text', '.md': 'text' },
   external: [
     'ai',

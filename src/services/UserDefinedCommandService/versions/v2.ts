@@ -16,6 +16,15 @@ const system_prompt = z.array(z.string()).optional();
 const tools = z.array(z.nativeEnum(ToolName)).optional();
 const show_todo_list = z.boolean().optional();
 
+/** V2 step schema: adds `cli.shell` (not part of shared v1 steps). */
+export const commandStepV2Schema = commandStepSchema.extend({
+  cli: z
+    .object({
+      shell: z.string().optional(),
+    })
+    .optional(),
+});
+
 /**
  * Transform heading-only wikilinks ([[#Heading]]) to include the file path
  * @param content The content containing wikilinks
@@ -48,7 +57,7 @@ export const userDefinedCommandV2Schema = z.object({
   version: z.literal(2).optional(),
   command_name,
   query_required,
-  steps: z.array(commandStepSchema).min(1, 'At least one step is required'),
+  steps: z.array(commandStepV2Schema).min(1, 'At least one step is required'),
   file_path,
   model,
   system_prompt,

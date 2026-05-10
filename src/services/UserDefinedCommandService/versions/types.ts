@@ -23,6 +23,10 @@ export interface CommandStep {
   query: string;
   model?: string;
   no_confirm?: boolean;
+  /** V2 UDC only: optional shell executable for this step (fallback: settings when spawning a new session). */
+  cli?: {
+    shell?: string;
+  };
 }
 
 export interface TriggerCondition {

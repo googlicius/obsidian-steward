@@ -151,11 +151,7 @@ export class CompactionTokenService {
         if (!COMPACTABLE_TOOL_NAMES.has(item.toolName)) {
           continue;
         }
-        const compacted = this.compactToolResult(
-          item.toolResult,
-          item.messageId,
-          item.toolCall
-        );
+        const compacted = this.compactToolResult(item.toolResult, item.messageId, item.toolCall);
         entries.push({
           type: 'tool',
           messageId: item.messageId,

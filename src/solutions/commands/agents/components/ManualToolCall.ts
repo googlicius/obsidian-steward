@@ -208,7 +208,8 @@ export class ManualToolCall {
         return undefined;
       }
 
-      case '>': {
+      case '>':
+      case 'shell': {
         return {
           type: 'tool-call',
           toolName: ToolName.SHELL,

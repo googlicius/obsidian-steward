@@ -994,6 +994,8 @@ export class UserDefinedCommandService {
         );
       }
 
+      const cliShellOverride = step.cli?.shell?.trim();
+
       steps.push({
         type: step.name ?? '',
         systemPrompts,
@@ -1001,6 +1003,8 @@ export class UserDefinedCommandService {
         model,
         no_confirm: step.no_confirm,
         tools: command.normalized.tools,
+        cli:
+          cliShellOverride && cliShellOverride.length > 0 ? { shell: cliShellOverride } : undefined,
       });
     }
 

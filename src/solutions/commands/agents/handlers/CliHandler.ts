@@ -120,10 +120,12 @@ export class CliHandler {
     hostConversationTitle: string;
     xtermConversationTitle: string;
     argsLine: string;
+    shellExecutable?: string;
   }): Promise<void> {
     await this.cliSessionService.ensureCliXtermConversationNote({
       hostConversationTitle: params.hostConversationTitle,
       query: params.argsLine,
+      shellExecutable: params.shellExecutable,
     });
 
     const hostSession = this.cliSessionService.getSession(params.hostConversationTitle);
@@ -299,6 +301,8 @@ export class CliHandler {
     workingDirectory?: string;
     /** When set, create the xterm note and host UX only after the shell spawns successfully. */
     materializeXtermFromHostTitle?: string;
+    /** Overrides global CLI shell setting for this spawn only (new session). */
+    shellExecutable?: string;
   }): Promise<string | undefined> {
     this.cliSessionService.endSession({
       conversationTitle: params.conversationTitle,
@@ -312,6 +316,7 @@ export class CliHandler {
       streamMarker: getCliStreamMarkerPlaceholder(),
       workingDirectory: params.workingDirectory,
       initialArgsLine: params.argsLine,
+      shellExecutable: params.shellExecutable,
     });
 
     const errorNotePath = params.materializeXtermFromHostTitle ?? params.conversationTitle;
@@ -330,6 +335,7 @@ export class CliHandler {
         hostConversationTitle: params.materializeXtermFromHostTitle,
         xtermConversationTitle: params.conversationTitle,
         argsLine: params.argsLine,
+        shellExecutable: params.shellExecutable,
       });
     }
 
@@ -409,12 +415,17 @@ export class CliHandler {
         );
     }
 
+    const trimmedIntentShell = params.intent.cli?.shell?.trim();
+    const shellExecutable =
+      trimmedIntentShell && trimmedIntentShell.length > 0 ? trimmedIntentShell : undefined;
+
     const messageId = await this.startSession({
       conversationTitle: routing.shellSessionTitle,
       argsLine,
       hostConversationTitle: routing.hostConversationTitleForSpawn,
       workingDirectory,
       materializeXtermFromHostTitle: routing.materializeXtermFromHostTitle,
+      shellExecutable,
     });
 
     if (messageId && argsLine.length > 0) {

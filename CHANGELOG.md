@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Conversation**: Conversation rendering services with usage records
+- **User-defined command**: Support user-defined shell per UDC step; open terminal on empty command.
 
 ### Changed
 

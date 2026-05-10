@@ -77,8 +77,10 @@ function firstSegmentTokenMatchesInteractiveApp(
 }
 
 /**
- * Interactive (node-pty) when any line, or any `&&` / `||` / `;` chain segment on a line, starts
- * with a supported app (first token, case-insensitive, optional `.exe` strip on Windows).
+ * Interactive (node-pty) when:
+ * - The command line is empty → open a PTY shell with no initial line (terminal first; type later).
+ * - Or any line / `&&` / `||` / `;` segment starts with a supported app (first token, case-insensitive,
+ *   optional `.exe` strip on Windows).
  */
 export function isInteractiveCliCommand(
   argsLine: string,
@@ -86,7 +88,7 @@ export function isInteractiveCliCommand(
 ): boolean {
   const trimmed = argsLine.trim();
   if (trimmed.length === 0) {
-    return false;
+    return true;
   }
 
   const lines = trimmed.split(/\r?\n/);
@@ -119,7 +121,9 @@ export interface CliSession {
   pendingSentinelMarker: string | null;
   hideStreamMarkerNextFlush: boolean;
   /** Ordered transcript `cd` commands used to reconstruct cwd when switching to interactive PTY. */
-  cdCommandHistory: string[];
+  cdHistory: string[];
+  /** Executable path/command used when this session was spawned (newline handling, display). */
+  spawnedShellFile: string;
   /** When set, {@link interruptSession} forwards to the PTY companion instead of OS signals. */
   remoteKill?: () => void;
   /**
@@ -220,9 +224,22 @@ export class CliSessionService {
     return Array.from(unique);
   }
 
-  private buildShellSpawnConfig(): { file: string; fileName: string; args: string[] } | null {
-    const configured = this.plugin.settings.cli.shellExecutable.trim();
+  /** Resolves which shell binary to spawn. `shellExecutableOverride` overrides settings when non-empty after trim. */
+  public resolveShellExecutable(shellExecutableOverride?: string | null): string {
+    const trimmedOverride = shellExecutableOverride?.trim() ?? '';
+    const fromSettings = this.plugin.settings.cli.shellExecutable.trim();
+    const configured =
+      trimmedOverride !== '' ? trimmedOverride : fromSettings !== '' ? fromSettings : '';
     const shell = configured !== '' ? configured : isWindows() ? 'powershell.exe' : '/bin/bash';
+    return shell;
+  }
+
+  private buildShellSpawnConfig(shellExecutableOverride?: string | null): {
+    file: string;
+    fileName: string;
+    args: string[];
+  } | null {
+    const shell = this.resolveShellExecutable(shellExecutableOverride);
     const fileName = shell.split('.')[0];
     return { file: shell, fileName, args: [] };
   }
@@ -286,9 +303,9 @@ export class CliSessionService {
     if (cdCommands.length === 0) {
       return;
     }
-    session.cdCommandHistory.push(...cdCommands);
-    if (session.cdCommandHistory.length > 200) {
-      session.cdCommandHistory = session.cdCommandHistory.slice(-200);
+    session.cdHistory.push(...cdCommands);
+    if (session.cdHistory.length > 200) {
+      session.cdHistory = session.cdHistory.slice(-200);
     }
   }
 
@@ -391,7 +408,7 @@ export class CliSessionService {
     if (!session || session.cliMode !== 'transcript') {
       return undefined;
     }
-    return (await this.probeWorkingDirectoryFromCdHistory(session.cdCommandHistory)) ?? undefined;
+    return (await this.probeWorkingDirectoryFromCdHistory(session.cdHistory)) ?? undefined;
   }
 
   /**
@@ -423,10 +440,12 @@ export class CliSessionService {
   public async ensureCliXtermConversationNote(params: {
     hostConversationTitle: string;
     query?: string;
+    /** Matches the shell used (or about to be used) when spawning so note titles stay accurate. */
+    shellExecutable?: string;
   }): Promise<string> {
     const hostConversationTitle = params.hostConversationTitle.trim();
     const normalizedQuery = params.query?.split(/\r?\n/)[0]?.trim() ?? '';
-    const shellConfig = this.buildShellSpawnConfig();
+    const shellConfig = this.buildShellSpawnConfig(params.shellExecutable);
     const conversationTitle =
       normalizedQuery.length > 0
         ? `${normalizedQuery} - ${shellConfig?.fileName}`
@@ -599,8 +618,10 @@ export class CliSessionService {
     hostConversationTitle?: string;
     streamMarker: string;
     workingDirectory?: string;
-    /** Used to choose PTY vs child_process on first spawn (empty → transcript). */
+    /** Used to choose PTY vs child_process on first spawn (empty → interactive PTY). */
     initialArgsLine?: string;
+    /** Overrides global settings when starting this session only (ignored if a session already exists). */
+    shellExecutable?: string;
   }): Promise<{ ok: true } | { ok: false; errorMessage: string }> {
     if (!Platform.isDesktopApp) {
       return { ok: false, errorMessage: i18next.t('cli.desktopOnly') };
@@ -609,7 +630,7 @@ export class CliSessionService {
     const hostConversationTitle = params.hostConversationTitle ?? params.conversationTitle;
     const cwd = params.workingDirectory ?? this.resolveWorkingDirectory();
 
-    const spawnConfig = this.buildShellSpawnConfig();
+    const spawnConfig = this.buildShellSpawnConfig(params.shellExecutable);
     if (!spawnConfig) {
       return { ok: false, errorMessage: 'no shell configuration' };
     }
@@ -678,7 +699,8 @@ export class CliSessionService {
         operationId: '',
         pendingSentinelMarker: null,
         hideStreamMarkerNextFlush: false,
-        cdCommandHistory: [],
+        cdHistory: [],
+        spawnedShellFile: spawnConfig.file,
         remoteKill: ptySession.remoteKill,
       });
 
@@ -718,7 +740,8 @@ export class CliSessionService {
       operationId: '',
       pendingSentinelMarker: null,
       hideStreamMarkerNextFlush: false,
-      cdCommandHistory: [],
+      cdHistory: [],
+      spawnedShellFile: spawnConfig.file,
     });
 
     return { ok: true };
@@ -753,7 +776,7 @@ export class CliSessionService {
   }
 
   public appendSentinelMarker(session: CliSession, argsLine: string) {
-    const shellFile = this.buildShellSpawnConfig()?.file ?? '';
+    const shellFile = session.spawnedShellFile || this.resolveShellExecutable() || '';
     const eol = this.ptySubmitLineEnding(shellFile);
     if (session.cliMode === 'interactive') {
       session.child.stdin.write(`${argsLine}${eol}`);
