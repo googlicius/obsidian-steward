@@ -97,7 +97,6 @@ const ja = {
       commandError: 'コマンド: {{commandName}}',
       yamlError: '無効なYAML構文',
       successMessage: 'すべてのコマンド定義が有効です！✅',
-      noCommandYamlBlock: 'ノートに ```yaml``` のコマンド定義ブロックがありません。',
     },
     // Chat UI elements
     chat: {

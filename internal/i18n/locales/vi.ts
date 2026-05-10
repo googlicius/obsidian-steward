@@ -93,7 +93,6 @@ const vi = {
       commandError: 'Lệnh: {{commandName}}',
       yamlError: 'Cú pháp YAML không hợp lệ',
       successMessage: 'Tất cả các định nghĩa lệnh đều hợp lệ! ✅',
-      noCommandYamlBlock: 'Không tìm thấy khối định nghĩa lệnh ```yaml``` trong ghi chú.',
     },
     // Chat UI elements
     chat: {

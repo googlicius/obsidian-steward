@@ -102,7 +102,6 @@ const en = {
       commandError: 'Command: {{commandName}}',
       yamlError: 'Invalid YAML syntax',
       successMessage: 'All command definitions are valid! ✅',
-      noCommandYamlBlock: 'No ```yaml``` command definition block found in the note.',
     },
     // Chat UI elements
     chat: {

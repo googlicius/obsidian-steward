@@ -618,8 +618,10 @@ export class CliSessionService {
     hostConversationTitle?: string;
     streamMarker: string;
     workingDirectory?: string;
-    /** Used to choose PTY vs child_process on first spawn (empty → interactive PTY). */
+    /** Used to choose PTY vs child_process when needsInteractiveMode is not provided. */
     initialArgsLine?: string;
+    /** Explicit model/client decision for PTY vs child_process. Falls back to initialArgsLine heuristics. */
+    needsInteractiveMode?: boolean;
     /** Overrides global settings when starting this session only (ignored if a session already exists). */
     shellExecutable?: string;
   }): Promise<{ ok: true } | { ok: false; errorMessage: string }> {
@@ -636,10 +638,9 @@ export class CliSessionService {
     }
 
     const initialLine = params.initialArgsLine ?? '';
-    const useInteractivePty = isInteractiveCliCommand(
-      initialLine,
-      this.getSupportedInteractiveApps()
-    );
+    const useInteractivePty =
+      params.needsInteractiveMode ??
+      isInteractiveCliCommand(initialLine, this.getSupportedInteractiveApps());
     const companion = useInteractivePty
       ? this.plugin.ptyCompanionService.getConnectionParams()
       : null;
