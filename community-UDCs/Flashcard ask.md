@@ -8,6 +8,7 @@ A user-defined command helps general tasks from the flashcard above the cursor.
 
 ```yaml
 command_name: flashcard-ask
+description: Quiz help from the flashcard above the cursor.
 query_required: true
 system_prompt:
   - "[[#Flashcard guidelines]]"

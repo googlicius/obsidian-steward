@@ -141,8 +141,18 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
               plugin.cliSessionService.getSession(conversationTitle) !== undefined;
             const isShellPrefix = matchedPrefix === '/>';
 
+            const commandNameFromPrefix =
+              matchedPrefix === '/ ' ? '' : matchedPrefix.replace('/', '').trim();
+            const udcCliShell =
+              !isShellPrefix &&
+              commandNameFromPrefix !== '' &&
+              plugin.userDefinedCommandService.hasCommand(commandNameFromPrefix)
+                ? plugin.userDefinedCommandService.getCommandCliShell(commandNameFromPrefix)
+                : undefined;
+            const isShellLikeUdc = Boolean(udcCliShell);
+
             let lineCaption: string | undefined;
-            if (hasShellSession || isShellPrefix) {
+            if (hasShellSession || isShellPrefix || isShellLikeUdc) {
               lineCaption = hasShellSession
                 ? i18next.t('cli.inputLineCaptionShellActive')
                 : i18next.t('cli.inputLineCaptionShellPrefix');

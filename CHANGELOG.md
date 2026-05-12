@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Compaction**: When nearing the context threshold, compact by token amount
 - **Bundled libs**: Move Dexie, CryptoJS, chrono-node, and i18next to the second build
 - **Bundled libs**: Use the same names as the original modules for bundled libraries
+- **User-defined command**: Add description to the command definition
 
 ### Fixed
 

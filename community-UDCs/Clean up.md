@@ -8,6 +8,7 @@ A command to clean up conversation notes in the Steward/Conversations folder.
 
 ```yaml
 command_name: clean-up
+description: Remove stale Steward conversation notes by command prefix.
 query_required: false
 system_prompt:
 - "[[#Instructions]]"

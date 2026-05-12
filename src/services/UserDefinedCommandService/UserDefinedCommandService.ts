@@ -1081,6 +1081,24 @@ export class UserDefinedCommandService {
   }
 
   /**
+   * First non-empty `cli.shell` on a normalized step, if any (shell-style UDCs).
+   */
+  public getCommandCliShell(commandName: string): string | undefined {
+    const cmd = this.userDefinedCommands.get(commandName);
+    if (!cmd) {
+      return undefined;
+    }
+    const steps = cmd.normalized.steps;
+    for (let i = 0; i < steps.length; i++) {
+      const shell = steps[i].cli?.shell?.trim();
+      if (shell) {
+        return shell;
+      }
+    }
+    return undefined;
+  }
+
+  /**
    * Recursively expand a list of CommandIntent, flattening user-defined commands and detecting cycles
    * Processes wikilinks in system prompts after expansion
    */

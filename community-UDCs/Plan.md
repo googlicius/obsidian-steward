@@ -8,6 +8,7 @@ A command that creates a detailed plan (to-do list) and asks for user confirmati
 
 ```yaml
 command_name: plan
+description: Build a plan with todos, then confirm before running.
 query_required: true
 show_todo_list: true
 system_prompt:

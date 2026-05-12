@@ -8,6 +8,7 @@ A command to process a newly added English word or phrase by typing the tag #pro
 
 ```YAML
 command_name: word-processor
+description: Auto-structure English vocabulary notes when tagged.
 query_required: false
 hidden: true
 system_prompt:

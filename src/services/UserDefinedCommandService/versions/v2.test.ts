@@ -172,6 +172,31 @@ describe('UserDefinedCommandV2', () => {
     });
   });
 
+  describe('command description', () => {
+    it('should pass description through normalized output', () => {
+      const data: UserDefinedCommandV2Data = {
+        command_name: 'with_desc',
+        description: 'Short help blurb.',
+        file_path: 'Steward/Commands/x.md',
+        steps: [{ query: 'q' }],
+      };
+
+      const command = new UserDefinedCommandV2(data);
+      expect(command.normalized.description).toBe('Short help blurb.');
+    });
+
+    it('should omit description when not set', () => {
+      const data: UserDefinedCommandV2Data = {
+        command_name: 'no_desc',
+        file_path: 'Steward/Commands/y.md',
+        steps: [{ query: 'q' }],
+      };
+
+      const command = new UserDefinedCommandV2(data);
+      expect(command.normalized.description).toBeUndefined();
+    });
+  });
+
   describe('step cli.shell', () => {
     it('should preserve cli.shell on normalized steps', () => {
       const data: UserDefinedCommandV2Data = {

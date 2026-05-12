@@ -47,6 +47,8 @@ export interface TriggerCondition {
  */
 export interface NormalizedUserDefinedCommand {
   command_name: string;
+  /** Shown in Help and command listings; optional. */
+  description?: string;
   query_required?: boolean;
   steps: CommandStep[];
   file_path: string;

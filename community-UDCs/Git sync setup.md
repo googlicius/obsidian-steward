@@ -16,6 +16,7 @@ This command walks through a **Git** + **SOPS** clean/smudge setup (ciphertext i
 
 ```yaml
 command_name: git-sync-setup
+description: Guided Git + SOPS encrypted sync setup.
 query_required: false
 show_todo_list: true
 tools:

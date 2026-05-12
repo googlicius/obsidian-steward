@@ -12,6 +12,7 @@ Copy this note into your `Steward/Commands` folder (or equivalent) to use.
 
 ```yaml
 command_name: cmd
+description: Windows Command Prompt (cmd.exe).
 query_required: false
 steps:
   - name: shell
@@ -24,6 +25,7 @@ steps:
 
 ```yaml
 command_name: bash
+description: Bash shell (e.g. Git Bash).
 query_required: false
 steps:
   - name: shell
@@ -36,6 +38,7 @@ steps:
 
 ```yaml
 command_name: powershell
+description: Windows PowerShell.
 query_required: false
 steps:
   - name: shell

@@ -7,6 +7,7 @@ enabled: true
 
 ```yaml
 command_name: install-yt-dlp
+description: Install or upgrade yt-dlp using linked steps.
 query_required: false
 system_prompt:
   - "[[#Instruction]]"

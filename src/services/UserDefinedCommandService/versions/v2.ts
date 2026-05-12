@@ -56,6 +56,7 @@ function transformHeadingOnlyWikilinks(content: string, filePath: string): strin
 export const userDefinedCommandV2Schema = z.object({
   version: z.literal(2).optional(),
   command_name,
+  description: z.string().optional(),
   query_required,
   steps: z.array(commandStepV2Schema).min(1, 'At least one step is required'),
   file_path,
@@ -95,6 +96,7 @@ export class UserDefinedCommandV2 implements IVersionedUserDefinedCommand {
 
     return {
       command_name: this.data.command_name,
+      description: this.data.description,
       query_required: this.data.query_required,
       steps: transformedSteps,
       file_path: filePath,

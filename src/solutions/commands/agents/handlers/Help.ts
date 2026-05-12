@@ -107,10 +107,15 @@ export class Help {
           const cmdDef = entry[1];
           const slash = cmdDef.isHidden() ? '' : '/';
           const noteLink = wikilinkInTable(cmdDef.normalized.file_path, 'Link');
-          udcRows.push([`\`${slash}${cmdName}\``, noteLink]);
+          const udcDescription = cmdDef.normalized.description?.trim() ?? '';
+          udcRows.push([`\`${slash}${cmdName}\``, udcDescription, noteLink]);
         }
         content += formatMarkdownTable(
-          [t('common.helpTableCommand'), t('common.helpTableNote')],
+          [
+            t('common.helpTableCommand'),
+            t('common.helpTableDescription'),
+            t('common.helpTableNote'),
+          ],
           udcRows
         );
       } else {

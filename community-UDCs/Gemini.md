@@ -8,6 +8,7 @@ Run [Gemini CLI](https://github.com/google-gemini/gemini-cli) from a Steward use
 
 ```yaml
 command_name: gemini
+description: Run Gemini CLI with your prompt.
 query_required: true
 steps:
   - name: shell

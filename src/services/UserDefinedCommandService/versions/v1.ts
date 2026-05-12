@@ -68,6 +68,7 @@ export const model = z.string().optional();
 export const userDefinedCommandV1Schema = z.object({
   version: z.literal(1).optional(),
   command_name,
+  description: z.string().optional(),
   query_required,
   commands: z.array(commandStepSchema).min(1, 'At least one command step is required'),
   file_path,
@@ -85,6 +86,7 @@ export class UserDefinedCommandV1 implements IVersionedUserDefinedCommand {
   public get normalized(): NormalizedUserDefinedCommand {
     return {
       command_name: this.data.command_name,
+      description: this.data.description,
       query_required: this.data.query_required,
       steps: this.data.commands as NormalizedUserDefinedCommand['steps'], // Map 'commands' to 'steps'
       file_path: this.data.file_path || '',
