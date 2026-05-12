@@ -98,7 +98,7 @@ describe('EncryptionService', () => {
       // Encrypt the data
       const encryptedData = encryptionService.encrypt(apiKey, saltKeyId);
 
-      // Encrypted data should be different from original
+      expect(encryptedData.length).toBeGreaterThan(0);
       expect(encryptedData).not.toBe(apiKey);
 
       // Decrypting should give us back the original
