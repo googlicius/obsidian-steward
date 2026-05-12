@@ -1,5 +1,7 @@
-import i18next from 'i18next';
 import { delay } from './delay';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+
+const { i18next } = getBundledInternal('i18n');
 
 /**
  * Checks if a chunk boundary would split special Markdown elements

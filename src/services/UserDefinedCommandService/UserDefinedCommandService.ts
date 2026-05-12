@@ -1,11 +1,11 @@
-import { getLanguage, normalizePath, Notice, TFile, parseYaml } from 'obsidian';
+import { getLanguage, normalizePath, Notice, TFile, TFolder, parseYaml } from 'obsidian';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES, WIKI_LINK_PATTERN } from 'src/constants';
 import { EXAMPLE_UDCS } from 'src/example-udcs';
 import { StewardChatView } from 'src/views/StewardChatView';
-import i18next, { t } from 'i18next';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { z } from 'zod/v3';
 import {
   IVersionedUserDefinedCommand,
@@ -16,6 +16,9 @@ import { loadUDCVersion } from './versions/loader';
 import { Intent } from 'src/solutions/commands/types';
 import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
 import { migrateRawUdcObject, stringifyUdcYaml } from './migrateUdcLegacyUseTool';
+
+const { i18next } = getBundledInternal('i18n');
+const t = i18next.t.bind(i18next);
 
 const udcNoteFrontmatterSchema = z.object({
   enabled: z.boolean().optional(),
@@ -132,6 +135,23 @@ export class UserDefinedCommandService {
   }
 
   /**
+   * Collect every markdown file under a folder tree (Commands supports nested folders).
+   */
+  private collectMarkdownFilesInFolder(folder: TFolder): TFile[] {
+    const files: TFile[] = [];
+    for (const child of folder.children) {
+      if (child instanceof TFile && child.extension === 'md') {
+        files.push(child);
+        continue;
+      }
+      if (child instanceof TFolder) {
+        files.push(...this.collectMarkdownFilesInFolder(child));
+      }
+    }
+    return files;
+  }
+
+  /**
    * Load all command definitions from the Commands folder
    */
   private async loadAllCommands(): Promise<void> {
@@ -144,11 +164,9 @@ export class UserDefinedCommandService {
     // Clear existing commands
     this.userDefinedCommands.clear();
 
-    // Process all files in the folder
-    for (const file of folder.children) {
-      if (file instanceof TFile && file.extension === 'md') {
-        await this.loadCommandFromFile(file);
-      }
+    const mdFiles = this.collectMarkdownFilesInFolder(folder);
+    for (const file of mdFiles) {
+      await this.loadCommandFromFile(file);
     }
 
     logger.log(`Loaded ${this.userDefinedCommands.size} user-defined commands`);
@@ -166,10 +184,7 @@ export class UserDefinedCommandService {
       return;
     }
 
-    // Check if folder has any markdown files
-    const hasMarkdownFiles = folder.children.some(
-      file => file instanceof TFile && file.extension === 'md'
-    );
+    const hasMarkdownFiles = this.collectMarkdownFilesInFolder(folder).length > 0;
 
     if (hasMarkdownFiles) {
       return; // Folder is not empty, no need to create example
@@ -213,94 +228,89 @@ export class UserDefinedCommandService {
 
       const commandYamlBlocks = this.collectCommandYamlBlocks(file, content);
 
+      // Without a command YAML block the note is not a UDC definition (it may be a
+      // referenced doc / system-prompt note), so leave its frontmatter untouched.
+      if (commandYamlBlocks.length === 0) {
+        return;
+      }
+
       const validationErrors: Array<{
         commandName: string;
         errors: string[];
       }> = [];
 
       let definitionValid = false;
-      let statusErrorMessages: string[] = [];
+      const yamlReplacements: UdcYamlReplacement[] = [];
 
-      if (commandYamlBlocks.length === 0) {
-        statusErrorMessages = [i18next.t('validation.noCommandYamlBlock')];
-      } else {
-        const yamlReplacements: UdcYamlReplacement[] = [];
+      for (const yamlBlock of commandYamlBlocks) {
+        try {
+          const migrated = migrateRawUdcObject(yamlBlock.data);
+          const rawData: Record<string, unknown> = migrated.data;
 
-        for (const yamlBlock of commandYamlBlocks) {
-          try {
-            const migrated = migrateRawUdcObject(yamlBlock.data);
-            const rawData: Record<string, unknown> = migrated.data;
-
-            if (migrated.changed) {
-              yamlReplacements.push({
-                block: yamlBlock,
-                newInner: stringifyUdcYaml(migrated.data),
-              });
-            }
-
-            // Load and validate using version-aware loader (async imports)
-            const result = await loadUDCVersion(
-              rawData as { command_name: string; version?: number; [key: string]: unknown },
-              file.path
-            );
-
-            if (!result.success) {
-              // Collect errors from parse function
-              const commandName = (rawData.command_name as string) || 'unknown';
-              validationErrors.push({
-                commandName,
-                errors: result.errors,
-              });
-              continue;
-            }
-
-            definitionValid = true;
-            if (enabledFromFrontmatter) {
-              const versionedCommand = result.command;
-              this.userDefinedCommands.set(
-                versionedCommand.normalized.command_name,
-                versionedCommand
-              );
-              logger.log(
-                `Loaded user-defined command: ${versionedCommand.normalized.command_name} (v${versionedCommand.getVersion()})`
-              );
-            }
-          } catch (yamlError) {
-            const errorMsg = yamlError instanceof Error ? yamlError.message : String(yamlError);
-            validationErrors.push({
-              commandName: 'unknown',
-              errors: [i18next.t('validation.yamlError'), errorMsg],
+          if (migrated.changed) {
+            yamlReplacements.push({
+              block: yamlBlock,
+              newInner: stringifyUdcYaml(migrated.data),
             });
-            logger.error(`Invalid YAML in file ${file.path}:`, yamlError);
           }
-        }
 
-        if (yamlReplacements.length > 0) {
-          try {
-            const updatedMarkdown = this.replaceYamlFenceContents(content, yamlReplacements);
-            if (updatedMarkdown !== content) {
-              await this.plugin.app.vault.modify(file, updatedMarkdown);
-              for (const replacement of yamlReplacements) {
-                logger.log(
-                  `Migrated legacy use_tool in UDC file: ${file.path} at line ${replacement.block.startLine + 1}`
-                );
-              }
-            }
-          } catch (persistError) {
-            logger.error(`Failed to persist UDC migration for ${file.path}:`, persistError);
+          // Load and validate using version-aware loader (async imports)
+          const result = await loadUDCVersion(
+            rawData as { command_name: string; version?: number; [key: string]: unknown },
+            file.path
+          );
+
+          if (!result.success) {
+            // Collect errors from parse function
+            const commandName = (rawData.command_name as string) || 'unknown';
+            validationErrors.push({
+              commandName,
+              errors: result.errors,
+            });
+            continue;
           }
-        }
 
-        if (validationErrors.length > 0) {
-          statusErrorMessages = this.flattenValidationErrors(validationErrors);
+          definitionValid = true;
+          if (enabledFromFrontmatter) {
+            const versionedCommand = result.command;
+            this.userDefinedCommands.set(
+              versionedCommand.normalized.command_name,
+              versionedCommand
+            );
+            logger.log(
+              `Loaded user-defined command: ${versionedCommand.normalized.command_name} (v${versionedCommand.getVersion()})`
+            );
+          }
+        } catch (yamlError) {
+          const errorMsg = yamlError instanceof Error ? yamlError.message : String(yamlError);
+          validationErrors.push({
+            commandName: 'unknown',
+            errors: [i18next.t('validation.yamlError'), errorMsg],
+          });
+          logger.error(`Invalid YAML in file ${file.path}:`, yamlError);
         }
       }
 
-      const validForStatus =
-        definitionValid && validationErrors.length === 0 && commandYamlBlocks.length > 0;
+      if (yamlReplacements.length > 0) {
+        try {
+          const updatedMarkdown = this.replaceYamlFenceContents(content, yamlReplacements);
+          if (updatedMarkdown !== content) {
+            await this.plugin.app.vault.modify(file, updatedMarkdown);
+            for (const replacement of yamlReplacements) {
+              logger.log(
+                `Migrated legacy use_tool in UDC file: ${file.path} at line ${replacement.block.startLine + 1}`
+              );
+            }
+          }
+        } catch (persistError) {
+          logger.error(`Failed to persist UDC migration for ${file.path}:`, persistError);
+        }
+      }
+
+      const validForStatus = definitionValid && validationErrors.length === 0;
       await this.applyUdcValidationFrontmatter(parsedDoc, file, {
         valid: validForStatus,
-        errorMessages: validForStatus ? [] : statusErrorMessages,
+        errorMessages: validForStatus ? [] : this.flattenValidationErrors(validationErrors),
       });
     } catch (error) {
       logger.error(`Error loading command from file ${file.path}:`, error);
@@ -991,6 +1001,8 @@ export class UserDefinedCommandService {
         );
       }
 
+      const cliShellOverride = step.cli?.shell?.trim();
+
       steps.push({
         type: step.name ?? '',
         systemPrompts,
@@ -998,6 +1010,8 @@ export class UserDefinedCommandService {
         model,
         no_confirm: step.no_confirm,
         tools: command.normalized.tools,
+        cli:
+          cliShellOverride && cliShellOverride.length > 0 ? { shell: cliShellOverride } : undefined,
       });
     }
 
@@ -1064,6 +1078,24 @@ export class UserDefinedCommandService {
    */
   public hasCommand(commandName: string): boolean {
     return this.userDefinedCommands.has(commandName);
+  }
+
+  /**
+   * First non-empty `cli.shell` on a normalized step, if any (shell-style UDCs).
+   */
+  public getCommandCliShell(commandName: string): string | undefined {
+    const cmd = this.userDefinedCommands.get(commandName);
+    if (!cmd) {
+      return undefined;
+    }
+    const steps = cmd.normalized.steps;
+    for (let i = 0; i < steps.length; i++) {
+      const shell = steps[i].cli?.shell?.trim();
+      if (shell) {
+        return shell;
+      }
+    }
+    return undefined;
   }
 
   /**

@@ -20,6 +20,7 @@ After creating or updating a UDC note, re-read the file and check the frontmatte
 | Field            | Type                     | Required | Description                                                                                                                                                                                               |
 | ---------------- | ------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `command_name`   | string                   | **Yes**  | The name (In kebab-case) to invoke the command (e.g., `clean-up` invoked as `/clean-up`)                                                                                                                  |
+| `description`    | string                   | No       | Short summary shown in `/ Help` next to the command; omit if not needed                                                                                                                                   |
 | `query_required` | boolean                  | No       | If `true`, the command requires user input after the prefix. Default: `false`                                                                                                                             |
 | `model`          | string                   | No       | Default model for all steps (e.g., `gpt-4o`, `gemini-2.5-flash`)                                                                                                                                          |
 | `system_prompt`  | array of strings         | No       | Additional system prompts applied to all steps                                                                                                                                                            |
@@ -189,6 +190,7 @@ These placeholders are replaced with actual values at execution time:
 
 ```yaml
 command_name: clean-up
+description: Remove Untitled or tagged notes via search then delete.
 query_required: false
 steps:
   - name: search
@@ -242,6 +244,7 @@ steps:
 
 ```yaml
 command_name: ask
+description: Chat with instructions from this note until full tools are enabled.
 query_required: true
 tools:
   - switch_agent_capacity

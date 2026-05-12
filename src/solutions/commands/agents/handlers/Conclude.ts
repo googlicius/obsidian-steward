@@ -4,9 +4,11 @@ import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ArtifactType } from 'src/solutions/artifact';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 import { ToolName } from '../../toolNames';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 export const concludeSchema = z.object({
   parallelToolName: z

@@ -13,9 +13,10 @@ import {
 } from './ToolContentStreamConsumer';
 import { Agent } from '../../Agent';
 import { getBundledLib } from 'src/utils/bundledLibs';
-import type { ModelMessage, streamText } from 'ai';
+import type { LanguageModelUsage, ModelMessage, streamText } from 'ai';
 import { AbortOperationKeys } from 'src/constants';
-import { SUPER_AGENT_MAX_CONVERSATION_MESSAGES } from '../SuperAgent/superAgentConstants';
+import { eventEmitter } from 'src/services/EventEmitter';
+import { Events } from 'src/types/events';
 
 type AiStreamTextParams = Parameters<typeof streamText>[0];
 
@@ -42,18 +43,15 @@ export class StreamTextExecutor {
     toolCalls: TToolCalls;
     conversationHistory: ModelMessage[];
     toolContentStreamInfo?: ToolContentStreamInfo;
+    usage?: LanguageModelUsage;
+    totalUsage?: LanguageModelUsage;
   }> {
     const agent = asAgent(this);
 
-    const conversationHistory = await agent.renderer.extractConversationHistory(params.title, {
-      maxMessages: SUPER_AGENT_MAX_CONVERSATION_MESSAGES,
-    });
-
-    const compactionResult = await agent.plugin.compactionOrchestrator.run({
-      conversationTitle: params.title,
-      visibleWindowSize: 10,
-      lang: params.lang,
-    });
+    const modelForStream = params.intent.model?.trim() || agent.plugin.settings.llm.chat.model;
+    const historyResult = await agent.plugin.conversationRenderer.extractConversationHistory(
+      params.title
+    );
 
     const llmConfig = await agent.plugin.llmService.getLLMConfig({
       overrideModel: params.intent.model,
@@ -68,7 +66,6 @@ export class StreamTextExecutor {
     const expandedDeclared =
       declaredNormalized === null ? [] : this.expandSuperAgentDeclaredTools(declaredNormalized);
 
-    const hasCompactionContext = !!compactionResult.systemMessage;
     const hasConcludeEligibleDeclared =
       declaredNormalized !== null &&
       expandedDeclared.some(t => params.toolsThatEnableConclude.has(t));
@@ -80,7 +77,7 @@ export class StreamTextExecutor {
       allToolKeys: allSuperAgentKeys,
       toolsThatEnableConclude: params.toolsThatEnableConclude,
       hasConcludeEligibleDeclaredTool: hasConcludeEligibleDeclared,
-      hasCompactionContext,
+      hasCompactionContext: historyResult.hasCompactionContext,
     });
     const effectiveAllowed = new Set(effectiveAllowedNames);
 
@@ -96,7 +93,7 @@ export class StreamTextExecutor {
       effectiveAllowed,
       conversationActiveTools: params.activeTools,
       toolsThatEnableConclude: params.toolsThatEnableConclude,
-      hasCompactionContext,
+      hasCompactionContext: historyResult.hasCompactionContext,
     });
     const allActiveToolNames = [...activeToolNames, ...Object.keys(mcpTools.active)];
     const toolsForRegistry = {
@@ -113,7 +110,7 @@ export class StreamTextExecutor {
       registry.exclude([ToolName.CONFIRMATION, ToolName.ASK_USER]);
     }
 
-    const messages = [...conversationHistory];
+    const messages = [...historyResult.messages];
     if (!params.invocationCount) {
       messages.push({ role: 'user', content: params.intent.query });
     }
@@ -165,10 +162,6 @@ export class StreamTextExecutor {
       additionalSystemPrompts.push(llmConfig.systemPrompt);
     }
 
-    if (compactionResult.systemMessage) {
-      additionalSystemPrompts.push(compactionResult.systemMessage);
-    }
-
     if (additionalSystemPrompts.length > 0) {
       for (const item of additionalSystemPrompts) {
         messages.unshift({ role: 'system', content: item });
@@ -187,7 +180,7 @@ export class StreamTextExecutor {
 
     const { streamText } = await getBundledLib('ai');
 
-    const { toolCalls: toolCallsPromise, fullStream } = streamText({
+    const streamTextResult = streamText({
       model: llmConfig.model,
       temperature: llmConfig.temperature,
       maxOutputTokens: llmConfig.maxOutputTokens,
@@ -216,6 +209,12 @@ export class StreamTextExecutor {
         }
       },
     });
+    const {
+      toolCalls: toolCallsPromise,
+      fullStream,
+      totalUsage: totalUsagePromise,
+      usage: usagePromise,
+    } = streamTextResult;
 
     const { textStream, textDone, toolContentStream } = createLLMStream(fullStream, {
       toolContentStreaming: {
@@ -247,10 +246,22 @@ export class StreamTextExecutor {
       // Ignore errors here, they're handled by streamErrorPromise
     });
 
+    const usage = await usagePromise;
+    const totalUsage = await totalUsagePromise;
+
+    eventEmitter.emit(Events.EXECUTED_STREAM_TEXT, {
+      conversationTitle: params.title,
+      lang: params.lang,
+      model: modelForStream,
+      promptTokens: usage?.inputTokens,
+    });
+
     return {
       toolCalls,
-      conversationHistory,
+      conversationHistory: historyResult.messages,
       toolContentStreamInfo,
+      usage,
+      totalUsage,
     };
   }
 }

@@ -1,8 +1,8 @@
-import { parseYaml, TFile } from 'obsidian';
-import { uniqueID } from '../utils/uniqueID';
-import { getTranslation } from '../i18n';
-import { ConversationMessage, ConversationRole } from '../types/types';
-import type StewardPlugin from '../main';
+import { TFile } from 'obsidian';
+import { uniqueID } from '../../utils/uniqueID';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+import { ConversationMessage, ConversationRole } from '../../types/types';
+import type StewardPlugin from '../../main';
 import { logger } from 'src/utils/logger';
 import {
   STW_SOURCE_PATTERN,
@@ -13,15 +13,47 @@ import { prependChunk } from 'src/utils/textStreamer';
 import type { ModelMessage, TextPart, FilePart, ImagePart, ReasoningOutput } from 'ai';
 import { ToolCallPart, ToolResultPart } from 'src/solutions/commands/tools/types';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
-import { ArtifactType, ReadContentArtifactImpl } from 'src/solutions/artifact';
-import { removeUndefined } from 'src/utils/removeUndefined';
+import { ArtifactType } from 'src/solutions/artifact';
+import { applyMixins } from 'src/utils/applyMixins';
+import { ToolSerialization } from './ToolSerialization';
+import { Frontmatter } from './Frontmatter';
 import { Events } from 'src/types/events';
+
+const { getTranslation } = getBundledInternal('i18n');
+
+// eslint-disable-next-line @typescript-eslint/no-empty-interface -- declaration merge: class body + mixin prototype
+export interface ConversationRenderer extends ToolSerialization, Frontmatter {}
+
+/** User or assistant text row produced for compaction token budgeting. */
+type ConversationCompactionMessageEntry = {
+  type: 'message';
+  messageId: string;
+  role: string;
+  step?: number;
+  handlerId?: string;
+  content: string;
+  wordCount: number;
+  command?: string;
+};
+
+/** Tool row for compaction: paired tool-call + tool-result from the same invocation. */
+type ConversationCompactionToolEntry = {
+  type: 'tool';
+  messageId: string;
+  toolName: string;
+  toolResult: ToolResultPart;
+  toolCall: ToolCallPart;
+};
+
+type ConversationCompactionEntry =
+  | ConversationCompactionMessageEntry
+  | ConversationCompactionToolEntry;
 
 export class ConversationRenderer {
   static instance: ConversationRenderer;
   private streamingFiles = new Set<string>();
 
-  private constructor(private plugin: StewardPlugin) {}
+  private constructor(public readonly plugin: StewardPlugin) {}
 
   static getInstance(plugin?: StewardPlugin): ConversationRenderer {
     if (plugin) {
@@ -208,251 +240,6 @@ export class ConversationRenderer {
     const newLines = [...lines];
     newLines.splice(startLineIndex, endLineIndex - startLineIndex);
     return newLines.join('\n');
-  }
-
-  /**
-   * Serialize tool calls to a conversation note.
-   * The result could be inlined or referenced to a message or an artifact.
-   * @returns The message ID for referencing
-   */
-  public async serializeToolInvocation(params: {
-    path: string;
-    command?: string;
-    agent?: string;
-    text?: string;
-    handlerId?: string;
-    step?: number;
-    toolInvocations: (ToolCallPart | ToolResultPart)[];
-  }): Promise<string | undefined> {
-    try {
-      const file = this.getConversationFileByName(params.path);
-
-      // Get message metadata
-      const { messageId, comment } = await this.buildMessageMetadata(params.path, {
-        role: 'Assistant',
-        command: params.command,
-        agent: params.agent,
-        type: 'tool-invocation',
-        handlerId: params.handlerId,
-        step: params.step,
-      });
-
-      // Process the file content
-      await this.plugin.app.vault.process(file, currentContent => {
-        let contentToAdd = params.text ? `${params.text}\n` : '';
-
-        contentToAdd += `\`\`\`stw-artifact\n${JSON.stringify(params.toolInvocations)}\n\`\`\``;
-        return `${currentContent}\n\n${comment}\n${contentToAdd}`;
-      });
-
-      return messageId;
-    } catch (error: unknown) {
-      logger.error('Error serializing tool call:', error);
-      return undefined;
-    }
-  }
-
-  /**
-   * Deserialize tool calls from a message
-   */
-  public async deserializeToolInvocations(params: {
-    message: ConversationMessage;
-    conversationTitle: string;
-  }): Promise<Array<ToolCallPart | ToolResultPart | FilePart | ImagePart | TextPart> | null> {
-    // Extract all tool calls from the message content
-    const toolInvocationsMatches = params.message.content.match(
-      /```stw-artifact\n([\s\S]*?)\n```/g
-    );
-    if (!toolInvocationsMatches || toolInvocationsMatches.length === 0) {
-      logger.error('No stw-artifact blocks found in message content');
-      return null;
-    }
-
-    const toolInvocations: Array<ToolCallPart | ToolResultPart | FilePart | ImagePart | TextPart> =
-      [];
-
-    const resolveToolInvocation = async (
-      type: 'tool-call' | 'tool-result',
-      toolInvocation: ReturnType<typeof JSON.parse>
-    ): Promise<Array<ToolCallPart | ToolResultPart | FilePart | ImagePart | TextPart>> => {
-      switch (type) {
-        case 'tool-call': {
-          const input = toolInvocation.input ?? toolInvocation.args;
-          return [
-            {
-              type,
-              toolName: toolInvocation.toolName,
-              toolCallId: toolInvocation.toolCallId,
-              input,
-            },
-          ];
-        }
-
-        case 'tool-result':
-        default: {
-          // Resolve the result based on its type (Backward-compatible with AI SDK v4 format)
-          // let resolvedOutput: ToolResultPart['output'];
-          const output = toolInvocation.output ?? toolInvocation.result;
-          const additionalParts: Array<TextPart | FilePart | ImagePart> = [];
-
-          let resolvedOutput: ToolResultPart['output'] =
-            typeof output === 'string'
-              ? {
-                  type: 'text',
-                  value: output,
-                }
-              : output;
-
-          if (
-            resolvedOutput.type !== 'execution-denied' &&
-            typeof resolvedOutput.value === 'string'
-          ) {
-            // Check if it's an artifact reference
-            if (resolvedOutput.value.startsWith('artifactRef:')) {
-              const artifactId = resolvedOutput.value.substring('artifactRef:'.length);
-              const artifact = await this.plugin.artifactManagerV2
-                .withTitle(params.conversationTitle)
-                .getArtifactById(artifactId);
-              if (artifact) {
-                // If the artifact is marked as deleted, then skip sending data, return the deleteReason instead
-                if (artifact.deleteReason) {
-                  resolvedOutput = {
-                    type: 'json',
-                    value: removeUndefined({
-                      id: artifact.id,
-                      artifactType: artifact.artifactType,
-                      deleteReason: artifact.deleteReason,
-                      status: 'deleted', // Add this field
-                      // Don't send other fields of the artifact.
-                    }),
-                  };
-                } else {
-                  resolvedOutput = {
-                    type: 'json',
-                    value: removeUndefined(artifact),
-                  };
-
-                  // Check if artifact has imagePaths (from READ_CONTENT artifacts)
-                  // Include images in the same content as the tool-result
-                  if (
-                    artifact instanceof ReadContentArtifactImpl &&
-                    artifact.imagePaths &&
-                    artifact.imagePaths.length > 0
-                  ) {
-                    const imageParts = await this.plugin.userMessageService.getImagePartsFromPaths(
-                      artifact.imagePaths
-                    );
-                    for (const [path, imagePart] of imageParts) {
-                      additionalParts.push({ type: 'text', text: path }, imagePart);
-                    }
-                  }
-                }
-              } else {
-                logger.error(`Artifact not found: ${artifactId}`);
-                resolvedOutput = {
-                  type: 'error-text',
-                  value: `Artifact not found: ${artifactId}`,
-                };
-              }
-            } else if (resolvedOutput.value.startsWith('messageRef:')) {
-              const messageId = resolvedOutput.value.substring('messageRef:'.length);
-              const referencedMessage = await this.getMessageById(
-                params.conversationTitle,
-                messageId,
-                true // Exclude tool-hidden content when resolving message references
-              );
-              if (referencedMessage) {
-                resolvedOutput = {
-                  type: 'text',
-                  value: referencedMessage.content,
-                };
-              } else {
-                logger.error(`Message not found: ${messageId}`);
-                resolvedOutput = {
-                  type: 'error-text',
-                  value: `Message not found: ${messageId}`,
-                };
-              }
-            }
-            // Otherwise, it's an inlined result, keep as is
-          }
-
-          return [
-            {
-              type,
-              toolName: toolInvocation.toolName,
-              toolCallId: toolInvocation.toolCallId,
-              output: resolvedOutput,
-            },
-            ...additionalParts,
-          ];
-        }
-      }
-    };
-
-    for (const toolInvocationsMatch of toolInvocationsMatches) {
-      const toolInvocationData = JSON.parse(
-        toolInvocationsMatch.replace(/```stw-artifact\n|\n```/g, '')
-      );
-
-      // Ensure toolInvocationData is an array
-      if (!Array.isArray(toolInvocationData)) {
-        logger.error('Tool invocation data should be an array', toolInvocationData);
-        continue;
-      }
-
-      for (const toolInvocation of toolInvocationData) {
-        const { toolName, toolCallId, type } = toolInvocation;
-
-        if (!toolName || !toolCallId || !type) {
-          logger.error('Invalid tool call data structure', toolInvocation);
-          continue; // Skip invalid tool calls but continue processing others
-        }
-
-        if (type === 'tool-call') {
-          toolInvocations.push(...(await resolveToolInvocation('tool-call', toolInvocation)));
-          // In the old version, all types are tool-call, we need to handle tool-result here.
-          // Check for both output (new format) and result (old format) for backward compatibility
-          if (toolInvocation.output || toolInvocation.result) {
-            toolInvocations.push(...(await resolveToolInvocation('tool-result', toolInvocation)));
-          }
-        } else {
-          // In the new version, the input could be included, so handle tool-call here
-          if (toolInvocation.input) {
-            toolInvocations.push(...(await resolveToolInvocation('tool-call', toolInvocation)));
-          }
-          toolInvocations.push(...(await resolveToolInvocation('tool-result', toolInvocation)));
-        }
-      }
-    }
-
-    return toolInvocations.length > 0 ? toolInvocations : null;
-  }
-
-  /**
-   * Extracts tool names from a tool-invocation message content (sync, no artifact resolution).
-   * Used for filtering groups by compactability before full deserialization.
-   */
-  public extractToolNamesFromToolInvocation(content: string): string[] {
-    const matches = content.match(/```stw-artifact\n([\s\S]*?)\n```/g);
-    if (!matches?.length) return [];
-
-    const names: string[] = [];
-    for (const match of matches) {
-      try {
-        const jsonStr = match.replace(/```stw-artifact\n|\n```/g, '');
-        const data = JSON.parse(jsonStr);
-        if (!Array.isArray(data)) continue;
-        for (const item of data) {
-          if (item?.toolName && typeof item.toolName === 'string') {
-            names.push(item.toolName);
-          }
-        }
-      } catch {
-        // Skip malformed blocks
-      }
-    }
-    return names;
   }
 
   /**
@@ -1392,49 +1179,32 @@ export class ConversationRenderer {
   }
 
   /**
+   * Counts existing compaction summary blocks in the note (`COMMAND:compacted`).
+   * Used when appending a new compaction so formatting can skip duplicate guidelines.
+   */
+  public async countCompactedMessageBlocks(conversationTitle: string): Promise<number> {
+    const messages = await this.extractAllConversationMessages(conversationTitle);
+    let count = 0;
+    for (let i = 0; i < messages.length; i++) {
+      if (messages[i].intent === 'compacted') {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
    * Converts messages for compaction: strips reasoning, uses model format.
    * Returns entries with clean content (no reasoning) and messageIds for stw_compaction.
    */
-  public async convertMessagesForCompaction(
-    conversationTitle: string,
-    messages: ConversationMessage[]
-  ): Promise<
-    Array<
-      | {
-          type: 'message';
-          messageId: string;
-          role: string;
-          step?: number;
-          handlerId?: string;
-          content: string;
-          wordCount: number;
-        }
-      | {
-          type: 'tool';
-          messageId: string;
-          toolName: string;
-          toolResult: ToolResultPart;
-        }
-    >
-  > {
+  public async getMessagesForCompaction(
+    conversationTitle: string
+  ): Promise<ConversationCompactionEntry[]> {
+    const messages = await this.extractConversationMessagesForHistory(conversationTitle, {
+      includeCompactedMessage: false,
+    });
     const grouped = this.groupMessagesByStep(messages);
-    const entries: Array<
-      | {
-          type: 'message';
-          messageId: string;
-          role: string;
-          step?: number;
-          handlerId?: string;
-          content: string;
-          wordCount: number;
-        }
-      | {
-          type: 'tool';
-          messageId: string;
-          toolName: string;
-          toolResult: ToolResultPart;
-        }
-    > = [];
+    const entries: ConversationCompactionEntry[] = [];
 
     for (const group of grouped) {
       const firstMessage = group[0];
@@ -1458,14 +1228,42 @@ export class ConversationRenderer {
       }
 
       const assistantParts: (TextPart | ToolCallPart | ReasoningOutput)[] = [];
-      const toolResultParts: ToolResultPart[] = [];
+      let groupHadToolResults = false;
 
       for (const message of group) {
         if (message.type === 'reasoning' && !belongsToLastTurn) continue;
         const parts = await this.convertMessageToParts(conversationTitle, message);
         if (!parts || parts.role === 'user') continue;
+
         assistantParts.push(...parts.assistantParts);
-        toolResultParts.push(...parts.toolResultParts);
+
+        if (parts.toolResultParts.length > 0) {
+          groupHadToolResults = true;
+          for (const tr of parts.toolResultParts) {
+            const toolCall = parts.assistantParts.find(
+              (p): p is ToolCallPart => p.type === 'tool-call' && p.toolCallId === tr.toolCallId
+            );
+            if (!toolCall) {
+              logger.warn(
+                'getMessagesForCompaction: tool-result without paired tool-call in same message; skipping',
+                {
+                  toolCallId: tr.toolCallId,
+                  toolName: tr.toolName,
+                  conversationTitle,
+                  messageId: message.id,
+                }
+              );
+              continue;
+            }
+            entries.push({
+              type: 'tool',
+              messageId: message.id,
+              toolName: tr.toolName,
+              toolResult: tr,
+              toolCall,
+            });
+          }
+        }
       }
 
       const textParts = assistantParts.filter((p): p is TextPart => p.type === 'text');
@@ -1474,7 +1272,8 @@ export class ConversationRenderer {
         .join(' ')
         .trim();
 
-      if (textContent.length > 0 && toolResultParts.length === 0) {
+      // Only collect standalone text - Not part of a tool call.
+      if (textContent.length > 0 && !groupHadToolResults) {
         const primaryMsg = group.find(m => m.type !== 'reasoning') ?? firstMessage;
         entries.push({
           type: 'message',
@@ -1485,18 +1284,6 @@ export class ConversationRenderer {
           content: textContent,
           wordCount: this.countWords(textContent),
         });
-      }
-
-      if (toolResultParts.length > 0) {
-        const toolInvocationMsg = group.find(m => m.type === 'tool-invocation') ?? firstMessage;
-        for (const tr of toolResultParts) {
-          entries.push({
-            type: 'tool',
-            messageId: toolInvocationMsg.id,
-            toolName: tr.toolName,
-            toolResult: tr,
-          });
-        }
       }
     }
 
@@ -1520,7 +1307,8 @@ export class ConversationRenderer {
   ): Promise<ModelMessage[]> {
     try {
       // Get all messages from the conversation
-      const allMessages = await this.extractConversationHistory(conversationTitle);
+      const historyResult = await this.extractConversationHistory(conversationTitle);
+      const allMessages = historyResult.messages;
 
       // Filter messages by handler ID
       return allMessages.filter(
@@ -1738,18 +1526,39 @@ export class ConversationRenderer {
   public async extractConversationHistory(
     conversationTitle: string,
     options?: {
-      maxMessages?: number;
+      maxMessages?: number | null;
+      includeCompactedMessage?: boolean;
     }
-  ): Promise<ModelMessage[]> {
-    const { maxMessages = 10 } = options || {};
+  ): Promise<{ messages: ModelMessage[]; hasCompactionContext: boolean }> {
+    const messagesToInclude = await this.extractConversationMessagesForHistory(
+      conversationTitle,
+      options
+    );
+    const hasCompactionContext = messagesToInclude.some(
+      message => message.intent === 'compacted' || message.type === 'compacted'
+    );
 
-    // Get all messages from the conversation
+    // Group consecutive messages by (handlerId, role, step) for merging
+    const groupedMessages = this.groupMessagesByStep(messagesToInclude);
+    const messages = await this.convertConversationMessagesToModelMessages(
+      conversationTitle,
+      groupedMessages
+    );
+    return { messages, hasCompactionContext };
+  }
+
+  private async extractConversationMessagesForHistory(
+    conversationTitle: string,
+    options?: {
+      maxMessages?: number | null;
+      includeCompactedMessage?: boolean;
+    }
+  ): Promise<ConversationMessage[]> {
+    const { maxMessages = null, includeCompactedMessage = true } = options || {};
+
     const allMessages = await this.extractAllConversationMessages(conversationTitle);
-
-    // Filter out messages where history is explicitly set to false
     const messagesForHistory = allMessages.filter(message => message.history !== false);
 
-    // Remove the last message if it is a user message which is just being added.
     if (
       messagesForHistory.length > 0 &&
       messagesForHistory[messagesForHistory.length - 1].role === 'user'
@@ -1764,30 +1573,54 @@ export class ConversationRenderer {
 
     for (let i = messagesForHistory.length - 1; i >= 0; i--) {
       const message = messagesForHistory[i];
-
-      // If the user message is a built-in or UDC (but not the general command "/ "), start a new topic
       if (
         message.role === 'user' &&
         message.intent &&
         message.intent !== ' ' &&
         allCommandWithoutPrefixes.includes(message.intent)
       ) {
-        // Found a message that starts a new topic
         topicStartIndex = i;
         break;
       }
     }
 
-    // Get messages after the topicStartIndex
-    const filteredMessages = messagesForHistory.slice(topicStartIndex);
+    let filteredMessages: ConversationMessage[];
 
-    // Slice messages without cutting in the middle of a step
-    const messagesToInclude = this.sliceMessagesPreservingSteps(filteredMessages, maxMessages);
+    const compactedEntries = this.collectCompactedMessages(messagesForHistory);
+    if (compactedEntries.length > 0) {
+      const maxCompactedIndex = compactedEntries[compactedEntries.length - 1].index;
+      if (includeCompactedMessage) {
+        const startIndex = Math.max(maxCompactedIndex + 1, topicStartIndex);
+        filteredMessages = [
+          ...compactedEntries.map(entry => entry.message),
+          ...messagesForHistory.slice(startIndex),
+        ];
+      } else {
+        const startIndex = maxCompactedIndex + 1;
+        filteredMessages = messagesForHistory.slice(startIndex);
+      }
+    } else {
+      filteredMessages = messagesForHistory.slice(topicStartIndex);
+    }
+    return maxMessages === null
+      ? filteredMessages
+      : this.sliceMessagesPreservingSteps(filteredMessages, maxMessages);
+  }
 
-    // Group consecutive messages by (handlerId, role, step) for merging
-    const groupedMessages = this.groupMessagesByStep(messagesToInclude);
-
-    return this.convertConversationMessagesToModelMessages(conversationTitle, groupedMessages);
+  /**
+   * All messages with intent `compacted`, in ascending index order.
+   * The latest compaction is the last entry (largest index).
+   */
+  private collectCompactedMessages(
+    messages: ConversationMessage[]
+  ): { index: number; message: ConversationMessage }[] {
+    const result: { index: number; message: ConversationMessage }[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      if (messages[i].intent === 'compacted') {
+        result.push({ index: i, message: messages[i] });
+      }
+    }
+    return result;
   }
 
   /**
@@ -1881,80 +1714,6 @@ export class ConversationRenderer {
     }
 
     return groups;
-  }
-
-  /**
-   * Gets a property from the conversation's YAML frontmatter
-   * Tries cache first, then reads directly from file if not found
-   * @param conversationTitle The title of the conversation
-   * @param property The property name to retrieve
-   * @returns The property value or undefined if not found
-   */
-  public async getConversationProperty<T>(
-    conversationTitle: string,
-    property: string,
-    forceRefresh?: boolean
-  ): Promise<T | undefined> {
-    try {
-      const file = this.getConversationFileByName(conversationTitle);
-
-      // Try to get from cache first
-      const fileCache = this.plugin.app.metadataCache.getFileCache(file);
-
-      if (fileCache?.frontmatter && !forceRefresh) {
-        return fileCache.frontmatter[property];
-      }
-
-      // Cache miss, read directly from file
-      if (forceRefresh) {
-        logger.log(`Force refresh for property ${property}, reading directly from file`);
-      } else {
-        logger.log(`Cache miss for property ${property}, reading directly from file`);
-      }
-      const fileContent = await this.plugin.app.vault.read(file);
-      const frontmatterRegex = /^---\n([\s\S]*?)\n---/;
-      const match = fileContent.match(frontmatterRegex);
-
-      if (match) {
-        const frontmatter = parseYaml(match[1]) as Record<string, unknown>;
-        return frontmatter[property] as T;
-      }
-
-      return undefined;
-    } catch (error) {
-      logger.error(`Error getting conversation property ${property}:`, error);
-      return undefined;
-    }
-  }
-
-  /**
-   * Updates a property in the conversation's YAML frontmatter
-   * @param conversationTitle The title of the conversation
-   * @param properties The properties to update
-   * @returns True if successful, false otherwise
-   */
-  public async updateConversationFrontmatter(
-    conversationTitle: string,
-    properties: Array<{ name: string; value?: unknown; delete?: boolean }>
-  ): Promise<boolean> {
-    try {
-      const file = this.getConversationFileByName(conversationTitle);
-
-      await this.plugin.app.fileManager.processFrontMatter(file, frontmatter => {
-        for (const prop of properties) {
-          if (prop.delete) {
-            delete frontmatter[prop.name];
-            continue;
-          }
-          frontmatter[prop.name] = prop.value;
-        }
-      });
-
-      return true;
-    } catch (error) {
-      logger.error(`Error updating conversation frontmatter:`, error);
-      return false;
-    }
   }
 
   /**
@@ -2147,3 +1906,5 @@ export class ConversationRenderer {
     return file;
   }
 }
+
+applyMixins(ConversationRenderer, [ToolSerialization, Frontmatter]);

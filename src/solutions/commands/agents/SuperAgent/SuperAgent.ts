@@ -2,7 +2,7 @@ import type { ModelMessage } from 'ai';
 import { Agent } from '../../Agent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus, Intent } from '../../types';
 import { ToolCallPart, ToolResultPart, TypedToolCallPart } from '../../tools/types';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { getClassifier } from 'src/lib/modelfusion';
@@ -21,6 +21,9 @@ import {
 } from '../agentTools';
 import type { AgentCorePromptContext } from '../../Agent';
 import { isGoogleModel } from '../googleUtils';
+import { USAGE_AGENT_KEY } from 'src/services/ConversationRenderer/Frontmatter';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 const SUPER_AGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUPER_AGENT_TOOL_NAMES;
 
@@ -306,6 +309,16 @@ NOTE:
       toolCalls = result.toolCalls;
       conversationHistory = result.conversationHistory;
       toolContentStreamInfo = result.toolContentStreamInfo;
+      try {
+        await this.renderer.recordTokenUsage(
+          title,
+          USAGE_AGENT_KEY.super,
+          result.usage,
+          result.totalUsage
+        );
+      } catch (usageError) {
+        logger.error('Failed to record super agent token usage', usageError);
+      }
     }
 
     const toolProcessingResult = await this.executeToolCalls({

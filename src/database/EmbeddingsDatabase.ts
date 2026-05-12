@@ -1,4 +1,7 @@
-import Dexie, { Table } from 'dexie';
+import type { Table } from 'dexie';
+import { getBundledSyncLibSync } from 'src/utils/bundledLibs';
+
+const Dexie = getBundledSyncLibSync('dexie');
 
 export interface EmbeddingEntry {
   id?: number;

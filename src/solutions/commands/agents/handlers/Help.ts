@@ -2,10 +2,12 @@ import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 import { ToolCallPart } from '../../tools/types';
 import { GITHUB_WIKI_URL, WIKI_PAGES } from 'src/constants';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 interface BuiltInCommand {
   command: string;
@@ -105,10 +107,15 @@ export class Help {
           const cmdDef = entry[1];
           const slash = cmdDef.isHidden() ? '' : '/';
           const noteLink = wikilinkInTable(cmdDef.normalized.file_path, 'Link');
-          udcRows.push([`\`${slash}${cmdName}\``, noteLink]);
+          const udcDescription = cmdDef.normalized.description?.trim() ?? '';
+          udcRows.push([`\`${slash}${cmdName}\``, udcDescription, noteLink]);
         }
         content += formatMarkdownTable(
-          [t('common.helpTableCommand'), t('common.helpTableNote')],
+          [
+            t('common.helpTableCommand'),
+            t('common.helpTableDescription'),
+            t('common.helpTableNote'),
+          ],
           udcRows
         );
       } else {

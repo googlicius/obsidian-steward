@@ -2,7 +2,7 @@ import { WorkspaceLeaf, TFile, TFolder, App } from 'obsidian';
 import { StewardChatView } from './StewardChatView';
 import type StewardPlugin from 'src/main';
 import { getInstance } from 'src/utils/getInstance';
-import i18next from 'i18next';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 
 jest.mock('obsidian', () => {
   const actual = jest.requireActual('obsidian');
@@ -60,7 +60,7 @@ describe('StewardChatView', () => {
 
       const result = await buildHistoryContent();
 
-      expect(result).toBe(i18next.t('chat.noConversations'));
+      expect(result).toBe(getBundledInternal('i18n').i18next.t('chat.noConversations'));
     });
 
     it('should return noConversations message when folder is empty', async () => {
@@ -72,7 +72,7 @@ describe('StewardChatView', () => {
 
       const result = await buildHistoryContent();
 
-      expect(result).toBe(i18next.t('chat.noConversations'));
+      expect(result).toBe(getBundledInternal('i18n').i18next.t('chat.noConversations'));
     });
   });
 

@@ -2,7 +2,9 @@ import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { GITHUB_RAW_BASE_URL, DOCS_FOLDER_NAME } from 'src/constants';
 import { Notice } from 'obsidian';
-import i18next from 'i18next';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+
+const { i18next } = getBundledInternal('i18n');
 
 export type ResourceType = 'doc' | 'command' | 'image';
 

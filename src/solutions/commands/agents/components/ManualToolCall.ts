@@ -1,6 +1,6 @@
 import { ToolCallPart } from '../../tools/types';
 import { ArtifactType } from 'src/solutions/artifact';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { uniqueID } from 'src/utils/uniqueID';
 import { ToolName } from '../../ToolRegistry';
 import { parseStepProcessedQuery } from '../SuperAgent/stepProcessedQuery';
@@ -10,6 +10,8 @@ import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
 import * as handlers from '../handlers';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type { Handlers } from './Handlers';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 function asAgent(instance: ManualToolCall) {
   return instance as unknown as AgentHandlerContext & Handlers;
@@ -206,7 +208,8 @@ export class ManualToolCall {
         return undefined;
       }
 
-      case '>': {
+      case '>':
+      case 'shell': {
         return {
           type: 'tool-call',
           toolName: ToolName.SHELL,

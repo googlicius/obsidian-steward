@@ -53,6 +53,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     },
     conversationRenderer: {
       updateConversationFrontmatter: jest.fn().mockResolvedValue(undefined),
+      recordTokenUsage: jest.fn().mockResolvedValue(undefined),
     },
   } as unknown as jest.Mocked<StewardPlugin>;
 }
@@ -121,6 +122,8 @@ describe('ConversationTitleAgent', () => {
         title: 'Migration Plan',
         lang: 'VI',
       },
+      usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+      totalUsage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
     });
 
     const result = await agent.generate({
@@ -139,6 +142,20 @@ describe('ConversationTitleAgent', () => {
         { name: 'conversation_title', value: 'Migration Plan' },
         { name: 'lang', value: 'vi' },
       ])
+    );
+    expect(mockPlugin.conversationRenderer.recordTokenUsage).toHaveBeenCalledWith(
+      'test-conversation',
+      'title',
+      expect.objectContaining({
+        inputTokens: 10,
+        outputTokens: 20,
+        totalTokens: 30,
+      }),
+      expect.objectContaining({
+        inputTokens: 1,
+        outputTokens: 2,
+        totalTokens: 3,
+      })
     );
   });
 });

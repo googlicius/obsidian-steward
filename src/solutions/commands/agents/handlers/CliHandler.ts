@@ -1,7 +1,6 @@
 import { z } from 'zod/v3';
 import { normalizePath, Platform } from 'obsidian';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
-import i18next from 'i18next';
 import { logger } from 'src/utils/logger';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { GITHUB_WIKI_URL, WIKI_PAGES } from 'src/constants';
@@ -20,7 +19,9 @@ import { ToolCallPart } from '../../tools/types';
 import { ToolName } from '../../ToolRegistry';
 import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
 import { retry } from 'src/utils/retry';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+
+const { i18next, getTranslation } = getBundledInternal('i18n');
 
 export const shellToolInputSchema = z.object({
   argsLine: z
@@ -29,6 +30,13 @@ export const shellToolInputSchema = z.object({
     .default('')
     .describe(
       'Single line to send to the local shell transcript for this conversation (e.g. a shell command). Leave empty to start or continue a shell session without sending a line yet.'
+    ),
+  needsInteractiveMode: z
+    .boolean()
+    .optional()
+    .describe(
+      `Set true when the command needs an interactive terminal/TTY (for example downloading, installing, needs user prompt/select, or long-running process that you don't know how long to wait)
+      Verify the command result before moving further.`
     ),
 });
 
@@ -83,17 +91,13 @@ export class CliHandler {
   private async resolveShellSessionConversationTitle(params: {
     conversationTitle: string;
     argsLine: string;
+    needsInteractiveMode?: boolean;
   }): Promise<{
     shellSessionTitle: string;
     hostConversationTitleForSpawn?: string;
     materializeXtermFromHostTitle?: string;
   }> {
-    if (
-      !isInteractiveCliCommand(
-        params.argsLine,
-        this.cliSessionService.getSupportedInteractiveApps()
-      )
-    ) {
+    if (!this.shouldUseInteractiveMode(params.argsLine, params.needsInteractiveMode)) {
       return { shellSessionTitle: params.conversationTitle };
     }
 
@@ -114,15 +118,25 @@ export class CliHandler {
     };
   }
 
+  private shouldUseInteractiveMode(argsLine: string, needsInteractiveMode?: boolean): boolean {
+    if (needsInteractiveMode !== undefined) {
+      return needsInteractiveMode;
+    }
+
+    return isInteractiveCliCommand(argsLine, this.cliSessionService.getSupportedInteractiveApps());
+  }
+
   /** Creates the xterm conversation note and host UX after interactive shell spawn succeeded. */
   private async materializeCliXtermConversationAfterSpawn(params: {
     hostConversationTitle: string;
     xtermConversationTitle: string;
     argsLine: string;
+    shellExecutable?: string;
   }): Promise<void> {
     await this.cliSessionService.ensureCliXtermConversationNote({
       hostConversationTitle: params.hostConversationTitle,
       query: params.argsLine,
+      shellExecutable: params.shellExecutable,
     });
 
     const hostSession = this.cliSessionService.getSession(params.hostConversationTitle);
@@ -294,10 +308,13 @@ export class CliHandler {
   private async startSession(params: {
     conversationTitle: string;
     argsLine: string;
+    needsInteractiveMode?: boolean;
     hostConversationTitle?: string;
     workingDirectory?: string;
     /** When set, create the xterm note and host UX only after the shell spawns successfully. */
     materializeXtermFromHostTitle?: string;
+    /** Overrides global CLI shell setting for this spawn only (new session). */
+    shellExecutable?: string;
   }): Promise<string | undefined> {
     this.cliSessionService.endSession({
       conversationTitle: params.conversationTitle,
@@ -311,6 +328,8 @@ export class CliHandler {
       streamMarker: getCliStreamMarkerPlaceholder(),
       workingDirectory: params.workingDirectory,
       initialArgsLine: params.argsLine,
+      needsInteractiveMode: params.needsInteractiveMode,
+      shellExecutable: params.shellExecutable,
     });
 
     const errorNotePath = params.materializeXtermFromHostTitle ?? params.conversationTitle;
@@ -329,6 +348,7 @@ export class CliHandler {
         hostConversationTitle: params.materializeXtermFromHostTitle,
         xtermConversationTitle: params.conversationTitle,
         argsLine: params.argsLine,
+        shellExecutable: params.shellExecutable,
       });
     }
 
@@ -371,11 +391,15 @@ export class CliHandler {
    */
   private async runShellSession(
     params: AgentHandlerParams,
-    argsLine: string
+    toolCall: ToolCallPart<ShellToolInput>
   ): Promise<{ messageId?: string }> {
+    const argsLine = toolCall.input?.argsLine ?? '';
+    const needsInteractiveMode = toolCall.input?.needsInteractiveMode;
+
     const routing = await this.resolveShellSessionConversationTitle({
       conversationTitle: params.title,
       argsLine,
+      needsInteractiveMode,
     });
 
     const continueResult = await this.tryContinueSession({
@@ -394,10 +418,7 @@ export class CliHandler {
       };
     }
 
-    const wantsInteractive = isInteractiveCliCommand(
-      argsLine,
-      this.cliSessionService.getSupportedInteractiveApps()
-    );
+    const wantsInteractive = this.shouldUseInteractiveMode(argsLine, needsInteractiveMode);
     let workingDirectory: string | undefined;
     if (wantsInteractive) {
       const transcriptConversationTitle =
@@ -408,12 +429,18 @@ export class CliHandler {
         );
     }
 
+    const trimmedIntentShell = params.intent.cli?.shell?.trim();
+    const shellExecutable =
+      trimmedIntentShell && trimmedIntentShell.length > 0 ? trimmedIntentShell : undefined;
+
     const messageId = await this.startSession({
       conversationTitle: routing.shellSessionTitle,
       argsLine,
+      needsInteractiveMode,
       hostConversationTitle: routing.hostConversationTitleForSpawn,
       workingDirectory,
       materializeXtermFromHostTitle: routing.materializeXtermFromHostTitle,
+      shellExecutable,
     });
 
     if (messageId && argsLine.length > 0) {
@@ -446,7 +473,7 @@ export class CliHandler {
     );
 
     if (isManualClientShellCall) {
-      await this.runShellSession(params, argsLine);
+      await this.runShellSession(params, options.toolCall);
       return {
         status: IntentResultStatus.SUCCESS,
       };
@@ -476,7 +503,7 @@ export class CliHandler {
       },
       toolCall: options.toolCall,
       onConfirmation: async (_confirmationMessage: string) => {
-        const runResult = await this.runShellSession(params, argsLine);
+        const runResult = await this.runShellSession(params, options.toolCall);
 
         if (params.handlerId && runResult) {
           await this.agent.serializeInvocation({

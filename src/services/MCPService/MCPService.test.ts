@@ -1,12 +1,14 @@
 import { TFile } from 'obsidian';
 import type { MCPClient } from '@ai-sdk/mcp';
 import type StewardPlugin from 'src/main';
-import i18next from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { getInstance } from 'src/utils/getInstance';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { logger } from 'src/utils/logger';
 import { NoteContentService } from 'src/services/NoteContentService';
 import { MCPService } from './MCPService';
+
+const { i18next } = getBundledInternal('i18n');
 
 jest.mock('src/utils/bundledLibs', () => ({
   getBundledLib: jest.fn(),
@@ -241,7 +243,7 @@ No json here.
 
       await service['refreshCachedToolNamesFromServer'](file, mcpPath);
 
-      expect(getBundledLib).toHaveBeenCalledWith('mcp');
+      expect(getBundledLib).toHaveBeenCalledWith('@ai-sdk/mcp');
       expect(mockTools).toHaveBeenCalled();
       expect(mockClose).toHaveBeenCalled();
       const written = JSON.parse(fmUpdates.tools as string) as string[];
@@ -553,7 +555,7 @@ No json here.
 
       expect(first).not.toBeNull();
       expect(second).toBe(first);
-      expect(getBundledLib).toHaveBeenCalledWith('mcp');
+      expect(getBundledLib).toHaveBeenCalledWith('@ai-sdk/mcp');
       expect(mockTools).toHaveBeenCalledTimes(1);
     });
   });
@@ -929,7 +931,7 @@ not json
       });
 
       (getBundledLib as jest.Mock).mockImplementation(async (lib: string) => {
-        if (lib === 'mcp') {
+        if (lib === '@ai-sdk/mcp') {
           return {
             createMCPClient: jest.fn().mockRejectedValue(new Error('connection refused')),
           };

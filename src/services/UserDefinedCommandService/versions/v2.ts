@@ -16,6 +16,15 @@ const system_prompt = z.array(z.string()).optional();
 const tools = z.array(z.nativeEnum(ToolName)).optional();
 const show_todo_list = z.boolean().optional();
 
+/** V2 step schema: adds `cli.shell` (not part of shared v1 steps). */
+export const commandStepV2Schema = commandStepSchema.extend({
+  cli: z
+    .object({
+      shell: z.string().optional(),
+    })
+    .optional(),
+});
+
 /**
  * Transform heading-only wikilinks ([[#Heading]]) to include the file path
  * @param content The content containing wikilinks
@@ -47,8 +56,9 @@ function transformHeadingOnlyWikilinks(content: string, filePath: string): strin
 export const userDefinedCommandV2Schema = z.object({
   version: z.literal(2).optional(),
   command_name,
+  description: z.string().optional(),
   query_required,
-  steps: z.array(commandStepSchema).min(1, 'At least one step is required'),
+  steps: z.array(commandStepV2Schema).min(1, 'At least one step is required'),
   file_path,
   model,
   system_prompt,
@@ -86,6 +96,7 @@ export class UserDefinedCommandV2 implements IVersionedUserDefinedCommand {
 
     return {
       command_name: this.data.command_name,
+      description: this.data.description,
       query_required: this.data.query_required,
       steps: transformedSteps,
       file_path: filePath,

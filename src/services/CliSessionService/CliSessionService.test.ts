@@ -87,7 +87,8 @@ function createSession(overrides: Partial<CliSession> = {}): CliSession {
     operationId: 'op-1',
     pendingSentinelMarker: null,
     hideStreamMarkerNextFlush: false,
-    cdCommandHistory: [],
+    cdHistory: [],
+    spawnedShellFile: '/bin/bash',
     ...overrides,
   };
 }
@@ -499,151 +500,156 @@ describe('CliSessionService', () => {
     });
 
     it('leaves cdCommandHistory unchanged when argsLine is empty', () => {
-      const session = createSession({ cdCommandHistory: [] });
+      const session = createSession({ cdHistory: [] });
       registerSession(service, session);
       service.recordCdCommandsFromQuery({
         conversationTitle: session.conversationTitle,
         argsLine: '',
       });
-      expect(session.cdCommandHistory).toEqual([]);
+      expect(session.cdHistory).toEqual([]);
     });
 
     it('leaves cdCommandHistory unchanged when argsLine has no cd commands', () => {
-      const session = createSession({ cdCommandHistory: [] });
+      const session = createSession({ cdHistory: [] });
       registerSession(service, session);
       service.recordCdCommandsFromQuery({
         conversationTitle: session.conversationTitle,
         argsLine: 'ls -la && echo hello',
       });
-      expect(session.cdCommandHistory).toEqual([]);
+      expect(session.cdHistory).toEqual([]);
     });
 
     it('ignores segments where "cd" is a prefix of another word (e.g. cdstuff)', () => {
-      const session = createSession({ cdCommandHistory: [] });
+      const session = createSession({ cdHistory: [] });
       registerSession(service, session);
       service.recordCdCommandsFromQuery({
         conversationTitle: session.conversationTitle,
         argsLine: 'cdstuff /foo',
       });
-      expect(session.cdCommandHistory).toEqual([]);
+      expect(session.cdHistory).toEqual([]);
     });
 
     it('appends a single cd command to an empty history', () => {
-      const session = createSession({ cdCommandHistory: [] });
+      const session = createSession({ cdHistory: [] });
       registerSession(service, session);
       service.recordCdCommandsFromQuery({
         conversationTitle: session.conversationTitle,
         argsLine: 'cd /home/user',
       });
-      expect(session.cdCommandHistory).toEqual(['cd /home/user']);
+      expect(session.cdHistory).toEqual(['cd /home/user']);
     });
 
     it('appends a bare cd with no path', () => {
-      const session = createSession({ cdCommandHistory: [] });
+      const session = createSession({ cdHistory: [] });
       registerSession(service, session);
       service.recordCdCommandsFromQuery({
         conversationTitle: session.conversationTitle,
         argsLine: 'cd',
       });
-      expect(session.cdCommandHistory).toEqual(['cd']);
+      expect(session.cdHistory).toEqual(['cd']);
     });
 
     it('appends cd commands split by &&', () => {
-      const session = createSession({ cdCommandHistory: [] });
+      const session = createSession({ cdHistory: [] });
       registerSession(service, session);
       service.recordCdCommandsFromQuery({
         conversationTitle: session.conversationTitle,
         argsLine: 'cd /foo && echo done',
       });
-      expect(session.cdCommandHistory).toEqual(['cd /foo']);
+      expect(session.cdHistory).toEqual(['cd /foo']);
     });
 
     it('appends cd commands split by ||', () => {
-      const session = createSession({ cdCommandHistory: [] });
+      const session = createSession({ cdHistory: [] });
       registerSession(service, session);
       service.recordCdCommandsFromQuery({
         conversationTitle: session.conversationTitle,
         argsLine: 'cd /foo || echo fail',
       });
-      expect(session.cdCommandHistory).toEqual(['cd /foo']);
+      expect(session.cdHistory).toEqual(['cd /foo']);
     });
 
     it('appends multiple cd commands split by ;', () => {
-      const session = createSession({ cdCommandHistory: [] });
+      const session = createSession({ cdHistory: [] });
       registerSession(service, session);
       service.recordCdCommandsFromQuery({
         conversationTitle: session.conversationTitle,
         argsLine: 'cd /foo; cd /bar',
       });
-      expect(session.cdCommandHistory).toEqual(['cd /foo', 'cd /bar']);
+      expect(session.cdHistory).toEqual(['cd /foo', 'cd /bar']);
     });
 
     it('appends multiple cd commands split by newline', () => {
-      const session = createSession({ cdCommandHistory: [] });
+      const session = createSession({ cdHistory: [] });
       registerSession(service, session);
       service.recordCdCommandsFromQuery({
         conversationTitle: session.conversationTitle,
         argsLine: 'cd /foo\ncd /bar',
       });
-      expect(session.cdCommandHistory).toEqual(['cd /foo', 'cd /bar']);
+      expect(session.cdHistory).toEqual(['cd /foo', 'cd /bar']);
     });
 
     it('appends multiple cd commands split by \\r\\n', () => {
-      const session = createSession({ cdCommandHistory: [] });
+      const session = createSession({ cdHistory: [] });
       registerSession(service, session);
       service.recordCdCommandsFromQuery({
         conversationTitle: session.conversationTitle,
         argsLine: 'cd /foo\r\ncd /bar',
       });
-      expect(session.cdCommandHistory).toEqual(['cd /foo', 'cd /bar']);
+      expect(session.cdHistory).toEqual(['cd /foo', 'cd /bar']);
     });
 
     it('is case-insensitive when matching cd', () => {
-      const session = createSession({ cdCommandHistory: [] });
+      const session = createSession({ cdHistory: [] });
       registerSession(service, session);
       service.recordCdCommandsFromQuery({
         conversationTitle: session.conversationTitle,
         argsLine: 'CD /foo && Cd /bar',
       });
-      expect(session.cdCommandHistory).toEqual(['CD /foo', 'Cd /bar']);
+      expect(session.cdHistory).toEqual(['CD /foo', 'Cd /bar']);
     });
 
     it('extracts only cd segments from a mixed compound argsLine', () => {
-      const session = createSession({ cdCommandHistory: [] });
+      const session = createSession({ cdHistory: [] });
       registerSession(service, session);
       service.recordCdCommandsFromQuery({
         conversationTitle: session.conversationTitle,
         argsLine: 'ls && cd /proj && echo hi; cd /tmp',
       });
-      expect(session.cdCommandHistory).toEqual(['cd /proj', 'cd /tmp']);
+      expect(session.cdHistory).toEqual(['cd /proj', 'cd /tmp']);
     });
 
     it('appends to existing history entries', () => {
-      const session = createSession({ cdCommandHistory: ['cd /existing'] });
+      const session = createSession({ cdHistory: ['cd /existing'] });
       registerSession(service, session);
       service.recordCdCommandsFromQuery({
         conversationTitle: session.conversationTitle,
         argsLine: 'cd /new',
       });
-      expect(session.cdCommandHistory).toEqual(['cd /existing', 'cd /new']);
+      expect(session.cdHistory).toEqual(['cd /existing', 'cd /new']);
     });
 
     it('caps cdCommandHistory at 200 entries keeping the most recent', () => {
       const initial = Array.from({ length: 200 }, (_, i) => `cd /dir-${i}`);
-      const session = createSession({ cdCommandHistory: [...initial] });
+      const session = createSession({ cdHistory: [...initial] });
       registerSession(service, session);
       service.recordCdCommandsFromQuery({
         conversationTitle: session.conversationTitle,
         argsLine: 'cd /overflow-1; cd /overflow-2',
       });
-      expect(session.cdCommandHistory).toHaveLength(200);
-      expect(session.cdCommandHistory.at(-1)).toBe('cd /overflow-2');
-      expect(session.cdCommandHistory.at(-2)).toBe('cd /overflow-1');
-      expect(session.cdCommandHistory[0]).toBe('cd /dir-2');
+      expect(session.cdHistory).toHaveLength(200);
+      expect(session.cdHistory.at(-1)).toBe('cd /overflow-2');
+      expect(session.cdHistory.at(-2)).toBe('cd /overflow-1');
+      expect(session.cdHistory[0]).toBe('cd /dir-2');
     });
   });
 
   describe('isInteractiveCliCommand', () => {
+    it('is true when the command line is empty (open PTY / terminal first)', () => {
+      expect(isInteractiveCliCommand('', BUILT_IN_INTERACTIVE_APPS)).toBe(true);
+      expect(isInteractiveCliCommand('  \n  ', BUILT_IN_INTERACTIVE_APPS)).toBe(true);
+    });
+
     it('is true when a later line starts with a supported app (e.g. cd then vim)', () => {
       expect(
         isInteractiveCliCommand('cd Archived\nvim Welcome.md', BUILT_IN_INTERACTIVE_APPS)

@@ -3,12 +3,14 @@ import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/solutions/artifact';
 import { AbortOperationKeys } from 'src/constants';
 import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 // Define the Zod schema for speech tool (same as audioExtractionSchema)
 export const speechSchema = z.object({

@@ -3,7 +3,7 @@ import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types
 import { ToolCallPart, ToolResultPart, TypedToolCallPart } from '../../tools/types';
 import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { applyMixins } from 'src/utils/applyMixins';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { Handlers } from '../components/Handlers';
@@ -15,7 +15,11 @@ import {
   SUBAGENT_TOOL_NAMES,
 } from '../agentTools';
 import { isGoogleModel } from '../googleUtils';
+import { logger } from 'src/utils/logger';
+import { USAGE_AGENT_KEY } from 'src/services/ConversationRenderer/Frontmatter';
 import type { AgentCorePromptContext } from '../../Agent';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 const SUBAGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUBAGENT_TOOL_NAMES;
 
@@ -95,6 +99,16 @@ Rules:
         tools,
       });
       toolCalls = streamResult.toolCalls;
+      try {
+        await this.renderer.recordTokenUsage(
+          params.title,
+          USAGE_AGENT_KEY.sub,
+          streamResult.usage,
+          streamResult.totalUsage
+        );
+      } catch (usageError) {
+        logger.error('Failed to record sub agent token usage', usageError);
+      }
     }
 
     const toolProcessingResult = await this.executeToolCalls({

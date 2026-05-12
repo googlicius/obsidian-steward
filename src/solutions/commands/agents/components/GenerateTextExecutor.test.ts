@@ -32,7 +32,9 @@ function getMockGenerateText(): jest.Mock {
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   const mockRenderer = {
-    extractConversationHistory: jest.fn().mockResolvedValue([]),
+    extractConversationHistory: jest
+      .fn()
+      .mockResolvedValue({ messages: [], hasCompactionContext: false }),
     updateConversationNote: jest.fn().mockResolvedValue('message-id-123'),
     getConversationProperty: jest.fn().mockResolvedValue(undefined),
   };
@@ -133,6 +135,34 @@ describe('GenerateTextExecutor', () => {
     getMockGenerateText().mockResolvedValue({
       text: '',
       toolCalls: [],
+      usage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        inputTokenDetails: {
+          noCacheTokens: undefined,
+          cacheReadTokens: undefined,
+          cacheWriteTokens: undefined,
+        },
+        outputTokenDetails: {
+          textTokens: undefined,
+          reasoningTokens: undefined,
+        },
+      },
+      totalUsage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        inputTokenDetails: {
+          noCacheTokens: undefined,
+          cacheReadTokens: undefined,
+          cacheWriteTokens: undefined,
+        },
+        outputTokenDetails: {
+          textTokens: undefined,
+          reasoningTokens: undefined,
+        },
+      },
     });
   });
 

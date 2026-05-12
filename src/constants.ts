@@ -155,9 +155,10 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
   },
   llm: {
     chat: {
-      model: 'openai:gpt-4-turbo-preview',
+      model: 'ollama:gemma4:31b-cloud',
       customModels: [],
     },
+    modelContextLengths: {},
     temperature: 0.2,
     ollamaBaseUrl: 'http://localhost:11434/api', // Deprecated: use providerConfigs instead
     maxGenerationTokens: 2048, // Default max tokens for generation
@@ -236,6 +237,7 @@ export const LLM_MODELS: ModelOption[] = [
   { id: 'google:gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
 
   // Ollama models
+  { id: 'ollama:gemma4:31b-cloud', name: 'Gemma 4 31B Cloud' },
   { id: 'ollama:llama3.1:latest', name: 'Llama 3.1 8B' },
   { id: 'ollama:llama3.2:latest', name: 'Llama 3.2' },
   { id: 'ollama:mistral:latest', name: 'Mistral' },

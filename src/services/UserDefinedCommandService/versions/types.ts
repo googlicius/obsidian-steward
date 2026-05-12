@@ -23,6 +23,10 @@ export interface CommandStep {
   query: string;
   model?: string;
   no_confirm?: boolean;
+  /** V2 UDC only: optional shell executable for this step (fallback: settings when spawning a new session). */
+  cli?: {
+    shell?: string;
+  };
 }
 
 export interface TriggerCondition {
@@ -43,6 +47,8 @@ export interface TriggerCondition {
  */
 export interface NormalizedUserDefinedCommand {
   command_name: string;
+  /** Shown in Help and command listings; optional. */
+  description?: string;
   query_required?: boolean;
   steps: CommandStep[];
   file_path: string;

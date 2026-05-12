@@ -8,19 +8,19 @@ jest.mock('src/utils/bundledLibs', () => {
     ...actual,
     getBundledLib: jest.fn(async (key: unknown) => {
       switch (key) {
-        case 'openai':
+        case '@ai-sdk/openai':
           return import('@ai-sdk/openai');
-        case 'openaiCompatible':
+        case '@ai-sdk/openai-compatible':
           return import('@ai-sdk/openai-compatible');
-        case 'google':
+        case '@ai-sdk/google':
           return import('@ai-sdk/google');
-        case 'anthropic':
+        case '@ai-sdk/anthropic':
           return import('@ai-sdk/anthropic');
-        case 'elevenLabs':
+        case '@ai-sdk/elevenlabs':
           return import('@ai-sdk/elevenlabs');
-        case 'hume':
+        case '@ai-sdk/hume':
           return import('@ai-sdk/hume');
-        case 'ollama':
+        case 'ollama-ai-provider-v2':
           return import('ollama-ai-provider-v2');
         default:
           return actual.getBundledLib(key as never);
@@ -253,6 +253,28 @@ describe('LLMService', () => {
           );
         }
       });
+    });
+  });
+
+  describe('getModelContextLengthTokens', () => {
+    it('uses exact model key override', () => {
+      mockPlugin.settings.llm.modelContextLengths = {
+        'openai:gpt-4-turbo-preview': 999,
+      };
+      expect(llmService.getModelContextLengthTokens('openai:gpt-4-turbo-preview')).toBe(999);
+    });
+
+    it('matches longest substring first for gpt-4-turbo vs gpt-4', () => {
+      expect(llmService.getModelContextLengthTokens('openai:gpt-4-turbo-preview')).toBe(128_000);
+      expect(llmService.getModelContextLengthTokens('openai:gpt-4o')).toBe(128_000);
+    });
+
+    it('uses hardcoded fallback when no pattern matches', () => {
+      expect(llmService.getModelContextLengthTokens('custom:unknown-model-xyz')).toBe(128_000);
+    });
+
+    it('uses 128k fallback when model empty', () => {
+      expect(llmService.getModelContextLengthTokens('')).toBe(128_000);
     });
   });
 });

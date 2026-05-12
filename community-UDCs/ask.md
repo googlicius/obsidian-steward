@@ -8,6 +8,7 @@ A user-defined that help the user with general questions.
 
 ```yaml
 command_name: ask
+description: Answer questions using instructions in this note.
 query_required: true
 system_prompt:
   - '[[#Instructions]]'

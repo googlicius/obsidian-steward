@@ -6,11 +6,13 @@ import {
 import { eventEmitter } from './EventEmitter';
 import { TFile } from 'obsidian';
 import { createMockStreamResponse } from '../utils/textStreamer';
-import i18next from 'i18next';
 import type StewardPlugin from '../main';
 import type { ConversationRenderer } from './ConversationRenderer';
 import { ConversationTitleAgent } from '../solutions/commands/agents/ConversationTitleAgent';
 import { logger } from '../utils/logger';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+
+const { i18next } = getBundledInternal('i18n');
 
 interface Props {
   plugin: StewardPlugin;

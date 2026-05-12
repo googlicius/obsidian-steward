@@ -16,6 +16,78 @@ const __dirname = path.dirname(__filename);
 const root = path.join(__dirname, '..');
 const scriptFileName = path.basename(__filename);
 
+function isTypeOnlySrcImport(importerPath, modulePath) {
+  try {
+    const src = fs.readFileSync(importerPath, 'utf8');
+
+    const importStmtRe = /import[\s\S]*?\sfrom\s+['"]([^'"]+)['"]\s*;?/g;
+    let m = null;
+    while ((m = importStmtRe.exec(src))) {
+      const spec = m[1];
+      if (spec !== modulePath) {
+        continue;
+      }
+
+      const stmt = m[0].trim();
+
+      if (stmt.startsWith('import type ')) {
+        return true;
+      }
+
+      const named = stmt.match(/^import\s*\{([\s\S]*?)\}\s*from\s*['"]/);
+      if (named) {
+        const inside = named[1];
+        const parts = inside
+          .split(',')
+          .map(p => p.trim())
+          .filter(Boolean);
+        if (parts.length === 0) {
+          return false;
+        }
+        for (const p of parts) {
+          if (!p.startsWith('type ')) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
+  return false;
+}
+
+function noSrcRuntimeImportsForInternalsPlugin() {
+  return {
+    name: 'no-src-runtime-imports-for-internals',
+    setup(build) {
+      build.onResolve({ filter: /^src\// }, args => {
+        if (!args.importer || !args.importer.includes(`${path.sep}internal${path.sep}`)) {
+          return null;
+        }
+
+        if (isTypeOnlySrcImport(args.importer, args.path)) {
+          return { path: args.path, external: true };
+        }
+
+        return {
+          errors: [
+            {
+              text:
+                `Forbidden runtime import "${args.path}" from "${args.importer}". ` +
+                `The bundled-internals build must not import from "src/*" (except type-only imports).`,
+            },
+          ],
+        };
+      });
+    },
+  };
+}
+
 function getBundleConfig({ entryPoints, globalName, outFile, exportConst }) {
   return {
     entryPoints,
@@ -27,9 +99,13 @@ function getBundleConfig({ entryPoints, globalName, outFile, exportConst }) {
     minify: true,
     write: false,
     external: sharedExternal,
+    plugins: entryPoints.includes('internal/bundled-internals-entry.ts')
+      ? [noSrcRuntimeImportsForInternalsPlugin()]
+      : [],
     define: {
       'process.env.NODE_ENV': '"production"',
     },
+    loader: { '.md': 'text', '.svg': 'text' },
     logLevel: 'info',
     exportConst,
     outFile,
@@ -44,10 +120,22 @@ const bundles = [
     outFile: 'bundledLibsPayload.ts',
   }),
   getBundleConfig({
+    entryPoints: ['src/bundled-libs-sync-entry.ts'],
+    globalName: '__stewardBundledSyncLibs',
+    exportConst: 'BUNDLED_SYNC_LIBS_LZ_B64',
+    outFile: 'bundledSyncLibsPayload.ts',
+  }),
+  getBundleConfig({
     entryPoints: ['src/bundled-libs-desktop-entry.ts'],
     globalName: '__stewardBundledDesktopLibs',
     exportConst: 'BUNDLED_DESKTOP_LIBS_LZ_B64',
     outFile: 'bundledDesktopLibsPayload.ts',
+  }),
+  getBundleConfig({
+    entryPoints: ['internal/bundled-internals-entry.ts'],
+    globalName: '__stewardBundledInternals',
+    exportConst: 'BUNDLED_INTERNALS_LZ_B64',
+    outFile: 'bundledInternalsPayload.ts',
   }),
 ];
 

@@ -1,7 +1,9 @@
 import { MarkdownPostProcessor, Notice, setIcon, setTooltip } from 'obsidian';
-import i18next from 'i18next';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+
+const { i18next } = getBundledInternal('i18n');
 
 /**
  * Creates a markdown post processor that adds action buttons to user-message callouts

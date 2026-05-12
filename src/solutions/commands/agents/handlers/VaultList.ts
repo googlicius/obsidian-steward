@@ -1,12 +1,14 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath, TFile, TFolder } from 'obsidian';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ArtifactType } from 'src/solutions/artifact';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 const MAX_FILES_TO_SHOW = 10;
 const LIST_ITEM_TYPES = ['both', 'files', 'folders'] as const;

@@ -6,10 +6,12 @@ import type { StewardPluginSettings } from 'src/types/interfaces';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { logger } from 'src/utils/logger';
 import type { IntentProcessor } from './IntentProcessor';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ToolName } from './ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import type { ToolRegistry } from './ToolRegistry';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 export interface AgentCorePromptContext {
   /** Tool registry for this turn: drives active/inactive tool sections and per-tool guidelines in the core prompt. */

@@ -68,6 +68,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       llm: {
         chat: {
           model: 'mock-model',
+          customModels: [],
         },
       },
     },
@@ -99,11 +100,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     guardrailsRuleService: {
       getInstructionsByTool: jest.fn().mockReturnValue(new Map()),
     },
-    compactionOrchestrator: {
-      run: jest.fn().mockResolvedValue({
-        systemMessage: undefined,
-      }),
-    },
+    compactionTokenService: {},
     mcpService: {
       getMcpToolsForConversation: jest.fn().mockResolvedValue({
         active: {} as Record<string, unknown>,
@@ -188,6 +185,34 @@ describe('StreamTextExecutor', () => {
         yield { type: 'text-delta', textDelta: '' };
       })(),
       toolCalls: Promise.resolve([]),
+      usage: Promise.resolve({
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        inputTokenDetails: {
+          noCacheTokens: undefined,
+          cacheReadTokens: undefined,
+          cacheWriteTokens: undefined,
+        },
+        outputTokenDetails: {
+          textTokens: undefined,
+          reasoningTokens: undefined,
+        },
+      }),
+      totalUsage: Promise.resolve({
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        inputTokenDetails: {
+          noCacheTokens: undefined,
+          cacheReadTokens: undefined,
+          cacheWriteTokens: undefined,
+        },
+        outputTokenDetails: {
+          textTokens: undefined,
+          reasoningTokens: undefined,
+        },
+      }),
     });
   });
 
@@ -210,7 +235,9 @@ describe('StreamTextExecutor', () => {
         systemPrompt: providerSystemPrompt,
       });
 
-      mockPlugin.conversationRenderer.extractConversationHistory = jest.fn().mockResolvedValue([]);
+      mockPlugin.conversationRenderer.extractConversationHistory = jest
+        .fn()
+        .mockResolvedValue({ messages: [], hasCompactionContext: false });
 
       await testAgent.executeForTest(params);
 
@@ -235,7 +262,7 @@ describe('StreamTextExecutor', () => {
 
       mockPlugin.conversationRenderer.extractConversationHistory = jest
         .fn()
-        .mockImplementation(() => Promise.resolve([]));
+        .mockImplementation(() => Promise.resolve({ messages: [], hasCompactionContext: false }));
 
       await testAgent.executeForTest(params);
 
@@ -262,13 +289,34 @@ describe('StreamTextExecutor', () => {
       ];
       mockPlugin.conversationRenderer.extractConversationHistory = jest
         .fn()
-        .mockResolvedValue(historyMessages);
+        .mockResolvedValue({ messages: historyMessages, hasCompactionContext: false });
 
       await testAgent.executeForTest(params);
 
       expect(getMockStreamText()).toHaveBeenCalledTimes(1);
       const call = getMockStreamText().mock.calls[0][0];
       expect(call.messages).toEqual(historyMessages);
+    });
+
+    it('loads conversation history via extractConversationHistory with compaction-aware options', async () => {
+      const historyMessages = [{ role: 'assistant', content: 'COMPACTED CONVERSATION CONTEXT' }];
+      mockPlugin.conversationRenderer.extractConversationHistory = jest
+        .fn()
+        .mockResolvedValue({ messages: historyMessages, hasCompactionContext: true });
+
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'test query',
+        } as Intent,
+      };
+
+      await testAgent.executeForTest(params);
+
+      expect(mockPlugin.conversationRenderer.extractConversationHistory).toHaveBeenCalledWith(
+        'test-conversation'
+      );
     });
   });
 });

@@ -28,7 +28,7 @@ export function startPtyCompanionServer(plugin: StewardPlugin): Promise<PtyCompa
   return (async () => {
     const [http, { Server }] = await Promise.all([
       loadNodeModule('http'),
-      getBundledDesktopLib('socketIo'),
+      getBundledDesktopLib('socket.io'),
     ]);
     return new Promise<PtyCompanionServerHandle>((resolve, reject) => {
       let settled = false;
@@ -85,7 +85,7 @@ export function startPtyCompanionServer(plugin: StewardPlugin): Promise<PtyCompa
               // Patched node-pty only: upstream does not read this env (see patches/node-pty+*.patch).
               process.env.NODE_PTY_NATIVE_MODULE_DIR = ptyBinaryPath;
               try {
-                const pty = await getBundledDesktopLib('nodePty');
+                const pty = await getBundledDesktopLib('node-pty');
                 const cols = typeof payload.cols === 'number' ? payload.cols : DEFAULT_COLS;
                 const rows = typeof payload.rows === 'number' ? payload.rows : DEFAULT_ROWS;
                 term = pty.spawn(payload.file, payload.args, {

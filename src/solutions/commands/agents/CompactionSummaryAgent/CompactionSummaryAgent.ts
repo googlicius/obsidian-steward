@@ -3,6 +3,7 @@ import type StewardPlugin from 'src/main';
 import { AbortOperationKeys } from 'src/constants';
 import { logger } from 'src/utils/logger';
 import { getBundledLib } from 'src/utils/bundledLibs';
+import { USAGE_AGENT_KEY } from 'src/services/ConversationRenderer/Frontmatter';
 
 const MAX_SUMMARY_WORDS = 80;
 
@@ -45,7 +46,7 @@ export class CompactionSummaryAgent {
         overrideModel: this.plugin.settings.llm.agents.compactionSummary.model,
       });
 
-      const { generateText, Output } = await getBundledLib('ai');
+      const { generateText, Output, asSchema } = await getBundledLib('ai');
 
       const promptItems = items
         .map(
@@ -66,13 +67,28 @@ export class CompactionSummaryAgent {
 For each message:
 - If it has meaningful content (facts, decisions, explanations), output type "summarized" with a 1-3 sentence summary. Keep the summary at or below ${MAX_SUMMARY_WORDS} words. Preserve factual details and entities.
 - If it is only procedural filler (e.g. "I'll read the content for you", "Let me search", acknowledgments with no substance), output type "deleted" with empty text.
-Return exactly one result per message in the same order. Each result must have messageId, text, and type.`,
+Return exactly one result per message in the same order.
+
+Respond in this JSON format: ${JSON.stringify(asSchema(summarizationResultSchema).jsonSchema)}`,
         prompt: `Summarize or mark as deleted:\n\n${promptItems}`,
         output: Output.object({
           schema: summarizationResultSchema,
           name: 'SummarizationResults',
         }),
       });
+
+      if (params.conversationTitle) {
+        try {
+          await this.plugin.conversationRenderer.recordTokenUsage(
+            params.conversationTitle,
+            USAGE_AGENT_KEY.compaction,
+            result.usage,
+            result.totalUsage
+          );
+        } catch (usageError) {
+          logger.error('Failed to record CompactionSummaryAgent token usage', usageError);
+        }
+      }
 
       const output = result.output.results ?? [];
       const normalizedResults: SummarizationResultItem[] = [];

@@ -12,7 +12,9 @@ import type { ImagePart } from 'ai';
 import { resizeImageWithCanvas } from 'src/utils/resizeImageWithCanvas';
 import { EditOperation } from 'src/solutions/commands/tools/editContent';
 import { Change } from 'src/solutions/artifact/types';
-import i18next from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+
+const { i18next } = getBundledInternal('i18n');
 
 function isMarkdownFrontmatterRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;

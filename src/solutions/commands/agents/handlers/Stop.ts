@@ -3,9 +3,11 @@ import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 import { delay } from 'src/utils/delay';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 // STOP tool doesn't need args
 const stopSchema = z.object({});

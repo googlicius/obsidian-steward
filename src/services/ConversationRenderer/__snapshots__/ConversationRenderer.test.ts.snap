@@ -1,0 +1,1097 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ConversationRenderer addUserMessage should add a user message to the conversation note with contentFormat default (callout) 1`] = `
+"<!--STW ID:abc123,ROLE:steward,COMMAND:search-->
+**Steward:** Here's what I found:
+
+React hooks are functions that let you use state.
+
+---
+
+<!--STW ID:mock-id-123,ROLE:user-->
+>[!stw-user-message] id:mock-id-123
+>/search How to use React hooks
+"
+`;
+
+exports[`ConversationRenderer addUserMessage should add a user message to the conversation note with contentFormat hidden 1`] = `
+"<!--STW ID:abc123,ROLE:steward,COMMAND:search-->
+**Steward:** Here's what I found:
+
+React hooks are functions that let you use state.
+
+<!--STW ID:mock-id-123,ROLE:user-->
+\`\`\`stw-hidden-from-user
+/search How to use React hooks
+\`\`\`"
+`;
+
+exports[`ConversationRenderer deserializeToolInvocations should deserialize a tool-call with args and result (backward compatibility) 1`] = `
+[
+  {
+    "input": {
+      "query": "TypeScript types",
+    },
+    "toolCallId": "call_789",
+    "toolName": "read",
+    "type": "tool-call",
+  },
+  {
+    "output": {
+      "type": "text",
+      "value": "Found documentation",
+    },
+    "toolCallId": "call_789",
+    "toolName": "read",
+    "type": "tool-result",
+  },
+]
+`;
+
+exports[`ConversationRenderer deserializeToolInvocations should deserialize a tool-call with input and output 1`] = `
+[
+  {
+    "input": {
+      "query": "React hooks",
+    },
+    "toolCallId": "call_456",
+    "toolName": "search",
+    "type": "tool-call",
+  },
+  {
+    "output": {
+      "type": "text",
+      "value": "Found 5 results",
+    },
+    "toolCallId": "call_456",
+    "toolName": "search",
+    "type": "tool-result",
+  },
+]
+`;
+
+exports[`ConversationRenderer deserializeToolInvocations should deserialize a tool-result type with inline output 1`] = `
+[
+  {
+    "output": {
+      "type": "text",
+      "value": "Tools activated successfully",
+    },
+    "toolCallId": "call_111",
+    "toolName": "activate",
+    "type": "tool-result",
+  },
+]
+`;
+
+exports[`ConversationRenderer deserializeToolInvocations should deserialize a tool-result with object output 1`] = `
+[
+  {
+    "output": {
+      "type": "json",
+      "value": {
+        "status": "success",
+        "tools": [
+          "read",
+          "write",
+        ],
+      },
+    },
+    "toolCallId": "call_222",
+    "toolName": "activate",
+    "type": "tool-result",
+  },
+]
+`;
+
+exports[`ConversationRenderer deserializeToolInvocations should deserialize tool invocations from legacy stw-artifact fence 1`] = `
+[
+  {
+    "output": {
+      "type": "text",
+      "value": "from legacy fence",
+    },
+    "toolCallId": "call_legacy_fence",
+    "toolName": "read",
+    "type": "tool-result",
+  },
+]
+`;
+
+exports[`ConversationRenderer deserializeToolInvocations should handle tool-call type with both input and output 1`] = `
+[
+  {
+    "input": {
+      "query": "test query",
+    },
+    "toolCallId": "call_999",
+    "toolName": "search",
+    "type": "tool-call",
+  },
+  {
+    "output": {
+      "type": "text",
+      "value": "Search results here",
+    },
+    "toolCallId": "call_999",
+    "toolName": "search",
+    "type": "tool-result",
+  },
+]
+`;
+
+exports[`ConversationRenderer deserializeToolInvocations should handle tool-result type with input included 1`] = `
+[
+  {
+    "input": {
+      "tools": [
+        "read",
+        "write",
+      ],
+    },
+    "toolCallId": "call_aaa",
+    "toolName": "activate",
+    "type": "tool-call",
+  },
+  {
+    "output": {
+      "type": "json",
+      "value": {
+        "status": "activated",
+      },
+    },
+    "toolCallId": "call_aaa",
+    "toolName": "activate",
+    "type": "tool-result",
+  },
+]
+`;
+
+exports[`ConversationRenderer deserializeToolInvocations should include image parts when artifact has imagePaths 1`] = `
+[
+  {
+    "output": {
+      "type": "json",
+      "value": {
+        "artifactType": "read_content",
+        "id": "artifact789",
+        "imagePaths": [
+          "path/to/image1.png",
+          "path/to/image2.jpg",
+        ],
+        "readingResults": [
+          {
+            "blocks": [
+              {
+                "content": "Content with image",
+                "endLine": 1,
+                "sections": [],
+                "startLine": 1,
+              },
+            ],
+            "source": "cursor",
+          },
+        ],
+      },
+    },
+    "toolCallId": "call_888",
+    "toolName": "read",
+    "type": "tool-result",
+  },
+  {
+    "text": "path/to/image1.png",
+    "type": "text",
+  },
+  {
+    "image": "base64data1",
+    "mediaType": "image/png",
+    "type": "image",
+  },
+  {
+    "text": "path/to/image2.jpg",
+    "type": "text",
+  },
+  {
+    "image": "base64data2",
+    "mediaType": "image/jpeg",
+    "type": "image",
+  },
+]
+`;
+
+exports[`ConversationRenderer deserializeToolInvocations should resolve artifactRef to deleted artifact to not sending the artifact data 1`] = `
+[
+  {
+    "output": {
+      "type": "json",
+      "value": {
+        "artifactType": "read_content",
+        "deleteReason": "User deleted",
+        "id": "artifact456",
+        "status": "deleted",
+      },
+    },
+    "toolCallId": "call_444",
+    "toolName": "read",
+    "type": "tool-result",
+  },
+]
+`;
+
+exports[`ConversationRenderer deserializeToolInvocations should resolve artifactRef to the artifact 1`] = `
+[
+  {
+    "output": {
+      "type": "json",
+      "value": {
+        "artifactType": "read_content",
+        "id": "artifact123",
+        "readingResult": {
+          "blocks": [
+            {
+              "content": "Test content",
+              "endLine": 1,
+              "sections": [],
+              "startLine": 1,
+            },
+          ],
+          "source": "cursor",
+        },
+      },
+    },
+    "toolCallId": "call_333",
+    "toolName": "read",
+    "type": "tool-result",
+  },
+]
+`;
+
+exports[`ConversationRenderer deserializeToolInvocations should resolve messageRef to the message content 1`] = `
+[
+  {
+    "output": {
+      "type": "text",
+      "value": "Updated file content here",
+    },
+    "toolCallId": "call_666",
+    "toolName": "edit",
+    "type": "tool-result",
+  },
+]
+`;
+
+exports[`ConversationRenderer deserializeToolInvocations should return error-text when artifactRef points to non-existent artifact 1`] = `
+[
+  {
+    "output": {
+      "type": "error-text",
+      "value": "Artifact not found: nonexistent",
+    },
+    "toolCallId": "call_555",
+    "toolName": "read",
+    "type": "tool-result",
+  },
+]
+`;
+
+exports[`ConversationRenderer deserializeToolInvocations should return error-text when messageRef points to non-existent message 1`] = `
+[
+  {
+    "output": {
+      "type": "error-text",
+      "value": "Message not found: nonexistent",
+    },
+    "toolCallId": "call_777",
+    "toolName": "edit",
+    "type": "tool-result",
+  },
+]
+`;
+
+exports[`ConversationRenderer extractConversationHistory should extract a conversation with search results and not include history that is set to false 1`] = `
+{
+  "hasCompactionContext": false,
+  "messages": [
+    {
+      "content": "/search #angular",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "Search results: Haiku About Angular.md, Angular poem.md",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+    {
+      "content": "How do I use Angular?",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "text": "Angular is a platform for building web applications. Here's how to get started:
+
+1. Install Node.js and npm
+2. Install the Angular CLI: \`npm install -g @angular/cli\`
+3. Create a new project: \`ng new my-app\`
+4. Navigate to the project directory: \`cd my-app\`
+5. Start the development server: \`ng serve\`",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+  ],
+}
+`;
+
+exports[`ConversationRenderer extractConversationHistory should extract a simple conversation with one user query and one steward response 1`] = `
+{
+  "hasCompactionContext": false,
+  "messages": [
+    {
+      "content": "/search How to use React hooks",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "text": "Here's what I found about React hooks:
+
+React hooks are functions that let you use state and other React features without writing a class.",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+  ],
+}
+`;
+
+exports[`ConversationRenderer extractConversationHistory should extract conversation with summary in the second position 1`] = `
+{
+  "hasCompactionContext": false,
+  "messages": [
+    {
+      "content": "/ React hooks",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "Here's what I found about React hooks",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+    {
+      "content": [
+        {
+          "text": "\`\`\`stw-artifact
+First summary about React hooks
+\`\`\`",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+    {
+      "content": "/ useState hook",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "useState is a React Hook that lets you add state to functional components",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+    {
+      "content": "/ useEffect hook",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "text": "useEffect is a React Hook that lets you synchronize a component with an external system",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+  ],
+}
+`;
+
+exports[`ConversationRenderer extractConversationHistory should extract conversation with tool invocations message 1`] = `
+{
+  "hasCompactionContext": false,
+  "messages": [
+    {
+      "content": "/search React hooks",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "text": "I'll search for information about React hooks.",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "input": {
+            "query": "React Hooks",
+          },
+          "toolCallId": "call_456",
+          "toolName": "read",
+          "type": "tool-call",
+        },
+      ],
+      "role": "assistant",
+    },
+    {
+      "content": [
+        {
+          "output": {
+            "type": "text",
+            "value": "I found 1 result",
+          },
+          "toolCallId": "call_456",
+          "toolName": "read",
+          "type": "tool-result",
+        },
+      ],
+      "role": "tool",
+    },
+  ],
+}
+`;
+
+exports[`ConversationRenderer extractConversationHistory should group messages by step 1`] = `
+{
+  "hasCompactionContext": false,
+  "messages": [
+    {
+      "content": "/ Do multiple things",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "text": "Starting the first step...",
+          "type": "text",
+        },
+        {
+          "text": "Continuing the first step...",
+          "type": "text",
+        },
+      ],
+      "handlerId": "handler1",
+      "role": "assistant",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "text": "Now on step 2",
+          "type": "text",
+        },
+        {
+          "text": "Still on step 2",
+          "type": "text",
+        },
+      ],
+      "handlerId": "handler1",
+      "role": "assistant",
+    },
+  ],
+}
+`;
+
+exports[`ConversationRenderer extractConversationHistory should group reasoning content in the same assistant message as the tool invocation 1`] = `
+{
+  "hasCompactionContext": false,
+  "messages": [
+    {
+      "content": "/ Help me with React",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "Let me think about this request...",
+          "type": "reasoning",
+        },
+        {
+          "input": {
+            "query": "React",
+          },
+          "toolCallId": "call_123",
+          "toolName": "search",
+          "type": "tool-call",
+        },
+      ],
+      "handlerId": "handler1",
+      "role": "assistant",
+    },
+    {
+      "content": [
+        {
+          "output": {
+            "type": "text",
+            "value": "Found results",
+          },
+          "toolCallId": "call_123",
+          "toolName": "search",
+          "type": "tool-result",
+        },
+      ],
+      "handlerId": "handler1",
+      "role": "tool",
+    },
+  ],
+}
+`;
+
+exports[`ConversationRenderer extractConversationHistory should handle conversation with a message has multiple sections 1`] = `
+{
+  "hasCompactionContext": false,
+  "messages": [
+    {
+      "content": "/ Read the code block above and update it to not using todos as dependency",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "text": "I've found 1 code block above.",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "text": "I've updated the code to use a functional update with \`setTodos\`, which removes the need to include \`todos\` as a dependency in the \`useCallback\` hook.",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "text": ">[!stw-search-result]
+>
+>\`\`\`typescript
+>const handleAddTodo = useCallback(text => {
+>  setTodos(prevTodos => {
+>    const newTodo = { id: nextId++, text };
+>    return [...prevTodos, newTodo];
+>  });
+>}, []);
+>\`\`\`",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "text": "Would you like me to apply the changes?",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+  ],
+}
+`;
+
+exports[`ConversationRenderer extractConversationHistory should include path+image from the tool invocation as a user message 1`] = `
+{
+  "hasCompactionContext": false,
+  "messages": [
+    {
+      "content": "/ Read this image",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "input": {
+            "source": "selection",
+          },
+          "toolCallId": "call_789",
+          "toolName": "read_content",
+          "type": "tool-call",
+        },
+      ],
+      "handlerId": "handler1",
+      "role": "assistant",
+    },
+    {
+      "content": [
+        {
+          "output": {
+            "type": "json",
+            "value": {
+              "artifactType": "read_content",
+              "id": "artifact123",
+              "imagePaths": [
+                "path/to/image.png",
+              ],
+              "readingResults": [
+                {
+                  "blocks": [
+                    {
+                      "content": "Some content with image ![[image.png]]",
+                      "endLine": 1,
+                      "sections": [],
+                      "startLine": 1,
+                    },
+                  ],
+                  "file": {
+                    "name": "test.md",
+                    "path": "notes/test.md",
+                  },
+                  "source": "cursor",
+                },
+              ],
+            },
+          },
+          "toolCallId": "call_789",
+          "toolName": "read_content",
+          "type": "tool-result",
+        },
+      ],
+      "handlerId": "handler1",
+      "role": "tool",
+    },
+    {
+      "content": [
+        {
+          "text": "path/to/image.png",
+          "type": "text",
+        },
+        {
+          "image": "base64data",
+          "mediaType": "image/png",
+          "type": "image",
+        },
+      ],
+      "role": "user",
+    },
+  ],
+}
+`;
+
+exports[`ConversationRenderer extractConversationHistory should include reasoning field in a switch mode flow 1`] = `
+{
+  "hasCompactionContext": false,
+  "messages": [
+    {
+      "content": "Use your flashcard skill and create 2 flashcards",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "Would you like me to switch to agent mode?",
+          "type": "text",
+        },
+      ],
+      "handlerId": "handler-simple",
+      "role": "assistant",
+    },
+    {
+      "content": "Yes",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "input": {},
+          "toolCallId": "manual-tool-call-1",
+          "toolName": "user_confirm",
+          "type": "tool-call",
+        },
+      ],
+      "handlerId": "handler-confirm",
+      "role": "assistant",
+    },
+    {
+      "content": [
+        {
+          "output": {
+            "type": "text",
+            "value": "Yes",
+          },
+          "toolCallId": "manual-tool-call-1",
+          "toolName": "user_confirm",
+          "type": "tool-result",
+        },
+      ],
+      "handlerId": "handler-confirm",
+      "role": "tool",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "input": {},
+          "toolCallId": "call_00_switch",
+          "toolName": "switch_agent_capacity",
+          "type": "tool-call",
+        },
+      ],
+      "handlerId": "handler-simple",
+      "role": "assistant",
+    },
+    {
+      "content": [
+        {
+          "output": {
+            "type": "text",
+            "value": "Switched to tool and skill mode.",
+          },
+          "toolCallId": "call_00_switch",
+          "toolName": "switch_agent_capacity",
+          "type": "tool-result",
+        },
+      ],
+      "handlerId": "handler-simple",
+      "role": "tool",
+    },
+  ],
+}
+`;
+
+exports[`ConversationRenderer extractConversationHistory should include reasoning for all steps in the last turn 1`] = `
+{
+  "hasCompactionContext": false,
+  "messages": [
+    {
+      "content": "/ Do one more thing",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "Turn 1.1",
+          "type": "text",
+        },
+      ],
+      "handlerId": "handler1",
+      "role": "assistant",
+    },
+    {
+      "content": "/ Do multiple things",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "Reasoning for turn 2 step 1",
+          "type": "reasoning",
+        },
+        {
+          "text": "Turn 2.1",
+          "type": "text",
+        },
+      ],
+      "handlerId": "handler2",
+      "role": "assistant",
+    },
+    {
+      "content": [
+        {
+          "text": "Reasoning for turn 2 step 2",
+          "type": "reasoning",
+        },
+        {
+          "text": "Turn 2.2",
+          "type": "text",
+        },
+      ],
+      "handlerId": "handler2",
+      "role": "assistant",
+    },
+    {
+      "content": [
+        {
+          "text": "Reasoning for turn 2 step 3",
+          "type": "reasoning",
+        },
+        {
+          "text": "Turn 2.3",
+          "type": "text",
+        },
+      ],
+      "handlerId": "handler2",
+      "role": "assistant",
+    },
+  ],
+}
+`;
+
+exports[`ConversationRenderer extractConversationHistory should only include messages from the latest topic 1`] = `
+{
+  "hasCompactionContext": false,
+  "messages": [
+    {
+      "content": "/search Angular components",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "Here's what I found about Angular components:
+
+Angular components are the building blocks of Angular applications.",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+    {
+      "content": "Can you explain more about component lifecycle?",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "text": "Angular components have several lifecycle hooks:
+
+1. ngOnInit: Called after the component is initialized
+2. ngOnChanges: Called when input properties change
+3. ngOnDestroy: Called before the component is destroyed",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+  ],
+}
+`;
+
+exports[`ConversationRenderer extractConversationHistory should only include the summary message and messages after it 1`] = `
+{
+  "hasCompactionContext": false,
+  "messages": [
+    {
+      "content": "/search React hooks",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "Here's what I found about React hooks. React hooks let you use state and other React features without writing a class.",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+    {
+      "content": "How do I use useState?",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "The useState hook lets you add state to functional components. It returns a state value and a function to update it.",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+    {
+      "content": [
+        {
+          "text": "\`\`\`stw-artifact
+This conversation discusses React hooks, particularly useState, which allows adding state to functional components.
+\`\`\`",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+    {
+      "content": "What about useEffect?",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "The useEffect hook lets you perform side effects in function components. It runs after render and after every update by default.",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+    {
+      "content": "How can I skip effects?",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "text": "You can skip effects by providing a dependency array as the second argument. The effect will only run when values in the array change.",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+  ],
+}
+`;
+
+exports[`ConversationRenderer extractConversationHistory should remove the last user message 1`] = `
+{
+  "hasCompactionContext": false,
+  "messages": [
+    {
+      "content": "/ React hooks",
+      "role": "user",
+    },
+    {
+      "content": [
+        {
+          "text": "",
+          "type": "reasoning",
+        },
+        {
+          "text": "React hooks are functions.",
+          "type": "text",
+        },
+      ],
+      "role": "assistant",
+    },
+  ],
+}
+`;
+
+exports[`ConversationRenderer updateConversationNote should not show label when role is System and showLabel is false 1`] = `
+"<!--STW ID:msg-001,ROLE:steward-->
+**Steward:** This message has a role label"
+`;
+
+exports[`ConversationRenderer updateConversationNote should not show label when role is System and showLabel is false 2`] = `
+"<!--STW ID:msg-002,ROLE:system-->
+This message does not have a role label"
+`;
+
+exports[`ConversationRenderer updateConversationNote should replace a specific message when replacePlaceHolder is provided 1`] = `
+"<!--STW ID:abc123,ROLE:user,COMMAND:search-->
+>[!stw-user-message] id:abc123
+>/ React hooks
+
+<!--STW ID:def456,ROLE:steward,COMMAND:search-->
+React hooks are functions that let you use state and other React features without writing a class.
+
+<!--STW ID:mmmm,ROLE:system,COMMAND:summary-->
+Summarized content
+
+<!--STW ID:ghi789,ROLE:user,COMMAND: -->
+>[!stw-user-message] id:ghi789
+>/ How do I use useState?
+
+<!--STW ID:jkl012,ROLE:steward,COMMAND:read-->
+useState is a React Hook that lets you add state to functional components."
+`;
+
+exports[`ConversationRenderer updateConversationNote should replace a specific message when replacePlaceHolder is provided and artifactContent is provided 1`] = `
+"<!--STW ID:abc123,ROLE:user,COMMAND:search-->
+>[!stw-user-message] id:abc123
+>/ React hooks
+
+<!--STW ID:def456,ROLE:steward,COMMAND:search-->
+React hooks are functions that let you use state and other React features without writing a class.
+
+<!--STW ID:mmmm,ROLE:system,COMMAND:summary-->
+
+\`\`\`stw-artifact
+Summarized content
+\`\`\`
+
+<!--STW ID:ghi789,ROLE:user,COMMAND: -->
+>[!stw-user-message] id:ghi789
+>/ How do I use useState?
+
+<!--STW ID:jkl012,ROLE:steward,COMMAND:read-->
+useState is a React Hook that lets you add state to functional components."
+`;

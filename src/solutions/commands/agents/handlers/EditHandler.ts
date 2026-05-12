@@ -6,8 +6,10 @@ import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types
 import { createEditTool, EditArgs } from '../../tools/editContent';
 import { ArtifactType, Change, FileChangeSet } from 'src/solutions/artifact';
 import { EditOperation } from 'src/solutions/commands/tools/editContent';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 export class EditHandler {
   constructor(private readonly agent: AgentHandlerContext) {}

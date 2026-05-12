@@ -2,12 +2,14 @@ import { z } from 'zod/v3';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { AbortOperationKeys } from 'src/constants';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 import type { TFile } from 'obsidian';
 import { AbortService } from 'src/services/AbortService';
 import { ToolCallPart } from '../../tools/types';
 import { getBundledLib } from 'src/utils/bundledLibs';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 type PDFPageContent = unknown;
 

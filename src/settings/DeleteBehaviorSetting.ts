@@ -1,8 +1,9 @@
 import { getLanguage, setIcon, Setting, setTooltip } from 'obsidian';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { DeleteBehavior } from 'src/types/interfaces';
 import type StewardPlugin from 'src/main';
 
+const { getTranslation } = getBundledInternal('i18n');
 const lang = getLanguage();
 const t = getTranslation(lang);
 

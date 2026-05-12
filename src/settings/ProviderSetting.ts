@@ -1,12 +1,13 @@
-import { getLanguage, Setting, setIcon, setTooltip, SecretComponent } from 'obsidian';
-import { getTranslation } from 'src/i18n';
+import { getLanguage, Setting, setIcon, setTooltip, SecretComponent, Notice } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import { ProviderNeedApiKey } from 'src/constants';
 import { logger } from 'src/utils/logger';
-import { Notice } from 'obsidian';
 import { capitalizeString } from 'src/utils/capitalizeString';
 import { createFragmentFromText } from 'src/utils/htmlElementUtils';
 import type StewardSettingTab from 'src/settings';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 const lang = getLanguage();
 const t = getTranslation(lang);

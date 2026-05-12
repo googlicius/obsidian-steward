@@ -1,9 +1,11 @@
 import { MarkdownView, setIcon, setTooltip, EventRef, TFile } from 'obsidian';
 import { STW_CHAT_VIEW_CONFIG } from '../constants';
 import { logger } from 'src/utils/logger';
-import i18next from 'i18next';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { WorkspaceLeaf } from 'obsidian';
 import type StewardPlugin from 'src/main';
+
+const { i18next } = getBundledInternal('i18n');
 
 export class StewardChatView extends MarkdownView {
   private autoScrollEventRef: EventRef | null = null;

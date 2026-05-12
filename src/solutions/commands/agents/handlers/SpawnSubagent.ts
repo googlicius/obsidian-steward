@@ -4,9 +4,11 @@ import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { ToolName } from '../../ToolRegistry';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { type SpawnSubagentJob } from 'src/services/SubagentSpawnService';
 import { DEFAULT_AGENT_CONFIGS } from '../defaultAgents';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 const spawnSubagentSchema = z.object({
   jobs: z

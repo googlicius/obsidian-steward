@@ -2,7 +2,7 @@ import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ArtifactType } from 'src/solutions/artifact';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { PaginatedSearchResult } from 'src/solutions/search/types';
@@ -16,6 +16,8 @@ import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 import { getLanguage, normalizePath } from 'obsidian';
 import { DEFAULT_SETTINGS } from 'src/constants';
 import { StewardPluginSettings } from 'src/types/interfaces';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 // Define the Zod schema for search operation validation
 export const searchOperationSchema = z.object({

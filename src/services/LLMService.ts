@@ -2,7 +2,7 @@ import type StewardPlugin from 'src/main';
 import { jsonrepair } from 'jsonrepair';
 import { logger } from 'src/utils/logger';
 import { StewardPluginSettings } from 'src/types/interfaces';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { fixUnquotedJSON } from 'src/utils/jsonRepairs';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type {
@@ -23,11 +23,53 @@ import type { ElevenLabsProvider } from '@ai-sdk/elevenlabs';
 import type { HumeProvider } from '@ai-sdk/hume';
 import type { OllamaProvider } from 'ollama-ai-provider-v2';
 
+const { getTranslation } = getBundledInternal('i18n');
+
+/** When model id is unknown / unmatched — compaction threshold denominator fallback */
+const DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK = 128_000;
+const MODEL_CONTEXT_LENGTH_DEBUG = null;
+
+const MODEL_CONTEXT_DEFAULT_ENTRIES: ReadonlyArray<readonly [string, number]> = [
+  ['gpt-5.5', 1_050_000],
+  ['gpt-5.4-nano', 400_000],
+  ['gpt-5.4-mini', 400_000],
+  ['gpt-5.4', 1_050_000],
+  ['gpt-5.1-chat', 128_000],
+  ['gpt-5', 400_000],
+  ['gpt-4.1', 1_047_576],
+  ['gpt-4-turbo', 128_000],
+  ['gpt-4o-mini', 128_000],
+  ['gpt-4o', 128_000],
+  ['gpt-4', 128_000],
+  ['gpt-3.5-turbo', 16_385],
+  ['gpt-3.5', 16_385],
+  ['claude-opus-4', 200_000],
+  ['claude-sonnet-4', 200_000],
+  ['claude-3', 200_000],
+  ['claude', 200_000],
+  ['gemini-2', 1_048_576],
+  ['gemini-1.5', 1_048_576],
+  ['gemini', 1_048_576],
+  ['deepseek-reasoner', 128_000],
+  ['deepseek-chat', 128_000],
+  ['deepseek', 128_000],
+  ['llama3', 131_072],
+  ['llama', 131_072],
+  ['gemma4', 128_000],
+  ['gemma', 128_000],
+  ['qwen', 131_072],
+];
+
 /**
  * Service for managing LLM models and configurations using the AI package
  */
 export class LLMService {
   private static instance: LLMService | null = null;
+
+  /** Sorting descending by key length enforces “specific-first, generic-last” matching and avoids wrong context-length resolution. */
+  private static readonly SORTED_MODEL_CONTEXT_DEFAULTS = [...MODEL_CONTEXT_DEFAULT_ENTRIES].sort(
+    (a, b) => b[0].length - a[0].length
+  );
 
   private constructor(private plugin: StewardPlugin) {}
 
@@ -113,6 +155,38 @@ export class LLMService {
       provider: model.substring(0, colonIndex),
       modelId: model.substring(colonIndex + 1),
     };
+  }
+
+  /**
+   * Resolved chat context window in tokens for compaction thresholds (`provider:modelId`).
+   * Optional overrides: settings.llm.modelContextLengths[`fullModelKey`].
+   */
+  public getModelContextLengthTokens(model: string): number {
+    const trimmed = model?.trim() ?? '';
+    if (!trimmed) {
+      return DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK;
+    }
+
+    if (MODEL_CONTEXT_LENGTH_DEBUG) {
+      return MODEL_CONTEXT_LENGTH_DEBUG;
+    }
+
+    const overrides = this.plugin.settings.llm.modelContextLengths ?? {};
+    const override = overrides[trimmed];
+    if (typeof override === 'number' && override > 0 && Number.isFinite(override)) {
+      return Math.floor(override);
+    }
+
+    const { provider, modelId } = this.parseModel(trimmed);
+    const haystack = `${trimmed} ${modelId} ${provider}`.toLowerCase();
+
+    for (const [pattern, tokens] of LLMService.SORTED_MODEL_CONTEXT_DEFAULTS) {
+      if (haystack.includes(pattern.toLowerCase())) {
+        return tokens;
+      }
+    }
+
+    return DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK;
   }
 
   /**
@@ -221,14 +295,14 @@ export class LLMService {
           if (!baseURL) {
             throw new Error(`Custom provider ${name} with OpenAI compatibility requires a baseURL`);
           }
-          const { createOpenAICompatible } = await getBundledLib('openaiCompatible');
+          const { createOpenAICompatible } = await getBundledLib('@ai-sdk/openai-compatible');
           provider = createOpenAICompatible({
             baseURL,
             name: config.name as string,
             ...(apiKey && { apiKey }),
           });
         } else {
-          const { createOpenAI } = await getBundledLib('openai');
+          const { createOpenAI } = await getBundledLib('@ai-sdk/openai');
           provider = createOpenAI({
             ...(baseURL && { baseURL }),
             ...(apiKey && { apiKey }),
@@ -238,7 +312,7 @@ export class LLMService {
       }
 
       case 'google': {
-        const { createGoogleGenerativeAI } = await getBundledLib('google');
+        const { createGoogleGenerativeAI } = await getBundledLib('@ai-sdk/google');
         provider = createGoogleGenerativeAI({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
@@ -247,7 +321,7 @@ export class LLMService {
       }
 
       case 'ollama': {
-        const { createOllama } = await getBundledLib('ollama');
+        const { createOllama } = await getBundledLib('ollama-ai-provider-v2');
         provider = createOllama({
           ...(baseURL && { baseURL }),
           ...(apiKey && {
@@ -260,7 +334,7 @@ export class LLMService {
       }
 
       case 'anthropic': {
-        const { createAnthropic } = await getBundledLib('anthropic');
+        const { createAnthropic } = await getBundledLib('@ai-sdk/anthropic');
         provider = createAnthropic({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
@@ -273,7 +347,7 @@ export class LLMService {
       }
 
       case 'elevenlabs': {
-        const { createElevenLabs } = await getBundledLib('elevenLabs');
+        const { createElevenLabs } = await getBundledLib('@ai-sdk/elevenlabs');
         provider = createElevenLabs({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),
@@ -283,7 +357,7 @@ export class LLMService {
       }
 
       case 'hume': {
-        const { createHume } = await getBundledLib('hume');
+        const { createHume } = await getBundledLib('@ai-sdk/hume');
         provider = createHume({
           ...(baseURL && { baseURL }),
           ...(apiKey && { apiKey }),

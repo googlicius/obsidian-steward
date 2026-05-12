@@ -2,7 +2,9 @@ import { MarkdownPostProcessor } from 'obsidian';
 import { findTextNodesWithRegex } from 'src/utils/htmlElementUtils';
 import { CONFIRMATION_BUTTONS_PATTERN } from 'src/constants';
 import type StewardPlugin from 'src/main';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 function decodeMarkerSeg(raw: string | undefined): string | undefined {
   if (raw == null || raw === '') return undefined;

@@ -12,6 +12,10 @@ export interface Intent {
   no_confirm?: boolean; // Skip confirmation for this intent
   /** When set, limits which Super Agent tools are available (UDC / narrow mode). Omit = full tool set. */
   tools?: ToolName[];
+  /** Per-intent CLI options (e.g. UDC step `cli.shell`). Used when starting a new shell session only. */
+  cli?: {
+    shell?: string;
+  };
 }
 
 export interface ContextAugmentationIntent extends Intent {

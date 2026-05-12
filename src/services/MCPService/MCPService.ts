@@ -1,7 +1,7 @@
 import { normalizePath, TFile } from 'obsidian';
 import type { ModelMessage } from 'ai';
 import type StewardPlugin from 'src/main';
-import i18next from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { z } from 'zod/v3';
@@ -12,6 +12,8 @@ import {
   MCPServerConfig,
   mcpServerConfigSchema,
 } from './types';
+
+const { i18next } = getBundledInternal('i18n');
 
 const mcpDefinitionFrontmatterSchema = z.object({
   name: z.string().optional(),
@@ -482,7 +484,7 @@ export class MCPService {
 
     this.toolRefreshInFlight.add(normalizedPath);
     try {
-      const mcpLib = await getBundledLib('mcp');
+      const mcpLib = await getBundledLib('@ai-sdk/mcp');
       const client = await mcpLib.createMCPClient({
         transport: {
           type: definition.config.transport,
@@ -655,7 +657,7 @@ export class MCPService {
       return null;
     }
 
-    const mcpLib = await getBundledLib('mcp');
+    const mcpLib = await getBundledLib('@ai-sdk/mcp');
     try {
       const client = await mcpLib.createMCPClient({
         transport: {

@@ -1,7 +1,7 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath } from 'obsidian';
-import { getTranslation } from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ArtifactType } from 'src/solutions/artifact';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { logger } from 'src/utils/logger';
@@ -9,6 +9,8 @@ import { NonTrashFile, TrashFile } from 'src/services/TrashCleanupService';
 import { ToolCallPart } from '../../tools/types';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
 import { OperationError } from 'src/tools/obsidianAPITools';
+
+const { getTranslation } = getBundledInternal('i18n');
 
 const deleteFilePatternsSchema = z
   .object({

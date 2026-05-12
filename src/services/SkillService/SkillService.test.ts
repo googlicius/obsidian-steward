@@ -1,8 +1,10 @@
 import { TFile } from 'obsidian';
-import i18next from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import type StewardPlugin from 'src/main';
 import { getInstance } from 'src/utils/getInstance';
 import { SkillService } from './SkillService';
+
+const { i18next } = getBundledInternal('i18n');
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   return {

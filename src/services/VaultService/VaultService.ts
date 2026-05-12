@@ -30,48 +30,77 @@ export class VaultService {
     return VaultService.instance;
   }
 
-  async resolvePathExistence(path: string): Promise<PathExistenceResult> {
-    if (isHiddenPath(path)) {
-      return this.resolveHiddenPathViaAdapter(path);
+  /**
+   * @param pathOrName Vault-relative path (e.g. `folder/note.md`) or a file/folder name alone.
+   */
+  async resolvePathExistence(pathOrName: string): Promise<PathExistenceResult> {
+    if (isHiddenPath(pathOrName)) {
+      return this.resolveHiddenPathViaAdapter(pathOrName);
     }
-    return this.resolveViaVaultApi(path);
+    return this.resolveViaVaultApi(pathOrName);
   }
 
-  private async resolveViaVaultApi(path: string): Promise<PathExistenceResult> {
-    const vault = this.plugin.app.vault;
-    const abstractFile =
-      vault.getAbstractFileByPath(path) ||
-      (await this.plugin.mediaTools.findFileByNameOrPath(path));
+  private normalizeVaultRelativePath(p: string): string {
+    return p.replace(/\\/g, '/');
+  }
 
-    if (abstractFile) {
+  /**
+   * {@link MediaTools.findFileByNameOrPath} may return a similar but non-matching file; only treat
+   * as a hit when the vault path or leaf name equals the query.
+   */
+  private resolvedMatchesPathOrName(
+    normalizedPathOrName: string,
+    abstractFile: TAbstractFile
+  ): boolean {
+    const resolved = this.normalizeVaultRelativePath(abstractFile.path);
+    if (resolved === normalizedPathOrName) {
+      return true;
+    }
+    if (!normalizedPathOrName.includes('/')) {
+      return abstractFile instanceof TFile && abstractFile.name === normalizedPathOrName;
+    }
+    return false;
+  }
+
+  private async resolveViaVaultApi(pathOrName: string): Promise<PathExistenceResult> {
+    const vault = this.plugin.app.vault;
+    const normalizedPathOrName = this.normalizeVaultRelativePath(pathOrName);
+
+    const direct = vault.getAbstractFileByPath(normalizedPathOrName);
+    if (direct) {
       return {
-        path: abstractFile.path,
+        path: direct.path,
         exists: true,
-        abstractFile,
-        type:
-          abstractFile instanceof TFile
-            ? 'file'
-            : abstractFile instanceof TFolder
-              ? 'folder'
-              : null,
+        abstractFile: direct,
+        type: direct instanceof TFile ? 'file' : direct instanceof TFolder ? 'folder' : null,
+      };
+    }
+
+    const fromSearch = await this.plugin.mediaTools.findFileByNameOrPath(normalizedPathOrName);
+    if (fromSearch && this.resolvedMatchesPathOrName(normalizedPathOrName, fromSearch)) {
+      return {
+        path: fromSearch.path,
+        exists: true,
+        abstractFile: fromSearch,
+        type: 'file',
       };
     }
 
     return {
-      path,
+      path: pathOrName,
       exists: false,
       type: null,
     };
   }
 
-  private async resolveHiddenPathViaAdapter(path: string): Promise<PathExistenceResult> {
+  private async resolveHiddenPathViaAdapter(pathOrName: string): Promise<PathExistenceResult> {
     const { adapter } = this.plugin.app.vault;
 
-    if (await adapter.exists(path)) {
-      const st = await adapter.stat(path);
+    if (await adapter.exists(pathOrName)) {
+      const st = await adapter.stat(pathOrName);
       if (st) {
         return {
-          path,
+          path: pathOrName,
           exists: true,
           type: st.type,
         };
@@ -79,7 +108,7 @@ export class VaultService {
     }
 
     return {
-      path,
+      path: pathOrName,
       exists: false,
       type: null,
     };

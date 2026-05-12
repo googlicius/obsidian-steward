@@ -1,7 +1,9 @@
 import { TFile, TFolder } from 'obsidian';
-import i18next from 'src/i18n';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { NoteContentService } from 'src/services/NoteContentService';
 import { UserDefinedCommandService } from './UserDefinedCommandService';
+
+const { i18next } = getBundledInternal('i18n');
 
 /** Production loads Mustache via compressed bundled libs; evaluating that chunk in Jest breaks (Node shims). */
 jest.mock('src/utils/bundledLibs', () => ({
@@ -245,7 +247,7 @@ steps:
       expect(userDefinedCommandService.hasCommand('udc_load_test')).toBe(true);
     });
 
-    it('sets status to invalid when no yaml code block is present', async () => {
+    it('does not touch frontmatter when no yaml code block is present (note is not a UDC)', async () => {
       const file = getInstance(TFile, {
         path: commandFilePath,
         basename: 'test-udc',
@@ -253,22 +255,9 @@ steps:
       });
       mockCommandFileContent('# No command block\n');
 
-      const fm: Record<string, unknown> = {};
-      mockPlugin.app.fileManager.processFrontMatter = jest
-        .fn()
-        .mockImplementation((_f, fn: (x: Record<string, unknown>) => void) => {
-          fn(fm);
-          return Promise.resolve();
-        });
-
       await userDefinedCommandService['loadCommandFromFile'](file);
 
-      expect(fm.enabled).toBe(true);
-      expect(fm.status).toBe(
-        i18next.t('common.statusInvalid', {
-          errors: i18next.t('validation.noCommandYamlBlock'),
-        })
-      );
+      expect(mockPlugin.app.fileManager.processFrontMatter).not.toHaveBeenCalled();
       expect(userDefinedCommandService.userDefinedCommands.size).toBe(0);
     });
 

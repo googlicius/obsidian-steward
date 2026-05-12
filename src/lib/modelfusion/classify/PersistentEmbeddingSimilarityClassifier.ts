@@ -1,10 +1,11 @@
 import { EmbeddingModel } from 'ai';
-import { getBundledLib } from 'src/utils/bundledLibs';
+import { getBundledLib, getBundledSyncLibSync } from 'src/utils/bundledLibs';
 import { EmbeddingsDatabase, EmbeddingEntry } from 'src/database/EmbeddingsDatabase';
 import { logger } from 'src/utils/logger';
 import { getQualifiedCandidates } from 'src/utils/getQualifiedCandidates';
-import * as CryptoJS from 'crypto-js';
 import { similarity } from 'src/utils/similarity';
+
+const CryptoJS = getBundledSyncLibSync('crypto-js');
 
 export interface ValueCluster {
   name: string;

@@ -329,9 +329,9 @@ async function mountInteractiveTerminal(params: {
   delete params.container.dataset.stwCliXtermRetryCount;
 
   try {
-    const xtermLib = await getBundledLib('xterm');
-    const fitLib = await getBundledLib('xtermAddonFit');
-    const serializeLib = await getBundledLib('xtermAddonSerialize');
+    const xtermLib = await getBundledLib('@xterm/xterm');
+    const fitLib = await getBundledLib('@xterm/addon-fit');
+    const serializeLib = await getBundledLib('@xterm/addon-serialize');
     const serializeAddon = new serializeLib.SerializeAddon();
 
     const styleTarget = params.container.closest('.workspace-leaf') ?? document.documentElement;
