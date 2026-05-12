@@ -72,12 +72,7 @@ export class VaultService {
         path: direct.path,
         exists: true,
         abstractFile: direct,
-        type:
-          direct instanceof TFile
-            ? 'file'
-            : direct instanceof TFolder
-              ? 'folder'
-              : null,
+        type: direct instanceof TFile ? 'file' : direct instanceof TFolder ? 'folder' : null,
       };
     }
 
