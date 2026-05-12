@@ -1,8 +1,8 @@
 import { TFile } from 'obsidian';
-import { uniqueID } from '../utils/uniqueID';
+import { uniqueID } from '../../utils/uniqueID';
 import { getBundledInternal } from 'src/utils/bundledInternals';
-import { ConversationMessage, ConversationRole } from '../types/types';
-import type StewardPlugin from '../main';
+import { ConversationMessage, ConversationRole } from '../../types/types';
+import type StewardPlugin from '../../main';
 import { logger } from 'src/utils/logger';
 import {
   STW_SOURCE_PATTERN,
@@ -15,8 +15,8 @@ import { ToolCallPart, ToolResultPart } from 'src/solutions/commands/tools/types
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import { ArtifactType } from 'src/solutions/artifact';
 import { applyMixins } from 'src/utils/applyMixins';
-import { ToolSerialization } from './ConversationRender/ToolSerialization';
-import { Frontmatter } from './ConversationRender/Frontmatter';
+import { ToolSerialization } from './ToolSerialization';
+import { Frontmatter } from './Frontmatter';
 import { Events } from 'src/types/events';
 
 const { getTranslation } = getBundledInternal('i18n');

@@ -104,6 +104,20 @@ exports[`ConversationRenderer deserializeToolInvocations should deserialize a to
 ]
 `;
 
+exports[`ConversationRenderer deserializeToolInvocations should deserialize tool invocations from legacy stw-artifact fence 1`] = `
+[
+  {
+    "output": {
+      "type": "text",
+      "value": "from legacy fence",
+    },
+    "toolCallId": "call_legacy_fence",
+    "toolName": "read",
+    "type": "tool-result",
+  },
+]
+`;
+
 exports[`ConversationRenderer deserializeToolInvocations should handle tool-call type with both input and output 1`] = `
 [
   {

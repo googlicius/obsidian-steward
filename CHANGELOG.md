@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bundled libs**: Move Dexie, CryptoJS, chrono-node, and i18next to the second build
 - **Bundled libs**: Use the same names as the original modules for bundled libraries
 
+### Fixed
+
+- fix(VaultService): resolvePathExistence - File exists only if the given name the same as the found path
+
 [Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.7.3...2.8.0)
 
 ## [2.7.3] - 2026-04-26

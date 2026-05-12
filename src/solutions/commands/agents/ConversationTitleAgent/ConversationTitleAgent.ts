@@ -5,7 +5,7 @@ import type StewardPlugin from 'src/main';
 import { AbortOperationKeys } from 'src/constants';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { getBundledLib } from 'src/utils/bundledLibs';
-import { USAGE_AGENT_KEY } from 'src/services/ConversationRender/Frontmatter';
+import { USAGE_AGENT_KEY } from 'src/services/ConversationRenderer/Frontmatter';
 
 interface GenerateTitleParams {
   title: string;

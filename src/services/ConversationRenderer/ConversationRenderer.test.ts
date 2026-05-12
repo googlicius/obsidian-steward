@@ -1,13 +1,13 @@
 import { ConversationRenderer } from './ConversationRenderer';
 import { App, TFile } from 'obsidian';
-import type StewardPlugin from '../main';
-import { NoteContentService } from './NoteContentService';
-import { UserMessageService } from './UserMessageService';
-import { uniqueID } from '../utils/uniqueID';
-import { ReadContentArtifactImpl } from '../solutions/artifact/implements';
-import { ArtifactType } from '../solutions/artifact/types';
-import { ConversationMessage } from '../types/types';
-import { MANUAL_TOOL_CALL_ID_PREFIX } from '../constants';
+import type StewardPlugin from '../../main';
+import { NoteContentService } from '../NoteContentService';
+import { UserMessageService } from '../UserMessageService';
+import { uniqueID } from '../../utils/uniqueID';
+import { ReadContentArtifactImpl } from '../../solutions/artifact/implements';
+import { ArtifactType } from '../../solutions/artifact/types';
+import { ConversationMessage } from '../../types/types';
+import { MANUAL_TOOL_CALL_ID_PREFIX } from '../../constants';
 
 // Mock the uniqueID function
 jest.mock('../utils/uniqueID', () => ({
@@ -376,7 +376,7 @@ describe('ConversationRenderer', () => {
         '<!--STW ID:ghi789,ROLE:steward,COMMAND:search,TYPE:tool-invocation-->',
         " Here's what I found:",
         '',
-        '```stw-artifact',
+        '```stw-tool-invocation',
         JSON.stringify([
           {
             toolName: 'read',
@@ -419,7 +419,7 @@ describe('ConversationRenderer', () => {
         '<!--STW ID:ghi789,ROLE:steward,COMMAND:super,TYPE:tool-invocation,HANDLER_ID:handler1,STEP:1-->',
         '*Searching...*',
         '',
-        '```stw-artifact',
+        '```stw-tool-invocation',
         JSON.stringify([
           {
             toolName: 'search',
@@ -466,7 +466,7 @@ describe('ConversationRenderer', () => {
         '```',
         '',
         '<!--STW ID:assistant2,ROLE:assistant,COMMAND:user_confirm,TYPE:tool-invocation,HANDLER_ID:handler-confirm,STEP:0-->',
-        '```stw-artifact',
+        '```stw-tool-invocation',
         JSON.stringify([
           {
             type: 'tool-result',
@@ -485,7 +485,7 @@ describe('ConversationRenderer', () => {
         'Switched to tool and skill mode.',
         '',
         '<!--STW ID:assistant4,ROLE:assistant,COMMAND:switch-agent-capacity,TYPE:tool-invocation,HANDLER_ID:handler-simple,STEP:0-->',
-        '```stw-artifact',
+        '```stw-tool-invocation',
         JSON.stringify([
           {
             type: 'tool-result',
@@ -619,7 +619,7 @@ describe('ConversationRenderer', () => {
         '<!--STW ID:def456,ROLE:steward,COMMAND:super,TYPE:tool-invocation,HANDLER_ID:handler1,STEP:1-->',
         '*Reading content...*',
         '',
-        '```stw-artifact',
+        '```stw-tool-invocation',
         JSON.stringify([
           {
             toolName: 'read_content',
@@ -1377,7 +1377,7 @@ describe('ConversationRenderer', () => {
         content: [
           'Some text before',
           '',
-          '```stw-artifact',
+          '```stw-tool-invocation',
           JSON.stringify([
             {
               toolName: 'search',
@@ -1416,7 +1416,7 @@ describe('ConversationRenderer', () => {
         content: [
           'Some text before',
           '',
-          '```stw-artifact',
+          '```stw-tool-invocation',
           JSON.stringify([
             {
               toolName: 'read',
@@ -1450,7 +1450,7 @@ describe('ConversationRenderer', () => {
         id: 'msg123',
         role: 'assistant',
         content: [
-          '```stw-artifact',
+          '```stw-tool-invocation',
           JSON.stringify([
             {
               toolName: 'activate',
@@ -1484,7 +1484,7 @@ describe('ConversationRenderer', () => {
         id: 'msg123',
         role: 'assistant',
         content: [
-          '```stw-artifact',
+          '```stw-tool-invocation',
           JSON.stringify([
             {
               toolName: 'activate',
@@ -1536,7 +1536,7 @@ describe('ConversationRenderer', () => {
         id: 'msg123',
         role: 'assistant',
         content: [
-          '```stw-artifact',
+          '```stw-tool-invocation',
           JSON.stringify([
             {
               toolName: 'read',
@@ -1589,7 +1589,7 @@ describe('ConversationRenderer', () => {
         id: 'msg123',
         role: 'assistant',
         content: [
-          '```stw-artifact',
+          '```stw-tool-invocation',
           JSON.stringify([
             {
               toolName: 'read',
@@ -1633,7 +1633,7 @@ describe('ConversationRenderer', () => {
         id: 'msg123',
         role: 'assistant',
         content: [
-          '```stw-artifact',
+          '```stw-tool-invocation',
           JSON.stringify([
             {
               toolName: 'read',
@@ -1673,7 +1673,7 @@ describe('ConversationRenderer', () => {
         id: 'msg123',
         role: 'assistant',
         content: [
-          '```stw-artifact',
+          '```stw-tool-invocation',
           JSON.stringify([
             {
               toolName: 'edit',
@@ -1707,7 +1707,7 @@ describe('ConversationRenderer', () => {
         id: 'msg123',
         role: 'assistant',
         content: [
-          '```stw-artifact',
+          '```stw-tool-invocation',
           JSON.stringify([
             {
               toolName: 'edit',
@@ -1767,7 +1767,7 @@ describe('ConversationRenderer', () => {
         id: 'msg123',
         role: 'assistant',
         content: [
-          '```stw-artifact',
+          '```stw-tool-invocation',
           JSON.stringify([
             {
               toolName: 'read',
@@ -1793,7 +1793,7 @@ describe('ConversationRenderer', () => {
       expect(result).toMatchSnapshot();
     });
 
-    it('should return null when no stw-artifact blocks are found', async () => {
+    it('should return null when no tool invocation blocks are found', async () => {
       const mockPlugin = createMockPlugin();
       conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
 
@@ -1821,7 +1821,7 @@ describe('ConversationRenderer', () => {
         id: 'msg123',
         role: 'assistant',
         content: [
-          '```stw-artifact',
+          '```stw-tool-invocation',
           JSON.stringify([
             {
               toolName: 'search',
@@ -1856,7 +1856,7 @@ describe('ConversationRenderer', () => {
         id: 'msg123',
         role: 'assistant',
         content: [
-          '```stw-artifact',
+          '```stw-tool-invocation',
           JSON.stringify([
             {
               toolName: 'activate',
@@ -1872,6 +1872,37 @@ describe('ConversationRenderer', () => {
           '```',
         ].join('\n'),
         intent: 'activate',
+        type: 'tool-invocation',
+      };
+
+      const result = await conversationRenderer.deserializeToolInvocations({
+        message,
+        conversationTitle: 'test-conversation',
+      });
+
+      expect(result).toMatchSnapshot();
+    });
+
+    it('should deserialize tool invocations from legacy stw-artifact fence', async () => {
+      const mockPlugin = createMockPlugin();
+      conversationRenderer = ConversationRenderer.getInstance(mockPlugin);
+
+      const message: ConversationMessage = {
+        id: 'msg123',
+        role: 'assistant',
+        content: [
+          '```stw-artifact',
+          JSON.stringify([
+            {
+              toolName: 'read',
+              toolCallId: 'call_legacy_fence',
+              type: 'tool-result',
+              output: { type: 'text', value: 'from legacy fence' },
+            },
+          ]),
+          '```',
+        ].join('\n'),
+        intent: 'read',
         type: 'tool-invocation',
       };
 

@@ -4,7 +4,22 @@ import { ToolCallPart, ToolResultPart } from 'src/solutions/commands/tools/types
 import { ReadContentArtifactImpl } from 'src/solutions/artifact';
 import { removeUndefined } from 'src/utils/removeUndefined';
 import type { ConversationMessage } from 'src/types/types';
-import type { ConversationRenderer } from '../ConversationRenderer';
+import type { ConversationRenderer } from './ConversationRenderer';
+
+/** Markdown language tag for persisted tool-call / tool-result JSON (hidden in reading view). */
+export const STW_TOOL_INVOCATION_FENCE = 'stw-tool-invocation';
+
+const LEGACY_TOOL_INVOCATION_FENCE = 'stw-artifact';
+
+const TOOL_INVOCATION_FENCED_BLOCK_RE = new RegExp(
+  `\`\`\`(?:${STW_TOOL_INVOCATION_FENCE}|${LEGACY_TOOL_INVOCATION_FENCE})\\n([\\s\\S]*?)\\n\`\`\``,
+  'g'
+);
+
+const TOOL_INVOCATION_FENCE_STRIP_RE = new RegExp(
+  `\`\`\`(?:${STW_TOOL_INVOCATION_FENCE}|${LEGACY_TOOL_INVOCATION_FENCE})\\n|\\n\`\`\``,
+  'g'
+);
 
 type ToolSerializationHost = Pick<
   ConversationRenderer,
@@ -44,7 +59,7 @@ export class ToolSerialization {
       await this.plugin.app.vault.process(file, currentContent => {
         let contentToAdd = params.text ? `${params.text}\n` : '';
 
-        contentToAdd += `\`\`\`stw-artifact\n${JSON.stringify(params.toolInvocations)}\n\`\`\``;
+        contentToAdd += `\`\`\`${STW_TOOL_INVOCATION_FENCE}\n${JSON.stringify(params.toolInvocations)}\n\`\`\``;
         return `${currentContent}\n\n${comment}\n${contentToAdd}`;
       });
 
@@ -65,11 +80,9 @@ export class ToolSerialization {
       conversationTitle: string;
     }
   ): Promise<Array<ToolCallPart | ToolResultPart | FilePart | ImagePart | TextPart> | null> {
-    const toolInvocationsMatches = params.message.content.match(
-      /```stw-artifact\n([\s\S]*?)\n```/g
-    );
+    const toolInvocationsMatches = params.message.content.match(TOOL_INVOCATION_FENCED_BLOCK_RE);
     if (!toolInvocationsMatches || toolInvocationsMatches.length === 0) {
-      logger.error('No stw-artifact blocks found in message content');
+      logger.error('No tool invocation code blocks found in message content');
       return null;
     }
 
@@ -189,7 +202,7 @@ export class ToolSerialization {
 
     for (const toolInvocationsMatch of toolInvocationsMatches) {
       const toolInvocationData = JSON.parse(
-        toolInvocationsMatch.replace(/```stw-artifact\n|\n```/g, '')
+        toolInvocationsMatch.replace(TOOL_INVOCATION_FENCE_STRIP_RE, '')
       );
 
       if (!Array.isArray(toolInvocationData)) {
@@ -227,13 +240,13 @@ export class ToolSerialization {
    * Used for filtering groups by compactability before full deserialization.
    */
   public extractToolNamesFromToolInvocation(content: string): string[] {
-    const matches = content.match(/```stw-artifact\n([\s\S]*?)\n```/g);
+    const matches = content.match(TOOL_INVOCATION_FENCED_BLOCK_RE);
     if (!matches?.length) return [];
 
     const names: string[] = [];
     for (const match of matches) {
       try {
-        const jsonStr = match.replace(/```stw-artifact\n|\n```/g, '');
+        const jsonStr = match.replace(TOOL_INVOCATION_FENCE_STRIP_RE, '');
         const data = JSON.parse(jsonStr);
         if (!Array.isArray(data)) continue;
         for (const item of data) {

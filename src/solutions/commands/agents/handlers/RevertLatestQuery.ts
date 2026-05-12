@@ -104,6 +104,8 @@ export class RevertLatestQuery {
       explanation: toolCall.input.explanation ?? t('revert.revertingLatestQuery'),
     });
 
+    console.log('SUMMARY', summary);
+
     const response = this.buildResultMessage({
       lang,
       summary,

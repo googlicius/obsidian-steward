@@ -1,7 +1,7 @@
 import type { LanguageModelUsage } from 'ai';
 import { parseYaml } from 'obsidian';
 import { logger } from 'src/utils/logger';
-import type { ConversationRenderer } from '../ConversationRenderer';
+import type { ConversationRenderer } from './ConversationRenderer';
 
 /**
  * Agent id segment for token usage. Frontmatter uses one top-level key per agent:

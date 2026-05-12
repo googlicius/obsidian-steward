@@ -21,7 +21,7 @@ import {
 } from '../agentTools';
 import type { AgentCorePromptContext } from '../../Agent';
 import { isGoogleModel } from '../googleUtils';
-import { USAGE_AGENT_KEY } from 'src/services/ConversationRender/Frontmatter';
+import { USAGE_AGENT_KEY } from 'src/services/ConversationRenderer/Frontmatter';
 
 const { getTranslation } = getBundledInternal('i18n');
 

@@ -3,7 +3,7 @@ import type StewardPlugin from 'src/main';
 import { AbortOperationKeys } from 'src/constants';
 import { logger } from 'src/utils/logger';
 import { getBundledLib } from 'src/utils/bundledLibs';
-import { USAGE_AGENT_KEY } from 'src/services/ConversationRender/Frontmatter';
+import { USAGE_AGENT_KEY } from 'src/services/ConversationRenderer/Frontmatter';
 
 const MAX_SUMMARY_WORDS = 80;
 

@@ -159,9 +159,7 @@ export class VaultRename {
       };
     }
 
-    const instructions = normalization.instructions;
-
-    const missingFolders = this.collectMissingFolders({ instructions });
+    const missingFolders = this.collectMissingFolders({ instructions: normalization.instructions });
     if (missingFolders.length > 0) {
       const folderList = missingFolders.map(folder => `- \`${folder}\``).join('\n');
       const message = `${t('rename.createFoldersHeader')}\n${folderList}\n\n${t(
@@ -186,7 +184,7 @@ export class VaultRename {
             await this.agent.obsidianAPITools.ensureFolderExists(folder);
           }
 
-          return this.finishRename(params, { instructions, toolCall });
+          return this.finishRename(params, { instructions: normalization.instructions, toolCall });
         },
         onRejection: async (_rejectionMessage: string) => {
           const cancellationMessage = t('confirmation.operationCancelled');
@@ -205,7 +203,7 @@ export class VaultRename {
       };
     }
 
-    return this.finishRename(params, { instructions, toolCall });
+    return this.finishRename(params, { instructions: normalization.instructions, toolCall });
   }
 
   private normalizeInstructions(params: { files: RenameToolArgs['files'] }): {
@@ -332,44 +330,43 @@ export class VaultRename {
   }): string {
     const { instructionsCount, result, lang } = params;
     const t = getTranslation(lang);
-    const { renamed, skippedSamePath, missingFiles, conflicts, errors } = result;
 
     let response = t('rename.processed', { count: instructionsCount });
 
-    if (renamed.length > 0) {
-      response += `\n\n**${t('rename.success', { count: renamed.length })}**`;
+    if (result.renamed.length > 0) {
+      response += `\n\n**${t('rename.success', { count: result.renamed.length })}**`;
       // Wrap the list of renames in a tool-hidden section, we don't need to send it to the tool call result
       response += `\n<!--stw-tool-hidden-start-->`;
-      for (const entry of renamed) {
+      for (const entry of result.renamed) {
         response += `\n- [[${entry.from}]] → [[${entry.to}]]`;
       }
       response += `\n<!--stw-tool-hidden-end-->`;
     }
 
-    if (skippedSamePath.length > 0) {
-      response += `\n\n**${t('rename.samePath', { count: skippedSamePath.length })}**`;
-      for (const path of skippedSamePath) {
+    if (result.skippedSamePath.length > 0) {
+      response += `\n\n**${t('rename.samePath', { count: result.skippedSamePath.length })}**`;
+      for (const path of result.skippedSamePath) {
         response += `\n- [[${path}]]`;
       }
     }
 
-    if (missingFiles.length > 0) {
-      response += `\n\n**${t('rename.fileMissing', { count: missingFiles.length })}**`;
-      for (const path of missingFiles) {
+    if (result.missingFiles.length > 0) {
+      response += `\n\n**${t('rename.fileMissing', { count: result.missingFiles.length })}**`;
+      for (const path of result.missingFiles) {
         response += `\n- [[${path}]]`;
       }
     }
 
-    if (conflicts.length > 0) {
-      response += `\n\n**${t('rename.targetExists', { count: conflicts.length })}**`;
-      for (const path of conflicts) {
+    if (result.conflicts.length > 0) {
+      response += `\n\n**${t('rename.targetExists', { count: result.conflicts.length })}**`;
+      for (const path of result.conflicts) {
         response += `\n- [[${path}]]`;
       }
     }
 
-    if (errors.length > 0) {
-      response += `\n\n**${t('rename.errors', { count: errors.length })}**`;
-      for (const error of errors) {
+    if (result.errors.length > 0) {
+      response += `\n\n**${t('rename.errors', { count: result.errors.length })}**`;
+      for (const error of result.errors) {
         response += `\n- ${t('rename.renameError', { path: error.path, message: error.message })}`;
       }
     }
