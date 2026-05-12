@@ -10,7 +10,7 @@ import { ConversationMessage } from '../../types/types';
 import { MANUAL_TOOL_CALL_ID_PREFIX } from '../../constants';
 
 // Mock the uniqueID function
-jest.mock('../utils/uniqueID', () => ({
+jest.mock('../../utils/uniqueID', () => ({
   uniqueID: jest.fn(() => 'mock-id-123'),
 }));
 
