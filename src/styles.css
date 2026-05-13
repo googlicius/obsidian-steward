@@ -166,6 +166,11 @@ pre.language-stw-thinking {
   }
 }
 
+pre:has(> code.language-cli-model) {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
 /* User message callout styling */
 .callout[data-callout='stw-user-message'] {
   --callout-color: var(--callout-quote);

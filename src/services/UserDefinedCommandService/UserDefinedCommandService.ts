@@ -222,7 +222,7 @@ export class UserDefinedCommandService {
       const enabledFromFrontmatter = !fmParsed.success || fmParsed.data.enabled !== false;
 
       if (!parsedDoc.body) {
-        console.warn(`Stop loading command from "${file.name}", the body is empty`);
+        logger.warn(`Stop loading command from "${file.name}", the body is empty`);
         return;
       }
 
@@ -231,6 +231,7 @@ export class UserDefinedCommandService {
       // Without a command YAML block the note is not a UDC definition (it may be a
       // referenced doc / system-prompt note), so leave its frontmatter untouched.
       if (commandYamlBlocks.length === 0) {
+        logger.log('Not a command definition note, skipping...');
         return;
       }
 
@@ -397,7 +398,8 @@ export class UserDefinedCommandService {
       let parsed: unknown;
       try {
         parsed = parseYaml(yamlBlock.content);
-      } catch {
+      } catch (e) {
+        console.error(e);
         continue;
       }
 

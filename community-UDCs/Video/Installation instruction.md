@@ -26,7 +26,7 @@ uname -s
 
 If the shell is **PowerShell** on Windows, use the Windows branch below (`winget`, etc.) without relying on `uname`.
 
-## 2. Install by platform (Use interactive mode)
+## 2. Install by platform (MUST use interactive mode)
 
 ### Windows (native — preferred)
 

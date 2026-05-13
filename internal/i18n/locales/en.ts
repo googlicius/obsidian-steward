@@ -54,7 +54,7 @@ const en = {
       desktopOnly:
         'The local CLI shell is only available in Obsidian on desktop. Mobile does not support local processes.',
       spawnFailed:
-        '{{message}}\n\nThere are installers for each platform in your Steward folder; run them from your vault root folder:',
+        '{{message}}\n\nThere are installers for each platform in your {{stewardFolder}} folder; run them from your vault root folder:',
       openingInteractiveTerminal: 'Opening interactive terminal...',
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
@@ -71,6 +71,7 @@ const en = {
         'It would take up from 5 ~ 6 MB based on your platform.\n\nSee [CLI]({{cliDoc}}) for transcript vs interactive mode and node-pty setup.',
       confirmExecuteShell:
         'I will run this command. Please confirm or cancel.\n\n```shell\n{{command}}\n```',
+      runInTerminal: 'The command will run in the terminal (interactive mode, full TTY).',
       shellConfirmEmptyCommand: '(empty line — start or continue shell without sending input yet)',
     },
     mcp: {

@@ -48,7 +48,7 @@ const vi = {
     cli: {
       disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
       spawnFailed:
-        '{{message}}\n\nCó trình cài cho từng nền tảng trong thư mục Steward; chạy từ thư mục gốc vault:',
+        '{{message}}\n\nCó trình cài cho từng nền tảng trong thư mục {{stewardFolder}}; chạy từ thư mục gốc vault:',
       openingInteractiveTerminal: 'Đang mở terminal...',
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
@@ -65,6 +65,7 @@ const vi = {
         'Xem [CLI]({{cliDoc}}) để biết chế độ transcript so với interactive và cách cài node-pty.',
       confirmExecuteShell:
         'Tôi sẽ chạy lệnh này. Vui lòng xác nhận hoặc hủy.\n\n```shell\n{{command}}\n```',
+      runInTerminal: 'Lệnh sẽ chạy trong terminal (chế độ tương tác, TTY đầy đủ).',
       shellConfirmEmptyCommand: '(dòng trống — bắt đầu hoặc tiếp tục shell mà không gửi lệnh)',
     },
     mcp: {

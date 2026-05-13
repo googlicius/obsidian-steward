@@ -50,7 +50,7 @@ const ja = {
       desktopOnly:
         'ローカルCLIシェルはObsidianデスクトップ版でのみ利用できます。モバイルではローカルプロセスは利用できません。',
       spawnFailed:
-        '{{message}}\n\n各プラットフォーム用のインストーラーは Steward フォルダにあります。vault のルートフォルダから実行してください:',
+        '{{message}}\n\n各プラットフォーム用のインストーラーは {{stewardFolder}} フォルダ内にあります。vault のルートフォルダから実行してください:',
       openingInteractiveTerminal: 'ホスト会話でインタラクティブターミナルを開いています...',
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
@@ -67,6 +67,7 @@ const ja = {
         'トランスクリプトとインタラクティブの違いや node-pty のセットアップは [CLI]({{cliDoc}}) を参照してください。',
       confirmExecuteShell:
         'この会話で次の**ローカルシェル**コマンドを実行します。続行するかキャンセルするか、ご確認ください。\n\n```\n{{command}}\n```',
+      runInTerminal: 'このコマンドはターミナルで実行されます（インタラクティブモード／フルTTY）。',
       shellConfirmEmptyCommand: '（空行 — 入力なしでシェルを開始または継続）',
     },
     mcp: {

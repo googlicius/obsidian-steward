@@ -7,7 +7,8 @@ import type { BundledDesktopLibs } from 'src/bundled-libs-desktop-entry';
 import type { BundledSyncLibs } from 'src/bundled-libs-sync-entry';
 
 /**
- * esbuild IIFE + `export default` yields an interop object on `globalThis`:
+ * esbuild IIFE + `export default` yields an interop object on the plugin `window`
+ * global (not `globalThis`, for Obsidian popout compatibility):
  * `{ __esModule: true, default: <actual registry> }`.
  */
 function unwrapBundledRegistry<T extends object>(raw: unknown): T {
@@ -35,7 +36,7 @@ function ensureBundledLibsRegistryLoaded(): Promise<BundledLibsRegistry> {
         throw new Error('[Steward] Failed to decompress bundled libs payload');
       }
       (0, eval)(code);
-      const raw = (globalThis as unknown as { __stewardBundledLibs?: unknown })
+      const raw = (window as unknown as { __stewardBundledLibs?: unknown })
         .__stewardBundledLibs;
       if (!raw) {
         throw new Error('[Steward] Bundled libs chunk did not define __stewardBundledLibs');
@@ -63,7 +64,7 @@ function ensureBundledDesktopLibsRegistryLoaded(): Promise<BundledDesktopLibsReg
         throw new Error('[Steward] Failed to decompress bundled desktop libs payload');
       }
       (0, eval)(code);
-      const raw = (globalThis as unknown as { __stewardBundledDesktopLibs?: unknown })
+      const raw = (window as unknown as { __stewardBundledDesktopLibs?: unknown })
         .__stewardBundledDesktopLibs;
       if (!raw) {
         throw new Error(
@@ -93,7 +94,7 @@ function ensureBundledSyncLibsRegistryLoadedSync(): BundledSyncLibsRegistry {
   }
 
   (0, eval)(code);
-  const raw = (globalThis as unknown as { __stewardBundledSyncLibs?: unknown })
+  const raw = (window as unknown as { __stewardBundledSyncLibs?: unknown })
     .__stewardBundledSyncLibs;
   if (!raw) {
     throw new Error('[Steward] Bundled sync libs chunk did not define __stewardBundledSyncLibs');
