@@ -290,6 +290,7 @@ const en = {
       noChangesNeeded: 'The original and updated content are identical. No changes were needed.',
       contentUpdatedSuccessfully: 'Content updated successfully.',
       changesDenied: 'Changes denied by user.',
+      conversationTitleUpdated: 'Conversation title updated.',
     },
     // Delete result messages
     delete: {

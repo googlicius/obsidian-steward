@@ -194,9 +194,17 @@ export class VaultUpdateFrontmatter {
       lang: params.lang,
     });
 
+    const isConversationTitleOnly =
+      toolCall.input.properties.length === 1 &&
+      toolCall.input.properties[0].name === 'conversation_title';
+    const noteContent =
+      isConversationTitleOnly && updateResult.failed.length === 0
+        ? `*${t('update.conversationTitleUpdated')}*`
+        : formattedMessage;
+
     await this.agent.renderer.updateConversationNote({
       path: params.title,
-      newContent: formattedMessage,
+      newContent: noteContent,
       command: 'vault_update_frontmatter',
       lang: params.lang,
       handlerId: params.handlerId,
@@ -223,7 +231,7 @@ export class VaultUpdateFrontmatter {
       toolCall,
       result: {
         type: 'text',
-        value: formattedMessage,
+        value: noteContent,
       },
     });
 

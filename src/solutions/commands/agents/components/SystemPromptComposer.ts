@@ -49,6 +49,13 @@ export class SystemPromptComposer {
       );
     }
 
+    if (available.has(ToolName.LIST)) {
+      lines.push(
+        `- For past and current conversation notes, use ${ToolName.LIST} with folderPath set to "Steward/Conversations".`
+      );
+      mentioned.add(ToolName.LIST);
+    }
+
     if (available.has(ToolName.CONTENT_READING)) {
       lines.push(
         `- For tasks that require domain-specific knowledge, use ${ToolName.CONTENT_READING} to read the skill file.`

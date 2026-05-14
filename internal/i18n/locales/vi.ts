@@ -238,6 +238,7 @@ const vi = {
       noChangesNeeded:
         'Nội dung gốc và nội dung đã cập nhật giống hệt nhau. Không cần thay đổi gì.',
       changesDenied: 'Người dùng đã từ chối các thay đổi.',
+      conversationTitleUpdated: 'Đã cập nhật tiêu đề cuộc trò chuyện.',
     },
     // Delete result messages
     delete: {

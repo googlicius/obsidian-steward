@@ -243,6 +243,7 @@ const ja = {
       applyChangesConfirm: '変更を適用しますか？',
       noChangesNeeded: '元の内容と更新された内容は同一です。変更は必要ありませんでした。',
       changesDenied: 'ユーザーによって変更が拒否されました。',
+      conversationTitleUpdated: '会話タイトルを更新しました。',
     },
     // Delete result messages
     delete: {
