@@ -115,6 +115,7 @@ export class UDCAgent extends Agent {
           model: expandedIntent.model,
           systemPrompts: expandedIntent.systemPrompts,
           no_confirm: expandedIntent.no_confirm,
+          cli: expandedIntent.cli,
         };
       });
 
@@ -150,6 +151,7 @@ export class UDCAgent extends Agent {
         no_confirm: currentStep.no_confirm,
         tools: udcTools,
         systemPrompts: await this.resolveUdcSystemPrompts(command),
+        cli: currentStep.cli,
       };
 
       return this.superAgent.handle({

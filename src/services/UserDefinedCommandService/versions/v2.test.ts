@@ -1,4 +1,9 @@
-import { UserDefinedCommandV2, type UserDefinedCommandV2Data } from './v2';
+import {
+  UserDefinedCommandV2,
+  userDefinedCommandV2Schema,
+  udcV2RootCliSchema,
+  type UserDefinedCommandV2Data,
+} from './v2';
 
 describe('UserDefinedCommandV2', () => {
   describe('heading-only wikilink transformation', () => {
@@ -197,17 +202,72 @@ describe('UserDefinedCommandV2', () => {
     });
   });
 
-  describe('step cli.shell', () => {
-    it('should preserve cli.shell on normalized steps', () => {
-      const data: UserDefinedCommandV2Data = {
+  describe('udcV2RootCliSchema', () => {
+    it('trims shell and copies whitelist', () => {
+      const result = udcV2RootCliSchema.parse({
+        shell: '  /bin/zsh  ',
+        whitelist: ['echo*', 'ls'],
+      });
+
+      expect(result).toEqual({ shell: '/bin/zsh', whitelist: ['echo*', 'ls'] });
+    });
+
+    it('returns undefined when shell is only whitespace and whitelist absent', () => {
+      expect(udcV2RootCliSchema.parse({ shell: '   \t' })).toBeUndefined();
+    });
+
+    it('returns undefined for empty object', () => {
+      expect(udcV2RootCliSchema.parse({})).toBeUndefined();
+    });
+
+    it('returns whitelist only when shell empty or missing', () => {
+      expect(udcV2RootCliSchema.parse({ whitelist: ['pwd'] })).toEqual({ whitelist: ['pwd'] });
+    });
+
+    it('returns shell only when whitelist absent', () => {
+      expect(udcV2RootCliSchema.parse({ shell: '/bin/sh' })).toEqual({ shell: '/bin/sh' });
+    });
+
+    it('rejects whitelist entry that is only *', () => {
+      expect(() => udcV2RootCliSchema.parse({ whitelist: ['*'] })).toThrow();
+    });
+  });
+
+  describe('userDefinedCommandV2Schema cli', () => {
+    it('normalizes cli via parse like other transformed fields', () => {
+      const result = userDefinedCommandV2Schema.parse({
+        command_name: 'c',
+        steps: [{ query: 'q' }],
+        cli: { shell: ' bash ', whitelist: ['a'] },
+      });
+
+      expect(result.cli).toEqual({ shell: 'bash', whitelist: ['a'] });
+    });
+
+    it('omits cli when optional key missing', () => {
+      const result = userDefinedCommandV2Schema.parse({
+        command_name: 'c',
+        steps: [{ query: 'q' }],
+      });
+
+      expect(result.cli).toBeUndefined();
+    });
+  });
+
+  describe('root cli', () => {
+    it('should normalize root cli.shell and cli.whitelist after validate', () => {
+      const parsed = UserDefinedCommandV2.validate({
         command_name: 'shell_cmd',
         file_path: 'Steward/Commands/s.md',
-        steps: [{ query: 'echo 1', cli: { shell: '/bin/zsh' } }, { query: 'echo 2' }],
-      };
+        cli: { shell: '  /bin/zsh  ', whitelist: ['echo*'] },
+        steps: [{ query: 'echo 1' }, { query: 'echo 2' }],
+      });
 
-      const command = new UserDefinedCommandV2(data);
-      expect(command.normalized.steps[0].cli).toEqual({ shell: '/bin/zsh' });
-      expect(command.normalized.steps[1].cli).toBeUndefined();
+      const command = new UserDefinedCommandV2(parsed);
+      expect(command.normalized.cli).toEqual({
+        shell: '/bin/zsh',
+        whitelist: ['echo*'],
+      });
     });
   });
 });

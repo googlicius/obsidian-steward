@@ -1,4 +1,4 @@
-import { CliHandler, type ShellToolInput } from './CliHandler';
+import { CliHandler, isShellCommandAllowedWithoutConfirmation, type ShellToolInput } from './CliHandler';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type { ToolCallPart } from '../../tools/types';
 import { ToolName } from '../../ToolRegistry';
@@ -35,7 +35,7 @@ function createShellToolCall(toolCallId: string, argsLine: string): ToolCallPart
   } as ToolCallPart<ShellToolInput>;
 }
 
-function baseParams(title: string): {
+function baseParams(title: string, intent?: Intent): {
   title: string;
   intent: Intent;
   handlerId: string;
@@ -43,7 +43,7 @@ function baseParams(title: string): {
 } {
   return {
     title,
-    intent: { type: 'test', query: '' } as Intent,
+    intent: intent ?? ({ type: 'test', query: '' } as Intent),
     handlerId: 'handler-1',
     invocationCount: 0,
   };
@@ -119,5 +119,79 @@ describe('CliHandler', () => {
 
       runShellSessionSpy.mockRestore();
     });
+
+    it('skips confirmation when intent allowlist matches and command is non-interactive', async () => {
+      const runShellSessionSpy = jest
+        .spyOn(
+          handler as unknown as { runShellSession: CliHandler['runShellSession'] },
+          'runShellSession'
+        )
+        .mockResolvedValue({ messageId: 'auto' });
+      const continueFromNext = jest.fn().mockResolvedValue({ status: IntentResultStatus.SUCCESS });
+
+      const result = await handler.handle(
+        baseParams('Conv-D', {
+          type: 'test',
+          query: '',
+          cli: { whitelist: ['echo*'] },
+        }),
+        {
+          toolCall: createShellToolCall('model-auto-1', 'echo hi'),
+          continueFromNextTool: continueFromNext,
+        }
+      );
+
+      expect(result.status).toBe(IntentResultStatus.SUCCESS);
+      expect(mockAgent.renderer.updateConversationNote).not.toHaveBeenCalled();
+      expect(runShellSessionSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Conv-D' }),
+        expect.anything(),
+        true
+      );
+      expect(continueFromNext).toHaveBeenCalled();
+      expect(mockAgent.serializeInvocation).toHaveBeenCalled();
+      expect(mockAgent.plugin.cliSessionService.endSession).toHaveBeenCalledWith({
+        conversationTitle: 'Conv-D',
+        killProcess: true,
+      });
+
+      runShellSessionSpy.mockRestore();
+    });
+
+    it('still requires confirmation when allowlist matches but command is interactive', async () => {
+      const result = await handler.handle(
+        baseParams('Conv-E', {
+          type: 'test',
+          query: '',
+          cli: { whitelist: ['vim*'] },
+        }),
+        {
+          toolCall: createShellToolCall('model-int-1', 'vim'),
+        }
+      );
+
+      expect(result.status).toBe(IntentResultStatus.NEEDS_CONFIRMATION);
+      expect(mockAgent.renderer.updateConversationNote).toHaveBeenCalled();
+    });
+  });
+});
+
+describe('isShellCommandAllowedWithoutConfirmation', () => {
+  it('matches exact pattern', () => {
+    expect(isShellCommandAllowedWithoutConfirmation('ls', ['ls'])).toBe(true);
+    expect(isShellCommandAllowedWithoutConfirmation('ls -la', ['ls'])).toBe(false);
+  });
+
+  it('matches prefix when pattern ends with *', () => {
+    expect(isShellCommandAllowedWithoutConfirmation('Get-Content foo', ['Get-Content*'])).toBe(
+      true
+    );
+    expect(isShellCommandAllowedWithoutConfirmation('echo hi', ['echo*'])).toBe(true);
+  });
+
+  it('returns false for empty args or empty patterns', () => {
+    expect(isShellCommandAllowedWithoutConfirmation('', ['ls'])).toBe(false);
+    expect(isShellCommandAllowedWithoutConfirmation('   ', ['ls'])).toBe(false);
+    expect(isShellCommandAllowedWithoutConfirmation('ls', [])).toBe(false);
   });
 });

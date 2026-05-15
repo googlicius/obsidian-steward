@@ -23,6 +23,50 @@ import { getBundledInternal } from 'src/utils/bundledInternals';
 
 const { i18next, getTranslation } = getBundledInternal('i18n');
 
+/**
+ * UDC v2 root `cli.whitelist` matching for skipping model shell confirm.
+ * - Trailing `*` on a pattern means prefix match on the trimmed command line (e.g. `Get-Content*`).
+ * - Otherwise the trimmed command line must equal the trimmed pattern.
+ * - Empty trimmed command never matches (interactive “open shell” stays confirm-only upstream).
+ */
+export function isShellCommandAllowedWithoutConfirmation(
+  argsLine: string,
+  patterns: string[]
+): boolean {
+  if (patterns.length === 0) {
+    return false;
+  }
+
+  const trimmed = argsLine.trim();
+  if (trimmed.length === 0) {
+    return false;
+  }
+
+  for (let i = 0; i < patterns.length; i++) {
+    const pattern = patterns[i].trim();
+    if (pattern.length === 0) {
+      continue;
+    }
+
+    if (pattern.endsWith('*')) {
+      const prefix = pattern.slice(0, -1);
+      if (prefix.trim().length === 0) {
+        continue;
+      }
+      if (trimmed.startsWith(prefix)) {
+        return true;
+      }
+      continue;
+    }
+
+    if (trimmed === pattern) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export const shellToolInputSchema = z.object({
   argsLine: z
     .string()
@@ -484,6 +528,42 @@ export class CliHandler {
     };
   }
 
+  private async completeModelShellAfterApproval(
+    params: AgentHandlerParams,
+    toolCall: ToolCallPart<ShellToolInput>,
+    options: { continueFromNextTool?: () => Promise<AgentResult> }
+  ): Promise<AgentResult> {
+    const runResult = await this.runShellSession(params, toolCall, true);
+
+    if (params.handlerId && runResult) {
+      await this.agent.serializeInvocation({
+        command: ToolName.SHELL,
+        title: params.title,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
+        toolCall,
+        result: {
+          type: 'text',
+          value: runResult.messageId
+            ? `messageRef:${runResult.messageId}`
+            : 'Shell command was executed.',
+        },
+      });
+
+      this.cliSessionService.endSession({
+        conversationTitle: params.title,
+        killProcess: true,
+      });
+    }
+
+    if (options.continueFromNextTool) {
+      return options.continueFromNextTool();
+    }
+    return {
+      status: IntentResultStatus.SUCCESS,
+    };
+  }
+
   /**
    * Shell transcript for this conversation. Model-invoked tool calls require user confirmation;
    * client manual shell calls (toolCallId starts with MANUAL_TOOL_CALL_ID_PREFIX; e.g. `/>` input) run immediately.
@@ -514,6 +594,16 @@ export class CliHandler {
     const needsInteractiveMode = options.toolCall.input?.needsInteractiveMode;
     const runsInTerminal = this.shouldUseInteractiveMode(argsLine, needsInteractiveMode);
 
+    const allowPatterns = params.intent.cli?.whitelist;
+    if (
+      allowPatterns &&
+      allowPatterns.length > 0 &&
+      !runsInTerminal &&
+      isShellCommandAllowedWithoutConfirmation(argsLine, allowPatterns)
+    ) {
+      return this.completeModelShellAfterApproval(params, options.toolCall, options);
+    }
+
     let message = i18next.t('cli.confirmExecuteShell', { command: displayCommand });
     if (runsInTerminal) {
       message = `${message}\n\n${i18next.t('cli.runInTerminal')}`;
@@ -538,36 +628,7 @@ export class CliHandler {
       },
       toolCall: options.toolCall,
       onConfirmation: async (_confirmationMessage: string) => {
-        const runResult = await this.runShellSession(params, options.toolCall, true);
-
-        if (params.handlerId && runResult) {
-          await this.agent.serializeInvocation({
-            command: ToolName.SHELL,
-            title: params.title,
-            handlerId: params.handlerId,
-            step: params.invocationCount,
-            toolCall: options.toolCall,
-            result: {
-              type: 'text',
-              value: runResult.messageId
-                ? `messageRef:${runResult.messageId}`
-                : 'Shell command was executed.',
-            },
-          });
-
-          // Model-created session: tear down transcript session automatically.
-          this.cliSessionService.endSession({
-            conversationTitle: params.title,
-            killProcess: true,
-          });
-        }
-
-        if (options.continueFromNextTool) {
-          return options.continueFromNextTool();
-        }
-        return {
-          status: IntentResultStatus.SUCCESS,
-        };
+        return this.completeModelShellAfterApproval(params, options.toolCall, options);
       },
       onRejection: async (_rejectionMessage: string) => {
         this.agent.commandProcessor.deleteNextPendingIntent(title);

@@ -1003,8 +1003,6 @@ export class UserDefinedCommandService {
         );
       }
 
-      const cliShellOverride = step.cli?.shell?.trim();
-
       steps.push({
         type: step.name ?? '',
         systemPrompts,
@@ -1012,8 +1010,7 @@ export class UserDefinedCommandService {
         model,
         no_confirm: step.no_confirm,
         tools: command.normalized.tools,
-        cli:
-          cliShellOverride && cliShellOverride.length > 0 ? { shell: cliShellOverride } : undefined,
+        cli: command.normalized.cli,
       });
     }
 
@@ -1083,19 +1080,16 @@ export class UserDefinedCommandService {
   }
 
   /**
-   * First non-empty `cli.shell` on a normalized step, if any (shell-style UDCs).
+   * V2: normalized root `cli.shell`, if set (shell-style UDCs).
    */
   public getCommandCliShell(commandName: string): string | undefined {
     const cmd = this.userDefinedCommands.get(commandName);
     if (!cmd) {
       return undefined;
     }
-    const steps = cmd.normalized.steps;
-    for (let i = 0; i < steps.length; i++) {
-      const shell = steps[i].cli?.shell?.trim();
-      if (shell) {
-        return shell;
-      }
+    const shell = cmd.normalized.cli?.shell?.trim();
+    if (shell) {
+      return shell;
     }
     return undefined;
   }

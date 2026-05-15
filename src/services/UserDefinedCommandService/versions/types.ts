@@ -23,10 +23,6 @@ export interface CommandStep {
   query: string;
   model?: string;
   no_confirm?: boolean;
-  /** V2 UDC only: optional shell executable for this step (fallback: settings when spawning a new session). */
-  cli?: {
-    shell?: string;
-  };
 }
 
 export interface TriggerCondition {
@@ -58,6 +54,12 @@ export interface NormalizedUserDefinedCommand {
   /** Subset of Super Agent tool names this command may use. Omit = full tool set. */
   tools?: ToolName[];
   show_todo_list?: boolean;
+  cli?: {
+    /** Optional shell executable when spawning a new session (fallback: global settings). */
+    shell?: string;
+    /** Model shell lines allowed without confirmation (transcript mode); see `isShellCommandAllowedWithoutConfirmation` in CliHandler. */
+    whitelist?: string[];
+  };
 }
 
 /**

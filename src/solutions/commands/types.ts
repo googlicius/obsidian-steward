@@ -12,9 +12,11 @@ export interface Intent {
   no_confirm?: boolean; // Skip confirmation for this intent
   /** When set, limits which Super Agent tools are available (UDC / narrow mode). Omit = full tool set. */
   tools?: ToolName[];
-  /** Per-intent CLI options (e.g. UDC step `cli.shell`). Used when starting a new shell session only. */
+  /** Per-intent CLI options (from UDC v2 root `cli`). Used when starting a new shell session only. */
   cli?: {
     shell?: string;
+    /** From UDC v2 root `cli.whitelist`; matching model shell input may skip confirmation (non-interactive only). */
+    whitelist?: string[];
   };
 }
 

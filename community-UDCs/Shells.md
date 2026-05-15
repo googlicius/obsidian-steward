@@ -14,10 +14,10 @@ Copy this note into your `Steward/Commands` folder (or equivalent) to use.
 command_name: cmd
 description: Windows Command Prompt (cmd.exe).
 query_required: false
+cli:
+  shell: cmd.exe
 steps:
   - name: shell
-    cli:
-      shell: cmd.exe
     query: "{{from_user}}"
 ```
 
@@ -27,10 +27,10 @@ steps:
 command_name: bash
 description: Bash shell (e.g. Git Bash).
 query_required: false
+cli:
+  shell: bash.exe
 steps:
   - name: shell
-    cli:
-      shell: bash.exe
     query: "{{from_user}}"
 ```
 
@@ -40,9 +40,9 @@ steps:
 command_name: powershell
 description: Windows PowerShell.
 query_required: false
+cli:
+  shell: powershell.exe
 steps:
   - name: shell
-    cli:
-      shell: powershell.exe
     query: "{{from_user}}"
 ```

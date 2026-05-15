@@ -82,12 +82,8 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
         params.tools,
         new Set(expanded)
       ) as GenerateTextToolSet;
-      if (declared.length <= this.declaredToolsSmallThreshold) {
-        activeForSubset = expanded;
-        inactiveForSubset = [];
-      } else {
-        activeForSubset = params.activeTools.filter(t => expanded.includes(t));
-      }
+      activeForSubset = expanded;
+      inactiveForSubset = [];
     }
 
     const expandedForSwitchCheck =

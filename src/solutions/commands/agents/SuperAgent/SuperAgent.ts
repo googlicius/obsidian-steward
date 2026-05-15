@@ -752,6 +752,7 @@ NOTE:
       no_confirm: nextStep.no_confirm,
       tools: commandLevelTools && commandLevelTools.length > 0 ? commandLevelTools : undefined,
       systemPrompts,
+      cli: nextStep.cli,
     };
   }
 
