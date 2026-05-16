@@ -159,6 +159,10 @@ export class CliSessionService {
 
   private async updateStreamMarkerInNote(params: {
     conversationTitle: string;
+    /**
+     * Hide: Hide stream marker, still allow the output flushed into the current segment
+     * Remove: New output will be flushed to a new segment.
+     */
     action: 'remove' | 'hide';
   }): Promise<void> {
     try {
@@ -176,7 +180,27 @@ export class CliSessionService {
             getCliStreamMarkerPlaceholder({ hidden: true })
           );
         }
-        return content.replace(streamMarkerRegex, '');
+        content = content.replace(streamMarkerRegex, '');
+
+        const regex = /```cli-model\n[\s\S]*?\n```\n/g;
+
+        let lastMatch: RegExpExecArray | null = null;
+        let match: RegExpExecArray | null;
+
+        while ((match = regex.exec(content)) !== null) {
+          lastMatch = match;
+        }
+
+        if (lastMatch && typeof lastMatch.index === 'number') {
+          const end = lastMatch.index + lastMatch[0].length;
+
+          content =
+            content.slice(0, end) +
+            `>[!stw-shell] <a class="stw-toggle-block">${i18next.t('common.commandOutput')}</a>\n` +
+            content.slice(end);
+        }
+
+        return content;
       });
     } catch (error) {
       logger.error('CliSessionService updateStreamMarkerInNote failed:', error);
@@ -751,7 +775,10 @@ export class CliSessionService {
   /**
    * @param killProcess - When false, the child has already exited (e.g. natural close).
    */
-  public endSession(params: { conversationTitle: string; killProcess?: boolean }): void {
+  public async endSession(params: {
+    conversationTitle: string;
+    killProcess?: boolean;
+  }): Promise<void> {
     const session = this.sessions.get(params.conversationTitle);
     if (!session) {
       return;
@@ -770,7 +797,7 @@ export class CliSessionService {
     this.sessions.delete(params.conversationTitle);
     this.refreshCommandInputDecorations();
     void this.markXtermAsForwardedToHost(params.conversationTitle);
-    void this.updateStreamMarkerInNote({
+    await this.updateStreamMarkerInNote({
       conversationTitle: params.conversationTitle,
       action: 'remove',
     });

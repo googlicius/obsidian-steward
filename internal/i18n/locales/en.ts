@@ -40,6 +40,7 @@ const en = {
       errorProcessingCommand: 'Error processing {{commandType}} command: {{errorMessage}}',
       switchingModelDueToErrors: 'Switching from {{fromModel}} to {{toModel}} due to errors',
       thinkingProcess: 'Thinking process',
+      commandOutput: 'Command output',
       modelDoesNotSupportImageInputs:
         'Model {{model}} does not support image inputs. Please use a vision-capable model (e.g., gpt-4o, gemini-pro, claude-3-sonnet).',
       invalidOrDynamicToolCall: 'Model returned a dynamic or invalid tool call: "{{toolName}}".',

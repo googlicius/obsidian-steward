@@ -249,10 +249,10 @@ export class CliHandler {
    * Waits for the CLI stream marker to be removed from the message, indicating
    * the shell command has finished and all output has been flushed.
    *
-   * Uses a progress-aware idle timeout: each retry window is ~15s. If new output
+   * Uses a progress-aware idle timeout: each retry window is 15s. If new output
    * was flushed during that window (content changed), a fresh window starts.
    * The wait only stops when the marker is removed (success) or no progress was
-   * observed for a full idle window (~15s of silence).
+   * observed for a full idle window (15s of silence).
    */
   private async waitForShellOutputFlushed(params: {
     conversationTitle: string;
@@ -550,7 +550,7 @@ export class CliHandler {
         },
       });
 
-      this.cliSessionService.endSession({
+      await this.cliSessionService.endSession({
         conversationTitle: params.title,
         killProcess: true,
       });

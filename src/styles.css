@@ -189,6 +189,16 @@ pre:has(> code.language-cli-model) {
   }
 }
 
+.callout[data-callout='stw-shell'] {
+  --callout-color: /* RGB triple, e.g. */ 100, 116, 139;
+  --callout-icon: lucide-terminal;
+
+  & a.stw-toggle-block {
+    text-decoration: none;
+    font-size: 0.9rem;
+  }
+}
+
 .workspace-leaf-content[data-type='steward-conversation'] {
   .view-content {
     padding-left: 0 !important;

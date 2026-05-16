@@ -18,7 +18,7 @@ import { createCalloutMetadataProcessor } from './post-processors/CalloutMetadat
 import { createStwSourcePostProcessor } from './post-processors/StwSourcePostProcessor';
 import { createStewardConversationProcessor } from './post-processors/StewardConversationProcessor';
 import { createHistoryPostProcessor } from './post-processors/HistoryPostProcessor';
-import { createThinkingProcessPostProcessor } from './post-processors/ThinkingProcessPostProcessor';
+import { createCollapsibleBlockPostProcessor } from './post-processors/CollapsibleBlockPostProcessor';
 import { createConfirmationButtonsProcessor } from './post-processors/ConfirmationButtonsProcessor';
 import { createCalloutEditPreviewPostProcessor } from './post-processors/CalloutEditPreviewPostProcessor';
 import { createConversationIndicatorProcessor } from './post-processors/ConversationIndicatorProcessor';
@@ -537,7 +537,7 @@ export default class StewardPlugin extends Plugin {
 
     this.registerMarkdownPostProcessor(createStwSourcePostProcessor(this));
 
-    this.registerMarkdownPostProcessor(createThinkingProcessPostProcessor());
+    this.registerMarkdownPostProcessor(createCollapsibleBlockPostProcessor());
 
     this.registerMarkdownPostProcessor(createCliTranscriptPostProcessor());
 
