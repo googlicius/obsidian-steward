@@ -27,6 +27,7 @@ export class ManualToolCall {
   protected async manualToolCall(params: {
     title: string;
     query: string;
+    intentType: string;
     activeTools: ToolName[];
     classifiedTasks: string[];
     lang?: string | null;
@@ -37,7 +38,15 @@ export class ManualToolCall {
     classificationMatchType?: 'static' | 'prefixed' | 'clustered';
   }): Promise<ToolCallPart | undefined> {
     const agent = asAgent(this);
-    const { title, query, activeTools, classifiedTasks, lang, classificationMatchType } = params;
+    const {
+      title,
+      query,
+      intentType,
+      activeTools,
+      classifiedTasks,
+      lang,
+      classificationMatchType,
+    } = params;
 
     // Client-handled step: command syntax was processed locally, update todo list and move to next step
     const originalQuery = parseStepProcessedQuery(query);
@@ -50,6 +59,19 @@ export class ManualToolCall {
       if (todoWriteUpdateToolCall) {
         return todoWriteUpdateToolCall;
       }
+    }
+
+    const trimmedIntentType = intentType.trim();
+    if (trimmedIntentType.length > 0 && agent.plugin.userDefinedCommandService.hasCommand(trimmedIntentType)) {
+      return {
+        type: 'tool-call',
+        toolName: ToolName.RUN_COMMAND,
+        toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}${uniqueID()}`,
+        input: {
+          command_name: trimmedIntentType,
+          query,
+        },
+      };
     }
 
     // Return undefined if there are multiple classified tasks

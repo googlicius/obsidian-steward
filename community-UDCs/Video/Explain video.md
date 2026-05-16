@@ -17,8 +17,8 @@ cli:
     - "Remove-Item*"
 tools:
   - shell
-  - content_reading
   - list
+  - content_reading
   - update_frontmatter
 steps:
   - query: "Help me explain this video: $from_user"

@@ -1,17 +1,15 @@
 import type StewardPlugin from 'src/main';
 import { SuperAgent } from './SuperAgent/SuperAgent';
 import { SubAgent } from './SubAgent/SubAgent';
-import { UDCAgent } from './UDCAgent/UDCAgent';
 import { ConversationTitleAgent } from './ConversationTitleAgent/ConversationTitleAgent';
 import { CompactionSummaryAgent } from './CompactionSummaryAgent/CompactionSummaryAgent';
 import type { AgentConfig } from './AgentConfig';
 import { ToolName } from '../ToolRegistry';
 
-/** Agent types created by the factory (SuperAgent/UDCAgent extend Agent; title/compaction are standalone). */
+/** Agent types created by the factory (SuperAgent/SubAgent extend Agent; title/compaction are standalone). */
 export type AgentFactoryProduct =
   | SuperAgent
   | SubAgent
-  | UDCAgent
   | ConversationTitleAgent
   | CompactionSummaryAgent;
 
@@ -30,8 +28,6 @@ export function createAgentFromConfig(
       return new SuperAgent(plugin, tools);
     case 'subagent':
       return new SubAgent(plugin, tools);
-    case 'udc':
-      return new UDCAgent(plugin);
     case 'title':
       return new ConversationTitleAgent(plugin);
     case 'compaction_summary':

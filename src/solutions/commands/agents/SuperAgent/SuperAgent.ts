@@ -283,6 +283,7 @@ NOTE:
         : await this.manualToolCall({
             title,
             query: intent.query,
+            intentType: intent.type,
             activeTools,
             classifiedTasks,
             lang,

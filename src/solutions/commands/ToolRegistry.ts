@@ -385,6 +385,17 @@ NOTE:
     category: 'cli',
     showDescriptionWhenInactive: true,
   },
+
+  [ToolName.RUN_COMMAND]: {
+    name: ToolName.RUN_COMMAND,
+    description:
+      'Run an user-defined command by its command name (see USER-DEFINED COMMANDS in the system prompt). Use when the workflow needs to execute a command',
+    guidelines: [
+      `No need  to read the command definition note, the command body (instructions, tools, agents, etc.) is loaded automatically when calling this tool.`,
+    ],
+    category: 'orchestration',
+    showDescriptionWhenInactive: true,
+  },
 };
 
 export class ToolRegistry<T> {

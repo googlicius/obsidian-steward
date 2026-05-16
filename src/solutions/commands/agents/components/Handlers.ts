@@ -3,6 +3,7 @@ import * as handlers from '../handlers';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type { AgentHandlerParams, AgentResult } from '../../types';
 import type { ToolCallPart } from '../../tools/types';
+import type { RunCommandSuperAgentDelegate } from '../handlers/RunCommand';
 
 export interface StandardToolHandler {
   handle(
@@ -71,6 +72,7 @@ export class Handlers {
   private _recallCompactedContext: handlers.RecallCompactedContext;
   private _mcpToolHandler: handlers.McpToolHandler;
   private _cliHandler: handlers.CliHandler;
+  private _runCommand: handlers.RunCommand;
 
   protected getAgent(): AgentHandlerContext {
     return this as unknown as AgentHandlerContext;
@@ -255,6 +257,16 @@ export class Handlers {
     return this._cliHandler;
   }
 
+  public get runCommand(): handlers.RunCommand {
+    if (!this._runCommand) {
+      this._runCommand = new handlers.RunCommand(
+        this.getAgent(),
+        this as unknown as RunCommandSuperAgentDelegate
+      );
+    }
+    return this._runCommand;
+  }
+
   /**
    * Map of tool names to their standard handlers.
    */
@@ -289,6 +301,7 @@ export class Handlers {
       [ToolName.RECALL_COMPACTED_CONTEXT]: () => this.recallCompactedContext,
       [ToolName.SWITCH_AGENT_CAPACITY]: () => this.switchAgentCapacity,
       [ToolName.SHELL]: () => this.cliHandler,
+      [ToolName.RUN_COMMAND]: () => this.runCommand,
     };
   }
 

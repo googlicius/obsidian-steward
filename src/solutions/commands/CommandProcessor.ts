@@ -158,9 +158,9 @@ export class CommandProcessor {
       const isUDC = this.plugin.userDefinedCommandService.hasCommand(baseType);
       let handler = this.agentHandlers.get(baseType) || null;
 
-      // If it's a UDC, try to get UDC agent
+      // If it's a user-defined command, route to the super agent (run_command manual path)
       if (isUDC) {
-        handler = this.agentHandlers.get('udc') || null;
+        handler = this.agentHandlers.get('super') || null;
       }
 
       if (!handler) {

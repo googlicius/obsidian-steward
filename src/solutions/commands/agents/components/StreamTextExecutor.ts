@@ -151,6 +151,7 @@ export class StreamTextExecutor {
       : '';
     const userDefinedCommandCatalogPrompt = this.generateUserDefinedCommandCatalogPrompt({
       plugin: agent.plugin,
+      runCommandAvailable: allActiveToolNames.includes(ToolName.RUN_COMMAND),
     });
 
     const resolvedSystemPrompts =

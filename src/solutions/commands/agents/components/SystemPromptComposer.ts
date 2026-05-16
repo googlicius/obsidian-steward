@@ -89,7 +89,15 @@ ${entries}
 When you need domain-specific knowledge for the task, use ${ToolName.CONTENT_READING} to read the skill file by path with readType: "entire".`;
   }
 
-  protected generateUserDefinedCommandCatalogPrompt(params: { plugin: StewardPlugin }): string {
+  protected generateUserDefinedCommandCatalogPrompt(params: {
+    plugin: StewardPlugin;
+    /** When false (e.g. subagent or narrowed tool set), omit the catalog since the model cannot call run_command. */
+    runCommandAvailable: boolean;
+  }): string {
+    if (!params.runCommandAvailable) {
+      return '';
+    }
+
     const catalog = params.plugin.userDefinedCommandService.getEnabledCommandCatalog();
     if (catalog.length === 0) {
       return '';
@@ -105,12 +113,12 @@ When you need domain-specific knowledge for the task, use ${ToolName.CONTENT_REA
       .join('\n');
 
     return `\n\nUSER-DEFINED COMMANDS:
-User-defined commands combine skills, agents, automation, and workflows defined in markdown files under the Steward/Commands folder.
+User-defined commands combine skills, agents, automation, and workflows defined in markdown files under the ${params.plugin.settings.stewardFolder}/Commands folder.
 
 Available commands:
 ${entries}
 
-User-defined commands are mostly for the user runs directly from their end, but you can also run them.
-To run a user-defined command, use the run_command tool; do NOT read its definition note first.`;
+To run a user-defined command, use the ${ToolName.RUN_COMMAND} tool.
+No need to read the command definition note before calling ${ToolName.RUN_COMMAND}, it's loaded automatically; pass command_name from this catalog.`;
   }
 }

@@ -21,12 +21,6 @@ export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
     canSpawnSubagents: false,
   },
   {
-    id: 'udc',
-    name: 'User-Defined Commands',
-    factory: 'udc',
-    canUseTools: true,
-  },
-  {
     id: 'search',
     name: 'Search Agent',
     factory: 'super',

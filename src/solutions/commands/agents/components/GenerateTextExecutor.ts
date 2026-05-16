@@ -106,6 +106,8 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
     const allActiveToolNames = shouldUseTools
       ? [...activeToolNames, ...Object.keys(activeMcpTools)]
       : [];
+    const runCommandAvailable =
+      shouldUseTools && allActiveToolNames.includes(ToolName.RUN_COMMAND);
     const toolsForRegistry = {
       ...selectedTools,
       ...(shouldUseTools ? inactiveMcpTools : {}),
@@ -138,6 +140,7 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
       : '';
     const userDefinedCommandCatalogPrompt = this.generateUserDefinedCommandCatalogPrompt({
       plugin: agent.plugin,
+      runCommandAvailable,
     });
 
     const additionalSystemPrompts = params.intent.systemPrompts
