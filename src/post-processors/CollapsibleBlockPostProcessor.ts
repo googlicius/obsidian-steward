@@ -1,6 +1,9 @@
 import { MarkdownPostProcessor } from 'obsidian';
 import { logger } from 'src/utils/logger';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import { setupAutoScroll } from 'src/utils/scrollUtils';
+
+const { i18next } = getBundledInternal('i18n');
 
 const SUPPORTED_BLOCKS = ['stw-thinking', 'cli-model'];
 
@@ -33,6 +36,12 @@ export function createCollapsibleBlockPostProcessor(): MarkdownPostProcessor {
       if (section) {
         const lines = section.text.split('\n');
         const isToggleLink = lines[section.lineEnd + 1].includes('stw-toggle-block');
+        const isCliModel = lines[section.lineStart].includes('cli-model');
+
+        if (isCliModel) {
+          const lineCount = section.lineEnd - section.lineStart;
+          pre.dataset['lineCount'] = String(lineCount);
+        }
 
         // Hide the block that already has the toggle below.
         if (isToggleLink) {
@@ -59,6 +68,10 @@ export function createCollapsibleBlockPostProcessor(): MarkdownPostProcessor {
       ) as HTMLElement | null;
 
       if (!blockPre) return;
+
+      if (blockPre.dataset['lineCount']) {
+        toggleLink.textContent = `${i18next.t('common.commandOutput')} (${i18next.t('common.lines', { number: blockPre.dataset['lineCount'] })})`;
+      }
 
       blockPre.dataset.streaming = 'false';
 

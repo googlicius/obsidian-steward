@@ -36,6 +36,7 @@ const vi = {
       switchingModelDueToErrors: 'Chuyển từ {{fromModel}} sang {{toModel}} do gặp lỗi',
       thinkingProcess: 'Quá trình suy nghĩ',
       commandOutput: 'Đầu ra lệnh',
+      lines: '{{number}} dòng',
       modelDoesNotSupportImageInputs:
         'Mô hình {{model}} không hỗ trợ đọc hình ảnh. Vui lòng sử dụng mô hình có khả năng xử lý hình ảnh (ví dụ: gpt-4o, gemini-pro, claude-3-sonnet).',
       invalidOrDynamicToolCall:

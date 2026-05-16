@@ -37,6 +37,7 @@ const ja = {
       switchingModelDueToErrors: 'エラーのため{{fromModel}}から{{toModel}}に切り替えています',
       thinkingProcess: '思考過程',
       commandOutput: 'コマンド出力',
+      lines: '{{number}} 行',
       modelDoesNotSupportImageInputs:
         'モデル {{model}} は画像入力をサポートしていません。画像入力をサポートするモデルを使用してください（例: gpt-4o, gemini-pro, claude-3-sonnet）。',
       invalidOrDynamicToolCall:
