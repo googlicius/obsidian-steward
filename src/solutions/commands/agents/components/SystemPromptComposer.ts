@@ -17,7 +17,7 @@ const VAULT_MANAGEMENT_TOOLS: ToolName[] = [
  * that are shared across SuperAgent and SubAgent executors.
  */
 export class SystemPromptComposer {
-  protected buildTaskInstructionsFromAvailableTools(availableTools: readonly ToolName[]): string {
+  protected buildTaskInstructions(availableTools: readonly ToolName[]): string {
     if (availableTools.length === 0) {
       return 'Your role is to assist using the tools provided below.';
     }
@@ -33,11 +33,6 @@ export class SystemPromptComposer {
     ];
 
     lines.push('- For generating tasks, you can generate directly.');
-
-    if (available.has(ToolName.EDIT)) {
-      lines.push(`- For editing tasks, use ${ToolName.EDIT} tool.`);
-      mentioned.add(ToolName.EDIT);
-    }
 
     const availableVaultTools = VAULT_MANAGEMENT_TOOLS.filter(t => available.has(t));
     if (availableVaultTools.length > 0) {
@@ -63,6 +58,13 @@ export class SystemPromptComposer {
       mentioned.add(ToolName.CONTENT_READING);
     }
 
+    if (available.has(ToolName.SHELL)) {
+      lines.push(
+        `- For hidden files or folders (dot-prefixed names), use ${ToolName.SHELL} from the vault root (e.g. cat, type, or Get-Content); other tools may not reach those paths.`
+      );
+      mentioned.add(ToolName.SHELL);
+    }
+
     const hasUnmentioned = availableTools.some(t => !mentioned.has(t));
     if (hasUnmentioned) {
       lines.push('- For other tasks, use the appropriate tool(s).');
@@ -85,5 +87,30 @@ export class SystemPromptComposer {
 ${entries}
 
 When you need domain-specific knowledge for the task, use ${ToolName.CONTENT_READING} to read the skill file by path with readType: "entire".`;
+  }
+
+  protected generateUserDefinedCommandCatalogPrompt(params: { plugin: StewardPlugin }): string {
+    const catalog = params.plugin.userDefinedCommandService.getEnabledCommandCatalog();
+    if (catalog.length === 0) {
+      return '';
+    }
+
+    const entries = catalog
+      .map(entry => {
+        if (entry.description) {
+          return `- ${entry.name}: ${entry.description} (path: ${entry.path})`;
+        }
+        return `- ${entry.name} (path: ${entry.path})`;
+      })
+      .join('\n');
+
+    return `\n\nUSER-DEFINED COMMANDS:
+User-defined commands combine skills, agents, automation, and workflows defined in markdown files under the Steward/Commands folder.
+
+Available commands:
+${entries}
+
+User-defined commands are mostly for the user runs directly from their end, but you can also run them.
+To run a user-defined command, use the run_command tool; do NOT read its definition note first.`;
   }
 }

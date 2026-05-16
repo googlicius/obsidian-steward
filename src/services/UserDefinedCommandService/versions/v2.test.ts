@@ -270,4 +270,36 @@ describe('UserDefinedCommandV2', () => {
       });
     });
   });
+
+  describe('enabled (YAML vs note)', () => {
+    it('uses YAML enabled when set, over noteEnabled', () => {
+      const data: UserDefinedCommandV2Data = {
+        command_name: 'c',
+        file_path: 'x.md',
+        enabled: true,
+        steps: [{ query: 'q' }],
+      };
+      expect(new UserDefinedCommandV2(data, false).normalized.enabled).toBe(true);
+    });
+
+    it('falls back to noteEnabled when YAML enabled omitted', () => {
+      const data: UserDefinedCommandV2Data = {
+        command_name: 'c',
+        file_path: 'x.md',
+        steps: [{ query: 'q' }],
+      };
+      expect(new UserDefinedCommandV2(data, false).normalized.enabled).toBe(false);
+      expect(new UserDefinedCommandV2(data, true).normalized.enabled).toBe(true);
+    });
+
+    it('YAML enabled false overrides noteEnabled true', () => {
+      const data: UserDefinedCommandV2Data = {
+        command_name: 'c',
+        file_path: 'x.md',
+        enabled: false,
+        steps: [{ query: 'q' }],
+      };
+      expect(new UserDefinedCommandV2(data, true).normalized.enabled).toBe(false);
+    });
+  });
 });

@@ -136,6 +136,9 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
           plugin: agent.plugin,
         })
       : '';
+    const userDefinedCommandCatalogPrompt = this.generateUserDefinedCommandCatalogPrompt({
+      plugin: agent.plugin,
+    });
 
     const additionalSystemPrompts = params.intent.systemPrompts
       ? [...params.intent.systemPrompts]
@@ -146,6 +149,10 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
 
     if (skillCatalogPrompt) {
       additionalSystemPrompts.push(skillCatalogPrompt);
+    }
+
+    if (userDefinedCommandCatalogPrompt) {
+      additionalSystemPrompts.push(userDefinedCommandCatalogPrompt);
     }
 
     if (shouldUseTools) {

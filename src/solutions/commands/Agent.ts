@@ -22,6 +22,8 @@ export interface AgentCorePromptContext {
   readonly currentPosition: number | null;
   /** Extra system text listing available skills and how to read skill files via `content_reading`. */
   readonly skillCatalogPrompt: string;
+  /** Extra system text listing enabled user-defined commands and how to run them. */
+  readonly userDefinedCommandCatalogPrompt: string;
   /** Declared or full allowed tool set for this conversation (UDC / narrow mode); used for task instruction lines, not only active tools. */
   readonly availableTools: ToolName[];
 }

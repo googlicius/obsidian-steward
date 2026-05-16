@@ -90,6 +90,8 @@ export const userDefinedCommandV2Schema = z.object({
   version: z.literal(2).optional(),
   command_name,
   description: z.string().optional(),
+  /** When set, overrides the note's frontmatter `enabled` for this command only. */
+  enabled: z.boolean().optional(),
   query_required,
   steps: z.array(commandStepV2Schema).min(1, 'At least one step is required'),
   file_path,
@@ -109,6 +111,8 @@ export type UserDefinedCommandV2Data = z.infer<typeof userDefinedCommandV2Schema
 export class UserDefinedCommandV2 implements IVersionedUserDefinedCommand {
   public get normalized(): NormalizedUserDefinedCommand {
     const filePath = this.data.file_path || '';
+    const enabled =
+      this.data.enabled !== undefined ? this.data.enabled : this.noteEnabled;
 
     // Transform heading-only wikilinks in root-level system_prompt
     const transformedSystemPrompt = this.data.system_prompt?.map(prompt =>
@@ -131,6 +135,7 @@ export class UserDefinedCommandV2 implements IVersionedUserDefinedCommand {
     return {
       command_name: this.data.command_name,
       description: this.data.description,
+      enabled,
       query_required: this.data.query_required,
       steps: transformedSteps,
       file_path: filePath,
@@ -143,7 +148,11 @@ export class UserDefinedCommandV2 implements IVersionedUserDefinedCommand {
     };
   }
 
-  constructor(private readonly data: UserDefinedCommandV2Data) {}
+  constructor(
+    private readonly data: UserDefinedCommandV2Data,
+    /** Note frontmatter `enabled` for the defining file (`enabled !== false` → true). */
+    private readonly noteEnabled = true
+  ) {}
 
   getVersion(): number {
     return 2;

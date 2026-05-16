@@ -72,6 +72,9 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
       getSkillCatalog: jest.fn().mockReturnValue([]),
       getSkillContents: jest.fn().mockReturnValue({ contents: {} }),
     },
+    userDefinedCommandService: {
+      getEnabledCommandCatalog: jest.fn().mockReturnValue([]),
+    },
     conversationRenderer: mockRenderer,
   } as unknown as StewardPlugin;
 

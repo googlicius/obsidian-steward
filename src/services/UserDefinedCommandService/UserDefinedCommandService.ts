@@ -39,6 +39,12 @@ interface UdcCommandYamlBlock extends UdcYamlBlock {
   data: Record<string, unknown>;
 }
 
+type CommandCatalog = {
+  name: string;
+  path: string;
+  description?: string;
+};
+
 export class UserDefinedCommandService {
   private static instance: UserDefinedCommandService | null = null;
   // Store versioned commands - normalized format is accessed via normalize()
@@ -219,7 +225,7 @@ export class UserDefinedCommandService {
       const content = await this.plugin.app.vault.cachedRead(file);
       const parsedDoc = this.plugin.noteContentService.parseMarkdownFrontmatter(content);
       const fmParsed = udcNoteFrontmatterSchema.safeParse(parsedDoc.frontmatter);
-      const enabledFromFrontmatter = !fmParsed.success || fmParsed.data.enabled !== false;
+      const noteEnabled = !fmParsed.success || fmParsed.data.enabled !== false;
 
       if (!parsedDoc.body) {
         logger.warn(`Stop loading command from "${file.name}", the body is empty`);
@@ -258,7 +264,8 @@ export class UserDefinedCommandService {
           // Load and validate using version-aware loader (async imports)
           const result = await loadUDCVersion(
             rawData as { command_name: string; version?: number; [key: string]: unknown },
-            file.path
+            file.path,
+            noteEnabled
           );
 
           if (!result.success) {
@@ -272,16 +279,11 @@ export class UserDefinedCommandService {
           }
 
           definitionValid = true;
-          if (enabledFromFrontmatter) {
-            const versionedCommand = result.command;
-            this.userDefinedCommands.set(
-              versionedCommand.normalized.command_name,
-              versionedCommand
-            );
-            logger.log(
-              `Loaded user-defined command: ${versionedCommand.normalized.command_name} (v${versionedCommand.getVersion()})`
-            );
-          }
+          const versionedCommand = result.command;
+          this.userDefinedCommands.set(versionedCommand.normalized.command_name, versionedCommand);
+          logger.log(
+            `Loaded user-defined command: ${versionedCommand.normalized.command_name} (v${versionedCommand.getVersion()})`
+          );
         } catch (yamlError) {
           const errorMsg = yamlError instanceof Error ? yamlError.message : String(yamlError);
           validationErrors.push({
@@ -921,6 +923,9 @@ export class UserDefinedCommandService {
     }
 
     for (const [commandName, command] of this.userDefinedCommands.entries()) {
+      if (!command.normalized.enabled) {
+        continue;
+      }
       if (!command.normalized.triggers || command.normalized.triggers.length === 0) {
         continue;
       }
@@ -956,8 +961,31 @@ export class UserDefinedCommandService {
    */
   public getCommandNames(): string[] {
     return Array.from(this.userDefinedCommands.entries())
-      .filter(([_, command]) => !command.isHidden())
+      .filter(([_, command]) => command.normalized.enabled && !command.isHidden())
       .map(([commandName, _]) => commandName);
+  }
+
+  /**
+   * User-defined commands that are enabled (v2: YAML `enabled` or note frontmatter; v1: note only).
+   */
+  public getEnabledCommandCatalog(): CommandCatalog[] {
+    const catalog: CommandCatalog[] = [];
+    for (const [commandName, command] of this.userDefinedCommands.entries()) {
+      if (!command.normalized.enabled) {
+        continue;
+      }
+      const entry: CommandCatalog = {
+        name: commandName,
+        path: command.normalized.file_path,
+      };
+      const description = command.normalized.description?.trim();
+      if (description) {
+        entry.description = description;
+      }
+      catalog.push(entry);
+    }
+    catalog.sort((a, b) => a.name.localeCompare(b.name));
+    return catalog;
   }
 
   /**
@@ -971,6 +999,10 @@ export class UserDefinedCommandService {
     const command = this.userDefinedCommands.get(commandName);
 
     if (!command) {
+      return null;
+    }
+
+    if (!command.normalized.enabled) {
       return null;
     }
 
@@ -1076,7 +1108,8 @@ export class UserDefinedCommandService {
    * Check if a command name exists
    */
   public hasCommand(commandName: string): boolean {
-    return this.userDefinedCommands.has(commandName);
+    const cmd = this.userDefinedCommands.get(commandName);
+    return cmd !== undefined && cmd.normalized.enabled;
   }
 
   /**
@@ -1084,7 +1117,7 @@ export class UserDefinedCommandService {
    */
   public getCommandCliShell(commandName: string): string | undefined {
     const cmd = this.userDefinedCommands.get(commandName);
-    if (!cmd) {
+    if (!cmd || !cmd.normalized.enabled) {
       return undefined;
     }
     const shell = cmd.normalized.cli?.shell?.trim();

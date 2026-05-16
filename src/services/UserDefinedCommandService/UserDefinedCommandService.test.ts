@@ -290,7 +290,7 @@ steps:
       expect(userDefinedCommandService.hasCommand('invalid name')).toBe(false);
     });
 
-    it('does not register the command when enabled is false but still records valid status', async () => {
+    it('registers the command when frontmatter enabled is false but keeps it inactive (hasCommand false)', async () => {
       const file = getInstance(TFile, {
         path: commandFilePath,
         basename: 'test-udc',
@@ -310,6 +310,7 @@ steps:
       await userDefinedCommandService['loadCommandFromFile'](file);
 
       expect(fm.status).toBe(i18next.t('common.statusValid'));
+      expect(userDefinedCommandService.userDefinedCommands.has('udc_load_test')).toBe(true);
       expect(userDefinedCommandService.hasCommand('udc_load_test')).toBe(false);
     });
 
@@ -470,6 +471,90 @@ steps:
     });
   });
 
+  describe('getEnabledCommandCatalog', () => {
+    it('should return name, path, and description for registered commands', () => {
+      const command1Data: UserDefinedCommandV1Data = {
+        command_name: 'flashcard',
+        description: 'Assist with flashcards',
+        commands: [{ name: 'test', query: 'query1' }],
+        file_path: 'path/to/file1.md',
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'flashcard',
+        new UserDefinedCommandV1(command1Data)
+      );
+
+      const command2Data: UserDefinedCommandV1Data = {
+        command_name: 'plan',
+        commands: [{ name: 'test', query: 'query2' }],
+        file_path: 'path/to/file2.md',
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'plan',
+        new UserDefinedCommandV1(command2Data)
+      );
+
+      expect(userDefinedCommandService.getEnabledCommandCatalog()).toEqual([
+        { name: 'flashcard', path: 'path/to/file1.md', description: 'Assist with flashcards' },
+        { name: 'plan', path: 'path/to/file2.md' },
+      ]);
+    });
+
+    it('should include hidden commands when they are registered from an enabled note', () => {
+      const visibleCommandData: UserDefinedCommandV1Data = {
+        command_name: 'visible',
+        commands: [{ name: 'test', query: 'query1' }],
+        file_path: 'path/to/file1.md',
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'visible',
+        new UserDefinedCommandV1(visibleCommandData)
+      );
+
+      const hiddenCommandData: UserDefinedCommandV1Data = {
+        command_name: 'hidden',
+        commands: [{ name: 'test', query: 'query2' }],
+        file_path: 'path/to/file2.md',
+        hidden: true,
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'hidden',
+        new UserDefinedCommandV1(hiddenCommandData)
+      );
+
+      expect(userDefinedCommandService.getEnabledCommandCatalog()).toEqual([
+        { name: 'hidden', path: 'path/to/file2.md' },
+        { name: 'visible', path: 'path/to/file1.md' },
+      ]);
+    });
+
+    it('should exclude commands with normalized.enabled false', () => {
+      const onData: UserDefinedCommandV1Data = {
+        command_name: 'on_cmd',
+        commands: [{ name: 'test', query: 'q1' }],
+        file_path: 'path/on.md',
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'on_cmd',
+        new UserDefinedCommandV1(onData, true)
+      );
+
+      const offData: UserDefinedCommandV1Data = {
+        command_name: 'off_cmd',
+        commands: [{ name: 'test', query: 'q2' }],
+        file_path: 'path/off.md',
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'off_cmd',
+        new UserDefinedCommandV1(offData, false)
+      );
+
+      expect(userDefinedCommandService.getEnabledCommandCatalog()).toEqual([
+        { name: 'on_cmd', path: 'path/on.md' },
+      ]);
+    });
+  });
+
   describe('getCommandNames', () => {
     it('should return all command names when no commands are hidden', () => {
       // Arrange
@@ -539,6 +624,30 @@ steps:
       // Verify
       expect(result).toEqual(['visible_command', 'another_visible']);
       expect(result).not.toContain('hidden_command');
+    });
+
+    it('should filter out disabled commands (normalized.enabled false)', () => {
+      const enabledData: UserDefinedCommandV1Data = {
+        command_name: 'active',
+        commands: [{ name: 'test', query: 'q1' }],
+        file_path: 'path/a.md',
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'active',
+        new UserDefinedCommandV1(enabledData, true)
+      );
+
+      const disabledData: UserDefinedCommandV1Data = {
+        command_name: 'inactive',
+        commands: [{ name: 'test', query: 'q2' }],
+        file_path: 'path/b.md',
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'inactive',
+        new UserDefinedCommandV1(disabledData, false)
+      );
+
+      expect(userDefinedCommandService.getCommandNames()).toEqual(['active']);
     });
 
     it('should return empty array when all commands are hidden', () => {

@@ -45,6 +45,11 @@ export interface NormalizedUserDefinedCommand {
   command_name: string;
   /** Shown in Help and command listings; optional. */
   description?: string;
+  /**
+   * Whether this command is active. V2: YAML `enabled` if set, otherwise the note frontmatter
+   * `enabled` for the defining file. V1: always follows note frontmatter only.
+   */
+  enabled: boolean;
   query_required?: boolean;
   steps: CommandStep[];
   file_path: string;

@@ -14,7 +14,9 @@ export type LoadCommandResult =
  */
 export async function loadUDCVersion(
   rawData: { command_name: string; version?: number; [key: string]: unknown },
-  filePath: string
+  filePath: string,
+  /** From the defining note's YAML frontmatter: omit / true → true, false → false. */
+  noteEnabled = true
 ): Promise<LoadCommandResult> {
   try {
     // Check for explicit version field, default to version 2 if not specified
@@ -25,14 +27,14 @@ export async function loadUDCVersion(
       const { UserDefinedCommandV1 } = await import('./v1');
       const v1Data = UserDefinedCommandV1.validate(rawData);
       v1Data.file_path = filePath;
-      return { success: true, command: new UserDefinedCommandV1(v1Data) };
+      return { success: true, command: new UserDefinedCommandV1(v1Data, noteEnabled) };
     }
 
     if (explicitVersion === 2) {
       const { UserDefinedCommandV2 } = await import('./v2');
       const v2Data = UserDefinedCommandV2.validate(rawData);
       v2Data.file_path = filePath;
-      return { success: true, command: new UserDefinedCommandV2(v2Data) };
+      return { success: true, command: new UserDefinedCommandV2(v2Data, noteEnabled) };
     }
 
     // Unsupported version
@@ -73,24 +75,5 @@ export async function loadUDCVersion(
       logger.error('Invalid command definition:', error);
     }
     return { success: false, errors };
-  }
-}
-
-/**
- * Get the schema for a specific version (for validation purposes)
- * Lazy-loads the version module only when needed
- */
-export async function getSchemaForVersion(version: number): Promise<unknown> {
-  switch (version) {
-    case 1: {
-      const { userDefinedCommandV1Schema } = await import('./v1');
-      return userDefinedCommandV1Schema;
-    }
-    case 2: {
-      const { userDefinedCommandV2Schema } = await import('./v2');
-      return userDefinedCommandV2Schema;
-    }
-    default:
-      throw new Error(`Unsupported version: ${version}`);
   }
 }
