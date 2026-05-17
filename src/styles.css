@@ -661,3 +661,15 @@ pre.stw-cli-transcript-active > .stw-cli-transcript-cursor {
   overflow: visible !important;
   height: auto !important;
 }
+
+/*
+ * Markdown run-link: executes a user-defined command on click (`RunPostProcessor`).
+ */
+a.stw-run {
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--background-modifier-hover);
+  }
+}

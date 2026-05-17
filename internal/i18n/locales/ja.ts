@@ -91,6 +91,10 @@ const ja = {
       executing: 'トリガーコマンドを実行中: {{commandName}}',
       executed: 'トリガー "{{commandName}}" を実行しました。',
       openConversation: '会話を開く',
+      executionFailed: 'コマンド "{{commandName}}" の実行に失敗しました: {{error}}',
+      run: {
+        unknownCommand: 'コマンド "{{commandName}}" が見つからないか無効です。',
+      },
     },
     validation: {
       errorTitle: 'UDC 検証エラー',

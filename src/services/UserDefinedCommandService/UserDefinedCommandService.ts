@@ -3,7 +3,7 @@ import { getBundledLib } from 'src/utils/bundledLibs';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES, WIKI_LINK_PATTERN } from 'src/constants';
-import { EXAMPLE_UDCS } from 'src/example-udcs';
+import { BUILT_IN_UDCS } from './builtInCommands';
 import { StewardChatView } from 'src/views/StewardChatView';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { z } from 'zod/v3';
@@ -107,11 +107,10 @@ export class UserDefinedCommandService {
           })
         );
 
+        await this.seedBuiltInCommands();
+
         // Load all command definitions
         await this.loadAllCommands();
-
-        // Auto-create example UDC if folder is empty
-        await this.ensureExampleCommandExists();
       });
 
       this.plugin.registerEvent(
@@ -179,37 +178,57 @@ export class UserDefinedCommandService {
   }
 
   /**
-   * Check if the Commands folder is empty (no markdown files) and create example command if needed
+   * Seed built-in UDC notes under Steward/Commands when missing or when `udc_version` is stale.
    */
-  private async ensureExampleCommandExists(): Promise<void> {
+  private async seedBuiltInCommands(): Promise<void> {
     await this.plugin.obsidianAPITools.ensureFolderExists(this.commandFolder);
 
-    const folder = this.plugin.app.vault.getFolderByPath(this.commandFolder);
+    for (const udc of BUILT_IN_UDCS) {
+      const commandPath = `${this.commandFolder}/${udc.name}.md`;
+      const existingFile = this.plugin.app.vault.getFileByPath(commandPath);
 
-    if (!folder) {
-      return;
-    }
+      if (existingFile) {
+        try {
+          const content = await this.plugin.app.vault.cachedRead(existingFile);
+          const parsed = this.plugin.noteContentService.parseMarkdownFrontmatter(content);
+          const existingVersion = parsed.frontmatter.udc_version as number | undefined;
 
-    const hasMarkdownFiles = this.collectMarkdownFilesInFolder(folder).length > 0;
+          if (existingVersion !== undefined && existingVersion >= udc.version) {
+            continue;
+          }
 
-    if (hasMarkdownFiles) {
-      return; // Folder is not empty, no need to create example
-    }
+          logger.log(
+            `Upgrading built-in UDC ${udc.name} (v${existingVersion ?? 0} -> v${udc.version})`
+          );
+        } catch (error) {
+          logger.error(`Error reading existing built-in UDC ${udc.name}:`, error);
+          continue;
+        }
+      }
 
-    try {
-      for (const command of EXAMPLE_UDCS) {
-        const commandPath = `${this.commandFolder}/${command.name}.md`;
-        await this.plugin.app.vault.create(commandPath, command.definition);
-        logger.log(`Created example UDC: ${command.name}.md`);
+      try {
+        const frontmatter = `---
+enabled: true
+udc_version: ${udc.version}
+---`;
 
-        // Load the newly created command
-        const createdFile = this.plugin.app.vault.getFileByPath(commandPath);
+        const fileContent = `${frontmatter}\n${udc.content}`;
+
+        if (existingFile) {
+          await this.plugin.app.vault.modify(existingFile, fileContent);
+          logger.log(`Updated built-in UDC: ${udc.name} (v${udc.version})`);
+          await this.loadCommandFromFile(existingFile);
+          continue;
+        }
+
+        const createdFile = await this.plugin.app.vault.create(commandPath, fileContent);
+        logger.log(`Created built-in UDC: ${udc.name} (v${udc.version})`);
         if (createdFile) {
           await this.loadCommandFromFile(createdFile);
         }
+      } catch (error) {
+        logger.error(`Error writing built-in UDC ${udc.name}:`, error);
       }
-    } catch (error) {
-      logger.error('Error creating example UDC:', error);
     }
   }
 
@@ -791,25 +810,33 @@ export class UserDefinedCommandService {
   }
 
   /**
-   * Execute a triggered command
+   * Run a user-defined command in a new conversation (vault triggers and run-links).
    */
-  private async executeTrigger(command: IVersionedUserDefinedCommand, file: TFile): Promise<void> {
-    // Generate unique conversation note title
+  private async runNewConversationFromUserDefinedCommand(params: {
+    command: IVersionedUserDefinedCommand;
+    intentQuery: string;
+    sourceFileBasename?: string;
+  }): Promise<void> {
+    const command = params.command;
+
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
     const conversationsFolder = `${this.plugin.settings.stewardFolder}/Conversations`;
     const conversationTitle = `${command.normalized.command_name}-${timestamp}`;
     const conversationPath = `${conversationsFolder}/${conversationTitle}.md`;
-    logger.log(
-      `Executing triggered command: ${command.normalized.command_name} for file: ${file.name}`
-    );
 
-    const getNoticeEl = (message: string): DocumentFragment => {
-      // Show notice with link to the conversation note
+    if (params.sourceFileBasename) {
+      logger.log(
+        `Executing triggered command: ${command.normalized.command_name} for file: ${params.sourceFileBasename}`
+      );
+    } else {
+      logger.log(`Executing run-link command: ${command.normalized.command_name}`);
+    }
+
+    const buildNoticeFragment = (message: string): DocumentFragment => {
       const noticeEl = document.createDocumentFragment();
       const text = noticeEl.createEl('span');
       text.textContent = message;
 
-      // Add line break
       noticeEl.createEl('br');
 
       const link = noticeEl.createEl('a', {
@@ -819,10 +846,8 @@ export class UserDefinedCommandService {
       link.addEventListener('click', async e => {
         e.preventDefault();
 
-        // Open the chat
         await this.plugin.openChat({ revealLeaf: true });
 
-        // Get the chat view and open the conversation
         const leaf = await this.plugin.getChatLeaf();
         const view = leaf.view;
 
@@ -833,31 +858,34 @@ export class UserDefinedCommandService {
 
       return noticeEl;
     };
-
     try {
-      // Ensure conversations folder exists
       const folderExists = this.plugin.app.vault.getFolderByPath(conversationsFolder);
       if (!folderExists) {
         await this.plugin.app.vault.createFolder(conversationsFolder);
       }
 
-      // Create the conversation note
-      const frontmatter = [
+      const frontmatterLines = [
         '---',
         `model: ${command.normalized.model || this.plugin.settings.llm.chat.model}`,
         `trigger: ${command.normalized.command_name}`,
-        `source_file: ${file.name}`,
+      ];
+      if (params.sourceFileBasename !== undefined) {
+        frontmatterLines.push(`source_file: ${params.sourceFileBasename}`);
+      }
+      frontmatterLines.push(
         `created: ${new Date().toISOString()}`,
         `lang: ${getLanguage()}`,
         `indicator_text: ${t('conversation.planning')}`,
         '---',
-        '',
-      ].join('\n');
+        ''
+      );
+
+      const frontmatter = frontmatterLines.join('\n');
 
       await this.plugin.app.vault.create(conversationPath, frontmatter);
 
       new Notice(
-        getNoticeEl(
+        buildNoticeFragment(
           i18next.t('trigger.executing', { commandName: command.normalized.command_name })
         ),
         10000
@@ -868,16 +896,15 @@ export class UserDefinedCommandService {
         intents: [
           {
             type: command.normalized.command_name,
-            query: `__file:${file.name}__`,
+            query: params.intentQuery,
           },
         ],
       });
 
-      // Show notice if the chat view is not visible
       const leaf = await this.plugin.getChatLeaf();
       if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
         new Notice(
-          getNoticeEl(
+          buildNoticeFragment(
             i18next.t('trigger.executed', { commandName: command.normalized.command_name })
           ),
           10000
@@ -887,7 +914,7 @@ export class UserDefinedCommandService {
       const leaf = await this.plugin.getChatLeaf();
       if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
         new Notice(
-          getNoticeEl(
+          buildNoticeFragment(
             i18next.t('trigger.executionFailed', {
               commandName: command.normalized.command_name,
               error: error instanceof Error ? error.message : String(error),
@@ -901,6 +928,39 @@ export class UserDefinedCommandService {
         error
       );
     }
+  }
+
+  /**
+   * Execute from a clickable run-link in markdown (see RunPostProcessor).
+   */
+  public async executeClickCommand(params: { commandName: string; query?: string }): Promise<void> {
+    if (!this.hasCommand(params.commandName)) {
+      new Notice(i18next.t('trigger.run.unknownCommand', { commandName: params.commandName }), 7000);
+      return;
+    }
+
+    const command = this.userDefinedCommands.get(params.commandName);
+    if (!command) {
+      return;
+    }
+
+    const queryTrimmed = params.query?.trim() ?? '';
+
+    await this.runNewConversationFromUserDefinedCommand({
+      command,
+      intentQuery: queryTrimmed,
+    });
+  }
+
+  /**
+   * Execute a vault-event triggered command on a specific file.
+   */
+  private async executeTrigger(command: IVersionedUserDefinedCommand, file: TFile): Promise<void> {
+    await this.runNewConversationFromUserDefinedCommand({
+      command,
+      intentQuery: `__file:${file.name}__`,
+      sourceFileBasename: file.name,
+    });
   }
 
   /**

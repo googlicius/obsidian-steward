@@ -87,6 +87,10 @@ const vi = {
       executing: 'Đang thực thi trigger cho lệnh: {{commandName}}',
       executed: 'Trigger "{{commandName}}" đã thực thi thành công.',
       openConversation: 'Mở cuộc trò chuyện',
+      executionFailed: 'Thực thi lệnh "{{commandName}}" thất bại: {{error}}',
+      run: {
+        unknownCommand: 'Không tìm thấy lệnh "{{commandName}}" hoặc lệnh đang tắt.',
+      },
     },
     validation: {
       errorTitle: 'Lỗi Xác Thực UDC',

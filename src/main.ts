@@ -18,6 +18,7 @@ import { createCalloutMetadataProcessor } from './post-processors/CalloutMetadat
 import { createStwSourcePostProcessor } from './post-processors/StwSourcePostProcessor';
 import { createStewardConversationProcessor } from './post-processors/StewardConversationProcessor';
 import { createHistoryPostProcessor } from './post-processors/HistoryPostProcessor';
+import { createRunPostProcessor } from './post-processors/RunPostProcessor';
 import { createCollapsibleBlockPostProcessor } from './post-processors/CollapsibleBlockPostProcessor';
 import { createConfirmationButtonsProcessor } from './post-processors/ConfirmationButtonsProcessor';
 import { createCalloutEditPreviewPostProcessor } from './post-processors/CalloutEditPreviewPostProcessor';
@@ -546,6 +547,8 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createConfirmationButtonsProcessor(this));
 
     this.registerMarkdownPostProcessor(createHistoryPostProcessor(this));
+
+    this.registerMarkdownPostProcessor(createRunPostProcessor(this));
 
     // Register the custom view type
     this.registerView(STW_CHAT_VIEW_CONFIG.type, leaf => new StewardChatView(leaf, this));

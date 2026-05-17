@@ -104,16 +104,15 @@ describe('UserDefinedCommandService', () => {
         return Promise.resolve();
       });
 
-    // Mock ensureExampleCommandExists to prevent it from running during tests
+    // Mock seedBuiltInCommands to prevent vault IO during tests
     jest
       .spyOn(
         UserDefinedCommandService.prototype as unknown as {
-          ensureExampleCommandExists: () => Promise<void>;
+          seedBuiltInCommands: () => Promise<void>;
         },
-        'ensureExampleCommandExists'
+        'seedBuiltInCommands'
       )
       .mockImplementation(function (this: UserDefinedCommandService) {
-        // Do nothing during tests
         return Promise.resolve();
       });
 

@@ -95,6 +95,9 @@ const en = {
       executed: 'Command "{{commandName}}" is executed successfully.',
       openConversation: 'Open conversation',
       executionFailed: 'Failed to execute command "{{commandName}}": {{error}}',
+      run: {
+        unknownCommand: 'Command "{{commandName}}" was not found or is disabled.',
+      },
     },
     validation: {
       errorTitle: 'UDC Validation Errors',
