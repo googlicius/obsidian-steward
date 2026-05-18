@@ -165,17 +165,6 @@ export const COMMUNITY_UDC_MANIFEST: CommunityUdcEntry[] = [
     "mainVAULT_FILENAME": "Yt-dlp.md"
   },
   {
-    "commandName": "openclaw",
-    "displayName": "Agents",
-    "description": "OpenClaw agent (--local; edit --agent name in YAML).",
-    "version": 1,
-    "files": [
-      "community-UDCs/Agents.md"
-    ],
-    "sourceFile": "community-UDCs/Agents.md",
-    "mainVAULT_FILENAME": "Agents.md"
-  },
-  {
     "commandName": "plan",
     "displayName": "Plan",
     "description": "Build a plan with todos, then confirm before running.",
