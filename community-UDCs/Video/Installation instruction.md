@@ -1,3 +1,7 @@
+---
+version: 1
+---
+
 1. Prefer the **native installer** for the current OS when it is reliable and non-interactive.
 2. **Verify** installation with `yt-dlp --version`.
 3. If installation succeeds but commands fail later, mention **ffmpeg** (often required for merge/post-process).

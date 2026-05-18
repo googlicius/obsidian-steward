@@ -1,5 +1,7 @@
 import { MarkdownView, setIcon, setTooltip, EventRef, TFile } from 'obsidian';
 import { STW_CHAT_VIEW_CONFIG } from '../constants';
+import type { EmbedView } from 'src/views/embed-views/EmbedView';
+import { EmbedHistoryView } from 'src/views/embed-views/EmbedHistoryView';
 import { logger } from 'src/utils/logger';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { WorkspaceLeaf } from 'obsidian';
@@ -186,7 +188,9 @@ export class StewardChatView extends MarkdownView {
     });
     setIcon(historyBtn, 'history');
     setTooltip(historyBtn, i18next.t('chat.history'));
-    historyBtn.addEventListener('click', () => this.handleHistory());
+    historyBtn.addEventListener('click', () => {
+      void this.openEmbedView(new EmbedHistoryView(this.app, this.plugin));
+    });
 
     // Move chat between sidebar and main editor
     this.dockToggleBtn = headerEl.createEl('button', {
@@ -313,78 +317,27 @@ export class StewardChatView extends MarkdownView {
     }
   }
 
-  private async handleHistory(): Promise<void> {
+  private async handleEmbedView(embedView: EmbedView): Promise<void> {
     if (!this.file) {
       logger.warn('Conversation file not found');
       return;
     }
 
     try {
-      const content = await this.buildHistoryContent();
-
-      const historyNotePath = `${this.plugin.settings.stewardFolder}/History.md`;
-      const existingFile = this.app.vault.getFileByPath(historyNotePath);
-
-      if (existingFile) {
-        await this.app.vault.modify(existingFile, content);
-      } else {
-        await this.app.vault.create(historyNotePath, content);
-      }
-
-      const embedContent = `\n![[History]]\n`;
-      await this.app.vault.modify(this.file, embedContent);
+      const content = await embedView.buildContent();
+      await embedView.write(content);
+      await embedView.replaceHostWikilink(this.file);
     } catch (error) {
-      logger.error('Error loading history:', error);
+      logger.error('Error handling embed view:', error);
     }
   }
 
-  private async buildHistoryContent(): Promise<string> {
-    const MAX_HISTORY_ITEMS = 50;
-    const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
-    const folder = this.app.vault.getFolderByPath(folderPath);
-
-    if (!folder) {
-      return i18next.t('chat.noConversations');
-    }
-
-    const conversationFiles = folder.children
-      .filter((f): f is TFile => f instanceof TFile && f.extension === 'md')
-      .filter(file => {
-        const cache = this.app.metadataCache.getFileCache(file);
-        // Exclude notes are from subagents and has host_conversation
-        if (cache?.frontmatter?.parent || cache?.frontmatter?.host_conversation) {
-          return false;
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        return b.stat.mtime - a.stat.mtime;
-      })
-      .slice(0, MAX_HISTORY_ITEMS);
-
-    if (conversationFiles.length === 0) {
-      return i18next.t('chat.noConversations');
-    }
-
-    const lines: string[] = [];
-    for (const file of conversationFiles) {
-      const displayText = this.buildHistoryDisplayText(file);
-      const linkPath = file.path.replace(/\.md$/, '');
-      lines.push(`- <a class="stw-history-link" data-path="${linkPath}">${displayText}</a>`);
-    }
-
-    return lines.join('\n');
-  }
-
-  private buildHistoryDisplayText(file: TFile): string {
-    const cache = this.app.metadataCache.getFileCache(file);
-    const rawTitle = cache?.frontmatter?.conversation_title;
-    if (typeof rawTitle !== 'string' || !rawTitle.trim()) {
-      return file.basename;
-    }
-
-    // Wrap Obsidian tag-like tokens so they are rendered as plain text.
-    return rawTitle.replace(/(^|\s)(#[\p{L}\p{N}_/-]+)/gu, '$1`$2`');
+  /**
+   * Build sidecar content, write the target note, and replace the chat host embed (see {@link EmbedView}).
+   * Used by the History header control and markdown `stw-embed` links (RunPostProcessor).
+   */
+  public async openEmbedView(embedView: EmbedView): Promise<void> {
+    await this.handleEmbedView(embedView);
   }
 
   /**

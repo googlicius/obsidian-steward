@@ -927,9 +927,7 @@ steps:
       ]);
     });
 
-    it('expands $ and {{}} and omits --resume when no CliSession', async () => {
-      mockPlugin.cliSessionService.getSession = jest.fn().mockReturnValue(undefined);
-
+    it('expands Mustache {{from_user}} in v2 UDC query when conversationTitle is set', async () => {
       const mockCommandProcessorService = { isBuiltInCommand: jest.fn().mockReturnValue(false) };
       Object.defineProperty(userDefinedCommandService, 'commandProcessorService', {
         get: jest.fn().mockReturnValue(mockCommandProcessorService),
@@ -941,7 +939,7 @@ steps:
         steps: [
           {
             name: 'shell',
-            query: 'gemini --prompt {{from_user}}{{#cli_continuing}} --resume{{/cli_continuing}}',
+            query: 'gemini --prompt {{from_user}}',
           },
         ],
       };
@@ -958,39 +956,6 @@ steps:
       );
 
       expect(result[0].query).toBe('gemini --prompt hello');
-    });
-
-    it('adds --resume when CliSession is active', async () => {
-      mockPlugin.cliSessionService.getSession = jest.fn().mockReturnValue({ child: {} });
-
-      const mockCommandProcessorService = { isBuiltInCommand: jest.fn().mockReturnValue(false) };
-      Object.defineProperty(userDefinedCommandService, 'commandProcessorService', {
-        get: jest.fn().mockReturnValue(mockCommandProcessorService),
-      });
-
-      const v2Data: UserDefinedCommandV2Data = {
-        command_name: 'geminiUdc3',
-        file_path: 'path/to/gemini.md',
-        steps: [
-          {
-            name: 'shell',
-            query: 'gemini --prompt {{from_user}}{{#cli_continuing}} --resume{{/cli_continuing}}',
-          },
-        ],
-      };
-      userDefinedCommandService.userDefinedCommands.set(
-        'geminiUdc3',
-        new UserDefinedCommandV2(v2Data)
-      );
-
-      const result = await userDefinedCommandService.expandUserDefinedCommandIntents(
-        [{ type: 'geminiUdc3', query: 'hello' }],
-        'hello',
-        new Set(),
-        'my-conv'
-      );
-
-      expect(result[0].query).toBe('gemini --prompt hello --resume');
     });
   });
 });

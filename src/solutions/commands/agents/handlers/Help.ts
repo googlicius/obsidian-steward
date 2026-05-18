@@ -106,7 +106,7 @@ export class Help {
           const cmdName = entry[0];
           const cmdDef = entry[1];
           const slash = cmdDef.isHidden() ? '' : '/';
-          const noteLink = wikilinkInTable(cmdDef.normalized.file_path, 'Link');
+          const noteLink = wikilinkInTable(cmdDef.normalized.file_path, t('common.view'));
           const udcDescription = cmdDef.normalized.description?.trim() ?? '';
           udcRows.push([`\`${slash}${cmdName}\``, udcDescription, noteLink]);
         }
@@ -121,6 +121,8 @@ export class Help {
       } else {
         content += `*${t('common.noUserDefinedCommands')}*\n\n`;
       }
+
+      content += `\n<a class="stw-embed" data-embed="commands">${t('community.browseCommands')}</a>\n\n`;
 
       content += `\n### ${t('skills.skills')}\n\n`;
 

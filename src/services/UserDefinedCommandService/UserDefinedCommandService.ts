@@ -1,9 +1,17 @@
-import { getLanguage, normalizePath, Notice, TFile, TFolder, parseYaml } from 'obsidian';
+import {
+  getLanguage,
+  normalizePath,
+  Notice,
+  TAbstractFile,
+  TFile,
+  TFolder,
+  parseYaml,
+} from 'obsidian';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES, WIKI_LINK_PATTERN } from 'src/constants';
-import { BUILT_IN_UDCS } from './builtInCommands';
+import { BUILT_IN_UDCS } from './constants';
 import { StewardChatView } from 'src/views/StewardChatView';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { z } from 'zod/v3';
@@ -107,10 +115,10 @@ export class UserDefinedCommandService {
           })
         );
 
-        await this.seedBuiltInCommands();
-
         // Load all command definitions
         await this.loadAllCommands();
+
+        await this.seedBuiltInCommands();
       });
 
       this.plugin.registerEvent(
@@ -125,6 +133,11 @@ export class UserDefinedCommandService {
           if (file instanceof TFile) {
             this.handleFileDeletion(file);
           }
+        })
+      );
+      this.plugin.registerEvent(
+        this.plugin.app.vault.on('rename', (file, oldPath) => {
+          void this.handleVaultRename(file, oldPath);
         })
       );
 
@@ -178,7 +191,7 @@ export class UserDefinedCommandService {
   }
 
   /**
-   * Seed built-in UDC notes under Steward/Commands when missing or when `udc_version` is stale.
+   * Seed built-in UDC notes under Steward/Commands when missing or when `version` is stale.
    */
   private async seedBuiltInCommands(): Promise<void> {
     await this.plugin.obsidianAPITools.ensureFolderExists(this.commandFolder);
@@ -191,7 +204,7 @@ export class UserDefinedCommandService {
         try {
           const content = await this.plugin.app.vault.cachedRead(existingFile);
           const parsed = this.plugin.noteContentService.parseMarkdownFrontmatter(content);
-          const existingVersion = parsed.frontmatter.udc_version as number | undefined;
+          const existingVersion = parsed.frontmatter.version as number | undefined;
 
           if (existingVersion !== undefined && existingVersion >= udc.version) {
             continue;
@@ -208,8 +221,9 @@ export class UserDefinedCommandService {
 
       try {
         const frontmatter = `---
+status: ✅ Valid
 enabled: true
-udc_version: ${udc.version}
+version: ${udc.version}
 ---`;
 
         const fileContent = `${frontmatter}\n${udc.content}`;
@@ -217,14 +231,14 @@ udc_version: ${udc.version}
         if (existingFile) {
           await this.plugin.app.vault.modify(existingFile, fileContent);
           logger.log(`Updated built-in UDC: ${udc.name} (v${udc.version})`);
-          await this.loadCommandFromFile(existingFile);
+          // await this.loadCommandFromFile(existingFile);
           continue;
         }
 
         const createdFile = await this.plugin.app.vault.create(commandPath, fileContent);
         logger.log(`Created built-in UDC: ${udc.name} (v${udc.version})`);
         if (createdFile) {
-          await this.loadCommandFromFile(createdFile);
+          // await this.loadCommandFromFile(createdFile);
         }
       } catch (error) {
         logger.error(`Error writing built-in UDC ${udc.name}:`, error);
@@ -690,6 +704,7 @@ udc_version: ${udc.version}
    */
   private async handleFileCreation(file: TFile): Promise<void> {
     if (this.isCommandFile(file)) {
+      console.log('Note command created', file);
       await this.loadCommandFromFile(file);
     } else {
       // Add to pending queue - will check triggers when metadata cache updates
@@ -708,6 +723,69 @@ udc_version: ${udc.version}
     } else {
       // For delete events, check immediately (no metadata to wait for)
       await this.checkAndExecuteTriggers(file, 'delete');
+    }
+  }
+
+  /**
+   * Obsidian fires `rename` for moves (including VaultMove / fileManager.renameFile).
+   * Drop registrations keyed by the old path, then reload if the note still lives under Commands.
+   */
+  private async handleVaultRename(file: TAbstractFile, oldPath: string): Promise<void> {
+    if (file instanceof TFolder) {
+      const oldUnder = this.isCommandPathPrefix(oldPath);
+      const newUnder = this.isCommandPathPrefix(file.path);
+      if (oldUnder || newUnder) {
+        this.prunePendingTriggerChecksUnderPrefix(oldPath);
+        await this.loadAllCommands();
+      }
+      return;
+    }
+
+    if (!(file instanceof TFile)) {
+      return;
+    }
+
+    if (this.isCommandMarkdownPath(oldPath)) {
+      this.removeCommandsFromFile(oldPath);
+    }
+
+    const pending = this.pendingTriggerChecks.get(oldPath);
+    if (pending !== undefined) {
+      this.pendingTriggerChecks.delete(oldPath);
+      this.pendingTriggerChecks.set(file.path, pending);
+    }
+
+    if (this.isCommandFile(file)) {
+      await this.loadCommandFromFile(file);
+    }
+  }
+
+  private isCommandPathPrefix(path: string): boolean {
+    const normalizedPath = normalizePath(path);
+    const normalizedCommandRoot = normalizePath(this.commandFolder);
+    return (
+      normalizedPath === normalizedCommandRoot ||
+      normalizedPath.startsWith(`${normalizedCommandRoot}/`)
+    );
+  }
+
+  private isCommandMarkdownPath(path: string): boolean {
+    const normalizedPath = normalizePath(path);
+    const prefix = `${normalizePath(this.commandFolder)}/`;
+    return normalizedPath.startsWith(prefix) && normalizedPath.toLowerCase().endsWith('.md');
+  }
+
+  private prunePendingTriggerChecksUnderPrefix(oldPathPrefix: string): void {
+    const normalizedPrefix = normalizePath(oldPathPrefix);
+    const keysToDelete: string[] = [];
+    for (const key of this.pendingTriggerChecks.keys()) {
+      const nk = normalizePath(key);
+      if (nk === normalizedPrefix || nk.startsWith(`${normalizedPrefix}/`)) {
+        keysToDelete.push(key);
+      }
+    }
+    for (const k of keysToDelete) {
+      this.pendingTriggerChecks.delete(k);
     }
   }
 
@@ -732,7 +810,7 @@ udc_version: ${udc.version}
    * Check if a file is a command file
    */
   private isCommandFile(file: TFile): boolean {
-    return file.path.startsWith(this.commandFolder) && file.extension === 'md';
+    return file.extension === 'md' && this.isCommandMarkdownPath(file.path);
   }
 
   /**
@@ -935,7 +1013,10 @@ udc_version: ${udc.version}
    */
   public async executeClickCommand(params: { commandName: string; query?: string }): Promise<void> {
     if (!this.hasCommand(params.commandName)) {
-      new Notice(i18next.t('trigger.run.unknownCommand', { commandName: params.commandName }), 7000);
+      new Notice(
+        i18next.t('trigger.run.unknownCommand', { commandName: params.commandName }),
+        7000
+      );
       return;
     }
 
@@ -1125,7 +1206,7 @@ udc_version: ${udc.version}
       userInput: params.cleanedUserInput,
     });
     if (params.conversationTitle) {
-      const ctx = this.buildUdcTemplateContext(params.conversationTitle, {
+      const ctx = this.buildUdcTemplateContext({
         fileName: params.fileName,
         userInput: params.cleanedUserInput,
       });
@@ -1147,21 +1228,13 @@ udc_version: ${udc.version}
   /**
    * @public for tests — builds Mustache context for a conversation turn.
    */
-  public buildUdcTemplateContext(
-    conversationTitle: string,
-    options: { fileName: string; userInput: string }
-  ): UdcTemplateContext {
+  public buildUdcTemplateContext(options: { fileName: string; userInput: string }): UdcTemplateContext {
     return {
       from_user: options.userInput,
       file_name: options.fileName,
       steward: this.plugin.settings.stewardFolder,
       active_file: this.plugin.app.workspace.getActiveFile()?.path ?? '',
-      cli_continuing: this.computeCliContinuing(conversationTitle),
     };
-  }
-
-  private computeCliContinuing(conversationTitle: string): boolean {
-    return this.plugin.cliSessionService.getSession(conversationTitle) !== undefined;
   }
 
   /**

@@ -1,6 +1,7 @@
 ---
 status: ✅ Valid
 enabled: true
+version: 1
 ---
 A command to clean up conversation notes in the Steward/Conversations folder.
 

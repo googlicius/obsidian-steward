@@ -10,8 +10,6 @@ export interface UdcTemplateContext {
   file_name: string;
   steward: string;
   active_file: string;
-  /** True when a Steward CLI shell session is active for this conversation. */
-  cli_continuing: boolean;
 }
 
 /**

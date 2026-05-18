@@ -270,19 +270,11 @@ export class VaultDelete {
       step: params.invocationCount,
     });
 
-    if (resolveFilesResult.errorMessage) {
-      return {
-        status: IntentResultStatus.ERROR,
-        error: new Error(resolveFilesResult.errorMessage),
-      };
-    }
-
     const filePaths = resolveFilesResult.filePaths;
 
     if (filePaths.length === 0) {
       return {
-        status: IntentResultStatus.ERROR,
-        error: new Error(t('common.noFilesFound')),
+        status: IntentResultStatus.SUCCESS,
       };
     }
 

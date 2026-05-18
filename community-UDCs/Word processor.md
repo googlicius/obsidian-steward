@@ -1,6 +1,7 @@
 ---
 status: ✅ Valid
 enabled: true
+version: 1
 ---
 A command to process a newly added English word or phrase by typing the tag #process_word in the note.
 

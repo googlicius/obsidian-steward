@@ -205,7 +205,8 @@ export class SkillService {
         try {
           const content = await this.plugin.app.vault.cachedRead(existingFile);
           const parsed = this.plugin.noteContentService.parseMarkdownFrontmatter(content);
-          const existingVersion = parsed.frontmatter.skill_version as number | undefined;
+          const fm = parsed.frontmatter as Record<string, unknown>;
+          const existingVersion = fm.version as number | undefined;
 
           if (existingVersion !== undefined && existingVersion >= skill.version) {
             continue;
@@ -234,7 +235,7 @@ export class SkillService {
 name: "${skill.name}"
 description: "${skill.description}"
 enabled: true
-skill_version: ${skill.version}
+version: ${skill.version}
 ---`;
 
         const fileContent = `${frontmatter}\n${skill.content}`;

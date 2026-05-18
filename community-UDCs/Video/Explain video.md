@@ -1,6 +1,7 @@
 ---
 status: ✅ Valid
 enabled: true
+version: 1
 ---
 Explain a YouTube video by fetching its transcript using yt-dlp and generating a detailed explanation.
 
