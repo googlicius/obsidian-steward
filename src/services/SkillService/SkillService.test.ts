@@ -8,9 +8,16 @@ const { i18next } = getBundledInternal('i18n');
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   return {
+    obsidianAPITools: {
+      ensureFolderExists: jest.fn().mockResolvedValue(undefined),
+      getFilesFromFolder: jest.fn().mockReturnValue([]),
+    },
     app: {
       vault: {
         cachedRead: jest.fn(),
+        getFileByPath: jest.fn().mockReturnValue(undefined),
+        create: jest.fn().mockResolvedValue(null),
+        modify: jest.fn().mockResolvedValue(undefined),
         on: jest.fn().mockReturnValue({ events: [] }),
       },
       fileManager: {

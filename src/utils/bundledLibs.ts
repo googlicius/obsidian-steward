@@ -7,10 +7,18 @@ import type { BundledDesktopLibs } from 'src/bundled-libs-desktop-entry';
 import type { BundledSyncLibs } from 'src/bundled-libs-sync-entry';
 
 /**
- * esbuild IIFE + `export default` yields an interop object on the plugin `window`
- * global (not `globalThis`, for Obsidian popout compatibility):
+ * esbuild IIFE + `export default` yields an interop object on the global object:
  * `{ __esModule: true, default: <actual registry> }`.
+ *
+ * Prefer `window` when it exists (Obsidian renderer / popouts); use `globalThis` in Node/Jest.
  */
+function bundledChunkGlobal(): typeof globalThis {
+  if (typeof window !== 'undefined') {
+    return window as typeof globalThis;
+  }
+  return globalThis;
+}
+
 function unwrapBundledRegistry<T extends object>(raw: unknown): T {
   if (!raw || typeof raw !== 'object') {
     throw new Error('[Steward] Bundled registry is missing or invalid');
@@ -36,7 +44,7 @@ function ensureBundledLibsRegistryLoaded(): Promise<BundledLibsRegistry> {
         throw new Error('[Steward] Failed to decompress bundled libs payload');
       }
       (0, eval)(code);
-      const raw = (window as unknown as { __stewardBundledLibs?: unknown })
+      const raw = (bundledChunkGlobal() as unknown as { __stewardBundledLibs?: unknown })
         .__stewardBundledLibs;
       if (!raw) {
         throw new Error('[Steward] Bundled libs chunk did not define __stewardBundledLibs');
@@ -64,7 +72,7 @@ function ensureBundledDesktopLibsRegistryLoaded(): Promise<BundledDesktopLibsReg
         throw new Error('[Steward] Failed to decompress bundled desktop libs payload');
       }
       (0, eval)(code);
-      const raw = (window as unknown as { __stewardBundledDesktopLibs?: unknown })
+      const raw = (bundledChunkGlobal() as unknown as { __stewardBundledDesktopLibs?: unknown })
         .__stewardBundledDesktopLibs;
       if (!raw) {
         throw new Error(
@@ -94,7 +102,7 @@ function ensureBundledSyncLibsRegistryLoadedSync(): BundledSyncLibsRegistry {
   }
 
   (0, eval)(code);
-  const raw = (window as unknown as { __stewardBundledSyncLibs?: unknown })
+  const raw = (bundledChunkGlobal() as unknown as { __stewardBundledSyncLibs?: unknown })
     .__stewardBundledSyncLibs;
   if (!raw) {
     throw new Error('[Steward] Bundled sync libs chunk did not define __stewardBundledSyncLibs');

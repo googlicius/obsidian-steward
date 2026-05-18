@@ -1,4 +1,9 @@
-import { CliHandler, isShellCommandAllowedWithoutConfirmation, type ShellToolInput } from './CliHandler';
+import { BUILT_IN_INTERACTIVE_APPS } from 'src/services/CliSessionService/CliSessionService';
+import {
+  CliHandler,
+  isShellCommandAllowedWithoutConfirmation,
+  type ShellToolInput,
+} from './CliHandler';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type { ToolCallPart } from '../../tools/types';
 import { ToolName } from '../../ToolRegistry';
@@ -16,6 +21,7 @@ function createMockAgent(): jest.Mocked<AgentHandlerContext> {
     plugin: {
       cliSessionService: {
         endSession: jest.fn(),
+        getSupportedInteractiveApps: jest.fn().mockReturnValue([...BUILT_IN_INTERACTIVE_APPS]),
       },
     },
     commandProcessor: {
@@ -35,7 +41,10 @@ function createShellToolCall(toolCallId: string, argsLine: string): ToolCallPart
   } as ToolCallPart<ShellToolInput>;
 }
 
-function baseParams(title: string, intent?: Intent): {
+function baseParams(
+  title: string,
+  intent?: Intent
+): {
   title: string;
   intent: Intent;
   handlerId: string;

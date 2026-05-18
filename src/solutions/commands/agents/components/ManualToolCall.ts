@@ -62,7 +62,10 @@ export class ManualToolCall {
     }
 
     const trimmedIntentType = intentType.trim();
-    if (trimmedIntentType.length > 0 && agent.plugin.userDefinedCommandService.hasCommand(trimmedIntentType)) {
+    if (
+      trimmedIntentType.length > 0 &&
+      agent.plugin.userDefinedCommandService.hasCommand(trimmedIntentType)
+    ) {
       return {
         type: 'tool-call',
         toolName: ToolName.RUN_COMMAND,

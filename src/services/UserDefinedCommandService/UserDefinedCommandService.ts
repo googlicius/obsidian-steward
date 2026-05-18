@@ -1228,7 +1228,10 @@ version: ${udc.version}
   /**
    * @public for tests — builds Mustache context for a conversation turn.
    */
-  public buildUdcTemplateContext(options: { fileName: string; userInput: string }): UdcTemplateContext {
+  public buildUdcTemplateContext(options: {
+    fileName: string;
+    userInput: string;
+  }): UdcTemplateContext {
     return {
       from_user: options.userInput,
       file_name: options.fileName,

@@ -115,7 +115,7 @@ For modes, installers, built-in interactive programs, and settings, see the **[C
 
 ## User-defined commands
 
-User-defined commands are the combination of skills, agents, automation, and workflows that are defined in the same md file. 
+User-defined commands are the combination of skills, agents, automation, and workflows that are defined in the same md file.
 
 You can create your own **User-Defined Commands** to automate workflows and combine multiple built-in or other User-Defined commands into a single, reusable command. Commands are defined as YAML blocks in markdown files inside the `Steward/Commands` folder, and they're available with autocomplete just like built-in commands.
 

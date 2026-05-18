@@ -111,8 +111,7 @@ export type UserDefinedCommandV2Data = z.infer<typeof userDefinedCommandV2Schema
 export class UserDefinedCommandV2 implements IVersionedUserDefinedCommand {
   public get normalized(): NormalizedUserDefinedCommand {
     const filePath = this.data.file_path || '';
-    const enabled =
-      this.data.enabled !== undefined ? this.data.enabled : this.noteEnabled;
+    const enabled = this.data.enabled !== undefined ? this.data.enabled : this.noteEnabled;
 
     // Transform heading-only wikilinks in root-level system_prompt
     const transformedSystemPrompt = this.data.system_prompt?.map(prompt =>

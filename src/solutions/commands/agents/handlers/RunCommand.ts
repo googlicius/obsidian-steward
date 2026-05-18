@@ -103,7 +103,8 @@ export class RunCommand {
 
     const command = udcService.userDefinedCommands.get(commandName);
     const udcTools = command?.getVersion() === 2 ? command.normalized.tools : undefined;
-    const showTodoList = command?.getVersion() === 2 ? command.normalized.show_todo_list : undefined;
+    const showTodoList =
+      command?.getVersion() === 2 ? command.normalized.show_todo_list : undefined;
     const frontmatterUpdates: Array<{ name: string; value: string | boolean | string[] }> = [
       { name: 'udc_command', value: commandName },
     ];

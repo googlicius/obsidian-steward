@@ -95,10 +95,7 @@ function main() {
         : 1;
 
     const relDir = path.dirname(rel) === '.' ? '' : path.dirname(rel).split(path.sep).join('/');
-    const allInFolder =
-      relDir === ''
-        ? [githubRepoPath(rel)]
-        : collectFilesInFolder(relDir);
+    const allInFolder = relDir === '' ? [githubRepoPath(rel)] : collectFilesInFolder(relDir);
 
     const fences = extractYamlFences(body);
     for (const fence of fences) {
@@ -115,8 +112,7 @@ function main() {
       if (typeof commandName !== 'string' || !commandName.trim()) {
         continue;
       }
-      const description =
-        typeof data.description === 'string' ? data.description : '';
+      const description = typeof data.description === 'string' ? data.description : '';
 
       const baseName = path.basename(rel);
       const displayName = baseName.replace(/\.md$/i, '');
