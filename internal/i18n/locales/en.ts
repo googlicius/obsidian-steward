@@ -40,6 +40,8 @@ const en = {
       errorProcessingCommand: 'Error processing {{commandType}} command: {{errorMessage}}',
       switchingModelDueToErrors: 'Switching from {{fromModel}} to {{toModel}} due to errors',
       thinkingProcess: 'Thinking process',
+      commandOutput: 'Command output',
+      lines: '{{number}} lines',
       modelDoesNotSupportImageInputs:
         'Model {{model}} does not support image inputs. Please use a vision-capable model (e.g., gpt-4o, gemini-pro, claude-3-sonnet).',
       invalidOrDynamicToolCall: 'Model returned a dynamic or invalid tool call: "{{toolName}}".',
@@ -48,13 +50,31 @@ const en = {
       and: 'and',
       or: 'or',
       skipped: 'Skipped',
+      view: 'View',
+    },
+    community: {
+      browseCommands: 'Browse community commands',
+      commandsTitle: 'Community commands',
+      notInstalled: 'Not installed',
+      installed: 'Installed',
+      updateAvailable: 'Update available',
+      install: 'Install',
+      update: 'Update',
+      reinstall: 'Reinstall',
+      noCommands: 'No community commands in catalog.',
+      helpTableYourVersion: 'Your version',
+      helpTableLatestVersion: 'Latest',
+      helpTableAction: 'Action',
+      updateSuccess: 'Updated community command "{{commandName}}".',
+      updateFailed: 'Could not install or update: {{path}}',
+      invalidGuideline: 'Invalid install link. Run /help again.',
     },
     cli: {
       disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
       desktopOnly:
         'The local CLI shell is only available in Obsidian on desktop. Mobile does not support local processes.',
       spawnFailed:
-        '{{message}}\n\nThere are installers for each platform in your Steward folder; run them from your vault root folder:',
+        '{{message}}\n\nThere are installers for each platform in your {{stewardFolder}} folder; run them from your vault root folder:',
       openingInteractiveTerminal: 'Opening interactive terminal...',
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
@@ -71,6 +91,7 @@ const en = {
         'It would take up from 5 ~ 6 MB based on your platform.\n\nSee [CLI]({{cliDoc}}) for transcript vs interactive mode and node-pty setup.',
       confirmExecuteShell:
         'I will run this command. Please confirm or cancel.\n\n```shell\n{{command}}\n```',
+      runInTerminal: 'The command will run in the terminal (interactive mode, full TTY).',
       shellConfirmEmptyCommand: '(empty line — start or continue shell without sending input yet)',
     },
     mcp: {
@@ -92,6 +113,9 @@ const en = {
       executed: 'Command "{{commandName}}" is executed successfully.',
       openConversation: 'Open conversation',
       executionFailed: 'Failed to execute command "{{commandName}}": {{error}}',
+      run: {
+        unknownCommand: 'Command "{{commandName}}" was not found or is disabled.',
+      },
     },
     validation: {
       errorTitle: 'UDC Validation Errors',
@@ -289,6 +313,7 @@ const en = {
       noChangesNeeded: 'The original and updated content are identical. No changes were needed.',
       contentUpdatedSuccessfully: 'Content updated successfully.',
       changesDenied: 'Changes denied by user.',
+      conversationTitleUpdated: 'Conversation title updated.',
     },
     // Delete result messages
     delete: {

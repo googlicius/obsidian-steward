@@ -47,7 +47,9 @@ function stripMarkersFromCode(code: HTMLElement): boolean {
  */
 export function createCliTranscriptPostProcessor(): MarkdownPostProcessor {
   return (el: HTMLElement) => {
-    const blocks = el.querySelectorAll('pre > code.language-cli-transcript');
+    const blocks = el.querySelectorAll(
+      'pre > code.language-cli-transcript, pre > code.language-cli-model'
+    );
     for (let i = 0; i < blocks.length; i++) {
       const code = blocks[i] as HTMLElement;
       const pre = code.parentElement;

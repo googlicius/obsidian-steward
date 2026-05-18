@@ -87,6 +87,7 @@ export class UserDefinedCommandV1 implements IVersionedUserDefinedCommand {
     return {
       command_name: this.data.command_name,
       description: this.data.description,
+      enabled: this.noteEnabled,
       query_required: this.data.query_required,
       steps: this.data.commands as NormalizedUserDefinedCommand['steps'], // Map 'commands' to 'steps'
       file_path: this.data.file_path || '',
@@ -95,7 +96,11 @@ export class UserDefinedCommandV1 implements IVersionedUserDefinedCommand {
     };
   }
 
-  constructor(private readonly data: UserDefinedCommandV1Data) {}
+  constructor(
+    private readonly data: UserDefinedCommandV1Data,
+    /** Note frontmatter `enabled` for the defining file (`enabled !== false` → true). */
+    private readonly noteEnabled = true
+  ) {}
 
   getVersion(): number {
     return 1;

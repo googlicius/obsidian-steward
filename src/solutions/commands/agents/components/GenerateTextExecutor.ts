@@ -82,12 +82,8 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
         params.tools,
         new Set(expanded)
       ) as GenerateTextToolSet;
-      if (declared.length <= this.declaredToolsSmallThreshold) {
-        activeForSubset = expanded;
-        inactiveForSubset = [];
-      } else {
-        activeForSubset = params.activeTools.filter(t => expanded.includes(t));
-      }
+      activeForSubset = expanded;
+      inactiveForSubset = [];
     }
 
     const expandedForSwitchCheck =
@@ -110,6 +106,7 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
     const allActiveToolNames = shouldUseTools
       ? [...activeToolNames, ...Object.keys(activeMcpTools)]
       : [];
+    const runCommandAvailable = shouldUseTools && allActiveToolNames.includes(ToolName.RUN_COMMAND);
     const toolsForRegistry = {
       ...selectedTools,
       ...(shouldUseTools ? inactiveMcpTools : {}),
@@ -140,6 +137,10 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
           plugin: agent.plugin,
         })
       : '';
+    const userDefinedCommandCatalogPrompt = this.generateUserDefinedCommandCatalogPrompt({
+      plugin: agent.plugin,
+      runCommandAvailable,
+    });
 
     const additionalSystemPrompts = params.intent.systemPrompts
       ? [...params.intent.systemPrompts]
@@ -150,6 +151,10 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
 
     if (skillCatalogPrompt) {
       additionalSystemPrompts.push(skillCatalogPrompt);
+    }
+
+    if (userDefinedCommandCatalogPrompt) {
+      additionalSystemPrompts.push(userDefinedCommandCatalogPrompt);
     }
 
     if (shouldUseTools) {

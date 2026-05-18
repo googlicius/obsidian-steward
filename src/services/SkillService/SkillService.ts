@@ -4,6 +4,7 @@ import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { z } from 'zod/v3';
 import { Skill, SkillCatalogEntry } from './types';
+import { BUILT_IN_SKILLS } from './constants';
 
 const { i18next } = getBundledInternal('i18n');
 
@@ -51,6 +52,7 @@ export class SkillService {
   private initialize(): void {
     try {
       this.plugin.app.workspace.onLayoutReady(async () => {
+        await this.seedBuiltInSkills();
         await this.loadAllSkills();
 
         this.plugin.registerEvent(
@@ -186,6 +188,73 @@ export class SkillService {
     }
 
     logger.log(`Loaded ${this.skills.size} skills`);
+  }
+
+  /**
+   * Seed built-in skills that don't yet exist in the Skills folder.
+   * Each skill is created as a SKILL.md file under Steward/Skills/<Skill Name>/.
+   */
+  private async seedBuiltInSkills(): Promise<void> {
+    await this.plugin.obsidianAPITools.ensureFolderExists(this.skillsFolder);
+
+    for (const skill of BUILT_IN_SKILLS) {
+      const skillPath = `${this.skillsFolder}/${skill.name}/SKILL.md`;
+      const existingFile = this.plugin.app.vault.getFileByPath(skillPath);
+
+      if (existingFile) {
+        try {
+          const content = await this.plugin.app.vault.cachedRead(existingFile);
+          const parsed = this.plugin.noteContentService.parseMarkdownFrontmatter(content);
+          const fm = parsed.frontmatter as Record<string, unknown>;
+          const existingVersion = fm.version as number | undefined;
+
+          if (existingVersion !== undefined && existingVersion >= skill.version) {
+            continue;
+          }
+
+          logger.log(
+            `Upgrading built-in skill ${skill.name} (v${existingVersion ?? 0} -> v${skill.version})`
+          );
+        } catch (error) {
+          logger.error(`Error reading existing skill ${skill.name}:`, error);
+          continue;
+        }
+      } else {
+        try {
+          await this.plugin.obsidianAPITools.ensureFolderExists(
+            `${this.skillsFolder}/${skill.name}`
+          );
+        } catch (error) {
+          logger.error(`Error creating folder for skill ${skill.name}:`, error);
+          continue;
+        }
+      }
+
+      try {
+        const frontmatter = `---
+name: "${skill.name}"
+description: "${skill.description}"
+enabled: true
+version: ${skill.version}
+---`;
+
+        const fileContent = `${frontmatter}\n${skill.content}`;
+
+        if (existingFile) {
+          await this.plugin.app.vault.modify(existingFile, fileContent);
+          logger.log(`Updated built-in skill: ${skill.name} (v${skill.version})`);
+          await this.loadSkillFromFile(existingFile);
+        } else {
+          const createdFile = await this.plugin.app.vault.create(skillPath, fileContent);
+          logger.log(`Created built-in skill: ${skill.name} (v${skill.version})`);
+          if (createdFile) {
+            await this.loadSkillFromFile(createdFile);
+          }
+        }
+      } catch (error) {
+        logger.error(`Error writing built-in skill ${skill.name}:`, error);
+      }
+    }
   }
 
   /**

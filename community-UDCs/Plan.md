@@ -1,6 +1,7 @@
 ---
 status: ✅ Valid
 enabled: true
+version: 1
 ---
 A command that creates a detailed plan (to-do list) and asks for user confirmation before executing.
 

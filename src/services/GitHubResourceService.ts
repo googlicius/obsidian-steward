@@ -74,9 +74,10 @@ export class GitHubResourceService {
   }
 
   /**
-   * Fetch a resource from GitHub
+   * Fetch a resource from GitHub.
+   * @param githubPath Path after branch root (e.g. `community-UDCs/Plan.md`).
    */
-  private async fetchResourceFromGitHub(
+  public async fetchResourceFromGitHub(
     githubPath: string,
     resourceName: string
   ): Promise<string | null> {

@@ -1,13 +1,14 @@
 {
   "name": "obsidian-steward",
-  "version": "2.8.0",
+  "version": "2.8.1",
   "description": "This is a sample plugin for Obsidian (https://obsidian.md)",
   "main": "main.js",
   "scripts": {
-    "dev": "npm run dev:css & node esbuild.config.mjs",
+    "dev": "npm run build:community-manifest & npm run dev:css & node esbuild.config.mjs",
     "dev:css": "postcss src/styles.css -o styles.css --watch",
     "build:bundled-libs": "node scripts/build-bundled-libs.mjs",
-    "build": "tsc -noEmit -skipLibCheck && npm run build:css && node esbuild.config.mjs production",
+    "build:community-manifest": "node scripts/build-community-udc-manifest.mjs",
+    "build": "tsc -noEmit -skipLibCheck && npm run build:css && npm run build:community-manifest && node esbuild.config.mjs production",
     "build:css": "postcss src/styles.css -o styles.css",
     "version": "node version-bump.mjs && git add manifest.json versions.json",
     "format": "prettier --write .",

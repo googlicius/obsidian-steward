@@ -1,3 +1,7 @@
+---
+version: 1
+---
+
 1. Prefer the **native installer** for the current OS when it is reliable and non-interactive.
 2. **Verify** installation with `yt-dlp --version`.
 3. If installation succeeds but commands fail later, mention **ffmpeg** (often required for merge/post-process).
@@ -26,7 +30,7 @@ uname -s
 
 If the shell is **PowerShell** on Windows, use the Windows branch below (`winget`, etc.) without relying on `uname`.
 
-## 2. Install by platform (Use interactive mode)
+## 2. Install by platform (MUST use interactive mode)
 
 ### Windows (native — preferred)
 

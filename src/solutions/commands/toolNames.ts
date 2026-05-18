@@ -38,4 +38,6 @@ export enum ToolName {
   RECALL_COMPACTED_CONTEXT = 'recall_compacted_context',
   /** Local shell transcript; model may call it — execution always requires user confirmation in the client. */
   SHELL = 'shell',
+  /** Run an enabled user-defined command by id (same entry point as slash commands). Super agent only. */
+  RUN_COMMAND = 'run_command',
 }

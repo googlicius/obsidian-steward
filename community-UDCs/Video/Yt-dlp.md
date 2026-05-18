@@ -1,6 +1,7 @@
 ---
 status: ✅ Valid
 enabled: true
+version: 1
 ---
 
 #### Installs or upgrades [yt-dlp](https://github.com/yt-dlp/yt-dlp).

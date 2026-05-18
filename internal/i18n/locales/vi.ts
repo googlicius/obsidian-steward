@@ -35,6 +35,8 @@ const vi = {
       errorProcessingCommand: 'Lỗi khi xử lý lệnh {{commandType}}: {{errorMessage}}',
       switchingModelDueToErrors: 'Chuyển từ {{fromModel}} sang {{toModel}} do gặp lỗi',
       thinkingProcess: 'Quá trình suy nghĩ',
+      commandOutput: 'Đầu ra lệnh',
+      lines: '{{number}} dòng',
       modelDoesNotSupportImageInputs:
         'Mô hình {{model}} không hỗ trợ đọc hình ảnh. Vui lòng sử dụng mô hình có khả năng xử lý hình ảnh (ví dụ: gpt-4o, gemini-pro, claude-3-sonnet).',
       invalidOrDynamicToolCall:
@@ -44,11 +46,29 @@ const vi = {
       and: 'và',
       or: 'hoặc',
       skipped: 'Đã bỏ qua',
+      view: 'Xem',
+    },
+    community: {
+      browseCommands: 'Xem lệnh cộng đồng',
+      commandsTitle: 'Lệnh cộng đồng',
+      notInstalled: 'Chưa cài',
+      installed: 'Đã cài',
+      updateAvailable: 'Có bản cập nhật',
+      install: 'Cài đặt',
+      update: 'Cập nhật',
+      reinstall: 'Cài lại',
+      noCommands: 'Không có lệnh cộng đồng trong danh mục.',
+      helpTableYourVersion: 'Phiên bản của bạn',
+      helpTableLatestVersion: 'Mới nhất',
+      helpTableAction: 'Thao tác',
+      updateSuccess: 'Đã cập nhật lệnh cộng đồng "{{commandName}}".',
+      updateFailed: 'Không cài hoặc cập nhật được: {{path}}',
+      invalidGuideline: 'Liên kết không hợp lệ. Chạy /help lại.',
     },
     cli: {
       disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
       spawnFailed:
-        '{{message}}\n\nCó trình cài cho từng nền tảng trong thư mục Steward; chạy từ thư mục gốc vault:',
+        '{{message}}\n\nCó trình cài cho từng nền tảng trong thư mục {{stewardFolder}}; chạy từ thư mục gốc vault:',
       openingInteractiveTerminal: 'Đang mở terminal...',
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
@@ -65,6 +85,7 @@ const vi = {
         'Xem [CLI]({{cliDoc}}) để biết chế độ transcript so với interactive và cách cài node-pty.',
       confirmExecuteShell:
         'Tôi sẽ chạy lệnh này. Vui lòng xác nhận hoặc hủy.\n\n```shell\n{{command}}\n```',
+      runInTerminal: 'Lệnh sẽ chạy trong terminal (chế độ tương tác, TTY đầy đủ).',
       shellConfirmEmptyCommand: '(dòng trống — bắt đầu hoặc tiếp tục shell mà không gửi lệnh)',
     },
     mcp: {
@@ -84,6 +105,10 @@ const vi = {
       executing: 'Đang thực thi trigger cho lệnh: {{commandName}}',
       executed: 'Trigger "{{commandName}}" đã thực thi thành công.',
       openConversation: 'Mở cuộc trò chuyện',
+      executionFailed: 'Thực thi lệnh "{{commandName}}" thất bại: {{error}}',
+      run: {
+        unknownCommand: 'Không tìm thấy lệnh "{{commandName}}" hoặc lệnh đang tắt.',
+      },
     },
     validation: {
       errorTitle: 'Lỗi Xác Thực UDC',
@@ -237,6 +262,7 @@ const vi = {
       noChangesNeeded:
         'Nội dung gốc và nội dung đã cập nhật giống hệt nhau. Không cần thay đổi gì.',
       changesDenied: 'Người dùng đã từ chối các thay đổi.',
+      conversationTitleUpdated: 'Đã cập nhật tiêu đề cuộc trò chuyện.',
     },
     // Delete result messages
     delete: {

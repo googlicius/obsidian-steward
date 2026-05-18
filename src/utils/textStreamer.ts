@@ -149,7 +149,7 @@ export async function* prependChunk<T>(
 }
 
 const REASONING_START_TAG = '````stw-thinking\n';
-const REASONING_END_TAG = `\n\`\`\`\`\n>[!info] <a class="stw-thinking-process">${i18next.t('common.thinkingProcess')}</a>\n\n`;
+const REASONING_END_TAG = `\n\`\`\`\`\n>[!info] <a class="stw-toggle-block">${i18next.t('common.thinkingProcess')}</a>\n\n`;
 
 interface StreamChunkReasoning {
   type: 'reasoning-delta' | 'reasoning';

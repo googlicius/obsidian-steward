@@ -166,6 +166,11 @@ pre.language-stw-thinking {
   }
 }
 
+pre:has(> code.language-cli-model) {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
 /* User message callout styling */
 .callout[data-callout='stw-user-message'] {
   --callout-color: var(--callout-quote);
@@ -181,6 +186,16 @@ pre.language-stw-thinking {
 
   & > .callout-content {
     padding-left: 8px;
+  }
+}
+
+.callout[data-callout='stw-shell'] {
+  --callout-color: /* RGB triple, e.g. */ 100, 116, 139;
+  --callout-icon: lucide-terminal;
+
+  & a.stw-toggle-block {
+    text-decoration: none;
+    font-size: 0.9rem;
   }
 }
 
@@ -645,4 +660,16 @@ pre.stw-cli-transcript-active > .stw-cli-transcript-cursor {
 .markdown-embed-content:has(.stw-cli-xterm) .markdown-preview-sizer {
   overflow: visible !important;
   height: auto !important;
+}
+
+a.stw-run {
+  text-decoration: none;
+
+  &:hover {
+    background-color: var(--background-modifier-hover);
+  }
+}
+
+a.stw-no-underline {
+  text-decoration: none;
 }

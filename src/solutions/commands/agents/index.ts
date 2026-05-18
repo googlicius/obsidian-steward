@@ -8,6 +8,5 @@ export * from './components';
 export * from './SuperAgent/SuperAgent';
 export * from './SubAgent/SubAgent';
 export * from './DataAwarenessAgent/DataAwarenessAgent';
-export * from './UDCAgent/UDCAgent';
-export * from './ConversationTitleAgent/ConversationTitleAgent';
+export * from './CompactionSummaryAgent/CompactionSummaryAgent';
 export * from './CompactionSummaryAgent/CompactionSummaryAgent';

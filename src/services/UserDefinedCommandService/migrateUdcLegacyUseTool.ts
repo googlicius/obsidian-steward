@@ -2,7 +2,7 @@ import { dump as yamlDump } from 'js-yaml';
 import { ToolName } from 'src/solutions/commands/ToolRegistry';
 
 /**
- * Migrates legacy `use_tool` from parsed UDC YAML objects (v2).
+ * Migrates legacy UDC YAML shapes (e.g. `use_tool`).
  * @returns Updated data and whether the object changed.
  */
 export function migrateRawUdcObject(data: Record<string, unknown>): {
@@ -12,9 +12,11 @@ export function migrateRawUdcObject(data: Record<string, unknown>): {
   if (!data || typeof data !== 'object') {
     return { data, changed: false };
   }
+
   if (!Object.prototype.hasOwnProperty.call(data, 'use_tool')) {
     return { data, changed: false };
   }
+
   const copy: Record<string, unknown> = { ...data };
   const wasDisabled = copy.use_tool === false;
   delete copy.use_tool;

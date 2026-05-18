@@ -1,9 +1,17 @@
-import { getLanguage, normalizePath, Notice, TFile, TFolder, parseYaml } from 'obsidian';
+import {
+  getLanguage,
+  normalizePath,
+  Notice,
+  TAbstractFile,
+  TFile,
+  TFolder,
+  parseYaml,
+} from 'obsidian';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES, WIKI_LINK_PATTERN } from 'src/constants';
-import { EXAMPLE_UDCS } from 'src/example-udcs';
+import { BUILT_IN_UDCS } from './constants';
 import { StewardChatView } from 'src/views/StewardChatView';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { z } from 'zod/v3';
@@ -38,6 +46,12 @@ interface UdcYamlReplacement {
 interface UdcCommandYamlBlock extends UdcYamlBlock {
   data: Record<string, unknown>;
 }
+
+type CommandCatalog = {
+  name: string;
+  path: string;
+  description?: string;
+};
 
 export class UserDefinedCommandService {
   private static instance: UserDefinedCommandService | null = null;
@@ -104,8 +118,7 @@ export class UserDefinedCommandService {
         // Load all command definitions
         await this.loadAllCommands();
 
-        // Auto-create example UDC if folder is empty
-        await this.ensureExampleCommandExists();
+        await this.seedBuiltInCommands();
       });
 
       this.plugin.registerEvent(
@@ -120,6 +133,11 @@ export class UserDefinedCommandService {
           if (file instanceof TFile) {
             this.handleFileDeletion(file);
           }
+        })
+      );
+      this.plugin.registerEvent(
+        this.plugin.app.vault.on('rename', (file, oldPath) => {
+          void this.handleVaultRename(file, oldPath);
         })
       );
 
@@ -173,37 +191,58 @@ export class UserDefinedCommandService {
   }
 
   /**
-   * Check if the Commands folder is empty (no markdown files) and create example command if needed
+   * Seed built-in UDC notes under Steward/Commands when missing or when `version` is stale.
    */
-  private async ensureExampleCommandExists(): Promise<void> {
+  private async seedBuiltInCommands(): Promise<void> {
     await this.plugin.obsidianAPITools.ensureFolderExists(this.commandFolder);
 
-    const folder = this.plugin.app.vault.getFolderByPath(this.commandFolder);
+    for (const udc of BUILT_IN_UDCS) {
+      const commandPath = `${this.commandFolder}/${udc.name}.md`;
+      const existingFile = this.plugin.app.vault.getFileByPath(commandPath);
 
-    if (!folder) {
-      return;
-    }
+      if (existingFile) {
+        try {
+          const content = await this.plugin.app.vault.cachedRead(existingFile);
+          const parsed = this.plugin.noteContentService.parseMarkdownFrontmatter(content);
+          const existingVersion = parsed.frontmatter.version as number | undefined;
 
-    const hasMarkdownFiles = this.collectMarkdownFilesInFolder(folder).length > 0;
+          if (existingVersion !== undefined && existingVersion >= udc.version) {
+            continue;
+          }
 
-    if (hasMarkdownFiles) {
-      return; // Folder is not empty, no need to create example
-    }
-
-    try {
-      for (const command of EXAMPLE_UDCS) {
-        const commandPath = `${this.commandFolder}/${command.name}.md`;
-        await this.plugin.app.vault.create(commandPath, command.definition);
-        logger.log(`Created example UDC: ${command.name}.md`);
-
-        // Load the newly created command
-        const createdFile = this.plugin.app.vault.getFileByPath(commandPath);
-        if (createdFile) {
-          await this.loadCommandFromFile(createdFile);
+          logger.log(
+            `Upgrading built-in UDC ${udc.name} (v${existingVersion ?? 0} -> v${udc.version})`
+          );
+        } catch (error) {
+          logger.error(`Error reading existing built-in UDC ${udc.name}:`, error);
+          continue;
         }
       }
-    } catch (error) {
-      logger.error('Error creating example UDC:', error);
+
+      try {
+        const frontmatter = `---
+status: ✅ Valid
+enabled: true
+version: ${udc.version}
+---`;
+
+        const fileContent = `${frontmatter}\n${udc.content}`;
+
+        if (existingFile) {
+          await this.plugin.app.vault.modify(existingFile, fileContent);
+          logger.log(`Updated built-in UDC: ${udc.name} (v${udc.version})`);
+          // await this.loadCommandFromFile(existingFile);
+          continue;
+        }
+
+        const createdFile = await this.plugin.app.vault.create(commandPath, fileContent);
+        logger.log(`Created built-in UDC: ${udc.name} (v${udc.version})`);
+        if (createdFile) {
+          // await this.loadCommandFromFile(createdFile);
+        }
+      } catch (error) {
+        logger.error(`Error writing built-in UDC ${udc.name}:`, error);
+      }
     }
   }
 
@@ -219,10 +258,10 @@ export class UserDefinedCommandService {
       const content = await this.plugin.app.vault.cachedRead(file);
       const parsedDoc = this.plugin.noteContentService.parseMarkdownFrontmatter(content);
       const fmParsed = udcNoteFrontmatterSchema.safeParse(parsedDoc.frontmatter);
-      const enabledFromFrontmatter = !fmParsed.success || fmParsed.data.enabled !== false;
+      const noteEnabled = !fmParsed.success || fmParsed.data.enabled !== false;
 
       if (!parsedDoc.body) {
-        console.warn(`Stop loading command from "${file.name}", the body is empty`);
+        logger.warn(`Stop loading command from "${file.name}", the body is empty`);
         return;
       }
 
@@ -231,6 +270,7 @@ export class UserDefinedCommandService {
       // Without a command YAML block the note is not a UDC definition (it may be a
       // referenced doc / system-prompt note), so leave its frontmatter untouched.
       if (commandYamlBlocks.length === 0) {
+        logger.log('Not a command definition note, skipping...');
         return;
       }
 
@@ -257,7 +297,8 @@ export class UserDefinedCommandService {
           // Load and validate using version-aware loader (async imports)
           const result = await loadUDCVersion(
             rawData as { command_name: string; version?: number; [key: string]: unknown },
-            file.path
+            file.path,
+            noteEnabled
           );
 
           if (!result.success) {
@@ -271,16 +312,11 @@ export class UserDefinedCommandService {
           }
 
           definitionValid = true;
-          if (enabledFromFrontmatter) {
-            const versionedCommand = result.command;
-            this.userDefinedCommands.set(
-              versionedCommand.normalized.command_name,
-              versionedCommand
-            );
-            logger.log(
-              `Loaded user-defined command: ${versionedCommand.normalized.command_name} (v${versionedCommand.getVersion()})`
-            );
-          }
+          const versionedCommand = result.command;
+          this.userDefinedCommands.set(versionedCommand.normalized.command_name, versionedCommand);
+          logger.log(
+            `Loaded user-defined command: ${versionedCommand.normalized.command_name} (v${versionedCommand.getVersion()})`
+          );
         } catch (yamlError) {
           const errorMsg = yamlError instanceof Error ? yamlError.message : String(yamlError);
           validationErrors.push({
@@ -397,7 +433,8 @@ export class UserDefinedCommandService {
       let parsed: unknown;
       try {
         parsed = parseYaml(yamlBlock.content);
-      } catch {
+      } catch (e) {
+        console.error(e);
         continue;
       }
 
@@ -667,6 +704,7 @@ export class UserDefinedCommandService {
    */
   private async handleFileCreation(file: TFile): Promise<void> {
     if (this.isCommandFile(file)) {
+      console.log('Note command created', file);
       await this.loadCommandFromFile(file);
     } else {
       // Add to pending queue - will check triggers when metadata cache updates
@@ -685,6 +723,69 @@ export class UserDefinedCommandService {
     } else {
       // For delete events, check immediately (no metadata to wait for)
       await this.checkAndExecuteTriggers(file, 'delete');
+    }
+  }
+
+  /**
+   * Obsidian fires `rename` for moves (including VaultMove / fileManager.renameFile).
+   * Drop registrations keyed by the old path, then reload if the note still lives under Commands.
+   */
+  private async handleVaultRename(file: TAbstractFile, oldPath: string): Promise<void> {
+    if (file instanceof TFolder) {
+      const oldUnder = this.isCommandPathPrefix(oldPath);
+      const newUnder = this.isCommandPathPrefix(file.path);
+      if (oldUnder || newUnder) {
+        this.prunePendingTriggerChecksUnderPrefix(oldPath);
+        await this.loadAllCommands();
+      }
+      return;
+    }
+
+    if (!(file instanceof TFile)) {
+      return;
+    }
+
+    if (this.isCommandMarkdownPath(oldPath)) {
+      this.removeCommandsFromFile(oldPath);
+    }
+
+    const pending = this.pendingTriggerChecks.get(oldPath);
+    if (pending !== undefined) {
+      this.pendingTriggerChecks.delete(oldPath);
+      this.pendingTriggerChecks.set(file.path, pending);
+    }
+
+    if (this.isCommandFile(file)) {
+      await this.loadCommandFromFile(file);
+    }
+  }
+
+  private isCommandPathPrefix(path: string): boolean {
+    const normalizedPath = normalizePath(path);
+    const normalizedCommandRoot = normalizePath(this.commandFolder);
+    return (
+      normalizedPath === normalizedCommandRoot ||
+      normalizedPath.startsWith(`${normalizedCommandRoot}/`)
+    );
+  }
+
+  private isCommandMarkdownPath(path: string): boolean {
+    const normalizedPath = normalizePath(path);
+    const prefix = `${normalizePath(this.commandFolder)}/`;
+    return normalizedPath.startsWith(prefix) && normalizedPath.toLowerCase().endsWith('.md');
+  }
+
+  private prunePendingTriggerChecksUnderPrefix(oldPathPrefix: string): void {
+    const normalizedPrefix = normalizePath(oldPathPrefix);
+    const keysToDelete: string[] = [];
+    for (const key of this.pendingTriggerChecks.keys()) {
+      const nk = normalizePath(key);
+      if (nk === normalizedPrefix || nk.startsWith(`${normalizedPrefix}/`)) {
+        keysToDelete.push(key);
+      }
+    }
+    for (const k of keysToDelete) {
+      this.pendingTriggerChecks.delete(k);
     }
   }
 
@@ -709,7 +810,7 @@ export class UserDefinedCommandService {
    * Check if a file is a command file
    */
   private isCommandFile(file: TFile): boolean {
-    return file.path.startsWith(this.commandFolder) && file.extension === 'md';
+    return file.extension === 'md' && this.isCommandMarkdownPath(file.path);
   }
 
   /**
@@ -787,25 +888,33 @@ export class UserDefinedCommandService {
   }
 
   /**
-   * Execute a triggered command
+   * Run a user-defined command in a new conversation (vault triggers and run-links).
    */
-  private async executeTrigger(command: IVersionedUserDefinedCommand, file: TFile): Promise<void> {
-    // Generate unique conversation note title
+  private async runNewConversationFromUserDefinedCommand(params: {
+    command: IVersionedUserDefinedCommand;
+    intentQuery: string;
+    sourceFileBasename?: string;
+  }): Promise<void> {
+    const command = params.command;
+
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
     const conversationsFolder = `${this.plugin.settings.stewardFolder}/Conversations`;
     const conversationTitle = `${command.normalized.command_name}-${timestamp}`;
     const conversationPath = `${conversationsFolder}/${conversationTitle}.md`;
-    logger.log(
-      `Executing triggered command: ${command.normalized.command_name} for file: ${file.name}`
-    );
 
-    const getNoticeEl = (message: string): DocumentFragment => {
-      // Show notice with link to the conversation note
+    if (params.sourceFileBasename) {
+      logger.log(
+        `Executing triggered command: ${command.normalized.command_name} for file: ${params.sourceFileBasename}`
+      );
+    } else {
+      logger.log(`Executing run-link command: ${command.normalized.command_name}`);
+    }
+
+    const buildNoticeFragment = (message: string): DocumentFragment => {
       const noticeEl = document.createDocumentFragment();
       const text = noticeEl.createEl('span');
       text.textContent = message;
 
-      // Add line break
       noticeEl.createEl('br');
 
       const link = noticeEl.createEl('a', {
@@ -815,10 +924,8 @@ export class UserDefinedCommandService {
       link.addEventListener('click', async e => {
         e.preventDefault();
 
-        // Open the chat
         await this.plugin.openChat({ revealLeaf: true });
 
-        // Get the chat view and open the conversation
         const leaf = await this.plugin.getChatLeaf();
         const view = leaf.view;
 
@@ -829,31 +936,34 @@ export class UserDefinedCommandService {
 
       return noticeEl;
     };
-
     try {
-      // Ensure conversations folder exists
       const folderExists = this.plugin.app.vault.getFolderByPath(conversationsFolder);
       if (!folderExists) {
         await this.plugin.app.vault.createFolder(conversationsFolder);
       }
 
-      // Create the conversation note
-      const frontmatter = [
+      const frontmatterLines = [
         '---',
         `model: ${command.normalized.model || this.plugin.settings.llm.chat.model}`,
         `trigger: ${command.normalized.command_name}`,
-        `source_file: ${file.name}`,
+      ];
+      if (params.sourceFileBasename !== undefined) {
+        frontmatterLines.push(`source_file: ${params.sourceFileBasename}`);
+      }
+      frontmatterLines.push(
         `created: ${new Date().toISOString()}`,
         `lang: ${getLanguage()}`,
         `indicator_text: ${t('conversation.planning')}`,
         '---',
-        '',
-      ].join('\n');
+        ''
+      );
+
+      const frontmatter = frontmatterLines.join('\n');
 
       await this.plugin.app.vault.create(conversationPath, frontmatter);
 
       new Notice(
-        getNoticeEl(
+        buildNoticeFragment(
           i18next.t('trigger.executing', { commandName: command.normalized.command_name })
         ),
         10000
@@ -864,16 +974,15 @@ export class UserDefinedCommandService {
         intents: [
           {
             type: command.normalized.command_name,
-            query: `__file:${file.name}__`,
+            query: params.intentQuery,
           },
         ],
       });
 
-      // Show notice if the chat view is not visible
       const leaf = await this.plugin.getChatLeaf();
       if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
         new Notice(
-          getNoticeEl(
+          buildNoticeFragment(
             i18next.t('trigger.executed', { commandName: command.normalized.command_name })
           ),
           10000
@@ -883,7 +992,7 @@ export class UserDefinedCommandService {
       const leaf = await this.plugin.getChatLeaf();
       if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
         new Notice(
-          getNoticeEl(
+          buildNoticeFragment(
             i18next.t('trigger.executionFailed', {
               commandName: command.normalized.command_name,
               error: error instanceof Error ? error.message : String(error),
@@ -897,6 +1006,42 @@ export class UserDefinedCommandService {
         error
       );
     }
+  }
+
+  /**
+   * Execute from a clickable run-link in markdown (see RunPostProcessor).
+   */
+  public async executeClickCommand(params: { commandName: string; query?: string }): Promise<void> {
+    if (!this.hasCommand(params.commandName)) {
+      new Notice(
+        i18next.t('trigger.run.unknownCommand', { commandName: params.commandName }),
+        7000
+      );
+      return;
+    }
+
+    const command = this.userDefinedCommands.get(params.commandName);
+    if (!command) {
+      return;
+    }
+
+    const queryTrimmed = params.query?.trim() ?? '';
+
+    await this.runNewConversationFromUserDefinedCommand({
+      command,
+      intentQuery: queryTrimmed,
+    });
+  }
+
+  /**
+   * Execute a vault-event triggered command on a specific file.
+   */
+  private async executeTrigger(command: IVersionedUserDefinedCommand, file: TFile): Promise<void> {
+    await this.runNewConversationFromUserDefinedCommand({
+      command,
+      intentQuery: `__file:${file.name}__`,
+      sourceFileBasename: file.name,
+    });
   }
 
   /**
@@ -919,6 +1064,9 @@ export class UserDefinedCommandService {
     }
 
     for (const [commandName, command] of this.userDefinedCommands.entries()) {
+      if (!command.normalized.enabled) {
+        continue;
+      }
       if (!command.normalized.triggers || command.normalized.triggers.length === 0) {
         continue;
       }
@@ -954,8 +1102,31 @@ export class UserDefinedCommandService {
    */
   public getCommandNames(): string[] {
     return Array.from(this.userDefinedCommands.entries())
-      .filter(([_, command]) => !command.isHidden())
+      .filter(([_, command]) => command.normalized.enabled && !command.isHidden())
       .map(([commandName, _]) => commandName);
+  }
+
+  /**
+   * User-defined commands that are enabled (v2: YAML `enabled` or note frontmatter; v1: note only).
+   */
+  public getEnabledCommandCatalog(): CommandCatalog[] {
+    const catalog: CommandCatalog[] = [];
+    for (const [commandName, command] of this.userDefinedCommands.entries()) {
+      if (!command.normalized.enabled) {
+        continue;
+      }
+      const entry: CommandCatalog = {
+        name: commandName,
+        path: command.normalized.file_path,
+      };
+      const description = command.normalized.description?.trim();
+      if (description) {
+        entry.description = description;
+      }
+      catalog.push(entry);
+    }
+    catalog.sort((a, b) => a.name.localeCompare(b.name));
+    return catalog;
   }
 
   /**
@@ -969,6 +1140,10 @@ export class UserDefinedCommandService {
     const command = this.userDefinedCommands.get(commandName);
 
     if (!command) {
+      return null;
+    }
+
+    if (!command.normalized.enabled) {
       return null;
     }
 
@@ -1001,8 +1176,6 @@ export class UserDefinedCommandService {
         );
       }
 
-      const cliShellOverride = step.cli?.shell?.trim();
-
       steps.push({
         type: step.name ?? '',
         systemPrompts,
@@ -1010,8 +1183,7 @@ export class UserDefinedCommandService {
         model,
         no_confirm: step.no_confirm,
         tools: command.normalized.tools,
-        cli:
-          cliShellOverride && cliShellOverride.length > 0 ? { shell: cliShellOverride } : undefined,
+        cli: command.normalized.cli,
       });
     }
 
@@ -1034,7 +1206,7 @@ export class UserDefinedCommandService {
       userInput: params.cleanedUserInput,
     });
     if (params.conversationTitle) {
-      const ctx = this.buildUdcTemplateContext(params.conversationTitle, {
+      const ctx = this.buildUdcTemplateContext({
         fileName: params.fileName,
         userInput: params.cleanedUserInput,
       });
@@ -1056,44 +1228,37 @@ export class UserDefinedCommandService {
   /**
    * @public for tests — builds Mustache context for a conversation turn.
    */
-  public buildUdcTemplateContext(
-    conversationTitle: string,
-    options: { fileName: string; userInput: string }
-  ): UdcTemplateContext {
+  public buildUdcTemplateContext(options: {
+    fileName: string;
+    userInput: string;
+  }): UdcTemplateContext {
     return {
       from_user: options.userInput,
       file_name: options.fileName,
       steward: this.plugin.settings.stewardFolder,
       active_file: this.plugin.app.workspace.getActiveFile()?.path ?? '',
-      cli_continuing: this.computeCliContinuing(conversationTitle),
     };
-  }
-
-  private computeCliContinuing(conversationTitle: string): boolean {
-    return this.plugin.cliSessionService.getSession(conversationTitle) !== undefined;
   }
 
   /**
    * Check if a command name exists
    */
   public hasCommand(commandName: string): boolean {
-    return this.userDefinedCommands.has(commandName);
+    const cmd = this.userDefinedCommands.get(commandName);
+    return cmd !== undefined && cmd.normalized.enabled;
   }
 
   /**
-   * First non-empty `cli.shell` on a normalized step, if any (shell-style UDCs).
+   * V2: normalized root `cli.shell`, if set (shell-style UDCs).
    */
   public getCommandCliShell(commandName: string): string | undefined {
     const cmd = this.userDefinedCommands.get(commandName);
-    if (!cmd) {
+    if (!cmd || !cmd.normalized.enabled) {
       return undefined;
     }
-    const steps = cmd.normalized.steps;
-    for (let i = 0; i < steps.length; i++) {
-      const shell = steps[i].cli?.shell?.trim();
-      if (shell) {
-        return shell;
-      }
+    const shell = cmd.normalized.cli?.shell?.trim();
+    if (shell) {
+      return shell;
     }
     return undefined;
   }

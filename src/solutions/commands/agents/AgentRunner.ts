@@ -18,7 +18,7 @@ interface PendingIntent {
 export type { ProcessIntentsOptions } from '../IntentProcessor';
 
 /** Config IDs that handle intents (excludes title, compaction_summary). */
-const INTENT_ROUTING_IDS = new Set(['super', 'subagent', 'udc', 'search', 'speech', 'image', '>']);
+const INTENT_ROUTING_IDS = new Set(['super', 'subagent', 'search', 'speech', 'image', '>']);
 
 export class AgentRunner {
   private static lastResults: Map<string, AgentResult> = new Map();
@@ -38,14 +38,14 @@ export class AgentRunner {
       return 'super';
     }
     if (this.plugin.userDefinedCommandService.hasCommand(baseType)) {
-      return 'udc';
+      return 'super';
     }
     return baseType;
   }
 
   /**
    * Get or create an Agent for the given config id.
-   * Only returns agents that extend Agent (super, udc) and support safeHandle.
+   * Only returns agents that extend Agent (super, subagent, …) and support safeHandle.
    */
   private getOrCreateAgent(agentId: string): Agent | null {
     const cached = this.agentCache.get(agentId);

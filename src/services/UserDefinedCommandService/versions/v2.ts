@@ -16,14 +16,47 @@ const system_prompt = z.array(z.string()).optional();
 const tools = z.array(z.nativeEnum(ToolName)).optional();
 const show_todo_list = z.boolean().optional();
 
-/** V2 step schema: adds `cli.shell` (not part of shared v1 steps). */
-export const commandStepV2Schema = commandStepSchema.extend({
-  cli: z
-    .object({
-      shell: z.string().optional(),
-    })
-    .optional(),
-});
+const shellWhitelistEntrySchema = z
+  .string()
+  .min(1)
+  .max(2000)
+  .refine(v => v.trim() !== '*', {
+    message: 'cli.whitelist entries cannot be only *',
+  });
+
+const shellWhitelistListSchema = z.array(shellWhitelistEntrySchema).max(50).optional();
+
+/**
+ * V2 root `cli` input: optional shell override and/or whitelist.
+ * Parse output is normalized (trimmed shell, copied whitelist, omitted when nothing effective).
+ */
+export const udcV2RootCliSchema = z
+  .object({
+    shell: z.string().optional(),
+    whitelist: shellWhitelistListSchema,
+  })
+  .transform((data): NormalizedUserDefinedCommand['cli'] | undefined => {
+    const shellTrimmed = data.shell?.trim();
+    const hasShell = Boolean(shellTrimmed && shellTrimmed.length > 0);
+    const whitelist = data.whitelist;
+    const hasWhitelist = Boolean(whitelist && whitelist.length > 0);
+
+    if (!hasShell && !hasWhitelist) {
+      return undefined;
+    }
+
+    const out: NormalizedUserDefinedCommand['cli'] = {};
+    if (hasShell && shellTrimmed) {
+      out.shell = shellTrimmed;
+    }
+    if (hasWhitelist && whitelist) {
+      out.whitelist = [...whitelist];
+    }
+    return out;
+  });
+
+/** V2 steps use the same shape as v1 (no step-level `cli`). */
+export const commandStepV2Schema = commandStepSchema;
 
 /**
  * Transform heading-only wikilinks ([[#Heading]]) to include the file path
@@ -57,6 +90,8 @@ export const userDefinedCommandV2Schema = z.object({
   version: z.literal(2).optional(),
   command_name,
   description: z.string().optional(),
+  /** When set, overrides the note's frontmatter `enabled` for this command only. */
+  enabled: z.boolean().optional(),
   query_required,
   steps: z.array(commandStepV2Schema).min(1, 'At least one step is required'),
   file_path,
@@ -65,6 +100,7 @@ export const userDefinedCommandV2Schema = z.object({
   tools,
   show_todo_list,
   triggers: z.array(triggerConditionSchema).optional(),
+  cli: udcV2RootCliSchema.optional(),
 });
 
 export type UserDefinedCommandV2Data = z.infer<typeof userDefinedCommandV2Schema>;
@@ -75,6 +111,7 @@ export type UserDefinedCommandV2Data = z.infer<typeof userDefinedCommandV2Schema
 export class UserDefinedCommandV2 implements IVersionedUserDefinedCommand {
   public get normalized(): NormalizedUserDefinedCommand {
     const filePath = this.data.file_path || '';
+    const enabled = this.data.enabled !== undefined ? this.data.enabled : this.noteEnabled;
 
     // Transform heading-only wikilinks in root-level system_prompt
     const transformedSystemPrompt = this.data.system_prompt?.map(prompt =>
@@ -97,6 +134,7 @@ export class UserDefinedCommandV2 implements IVersionedUserDefinedCommand {
     return {
       command_name: this.data.command_name,
       description: this.data.description,
+      enabled,
       query_required: this.data.query_required,
       steps: transformedSteps,
       file_path: filePath,
@@ -105,10 +143,15 @@ export class UserDefinedCommandV2 implements IVersionedUserDefinedCommand {
       tools: this.data.tools,
       show_todo_list: this.data.show_todo_list,
       triggers: this.data.triggers,
+      cli: this.data.cli,
     };
   }
 
-  constructor(private readonly data: UserDefinedCommandV2Data) {}
+  constructor(
+    private readonly data: UserDefinedCommandV2Data,
+    /** Note frontmatter `enabled` for the defining file (`enabled !== false` → true). */
+    private readonly noteEnabled = true
+  ) {}
 
   getVersion(): number {
     return 2;

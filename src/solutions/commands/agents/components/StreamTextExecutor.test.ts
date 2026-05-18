@@ -95,6 +95,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     userDefinedCommandService: {
       processSystemPromptsWikilinks: jest.fn().mockImplementation(async prompts => prompts),
       hasCommand: jest.fn().mockReturnValue(false),
+      getEnabledCommandCatalog: jest.fn().mockReturnValue([]),
     },
     conversationRenderer: mockRenderer,
     guardrailsRuleService: {

@@ -95,7 +95,7 @@ describe('ToolIntentResolution', () => {
       ]);
     });
 
-    it('adds activate_tools when declared length > threshold', () => {
+    it('returns declared tools unchanged when length > threshold (no auto-added tools)', () => {
       const six = [
         ToolName.LIST,
         ToolName.CREATE,
@@ -105,7 +105,8 @@ describe('ToolIntentResolution', () => {
         ToolName.RENAME,
       ];
       const expanded = expandSuperAgentDeclaredTools(six);
-      expect(expanded).toContain(ToolName.ACTIVATE);
+      expect(expanded).toEqual(six);
+      expect(expanded).not.toContain(ToolName.ACTIVATE);
       expect(expanded).not.toContain(ToolName.SWITCH_AGENT_CAPACITY);
     });
   });
@@ -269,7 +270,7 @@ describe('ToolIntentResolution', () => {
       expandSubagentDeclaredTools = sut['expandSubagentDeclaredTools'].bind(sut);
     });
 
-    it('only adds activate_tools for large sets', () => {
+    it('returns declared tools unchanged (no auto-added tools)', () => {
       expect(expandSubagentDeclaredTools(null)).toEqual([]);
       const small = [ToolName.LIST, ToolName.EDIT];
       expect(expandSubagentDeclaredTools(small)).toEqual(small);
@@ -281,7 +282,8 @@ describe('ToolIntentResolution', () => {
         ToolName.MOVE,
         ToolName.RENAME,
       ];
-      expect(expandSubagentDeclaredTools(six)).toContain(ToolName.ACTIVATE);
+      expect(expandSubagentDeclaredTools(six)).toEqual(six);
+      expect(expandSubagentDeclaredTools(six)).not.toContain(ToolName.ACTIVATE);
     });
   });
 });

@@ -41,6 +41,7 @@ const SUPER_ONLY_TOOL_NAMES = [
   ToolName.USER_CONFIRM,
   ToolName.SPAWN_SUBAGENT,
   ToolName.SWITCH_AGENT_CAPACITY,
+  ToolName.RUN_COMMAND,
 ] as const;
 
 export const SUBAGENT_TOOL_NAMES: ReadonlySet<ToolName> = new Set(SUBAGENT_TOOL_NAME_LIST);
@@ -186,12 +187,14 @@ export function loadSuperAgentToolsBase(): Promise<AgentToolsRecord> {
         userConfirmTool,
         spawnSubagentTool,
         switchAgentCapacityTool,
+        runCommandTool,
       ] = await Promise.all([
         createAskUserTool('confirmation'),
         createAskUserTool('ask'),
         handlers.UserConfirm.getUserConfirmTool(),
         handlers.SpawnSubagent.getSpawnSubagentTool(),
         handlers.SwitchAgentCapacity.getSwitchAgentCapacityTool(),
+        handlers.RunCommand.getRunCommandTool(),
       ]);
       return {
         ...base,
@@ -200,6 +203,7 @@ export function loadSuperAgentToolsBase(): Promise<AgentToolsRecord> {
         [ToolName.USER_CONFIRM]: userConfirmTool,
         [ToolName.SPAWN_SUBAGENT]: spawnSubagentTool,
         [ToolName.SWITCH_AGENT_CAPACITY]: switchAgentCapacityTool,
+        [ToolName.RUN_COMMAND]: runCommandTool,
       } as AgentToolsRecord;
     });
   }

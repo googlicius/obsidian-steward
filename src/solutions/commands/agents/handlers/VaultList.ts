@@ -109,7 +109,7 @@ export class VaultList {
       throw new Error('VaultList.handle invoked without handlerId');
     }
 
-    const result = await this.executeListTool(toolCall.input, params.lang);
+    const result = await this.executeListTool(toolCall.input, params.lang, params.title);
 
     const hasMoreFiles = result.files.length > MAX_FILES_TO_SHOW;
     const artifactId = `list_${Date.now()}`;
@@ -149,7 +149,8 @@ export class VaultList {
 
   private async executeListTool(
     input: ListToolArgs,
-    lang: string | null | undefined
+    lang: string | null | undefined,
+    title?: string
   ): Promise<ListToolResult> {
     const folderPath = input.folderPath || '/';
     const filePattern = input.filePattern?.trim();
@@ -185,6 +186,11 @@ export class VaultList {
         errors,
       };
     }
+
+    // Resolve current conversation path if title is provided
+    const currentConversationPath = title
+      ? `${this.agent.plugin.settings.stewardFolder}/Conversations/${title}.md`
+      : undefined;
 
     // Collect direct files and subfolders only (non-recursive)
     const listedPaths: string[] = [];
@@ -234,6 +240,10 @@ export class VaultList {
 
     if (moreCount > 0) {
       response += `\n\n${t('list.moreItems', { count: moreCount })}`;
+    }
+
+    if (currentConversationPath) {
+      response += `\n\nCurrent conversation file: ${currentConversationPath}`;
     }
 
     return {

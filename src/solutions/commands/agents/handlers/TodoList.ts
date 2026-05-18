@@ -2,7 +2,7 @@ import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentHandlerParams, AgentResult, Intent, IntentResultStatus } from '../../types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 
@@ -210,6 +210,7 @@ export type TodoStepWithMetadata = TodoStep & {
   model?: string;
   systemPrompts?: string[];
   no_confirm?: boolean;
+  cli?: Intent['cli'];
 };
 
 /**
@@ -238,6 +239,7 @@ export interface TodoListState {
     model?: string;
     systemPrompts?: string[];
     no_confirm?: boolean;
+    cli?: Intent['cli'];
   }>;
   currentStep: number;
   createdBy: 'udc' | 'ai';

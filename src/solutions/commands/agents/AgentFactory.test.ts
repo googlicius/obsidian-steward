@@ -1,7 +1,7 @@
 import { createAgentFromConfig } from './AgentFactory';
 import { DEFAULT_AGENT_CONFIGS } from './defaultAgents';
 import { SuperAgent } from './SuperAgent/SuperAgent';
-import { UDCAgent } from './UDCAgent/UDCAgent';
+import { SubAgent } from './SubAgent/SubAgent';
 import { ConversationTitleAgent } from './ConversationTitleAgent/ConversationTitleAgent';
 import { CompactionSummaryAgent } from './CompactionSummaryAgent/CompactionSummaryAgent';
 import type { AgentConfig } from './AgentConfig';
@@ -35,10 +35,10 @@ describe('AgentFactory', () => {
       expect(agent).toBeInstanceOf(SuperAgent);
     });
 
-    it('should create UDCAgent for factory udc', () => {
-      const config = getAgentConfig('udc');
+    it('should create SubAgent for factory subagent', () => {
+      const config = getAgentConfig('subagent');
       const agent = createAgentFromConfig(plugin, config);
-      expect(agent).toBeInstanceOf(UDCAgent);
+      expect(agent).toBeInstanceOf(SubAgent);
     });
 
     it('should create ConversationTitleAgent for factory title', () => {

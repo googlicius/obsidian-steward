@@ -122,7 +122,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
     if (!context) {
       return 'You are a helpful assistant who helps users with their Obsidian vault.';
     }
-    const taskSection = this.buildTaskInstructionsFromAvailableTools(context.availableTools);
+    const taskSection = this.buildTaskInstructions(context.availableTools);
 
     return `You are a helpful assistant who helps users with their Obsidian vault.
 
@@ -139,7 +139,7 @@ ${context.registry.generateOtherToolsSection(
 
 TOOLS GUIDELINES:
 ${context.registry.generateGuidelinesSection()}
-${context.currentNote ? `\nCURRENT NOTE: ${context.currentNote} (Cursor position: ${context.currentPosition})` : ''}${context.skillCatalogPrompt}
+${context.currentNote ? `\nCURRENT NOTE: ${context.currentNote} (Cursor position: ${context.currentPosition})` : ''}${context.skillCatalogPrompt}${context.userDefinedCommandCatalogPrompt}
 
 NOTE:
 - DO NOT mention or explain the tools you use or activate to users. Only communicate the results or outcomes.
@@ -283,6 +283,7 @@ NOTE:
         : await this.manualToolCall({
             title,
             query: intent.query,
+            intentType: intent.type,
             activeTools,
             classifiedTasks,
             lang,
@@ -752,6 +753,7 @@ NOTE:
       no_confirm: nextStep.no_confirm,
       tools: commandLevelTools && commandLevelTools.length > 0 ? commandLevelTools : undefined,
       systemPrompts,
+      cli: nextStep.cli,
     };
   }
 

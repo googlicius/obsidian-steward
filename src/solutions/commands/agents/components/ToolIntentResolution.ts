@@ -35,7 +35,8 @@ export class ToolIntentResolution {
 
   /**
    * Super Agent: adds `switch_agent_capacity` when the declared list is non-empty and length <= threshold
-   * (so the user can unlock the full tool set). Adds `activate_tools` when declared length > threshold.
+   * (so the user can unlock the full tool set). No other management tools are auto-added —
+   * only the tools explicitly declared by the user-defined command are available.
    * When `declaredNormalized` is null (full tool set), returns [] — callers use all keys excluding switch.
    */
   protected expandSuperAgentDeclaredTools(declaredNormalized: ToolName[] | null): ToolName[] {
@@ -49,28 +50,14 @@ export class ToolIntentResolution {
     ) {
       set.add(ToolName.SWITCH_AGENT_CAPACITY);
     }
-    if (
-      declaredNormalized.length > this.declaredToolsSmallThreshold &&
-      !set.has(ToolName.ACTIVATE)
-    ) {
-      set.add(ToolName.ACTIVATE);
-    }
     return Array.from(set);
   }
 
-  /** SubAgent: only adds `activate_tools` when declared length > threshold (no switch tool on subagents). */
   protected expandSubagentDeclaredTools(declaredNormalized: ToolName[] | null): ToolName[] {
     if (declaredNormalized === null) {
       return [];
     }
-    const set = new Set(declaredNormalized);
-    if (
-      declaredNormalized.length > this.declaredToolsSmallThreshold &&
-      !set.has(ToolName.ACTIVATE)
-    ) {
-      set.add(ToolName.ACTIVATE);
-    }
-    return Array.from(set);
+    return Array.from(new Set(declaredNormalized));
   }
 
   protected isSwitchAgentCapacityOnly(declaredExpanded: ToolName[]): boolean {
@@ -168,28 +155,10 @@ export class ToolIntentResolution {
       return [ToolName.SWITCH_AGENT_CAPACITY];
     }
 
-    // Small declared set: activate all effective tools immediately (no progressive activation)
-    // Use original declared count — expanded may include auto-added switch_agent_capacity
-    if (params.declaredNormalized.length <= this.declaredToolsSmallThreshold) {
-      return this.uniqueToolNames([...params.effectiveAllowed]);
-    }
-
-    // Large declared set: use progressive activation strategy
-    // Keep previously active conversation tools + management tools
-    const filteredConversation = params.conversationActiveTools.filter(t =>
-      params.effectiveAllowed.has(t)
-    );
-    return this.uniqueToolNames([
-      ...filteredConversation,
-      ...(params.effectiveAllowed.has(ToolName.ACTIVATE) ? [ToolName.ACTIVATE] : []),
-      ...(hasConcludeEligibleActive && params.effectiveAllowed.has(ToolName.CONCLUDE)
-        ? [ToolName.CONCLUDE]
-        : []),
-      ...(params.hasCompactionContext &&
-      params.effectiveAllowed.has(ToolName.RECALL_COMPACTED_CONTEXT)
-        ? [ToolName.RECALL_COMPACTED_CONTEXT]
-        : []),
-    ]);
+    // All declared tools are immediately active (no progressive activation needed).
+    // Progressive activation via inactive tools + activate_tools only applies when
+    // there is no declared restriction (declaredNormalized === null), handled above.
+    return this.uniqueToolNames([...params.effectiveAllowed]);
   }
 
   protected uniqueToolNames(items: ToolName[]): ToolName[] {

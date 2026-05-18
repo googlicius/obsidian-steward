@@ -1,6 +1,7 @@
 ---
 status: ✅ Valid
 enabled: true
+version: 1
 ---
 This command walks through a **Git** + **SOPS** clean/smudge setup (ciphertext in the repo, readable files in the vault). Copy this file to `Steward/Commands`, then run `/git-sync-setup`.
 

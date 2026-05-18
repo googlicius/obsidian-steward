@@ -36,6 +36,8 @@ const ja = {
         '{{commandType}}コマンドの処理中にエラーが発生しました: {{errorMessage}}',
       switchingModelDueToErrors: 'エラーのため{{fromModel}}から{{toModel}}に切り替えています',
       thinkingProcess: '思考過程',
+      commandOutput: 'コマンド出力',
+      lines: '{{number}} 行',
       modelDoesNotSupportImageInputs:
         'モデル {{model}} は画像入力をサポートしていません。画像入力をサポートするモデルを使用してください（例: gpt-4o, gemini-pro, claude-3-sonnet）。',
       invalidOrDynamicToolCall:
@@ -44,13 +46,31 @@ const ja = {
       statusInvalid: '無効: {{errors}}',
       and: 'と',
       or: 'または',
+      view: '表示',
+    },
+    community: {
+      browseCommands: 'コミュニティコマンドを見る',
+      commandsTitle: 'コミュニティコマンド',
+      notInstalled: '未インストール',
+      installed: 'インストール済み',
+      updateAvailable: '更新あり',
+      install: 'インストール',
+      update: '更新',
+      reinstall: '再インストール',
+      noCommands: 'カタログにコミュニティコマンドがありません。',
+      helpTableYourVersion: 'あなたのバージョン',
+      helpTableLatestVersion: '最新',
+      helpTableAction: '操作',
+      updateSuccess: 'コミュニティコマンド "{{commandName}}" を更新しました。',
+      updateFailed: 'インストールまたは更新に失敗しました: {{path}}',
+      invalidGuideline: '無効なリンクです。/help を再度実行してください。',
     },
     cli: {
       disabledNotice: 'Local CLI bridge is disabled. Enable it in Steward settings.',
       desktopOnly:
         'ローカルCLIシェルはObsidianデスクトップ版でのみ利用できます。モバイルではローカルプロセスは利用できません。',
       spawnFailed:
-        '{{message}}\n\n各プラットフォーム用のインストーラーは Steward フォルダにあります。vault のルートフォルダから実行してください:',
+        '{{message}}\n\n各プラットフォーム用のインストーラーは {{stewardFolder}} フォルダ内にあります。vault のルートフォルダから実行してください:',
       openingInteractiveTerminal: 'ホスト会話でインタラクティブターミナルを開いています...',
       shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
@@ -67,6 +87,7 @@ const ja = {
         'トランスクリプトとインタラクティブの違いや node-pty のセットアップは [CLI]({{cliDoc}}) を参照してください。',
       confirmExecuteShell:
         'この会話で次の**ローカルシェル**コマンドを実行します。続行するかキャンセルするか、ご確認ください。\n\n```\n{{command}}\n```',
+      runInTerminal: 'このコマンドはターミナルで実行されます（インタラクティブモード／フルTTY）。',
       shellConfirmEmptyCommand: '（空行 — 入力なしでシェルを開始または継続）',
     },
     mcp: {
@@ -88,6 +109,10 @@ const ja = {
       executing: 'トリガーコマンドを実行中: {{commandName}}',
       executed: 'トリガー "{{commandName}}" を実行しました。',
       openConversation: '会話を開く',
+      executionFailed: 'コマンド "{{commandName}}" の実行に失敗しました: {{error}}',
+      run: {
+        unknownCommand: 'コマンド "{{commandName}}" が見つからないか無効です。',
+      },
     },
     validation: {
       errorTitle: 'UDC 検証エラー',
@@ -242,6 +267,7 @@ const ja = {
       applyChangesConfirm: '変更を適用しますか？',
       noChangesNeeded: '元の内容と更新された内容は同一です。変更は必要ありませんでした。',
       changesDenied: 'ユーザーによって変更が拒否されました。',
+      conversationTitleUpdated: '会話タイトルを更新しました。',
     },
     // Delete result messages
     delete: {

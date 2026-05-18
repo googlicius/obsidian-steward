@@ -149,6 +149,10 @@ export class StreamTextExecutor {
           plugin: agent.plugin,
         })
       : '';
+    const userDefinedCommandCatalogPrompt = this.generateUserDefinedCommandCatalogPrompt({
+      plugin: agent.plugin,
+      runCommandAvailable: allActiveToolNames.includes(ToolName.RUN_COMMAND),
+    });
 
     const resolvedSystemPrompts =
       params.intent.systemPrompts && params.intent.systemPrompts.length > 0
@@ -174,6 +178,7 @@ export class StreamTextExecutor {
       currentNote,
       currentPosition,
       skillCatalogPrompt,
+      userDefinedCommandCatalogPrompt,
     });
 
     type RepairToolCall = AiStreamTextParams['experimental_repairToolCall'];

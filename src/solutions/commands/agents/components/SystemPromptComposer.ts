@@ -17,7 +17,7 @@ const VAULT_MANAGEMENT_TOOLS: ToolName[] = [
  * that are shared across SuperAgent and SubAgent executors.
  */
 export class SystemPromptComposer {
-  protected buildTaskInstructionsFromAvailableTools(availableTools: readonly ToolName[]): string {
+  protected buildTaskInstructions(availableTools: readonly ToolName[]): string {
     if (availableTools.length === 0) {
       return 'Your role is to assist using the tools provided below.';
     }
@@ -34,11 +34,6 @@ export class SystemPromptComposer {
 
     lines.push('- For generating tasks, you can generate directly.');
 
-    if (available.has(ToolName.EDIT)) {
-      lines.push(`- For editing tasks, use ${ToolName.EDIT} tool.`);
-      mentioned.add(ToolName.EDIT);
-    }
-
     const availableVaultTools = VAULT_MANAGEMENT_TOOLS.filter(t => available.has(t));
     if (availableVaultTools.length > 0) {
       for (const t of availableVaultTools) {
@@ -49,11 +44,25 @@ export class SystemPromptComposer {
       );
     }
 
+    if (available.has(ToolName.LIST)) {
+      lines.push(
+        `- For past and current conversation notes, use ${ToolName.LIST} with folderPath set to "Steward/Conversations".`
+      );
+      mentioned.add(ToolName.LIST);
+    }
+
     if (available.has(ToolName.CONTENT_READING)) {
       lines.push(
         `- For tasks that require domain-specific knowledge, use ${ToolName.CONTENT_READING} to read the skill file.`
       );
       mentioned.add(ToolName.CONTENT_READING);
+    }
+
+    if (available.has(ToolName.SHELL)) {
+      lines.push(
+        `- For hidden files or folders (dot-prefixed names), use ${ToolName.SHELL} from the vault root (e.g. cat, type, or Get-Content); other tools may not reach those paths.`
+      );
+      mentioned.add(ToolName.SHELL);
     }
 
     const hasUnmentioned = availableTools.some(t => !mentioned.has(t));
@@ -78,5 +87,38 @@ export class SystemPromptComposer {
 ${entries}
 
 When you need domain-specific knowledge for the task, use ${ToolName.CONTENT_READING} to read the skill file by path with readType: "entire".`;
+  }
+
+  protected generateUserDefinedCommandCatalogPrompt(params: {
+    plugin: StewardPlugin;
+    /** When false (e.g. subagent or narrowed tool set), omit the catalog since the model cannot call run_command. */
+    runCommandAvailable: boolean;
+  }): string {
+    if (!params.runCommandAvailable) {
+      return '';
+    }
+
+    const catalog = params.plugin.userDefinedCommandService.getEnabledCommandCatalog();
+    if (catalog.length === 0) {
+      return '';
+    }
+
+    const entries = catalog
+      .map(entry => {
+        if (entry.description) {
+          return `- ${entry.name}: ${entry.description} (path: ${entry.path})`;
+        }
+        return `- ${entry.name} (path: ${entry.path})`;
+      })
+      .join('\n');
+
+    return `\n\nUSER-DEFINED COMMANDS:
+User-defined commands combine skills, agents, automation, and workflows defined in markdown files under the ${params.plugin.settings.stewardFolder}/Commands folder.
+
+Available commands:
+${entries}
+
+To run a user-defined command, use the ${ToolName.RUN_COMMAND} tool.
+No need to read the command definition note before calling ${ToolName.RUN_COMMAND}, it's loaded automatically; pass command_name from this catalog.`;
   }
 }

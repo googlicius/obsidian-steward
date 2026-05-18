@@ -23,6 +23,50 @@ import { getBundledInternal } from 'src/utils/bundledInternals';
 
 const { i18next, getTranslation } = getBundledInternal('i18n');
 
+/**
+ * UDC v2 root `cli.whitelist` matching for skipping model shell confirm.
+ * - Trailing `*` on a pattern means prefix match on the trimmed command line (e.g. `Get-Content*`).
+ * - Otherwise the trimmed command line must equal the trimmed pattern.
+ * - Empty trimmed command never matches (interactive “open shell” stays confirm-only upstream).
+ */
+export function isShellCommandAllowedWithoutConfirmation(
+  argsLine: string,
+  patterns: string[]
+): boolean {
+  if (patterns.length === 0) {
+    return false;
+  }
+
+  const trimmed = argsLine.trim();
+  if (trimmed.length === 0) {
+    return false;
+  }
+
+  for (let i = 0; i < patterns.length; i++) {
+    const pattern = patterns[i].trim();
+    if (pattern.length === 0) {
+      continue;
+    }
+
+    if (pattern.endsWith('*')) {
+      const prefix = pattern.slice(0, -1);
+      if (prefix.trim().length === 0) {
+        continue;
+      }
+      if (trimmed.startsWith(prefix)) {
+        return true;
+      }
+      continue;
+    }
+
+    if (trimmed === pattern) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export const shellToolInputSchema = z.object({
   argsLine: z
     .string()
@@ -66,7 +110,10 @@ export class CliHandler {
 
     const cliDoc = `${GITHUB_WIKI_URL}/${WIKI_PAGES.CLI}`;
     return [
-      i18next.t('cli.spawnFailed', { message: params.errorMessage }),
+      i18next.t('cli.spawnFailed', {
+        message: params.errorMessage,
+        stewardFolder,
+      }),
       '',
       `**${i18next.t('cli.nodePtyInstallWindowsHeading')}**`,
       '',
@@ -143,7 +190,8 @@ export class CliHandler {
     if (hostSession && hostSession.cliMode === 'transcript') {
       await this.beginNextTranscriptSegment(
         params.hostConversationTitle,
-        `${i18next.t('cli.openingInteractiveTerminal')}\n${getCliStreamMarkerPlaceholder({ hidden: true })}`
+        `${i18next.t('cli.openingInteractiveTerminal')}\n${getCliStreamMarkerPlaceholder({ hidden: true })}`,
+        false
       );
     } else {
       await this.agent.renderer.updateConversationNote({
@@ -166,7 +214,8 @@ export class CliHandler {
 
   private async beginNextTranscriptSegment(
     conversationTitle: string,
-    initialContent = getCliStreamMarkerPlaceholder()
+    initialContent = getCliStreamMarkerPlaceholder(),
+    isModelCall = false
   ): Promise<string | undefined> {
     const session = this.cliSessionService.getSession(conversationTitle);
     if (!session || session.cliMode === 'interactive') {
@@ -186,7 +235,8 @@ export class CliHandler {
     } catch (error) {
       logger.error('CliHandler beginNextTranscriptSegment strip marker failed:', error);
     }
-    const fenced = `\n\n\`\`\`cli-transcript\n${initialContent}\n\`\`\`\n`;
+    const fenceLang = isModelCall ? 'cli-model' : 'cli-transcript';
+    const fenced = `\n\n\`\`\`${fenceLang}\n${initialContent}\n\`\`\`\n`;
     return this.agent.renderer.updateConversationNote({
       path: conversationTitle,
       newContent: fenced,
@@ -199,10 +249,10 @@ export class CliHandler {
    * Waits for the CLI stream marker to be removed from the message, indicating
    * the shell command has finished and all output has been flushed.
    *
-   * Uses a progress-aware idle timeout: each retry window is ~15s. If new output
+   * Uses a progress-aware idle timeout: each retry window is 15s. If new output
    * was flushed during that window (content changed), a fresh window starts.
    * The wait only stops when the marker is removed (success) or no progress was
-   * observed for a full idle window (~15s of silence).
+   * observed for a full idle window (15s of silence).
    */
   private async waitForShellOutputFlushed(params: {
     conversationTitle: string;
@@ -271,12 +321,15 @@ export class CliHandler {
     }
   }
 
-  private async tryContinueSession(params: {
-    /** Whether the interactive or the non-interactive conversation note */
-    conversationTitle: string;
-    /** User query */
-    argsLine: string;
-  }): Promise<{ continued: boolean; messageId?: string }> {
+  private async tryContinueSession(
+    params: {
+      /** Whether the interactive or the non-interactive conversation note */
+      conversationTitle: string;
+      /** User query */
+      argsLine: string;
+    },
+    isModelCall = false
+  ): Promise<{ continued: boolean; messageId?: string }> {
     const session = this.cliSessionService.getSession(params.conversationTitle);
     if (!session) {
       return { continued: false };
@@ -294,7 +347,11 @@ export class CliHandler {
         argsLine: params.argsLine,
       });
     }
-    const messageId = await this.beginNextTranscriptSegment(params.conversationTitle);
+    const messageId = await this.beginNextTranscriptSegment(
+      params.conversationTitle,
+      undefined,
+      isModelCall
+    );
     const live = this.cliSessionService.getSession(params.conversationTitle);
     if (params.argsLine.length > 0 && live && !live.child.stdin.writableEnded) {
       this.cliSessionService.appendSentinelMarker(live, params.argsLine);
@@ -305,17 +362,20 @@ export class CliHandler {
     };
   }
 
-  private async startSession(params: {
-    conversationTitle: string;
-    argsLine: string;
-    needsInteractiveMode?: boolean;
-    hostConversationTitle?: string;
-    workingDirectory?: string;
-    /** When set, create the xterm note and host UX only after the shell spawns successfully. */
-    materializeXtermFromHostTitle?: string;
-    /** Overrides global CLI shell setting for this spawn only (new session). */
-    shellExecutable?: string;
-  }): Promise<string | undefined> {
+  private async startSession(
+    params: {
+      conversationTitle: string;
+      argsLine: string;
+      needsInteractiveMode?: boolean;
+      hostConversationTitle?: string;
+      workingDirectory?: string;
+      /** When set, create the xterm note and host UX only after the shell spawns successfully. */
+      materializeXtermFromHostTitle?: string;
+      /** Overrides global CLI shell setting for this spawn only (new session). */
+      shellExecutable?: string;
+    },
+    isModelCall = false
+  ): Promise<string | undefined> {
     this.cliSessionService.endSession({
       conversationTitle: params.conversationTitle,
       killProcess: true,
@@ -335,7 +395,12 @@ export class CliHandler {
     const errorNotePath = params.materializeXtermFromHostTitle ?? params.conversationTitle;
 
     if (!started.ok) {
-      const message = this.buildCliSpawnFailedNoteContent({ errorMessage: started.errorMessage });
+      const message = params.needsInteractiveMode
+        ? this.buildCliSpawnFailedNoteContent({
+            errorMessage: started.errorMessage,
+          })
+        : started.errorMessage;
+
       return this.agent.renderer.updateConversationNote({
         path: errorNotePath,
         newContent: message,
@@ -365,7 +430,8 @@ export class CliHandler {
       });
     } else {
       const initialBody = i18next.t('cli.shellTranscriptIntro');
-      const newContent = `${initialBody}\n\n\`\`\`cli-transcript\n${getCliStreamMarkerPlaceholder()}\n\`\`\`\n`;
+      const fenceLang = isModelCall ? 'cli-model' : 'cli-transcript';
+      const newContent = `${initialBody}\n\n\`\`\`${fenceLang}\n${getCliStreamMarkerPlaceholder()}\n\`\`\`\n`;
 
       messageId = await this.agent.renderer.updateConversationNote({
         path: params.conversationTitle,
@@ -391,7 +457,8 @@ export class CliHandler {
    */
   private async runShellSession(
     params: AgentHandlerParams,
-    toolCall: ToolCallPart<ShellToolInput>
+    toolCall: ToolCallPart<ShellToolInput>,
+    isModelCall = false
   ): Promise<{ messageId?: string }> {
     const argsLine = toolCall.input?.argsLine ?? '';
     const needsInteractiveMode = toolCall.input?.needsInteractiveMode;
@@ -402,10 +469,13 @@ export class CliHandler {
       needsInteractiveMode,
     });
 
-    const continueResult = await this.tryContinueSession({
-      conversationTitle: routing.shellSessionTitle,
-      argsLine,
-    });
+    const continueResult = await this.tryContinueSession(
+      {
+        conversationTitle: routing.shellSessionTitle,
+        argsLine,
+      },
+      isModelCall
+    );
 
     if (continueResult.continued) {
       if (continueResult.messageId)
@@ -433,15 +503,18 @@ export class CliHandler {
     const shellExecutable =
       trimmedIntentShell && trimmedIntentShell.length > 0 ? trimmedIntentShell : undefined;
 
-    const messageId = await this.startSession({
-      conversationTitle: routing.shellSessionTitle,
-      argsLine,
-      needsInteractiveMode,
-      hostConversationTitle: routing.hostConversationTitleForSpawn,
-      workingDirectory,
-      materializeXtermFromHostTitle: routing.materializeXtermFromHostTitle,
-      shellExecutable,
-    });
+    const messageId = await this.startSession(
+      {
+        conversationTitle: routing.shellSessionTitle,
+        argsLine,
+        needsInteractiveMode,
+        hostConversationTitle: routing.hostConversationTitleForSpawn,
+        workingDirectory,
+        materializeXtermFromHostTitle: routing.materializeXtermFromHostTitle,
+        shellExecutable,
+      },
+      isModelCall
+    );
 
     if (messageId && argsLine.length > 0) {
       await this.waitForShellOutputFlushed({
@@ -452,6 +525,42 @@ export class CliHandler {
 
     return {
       messageId,
+    };
+  }
+
+  private async completeModelShellAfterApproval(
+    params: AgentHandlerParams,
+    toolCall: ToolCallPart<ShellToolInput>,
+    options: { continueFromNextTool?: () => Promise<AgentResult> }
+  ): Promise<AgentResult> {
+    const runResult = await this.runShellSession(params, toolCall, true);
+
+    if (params.handlerId && runResult) {
+      await this.agent.serializeInvocation({
+        command: ToolName.SHELL,
+        title: params.title,
+        handlerId: params.handlerId,
+        step: params.invocationCount,
+        toolCall,
+        result: {
+          type: 'text',
+          value: runResult.messageId
+            ? `messageRef:${runResult.messageId}`
+            : 'Shell command was executed.',
+        },
+      });
+
+      await this.cliSessionService.endSession({
+        conversationTitle: params.title,
+        killProcess: true,
+      });
+    }
+
+    if (options.continueFromNextTool) {
+      return options.continueFromNextTool();
+    }
+    return {
+      status: IntentResultStatus.SUCCESS,
     };
   }
 
@@ -473,7 +582,7 @@ export class CliHandler {
     );
 
     if (isManualClientShellCall) {
-      await this.runShellSession(params, options.toolCall);
+      await this.runShellSession(params, options.toolCall, false);
       return {
         status: IntentResultStatus.SUCCESS,
       };
@@ -482,7 +591,23 @@ export class CliHandler {
     const trimmed = argsLine.trim();
     const displayCommand =
       trimmed.length > 0 ? argsLine : i18next.t('cli.shellConfirmEmptyCommand');
-    const message = i18next.t('cli.confirmExecuteShell', { command: displayCommand });
+    const needsInteractiveMode = options.toolCall.input?.needsInteractiveMode;
+    const runsInTerminal = this.shouldUseInteractiveMode(argsLine, needsInteractiveMode);
+
+    const allowPatterns = params.intent.cli?.whitelist;
+    if (
+      allowPatterns &&
+      allowPatterns.length > 0 &&
+      !runsInTerminal &&
+      isShellCommandAllowedWithoutConfirmation(argsLine, allowPatterns)
+    ) {
+      return this.completeModelShellAfterApproval(params, options.toolCall, options);
+    }
+
+    let message = i18next.t('cli.confirmExecuteShell', { command: displayCommand });
+    if (runsInTerminal) {
+      message = `${message}\n\n${i18next.t('cli.runInTerminal')}`;
+    }
     const t = getTranslation(lang);
 
     await this.agent.renderer.updateConversationNote({
@@ -503,36 +628,7 @@ export class CliHandler {
       },
       toolCall: options.toolCall,
       onConfirmation: async (_confirmationMessage: string) => {
-        const runResult = await this.runShellSession(params, options.toolCall);
-
-        if (params.handlerId && runResult) {
-          await this.agent.serializeInvocation({
-            command: ToolName.SHELL,
-            title: params.title,
-            handlerId: params.handlerId,
-            step: params.invocationCount,
-            toolCall: options.toolCall,
-            result: {
-              type: 'text',
-              value: runResult.messageId
-                ? `messageRef:${runResult.messageId}`
-                : 'Shell command was executed.',
-            },
-          });
-
-          // Model-created session: tear down transcript session automatically.
-          this.cliSessionService.endSession({
-            conversationTitle: params.title,
-            killProcess: true,
-          });
-        }
-
-        if (options.continueFromNextTool) {
-          return options.continueFromNextTool();
-        }
-        return {
-          status: IntentResultStatus.SUCCESS,
-        };
+        return this.completeModelShellAfterApproval(params, options.toolCall, options);
       },
       onRejection: async (_rejectionMessage: string) => {
         this.agent.commandProcessor.deleteNextPendingIntent(title);

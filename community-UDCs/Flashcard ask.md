@@ -1,6 +1,7 @@
 ---
 status: ✅ Valid
 enabled: true
+version: 1
 ---
 A user-defined command helps general tasks from the flashcard above the cursor.
 
