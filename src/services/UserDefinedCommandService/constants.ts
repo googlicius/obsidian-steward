@@ -1,5 +1,3 @@
-import { LATEST_COMMANDS_BRANCH } from 'src/generated/communityUdcManifest';
-
 export interface BuiltInUDC {
   name: string;
   description: string;
@@ -44,7 +42,7 @@ export const BUILT_IN_UDCS: BuiltInUDC[] = [
     name: 'Update command',
     description:
       'Install or update a community Steward command note into Steward/Commands from a JSON guideline.',
-    version: 9,
+    version: 10,
     content: [
       'This command is auto-generated into your Steward/Commands folder. Use to install or upgrade a community command, expect the query to be a valid JSON.',
       '',
@@ -74,13 +72,14 @@ export const BUILT_IN_UDCS: BuiltInUDC[] = [
       '- `version`: number for the bundled package (stored in the installed note frontmatter).',
       '- `mainVAULT_FILENAME`: basename of the **primary UDC-defining note** (e.g. `Explain video.md`).',
       '- `commandName`: slug reference only.',
+      '- `updateInstruction`: optional string with version-specific migration notes (e.g. delete renamed or removed companion files).',
       '',
       '',
-      `Raw URL base (<raw_url_base>): **\`https://raw.githubusercontent.com/googlicius/obsidian-steward/${LATEST_COMMANDS_BRANCH}/\`**`,
+      'Raw URL base (<raw_url_base>): **`https://raw.githubusercontent.com/googlicius/obsidian-steward/main/`**',
       '',
       'Follow these steps:',
       '',
-      '1. **Parse the JSON query** to extract `files`, `destinationFolder`, `version`, and `mainVAULT_FILENAME`.',
+      '1. **Parse the JSON query** to extract `files`, `destinationFolder`, `version`, `mainVAULT_FILENAME`, and optional `updateInstruction`.',
       '',
       '2. **Get the vault absolute path** — Run `pwd` via **`shell`** to obtain the vault root directory.',
       '',
@@ -89,9 +88,11 @@ export const BUILT_IN_UDCS: BuiltInUDC[] = [
       '   - Windows: `Invoke-WebRequest -Uri "<raw_url_base><repo_path_as_url>" -OutFile "<vault_path>/$steward/tmp/<filename>"`',
       '*Note: Put **`%20` in the download URL wherever a path segment has a space** (not in the quoted local `-o` / `-OutFile` path).*',
       '',
-      '4. Delete the existing file(s) (Those are the same name as the downloaded file(s)) in the `$steward/Commands` before moving.',
+      '4. **Version-specific cleanup** — If `updateInstruction` is present, follow it. Typically this means deleting old or renamed files from `$steward/Commands` (or `$steward/Commands/<destinationFolder>` when set) that are no longer part of the command. Use the **`delete`** tool.',
       '',
-      '5. **Move into `$steward/Commands`** — Use the **`move`** tool for all downloaded file only: from `$steward/tmp/<filename>` to `$steward/Commands/<filename>` when `destinationFolder` is omitted, or `$steward/Commands/<destinationFolder>/<filename>` when it is set.',
+      '5. Delete the existing file(s) (those are the same name as the downloaded file(s)) in `$steward/Commands` before moving.',
+      '',
+      '6. **Move into `$steward/Commands`** — Use the **`move`** tool for all downloaded files only: from `$steward/tmp/<filename>` to `$steward/Commands/<filename>` when `destinationFolder` is omitted, or `$steward/Commands/<destinationFolder>/<filename>` when it is set.',
       '',
       'NOTE:',
       '- Do NOT download or write files directly under `$steward/Commands`; Obsidian vault events (create / modify / delete / rename) will not run and command(s) will not be registered or refreshed.',

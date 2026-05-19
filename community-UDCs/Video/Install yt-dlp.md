@@ -1,6 +1,25 @@
 ---
-version: 1
+status: ✅ Valid
+enabled: true
+version: 3
+update_instructions:
+  3: "Delete old files if they exist: 'yt-dlp.md', 'Installation instruction.md'."
 ---
+
+#### Installs or upgrades [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+
+```yaml
+command_name: install-yt-dlp
+description: Install or upgrade yt-dlp using linked steps.
+query_required: false
+system_prompt:
+  - "[[#Instruction]]"
+steps:
+  - query: "Help me install yt-dlp following **Installation instruction**."
+tools: [content_reading, shell]
+```
+
+## Instruction
 
 1. Prefer the **native installer** for the current OS when it is reliable and non-interactive.
 2. **Verify** installation with `yt-dlp --version`.

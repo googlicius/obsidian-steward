@@ -10,12 +10,8 @@ export interface CommunityUdcEntry {
   destinationFolder?: string;
   sourceFile: string;
   mainVAULT_FILENAME: string;
+  updateInstruction?: string;
 }
-
-/**
- * The repo branch where latest downloadable user-defined commands houses
- */
-export const LATEST_COMMANDS_BRANCH = 'community-commands';
 
 export const COMMUNITY_UDC_MANIFEST: CommunityUdcEntry[] = [
   {
@@ -41,17 +37,6 @@ export const COMMUNITY_UDC_MANIFEST: CommunityUdcEntry[] = [
     "mainVAULT_FILENAME": "Agents.md"
   },
   {
-    "commandName": "clean-up",
-    "displayName": "Clean up",
-    "description": "Remove stale Steward conversation notes by command prefix.",
-    "version": 1,
-    "files": [
-      "community-UDCs/Clean up.md"
-    ],
-    "sourceFile": "community-UDCs/Clean up.md",
-    "mainVAULT_FILENAME": "Clean up.md"
-  },
-  {
     "commandName": "cmd",
     "displayName": "Shells",
     "description": "Windows Command Prompt (cmd.exe).",
@@ -69,8 +54,7 @@ export const COMMUNITY_UDC_MANIFEST: CommunityUdcEntry[] = [
     "version": 2,
     "files": [
       "community-UDCs/Video/Explain video.md",
-      "community-UDCs/Video/Installation instruction.md",
-      "community-UDCs/Video/Yt-dlp.md"
+      "community-UDCs/Video/Install yt-dlp.md"
     ],
     "destinationFolder": "Video",
     "sourceFile": "community-UDCs/Video/Explain video.md",
@@ -155,17 +139,17 @@ export const COMMUNITY_UDC_MANIFEST: CommunityUdcEntry[] = [
   },
   {
     "commandName": "install-yt-dlp",
-    "displayName": "Yt-dlp",
+    "displayName": "Install yt-dlp",
     "description": "Install or upgrade yt-dlp using linked steps.",
-    "version": 2,
+    "version": 3,
     "files": [
       "community-UDCs/Video/Explain video.md",
-      "community-UDCs/Video/Installation instruction.md",
-      "community-UDCs/Video/Yt-dlp.md"
+      "community-UDCs/Video/Install yt-dlp.md"
     ],
     "destinationFolder": "Video",
-    "sourceFile": "community-UDCs/Video/Yt-dlp.md",
-    "mainVAULT_FILENAME": "Yt-dlp.md"
+    "sourceFile": "community-UDCs/Video/Install yt-dlp.md",
+    "mainVAULT_FILENAME": "Install yt-dlp.md",
+    "updateInstruction": "Delete old files if they exist: 'yt-dlp.md', 'Installation instruction.md'."
   },
   {
     "commandName": "plan",

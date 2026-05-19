@@ -61,6 +61,14 @@ const entries = relPaths.flatMap(rel => {
 
   const version = Number.isFinite(frontmatter.version) ? frontmatter.version : 1;
 
+  const updateInstructions = frontmatter.update_instructions;
+  const updateInstructionRaw =
+    updateInstructions?.[version] ?? updateInstructions?.[String(version)];
+  const updateInstruction =
+    typeof updateInstructionRaw === 'string' && updateInstructionRaw.trim().length > 0
+      ? updateInstructionRaw.trim()
+      : undefined;
+
   const relDir = path.dirname(rel) === '.' ? '' : path.dirname(rel).replace(/\\/g, '/');
 
   const files = relDir ? [...(folderFiles[relDir] ?? [])].sort() : [repoPath(rel)];
@@ -92,6 +100,7 @@ const entries = relPaths.flatMap(rel => {
           destinationFolder: relDir || undefined,
           sourceFile: repoPath(rel),
           mainVAULT_FILENAME: baseName,
+          ...(updateInstruction && { updateInstruction }),
         },
       ];
     } catch {
@@ -114,12 +123,8 @@ export interface CommunityUdcEntry {
   destinationFolder?: string;
   sourceFile: string;
   mainVAULT_FILENAME: string;
+  updateInstruction?: string;
 }
-
-/**
- * The repo branch where latest downloadable user-defined commands houses
- */
-export const LATEST_COMMANDS_BRANCH = 'community-commands';
 
 export const COMMUNITY_UDC_MANIFEST: CommunityUdcEntry[] = ${JSON.stringify(entries, null, 2)};
 `;
