@@ -5,30 +5,11 @@ import { BUNDLED_SYNC_LIBS_LZ_B64 } from '../generated/bundledSyncLibsPayload';
 import type { BundledLibs } from 'src/bundled-libs-entry';
 import type { BundledDesktopLibs } from 'src/bundled-libs-desktop-entry';
 import type { BundledSyncLibs } from 'src/bundled-libs-sync-entry';
-
-/**
- * esbuild IIFE + `export default` yields an interop object on the global object:
- * `{ __esModule: true, default: <actual registry> }`.
- *
- * Prefer `window` when it exists (Obsidian renderer / popouts); use `globalThis` in Node/Jest.
- */
-function bundledChunkGlobal(): typeof globalThis {
-  if (typeof window !== 'undefined') {
-    return window as typeof globalThis;
-  }
-  return globalThis;
-}
-
-function unwrapBundledRegistry<T extends object>(raw: unknown): T {
-  if (!raw || typeof raw !== 'object') {
-    throw new Error('[Steward] Bundled registry is missing or invalid');
-  }
-  const d = (raw as { default?: unknown }).default;
-  if (d !== undefined && d !== null && typeof d === 'object') {
-    return d as T;
-  }
-  return raw as T;
-}
+import {
+  readBundledChunkGlobal,
+  runBundledChunk,
+  unwrapBundledRegistry,
+} from './bundledChunkRuntime';
 
 type BundledLibKey = keyof BundledLibs;
 
@@ -43,12 +24,8 @@ function ensureBundledLibsRegistryLoaded(): Promise<BundledLibsRegistry> {
       if (!code) {
         throw new Error('[Steward] Failed to decompress bundled libs payload');
       }
-      (0, eval)(code);
-      const raw = (bundledChunkGlobal() as unknown as { __stewardBundledLibs?: unknown })
-        .__stewardBundledLibs;
-      if (!raw) {
-        throw new Error('[Steward] Bundled libs chunk did not define __stewardBundledLibs');
-      }
+      runBundledChunk(code, 'bundled-libs');
+      const raw = readBundledChunkGlobal<unknown>('__stewardBundledLibs', 'bundled-libs');
       return unwrapBundledRegistry<BundledLibsRegistry>(raw);
     })();
   }
@@ -71,14 +48,11 @@ function ensureBundledDesktopLibsRegistryLoaded(): Promise<BundledDesktopLibsReg
       if (!code) {
         throw new Error('[Steward] Failed to decompress bundled desktop libs payload');
       }
-      (0, eval)(code);
-      const raw = (bundledChunkGlobal() as unknown as { __stewardBundledDesktopLibs?: unknown })
-        .__stewardBundledDesktopLibs;
-      if (!raw) {
-        throw new Error(
-          '[Steward] Bundled desktop libs chunk did not define __stewardBundledDesktopLibs'
-        );
-      }
+      runBundledChunk(code, 'bundled-desktop-libs');
+      const raw = readBundledChunkGlobal<unknown>(
+        '__stewardBundledDesktopLibs',
+        'bundled-desktop-libs'
+      );
       return unwrapBundledRegistry<BundledDesktopLibsRegistry>(raw);
     })();
   }
@@ -101,12 +75,8 @@ function ensureBundledSyncLibsRegistryLoadedSync(): BundledSyncLibsRegistry {
     throw new Error('[Steward] Failed to decompress bundled sync libs payload');
   }
 
-  (0, eval)(code);
-  const raw = (bundledChunkGlobal() as unknown as { __stewardBundledSyncLibs?: unknown })
-    .__stewardBundledSyncLibs;
-  if (!raw) {
-    throw new Error('[Steward] Bundled sync libs chunk did not define __stewardBundledSyncLibs');
-  }
+  runBundledChunk(code, 'bundled-sync-libs');
+  const raw = readBundledChunkGlobal<unknown>('__stewardBundledSyncLibs', 'bundled-sync-libs');
 
   syncRegistry = unwrapBundledRegistry<BundledSyncLibsRegistry>(raw);
   return syncRegistry;
@@ -126,7 +96,7 @@ export async function getBundledLib<K extends BundledLibKey>(key: K): Promise<Bu
 }
 
 /**
- * Returns a desktop-only bundled module (PTY companion, etc.) from the separate eval chunk.
+ * Returns a desktop-only bundled module (PTY companion, etc.) from the separate compressed chunk.
  */
 export async function getBundledDesktopLib<K extends BundledDesktopLibKey>(
   key: K
