@@ -388,8 +388,6 @@ const vi = {
       tipAttachContext: 'Gõ `@` để đính kèm tệp/thư mục',
       tipStop: 'Nhấn `ESC` hoặc `Ctrl-C` để dừng các thao tác đang chạy',
       tipRevert: 'Gõ `Undo` để hoàn tác thay đổi cuối',
-      fetchFailed: 'Không thể tải tài liệu: {{docName}}',
-      downloading: 'Đang tải {{name}}...',
     },
     read: {
       noContentFound: 'Không tìm thấy nội dung như vậy trong trình soạn thảo.',

@@ -58,7 +58,7 @@ export function createCollapsibleBlockPostProcessor(): MarkdownPostProcessor {
     if (!toggleLink) return;
 
     // Wait until rendered so sibling structure exists
-    setTimeout(() => {
+    window.setTimeout(() => {
       const prevDivSibling = el.previousElementSibling as HTMLElement | null;
 
       if (!prevDivSibling) return;

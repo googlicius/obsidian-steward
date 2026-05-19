@@ -166,7 +166,7 @@ export class AgentRunner {
         intents[i] = intent;
       }
 
-      setTimeout(() => {
+      window.setTimeout(() => {
         if (agent.renderIndicator) {
           agent.renderIndicator(title, payload.lang);
         }

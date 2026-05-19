@@ -1,3 +1,5 @@
+import { LATEST_COMMANDS_BRANCH } from 'src/generated/communityUdcManifest';
+
 export interface BuiltInUDC {
   name: string;
   description: string;
@@ -74,7 +76,7 @@ export const BUILT_IN_UDCS: BuiltInUDC[] = [
       '- `commandName`: slug reference only.',
       '',
       '',
-      'Raw URL base (<raw_url_base>): **`https://raw.githubusercontent.com/googlicius/obsidian-steward/main/`**',
+      `Raw URL base (<raw_url_base>): **\`https://raw.githubusercontent.com/googlicius/obsidian-steward/${LATEST_COMMANDS_BRANCH}/\`**`,
       '',
       'Follow these steps:',
       '',

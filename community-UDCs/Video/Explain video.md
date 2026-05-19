@@ -1,7 +1,7 @@
 ---
 status: ✅ Valid
 enabled: true
-version: 1
+version: 2
 ---
 Explain a YouTube video by fetching its transcript using yt-dlp and generating a detailed explanation.
 
@@ -22,7 +22,7 @@ tools:
   - content_reading
   - update_frontmatter
 steps:
-  - query: "Help me explain this video: $from_user"
+  - query: "$from_user"
 ```
 
 ### Instructions
@@ -33,16 +33,15 @@ When the user provides a YouTube URL, follow these steps:
 
 1. **Get the video title** - Run this shell command:
    ```
-   yt-dlp --print title "$from_user"
+   yt-dlp --print title "<URL>"
    ```
 
 2. Use the "update-title" skill to update this conversation title.
 
 3. **Download the transcript** - Run this shell command:
    ```
-   yt-dlp --write-auto-subs --sub-langs <lang> --skip-download --convert-subs srt --output "_temp_transcript" "$from_user"
+   yt-dlp --write-auto-subs --sub-langs <lang> --skip-download --convert-subs srt --output "_temp_transcript" "<URL>"
    ```
-   `<lang>` (en, ja, vi, etc) - The same as the title language.
 
 4. **Find the SRT file** - It will be created in the vault root with a name like `_temp_transcript.<lang>.srt`. Read its content.
 
@@ -53,6 +52,7 @@ When the user provides a YouTube URL, follow these steps:
    - Format the explanation in clear, readable markdown.
    - The same language as the transcript.
 
-NOTE:
+Notes:
 - Use the `shell` tool to read and delete the SRT file since vault tools currently don't work for that file.
-- If `yt-dlp` isn't installed yet, ask the user to install it first by running this command `/install-yt-dlp` in the input. Do NOT install yourself.
+- If `yt-dlp` isn't installed yet, ask the user to install it by running this user-defined command `/install-yt-dlp` in the input. Note: It isn't a shell command, so `shell` tool doesn't work. Ask the user to run it.
+- `<lang>` (en, ja, vi, etc) - Follow the order: From user query (Highest priority); If the user provides the URL only, use the video's language.

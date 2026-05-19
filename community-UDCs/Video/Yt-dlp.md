@@ -1,7 +1,7 @@
 ---
 status: ✅ Valid
 enabled: true
-version: 1
+version: 2
 ---
 
 #### Installs or upgrades [yt-dlp](https://github.com/yt-dlp/yt-dlp).
@@ -14,10 +14,9 @@ system_prompt:
   - "[[#Instruction]]"
 steps:
   - query: "Help me install yt-dlp following [[Installation instruction]]."
+tools: [content_reading, shell]
 ```
 
 ## Instruction
 
-Activate these tools: content_reading and shell
-
-Read "$steward/Commands/Yt-dlp/Installation instruction.md" for the installation instructions
+Read "$steward/Commands/Video/Installation instruction.md" for the installation instructions

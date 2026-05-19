@@ -616,7 +616,7 @@ export class PersistentEmbeddingSimilarityClassifier {
             value,
           }),
           new Promise<null>(resolve => {
-            setTimeout(() => {
+            window.setTimeout(() => {
               resolve(null);
             }, 2000);
           }),
@@ -624,7 +624,7 @@ export class PersistentEmbeddingSimilarityClassifier {
         Promise.race([
           this.getEmbeddings(),
           new Promise<null>(resolve => {
-            setTimeout(() => {
+            window.setTimeout(() => {
               resolve(null);
             }, 2000);
           }),

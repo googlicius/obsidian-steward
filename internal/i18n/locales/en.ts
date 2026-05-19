@@ -84,7 +84,7 @@ const en = {
       ptyNativeBundleMissing:
         'The node-pty native bundle folder is missing or is not a directory: {{path}}. Run the Steward installer script or set a valid folder in CLI settings.',
       inputLineCaptionShellPrefix: 'Shell',
-      inputLineCaptionShellActive: 'Shell, Ctrl+C to exit',
+      inputLineCaptionShellActive: 'Shell, Ctrl-C to exit',
       nodePtyInstallWindowsHeading: 'Install on Windows',
       nodePtyInstallUnixHeading: 'Install on Mac / Linux',
       seeCliWiki:
@@ -447,8 +447,6 @@ const en = {
       tipAttachContext: 'Type `@` to attach files/folders',
       tipStop: 'Press `ESC` or `Ctrl-C` to stop running operations',
       tipRevert: 'Type `Undo` to revert the last changes',
-      fetchFailed: 'Failed to fetch documentation: {{docName}}',
-      downloading: 'Downloading {{name}}...',
     },
     read: {
       noContentFound: 'No such content found in the editor.',
