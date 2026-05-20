@@ -215,7 +215,7 @@ export class StewardChatView extends MarkdownView {
   }
 
   private handleNewChat(): void {
-    const initialContent = `\n/ `;
+    const initialContent = '\n/ ';
 
     if (!this.file) {
       logger.warn('Conversation file not found');

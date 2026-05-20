@@ -29,14 +29,14 @@ html[data-stw-language='vi'] {
     position: absolute;
     font-style: italic;
     font-size: 0.85em;
-    color: #888;
+    color: #888888;
     margin-left: var(--size-2-2);
     margin-top: var(--size-2-1);
     opacity: 0.7;
     font-weight: normal;
     background: none;
     cursor: text;
-    -webkit-text-fill-color: #888;
+    -webkit-text-fill-color: #888888;
   }
 
   &.stw-command-prefix-general[has-placeholder='1']:after {
@@ -60,6 +60,7 @@ html[data-stw-language='vi'] {
     border-top: thin solid var(--background-modifier-border);
     border-top-left-radius: var(--radius-s);
     border-top-right-radius: var(--radius-s);
+    padding-top: 5px !important;
   }
 
   /* Last line in a block: add bottom border */
@@ -67,15 +68,6 @@ html[data-stw-language='vi'] {
     border-bottom: thin solid var(--background-modifier-border);
     border-bottom-left-radius: var(--radius-s);
     border-bottom-right-radius: var(--radius-s);
-  }
-
-  /* First line in a block: not preceded by another block line */
-  &:not(.stw-input-line + .stw-input-line) {
-    padding-top: 5px !important;
-  }
-
-  /* Last line in a block: no next sibling is a block line */
-  &:not(:has(+ .stw-input-line)) {
     padding-bottom: 5px !important;
 
     /* Secondary hint under the input (model, shell mode, etc.) */

@@ -93,6 +93,13 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     category: 'user-interaction',
   },
 
+  [ToolName.NEW_SESSION]: {
+    name: ToolName.NEW_SESSION,
+    description: 'Close the current conversation embed and start a fresh chat session.',
+    guidelines: [],
+    category: 'user-interaction',
+  },
+
   [ToolName.BUILD_SEARCH_INDEX]: {
     name: ToolName.BUILD_SEARCH_INDEX,
     description:

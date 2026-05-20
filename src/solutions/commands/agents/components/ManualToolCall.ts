@@ -158,6 +158,15 @@ export class ManualToolCall {
         };
       }
 
+      case 'new': {
+        return {
+          type: 'tool-call',
+          toolName: ToolName.NEW_SESSION,
+          toolCallId: `${MANUAL_TOOL_CALL_ID_PREFIX}${uniqueID()}`,
+          input: { query },
+        };
+      }
+
       case 'thank_you': {
         return {
           type: 'tool-call',

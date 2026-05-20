@@ -21,7 +21,7 @@ import {
   type UdcTemplateContext,
 } from './versions/types';
 import { loadUDCVersion } from './versions/loader';
-import { Intent } from 'src/solutions/commands/types';
+import { Intent, IntentResultStatus } from 'src/solutions/commands/types';
 import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
 import { migrateRawUdcObject, stringifyUdcYaml } from './migrateUdcLegacyUseTool';
 
@@ -902,14 +902,6 @@ version: ${udc.version}
     const conversationTitle = `${command.normalized.command_name}-${timestamp}`;
     const conversationPath = `${conversationsFolder}/${conversationTitle}.md`;
 
-    if (params.sourceFileBasename) {
-      logger.log(
-        `Executing triggered command: ${command.normalized.command_name} for file: ${params.sourceFileBasename}`
-      );
-    } else {
-      logger.log(`Executing run-link command: ${command.normalized.command_name}`);
-    }
-
     const buildNoticeFragment = (message: string): DocumentFragment => {
       const noticeEl = document.createDocumentFragment();
       const text = noticeEl.createEl('span');
@@ -981,9 +973,18 @@ version: ${udc.version}
 
       const leaf = await this.plugin.getChatLeaf();
       if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
+        const lastResult =
+          this.plugin.commandProcessorService.commandProcessor.getLastResult(conversationTitle);
+        const completionMessageKey =
+          lastResult?.status === IntentResultStatus.NEEDS_CONFIRMATION
+            ? 'trigger.needsConfirmation'
+            : 'trigger.executed';
+
         new Notice(
           buildNoticeFragment(
-            i18next.t('trigger.executed', { commandName: command.normalized.command_name })
+            i18next.t(completionMessageKey, {
+              commandName: command.normalized.command_name,
+            })
           ),
           10000
         );

@@ -50,6 +50,7 @@ const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
   user_confirm: new Set([ToolName.USER_CONFIRM]),
   more: new Set([ToolName.SEARCH_MORE]),
   stop: new Set([ToolName.STOP]),
+  new: new Set([ToolName.NEW_SESSION]),
   thank_you: new Set([ToolName.THANK_YOU]),
   build_search_index: new Set([ToolName.BUILD_SEARCH_INDEX]),
   search: new Set([ToolName.SEARCH]),

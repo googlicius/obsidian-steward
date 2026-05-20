@@ -14,6 +14,7 @@ export * from './UserConfirm';
 export * from './Help';
 export * from './Stop';
 export * from './ThankYou';
+export * from './NewSession';
 export * from './BuildSearchIndex';
 export * from './Search';
 export * from './SearchMore';

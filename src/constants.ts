@@ -93,7 +93,7 @@ export const SELECTED_MODEL_PREFIX_PATTERN = '\\b(m|model):';
 /**
  * All built-in command that are available to the command menu
  */
-export const COMMAND_PREFIXES = ['/ ', '/search', '/image', '/speech', '/>'];
+export const COMMAND_PREFIXES = ['/ ', '/search', '/image', '/speech', '/>', '/new'];
 
 /**
  * Prefix for client-generated tool call IDs (manual client tool calls, UDC manual steps).
@@ -110,6 +110,7 @@ export const COMMAND_CONTENT_REQUIRED: Record<string, boolean> = {
   image: true,
   speech: true,
   '>': false,
+  new: false,
 };
 
 /**

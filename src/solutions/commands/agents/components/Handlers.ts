@@ -57,6 +57,7 @@ export class Handlers {
   private _help: handlers.Help;
   private _stop: handlers.Stop;
   private _thankYou: handlers.ThankYou;
+  private _newSession: handlers.NewSession;
   private _buildSearchIndex: handlers.BuildSearchIndex;
   private _search: handlers.Search;
   private _searchMore: handlers.SearchMore;
@@ -167,6 +168,11 @@ export class Handlers {
   public get thankYou(): handlers.ThankYou {
     if (!this._thankYou) this._thankYou = new handlers.ThankYou(this.getAgent());
     return this._thankYou;
+  }
+
+  public get newSession(): handlers.NewSession {
+    if (!this._newSession) this._newSession = new handlers.NewSession(this.getAgent());
+    return this._newSession;
   }
 
   public get buildSearchIndex(): handlers.BuildSearchIndex {
@@ -287,6 +293,7 @@ export class Handlers {
       [ToolName.EDIT]: () => this.editHandler,
       [ToolName.STOP]: () => this.stop,
       [ToolName.THANK_YOU]: () => this.thankYou,
+      [ToolName.NEW_SESSION]: () => this.newSession,
       [ToolName.BUILD_SEARCH_INDEX]: () => this.buildSearchIndex,
       [ToolName.SEARCH]: () => this.search,
       [ToolName.SEARCH_MORE]: () => this.searchMore,

@@ -18,12 +18,12 @@ export function waitForError(
       const error = getError();
       if (error) {
         reject(error);
-        clearInterval(timer);
+        window.clearInterval(timer);
       }
       // If the bucket is empty and no error, clear the timer.
       // The function expects error, so we don't resolve
       if (bucket <= 0) {
-        clearInterval(timer);
+        window.clearInterval(timer);
       }
     }, intervalMs);
   });

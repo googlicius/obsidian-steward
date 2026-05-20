@@ -108,6 +108,8 @@ const ja = {
     trigger: {
       executing: 'トリガーコマンドを実行中: {{commandName}}',
       executed: 'トリガー "{{commandName}}" を実行しました。',
+      needsConfirmation:
+        'コマンド「{{commandName}}」は確認待ちです。会話を開いて続行してください。',
       openConversation: '会話を開く',
       executionFailed: 'コマンド "{{commandName}}" の実行に失敗しました: {{error}}',
       run: {
@@ -122,6 +124,9 @@ const ja = {
       commandError: 'コマンド: {{commandName}}',
       yamlError: '無効なYAML構文',
       successMessage: 'すべてのコマンド定義が有効です！✅',
+    },
+    commands: {
+      newPlaceholder: '新しい会話を開始...',
     },
     // Chat UI elements
     chat: {

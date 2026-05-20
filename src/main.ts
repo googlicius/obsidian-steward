@@ -616,6 +616,13 @@ export default class StewardPlugin extends Plugin {
   }
 
   /**
+   * Process a command block from the given editor view (used after `/new` re-dispatch).
+   */
+  public processCommandFromView(view: EditorView, commandLine: Line): boolean {
+    return this.processCommandBlock(view, commandLine);
+  }
+
+  /**
    * Process a command block (command line + continuation lines)
    * @param view - The editor view
    * @param commandLine - The command line
@@ -654,15 +661,21 @@ export default class StewardPlugin extends Plugin {
         // Look for a conversation link in the previous lines
         const conversationTitle = this.findConversationTitleAbove(view);
 
+        if (intentType === 'new' && !conversationTitle) {
+          return true;
+        }
+
         const folderPath = `${this.settings.stewardFolder}/Conversations`;
         const notePath = `${folderPath}/${conversationTitle}.md`;
 
         if (this.app.vault.getFileByPath(notePath) && conversationTitle) {
-          await this.conversationRenderer.addUserMessage({
-            path: conversationTitle,
-            newContent: fullCommandText,
-            includeHistory: false,
-          });
+          if (intentType !== 'new') {
+            await this.conversationRenderer.addUserMessage({
+              path: conversationTitle,
+              newContent: fullCommandText,
+              includeHistory: false,
+            });
+          }
 
           // Clear all lines in the command block
           const lastLine = commandBlock[commandBlock.length - 1];

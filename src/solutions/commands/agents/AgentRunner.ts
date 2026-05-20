@@ -18,7 +18,7 @@ interface PendingIntent {
 export type { ProcessIntentsOptions } from '../IntentProcessor';
 
 /** Config IDs that handle intents (excludes title, compaction_summary). */
-const INTENT_ROUTING_IDS = new Set(['super', 'subagent', 'search', 'speech', 'image', '>']);
+const INTENT_ROUTING_IDS = new Set(['super', 'subagent', 'search', 'speech', 'image', '>', 'new']);
 
 export class AgentRunner {
   private static lastResults: Map<string, AgentResult> = new Map();

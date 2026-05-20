@@ -26,6 +26,7 @@ export enum ToolName {
   HELP = 'help',
   STOP = 'stop',
   THANK_YOU = 'thank_you',
+  NEW_SESSION = 'new_session',
   BUILD_SEARCH_INDEX = 'build_search_index',
   SEARCH = 'search',
   SEARCH_MORE = 'search_more',

@@ -111,6 +111,8 @@ const en = {
     trigger: {
       executing: 'Command "{{commandName}}" is executing.',
       executed: 'Command "{{commandName}}" is executed successfully.',
+      needsConfirmation:
+        'Command "{{commandName}}" is waiting for your confirmation. Open the conversation to continue.',
       openConversation: 'Open conversation',
       executionFailed: 'Failed to execute command "{{commandName}}": {{error}}',
       run: {
@@ -126,6 +128,9 @@ const en = {
       commandError: 'Command: {{commandName}}',
       yamlError: 'Invalid YAML syntax',
       successMessage: 'All command definitions are valid! ✅',
+    },
+    commands: {
+      newPlaceholder: 'Start a new conversation...',
     },
     // Chat UI elements
     chat: {

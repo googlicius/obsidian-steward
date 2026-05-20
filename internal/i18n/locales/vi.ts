@@ -104,6 +104,8 @@ const vi = {
     trigger: {
       executing: 'Đang thực thi trigger cho lệnh: {{commandName}}',
       executed: 'Trigger "{{commandName}}" đã thực thi thành công.',
+      needsConfirmation:
+        'Lệnh "{{commandName}}" đang chờ bạn xác nhận. Mở cuộc trò chuyện để tiếp tục.',
       openConversation: 'Mở cuộc trò chuyện',
       executionFailed: 'Thực thi lệnh "{{commandName}}" thất bại: {{error}}',
       run: {
@@ -120,6 +122,9 @@ const vi = {
       successMessage: 'Tất cả các định nghĩa lệnh đều hợp lệ! ✅',
     },
     // Chat UI elements
+    commands: {
+      newPlaceholder: 'Bắt đầu cuộc trò chuyện mới...',
+    },
     chat: {
       newChat: 'Cuộc trò chuyện mới',
       moveChatToMain: 'Chuyển trò chuyện sang trình soạn thảo chính',
