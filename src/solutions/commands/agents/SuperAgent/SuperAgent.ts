@@ -30,7 +30,7 @@ const SUPER_AGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUPER_AGENT_TOOL_NAM
 /**
  * Map of classifier task label → tool names (used with `TASK_DEFAULT_ACTIVATE_TOOLS`).
  * Tool availability for a turn also comes from `ToolIntentResolution` (declared/allowed/active,
- * UDC `allowed_tools`, frontmatter `tools`, conclude / compaction), not a separate dependency graph.
+ * UDC `allowed_tools`, frontmatter `tools`, compaction), not a separate dependency graph.
  */
 const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
   vault: new Set([
@@ -91,16 +91,6 @@ const TASK_TO_INDICATOR_MAP: Record<string, string | undefined> = {
  */
 const SINGLE_TURN_TASKS = new Set(['search']);
 
-const toolsThatEnableConclude = new Set([
-  ToolName.EDIT,
-  ToolName.MOVE,
-  ToolName.COPY,
-  ToolName.DELETE,
-  ToolName.RENAME,
-  ToolName.CREATE,
-  ToolName.UPDATE_FRONTMATTER,
-]);
-
 type ToolCalls = Array<TypedToolCallPart & { dynamic?: boolean }>;
 
 export interface SuperAgent
@@ -124,7 +114,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
       return 'You are a helpful assistant who helps users with their Obsidian vault.';
     }
     const taskSection = this.buildTaskInstructions(context.availableTools);
-    const otherToolsExclude = new Set([ToolName.SEARCH_MORE, ToolName.CONCLUDE]);
+    const otherToolsExclude = new Set([ToolName.SEARCH_MORE]);
     const inactiveToolCount = context.registry.listInactiveToolNames(otherToolsExclude).length;
 
     return `You are a helpful assistant who helps users with their Obsidian vault.
@@ -305,7 +295,6 @@ NOTE:
         ...params,
         activeTools,
         tools,
-        toolsThatEnableConclude,
       });
       toolCalls = result.toolCalls;
       conversationHistory = result.conversationHistory;

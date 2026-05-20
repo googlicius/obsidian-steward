@@ -7,7 +7,6 @@ import { ToolCallPart } from '../../tools/types';
 import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
-import { CommandSyntaxParser } from '../../command-syntax-parser';
 import type { IVersionedUserDefinedCommand } from 'src/services/UserDefinedCommandService/versions/types';
 import type { UserDefinedCommandService } from 'src/services/UserDefinedCommandService/UserDefinedCommandService';
 import { TodoList, type TodoWriteCreateArgsWithMetadata } from './TodoList';
@@ -98,8 +97,6 @@ export class RunCommand {
         error: new Error(`User-defined command '${commandName}' not found or empty`),
       };
     }
-
-    RunCommand.ensureConcludeOnLastStep(expandedIntents);
 
     const command = udcService.userDefinedCommands.get(commandName);
     const udcTools = command?.getVersion() === 2 ? command.normalized.tools : undefined;
@@ -199,23 +196,5 @@ export class RunCommand {
 
     const rootLines = root.map(line => udc.replacePlaceholders(line));
     return udc.processSystemPromptsWikilinks(rootLines);
-  }
-
-  private static ensureConcludeOnLastStep(intents: Intent[]): void {
-    if (intents.length === 0) {
-      return;
-    }
-
-    const lastIntent = intents[intents.length - 1];
-
-    if (!CommandSyntaxParser.isCommandSyntax(lastIntent.query)) {
-      return;
-    }
-
-    if (lastIntent.query.includes('c:conclude')) {
-      return;
-    }
-
-    lastIntent.query = `${lastIntent.query.trimEnd()}; c:conclude`;
   }
 }

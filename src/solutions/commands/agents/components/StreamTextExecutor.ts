@@ -37,7 +37,6 @@ export class StreamTextExecutor {
     params: AgentHandlerParams & {
       activeTools: ToolName[];
       tools: NonNullable<AiStreamTextParams['tools']> & { [s: string]: unknown };
-      toolsThatEnableConclude: Set<ToolName>;
     }
   ): Promise<{
     toolCalls: TToolCalls;
@@ -66,17 +65,11 @@ export class StreamTextExecutor {
     const expandedDeclared =
       declaredNormalized === null ? [] : this.expandSuperAgentDeclaredTools(declaredNormalized);
 
-    const hasConcludeEligibleDeclared =
-      declaredNormalized !== null &&
-      expandedDeclared.some(t => params.toolsThatEnableConclude.has(t));
-
     const effectiveAllowedNames = this.buildSuperAgentEffectiveAllowedNames({
       declaredNormalized,
       expandedDeclared,
       conversationActiveTools: params.activeTools,
       allToolKeys: allSuperAgentKeys,
-      toolsThatEnableConclude: params.toolsThatEnableConclude,
-      hasConcludeEligibleDeclaredTool: hasConcludeEligibleDeclared,
       hasCompactionContext: historyResult.hasCompactionContext,
     });
     const effectiveAllowed = new Set(effectiveAllowedNames);
@@ -92,7 +85,6 @@ export class StreamTextExecutor {
       expandedDeclared,
       effectiveAllowed,
       conversationActiveTools: params.activeTools,
-      toolsThatEnableConclude: params.toolsThatEnableConclude,
       hasCompactionContext: historyResult.hasCompactionContext,
     });
     const allActiveToolNames = [...activeToolNames, ...Object.keys(mcpTools.active)];

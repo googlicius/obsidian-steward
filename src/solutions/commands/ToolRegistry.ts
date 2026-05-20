@@ -1,6 +1,6 @@
 import { ToolName } from './toolNames';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
-import { ArtifactType, revertAbleArtifactTypes } from '../artifact';
+import { revertAbleArtifactTypes } from '../artifact';
 import { EditMode } from './tools/editContent';
 
 export interface ToolDefinition {
@@ -39,7 +39,6 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   - Specify the direction to read (readType) carefully from the user's query, Do NOT set "entire" unless the user explicitly requests to read the entire content.`,
       `When reading multiple files, you MUST make multiple parallel tool calls in the same request (one ${ToolName.CONTENT_READING} call per file). Do NOT read files sequentially one by one. EXCEPT when the user explicitly requests it.`,
       `To read or inspect hidden (dot-prefixed) files or paths under a hidden folder, use the ${ToolName.SHELL} tool (e.g. cat, type, or Get-Content) from the vault root; the read tool cannot use the editor for those paths.`,
-      `On success, creates artifact: ${ArtifactType.READ_CONTENT}.`,
     ],
     showDescriptionWhenInactive: true,
   },
@@ -123,7 +122,6 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   - Folders and filenames, use regex to represent user-specified: Exact match: ^<query>$, start with: ^<query>, or contain: <query>.`,
       `The search query can include keywords, file names, folder paths, tags, and other properties.`,
       `NOTE: ${ToolName.SEARCH} tool cannot access the Steward folder. Use ${ToolName.LIST} instead.`,
-      `On success, creates artifact: ${ArtifactType.SEARCH_RESULTS}.`,
     ],
     category: 'vault-access',
     showDescriptionWhenInactive: true,
@@ -177,7 +175,6 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
 NOTE:
   - Use table modes to edit tables, especially large tables (More than 20 rows).
   - Use one or multiple operations. DO NOT use multiple tool calls or multiple requests.`,
-      `On success, creates artifact: ${ArtifactType.EDIT_RESULTS}.`,
     ],
     category: 'content-edit',
   },
@@ -191,7 +188,6 @@ NOTE:
       'Use newFiles with filePath (not fileName) for file creation.',
       'Ensure each filePath includes the appropriate extension (e.g. .md, .canvas, .base).',
       'Provide the exact content that should be written to a file when available.',
-      `On success, creates artifact: ${ArtifactType.CREATED_PATHS}.`,
     ],
     category: 'content-create',
   },
@@ -201,7 +197,6 @@ NOTE:
     description: 'Delete files from the vault using the configured trash behavior.',
     guidelines: [
       `- List every file using the ${ToolName.LIST} tool (NOT ${ToolName.GREP}) you plan to delete and ensure the paths are accurate.`,
-      `On success, creates artifact: ${ArtifactType.DELETED_FILES}.`,
     ],
     category: 'vault-access',
   },
@@ -221,7 +216,6 @@ NOTE:
     description: 'Rename files to a new path or filename.',
     guidelines: [
       `Always provide both the current path and the new path for each file.`,
-      `On success, creates artifact: ${ArtifactType.RENAME_RESULTS}.`,
     ],
     category: 'vault-access',
   },
@@ -232,7 +226,6 @@ NOTE:
     guidelines: [
       'Always provide the destination folder path for the move operation.',
       'Specify the files or artifactId for the move operation.',
-      `On success, creates artifact: ${ArtifactType.MOVE_RESULTS}.`,
     ],
     category: 'vault-access',
   },
@@ -241,7 +234,7 @@ NOTE:
     name: ToolName.LIST,
     description:
       'List direct files and subfolders in a folder (non-recursive) and optionally filter names with filePattern.',
-    guidelines: [`On success, creates artifact: ${ArtifactType.LIST_RESULTS}.`],
+    guidelines: [],
     category: 'vault-access',
     showDescriptionWhenInactive: true,
   },
@@ -251,7 +244,6 @@ NOTE:
     description: 'Update frontmatter properties in notes (add, update, or delete properties).',
     guidelines: [
       `Use ${ToolName.UPDATE_FRONTMATTER} to modify frontmatter properties in notes.`,
-      `On success, creates artifact: ${ArtifactType.UPDATE_FRONTMATTER_RESULTS}.`,
     ],
     category: 'vault-access',
   },
@@ -303,7 +295,6 @@ NOTE:
     description: 'Generate text content for speech/audio generation.',
     guidelines: [
       `Use ${ToolName.SPEECH} when the user wants to generate audio or speech from text.`,
-      `On success, creates artifact: ${ArtifactType.MEDIA_RESULTS}.`,
     ],
     category: 'content-generation',
   },
@@ -314,7 +305,6 @@ NOTE:
     guidelines: [
       `Use ${ToolName.IMAGE} when the user wants to generate image from text.`,
       `NOTE: The ${ToolName.IMAGE} tool is NOT for reading images, the tool cannot read. Use ${ToolName.CONTENT_READING} for reading images.`,
-      `On success, creates artifact: ${ArtifactType.MEDIA_RESULTS}.`,
     ],
     category: 'content-generation',
     showDescriptionWhenInactive: true,
@@ -358,17 +348,6 @@ NOTE:
       `When this tool is available alongside a small tool set, the user may still be in a limited mode: call ${ToolName.SWITCH_AGENT_CAPACITY} when they need the full agent so they can confirm. After confirmation, continue with vault and content tools as needed. This tool is not offered when the conversation already has the full Super Agent tool surface.`,
     ],
     category: 'tool-management',
-  },
-
-  [ToolName.CONCLUDE]: {
-    name: ToolName.CONCLUDE,
-    description: 'Signal task completion. The client stops sending another request.',
-    guidelines: [
-      `When you determine this is the last step of your work, call ${ToolName.CONCLUDE} in parallel (in the same request) with the tool that performs the final task.`,
-      `Do NOT call ${ToolName.CONCLUDE} alone — it must always be paired with another tool call in the same request.`,
-      `When using ${ToolName.CONCLUDE}, include a brief summary in your text response describing what you have accomplished.`,
-    ],
-    category: 'task-management',
   },
 
   [ToolName.RECALL_COMPACTED_CONTEXT]: {

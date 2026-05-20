@@ -16,7 +16,7 @@ const vi = {
       noUserDefinedCommands:
         'Bạn chưa có lệnh tùy chỉnh nào. Xem hướng dẫn Lệnh tùy chỉnh bên dưới để bắt đầu',
       commandHelpText: 'Nhập lệnh theo sau bởi truy vấn của bạn để sử dụng.',
-      searchDesc: 'Tìm kiếm ghi chú trong kho lưu trữ của bạn',
+      searchDesc: 'Tìm kiếm ghi chú trong vault của bạn',
       imageDesc: 'Tạo hình ảnh',
       speechDesc: 'Tạo giọng nói từ văn bản',
       terminalDesc: 'Bắt đầu chế độ shell.',
@@ -53,7 +53,7 @@ const vi = {
       browseCommands: 'Xem lệnh được đóng góp từ cộng đồng',
       commandsTitle: 'Lệnh cộng đồng',
       commandsIntro:
-        'Các lệnh này không đi kèm với plugin, mà được liệt kê trong Steward Github repo và bạn có thể cài đặt hoặc nâng cấp. **Cài đặt** / **Cập nhật** sẽ chạy `update-command`, tải file markdown vào thư mục phù hợp trong vault — minh bạch và cần sự đồng ý của bạn.',
+        '💡 Các lệnh này không đi kèm với plugin, mà được liệt kê trong Steward Github repo và bạn có thể cài đặt hoặc nâng cấp. **Cài đặt** / **Cập nhật** sẽ chạy `update-command`, tải file markdown vào thư mục phù hợp trong vault — minh bạch và cần sự đồng ý của bạn.',
       commandsIntroCatalog: 'Danh sách này có thể được cập nhật khi bạn cài phiên bản Steward mới.',
       notInstalled: 'Chưa cài',
       installed: 'Đã cài',
@@ -414,10 +414,6 @@ const vi = {
       response3: 'Mình rất vui vì đã có thể hỗ trợ!',
       response4: 'Bất cứ lúc nào! Nếu cần gì thêm thì cứ nói nhé.',
       response5: 'Rất hân hạnh được phục vụ bạn!',
-    },
-    conclude: {
-      validationFailed:
-        'Xác thực kết luận thất bại: không tìm thấy artifact mong đợi. Không sử dụng công cụ conclude nữa — hãy phản hồi bình thường.',
     },
     // Conversation states
     conversation: {

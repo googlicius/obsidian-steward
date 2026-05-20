@@ -51,7 +51,7 @@ export const COMMUNITY_UDC_MANIFEST: CommunityUdcEntry[] = [
     "commandName": "explain-video",
     "displayName": "Explain video",
     "description": "Explain a Youtube video by the given URL",
-    "version": 2,
+    "version": 4,
     "files": [
       "community-UDCs/Video/Explain video.md",
       "community-UDCs/Video/Install yt-dlp.md"

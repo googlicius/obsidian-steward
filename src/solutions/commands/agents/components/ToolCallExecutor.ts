@@ -146,20 +146,6 @@ export class ToolCallExecutor {
           break;
         }
 
-        case ToolName.CONCLUDE: {
-          const prevToolCall = params.toolCalls.length > 1 && params.toolCalls[index - 1];
-          if (prevToolCall && prevToolCall.dynamic) {
-            continue;
-          }
-          if (params.toolCalls.length === 1) {
-            logger.warn(`Conclude tool was called alone.`);
-          }
-          toolCallResult = await agent.conclude.handle(params.agentParams, {
-            toolCall,
-          });
-          break;
-        }
-
         default: {
           if (agent.plugin.mcpService.isMCPToolName(toolCall.toolName as string)) {
             toolCallResult = await agent.mcpToolHandler.handle(params.agentParams, {
@@ -200,7 +186,7 @@ export class ToolCallExecutor {
         }
       }
 
-      if ([ToolName.CONCLUDE, ToolName.TODO_WRITE].includes(toolCall.toolName)) {
+      if (toolCall.toolName === ToolName.TODO_WRITE) {
         await agent.plugin.conversationRenderer.removeIndicator(params.title);
       }
 

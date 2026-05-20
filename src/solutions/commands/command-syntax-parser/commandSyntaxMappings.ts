@@ -8,7 +8,6 @@ import { grepSchema } from '../agents/handlers/VaultGrep';
 import { existsSchema } from '../agents/handlers/VaultExists';
 import { speechSchema } from '../agents/handlers/Speech';
 import { imageSchema } from '../agents/handlers/Image';
-import { concludeSchema } from '../agents/handlers/Conclude';
 import { artifactModeSchema, filesModeSchema, moveToolSchema } from '../agents/handlers/VaultMove';
 import { renameDelegateSchema } from '../agents/handlers/VaultRename';
 import {
@@ -199,18 +198,6 @@ export const COMMAND_SYNTAX_MAPPINGS: Record<string, ToolSyntaxMapping> = {
     defaults: {
       explanation: 'Command syntax image',
       confidence: 1,
-    },
-  },
-
-  conclude: {
-    toolName: ToolName.CONCLUDE,
-    argMap: createArgMap(concludeSchema, {
-      parallel: 'parallelToolName',
-      expectedArtifactType: 'validation.expectedArtifactType',
-    }),
-    defaults: {
-      parallelToolName: '',
-      validation: {},
     },
   },
 };

@@ -22,10 +22,10 @@ describe('CommandSyntaxParser', () => {
 
   describe('parse', () => {
     it('should parse a single command without args', () => {
-      const result = CommandSyntaxParser.parse('c:conclude');
+      const result = CommandSyntaxParser.parse('c:list');
       expect(result.errors).toHaveLength(0);
       expect(result.commands).toHaveLength(1);
-      expect(result.commands[0].toolAlias).toBe('conclude');
+      expect(result.commands[0].toolAlias).toBe('list');
       expect(result.commands[0].args).toEqual({});
     });
 
@@ -260,41 +260,6 @@ describe('CommandSyntaxParser', () => {
       });
     });
 
-    it('should produce conclude tool call with defaults', () => {
-      const { commands } = CommandSyntaxParser.parse('c:conclude');
-      const toolCalls = CommandSyntaxParser.toToolCalls(commands);
-
-      expect(toolCalls).toHaveLength(1);
-      expect(toolCalls[0].toolName).toBe(ToolName.CONCLUDE);
-      expect(toolCalls[0].input).toMatchObject({
-        parallelToolName: '',
-        validation: {},
-      });
-    });
-
-    it('should produce conclude tool call with custom text', () => {
-      const { commands } = CommandSyntaxParser.parse('c:conclude --text="All tasks completed"');
-      const toolCalls = CommandSyntaxParser.toToolCalls(commands);
-
-      expect(toolCalls[0].toolName).toBe(ToolName.CONCLUDE);
-      expect(toolCalls[0].input).toMatchObject({
-        parallelToolName: '',
-        validation: {},
-      });
-    });
-
-    it('should produce conclude tool call with artifact validation', () => {
-      const { commands } = CommandSyntaxParser.parse(
-        'c:conclude --parallel=edit --expectedArtifactType=edit_results'
-      );
-      const toolCalls = CommandSyntaxParser.toToolCalls(commands);
-
-      expect(toolCalls[0].input).toMatchObject({
-        parallelToolName: 'edit',
-        validation: { expectedArtifactType: 'edit_results' },
-      });
-    });
-
     it('should handle search with property shorthand', () => {
       const { commands } = CommandSyntaxParser.parse(
         'c:search --properties=tag:todo,status:active'
@@ -376,14 +341,14 @@ describe('CommandSyntaxParser', () => {
       expect(result![0].toolCallId).toMatch(/^cmd-syntax-/);
     });
 
-    it('should support chain ending with c:conclude to stop the agent loop', () => {
+    it('should support chained command syntax conversion', () => {
       const result = CommandSyntaxParser.parseAndConvert(
-        'c:read --blocks=1 --element=list; c:conclude --text="Read complete"'
+        'c:read --blocks=1 --element=list; c:edit --mode=replace_by_lines'
       );
       expect(result).not.toBeNull();
       expect(result).toHaveLength(2);
       expect(result![0].toolName).toBe(ToolName.CONTENT_READING);
-      expect(result![1].toolName).toBe(ToolName.CONCLUDE);
+      expect(result![1].toolName).toBe(ToolName.EDIT);
     });
   });
 });

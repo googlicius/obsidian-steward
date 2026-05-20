@@ -35,7 +35,6 @@ export enum ToolName {
   TODO_WRITE = 'todo_write',
   SPAWN_SUBAGENT = 'spawn_subagent',
   SWITCH_AGENT_CAPACITY = 'switch_agent_capacity',
-  CONCLUDE = 'conclude',
   RECALL_COMPACTED_CONTEXT = 'recall_compacted_context',
   /** Local shell transcript; model may call it — execution always requires user confirmation in the client. */
   SHELL = 'shell',

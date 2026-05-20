@@ -13,7 +13,6 @@ jest.mock('../agentTools', () => {
     'ask_user',
     'switch_agent_capacity',
     'activate_tools',
-    'conclude',
     'recall_compacted_context',
   ] as const;
   return {
@@ -42,7 +41,6 @@ const ALL_SUPER_KEYS: ToolName[] = [
   ToolName.ASK_USER,
   ToolName.SWITCH_AGENT_CAPACITY,
   ToolName.ACTIVATE,
-  ToolName.CONCLUDE,
   ToolName.RECALL_COMPACTED_CONTEXT,
 ];
 
@@ -128,8 +126,6 @@ describe('ToolIntentResolution', () => {
         expandedDeclared: [],
         conversationActiveTools: [],
         allToolKeys: ALL_SUPER_KEYS,
-        toolsThatEnableConclude: new Set([ToolName.EDIT]),
-        hasConcludeEligibleDeclaredTool: false,
         hasCompactionContext: false,
       });
       expect(names).not.toContain(ToolName.SWITCH_AGENT_CAPACITY);
@@ -145,8 +141,6 @@ describe('ToolIntentResolution', () => {
         expandedDeclared: expanded,
         conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER],
         allToolKeys: ALL_SUPER_KEYS,
-        toolsThatEnableConclude: new Set(),
-        hasConcludeEligibleDeclaredTool: false,
         hasCompactionContext: false,
       });
       expect(names).toContain(ToolName.CONTENT_READING);
@@ -164,8 +158,6 @@ describe('ToolIntentResolution', () => {
         expandedDeclared: expanded,
         conversationActiveTools: [ToolName.CREATE, ToolName.TODO_WRITE],
         allToolKeys: [ToolName.LIST, ToolName.EDIT, ToolName.SWITCH_AGENT_CAPACITY] as ToolName[],
-        toolsThatEnableConclude: new Set(),
-        hasConcludeEligibleDeclaredTool: false,
         hasCompactionContext: false,
       });
       expect(names).toContain(ToolName.LIST);
@@ -204,8 +196,6 @@ describe('ToolIntentResolution', () => {
           expandedDeclared: expanded,
           conversationActiveTools: [],
           allToolKeys: ALL_SUPER_KEYS,
-          toolsThatEnableConclude: new Set(),
-          hasConcludeEligibleDeclaredTool: false,
           hasCompactionContext: false,
         })
       );
@@ -214,7 +204,6 @@ describe('ToolIntentResolution', () => {
         expandedDeclared: expanded,
         effectiveAllowed: effective,
         conversationActiveTools: [],
-        toolsThatEnableConclude: new Set(),
         hasCompactionContext: false,
       });
       expect([...active].sort()).toEqual([...effective].sort());
@@ -228,7 +217,6 @@ describe('ToolIntentResolution', () => {
         expandedDeclared: expanded,
         effectiveAllowed: effective,
         conversationActiveTools: [],
-        toolsThatEnableConclude: new Set(),
         hasCompactionContext: false,
       });
       expect(active).toEqual([ToolName.SWITCH_AGENT_CAPACITY]);
@@ -243,8 +231,6 @@ describe('ToolIntentResolution', () => {
           expandedDeclared: expanded,
           conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER],
           allToolKeys: ALL_SUPER_KEYS,
-          toolsThatEnableConclude: new Set(),
-          hasConcludeEligibleDeclaredTool: false,
           hasCompactionContext: false,
         })
       );
@@ -253,7 +239,6 @@ describe('ToolIntentResolution', () => {
         expandedDeclared: expanded,
         effectiveAllowed: effective,
         conversationActiveTools: [ToolName.TODO_WRITE, ToolName.CONFIRMATION, ToolName.ASK_USER],
-        toolsThatEnableConclude: new Set(),
         hasCompactionContext: false,
       });
       expect([...active].sort()).toEqual([...effective].sort());

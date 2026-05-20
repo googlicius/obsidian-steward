@@ -31,7 +31,6 @@ const SUBAGENT_TOOL_NAME_LIST = [
   ToolName.SPEECH,
   ToolName.IMAGE,
   ToolName.TODO_WRITE,
-  ToolName.CONCLUDE,
   ToolName.RECALL_COMPACTED_CONTEXT,
   ToolName.SHELL,
 ] as const;
@@ -80,7 +79,6 @@ async function buildBaseAgentTools(): Promise<AgentToolsRecord> {
     speechTool,
     imageTool,
     todoWriteTool,
-    concludeTool,
     recallCompactedContextTool,
     activateToolsTool,
     shellTool,
@@ -109,7 +107,6 @@ async function buildBaseAgentTools(): Promise<AgentToolsRecord> {
     handlers.Speech.getSpeechTool(),
     handlers.Image.getImageTool(),
     handlers.TodoList.getTodoWriteTool(),
-    handlers.Conclude.getConcludeTool(),
     handlers.RecallCompactedContext.getRecallCompactedContextTool(),
     getActivateToolsTool(),
     handlers.CliHandler.getShellTool(),
@@ -141,7 +138,6 @@ async function buildBaseAgentTools(): Promise<AgentToolsRecord> {
     [ToolName.SPEECH]: speechTool,
     [ToolName.IMAGE]: imageTool,
     [ToolName.TODO_WRITE]: todoWriteTool,
-    [ToolName.CONCLUDE]: concludeTool,
     [ToolName.RECALL_COMPACTED_CONTEXT]: recallCompactedContextTool,
     [ToolName.SHELL]: shellTool,
   };

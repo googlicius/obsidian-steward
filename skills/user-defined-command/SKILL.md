@@ -63,7 +63,7 @@ c:<tool> [--arg=value]...
 - `c:` prefix identifies a direct command call
 - `<tool>` is a short alias (see reference below)
 - `--key=value` pairs map to the tool's input schema
-- Multiple commands can be chained with `;` separator: `c:read --blocks=1; c:conclude`
+- Multiple commands can be chained with `;` separator: `c:read --blocks=1; c:edit --mode=replace_by_lines`
 - Quoted values for strings with spaces: `--content="hello world"`
 - Comma-separated values for arrays: `--files=Note1.md,Note2.md`
 
@@ -80,7 +80,6 @@ c:<tool> [--arg=value]...
 | `c:grep`     | Grep            | `--pattern`, `--paths`, `--caseSensitive`, `--isRegex`, `--contextLines`, `--maxResults` |
 | `c:speech`   | Speech          | `--text`                                                                                 |
 | `c:image`    | Image           | `--prompt`                                                                               |
-| `c:conclude` | Conclude (stop) |                                                                                          |
 
 ### `c:read` Flags
 
@@ -197,7 +196,7 @@ steps:
     query: 'c:search --keywords=Untitled --properties=tag:delete'
     no_confirm: true
   - name: vault
-    query: 'c:delete --artifact=latest; c:conclude'
+    query: 'c:delete --artifact=latest'
     no_confirm: true
 ```
 
@@ -236,7 +235,7 @@ steps:
 command_name: quick-search-delete
 query_required: false
 steps:
-  - query: 'c:search --keywords=Untitled; c:delete --artifact=latest; c:conclude'
+  - query: 'c:search --keywords=Untitled; c:delete --artifact=latest'
     no_confirm: true
 ```
 
@@ -281,7 +280,7 @@ triggers:
 
 steps:
   - name: read
-    query: 'c:read --type=entire --files=$file_name; c:conclude'
+    query: 'c:read --type=entire --files=$file_name'
     no_confirm: true
   - name: edit
     query: |

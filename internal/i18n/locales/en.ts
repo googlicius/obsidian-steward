@@ -57,7 +57,7 @@ const en = {
       browseCommands: 'Browse community commands',
       commandsTitle: 'Community commands',
       commandsIntro:
-        'These commands are not bundled with Steward. They are published in the public repository and listed here for you to install or upgrade. **Install** / **Update** runs `update-command`, which downloads files into the appropriate vault folder with transparency and your consent.',
+        '💡 These commands are not bundled with Steward. They are published in the public repository and listed here for you to install or upgrade. **Install** / **Update** runs `update-command`, which downloads files into the appropriate vault folder with transparency and your consent.',
       commandsIntroCatalog:
         'This catalog may be updated when you install a new version of Steward.',
       notInstalled: 'Not installed',
@@ -475,10 +475,6 @@ const en = {
       response3: 'Glad I could assist!',
       response4: 'Anytime! Let me know if you need anything else.',
       response5: 'Happy to be of service!',
-    },
-    conclude: {
-      validationFailed:
-        'Conclusion validation failed: the expected artifact was not found. Do not use the conclude tool again — respond normally instead.',
     },
     // Conversation states
     conversation: {

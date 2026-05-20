@@ -67,7 +67,6 @@ export class Handlers {
   private _dynamic: handlers.Dynamic;
   private _spawnSubagent: handlers.SpawnSubagent;
   private _switchAgentCapacity: handlers.SwitchAgentCapacity;
-  private _conclude: handlers.Conclude;
   private _getMostRecentArtifact: handlers.GetMostRecentArtifact;
   private _getArtifactById: handlers.GetArtifactById;
   private _recallCompactedContext: handlers.RecallCompactedContext;
@@ -224,11 +223,6 @@ export class Handlers {
     return this._switchAgentCapacity;
   }
 
-  public get conclude(): handlers.Conclude {
-    if (!this._conclude) this._conclude = new handlers.Conclude(this.getAgent());
-    return this._conclude;
-  }
-
   public get getMostRecentArtifact(): handlers.GetMostRecentArtifact {
     if (!this._getMostRecentArtifact) {
       this._getMostRecentArtifact = new handlers.GetMostRecentArtifact(this.getAgent());
@@ -302,7 +296,6 @@ export class Handlers {
       [ToolName.TODO_WRITE]: () => this.todoList,
       [ToolName.HELP]: () => this.help,
       [ToolName.SPAWN_SUBAGENT]: () => this.spawnSubagent,
-      [ToolName.CONCLUDE]: () => this.conclude,
       [ToolName.GET_MOST_RECENT_ARTIFACT]: () => this.getMostRecentArtifact,
       [ToolName.GET_ARTIFACT_BY_ID]: () => this.getArtifactById,
       [ToolName.RECALL_COMPACTED_CONTEXT]: () => this.recallCompactedContext,
