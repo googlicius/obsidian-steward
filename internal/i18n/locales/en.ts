@@ -14,8 +14,8 @@ const en = {
       noArtifactsFound: 'No artifacts found.',
       cannotUpdateThisType:
         'Cannot update this type of artifact. Only search results, created notes, read content, and content updates can be updated.',
-      builtInCommands: 'Built-in commands',
-      builtInCommandsDesc: 'These commands are directly accessible via /&lt;command&gt',
+      standardCommands: 'Standard commands',
+      standardCommandsDesc: 'These commands are directly accessible via /&lt;command&gt',
       userDefinedCommands: 'User-Defined commands',
       userDefinedCommandsDesc: 'Create custom commands to automate workflows.',
       noUserDefinedCommands:
@@ -25,6 +25,7 @@ const en = {
       imageDesc: 'Generate images',
       speechDesc: 'Generate speech from text',
       terminalDesc: 'Start a shell mode',
+      newSessionDesc: 'Start a new chat session',
       disabledMark: '(disabled)',
       helpTableCommand: 'Command',
       helpTableDescription: 'Description',

@@ -18,6 +18,7 @@ export interface ToolMetaDefinition {
   description: string;
   guidelines: string[];
   category?: string;
+  /** Whether to show the description when inactive, default to false */
   showDescriptionWhenInactive?: boolean;
 }
 
@@ -383,8 +384,7 @@ NOTE:
 
   [ToolName.SHELL]: {
     name: ToolName.SHELL,
-    description:
-      'Run local a shell command or open an interactive terminal in the current conversation. Use only when the user EXPLICITLY wants to run a command (Linux, Windows, etc.). For example: cd, cat, pwd, ls, etc,. Or TUI apps: vim, htop, cli-agents (gemini, claude, etc.)',
+    description: `Run a host/OS shell command or open an interactive terminal in the current conversation. Use only when the user EXPLICITLY wants a command (Linux, Windows, etc.). For example: cd, cat, pwd, ls, etc. Or TUI apps: vim, htop, etc. If you are unsure whether the action is a shell command or a user-defined command, activate ${ToolName.RUN_COMMAND} to check the USER-DEFINED COMMANDS section below.`,
     guidelines: [
       `The user is always being asked for confirmation before running the command.`,
       `Put the exact shell line in argsLine when the user explicitly wants it executed on the host.`,
@@ -396,7 +396,7 @@ NOTE:
   [ToolName.RUN_COMMAND]: {
     name: ToolName.RUN_COMMAND,
     description:
-      'Run an user-defined command by its command name (see USER-DEFINED COMMANDS in the system prompt). Use when the workflow needs to execute a command',
+      'Run an user-defined command by its command name (see USER-DEFINED COMMANDS section). Use when the workflow needs to execute a command',
     guidelines: [
       `No need  to read the command definition note, the command body (instructions, tools, agents, etc.) is loaded automatically when calling this tool.`,
     ],
@@ -502,19 +502,33 @@ export class ToolRegistry<T> {
     return sections.join('\n\n');
   }
 
-  public generateOtherToolsSection(emptyLabel = '', exclude?: Set<string>): string {
-    const lines: string[] = [];
+  /**
+   * Tool names registered but not active in this registry (optional exclude list).
+   */
+  public listInactiveToolNames(exclude?: Set<string>): string[] {
+    const names: string[] = [];
     for (const [, def] of this.tools) {
       if (this.isActive(def.name)) continue;
       if (exclude?.has(def.name)) continue;
+      names.push(def.name);
+    }
+    return names;
+  }
+
+  public generateOtherToolsSection(emptyLabel = '', exclude?: Set<string>): string {
+    const inactiveNames = this.listInactiveToolNames(exclude);
+    if (inactiveNames.length === 0) {
+      return emptyLabel;
+    }
+
+    const lines: string[] = [];
+    for (const name of inactiveNames) {
+      const def = this.tools.get(name);
+      if (!def) continue;
       const line = def.showDescriptionWhenInactive
         ? `- ${def.name} - ${def.description}`
         : `- ${def.name}`;
       lines.push(line);
-    }
-
-    if (lines.length === 0) {
-      return emptyLabel;
     }
 
     return lines.join('\n');
@@ -534,7 +548,7 @@ export class ToolRegistry<T> {
         description: meta?.description ?? ToolRegistry.extractFallbackDescription(tool),
         guidelines: meta?.guidelines ?? [],
         category: meta?.category,
-        showDescriptionWhenInactive: meta?.showDescriptionWhenInactive ?? true,
+        showDescriptionWhenInactive: meta?.showDescriptionWhenInactive ?? false,
       });
     }
     return registry;

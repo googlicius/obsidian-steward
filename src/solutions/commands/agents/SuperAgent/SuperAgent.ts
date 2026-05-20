@@ -124,6 +124,8 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
       return 'You are a helpful assistant who helps users with their Obsidian vault.';
     }
     const taskSection = this.buildTaskInstructions(context.availableTools);
+    const otherToolsExclude = new Set([ToolName.SEARCH_MORE, ToolName.CONCLUDE]);
+    const inactiveToolCount = context.registry.listInactiveToolNames(otherToolsExclude).length;
 
     return `You are a helpful assistant who helps users with their Obsidian vault.
 
@@ -132,13 +134,10 @@ ${taskSection}
 YOU HAVE ACCESS TO THE FOLLOWING TOOLS:
 ${context.registry.generateToolsSection()}
 
-OTHER TOOLS (Inactive, need activate before using them):
-${context.registry.generateOtherToolsSection(
-  'No other tools available.',
-  new Set([ToolName.SEARCH_MORE, ToolName.CONCLUDE])
-)}
+OTHER TOOLS (${inactiveToolCount} inactive tools, need activate before using them):
+${context.registry.generateOtherToolsSection('No other tools available.', otherToolsExclude)}
 
-TOOLS GUIDELINES:
+TOOLS GUIDELINES (For active tools):
 ${context.registry.generateGuidelinesSection()}
 ${context.currentNote ? `\nCURRENT NOTE: ${context.currentNote} (Cursor position: ${context.currentPosition})` : ''}${context.skillCatalogPrompt}${context.userDefinedCommandCatalogPrompt}
 

@@ -9,8 +9,8 @@ const vi = {
       lowConfidenceConfirmation: 'Tôi không chắc chắn về yêu cầu này. Bạn có muốn tiếp tục không?',
       artifactNotFound: ' Không tìm thấy artifact với ID "{{artifactId}}".',
       noArtifactsFound: 'Không tìm thấy artifact nào.',
-      builtInCommands: 'Lệnh tích hợp',
-      builtInCommandsDesc: 'Những lệnh này có sẵn thông qua /&lt;command&gt',
+      standardCommands: 'Lệnh chuẩn',
+      standardCommandsDesc: 'Những lệnh này có sẵn thông qua /&lt;command&gt',
       userDefinedCommands: 'Lệnh tùy chỉnh',
       userDefinedCommandsDesc: 'Tạo lệnh tùy chỉnh để tự động hóa quy trình làm việc.',
       noUserDefinedCommands:
@@ -20,6 +20,7 @@ const vi = {
       imageDesc: 'Tạo hình ảnh',
       speechDesc: 'Tạo giọng nói từ văn bản',
       terminalDesc: 'Bắt đầu chế độ shell.',
+      newSessionDesc: 'Bắt đầu phiên chat mới',
       disabledMark: '(đã tắt)',
       helpTableCommand: 'Lệnh',
       helpTableDescription: 'Mô tả',

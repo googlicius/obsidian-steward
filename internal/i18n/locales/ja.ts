@@ -9,8 +9,8 @@ const ja = {
       lowConfidenceConfirmation: 'このリクエストについては、十分に確信できません。続行しますか？',
       artifactNotFound: 'アーティファクト ID "{{artifactId}}" が見つかりませんでした。',
       noArtifactsFound: 'アーティファクトが見つかりませんでした。',
-      builtInCommands: '組み込みコマンド',
-      builtInCommandsDesc: 'これらのコマンドは /&lt;command&gt を通じて直接利用できます',
+      standardCommands: '標準コマンド',
+      standardCommandsDesc: 'これらのコマンドは /&lt;command&gt を通じて直接利用できます',
       userDefinedCommands: 'ユーザー定義コマンド',
       userDefinedCommandsDesc: 'ワークフローを自動化するカスタムコマンドを作成します。',
       noUserDefinedCommands:
@@ -20,6 +20,7 @@ const ja = {
       imageDesc: '画像を生成する',
       speechDesc: 'テキストから音声を生成する',
       terminalDesc: '`/>` でローカルシェルモードを開始。',
+      newSessionDesc: '新しいチャットを開始する',
       disabledMark: '（無効）',
       helpTableCommand: 'コマンド',
       helpTableDescription: '説明',

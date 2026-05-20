@@ -91,11 +91,16 @@ When you need domain-specific knowledge for the task, use ${ToolName.CONTENT_REA
 
   protected generateUserDefinedCommandCatalogPrompt(params: {
     plugin: StewardPlugin;
-    /** When false (e.g. subagent or narrowed tool set), omit the catalog since the model cannot call run_command. */
+    /** When false (e.g. subagent or narrowed tool set), show a placeholder instead of the catalog. */
     runCommandAvailable: boolean;
   }): string {
+    const intro = `\n\nUSER-DEFINED COMMANDS:
+User-defined commands combine skills, agents, automation, and workflows defined in markdown files under the ${params.plugin.settings.stewardFolder}/Commands folder.`;
+
     if (!params.runCommandAvailable) {
-      return '';
+      return `${intro}
+
+The command catalog is not listed here because ${ToolName.RUN_COMMAND} is inactive in this conversation. Activate ${ToolName.RUN_COMMAND} to load available commands in this section.`;
     }
 
     const catalog = params.plugin.userDefinedCommandService.getEnabledCommandCatalog();
@@ -112,8 +117,7 @@ When you need domain-specific knowledge for the task, use ${ToolName.CONTENT_REA
       })
       .join('\n');
 
-    return `\n\nUSER-DEFINED COMMANDS:
-User-defined commands combine skills, agents, automation, and workflows defined in markdown files under the ${params.plugin.settings.stewardFolder}/Commands folder.
+    return `${intro}
 
 Available commands:
 ${entries}

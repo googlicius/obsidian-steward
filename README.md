@@ -109,7 +109,7 @@ On **desktop**, you can start shell sessions from the chat or editor. Use **`/>`
 
 Native binaries need to be installed in order to use interactive mode.
 
-For modes, installers, built-in interactive programs, and settings, see the **[CLI wiki](https://github.com/googlicius/obsidian-steward/wiki/CLI)**.
+For modes, installers, built-in interactive programs, and settings, see the **[Shell command & Terminal wiki](https://github.com/googlicius/obsidian-steward/wiki/Shell-command-and-Terminal)**.
 
 <img src="/README.assets/Steward-Demo-CLI.gif" alt="CLI" width="650px">
 
