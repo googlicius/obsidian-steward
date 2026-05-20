@@ -9,7 +9,7 @@ const vi = {
       lowConfidenceConfirmation: 'Tôi không chắc chắn về yêu cầu này. Bạn có muốn tiếp tục không?',
       artifactNotFound: ' Không tìm thấy artifact với ID "{{artifactId}}".',
       noArtifactsFound: 'Không tìm thấy artifact nào.',
-      standardCommands: 'Lệnh chuẩn',
+      standardCommands: 'Lệnh dựng sẵn',
       standardCommandsDesc: 'Những lệnh này có sẵn thông qua /&lt;command&gt',
       userDefinedCommands: 'Lệnh tùy chỉnh',
       userDefinedCommandsDesc: 'Tạo lệnh tùy chỉnh để tự động hóa quy trình làm việc.',
@@ -36,7 +36,7 @@ const vi = {
       errorProcessingCommand: 'Lỗi khi xử lý lệnh {{commandType}}: {{errorMessage}}',
       switchingModelDueToErrors: 'Chuyển từ {{fromModel}} sang {{toModel}} do gặp lỗi',
       thinkingProcess: 'Quá trình suy nghĩ',
-      commandOutput: 'Đầu ra lệnh',
+      commandOutput: 'Output',
       lines: '{{number}} dòng',
       modelDoesNotSupportImageInputs:
         'Mô hình {{model}} không hỗ trợ đọc hình ảnh. Vui lòng sử dụng mô hình có khả năng xử lý hình ảnh (ví dụ: gpt-4o, gemini-pro, claude-3-sonnet).',
@@ -50,8 +50,11 @@ const vi = {
       view: 'Xem',
     },
     community: {
-      browseCommands: 'Xem lệnh cộng đồng',
+      browseCommands: 'Xem lệnh được đóng góp từ cộng đồng',
       commandsTitle: 'Lệnh cộng đồng',
+      commandsIntro:
+        'Các lệnh này không đi kèm với plugin, mà được liệt kê trong Steward Github repo và bạn có thể cài đặt hoặc nâng cấp. **Cài đặt** / **Cập nhật** sẽ chạy `update-command`, tải file markdown vào thư mục phù hợp trong vault — minh bạch và cần sự đồng ý của bạn.',
+      commandsIntroCatalog: 'Danh sách này có thể được cập nhật khi bạn cài phiên bản Steward mới.',
       notInstalled: 'Chưa cài',
       installed: 'Đã cài',
       updateAvailable: 'Có bản cập nhật',

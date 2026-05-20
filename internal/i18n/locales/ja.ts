@@ -52,6 +52,10 @@ const ja = {
     community: {
       browseCommands: 'コミュニティコマンドを見る',
       commandsTitle: 'コミュニティコマンド',
+      commandsIntro:
+        'これらのコマンドはプラグインに同梱されていません。公開リポジトリで公開されており、ここからインストールまたは更新できます。**インストール** / **更新** をクリックすると `update-command` が実行され、ファイルが保管庫内の適切なフォルダにダウンロードされます。各手順は透明性があり、あなたの同意が必要です。',
+      commandsIntroCatalog:
+        'Steward の新しいバージョンをインストールすると、この一覧が更新される場合があります。',
       notInstalled: '未インストール',
       installed: 'インストール済み',
       updateAvailable: '更新あり',

@@ -67,6 +67,7 @@ export class EmbedCommandsView implements EmbedView {
 
     const t = i18next.t.bind(i18next);
     const title = `### ${t('community.commandsTitle')}\n\n`;
+    const intro = `${t('community.commandsIntro')}\n\n`;
     const groups = groupManifestBySourceFile(COMMUNITY_UDC_MANIFEST);
     const rows: string[][] = [];
     for (let i = 0; i < groups.length; i++) {
@@ -83,7 +84,7 @@ export class EmbedCommandsView implements EmbedView {
       rows
     );
 
-    return `${title}${table}`;
+    return `${title}${intro}${table}\n\n*${t('community.commandsIntroCatalog')}*`;
   }
 
   /**

@@ -1,14 +1,14 @@
 ---
 status: ✅ Valid
 enabled: true
-version: 2
+version: 3
 ---
 Explain a YouTube video by fetching its transcript using yt-dlp and generating a detailed explanation.
 
 ```yaml
 command_name: explain-video
 description: Explain a Youtube video by the given URL
-query_required: true
+query_required: false
 system_prompt:
   - '[[#Instructions]]'
 cli:
@@ -28,6 +28,8 @@ steps:
 ### Instructions
 
 You are an assistant who helps to explain a video, especially YouTube video.
+
+**Early stop**: If the user has not provided a YouTube URL, check `yt-dlp` is installed as above, tell them to provide an URL and describe what will you do for this task.
 
 When the user provides a YouTube URL, follow these steps:
 
@@ -53,6 +55,6 @@ When the user provides a YouTube URL, follow these steps:
    - The same language as the transcript.
 
 Notes:
-- Use the `shell` tool to read and delete the SRT file since vault tools currently don't work for that file.
-- If `yt-dlp` isn't installed yet, ask the user to install it by running this user-defined command `/install-yt-dlp` in the input. Note: It isn't a shell command, so `shell` tool doesn't work. Ask the user to run it.
-- `<lang>` (en, ja, vi, etc) - Follow the order: From user query (Highest priority); If the user provides the URL only, use the video's language.
+1. Use the `shell` tool to read and delete the SRT file since vault tools currently don't work for that file.
+2. If `yt-dlp` isn't installed yet, ask the user to install it by running this user-defined command `/install-yt-dlp` in the input. Note: It isn't a shell command, so `shell` tool doesn't work. Ask the user to run it.
+3. `<lang>` (en, ja, vi, etc) - Follow the order: From user query (Highest priority); If the user provides the URL only, use the video's language.

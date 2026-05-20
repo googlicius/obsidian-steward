@@ -56,6 +56,10 @@ const en = {
     community: {
       browseCommands: 'Browse community commands',
       commandsTitle: 'Community commands',
+      commandsIntro:
+        'These commands are not bundled with Steward. They are published in the public repository and listed here for you to install or upgrade. **Install** / **Update** runs `update-command`, which downloads files into the appropriate vault folder with transparency and your consent.',
+      commandsIntroCatalog:
+        'This catalog may be updated when you install a new version of Steward.',
       notInstalled: 'Not installed',
       installed: 'Installed',
       updateAvailable: 'Update available',
