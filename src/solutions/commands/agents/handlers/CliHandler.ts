@@ -1,5 +1,6 @@
 import { z } from 'zod/v3';
 import { normalizePath, Platform } from 'obsidian';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { logger } from 'src/utils/logger';
 import { getBundledLib } from 'src/utils/bundledLibs';
@@ -14,7 +15,8 @@ import {
   getCliStreamMarkerPlaceholder,
 } from 'src/services/CliSessionService/constants';
 import { isInteractiveCliCommand } from 'src/services/CliSessionService/CliSessionService';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import type { AgentResult } from '../../types';
+import { IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 import { ToolName } from '../../ToolRegistry';
 import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
@@ -456,7 +458,7 @@ export class CliHandler {
    * Runs the shell session logic (see {@link CliHandler.handle} for model-side confirmation).
    */
   private async runShellSession(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     toolCall: ToolCallPart<ShellToolInput>,
     isModelCall = false
   ): Promise<{ messageId?: string }> {
@@ -464,7 +466,7 @@ export class CliHandler {
     const needsInteractiveMode = toolCall.input?.needsInteractiveMode;
 
     const routing = await this.resolveShellSessionConversationTitle({
-      conversationTitle: params.title,
+      conversationTitle: ctx.title,
       argsLine,
       needsInteractiveMode,
     });
@@ -499,7 +501,7 @@ export class CliHandler {
         );
     }
 
-    const trimmedIntentShell = params.intent.cli?.shell?.trim();
+    const trimmedIntentShell = ctx.intent.cli?.shell?.trim();
     const shellExecutable =
       trimmedIntentShell && trimmedIntentShell.length > 0 ? trimmedIntentShell : undefined;
 
@@ -529,18 +531,15 @@ export class CliHandler {
   }
 
   private async completeModelShellAfterApproval(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     toolCall: ToolCallPart<ShellToolInput>,
     options: { continueFromNextTool?: () => Promise<AgentResult> }
   ): Promise<AgentResult> {
-    const runResult = await this.runShellSession(params, toolCall, true);
+    const runResult = await this.runShellSession(ctx, toolCall, true);
 
-    if (params.handlerId && runResult) {
-      await this.agent.serializeInvocation({
+    if (runResult) {
+      await ctx.serializeInvocation({
         command: ToolName.SHELL,
-        title: params.title,
-        handlerId: params.handlerId,
-        step: params.invocationCount,
         toolCall,
         result: {
           type: 'text',
@@ -551,7 +550,7 @@ export class CliHandler {
       });
 
       await this.cliSessionService.endSession({
-        conversationTitle: params.title,
+        conversationTitle: ctx.title,
         killProcess: true,
       });
     }
@@ -569,20 +568,20 @@ export class CliHandler {
    * client manual shell calls (toolCallId starts with MANUAL_TOOL_CALL_ID_PREFIX; e.g. `/>` input) run immediately.
    */
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: {
       toolCall: ToolCallPart<ShellToolInput>;
       continueFromNextTool?: () => Promise<AgentResult>;
     }
   ): Promise<AgentResult> {
     const argsLine = options.toolCall.input?.argsLine ?? '';
-    const { title, lang, handlerId } = params;
+    const { title, lang } = ctx.agentHandlerParams;
     const isManualClientShellCall = options.toolCall.toolCallId.startsWith(
       MANUAL_TOOL_CALL_ID_PREFIX
     );
 
     if (isManualClientShellCall) {
-      await this.runShellSession(params, options.toolCall, false);
+      await this.runShellSession(ctx, options.toolCall, false);
       return {
         status: IntentResultStatus.SUCCESS,
       };
@@ -594,14 +593,14 @@ export class CliHandler {
     const needsInteractiveMode = options.toolCall.input?.needsInteractiveMode;
     const runsInTerminal = this.shouldUseInteractiveMode(argsLine, needsInteractiveMode);
 
-    const allowPatterns = params.intent.cli?.whitelist;
+    const allowPatterns = ctx.intent.cli?.whitelist;
     if (
       allowPatterns &&
       allowPatterns.length > 0 &&
       !runsInTerminal &&
       isShellCommandAllowedWithoutConfirmation(argsLine, allowPatterns)
     ) {
-      return this.completeModelShellAfterApproval(params, options.toolCall, options);
+      return this.completeModelShellAfterApproval(ctx, options.toolCall, options);
     }
 
     let message = i18next.t('cli.confirmExecuteShell', { command: displayCommand });
@@ -610,11 +609,8 @@ export class CliHandler {
     }
     const t = getTranslation(lang);
 
-    await this.agent.renderer.updateConversationNote({
-      path: title,
+    await ctx.updateConversationNote({
       newContent: message,
-      lang,
-      handlerId,
       command: ToolName.SHELL,
       includeHistory: false,
     });
@@ -628,24 +624,19 @@ export class CliHandler {
       },
       toolCall: options.toolCall,
       onConfirmation: async (_confirmationMessage: string) => {
-        return this.completeModelShellAfterApproval(params, options.toolCall, options);
+        return this.completeModelShellAfterApproval(ctx, options.toolCall, options);
       },
       onRejection: async (_rejectionMessage: string) => {
         this.agent.commandProcessor.deleteNextPendingIntent(title);
 
-        if (params.handlerId) {
-          await this.agent.serializeInvocation({
-            command: ToolName.SHELL,
-            title: params.title,
-            handlerId: params.handlerId,
-            step: params.invocationCount,
-            toolCall: options.toolCall,
-            result: {
-              type: 'text',
-              value: i18next.t('confirmation.operationCancelled'),
-            },
-          });
-        }
+        await ctx.serializeInvocation({
+          command: ToolName.SHELL,
+          toolCall: options.toolCall,
+          result: {
+            type: 'text',
+            value: i18next.t('confirmation.operationCancelled'),
+          },
+        });
 
         if (options.continueFromNextTool) {
           return options.continueFromNextTool();

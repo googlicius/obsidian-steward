@@ -4,9 +4,10 @@ import { normalizePath, TFolder } from 'obsidian';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ArtifactType } from 'src/solutions/artifact';
 import { logger } from 'src/utils/logger';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import {
   createArtifactIdSchema,
   createFilesSchemaString,
@@ -151,22 +152,13 @@ export class VaultUpdateFrontmatter {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<UpdateFrontmatterToolArgs> }
   ): Promise<AgentResult> {
     const { toolCall } = options;
-    const t = getTranslation(params.lang);
+    const t = getTranslation(ctx.lang);
 
-    if (!params.handlerId) {
-      throw new Error('VaultUpdateFrontmatter.handle invoked without handlerId');
-    }
-
-    const resolveResult = await this.resolveFiles({
-      title: params.title,
-      toolCall,
-      lang: params.lang,
-      handlerId: params.handlerId,
-    });
+    const resolveResult = await this.resolveFiles(ctx, toolCall);
 
     if (resolveResult.errorMessage) {
       return {
@@ -185,13 +177,13 @@ export class VaultUpdateFrontmatter {
     }
 
     const updateResult = await this.executeFrontmatterUpdates({
-      title: params.title,
+      title: ctx.title,
       files: filesToUpdate,
     });
 
     const formattedMessage = this.formatUpdateResult({
       result: updateResult,
-      lang: params.lang,
+      lang: ctx.lang,
     });
 
     const isConversationTitleOnly =
@@ -202,19 +194,15 @@ export class VaultUpdateFrontmatter {
         ? `*${t('update.conversationTitleUpdated')}*`
         : formattedMessage;
 
-    await this.agent.renderer.updateConversationNote({
-      path: params.title,
+    await ctx.updateConversationNote({
       newContent: noteContent,
       command: 'vault_update_frontmatter',
-      lang: params.lang,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
       includeHistory: false,
     });
 
     // Store frontmatter update results as an artifact
     const artifactId = `frontmatter_update_${Date.now()}`;
-    await this.agent.plugin.artifactManagerV2.withTitle(params.title).storeArtifact({
+    await this.agent.plugin.artifactManagerV2.withTitle(ctx.title).storeArtifact({
       artifact: {
         artifactType: ArtifactType.UPDATE_FRONTMATTER_RESULTS,
         updates: updateResult.updates,
@@ -223,11 +211,8 @@ export class VaultUpdateFrontmatter {
       },
     });
 
-    await this.agent.serializeInvocation({
+    await ctx.serializeInvocation({
       command: 'vault_update_frontmatter',
-      title: params.title,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
       toolCall,
       result: {
         type: 'text',
@@ -240,24 +225,21 @@ export class VaultUpdateFrontmatter {
     };
   }
 
-  private async resolveFiles(params: {
-    title: string;
-    toolCall: ToolCallPart<UpdateFrontmatterToolArgs>;
-    lang?: string | null;
-    handlerId: string;
-    step?: number;
-  }): Promise<{ files: FileWithProperties[]; errorMessage?: string }> {
-    const t = getTranslation(params.lang);
+  private async resolveFiles(
+    ctx: HandlerInvocationContext,
+    toolCall: ToolCallPart<UpdateFrontmatterToolArgs>
+  ): Promise<{ files: FileWithProperties[]; errorMessage?: string }> {
+    const t = getTranslation(ctx.lang);
 
     const noFilesMessage = t('common.noFilesFound');
 
     // Determine which files to update
     let filePathsToUpdate: string[] = [];
 
-    if (params.toolCall.input.artifactId) {
-      const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(params.title);
+    if (toolCall.input.artifactId) {
+      const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(ctx.title);
       const resolvedFiles = await artifactManager.resolveFilesFromArtifact(
-        params.toolCall.input.artifactId
+        toolCall.input.artifactId
       );
 
       if (resolvedFiles.length > 0) {
@@ -267,8 +249,8 @@ export class VaultUpdateFrontmatter {
     }
 
     // Collect files from files array
-    if (params.toolCall.input.files) {
-      for (const filePath of params.toolCall.input.files) {
+    if (toolCall.input.files) {
+      for (const filePath of toolCall.input.files) {
         const trimmedPath = filePath.trim();
         if (trimmedPath) {
           filePathsToUpdate.push(trimmedPath);
@@ -277,11 +259,11 @@ export class VaultUpdateFrontmatter {
     }
 
     // Collect files from folders
-    if (params.toolCall.input.folders) {
-      const recursive = params.toolCall.input.folders.recursive ?? false;
+    if (toolCall.input.folders) {
+      const recursive = toolCall.input.folders.recursive ?? false;
       const resolvedFolders: TFolder[] = [];
 
-      for (const folderPath of params.toolCall.input.folders.paths) {
+      for (const folderPath of toolCall.input.folders.paths) {
         const trimmedPath = folderPath.trim();
         if (!trimmedPath) {
           continue;
@@ -306,10 +288,10 @@ export class VaultUpdateFrontmatter {
     }
 
     // Collect files from filePatterns
-    if (params.toolCall.input.filePatterns) {
+    if (toolCall.input.filePatterns) {
       const patternMatchedPaths = this.agent.obsidianAPITools.resolveFilePatterns(
-        params.toolCall.input.filePatterns.patterns,
-        params.toolCall.input.filePatterns.folder
+        toolCall.input.filePatterns.patterns,
+        toolCall.input.filePatterns.folder
       );
       // Only include markdown files from patterns
       for (const path of patternMatchedPaths) {
@@ -326,26 +308,19 @@ export class VaultUpdateFrontmatter {
     // Combine files with properties
     const filesToUpdate: FileWithProperties[] = filePathsToUpdate.map(path => ({
       path,
-      properties: params.toolCall.input.properties,
+      properties: toolCall.input.properties,
     }));
 
     if (filesToUpdate.length === 0) {
-      const noFilesMessageId = await this.agent.renderer.updateConversationNote({
-        path: params.title,
+      const noFilesMessageId = await ctx.updateConversationNote({
         newContent: noFilesMessage,
         command: 'vault_update_frontmatter',
-        lang: params.lang,
-        handlerId: params.handlerId,
-        step: params.step,
         includeHistory: false,
       });
 
-      await this.agent.serializeInvocation({
+      await ctx.serializeInvocation({
         command: 'vault_update_frontmatter',
-        title: params.title,
-        handlerId: params.handlerId,
-        toolCall: params.toolCall,
-        step: params.step,
+        toolCall,
         result: {
           type: 'error-text',
           value: noFilesMessageId ? `messageRef:${noFilesMessageId}` : noFilesMessage,

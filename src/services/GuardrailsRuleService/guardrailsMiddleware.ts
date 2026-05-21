@@ -63,7 +63,7 @@ export function createGuardrailsMiddleware(plugin: StewardPlugin): ToolHandlerMi
       return next();
     }
 
-    const t = getTranslation(ctx.params.lang);
+    const t = getTranslation(ctx.ctx.lang);
     const uniqueViolated = [...new Set(violatedRules)];
     const blockedActions = [
       ...new Set(
@@ -76,13 +76,9 @@ export function createGuardrailsMiddleware(plugin: StewardPlugin): ToolHandlerMi
         rules: uniqueViolated.join(', '),
         paths: paths.join(', '),
       });
-      await plugin.conversationRenderer.updateConversationNote({
-        path: ctx.params.title,
+      await ctx.ctx.updateConversationNote({
         newContent: `*${humanMessage}*`,
         command: 'guardrails',
-        lang: ctx.params.lang,
-        handlerId: ctx.params.handlerId,
-        step: ctx.params.invocationCount,
         includeHistory: false,
       });
 
@@ -99,10 +95,10 @@ export function createGuardrailsMiddleware(plugin: StewardPlugin): ToolHandlerMi
     });
 
     await plugin.conversationRenderer.serializeToolInvocation({
-      path: ctx.params.title,
+      path: ctx.ctx.title,
       command: 'guardrails',
-      handlerId: ctx.params.handlerId ?? '',
-      step: ctx.params.invocationCount,
+      handlerId: ctx.ctx.handlerId,
+      step: ctx.ctx.step,
       toolInvocations: [
         {
           ...ctx.toolCall,

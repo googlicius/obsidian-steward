@@ -3,9 +3,10 @@ import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath } from 'obsidian';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ArtifactType } from 'src/solutions/artifact';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
@@ -90,16 +91,12 @@ export class ReadContent {
    * Handle content reading tool call in the agent
    */
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<ContentReadingArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
+    const { title, lang } = ctx.agentHandlerParams;
     const { toolCall } = options;
     const t = getTranslation(lang);
-
-    if (!handlerId) {
-      throw new Error('ReadContent.handle invoked without handlerId');
-    }
 
     const { fileNames: rawFileNames, ...rest } = toolCall.input;
 
@@ -118,8 +115,8 @@ export class ReadContent {
           await this.agent.renderer.serializeToolInvocation({
             path: title,
             command: 'read',
-            handlerId,
-            step: params.invocationCount,
+            handlerId: ctx.handlerId,
+            step: ctx.step,
             toolInvocations: [
               {
                 ...toolCall,
@@ -150,20 +147,17 @@ export class ReadContent {
       const errorMessages = errors
         .map(e => `${e.fileName ?? 'current file'}: ${e.error}`)
         .join('\n');
-      const messageId = await this.agent.renderer.updateConversationNote({
-        path: title,
+      const messageId = await ctx.updateConversationNote({
         newContent: `*${errorMessages}*`,
         command: 'read',
         includeHistory: false,
-        handlerId,
-        step: params.invocationCount,
       });
 
       await this.agent.renderer.serializeToolInvocation({
         path: title,
         command: 'read',
-        handlerId,
-        step: params.invocationCount,
+        handlerId: ctx.handlerId,
+        step: ctx.step,
         toolInvocations: [
           {
             ...toolCall,
@@ -186,13 +180,10 @@ export class ReadContent {
       const errorMessages = errors
         .map(e => `${e.fileName ?? 'current file'}: ${e.error}`)
         .join('\n');
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: `*${errorMessages}*`,
         command: 'read',
         includeHistory: false,
-        handlerId,
-        step: params.invocationCount,
       });
     }
 
@@ -211,20 +202,17 @@ export class ReadContent {
         toolCall.input.readType === 'frontmatter'
           ? t('read.noFrontmatterFound')
           : t('read.noContentFound');
-      const messageId = await this.agent.renderer.updateConversationNote({
-        path: title,
+      const messageId = await ctx.updateConversationNote({
         newContent: `*${noContentMessage}*`,
         command: 'read',
         includeHistory: false,
-        handlerId,
-        step: params.invocationCount,
       });
 
       await this.agent.renderer.serializeToolInvocation({
         path: title,
         command: 'read',
-        handlerId,
-        step: params.invocationCount,
+        handlerId: ctx.handlerId,
+        step: ctx.step,
         toolInvocations: [
           {
             ...toolCall,
@@ -244,12 +232,9 @@ export class ReadContent {
 
     // Show found placeholder if available (once for all files)
     if (toolCall.input.foundPlaceholder && totalBlocks > 0) {
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: toolCall.input.foundPlaceholder.replace('{{number}}', totalBlocks.toString()),
         includeHistory: false,
-        handlerId,
-        step: params.invocationCount,
       });
     }
 
@@ -261,12 +246,9 @@ export class ReadContent {
         lang,
       });
       if (reviewContent) {
-        await this.agent.renderer.updateConversationNote({
-          path: title,
+        await ctx.updateConversationNote({
           newContent: reviewContent,
           includeHistory: false,
-          handlerId,
-          step: params.invocationCount,
         });
       }
     }
@@ -283,8 +265,8 @@ export class ReadContent {
     await this.agent.renderer.serializeToolInvocation({
       path: title,
       command: 'read',
-      handlerId,
-      step: params.invocationCount,
+      handlerId: ctx.handlerId,
+      step: ctx.step,
       toolInvocations: [
         {
           ...toolCall,

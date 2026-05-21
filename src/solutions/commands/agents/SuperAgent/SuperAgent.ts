@@ -1,7 +1,8 @@
 import type { ModelMessage } from 'ai';
 import { Agent } from '../../Agent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus, Intent } from '../../types';
-import { ToolCallPart, ToolResultPart, TypedToolCallPart } from '../../tools/types';
+import { HandlerInvocationContext } from '../HandlerInvocationContext';
+import { TypedToolCallPart } from '../../tools/types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
@@ -177,7 +178,18 @@ NOTE:
     } = {}
   ): Promise<AgentResult> {
     const { title, intent, lang } = params;
-    const handlerId = params.handlerId ?? uniqueID();
+    params.handlerId = params.handlerId ?? uniqueID();
+    const handlerId = params.handlerId;
+
+    const invocationCtx = new HandlerInvocationContext({
+      title,
+      handlerId,
+      step: params.invocationCount ?? 0,
+      lang,
+      intent,
+      agent: this,
+      agentHandlerParams: params,
+    });
 
     const MAX_STEP_COUNT = 20;
     const remainingSteps =
@@ -244,12 +256,7 @@ NOTE:
     }
 
     if (!params.invocationCount && intent.type.trim() !== 'user_confirm') {
-      await this.skipPendingConfirmation({
-        title,
-        handlerId,
-        step: params.invocationCount,
-        lang: params.lang ?? undefined,
-      });
+      await this.skipPendingConfirmation(invocationCtx);
     }
 
     // Add user message to conversation note for the first iteration
@@ -452,32 +459,24 @@ NOTE:
    * When the user sends a new message instead of confirming/rejecting via Yes/No,
    * persist the pending tool call with a skip result so history stays consistent.
    */
-  private async skipPendingConfirmation(params: {
-    title: string;
-    handlerId: string;
-    step?: number;
-    lang?: string;
-  }): Promise<void> {
-    const lastResult = this.commandProcessor.getLastResult(params.title);
+  private async skipPendingConfirmation(ctx: HandlerInvocationContext): Promise<void> {
+    const lastResult = this.commandProcessor.getLastResult(ctx.title);
     if (!lastResult || lastResult.status !== IntentResultStatus.NEEDS_CONFIRMATION) {
       return;
     }
 
-    const t = getTranslation(params.lang);
+    const t = getTranslation(ctx.lang);
 
-    await this.renderer.removeConfirmationButtons(params.title, t('common.skipped'));
+    await this.renderer.removeConfirmationButtons(ctx.title, t('common.skipped'));
 
     const toolCall = lastResult.toolCall;
     if (!toolCall) {
-      this.commandProcessor.clearLastResult(params.title);
+      this.commandProcessor.clearLastResult(ctx.title);
       return;
     }
 
-    await this.serializeInvocation({
-      title: params.title,
+    await ctx.serializeInvocation({
       command: String(toolCall.toolName),
-      handlerId: params.handlerId,
-      step: params.step,
       toolCall,
       result: {
         type: 'text',
@@ -485,33 +484,7 @@ NOTE:
       },
     });
 
-    this.commandProcessor.clearLastResult(params.title);
-  }
-
-  /**
-   * @inheritdoc
-   */
-  public async serializeInvocation<T>(params: {
-    title: string;
-    handlerId: string;
-    command: string;
-    toolCall: ToolCallPart<T>;
-    result: ToolResultPart['output'];
-    step?: number;
-  }): Promise<void> {
-    await this.renderer.serializeToolInvocation({
-      path: params.title,
-      command: params.command,
-      handlerId: params.handlerId,
-      step: params.step,
-      toolInvocations: [
-        {
-          ...params.toolCall,
-          type: 'tool-result',
-          output: params.result,
-        },
-      ],
-    });
+    this.commandProcessor.clearLastResult(ctx.title);
   }
 
   private async getSuperAgentTools(

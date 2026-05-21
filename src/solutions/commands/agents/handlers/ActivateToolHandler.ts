@@ -1,4 +1,4 @@
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { ToolName } from '../../ToolRegistry';
 import {
   execute as executeActivateTools,
@@ -10,6 +10,7 @@ import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { removeUndefined } from 'src/utils/removeUndefined';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 
 const { getTranslation } = getBundledInternal('i18n');
 
@@ -34,7 +35,7 @@ export class ActivateToolHandler {
    * Process an ACTIVATE tool call
    */
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: {
       toolCall: ToolCallPart<ActivateToolsArgs>;
       activeTools: ToolName[];
@@ -42,13 +43,9 @@ export class ActivateToolHandler {
       agent: string;
     }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
+    const { title, lang, handlerId } = ctx.agentHandlerParams;
     const { toolCall, activeTools, availableTools, agent } = options;
     const t = getTranslation(lang);
-
-    if (!handlerId) {
-      throw new Error('ActivateToolHandler.handle invoked without handlerId');
-    }
 
     // Validate and process tools
     const validationResult: ActivateToolsResult = await executeActivateTools(
@@ -74,7 +71,7 @@ export class ActivateToolHandler {
     }
 
     // Update params.activeTools to preserve changes during error retries
-    params.activeTools = activeTools;
+    ctx.agentHandlerParams.activeTools = activeTools;
 
     // Save activeTools to frontmatter immediately after activation/deactivation
     // Save whenever there's a change (activation or deactivation), even if array becomes empty
@@ -103,15 +100,11 @@ export class ActivateToolHandler {
     const statusMessage = statusParts.length > 0 ? statusParts.join('. ') + '.' : '';
 
     if (statusMessage) {
-      await this.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: `*${statusMessage}*`,
         agent,
         command: 'activate-tools',
         includeHistory: false,
-        lang,
-        handlerId,
-        step: params.invocationCount,
       });
     }
 
@@ -132,13 +125,15 @@ export class ActivateToolHandler {
       );
     }
 
+    const resolvedHandlerId = handlerId ?? ctx.handlerId;
+
     // Serialize the tool invocation with result message
     await this.renderer.serializeToolInvocation({
       path: title,
       agent,
       command: 'activate-tools',
-      handlerId,
-      step: params.invocationCount,
+      handlerId: resolvedHandlerId,
+      step: ctx.step,
       ...(errorParts.length > 0 && {
         text: `*${errorParts.join(' ')}*`,
       }),

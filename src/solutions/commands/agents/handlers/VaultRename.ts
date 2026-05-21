@@ -3,9 +3,10 @@ import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath } from 'obsidian';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ArtifactType } from 'src/solutions/artifact';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { logger } from 'src/utils/logger';
 import { DataAwarenessAgent } from '../DataAwarenessAgent';
 
@@ -89,22 +90,17 @@ export class VaultRename {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<RenameToolArgs> }
   ): Promise<AgentResult> {
-    const { title, lang } = params;
-    const handlerId = params.handlerId;
+    const { lang } = ctx.agentHandlerParams;
     const { toolCall } = options;
-
-    if (!handlerId) {
-      throw new Error('VaultRename.handle invoked without handlerId');
-    }
 
     const t = getTranslation(lang);
 
     // Handle delegation to DataAwarenessAgent
     if (toolCall.input.delegateToAgent) {
-      return this.handleDataAwarenessDelegation(params, {
+      return this.handleDataAwarenessDelegation(ctx, {
         toolCall,
       });
     }
@@ -112,13 +108,9 @@ export class VaultRename {
     // Validate that files are provided when not delegating
     if (!toolCall.input.files || toolCall.input.files.length === 0) {
       const message = t('rename.noInstructions');
-      await this.respondAndSerializeRename({
-        title,
+      await this.respondAndSerializeRename(ctx, {
         content: message,
         toolCall,
-        lang,
-        handlerId,
-        step: params.invocationCount,
       });
       return {
         status: IntentResultStatus.ERROR,
@@ -129,13 +121,9 @@ export class VaultRename {
     const normalization = this.normalizeInstructions({ files: toolCall.input.files });
     if (normalization.hasInvalid) {
       const message = t('rename.invalidInstruction');
-      await this.respondAndSerializeRename({
-        title,
+      await this.respondAndSerializeRename(ctx, {
         content: message,
         toolCall,
-        lang,
-        handlerId,
-        step: params.invocationCount,
       });
       return {
         status: IntentResultStatus.ERROR,
@@ -145,13 +133,9 @@ export class VaultRename {
 
     if (normalization.instructions.length === 0) {
       const message = t('rename.noInstructions');
-      await this.respondAndSerializeRename({
-        title,
+      await this.respondAndSerializeRename(ctx, {
         content: message,
         toolCall,
-        lang,
-        handlerId,
-        step: params.invocationCount,
       });
       return {
         status: IntentResultStatus.ERROR,
@@ -166,13 +150,9 @@ export class VaultRename {
         'rename.createFoldersQuestion'
       )}`;
 
-      await this.respondAndSerializeRename({
-        title,
+      await this.respondAndSerializeRename(ctx, {
         content: message,
         toolCall,
-        lang,
-        handlerId,
-        step: params.invocationCount,
       });
 
       return {
@@ -184,17 +164,13 @@ export class VaultRename {
             await this.agent.obsidianAPITools.ensureFolderExists(folder);
           }
 
-          return this.finishRename(params, { instructions: normalization.instructions, toolCall });
+          return this.finishRename(ctx, { instructions: normalization.instructions, toolCall });
         },
         onRejection: async (_rejectionMessage: string) => {
           const cancellationMessage = t('confirmation.operationCancelled');
-          await this.respondAndSerializeRename({
-            title,
+          await this.respondAndSerializeRename(ctx, {
             content: cancellationMessage,
             toolCall,
-            lang,
-            handlerId,
-            step: params.invocationCount,
           });
           return {
             status: IntentResultStatus.SUCCESS,
@@ -203,7 +179,7 @@ export class VaultRename {
       };
     }
 
-    return this.finishRename(params, { instructions: normalization.instructions, toolCall });
+    return this.finishRename(ctx, { instructions: normalization.instructions, toolCall });
   }
 
   private normalizeInstructions(params: { files: RenameToolArgs['files'] }): {
@@ -374,30 +350,22 @@ export class VaultRename {
     return response;
   }
 
-  private async respondAndSerializeRename(params: {
-    title: string;
-    content: string;
-    toolCall: ToolCallPart<RenameToolArgs>;
-    lang?: string | null;
-    handlerId: string;
-    step?: number;
-  }): Promise<string> {
-    const { title, content, toolCall, lang, handlerId, step } = params;
-    const messageId = await this.agent.renderer.updateConversationNote({
-      path: title,
+  private async respondAndSerializeRename(
+    ctx: HandlerInvocationContext,
+    params: {
+      content: string;
+      toolCall: ToolCallPart<RenameToolArgs>;
+    }
+  ): Promise<string> {
+    const { content, toolCall } = params;
+    const messageId = await ctx.updateConversationNote({
       newContent: content,
       command: 'vault_rename',
-      lang,
-      handlerId,
-      step,
       includeHistory: false,
     });
 
-    await this.agent.serializeInvocation({
+    await ctx.serializeInvocation({
       command: 'vault_rename',
-      title,
-      handlerId,
-      step,
       toolCall,
       result: {
         type: 'text',
@@ -409,17 +377,13 @@ export class VaultRename {
   }
 
   private async finishRename(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: {
       instructions: RenameInstructions;
       toolCall: ToolCallPart<RenameToolArgs>;
     }
   ): Promise<AgentResult> {
-    const { title, lang } = params;
-    const handlerId = params.handlerId;
-    if (!handlerId) {
-      throw new Error('VaultRename.finishRename invoked without handlerId');
-    }
+    const { title, lang } = ctx.agentHandlerParams;
 
     const renameResult = await this.executeRenameOperations({
       instructions: options.instructions,
@@ -432,12 +396,9 @@ export class VaultRename {
       lang,
     });
 
-    const messageId = await this.agent.renderer.updateConversationNote({
-      path: title,
+    const messageId = await ctx.updateConversationNote({
       newContent: formattedMessage,
       command: 'vault_rename',
-      lang,
-      handlerId,
       includeHistory: false,
     });
 
@@ -458,10 +419,8 @@ export class VaultRename {
       });
     }
 
-    await this.agent.serializeInvocation({
+    await ctx.serializeInvocation({
       command: 'vault_rename',
-      title,
-      handlerId,
       toolCall: options.toolCall,
       result: {
         type: 'text',
@@ -478,18 +437,14 @@ export class VaultRename {
    * Handle delegation to DataAwarenessAgent for processing files from an artifact
    */
   private async handleDataAwarenessDelegation(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: {
       toolCall: ToolCallPart<RenameToolArgs>;
     }
   ): Promise<AgentResult> {
-    const { title, lang } = params;
-    const handlerId = params.handlerId;
+    const { title, lang } = ctx.agentHandlerParams;
+    const handlerId = ctx.handlerId;
     const { toolCall } = options;
-
-    if (!handlerId) {
-      throw new Error('VaultRename.handleDataAwarenessDelegation invoked without handlerId');
-    }
 
     if (!toolCall.input.delegateToAgent) {
       throw new Error('delegateToAgent is required for handleDataAwarenessDelegation');
@@ -508,7 +463,7 @@ export class VaultRename {
         parallel: false,
         lang,
         handlerId,
-        model: params.intent.model,
+        model: ctx.intent.model,
       });
 
       if (result.failedFiles.length > 0) {
@@ -517,12 +472,9 @@ export class VaultRename {
 
       if (result.results.length === 0) {
         const message = t('rename.noInstructions');
-        await this.respondAndSerializeRename({
-          title,
+        await this.respondAndSerializeRename(ctx, {
           content: message,
           toolCall,
-          lang,
-          handlerId,
         });
         return {
           status: IntentResultStatus.ERROR,
@@ -537,7 +489,7 @@ export class VaultRename {
         newPath: item.newPath,
       }));
 
-      return this.finishRename(params, { instructions, toolCall });
+      return this.finishRename(ctx, { instructions, toolCall });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('Error in DataAwarenessAgent delegation:', error);
@@ -546,12 +498,9 @@ export class VaultRename {
         commandType: 'rename',
         errorMessage,
       })}`;
-      await this.respondAndSerializeRename({
-        title,
+      await this.respondAndSerializeRename(ctx, {
         content: message,
         toolCall,
-        lang,
-        handlerId,
       });
 
       return {

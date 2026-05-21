@@ -1,8 +1,9 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import type { ModelMessage } from 'ai';
 
 const MSG_PREFIX = 'msg-';
@@ -66,15 +67,11 @@ export class RecallCompactedContext {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<RecallCompactedContextArgs> }
   ): Promise<AgentResult> {
-    const { title, handlerId } = params;
+    const { title } = ctx.agentHandlerParams;
     const { toolCall } = options;
-
-    if (!handlerId) {
-      throw new Error('RecallCompactedContext.handle invoked without handlerId');
-    }
 
     const result = await resolveRecallCompactedContext({
       renderer: this.agent.renderer,
@@ -82,11 +79,8 @@ export class RecallCompactedContext {
       args: toolCall.input,
     });
 
-    await this.agent.serializeInvocation({
-      title,
+    await ctx.serializeInvocation({
       command: 'recall_compacted_context',
-      handlerId,
-      step: params.invocationCount,
       toolCall,
       result: {
         type: 'text',

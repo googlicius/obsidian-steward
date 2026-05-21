@@ -1,6 +1,7 @@
 import { z } from 'zod/v3';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { AbortOperationKeys } from 'src/constants';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
@@ -44,18 +45,14 @@ export class BuildSearchIndex {
    * Handle build search index tool call
    */
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<BuildSearchIndexArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
+    const { title } = ctx.agentHandlerParams;
     const { toolCall } = options;
 
-    if (!handlerId) {
-      throw new Error('BuildSearchIndex.handle invoked without handlerId');
-    }
-
     try {
-      const t = getTranslation(lang);
+      const t = getTranslation(ctx.lang);
 
       let files: TFile[];
 
@@ -88,11 +85,8 @@ export class BuildSearchIndex {
         .map(file => ({ type: 'file', file }));
 
       if (queue.length === 0) {
-        await this.agent.renderer.updateConversationNote({
-          path: title,
+        await ctx.updateConversationNote({
           newContent: t('search.noFilesToIndex'),
-          lang,
-          handlerId,
         });
 
         return {
@@ -101,25 +95,19 @@ export class BuildSearchIndex {
       }
 
       // Show found files message and privacy notice for all scenarios
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent:
           t('search.foundFilesForIndex', { count: queue.length }) +
           '\n\n' +
           `*${t('search.privacyNotice')}*`,
-        lang,
-        handlerId,
       });
 
       // Check if index already exists to determine if we need confirmation
       const isIndexBuilt = await this.agent.plugin.searchService.documentStore.isIndexBuilt();
 
       if (isIndexBuilt) {
-        await this.agent.renderer.updateConversationNote({
-          path: title,
+        await ctx.updateConversationNote({
           newContent: `\n${t('search.confirmRebuildIndexQuestion')}`,
-          lang,
-          handlerId,
           includeHistory: false,
         });
 
@@ -127,7 +115,7 @@ export class BuildSearchIndex {
           status: IntentResultStatus.NEEDS_CONFIRMATION,
           confirmationMessage: t('search.confirmRebuildIndexQuestion'),
           onConfirmation: () => {
-            return this.performIndexing(title, queue, lang, handlerId);
+            return this.performIndexing(ctx, queue);
           },
           onRejection: () => {
             return {
@@ -138,16 +126,13 @@ export class BuildSearchIndex {
       }
 
       // Index doesn't exist, run indexing directly without confirmation
-      return this.performIndexing(title, queue, lang, handlerId);
+      return this.performIndexing(ctx, queue);
     } catch (error) {
       logger.error('Error in build search index command:', error);
 
-      const t = getTranslation(lang);
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      const t = getTranslation(ctx.lang);
+      await ctx.updateConversationNote({
         newContent: `*${t('search.indexingError', { error: (error as Error).message })}*`,
-        lang,
-        handlerId,
       });
 
       return {
@@ -161,18 +146,17 @@ export class BuildSearchIndex {
    * Perform the actual indexing operation
    */
   private async performIndexing(
-    title: string,
-    queue: QueueItem[],
-    lang: string | null | undefined,
-    handlerId: string
+    ctx: HandlerInvocationContext,
+    queue: QueueItem[]
   ): Promise<AgentResult> {
+    const { title } = ctx.agentHandlerParams;
     const abortService = AbortService.getInstance();
     const abortSignal = abortService.createAbortController(
       title,
       AbortOperationKeys.BUILD_SEARCH_INDEX
     );
 
-    const t = getTranslation(lang);
+    const t = getTranslation(ctx.lang);
 
     const totalItemsToProcess = queue.length;
 
@@ -182,11 +166,8 @@ export class BuildSearchIndex {
     let processedCount = 0;
 
     try {
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: t('search.buildingIndex'),
-        lang,
-        handlerId,
       });
 
       let prevMessageId = '';
@@ -224,8 +205,7 @@ export class BuildSearchIndex {
               }
             }
 
-            const messageId = await this.agent.renderer.updateConversationNote({
-              path: title,
+            const messageId = await ctx.updateConversationNote({
               newContent:
                 completionMessage +
                 '\n\n' +
@@ -235,8 +215,6 @@ export class BuildSearchIndex {
                 }),
               messageId: prevMessageId,
               includeHistory: false,
-              lang,
-              handlerId,
             });
 
             if (messageId) {
@@ -265,11 +243,8 @@ export class BuildSearchIndex {
         });
       }
 
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: completionMessage,
-        lang,
-        handlerId,
       });
 
       // Set the index as built after successful indexing
@@ -281,12 +256,9 @@ export class BuildSearchIndex {
     } catch (error) {
       logger.error('Error building search index:', error);
 
-      const t = getTranslation(lang);
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      const t = getTranslation(ctx.lang);
+      await ctx.updateConversationNote({
         newContent: `*${t('search.indexingError', { error: (error as Error).message })}*`,
-        lang,
-        handlerId,
       });
 
       return {

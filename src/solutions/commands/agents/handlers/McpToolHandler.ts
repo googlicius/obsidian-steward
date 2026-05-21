@@ -1,7 +1,8 @@
 import type { ModelMessage } from 'ai';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { ToolCallPart, ToolResultPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { removeUndefined } from 'src/utils/removeUndefined';
 
 /**
@@ -11,7 +12,7 @@ export class McpToolHandler {
   constructor(private readonly agentContext: AgentHandlerContext) {}
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: {
       toolCall: ToolCallPart<unknown>;
       messages?: ModelMessage[];
@@ -25,7 +26,7 @@ export class McpToolHandler {
     }
 
     const mcpResult = await this.agentContext.plugin.mcpService.executeActiveToolCall({
-      conversationTitle: params.title,
+      conversationTitle: ctx.title,
       toolCall: {
         toolName,
         input: toolCall.input,
@@ -34,16 +35,11 @@ export class McpToolHandler {
       messages: options.messages ?? [],
     });
 
-    const handlerId = params.handlerId;
-    if (!handlerId) {
-      throw new Error('McpToolHandler.handle invoked without handlerId');
-    }
-
     await this.agentContext.renderer.serializeToolInvocation({
-      path: params.title,
+      path: ctx.title,
       command: toolName,
-      handlerId,
-      step: params.invocationCount,
+      handlerId: ctx.handlerId,
+      step: ctx.step,
       toolInvocations: [
         {
           ...toolCall,

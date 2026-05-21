@@ -2,8 +2,9 @@ import { normalizePath } from 'obsidian';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { z } from 'zod/v3';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { removeUndefined } from 'src/utils/removeUndefined';
 import type { PathExistenceResult } from 'src/services/VaultService/VaultService';
 
@@ -52,22 +53,18 @@ export class VaultExists {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<ExistsToolArgs> }
   ): Promise<AgentResult> {
     const { toolCall } = options;
 
-    if (!params.handlerId) {
-      throw new Error('VaultExists.handle invoked without handlerId');
-    }
-
     const result = await this.executeExists(toolCall.input);
 
     await this.agent.renderer.serializeToolInvocation({
-      path: params.title,
+      path: ctx.title,
       command: 'vault_exists',
-      handlerId: params.handlerId,
-      step: params.invocationCount,
+      handlerId: ctx.handlerId,
+      step: ctx.step,
       toolInvocations: [
         {
           ...toolCall,

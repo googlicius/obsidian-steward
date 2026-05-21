@@ -1,8 +1,9 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { revertAbleArtifactTypes } from 'src/solutions/artifact';
 
@@ -23,16 +24,12 @@ export class GetMostRecentArtifact {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<GetMostRecentArtifactArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
+    const { title } = ctx.agentHandlerParams;
     const { toolCall } = options;
-    const t = getTranslation(lang);
-
-    if (!handlerId) {
-      throw new Error('GetMostRecentArtifact.handle invoked without handlerId');
-    }
+    const t = getTranslation(ctx.lang);
 
     const artifact = await this.agent.plugin.artifactManagerV2
       .withTitle(title)
@@ -43,7 +40,8 @@ export class GetMostRecentArtifact {
     await this.agent.renderer.serializeToolInvocation({
       path: title,
       command: 'get-artifact',
-      handlerId,
+      handlerId: ctx.handlerId,
+      step: ctx.step,
       toolInvocations: [
         {
           ...toolCall,

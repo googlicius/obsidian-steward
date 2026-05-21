@@ -3,13 +3,14 @@ import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath } from 'obsidian';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import { ToolCallPart } from '../../tools/types';
 import { ArtifactType } from 'src/solutions/artifact';
 import { DocWithPath } from 'src/types/types';
 import { MoveOperation, OperationError } from 'src/tools/obsidianAPITools';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 
 const { getTranslation } = getBundledInternal('i18n');
 
@@ -70,22 +71,13 @@ export class VaultCopy {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<CopyToolArgs> }
   ): Promise<AgentResult> {
     const { toolCall } = options;
-    const t = getTranslation(params.lang);
+    const t = getTranslation(ctx.lang);
 
-    if (!params.handlerId) {
-      throw new Error('VaultCopy.handle invoked without handlerId');
-    }
-
-    const resolveResult = await this.resolveCopyDocs({
-      title: params.title,
-      toolCall,
-      lang: params.lang,
-      handlerId: params.handlerId,
-    });
+    const resolveResult = await this.resolveCopyDocs(ctx, toolCall);
 
     if (resolveResult.responseMessage) {
       return {
@@ -99,22 +91,15 @@ export class VaultCopy {
     const destinationFolder = toolCall.input.destinationFolder.trim();
     if (!destinationFolder) {
       const message = t('copy.noDestination');
-      const messageId = await this.agent.renderer.updateConversationNote({
-        path: params.title,
+      const messageId = await ctx.updateConversationNote({
         newContent: message,
         command: 'vault_copy',
-        lang: params.lang,
-        handlerId: params.handlerId,
-        step: params.invocationCount,
         includeHistory: false,
       });
 
-      await this.agent.serializeInvocation({
+      await ctx.serializeInvocation({
         command: 'vault_copy',
-        title: params.title,
-        handlerId: params.handlerId,
         toolCall,
-        step: params.invocationCount,
         result: {
           type: 'text',
           value: messageId ? `messageRef:${messageId}` : message,
@@ -133,22 +118,15 @@ export class VaultCopy {
       const message = `${t('copy.createFoldersHeader')}\n- \`${destinationFolder}\`\n\n${t(
         'copy.createFoldersQuestion'
       )}`;
-      const messageId = await this.agent.renderer.updateConversationNote({
-        path: params.title,
+      const messageId = await ctx.updateConversationNote({
         newContent: message,
         command: 'vault_copy',
-        lang: params.lang,
-        handlerId: params.handlerId,
-        step: params.invocationCount,
         includeHistory: false,
       });
 
-      await this.agent.serializeInvocation({
+      await ctx.serializeInvocation({
         command: 'vault_copy',
-        title: params.title,
-        handlerId: params.handlerId,
         toolCall,
-        step: params.invocationCount,
         result: {
           type: 'text',
           value: messageId ? `messageRef:${messageId}` : message,
@@ -165,32 +143,25 @@ export class VaultCopy {
     }
 
     const copyResult = await this.executeCopyOperation({
-      title: params.title,
+      title: ctx.title,
       docs,
       destinationFolder,
-      lang: params.lang,
+      lang: ctx.lang,
     });
 
     const formattedMessage = this.formatCopyResult({
       result: copyResult,
       destinationFolder,
-      lang: params.lang,
+      lang: ctx.lang,
     });
 
-    const resultMessageId = await this.agent.renderer.updateConversationNote({
-      path: params.title,
+    const resultMessageId = await ctx.updateConversationNote({
       newContent: formattedMessage,
       command: 'vault_copy',
-      lang: params.lang,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
     });
 
-    await this.agent.serializeInvocation({
+    await ctx.serializeInvocation({
       command: 'vault_copy',
-      title: params.title,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
       toolCall,
       result: {
         type: 'text',
@@ -203,31 +174,25 @@ export class VaultCopy {
     };
   }
 
-  private async resolveCopyDocs(params: {
-    title: string;
-    toolCall: ToolCallPart<CopyToolArgs>;
-    lang?: string | null;
-    handlerId: string;
-  }): Promise<{ docs: DocWithPath[]; responseMessage?: string }> {
-    const { title, toolCall, lang, handlerId } = params;
-    const t = getTranslation(lang);
+  private async resolveCopyDocs(
+    ctx: HandlerInvocationContext,
+    toolCall: ToolCallPart<CopyToolArgs>
+  ): Promise<{ docs: DocWithPath[]; responseMessage?: string }> {
+    const t = getTranslation(ctx.lang);
 
     const docs: DocWithPath[] = [];
     const noFilesMessage = t('common.noFilesFound');
 
     if (toolCall.input.artifactId) {
       const artifact = await this.agent.plugin.artifactManagerV2
-        .withTitle(title)
+        .withTitle(ctx.title)
         .getArtifactById(toolCall.input.artifactId);
 
       if (!artifact) {
         const message = t('common.noRecentOperations');
-        const responseMessage = await this.respondAndSerializeCopy({
-          title,
+        const responseMessage = await this.respondAndSerializeCopy(ctx, {
           content: message,
           toolCall,
-          lang,
-          handlerId,
         });
         return { docs: [], responseMessage };
       }
@@ -242,12 +207,9 @@ export class VaultCopy {
         }
       } else {
         const message = t('copy.cannotCopyThisType', { type: artifact.artifactType });
-        const responseMessage = await this.respondAndSerializeCopy({
-          title,
+        const responseMessage = await this.respondAndSerializeCopy(ctx, {
           content: message,
           toolCall,
-          lang,
-          handlerId,
         });
         return { docs: [], responseMessage };
       }
@@ -263,12 +225,9 @@ export class VaultCopy {
     }
 
     if (docs.length === 0) {
-      const responseMessage = await this.respondAndSerializeCopy({
-        title,
+      const responseMessage = await this.respondAndSerializeCopy(ctx, {
         content: noFilesMessage,
         toolCall,
-        lang,
-        handlerId,
       });
       return { docs: [], responseMessage };
     }
@@ -276,27 +235,22 @@ export class VaultCopy {
     return { docs };
   }
 
-  private async respondAndSerializeCopy(params: {
-    title: string;
-    content: string;
-    toolCall: ToolCallPart<CopyToolArgs>;
-    lang?: string | null;
-    handlerId: string;
-  }): Promise<string> {
-    const { title, content, toolCall, lang, handlerId } = params;
-    const messageId = await this.agent.renderer.updateConversationNote({
-      path: title,
+  private async respondAndSerializeCopy(
+    ctx: HandlerInvocationContext,
+    params: {
+      content: string;
+      toolCall: ToolCallPart<CopyToolArgs>;
+    }
+  ): Promise<string> {
+    const { content, toolCall } = params;
+    const messageId = await ctx.updateConversationNote({
       newContent: content,
       command: 'vault_copy',
-      lang,
-      handlerId,
       includeHistory: false,
     });
 
-    await this.agent.serializeInvocation({
+    await ctx.serializeInvocation({
       command: 'vault_copy',
-      title,
-      handlerId,
       toolCall,
       result: {
         type: 'text',
@@ -349,8 +303,8 @@ export class VaultCopy {
     }
 
     if (copied.length === 0 && skipped.length === 0 && errors.length === 0) {
-      const t = getTranslation(lang);
-      errors.push({ path: '', message: t('copy.noSearchResultsFoundAbortCopy') });
+      const tInner = getTranslation(lang);
+      errors.push({ path: '', message: tInner('copy.noSearchResultsFoundAbortCopy') });
     }
 
     return {

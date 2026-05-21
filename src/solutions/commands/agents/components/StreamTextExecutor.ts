@@ -206,19 +206,16 @@ export class StreamTextExecutor {
         }
       },
     });
-    const {
-      toolCalls: toolCallsPromise,
-      fullStream,
-      totalUsage: totalUsagePromise,
-      usage: usagePromise,
-    } = streamTextResult;
 
-    const { textStream, textDone, toolContentStream } = createLLMStream(fullStream, {
-      toolContentStreaming: {
-        targetTools: new Set([ToolName.EDIT, ToolName.CREATE]),
-        createExtractor: (toolName: string) => agent.createToolContentExtractor(toolName),
-      },
-    });
+    const { textStream, textDone, toolContentStream } = createLLMStream(
+      streamTextResult.fullStream,
+      {
+        toolContentStreaming: {
+          targetTools: new Set([ToolName.EDIT, ToolName.CREATE]),
+          createExtractor: (toolName: string) => agent.createToolContentExtractor(toolName),
+        },
+      }
+    );
 
     const streamPromise = agent.renderer.streamConversationNote({
       path: params.title,
@@ -236,15 +233,18 @@ export class StreamTextExecutor {
       lang: params.lang,
     });
 
-    const toolCalls = (await Promise.race([toolCallsPromise, streamErrorPromise])) as TToolCalls;
+    const toolCalls = (await Promise.race([
+      streamTextResult.toolCalls,
+      streamErrorPromise,
+    ])) as TToolCalls;
     const toolContentStreamInfo = await toolContentStreamPromise;
 
     await streamPromise.catch(() => {
       // Ignore errors here, they're handled by streamErrorPromise
     });
 
-    const usage = await usagePromise;
-    const totalUsage = await totalUsagePromise;
+    const usage = await streamTextResult.usage;
+    const totalUsage = await streamTextResult.totalUsage;
 
     eventEmitter.emit(Events.EXECUTED_STREAM_TEXT, {
       conversationTitle: params.title,

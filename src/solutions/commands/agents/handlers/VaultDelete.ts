@@ -3,11 +3,12 @@ import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath } from 'obsidian';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ArtifactType } from 'src/solutions/artifact';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { logger } from 'src/utils/logger';
 import { NonTrashFile, TrashFile } from 'src/services/TrashCleanupService';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { OperationError } from 'src/tools/obsidianAPITools';
 
 const { getTranslation } = getBundledInternal('i18n');
@@ -252,23 +253,13 @@ export class VaultDelete {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<DeleteToolArgs> }
   ): Promise<AgentResult> {
     const { toolCall } = options;
-    const t = getTranslation(params.lang);
+    const t = getTranslation(ctx.lang);
 
-    if (!params.handlerId) {
-      throw new Error('VaultDelete.handle invoked without handlerId');
-    }
-
-    const resolveFilesResult = await this.resolveFilePaths({
-      title: params.title,
-      toolCall,
-      lang: params.lang,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
-    });
+    const resolveFilesResult = await this.resolveFilePaths(ctx, toolCall);
 
     const filePaths = resolveFilesResult.filePaths;
 
@@ -280,10 +271,10 @@ export class VaultDelete {
 
     const operationArtifactId = `delete_${Date.now()}`;
     const deleteResult = await this.executeDelete({
-      title: params.title,
+      title: ctx.title,
       filePaths,
       operationArtifactId,
-      lang: params.lang,
+      lang: ctx.lang,
     });
 
     let response = t('delete.foundFiles', { count: filePaths.length });
@@ -309,21 +300,14 @@ export class VaultDelete {
       }
     }
 
-    const messageId = await this.agent.renderer.updateConversationNote({
-      path: params.title,
+    const messageId = await ctx.updateConversationNote({
       newContent: response,
       command: 'vault_delete',
-      lang: params.lang,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
       includeHistory: false,
     });
 
-    await this.agent.serializeInvocation({
+    await ctx.serializeInvocation({
       command: 'vault_delete',
-      title: params.title,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
       toolCall,
       result: {
         type: 'text',
@@ -336,22 +320,19 @@ export class VaultDelete {
     };
   }
 
-  private async resolveFilePaths(params: {
-    title: string;
-    toolCall: ToolCallPart<DeleteToolArgs>;
-    lang?: string | null;
-    handlerId: string;
-    step?: number;
-  }): Promise<{ filePaths: string[]; errorMessage?: string }> {
-    const t = getTranslation(params.lang);
+  private async resolveFilePaths(
+    ctx: HandlerInvocationContext,
+    toolCall: ToolCallPart<DeleteToolArgs>
+  ): Promise<{ filePaths: string[]; errorMessage?: string }> {
+    const t = getTranslation(ctx.lang);
 
     const filePaths: string[] = [];
     const noFilesMessage = t('common.noFilesFound');
 
-    for (const operation of params.toolCall.input.operations) {
+    for (const operation of toolCall.input.operations) {
       switch (operation.mode) {
         case 'artifactId': {
-          const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(params.title);
+          const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(ctx.title);
           const resolvedFiles = await artifactManager.resolveFilesFromArtifact(
             operation.artifactId
           );
@@ -386,22 +367,15 @@ export class VaultDelete {
     }
 
     if (filePaths.length === 0) {
-      const noFilesMessageId = await this.agent.renderer.updateConversationNote({
-        path: params.title,
+      const noFilesMessageId = await ctx.updateConversationNote({
         newContent: noFilesMessage,
         command: 'vault_delete',
-        lang: params.lang,
-        handlerId: params.handlerId,
-        step: params.step,
         includeHistory: false,
       });
 
-      await this.agent.serializeInvocation({
+      await ctx.serializeInvocation({
         command: 'vault_delete',
-        title: params.title,
-        handlerId: params.handlerId,
-        step: params.step,
-        toolCall: params.toolCall,
+        toolCall,
         result: {
           type: 'error-text',
           value: noFilesMessageId ? `messageRef:${noFilesMessageId}` : noFilesMessage,

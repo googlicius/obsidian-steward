@@ -2,7 +2,9 @@ import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
-import { AgentHandlerParams, AgentResult, Intent, IntentResultStatus } from '../../types';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
+import type { AgentHandlerParams } from '../../types';
+import { AgentResult, Intent, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
@@ -55,7 +57,7 @@ export class RunCommand {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<unknown> }
   ): Promise<AgentResult> {
     const parsed = runCommandSchema.safeParse(options.toolCall.input);
@@ -66,7 +68,7 @@ export class RunCommand {
       };
     }
 
-    const { title, lang } = params;
+    const { title, lang } = ctx.agentHandlerParams;
     const commandName = parsed.data.command_name.trim();
     const query = parsed.data.query ?? '';
 
@@ -79,7 +81,7 @@ export class RunCommand {
     }
 
     const intentForExpansion: Intent = {
-      ...params.intent,
+      ...ctx.intent,
       type: commandName,
       query,
     };
@@ -119,7 +121,7 @@ export class RunCommand {
     if (expandedIntents.length === 1) {
       const expanded = expandedIntents[0];
       return this.superAgent.handle({
-        ...params,
+        ...ctx.agentHandlerParams,
         intent: {
           ...expanded,
           systemPrompts: await RunCommand.resolveUdcSystemPrompts(udcService, command),
@@ -154,12 +156,12 @@ export class RunCommand {
     await this.agent.renderer.addUserMessage({
       path: title,
       newContent: todoListBootstrapGuide,
-      step: params.invocationCount,
+      step: ctx.step,
       contentFormat: 'hidden',
     });
 
     const todoListHandler = new TodoList(this.superAgent);
-    await todoListHandler.handle(params, { toolCall: todoWriteToolCall, createdBy: 'udc' });
+    await todoListHandler.handle(ctx, { toolCall: todoWriteToolCall, createdBy: 'udc' });
 
     const currentStep = todoListSteps[0];
 
@@ -174,7 +176,7 @@ export class RunCommand {
     };
 
     return this.superAgent.handle({
-      ...params,
+      ...ctx.agentHandlerParams,
       intent: stepIntent,
       activeTools: [ToolName.TODO_WRITE],
       invocationCount: 1,

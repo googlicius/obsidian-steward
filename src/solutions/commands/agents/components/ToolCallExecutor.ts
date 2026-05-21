@@ -12,6 +12,8 @@ import type { Handlers } from './Handlers';
 import * as handlers from '../handlers';
 import { ToolHandlerMiddlewareContext } from '../middleware/types';
 import { type Agent } from '../../Agent';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
+import { HandlerInvocationContext } from '../HandlerInvocationContext';
 
 function asAgent(instance: ToolCallExecutor) {
   return instance as unknown as Agent & Handlers;
@@ -35,11 +37,22 @@ export class ToolCallExecutor {
     const handlerMap = agent.getToolHandlerMap();
     const { NoSuchToolError } = await getBundledLib('ai');
 
+    const invocationCtx = new HandlerInvocationContext({
+      title: params.title,
+      handlerId: params.handlerId,
+      step: params.agentParams.invocationCount ?? 0,
+      lang: params.agentParams.lang,
+      intent: params.agentParams.intent,
+      agent: agent as unknown as AgentHandlerContext,
+      agentHandlerParams: params.agentParams,
+    });
+
     for (let index = params.startIndex; index < params.toolCalls.length; index += 1) {
       const toolCall = params.toolCalls[index];
       let toolCallResult: AgentResult | undefined;
       const continueProcessingFromNextTool = async (): Promise<AgentResult> => {
         params.agentParams.invocationCount = (params.agentParams.invocationCount ?? 0) + 1;
+        invocationCtx.incrementStep();
         return agent.handle(params.agentParams, {
           remainingSteps: params.remainingSteps,
           toolCalls: params.toolCalls,
@@ -62,12 +75,13 @@ export class ToolCallExecutor {
             `Start a new LLM turn as the previous tool call is activate_tools, and the ${toolCall.toolName} isn't active yet.`
           );
           params.agentParams.invocationCount = (params.agentParams.invocationCount ?? 0) + 1;
+          invocationCtx.incrementStep();
           return agent.handle(params.agentParams, {
             remainingSteps: params.remainingSteps,
           });
         }
 
-        await agent.dynamic.handle(params.agentParams, {
+        await agent.dynamic.handle(invocationCtx, {
           toolCall: dynamicToolCall,
           tools: params.availableTools,
         });
@@ -81,23 +95,22 @@ export class ToolCallExecutor {
             value: toolCall.input.lang,
           },
         ]);
-        params.agentParams.lang = toolCall.input.lang as string;
+        const lang = toolCall.input.lang as string;
+        params.agentParams.lang = lang;
+        invocationCtx.setLang(lang);
       }
 
       switch (toolCall.toolName) {
         case ToolName.CONFIRMATION:
         case ToolName.ASK_USER: {
-          await agent.plugin.conversationRenderer.updateConversationNote({
-            path: params.title,
+          await invocationCtx.updateConversationNote({
             newContent: toolCall.input.message,
-            lang: params.agentParams.lang,
-            handlerId: params.handlerId,
             command: toolCall.toolName,
-            step: params.agentParams.invocationCount,
           });
 
           const callBack = async (): Promise<AgentResult> => {
             params.agentParams.invocationCount = (params.agentParams.invocationCount ?? 0) + 1;
+            invocationCtx.incrementStep();
             return agent.handle(params.agentParams, {
               remainingSteps: params.remainingSteps,
               toolCalls: params.toolCalls,
@@ -121,7 +134,7 @@ export class ToolCallExecutor {
         }
 
         case ToolName.ACTIVATE: {
-          toolCallResult = await agent.activateToolHandler.handle(params.agentParams, {
+          toolCallResult = await agent.activateToolHandler.handle(invocationCtx, {
             toolCall,
             activeTools: params.activeTools,
             availableTools: params.availableTools,
@@ -139,7 +152,7 @@ export class ToolCallExecutor {
               `ToolCallExecutor: No handler found for tool: ${ToolName.SPAWN_SUBAGENT}`
             );
           }
-          toolCallResult = await spawnHandler().handle(params.agentParams, {
+          toolCallResult = await spawnHandler().handle(invocationCtx, {
             toolCall,
             parentAgentId: params.agentId,
           });
@@ -148,7 +161,7 @@ export class ToolCallExecutor {
 
         default: {
           if (agent.plugin.mcpService.isMCPToolName(toolCall.toolName as string)) {
-            toolCallResult = await agent.mcpToolHandler.handle(params.agentParams, {
+            toolCallResult = await agent.mcpToolHandler.handle(invocationCtx, {
               toolCall,
               messages: [],
             });
@@ -159,16 +172,16 @@ export class ToolCallExecutor {
             params.toolContentStreamInfo?.toolCallId === toolCall.toolCallId
               ? params.toolContentStreamInfo
               : undefined;
-          const invokeHandler = (ctx: ToolHandlerMiddlewareContext) => {
-            const toolName = ctx.toolCall.toolName;
+          const invokeHandler = (middlewareCtx: ToolHandlerMiddlewareContext) => {
+            const toolName = middlewareCtx.toolCall.toolName;
             const nestedHandlerGetter = handlerMap[toolName];
             if (!nestedHandlerGetter) {
               throw new Error(`No handler found for tool: ${toolName}`);
             }
             const handler = nestedHandlerGetter();
-            return handler.handle(ctx.params, {
-              toolCall: ctx.toolCall,
-              toolContentStreamInfo: ctx.toolContentStreamInfo,
+            return handler.handle(middlewareCtx.ctx, {
+              toolCall: middlewareCtx.toolCall,
+              toolContentStreamInfo: middlewareCtx.toolContentStreamInfo,
               continueFromNextTool: continueProcessingFromNextTool,
             });
           };
@@ -177,7 +190,7 @@ export class ToolCallExecutor {
             handler: invokeHandler,
           });
           toolCallResult = await toolHandlerChain({
-            params: params.agentParams,
+            ctx: invocationCtx,
             toolCall,
             toolContentStreamInfo: streamInfo,
             agent,

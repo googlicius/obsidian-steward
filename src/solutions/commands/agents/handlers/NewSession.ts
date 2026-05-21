@@ -4,7 +4,8 @@ import { EditorView } from '@codemirror/view';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { logger } from 'src/utils/logger';
 
 const newSessionSchema = z.object({
@@ -95,7 +96,7 @@ export class NewSession {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<NewSessionArgs> }
   ): Promise<AgentResult> {
     const editor = this.plugin.editor;
@@ -105,10 +106,10 @@ export class NewSession {
     }
 
     const view = editor.cm;
-    const rawQuery = options.toolCall.input.query ?? params.intent?.query ?? '';
+    const rawQuery = options.toolCall.input.query ?? ctx.intent?.query ?? '';
     const query = this.stripNewSessionStaticPhrase(rawQuery);
 
-    await this.syncChatModelFromConversation(params.intent?.model);
+    await this.syncChatModelFromConversation(ctx.intent?.model);
     await this.startNewSession(view, query);
 
     return {

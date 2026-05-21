@@ -1,9 +1,10 @@
 import { normalizePath, TFile, TFolder } from 'obsidian';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { z } from 'zod/v3';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { removeUndefined } from 'src/utils/removeUndefined';
 
 const GLOB_CHARACTERS_REGEX = /[*?[\]{}]/;
@@ -136,22 +137,18 @@ export class VaultGrep {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<GrepToolArgs> }
   ): Promise<AgentResult> {
     const { toolCall } = options;
 
-    if (!params.handlerId) {
-      throw new Error('VaultGrep.handle invoked without handlerId');
-    }
-
     const result = await this.executeGrep(toolCall.input);
 
     await this.agent.renderer.serializeToolInvocation({
-      path: params.title,
+      path: ctx.title,
       command: 'vault_grep',
-      handlerId: params.handlerId,
-      step: params.invocationCount,
+      handlerId: ctx.handlerId,
+      step: ctx.step,
       toolInvocations: [
         {
           ...toolCall,

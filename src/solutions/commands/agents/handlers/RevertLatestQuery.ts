@@ -2,10 +2,11 @@ import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { Artifact, ArtifactType, Change } from 'src/solutions/artifact';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { logger } from 'src/utils/logger';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { SysError } from 'src/utils/errors';
 
 const { getTranslation } = getBundledInternal('i18n');
@@ -49,43 +50,31 @@ export class RevertLatestQuery {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<RevertToolArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
+    const { title } = ctx.agentHandlerParams;
     const { toolCall } = options;
-    const t = getTranslation(lang);
-
-    if (!handlerId) {
-      throw new SysError('RevertLatestQuery.handle invoked without handlerId');
-    }
+    const t = getTranslation(ctx.lang);
 
     if (toolCall.input.explanation) {
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: toolCall.input.explanation,
         command: 'revert',
         includeHistory: false,
-        lang,
-        handlerId,
       });
     }
 
     const candidates = await this.collectRevertCandidates({ title });
     if (candidates.length === 0) {
       const noOpsMessage = t('revert.noOperationsInLatestQuery');
-      const messageId = await this.agent.renderer.updateConversationNote({
-        path: title,
+      const messageId = await ctx.updateConversationNote({
         newContent: noOpsMessage,
         command: 'revert',
         includeHistory: false,
-        lang,
-        handlerId,
       });
-      await this.agent.serializeInvocation({
+      await ctx.serializeInvocation({
         command: 'revert',
-        title,
-        handlerId,
         toolCall,
         result: {
           type: 'error-text',
@@ -107,24 +96,19 @@ export class RevertLatestQuery {
     console.log('SUMMARY', summary);
 
     const response = this.buildResultMessage({
-      lang,
+      lang: ctx.lang,
       summary,
       totalArtifacts: sortedCandidates.length,
     });
 
-    const messageId = await this.agent.renderer.updateConversationNote({
-      path: title,
+    const messageId = await ctx.updateConversationNote({
       newContent: response,
       command: 'revert',
       includeHistory: false,
-      lang,
-      handlerId,
     });
 
-    await this.agent.serializeInvocation({
+    await ctx.serializeInvocation({
       command: 'revert',
-      title,
-      handlerId,
       toolCall,
       result: {
         type: 'text',

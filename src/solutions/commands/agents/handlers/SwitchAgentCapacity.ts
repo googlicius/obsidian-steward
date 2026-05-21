@@ -1,9 +1,10 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 
 const { getTranslation } = getBundledInternal('i18n');
 
@@ -22,30 +23,22 @@ export class SwitchAgentCapacity {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: {
       toolCall: ToolCallPart<SwitchAgentCapacityArgs>;
       continueFromNextTool?: () => Promise<AgentResult>;
     }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
+    const { title } = ctx.agentHandlerParams;
     const { toolCall, continueFromNextTool } = options;
-    const t = getTranslation(lang);
-
-    if (!handlerId) {
-      throw new Error('SwitchAgentCapacity.handle invoked without handlerId');
-    }
+    const t = getTranslation(ctx.lang);
 
     const confirmationMessage = t('switchCapacity.confirm');
 
-    await this.agent.renderer.updateConversationNote({
-      path: title,
+    await ctx.updateConversationNote({
       newContent: confirmationMessage,
       command: 'switch-agent-capacity',
       includeHistory: false,
-      lang,
-      handlerId,
-      step: params.invocationCount,
     });
 
     return {
@@ -53,16 +46,10 @@ export class SwitchAgentCapacity {
       confirmationMessage,
       toolCall,
       onConfirmation: async () => {
-        await this.applySwitch({
-          title,
-          lang,
-          handlerId,
-          step: params.invocationCount,
-          toolCall,
-        });
+        await this.applySwitch(ctx, toolCall);
         // Full tool surface: frontmatter `allowed_tools` is cleared; drop intent restriction so
         // resolution uses all tools (switch_agent_capacity is omitted from the full surface).
-        params.intent.tools = undefined;
+        ctx.agentHandlerParams.intent.tools = undefined;
         if (!continueFromNextTool) {
           return {
             status: IntentResultStatus.SUCCESS,
@@ -73,21 +60,14 @@ export class SwitchAgentCapacity {
       onRejection: async () => {
         const rejectedMessage = t('switchCapacity.cancelled');
 
-        await this.agent.renderer.updateConversationNote({
-          path: title,
+        await ctx.updateConversationNote({
           newContent: rejectedMessage,
           command: 'switch-agent-capacity',
           includeHistory: false,
-          lang,
-          handlerId,
-          step: params.invocationCount,
         });
 
-        await this.agent.serializeInvocation({
-          title,
+        await ctx.serializeInvocation({
           command: 'switch-agent-capacity',
-          handlerId,
-          step: params.invocationCount,
           toolCall,
           result: {
             type: 'text',
@@ -105,15 +85,12 @@ export class SwitchAgentCapacity {
     };
   }
 
-  private async applySwitch(params: {
-    title: string;
-    lang?: string | null;
-    handlerId: string;
-    step?: number;
-    toolCall: ToolCallPart<SwitchAgentCapacityArgs>;
-  }): Promise<void> {
-    const { title, lang, handlerId, step, toolCall } = params;
-    const t = getTranslation(lang);
+  private async applySwitch(
+    ctx: HandlerInvocationContext,
+    toolCall: ToolCallPart<SwitchAgentCapacityArgs>
+  ): Promise<void> {
+    const { title } = ctx.agentHandlerParams;
+    const t = getTranslation(ctx.lang);
 
     await this.agent.renderer.updateConversationFrontmatter(title, [
       { name: 'allowed_tools', delete: true },
@@ -121,21 +98,14 @@ export class SwitchAgentCapacity {
 
     const enabledMessage = t('switchCapacity.enabled');
 
-    await this.agent.renderer.updateConversationNote({
-      path: title,
+    await ctx.updateConversationNote({
       newContent: enabledMessage,
       command: 'switch-agent-capacity',
       includeHistory: false,
-      lang,
-      handlerId,
-      step,
     });
 
-    await this.agent.serializeInvocation({
-      title,
+    await ctx.serializeInvocation({
       command: 'switch-agent-capacity',
-      handlerId,
-      step,
       toolCall,
       result: {
         type: 'text',

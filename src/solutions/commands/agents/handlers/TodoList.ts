@@ -2,7 +2,8 @@ import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, Intent, IntentResultStatus } from '../../types';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
+import { AgentResult, Intent, IntentResultStatus } from '../../types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 
@@ -397,7 +398,7 @@ export class TodoList {
    * Create or update a to-do list via todo_write
    */
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: {
       toolCall: ToolCallPart<TodoWriteArgs | TodoWriteCreateArgsWithMetadata>;
       createdBy?: TodoListState['createdBy'];
@@ -413,24 +414,20 @@ export class TodoList {
     const op = operations[0];
     if (op.operation === 'create') {
       return this.handleCreate(
-        params,
+        ctx,
         options.toolCall as ToolCallPart<TodoWriteCreateArgsWithMetadata>,
         options.createdBy
       );
     }
-    return this.handleUpdate(params, options.toolCall as ToolCallPart<TodoWriteArgs>);
+    return this.handleUpdate(ctx, options.toolCall as ToolCallPart<TodoWriteArgs>);
   }
 
   private async handleCreate(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     toolCall: ToolCallPart<TodoWriteCreateArgsWithMetadata>,
     createdBy: TodoListState['createdBy'] = 'ai'
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
-
-    if (!handlerId) {
-      throw new Error('TodoList.handleCreate invoked without handlerId');
-    }
+    const { title, lang } = ctx.agentHandlerParams;
 
     try {
       const steps = toolCall.input.operations[0].steps;
@@ -466,14 +463,10 @@ export class TodoList {
 
       if (!udcCommand || showTodoList) {
         await this.removePreviousTodoListDisplayMessage(title);
-        await this.agent.renderer.updateConversationNote({
-          path: title,
+        await ctx.updateConversationNote({
           newContent: this.formatTodoList(newState, lang),
           command: 'todo_write',
           includeHistory: false,
-          lang,
-          handlerId,
-          step: params.invocationCount,
         });
       }
 
@@ -482,8 +475,8 @@ export class TodoList {
       await this.agent.renderer.serializeToolInvocation({
         path: title,
         command: 'todo_write',
-        handlerId,
-        step: params.invocationCount,
+        handlerId: ctx.handlerId,
+        step: ctx.step,
         toolInvocations: [
           {
             ...toolCall,
@@ -509,14 +502,10 @@ export class TodoList {
   }
 
   private async handleUpdate(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     toolCall: ToolCallPart<TodoWriteArgs>
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
-
-    if (!handlerId) {
-      throw new Error('TodoList.handleUpdate invoked without handlerId');
-    }
+    const { title, lang } = ctx.agentHandlerParams;
 
     try {
       const updateOp = toolCall.input.operations[0] as Extract<
@@ -588,14 +577,10 @@ export class TodoList {
         await this.removePreviousTodoListDisplayMessage(title);
         const formattedList = this.formatTodoList(newState, lang);
 
-        await this.agent.renderer.updateConversationNote({
-          path: title,
+        await ctx.updateConversationNote({
           newContent: formattedList,
           command: 'todo_write',
           includeHistory: false,
-          lang,
-          handlerId,
-          step: params.invocationCount,
         });
       }
 
@@ -604,8 +589,8 @@ export class TodoList {
       await this.agent.renderer.serializeToolInvocation({
         path: title,
         command: 'todo_write',
-        handlerId,
-        step: params.invocationCount,
+        handlerId: ctx.handlerId,
+        step: ctx.step,
         toolInvocations: [
           {
             ...toolCall,

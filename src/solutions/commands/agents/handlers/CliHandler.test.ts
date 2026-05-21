@@ -9,7 +9,9 @@ import type { ToolCallPart } from '../../tools/types';
 import { ToolName } from '../../ToolRegistry';
 import { IntentResultStatus } from '../../types';
 import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
-import type { Intent } from '../../types';
+import type { AgentHandlerParams, Intent } from '../../types';
+import { HandlerInvocationContext } from '../HandlerInvocationContext';
+import { createTestHandlerInvocationContext } from './testUtils';
 
 function createMockAgent(): jest.Mocked<AgentHandlerContext> {
   return {
@@ -17,6 +19,7 @@ function createMockAgent(): jest.Mocked<AgentHandlerContext> {
     obsidianAPITools: {} as AgentHandlerContext['obsidianAPITools'],
     renderer: {
       updateConversationNote: jest.fn().mockResolvedValue(undefined),
+      serializeToolInvocation: jest.fn().mockResolvedValue(undefined),
     },
     plugin: {
       cliSessionService: {
@@ -27,7 +30,6 @@ function createMockAgent(): jest.Mocked<AgentHandlerContext> {
     commandProcessor: {
       deleteNextPendingIntent: jest.fn(),
     },
-    serializeInvocation: jest.fn().mockResolvedValue(undefined),
     deleteTempStreamFile: jest.fn(),
   } as unknown as jest.Mocked<AgentHandlerContext>;
 }
@@ -41,15 +43,7 @@ function createShellToolCall(toolCallId: string, argsLine: string): ToolCallPart
   } as ToolCallPart<ShellToolInput>;
 }
 
-function baseParams(
-  title: string,
-  intent?: Intent
-): {
-  title: string;
-  intent: Intent;
-  handlerId: string;
-  invocationCount: number;
-} {
+function baseParams(title: string, intent?: Intent): AgentHandlerParams {
   return {
     title,
     intent: intent ?? ({ type: 'test', query: '' } as Intent),
@@ -62,6 +56,13 @@ describe('CliHandler', () => {
   describe('handle', () => {
     let mockAgent: jest.Mocked<AgentHandlerContext>;
     let handler: CliHandler;
+
+    function createCtx(title: string, intent?: Intent): HandlerInvocationContext {
+      return createTestHandlerInvocationContext({
+        agent: mockAgent,
+        agentHandlerParams: baseParams(title, intent),
+      });
+    }
 
     beforeEach(() => {
       mockAgent = createMockAgent();
@@ -76,7 +77,7 @@ describe('CliHandler', () => {
         )
         .mockResolvedValue({ messageId: 'msg-manual' });
 
-      const result = await handler.handle(baseParams('Conv-A'), {
+      const result = await handler.handle(createCtx('Conv-A'), {
         toolCall: createShellToolCall(`${MANUAL_TOOL_CALL_ID_PREFIX}id-1`, 'echo hi'),
       });
 
@@ -88,7 +89,7 @@ describe('CliHandler', () => {
     });
 
     it('requires confirmation when the shell tool call is not client-made', async () => {
-      const result = await handler.handle(baseParams('Conv-B'), {
+      const result = await handler.handle(createCtx('Conv-B'), {
         toolCall: createShellToolCall('model-tool-call-99', 'rm -rf /'),
       });
 
@@ -109,7 +110,7 @@ describe('CliHandler', () => {
         )
         .mockResolvedValue({ messageId: 'msg-ai' });
 
-      const result = await handler.handle(baseParams('Conv-C'), {
+      const result = await handler.handle(createCtx('Conv-C'), {
         toolCall: createShellToolCall('model-tool-call-confirm', 'ls'),
       });
 
@@ -139,7 +140,7 @@ describe('CliHandler', () => {
       const continueFromNext = jest.fn().mockResolvedValue({ status: IntentResultStatus.SUCCESS });
 
       const result = await handler.handle(
-        baseParams('Conv-D', {
+        createCtx('Conv-D', {
           type: 'test',
           query: '',
           cli: { whitelist: ['echo*'] },
@@ -153,12 +154,12 @@ describe('CliHandler', () => {
       expect(result.status).toBe(IntentResultStatus.SUCCESS);
       expect(mockAgent.renderer.updateConversationNote).not.toHaveBeenCalled();
       expect(runShellSessionSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Conv-D' }),
+        expect.objectContaining({ title: 'Conv-D' } as HandlerInvocationContext),
         expect.anything(),
         true
       );
       expect(continueFromNext).toHaveBeenCalled();
-      expect(mockAgent.serializeInvocation).toHaveBeenCalled();
+      expect(mockAgent.renderer.serializeToolInvocation).toHaveBeenCalled();
       expect(mockAgent.plugin.cliSessionService.endSession).toHaveBeenCalledWith({
         conversationTitle: 'Conv-D',
         killProcess: true,
@@ -169,7 +170,7 @@ describe('CliHandler', () => {
 
     it('still requires confirmation when allowlist matches but command is interactive', async () => {
       const result = await handler.handle(
-        baseParams('Conv-E', {
+        createCtx('Conv-E', {
           type: 'test',
           query: '',
           cli: { whitelist: ['vim*'] },

@@ -1,8 +1,9 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 import { delay } from 'src/utils/delay';
@@ -28,15 +29,11 @@ export class Stop {
    * Handle stop tool call
    */
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<StopArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
-    const t = getTranslation(lang);
-
-    if (!handlerId) {
-      throw new Error('Stop.handle invoked without handlerId');
-    }
+    const { title } = ctx.agentHandlerParams;
+    const t = getTranslation(ctx.lang);
 
     // Get the count of active operations before stopping
     const activeOperationsCount = this.agent.plugin.abortService.getActiveOperationsCount(title);
@@ -59,11 +56,8 @@ export class Stop {
 
     await delay(800);
 
-    await this.agent.renderer.updateConversationNote({
-      path: title,
+    await ctx.updateConversationNote({
       newContent: responseMessage,
-      lang,
-      handlerId,
     });
 
     return {

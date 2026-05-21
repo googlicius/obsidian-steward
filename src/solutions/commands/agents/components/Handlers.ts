@@ -1,13 +1,14 @@
 import { ToolName } from '../../ToolRegistry';
 import * as handlers from '../handlers';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
-import type { AgentHandlerParams, AgentResult } from '../../types';
+import type { AgentResult } from '../../types';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { ToolCallPart } from '../../tools/types';
 import type { RunCommandSuperAgentDelegate } from '../handlers/RunCommand';
 
 export interface StandardToolHandler {
   handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: {
       toolCall: ToolCallPart<unknown>;
       continueFromNextTool?: () => Promise<AgentResult>;
