@@ -439,12 +439,14 @@ export class Search {
 
     // Store the search results in the artifact manager
     else {
-      const artifactId = await this.agent.plugin.artifactManagerV2.withTitle(ctx.title).storeArtifact({
-        artifact: {
-          artifactType: ArtifactType.SEARCH_RESULTS,
-          originalResults: queryResult.conditionResults,
-        },
-      });
+      const artifactId = await this.agent.plugin.artifactManagerV2
+        .withTitle(ctx.title)
+        .storeArtifact({
+          artifact: {
+            artifactType: ArtifactType.SEARCH_RESULTS,
+            originalResults: queryResult.conditionResults,
+          },
+        });
 
       const displayedCount = paginatedSearchResult.conditionResults.length;
       const totalCount = paginatedSearchResult.totalCount;

@@ -69,17 +69,17 @@ c:<tool> [--arg=value]...
 
 ### Command Reference
 
-| Alias        | Tool            | Flags                                                                                    |
-| ------------ | --------------- | ---------------------------------------------------------------------------------------- |
-| `c:read`     | Content Reading | `--type`, `--files`, `--element`, `--blocks`, `--pattern`                                |
-| `c:search`   | Search          | `--keywords`, `--filenames`, `--folders`, `--properties`                                 |
-| `c:delete`   | Delete          | `--artifact`, `--files`                                                                  |
-| `c:list`     | List            | `--folder`, `--pattern`                                                                  |
-| `c:move`     | Move            | `--artifact`, `--files`, `--destination`                                                 |
-| `c:rename`   | Rename          | `--artifact`, `--pattern`, `--replace`                                                   |
-| `c:grep`     | Grep            | `--pattern`, `--paths`, `--caseSensitive`, `--isRegex`, `--contextLines`, `--maxResults` |
-| `c:speech`   | Speech          | `--text`                                                                                 |
-| `c:image`    | Image           | `--prompt`                                                                               |
+| Alias      | Tool            | Flags                                                                                    |
+| ---------- | --------------- | ---------------------------------------------------------------------------------------- |
+| `c:read`   | Content Reading | `--type`, `--files`, `--element`, `--blocks`, `--pattern`                                |
+| `c:search` | Search          | `--keywords`, `--filenames`, `--folders`, `--properties`                                 |
+| `c:delete` | Delete          | `--artifact`, `--files`                                                                  |
+| `c:list`   | List            | `--folder`, `--pattern`                                                                  |
+| `c:move`   | Move            | `--artifact`, `--files`, `--destination`                                                 |
+| `c:rename` | Rename          | `--artifact`, `--pattern`, `--replace`                                                   |
+| `c:grep`   | Grep            | `--pattern`, `--paths`, `--caseSensitive`, `--isRegex`, `--contextLines`, `--maxResults` |
+| `c:speech` | Speech          | `--text`                                                                                 |
+| `c:image`  | Image           | `--prompt`                                                                               |
 
 ### `c:read` Flags
 

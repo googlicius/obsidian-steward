@@ -67,9 +67,7 @@ describe('ToolRegistry', () => {
       registry.setActive(['active_tool']);
 
       expect(registry.listInactiveToolNames()).toEqual(['inactive_tool', 'excluded_tool']);
-      expect(registry.listInactiveToolNames(new Set(['excluded_tool']))).toEqual([
-        'inactive_tool',
-      ]);
+      expect(registry.listInactiveToolNames(new Set(['excluded_tool']))).toEqual(['inactive_tool']);
     });
   });
 
@@ -99,9 +97,7 @@ describe('ToolRegistry', () => {
       });
       registry.setActive([]);
 
-      expect(registry.generateOtherToolsSection()).toBe(
-        '- inactive_tool - Visible description'
-      );
+      expect(registry.generateOtherToolsSection()).toBe('- inactive_tool - Visible description');
     });
 
     it('shows name only when showDescriptionWhenInactive is omitted on register', () => {

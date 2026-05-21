@@ -214,9 +214,7 @@ NOTE:
   [ToolName.RENAME]: {
     name: ToolName.RENAME,
     description: 'Rename files to a new path or filename.',
-    guidelines: [
-      `Always provide both the current path and the new path for each file.`,
-    ],
+    guidelines: [`Always provide both the current path and the new path for each file.`],
     category: 'vault-access',
   },
 
@@ -242,9 +240,7 @@ NOTE:
   [ToolName.UPDATE_FRONTMATTER]: {
     name: ToolName.UPDATE_FRONTMATTER,
     description: 'Update frontmatter properties in notes (add, update, or delete properties).',
-    guidelines: [
-      `Use ${ToolName.UPDATE_FRONTMATTER} to modify frontmatter properties in notes.`,
-    ],
+    guidelines: [`Use ${ToolName.UPDATE_FRONTMATTER} to modify frontmatter properties in notes.`],
     category: 'vault-access',
   },
 

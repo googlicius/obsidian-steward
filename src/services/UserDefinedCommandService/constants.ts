@@ -42,7 +42,7 @@ export const BUILT_IN_UDCS: BuiltInUDC[] = [
     name: 'Update command',
     description:
       'Install or update a community Steward command note into Steward/Commands from a JSON guideline.',
-    version: 10,
+    version: 11,
     content: [
       'This command is auto-generated into your Steward/Commands folder. Use to install or upgrade a community command, expect the query to be a valid JSON.',
       '',
@@ -86,7 +86,8 @@ export const BUILT_IN_UDCS: BuiltInUDC[] = [
       '3. **Download into `$steward/tmp`** — For every path in `files`, derive `<filename>` from the basename of that path (e.g. `Explain video.md`). Use **`shell`** to fetch and write only under tmp:',
       '   - Unix/Mac: `curl -fsSL "<raw_url_base><repo_path_as_url>" -o "<vault_path>/$steward/tmp/<filename>"`',
       '   - Windows: `Invoke-WebRequest -Uri "<raw_url_base><repo_path_as_url>" -OutFile "<vault_path>/$steward/tmp/<filename>"`',
-      '*Note: Put **`%20` in the download URL wherever a path segment has a space** (not in the quoted local `-o` / `-OutFile` path).*',
+      '*Note 1: Put **`%20` in the download URL wherever a path segment has a space** (not in the quoted local `-o` / `-OutFile` path).*',
+      '*Note 2: Download all file(s) in one shell command.',
       '',
       '4. **Version-specific cleanup** — If `updateInstruction` is present, follow it. Typically this means deleting old or renamed files from `$steward/Commands` (or `$steward/Commands/<destinationFolder>` when set) that are no longer part of the command. Use the **`delete`** tool.',
       '',

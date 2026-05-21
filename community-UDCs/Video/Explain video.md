@@ -1,7 +1,7 @@
 ---
 status: ✅ Valid
 enabled: true
-version: 4
+version: 5
 ---
 Explain a YouTube video by fetching its transcript using yt-dlp and generating a detailed explanation.
 
@@ -51,6 +51,7 @@ When the user provides a YouTube URL, follow these steps:
    ```
    yt-dlp --write-auto-subs --sub-langs <lang> --skip-download --convert-subs srt --output "_temp_transcript" "<URL>"
    ```
+*Note: If the video has no subtitles, stop processing, and response briefly to the user*
 
 4. **Find the SRT file** - It will be created in the vault root with a name like `_temp_transcript.<lang>.srt`. Read its content.
 
