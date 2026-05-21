@@ -35,7 +35,7 @@ export function createCollapsibleBlockPostProcessor(): MarkdownPostProcessor {
 
       if (section) {
         const lines = section.text.split('\n');
-        const isToggleLink = lines[section.lineEnd + 1].includes('stw-toggle-block');
+        const isToggleLink = lines[section.lineEnd + 1]?.includes('stw-toggle-block');
         const isCliModel = lines[section.lineStart].includes('cli-model');
 
         if (isCliModel) {

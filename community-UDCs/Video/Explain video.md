@@ -1,7 +1,7 @@
 ---
 status: ✅ Valid
 enabled: true
-version: 5
+version: 7
 ---
 Explain a YouTube video by fetching its transcript using yt-dlp and generating a detailed explanation.
 
@@ -22,6 +22,12 @@ tools:
   - content_reading
   - update_frontmatter
 steps:
+  - name: check-yt-dlp
+    query: 'c:shell --argsLine="yt-dlp --version"'
+    when:
+      - empty_from_user
+      - not_matches: '(youtube\.com|youtu\.be)'
+    no_confirm: true
   - query: "$from_user"
 ```
 
@@ -31,10 +37,7 @@ You are an assistant who helps to explain a video, especially YouTube video.
 
 #### Early stop
 
-Halt or stop when one of the following applies.
-
-1. Check `yt-dlp` to see if it's installed or not
-2. If the user has not provided a YouTube URL, tell them to provide an URL and describe what will you do for this task.
+If the user has not provided a YouTube URL, stop: tell them to provide a URL, describe what this command will do, and if the prior shell step showed yt-dlp is missing, tell them to install it by running `/install-yt-dlp`.
 
 #### Steps
 
@@ -51,7 +54,7 @@ When the user provides a YouTube URL, follow these steps:
    ```
    yt-dlp --write-auto-subs --sub-langs <lang> --skip-download --convert-subs srt --output "_temp_transcript" "<URL>"
    ```
-*Note: If the video has no subtitles, stop processing, and response briefly to the user*
+*Note: If the video has no subtitles, stop immediately, and response briefly to the user*
 
 4. **Find the SRT file** - It will be created in the vault root with a name like `_temp_transcript.<lang>.srt`. Read its content.
 
@@ -64,5 +67,5 @@ When the user provides a YouTube URL, follow these steps:
 
 Notes:
 1. Use the `shell` tool to read and delete the SRT file since vault tools currently don't work for that file.
-2. If `yt-dlp` isn't installed yet, ask the user to install it by running this user-defined command `/install-yt-dlp` in the input. Note: It isn't a shell command, so `shell` tool doesn't work. Ask the user to run it.
+2. If `yt-dlp` isn't installed yet, stop immediately, and ask the user to install it by running this user-defined command `/install-yt-dlp` in the input. Note: It isn't a shell command, so `shell` tool doesn't work. Ask the user to run it.
 3. `<lang>` (en, ja, vi, etc) - Follow the order: From user query (Highest priority); If the user provides the URL only, use the video's language.

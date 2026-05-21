@@ -260,6 +260,26 @@ describe('CommandSyntaxParser', () => {
       });
     });
 
+    it('should produce shell tool call with argsLine', () => {
+      const { commands } = CommandSyntaxParser.parse('c:shell --argsLine="yt-dlp --version"');
+      const toolCalls = CommandSyntaxParser.toToolCalls(commands);
+
+      expect(toolCalls[0].toolName).toBe(ToolName.SHELL);
+      expect(toolCalls[0].input).toMatchObject({
+        argsLine: 'yt-dlp --version',
+      });
+    });
+
+    it('should produce shell tool call with needsInteractiveMode', () => {
+      const { commands } = CommandSyntaxParser.parse('c:shell --needsInteractiveMode=true');
+      const toolCalls = CommandSyntaxParser.toToolCalls(commands);
+
+      expect(toolCalls[0].toolName).toBe(ToolName.SHELL);
+      expect(toolCalls[0].input).toMatchObject({
+        needsInteractiveMode: true,
+      });
+    });
+
     it('should handle search with property shorthand', () => {
       const { commands } = CommandSyntaxParser.parse(
         'c:search --properties=tag:todo,status:active'

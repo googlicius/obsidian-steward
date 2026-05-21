@@ -239,6 +239,31 @@ steps:
     no_confirm: true
 ```
 
+### Conditional steps
+
+Run a step only when its `when` condition(s) match user input. Multiple conditions use **OR** semantics — the step runs if **any** condition is true. Omit `when` to always run the step.
+
+Supported conditions:
+
+- `empty_from_user` — user input is empty (after trim)
+- `matches: '<regex>'` — input matches the pattern
+- `not_matches: '<regex>'` — input does not match the pattern
+
+```yaml
+command_name: explain-video
+query_required: false
+steps:
+  - name: check-yt-dlp
+    query: 'c:shell --argsLine="yt-dlp --version"'
+    when:
+      - empty_from_user
+      - not_matches: '(youtube\.com|youtu\.be)'
+    no_confirm: true
+  - query: '$from_user'
+```
+
+`not_matches` alone is often enough — empty input will not match a URL pattern.
+
 ### Question-answering command with system prompt
 
 ```yaml
@@ -319,4 +344,4 @@ steps:
 - Multiple triggers can be defined; any matching trigger will execute the command.
 - A command file can contain multiple YAML code blocks, each defining a separate command.
 - Markdown content outside YAML blocks (headings, text, lists) can be referenced by system prompts using `[[#Heading]]` syntax.
-- When composing UDC steps, **prefer `c:` command syntax** for deterministic operations (read, search, delete, move, rename, list, grep, speech, image) to avoid unnecessary AI round trips. Reserve natural language queries for steps that require AI reasoning.
+- When composing UDC steps, **prefer `c:` command syntax** for deterministic operations (read, search, delete, move, rename, list, grep, exists, speech, image, shell) to avoid unnecessary AI round trips. Reserve natural language queries for steps that require AI reasoning.

@@ -361,7 +361,7 @@ NOTE:
     name: ToolName.SHELL,
     description: `Run a host/OS shell command or open an interactive terminal in the current conversation. Use only when the user EXPLICITLY wants a command (Linux, Windows, etc.). For example: cd, cat, pwd, ls, etc. Or TUI apps: vim, htop, etc. If you are unsure whether the action is a shell command or a user-defined command, activate ${ToolName.RUN_COMMAND} to check the USER-DEFINED COMMANDS section below.`,
     guidelines: [
-      `The user is always being asked for confirmation before running the command.`,
+      'When deciding to run a shell command, no need to ask the user for consent, the system will do that.',
       `Put the exact shell line in argsLine when the user explicitly wants it executed on the host.`,
     ],
     category: 'cli',

@@ -7,7 +7,6 @@ import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { logger } from 'src/utils/logger';
 import { ToolCallPart } from '../../tools/types';
 import { AgentResult, IntentResultStatus } from '../../types';
-import { SysError } from 'src/utils/errors';
 
 const { getTranslation } = getBundledInternal('i18n');
 
@@ -92,8 +91,6 @@ export class RevertLatestQuery {
       candidates: sortedCandidates,
       explanation: toolCall.input.explanation ?? t('revert.revertingLatestQuery'),
     });
-
-    console.log('SUMMARY', summary);
 
     const response = this.buildResultMessage({
       lang: ctx.lang,

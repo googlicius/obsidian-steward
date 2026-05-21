@@ -17,6 +17,7 @@ import {
   addTableColumnSchema,
   updateTableColumnSchema,
 } from '../tools/editContent';
+import { shellToolInputSchema } from '../agents/handlers/CliHandler';
 
 /**
  * Describes how a CLI flag maps to a schema field.
@@ -199,6 +200,14 @@ export const COMMAND_SYNTAX_MAPPINGS: Record<string, ToolSyntaxMapping> = {
       explanation: 'Command syntax image',
       confidence: 1,
     },
+  },
+
+  shell: {
+    toolName: ToolName.SHELL,
+    argMap: createArgMap(shellToolInputSchema, {
+      argsLine: 'argsLine',
+      needsInteractiveMode: 'needsInteractiveMode',
+    }),
   },
 };
 

@@ -957,5 +957,81 @@ steps:
 
       expect(result[0].query).toBe('gemini --prompt hello');
     });
+
+    it('skips steps when when conditions are not met', async () => {
+      const mockCommandProcessorService = { isBuiltInCommand: jest.fn().mockReturnValue(false) };
+      Object.defineProperty(userDefinedCommandService, 'commandProcessorService', {
+        get: jest.fn().mockReturnValue(mockCommandProcessorService),
+      });
+
+      const youtubePattern = '(youtube\\.com|youtu\\.be)';
+      const v2Data: UserDefinedCommandV2Data = {
+        command_name: 'conditionalCommand',
+        file_path: 'path/to/conditional.md',
+        steps: [
+          {
+            name: 'check-yt-dlp',
+            query: 'c:shell --argsLine="yt-dlp --version"',
+            when: [{ not_matches: youtubePattern }, 'empty_from_user'],
+            no_confirm: true,
+          },
+          { query: '$from_user' },
+        ],
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'conditionalCommand',
+        new UserDefinedCommandV2(v2Data)
+      );
+
+      const withUrl = await userDefinedCommandService.expandUserDefinedCommandIntents(
+        [{ type: 'conditionalCommand', query: 'https://youtu.be/abc' }],
+        'https://youtu.be/abc'
+      );
+      expect(withUrl).toHaveLength(1);
+      expect(withUrl[0].query).toBe('https://youtu.be/abc');
+
+      const withoutUrl = await userDefinedCommandService.expandUserDefinedCommandIntents(
+        [{ type: 'conditionalCommand', query: '' }],
+        ''
+      );
+      expect(withoutUrl).toHaveLength(2);
+      expect(withoutUrl[0].query).toBe('c:shell --argsLine="yt-dlp --version"');
+      expect(withoutUrl[1].query).toBe('$from_user');
+
+      const helloOnly = await userDefinedCommandService.expandUserDefinedCommandIntents(
+        [{ type: 'conditionalCommand', query: 'hello' }],
+        'hello'
+      );
+      expect(helloOnly).toHaveLength(2);
+    });
+
+    it('returns null expansion when all steps are skipped by when conditions', async () => {
+      const mockCommandProcessorService = { isBuiltInCommand: jest.fn().mockReturnValue(false) };
+      Object.defineProperty(userDefinedCommandService, 'commandProcessorService', {
+        get: jest.fn().mockReturnValue(mockCommandProcessorService),
+      });
+
+      const v2Data: UserDefinedCommandV2Data = {
+        command_name: 'allSkipped',
+        file_path: 'path/to/skipped.md',
+        steps: [
+          {
+            query: 'only when empty',
+            when: 'empty_from_user',
+          },
+        ],
+      };
+      userDefinedCommandService.userDefinedCommands.set(
+        'allSkipped',
+        new UserDefinedCommandV2(v2Data)
+      );
+
+      const result = await userDefinedCommandService.expandUserDefinedCommandIntents(
+        [{ type: 'allSkipped', query: 'not empty' }],
+        'not empty'
+      );
+
+      expect(result).toEqual([]);
+    });
   });
 });

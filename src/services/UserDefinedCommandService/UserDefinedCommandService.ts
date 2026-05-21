@@ -24,6 +24,7 @@ import { loadUDCVersion } from './versions/loader';
 import { Intent, IntentResultStatus } from 'src/solutions/commands/types';
 import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
 import { migrateRawUdcObject, stringifyUdcYaml } from './migrateUdcLegacyUseTool';
+import { evaluateStepWhen } from './stepConditions';
 
 const { i18next } = getBundledInternal('i18n');
 const t = i18next.t.bind(i18next);
@@ -704,7 +705,6 @@ version: ${udc.version}
    */
   private async handleFileCreation(file: TFile): Promise<void> {
     if (this.isCommandFile(file)) {
-      console.log('Note command created', file);
       await this.loadCommandFromFile(file);
     } else {
       // Add to pending queue - will check triggers when metadata cache updates
@@ -1156,6 +1156,11 @@ version: ${udc.version}
 
     const steps: Intent[] = [];
     for (const step of command.normalized.steps) {
+      if (!evaluateStepWhen(step.when, { cleanedUserInput })) {
+        logger.warn(`Step "${step.query}" is skipped, condition doesn't match`, { step });
+        continue;
+      }
+
       const query = await this.expandAuthoredString(step.query, {
         fileName,
         cleanedUserInput,
@@ -1186,6 +1191,10 @@ version: ${udc.version}
         tools: command.normalized.tools,
         cli: command.normalized.cli,
       });
+    }
+
+    if (steps.length === 0) {
+      return null;
     }
 
     return steps;
