@@ -26,28 +26,11 @@ const runCommandSchema = z.object({
 export type RunCommandArgs = z.infer<typeof runCommandSchema>;
 
 /**
- * Super-agent entry point used to continue after UDC expansion (avoids importing SuperAgent here).
- */
-export type RunCommandSuperAgentDelegate = AgentHandlerContext & {
-  handle(
-    params: AgentHandlerParams,
-    options?: {
-      remainingSteps?: number;
-      toolCalls?: unknown;
-      currentToolCallIndex?: number;
-    }
-  ): Promise<AgentResult>;
-};
-
-/**
  * Executes a user-defined command: expands steps, updates frontmatter, bootstraps todo when needed,
- * then delegates to the super agent for the actual work.
+ * then signals SuperAgent to continue with the expanded intent.
  */
 export class RunCommand {
-  constructor(
-    private readonly agent: AgentHandlerContext,
-    private readonly superAgent: RunCommandSuperAgentDelegate
-  ) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public static async getRunCommandTool() {
     const { tool } = await getBundledLib('ai');
@@ -120,13 +103,22 @@ export class RunCommand {
 
     if (expandedIntents.length === 1) {
       const expanded = expandedIntents[0];
-      return this.superAgent.handle({
-        ...ctx.agentHandlerParams,
+      const continueParams: Partial<AgentHandlerParams> = {
         intent: {
           ...expanded,
-          systemPrompts: await RunCommand.resolveUdcSystemPrompts(udcService, command),
+          systemPrompts: await this.resolveUdcSystemPrompts(udcService, command),
         },
-      });
+      };
+      if (udcTools && udcTools.length > 0) {
+        continueParams.activeTools = udcTools;
+      }
+      return {
+        status: IntentResultStatus.CONTINUE_WITH_INTENT,
+        nextParams: {
+          ...ctx.agentHandlerParams,
+          ...continueParams,
+        },
+      };
     }
 
     const todoListSteps = expandedIntents.map(expandedIntent => {
@@ -160,7 +152,7 @@ export class RunCommand {
       contentFormat: 'hidden',
     });
 
-    const todoListHandler = new TodoList(this.superAgent);
+    const todoListHandler = new TodoList(this.agent);
     await todoListHandler.handle(ctx, { toolCall: todoWriteToolCall, createdBy: 'udc' });
 
     const currentStep = todoListSteps[0];
@@ -171,19 +163,22 @@ export class RunCommand {
       model: currentStep.model,
       no_confirm: currentStep.no_confirm,
       tools: udcTools,
-      systemPrompts: await RunCommand.resolveUdcSystemPrompts(udcService, command),
+      systemPrompts: await this.resolveUdcSystemPrompts(udcService, command),
       cli: currentStep.cli,
     };
 
-    return this.superAgent.handle({
-      ...ctx.agentHandlerParams,
-      intent: stepIntent,
-      activeTools: [ToolName.TODO_WRITE],
-      invocationCount: 1,
-    });
+    return {
+      status: IntentResultStatus.CONTINUE_WITH_INTENT,
+      nextParams: {
+        ...ctx.agentHandlerParams,
+        intent: stepIntent,
+        activeTools: [ToolName.TODO_WRITE],
+        invocationCount: 1,
+      },
+    };
   }
 
-  private static async resolveUdcSystemPrompts(
+  private async resolveUdcSystemPrompts(
     udc: UserDefinedCommandService,
     command: IVersionedUserDefinedCommand | undefined
   ): Promise<string[] | undefined> {

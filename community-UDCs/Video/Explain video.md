@@ -16,6 +16,8 @@ cli:
     - "yt-dlp*"
     - "Get-Content*"
     - "Remove-Item*"
+    - "cat _temp_transcript.en.srt"
+    - "rm _temp_transcript.en.srt"
 tools:
   - shell
   - list
@@ -37,7 +39,7 @@ You are an assistant who helps to explain a video, especially YouTube video.
 
 #### Early stop
 
-If the user has not provided a YouTube URL, stop: tell them to provide a URL, describe what this command will do, and if the prior shell step showed yt-dlp is missing, tell them to install it by running `/install-yt-dlp`.
+If the user has not provided a YouTube URL, stop: tell them to provide a URL, describe what this command will do.
 
 #### Steps
 

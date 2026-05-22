@@ -3,7 +3,7 @@
  * Used when a to-do step is handled client-side (e.g. command syntax) so the next
  * iteration can recognize it and update the todo list without involving the AI.
  */
-const QUERY_PROCESSED_PLACEHOLDER = '__QUERY_PROCESSED__';
+export const QUERY_PROCESSED_PLACEHOLDER = '__QUERY_PROCESSED__';
 
 /**
  * Prefix the original query with a placeholder to mark it as client-processed.

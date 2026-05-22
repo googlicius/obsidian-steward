@@ -3,7 +3,7 @@ import { ArtifactType } from 'src/solutions/artifact';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { uniqueID } from 'src/utils/uniqueID';
 import { ToolName } from '../../ToolRegistry';
-import { parseStepProcessedQuery } from '../SuperAgent/stepProcessedQuery';
+import { QUERY_PROCESSED_PLACEHOLDER, parseStepProcessedQuery } from '../SuperAgent/stepProcessedQuery';
 import { CommandSyntaxParser } from '../../command-syntax-parser';
 import { getQuotedQuery } from 'src/utils/getQuotedQuery';
 import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
@@ -141,6 +141,9 @@ export class ManualToolCall {
       }
 
       case 'user_confirm': {
+        if (query.trim().startsWith(QUERY_PROCESSED_PLACEHOLDER)) {
+          return undefined;
+        }
         return {
           type: 'tool-call',
           toolName: ToolName.USER_CONFIRM,

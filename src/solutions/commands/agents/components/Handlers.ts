@@ -4,8 +4,6 @@ import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type { AgentResult } from '../../types';
 import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { ToolCallPart } from '../../tools/types';
-import type { RunCommandSuperAgentDelegate } from '../handlers/RunCommand';
-
 export interface StandardToolHandler {
   handle(
     ctx: HandlerInvocationContext,
@@ -260,10 +258,7 @@ export class Handlers {
 
   public get runCommand(): handlers.RunCommand {
     if (!this._runCommand) {
-      this._runCommand = new handlers.RunCommand(
-        this.getAgent(),
-        this as unknown as RunCommandSuperAgentDelegate
-      );
+      this._runCommand = new handlers.RunCommand(this.getAgent());
     }
     return this._runCommand;
   }

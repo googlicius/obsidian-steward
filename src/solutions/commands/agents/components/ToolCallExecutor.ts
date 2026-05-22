@@ -51,6 +51,12 @@ export class ToolCallExecutor {
       const toolCall = params.toolCalls[index];
       let toolCallResult: AgentResult | undefined;
       const continueProcessingFromNextTool = async (): Promise<AgentResult> => {
+        if (index + 1 >= params.toolCalls.length) {
+          logger.log('Return SUCCESS as no other tool call to handle.');
+          return {
+            status: IntentResultStatus.SUCCESS,
+          };
+        }
         params.agentParams.invocationCount = (params.agentParams.invocationCount ?? 0) + 1;
         invocationCtx.incrementStep();
         return agent.handle(params.agentParams, {

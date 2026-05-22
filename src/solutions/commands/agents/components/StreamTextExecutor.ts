@@ -41,6 +41,7 @@ export class StreamTextExecutor {
   ): Promise<{
     toolCalls: TToolCalls;
     conversationHistory: ModelMessage[];
+    text: string;
     toolContentStreamInfo?: ToolContentStreamInfo;
     usage?: LanguageModelUsage;
     totalUsage?: LanguageModelUsage;
@@ -245,6 +246,7 @@ export class StreamTextExecutor {
 
     const usage = await streamTextResult.usage;
     const totalUsage = await streamTextResult.totalUsage;
+    const text = await streamTextResult.text;
 
     eventEmitter.emit(Events.EXECUTED_STREAM_TEXT, {
       conversationTitle: params.title,
@@ -256,6 +258,7 @@ export class StreamTextExecutor {
     return {
       toolCalls,
       conversationHistory: historyResult.messages,
+      text,
       toolContentStreamInfo,
       usage,
       totalUsage,

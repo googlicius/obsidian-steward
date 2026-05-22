@@ -273,6 +273,8 @@ NOTE:
     const commandSyntaxToolCalls = CommandSyntaxParser.parseAndConvert(intent.query);
 
     const isResumingToolCalls = !!options.toolCalls;
+    /** Is a batch resume, otherwise, a fresh turn */
+    const isContinuingToolBatch = isResumingToolCalls && options.currentToolCallIndex !== undefined;
 
     const manualToolCall =
       isResumingToolCalls || commandSyntaxToolCalls
@@ -288,6 +290,7 @@ NOTE:
           });
 
     let toolCalls: ToolCalls;
+    let text = '';
     let conversationHistory: ModelMessage[] = [];
     let toolContentStreamInfo: components.ToolContentStreamInfo | undefined;
 
@@ -298,20 +301,21 @@ NOTE:
     } else if (manualToolCall) {
       toolCalls = [manualToolCall] as ToolCalls;
     } else {
-      const result = await this.executeStreamText<ToolCalls>({
+      const streamTextResult = await this.executeStreamText<ToolCalls>({
         ...params,
         activeTools,
         tools,
       });
-      toolCalls = result.toolCalls;
-      conversationHistory = result.conversationHistory;
-      toolContentStreamInfo = result.toolContentStreamInfo;
+      toolCalls = streamTextResult.toolCalls;
+      text = streamTextResult.text;
+      conversationHistory = streamTextResult.conversationHistory;
+      toolContentStreamInfo = streamTextResult.toolContentStreamInfo;
       try {
         await this.renderer.recordTokenUsage(
           title,
           USAGE_AGENT_KEY.super,
-          result.usage,
-          result.totalUsage
+          streamTextResult.usage,
+          streamTextResult.totalUsage
         );
       } catch (usageError) {
         logger.error('Failed to record super agent token usage', usageError);
@@ -332,6 +336,16 @@ NOTE:
       toolContentStreamInfo,
     });
 
+    if (toolProcessingResult.status === IntentResultStatus.CONTINUE_WITH_INTENT) {
+      Object.assign(params, toolProcessingResult.nextParams);
+
+      const nextRemainingSteps = remainingSteps - 1;
+      await this.renderIndicator(params.title, params.lang);
+      return this.handle(params, {
+        remainingSteps: nextRemainingSteps,
+      });
+    }
+
     if (toolProcessingResult.status !== IntentResultStatus.SUCCESS) {
       logger.log('Stopping or pausing processing because tool processing result is not success', {
         status: toolProcessingResult.status,
@@ -341,12 +355,16 @@ NOTE:
       return toolProcessingResult;
     }
 
-    // Stop if manual tool call, except todo_write (update) injected for client-processed steps
-    const isManualTodoWriteUpdate =
+    // Stop if manual tool call, except user_confirm and todo_write (update) injected for client-processed steps
+    const isManualTodoWriteUpdate = () =>
       manualToolCall &&
       manualToolCall.toolName === ToolName.TODO_WRITE &&
       handlers.isTodoWriteUpdateToolInput(manualToolCall.input);
-    if (manualToolCall && !isManualTodoWriteUpdate) {
+    if (
+      manualToolCall &&
+      !isManualTodoWriteUpdate() &&
+      ![ToolName.USER_CONFIRM].includes(manualToolCall.toolName)
+    ) {
       logger.log('Stopping processing because manual tool call is present', { manualToolCall });
       return toolProcessingResult;
     }
@@ -356,10 +374,18 @@ NOTE:
     // Check if to-do list has incomplete steps (for UDC "generate" steps that don't use tools)
     const hasTodoIncomplete = await this.hasTodoListIncompleteSteps(title);
 
+    const hasMoreWork = toolCalls.length > 0 || hasTodoIncomplete;
+    const hasStepsRemaining = nextRemainingSteps > 0;
+    const shouldStopForClassifiedTask = this.stopProcessingForClassifiedTask(
+      classifiedTasks,
+      toolCalls
+    );
+
     if (
-      (toolCalls.length > 0 || hasTodoIncomplete) &&
-      nextRemainingSteps > 0 &&
-      !this.stopProcessingForClassifiedTask(classifiedTasks, toolCalls)
+      hasMoreWork &&
+      hasStepsRemaining &&
+      !shouldStopForClassifiedTask &&
+      !isContinuingToolBatch
     ) {
       const wasTodoWriteUpdateCalled = toolCalls.some(
         call =>
@@ -398,6 +424,11 @@ NOTE:
           toolCalls.length > 0 ? (toolCalls[0].toolName as ToolName) : undefined;
         await this.renderIndicator(title, lang, firstToolName);
       }
+
+      console.log('Continue', {
+        toolCalls,
+        text,
+      });
 
       return this.handle(params, {
         remainingSteps: nextRemainingSteps,
@@ -451,6 +482,12 @@ NOTE:
         );
       }
     }
+
+    // Finish
+    console.log('Finished', {
+      toolCalls,
+      text,
+    });
 
     return toolProcessingResult;
   }

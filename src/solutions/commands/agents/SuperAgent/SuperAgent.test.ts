@@ -1446,7 +1446,7 @@ describe('SuperAgent', () => {
 
       expect(manualToolCallSpy).not.toHaveBeenCalled();
       expect(getMockStreamText()).not.toHaveBeenCalled();
-      expect(result.status).toBe(IntentResultStatus.NEEDS_CONFIRMATION);
+      expect(result.status).toBe(IntentResultStatus.SUCCESS);
     });
   });
 

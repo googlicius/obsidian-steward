@@ -32,6 +32,8 @@ export enum IntentResultStatus {
   NEEDS_USER_INPUT = 'needs_user_input',
   LOW_CONFIDENCE = 'low_confidence',
   STOP_PROCESSING = 'stop_processing',
+  /** Tool handler finished setup; SuperAgent should continue with `nextParams` (e.g. after UDC expansion). */
+  CONTINUE_WITH_INTENT = 'continue_with_intent',
 }
 
 type UserInputResult = {
@@ -43,6 +45,11 @@ type SuccessResult = {
   status: IntentResultStatus.SUCCESS;
   shouldContinue?: boolean;
   nextParams?: Partial<AgentHandlerParams>;
+};
+
+export type ContinueWithIntentResult = {
+  status: IntentResultStatus.CONTINUE_WITH_INTENT;
+  nextParams: Partial<AgentHandlerParams>;
 };
 
 type StopProcessingResult = {
@@ -79,6 +86,7 @@ export type AgentResult =
   | ConfirmationResult
   | UserInputResult
   | SuccessResult
+  | ContinueWithIntentResult
   | ErrorResult
   | LowConfidenceResult
   | StopProcessingResult;
