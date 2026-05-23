@@ -85,7 +85,7 @@ export class ContentReadingService {
       ? await this.plugin.mediaTools.findFileByNameOrPath(args.fileName)
       : this.plugin.app.workspace.getActiveFile();
     if (!file) {
-      throw new Error(`No file found for note: ${args.fileName}`);
+      throw new Error('No file found for note');
     }
 
     const fileExtension = file.extension.toLowerCase();

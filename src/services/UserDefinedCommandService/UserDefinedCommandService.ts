@@ -1261,9 +1261,7 @@ version: ${udc.version}
   /**
    * V2: normalized root `cli` for a command, if set.
    */
-  public getCommandCli(
-    commandName: string
-  ): NormalizedUserDefinedCommand['cli'] | undefined {
+  public getCommandCli(commandName: string): NormalizedUserDefinedCommand['cli'] | undefined {
     const cmd = this.userDefinedCommands.get(commandName);
     if (!cmd || !cmd.normalized.enabled) {
       return undefined;

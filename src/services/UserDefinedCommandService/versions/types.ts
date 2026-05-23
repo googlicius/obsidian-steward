@@ -15,10 +15,7 @@ export interface UdcTemplateContext {
 /**
  * Shared types used across all versions
  */
-export type StepCondition =
-  | 'empty_from_user'
-  | { matches: string }
-  | { not_matches: string };
+export type StepCondition = 'empty_from_user' | { matches: string } | { not_matches: string };
 
 export interface CommandStep {
   name?: string;

@@ -25,7 +25,7 @@ tools: [content_reading, shell]
 2. **Verify** installation with `yt-dlp --version`.
 3. If installation succeeds but commands fail later, mention **ffmpeg** (often required for merge/post-process).
 
-## 0. Already installed?
+### 0. Already installed?
 
 ```bash
 command -v yt-dlp >/dev/null 2>&1 && yt-dlp --version
@@ -33,7 +33,7 @@ command -v yt-dlp >/dev/null 2>&1 && yt-dlp --version
 
 If `yt-dlp --version` prints a version, stop unless the user asked to upgrade.
 
-## 1. Detect platform
+### 1. Detect platform
 
 Run **one** of these (Git Bash / WSL / macOS / Linux typically expose `uname`):
 
@@ -49,9 +49,9 @@ uname -s
 
 If the shell is **PowerShell** on Windows, use the Windows branch below (`winget`, etc.) without relying on `uname`.
 
-## 2. Install by platform (MUST use interactive mode)
+### 2. Install by platform (MUST use interactive mode)
 
-### Windows (native — preferred)
+#### Windows (native — preferred)
 
 Use **winget** when available (exact package id):
 
@@ -75,7 +75,7 @@ choco install yt-dlp -y
 powershell.exe -Command "winget install -e --id yt-dlp.yt-dlp --accept-package-agreements --accept-source-agreements"
 ```
 
-### macOS
+#### macOS
 
 ```bash
 brew install yt-dlp
@@ -83,7 +83,7 @@ brew install yt-dlp
 
 If Homebrew is unavailable, use **pipx** (see cross-platform).
 
-### Linux (incl. WSL)
+#### Linux (incl. WSL)
 
 Prefer the distro **package manager** when appropriate, for example:
 
@@ -93,7 +93,7 @@ Prefer the distro **package manager** when appropriate, for example:
 
 If the packaged version is too old or missing, use **pipx** (see cross-platform).
 
-### Cross-platform fallback (Python ecosystem)
+#### Cross-platform fallback (Python ecosystem)
 
 When package managers are awkward or the user already uses Python tooling:
 
@@ -103,7 +103,7 @@ pipx install yt-dlp
 
 Ensure pipx’s bin dir is on `PATH` (pipx prints a hint when needed). On Linux/macOS this is often `~/.local/bin`.
 
-## 3. Verify
+### 3. Verify
 
 ```bash
 yt-dlp --version
@@ -111,7 +111,7 @@ yt-dlp --version
 
 If the command is not found after install, open a **new terminal** (PATH refresh) or log out/in on Windows.
 
-## 4. ffmpeg (when downloads fail after install)
+### 4. ffmpeg (when downloads fail after install)
 
 Many workflows need **ffmpeg** for merging streams or post-processing. If errors mention ffmpeg or merging:
 
@@ -119,7 +119,7 @@ Many workflows need **ffmpeg** for merging streams or post-processing. If errors
 - **macOS:** `brew install ffmpeg`
 - **Linux:** install `ffmpeg` with the same distro package manager used above
 
-## Anti-patterns
+### Anti-patterns
 
 - Do not assume **only** `pip install yt-dlp` globally unless the user wants system Python touched; prefer **pipx** or OS packages.
 - On Windows, do not assume `uname` is available in **cmd.exe** — use `winget` / PowerShell detection instead.

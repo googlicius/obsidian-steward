@@ -21,10 +21,7 @@ export const stepConditionSchema = z.union([
   z.object({ not_matches: stepConditionPatternSchema }).strict(),
 ]);
 
-export const stepWhenSchema = z.union([
-  stepConditionSchema,
-  z.array(stepConditionSchema).min(1),
-]);
+export const stepWhenSchema = z.union([stepConditionSchema, z.array(stepConditionSchema).min(1)]);
 
 // Export to other versions - Shared Zod schemas
 /**

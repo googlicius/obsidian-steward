@@ -1,45 +1,36 @@
-import {
-  evaluateStepCondition,
-  evaluateStepWhen,
-} from './stepConditions';
+import { evaluateStepCondition, evaluateStepWhen } from './stepConditions';
 import { stepConditionSchema } from './versions/v1';
 
 describe('stepConditions', () => {
   describe('evaluateStepCondition', () => {
     it('empty_from_user is true for empty input', () => {
-      expect(
-        evaluateStepCondition('empty_from_user', { cleanedUserInput: '' })
-      ).toBe(true);
+      expect(evaluateStepCondition('empty_from_user', { cleanedUserInput: '' })).toBe(true);
     });
 
     it('empty_from_user is true for whitespace-only input', () => {
-      expect(
-        evaluateStepCondition('empty_from_user', { cleanedUserInput: '   ' })
-      ).toBe(true);
+      expect(evaluateStepCondition('empty_from_user', { cleanedUserInput: '   ' })).toBe(true);
     });
 
     it('empty_from_user is false when input has content', () => {
-      expect(
-        evaluateStepCondition('empty_from_user', { cleanedUserInput: 'hello' })
-      ).toBe(false);
+      expect(evaluateStepCondition('empty_from_user', { cleanedUserInput: 'hello' })).toBe(false);
     });
 
     it('matches returns true when pattern matches input', () => {
-      expect(
-        evaluateStepCondition({ matches: 'foo' }, { cleanedUserInput: 'hello foo bar' })
-      ).toBe(true);
+      expect(evaluateStepCondition({ matches: 'foo' }, { cleanedUserInput: 'hello foo bar' })).toBe(
+        true
+      );
     });
 
     it('matches returns false when pattern does not match', () => {
-      expect(
-        evaluateStepCondition({ matches: 'foo' }, { cleanedUserInput: 'hello bar' })
-      ).toBe(false);
+      expect(evaluateStepCondition({ matches: 'foo' }, { cleanedUserInput: 'hello bar' })).toBe(
+        false
+      );
     });
 
     it('not_matches returns true when pattern does not match', () => {
-      expect(
-        evaluateStepCondition({ not_matches: 'youtube' }, { cleanedUserInput: 'hello' })
-      ).toBe(true);
+      expect(evaluateStepCondition({ not_matches: 'youtube' }, { cleanedUserInput: 'hello' })).toBe(
+        true
+      );
     });
 
     it('not_matches returns false when pattern matches', () => {
@@ -63,19 +54,17 @@ describe('stepConditions', () => {
 
     it('uses OR semantics across conditions', () => {
       expect(
-        evaluateStepWhen(
-          [{ not_matches: 'youtube' }, 'empty_from_user'],
-          { cleanedUserInput: 'hello' }
-        )
+        evaluateStepWhen([{ not_matches: 'youtube' }, 'empty_from_user'], {
+          cleanedUserInput: 'hello',
+        })
       ).toBe(true);
     });
 
     it('returns false when no condition matches', () => {
       expect(
-        evaluateStepWhen(
-          [{ not_matches: 'youtube' }, 'empty_from_user'],
-          { cleanedUserInput: 'https://youtube.com/watch?v=x' }
-        )
+        evaluateStepWhen([{ not_matches: 'youtube' }, 'empty_from_user'], {
+          cleanedUserInput: 'https://youtube.com/watch?v=x',
+        })
       ).toBe(false);
     });
   });

@@ -27,7 +27,7 @@ After creating or updating a UDC note, re-read the file and check the frontmatte
 | `tools`          | array of strings         | No       | Super Agent tool names allowed for this command; omit for full set. Use `[switch_agent_capacity]` for chat-only until the user switches. If more than five tools, `activate_tools` is added when missing. |
 | `hidden`         | boolean                  | No       | If `true`, the command does not appear in the autocomplete menu                                                                                                                                           |
 | `triggers`       | array of trigger objects | No       | Automatically execute when file events match criteria                                                                                                                                                     |
-| `cli`            | object                   | No       | Shell session settings (v2): optional `shell` executable and `whitelist` patterns for auto-approved model shell lines (see [CLI settings](#cli-settings-v2))                                            |
+| `cli`            | object                   | No       | Shell session settings (v2): optional `shell` executable and `whitelist` patterns for auto-approved model shell lines (see [CLI settings](#cli-settings-v2))                                              |
 | `steps`          | array of step objects    | **Yes**  | The sequence of steps to execute                                                                                                                                                                          |
 
 ### Step-Level Fields
@@ -75,10 +75,10 @@ Optional list of patterns (max 50 entries). When the Super Agent sends a **model
 
 Matching rules (applied to the trimmed command line):
 
-| Pattern shape | Behavior |
-| ------------- | -------- |
-| No `*` | Exact match only (e.g. `pwd` matches `pwd`, not `pwd -L`) |
-| Contains `*` | Glob match: each `*` matches any run of characters |
+| Pattern shape | Behavior                                                  |
+| ------------- | --------------------------------------------------------- |
+| No `*`        | Exact match only (e.g. `pwd` matches `pwd`, not `pwd -L`) |
+| Contains `*`  | Glob match: each `*` matches any run of characters        |
 
 Examples:
 
