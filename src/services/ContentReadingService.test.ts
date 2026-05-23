@@ -993,4 +993,63 @@ Content.`;
       });
     });
   });
+
+  describe('getFileProperty', () => {
+    it('returns a frontmatter property from the metadata cache', () => {
+      const mockFile = new TFile();
+      mockFile.path = 'Steward/Skills/search/SKILL.md';
+      const mockPlugin = {
+        app: {
+          vault: {
+            getFileByPath: jest.fn().mockReturnValue(mockFile),
+          },
+          metadataCache: {
+            getFileCache: jest.fn().mockReturnValue({
+              frontmatter: { name: 'search-skill', enabled: true },
+            }),
+          },
+        },
+      } as unknown as jest.Mocked<StewardPlugin>;
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      expect(service.getFileProperty<string>(mockFile.path, 'name')).toBe('search-skill');
+      expect(service.getFileProperty<boolean>(mockFile.path, 'enabled')).toBe(true);
+      expect(service.getFileProperty<string>(mockFile.path, 'missing')).toBeUndefined();
+    });
+
+    it('returns undefined when the file is not found', () => {
+      const mockPlugin = {
+        app: {
+          vault: {
+            getFileByPath: jest.fn().mockReturnValue(null),
+          },
+          metadataCache: {
+            getFileCache: jest.fn(),
+          },
+        },
+      } as unknown as jest.Mocked<StewardPlugin>;
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      expect(service.getFileProperty<string>('missing.md', 'name')).toBeUndefined();
+      expect(mockPlugin.app.metadataCache.getFileCache).not.toHaveBeenCalled();
+    });
+
+    it('returns undefined when frontmatter is not cached', () => {
+      const mockFile = new TFile();
+      mockFile.path = 'Steward/Skills/search/SKILL.md';
+      const mockPlugin = {
+        app: {
+          vault: {
+            getFileByPath: jest.fn().mockReturnValue(mockFile),
+          },
+          metadataCache: {
+            getFileCache: jest.fn().mockReturnValue(undefined),
+          },
+        },
+      } as unknown as jest.Mocked<StewardPlugin>;
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      expect(service.getFileProperty<string>(mockFile.path, 'name')).toBeUndefined();
+    });
+  });
 });

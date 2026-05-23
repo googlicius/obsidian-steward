@@ -27,6 +27,7 @@ After creating or updating a UDC note, re-read the file and check the frontmatte
 | `tools`          | array of strings         | No       | Super Agent tool names allowed for this command; omit for full set. Use `[switch_agent_capacity]` for chat-only until the user switches. If more than five tools, `activate_tools` is added when missing. |
 | `hidden`         | boolean                  | No       | If `true`, the command does not appear in the autocomplete menu                                                                                                                                           |
 | `triggers`       | array of trigger objects | No       | Automatically execute when file events match criteria                                                                                                                                                     |
+| `cli`            | object                   | No       | Shell session settings (v2): optional `shell` executable and `whitelist` patterns for auto-approved model shell lines (see [CLI settings](#cli-settings-v2))                                            |
 | `steps`          | array of step objects    | **Yes**  | The sequence of steps to execute                                                                                                                                                                          |
 
 ### Step-Level Fields
@@ -49,6 +50,48 @@ After creating or updating a UDC note, re-read the file and check the frontmatte
 | `patterns.tags`       | string or array  | No       | Tags to match (e.g., `"#todo"` or `["#todo", "#review"]`) |
 | `patterns.content`    | string           | No       | Regex pattern to match file content                       |
 | `patterns.<property>` | string or array  | No       | Any frontmatter property name and value to match          |
+
+## CLI settings (v2)
+
+Use the root-level `cli` field when a command runs shell tools and you want to control how the local shell behaves.
+
+```yaml
+cli:
+  shell: /bin/zsh # optional: override the shell executable for new sessions
+  whitelist:
+    - 'yt-dlp*'
+    - 'Get-Content*'
+    - 'rm *_temp_transcript*'
+    - 'cat _temp_transcript.en.srt'
+```
+
+### `cli.shell`
+
+Optional path to the shell executable when Steward spawns a new session for this command. Falls back to global Steward CLI settings when omitted.
+
+### `cli.whitelist`
+
+Optional list of patterns (max 50 entries). When the Super Agent sends a **model shell line** in transcript mode (not interactive terminal mode), a matching pattern skips the confirmation prompt.
+
+Matching rules (applied to the trimmed command line):
+
+| Pattern shape | Behavior |
+| ------------- | -------- |
+| No `*` | Exact match only (e.g. `pwd` matches `pwd`, not `pwd -L`) |
+| Contains `*` | Glob match: each `*` matches any run of characters |
+
+Examples:
+
+- `Get-Content*` — commands starting with `Get-Content`
+- `rm *_temp_transcript.en.srt` — `rm` followed by optional flags/whitespace, then that file path
+- `rm *_temp_transcript*` — `rm` commands that mention `_temp_transcript` (quoted or unquoted)
+- `*_temp_transcript.en.srt` — any command that ends with that filename
+
+Notes:
+
+- An entry cannot be only `*` wildcards; include at least one literal character.
+- Empty shell lines never match (opening an interactive shell still requires confirmation).
+- Interactive terminal commands always require confirmation, even when whitelisted.
 
 ## Command Syntax (Direct Tool Calls)
 

@@ -1,9 +1,5 @@
 import { BUILT_IN_INTERACTIVE_APPS } from 'src/services/CliSessionService/CliSessionService';
-import {
-  CliHandler,
-  isShellCommandAllowedWithoutConfirmation,
-  type ShellToolInput,
-} from './CliHandler';
+import { CliHandler, isShellCommandAllowed, type ShellToolInput } from './CliHandler';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type { ToolCallPart } from '../../tools/types';
 import { ToolName } from '../../ToolRegistry';
@@ -20,11 +16,15 @@ function createMockAgent(): jest.Mocked<AgentHandlerContext> {
     renderer: {
       updateConversationNote: jest.fn().mockResolvedValue(undefined),
       serializeToolInvocation: jest.fn().mockResolvedValue(undefined),
+      getConversationProperty: jest.fn().mockResolvedValue(undefined),
     },
     plugin: {
       cliSessionService: {
         endSession: jest.fn(),
         getSupportedInteractiveApps: jest.fn().mockReturnValue([...BUILT_IN_INTERACTIVE_APPS]),
+      },
+      userDefinedCommandService: {
+        getCommandCli: jest.fn().mockReturnValue(undefined),
       },
     },
     commandProcessor: {
@@ -139,17 +139,22 @@ describe('CliHandler', () => {
         .mockResolvedValue({ messageId: 'auto' });
       const continueFromNext = jest.fn().mockResolvedValue({ status: IntentResultStatus.SUCCESS });
 
-      const result = await handler.handle(
-        createCtx('Conv-D', {
-          type: 'test',
-          query: '',
-          cli: { whitelist: ['echo*'] },
-        }),
-        {
-          toolCall: createShellToolCall('model-auto-1', 'echo hi'),
-          continueFromNextTool: continueFromNext,
-        }
-      );
+      mockAgent.renderer.getConversationProperty = jest
+        .fn()
+        .mockImplementation(async (_title: string, property: string) => {
+          if (property === 'udc_command') {
+            return 'test-cmd';
+          }
+          return undefined;
+        });
+      mockAgent.plugin.userDefinedCommandService.getCommandCli = jest
+        .fn()
+        .mockReturnValue({ whitelist: ['echo*'] });
+
+      const result = await handler.handle(createCtx('Conv-D'), {
+        toolCall: createShellToolCall('model-auto-1', 'echo hi'),
+        continueFromNextTool: continueFromNext,
+      });
 
       expect(result.status).toBe(IntentResultStatus.SUCCESS);
       expect(mockAgent.renderer.updateConversationNote).not.toHaveBeenCalled();
@@ -169,16 +174,21 @@ describe('CliHandler', () => {
     });
 
     it('still requires confirmation when allowlist matches but command is interactive', async () => {
-      const result = await handler.handle(
-        createCtx('Conv-E', {
-          type: 'test',
-          query: '',
-          cli: { whitelist: ['vim*'] },
-        }),
-        {
-          toolCall: createShellToolCall('model-int-1', 'vim'),
-        }
-      );
+      mockAgent.renderer.getConversationProperty = jest
+        .fn()
+        .mockImplementation(async (_title: string, property: string) => {
+          if (property === 'udc_command') {
+            return 'test-cmd';
+          }
+          return undefined;
+        });
+      mockAgent.plugin.userDefinedCommandService.getCommandCli = jest
+        .fn()
+        .mockReturnValue({ whitelist: ['vim*'] });
+
+      const result = await handler.handle(createCtx('Conv-E'), {
+        toolCall: createShellToolCall('model-int-1', 'vim'),
+      });
 
       expect(result.status).toBe(IntentResultStatus.NEEDS_CONFIRMATION);
       expect(mockAgent.renderer.updateConversationNote).toHaveBeenCalled();
@@ -186,22 +196,40 @@ describe('CliHandler', () => {
   });
 });
 
-describe('isShellCommandAllowedWithoutConfirmation', () => {
+describe('isShellCommandAllowed', () => {
   it('matches exact pattern', () => {
-    expect(isShellCommandAllowedWithoutConfirmation('ls', ['ls'])).toBe(true);
-    expect(isShellCommandAllowedWithoutConfirmation('ls -la', ['ls'])).toBe(false);
+    expect(isShellCommandAllowed('ls', ['ls'])).toBe(true);
+    expect(isShellCommandAllowed('ls -la', ['ls'])).toBe(false);
   });
 
   it('matches prefix when pattern ends with *', () => {
-    expect(isShellCommandAllowedWithoutConfirmation('Get-Content foo', ['Get-Content*'])).toBe(
+    expect(isShellCommandAllowed('Get-Content foo', ['Get-Content*'])).toBe(true);
+    expect(isShellCommandAllowed('echo hi', ['echo*'])).toBe(true);
+  });
+
+  it('matches glob patterns with * in the middle or at both ends', () => {
+    expect(
+      isShellCommandAllowed('rm -f _temp_transcript.en.srt', ['rm *_temp_transcript.en.srt'])
+    ).toBe(true);
+    expect(isShellCommandAllowed('rm "_temp_transcript.en.srt"', ['rm *_temp_transcript*'])).toBe(
       true
     );
-    expect(isShellCommandAllowedWithoutConfirmation('echo hi', ['echo*'])).toBe(true);
+    expect(isShellCommandAllowed('cat _temp_transcript.en.srt', ['*_temp_transcript.en.srt'])).toBe(
+      true
+    );
+    expect(isShellCommandAllowed('echo hi', ['*hi*'])).toBe(true);
+    expect(isShellCommandAllowed('echo hi', ['*bye*'])).toBe(false);
+  });
+
+  it('escapes regex metacharacters outside glob wildcards', () => {
+    expect(isShellCommandAllowed('grep (foo)', ['grep (foo)'])).toBe(true);
+    expect(isShellCommandAllowed('grep foo.bar', ['grep foo.bar'])).toBe(true);
+    expect(isShellCommandAllowed('grep fooXbar', ['grep foo.bar'])).toBe(false);
   });
 
   it('returns false for empty args or empty patterns', () => {
-    expect(isShellCommandAllowedWithoutConfirmation('', ['ls'])).toBe(false);
-    expect(isShellCommandAllowedWithoutConfirmation('   ', ['ls'])).toBe(false);
-    expect(isShellCommandAllowedWithoutConfirmation('ls', [])).toBe(false);
+    expect(isShellCommandAllowed('', ['ls'])).toBe(false);
+    expect(isShellCommandAllowed('   ', ['ls'])).toBe(false);
+    expect(isShellCommandAllowed('ls', [])).toBe(false);
   });
 });

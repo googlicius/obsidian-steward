@@ -120,6 +120,22 @@ export class ContentReadingService {
   }
 
   /**
+   * Gets a property from a file's YAML frontmatter using the metadata cache only.
+   */
+  getFileProperty<T>(filePath: string, property: string): T | undefined {
+    const file = this.plugin.app.vault.getFileByPath(normalizePath(filePath));
+    if (!file) {
+      return undefined;
+    }
+
+    const fileCache = this.plugin.app.metadataCache.getFileCache(file);
+    if (!fileCache?.frontmatter) {
+      return undefined;
+    }
+    return fileCache.frontmatter[property] as T;
+  }
+
+  /**
    * Read blocks above the cursor using line-based detection
    * @param file The active file
    * @param blocksToRead Number of blocks to read

@@ -77,7 +77,7 @@ const ja = {
       spawnFailed:
         '{{message}}\n\n各プラットフォーム用のインストーラーは {{stewardFolder}} フォルダ内にあります。vault のルートフォルダから実行してください:',
       openingInteractiveTerminal: 'ホスト会話でインタラクティブターミナルを開いています...',
-      shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
+      shellTranscriptIntro: '(Shell — output streams below.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
       processEndedCode: '(Process exited with code {{code}})',
       ptyNativePathUnavailable:
@@ -387,6 +387,8 @@ const ja = {
     todoList: {
       todoList: 'To-Doリスト',
       step: 'ステップ {{index}}',
+      incompleteContinuePrompt:
+        'To-Doリストが未完了です。続行する場合は「continue」と入力してください。',
     },
     documentation: {
       guidelines: 'ガイドライン',
@@ -404,6 +406,8 @@ const ja = {
       tipRevert: '`Undo` で最後の変更を元に戻す',
     },
     read: {
+      file: '読み取り: {{filePath}}',
+      useSkill: 'スキルを使用: {{skillName}}',
       noContentFound: 'エディタにそのような内容が見つかりませんでした。',
       noFrontmatterFound: 'ノートにフロントマターが見つかりませんでした。',
       readEntireContentConfirmation:
@@ -446,8 +450,6 @@ const ja = {
       summarizing: '会話を要約中...',
       continuingProcessing: '処理を続行中...',
       processingBatch: 'バッチ {{current}}/{{total}} を処理中...',
-      udcTodoListBootstrapGuide:
-        '[システムより] 複数ステップのユーザー定義コマンド（`/{{commandName}}`）を実行中です。続く todo_write のツール呼び出しは、ステップ計画を登録するためにシステムが挿入したものであり、エンドユーザーが入力したものではありません。',
       stepLimitReached: '最大処理ステップ数に達しました。さらにステップを続行しますか？',
     },
     // Model fallback messages

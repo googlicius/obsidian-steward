@@ -3,7 +3,7 @@ import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
 import type { HandlerInvocationContext } from '../HandlerInvocationContext';
-import { AgentResult, Intent, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 
@@ -211,7 +211,6 @@ export type TodoStepWithMetadata = TodoStep & {
   model?: string;
   systemPrompts?: string[];
   no_confirm?: boolean;
-  cli?: Intent['cli'];
 };
 
 /**
@@ -240,7 +239,6 @@ export interface TodoListState {
     model?: string;
     systemPrompts?: string[];
     no_confirm?: boolean;
-    cli?: Intent['cli'];
   }>;
   currentStep: number;
   createdBy: 'udc' | 'ai';

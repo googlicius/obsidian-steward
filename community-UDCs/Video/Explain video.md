@@ -1,7 +1,7 @@
 ---
 status: ✅ Valid
 enabled: true
-version: 7
+version: 8
 ---
 Explain a YouTube video by fetching its transcript using yt-dlp and generating a detailed explanation.
 
@@ -14,10 +14,10 @@ system_prompt:
 cli:
   whitelist:
     - "yt-dlp*"
-    - "Get-Content*"
-    - "Remove-Item*"
-    - "cat _temp_transcript.en.srt"
-    - "rm _temp_transcript.en.srt"
+    - "Get-Content *_temp_transcript.en.srt*"
+    - "Remove-Item *_temp_transcript.en.srt*"
+    - "cat *_temp_transcript.en.srt*"
+    - "rm *_temp_transcript.en.srt*"
 tools:
   - shell
   - list
@@ -69,5 +69,5 @@ When the user provides a YouTube URL, follow these steps:
 
 Notes:
 1. Use the `shell` tool to read and delete the SRT file since vault tools currently don't work for that file.
-2. If `yt-dlp` isn't installed yet, stop immediately, and ask the user to install it by running this user-defined command `/install-yt-dlp` in the input. Note: It isn't a shell command, so `shell` tool doesn't work. Ask the user to run it.
+2. If `yt-dlp` isn't installed yet (You will know it after running the first `yt-dlp` command), stop immediately, and ask the user to install it by running this user-defined command `/install-yt-dlp` in the input. Note: It isn't a shell command, so `shell` tool doesn't work. Ask the user to run it.
 3. `<lang>` (en, ja, vi, etc) - Follow the order: From user query (Highest priority); If the user provides the URL only, use the video's language.

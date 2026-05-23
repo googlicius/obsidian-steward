@@ -178,6 +178,8 @@ export class StreamTextExecutor {
 
     const { streamText } = await getBundledLib('ai');
 
+    console.log('messages', messages);
+
     const streamTextResult = streamText({
       model: llmConfig.model,
       temperature: llmConfig.temperature,

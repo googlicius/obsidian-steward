@@ -25,16 +25,34 @@ import { getBundledInternal } from 'src/utils/bundledInternals';
 
 const { i18next, getTranslation } = getBundledInternal('i18n');
 
+const REGEX_SPECIAL_CHARS = /[\\^$.*+?()[\]{}|]/g;
+
+/**
+ * Converts a glob-style whitelist pattern into an anchored RegExp.
+ * Supported glob syntax:
+ *   *  => matches any sequence of characters
+ */
+export function globWhitelistPatternToRegExp(pattern: string): RegExp {
+  const escaped = pattern.replace(REGEX_SPECIAL_CHARS, '\\$&');
+
+  // Restore glob semantics for '*'
+  const source = '^' + escaped.replace(/\\\*/g, '.*') + '$';
+
+  return new RegExp(source);
+}
+
+export function shellWhitelistPatternMatches(commandLine: string, pattern: string): boolean {
+  return globWhitelistPatternToRegExp(pattern).test(commandLine);
+}
+
 /**
  * UDC v2 root `cli.whitelist` matching for skipping model shell confirm.
- * - Trailing `*` on a pattern means prefix match on the trimmed command line (e.g. `Get-Content*`).
- * - Otherwise the trimmed command line must equal the trimmed pattern.
+ * - Patterns without `*` require an exact match on the trimmed command line.
+ * - Patterns with `*` use glob semantics: `*` matches any run of characters
+ *   (e.g. `Get-Content*`, `rm *_temp*`, `*transcript.en.srt`).
  * - Empty trimmed command never matches (interactive “open shell” stays confirm-only upstream).
  */
-export function isShellCommandAllowedWithoutConfirmation(
-  argsLine: string,
-  patterns: string[]
-): boolean {
+export function isShellCommandAllowed(argsLine: string, patterns: string[]): boolean {
   if (patterns.length === 0) {
     return false;
   }
@@ -50,18 +68,7 @@ export function isShellCommandAllowedWithoutConfirmation(
       continue;
     }
 
-    if (pattern.endsWith('*')) {
-      const prefix = pattern.slice(0, -1);
-      if (prefix.trim().length === 0) {
-        continue;
-      }
-      if (trimmed.startsWith(prefix)) {
-        return true;
-      }
-      continue;
-    }
-
-    if (trimmed === pattern) {
+    if (shellWhitelistPatternMatches(trimmed, pattern)) {
       return true;
     }
   }
@@ -101,6 +108,18 @@ export class CliHandler {
 
   private get cliSessionService() {
     return this.agent.plugin.cliSessionService;
+  }
+
+  /** UDC v2 root `cli` from `udc_command` frontmatter, when this conversation runs a UDC. */
+  private async resolveUdcCliFromFrontmatter(conversationTitle: string) {
+    const udcCommand = await this.agent.renderer.getConversationProperty<string>(
+      conversationTitle,
+      'udc_command'
+    );
+    if (!udcCommand) {
+      return undefined;
+    }
+    return this.agent.plugin.userDefinedCommandService.getCommandCli(udcCommand);
   }
 
   private buildCliSpawnFailedNoteContent(params: { errorMessage: string }): string {
@@ -501,7 +520,7 @@ export class CliHandler {
         );
     }
 
-    const trimmedIntentShell = ctx.intent.cli?.shell?.trim();
+    const trimmedIntentShell = (await this.resolveUdcCliFromFrontmatter(ctx.title))?.shell?.trim();
     const shellExecutable =
       trimmedIntentShell && trimmedIntentShell.length > 0 ? trimmedIntentShell : undefined;
 
@@ -593,12 +612,13 @@ export class CliHandler {
     const needsInteractiveMode = options.toolCall.input?.needsInteractiveMode;
     const runsInTerminal = this.shouldUseInteractiveMode(argsLine, needsInteractiveMode);
 
-    const allowPatterns = ctx.intent.cli?.whitelist;
+    const udcCli = await this.resolveUdcCliFromFrontmatter(title);
+    const allowPatterns = udcCli?.whitelist;
     if (
       allowPatterns &&
       allowPatterns.length > 0 &&
       !runsInTerminal &&
-      isShellCommandAllowedWithoutConfirmation(argsLine, allowPatterns)
+      isShellCommandAllowed(argsLine, allowPatterns)
     ) {
       return this.completeModelShellAfterApproval(ctx, options.toolCall, options);
     }

@@ -42,7 +42,7 @@ export const BUILT_IN_UDCS: BuiltInUDC[] = [
     name: 'Update command',
     description:
       'Install or update a community Steward command note into Steward/Commands from a JSON guideline.',
-    version: 11,
+    version: 14,
     content: [
       'This command is auto-generated into your Steward/Commands folder. Use to install or upgrade a community command, expect the query to be a valid JSON.',
       '',
@@ -95,7 +95,9 @@ export const BUILT_IN_UDCS: BuiltInUDC[] = [
       '',
       '6. **Move into `$steward/Commands`** — Use the **`move`** tool for all downloaded files only: from `$steward/tmp/<filename>` to `$steward/Commands/<filename>` when `destinationFolder` is omitted, or `$steward/Commands/<destinationFolder>/<filename>` when it is set.',
       '',
-      'NOTE:',
+      'Notes:',
+      '- Running `pwd` also tells you what the current platform is (Windows, Linux, or Mac). Run it first.',
+      '- Download file(s) BEFORE deleting existing file(s)',
       '- Do NOT download or write files directly under `$steward/Commands`; Obsidian vault events (create / modify / delete / rename) will not run and command(s) will not be registered or refreshed.',
       '- Do NOT create `$steward/tmp`; that folder already exists.',
       '- Stop if the query is not or invalid JSON.',

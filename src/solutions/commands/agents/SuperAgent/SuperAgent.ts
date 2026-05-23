@@ -371,10 +371,7 @@ NOTE:
 
     const nextRemainingSteps = remainingSteps - 1;
 
-    // Check if to-do list has incomplete steps (for UDC "generate" steps that don't use tools)
-    const hasTodoIncomplete = await this.hasTodoListIncompleteSteps(title);
-
-    const hasMoreWork = toolCalls.length > 0 || hasTodoIncomplete;
+    const hasMoreWork = toolCalls.length > 0;
     const hasStepsRemaining = nextRemainingSteps > 0;
     const shouldStopForClassifiedTask = this.stopProcessingForClassifiedTask(
       classifiedTasks,
@@ -424,11 +421,6 @@ NOTE:
           toolCalls.length > 0 ? (toolCalls[0].toolName as ToolName) : undefined;
         await this.renderIndicator(title, lang, firstToolName);
       }
-
-      console.log('Continue', {
-        toolCalls,
-        text,
-      });
 
       return this.handle(params, {
         remainingSteps: nextRemainingSteps,
@@ -481,6 +473,16 @@ NOTE:
           params.upstreamOptions
         );
       }
+    }
+
+    if (await this.hasTodoListIncompleteSteps(title)) {
+      await this.renderer.updateConversationNote({
+        path: title,
+        newContent: `*${t('todoList.incompleteContinuePrompt')}*`,
+        lang,
+        handlerId,
+        includeHistory: false,
+      });
     }
 
     // Finish
@@ -752,7 +754,6 @@ NOTE:
       no_confirm: nextStep.no_confirm,
       tools: commandLevelTools && commandLevelTools.length > 0 ? commandLevelTools : undefined,
       systemPrompts,
-      cli: nextStep.cli,
     };
   }
 

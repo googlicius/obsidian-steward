@@ -1042,7 +1042,7 @@ describe('SuperAgent', () => {
       expect(renderIndicatorSpy).toHaveBeenCalled();
     });
 
-    it('should continue processing when there are no tool calls but hasTodoIncomplete is true', async () => {
+    it('should stop and prompt the user when there are no tool calls but the todo list is incomplete', async () => {
       const params: AgentHandlerParams = {
         title: 'test-conversation',
         intent: {
@@ -1091,29 +1091,24 @@ describe('SuperAgent', () => {
           return undefined;
         });
 
-      // Spy on handle to verify it IS called recursively
       const handleSpy = jest.spyOn(superAgent, 'handle');
-
-      // Mock renderIndicator to verify it IS called (since we continue processing)
       const renderIndicatorSpy = jest.spyOn(superAgent, 'renderIndicator');
 
       await superAgent.handle(params, { remainingSteps: 5 });
 
-      // Verify executeStreamText was called
       expect(mockExecuteStreamText).toHaveBeenCalled();
-
-      // Verify getConversationProperty was called to check todo list
       expect(mockPlugin.conversationRenderer.getConversationProperty).toHaveBeenCalledWith(
         params.title,
         'todo_list'
       );
-
-      // Verify handle was called recursively (more than once)
-      // Since hasTodoIncomplete is true, processing should continue
-      expect(handleSpy.mock.calls.length).toBeGreaterThan(1);
-
-      // Verify renderIndicator was called (since we continue processing)
-      expect(renderIndicatorSpy).toHaveBeenCalled();
+      expect(handleSpy).toHaveBeenCalledTimes(1);
+      expect(renderIndicatorSpy).not.toHaveBeenCalled();
+      expect(mockPlugin.conversationRenderer.updateConversationNote).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: params.title,
+          includeHistory: false,
+        })
+      );
     });
   });
 
@@ -1439,7 +1434,9 @@ describe('SuperAgent', () => {
       const manualToolCallSpy = jest.spyOn(superAgent, 'manualToolCall') as jest.SpyInstance;
 
       const result = await superAgent.handle(params, {
-        remainingSteps: 1,
+        // Avoid step-limit confirmation: handle decrements remainingSteps once per call,
+        // and this scenario does not re-enter handle (batch resume with index past the end).
+        remainingSteps: 2,
         toolCalls: resumedToolCalls,
         currentToolCallIndex: 1,
       });

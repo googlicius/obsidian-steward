@@ -74,7 +74,7 @@ const vi = {
       spawnFailed:
         '{{message}}\n\nCó trình cài cho từng nền tảng trong thư mục {{stewardFolder}}; chạy từ thư mục gốc vault:',
       openingInteractiveTerminal: 'Đang mở terminal...',
-      shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
+      shellTranscriptIntro: '(Shell — output bên dưới.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
       processEndedCode: '(Process exited with code {{code}})',
       ptyNativePathUnavailable:
@@ -382,6 +382,8 @@ const vi = {
     todoList: {
       todoList: 'Danh sách công việc',
       step: 'Bước {{index}}',
+      incompleteContinuePrompt:
+        'Danh sách công việc chưa hoàn thành. Gõ "continue" nếu bạn muốn tôi tiếp tục.',
     },
     documentation: {
       guidelines: 'Hướng dẫn',
@@ -399,6 +401,8 @@ const vi = {
       tipRevert: 'Gõ `Undo` để hoàn tác thay đổi cuối',
     },
     read: {
+      file: 'Đọc {{filePath}}',
+      useSkill: 'Dùng skill {{skillName}}',
       noContentFound: 'Không tìm thấy nội dung như vậy trong trình soạn thảo.',
       noFrontmatterFound: 'Không tìm thấy frontmatter trong ghi chú.',
       readEntireContentConfirmation:
@@ -440,8 +444,6 @@ const vi = {
       summarizing: 'Đang tóm tắt cuộc trò chuyện...',
       continuingProcessing: 'Đang tiếp tục...',
       processingBatch: 'Đang xử lý batch {{current}}/{{total}}...',
-      udcTodoListBootstrapGuide:
-        '[Thay mặt hệ thống] Lệnh do người dùng định nghĩa nhiều bước (`/{{commandName}}`) đang chạy. Lệnh gọi todo_write tiếp theo do hệ thống chèn vào để đăng ký kế hoạch các bước; đây không phải do người dùng cuối nhập.',
       stepLimitReached:
         'Tôi đã đạt đến số bước xử lý tối đa. Bạn có muốn tôi tiếp tục với nhiều bước hơn không?',
     },

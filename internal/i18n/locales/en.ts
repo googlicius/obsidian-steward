@@ -41,7 +41,7 @@ const en = {
       errorProcessingCommand: 'Error processing {{commandType}} command: {{errorMessage}}',
       switchingModelDueToErrors: 'Switching from {{fromModel}} to {{toModel}} due to errors',
       thinkingProcess: 'Thinking process',
-      commandOutput: 'Command output',
+      commandOutput: 'Output',
       lines: '{{number}} lines',
       modelDoesNotSupportImageInputs:
         'Model {{model}} does not support image inputs. Please use a vision-capable model (e.g., gpt-4o, gemini-pro, claude-3-sonnet).',
@@ -81,7 +81,7 @@ const en = {
       spawnFailed:
         '{{message}}\n\nThere are installers for each platform in your {{stewardFolder}} folder; run them from your vault root folder:',
       openingInteractiveTerminal: 'Opening interactive terminal...',
-      shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
+      shellTranscriptIntro: '(Shell — output streams below.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
       processEndedCode: '(Process exited with code {{code}})',
       ptyNativePathUnavailable:
@@ -442,6 +442,8 @@ const en = {
     todoList: {
       todoList: 'To-Do list',
       step: 'Step {{index}}',
+      incompleteContinuePrompt:
+        'The to-do list is not finished yet. Type "continue" if you would like me to keep going.',
     },
     documentation: {
       guidelines: 'Guidelines',
@@ -459,6 +461,8 @@ const en = {
       tipRevert: 'Type `Undo` to revert the last changes',
     },
     read: {
+      file: 'Read {{filePath}}',
+      useSkill: 'Use skill {{skillName}}',
       noContentFound: 'No such content found in the editor.',
       noFrontmatterFound: 'No frontmatter found in the note.',
       readEntireContentConfirmation:
@@ -502,8 +506,6 @@ const en = {
       augmentingContext: 'Augmenting context...',
       continuingProcessing: 'Continuing...',
       processingBatch: 'Processing batch {{current}} of {{total}}...',
-      udcTodoListBootstrapGuide:
-        '[On system behalf] A multi-step user-defined command (`/{{commandName}}`) is running. The following todo_write tool call was injected by the system to register the step plan; it is not something the end user typed.',
       stepLimitReached:
         'I have reached the maximum number of processing steps. Would you like me to continue with more steps?',
     },

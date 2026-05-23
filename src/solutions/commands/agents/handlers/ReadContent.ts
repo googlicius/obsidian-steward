@@ -197,13 +197,18 @@ export class ReadContent {
         result => result.file && result.file.path.endsWith('.md') && result.blocks.length === 0
       );
 
+    const readFileMessages =
+      toolCall.input.readType === 'entire'
+        ? await this.buildReadFileMessages({ readingResults, lang })
+        : '';
+
     if (allEmpty) {
       const noContentMessage =
         toolCall.input.readType === 'frontmatter'
           ? t('read.noFrontmatterFound')
           : t('read.noContentFound');
       const messageId = await ctx.updateConversationNote({
-        newContent: `*${noContentMessage}*`,
+        newContent: [readFileMessages, `*${noContentMessage}*`].filter(Boolean).join('\n'),
         command: 'read',
         includeHistory: false,
       });
@@ -228,6 +233,14 @@ export class ReadContent {
       return {
         status: IntentResultStatus.SUCCESS,
       };
+    }
+
+    if (readFileMessages) {
+      await ctx.updateConversationNote({
+        newContent: readFileMessages,
+        command: 'read',
+        includeHistory: false,
+      });
     }
 
     // Show found placeholder if available (once for all files)
@@ -336,6 +349,44 @@ export class ReadContent {
     }
 
     return manager.resolveFilesFromArtifact(artifact.id);
+  }
+
+  private async buildReadFileMessages(params: {
+    readingResults: ContentReadingResult[];
+    lang?: string | null;
+  }): Promise<string> {
+    const { readingResults, lang } = params;
+    const t = getTranslation(lang);
+    const paths: string[] = [];
+
+    for (const result of readingResults) {
+      const path = result.file?.path;
+      if (!path || paths.includes(path)) {
+        continue;
+      }
+      paths.push(path);
+    }
+
+    if (paths.length === 0) {
+      return '';
+    }
+
+    const contentReadingService = this.agent.plugin.contentReadingService;
+    const lines: string[] = [];
+
+    for (const path of paths) {
+      if (path.toLowerCase().endsWith('skill.md')) {
+        const skillName = contentReadingService.getFileProperty<string>(path, 'name');
+        if (typeof skillName === 'string' && skillName.trim() !== '') {
+          lines.push(`*${t('read.useSkill', { skillName: skillName.trim() })}*`);
+          continue;
+        }
+      }
+
+      lines.push(`*${t('read.file', { filePath: path })}*`);
+    }
+
+    return lines.join('\n');
   }
 
   private buildReviewCalloutContent(params: {

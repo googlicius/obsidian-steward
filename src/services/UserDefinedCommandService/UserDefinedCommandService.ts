@@ -17,6 +17,7 @@ import { getBundledInternal } from 'src/utils/bundledInternals';
 import { z } from 'zod/v3';
 import {
   IVersionedUserDefinedCommand,
+  NormalizedUserDefinedCommand,
   TriggerCondition,
   type UdcTemplateContext,
 } from './versions/types';
@@ -1189,7 +1190,6 @@ version: ${udc.version}
         model,
         no_confirm: step.no_confirm,
         tools: command.normalized.tools,
-        cli: command.normalized.cli,
       });
     }
 
@@ -1259,14 +1259,23 @@ version: ${udc.version}
   }
 
   /**
-   * V2: normalized root `cli.shell`, if set (shell-style UDCs).
+   * V2: normalized root `cli` for a command, if set.
    */
-  public getCommandCliShell(commandName: string): string | undefined {
+  public getCommandCli(
+    commandName: string
+  ): NormalizedUserDefinedCommand['cli'] | undefined {
     const cmd = this.userDefinedCommands.get(commandName);
     if (!cmd || !cmd.normalized.enabled) {
       return undefined;
     }
-    const shell = cmd.normalized.cli?.shell?.trim();
+    return cmd.normalized.cli;
+  }
+
+  /**
+   * V2: normalized root `cli.shell`, if set (shell-style UDCs).
+   */
+  public getCommandCliShell(commandName: string): string | undefined {
+    const shell = this.getCommandCli(commandName)?.shell?.trim();
     if (shell) {
       return shell;
     }

@@ -1,6 +1,5 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
-import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { AgentHandlerParams } from '../../types';
@@ -12,8 +11,6 @@ import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
 import type { IVersionedUserDefinedCommand } from 'src/services/UserDefinedCommandService/versions/types';
 import type { UserDefinedCommandService } from 'src/services/UserDefinedCommandService/UserDefinedCommandService';
 import { TodoList, type TodoWriteCreateArgsWithMetadata } from './TodoList';
-
-const { getTranslation } = getBundledInternal('i18n');
 
 const runCommandSchema = z.object({
   command_name: z.string().min(1).describe('User-defined command id (same as in the catalog).'),
@@ -51,7 +48,7 @@ export class RunCommand {
       };
     }
 
-    const { title, lang } = ctx.agentHandlerParams;
+    const { title } = ctx.agentHandlerParams;
     const commandName = parsed.data.command_name.trim();
     const query = parsed.data.query ?? '';
 
@@ -128,7 +125,6 @@ export class RunCommand {
         model: expandedIntent.model,
         systemPrompts: expandedIntent.systemPrompts,
         no_confirm: expandedIntent.no_confirm,
-        cli: expandedIntent.cli,
       };
     });
 
@@ -141,10 +137,10 @@ export class RunCommand {
       },
     };
 
-    const t = getTranslation(lang);
-    const todoListBootstrapGuide = t('conversation.udcTodoListBootstrapGuide', {
-      commandName: commandName.trim(),
-    });
+    const todoListBootstrapGuide =
+      `[On system behalf] A multi-step user-defined command (\`/${commandName.trim()}\`) is running. ` +
+      'The following todo_write tool call was injected by the system to register the step plan; ' +
+      'it is not something the end user typed.';
     await this.agent.renderer.addUserMessage({
       path: title,
       newContent: todoListBootstrapGuide,
@@ -164,7 +160,6 @@ export class RunCommand {
       no_confirm: currentStep.no_confirm,
       tools: udcTools,
       systemPrompts: await this.resolveUdcSystemPrompts(udcService, command),
-      cli: currentStep.cli,
     };
 
     return {
