@@ -84,7 +84,7 @@ export class Dynamic {
 
     logger.warn('Dynamic tool call is not supported.', { toolCall: options.toolCall });
     await ctx.updateConversationNote({
-      newContent: `*${t('common.invalidOrDynamicToolCall', { toolName: options.toolCall.toolName })}*`,
+      newContent: `<small>*${t('common.invalidOrDynamicToolCall', { toolName: options.toolCall.toolName })}*</small>`,
       includeHistory: false,
     });
 

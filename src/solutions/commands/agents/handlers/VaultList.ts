@@ -105,8 +105,16 @@ export class VaultList {
     options: { toolCall: ToolCallPart<ListToolArgs> }
   ): Promise<AgentResult> {
     const { toolCall } = options;
+    const folderPath = toolCall.input.folderPath || '/';
 
     const result = await this.executeListTool(toolCall.input, ctx.lang, ctx.title);
+
+    const t = getTranslation(ctx.lang);
+    await ctx.updateConversationNote({
+      newContent: `*${t('list.listInFolder', { count: result.files.length, folder: folderPath })}*`,
+      command: 'vault_list',
+      includeHistory: false,
+    });
 
     const hasMoreFiles = result.files.length > MAX_FILES_TO_SHOW;
     const artifactId = `list_${Date.now()}`;
@@ -121,7 +129,6 @@ export class VaultList {
     });
 
     // Build result string: response text + artifact message if files reached max count
-    const t = getTranslation(ctx.lang);
     let resultText = result.response;
     if (hasMoreFiles) {
       resultText += `\n\n${t('list.fullListInArtifactUseFilePattern', { artifactId })}`;

@@ -91,7 +91,7 @@ const ja = {
       seeCliWiki:
         'トランスクリプトとインタラクティブの違いや node-pty のセットアップは [CLI]({{cliDoc}}) を参照してください。',
       confirmExecuteShell:
-        'この会話で次の**ローカルシェル**コマンドを実行します。続行するかキャンセルするか、ご確認ください。\n\n```\n{{command}}\n```',
+        'この会話で次の**ローカルシェル**コマンドを実行します。続行するかキャンセルするか、ご確認ください。',
       runInTerminal: 'このコマンドはターミナルで実行されます（インタラクティブモード／フルTTY）。',
       shellConfirmEmptyCommand: '（空行 — 入力なしでシェルを開始または継続）',
     },
@@ -237,6 +237,7 @@ const ja = {
         'トークン節約のため内容は省略されています。必要に応じて{{toolName}}ツールで確認してください。',
     },
     list: {
+      listInFolder: '{{folder}} の {{count}} 件を一覧表示',
       noItemsFound: '項目は見つかりませんでした。',
       noItemsFoundInFolder: '{{folder}} では項目が見つかりませんでした。',
       foundItems: '{{count}} 件の項目を見つけました',

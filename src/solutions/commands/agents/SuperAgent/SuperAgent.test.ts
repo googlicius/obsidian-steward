@@ -1110,6 +1110,56 @@ describe('SuperAgent', () => {
         })
       );
     });
+
+    it('should not prompt continue when the last UDC step is generate and the list is on that step', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'generate',
+          query: 'What does this flashcard mean?',
+        } as Intent,
+        activeTools: [ToolName.CONTENT_READING],
+        invocationCount: 1,
+      };
+
+      // @ts-expect-error - Accessing private method for testing
+      const mockExecuteStreamText = jest.spyOn(superAgent, 'executeStreamText') as jest.SpyInstance;
+
+      mockExecuteStreamText.mockResolvedValue({
+        toolCalls: [],
+        conversationHistory: [],
+      });
+
+      const mockTodoListState: handlers.TodoListState = {
+        steps: [
+          {
+            task: 'c:read --blocks=1 --files="note.md"',
+            type: 'read',
+            status: 'completed',
+          },
+          {
+            task: 'What does this flashcard mean?',
+            type: 'generate',
+          },
+        ],
+        currentStep: 2,
+        createdBy: 'udc',
+      };
+
+      mockPlugin.conversationRenderer.getConversationProperty = jest
+        .fn()
+        .mockImplementation(async (_title: string, property: string) => {
+          if (property === 'todo_list') {
+            return mockTodoListState;
+          }
+          return undefined;
+        });
+
+      await superAgent.handle(params, { remainingSteps: 5 });
+
+      expect(mockExecuteStreamText).toHaveBeenCalled();
+      expect(mockPlugin.conversationRenderer.updateConversationNote).not.toHaveBeenCalled();
+    });
   });
 
   describe('handle - max step count', () => {

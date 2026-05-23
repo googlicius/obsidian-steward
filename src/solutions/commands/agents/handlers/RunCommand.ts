@@ -98,6 +98,8 @@ export class RunCommand {
 
     await this.agent.renderer.updateConversationFrontmatter(title, frontmatterUpdates);
 
+    // If the user-defined command has only one step
+    // Return early and no todo list created
     if (expandedIntents.length === 1) {
       const expanded = expandedIntents[0];
       const continueParams: Partial<AgentHandlerParams> = {
@@ -117,6 +119,8 @@ export class RunCommand {
         },
       };
     }
+
+    // Create a todo list locally.
 
     const todoListSteps = expandedIntents.map(expandedIntent => {
       return {

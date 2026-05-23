@@ -290,7 +290,7 @@ NOTE:
           });
 
     let toolCalls: ToolCalls;
-    let text = '';
+    // let text = '';
     let conversationHistory: ModelMessage[] = [];
     let toolContentStreamInfo: components.ToolContentStreamInfo | undefined;
 
@@ -307,7 +307,7 @@ NOTE:
         tools,
       });
       toolCalls = streamTextResult.toolCalls;
-      text = streamTextResult.text;
+      // text = streamTextResult.text;
       conversationHistory = streamTextResult.conversationHistory;
       toolContentStreamInfo = streamTextResult.toolContentStreamInfo;
       try {
@@ -484,12 +484,6 @@ NOTE:
         includeHistory: false,
       });
     }
-
-    // Finish
-    console.log('Finished', {
-      toolCalls,
-      text,
-    });
 
     return toolProcessingResult;
   }
@@ -802,10 +796,28 @@ NOTE:
       return false;
     }
 
-    // Check if any step is not completed and not skipped
-    return todoListState.steps.some(
-      step => step.status !== 'completed' && step.status !== 'skipped'
-    );
+    const steps = todoListState.steps;
+    const lastIndex = steps.length - 1;
+
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      if (step.status === 'completed' || step.status === 'skipped') {
+        continue;
+      }
+
+      // The generate steps finish with plain text; no todo_write update marks them completed.
+      if (
+        i === lastIndex &&
+        step.type === 'generate' &&
+        todoListState.currentStep === steps.length
+      ) {
+        continue;
+      }
+
+      return true;
+    }
+
+    return false;
   }
 }
 

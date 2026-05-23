@@ -157,7 +157,14 @@ describe('CliHandler', () => {
       });
 
       expect(result.status).toBe(IntentResultStatus.SUCCESS);
-      expect(mockAgent.renderer.updateConversationNote).not.toHaveBeenCalled();
+      expect(mockAgent.renderer.updateConversationNote).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: 'Conv-D',
+          newContent: '```shell\necho hi\n```',
+          role: 'Steward',
+          includeHistory: false,
+        })
+      );
       expect(runShellSessionSpy).toHaveBeenCalledWith(
         expect.objectContaining({ title: 'Conv-D' } as HandlerInvocationContext),
         expect.anything(),
@@ -169,6 +176,73 @@ describe('CliHandler', () => {
         conversationTitle: 'Conv-D',
         killProcess: true,
       });
+
+      runShellSessionSpy.mockRestore();
+    });
+
+    it('includes purpose in confirmation message for model shell calls', async () => {
+      const result = await handler.handle(createCtx('Conv-F'), {
+        toolCall: {
+          ...createShellToolCall('model-purpose-1', 'npm install'),
+          input: {
+            argsLine: 'npm install',
+            purpose: 'I will install the project dependencies.',
+            lang: 'en',
+          },
+        },
+      });
+
+      expect(result.status).toBe(IntentResultStatus.NEEDS_CONFIRMATION);
+      expect(mockAgent.renderer.updateConversationNote).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: 'Conv-F',
+          newContent: expect.stringContaining(
+            '# I will install the project dependencies.\nnpm install'
+          ),
+          includeHistory: false,
+        })
+      );
+    });
+
+    it('shows purpose before auto-approved shell commands', async () => {
+      const runShellSessionSpy = jest
+        .spyOn(
+          handler as unknown as { runShellSession: CliHandler['runShellSession'] },
+          'runShellSession'
+        )
+        .mockResolvedValue({ messageId: 'auto-purpose' });
+
+      mockAgent.renderer.getConversationProperty = jest
+        .fn()
+        .mockImplementation(async (_title: string, property: string) => {
+          if (property === 'udc_command') {
+            return 'test-cmd';
+          }
+          return undefined;
+        });
+      mockAgent.plugin.userDefinedCommandService.getCommandCli = jest
+        .fn()
+        .mockReturnValue({ whitelist: ['echo*'] });
+
+      await handler.handle(createCtx('Conv-G'), {
+        toolCall: {
+          ...createShellToolCall('model-auto-purpose', 'echo hi'),
+          input: {
+            argsLine: 'echo hi',
+            purpose: 'I will print a greeting to the shell output.',
+            lang: 'en',
+          },
+        },
+      });
+
+      expect(mockAgent.renderer.updateConversationNote).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: 'Conv-G',
+          newContent: '```shell\n# I will print a greeting to the shell output.\necho hi\n```',
+          role: 'Steward',
+          includeHistory: false,
+        })
+      );
 
       runShellSessionSpy.mockRestore();
     });

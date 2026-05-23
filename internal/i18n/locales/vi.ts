@@ -87,8 +87,7 @@ const vi = {
       nodePtyInstallUnixHeading: 'Cài trên Mac / Linux',
       seeCliWiki:
         'Xem [CLI]({{cliDoc}}) để biết chế độ transcript so với interactive và cách cài node-pty.',
-      confirmExecuteShell:
-        'Tôi sẽ chạy lệnh này. Vui lòng xác nhận hoặc hủy.\n\n```shell\n{{command}}\n```',
+      confirmExecuteShell: 'Tôi sẽ chạy lệnh này. Vui lòng xác nhận hoặc hủy.',
       runInTerminal: 'Lệnh sẽ chạy trong terminal (chế độ tương tác, TTY đầy đủ).',
       shellConfirmEmptyCommand: '(dòng trống — bắt đầu hoặc tiếp tục shell mà không gửi lệnh)',
     },
@@ -231,6 +230,7 @@ const vi = {
         'Nội dung đã được lược bỏ để tiết kiệm token. Sử dụng công cụ {{toolName}} để kiểm tra nếu cần.',
     },
     list: {
+      listInFolder: 'Liệt kê {{count}} mục trong {{folder}}',
       noItemsFound: 'Không tìm thấy mục nào.',
       noItemsFoundInFolder: 'Không tìm thấy mục nào trong {{folder}}.',
       foundItems: 'Tôi đã tìm thấy {{count}} mục',

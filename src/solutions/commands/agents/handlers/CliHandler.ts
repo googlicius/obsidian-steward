@@ -22,6 +22,8 @@ import { ToolName } from '../../ToolRegistry';
 import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
 import { retry } from 'src/utils/retry';
 import { getBundledInternal } from 'src/utils/bundledInternals';
+import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
+import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 const { i18next, getTranslation } = getBundledInternal('i18n');
 
@@ -91,6 +93,17 @@ export const shellToolInputSchema = z.object({
       `Set true when the command needs an interactive terminal/TTY (for example downloading, installing, needs user prompt/select, or long-running process that you don't know how long to wait)
       Verify the command result before moving further.`
     ),
+  purpose: z
+    .string()
+    .optional()
+    .describe(
+      `Short explanation of what this shell command will do, shown to the user before execution.`
+    ),
+  lang: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(userLanguagePrompt.content as string),
 });
 
 export type ShellToolInput = z.infer<typeof shellToolInputSchema>;
@@ -595,6 +608,8 @@ export class CliHandler {
   ): Promise<AgentResult> {
     const argsLine = options.toolCall.input?.argsLine ?? '';
     const { title, lang } = ctx.agentHandlerParams;
+    const displayLang = options.toolCall.input?.lang ?? lang;
+    const t = getTranslation(displayLang);
     const isManualClientShellCall = options.toolCall.toolCallId.startsWith(
       MANUAL_TOOL_CALL_ID_PREFIX
     );
@@ -607,10 +622,15 @@ export class CliHandler {
     }
 
     const trimmed = argsLine.trim();
-    const displayCommand =
-      trimmed.length > 0 ? argsLine : i18next.t('cli.shellConfirmEmptyCommand');
     const needsInteractiveMode = options.toolCall.input?.needsInteractiveMode;
     const runsInTerminal = this.shouldUseInteractiveMode(argsLine, needsInteractiveMode);
+    const trimmedPurpose = options.toolCall.input?.purpose?.trim();
+    const commandInFence = trimmedPurpose
+      ? `# ${trimmedPurpose}${trimmed.length > 0 ? `\n${argsLine}` : ''}`
+      : trimmed.length > 0
+        ? argsLine
+        : '';
+    const shellFence = commandInFence ? `\`\`\`shell\n${commandInFence}\n\`\`\`` : '';
 
     const udcCli = await this.resolveUdcCliFromFrontmatter(title);
     const allowPatterns = udcCli?.whitelist;
@@ -620,14 +640,26 @@ export class CliHandler {
       !runsInTerminal &&
       isShellCommandAllowed(argsLine, allowPatterns)
     ) {
+      if (shellFence) {
+        await ctx.updateConversationNote({
+          newContent: shellFence,
+          role: 'Steward',
+          includeHistory: false,
+        });
+      }
       return this.completeModelShellAfterApproval(ctx, options.toolCall, options);
     }
 
-    let message = i18next.t('cli.confirmExecuteShell', { command: displayCommand });
-    if (runsInTerminal) {
-      message = `${message}\n\n${i18next.t('cli.runInTerminal')}`;
+    let message = t('cli.confirmExecuteShell');
+    if (!trimmed) {
+      message = `${message}\n\n${t('cli.shellConfirmEmptyCommand')}`;
     }
-    const t = getTranslation(lang);
+    if (shellFence) {
+      message = `${message}\n\n${shellFence}`;
+    }
+    if (runsInTerminal) {
+      message = `${message}\n\n${t('cli.runInTerminal')}`;
+    }
 
     await ctx.updateConversationNote({
       newContent: message,
@@ -654,7 +686,7 @@ export class CliHandler {
           toolCall: options.toolCall,
           result: {
             type: 'text',
-            value: i18next.t('confirmation.operationCancelled'),
+            value: t('confirmation.operationCancelled'),
           },
         });
 

@@ -94,8 +94,7 @@ const en = {
       nodePtyInstallUnixHeading: 'Install on Mac / Linux',
       seeCliWiki:
         'It would take up from 5 ~ 6 MB based on your platform.\n\nSee [CLI]({{cliDoc}}) for transcript vs interactive mode and node-pty setup.',
-      confirmExecuteShell:
-        'I will run this command. Please confirm or cancel.\n\n```shell\n{{command}}\n```',
+      confirmExecuteShell: 'I will run this command. Please confirm or cancel.',
       runInTerminal: 'The command will run in the terminal (interactive mode, full TTY).',
       shellConfirmEmptyCommand: '(empty line — start or continue shell without sending input yet)',
     },
@@ -266,6 +265,8 @@ const en = {
         'Content was omitted to save tokens. Use the {{toolName}} tool to inspect it if needed.',
     },
     list: {
+      listInFolder_one: 'List {{count}} item in {{folder}}',
+      listInFolder_other: 'List {{count}} items in {{folder}}',
       noItemsFound: 'No items found.',
       noItemsFoundInFolder: 'No items found in {{folder}}.',
       foundItems_one: 'I found {{count}} item',
