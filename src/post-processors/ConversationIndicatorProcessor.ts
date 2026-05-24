@@ -90,7 +90,7 @@ export function createConversationIndicatorProcessor(plugin: StewardPlugin): Mar
     const conversationFolder = `${plugin.settings.stewardFolder}/Conversations`;
     if (!ctx.sourcePath.startsWith(conversationFolder)) return;
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       const embedEl = el.closest('.markdown-embed');
       if (!embedEl) return;
       if (embedEl.hasAttribute(INDICATOR_ATTR)) return;

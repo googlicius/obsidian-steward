@@ -1,6 +1,6 @@
 import { ToolName } from './toolNames';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
-import { ArtifactType, revertAbleArtifactTypes } from '../artifact';
+import { revertAbleArtifactTypes } from '../artifact';
 import { EditMode } from './tools/editContent';
 
 export interface ToolDefinition {
@@ -18,6 +18,7 @@ export interface ToolMetaDefinition {
   description: string;
   guidelines: string[];
   category?: string;
+  /** Whether to show the description when inactive, default to false */
   showDescriptionWhenInactive?: boolean;
 }
 
@@ -38,7 +39,6 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   - Specify the direction to read (readType) carefully from the user's query, Do NOT set "entire" unless the user explicitly requests to read the entire content.`,
       `When reading multiple files, you MUST make multiple parallel tool calls in the same request (one ${ToolName.CONTENT_READING} call per file). Do NOT read files sequentially one by one. EXCEPT when the user explicitly requests it.`,
       `To read or inspect hidden (dot-prefixed) files or paths under a hidden folder, use the ${ToolName.SHELL} tool (e.g. cat, type, or Get-Content) from the vault root; the read tool cannot use the editor for those paths.`,
-      `On success, creates artifact: ${ArtifactType.READ_CONTENT}.`,
     ],
     showDescriptionWhenInactive: true,
   },
@@ -93,6 +93,13 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     category: 'user-interaction',
   },
 
+  [ToolName.NEW_SESSION]: {
+    name: ToolName.NEW_SESSION,
+    description: 'Close the current conversation embed and start a fresh chat session.',
+    guidelines: [],
+    category: 'user-interaction',
+  },
+
   [ToolName.BUILD_SEARCH_INDEX]: {
     name: ToolName.BUILD_SEARCH_INDEX,
     description:
@@ -115,7 +122,6 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   - Folders and filenames, use regex to represent user-specified: Exact match: ^<query>$, start with: ^<query>, or contain: <query>.`,
       `The search query can include keywords, file names, folder paths, tags, and other properties.`,
       `NOTE: ${ToolName.SEARCH} tool cannot access the Steward folder. Use ${ToolName.LIST} instead.`,
-      `On success, creates artifact: ${ArtifactType.SEARCH_RESULTS}.`,
     ],
     category: 'vault-access',
     showDescriptionWhenInactive: true,
@@ -169,7 +175,6 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
 NOTE:
   - Use table modes to edit tables, especially large tables (More than 20 rows).
   - Use one or multiple operations. DO NOT use multiple tool calls or multiple requests.`,
-      `On success, creates artifact: ${ArtifactType.EDIT_RESULTS}.`,
     ],
     category: 'content-edit',
   },
@@ -183,7 +188,6 @@ NOTE:
       'Use newFiles with filePath (not fileName) for file creation.',
       'Ensure each filePath includes the appropriate extension (e.g. .md, .canvas, .base).',
       'Provide the exact content that should be written to a file when available.',
-      `On success, creates artifact: ${ArtifactType.CREATED_PATHS}.`,
     ],
     category: 'content-create',
   },
@@ -193,7 +197,6 @@ NOTE:
     description: 'Delete files from the vault using the configured trash behavior.',
     guidelines: [
       `- List every file using the ${ToolName.LIST} tool (NOT ${ToolName.GREP}) you plan to delete and ensure the paths are accurate.`,
-      `On success, creates artifact: ${ArtifactType.DELETED_FILES}.`,
     ],
     category: 'vault-access',
   },
@@ -211,10 +214,7 @@ NOTE:
   [ToolName.RENAME]: {
     name: ToolName.RENAME,
     description: 'Rename files to a new path or filename.',
-    guidelines: [
-      `Always provide both the current path and the new path for each file.`,
-      `On success, creates artifact: ${ArtifactType.RENAME_RESULTS}.`,
-    ],
+    guidelines: [`Always provide both the current path and the new path for each file.`],
     category: 'vault-access',
   },
 
@@ -224,7 +224,6 @@ NOTE:
     guidelines: [
       'Always provide the destination folder path for the move operation.',
       'Specify the files or artifactId for the move operation.',
-      `On success, creates artifact: ${ArtifactType.MOVE_RESULTS}.`,
     ],
     category: 'vault-access',
   },
@@ -233,7 +232,7 @@ NOTE:
     name: ToolName.LIST,
     description:
       'List direct files and subfolders in a folder (non-recursive) and optionally filter names with filePattern.',
-    guidelines: [`On success, creates artifact: ${ArtifactType.LIST_RESULTS}.`],
+    guidelines: [],
     category: 'vault-access',
     showDescriptionWhenInactive: true,
   },
@@ -241,10 +240,7 @@ NOTE:
   [ToolName.UPDATE_FRONTMATTER]: {
     name: ToolName.UPDATE_FRONTMATTER,
     description: 'Update frontmatter properties in notes (add, update, or delete properties).',
-    guidelines: [
-      `Use ${ToolName.UPDATE_FRONTMATTER} to modify frontmatter properties in notes.`,
-      `On success, creates artifact: ${ArtifactType.UPDATE_FRONTMATTER_RESULTS}.`,
-    ],
+    guidelines: [`Use ${ToolName.UPDATE_FRONTMATTER} to modify frontmatter properties in notes.`],
     category: 'vault-access',
   },
 
@@ -295,7 +291,6 @@ NOTE:
     description: 'Generate text content for speech/audio generation.',
     guidelines: [
       `Use ${ToolName.SPEECH} when the user wants to generate audio or speech from text.`,
-      `On success, creates artifact: ${ArtifactType.MEDIA_RESULTS}.`,
     ],
     category: 'content-generation',
   },
@@ -306,7 +301,6 @@ NOTE:
     guidelines: [
       `Use ${ToolName.IMAGE} when the user wants to generate image from text.`,
       `NOTE: The ${ToolName.IMAGE} tool is NOT for reading images, the tool cannot read. Use ${ToolName.CONTENT_READING} for reading images.`,
-      `On success, creates artifact: ${ArtifactType.MEDIA_RESULTS}.`,
     ],
     category: 'content-generation',
     showDescriptionWhenInactive: true,
@@ -352,17 +346,6 @@ NOTE:
     category: 'tool-management',
   },
 
-  [ToolName.CONCLUDE]: {
-    name: ToolName.CONCLUDE,
-    description: 'Signal task completion. The client stops sending another request.',
-    guidelines: [
-      `When you determine this is the last step of your work, call ${ToolName.CONCLUDE} in parallel (in the same request) with the tool that performs the final task.`,
-      `Do NOT call ${ToolName.CONCLUDE} alone — it must always be paired with another tool call in the same request.`,
-      `When using ${ToolName.CONCLUDE}, include a brief summary in your text response describing what you have accomplished.`,
-    ],
-    category: 'task-management',
-  },
-
   [ToolName.RECALL_COMPACTED_CONTEXT]: {
     name: ToolName.RECALL_COMPACTED_CONTEXT,
     description:
@@ -376,10 +359,9 @@ NOTE:
 
   [ToolName.SHELL]: {
     name: ToolName.SHELL,
-    description:
-      'Run local a shell command or open an interactive terminal in the current conversation. Use only when the user EXPLICITLY wants to run a command (Linux, Windows, etc.). For example: cd, cat, pwd, ls, etc,. Or TUI apps: vim, htop, cli-agents (gemini, claude, etc.)',
+    description: `Run a host/OS shell command or open an interactive terminal in the current conversation. Use only when the user EXPLICITLY wants a command (Linux, Windows, etc.). For example: cd, cat, pwd, ls, etc. Or TUI apps: vim, htop, etc. If you are unsure whether the action is a shell command or a user-defined command, activate ${ToolName.RUN_COMMAND} to check the USER-DEFINED COMMANDS section below.`,
     guidelines: [
-      `The user is always being asked for confirmation before running the command.`,
+      'When deciding to run a shell command, no need to ask the user for consent, the system will do that.',
       `Put the exact shell line in argsLine when the user explicitly wants it executed on the host.`,
     ],
     category: 'cli',
@@ -389,7 +371,7 @@ NOTE:
   [ToolName.RUN_COMMAND]: {
     name: ToolName.RUN_COMMAND,
     description:
-      'Run an user-defined command by its command name (see USER-DEFINED COMMANDS in the system prompt). Use when the workflow needs to execute a command',
+      'Run an user-defined command by its command name (see USER-DEFINED COMMANDS section). Use when the workflow needs to execute a command',
     guidelines: [
       `No need  to read the command definition note, the command body (instructions, tools, agents, etc.) is loaded automatically when calling this tool.`,
     ],
@@ -495,19 +477,33 @@ export class ToolRegistry<T> {
     return sections.join('\n\n');
   }
 
-  public generateOtherToolsSection(emptyLabel = '', exclude?: Set<string>): string {
-    const lines: string[] = [];
+  /**
+   * Tool names registered but not active in this registry (optional exclude list).
+   */
+  public listInactiveToolNames(exclude?: Set<string>): string[] {
+    const names: string[] = [];
     for (const [, def] of this.tools) {
       if (this.isActive(def.name)) continue;
       if (exclude?.has(def.name)) continue;
+      names.push(def.name);
+    }
+    return names;
+  }
+
+  public generateOtherToolsSection(emptyLabel = '', exclude?: Set<string>): string {
+    const inactiveNames = this.listInactiveToolNames(exclude);
+    if (inactiveNames.length === 0) {
+      return emptyLabel;
+    }
+
+    const lines: string[] = [];
+    for (const name of inactiveNames) {
+      const def = this.tools.get(name);
+      if (!def) continue;
       const line = def.showDescriptionWhenInactive
         ? `- ${def.name} - ${def.description}`
         : `- ${def.name}`;
       lines.push(line);
-    }
-
-    if (lines.length === 0) {
-      return emptyLabel;
     }
 
     return lines.join('\n');
@@ -527,7 +523,7 @@ export class ToolRegistry<T> {
         description: meta?.description ?? ToolRegistry.extractFallbackDescription(tool),
         guidelines: meta?.guidelines ?? [],
         category: meta?.category,
-        showDescriptionWhenInactive: meta?.showDescriptionWhenInactive ?? true,
+        showDescriptionWhenInactive: meta?.showDescriptionWhenInactive ?? false,
       });
     }
     return registry;

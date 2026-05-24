@@ -62,7 +62,6 @@ import { ModelFallbackService } from './services/ModelFallbackService';
 import { CommandTrackingService } from './services/CommandTrackingService';
 import { VersionCheckerService } from './services/VersionCheckerService';
 import { UserMessageService } from './services/UserMessageService';
-import { GitHubResourceService } from './services/GitHubResourceService';
 import { SkillService } from './services/SkillService';
 import { GuardrailsRuleService } from './services/GuardrailsRuleService/GuardrailsRuleService';
 import { CompactionTokenService } from './services/CompactionTokenService';
@@ -97,7 +96,6 @@ export default class StewardPlugin extends Plugin {
   _modelFallbackService: ModelFallbackService;
   _encryptionService: EncryptionService;
   _commandInputService: CommandInputService;
-  _gitHubResourceService: GitHubResourceService;
   _skillService: SkillService;
   _mcpService: MCPService;
   _guardrailsRuleService: GuardrailsRuleService;
@@ -242,13 +240,6 @@ export default class StewardPlugin extends Plugin {
       this._userMessageService = UserMessageService.getInstance(this);
     }
     return this._userMessageService;
-  }
-
-  get gitHubResourceService(): GitHubResourceService {
-    if (!this._gitHubResourceService) {
-      this._gitHubResourceService = GitHubResourceService.getInstance(this);
-    }
-    return this._gitHubResourceService;
   }
 
   get skillService(): SkillService {
@@ -403,38 +394,6 @@ export default class StewardPlugin extends Plugin {
   }
 
   private registerStuffs() {
-    // Register protocol handler for resource links (obsidian://steward-resource?type=...&name=...)
-    this.registerObsidianProtocolHandler('steward-resource', async params => {
-      const type = params.type as 'doc' | 'command' | 'image';
-      const name = params.name;
-
-      if (!type || !name) {
-        return;
-      }
-
-      const decodedName = decodeURIComponent(name);
-      let success = false;
-
-      try {
-        if (type === 'doc') {
-          success = await this.gitHubResourceService.openDoc(decodedName);
-        } else if (type === 'command') {
-          success = await this.gitHubResourceService.openCommand(decodedName);
-        } else if (type === 'image') {
-          // Images are handled differently - they're embedded, not opened
-          logger.warn('Image resources should be embedded, not opened directly');
-          return;
-        }
-
-        if (!success) {
-          new Notice(i18next.t('documentation.fetchFailed', { docName: decodedName }));
-        }
-      } catch (error) {
-        logger.error('Error opening resource:', error);
-        new Notice(i18next.t('documentation.fetchFailed', { docName: decodedName }));
-      }
-    });
-
     // Add command for toggling chat
     this.addCommand({
       id: 'toggle-chat',
@@ -657,6 +616,13 @@ export default class StewardPlugin extends Plugin {
   }
 
   /**
+   * Process a command block from the given editor view (used after `/new` re-dispatch).
+   */
+  public processCommandFromView(view: EditorView, commandLine: Line): boolean {
+    return this.processCommandBlock(view, commandLine);
+  }
+
+  /**
    * Process a command block (command line + continuation lines)
    * @param view - The editor view
    * @param commandLine - The command line
@@ -695,15 +661,21 @@ export default class StewardPlugin extends Plugin {
         // Look for a conversation link in the previous lines
         const conversationTitle = this.findConversationTitleAbove(view);
 
+        if (intentType === 'new' && !conversationTitle) {
+          return true;
+        }
+
         const folderPath = `${this.settings.stewardFolder}/Conversations`;
         const notePath = `${folderPath}/${conversationTitle}.md`;
 
         if (this.app.vault.getFileByPath(notePath) && conversationTitle) {
-          await this.conversationRenderer.addUserMessage({
-            path: conversationTitle,
-            newContent: fullCommandText,
-            includeHistory: false,
-          });
+          if (intentType !== 'new') {
+            await this.conversationRenderer.addUserMessage({
+              path: conversationTitle,
+              newContent: fullCommandText,
+              includeHistory: false,
+            });
+          }
 
           // Clear all lines in the command block
           const lastLine = commandBlock[commandBlock.length - 1];
@@ -876,7 +848,7 @@ export default class StewardPlugin extends Plugin {
         ? this.commandInputService.withEditor(newLeaf.view.editor)
         : this.commandInputService;
 
-    setTimeout(() => {
+    window.setTimeout(() => {
       commandInputService.focus();
     }, 500);
   }

@@ -37,11 +37,11 @@ export class StreamTextExecutor {
     params: AgentHandlerParams & {
       activeTools: ToolName[];
       tools: NonNullable<AiStreamTextParams['tools']> & { [s: string]: unknown };
-      toolsThatEnableConclude: Set<ToolName>;
     }
   ): Promise<{
     toolCalls: TToolCalls;
     conversationHistory: ModelMessage[];
+    text: string;
     toolContentStreamInfo?: ToolContentStreamInfo;
     usage?: LanguageModelUsage;
     totalUsage?: LanguageModelUsage;
@@ -66,17 +66,11 @@ export class StreamTextExecutor {
     const expandedDeclared =
       declaredNormalized === null ? [] : this.expandSuperAgentDeclaredTools(declaredNormalized);
 
-    const hasConcludeEligibleDeclared =
-      declaredNormalized !== null &&
-      expandedDeclared.some(t => params.toolsThatEnableConclude.has(t));
-
     const effectiveAllowedNames = this.buildSuperAgentEffectiveAllowedNames({
       declaredNormalized,
       expandedDeclared,
       conversationActiveTools: params.activeTools,
       allToolKeys: allSuperAgentKeys,
-      toolsThatEnableConclude: params.toolsThatEnableConclude,
-      hasConcludeEligibleDeclaredTool: hasConcludeEligibleDeclared,
       hasCompactionContext: historyResult.hasCompactionContext,
     });
     const effectiveAllowed = new Set(effectiveAllowedNames);
@@ -92,7 +86,6 @@ export class StreamTextExecutor {
       expandedDeclared,
       effectiveAllowed,
       conversationActiveTools: params.activeTools,
-      toolsThatEnableConclude: params.toolsThatEnableConclude,
       hasCompactionContext: historyResult.hasCompactionContext,
     });
     const allActiveToolNames = [...activeToolNames, ...Object.keys(mcpTools.active)];
@@ -185,6 +178,8 @@ export class StreamTextExecutor {
 
     const { streamText } = await getBundledLib('ai');
 
+    console.log('messages', messages);
+
     const streamTextResult = streamText({
       model: llmConfig.model,
       temperature: llmConfig.temperature,
@@ -214,19 +209,16 @@ export class StreamTextExecutor {
         }
       },
     });
-    const {
-      toolCalls: toolCallsPromise,
-      fullStream,
-      totalUsage: totalUsagePromise,
-      usage: usagePromise,
-    } = streamTextResult;
 
-    const { textStream, textDone, toolContentStream } = createLLMStream(fullStream, {
-      toolContentStreaming: {
-        targetTools: new Set([ToolName.EDIT, ToolName.CREATE]),
-        createExtractor: (toolName: string) => agent.createToolContentExtractor(toolName),
-      },
-    });
+    const { textStream, textDone, toolContentStream } = createLLMStream(
+      streamTextResult.fullStream,
+      {
+        toolContentStreaming: {
+          targetTools: new Set([ToolName.EDIT, ToolName.CREATE]),
+          createExtractor: (toolName: string) => agent.createToolContentExtractor(toolName),
+        },
+      }
+    );
 
     const streamPromise = agent.renderer.streamConversationNote({
       path: params.title,
@@ -244,15 +236,19 @@ export class StreamTextExecutor {
       lang: params.lang,
     });
 
-    const toolCalls = (await Promise.race([toolCallsPromise, streamErrorPromise])) as TToolCalls;
+    const toolCalls = (await Promise.race([
+      streamTextResult.toolCalls,
+      streamErrorPromise,
+    ])) as TToolCalls;
     const toolContentStreamInfo = await toolContentStreamPromise;
 
     await streamPromise.catch(() => {
       // Ignore errors here, they're handled by streamErrorPromise
     });
 
-    const usage = await usagePromise;
-    const totalUsage = await totalUsagePromise;
+    const usage = await streamTextResult.usage;
+    const totalUsage = await streamTextResult.totalUsage;
+    const text = await streamTextResult.text;
 
     eventEmitter.emit(Events.EXECUTED_STREAM_TEXT, {
       conversationTitle: params.title,
@@ -264,6 +260,7 @@ export class StreamTextExecutor {
     return {
       toolCalls,
       conversationHistory: historyResult.messages,
+      text,
       toolContentStreamInfo,
       usage,
       totalUsage,

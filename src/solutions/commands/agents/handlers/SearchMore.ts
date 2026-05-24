@@ -1,9 +1,10 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { Search } from './Search';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/solutions/artifact';
@@ -34,15 +35,11 @@ export class SearchMore {
    * Handle search more tool call to display additional search results
    */
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<SearchMoreArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
-    const t = getTranslation(lang);
-
-    if (!handlerId) {
-      throw new Error('SearchMore.handle invoked without handlerId');
-    }
+    const { title } = ctx.agentHandlerParams;
+    const t = getTranslation(ctx.lang);
 
     try {
       // Find the most recent search message metadata
@@ -53,11 +50,8 @@ export class SearchMore {
       });
 
       if (!stewardSearchMetadata) {
-        await this.agent.renderer.updateConversationNote({
-          path: title,
+        await ctx.updateConversationNote({
           newContent: t('search.noRecentSearch'),
-          lang,
-          handlerId,
         });
 
         return {
@@ -82,11 +76,8 @@ export class SearchMore {
         .getMostRecentArtifactByType(ArtifactType.SEARCH_RESULTS);
 
       if (!searchArtifact) {
-        await this.agent.renderer.updateConversationNote({
-          path: title,
+        await ctx.updateConversationNote({
           newContent: t('search.noRecentSearch'),
-          lang,
-          handlerId,
         });
 
         return {
@@ -105,11 +96,8 @@ export class SearchMore {
 
       // If we're past the last page, inform the user
       if (page > paginatedSearchResult.totalPages) {
-        await this.agent.renderer.updateConversationNote({
-          path: title,
+        await ctx.updateConversationNote({
           newContent: t('search.noMoreResults'),
-          lang,
-          handlerId,
         });
 
         return {
@@ -121,16 +109,13 @@ export class SearchMore {
       const response = await this.searchHandler.formatSearchResults({
         paginatedSearchResult,
         page,
-        lang,
+        lang: ctx.lang,
       });
 
       // Update the conversation note
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: response,
         command: 'more',
-        lang,
-        handlerId,
       });
 
       return {
@@ -139,11 +124,8 @@ export class SearchMore {
     } catch (error) {
       logger.error('Error processing search more command:', error);
 
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: `Error showing more results: ${error instanceof Error ? error.message : String(error)}`,
-        lang,
-        handlerId,
       });
 
       return {

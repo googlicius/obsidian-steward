@@ -279,7 +279,6 @@ describe('SuperAgent', () => {
       const toolsObject = call.tools;
 
       // Check that only ACTIVATE tool is in the tools object (active)
-      // CONCLUDE is not active because no vault-modifying tools are active yet
       expect(toolsObject).toBeDefined();
       expect(Object.keys(toolsObject).length).toBe(1);
       expect(toolsObject[ToolName.ACTIVATE]).toBeDefined();
@@ -1043,7 +1042,7 @@ describe('SuperAgent', () => {
       expect(renderIndicatorSpy).toHaveBeenCalled();
     });
 
-    it('should continue processing when there are no tool calls but hasTodoIncomplete is true', async () => {
+    it('should stop and prompt the user when there are no tool calls but the todo list is incomplete', async () => {
       const params: AgentHandlerParams = {
         title: 'test-conversation',
         intent: {
@@ -1092,29 +1091,74 @@ describe('SuperAgent', () => {
           return undefined;
         });
 
-      // Spy on handle to verify it IS called recursively
       const handleSpy = jest.spyOn(superAgent, 'handle');
-
-      // Mock renderIndicator to verify it IS called (since we continue processing)
       const renderIndicatorSpy = jest.spyOn(superAgent, 'renderIndicator');
 
       await superAgent.handle(params, { remainingSteps: 5 });
 
-      // Verify executeStreamText was called
       expect(mockExecuteStreamText).toHaveBeenCalled();
-
-      // Verify getConversationProperty was called to check todo list
       expect(mockPlugin.conversationRenderer.getConversationProperty).toHaveBeenCalledWith(
         params.title,
         'todo_list'
       );
+      expect(handleSpy).toHaveBeenCalledTimes(1);
+      expect(renderIndicatorSpy).not.toHaveBeenCalled();
+      expect(mockPlugin.conversationRenderer.updateConversationNote).toHaveBeenCalledWith(
+        expect.objectContaining({
+          path: params.title,
+          includeHistory: false,
+        })
+      );
+    });
 
-      // Verify handle was called recursively (more than once)
-      // Since hasTodoIncomplete is true, processing should continue
-      expect(handleSpy.mock.calls.length).toBeGreaterThan(1);
+    it('should not prompt continue when the last UDC step is generate and the list is on that step', async () => {
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'generate',
+          query: 'What does this flashcard mean?',
+        } as Intent,
+        activeTools: [ToolName.CONTENT_READING],
+        invocationCount: 1,
+      };
 
-      // Verify renderIndicator was called (since we continue processing)
-      expect(renderIndicatorSpy).toHaveBeenCalled();
+      // @ts-expect-error - Accessing private method for testing
+      const mockExecuteStreamText = jest.spyOn(superAgent, 'executeStreamText') as jest.SpyInstance;
+
+      mockExecuteStreamText.mockResolvedValue({
+        toolCalls: [],
+        conversationHistory: [],
+      });
+
+      const mockTodoListState: handlers.TodoListState = {
+        steps: [
+          {
+            task: 'c:read --blocks=1 --files="note.md"',
+            type: 'read',
+            status: 'completed',
+          },
+          {
+            task: 'What does this flashcard mean?',
+            type: 'generate',
+          },
+        ],
+        currentStep: 2,
+        createdBy: 'udc',
+      };
+
+      mockPlugin.conversationRenderer.getConversationProperty = jest
+        .fn()
+        .mockImplementation(async (_title: string, property: string) => {
+          if (property === 'todo_list') {
+            return mockTodoListState;
+          }
+          return undefined;
+        });
+
+      await superAgent.handle(params, { remainingSteps: 5 });
+
+      expect(mockExecuteStreamText).toHaveBeenCalled();
+      expect(mockPlugin.conversationRenderer.updateConversationNote).not.toHaveBeenCalled();
     });
   });
 
@@ -1440,14 +1484,16 @@ describe('SuperAgent', () => {
       const manualToolCallSpy = jest.spyOn(superAgent, 'manualToolCall') as jest.SpyInstance;
 
       const result = await superAgent.handle(params, {
-        remainingSteps: 1,
+        // Avoid step-limit confirmation: handle decrements remainingSteps once per call,
+        // and this scenario does not re-enter handle (batch resume with index past the end).
+        remainingSteps: 2,
         toolCalls: resumedToolCalls,
         currentToolCallIndex: 1,
       });
 
       expect(manualToolCallSpy).not.toHaveBeenCalled();
       expect(getMockStreamText()).not.toHaveBeenCalled();
-      expect(result.status).toBe(IntentResultStatus.NEEDS_CONFIRMATION);
+      expect(result.status).toBe(IntentResultStatus.SUCCESS);
     });
   });
 

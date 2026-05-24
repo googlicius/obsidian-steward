@@ -8,4 +8,6 @@ export type CommunityCommandUpdateGuideline = {
   destinationFolder?: string;
   version: number;
   mainVAULT_FILENAME: string;
+  /** Optional migration notes for this bundle version (renames, removed files, etc.). */
+  updateInstruction?: string;
 };

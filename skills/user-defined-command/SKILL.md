@@ -27,6 +27,7 @@ After creating or updating a UDC note, re-read the file and check the frontmatte
 | `tools`          | array of strings         | No       | Super Agent tool names allowed for this command; omit for full set. Use `[switch_agent_capacity]` for chat-only until the user switches. If more than five tools, `activate_tools` is added when missing. |
 | `hidden`         | boolean                  | No       | If `true`, the command does not appear in the autocomplete menu                                                                                                                                           |
 | `triggers`       | array of trigger objects | No       | Automatically execute when file events match criteria                                                                                                                                                     |
+| `cli`            | object                   | No       | Shell session settings (v2): optional `shell` executable and `whitelist` patterns for auto-approved model shell lines (see [CLI settings](#cli-settings-v2))                                              |
 | `steps`          | array of step objects    | **Yes**  | The sequence of steps to execute                                                                                                                                                                          |
 
 ### Step-Level Fields
@@ -50,6 +51,48 @@ After creating or updating a UDC note, re-read the file and check the frontmatte
 | `patterns.content`    | string           | No       | Regex pattern to match file content                       |
 | `patterns.<property>` | string or array  | No       | Any frontmatter property name and value to match          |
 
+## CLI settings (v2)
+
+Use the root-level `cli` field when a command runs shell tools and you want to control how the local shell behaves.
+
+```yaml
+cli:
+  shell: /bin/zsh # optional: override the shell executable for new sessions
+  whitelist:
+    - 'yt-dlp*'
+    - 'Get-Content*'
+    - 'rm *_temp_transcript*'
+    - 'cat _temp_transcript.en.srt'
+```
+
+### `cli.shell`
+
+Optional path to the shell executable when Steward spawns a new session for this command. Falls back to global Steward CLI settings when omitted.
+
+### `cli.whitelist`
+
+Optional list of patterns (max 50 entries). When the Super Agent sends a **model shell line** in transcript mode (not interactive terminal mode), a matching pattern skips the confirmation prompt.
+
+Matching rules (applied to the trimmed command line):
+
+| Pattern shape | Behavior                                                  |
+| ------------- | --------------------------------------------------------- |
+| No `*`        | Exact match only (e.g. `pwd` matches `pwd`, not `pwd -L`) |
+| Contains `*`  | Glob match: each `*` matches any run of characters        |
+
+Examples:
+
+- `Get-Content*` — commands starting with `Get-Content`
+- `rm *_temp_transcript.en.srt` — `rm` followed by optional flags/whitespace, then that file path
+- `rm *_temp_transcript*` — `rm` commands that mention `_temp_transcript` (quoted or unquoted)
+- `*_temp_transcript.en.srt` — any command that ends with that filename
+
+Notes:
+
+- An entry cannot be only `*` wildcards; include at least one literal character.
+- Empty shell lines never match (opening an interactive shell still requires confirmation).
+- Interactive terminal commands always require confirmation, even when whitelisted.
+
 ## Command Syntax (Direct Tool Calls)
 
 Steps can use **command syntax** in the `query` field to invoke tools directly without an AI round trip. This is the preferred approach for deterministic operations.
@@ -63,24 +106,23 @@ c:<tool> [--arg=value]...
 - `c:` prefix identifies a direct command call
 - `<tool>` is a short alias (see reference below)
 - `--key=value` pairs map to the tool's input schema
-- Multiple commands can be chained with `;` separator: `c:read --blocks=1; c:conclude`
+- Multiple commands can be chained with `;` separator: `c:read --blocks=1; c:edit --mode=replace_by_lines`
 - Quoted values for strings with spaces: `--content="hello world"`
 - Comma-separated values for arrays: `--files=Note1.md,Note2.md`
 
 ### Command Reference
 
-| Alias        | Tool            | Flags                                                                                    |
-| ------------ | --------------- | ---------------------------------------------------------------------------------------- |
-| `c:read`     | Content Reading | `--type`, `--files`, `--element`, `--blocks`, `--pattern`                                |
-| `c:search`   | Search          | `--keywords`, `--filenames`, `--folders`, `--properties`                                 |
-| `c:delete`   | Delete          | `--artifact`, `--files`                                                                  |
-| `c:list`     | List            | `--folder`, `--pattern`                                                                  |
-| `c:move`     | Move            | `--artifact`, `--files`, `--destination`                                                 |
-| `c:rename`   | Rename          | `--artifact`, `--pattern`, `--replace`                                                   |
-| `c:grep`     | Grep            | `--pattern`, `--paths`, `--caseSensitive`, `--isRegex`, `--contextLines`, `--maxResults` |
-| `c:speech`   | Speech          | `--text`                                                                                 |
-| `c:image`    | Image           | `--prompt`                                                                               |
-| `c:conclude` | Conclude (stop) |                                                                                          |
+| Alias      | Tool            | Flags                                                                                    |
+| ---------- | --------------- | ---------------------------------------------------------------------------------------- |
+| `c:read`   | Content Reading | `--type`, `--files`, `--element`, `--blocks`, `--pattern`                                |
+| `c:search` | Search          | `--keywords`, `--filenames`, `--folders`, `--properties`                                 |
+| `c:delete` | Delete          | `--artifact`, `--files`                                                                  |
+| `c:list`   | List            | `--folder`, `--pattern`                                                                  |
+| `c:move`   | Move            | `--artifact`, `--files`, `--destination`                                                 |
+| `c:rename` | Rename          | `--artifact`, `--pattern`, `--replace`                                                   |
+| `c:grep`   | Grep            | `--pattern`, `--paths`, `--caseSensitive`, `--isRegex`, `--contextLines`, `--maxResults` |
+| `c:speech` | Speech          | `--text`                                                                                 |
+| `c:image`  | Image           | `--prompt`                                                                               |
 
 ### `c:read` Flags
 
@@ -197,7 +239,7 @@ steps:
     query: 'c:search --keywords=Untitled --properties=tag:delete'
     no_confirm: true
   - name: vault
-    query: 'c:delete --artifact=latest; c:conclude'
+    query: 'c:delete --artifact=latest'
     no_confirm: true
 ```
 
@@ -236,9 +278,34 @@ steps:
 command_name: quick-search-delete
 query_required: false
 steps:
-  - query: 'c:search --keywords=Untitled; c:delete --artifact=latest; c:conclude'
+  - query: 'c:search --keywords=Untitled; c:delete --artifact=latest'
     no_confirm: true
 ```
+
+### Conditional steps
+
+Run a step only when its `when` condition(s) match user input. Multiple conditions use **OR** semantics — the step runs if **any** condition is true. Omit `when` to always run the step.
+
+Supported conditions:
+
+- `empty_from_user` — user input is empty (after trim)
+- `matches: '<regex>'` — input matches the pattern
+- `not_matches: '<regex>'` — input does not match the pattern
+
+```yaml
+command_name: explain-video
+query_required: false
+steps:
+  - name: check-yt-dlp
+    query: 'c:shell --argsLine="yt-dlp --version"'
+    when:
+      - empty_from_user
+      - not_matches: '(youtube\.com|youtu\.be)'
+    no_confirm: true
+  - query: '$from_user'
+```
+
+`not_matches` alone is often enough — empty input will not match a URL pattern.
 
 ### Question-answering command with system prompt
 
@@ -281,7 +348,7 @@ triggers:
 
 steps:
   - name: read
-    query: 'c:read --type=entire --files=$file_name; c:conclude'
+    query: 'c:read --type=entire --files=$file_name'
     no_confirm: true
   - name: edit
     query: |
@@ -320,4 +387,4 @@ steps:
 - Multiple triggers can be defined; any matching trigger will execute the command.
 - A command file can contain multiple YAML code blocks, each defining a separate command.
 - Markdown content outside YAML blocks (headings, text, lists) can be referenced by system prompts using `[[#Heading]]` syntax.
-- When composing UDC steps, **prefer `c:` command syntax** for deterministic operations (read, search, delete, move, rename, list, grep, speech, image) to avoid unnecessary AI round trips. Reserve natural language queries for steps that require AI reasoning.
+- When composing UDC steps, **prefer `c:` command syntax** for deterministic operations (read, search, delete, move, rename, list, grep, exists, speech, image, shell) to avoid unnecessary AI round trips. Reserve natural language queries for steps that require AI reasoning.

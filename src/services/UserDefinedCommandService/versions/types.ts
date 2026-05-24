@@ -15,12 +15,16 @@ export interface UdcTemplateContext {
 /**
  * Shared types used across all versions
  */
+export type StepCondition = 'empty_from_user' | { matches: string } | { not_matches: string };
+
 export interface CommandStep {
   name?: string;
   system_prompt?: string[];
   query: string;
   model?: string;
   no_confirm?: boolean;
+  /** Run this step only when any listed condition is true (OR). Omit to always run. */
+  when?: StepCondition | StepCondition[];
 }
 
 export interface TriggerCondition {

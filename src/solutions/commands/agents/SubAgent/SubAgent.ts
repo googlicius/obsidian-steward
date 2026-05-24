@@ -1,6 +1,6 @@
 import { Agent } from '../../Agent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
-import { ToolCallPart, ToolResultPart, TypedToolCallPart } from '../../tools/types';
+import { TypedToolCallPart } from '../../tools/types';
 import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { getBundledInternal } from 'src/utils/bundledInternals';
@@ -154,29 +154,6 @@ Rules:
       ...mcp.inactive,
       ...mcp.active,
     } as AgentToolsRecord;
-  }
-
-  public async serializeInvocation<T>(params: {
-    title: string;
-    handlerId: string;
-    command: string;
-    toolCall: ToolCallPart<T>;
-    result: ToolResultPart['output'];
-    step?: number;
-  }): Promise<void> {
-    await this.renderer.serializeToolInvocation({
-      path: params.title,
-      command: params.command,
-      handlerId: params.handlerId,
-      step: params.step,
-      toolInvocations: [
-        {
-          ...params.toolCall,
-          type: 'tool-result',
-          output: params.result,
-        },
-      ],
-    });
   }
 }
 

@@ -1,6 +1,28 @@
 import { z } from 'zod/v3';
 import { NormalizedUserDefinedCommand, IVersionedUserDefinedCommand } from './types';
 
+function isValidRegexPattern(pattern: string): boolean {
+  try {
+    new RegExp(pattern);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const stepConditionPatternSchema = z
+  .string()
+  .min(1)
+  .refine(isValidRegexPattern, { message: 'step condition pattern must be a valid regex' });
+
+export const stepConditionSchema = z.union([
+  z.literal('empty_from_user'),
+  z.object({ matches: stepConditionPatternSchema }).strict(),
+  z.object({ not_matches: stepConditionPatternSchema }).strict(),
+]);
+
+export const stepWhenSchema = z.union([stepConditionSchema, z.array(stepConditionSchema).min(1)]);
+
 // Export to other versions - Shared Zod schemas
 /**
  * Shared Zod schema for CommandStep
@@ -12,6 +34,7 @@ export const commandStepSchema = z.object({
   query: z.string().min(1, 'Step query is required'),
   model: z.string().optional(),
   no_confirm: z.boolean().optional(),
+  when: stepWhenSchema.optional(),
 });
 
 /**

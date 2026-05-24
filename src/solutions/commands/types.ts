@@ -12,12 +12,6 @@ export interface Intent {
   no_confirm?: boolean; // Skip confirmation for this intent
   /** When set, limits which Super Agent tools are available (UDC / narrow mode). Omit = full tool set. */
   tools?: ToolName[];
-  /** Per-intent CLI options (from UDC v2 root `cli`). Used when starting a new shell session only. */
-  cli?: {
-    shell?: string;
-    /** From UDC v2 root `cli.whitelist`; matching model shell input may skip confirmation (non-interactive only). */
-    whitelist?: string[];
-  };
 }
 
 export interface ContextAugmentationIntent extends Intent {
@@ -32,6 +26,8 @@ export enum IntentResultStatus {
   NEEDS_USER_INPUT = 'needs_user_input',
   LOW_CONFIDENCE = 'low_confidence',
   STOP_PROCESSING = 'stop_processing',
+  /** Tool handler finished setup; SuperAgent should continue with `nextParams` (e.g. after UDC expansion). */
+  CONTINUE_WITH_INTENT = 'continue_with_intent',
 }
 
 type UserInputResult = {
@@ -43,6 +39,11 @@ type SuccessResult = {
   status: IntentResultStatus.SUCCESS;
   shouldContinue?: boolean;
   nextParams?: Partial<AgentHandlerParams>;
+};
+
+export type ContinueWithIntentResult = {
+  status: IntentResultStatus.CONTINUE_WITH_INTENT;
+  nextParams: Partial<AgentHandlerParams>;
 };
 
 type StopProcessingResult = {
@@ -79,6 +80,7 @@ export type AgentResult =
   | ConfirmationResult
   | UserInputResult
   | SuccessResult
+  | ContinueWithIntentResult
   | ErrorResult
   | LowConfidenceResult
   | StopProcessingResult;

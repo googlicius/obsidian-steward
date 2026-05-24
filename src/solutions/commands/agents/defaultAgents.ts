@@ -50,6 +50,13 @@ export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = [
     canUseTools: true,
   },
   {
+    id: 'new',
+    name: 'New Session',
+    factory: 'super',
+    tools: [ToolName.NEW_SESSION],
+    canUseTools: true,
+  },
+  {
     id: 'title',
     name: 'Conversation Title Agent',
     factory: 'title',

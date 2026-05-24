@@ -114,8 +114,7 @@ type NestedPaths<T extends z.ZodRawShape, Prefix extends string = ''> = {
  * })
  *
  * // Nested field example:
- * createArgMap(concludeSchema, {
- *   parallel: 'parallelToolName',
+ * createArgMap(someSchema, {
  *   expectedArtifactType: 'validation.expectedArtifactType', // nested path
  * })
  * ```

@@ -1,140 +1,118 @@
-/**
- * Scans community-UDCs recursively for .md files, extracts UDC YAML blocks and note frontmatter,
- * emits src/generated/communityUdcManifest.ts for the Community commands embed view.
- */
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import yaml from 'js-yaml';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 const root = path.join(__dirname, '..');
 const communityDir = path.join(root, 'community-UDCs');
-const outFile = path.join(root, 'src', 'generated', 'communityUdcManifest.ts');
+const outFile = path.join(root, 'src/generated/communityUdcManifest.ts');
 
-function walkMarkdownFiles(dir, base, acc) {
-  if (!fs.existsSync(dir)) {
-    return acc;
-  }
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const ent of entries) {
+const repoPath = p => `community-UDCs/${p}`.replace(/\\/g, '/');
+
+function walk(dir, base = dir) {
+  if (!fs.existsSync(dir)) return [];
+
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap(ent => {
     const full = path.join(dir, ent.name);
+
     if (ent.isDirectory()) {
-      walkMarkdownFiles(full, base, acc);
-    } else if (ent.isFile() && ent.name.endsWith('.md')) {
-      acc.push(path.relative(base, full).split(path.sep).join('/'));
+      return walk(full, base);
     }
-  }
-  return acc;
+
+    return ent.isFile() && ent.name.endsWith('.md')
+      ? [path.relative(base, full).replace(/\\/g, '/')]
+      : [];
+  });
 }
 
-function parseNoteFrontmatter(raw) {
-  if (!raw.startsWith('---')) {
+function parseFrontmatter(raw) {
+  const match = raw.match(/^---\n([\s\S]*?)\n---\n?/);
+
+  if (!match) {
     return { frontmatter: {}, body: raw };
   }
-  const end = raw.indexOf('\n---', 3);
-  if (end === -1) {
-    return { frontmatter: {}, body: raw };
-  }
-  const fmBlock = raw.slice(3, end).trim();
-  let fm = {};
+
   try {
-    fm = yaml.load(fmBlock) ?? {};
+    return {
+      frontmatter: yaml.load(match[1]) ?? {},
+      body: raw.slice(match[0].length),
+    };
   } catch {
-    fm = {};
+    return { frontmatter: {}, body: raw };
   }
-  const body = raw.slice(end + 4);
-  return { frontmatter: fm, body };
 }
 
-function extractYamlFences(body) {
-  const blocks = [];
-  const fenceRe = /^```ya?ml\s*$/gim;
-  let m;
-  while ((m = fenceRe.exec(body)) !== null) {
-    const start = m.index + m[0].length;
-    const closeIdx = body.indexOf('\n```', start);
-    if (closeIdx === -1) {
-      break;
-    }
-    const inner = body.slice(start, closeIdx).trim();
-    blocks.push(inner);
-    fenceRe.lastIndex = closeIdx + 4;
-  }
-  return blocks;
+function extractYamlBlocks(body) {
+  return [...body.matchAll(/```ya?ml\s*\n([\s\S]*?)\n```/gi)].map(m => m[1].trim());
 }
 
-function githubRepoPath(relFromCommunityRoot) {
-  return `community-UDCs/${relFromCommunityRoot}`.replace(/\\/g, '/');
-}
+const relPaths = walk(communityDir).sort();
 
-function collectFilesInFolder(relDir) {
-  const all = walkMarkdownFiles(communityDir, communityDir, []);
-  return all
-    .filter(p => {
-      const d = path.dirname(p);
-      const norm = d === '.' ? '' : d.split(path.sep).join('/');
-      return norm === relDir;
-    })
-    .map(p => githubRepoPath(p))
-    .sort();
-}
+const folderFiles = Object.groupBy(relPaths.map(repoPath), p =>
+  path.dirname(p.replace(/^community-UDCs\//, ''))
+);
 
-function main() {
-  const relPaths = walkMarkdownFiles(communityDir, communityDir, []).sort();
-  const entries = [];
+const entries = relPaths.flatMap(rel => {
+  const raw = fs.readFileSync(path.join(communityDir, rel), 'utf8');
 
-  for (const rel of relPaths) {
-    const abs = path.join(communityDir, rel);
-    const raw = fs.readFileSync(abs, 'utf8');
-    const { frontmatter, body } = parseNoteFrontmatter(raw);
-    const noteVersion =
-      typeof frontmatter.version === 'number' && Number.isFinite(frontmatter.version)
-        ? frontmatter.version
-        : 1;
+  const { frontmatter, body } = parseFrontmatter(raw);
 
-    const relDir = path.dirname(rel) === '.' ? '' : path.dirname(rel).split(path.sep).join('/');
-    const allInFolder = relDir === '' ? [githubRepoPath(rel)] : collectFilesInFolder(relDir);
+  const version = Number.isFinite(frontmatter.version) ? frontmatter.version : 1;
 
-    const fences = extractYamlFences(body);
-    for (const fence of fences) {
-      let data;
-      try {
-        data = yaml.load(fence);
-      } catch {
-        continue;
-      }
+  const updateInstructions = frontmatter.update_instructions;
+  const updateInstructionRaw =
+    updateInstructions?.[version] ?? updateInstructions?.[String(version)];
+  const updateInstruction =
+    typeof updateInstructionRaw === 'string' && updateInstructionRaw.trim().length > 0
+      ? updateInstructionRaw.trim()
+      : undefined;
+
+  const relDir = path.dirname(rel) === '.' ? '' : path.dirname(rel).replace(/\\/g, '/');
+
+  const files = relDir ? [...(folderFiles[relDir] ?? [])].sort() : [repoPath(rel)];
+
+  const baseName = path.basename(rel);
+  const displayName = baseName.replace(/\.md$/i, '');
+
+  return extractYamlBlocks(body).flatMap(block => {
+    try {
+      const data = yaml.load(block);
+
       if (!data || typeof data !== 'object' || Array.isArray(data)) {
-        continue;
+        return [];
       }
-      const commandName = data.command_name;
-      if (typeof commandName !== 'string' || !commandName.trim()) {
-        continue;
+
+      const commandName = data.command_name?.trim();
+
+      if (!commandName) {
+        return [];
       }
-      const description = typeof data.description === 'string' ? data.description : '';
 
-      const baseName = path.basename(rel);
-      const displayName = baseName.replace(/\.md$/i, '');
-
-      entries.push({
-        commandName: commandName.trim(),
-        displayName,
-        description,
-        version: noteVersion,
-        files: [...allInFolder],
-        destinationFolder: relDir.length > 0 ? relDir : undefined,
-        sourceFile: githubRepoPath(rel),
-        mainVAULT_FILENAME: baseName,
-      });
+      return [
+        {
+          commandName,
+          displayName,
+          description: data.description ?? '',
+          version,
+          files,
+          destinationFolder: relDir || undefined,
+          sourceFile: repoPath(rel),
+          mainVAULT_FILENAME: baseName,
+          ...(updateInstruction && { updateInstruction }),
+        },
+      ];
+    } catch {
+      return [];
     }
-  }
+  });
+});
 
-  entries.sort((a, b) => a.commandName.localeCompare(b.commandName));
+entries.sort((a, b) => a.commandName.localeCompare(b.commandName));
 
-  const json = JSON.stringify(entries, null, 2);
-  const ts = `/* eslint-disable */
-/* auto-generated by scripts/build-community-udc-manifest.mjs — do not edit by hand */
+const ts = `/* eslint-disable */
+/* auto-generated — do not edit */
 
 export interface CommunityUdcEntry {
   commandName: string;
@@ -143,21 +121,15 @@ export interface CommunityUdcEntry {
   version: number;
   files: string[];
   destinationFolder?: string;
-  /** Path under community-UDCs/ for the file that defined this command (GitHub-relative). */
   sourceFile: string;
-  /** Basename of the defining note as installed in the vault (e.g. \`Plan.md\`). */
   mainVAULT_FILENAME: string;
+  updateInstruction?: string;
 }
 
-export const COMMUNITY_UDC_MANIFEST: CommunityUdcEntry[] = ${json};
-
+export const COMMUNITY_UDC_MANIFEST: CommunityUdcEntry[] = ${JSON.stringify(entries, null, 2)};
 `;
 
-  fs.mkdirSync(path.dirname(outFile), { recursive: true });
-  fs.writeFileSync(outFile, ts, 'utf8');
+fs.mkdirSync(path.dirname(outFile), { recursive: true });
+fs.writeFileSync(outFile, ts);
 
-  // eslint-disable-next-line no-console
-  console.log(`Wrote ${entries.length} entries to ${path.relative(root, outFile)}`);
-}
-
-main();
+console.log(`Wrote ${entries.length} entries`);

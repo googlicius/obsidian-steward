@@ -17,13 +17,15 @@ import { getBundledInternal } from 'src/utils/bundledInternals';
 import { z } from 'zod/v3';
 import {
   IVersionedUserDefinedCommand,
+  NormalizedUserDefinedCommand,
   TriggerCondition,
   type UdcTemplateContext,
 } from './versions/types';
 import { loadUDCVersion } from './versions/loader';
-import { Intent } from 'src/solutions/commands/types';
+import { Intent, IntentResultStatus } from 'src/solutions/commands/types';
 import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
 import { migrateRawUdcObject, stringifyUdcYaml } from './migrateUdcLegacyUseTool';
+import { evaluateStepWhen } from './stepConditions';
 
 const { i18next } = getBundledInternal('i18n');
 const t = i18next.t.bind(i18next);
@@ -704,7 +706,6 @@ version: ${udc.version}
    */
   private async handleFileCreation(file: TFile): Promise<void> {
     if (this.isCommandFile(file)) {
-      console.log('Note command created', file);
       await this.loadCommandFromFile(file);
     } else {
       // Add to pending queue - will check triggers when metadata cache updates
@@ -902,14 +903,6 @@ version: ${udc.version}
     const conversationTitle = `${command.normalized.command_name}-${timestamp}`;
     const conversationPath = `${conversationsFolder}/${conversationTitle}.md`;
 
-    if (params.sourceFileBasename) {
-      logger.log(
-        `Executing triggered command: ${command.normalized.command_name} for file: ${params.sourceFileBasename}`
-      );
-    } else {
-      logger.log(`Executing run-link command: ${command.normalized.command_name}`);
-    }
-
     const buildNoticeFragment = (message: string): DocumentFragment => {
       const noticeEl = document.createDocumentFragment();
       const text = noticeEl.createEl('span');
@@ -981,9 +974,18 @@ version: ${udc.version}
 
       const leaf = await this.plugin.getChatLeaf();
       if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
+        const lastResult =
+          this.plugin.commandProcessorService.commandProcessor.getLastResult(conversationTitle);
+        const completionMessageKey =
+          lastResult?.status === IntentResultStatus.NEEDS_CONFIRMATION
+            ? 'trigger.needsConfirmation'
+            : 'trigger.executed';
+
         new Notice(
           buildNoticeFragment(
-            i18next.t('trigger.executed', { commandName: command.normalized.command_name })
+            i18next.t(completionMessageKey, {
+              commandName: command.normalized.command_name,
+            })
           ),
           10000
         );
@@ -1155,6 +1157,11 @@ version: ${udc.version}
 
     const steps: Intent[] = [];
     for (const step of command.normalized.steps) {
+      if (!evaluateStepWhen(step.when, { cleanedUserInput })) {
+        logger.warn(`Step "${step.query}" is skipped, condition doesn't match`, { step });
+        continue;
+      }
+
       const query = await this.expandAuthoredString(step.query, {
         fileName,
         cleanedUserInput,
@@ -1183,8 +1190,11 @@ version: ${udc.version}
         model,
         no_confirm: step.no_confirm,
         tools: command.normalized.tools,
-        cli: command.normalized.cli,
       });
+    }
+
+    if (steps.length === 0) {
+      return null;
     }
 
     return steps;
@@ -1249,14 +1259,21 @@ version: ${udc.version}
   }
 
   /**
-   * V2: normalized root `cli.shell`, if set (shell-style UDCs).
+   * V2: normalized root `cli` for a command, if set.
    */
-  public getCommandCliShell(commandName: string): string | undefined {
+  public getCommandCli(commandName: string): NormalizedUserDefinedCommand['cli'] | undefined {
     const cmd = this.userDefinedCommands.get(commandName);
     if (!cmd || !cmd.normalized.enabled) {
       return undefined;
     }
-    const shell = cmd.normalized.cli?.shell?.trim();
+    return cmd.normalized.cli;
+  }
+
+  /**
+   * V2: normalized root `cli.shell`, if set (shell-style UDCs).
+   */
+  public getCommandCliShell(commandName: string): string | undefined {
+    const shell = this.getCommandCli(commandName)?.shell?.trim();
     if (shell) {
       return shell;
     }

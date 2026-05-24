@@ -228,8 +228,10 @@ describe('UserDefinedCommandV2', () => {
       expect(udcV2RootCliSchema.parse({ shell: '/bin/sh' })).toEqual({ shell: '/bin/sh' });
     });
 
-    it('rejects whitelist entry that is only *', () => {
+    it('rejects whitelist entries that are only * wildcards', () => {
       expect(() => udcV2RootCliSchema.parse({ whitelist: ['*'] })).toThrow();
+      expect(() => udcV2RootCliSchema.parse({ whitelist: ['**'] })).toThrow();
+      expect(() => udcV2RootCliSchema.parse({ whitelist: [' *** '] })).toThrow();
     });
   });
 

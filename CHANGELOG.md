@@ -5,6 +5,28 @@ All notable changes to Obsidian Steward will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.0] - 2026-05-23
+
+### Added
+
+- **Conversation**: Start a new session with the `/new` command
+- **Agents**: `HandlerInvocationContext` for agent handlers
+- **User-defined command**: Step conditions
+- **Content reading**: Read-files messages in `ContentReadingService`
+- **Whitelist**: Support `*` wildcard in the middle of patterns
+
+### Changed
+
+- **Community commands**: Remove `GitHubResourceService` and update the Community Commands branch
+- **Agents**: Remove the conclude tool
+- **TODO**: Remove CLI from todo-list and Intent types; show a UI message instead of continuing the loop when the todo list is incomplete
+
+### Fixed
+
+- **Conversation**: Duplicate last non-tool-call turn
+
+[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.8.1...2.9.0)
+
 ## [2.8.0] - 2026-05-10
 
 ### Added

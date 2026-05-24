@@ -1,18 +1,16 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
-import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
-import { AgentHandlerParams, AgentResult, Intent, IntentResultStatus } from '../../types';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
+import type { AgentHandlerParams } from '../../types';
+import { AgentResult, Intent, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
-import { CommandSyntaxParser } from '../../command-syntax-parser';
 import type { IVersionedUserDefinedCommand } from 'src/services/UserDefinedCommandService/versions/types';
 import type { UserDefinedCommandService } from 'src/services/UserDefinedCommandService/UserDefinedCommandService';
 import { TodoList, type TodoWriteCreateArgsWithMetadata } from './TodoList';
-
-const { getTranslation } = getBundledInternal('i18n');
 
 const runCommandSchema = z.object({
   command_name: z.string().min(1).describe('User-defined command id (same as in the catalog).'),
@@ -25,28 +23,11 @@ const runCommandSchema = z.object({
 export type RunCommandArgs = z.infer<typeof runCommandSchema>;
 
 /**
- * Super-agent entry point used to continue after UDC expansion (avoids importing SuperAgent here).
- */
-export type RunCommandSuperAgentDelegate = AgentHandlerContext & {
-  handle(
-    params: AgentHandlerParams,
-    options?: {
-      remainingSteps?: number;
-      toolCalls?: unknown;
-      currentToolCallIndex?: number;
-    }
-  ): Promise<AgentResult>;
-};
-
-/**
  * Executes a user-defined command: expands steps, updates frontmatter, bootstraps todo when needed,
- * then delegates to the super agent for the actual work.
+ * then signals SuperAgent to continue with the expanded intent.
  */
 export class RunCommand {
-  constructor(
-    private readonly agent: AgentHandlerContext,
-    private readonly superAgent: RunCommandSuperAgentDelegate
-  ) {}
+  constructor(private readonly agent: AgentHandlerContext) {}
 
   public static async getRunCommandTool() {
     const { tool } = await getBundledLib('ai');
@@ -56,7 +37,7 @@ export class RunCommand {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<unknown> }
   ): Promise<AgentResult> {
     const parsed = runCommandSchema.safeParse(options.toolCall.input);
@@ -67,7 +48,7 @@ export class RunCommand {
       };
     }
 
-    const { title, lang } = params;
+    const { title } = ctx.agentHandlerParams;
     const commandName = parsed.data.command_name.trim();
     const query = parsed.data.query ?? '';
 
@@ -80,7 +61,7 @@ export class RunCommand {
     }
 
     const intentForExpansion: Intent = {
-      ...params.intent,
+      ...ctx.intent,
       type: commandName,
       query,
     };
@@ -98,8 +79,6 @@ export class RunCommand {
         error: new Error(`User-defined command '${commandName}' not found or empty`),
       };
     }
-
-    RunCommand.ensureConcludeOnLastStep(expandedIntents);
 
     const command = udcService.userDefinedCommands.get(commandName);
     const udcTools = command?.getVersion() === 2 ? command.normalized.tools : undefined;
@@ -119,16 +98,29 @@ export class RunCommand {
 
     await this.agent.renderer.updateConversationFrontmatter(title, frontmatterUpdates);
 
+    // If the user-defined command has only one step
+    // Return early and no todo list created
     if (expandedIntents.length === 1) {
       const expanded = expandedIntents[0];
-      return this.superAgent.handle({
-        ...params,
+      const continueParams: Partial<AgentHandlerParams> = {
         intent: {
           ...expanded,
-          systemPrompts: await RunCommand.resolveUdcSystemPrompts(udcService, command),
+          systemPrompts: await this.resolveUdcSystemPrompts(udcService, command),
         },
-      });
+      };
+      if (udcTools && udcTools.length > 0) {
+        continueParams.activeTools = udcTools;
+      }
+      return {
+        status: IntentResultStatus.CONTINUE_WITH_INTENT,
+        nextParams: {
+          ...ctx.agentHandlerParams,
+          ...continueParams,
+        },
+      };
     }
+
+    // Create a todo list locally.
 
     const todoListSteps = expandedIntents.map(expandedIntent => {
       return {
@@ -137,7 +129,6 @@ export class RunCommand {
         model: expandedIntent.model,
         systemPrompts: expandedIntent.systemPrompts,
         no_confirm: expandedIntent.no_confirm,
-        cli: expandedIntent.cli,
       };
     });
 
@@ -150,19 +141,19 @@ export class RunCommand {
       },
     };
 
-    const t = getTranslation(lang);
-    const todoListBootstrapGuide = t('conversation.udcTodoListBootstrapGuide', {
-      commandName: commandName.trim(),
-    });
+    const todoListBootstrapGuide =
+      `[On system behalf] A multi-step user-defined command (\`/${commandName.trim()}\`) is running. ` +
+      'The following todo_write tool call was injected by the system to register the step plan; ' +
+      'it is not something the end user typed.';
     await this.agent.renderer.addUserMessage({
       path: title,
       newContent: todoListBootstrapGuide,
-      step: params.invocationCount,
+      step: ctx.step,
       contentFormat: 'hidden',
     });
 
-    const todoListHandler = new TodoList(this.superAgent);
-    await todoListHandler.handle(params, { toolCall: todoWriteToolCall, createdBy: 'udc' });
+    const todoListHandler = new TodoList(this.agent);
+    await todoListHandler.handle(ctx, { toolCall: todoWriteToolCall, createdBy: 'udc' });
 
     const currentStep = todoListSteps[0];
 
@@ -172,19 +163,21 @@ export class RunCommand {
       model: currentStep.model,
       no_confirm: currentStep.no_confirm,
       tools: udcTools,
-      systemPrompts: await RunCommand.resolveUdcSystemPrompts(udcService, command),
-      cli: currentStep.cli,
+      systemPrompts: await this.resolveUdcSystemPrompts(udcService, command),
     };
 
-    return this.superAgent.handle({
-      ...params,
-      intent: stepIntent,
-      activeTools: [ToolName.TODO_WRITE],
-      invocationCount: 1,
-    });
+    return {
+      status: IntentResultStatus.CONTINUE_WITH_INTENT,
+      nextParams: {
+        ...ctx.agentHandlerParams,
+        intent: stepIntent,
+        activeTools: [ToolName.TODO_WRITE],
+        invocationCount: 1,
+      },
+    };
   }
 
-  private static async resolveUdcSystemPrompts(
+  private async resolveUdcSystemPrompts(
     udc: UserDefinedCommandService,
     command: IVersionedUserDefinedCommand | undefined
   ): Promise<string[] | undefined> {
@@ -199,23 +192,5 @@ export class RunCommand {
 
     const rootLines = root.map(line => udc.replacePlaceholders(line));
     return udc.processSystemPromptsWikilinks(rootLines);
-  }
-
-  private static ensureConcludeOnLastStep(intents: Intent[]): void {
-    if (intents.length === 0) {
-      return;
-    }
-
-    const lastIntent = intents[intents.length - 1];
-
-    if (!CommandSyntaxParser.isCommandSyntax(lastIntent.query)) {
-      return;
-    }
-
-    if (lastIntent.query.includes('c:conclude')) {
-      return;
-    }
-
-    lastIntent.query = `${lastIntent.query.trimEnd()}; c:conclude`;
   }
 }

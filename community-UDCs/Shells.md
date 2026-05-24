@@ -3,7 +3,7 @@ status: ✅ Valid
 enabled: true
 version: 1
 ---
-These commands are **Windows-specific**: they spawn fixed shell executables (`cmd.exe`, `bash.exe`, `powershell.exe`) as configured below. `bash.exe` is usually Git Bash or another install on your `PATH`; adjust `cli.shell` if your `bash` lives elsewhere.
+These commands are **Windows-specific**: they spawn fixed shell executables.
 
 Run the command with no input to **open an interactive terminal** for that shell;
 

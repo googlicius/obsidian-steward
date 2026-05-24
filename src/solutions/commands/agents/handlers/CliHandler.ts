@@ -1,5 +1,6 @@
 import { z } from 'zod/v3';
 import { normalizePath, Platform } from 'obsidian';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { logger } from 'src/utils/logger';
 import { getBundledLib } from 'src/utils/bundledLibs';
@@ -14,25 +15,46 @@ import {
   getCliStreamMarkerPlaceholder,
 } from 'src/services/CliSessionService/constants';
 import { isInteractiveCliCommand } from 'src/services/CliSessionService/CliSessionService';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import type { AgentResult } from '../../types';
+import { IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 import { ToolName } from '../../ToolRegistry';
 import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
 import { retry } from 'src/utils/retry';
 import { getBundledInternal } from 'src/utils/bundledInternals';
+import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
+import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 const { i18next, getTranslation } = getBundledInternal('i18n');
 
+const REGEX_SPECIAL_CHARS = /[\\^$.*+?()[\]{}|]/g;
+
+/**
+ * Converts a glob-style whitelist pattern into an anchored RegExp.
+ * Supported glob syntax:
+ *   *  => matches any sequence of characters
+ */
+export function globWhitelistPatternToRegExp(pattern: string): RegExp {
+  const escaped = pattern.replace(REGEX_SPECIAL_CHARS, '\\$&');
+
+  // Restore glob semantics for '*'
+  const source = '^' + escaped.replace(/\\\*/g, '.*') + '$';
+
+  return new RegExp(source);
+}
+
+export function shellWhitelistPatternMatches(commandLine: string, pattern: string): boolean {
+  return globWhitelistPatternToRegExp(pattern).test(commandLine);
+}
+
 /**
  * UDC v2 root `cli.whitelist` matching for skipping model shell confirm.
- * - Trailing `*` on a pattern means prefix match on the trimmed command line (e.g. `Get-Content*`).
- * - Otherwise the trimmed command line must equal the trimmed pattern.
+ * - Patterns without `*` require an exact match on the trimmed command line.
+ * - Patterns with `*` use glob semantics: `*` matches any run of characters
+ *   (e.g. `Get-Content*`, `rm *_temp*`, `*transcript.en.srt`).
  * - Empty trimmed command never matches (interactive “open shell” stays confirm-only upstream).
  */
-export function isShellCommandAllowedWithoutConfirmation(
-  argsLine: string,
-  patterns: string[]
-): boolean {
+export function isShellCommandAllowed(argsLine: string, patterns: string[]): boolean {
   if (patterns.length === 0) {
     return false;
   }
@@ -48,18 +70,7 @@ export function isShellCommandAllowedWithoutConfirmation(
       continue;
     }
 
-    if (pattern.endsWith('*')) {
-      const prefix = pattern.slice(0, -1);
-      if (prefix.trim().length === 0) {
-        continue;
-      }
-      if (trimmed.startsWith(prefix)) {
-        return true;
-      }
-      continue;
-    }
-
-    if (trimmed === pattern) {
+    if (shellWhitelistPatternMatches(trimmed, pattern)) {
       return true;
     }
   }
@@ -82,6 +93,17 @@ export const shellToolInputSchema = z.object({
       `Set true when the command needs an interactive terminal/TTY (for example downloading, installing, needs user prompt/select, or long-running process that you don't know how long to wait)
       Verify the command result before moving further.`
     ),
+  purpose: z
+    .string()
+    .optional()
+    .describe(
+      `Short explanation of what this shell command will do, shown to the user before execution.`
+    ),
+  lang: z
+    .string()
+    .nullable()
+    .optional()
+    .describe(userLanguagePrompt.content as string),
 });
 
 export type ShellToolInput = z.infer<typeof shellToolInputSchema>;
@@ -99,6 +121,18 @@ export class CliHandler {
 
   private get cliSessionService() {
     return this.agent.plugin.cliSessionService;
+  }
+
+  /** UDC v2 root `cli` from `udc_command` frontmatter, when this conversation runs a UDC. */
+  private async resolveUdcCliFromFrontmatter(conversationTitle: string) {
+    const udcCommand = await this.agent.renderer.getConversationProperty<string>(
+      conversationTitle,
+      'udc_command'
+    );
+    if (!udcCommand) {
+      return undefined;
+    }
+    return this.agent.plugin.userDefinedCommandService.getCommandCli(udcCommand);
   }
 
   private buildCliSpawnFailedNoteContent(params: { errorMessage: string }): string {
@@ -456,7 +490,7 @@ export class CliHandler {
    * Runs the shell session logic (see {@link CliHandler.handle} for model-side confirmation).
    */
   private async runShellSession(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     toolCall: ToolCallPart<ShellToolInput>,
     isModelCall = false
   ): Promise<{ messageId?: string }> {
@@ -464,7 +498,7 @@ export class CliHandler {
     const needsInteractiveMode = toolCall.input?.needsInteractiveMode;
 
     const routing = await this.resolveShellSessionConversationTitle({
-      conversationTitle: params.title,
+      conversationTitle: ctx.title,
       argsLine,
       needsInteractiveMode,
     });
@@ -499,7 +533,7 @@ export class CliHandler {
         );
     }
 
-    const trimmedIntentShell = params.intent.cli?.shell?.trim();
+    const trimmedIntentShell = (await this.resolveUdcCliFromFrontmatter(ctx.title))?.shell?.trim();
     const shellExecutable =
       trimmedIntentShell && trimmedIntentShell.length > 0 ? trimmedIntentShell : undefined;
 
@@ -529,18 +563,15 @@ export class CliHandler {
   }
 
   private async completeModelShellAfterApproval(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     toolCall: ToolCallPart<ShellToolInput>,
     options: { continueFromNextTool?: () => Promise<AgentResult> }
   ): Promise<AgentResult> {
-    const runResult = await this.runShellSession(params, toolCall, true);
+    const runResult = await this.runShellSession(ctx, toolCall, true);
 
-    if (params.handlerId && runResult) {
-      await this.agent.serializeInvocation({
+    if (runResult) {
+      await ctx.serializeInvocation({
         command: ToolName.SHELL,
-        title: params.title,
-        handlerId: params.handlerId,
-        step: params.invocationCount,
         toolCall,
         result: {
           type: 'text',
@@ -551,7 +582,7 @@ export class CliHandler {
       });
 
       await this.cliSessionService.endSession({
-        conversationTitle: params.title,
+        conversationTitle: ctx.title,
         killProcess: true,
       });
     }
@@ -569,52 +600,69 @@ export class CliHandler {
    * client manual shell calls (toolCallId starts with MANUAL_TOOL_CALL_ID_PREFIX; e.g. `/>` input) run immediately.
    */
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: {
       toolCall: ToolCallPart<ShellToolInput>;
       continueFromNextTool?: () => Promise<AgentResult>;
     }
   ): Promise<AgentResult> {
     const argsLine = options.toolCall.input?.argsLine ?? '';
-    const { title, lang, handlerId } = params;
+    const { title, lang } = ctx.agentHandlerParams;
+    const displayLang = options.toolCall.input?.lang ?? lang;
+    const t = getTranslation(displayLang);
     const isManualClientShellCall = options.toolCall.toolCallId.startsWith(
       MANUAL_TOOL_CALL_ID_PREFIX
     );
 
     if (isManualClientShellCall) {
-      await this.runShellSession(params, options.toolCall, false);
+      await this.runShellSession(ctx, options.toolCall, false);
       return {
         status: IntentResultStatus.SUCCESS,
       };
     }
 
     const trimmed = argsLine.trim();
-    const displayCommand =
-      trimmed.length > 0 ? argsLine : i18next.t('cli.shellConfirmEmptyCommand');
     const needsInteractiveMode = options.toolCall.input?.needsInteractiveMode;
     const runsInTerminal = this.shouldUseInteractiveMode(argsLine, needsInteractiveMode);
+    const trimmedPurpose = options.toolCall.input?.purpose?.trim();
+    const commandInFence = trimmedPurpose
+      ? `# ${trimmedPurpose}${trimmed.length > 0 ? `\n${argsLine}` : ''}`
+      : trimmed.length > 0
+        ? argsLine
+        : '';
+    const shellFence = commandInFence ? `\`\`\`shell\n${commandInFence}\n\`\`\`` : '';
 
-    const allowPatterns = params.intent.cli?.whitelist;
+    const udcCli = await this.resolveUdcCliFromFrontmatter(title);
+    const allowPatterns = udcCli?.whitelist;
     if (
       allowPatterns &&
       allowPatterns.length > 0 &&
       !runsInTerminal &&
-      isShellCommandAllowedWithoutConfirmation(argsLine, allowPatterns)
+      isShellCommandAllowed(argsLine, allowPatterns)
     ) {
-      return this.completeModelShellAfterApproval(params, options.toolCall, options);
+      if (shellFence) {
+        await ctx.updateConversationNote({
+          newContent: shellFence,
+          role: 'Steward',
+          includeHistory: false,
+        });
+      }
+      return this.completeModelShellAfterApproval(ctx, options.toolCall, options);
     }
 
-    let message = i18next.t('cli.confirmExecuteShell', { command: displayCommand });
+    let message = t('cli.confirmExecuteShell');
+    if (!trimmed) {
+      message = `${message}\n\n${t('cli.shellConfirmEmptyCommand')}`;
+    }
+    if (shellFence) {
+      message = `${message}\n\n${shellFence}`;
+    }
     if (runsInTerminal) {
-      message = `${message}\n\n${i18next.t('cli.runInTerminal')}`;
+      message = `${message}\n\n${t('cli.runInTerminal')}`;
     }
-    const t = getTranslation(lang);
 
-    await this.agent.renderer.updateConversationNote({
-      path: title,
+    await ctx.updateConversationNote({
       newContent: message,
-      lang,
-      handlerId,
       command: ToolName.SHELL,
       includeHistory: false,
     });
@@ -628,24 +676,19 @@ export class CliHandler {
       },
       toolCall: options.toolCall,
       onConfirmation: async (_confirmationMessage: string) => {
-        return this.completeModelShellAfterApproval(params, options.toolCall, options);
+        return this.completeModelShellAfterApproval(ctx, options.toolCall, options);
       },
       onRejection: async (_rejectionMessage: string) => {
         this.agent.commandProcessor.deleteNextPendingIntent(title);
 
-        if (params.handlerId) {
-          await this.agent.serializeInvocation({
-            command: ToolName.SHELL,
-            title: params.title,
-            handlerId: params.handlerId,
-            step: params.invocationCount,
-            toolCall: options.toolCall,
-            result: {
-              type: 'text',
-              value: i18next.t('confirmation.operationCancelled'),
-            },
-          });
-        }
+        await ctx.serializeInvocation({
+          command: ToolName.SHELL,
+          toolCall: options.toolCall,
+          result: {
+            type: 'text',
+            value: t('confirmation.operationCancelled'),
+          },
+        });
 
         if (options.continueFromNextTool) {
           return options.continueFromNextTool();

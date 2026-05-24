@@ -6,11 +6,12 @@ import type {
   InvalidArgumentError,
 } from 'ai';
 import { getBundledLib } from 'src/utils/bundledLibs';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { removeUndefined } from 'src/utils/removeUndefined';
 import { logger } from 'src/utils/logger';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 
 const { getTranslation } = getBundledInternal('i18n');
 
@@ -73,24 +74,17 @@ export class Dynamic {
    * Handle dynamic tool call
    */
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: {
       toolCall: DynamicToolCall;
       tools: { [x: string]: Tool };
     }
   ): Promise<AgentResult> {
-    const t = getTranslation(params.lang);
-
-    if (!params.handlerId) {
-      throw new Error('Dynamic.handle invoked without handlerId');
-    }
+    const t = getTranslation(ctx.lang);
 
     logger.warn('Dynamic tool call is not supported.', { toolCall: options.toolCall });
-    await this.renderer.updateConversationNote({
-      path: params.title,
-      newContent: `*${t('common.invalidOrDynamicToolCall', { toolName: options.toolCall.toolName })}*`,
-      lang: params.lang,
-      handlerId: params.handlerId,
+    await ctx.updateConversationNote({
+      newContent: `<small>*${t('common.invalidOrDynamicToolCall', { toolName: options.toolCall.toolName })}*</small>`,
       includeHistory: false,
     });
 
@@ -106,9 +100,10 @@ export class Dynamic {
       error: undefined,
     };
     await this.renderer.serializeToolInvocation({
-      path: params.title,
+      path: ctx.title,
       command: 'dynamic-tool-call',
-      handlerId: params.handlerId,
+      handlerId: ctx.handlerId,
+      step: ctx.step,
       toolInvocations: [
         {
           ...toolCallWithoutError,

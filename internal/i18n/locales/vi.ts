@@ -9,17 +9,18 @@ const vi = {
       lowConfidenceConfirmation: 'Tôi không chắc chắn về yêu cầu này. Bạn có muốn tiếp tục không?',
       artifactNotFound: ' Không tìm thấy artifact với ID "{{artifactId}}".',
       noArtifactsFound: 'Không tìm thấy artifact nào.',
-      builtInCommands: 'Lệnh tích hợp',
-      builtInCommandsDesc: 'Những lệnh này có sẵn thông qua /&lt;command&gt',
+      standardCommands: 'Lệnh dựng sẵn',
+      standardCommandsDesc: 'Những lệnh này có sẵn thông qua /&lt;command&gt',
       userDefinedCommands: 'Lệnh tùy chỉnh',
       userDefinedCommandsDesc: 'Tạo lệnh tùy chỉnh để tự động hóa quy trình làm việc.',
       noUserDefinedCommands:
         'Bạn chưa có lệnh tùy chỉnh nào. Xem hướng dẫn Lệnh tùy chỉnh bên dưới để bắt đầu',
       commandHelpText: 'Nhập lệnh theo sau bởi truy vấn của bạn để sử dụng.',
-      searchDesc: 'Tìm kiếm ghi chú trong kho lưu trữ của bạn',
+      searchDesc: 'Tìm kiếm ghi chú trong vault của bạn',
       imageDesc: 'Tạo hình ảnh',
       speechDesc: 'Tạo giọng nói từ văn bản',
       terminalDesc: 'Bắt đầu chế độ shell.',
+      newSessionDesc: 'Bắt đầu phiên chat mới',
       disabledMark: '(đã tắt)',
       helpTableCommand: 'Lệnh',
       helpTableDescription: 'Mô tả',
@@ -35,7 +36,7 @@ const vi = {
       errorProcessingCommand: 'Lỗi khi xử lý lệnh {{commandType}}: {{errorMessage}}',
       switchingModelDueToErrors: 'Chuyển từ {{fromModel}} sang {{toModel}} do gặp lỗi',
       thinkingProcess: 'Quá trình suy nghĩ',
-      commandOutput: 'Đầu ra lệnh',
+      commandOutput: 'Output',
       lines: '{{number}} dòng',
       modelDoesNotSupportImageInputs:
         'Mô hình {{model}} không hỗ trợ đọc hình ảnh. Vui lòng sử dụng mô hình có khả năng xử lý hình ảnh (ví dụ: gpt-4o, gemini-pro, claude-3-sonnet).',
@@ -49,8 +50,11 @@ const vi = {
       view: 'Xem',
     },
     community: {
-      browseCommands: 'Xem lệnh cộng đồng',
+      browseCommands: 'Xem lệnh được đóng góp từ cộng đồng',
       commandsTitle: 'Lệnh cộng đồng',
+      commandsIntro:
+        '💡 Các lệnh này không đi kèm với plugin, mà được liệt kê trong Steward Github repo và bạn có thể cài đặt hoặc nâng cấp. **Cài đặt** / **Cập nhật** sẽ chạy `update-command`, tải file markdown vào thư mục phù hợp trong vault — minh bạch và cần sự đồng ý của bạn.',
+      commandsIntroCatalog: 'Danh sách này có thể được cập nhật khi bạn cài phiên bản Steward mới.',
       notInstalled: 'Chưa cài',
       installed: 'Đã cài',
       updateAvailable: 'Có bản cập nhật',
@@ -70,7 +74,7 @@ const vi = {
       spawnFailed:
         '{{message}}\n\nCó trình cài cho từng nền tảng trong thư mục {{stewardFolder}}; chạy từ thư mục gốc vault:',
       openingInteractiveTerminal: 'Đang mở terminal...',
-      shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
+      shellTranscriptIntro: '(Shell — output bên dưới.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
       processEndedCode: '(Process exited with code {{code}})',
       ptyNativePathUnavailable:
@@ -83,8 +87,7 @@ const vi = {
       nodePtyInstallUnixHeading: 'Cài trên Mac / Linux',
       seeCliWiki:
         'Xem [CLI]({{cliDoc}}) để biết chế độ transcript so với interactive và cách cài node-pty.',
-      confirmExecuteShell:
-        'Tôi sẽ chạy lệnh này. Vui lòng xác nhận hoặc hủy.\n\n```shell\n{{command}}\n```',
+      confirmExecuteShell: 'Tôi sẽ chạy lệnh này. Vui lòng xác nhận hoặc hủy.',
       runInTerminal: 'Lệnh sẽ chạy trong terminal (chế độ tương tác, TTY đầy đủ).',
       shellConfirmEmptyCommand: '(dòng trống — bắt đầu hoặc tiếp tục shell mà không gửi lệnh)',
     },
@@ -104,6 +107,8 @@ const vi = {
     trigger: {
       executing: 'Đang thực thi trigger cho lệnh: {{commandName}}',
       executed: 'Trigger "{{commandName}}" đã thực thi thành công.',
+      needsConfirmation:
+        'Lệnh "{{commandName}}" đang chờ bạn xác nhận. Mở cuộc trò chuyện để tiếp tục.',
       openConversation: 'Mở cuộc trò chuyện',
       executionFailed: 'Thực thi lệnh "{{commandName}}" thất bại: {{error}}',
       run: {
@@ -120,6 +125,9 @@ const vi = {
       successMessage: 'Tất cả các định nghĩa lệnh đều hợp lệ! ✅',
     },
     // Chat UI elements
+    commands: {
+      newPlaceholder: 'Bắt đầu cuộc trò chuyện mới...',
+    },
     chat: {
       newChat: 'Cuộc trò chuyện mới',
       moveChatToMain: 'Chuyển trò chuyện sang trình soạn thảo chính',
@@ -222,6 +230,7 @@ const vi = {
         'Nội dung đã được lược bỏ để tiết kiệm token. Sử dụng công cụ {{toolName}} để kiểm tra nếu cần.',
     },
     list: {
+      listInFolder: 'Liệt kê {{count}} mục trong {{folder}}',
       noItemsFound: 'Không tìm thấy mục nào.',
       noItemsFoundInFolder: 'Không tìm thấy mục nào trong {{folder}}.',
       foundItems: 'Tôi đã tìm thấy {{count}} mục',
@@ -373,6 +382,8 @@ const vi = {
     todoList: {
       todoList: 'Danh sách công việc',
       step: 'Bước {{index}}',
+      incompleteContinuePrompt:
+        'Danh sách công việc chưa hoàn thành. Gõ "continue" nếu bạn muốn tôi tiếp tục.',
     },
     documentation: {
       guidelines: 'Hướng dẫn',
@@ -388,10 +399,10 @@ const vi = {
       tipAttachContext: 'Gõ `@` để đính kèm tệp/thư mục',
       tipStop: 'Nhấn `ESC` hoặc `Ctrl-C` để dừng các thao tác đang chạy',
       tipRevert: 'Gõ `Undo` để hoàn tác thay đổi cuối',
-      fetchFailed: 'Không thể tải tài liệu: {{docName}}',
-      downloading: 'Đang tải {{name}}...',
     },
     read: {
+      file: 'Đọc {{filePath}}',
+      useSkill: 'Dùng skill {{skillName}}',
       noContentFound: 'Không tìm thấy nội dung như vậy trong trình soạn thảo.',
       noFrontmatterFound: 'Không tìm thấy frontmatter trong ghi chú.',
       readEntireContentConfirmation:
@@ -407,10 +418,6 @@ const vi = {
       response3: 'Mình rất vui vì đã có thể hỗ trợ!',
       response4: 'Bất cứ lúc nào! Nếu cần gì thêm thì cứ nói nhé.',
       response5: 'Rất hân hạnh được phục vụ bạn!',
-    },
-    conclude: {
-      validationFailed:
-        'Xác thực kết luận thất bại: không tìm thấy artifact mong đợi. Không sử dụng công cụ conclude nữa — hãy phản hồi bình thường.',
     },
     // Conversation states
     conversation: {
@@ -437,8 +444,6 @@ const vi = {
       summarizing: 'Đang tóm tắt cuộc trò chuyện...',
       continuingProcessing: 'Đang tiếp tục...',
       processingBatch: 'Đang xử lý batch {{current}}/{{total}}...',
-      udcTodoListBootstrapGuide:
-        '[Thay mặt hệ thống] Lệnh do người dùng định nghĩa nhiều bước (`/{{commandName}}`) đang chạy. Lệnh gọi todo_write tiếp theo do hệ thống chèn vào để đăng ký kế hoạch các bước; đây không phải do người dùng cuối nhập.',
       stepLimitReached:
         'Tôi đã đạt đến số bước xử lý tối đa. Bạn có muốn tôi tiếp tục với nhiều bước hơn không?',
     },

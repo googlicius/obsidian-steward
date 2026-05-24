@@ -9,8 +9,8 @@ const ja = {
       lowConfidenceConfirmation: 'このリクエストについては、十分に確信できません。続行しますか？',
       artifactNotFound: 'アーティファクト ID "{{artifactId}}" が見つかりませんでした。',
       noArtifactsFound: 'アーティファクトが見つかりませんでした。',
-      builtInCommands: '組み込みコマンド',
-      builtInCommandsDesc: 'これらのコマンドは /&lt;command&gt を通じて直接利用できます',
+      standardCommands: '標準コマンド',
+      standardCommandsDesc: 'これらのコマンドは /&lt;command&gt を通じて直接利用できます',
       userDefinedCommands: 'ユーザー定義コマンド',
       userDefinedCommandsDesc: 'ワークフローを自動化するカスタムコマンドを作成します。',
       noUserDefinedCommands:
@@ -20,6 +20,7 @@ const ja = {
       imageDesc: '画像を生成する',
       speechDesc: 'テキストから音声を生成する',
       terminalDesc: '`/>` でローカルシェルモードを開始。',
+      newSessionDesc: '新しいチャットを開始する',
       disabledMark: '（無効）',
       helpTableCommand: 'コマンド',
       helpTableDescription: '説明',
@@ -51,6 +52,10 @@ const ja = {
     community: {
       browseCommands: 'コミュニティコマンドを見る',
       commandsTitle: 'コミュニティコマンド',
+      commandsIntro:
+        '💡 これらのコマンドはプラグインに同梱されていません。公開リポジトリで公開されており、ここからインストールまたは更新できます。**インストール** / **更新** をクリックすると `update-command` が実行され、ファイルが保管庫内の適切なフォルダにダウンロードされます。各手順は透明性があり、あなたの同意が必要です。',
+      commandsIntroCatalog:
+        'Steward の新しいバージョンをインストールすると、この一覧が更新される場合があります。',
       notInstalled: '未インストール',
       installed: 'インストール済み',
       updateAvailable: '更新あり',
@@ -72,7 +77,7 @@ const ja = {
       spawnFailed:
         '{{message}}\n\n各プラットフォーム用のインストーラーは {{stewardFolder}} フォルダ内にあります。vault のルートフォルダから実行してください:',
       openingInteractiveTerminal: 'ホスト会話でインタラクティブターミナルを開いています...',
-      shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
+      shellTranscriptIntro: '(Shell — output streams below.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
       processEndedCode: '(Process exited with code {{code}})',
       ptyNativePathUnavailable:
@@ -86,7 +91,7 @@ const ja = {
       seeCliWiki:
         'トランスクリプトとインタラクティブの違いや node-pty のセットアップは [CLI]({{cliDoc}}) を参照してください。',
       confirmExecuteShell:
-        'この会話で次の**ローカルシェル**コマンドを実行します。続行するかキャンセルするか、ご確認ください。\n\n```\n{{command}}\n```',
+        'この会話で次の**ローカルシェル**コマンドを実行します。続行するかキャンセルするか、ご確認ください。',
       runInTerminal: 'このコマンドはターミナルで実行されます（インタラクティブモード／フルTTY）。',
       shellConfirmEmptyCommand: '（空行 — 入力なしでシェルを開始または継続）',
     },
@@ -108,6 +113,8 @@ const ja = {
     trigger: {
       executing: 'トリガーコマンドを実行中: {{commandName}}',
       executed: 'トリガー "{{commandName}}" を実行しました。',
+      needsConfirmation:
+        'コマンド「{{commandName}}」は確認待ちです。会話を開いて続行してください。',
       openConversation: '会話を開く',
       executionFailed: 'コマンド "{{commandName}}" の実行に失敗しました: {{error}}',
       run: {
@@ -122,6 +129,9 @@ const ja = {
       commandError: 'コマンド: {{commandName}}',
       yamlError: '無効なYAML構文',
       successMessage: 'すべてのコマンド定義が有効です！✅',
+    },
+    commands: {
+      newPlaceholder: '新しい会話を開始...',
     },
     // Chat UI elements
     chat: {
@@ -227,6 +237,7 @@ const ja = {
         'トークン節約のため内容は省略されています。必要に応じて{{toolName}}ツールで確認してください。',
     },
     list: {
+      listInFolder: '{{folder}} の {{count}} 件を一覧表示',
       noItemsFound: '項目は見つかりませんでした。',
       noItemsFoundInFolder: '{{folder}} では項目が見つかりませんでした。',
       foundItems: '{{count}} 件の項目を見つけました',
@@ -377,6 +388,8 @@ const ja = {
     todoList: {
       todoList: 'To-Doリスト',
       step: 'ステップ {{index}}',
+      incompleteContinuePrompt:
+        'To-Doリストが未完了です。続行する場合は「continue」と入力してください。',
     },
     documentation: {
       guidelines: 'ガイドライン',
@@ -392,10 +405,10 @@ const ja = {
       tipAttachContext: '`@` でファイル/フォルダを添付',
       tipStop: '`ESC` または `Ctrl-C` で実行中の処理を停止します',
       tipRevert: '`Undo` で最後の変更を元に戻す',
-      fetchFailed: 'ドキュメントの取得に失敗しました: {{docName}}',
-      downloading: '{{name}}をダウンロードしています...',
     },
     read: {
+      file: '読み取り: {{filePath}}',
+      useSkill: 'スキルを使用: {{skillName}}',
       noContentFound: 'エディタにそのような内容が見つかりませんでした。',
       noFrontmatterFound: 'ノートにフロントマターが見つかりませんでした。',
       readEntireContentConfirmation:
@@ -412,10 +425,6 @@ const ja = {
       response3: 'お力になれてうれしいです！',
       response4: 'いつでもどうぞ！また何かあれば教えてくださいね。',
       response5: 'お役に立てて光栄です！',
-    },
-    conclude: {
-      validationFailed:
-        '結論の検証に失敗しました：期待されたアーティファクトが見つかりませんでした。concludeツールを再度使用せず、通常通り応答してください。',
     },
     // Conversation states
     conversation: {
@@ -442,8 +451,6 @@ const ja = {
       summarizing: '会話を要約中...',
       continuingProcessing: '処理を続行中...',
       processingBatch: 'バッチ {{current}}/{{total}} を処理中...',
-      udcTodoListBootstrapGuide:
-        '[システムより] 複数ステップのユーザー定義コマンド（`/{{commandName}}`）を実行中です。続く todo_write のツール呼び出しは、ステップ計画を登録するためにシステムが挿入したものであり、エンドユーザーが入力したものではありません。',
       stepLimitReached: '最大処理ステップ数に達しました。さらにステップを続行しますか？',
     },
     // Model fallback messages

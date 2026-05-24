@@ -8,7 +8,6 @@ import { grepSchema } from '../agents/handlers/VaultGrep';
 import { existsSchema } from '../agents/handlers/VaultExists';
 import { speechSchema } from '../agents/handlers/Speech';
 import { imageSchema } from '../agents/handlers/Image';
-import { concludeSchema } from '../agents/handlers/Conclude';
 import { artifactModeSchema, filesModeSchema, moveToolSchema } from '../agents/handlers/VaultMove';
 import { renameDelegateSchema } from '../agents/handlers/VaultRename';
 import {
@@ -18,6 +17,7 @@ import {
   addTableColumnSchema,
   updateTableColumnSchema,
 } from '../tools/editContent';
+import { shellToolInputSchema } from '../agents/handlers/CliHandler';
 
 /**
  * Describes how a CLI flag maps to a schema field.
@@ -202,16 +202,12 @@ export const COMMAND_SYNTAX_MAPPINGS: Record<string, ToolSyntaxMapping> = {
     },
   },
 
-  conclude: {
-    toolName: ToolName.CONCLUDE,
-    argMap: createArgMap(concludeSchema, {
-      parallel: 'parallelToolName',
-      expectedArtifactType: 'validation.expectedArtifactType',
+  shell: {
+    toolName: ToolName.SHELL,
+    argMap: createArgMap(shellToolInputSchema, {
+      argsLine: 'argsLine',
+      needsInteractiveMode: 'needsInteractiveMode',
     }),
-    defaults: {
-      parallelToolName: '',
-      validation: {},
-    },
   },
 };
 

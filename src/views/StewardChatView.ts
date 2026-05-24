@@ -11,7 +11,7 @@ const { i18next } = getBundledInternal('i18n');
 
 export class StewardChatView extends MarkdownView {
   private autoScrollEventRef: EventRef | null = null;
-  private scrollToBottomTimeout: NodeJS.Timeout | null = null;
+  private scrollToBottomTimeout: number | null = null;
   private dockToggleBtn: HTMLButtonElement | null = null;
 
   constructor(
@@ -117,7 +117,7 @@ export class StewardChatView extends MarkdownView {
     }
 
     // Schedule scroll with a small delay to batch rapid updates
-    this.scrollToBottomTimeout = setTimeout(() => {
+    this.scrollToBottomTimeout = window.setTimeout(() => {
       this.scrollToBottom();
       this.scrollToBottomTimeout = null;
     }, 50);
@@ -215,7 +215,7 @@ export class StewardChatView extends MarkdownView {
   }
 
   private handleNewChat(): void {
-    const initialContent = `\n/ `;
+    const initialContent = '\n/ ';
 
     if (!this.file) {
       logger.warn('Conversation file not found');

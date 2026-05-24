@@ -20,8 +20,8 @@ const shellWhitelistEntrySchema = z
   .string()
   .min(1)
   .max(2000)
-  .refine(v => v.trim() !== '*', {
-    message: 'cli.whitelist entries cannot be only *',
+  .refine(v => /[^*]/.test(v.trim()), {
+    message: 'cli.whitelist entries must include at least one non-* character',
   });
 
 const shellWhitelistListSchema = z.array(shellWhitelistEntrySchema).max(50).optional();

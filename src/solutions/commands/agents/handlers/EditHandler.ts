@@ -1,8 +1,9 @@
 import { normalizePath, TFile } from 'obsidian';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import { type ToolContentStreamInfo } from '../components';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { createEditTool, EditArgs } from '../../tools/editContent';
 import { ArtifactType, Change, FileChangeSet } from 'src/solutions/artifact';
 import { EditOperation } from 'src/solutions/commands/tools/editContent';
@@ -30,29 +31,22 @@ export class EditHandler {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: {
       toolCall: ToolCallPart<EditArgs>;
       toolContentStreamInfo?: ToolContentStreamInfo;
       continueFromNextTool?: () => Promise<AgentResult>;
     }
   ): Promise<AgentResult> {
-    const { title, intent, lang } = params;
+    const { title, intent, lang } = ctx.agentHandlerParams;
     const { toolCall, toolContentStreamInfo, continueFromNextTool } = options;
     const t = getTranslation(lang);
 
-    if (!params.handlerId) {
-      throw new Error('EditEdit.handle invoked without handlerId');
-    }
-
     // Render explanation
     if (toolCall.input.explanation) {
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: toolCall.input.explanation,
         command: 'edit',
-        lang,
-        handlerId: params.handlerId,
       });
     }
 
@@ -82,15 +76,12 @@ export class EditHandler {
     // If streaming was active, replace the temp embed callout with the final computed preview.
     // Otherwise, render preview normally.
     if (toolContentStreamInfo) {
-      await this.replaceStreamedPreview({
-        title,
+      await this.replaceStreamedPreview(ctx, {
         filesToOperations,
         toolContentStreamInfo,
-        lang,
-        handlerId: params.handlerId,
       });
     } else {
-      await this.renderPreview({ title, filesToOperations, lang, handlerId: params.handlerId });
+      await this.renderPreview(ctx, { filesToOperations });
     }
 
     // Skip confirmation if no_confirm
@@ -99,22 +90,19 @@ export class EditHandler {
         title,
         filesToOperations,
         lang,
-        handlerId: params.handlerId,
-        step: params.invocationCount,
+        handlerId: ctx.handlerId,
+        step: ctx.step,
         toolCall,
       });
     }
 
-    await this.agent.renderer.updateConversationNote({
-      path: title,
+    await ctx.updateConversationNote({
       newContent: t('update.applyChangesConfirm'),
       command: 'edit',
-      handlerId: params.handlerId,
       includeHistory: false,
     });
 
-    // HandlerID cannot be undefined here. Bypass lint error when using in the callback.
-    const handlerId = params.handlerId;
+    const handlerId = ctx.handlerId;
 
     return {
       status: IntentResultStatus.NEEDS_CONFIRMATION,
@@ -126,7 +114,7 @@ export class EditHandler {
           filesToOperations,
           lang,
           handlerId,
-          step: params.invocationCount,
+          step: ctx.step,
           toolCall,
           continueFromNextTool,
         });
@@ -136,7 +124,7 @@ export class EditHandler {
           path: title,
           command: 'edit',
           handlerId,
-          step: params.invocationCount,
+          step: ctx.step,
           toolInvocations: [
             {
               ...toolCall,
@@ -397,13 +385,14 @@ export class EditHandler {
   /**
    * Render preview for all files (non-streaming path)
    */
-  private async renderPreview(params: {
-    title: string;
-    filesToOperations: Map<string, EditOperation[]>;
-    lang?: string | null;
-    handlerId: string;
-  }): Promise<void> {
-    const { title, filesToOperations, lang, handlerId } = params;
+  private async renderPreview(
+    ctx: HandlerInvocationContext,
+    params: {
+      filesToOperations: Map<string, EditOperation[]>;
+    }
+  ): Promise<void> {
+    const { filesToOperations } = params;
+    const { lang } = ctx.agentHandlerParams;
 
     for (const [filePath, fileOperations] of filesToOperations.entries()) {
       const fileContent = await this.readFileTextForEdit(filePath);
@@ -416,12 +405,12 @@ export class EditHandler {
 
       if (changes.length > 0) {
         const previewContent = this.renderChangesPreview(filePath, changes);
-        await this.agent.renderer.updateConversationNote({
-          path: title,
+        await ctx.agent.renderer.updateConversationNote({
+          path: ctx.title,
           newContent: previewContent,
           includeHistory: false,
           lang,
-          handlerId,
+          handlerId: ctx.handlerId,
         });
       }
     }
@@ -431,14 +420,14 @@ export class EditHandler {
    * Replace the streamed temp file embed with the final computed preview.
    * The callout with `![[temp_file]]` was already rendered during streaming.
    */
-  private async replaceStreamedPreview(params: {
-    title: string;
-    filesToOperations: Map<string, EditOperation[]>;
-    toolContentStreamInfo: ToolContentStreamInfo;
-    lang?: string | null;
-    handlerId: string;
-  }): Promise<void> {
-    const { title, filesToOperations, toolContentStreamInfo, lang, handlerId } = params;
+  private async replaceStreamedPreview(
+    ctx: HandlerInvocationContext,
+    params: {
+      filesToOperations: Map<string, EditOperation[]>;
+      toolContentStreamInfo: ToolContentStreamInfo;
+    }
+  ): Promise<void> {
+    const { filesToOperations, toolContentStreamInfo } = params;
 
     // Build the final preview content for all files
     let finalPreview = '';
@@ -464,13 +453,10 @@ export class EditHandler {
     );
 
     if (finalPreview) {
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: finalPreview,
         replacePlaceHolder: tempEmbed,
         includeHistory: false,
-        lang,
-        handlerId,
       });
     }
 

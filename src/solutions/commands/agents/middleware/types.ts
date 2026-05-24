@@ -1,10 +1,11 @@
-import type { AgentHandlerParams, AgentResult } from '../../types';
+import type { AgentResult } from '../../types';
 import type { ToolCallPart } from '../../tools/types';
 import type { ToolName } from '../../ToolRegistry';
 import type { ToolContentStreamInfo } from '../components/ToolContentStreamConsumer';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 
 export interface ToolHandlerMiddlewareContext {
-  params: AgentHandlerParams;
+  ctx: HandlerInvocationContext;
   toolCall: ToolCallPart;
   toolContentStreamInfo?: ToolContentStreamInfo;
   /** Agent instance, used e.g. by guardrails to extract paths from handlers */

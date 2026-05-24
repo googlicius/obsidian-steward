@@ -235,7 +235,7 @@ function createInputExtension(plugin: StewardPlugin, options: CommandInputOption
         // If we performed async operations, dispatch an empty transaction to trigger
         // a view update and re-render the decorations with the fetched data
         if (isAsync) {
-          setTimeout(() => {
+          window.setTimeout(() => {
             this.view.dispatch({});
           });
         }

@@ -1,7 +1,8 @@
 import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ArtifactType } from 'src/solutions/artifact';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
@@ -299,33 +300,25 @@ export class Search {
    * Handle search tool call
    */
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<SearchArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
     const { operations, explanation, lang: searchLang } = options.toolCall.input;
-    const t = getTranslation(searchLang || lang);
-
-    if (!handlerId) {
-      throw new Error('Search.handle invoked without handlerId');
-    }
+    ctx.setLang((searchLang || ctx.lang) ?? null);
+    const t = getTranslation(ctx.lang);
 
     // Check if search index is built
     const isIndexBuilt = await this.agent.plugin.searchService.documentStore.isIndexBuilt();
 
     if (!isIndexBuilt) {
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent:
           t('search.indexNotBuilt') +
           '\n\n' +
           t('search.buildIndexFirst') +
           '\n\n' +
           `*${t('search.privacyNotice')}*`,
-        lang: searchLang || lang,
         command: 'search',
-        handlerId,
-        step: params.invocationCount,
       });
       return {
         status: IntentResultStatus.ERROR,
@@ -373,41 +366,33 @@ export class Search {
         }
       }
 
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: message,
-        lang: searchLang || lang,
         command: 'search',
         includeHistory: false,
-        handlerId,
-        step: params.invocationCount,
       });
     }
 
-    return this.performSearch({
-      title,
+    return this.performSearch(ctx, {
       operations,
       explanation,
-      lang: searchLang || lang,
-      handlerId,
       toolCall: options.toolCall,
-      step: params.invocationCount,
     });
   }
 
   /**
    * Perform the actual search operation
    */
-  private async performSearch(params: {
-    title: string;
-    operations: SearchOperationV2[];
-    explanation: string;
-    lang: string | null | undefined;
-    handlerId: string;
-    toolCall: ToolCallPart<SearchArgs>;
-    step?: number;
-  }): Promise<AgentResult> {
-    const { title, operations, explanation, lang, handlerId, toolCall, step } = params;
+  private async performSearch(
+    ctx: HandlerInvocationContext,
+    params: {
+      operations: SearchOperationV2[];
+      explanation: string;
+      toolCall: ToolCallPart<SearchArgs>;
+    }
+  ): Promise<AgentResult> {
+    const { operations, explanation, toolCall } = params;
+    const lang = ctx.lang;
     const t = getTranslation(lang);
 
     const queryResult = await this.agent.plugin.searchService.searchV3(operations);
@@ -427,22 +412,18 @@ export class Search {
     });
 
     // Update the conversation note, user only see the response
-    const messageId = await this.agent.renderer.updateConversationNote({
-      path: title,
+    const messageId = await ctx.updateConversationNote({
       newContent: response,
-      lang,
       command: 'search',
-      handlerId,
       includeHistory: false,
-      step,
     });
 
     if (queryResult.conditionResults.length === 0) {
       await this.agent.renderer.serializeToolInvocation({
-        path: title,
+        path: ctx.title,
         command: 'search',
-        handlerId,
-        step,
+        handlerId: ctx.handlerId,
+        step: ctx.step,
         toolInvocations: [
           {
             ...toolCall,
@@ -458,12 +439,14 @@ export class Search {
 
     // Store the search results in the artifact manager
     else {
-      const artifactId = await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
-        artifact: {
-          artifactType: ArtifactType.SEARCH_RESULTS,
-          originalResults: queryResult.conditionResults,
-        },
-      });
+      const artifactId = await this.agent.plugin.artifactManagerV2
+        .withTitle(ctx.title)
+        .storeArtifact({
+          artifact: {
+            artifactType: ArtifactType.SEARCH_RESULTS,
+            originalResults: queryResult.conditionResults,
+          },
+        });
 
       const displayedCount = paginatedSearchResult.conditionResults.length;
       const totalCount = paginatedSearchResult.totalCount;
@@ -491,10 +474,10 @@ export class Search {
       }
 
       await this.agent.renderer.serializeToolInvocation({
-        path: title,
+        path: ctx.title,
         command: 'search',
-        handlerId,
-        step,
+        handlerId: ctx.handlerId,
+        step: ctx.step,
         toolInvocations: [
           {
             ...toolCall,

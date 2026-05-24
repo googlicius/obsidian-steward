@@ -5,9 +5,10 @@ import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ArtifactType } from 'src/solutions/artifact';
 import { ToolName } from 'src/solutions/commands/toolNames';
 import { ToolCallPart } from '../../tools/types';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { type ToolContentStreamInfo } from '../components/ToolContentStreamConsumer';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 
 const { getTranslation } = getBundledInternal('i18n');
 
@@ -217,20 +218,17 @@ export class VaultCreate {
    * Handle create tool call in the agent
    */
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: {
       toolCall: ToolCallPart<CreateToolArgs>;
       toolContentStreamInfo?: ToolContentStreamInfo;
       continueFromNextTool?: () => Promise<AgentResult>;
     }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId, intent } = params;
+    const { title, lang, intent } = ctx.agentHandlerParams;
+    const handlerId = ctx.handlerId;
     const { toolCall, toolContentStreamInfo, continueFromNextTool } = options;
     const t = getTranslation(lang);
-
-    if (!handlerId) {
-      throw new Error('VaultCreate.handle invoked without handlerId');
-    }
 
     const plan = executeCreateToolArgs(toolCall.input);
 
@@ -239,13 +237,10 @@ export class VaultCreate {
         await this.agent.deleteTempStreamFile(toolContentStreamInfo.tempFilePath);
       }
 
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: `*${t('create.noTargets')}*`,
         role: 'Steward',
         command: 'vault_create',
-        lang,
-        handlerId,
         includeHistory: false,
       });
 
@@ -257,12 +252,9 @@ export class VaultCreate {
 
     // If streaming was active, replace the temp embed callout with the final content preview
     if (toolContentStreamInfo) {
-      await this.replaceStreamedPreview({
-        title,
+      await this.replaceStreamedPreview(ctx, {
         plan,
         toolContentStreamInfo,
-        lang,
-        handlerId,
       });
     }
 
@@ -279,13 +271,10 @@ export class VaultCreate {
 
       message += `\n${t('create.confirmPrompt')}`;
 
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: message,
         role: 'Steward',
         command: 'vault_create',
-        lang,
-        handlerId,
         includeHistory: false,
       });
 
@@ -313,11 +302,8 @@ export class VaultCreate {
         onRejection: async (_rejectionMessage: string) => {
           this.agent.commandProcessor.deleteNextPendingIntent(title);
 
-          await this.agent.serializeInvocation({
-            title,
+          await ctx.serializeInvocation({
             command: 'vault_create',
-            handlerId,
-            step: params.invocationCount,
             toolCall,
             result: {
               type: 'text',
@@ -486,14 +472,14 @@ export class VaultCreate {
    * Replace the streamed temp file embed with the final creating content preview.
    * The callout with `![[temp_file]]` was already rendered during streaming.
    */
-  private async replaceStreamedPreview(params: {
-    title: string;
-    plan: CreatePlan;
-    toolContentStreamInfo: ToolContentStreamInfo;
-    lang?: string | null;
-    handlerId: string;
-  }): Promise<void> {
-    const { title, plan, toolContentStreamInfo, lang, handlerId } = params;
+  private async replaceStreamedPreview(
+    ctx: HandlerInvocationContext,
+    params: {
+      plan: CreatePlan;
+      toolContentStreamInfo: ToolContentStreamInfo;
+    }
+  ): Promise<void> {
+    const { plan, toolContentStreamInfo } = params;
 
     const finalPreview = this.renderCreatePreview(plan);
 
@@ -504,13 +490,10 @@ export class VaultCreate {
     );
 
     if (finalPreview) {
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: finalPreview,
         replacePlaceHolder: tempEmbed,
         includeHistory: false,
-        lang,
-        handlerId,
       });
     }
 

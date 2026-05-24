@@ -39,8 +39,11 @@ function createStwEmbedView(plugin: StewardPlugin, key: string): EmbedView | nul
  */
 export function createRunPostProcessor(plugin: StewardPlugin): MarkdownPostProcessor {
   return (el, _ctx): void => {
-    bindStwRunLinks(plugin, el);
-    bindStwEmbedLinks(plugin, el);
+    // Wait until rendered so links are in the live DOM (post-processors run on fragments first)
+    window.setTimeout(() => {
+      bindStwRunLinks(plugin, el);
+      bindStwEmbedLinks(plugin, el);
+    });
   };
 }
 
@@ -56,10 +59,10 @@ function bindStwRunLinks(plugin: StewardPlugin, el: HTMLElement): void {
       continue;
     }
 
-    if (linkEl.dataset.stewardRunBound === 'true') {
+    if (linkEl.dataset.bound === 'true') {
       continue;
     }
-    linkEl.dataset.stewardRunBound = 'true';
+    linkEl.dataset.bound = 'true';
 
     const commandNameRaw = linkEl.dataset.command ?? '';
     const commandName = commandNameRaw.trim();
@@ -70,6 +73,7 @@ function bindStwRunLinks(plugin: StewardPlugin, el: HTMLElement): void {
 
       void (async () => {
         if (!commandName) {
+          logger.warn(`Command is empty.`);
           return;
         }
 

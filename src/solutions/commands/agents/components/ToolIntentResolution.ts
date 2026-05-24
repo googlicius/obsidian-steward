@@ -82,8 +82,6 @@ export class ToolIntentResolution {
     expandedDeclared: ToolName[];
     conversationActiveTools: ToolName[];
     allToolKeys: readonly ToolName[];
-    toolsThatEnableConclude: ReadonlySet<ToolName>;
-    hasConcludeEligibleDeclaredTool: boolean;
     hasCompactionContext: boolean;
   }): ToolName[] {
     const {
@@ -91,7 +89,6 @@ export class ToolIntentResolution {
       expandedDeclared,
       conversationActiveTools,
       allToolKeys,
-      hasConcludeEligibleDeclaredTool,
       hasCompactionContext,
     } = params;
     const allSet = new Set(allToolKeys);
@@ -108,9 +105,6 @@ export class ToolIntentResolution {
       effective.add(activeToolName);
     }
 
-    if (hasConcludeEligibleDeclaredTool && allSet.has(ToolName.CONCLUDE)) {
-      effective.add(ToolName.CONCLUDE);
-    }
     if (hasCompactionContext && allSet.has(ToolName.RECALL_COMPACTED_CONTEXT)) {
       effective.add(ToolName.RECALL_COMPACTED_CONTEXT);
     }
@@ -130,22 +124,14 @@ export class ToolIntentResolution {
     effectiveAllowed: ReadonlySet<ToolName>;
     /** Tools that were active in the conversation (from previous turns) */
     conversationActiveTools: ToolName[];
-    /** Set of tool names that enable conclude (e.g., edit, create, delete - tools that modify vault) */
-    toolsThatEnableConclude: ReadonlySet<ToolName>;
     /** Whether compacted context is available for recall */
     hasCompactionContext: boolean;
   }): ToolName[] {
-    // Check if any conclude-eligible tool is currently active in the conversation
-    const hasConcludeEligibleActive = params.conversationActiveTools.some(t =>
-      params.toolsThatEnableConclude.has(t)
-    );
-
     // No declared tools restriction: use full active set with management tools
     if (params.declaredNormalized === null) {
       return this.uniqueToolNames([
         ...params.conversationActiveTools,
         ToolName.ACTIVATE,
-        ...(hasConcludeEligibleActive ? [ToolName.CONCLUDE] : []),
         ...(params.hasCompactionContext ? [ToolName.RECALL_COMPACTED_CONTEXT] : []),
       ]);
     }

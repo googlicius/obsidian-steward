@@ -5,6 +5,8 @@ import { ArtifactType } from 'src/solutions/artifact';
 import { ToolCallPart } from '../../tools/types';
 import { ToolName } from '../../toolNames';
 import { RevertLatestQuery, RevertToolArgs } from './RevertLatestQuery';
+import { createTestHandlerInvocationContext } from './testUtils';
+import type { AgentHandlerParams } from '../../types';
 
 function createMockFile(path: string): TFile {
   const file = new TFile();
@@ -58,6 +60,7 @@ describe('RevertLatestQuery', () => {
     const mockRenderer = {
       extractAllConversationMessages: jest.fn(),
       updateConversationNote: jest.fn().mockResolvedValue('message-id'),
+      serializeToolInvocation: jest.fn().mockResolvedValue(undefined),
     };
 
     mockPlugin = {
@@ -93,7 +96,6 @@ describe('RevertLatestQuery', () => {
       plugin: mockPlugin,
       renderer: mockRenderer as unknown as AgentHandlerContext['renderer'],
       app: mockApp,
-      serializeInvocation: jest.fn().mockResolvedValue(undefined),
       obsidianAPITools: {
         ensureFolderExists: jest.fn().mockResolvedValue(undefined),
       },
@@ -101,6 +103,13 @@ describe('RevertLatestQuery', () => {
 
     handler = new RevertLatestQuery(mockAgent);
   });
+
+  function createCtx(agentHandlerParams: AgentHandlerParams) {
+    return createTestHandlerInvocationContext({
+      agent: mockAgent,
+      agentHandlerParams,
+    });
+  }
 
   function buildToolCall(explanation = 'Revert latest query'): ToolCallPart<RevertToolArgs> {
     return {
@@ -124,18 +133,18 @@ describe('RevertLatestQuery', () => {
     ]);
 
     const result = await handler.handle(
-      {
+      createCtx({
         title: 'conversation',
         handlerId: 'handler-1',
         lang: 'en',
         intent: { type: 'revert', query: 'revert' },
-      },
+      }),
       { toolCall: buildToolCall() }
     );
 
     expect(result.status).toBe('error');
     expect(mockAgent.renderer.updateConversationNote).toHaveBeenCalled();
-    expect(mockAgent.serializeInvocation).toHaveBeenCalled();
+    expect(mockAgent.renderer.serializeToolInvocation).toHaveBeenCalled();
   });
 
   it('reverts parent and subagent artifacts from latest query', async () => {
@@ -210,12 +219,12 @@ describe('RevertLatestQuery', () => {
     mockPlugin.app.vault.getAbstractFileByPath = jest.fn((path: string) => createMockFile(path));
 
     const result = await handler.handle(
-      {
+      createCtx({
         title: 'conversation',
         handlerId: 'handler-1',
         lang: 'en',
         intent: { type: 'revert', query: 'revert' },
-      },
+      }),
       { toolCall: buildToolCall() }
     );
 
@@ -280,12 +289,12 @@ describe('RevertLatestQuery', () => {
     });
 
     const result = await handler.handle(
-      {
+      createCtx({
         title: 'conversation',
         handlerId: 'handler-1',
         lang: 'en',
         intent: { type: 'revert', query: 'revert' },
-      },
+      }),
       { toolCall: buildToolCall() }
     );
 

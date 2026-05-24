@@ -2,6 +2,7 @@ import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath } from 'obsidian';
 import { getBundledInternal } from 'src/utils/bundledInternals';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ArtifactType } from 'src/solutions/artifact';
 import { DocWithPath } from 'src/types/types';
@@ -9,7 +10,7 @@ import { MoveOperation, OperationError } from 'src/tools/obsidianAPITools';
 import { ToolCallPart } from '../../tools/types';
 import { eventEmitter } from 'src/services/EventEmitter';
 import { Events } from 'src/types/events';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 
 const { getTranslation } = getBundledInternal('i18n');
 
@@ -328,24 +329,14 @@ export class VaultMove {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<MoveToolArgs> }
   ): Promise<AgentResult> {
     const { toolCall } = options;
 
-    if (!params.handlerId) {
-      throw new Error('VaultMove.handle invoked without handlerId');
-    }
+    const t = getTranslation(ctx.lang);
 
-    const t = getTranslation(params.lang);
-
-    const resolveResult = await this.resolveMoveDocs({
-      title: params.title,
-      toolCall,
-      lang: params.lang,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
-    });
+    const resolveResult = await this.resolveMoveDocs(ctx, toolCall);
 
     if (resolveResult.responseMessage) {
       return {
@@ -359,13 +350,9 @@ export class VaultMove {
 
     if (!destinationFolder) {
       const message = t('move.destinationRequired');
-      await this.respondAndSerializeMove({
-        title: params.title,
+      await this.respondAndSerializeMove(ctx, {
         content: message,
         toolCall,
-        lang: params.lang,
-        handlerId: params.handlerId,
-        step: params.invocationCount,
       });
 
       return {
@@ -383,33 +370,23 @@ export class VaultMove {
         'move.createFoldersQuestion'
       )}`;
 
-      const handlerId = params.handlerId;
-
       return {
         status: IntentResultStatus.NEEDS_CONFIRMATION,
         confirmationMessage: message,
         toolCall: options.toolCall,
         onConfirmation: async (_confirmationMessage: string) => {
-          await this.respondAndSerializeMove({
-            title: params.title,
+          await this.respondAndSerializeMove(ctx, {
             content: message,
             toolCall,
-            lang: params.lang,
-            handlerId,
-            step: params.invocationCount,
           });
           await this.agent.obsidianAPITools.ensureFolderExists(toolCall.input.destinationFolder);
-          return this.handle(params, options);
+          return this.handle(ctx, options);
         },
         onRejection: async (_rejectionMessage: string) => {
           const cancellationMessage = t('confirmation.operationCancelled');
-          await this.respondAndSerializeMove({
-            title: params.title,
+          await this.respondAndSerializeMove(ctx, {
             content: cancellationMessage,
             toolCall,
-            lang: params.lang,
-            handlerId,
-            step: params.invocationCount,
           });
           return {
             status: IntentResultStatus.SUCCESS,
@@ -419,32 +396,28 @@ export class VaultMove {
     }
 
     const moveResult = await this.executeMoveOperation({
-      title: params.title,
+      title: ctx.title,
       docs,
       destinationFolder,
-      lang: params.lang,
+      lang: ctx.lang,
     });
 
     const formattedMessage = this.formatMoveResult({
       result: moveResult,
       destinationFolder,
-      lang: params.lang,
+      lang: ctx.lang,
     });
 
-    const messageId = await this.agent.renderer.updateConversationNote({
-      path: params.title,
+    const messageId = await ctx.updateConversationNote({
       newContent: formattedMessage,
       command: 'vault_move',
-      lang: params.lang,
       includeHistory: false,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
     });
 
     // Store move results as an artifact if there are any moves
     if (moveResult.movePairs.length > 0) {
       const artifactId = `move_${Date.now()}`;
-      await this.agent.plugin.artifactManagerV2.withTitle(params.title).storeArtifact({
+      await this.agent.plugin.artifactManagerV2.withTitle(ctx.title).storeArtifact({
         artifact: {
           artifactType: ArtifactType.MOVE_RESULTS,
           moves: moveResult.movePairs,
@@ -454,11 +427,8 @@ export class VaultMove {
       });
     }
 
-    await this.agent.serializeInvocation({
+    await ctx.serializeInvocation({
       command: 'vault_move',
-      title: params.title,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
       toolCall,
       result: {
         type: 'text',
@@ -471,15 +441,11 @@ export class VaultMove {
     };
   }
 
-  private async resolveMoveDocs(params: {
-    title: string;
-    toolCall: ToolCallPart<MoveToolArgs>;
-    lang?: string | null;
-    handlerId: string;
-    step?: number;
-  }): Promise<{ docs: DocWithPath[]; responseMessage?: string }> {
-    const { title, toolCall, lang, handlerId } = params;
-    const t = getTranslation(lang);
+  private async resolveMoveDocs(
+    ctx: HandlerInvocationContext,
+    toolCall: ToolCallPart<MoveToolArgs>
+  ): Promise<{ docs: DocWithPath[]; responseMessage?: string }> {
+    const t = getTranslation(ctx.lang);
 
     const docs: DocWithPath[] = [];
     const noFilesMessage = t('common.noFilesFound');
@@ -487,7 +453,7 @@ export class VaultMove {
     for (const operation of toolCall.input.operations) {
       switch (operation.mode) {
         case 'artifactId': {
-          const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(title);
+          const artifactManager = this.agent.plugin.artifactManagerV2.withTitle(ctx.title);
           const resolvedFiles = await artifactManager.resolveFilesFromArtifact(
             operation.artifactId
           );
@@ -532,12 +498,9 @@ export class VaultMove {
     }
 
     if (docs.length === 0) {
-      const responseMessage = await this.respondAndSerializeMove({
-        title,
+      const responseMessage = await this.respondAndSerializeMove(ctx, {
         content: noFilesMessage,
         toolCall,
-        lang,
-        handlerId,
       });
       return { docs: [], responseMessage };
     }
@@ -545,29 +508,21 @@ export class VaultMove {
     return { docs };
   }
 
-  private async respondAndSerializeMove(params: {
-    title: string;
-    content: string;
-    toolCall: ToolCallPart<MoveToolArgs>;
-    lang?: string | null;
-    handlerId: string;
-    step?: number;
-  }): Promise<string> {
-    const messageId = await this.agent.renderer.updateConversationNote({
-      path: params.title,
+  private async respondAndSerializeMove(
+    ctx: HandlerInvocationContext,
+    params: {
+      content: string;
+      toolCall: ToolCallPart<MoveToolArgs>;
+    }
+  ): Promise<string> {
+    const messageId = await ctx.updateConversationNote({
       newContent: params.content,
       command: 'vault_move',
-      lang: params.lang,
-      handlerId: params.handlerId,
-      step: params.step,
       includeHistory: false,
     });
 
-    await this.agent.serializeInvocation({
+    await ctx.serializeInvocation({
       command: 'vault_move',
-      title: params.title,
-      handlerId: params.handlerId,
-      step: params.step,
       toolCall: params.toolCall,
       result: {
         type: 'text',

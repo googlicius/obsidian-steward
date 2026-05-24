@@ -1,7 +1,8 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { ToolCallPart } from '../../tools/types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
@@ -45,31 +46,22 @@ export class Speech {
    * Handle a speech tool call
    */
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<SpeechArgs> }
   ): Promise<AgentResult> {
     const { toolCall } = options;
-    const t = getTranslation(params.lang);
-
-    if (!params.handlerId) {
-      throw new Error('Speech.handle invoked without handlerId');
-    }
+    const { title } = ctx.agentHandlerParams;
+    const t = getTranslation(ctx.lang);
 
     try {
       // Update conversation with explanation
-      await this.agent.renderer.updateConversationNote({
-        path: params.title,
+      await ctx.updateConversationNote({
         newContent: toolCall.input.explanation,
         role: 'Steward',
         includeHistory: false,
-        lang: params.lang,
-        handlerId: params.handlerId,
       });
 
-      await this.agent.renderer.addGeneratingIndicator(
-        params.title,
-        t('conversation.generatingAudio')
-      );
+      await this.agent.renderer.addGeneratingIndicator(title, t('conversation.generatingAudio'));
 
       // Generate the audio using the handler's method
       const speechModel = this.agent.plugin.settings.llm.speech.model;
@@ -79,25 +71,22 @@ export class Speech {
           provider as keyof typeof this.agent.plugin.settings.llm.speech.voices
         ];
 
-      const result = await this.generateAudio(params.title, toolCall.input.text, {
+      const result = await this.generateAudio(title, toolCall.input.text, {
         voice,
         // instructions: params.intent.systemPrompts?.join('\n'), // Not system prompt
         instructions: 'Pronounce the text clearly and naturally.',
       });
 
       if (!result.success) {
-        await this.agent.renderer.updateConversationNote({
-          path: params.title,
+        await ctx.updateConversationNote({
           newContent: `*Error generating audio: ${result.error}*`,
-          handlerId: params.handlerId,
-          step: params.invocationCount,
         });
 
         await this.agent.renderer.serializeToolInvocation({
-          path: params.title,
+          path: title,
           command: 'speech',
-          handlerId: params.handlerId,
-          step: params.invocationCount,
+          handlerId: ctx.handlerId,
+          step: ctx.step,
           toolInvocations: [
             {
               ...toolCall,
@@ -116,17 +105,14 @@ export class Speech {
         };
       }
 
-      const messageId = await this.agent.renderer.updateConversationNote({
-        path: params.title,
+      const messageId = await ctx.updateConversationNote({
         newContent: `\n![[${result.filePath}]]`,
         command: 'speech',
-        handlerId: params.handlerId,
-        step: params.invocationCount,
       });
 
       // Store the media artifact
       if (messageId && result.filePath) {
-        await this.agent.plugin.artifactManagerV2.withTitle(params.title).storeArtifact({
+        await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
           artifact: {
             artifactType: ArtifactType.MEDIA_RESULTS,
             paths: [result.filePath],
@@ -136,10 +122,10 @@ export class Speech {
       }
 
       await this.agent.renderer.serializeToolInvocation({
-        path: params.title,
+        path: title,
         command: 'speech',
-        handlerId: params.handlerId,
-        step: params.invocationCount,
+        handlerId: ctx.handlerId,
+        step: ctx.step,
         toolInvocations: [
           {
             ...toolCall,
@@ -160,19 +146,16 @@ export class Speech {
       };
     } catch (error) {
       logger.error('Error generating audio:', error);
-      await this.agent.renderer.updateConversationNote({
-        path: params.title,
+      await ctx.updateConversationNote({
         newContent: `Error generating audio: ${error instanceof Error ? error.message : String(error)}`,
         role: 'Steward',
-        handlerId: params.handlerId,
-        step: params.invocationCount,
       });
 
       await this.agent.renderer.serializeToolInvocation({
-        path: params.title,
+        path: title,
         command: 'speech',
-        handlerId: params.handlerId,
-        step: params.invocationCount,
+        handlerId: ctx.handlerId,
+        step: ctx.step,
         toolInvocations: [
           {
             ...toolCall,

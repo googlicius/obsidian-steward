@@ -14,8 +14,8 @@ const en = {
       noArtifactsFound: 'No artifacts found.',
       cannotUpdateThisType:
         'Cannot update this type of artifact. Only search results, created notes, read content, and content updates can be updated.',
-      builtInCommands: 'Built-in commands',
-      builtInCommandsDesc: 'These commands are directly accessible via /&lt;command&gt',
+      standardCommands: 'Standard commands',
+      standardCommandsDesc: 'These commands are directly accessible via /&lt;command&gt',
       userDefinedCommands: 'User-Defined commands',
       userDefinedCommandsDesc: 'Create custom commands to automate workflows.',
       noUserDefinedCommands:
@@ -25,6 +25,7 @@ const en = {
       imageDesc: 'Generate images',
       speechDesc: 'Generate speech from text',
       terminalDesc: 'Start a shell mode',
+      newSessionDesc: 'Start a new chat session',
       disabledMark: '(disabled)',
       helpTableCommand: 'Command',
       helpTableDescription: 'Description',
@@ -40,7 +41,7 @@ const en = {
       errorProcessingCommand: 'Error processing {{commandType}} command: {{errorMessage}}',
       switchingModelDueToErrors: 'Switching from {{fromModel}} to {{toModel}} due to errors',
       thinkingProcess: 'Thinking process',
-      commandOutput: 'Command output',
+      commandOutput: 'Output',
       lines: '{{number}} lines',
       modelDoesNotSupportImageInputs:
         'Model {{model}} does not support image inputs. Please use a vision-capable model (e.g., gpt-4o, gemini-pro, claude-3-sonnet).',
@@ -55,6 +56,10 @@ const en = {
     community: {
       browseCommands: 'Browse community commands',
       commandsTitle: 'Community commands',
+      commandsIntro:
+        '💡 These commands are not bundled with Steward. They are published in the public repository and listed here for you to install or upgrade. **Install** / **Update** runs `update-command`, which downloads files into the appropriate vault folder with transparency and your consent.',
+      commandsIntroCatalog:
+        'This catalog may be updated when you install a new version of Steward.',
       notInstalled: 'Not installed',
       installed: 'Installed',
       updateAvailable: 'Update available',
@@ -76,7 +81,7 @@ const en = {
       spawnFailed:
         '{{message}}\n\nThere are installers for each platform in your {{stewardFolder}} folder; run them from your vault root folder:',
       openingInteractiveTerminal: 'Opening interactive terminal...',
-      shellTranscriptIntro: '(Shell — output streams below. Not a full TTY.)',
+      shellTranscriptIntro: '(Shell — output streams below.)',
       processEndedSignal: '(Process ended: signal {{signal}})',
       processEndedCode: '(Process exited with code {{code}})',
       ptyNativePathUnavailable:
@@ -84,13 +89,12 @@ const en = {
       ptyNativeBundleMissing:
         'The node-pty native bundle folder is missing or is not a directory: {{path}}. Run the Steward installer script or set a valid folder in CLI settings.',
       inputLineCaptionShellPrefix: 'Shell',
-      inputLineCaptionShellActive: 'Shell, Ctrl+C to exit',
+      inputLineCaptionShellActive: 'Shell, Ctrl-C to exit',
       nodePtyInstallWindowsHeading: 'Install on Windows',
       nodePtyInstallUnixHeading: 'Install on Mac / Linux',
       seeCliWiki:
         'It would take up from 5 ~ 6 MB based on your platform.\n\nSee [CLI]({{cliDoc}}) for transcript vs interactive mode and node-pty setup.',
-      confirmExecuteShell:
-        'I will run this command. Please confirm or cancel.\n\n```shell\n{{command}}\n```',
+      confirmExecuteShell: 'I will run this command. Please confirm or cancel.',
       runInTerminal: 'The command will run in the terminal (interactive mode, full TTY).',
       shellConfirmEmptyCommand: '(empty line — start or continue shell without sending input yet)',
     },
@@ -111,6 +115,8 @@ const en = {
     trigger: {
       executing: 'Command "{{commandName}}" is executing.',
       executed: 'Command "{{commandName}}" is executed successfully.',
+      needsConfirmation:
+        'Command "{{commandName}}" is waiting for your confirmation. Open the conversation to continue.',
       openConversation: 'Open conversation',
       executionFailed: 'Failed to execute command "{{commandName}}": {{error}}',
       run: {
@@ -126,6 +132,9 @@ const en = {
       commandError: 'Command: {{commandName}}',
       yamlError: 'Invalid YAML syntax',
       successMessage: 'All command definitions are valid! ✅',
+    },
+    commands: {
+      newPlaceholder: 'Start a new conversation...',
     },
     // Chat UI elements
     chat: {
@@ -256,6 +265,8 @@ const en = {
         'Content was omitted to save tokens. Use the {{toolName}} tool to inspect it if needed.',
     },
     list: {
+      listInFolder_one: 'List {{count}} item in {{folder}}',
+      listInFolder_other: 'List {{count}} items in {{folder}}',
       noItemsFound: 'No items found.',
       noItemsFoundInFolder: 'No items found in {{folder}}.',
       foundItems_one: 'I found {{count}} item',
@@ -432,6 +443,8 @@ const en = {
     todoList: {
       todoList: 'To-Do list',
       step: 'Step {{index}}',
+      incompleteContinuePrompt:
+        'The to-do list is not finished yet. Type "continue" if you would like me to keep going.',
     },
     documentation: {
       guidelines: 'Guidelines',
@@ -447,10 +460,10 @@ const en = {
       tipAttachContext: 'Type `@` to attach files/folders',
       tipStop: 'Press `ESC` or `Ctrl-C` to stop running operations',
       tipRevert: 'Type `Undo` to revert the last changes',
-      fetchFailed: 'Failed to fetch documentation: {{docName}}',
-      downloading: 'Downloading {{name}}...',
     },
     read: {
+      file: 'Read {{filePath}}',
+      useSkill: 'Use skill {{skillName}}',
       noContentFound: 'No such content found in the editor.',
       noFrontmatterFound: 'No frontmatter found in the note.',
       readEntireContentConfirmation:
@@ -467,10 +480,6 @@ const en = {
       response3: 'Glad I could assist!',
       response4: 'Anytime! Let me know if you need anything else.',
       response5: 'Happy to be of service!',
-    },
-    conclude: {
-      validationFailed:
-        'Conclusion validation failed: the expected artifact was not found. Do not use the conclude tool again — respond normally instead.',
     },
     // Conversation states
     conversation: {
@@ -498,8 +507,6 @@ const en = {
       augmentingContext: 'Augmenting context...',
       continuingProcessing: 'Continuing...',
       processingBatch: 'Processing batch {{current}} of {{total}}...',
-      udcTodoListBootstrapGuide:
-        '[On system behalf] A multi-step user-defined command (`/{{commandName}}`) is running. The following todo_write tool call was injected by the system to register the step plan; it is not something the end user typed.',
       stepLimitReached:
         'I have reached the maximum number of processing steps. Would you like me to continue with more steps?',
     },

@@ -65,7 +65,7 @@ export function createCalloutSearchResultPostProcessor(
     const endPos = parseInt(end);
 
     // Add a longer delay to make sure the file is fully loaded and active
-    setTimeout(() => {
+    window.setTimeout(() => {
       // Make sure the leaf is active and focused
       plugin.app.workspace.setActiveLeaf(mainLeaf, { focus: true });
       plugin.app.workspace.revealLeaf(mainLeaf);

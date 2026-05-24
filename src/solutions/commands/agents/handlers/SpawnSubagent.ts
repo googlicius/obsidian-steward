@@ -1,8 +1,9 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { ToolName } from '../../ToolRegistry';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { type SpawnSubagentJob } from 'src/services/SubagentSpawnService';
@@ -66,29 +67,22 @@ export class SpawnSubagent {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: {
       toolCall: ToolCallPart<SpawnSubagentArgs>;
       parentAgentId?: string;
     }
   ): Promise<AgentResult> {
-    const { title, handlerId, lang } = params;
+    const { title } = ctx.agentHandlerParams;
     const { toolCall, parentAgentId = 'super' } = options;
-    const t = getTranslation(lang);
-
-    if (!handlerId) {
-      throw new Error('SpawnSubagent.handle invoked without handlerId');
-    }
+    const t = getTranslation(ctx.lang);
 
     const parentConfig = DEFAULT_AGENT_CONFIGS.find(config => config.id === parentAgentId);
     const canSpawnSubagents = parentConfig?.canSpawnSubagents === true;
     if (!canSpawnSubagents) {
-      await this.agent.serializeInvocation({
-        title,
-        handlerId,
+      await ctx.serializeInvocation({
         command: ToolName.SPAWN_SUBAGENT,
         toolCall,
-        step: params.invocationCount,
         result: {
           type: 'error-text',
           value: `Agent "${parentAgentId}" is not allowed to spawn subagents.`,
@@ -100,12 +94,9 @@ export class SpawnSubagent {
     const allowedSubagents = new Set(parentConfig.allowedSubagents || []);
     const subagentId = 'subagent';
     if (allowedSubagents.size > 0 && !allowedSubagents.has(subagentId)) {
-      await this.agent.serializeInvocation({
-        title,
-        handlerId,
+      await ctx.serializeInvocation({
         command: ToolName.SPAWN_SUBAGENT,
         toolCall,
-        step: params.invocationCount,
         result: {
           type: 'error-text',
           value: `Subagent "${subagentId}" is not allowed for "${parentAgentId}".`,
@@ -127,9 +118,9 @@ export class SpawnSubagent {
       parentTitle: title,
       parentAgentId,
       jobs: normalizedJobs,
-      lang,
-      handlerId,
-      step: params.invocationCount,
+      lang: ctx.lang,
+      handlerId: ctx.handlerId,
+      step: ctx.step,
       defaultTools: (parentConfig.subagentTools || []) as ToolName[],
       defaultSystemPrompts: parentConfig.subagentSystemPrompts || [],
       onStatus: async (status, patch) => {
@@ -140,11 +131,8 @@ export class SpawnSubagent {
               'stw-review',
               { streaming: 'true' }
             );
-            await this.agent.renderer.updateConversationNote({
-              path: title,
+            await ctx.updateConversationNote({
               newContent: subagentEmbed,
-              lang,
-              handlerId,
               includeHistory: false,
             });
           }
@@ -163,12 +151,9 @@ export class SpawnSubagent {
     const succeeded = runs.filter(run => run.status === 'done');
     const failed = runs.filter(run => run.status === 'failed');
 
-    await this.agent.serializeInvocation({
-      title,
-      handlerId,
+    await ctx.serializeInvocation({
       command: ToolName.SPAWN_SUBAGENT,
       toolCall,
-      step: params.invocationCount,
       result: {
         type: 'json',
         value: {

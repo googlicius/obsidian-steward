@@ -4,7 +4,8 @@ import { normalizePath, TFile, TFolder } from 'obsidian';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { ArtifactType } from 'src/solutions/artifact';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
@@ -100,21 +101,25 @@ export class VaultList {
   }
 
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<ListToolArgs> }
   ): Promise<AgentResult> {
     const { toolCall } = options;
+    const folderPath = toolCall.input.folderPath || '/';
 
-    if (!params.handlerId) {
-      throw new Error('VaultList.handle invoked without handlerId');
-    }
+    const result = await this.executeListTool(toolCall.input, ctx.lang, ctx.title);
 
-    const result = await this.executeListTool(toolCall.input, params.lang, params.title);
+    const t = getTranslation(ctx.lang);
+    await ctx.updateConversationNote({
+      newContent: `*${t('list.listInFolder', { count: result.files.length, folder: folderPath })}*`,
+      command: 'vault_list',
+      includeHistory: false,
+    });
 
     const hasMoreFiles = result.files.length > MAX_FILES_TO_SHOW;
     const artifactId = `list_${Date.now()}`;
 
-    await this.agent.plugin.artifactManagerV2.withTitle(params.title).storeArtifact({
+    await this.agent.plugin.artifactManagerV2.withTitle(ctx.title).storeArtifact({
       artifact: {
         artifactType: ArtifactType.LIST_RESULTS,
         paths: result.files,
@@ -124,17 +129,13 @@ export class VaultList {
     });
 
     // Build result string: response text + artifact message if files reached max count
-    const t = getTranslation(params.lang);
     let resultText = result.response;
     if (hasMoreFiles) {
       resultText += `\n\n${t('list.fullListInArtifactUseFilePattern', { artifactId })}`;
     }
 
-    await this.agent.serializeInvocation({
+    await ctx.serializeInvocation({
       command: 'vault_list',
-      title: params.title,
-      handlerId: params.handlerId,
-      step: params.invocationCount,
       toolCall,
       result: {
         type: 'text',

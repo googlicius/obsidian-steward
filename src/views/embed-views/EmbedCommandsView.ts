@@ -67,6 +67,7 @@ export class EmbedCommandsView implements EmbedView {
 
     const t = i18next.t.bind(i18next);
     const title = `### ${t('community.commandsTitle')}\n\n`;
+    const intro = `${t('community.commandsIntro')}\n\n`;
     const groups = groupManifestBySourceFile(COMMUNITY_UDC_MANIFEST);
     const rows: string[][] = [];
     for (let i = 0; i < groups.length; i++) {
@@ -83,7 +84,7 @@ export class EmbedCommandsView implements EmbedView {
       rows
     );
 
-    return `${title}${table}`;
+    return `${title}${intro}${table}\n\n*${t('community.commandsIntroCatalog')}*`;
   }
 
   /**
@@ -100,8 +101,7 @@ export class EmbedCommandsView implements EmbedView {
     }
 
     const t = i18next.t.bind(i18next);
-    const mainPath = this.getMainVaultPath(rep);
-    const existing = this.app.vault.getFileByPath(mainPath);
+    const existing = this.resolveInstalledNoteFile(rep, group);
     let yourVersion = '—';
     let statusLabel = t('community.notInstalled');
     let actionLabel = t('community.install');
@@ -124,6 +124,7 @@ export class EmbedCommandsView implements EmbedView {
       destinationFolder: rep.destinationFolder,
       version: rep.version,
       mainVAULT_FILENAME: rep.mainVAULT_FILENAME,
+      ...(rep.updateInstruction && { updateInstruction: rep.updateInstruction }),
     };
     const encoded = encodeURIComponent(JSON.stringify(guideline));
     const actionHtml = `<a class="stw-run" data-command="update-command" data-query="${encoded}">${actionLabel}</a>`;
@@ -137,6 +138,34 @@ export class EmbedCommandsView implements EmbedView {
       String(rep.version),
       `${statusLabel}<br>${actionHtml} · ${viewHtml}`,
     ];
+  }
+
+  /**
+   * Prefer the manifest main note path; if missing (e.g. after a rename), use any loaded
+   * command from this group via {@link UserDefinedCommandService.userDefinedCommands}.
+   */
+  private resolveInstalledNoteFile(
+    rep: CommunityUdcEntry,
+    group: CommunityUdcEntry[]
+  ): TFile | null {
+    const atManifestPath = this.app.vault.getFileByPath(this.getMainVaultPath(rep));
+    if (atManifestPath instanceof TFile) {
+      return atManifestPath;
+    }
+
+    const udcMap = this.plugin.userDefinedCommandService.userDefinedCommands;
+    for (let i = 0; i < group.length; i++) {
+      const loaded = udcMap.get(group[i].commandName);
+      if (!loaded) {
+        continue;
+      }
+      const file = this.app.vault.getFileByPath(loaded.normalized.file_path);
+      if (file instanceof TFile) {
+        return file;
+      }
+    }
+
+    return null;
   }
 
   private getMainVaultPath(entry: CommunityUdcEntry): string {

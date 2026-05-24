@@ -139,7 +139,6 @@ class TestAgent extends StreamTextExecutor {
       ToolName.EDIT,
       ToolName.SEARCH,
       ToolName.SWITCH_AGENT_CAPACITY,
-      ToolName.CONCLUDE,
       ToolName.RECALL_COMPACTED_CONTEXT,
     ]);
   }
@@ -167,7 +166,6 @@ class TestAgent extends StreamTextExecutor {
       ...params,
       activeTools: [],
       tools: {},
-      toolsThatEnableConclude: new Set<ToolName>(),
     });
   }
 }

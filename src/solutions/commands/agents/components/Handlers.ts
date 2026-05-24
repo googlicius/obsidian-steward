@@ -1,13 +1,12 @@
 import { ToolName } from '../../ToolRegistry';
 import * as handlers from '../handlers';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
-import type { AgentHandlerParams, AgentResult } from '../../types';
+import type { AgentResult } from '../../types';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { ToolCallPart } from '../../tools/types';
-import type { RunCommandSuperAgentDelegate } from '../handlers/RunCommand';
-
 export interface StandardToolHandler {
   handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: {
       toolCall: ToolCallPart<unknown>;
       continueFromNextTool?: () => Promise<AgentResult>;
@@ -57,6 +56,7 @@ export class Handlers {
   private _help: handlers.Help;
   private _stop: handlers.Stop;
   private _thankYou: handlers.ThankYou;
+  private _newSession: handlers.NewSession;
   private _buildSearchIndex: handlers.BuildSearchIndex;
   private _search: handlers.Search;
   private _searchMore: handlers.SearchMore;
@@ -66,7 +66,6 @@ export class Handlers {
   private _dynamic: handlers.Dynamic;
   private _spawnSubagent: handlers.SpawnSubagent;
   private _switchAgentCapacity: handlers.SwitchAgentCapacity;
-  private _conclude: handlers.Conclude;
   private _getMostRecentArtifact: handlers.GetMostRecentArtifact;
   private _getArtifactById: handlers.GetArtifactById;
   private _recallCompactedContext: handlers.RecallCompactedContext;
@@ -169,6 +168,11 @@ export class Handlers {
     return this._thankYou;
   }
 
+  public get newSession(): handlers.NewSession {
+    if (!this._newSession) this._newSession = new handlers.NewSession(this.getAgent());
+    return this._newSession;
+  }
+
   public get buildSearchIndex(): handlers.BuildSearchIndex {
     if (!this._buildSearchIndex) {
       this._buildSearchIndex = new handlers.BuildSearchIndex(this.getAgent());
@@ -218,11 +222,6 @@ export class Handlers {
     return this._switchAgentCapacity;
   }
 
-  public get conclude(): handlers.Conclude {
-    if (!this._conclude) this._conclude = new handlers.Conclude(this.getAgent());
-    return this._conclude;
-  }
-
   public get getMostRecentArtifact(): handlers.GetMostRecentArtifact {
     if (!this._getMostRecentArtifact) {
       this._getMostRecentArtifact = new handlers.GetMostRecentArtifact(this.getAgent());
@@ -259,10 +258,7 @@ export class Handlers {
 
   public get runCommand(): handlers.RunCommand {
     if (!this._runCommand) {
-      this._runCommand = new handlers.RunCommand(
-        this.getAgent(),
-        this as unknown as RunCommandSuperAgentDelegate
-      );
+      this._runCommand = new handlers.RunCommand(this.getAgent());
     }
     return this._runCommand;
   }
@@ -287,6 +283,7 @@ export class Handlers {
       [ToolName.EDIT]: () => this.editHandler,
       [ToolName.STOP]: () => this.stop,
       [ToolName.THANK_YOU]: () => this.thankYou,
+      [ToolName.NEW_SESSION]: () => this.newSession,
       [ToolName.BUILD_SEARCH_INDEX]: () => this.buildSearchIndex,
       [ToolName.SEARCH]: () => this.search,
       [ToolName.SEARCH_MORE]: () => this.searchMore,
@@ -295,7 +292,6 @@ export class Handlers {
       [ToolName.TODO_WRITE]: () => this.todoList,
       [ToolName.HELP]: () => this.help,
       [ToolName.SPAWN_SUBAGENT]: () => this.spawnSubagent,
-      [ToolName.CONCLUDE]: () => this.conclude,
       [ToolName.GET_MOST_RECENT_ARTIFACT]: () => this.getMostRecentArtifact,
       [ToolName.GET_ARTIFACT_BY_ID]: () => this.getArtifactById,
       [ToolName.RECALL_COMPACTED_CONTEXT]: () => this.recallCompactedContext,

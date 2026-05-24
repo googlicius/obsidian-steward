@@ -1,7 +1,8 @@
 import type { ModelMessage } from 'ai';
 import { Agent } from '../../Agent';
 import { AgentHandlerParams, AgentResult, IntentResultStatus, Intent } from '../../types';
-import { ToolCallPart, ToolResultPart, TypedToolCallPart } from '../../tools/types';
+import { HandlerInvocationContext } from '../HandlerInvocationContext';
+import { TypedToolCallPart } from '../../tools/types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ToolName } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
@@ -30,7 +31,7 @@ const SUPER_AGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUPER_AGENT_TOOL_NAM
 /**
  * Map of classifier task label → tool names (used with `TASK_DEFAULT_ACTIVATE_TOOLS`).
  * Tool availability for a turn also comes from `ToolIntentResolution` (declared/allowed/active,
- * UDC `allowed_tools`, frontmatter `tools`, conclude / compaction), not a separate dependency graph.
+ * UDC `allowed_tools`, frontmatter `tools`, compaction), not a separate dependency graph.
  */
 const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
   vault: new Set([
@@ -50,6 +51,7 @@ const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
   user_confirm: new Set([ToolName.USER_CONFIRM]),
   more: new Set([ToolName.SEARCH_MORE]),
   stop: new Set([ToolName.STOP]),
+  new: new Set([ToolName.NEW_SESSION]),
   thank_you: new Set([ToolName.THANK_YOU]),
   build_search_index: new Set([ToolName.BUILD_SEARCH_INDEX]),
   search: new Set([ToolName.SEARCH]),
@@ -90,16 +92,6 @@ const TASK_TO_INDICATOR_MAP: Record<string, string | undefined> = {
  */
 const SINGLE_TURN_TASKS = new Set(['search']);
 
-const toolsThatEnableConclude = new Set([
-  ToolName.EDIT,
-  ToolName.MOVE,
-  ToolName.COPY,
-  ToolName.DELETE,
-  ToolName.RENAME,
-  ToolName.CREATE,
-  ToolName.UPDATE_FRONTMATTER,
-]);
-
 type ToolCalls = Array<TypedToolCallPart & { dynamic?: boolean }>;
 
 export interface SuperAgent
@@ -123,6 +115,8 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
       return 'You are a helpful assistant who helps users with their Obsidian vault.';
     }
     const taskSection = this.buildTaskInstructions(context.availableTools);
+    const otherToolsExclude = new Set([ToolName.SEARCH_MORE]);
+    const inactiveToolCount = context.registry.listInactiveToolNames(otherToolsExclude).length;
 
     return `You are a helpful assistant who helps users with their Obsidian vault.
 
@@ -131,13 +125,10 @@ ${taskSection}
 YOU HAVE ACCESS TO THE FOLLOWING TOOLS:
 ${context.registry.generateToolsSection()}
 
-OTHER TOOLS (Inactive, need activate before using them):
-${context.registry.generateOtherToolsSection(
-  'No other tools available.',
-  new Set([ToolName.SEARCH_MORE, ToolName.CONCLUDE])
-)}
+OTHER TOOLS (${inactiveToolCount} inactive tools, need activate before using them):
+${context.registry.generateOtherToolsSection('No other tools available.', otherToolsExclude)}
 
-TOOLS GUIDELINES:
+TOOLS GUIDELINES (For active tools):
 ${context.registry.generateGuidelinesSection()}
 ${context.currentNote ? `\nCURRENT NOTE: ${context.currentNote} (Cursor position: ${context.currentPosition})` : ''}${context.skillCatalogPrompt}${context.userDefinedCommandCatalogPrompt}
 
@@ -187,7 +178,18 @@ NOTE:
     } = {}
   ): Promise<AgentResult> {
     const { title, intent, lang } = params;
-    const handlerId = params.handlerId ?? uniqueID();
+    params.handlerId = params.handlerId ?? uniqueID();
+    const handlerId = params.handlerId;
+
+    const invocationCtx = new HandlerInvocationContext({
+      title,
+      handlerId,
+      step: params.invocationCount ?? 0,
+      lang,
+      intent,
+      agent: this,
+      agentHandlerParams: params,
+    });
 
     const MAX_STEP_COUNT = 20;
     const remainingSteps =
@@ -254,12 +256,7 @@ NOTE:
     }
 
     if (!params.invocationCount && intent.type.trim() !== 'user_confirm') {
-      await this.skipPendingConfirmation({
-        title,
-        handlerId,
-        step: params.invocationCount,
-        lang: params.lang ?? undefined,
-      });
+      await this.skipPendingConfirmation(invocationCtx);
     }
 
     // Add user message to conversation note for the first iteration
@@ -276,6 +273,8 @@ NOTE:
     const commandSyntaxToolCalls = CommandSyntaxParser.parseAndConvert(intent.query);
 
     const isResumingToolCalls = !!options.toolCalls;
+    /** Is a batch resume, otherwise, a fresh turn */
+    const isContinuingToolBatch = isResumingToolCalls && options.currentToolCallIndex !== undefined;
 
     const manualToolCall =
       isResumingToolCalls || commandSyntaxToolCalls
@@ -291,6 +290,7 @@ NOTE:
           });
 
     let toolCalls: ToolCalls;
+    // let text = '';
     let conversationHistory: ModelMessage[] = [];
     let toolContentStreamInfo: components.ToolContentStreamInfo | undefined;
 
@@ -301,21 +301,21 @@ NOTE:
     } else if (manualToolCall) {
       toolCalls = [manualToolCall] as ToolCalls;
     } else {
-      const result = await this.executeStreamText<ToolCalls>({
+      const streamTextResult = await this.executeStreamText<ToolCalls>({
         ...params,
         activeTools,
         tools,
-        toolsThatEnableConclude,
       });
-      toolCalls = result.toolCalls;
-      conversationHistory = result.conversationHistory;
-      toolContentStreamInfo = result.toolContentStreamInfo;
+      toolCalls = streamTextResult.toolCalls;
+      // text = streamTextResult.text;
+      conversationHistory = streamTextResult.conversationHistory;
+      toolContentStreamInfo = streamTextResult.toolContentStreamInfo;
       try {
         await this.renderer.recordTokenUsage(
           title,
           USAGE_AGENT_KEY.super,
-          result.usage,
-          result.totalUsage
+          streamTextResult.usage,
+          streamTextResult.totalUsage
         );
       } catch (usageError) {
         logger.error('Failed to record super agent token usage', usageError);
@@ -336,6 +336,16 @@ NOTE:
       toolContentStreamInfo,
     });
 
+    if (toolProcessingResult.status === IntentResultStatus.CONTINUE_WITH_INTENT) {
+      Object.assign(params, toolProcessingResult.nextParams);
+
+      const nextRemainingSteps = remainingSteps - 1;
+      await this.renderIndicator(params.title, params.lang);
+      return this.handle(params, {
+        remainingSteps: nextRemainingSteps,
+      });
+    }
+
     if (toolProcessingResult.status !== IntentResultStatus.SUCCESS) {
       logger.log('Stopping or pausing processing because tool processing result is not success', {
         status: toolProcessingResult.status,
@@ -345,25 +355,34 @@ NOTE:
       return toolProcessingResult;
     }
 
-    // Stop if manual tool call, except todo_write (update) injected for client-processed steps
-    const isManualTodoWriteUpdate =
+    // Stop if manual tool call, except user_confirm and todo_write (update) injected for client-processed steps
+    const isManualTodoWriteUpdate = () =>
       manualToolCall &&
       manualToolCall.toolName === ToolName.TODO_WRITE &&
       handlers.isTodoWriteUpdateToolInput(manualToolCall.input);
-    if (manualToolCall && !isManualTodoWriteUpdate) {
+    if (
+      manualToolCall &&
+      !isManualTodoWriteUpdate() &&
+      ![ToolName.USER_CONFIRM].includes(manualToolCall.toolName)
+    ) {
       logger.log('Stopping processing because manual tool call is present', { manualToolCall });
       return toolProcessingResult;
     }
 
     const nextRemainingSteps = remainingSteps - 1;
 
-    // Check if to-do list has incomplete steps (for UDC "generate" steps that don't use tools)
-    const hasTodoIncomplete = await this.hasTodoListIncompleteSteps(title);
+    const hasMoreWork = toolCalls.length > 0;
+    const hasStepsRemaining = nextRemainingSteps > 0;
+    const shouldStopForClassifiedTask = this.stopProcessingForClassifiedTask(
+      classifiedTasks,
+      toolCalls
+    );
 
     if (
-      (toolCalls.length > 0 || hasTodoIncomplete) &&
-      nextRemainingSteps > 0 &&
-      !this.stopProcessingForClassifiedTask(classifiedTasks, toolCalls)
+      hasMoreWork &&
+      hasStepsRemaining &&
+      !shouldStopForClassifiedTask &&
+      !isContinuingToolBatch
     ) {
       const wasTodoWriteUpdateCalled = toolCalls.some(
         call =>
@@ -456,6 +475,16 @@ NOTE:
       }
     }
 
+    if (await this.hasTodoListIncompleteSteps(title)) {
+      await this.renderer.updateConversationNote({
+        path: title,
+        newContent: `*${t('todoList.incompleteContinuePrompt')}*`,
+        lang,
+        handlerId,
+        includeHistory: false,
+      });
+    }
+
     return toolProcessingResult;
   }
 
@@ -463,32 +492,24 @@ NOTE:
    * When the user sends a new message instead of confirming/rejecting via Yes/No,
    * persist the pending tool call with a skip result so history stays consistent.
    */
-  private async skipPendingConfirmation(params: {
-    title: string;
-    handlerId: string;
-    step?: number;
-    lang?: string;
-  }): Promise<void> {
-    const lastResult = this.commandProcessor.getLastResult(params.title);
+  private async skipPendingConfirmation(ctx: HandlerInvocationContext): Promise<void> {
+    const lastResult = this.commandProcessor.getLastResult(ctx.title);
     if (!lastResult || lastResult.status !== IntentResultStatus.NEEDS_CONFIRMATION) {
       return;
     }
 
-    const t = getTranslation(params.lang);
+    const t = getTranslation(ctx.lang);
 
-    await this.renderer.removeConfirmationButtons(params.title, t('common.skipped'));
+    await this.renderer.removeConfirmationButtons(ctx.title, t('common.skipped'));
 
     const toolCall = lastResult.toolCall;
     if (!toolCall) {
-      this.commandProcessor.clearLastResult(params.title);
+      this.commandProcessor.clearLastResult(ctx.title);
       return;
     }
 
-    await this.serializeInvocation({
-      title: params.title,
+    await ctx.serializeInvocation({
       command: String(toolCall.toolName),
-      handlerId: params.handlerId,
-      step: params.step,
       toolCall,
       result: {
         type: 'text',
@@ -496,33 +517,7 @@ NOTE:
       },
     });
 
-    this.commandProcessor.clearLastResult(params.title);
-  }
-
-  /**
-   * @inheritdoc
-   */
-  public async serializeInvocation<T>(params: {
-    title: string;
-    handlerId: string;
-    command: string;
-    toolCall: ToolCallPart<T>;
-    result: ToolResultPart['output'];
-    step?: number;
-  }): Promise<void> {
-    await this.renderer.serializeToolInvocation({
-      path: params.title,
-      command: params.command,
-      handlerId: params.handlerId,
-      step: params.step,
-      toolInvocations: [
-        {
-          ...params.toolCall,
-          type: 'tool-result',
-          output: params.result,
-        },
-      ],
-    });
+    this.commandProcessor.clearLastResult(ctx.title);
   }
 
   private async getSuperAgentTools(
@@ -753,7 +748,6 @@ NOTE:
       no_confirm: nextStep.no_confirm,
       tools: commandLevelTools && commandLevelTools.length > 0 ? commandLevelTools : undefined,
       systemPrompts,
-      cli: nextStep.cli,
     };
   }
 
@@ -802,10 +796,28 @@ NOTE:
       return false;
     }
 
-    // Check if any step is not completed and not skipped
-    return todoListState.steps.some(
-      step => step.status !== 'completed' && step.status !== 'skipped'
-    );
+    const steps = todoListState.steps;
+    const lastIndex = steps.length - 1;
+
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      if (step.status === 'completed' || step.status === 'skipped') {
+        continue;
+      }
+
+      // The generate steps finish with plain text; no todo_write update marks them completed.
+      if (
+        i === lastIndex &&
+        step.type === 'generate' &&
+        todoListState.currentStep === steps.length
+      ) {
+        continue;
+      }
+
+      return true;
+    }
+
+    return false;
   }
 }
 

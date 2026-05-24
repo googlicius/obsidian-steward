@@ -1,7 +1,8 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 import { ToolCallPart } from '../../tools/types';
@@ -9,7 +10,7 @@ import { GITHUB_WIKI_URL, WIKI_PAGES } from 'src/constants';
 
 const { getTranslation } = getBundledInternal('i18n');
 
-interface BuiltInCommand {
+interface StandardCommandRow {
   command: string;
   description: string;
 }
@@ -54,18 +55,13 @@ export class Help {
 
   /**
    * Handle help tool call
-   * Lists all available built-in and user-defined commands
+   * Lists all available standard and user-defined commands
    */
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<unknown> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
-    const t = getTranslation(lang);
-
-    if (!handlerId) {
-      throw new Error('Help.handle invoked without handlerId');
-    }
+    const t = getTranslation(ctx.lang);
 
     try {
       let content = '';
@@ -76,25 +72,26 @@ export class Help {
       content += `- ${t('documentation.tipStop')}\n`;
       content += `- ${t('documentation.tipRevert')}\n`;
 
-      content += `\n### ${t('common.builtInCommands')}\n\n`;
+      content += `\n### ${t('common.standardCommands')}\n\n`;
 
-      const builtInCommandsWithDescriptions: BuiltInCommand[] = [
+      const standardCommandsWithDescriptions: StandardCommandRow[] = [
         { command: '`/search`', description: t('common.searchDesc') },
         { command: '`/image`', description: t('common.imageDesc') },
         { command: '`/speech`', description: t('common.speechDesc') },
         { command: '`/>`', description: t('common.terminalDesc') },
+        { command: '`/new`', description: t('common.newSessionDesc') },
       ];
 
-      const builtInRows: string[][] = [];
-      for (let i = 0; i < builtInCommandsWithDescriptions.length; i++) {
-        const cmd = builtInCommandsWithDescriptions[i];
-        builtInRows.push([cmd.command, cmd.description]);
+      const standardCommandRows: string[][] = [];
+      for (let i = 0; i < standardCommandsWithDescriptions.length; i++) {
+        const cmd = standardCommandsWithDescriptions[i];
+        standardCommandRows.push([cmd.command, cmd.description]);
       }
       content += formatMarkdownTable(
         [t('common.helpTableCommand'), t('common.helpTableDescription')],
-        builtInRows
+        standardCommandRows
       );
-      content += `\n*${t('common.builtInCommandsDesc')}*\n`;
+      content += `\n*${t('common.standardCommandsDesc')}*\n`;
 
       const userDefinedCommands = this.agent.plugin.userDefinedCommandService.userDefinedCommands;
       content += `\n### ${t('common.userDefinedCommands')}\n\n`;
@@ -207,13 +204,10 @@ export class Help {
 
       content += `\n${t('common.commandHelpText')}\n`;
 
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: content,
         includeHistory: false,
         command: 'help',
-        lang,
-        handlerId,
       });
 
       return {

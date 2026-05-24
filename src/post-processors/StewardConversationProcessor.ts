@@ -116,7 +116,7 @@ export function createStewardConversationProcessor(plugin: StewardPlugin): Markd
     // Hack in Post-Processor,
     // When Obsidian renders a note, it builds DOM fragments in memory (not yet inserted into the visible document).
     // This is a workaround to ensure that the stw-conversation class is added to the embed when the note is rendered.
-    setTimeout(async () => {
+    window.setTimeout(async () => {
       const stwConversation = el.closest('.stw-conversation');
 
       if (stwConversation) {

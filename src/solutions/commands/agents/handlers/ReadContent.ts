@@ -3,9 +3,10 @@ import { getBundledLib } from 'src/utils/bundledLibs';
 import { normalizePath } from 'obsidian';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ArtifactType } from 'src/solutions/artifact';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { ContentReadingResult } from 'src/services/ContentReadingService';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 import { confidenceFragment } from 'src/lib/modelfusion/prompts/fragments';
@@ -90,16 +91,12 @@ export class ReadContent {
    * Handle content reading tool call in the agent
    */
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<ContentReadingArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
+    const { title, lang } = ctx.agentHandlerParams;
     const { toolCall } = options;
     const t = getTranslation(lang);
-
-    if (!handlerId) {
-      throw new Error('ReadContent.handle invoked without handlerId');
-    }
 
     const { fileNames: rawFileNames, ...rest } = toolCall.input;
 
@@ -118,8 +115,8 @@ export class ReadContent {
           await this.agent.renderer.serializeToolInvocation({
             path: title,
             command: 'read',
-            handlerId,
-            step: params.invocationCount,
+            handlerId: ctx.handlerId,
+            step: ctx.step,
             toolInvocations: [
               {
                 ...toolCall,
@@ -150,20 +147,17 @@ export class ReadContent {
       const errorMessages = errors
         .map(e => `${e.fileName ?? 'current file'}: ${e.error}`)
         .join('\n');
-      const messageId = await this.agent.renderer.updateConversationNote({
-        path: title,
+      const messageId = await ctx.updateConversationNote({
         newContent: `*${errorMessages}*`,
         command: 'read',
         includeHistory: false,
-        handlerId,
-        step: params.invocationCount,
       });
 
       await this.agent.renderer.serializeToolInvocation({
         path: title,
         command: 'read',
-        handlerId,
-        step: params.invocationCount,
+        handlerId: ctx.handlerId,
+        step: ctx.step,
         toolInvocations: [
           {
             ...toolCall,
@@ -186,13 +180,10 @@ export class ReadContent {
       const errorMessages = errors
         .map(e => `${e.fileName ?? 'current file'}: ${e.error}`)
         .join('\n');
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: `*${errorMessages}*`,
         command: 'read',
         includeHistory: false,
-        handlerId,
-        step: params.invocationCount,
       });
     }
 
@@ -206,25 +197,27 @@ export class ReadContent {
         result => result.file && result.file.path.endsWith('.md') && result.blocks.length === 0
       );
 
+    const readFileMessages =
+      toolCall.input.readType === 'entire'
+        ? await this.buildReadFileMessages({ readingResults, lang })
+        : '';
+
     if (allEmpty) {
       const noContentMessage =
         toolCall.input.readType === 'frontmatter'
           ? t('read.noFrontmatterFound')
           : t('read.noContentFound');
-      const messageId = await this.agent.renderer.updateConversationNote({
-        path: title,
-        newContent: `*${noContentMessage}*`,
+      const messageId = await ctx.updateConversationNote({
+        newContent: [readFileMessages, `*${noContentMessage}*`].filter(Boolean).join('\n'),
         command: 'read',
         includeHistory: false,
-        handlerId,
-        step: params.invocationCount,
       });
 
       await this.agent.renderer.serializeToolInvocation({
         path: title,
         command: 'read',
-        handlerId,
-        step: params.invocationCount,
+        handlerId: ctx.handlerId,
+        step: ctx.step,
         toolInvocations: [
           {
             ...toolCall,
@@ -242,14 +235,19 @@ export class ReadContent {
       };
     }
 
+    if (readFileMessages) {
+      await ctx.updateConversationNote({
+        newContent: readFileMessages,
+        command: 'read',
+        includeHistory: false,
+      });
+    }
+
     // Show found placeholder if available (once for all files)
     if (toolCall.input.foundPlaceholder && totalBlocks > 0) {
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: toolCall.input.foundPlaceholder.replace('{{number}}', totalBlocks.toString()),
         includeHistory: false,
-        handlerId,
-        step: params.invocationCount,
       });
     }
 
@@ -261,12 +259,9 @@ export class ReadContent {
         lang,
       });
       if (reviewContent) {
-        await this.agent.renderer.updateConversationNote({
-          path: title,
+        await ctx.updateConversationNote({
           newContent: reviewContent,
           includeHistory: false,
-          handlerId,
-          step: params.invocationCount,
         });
       }
     }
@@ -283,8 +278,8 @@ export class ReadContent {
     await this.agent.renderer.serializeToolInvocation({
       path: title,
       command: 'read',
-      handlerId,
-      step: params.invocationCount,
+      handlerId: ctx.handlerId,
+      step: ctx.step,
       toolInvocations: [
         {
           ...toolCall,
@@ -354,6 +349,44 @@ export class ReadContent {
     }
 
     return manager.resolveFilesFromArtifact(artifact.id);
+  }
+
+  private async buildReadFileMessages(params: {
+    readingResults: ContentReadingResult[];
+    lang?: string | null;
+  }): Promise<string> {
+    const { readingResults, lang } = params;
+    const t = getTranslation(lang);
+    const paths: string[] = [];
+
+    for (const result of readingResults) {
+      const path = result.file?.path;
+      if (!path || paths.includes(path)) {
+        continue;
+      }
+      paths.push(path);
+    }
+
+    if (paths.length === 0) {
+      return '';
+    }
+
+    const contentReadingService = this.agent.plugin.contentReadingService;
+    const lines: string[] = [];
+
+    for (const path of paths) {
+      if (path.toLowerCase().endsWith('skill.md')) {
+        const skillName = contentReadingService.getFileProperty<string>(path, 'name');
+        if (typeof skillName === 'string' && skillName.trim() !== '') {
+          lines.push(`*${t('read.useSkill', { skillName: skillName.trim() })}*`);
+          continue;
+        }
+      }
+
+      lines.push(`*${t('read.file', { filePath: path })}*`);
+    }
+
+    return lines.join('\n');
   }
 
   private buildReviewCalloutContent(params: {

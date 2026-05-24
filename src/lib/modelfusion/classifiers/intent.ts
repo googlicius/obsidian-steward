@@ -107,6 +107,10 @@ export async function getIntentClassifier(): Promise<PersistentEmbeddingSimilari
         name: 'revert' as const,
         values: ['revert', 'undo', 'rollback'],
       },
+      {
+        name: 'new' as const,
+        values: ['new', 'new session', 'new chat'],
+      },
     ],
 
     prefixedClusterValue: [

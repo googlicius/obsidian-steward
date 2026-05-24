@@ -1,8 +1,9 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { createTextStream } from 'src/utils/textStreamer';
 
@@ -27,15 +28,10 @@ export class ThankYou {
    * Handle thank you tool call
    */
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     options: { toolCall: ToolCallPart<ThankYouArgs> }
   ): Promise<AgentResult> {
-    const { title, lang, handlerId } = params;
-    const t = getTranslation(lang);
-
-    if (!handlerId) {
-      throw new Error('ThankYou.handle invoked without handlerId');
-    }
+    const t = getTranslation(ctx.lang);
 
     // Get a random response from the list
     const responses = [
@@ -51,12 +47,12 @@ export class ThankYou {
     // Use text streamer to simulate typing
     const textStream = createTextStream(responseText);
 
-    // Stream the response to the conversation
     await this.agent.renderer.streamConversationNote({
-      path: title,
+      path: ctx.title,
       stream: textStream,
       command: 'thank_you',
-      handlerId,
+      handlerId: ctx.handlerId,
+      step: ctx.step,
     });
 
     return {

@@ -1,8 +1,9 @@
 import { z } from 'zod/v3';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type { AgentHandlerContext } from '../AgentHandlerContext';
+import type { HandlerInvocationContext } from '../HandlerInvocationContext';
 import { ToolCallPart } from '../../tools/types';
-import { AgentHandlerParams, AgentResult, IntentResultStatus } from '../../types';
+import { AgentResult, IntentResultStatus } from '../../types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 
@@ -28,16 +29,12 @@ export class UserConfirm {
    * This handles the confirmation flow similar to ConfirmCommandHandler
    */
   public async handle(
-    params: AgentHandlerParams,
+    ctx: HandlerInvocationContext,
     _options: { toolCall: ToolCallPart<UserConfirmArgs> }
   ): Promise<AgentResult> {
-    const { title, intent, lang, handlerId } = params;
+    const { title, intent } = ctx.agentHandlerParams;
 
-    const t = getTranslation(lang);
-
-    if (!handlerId) {
-      throw new Error('UserConfirm.handle invoked without handlerId');
-    }
+    const t = getTranslation(ctx.lang);
 
     // Get lastResult from conversation-level storage (accessible across processors)
     const lastResult = this.agent.commandProcessor.getLastResult(title);
@@ -52,11 +49,8 @@ export class UserConfirm {
       );
 
       if (history.length === 0) {
-        await this.agent.renderer.updateConversationNote({
-          path: title,
+        await ctx.updateConversationNote({
           newContent: t('confirmation.noPending'),
-          lang,
-          handlerId,
         });
 
         return {
@@ -75,11 +69,8 @@ export class UserConfirm {
         };
       }
 
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: `*${t('confirmation.noPending')}*`,
-        lang,
-        handlerId,
       });
 
       return {
@@ -93,11 +84,8 @@ export class UserConfirm {
 
     if (!confirmationIntent) {
       // If it's not a clear confirmation, let the user know
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: t('confirmation.notUnderstood'),
-        lang,
-        handlerId,
       });
 
       return {
@@ -123,11 +111,8 @@ export class UserConfirm {
         confirmResult = await lastResult.onRejection(intent.query);
       }
 
-      await this.agent.renderer.updateConversationNote({
-        path: title,
+      await ctx.updateConversationNote({
         newContent: `*${t('confirmation.operationCancelled')}*`,
-        lang,
-        handlerId,
         includeHistory: false,
       });
     }

@@ -1,4 +1,25 @@
 import { ZodError } from 'zod/v3';
+import type { AgentHandlerContext } from '../AgentHandlerContext';
+import { HandlerInvocationContext } from '../HandlerInvocationContext';
+import type { AgentHandlerParams } from '../../types';
+
+export function createTestHandlerInvocationContext(params: {
+  agent: AgentHandlerContext;
+  agentHandlerParams: AgentHandlerParams;
+}): HandlerInvocationContext {
+  const { agentHandlerParams } = params;
+  const handlerId = agentHandlerParams.handlerId ?? 'test-handler-id';
+
+  return new HandlerInvocationContext({
+    title: agentHandlerParams.title,
+    handlerId,
+    step: agentHandlerParams.invocationCount ?? 0,
+    lang: agentHandlerParams.lang,
+    intent: agentHandlerParams.intent,
+    agent: params.agent,
+    agentHandlerParams,
+  });
+}
 
 export function expectZodIssuesContaining(params: {
   fn: () => unknown;

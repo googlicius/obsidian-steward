@@ -1,13 +1,16 @@
 import type StewardPlugin from 'src/main';
 import { ToolName } from 'src/solutions/commands/ToolRegistry';
-import { IntentResultStatus, type AgentHandlerParams } from 'src/solutions/commands/types';
+import { IntentResultStatus } from 'src/solutions/commands/types';
 import type { ToolCallPart } from 'src/solutions/commands/tools/types';
 import type { ToolHandlerMiddlewareContext } from 'src/solutions/commands/agents/middleware/types';
+import { HandlerInvocationContext } from 'src/solutions/commands/agents/HandlerInvocationContext';
 import type { GuardrailsRule } from './types';
 import { createGuardrailsMiddleware } from './guardrailsMiddleware';
 
-function createParams(): AgentHandlerParams {
-  return {
+function createInvocationContext(
+  agent: HandlerInvocationContext['agent']
+): HandlerInvocationContext {
+  const agentHandlerParams = {
     title: 'conversation.md',
     intent: {
       type: 'test',
@@ -15,8 +18,16 @@ function createParams(): AgentHandlerParams {
     },
     lang: 'en',
     handlerId: 'handler-1',
-    invocationCount: 0,
   };
+  return new HandlerInvocationContext({
+    title: 'conversation.md',
+    handlerId: 'handler-1',
+    step: 0,
+    lang: 'en',
+    intent: agentHandlerParams.intent,
+    agent,
+    agentHandlerParams,
+  });
 }
 
 function createToolCall(): ToolCallPart<Record<string, unknown>> {
@@ -33,14 +44,19 @@ function createToolCall(): ToolCallPart<Record<string, unknown>> {
 function createContext(params: {
   paths: string[];
   toolName?: ToolName;
+  plugin: StewardPlugin;
 }): ToolHandlerMiddlewareContext {
-  const { paths, toolName = ToolName.GREP } = params;
+  const { paths, toolName = ToolName.GREP, plugin } = params;
 
   const toolCall = createToolCall();
   toolCall.toolName = toolName;
 
+  const agentStub = {
+    renderer: plugin.conversationRenderer,
+  } as unknown as HandlerInvocationContext['agent'];
+
   return {
-    params: createParams(),
+    ctx: createInvocationContext(agentStub),
     toolCall,
     agent: {
       getPathsForGuardrails: () => paths,
@@ -82,7 +98,7 @@ describe('guardrailsMiddleware', () => {
       createPluginMock([]);
     const middleware = createGuardrailsMiddleware(plugin);
     const next = jest.fn().mockResolvedValue({ status: IntentResultStatus.SUCCESS });
-    const ctx = createContext({ paths: ['Secret/a.md'] });
+    const ctx = createContext({ paths: ['Secret/a.md'], plugin });
 
     const result = await middleware(ctx, next);
 
@@ -105,7 +121,7 @@ describe('guardrailsMiddleware', () => {
     ]);
     const middleware = createGuardrailsMiddleware(plugin);
     const next = jest.fn().mockResolvedValue({ status: IntentResultStatus.SUCCESS });
-    const ctx = createContext({ paths: [] });
+    const ctx = createContext({ paths: [], plugin });
 
     const result = await middleware(ctx, next);
 
@@ -128,7 +144,7 @@ describe('guardrailsMiddleware', () => {
     ]);
     const middleware = createGuardrailsMiddleware(plugin);
     const next = jest.fn().mockResolvedValue({ status: IntentResultStatus.SUCCESS });
-    const ctx = createContext({ paths: ['Secret/roadmap.md'] });
+    const ctx = createContext({ paths: ['Secret/roadmap.md'], plugin });
 
     const result = await middleware(ctx, next);
 
@@ -150,7 +166,7 @@ describe('guardrailsMiddleware', () => {
     ]);
     const middleware = createGuardrailsMiddleware(plugin);
     const next = jest.fn().mockResolvedValue({ status: IntentResultStatus.SUCCESS });
-    const ctx = createContext({ paths: ['Secret/roadmap.md'] });
+    const ctx = createContext({ paths: ['Secret/roadmap.md'], plugin });
 
     const result = await middleware(ctx, next);
 
@@ -172,7 +188,7 @@ describe('guardrailsMiddleware', () => {
     ]);
     const middleware = createGuardrailsMiddleware(plugin);
     const next = jest.fn().mockResolvedValue({ status: IntentResultStatus.SUCCESS });
-    const ctx = createContext({ paths: ['/'] });
+    const ctx = createContext({ paths: ['/'], plugin });
 
     await middleware(ctx, next);
 

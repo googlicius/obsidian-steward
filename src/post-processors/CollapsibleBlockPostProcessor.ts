@@ -35,7 +35,7 @@ export function createCollapsibleBlockPostProcessor(): MarkdownPostProcessor {
 
       if (section) {
         const lines = section.text.split('\n');
-        const isToggleLink = lines[section.lineEnd + 1].includes('stw-toggle-block');
+        const isToggleLink = lines[section.lineEnd + 1]?.includes('stw-toggle-block');
         const isCliModel = lines[section.lineStart].includes('cli-model');
 
         if (isCliModel) {
@@ -58,7 +58,7 @@ export function createCollapsibleBlockPostProcessor(): MarkdownPostProcessor {
     if (!toggleLink) return;
 
     // Wait until rendered so sibling structure exists
-    setTimeout(() => {
+    window.setTimeout(() => {
       const prevDivSibling = el.previousElementSibling as HTMLElement | null;
 
       if (!prevDivSibling) return;
