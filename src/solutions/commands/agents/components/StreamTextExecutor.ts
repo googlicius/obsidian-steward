@@ -198,6 +198,7 @@ export class StreamTextExecutor {
       },
       onChunk: ({ chunk }) => {
         if (chunk.type === 'tool-input-start') {
+          // chunk.dynamic
           agent.renderIndicator?.(params.title, params.lang, chunk.toolName as ToolName);
         }
       },

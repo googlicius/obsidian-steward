@@ -1,6 +1,7 @@
 import type StewardPlugin from 'src/main';
 import { ToolName } from '../../ToolRegistry';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
+import { getShowWidgetThemeGuideline } from '../handlers/ShowWidget';
 
 const VAULT_MANAGEMENT_TOOLS: ToolName[] = [
   ToolName.LIST,
@@ -63,6 +64,13 @@ export class SystemPromptComposer {
         `- For hidden files or folders (dot-prefixed names), use ${ToolName.SHELL} from the vault root (e.g. cat, type, or Get-Content); other tools may not reach those paths.`
       );
       mentioned.add(ToolName.SHELL);
+    }
+
+    if (available.has(ToolName.SHOW_WIDGET)) {
+      lines.push(
+        `- For visual widgets, animations, or interactive demos, use ${ToolName.SHOW_WIDGET}. ${getShowWidgetThemeGuideline()}`
+      );
+      mentioned.add(ToolName.SHOW_WIDGET);
     }
 
     const hasUnmentioned = availableTools.some(t => !mentioned.has(t));

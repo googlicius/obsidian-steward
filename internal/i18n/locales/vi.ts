@@ -239,6 +239,7 @@ const vi = {
       fullListAvailableInArtifact: 'Danh sách đầy đủ có sẵn trong artifact ID: {{artifactId}}',
       fullListInArtifactUseFilePattern:
         'Danh sách đầy đủ có sẵn trong artifact ID: {{artifactId}}. Hãy dùng filePattern cụ thể để thu hẹp kết quả.',
+      fileWithSize: '{{path}} ({{size}} byte)',
     },
     grep: {
       found: 'Đã tìm thấy {{count}} đường dẫn:',
@@ -427,6 +428,7 @@ const vi = {
       generating: 'Đang tạo...',
       generatingImage: 'Đang tạo hình ảnh...',
       generatingAudio: 'Đang tạo âm thanh...',
+      generatingWidget: 'Đang hiển thị widget...',
       moving: 'Đang di chuyển...',
       searching: 'Đang tìm kiếm...',
       cliTranscript: 'Running local CLI...',

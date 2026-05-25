@@ -278,6 +278,7 @@ const en = {
       fullListAvailableInArtifact: 'Full list available in artifact ID: {{artifactId}}',
       fullListInArtifactUseFilePattern:
         'Full list available in artifact ID: {{artifactId}}. Use a specific filePattern to narrow down results.',
+      fileWithSize: '{{path}} ({{size}} bytes)',
     },
     grep: {
       found_one: 'Found {{count}} path:',
@@ -489,6 +490,7 @@ const en = {
       generating: 'Generating...',
       generatingImage: 'Generating image...',
       generatingAudio: 'Generating audio...',
+      generatingWidget: 'Rendering widget...',
       moving: 'Moving...',
       searching: 'Searching...',
       cliTranscript: 'Running local CLI...',

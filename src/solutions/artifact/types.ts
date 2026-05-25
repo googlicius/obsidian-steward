@@ -23,6 +23,7 @@ export enum ArtifactType {
   LIST_RESULTS = 'list_results',
   STW_SOURCE = 'stw_source',
   EDIT_RESULTS = 'edit_results',
+  WIDGET = 'widget',
 }
 
 export const revertAbleArtifactTypes = [
@@ -100,6 +101,14 @@ export interface GeneratedContentArtifact extends BaseArtifact {
   artifactType: ArtifactType.GENERATED_CONTENT;
   content: string;
   messageId: string;
+}
+
+export interface WidgetArtifact extends BaseArtifact {
+  artifactType: ArtifactType.WIDGET;
+  /** STW message ID of the conversation message containing the widget fence */
+  contentMessageId: string;
+  type: 'html' | 'svg';
+  code: string;
 }
 
 /**
@@ -235,7 +244,8 @@ export type Artifact =
   | RenameResultsArtifact
   | ListResultsArtifact
   | StwSourceArtifact
-  | EditResultsArtifact;
+  | EditResultsArtifact
+  | WidgetArtifact;
 
 export type ArtifactMap = {
   [ArtifactType.SEARCH_RESULTS]: SearchResultsArtifact;
@@ -253,6 +263,7 @@ export type ArtifactMap = {
   [ArtifactType.LIST_RESULTS]: ListResultsArtifact;
   [ArtifactType.STW_SOURCE]: StwSourceArtifact;
   [ArtifactType.EDIT_RESULTS]: EditResultsArtifact;
+  [ArtifactType.WIDGET]: WidgetArtifact;
 };
 
 /**

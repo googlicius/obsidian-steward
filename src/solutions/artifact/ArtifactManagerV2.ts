@@ -15,6 +15,7 @@ import {
   ReadContentSerializer,
 } from './serializers';
 import { GeneratedContentSerializer } from './serializers/GeneratedContentSerializer';
+import { WidgetSerializer } from './serializers/WidgetSerializer';
 import { DocWithPath } from 'src/types/types';
 
 /**
@@ -143,6 +144,15 @@ export class ArtifactManagerV2 {
             }
           );
           this.registerSerializer(type, generatedContentSerializer);
+          break;
+        }
+        case ArtifactType.WIDGET: {
+          const widgetSerializer = new WidgetSerializer(
+            (conversationTitle: string, messageId: string) => {
+              return this.plugin.conversationRenderer.getMessageById(conversationTitle, messageId);
+            }
+          );
+          this.registerSerializer(type, widgetSerializer);
           break;
         }
         case ArtifactType.READ_CONTENT: {

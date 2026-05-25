@@ -306,6 +306,21 @@ NOTE:
     showDescriptionWhenInactive: true,
   },
 
+  [ToolName.SHOW_WIDGET]: {
+    name: ToolName.SHOW_WIDGET,
+    description:
+      'Render a self-contained HTML or SVG widget inline in the conversation. Supports static animations, interactive demos with click/keyboard handlers, and visual diagrams. Use when the user asks for an animation, demo, making a game, or dynamic visualization',
+    guidelines: [
+      'Set type to "html" for full HTML widgets (with inline CSS/JS), or "svg" for vector graphics.',
+      'Code must be entirely self-contained: inline all styles and scripts, no external CDN or dependencies.',
+      'For interactive widgets, use event listeners (click, keydown, etc.) scoped to the widget container.',
+      "Match the user's Obsidian UI base theme (Light or Dark). When this tool is active, the current theme and suggested base colors are included in the task instructions.",
+      `Widget code is omitted from conversation history after rendering. Use ${ToolName.GET_ARTIFACT_BY_ID} to retrieve the full code when you need it.`,
+    ],
+    category: 'content-generation',
+    showDescriptionWhenInactive: true,
+  },
+
   [ToolName.TODO_WRITE]: {
     name: ToolName.TODO_WRITE,
     description:

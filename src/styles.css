@@ -304,11 +304,29 @@ pre:has(> code.language-cli-model) {
 
 pre[class*='language-stw-artifact'],
 code[class*='language-stw-artifact'],
+pre[class*='language-stw-widget-html'],
+code[class*='language-stw-widget-html'],
 pre[class*='language-stw-tool-invocation'],
 code[class*='language-stw-tool-invocation'],
 pre[class*='language-stw-hidden-from-user'],
 code[class*='language-stw-hidden-from-user'] {
   display: none;
+}
+
+.stw-widget-container {
+  display: block;
+  width: 100%;
+  margin: var(--size-4-2) 0;
+  overflow: hidden;
+  background: var(--background-primary);
+
+  .stw-widget-frame {
+    display: block;
+    width: 100%;
+    min-height: 400px;
+    border: 0;
+    background: transparent;
+  }
 }
 
 /* Conversation embed indicator */

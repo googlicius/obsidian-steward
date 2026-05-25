@@ -11,7 +11,7 @@ import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 const { getTranslation } = getBundledInternal('i18n');
 
-const MAX_FILES_TO_SHOW = 10;
+const MAX_FILES_TO_SHOW = 100;
 const LIST_ITEM_TYPES = ['both', 'files', 'folders'] as const;
 type ListItemType = (typeof LIST_ITEM_TYPES)[number];
 
@@ -78,6 +78,12 @@ export const listToolSchema = listToolArgMapSchema.superRefine((args, ctx) => {
 });
 
 export type ListToolArgs = z.infer<typeof listToolSchema>;
+
+type ListedItem = {
+  path: string;
+  isFolder: boolean;
+  size?: number;
+};
 
 type ListToolResult = {
   response: string;
@@ -194,7 +200,7 @@ export class VaultList {
       : undefined;
 
     // Collect direct files and subfolders only (non-recursive)
-    const listedPaths: string[] = [];
+    const listedItems: ListedItem[] = [];
     for (const child of folder.children) {
       if (!(child instanceof TFile) && !(child instanceof TFolder)) {
         continue;
@@ -209,14 +215,21 @@ export class VaultList {
       }
 
       if (child instanceof TFolder) {
-        listedPaths.push(`${child.path}/`);
+        listedItems.push({
+          path: `${child.path}/`,
+          isFolder: true,
+        });
         continue;
       }
 
-      listedPaths.push(child.path);
+      listedItems.push({
+        path: child.path,
+        isFolder: false,
+        size: child.stat?.size,
+      });
     }
 
-    if (listedPaths.length === 0) {
+    if (listedItems.length === 0) {
       const messageKey = folderPath ? 'list.noItemsFoundInFolder' : 'list.noItemsFound';
       return {
         response: t(messageKey, { folder: folderPath }),
@@ -226,16 +239,20 @@ export class VaultList {
     }
 
     const itemLines: string[] = [];
-    for (let index = 0; index < listedPaths.length && index < MAX_FILES_TO_SHOW; index += 1) {
-      itemLines.push(`- ${listedPaths[index]}`);
+    for (let index = 0; index < listedItems.length && index < MAX_FILES_TO_SHOW; index += 1) {
+      const item = listedItems[index];
+      const line = item.isFolder
+        ? item.path
+        : t('list.fileWithSize', { path: item.path, size: item.size ?? 0 });
+      itemLines.push(`- ${line}`);
     }
 
     const moreCount =
-      listedPaths.length > MAX_FILES_TO_SHOW ? listedPaths.length - MAX_FILES_TO_SHOW : 0;
+      listedItems.length > MAX_FILES_TO_SHOW ? listedItems.length - MAX_FILES_TO_SHOW : 0;
 
     const headerKey = folderPath ? 'list.foundItemsInFolder' : 'list.foundItems';
     let response = `${t(headerKey, {
-      count: listedPaths.length,
+      count: listedItems.length,
       folder: folderPath,
     })}:\n\n${itemLines.join('\n')}`;
 
@@ -249,7 +266,7 @@ export class VaultList {
 
     return {
       response,
-      files: listedPaths,
+      files: listedItems.map(item => item.path),
       errors: errors.length > 0 ? errors : undefined,
     };
   }

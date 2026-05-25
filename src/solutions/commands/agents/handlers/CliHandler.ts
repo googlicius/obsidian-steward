@@ -22,7 +22,6 @@ import { ToolName } from '../../ToolRegistry';
 import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
 import { retry } from 'src/utils/retry';
 import { getBundledInternal } from 'src/utils/bundledInternals';
-import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 const { i18next, getTranslation } = getBundledInternal('i18n');

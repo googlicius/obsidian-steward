@@ -247,6 +247,7 @@ const ja = {
         '完全なリストはアーティファクト ID: {{artifactId}} で利用可能です',
       fullListInArtifactUseFilePattern:
         '完全なリストはアーティファクト ID: {{artifactId}} で利用可能です。結果を絞り込むには、より具体的な filePattern を使用してください。',
+      fileWithSize: '{{path}} ({{size}} バイト)',
     },
     grep: {
       found: '{{count}} 件のパスが見つかりました：',
@@ -434,6 +435,7 @@ const ja = {
       generating: '生成中...',
       generatingImage: '画像を生成中...',
       generatingAudio: '音声を生成中...',
+      generatingWidget: 'ウィジェットを表示中...',
       moving: '移動中...',
       searching: '検索中...',
       cliTranscript: 'Running local CLI...',

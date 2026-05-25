@@ -57,6 +57,7 @@ const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
   search: new Set([ToolName.SEARCH]),
   speech: new Set([ToolName.SPEECH]),
   image: new Set([ToolName.IMAGE]),
+  show_widget: new Set([ToolName.SHOW_WIDGET]),
   shell: new Set([ToolName.SHELL]),
   '>': new Set([ToolName.SHELL]),
 };
@@ -71,6 +72,7 @@ const TASK_DEFAULT_ACTIVATE_TOOLS: Record<string, ToolName[]> = {
   search: [ToolName.SEARCH],
   speech: [ToolName.SPEECH],
   image: [ToolName.IMAGE],
+  show_widget: [ToolName.SHOW_WIDGET],
 };
 
 /**
@@ -83,6 +85,7 @@ const TASK_TO_INDICATOR_MAP: Record<string, string | undefined> = {
   edit: 'conversation.updating',
   speech: 'conversation.generatingAudio',
   image: 'conversation.generatingImage',
+  show_widget: 'conversation.generatingWidget',
   search: 'conversation.searching',
   '>': undefined,
 };
