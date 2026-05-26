@@ -89,6 +89,7 @@ export class StreamTextExecutor {
       hasCompactionContext: historyResult.hasCompactionContext,
     });
     const allActiveToolNames = [...activeToolNames, ...Object.keys(mcpTools.active)];
+    const activeToolSet = new Set(allActiveToolNames);
     const toolsForRegistry = {
       ...filteredTools,
       ...mcpTools.active,
@@ -120,9 +121,13 @@ export class StreamTextExecutor {
     );
 
     let rejectStreamError: (error: Error) => void;
-    const streamErrorPromise = new Promise<never>((_, reject) => {
+    let resolveSettleStream: (toolCalls: TToolCalls) => void;
+    const settleStreamPromise = new Promise<TToolCalls>((resolve, reject) => {
+      resolveSettleStream = resolve;
       rejectStreamError = reject;
     });
+
+    let hasStreamSettled = false;
 
     const currentNote =
       (await agent.renderer.getConversationProperty<string>(params.title, 'current_note')) ?? null;
@@ -176,9 +181,7 @@ export class StreamTextExecutor {
 
     type RepairToolCall = AiStreamTextParams['experimental_repairToolCall'];
 
-    const { streamText } = await getBundledLib('ai');
-
-    console.log('messages', messages);
+    const { streamText, NoSuchToolError } = await getBundledLib('ai');
 
     const streamTextResult = streamText({
       model: llmConfig.model,
@@ -190,19 +193,52 @@ export class StreamTextExecutor {
       tools: registry.getToolsObject() as NonNullable<AiStreamTextParams['tools']>,
       experimental_repairToolCall: llmConfig.repairToolCall as RepairToolCall,
       onError: ({ error }) => {
+        if (hasStreamSettled) {
+          return;
+        }
         logger.error('Error in streamText', error);
         rejectStreamError(error as Error);
       },
       onAbort: () => {
+        if (hasStreamSettled) {
+          return;
+        }
         rejectStreamError(new DOMException('Request aborted', 'AbortError'));
       },
       onChunk: ({ chunk }) => {
         if (chunk.type === 'tool-input-start') {
-          // chunk.dynamic
           agent.renderIndicator?.(params.title, params.lang, chunk.toolName as ToolName);
+
+          const isNoSuchTool = !activeToolSet.has(chunk.toolName);
+          if (isNoSuchTool && !hasStreamSettled) {
+            const availableTools = Object.keys(registry.getToolsObject());
+            logger.warn(
+              `Aborting stream early: inactive dynamic tool call detected for ${chunk.toolName}.`
+            );
+            hasStreamSettled = true;
+            resolveSettleStream([
+              {
+                type: 'tool-call',
+                toolCallId: chunk.id,
+                toolName: chunk.toolName,
+                input: {},
+                dynamic: true,
+                invalid: true,
+                error: new NoSuchToolError({
+                  toolName: chunk.toolName,
+                  availableTools,
+                }),
+              },
+            ] as TToolCalls);
+
+            agent.plugin.abortService.abortOperation(params.title, AbortOperationKeys.SUPER_AGENT);
+          }
         }
       },
       onFinish: ({ finishReason }) => {
+        if (hasStreamSettled) {
+          return;
+        }
         if (finishReason === 'length') {
           rejectStreamError(new SysError('Stream finished due to length limit'));
         } else if (finishReason === 'error') {
@@ -228,7 +264,7 @@ export class StreamTextExecutor {
       step: params.invocationCount,
     });
 
-    await Promise.race([textDone, streamErrorPromise]);
+    await Promise.race([textDone, settleStreamPromise]);
 
     const toolContentStreamPromise = agent.consumeToolContentStream({
       title: params.title,
@@ -239,17 +275,23 @@ export class StreamTextExecutor {
 
     const toolCalls = (await Promise.race([
       streamTextResult.toolCalls,
-      streamErrorPromise,
+      settleStreamPromise,
     ])) as TToolCalls;
     const toolContentStreamInfo = await toolContentStreamPromise;
 
     await streamPromise.catch(() => {
-      // Ignore errors here, they're handled by streamErrorPromise
+      // Ignore errors here, they're handled by settleStreamPromise
     });
 
-    const usage = await streamTextResult.usage;
-    const totalUsage = await streamTextResult.totalUsage;
-    const text = await streamTextResult.text;
+    let usage: LanguageModelUsage | undefined;
+    let totalUsage: LanguageModelUsage | undefined;
+    let text = '';
+
+    if (!hasStreamSettled) {
+      usage = await streamTextResult.usage;
+      totalUsage = await streamTextResult.totalUsage;
+      text = await streamTextResult.text;
+    }
 
     eventEmitter.emit(Events.EXECUTED_STREAM_TEXT, {
       conversationTitle: params.title,
