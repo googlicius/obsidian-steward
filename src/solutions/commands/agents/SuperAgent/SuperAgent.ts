@@ -4,7 +4,7 @@ import { AgentHandlerParams, AgentResult, IntentResultStatus, Intent } from '../
 import { HandlerInvocationContext } from '../HandlerInvocationContext';
 import { TypedToolCallPart } from '../../tools/types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
-import { ToolName } from '../../ToolRegistry';
+import { ToolName, ToolRegistry } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { getClassifier } from 'src/lib/modelfusion';
 import { logger } from 'src/utils/logger';
@@ -29,9 +29,8 @@ const { getTranslation } = getBundledInternal('i18n');
 const SUPER_AGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUPER_AGENT_TOOL_NAMES;
 
 /**
- * Map of classifier task label → tool names (used with `TASK_DEFAULT_ACTIVATE_TOOLS`).
- * Tool availability for a turn also comes from `ToolIntentResolution` (declared/allowed/active,
- * UDC `allowed_tools`, frontmatter `tools`, compaction), not a separate dependency graph.
+ * Map of classifier task label → primary tool names for that task.
+ * Companion tools are resolved from {@link TOOL_DEFINITIONS} via {@link ToolRegistry.expandWithCompanionTools}.
  */
 const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
   vault: new Set([
@@ -63,17 +62,17 @@ const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
 };
 
 /**
- * Map of task names to tools that should be default-activated
+ * Classifier tasks whose primary tools (and their companions) should be default-activated.
  */
-const TASK_DEFAULT_ACTIVATE_TOOLS: Record<string, ToolName[]> = {
-  revert: [ToolName.GET_MOST_RECENT_ARTIFACT, ToolName.GET_ARTIFACT_BY_ID],
-  read: [ToolName.CONFIRMATION, ToolName.ASK_USER, ToolName.CONTENT_READING],
-  edit: [ToolName.EDIT],
-  search: [ToolName.SEARCH],
-  speech: [ToolName.SPEECH],
-  image: [ToolName.IMAGE],
-  show_widget: [ToolName.SHOW_WIDGET],
-};
+const TASKS_WITH_DEFAULT_TOOL_ACTIVATION = new Set([
+  'revert',
+  'read',
+  'edit',
+  'search',
+  'speech',
+  'image',
+  'show_widget',
+]);
 
 /**
  * Map of task names to their loading indicator translation keys
@@ -616,19 +615,26 @@ NOTE:
   }
 
   /**
-   * Get tools to default-activate based on classified tasks
+   * Get tools to default-activate based on classified tasks.
+   * Primary tools come from {@link TASK_TO_TOOLS_MAP}; companions from {@link TOOL_DEFINITIONS}.
    */
   private getDefaultActivateTools(classifiedTasks: string[]): ToolName[] {
-    const defaultActivateTools: ToolName[] = [];
+    const primaryTools: ToolName[] = [];
 
     for (const task of classifiedTasks) {
-      const taskTools = TASK_DEFAULT_ACTIVATE_TOOLS[task];
-      if (taskTools) {
-        defaultActivateTools.push(...taskTools);
+      if (!TASKS_WITH_DEFAULT_TOOL_ACTIVATION.has(task)) {
+        continue;
       }
+
+      const taskTools = TASK_TO_TOOLS_MAP[task];
+      if (!taskTools) {
+        continue;
+      }
+
+      primaryTools.push(...taskTools);
     }
 
-    return defaultActivateTools;
+    return ToolRegistry.expandWithCompanionTools(primaryTools);
   }
 
   /**

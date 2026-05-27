@@ -71,6 +71,33 @@ describe('ToolRegistry', () => {
     });
   });
 
+  describe('companion tools', () => {
+    it('returns companions from TOOL_DEFINITIONS', () => {
+      expect(ToolRegistry.getCompanionTools(ToolName.CONTENT_READING)).toEqual([
+        ToolName.CONFIRMATION,
+        ToolName.ASK_USER,
+      ]);
+      expect(ToolRegistry.getCompanionTools(ToolName.EDIT)).toEqual([]);
+    });
+
+    it('expands primary tools with their companions', () => {
+      expect(ToolRegistry.expandWithCompanionTools([ToolName.CONTENT_READING])).toEqual([
+        ToolName.CONTENT_READING,
+        ToolName.CONFIRMATION,
+        ToolName.ASK_USER,
+      ]);
+    });
+
+    it('dedupes overlapping tools', () => {
+      expect(
+        ToolRegistry.expandWithCompanionTools([
+          ToolName.CONTENT_READING,
+          ToolName.CONFIRMATION,
+        ])
+      ).toEqual([ToolName.CONTENT_READING, ToolName.CONFIRMATION, ToolName.ASK_USER]);
+    });
+  });
+
   describe('generateOtherToolsSection', () => {
     it('shows name only when showDescriptionWhenInactive is false', () => {
       const registry = new ToolRegistry();

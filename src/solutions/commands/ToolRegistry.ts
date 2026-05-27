@@ -20,6 +20,8 @@ export interface ToolMetaDefinition {
   category?: string;
   /** Whether to show the description when inactive, default to false */
   showDescriptionWhenInactive?: boolean;
+  /** Tools auto-activated alongside this tool when it becomes active */
+  companionTools?: readonly ToolName[];
 }
 
 /**
@@ -33,6 +35,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description:
       'Read content from a note, including text, images, audios, videos, etc. Or image files (png, jpg, jpeg, etc.).',
     category: 'content-access',
+    companionTools: [ToolName.CONFIRMATION, ToolName.ASK_USER],
     guidelines: [
       `When reading notes:
   - Specify the number of blocks to read (blocksToRead) carefully from the user's query, Do NOT set -1 unless the user explicitly requests to read the entire content.
@@ -114,6 +117,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     name: ToolName.SEARCH,
     description:
       'Comprehensive search for notes and files in the vault using keywords, tags, filenames, folders, and properties.',
+    companionTools: [ToolName.SEARCH_MORE],
     guidelines: [
       `Use ${ToolName.SEARCH} tool when the user wants to find files in the vault.
   - If the query lacks search intention, search with two operations: 1. Search by keywords; 2. Search by filenames.
@@ -259,6 +263,7 @@ NOTE:
     name: ToolName.REVERT,
     description:
       'Revert all revertable operations produced by the latest user query, including subagents.',
+    companionTools: [ToolName.GET_MOST_RECENT_ARTIFACT, ToolName.GET_ARTIFACT_BY_ID],
     guidelines: [
       `Use ${ToolName.REVERT} to undo the latest user query end-to-end in reverse chronological order.`,
     ],
@@ -310,6 +315,7 @@ NOTE:
     name: ToolName.SHOW_WIDGET,
     description:
       'Render a self-contained HTML or SVG widget inline in the conversation. Supports static animations, interactive demos with click/keyboard handlers, and visual diagrams. Use when the user asks for an animation, demo, making a game, or dynamic visualization',
+    companionTools: [ToolName.GET_ARTIFACT_BY_ID],
     guidelines: [
       'Set type to "html" for full HTML widgets (with inline CSS/JS), or "svg" for vector graphics.',
       'Code must be entirely self-contained: inline all styles and scripts, no external CDN or dependencies.',
@@ -556,6 +562,43 @@ export class ToolRegistry<T> {
       return '';
     }
     return description;
+  }
+
+  /**
+   * Companion tools declared for a tool in {@link TOOL_DEFINITIONS}.
+   */
+  public static getCompanionTools(toolName: ToolName): ToolName[] {
+    const companions = TOOL_DEFINITIONS[toolName]?.companionTools;
+    if (!companions || companions.length === 0) {
+      return [];
+    }
+    return [...companions];
+  }
+
+  /**
+   * Expand a tool list with companion tools from {@link TOOL_DEFINITIONS}.
+   * Preserves input order; companions are appended after each primary tool.
+   */
+  public static expandWithCompanionTools(names: readonly ToolName[]): ToolName[] {
+    const result: ToolName[] = [];
+    const seen = new Set<ToolName>();
+
+    for (const name of names) {
+      if (!seen.has(name)) {
+        seen.add(name);
+        result.push(name);
+      }
+
+      for (const companion of ToolRegistry.getCompanionTools(name)) {
+        if (seen.has(companion)) {
+          continue;
+        }
+        seen.add(companion);
+        result.push(companion);
+      }
+    }
+
+    return result;
   }
 }
 

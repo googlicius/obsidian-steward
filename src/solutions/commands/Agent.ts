@@ -7,9 +7,8 @@ import type { ConversationRenderer } from 'src/services/ConversationRenderer';
 import { logger } from 'src/utils/logger';
 import type { IntentProcessor } from './IntentProcessor';
 import { getBundledInternal } from 'src/utils/bundledInternals';
-import { ToolName } from './ToolRegistry';
+import { ToolName, ToolRegistry } from './ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
-import type { ToolRegistry } from './ToolRegistry';
 
 const { getTranslation } = getBundledInternal('i18n');
 
@@ -207,8 +206,8 @@ export abstract class Agent {
       ...this.activeTools,
     ];
 
-    // Remove duplicates and return
-    return Array.from(new Set(allTools));
+    // Remove duplicates, expand companions, and return
+    return ToolRegistry.expandWithCompanionTools(Array.from(new Set(allTools)));
   }
 
   private async loadConversationLang(

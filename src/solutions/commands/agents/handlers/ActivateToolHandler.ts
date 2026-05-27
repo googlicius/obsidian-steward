@@ -1,5 +1,5 @@
 import { AgentResult, IntentResultStatus } from '../../types';
-import { ToolName } from '../../ToolRegistry';
+import { ToolName, ToolRegistry } from '../../ToolRegistry';
 import {
   execute as executeActivateTools,
   ActivateToolsResult,
@@ -21,14 +21,12 @@ export class ActivateToolHandler {
   constructor(private readonly renderer: ConversationRenderer) {}
 
   /**
-   * Add dependent tools to the active tools list.
-   * @param activeTools The array of active tools to modify
+   * Add companion tools for any active tool that declares them in {@link TOOL_DEFINITIONS}.
    */
-  public static addDependentTools(activeTools: ToolName[]): void {
-    // Auto-activate SEARCH_MORE when SEARCH is active
-    if (activeTools.includes(ToolName.SEARCH) && !activeTools.includes(ToolName.SEARCH_MORE)) {
-      activeTools.push(ToolName.SEARCH_MORE);
-    }
+  private addCompanionTools(activeTools: ToolName[]): void {
+    const expanded = ToolRegistry.expandWithCompanionTools(activeTools);
+    activeTools.length = 0;
+    activeTools.push(...expanded);
   }
 
   /**
@@ -59,8 +57,8 @@ export class ActivateToolHandler {
       activeTools.push(...(validationResult.activatedTools as ToolName[]));
     }
 
-    // Auto-activate dependent tools
-    ActivateToolHandler.addDependentTools(activeTools);
+    // Auto-activate companion tools
+    this.addCompanionTools(activeTools);
 
     // Deactivate valid tools
     if (validationResult.deactivatedTools && validationResult.deactivatedTools.length > 0) {
