@@ -1,18 +1,13 @@
-import { ConversationMessage } from 'src/types/types';
 import {
   getWidgetFenceLanguage,
   WIDGET_TYPES,
   type WidgetType,
 } from 'src/solutions/commands/agents/handlers/ShowWidget';
 import { ArtifactSerializer, ArtifactType, WidgetArtifact } from '../types';
+import type StewardPlugin from 'src/main';
 
 export class WidgetSerializer extends ArtifactSerializer {
-  constructor(
-    private getMessageById: (
-      conversationTitle: string,
-      messageId: string
-    ) => Promise<ConversationMessage | null>
-  ) {
+  constructor(private plugin: StewardPlugin) {
     super();
   }
 
@@ -29,21 +24,44 @@ export class WidgetSerializer extends ArtifactSerializer {
       throw new Error('Conversation title is not set');
     }
 
-    const message = await this.getMessageById(this.title, contentMessageId);
-    const parsed = message?.content ? this.parseWidgetFence(message.content) : null;
-    if (!parsed) {
+    const message = await this.plugin.conversationRenderer.getMessageById(
+      this.title,
+      contentMessageId
+    );
+    if (!message?.content) {
+      throw new Error(`Widget fence not found in message: ${contentMessageId}`);
+    }
+
+    const projectParsed = this.plugin.widgetService.parseProjectFenceContent(message.content);
+    if (projectParsed) {
+      const files = await this.plugin.widgetService.listProjectFiles(projectParsed.projectPath);
+      const manifest = await this.plugin.widgetService.readManifest(projectParsed.projectPath);
+
+      return {
+        artifactType: ArtifactType.WIDGET,
+        contentMessageId,
+        type: 'html',
+        projectPath: projectParsed.projectPath,
+        widgetId: projectParsed.widgetId,
+        entry: manifest?.entry ?? 'index.html',
+        files,
+      };
+    }
+
+    const legacyParsed = this.parseLegacyWidgetFence(message.content);
+    if (!legacyParsed) {
       throw new Error(`Widget fence not found in message: ${contentMessageId}`);
     }
 
     return {
       artifactType: ArtifactType.WIDGET,
       contentMessageId,
-      type: parsed.type,
-      code: parsed.code,
+      type: legacyParsed.type,
+      code: legacyParsed.code,
     };
   }
 
-  private parseWidgetFence(content: string): { type: WidgetType; code: string } | null {
+  private parseLegacyWidgetFence(content: string): { type: WidgetType; code: string } | null {
     for (let i = 0; i < WIDGET_TYPES.length; i++) {
       const type = WIDGET_TYPES[i];
       const language = getWidgetFenceLanguage(type);

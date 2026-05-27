@@ -147,11 +147,7 @@ export class ArtifactManagerV2 {
           break;
         }
         case ArtifactType.WIDGET: {
-          const widgetSerializer = new WidgetSerializer(
-            (conversationTitle: string, messageId: string) => {
-              return this.plugin.conversationRenderer.getMessageById(conversationTitle, messageId);
-            }
-          );
+          const widgetSerializer = new WidgetSerializer(this.plugin);
           this.registerSerializer(type, widgetSerializer);
           break;
         }

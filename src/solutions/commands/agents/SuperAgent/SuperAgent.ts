@@ -56,7 +56,11 @@ const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
   search: new Set([ToolName.SEARCH]),
   speech: new Set([ToolName.SPEECH]),
   image: new Set([ToolName.IMAGE]),
-  show_widget: new Set([ToolName.SHOW_WIDGET]),
+  show_widget: new Set([
+    ToolName.SHOW_WIDGET,
+    ToolName.EDIT,
+    ToolName.CONTENT_READING,
+  ]),
   shell: new Set([ToolName.SHELL]),
   '>': new Set([ToolName.SHELL]),
 };

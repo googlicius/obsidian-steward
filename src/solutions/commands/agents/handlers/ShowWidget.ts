@@ -7,6 +7,8 @@ import { ToolCallPart } from '../../tools/types';
 import { ArtifactType } from 'src/solutions/artifact/types';
 import { logger } from 'src/utils/logger';
 import { ToolName } from '../../toolNames';
+import { uniqueID } from 'src/utils/uniqueID';
+import type { WidgetAssetBinding } from 'src/services/WidgetService';
 
 export type ObsidianUiTheme = 'Light' | 'Dark';
 
@@ -36,17 +38,103 @@ export function getShowWidgetThemeGuideline(): string {
 export const WIDGET_TYPES = ['html', 'svg'] as const;
 export type WidgetType = (typeof WIDGET_TYPES)[number];
 
-export const showWidgetSchema = z.object({
-  code: z
+const widgetProjectFileSchema = z.object({
+  name: z
     .string()
-    .min(1, 'Code must be a non-empty string')
-    .describe(
-      'Self-contained content for the widget. For "html": full HTML with inline <style> and <script>. For "svg": raw SVG markup.'
-    ),
-  type: z.enum(WIDGET_TYPES).describe('The content format of the widget.'),
+    .min(1)
+    .describe('Relative path in the project (e.g. index.html, style.css, main.js).'),
+  content: z.string().describe('Full file contents for that path.'),
 });
 
+const widgetAssetBindingSchema = z.object({
+  key: z.string().min(1).describe('Key for {{widget-asset:key}} placeholders or global injection.'),
+  source: z
+    .string()
+    .min(1)
+    .describe('Vault path prefixed with vault: (e.g. vault:Attachments/photo.png).'),
+  inject: z
+    .enum(['dataUrl', 'global'])
+    .describe('dataUrl inlines as data: URL; global injects text into window.__WIDGET_DATA__.'),
+  globalName: z
+    .string()
+    .optional()
+    .describe('Property name on window.__WIDGET_DATA__ when inject is global.'),
+});
+
+export const showWidgetSchema = z
+  .object({
+    type: z.enum(WIDGET_TYPES).describe('The content format of the widget.'),
+    code: z
+      .string()
+      .optional()
+      .describe(
+        'Single-blob widget content. For "html": full HTML with inline <style> and <script>. For "svg": raw SVG markup.'
+      ),
+    files: z
+      .array(widgetProjectFileSchema)
+      .optional()
+      .describe(
+        'Project mode (html only): split markup into separate files instead of one HTML blob — e.g. index.html, style.css, main.js. Reference local files from index.html via <link href="style.css"> and <script src="main.js">; they are bundled into one document at render time. Use this for updatable widgets; omit code when files is set.'
+      ),
+    entry: z
+      .string()
+      .optional()
+      .describe(
+        'Entry HTML file name in files (project mode). Must match a files[].name. Defaults to index.html.'
+      ),
+    assets: z
+      .array(widgetAssetBindingSchema)
+      .optional()
+      .describe('Vault assets to bundle into the widget at render time.'),
+  })
+  .superRefine((data, ctx) => {
+    const isProject = data.files !== undefined && data.files.length > 0;
+
+    if (isProject) {
+      if (data.type !== 'html') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Multi-file widget projects require type "html".',
+          path: ['type'],
+        });
+      }
+      const entry = data.entry ?? 'index.html';
+      const projectFiles = data.files ?? [];
+      const hasEntry = projectFiles.some(file => file.name === entry);
+      if (!hasEntry) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Entry file "${entry}" must be present in files (as a files[].name).`,
+          path: ['files'],
+        });
+      }
+      return;
+    }
+
+    if (!data.code || data.code.trim().length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Either code or files must be provided.',
+        path: ['code'],
+      });
+    }
+  });
+
 export type ShowWidgetArgs = z.infer<typeof showWidgetSchema>;
+export type WidgetProjectFile = z.infer<typeof widgetProjectFileSchema>;
+
+export function isWidgetProjectInput(input: ShowWidgetArgs): boolean {
+  return input.files !== undefined && input.files.length > 0;
+}
+
+/** Converts tool input files[] into a path → content map for vault writes. */
+export function projectFilesToRecord(files: WidgetProjectFile[]): Record<string, string> {
+  const record: Record<string, string> = {};
+  for (let i = 0; i < files.length; i++) {
+    record[files[i].name] = files[i].content;
+  }
+  return record;
+}
 
 export function getWidgetFenceLanguage(type: WidgetType): string {
   return `stw-widget-${type}`;
@@ -75,49 +163,11 @@ export class ShowWidget {
     const { title } = ctx.agentHandlerParams;
 
     try {
-      const contentMessageId = await ctx.updateConversationNote({
-        newContent: `\n${buildWidgetFence({
-          type: toolCall.input.type,
-          code: toolCall.input.code,
-        })}`,
-        command: 'show_widget',
-        includeHistory: false,
-      });
-
-      if (!contentMessageId) {
-        throw new Error('Failed to store widget in conversation note');
+      if (isWidgetProjectInput(toolCall.input)) {
+        return await this.handleProjectWidget(ctx, toolCall);
       }
 
-      const artifactId = await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
-        artifact: {
-          artifactType: ArtifactType.WIDGET,
-          contentMessageId,
-          type: toolCall.input.type,
-          code: '',
-        },
-      });
-
-      if (!artifactId) {
-        throw new Error('Failed to store widget artifact');
-      }
-
-      await ctx.serializeInvocation({
-        command: 'show_widget',
-        toolCall: this.buildSerializedWidgetToolCall(toolCall),
-        result: {
-          type: 'json',
-          value: {
-            success: true,
-            type: toolCall.input.type,
-            artifactId,
-            message: this.buildWidgetSuccessMessage(artifactId),
-          },
-        },
-      });
-
-      return {
-        status: IntentResultStatus.SUCCESS,
-      };
+      return await this.handleCodeWidget(ctx, toolCall);
     } catch (error) {
       logger.error('Error rendering widget:', error);
 
@@ -133,7 +183,7 @@ export class ShowWidget {
         step: ctx.step,
         toolInvocations: [
           {
-            ...this.buildSerializedWidgetToolCall(toolCall),
+            ...this.serializeToolCallForHistory(toolCall),
             type: 'tool-result',
             output: {
               type: 'error-text',
@@ -150,9 +200,141 @@ export class ShowWidget {
     }
   }
 
-  private buildSerializedWidgetToolCall(
+  private async handleCodeWidget(
+    ctx: HandlerInvocationContext,
+    toolCall: ToolCallPart<ShowWidgetArgs>
+  ): Promise<AgentResult> {
+    const { title } = ctx.agentHandlerParams;
+    const code = toolCall.input.code ?? '';
+
+    const contentMessageId = await ctx.updateConversationNote({
+      newContent: `\n${buildWidgetFence({
+        type: toolCall.input.type,
+        code,
+      })}`,
+      command: 'show_widget',
+      includeHistory: false,
+    });
+
+    if (!contentMessageId) {
+      throw new Error('Failed to store widget in conversation note');
+    }
+
+    const artifactId = await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+      artifact: {
+        artifactType: ArtifactType.WIDGET,
+        contentMessageId,
+        type: toolCall.input.type,
+        code: '',
+      },
+    });
+
+    if (!artifactId) {
+      throw new Error('Failed to store widget artifact');
+    }
+
+    await ctx.serializeInvocation({
+      command: 'show_widget',
+      toolCall: this.serializeToolCallForHistory(toolCall),
+      result: {
+        type: 'json',
+        value: {
+          success: true,
+          type: toolCall.input.type,
+          artifactId,
+          message: this.buildCodeWidgetSuccessMessage(artifactId),
+        },
+      },
+    });
+
+    return {
+      status: IntentResultStatus.SUCCESS,
+    };
+  }
+
+  private async handleProjectWidget(
+    ctx: HandlerInvocationContext,
+    toolCall: ToolCallPart<ShowWidgetArgs>
+  ): Promise<AgentResult> {
+    const { title } = ctx.agentHandlerParams;
+    const widgetId = uniqueID();
+    const files = projectFilesToRecord(toolCall.input.files ?? []);
+    const assets = toolCall.input.assets as WidgetAssetBinding[] | undefined;
+
+    const { projectPath } = await this.agent.plugin.widgetService.createProject({
+      conversationTitle: title,
+      widgetId,
+      files,
+      entry: toolCall.input.entry,
+      assets,
+    });
+
+    const fence = this.agent.plugin.widgetService.buildProjectFence({
+      widgetId,
+      projectPath,
+    });
+
+    const contentMessageId = await ctx.updateConversationNote({
+      newContent: `\n${fence}`,
+      command: 'show_widget',
+      includeHistory: false,
+    });
+
+    if (!contentMessageId) {
+      throw new Error('Failed to store widget in conversation note');
+    }
+
+    const artifactId = await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
+      artifact: {
+        artifactType: ArtifactType.WIDGET,
+        contentMessageId,
+        type: 'html',
+        code: '',
+      },
+    });
+
+    if (!artifactId) {
+      throw new Error('Failed to store widget artifact');
+    }
+
+    await ctx.serializeInvocation({
+      command: 'show_widget',
+      toolCall: this.serializeToolCallForHistory(toolCall),
+      result: {
+        type: 'json',
+        value: {
+          success: true,
+          type: 'html',
+          projectPath,
+          message: this.buildProjectWidgetSuccessMessage(projectPath),
+        },
+      },
+    });
+
+    return {
+      status: IntentResultStatus.SUCCESS,
+    };
+  }
+
+  private serializeToolCallForHistory(
     toolCall: ToolCallPart<ShowWidgetArgs>
   ): ToolCallPart<ShowWidgetArgs> {
+    if (isWidgetProjectInput(toolCall.input)) {
+      const files = toolCall.input.files ?? [];
+      return {
+        ...toolCall,
+        input: {
+          type: toolCall.input.type,
+          entry: toolCall.input.entry,
+          assets: toolCall.input.assets,
+          files: files.map(file => ({
+            name: file.name,
+            content: '[OMITTED]',
+          })),
+        },
+      };
+    }
+
     return {
       ...toolCall,
       input: {
@@ -162,7 +344,15 @@ export class ShowWidget {
     };
   }
 
-  private buildWidgetSuccessMessage(artifactId: string): string {
+  private buildCodeWidgetSuccessMessage(artifactId: string): string {
     return `The code is omitted and the widget is rendered successfully. To retrieve the full code, call ${ToolName.GET_ARTIFACT_BY_ID} with the ID: ${artifactId} to retrieve it.`;
+  }
+
+  private buildProjectWidgetSuccessMessage(projectPath: string): string {
+    return (
+      `Widget project rendered. Project folder: ${projectPath}. ` +
+      `Use ${ToolName.EDIT} and ${ToolName.CONTENT_READING} on files in that folder to update the widget. ` +
+      `Do not call ${ToolName.SHOW_WIDGET} again for updates.`
+    );
   }
 }

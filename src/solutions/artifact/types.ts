@@ -108,7 +108,14 @@ export interface WidgetArtifact extends BaseArtifact {
   /** STW message ID of the conversation message containing the widget fence */
   contentMessageId: string;
   type: 'html' | 'svg';
-  code: string;
+  /** Single-blob widget source (loaded from conversation fence) */
+  code?: string;
+  /** Multi-file widget project folder in the vault */
+  projectPath?: string;
+  widgetId?: string;
+  entry?: string;
+  /** Relative file paths within the project (project mode only) */
+  files?: string[];
 }
 
 /**

@@ -73,6 +73,7 @@ import { CliSessionService } from './services/CliSessionService/CliSessionServic
 import { PtyCompanionService } from './services/PtyCompanionService/PtyCompanionService';
 import { NodePtyInstallerScriptService } from './services/NodePtyInstallerScriptService/NodePtyInstallerScriptService';
 import { WikilinkForwardService } from './services/WikilinkForwardService/WikilinkForwardService';
+import { WidgetService } from './services/WidgetService';
 
 const { i18next } = getBundledInternal('i18n');
 
@@ -109,6 +110,7 @@ export default class StewardPlugin extends Plugin {
   _cliSessionService: CliSessionService;
   _ptyCompanionService: PtyCompanionService;
   _wikilinkForwardService: WikilinkForwardService;
+  _widgetService: WidgetService;
 
   get cliSessionService(): CliSessionService {
     if (!this._cliSessionService) {
@@ -122,6 +124,13 @@ export default class StewardPlugin extends Plugin {
       this._wikilinkForwardService = new WikilinkForwardService(this);
     }
     return this._wikilinkForwardService;
+  }
+
+  get widgetService(): WidgetService {
+    if (!this._widgetService) {
+      this._widgetService = WidgetService.getInstance(this);
+    }
+    return this._widgetService;
   }
 
   get ptyCompanionService(): PtyCompanionService {

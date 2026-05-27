@@ -5,41 +5,24 @@ import {
   type WidgetType,
   WIDGET_TYPES,
 } from 'src/solutions/commands/agents/handlers/ShowWidget';
+import {
+  WIDGET_PROJECT_FENCE_LANGUAGE,
+  buildWidgetSrcdoc,
+  buildWidgetBridgeHead,
+  isRuntimeAssetKey,
+  WIDGET_RESIZE,
+  WIDGET_REQUEST_ASSET,
+  WIDGET_ASSET,
+  type WidgetRequestAssetPayload,
+  type WidgetAssetPayload,
+} from 'src/services/WidgetService';
+import { logger } from 'src/utils/logger';
 
 const WIDGET_FENCE_SELECTOR = WIDGET_TYPES.map(
   type => `pre > code.language-${getWidgetFenceLanguage(type)}`
 ).join(',');
 
-const WIDGET_CSP =
-  "default-src 'none'; base-uri 'none'; form-action 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; media-src data:;";
-
-const WIDGET_RESIZE_SCRIPT = `<script>
-(function () {
-  function reportHeight() {
-    var docEl = document.documentElement;
-    var body = document.body;
-    var height = Math.max(docEl.scrollHeight, body ? body.scrollHeight : 0);
-    if (height <= 0) {
-      return;
-    }
-    parent.postMessage({ type: 'stw-widget-resize', height: height }, '*');
-  }
-  window.addEventListener('load', reportHeight);
-  if (typeof ResizeObserver !== 'undefined') {
-    var observer = new ResizeObserver(reportHeight);
-    if (document.body) {
-      observer.observe(document.body);
-    }
-    observer.observe(document.documentElement);
-  }
-})();
-</script>`;
-
-const WIDGET_SRCDOC_HEAD = `<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${WIDGET_CSP}">${WIDGET_RESIZE_SCRIPT}`;
-
-const STW_WIDGET_RESIZE_MESSAGE = 'stw-widget-resize';
-
-const SCRIPT_TAG_PATTERN = /<script[\s>]/i;
+const WIDGET_PROJECT_FENCE_SELECTOR = `pre > code.language-${WIDGET_PROJECT_FENCE_LANGUAGE}`;
 
 function parseWidgetTypeFromCodeElement(code: HTMLElement): WidgetType | null {
   for (let i = 0; i < WIDGET_TYPES.length; i++) {
@@ -49,54 +32,6 @@ function parseWidgetTypeFromCodeElement(code: HTMLElement): WidgetType | null {
     }
   }
   return null;
-}
-
-function widgetCodeContainsScript(code: string): boolean {
-  return SCRIPT_TAG_PATTERN.test(code);
-}
-
-function injectHeadMetaIntoDocument(code: string): string {
-  if (/<head[\s>]/i.test(code)) {
-    return code.replace(/<head([\s>])/i, `<head$1${WIDGET_SRCDOC_HEAD}`);
-  }
-
-  if (/<html[\s>]/i.test(code)) {
-    return code.replace(/<html([\s>])/i, `<html$1<head>${WIDGET_SRCDOC_HEAD}</head>`);
-  }
-
-  return code;
-}
-
-function buildWidgetSrcdoc(params: { type: WidgetType; code: string }): {
-  srcdoc: string;
-  sandbox: string;
-  usesPostMessageResize: boolean;
-} {
-  const trimmed = params.code.trim();
-
-  if (params.type === 'svg') {
-    const hasScript = widgetCodeContainsScript(trimmed);
-    return {
-      srcdoc: `<!DOCTYPE html><html><head>${hasScript ? WIDGET_SRCDOC_HEAD : `<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${WIDGET_CSP}">`}</head><body style="margin:0;">${trimmed}</body></html>`,
-      sandbox: hasScript ? 'allow-scripts' : 'allow-same-origin',
-      usesPostMessageResize: hasScript,
-    };
-  }
-
-  const isFullDocument = /^<!DOCTYPE/i.test(trimmed) || /^<html[\s>]/i.test(trimmed);
-  if (isFullDocument) {
-    return {
-      srcdoc: injectHeadMetaIntoDocument(trimmed),
-      sandbox: 'allow-scripts',
-      usesPostMessageResize: true,
-    };
-  }
-
-  return {
-    srcdoc: `<!DOCTYPE html><html><head>${WIDGET_SRCDOC_HEAD}</head><body>${trimmed}</body></html>`,
-    sandbox: 'allow-scripts',
-    usesPostMessageResize: true,
-  };
 }
 
 function syncIframeHeight(iframe: HTMLIFrameElement): void {
@@ -115,12 +50,17 @@ function syncIframeHeight(iframe: HTMLIFrameElement): void {
 
 function mountWidgetIframe(params: {
   container: HTMLElement;
+  plugin: StewardPlugin;
   type: WidgetType;
   code: string;
+  extraHead?: string;
+  projectPath?: string;
+  widgetId?: string;
 }): () => void {
   const { srcdoc, sandbox, usesPostMessageResize } = buildWidgetSrcdoc({
     type: params.type,
     code: params.code,
+    extraHead: params.extraHead,
   });
 
   const iframe = document.createElement('iframe');
@@ -128,18 +68,20 @@ function mountWidgetIframe(params: {
   iframe.setAttribute('sandbox', sandbox);
   iframe.setAttribute('referrerpolicy', 'no-referrer');
   iframe.setAttribute('loading', 'lazy');
-  iframe.title = 'Steward widget';
+  iframe.title = 'Widget';
   iframe.srcdoc = srcdoc;
 
   params.container.appendChild(iframe);
 
   let resizeObserver: ResizeObserver | undefined;
+  let unregisterMounted: (() => void) | undefined;
+  let onAssetRequestFromIframe: ((event: MessageEvent) => void) | undefined;
 
-  const onResizeMessage = (event: MessageEvent): void => {
+  const onResizeFromIframe = (event: MessageEvent): void => {
     if (event.source !== iframe.contentWindow) {
       return;
     }
-    if (event.data?.type !== STW_WIDGET_RESIZE_MESSAGE) {
+    if (event.data?.type !== WIDGET_RESIZE) {
       return;
     }
     const height = Number(event.data.height);
@@ -150,7 +92,90 @@ function mountWidgetIframe(params: {
   };
 
   if (usesPostMessageResize) {
-    window.addEventListener('message', onResizeMessage);
+    window.addEventListener('message', onResizeFromIframe);
+  }
+
+  const isProjectWidget = Boolean(params.projectPath && params.widgetId);
+  if (isProjectWidget) {
+    const widgetService = params.plugin.widgetService;
+    const projectPath = params.projectPath as string;
+    const widgetId = params.widgetId as string;
+
+    const refresh = async (): Promise<void> => {
+      try {
+        const bundled = await widgetService.bundleProject(projectPath);
+        const manifest = await widgetService.readManifest(projectPath);
+        const bridgeHead = manifest?.assets ? buildWidgetBridgeHead(widgetId) : '';
+        const { srcdoc: nextSrcdoc } = buildWidgetSrcdoc({
+          type: 'html',
+          code: bundled,
+          extraHead: bridgeHead,
+        });
+        iframe.srcdoc = nextSrcdoc;
+      } catch (error) {
+        logger.error('Failed to refresh widget project:', error);
+      }
+    };
+
+    unregisterMounted = widgetService.registerMountedWidget({
+      container: params.container,
+      projectPath,
+      refresh,
+    });
+
+    onAssetRequestFromIframe = async (event: MessageEvent): Promise<void> => {
+      if (event.source !== iframe.contentWindow) {
+        return;
+      }
+      const data = event.data as WidgetRequestAssetPayload | undefined;
+      if (!data || data.type !== WIDGET_REQUEST_ASSET) {
+        return;
+      }
+      if (data.widgetId !== widgetId) {
+        return;
+      }
+
+      const manifest = await widgetService.readManifest(projectPath);
+      if (!isRuntimeAssetKey(manifest, data.key)) {
+        const errorPayload: WidgetAssetPayload = {
+          type: WIDGET_ASSET,
+          requestId: data.requestId,
+          key: data.key,
+          payload: null,
+          error: `Unknown asset key: ${data.key}`,
+        };
+        iframe.contentWindow?.postMessage(errorPayload, '*');
+        return;
+      }
+
+      const payload = manifest
+        ? await widgetService.loadVaultAssetForRuntime({ manifest, key: data.key })
+        : null;
+
+      if (payload === null) {
+        iframe.contentWindow?.postMessage(
+          {
+            type: WIDGET_ASSET,
+            requestId: data.requestId,
+            key: data.key,
+            payload: null,
+            error: `Asset not found: ${data.key}`,
+          },
+          '*'
+        );
+        return;
+      }
+
+      const response: WidgetAssetPayload = {
+        type: WIDGET_ASSET,
+        requestId: data.requestId,
+        key: data.key,
+        payload,
+      };
+      iframe.contentWindow?.postMessage(response, '*');
+    };
+
+    window.addEventListener('message', onAssetRequestFromIframe);
   }
 
   const onLoad = (): void => {
@@ -177,13 +202,22 @@ function mountWidgetIframe(params: {
   return () => {
     iframe.removeEventListener('load', onLoad);
     if (usesPostMessageResize) {
-      window.removeEventListener('message', onResizeMessage);
+      window.removeEventListener('message', onResizeFromIframe);
+    }
+    if (onAssetRequestFromIframe) {
+      window.removeEventListener('message', onAssetRequestFromIframe);
     }
     resizeObserver?.disconnect();
+    unregisterMounted?.();
   };
 }
 
-function mountWidgetBlock(params: { pre: HTMLElement; code: HTMLElement; type: WidgetType }): void {
+function mountWidgetBlock(params: {
+  pre: HTMLElement;
+  code: HTMLElement;
+  type: WidgetType;
+  plugin: StewardPlugin;
+}): void {
   if (params.pre.dataset.stwWidgetMounted === '1') {
     return;
   }
@@ -203,10 +237,74 @@ function mountWidgetBlock(params: { pre: HTMLElement; code: HTMLElement; type: W
 
   const teardown = mountWidgetIframe({
     container,
+    plugin: params.plugin,
     type: params.type,
     code: rawCode,
   });
 
+  attachRemovalWatcher(container, teardown);
+}
+
+function mountWidgetProjectBlock(params: {
+  pre: HTMLElement;
+  code: HTMLElement;
+  plugin: StewardPlugin;
+}): void {
+  if (params.pre.dataset.stwWidgetMounted === '1') {
+    return;
+  }
+
+  const rawFence = params.code.textContent ?? '';
+  const parsed = params.plugin.widgetService.parseProjectFenceContent(rawFence);
+  if (!parsed) {
+    logger.warn('Cannot parse widget project fence', { rawFence });
+    return;
+  }
+
+  params.pre.dataset.stwWidgetMounted = '1';
+
+  const container = document.createElement('div');
+  container.classList.add('stw-widget-container');
+  container.dataset.stwWidgetType = 'html';
+  container.dataset.stwWidgetProjectPath = parsed.projectPath;
+  container.dataset.stwWidgetId = parsed.widgetId;
+
+  params.pre.replaceWith(container);
+
+  let teardown: (() => void) | undefined;
+
+  const mount = async (): Promise<void> => {
+    try {
+      const bundled = await params.plugin.widgetService.bundleProject(parsed.projectPath);
+      const manifest = await params.plugin.widgetService.readManifest(parsed.projectPath);
+      const bridgeHead = manifest?.assets ? buildWidgetBridgeHead(parsed.widgetId) : '';
+
+      console.log('BUNDLED', bundled);
+
+      teardown = mountWidgetIframe({
+        container,
+        plugin: params.plugin,
+        type: 'html',
+        code: bundled,
+        extraHead: bridgeHead,
+        projectPath: parsed.projectPath,
+        widgetId: parsed.widgetId,
+      });
+    } catch (error) {
+      logger.error('Failed to mount widget project:', error);
+      container.textContent = 'Failed to load widget project.';
+    }
+  };
+
+  attachRemovalWatcher(container, () => {
+    teardown?.();
+    delete container.dataset.stwWidgetMounted;
+  });
+
+  void mount();
+}
+
+function attachRemovalWatcher(container: HTMLElement, teardown: () => void): void {
   const observerRoot =
     container.closest('.workspace-leaf-content') ??
     container.closest('.workspace-leaf') ??
@@ -227,9 +325,24 @@ function mountWidgetBlock(params: { pre: HTMLElement; code: HTMLElement; type: W
   });
 }
 
-export function createWidgetPostProcessor(_plugin: StewardPlugin): MarkdownPostProcessor {
+export function createWidgetPostProcessor(plugin: StewardPlugin): MarkdownPostProcessor {
   return (el): void => {
     window.setTimeout(() => {
+      const projectBlocks = el.querySelectorAll(WIDGET_PROJECT_FENCE_SELECTOR);
+      for (let i = 0; i < projectBlocks.length; i++) {
+        const code = projectBlocks.item(i);
+        if (!(code instanceof HTMLElement)) {
+          continue;
+        }
+
+        const pre = code.parentElement;
+        if (!pre || pre.tagName !== 'PRE') {
+          continue;
+        }
+
+        mountWidgetProjectBlock({ pre, code, plugin });
+      }
+
       const codeBlocks = el.querySelectorAll(WIDGET_FENCE_SELECTOR);
       for (let i = 0; i < codeBlocks.length; i++) {
         const code = codeBlocks.item(i);
@@ -247,7 +360,7 @@ export function createWidgetPostProcessor(_plugin: StewardPlugin): MarkdownPostP
           continue;
         }
 
-        mountWidgetBlock({ pre, code, type });
+        mountWidgetBlock({ pre, code, type, plugin });
       }
     });
   };
