@@ -46,6 +46,8 @@ export interface ContentReadingResult {
   range?: EditorRange;
   /** Present when non-markdown text is read with line-number prefixes. */
   instruction?: string;
+  /** AI-only notice when images were read but the chat model cannot receive image inputs. */
+  imageVisionNotice?: string;
 }
 
 /**
@@ -753,5 +755,69 @@ export class ContentReadingService {
     }
 
     return false;
+  }
+
+  /**
+   * Sets AI-only vision notices on reading results when the chat model cannot receive images.
+   */
+  public applyImageVisionNotices(params: {
+    readingResults: ContentReadingResult[];
+    model: string;
+  }): void {
+    const { readingResults, model } = params;
+    if (this.plugin.llmService.supportsVision(model)) {
+      return;
+    }
+
+    const { modelId } = this.plugin.llmService.parseModel(model);
+    const notice = this.buildImageVisionNotice(modelId);
+
+    for (const result of readingResults) {
+      if (this.collectImagePathsFromReadingResult(result).length > 0) {
+        result.imageVisionNotice = notice;
+      }
+    }
+  }
+
+  /**
+   * Collects vault image paths that would be attached for vision-capable models.
+   */
+  public collectImagePathsFromReadingResult(result: ContentReadingResult): string[] {
+    const imagePaths = new Set<string>();
+
+    const addImagePathIfValid = (path: string | undefined) => {
+      if (!path) {
+        return;
+      }
+      const normalizedPath = path.toLowerCase();
+      const lastIndex = normalizedPath.lastIndexOf('.');
+      const extension = lastIndex > 0 ? normalizedPath.slice(lastIndex + 1) : null;
+      if (extension && IMAGE_EXTENSIONS.includes(extension)) {
+        imagePaths.add(path);
+      }
+    };
+
+    addImagePathIfValid(result.file?.path);
+
+    const allContent = result.blocks.map(block => block.content).join('\n');
+    const imageRegex = new RegExp(IMAGE_LINK_PATTERN, 'gi');
+    const matches = allContent.matchAll(imageRegex);
+
+    for (const match of matches) {
+      if (match[1]) {
+        addImagePathIfValid(match[1]);
+      }
+    }
+
+    return Array.from(imagePaths);
+  }
+
+  /** AI-only message when the chat model cannot receive image bytes from a read. */
+  private buildImageVisionNotice(modelId: string): string {
+    return [
+      `The current chat model (${modelId}) does not support vision/image inputs.`,
+      'Image pixels from this read were not attached to the model.',
+      'Either stop and tell the user this model cannot view images, or continue with a non-image approach (paths, filenames, surrounding text only—do not describe pixel content).',
+    ].join(' ');
   }
 }

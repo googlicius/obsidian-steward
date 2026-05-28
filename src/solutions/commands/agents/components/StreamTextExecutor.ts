@@ -109,12 +109,6 @@ export class StreamTextExecutor {
       messages.push({ role: 'user', content: params.intent.query });
     }
 
-    agent.plugin.llmService.validateImageSupport(
-      params.intent.model || agent.plugin.settings.llm.chat.model,
-      messages,
-      params.lang
-    );
-
     const abortSignal = agent.plugin.abortService.createAbortController(
       params.title,
       AbortOperationKeys.SUPER_AGENT

@@ -1,4 +1,8 @@
-import { ContentReadingService, PLAIN_TEXT_READ_INSTRUCTION, type ContentReadingResult } from './ContentReadingService';
+import {
+  ContentReadingService,
+  PLAIN_TEXT_READ_INSTRUCTION,
+  type ContentReadingResult,
+} from './ContentReadingService';
 import { TFile, EditorPosition, CachedMetadata, SectionCache } from 'obsidian';
 import type StewardPlugin from '../main';
 import { getInstance } from 'src/utils/getInstance';
@@ -88,6 +92,49 @@ function createSection(type: string, startLine: number, endLine: number): MockSe
 }
 
 describe('ContentReadingService', () => {
+  describe('image path helpers', () => {
+    let service: ContentReadingService;
+    let buildImageVisionNotice: ContentReadingService['buildImageVisionNotice'];
+
+    beforeEach(() => {
+      const mockPlugin = createMockPlugin('', [], { line: 0, ch: 0 });
+      service = ContentReadingService.getInstance(mockPlugin);
+      buildImageVisionNotice = service['buildImageVisionNotice'].bind(service);
+    });
+
+    it('collectImagePathsFromReadingResult includes image file paths and wikilink targets', () => {
+      const imageFileResult: ContentReadingResult = {
+        blocks: [],
+        source: 'entire',
+        file: { path: 'assets/image.png', name: 'image.png' },
+      };
+      expect(service.collectImagePathsFromReadingResult(imageFileResult)).toEqual([
+        'assets/image.png',
+      ]);
+
+      const wikilinkResult: ContentReadingResult = {
+        blocks: [
+          {
+            startLine: 2,
+            endLine: 2,
+            sections: [{ type: 'paragraph', startLine: 2, endLine: 2 }],
+            content: '![[Pasted image 20250610015617.png]]',
+          },
+        ],
+        source: 'element',
+        file: { path: 'note.md', name: 'note.md' },
+      };
+      expect(service.collectImagePathsFromReadingResult(wikilinkResult)).toEqual([
+        'Pasted image 20250610015617.png',
+      ]);
+    });
+
+    it('buildImageVisionNotice describes the model limitation for the agent', () => {
+      expect(buildImageVisionNotice('deepseek-chat')).toContain('deepseek-chat');
+      expect(buildImageVisionNotice('deepseek-chat')).toContain('does not support vision');
+    });
+  });
+
   describe('readContent - readType above/below/entire', () => {
     it('should read the list above the cursor', async () => {
       // Create mock text content with lists and paragraphs

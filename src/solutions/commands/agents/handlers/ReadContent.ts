@@ -266,6 +266,13 @@ export class ReadContent {
       }
     }
 
+    this.agent.plugin.contentReadingService.applyImageVisionNotices({
+      readingResults,
+      model:
+        ctx.agentHandlerParams.intent.model?.trim() ||
+        this.agent.plugin.settings.llm.chat.model,
+    });
+
     // Store single artifact with all reading results
     const artifactId = await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
       artifact: {

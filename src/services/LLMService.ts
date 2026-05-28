@@ -2,14 +2,12 @@ import type StewardPlugin from 'src/main';
 import { jsonrepair } from 'jsonrepair';
 import { logger } from 'src/utils/logger';
 import { StewardPluginSettings } from 'src/types/interfaces';
-import { getBundledInternal } from 'src/utils/bundledInternals';
 import { fixUnquotedJSON } from 'src/utils/jsonRepairs';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type {
   JSONParseError,
   ImageModel,
   SpeechModel,
-  ModelMessage,
   LanguageModel,
   ToolCallPart,
   InvalidToolInputError,
@@ -22,8 +20,6 @@ import type { AnthropicProvider } from '@ai-sdk/anthropic';
 import type { ElevenLabsProvider } from '@ai-sdk/elevenlabs';
 import type { HumeProvider } from '@ai-sdk/hume';
 import type { OllamaProvider } from 'ollama-ai-provider-v2';
-
-const { getTranslation } = getBundledInternal('i18n');
 
 /** When model id is unknown / unmatched — compaction threshold denominator fallback */
 const DEFAULT_MODEL_CONTEXT_LENGTH_FALLBACK = 128_000;
@@ -510,6 +506,14 @@ export class LLMService {
   /**
    * Check if a model/provider supports vision/image inputs
    */
+  public supportsVision(model: string): boolean {
+    const { provider: providerName, modelId } = this.parseModel(model);
+    if (!providerName) {
+      return false;
+    }
+    return this.modelSupportsVision(providerName, modelId);
+  }
+
   private modelSupportsVision(providerName: string, modelId: string): boolean {
     const modelIdLower = modelId.toLowerCase();
 
@@ -554,42 +558,6 @@ export class LLMService {
 
       default:
         return false;
-    }
-  }
-
-  /**
-   * Check if messages contain image parts
-   */
-  private messagesContainImages(messages: ModelMessage[]): boolean {
-    for (const message of messages) {
-      if (message.role === 'user' && Array.isArray(message.content)) {
-        for (const part of message.content) {
-          if (part && part.type === 'image') {
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  }
-
-  /**
-   * Validate that the model supports image inputs if messages contain images
-   * @throws Error if images are present but model doesn't support vision
-   */
-  public validateImageSupport(model: string, messages: ModelMessage[], lang?: string | null): void {
-    if (!this.messagesContainImages(messages)) {
-      return; // No images, no validation needed
-    }
-
-    const { provider: providerName, modelId } = this.parseModel(model);
-    if (!providerName) {
-      throw new Error(`Model ${model} must include a provider prefix (e.g., provider:modelId)`);
-    }
-
-    if (!this.modelSupportsVision(providerName, modelId)) {
-      const t = getTranslation(lang);
-      throw new Error(t('common.modelDoesNotSupportImageInputs', { model: modelId }));
     }
   }
 }
