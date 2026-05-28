@@ -65,7 +65,7 @@ Set to -1 when: Reading above or below the current position and explicitly reque
       `A short text to indicate that the content was found. MUST include the term {{number}} as a placeholder, for example: "I found {{number}}..."
 If the readType is "entire", leave it null.`
     ),
-  confidence: z.number().min(0).max(1).describe(confidenceFragment),
+  confidence: z.number().min(0).max(1).optional().describe(confidenceFragment),
   lang: z
     .string()
     .nullable()
@@ -386,7 +386,7 @@ export class ReadContent {
       lines.push(`*${t('read.file', { filePath: path })}*`);
     }
 
-    return lines.join('\n');
+    return `<small>${lines.join('\n')}</small>`;
   }
 
   private buildReviewCalloutContent(params: {

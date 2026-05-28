@@ -1,4 +1,4 @@
-import { ContentReadingService, type ContentReadingResult } from './ContentReadingService';
+import { ContentReadingService, PLAIN_TEXT_READ_INSTRUCTION, type ContentReadingResult } from './ContentReadingService';
 import { TFile, EditorPosition, CachedMetadata, SectionCache } from 'obsidian';
 import type StewardPlugin from '../main';
 import { getInstance } from 'src/utils/getInstance';
@@ -460,7 +460,7 @@ End paragraph`;
       expect(result).toMatchObject(expected);
     });
 
-    it('should return file details for non-markdown files', async () => {
+    it('should return file details for binary non-text files', async () => {
       const mockText = '';
       const sections: MockSection[] = [];
       const mockFile = getInstance(TFile, {
@@ -486,6 +486,47 @@ End paragraph`;
           path: 'assets/image.png',
           name: 'image.png',
         },
+      });
+    });
+
+    it('should read plain text files with 0-based line number prefixes', async () => {
+      const mockText = `<div class="widget">
+  <span>Hello</span>
+</div>`;
+      const sections: MockSection[] = [];
+      const mockFile = getInstance(TFile, {
+        path: 'widgets/index.html',
+        name: 'index.html',
+        extension: 'html',
+      });
+      const mockPlugin = createMockPlugin(mockText, sections, undefined, mockFile);
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'entire',
+        elementType: null,
+        fileName: 'widgets/index.html',
+      });
+      assertContentReadingResult(result);
+
+      expect(result).toMatchObject({
+        source: 'entire',
+        instruction: PLAIN_TEXT_READ_INSTRUCTION,
+        file: {
+          path: 'widgets/index.html',
+          name: 'index.html',
+        },
+        blocks: [
+          {
+            startLine: 0,
+            endLine: 2,
+            sections: [{ type: 'plain-text', startLine: 0, endLine: 2 }],
+            content: `0: <div class="widget">
+1:   <span>Hello</span>
+2: </div>`,
+          },
+        ],
       });
     });
   });

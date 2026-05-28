@@ -65,12 +65,7 @@ describe('WidgetBundler', () => {
         assetData: { dataUrls: {}, globals: {} },
       });
 
-      expect(html).toContain('<style>');
-      expect(html).toContain('body { color: red; }');
-      expect(html).toContain('<script>');
-      expect(html).toContain('console.log("ok");');
-      expect(html).not.toContain('href="style.css"');
-      expect(html).not.toContain('src="main.js"');
+      expect(html).toMatchSnapshot();
     });
 
     it('replaces {{widget-asset:key}} placeholders with bundled data URLs', async () => {
@@ -93,8 +88,7 @@ describe('WidgetBundler', () => {
         },
       });
 
-      expect(html).toContain('data:image/png;base64,abc');
-      expect(html).not.toContain('{{widget-asset:logo}}');
+      expect(html).toMatchSnapshot();
     });
   });
 });

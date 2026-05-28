@@ -1,0 +1,11 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`WidgetBundler bundle inlines local CSS and JS referenced from the entry HTML 1`] = `
+"<style>
+body { color: red; }
+</style><script>
+console.log("ok");
+</script><p>Hi</p>"
+`;
+
+exports[`WidgetBundler bundle replaces {{widget-asset:key}} placeholders with bundled data URLs 1`] = `"<img src="data:image/png;base64,abc" />"`;

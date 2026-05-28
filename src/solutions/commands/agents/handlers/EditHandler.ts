@@ -430,7 +430,7 @@ export class EditHandler {
     const { filesToOperations, toolContentStreamInfo } = params;
 
     // Build the final preview content for all files
-    let finalPreview = '';
+    const callouts: string[] = [];
     for (const [filePath, fileOperations] of filesToOperations.entries()) {
       const fileContent = await this.readFileTextForEdit(filePath);
       if (fileContent === null) continue;
@@ -441,9 +441,11 @@ export class EditHandler {
       );
 
       if (changes.length > 0) {
-        finalPreview += this.renderChangesPreview(filePath, changes);
+        callouts.push(this.renderChangesPreview(filePath, changes));
       }
     }
+
+    const finalPreview = callouts.join('\n\n');
 
     // Replace the temp embed callout with the final preview in the conversation note
     const tempEmbed = this.agent.plugin.noteContentService.formatCallout(
@@ -468,6 +470,7 @@ export class EditHandler {
    * Render changes preview for display
    */
   private renderChangesPreview(filePath: string, changes: Change[]): string {
+    const language = this.getCodeFenceLanguage(filePath);
     let preview = `**Note:** [[${filePath}]]\n\n`;
 
     for (let i = 0; i < changes.length; i++) {
@@ -479,13 +482,25 @@ export class EditHandler {
 
       preview += `**Change ${i + 1}** (${lineRange}, ${change.mode}):\n\n`;
 
-      // Show only the modified content (no code block to allow tables/lists to render)
       if (change.newContent) {
-        preview += `${change.newContent}\n\n`;
+        preview += `${this.wrapInCodeFence(change.newContent, language)}\n\n`;
       }
     }
 
     return this.agent.plugin.noteContentService.formatCallout(preview.trim(), 'stw-review');
+  }
+
+  private getCodeFenceLanguage(filePath: string): string {
+    const fileName = filePath.split('/').pop() ?? filePath;
+    const dotIndex = fileName.lastIndexOf('.');
+    if (dotIndex <= 0) {
+      return 'text';
+    }
+    return fileName.slice(dotIndex + 1).toLowerCase();
+  }
+
+  private wrapInCodeFence(content: string, language: string): string {
+    return `\`\`\`${language}\n${content}\n\`\`\``;
   }
 
   /**
