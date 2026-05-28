@@ -128,6 +128,12 @@ export function createStewardConversationProcessor(plugin: StewardPlugin): Markd
         // Add stw-conversation class for event-driven indicator updates
         embedEl.classList.add('stw-conversation');
 
+        // Prevent reading-view clicks on message text from scrolling the host to ![[...]]
+        const embedContent = embedEl.querySelector('.markdown-embed-content');
+        if (embedContent instanceof HTMLElement) {
+          embedContent.classList.add('interactive-child');
+        }
+
         // Update the conversation title
         const updated = await updateConversationTitleInEmbed(embedEl, ctx.sourcePath);
 

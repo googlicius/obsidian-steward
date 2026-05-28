@@ -1,5 +1,6 @@
 import { normalizePath } from 'obsidian';
 import type StewardPlugin from 'src/main';
+import { isPathUnderPrefix } from 'src/utils/pathUtils';
 
 /** Prefix for vault asset references in widget HTML before base64 inlining. */
 export const WIDGET_ASSET_PREFIX = 'asset:';
@@ -16,9 +17,6 @@ const SCRIPT_SRC_PATTERN = /<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>\s*<
 export class WidgetBundler {
   constructor(private readonly plugin: StewardPlugin) {}
 
-  /**
-   * Reads the entry HTML, inlines linked stylesheets and scripts, and replaces vault asset paths.
-   */
   public async bundle(params: {
     projectPath: string;
     entryRelativePath: string;
@@ -31,22 +29,25 @@ export class WidgetBundler {
     }
 
     let html = entryContent;
-    html = await this.inlineStylesheets({
+    html = await this.inlineResourceTags({
       html,
+      pattern: LINK_HREF_PATTERN,
       projectPath: params.projectPath,
       entryFile: params.entryRelativePath,
+      wrap: css => `<style>\n${css}\n</style>`,
     });
-    html = await this.inlineScripts({
+    html = await this.inlineResourceTags({
       html,
+      pattern: SCRIPT_SRC_PATTERN,
       projectPath: params.projectPath,
       entryFile: params.entryRelativePath,
+      wrap: js => `<script>\n${js.replace(/<\/script/gi, '<\\/script')}\n</script>`,
     });
 
     html = this.applyAssetPaths(html, params.assetDataUrls);
     return html.trim();
   }
 
-  /** Normalizes a vault-relative asset path from the assets array. */
   public static normalizeAssetPath(path: string): string {
     let trimmed = path.trim();
     if (trimmed.startsWith(WIDGET_ASSET_PREFIX)) {
@@ -55,30 +56,18 @@ export class WidgetBundler {
     return normalizePath(trimmed);
   }
 
-  /** Builds the HTML lookup key for an asset path (asset:Images/photo.png). */
-  public assetPathKey(vaultRelativePath: string): string {
+  public static assetPathKey(vaultRelativePath: string): string {
     return `${WIDGET_ASSET_PREFIX}${normalizePath(vaultRelativePath)}`;
   }
 
-  /** Collects unique vault-relative paths referenced via asset: in HTML or CSS content. */
   public extractAssetPaths(content: string): string[] {
     const paths = new Set<string>();
-    const pattern = new RegExp(WIDGET_ASSET_PATH_PATTERN.source, WIDGET_ASSET_PATH_PATTERN.flags);
-    let match: RegExpExecArray | null;
-
-    while ((match = pattern.exec(content)) !== null) {
+    for (const match of content.matchAll(WIDGET_ASSET_PATH_PATTERN)) {
       paths.add(WidgetBundler.normalizeAssetPath(match[1]));
     }
-
-    const result: string[] = [];
-    for (const path of paths) {
-      result.push(path);
-    }
-    result.sort();
-    return result;
+    return [...paths].sort();
   }
 
-  /** Returns asset: paths used in content but absent from the declared assets list. */
   public findMissingAssets(params: {
     content: string | string[];
     declaredAssets?: string[];
@@ -109,25 +98,22 @@ export class WidgetBundler {
     return missing;
   }
 
-  /** Replaces asset:path references in HTML/CSS with bundled base64 data URLs. */
   public applyAssetPaths(html: string, assetDataUrls: Record<string, string>): string {
-    const keys = Object.keys(assetDataUrls);
-    if (keys.length === 0) {
+    if (Object.keys(assetDataUrls).length === 0) {
       return html;
     }
 
-    keys.sort((a, b) => b.length - a.length);
-
-    let result = html;
-    for (let i = 0; i < keys.length; i++) {
-      const key = keys[i];
-      result = result.split(key).join(assetDataUrls[key]);
-    }
-    return result;
+    return html.replace(WIDGET_ASSET_PATH_PATTERN, (match, pathPart: string) => {
+      const replacement =
+        assetDataUrls[match] ?? assetDataUrls[WidgetBundler.assetPathKey(pathPart)];
+      return replacement ?? match;
+    });
   }
 
   private async readProjectFile(absolutePath: string, projectPath: string): Promise<string | null> {
-    if (!this.isPathInsideProject(projectPath, absolutePath)) {
+    const project = normalizePath(projectPath);
+    const target = normalizePath(absolutePath);
+    if (!isPathUnderPrefix(project, target)) {
       return null;
     }
     const file = this.plugin.app.vault.getFileByPath(absolutePath);
@@ -137,7 +123,6 @@ export class WidgetBundler {
     return this.plugin.app.vault.read(file);
   }
 
-  /** Resolves a relative href/src against the entry file path; rejects external and parent escapes. */
   private resolveRelativePath(relativePath: string, fromFile: string): string | null {
     if (/^https?:\/\//i.test(relativePath) || relativePath.startsWith('data:')) {
       return null;
@@ -171,89 +156,49 @@ export class WidgetBundler {
     return resolved.join('/');
   }
 
-  private async inlineStylesheets(params: {
+  private async inlineResourceTags(params: {
     html: string;
+    pattern: RegExp;
     projectPath: string;
     entryFile: string;
+    wrap: (content: string) => string;
   }): Promise<string> {
-    return this.replaceAsync(params.html, LINK_HREF_PATTERN, async (match, href: string) => {
-      if (/^https?:\/\//i.test(href) || href.startsWith('data:')) {
-        return match;
-      }
-
-      const resolved = this.resolveRelativePath(href, params.entryFile);
+    return this.replaceAsync(params.html, params.pattern, async (match, url: string) => {
+      const resolved = this.resolveRelativePath(url, params.entryFile);
       if (!resolved) {
         return match;
       }
 
-      const css = await this.readProjectFile(
+      const content = await this.readProjectFile(
         normalizePath(`${params.projectPath}/${resolved}`),
         params.projectPath
       );
-      if (css === null) {
+      if (content === null) {
         return match;
       }
 
-      return `<style>\n${css}\n</style>`;
+      return params.wrap(content);
     });
-  }
-
-  private async inlineScripts(params: {
-    html: string;
-    projectPath: string;
-    entryFile: string;
-  }): Promise<string> {
-    return this.replaceAsync(params.html, SCRIPT_SRC_PATTERN, async (match, src: string) => {
-      if (/^https?:\/\//i.test(src) || src.startsWith('data:')) {
-        return match;
-      }
-
-      const resolved = this.resolveRelativePath(src, params.entryFile);
-      if (!resolved) {
-        return match;
-      }
-
-      const js = await this.readProjectFile(
-        normalizePath(`${params.projectPath}/${resolved}`),
-        params.projectPath
-      );
-      if (js === null) {
-        return match;
-      }
-
-      return `<script>\n${this.escapeScriptContent(js)}\n</script>`;
-    });
-  }
-
-  private escapeScriptContent(content: string): string {
-    return content.replace(/<\/script/gi, '<\\/script');
-  }
-
-  private isPathInsideProject(projectPath: string, targetPath: string): boolean {
-    const project = normalizePath(projectPath);
-    const target = normalizePath(targetPath);
-    return target === project || target.startsWith(`${project}/`);
   }
 
   private async replaceAsync(
     input: string,
     pattern: RegExp,
-    replacer: (match: string, ...groups: string[]) => Promise<string>
+    replacer: (match: string, captured: string) => Promise<string>
   ): Promise<string> {
     const flags = pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`;
     const globalPattern = new RegExp(pattern.source, flags);
-    let result = '';
+    const parts: string[] = [];
     let lastIndex = 0;
     let match: RegExpExecArray | null;
 
     while ((match = globalPattern.exec(input)) !== null) {
-      result += input.slice(lastIndex, match.index);
-      const replacement = await replacer(match[0], ...match.slice(1));
-      result += replacement;
+      parts.push(input.slice(lastIndex, match.index));
+      parts.push(await replacer(match[0], match[1]));
       lastIndex = globalPattern.lastIndex;
     }
 
-    result += input.slice(lastIndex);
-    return result;
+    parts.push(input.slice(lastIndex));
+    return parts.join('');
   }
 }

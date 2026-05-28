@@ -60,7 +60,7 @@ describe('WidgetBundler', () => {
 
   describe('assetPathKey', () => {
     it('builds the HTML reference key', () => {
-      expect(bundler.assetPathKey('Images/logo.png')).toBe('asset:Images/logo.png');
+      expect(WidgetBundler.assetPathKey('Images/logo.png')).toBe('asset:Images/logo.png');
     });
   });
 

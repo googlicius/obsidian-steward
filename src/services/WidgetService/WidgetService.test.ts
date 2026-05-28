@@ -3,6 +3,61 @@ import { getInstance } from 'src/utils/getInstance';
 import type StewardPlugin from 'src/main';
 import { WidgetService } from './WidgetService';
 
+type FakeFile = { path: string };
+
+function createProjectTestPlugin(params?: {
+  initialFiles?: Record<string, string>;
+}): {
+  plugin: jest.Mocked<StewardPlugin>;
+  files: Map<string, string>;
+} {
+  const files = new Map<string, string>(Object.entries(params?.initialFiles ?? {}));
+  const fileObjects = new Map<string, FakeFile>();
+
+  const getOrCreateFileObject = (path: string): FakeFile => {
+    const existing = fileObjects.get(path);
+    if (existing) {
+      return existing;
+    }
+    const file = { path };
+    fileObjects.set(path, file);
+    return file;
+  };
+
+  const plugin = {
+    settings: { stewardFolder: 'Steward' },
+    app: {
+      vault: {
+        getFolderByPath: jest.fn(),
+        getFileByPath: jest.fn((path: string) => {
+          if (!files.has(path)) {
+            return null;
+          }
+          return getOrCreateFileObject(path);
+        }),
+        read: jest.fn(async (file: FakeFile) => files.get(file.path) ?? ''),
+        modify: jest.fn(async (file: FakeFile, content: string) => {
+          files.set(file.path, content);
+        }),
+        create: jest.fn(async (path: string, content: string) => {
+          files.set(path, content);
+          return getOrCreateFileObject(path);
+        }),
+      },
+    },
+    obsidianAPITools: {
+      ensureFolderExists: jest.fn().mockResolvedValue(undefined),
+      getFilesFromFolder: jest.fn(),
+    },
+    registerEvent: jest.fn(),
+    mediaTools: {
+      findFileByNameOrPath: jest.fn(),
+    },
+  } as unknown as jest.Mocked<StewardPlugin>;
+
+  return { plugin, files };
+}
+
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   const indexFile = getInstance(TFile, {
     path: 'Steward/Widgets/chat-1/abc12/index.html',
@@ -107,6 +162,180 @@ projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
         { recursive: true }
       );
       expect(files).toEqual(['index.html', 'manifest.json']);
+    });
+  });
+
+  describe('createProject', () => {
+    const projectPath = 'Steward/Widgets/chat-1/abc12';
+
+    it('creates project folder, files, and manifest for a new project', async () => {
+      const { plugin, files } = createProjectTestPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      const result = await service.createProject({
+        conversationTitle: 'chat-1',
+        widgetId: 'abc12',
+        files: {
+          'index.html': '<p>Hello</p>',
+        },
+      });
+
+      expect(result).toEqual({ projectPath, entry: 'index.html' });
+      expect(plugin.obsidianAPITools.ensureFolderExists).toHaveBeenCalledWith(projectPath);
+      expect(plugin.app.vault.create).toHaveBeenCalledWith(
+        `${projectPath}/index.html`,
+        '<p>Hello</p>'
+      );
+      expect(files.get(`${projectPath}/index.html`)).toBe('<p>Hello</p>');
+      expect(JSON.parse(files.get(`${projectPath}/manifest.json`) ?? '')).toEqual({
+        entry: 'index.html',
+        type: 'html',
+      });
+    });
+
+    it('uses a custom entry file when provided', async () => {
+      const { plugin, files } = createProjectTestPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      const result = await service.createProject({
+        conversationTitle: 'chat-1',
+        widgetId: 'abc12',
+        entry: 'app.html',
+        files: {
+          'app.html': '<p>App</p>',
+        },
+      });
+
+      expect(result).toEqual({ projectPath, entry: 'app.html' });
+      expect(plugin.app.vault.create).toHaveBeenCalledWith(
+        `${projectPath}/app.html`,
+        '<p>App</p>'
+      );
+      expect(JSON.parse(files.get(`${projectPath}/manifest.json`) ?? '')).toEqual({
+        entry: 'app.html',
+        type: 'html',
+      });
+    });
+
+    it('throws when the entry file is missing from files', async () => {
+      const { plugin } = createProjectTestPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      await expect(
+        service.createProject({
+          conversationTitle: 'chat-1',
+          widgetId: 'abc12',
+          entry: 'app.html',
+          files: {
+            'index.html': '<p>Wrong entry</p>',
+          },
+        })
+      ).rejects.toThrow('Widget entry file "app.html" is missing from files');
+
+      expect(plugin.app.vault.create).not.toHaveBeenCalled();
+    });
+
+    it('throws when a file path escapes the project directory', async () => {
+      const { plugin, files } = createProjectTestPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      await expect(
+        service.createProject({
+          conversationTitle: 'chat-1',
+          widgetId: 'abc12',
+          files: {
+            '../escape.html': '<p>Bad</p>',
+            'index.html': '<p>Hello</p>',
+          },
+        })
+      ).rejects.toThrow('Invalid widget file path: ../escape.html');
+
+      expect(plugin.app.vault.create).not.toHaveBeenCalled();
+      expect(files.size).toBe(0);
+    });
+
+    it('modifies existing project files instead of creating them', async () => {
+      const { plugin, files } = createProjectTestPlugin({
+        initialFiles: {
+          [`${projectPath}/index.html`]: '<p>Old</p>',
+          [`${projectPath}/manifest.json`]: JSON.stringify({ entry: 'index.html', type: 'html' }),
+        },
+      });
+      const service = WidgetService.getInstance(plugin);
+
+      await service.createProject({
+        conversationTitle: 'chat-1',
+        widgetId: 'abc12',
+        files: {
+          'index.html': '<p>Updated</p>',
+        },
+      });
+
+      expect(plugin.app.vault.modify).toHaveBeenCalledWith(
+        expect.objectContaining({ path: `${projectPath}/index.html` }),
+        '<p>Updated</p>'
+      );
+      expect(plugin.app.vault.create).not.toHaveBeenCalled();
+      expect(files.get(`${projectPath}/index.html`)).toBe('<p>Updated</p>');
+    });
+
+    it('creates parent folders for nested file paths', async () => {
+      const { plugin, files } = createProjectTestPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      await service.createProject({
+        conversationTitle: 'chat-1',
+        widgetId: 'abc12',
+        files: {
+          'index.html': '<p>Hello</p>',
+          'styles/theme.css': 'body { color: red; }',
+        },
+      });
+
+      expect(plugin.obsidianAPITools.ensureFolderExists).toHaveBeenCalledWith(
+        `${projectPath}/styles`
+      );
+      expect(files.get(`${projectPath}/styles/theme.css`)).toBe('body { color: red; }');
+    });
+
+    it('includes normalized assets in manifest when provided', async () => {
+      const { plugin, files } = createProjectTestPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      await service.createProject({
+        conversationTitle: 'chat-1',
+        widgetId: 'abc12',
+        files: {
+          'index.html': '<img src="asset:Images/logo.png" />',
+        },
+        assets: ['asset:Images/logo.png', 'Docs/bg.png'],
+      });
+
+      expect(JSON.parse(files.get(`${projectPath}/manifest.json`) ?? '')).toEqual({
+        entry: 'index.html',
+        type: 'html',
+        assets: ['Images/logo.png', 'Docs/bg.png'],
+      });
+    });
+
+    it('omits assets from manifest when none are provided', async () => {
+      const { plugin, files } = createProjectTestPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      await service.createProject({
+        conversationTitle: 'chat-1',
+        widgetId: 'abc12',
+        files: {
+          'index.html': '<p>No assets</p>',
+        },
+      });
+
+      const manifest = JSON.parse(files.get(`${projectPath}/manifest.json`) ?? '');
+      expect(manifest).toEqual({
+        entry: 'index.html',
+        type: 'html',
+      });
+      expect(manifest.assets).toBeUndefined();
     });
   });
 });

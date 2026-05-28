@@ -34,3 +34,10 @@ export function isHiddenPath(path: string) {
 
   return parts.some(part => part.startsWith('.'));
 }
+
+/** Returns true when targetPath equals prefix or is a file/folder under it. */
+export function isPathUnderPrefix(prefix: string, targetPath: string): boolean {
+  const root = prefix;
+  const target = targetPath;
+  return target === root || target.startsWith(`${root}/`);
+}

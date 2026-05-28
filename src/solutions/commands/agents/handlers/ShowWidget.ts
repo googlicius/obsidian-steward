@@ -268,6 +268,11 @@ export class ShowWidget {
       content: projectFiles.map(file => file.content),
       declaredAssets: toolCall.input.assets,
     });
+    const widgetService = this.agent.plugin.widgetService;
+    const jsErrors = widgetService.jsValidator.validateProjectFiles(files);
+    if (jsErrors.length > 0) {
+      throw new Error(widgetService.jsValidator.formatErrors(jsErrors));
+    }
     const { projectPath } = await this.agent.plugin.widgetService.createProject({
       conversationTitle: title,
       widgetId,

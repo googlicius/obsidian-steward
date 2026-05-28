@@ -1,7 +1,9 @@
 import { TAbstractFile, TFile, normalizePath } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
+import { isPathUnderPrefix } from 'src/utils/pathUtils';
 import { WidgetBundler } from './WidgetBundler';
+import { WidgetJsValidator } from './WidgetJsValidator';
 import type { WidgetManifest, WidgetProjectFenceData } from './types';
 
 const MAX_ASSET_BYTES = 2 * 1024 * 1024;
@@ -25,11 +27,13 @@ interface MountedWidgetEntry {
 export class WidgetService {
   private static instance: WidgetService;
   private readonly bundler: WidgetBundler;
+  public readonly jsValidator: WidgetJsValidator;
   private readonly mountedByPath = new Map<string, Set<MountedWidgetEntry>>();
   private modifyListenerRegistered = false;
 
   private constructor(private readonly plugin: StewardPlugin) {
     this.bundler = new WidgetBundler(plugin);
+    this.jsValidator = new WidgetJsValidator();
   }
 
   /** Returns the singleton service bound to the plugin instance. */
@@ -133,8 +137,12 @@ export class WidgetService {
     const filePaths = Object.keys(params.files);
     for (let i = 0; i < filePaths.length; i++) {
       const relativePath = filePaths[i];
+      if (relativePath.startsWith('/') || relativePath.split('/').includes('..')) {
+        throw new Error(`Invalid widget file path: ${relativePath}`);
+      }
+
       const absolutePath = normalizePath(`${projectPath}/${relativePath}`);
-      if (!this.isPathInsideProject(projectPath, absolutePath)) {
+      if (!isPathUnderPrefix(normalizePath(projectPath), normalizePath(absolutePath))) {
         throw new Error(`Invalid widget file path: ${relativePath}`);
       }
 
@@ -297,13 +305,6 @@ export class WidgetService {
     return normalizePath(`${root}/${segments[0]}/${segments[1]}`);
   }
 
-  /** Returns true when targetPath is the project folder or a file inside it. */
-  private isPathInsideProject(projectPath: string, targetPath: string): boolean {
-    const project = normalizePath(projectPath);
-    const target = normalizePath(targetPath);
-    return target === project || target.startsWith(`${project}/`);
-  }
-
   /** Resolves asset paths into data URLs keyed by asset:path for HTML replacement. */
   private async resolveAssetDataUrls(assets: string[]): Promise<Record<string, string>> {
     const dataUrls: Record<string, string> = {};
@@ -321,7 +322,7 @@ export class WidgetService {
         continue;
       }
 
-      const key = this.bundler.assetPathKey(vaultRelativePath);
+      const key = WidgetBundler.assetPathKey(vaultRelativePath);
       dataUrls[key] = dataUrl;
     }
 

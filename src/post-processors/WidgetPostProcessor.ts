@@ -13,266 +13,153 @@ import {
 import { logger } from 'src/utils/logger';
 
 const WIDGET_FENCE_SELECTOR = WIDGET_TYPES.map(
-  type => `pre > code.language-${getWidgetFenceLanguage(type)}`
+  t => `pre > code.language-${getWidgetFenceLanguage(t)}`
 ).join(',');
-
 const WIDGET_PROJECT_FENCE_SELECTOR = `pre > code.language-${WIDGET_PROJECT_FENCE_LANGUAGE}`;
 
-function parseWidgetTypeFromCodeElement(code: HTMLElement): WidgetType | null {
-  for (let i = 0; i < WIDGET_TYPES.length; i++) {
-    const type = WIDGET_TYPES[i];
-    if (code.classList.contains(`language-${getWidgetFenceLanguage(type)}`)) {
-      return type;
-    }
-  }
-  return null;
+function getWidgetType(code: HTMLElement): WidgetType | null {
+  return (
+    WIDGET_TYPES.find(t => code.classList.contains(`language-${getWidgetFenceLanguage(t)}`)) ?? null
+  );
 }
 
-function syncIframeHeight(iframe: HTMLIFrameElement): void {
-  const doc = iframe.contentDocument;
-  if (!doc) {
-    return;
-  }
+function mountIframe(container: HTMLElement, type: WidgetType, code: string): () => void {
+  const { srcdoc, sandbox, usesPostMessageResize } = buildWidgetSrcdoc({ type, code });
 
-  const height = Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0);
-  if (height <= 0) {
-    return;
-  }
-
-  iframe.style.height = `${height}px`;
-}
-
-function mountWidgetIframe(params: {
-  container: HTMLElement;
-  type: WidgetType;
-  code: string;
-}): () => void {
-  const { srcdoc, sandbox, usesPostMessageResize } = buildWidgetSrcdoc({
-    type: params.type,
-    code: params.code,
+  const iframe = Object.assign(document.createElement('iframe'), {
+    className: 'stw-widget-frame',
+    title: 'Widget',
+    srcdoc,
   });
-
-  const iframe = document.createElement('iframe');
-  iframe.classList.add('stw-widget-frame');
   iframe.setAttribute('sandbox', sandbox);
   iframe.setAttribute('referrerpolicy', 'no-referrer');
   iframe.setAttribute('loading', 'lazy');
-  iframe.title = 'Widget';
-  iframe.srcdoc = srcdoc;
-
-  params.container.appendChild(iframe);
+  container.appendChild(iframe);
 
   let resizeObserver: ResizeObserver | undefined;
 
-  const onResizeFromIframe = (event: MessageEvent): void => {
-    if (event.source !== iframe.contentWindow) {
-      return;
-    }
-    if (event.data?.type !== WIDGET_RESIZE) {
-      return;
-    }
-    const height = Number(event.data.height);
-    if (!Number.isFinite(height) || height <= 0) {
-      return;
-    }
-    iframe.style.height = `${height}px`;
+  const syncHeight = () => {
+    const doc = iframe.contentDocument;
+    const h = Math.max(doc?.documentElement.scrollHeight ?? 0, doc?.body?.scrollHeight ?? 0);
+    if (h > 0) iframe.style.height = `${h}px`;
   };
 
-  if (usesPostMessageResize) {
-    window.addEventListener('message', onResizeFromIframe);
-  }
+  const onMessage = (e: MessageEvent) => {
+    if (e.source !== iframe.contentWindow || e.data?.type !== WIDGET_RESIZE) return;
+    const h = Number(e.data.height);
+    if (Number.isFinite(h) && h > 0) iframe.style.height = `${h}px`;
+  };
 
-  const onLoad = (): void => {
-    if (usesPostMessageResize) {
-      return;
-    }
-
-    syncIframeHeight(iframe);
-
-    const doc = iframe.contentDocument;
-    if (!doc?.body) {
-      return;
-    }
-
-    resizeObserver = new ResizeObserver(() => {
-      syncIframeHeight(iframe);
-    });
-    resizeObserver.observe(doc.body);
-    resizeObserver.observe(doc.documentElement);
+  const onLoad = () => {
+    if (usesPostMessageResize) return;
+    if (!iframe.contentDocument || !iframe.contentDocument) return;
+    syncHeight();
+    resizeObserver = new ResizeObserver(syncHeight);
+    resizeObserver.observe(iframe.contentDocument.body);
+    resizeObserver.observe(iframe.contentDocument.documentElement);
   };
 
   iframe.addEventListener('load', onLoad);
+  if (usesPostMessageResize) window.addEventListener('message', onMessage);
 
   return () => {
     iframe.removeEventListener('load', onLoad);
-    if (usesPostMessageResize) {
-      window.removeEventListener('message', onResizeFromIframe);
-    }
+    if (usesPostMessageResize) window.removeEventListener('message', onMessage);
     resizeObserver?.disconnect();
   };
 }
 
-function mountWidgetBlock(params: { pre: HTMLElement; code: HTMLElement; type: WidgetType }): void {
-  if (params.pre.dataset.stwWidgetMounted === '1') {
-    return;
-  }
-
-  const rawCode = params.code.textContent ?? '';
-  if (rawCode.trim().length === 0) {
-    return;
-  }
-
-  params.pre.dataset.stwWidgetMounted = '1';
-
-  const container = document.createElement('div');
-  container.classList.add('stw-widget-container');
-  container.dataset.stwWidgetType = params.type;
-
-  params.pre.replaceWith(container);
-
-  const teardown = mountWidgetIframe({
-    container,
-    type: params.type,
-    code: rawCode,
-  });
-
-  attachRemovalWatcher(container, teardown);
-}
-
-function mountWidgetProjectBlock(params: {
-  pre: HTMLElement;
-  code: HTMLElement;
-  plugin: StewardPlugin;
-}): void {
-  if (params.pre.dataset.stwWidgetMounted === '1') {
-    return;
-  }
-
-  const rawFence = params.code.textContent ?? '';
-  const parsed = params.plugin.widgetService.parseProjectFenceContent(rawFence);
-  if (!parsed) {
-    logger.warn('Cannot parse widget project fence', { rawFence });
-    return;
-  }
-
-  params.pre.dataset.stwWidgetMounted = '1';
-
-  const container = document.createElement('div');
-  container.classList.add('stw-widget-container');
-  container.dataset.stwWidgetType = 'html';
-  container.dataset.stwWidgetProjectPath = parsed.projectPath;
-  container.dataset.stwWidgetId = parsed.widgetId;
-
-  params.pre.replaceWith(container);
-
-  let teardownIframe: (() => void) | undefined;
-  let unregisterMounted: (() => void) | undefined;
-
-  const mount = async (): Promise<void> => {
-    try {
-      const widgetService = params.plugin.widgetService;
-      const bundled = await widgetService.bundleProject(parsed.projectPath);
-
-      const refresh = async (): Promise<void> => {
-        try {
-          const nextBundled = await widgetService.bundleProject(parsed.projectPath);
-          const { srcdoc: nextSrcdoc } = buildWidgetSrcdoc({
-            type: 'html',
-            code: nextBundled,
-          });
-          const iframe = container.querySelector('iframe.stw-widget-frame');
-          if (iframe instanceof HTMLIFrameElement) {
-            iframe.srcdoc = nextSrcdoc;
-          }
-        } catch (error) {
-          logger.error('Failed to refresh widget project:', error);
-        }
-      };
-
-      unregisterMounted = widgetService.registerMountedWidget({
-        container,
-        projectPath: parsed.projectPath,
-        refresh,
-      });
-
-      teardownIframe = mountWidgetIframe({
-        container,
-        type: 'html',
-        code: bundled,
-      });
-    } catch (error) {
-      logger.error('Failed to mount widget project:', error);
-      container.textContent = 'Failed to load widget project.';
-    }
-  };
-
-  attachRemovalWatcher(container, () => {
-    teardownIframe?.();
-    unregisterMounted?.();
-    delete container.dataset.stwWidgetMounted;
-  });
-
-  void mount();
-}
-
-function attachRemovalWatcher(container: HTMLElement, teardown: () => void): void {
-  const observerRoot =
-    container.closest('.workspace-leaf-content') ??
-    container.closest('.workspace-leaf') ??
-    document.body;
-
-  const removalWatcher = new MutationObserver(() => {
-    if (observerRoot.contains(container)) {
-      return;
-    }
-    removalWatcher.disconnect();
+function watchRemoval(container: HTMLElement, teardown: () => void): void {
+  const root = container.closest('.workspace-leaf-content, .workspace-leaf') ?? document.body;
+  const observer = new MutationObserver(() => {
+    if (root.contains(container)) return;
+    observer.disconnect();
     teardown();
     delete container.dataset.stwWidgetMounted;
   });
+  observer.observe(root, { childList: true, subtree: true });
+}
 
-  removalWatcher.observe(observerRoot, {
-    childList: true,
-    subtree: true,
+function makeContainer(type: string): HTMLElement {
+  const el = document.createElement('div');
+  el.classList.add('stw-widget-container');
+  el.dataset.stwWidgetType = type;
+  return el;
+}
+
+function mountWidget(pre: HTMLElement, type: WidgetType, code: string): void {
+  if (pre.dataset.stwWidgetMounted === '1' || !code.trim()) return;
+  pre.dataset.stwWidgetMounted = '1';
+  const container = makeContainer(type);
+  pre.replaceWith(container);
+  watchRemoval(container, mountIframe(container, type, code));
+}
+
+async function mountWidgetProject(
+  pre: HTMLElement,
+  code: HTMLElement,
+  plugin: StewardPlugin
+): Promise<void> {
+  if (pre.dataset.stwWidgetMounted === '1') return;
+  const parsed = plugin.widgetService.parseProjectFenceContent(code.textContent ?? '');
+  if (!parsed)
+    return void logger.warn('Cannot parse widget project fence', { rawFence: code.textContent });
+
+  pre.dataset.stwWidgetMounted = '1';
+  const container = makeContainer('html');
+  container.dataset.stwWidgetProjectPath = parsed.projectPath;
+  container.dataset.stwWidgetId = parsed.widgetId;
+  pre.replaceWith(container);
+
+  let teardownIframe: (() => void) | undefined;
+  let unregister: (() => void) | undefined;
+
+  watchRemoval(container, () => {
+    teardownIframe?.();
+    unregister?.();
+    delete container.dataset.stwWidgetMounted;
   });
+
+  try {
+    const { widgetService } = plugin;
+    const bundled = await widgetService.bundleProject(parsed.projectPath);
+
+    const refresh = async () => {
+      try {
+        const next = await widgetService.bundleProject(parsed.projectPath);
+        const { srcdoc } = buildWidgetSrcdoc({ type: 'html', code: next });
+        const iframe = container.querySelector<HTMLIFrameElement>('iframe.stw-widget-frame');
+        if (iframe) iframe.srcdoc = srcdoc;
+      } catch (e) {
+        logger.error('Failed to refresh widget project:', e);
+      }
+    };
+
+    unregister = widgetService.registerMountedWidget({
+      container,
+      projectPath: parsed.projectPath,
+      refresh,
+    });
+    teardownIframe = mountIframe(container, 'html', bundled);
+  } catch (e) {
+    logger.error('Failed to mount widget project:', e);
+    container.textContent = 'Failed to load widget project.';
+  }
 }
 
 export function createWidgetPostProcessor(plugin: StewardPlugin): MarkdownPostProcessor {
-  return (el): void => {
+  return el => {
     window.setTimeout(() => {
-      const projectBlocks = el.querySelectorAll(WIDGET_PROJECT_FENCE_SELECTOR);
-      for (let i = 0; i < projectBlocks.length; i++) {
-        const code = projectBlocks.item(i);
-        if (!(code instanceof HTMLElement)) {
-          continue;
-        }
-
+      el.querySelectorAll<HTMLElement>(WIDGET_PROJECT_FENCE_SELECTOR).forEach(code => {
         const pre = code.parentElement;
-        if (!pre || pre.tagName !== 'PRE') {
-          continue;
-        }
+        if (pre?.tagName === 'PRE') void mountWidgetProject(pre, code, plugin);
+      });
 
-        mountWidgetProjectBlock({ pre, code, plugin });
-      }
-
-      const codeBlocks = el.querySelectorAll(WIDGET_FENCE_SELECTOR);
-      for (let i = 0; i < codeBlocks.length; i++) {
-        const code = codeBlocks.item(i);
-        if (!(code instanceof HTMLElement)) {
-          continue;
-        }
-
+      el.querySelectorAll<HTMLElement>(WIDGET_FENCE_SELECTOR).forEach(code => {
         const pre = code.parentElement;
-        if (!pre || pre.tagName !== 'PRE') {
-          continue;
-        }
-
-        const type = parseWidgetTypeFromCodeElement(code);
-        if (!type) {
-          continue;
-        }
-
-        mountWidgetBlock({ pre, code, type });
-      }
+        const type = getWidgetType(code);
+        if (pre?.tagName === 'PRE' && type) mountWidget(pre, type, code.textContent ?? '');
+      });
     });
   };
 }
