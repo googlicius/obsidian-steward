@@ -2,15 +2,9 @@ import { TAbstractFile, TFile, normalizePath } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { WidgetBundler } from './WidgetBundler';
-import type {
-  WidgetAssetBinding,
-  WidgetBundlerAssetData,
-  WidgetManifest,
-  WidgetManifestAsset,
-  WidgetProjectFenceData,
-} from './types';
+import type { WidgetManifest, WidgetProjectFenceData } from './types';
 
-const MAX_ASSET_BYTES = 500 * 1024;
+const MAX_ASSET_BYTES = 2 * 1024 * 1024;
 
 /** Markdown fence language for project widget references in conversation notes */
 export const WIDGET_PROJECT_FENCE_LANGUAGE = 'stw-widget-project';
@@ -88,6 +82,24 @@ export class WidgetService {
     return this.parseProjectFenceContent(content);
   }
 
+  /** Replaces vault asset path references in HTML with inlined data URLs. */
+  public async inlineAssetsInHtml(params: { html: string; assets?: string[] }): Promise<string> {
+    if (!params.assets || params.assets.length === 0) {
+      return params.html;
+    }
+
+    const assetDataUrls = await this.resolveAssetDataUrls(params.assets);
+    return this.bundler.applyAssetPaths(params.html, assetDataUrls);
+  }
+
+  /** Returns asset: paths used in content but absent from the declared assets list. */
+  public findMissingAssets(params: {
+    content: string | string[];
+    declaredAssets?: string[];
+  }): string[] {
+    return this.bundler.findMissingAssets(params);
+  }
+
   /**
    * Writes project files and manifest.json under the widget project folder.
    */
@@ -96,7 +108,7 @@ export class WidgetService {
     widgetId: string;
     files: Record<string, string>;
     entry?: string;
-    assets?: WidgetAssetBinding[];
+    assets?: string[];
   }): Promise<{ projectPath: string; entry: string }> {
     const projectPath = this.getProjectPath({
       conversationTitle: params.conversationTitle,
@@ -114,7 +126,7 @@ export class WidgetService {
       entry,
       type: 'html',
       assets: params.assets?.length
-        ? WidgetBundler.manifestAssetsFromBindings(params.assets)
+        ? params.assets.map(path => WidgetBundler.normalizeAssetPath(path))
         : undefined,
     };
 
@@ -193,39 +205,12 @@ export class WidgetService {
       throw new Error(`Widget manifest missing or invalid: ${projectPath}`);
     }
 
-    const assetData = await this.resolveManifestAssets(manifest);
+    const assetDataUrls = await this.resolveAssetDataUrls(manifest.assets ?? []);
     return this.bundler.bundle({
       projectPath,
       entryRelativePath: manifest.entry,
-      assetData,
+      assetDataUrls,
     });
-  }
-
-  /**
-   * Loads a manifest asset from the vault for runtime delivery via postMessage (Phase 2 bridge).
-   */
-  public async loadVaultAssetForRuntime(params: {
-    manifest: WidgetManifest;
-    key: string;
-  }): Promise<unknown> {
-    const asset = params.manifest.assets?.[params.key];
-    if (!asset) {
-      return null;
-    }
-
-    const vaultPath = asset.source.startsWith('vault:')
-      ? asset.source.slice('vault:'.length)
-      : asset.source;
-    const file = await this.plugin.mediaTools.findFileByNameOrPath(vaultPath);
-    if (!file) {
-      return null;
-    }
-
-    if (asset.inject === 'global') {
-      return this.plugin.app.vault.read(file);
-    }
-
-    return this.readFileAsDataUrl(file);
   }
 
   /**
@@ -275,9 +260,6 @@ export class WidgetService {
         if (!this.isWidgetProjectPath(file.path)) {
           return;
         }
-        if (file.name === 'manifest.json') {
-          return;
-        }
 
         const projectPath = this.findProjectPathForFile(file.path);
         if (!projectPath) {
@@ -322,58 +304,45 @@ export class WidgetService {
     return target === project || target.startsWith(`${project}/`);
   }
 
-  /** Resolves manifest vault assets into data URLs and global injection data for bundling. */
-  private async resolveManifestAssets(manifest: WidgetManifest): Promise<WidgetBundlerAssetData> {
+  /** Resolves asset paths into data URLs keyed by asset:path for HTML replacement. */
+  private async resolveAssetDataUrls(assets: string[]): Promise<Record<string, string>> {
     const dataUrls: Record<string, string> = {};
-    const globals: Record<string, unknown> = {};
 
-    if (!manifest.assets) {
-      return { dataUrls, globals };
-    }
-
-    const keys = Object.keys(manifest.assets);
-    for (let i = 0; i < keys.length; i++) {
-      const key = keys[i];
-      const asset: WidgetManifestAsset = manifest.assets[key];
-      const vaultPath = asset.source.startsWith('vault:')
-        ? asset.source.slice('vault:'.length)
-        : asset.source;
-
-      const file = await this.plugin.mediaTools.findFileByNameOrPath(vaultPath);
+    for (let i = 0; i < assets.length; i++) {
+      const vaultRelativePath = WidgetBundler.normalizeAssetPath(assets[i]);
+      const file = await this.plugin.mediaTools.findFileByNameOrPath(vaultRelativePath);
       if (!file) {
-        logger.warn(`Widget asset not found: ${vaultPath}`);
+        logger.warn(`Widget asset not found: ${vaultRelativePath}`);
         continue;
       }
 
-      if (asset.inject === 'dataUrl') {
-        const dataUrl = await this.readFileAsDataUrl(file);
-        if (dataUrl) {
-          dataUrls[key] = dataUrl;
-        }
+      const dataUrl = await this.readFileAsDataUrl(file);
+      if (!dataUrl) {
         continue;
       }
 
-      if (asset.inject === 'global') {
-        const text = await this.plugin.app.vault.read(file);
-        const globalName = asset.globalName ?? key;
-        globals[globalName] = text;
-      }
+      const key = this.bundler.assetPathKey(vaultRelativePath);
+      dataUrls[key] = dataUrl;
     }
 
-    return { dataUrls, globals };
+    return dataUrls;
   }
 
   /** Reads a vault file as a base64 data URL, skipping files over the size cap. */
   private async readFileAsDataUrl(file: TFile): Promise<string | null> {
     const stat = await this.plugin.app.vault.adapter.stat(file.path);
     if (stat && stat.size > MAX_ASSET_BYTES) {
-      logger.warn(`Widget asset too large, skipping: ${file.path}`);
+      logger.warn(
+        `Widget asset too large, skipping: ${file.path} (${stat.size} bytes, max ${MAX_ASSET_BYTES})`
+      );
       return null;
     }
 
     const binary = await this.plugin.app.vault.readBinary(file);
     if (binary.byteLength > MAX_ASSET_BYTES) {
-      logger.warn(`Widget asset too large, skipping: ${file.path}`);
+      logger.warn(
+        `Widget asset too large, skipping: ${file.path} (${binary.byteLength} bytes, max ${MAX_ASSET_BYTES})`
+      );
       return null;
     }
 

@@ -1,6 +1,11 @@
 import { normalizePath } from 'obsidian';
 import type StewardPlugin from 'src/main';
-import type { WidgetBundlerAssetData, WidgetManifestAsset } from './types';
+
+/** Prefix for vault asset references in widget HTML before base64 inlining. */
+export const WIDGET_ASSET_PREFIX = 'asset:';
+
+/** Matches asset:path references in HTML, CSS url(), and attribute values. */
+const WIDGET_ASSET_PATH_PATTERN = /asset:([^\s"'<>)\]]+)/g;
 
 const LINK_HREF_PATTERN = /<link\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>/gi;
 const SCRIPT_SRC_PATTERN = /<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>\s*<\/script>/gi;
@@ -12,12 +17,12 @@ export class WidgetBundler {
   constructor(private readonly plugin: StewardPlugin) {}
 
   /**
-   * Reads the entry HTML, inlines linked stylesheets and scripts, and applies manifest asset placeholders.
+   * Reads the entry HTML, inlines linked stylesheets and scripts, and replaces vault asset paths.
    */
   public async bundle(params: {
     projectPath: string;
     entryRelativePath: string;
-    assetData: WidgetBundlerAssetData;
+    assetDataUrls: Record<string, string>;
   }): Promise<string> {
     const entryPath = normalizePath(`${params.projectPath}/${params.entryRelativePath}`);
     const entryContent = await this.readProjectFile(entryPath, params.projectPath);
@@ -37,40 +42,88 @@ export class WidgetBundler {
       entryFile: params.entryRelativePath,
     });
 
-    const injectionScript = this.buildDataInjectionScript(params.assetData.globals);
-    if (injectionScript) {
-      if (/<head[\s>]/i.test(html)) {
-        html = html.replace(/<head([\s>])/i, `<head$1${injectionScript}`);
-      } else if (/<html[\s>]/i.test(html)) {
-        html = html.replace(/<html([\s>])/i, `<html$1<head>${injectionScript}</head>`);
-      } else {
-        html = `${injectionScript}${html}`;
-      }
-    }
-
-    html = this.applyDataUrlPlaceholders(html, params.assetData.dataUrls);
+    html = this.applyAssetPaths(html, params.assetDataUrls);
     return html.trim();
   }
 
-  /** Converts tool asset bindings into manifest.json asset entries. */
-  public static manifestAssetsFromBindings(
-    bindings: Array<{
-      key: string;
-      source: string;
-      inject: WidgetManifestAsset['inject'];
-      globalName?: string;
-    }>
-  ): Record<string, WidgetManifestAsset> {
-    const assets: Record<string, WidgetManifestAsset> = {};
-    for (let i = 0; i < bindings.length; i++) {
-      const binding = bindings[i];
-      assets[binding.key] = {
-        source: binding.source.startsWith('vault:') ? binding.source : `vault:${binding.source}`,
-        inject: binding.inject,
-        globalName: binding.globalName,
-      };
+  /** Normalizes a vault-relative asset path from the assets array. */
+  public static normalizeAssetPath(path: string): string {
+    let trimmed = path.trim();
+    if (trimmed.startsWith(WIDGET_ASSET_PREFIX)) {
+      trimmed = trimmed.slice(WIDGET_ASSET_PREFIX.length);
     }
-    return assets;
+    return normalizePath(trimmed);
+  }
+
+  /** Builds the HTML lookup key for an asset path (asset:Images/photo.png). */
+  public assetPathKey(vaultRelativePath: string): string {
+    return `${WIDGET_ASSET_PREFIX}${normalizePath(vaultRelativePath)}`;
+  }
+
+  /** Collects unique vault-relative paths referenced via asset: in HTML or CSS content. */
+  public extractAssetPaths(content: string): string[] {
+    const paths = new Set<string>();
+    const pattern = new RegExp(WIDGET_ASSET_PATH_PATTERN.source, WIDGET_ASSET_PATH_PATTERN.flags);
+    let match: RegExpExecArray | null;
+
+    while ((match = pattern.exec(content)) !== null) {
+      paths.add(WidgetBundler.normalizeAssetPath(match[1]));
+    }
+
+    const result: string[] = [];
+    for (const path of paths) {
+      result.push(path);
+    }
+    result.sort();
+    return result;
+  }
+
+  /** Returns asset: paths used in content but absent from the declared assets list. */
+  public findMissingAssets(params: {
+    content: string | string[];
+    declaredAssets?: string[];
+  }): string[] {
+    const contents = Array.isArray(params.content) ? params.content : [params.content];
+    const referenced = new Set<string>();
+
+    for (let i = 0; i < contents.length; i++) {
+      const paths = this.extractAssetPaths(contents[i]);
+      for (let j = 0; j < paths.length; j++) {
+        referenced.add(paths[j]);
+      }
+    }
+
+    const declared = new Set<string>();
+    const assets = params.declaredAssets ?? [];
+    for (let i = 0; i < assets.length; i++) {
+      declared.add(WidgetBundler.normalizeAssetPath(assets[i]));
+    }
+
+    const missing: string[] = [];
+    for (const path of referenced) {
+      if (!declared.has(path)) {
+        missing.push(path);
+      }
+    }
+    missing.sort();
+    return missing;
+  }
+
+  /** Replaces asset:path references in HTML/CSS with bundled base64 data URLs. */
+  public applyAssetPaths(html: string, assetDataUrls: Record<string, string>): string {
+    const keys = Object.keys(assetDataUrls);
+    if (keys.length === 0) {
+      return html;
+    }
+
+    keys.sort((a, b) => b.length - a.length);
+
+    let result = html;
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      result = result.split(key).join(assetDataUrls[key]);
+    }
+    return result;
   }
 
   private async readProjectFile(absolutePath: string, projectPath: string): Promise<string | null> {
@@ -174,26 +227,6 @@ export class WidgetBundler {
 
   private escapeScriptContent(content: string): string {
     return content.replace(/<\/script/gi, '<\\/script');
-  }
-
-  private buildDataInjectionScript(globals: Record<string, unknown>): string {
-    if (Object.keys(globals).length === 0) {
-      return '';
-    }
-
-    const serialized = JSON.stringify(globals);
-    return `<script>window.__WIDGET_DATA__ = Object.assign(window.__WIDGET_DATA__ || {}, ${serialized});</script>`;
-  }
-
-  private applyDataUrlPlaceholders(html: string, dataUrls: Record<string, string>): string {
-    let result = html;
-    const keys = Object.keys(dataUrls);
-    for (let i = 0; i < keys.length; i++) {
-      const key = keys[i];
-      const placeholder = `{{widget-asset:${key}}}`;
-      result = result.split(placeholder).join(dataUrls[key]);
-    }
-    return result;
   }
 
   private isPathInsideProject(projectPath: string, targetPath: string): boolean {

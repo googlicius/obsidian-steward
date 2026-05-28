@@ -53,11 +53,7 @@ function injectHeadMetaIntoDocument(code: string, extraHead = ''): string {
 /**
  * Wraps widget HTML or SVG in a full document with CSP, resize reporting, and sandbox attributes.
  */
-export function buildWidgetSrcdoc(params: {
-  type: WidgetType;
-  code: string;
-  extraHead?: string;
-}): {
+export function buildWidgetSrcdoc(params: { type: WidgetType; code: string; extraHead?: string }): {
   srcdoc: string;
   sandbox: string;
   usesPostMessageResize: boolean;

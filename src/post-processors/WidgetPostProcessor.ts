@@ -8,13 +8,7 @@ import {
 import {
   WIDGET_PROJECT_FENCE_LANGUAGE,
   buildWidgetSrcdoc,
-  buildWidgetBridgeHead,
-  isRuntimeAssetKey,
   WIDGET_RESIZE,
-  WIDGET_REQUEST_ASSET,
-  WIDGET_ASSET,
-  type WidgetRequestAssetPayload,
-  type WidgetAssetPayload,
 } from 'src/services/WidgetService';
 import { logger } from 'src/utils/logger';
 
@@ -50,17 +44,12 @@ function syncIframeHeight(iframe: HTMLIFrameElement): void {
 
 function mountWidgetIframe(params: {
   container: HTMLElement;
-  plugin: StewardPlugin;
   type: WidgetType;
   code: string;
-  extraHead?: string;
-  projectPath?: string;
-  widgetId?: string;
 }): () => void {
   const { srcdoc, sandbox, usesPostMessageResize } = buildWidgetSrcdoc({
     type: params.type,
     code: params.code,
-    extraHead: params.extraHead,
   });
 
   const iframe = document.createElement('iframe');
@@ -74,8 +63,6 @@ function mountWidgetIframe(params: {
   params.container.appendChild(iframe);
 
   let resizeObserver: ResizeObserver | undefined;
-  let unregisterMounted: (() => void) | undefined;
-  let onAssetRequestFromIframe: ((event: MessageEvent) => void) | undefined;
 
   const onResizeFromIframe = (event: MessageEvent): void => {
     if (event.source !== iframe.contentWindow) {
@@ -93,89 +80,6 @@ function mountWidgetIframe(params: {
 
   if (usesPostMessageResize) {
     window.addEventListener('message', onResizeFromIframe);
-  }
-
-  const isProjectWidget = Boolean(params.projectPath && params.widgetId);
-  if (isProjectWidget) {
-    const widgetService = params.plugin.widgetService;
-    const projectPath = params.projectPath as string;
-    const widgetId = params.widgetId as string;
-
-    const refresh = async (): Promise<void> => {
-      try {
-        const bundled = await widgetService.bundleProject(projectPath);
-        const manifest = await widgetService.readManifest(projectPath);
-        const bridgeHead = manifest?.assets ? buildWidgetBridgeHead(widgetId) : '';
-        const { srcdoc: nextSrcdoc } = buildWidgetSrcdoc({
-          type: 'html',
-          code: bundled,
-          extraHead: bridgeHead,
-        });
-        iframe.srcdoc = nextSrcdoc;
-      } catch (error) {
-        logger.error('Failed to refresh widget project:', error);
-      }
-    };
-
-    unregisterMounted = widgetService.registerMountedWidget({
-      container: params.container,
-      projectPath,
-      refresh,
-    });
-
-    onAssetRequestFromIframe = async (event: MessageEvent): Promise<void> => {
-      if (event.source !== iframe.contentWindow) {
-        return;
-      }
-      const data = event.data as WidgetRequestAssetPayload | undefined;
-      if (!data || data.type !== WIDGET_REQUEST_ASSET) {
-        return;
-      }
-      if (data.widgetId !== widgetId) {
-        return;
-      }
-
-      const manifest = await widgetService.readManifest(projectPath);
-      if (!isRuntimeAssetKey(manifest, data.key)) {
-        const errorPayload: WidgetAssetPayload = {
-          type: WIDGET_ASSET,
-          requestId: data.requestId,
-          key: data.key,
-          payload: null,
-          error: `Unknown asset key: ${data.key}`,
-        };
-        iframe.contentWindow?.postMessage(errorPayload, '*');
-        return;
-      }
-
-      const payload = manifest
-        ? await widgetService.loadVaultAssetForRuntime({ manifest, key: data.key })
-        : null;
-
-      if (payload === null) {
-        iframe.contentWindow?.postMessage(
-          {
-            type: WIDGET_ASSET,
-            requestId: data.requestId,
-            key: data.key,
-            payload: null,
-            error: `Asset not found: ${data.key}`,
-          },
-          '*'
-        );
-        return;
-      }
-
-      const response: WidgetAssetPayload = {
-        type: WIDGET_ASSET,
-        requestId: data.requestId,
-        key: data.key,
-        payload,
-      };
-      iframe.contentWindow?.postMessage(response, '*');
-    };
-
-    window.addEventListener('message', onAssetRequestFromIframe);
   }
 
   const onLoad = (): void => {
@@ -204,20 +108,11 @@ function mountWidgetIframe(params: {
     if (usesPostMessageResize) {
       window.removeEventListener('message', onResizeFromIframe);
     }
-    if (onAssetRequestFromIframe) {
-      window.removeEventListener('message', onAssetRequestFromIframe);
-    }
     resizeObserver?.disconnect();
-    unregisterMounted?.();
   };
 }
 
-function mountWidgetBlock(params: {
-  pre: HTMLElement;
-  code: HTMLElement;
-  type: WidgetType;
-  plugin: StewardPlugin;
-}): void {
+function mountWidgetBlock(params: { pre: HTMLElement; code: HTMLElement; type: WidgetType }): void {
   if (params.pre.dataset.stwWidgetMounted === '1') {
     return;
   }
@@ -237,7 +132,6 @@ function mountWidgetBlock(params: {
 
   const teardown = mountWidgetIframe({
     container,
-    plugin: params.plugin,
     type: params.type,
     code: rawCode,
   });
@@ -271,24 +165,40 @@ function mountWidgetProjectBlock(params: {
 
   params.pre.replaceWith(container);
 
-  let teardown: (() => void) | undefined;
+  let teardownIframe: (() => void) | undefined;
+  let unregisterMounted: (() => void) | undefined;
 
   const mount = async (): Promise<void> => {
     try {
-      const bundled = await params.plugin.widgetService.bundleProject(parsed.projectPath);
-      const manifest = await params.plugin.widgetService.readManifest(parsed.projectPath);
-      const bridgeHead = manifest?.assets ? buildWidgetBridgeHead(parsed.widgetId) : '';
+      const widgetService = params.plugin.widgetService;
+      const bundled = await widgetService.bundleProject(parsed.projectPath);
 
-      console.log('BUNDLED', bundled);
+      const refresh = async (): Promise<void> => {
+        try {
+          const nextBundled = await widgetService.bundleProject(parsed.projectPath);
+          const { srcdoc: nextSrcdoc } = buildWidgetSrcdoc({
+            type: 'html',
+            code: nextBundled,
+          });
+          const iframe = container.querySelector('iframe.stw-widget-frame');
+          if (iframe instanceof HTMLIFrameElement) {
+            iframe.srcdoc = nextSrcdoc;
+          }
+        } catch (error) {
+          logger.error('Failed to refresh widget project:', error);
+        }
+      };
 
-      teardown = mountWidgetIframe({
+      unregisterMounted = widgetService.registerMountedWidget({
         container,
-        plugin: params.plugin,
+        projectPath: parsed.projectPath,
+        refresh,
+      });
+
+      teardownIframe = mountWidgetIframe({
+        container,
         type: 'html',
         code: bundled,
-        extraHead: bridgeHead,
-        projectPath: parsed.projectPath,
-        widgetId: parsed.widgetId,
       });
     } catch (error) {
       logger.error('Failed to mount widget project:', error);
@@ -297,7 +207,8 @@ function mountWidgetProjectBlock(params: {
   };
 
   attachRemovalWatcher(container, () => {
-    teardown?.();
+    teardownIframe?.();
+    unregisterMounted?.();
     delete container.dataset.stwWidgetMounted;
   });
 
@@ -360,7 +271,7 @@ export function createWidgetPostProcessor(plugin: StewardPlugin): MarkdownPostPr
           continue;
         }
 
-        mountWidgetBlock({ pre, code, type, plugin });
+        mountWidgetBlock({ pre, code, type });
       }
     });
   };

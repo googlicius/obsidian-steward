@@ -8,7 +8,6 @@ import { ArtifactType } from 'src/solutions/artifact/types';
 import { logger } from 'src/utils/logger';
 import { ToolName } from '../../toolNames';
 import { uniqueID } from 'src/utils/uniqueID';
-import type { WidgetAssetBinding } from 'src/services/WidgetService';
 
 export type ObsidianUiTheme = 'Light' | 'Dark';
 
@@ -46,21 +45,6 @@ const widgetProjectFileSchema = z.object({
   content: z.string().describe('Full file contents for that path.'),
 });
 
-const widgetAssetBindingSchema = z.object({
-  key: z.string().min(1).describe('Key for {{widget-asset:key}} placeholders or global injection.'),
-  source: z
-    .string()
-    .min(1)
-    .describe('Vault path prefixed with vault: (e.g. vault:Attachments/photo.png).'),
-  inject: z
-    .enum(['dataUrl', 'global'])
-    .describe('dataUrl inlines as data: URL; global injects text into window.__WIDGET_DATA__.'),
-  globalName: z
-    .string()
-    .optional()
-    .describe('Property name on window.__WIDGET_DATA__ when inject is global.'),
-});
-
 export const showWidgetSchema = z
   .object({
     type: z.enum(WIDGET_TYPES).describe('The content format of the widget.'),
@@ -83,9 +67,19 @@ export const showWidgetSchema = z
         'Entry HTML file name in files (project mode). Must match a files[].name. Defaults to index.html.'
       ),
     assets: z
-      .array(widgetAssetBindingSchema)
+      .array(
+        z
+          .string()
+          .min(1)
+          .describe('File path as asset to use in HTML where paths are prefixed with `asset:`')
+      )
       .optional()
-      .describe('Vault assets to bundle into the widget at render time.'),
+      .describe(
+        [
+          'Vault files to bundle as base64 at render time. Reference each path in HTML with the asset: prefix (e.g. src="asset:Images/photo.png").',
+          'IMPORTANT: Assets is required if any path in the HTML is prefixed with `asset:`',
+        ].join('\n')
+      ),
   })
   .superRefine((data, ctx) => {
     const isProject = data.files !== undefined && data.files.length > 0;
@@ -205,7 +199,16 @@ export class ShowWidget {
     toolCall: ToolCallPart<ShowWidgetArgs>
   ): Promise<AgentResult> {
     const { title } = ctx.agentHandlerParams;
-    const code = toolCall.input.code ?? '';
+    const rawCode = toolCall.input.code ?? '';
+    const code = await this.agent.plugin.widgetService.inlineAssetsInHtml({
+      html: rawCode,
+      assets: toolCall.input.assets,
+    });
+
+    const missingAssets = this.agent.plugin.widgetService.findMissingAssets({
+      content: rawCode,
+      declaredAssets: toolCall.input.assets,
+    });
 
     const contentMessageId = await ctx.updateConversationNote({
       newContent: `\n${buildWidgetFence({
@@ -242,7 +245,8 @@ export class ShowWidget {
           success: true,
           type: toolCall.input.type,
           artifactId,
-          message: this.buildCodeWidgetSuccessMessage(artifactId),
+          ...(missingAssets.length > 0 ? { missingAssets } : {}),
+          message: this.buildCodeWidgetResultMessage({ artifactId, missingAssets }),
         },
       },
     });
@@ -258,15 +262,18 @@ export class ShowWidget {
   ): Promise<AgentResult> {
     const { title } = ctx.agentHandlerParams;
     const widgetId = uniqueID();
-    const files = projectFilesToRecord(toolCall.input.files ?? []);
-    const assets = toolCall.input.assets as WidgetAssetBinding[] | undefined;
-
+    const projectFiles = toolCall.input.files ?? [];
+    const files = projectFilesToRecord(projectFiles);
+    const missingAssets = this.agent.plugin.widgetService.findMissingAssets({
+      content: projectFiles.map(file => file.content),
+      declaredAssets: toolCall.input.assets,
+    });
     const { projectPath } = await this.agent.plugin.widgetService.createProject({
       conversationTitle: title,
       widgetId,
       files,
       entry: toolCall.input.entry,
-      assets,
+      assets: toolCall.input.assets,
     });
 
     const fence = this.agent.plugin.widgetService.buildProjectFence({
@@ -306,7 +313,8 @@ export class ShowWidget {
           success: true,
           type: 'html',
           projectPath,
-          message: this.buildProjectWidgetSuccessMessage(projectPath),
+          ...(missingAssets.length > 0 ? { missingAssets } : {}),
+          message: this.buildProjectWidgetResultMessage({ projectPath, missingAssets }),
         },
       },
     });
@@ -340,19 +348,38 @@ export class ShowWidget {
       input: {
         type: toolCall.input.type,
         code: '[OMITTED]',
+        assets: toolCall.input.assets,
       },
     };
   }
 
-  private buildCodeWidgetSuccessMessage(artifactId: string): string {
-    return `The code is omitted and the widget is rendered successfully. To retrieve the full code, call ${ToolName.GET_ARTIFACT_BY_ID} with the ID: ${artifactId} to retrieve it.`;
+  private buildCodeWidgetResultMessage(params: {
+    artifactId: string;
+    missingAssets: string[];
+  }): string {
+    let message = `The code is omitted and the widget is rendered successfully. To retrieve the full code, call ${ToolName.GET_ARTIFACT_BY_ID} with the ID: ${params.artifactId} to retrieve it.`;
+
+    if (params.missingAssets.length > 0) {
+      message += ` Missing assets: ${params.missingAssets.join(', ')}. These vault paths are referenced with the asset: prefix in HTML but were not included in the assets parameter. Call ${ToolName.SHOW_WIDGET} again with these paths added to assets.`;
+    }
+
+    return message;
   }
 
-  private buildProjectWidgetSuccessMessage(projectPath: string): string {
-    return (
-      `Widget project rendered. Project folder: ${projectPath}. ` +
+  private buildProjectWidgetResultMessage(params: {
+    projectPath: string;
+    missingAssets: string[];
+  }): string {
+    let message =
+      `Widget project rendered. Project folder: ${params.projectPath}. ` +
       `Use ${ToolName.EDIT} and ${ToolName.CONTENT_READING} on files in that folder to update the widget. ` +
-      `Do not call ${ToolName.SHOW_WIDGET} again for updates.`
-    );
+      `Do not call ${ToolName.SHOW_WIDGET} again for updates.`;
+
+    if (params.missingAssets.length > 0) {
+      const manifestPath = `${params.projectPath}/manifest.json`;
+      message += ` Missing assets: ${params.missingAssets.join(', ')}. These vault paths are referenced with the asset: prefix in HTML but are not listed in manifest.json assets. Use ${ToolName.EDIT} to add them to the "assets" array in ${manifestPath}. The widget refreshes automatically when manifest.json is saved.`;
+    }
+
+    return message;
   }
 }
