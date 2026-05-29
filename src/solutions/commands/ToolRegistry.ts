@@ -319,6 +319,7 @@ NOTE:
     guidelines: [
       'Set type to "html" for full HTML widgets, or "svg" for vector graphics.',
       'For HTML widgets, use project mode: files as [{ name, content }, ...] — split index.html, style.css, main.js, etc. instead of one inline HTML blob. Link them from index.html (<link href="style.css">, <script src="main.js">); they are bundled into one document at render. Files live in a vault project folder and hot-reload on edit.',
+      'For interactive project widgets (games, counters, forms) that must remember user actions, read the "stateful-widget" skill (via content_reading) before generating widget code.',
       'For SVG, use non-project mode (code). Code must be self-contained, no external CDN.',
       'When the user provides files (images, SVGs, etc.), MUST add their original paths to assets (e.g. Images/photo.png) and reference them in HTML with the "asset:" prefix (e.g. src="asset:Images/photo.png", href, or CSS url()). Files are read from the vault and bundled as base64 data URLs at render time.',
       `After rendering a project widget, do NOT call show_widget again for updates. Use ${ToolName.EDIT} and ${ToolName.CONTENT_READING} on the projectPath returned in the tool result.`,

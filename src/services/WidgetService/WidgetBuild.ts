@@ -1,5 +1,11 @@
 import type { WidgetType } from 'src/solutions/commands/agents/handlers/ShowWidget';
-import { WIDGET_RESIZE } from './WidgetProtocol';
+import {
+  WIDGET_RESIZE,
+  WIDGET_STATE_GLOBAL,
+  WIDGET_STATE_SAVE,
+  WIDGET_STATE_SAVE_DEBOUNCE_MS,
+} from './WidgetProtocol';
+import type { WidgetState } from './types';
 
 /** Content-Security-Policy applied to sandboxed widget iframes. */
 export const WIDGET_CSP =
@@ -30,6 +36,32 @@ export const WIDGET_RESIZE_SCRIPT = `<script>
 
 /** Default head markup (charset, CSP, resize script) prepended to bundled widget HTML. */
 export const WIDGET_SRCDOC_HEAD = `<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${WIDGET_CSP}">${WIDGET_RESIZE_SCRIPT}`;
+
+/**
+ * Script injected into project widgets: hydrates persisted state and exposes window.stw for saves.
+ */
+export function buildWidgetStateHead(state: WidgetState | null): string {
+  const serialized = JSON.stringify(state);
+  return `<script>
+(function () {
+  window.${WIDGET_STATE_GLOBAL} = ${serialized};
+  var saveTimer;
+  window.stw = {
+    getState: function () {
+      var envelope = window.${WIDGET_STATE_GLOBAL};
+      return envelope ? envelope.data : null;
+    },
+    setState: function (data) {
+      window.${WIDGET_STATE_GLOBAL} = { version: 1, data: data };
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(function () {
+        parent.postMessage({ type: '${WIDGET_STATE_SAVE}', state: data }, '*');
+      }, ${WIDGET_STATE_SAVE_DEBOUNCE_MS});
+    }
+  };
+})();
+</script>`;
+}
 
 const SCRIPT_TAG_PATTERN = /<script[\s>]/i;
 

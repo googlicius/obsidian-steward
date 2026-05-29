@@ -1,5 +1,5 @@
-import { buildWidgetSrcdoc, WIDGET_SRCDOC_HEAD } from './WidgetBuild';
-import { WIDGET_RESIZE } from './WidgetProtocol';
+import { buildWidgetSrcdoc, buildWidgetStateHead, WIDGET_SRCDOC_HEAD } from './WidgetBuild';
+import { WIDGET_RESIZE, WIDGET_STATE_GLOBAL, WIDGET_STATE_SAVE } from './WidgetProtocol';
 
 describe('buildWidgetSrcdoc', () => {
   it('wraps an HTML fragment with CSP head and allow-scripts sandbox', () => {
@@ -36,5 +36,27 @@ describe('buildWidgetSrcdoc', () => {
     expect(result.srcdoc).toContain('Content-Security-Policy');
     expect(result.srcdoc).toContain('window.__EXTRA__ = 1');
     expect(result.srcdoc).toContain('Full');
+  });
+});
+
+describe('buildWidgetStateHead', () => {
+  it('injects null state and window.stw bridge when no persisted state', () => {
+    const head = buildWidgetStateHead(null);
+
+    expect(head).toContain(`window.${WIDGET_STATE_GLOBAL} = null`);
+    expect(head).toContain('window.stw');
+    expect(head).toContain(WIDGET_STATE_SAVE);
+  });
+
+  it('serializes persisted state envelope into the iframe', () => {
+    const head = buildWidgetStateHead({
+      version: 1,
+      updatedAt: '2026-05-29T00:00:00.000Z',
+      data: { cells: ['x', null, null] },
+    });
+
+    expect(head).toContain('"cells":["x",null,null]');
+    expect(head).toContain('getState');
+    expect(head).toContain('setState');
   });
 });

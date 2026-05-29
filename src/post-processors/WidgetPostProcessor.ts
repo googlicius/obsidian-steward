@@ -9,6 +9,7 @@ import {
   WIDGET_PROJECT_FENCE_LANGUAGE,
   buildWidgetSrcdoc,
   WIDGET_RESIZE,
+  WIDGET_STATE_SAVE,
 } from 'src/services/WidgetService';
 import { logger } from 'src/utils/logger';
 
@@ -23,8 +24,22 @@ function getWidgetType(code: HTMLElement): WidgetType | null {
   );
 }
 
-function mountIframe(container: HTMLElement, type: WidgetType, code: string): () => void {
-  const { srcdoc, sandbox, usesPostMessageResize } = buildWidgetSrcdoc({ type, code });
+interface MountIframeOptions {
+  extraHead?: string;
+  onStateSave?: (state: unknown) => void;
+}
+
+function mountIframe(
+  container: HTMLElement,
+  type: WidgetType,
+  code: string,
+  options: MountIframeOptions = {}
+): () => void {
+  const { srcdoc, sandbox, usesPostMessageResize } = buildWidgetSrcdoc({
+    type,
+    code,
+    extraHead: options.extraHead,
+  });
 
   const iframe = Object.assign(document.createElement('iframe'), {
     className: 'stw-widget-frame',
@@ -44,10 +59,24 @@ function mountIframe(container: HTMLElement, type: WidgetType, code: string): ()
     if (h > 0) iframe.style.height = `${h}px`;
   };
 
+  const needsMessageListener = usesPostMessageResize || !!options.onStateSave;
+
   const onMessage = (e: MessageEvent) => {
-    if (e.source !== iframe.contentWindow || e.data?.type !== WIDGET_RESIZE) return;
-    const h = Number(e.data.height);
-    if (Number.isFinite(h) && h > 0) iframe.style.height = `${h}px`;
+    if (e.source !== iframe.contentWindow) {
+      return;
+    }
+
+    if (e.data?.type === WIDGET_RESIZE) {
+      const h = Number(e.data.height);
+      if (Number.isFinite(h) && h > 0) {
+        iframe.style.height = `${h}px`;
+      }
+      return;
+    }
+
+    if (e.data?.type === WIDGET_STATE_SAVE && options.onStateSave) {
+      options.onStateSave(e.data.state);
+    }
   };
 
   const onLoad = () => {
@@ -60,11 +89,15 @@ function mountIframe(container: HTMLElement, type: WidgetType, code: string): ()
   };
 
   iframe.addEventListener('load', onLoad);
-  if (usesPostMessageResize) window.addEventListener('message', onMessage);
+  if (needsMessageListener) {
+    window.addEventListener('message', onMessage);
+  }
 
   return () => {
     iframe.removeEventListener('load', onLoad);
-    if (usesPostMessageResize) window.removeEventListener('message', onMessage);
+    if (needsMessageListener) {
+      window.removeEventListener('message', onMessage);
+    }
     resizeObserver?.disconnect();
   };
 }
@@ -122,14 +155,28 @@ async function mountWidgetProject(
 
   try {
     const { widgetService } = plugin;
-    const bundled = await widgetService.bundleProject(parsed.projectPath);
+    const projectPath = parsed.projectPath;
+
+    const buildSrcdoc = async (html: string) => {
+      const state = await widgetService.readState(projectPath);
+      return buildWidgetSrcdoc({
+        type: 'html',
+        code: html,
+        extraHead: widgetService.buildStateHead(state),
+      });
+    };
+
+    const bundled = await widgetService.bundleProject(projectPath);
+    const initialState = await widgetService.readState(projectPath);
 
     const refresh = async () => {
       try {
-        const next = await widgetService.bundleProject(parsed.projectPath);
-        const { srcdoc } = buildWidgetSrcdoc({ type: 'html', code: next });
+        const next = await widgetService.bundleProject(projectPath);
+        const { srcdoc: nextSrcdoc } = await buildSrcdoc(next);
         const iframe = container.querySelector<HTMLIFrameElement>('iframe.stw-widget-frame');
-        if (iframe) iframe.srcdoc = srcdoc;
+        if (iframe) {
+          iframe.srcdoc = nextSrcdoc;
+        }
       } catch (e) {
         logger.error('Failed to refresh widget project:', e);
       }
@@ -137,10 +184,15 @@ async function mountWidgetProject(
 
     unregister = widgetService.registerMountedWidget({
       container,
-      projectPath: parsed.projectPath,
+      projectPath,
       refresh,
     });
-    teardownIframe = mountIframe(container, 'html', bundled);
+    teardownIframe = mountIframe(container, 'html', bundled, {
+      extraHead: widgetService.buildStateHead(initialState),
+      onStateSave: data => {
+        void widgetService.writeState({ projectPath, data });
+      },
+    });
   } catch (e) {
     logger.error('Failed to mount widget project:', e);
     container.textContent = 'Failed to load widget project.';

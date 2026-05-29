@@ -2,9 +2,12 @@ import { TAbstractFile, TFile, normalizePath } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { isPathUnderPrefix } from 'src/utils/pathUtils';
+import { buildWidgetStateHead } from './WidgetBuild';
 import { WidgetBundler } from './WidgetBundler';
 import { WidgetJsValidator } from './WidgetJsValidator';
-import type { WidgetManifest, WidgetProjectFenceData } from './types';
+import { WIDGET_STATE_FILE } from './WidgetProtocol';
+import { parseWidgetState, WIDGET_STATE_VERSION, widgetStateSchema } from './WidgetStateSchema';
+import type { WidgetManifest, WidgetProjectFenceData, WidgetState } from './types';
 
 const MAX_ASSET_BYTES = 2 * 1024 * 1024;
 
@@ -189,6 +192,58 @@ export class WidgetService {
     return files;
   }
 
+  /** Vault path for persisted runtime state in a widget project. */
+  public getStatePath(projectPath: string): string {
+    return normalizePath(`${projectPath}/${WIDGET_STATE_FILE}`);
+  }
+
+  /** Returns extraHead script that injects persisted state and window.stw into the iframe. */
+  public buildStateHead(state: WidgetState | null): string {
+    return buildWidgetStateHead(state);
+  }
+
+  /** Reads and parses state.json from a project folder. */
+  public async readState(projectPath: string): Promise<WidgetState | null> {
+    const statePath = this.getStatePath(projectPath);
+    const file = this.plugin.app.vault.getFileByPath(statePath);
+    if (!file) {
+      return null;
+    }
+
+    try {
+      const raw = await this.plugin.app.vault.read(file);
+      const parsed: unknown = JSON.parse(raw);
+      const result = parseWidgetState(parsed);
+      if (!result.valid) {
+        logger.warn('Invalid widget state envelope:', statePath, result.errors);
+        return null;
+      }
+      return result.data;
+    } catch (error) {
+      logger.error('Failed to read widget state:', error);
+      return null;
+    }
+  }
+
+  /** Writes widget runtime data to state.json (creates or updates). */
+  public async writeState(params: { projectPath: string; data: unknown }): Promise<void> {
+    const envelope = widgetStateSchema.parse({
+      version: WIDGET_STATE_VERSION,
+      updatedAt: new Date().toISOString(),
+      data: params.data,
+    });
+    const statePath = this.getStatePath(params.projectPath);
+    const content = JSON.stringify(envelope, null, 2);
+    const stateFile = this.plugin.app.vault.getFileByPath(statePath);
+    if (stateFile) {
+      await this.plugin.app.vault.modify(stateFile, content);
+      return;
+    }
+
+    await this.plugin.obsidianAPITools.ensureFolderExists(params.projectPath);
+    await this.plugin.app.vault.create(statePath, content);
+  }
+
   /** Reads and parses manifest.json from a project folder. */
   public async readManifest(projectPath: string): Promise<WidgetManifest | null> {
     const manifestPath = normalizePath(`${projectPath}/manifest.json`);
@@ -271,6 +326,10 @@ export class WidgetService {
 
         const projectPath = this.findProjectPathForFile(file.path);
         if (!projectPath) {
+          return;
+        }
+
+        if (normalizePath(file.path) === this.getStatePath(projectPath)) {
           return;
         }
 
