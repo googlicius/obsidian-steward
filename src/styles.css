@@ -191,8 +191,17 @@ pre:has(> code.language-cli-model) {
   }
 }
 
-.workspace-leaf-content[data-type='steward-conversation'] {
-  .view-content {
+.workspace-leaf-content[data-type='steward-conversation'].stw-chat {
+  & > .view-header {
+    display: flex;
+    background-color: transparent;
+    flex-shrink: 0;
+    justify-content: flex-end;
+  }
+
+  & .view-content {
+    flex: 1;
+    min-height: 0;
     padding-left: 0 !important;
     padding-right: 0 !important;
     padding-top: 0;
@@ -212,28 +221,6 @@ pre:has(> code.language-cli-model) {
   > .cm-editor
   > .cm-scroller {
   padding: 15px;
-}
-
-.steward-conversation-header {
-  display: flex;
-  gap: 4px;
-  padding: 4px;
-  justify-content: flex-end;
-}
-
-.steward-header-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--size-2-2);
-  border-radius: var(--radius-s);
-  cursor: pointer;
-  background-color: transparent;
-  color: var(--text-muted);
-
-  &:hover {
-    color: var(--text-normal);
-  }
 }
 
 .stw-history-list {

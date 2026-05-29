@@ -198,7 +198,8 @@ export class SkillService {
     await this.plugin.obsidianAPITools.ensureFolderExists(this.skillsFolder);
 
     for (const skill of BUILT_IN_SKILLS) {
-      const skillPath = `${this.skillsFolder}/${skill.name}/SKILL.md`;
+      const skillFolder = skill.folder ?? skill.name;
+      const skillPath = `${this.skillsFolder}/${skillFolder}/SKILL.md`;
       const existingFile = this.plugin.app.vault.getFileByPath(skillPath);
 
       if (existingFile) {
@@ -222,7 +223,7 @@ export class SkillService {
       } else {
         try {
           await this.plugin.obsidianAPITools.ensureFolderExists(
-            `${this.skillsFolder}/${skill.name}`
+            `${this.skillsFolder}/${skillFolder}`
           );
         } catch (error) {
           logger.error(`Error creating folder for skill ${skill.name}:`, error);

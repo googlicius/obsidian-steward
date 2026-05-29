@@ -38,6 +38,9 @@ function asHost(instance: ToolContentStreamConsumer): ToolContentStreamConsumerH
   return instance as unknown as ToolContentStreamConsumerHost;
 }
 
+const STREAM_CONTENT_FENCE_OPEN = '````\n';
+const STREAM_CONTENT_FENCE_CLOSE = '\n````';
+
 export class ToolContentStreamConsumer {
   public [TOOL_CONTENT_STREAM_CONSUMER_SYMBOL] = true as const;
 
@@ -57,7 +60,7 @@ export class ToolContentStreamConsumer {
     const folderPath = this.tmpFolderPath;
     await host.obsidianAPITools.ensureFolderExists(folderPath);
     const filePath = `${folderPath}/stw_stream_${toolCallId}.md`;
-    await host.app.vault.create(filePath, '');
+    await host.app.vault.create(filePath, STREAM_CONTENT_FENCE_OPEN);
     return filePath;
   }
 
@@ -126,6 +129,10 @@ export class ToolContentStreamConsumer {
         }
 
         await this.appendToTempFile(info.tempFilePath, delta.contentDelta);
+      }
+
+      if (info) {
+        await this.appendToTempFile(info.tempFilePath, STREAM_CONTENT_FENCE_CLOSE);
       }
 
       return info;

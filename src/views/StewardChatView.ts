@@ -12,7 +12,7 @@ const { i18next } = getBundledInternal('i18n');
 export class StewardChatView extends MarkdownView {
   private autoScrollEventRef: EventRef | null = null;
   private scrollToBottomTimeout: number | null = null;
-  private dockToggleBtn: HTMLButtonElement | null = null;
+  private dockToggleBtn: HTMLElement | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -41,7 +41,7 @@ export class StewardChatView extends MarkdownView {
 
     this.containerEl.classList.add('stw-chat');
 
-    this.createHeader();
+    this.setupViewHeader();
     this.setupAutoScroll();
 
     this.registerEvent(
@@ -160,46 +160,55 @@ export class StewardChatView extends MarkdownView {
   }
 
   /**
-   * Create the header with buttons
+   * Replace the default view-header controls with chat actions.
+   * CSS forces `.view-header` to stay visible in sidebar and mobile layouts.
    */
-  private createHeader(): void {
-    // Create header element and insert it as the first child of stw-chat (containerEl)
-    const headerEl = document.createElement('div');
-    headerEl.className = 'steward-conversation-header';
-
-    // Make sure it's the first child of the container
-    if (this.containerEl.firstChild) {
-      this.containerEl.insertBefore(headerEl, this.containerEl.firstChild);
-    } else {
-      this.containerEl.appendChild(headerEl);
+  private setupViewHeader(): void {
+    const viewHeader = this.containerEl.querySelector('.view-header');
+    if (!(viewHeader instanceof HTMLElement)) {
+      return;
     }
 
-    // New Chat button
-    const newChatBtn = headerEl.createEl('button', {
-      cls: 'steward-header-button clickable-icon',
-    });
-    setIcon(newChatBtn, 'plus-circle');
-    setTooltip(newChatBtn, i18next.t('chat.newChat'));
-    newChatBtn.addEventListener('click', () => this.handleNewChat());
+    viewHeader.empty();
+    const actionsEl = viewHeader.createDiv({ cls: 'view-actions' });
 
-    // History button
-    const historyBtn = headerEl.createEl('button', {
-      cls: 'steward-header-button clickable-icon',
+    this.createHeaderAction(actionsEl, 'plus-circle', i18next.t('chat.newChat'), () => {
+      this.handleNewChat();
     });
-    setIcon(historyBtn, 'history');
-    setTooltip(historyBtn, i18next.t('chat.history'));
-    historyBtn.addEventListener('click', () => {
+
+    this.createHeaderAction(actionsEl, 'history', i18next.t('chat.history'), () => {
       void this.openEmbedView(new EmbedHistoryView(this.app, this.plugin));
     });
 
-    // Move chat between sidebar and main editor
-    this.dockToggleBtn = headerEl.createEl('button', {
-      cls: 'steward-header-button clickable-icon',
-    });
+    this.dockToggleBtn = this.createHeaderAction(
+      actionsEl,
+      'arrow-right',
+      i18next.t('chat.moveChatToRight'),
+      () => {
+        void this.plugin.toggleChatDockFromView(this.leaf);
+      }
+    );
     this.refreshDockToggleButton();
-    this.dockToggleBtn.addEventListener('click', () => {
-      void this.plugin.toggleChatDockFromView(this.leaf);
+  }
+
+  private createHeaderAction(
+    parent: HTMLElement,
+    icon: string,
+    tooltip: string,
+    onClick: () => void
+  ): HTMLElement {
+    const actionEl = parent.createEl('a', {
+      cls: 'view-action clickable-icon',
+      href: '#',
+      attr: { 'aria-label': tooltip },
     });
+    setIcon(actionEl, icon);
+    setTooltip(actionEl, tooltip);
+    actionEl.addEventListener('click', evt => {
+      evt.preventDefault();
+      onClick();
+    });
+    return actionEl;
   }
 
   private refreshDockToggleButton(): void {

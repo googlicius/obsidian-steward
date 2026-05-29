@@ -7,7 +7,6 @@ import { AgentResult, IntentResultStatus } from '../../types';
 import { createEditTool, EditArgs } from '../../tools/editContent';
 import { ArtifactType, Change, FileChangeSet } from 'src/solutions/artifact';
 import { EditOperation } from 'src/solutions/commands/tools/editContent';
-import type { WidgetJsValidationError } from 'src/services/WidgetService';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 
@@ -72,15 +71,6 @@ export class EditHandler {
         await this.agent.deleteTempStreamFile(toolContentStreamInfo.tempFilePath);
       }
       throw new Error('No files found to edit');
-    }
-
-    const widgetService = this.agent.plugin.widgetService;
-    const jsErrors = await this.validateWidgetJsEdits(filesToOperations);
-    if (jsErrors.length > 0) {
-      if (toolContentStreamInfo) {
-        await this.agent.deleteTempStreamFile(toolContentStreamInfo.tempFilePath);
-      }
-      throw new Error(widgetService.jsValidator.formatErrors(jsErrors));
     }
 
     // If streaming was active, replace the temp embed callout with the final computed preview.
@@ -305,6 +295,12 @@ export class EditHandler {
       }
     }
 
+    const jsErrors = await this.agent.plugin.widgetService.validateWrittenJsFiles(updatedFiles);
+    const lintError =
+      jsErrors.length > 0
+        ? this.agent.plugin.widgetService.jsValidator.formatErrors(jsErrors)
+        : undefined;
+
     // Store edit results as an artifact for revert capability (if any files were updated)
     if (allFileChangeSets.length > 0) {
       await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
@@ -348,6 +344,7 @@ export class EditHandler {
     });
 
     // Serialize the tool invocation
+    const resultMessage = messageId ? `messageRef:${messageId}` : response;
     await this.agent.renderer.serializeToolInvocation({
       path: title,
       command: 'edit',
@@ -357,16 +354,30 @@ export class EditHandler {
         {
           ...params.toolCall,
           type: 'tool-result',
-          output: {
-            type: 'text',
-            value: messageId ? `messageRef:${messageId}` : response,
-          },
+          output: lintError
+            ? {
+                type: 'error-json',
+                value: {
+                  lintError,
+                  message: resultMessage,
+                },
+              }
+            : {
+                type: 'text',
+                value: resultMessage,
+              },
         },
       ],
     });
 
     if (continueFromNextTool) {
       return continueFromNextTool();
+    }
+
+    if (lintError) {
+      return {
+        status: IntentResultStatus.SUCCESS,
+      };
     }
 
     return {
@@ -376,39 +387,6 @@ export class EditHandler {
           ? new Error(`Failed to update ${failedFiles.length} files`)
           : undefined,
     };
-  }
-
-  /**
-   * Validates post-edit JavaScript for widget project `.js` files before preview or apply.
-   */
-  private async validateWidgetJsEdits(
-    filesToOperations: Map<string, EditOperation[]>
-  ): Promise<WidgetJsValidationError[]> {
-    const widgetService = this.agent.plugin.widgetService;
-    const jsValidator = widgetService.jsValidator;
-    const errors: WidgetJsValidationError[] = [];
-
-    for (const [filePath, fileOperations] of filesToOperations.entries()) {
-      if (!widgetService.isWidgetProjectPath(filePath) || !jsValidator.isJsFilePath(filePath)) {
-        continue;
-      }
-
-      const fileContent = await this.readFileTextForEdit(filePath);
-      if (fileContent === null) {
-        continue;
-      }
-
-      const { modifiedContent } = this.agent.plugin.noteContentService.computeChanges(
-        fileContent,
-        fileOperations
-      );
-      const error = jsValidator.validateContent({ filePath, content: modifiedContent });
-      if (error) {
-        errors.push(error);
-      }
-    }
-
-    return errors;
   }
 
   /**

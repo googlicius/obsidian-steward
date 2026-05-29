@@ -1,6 +1,8 @@
 export interface WidgetManifest {
   entry: string;
   type: 'html';
+  widgetId?: string;
+  widgetName?: string;
   assets?: string[];
 }
 

@@ -59,15 +59,15 @@ function createProjectTestPlugin(params?: { initialFiles?: Record<string, string
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   const indexFile = getInstance(TFile, {
-    path: 'Steward/Widgets/chat-1/abc12/index.html',
+    path: 'Steward/Widgets/Tic-Tac-Toe-abc12/index.html',
     name: 'index.html',
   });
   const manifestFile = getInstance(TFile, {
-    path: 'Steward/Widgets/chat-1/abc12/manifest.json',
+    path: 'Steward/Widgets/Tic-Tac-Toe-abc12/manifest.json',
     name: 'manifest.json',
   });
   const projectFolder = getInstance(TFolder, {
-    path: 'Steward/Widgets/chat-1/abc12',
+    path: 'Steward/Widgets/Tic-Tac-Toe-abc12',
     children: [indexFile, manifestFile],
   });
 
@@ -76,7 +76,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     app: {
       vault: {
         getFolderByPath: jest.fn((path: string) => {
-          if (path === 'Steward/Widgets/chat-1/abc12') {
+          if (path === 'Steward/Widgets/Tic-Tac-Toe-abc12') {
             return projectFolder;
           }
           return null;
@@ -108,15 +108,15 @@ describe('WidgetService', () => {
       const plugin = createMockPlugin();
       const service = WidgetService.getInstance(plugin);
 
-      const body = `widgetId: l279k
-projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
+      const body = `widgetId: Tic-Tac-Toe-abc12
+projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
 `;
 
       const parsed = service.parseProjectFenceContent(body);
 
       expect(parsed).toEqual({
-        widgetId: 'l279k',
-        projectPath: 'Steward/Widgets/General 2026-05-28_03-06-31/l279k',
+        widgetId: 'Tic-Tac-Toe-abc12',
+        projectPath: 'Steward/Widgets/Tic-Tac-Toe-abc12',
       });
     });
 
@@ -124,28 +124,70 @@ projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
       const plugin = createMockPlugin();
       const service = WidgetService.getInstance(plugin);
 
-      const content = `Some text\nwidgetId: abc12\nprojectPath: Steward/Widgets/chat-1/abc12\nmore`;
+      const content = `Some text\nwidgetId: Tic-Tac-Toe-abc12\nprojectPath: Steward/Widgets/Tic-Tac-Toe-abc12\nmore`;
 
       const parsed = service.parseProjectFenceContent(content);
 
       expect(parsed).toEqual({
-        widgetId: 'abc12',
-        projectPath: 'Steward/Widgets/chat-1/abc12',
+        widgetId: 'Tic-Tac-Toe-abc12',
+        projectPath: 'Steward/Widgets/Tic-Tac-Toe-abc12',
       });
     });
   });
 
+  describe('buildWidgetId', () => {
+    it('slugifies whitespace and appends a unique suffix', () => {
+      const plugin = createMockPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      const id = service.buildWidgetId('Tic Tac Toe');
+      expect(id.startsWith('Tic-Tac-Toe')).toBe(true);
+      expect(id.length).toBeGreaterThan('Tic-Tac-Toe'.length);
+    });
+
+    it('throws when widget name is empty after trimming', () => {
+      const plugin = createMockPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      expect(() => service.buildWidgetId('   ')).toThrow('Widget name must not be empty');
+    });
+  });
+
+  describe('slugifyWidgetName', () => {
+    it('replaces whitespace with dashes and strips invalid path characters', () => {
+      const plugin = createMockPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      expect(service.slugifyWidgetName('My Counter')).toBe('My-Counter');
+      expect(service.slugifyWidgetName('bad/name')).toBe('badname');
+    });
+  });
+
+  describe('buildProjectFence', () => {
+    it('includes widgetId in a small tag below the fence', () => {
+      const plugin = createMockPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      const fence = service.buildProjectFence({
+        widgetId: 'Tic-Tac-Toe-abc12',
+        projectPath: 'Steward/Widgets/Tic-Tac-Toe-abc12',
+      });
+
+      expect(fence).toContain('```stw-widget-project');
+      expect(fence).toContain('<small>Tic-Tac-Toe-abc12</small>');
+    });
+  });
+
   describe('getProjectPath', () => {
-    it('builds the project folder under the widgets root', () => {
+    it('builds the project folder directly under the widgets root', () => {
       const plugin = createMockPlugin();
       const service = WidgetService.getInstance(plugin);
 
       const path = service.getProjectPath({
-        conversationTitle: 'chat-1',
-        widgetId: 'abc12',
+        widgetId: 'Tic-Tac-Toe-abc12',
       });
 
-      expect(path).toBe('Steward/Widgets/chat-1/abc12');
+      expect(path).toBe('Steward/Widgets/Tic-Tac-Toe-abc12');
     });
   });
 
@@ -154,10 +196,10 @@ projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
       const plugin = createMockPlugin();
       const service = WidgetService.getInstance(plugin);
 
-      const files = await service.listProjectFiles('Steward/Widgets/chat-1/abc12');
+      const files = await service.listProjectFiles('Steward/Widgets/Tic-Tac-Toe-abc12');
 
       expect(plugin.obsidianAPITools.getFilesFromFolder).toHaveBeenCalledWith(
-        expect.objectContaining({ path: 'Steward/Widgets/chat-1/abc12' }),
+        expect.objectContaining({ path: 'Steward/Widgets/Tic-Tac-Toe-abc12' }),
         { recursive: true }
       );
       expect(files).toEqual(['index.html', 'manifest.json']);
@@ -165,15 +207,16 @@ projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
   });
 
   describe('createProject', () => {
-    const projectPath = 'Steward/Widgets/chat-1/abc12';
+    const projectPath = 'Steward/Widgets/Tic-Tac-Toe-abc12';
+    const widgetName = 'Tic Tac Toe';
 
     it('creates project folder, files, and manifest for a new project', async () => {
       const { plugin, files } = createProjectTestPlugin();
       const service = WidgetService.getInstance(plugin);
 
       const result = await service.createProject({
-        conversationTitle: 'chat-1',
-        widgetId: 'abc12',
+        widgetId: 'Tic-Tac-Toe-abc12',
+        widgetName,
         files: {
           'index.html': '<p>Hello</p>',
         },
@@ -189,6 +232,8 @@ projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
       expect(JSON.parse(files.get(`${projectPath}/manifest.json`) ?? '')).toEqual({
         entry: 'index.html',
         type: 'html',
+        widgetId: 'Tic-Tac-Toe-abc12',
+        widgetName,
       });
     });
 
@@ -197,8 +242,8 @@ projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
       const service = WidgetService.getInstance(plugin);
 
       const result = await service.createProject({
-        conversationTitle: 'chat-1',
-        widgetId: 'abc12',
+        widgetId: 'Tic-Tac-Toe-abc12',
+        widgetName,
         entry: 'app.html',
         files: {
           'app.html': '<p>App</p>',
@@ -210,6 +255,8 @@ projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
       expect(JSON.parse(files.get(`${projectPath}/manifest.json`) ?? '')).toEqual({
         entry: 'app.html',
         type: 'html',
+        widgetId: 'Tic-Tac-Toe-abc12',
+        widgetName,
       });
     });
 
@@ -219,8 +266,8 @@ projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
 
       await expect(
         service.createProject({
-          conversationTitle: 'chat-1',
-          widgetId: 'abc12',
+          widgetId: 'Tic-Tac-Toe-abc12',
+          widgetName,
           entry: 'app.html',
           files: {
             'index.html': '<p>Wrong entry</p>',
@@ -237,8 +284,8 @@ projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
 
       await expect(
         service.createProject({
-          conversationTitle: 'chat-1',
-          widgetId: 'abc12',
+          widgetId: 'Tic-Tac-Toe-abc12',
+          widgetName,
           files: {
             '../escape.html': '<p>Bad</p>',
             'index.html': '<p>Hello</p>',
@@ -260,8 +307,8 @@ projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
       const service = WidgetService.getInstance(plugin);
 
       await service.createProject({
-        conversationTitle: 'chat-1',
-        widgetId: 'abc12',
+        widgetId: 'Tic-Tac-Toe-abc12',
+        widgetName,
         files: {
           'index.html': '<p>Updated</p>',
         },
@@ -280,8 +327,8 @@ projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
       const service = WidgetService.getInstance(plugin);
 
       await service.createProject({
-        conversationTitle: 'chat-1',
-        widgetId: 'abc12',
+        widgetId: 'Tic-Tac-Toe-abc12',
+        widgetName,
         files: {
           'index.html': '<p>Hello</p>',
           'styles/theme.css': 'body { color: red; }',
@@ -299,8 +346,8 @@ projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
       const service = WidgetService.getInstance(plugin);
 
       await service.createProject({
-        conversationTitle: 'chat-1',
-        widgetId: 'abc12',
+        widgetId: 'Tic-Tac-Toe-abc12',
+        widgetName,
         files: {
           'index.html': '<img src="asset:Images/logo.png" />',
         },
@@ -310,6 +357,8 @@ projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
       expect(JSON.parse(files.get(`${projectPath}/manifest.json`) ?? '')).toEqual({
         entry: 'index.html',
         type: 'html',
+        widgetId: 'Tic-Tac-Toe-abc12',
+        widgetName,
         assets: ['Images/logo.png', 'Docs/bg.png'],
       });
     });
@@ -319,8 +368,8 @@ projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
       const service = WidgetService.getInstance(plugin);
 
       await service.createProject({
-        conversationTitle: 'chat-1',
-        widgetId: 'abc12',
+        widgetId: 'Tic-Tac-Toe-abc12',
+        widgetName,
         files: {
           'index.html': '<p>No assets</p>',
         },
@@ -330,13 +379,15 @@ projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
       expect(manifest).toEqual({
         entry: 'index.html',
         type: 'html',
+        widgetId: 'Tic-Tac-Toe-abc12',
+        widgetName,
       });
       expect(manifest.assets).toBeUndefined();
     });
   });
 
   describe('readState and writeState', () => {
-    const projectPath = 'Steward/Widgets/chat-1/abc12';
+    const projectPath = 'Steward/Widgets/Tic-Tac-Toe-abc12';
 
     it('returns null when state.json has an invalid envelope', async () => {
       const { plugin } = createProjectTestPlugin({
@@ -420,7 +471,7 @@ projectPath: Steward/Widgets/General 2026-05-28_03-06-31/l279k
   });
 
   describe('modify listener hot-reload', () => {
-    const projectPath = 'Steward/Widgets/chat-1/abc12';
+    const projectPath = 'Steward/Widgets/Tic-Tac-Toe-abc12';
 
     it('skips refresh when only state.json changes', async () => {
       const { plugin } = createProjectTestPlugin({

@@ -2,8 +2,10 @@ import { TAbstractFile, TFile, normalizePath } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { isPathUnderPrefix } from 'src/utils/pathUtils';
+import { uniqueID } from 'src/utils/uniqueID';
 import { buildWidgetStateHead } from './WidgetBuild';
 import { WidgetBundler } from './WidgetBundler';
+import type { WidgetJsValidationError } from './WidgetJsValidator';
 import { WidgetJsValidator } from './WidgetJsValidator';
 import { WIDGET_STATE_FILE } from './WidgetProtocol';
 import { parseWidgetState, WIDGET_STATE_VERSION, widgetStateSchema } from './WidgetStateSchema';
@@ -52,11 +54,9 @@ export class WidgetService {
     return normalizePath(`${this.plugin.settings.stewardFolder}/Widgets`);
   }
 
-  /** Absolute vault path for one widget project. */
-  public getProjectPath(params: { conversationTitle: string; widgetId: string }): string {
-    return normalizePath(
-      `${this.getWidgetsRootPath()}/${params.conversationTitle}/${params.widgetId}`
-    );
+  /** Absolute vault path for one widget project: `{widgetsRoot}/{widgetId}`. */
+  public getProjectPath(params: { widgetId: string }): string {
+    return normalizePath(`${this.getWidgetsRootPath()}/${params.widgetId}`);
   }
 
   /** Whether a vault path is under the widget projects root. */
@@ -66,9 +66,26 @@ export class WidgetService {
     return normalized === root || normalized.startsWith(`${root}/`);
   }
 
+  /** Replaces whitespace with dashes for use in widget folder names. */
+  public slugifyWidgetName(name: string): string {
+    return name
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[\\/:*?"<>|]/g, '');
+  }
+
+  /** Builds widgetId as slugified name plus a short unique suffix. */
+  public buildWidgetId(widgetName: string): string {
+    const slug = this.slugifyWidgetName(widgetName);
+    if (!slug) {
+      throw new Error('Widget name must not be empty');
+    }
+    return `${slug}${uniqueID()}`;
+  }
+
   /** Builds the markdown fence block that references a project in the conversation note. */
   public buildProjectFence(data: WidgetProjectFenceData): string {
-    return `\`\`\`${WIDGET_PROJECT_FENCE_LANGUAGE}\nwidgetId: ${data.widgetId}\nprojectPath: ${data.projectPath}\n\`\`\``;
+    return `\`\`\`${WIDGET_PROJECT_FENCE_LANGUAGE}\nwidgetId: ${data.widgetId}\nprojectPath: ${data.projectPath}\n\`\`\`\n<small>*ID: ${data.widgetId}*</small>`;
   }
 
   /** Parses `widgetId` and `projectPath` from a stw-widget-project code block body (pre > code textContent). */
@@ -107,18 +124,42 @@ export class WidgetService {
     return this.bundler.findMissingAssets(params);
   }
 
+  /** Validates `.js` widget project files from vault content after they are written. */
+  public async validateWrittenJsFiles(filePaths: string[]): Promise<WidgetJsValidationError[]> {
+    const errors: WidgetJsValidationError[] = [];
+
+    for (let i = 0; i < filePaths.length; i++) {
+      const filePath = filePaths[i];
+      if (!this.isWidgetProjectPath(filePath) || !this.jsValidator.isJsFilePath(filePath)) {
+        continue;
+      }
+
+      const file = this.plugin.app.vault.getFileByPath(filePath);
+      if (!file) {
+        continue;
+      }
+
+      const content = await this.plugin.app.vault.read(file);
+      const error = this.jsValidator.validateContent({ filePath, content });
+      if (error) {
+        errors.push(error);
+      }
+    }
+
+    return errors;
+  }
+
   /**
    * Writes project files and manifest.json under the widget project folder.
    */
   public async createProject(params: {
-    conversationTitle: string;
     widgetId: string;
+    widgetName: string;
     files: Record<string, string>;
     entry?: string;
     assets?: string[];
   }): Promise<{ projectPath: string; entry: string }> {
     const projectPath = this.getProjectPath({
-      conversationTitle: params.conversationTitle,
       widgetId: params.widgetId,
     });
     const entry = params.entry ?? 'index.html';
@@ -132,6 +173,8 @@ export class WidgetService {
     const manifest: WidgetManifest = {
       entry,
       type: 'html',
+      widgetId: params.widgetId,
+      widgetName: params.widgetName,
       assets: params.assets?.length
         ? params.assets.map(path => WidgetBundler.normalizeAssetPath(path))
         : undefined,
@@ -347,7 +390,7 @@ export class WidgetService {
     this.modifyListenerRegistered = true;
   }
 
-  /** Resolves `{root}/{conversation}/{widgetId}` from any file path inside a project. */
+  /** Resolves `{root}/{widgetId}` from any file path inside a project. */
   private findProjectPathForFile(filePath: string): string | null {
     const normalized = normalizePath(filePath);
     const root = this.getWidgetsRootPath();
@@ -357,11 +400,11 @@ export class WidgetService {
 
     const relative = normalized.slice(root.length + 1);
     const segments = relative.split('/');
-    if (segments.length < 2) {
+    if (segments.length < 1 || !segments[0]) {
       return null;
     }
 
-    return normalizePath(`${root}/${segments[0]}/${segments[1]}`);
+    return normalizePath(`${root}/${segments[0]}`);
   }
 
   /** Resolves asset paths into data URLs keyed by asset:path for HTML replacement. */

@@ -7,7 +7,8 @@ import { ToolCallPart } from '../../tools/types';
 import { ArtifactType } from 'src/solutions/artifact/types';
 import { logger } from 'src/utils/logger';
 import { ToolName } from '../../toolNames';
-import { uniqueID } from 'src/utils/uniqueID';
+import { normalizePath } from 'obsidian';
+import { JSONValue } from 'ai';
 
 export type ObsidianUiTheme = 'Light' | 'Dark';
 
@@ -31,7 +32,11 @@ function getObsidianUiThemeContext(): ObsidianUiThemeContext {
 
 export function getShowWidgetThemeGuideline(): string {
   const { theme, background, foreground } = getObsidianUiThemeContext();
-  return `Current Obsidian UI theme: ${theme}. Use base colors that match this theme — background: ${background}, text: ${foreground}.`;
+  return [
+    `Current Obsidian UI theme: ${theme}.`,
+    'Set html and body background to transparent, so the widget blends with Obsidian when the theme changes.',
+    `Use these as base colors for widget elements (cards, panels, buttons, borders): background ${background}, text ${foreground}.`,
+  ].join(' ');
 }
 
 export const WIDGET_TYPES = ['html', 'svg'] as const;
@@ -48,6 +53,12 @@ const widgetProjectFileSchema = z.object({
 export const showWidgetSchema = z
   .object({
     type: z.enum(WIDGET_TYPES).describe('The content format of the widget.'),
+    widgetName: z
+      .string()
+      .min(1)
+      .describe(
+        'Natural-language name for the widget. Used to build widgetId and the vault folder name under Steward/Widgets/ for project mode.'
+      ),
     code: z
       .string()
       .optional()
@@ -177,7 +188,7 @@ export class ShowWidget {
         step: ctx.step,
         toolInvocations: [
           {
-            ...this.serializeToolCallForHistory(toolCall),
+            ...toolCall,
             type: 'tool-result',
             output: {
               type: 'error-text',
@@ -238,7 +249,7 @@ export class ShowWidget {
 
     await ctx.serializeInvocation({
       command: 'show_widget',
-      toolCall: this.serializeToolCallForHistory(toolCall),
+      toolCall,
       result: {
         type: 'json',
         value: {
@@ -246,7 +257,7 @@ export class ShowWidget {
           type: toolCall.input.type,
           artifactId,
           ...(missingAssets.length > 0 ? { missingAssets } : {}),
-          message: this.buildCodeWidgetResultMessage({ artifactId, missingAssets }),
+          message: this.buildCodeWidgetResultMessage({ missingAssets }),
         },
       },
     });
@@ -261,27 +272,31 @@ export class ShowWidget {
     toolCall: ToolCallPart<ShowWidgetArgs>
   ): Promise<AgentResult> {
     const { title } = ctx.agentHandlerParams;
-    const widgetId = uniqueID();
+    const widgetService = this.agent.plugin.widgetService;
+    const widgetName = toolCall.input.widgetName;
+    const widgetId = widgetService.buildWidgetId(widgetName);
     const projectFiles = toolCall.input.files ?? [];
     const files = projectFilesToRecord(projectFiles);
-    const missingAssets = this.agent.plugin.widgetService.findMissingAssets({
+    const missingAssets = widgetService.findMissingAssets({
       content: projectFiles.map(file => file.content),
       declaredAssets: toolCall.input.assets,
     });
-    const widgetService = this.agent.plugin.widgetService;
-    const jsErrors = widgetService.jsValidator.validateProjectFiles(files);
-    if (jsErrors.length > 0) {
-      throw new Error(widgetService.jsValidator.formatErrors(jsErrors));
-    }
-    const { projectPath } = await this.agent.plugin.widgetService.createProject({
-      conversationTitle: title,
+    const { projectPath } = await widgetService.createProject({
       widgetId,
+      widgetName,
       files,
       entry: toolCall.input.entry,
       assets: toolCall.input.assets,
     });
 
-    const fence = this.agent.plugin.widgetService.buildProjectFence({
+    const jsFilePaths = Object.keys(files)
+      .filter(name => widgetService.jsValidator.isJsFilePath(name))
+      .map(name => normalizePath(`${projectPath}/${name}`));
+    const jsErrors = await widgetService.validateWrittenJsFiles(jsFilePaths);
+    const lintError =
+      jsErrors.length > 0 ? widgetService.jsValidator.formatErrors(jsErrors) : undefined;
+
+    const fence = widgetService.buildProjectFence({
       widgetId,
       projectPath,
     });
@@ -309,19 +324,34 @@ export class ShowWidget {
       throw new Error('Failed to store widget artifact');
     }
 
+    const message = this.buildProjectWidgetResultMessage({
+      widgetId,
+      projectPath,
+      missingAssets,
+      lintError,
+    });
+    const type = lintError ? 'error-json' : 'json';
+    const value: JSONValue = {
+      type: 'html',
+      widgetId,
+      projectPath,
+      message,
+    };
+
+    if (missingAssets.length > 0) {
+      value.missingAssets = missingAssets;
+    }
+
+    if (lintError) {
+      value.lintError = lintError;
+    } else {
+      value.success = true;
+    }
+
     await ctx.serializeInvocation({
       command: 'show_widget',
-      toolCall: this.serializeToolCallForHistory(toolCall),
-      result: {
-        type: 'json',
-        value: {
-          success: true,
-          type: 'html',
-          projectPath,
-          ...(missingAssets.length > 0 ? { missingAssets } : {}),
-          message: this.buildProjectWidgetResultMessage({ projectPath, missingAssets }),
-        },
-      },
+      toolCall,
+      result: { type, value },
     });
 
     return {
@@ -329,40 +359,8 @@ export class ShowWidget {
     };
   }
 
-  private serializeToolCallForHistory(
-    toolCall: ToolCallPart<ShowWidgetArgs>
-  ): ToolCallPart<ShowWidgetArgs> {
-    if (isWidgetProjectInput(toolCall.input)) {
-      const files = toolCall.input.files ?? [];
-      return {
-        ...toolCall,
-        input: {
-          type: toolCall.input.type,
-          entry: toolCall.input.entry,
-          assets: toolCall.input.assets,
-          files: files.map(file => ({
-            name: file.name,
-            content: '[OMITTED]',
-          })),
-        },
-      };
-    }
-
-    return {
-      ...toolCall,
-      input: {
-        type: toolCall.input.type,
-        code: '[OMITTED]',
-        assets: toolCall.input.assets,
-      },
-    };
-  }
-
-  private buildCodeWidgetResultMessage(params: {
-    artifactId: string;
-    missingAssets: string[];
-  }): string {
-    let message = `The code is omitted and the widget is rendered successfully. To retrieve the full code, call ${ToolName.GET_ARTIFACT_BY_ID} with the ID: ${params.artifactId} to retrieve it.`;
+  private buildCodeWidgetResultMessage(params: { missingAssets: string[] }): string {
+    let message = 'The widget is rendered successfully.';
 
     if (params.missingAssets.length > 0) {
       message += ` Missing assets: ${params.missingAssets.join(', ')}. These vault paths are referenced with the asset: prefix in HTML but were not included in the assets parameter. Call ${ToolName.SHOW_WIDGET} again with these paths added to assets.`;
@@ -372,17 +370,22 @@ export class ShowWidget {
   }
 
   private buildProjectWidgetResultMessage(params: {
+    widgetId: string;
     projectPath: string;
     missingAssets: string[];
+    lintError?: string;
   }): string {
     let message =
-      `Widget project rendered. Project folder: ${params.projectPath}. ` +
-      `Use ${ToolName.EDIT} and ${ToolName.CONTENT_READING} on files in that folder to update the widget. ` +
-      `Do not call ${ToolName.SHOW_WIDGET} again for updates.`;
+      params.lintError !== undefined
+        ? `Widget project created at ${params.projectPath} but JavaScript has syntax errors. Fix them with ${ToolName.EDIT} on files in that folder.`
+        : `The widget is rendered successfully. Widget ID: ${params.widgetId}. Project folder: ${params.projectPath}.`;
+
+    message += `\nIf the user ask for update, use ${ToolName.EDIT} and ${ToolName.CONTENT_READING} on the projectPath returned in the tool result.`;
+    message += `\nDo not call ${ToolName.SHOW_WIDGET} again for updates.`;
 
     if (params.missingAssets.length > 0) {
       const manifestPath = `${params.projectPath}/manifest.json`;
-      message += ` Missing assets: ${params.missingAssets.join(', ')}. These vault paths are referenced with the asset: prefix in HTML but are not listed in manifest.json assets. Use ${ToolName.EDIT} to add them to the "assets" array in ${manifestPath}. The widget refreshes automatically when manifest.json is saved.`;
+      message += `\nMissing assets: ${params.missingAssets.join(', ')}. These vault paths are referenced with the asset: prefix in HTML but are not listed in manifest.json assets. Use ${ToolName.EDIT} to add them to the "assets" array in ${manifestPath}. The widget refreshes automatically when manifest.json is saved.`;
     }
 
     return message;

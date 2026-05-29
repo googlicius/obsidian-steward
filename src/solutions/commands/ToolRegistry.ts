@@ -169,16 +169,12 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       `- When updating content, return ONLY the specific changed content, not the entire surrounding context.
   - Use ${ToolName.EDIT} to make the actual content changes. (NOTE: You cannot use this tool if a note does not exist.)
   - Use the right edit mode to ensure good performance and efficient token usage.`,
-      `Here are available edit modes:
-  - ${EditMode.ADD_TABLE_COLUMN}: Add a column to a table.
-  - ${EditMode.UPDATE_TABLE_COLUMN}: Update a column in a table - Use to update the header, values, or both.
-  - ${EditMode.DELETE_TABLE_COLUMN}: Delete a column from a table.
-  - ${EditMode.REPLACE_BY_LINES}: Replace content within a specific line range, or replace the entire file if both fromLine and toLine are omitted.
-  - ${EditMode.REPLACE_BY_PATTERN}: Replace content matching a pattern in a single note by path, or across multiple notes from an artifact. Requires either artifactId or path.
-  - ${EditMode.INSERT}: Insert content at a specific line number.
-NOTE:
-  - Use table modes to edit tables, especially large tables (More than 20 rows).
-  - Use one or multiple operations. DO NOT use multiple tool calls or multiple requests.`,
+      `Choose edit mode by purpose:
+  - **Tables**: Read the "edit-table" skill first. It covers ${EditMode.ADD_TABLE_COLUMN}, ${EditMode.UPDATE_TABLE_COLUMN}, and ${EditMode.DELETE_TABLE_COLUMN}.
+  - **Replace by line range**: Use ${EditMode.REPLACE_BY_LINES} to replace content within fromLine–toLine, or omit both to replace the entire file.
+  - **Pattern replacement**: Use ${EditMode.REPLACE_BY_PATTERN} to replace matches by RegExp in one note (path) or many notes (artifactId). Requires artifactId or path.
+  - **Insert**: Use ${EditMode.INSERT} to insert content at a specific line number.
+  - Use one or multiple operations in a single call. DO NOT use multiple tool calls or multiple requests.`,
     ],
     category: 'content-edit',
   },
@@ -318,13 +314,12 @@ NOTE:
     companionTools: [ToolName.GET_ARTIFACT_BY_ID, ToolName.EDIT, ToolName.CONTENT_READING],
     guidelines: [
       'Set type to "html" for full HTML widgets, or "svg" for vector graphics.',
-      'For HTML widgets, use project mode: files as [{ name, content }, ...] — split index.html, style.css, main.js, etc. instead of one inline HTML blob. Link them from index.html (<link href="style.css">, <script src="main.js">); they are bundled into one document at render. Files live in a vault project folder and hot-reload on edit.',
+      'For HTML widgets, use project mode: files as [{ name, content }, ...] — split index.html, style.css, main.js, etc. instead of one inline HTML blob. Link them from index.html (<link href="style.css">, <script src="main.js">); they are bundled into one document at render. Always provide widgetName (natural language); for project mode it builds widgetId and the vault folder under Steward/Widgets/{widgetId}/. Widgets are conversation-independent; reference widgetId across conversations.',
       'For interactive project widgets (games, counters, forms) that must remember user actions, read the "stateful-widget" skill (via content_reading) before generating widget code.',
       'For SVG, use non-project mode (code). Code must be self-contained, no external CDN.',
       'When the user provides files (images, SVGs, etc.), MUST add their original paths to assets (e.g. Images/photo.png) and reference them in HTML with the "asset:" prefix (e.g. src="asset:Images/photo.png", href, or CSS url()). Files are read from the vault and bundled as base64 data URLs at render time.',
-      `After rendering a project widget, do NOT call show_widget again for updates. Use ${ToolName.EDIT} and ${ToolName.CONTENT_READING} on the projectPath returned in the tool result.`,
-      "Match the user's Obsidian UI base theme (Light or Dark). When this tool is active, the current theme and suggested base colors are included in the task instructions.",
-      `After rendering, code and project file contents are omitted from conversation history. Use ${ToolName.GET_ARTIFACT_BY_ID} to retrieve code widgets; use projectPath + ${ToolName.CONTENT_READING} / ${ToolName.EDIT} for project widgets.`,
+      `After rendering a project widget, if the user ask for update, use ${ToolName.EDIT} and ${ToolName.CONTENT_READING} on the projectPath returned in the tool result.`,
+      "Match the user's Obsidian UI base theme (Light or Dark). Keep the body background transparent; use suggested base colors for widget elements only.",
     ],
     category: 'content-generation',
     showDescriptionWhenInactive: true,

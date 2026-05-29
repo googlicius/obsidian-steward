@@ -191,7 +191,7 @@ export class VaultUpdateFrontmatter {
       toolCall.input.properties[0].name === 'conversation_title';
     const noteContent =
       isConversationTitleOnly && updateResult.failed.length === 0
-        ? `*${t('update.conversationTitleUpdated')}*`
+        ? `<small>*${t('update.conversationTitleUpdated')}*</small>`
         : formattedMessage;
 
     await ctx.updateConversationNote({

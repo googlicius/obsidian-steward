@@ -3,6 +3,8 @@ export interface BuiltInSkill {
   description: string;
   content: string;
   version: number;
+  /** Path under Skills/ where SKILL.md is written. Defaults to `name`. */
+  folder?: string;
 }
 
 export const BUILT_IN_SKILLS: BuiltInSkill[] = [
@@ -36,8 +38,8 @@ Skip this pattern for static animations, one-shot diagrams, or SVG-only widgets 
 
 ## How a widget is rendered
 
-1. **Creation**: \`show_widget\` writes files under \`{stewardFolder}/Widgets/{conversationTitle}/{widgetId}/\` (e.g. \`index.html\`, \`main.js\`, \`style.css\`, \`manifest.json\`).
-2. **Conversation**: A \`stw-widget-project\` fence in the note references \`widgetId\` and \`projectPath\`.
+1. **Creation**: \`show_widget\` writes files under \`{stewardFolder}/Widgets/{widgetId}/\` (e.g. \`index.html\`, \`main.js\`, \`style.css\`, \`manifest.json\`). \`widgetId\` is derived from \`widgetName\` (whitespace → dashes) plus a short unique suffix.
+2. **Conversation**: A \`stw-widget-project\` fence in the note references \`widgetId\` and \`projectPath\`. Widgets are conversation-independent — reference \`widgetId\` from any conversation to edit or display the same widget.
 3. **Mount**: The host bundles \`index.html\` (inlines linked CSS/JS and vault \`asset:\` paths), wraps the result in a **sandboxed iframe** (\`srcdoc\`, \`allow-scripts\`, strict CSP, no network).
 4. **Hot-reload**: When you edit project files via \`edit\`, the iframe reloads from the vault. **Do not** call \`show_widget\` again for updates.
 
@@ -123,8 +125,98 @@ Rules:
 
 ## Workflow
 
-1. Call \`show_widget\` with \`type: "html"\` and \`files\` (project mode).
+1. Call \`show_widget\` with \`type: "html"\`, \`widgetName\` (natural language), and \`files\` (project mode).
 2. Implement \`main.js\` with \`getState\` / \`setState\` as above.
 3. Later changes: \`content_reading\` + \`edit\` on \`projectPath\`; preserve the state API when refactoring.`,
+  },
+  {
+    name: 'edit-table',
+    folder: 'edit/table',
+    description:
+      'Edit markdown tables via the edit tool. Read before add_table_column, update_table_column, or delete_table_column — especially for large tables (20+ rows).',
+    version: 1,
+    content: `# Edit Table Skill
+
+Use this skill when editing **markdown tables** with the \`edit\` tool. Prefer the table-specific modes over \`replace_by_lines\` — they are faster and use fewer tokens, especially for **large tables (more than 20 rows)**.
+
+## When to use
+
+- Add, update, or remove a **column** in an existing table.
+- The table spans many rows and rewriting the whole table would be wasteful.
+- You already know the table's line range (\`fromLine\`–\`toLine\`) in the note.
+
+For small, non-tabular edits inside a table row, \`replace_by_lines\` may still be appropriate — but column operations should use the modes below.
+
+## Shared parameters
+
+All table modes require:
+
+| Field | Description |
+|-------|-------------|
+| \`path\` | Path of the **existing** note containing the table. |
+| \`fromLine\` | Starting line (0-based) of the table in the note. |
+| \`toLine\` | Ending line (0-based) of the table in the note. |
+
+Use \`content_reading\` first if you need to locate the table or confirm line numbers.
+
+## Modes
+
+### \`add_table_column\`
+
+Add a new column to the table.
+
+**Extra fields:**
+
+| Field | Description |
+|-------|-------------|
+| \`content\` | New column in Markdown: header, separator (\`---\`), then one value per data row (newline-separated). Example: \`Status\\n---\\nPending\\nDone\` |
+| \`insertAfter\` | Optional. Column header name to insert after. |
+| \`insertBefore\` | Optional. Column header name to insert before. |
+| *(placement)* | If both \`insertAfter\` and \`insertBefore\` are omitted, the column is added at the end. |
+
+Return **only the new column** (header + separator + values), not the entire table.
+
+### \`update_table_column\`
+
+Update an existing column (header, values, or both).
+
+**Extra fields:**
+
+| Field | Description |
+|-------|-------------|
+| \`content\` | Edited column in the same format as \`add_table_column\`. |
+| \`position\` | Optional. 0-based column index to update. Defaults to the **last** column. |
+
+Return **only the updated column**, not the entire table.
+
+### \`delete_table_column\`
+
+Remove a column from the table.
+
+**Extra fields:**
+
+| Field | Description |
+|-------|-------------|
+| \`position\` | Optional. 0-based column index to delete. Defaults to the **last** column. |
+
+No \`content\` field — the column is removed by position.
+
+## Content rules
+
+- Return **only the changed column** (for add/update), not surrounding rows or the full table.
+- \`content\` must include the header row, a \`---\` separator line, and one line per table data row (pad with empty lines if a cell is blank).
+- Match the number of value lines to the table's row count (header + separator + data rows).
+
+## Workflow
+
+1. Read the note (or relevant section) to get the table and line range.
+2. Choose the table mode and set \`fromLine\` / \`toLine\` to bound the table.
+3. Pass one or more table operations in a **single** \`edit\` call (do not split across multiple tool calls).
+
+## Common mistakes
+
+- Using \`replace_by_lines\` to rewrite an entire large table instead of column modes.
+- Sending the full table in \`content\` instead of just the target column.
+- Wrong \`fromLine\` / \`toLine\` (table includes header, separator, and all data rows).`,
   },
 ];
