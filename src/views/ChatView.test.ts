@@ -1,5 +1,5 @@
 import { WorkspaceLeaf, App } from 'obsidian';
-import { StewardChatView } from './StewardChatView';
+import { ChatView } from './ChatView';
 import type StewardPlugin from 'src/main';
 
 jest.mock('obsidian', () => {
@@ -30,13 +30,13 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
   } as unknown as jest.Mocked<StewardPlugin>;
 }
 
-describe('StewardChatView', () => {
+describe('ChatView', () => {
   let mockPlugin: jest.Mocked<StewardPlugin>;
-  let chatView: StewardChatView;
+  let chatView: ChatView;
 
   beforeEach(() => {
     mockPlugin = createMockPlugin();
-    chatView = new StewardChatView({} as unknown as WorkspaceLeaf, mockPlugin);
+    chatView = new ChatView({} as unknown as WorkspaceLeaf, mockPlugin);
     chatView.app = mockPlugin.app;
   });
 

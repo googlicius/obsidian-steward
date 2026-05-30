@@ -2,15 +2,21 @@ import type { App } from 'obsidian';
 import { TFile } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import { getBundledInternal } from 'src/utils/bundledInternals';
-import type { EmbedView } from './EmbedView';
+import type { ViewBuilder } from './ViewBuilder';
 
 const { i18next } = getBundledInternal('i18n');
 
-export class EmbedHistoryView implements EmbedView {
+const HISTORY_FILE_NAME = 'History.md';
+
+export class HistoryViewBuilder implements ViewBuilder {
   constructor(
     private app: App,
     private plugin: StewardPlugin
   ) {}
+
+  getFilePath(): string {
+    return `${this.plugin.settings.stewardFolder}/${HISTORY_FILE_NAME}`;
+  }
 
   async buildContent(): Promise<string> {
     const MAX_HISTORY_ITEMS = 50;
@@ -51,7 +57,7 @@ export class EmbedHistoryView implements EmbedView {
   }
 
   async write(content: string): Promise<void> {
-    const historyNotePath = `${this.plugin.settings.stewardFolder}/History.md`;
+    const historyNotePath = this.getFilePath();
     const existingFile = this.app.vault.getFileByPath(historyNotePath);
 
     if (existingFile) {
@@ -60,11 +66,6 @@ export class EmbedHistoryView implements EmbedView {
     }
 
     await this.app.vault.create(historyNotePath, content);
-  }
-
-  async replaceHostWikilink(hostFile: TFile): Promise<void> {
-    const embedContent = `\n![[History]]\n`;
-    await this.app.vault.modify(hostFile, embedContent);
   }
 
   private buildHistoryDisplayText(file: TFile): string {

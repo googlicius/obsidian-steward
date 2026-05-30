@@ -1,5 +1,5 @@
 import { TFile, TFolder, App } from 'obsidian';
-import { EmbedHistoryView } from './EmbedHistoryView';
+import { HistoryViewBuilder } from './HistoryViewBuilder';
 import type StewardPlugin from 'src/main';
 import { getInstance } from 'src/utils/getInstance';
 import { getBundledInternal } from 'src/utils/bundledInternals';
@@ -32,20 +32,26 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
   } as unknown as jest.Mocked<StewardPlugin>;
 }
 
-describe('EmbedHistoryView', () => {
+describe('HistoryViewBuilder', () => {
   let mockPlugin: jest.Mocked<StewardPlugin>;
-  let embedHistoryView: EmbedHistoryView;
+  let historyViewBuilder: HistoryViewBuilder;
 
   beforeEach(() => {
     mockPlugin = createMockPlugin();
-    embedHistoryView = new EmbedHistoryView(mockPlugin.app, mockPlugin);
+    historyViewBuilder = new HistoryViewBuilder(mockPlugin.app, mockPlugin);
+  });
+
+  describe('getFilePath', () => {
+    it('should return the History note path under stewardFolder', () => {
+      expect(historyViewBuilder.getFilePath()).toBe('Steward/History.md');
+    });
   });
 
   describe('buildContent', () => {
     it('should return noConversations message when folder does not exist', async () => {
       mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(null);
 
-      const result = await embedHistoryView.buildContent();
+      const result = await historyViewBuilder.buildContent();
 
       expect(result).toBe(getBundledInternal('i18n').i18next.t('chat.noConversations'));
     });
@@ -57,17 +63,18 @@ describe('EmbedHistoryView', () => {
       });
       mockPlugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(mockFolder);
 
-      const result = await embedHistoryView.buildContent();
+      const result = await historyViewBuilder.buildContent();
 
       expect(result).toBe(getBundledInternal('i18n').i18next.t('chat.noConversations'));
     });
   });
 
   describe('buildHistoryDisplayText', () => {
-    let buildHistoryDisplayText: EmbedHistoryView['buildHistoryDisplayText'];
+    let buildHistoryDisplayText: HistoryViewBuilder['buildHistoryDisplayText'];
 
     beforeEach(() => {
-      buildHistoryDisplayText = embedHistoryView['buildHistoryDisplayText'].bind(embedHistoryView);
+      buildHistoryDisplayText =
+        historyViewBuilder['buildHistoryDisplayText'].bind(historyViewBuilder);
     });
 
     it('should return file basename when conversation_title is not in frontmatter', () => {

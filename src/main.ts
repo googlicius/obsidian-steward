@@ -40,8 +40,15 @@ import { ContentReadingService } from './services/ContentReadingService';
 import { VaultService } from './services/VaultService/VaultService';
 import { StewardPluginSettings } from './types/interfaces';
 import { Line, Text } from '@codemirror/state';
-import { DEFAULT_SETTINGS, SMILE_CHAT_ICON_ID, STW_CHAT_VIEW_CONFIG } from './constants';
-import { StewardChatView } from './views/StewardChatView';
+import {
+  DEFAULT_SETTINGS,
+  SMILE_CHAT_ICON_ID,
+  CHAT_VIEW_CONFIG,
+  READING_VIEW_CONFIG,
+} from './constants';
+import { ChatView } from './views/ChatView';
+import { ReadingView } from './views/ReadingView';
+import { StewardMarkdownView } from './views/StewardMarkdownView';
 import { Events } from './types/events';
 import { ObsidianEditor, ExtendedApp } from './types/types';
 import { isConversationLink, extractConversationTitle } from './utils/conversationUtils';
@@ -473,7 +480,7 @@ export default class StewardPlugin extends Plugin {
         menu.addItem(item => {
           item
             .setTitle(i18next.t('ui.addToInlineConversation'))
-            .setIcon(STW_CHAT_VIEW_CONFIG.icon)
+            .setIcon(CHAT_VIEW_CONFIG.icon)
             .onClick(async () => {
               await this.commandInputService
                 .withEditor(editor)
@@ -484,7 +491,7 @@ export default class StewardPlugin extends Plugin {
         menu.addItem(item => {
           item
             .setTitle(i18next.t('ui.addToChat'))
-            .setIcon(STW_CHAT_VIEW_CONFIG.icon)
+            .setIcon(CHAT_VIEW_CONFIG.icon)
             .onClick(async () => {
               await this.commandInputService.withEditor(editor).addSelectionToConversation('chat');
             });
@@ -522,7 +529,8 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createRunPostProcessor(this));
 
     // Register the custom view type
-    this.registerView(STW_CHAT_VIEW_CONFIG.type, leaf => new StewardChatView(leaf, this));
+    this.registerView(CHAT_VIEW_CONFIG.type, leaf => new ChatView(leaf, this));
+    this.registerView(READING_VIEW_CONFIG.type, leaf => new ReadingView(leaf, this));
   }
 
   private async initializeClassifier() {
@@ -790,7 +798,7 @@ export default class StewardPlugin extends Plugin {
     return false;
   }
 
-  private async relocateChatLeafToDock(
+  private async relocateLeafToDock(
     currentLeaf: WorkspaceLeaf,
     targetDock: 'main' | 'right'
   ): Promise<WorkspaceLeaf> {
@@ -819,21 +827,24 @@ export default class StewardPlugin extends Plugin {
   }
 
   /**
-   * Gets or creates the leaf for the chat in the configured dock ({@link StewardPluginSettings.chatViewDock}).
+   * Gets or creates the steward pane leaf (chat or reading) in the configured dock.
    */
-  public async getChatLeaf(): Promise<WorkspaceLeaf> {
-    const dock = this.settings.chatViewDock;
-    const leaves = this.app.workspace.getLeavesOfType(STW_CHAT_VIEW_CONFIG.type);
-
-    if (leaves.length > 0) {
-      const leaf = leaves[0];
-      return leaf;
+  public async getStewardLeaf(): Promise<WorkspaceLeaf> {
+    const chatLeaves = this.app.workspace.getLeavesOfType(CHAT_VIEW_CONFIG.type);
+    if (chatLeaves.length > 0) {
+      return chatLeaves[0];
     }
 
+    const readingLeaves = this.app.workspace.getLeavesOfType(READING_VIEW_CONFIG.type);
+    if (readingLeaves.length > 0) {
+      return readingLeaves[0];
+    }
+
+    const dock = this.settings.chatViewDock;
     if (dock === 'right') {
       const leaf = this.app.workspace.getRightLeaf(false);
       if (!leaf) {
-        throw new Error('Failed to create or find a leaf for the chat');
+        throw new Error('Failed to create or find a leaf for the steward view');
       }
       return leaf;
     }
@@ -841,31 +852,99 @@ export default class StewardPlugin extends Plugin {
     return this.app.workspace.getLeaf('tab');
   }
 
+  /** @deprecated Use {@link getStewardLeaf} */
+  public async getChatLeaf(): Promise<WorkspaceLeaf> {
+    return this.getStewardLeaf();
+  }
+
   /**
-   * Toggle chat between the right sidebar and the main editor; updates {@link StewardPluginSettings.chatViewDock}.
+   * Prefer an active steward leaf; otherwise {@link getStewardLeaf}.
    */
-  public async toggleChatDockFromView(currentLeaf: WorkspaceLeaf): Promise<void> {
-    const newDoc: StewardPluginSettings['chatViewDock'] = this.leafIsInRightSidebar(currentLeaf)
+  public async resolveStewardLeaf(): Promise<WorkspaceLeaf> {
+    const activeStewardView =
+      this.app.workspace.getActiveViewOfType(ChatView) ??
+      this.app.workspace.getActiveViewOfType(ReadingView);
+
+    if (activeStewardView) {
+      return activeStewardView.leaf;
+    }
+
+    return this.getStewardLeaf();
+  }
+
+  public async openReadingView({
+    filePath,
+    leaf,
+    revealLeaf = true,
+  }: {
+    filePath: string;
+    leaf: WorkspaceLeaf;
+    revealLeaf?: boolean;
+  }): Promise<void> {
+    try {
+      await leaf.setViewState({
+        type: READING_VIEW_CONFIG.type,
+        state: { file: filePath, mode: 'preview' },
+      });
+
+      if (revealLeaf) {
+        this.app.workspace.revealLeaf(leaf);
+        this.app.workspace.setActiveLeaf(leaf, { focus: true });
+      }
+    } catch (error) {
+      logger.error('Error opening reading view:', error);
+    }
+  }
+
+  public async startNewChat(leaf: WorkspaceLeaf): Promise<void> {
+    await this.openChat({ leaf, revealLeaf: true });
+
+    if (leaf.view instanceof ChatView) {
+      leaf.view.startNewChat();
+    }
+  }
+
+  /**
+   * Toggle a steward view between the right sidebar and the main editor.
+   * Persists {@link StewardPluginSettings.chatViewDock} only for {@link ChatView}.
+   */
+  public async toggleViewDockFromView(currentLeaf: WorkspaceLeaf): Promise<void> {
+    const targetDock: StewardPluginSettings['chatViewDock'] = this.leafIsInRightSidebar(currentLeaf)
       ? 'main'
       : 'right';
-    this.settings.chatViewDock = newDoc;
-    await this.saveSettings();
 
-    const newLeaf = await this.relocateChatLeafToDock(currentLeaf, newDoc);
+    if (currentLeaf.view instanceof StewardMarkdownView) {
+      this.settings.chatViewDock = targetDock;
+      await this.saveSettings();
+    }
+
+    const newLeaf = await this.relocateLeafToDock(currentLeaf, targetDock);
     await this.app.workspace.revealLeaf(newLeaf);
     this.app.workspace.setActiveLeaf(newLeaf);
 
-    const commandInputService =
-      newLeaf.view instanceof StewardChatView
-        ? this.commandInputService.withEditor(newLeaf.view.editor)
-        : this.commandInputService;
+    if (!(newLeaf.view instanceof ChatView)) {
+      return;
+    }
+
+    const commandInputService = this.commandInputService.withEditor(newLeaf.view.editor);
 
     window.setTimeout(() => {
       commandInputService.focus();
     }, 500);
   }
 
-  public async openChat({ revealLeaf = true }: { revealLeaf?: boolean } = {}): Promise<void> {
+  /** @deprecated Use {@link toggleViewDockFromView} */
+  public async toggleChatDockFromView(currentLeaf: WorkspaceLeaf): Promise<void> {
+    await this.toggleViewDockFromView(currentLeaf);
+  }
+
+  public async openChat({
+    leaf,
+    revealLeaf = true,
+  }: {
+    leaf?: WorkspaceLeaf;
+    revealLeaf?: boolean;
+  } = {}): Promise<void> {
     try {
       // Get the configured folder for conversations
       const folderPath = this.settings.stewardFolder;
@@ -892,20 +971,20 @@ export default class StewardPlugin extends Plugin {
         await this.app.vault.create(notePath, '');
       }
 
-      const leaf = await this.getChatLeaf();
+      const targetLeaf = leaf ?? (await this.getStewardLeaf());
 
-      // Use our custom view
-      await leaf.setViewState({
-        type: STW_CHAT_VIEW_CONFIG.type,
+      await targetLeaf.setViewState({
+        type: CHAT_VIEW_CONFIG.type,
         state: { file: notePath },
       });
 
       if (revealLeaf) {
-        // Focus the editor
-        this.app.workspace.revealLeaf(leaf);
-        this.app.workspace.setActiveLeaf(leaf, { focus: true });
-        // Set the cursor to the last line
-        this.setCursorToEndOfFile();
+        this.app.workspace.revealLeaf(targetLeaf);
+        this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
+
+        if (targetLeaf.view instanceof ChatView) {
+          this.setCursorToEndOfFile(targetLeaf.view.editor as ObsidianEditor);
+        }
       }
     } catch (error) {
       logger.error('Error opening chat:', error);

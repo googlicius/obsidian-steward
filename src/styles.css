@@ -191,7 +191,7 @@ pre:has(> code.language-cli-model) {
   }
 }
 
-.workspace-leaf-content[data-type='steward-conversation'].stw-chat {
+.workspace-leaf-content[data-type^='steward-'].stw-view {
   & > .view-header {
     display: flex;
     background-color: transparent;

@@ -1,7 +1,6 @@
-import { MarkdownView, setIcon, setTooltip, EventRef, TFile } from 'obsidian';
-import { STW_CHAT_VIEW_CONFIG } from '../constants';
-import type { EmbedView } from 'src/views/embed-views/EmbedView';
-import { EmbedHistoryView } from 'src/views/embed-views/EmbedHistoryView';
+import { EventRef, TFile } from 'obsidian';
+import { CHAT_VIEW_CONFIG } from '../constants';
+import { StewardMarkdownView } from './StewardMarkdownView';
 import { logger } from 'src/utils/logger';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { WorkspaceLeaf } from 'obsidian';
@@ -9,23 +8,16 @@ import type StewardPlugin from 'src/main';
 
 const { i18next } = getBundledInternal('i18n');
 
-export class StewardChatView extends MarkdownView {
+export class ChatView extends StewardMarkdownView {
   private autoScrollEventRef: EventRef | null = null;
   private scrollToBottomTimeout: number | null = null;
-  private dockToggleBtn: HTMLElement | null = null;
 
-  constructor(
-    leaf: WorkspaceLeaf,
-    private plugin: StewardPlugin
-  ) {
-    super(leaf);
-
-    // Mark this view as non-navigable
-    this.navigation = false;
+  constructor(leaf: WorkspaceLeaf, plugin: StewardPlugin) {
+    super(leaf, plugin);
   }
 
   getViewType(): string {
-    return STW_CHAT_VIEW_CONFIG.type;
+    return CHAT_VIEW_CONFIG.type;
   }
 
   getDisplayText(): string {
@@ -33,22 +25,14 @@ export class StewardChatView extends MarkdownView {
   }
 
   getIcon(): string {
-    return STW_CHAT_VIEW_CONFIG.icon;
+    return CHAT_VIEW_CONFIG.icon;
   }
 
   async onOpen(): Promise<void> {
     await super.onOpen();
 
     this.containerEl.classList.add('stw-chat');
-
-    this.setupViewHeader();
     this.setupAutoScroll();
-
-    this.registerEvent(
-      this.app.workspace.on('layout-change', () => {
-        this.refreshDockToggleButton();
-      })
-    );
   }
 
   async onClose(): Promise<void> {
@@ -57,18 +41,9 @@ export class StewardChatView extends MarkdownView {
   }
 
   /**
-   * Override canAcceptExtension to return false,
-   * which prevents this view from accepting new files
-   */
-  canAcceptExtension(extension: string): boolean {
-    return false;
-  }
-
-  /**
    * Set up auto-scroll listener for streaming content
    */
   private setupAutoScroll(): void {
-    // Clean up any existing listener
     this.cleanupAutoScroll();
 
     this.autoScrollEventRef = this.app.vault.on('modify', file => {
@@ -76,56 +51,42 @@ export class StewardChatView extends MarkdownView {
         return;
       }
 
-      // Only handle modifications if the view is visible
       if (!this.containerEl.isShown()) {
         return;
       }
 
-      // Get the current conversation note path (the embedded wikilink)
       const notePath = this.getCurrentConversationPath();
       if (!notePath) {
         return;
       }
 
-      // Only auto-scroll if this is the conversation note being modified
       if (file.path !== notePath) {
         return;
       }
 
-      // Only auto-scroll during streaming
       if (!this.plugin.conversationRenderer.isStreaming(file.path)) {
         return;
       }
 
-      // Only auto-scroll if the setting is enabled
       if (!this.plugin.settings.autoScroll) {
         return;
       }
 
-      // Schedule scroll with debouncing
       this.scheduleScrollToBottom();
     });
   }
 
-  /**
-   * Schedule a scroll to bottom operation with debouncing
-   */
   private scheduleScrollToBottom(): void {
-    // Clear existing timeout
     if (this.scrollToBottomTimeout) {
       clearTimeout(this.scrollToBottomTimeout);
     }
 
-    // Schedule scroll with a small delay to batch rapid updates
     this.scrollToBottomTimeout = window.setTimeout(() => {
       this.scrollToBottom();
       this.scrollToBottomTimeout = null;
     }, 50);
   }
 
-  /**
-   * Scroll the editor to the bottom
-   */
   private scrollToBottom(): void {
     if (!this.file || !this.containerEl.isShown()) {
       return;
@@ -144,9 +105,6 @@ export class StewardChatView extends MarkdownView {
     }
   }
 
-  /**
-   * Clean up auto-scroll resources
-   */
   private cleanupAutoScroll(): void {
     if (this.autoScrollEventRef) {
       this.app.vault.offref(this.autoScrollEventRef);
@@ -159,71 +117,7 @@ export class StewardChatView extends MarkdownView {
     }
   }
 
-  /**
-   * Replace the default view-header controls with chat actions.
-   * CSS forces `.view-header` to stay visible in sidebar and mobile layouts.
-   */
-  private setupViewHeader(): void {
-    const viewHeader = this.containerEl.querySelector('.view-header');
-    if (!(viewHeader instanceof HTMLElement)) {
-      return;
-    }
-
-    viewHeader.empty();
-    const actionsEl = viewHeader.createDiv({ cls: 'view-actions' });
-
-    this.createHeaderAction(actionsEl, 'plus-circle', i18next.t('chat.newChat'), () => {
-      this.handleNewChat();
-    });
-
-    this.createHeaderAction(actionsEl, 'history', i18next.t('chat.history'), () => {
-      void this.openEmbedView(new EmbedHistoryView(this.app, this.plugin));
-    });
-
-    this.dockToggleBtn = this.createHeaderAction(
-      actionsEl,
-      'arrow-right',
-      i18next.t('chat.moveChatToRight'),
-      () => {
-        void this.plugin.toggleChatDockFromView(this.leaf);
-      }
-    );
-    this.refreshDockToggleButton();
-  }
-
-  private createHeaderAction(
-    parent: HTMLElement,
-    icon: string,
-    tooltip: string,
-    onClick: () => void
-  ): HTMLElement {
-    const actionEl = parent.createEl('a', {
-      cls: 'view-action clickable-icon',
-      href: '#',
-      attr: { 'aria-label': tooltip },
-    });
-    setIcon(actionEl, icon);
-    setTooltip(actionEl, tooltip);
-    actionEl.addEventListener('click', evt => {
-      evt.preventDefault();
-      onClick();
-    });
-    return actionEl;
-  }
-
-  private refreshDockToggleButton(): void {
-    if (!this.dockToggleBtn) {
-      return;
-    }
-    const inRight = this.plugin.leafIsInRightSidebar(this.leaf);
-    setIcon(this.dockToggleBtn, inRight ? 'arrow-left' : 'arrow-right');
-    setTooltip(
-      this.dockToggleBtn,
-      i18next.t(inRight ? 'chat.moveChatToMain' : 'chat.moveChatToRight')
-    );
-  }
-
-  private handleNewChat(): void {
+  public startNewChat(): void {
     const initialContent = '\n/ ';
 
     if (!this.file) {
@@ -231,12 +125,9 @@ export class StewardChatView extends MarkdownView {
       return;
     }
 
-    // Update the file with the new content immediately (non-blocking)
     this.app.vault.modify(this.file, initialContent).then(() => {
-      // Set the leaf as active and focus it
       this.app.workspace.setActiveLeaf(this.leaf, { focus: true });
 
-      // Set the cursor to the last line
       const lastLineNum = this.editor.lineCount() - 1;
       this.editor.setCursor({
         line: lastLineNum,
@@ -244,37 +135,28 @@ export class StewardChatView extends MarkdownView {
       });
     });
 
-    // Check for new version asynchronously (non-blocking)
-    this.checkAndDisplayVersionNotification();
+    void this.checkAndDisplayVersionNotification();
   }
 
-  /**
-   * Checks for new version and displays notification using ConversationRenderer.updateConversationNote
-   * This runs asynchronously without blocking the UI
-   */
   private async checkAndDisplayVersionNotification(): Promise<void> {
     if (!this.file) {
       return;
     }
 
     try {
-      // Check for new version (async call to GitHub API)
       const currentVersion = this.plugin.manifest.version;
       const newVersion = await this.plugin.versionCheckerService.checkForNewVersion(
         currentVersion,
         this.plugin.settings.lastSeenVersion
       );
 
-      // If there's a new version, create/update the "New version" note and embed it in the chat
       if (newVersion) {
         const { version, body } = newVersion;
 
-        // Create/update the release note in "Release notes" folder
         const releaseNotesFolder = `${this.plugin.settings.stewardFolder}/Release notes`;
         const releaseNoteTitle = `v${version}`;
         const releaseNotePath = `${releaseNotesFolder}/${releaseNoteTitle}.md`;
 
-        // Create or update the release note file
         let releaseNoteFile = this.plugin.app.vault.getFileByPath(releaseNotePath);
         if (!releaseNoteFile) {
           releaseNoteFile = await this.plugin.app.vault.create(releaseNotePath, body || '');
@@ -282,80 +164,41 @@ export class StewardChatView extends MarkdownView {
           await this.plugin.app.vault.modify(releaseNoteFile, body || '');
         }
 
-        // Create notification message with link to release note
         const releaseNoteLink = `[[Release notes/${releaseNoteTitle}|Release notes]]`;
         const versionMessage = `${i18next.t('chat.newVersionMessage', { version })}\n\n${releaseNoteLink}`;
 
-        // Format the message as a callout (like UpdateCommandHandler does)
         const formattedCallout = this.plugin.noteContentService.formatCallout(
           versionMessage,
           'info'
         );
 
-        // Create/update the "New version" note directly in stewardFolder
         const versionNoteTitle = 'New version';
         const versionNotePath = `${this.plugin.settings.stewardFolder}/${versionNoteTitle}.md`;
         let versionNoteFile = this.plugin.app.vault.getFileByPath(versionNotePath);
 
-        // Create the note if it doesn't exist
         if (!versionNoteFile) {
-          // Create the note with the formatted callout
           versionNoteFile = await this.plugin.app.vault.create(versionNotePath, formattedCallout);
         } else {
-          // Update the note by replacing all content
           await this.plugin.app.vault.modify(versionNoteFile, formattedCallout);
         }
 
-        // Embed the version note in the chat file
         await this.app.vault.process(this.file, currentContent => {
-          // Remove any existing "New version" embed to avoid duplicates
           const versionEmbedPattern = /!\[\[New version\]\]\n?/g;
           const cleanedContent = currentContent.replace(versionEmbedPattern, '');
 
-          // Prepend the embed link
           return `![[New version]]\n${cleanedContent}`;
         });
 
-        // Update last seen version
         this.plugin.settings.lastSeenVersion = version;
         await this.plugin.saveSettings();
       }
     } catch (error) {
       logger.error('Error checking for new version:', error);
-      // Don't throw - this is a non-critical feature
     }
-  }
-
-  private async handleEmbedView(embedView: EmbedView): Promise<void> {
-    if (!this.file) {
-      logger.warn('Conversation file not found');
-      return;
-    }
-
-    try {
-      const content = await embedView.buildContent();
-      await embedView.write(content);
-      await embedView.replaceHostWikilink(this.file);
-    } catch (error) {
-      logger.error('Error handling embed view:', error);
-    }
-  }
-
-  /**
-   * Build sidecar content, write the target note, and replace the chat host embed (see {@link EmbedView}).
-   * Used by the History header control and markdown `stw-embed` links (RunPostProcessor).
-   */
-  public async openEmbedView(embedView: EmbedView): Promise<void> {
-    await this.handleEmbedView(embedView);
   }
 
   /**
    * Open an existing conversation in the chat by replacing current content with an embed.
-   *
-   * If the requested note declares `continued_to` / `forwarded_to`, the embed points at
-   * the terminal note after following that chain (multi-hop when several forwards are chained).
-   * The `/ ` input line is appended unless the terminal note is a `cli_interactive*` terminal
-   * or carries a `trigger` frontmatter key.
    */
   public async openExistingConversation(conversationPath: string): Promise<void> {
     if (!this.file) {
@@ -392,10 +235,6 @@ export class StewardChatView extends MarkdownView {
     }
   }
 
-  /**
-   * Get the current conversation note path from the embedded wikilink
-   * Returns the full normalized file path (with .md extension) or null if not found
-   */
   private getCurrentConversationPath(): string | null {
     const content = this.editor.getValue();
 
@@ -409,16 +248,10 @@ export class StewardChatView extends MarkdownView {
       return null;
     }
 
-    // Construct the full path to match against file paths
-    // The conversationPath could be:
-    // - Full path: "steward/Conversations/title"
-    // - Just title: "title"
     let notePath: string;
     if (conversationPath.includes('/')) {
-      // Already a full path
       notePath = conversationPath.endsWith('.md') ? conversationPath : `${conversationPath}.md`;
     } else {
-      // Just the title, construct full path
       const folderPath = `${this.plugin.settings.stewardFolder}/Conversations`;
       notePath = `${folderPath}/${conversationPath}.md`;
     }
@@ -426,10 +259,6 @@ export class StewardChatView extends MarkdownView {
     return notePath;
   }
 
-  /**
-   * Check if the chat view is visible and the current conversation path matches the given path
-   * If no path is provided, return true if the chat view is visible
-   */
   public isVisible(path?: string): boolean {
     let isVisible = this.containerEl.isShown();
 

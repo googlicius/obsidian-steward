@@ -1,7 +1,7 @@
 import { MarkdownPostProcessor, TFile, setIcon, setTooltip } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import { getBundledInternal } from 'src/utils/bundledInternals';
-import { StewardChatView } from 'src/views/StewardChatView';
+import { ChatView } from 'src/views/ChatView';
 
 const { i18next } = getBundledInternal('i18n');
 
@@ -110,13 +110,14 @@ export function createHistoryPostProcessor(plugin: StewardPlugin): MarkdownPostP
         event.preventDefault();
         event.stopPropagation();
         void (async () => {
-          const chatLeaf = await plugin.getChatLeaf();
-          const chatView = chatLeaf.view;
-          if (!(chatView instanceof StewardChatView)) {
+          const leaf = await plugin.resolveStewardLeaf();
+          await plugin.openChat({ leaf, revealLeaf: true });
+
+          if (!(leaf.view instanceof ChatView)) {
             return;
           }
 
-          await chatView.openExistingConversation(conversationPath);
+          await leaf.view.openExistingConversation(conversationPath);
         })();
       });
 

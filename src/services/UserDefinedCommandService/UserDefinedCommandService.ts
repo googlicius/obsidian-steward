@@ -12,7 +12,7 @@ import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES, WIKI_LINK_PATTERN } from 'src/constants';
 import { BUILT_IN_UDCS } from './constants';
-import { StewardChatView } from 'src/views/StewardChatView';
+import { ChatView } from 'src/views/ChatView';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { z } from 'zod/v3';
 import {
@@ -922,7 +922,7 @@ version: ${udc.version}
         const leaf = await this.plugin.getChatLeaf();
         const view = leaf.view;
 
-        if (view instanceof StewardChatView) {
+        if (view instanceof ChatView) {
           await view.openExistingConversation(conversationPath);
         }
       });
@@ -973,7 +973,7 @@ version: ${udc.version}
       });
 
       const leaf = await this.plugin.getChatLeaf();
-      if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
+      if (leaf.view instanceof ChatView && !leaf.view.isVisible(conversationPath)) {
         const lastResult =
           this.plugin.commandProcessorService.commandProcessor.getLastResult(conversationTitle);
         const completionMessageKey =
@@ -992,7 +992,7 @@ version: ${udc.version}
       }
     } catch (error) {
       const leaf = await this.plugin.getChatLeaf();
-      if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
+      if (leaf.view instanceof ChatView && !leaf.view.isVisible(conversationPath)) {
         new Notice(
           buildNoticeFragment(
             i18next.t('trigger.executionFailed', {

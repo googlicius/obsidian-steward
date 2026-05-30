@@ -1,13 +1,15 @@
 import type { App } from 'obsidian';
 import { TFile, normalizePath } from 'obsidian';
 import type StewardPlugin from 'src/main';
-import type { EmbedView } from './EmbedView';
+import type { ViewBuilder } from './ViewBuilder';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { COMMUNITY_UDC_MANIFEST, type CommunityUdcEntry } from 'src/generated/communityUdcManifest';
 import type { CommunityCommandUpdateGuideline } from 'src/types/CommunityCommandUpdateGuideline';
 import { GITHUB_RAW_BASE_URL } from 'src/constants';
 
 const { i18next } = getBundledInternal('i18n');
+
+const COMMANDS_FILE_NAME = 'Commands.md';
 
 /** Raw GitHub URL for a path under the repo root (e.g. `community-UDCs/Shells.md`). */
 function communityUdcRawFileUrl(sourceFile: string): string {
@@ -54,11 +56,15 @@ function groupManifestBySourceFile(entries: CommunityUdcEntry[]): CommunityUdcEn
   return groups;
 }
 
-export class EmbedCommandsView implements EmbedView {
+export class CommandsViewBuilder implements ViewBuilder {
   constructor(
     private app: App,
     private plugin: StewardPlugin
   ) {}
+
+  getFilePath(): string {
+    return `${this.plugin.settings.stewardFolder}/${COMMANDS_FILE_NAME}`;
+  }
 
   async buildContent(): Promise<string> {
     if (COMMUNITY_UDC_MANIFEST.length === 0) {
@@ -196,7 +202,7 @@ export class EmbedCommandsView implements EmbedView {
   }
 
   async write(content: string): Promise<void> {
-    const commandsListPath = `${this.plugin.settings.stewardFolder}/Commands.md`;
+    const commandsListPath = this.getFilePath();
     const existingFile = this.app.vault.getFileByPath(commandsListPath);
 
     if (existingFile) {
@@ -205,9 +211,5 @@ export class EmbedCommandsView implements EmbedView {
     }
 
     await this.app.vault.create(commandsListPath, content);
-  }
-
-  async replaceHostWikilink(hostFile: TFile): Promise<void> {
-    await this.app.vault.modify(hostFile, '\n![[Commands]]\n');
   }
 }

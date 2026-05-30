@@ -23,8 +23,13 @@ export type AbortOperationKey =
 
 export const SMILE_CHAT_ICON_ID = 'smile-chat-icon';
 
-export const STW_CHAT_VIEW_CONFIG = {
+export const CHAT_VIEW_CONFIG = {
   type: 'steward-conversation',
+  icon: SMILE_CHAT_ICON_ID,
+};
+
+export const READING_VIEW_CONFIG = {
+  type: 'steward-reading',
   icon: SMILE_CHAT_ICON_ID,
 };
 
