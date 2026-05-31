@@ -58,6 +58,7 @@ import { retry } from './utils/retry';
 import { getClassifier } from './lib/modelfusion/classifiers/getClassifier';
 import { MediaTools } from './tools/mediaTools';
 import { NoteContentService } from './services/NoteContentService';
+import { MarkdownDefinitionService } from './services/MarkdownDefinitionService';
 import { LLMService } from './services/LLMService';
 import stewardIcon from './assets/steward-icon.svg';
 import { createStwSourceBlocksExtension } from './cm/extensions/StwSourceBlockExtension';
@@ -102,6 +103,7 @@ export default class StewardPlugin extends Plugin {
   _userDefinedCommandService: UserDefinedCommandService;
   _mediaTools: MediaTools;
   _noteContentService: NoteContentService;
+  _markdownDefinitionService: MarkdownDefinitionService;
   _modelFallbackService: ModelFallbackService;
   _encryptionService: EncryptionService;
   _commandInputService: CommandInputService;
@@ -236,6 +238,13 @@ export default class StewardPlugin extends Plugin {
       this._noteContentService = NoteContentService.getInstance(this);
     }
     return this._noteContentService;
+  }
+
+  get markdownDefinitionService(): MarkdownDefinitionService {
+    if (!this._markdownDefinitionService) {
+      this._markdownDefinitionService = MarkdownDefinitionService.getInstance(this);
+    }
+    return this._markdownDefinitionService;
   }
 
   get encryptionService(): EncryptionService {

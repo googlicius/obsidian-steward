@@ -7,6 +7,12 @@ export const WIDGET_STATE_SAVE = 'widget-state-save';
 /** Runtime state file name inside a widget project folder */
 export const WIDGET_STATE_FILE = 'state.json';
 
+/** Markdown definition note inside a widget project folder */
+export const WIDGET_DEFINITION_FILE = 'Widget.md';
+
+/** YAML `name` value identifying the widget manifest block */
+export const WIDGET_MANIFEST_SCHEMA_NAME = 'manifest';
+
 /** Injected global holding the persisted state envelope (or null) */
 export const WIDGET_STATE_GLOBAL = '__STW_STATE__';
 

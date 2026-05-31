@@ -7,9 +7,14 @@ import { buildWidgetStateHead } from './WidgetBuild';
 import { WidgetBundler } from './WidgetBundler';
 import type { WidgetJsValidationError } from './WidgetJsValidator';
 import { WidgetJsValidator } from './WidgetJsValidator';
-import { WIDGET_STATE_FILE } from './WidgetProtocol';
+import {
+  WIDGET_DEFINITION_FILE,
+  WIDGET_MANIFEST_SCHEMA_NAME,
+  WIDGET_STATE_FILE,
+} from './WidgetProtocol';
 import { parseWidgetState, WIDGET_STATE_VERSION, widgetStateSchema } from './WidgetStateSchema';
-import type { WidgetManifest, WidgetProjectFenceData, WidgetState } from './types';
+import { widgetManifestSchema, type WidgetManifest, WidgetProjectFenceData, WidgetState } from './types';
+import { stringifyYamlFence } from '../MarkdownDefinitionService';
 
 const MAX_ASSET_BYTES = 2 * 1024 * 1024;
 
@@ -150,7 +155,7 @@ export class WidgetService {
   }
 
   /**
-   * Writes project files and manifest.json under the widget project folder.
+   * Writes project files and Widget.md manifest under the widget project folder.
    */
   public async createProject(params: {
     widgetId: string;
@@ -170,15 +175,16 @@ export class WidgetService {
 
     await this.plugin.obsidianAPITools.ensureFolderExists(projectPath);
 
-    const manifest: WidgetManifest = {
+    const manifestYamlData: Record<string, unknown> = {
+      name: WIDGET_MANIFEST_SCHEMA_NAME,
       entry,
       type: 'html',
       widgetId: params.widgetId,
       widgetName: params.widgetName,
-      assets: params.assets?.length
-        ? params.assets.map(path => WidgetBundler.normalizeAssetPath(path))
-        : undefined,
     };
+    if (params.assets?.length) {
+      manifestYamlData.assets = params.assets.map(path => WidgetBundler.normalizeAssetPath(path));
+    }
 
     const filePaths = Object.keys(params.files);
     for (let i = 0; i < filePaths.length; i++) {
@@ -204,13 +210,15 @@ export class WidgetService {
       }
     }
 
-    const manifestPath = normalizePath(`${projectPath}/manifest.json`);
-    const manifestContent = JSON.stringify(manifest, null, 2);
-    const manifestFile = this.plugin.app.vault.getFileByPath(manifestPath);
-    if (manifestFile) {
-      await this.plugin.app.vault.modify(manifestFile, manifestContent);
+    const definitionPath = normalizePath(`${projectPath}/${WIDGET_DEFINITION_FILE}`);
+    const definitionContent = this.plugin.markdownDefinitionService.buildYamlFence(
+      stringifyYamlFence(manifestYamlData)
+    );
+    const definitionFile = this.plugin.app.vault.getFileByPath(definitionPath);
+    if (definitionFile) {
+      await this.plugin.app.vault.modify(definitionFile, definitionContent);
     } else {
-      await this.plugin.app.vault.create(manifestPath, manifestContent);
+      await this.plugin.app.vault.create(definitionPath, definitionContent);
     }
 
     return { projectPath, entry };
@@ -287,17 +295,34 @@ export class WidgetService {
     await this.plugin.app.vault.create(statePath, content);
   }
 
-  /** Reads and parses manifest.json from a project folder. */
+  /** Reads and parses the manifest block from Widget.md in a project folder. */
   public async readManifest(projectPath: string): Promise<WidgetManifest | null> {
-    const manifestPath = normalizePath(`${projectPath}/manifest.json`);
-    const file = this.plugin.app.vault.getFileByPath(manifestPath);
+    const definitionPath = normalizePath(`${projectPath}/${WIDGET_DEFINITION_FILE}`);
+    const file = this.plugin.app.vault.getFileByPath(definitionPath);
     if (!file) {
       return null;
     }
 
     try {
-      const raw = await this.plugin.app.vault.read(file);
-      return JSON.parse(raw) as WidgetManifest;
+      const content = await this.plugin.app.vault.read(file);
+      const blocks = this.plugin.markdownDefinitionService.collectYamlBlocks({
+        file,
+        content,
+        isMatch: data => data.name === WIDGET_MANIFEST_SCHEMA_NAME,
+      });
+
+      if (blocks.length === 0) {
+        logger.warn(`Widget manifest block not found in ${definitionPath}`);
+        return null;
+      }
+
+      const parsed = widgetManifestSchema.safeParse(blocks[0].data);
+      if (!parsed.success) {
+        logger.warn('Invalid widget manifest YAML:', definitionPath, parsed.error.flatten());
+        return null;
+      }
+
+      return parsed.data;
     } catch (error) {
       logger.error('Failed to read widget manifest:', error);
       return null;

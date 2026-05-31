@@ -23,7 +23,7 @@ To update it, use the \`update_frontmatter\` tool:
     name: 'stateful-widget',
     description:
       'Build interactive HTML project widgets with persisted runtime state (games, counters, forms). Read before show_widget when user actions must survive reopening the note.',
-    version: 1,
+    version: 2,
     content: `# Stateful Widget Skill
 
 Use this skill when creating **interactive HTML project widgets** (games, counters, quizzes, forms) where user actions must persist after the user closes and reopens the conversation note.
@@ -38,7 +38,7 @@ Skip this pattern for static animations, one-shot diagrams, or SVG-only widgets 
 
 ## How a widget is rendered
 
-1. **Creation**: \`show_widget\` writes files under \`{stewardFolder}/Widgets/{widgetId}/\` (e.g. \`index.html\`, \`main.js\`, \`style.css\`, \`manifest.json\`). \`widgetId\` is derived from \`widgetName\` (whitespace → dashes) plus a short unique suffix.
+1. **Creation**: \`show_widget\` writes files under \`{stewardFolder}/Widgets/{widgetId}/\` (e.g. \`index.html\`, \`main.js\`, \`style.css\`, \`Widget.md\`). \`widgetId\` is derived from \`widgetName\` (whitespace → dashes) plus a short unique suffix.
 2. **Conversation**: A \`stw-widget-project\` fence in the note references \`widgetId\` and \`projectPath\`. Widgets are conversation-independent — reference \`widgetId\` from any conversation to edit or display the same widget.
 3. **Mount**: The host bundles \`index.html\` (inlines linked CSS/JS and vault \`asset:\` paths), wraps the result in a **sandboxed iframe** (\`srcdoc\`, \`allow-scripts\`, strict CSP, no network).
 4. **Hot-reload**: When you edit project files via \`edit\`, the iframe reloads from the vault. **Do not** call \`show_widget\` again for updates.
@@ -113,7 +113,7 @@ Rules:
 - \`index.html\` — entry; \`<link href="style.css">\`, \`<script src="main.js">\`.
 - \`main.js\` — logic + \`window.stw\` hydrate/save.
 - \`style.css\` — optional styles.
-- \`manifest.json\` — created by host; lists \`entry\` and optional \`assets\`.
+- \`Widget.md\` — created by host; contains a \`name: manifest\` YAML block listing \`entry\` and optional \`assets\`.
 - \`state.json\` — auto-created on first \`setState\`; do not include in \`show_widget\` \`files\`.
 
 ## Common mistakes

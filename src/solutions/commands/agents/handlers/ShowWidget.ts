@@ -384,8 +384,8 @@ export class ShowWidget {
     message += `\nDo not call ${ToolName.SHOW_WIDGET} again for updates.`;
 
     if (params.missingAssets.length > 0) {
-      const manifestPath = `${params.projectPath}/manifest.json`;
-      message += `\nMissing assets: ${params.missingAssets.join(', ')}. These vault paths are referenced with the asset: prefix in HTML but are not listed in manifest.json assets. Use ${ToolName.EDIT} to add them to the "assets" array in ${manifestPath}. The widget refreshes automatically when manifest.json is saved.`;
+      const definitionPath = `${params.projectPath}/Widget.md`;
+      message += `\nMissing assets: ${params.missingAssets.join(', ')}. These vault paths are referenced with the asset: prefix in HTML but are not listed in the Widget.md manifest assets. Use ${ToolName.EDIT} to add them to the "assets" array in the \`name: manifest\` YAML block in ${definitionPath}. The widget refreshes automatically when Widget.md is saved.`;
     }
 
     return message;

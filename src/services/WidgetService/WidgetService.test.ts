@@ -1,10 +1,72 @@
-import { TAbstractFile, TFile, TFolder } from 'obsidian';
+import { TAbstractFile, TFile, TFolder, parseYaml } from 'obsidian';
 import { getInstance } from 'src/utils/getInstance';
 import type StewardPlugin from 'src/main';
-import { WIDGET_STATE_FILE } from './WidgetProtocol';
+import { MarkdownDefinitionService } from '../MarkdownDefinitionService';
+import { WIDGET_DEFINITION_FILE, WIDGET_STATE_FILE } from './WidgetProtocol';
 import { WidgetService } from './WidgetService';
 
 type FakeFile = { path: string };
+
+function buildMarkdownSections(content: string) {
+  const lines = content.split('\n');
+  const sections: Array<{
+    type: string;
+    position: {
+      start: { line: number; col: number; offset: number };
+      end: { line: number; col: number; offset: number };
+    };
+  }> = [];
+
+  let lineIndex = 0;
+  while (lineIndex < lines.length) {
+    const line = lines[lineIndex];
+    if (line.match(/^```/)) {
+      let endLine = lineIndex;
+      for (let i = lineIndex + 1; i < lines.length; i++) {
+        if (lines[i].match(/^```/)) {
+          endLine = i;
+          break;
+        }
+      }
+      sections.push({
+        type: 'code',
+        position: {
+          start: { line: lineIndex, col: 0, offset: 0 },
+          end: { line: endLine, col: lines[endLine].length, offset: 0 },
+        },
+      });
+      lineIndex = endLine + 1;
+      continue;
+    }
+
+    lineIndex++;
+  }
+
+  return sections;
+}
+
+function parseWidgetMdManifest(content: string): Record<string, unknown> {
+  const match = content.match(/```yaml\s*\n([\s\S]*?)\n```/);
+  if (!match) {
+    throw new Error('Widget.md manifest fence not found');
+  }
+  const parsed = parseYaml(match[1]);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Invalid manifest YAML');
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function withMarkdownDefinitionService(
+  plugin: jest.Mocked<StewardPlugin>
+): jest.Mocked<StewardPlugin> {
+  (MarkdownDefinitionService as unknown as { instance?: MarkdownDefinitionService }).instance =
+    undefined;
+  return {
+    ...plugin,
+    markdownDefinitionService: MarkdownDefinitionService.getInstance(plugin),
+  } as jest.Mocked<StewardPlugin>;
+}
 
 function createProjectTestPlugin(params?: { initialFiles?: Record<string, string> }): {
   plugin: jest.Mocked<StewardPlugin>;
@@ -43,6 +105,15 @@ function createProjectTestPlugin(params?: { initialFiles?: Record<string, string
           return getOrCreateFileObject(path);
         }),
       },
+      metadataCache: {
+        getFileCache: jest.fn((file: TFile) => {
+          const content = files.get(file.path);
+          if (!content) {
+            return null;
+          }
+          return { sections: buildMarkdownSections(content) };
+        }),
+      },
     },
     obsidianAPITools: {
       ensureFolderExists: jest.fn().mockResolvedValue(undefined),
@@ -54,7 +125,7 @@ function createProjectTestPlugin(params?: { initialFiles?: Record<string, string
     },
   } as unknown as jest.Mocked<StewardPlugin>;
 
-  return { plugin, files };
+  return { plugin: withMarkdownDefinitionService(plugin), files };
 }
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
@@ -62,16 +133,16 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     path: 'Steward/Widgets/Tic-Tac-Toe-abc12/index.html',
     name: 'index.html',
   });
-  const manifestFile = getInstance(TFile, {
-    path: 'Steward/Widgets/Tic-Tac-Toe-abc12/manifest.json',
-    name: 'manifest.json',
+  const definitionFile = getInstance(TFile, {
+    path: 'Steward/Widgets/Tic-Tac-Toe-abc12/Widget.md',
+    name: 'Widget.md',
   });
   const projectFolder = getInstance(TFolder, {
     path: 'Steward/Widgets/Tic-Tac-Toe-abc12',
-    children: [indexFile, manifestFile],
+    children: [indexFile, definitionFile],
   });
 
-  return {
+  const plugin = {
     settings: { stewardFolder: 'Steward' },
     app: {
       vault: {
@@ -86,21 +157,28 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
         modify: jest.fn(),
         create: jest.fn(),
       },
+      metadataCache: {
+        getFileCache: jest.fn(),
+      },
     },
     obsidianAPITools: {
       ensureFolderExists: jest.fn().mockResolvedValue(undefined),
-      getFilesFromFolder: jest.fn().mockReturnValue([indexFile, manifestFile]),
+      getFilesFromFolder: jest.fn().mockReturnValue([indexFile, definitionFile]),
     },
     registerEvent: jest.fn(),
     mediaTools: {
       findFileByNameOrPath: jest.fn(),
     },
   } as unknown as jest.Mocked<StewardPlugin>;
+
+  return withMarkdownDefinitionService(plugin);
 }
 
 describe('WidgetService', () => {
   beforeEach(() => {
     (WidgetService as unknown as { instance?: WidgetService }).instance = undefined;
+    (MarkdownDefinitionService as unknown as { instance?: MarkdownDefinitionService }).instance =
+      undefined;
   });
 
   describe('parseProjectFenceContent', () => {
@@ -174,7 +252,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       });
 
       expect(fence).toContain('```stw-widget-project');
-      expect(fence).toContain('<small>Tic-Tac-Toe-abc12</small>');
+      expect(fence).toContain('<small>*ID: Tic-Tac-Toe-abc12*</small>');
     });
   });
 
@@ -202,7 +280,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
         expect.objectContaining({ path: 'Steward/Widgets/Tic-Tac-Toe-abc12' }),
         { recursive: true }
       );
-      expect(files).toEqual(['index.html', 'manifest.json']);
+      expect(files).toEqual([WIDGET_DEFINITION_FILE, 'index.html']);
     });
   });
 
@@ -210,7 +288,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
     const projectPath = 'Steward/Widgets/Tic-Tac-Toe-abc12';
     const widgetName = 'Tic Tac Toe';
 
-    it('creates project folder, files, and manifest for a new project', async () => {
+    it('creates project folder, files, and Widget.md manifest for a new project', async () => {
       const { plugin, files } = createProjectTestPlugin();
       const service = WidgetService.getInstance(plugin);
 
@@ -229,7 +307,8 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
         '<p>Hello</p>'
       );
       expect(files.get(`${projectPath}/index.html`)).toBe('<p>Hello</p>');
-      expect(JSON.parse(files.get(`${projectPath}/manifest.json`) ?? '')).toEqual({
+      expect(parseWidgetMdManifest(files.get(`${projectPath}/${WIDGET_DEFINITION_FILE}`) ?? '')).toEqual({
+        name: 'manifest',
         entry: 'index.html',
         type: 'html',
         widgetId: 'Tic-Tac-Toe-abc12',
@@ -252,7 +331,8 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
 
       expect(result).toEqual({ projectPath, entry: 'app.html' });
       expect(plugin.app.vault.create).toHaveBeenCalledWith(`${projectPath}/app.html`, '<p>App</p>');
-      expect(JSON.parse(files.get(`${projectPath}/manifest.json`) ?? '')).toEqual({
+      expect(parseWidgetMdManifest(files.get(`${projectPath}/${WIDGET_DEFINITION_FILE}`) ?? '')).toEqual({
+        name: 'manifest',
         entry: 'app.html',
         type: 'html',
         widgetId: 'Tic-Tac-Toe-abc12',
@@ -301,7 +381,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       const { plugin, files } = createProjectTestPlugin({
         initialFiles: {
           [`${projectPath}/index.html`]: '<p>Old</p>',
-          [`${projectPath}/manifest.json`]: JSON.stringify({ entry: 'index.html', type: 'html' }),
+          [`${projectPath}/${WIDGET_DEFINITION_FILE}`]: '```yaml\nname: manifest\nentry: index.html\ntype: html\n```',
         },
       });
       const service = WidgetService.getInstance(plugin);
@@ -354,7 +434,8 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
         assets: ['asset:Images/logo.png', 'Docs/bg.png'],
       });
 
-      expect(JSON.parse(files.get(`${projectPath}/manifest.json`) ?? '')).toEqual({
+      expect(parseWidgetMdManifest(files.get(`${projectPath}/${WIDGET_DEFINITION_FILE}`) ?? '')).toEqual({
+        name: 'manifest',
         entry: 'index.html',
         type: 'html',
         widgetId: 'Tic-Tac-Toe-abc12',
@@ -375,14 +456,54 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
         },
       });
 
-      const manifest = JSON.parse(files.get(`${projectPath}/manifest.json`) ?? '');
+      const manifest = parseWidgetMdManifest(files.get(`${projectPath}/${WIDGET_DEFINITION_FILE}`) ?? '');
       expect(manifest).toEqual({
+        name: 'manifest',
         entry: 'index.html',
         type: 'html',
         widgetId: 'Tic-Tac-Toe-abc12',
         widgetName,
       });
       expect(manifest.assets).toBeUndefined();
+    });
+  });
+
+  describe('readManifest', () => {
+    const projectPath = 'Steward/Widgets/Tic-Tac-Toe-abc12';
+
+    it('returns the validated manifest schema data', async () => {
+      const widgetMd = [
+        '```yaml',
+        'name: manifest',
+        'entry: index.html',
+        'type: html',
+        'widgetId: Tic-Tac-Toe-abc12',
+        'widgetName: Tic Tac Toe',
+        '```',
+      ].join('\n');
+      const { plugin } = createProjectTestPlugin({
+        initialFiles: {
+          [`${projectPath}/${WIDGET_DEFINITION_FILE}`]: widgetMd,
+        },
+      });
+      const service = WidgetService.getInstance(plugin);
+
+      const manifest = await service.readManifest(projectPath);
+
+      expect(manifest).toEqual({
+        name: 'manifest',
+        entry: 'index.html',
+        type: 'html',
+        widgetId: 'Tic-Tac-Toe-abc12',
+        widgetName: 'Tic Tac Toe',
+      });
+    });
+
+    it('returns null when Widget.md is missing', async () => {
+      const { plugin } = createProjectTestPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      expect(await service.readManifest(projectPath)).toBeNull();
     });
   });
 
@@ -477,7 +598,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
           [`${projectPath}/index.html`]: '<p>Hi</p>',
-          [`${projectPath}/manifest.json`]: JSON.stringify({ entry: 'index.html', type: 'html' }),
+          [`${projectPath}/${WIDGET_DEFINITION_FILE}`]: '```yaml\nname: manifest\nentry: index.html\ntype: html\n```',
         },
       });
 
@@ -513,7 +634,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
           [`${projectPath}/index.html`]: '<p>Hi</p>',
-          [`${projectPath}/manifest.json`]: JSON.stringify({ entry: 'index.html', type: 'html' }),
+          [`${projectPath}/${WIDGET_DEFINITION_FILE}`]: '```yaml\nname: manifest\nentry: index.html\ntype: html\n```',
         },
       });
 

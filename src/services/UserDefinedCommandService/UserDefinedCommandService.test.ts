@@ -1,6 +1,7 @@
 import { TFile, TFolder } from 'obsidian';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { NoteContentService } from 'src/services/NoteContentService';
+import { MarkdownDefinitionService } from 'src/services/MarkdownDefinitionService';
 import { UserDefinedCommandService } from './UserDefinedCommandService';
 
 const { i18next } = getBundledInternal('i18n');
@@ -25,7 +26,7 @@ import { Intent } from 'src/solutions/commands/types';
 function createMockPlugin(
   overrides: Partial<jest.Mocked<StewardPlugin>> = {}
 ): jest.Mocked<StewardPlugin> {
-  return {
+  const plugin = {
     app: {
       metadataCache: {
         getFirstLinkpathDest: jest.fn(),
@@ -68,6 +69,12 @@ function createMockPlugin(
     },
     ...overrides,
   } as unknown as jest.Mocked<StewardPlugin>;
+
+  return {
+    ...plugin,
+    markdownDefinitionService: MarkdownDefinitionService.getInstance(plugin),
+    ...overrides,
+  } as jest.Mocked<StewardPlugin>;
 }
 
 describe('UserDefinedCommandService', () => {
@@ -76,6 +83,9 @@ describe('UserDefinedCommandService', () => {
   let mockCommandsFolder: TFolder;
 
   beforeEach(() => {
+    (MarkdownDefinitionService as unknown as { instance?: MarkdownDefinitionService }).instance =
+      undefined;
+
     // Create mock plugin with required methods
     mockPlugin = createMockPlugin();
 
