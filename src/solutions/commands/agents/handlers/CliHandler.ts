@@ -165,6 +165,29 @@ export class CliHandler {
   }
 
   /**
+   * Markdown shell fence for model shell confirm / auto-approved previews.
+   * Leading newline keeps the fence on its own line when a role label is prepended in notes.
+   */
+  private buildShellCommandFence(params: { argsLine: string; purpose?: string }): string {
+    const trimmedPurpose = params.purpose?.trim() ?? '';
+    const trimmedArgs = params.argsLine.trim();
+    const bodyLines: string[] = [];
+
+    if (trimmedPurpose.length > 0) {
+      bodyLines.push(`# ${trimmedPurpose}`);
+    }
+    if (trimmedArgs.length > 0) {
+      bodyLines.push(params.argsLine);
+    }
+
+    if (bodyLines.length === 0) {
+      return '';
+    }
+
+    return `\n\`\`\`shell\n${bodyLines.join('\n')}\n\`\`\``;
+  }
+
+  /**
    * Picks the conversation key used for {@link CliSessionService} routing without creating the xterm note.
    * For first-time interactive from a host note, that key is the deterministic xterm title so we can spawn first.
    */
@@ -428,7 +451,11 @@ export class CliHandler {
     const errorNotePath = params.materializeXtermFromHostTitle ?? params.conversationTitle;
 
     if (!started.ok) {
-      const message = params.needsInteractiveMode
+      const useInteractiveFailureNote = this.shouldUseInteractiveMode(
+        params.argsLine,
+        params.needsInteractiveMode
+      );
+      const message = useInteractiveFailureNote
         ? this.buildCliSpawnFailedNoteContent({
             errorMessage: started.errorMessage,
           })
@@ -549,7 +576,7 @@ export class CliHandler {
       isModelCall
     );
 
-    if (messageId && argsLine.length > 0) {
+    if (messageId && argsLine.length > 0 && !wantsInteractive) {
       await this.waitForShellOutputFlushed({
         conversationTitle: routing.shellSessionTitle,
         messageId,
@@ -623,13 +650,10 @@ export class CliHandler {
     const trimmed = argsLine.trim();
     const needsInteractiveMode = options.toolCall.input?.needsInteractiveMode;
     const runsInTerminal = this.shouldUseInteractiveMode(argsLine, needsInteractiveMode);
-    const trimmedPurpose = options.toolCall.input?.purpose?.trim();
-    const commandInFence = trimmedPurpose
-      ? `# ${trimmedPurpose}${trimmed.length > 0 ? `\n${argsLine}` : ''}`
-      : trimmed.length > 0
-        ? argsLine
-        : '';
-    const shellFence = commandInFence ? `\`\`\`shell\n${commandInFence}\n\`\`\`` : '';
+    const shellFence = this.buildShellCommandFence({
+      argsLine,
+      purpose: options.toolCall.input?.purpose,
+    });
 
     const udcCli = await this.resolveUdcCliFromFrontmatter(title);
     const allowPatterns = udcCli?.whitelist;

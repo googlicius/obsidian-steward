@@ -4,14 +4,20 @@ export const WIDGET_RESIZE = 'widget-resize';
 /** postMessage type: iframe requests persisting widget runtime state to the vault */
 export const WIDGET_STATE_SAVE = 'widget-state-save';
 
-/** Runtime state file name inside a widget project folder */
-export const WIDGET_STATE_FILE = 'state.json';
+/** postMessage type: parent dispatches a registered widget action into the iframe */
+export const WIDGET_APPLY_ACTION = 'widget-apply-action';
 
-/** Markdown definition note inside a widget project folder */
-export const WIDGET_DEFINITION_FILE = 'Widget.md';
+/** postMessage type: iframe reports the result of a dispatched action */
+export const WIDGET_ACTION_RESULT = 'widget-action-result';
 
-/** YAML `name` value identifying the widget manifest block */
-export const WIDGET_MANIFEST_SCHEMA_NAME = 'manifest';
+/** postMessage type: iframe reports action names registered via window.stw.registerAction */
+export const WIDGET_ACTIONS_REGISTERED = 'widget-actions-registered';
+
+/** YAML `name` value identifying the widget actions catalog block */
+export const WIDGET_ACTIONS_SCHEMA_NAME = 'actions';
+
+/** Max wait (ms) for an iframe to respond to WIDGET_APPLY_ACTION */
+export const WIDGET_ACTION_APPLY_TIMEOUT_MS = 5000;
 
 /** Injected global holding the persisted state envelope (or null) */
 export const WIDGET_STATE_GLOBAL = '__STW_STATE__';

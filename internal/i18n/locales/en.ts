@@ -341,6 +341,7 @@ const en = {
       confirmHeader: 'I found the following files to delete:',
       confirmQuestion: 'Are you sure you want to delete these files? This action cannot be undone.',
       cannotDeleteCurrentConversationNote: 'Cannot delete the current conversation note',
+      noFilesFound: 'No file found to delete.',
     },
     // Revert result messages
     revert: {

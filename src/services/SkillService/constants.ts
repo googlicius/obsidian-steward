@@ -23,7 +23,7 @@ To update it, use the \`update_frontmatter\` tool:
     name: 'stateful-widget',
     description:
       'Build interactive HTML project widgets with persisted runtime state (games, counters, forms). Read before show_widget when user actions must survive reopening the note.',
-    version: 2,
+    version: 3,
     content: `# Stateful Widget Skill
 
 Use this skill when creating **interactive HTML project widgets** (games, counters, quizzes, forms) where user actions must persist after the user closes and reopens the conversation note.
@@ -52,6 +52,7 @@ Only **project (HTML multi-file) widgets** get the state bridge and \`state.json
 | \`window.stw\` | API injected into the iframe by the host (not written by you in vault files). |
 | \`window.stw.getState()\` | Returns last saved **data** object, or \`null\` on first load. |
 | \`window.stw.setState(data)\` | Saves a **JSON-serializable** snapshot; debounced ~400ms, then written to vault. |
+| \`window.stw.registerAction(name, fn)\` | Exposes a callable action for external dispatch (future model turns). |
 | \`state.json\` | Created **lazily** in the project folder on first successful \`setState\`. Host-owned; do not author or edit it manually. |
 
 **Critical:** Clicks and DOM updates alone do **not** persist. You **must** call \`setState\` after every meaningful state change. Without it, \`state.json\` never appears.
@@ -70,12 +71,74 @@ Saving \`state.json\` does **not** reload the iframe (the host ignores that file
 
 Your widget only supplies the inner \`data\` object via \`setState\`. Define a schema that fully describes the UI (e.g. board cells, score, turn).
 
+## Exposed actions (model-callable)
+
+For games where a model may take turns later, extract shared logic into action functions and register only the actions models may call. Keep UI-only handlers (reset buttons, local toggles) **unregistered**.
+
+### \`main.js\` pattern
+
+\`\`\`javascript
+let state = window.stw.getState() ?? {
+  cells: Array(9).fill(null),
+  turn: 'x',
+};
+
+function playCell(index) {
+  if (state.cells[index]) return { ok: false, error: 'occupied' };
+  if (state.winner || state.isDraw) return { ok: false, error: 'game_over' };
+  state.cells[index] = state.turn;
+  state.turn = state.turn === 'x' ? 'o' : 'x';
+  render();
+  commitState();
+  return { ok: true, state };
+}
+
+function onCellClick(index) {
+  playCell(index);
+}
+
+function resetGame() {
+  // UI-only — do NOT registerAction for this
+  state.cells = Array(9).fill(null);
+  state.turn = 'x';
+  render();
+  commitState();
+}
+
+window.stw.registerAction('playCell', function (params) {
+  return playCell(params.index);
+});
+\`\`\`
+
+Rules:
+
+- User click handlers call the same action function the host will dispatch later.
+- Return \`{ ok: false, error }\` for invalid moves; \`{ ok: true, state }\` on success.
+- Only register actions that external callers (models) may invoke.
+
+### \`Widget.md\` actions block
+
+After the widget works for the user, add a second YAML fence to \`Widget.md\`:
+
+\`\`\`yaml
+name: actions
+actions:
+  playCell:
+    description: Place mark for current player
+    params:
+      index:
+        type: integer
+        minimum: 0
+        maximum: 8
+\`\`\`
+
+The host validates dispatched actions against this catalog. \`Widget.md\` documents allowed actions; \`registerAction\` in \`main.js\` enforces what actually runs.
+
 ## Required JavaScript pattern (\`main.js\`)
 
 Put hydrate + save in \`main.js\` (or inline script in \`index.html\` if you do not split files). Scripts run **after** \`window.stw\` is injected in the document head.
 
 \`\`\`javascript
-// 1. Hydrate on load
 let state = window.stw.getState() ?? {
   cells: Array(9).fill(null),
   turn: 'x',
@@ -87,15 +150,6 @@ function render() {
 
 function commitState() {
   window.stw.setState(state);
-}
-
-// 2. On each user action that changes app state
-function onCellClick(index) {
-  if (state.cells[index]) return;
-  state.cells[index] = state.turn;
-  state.turn = state.turn === 'x' ? 'o' : 'x';
-  render();
-  commitState();
 }
 
 render();
@@ -111,9 +165,9 @@ Rules:
 ## Project layout checklist
 
 - \`index.html\` — entry; \`<link href="style.css">\`, \`<script src="main.js">\`.
-- \`main.js\` — logic + \`window.stw\` hydrate/save.
+- \`main.js\` — logic + \`window.stw\` hydrate/save + optional \`registerAction\`.
 - \`style.css\` — optional styles.
-- \`Widget.md\` — created by host; contains a \`name: manifest\` YAML block listing \`entry\` and optional \`assets\`.
+- \`Widget.md\` — host-created \`name: manifest\` block; add \`name: actions\` when exposing model-callable actions.
 - \`state.json\` — auto-created on first \`setState\`; do not include in \`show_widget\` \`files\`.
 
 ## Common mistakes
@@ -122,12 +176,14 @@ Rules:
 - Using \`code\` single-blob mode for a game → no \`window.stw\` / \`state.json\`.
 - Putting state only in closure variables with no serializable snapshot.
 - Calling \`show_widget\` again to update — use \`edit\` on project files instead.
+- Registering UI-only actions like \`resetGame\` — keep those as local button handlers only.
 
 ## Workflow
 
 1. Call \`show_widget\` with \`type: "html"\`, \`widgetName\` (natural language), and \`files\` (project mode).
 2. Implement \`main.js\` with \`getState\` / \`setState\` as above.
-3. Later changes: \`content_reading\` + \`edit\` on \`projectPath\`; preserve the state API when refactoring.`,
+3. For model-playable games: extract shared action functions, \`registerAction\`, and add \`name: actions\` to \`Widget.md\`.
+4. Later changes: \`content_reading\` + \`edit\` on \`projectPath\`; preserve the state API when refactoring.`,
   },
   {
     name: 'edit-table',

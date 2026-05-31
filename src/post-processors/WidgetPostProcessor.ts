@@ -8,6 +8,9 @@ import {
 import {
   WIDGET_PROJECT_FENCE_LANGUAGE,
   buildWidgetSrcdoc,
+  WIDGET_ACTION_RESULT,
+  WIDGET_ACTIONS_REGISTERED,
+  WIDGET_APPLY_ACTION,
   WIDGET_RESIZE,
   WIDGET_STATE_SAVE,
 } from 'src/services/WidgetService';
@@ -27,6 +30,13 @@ function getWidgetType(code: HTMLElement): WidgetType | null {
 interface MountIframeOptions {
   extraHead?: string;
   onStateSave?: (state: unknown) => void;
+  onActionResult?: (data: {
+    requestId: string;
+    ok: boolean;
+    error?: string;
+    state?: unknown;
+  }) => void;
+  onActionsRegistered?: (actions: string[]) => void;
 }
 
 function mountIframe(
@@ -59,7 +69,11 @@ function mountIframe(
     if (h > 0) iframe.style.height = `${h}px`;
   };
 
-  const needsMessageListener = usesPostMessageResize || !!options.onStateSave;
+  const needsMessageListener =
+    usesPostMessageResize ||
+    !!options.onStateSave ||
+    !!options.onActionResult ||
+    !!options.onActionsRegistered;
 
   const onMessage = (e: MessageEvent) => {
     if (e.source !== iframe.contentWindow) {
@@ -76,6 +90,24 @@ function mountIframe(
 
     if (e.data?.type === WIDGET_STATE_SAVE && options.onStateSave) {
       options.onStateSave(e.data.state);
+      return;
+    }
+
+    if (e.data?.type === WIDGET_ACTION_RESULT && options.onActionResult) {
+      options.onActionResult({
+        requestId: e.data.requestId,
+        ok: !!e.data.ok,
+        error: typeof e.data.error === 'string' ? e.data.error : undefined,
+        state: e.data.state,
+      });
+      return;
+    }
+
+    if (e.data?.type === WIDGET_ACTIONS_REGISTERED && options.onActionsRegistered) {
+      const actions = Array.isArray(e.data.actions)
+        ? e.data.actions.filter((name: unknown) => typeof name === 'string')
+        : [];
+      options.onActionsRegistered(actions);
     }
   };
 
@@ -146,10 +178,12 @@ async function mountWidgetProject(
 
   let teardownIframe: (() => void) | undefined;
   let unregister: (() => void) | undefined;
+  let unregisterActionBridge: (() => void) | undefined;
 
   watchRemoval(container, () => {
     teardownIframe?.();
     unregister?.();
+    unregisterActionBridge?.();
     delete container.dataset.stwWidgetMounted;
   });
 
@@ -187,10 +221,31 @@ async function mountWidgetProject(
       projectPath,
       refresh,
     });
+    unregisterActionBridge = widgetService.registerActionBridge({
+      projectPath,
+      sendApplyAction: payload => {
+        const iframe = container.querySelector<HTMLIFrameElement>('iframe.stw-widget-frame');
+        iframe?.contentWindow?.postMessage(
+          {
+            type: WIDGET_APPLY_ACTION,
+            action: payload.action,
+            params: payload.params,
+            requestId: payload.requestId,
+          },
+          '*'
+        );
+      },
+    });
     teardownIframe = mountIframe(container, 'html', bundled, {
       extraHead: widgetService.buildStateHead(initialState),
       onStateSave: data => {
         void widgetService.writeState({ projectPath, data });
+      },
+      onActionResult: data => {
+        widgetService.resolveActionResult(data);
+      },
+      onActionsRegistered: actions => {
+        widgetService.setRegisteredActions(projectPath, actions);
       },
     });
   } catch (e) {

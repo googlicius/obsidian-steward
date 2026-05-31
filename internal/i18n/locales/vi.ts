@@ -282,6 +282,7 @@ const vi = {
       multiDeleteHeader: 'Tôi đã thực hiện {{count}} thao tác xóa:',
       operation: 'Thao tác {{num}}: Xóa các tập tin với {{query}}',
       cannotDeleteCurrentConversationNote: 'Không thể xóa ghi chú trò chuyện hiện tại',
+      noFilesFound: 'Không tìm thấy tập tin nào để xóa.',
     },
     revert: {
       foundFiles: 'Tôi đã tìm thấy {{count}} mục để hoàn tác.',

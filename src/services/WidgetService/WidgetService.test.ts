@@ -2,7 +2,6 @@ import { TAbstractFile, TFile, TFolder, parseYaml } from 'obsidian';
 import { getInstance } from 'src/utils/getInstance';
 import type StewardPlugin from 'src/main';
 import { MarkdownDefinitionService } from '../MarkdownDefinitionService';
-import { WIDGET_DEFINITION_FILE, WIDGET_STATE_FILE } from './WidgetProtocol';
 import { WidgetService } from './WidgetService';
 
 type FakeFile = { path: string };
@@ -280,7 +279,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
         expect.objectContaining({ path: 'Steward/Widgets/Tic-Tac-Toe-abc12' }),
         { recursive: true }
       );
-      expect(files).toEqual([WIDGET_DEFINITION_FILE, 'index.html']);
+      expect(files).toEqual(['Widget.md', 'index.html']);
     });
   });
 
@@ -307,7 +306,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
         '<p>Hello</p>'
       );
       expect(files.get(`${projectPath}/index.html`)).toBe('<p>Hello</p>');
-      expect(parseWidgetMdManifest(files.get(`${projectPath}/${WIDGET_DEFINITION_FILE}`) ?? '')).toEqual({
+      expect(parseWidgetMdManifest(files.get(`${projectPath}/Widget.md`) ?? '')).toEqual({
         name: 'manifest',
         entry: 'index.html',
         type: 'html',
@@ -331,7 +330,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
 
       expect(result).toEqual({ projectPath, entry: 'app.html' });
       expect(plugin.app.vault.create).toHaveBeenCalledWith(`${projectPath}/app.html`, '<p>App</p>');
-      expect(parseWidgetMdManifest(files.get(`${projectPath}/${WIDGET_DEFINITION_FILE}`) ?? '')).toEqual({
+      expect(parseWidgetMdManifest(files.get(`${projectPath}/Widget.md`) ?? '')).toEqual({
         name: 'manifest',
         entry: 'app.html',
         type: 'html',
@@ -381,7 +380,8 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       const { plugin, files } = createProjectTestPlugin({
         initialFiles: {
           [`${projectPath}/index.html`]: '<p>Old</p>',
-          [`${projectPath}/${WIDGET_DEFINITION_FILE}`]: '```yaml\nname: manifest\nentry: index.html\ntype: html\n```',
+          [`${projectPath}/Widget.md`]:
+            '```yaml\nname: manifest\nentry: index.html\ntype: html\n```',
         },
       });
       const service = WidgetService.getInstance(plugin);
@@ -434,7 +434,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
         assets: ['asset:Images/logo.png', 'Docs/bg.png'],
       });
 
-      expect(parseWidgetMdManifest(files.get(`${projectPath}/${WIDGET_DEFINITION_FILE}`) ?? '')).toEqual({
+      expect(parseWidgetMdManifest(files.get(`${projectPath}/Widget.md`) ?? '')).toEqual({
         name: 'manifest',
         entry: 'index.html',
         type: 'html',
@@ -456,7 +456,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
         },
       });
 
-      const manifest = parseWidgetMdManifest(files.get(`${projectPath}/${WIDGET_DEFINITION_FILE}`) ?? '');
+      const manifest = parseWidgetMdManifest(files.get(`${projectPath}/Widget.md`) ?? '');
       expect(manifest).toEqual({
         name: 'manifest',
         entry: 'index.html',
@@ -483,7 +483,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       ].join('\n');
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/${WIDGET_DEFINITION_FILE}`]: widgetMd,
+          [`${projectPath}/Widget.md`]: widgetMd,
         },
       });
       const service = WidgetService.getInstance(plugin);
@@ -507,13 +507,179 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
     });
   });
 
+  describe('readActions and applyAction', () => {
+    const projectPath = 'Steward/Widgets/Tic-Tac-Toe-abc12';
+
+    const actionsWidgetMd = [
+      '```yaml',
+      'name: manifest',
+      'entry: index.html',
+      'type: html',
+      '```',
+      '',
+      '```yaml',
+      'name: actions',
+      'actions:',
+      '  playCell:',
+      '    description: Place mark for current player',
+      '    params:',
+      '      index:',
+      '        type: integer',
+      '        minimum: 0',
+      '        maximum: 8',
+      '```',
+    ].join('\n');
+
+    it('reads the actions catalog from Widget.md', async () => {
+      const { plugin } = createProjectTestPlugin({
+        initialFiles: {
+          [`${projectPath}/Widget.md`]: actionsWidgetMd,
+        },
+      });
+      const service = WidgetService.getInstance(plugin);
+
+      const catalog = await service.readActions(projectPath);
+
+      expect(catalog?.actions.playCell?.params?.index).toEqual({
+        type: 'integer',
+        minimum: 0,
+        maximum: 8,
+      });
+    });
+
+    it('returns actions_catalog_missing when Widget.md has no actions block', async () => {
+      const { plugin } = createProjectTestPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      const result = await service.applyAction({
+        projectPath,
+        action: 'playCell',
+        actionParams: { index: 1 },
+      });
+
+      expect(result).toEqual({ ok: false, error: 'actions_catalog_missing' });
+    });
+
+    it('returns widget_not_mounted when no iframe bridge is registered', async () => {
+      const { plugin } = createProjectTestPlugin({
+        initialFiles: {
+          [`${projectPath}/Widget.md`]: actionsWidgetMd,
+        },
+      });
+      const service = WidgetService.getInstance(plugin);
+
+      const result = await service.applyAction({
+        projectPath,
+        action: 'playCell',
+        actionParams: { index: 1 },
+      });
+
+      expect(result).toEqual({ ok: false, error: 'widget_not_mounted' });
+    });
+
+    it('dispatches validated actions through the mounted iframe bridge', async () => {
+      const { plugin } = createProjectTestPlugin({
+        initialFiles: {
+          [`${projectPath}/Widget.md`]: actionsWidgetMd,
+        },
+      });
+      const service = WidgetService.getInstance(plugin);
+      let capturedRequestId = '';
+
+      const unregister = service.registerActionBridge({
+        projectPath,
+        sendApplyAction: payload => {
+          capturedRequestId = payload.requestId;
+          service.setRegisteredActions(projectPath, ['playCell']);
+          service.resolveActionResult({
+            requestId: payload.requestId,
+            ok: true,
+            state: { cells: Array(9).fill(null) },
+          });
+        },
+      });
+
+      const result = await service.applyAction({
+        projectPath,
+        action: 'playCell',
+        actionParams: { index: 4 },
+      });
+
+      unregister();
+      expect(capturedRequestId).toMatch(/^stw-action-/);
+      expect(result.ok).toBe(true);
+    });
+
+    it('rejects invalid action params before dispatch', async () => {
+      const { plugin } = createProjectTestPlugin({
+        initialFiles: {
+          [`${projectPath}/Widget.md`]: actionsWidgetMd,
+        },
+      });
+      const service = WidgetService.getInstance(plugin);
+
+      const unregister = service.registerActionBridge({
+        projectPath,
+        sendApplyAction: () => {
+          throw new Error('should not dispatch');
+        },
+      });
+
+      const result = await service.applyAction({
+        projectPath,
+        action: 'playCell',
+        actionParams: { index: 99 },
+      });
+
+      unregister();
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain('<= 8');
+    });
+
+    it('rejects unknown actions before dispatch', async () => {
+      const { plugin } = createProjectTestPlugin({
+        initialFiles: {
+          [`${projectPath}/Widget.md`]: actionsWidgetMd,
+        },
+      });
+      const service = WidgetService.getInstance(plugin);
+
+      const result = await service.applyAction({
+        projectPath,
+        action: 'resetGame',
+        actionParams: {},
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain('Unknown action');
+    });
+
+    it('rejects missing required params before dispatch', async () => {
+      const { plugin } = createProjectTestPlugin({
+        initialFiles: {
+          [`${projectPath}/Widget.md`]: actionsWidgetMd,
+        },
+      });
+      const service = WidgetService.getInstance(plugin);
+
+      const result = await service.applyAction({
+        projectPath,
+        action: 'playCell',
+        actionParams: {},
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain('Missing required param "index"');
+    });
+  });
+
   describe('readState and writeState', () => {
     const projectPath = 'Steward/Widgets/Tic-Tac-Toe-abc12';
 
     it('returns null when state.json has an invalid envelope', async () => {
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/${WIDGET_STATE_FILE}`]: JSON.stringify({
+          [`${projectPath}/state.json`]: JSON.stringify({
             version: 99,
             updatedAt: '2026-01-01T00:00:00.000Z',
           }),
@@ -542,7 +708,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
 
       await service.writeState({ projectPath, data: payload });
 
-      const statePath = `${projectPath}/${WIDGET_STATE_FILE}`;
+      const statePath = `${projectPath}/state.json`;
       expect(files.has(statePath)).toBe(true);
 
       const stored = JSON.parse(files.get(statePath) ?? '');
@@ -557,7 +723,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
     it('updates existing state.json on subsequent writes', async () => {
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
-          [`${projectPath}/${WIDGET_STATE_FILE}`]: JSON.stringify({
+          [`${projectPath}/state.json`]: JSON.stringify({
             version: 1,
             updatedAt: '2026-01-01T00:00:00.000Z',
             data: { count: 1 },
@@ -598,7 +764,8 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
           [`${projectPath}/index.html`]: '<p>Hi</p>',
-          [`${projectPath}/${WIDGET_DEFINITION_FILE}`]: '```yaml\nname: manifest\nentry: index.html\ntype: html\n```',
+          [`${projectPath}/Widget.md`]:
+            '```yaml\nname: manifest\nentry: index.html\ntype: html\n```',
         },
       });
 
@@ -622,8 +789,8 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       expect(modifyHandler).toBeDefined();
 
       const stateFile = getInstance(TFile, {
-        path: `${projectPath}/${WIDGET_STATE_FILE}`,
-        name: WIDGET_STATE_FILE,
+        path: `${projectPath}/state.json`,
+        name: 'state.json',
       });
       modifyHandler?.(stateFile);
 
@@ -634,7 +801,8 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       const { plugin } = createProjectTestPlugin({
         initialFiles: {
           [`${projectPath}/index.html`]: '<p>Hi</p>',
-          [`${projectPath}/${WIDGET_DEFINITION_FILE}`]: '```yaml\nname: manifest\nentry: index.html\ntype: html\n```',
+          [`${projectPath}/Widget.md`]:
+            '```yaml\nname: manifest\nentry: index.html\ntype: html\n```',
         },
       });
 

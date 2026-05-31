@@ -1,5 +1,12 @@
 import { buildWidgetSrcdoc, buildWidgetStateHead, WIDGET_SRCDOC_HEAD } from './WidgetBuild';
-import { WIDGET_RESIZE, WIDGET_STATE_GLOBAL, WIDGET_STATE_SAVE } from './WidgetProtocol';
+import {
+  WIDGET_ACTION_RESULT,
+  WIDGET_ACTIONS_REGISTERED,
+  WIDGET_APPLY_ACTION,
+  WIDGET_RESIZE,
+  WIDGET_STATE_GLOBAL,
+  WIDGET_STATE_SAVE,
+} from './WidgetProtocol';
 
 describe('buildWidgetSrcdoc', () => {
   it('wraps an HTML fragment with CSP head and allow-scripts sandbox', () => {
@@ -58,5 +65,16 @@ describe('buildWidgetStateHead', () => {
     expect(head).toContain('"cells":["x",null,null]');
     expect(head).toContain('getState');
     expect(head).toContain('setState');
+  });
+
+  it('exposes registerAction, dispatchAction, and action postMessage bridge', () => {
+    const head = buildWidgetStateHead(null);
+
+    expect(head).toContain('registerAction');
+    expect(head).toContain('dispatchAction');
+    expect(head).toContain('getRegisteredActions');
+    expect(head).toContain(WIDGET_APPLY_ACTION);
+    expect(head).toContain(WIDGET_ACTION_RESULT);
+    expect(head).toContain(WIDGET_ACTIONS_REGISTERED);
   });
 });

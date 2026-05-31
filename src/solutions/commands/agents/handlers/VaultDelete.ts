@@ -327,7 +327,7 @@ export class VaultDelete {
     const t = getTranslation(ctx.lang);
 
     const filePaths: string[] = [];
-    const noFilesMessage = t('common.noFilesFound');
+    const noFilesMessage = t('delete.noFilesFound');
 
     for (const operation of toolCall.input.operations) {
       switch (operation.mode) {
@@ -368,7 +368,7 @@ export class VaultDelete {
 
     if (filePaths.length === 0) {
       const noFilesMessageId = await ctx.updateConversationNote({
-        newContent: noFilesMessage,
+        newContent: `*${noFilesMessage}*`,
         command: 'vault_delete',
         includeHistory: false,
       });

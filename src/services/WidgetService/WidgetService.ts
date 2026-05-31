@@ -1,4 +1,5 @@
 import { TAbstractFile, TFile, normalizePath } from 'obsidian';
+import { z } from 'zod/v3';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { isPathUnderPrefix } from 'src/utils/pathUtils';
@@ -7,13 +8,18 @@ import { buildWidgetStateHead } from './WidgetBuild';
 import { WidgetBundler } from './WidgetBundler';
 import type { WidgetJsValidationError } from './WidgetJsValidator';
 import { WidgetJsValidator } from './WidgetJsValidator';
-import {
-  WIDGET_DEFINITION_FILE,
-  WIDGET_MANIFEST_SCHEMA_NAME,
-  WIDGET_STATE_FILE,
-} from './WidgetProtocol';
+import { WIDGET_ACTION_APPLY_TIMEOUT_MS, WIDGET_ACTIONS_SCHEMA_NAME } from './WidgetProtocol';
 import { parseWidgetState, WIDGET_STATE_VERSION, widgetStateSchema } from './WidgetStateSchema';
-import { widgetManifestSchema, type WidgetManifest, WidgetProjectFenceData, WidgetState } from './types';
+import {
+  widgetActionsSchema,
+  widgetManifestSchema,
+  type WidgetActionParamSpec,
+  type WidgetActionResult,
+  type WidgetActionsCatalog,
+  type WidgetManifest,
+  WidgetProjectFenceData,
+  WidgetState,
+} from './types';
 import { stringifyYamlFence } from '../MarkdownDefinitionService';
 
 const MAX_ASSET_BYTES = 2 * 1024 * 1024;
@@ -26,9 +32,29 @@ export interface MountedWidgetHandle {
   refresh: () => Promise<void>;
 }
 
+export interface WidgetActionBridgeHandle {
+  projectPath: string;
+  sendApplyAction: (payload: {
+    action: string;
+    params: Record<string, unknown>;
+    requestId: string;
+  }) => void;
+}
+
 interface MountedWidgetEntry {
   container: HTMLElement;
   refresh: () => Promise<void>;
+}
+
+interface WidgetActionBridge {
+  sendApplyAction: WidgetActionBridgeHandle['sendApplyAction'];
+  registeredActions: string[];
+}
+
+interface PendingActionRequest {
+  resolve: (result: WidgetActionResult) => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
 }
 
 /**
@@ -39,6 +65,8 @@ export class WidgetService {
   private readonly bundler: WidgetBundler;
   public readonly jsValidator: WidgetJsValidator;
   private readonly mountedByPath = new Map<string, Set<MountedWidgetEntry>>();
+  private readonly actionBridgeByPath = new Map<string, WidgetActionBridge>();
+  private readonly pendingActionRequests = new Map<string, PendingActionRequest>();
   private modifyListenerRegistered = false;
 
   private constructor(private readonly plugin: StewardPlugin) {
@@ -176,7 +204,7 @@ export class WidgetService {
     await this.plugin.obsidianAPITools.ensureFolderExists(projectPath);
 
     const manifestYamlData: Record<string, unknown> = {
-      name: WIDGET_MANIFEST_SCHEMA_NAME,
+      name: 'manifest',
       entry,
       type: 'html',
       widgetId: params.widgetId,
@@ -210,7 +238,7 @@ export class WidgetService {
       }
     }
 
-    const definitionPath = normalizePath(`${projectPath}/${WIDGET_DEFINITION_FILE}`);
+    const definitionPath = normalizePath(`${projectPath}/Widget.md`);
     const definitionContent = this.plugin.markdownDefinitionService.buildYamlFence(
       stringifyYamlFence(manifestYamlData)
     );
@@ -245,7 +273,7 @@ export class WidgetService {
 
   /** Vault path for persisted runtime state in a widget project. */
   public getStatePath(projectPath: string): string {
-    return normalizePath(`${projectPath}/${WIDGET_STATE_FILE}`);
+    return normalizePath(`${projectPath}/state.json`);
   }
 
   /** Returns extraHead script that injects persisted state and window.stw into the iframe. */
@@ -297,7 +325,7 @@ export class WidgetService {
 
   /** Reads and parses the manifest block from Widget.md in a project folder. */
   public async readManifest(projectPath: string): Promise<WidgetManifest | null> {
-    const definitionPath = normalizePath(`${projectPath}/${WIDGET_DEFINITION_FILE}`);
+    const definitionPath = normalizePath(`${projectPath}/Widget.md`);
     const file = this.plugin.app.vault.getFileByPath(definitionPath);
     if (!file) {
       return null;
@@ -308,7 +336,7 @@ export class WidgetService {
       const blocks = this.plugin.markdownDefinitionService.collectYamlBlocks({
         file,
         content,
-        isMatch: data => data.name === WIDGET_MANIFEST_SCHEMA_NAME,
+        isMatch: data => data.name === 'manifest',
       });
 
       if (blocks.length === 0) {
@@ -327,6 +355,229 @@ export class WidgetService {
       logger.error('Failed to read widget manifest:', error);
       return null;
     }
+  }
+
+  /** Reads the actions catalog block from Widget.md in a project folder. */
+  public async readActions(projectPath: string): Promise<WidgetActionsCatalog | null> {
+    const definitionPath = normalizePath(`${projectPath}/Widget.md`);
+    const file = this.plugin.app.vault.getFileByPath(definitionPath);
+    if (!file) {
+      return null;
+    }
+
+    try {
+      const content = await this.plugin.app.vault.read(file);
+      const blocks = this.plugin.markdownDefinitionService.collectYamlBlocks({
+        file,
+        content,
+        isMatch: data => data.name === WIDGET_ACTIONS_SCHEMA_NAME,
+      });
+
+      if (blocks.length === 0) {
+        return null;
+      }
+
+      const parsed = widgetActionsSchema.safeParse(blocks[0].data);
+      if (!parsed.success) {
+        logger.warn('Invalid widget actions YAML:', definitionPath, parsed.error.flatten());
+        return null;
+      }
+
+      return parsed.data;
+    } catch (error) {
+      logger.error('Failed to read widget actions catalog:', error);
+      return null;
+    }
+  }
+
+  /** Validates action params against the Widget.md actions catalog. */
+  private validateActionParams(params: {
+    catalog: WidgetActionsCatalog;
+    action: string;
+    actionParams: Record<string, unknown>;
+  }): { valid: true } | { valid: false; errors: string[] } {
+    const actionDef = params.catalog.actions[params.action];
+    if (!actionDef) {
+      return { valid: false, errors: [`Unknown action "${params.action}"`] };
+    }
+
+    const schema = this.buildActionParamsSchema(actionDef.params ?? {});
+    const parsed = schema.safeParse(params.actionParams);
+    if (parsed.success) {
+      return { valid: true };
+    }
+
+    return {
+      valid: false,
+      errors: parsed.error.issues.map(issue => issue.message),
+    };
+  }
+
+  private buildActionParamsSchema(
+    paramSpecs: NonNullable<WidgetActionsCatalog['actions'][string]['params']>
+  ): z.ZodObject<Record<string, z.ZodTypeAny>> {
+    const shape: Record<string, z.ZodTypeAny> = {};
+    const paramNames = Object.keys(paramSpecs);
+
+    for (let i = 0; i < paramNames.length; i++) {
+      const paramName = paramNames[i];
+      shape[paramName] = this.buildParamZodSchema(paramName, paramSpecs[paramName]);
+    }
+
+    return z.object(shape);
+  }
+
+  private buildParamZodSchema(paramName: string, spec: WidgetActionParamSpec): z.ZodTypeAny {
+    const paramType = spec.type ?? 'string';
+
+    if (paramType === 'integer') {
+      let schema = z
+        .number({
+          required_error: `Missing required param "${paramName}"`,
+          invalid_type_error: `Param "${paramName}" must be an integer`,
+        })
+        .int(`Param "${paramName}" must be an integer`);
+
+      if (spec.minimum !== undefined) {
+        schema = schema.min(spec.minimum, `Param "${paramName}" must be >= ${spec.minimum}`);
+      }
+      if (spec.maximum !== undefined) {
+        schema = schema.max(spec.maximum, `Param "${paramName}" must be <= ${spec.maximum}`);
+      }
+
+      return schema;
+    }
+
+    if (paramType === 'number') {
+      let schema = z.number({
+        required_error: `Missing required param "${paramName}"`,
+        invalid_type_error: `Param "${paramName}" must be a number`,
+      });
+
+      if (spec.minimum !== undefined) {
+        schema = schema.min(spec.minimum, `Param "${paramName}" must be >= ${spec.minimum}`);
+      }
+      if (spec.maximum !== undefined) {
+        schema = schema.max(spec.maximum, `Param "${paramName}" must be <= ${spec.maximum}`);
+      }
+
+      return schema;
+    }
+
+    if (paramType === 'boolean') {
+      return z.boolean({
+        required_error: `Missing required param "${paramName}"`,
+        invalid_type_error: `Param "${paramName}" must be a boolean`,
+      });
+    }
+
+    return z.string({
+      required_error: `Missing required param "${paramName}"`,
+      invalid_type_error: `Param "${paramName}" must be a string`,
+    });
+  }
+
+  /**
+   * Registers the host→iframe bridge for dispatching actions on a mounted project widget.
+   * @returns Unregister function to call on DOM teardown.
+   */
+  public registerActionBridge(handle: WidgetActionBridgeHandle): () => void {
+    const normalizedPath = normalizePath(handle.projectPath);
+    this.actionBridgeByPath.set(normalizedPath, {
+      sendApplyAction: handle.sendApplyAction,
+      registeredActions: [],
+    });
+
+    return () => {
+      this.actionBridgeByPath.delete(normalizedPath);
+    };
+  }
+
+  /** Records action names registered inside the iframe via window.stw.registerAction. */
+  public setRegisteredActions(projectPath: string, actions: string[]): void {
+    const bridge = this.actionBridgeByPath.get(normalizePath(projectPath));
+    if (!bridge) {
+      return;
+    }
+
+    bridge.registeredActions = [...actions];
+
+    void this.warnUnregisteredCatalogActions(projectPath, bridge.registeredActions);
+  }
+
+  /** Resolves a pending applyAction request from a WIDGET_ACTION_RESULT message. */
+  public resolveActionResult(params: {
+    requestId: string;
+    ok: boolean;
+    error?: string;
+    state?: unknown;
+  }): void {
+    const pending = this.pendingActionRequests.get(params.requestId);
+    if (!pending) {
+      return;
+    }
+
+    clearTimeout(pending.timer);
+    this.pendingActionRequests.delete(params.requestId);
+    pending.resolve({
+      ok: params.ok,
+      error: params.error,
+      state: params.state,
+    });
+  }
+
+  /**
+   * Dispatches a registered widget action into the mounted iframe.
+   * Validates against Widget.md before dispatch; persistence uses the iframe setState path.
+   */
+  public async applyAction(params: {
+    projectPath: string;
+    action: string;
+    actionParams: Record<string, unknown>;
+  }): Promise<WidgetActionResult> {
+    const normalizedPath = normalizePath(params.projectPath);
+    const catalog = await this.readActions(normalizedPath);
+    if (!catalog) {
+      return { ok: false, error: 'actions_catalog_missing' };
+    }
+
+    const validation = this.validateActionParams({
+      catalog,
+      action: params.action,
+      actionParams: params.actionParams,
+    });
+    if (!validation.valid) {
+      return { ok: false, error: validation.errors.join('; ') };
+    }
+
+    const bridge = this.actionBridgeByPath.get(normalizedPath);
+    if (!bridge) {
+      return { ok: false, error: 'widget_not_mounted' };
+    }
+
+    if (bridge.registeredActions.length > 0 && !bridge.registeredActions.includes(params.action)) {
+      return { ok: false, error: `action_not_registered:${params.action}` };
+    }
+
+    const requestId = `stw-action-${uniqueID()}`;
+
+    return new Promise<WidgetActionResult>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingActionRequests.delete(requestId);
+        reject(new Error('widget_action_timeout'));
+      }, WIDGET_ACTION_APPLY_TIMEOUT_MS);
+
+      this.pendingActionRequests.set(requestId, { resolve, reject, timer });
+
+      bridge.sendApplyAction({
+        action: params.action,
+        params: params.actionParams,
+        requestId,
+      });
+    }).catch(error => {
+      const message = error instanceof Error ? error.message : String(error);
+      return { ok: false, error: message };
+    });
   }
 
   /** Bundles the project entry HTML with inlined assets for iframe srcdoc rendering. */
@@ -497,6 +748,27 @@ export class WidgetService {
       return 'image/svg+xml';
     }
     return 'application/octet-stream';
+  }
+
+  private async warnUnregisteredCatalogActions(
+    projectPath: string,
+    registeredActions: string[]
+  ): Promise<void> {
+    const catalog = await this.readActions(projectPath);
+    if (!catalog) {
+      return;
+    }
+
+    const catalogActions = Object.keys(catalog.actions);
+    for (let i = 0; i < catalogActions.length; i++) {
+      const actionName = catalogActions[i];
+      if (!registeredActions.includes(actionName)) {
+        logger.warn(
+          `Widget action "${actionName}" is listed in Widget.md but not registered in main.js`,
+          { projectPath }
+        );
+      }
+    }
   }
 
   private arrayBufferToBase64(buffer: ArrayBuffer): string {

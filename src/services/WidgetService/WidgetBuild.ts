@@ -1,5 +1,8 @@
 import type { WidgetType } from 'src/solutions/commands/agents/handlers/ShowWidget';
 import {
+  WIDGET_ACTION_RESULT,
+  WIDGET_ACTIONS_REGISTERED,
+  WIDGET_APPLY_ACTION,
   WIDGET_RESIZE,
   WIDGET_STATE_GLOBAL,
   WIDGET_STATE_SAVE,
@@ -46,6 +49,19 @@ export function buildWidgetStateHead(state: WidgetState | null): string {
 (function () {
   window.${WIDGET_STATE_GLOBAL} = ${serialized};
   var saveTimer;
+  var actionHandlers = {};
+  function notifyRegisteredActions() {
+    parent.postMessage({
+      type: '${WIDGET_ACTIONS_REGISTERED}',
+      actions: Object.keys(actionHandlers)
+    }, '*');
+  }
+  function normalizeActionResult(result) {
+    if (result && typeof result === 'object' && Object.prototype.hasOwnProperty.call(result, 'ok')) {
+      return result;
+    }
+    return { ok: true, state: result };
+  }
   window.stw = {
     getState: function () {
       var envelope = window.${WIDGET_STATE_GLOBAL};
@@ -57,8 +73,39 @@ export function buildWidgetStateHead(state: WidgetState | null): string {
       saveTimer = setTimeout(function () {
         parent.postMessage({ type: '${WIDGET_STATE_SAVE}', state: data }, '*');
       }, ${WIDGET_STATE_SAVE_DEBOUNCE_MS});
+    },
+    registerAction: function (name, fn) {
+      actionHandlers[name] = fn;
+      notifyRegisteredActions();
+    },
+    dispatchAction: function (name, params) {
+      var handler = actionHandlers[name];
+      if (!handler) {
+        return { ok: false, error: 'unknown_action' };
+      }
+      try {
+        return normalizeActionResult(handler(params || {}));
+      } catch (err) {
+        return { ok: false, error: err && err.message ? err.message : 'action_failed' };
+      }
+    },
+    getRegisteredActions: function () {
+      return Object.keys(actionHandlers);
     }
   };
+  window.addEventListener('message', function (e) {
+    if (!e.data || e.data.type !== '${WIDGET_APPLY_ACTION}') {
+      return;
+    }
+    var result = window.stw.dispatchAction(e.data.action, e.data.params);
+    parent.postMessage({
+      type: '${WIDGET_ACTION_RESULT}',
+      requestId: e.data.requestId,
+      ok: !!result.ok,
+      error: result.error,
+      state: result.state
+    }, '*');
+  });
 })();
 </script>`;
 }

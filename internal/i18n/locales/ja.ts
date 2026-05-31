@@ -291,6 +291,7 @@ const ja = {
       confirmHeader: '以下のファイルを削除します：',
       confirmQuestion: 'これらのファイルを削除してもよろしいですか？この操作は取り消せません。',
       cannotDeleteCurrentConversationNote: '現在の会話ノートは削除できません',
+      noFilesFound: '削除するファイルが見つかりませんでした。',
     },
     // Revert result messages
     revert: {
