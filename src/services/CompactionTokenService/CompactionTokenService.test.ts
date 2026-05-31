@@ -6,8 +6,7 @@ import {
   CompactionTokenService,
   estimatePromptTokensRoughFromMessages,
 } from './CompactionTokenService';
-import { ShellCompactor } from './compactors/ShellCompactor';
-import type { ToolCallPart } from 'src/solutions/commands/tools/types';
+import type { ToolCallPart, ToolResultPart } from 'src/solutions/commands/tools/types';
 
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   return {
@@ -138,43 +137,41 @@ describe('CompactionTokenService', () => {
   });
 });
 
-describe('ShellCompactor', () => {
-  it('stores argsLine from tool call input in metadata', () => {
-    const shellToolCall = {
-      type: 'tool-call' as const,
-      toolName: ToolName.SHELL,
-      toolCallId: 'call_shell',
-      input: { argsLine: 'npm run build' },
-    } satisfies ToolCallPart;
+describe('compactToolResult (no dedicated compactor)', () => {
+  let compactToolResult: (
+    toolResult: ToolResultPart,
+    messageId: string,
+    toolCall: ToolCallPart
+  ) => ReturnType<CompactionTokenService['compactToolResult']>;
 
-    const result = new ShellCompactor().compact({
-      messageId: 'msg1',
-      output: { type: 'text', value: 'messageRef:abc' },
-      toolCall: shellToolCall,
-    });
-
-    expect(result.toolName).toBe(ToolName.SHELL);
-    expect(result.metadata.argsLine).toBe('npm run build');
-    expect(typeof result.metadata.output).toBe('string');
-    expect(String(result.metadata.output)).toContain(ToolName.RECALL_COMPACTED_CONTEXT);
+  beforeEach(() => {
+    const service = new CompactionTokenService(createMockPlugin());
+    compactToolResult = service['compactToolResult'].bind(service);
   });
 
-  it('uses empty string when argsLine is missing', () => {
+  it('stores full tool call input and recall hint for shell', () => {
     const shellToolCall = {
       type: 'tool-call' as const,
       toolName: ToolName.SHELL,
       toolCallId: 'call_shell',
-      input: {},
+      input: { argsLine: 'npm run build', purpose: 'Build project' },
     } satisfies ToolCallPart;
+    const toolResult = {
+      type: 'tool-result' as const,
+      toolName: ToolName.SHELL,
+      toolCallId: 'call_shell',
+      output: { type: 'text', value: 'messageRef:abc' },
+    } satisfies ToolResultPart;
 
-    const result = new ShellCompactor().compact({
-      messageId: 'msg1',
-      output: { type: 'text', value: 'ok' },
-      toolCall: shellToolCall,
+    const result = compactToolResult(toolResult, 'msg1', shellToolCall);
+
+    expect(result.toolName).toBe(ToolName.SHELL);
+    expect(result.metadata.input).toEqual({
+      argsLine: 'npm run build',
+      purpose: 'Build project',
     });
-
-    expect(result.metadata.argsLine).toBe('');
     expect(String(result.metadata.output)).toContain(ToolName.RECALL_COMPACTED_CONTEXT);
+    expect(result.metadata.outputSize).toBe('messageRef:abc'.length);
   });
 });
 

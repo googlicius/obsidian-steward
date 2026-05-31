@@ -428,11 +428,6 @@ export class ConversationRenderer {
         return `${currentContent}\n\n${comment}\n${contentToAdd}`;
       });
 
-      // if (roleName === 'User') {
-      //   // Automatically create STW_SOURCE artifact if stw-source blocks are present
-      //   await this.createStwSourceArtifactIfPresent(params.path, params.newContent);
-      // }
-
       return messageId;
     } catch (error) {
       logger.error('Error updating conversation note:', error);

@@ -53,11 +53,19 @@ export interface ToolResultCompactor {
   compact(params: CompactorParams): CompactedToolResult;
 }
 
+/** Position of this tool result within the batch {@link CompactionTokenService} is compacting. */
+export interface CompactionBatchContext {
+  batchMessageIds: Set<string>;
+  entryIndex: number;
+  entryCount: number;
+}
+
 export interface CompactorParams {
   messageId: string;
   output: unknown;
   /** Paired tool-call from the same invocation (same toolCallId as the compacted result). */
   toolCall: ToolCallPart;
+  compactionBatch?: CompactionBatchContext;
 }
 
 /**
