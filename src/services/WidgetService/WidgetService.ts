@@ -4,21 +4,17 @@ import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { isPathUnderPrefix } from 'src/utils/pathUtils';
 import { uniqueID } from 'src/utils/uniqueID';
-import { buildWidgetStateHead } from './WidgetBuild';
 import { WidgetBundler } from './WidgetBundler';
+import { WidgetDefinitionService } from './WidgetDefinitionService';
+import { WidgetStateService } from './WidgetStateService';
 import type { WidgetJsValidationError } from './WidgetJsValidator';
 import { WidgetJsValidator } from './WidgetJsValidator';
-import { WIDGET_ACTION_APPLY_TIMEOUT_MS, WIDGET_ACTIONS_SCHEMA_NAME } from './WidgetProtocol';
-import { parseWidgetState, WIDGET_STATE_VERSION, widgetStateSchema } from './WidgetStateSchema';
+import { WIDGET_ACTION_APPLY_TIMEOUT_MS } from './WidgetProtocol';
 import {
-  widgetActionsSchema,
-  widgetManifestSchema,
   type WidgetActionParamSpec,
   type WidgetActionResult,
   type WidgetActionsCatalog,
-  type WidgetManifest,
   WidgetProjectFenceData,
-  WidgetState,
 } from './types';
 import { stringifyYamlFence } from '../MarkdownDefinitionService';
 
@@ -68,10 +64,25 @@ export class WidgetService {
   private readonly actionBridgeByPath = new Map<string, WidgetActionBridge>();
   private readonly pendingActionRequests = new Map<string, PendingActionRequest>();
   private modifyListenerRegistered = false;
+  private readonly _definitionService: WidgetDefinitionService;
+  private readonly _stateService: WidgetStateService;
 
   private constructor(private readonly plugin: StewardPlugin) {
     this.bundler = new WidgetBundler(plugin);
     this.jsValidator = new WidgetJsValidator();
+    this._definitionService = WidgetDefinitionService.getInstance(plugin);
+    this._definitionService.initialize();
+    this._stateService = WidgetStateService.getInstance(plugin);
+  }
+
+  /** Widget.md definition read, validate, and frontmatter logic. */
+  public get definitionService(): WidgetDefinitionService {
+    return this._definitionService;
+  }
+
+  /** Widget runtime state in state.json per project folder. */
+  public get stateService(): WidgetStateService {
+    return this._stateService;
   }
 
   /** Returns the singleton service bound to the plugin instance. */
@@ -97,6 +108,11 @@ export class WidgetService {
     const normalized = normalizePath(path);
     const root = this.getWidgetsRootPath();
     return normalized === root || normalized.startsWith(`${root}/`);
+  }
+
+  /** Whether a vault path is the Widget.md definition file inside a widget project. */
+  public isWidgetDefinitionPath(filePath: string): boolean {
+    return this.definitionService.isWidgetDefinitionPath(filePath);
   }
 
   /** Replaces whitespace with dashes for use in widget folder names. */
@@ -242,11 +258,11 @@ export class WidgetService {
     const definitionContent = this.plugin.markdownDefinitionService.buildYamlFence(
       stringifyYamlFence(manifestYamlData)
     );
-    const definitionFile = this.plugin.app.vault.getFileByPath(definitionPath);
+    let definitionFile = this.plugin.app.vault.getFileByPath(definitionPath);
     if (definitionFile) {
       await this.plugin.app.vault.modify(definitionFile, definitionContent);
     } else {
-      await this.plugin.app.vault.create(definitionPath, definitionContent);
+      definitionFile = await this.plugin.app.vault.create(definitionPath, definitionContent);
     }
 
     return { projectPath, entry };
@@ -269,125 +285,6 @@ export class WidgetService {
     }
     files.sort();
     return files;
-  }
-
-  /** Vault path for persisted runtime state in a widget project. */
-  public getStatePath(projectPath: string): string {
-    return normalizePath(`${projectPath}/state.json`);
-  }
-
-  /** Returns extraHead script that injects persisted state and window.stw into the iframe. */
-  public buildStateHead(state: WidgetState | null): string {
-    return buildWidgetStateHead(state);
-  }
-
-  /** Reads and parses state.json from a project folder. */
-  public async readState(projectPath: string): Promise<WidgetState | null> {
-    const statePath = this.getStatePath(projectPath);
-    const file = this.plugin.app.vault.getFileByPath(statePath);
-    if (!file) {
-      return null;
-    }
-
-    try {
-      const raw = await this.plugin.app.vault.read(file);
-      const parsed: unknown = JSON.parse(raw);
-      const result = parseWidgetState(parsed);
-      if (!result.valid) {
-        logger.warn('Invalid widget state envelope:', statePath, result.errors);
-        return null;
-      }
-      return result.data;
-    } catch (error) {
-      logger.error('Failed to read widget state:', error);
-      return null;
-    }
-  }
-
-  /** Writes widget runtime data to state.json (creates or updates). */
-  public async writeState(params: { projectPath: string; data: unknown }): Promise<void> {
-    const envelope = widgetStateSchema.parse({
-      version: WIDGET_STATE_VERSION,
-      updatedAt: new Date().toISOString(),
-      data: params.data,
-    });
-    const statePath = this.getStatePath(params.projectPath);
-    const content = JSON.stringify(envelope, null, 2);
-    const stateFile = this.plugin.app.vault.getFileByPath(statePath);
-    if (stateFile) {
-      await this.plugin.app.vault.modify(stateFile, content);
-      return;
-    }
-
-    await this.plugin.obsidianAPITools.ensureFolderExists(params.projectPath);
-    await this.plugin.app.vault.create(statePath, content);
-  }
-
-  /** Reads and parses the manifest block from Widget.md in a project folder. */
-  public async readManifest(projectPath: string): Promise<WidgetManifest | null> {
-    const definitionPath = normalizePath(`${projectPath}/Widget.md`);
-    const file = this.plugin.app.vault.getFileByPath(definitionPath);
-    if (!file) {
-      return null;
-    }
-
-    try {
-      const content = await this.plugin.app.vault.read(file);
-      const blocks = this.plugin.markdownDefinitionService.collectYamlBlocks({
-        file,
-        content,
-        isMatch: data => data.name === 'manifest',
-      });
-
-      if (blocks.length === 0) {
-        logger.warn(`Widget manifest block not found in ${definitionPath}`);
-        return null;
-      }
-
-      const parsed = widgetManifestSchema.safeParse(blocks[0].data);
-      if (!parsed.success) {
-        logger.warn('Invalid widget manifest YAML:', definitionPath, parsed.error.flatten());
-        return null;
-      }
-
-      return parsed.data;
-    } catch (error) {
-      logger.error('Failed to read widget manifest:', error);
-      return null;
-    }
-  }
-
-  /** Reads the actions catalog block from Widget.md in a project folder. */
-  public async readActions(projectPath: string): Promise<WidgetActionsCatalog | null> {
-    const definitionPath = normalizePath(`${projectPath}/Widget.md`);
-    const file = this.plugin.app.vault.getFileByPath(definitionPath);
-    if (!file) {
-      return null;
-    }
-
-    try {
-      const content = await this.plugin.app.vault.read(file);
-      const blocks = this.plugin.markdownDefinitionService.collectYamlBlocks({
-        file,
-        content,
-        isMatch: data => data.name === WIDGET_ACTIONS_SCHEMA_NAME,
-      });
-
-      if (blocks.length === 0) {
-        return null;
-      }
-
-      const parsed = widgetActionsSchema.safeParse(blocks[0].data);
-      if (!parsed.success) {
-        logger.warn('Invalid widget actions YAML:', definitionPath, parsed.error.flatten());
-        return null;
-      }
-
-      return parsed.data;
-    } catch (error) {
-      logger.error('Failed to read widget actions catalog:', error);
-      return null;
-    }
   }
 
   /** Validates action params against the Widget.md actions catalog. */
@@ -536,13 +433,13 @@ export class WidgetService {
     actionParams: Record<string, unknown>;
   }): Promise<WidgetActionResult> {
     const normalizedPath = normalizePath(params.projectPath);
-    const catalog = await this.readActions(normalizedPath);
-    if (!catalog) {
+    const def = await this.definitionService.getWidgetDefinition(normalizedPath);
+    if (!def.actions) {
       return { ok: false, error: 'actions_catalog_missing' };
     }
 
     const validation = this.validateActionParams({
-      catalog,
+      catalog: def.actions,
       action: params.action,
       actionParams: params.actionParams,
     });
@@ -582,15 +479,15 @@ export class WidgetService {
 
   /** Bundles the project entry HTML with inlined assets for iframe srcdoc rendering. */
   public async bundleProject(projectPath: string): Promise<string> {
-    const manifest = await this.readManifest(projectPath);
-    if (!manifest?.entry) {
+    const def = await this.definitionService.getWidgetDefinition(projectPath);
+    if (!def.manifest?.entry) {
       throw new Error(`Widget manifest missing or invalid: ${projectPath}`);
     }
 
-    const assetDataUrls = await this.resolveAssetDataUrls(manifest.assets ?? []);
+    const assetDataUrls = await this.resolveAssetDataUrls(def.manifest.assets ?? []);
     return this.bundler.bundle({
       projectPath,
-      entryRelativePath: manifest.entry,
+      entryRelativePath: def.manifest.entry,
       assetDataUrls,
     });
   }
@@ -648,7 +545,7 @@ export class WidgetService {
           return;
         }
 
-        if (normalizePath(file.path) === this.getStatePath(projectPath)) {
+        if (normalizePath(file.path) === this.stateService.getStatePath(projectPath)) {
           return;
         }
 
@@ -754,12 +651,13 @@ export class WidgetService {
     projectPath: string,
     registeredActions: string[]
   ): Promise<void> {
-    const catalog = await this.readActions(projectPath);
-    if (!catalog) {
+    const { actions: actionsCatalog } =
+      await this.definitionService.getWidgetDefinition(projectPath);
+    if (!actionsCatalog) {
       return;
     }
 
-    const catalogActions = Object.keys(catalog.actions);
+    const catalogActions = Object.keys(actionsCatalog.actions);
     for (let i = 0; i < catalogActions.length; i++) {
       const actionName = catalogActions[i];
       if (!registeredActions.includes(actionName)) {

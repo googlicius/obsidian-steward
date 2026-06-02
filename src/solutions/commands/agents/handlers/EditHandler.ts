@@ -301,6 +301,13 @@ export class EditHandler {
         ? this.agent.plugin.widgetService.jsValidator.formatErrors(jsErrors)
         : undefined;
 
+    const widgetValidationError =
+      this.agent.plugin.widgetService.definitionService.readEditedDefinitionStatusFromFrontmatter(
+        updatedFiles
+      );
+
+    const hasToolWarnings = lintError || widgetValidationError;
+
     // Store edit results as an artifact for revert capability (if any files were updated)
     if (allFileChangeSets.length > 0) {
       await this.agent.plugin.artifactManagerV2.withTitle(title).storeArtifact({
@@ -354,11 +361,12 @@ export class EditHandler {
         {
           ...params.toolCall,
           type: 'tool-result',
-          output: lintError
+          output: hasToolWarnings
             ? {
                 type: 'error-json',
                 value: {
                   lintError,
+                  widgetValidationError,
                   message: resultMessage,
                 },
               }
@@ -374,7 +382,7 @@ export class EditHandler {
       return continueFromNextTool();
     }
 
-    if (lintError) {
+    if (lintError || widgetValidationError) {
       return {
         status: IntentResultStatus.SUCCESS,
       };
@@ -520,8 +528,11 @@ export class EditHandler {
     return fileName.slice(dotIndex + 1).toLowerCase();
   }
 
+  /**
+   * Wrap in a 4-backtick fence that allows nested fences.
+   */
   private wrapInCodeFence(content: string, language: string): string {
-    return `\`\`\`${language}\n${content}\n\`\`\``;
+    return `\`\`\`\`${language}\n${content}\n\`\`\`\``;
   }
 
   /**

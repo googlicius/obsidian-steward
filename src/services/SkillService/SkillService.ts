@@ -4,7 +4,7 @@ import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { z } from 'zod/v3';
 import { Skill, SkillCatalogEntry } from './types';
-import { BUILT_IN_SKILLS } from './constants';
+import { STANDARD_SKILLS } from './constants';
 
 const { i18next } = getBundledInternal('i18n');
 
@@ -52,7 +52,7 @@ export class SkillService {
   private initialize(): void {
     try {
       this.plugin.app.workspace.onLayoutReady(async () => {
-        await this.seedBuiltInSkills();
+        await this.seedStandardSkills();
         await this.loadAllSkills();
 
         this.plugin.registerEvent(
@@ -191,13 +191,13 @@ export class SkillService {
   }
 
   /**
-   * Seed built-in skills that don't yet exist in the Skills folder.
+   * Seed standard skills that don't yet exist in the Skills folder.
    * Each skill is created as a SKILL.md file under Steward/Skills/<Skill Name>/.
    */
-  private async seedBuiltInSkills(): Promise<void> {
+  private async seedStandardSkills(): Promise<void> {
     await this.plugin.obsidianAPITools.ensureFolderExists(this.skillsFolder);
 
-    for (const skill of BUILT_IN_SKILLS) {
+    for (const skill of STANDARD_SKILLS) {
       const skillFolder = skill.folder ?? skill.name;
       const skillPath = `${this.skillsFolder}/${skillFolder}/SKILL.md`;
       const existingFile = this.plugin.app.vault.getFileByPath(skillPath);
@@ -214,7 +214,7 @@ export class SkillService {
           }
 
           logger.log(
-            `Upgrading built-in skill ${skill.name} (v${existingVersion ?? 0} -> v${skill.version})`
+            `Upgrading standard skill ${skill.name} (v${existingVersion ?? 0} -> v${skill.version})`
           );
         } catch (error) {
           logger.error(`Error reading existing skill ${skill.name}:`, error);
@@ -243,17 +243,17 @@ version: ${skill.version}
 
         if (existingFile) {
           await this.plugin.app.vault.modify(existingFile, fileContent);
-          logger.log(`Updated built-in skill: ${skill.name} (v${skill.version})`);
+          logger.log(`Updated standard skill: ${skill.name} (v${skill.version})`);
           await this.loadSkillFromFile(existingFile);
         } else {
           const createdFile = await this.plugin.app.vault.create(skillPath, fileContent);
-          logger.log(`Created built-in skill: ${skill.name} (v${skill.version})`);
+          logger.log(`Created standard skill: ${skill.name} (v${skill.version})`);
           if (createdFile) {
             await this.loadSkillFromFile(createdFile);
           }
         }
       } catch (error) {
-        logger.error(`Error writing built-in skill ${skill.name}:`, error);
+        logger.error(`Error writing standard skill ${skill.name}:`, error);
       }
     }
   }

@@ -2,7 +2,9 @@ import { TAbstractFile, TFile, TFolder, parseYaml } from 'obsidian';
 import { getInstance } from 'src/utils/getInstance';
 import type StewardPlugin from 'src/main';
 import { MarkdownDefinitionService } from '../MarkdownDefinitionService';
+import { WidgetDefinitionService } from './WidgetDefinitionService';
 import { WidgetService } from './WidgetService';
+import { WidgetStateService } from './WidgetStateService';
 
 type FakeFile = { path: string };
 
@@ -155,6 +157,10 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
         read: jest.fn(),
         modify: jest.fn(),
         create: jest.fn(),
+        on: jest.fn(),
+      },
+      workspace: {
+        onLayoutReady: jest.fn((cb: () => void) => cb()),
       },
       metadataCache: {
         getFileCache: jest.fn(),
@@ -176,8 +182,11 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
 describe('WidgetService', () => {
   beforeEach(() => {
     (WidgetService as unknown as { instance?: WidgetService }).instance = undefined;
+    (WidgetDefinitionService as unknown as { instance: WidgetDefinitionService | null }).instance =
+      null;
     (MarkdownDefinitionService as unknown as { instance?: MarkdownDefinitionService }).instance =
       undefined;
+    (WidgetStateService as unknown as { instance?: WidgetStateService | null }).instance = null;
   });
 
   describe('parseProjectFenceContent', () => {
@@ -269,17 +278,58 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
   });
 
   describe('listProjectFiles', () => {
+    const projectPath = 'Steward/Widgets/Tic-Tac-Toe-abc12';
+
     it('returns relative paths via obsidianAPITools.getFilesFromFolder', async () => {
       const plugin = createMockPlugin();
       const service = WidgetService.getInstance(plugin);
 
-      const files = await service.listProjectFiles('Steward/Widgets/Tic-Tac-Toe-abc12');
+      const files = await service.listProjectFiles(projectPath);
 
       expect(plugin.obsidianAPITools.getFilesFromFolder).toHaveBeenCalledWith(
-        expect.objectContaining({ path: 'Steward/Widgets/Tic-Tac-Toe-abc12' }),
+        expect.objectContaining({ path: projectPath }),
         { recursive: true }
       );
       expect(files).toEqual(['Widget.md', 'index.html']);
+    });
+
+    it('strips the project folder prefix from full vault paths', async () => {
+      const nestedPath = `${projectPath}/assets/app.js`;
+      const nestedFile = getInstance(TFile, {
+        path: nestedPath,
+        name: 'app.js',
+      });
+      const indexFile = getInstance(TFile, {
+        path: `${projectPath}/index.html`,
+        name: 'index.html',
+      });
+      const projectFolder = getInstance(TFolder, {
+        path: projectPath,
+        children: [indexFile, nestedFile],
+      });
+
+      const plugin = createMockPlugin();
+      plugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(projectFolder);
+      plugin.obsidianAPITools.getFilesFromFolder = jest
+        .fn()
+        .mockReturnValue([nestedFile, indexFile]);
+
+      const service = WidgetService.getInstance(plugin);
+      const files = await service.listProjectFiles(projectPath);
+
+      expect(files).toEqual(['assets/app.js', 'index.html']);
+      expect(files.every(relativePath => !relativePath.startsWith(projectPath))).toBe(true);
+    });
+
+    it('returns an empty array when the project folder does not exist', async () => {
+      const plugin = createMockPlugin();
+      plugin.app.vault.getFolderByPath = jest.fn().mockReturnValue(null);
+
+      const service = WidgetService.getInstance(plugin);
+      const files = await service.listProjectFiles(projectPath);
+
+      expect(files).toEqual([]);
+      expect(plugin.obsidianAPITools.getFilesFromFolder).not.toHaveBeenCalled();
     });
   });
 
@@ -468,7 +518,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
     });
   });
 
-  describe('readManifest', () => {
+  describe('getWidgetDefinition', () => {
     const projectPath = 'Steward/Widgets/Tic-Tac-Toe-abc12';
 
     it('returns the validated manifest schema data', async () => {
@@ -488,7 +538,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       });
       const service = WidgetService.getInstance(plugin);
 
-      const manifest = await service.readManifest(projectPath);
+      const manifest = (await service.definitionService.getWidgetDefinition(projectPath)).manifest;
 
       expect(manifest).toEqual({
         name: 'manifest',
@@ -503,11 +553,13 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       const { plugin } = createProjectTestPlugin();
       const service = WidgetService.getInstance(plugin);
 
-      expect(await service.readManifest(projectPath)).toBeNull();
+      expect(
+        (await service.definitionService.getWidgetDefinition(projectPath)).manifest
+      ).toBeNull();
     });
   });
 
-  describe('readActions and applyAction', () => {
+  describe('getWidgetDefinition actions and applyAction', () => {
     const projectPath = 'Steward/Widgets/Tic-Tac-Toe-abc12';
 
     const actionsWidgetMd = [
@@ -538,7 +590,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       });
       const service = WidgetService.getInstance(plugin);
 
-      const catalog = await service.readActions(projectPath);
+      const catalog = (await service.definitionService.getWidgetDefinition(projectPath)).actions;
 
       expect(catalog?.actions.playCell?.params?.index).toEqual({
         type: 'integer',
@@ -687,7 +739,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       });
       const service = WidgetService.getInstance(plugin);
 
-      const state = await service.readState(projectPath);
+      const state = await service.stateService.readState(projectPath);
 
       expect(state).toBeNull();
     });
@@ -696,7 +748,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       const { plugin } = createProjectTestPlugin();
       const service = WidgetService.getInstance(plugin);
 
-      const state = await service.readState(projectPath);
+      const state = await service.stateService.readState(projectPath);
 
       expect(state).toBeNull();
     });
@@ -706,7 +758,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       const service = WidgetService.getInstance(plugin);
       const payload = { cells: [null, 'x', null], turn: 'o' };
 
-      await service.writeState({ projectPath, data: payload });
+      await service.stateService.writeState({ projectPath, data: payload });
 
       const statePath = `${projectPath}/state.json`;
       expect(files.has(statePath)).toBe(true);
@@ -716,7 +768,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       expect(typeof stored.updatedAt).toBe('string');
       expect(stored.data).toEqual(payload);
 
-      const read = await service.readState(projectPath);
+      const read = await service.stateService.readState(projectPath);
       expect(read?.data).toEqual(payload);
     });
 
@@ -732,9 +784,9 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       });
       const service = WidgetService.getInstance(plugin);
 
-      await service.writeState({ projectPath, data: { count: 2 } });
+      await service.stateService.writeState({ projectPath, data: { count: 2 } });
 
-      const read = await service.readState(projectPath);
+      const read = await service.stateService.readState(projectPath);
       expect(read?.data).toEqual({ count: 2 });
       expect(plugin.app.vault.modify).toHaveBeenCalled();
       expect(plugin.app.vault.create).not.toHaveBeenCalled();
@@ -746,7 +798,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       const { plugin } = createProjectTestPlugin();
       const service = WidgetService.getInstance(plugin);
 
-      const head = service.buildStateHead({
+      const head = service.stateService.buildStateHead({
         version: 1,
         updatedAt: '2026-05-29T00:00:00.000Z',
         data: { score: 3 },

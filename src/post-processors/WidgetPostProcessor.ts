@@ -192,16 +192,16 @@ async function mountWidgetProject(
     const projectPath = parsed.projectPath;
 
     const buildSrcdoc = async (html: string) => {
-      const state = await widgetService.readState(projectPath);
+      const state = await widgetService.stateService.readState(projectPath);
       return buildWidgetSrcdoc({
         type: 'html',
         code: html,
-        extraHead: widgetService.buildStateHead(state),
+        extraHead: widgetService.stateService.buildStateHead(state),
       });
     };
 
     const bundled = await widgetService.bundleProject(projectPath);
-    const initialState = await widgetService.readState(projectPath);
+    const initialState = await widgetService.stateService.readState(projectPath);
 
     const refresh = async () => {
       try {
@@ -237,9 +237,9 @@ async function mountWidgetProject(
       },
     });
     teardownIframe = mountIframe(container, 'html', bundled, {
-      extraHead: widgetService.buildStateHead(initialState),
+      extraHead: widgetService.stateService.buildStateHead(initialState),
       onStateSave: data => {
-        void widgetService.writeState({ projectPath, data });
+        void widgetService.stateService.writeState({ projectPath, data });
       },
       onActionResult: data => {
         widgetService.resolveActionResult(data);

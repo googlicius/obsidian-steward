@@ -35,7 +35,9 @@ export class WidgetSerializer extends ArtifactSerializer {
     const projectParsed = this.plugin.widgetService.parseProjectFenceContent(message.content);
     if (projectParsed) {
       const files = await this.plugin.widgetService.listProjectFiles(projectParsed.projectPath);
-      const manifest = await this.plugin.widgetService.readManifest(projectParsed.projectPath);
+      const { manifest } = await this.plugin.widgetService.definitionService.getWidgetDefinition(
+        projectParsed.projectPath
+      );
 
       return {
         artifactType: ArtifactType.WIDGET,

@@ -316,6 +316,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       'Set type to "html" for full HTML widgets, or "svg" for vector graphics.',
       'For HTML widgets, use project mode: files as [{ name, content }, ...] — split index.html, style.css, main.js, etc. instead of one inline HTML blob. Link them from index.html (<link href="style.css">, <script src="main.js">); they are bundled into one document at render. Always provide widgetName (natural language); for project mode it builds widgetId and the vault folder under Steward/Widgets/{widgetId}/. Widgets are conversation-independent; reference widgetId across conversations.',
       'For interactive project widgets (games, counters, forms) that must remember user actions, read the "stateful-widget" skill (via content_reading) before generating widget code.',
+      'For turn-based widgets where humans and models take turns (games vs AI, poker, chess, etc.), read the "interactive-widget" skill after stateful-widget — it covers registerAction, Widget.md (actions, actors, agent blocks), and validation.',
       'For SVG, use non-project mode (code). Code must be self-contained, no external CDN.',
       'When the user provides files (images, SVGs, etc.), MUST add their original paths to assets (e.g. Images/photo.png) and reference them in HTML with the "asset:" prefix (e.g. src="asset:Images/photo.png", href, or CSS url()). Files are read from the vault and bundled as base64 data URLs at render time.',
       `After rendering a project widget, if the user ask for update, use ${ToolName.EDIT} and ${ToolName.CONTENT_READING} on the projectPath returned in the tool result.`,
@@ -323,6 +324,14 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     ],
     category: 'content-generation',
     showDescriptionWhenInactive: true,
+  },
+
+  [ToolName.WIDGET_ACTION]: {
+    name: ToolName.WIDGET_ACTION,
+    description:
+      'Apply one allowed widget action during a widget session turn (e.g. play a cell in tic-tac-toe). Used by model actors in turn-based interactive widgets.',
+    guidelines: [],
+    category: 'content-generation',
   },
 
   [ToolName.TODO_WRITE]: {

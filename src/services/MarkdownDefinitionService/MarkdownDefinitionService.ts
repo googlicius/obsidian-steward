@@ -100,6 +100,49 @@ export class MarkdownDefinitionService {
     return matchedBlocks;
   }
 
+  /**
+   * Collect every YAML fence block in a note, including parse failures for yaml fences.
+   */
+  public collectAllYamlBlocks(params: { file: TFile; content: string }): {
+    blocks: ParsedYamlFenceBlock[];
+    parseErrors: Array<{ line: number; message: string }>;
+  } {
+    const cache = this.plugin.app.metadataCache.getFileCache(params.file);
+    if (!cache?.sections) {
+      return { blocks: [], parseErrors: [] };
+    }
+
+    const lines = params.content.split('\n');
+    const blocks: ParsedYamlFenceBlock[] = [];
+    const parseErrors: Array<{ line: number; message: string }> = [];
+
+    for (let i = 0; i < cache.sections.length; i++) {
+      const section = cache.sections[i];
+      if (section.type !== 'code') {
+        continue;
+      }
+
+      const startLine = section.position.start.line;
+      const openingFence = lines[startLine]?.trim() ?? '';
+      if (!YAML_OPENING_FENCE_PATTERN.test(openingFence)) {
+        continue;
+      }
+
+      const parsedBlock = this.parseYamlFenceSection(lines, section);
+      if (!parsedBlock) {
+        parseErrors.push({
+          line: startLine + 1,
+          message: 'invalid or unparsable YAML',
+        });
+        continue;
+      }
+
+      blocks.push(parsedBlock);
+    }
+
+    return { blocks, parseErrors };
+  }
+
   /** Replaces inner YAML for one or more fence blocks (bottom-up to preserve line indices). */
   public replaceYamlFenceContents(content: string, replacements: YamlFenceReplacement[]): string {
     const lines = content.split('\n');

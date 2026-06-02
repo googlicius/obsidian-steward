@@ -13,9 +13,6 @@ export const WIDGET_ACTION_RESULT = 'widget-action-result';
 /** postMessage type: iframe reports action names registered via window.stw.registerAction */
 export const WIDGET_ACTIONS_REGISTERED = 'widget-actions-registered';
 
-/** YAML `name` value identifying the widget actions catalog block */
-export const WIDGET_ACTIONS_SCHEMA_NAME = 'actions';
-
 /** Max wait (ms) for an iframe to respond to WIDGET_APPLY_ACTION */
 export const WIDGET_ACTION_APPLY_TIMEOUT_MS = 5000;
 
