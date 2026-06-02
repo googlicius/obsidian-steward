@@ -95,7 +95,15 @@ export class ActivateToolHandler {
       const toolNames = toolCall.input.deactivate.map(tool => `\`${tool}\``);
       statusParts.push(`Deactivating ${joinWithConjunction(toolNames, 'and')}`);
     }
-    const statusMessage = statusParts.length > 0 ? statusParts.join('. ') + '.' : '';
+    let statusMessage = statusParts.length > 0 ? statusParts.join('. ') + '.' : '';
+
+    if (validationResult.activatedTools && validationResult.activatedTools.length > 0) {
+      const instructionsPath =
+        ctx.agent.plugin.toolInstructionService.getToolInstructionsRelativePath();
+      const memoryHint = `To add or change additional guidelines for tools, edit ${instructionsPath} when needed.`;
+      statusMessage = statusMessage ? `${statusMessage} ${memoryHint}` : memoryHint;
+      validationResult.message = `${validationResult.message} ${memoryHint}`;
+    }
 
     if (statusMessage) {
       await ctx.updateConversationNote({

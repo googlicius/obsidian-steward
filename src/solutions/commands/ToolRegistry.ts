@@ -329,7 +329,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
   [ToolName.WIDGET_ACTION]: {
     name: ToolName.WIDGET_ACTION,
     description:
-      'Apply one allowed widget action during a widget session turn (e.g. play a cell in tic-tac-toe). Used by model actors in turn-based interactive widgets.',
+      'Apply one allowed widget action during a widget session turn. Used by model actors in turn-based interactive widgets.',
     guidelines: [],
     category: 'content-generation',
   },

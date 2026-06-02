@@ -150,6 +150,7 @@ Steward/
 ├── Commands/       # Stores user-defined command definitions
 ├── Conversations/  # Archives past conversations
 ├── MCP/            # MCP server definitions (one markdown note per server)
+├── Memory/         # Persistent memory (e.g. tool instructions) for agents
 ├── Docs/           # Fetched documents from this repo
 ├── Release notes/  # Release notes of Steward
 ├── Rules/          # Guardrails rules (one file per rule)

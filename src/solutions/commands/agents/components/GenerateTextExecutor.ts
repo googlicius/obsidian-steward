@@ -113,9 +113,15 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
       ...(shouldUseTools ? activeMcpTools : {}),
     };
 
+    const toolInstructionService = agent.plugin.toolInstructionService;
+    const mergedGuidelines = toolInstructionService.mergeToolGuidelineMaps(
+      agent.plugin.guardrailsRuleService.getInstructionsByTool(),
+      toolInstructionService.getInstructionsByTool()
+    );
+
     const registry = ToolRegistry.buildFromTools(toolsForRegistry)
       .setActive(allActiveToolNames)
-      .setAdditionalGuidelines(agent.plugin.guardrailsRuleService.getInstructionsByTool());
+      .setAdditionalGuidelines(mergedGuidelines);
 
     const messages = [...historyResult.messages];
     if (!params.invocationCount) {

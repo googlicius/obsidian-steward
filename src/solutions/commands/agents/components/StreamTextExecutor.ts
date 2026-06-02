@@ -96,9 +96,14 @@ export class StreamTextExecutor {
       ...mcpTools.inactive,
     };
 
+    const mergedGuidelines = agent.plugin.toolInstructionService.mergeToolGuidelineMaps(
+      agent.plugin.guardrailsRuleService.getInstructionsByTool(),
+      agent.plugin.toolInstructionService.getInstructionsByTool()
+    );
+
     const registry = ToolRegistry.buildFromTools(toolsForRegistry)
       .setActive(allActiveToolNames)
-      .setAdditionalGuidelines(agent.plugin.guardrailsRuleService.getInstructionsByTool());
+      .setAdditionalGuidelines(mergedGuidelines);
 
     if (params.intent.no_confirm) {
       registry.exclude([ToolName.CONFIRMATION, ToolName.ASK_USER]);

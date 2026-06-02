@@ -82,6 +82,7 @@ import { PtyCompanionService } from './services/PtyCompanionService/PtyCompanion
 import { NodePtyInstallerScriptService } from './services/NodePtyInstallerScriptService/NodePtyInstallerScriptService';
 import { WikilinkForwardService } from './services/WikilinkForwardService/WikilinkForwardService';
 import { WidgetService } from './services/WidgetService';
+import { ToolInstructionService } from './services/Memory/ToolInstructionService';
 
 const { i18next } = getBundledInternal('i18n');
 
@@ -120,6 +121,7 @@ export default class StewardPlugin extends Plugin {
   _ptyCompanionService: PtyCompanionService;
   _wikilinkForwardService: WikilinkForwardService;
   _widgetService: WidgetService;
+  _toolInstructionService: ToolInstructionService;
 
   get cliSessionService(): CliSessionService {
     if (!this._cliSessionService) {
@@ -140,6 +142,14 @@ export default class StewardPlugin extends Plugin {
       this._widgetService = WidgetService.getInstance(this);
     }
     return this._widgetService;
+  }
+
+  get toolInstructionService(): ToolInstructionService {
+    if (!this._toolInstructionService) {
+      this._toolInstructionService = ToolInstructionService.getInstance(this);
+      this._toolInstructionService.initialize();
+    }
+    return this._toolInstructionService;
   }
 
   get ptyCompanionService(): PtyCompanionService {
@@ -350,6 +360,9 @@ export default class StewardPlugin extends Plugin {
 
       // Initialize the MCPService (loads MCP definitions from Steward/MCP folder)
       this.mcpService;
+
+      // Tool instruction memory (Steward/Memory/Tool instructions.md)
+      this.toolInstructionService;
 
       if (Platform.isDesktopApp) {
         await this.ptyCompanionService.start();
@@ -1229,6 +1242,8 @@ export default class StewardPlugin extends Plugin {
         // Ensure MCP folder exists for MCP definitions
         const mcpFolder = `${this.settings.stewardFolder}/MCP`;
         await this.obsidianAPITools.ensureFolderExists(mcpFolder);
+
+        await this.toolInstructionService.ensureMemoryFolderAndDefaultFile();
 
         await new NodePtyInstallerScriptService(this).sync();
       } catch (error) {
