@@ -1,6 +1,7 @@
 import type StewardPlugin from 'src/main';
 import { ToolName } from '../../ToolRegistry';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
+import { MarkdownBuilder } from 'src/utils/MarkdownBuilder';
 import { getShowWidgetThemeGuideline } from '../handlers/ShowWidget';
 
 const VAULT_MANAGEMENT_TOOLS: ToolName[] = [
@@ -81,7 +82,7 @@ export class SystemPromptComposer {
     return lines.join('\n');
   }
 
-  protected generateSkillCatalogPrompt(params: { plugin: StewardPlugin }): string {
+  protected buildSkillSectionBody(params: { plugin: StewardPlugin }): string {
     const catalog = params.plugin.skillService.getSkillCatalog();
     if (catalog.length === 0) {
       return '';
@@ -91,19 +92,20 @@ export class SystemPromptComposer {
       .map(entry => `- ${entry.name}: ${entry.description} (path: ${entry.path})`)
       .join('\n');
 
-    return `\n\nAVAILABLE SKILLS:
-${entries}
-
-When you need domain-specific knowledge for the task, use ${ToolName.CONTENT_READING} to read the skill file by path with readType: "entire".`;
+    return new MarkdownBuilder()
+      .addSection(
+        '### Available skills',
+        `${entries}\n\nWhen you need domain-specific knowledge for the task, use ${ToolName.CONTENT_READING} to read the skill file by path with readType: "entire".`
+      )
+      .build();
   }
 
-  protected generateUserDefinedCommandCatalogPrompt(params: {
+  protected buildUserDefinedCommandSectionBody(params: {
     plugin: StewardPlugin;
     /** When false (e.g. subagent or narrowed tool set), show a placeholder instead of the catalog. */
     runCommandAvailable: boolean;
   }): string {
-    const intro = `\n\nUSER-DEFINED COMMANDS:
-User-defined commands combine skills, agents, automation, and workflows defined in markdown files under the ${params.plugin.settings.stewardFolder}/Commands folder.`;
+    const intro = `User-defined commands combine skills, agents, automation, and workflows defined in markdown files under the ${params.plugin.settings.stewardFolder}/Commands folder.`;
 
     if (!params.runCommandAvailable) {
       return `${intro}
@@ -125,12 +127,15 @@ The command catalog is not listed here because ${ToolName.RUN_COMMAND} is inacti
       })
       .join('\n');
 
-    return `${intro}
+    return new MarkdownBuilder()
+      .addSection('### Available commands', entries)
+      .build()
+      .concat(
+        `\n\nTo run a user-defined command, use the ${ToolName.RUN_COMMAND} tool.\nNo need to read the command definition note before calling ${ToolName.RUN_COMMAND}, it's loaded automatically; pass command_name from this catalog.`
+      );
+  }
 
-Available commands:
-${entries}
-
-To run a user-defined command, use the ${ToolName.RUN_COMMAND} tool.
-No need to read the command definition note before calling ${ToolName.RUN_COMMAND}, it's loaded automatically; pass command_name from this catalog.`;
+  protected wrapPromptSection(heading: string, body: string): string {
+    return new MarkdownBuilder().addSection(heading, body).build();
   }
 }

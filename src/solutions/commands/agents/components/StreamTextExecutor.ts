@@ -96,14 +96,12 @@ export class StreamTextExecutor {
       ...mcpTools.inactive,
     };
 
-    const mergedGuidelines = agent.plugin.toolInstructionService.mergeToolGuidelineMaps(
-      agent.plugin.guardrailsRuleService.getInstructionsByTool(),
-      agent.plugin.toolInstructionService.getInstructionsByTool()
-    );
-
     const registry = ToolRegistry.buildFromTools(toolsForRegistry)
       .setActive(allActiveToolNames)
-      .setAdditionalGuidelines(mergedGuidelines);
+      .setSupplementalGuidelines({
+        guardrails: agent.plugin.guardrailsRuleService.getInstructionsByTool(),
+        memory: agent.plugin.toolInstructionService.getInstructionsByTool(),
+      });
 
     if (params.intent.no_confirm) {
       registry.exclude([ToolName.CONFIRMATION, ToolName.ASK_USER]);
@@ -141,15 +139,7 @@ export class StreamTextExecutor {
       !params.intent.tools ||
       params.intent.tools.length === 0 ||
       params.intent.tools.includes(ToolName.CONTENT_READING);
-    const skillCatalogPrompt = includeSkillCatalog
-      ? this.generateSkillCatalogPrompt({
-          plugin: agent.plugin,
-        })
-      : '';
-    const userDefinedCommandCatalogPrompt = this.generateUserDefinedCommandCatalogPrompt({
-      plugin: agent.plugin,
-      runCommandAvailable: allActiveToolNames.includes(ToolName.RUN_COMMAND),
-    });
+    const runCommandAvailable = allActiveToolNames.includes(ToolName.RUN_COMMAND);
 
     const resolvedSystemPrompts =
       params.intent.systemPrompts && params.intent.systemPrompts.length > 0
@@ -174,8 +164,8 @@ export class StreamTextExecutor {
       availableTools: declaredNormalized ?? allSuperAgentKeys,
       currentNote,
       currentPosition,
-      skillCatalogPrompt,
-      userDefinedCommandCatalogPrompt,
+      includeSkillCatalog,
+      runCommandAvailable,
     });
 
     type RepairToolCall = AiStreamTextParams['experimental_repairToolCall'];

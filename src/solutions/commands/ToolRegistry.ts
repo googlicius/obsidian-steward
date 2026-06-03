@@ -1,5 +1,6 @@
 import { ToolName } from './toolNames';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
+import { MarkdownBuilder } from 'src/utils/MarkdownBuilder';
 import { revertAbleArtifactTypes } from '../artifact';
 import { EditMode } from './tools/editContent';
 
@@ -412,10 +413,15 @@ export class ToolRegistry<T> {
   private readonly tools: Map<string, ToolDefinition> = new Map();
   private readonly excluded: Set<string> = new Set();
   private activeTools: Set<string> | null = null;
-  private additionalGuidelines: Map<string, string[]> = new Map();
+  private guardrailGuidelines: Map<string, string[]> = new Map();
+  private memoryGuidelines: Map<string, string[]> = new Map();
 
-  public setAdditionalGuidelines(guidelines: Map<string, string[]>): this {
-    this.additionalGuidelines = guidelines;
+  public setSupplementalGuidelines(params: {
+    guardrails: Map<string, string[]>;
+    memory: Map<string, string[]>;
+  }): this {
+    this.guardrailGuidelines = params.guardrails;
+    this.memoryGuidelines = params.memory;
     return this;
   }
 
@@ -484,25 +490,153 @@ export class ToolRegistry<T> {
     return lines.join('\n');
   }
 
-  public generateGuidelinesSection(): string {
+  public generateGuidelinesSection(params?: { memorySourcePath?: string }): string {
     const sections: string[] = [];
     for (const [, def] of this.tools) {
       if (!this.isActive(def.name)) continue;
-      const guidelines: string[] = [];
-      for (const g of def.guidelines) {
-        guidelines.push(`- ${g}`);
-      }
-      const extra = this.additionalGuidelines.get(def.name);
-      if (extra && extra.length > 0) {
-        for (const g of extra) {
-          guidelines.push(`- ${g}`);
-        }
-      }
-      if (guidelines.length > 0) {
-        sections.push(`**${def.name}**\n${guidelines.join('\n')}`);
+
+      const toolSection = this.buildToolGuidelinesSection({
+        toolName: def.name,
+        builtIn: def.guidelines,
+        memorySourcePath: params?.memorySourcePath,
+      });
+      if (toolSection) {
+        sections.push(toolSection);
       }
     }
     return sections.join('\n\n');
+  }
+
+  private buildGuidelinesSectionBody(memorySourcePath: string): string {
+    const toolSections = this.generateGuidelinesSection({ memorySourcePath });
+    if (!toolSections.trim()) {
+      return '';
+    }
+
+    const parts: string[] = [];
+    if (this.hasActiveMemoryGuidelines()) {
+      parts.push(
+        `Additional tool instructions from memory appear under the **Memory** subheading for each tool. Edit them in ${memorySourcePath}.`
+      );
+    }
+    parts.push(toolSections);
+    return parts.join('\n\n');
+  }
+
+  private hasActiveMemoryGuidelines(): boolean {
+    for (const [name] of this.tools) {
+      if (!this.isActive(name)) continue;
+      const memory = this.memoryGuidelines.get(name);
+      if (memory && memory.length > 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public generateToolSectionBody(params: {
+    inactiveToolCount: number;
+    otherToolsExclude?: Set<string>;
+    otherToolsEmptyLabel: string;
+    memorySourcePath: string;
+  }): string {
+    const otherToolsBody = this.buildOtherToolsSectionBody({
+      inactiveToolCount: params.inactiveToolCount,
+      exclude: params.otherToolsExclude,
+      emptyLabel: params.otherToolsEmptyLabel,
+    });
+
+    return new MarkdownBuilder()
+      .addSection('### Available tools', this.generateToolsSection())
+      .addSection('### Guidelines', this.buildGuidelinesSectionBody(params.memorySourcePath))
+      .addSection('### Other tools', otherToolsBody)
+      .build();
+  }
+
+  private buildOtherToolsSectionBody(params: {
+    inactiveToolCount: number;
+    exclude?: Set<string>;
+    emptyLabel: string;
+  }): string {
+    const list = this.generateOtherToolsSection('', params.exclude);
+    if (!list.trim()) {
+      return params.emptyLabel;
+    }
+    return `${params.inactiveToolCount} inactive tools; activate before using them.\n${list}`;
+  }
+
+  private buildToolGuidelinesSection(params: {
+    toolName: string;
+    builtIn: string[];
+    memorySourcePath?: string;
+  }): string {
+    const guardrails = this.guardrailGuidelines.get(params.toolName) ?? [];
+    const memory = this.memoryGuidelines.get(params.toolName) ?? [];
+
+    if (params.builtIn.length === 0 && guardrails.length === 0 && memory.length === 0) {
+      return '';
+    }
+
+    const builder = new MarkdownBuilder();
+    builder.addSection(
+      `#### ${params.toolName}`,
+      this.buildGuidelineSourceSections({
+        builtIn: params.builtIn,
+        guardrails,
+        memory,
+        memorySourcePath: params.memorySourcePath,
+      })
+    );
+    return builder.build();
+  }
+
+  private buildGuidelineSourceSections(params: {
+    builtIn: string[];
+    guardrails: string[];
+    memory: string[];
+    memorySourcePath?: string;
+  }): string {
+    const parts: string[] = [];
+
+    const builtInBullets = ToolRegistry.formatGuidelineBullets(params.builtIn);
+    if (builtInBullets) {
+      parts.push(builtInBullets);
+    }
+
+    const supplemental = new MarkdownBuilder()
+      .addSection('##### Guardrails', ToolRegistry.formatGuidelineBullets(params.guardrails))
+      .addSection(
+        '##### Memory',
+        ToolRegistry.formatMemoryGuidelineSection(params.memory, params.memorySourcePath)
+      )
+      .build();
+    if (supplemental) {
+      parts.push(supplemental);
+    }
+
+    return parts.join('\n\n');
+  }
+
+  private static formatGuidelineBullets(lines: string[]): string {
+    if (lines.length === 0) {
+      return '';
+    }
+    const bullets: string[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      bullets.push(`- ${lines[i]}`);
+    }
+    return bullets.join('\n');
+  }
+
+  private static formatMemoryGuidelineSection(lines: string[], memorySourcePath?: string): string {
+    if (lines.length === 0) {
+      return '';
+    }
+    const bullets = ToolRegistry.formatGuidelineBullets(lines);
+    if (!memorySourcePath) {
+      return bullets;
+    }
+    return `${bullets}\n(from ${memorySourcePath})`;
   }
 
   /**

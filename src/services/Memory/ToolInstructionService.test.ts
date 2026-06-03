@@ -150,7 +150,7 @@ describe('ToolInstructionService', () => {
     expect(validation.errors.some(error => error.includes('unsupported block name'))).toBe(true);
   });
 
-  it('creates the default file only when missing', async () => {
+  it('creates Tool instructions.md and Agent.md when missing', async () => {
     const plugin = createValidatorPlugin('');
     plugin.app.vault.getFileByPath = jest.fn().mockReturnValue(null);
     plugin.app.vault.create = jest.fn().mockResolvedValue(undefined);
@@ -159,29 +159,77 @@ describe('ToolInstructionService', () => {
     await service.ensureMemoryFolderAndDefaultFile();
 
     expect(plugin.obsidianAPITools.ensureFolderExists).toHaveBeenCalledWith('Steward/Memory');
+    expect(plugin.app.vault.create).toHaveBeenCalledTimes(2);
     expect(plugin.app.vault.create).toHaveBeenCalledWith(
       'Steward/Memory/Tool instructions.md',
       expect.stringContaining('name: tool_instruction')
     );
+    expect(plugin.app.vault.create).toHaveBeenCalledWith(
+      'Steward/Memory/Agent.md',
+      expect.stringContaining('Updating Tool instructions')
+    );
   });
 
-  it('default file content has no frontmatter (validation adds it)', async () => {
+  it('creates Agent.md when Tool instructions.md already exists', async () => {
+    const plugin = createValidatorPlugin('');
+    const toolInstructionsFile = { path: 'Steward/Memory/Tool instructions.md' } as TFile;
+    plugin.app.vault.getFileByPath = jest.fn().mockImplementation((path: string) => {
+      if (path === 'Steward/Memory/Tool instructions.md') {
+        return toolInstructionsFile;
+      }
+      return null;
+    });
+    plugin.app.vault.create = jest.fn().mockResolvedValue(undefined);
+    const service = ToolInstructionService.getInstance(plugin);
+
+    await service.ensureMemoryFolderAndDefaultFile();
+
+    expect(plugin.app.vault.create).toHaveBeenCalledTimes(1);
+    expect(plugin.app.vault.create).toHaveBeenCalledWith(
+      'Steward/Memory/Agent.md',
+      expect.stringContaining('| `guidelines` | Yes |')
+    );
+  });
+
+  it('default Tool instructions content has no frontmatter (validation adds it)', async () => {
     const plugin = createValidatorPlugin('');
     plugin.app.vault.getFileByPath = jest.fn().mockReturnValue(null);
-    let createdContent = '';
-    plugin.app.vault.create = jest.fn().mockImplementation((_path: string, content: string) => {
-      createdContent = content;
+    let toolInstructionsContent = '';
+    plugin.app.vault.create = jest.fn().mockImplementation((path: string, content: string) => {
+      if (path.endsWith('Tool instructions.md')) {
+        toolInstructionsContent = content;
+      }
       return Promise.resolve(undefined);
     });
     const service = ToolInstructionService.getInstance(plugin);
 
     await service.ensureMemoryFolderAndDefaultFile();
 
-    expect(createdContent).not.toContain('---\nstatus:');
-    expect(createdContent).toContain('Add additional guidelines for this tool here');
-    expect(createdContent.indexOf('Add additional guidelines')).toBeLessThan(
-      createdContent.indexOf('```yaml')
+    expect(toolInstructionsContent).not.toContain('---\nstatus:');
+    expect(toolInstructionsContent).toContain('Add additional guidelines for this tool here');
+    expect(toolInstructionsContent.indexOf('Add additional guidelines')).toBeLessThan(
+      toolInstructionsContent.indexOf('```yaml')
     );
+  });
+
+  it('default Agent.md documents YAML fields and post-edit status check', async () => {
+    const plugin = createValidatorPlugin('');
+    plugin.app.vault.getFileByPath = jest.fn().mockReturnValue(null);
+    let agentContent = '';
+    plugin.app.vault.create = jest.fn().mockImplementation((path: string, content: string) => {
+      if (path.endsWith('Agent.md')) {
+        agentContent = content;
+      }
+      return Promise.resolve(undefined);
+    });
+    const service = ToolInstructionService.getInstance(plugin);
+
+    await service.ensureMemoryFolderAndDefaultFile();
+
+    expect(agentContent).toContain('without underscores');
+    expect(agentContent).toContain('| `tool` | Yes |');
+    expect(agentContent).toContain('frontmatter **`status`**');
+    expect(agentContent).toContain('Tool instructions.md');
   });
 
   it('mergeToolGuidelineMaps appends secondary guidelines after primary', () => {

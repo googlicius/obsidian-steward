@@ -15,6 +15,8 @@ import {
 const { i18next } = getBundledInternal('i18n');
 
 const TOOL_INSTRUCTION_BLOCK_NAME = 'tool_instruction';
+const AGENT_FILE_NAME = 'Agent.md';
+const TOOL_INSTRUCTIONS_FILE_NAME = 'Tool instructions.md';
 
 interface CollectedToolInstructionBlocks {
   blocks: ParsedYamlFenceBlock[];
@@ -73,12 +75,20 @@ export class ToolInstructionService {
   }
 
   public getToolInstructionsFilePath(): string {
-    return normalizePath(`${this.getMemoryFolderPath()}/Tool instructions.md`);
+    return normalizePath(`${this.getMemoryFolderPath()}/${TOOL_INSTRUCTIONS_FILE_NAME}`);
+  }
+
+  public getAgentFilePath(): string {
+    return normalizePath(`${this.getMemoryFolderPath()}/${AGENT_FILE_NAME}`);
   }
 
   /** Relative path from vault root for user-facing messages. */
   public getToolInstructionsRelativePath(): string {
-    return `${this.plugin.settings.stewardFolder}/Memory/Tool instructions.md`;
+    return `${this.plugin.settings.stewardFolder}/Memory/${TOOL_INSTRUCTIONS_FILE_NAME}`;
+  }
+
+  public getAgentRelativePath(): string {
+    return `${this.plugin.settings.stewardFolder}/Memory/${AGENT_FILE_NAME}`;
   }
 
   /**
@@ -109,15 +119,24 @@ export class ToolInstructionService {
   public async ensureMemoryFolderAndDefaultFile(): Promise<void> {
     const folderPath = this.getMemoryFolderPath();
     await this.plugin.obsidianAPITools.ensureFolderExists(folderPath);
+    await this.ensureDefaultToolInstructionsFile();
+    await this.ensureDefaultAgentFile();
+  }
 
+  private async ensureDefaultToolInstructionsFile(): Promise<void> {
     const filePath = this.getToolInstructionsFilePath();
-    const existing = this.plugin.app.vault.getFileByPath(filePath);
-    if (existing) {
+    if (this.plugin.app.vault.getFileByPath(filePath)) {
       return;
     }
+    await this.plugin.app.vault.create(filePath, this.buildDefaultToolInstructionsContent());
+  }
 
-    const initialContent = this.buildDefaultFileContent();
-    await this.plugin.app.vault.create(filePath, initialContent);
+  private async ensureDefaultAgentFile(): Promise<void> {
+    const filePath = this.getAgentFilePath();
+    if (this.plugin.app.vault.getFileByPath(filePath)) {
+      return;
+    }
+    await this.plugin.app.vault.create(filePath, this.buildDefaultAgentFileContent());
   }
 
   public buildStatusMessage(valid: boolean, errors?: string[]): string {
@@ -182,7 +201,7 @@ export class ToolInstructionService {
     await this.validateAndUpdateFrontmatter(file);
   }
 
-  private buildDefaultFileContent(): string {
+  private buildDefaultToolInstructionsContent(): string {
     return [
       `## ${ToolName.SHELL}`,
       '',
@@ -195,6 +214,41 @@ export class ToolInstructionService {
       'guidelines:',
       '  - (enable this block and add one string per line)',
       '```',
+      '',
+    ].join('\n');
+  }
+
+  private buildDefaultAgentFileContent(): string {
+    return [
+      '# Updating Tool instructions',
+      '',
+      `Edit **${TOOL_INSTRUCTIONS_FILE_NAME}** in this folder when you need supplemental guidelines for Steward tools.`,
+      '',
+      '## Section layout',
+      '',
+      'For each tool, add one section:',
+      '',
+      '1. A level-2 heading with the **tool name without underscores** (use spaces if needed: `content reading` for tool id `content_reading`; `shell` for `shell`).',
+      `2. A \`tool_instruction\` YAML fence directly under that heading.`,
+      '',
+      '## YAML block (`name: tool_instruction`)',
+      '',
+      '| Field | Required | Description |',
+      '| ----- | -------- | ----------- |',
+      '| `name` | Yes | Must be `tool_instruction` |',
+      '| `tool` | Yes | Tool id with underscores as in Steward (e.g. `shell`, `content_reading`) |',
+      '| `enabled` | No | `false` skips this block. Default `true` |',
+      '| `guidelines` | Yes | List of strings; one guideline per line |',
+      '',
+      'Only `tool_instruction` fences are loaded. Other YAML block types make the file invalid.',
+      '',
+      '## After editing',
+      '',
+      `1. Read **${TOOL_INSTRUCTIONS_FILE_NAME}** again (e.g. with \`content_reading\`).`,
+      '2. Check frontmatter **`status`**. It must be valid before guidelines apply on the next turn.',
+      '3. If `status` is invalid, fix the errors described there, save, and read again until valid.',
+      '',
+      "Note: Please ensure that you don't override the note's frontmatter: status and enabled.",
       '',
     ].join('\n');
   }

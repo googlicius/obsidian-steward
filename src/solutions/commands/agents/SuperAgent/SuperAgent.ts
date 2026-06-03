@@ -21,6 +21,7 @@ import {
   SUPER_AGENT_TOOL_NAMES,
 } from '../agentTools';
 import type { AgentCorePromptContext } from '../../Agent';
+import { MarkdownBuilder } from 'src/utils/MarkdownBuilder';
 import { isGoogleModel } from '../googleUtils';
 import { USAGE_AGENT_KEY } from 'src/services/ConversationRenderer/Frontmatter';
 
@@ -56,11 +57,7 @@ const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
   search: new Set([ToolName.SEARCH]),
   speech: new Set([ToolName.SPEECH]),
   image: new Set([ToolName.IMAGE]),
-  show_widget: new Set([
-    ToolName.SHOW_WIDGET,
-    ToolName.EDIT,
-    ToolName.CONTENT_READING,
-  ]),
+  show_widget: new Set([ToolName.SHOW_WIDGET, ToolName.EDIT, ToolName.CONTENT_READING]),
   shell: new Set([ToolName.SHELL]),
   '>': new Set([ToolName.SHELL]),
 };
@@ -120,27 +117,53 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
     if (!context) {
       return 'You are a helpful assistant who helps users with their Obsidian vault.';
     }
-    const taskSection = this.buildTaskInstructions(context.availableTools);
+
     const otherToolsExclude = new Set([ToolName.SEARCH_MORE]);
     const inactiveToolCount = context.registry.listInactiveToolNames(otherToolsExclude).length;
+    const stewardFolder = this.plugin.settings.stewardFolder;
+    const memorySourcePath = this.plugin.toolInstructionService.getToolInstructionsRelativePath();
 
-    return `You are a helpful assistant who helps users with their Obsidian vault.
-
-${taskSection}
-
-YOU HAVE ACCESS TO THE FOLLOWING TOOLS:
-${context.registry.generateToolsSection()}
-
-OTHER TOOLS (${inactiveToolCount} inactive tools, need activate before using them):
-${context.registry.generateOtherToolsSection('No other tools available.', otherToolsExclude)}
-
-TOOLS GUIDELINES (For active tools):
-${context.registry.generateGuidelinesSection()}
-${context.currentNote ? `\nCURRENT NOTE: ${context.currentNote} (Cursor position: ${context.currentPosition})` : ''}${context.skillCatalogPrompt}${context.userDefinedCommandCatalogPrompt}
-
-NOTE:
-- DO NOT mention or explain the tools you use or activate to users. Only communicate the results or outcomes.
-- Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`;
+    return new MarkdownBuilder()
+      .addSection(
+        '# Agent',
+        'You are a helpful assistant who helps users with their Obsidian vault.'
+      )
+      .addSection('## Role', this.buildTaskInstructions(context.availableTools))
+      .addSection(
+        '## Tool',
+        context.registry.generateToolSectionBody({
+          inactiveToolCount,
+          otherToolsExclude,
+          otherToolsEmptyLabel: 'No other tools available.',
+          memorySourcePath,
+        })
+      )
+      .addSection(
+        '## Skill',
+        context.includeSkillCatalog ? this.buildSkillSectionBody({ plugin: this.plugin }) : ''
+      )
+      .addSection(
+        '## User-defined command',
+        this.buildUserDefinedCommandSectionBody({
+          plugin: this.plugin,
+          runCommandAvailable: context.runCommandAvailable,
+        })
+      )
+      .addSection(
+        '## Note',
+        [
+          '- DO NOT mention or explain the tools you use or activate to users. Only communicate the results or outcomes.',
+          "- Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.",
+          `- When working with memory files (${stewardFolder}/Memory/*), also read the ${stewardFolder}/Memory/Agent.md file for editing instructions.`,
+        ].join('\n')
+      )
+      .addSection(
+        '## Context',
+        context.currentNote !== null
+          ? `Current note: ${context.currentNote} (Cursor position: ${context.currentPosition})`
+          : ''
+      )
+      .build();
   }
 
   /**

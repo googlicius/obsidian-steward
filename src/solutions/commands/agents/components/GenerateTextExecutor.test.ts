@@ -68,6 +68,12 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     guardrailsRuleService: {
       getInstructionsByTool: jest.fn().mockReturnValue(new Map()),
     },
+    toolInstructionService: {
+      getInstructionsByTool: jest.fn().mockReturnValue(new Map()),
+      getToolInstructionsRelativePath: jest
+        .fn()
+        .mockReturnValue('Steward/Memory/Tool instructions.md'),
+    },
     skillService: {
       getSkillCatalog: jest.fn().mockReturnValue([]),
       getSkillContents: jest.fn().mockReturnValue({ contents: {} }),
@@ -226,7 +232,7 @@ describe('GenerateTextExecutor', () => {
       .map((message: { content: string }) => message.content)
       .join('\n');
 
-    expect(systemText).toContain('AVAILABLE SKILLS:');
+    expect(systemText).toContain('### Available skills');
     expect(systemText).toContain(
       '- search-skill: Search effectively (path: Steward/Skills/search/SKILL.md)'
     );
@@ -245,7 +251,9 @@ describe('GenerateTextExecutor', () => {
 
     await testAgent.executeForTest(params, {
       activeTools: [ToolName.ACTIVATE],
-      tools: {},
+      tools: {
+        [ToolName.ACTIVATE]: { description: 'Activate tools' },
+      } as unknown as NonNullable<AiGenerateTextParams['tools']>,
     });
 
     const call = getMockGenerateText().mock.calls[0][0];
@@ -254,8 +262,10 @@ describe('GenerateTextExecutor', () => {
       .map((message: { content: string }) => message.content)
       .join('\n');
 
-    expect(systemText).toContain('TOOLS GUIDELINES:');
-    expect(systemText).toContain('OPTIONAL INACTIVE TOOLS:');
+    expect(systemText).toContain('## Tool');
+    expect(systemText).toContain('### Available tools');
+    expect(systemText).toContain('### Guidelines');
+    expect(systemText).toContain('### Other tools');
     expect(systemText).toContain('Use activate');
   });
 });

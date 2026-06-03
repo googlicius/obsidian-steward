@@ -3,6 +3,7 @@ import { ToolRegistry, ToolName } from '../../ToolRegistry';
 import { applyMixins } from 'src/utils/applyMixins';
 import { ToolIntentResolution } from './ToolIntentResolution';
 import { SystemPromptComposer } from './SystemPromptComposer';
+import { MarkdownBuilder } from 'src/utils/MarkdownBuilder';
 import { Agent } from '../../Agent';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import type { generateText, LanguageModelUsage } from 'ai';
@@ -43,18 +44,19 @@ export class GenerateTextExecutor {
   }
 
   protected buildToolInstructionsSystemPrompt(
-    registry: ToolRegistry<Record<string, unknown>>
+    registry: ToolRegistry<Record<string, unknown>>,
+    memorySourcePath: string
   ): string {
-    const guidelines = registry.generateGuidelinesSection();
-    const inactiveTools = registry.generateOtherToolsSection('No inactive tools available.');
+    const inactiveToolCount = registry.listInactiveToolNames().length;
+    const toolSection = registry.generateToolSectionBody({
+      inactiveToolCount,
+      otherToolsEmptyLabel: 'No inactive tools available.',
+      memorySourcePath,
+    });
+    const activateHint = `Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed for pre-check or verification.`;
 
-    return `TOOLS GUIDELINES:
-${guidelines}
-
-OPTIONAL INACTIVE TOOLS:
-${inactiveTools}
-
-Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed for pre-check or verification.`;
+    const toolBody = toolSection ? `${toolSection}\n\n${activateHint}` : activateHint;
+    return new MarkdownBuilder().addSection('## Tool', toolBody).build();
   }
 
   protected async executeGenerateText<TToolCalls = unknown>(
@@ -114,14 +116,14 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
     };
 
     const toolInstructionService = agent.plugin.toolInstructionService;
-    const mergedGuidelines = toolInstructionService.mergeToolGuidelineMaps(
-      agent.plugin.guardrailsRuleService.getInstructionsByTool(),
-      toolInstructionService.getInstructionsByTool()
-    );
+    const memorySourcePath = toolInstructionService.getToolInstructionsRelativePath();
 
     const registry = ToolRegistry.buildFromTools(toolsForRegistry)
       .setActive(allActiveToolNames)
-      .setAdditionalGuidelines(mergedGuidelines);
+      .setSupplementalGuidelines({
+        guardrails: agent.plugin.guardrailsRuleService.getInstructionsByTool(),
+        memory: toolInstructionService.getInstructionsByTool(),
+      });
 
     const messages = [...historyResult.messages];
     if (!params.invocationCount) {
@@ -132,12 +134,10 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
       !params.intent.tools ||
       params.intent.tools.length === 0 ||
       params.intent.tools.includes(ToolName.CONTENT_READING);
-    const skillCatalogPrompt = includeSkillCatalog
-      ? this.generateSkillCatalogPrompt({
-          plugin: agent.plugin,
-        })
+    const skillSectionBody = includeSkillCatalog
+      ? this.buildSkillSectionBody({ plugin: agent.plugin })
       : '';
-    const userDefinedCommandCatalogPrompt = this.generateUserDefinedCommandCatalogPrompt({
+    const userDefinedCommandSectionBody = this.buildUserDefinedCommandSectionBody({
       plugin: agent.plugin,
       runCommandAvailable,
     });
@@ -149,16 +149,20 @@ Use ${ToolName.ACTIVATE} to activate optional inactive tools only when needed fo
       additionalSystemPrompts.push(llmConfig.systemPrompt);
     }
 
-    if (skillCatalogPrompt) {
-      additionalSystemPrompts.push(skillCatalogPrompt);
+    if (skillSectionBody) {
+      additionalSystemPrompts.push(this.wrapPromptSection('## Skill', skillSectionBody));
     }
 
-    if (userDefinedCommandCatalogPrompt) {
-      additionalSystemPrompts.push(userDefinedCommandCatalogPrompt);
+    if (userDefinedCommandSectionBody) {
+      additionalSystemPrompts.push(
+        this.wrapPromptSection('## User-defined command', userDefinedCommandSectionBody)
+      );
     }
 
     if (shouldUseTools) {
-      additionalSystemPrompts.push(this.buildToolInstructionsSystemPrompt(registry));
+      additionalSystemPrompts.push(
+        this.buildToolInstructionsSystemPrompt(registry, memorySourcePath)
+      );
     }
 
     if (additionalSystemPrompts.length > 0) {

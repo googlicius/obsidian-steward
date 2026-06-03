@@ -19,10 +19,10 @@ export interface AgentCorePromptContext {
   readonly currentNote: string | null;
   /** 0-based line of the cursor in `currentNote`, when the editor is focused on that note. */
   readonly currentPosition: number | null;
-  /** Extra system text listing available skills and how to read skill files via `content_reading`. */
-  readonly skillCatalogPrompt: string;
-  /** Extra system text listing enabled user-defined commands and how to run them. */
-  readonly userDefinedCommandCatalogPrompt: string;
+  /** When true, include the skill catalog in the core prompt. */
+  readonly includeSkillCatalog: boolean;
+  /** When true, list enabled user-defined commands; otherwise show a placeholder. */
+  readonly runCommandAvailable: boolean;
   /** Declared or full allowed tool set for this conversation (UDC / narrow mode); used for task instruction lines, not only active tools. */
   readonly availableTools: ToolName[];
 }
