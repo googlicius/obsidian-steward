@@ -4,7 +4,9 @@ description: >-
   Expose model-callable widget actions and configure turn-based play via
   Widget.md (actions, actors, agent blocks). Read after stateful-widget when
   humans and models take turns.
-version: 5
+version: 6
+tools:
+  - show_widget
 ---
 # Interactive Widget Skill
 

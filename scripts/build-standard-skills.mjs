@@ -8,6 +8,28 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
 const skillsDir = path.join(root, 'standard-skills');
 const outFile = path.join(root, 'src/services/SkillService/constants.ts');
+const toolNamesFile = path.join(root, 'src/solutions/commands/toolNames.ts');
+
+function loadValidToolNames() {
+  const source = fs.readFileSync(toolNamesFile, 'utf8');
+  const enumBlock = source.match(/export enum ToolName \{([\s\S]*?)\}/);
+
+  if (!enumBlock) {
+    throw new Error('Could not parse ToolName enum from toolNames.ts');
+  }
+
+  const names = new Set();
+  const re = /=\s*'([^']+)'/g;
+  let match;
+
+  while ((match = re.exec(enumBlock[1])) !== null) {
+    names.add(match[1]);
+  }
+
+  return names;
+}
+
+const VALID_TOOL_NAMES = loadValidToolNames();
 
 function walkSkillFiles(dir, base = dir) {
   if (!fs.existsSync(dir)) {
@@ -59,6 +81,26 @@ const skills = relPaths.map(rel => {
   const description = requireString(frontmatter.description, 'description', sourceFile);
   const version = Number.isFinite(frontmatter.version) ? frontmatter.version : 1;
 
+  let tools;
+  if (frontmatter.tools !== undefined) {
+    if (!Array.isArray(frontmatter.tools)) {
+      throw new Error(`${sourceFile}: frontmatter.tools must be an array`);
+    }
+
+    tools = frontmatter.tools.map((tool, index) => {
+      if (typeof tool !== 'string' || tool.trim().length === 0) {
+        throw new Error(`${sourceFile}: frontmatter.tools[${index}] must be a non-empty string`);
+      }
+
+      const trimmed = tool.trim();
+      if (!VALID_TOOL_NAMES.has(trimmed)) {
+        throw new Error(`${sourceFile}: unknown tool "${trimmed}" in frontmatter.tools`);
+      }
+
+      return trimmed;
+    });
+  }
+
   const relDir = path.dirname(rel).replace(/\\/g, '/');
   const folder = relDir === '.' ? undefined : relDir;
 
@@ -68,6 +110,7 @@ const skills = relPaths.map(rel => {
     version,
     content: body.replace(/^\n/, ''),
     ...(folder && folder !== name && { folder }),
+    ...(tools && tools.length > 0 && { tools }),
   };
 
   return entry;
@@ -85,6 +128,8 @@ export interface StandardSkill {
   version: number;
   /** Path under Skills/ where SKILL.md is written. Defaults to \`name\`. */
   folder?: string;
+  /** When set, the skill appears in the catalog only while these tools are active. */
+  tools?: string[];
 }
 
 export const STANDARD_SKILLS: StandardSkill[] = ${JSON.stringify(skills, null, 2)};

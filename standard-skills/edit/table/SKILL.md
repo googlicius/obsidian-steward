@@ -4,7 +4,9 @@ description: >-
   Edit markdown tables via the edit tool. Read before add_table_column,
   update_table_column, or delete_table_column — especially for large tables (20+
   rows).
-version: 1
+version: 2
+tools:
+  - edit
 ---
 # Edit Table Skill
 

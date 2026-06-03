@@ -11,12 +11,7 @@ export interface WidgetJsValidationError {
 export class WidgetJsValidator {
   /** Returns true when the path looks like a JavaScript source file. */
   public isJsFilePath(filePath: string): boolean {
-    const fileName = filePath.split('/').pop() ?? filePath;
-    const dotIndex = fileName.lastIndexOf('.');
-    if (dotIndex <= 0) {
-      return false;
-    }
-    return fileName.slice(dotIndex + 1).toLowerCase() === 'js';
+    return filePath.length >= 3 && filePath.slice(-3).toLowerCase() === '.js';
   }
 
   /** Parses JavaScript content without executing it. Returns null when valid. */

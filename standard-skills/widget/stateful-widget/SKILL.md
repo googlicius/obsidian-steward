@@ -4,7 +4,9 @@ description: >-
   Build interactive HTML project widgets with persisted runtime state (games,
   counters, forms). Read before show_widget when user actions must survive
   reopening the note.
-version: 4
+version: 5
+tools:
+  - show_widget
 ---
 # Stateful Widget Skill
 

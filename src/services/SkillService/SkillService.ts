@@ -3,6 +3,7 @@ import { getBundledInternal } from 'src/utils/bundledInternals';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { z } from 'zod/v3';
+import { ToolName } from 'src/solutions/commands/toolNames';
 import { Skill, SkillCatalogEntry } from './types';
 import { STANDARD_SKILLS } from './constants';
 
@@ -12,6 +13,7 @@ const skillFrontmatterSchema = z.object({
   name: z.string().refine(s => s.trim().length > 0),
   description: z.string().refine(s => s.trim().length > 0),
   enabled: z.boolean().optional(),
+  tools: z.array(z.nativeEnum(ToolName)).optional(),
 });
 
 /**
@@ -232,14 +234,7 @@ export class SkillService {
       }
 
       try {
-        const frontmatter = `---
-name: "${skill.name}"
-description: "${skill.description}"
-enabled: true
-version: ${skill.version}
----`;
-
-        const fileContent = `${frontmatter}\n${skill.content}`;
+        const fileContent = `${this.formatStandardSkillFrontmatter(skill)}\n${skill.content}`;
 
         if (existingFile) {
           await this.plugin.app.vault.modify(existingFile, fileContent);
@@ -288,6 +283,7 @@ version: ${skill.version}
       const name = fm.name.trim();
       const description = fm.description.trim();
       const enabled = fm.enabled !== false;
+      const tools = fm.tools && fm.tools.length > 0 ? fm.tools : undefined;
 
       const skill: Skill = {
         name,
@@ -295,6 +291,7 @@ version: ${skill.version}
         content: body.trim(),
         filePath: file.path,
         enabled,
+        tools,
       };
 
       this.skills.set(skill.name, skill);
@@ -358,15 +355,61 @@ version: ${skill.version}
     return false;
   }
 
+  private formatStandardSkillFrontmatter(skill: (typeof STANDARD_SKILLS)[number]): string {
+    const lines = [
+      '---',
+      `name: "${skill.name}"`,
+      `description: "${skill.description}"`,
+      'enabled: true',
+      `version: ${skill.version}`,
+    ];
+
+    if (skill.tools && skill.tools.length > 0) {
+      lines.push('tools:');
+      for (const tool of skill.tools) {
+        lines.push(`  - ${tool}`);
+      }
+    }
+
+    lines.push('---');
+    return lines.join('\n');
+  }
+
   /**
-   * Get the skill catalog (name + description) for all loaded skills.
+   * Whether a skill should appear in the catalog for the given active tools.
+   * Skills without `tools` frontmatter are always eligible when enabled.
+   */
+  public static isSkillVisibleInCatalog(skill: Skill, activeTools?: readonly string[]): boolean {
+    if (!skill.enabled) {
+      return false;
+    }
+
+    if (!skill.tools || skill.tools.length === 0) {
+      return true;
+    }
+
+    if (!activeTools || activeTools.length === 0) {
+      return false;
+    }
+
+    for (const tool of skill.tools) {
+      if (!activeTools.includes(tool)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Get the skill catalog (name + description) for loaded skills visible this turn.
    * Used for the system prompt to show the LLM what skills are available.
    */
-  public getSkillCatalog(): SkillCatalogEntry[] {
+  public getSkillCatalog(activeTools?: readonly string[]): SkillCatalogEntry[] {
     const entries: SkillCatalogEntry[] = [];
 
     for (const skill of this.skills.values()) {
-      if (!skill.enabled) {
+      if (!SkillService.isSkillVisibleInCatalog(skill, activeTools)) {
         continue;
       }
 

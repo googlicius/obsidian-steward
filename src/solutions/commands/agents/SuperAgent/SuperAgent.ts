@@ -140,7 +140,12 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
       )
       .addSection(
         '## Skill',
-        context.includeSkillCatalog ? this.buildSkillSectionBody({ plugin: this.plugin }) : ''
+        context.includeSkillCatalog
+          ? this.buildSkillSectionBody({
+              plugin: this.plugin,
+              activeTools: context.registry.listActiveToolNames(),
+            })
+          : ''
       )
       .addSection(
         '## User-defined command',
@@ -160,7 +165,7 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
       .addSection(
         '## Context',
         context.currentNote !== null
-          ? `Current note: ${context.currentNote} (Cursor position: ${context.currentPosition})`
+          ? `The conversation is started inside a markdown file (host).\nThe host file: ${context.currentNote} (At the cursor position: ${context.currentPosition})`
           : ''
       )
       .build();

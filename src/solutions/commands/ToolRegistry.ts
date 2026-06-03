@@ -3,6 +3,7 @@ import { joinWithConjunction } from 'src/utils/arrayUtils';
 import { MarkdownBuilder } from 'src/utils/MarkdownBuilder';
 import { revertAbleArtifactTypes } from '../artifact';
 import { EditMode } from './tools/editContent';
+import { getShowWidgetThemeGuideline } from './agents/handlers/ShowWidget';
 
 export interface ToolDefinition {
   name: string;
@@ -321,7 +322,6 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       'For SVG, use non-project mode (code). Code must be self-contained, no external CDN.',
       'When the user provides files (images, SVGs, etc.), MUST add their original paths to assets (e.g. Images/photo.png) and reference them in HTML with the "asset:" prefix (e.g. src="asset:Images/photo.png", href, or CSS url()). Files are read from the vault and bundled as base64 data URLs at render time.',
       `After rendering a project widget, if the user ask for update, use ${ToolName.EDIT} and ${ToolName.CONTENT_READING} on the projectPath returned in the tool result.`,
-      "Match the user's Obsidian UI base theme (Light or Dark). Keep the body background transparent; use suggested base colors for widget elements only.",
     ],
     category: 'content-generation',
     showDescriptionWhenInactive: true,
@@ -495,9 +495,14 @@ export class ToolRegistry<T> {
     for (const [, def] of this.tools) {
       if (!this.isActive(def.name)) continue;
 
+      const builtIn =
+        def.name === ToolName.SHOW_WIDGET
+          ? [...def.guidelines, getShowWidgetThemeGuideline()]
+          : def.guidelines;
+
       const toolSection = this.buildToolGuidelinesSection({
         toolName: def.name,
-        builtIn: def.guidelines,
+        builtIn,
         memorySourcePath: params?.memorySourcePath,
       });
       if (toolSection) {

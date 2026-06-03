@@ -1,3 +1,5 @@
+import type { ToolName } from 'src/solutions/commands/toolNames';
+
 /**
  * Represents a loaded skill with its metadata and content
  */
@@ -12,6 +14,8 @@ export interface Skill {
   filePath: string;
   /** Whether the skill is enabled */
   enabled: boolean;
+  /** When set, listed in the catalog only while these tools are active in the conversation. */
+  tools?: ToolName[];
 }
 
 /**

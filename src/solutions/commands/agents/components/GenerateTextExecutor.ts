@@ -135,7 +135,7 @@ export class GenerateTextExecutor {
       params.intent.tools.length === 0 ||
       params.intent.tools.includes(ToolName.CONTENT_READING);
     const skillSectionBody = includeSkillCatalog
-      ? this.buildSkillSectionBody({ plugin: agent.plugin })
+      ? this.buildSkillSectionBody({ plugin: agent.plugin, activeTools: allActiveToolNames })
       : '';
     const userDefinedCommandSectionBody = this.buildUserDefinedCommandSectionBody({
       plugin: agent.plugin,
