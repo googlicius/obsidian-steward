@@ -190,15 +190,11 @@ describe('WidgetService', () => {
   });
 
   describe('parseProjectFenceContent', () => {
-    it('parses widgetId and projectPath from code block textContent', () => {
+    it('parses widgetId from code block textContent and derives projectPath', () => {
       const plugin = createMockPlugin();
       const service = WidgetService.getInstance(plugin);
 
-      const body = `widgetId: Tic-Tac-Toe-abc12
-projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
-`;
-
-      const parsed = service.parseProjectFenceContent(body);
+      const parsed = service.parseProjectFenceContent('Tic-Tac-Toe-abc12\n');
 
       expect(parsed).toEqual({
         widgetId: 'Tic-Tac-Toe-abc12',
@@ -206,11 +202,16 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
       });
     });
 
-    it('parses when widgetId and projectPath appear inside a larger message', () => {
+    it('parses widgetId from a full stw-widget-project fence in message content', () => {
       const plugin = createMockPlugin();
       const service = WidgetService.getInstance(plugin);
 
-      const content = `Some text\nwidgetId: Tic-Tac-Toe-abc12\nprojectPath: Steward/Widgets/Tic-Tac-Toe-abc12\nmore`;
+      const content = [
+        '```stw-widget-project',
+        'Tic-Tac-Toe-abc12',
+        '```',
+        '<small>*ID: Tic-Tac-Toe-abc12*</small>',
+      ].join('\n');
 
       const parsed = service.parseProjectFenceContent(content);
 
@@ -250,17 +251,18 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
   });
 
   describe('buildProjectFence', () => {
-    it('includes widgetId in a small tag below the fence', () => {
+    it('embeds widgetId only in the fence and links Widget.md below', () => {
       const plugin = createMockPlugin();
       const service = WidgetService.getInstance(plugin);
 
       const fence = service.buildProjectFence({
         widgetId: 'Tic-Tac-Toe-abc12',
-        projectPath: 'Steward/Widgets/Tic-Tac-Toe-abc12',
+        widgetName: 'Tic Tac Toe',
       });
 
-      expect(fence).toContain('```stw-widget-project');
-      expect(fence).toContain('<small>*ID: Tic-Tac-Toe-abc12*</small>');
+      expect(fence).toBe(
+        '```stw-widget-project\nTic-Tac-Toe-abc12\n```\n<small>*ID: Tic-Tac-Toe-abc12 - Definition: [[Steward/Widgets/Tic-Tac-Toe-abc12/Widget.md|Tic Tac Toe]]*</small>'
+      );
     });
   });
 
@@ -362,6 +364,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
         type: 'html',
         widgetId: 'Tic-Tac-Toe-abc12',
         widgetName,
+        maxAssetSize: '5MB',
       });
     });
 
@@ -386,6 +389,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
         type: 'html',
         widgetId: 'Tic-Tac-Toe-abc12',
         widgetName,
+        maxAssetSize: '5MB',
       });
     });
 
@@ -490,6 +494,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
         type: 'html',
         widgetId: 'Tic-Tac-Toe-abc12',
         widgetName,
+        maxAssetSize: '5MB',
         assets: ['Images/logo.png', 'Docs/bg.png'],
       });
     });
@@ -513,6 +518,7 @@ projectPath: Steward/Widgets/Tic-Tac-Toe-abc12
         type: 'html',
         widgetId: 'Tic-Tac-Toe-abc12',
         widgetName,
+        maxAssetSize: '5MB',
       });
       expect(manifest.assets).toBeUndefined();
     });

@@ -460,17 +460,6 @@ export default class StewardPlugin extends Plugin {
       },
     });
 
-    // Register global ESC key handler to stop running commands
-    this.registerDomEvent(document, 'keydown', (evt: KeyboardEvent) => {
-      if (evt.key === 'Escape' && !evt.isComposing) {
-        const activeOperationsCount = this.abortService.getActiveOperationsCount();
-        if (activeOperationsCount > 0) {
-          this.stopOperations();
-          evt.stopPropagation();
-        }
-      }
-    });
-
     // Register extensions for CodeMirror
     this.registerEditorExtension([
       createCommandInputExtension(this, {
@@ -1114,22 +1103,6 @@ export default class StewardPlugin extends Plugin {
       logger.error('Error closing conversation:', error);
       new Notice(i18next.t('ui.errorClosingConversation', { errorMessage: error.message }));
       return false;
-    }
-  }
-
-  /**
-   * Stop all running operations
-   * Can be called from ESC key or stop command
-   */
-  private stopOperations(): void {
-    const activeOperationsCount = this.abortService.getActiveOperationsCount();
-
-    if (activeOperationsCount > 0) {
-      this.abortService.abortAllOperations();
-      logger.log(
-        `Stop operations triggered - aborted all operations (${activeOperationsCount} active)`
-      );
-      new Notice(i18next.t('stop.stoppedWithCount', { count: activeOperationsCount }));
     }
   }
 

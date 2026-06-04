@@ -389,7 +389,7 @@ export class CommandInputService {
    */
   public notifyCliSessionDecorationRefresh(): void {
     const editor = this.getEditor();
-    const cm = (editor as ObsidianEditor).cm;
+    const cm = editor && (editor as ObsidianEditor).cm;
     if (!cm) {
       return;
     }

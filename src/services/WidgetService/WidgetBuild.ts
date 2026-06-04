@@ -43,13 +43,18 @@ export const WIDGET_SRCDOC_HEAD = `<meta charset="utf-8"><meta http-equiv="Conte
 /**
  * Script injected into project widgets: hydrates persisted state and exposes window.stw for saves.
  */
-export function buildWidgetStateHead(state: WidgetState | null): string {
-  const serialized = JSON.stringify(state);
+export function buildWidgetStateHead(params: {
+  state: WidgetState | null;
+  assets?: Record<string, string>;
+}): string {
+  const serialized = JSON.stringify(params.state);
+  const serializedAssets = JSON.stringify(params.assets ?? {});
   return `<script>
 (function () {
   window.${WIDGET_STATE_GLOBAL} = ${serialized};
   var saveTimer;
   var actionHandlers = {};
+  var assetRegistry = ${serializedAssets};
   function notifyRegisteredActions() {
     parent.postMessage({
       type: '${WIDGET_ACTIONS_REGISTERED}',
@@ -91,6 +96,14 @@ export function buildWidgetStateHead(state: WidgetState | null): string {
     },
     getRegisteredActions: function () {
       return Object.keys(actionHandlers);
+    },
+    assets: assetRegistry,
+    getAsset: function (id) {
+      if (typeof id !== 'string' || !id) {
+        return null;
+      }
+      var url = assetRegistry[id];
+      return url || null;
     }
   };
   window.addEventListener('message', function (e) {

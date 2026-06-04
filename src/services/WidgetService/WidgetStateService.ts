@@ -50,8 +50,8 @@ export class WidgetStateService {
   }
 
   /** Returns extraHead script that injects persisted state and window.stw into the iframe. */
-  public buildStateHead(state: WidgetState | null): string {
-    return buildWidgetStateHead(state);
+  public buildStateHead(state: WidgetState | null, assets?: Record<string, string>): string {
+    return buildWidgetStateHead({ state, assets });
   }
 
   /** Reads and parses state.json from a project folder. */

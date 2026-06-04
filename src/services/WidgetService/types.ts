@@ -37,9 +37,16 @@ export const widgetManifestSchema = z.object({
   widgetId: z.string().optional(),
   widgetName: z.string().optional(),
   assets: z.array(z.string()).optional(),
+  maxAssetSize: z.union([z.number().positive(), z.string().min(1)]).optional(),
 });
 
 export type WidgetManifest = z.infer<typeof widgetManifestSchema>;
+
+export interface WidgetAssetWarning {
+  vaultPath: string;
+  sizeBytes: number;
+  maxBytes: number;
+}
 
 export const widgetActorsSchema = z.object({
   name: z.literal('actors'),
@@ -74,6 +81,12 @@ export interface WidgetDefinition {
 export interface WidgetProjectFenceData {
   widgetId: string;
   projectPath: string;
+}
+
+/** Bundled project HTML plus runtime asset registry for window.stw.assets. */
+export interface WidgetProjectBundle {
+  html: string;
+  assets: Record<string, string>;
 }
 
 export type { WidgetState } from './WidgetStateService';

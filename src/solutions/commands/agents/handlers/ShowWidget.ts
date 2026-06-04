@@ -87,8 +87,8 @@ export const showWidgetSchema = z
       .optional()
       .describe(
         [
-          'Vault files to bundle as base64 at render time. Reference each path in HTML with the asset: prefix (e.g. src="asset:Images/photo.png").',
-          'IMPORTANT: Assets is required if any path in the HTML is prefixed with `asset:`',
+          'Vault files to bundle as base64 at render time. Reference each path with the asset: prefix in HTML, CSS, or JS (e.g. src="asset:Images/photo.png"). Manifest defaults to maxAssetSize 5MB; edit Widget.md to raise it for larger files.',
+          'IMPORTANT: Assets is required if any path in project files is prefixed with `asset:`',
         ].join('\n')
       ),
   })
@@ -273,8 +273,7 @@ export class ShowWidget {
   ): Promise<AgentResult> {
     const { title } = ctx.agentHandlerParams;
     const widgetService = this.agent.plugin.widgetService;
-    const widgetName = toolCall.input.widgetName;
-    const widgetId = widgetService.buildWidgetId(widgetName);
+    const widgetId = widgetService.buildWidgetId(toolCall.input.widgetName);
     const projectFiles = toolCall.input.files ?? [];
     const files = projectFilesToRecord(projectFiles);
     const missingAssets = widgetService.findMissingAssets({
@@ -283,7 +282,7 @@ export class ShowWidget {
     });
     const { projectPath } = await widgetService.createProject({
       widgetId,
-      widgetName,
+      widgetName: toolCall.input.widgetName,
       files,
       entry: toolCall.input.entry,
       assets: toolCall.input.assets,
@@ -298,7 +297,7 @@ export class ShowWidget {
 
     const fence = widgetService.buildProjectFence({
       widgetId,
-      projectPath,
+      widgetName: toolCall.input.widgetName,
     });
 
     const contentMessageId = await ctx.updateConversationNote({
@@ -385,7 +384,7 @@ export class ShowWidget {
 
     if (params.missingAssets.length > 0) {
       const definitionPath = `${params.projectPath}/Widget.md`;
-      message += `\nMissing assets: ${params.missingAssets.join(', ')}. These vault paths are referenced with the asset: prefix in HTML but are not listed in the Widget.md manifest assets. Use ${ToolName.EDIT} to add them to the "assets" array in the \`name: manifest\` YAML block in ${definitionPath}. The widget refreshes automatically when Widget.md is saved.`;
+      message += `\nMissing assets: ${params.missingAssets.join(', ')}. These vault paths are referenced with the asset: prefix in project files but are not listed in the Widget.md manifest assets. Use ${ToolName.EDIT} to add them to the "assets" array in the \`name: manifest\` YAML block in ${definitionPath}. The widget refreshes automatically when Widget.md is saved.`;
     }
 
     return message;

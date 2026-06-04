@@ -48,7 +48,7 @@ describe('buildWidgetSrcdoc', () => {
 
 describe('buildWidgetStateHead', () => {
   it('injects null state and window.stw bridge when no persisted state', () => {
-    const head = buildWidgetStateHead(null);
+    const head = buildWidgetStateHead({ state: null });
 
     expect(head).toContain(`window.${WIDGET_STATE_GLOBAL} = null`);
     expect(head).toContain('window.stw');
@@ -57,9 +57,11 @@ describe('buildWidgetStateHead', () => {
 
   it('serializes persisted state envelope into the iframe', () => {
     const head = buildWidgetStateHead({
-      version: 1,
-      updatedAt: '2026-05-29T00:00:00.000Z',
-      data: { cells: ['x', null, null] },
+      state: {
+        version: 1,
+        updatedAt: '2026-05-29T00:00:00.000Z',
+        data: { cells: ['x', null, null] },
+      },
     });
 
     expect(head).toContain('"cells":["x",null,null]');
@@ -67,8 +69,19 @@ describe('buildWidgetStateHead', () => {
     expect(head).toContain('setState');
   });
 
+  it('injects manifest asset registry and getAsset on window.stw', () => {
+    const head = buildWidgetStateHead({
+      state: null,
+      assets: { x: 'data:image/png;base64,xx', 'Images/x.png': 'data:image/png;base64,xx' },
+    });
+
+    expect(head).toContain('"x":"data:image/png;base64,xx"');
+    expect(head).toContain('getAsset');
+    expect(head).toContain('assets:');
+  });
+
   it('exposes registerAction, dispatchAction, and action postMessage bridge', () => {
-    const head = buildWidgetStateHead(null);
+    const head = buildWidgetStateHead({ state: null });
 
     expect(head).toContain('registerAction');
     expect(head).toContain('dispatchAction');

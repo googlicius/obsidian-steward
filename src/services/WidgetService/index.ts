@@ -1,4 +1,6 @@
 export * from './types';
+export * from './WidgetAssetSize';
+export * from './WidgetAssetRegistry';
 export * from './WidgetStateService';
 export * from './WidgetBundler';
 export * from './WidgetBuild';

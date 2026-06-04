@@ -11,14 +11,20 @@ import type { WidgetJsValidationError } from './WidgetJsValidator';
 import { WidgetJsValidator } from './WidgetJsValidator';
 import { WIDGET_ACTION_APPLY_TIMEOUT_MS } from './WidgetProtocol';
 import {
+  DEFAULT_MAX_ASSET_BYTES,
+  DEFAULT_MAX_ASSET_SIZE_MANIFEST,
+  resolveMaxAssetBytes,
+} from './WidgetAssetSize';
+import { buildWidgetAssetRegistry } from './WidgetAssetRegistry';
+import {
   type WidgetActionParamSpec,
   type WidgetActionResult,
   type WidgetActionsCatalog,
+  type WidgetAssetWarning,
+  type WidgetProjectBundle,
   WidgetProjectFenceData,
 } from './types';
 import { stringifyYamlFence } from '../MarkdownDefinitionService';
-
-const MAX_ASSET_BYTES = 2 * 1024 * 1024;
 
 /** Markdown fence language for project widget references in conversation notes */
 export const WIDGET_PROJECT_FENCE_LANGUAGE = 'stw-widget-project';
@@ -133,21 +139,39 @@ export class WidgetService {
   }
 
   /** Builds the markdown fence block that references a project in the conversation note. */
-  public buildProjectFence(data: WidgetProjectFenceData): string {
-    return `\`\`\`${WIDGET_PROJECT_FENCE_LANGUAGE}\nwidgetId: ${data.widgetId}\nprojectPath: ${data.projectPath}\n\`\`\`\n<small>*ID: ${data.widgetId}*</small>`;
+  public buildProjectFence(data: { widgetId: string; widgetName: string }): string {
+    const projectPath = this.getProjectPath({ widgetId: data.widgetId });
+    return `\`\`\`${WIDGET_PROJECT_FENCE_LANGUAGE}\n${data.widgetId}\n\`\`\`\n<small>*ID: ${data.widgetId} - Definition: [[${projectPath}/Widget.md|${data.widgetName}]]*</small>`;
   }
 
-  /** Parses `widgetId` and `projectPath` from a stw-widget-project code block body (pre > code textContent). */
+  /**
+   * Parses widgetId from a stw-widget-project fence (code body or full message).
+   * projectPath is derived as `{stewardFolder}/Widgets/{widgetId}`.
+   */
   public parseProjectFenceContent(content: string): WidgetProjectFenceData | null {
-    const match = content.match(/widgetId:\s*([^\r\n]+)\r?\nprojectPath:\s*([^\r\n]+)/);
-    if (!match) {
+    const widgetId = this.extractWidgetIdFromFenceContent(content);
+    if (!widgetId) {
       return null;
     }
 
     return {
-      widgetId: match[1].trim(),
-      projectPath: normalizePath(match[2].trim()),
+      widgetId,
+      projectPath: this.getProjectPath({ widgetId }),
     };
+  }
+
+  private extractWidgetIdFromFenceContent(content: string): string | null {
+    const fencePattern = new RegExp(
+      `\`\`\`${WIDGET_PROJECT_FENCE_LANGUAGE}\\s*\\n([\\s\\S]*?)\\n\`\`\``,
+      'i'
+    );
+    const fenceMatch = content.match(fencePattern);
+    const body = fenceMatch ? fenceMatch[1] : content;
+    const widgetId = body.trim().split(/\r?\n/)[0]?.trim();
+    if (!widgetId) {
+      return null;
+    }
+    return widgetId;
   }
 
   /** Instance wrapper around {@link parseProjectFenceContent}. */
@@ -156,13 +180,21 @@ export class WidgetService {
   }
 
   /** Replaces vault asset path references in HTML with inlined data URLs. */
-  public async inlineAssetsInHtml(params: { html: string; assets?: string[] }): Promise<string> {
+  public async inlineAssetsInHtml(params: {
+    html: string;
+    assets?: string[];
+    maxAssetBytes?: number;
+  }): Promise<string> {
     if (!params.assets || params.assets.length === 0) {
       return params.html;
     }
 
-    const assetDataUrls = await this.resolveAssetDataUrls(params.assets);
-    return this.bundler.applyAssetPaths(params.html, assetDataUrls);
+    const maxAssetBytes = params.maxAssetBytes ?? DEFAULT_MAX_ASSET_BYTES;
+    const dataUrls = await this.resolveAssetDataUrls({
+      assets: params.assets,
+      maxAssetBytes,
+    });
+    return this.bundler.applyAssetPaths(params.html, dataUrls);
   }
 
   /** Returns asset: paths used in content but absent from the declared assets list. */
@@ -225,6 +257,7 @@ export class WidgetService {
       type: 'html',
       widgetId: params.widgetId,
       widgetName: params.widgetName,
+      maxAssetSize: DEFAULT_MAX_ASSET_SIZE_MANIFEST,
     };
     if (params.assets?.length) {
       manifestYamlData.assets = params.assets.map(path => WidgetBundler.normalizeAssetPath(path));
@@ -478,18 +511,28 @@ export class WidgetService {
   }
 
   /** Bundles the project entry HTML with inlined assets for iframe srcdoc rendering. */
-  public async bundleProject(projectPath: string): Promise<string> {
+  public async bundleProject(projectPath: string): Promise<WidgetProjectBundle> {
     const def = await this.definitionService.getWidgetDefinition(projectPath);
     if (!def.manifest?.entry) {
       throw new Error(`Widget manifest missing or invalid: ${projectPath}`);
     }
 
-    const assetDataUrls = await this.resolveAssetDataUrls(def.manifest.assets ?? []);
-    return this.bundler.bundle({
+    const manifestAssets = def.manifest.assets ?? [];
+    const maxAssetBytes = resolveMaxAssetBytes(def.manifest);
+    const dataUrls = await this.resolveAssetDataUrls({
+      assets: manifestAssets,
+      maxAssetBytes,
+    });
+    const html = await this.bundler.bundle({
       projectPath,
       entryRelativePath: def.manifest.entry,
-      assetDataUrls,
+      assetDataUrls: dataUrls,
     });
+    const assets = buildWidgetAssetRegistry({
+      manifestAssets,
+      assetDataUrls: dataUrls,
+    });
+    return { html, assets };
   }
 
   /**
@@ -581,70 +624,93 @@ export class WidgetService {
   }
 
   /** Resolves asset paths into data URLs keyed by asset:path for HTML replacement. */
-  private async resolveAssetDataUrls(assets: string[]): Promise<Record<string, string>> {
+  private async resolveAssetDataUrls(params: {
+    assets: string[];
+    maxAssetBytes: number;
+  }): Promise<Record<string, string>> {
     const dataUrls: Record<string, string> = {};
 
-    for (let i = 0; i < assets.length; i++) {
-      const vaultRelativePath = WidgetBundler.normalizeAssetPath(assets[i]);
+    for (let i = 0; i < params.assets.length; i++) {
+      const vaultRelativePath = WidgetBundler.normalizeAssetPath(params.assets[i]);
       const file = await this.plugin.mediaTools.findFileByNameOrPath(vaultRelativePath);
       if (!file) {
         logger.warn(`Widget asset not found: ${vaultRelativePath}`);
         continue;
       }
 
-      const dataUrl = await this.readFileAsDataUrl(file);
-      if (!dataUrl) {
+      const readResult = await this.readFileAsDataUrl(file, params.maxAssetBytes);
+      if (!readResult.dataUrl) {
         continue;
       }
 
       const key = WidgetBundler.assetPathKey(vaultRelativePath);
-      dataUrls[key] = dataUrl;
+      dataUrls[key] = readResult.dataUrl;
     }
 
     return dataUrls;
   }
 
   /** Reads a vault file as a base64 data URL, skipping files over the size cap. */
-  private async readFileAsDataUrl(file: TFile): Promise<string | null> {
+  private async readFileAsDataUrl(
+    file: TFile,
+    maxAssetBytes: number
+  ): Promise<{ dataUrl: string | null; warning?: WidgetAssetWarning }> {
     const stat = await this.plugin.app.vault.adapter.stat(file.path);
-    if (stat && stat.size > MAX_ASSET_BYTES) {
+    if (stat && stat.size > maxAssetBytes) {
+      const warning: WidgetAssetWarning = {
+        vaultPath: file.path,
+        sizeBytes: stat.size,
+        maxBytes: maxAssetBytes,
+      };
       logger.warn(
-        `Widget asset too large, skipping: ${file.path} (${stat.size} bytes, max ${MAX_ASSET_BYTES})`
+        `Widget asset too large, skipping: ${file.path} (${stat.size} bytes, max ${maxAssetBytes})`
       );
-      return null;
+      return { dataUrl: null, warning };
     }
 
     const binary = await this.plugin.app.vault.readBinary(file);
-    if (binary.byteLength > MAX_ASSET_BYTES) {
+    if (binary.byteLength > maxAssetBytes) {
+      const warning: WidgetAssetWarning = {
+        vaultPath: file.path,
+        sizeBytes: binary.byteLength,
+        maxBytes: maxAssetBytes,
+      };
       logger.warn(
-        `Widget asset too large, skipping: ${file.path} (${binary.byteLength} bytes, max ${MAX_ASSET_BYTES})`
+        `Widget asset too large, skipping: ${file.path} (${binary.byteLength} bytes, max ${maxAssetBytes})`
       );
-      return null;
+      return { dataUrl: null, warning };
     }
 
     const mimeType = this.getMimeType(file.extension);
     const base64 = this.arrayBufferToBase64(binary);
-    return `data:${mimeType};base64,${base64}`;
+    return { dataUrl: `data:${mimeType};base64,${base64}` };
   }
 
+  private static readonly ASSET_MIME_BY_EXTENSION: Record<string, string> = {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    svg: 'image/svg+xml',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    ogg: 'audio/ogg',
+    m4a: 'audio/mp4',
+    aac: 'audio/aac',
+    flac: 'audio/flac',
+    weba: 'audio/webm',
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    ogv: 'video/ogg',
+    mov: 'video/quicktime',
+    m4v: 'video/mp4',
+  };
+
   private getMimeType(extension: string): string {
-    const ext = extension.toLowerCase();
-    if (ext === 'png') {
-      return 'image/png';
-    }
-    if (ext === 'jpg' || ext === 'jpeg') {
-      return 'image/jpeg';
-    }
-    if (ext === 'gif') {
-      return 'image/gif';
-    }
-    if (ext === 'webp') {
-      return 'image/webp';
-    }
-    if (ext === 'svg') {
-      return 'image/svg+xml';
-    }
-    return 'application/octet-stream';
+    return (
+      WidgetService.ASSET_MIME_BY_EXTENSION[extension.toLowerCase()] ?? 'application/octet-stream'
+    );
   }
 
   private async warnUnregisteredCatalogActions(

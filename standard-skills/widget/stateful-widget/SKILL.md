@@ -4,7 +4,7 @@ description: >-
   Build interactive HTML project widgets with persisted runtime state (games,
   counters, forms). Read before show_widget when user actions must survive
   reopening the note.
-version: 5
+version: 8
 tools:
   - show_widget
 ---
@@ -22,10 +22,14 @@ Skip this pattern for static animations, one-shot diagrams, or SVG-only widgets 
 
 ## How a widget is rendered
 
-1. **Creation**: `show_widget` writes files under `{stewardFolder}/Widgets/{widgetId}/` (e.g. `index.html`, `main.js`, `style.css`, `Widget.md`). `widgetId` is derived from `widgetName` (whitespace → dashes) plus a short unique suffix.
-2. **Conversation**: A `stw-widget-project` fence in the note references `widgetId` and `projectPath`. Widgets are conversation-independent — reference `widgetId` from any conversation to edit or display the same widget.
-3. **Mount**: The host bundles `index.html` (inlines linked CSS/JS and vault `asset:` paths), wraps the result in a **sandboxed iframe** (`srcdoc`, `allow-scripts`, strict CSP, no network).
-4. **Hot-reload**: When you edit project files via `edit`, the iframe reloads from the vault. **Do not** call `show_widget` again for updates.
+- **Create (`show_widget`)**: Writes project files under `{stewardFolder}/Widgets/{widgetId}/` (`index.html`, `main.js`, `style.css`, `Widget.md`, etc.). `widgetId` = slugified `widgetName` + short unique suffix. Appends a `stw-widget-project` fence to the conversation note:
+  ```stw-widget-project
+  <widgetId>
+  ```
+
+- **Mount (`WidgetPostProcessor`)**: When the note is displayed, the post-processor reads the fence, resolves `{stewardFolder}/Widgets/{widgetId}`, bundles the entry HTML (inlines linked CSS/JS; vault files from manifest `assets` and `asset:` references in HTML/CSS/JS, subject to `maxAssetSize`), injects `window.stw` for state, and renders the bundle in a **sandboxed iframe** (`srcdoc`, `allow-scripts`, strict CSP, no network).
+
+- **Hot-reload**: Edits to project files via `edit` trigger a re-bundle and iframe refresh.
 
 Only **project (HTML multi-file) widgets** get the state bridge and `state.json`. Single-blob `code` widgets do not persist runtime state this way.
 
@@ -38,9 +42,7 @@ Only **project (HTML multi-file) widgets** get the state bridge and `state.json`
 | `window.stw.setState(data)` | Saves a **JSON-serializable** snapshot; debounced ~400ms, then written to vault. |
 | `state.json` | Created **lazily** in the project folder on first successful `setState`. Host-owned; do not author or edit it manually. |
 
-**Critical:** Clicks and DOM updates alone do **not** persist. You **must** call `setState` after every meaningful state change. Without it, `state.json` never appears.
-
-Saving `state.json` does **not** reload the iframe (the host ignores that file for hot-reload). Editing `main.js` / `index.html` **does** reload and re-injects saved state from `state.json`.
+Note: You **must** call `setState` after every meaningful state change. Without it, `state.json` never appears.
 
 ### On-disk shape (host-managed)
 
@@ -53,6 +55,39 @@ Saving `state.json` does **not** reload the iframe (the host ignores that file f
 ```
 
 Your widget only supplies the inner `data` object via `setState`. Define a schema that fully describes the UI (e.g. board cells, score, turn).
+
+### Manifest assets and `window.stw.assets`
+
+The host injects every manifest `assets` entry as inlined data URLs on `window.stw.assets` (and `window.stw.getAsset(id)`). Keys:
+
+| Key | Example manifest path | Use in state |
+|-----|----------------------|--------------|
+| **Stem** (filename without extension) | `Images/x.png` | `"x"` |
+| **Vault path** (normalized) | `Images/x.png` | `"Images/x.png"` when stems collide |
+
+Add a new image by editing **only** `Widget.md` manifest `assets` (then save). Hot-reload rebuilds the registry — no `main.js` map update if you already look up by stem.
+
+Static `asset:…` literals in HTML/CSS/JS still work for fixed markup; use `stw.assets` / `getAsset` for dynamic UI driven by persisted state.
+
+### Do not persist `asset:` paths in state
+
+`asset:…` references in project files are resolved at **bundle time**. `state.json` is not re-processed for assets.
+
+- **Do not** put vault paths (`asset:Images/foo.png`) or data URLs in `setState` data.
+- **Do** store a short id in state (filename stem, e.g. `"x"`) and resolve at render time via `window.stw.getAsset(id)` or `window.stw.assets[id]`.
+
+```javascript
+let state = window.stw.getState() ?? { cells: Array(9).fill(null), turn: 'x' };
+
+function render() {
+  state.cells.forEach((cell, i) => {
+    const img = document.querySelector(`[data-cell="${i}"]`);
+    img.src = cell ? window.stw.getAsset(cell) : '';
+  });
+}
+```
+
+Declare every vault path in manifest `assets`. Use unique filenames when relying on stem keys.
 
 ## Required JavaScript pattern (`main.js`)
 
@@ -90,11 +125,12 @@ Rules:
 - `getState()` once at startup (or merge with defaults).
 - `setState(state)` after every change users should see after reopening.
 - Keep `data` small and JSON-safe (no functions, DOM nodes, or circular refs).
+- Never store `asset:` paths or data URLs in state — persist stem ids and use `stw.getAsset` (see above).
 - Use one object as source of truth; re-render from it.
 
 ## `Widget.md` — `name: manifest` block (host-maintained)
 
-`show_widget` creates `{projectPath}/Widget.md` with a single ```yaml``` fence at the **top** of the note body. The host owns this block — **do not** remove, replace, or edit it. Any fences you add later (`actions`, `actors`, `agent`) go **below** the manifest fence (see **interactive-widget**).
+`show_widget` creates `{projectPath}/Widget.md` with a single ```yaml``` fence at the **top** of the note body. The host writes it on create — **do not** remove or replace the block. You may **edit** it later to add or update `assets` and `maxAssetSize` (e.g. for large audio). Any other fences (`actions`, `actors`, `agent`) go **below** the manifest fence (see **interactive-widget**).
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -103,7 +139,8 @@ Rules:
 | `type` | `html` | **Yes** | Must be `html` for project widgets. |
 | `widgetId` | string | No | Project folder id; host sets on create. |
 | `widgetName` | string | No | Display name from `show_widget`. |
-| `assets` | array of strings | No | Vault paths inlined at bundle time; reference in HTML as `asset:Path/to/file`. |
+| `assets` | array of strings | No | Vault paths inlined at bundle time. Exposed as `window.stw.assets` / `getAsset(stem)` (stem = filename without extension). Also reference as `asset:Path/to/file` in static HTML/CSS/JS. |
+| `maxAssetSize` | string or number | No | Per-file size cap for inlining declared assets. Plain numbers are bytes (e.g. `5000000`). Suffixes supported: `B`, `KB`, `MB`, `GB` (spacing optional, e.g. `5MB`, `5 mb`, `5 MB`). Host sets `5MB` on create; default when omitted from manifest: `5MB`. Raise this for larger assets. |
 
 Example (host-written on create):
 
@@ -113,9 +150,12 @@ entry: index.html
 type: html
 widgetId: My-Game-abc12
 widgetName: My Game
+maxAssetSize: 5MB
 assets:
   - Images/sprite.png
 ```
+
+Large assets: if an asset exceeds `maxAssetSize`, the host skips inlining it (logged in the developer console). Use `edit` on `Widget.md` to add or increase `maxAssetSize` when assets fail to load or the user needs larger files.
 
 ## Project layout checklist
 
@@ -131,7 +171,7 @@ assets:
 - Game logic updates variables/DOM but never calls `window.stw.setState` → no persistence.
 - Using `code` single-blob mode for a game → no `window.stw` / `state.json`.
 - Putting state only in closure variables with no serializable snapshot.
-- Calling `show_widget` again to update — use `edit` on project files instead.
+- Saving `asset:Path/...` or data URLs in `setState` — use stem ids with `stw.getAsset` instead.
 
 ## Workflow
 
