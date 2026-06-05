@@ -11,6 +11,8 @@ import {
   WIDGET_ACTION_RESULT,
   WIDGET_ACTIONS_REGISTERED,
   WIDGET_APPLY_ACTION,
+  WIDGET_ASSET_REQUEST,
+  WIDGET_ASSET_RESPONSE,
   WIDGET_RESIZE,
   WIDGET_STATE_SAVE,
 } from 'src/services/WidgetService';
@@ -37,6 +39,7 @@ interface MountIframeOptions {
     state?: unknown;
   }) => void;
   onActionsRegistered?: (actions: string[]) => void;
+  onAssetRequest?: (data: { requestId: string; assetId: string }) => void;
 }
 
 function mountIframe(
@@ -73,7 +76,8 @@ function mountIframe(
     usesPostMessageResize ||
     !!options.onStateSave ||
     !!options.onActionResult ||
-    !!options.onActionsRegistered;
+    !!options.onActionsRegistered ||
+    !!options.onAssetRequest;
 
   const onMessage = (e: MessageEvent) => {
     if (e.source !== iframe.contentWindow) {
@@ -108,6 +112,16 @@ function mountIframe(
         ? e.data.actions.filter((name: unknown) => typeof name === 'string')
         : [];
       options.onActionsRegistered(actions);
+      return;
+    }
+
+    if (e.data?.type === WIDGET_ASSET_REQUEST && options.onAssetRequest) {
+      const requestId = typeof e.data.requestId === 'string' ? e.data.requestId : '';
+      const assetId = typeof e.data.assetId === 'string' ? e.data.assetId : '';
+      if (!requestId || !assetId) {
+        return;
+      }
+      options.onAssetRequest({ requestId, assetId });
     }
   };
 
@@ -246,6 +260,39 @@ async function mountWidgetProject(
       },
       onActionsRegistered: actions => {
         widgetService.setRegisteredActions(projectPath, actions);
+      },
+      onAssetRequest: data => {
+        const iframe = container.querySelector<HTMLIFrameElement>('iframe.stw-widget-frame');
+        void widgetService.provideAsset({ projectPath, assetId: data.assetId }).then(result => {
+          if (!iframe?.contentWindow) {
+            return;
+          }
+
+          if (!result.ok) {
+            iframe.contentWindow.postMessage(
+              {
+                type: WIDGET_ASSET_RESPONSE,
+                requestId: data.requestId,
+                ok: false,
+                error: result.error,
+              },
+              '*'
+            );
+            return;
+          }
+
+          iframe.contentWindow.postMessage(
+            {
+              type: WIDGET_ASSET_RESPONSE,
+              requestId: data.requestId,
+              ok: true,
+              buffer: result.buffer,
+              mimeType: result.mimeType,
+            },
+            '*',
+            [result.buffer]
+          );
+        });
       },
     });
   } catch (e) {

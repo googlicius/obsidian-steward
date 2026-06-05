@@ -83,10 +83,13 @@ export interface WidgetProjectFenceData {
   projectPath: string;
 }
 
-/** Bundled project HTML plus runtime asset registry for window.stw.assets. */
+/** Manifest asset registry: stem or vault path → allowed vault-relative path. */
+export type WidgetAssetRegistryMap = Record<string, string>;
+
+/** Bundled project HTML plus allowed asset registry for window.stw.assets. */
 export interface WidgetProjectBundle {
   html: string;
-  assets: Record<string, string>;
+  assets: WidgetAssetRegistryMap;
 }
 
 export type { WidgetState } from './WidgetStateService';

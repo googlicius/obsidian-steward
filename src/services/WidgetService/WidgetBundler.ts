@@ -2,7 +2,7 @@ import { normalizePath } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import { isPathUnderPrefix } from 'src/utils/pathUtils';
 
-/** Prefix for vault asset references in widget HTML before base64 inlining. */
+/** Prefix for vault asset references in widget HTML before URL resolution. */
 export const WIDGET_ASSET_PREFIX = 'asset:';
 
 /** Matches asset:path references in HTML, CSS url(), and attribute values. */
@@ -10,6 +10,8 @@ const WIDGET_ASSET_PATH_PATTERN = /asset:([^\s"'<>)\]]+)/g;
 
 const LINK_HREF_PATTERN = /<link\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>/gi;
 const SCRIPT_SRC_PATTERN = /<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>\s*<\/script>/gi;
+const ASSET_ATTR_PLACEHOLDER_PATTERN = /\b(src|href)=(["'])asset:([^"']+)\2/gi;
+const ASSET_POSTER_PLACEHOLDER_PATTERN = /\bposter=(["'])asset:([^"']+)\1/gi;
 
 /**
  * Inlines local CSS/JS from a widget project folder into a single HTML document for sandboxed iframe srcdoc.
@@ -20,7 +22,6 @@ export class WidgetBundler {
   public async bundle(params: {
     projectPath: string;
     entryRelativePath: string;
-    assetDataUrls: Record<string, string>;
   }): Promise<string> {
     const entryPath = normalizePath(`${params.projectPath}/${params.entryRelativePath}`);
     const entryContent = await this.readProjectFile(entryPath, params.projectPath);
@@ -44,8 +45,21 @@ export class WidgetBundler {
       wrap: js => `<script>\n${js.replace(/<\/script/gi, '<\\/script')}\n</script>`,
     });
 
-    html = this.applyAssetPaths(html, params.assetDataUrls);
+    html = this.prepareAssetPlaceholders(html);
     return html.trim();
+  }
+
+  /**
+   * Replaces asset: attribute values with data-stw-asset placeholders for iframe hydration.
+   * Avoids the browser fetching invalid asset: URLs before window.stw hydrates them.
+   */
+  public prepareAssetPlaceholders(html: string): string {
+    let output = html.replace(
+      ASSET_POSTER_PLACEHOLDER_PATTERN,
+      'data-stw-asset=$1$2$1 data-stw-target-attr="poster"'
+    );
+    output = output.replace(ASSET_ATTR_PLACEHOLDER_PATTERN, 'data-stw-asset=$2$3$2');
+    return output;
   }
 
   public static normalizeAssetPath(path: string): string {
@@ -98,14 +112,13 @@ export class WidgetBundler {
     return missing;
   }
 
-  public applyAssetPaths(html: string, assetDataUrls: Record<string, string>): string {
-    if (Object.keys(assetDataUrls).length === 0) {
+  public applyAssetPaths(html: string, assetUrls: Record<string, string>): string {
+    if (Object.keys(assetUrls).length === 0) {
       return html;
     }
 
     return html.replace(WIDGET_ASSET_PATH_PATTERN, (match, pathPart: string) => {
-      const replacement =
-        assetDataUrls[match] ?? assetDataUrls[WidgetBundler.assetPathKey(pathPart)];
+      const replacement = assetUrls[match] ?? assetUrls[WidgetBundler.assetPathKey(pathPart)];
       return replacement ?? match;
     });
   }

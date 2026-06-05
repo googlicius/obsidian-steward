@@ -3,6 +3,8 @@ import {
   WIDGET_ACTION_RESULT,
   WIDGET_ACTIONS_REGISTERED,
   WIDGET_APPLY_ACTION,
+  WIDGET_ASSET_REQUEST,
+  WIDGET_ASSET_RESPONSE,
   WIDGET_RESIZE,
   WIDGET_STATE_GLOBAL,
   WIDGET_STATE_SAVE,
@@ -69,15 +71,18 @@ describe('buildWidgetStateHead', () => {
     expect(head).toContain('setState');
   });
 
-  it('injects manifest asset registry and getAsset on window.stw', () => {
+  it('injects manifest asset registry and async getAsset bridge on window.stw', () => {
     const head = buildWidgetStateHead({
       state: null,
-      assets: { x: 'data:image/png;base64,xx', 'Images/x.png': 'data:image/png;base64,xx' },
+      assets: { x: 'Images/x.png', 'Images/x.png': 'Images/x.png' },
     });
 
-    expect(head).toContain('"x":"data:image/png;base64,xx"');
+    expect(head).toContain('"x":"Images/x.png"');
     expect(head).toContain('getAsset');
     expect(head).toContain('assets:');
+    expect(head).toContain(WIDGET_ASSET_REQUEST);
+    expect(head).toContain(WIDGET_ASSET_RESPONSE);
+    expect(head).toContain('hydrateDomAssets');
   });
 
   it('exposes registerAction, dispatchAction, and action postMessage bridge', () => {

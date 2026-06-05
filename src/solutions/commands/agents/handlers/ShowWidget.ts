@@ -211,7 +211,7 @@ export class ShowWidget {
   ): Promise<AgentResult> {
     const { title } = ctx.agentHandlerParams;
     const rawCode = toolCall.input.code ?? '';
-    const code = await this.agent.plugin.widgetService.inlineAssetsInHtml({
+    const code = this.agent.plugin.widgetService.inlineAssetsInHtml({
       html: rawCode,
       assets: toolCall.input.assets,
     });

@@ -4,7 +4,7 @@ description: >-
   Build interactive HTML project widgets with persisted runtime state (games,
   counters, forms). Read before show_widget when user actions must survive
   reopening the note.
-version: 8
+version: 9
 tools:
   - show_widget
 ---
@@ -27,7 +27,7 @@ Skip this pattern for static animations, one-shot diagrams, or SVG-only widgets 
   <widgetId>
   ```
 
-- **Mount (`WidgetPostProcessor`)**: When the note is displayed, the post-processor reads the fence, resolves `{stewardFolder}/Widgets/{widgetId}`, bundles the entry HTML (inlines linked CSS/JS; vault files from manifest `assets` and `asset:` references in HTML/CSS/JS, subject to `maxAssetSize`), injects `window.stw` for state, and renders the bundle in a **sandboxed iframe** (`srcdoc`, `allow-scripts`, strict CSP, no network).
+- **Mount (`WidgetPostProcessor`)**: When the note is displayed, the post-processor reads the fence, resolves `{stewardFolder}/Widgets/{widgetId}`, bundles the entry HTML (inlines linked CSS/JS from the project folder), injects `window.stw` for state and assets, and renders the bundle in a **sandboxed iframe** (`srcdoc`, `allow-scripts`, strict CSP, no network). Manifest `assets` are **not** inlined into HTML; the iframe requests allowed files from the host at runtime and creates local blob URLs.
 
 - **Hot-reload**: Edits to project files via `edit` trigger a re-bundle and iframe refresh.
 
@@ -56,42 +56,53 @@ Note: You **must** call `setState` after every meaningful state change. Without 
 
 Your widget only supplies the inner `data` object via `setState`. Define a schema that fully describes the UI (e.g. board cells, score, turn).
 
-### Manifest assets and `window.stw.assets`
+### Manifest assets and `window.stw.getAsset`
 
-The host injects every manifest `assets` entry as inlined data URLs on `window.stw.assets` (and `window.stw.getAsset(id)`). Keys:
+Only vault paths listed in the manifest `assets` array may be loaded. The host injects an **allowlist registry** on `window.stw.assets` (vault paths, not loadable URLs). Keys:
 
 | Key | Example manifest path | Use in state |
 |-----|----------------------|--------------|
-| **Stem** (filename without extension) | `Images/x.png` | `"x"` |
-| **Vault path** (normalized) | `Images/x.png` | `"Images/x.png"` when stems collide |
+| **Stem** (filename without extension, when unique) | `Images/x.png` | `"x"` |
+| **Vault path** (normalized) | `Images/x.png` | `"Images/x.png"` — always safe; required when stems collide |
+
+`window.stw.getAsset(id)` is **async** (`Promise<string | null>`). The iframe asks the host for file bytes, then creates a **local** blob URL inside the iframe. Results are cached per id for the session.
 
 Add a new image by editing **only** `Widget.md` manifest `assets` (then save). Hot-reload rebuilds the registry — no `main.js` map update if you already look up by stem.
 
-Static `asset:…` literals in HTML/CSS/JS still work for fixed markup; use `stw.assets` / `getAsset` for dynamic UI driven by persisted state.
+**Static markup:** `asset:…` in HTML attributes (`src`, `href`, `poster`) and CSS `url(asset:…)` is auto-hydrated on load. You can still author:
 
-### Do not persist `asset:` paths in state
+```html
+<img src="asset:Images/board.png" alt="Board">
+<audio src="asset:Audio/track.mp3"></audio>
+```
 
-`asset:…` references in project files are resolved at **bundle time**. `state.json` is not re-processed for assets.
-
-- **Do not** put vault paths (`asset:Images/foo.png`) or data URLs in `setState` data.
-- **Do** store a short id in state (filename stem, e.g. `"x"`) and resolve at render time via `window.stw.getAsset(id)` or `window.stw.assets[id]`.
+**Dynamic UI:** store a short id in state (stem or vault path) and resolve at render time:
 
 ```javascript
 let state = window.stw.getState() ?? { cells: Array(9).fill(null), turn: 'x' };
 
-function render() {
-  state.cells.forEach((cell, i) => {
-    const img = document.querySelector(`[data-cell="${i}"]`);
-    img.src = cell ? window.stw.getAsset(cell) : '';
-  });
+async function render() {
+  await Promise.all(
+    state.cells.map(async (cell, i) => {
+      const img = document.querySelector(`[data-cell="${i}"]`);
+      img.src = cell ? await window.stw.getAsset(cell) : '';
+    })
+  );
 }
 ```
 
-Declare every vault path in manifest `assets`. Use unique filenames when relying on stem keys.
+Declare every vault path in manifest `assets`. Use unique filenames when relying on stem keys; if two assets share a stem, use the full vault path in state and in `getAsset`.
+
+### Do not persist asset paths or blob URLs in state
+
+`state.json` is not processed for assets at load time.
+
+- **Do not** put `asset:…` paths, vault paths, or blob URLs in `setState` data.
+- **Do** store a short id (filename stem when unique, otherwise full vault path) and resolve via `await window.stw.getAsset(id)`.
 
 ## Required JavaScript pattern (`main.js`)
 
-Put hydrate + save in `main.js` (or inline script in `index.html` if you do not split files). Scripts run **after** `window.stw` is injected in the document head.
+Put hydrate + save in `main.js` (or inline script in `index.html` if you do not split files). Scripts run **after** `window.stw` is injected in the document head. If `render` uses assets, make it `async` and `await getAsset`.
 
 ```javascript
 // 1. Hydrate on load
@@ -100,8 +111,8 @@ let state = window.stw.getState() ?? {
   turn: 'x',
 };
 
-function render() {
-  // draw UI from state
+async function render() {
+  // draw UI from state (await stw.getAsset when setting media src)
 }
 
 function commitState() {
@@ -109,15 +120,15 @@ function commitState() {
 }
 
 // 2. On each user action that changes app state
-function onCellClick(index) {
+async function onCellClick(index) {
   if (state.cells[index]) return;
   state.cells[index] = state.turn;
   state.turn = state.turn === 'x' ? 'o' : 'x';
-  render();
+  await render();
   commitState();
 }
 
-render();
+void render();
 ```
 
 Rules:
@@ -125,7 +136,7 @@ Rules:
 - `getState()` once at startup (or merge with defaults).
 - `setState(state)` after every change users should see after reopening.
 - Keep `data` small and JSON-safe (no functions, DOM nodes, or circular refs).
-- Never store `asset:` paths or data URLs in state — persist stem ids and use `stw.getAsset` (see above).
+- Never store `asset:` paths, vault paths, or blob URLs in state — persist stem ids (or full vault paths) and use `await stw.getAsset` (see above).
 - Use one object as source of truth; re-render from it.
 
 ## `Widget.md` — `name: manifest` block (host-maintained)
@@ -139,8 +150,8 @@ Rules:
 | `type` | `html` | **Yes** | Must be `html` for project widgets. |
 | `widgetId` | string | No | Project folder id; host sets on create. |
 | `widgetName` | string | No | Display name from `show_widget`. |
-| `assets` | array of strings | No | Vault paths inlined at bundle time. Exposed as `window.stw.assets` / `getAsset(stem)` (stem = filename without extension). Also reference as `asset:Path/to/file` in static HTML/CSS/JS. |
-| `maxAssetSize` | string or number | No | Per-file size cap for inlining declared assets. Plain numbers are bytes (e.g. `5000000`). Suffixes supported: `B`, `KB`, `MB`, `GB` (spacing optional, e.g. `5MB`, `5 mb`, `5 MB`). Host sets `5MB` on create; default when omitted from manifest: `5MB`. Raise this for larger assets. |
+| `assets` | array of strings | No | **Allowlist** of vault paths the iframe may request. Exposed on `window.stw.assets`; resolve with `await getAsset(stem)` or `await getAsset("Path/to/file")`. Reference in static HTML/CSS/JS as `asset:Path/to/file`. Only listed paths are served. |
+| `maxAssetSize` | string or number | No | Per-file byte cap when the host reads an asset. Plain numbers are bytes (e.g. `5000000`). Suffixes supported: `B`, `KB`, `MB`, `GB` (spacing optional, e.g. `5MB`, `5 mb`, `5 MB`). Host sets `5MB` on create; default when omitted from manifest: `5MB`. Raise this for larger assets. |
 
 Example (host-written on create):
 
@@ -155,7 +166,7 @@ assets:
   - Images/sprite.png
 ```
 
-Large assets: if an asset exceeds `maxAssetSize`, the host skips inlining it (logged in the developer console). Use `edit` on `Widget.md` to add or increase `maxAssetSize` when assets fail to load or the user needs larger files.
+Large assets: if an asset exceeds `maxAssetSize`, the host refuses the request (`asset_too_large`, logged in the developer console). If a path is missing from the vault, you will see `asset_not_found`. Use `edit` on `Widget.md` to add paths to `assets` or increase `maxAssetSize` when media fails to load.
 
 ## Project layout checklist
 
@@ -171,7 +182,8 @@ Large assets: if an asset exceeds `maxAssetSize`, the host skips inlining it (lo
 - Game logic updates variables/DOM but never calls `window.stw.setState` → no persistence.
 - Using `code` single-blob mode for a game → no `window.stw` / `state.json`.
 - Putting state only in closure variables with no serializable snapshot.
-- Saving `asset:Path/...` or data URLs in `setState` — use stem ids with `stw.getAsset` instead.
+- Saving `asset:Path/...`, vault paths, or blob URLs in `setState` — use stem ids (or full vault paths) with `await stw.getAsset` instead.
+- Requesting an asset not listed in manifest `assets` → `getAsset` resolves to `null` (`asset_not_allowed` on the host).
 
 ## Workflow
 

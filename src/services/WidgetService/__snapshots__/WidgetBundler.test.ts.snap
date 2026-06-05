@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`WidgetBundler applyAssetPaths replaces asset: path references with bundled data URLs 1`] = `"<img src="data:image/png;base64,abc" />"`;
+exports[`WidgetBundler applyAssetPaths replaces asset: path references with resolved asset URLs 1`] = `"<img src="blob:app://obsidian.md/logo-id" />"`;
 
 exports[`WidgetBundler bundle inlines local CSS and JS referenced from the entry HTML 1`] = `
 "<style>
@@ -10,4 +10,6 @@ console.log("ok");
 </script><p>Hi</p>"
 `;
 
-exports[`WidgetBundler bundle replaces asset: path references with bundled data URLs 1`] = `"<img src="data:image/png;base64,abc" />"`;
+exports[`WidgetBundler bundle prepares asset placeholders instead of inlining asset URLs 1`] = `"<img data-stw-asset="Images/logo.png" />"`;
+
+exports[`WidgetBundler prepareAssetPlaceholders replaces asset: attribute values with data-stw-asset placeholders 1`] = `"<img data-stw-asset="Images/logo.png" /><video data-stw-asset="Images/frame.png" data-stw-target-attr="poster"></video>"`;

@@ -100,10 +100,20 @@ describe('WidgetBundler', () => {
     });
   });
 
+  describe('prepareAssetPlaceholders', () => {
+    it('replaces asset: attribute values with data-stw-asset placeholders', () => {
+      const html = bundler.prepareAssetPlaceholders(
+        '<img src="asset:Images/logo.png" /><video poster="asset:Images/frame.png"></video>'
+      );
+
+      expect(html).toMatchSnapshot();
+    });
+  });
+
   describe('applyAssetPaths', () => {
-    it('replaces asset: path references with bundled data URLs', () => {
+    it('replaces asset: path references with resolved asset URLs', () => {
       const html = bundler.applyAssetPaths('<img src="asset:Images/logo.png" />', {
-        'asset:Images/logo.png': 'data:image/png;base64,abc',
+        'asset:Images/logo.png': 'blob:app://obsidian.md/logo-id',
       });
 
       expect(html).toMatchSnapshot();
@@ -115,13 +125,12 @@ describe('WidgetBundler', () => {
       const html = await bundler.bundle({
         projectPath: 'Widgets/conv/w1',
         entryRelativePath: 'index.html',
-        assetDataUrls: {},
       });
 
       expect(html).toMatchSnapshot();
     });
 
-    it('replaces asset: path references with bundled data URLs', async () => {
+    it('prepares asset placeholders instead of inlining asset URLs', async () => {
       vaultRead.mockImplementation(async (file: TFile) => {
         if (file.path.endsWith('index.html')) {
           return '<img src="asset:Images/logo.png" />';
@@ -135,9 +144,6 @@ describe('WidgetBundler', () => {
       const html = await bundler.bundle({
         projectPath: 'Widgets/conv/w1',
         entryRelativePath: 'index.html',
-        assetDataUrls: {
-          'asset:Images/logo.png': 'data:image/png;base64,abc',
-        },
       });
 
       expect(html).toMatchSnapshot();

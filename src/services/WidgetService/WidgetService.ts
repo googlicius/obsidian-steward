@@ -10,17 +10,11 @@ import { WidgetStateService } from './WidgetStateService';
 import type { WidgetJsValidationError } from './WidgetJsValidator';
 import { WidgetJsValidator } from './WidgetJsValidator';
 import { WIDGET_ACTION_APPLY_TIMEOUT_MS } from './WidgetProtocol';
-import {
-  DEFAULT_MAX_ASSET_BYTES,
-  DEFAULT_MAX_ASSET_SIZE_MANIFEST,
-  resolveMaxAssetBytes,
-} from './WidgetAssetSize';
-import { buildWidgetAssetRegistry } from './WidgetAssetRegistry';
+import { WidgetAsset, type WidgetAssetReadResponse } from './WidgetAsset';
 import {
   type WidgetActionParamSpec,
   type WidgetActionResult,
   type WidgetActionsCatalog,
-  type WidgetAssetWarning,
   type WidgetProjectBundle,
   WidgetProjectFenceData,
 } from './types';
@@ -72,10 +66,12 @@ export class WidgetService {
   private modifyListenerRegistered = false;
   private readonly _definitionService: WidgetDefinitionService;
   private readonly _stateService: WidgetStateService;
+  private readonly _assets: WidgetAsset;
 
   private constructor(private readonly plugin: StewardPlugin) {
     this.bundler = new WidgetBundler(plugin);
     this.jsValidator = new WidgetJsValidator();
+    this._assets = new WidgetAsset(plugin);
     this._definitionService = WidgetDefinitionService.getInstance(plugin);
     this._definitionService.initialize();
     this._stateService = WidgetStateService.getInstance(plugin);
@@ -89,6 +85,11 @@ export class WidgetService {
   /** Widget runtime state in state.json per project folder. */
   public get stateService(): WidgetStateService {
     return this._stateService;
+  }
+
+  /** Vault asset size limits and blob URL resolution. */
+  public get assets(): WidgetAsset {
+    return this._assets;
   }
 
   /** Returns the singleton service bound to the plugin instance. */
@@ -179,22 +180,9 @@ export class WidgetService {
     return this.parseProjectFenceContent(content);
   }
 
-  /** Replaces vault asset path references in HTML with inlined data URLs. */
-  public async inlineAssetsInHtml(params: {
-    html: string;
-    assets?: string[];
-    maxAssetBytes?: number;
-  }): Promise<string> {
-    if (!params.assets || params.assets.length === 0) {
-      return params.html;
-    }
-
-    const maxAssetBytes = params.maxAssetBytes ?? DEFAULT_MAX_ASSET_BYTES;
-    const dataUrls = await this.resolveAssetDataUrls({
-      assets: params.assets,
-      maxAssetBytes,
-    });
-    return this.bundler.applyAssetPaths(params.html, dataUrls);
+  /** Prepares asset: attribute references for iframe hydration (no host-side inlining). */
+  public inlineAssetsInHtml(params: { html: string; assets?: string[] }): string {
+    return this.bundler.prepareAssetPlaceholders(params.html);
   }
 
   /** Returns asset: paths used in content but absent from the declared assets list. */
@@ -257,7 +245,7 @@ export class WidgetService {
       type: 'html',
       widgetId: params.widgetId,
       widgetName: params.widgetName,
-      maxAssetSize: DEFAULT_MAX_ASSET_SIZE_MANIFEST,
+      maxAssetSize: WidgetAsset.DEFAULT_MAX_SIZE_MANIFEST,
     };
     if (params.assets?.length) {
       manifestYamlData.assets = params.assets.map(path => WidgetBundler.normalizeAssetPath(path));
@@ -510,7 +498,7 @@ export class WidgetService {
     });
   }
 
-  /** Bundles the project entry HTML with inlined assets for iframe srcdoc rendering. */
+  /** Bundles the project entry HTML for iframe srcdoc rendering (assets hydrated at runtime). */
   public async bundleProject(projectPath: string): Promise<WidgetProjectBundle> {
     const def = await this.definitionService.getWidgetDefinition(projectPath);
     if (!def.manifest?.entry) {
@@ -518,21 +506,30 @@ export class WidgetService {
     }
 
     const manifestAssets = def.manifest.assets ?? [];
-    const maxAssetBytes = resolveMaxAssetBytes(def.manifest);
-    const dataUrls = await this.resolveAssetDataUrls({
-      assets: manifestAssets,
-      maxAssetBytes,
-    });
     const html = await this.bundler.bundle({
       projectPath,
       entryRelativePath: def.manifest.entry,
-      assetDataUrls: dataUrls,
     });
-    const assets = buildWidgetAssetRegistry({
-      manifestAssets,
-      assetDataUrls: dataUrls,
-    });
+    const assets = WidgetAsset.buildRegistry(manifestAssets);
     return { html, assets };
+  }
+
+  /**
+   * Reads a manifest-listed asset for an iframe asset request.
+   * Only assets declared in Widget.md manifest are allowed.
+   */
+  public async provideAsset(params: {
+    projectPath: string;
+    assetId: string;
+  }): Promise<WidgetAssetReadResponse> {
+    const def = await this.definitionService.getWidgetDefinition(params.projectPath);
+    const manifestAssets = def.manifest?.assets ?? [];
+    const maxAssetBytes = WidgetAsset.resolveMaxBytes(def.manifest);
+    return this._assets.readManifestAsset({
+      assetId: params.assetId,
+      manifestAssets,
+      maxAssetBytes,
+    });
   }
 
   /**
@@ -623,96 +620,6 @@ export class WidgetService {
     return normalizePath(`${root}/${segments[0]}`);
   }
 
-  /** Resolves asset paths into data URLs keyed by asset:path for HTML replacement. */
-  private async resolveAssetDataUrls(params: {
-    assets: string[];
-    maxAssetBytes: number;
-  }): Promise<Record<string, string>> {
-    const dataUrls: Record<string, string> = {};
-
-    for (let i = 0; i < params.assets.length; i++) {
-      const vaultRelativePath = WidgetBundler.normalizeAssetPath(params.assets[i]);
-      const file = await this.plugin.mediaTools.findFileByNameOrPath(vaultRelativePath);
-      if (!file) {
-        logger.warn(`Widget asset not found: ${vaultRelativePath}`);
-        continue;
-      }
-
-      const readResult = await this.readFileAsDataUrl(file, params.maxAssetBytes);
-      if (!readResult.dataUrl) {
-        continue;
-      }
-
-      const key = WidgetBundler.assetPathKey(vaultRelativePath);
-      dataUrls[key] = readResult.dataUrl;
-    }
-
-    return dataUrls;
-  }
-
-  /** Reads a vault file as a base64 data URL, skipping files over the size cap. */
-  private async readFileAsDataUrl(
-    file: TFile,
-    maxAssetBytes: number
-  ): Promise<{ dataUrl: string | null; warning?: WidgetAssetWarning }> {
-    const stat = await this.plugin.app.vault.adapter.stat(file.path);
-    if (stat && stat.size > maxAssetBytes) {
-      const warning: WidgetAssetWarning = {
-        vaultPath: file.path,
-        sizeBytes: stat.size,
-        maxBytes: maxAssetBytes,
-      };
-      logger.warn(
-        `Widget asset too large, skipping: ${file.path} (${stat.size} bytes, max ${maxAssetBytes})`
-      );
-      return { dataUrl: null, warning };
-    }
-
-    const binary = await this.plugin.app.vault.readBinary(file);
-    if (binary.byteLength > maxAssetBytes) {
-      const warning: WidgetAssetWarning = {
-        vaultPath: file.path,
-        sizeBytes: binary.byteLength,
-        maxBytes: maxAssetBytes,
-      };
-      logger.warn(
-        `Widget asset too large, skipping: ${file.path} (${binary.byteLength} bytes, max ${maxAssetBytes})`
-      );
-      return { dataUrl: null, warning };
-    }
-
-    const mimeType = this.getMimeType(file.extension);
-    const base64 = this.arrayBufferToBase64(binary);
-    return { dataUrl: `data:${mimeType};base64,${base64}` };
-  }
-
-  private static readonly ASSET_MIME_BY_EXTENSION: Record<string, string> = {
-    png: 'image/png',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    gif: 'image/gif',
-    webp: 'image/webp',
-    svg: 'image/svg+xml',
-    mp3: 'audio/mpeg',
-    wav: 'audio/wav',
-    ogg: 'audio/ogg',
-    m4a: 'audio/mp4',
-    aac: 'audio/aac',
-    flac: 'audio/flac',
-    weba: 'audio/webm',
-    mp4: 'video/mp4',
-    webm: 'video/webm',
-    ogv: 'video/ogg',
-    mov: 'video/quicktime',
-    m4v: 'video/mp4',
-  };
-
-  private getMimeType(extension: string): string {
-    return (
-      WidgetService.ASSET_MIME_BY_EXTENSION[extension.toLowerCase()] ?? 'application/octet-stream'
-    );
-  }
-
   private async warnUnregisteredCatalogActions(
     projectPath: string,
     registeredActions: string[]
@@ -733,14 +640,5 @@ export class WidgetService {
         );
       }
     }
-  }
-
-  private arrayBufferToBase64(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
   }
 }

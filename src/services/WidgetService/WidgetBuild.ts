@@ -3,6 +3,9 @@ import {
   WIDGET_ACTION_RESULT,
   WIDGET_ACTIONS_REGISTERED,
   WIDGET_APPLY_ACTION,
+  WIDGET_ASSET_REQUEST,
+  WIDGET_ASSET_REQUEST_TIMEOUT_MS,
+  WIDGET_ASSET_RESPONSE,
   WIDGET_RESIZE,
   WIDGET_STATE_GLOBAL,
   WIDGET_STATE_SAVE,
@@ -11,11 +14,11 @@ import {
 import type { WidgetState } from './types';
 
 /** Content-Security-Policy applied to sandboxed widget iframes. */
-export const WIDGET_CSP =
-  "default-src 'none'; base-uri 'none'; form-action 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; media-src data:;";
+const WIDGET_CSP =
+  "default-src 'none'; base-uri 'none'; form-action 'none'; connect-src 'none'; frame-src 'none'; object-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:;";
 
 /** Script injected into widgets to report content height to the parent via postMessage. */
-export const WIDGET_RESIZE_SCRIPT = `<script>
+const WIDGET_RESIZE_SCRIPT = `<script>
 (function () {
   function reportHeight() {
     var docEl = document.documentElement;
@@ -55,18 +58,173 @@ export function buildWidgetStateHead(params: {
   var saveTimer;
   var actionHandlers = {};
   var assetRegistry = ${serializedAssets};
+  var assetUrlCache = {};
+  var pendingAssetRequests = {};
+  var assetRequestCounter = 0;
+  var ASSET_ATTR_BY_TAG = {
+    IMG: 'src',
+    AUDIO: 'src',
+    VIDEO: 'src',
+    SOURCE: 'src',
+    TRACK: 'src',
+    LINK: 'href',
+    EMBED: 'src',
+    OBJECT: 'data'
+  };
+
   function notifyRegisteredActions() {
     parent.postMessage({
       type: '${WIDGET_ACTIONS_REGISTERED}',
       actions: Object.keys(actionHandlers)
     }, '*');
   }
+
   function normalizeActionResult(result) {
     if (result && typeof result === 'object' && Object.prototype.hasOwnProperty.call(result, 'ok')) {
       return result;
     }
     return { ok: true, state: result };
   }
+
+  function resolveRegistryPath(assetId) {
+    if (typeof assetId !== 'string' || !assetId) {
+      return null;
+    }
+    var trimmed = assetId.trim();
+    if (trimmed.indexOf('asset:') === 0) {
+      trimmed = trimmed.slice(6);
+    }
+    if (assetRegistry[trimmed]) {
+      return assetRegistry[trimmed];
+    }
+    return null;
+  }
+
+  function requestAssetBytes(assetId) {
+    var registryPath = resolveRegistryPath(assetId);
+    if (!registryPath) {
+      return Promise.reject(new Error('asset_not_allowed'));
+    }
+
+    assetRequestCounter += 1;
+    var requestId = 'stw-asset-' + assetRequestCounter;
+
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () {
+        delete pendingAssetRequests[requestId];
+        reject(new Error('asset_request_timeout'));
+      }, ${WIDGET_ASSET_REQUEST_TIMEOUT_MS});
+
+      pendingAssetRequests[requestId] = {
+        resolve: resolve,
+        reject: reject,
+        timer: timer
+      };
+
+      parent.postMessage({
+        type: '${WIDGET_ASSET_REQUEST}',
+        requestId: requestId,
+        assetId: registryPath
+      }, '*');
+    });
+  }
+
+  function createLocalAssetUrl(assetId, buffer, mimeType) {
+    var blob = new Blob([buffer], { type: mimeType || 'application/octet-stream' });
+    var url = URL.createObjectURL(blob);
+    assetUrlCache[assetId] = url;
+    return url;
+  }
+
+  function hydrateAssetElement(el) {
+    var ref = el.getAttribute('data-stw-asset');
+    if (!ref) {
+      return Promise.resolve();
+    }
+
+    var targetAttr = el.getAttribute('data-stw-target-attr') || ASSET_ATTR_BY_TAG[el.tagName] || 'src';
+    return window.stw.getAsset(ref).then(function (url) {
+      if (!url) {
+        return;
+      }
+      el.setAttribute(targetAttr, url);
+      el.removeAttribute('data-stw-asset');
+      if (el.hasAttribute('data-stw-target-attr')) {
+        el.removeAttribute('data-stw-target-attr');
+      }
+    });
+  }
+
+  function hydrateStyleText(text) {
+    var pattern = /url\\(\\s*asset:([^)]+)\\s*\\)/gi;
+    var paths = [];
+    var seen = {};
+    var match;
+    while ((match = pattern.exec(text)) !== null) {
+      var path = match[1].trim();
+      if (!seen[path]) {
+        seen[path] = true;
+        paths.push(path);
+      }
+    }
+
+    if (paths.length === 0) {
+      return Promise.resolve(text);
+    }
+
+    return Promise.all(paths.map(function (path) {
+      return window.stw.getAsset(path);
+    })).then(function (urls) {
+      var index = 0;
+      return text.replace(pattern, function () {
+        var url = urls[index];
+        index += 1;
+        if (!url) {
+          return 'url(about:blank)';
+        }
+        return 'url("' + url + '")';
+      });
+    });
+  }
+
+  function hydrateDomAssets() {
+    var elements = document.querySelectorAll('[data-stw-asset]');
+    var promises = [];
+    for (var i = 0; i < elements.length; i++) {
+      promises.push(hydrateAssetElement(elements[i]));
+    }
+
+    var styleNodes = document.querySelectorAll('style');
+    for (var j = 0; j < styleNodes.length; j++) {
+      (function (styleEl) {
+        var original = styleEl.textContent || '';
+        promises.push(
+          hydrateStyleText(original).then(function (next) {
+            if (next !== original) {
+              styleEl.textContent = next;
+            }
+          })
+        );
+      })(styleNodes[j]);
+    }
+
+    var inlineStyled = document.querySelectorAll('[style*="asset:"]');
+    for (var k = 0; k < inlineStyled.length; k++) {
+      (function (el) {
+        var original = el.getAttribute('style') || '';
+        promises.push(
+          hydrateStyleText(original).then(function (next) {
+            if (next !== original) {
+              el.setAttribute('style', next);
+            }
+          })
+        );
+      })(inlineStyled[k]);
+    }
+
+    return Promise.all(promises);
+  }
+
   window.stw = {
     getState: function () {
       var envelope = window.${WIDGET_STATE_GLOBAL};
@@ -100,16 +258,53 @@ export function buildWidgetStateHead(params: {
     assets: assetRegistry,
     getAsset: function (id) {
       if (typeof id !== 'string' || !id) {
-        return null;
+        return Promise.resolve(null);
       }
-      var url = assetRegistry[id];
-      return url || null;
+
+      var registryPath = resolveRegistryPath(id);
+      if (!registryPath) {
+        return Promise.resolve(null);
+      }
+
+      if (assetUrlCache[registryPath]) {
+        return Promise.resolve(assetUrlCache[registryPath]);
+      }
+
+      return requestAssetBytes(registryPath).then(function (payload) {
+        return createLocalAssetUrl(registryPath, payload.buffer, payload.mimeType);
+      }).catch(function () {
+        return null;
+      });
     }
   };
+
   window.addEventListener('message', function (e) {
-    if (!e.data || e.data.type !== '${WIDGET_APPLY_ACTION}') {
+    if (!e.data) {
       return;
     }
+
+    if (e.data.type === '${WIDGET_ASSET_RESPONSE}') {
+      var pending = pendingAssetRequests[e.data.requestId];
+      if (!pending) {
+        return;
+      }
+      clearTimeout(pending.timer);
+      delete pendingAssetRequests[e.data.requestId];
+      if (!e.data.ok) {
+        pending.reject(new Error(e.data.error || 'asset_request_failed'));
+        return;
+      }
+      pending.resolve({
+        buffer: e.data.buffer,
+        mimeType: e.data.mimeType
+      });
+      return;
+    }
+
+    if (e.data.type !== '${WIDGET_APPLY_ACTION}') {
+      return;
+    }
+
     var result = window.stw.dispatchAction(e.data.action, e.data.params);
     parent.postMessage({
       type: '${WIDGET_ACTION_RESULT}',
@@ -119,6 +314,14 @@ export function buildWidgetStateHead(params: {
       state: result.state
     }, '*');
   });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      void hydrateDomAssets();
+    });
+  } else {
+    void hydrateDomAssets();
+  }
 })();
 </script>`;
 }
