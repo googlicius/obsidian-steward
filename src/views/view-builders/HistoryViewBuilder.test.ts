@@ -127,4 +127,50 @@ describe('HistoryViewBuilder', () => {
       expect(result).toBe('Meeting with `#team`');
     });
   });
+
+  describe('buildCreatedAtMarkup', () => {
+    let buildCreatedAtMarkup: HistoryViewBuilder['buildCreatedAtMarkup'];
+
+    beforeEach(() => {
+      buildCreatedAtMarkup = historyViewBuilder['buildCreatedAtMarkup'].bind(historyViewBuilder);
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-06-07T12:00:00.000Z'));
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should return empty string when created_at is missing', () => {
+      const mockFile = getInstance(TFile, {
+        path: 'Steward/Conversations/my-conversation.md',
+        name: 'my-conversation.md',
+        basename: 'my-conversation',
+        extension: 'md',
+      });
+      mockPlugin.app.metadataCache.getFileCache = jest.fn().mockReturnValue(null);
+
+      expect(buildCreatedAtMarkup(mockFile)).toBe('');
+    });
+
+    it('should render relative time from created_at frontmatter', () => {
+      const mockFile = getInstance(TFile, {
+        path: 'Steward/Conversations/my-conversation.md',
+        name: 'my-conversation.md',
+        basename: 'my-conversation',
+        extension: 'md',
+      });
+      mockPlugin.app.metadataCache.getFileCache = jest.fn().mockReturnValue({
+        frontmatter: {
+          created_at: '2026-06-06T23:01:01.475Z',
+        },
+      });
+
+      const result = buildCreatedAtMarkup(mockFile);
+
+      expect(result).toContain('class="stw-history-created"');
+      expect(result).toContain('title="');
+      expect(result).toMatch(/13 hours ago|12 hours ago/);
+    });
+  });
 });

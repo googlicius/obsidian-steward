@@ -1,6 +1,7 @@
 import type { App } from 'obsidian';
 import { TFile } from 'obsidian';
 import type StewardPlugin from 'src/main';
+import { formatRelativeTime, parseFrontmatterDate } from 'src/utils/dateUtils';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import type { ViewBuilder } from './ViewBuilder';
 
@@ -38,7 +39,7 @@ export class HistoryViewBuilder implements ViewBuilder {
         return true;
       })
       .sort((a, b) => {
-        return b.stat.mtime - a.stat.mtime;
+        return this.getConversationTimestamp(b) - this.getConversationTimestamp(a);
       })
       .slice(0, MAX_HISTORY_ITEMS);
 
@@ -49,8 +50,11 @@ export class HistoryViewBuilder implements ViewBuilder {
     const lines: string[] = [];
     for (const file of conversationFiles) {
       const displayText = this.buildHistoryDisplayText(file);
+      const createdAtMarkup = this.buildCreatedAtMarkup(file);
       const linkPath = file.path.replace(/\.md$/, '');
-      lines.push(`- <a class="stw-history-link" data-path="${linkPath}">${displayText}</a>`);
+      lines.push(
+        `- <a class="stw-history-link" data-path="${linkPath}">${displayText}</a>${createdAtMarkup}`
+      );
     }
 
     return lines.join('\n');
@@ -68,6 +72,16 @@ export class HistoryViewBuilder implements ViewBuilder {
     await this.app.vault.create(historyNotePath, content);
   }
 
+  private getConversationTimestamp(file: TFile): number {
+    const cache = this.app.metadataCache.getFileCache(file);
+    const createdAt = parseFrontmatterDate(cache?.frontmatter?.created_at);
+    if (createdAt) {
+      return createdAt.getTime();
+    }
+
+    return file.stat.mtime;
+  }
+
   private buildHistoryDisplayText(file: TFile): string {
     const cache = this.app.metadataCache.getFileCache(file);
     const rawTitle = cache?.frontmatter?.conversation_title;
@@ -77,5 +91,22 @@ export class HistoryViewBuilder implements ViewBuilder {
 
     // Wrap Obsidian tag-like tokens so they are rendered as plain text.
     return rawTitle.replace(/(^|\s)(#[\p{L}\p{N}_/-]+)/gu, '$1`$2`');
+  }
+
+  private buildCreatedAtMarkup(file: TFile): string {
+    const cache = this.app.metadataCache.getFileCache(file);
+    const createdAt = parseFrontmatterDate(cache?.frontmatter?.created_at);
+    if (!createdAt) {
+      return '';
+    }
+
+    const locale = i18next.language || 'en';
+    const relativeTime = formatRelativeTime(createdAt, locale);
+    const absoluteTime = new Intl.DateTimeFormat(locale, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(createdAt);
+
+    return ` <span class="stw-history-created" title="${absoluteTime}">${relativeTime}</span>`;
   }
 }

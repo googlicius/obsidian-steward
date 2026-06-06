@@ -643,18 +643,27 @@ describe('WidgetService', () => {
       });
       const service = WidgetService.getInstance(plugin);
       let capturedRequestId = '';
+      const sendApplyAction = (payload: {
+        action: string;
+        params: Record<string, unknown>;
+        requestId: string;
+      }) => {
+        capturedRequestId = payload.requestId;
+        service.setRegisteredActions({
+          projectPath,
+          sendApplyAction,
+          actions: ['playCell'],
+        });
+        service.resolveActionResult({
+          requestId: payload.requestId,
+          ok: true,
+          state: { cells: Array(9).fill(null) },
+        });
+      };
 
       const unregister = service.registerActionBridge({
         projectPath,
-        sendApplyAction: payload => {
-          capturedRequestId = payload.requestId;
-          service.setRegisteredActions(projectPath, ['playCell']);
-          service.resolveActionResult({
-            requestId: payload.requestId,
-            ok: true,
-            state: { cells: Array(9).fill(null) },
-          });
-        },
+        sendApplyAction,
       });
 
       const result = await service.applyAction({
@@ -728,6 +737,101 @@ describe('WidgetService', () => {
 
       expect(result.ok).toBe(false);
       expect(result.error).toContain('Missing required param "index"');
+    });
+
+    it('keeps other bridges when one mount unregisters', async () => {
+      const { plugin } = createProjectTestPlugin({
+        initialFiles: {
+          [`${projectPath}/Widget.md`]: actionsWidgetMd,
+        },
+      });
+      const service = WidgetService.getInstance(plugin);
+
+      const primarySendApplyAction = (payload: {
+        action: string;
+        params: Record<string, unknown>;
+        requestId: string;
+      }) => {
+        service.setRegisteredActions({
+          projectPath,
+          sendApplyAction: primarySendApplyAction,
+          actions: ['playCell'],
+        });
+        service.resolveActionResult({
+          requestId: payload.requestId,
+          ok: true,
+        });
+      };
+
+      const unregisterSecondary = service.registerActionBridge({
+        projectPath,
+        sendApplyAction: () => {
+          throw new Error('secondary bridge should not receive dispatch');
+        },
+      });
+      const unregisterPrimary = service.registerActionBridge({
+        projectPath,
+        sendApplyAction: primarySendApplyAction,
+      });
+
+      unregisterSecondary();
+
+      const result = await service.applyAction({
+        projectPath,
+        action: 'playCell',
+        actionParams: { index: 2 },
+      });
+
+      unregisterPrimary();
+      expect(result.ok).toBe(true);
+    });
+  });
+
+  describe('project view note', () => {
+    const widgetId = 'Tic-Tac-Toe-abc12';
+    const projectPath = `Steward/Widgets/${widgetId}`;
+
+    it('builds markdown with only the project fence', () => {
+      const { plugin } = createProjectTestPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      const content = service.buildProjectViewContent({ widgetId });
+
+      expect(content).not.toContain('#');
+      expect(content).toBe('```stw-widget-project\nTic-Tac-Toe-abc12\n```');
+    });
+
+    it('uses the widget name for the generated note path', () => {
+      const { plugin } = createProjectTestPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      expect(service.getProjectViewPath({ widgetId, widgetName: 'Tic Tac Toe' })).toBe(
+        `${projectPath}/Tic Tac Toe.md`
+      );
+    });
+
+    it('creates and updates the widget reading note under the project folder', async () => {
+      const { plugin, files } = createProjectTestPlugin({
+        initialFiles: {
+          [`${projectPath}/Widget.md`]: [
+            '```yaml',
+            'name: manifest',
+            'entry: index.html',
+            'type: html',
+            'widgetName: Tic Tac Toe',
+            '```',
+          ].join('\n'),
+        },
+      });
+      const service = WidgetService.getInstance(plugin);
+
+      const viewPath = await service.ensureProjectView({ widgetId });
+
+      expect(viewPath).toBe(`${projectPath}/Tic Tac Toe.md`);
+      expect(files.get(viewPath)).toBe('```stw-widget-project\nTic-Tac-Toe-abc12\n```');
+
+      await service.ensureProjectView({ widgetId });
+      expect(plugin.app.vault.modify).toHaveBeenCalled();
     });
   });
 

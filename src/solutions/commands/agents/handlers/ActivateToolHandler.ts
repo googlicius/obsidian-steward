@@ -107,7 +107,7 @@ export class ActivateToolHandler {
 
     if (statusMessage) {
       await ctx.updateConversationNote({
-        newContent: `*${statusMessage}*`,
+        newContent: `<small>*${statusMessage}*</small>`,
         agent,
         command: 'activate-tools',
         includeHistory: false,

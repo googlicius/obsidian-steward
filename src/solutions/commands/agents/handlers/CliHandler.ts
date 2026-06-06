@@ -489,7 +489,7 @@ export class CliHandler {
         return `${content.trimEnd()}\n\n${CLI_XTERM_MARKER}\n`;
       });
     } else {
-      const initialBody = i18next.t('cli.shellTranscriptIntro');
+      const initialBody = `<small>*${i18next.t('cli.shellTranscriptIntro')}*</small>`;
       const fenceLang = isModelCall ? 'cli-model' : 'cli-transcript';
       const newContent = `${initialBody}\n\n\`\`\`${fenceLang}\n${getCliStreamMarkerPlaceholder()}\n\`\`\`\n`;
 

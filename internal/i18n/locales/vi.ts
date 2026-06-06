@@ -48,6 +48,7 @@ const vi = {
       or: 'hoặc',
       skipped: 'Đã bỏ qua',
       view: 'Xem',
+      openInNewTab: 'Mở trong tab mới',
     },
     community: {
       browseCommands: 'Xem lệnh được đóng góp từ cộng đồng',

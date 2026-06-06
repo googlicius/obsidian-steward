@@ -265,6 +265,14 @@ pre:has(> code.language-cli-model) {
         }
       }
 
+      .stw-history-created {
+        flex-shrink: 0;
+        font-size: var(--font-ui-smaller);
+        color: var(--text-faint);
+        white-space: nowrap;
+        line-height: 1.35;
+      }
+
       .stw-history-delete-button {
         margin-left: auto;
         opacity: 0;

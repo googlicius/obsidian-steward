@@ -746,10 +746,6 @@ export default class StewardPlugin extends Plugin {
         const title = this.sanitizeVaultNoteTitle(rawTitle);
 
         const conversationLanguage = getLanguage();
-        // const indicatorText = this.conversationRenderer.getIndicatorTextByIntentType(
-        //   intentType,
-        //   conversationLanguage
-        // );
         await this.conversationRenderer.createConversationNote(title, {
           intent: {
             type: intentType,
@@ -905,6 +901,18 @@ export default class StewardPlugin extends Plugin {
     } catch (error) {
       logger.error('Error opening reading view:', error);
     }
+  }
+
+  /** Opens a markdown file in {@link ReadingView} without replacing the active steward leaf. */
+  public async openReadingViewInNewTab({
+    filePath,
+    revealLeaf = true,
+  }: {
+    filePath: string;
+    revealLeaf?: boolean;
+  }): Promise<void> {
+    const leaf = this.app.workspace.getLeaf('tab');
+    await this.openReadingView({ filePath, leaf, revealLeaf });
   }
 
   public async startNewChat(leaf: WorkspaceLeaf): Promise<void> {

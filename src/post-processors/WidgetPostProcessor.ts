@@ -1,5 +1,6 @@
-import { MarkdownPostProcessor } from 'obsidian';
+import { MarkdownPostProcessor, normalizePath } from 'obsidian';
 import type StewardPlugin from 'src/main';
+import { getBundledInternal } from 'src/utils/bundledInternals';
 import {
   getWidgetFenceLanguage,
   type WidgetType,
@@ -15,8 +16,11 @@ import {
   WIDGET_ASSET_RESPONSE,
   WIDGET_RESIZE,
   WIDGET_STATE_SAVE,
+  type WidgetActionBridgeHandle,
 } from 'src/services/WidgetService';
 import { logger } from 'src/utils/logger';
+
+const { i18next } = getBundledInternal('i18n');
 
 const WIDGET_FENCE_SELECTOR = WIDGET_TYPES.map(
   t => `pre > code.language-${getWidgetFenceLanguage(t)}`
@@ -177,7 +181,8 @@ function mountWidget(pre: HTMLElement, type: WidgetType, code: string): void {
 async function mountWidgetProject(
   pre: HTMLElement,
   code: HTMLElement,
-  plugin: StewardPlugin
+  plugin: StewardPlugin,
+  sourcePath: string
 ): Promise<void> {
   if (pre.dataset.stwWidgetMounted === '1') return;
   const parsed = plugin.widgetService.parseProjectFenceContent(code.textContent ?? '');
@@ -193,6 +198,7 @@ async function mountWidgetProject(
   let teardownIframe: (() => void) | undefined;
   let unregister: (() => void) | undefined;
   let unregisterActionBridge: (() => void) | undefined;
+  let sendApplyAction: WidgetActionBridgeHandle['sendApplyAction'] | undefined;
 
   watchRemoval(container, () => {
     teardownIframe?.();
@@ -204,6 +210,13 @@ async function mountWidgetProject(
   try {
     const { widgetService } = plugin;
     const projectPath = parsed.projectPath;
+    const def = await widgetService.definitionService.getWidgetDefinition(projectPath);
+    const widgetName = def.manifest?.widgetName?.trim() || parsed.widgetId;
+    const viewPath = widgetService.getProjectViewPath({
+      widgetId: parsed.widgetId,
+      widgetName,
+    });
+    const isDedicatedView = normalizePath(sourcePath) === normalizePath(viewPath);
 
     const buildSrcdoc = async (html: string, assets: Record<string, string>) => {
       const state = await widgetService.stateService.readState(projectPath);
@@ -235,20 +248,21 @@ async function mountWidgetProject(
       projectPath,
       refresh,
     });
+    sendApplyAction = payload => {
+      const iframe = container.querySelector<HTMLIFrameElement>('iframe.stw-widget-frame');
+      iframe?.contentWindow?.postMessage(
+        {
+          type: WIDGET_APPLY_ACTION,
+          action: payload.action,
+          params: payload.params,
+          requestId: payload.requestId,
+        },
+        '*'
+      );
+    };
     unregisterActionBridge = widgetService.registerActionBridge({
       projectPath,
-      sendApplyAction: payload => {
-        const iframe = container.querySelector<HTMLIFrameElement>('iframe.stw-widget-frame');
-        iframe?.contentWindow?.postMessage(
-          {
-            type: WIDGET_APPLY_ACTION,
-            action: payload.action,
-            params: payload.params,
-            requestId: payload.requestId,
-          },
-          '*'
-        );
-      },
+      sendApplyAction,
     });
     teardownIframe = mountIframe(container, 'html', bundled.html, {
       extraHead: widgetService.stateService.buildStateHead(initialState, bundled.assets),
@@ -259,7 +273,14 @@ async function mountWidgetProject(
         widgetService.resolveActionResult(data);
       },
       onActionsRegistered: actions => {
-        widgetService.setRegisteredActions(projectPath, actions);
+        if (!sendApplyAction) {
+          return;
+        }
+        widgetService.setRegisteredActions({
+          projectPath,
+          sendApplyAction,
+          actions,
+        });
       },
       onAssetRequest: data => {
         const iframe = container.querySelector<HTMLIFrameElement>('iframe.stw-widget-frame');
@@ -295,18 +316,46 @@ async function mountWidgetProject(
         });
       },
     });
+
+    if (!isDedicatedView) {
+      appendOpenDedicatedViewLink(container, plugin, parsed.widgetId);
+    }
   } catch (e) {
     logger.error('Failed to mount widget project:', e);
     container.textContent = 'Failed to load widget project.';
   }
 }
 
+function appendOpenDedicatedViewLink(
+  container: HTMLElement,
+  plugin: StewardPlugin,
+  widgetId: string
+): void {
+  const smallEl = document.createElement('small');
+  smallEl.classList.add('italic');
+
+  const linkEl = document.createElement('a');
+  linkEl.href = '#';
+  linkEl.textContent = i18next.t('common.openInNewTab');
+  linkEl.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    void (async () => {
+      const filePath = await plugin.widgetService.ensureProjectView({ widgetId });
+      await plugin.openReadingViewInNewTab({ filePath });
+    })();
+  });
+
+  smallEl.appendChild(linkEl);
+  container.appendChild(smallEl);
+}
+
 export function createWidgetPostProcessor(plugin: StewardPlugin): MarkdownPostProcessor {
-  return el => {
+  return (el, ctx) => {
     window.setTimeout(() => {
       el.querySelectorAll<HTMLElement>(WIDGET_PROJECT_FENCE_SELECTOR).forEach(code => {
         const pre = code.parentElement;
-        if (pre?.tagName === 'PRE') void mountWidgetProject(pre, code, plugin);
+        if (pre?.tagName === 'PRE') void mountWidgetProject(pre, code, plugin, ctx.sourcePath);
       });
 
       el.querySelectorAll<HTMLElement>(WIDGET_FENCE_SELECTOR).forEach(code => {

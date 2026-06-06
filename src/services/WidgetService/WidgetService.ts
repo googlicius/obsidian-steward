@@ -42,7 +42,7 @@ interface MountedWidgetEntry {
   refresh: () => Promise<void>;
 }
 
-interface WidgetActionBridge {
+interface WidgetActionBridgeEntry {
   sendApplyAction: WidgetActionBridgeHandle['sendApplyAction'];
   registeredActions: string[];
 }
@@ -61,7 +61,7 @@ export class WidgetService {
   private readonly bundler: WidgetBundler;
   public readonly jsValidator: WidgetJsValidator;
   private readonly mountedByPath = new Map<string, Set<MountedWidgetEntry>>();
-  private readonly actionBridgeByPath = new Map<string, WidgetActionBridge>();
+  private readonly actionBridgeEntriesByPath = new Map<string, Set<WidgetActionBridgeEntry>>();
   private readonly pendingActionRequests = new Map<string, PendingActionRequest>();
   private modifyListenerRegistered = false;
   private readonly _definitionService: WidgetDefinitionService;
@@ -108,6 +108,47 @@ export class WidgetService {
   /** Absolute vault path for one widget project: `{widgetsRoot}/{widgetId}`. */
   public getProjectPath(params: { widgetId: string }): string {
     return normalizePath(`${this.getWidgetsRootPath()}/${params.widgetId}`);
+  }
+
+  /** Sanitizes a widget display name for use as a vault note filename (without extension). */
+  public sanitizeWidgetViewFileName(widgetName: string): string {
+    return widgetName.trim().replace(/[\\/:*?"<>|]/g, '');
+  }
+
+  /** Vault path for the generated widget reading note: `{projectPath}/{widgetName}.md`. */
+  public getProjectViewPath(params: { widgetId: string; widgetName: string }): string {
+    const fileBaseName =
+      this.sanitizeWidgetViewFileName(params.widgetName) || params.widgetId;
+    return normalizePath(`${this.getProjectPath({ widgetId: params.widgetId })}/${fileBaseName}.md`);
+  }
+
+  /** Markdown body for the generated widget reading note. */
+  public buildProjectViewContent(params: { widgetId: string }): string {
+    return `\`\`\`${WIDGET_PROJECT_FENCE_LANGUAGE}\n${params.widgetId}\n\`\`\``;
+  }
+
+  /**
+   * Creates or updates the generated widget reading note and returns its vault path.
+   */
+  public async ensureProjectView(params: { widgetId: string }): Promise<string> {
+    const projectPath = this.getProjectPath({ widgetId: params.widgetId });
+    const def = await this.definitionService.getWidgetDefinition(projectPath);
+    const widgetName = def.manifest?.widgetName?.trim() || params.widgetId;
+    const viewPath = this.getProjectViewPath({
+      widgetId: params.widgetId,
+      widgetName,
+    });
+    const content = this.buildProjectViewContent({ widgetId: params.widgetId });
+
+    const existing = this.plugin.app.vault.getFileByPath(viewPath);
+    if (existing) {
+      await this.plugin.app.vault.modify(existing, content);
+      return viewPath;
+    }
+
+    await this.plugin.obsidianAPITools.ensureFolderExists(projectPath);
+    await this.plugin.app.vault.create(viewPath, content);
+    return viewPath;
   }
 
   /** Whether a vault path is under the widget projects root. */
@@ -401,26 +442,69 @@ export class WidgetService {
    */
   public registerActionBridge(handle: WidgetActionBridgeHandle): () => void {
     const normalizedPath = normalizePath(handle.projectPath);
-    this.actionBridgeByPath.set(normalizedPath, {
+    const entry: WidgetActionBridgeEntry = {
       sendApplyAction: handle.sendApplyAction,
       registeredActions: [],
-    });
+    };
+
+    let entries = this.actionBridgeEntriesByPath.get(normalizedPath);
+    if (!entries) {
+      entries = new Set();
+      this.actionBridgeEntriesByPath.set(normalizedPath, entries);
+    }
+    entries.add(entry);
 
     return () => {
-      this.actionBridgeByPath.delete(normalizedPath);
+      const current = this.actionBridgeEntriesByPath.get(normalizedPath);
+      if (!current) {
+        return;
+      }
+      current.delete(entry);
+      if (current.size === 0) {
+        this.actionBridgeEntriesByPath.delete(normalizedPath);
+      }
     };
   }
 
-  /** Records action names registered inside the iframe via window.stw.registerAction. */
-  public setRegisteredActions(projectPath: string, actions: string[]): void {
-    const bridge = this.actionBridgeByPath.get(normalizePath(projectPath));
-    if (!bridge) {
+  /** Records action names registered inside one mounted iframe via window.stw.registerAction. */
+  public setRegisteredActions(params: {
+    projectPath: string;
+    sendApplyAction: WidgetActionBridgeHandle['sendApplyAction'];
+    actions: string[];
+  }): void {
+    const normalizedPath = normalizePath(params.projectPath);
+    const entries = this.actionBridgeEntriesByPath.get(normalizedPath);
+    if (!entries) {
       return;
     }
 
-    bridge.registeredActions = [...actions];
+    for (const entry of entries) {
+      if (entry.sendApplyAction !== params.sendApplyAction) {
+        continue;
+      }
 
-    void this.warnUnregisteredCatalogActions(projectPath, bridge.registeredActions);
+      entry.registeredActions = [...params.actions];
+      void this.warnUnregisteredCatalogActions(normalizedPath, entry.registeredActions);
+      return;
+    }
+  }
+
+  private resolveActionBridgeEntry(params: {
+    projectPath: string;
+    action: string;
+  }): WidgetActionBridgeEntry | null {
+    const entries = this.actionBridgeEntriesByPath.get(normalizePath(params.projectPath));
+    if (!entries || entries.size === 0) {
+      return null;
+    }
+
+    for (const entry of entries) {
+      if (entry.registeredActions.length === 0 || entry.registeredActions.includes(params.action)) {
+        return entry;
+      }
+    }
+
+    return null;
   }
 
   /** Resolves a pending applyAction request from a WIDGET_ACTION_RESULT message. */
@@ -468,12 +552,15 @@ export class WidgetService {
       return { ok: false, error: validation.errors.join('; ') };
     }
 
-    const bridge = this.actionBridgeByPath.get(normalizedPath);
+    const bridge = this.resolveActionBridgeEntry({
+      projectPath: normalizedPath,
+      action: params.action,
+    });
     if (!bridge) {
-      return { ok: false, error: 'widget_not_mounted' };
-    }
-
-    if (bridge.registeredActions.length > 0 && !bridge.registeredActions.includes(params.action)) {
+      const entries = this.actionBridgeEntriesByPath.get(normalizedPath);
+      if (!entries || entries.size === 0) {
+        return { ok: false, error: 'widget_not_mounted' };
+      }
       return { ok: false, error: `action_not_registered:${params.action}` };
     }
 

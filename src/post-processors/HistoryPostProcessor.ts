@@ -16,7 +16,7 @@ function removeHistoryLinkFromContent(params: {
   const updatedLines: string[] = [];
   const escapedPath = conversationPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const linePattern = new RegExp(
-    `^\\s*(?:-\\s*)?<a[^>]*\\bdata-path="${escapedPath}"[^>]*>.*<\\/a>\\s*$`
+    `^\\s*(?:-\\s*)?<a[^>]*\\bdata-path="${escapedPath}"[^>]*>.*<\\/a>(?:\\s*<span[^>]*\\bclass="[^"]*stw-history-created[^"]*"[^>]*>.*?<\\/span>)?\\s*$`
   );
 
   for (const line of historyLines) {
@@ -102,7 +102,19 @@ export function createHistoryPostProcessor(plugin: StewardPlugin): MarkdownPostP
         historyItem = document.createElement('div');
         historyItem.classList.add('stw-history-item');
         parentEl.insertBefore(historyItem, linkEl);
+
+        let createdEl: HTMLElement | null = null;
+        if (
+          linkEl.nextElementSibling instanceof HTMLElement &&
+          linkEl.nextElementSibling.classList.contains('stw-history-created')
+        ) {
+          createdEl = linkEl.nextElementSibling;
+        }
+
         historyItem.appendChild(linkEl);
+        if (createdEl) {
+          historyItem.appendChild(createdEl);
+        }
       }
 
       linkEl.classList.add('stw-history-link');

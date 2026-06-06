@@ -52,6 +52,7 @@ const en = {
       or: 'or',
       skipped: 'Skipped',
       view: 'View',
+      openInNewTab: 'Open in new tab',
     },
     community: {
       browseCommands: 'Browse community commands',

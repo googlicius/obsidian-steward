@@ -48,6 +48,7 @@ const ja = {
       and: 'と',
       or: 'または',
       view: '表示',
+      openInNewTab: '新しいタブで開く',
     },
     community: {
       browseCommands: 'コミュニティコマンドを見る',
