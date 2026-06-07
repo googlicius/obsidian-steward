@@ -5,6 +5,25 @@ All notable changes to Obsidian Steward will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.0] - 2026-06-07
+
+### Added
+
+- **Widget**: Add widget tool for inline HTML and SVG visualizations, interactive demos, and project widgets under `Steward/Widgets/`
+- **Memory**: `ToolInstructionService` for tool-level guidelines
+- **Read**: Plain-text file reading with line-number prefix; improved edit preview formatting
+- **Tools**: Declarative companion mechanism replaces hardcoded dependent tools
+- **Agents**: Detect when the AI model calls a tool not in the active tool set and abort the stream early, returning a synthetic `NoSuchToolError` (prevents wasted LLM inference on orphaned tool calls)
+
+### Changed
+
+- **System prompt**: Restructure into MarkdownBuilder sections
+- **Compaction**: Replace `ShellCompactor` with `RecallCompactedContextCompactor` for general tool result compaction; add output metrics and batch context
+- **Views**: Replace `StewardChatView` with `ChatView`/`ReadingView`; replace `EmbedViews` with `ViewBuilders`
+- **Image**: `imageVisionNotice` is attached to results so the agent can decide whether to warn or continue
+
+[Full Changelog](https://github.com/googlicius/obsidian-steward/compare/2.9.0...2.10.0)
+
 ## [2.9.0] - 2026-05-23
 
 ### Added

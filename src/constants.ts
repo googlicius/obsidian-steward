@@ -167,7 +167,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     modelContextLengths: {},
     temperature: 0.2,
     ollamaBaseUrl: 'http://localhost:11434/api', // Deprecated: use providerConfigs instead
-    maxGenerationTokens: 2048, // Default max tokens for generation
+    maxGenerationTokens: 8000, // Default max tokens for generation
     image: {
       model: 'openai:dall-e-3',
       customModels: [],

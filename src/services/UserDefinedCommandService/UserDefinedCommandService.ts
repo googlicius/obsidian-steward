@@ -1,11 +1,4 @@
-import {
-  getLanguage,
-  normalizePath,
-  Notice,
-  TAbstractFile,
-  TFile,
-  TFolder,
-} from 'obsidian';
+import { getLanguage, normalizePath, Notice, TAbstractFile, TFile, TFolder } from 'obsidian';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';

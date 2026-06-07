@@ -49,6 +49,8 @@ const vi = {
       skipped: 'Đã bỏ qua',
       view: 'Xem',
       openInNewTab: 'Mở trong tab mới',
+      saveAsArtifact: 'Lưu thành artifact',
+      artifactSaved: 'Đã lưu artifact "{{name}}"',
     },
     community: {
       browseCommands: 'Xem lệnh được đóng góp từ cộng đồng',

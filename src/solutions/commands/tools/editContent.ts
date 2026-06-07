@@ -166,14 +166,12 @@ export const replaceByLinesSchema = z.object(
   {
     mode: z.literal('replace_by_lines'),
     path: z.string().describe('The path of the EXISTING note to edit.'),
-    content: z
-      .string()
-      .describe(
-        `Only the specific part of the content that needs to be updated, without any surrounding context.
+    content: z.string().describe(
+      `Only the specific part of the content that needs to be updated, without any surrounding context.
 Examples:
 - For text edits: Return only the changed sentences/paragraphs, not surrounding content
 - For list updates: Return only the added/modified list items, not the entire list.`
-      ),
+    ),
     fromLine: z
       .number()
       .optional()

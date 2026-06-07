@@ -1,10 +1,7 @@
 import { TFile } from 'obsidian';
 import { getInstance } from 'src/utils/getInstance';
 import type StewardPlugin from 'src/main';
-import {
-  MarkdownDefinitionService,
-  stringifyYamlFence,
-} from './MarkdownDefinitionService';
+import { MarkdownDefinitionService, stringifyYamlFence } from './MarkdownDefinitionService';
 
 function buildMarkdownSections(content: string) {
   const lines = content.split('\n');
@@ -99,15 +96,9 @@ describe('MarkdownDefinitionService', () => {
     it('ignores non-yaml fences and blocks that fail isMatch', () => {
       const plugin = createTestPlugin();
       const service = MarkdownDefinitionService.getInstance(plugin);
-      const content = [
-        '```js',
-        'console.log(1)',
-        '```',
-        '',
-        '```yaml',
-        'name: other',
-        '```',
-      ].join('\n');
+      const content = ['```js', 'console.log(1)', '```', '', '```yaml', 'name: other', '```'].join(
+        '\n'
+      );
       const file = getInstance(TFile, { path: 'test.md', extension: 'md' });
 
       plugin.app.metadataCache.getFileCache = jest.fn().mockReturnValue({

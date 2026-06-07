@@ -49,6 +49,8 @@ const ja = {
       or: 'または',
       view: '表示',
       openInNewTab: '新しいタブで開く',
+      saveAsArtifact: 'アーティファクトとして保存',
+      artifactSaved: 'アーティファクト「{{name}}」を保存しました',
     },
     community: {
       browseCommands: 'コミュニティコマンドを見る',

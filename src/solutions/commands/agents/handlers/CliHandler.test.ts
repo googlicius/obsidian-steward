@@ -264,8 +264,7 @@ describe('CliHandler', () => {
       expect(mockAgent.renderer.updateConversationNote).toHaveBeenCalledWith(
         expect.objectContaining({
           path: 'Conv-G',
-          newContent:
-            '\n```shell\n# I will print a greeting to the shell output.\necho hi\n```',
+          newContent: '\n```shell\n# I will print a greeting to the shell output.\necho hi\n```',
           role: 'Steward',
           includeHistory: false,
         })

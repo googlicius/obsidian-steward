@@ -542,6 +542,9 @@ export default class StewardPlugin extends Plugin {
     // Register the custom view type
     this.registerView(CHAT_VIEW_CONFIG.type, leaf => new ChatView(leaf, this));
     this.registerView(READING_VIEW_CONFIG.type, leaf => new ReadingView(leaf, this));
+
+    // Register custom extensions
+    this.registerExtensions(['art'], READING_VIEW_CONFIG.type);
   }
 
   private async initializeClassifier() {
@@ -1223,6 +1226,8 @@ export default class StewardPlugin extends Plugin {
         // Ensure MCP folder exists for MCP definitions
         const mcpFolder = `${this.settings.stewardFolder}/MCP`;
         await this.obsidianAPITools.ensureFolderExists(mcpFolder);
+
+        await this.widgetService.ensureArtifactsFolder();
 
         await this.toolInstructionService.ensureMemoryFolderAndDefaultFile();
 

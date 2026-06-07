@@ -8,6 +8,7 @@ version: 2
 tools:
   - edit
 ---
+
 # Edit Table Skill
 
 Use this skill when editing **markdown tables** with the `edit` tool. Prefer the table-specific modes over `replace_by_lines` — they are faster and use fewer tokens, especially for **large tables (more than 20 rows)**.
@@ -24,11 +25,11 @@ For small, non-tabular edits inside a table row, `replace_by_lines` may still be
 
 All table modes require:
 
-| Field | Description |
-|-------|-------------|
-| `path` | Path of the **existing** note containing the table. |
-| `fromLine` | Starting line (0-based) of the table in the note. |
-| `toLine` | Ending line (0-based) of the table in the note. |
+| Field      | Description                                         |
+| ---------- | --------------------------------------------------- |
+| `path`     | Path of the **existing** note containing the table. |
+| `fromLine` | Starting line (0-based) of the table in the note.   |
+| `toLine`   | Ending line (0-based) of the table in the note.     |
 
 Use `content_reading` first if you need to locate the table or confirm line numbers.
 
@@ -40,12 +41,12 @@ Add a new column to the table.
 
 **Extra fields:**
 
-| Field | Description |
-|-------|-------------|
-| `content` | New column in Markdown: header, separator (`---`), then one value per data row (newline-separated). Example: `Status\n---\nPending\nDone` |
-| `insertAfter` | Optional. Column header name to insert after. |
-| `insertBefore` | Optional. Column header name to insert before. |
-| *(placement)* | If both `insertAfter` and `insertBefore` are omitted, the column is added at the end. |
+| Field          | Description                                                                                                                               |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `content`      | New column in Markdown: header, separator (`---`), then one value per data row (newline-separated). Example: `Status\n---\nPending\nDone` |
+| `insertAfter`  | Optional. Column header name to insert after.                                                                                             |
+| `insertBefore` | Optional. Column header name to insert before.                                                                                            |
+| _(placement)_  | If both `insertAfter` and `insertBefore` are omitted, the column is added at the end.                                                     |
 
 Return **only the new column** (header + separator + values), not the entire table.
 
@@ -55,9 +56,9 @@ Update an existing column (header, values, or both).
 
 **Extra fields:**
 
-| Field | Description |
-|-------|-------------|
-| `content` | Edited column in the same format as `add_table_column`. |
+| Field      | Description                                                                |
+| ---------- | -------------------------------------------------------------------------- |
+| `content`  | Edited column in the same format as `add_table_column`.                    |
 | `position` | Optional. 0-based column index to update. Defaults to the **last** column. |
 
 Return **only the updated column**, not the entire table.
@@ -68,8 +69,8 @@ Remove a column from the table.
 
 **Extra fields:**
 
-| Field | Description |
-|-------|-------------|
+| Field      | Description                                                                |
+| ---------- | -------------------------------------------------------------------------- |
 | `position` | Optional. 0-based column index to delete. Defaults to the **last** column. |
 
 No `content` field — the column is removed by position.

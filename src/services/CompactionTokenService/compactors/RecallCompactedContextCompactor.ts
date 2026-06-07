@@ -66,9 +66,7 @@ function buildRecallGuidance(params: {
   }
 
   const nearBatchEnd =
-    batch &&
-    batch.entryCount > 0 &&
-    batch.entryIndex >= batch.entryCount - NEAR_BATCH_END_ENTRIES;
+    batch && batch.entryCount > 0 && batch.entryIndex >= batch.entryCount - NEAR_BATCH_END_ENTRIES;
   if (nearBatchEnd && (isLarge || overlapIds.length > 0)) {
     guidance.push(
       'This recall ran near the end of the history window that is being compacted; treat the recalled payload as time-sensitive and process it immediately in your next turn.'

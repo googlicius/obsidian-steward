@@ -19,10 +19,7 @@ const ASSET_POSTER_PLACEHOLDER_PATTERN = /\bposter=(["'])asset:([^"']+)\1/gi;
 export class WidgetBundler {
   constructor(private readonly plugin: StewardPlugin) {}
 
-  public async bundle(params: {
-    projectPath: string;
-    entryRelativePath: string;
-  }): Promise<string> {
+  public async bundle(params: { projectPath: string; entryRelativePath: string }): Promise<string> {
     const entryPath = normalizePath(`${params.projectPath}/${params.entryRelativePath}`);
     const entryContent = await this.readProjectFile(entryPath, params.projectPath);
     if (entryContent === null) {

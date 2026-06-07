@@ -791,14 +791,19 @@ describe('WidgetService', () => {
     const widgetId = 'Tic-Tac-Toe-abc12';
     const projectPath = `Steward/Widgets/${widgetId}`;
 
-    it('builds markdown with only the project fence', () => {
+    it('builds markdown with widgetName frontmatter and the project fence', () => {
       const { plugin } = createProjectTestPlugin();
       const service = WidgetService.getInstance(plugin);
 
-      const content = service.buildProjectViewContent({ widgetId });
+      const content = service.buildProjectViewContent({
+        widgetId,
+        widgetName: 'Tic Tac Toe',
+      });
 
       expect(content).not.toContain('#');
-      expect(content).toBe('```stw-widget-project\nTic-Tac-Toe-abc12\n```');
+      expect(content).toBe(
+        '---\nwidgetName: "Tic Tac Toe"\n---\n\n```stw-widget-project\nTic-Tac-Toe-abc12\n```'
+      );
     });
 
     it('uses the widget name for the generated note path', () => {
@@ -828,7 +833,9 @@ describe('WidgetService', () => {
       const viewPath = await service.ensureProjectView({ widgetId });
 
       expect(viewPath).toBe(`${projectPath}/Tic Tac Toe.md`);
-      expect(files.get(viewPath)).toBe('```stw-widget-project\nTic-Tac-Toe-abc12\n```');
+      expect(files.get(viewPath)).toBe(
+        '---\nwidgetName: "Tic Tac Toe"\n---\n\n```stw-widget-project\nTic-Tac-Toe-abc12\n```'
+      );
 
       await service.ensureProjectView({ widgetId });
       expect(plugin.app.vault.modify).toHaveBeenCalled();

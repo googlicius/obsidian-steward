@@ -48,9 +48,7 @@ describe('WidgetBundler', () => {
   describe('normalizeAssetPath', () => {
     it('normalizes vault-relative paths', () => {
       expect(WidgetBundler.normalizeAssetPath('Images/logo.png')).toBe('Images/logo.png');
-      expect(WidgetBundler.normalizeAssetPath('Attachments/logo.png')).toBe(
-        'Attachments/logo.png'
-      );
+      expect(WidgetBundler.normalizeAssetPath('Attachments/logo.png')).toBe('Attachments/logo.png');
     });
 
     it('strips asset: prefix when present in the assets array', () => {

@@ -33,9 +33,7 @@ describe('MarkdownBuilder', () => {
       .addSection('### Available tools', '- shell')
       .addSection('### Guidelines', '- rule');
 
-    const result = new MarkdownBuilder()
-      .addSection('## Tool', toolSection)
-      .build();
+    const result = new MarkdownBuilder().addSection('## Tool', toolSection).build();
 
     expect(result).toContain('## Tool\n\n### Available tools\n\n- shell');
     expect(result).toContain('### Guidelines\n\n- rule');

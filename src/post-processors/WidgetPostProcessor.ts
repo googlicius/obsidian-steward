@@ -1,4 +1,4 @@
-import { MarkdownPostProcessor, normalizePath } from 'obsidian';
+import { MarkdownPostProcessor, normalizePath, Notice } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import {
@@ -317,8 +317,12 @@ async function mountWidgetProject(
       },
     });
 
-    if (!isDedicatedView) {
-      appendOpenDedicatedViewLink(container, plugin, parsed.widgetId);
+    const isArtifactView = plugin.widgetService.isArtifactPath(sourcePath);
+    if (!isDedicatedView && !isArtifactView) {
+      appendWidgetActionLinks(container, plugin, {
+        widgetId: parsed.widgetId,
+        widgetName,
+      });
     }
   } catch (e) {
     logger.error('Failed to mount widget project:', e);
@@ -326,28 +330,54 @@ async function mountWidgetProject(
   }
 }
 
-function appendOpenDedicatedViewLink(
+function appendWidgetActionLinks(
   container: HTMLElement,
   plugin: StewardPlugin,
-  widgetId: string
+  params: { widgetId: string; widgetName: string }
 ): void {
   const smallEl = document.createElement('small');
   smallEl.classList.add('italic');
 
-  const linkEl = document.createElement('a');
-  linkEl.href = '#';
-  linkEl.textContent = i18next.t('common.openInNewTab');
-  linkEl.addEventListener('click', event => {
-    event.preventDefault();
-    event.stopPropagation();
+  appendActionLink(smallEl, i18next.t('common.openInNewTab'), () => {
     void (async () => {
-      const filePath = await plugin.widgetService.ensureProjectView({ widgetId });
+      const filePath = await plugin.widgetService.ensureProjectView({
+        widgetId: params.widgetId,
+      });
       await plugin.openReadingViewInNewTab({ filePath });
     })();
   });
 
-  smallEl.appendChild(linkEl);
+  smallEl.appendChild(document.createTextNode(' · '));
+
+  appendActionLink(smallEl, i18next.t('common.saveAsArtifact'), () => {
+    void (async () => {
+      const filePath = await plugin.widgetService.saveWidgetArtifact({
+        widgetId: params.widgetId,
+        widgetName: params.widgetName,
+      });
+      new Notice(i18next.t('common.artifactSaved', { name: params.widgetName }));
+      await plugin.openReadingViewInNewTab({ filePath });
+    })();
+  });
+
   container.appendChild(smallEl);
+}
+
+function appendActionLink(
+  parent: HTMLElement,
+  label: string,
+  onClick: () => void
+): HTMLAnchorElement {
+  const linkEl = document.createElement('a');
+  linkEl.href = '#';
+  linkEl.textContent = label;
+  linkEl.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClick();
+  });
+  parent.appendChild(linkEl);
+  return linkEl;
 }
 
 export function createWidgetPostProcessor(plugin: StewardPlugin): MarkdownPostProcessor {

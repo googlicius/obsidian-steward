@@ -23,6 +23,9 @@ import { stringifyYamlFence } from '../MarkdownDefinitionService';
 /** Markdown fence language for project widget references in conversation notes */
 export const WIDGET_PROJECT_FENCE_LANGUAGE = 'stw-widget-project';
 
+/** File extension for saved widget artifacts under `{stewardFolder}/Artifacts`. */
+export const ARTIFACT_FILE_EXTENSION = 'art';
+
 export interface MountedWidgetHandle {
   projectPath: string;
   refresh: () => Promise<void>;
@@ -117,14 +120,21 @@ export class WidgetService {
 
   /** Vault path for the generated widget reading note: `{projectPath}/{widgetName}.md`. */
   public getProjectViewPath(params: { widgetId: string; widgetName: string }): string {
-    const fileBaseName =
-      this.sanitizeWidgetViewFileName(params.widgetName) || params.widgetId;
-    return normalizePath(`${this.getProjectPath({ widgetId: params.widgetId })}/${fileBaseName}.md`);
+    const fileBaseName = this.sanitizeWidgetViewFileName(params.widgetName) || params.widgetId;
+    return normalizePath(
+      `${this.getProjectPath({ widgetId: params.widgetId })}/${fileBaseName}.md`
+    );
   }
 
-  /** Markdown body for the generated widget reading note. */
-  public buildProjectViewContent(params: { widgetId: string }): string {
-    return `\`\`\`${WIDGET_PROJECT_FENCE_LANGUAGE}\n${params.widgetId}\n\`\`\``;
+  /** Markdown body for a widget reading note or artifact (frontmatter + project fence). */
+  public buildProjectViewContent(params: { widgetId: string; widgetName: string }): string {
+    const frontmatter = [
+      '---',
+      `widgetName: ${this.formatYamlQuotedString(params.widgetName)}`,
+      '---',
+    ].join('\n');
+    const fence = `\`\`\`${WIDGET_PROJECT_FENCE_LANGUAGE}\n${params.widgetId}\n\`\`\``;
+    return `${frontmatter}\n\n${fence}`;
   }
 
   /**
@@ -138,7 +148,10 @@ export class WidgetService {
       widgetId: params.widgetId,
       widgetName,
     });
-    const content = this.buildProjectViewContent({ widgetId: params.widgetId });
+    const content = this.buildProjectViewContent({
+      widgetId: params.widgetId,
+      widgetName,
+    });
 
     const existing = this.plugin.app.vault.getFileByPath(viewPath);
     if (existing) {
@@ -149,6 +162,60 @@ export class WidgetService {
     await this.plugin.obsidianAPITools.ensureFolderExists(projectPath);
     await this.plugin.app.vault.create(viewPath, content);
     return viewPath;
+  }
+
+  /** Root folder for saved widget artifacts: `{stewardFolder}/Artifacts`. */
+  public getArtifactsRootPath(): string {
+    return normalizePath(`${this.plugin.settings.stewardFolder}/Artifacts`);
+  }
+
+  /** Whether a vault path is a widget artifact note (`.art` under the artifacts root). */
+  public isArtifactPath(path: string): boolean {
+    const normalized = normalizePath(path);
+    const root = this.getArtifactsRootPath();
+    return normalized.startsWith(`${root}/`) && normalized.endsWith(`.${ARTIFACT_FILE_EXTENSION}`);
+  }
+
+  /** Vault path for a widget artifact: `{artifactsRoot}/{widgetName}.art`. */
+  public getWidgetArtifactPath(params: { widgetName: string }): string {
+    const fileBaseName = this.sanitizeWidgetViewFileName(params.widgetName) || 'Widget';
+    return normalizePath(
+      `${this.getArtifactsRootPath()}/${fileBaseName}.${ARTIFACT_FILE_EXTENSION}`
+    );
+  }
+
+  /** Ensures the artifacts folder exists. */
+  public async ensureArtifactsFolder(): Promise<void> {
+    await this.plugin.obsidianAPITools.ensureFolderExists(this.getArtifactsRootPath());
+  }
+
+  /**
+   * Creates or updates a widget artifact note and returns its vault path.
+   * Reuses the same file when it already references the same widgetId; otherwise appends a suffix.
+   */
+  public async saveWidgetArtifact(params: {
+    widgetId: string;
+    widgetName: string;
+  }): Promise<string> {
+    await this.ensureArtifactsFolder();
+
+    const filePath = await this.resolveWidgetArtifactPath({
+      widgetId: params.widgetId,
+      widgetName: params.widgetName,
+    });
+    const content = this.buildProjectViewContent({
+      widgetId: params.widgetId,
+      widgetName: params.widgetName,
+    });
+
+    const existing = this.plugin.app.vault.getFileByPath(filePath);
+    if (existing) {
+      await this.plugin.app.vault.modify(existing, content);
+      return filePath;
+    }
+
+    await this.plugin.app.vault.create(filePath, content);
+    return filePath;
   }
 
   /** Whether a vault path is under the widget projects root. */
@@ -705,6 +772,34 @@ export class WidgetService {
     }
 
     return normalizePath(`${root}/${segments[0]}`);
+  }
+
+  private async resolveWidgetArtifactPath(params: {
+    widgetId: string;
+    widgetName: string;
+  }): Promise<string> {
+    const preferredPath = this.getWidgetArtifactPath({ widgetName: params.widgetName });
+    const existing = this.plugin.app.vault.getFileByPath(preferredPath);
+    if (!existing) {
+      return preferredPath;
+    }
+
+    const existingWidgetId = this.parseProjectFenceContent(
+      await this.plugin.app.vault.read(existing)
+    )?.widgetId;
+    if (existingWidgetId === params.widgetId) {
+      return preferredPath;
+    }
+
+    const suffix = this.sanitizeWidgetViewFileName(params.widgetId) || params.widgetId;
+    const fileBaseName = this.sanitizeWidgetViewFileName(params.widgetName) || 'Widget';
+    return normalizePath(
+      `${this.getArtifactsRootPath()}/${fileBaseName} (${suffix}).${ARTIFACT_FILE_EXTENSION}`
+    );
+  }
+
+  private formatYamlQuotedString(value: string): string {
+    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
   }
 
   private async warnUnregisteredCatalogActions(

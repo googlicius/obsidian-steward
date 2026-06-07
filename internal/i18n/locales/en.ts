@@ -53,6 +53,8 @@ const en = {
       skipped: 'Skipped',
       view: 'View',
       openInNewTab: 'Open in new tab',
+      saveAsArtifact: 'Save as artifact',
+      artifactSaved: 'Saved artifact "{{name}}"',
     },
     community: {
       browseCommands: 'Browse community commands',

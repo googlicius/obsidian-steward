@@ -8,6 +8,7 @@ version: 6
 tools:
   - show_widget
 ---
+
 # Interactive Widget Skill
 
 Use this skill **after** the **stateful-widget** skill when a widget should accept **model turns** (play vs AI, multi-model games, turn-ordered interaction).
@@ -31,11 +32,11 @@ Skip for static widgets, user-only interactivity with no model turns, or SVG `co
 
 Extract shared logic into action functions. User clicks and host dispatch call the **same** function. Register **only** actions models may invoke — not UI-only handlers (reset, local toggles).
 
-| API | Description |
-| --- | --- |
+| API                                   | Description                                                                                                     |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `window.stw.registerAction(name, fn)` | Expose an action the host can dispatch into the iframe. `name` must match a key under `actions` in `Widget.md`. |
-| Handler return `{ ok: false, error }` | Invalid move; host surfaces `error` to the caller. |
-| Handler return `{ ok: true, state? }` | Success; persist game state with `setState` inside the handler. |
+| Handler return `{ ok: false, error }` | Invalid move; host surfaces `error` to the caller.                                                              |
+| Handler return `{ ok: true, state? }` | Success; persist game state with `setState` inside the handler.                                                 |
 
 Rules:
 
@@ -61,10 +62,10 @@ After creating or updating `Widget.md`, re-read the file and check frontmatter `
 
 Host-maintained on save (do not hand-author unless missing).
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `enabled` | boolean | No | Default `true` when omitted; host sets on first validation. |
-| `status` | string | No | Validation result: valid marker or `Invalid: …` with semicolon-separated errors. |
+| Field     | Type    | Required | Description                                                                      |
+| --------- | ------- | -------- | -------------------------------------------------------------------------------- |
+| `enabled` | boolean | No       | Default `true` when omitted; host sets on first validation.                      |
+| `status`  | string  | No       | Validation result: valid marker or `Invalid: …` with semicolon-separated errors. |
 
 ---
 
@@ -76,25 +77,25 @@ Every fenced block you add via `edit` **must** include `name` as the block type 
 
 Catalog of actions the host may dispatch. Keys must match `registerAction` names in `main.js`.
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `name` | `actions` | **Yes** | Block type literal. |
-| `actions` | object (map) | **Yes** | Map of action name → action definition (see below). |
+| Field     | Type         | Required | Description                                         |
+| --------- | ------------ | -------- | --------------------------------------------------- |
+| `name`    | `actions`    | **Yes**  | Block type literal.                                 |
+| `actions` | object (map) | **Yes**  | Map of action name → action definition (see below). |
 
 **Action definition** (`actions.<actionName>`):
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `description` | string | No | Human-readable summary for docs and prompts. |
-| `params` | object (map) | No | Param name → param spec. Omit when the action takes no params. |
+| Field         | Type         | Required | Description                                                    |
+| ------------- | ------------ | -------- | -------------------------------------------------------------- |
+| `description` | string       | No       | Human-readable summary for docs and prompts.                   |
+| `params`      | object (map) | No       | Param name → param spec. Omit when the action takes no params. |
 
 **Param spec** (`actions.<actionName>.params.<paramName>`):
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `type` | string | No | One of: `integer`, `number`, `string`, `boolean`. Default treated as `string` when omitted. |
-| `minimum` | number | No | Minimum value (`integer` / `number` only). |
-| `maximum` | number | No | Maximum value (`integer` / `number` only). |
+| Field     | Type   | Required | Description                                                                                 |
+| --------- | ------ | -------- | ------------------------------------------------------------------------------------------- |
+| `type`    | string | No       | One of: `integer`, `number`, `string`, `boolean`. Default treated as `string` when omitted. |
+| `minimum` | number | No       | Minimum value (`integer` / `number` only).                                                  |
+| `maximum` | number | No       | Maximum value (`integer` / `number` only).                                                  |
 
 Only **one** `actions` block is allowed. Required when any `agent` block exists.
 
@@ -102,18 +103,18 @@ Only **one** `actions` block is allowed. Required when any `agent` block exists.
 
 Turn roster and policy. Required when any `agent` block exists.
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `name` | `actors` | **Yes** | Block type literal. |
-| `mode` | string | **Yes** | `user_and_models` — wait for human actors between model turns. `models_only` — chain model turns (host burst limit applies). |
-| `turnOrder` | array of strings | **Yes** | Ordered actor ids; length defines participant count (2–N). Each id must exist in `actors`. |
-| `actors` | object (map) | **Yes** | Actor id → actor entry (see below). |
+| Field       | Type             | Required | Description                                                                                                                  |
+| ----------- | ---------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `name`      | `actors`         | **Yes**  | Block type literal.                                                                                                          |
+| `mode`      | string           | **Yes**  | `user_and_models` — wait for human actors between model turns. `models_only` — chain model turns (host burst limit applies). |
+| `turnOrder` | array of strings | **Yes**  | Ordered actor ids; length defines participant count (2–N). Each id must exist in `actors`.                                   |
+| `actors`    | object (map)     | **Yes**  | Actor id → actor entry (see below).                                                                                          |
 
 **Actor entry** (`actors.<actorId>`):
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `kind` | string | **Yes** | `human` — user input in the iframe. `model` — requires a matching `name: agent` block with the same `id`. |
+| Field  | Type   | Required | Description                                                                                               |
+| ------ | ------ | -------- | --------------------------------------------------------------------------------------------------------- |
+| `kind` | string | **Yes**  | `human` — user input in the iframe. `model` — requires a matching `name: agent` block with the same `id`. |
 
 Only **one** `actors` block is allowed. At least one `kind: model` actor is required when `agent` blocks exist.
 
@@ -121,13 +122,13 @@ Only **one** `actors` block is allowed. At least one `kind: model` actor is requ
 
 One fence **per model actor**. Repeat the block for each `kind: model` entry in `actors`.
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `name` | `agent` | **Yes** | Block type literal. |
-| `id` | string | **Yes** | Must match an `actors` key with `kind: model`. |
-| `instruction` | string | **Yes** | Plain-text system prompt for this actor's turn (no heading wikilinks in Phase 2). |
-| `actions` | array of strings | **Yes** | Subset of action names from the `actions` catalog this actor may call. |
-| `model` | string | No | LLM model id override for this actor; omit for plugin default chat model. |
+| Field         | Type             | Required | Description                                                                       |
+| ------------- | ---------------- | -------- | --------------------------------------------------------------------------------- |
+| `name`        | `agent`          | **Yes**  | Block type literal.                                                               |
+| `id`          | string           | **Yes**  | Must match an `actors` key with `kind: model`.                                    |
+| `instruction` | string           | **Yes**  | Plain-text system prompt for this actor's turn (no heading wikilinks in Phase 2). |
+| `actions`     | array of strings | **Yes**  | Subset of action names from the `actions` catalog this actor may call.            |
+| `model`       | string           | No       | LLM model id override for this actor; omit for plugin default chat model.         |
 
 Each `agent.id` must be unique across `agent` blocks.
 
