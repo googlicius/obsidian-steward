@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const root = path.join(__dirname, '..');
 const skillsDir = path.join(root, 'standard-skills');
-const outFile = path.join(root, 'src/services/SkillService/constants.ts');
+const outFile = path.join(root, 'src/generated/standardSkills.ts');
 const toolNamesFile = path.join(root, 'src/solutions/commands/toolNames.ts');
 
 function loadValidToolNames() {

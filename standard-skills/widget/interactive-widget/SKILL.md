@@ -4,7 +4,7 @@ description: >-
   Expose model-callable widget actions and configure turn-based play via
   Widget.md (actions, actors, agent blocks). Read after stateful-widget when
   humans and models take turns.
-version: 6
+version: 7
 tools:
   - show_widget
 ---
@@ -23,8 +23,8 @@ Skip for static widgets, user-only interactivity with no model turns, or SVG `co
 
 ## Prerequisite workflow
 
-1. Read **stateful-widget** → `show_widget` + working `main.js` with `setState`.
-2. Then use this skill → `registerAction` in `main.js` + YAML fences in `Widget.md`.
+1. Read **stateful-widget** → `show_widget` + working project with `setState`.
+2. Then use this skill → `registerAction` in `main.js` (keep it last when split) + YAML fences in `Widget.md`.
 
 ---
 

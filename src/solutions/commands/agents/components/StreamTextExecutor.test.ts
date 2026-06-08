@@ -102,6 +102,12 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     guardrailsRuleService: {
       getInstructionsByTool: jest.fn().mockReturnValue(new Map()),
     },
+    toolInstructionService: {
+      getInstructionsByTool: jest.fn().mockReturnValue(new Map()),
+      getToolInstructionsRelativePath: jest
+        .fn()
+        .mockReturnValue('Steward/Memory/Tool instructions.md'),
+    },
     compactionTokenService: {},
     mcpService: {
       getMcpToolsForConversation: jest.fn().mockResolvedValue({

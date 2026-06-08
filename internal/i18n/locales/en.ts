@@ -55,6 +55,14 @@ const en = {
       openInNewTab: 'Open in new tab',
       saveAsArtifact: 'Save as artifact',
       artifactSaved: 'Saved artifact "{{name}}"',
+      dismiss: 'Dismiss',
+      neverAskAgain: "Don't show again",
+    },
+    widget: {
+      newTabRefreshNotify:
+        'After editing widget files, click **{{action}}** again to refresh this view.',
+      artifactRefreshNotify:
+        'After editing widget files, click **{{action}}** again to refresh this artifact.',
     },
     community: {
       browseCommands: 'Browse community commands',

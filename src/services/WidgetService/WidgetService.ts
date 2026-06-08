@@ -19,6 +19,12 @@ import {
   WidgetProjectFenceData,
 } from './types';
 import { stringifyYamlFence } from '../MarkdownDefinitionService';
+import { buildWidgetSrcdoc } from './WidgetBuild';
+import { getBundledInternal } from 'src/utils/bundledInternals';
+
+const { getTranslation } = getBundledInternal('i18n');
+
+export type WidgetRefreshNotifyKind = 'newTab' | 'artifact';
 
 /** Markdown fence language for project widget references in conversation notes */
 export const WIDGET_PROJECT_FENCE_LANGUAGE = 'stw-widget-project';
@@ -114,7 +120,7 @@ export class WidgetService {
   }
 
   /** Sanitizes a widget display name for use as a vault note filename (without extension). */
-  public sanitizeWidgetViewFileName(widgetName: string): string {
+  private sanitizeWidgetViewFileName(widgetName: string): string {
     return widgetName.trim().replace(/[\\/:*?"<>|]/g, '');
   }
 
@@ -126,22 +132,53 @@ export class WidgetService {
     );
   }
 
-  /** Markdown body for a widget reading note or artifact (frontmatter + project fence). */
-  public buildProjectViewContent(params: { widgetId: string; widgetName: string }): string {
+  /** Markdown body for a widget reading note or artifact (frontmatter + optional notify callout + project fence). */
+  private buildProjectViewContent(params: {
+    widgetId: string;
+    widgetName: string;
+    lang?: string | null;
+    refreshNotifyKind: WidgetRefreshNotifyKind;
+    /** When set, fence uses generated.html and the refresh notify callout may be included. */
+    generatedFile?: string | null;
+  }): string {
     const frontmatter = [
       '---',
       `widgetName: ${this.formatYamlQuotedString(params.widgetName)}`,
       '---',
     ].join('\n');
-    const fence = `\`\`\`${WIDGET_PROJECT_FENCE_LANGUAGE}\n${params.widgetId}\n\`\`\``;
-    return `${frontmatter}\n\n${fence}`;
+    const fenceLines = [`widgetId: ${params.widgetId}`];
+    if (params.lang) {
+      fenceLines.push(`lang: ${params.lang}`);
+    }
+    if (params.generatedFile) {
+      fenceLines.push(`generatedFile: ${params.generatedFile}`);
+    }
+    const fence = `\`\`\`${WIDGET_PROJECT_FENCE_LANGUAGE}\n${fenceLines.join('\n')}\n\`\`\``;
+
+    const bodyParts: string[] = [];
+    if (params.generatedFile && !this.plugin.settings.dismissWidgetRefreshNotify) {
+      bodyParts.push(
+        this.buildWidgetRefreshNotifyCallout({
+          lang: params.lang,
+          kind: params.refreshNotifyKind,
+        })
+      );
+    }
+    bodyParts.push(fence);
+
+    return `${frontmatter}\n\n${bodyParts.join('\n')}`;
   }
 
   /**
    * Creates or updates the generated widget reading note and returns its vault path.
    */
-  public async ensureProjectView(params: { widgetId: string }): Promise<string> {
+  public async ensureProjectView(params: {
+    widgetId: string;
+    lang?: string | null;
+  }): Promise<string> {
     const projectPath = this.getProjectPath({ widgetId: params.widgetId });
+    await this.writeGeneratedHtml(projectPath);
+
     const def = await this.definitionService.getWidgetDefinition(projectPath);
     const widgetName = def.manifest?.widgetName?.trim() || params.widgetId;
     const viewPath = this.getProjectViewPath({
@@ -151,6 +188,8 @@ export class WidgetService {
     const content = this.buildProjectViewContent({
       widgetId: params.widgetId,
       widgetName,
+      lang: params.lang,
+      refreshNotifyKind: 'newTab',
     });
 
     const existing = this.plugin.app.vault.getFileByPath(viewPath);
@@ -165,7 +204,7 @@ export class WidgetService {
   }
 
   /** Root folder for saved widget artifacts: `{stewardFolder}/Artifacts`. */
-  public getArtifactsRootPath(): string {
+  private getArtifactsRootPath(): string {
     return normalizePath(`${this.plugin.settings.stewardFolder}/Artifacts`);
   }
 
@@ -196,8 +235,12 @@ export class WidgetService {
   public async saveWidgetArtifact(params: {
     widgetId: string;
     widgetName: string;
+    lang?: string | null;
   }): Promise<string> {
     await this.ensureArtifactsFolder();
+
+    const projectPath = this.getProjectPath({ widgetId: params.widgetId });
+    await this.writeGeneratedHtml(projectPath);
 
     const filePath = await this.resolveWidgetArtifactPath({
       widgetId: params.widgetId,
@@ -206,6 +249,8 @@ export class WidgetService {
     const content = this.buildProjectViewContent({
       widgetId: params.widgetId,
       widgetName: params.widgetName,
+      lang: params.lang,
+      refreshNotifyKind: 'artifact',
     });
 
     const existing = this.plugin.app.vault.getFileByPath(filePath);
@@ -219,15 +264,10 @@ export class WidgetService {
   }
 
   /** Whether a vault path is under the widget projects root. */
-  public isWidgetProjectPath(path: string): boolean {
+  private isWidgetProjectPath(path: string): boolean {
     const normalized = normalizePath(path);
     const root = this.getWidgetsRootPath();
     return normalized === root || normalized.startsWith(`${root}/`);
-  }
-
-  /** Whether a vault path is the Widget.md definition file inside a widget project. */
-  public isWidgetDefinitionPath(filePath: string): boolean {
-    return this.definitionService.isWidgetDefinitionPath(filePath);
   }
 
   /** Replaces whitespace with dashes for use in widget folder names. */
@@ -248,44 +288,145 @@ export class WidgetService {
   }
 
   /** Builds the markdown fence block that references a project in the conversation note. */
-  public buildProjectFence(data: { widgetId: string; widgetName: string }): string {
+  public buildProjectFence(data: {
+    widgetId: string;
+    widgetName: string;
+    lang?: string | null;
+  }): string {
     const projectPath = this.getProjectPath({ widgetId: data.widgetId });
-    return `\`\`\`${WIDGET_PROJECT_FENCE_LANGUAGE}\n${data.widgetId}\n\`\`\`\n<small>*ID: ${data.widgetId} - Definition: [[${projectPath}/Widget.md|${data.widgetName}]]*</small>`;
+    const body = this.formatProjectFenceBody({ widgetId: data.widgetId, lang: data.lang });
+    return `\`\`\`${WIDGET_PROJECT_FENCE_LANGUAGE}\n${body}\n\`\`\`\n<small>*ID: ${data.widgetId} - Definition: [[${projectPath}/Widget.md|${data.widgetName}]]*</small>`;
+  }
+
+  /** Serializes stw-widget-project fence body (widgetId, lang, …). */
+  public formatProjectFenceBody(params: { widgetId: string; lang?: string | null }): string {
+    const lines = [`widgetId: ${params.widgetId}`];
+    if (params.lang) {
+      lines.push(`lang: ${params.lang}`);
+    }
+    return lines.join('\n');
+  }
+
+  /** Hint callout for dedicated / artifact views until dismissed globally. */
+  private buildWidgetRefreshNotifyCallout(params: {
+    lang?: string | null;
+    kind: WidgetRefreshNotifyKind;
+  }): string {
+    const t = getTranslation(params.lang);
+    const actionKey = params.kind === 'artifact' ? 'common.saveAsArtifact' : 'common.openInNewTab';
+    const messageKey =
+      params.kind === 'artifact' ? 'widget.artifactRefreshNotify' : 'widget.newTabRefreshNotify';
+    const message = t(messageKey, { action: t(actionKey) });
+    const dismiss = t('common.dismiss');
+    const neverAskAgain = t('common.neverAskAgain');
+    const buttons = [
+      `<button type="button" class="stw-callout-action" data-action="close">${dismiss}</button>`,
+      `<button type="button" class="stw-callout-action" data-action="never-ask-again">${neverAskAgain}</button>`,
+    ].join(' ');
+    return this.plugin.noteContentService.formatCallout(`${message}\n${buttons}`, 'stw-notify', {
+      lang: params.lang ?? '',
+    });
+  }
+
+  /** Vault path for host-generated bundled HTML: `{projectPath}/generated.html`. */
+  private getGeneratedHtmlPath(projectPath: string): string {
+    return normalizePath(`${projectPath}/generated.html`);
+  }
+
+  /** Whether the path is the host-generated bundle file for a widget project. */
+  private isGeneratedHtmlPath(filePath: string): boolean {
+    const normalized = normalizePath(filePath);
+    return normalized.endsWith('/generated.html');
   }
 
   /**
-   * Parses widgetId from a stw-widget-project fence (code body or full message).
+   * Bundles the project and writes a self-contained HTML file for standalone iframe `src` loading.
+   * Includes current persisted state at write time.
+   */
+  private async writeGeneratedHtml(projectPath: string): Promise<string> {
+    const bundled = await this.bundleProject(projectPath);
+    const state = await this.stateService.readState(projectPath);
+    const { srcdoc } = buildWidgetSrcdoc({
+      type: 'html',
+      code: bundled.html,
+      extraHead: this.stateService.buildStateHead(state, bundled.assets),
+    });
+
+    const outputPath = this.getGeneratedHtmlPath(projectPath);
+    const existing = this.plugin.app.vault.getFileByPath(outputPath);
+    if (existing) {
+      await this.plugin.app.vault.modify(existing, srcdoc);
+      return outputPath;
+    }
+
+    await this.plugin.obsidianAPITools.ensureFolderExists(projectPath);
+    await this.plugin.app.vault.create(outputPath, srcdoc);
+    return outputPath;
+  }
+
+  /**
+   * Parses widgetId (and optional lang) from a stw-widget-project fence (code body or full message).
    * projectPath is derived as `{stewardFolder}/Widgets/{widgetId}`.
    */
   public parseProjectFenceContent(content: string): WidgetProjectFenceData | null {
-    const widgetId = this.extractWidgetIdFromFenceContent(content);
-    if (!widgetId) {
+    const parsed = this.parseFenceBody(content);
+    if (!parsed.widgetId) {
       return null;
     }
 
     return {
-      widgetId,
-      projectPath: this.getProjectPath({ widgetId }),
+      widgetId: parsed.widgetId,
+      projectPath: this.getProjectPath({ widgetId: parsed.widgetId }),
+      lang: parsed.lang,
+      generatedFile: parsed.generatedFile,
     };
   }
 
-  private extractWidgetIdFromFenceContent(content: string): string | null {
+  private parseFenceBody(content: string): {
+    widgetId: string | null;
+    lang: string | null;
+    generatedFile: string | null;
+  } {
     const fencePattern = new RegExp(
       `\`\`\`${WIDGET_PROJECT_FENCE_LANGUAGE}\\s*\\n([\\s\\S]*?)\\n\`\`\``,
       'i'
     );
     const fenceMatch = content.match(fencePattern);
     const body = fenceMatch ? fenceMatch[1] : content;
-    const widgetId = body.trim().split(/\r?\n/)[0]?.trim();
-    if (!widgetId) {
-      return null;
-    }
-    return widgetId;
-  }
 
-  /** Instance wrapper around {@link parseProjectFenceContent}. */
-  public parseProjectFence(content: string): WidgetProjectFenceData | null {
-    return this.parseProjectFenceContent(content);
+    let widgetId: string | null = null;
+    let lang: string | null = null;
+    let generatedFile: string | null = null;
+
+    const lines = body.trim().split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim();
+      if (!trimmed) {
+        continue;
+      }
+
+      const colonIndex = trimmed.indexOf(':');
+      if (colonIndex > 0) {
+        const key = trimmed.slice(0, colonIndex).trim();
+        const value = trimmed.slice(colonIndex + 1).trim();
+        if (key === 'widgetId' && value) {
+          widgetId = value;
+        }
+        if (key === 'lang' && value) {
+          lang = value;
+        }
+        if (key === 'generatedFile' && value) {
+          generatedFile = normalizePath(value);
+        }
+        continue;
+      }
+
+      if (!widgetId) {
+        widgetId = trimmed;
+      }
+    }
+
+    return { widgetId, lang, generatedFile };
   }
 
   /** Prepares asset: attribute references for iframe hydration (no host-side inlining). */
@@ -740,6 +881,10 @@ export class WidgetService {
         }
 
         if (normalizePath(file.path) === this.stateService.getStatePath(projectPath)) {
+          return;
+        }
+
+        if (this.isGeneratedHtmlPath(file.path)) {
           return;
         }
 

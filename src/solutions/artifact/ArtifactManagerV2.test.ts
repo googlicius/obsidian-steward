@@ -37,6 +37,9 @@ function createMockPlugin(fileContent = ''): jest.Mocked<StewardPlugin> {
       },
     },
     registerEvent: jest.fn(),
+    contentReadingService: {
+      collectImagePathsFromReadingResult: jest.fn().mockReturnValue([]),
+    },
     get noteContentService() {
       return mockPlugin._noteContentService;
     },

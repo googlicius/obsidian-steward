@@ -127,6 +127,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     },
     contentReadingService: {
       readContent: jest.fn(),
+      applyImageVisionNotices: jest.fn(),
     },
     skillService: {
       getSkillCatalog: jest.fn().mockReturnValue([]),
@@ -142,6 +143,12 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     guardrailsRuleService: {
       getInstructionsByTool: jest.fn().mockReturnValue(new Map()),
       getRulesForTool: jest.fn().mockReturnValue([]),
+    },
+    toolInstructionService: {
+      getInstructionsByTool: jest.fn().mockReturnValue(new Map()),
+      getToolInstructionsRelativePath: jest
+        .fn()
+        .mockReturnValue('Steward/Memory/Tool instructions.md'),
     },
     artifactManagerV2: mockArtifactManager,
     compactionTokenService: {},

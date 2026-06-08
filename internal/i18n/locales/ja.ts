@@ -51,6 +51,14 @@ const ja = {
       openInNewTab: '新しいタブで開く',
       saveAsArtifact: 'アーティファクトとして保存',
       artifactSaved: 'アーティファクト「{{name}}」を保存しました',
+      dismiss: '閉じる',
+      neverAskAgain: '今後表示しない',
+    },
+    widget: {
+      newTabRefreshNotify:
+        'ウィジェットファイルを編集した後、**{{action}}** をもう一度クリックしてこのビューを更新してください。',
+      artifactRefreshNotify:
+        'ウィジェットファイルを編集した後、**{{action}}** をもう一度クリックしてこのアーティファクトを更新してください。',
     },
     community: {
       browseCommands: 'コミュニティコマンドを見る',

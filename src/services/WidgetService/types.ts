@@ -81,6 +81,9 @@ export interface WidgetDefinition {
 export interface WidgetProjectFenceData {
   widgetId: string;
   projectPath: string;
+  lang: string | null;
+  /** Vault-relative path to bundled HTML for iframe `src` loading, when set in the fence. */
+  generatedFile: string | null;
 }
 
 /** Manifest asset registry: stem or vault path → allowed vault-relative path. */

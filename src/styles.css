@@ -117,6 +117,15 @@ html[data-stw-language='vi'] {
   }
 }
 
+.callout[data-callout='stw-notify'],
+.callout[data-callout='stw-actions'] {
+  margin-bottom: 10px !important;
+
+  & > .callout-title {
+    display: none;
+  }
+}
+
 .callout[data-callout='stw-review'] {
   max-height: 200px;
   overflow: hidden;

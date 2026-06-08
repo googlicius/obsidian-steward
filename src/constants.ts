@@ -216,6 +216,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     cleanupPolicy: 'never', // Default to never automatically delete
   },
   lastSeenVersion: undefined, // Will be set when user sees a version notification
+  dismissWidgetRefreshNotify: false,
   cli: {
     enabled: true,
     shellExecutable: '',

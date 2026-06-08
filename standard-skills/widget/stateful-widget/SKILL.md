@@ -4,7 +4,7 @@ description: >-
   Build interactive HTML project widgets with persisted runtime state (games,
   counters, forms). Read before show_widget when user actions must survive
   reopening the note.
-version: 9
+version: 10
 tools:
   - show_widget
 ---
@@ -101,6 +101,21 @@ Declare every vault path in manifest `assets`. Use unique filenames when relying
 - **Do not** put `asset:…` paths, vault paths, or blob URLs in `setState` data.
 - **Do** store a short id (filename stem when unique, otherwise full vault path) and resolve via `await window.stw.getAsset(id)`.
 
+## Splitting into multiple files
+
+When a file grows large — or you or the user want smaller parts — add extra files in the **project root** (no subfolders). Link every CSS/JS from `index.html` in **dependency order** (dependencies first, `main.js` last). The bundler inlines linked files at render.
+
+```html
+<link href="base.css" />
+<link href="board.css" />
+<script src="state.js"></script>
+<script src="render.js"></script>
+<script src="main.js"></script>
+```
+
+- Classic scripts only — shared globals or one `window` namespace; no `import`/`export`.
+- Keep `main.js` last: hydrate, `setState`, initial `render`, and `registerAction` if used.
+
 ## Required JavaScript pattern (`main.js`)
 
 Put hydrate + save in `main.js` (or inline script in `index.html` if you do not split files). Scripts run **after** `window.stw` is injected in the document head. If `render` uses assets, make it `async` and `await getAsset`.
@@ -171,9 +186,9 @@ Large assets: if an asset exceeds `maxAssetSize`, the host refuses the request (
 
 ## Project layout checklist
 
-- `index.html` — entry; `<link href="style.css">`, `<script src="main.js">`.
-- `main.js` — logic + `window.stw` hydrate/save.
-- `style.css` — optional styles.
+- `index.html` — entry; list all `<link>` / `<script src>` in dependency order.
+- `main.js` — bootstrap: hydrate/save + initial render (last script).
+- Other `.js` / `.css` — optional splits when files get large (project root only).
 - `Widget.md` — host-created; **manifest** fence at top (see above). Do not edit the manifest block.
 - `state.json` — auto-created on first `setState`; do not include in `show_widget` `files`.
 

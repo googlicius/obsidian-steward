@@ -165,15 +165,16 @@ export class ChatView extends StewardMarkdownView {
         }
 
         const releaseNoteLink = `[[Release notes/${releaseNoteTitle}|Release notes]]`;
-        const versionMessage = `${i18next.t('chat.newVersionMessage', { version })}\n\n${releaseNoteLink}`;
+        const dismiss = i18next.t('common.dismiss');
+        const dismissButton = `<button type="button" class="stw-callout-action" data-action="dismiss-version-notify">${dismiss}</button>`;
+        const versionMessage = `${i18next.t('chat.newVersionMessage', { version })}\n\n${releaseNoteLink}\n\n${dismissButton}`;
 
         const formattedCallout = this.plugin.noteContentService.formatCallout(
           versionMessage,
-          'info'
+          'stw-notify'
         );
 
-        const versionNoteTitle = 'New version';
-        const versionNotePath = `${this.plugin.settings.stewardFolder}/${versionNoteTitle}.md`;
+        const versionNotePath = `${this.plugin.settings.stewardFolder}/New version.md`;
         let versionNoteFile = this.plugin.app.vault.getFileByPath(versionNotePath);
 
         if (!versionNoteFile) {
@@ -183,8 +184,10 @@ export class ChatView extends StewardMarkdownView {
         }
 
         await this.app.vault.process(this.file, currentContent => {
-          const versionEmbedPattern = /!\[\[New version\]\]\n?/g;
-          const cleanedContent = currentContent.replace(versionEmbedPattern, '');
+          const cleanedContent = this.plugin.noteContentService.removeEmbedLink(
+            currentContent,
+            'New version'
+          );
 
           return `![[New version]]\n${cleanedContent}`;
         });

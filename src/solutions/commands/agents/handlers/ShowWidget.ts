@@ -298,6 +298,7 @@ export class ShowWidget {
     const fence = widgetService.buildProjectFence({
       widgetId,
       widgetName: toolCall.input.widgetName,
+      lang: ctx.lang,
     });
 
     const contentMessageId = await ctx.updateConversationNote({

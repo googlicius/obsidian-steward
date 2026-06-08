@@ -20,7 +20,7 @@ import {
 } from 'src/services/WidgetService';
 import { logger } from 'src/utils/logger';
 
-const { i18next } = getBundledInternal('i18n');
+const { getTranslation } = getBundledInternal('i18n');
 
 const WIDGET_FENCE_SELECTOR = WIDGET_TYPES.map(
   t => `pre > code.language-${getWidgetFenceLanguage(t)}`
@@ -46,27 +46,46 @@ interface MountIframeOptions {
   onAssetRequest?: (data: { requestId: string; assetId: string }) => void;
 }
 
-function mountIframe(
-  container: HTMLElement,
-  type: WidgetType,
-  code: string,
-  options: MountIframeOptions = {}
-): () => void {
-  const { srcdoc, sandbox, usesPostMessageResize } = buildWidgetSrcdoc({
-    type,
-    code,
-    extraHead: options.extraHead,
-  });
+interface MountIframeParams {
+  container: HTMLElement;
+  type: WidgetType;
+  source: { mode: 'srcdoc'; code: string } | { mode: 'src'; src: string };
+  options?: MountIframeOptions;
+}
+
+function mountWidgetIframe(params: MountIframeParams): () => void {
+  const options = params.options ?? {};
+  let sandbox: string;
+  let usesPostMessageResize: boolean;
 
   const iframe = Object.assign(document.createElement('iframe'), {
     className: 'stw-widget-frame',
     title: 'Widget',
-    srcdoc,
   });
-  iframe.setAttribute('sandbox', sandbox);
   iframe.setAttribute('referrerpolicy', 'no-referrer');
   iframe.setAttribute('loading', 'lazy');
-  container.appendChild(iframe);
+
+  if (params.source.mode === 'srcdoc') {
+    const {
+      srcdoc,
+      sandbox: srcdocSandbox,
+      usesPostMessageResize: srcdocResize,
+    } = buildWidgetSrcdoc({
+      type: params.type,
+      code: params.source.code,
+      extraHead: options.extraHead,
+    });
+    iframe.srcdoc = srcdoc;
+    sandbox = srcdocSandbox;
+    usesPostMessageResize = srcdocResize;
+  } else {
+    iframe.src = params.source.src;
+    sandbox = 'allow-scripts allow-same-origin';
+    usesPostMessageResize = true;
+  }
+
+  iframe.setAttribute('sandbox', sandbox);
+  params.container.appendChild(iframe);
 
   let resizeObserver: ResizeObserver | undefined;
 
@@ -175,7 +194,14 @@ function mountWidget(pre: HTMLElement, type: WidgetType, code: string): void {
   pre.dataset.stwWidgetMounted = '1';
   const container = makeContainer(type);
   pre.replaceWith(container);
-  watchRemoval(container, mountIframe(container, type, code));
+  watchRemoval(
+    container,
+    mountWidgetIframe({
+      container,
+      type,
+      source: { mode: 'srcdoc', code },
+    })
+  );
 }
 
 async function mountWidgetProject(
@@ -217,55 +243,9 @@ async function mountWidgetProject(
       widgetName,
     });
     const isDedicatedView = normalizePath(sourcePath) === normalizePath(viewPath);
+    const isArtifactView = plugin.widgetService.isArtifactPath(sourcePath);
 
-    const buildSrcdoc = async (html: string, assets: Record<string, string>) => {
-      const state = await widgetService.stateService.readState(projectPath);
-      return buildWidgetSrcdoc({
-        type: 'html',
-        code: html,
-        extraHead: widgetService.stateService.buildStateHead(state, assets),
-      });
-    };
-
-    const bundled = await widgetService.bundleProject(projectPath);
-    const initialState = await widgetService.stateService.readState(projectPath);
-
-    const refresh = async () => {
-      try {
-        const next = await widgetService.bundleProject(projectPath);
-        const { srcdoc: nextSrcdoc } = await buildSrcdoc(next.html, next.assets);
-        const iframe = container.querySelector<HTMLIFrameElement>('iframe.stw-widget-frame');
-        if (iframe) {
-          iframe.srcdoc = nextSrcdoc;
-        }
-      } catch (e) {
-        logger.error('Failed to refresh widget project:', e);
-      }
-    };
-
-    unregister = widgetService.registerMountedWidget({
-      container,
-      projectPath,
-      refresh,
-    });
-    sendApplyAction = payload => {
-      const iframe = container.querySelector<HTMLIFrameElement>('iframe.stw-widget-frame');
-      iframe?.contentWindow?.postMessage(
-        {
-          type: WIDGET_APPLY_ACTION,
-          action: payload.action,
-          params: payload.params,
-          requestId: payload.requestId,
-        },
-        '*'
-      );
-    };
-    unregisterActionBridge = widgetService.registerActionBridge({
-      projectPath,
-      sendApplyAction,
-    });
-    teardownIframe = mountIframe(container, 'html', bundled.html, {
-      extraHead: widgetService.stateService.buildStateHead(initialState, bundled.assets),
+    const iframeCallbacks: MountIframeOptions = {
       onStateSave: data => {
         void widgetService.stateService.writeState({ projectPath, data });
       },
@@ -315,13 +295,88 @@ async function mountWidgetProject(
           );
         });
       },
+    };
+
+    const buildSrcdoc = async (html: string, assets: Record<string, string>) => {
+      const state = await widgetService.stateService.readState(projectPath);
+      return buildWidgetSrcdoc({
+        type: 'html',
+        code: html,
+        extraHead: widgetService.stateService.buildStateHead(state, assets),
+      });
+    };
+
+    const generatedPath = parsed.generatedFile ? normalizePath(parsed.generatedFile) : null;
+    const generatedVaultFile = generatedPath ? plugin.app.vault.getFileByPath(generatedPath) : null;
+    const usesGeneratedFile = !!generatedVaultFile;
+
+    const refresh = async () => {
+      try {
+        const iframe = container.querySelector<HTMLIFrameElement>('iframe.stw-widget-frame');
+        if (!iframe) {
+          return;
+        }
+
+        if (usesGeneratedFile) {
+          iframe.contentWindow?.location.reload();
+          return;
+        }
+
+        const next = await widgetService.bundleProject(projectPath);
+        const { srcdoc: nextSrcdoc } = await buildSrcdoc(next.html, next.assets);
+        iframe.srcdoc = nextSrcdoc;
+      } catch (e) {
+        logger.error('Failed to refresh widget project:', e);
+      }
+    };
+
+    unregister = widgetService.registerMountedWidget({
+      container,
+      projectPath,
+      refresh,
+    });
+    sendApplyAction = payload => {
+      const iframe = container.querySelector<HTMLIFrameElement>('iframe.stw-widget-frame');
+      iframe?.contentWindow?.postMessage(
+        {
+          type: WIDGET_APPLY_ACTION,
+          action: payload.action,
+          params: payload.params,
+          requestId: payload.requestId,
+        },
+        '*'
+      );
+    };
+    unregisterActionBridge = widgetService.registerActionBridge({
+      projectPath,
+      sendApplyAction,
     });
 
-    const isArtifactView = plugin.widgetService.isArtifactPath(sourcePath);
+    if (generatedVaultFile) {
+      teardownIframe = mountWidgetIframe({
+        container,
+        type: 'html',
+        source: { mode: 'src', src: plugin.app.vault.getResourcePath(generatedVaultFile) },
+        options: iframeCallbacks,
+      });
+    } else {
+      const bundled = await widgetService.bundleProject(projectPath);
+      const initialState = await widgetService.stateService.readState(projectPath);
+      teardownIframe = mountWidgetIframe({
+        container,
+        type: 'html',
+        source: { mode: 'srcdoc', code: bundled.html },
+        options: {
+          ...iframeCallbacks,
+          extraHead: widgetService.stateService.buildStateHead(initialState, bundled.assets),
+        },
+      });
+    }
     if (!isDedicatedView && !isArtifactView) {
       appendWidgetActionLinks(container, plugin, {
         widgetId: parsed.widgetId,
         widgetName,
+        lang: parsed.lang,
       });
     }
   } catch (e) {
@@ -333,15 +388,17 @@ async function mountWidgetProject(
 function appendWidgetActionLinks(
   container: HTMLElement,
   plugin: StewardPlugin,
-  params: { widgetId: string; widgetName: string }
+  params: { widgetId: string; widgetName: string; lang: string | null }
 ): void {
+  const t = getTranslation(params.lang);
   const smallEl = document.createElement('small');
   smallEl.classList.add('italic');
 
-  appendActionLink(smallEl, i18next.t('common.openInNewTab'), () => {
+  appendActionLink(smallEl, t('common.openInNewTab'), () => {
     void (async () => {
       const filePath = await plugin.widgetService.ensureProjectView({
         widgetId: params.widgetId,
+        lang: params.lang,
       });
       await plugin.openReadingViewInNewTab({ filePath });
     })();
@@ -349,13 +406,14 @@ function appendWidgetActionLinks(
 
   smallEl.appendChild(document.createTextNode(' · '));
 
-  appendActionLink(smallEl, i18next.t('common.saveAsArtifact'), () => {
+  appendActionLink(smallEl, t('common.saveAsArtifact'), () => {
     void (async () => {
       const filePath = await plugin.widgetService.saveWidgetArtifact({
         widgetId: params.widgetId,
         widgetName: params.widgetName,
+        lang: params.lang,
       });
-      new Notice(i18next.t('common.artifactSaved', { name: params.widgetName }));
+      new Notice(t('common.artifactSaved', { name: params.widgetName }));
       await plugin.openReadingViewInNewTab({ filePath });
     })();
   });

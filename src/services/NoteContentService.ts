@@ -4,7 +4,7 @@ import {
   STW_SOURCE_PATTERN,
   STW_SOURCE_METADATA_PATTERN,
 } from 'src/constants';
-import { parseYaml } from 'obsidian';
+import { normalizePath, parseYaml } from 'obsidian';
 import { logger } from 'src/utils/logger';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import type StewardPlugin from 'src/main';
@@ -445,6 +445,108 @@ export class NoteContentService {
       logger.error('Error extracting callout content:', error);
       return null;
     }
+  }
+
+  /**
+   * Removes a callout block from markdown content.
+   * When metadata is provided, the callout header must contain matching key:value pairs.
+   */
+  public removeCalloutBlock(
+    content: string,
+    type: string,
+    metadata?: Record<string, string>
+  ): string {
+    const headerRegex = this.buildCalloutHeaderRegex(type, metadata);
+    const headerMatch = content.match(headerRegex);
+    if (!headerMatch || headerMatch.index === undefined) {
+      return content;
+    }
+
+    const contentStartPos = headerMatch.index + headerMatch[0].length;
+    const lines = content.substring(contentStartPos).split('\n');
+    let endLine = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      if (!lines[i].startsWith('>') && lines[i].trim() !== '') {
+        endLine = i;
+        break;
+      }
+
+      if (i === lines.length - 1) {
+        endLine = i + 1;
+      }
+    }
+
+    const blockLength =
+      headerMatch[0].length + lines.slice(0, endLine).join('\n').length + (endLine > 0 ? 1 : 0);
+    const before = content.slice(0, headerMatch.index);
+    const after = content.slice(headerMatch.index + blockLength);
+    return `${before}${after}`.replace(/^\n+/, '').replace(/\n{3,}/g, '\n\n');
+  }
+
+  /** Removes a callout block from a vault note by path. */
+  public async removeCalloutFromVaultFile(params: {
+    filePath: string;
+    type: string;
+    metadata?: Record<string, string>;
+  }): Promise<boolean> {
+    const file = this.plugin.app.vault.getFileByPath(params.filePath);
+    if (!file) {
+      return false;
+    }
+
+    let changed = false;
+    await this.plugin.app.vault.process(file, currentContent => {
+      const next = this.removeCalloutBlock(currentContent, params.type, params.metadata);
+      if (next === currentContent) {
+        return currentContent;
+      }
+      changed = true;
+      return next;
+    });
+    return changed;
+  }
+
+  /** Removes an embed wikilink (and trailing newline) from markdown content. */
+  public removeEmbedLink(content: string, link: string): string {
+    const pattern = new RegExp(`!\\[\\[${this.escapeRegExp(link)}(?:\\|[^\\]]*)?\\]\\]\\n?`, 'g');
+    return content.replace(pattern, '');
+  }
+
+  /** Removes `![[New version]]` from Chat.md. */
+  public async removeVersionNotifyEmbedFromChat(): Promise<boolean> {
+    const filePath = normalizePath(
+      `${this.plugin.settings.stewardFolder}/${this.plugin.chatTitle}.md`
+    );
+    const file = this.plugin.app.vault.getFileByPath(filePath);
+    if (!file) {
+      return false;
+    }
+
+    let changed = false;
+    await this.plugin.app.vault.process(file, currentContent => {
+      const next = this.removeEmbedLink(currentContent, 'New version');
+      if (next === currentContent) {
+        return currentContent;
+      }
+      changed = true;
+      return next;
+    });
+    return changed;
+  }
+
+  private buildCalloutHeaderRegex(type: string, metadata?: Record<string, string>): RegExp {
+    let pattern = `\\>\\[!${type}\\]`;
+    if (metadata) {
+      const keys = Object.keys(metadata);
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
+        const value = metadata[key];
+        pattern += `[^\\n]*\\b${key}:${this.escapeRegExp(value)}\\b`;
+      }
+    }
+    pattern += `[^\\n]*\\n`;
+    return new RegExp(pattern, 'i');
   }
 
   /**

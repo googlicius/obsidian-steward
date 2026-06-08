@@ -6,14 +6,19 @@ import { Events, type ModelChangedPayload } from 'src/types/events';
 
 function getAllModels(plugin: StewardPlugin): Array<{ id: string; name: string }> {
   const customModels: string[] = (plugin.settings.llm.chat.customModels as string[]) || [];
+  const builtInIds = new Set(LLM_MODELS.map(model => model.id));
+  const models = LLM_MODELS.map(model => ({ id: model.id, name: model.name }));
 
-  return [
-    ...LLM_MODELS.map(model => ({ id: model.id, name: model.name })),
-    ...customModels.map(model => ({
-      id: model,
-      name: plugin.llmService.getModelDisplayName(model),
-    })),
-  ];
+  for (const modelId of customModels) {
+    if (builtInIds.has(modelId)) continue;
+
+    models.push({
+      id: modelId,
+      name: plugin.llmService.getModelDisplayName(modelId),
+    });
+  }
+
+  return models;
 }
 
 export function createModelCompletionSource(plugin: StewardPlugin) {

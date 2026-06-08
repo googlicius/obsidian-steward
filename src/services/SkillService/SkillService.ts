@@ -5,7 +5,7 @@ import { logger } from 'src/utils/logger';
 import { z } from 'zod/v3';
 import { ToolName } from 'src/solutions/commands/toolNames';
 import { Skill, SkillCatalogEntry } from './types';
-import { STANDARD_SKILLS } from './constants';
+import { STANDARD_SKILLS } from 'src/generated/standardSkills';
 
 const { i18next } = getBundledInternal('i18n');
 

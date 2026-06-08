@@ -12,11 +12,18 @@ function createMockPlugin(): StewardPlugin {
   const plugin: Record<string, unknown> = {
     settings: { stewardFolder: 'Steward' },
     app: {
+      workspace: {
+        onLayoutReady: jest.fn((callback: () => void) => {
+          callback();
+          return { events: [] };
+        }),
+      },
       vault: {
         getFileByPath: jest.fn(),
         read: jest.fn(),
         create: jest.fn(),
         modify: jest.fn(),
+        on: jest.fn().mockReturnValue({ events: [] }),
       },
     },
     obsidianAPITools: {

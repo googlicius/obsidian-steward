@@ -51,6 +51,13 @@ const vi = {
       openInNewTab: 'Mở trong tab mới',
       saveAsArtifact: 'Lưu thành artifact',
       artifactSaved: 'Đã lưu artifact "{{name}}"',
+      dismiss: 'Đóng',
+      neverAskAgain: 'Không hiện lại',
+    },
+    widget: {
+      newTabRefreshNotify: 'Sau khi chỉnh sửa, nhấn **{{action}}** lần nữa để làm mới view này.',
+      artifactRefreshNotify:
+        'Sau khi chỉnh sửa, nhấn **{{action}}** lần nữa để làm mới artifact này.',
     },
     community: {
       browseCommands: 'Xem lệnh được đóng góp từ cộng đồng',

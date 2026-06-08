@@ -105,6 +105,10 @@ function createProjectTestPlugin(params?: { initialFiles?: Record<string, string
           files.set(path, content);
           return getOrCreateFileObject(path);
         }),
+        on: jest.fn(),
+      },
+      workspace: {
+        onLayoutReady: jest.fn((cb: () => void) => cb()),
       },
       metadataCache: {
         getFileCache: jest.fn((file: TFile) => {
@@ -199,6 +203,38 @@ describe('WidgetService', () => {
       expect(parsed).toEqual({
         widgetId: 'Tic-Tac-Toe-abc12',
         projectPath: 'Steward/Widgets/Tic-Tac-Toe-abc12',
+        lang: null,
+        generatedFile: null,
+      });
+    });
+
+    it('parses widgetId and lang from structured fence body', () => {
+      const plugin = createMockPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      const parsed = service.parseProjectFenceContent('widgetId: Tic-Tac-Toe-abc12\nlang: vi\n');
+
+      expect(parsed).toEqual({
+        widgetId: 'Tic-Tac-Toe-abc12',
+        projectPath: 'Steward/Widgets/Tic-Tac-Toe-abc12',
+        lang: 'vi',
+        generatedFile: null,
+      });
+    });
+
+    it('parses generatedFile path from structured fence body', () => {
+      const plugin = createMockPlugin();
+      const service = WidgetService.getInstance(plugin);
+
+      const parsed = service.parseProjectFenceContent(
+        'widgetId: Tic-Tac-Toe-abc12\nlang: en\ngeneratedFile: Steward/Widgets/Tic-Tac-Toe-abc12/generated.html\n'
+      );
+
+      expect(parsed).toEqual({
+        widgetId: 'Tic-Tac-Toe-abc12',
+        projectPath: 'Steward/Widgets/Tic-Tac-Toe-abc12',
+        lang: 'en',
+        generatedFile: 'Steward/Widgets/Tic-Tac-Toe-abc12/generated.html',
       });
     });
 
@@ -218,6 +254,8 @@ describe('WidgetService', () => {
       expect(parsed).toEqual({
         widgetId: 'Tic-Tac-Toe-abc12',
         projectPath: 'Steward/Widgets/Tic-Tac-Toe-abc12',
+        lang: null,
+        generatedFile: null,
       });
     });
   });
@@ -258,10 +296,11 @@ describe('WidgetService', () => {
       const fence = service.buildProjectFence({
         widgetId: 'Tic-Tac-Toe-abc12',
         widgetName: 'Tic Tac Toe',
+        lang: 'en',
       });
 
       expect(fence).toBe(
-        '```stw-widget-project\nTic-Tac-Toe-abc12\n```\n<small>*ID: Tic-Tac-Toe-abc12 - Definition: [[Steward/Widgets/Tic-Tac-Toe-abc12/Widget.md|Tic Tac Toe]]*</small>'
+        '```stw-widget-project\nwidgetId: Tic-Tac-Toe-abc12\nlang: en\n```\n<small>*ID: Tic-Tac-Toe-abc12 - Definition: [[Steward/Widgets/Tic-Tac-Toe-abc12/Widget.md|Tic Tac Toe]]*</small>'
       );
     });
   });
@@ -791,19 +830,84 @@ describe('WidgetService', () => {
     const widgetId = 'Tic-Tac-Toe-abc12';
     const projectPath = `Steward/Widgets/${widgetId}`;
 
-    it('builds markdown with widgetName frontmatter and the project fence', () => {
-      const { plugin } = createProjectTestPlugin();
-      const service = WidgetService.getInstance(plugin);
+    describe('buildProjectViewContent', () => {
+      let buildProjectViewContent: WidgetService['buildProjectViewContent'];
 
-      const content = service.buildProjectViewContent({
-        widgetId,
-        widgetName: 'Tic Tac Toe',
+      it('builds markdown with widgetName frontmatter and the project fence', () => {
+        const { plugin } = createProjectTestPlugin();
+        plugin.settings.dismissWidgetRefreshNotify = true;
+        const service = WidgetService.getInstance(plugin);
+        buildProjectViewContent = service['buildProjectViewContent'].bind(service);
+
+        const content = buildProjectViewContent({
+          widgetId,
+          widgetName: 'Tic Tac Toe',
+          lang: 'en',
+          refreshNotifyKind: 'newTab',
+        });
+
+        expect(content).not.toContain('#');
+        expect(content).toBe(
+          '---\nwidgetName: "Tic Tac Toe"\n---\n\n```stw-widget-project\nwidgetId: Tic-Tac-Toe-abc12\nlang: en\n```'
+        );
       });
 
-      expect(content).not.toContain('#');
-      expect(content).toBe(
-        '---\nwidgetName: "Tic Tac Toe"\n---\n\n```stw-widget-project\nTic-Tac-Toe-abc12\n```'
-      );
+      it('omits refresh notify callout when rendering from live source (no generatedFile)', () => {
+        const base = createProjectTestPlugin();
+        const plugin = {
+          ...base.plugin,
+          settings: {
+            stewardFolder: 'Steward',
+            dismissWidgetRefreshNotify: false,
+          },
+          noteContentService: {
+            formatCallout: (content: string, type: string) =>
+              `>[!${type}]\n>${content.split('\n').join('\n>')}\n`,
+          },
+        } as jest.Mocked<StewardPlugin>;
+        const service = WidgetService.getInstance(plugin);
+        buildProjectViewContent = service['buildProjectViewContent'].bind(service);
+
+        const content = buildProjectViewContent({
+          widgetId,
+          widgetName: 'Tic Tac Toe',
+          lang: 'vi',
+          refreshNotifyKind: 'artifact',
+        });
+
+        expect(content).not.toContain('[!stw-notify]');
+        expect(content).toContain('```stw-widget-project');
+      });
+
+      it('includes refresh notify callout when generatedFile is set and not dismissed', () => {
+        const base = createProjectTestPlugin();
+        const plugin = {
+          ...base.plugin,
+          settings: {
+            stewardFolder: 'Steward',
+            dismissWidgetRefreshNotify: false,
+          },
+          noteContentService: {
+            formatCallout: (content: string, type: string) =>
+              `>[!${type}]\n>${content.split('\n').join('\n>')}\n`,
+          },
+        } as jest.Mocked<StewardPlugin>;
+        const service = WidgetService.getInstance(plugin);
+        buildProjectViewContent = service['buildProjectViewContent'].bind(service);
+        const generatedFile = `${projectPath}/generated.html`;
+
+        const content = buildProjectViewContent({
+          widgetId,
+          widgetName: 'Tic Tac Toe',
+          lang: 'vi',
+          refreshNotifyKind: 'artifact',
+          generatedFile,
+        });
+
+        expect(content).toContain('[!stw-notify]');
+        expect(content).toContain(`generatedFile: ${generatedFile}`);
+        expect(content).toContain('```stw-widget-project');
+      });
     });
 
     it('uses the widget name for the generated note path', () => {
@@ -826,18 +930,20 @@ describe('WidgetService', () => {
             'widgetName: Tic Tac Toe',
             '```',
           ].join('\n'),
+          [`${projectPath}/index.html`]: '<p>Hi</p>',
         },
       });
+      plugin.settings.dismissWidgetRefreshNotify = true;
       const service = WidgetService.getInstance(plugin);
 
-      const viewPath = await service.ensureProjectView({ widgetId });
+      const viewPath = await service.ensureProjectView({ widgetId, lang: 'en' });
 
       expect(viewPath).toBe(`${projectPath}/Tic Tac Toe.md`);
       expect(files.get(viewPath)).toBe(
-        '---\nwidgetName: "Tic Tac Toe"\n---\n\n```stw-widget-project\nTic-Tac-Toe-abc12\n```'
+        '---\nwidgetName: "Tic Tac Toe"\n---\n\n```stw-widget-project\nwidgetId: Tic-Tac-Toe-abc12\nlang: en\n```'
       );
 
-      await service.ensureProjectView({ widgetId });
+      await service.ensureProjectView({ widgetId, lang: 'en' });
       expect(plugin.app.vault.modify).toHaveBeenCalled();
     });
   });

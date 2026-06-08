@@ -33,7 +33,7 @@ function createMockPlugin(
   mockText: string,
   sections: MockSection[],
   cursorPosition: EditorPosition = { line: 1, ch: 0 },
-  mockFile = new TFile()
+  mockFile = getInstance(TFile, { path: '', name: '', extension: 'md' })
 ): jest.Mocked<StewardPlugin> {
   // Create mock editor
   const mockEditor = {
