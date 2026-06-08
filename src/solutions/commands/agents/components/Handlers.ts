@@ -62,6 +62,7 @@ export class Handlers {
   private _searchMore: handlers.SearchMore;
   private _speech: handlers.Speech;
   private _image: handlers.Image;
+  private _showWidget: handlers.ShowWidget;
   private _todoList: handlers.TodoList;
   private _dynamic: handlers.Dynamic;
   private _spawnSubagent: handlers.SpawnSubagent;
@@ -200,6 +201,11 @@ export class Handlers {
     return this._image;
   }
 
+  public get showWidget(): handlers.ShowWidget {
+    if (!this._showWidget) this._showWidget = new handlers.ShowWidget(this.getAgent());
+    return this._showWidget;
+  }
+
   public get todoList(): handlers.TodoList {
     if (!this._todoList) this._todoList = new handlers.TodoList(this.getAgent());
     return this._todoList;
@@ -289,6 +295,7 @@ export class Handlers {
       [ToolName.SEARCH_MORE]: () => this.searchMore,
       [ToolName.SPEECH]: () => this.speech,
       [ToolName.IMAGE]: () => this.image,
+      [ToolName.SHOW_WIDGET]: () => this.showWidget,
       [ToolName.TODO_WRITE]: () => this.todoList,
       [ToolName.HELP]: () => this.help,
       [ToolName.SPAWN_SUBAGENT]: () => this.spawnSubagent,

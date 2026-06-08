@@ -48,6 +48,16 @@ const vi = {
       or: 'hoặc',
       skipped: 'Đã bỏ qua',
       view: 'Xem',
+      openInNewTab: 'Mở trong tab mới',
+      saveAsArtifact: 'Lưu thành artifact',
+      artifactSaved: 'Đã lưu artifact "{{name}}"',
+      dismiss: 'Đóng',
+      neverAskAgain: 'Không hiện lại',
+    },
+    widget: {
+      newTabRefreshNotify: 'Sau khi chỉnh sửa, nhấn **{{action}}** lần nữa để làm mới view này.',
+      artifactRefreshNotify:
+        'Sau khi chỉnh sửa, nhấn **{{action}}** lần nữa để làm mới artifact này.',
     },
     community: {
       browseCommands: 'Xem lệnh được đóng góp từ cộng đồng',
@@ -239,6 +249,7 @@ const vi = {
       fullListAvailableInArtifact: 'Danh sách đầy đủ có sẵn trong artifact ID: {{artifactId}}',
       fullListInArtifactUseFilePattern:
         'Danh sách đầy đủ có sẵn trong artifact ID: {{artifactId}}. Hãy dùng filePattern cụ thể để thu hẹp kết quả.',
+      fileWithSize: '{{path}} ({{size}} byte)',
     },
     grep: {
       found: 'Đã tìm thấy {{count}} đường dẫn:',
@@ -281,6 +292,7 @@ const vi = {
       multiDeleteHeader: 'Tôi đã thực hiện {{count}} thao tác xóa:',
       operation: 'Thao tác {{num}}: Xóa các tập tin với {{query}}',
       cannotDeleteCurrentConversationNote: 'Không thể xóa ghi chú trò chuyện hiện tại',
+      noFilesFound: 'Không tìm thấy tập tin nào để xóa.',
     },
     revert: {
       foundFiles: 'Tôi đã tìm thấy {{count}} mục để hoàn tác.',
@@ -427,6 +439,7 @@ const vi = {
       generating: 'Đang tạo...',
       generatingImage: 'Đang tạo hình ảnh...',
       generatingAudio: 'Đang tạo âm thanh...',
+      generatingWidget: 'Đang hiển thị widget...',
       moving: 'Đang di chuyển...',
       searching: 'Đang tìm kiếm...',
       cliTranscript: 'Running local CLI...',

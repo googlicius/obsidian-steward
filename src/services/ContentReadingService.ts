@@ -3,11 +3,34 @@ import { isConversationLink } from '../utils/conversationUtils';
 import type StewardPlugin from '../main';
 import { ContentReadingArgs } from '../solutions/commands/agents/handlers/ReadContent';
 import { logger } from 'src/utils/logger';
-import { IMAGE_LINK_PATTERN } from 'src/constants';
+import { IMAGE_EXTENSIONS, IMAGE_LINK_PATTERN } from 'src/constants';
 import { isHiddenPath } from 'src/utils/pathUtils';
 import { ToolName } from 'src/solutions/commands/toolNames';
 
+const BINARY_FILE_EXTENSIONS = [
+  'mp3',
+  'mp4',
+  'wav',
+  'ogg',
+  'webm',
+  'avi',
+  'mov',
+  'pdf',
+  'zip',
+  'gz',
+  'tar',
+  'exe',
+  'dll',
+  'woff',
+  'woff2',
+  'ttf',
+  'eot',
+  'ico',
+];
+
 export const SUPPORTED_READ = ['Image', 'Note contents'];
+
+export const PLAIN_TEXT_READ_INSTRUCTION = `Each line is prefixed with its 0-based line number (e.g. "12: <div..."). When editing with ${ToolName.EDIT}, write the raw file content only — do NOT include the "N: " line-number prefix.`;
 
 /**
  * Result of a content reading operation
@@ -21,6 +44,10 @@ export interface ContentReadingResult {
     name: string;
   };
   range?: EditorRange;
+  /** Present when non-markdown text is read with line-number prefixes. */
+  instruction?: string;
+  /** AI-only notice when images were read but the chat model cannot receive image inputs. */
+  imageVisionNotice?: string;
 }
 
 /**
@@ -88,16 +115,22 @@ export class ContentReadingService {
       throw new Error('No file found for note');
     }
 
-    const fileExtension = file.extension.toLowerCase();
-    if (fileExtension && fileExtension !== 'md') {
-      return {
-        blocks: [],
-        source: 'entire',
-        file: {
-          path: file.path,
-          name: file.name,
-        },
-      };
+    if (this.isPlainTextFile(file)) {
+      if (args.readType !== 'entire') {
+        return {
+          blocks: [],
+          source: 'unknown',
+          file: {
+            path: file.path,
+            name: file.name,
+          },
+        };
+      }
+      return this.readPlainTextEntire(file);
+    }
+
+    if (file.extension.toLowerCase() !== 'md') {
+      return this.createNonTextFileResult(file);
     }
 
     switch (args.readType) {
@@ -117,6 +150,82 @@ export class ContentReadingService {
       case 'frontmatter':
         return this.readFrontmatter(file);
     }
+  }
+
+  private isPlainTextFile(file: TFile): boolean {
+    const extension = file.extension.toLowerCase();
+    if (!extension || extension === 'md') {
+      return false;
+    }
+    if (IMAGE_EXTENSIONS.includes(extension) || BINARY_FILE_EXTENSIONS.includes(extension)) {
+      return false;
+    }
+    return true;
+  }
+
+  private createNonTextFileResult(file: TFile): ContentReadingResult {
+    return {
+      blocks: [],
+      source: 'entire',
+      file: {
+        path: file.path,
+        name: file.name,
+      },
+    };
+  }
+
+  /**
+   * Prefixes each line with its 0-based line number so the model can target edits precisely.
+   * Example: "0: <div...", "1:   <span..."
+   */
+  private prefixLinesWithLineNumbers(lines: string[], startLine = 0): string {
+    const prefixedLines: string[] = [];
+    for (let index = 0; index < lines.length; index++) {
+      prefixedLines.push(`${startLine + index}: ${lines[index]}`);
+    }
+    return prefixedLines.join('\n');
+  }
+
+  private createPlainTextBlock(params: {
+    lines: string[];
+    startLine: number;
+    endLine: number;
+  }): ContentBlock {
+    const { lines, startLine, endLine } = params;
+    return {
+      startLine,
+      endLine,
+      sections: [
+        {
+          type: 'plain-text',
+          startLine,
+          endLine,
+        },
+      ],
+      content: this.prefixLinesWithLineNumbers(lines, startLine),
+    };
+  }
+
+  private async readPlainTextEntire(file: TFile): Promise<ContentReadingResult> {
+    const fileContent = await this.plugin.app.vault.cachedRead(file);
+    const lines = fileContent.split('\n');
+    const endLine = Math.max(lines.length - 1, 0);
+
+    return {
+      blocks: [
+        this.createPlainTextBlock({
+          lines,
+          startLine: 0,
+          endLine,
+        }),
+      ],
+      source: 'entire',
+      instruction: PLAIN_TEXT_READ_INSTRUCTION,
+      file: {
+        path: file.path,
+        name: file.name,
+      },
+    };
   }
 
   /**
@@ -646,5 +755,69 @@ export class ContentReadingService {
     }
 
     return false;
+  }
+
+  /**
+   * Sets AI-only vision notices on reading results when the chat model cannot receive images.
+   */
+  public applyImageVisionNotices(params: {
+    readingResults: ContentReadingResult[];
+    model: string;
+  }): void {
+    const { readingResults, model } = params;
+    if (this.plugin.llmService.supportsVision(model)) {
+      return;
+    }
+
+    const { modelId } = this.plugin.llmService.parseModel(model);
+    const notice = this.buildImageVisionNotice(modelId);
+
+    for (const result of readingResults) {
+      if (this.collectImagePathsFromReadingResult(result).length > 0) {
+        result.imageVisionNotice = notice;
+      }
+    }
+  }
+
+  /**
+   * Collects vault image paths that would be attached for vision-capable models.
+   */
+  public collectImagePathsFromReadingResult(result: ContentReadingResult): string[] {
+    const imagePaths = new Set<string>();
+
+    const addImagePathIfValid = (path: string | undefined) => {
+      if (!path) {
+        return;
+      }
+      const normalizedPath = path.toLowerCase();
+      const lastIndex = normalizedPath.lastIndexOf('.');
+      const extension = lastIndex > 0 ? normalizedPath.slice(lastIndex + 1) : null;
+      if (extension && IMAGE_EXTENSIONS.includes(extension)) {
+        imagePaths.add(path);
+      }
+    };
+
+    addImagePathIfValid(result.file?.path);
+
+    const allContent = result.blocks.map(block => block.content).join('\n');
+    const imageRegex = new RegExp(IMAGE_LINK_PATTERN, 'gi');
+    const matches = allContent.matchAll(imageRegex);
+
+    for (const match of matches) {
+      if (match[1]) {
+        addImagePathIfValid(match[1]);
+      }
+    }
+
+    return Array.from(imagePaths);
+  }
+
+  /** AI-only message when the chat model cannot receive image bytes from a read. */
+  private buildImageVisionNotice(modelId: string): string {
+    return [
+      `The current chat model (${modelId}) does not support vision/image inputs.`,
+      'Image pixels from this read were not attached to the model.',
+      'Either stop and tell the user this model cannot view images, or continue with a non-image approach (paths, filenames, surrounding text only—do not describe pixel content).',
+    ].join(' ');
   }
 }

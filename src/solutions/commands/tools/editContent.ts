@@ -129,7 +129,7 @@ export const addTableColumnSchema = z.object(
       ),
   },
   {
-    description: 'Add a column to a table, use this to edit a large table (More than 20 rows)',
+    description: 'Add a column to a table.',
   }
 );
 
@@ -169,7 +169,6 @@ export const replaceByLinesSchema = z.object(
     content: z.string().describe(
       `Only the specific part of the content that needs to be updated, without any surrounding context.
 Examples:
-- For table updates: Return only the updated rows, not the entire table
 - For text edits: Return only the changed sentences/paragraphs, not surrounding content
 - For list updates: Return only the added/modified list items, not the entire list.`
     ),

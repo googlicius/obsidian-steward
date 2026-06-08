@@ -7,4 +7,5 @@ export { MoveCompactor } from './MoveCompactor';
 export { DeleteCompactor } from './DeleteCompactor';
 export { ImageCompactor } from './ImageCompactor';
 export { SpeechCompactor } from './SpeechCompactor';
-export { ShellCompactor } from './ShellCompactor';
+export { RecallCompactedContextCompactor } from './RecallCompactedContextCompactor';
+export { measureSerializedOutputSize } from './outputMetrics';

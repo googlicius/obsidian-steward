@@ -117,6 +117,15 @@ html[data-stw-language='vi'] {
   }
 }
 
+.callout[data-callout='stw-notify'],
+.callout[data-callout='stw-actions'] {
+  margin-bottom: 10px !important;
+
+  & > .callout-title {
+    display: none;
+  }
+}
+
 .callout[data-callout='stw-review'] {
   max-height: 200px;
   overflow: hidden;
@@ -191,8 +200,17 @@ pre:has(> code.language-cli-model) {
   }
 }
 
-.workspace-leaf-content[data-type='steward-conversation'] {
-  .view-content {
+.workspace-leaf-content[data-type^='steward-'].stw-view {
+  & > .view-header {
+    display: flex;
+    background-color: transparent;
+    flex-shrink: 0;
+    justify-content: flex-end;
+  }
+
+  & .view-content {
+    flex: 1;
+    min-height: 0;
     padding-left: 0 !important;
     padding-right: 0 !important;
     padding-top: 0;
@@ -212,28 +230,6 @@ pre:has(> code.language-cli-model) {
   > .cm-editor
   > .cm-scroller {
   padding: 15px;
-}
-
-.steward-conversation-header {
-  display: flex;
-  gap: 4px;
-  padding: 4px;
-  justify-content: flex-end;
-}
-
-.steward-header-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--size-2-2);
-  border-radius: var(--radius-s);
-  cursor: pointer;
-  background-color: transparent;
-  color: var(--text-muted);
-
-  &:hover {
-    color: var(--text-normal);
-  }
 }
 
 .stw-history-list {
@@ -278,6 +274,14 @@ pre:has(> code.language-cli-model) {
         }
       }
 
+      .stw-history-created {
+        flex-shrink: 0;
+        font-size: var(--font-ui-smaller);
+        color: var(--text-faint);
+        white-space: nowrap;
+        line-height: 1.35;
+      }
+
       .stw-history-delete-button {
         margin-left: auto;
         opacity: 0;
@@ -304,11 +308,29 @@ pre:has(> code.language-cli-model) {
 
 pre[class*='language-stw-artifact'],
 code[class*='language-stw-artifact'],
+pre[class*='language-stw-widget-html'],
+code[class*='language-stw-widget-html'],
 pre[class*='language-stw-tool-invocation'],
 code[class*='language-stw-tool-invocation'],
 pre[class*='language-stw-hidden-from-user'],
 code[class*='language-stw-hidden-from-user'] {
   display: none;
+}
+
+.stw-widget-container {
+  display: block;
+  width: 100%;
+  margin: var(--size-4-2) 0;
+  overflow: hidden;
+  background: var(--background-primary);
+
+  .stw-widget-frame {
+    display: block;
+    width: 100%;
+    min-height: 400px;
+    border: 0;
+    background: transparent;
+  }
 }
 
 /* Conversation embed indicator */

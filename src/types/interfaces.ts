@@ -126,6 +126,8 @@ export interface StewardPluginSettings {
     cleanupPolicy?: 'never' | '7days' | '30days' | '90days' | '1year'; // When to permanently delete files from stw_trash
   };
   lastSeenVersion?: string; // Last version the user has seen (for version notifications)
+  /** When true, skip the widget refresh hint callout in dedicated and artifact views. */
+  dismissWidgetRefreshNotify?: boolean;
   /**
    * Local CLI bridge (Gemini CLI, shell transcript mode). Desktop only; requires Node child_process.
    */

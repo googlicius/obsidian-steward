@@ -3,8 +3,9 @@ import { getBundledInternal } from 'src/utils/bundledInternals';
 import type StewardPlugin from 'src/main';
 import { logger } from 'src/utils/logger';
 import { z } from 'zod/v3';
+import { ToolName } from 'src/solutions/commands/toolNames';
 import { Skill, SkillCatalogEntry } from './types';
-import { BUILT_IN_SKILLS } from './constants';
+import { STANDARD_SKILLS } from 'src/generated/standardSkills';
 
 const { i18next } = getBundledInternal('i18n');
 
@@ -12,6 +13,7 @@ const skillFrontmatterSchema = z.object({
   name: z.string().refine(s => s.trim().length > 0),
   description: z.string().refine(s => s.trim().length > 0),
   enabled: z.boolean().optional(),
+  tools: z.array(z.nativeEnum(ToolName)).optional(),
 });
 
 /**
@@ -52,7 +54,7 @@ export class SkillService {
   private initialize(): void {
     try {
       this.plugin.app.workspace.onLayoutReady(async () => {
-        await this.seedBuiltInSkills();
+        await this.seedStandardSkills();
         await this.loadAllSkills();
 
         this.plugin.registerEvent(
@@ -191,14 +193,15 @@ export class SkillService {
   }
 
   /**
-   * Seed built-in skills that don't yet exist in the Skills folder.
+   * Seed standard skills that don't yet exist in the Skills folder.
    * Each skill is created as a SKILL.md file under Steward/Skills/<Skill Name>/.
    */
-  private async seedBuiltInSkills(): Promise<void> {
+  private async seedStandardSkills(): Promise<void> {
     await this.plugin.obsidianAPITools.ensureFolderExists(this.skillsFolder);
 
-    for (const skill of BUILT_IN_SKILLS) {
-      const skillPath = `${this.skillsFolder}/${skill.name}/SKILL.md`;
+    for (const skill of STANDARD_SKILLS) {
+      const skillFolder = skill.folder ?? skill.name;
+      const skillPath = `${this.skillsFolder}/${skillFolder}/SKILL.md`;
       const existingFile = this.plugin.app.vault.getFileByPath(skillPath);
 
       if (existingFile) {
@@ -213,7 +216,7 @@ export class SkillService {
           }
 
           logger.log(
-            `Upgrading built-in skill ${skill.name} (v${existingVersion ?? 0} -> v${skill.version})`
+            `Upgrading standard skill ${skill.name} (v${existingVersion ?? 0} -> v${skill.version})`
           );
         } catch (error) {
           logger.error(`Error reading existing skill ${skill.name}:`, error);
@@ -222,7 +225,7 @@ export class SkillService {
       } else {
         try {
           await this.plugin.obsidianAPITools.ensureFolderExists(
-            `${this.skillsFolder}/${skill.name}`
+            `${this.skillsFolder}/${skillFolder}`
           );
         } catch (error) {
           logger.error(`Error creating folder for skill ${skill.name}:`, error);
@@ -231,28 +234,21 @@ export class SkillService {
       }
 
       try {
-        const frontmatter = `---
-name: "${skill.name}"
-description: "${skill.description}"
-enabled: true
-version: ${skill.version}
----`;
-
-        const fileContent = `${frontmatter}\n${skill.content}`;
+        const fileContent = `${this.formatStandardSkillFrontmatter(skill)}\n${skill.content}`;
 
         if (existingFile) {
           await this.plugin.app.vault.modify(existingFile, fileContent);
-          logger.log(`Updated built-in skill: ${skill.name} (v${skill.version})`);
+          logger.log(`Updated standard skill: ${skill.name} (v${skill.version})`);
           await this.loadSkillFromFile(existingFile);
         } else {
           const createdFile = await this.plugin.app.vault.create(skillPath, fileContent);
-          logger.log(`Created built-in skill: ${skill.name} (v${skill.version})`);
+          logger.log(`Created standard skill: ${skill.name} (v${skill.version})`);
           if (createdFile) {
             await this.loadSkillFromFile(createdFile);
           }
         }
       } catch (error) {
-        logger.error(`Error writing built-in skill ${skill.name}:`, error);
+        logger.error(`Error writing standard skill ${skill.name}:`, error);
       }
     }
   }
@@ -287,6 +283,7 @@ version: ${skill.version}
       const name = fm.name.trim();
       const description = fm.description.trim();
       const enabled = fm.enabled !== false;
+      const tools = fm.tools && fm.tools.length > 0 ? fm.tools : undefined;
 
       const skill: Skill = {
         name,
@@ -294,6 +291,7 @@ version: ${skill.version}
         content: body.trim(),
         filePath: file.path,
         enabled,
+        tools,
       };
 
       this.skills.set(skill.name, skill);
@@ -357,15 +355,61 @@ version: ${skill.version}
     return false;
   }
 
+  private formatStandardSkillFrontmatter(skill: (typeof STANDARD_SKILLS)[number]): string {
+    const lines = [
+      '---',
+      `name: "${skill.name}"`,
+      `description: "${skill.description}"`,
+      'enabled: true',
+      `version: ${skill.version}`,
+    ];
+
+    if (skill.tools && skill.tools.length > 0) {
+      lines.push('tools:');
+      for (const tool of skill.tools) {
+        lines.push(`  - ${tool}`);
+      }
+    }
+
+    lines.push('---');
+    return lines.join('\n');
+  }
+
   /**
-   * Get the skill catalog (name + description) for all loaded skills.
+   * Whether a skill should appear in the catalog for the given active tools.
+   * Skills without `tools` frontmatter are always eligible when enabled.
+   */
+  public static isSkillVisibleInCatalog(skill: Skill, activeTools?: readonly string[]): boolean {
+    if (!skill.enabled) {
+      return false;
+    }
+
+    if (!skill.tools || skill.tools.length === 0) {
+      return true;
+    }
+
+    if (!activeTools || activeTools.length === 0) {
+      return false;
+    }
+
+    for (const tool of skill.tools) {
+      if (!activeTools.includes(tool)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Get the skill catalog (name + description) for loaded skills visible this turn.
    * Used for the system prompt to show the LLM what skills are available.
    */
-  public getSkillCatalog(): SkillCatalogEntry[] {
+  public getSkillCatalog(activeTools?: readonly string[]): SkillCatalogEntry[] {
     const entries: SkillCatalogEntry[] = [];
 
     for (const skill of this.skills.values()) {
-      if (!skill.enabled) {
+      if (!SkillService.isSkillVisibleInCatalog(skill, activeTools)) {
         continue;
       }
 

@@ -3,3 +3,4 @@ export * from './SearchResultSerializer';
 export * from './CompositeSerializer';
 export * from './GeneratedContentSerializer';
 export * from './ReadContentSerializer';
+export * from './WidgetSerializer';

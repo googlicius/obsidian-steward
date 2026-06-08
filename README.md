@@ -27,6 +27,7 @@ Steward is an autonomous AI agent for Obsidian, powered by Large Language Models
 - [Guardrails](#guardrails)
 - [MCP](#mcp)
 - [Shell commands and terminal](#shell-commands-and-terminal)
+- [Widgets and visualizations](#widgets-and-visualizations)
 - [User-defined commands](#user-defined-commands)
 - [Folder structure](#folder-structure)
 - [Installation](#installation)
@@ -113,6 +114,23 @@ For modes, installers, built-in interactive programs, and settings, see the **[S
 
 <img src="/README.assets/Steward-Demo-CLI.gif" alt="CLI" width="650px">
 
+## Widgets and visualizations
+
+Steward can render **inline HTML and SVG widgets** directly in the conversation-animations, interactive demos, diagrams, and even simple games. Ask in natural language and the agent uses the built-in widget tool to create and display them in a **sandboxed iframe** inside your chat note.
+
+**HTML project widgets** are stored under `Steward/Widgets/{widgetId}/` as multi-file projects (`index.html`, `style.css`, `main.js`, `Widget.md`, etc.). They persist across conversations, hot-reload when you edit project files, and can reference vault assets (images, audio) bundled at render time. **Stateful widgets** (counters, quizzes, games) save runtime state via `state.json`; **interactive widgets** support turn-based play with AI actors.
+
+**SVG widgets** are self-contained vector graphics rendered inline without a project folder.
+
+Example prompts:
+
+```
+/ Make a tic-tac-toe game I can play against you.
+/ Visualize this note as an SVG diagram.
+```
+
+Built-in skills **stateful-widget** and **interactive-widget** guide the agent when building interactive or turn-based widgets. For rendering, state, assets, and troubleshooting, see the [Widgets and visualizations wiki](https://github.com/googlicius/obsidian-steward/wiki/Widgets-and-visualizations).
+
 ## User-defined commands
 
 User-defined commands are the combination of skills, agents, automation, and workflows that are defined in the same md file.
@@ -150,10 +168,13 @@ Steward/
 ├── Commands/       # Stores user-defined command definitions
 ├── Conversations/  # Archives past conversations
 ├── MCP/            # MCP server definitions (one markdown note per server)
+├── Memory/         # Persistent memory (e.g. tool instructions) for agents
 ├── Docs/           # Fetched documents from this repo
 ├── Release notes/  # Release notes of Steward
 ├── Rules/          # Guardrails rules (one file per rule)
 ├── Skills/         # Agent skills for domain-specific knowledge
+├── Widgets/        # HTML widget projects (index.html, main.js, Widget.md, state.json)
+├── Artifacts/      # Saved artifacts (.art notes; open in reading view)
 ├── Trash/          # Stores deleted files
 ├── install-node-pty-runtime.sh   # Downloads node-pty prebuilt (macOS, Linux, Git Bash)
 ├── install-node-pty-runtime.ps1  # Downloads node-pty prebuilt (Windows PowerShell)

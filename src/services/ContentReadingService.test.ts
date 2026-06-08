@@ -1,4 +1,8 @@
-import { ContentReadingService, type ContentReadingResult } from './ContentReadingService';
+import {
+  ContentReadingService,
+  PLAIN_TEXT_READ_INSTRUCTION,
+  type ContentReadingResult,
+} from './ContentReadingService';
 import { TFile, EditorPosition, CachedMetadata, SectionCache } from 'obsidian';
 import type StewardPlugin from '../main';
 import { getInstance } from 'src/utils/getInstance';
@@ -29,7 +33,7 @@ function createMockPlugin(
   mockText: string,
   sections: MockSection[],
   cursorPosition: EditorPosition = { line: 1, ch: 0 },
-  mockFile = new TFile()
+  mockFile = getInstance(TFile, { path: '', name: '', extension: 'md' })
 ): jest.Mocked<StewardPlugin> {
   // Create mock editor
   const mockEditor = {
@@ -88,6 +92,49 @@ function createSection(type: string, startLine: number, endLine: number): MockSe
 }
 
 describe('ContentReadingService', () => {
+  describe('image path helpers', () => {
+    let service: ContentReadingService;
+    let buildImageVisionNotice: ContentReadingService['buildImageVisionNotice'];
+
+    beforeEach(() => {
+      const mockPlugin = createMockPlugin('', [], { line: 0, ch: 0 });
+      service = ContentReadingService.getInstance(mockPlugin);
+      buildImageVisionNotice = service['buildImageVisionNotice'].bind(service);
+    });
+
+    it('collectImagePathsFromReadingResult includes image file paths and wikilink targets', () => {
+      const imageFileResult: ContentReadingResult = {
+        blocks: [],
+        source: 'entire',
+        file: { path: 'assets/image.png', name: 'image.png' },
+      };
+      expect(service.collectImagePathsFromReadingResult(imageFileResult)).toEqual([
+        'assets/image.png',
+      ]);
+
+      const wikilinkResult: ContentReadingResult = {
+        blocks: [
+          {
+            startLine: 2,
+            endLine: 2,
+            sections: [{ type: 'paragraph', startLine: 2, endLine: 2 }],
+            content: '![[Pasted image 20250610015617.png]]',
+          },
+        ],
+        source: 'element',
+        file: { path: 'note.md', name: 'note.md' },
+      };
+      expect(service.collectImagePathsFromReadingResult(wikilinkResult)).toEqual([
+        'Pasted image 20250610015617.png',
+      ]);
+    });
+
+    it('buildImageVisionNotice describes the model limitation for the agent', () => {
+      expect(buildImageVisionNotice('deepseek-chat')).toContain('deepseek-chat');
+      expect(buildImageVisionNotice('deepseek-chat')).toContain('does not support vision');
+    });
+  });
+
   describe('readContent - readType above/below/entire', () => {
     it('should read the list above the cursor', async () => {
       // Create mock text content with lists and paragraphs
@@ -460,7 +507,7 @@ End paragraph`;
       expect(result).toMatchObject(expected);
     });
 
-    it('should return file details for non-markdown files', async () => {
+    it('should return file details for binary non-text files', async () => {
       const mockText = '';
       const sections: MockSection[] = [];
       const mockFile = getInstance(TFile, {
@@ -486,6 +533,47 @@ End paragraph`;
           path: 'assets/image.png',
           name: 'image.png',
         },
+      });
+    });
+
+    it('should read plain text files with 0-based line number prefixes', async () => {
+      const mockText = `<div class="widget">
+  <span>Hello</span>
+</div>`;
+      const sections: MockSection[] = [];
+      const mockFile = getInstance(TFile, {
+        path: 'widgets/index.html',
+        name: 'index.html',
+        extension: 'html',
+      });
+      const mockPlugin = createMockPlugin(mockText, sections, undefined, mockFile);
+      const service = ContentReadingService.getInstance(mockPlugin);
+
+      const result = await service.readContent({
+        blocksToRead: 1,
+        readType: 'entire',
+        elementType: null,
+        fileName: 'widgets/index.html',
+      });
+      assertContentReadingResult(result);
+
+      expect(result).toMatchObject({
+        source: 'entire',
+        instruction: PLAIN_TEXT_READ_INSTRUCTION,
+        file: {
+          path: 'widgets/index.html',
+          name: 'index.html',
+        },
+        blocks: [
+          {
+            startLine: 0,
+            endLine: 2,
+            sections: [{ type: 'plain-text', startLine: 0, endLine: 2 }],
+            content: `0: <div class="widget">
+1:   <span>Hello</span>
+2: </div>`,
+          },
+        ],
       });
     });
   });

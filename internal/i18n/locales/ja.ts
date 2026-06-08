@@ -48,6 +48,17 @@ const ja = {
       and: 'と',
       or: 'または',
       view: '表示',
+      openInNewTab: '新しいタブで開く',
+      saveAsArtifact: 'アーティファクトとして保存',
+      artifactSaved: 'アーティファクト「{{name}}」を保存しました',
+      dismiss: '閉じる',
+      neverAskAgain: '今後表示しない',
+    },
+    widget: {
+      newTabRefreshNotify:
+        'ウィジェットファイルを編集した後、**{{action}}** をもう一度クリックしてこのビューを更新してください。',
+      artifactRefreshNotify:
+        'ウィジェットファイルを編集した後、**{{action}}** をもう一度クリックしてこのアーティファクトを更新してください。',
     },
     community: {
       browseCommands: 'コミュニティコマンドを見る',
@@ -247,6 +258,7 @@ const ja = {
         '完全なリストはアーティファクト ID: {{artifactId}} で利用可能です',
       fullListInArtifactUseFilePattern:
         '完全なリストはアーティファクト ID: {{artifactId}} で利用可能です。結果を絞り込むには、より具体的な filePattern を使用してください。',
+      fileWithSize: '{{path}} ({{size}} バイト)',
     },
     grep: {
       found: '{{count}} 件のパスが見つかりました：',
@@ -290,6 +302,7 @@ const ja = {
       confirmHeader: '以下のファイルを削除します：',
       confirmQuestion: 'これらのファイルを削除してもよろしいですか？この操作は取り消せません。',
       cannotDeleteCurrentConversationNote: '現在の会話ノートは削除できません',
+      noFilesFound: '削除するファイルが見つかりませんでした。',
     },
     // Revert result messages
     revert: {
@@ -434,6 +447,7 @@ const ja = {
       generating: '生成中...',
       generatingImage: '画像を生成中...',
       generatingAudio: '音声を生成中...',
+      generatingWidget: 'ウィジェットを表示中...',
       moving: '移動中...',
       searching: '検索中...',
       cliTranscript: 'Running local CLI...',

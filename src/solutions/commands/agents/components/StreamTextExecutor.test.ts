@@ -84,6 +84,7 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     },
     abortService: {
       createAbortController: jest.fn().mockReturnValue(new AbortController()),
+      abortOperation: jest.fn().mockReturnValue(true),
     },
     skillService: {
       getSkillCatalog: jest.fn().mockReturnValue([]),
@@ -100,6 +101,12 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
     conversationRenderer: mockRenderer,
     guardrailsRuleService: {
       getInstructionsByTool: jest.fn().mockReturnValue(new Map()),
+    },
+    toolInstructionService: {
+      getInstructionsByTool: jest.fn().mockReturnValue(new Map()),
+      getToolInstructionsRelativePath: jest
+        .fn()
+        .mockReturnValue('Steward/Memory/Tool instructions.md'),
     },
     compactionTokenService: {},
     mcpService: {
@@ -316,6 +323,127 @@ describe('StreamTextExecutor', () => {
       expect(mockPlugin.conversationRenderer.extractConversationHistory).toHaveBeenCalledWith(
         'test-conversation'
       );
+    });
+  });
+
+  describe('inactive dynamic tool calls', () => {
+    it('settleStreamPromise resolves early with a synthetic dynamic tool call', async () => {
+      let capturedOnAbort: ((event: { steps?: unknown[] }) => void) | undefined;
+
+      getMockStreamText().mockImplementation(options => {
+        capturedOnAbort = options.onAbort;
+
+        queueMicrotask(() => {
+          options.onChunk?.({
+            chunk: {
+              type: 'tool-input-start',
+              id: 'call-inactive-edit',
+              toolName: ToolName.EDIT,
+              dynamic: true,
+            },
+          });
+        });
+
+        return {
+          fullStream: (async function* () {})(),
+          toolCalls: new Promise(() => {
+            // Never resolves — early settlement should win the race.
+          }),
+        };
+      });
+
+      mockPlugin.abortService.abortOperation = jest.fn(() => {
+        capturedOnAbort?.({ steps: [] });
+        return true;
+      });
+
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'edit my note',
+        } as Intent,
+      };
+
+      mockPlugin.conversationRenderer.extractConversationHistory = jest
+        .fn()
+        .mockResolvedValue({ messages: [], hasCompactionContext: false });
+
+      const result = await testAgent.executeForTest(params);
+      const toolCalls = result.toolCalls as Array<{
+        toolCallId: string;
+        toolName: string;
+        dynamic?: boolean;
+        error?: { name: string };
+      }>;
+
+      expect(mockPlugin.abortService.abortOperation).toHaveBeenCalledWith(
+        'test-conversation',
+        'super-agent'
+      );
+      expect(toolCalls).toHaveLength(1);
+      expect(toolCalls[0].toolCallId).toBe('call-inactive-edit');
+      expect(toolCalls[0].toolName).toBe(ToolName.EDIT);
+      expect(toolCalls[0].dynamic).toBe(true);
+      expect(toolCalls[0].error?.name).toBe('AI_NoSuchToolError');
+      expect(result.text).toBe('');
+      expect(result.usage).toBeUndefined();
+      expect(result.totalUsage).toBeUndefined();
+    });
+
+    it('skips reading stream output when settled early with inactive tool call', async () => {
+      const accessOutput = jest.fn();
+      const pendingOutput = new Promise<string>(() => {
+        // Never resolves — would hang if executeStreamText awaited output after early settlement.
+      });
+
+      getMockStreamText().mockImplementation(options => {
+        queueMicrotask(() => {
+          options.onChunk?.({
+            chunk: {
+              type: 'tool-input-start',
+              id: 'call-inactive-edit',
+              toolName: ToolName.EDIT,
+            },
+          });
+        });
+
+        return {
+          fullStream: (async function* () {})(),
+          toolCalls: new Promise(() => {}),
+          get text() {
+            accessOutput('text');
+            return pendingOutput;
+          },
+          get usage() {
+            accessOutput('usage');
+            return pendingOutput;
+          },
+          get totalUsage() {
+            accessOutput('totalUsage');
+            return pendingOutput;
+          },
+        };
+      });
+
+      const params: AgentHandlerParams = {
+        title: 'test-conversation',
+        intent: {
+          type: 'vault',
+          query: 'edit my note',
+        } as Intent,
+      };
+
+      mockPlugin.conversationRenderer.extractConversationHistory = jest
+        .fn()
+        .mockResolvedValue({ messages: [], hasCompactionContext: false });
+
+      const result = await testAgent.executeForTest(params);
+
+      expect(accessOutput).not.toHaveBeenCalled();
+      expect(result.text).toBe('');
+      expect(result.usage).toBeUndefined();
+      expect(result.totalUsage).toBeUndefined();
     });
   });
 });

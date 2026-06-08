@@ -1,7 +1,9 @@
 import { ToolName } from './toolNames';
 import { joinWithConjunction } from 'src/utils/arrayUtils';
+import { MarkdownBuilder } from 'src/utils/MarkdownBuilder';
 import { revertAbleArtifactTypes } from '../artifact';
 import { EditMode } from './tools/editContent';
+import { getShowWidgetThemeGuideline } from './agents/handlers/ShowWidget';
 
 export interface ToolDefinition {
   name: string;
@@ -20,6 +22,8 @@ export interface ToolMetaDefinition {
   category?: string;
   /** Whether to show the description when inactive, default to false */
   showDescriptionWhenInactive?: boolean;
+  /** Tools auto-activated alongside this tool when it becomes active */
+  companionTools?: readonly ToolName[];
 }
 
 /**
@@ -33,6 +37,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description:
       'Read content from a note, including text, images, audios, videos, etc. Or image files (png, jpg, jpeg, etc.).',
     category: 'content-access',
+    companionTools: [ToolName.CONFIRMATION, ToolName.ASK_USER],
     guidelines: [
       `When reading notes:
   - Specify the number of blocks to read (blocksToRead) carefully from the user's query, Do NOT set -1 unless the user explicitly requests to read the entire content.
@@ -114,6 +119,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     name: ToolName.SEARCH,
     description:
       'Comprehensive search for notes and files in the vault using keywords, tags, filenames, folders, and properties.',
+    companionTools: [ToolName.SEARCH_MORE],
     guidelines: [
       `Use ${ToolName.SEARCH} tool when the user wants to find files in the vault.
   - If the query lacks search intention, search with two operations: 1. Search by keywords; 2. Search by filenames.
@@ -165,16 +171,12 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
       `- When updating content, return ONLY the specific changed content, not the entire surrounding context.
   - Use ${ToolName.EDIT} to make the actual content changes. (NOTE: You cannot use this tool if a note does not exist.)
   - Use the right edit mode to ensure good performance and efficient token usage.`,
-      `Here are available edit modes:
-  - ${EditMode.ADD_TABLE_COLUMN}: Add a column to a table.
-  - ${EditMode.UPDATE_TABLE_COLUMN}: Update a column in a table - Use to update the header, values, or both.
-  - ${EditMode.DELETE_TABLE_COLUMN}: Delete a column from a table.
-  - ${EditMode.REPLACE_BY_LINES}: Replace content within a specific line range, or replace the entire file if both fromLine and toLine are omitted.
-  - ${EditMode.REPLACE_BY_PATTERN}: Replace content matching a pattern in a single note by path, or across multiple notes from an artifact. Requires either artifactId or path.
-  - ${EditMode.INSERT}: Insert content at a specific line number.
-NOTE:
-  - Use table modes to edit tables, especially large tables (More than 20 rows).
-  - Use one or multiple operations. DO NOT use multiple tool calls or multiple requests.`,
+      `Choose edit mode by purpose:
+  - **Tables**: Read the "edit-table" skill first. It covers ${EditMode.ADD_TABLE_COLUMN}, ${EditMode.UPDATE_TABLE_COLUMN}, and ${EditMode.DELETE_TABLE_COLUMN}.
+  - **Replace by line range**: Use ${EditMode.REPLACE_BY_LINES} to replace content within fromLine–toLine, or omit both to replace the entire file.
+  - **Pattern replacement**: Use ${EditMode.REPLACE_BY_PATTERN} to replace matches by RegExp in one note (path) or many notes (artifactId). Requires artifactId or path.
+  - **Insert**: Use ${EditMode.INSERT} to insert content at a specific line number.
+  - Use one or multiple operations in a single call. DO NOT use multiple tool calls or multiple requests.`,
     ],
     category: 'content-edit',
   },
@@ -259,6 +261,7 @@ NOTE:
     name: ToolName.REVERT,
     description:
       'Revert all revertable operations produced by the latest user query, including subagents.',
+    companionTools: [ToolName.GET_MOST_RECENT_ARTIFACT, ToolName.GET_ARTIFACT_BY_ID],
     guidelines: [
       `Use ${ToolName.REVERT} to undo the latest user query end-to-end in reverse chronological order.`,
     ],
@@ -304,6 +307,32 @@ NOTE:
     ],
     category: 'content-generation',
     showDescriptionWhenInactive: true,
+  },
+
+  [ToolName.SHOW_WIDGET]: {
+    name: ToolName.SHOW_WIDGET,
+    description:
+      'Render a self-contained HTML or SVG widget inline in the conversation. Supports static animations, interactive demos with click/keyboard handlers, and visual diagrams. Use when the user asks for an animation, demo, making a game, or dynamic visualization',
+    companionTools: [ToolName.GET_ARTIFACT_BY_ID, ToolName.EDIT, ToolName.CONTENT_READING],
+    guidelines: [
+      'Set type to "html" for full HTML widgets, or "svg" for vector graphics.',
+      'For HTML widgets, use project mode: files as [{ name, content }, ...] — split index.html, style.css, main.js, etc. instead of one inline HTML blob. Link them from index.html (<link href="style.css">, <script src="main.js">); they are bundled into one document at render. Always provide widgetName (natural language); for project mode it builds widgetId and the vault folder under Steward/Widgets/{widgetId}/. Widgets are conversation-independent; reference widgetId across conversations.',
+      'For interactive project widgets (games, counters, forms) that must remember user actions, read the "stateful-widget" skill (via content_reading) before generating widget code.',
+      'For turn-based widgets where humans and models take turns (games vs AI, poker, chess, etc.), read the "interactive-widget" skill after stateful-widget — it covers registerAction, Widget.md (actions, actors, agent blocks), and validation.',
+      'For SVG, use non-project mode (code). Code must be self-contained, no external CDN.',
+      'When the user provides files (images, SVGs, etc.), MUST add their original paths to assets (e.g. Images/photo.png) and reference them in HTML with the "asset:" prefix (e.g. src="asset:Images/photo.png", href, or CSS url()). Files are read from the vault and bundled as base64 data URLs at render time.',
+      `After rendering a project widget, if the user ask for update, use ${ToolName.EDIT} and ${ToolName.CONTENT_READING} on the projectPath returned in the tool result.`,
+    ],
+    category: 'content-generation',
+    showDescriptionWhenInactive: true,
+  },
+
+  [ToolName.WIDGET_ACTION]: {
+    name: ToolName.WIDGET_ACTION,
+    description:
+      'Apply one allowed widget action during a widget session turn. Used by model actors in turn-based interactive widgets.',
+    guidelines: [],
+    category: 'content-generation',
   },
 
   [ToolName.TODO_WRITE]: {
@@ -384,10 +413,15 @@ export class ToolRegistry<T> {
   private readonly tools: Map<string, ToolDefinition> = new Map();
   private readonly excluded: Set<string> = new Set();
   private activeTools: Set<string> | null = null;
-  private additionalGuidelines: Map<string, string[]> = new Map();
+  private guardrailGuidelines: Map<string, string[]> = new Map();
+  private memoryGuidelines: Map<string, string[]> = new Map();
 
-  public setAdditionalGuidelines(guidelines: Map<string, string[]>): this {
-    this.additionalGuidelines = guidelines;
+  public setSupplementalGuidelines(params: {
+    guardrails: Map<string, string[]>;
+    memory: Map<string, string[]>;
+  }): this {
+    this.guardrailGuidelines = params.guardrails;
+    this.memoryGuidelines = params.memory;
     return this;
   }
 
@@ -456,25 +490,158 @@ export class ToolRegistry<T> {
     return lines.join('\n');
   }
 
-  public generateGuidelinesSection(): string {
+  public generateGuidelinesSection(params?: { memorySourcePath?: string }): string {
     const sections: string[] = [];
     for (const [, def] of this.tools) {
       if (!this.isActive(def.name)) continue;
-      const guidelines: string[] = [];
-      for (const g of def.guidelines) {
-        guidelines.push(`- ${g}`);
-      }
-      const extra = this.additionalGuidelines.get(def.name);
-      if (extra && extra.length > 0) {
-        for (const g of extra) {
-          guidelines.push(`- ${g}`);
-        }
-      }
-      if (guidelines.length > 0) {
-        sections.push(`**${def.name}**\n${guidelines.join('\n')}`);
+
+      const builtIn =
+        def.name === ToolName.SHOW_WIDGET
+          ? [...def.guidelines, getShowWidgetThemeGuideline()]
+          : def.guidelines;
+
+      const toolSection = this.buildToolGuidelinesSection({
+        toolName: def.name,
+        builtIn,
+        memorySourcePath: params?.memorySourcePath,
+      });
+      if (toolSection) {
+        sections.push(toolSection);
       }
     }
     return sections.join('\n\n');
+  }
+
+  private buildGuidelinesSectionBody(memorySourcePath: string): string {
+    const toolSections = this.generateGuidelinesSection({ memorySourcePath });
+    if (!toolSections.trim()) {
+      return '';
+    }
+
+    const parts: string[] = [];
+    if (this.hasActiveMemoryGuidelines()) {
+      parts.push(
+        `Additional tool instructions from memory appear under the **Memory** subheading for each tool. Edit them in ${memorySourcePath}.`
+      );
+    }
+    parts.push(toolSections);
+    return parts.join('\n\n');
+  }
+
+  private hasActiveMemoryGuidelines(): boolean {
+    for (const [name] of this.tools) {
+      if (!this.isActive(name)) continue;
+      const memory = this.memoryGuidelines.get(name);
+      if (memory && memory.length > 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public generateToolSectionBody(params: {
+    inactiveToolCount: number;
+    otherToolsExclude?: Set<string>;
+    otherToolsEmptyLabel: string;
+    memorySourcePath: string;
+  }): string {
+    const otherToolsBody = this.buildOtherToolsSectionBody({
+      inactiveToolCount: params.inactiveToolCount,
+      exclude: params.otherToolsExclude,
+      emptyLabel: params.otherToolsEmptyLabel,
+    });
+
+    return new MarkdownBuilder()
+      .addSection('### Available tools', this.generateToolsSection())
+      .addSection('### Guidelines', this.buildGuidelinesSectionBody(params.memorySourcePath))
+      .addSection('### Other tools', otherToolsBody)
+      .build();
+  }
+
+  private buildOtherToolsSectionBody(params: {
+    inactiveToolCount: number;
+    exclude?: Set<string>;
+    emptyLabel: string;
+  }): string {
+    const list = this.generateOtherToolsSection('', params.exclude);
+    if (!list.trim()) {
+      return params.emptyLabel;
+    }
+    return `${params.inactiveToolCount} inactive tools; activate before using them.\n${list}`;
+  }
+
+  private buildToolGuidelinesSection(params: {
+    toolName: string;
+    builtIn: string[];
+    memorySourcePath?: string;
+  }): string {
+    const guardrails = this.guardrailGuidelines.get(params.toolName) ?? [];
+    const memory = this.memoryGuidelines.get(params.toolName) ?? [];
+
+    if (params.builtIn.length === 0 && guardrails.length === 0 && memory.length === 0) {
+      return '';
+    }
+
+    const builder = new MarkdownBuilder();
+    builder.addSection(
+      `#### ${params.toolName}`,
+      this.buildGuidelineSourceSections({
+        builtIn: params.builtIn,
+        guardrails,
+        memory,
+        memorySourcePath: params.memorySourcePath,
+      })
+    );
+    return builder.build();
+  }
+
+  private buildGuidelineSourceSections(params: {
+    builtIn: string[];
+    guardrails: string[];
+    memory: string[];
+    memorySourcePath?: string;
+  }): string {
+    const parts: string[] = [];
+
+    const builtInBullets = ToolRegistry.formatGuidelineBullets(params.builtIn);
+    if (builtInBullets) {
+      parts.push(builtInBullets);
+    }
+
+    const supplemental = new MarkdownBuilder()
+      .addSection('##### Guardrails', ToolRegistry.formatGuidelineBullets(params.guardrails))
+      .addSection(
+        '##### Memory',
+        ToolRegistry.formatMemoryGuidelineSection(params.memory, params.memorySourcePath)
+      )
+      .build();
+    if (supplemental) {
+      parts.push(supplemental);
+    }
+
+    return parts.join('\n\n');
+  }
+
+  private static formatGuidelineBullets(lines: string[]): string {
+    if (lines.length === 0) {
+      return '';
+    }
+    const bullets: string[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      bullets.push(`- ${lines[i]}`);
+    }
+    return bullets.join('\n');
+  }
+
+  private static formatMemoryGuidelineSection(lines: string[], memorySourcePath?: string): string {
+    if (lines.length === 0) {
+      return '';
+    }
+    const bullets = ToolRegistry.formatGuidelineBullets(lines);
+    if (!memorySourcePath) {
+      return bullets;
+    }
+    return `${bullets}\n(from ${memorySourcePath})`;
   }
 
   /**
@@ -541,6 +708,43 @@ export class ToolRegistry<T> {
       return '';
     }
     return description;
+  }
+
+  /**
+   * Companion tools declared for a tool in {@link TOOL_DEFINITIONS}.
+   */
+  public static getCompanionTools(toolName: ToolName): ToolName[] {
+    const companions = TOOL_DEFINITIONS[toolName]?.companionTools;
+    if (!companions || companions.length === 0) {
+      return [];
+    }
+    return [...companions];
+  }
+
+  /**
+   * Expand a tool list with companion tools from {@link TOOL_DEFINITIONS}.
+   * Preserves input order; companions are appended after each primary tool.
+   */
+  public static expandWithCompanionTools(names: readonly ToolName[]): ToolName[] {
+    const result: ToolName[] = [];
+    const seen = new Set<ToolName>();
+
+    for (const name of names) {
+      if (!seen.has(name)) {
+        seen.add(name);
+        result.push(name);
+      }
+
+      for (const companion of ToolRegistry.getCompanionTools(name)) {
+        if (seen.has(companion)) {
+          continue;
+        }
+        seen.add(companion);
+        result.push(companion);
+      }
+    }
+
+    return result;
   }
 }
 

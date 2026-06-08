@@ -52,6 +52,17 @@ const en = {
       or: 'or',
       skipped: 'Skipped',
       view: 'View',
+      openInNewTab: 'Open in new tab',
+      saveAsArtifact: 'Save as artifact',
+      artifactSaved: 'Saved artifact "{{name}}"',
+      dismiss: 'Dismiss',
+      neverAskAgain: "Don't show again",
+    },
+    widget: {
+      newTabRefreshNotify:
+        'After editing widget files, click **{{action}}** again to refresh this view.',
+      artifactRefreshNotify:
+        'After editing widget files, click **{{action}}** again to refresh this artifact.',
     },
     community: {
       browseCommands: 'Browse community commands',
@@ -278,6 +289,7 @@ const en = {
       fullListAvailableInArtifact: 'Full list available in artifact ID: {{artifactId}}',
       fullListInArtifactUseFilePattern:
         'Full list available in artifact ID: {{artifactId}}. Use a specific filePattern to narrow down results.',
+      fileWithSize: '{{path}} ({{size}} bytes)',
     },
     grep: {
       found_one: 'Found {{count}} path:',
@@ -340,6 +352,7 @@ const en = {
       confirmHeader: 'I found the following files to delete:',
       confirmQuestion: 'Are you sure you want to delete these files? This action cannot be undone.',
       cannotDeleteCurrentConversationNote: 'Cannot delete the current conversation note',
+      noFilesFound: 'No file found to delete.',
     },
     // Revert result messages
     revert: {
@@ -489,6 +502,7 @@ const en = {
       generating: 'Generating...',
       generatingImage: 'Generating image...',
       generatingAudio: 'Generating audio...',
+      generatingWidget: 'Rendering widget...',
       moving: 'Moving...',
       searching: 'Searching...',
       cliTranscript: 'Running local CLI...',

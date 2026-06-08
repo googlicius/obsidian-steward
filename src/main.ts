@@ -25,6 +25,8 @@ import { createCalloutEditPreviewPostProcessor } from './post-processors/Callout
 import { createConversationIndicatorProcessor } from './post-processors/ConversationIndicatorProcessor';
 import { createCliTranscriptPostProcessor } from './post-processors/CliTranscriptPostProcessor';
 import { createCliXtermPostProcessor } from './post-processors/CliXtermPostProcessor';
+import { createWidgetPostProcessor } from './post-processors/WidgetPostProcessor';
+import { createCalloutActionPostProcessor } from './post-processors/CalloutActionPostProcessor';
 import { ConversationEventHandler } from './services/ConversationEventHandler';
 import { eventEmitter } from './services/EventEmitter';
 import { ObsidianAPITools } from './tools/obsidianAPITools';
@@ -39,8 +41,15 @@ import { ContentReadingService } from './services/ContentReadingService';
 import { VaultService } from './services/VaultService/VaultService';
 import { StewardPluginSettings } from './types/interfaces';
 import { Line, Text } from '@codemirror/state';
-import { DEFAULT_SETTINGS, SMILE_CHAT_ICON_ID, STW_CHAT_VIEW_CONFIG } from './constants';
-import { StewardChatView } from './views/StewardChatView';
+import {
+  DEFAULT_SETTINGS,
+  SMILE_CHAT_ICON_ID,
+  CHAT_VIEW_CONFIG,
+  READING_VIEW_CONFIG,
+} from './constants';
+import { ChatView } from './views/ChatView';
+import { ReadingView } from './views/ReadingView';
+import { StewardMarkdownView } from './views/StewardMarkdownView';
 import { Events } from './types/events';
 import { ObsidianEditor, ExtendedApp } from './types/types';
 import { isConversationLink, extractConversationTitle } from './utils/conversationUtils';
@@ -50,6 +59,7 @@ import { retry } from './utils/retry';
 import { getClassifier } from './lib/modelfusion/classifiers/getClassifier';
 import { MediaTools } from './tools/mediaTools';
 import { NoteContentService } from './services/NoteContentService';
+import { MarkdownDefinitionService } from './services/MarkdownDefinitionService';
 import { LLMService } from './services/LLMService';
 import stewardIcon from './assets/steward-icon.svg';
 import { createStwSourceBlocksExtension } from './cm/extensions/StwSourceBlockExtension';
@@ -72,6 +82,8 @@ import { CliSessionService } from './services/CliSessionService/CliSessionServic
 import { PtyCompanionService } from './services/PtyCompanionService/PtyCompanionService';
 import { NodePtyInstallerScriptService } from './services/NodePtyInstallerScriptService/NodePtyInstallerScriptService';
 import { WikilinkForwardService } from './services/WikilinkForwardService/WikilinkForwardService';
+import { WidgetService } from './services/WidgetService';
+import { ToolInstructionService } from './services/Memory/ToolInstructionService';
 
 const { i18next } = getBundledInternal('i18n');
 
@@ -93,6 +105,7 @@ export default class StewardPlugin extends Plugin {
   _userDefinedCommandService: UserDefinedCommandService;
   _mediaTools: MediaTools;
   _noteContentService: NoteContentService;
+  _markdownDefinitionService: MarkdownDefinitionService;
   _modelFallbackService: ModelFallbackService;
   _encryptionService: EncryptionService;
   _commandInputService: CommandInputService;
@@ -108,6 +121,8 @@ export default class StewardPlugin extends Plugin {
   _cliSessionService: CliSessionService;
   _ptyCompanionService: PtyCompanionService;
   _wikilinkForwardService: WikilinkForwardService;
+  _widgetService: WidgetService;
+  _toolInstructionService: ToolInstructionService;
 
   get cliSessionService(): CliSessionService {
     if (!this._cliSessionService) {
@@ -121,6 +136,21 @@ export default class StewardPlugin extends Plugin {
       this._wikilinkForwardService = new WikilinkForwardService(this);
     }
     return this._wikilinkForwardService;
+  }
+
+  get widgetService(): WidgetService {
+    if (!this._widgetService) {
+      this._widgetService = WidgetService.getInstance(this);
+    }
+    return this._widgetService;
+  }
+
+  get toolInstructionService(): ToolInstructionService {
+    if (!this._toolInstructionService) {
+      this._toolInstructionService = ToolInstructionService.getInstance(this);
+      this._toolInstructionService.initialize();
+    }
+    return this._toolInstructionService;
   }
 
   get ptyCompanionService(): PtyCompanionService {
@@ -219,6 +249,13 @@ export default class StewardPlugin extends Plugin {
       this._noteContentService = NoteContentService.getInstance(this);
     }
     return this._noteContentService;
+  }
+
+  get markdownDefinitionService(): MarkdownDefinitionService {
+    if (!this._markdownDefinitionService) {
+      this._markdownDefinitionService = MarkdownDefinitionService.getInstance(this);
+    }
+    return this._markdownDefinitionService;
   }
 
   get encryptionService(): EncryptionService {
@@ -325,6 +362,9 @@ export default class StewardPlugin extends Plugin {
       // Initialize the MCPService (loads MCP definitions from Steward/MCP folder)
       this.mcpService;
 
+      // Tool instruction memory (Steward/Memory/Tool instructions.md)
+      this.toolInstructionService;
+
       if (Platform.isDesktopApp) {
         await this.ptyCompanionService.start();
       }
@@ -421,17 +461,6 @@ export default class StewardPlugin extends Plugin {
       },
     });
 
-    // Register global ESC key handler to stop running commands
-    this.registerDomEvent(document, 'keydown', (evt: KeyboardEvent) => {
-      if (evt.key === 'Escape' && !evt.isComposing) {
-        const activeOperationsCount = this.abortService.getActiveOperationsCount();
-        if (activeOperationsCount > 0) {
-          this.stopOperations();
-          evt.stopPropagation();
-        }
-      }
-    });
-
     // Register extensions for CodeMirror
     this.registerEditorExtension([
       createCommandInputExtension(this, {
@@ -463,7 +492,7 @@ export default class StewardPlugin extends Plugin {
         menu.addItem(item => {
           item
             .setTitle(i18next.t('ui.addToInlineConversation'))
-            .setIcon(STW_CHAT_VIEW_CONFIG.icon)
+            .setIcon(CHAT_VIEW_CONFIG.icon)
             .onClick(async () => {
               await this.commandInputService
                 .withEditor(editor)
@@ -474,7 +503,7 @@ export default class StewardPlugin extends Plugin {
         menu.addItem(item => {
           item
             .setTitle(i18next.t('ui.addToChat'))
-            .setIcon(STW_CHAT_VIEW_CONFIG.icon)
+            .setIcon(CHAT_VIEW_CONFIG.icon)
             .onClick(async () => {
               await this.commandInputService.withEditor(editor).addSelectionToConversation('chat');
             });
@@ -484,6 +513,8 @@ export default class StewardPlugin extends Plugin {
 
     // Register the metadata processor first so other processors can use the metadata
     this.registerMarkdownPostProcessor(createCalloutMetadataProcessor());
+
+    this.registerMarkdownPostProcessor(createCalloutActionPostProcessor(this));
 
     this.registerMarkdownPostProcessor(createCalloutSearchResultPostProcessor(this));
 
@@ -503,6 +534,8 @@ export default class StewardPlugin extends Plugin {
 
     this.registerMarkdownPostProcessor(createCliXtermPostProcessor(this));
 
+    this.registerMarkdownPostProcessor(createWidgetPostProcessor(this));
+
     this.registerMarkdownPostProcessor(createConfirmationButtonsProcessor(this));
 
     this.registerMarkdownPostProcessor(createHistoryPostProcessor(this));
@@ -510,7 +543,11 @@ export default class StewardPlugin extends Plugin {
     this.registerMarkdownPostProcessor(createRunPostProcessor(this));
 
     // Register the custom view type
-    this.registerView(STW_CHAT_VIEW_CONFIG.type, leaf => new StewardChatView(leaf, this));
+    this.registerView(CHAT_VIEW_CONFIG.type, leaf => new ChatView(leaf, this));
+    this.registerView(READING_VIEW_CONFIG.type, leaf => new ReadingView(leaf, this));
+
+    // Register custom extensions
+    this.registerExtensions(['art'], READING_VIEW_CONFIG.type);
   }
 
   private async initializeClassifier() {
@@ -715,10 +752,6 @@ export default class StewardPlugin extends Plugin {
         const title = this.sanitizeVaultNoteTitle(rawTitle);
 
         const conversationLanguage = getLanguage();
-        // const indicatorText = this.conversationRenderer.getIndicatorTextByIntentType(
-        //   intentType,
-        //   conversationLanguage
-        // );
         await this.conversationRenderer.createConversationNote(title, {
           intent: {
             type: intentType,
@@ -778,7 +811,7 @@ export default class StewardPlugin extends Plugin {
     return false;
   }
 
-  private async relocateChatLeafToDock(
+  private async relocateLeafToDock(
     currentLeaf: WorkspaceLeaf,
     targetDock: 'main' | 'right'
   ): Promise<WorkspaceLeaf> {
@@ -807,21 +840,24 @@ export default class StewardPlugin extends Plugin {
   }
 
   /**
-   * Gets or creates the leaf for the chat in the configured dock ({@link StewardPluginSettings.chatViewDock}).
+   * Gets or creates the steward pane leaf (chat or reading) in the configured dock.
    */
-  public async getChatLeaf(): Promise<WorkspaceLeaf> {
-    const dock = this.settings.chatViewDock;
-    const leaves = this.app.workspace.getLeavesOfType(STW_CHAT_VIEW_CONFIG.type);
-
-    if (leaves.length > 0) {
-      const leaf = leaves[0];
-      return leaf;
+  public async getStewardLeaf(): Promise<WorkspaceLeaf> {
+    const chatLeaves = this.app.workspace.getLeavesOfType(CHAT_VIEW_CONFIG.type);
+    if (chatLeaves.length > 0) {
+      return chatLeaves[0];
     }
 
+    const readingLeaves = this.app.workspace.getLeavesOfType(READING_VIEW_CONFIG.type);
+    if (readingLeaves.length > 0) {
+      return readingLeaves[0];
+    }
+
+    const dock = this.settings.chatViewDock;
     if (dock === 'right') {
       const leaf = this.app.workspace.getRightLeaf(false);
       if (!leaf) {
-        throw new Error('Failed to create or find a leaf for the chat');
+        throw new Error('Failed to create or find a leaf for the steward view');
       }
       return leaf;
     }
@@ -829,31 +865,111 @@ export default class StewardPlugin extends Plugin {
     return this.app.workspace.getLeaf('tab');
   }
 
+  /** @deprecated Use {@link getStewardLeaf} */
+  public async getChatLeaf(): Promise<WorkspaceLeaf> {
+    return this.getStewardLeaf();
+  }
+
   /**
-   * Toggle chat between the right sidebar and the main editor; updates {@link StewardPluginSettings.chatViewDock}.
+   * Prefer an active steward leaf; otherwise {@link getStewardLeaf}.
    */
-  public async toggleChatDockFromView(currentLeaf: WorkspaceLeaf): Promise<void> {
-    const newDoc: StewardPluginSettings['chatViewDock'] = this.leafIsInRightSidebar(currentLeaf)
+  public async resolveStewardLeaf(): Promise<WorkspaceLeaf> {
+    const activeStewardView =
+      this.app.workspace.getActiveViewOfType(ChatView) ??
+      this.app.workspace.getActiveViewOfType(ReadingView);
+
+    if (activeStewardView) {
+      return activeStewardView.leaf;
+    }
+
+    return this.getStewardLeaf();
+  }
+
+  public async openReadingView({
+    filePath,
+    leaf,
+    revealLeaf = true,
+  }: {
+    filePath: string;
+    leaf: WorkspaceLeaf;
+    revealLeaf?: boolean;
+  }): Promise<void> {
+    try {
+      await leaf.setViewState({
+        type: READING_VIEW_CONFIG.type,
+        state: { file: filePath, mode: 'preview' },
+      });
+
+      if (revealLeaf) {
+        this.app.workspace.revealLeaf(leaf);
+        this.app.workspace.setActiveLeaf(leaf, { focus: true });
+      }
+    } catch (error) {
+      logger.error('Error opening reading view:', error);
+    }
+  }
+
+  /** Opens a markdown file in {@link ReadingView} without replacing the active steward leaf. */
+  public async openReadingViewInNewTab({
+    filePath,
+    revealLeaf = true,
+  }: {
+    filePath: string;
+    revealLeaf?: boolean;
+  }): Promise<void> {
+    const leaf = this.app.workspace.getLeaf('tab');
+    await this.openReadingView({ filePath, leaf, revealLeaf });
+  }
+
+  public async startNewChat(leaf: WorkspaceLeaf): Promise<void> {
+    await this.openChat({ leaf, revealLeaf: true });
+
+    if (leaf.view instanceof ChatView) {
+      leaf.view.startNewChat();
+    }
+  }
+
+  /**
+   * Toggle a steward view between the right sidebar and the main editor.
+   * Persists {@link StewardPluginSettings.chatViewDock} only for {@link ChatView}.
+   */
+  public async toggleViewDockFromView(currentLeaf: WorkspaceLeaf): Promise<void> {
+    const targetDock: StewardPluginSettings['chatViewDock'] = this.leafIsInRightSidebar(currentLeaf)
       ? 'main'
       : 'right';
-    this.settings.chatViewDock = newDoc;
-    await this.saveSettings();
 
-    const newLeaf = await this.relocateChatLeafToDock(currentLeaf, newDoc);
+    if (currentLeaf.view instanceof StewardMarkdownView) {
+      this.settings.chatViewDock = targetDock;
+      await this.saveSettings();
+    }
+
+    const newLeaf = await this.relocateLeafToDock(currentLeaf, targetDock);
     await this.app.workspace.revealLeaf(newLeaf);
     this.app.workspace.setActiveLeaf(newLeaf);
 
-    const commandInputService =
-      newLeaf.view instanceof StewardChatView
-        ? this.commandInputService.withEditor(newLeaf.view.editor)
-        : this.commandInputService;
+    if (!(newLeaf.view instanceof ChatView)) {
+      return;
+    }
+
+    const commandInputService = this.commandInputService.withEditor(newLeaf.view.editor);
 
     window.setTimeout(() => {
       commandInputService.focus();
     }, 500);
   }
 
-  public async openChat({ revealLeaf = true }: { revealLeaf?: boolean } = {}): Promise<void> {
+  /** @deprecated Use {@link toggleViewDockFromView} */
+  public async toggleChatDockFromView(currentLeaf: WorkspaceLeaf): Promise<void> {
+    await this.toggleViewDockFromView(currentLeaf);
+  }
+
+  public async openChat({
+    leaf,
+    revealLeaf = true,
+  }: {
+    leaf?: WorkspaceLeaf;
+    revealLeaf?: boolean;
+  } = {}): Promise<void> {
     try {
       // Get the configured folder for conversations
       const folderPath = this.settings.stewardFolder;
@@ -880,20 +996,20 @@ export default class StewardPlugin extends Plugin {
         await this.app.vault.create(notePath, '');
       }
 
-      const leaf = await this.getChatLeaf();
+      const targetLeaf = leaf ?? (await this.getStewardLeaf());
 
-      // Use our custom view
-      await leaf.setViewState({
-        type: STW_CHAT_VIEW_CONFIG.type,
+      await targetLeaf.setViewState({
+        type: CHAT_VIEW_CONFIG.type,
         state: { file: notePath },
       });
 
       if (revealLeaf) {
-        // Focus the editor
-        this.app.workspace.revealLeaf(leaf);
-        this.app.workspace.setActiveLeaf(leaf, { focus: true });
-        // Set the cursor to the last line
-        this.setCursorToEndOfFile();
+        this.app.workspace.revealLeaf(targetLeaf);
+        this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
+
+        if (targetLeaf.view instanceof ChatView) {
+          this.setCursorToEndOfFile(targetLeaf.view.editor as ObsidianEditor);
+        }
       }
     } catch (error) {
       logger.error('Error opening chat:', error);
@@ -1001,22 +1117,6 @@ export default class StewardPlugin extends Plugin {
       logger.error('Error closing conversation:', error);
       new Notice(i18next.t('ui.errorClosingConversation', { errorMessage: error.message }));
       return false;
-    }
-  }
-
-  /**
-   * Stop all running operations
-   * Can be called from ESC key or stop command
-   */
-  private stopOperations(): void {
-    const activeOperationsCount = this.abortService.getActiveOperationsCount();
-
-    if (activeOperationsCount > 0) {
-      this.abortService.abortAllOperations();
-      logger.log(
-        `Stop operations triggered - aborted all operations (${activeOperationsCount} active)`
-      );
-      new Notice(i18next.t('stop.stoppedWithCount', { count: activeOperationsCount }));
     }
   }
 
@@ -1129,6 +1229,10 @@ export default class StewardPlugin extends Plugin {
         // Ensure MCP folder exists for MCP definitions
         const mcpFolder = `${this.settings.stewardFolder}/MCP`;
         await this.obsidianAPITools.ensureFolderExists(mcpFolder);
+
+        await this.widgetService.ensureArtifactsFolder();
+
+        await this.toolInstructionService.ensureMemoryFolderAndDefaultFile();
 
         await new NodePtyInstallerScriptService(this).sync();
       } catch (error) {

@@ -23,8 +23,13 @@ export type AbortOperationKey =
 
 export const SMILE_CHAT_ICON_ID = 'smile-chat-icon';
 
-export const STW_CHAT_VIEW_CONFIG = {
+export const CHAT_VIEW_CONFIG = {
   type: 'steward-conversation',
+  icon: SMILE_CHAT_ICON_ID,
+};
+
+export const READING_VIEW_CONFIG = {
+  type: 'steward-reading',
   icon: SMILE_CHAT_ICON_ID,
 };
 
@@ -162,7 +167,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     modelContextLengths: {},
     temperature: 0.2,
     ollamaBaseUrl: 'http://localhost:11434/api', // Deprecated: use providerConfigs instead
-    maxGenerationTokens: 2048, // Default max tokens for generation
+    maxGenerationTokens: 8000, // Default max tokens for generation
     image: {
       model: 'openai:dall-e-3',
       customModels: [],
@@ -211,6 +216,7 @@ export const DEFAULT_SETTINGS: StewardPluginSettings = {
     cleanupPolicy: 'never', // Default to never automatically delete
   },
   lastSeenVersion: undefined, // Will be set when user sees a version notification
+  dismissWidgetRefreshNotify: false,
   cli: {
     enabled: true,
     shellExecutable: '',

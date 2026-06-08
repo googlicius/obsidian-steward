@@ -4,7 +4,7 @@ import { AgentHandlerParams, AgentResult, IntentResultStatus, Intent } from '../
 import { HandlerInvocationContext } from '../HandlerInvocationContext';
 import { TypedToolCallPart } from '../../tools/types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
-import { ToolName } from '../../ToolRegistry';
+import { ToolName, ToolRegistry } from '../../ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
 import { getClassifier } from 'src/lib/modelfusion';
 import { logger } from 'src/utils/logger';
@@ -21,6 +21,7 @@ import {
   SUPER_AGENT_TOOL_NAMES,
 } from '../agentTools';
 import type { AgentCorePromptContext } from '../../Agent';
+import { MarkdownBuilder } from 'src/utils/MarkdownBuilder';
 import { isGoogleModel } from '../googleUtils';
 import { USAGE_AGENT_KEY } from 'src/services/ConversationRenderer/Frontmatter';
 
@@ -29,9 +30,8 @@ const { getTranslation } = getBundledInternal('i18n');
 const SUPER_AGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUPER_AGENT_TOOL_NAMES;
 
 /**
- * Map of classifier task label → tool names (used with `TASK_DEFAULT_ACTIVATE_TOOLS`).
- * Tool availability for a turn also comes from `ToolIntentResolution` (declared/allowed/active,
- * UDC `allowed_tools`, frontmatter `tools`, compaction), not a separate dependency graph.
+ * Map of classifier task label → primary tool names for that task.
+ * Companion tools are resolved from {@link TOOL_DEFINITIONS} via {@link ToolRegistry.expandWithCompanionTools}.
  */
 const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
   vault: new Set([
@@ -57,21 +57,23 @@ const TASK_TO_TOOLS_MAP: Record<string, Set<ToolName>> = {
   search: new Set([ToolName.SEARCH]),
   speech: new Set([ToolName.SPEECH]),
   image: new Set([ToolName.IMAGE]),
+  show_widget: new Set([ToolName.SHOW_WIDGET, ToolName.EDIT, ToolName.CONTENT_READING]),
   shell: new Set([ToolName.SHELL]),
   '>': new Set([ToolName.SHELL]),
 };
 
 /**
- * Map of task names to tools that should be default-activated
+ * Classifier tasks whose primary tools (and their companions) should be default-activated.
  */
-const TASK_DEFAULT_ACTIVATE_TOOLS: Record<string, ToolName[]> = {
-  revert: [ToolName.GET_MOST_RECENT_ARTIFACT, ToolName.GET_ARTIFACT_BY_ID],
-  read: [ToolName.CONFIRMATION, ToolName.ASK_USER, ToolName.CONTENT_READING],
-  edit: [ToolName.EDIT],
-  search: [ToolName.SEARCH],
-  speech: [ToolName.SPEECH],
-  image: [ToolName.IMAGE],
-};
+const TASKS_WITH_DEFAULT_TOOL_ACTIVATION = new Set([
+  'revert',
+  'read',
+  'edit',
+  'search',
+  'speech',
+  'image',
+  'show_widget',
+]);
 
 /**
  * Map of task names to their loading indicator translation keys
@@ -83,6 +85,7 @@ const TASK_TO_INDICATOR_MAP: Record<string, string | undefined> = {
   edit: 'conversation.updating',
   speech: 'conversation.generatingAudio',
   image: 'conversation.generatingImage',
+  show_widget: 'conversation.generatingWidget',
   search: 'conversation.searching',
   '>': undefined,
 };
@@ -114,27 +117,58 @@ export class SuperAgent extends Agent implements AgentHandlerContext {
     if (!context) {
       return 'You are a helpful assistant who helps users with their Obsidian vault.';
     }
-    const taskSection = this.buildTaskInstructions(context.availableTools);
+
     const otherToolsExclude = new Set([ToolName.SEARCH_MORE]);
     const inactiveToolCount = context.registry.listInactiveToolNames(otherToolsExclude).length;
+    const stewardFolder = this.plugin.settings.stewardFolder;
+    const memorySourcePath = this.plugin.toolInstructionService.getToolInstructionsRelativePath();
 
-    return `You are a helpful assistant who helps users with their Obsidian vault.
-
-${taskSection}
-
-YOU HAVE ACCESS TO THE FOLLOWING TOOLS:
-${context.registry.generateToolsSection()}
-
-OTHER TOOLS (${inactiveToolCount} inactive tools, need activate before using them):
-${context.registry.generateOtherToolsSection('No other tools available.', otherToolsExclude)}
-
-TOOLS GUIDELINES (For active tools):
-${context.registry.generateGuidelinesSection()}
-${context.currentNote ? `\nCURRENT NOTE: ${context.currentNote} (Cursor position: ${context.currentPosition})` : ''}${context.skillCatalogPrompt}${context.userDefinedCommandCatalogPrompt}
-
-NOTE:
-- DO NOT mention or explain the tools you use or activate to users. Only communicate the results or outcomes.
-- Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.`;
+    return new MarkdownBuilder()
+      .addSection(
+        '# Agent',
+        'You are a helpful assistant who helps users with their Obsidian vault.'
+      )
+      .addSection('## Role', this.buildTaskInstructions(context.availableTools))
+      .addSection(
+        '## Tool',
+        context.registry.generateToolSectionBody({
+          inactiveToolCount,
+          otherToolsExclude,
+          otherToolsEmptyLabel: 'No other tools available.',
+          memorySourcePath,
+        })
+      )
+      .addSection(
+        '## Skill',
+        context.includeSkillCatalog
+          ? this.buildSkillSectionBody({
+              plugin: this.plugin,
+              activeTools: context.registry.listActiveToolNames(),
+            })
+          : ''
+      )
+      .addSection(
+        '## User-defined command',
+        this.buildUserDefinedCommandSectionBody({
+          plugin: this.plugin,
+          runCommandAvailable: context.runCommandAvailable,
+        })
+      )
+      .addSection(
+        '## Note',
+        [
+          '- DO NOT mention or explain the tools you use or activate to users. Only communicate the results or outcomes.',
+          "- Respect user's language or the language they specified. The lang property should be a valid language code: en, vi, etc.",
+          `- When working with memory files (${stewardFolder}/Memory/*), also read the ${stewardFolder}/Memory/Agent.md file for editing instructions.`,
+        ].join('\n')
+      )
+      .addSection(
+        '## Context',
+        context.currentNote !== null
+          ? `The conversation is started inside a markdown file (host).\nThe host file: ${context.currentNote} (At the cursor position: ${context.currentPosition})`
+          : ''
+      )
+      .build();
   }
 
   /**
@@ -613,19 +647,26 @@ NOTE:
   }
 
   /**
-   * Get tools to default-activate based on classified tasks
+   * Get tools to default-activate based on classified tasks.
+   * Primary tools come from {@link TASK_TO_TOOLS_MAP}; companions from {@link TOOL_DEFINITIONS}.
    */
   private getDefaultActivateTools(classifiedTasks: string[]): ToolName[] {
-    const defaultActivateTools: ToolName[] = [];
+    const primaryTools: ToolName[] = [];
 
     for (const task of classifiedTasks) {
-      const taskTools = TASK_DEFAULT_ACTIVATE_TOOLS[task];
-      if (taskTools) {
-        defaultActivateTools.push(...taskTools);
+      if (!TASKS_WITH_DEFAULT_TOOL_ACTIVATION.has(task)) {
+        continue;
       }
+
+      const taskTools = TASK_TO_TOOLS_MAP[task];
+      if (!taskTools) {
+        continue;
+      }
+
+      primaryTools.push(...taskTools);
     }
 
-    return defaultActivateTools;
+    return ToolRegistry.expandWithCompanionTools(primaryTools);
   }
 
   /**

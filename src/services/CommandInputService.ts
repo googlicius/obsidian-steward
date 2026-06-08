@@ -3,7 +3,7 @@ import { Annotation, Line, Text } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { MarkdownUtil } from 'src/utils/markdownUtils';
 import type StewardPlugin from 'src/main';
-import { StewardChatView } from 'src/views/StewardChatView';
+import { ChatView } from 'src/views/ChatView';
 import { logger } from 'src/utils/logger';
 import { TWO_SPACES_PREFIX } from 'src/constants';
 import type { ObsidianEditor } from 'src/types/types';
@@ -223,11 +223,11 @@ export class CommandInputService {
         const chatLeaf = await this.plugin.getChatLeaf();
         const chatView = chatLeaf.view;
 
-        if (chatView instanceof StewardChatView) {
+        if (chatView instanceof ChatView) {
           const chatEditor = chatView.editor;
           activeEditor = chatEditor;
         } else {
-          logger.error('Chat view is not a StewardChatView');
+          logger.error('Chat view is not a ChatView');
           return;
         }
       }
@@ -389,7 +389,7 @@ export class CommandInputService {
    */
   public notifyCliSessionDecorationRefresh(): void {
     const editor = this.getEditor();
-    const cm = (editor as ObsidianEditor).cm;
+    const cm = editor && (editor as ObsidianEditor).cm;
     if (!cm) {
       return;
     }

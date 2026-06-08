@@ -2,8 +2,8 @@ import { logger } from '../utils/logger';
 
 /**
  * Manages AbortControllers keyed by `(conversationTitle, operationKey)`.
- * Multiple concurrent operations may run per conversation; Escape calls {@link abortAllOperations};
- * Ctrl-C / Stop-tool use {@link abortConversation} for one note title.
+ * Multiple concurrent operations may run per conversation.
+ * Ctrl-C and the Stop tool use {@link abortConversation} for one note title.
  */
 export class AbortService {
   private static instance: AbortService;
@@ -114,7 +114,7 @@ export class AbortService {
     return count;
   }
 
-  /** Abort everything (e.g. global Escape handler). */
+  /** Abort every registered operation (e.g. test teardown). */
   public abortAllOperations(): void {
     const titles = Array.from(this.byConversation.keys());
     for (const conversationTitle of titles) {

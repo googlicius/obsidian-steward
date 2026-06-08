@@ -1,16 +1,23 @@
 import type { App } from 'obsidian';
 import { TFile } from 'obsidian';
 import type StewardPlugin from 'src/main';
+import { formatRelativeTime, parseFrontmatterDate } from 'src/utils/dateUtils';
 import { getBundledInternal } from 'src/utils/bundledInternals';
-import type { EmbedView } from './EmbedView';
+import type { ViewBuilder } from './ViewBuilder';
 
 const { i18next } = getBundledInternal('i18n');
 
-export class EmbedHistoryView implements EmbedView {
+const HISTORY_FILE_NAME = 'History.md';
+
+export class HistoryViewBuilder implements ViewBuilder {
   constructor(
     private app: App,
     private plugin: StewardPlugin
   ) {}
+
+  getFilePath(): string {
+    return `${this.plugin.settings.stewardFolder}/${HISTORY_FILE_NAME}`;
+  }
 
   async buildContent(): Promise<string> {
     const MAX_HISTORY_ITEMS = 50;
@@ -32,7 +39,7 @@ export class EmbedHistoryView implements EmbedView {
         return true;
       })
       .sort((a, b) => {
-        return b.stat.mtime - a.stat.mtime;
+        return this.getConversationTimestamp(b) - this.getConversationTimestamp(a);
       })
       .slice(0, MAX_HISTORY_ITEMS);
 
@@ -43,15 +50,18 @@ export class EmbedHistoryView implements EmbedView {
     const lines: string[] = [];
     for (const file of conversationFiles) {
       const displayText = this.buildHistoryDisplayText(file);
+      const createdAtMarkup = this.buildCreatedAtMarkup(file);
       const linkPath = file.path.replace(/\.md$/, '');
-      lines.push(`- <a class="stw-history-link" data-path="${linkPath}">${displayText}</a>`);
+      lines.push(
+        `- <a class="stw-history-link" data-path="${linkPath}">${displayText}</a>${createdAtMarkup}`
+      );
     }
 
     return lines.join('\n');
   }
 
   async write(content: string): Promise<void> {
-    const historyNotePath = `${this.plugin.settings.stewardFolder}/History.md`;
+    const historyNotePath = this.getFilePath();
     const existingFile = this.app.vault.getFileByPath(historyNotePath);
 
     if (existingFile) {
@@ -62,9 +72,14 @@ export class EmbedHistoryView implements EmbedView {
     await this.app.vault.create(historyNotePath, content);
   }
 
-  async replaceHostWikilink(hostFile: TFile): Promise<void> {
-    const embedContent = `\n![[History]]\n`;
-    await this.app.vault.modify(hostFile, embedContent);
+  private getConversationTimestamp(file: TFile): number {
+    const cache = this.app.metadataCache.getFileCache(file);
+    const createdAt = parseFrontmatterDate(cache?.frontmatter?.created_at);
+    if (createdAt) {
+      return createdAt.getTime();
+    }
+
+    return file.stat.mtime;
   }
 
   private buildHistoryDisplayText(file: TFile): string {
@@ -76,5 +91,22 @@ export class EmbedHistoryView implements EmbedView {
 
     // Wrap Obsidian tag-like tokens so they are rendered as plain text.
     return rawTitle.replace(/(^|\s)(#[\p{L}\p{N}_/-]+)/gu, '$1`$2`');
+  }
+
+  private buildCreatedAtMarkup(file: TFile): string {
+    const cache = this.app.metadataCache.getFileCache(file);
+    const createdAt = parseFrontmatterDate(cache?.frontmatter?.created_at);
+    if (!createdAt) {
+      return '';
+    }
+
+    const locale = i18next.language || 'en';
+    const relativeTime = formatRelativeTime(createdAt, locale);
+    const absoluteTime = new Intl.DateTimeFormat(locale, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(createdAt);
+
+    return ` <span class="stw-history-created" title="${absoluteTime}">${relativeTime}</span>`;
   }
 }

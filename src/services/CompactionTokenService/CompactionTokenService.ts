@@ -22,15 +22,18 @@ import {
   ImageCompactor,
   MoveCompactor,
   ReadContentCompactor,
+  RecallCompactedContextCompactor,
   RenameCompactor,
-  ShellCompactor,
   SpeechCompactor,
 } from './compactors';
+import { measureSerializedOutputSize } from './compactors/outputMetrics';
+import type { CompactionBatchContext } from './types';
 
 export const COMPACTION_PROMPT_THRESHOLD_PERCENT = 0.8;
 const SUMMARY_WORD_THRESHOLD = 50;
 const COMPACTABLE_TOOL_NAMES = new Set<string>([
   ToolName.CONTENT_READING,
+  ToolName.UPDATE_FRONTMATTER,
   ToolName.EDIT,
   ToolName.CREATE,
   ToolName.RENAME,
@@ -40,6 +43,7 @@ const COMPACTABLE_TOOL_NAMES = new Set<string>([
   ToolName.IMAGE,
   ToolName.SPEECH,
   ToolName.SHELL,
+  ToolName.RECALL_COMPACTED_CONTEXT,
 ]);
 
 export function estimatePromptTokensRoughFromMessages(messages: ModelMessage[]): number {
@@ -68,7 +72,7 @@ export class CompactionTokenService {
       new DeleteCompactor(),
       new ImageCompactor(),
       new SpeechCompactor(),
-      new ShellCompactor(),
+      new RecallCompactedContextCompactor(),
     ];
     for (const compactor of compactorInstances) {
       this.compactors.set(compactor.toolName, compactor);
@@ -146,12 +150,25 @@ export class CompactionTokenService {
 
     const entries: CompactedEntry[] = [];
     const summarizeQueue: Array<{ messageId: string; content: string }> = [];
-    for (const item of messages) {
+    const batchMessageIds = new Set(messages.map(message => message.messageId));
+    const entryCount = messages.length;
+    for (let entryIndex = 0; entryIndex < messages.length; entryIndex++) {
+      const item = messages[entryIndex];
       if (item.type === 'tool') {
         if (!COMPACTABLE_TOOL_NAMES.has(item.toolName)) {
           continue;
         }
-        const compacted = this.compactToolResult(item.toolResult, item.messageId, item.toolCall);
+        const compactionBatch: CompactionBatchContext = {
+          batchMessageIds,
+          entryIndex,
+          entryCount,
+        };
+        const compacted = this.compactToolResult(
+          item.toolResult,
+          item.messageId,
+          item.toolCall,
+          compactionBatch
+        );
         entries.push({
           type: 'tool',
           messageId: item.messageId,
@@ -215,7 +232,6 @@ export class CompactionTokenService {
       path: payload.conversationTitle,
       newContent: compactedText,
       includeHistory: true,
-      agent: 'compaction',
       command: 'compacted',
     });
   }
@@ -259,22 +275,44 @@ export class CompactionTokenService {
   private compactToolResult(
     toolResult: ToolResultPart,
     messageId: string,
-    toolCall: ToolCallPart
+    toolCall: ToolCallPart,
+    compactionBatch?: CompactionBatchContext
   ): CompactedToolResult {
+    const resolvedOutput = this.resolveOutput(toolResult.output);
+    const outputSize = measureSerializedOutputSize(resolvedOutput);
     const compactor = this.compactors.get(toolResult.toolName);
     if (!compactor) {
-      return { toolName: toolResult.toolName, metadata: {} };
+      return {
+        toolName: toolResult.toolName,
+        metadata: {
+          input: toolCall.input,
+          outputSize,
+          output: `Output omitted. Use ${ToolName.RECALL_COMPACTED_CONTEXT} to retrieve the full tool result.`,
+        },
+      };
     }
     const params: CompactorParams = {
       messageId,
-      output: this.resolveOutput(toolResult.output),
+      output: resolvedOutput,
       toolCall,
+      compactionBatch,
     };
     try {
-      return compactor.compact(params);
+      const compacted = compactor.compact(params);
+      return {
+        toolName: compacted.toolName,
+        metadata: { ...compacted.metadata, outputSize },
+      };
     } catch (error) {
       logger.error(`CompactionTokenService: compactor failed for ${toolResult.toolName}`, error);
-      return { toolName: toolResult.toolName, metadata: {} };
+      return {
+        toolName: toolResult.toolName,
+        metadata: {
+          input: toolCall.input,
+          outputSize,
+          output: `Output omitted. Use ${ToolName.RECALL_COMPACTED_CONTEXT} to retrieve the full tool result.`,
+        },
+      };
     }
   }
 

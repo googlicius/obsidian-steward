@@ -1,7 +1,7 @@
 import { MarkdownPostProcessor, TFile, setIcon, setTooltip } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import { getBundledInternal } from 'src/utils/bundledInternals';
-import { StewardChatView } from 'src/views/StewardChatView';
+import { ChatView } from 'src/views/ChatView';
 
 const { i18next } = getBundledInternal('i18n');
 
@@ -16,7 +16,7 @@ function removeHistoryLinkFromContent(params: {
   const updatedLines: string[] = [];
   const escapedPath = conversationPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const linePattern = new RegExp(
-    `^\\s*(?:-\\s*)?<a[^>]*\\bdata-path="${escapedPath}"[^>]*>.*<\\/a>\\s*$`
+    `^\\s*(?:-\\s*)?<a[^>]*\\bdata-path="${escapedPath}"[^>]*>.*<\\/a>(?:\\s*<span[^>]*\\bclass="[^"]*stw-history-created[^"]*"[^>]*>.*?<\\/span>)?\\s*$`
   );
 
   for (const line of historyLines) {
@@ -102,7 +102,19 @@ export function createHistoryPostProcessor(plugin: StewardPlugin): MarkdownPostP
         historyItem = document.createElement('div');
         historyItem.classList.add('stw-history-item');
         parentEl.insertBefore(historyItem, linkEl);
+
+        let createdEl: HTMLElement | null = null;
+        if (
+          linkEl.nextElementSibling instanceof HTMLElement &&
+          linkEl.nextElementSibling.classList.contains('stw-history-created')
+        ) {
+          createdEl = linkEl.nextElementSibling;
+        }
+
         historyItem.appendChild(linkEl);
+        if (createdEl) {
+          historyItem.appendChild(createdEl);
+        }
       }
 
       linkEl.classList.add('stw-history-link');
@@ -110,13 +122,14 @@ export function createHistoryPostProcessor(plugin: StewardPlugin): MarkdownPostP
         event.preventDefault();
         event.stopPropagation();
         void (async () => {
-          const chatLeaf = await plugin.getChatLeaf();
-          const chatView = chatLeaf.view;
-          if (!(chatView instanceof StewardChatView)) {
+          const leaf = await plugin.resolveStewardLeaf();
+          await plugin.openChat({ leaf, revealLeaf: true });
+
+          if (!(leaf.view instanceof ChatView)) {
             return;
           }
 
-          await chatView.openExistingConversation(conversationPath);
+          await leaf.view.openExistingConversation(conversationPath);
         })();
       });
 

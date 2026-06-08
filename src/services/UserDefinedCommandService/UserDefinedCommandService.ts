@@ -1,18 +1,10 @@
-import {
-  getLanguage,
-  normalizePath,
-  Notice,
-  TAbstractFile,
-  TFile,
-  TFolder,
-  parseYaml,
-} from 'obsidian';
+import { getLanguage, normalizePath, Notice, TAbstractFile, TFile, TFolder } from 'obsidian';
 import { getBundledLib } from 'src/utils/bundledLibs';
 import { logger } from 'src/utils/logger';
 import type StewardPlugin from 'src/main';
 import { COMMAND_PREFIXES, WIKI_LINK_PATTERN } from 'src/constants';
 import { BUILT_IN_UDCS } from './constants';
-import { StewardChatView } from 'src/views/StewardChatView';
+import { ChatView } from 'src/views/ChatView';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { z } from 'zod/v3';
 import {
@@ -26,6 +18,7 @@ import { Intent, IntentResultStatus } from 'src/solutions/commands/types';
 import { SearchOperationV2 } from 'src/solutions/commands/agents/handlers';
 import { migrateRawUdcObject, stringifyUdcYaml } from './migrateUdcLegacyUseTool';
 import { evaluateStepWhen } from './stepConditions';
+import type { ParsedYamlFenceBlock, YamlFenceReplacement } from '../MarkdownDefinitionService';
 
 const { i18next } = getBundledInternal('i18n');
 const t = i18next.t.bind(i18next);
@@ -33,21 +26,6 @@ const t = i18next.t.bind(i18next);
 const udcNoteFrontmatterSchema = z.object({
   enabled: z.boolean().optional(),
 });
-
-interface UdcYamlBlock {
-  content: string;
-  startLine: number;
-  endLine: number;
-}
-
-interface UdcYamlReplacement {
-  block: UdcYamlBlock;
-  newInner: string;
-}
-
-interface UdcCommandYamlBlock extends UdcYamlBlock {
-  data: Record<string, unknown>;
-}
 
 type CommandCatalog = {
   name: string;
@@ -282,7 +260,7 @@ version: ${udc.version}
       }> = [];
 
       let definitionValid = false;
-      const yamlReplacements: UdcYamlReplacement[] = [];
+      const yamlReplacements: YamlFenceReplacement[] = [];
 
       for (const yamlBlock of commandYamlBlocks) {
         try {
@@ -331,7 +309,10 @@ version: ${udc.version}
 
       if (yamlReplacements.length > 0) {
         try {
-          const updatedMarkdown = this.replaceYamlFenceContents(content, yamlReplacements);
+          const updatedMarkdown = this.plugin.markdownDefinitionService.replaceYamlFenceContents(
+            content,
+            yamlReplacements
+          );
           if (updatedMarkdown !== content) {
             await this.plugin.app.vault.modify(file, updatedMarkdown);
             for (const replacement of yamlReplacements) {
@@ -381,83 +362,41 @@ version: ${udc.version}
    * A block is a command only when it is YAML, has `command_name`, and is not inside
    * a heading linked from an earlier command's system_prompt.
    */
-  private collectCommandYamlBlocks(file: TFile, content: string): UdcCommandYamlBlock[] {
-    const cache = this.plugin.app.metadataCache.getFileCache(file);
-    if (!cache?.sections) {
-      return [];
-    }
+  private collectCommandYamlBlocks(file: TFile, content: string): ParsedYamlFenceBlock[] {
+    const walkState = {
+      systemPromptHeadingNames: new Set<string>(),
+      activeSystemPromptHeadingLevel: null as number | null,
+    };
 
-    const lines = content.split('\n');
-    const commandYamlBlocks: UdcCommandYamlBlock[] = [];
-    const systemPromptHeadingNames = new Set<string>();
-    let activeSystemPromptHeadingLevel: number | null = null;
-
-    for (const section of cache.sections) {
-      if (section.type === 'heading') {
+    return this.plugin.markdownDefinitionService.collectYamlBlocks({
+      file,
+      content,
+      walkState,
+      isMatch: data => typeof data.command_name === 'string',
+      onHeadingSection: ({ section, lines }) => {
         const headingInfo = this.plugin.noteContentService.parseHeadingLine(
           lines[section.position.start.line] ?? ''
         );
         if (!headingInfo) {
-          continue;
+          return;
         }
 
-        if (activeSystemPromptHeadingLevel !== null) {
-          if (headingInfo.level <= activeSystemPromptHeadingLevel) {
-            activeSystemPromptHeadingLevel = null;
-          } else {
-            continue;
+        if (walkState.activeSystemPromptHeadingLevel !== null) {
+          if (headingInfo.level <= walkState.activeSystemPromptHeadingLevel) {
+            walkState.activeSystemPromptHeadingLevel = null;
           }
+          return;
         }
 
-        if (systemPromptHeadingNames.has(headingInfo.text)) {
-          activeSystemPromptHeadingLevel = headingInfo.level;
+        if (walkState.systemPromptHeadingNames.has(headingInfo.text)) {
+          walkState.activeSystemPromptHeadingLevel = headingInfo.level;
         }
-
-        continue;
-      }
-
-      if (section.type !== 'code' || activeSystemPromptHeadingLevel !== null) {
-        continue;
-      }
-
-      const startLine = section.position.start.line;
-      const endLine = section.position.end.line;
-      const openingFence = lines[startLine]?.trim() ?? '';
-      if (!/^```(?:ya?ml)(?:\s|$)/i.test(openingFence)) {
-        continue;
-      }
-
-      const yamlBlock: UdcYamlBlock = {
-        startLine,
-        endLine,
-        content: lines.slice(startLine + 1, endLine).join('\n'),
-      };
-      let parsed: unknown;
-      try {
-        parsed = parseYaml(yamlBlock.content);
-      } catch (e) {
-        console.error(e);
-        continue;
-      }
-
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        continue;
-      }
-
-      const data = parsed as Record<string, unknown>;
-      if (typeof data.command_name !== 'string') {
-        continue;
-      }
-
-      commandYamlBlocks.push({
-        ...yamlBlock,
-        data,
-      });
-
-      this.collectHeadingOnlyWikilinks(yamlBlock.content, systemPromptHeadingNames);
-    }
-
-    return commandYamlBlocks;
+      },
+      shouldSkipCodeSection: () => walkState.activeSystemPromptHeadingLevel !== null,
+      onBlockMatched: block => {
+        this.collectHeadingOnlyWikilinks(block.content, walkState.systemPromptHeadingNames);
+      },
+    });
   }
 
   private collectHeadingOnlyWikilinks(content: string, headingNames: Set<string>): void {
@@ -480,25 +419,6 @@ version: ${udc.version}
 
       headingNames.add(headingName);
     }
-  }
-
-  private replaceYamlFenceContents(content: string, replacements: UdcYamlReplacement[]): string {
-    const lines = content.split('\n');
-    const sortedReplacements = [...replacements].sort(
-      (a, b) => b.block.startLine - a.block.startLine
-    );
-
-    for (const replacement of sortedReplacements) {
-      lines.splice(
-        replacement.block.startLine,
-        replacement.block.endLine - replacement.block.startLine + 1,
-        '```yaml',
-        ...replacement.newInner.trimEnd().split('\n'),
-        '```'
-      );
-    }
-
-    return lines.join('\n');
   }
 
   /**
@@ -922,7 +842,7 @@ version: ${udc.version}
         const leaf = await this.plugin.getChatLeaf();
         const view = leaf.view;
 
-        if (view instanceof StewardChatView) {
+        if (view instanceof ChatView) {
           await view.openExistingConversation(conversationPath);
         }
       });
@@ -973,7 +893,7 @@ version: ${udc.version}
       });
 
       const leaf = await this.plugin.getChatLeaf();
-      if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
+      if (leaf.view instanceof ChatView && !leaf.view.isVisible(conversationPath)) {
         const lastResult =
           this.plugin.commandProcessorService.commandProcessor.getLastResult(conversationTitle);
         const completionMessageKey =
@@ -992,7 +912,7 @@ version: ${udc.version}
       }
     } catch (error) {
       const leaf = await this.plugin.getChatLeaf();
-      if (leaf.view instanceof StewardChatView && !leaf.view.isVisible(conversationPath)) {
+      if (leaf.view instanceof ChatView && !leaf.view.isVisible(conversationPath)) {
         new Notice(
           buildNoticeFragment(
             i18next.t('trigger.executionFailed', {

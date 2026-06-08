@@ -22,7 +22,6 @@ import { ToolName } from '../../ToolRegistry';
 import { MANUAL_TOOL_CALL_ID_PREFIX } from 'src/constants';
 import { retry } from 'src/utils/retry';
 import { getBundledInternal } from 'src/utils/bundledInternals';
-import { explanationFragment } from 'src/lib/modelfusion/prompts/fragments';
 import { userLanguagePrompt } from 'src/lib/modelfusion/prompts/languagePrompt';
 
 const { i18next, getTranslation } = getBundledInternal('i18n');
@@ -163,6 +162,29 @@ export class CliHandler {
       '',
       i18next.t('cli.seeCliWiki', { cliDoc }),
     ].join('\n');
+  }
+
+  /**
+   * Markdown shell fence for model shell confirm / auto-approved previews.
+   * Leading newline keeps the fence on its own line when a role label is prepended in notes.
+   */
+  private buildShellCommandFence(params: { argsLine: string; purpose?: string }): string {
+    const trimmedPurpose = params.purpose?.trim() ?? '';
+    const trimmedArgs = params.argsLine.trim();
+    const bodyLines: string[] = [];
+
+    if (trimmedPurpose.length > 0) {
+      bodyLines.push(`# ${trimmedPurpose}`);
+    }
+    if (trimmedArgs.length > 0) {
+      bodyLines.push(params.argsLine);
+    }
+
+    if (bodyLines.length === 0) {
+      return '';
+    }
+
+    return `\n\`\`\`shell\n${bodyLines.join('\n')}\n\`\`\``;
   }
 
   /**
@@ -429,7 +451,11 @@ export class CliHandler {
     const errorNotePath = params.materializeXtermFromHostTitle ?? params.conversationTitle;
 
     if (!started.ok) {
-      const message = params.needsInteractiveMode
+      const useInteractiveFailureNote = this.shouldUseInteractiveMode(
+        params.argsLine,
+        params.needsInteractiveMode
+      );
+      const message = useInteractiveFailureNote
         ? this.buildCliSpawnFailedNoteContent({
             errorMessage: started.errorMessage,
           })
@@ -463,7 +489,7 @@ export class CliHandler {
         return `${content.trimEnd()}\n\n${CLI_XTERM_MARKER}\n`;
       });
     } else {
-      const initialBody = i18next.t('cli.shellTranscriptIntro');
+      const initialBody = `<small>*${i18next.t('cli.shellTranscriptIntro')}*</small>`;
       const fenceLang = isModelCall ? 'cli-model' : 'cli-transcript';
       const newContent = `${initialBody}\n\n\`\`\`${fenceLang}\n${getCliStreamMarkerPlaceholder()}\n\`\`\`\n`;
 
@@ -550,7 +576,7 @@ export class CliHandler {
       isModelCall
     );
 
-    if (messageId && argsLine.length > 0) {
+    if (messageId && argsLine.length > 0 && !wantsInteractive) {
       await this.waitForShellOutputFlushed({
         conversationTitle: routing.shellSessionTitle,
         messageId,
@@ -624,13 +650,10 @@ export class CliHandler {
     const trimmed = argsLine.trim();
     const needsInteractiveMode = options.toolCall.input?.needsInteractiveMode;
     const runsInTerminal = this.shouldUseInteractiveMode(argsLine, needsInteractiveMode);
-    const trimmedPurpose = options.toolCall.input?.purpose?.trim();
-    const commandInFence = trimmedPurpose
-      ? `# ${trimmedPurpose}${trimmed.length > 0 ? `\n${argsLine}` : ''}`
-      : trimmed.length > 0
-        ? argsLine
-        : '';
-    const shellFence = commandInFence ? `\`\`\`shell\n${commandInFence}\n\`\`\`` : '';
+    const shellFence = this.buildShellCommandFence({
+      argsLine,
+      purpose: options.toolCall.input?.purpose,
+    });
 
     const udcCli = await this.resolveUdcCliFromFrontmatter(title);
     const allowPatterns = udcCli?.whitelist;

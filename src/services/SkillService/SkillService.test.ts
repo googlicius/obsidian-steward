@@ -2,6 +2,7 @@ import { TFile } from 'obsidian';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import type StewardPlugin from 'src/main';
 import { getInstance } from 'src/utils/getInstance';
+import { ToolName } from 'src/solutions/commands/toolNames';
 import { SkillService } from './SkillService';
 
 const { i18next } = getBundledInternal('i18n');
@@ -239,6 +240,53 @@ describe('SkillService', () => {
       ]);
 
       expect(skillService.getSkillCatalog()).toEqual([]);
+    });
+
+    it('omits tool-specific skills when their tool is not active', () => {
+      skillService.skills = new Map([
+        [
+          'edit-table',
+          {
+            name: 'edit-table',
+            description: 'Table edits',
+            content: '',
+            filePath: 'Steward/Skills/edit/table/SKILL.md',
+            enabled: true,
+            tools: [ToolName.EDIT],
+          },
+        ],
+        [
+          'update-title',
+          {
+            name: 'update-title',
+            description: 'Title updates',
+            content: '',
+            filePath: 'Steward/Skills/update-title/SKILL.md',
+            enabled: true,
+          },
+        ],
+      ]);
+
+      expect(skillService.getSkillCatalog([])).toEqual([
+        {
+          name: 'update-title',
+          description: 'Title updates',
+          path: 'Steward/Skills/update-title/SKILL.md',
+        },
+      ]);
+
+      expect(skillService.getSkillCatalog([ToolName.EDIT])).toEqual([
+        {
+          name: 'edit-table',
+          description: 'Table edits',
+          path: 'Steward/Skills/edit/table/SKILL.md',
+        },
+        {
+          name: 'update-title',
+          description: 'Title updates',
+          path: 'Steward/Skills/update-title/SKILL.md',
+        },
+      ]);
     });
   });
 

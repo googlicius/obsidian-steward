@@ -1,23 +1,23 @@
 import { MarkdownPostProcessor } from 'obsidian';
 import type StewardPlugin from 'src/main';
-import type { EmbedView } from 'src/views/embed-views/EmbedView';
-import { EmbedHistoryView } from 'src/views/embed-views/EmbedHistoryView';
-import { EmbedCommandsView } from 'src/views/embed-views/EmbedCommandsView';
-import { StewardChatView } from 'src/views/StewardChatView';
+import type { ViewBuilder } from 'src/views/view-builders/ViewBuilder';
+import { refreshViewBuilder } from 'src/views/view-builders/ViewBuilder';
+import { HistoryViewBuilder } from 'src/views/view-builders/HistoryViewBuilder';
+import { CommandsViewBuilder } from 'src/views/view-builders/CommandsViewBuilder';
 import { logger } from 'src/utils/logger';
 
-const stwEmbedViewByKey: Record<string, (plugin: StewardPlugin) => EmbedView> = {
-  history: plugin => new EmbedHistoryView(plugin.app, plugin),
-  commands: plugin => new EmbedCommandsView(plugin.app, plugin),
+const viewBuilderByKey: Record<string, (plugin: StewardPlugin) => ViewBuilder> = {
+  history: plugin => new HistoryViewBuilder(plugin.app, plugin),
+  commands: plugin => new CommandsViewBuilder(plugin.app, plugin),
 };
 
-function createStwEmbedView(plugin: StewardPlugin, key: string): EmbedView | null {
+function createViewBuilder(plugin: StewardPlugin, key: string): ViewBuilder | null {
   const trimmed = key.trim();
   if (trimmed.length === 0) {
     return null;
   }
 
-  const factory = stwEmbedViewByKey[trimmed];
+  const factory = viewBuilderByKey[trimmed];
   if (!factory) {
     return null;
   }
@@ -35,7 +35,7 @@ function createStwEmbedView(plugin: StewardPlugin, key: string): EmbedView | nul
  * `<a class="stw-embed" data-embed="history">History</a>`
  * `<a class="stw-embed" data-embed="commands">Community commands</a>`
  *
- * Supported `data-embed` keys are defined on {@link stwEmbedViewByKey}.
+ * Supported `data-embed` keys are defined on {@link viewBuilderByKey}.
  */
 export function createRunPostProcessor(plugin: StewardPlugin): MarkdownPostProcessor {
   return (el, _ctx): void => {
@@ -118,20 +118,15 @@ function bindStwEmbedLinks(plugin: StewardPlugin, el: HTMLElement): void {
           return;
         }
 
-        const embedView = createStwEmbedView(plugin, embedKey);
-        if (!embedView) {
+        const builder = createViewBuilder(plugin, embedKey);
+        if (!builder) {
           logger.warn(`Unknown stw-embed key: ${embedKey}`);
           return;
         }
 
-        const chatLeaf = await plugin.getChatLeaf();
-        const chatView = chatLeaf.view;
-        if (!(chatView instanceof StewardChatView)) {
-          return;
-        }
-
-        await chatView.openEmbedView(embedView);
-        plugin.app.workspace.setActiveLeaf(chatLeaf, { focus: true });
+        await refreshViewBuilder(builder);
+        const leaf = await plugin.resolveStewardLeaf();
+        await plugin.openReadingView({ filePath: builder.getFilePath(), leaf });
       })();
     });
   }

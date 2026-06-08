@@ -29,3 +29,6 @@ copy-plugin*.sh
 NOTE.md
 
 tmp-screenshots
+
+# Cursor plans
+.cursor/plans
