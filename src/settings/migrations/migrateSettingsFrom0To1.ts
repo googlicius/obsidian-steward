@@ -175,7 +175,7 @@ export async function migrateSettingsFrom0To1(input: MigrateSettingsFrom0To1Inpu
 
   if (typeof input.settings.deleteBehavior === 'string') {
     input.settings.deleteBehavior = {
-      behavior: input.settings.deleteBehavior as 'stw_trash' | 'obsidian_trash',
+      behavior: input.settings.deleteBehavior,
       cleanupPolicy: 'never',
     };
   }

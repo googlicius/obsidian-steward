@@ -404,7 +404,7 @@ export class ObsidianAPITools {
             matchedPaths.add(file.path);
           }
         }
-      } catch (error) {
+      } catch {
         // If regex is invalid, treat as literal path
         const file = this.app.vault.getFileByPath(trimmedPattern);
         if (file && (!folder || file.path.startsWith(folder))) {

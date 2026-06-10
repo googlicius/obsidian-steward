@@ -8,8 +8,6 @@ import { AgentResult, IntentResultStatus } from '../../types';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { logger } from 'src/utils/logger';
 import { ArtifactType } from 'src/solutions/artifact';
-import { ConditionResult } from 'src/solutions/search/searchEngineV3';
-import { IndexedDocument } from 'src/database/SearchDatabase';
 
 const { getTranslation } = getBundledInternal('i18n');
 
@@ -89,7 +87,7 @@ export class SearchMore {
       // Get paginated results for the current page
       const resultsPerPage = this.agent.plugin.settings.search.resultsPerPage;
       const paginatedSearchResult = this.agent.plugin.searchService.paginateResults(
-        searchArtifact.originalResults as ConditionResult<IndexedDocument>[],
+        searchArtifact.originalResults,
         page,
         resultsPerPage
       );

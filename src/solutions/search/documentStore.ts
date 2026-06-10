@@ -364,8 +364,9 @@ export class DocumentStore {
 
     const comparableValue = this.resolveComparableValue(value);
     if (comparableValue === null) {
+      const valueStr = String(value);
       logger.warn(
-        `Cannot use operator "${operator}" with value "${value}" for property "${name}".`
+        `Cannot use operator "${operator}" with value "${valueStr}" for property "${valueStr}".`
       );
       return [];
     }

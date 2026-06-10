@@ -15,7 +15,7 @@ export class RenameCompactor implements ToolResultCompactor {
       typeof output === 'string'
         ? output
         : output && typeof output === 'object' && 'value' in output
-          ? String((output as { value: unknown }).value)
+          ? String(output.value)
           : '';
     const allPairs = extractRenamePairsFromText(text);
     const { items, note } = truncateWithNote(allPairs);

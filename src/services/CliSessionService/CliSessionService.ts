@@ -221,7 +221,7 @@ export class CliSessionService {
   public disposeAll(): void {
     const titles = Array.from(this.sessions.keys());
     for (let i = 0; i < titles.length; i++) {
-      this.endSession({ conversationTitle: titles[i], killProcess: true });
+      void this.endSession({ conversationTitle: titles[i], killProcess: true });
     }
   }
 
@@ -626,7 +626,7 @@ export class CliSessionService {
           : i18next.t('cli.processEndedCode', { code: String(code) });
       this.appendOutput(session.conversationTitle, `\n${exitNote}\n`, false);
       void this.flushOutput(current, true).then(() => {
-        this.endSession({
+        void this.endSession({
           conversationTitle: session.conversationTitle,
           killProcess: false,
         });

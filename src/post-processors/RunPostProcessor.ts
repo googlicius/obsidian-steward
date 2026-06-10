@@ -55,7 +55,7 @@ function bindStwRunLinks(plugin: StewardPlugin, el: HTMLElement): void {
 
   for (let i = 0; i < runLinks.length; i++) {
     const linkEl = runLinks.item(i);
-    if (!(linkEl instanceof HTMLAnchorElement)) {
+    if (!linkEl.instanceOf(HTMLAnchorElement)) {
       continue;
     }
 
@@ -97,7 +97,7 @@ function bindStwEmbedLinks(plugin: StewardPlugin, el: HTMLElement): void {
 
   for (let i = 0; i < embedLinks.length; i++) {
     const linkEl = embedLinks.item(i);
-    if (!(linkEl instanceof HTMLAnchorElement)) {
+    if (!linkEl.instanceOf(HTMLAnchorElement)) {
       continue;
     }
 

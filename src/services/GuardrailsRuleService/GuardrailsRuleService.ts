@@ -103,7 +103,7 @@ export class GuardrailsRuleService {
         this.plugin.registerEvent(
           this.plugin.app.vault.on('create', file => {
             if (file instanceof TFile && this.isInRulesFolder(file.path)) {
-              this.reloadRule(file);
+              void this.reloadRule(file);
             }
           })
         );
@@ -112,7 +112,7 @@ export class GuardrailsRuleService {
       this.plugin.registerEvent(
         this.plugin.app.vault.on('modify', file => {
           if (file instanceof TFile && this.isInRulesFolder(file.path)) {
-            this.reloadRule(file);
+            void this.reloadRule(file);
           }
         })
       );
@@ -120,9 +120,9 @@ export class GuardrailsRuleService {
       this.plugin.registerEvent(
         this.plugin.app.vault.on('delete', file => {
           if (file.path === this.rulesFolderPath) {
-            this.loadRules();
+            void this.loadRules();
           } else if (this.isInRulesFolder(file.path)) {
-            this.removeRule(file.path);
+            void this.removeRule(file.path);
           }
         })
       );
@@ -130,7 +130,7 @@ export class GuardrailsRuleService {
       this.plugin.registerEvent(
         this.plugin.app.metadataCache.on('changed', file => {
           if (file instanceof TFile && this.isInRulesFolder(file.path)) {
-            this.reloadRule(file);
+            void this.reloadRule(file);
           }
         })
       );

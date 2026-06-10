@@ -312,7 +312,7 @@ export default class StewardPlugin extends Plugin {
   }
 
   get extendedApp(): ExtendedApp {
-    return this.app as ExtendedApp;
+    return this.app;
   }
 
   async onload() {
@@ -350,7 +350,7 @@ export default class StewardPlugin extends Plugin {
 
       // Initialize the TrashCleanupService
       this.trashCleanupService = new TrashCleanupService(this);
-      this.trashCleanupService.initialize();
+      void this.trashCleanupService.initialize();
 
       // Initialize the SkillService (loads skills from Steward/Skills folder)
       // Access triggers lazy initialization and onLayoutReady will load all skills
@@ -370,18 +370,18 @@ export default class StewardPlugin extends Plugin {
       }
 
       // Clean up old search databases
-      this.cleanupOldSearchDatabases();
+      void this.cleanupOldSearchDatabases();
 
       // Initialize the search service
-      this.searchService.initialize();
+      void this.searchService.initialize();
 
       await this.initializeClassifier();
 
       // Ensure required folders exist
-      this.ensureRequiredFolders();
+      void this.ensureRequiredFolders();
 
       // Exclude steward folders from search
-      this.excludeFoldersFromSearch([
+      void this.excludeFoldersFromSearch([
         `${this.settings.stewardFolder}/Conversations`,
         `${this.settings.stewardFolder}/Commands`,
         'Excalidraw',
@@ -395,7 +395,7 @@ export default class StewardPlugin extends Plugin {
     void this._ptyCompanionService?.stop();
 
     // Remove the language attribute from the HTML element
-    document.documentElement.removeAttribute('data-stw-language');
+    activeDocument.documentElement.removeAttribute('data-stw-language');
 
     // Unload the search service
     this.searchService.unload();
@@ -411,7 +411,7 @@ export default class StewardPlugin extends Plugin {
     }
 
     // Cleanup current database and remove saltKeyId from localStorage
-    retry(async () => {
+    void retry(async () => {
       const data = await this.loadData();
       if (!data) {
         const currentDbName = this.settings.search.searchDbName;
@@ -444,7 +444,7 @@ export default class StewardPlugin extends Plugin {
         if (!rightSplit.collapsed) {
           rightSplit.collapse();
         } else {
-          this.openChat();
+          void this.openChat();
         }
       },
     });
@@ -554,7 +554,7 @@ export default class StewardPlugin extends Plugin {
     const classifier = await getClassifier(this.settings.embedding);
 
     // Initialize embeddings
-    retry(() => classifier.doClassify('initialize'), {
+    void retry(() => classifier.doClassify('initialize'), {
       initialDelay: 500,
     });
   }
@@ -693,7 +693,7 @@ export default class StewardPlugin extends Plugin {
       return true;
     }
 
-    (async () => {
+    void (async () => {
       try {
         // Look for a conversation link in the previous lines
         const conversationTitle = this.findConversationTitleAbove(view);
@@ -901,8 +901,8 @@ export default class StewardPlugin extends Plugin {
       });
 
       if (revealLeaf) {
-        this.app.workspace.revealLeaf(leaf);
-        this.app.workspace.setActiveLeaf(leaf, { focus: true });
+        void this.app.workspace.revealLeaf(leaf);
+        void this.app.workspace.setActiveLeaf(leaf, { focus: true });
       }
     } catch (error) {
       logger.error('Error opening reading view:', error);
@@ -1004,8 +1004,8 @@ export default class StewardPlugin extends Plugin {
       });
 
       if (revealLeaf) {
-        this.app.workspace.revealLeaf(targetLeaf);
-        this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
+        void this.app.workspace.revealLeaf(targetLeaf);
+        void this.app.workspace.setActiveLeaf(targetLeaf, { focus: true });
 
         if (targetLeaf.view instanceof ChatView) {
           this.setCursorToEndOfFile(targetLeaf.view.editor as ObsidianEditor);
@@ -1247,7 +1247,7 @@ export default class StewardPlugin extends Plugin {
 
     for (const child of tmpFolder.children) {
       if (child.name.startsWith('stw_stream_')) {
-        this.app.vault.delete(child).catch(() => {
+        void this.app.fileManager.trashFile(child).catch(() => {
           // Ignore errors during cleanup
         });
       }

@@ -19,9 +19,9 @@ export interface ObsidianUiThemeContext {
 }
 
 function getObsidianUiThemeContext(): ObsidianUiThemeContext {
-  const isDark = document.body.classList.contains('theme-dark');
+  const isDark = activeDocument.body.classList.contains('theme-dark');
   const theme: ObsidianUiTheme = isDark ? 'Dark' : 'Light';
-  const style = window.getComputedStyle(document.body);
+  const style = window.getComputedStyle(activeDocument.body);
   const background =
     style.getPropertyValue('--background-primary').trim() || (isDark ? '#1e1e1e' : '#ffffff');
   const foreground =

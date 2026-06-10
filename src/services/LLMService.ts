@@ -233,7 +233,7 @@ export class LLMService {
     provider: HumeProvider;
   }>;
   // Overload for other providers (excluding ElevenLabs)
-  public getProviderFromModel(model: string | `${string}:${string}`): Promise<{
+  public getProviderFromModel(model: string): Promise<{
     modelId: string;
     name: string;
     systemPrompt?: string;
@@ -246,7 +246,7 @@ export class LLMService {
   }>;
 
   // Implementation
-  public async getProviderFromModel(model: string | `${string}:${string}`): Promise<{
+  public async getProviderFromModel(model: string): Promise<{
     modelId: string;
     name: string;
     systemPrompt?: string;
@@ -416,7 +416,7 @@ export class LLMService {
           try {
             logger.log('Repairing invalid tool call input', options.error);
             options.toolCall.input = jsonrepair(options.toolCall.input as string);
-          } catch (error) {
+          } catch {
             logger.warn('Repairing invalid tool call input failed, using fallback...');
             options.toolCall.input = fixUnquotedJSON(options.toolCall.input as string);
           }

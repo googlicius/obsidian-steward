@@ -1,6 +1,7 @@
 import { SearchContext } from './SearchContext';
 
 export interface ConditionResult<T = unknown> {
+  // eslint-disable-next-line obsidianmd/prefer-active-doc -- property name, not the DOM document global
   document: T;
   score: number;
   keywordsMatched?: string[];

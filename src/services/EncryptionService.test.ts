@@ -18,28 +18,6 @@ const vaultLocalStorageMock = (() => {
   };
 })();
 
-// Mock standard localStorage
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: (key: string): string | null => {
-      return store[key] || null;
-    },
-    removeItem: (key: string): void => {
-      delete store[key];
-    },
-    setItem: (key: string, value: string): void => {
-      store[key] = value;
-    },
-    clear: (): void => {
-      store = {};
-    },
-  };
-})();
-
-// Assign our mock to global localStorage
-global.localStorage = localStorageMock as unknown as Storage;
-
 function createMockPlugin(): jest.Mocked<StewardPlugin> {
   return {
     app: {
@@ -54,7 +32,6 @@ function createMockPlugin(): jest.Mocked<StewardPlugin> {
 describe('EncryptionService', () => {
   beforeEach(() => {
     vaultLocalStorageMock.clear();
-    localStorageMock.clear();
   });
 
   describe('encrypt', () => {

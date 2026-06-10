@@ -58,5 +58,5 @@ export async function retry<T>(fn: () => Promise<T> | T, options: RetryOptions =
   }
 
   // This should never be reached due to the throw in the loop
-  throw lastError;
+  throw lastError ?? new Error('Retry failed');
 }

@@ -25,6 +25,7 @@ const SUBAGENT_VALID_TOOL_NAMES: ReadonlySet<ToolName> = SUBAGENT_TOOL_NAMES;
 
 type ToolCalls = Array<TypedToolCallPart & { dynamic?: boolean }>;
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- intentional mixin pattern
 export interface SubAgent
   extends Agent,
     AgentHandlerContext,
@@ -32,6 +33,7 @@ export interface SubAgent
     components.ToolCallExecutor,
     components.GenerateTextExecutor {}
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- intentional mixin pattern
 export class SubAgent extends Agent implements AgentHandlerContext {
   public getValidToolNames(): ReadonlySet<ToolName> {
     return SUBAGENT_VALID_TOOL_NAMES;
@@ -118,7 +120,7 @@ Rules:
       handlerId,
       agentParams: params,
       remainingSteps,
-      toolCalls: toolCalls as unknown as Array<TypedToolCallPart & { dynamic?: boolean }>,
+      toolCalls,
       startIndex: options.currentToolCallIndex ?? 0,
       activeTools,
       availableTools: tools,

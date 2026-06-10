@@ -40,5 +40,5 @@ export function getBundledInternal<K extends keyof BundledInternals>(key: K): Bu
   if (mod === undefined) {
     throw new Error(`[Steward] Missing bundled internal key: ${String(key)}`);
   }
-  return mod as BundledInternals[K];
+  return mod;
 }

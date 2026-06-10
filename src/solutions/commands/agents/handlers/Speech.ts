@@ -23,11 +23,7 @@ export const speechSchema = z.object({
     .string()
     .min(1, 'Explanation must be a non-empty string')
     .describe(explanationFragment),
-  lang: z
-    .string()
-    .nullable()
-    .optional()
-    .describe(userLanguagePrompt.content as string),
+  lang: z.string().nullable().optional().describe(userLanguagePrompt.content),
 });
 
 export type SpeechArgs = z.infer<typeof speechSchema>;

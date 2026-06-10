@@ -34,11 +34,11 @@ function setGeneratingIndicatorState(params: {
   let indicatorEl = contentEl.querySelector(indicatorSelector);
 
   if (!indicatorEl && (params.active || params.createIfMissing)) {
-    indicatorEl = document.createElement('div');
+    indicatorEl = activeDocument.createElement('div');
     indicatorEl.classList.add('generating-indicator');
     indicatorEl.setAttribute('data-stw-indicator-for', params.indicatorFor);
 
-    const textEl = document.createElement('span');
+    const textEl = activeDocument.createElement('span');
     textEl.classList.add('generating-indicator-text');
     indicatorEl.appendChild(textEl);
     contentEl.appendChild(indicatorEl);
@@ -66,7 +66,7 @@ export function createConversationIndicatorProcessor(plugin: StewardPlugin): Mar
     const { conversationPath, active, indicatorText } = event.detail;
     const normalizedSrc = normalizeConversationSrc(conversationPath, plugin.settings.stewardFolder);
     const selector = buildIndicatorEmbedSelector(normalizedSrc);
-    const embeds = document.querySelectorAll(selector);
+    const embeds = activeDocument.querySelectorAll(selector);
 
     if (embeds.length === 0) return;
 
@@ -80,10 +80,13 @@ export function createConversationIndicatorProcessor(plugin: StewardPlugin): Mar
     }
   };
 
-  document.addEventListener(Events.CONVERSATION_INDICATOR_CHANGED, handleIndicatorChanged);
+  activeDocument.addEventListener(Events.CONVERSATION_INDICATOR_CHANGED, handleIndicatorChanged);
 
   plugin.register(() => {
-    document.removeEventListener(Events.CONVERSATION_INDICATOR_CHANGED, handleIndicatorChanged);
+    activeDocument.removeEventListener(
+      Events.CONVERSATION_INDICATOR_CHANGED,
+      handleIndicatorChanged
+    );
   });
 
   return (el, ctx) => {

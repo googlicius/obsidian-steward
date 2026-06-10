@@ -9,6 +9,7 @@ import type { IntentProcessor } from './IntentProcessor';
 import { getBundledInternal } from 'src/utils/bundledInternals';
 import { ToolName, ToolRegistry } from './ToolRegistry';
 import { uniqueID } from 'src/utils/uniqueID';
+import { getCaughtErrorMessage } from 'src/utils/errors';
 
 const { getTranslation } = getBundledInternal('i18n');
 
@@ -103,13 +104,8 @@ export abstract class Agent {
       }
 
       return result;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : typeof error === 'object' && 'error' in error
-            ? error.error.message
-            : String(error);
+    } catch (error: unknown) {
+      const errorMessage = getCaughtErrorMessage(error);
       logger.error(`Error in ${params.intent.type || 'Super'} agent handler:`, error);
 
       const t = getTranslation(params.lang);

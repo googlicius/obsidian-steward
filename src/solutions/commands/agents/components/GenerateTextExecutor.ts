@@ -24,9 +24,10 @@ function asAgent(instance: GenerateTextExecutor) {
   return instance as unknown as Agent;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface -- declaration merge: adds mixin types to class instance
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- intentional mixin pattern
 export interface GenerateTextExecutor extends ToolIntentResolution, SystemPromptComposer {}
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- intentional mixin pattern
 export class GenerateTextExecutor {
   protected getToolSubset(params: {
     activeTools: ToolName[];
@@ -38,9 +39,7 @@ export class GenerateTextExecutor {
       return params.tools;
     }
 
-    return Object.fromEntries(
-      Object.entries(params.tools).filter(([name]) => selected.has(name))
-    ) as Partial<GenerateTextToolSet>;
+    return Object.fromEntries(Object.entries(params.tools).filter(([name]) => selected.has(name)));
   }
 
   protected buildToolInstructionsSystemPrompt(

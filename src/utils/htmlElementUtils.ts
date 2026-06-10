@@ -5,7 +5,7 @@ import { setTooltip } from 'obsidian';
  */
 export function findTextNodesWithRegex(element: HTMLElement, regex: RegExp): Text[] {
   // Use a TreeWalker for efficient DOM traversal
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
+  const walker = activeDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
   const matchingNodes: Text[] = [];
 
   let node;
@@ -26,12 +26,12 @@ function appendTextWithLineBreaks(fragment: DocumentFragment, text: string): voi
 
   for (let i = 0; i < lines.length; i++) {
     if (lines[i]) {
-      fragment.appendChild(document.createTextNode(lines[i]));
+      fragment.appendChild(activeDocument.createTextNode(lines[i]));
     }
 
     // Add <br> element between lines (not after the last line)
     if (i < lines.length - 1) {
-      fragment.appendChild(document.createElement('br'));
+      fragment.appendChild(activeDocument.createElement('br'));
     }
   }
 }
@@ -41,7 +41,7 @@ function appendTextWithLineBreaks(fragment: DocumentFragment, text: string): voi
  * Links are detected using URL pattern and rendered as <a> elements
  */
 export function createFragmentFromText(text: string): DocumentFragment {
-  const fragment = document.createDocumentFragment();
+  const fragment = activeDocument.createDocumentFragment();
 
   // URL regex pattern to match http, https URLs
   const urlPattern = /(https?:\/\/[^\s<>"\])}]+)/g;
@@ -58,7 +58,7 @@ export function createFragmentFromText(text: string): DocumentFragment {
 
     // Create the link element
     const url = match[1];
-    const link = document.createElement('a');
+    const link = activeDocument.createElement('a');
     link.href = url;
     link.textContent = url;
     link.setAttribute('target', '_blank');

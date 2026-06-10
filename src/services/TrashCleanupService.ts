@@ -37,7 +37,7 @@ export class TrashCleanupService {
 
     // Set up daily cleanup check
     this.cleanupIntervalId = window.setInterval(() => {
-      this.runCleanup();
+      void this.runCleanup();
     }, this.CHECK_INTERVAL);
   }
 

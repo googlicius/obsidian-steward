@@ -208,7 +208,7 @@ export function loadSuperAgentToolsBase(): Promise<AgentToolsRecord> {
         [ToolName.SPAWN_SUBAGENT]: spawnSubagentTool,
         [ToolName.SWITCH_AGENT_CAPACITY]: switchAgentCapacityTool,
         [ToolName.RUN_COMMAND]: runCommandTool,
-      } as AgentToolsRecord;
+      };
     });
   }
   return superAgentOnlyToolsPromise;

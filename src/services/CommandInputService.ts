@@ -220,7 +220,7 @@ export class CommandInputService {
 
       if (target === 'chat') {
         await this.plugin.openChat();
-        const chatLeaf = await this.plugin.getChatLeaf();
+        const chatLeaf = await this.plugin.getStewardLeaf();
         const chatView = chatLeaf.view;
 
         if (chatView instanceof ChatView) {

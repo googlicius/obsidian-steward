@@ -78,7 +78,7 @@ export class CompactionTokenService {
       this.compactors.set(compactor.toolName, compactor);
     }
 
-    eventEmitter.on(Events.EXECUTED_STREAM_TEXT, payload => {
+    eventEmitter.on(Events.EXECUTED_STREAM_TEXT, (payload: ExecutedStreamTextPayload) => {
       void this.handleExecutedStreamText(payload);
     });
   }
@@ -320,7 +320,7 @@ export class CompactionTokenService {
     if (!output || typeof output !== 'object' || !('value' in output)) {
       return output;
     }
-    return (output as { value: unknown }).value;
+    return output.value;
   }
 
   private buildCompactedMessage(data: CompactionData, params: { compactIndex: number }): string {

@@ -1,4 +1,4 @@
-import { ArtifactSerializer, ArtifactType, SearchResultsArtifact } from '../types';
+import { Artifact, ArtifactSerializer, ArtifactType, SearchResultsArtifact } from '../types';
 import { DocumentStore } from 'src/solutions/search/documentStore';
 import { ConditionResult } from 'src/solutions/search/searchEngineV3';
 import { IndexedDocument } from 'src/database/SearchDatabase';
@@ -16,7 +16,7 @@ export class SearchResultSerializer extends ArtifactSerializer {
    * Serialize a search result artifact to a string
    * Extracts only the document IDs, scores, and keywords matched
    */
-  serialize(artifact: SearchResultsArtifact) {
+  serialize(artifact: Artifact) {
     if (artifact.artifactType !== ArtifactType.SEARCH_RESULTS) {
       throw new Error(
         `Type mismatch: expected ${ArtifactType.SEARCH_RESULTS}, got ${artifact.artifactType}`

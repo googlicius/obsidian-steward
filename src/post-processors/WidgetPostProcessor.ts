@@ -58,7 +58,7 @@ function mountWidgetIframe(params: MountIframeParams): () => void {
   let sandbox: string;
   let usesPostMessageResize: boolean;
 
-  const iframe = Object.assign(document.createElement('iframe'), {
+  const iframe = Object.assign(activeDocument.createElement('iframe'), {
     className: 'stw-widget-frame',
     title: 'Widget',
   });
@@ -172,7 +172,7 @@ function mountWidgetIframe(params: MountIframeParams): () => void {
 }
 
 function watchRemoval(container: HTMLElement, teardown: () => void): void {
-  const root = container.closest('.workspace-leaf-content, .workspace-leaf') ?? document.body;
+  const root = container.closest('.workspace-leaf-content, .workspace-leaf') ?? activeDocument.body;
   const observer = new MutationObserver(() => {
     if (root.contains(container)) return;
     observer.disconnect();
@@ -183,7 +183,7 @@ function watchRemoval(container: HTMLElement, teardown: () => void): void {
 }
 
 function makeContainer(type: string): HTMLElement {
-  const el = document.createElement('div');
+  const el = activeDocument.createElement('div');
   el.classList.add('stw-widget-container');
   el.dataset.stwWidgetType = type;
   return el;
@@ -391,7 +391,7 @@ function appendWidgetActionLinks(
   params: { widgetId: string; widgetName: string; lang: string | null }
 ): void {
   const t = getTranslation(params.lang);
-  const smallEl = document.createElement('small');
+  const smallEl = activeDocument.createElement('small');
   smallEl.classList.add('italic');
 
   appendActionLink(smallEl, t('common.openInNewTab'), () => {
@@ -404,7 +404,7 @@ function appendWidgetActionLinks(
     })();
   });
 
-  smallEl.appendChild(document.createTextNode(' · '));
+  smallEl.appendChild(activeDocument.createTextNode(' · '));
 
   appendActionLink(smallEl, t('common.saveAsArtifact'), () => {
     void (async () => {
@@ -426,7 +426,7 @@ function appendActionLink(
   label: string,
   onClick: () => void
 ): HTMLAnchorElement {
-  const linkEl = document.createElement('a');
+  const linkEl = activeDocument.createElement('a');
   linkEl.href = '#';
   linkEl.textContent = label;
   linkEl.addEventListener('click', event => {

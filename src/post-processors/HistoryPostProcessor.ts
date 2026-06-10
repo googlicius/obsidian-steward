@@ -64,7 +64,7 @@ export function createHistoryPostProcessor(plugin: StewardPlugin): MarkdownPostP
     const conversationFile = plugin.app.vault.getFileByPath(conversationFilePath);
     if (conversationFile) {
       // No need to wait.
-      plugin.app.fileManager.trashFile(conversationFile);
+      void plugin.app.fileManager.trashFile(conversationFile);
     }
   };
 
@@ -83,7 +83,7 @@ export function createHistoryPostProcessor(plugin: StewardPlugin): MarkdownPostP
 
     for (let i = 0; i < historyLinks.length; i++) {
       const linkEl = historyLinks[i];
-      if (!(linkEl instanceof HTMLElement)) {
+      if (!linkEl.instanceOf(HTMLElement)) {
         continue;
       }
 
@@ -99,7 +99,7 @@ export function createHistoryPostProcessor(plugin: StewardPlugin): MarkdownPostP
           continue;
         }
 
-        historyItem = document.createElement('div');
+        historyItem = activeDocument.createElement('div');
         historyItem.classList.add('stw-history-item');
         parentEl.insertBefore(historyItem, linkEl);
 
@@ -138,7 +138,7 @@ export function createHistoryPostProcessor(plugin: StewardPlugin): MarkdownPostP
         continue;
       }
 
-      const deleteButton = document.createElement('button');
+      const deleteButton = activeDocument.createElement('button');
       deleteButton.classList.add('stw-history-delete-button', 'clickable-icon');
       setTooltip(deleteButton, i18next.t('chat.deleteHistoryItem'));
       setIcon(deleteButton, 'trash-2');

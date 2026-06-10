@@ -112,7 +112,7 @@ export class UserDefinedCommandV1 implements IVersionedUserDefinedCommand {
       description: this.data.description,
       enabled: this.noteEnabled,
       query_required: this.data.query_required,
-      steps: this.data.commands as NormalizedUserDefinedCommand['steps'], // Map 'commands' to 'steps'
+      steps: this.data.commands, // Map 'commands' to 'steps'
       file_path: this.data.file_path || '',
       model: this.data.model,
       triggers: this.data.triggers,

@@ -377,7 +377,7 @@ export class NoteContentService {
       metadataStr =
         ' ' +
         Object.entries(metadata)
-          .map(([key, value]) => `${key}:${value}`)
+          .map(([key, value]) => `${key}:${String(value)}`)
           .join(',');
     }
 

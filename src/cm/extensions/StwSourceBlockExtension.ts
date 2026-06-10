@@ -14,7 +14,7 @@ import { completionStatus } from '@codemirror/autocomplete';
 const updateWidgets = StateEffect.define();
 
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise(resolve => window.setTimeout(resolve, ms));
 }
 
 type StwSourceRefFields = {
@@ -69,7 +69,7 @@ export function createStwSourceBlocksExtension(plugin: StewardPlugin) {
     }
 
     toDOM() {
-      const span = document.createElement('span');
+      const span = activeDocument.createElement('span');
       span.className = 'stw-source-button';
 
       const fields = buildSourceRefFields(this.content);
@@ -86,45 +86,47 @@ export function createStwSourceBlocksExtension(plugin: StewardPlugin) {
 
       const { filePath, fromLine, toLine, displayText } = fields;
 
-      span.addEventListener('click', async () => {
-        try {
-          const currentFile = plugin.app.workspace.getActiveFile();
-          const targetFile = await plugin.mediaTools.findFileByNameOrPath(filePath);
+      span.addEventListener('click', () => {
+        void (async () => {
+          try {
+            const currentFile = plugin.app.workspace.getActiveFile();
+            const targetFile = await plugin.mediaTools.findFileByNameOrPath(filePath);
 
-          if (!targetFile) {
-            logger.warn(`Target file not found: ${displayText}`);
-            return;
+            if (!targetFile) {
+              logger.warn(`Target file not found: ${displayText}`);
+              return;
+            }
+
+            if (!currentFile || currentFile.path !== filePath) {
+              const mainLeaf = await plugin.getMainLeaf();
+              await mainLeaf.openFile(targetFile);
+              await sleep(100);
+            }
+
+            if (fromLine === undefined || toLine === undefined) {
+              return;
+            }
+
+            const startLineNum = parseInt(fromLine, 10);
+            const endLineNum = parseInt(toLine, 10);
+            const docLineCount = plugin.editor.lineCount();
+            if (startLineNum < 0 || endLineNum >= docLineCount || startLineNum > endLineNum) {
+              logger.warn(
+                `Invalid line range: ${startLineNum + 1}-${endLineNum + 1}, document has ${docLineCount} lines`
+              );
+              return;
+            }
+
+            const from = { line: startLineNum, ch: 0 };
+            const endLineContent = plugin.editor.getLine(endLineNum);
+            const to = { line: endLineNum, ch: endLineContent ? endLineContent.length : 0 };
+
+            plugin.editor.setSelection(from, to);
+            plugin.editor.scrollIntoView({ from, to });
+          } catch (error) {
+            logger.error('Error navigating to source block:', error);
           }
-
-          if (!currentFile || currentFile.path !== filePath) {
-            const mainLeaf = await plugin.getMainLeaf();
-            await mainLeaf.openFile(targetFile);
-            await sleep(100);
-          }
-
-          if (fromLine === undefined || toLine === undefined) {
-            return;
-          }
-
-          const startLineNum = parseInt(fromLine, 10);
-          const endLineNum = parseInt(toLine, 10);
-          const docLineCount = plugin.editor.lineCount();
-          if (startLineNum < 0 || endLineNum >= docLineCount || startLineNum > endLineNum) {
-            logger.warn(
-              `Invalid line range: ${startLineNum + 1}-${endLineNum + 1}, document has ${docLineCount} lines`
-            );
-            return;
-          }
-
-          const from = { line: startLineNum, ch: 0 };
-          const endLineContent = plugin.editor.getLine(endLineNum);
-          const to = { line: endLineNum, ch: endLineContent ? endLineContent.length : 0 };
-
-          plugin.editor.setSelection(from, to);
-          plugin.editor.scrollIntoView({ from, to });
-        } catch (error) {
-          logger.error('Error navigating to source block:', error);
-        }
+        })();
       });
 
       return span;

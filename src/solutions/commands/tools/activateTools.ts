@@ -31,11 +31,7 @@ const activateToolsSchema = z.object({
       'List of tool names that should be deactivated. Use this to simplify the guidelines and tool schemas when tools are no longer needed.'
     )
     .transform(sanitizeActivateToolsNameList),
-  lang: z
-    .string()
-    .nullable()
-    .optional()
-    .describe(userLanguagePrompt.content as string),
+  lang: z.string().nullable().optional().describe(userLanguagePrompt.content),
 });
 
 export type ActivateToolsArgs = z.infer<typeof activateToolsSchema>;

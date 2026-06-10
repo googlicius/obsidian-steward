@@ -168,7 +168,7 @@ export const TOOL_DEFINITIONS: Record<ToolName, ToolMetaDefinition> = {
     description:
       'Update content by multiple edit modes, Use if you need to update existing content.',
     guidelines: [
-      `- When updating content, return ONLY the specific changed content, not the entire surrounding context.
+      `When updating content, return ONLY the specific changed content, not the entire surrounding context.
   - Use ${ToolName.EDIT} to make the actual content changes. (NOTE: You cannot use this tool if a note does not exist.)
   - Use the right edit mode to ensure good performance and efficient token usage.`,
       `Choose edit mode by purpose:
@@ -496,7 +496,7 @@ export class ToolRegistry<T> {
       if (!this.isActive(def.name)) continue;
 
       const builtIn =
-        def.name === ToolName.SHOW_WIDGET
+        (def.name as ToolName) === ToolName.SHOW_WIDGET
           ? [...def.guidelines, getShowWidgetThemeGuideline()]
           : def.guidelines;
 

@@ -417,7 +417,7 @@ export class TodoList {
         options.createdBy
       );
     }
-    return this.handleUpdate(ctx, options.toolCall as ToolCallPart<TodoWriteArgs>);
+    return this.handleUpdate(ctx, options.toolCall);
   }
 
   private async handleCreate(

@@ -17,7 +17,7 @@ export class ModelFallbackSetting {
   }
 
   private getAllAvailableModels() {
-    const customModels = (get(this.plugin.settings, 'llm.chat.customModels') as string[]) || [];
+    const customModels = get(this.plugin.settings, 'llm.chat.customModels') || [];
 
     return [
       ...LLM_MODELS.map(model => ({
@@ -97,7 +97,7 @@ export class ModelFallbackSetting {
           setTooltip(moveUpButton, t('settings.modelFallback.moveUp'));
           moveUpButton.classList.add('clickable-icon');
           moveUpButton.addEventListener('click', () => {
-            moveModelInChain(index, index - 1);
+            void moveModelInChain(index, index - 1);
           });
         }
 
@@ -108,7 +108,7 @@ export class ModelFallbackSetting {
           setTooltip(moveDownButton, t('settings.modelFallback.moveDown'));
           moveDownButton.classList.add('clickable-icon');
           moveDownButton.addEventListener('click', () => {
-            moveModelInChain(index, index + 1);
+            void moveModelInChain(index, index + 1);
           });
         }
 
@@ -118,7 +118,7 @@ export class ModelFallbackSetting {
         setTooltip(removeButton, t('settings.delete'));
         removeButton.classList.add('clickable-icon');
         removeButton.addEventListener('click', () => {
-          removeModelFromChain(index);
+          void removeModelFromChain(index);
         });
       });
 
@@ -205,12 +205,14 @@ export class ModelFallbackSetting {
         text: t('settings.modelFallback.addToChain'),
       });
 
-      addButton.addEventListener('click', async () => {
-        const selectedModel = select.value;
-        if (selectedModel) {
-          await addModelToChain(selectedModel);
-          recreateInput('chain');
-        }
+      addButton.addEventListener('click', () => {
+        void (async () => {
+          const selectedModel = select.value;
+          if (selectedModel) {
+            await addModelToChain(selectedModel);
+            recreateInput('chain');
+          }
+        })();
       });
     };
 

@@ -88,7 +88,7 @@ export class AgentRunner {
     const { title, intents } = payload;
 
     this.pendingIntents.set(title, {
-      intents: intents as Intent[],
+      intents: intents,
       currentIndex: 0,
       payload,
     });
@@ -168,7 +168,7 @@ export class AgentRunner {
 
       window.setTimeout(() => {
         if (agent.renderIndicator) {
-          agent.renderIndicator(title, payload.lang);
+          void agent.renderIndicator(title, payload.lang);
         }
       });
 

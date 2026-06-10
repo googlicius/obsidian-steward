@@ -113,10 +113,7 @@ If the user wants to search with different criteria in different locations, retu
 
       return transformedOperations;
     }),
-  lang: z
-    .string()
-    .optional()
-    .describe(userLanguagePrompt.content as string),
+  lang: z.string().optional().describe(userLanguagePrompt.content),
   confidence: z
     .number()
     .min(0)
@@ -584,7 +581,7 @@ export class Search {
               response += `\n_${t('search.moreMatches', { count: highlightedMatches.length - 3 })}_`;
             }
           }
-        } catch (error) {
+        } catch {
           // Error reading file - continue with next result
         }
       }

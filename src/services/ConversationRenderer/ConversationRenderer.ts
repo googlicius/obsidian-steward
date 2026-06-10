@@ -21,7 +21,7 @@ import { Events } from 'src/types/events';
 
 const { getTranslation } = getBundledInternal('i18n');
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface -- declaration merge: class body + mixin prototype
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- intentional mixin pattern
 export interface ConversationRenderer extends ToolSerialization, Frontmatter {}
 
 /** User or assistant text row produced for compaction token budgeting. */
@@ -49,6 +49,7 @@ type ConversationCompactionEntry =
   | ConversationCompactionMessageEntry
   | ConversationCompactionToolEntry;
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- intentional mixin pattern
 export class ConversationRenderer {
   static instance: ConversationRenderer;
   private streamingFiles = new Set<string>();
@@ -684,7 +685,7 @@ export class ConversationRenderer {
       conversationPath: title,
       active: false,
     });
-    this.updateConversationFrontmatter(title, [
+    void this.updateConversationFrontmatter(title, [
       {
         name: 'indicator_text',
         value: undefined,
@@ -723,7 +724,7 @@ export class ConversationRenderer {
     active: boolean;
     indicatorText?: string;
   }): void {
-    document.dispatchEvent(
+    activeDocument.dispatchEvent(
       new CustomEvent(Events.CONVERSATION_INDICATOR_CHANGED, {
         detail: {
           conversationPath: params.conversationPath,
@@ -775,7 +776,7 @@ export class ConversationRenderer {
       }
 
       // Create YAML frontmatter with model, current_note, and language
-      const frontmatter = `---\n${frontmatterProperties.map(property => `${property.name}: ${property.value}`).join('\n')}\n---\n\n`;
+      const frontmatter = `---\n${frontmatterProperties.map(property => `${property.name}: ${String(property.value)}`).join('\n')}\n---\n\n`;
 
       const sanitizedQuery = this.plugin.userMessageService.sanitizeQuery(options.intent.query);
 

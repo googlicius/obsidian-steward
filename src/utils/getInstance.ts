@@ -10,5 +10,5 @@ export function getInstance<T>(cls: Class<T>, args?: Partial<T>): T {
     Object.assign(instance as unknown as object, args);
   }
 
-  return instance as T;
+  return instance;
 }

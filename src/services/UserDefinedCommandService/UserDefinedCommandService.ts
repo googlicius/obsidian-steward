@@ -42,7 +42,7 @@ export class UserDefinedCommandService {
   private pendingTriggerChecks: Map<string, 'create' | 'modify' | 'delete'> = new Map();
 
   private constructor(private plugin: StewardPlugin) {
-    this.initialize();
+    void this.initialize();
   }
 
   get commandFolder(): string {
@@ -90,7 +90,7 @@ export class UserDefinedCommandService {
         this.plugin.registerEvent(
           this.plugin.app.vault.on('create', file => {
             if (file instanceof TFile) {
-              this.handleFileCreation(file);
+              void this.handleFileCreation(file);
             }
           })
         );
@@ -104,14 +104,14 @@ export class UserDefinedCommandService {
       this.plugin.registerEvent(
         this.plugin.app.vault.on('modify', file => {
           if (file instanceof TFile) {
-            this.handleFileModification(file);
+            void this.handleFileModification(file);
           }
         })
       );
       this.plugin.registerEvent(
         this.plugin.app.vault.on('delete', file => {
           if (file instanceof TFile) {
-            this.handleFileDeletion(file);
+            void this.handleFileDeletion(file);
           }
         })
       );
@@ -124,7 +124,7 @@ export class UserDefinedCommandService {
       // Listen to metadata cache changes for trigger checks
       this.plugin.registerEvent(
         this.plugin.app.metadataCache.on('changed', file => {
-          this.handleMetadataChanged(file);
+          void this.handleMetadataChanged(file);
         })
       );
     } catch (error) {
@@ -824,7 +824,7 @@ version: ${udc.version}
     const conversationPath = `${conversationsFolder}/${conversationTitle}.md`;
 
     const buildNoticeFragment = (message: string): DocumentFragment => {
-      const noticeEl = document.createDocumentFragment();
+      const noticeEl = activeDocument.createDocumentFragment();
       const text = noticeEl.createEl('span');
       text.textContent = message;
 
@@ -834,17 +834,18 @@ version: ${udc.version}
         text: i18next.t('trigger.openConversation'),
         href: '#',
       });
-      link.addEventListener('click', async e => {
+      link.addEventListener('click', e => {
         e.preventDefault();
+        void (async () => {
+          await this.plugin.openChat({ revealLeaf: true });
 
-        await this.plugin.openChat({ revealLeaf: true });
+          const leaf = await this.plugin.getStewardLeaf();
+          const view = leaf.view;
 
-        const leaf = await this.plugin.getChatLeaf();
-        const view = leaf.view;
-
-        if (view instanceof ChatView) {
-          await view.openExistingConversation(conversationPath);
-        }
+          if (view instanceof ChatView) {
+            await view.openExistingConversation(conversationPath);
+          }
+        })();
       });
 
       return noticeEl;
@@ -892,7 +893,7 @@ version: ${udc.version}
         ],
       });
 
-      const leaf = await this.plugin.getChatLeaf();
+      const leaf = await this.plugin.getStewardLeaf();
       if (leaf.view instanceof ChatView && !leaf.view.isVisible(conversationPath)) {
         const lastResult =
           this.plugin.commandProcessorService.commandProcessor.getLastResult(conversationTitle);
@@ -911,7 +912,7 @@ version: ${udc.version}
         );
       }
     } catch (error) {
-      const leaf = await this.plugin.getChatLeaf();
+      const leaf = await this.plugin.getStewardLeaf();
       if (leaf.view instanceof ChatView && !leaf.view.isVisible(conversationPath)) {
         new Notice(
           buildNoticeFragment(

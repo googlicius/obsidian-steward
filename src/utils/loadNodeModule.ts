@@ -26,7 +26,6 @@ export function loadNodeModule(specifier: string): Promise<unknown>;
 export function loadNodeModule(specifier: string): Promise<unknown> {
   let pending = nodeModuleLoadCache.get(specifier);
   if (!pending) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     pending = Promise.resolve(require(specifier));
     nodeModuleLoadCache.set(specifier, pending);
   }

@@ -94,7 +94,7 @@ export function datasourceIconRenderer(
     return null;
   }
 
-  const iconEl = document.createElement('span');
+  const iconEl = activeDocument.createElement('span');
   iconEl.className = 'stw-autocomplete-icon';
   const iconName = completion.type === DATASOURCE_FILE_TYPE ? 'file-text' : 'folder';
   setIcon(iconEl, iconName);

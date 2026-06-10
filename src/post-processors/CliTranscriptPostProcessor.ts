@@ -75,7 +75,7 @@ export function createCliTranscriptPostProcessor(): MarkdownPostProcessor {
       }
 
       pre.classList.add('stw-cli-transcript-active');
-      const cursor = document.createElement('span');
+      const cursor = activeDocument.createElement('span');
       cursor.classList.add('stw-cli-transcript-cursor');
       cursor.setAttribute('aria-hidden', 'true');
       pre.appendChild(cursor);

@@ -2,12 +2,14 @@
  * Shared runtime for decompressed bundled chunks.
  */
 
+// eslint-disable-next-line obsidianmd/no-global-this -- globalThis fallback for non-browser test environments
 type GlobalWithChunks = typeof globalThis & Record<string, unknown>;
 
 function getBundledChunkGlobal(): GlobalWithChunks {
   if (typeof window !== 'undefined') {
     return window as unknown as GlobalWithChunks;
   }
+  // eslint-disable-next-line obsidianmd/no-global-this, @typescript-eslint/no-unnecessary-type-assertion -- globalThis fallback for non-browser test environments
   return globalThis as unknown as GlobalWithChunks;
 }
 

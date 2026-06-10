@@ -1,4 +1,4 @@
-import { getLanguage, Setting, setIcon, setTooltip, SecretComponent, Notice } from 'obsidian';
+import { App, getLanguage, Setting, setIcon, setTooltip, SecretComponent, Notice } from 'obsidian';
 import type StewardPlugin from 'src/main';
 import { ProviderNeedApiKey } from 'src/constants';
 import { logger } from 'src/utils/logger';
@@ -11,6 +11,19 @@ const { getTranslation } = getBundledInternal('i18n');
 
 const lang = getLanguage();
 const t = getTranslation(lang);
+
+function supportsSecretStorage(app: App): boolean {
+  return typeof SecretComponent !== 'undefined' && 'secretStorage' in app;
+}
+
+function getStoredSecret(app: App, secretName: string): string | null {
+  if (!supportsSecretStorage(app)) {
+    return null;
+  }
+  // Runtime-guarded: SecretStorage is only available on Obsidian >= 1.11.4.
+  // eslint-disable-next-line obsidianmd/no-unsupported-api -- runtime-guarded
+  return app.secretStorage.getSecret(secretName);
+}
 
 // Provider configuration mapping
 const PROVIDER_CONFIG: Record<ProviderNeedApiKey, { displayName: string }> = {
@@ -100,7 +113,7 @@ export class ProviderSetting {
     let displayName: string;
     let settingName: string;
     if (isBuiltIn) {
-      const providerConfig = PROVIDER_CONFIG[provider as ProviderNeedApiKey];
+      const providerConfig = PROVIDER_CONFIG[provider];
       displayName = t(`settings.providers.${provider}.apiKey`);
       settingName = providerConfig.displayName;
     } else {
@@ -129,7 +142,7 @@ export class ProviderSetting {
 
         // For secret storage, check if secret name is set and valid
         if (providerConfig.apiKeySource === 'secret') {
-          const secret = this.plugin.app.secretStorage.getSecret(providerConfig.apiKey);
+          const secret = getStoredSecret(this.plugin.app, providerConfig.apiKey);
           return !!secret;
         }
 
@@ -155,24 +168,23 @@ export class ProviderSetting {
           cls: 'stw-custom-model-link',
         });
 
-        deleteLink.addEventListener('click', async e => {
-          e.preventDefault();
-          const isConfirming = deleteLink.getAttribute('data-confirming') === 'true';
-          const providerConfig = getProviderConfig();
-          const needsConfirm = !!providerConfig.name && providerConfig.name.trim() !== '';
+        deleteLink.addEventListener('click', e => {
+          void (async () => {
+            e.preventDefault();
+            const isConfirming = deleteLink.getAttribute('data-confirming') === 'true';
+            const providerConfig = getProviderConfig();
+            const needsConfirm = !!providerConfig.name && providerConfig.name.trim() !== '';
 
-          if (isConfirming || !needsConfirm) {
-            // Remove the provider from settings
-            delete this.plugin.settings.providers[provider];
-            await this.plugin.saveSettings();
-            // Refresh the settings display
-            await this.refreshSettingTab();
-          } else {
-            // Update text to "Confirm delete" and set confirming attribute
-            deleteLink.setText(t('settings.confirmDelete'));
-            deleteLink.setAttribute('data-confirming', 'true');
-            deleteLink.classList.add('clickable-icon');
-          }
+            if (isConfirming || !needsConfirm) {
+              delete this.plugin.settings.providers[provider];
+              await this.plugin.saveSettings();
+              await this.refreshSettingTab();
+            } else {
+              deleteLink.setText(t('settings.confirmDelete'));
+              deleteLink.setAttribute('data-confirming', 'true');
+              deleteLink.classList.add('clickable-icon');
+            }
+          })();
         });
       }
 
@@ -226,11 +238,10 @@ export class ProviderSetting {
           value: providerConfig.name,
         });
 
-        nameInput.addEventListener('change', async e => {
+        nameInput.addEventListener('change', e => {
           const target = e.target as HTMLInputElement;
           let value = target.value.trim();
 
-          // Validate: no spaces allowed
           if (value.includes(' ')) {
             new Notice(t('settings.providerNameNoSpaces'));
             value = value.replace(/\s+/g, '');
@@ -239,8 +250,7 @@ export class ProviderSetting {
 
           if (value) {
             providerConfig.name = value;
-            await this.plugin.saveSettings();
-            // Update the setting name display (format: replace underscores with spaces and capitalize)
+            void this.plugin.saveSettings();
             setting.setName(this.getDisplayName(value));
           }
         });
@@ -272,10 +282,13 @@ export class ProviderSetting {
           }
         }
 
-        compatibilitySelect.addEventListener('change', async e => {
+        compatibilitySelect.addEventListener('change', e => {
           const target = e.target as HTMLSelectElement;
-          providerConfig.compatibility = target.value as ProviderNeedApiKey;
-          await this.plugin.saveSettings();
+          if (!this.isBuiltInProvider(target.value)) {
+            return;
+          }
+          providerConfig.compatibility = target.value;
+          void this.plugin.saveSettings();
         });
       }
 
@@ -328,51 +341,51 @@ export class ProviderSetting {
           setIcon(clearButton, 'cross');
           setTooltip(clearButton, t('settings.clearApiKey'));
 
-          clearButton.addEventListener('click', async () => {
-            try {
-              await this.plugin.encryptionService.setEncryptedApiKey(provider, '');
-              recreateInput('edit');
-            } catch (error) {
-              new Notice(t('settings.failedToClearApiKey'));
-              logger.error(`Error clearing ${provider} API key:`, error);
-            }
+          clearButton.addEventListener('click', () => {
+            void (async () => {
+              try {
+                await this.plugin.encryptionService.setEncryptedApiKey(provider, '');
+                recreateInput('edit');
+              } catch (error) {
+                new Notice(t('settings.failedToClearApiKey'));
+                logger.error(`Error clearing ${provider} API key:`, error);
+              }
+            })();
           });
         }
 
-        apiKeyInput.addEventListener('change', async e => {
-          const target = e.target as HTMLInputElement;
-          const value = target.value.trim();
+        apiKeyInput.addEventListener('change', e => {
+          void (async () => {
+            const target = e.target as HTMLInputElement;
+            const value = target.value.trim();
 
-          if (value) {
-            try {
-              await this.plugin.encryptionService.setEncryptedApiKey(provider, value);
-              target.setAttribute('placeholder', API_KEY_PLACEHOLDER);
-              target.value = '';
-              // Refresh to show the read-only state and clear button
-              recreateInput('edit');
-            } catch (error) {
-              new Notice(t('settings.failedToSaveApiKey'));
-              logger.error(`Error setting ${provider} API key:`, error);
+            if (value) {
+              try {
+                await this.plugin.encryptionService.setEncryptedApiKey(provider, value);
+                target.setAttribute('placeholder', API_KEY_PLACEHOLDER);
+                target.value = '';
+                recreateInput('edit');
+              } catch (error) {
+                new Notice(t('settings.failedToSaveApiKey'));
+                logger.error(`Error setting ${provider} API key:`, error);
+              }
             }
-          }
+          })();
         });
 
         // Add "Use secret storage" link when API key is empty and Obsidian supports SecretComponent
-        const supportsSecretStorage = typeof SecretComponent !== 'undefined';
-
-        if (!hasApiKey() && supportsSecretStorage) {
+        if (!hasApiKey() && supportsSecretStorage(this.app)) {
           const secretStorageLink = apiKeyWrapper.createEl('a', {
             text: t('settings.useSecretStorage'),
             href: '#',
             cls: 'stw-custom-model-link',
           });
 
-          secretStorageLink.addEventListener('click', async e => {
+          secretStorageLink.addEventListener('click', e => {
             e.preventDefault();
-            // Switch to secret storage mode
             providerConfig.apiKeySource = 'secret';
             providerConfig.apiKey = '';
-            await this.plugin.saveSettings();
+            void this.plugin.saveSettings();
             recreateInput('edit');
           });
         }
@@ -396,14 +409,17 @@ export class ProviderSetting {
           cls: 'stw-secret-component-wrapper flex items-center gap-2',
         });
 
-        // Create and mount SecretComponent
-        new SecretComponent(this.app, secretComponentWrapper)
-          .setValue(providerConfig.apiKey || '')
-          .onChange(async (secretName: string) => {
-            providerConfig.apiKey = secretName;
-            providerConfig.apiKeySource = 'secret';
-            await this.plugin.saveSettings();
-          });
+        if (supportsSecretStorage(this.app)) {
+          // Runtime-guarded: SecretComponent is only available on Obsidian >= 1.11.1.
+          // eslint-disable-next-line obsidianmd/no-unsupported-api -- runtime-guarded
+          new SecretComponent(this.app, secretComponentWrapper)
+            .setValue(providerConfig.apiKey || '')
+            .onChange((secretName: string) => {
+              providerConfig.apiKey = secretName;
+              providerConfig.apiKeySource = 'secret';
+              void this.plugin.saveSettings();
+            });
+        }
 
         // Add "Switch to direct input" link
         const switchToDirectLink = apiKeyWrapper.createEl('a', {
@@ -412,12 +428,11 @@ export class ProviderSetting {
           cls: 'stw-custom-model-link',
         });
 
-        switchToDirectLink.addEventListener('click', async e => {
+        switchToDirectLink.addEventListener('click', e => {
           e.preventDefault();
-          // Switch to direct input mode
           providerConfig.apiKeySource = 'direct';
           providerConfig.apiKey = '';
-          await this.plugin.saveSettings();
+          void this.plugin.saveSettings();
           recreateInput('edit');
         });
       };
@@ -447,11 +462,10 @@ export class ProviderSetting {
         value: currentBaseUrl,
       });
 
-      baseUrlInput.addEventListener('change', async e => {
+      baseUrlInput.addEventListener('change', e => {
         const target = e.target as HTMLInputElement;
-        const value = target.value.trim();
-        providerConfig.baseUrl = value;
-        await this.plugin.saveSettings();
+        providerConfig.baseUrl = target.value.trim();
+        void this.plugin.saveSettings();
       });
 
       // Create Description textarea (only for custom providers)
@@ -479,12 +493,11 @@ export class ProviderSetting {
           descriptionTextarea.value = providerConfig.description;
         }
 
-        descriptionTextarea.addEventListener('change', async e => {
+        descriptionTextarea.addEventListener('change', e => {
           const target = e.target as HTMLTextAreaElement;
           const value = target.value.trim();
           providerConfig.description = value;
-          await this.plugin.saveSettings();
-          // Update the description display
+          void this.plugin.saveSettings();
           if (value) {
             setting.setDesc(createFragmentFromText(value));
           } else {
@@ -515,11 +528,10 @@ export class ProviderSetting {
           systemPromptTextarea.value = providerConfig.systemPrompt;
         }
 
-        systemPromptTextarea.addEventListener('change', async e => {
+        systemPromptTextarea.addEventListener('change', e => {
           const target = e.target as HTMLTextAreaElement;
-          const value = target.value.trim();
-          providerConfig.systemPrompt = value;
-          await this.plugin.saveSettings();
+          providerConfig.systemPrompt = target.value.trim();
+          void this.plugin.saveSettings();
         });
       }
     };

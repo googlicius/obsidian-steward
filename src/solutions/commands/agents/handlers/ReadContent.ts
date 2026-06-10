@@ -66,11 +66,7 @@ Set to -1 when: Reading above or below the current position and explicitly reque
 If the readType is "entire", leave it null.`
     ),
   confidence: z.number().min(0).max(1).optional().describe(confidenceFragment),
-  lang: z
-    .string()
-    .nullable()
-    .optional()
-    .describe(userLanguagePrompt.content as string),
+  lang: z.string().nullable().optional().describe(userLanguagePrompt.content),
 });
 
 export type ContentReadingArgs = z.infer<typeof contentReadingSchema>;

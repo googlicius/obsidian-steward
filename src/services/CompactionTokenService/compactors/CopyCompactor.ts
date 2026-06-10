@@ -19,7 +19,7 @@ export class CopyCompactor implements ToolResultCompactor {
       typeof output === 'string'
         ? output
         : output && typeof output === 'object' && 'value' in output
-          ? String((output as { value: unknown }).value)
+          ? String(output.value)
           : '';
     const allPaths = extractPathsFromText(text);
     const { paths, note } = truncatePathsWithNote(allPaths);

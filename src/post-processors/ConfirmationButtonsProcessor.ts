@@ -21,8 +21,8 @@ function decodeMarkerSeg(raw: string | undefined): string | undefined {
 export function createConfirmationButtonsProcessor(plugin: StewardPlugin): MarkdownPostProcessor {
   function handleAffirmativeClick(_event: MouseEvent, conversationTitle: string | undefined) {
     if (conversationTitle) {
-      plugin.conversationRenderer.removeConfirmationButtons(conversationTitle);
-      plugin.commandProcessorService.commandProcessor.processIntents({
+      void plugin.conversationRenderer.removeConfirmationButtons(conversationTitle);
+      void plugin.commandProcessorService.commandProcessor.processIntents({
         title: conversationTitle,
         intents: [
           {
@@ -36,8 +36,8 @@ export function createConfirmationButtonsProcessor(plugin: StewardPlugin): Markd
 
   function handleRejectClick(_event: MouseEvent, conversationTitle: string | undefined) {
     if (conversationTitle) {
-      plugin.conversationRenderer.removeConfirmationButtons(conversationTitle);
-      plugin.commandProcessorService.commandProcessor.processIntents({
+      void plugin.conversationRenderer.removeConfirmationButtons(conversationTitle);
+      void plugin.commandProcessorService.commandProcessor.processIntents({
         title: conversationTitle,
         intents: [
           {
@@ -74,7 +74,7 @@ export function createConfirmationButtonsProcessor(plugin: StewardPlugin): Markd
         if (match.index > lastIndex) {
           const beforeText = textContent.substring(lastIndex, match.index);
           if (beforeText) {
-            replacementElements.push(document.createTextNode(beforeText));
+            replacementElements.push(activeDocument.createTextNode(beforeText));
           }
         }
 
@@ -91,7 +91,7 @@ export function createConfirmationButtonsProcessor(plugin: StewardPlugin): Markd
         const rejectText = decodeMarkerSeg(rejectEnc) ?? t('ui.no');
 
         // Create buttons container
-        const buttonsContainer = document.createElement('div');
+        const buttonsContainer = activeDocument.createElement('div');
         buttonsContainer.classList.add('stw-confirmation-buttons');
 
         buttonsContainer
@@ -123,7 +123,7 @@ export function createConfirmationButtonsProcessor(plugin: StewardPlugin): Markd
       if (lastIndex < textContent.length) {
         const afterText = textContent.substring(lastIndex);
         if (afterText) {
-          replacementElements.push(document.createTextNode(afterText));
+          replacementElements.push(activeDocument.createTextNode(afterText));
         }
       }
 

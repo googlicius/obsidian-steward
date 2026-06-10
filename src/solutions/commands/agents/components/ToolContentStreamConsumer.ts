@@ -23,6 +23,7 @@ export interface ToolContentStreamConsumerHost {
 
 export const TOOL_CONTENT_STREAM_CONSUMER_SYMBOL = Symbol('ToolContentStreamConsumer');
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- intentional mixin pattern
 export interface ToolContentStreamConsumer {
   [TOOL_CONTENT_STREAM_CONSUMER_SYMBOL]: true;
   createToolContentExtractor(toolName: string): { feed: (delta: string) => string };
@@ -41,6 +42,7 @@ function asHost(instance: ToolContentStreamConsumer): ToolContentStreamConsumerH
 const STREAM_CONTENT_FENCE_OPEN = '````\n';
 const STREAM_CONTENT_FENCE_CLOSE = '\n````';
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- intentional mixin pattern
 export class ToolContentStreamConsumer {
   public [TOOL_CONTENT_STREAM_CONSUMER_SYMBOL] = true as const;
 
@@ -49,7 +51,7 @@ export class ToolContentStreamConsumer {
   }
 
   public createToolContentExtractor(toolName: string): { feed: (delta: string) => string } {
-    if (toolName === ToolName.EDIT) {
+    if ((toolName as ToolName) === ToolName.EDIT) {
       return new PartialJsonFieldExtractor('content', { requiredMode: 'replace_by_lines' });
     }
     return new PartialJsonFieldExtractor('content');
