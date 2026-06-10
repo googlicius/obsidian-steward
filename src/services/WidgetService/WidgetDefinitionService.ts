@@ -1,4 +1,4 @@
-import { TAbstractFile, TFile, normalizePath } from 'obsidian';
+import { TFile, normalizePath } from 'obsidian';
 import { z } from 'zod/v3';
 import type StewardPlugin from 'src/main';
 import { MarkdownDefinitionService } from '../MarkdownDefinitionService';
@@ -53,7 +53,7 @@ export class WidgetDefinitionService {
     return WidgetDefinitionService.instance;
   }
 
-  /** Registers vault create/modify listeners for Widget.md validation. */
+  /** Registers metadata cache listeners for Widget.md validation. */
   public initialize(): void {
     if (this.initialized) {
       return;
@@ -61,22 +61,18 @@ export class WidgetDefinitionService {
 
     this.initialized = true;
 
-    const handleDefinitionFile = (file: TAbstractFile) => {
-      if (!(file instanceof TFile)) {
-        return;
-      }
-      if (!this.isWidgetDefinitionPath(file.path)) {
-        return;
-      }
+    this.plugin.registerEvent(
+      this.plugin.app.metadataCache.on('changed', file => {
+        if (!(file instanceof TFile)) {
+          return;
+        }
+        if (!this.isWidgetDefinitionPath(file.path)) {
+          return;
+        }
 
-      void this.validateAndUpdateFrontmatter(file);
-    };
-
-    this.plugin.app.workspace.onLayoutReady(() => {
-      this.plugin.registerEvent(this.plugin.app.vault.on('create', handleDefinitionFile));
-    });
-
-    this.plugin.registerEvent(this.plugin.app.vault.on('modify', handleDefinitionFile));
+        void this.validateAndUpdateFrontmatter(file);
+      })
+    );
   }
 
   public buildStatusMessage(valid: boolean, errors?: string[]): string {
@@ -89,7 +85,7 @@ export class WidgetDefinitionService {
   }
 
   /** Whether a vault path is the Widget.md definition file inside a widget project. */
-  public isWidgetDefinitionPath(filePath: string): boolean {
+  private isWidgetDefinitionPath(filePath: string): boolean {
     const normalized = normalizePath(filePath);
     if (!normalized.endsWith('/Widget.md')) {
       return false;
@@ -99,7 +95,7 @@ export class WidgetDefinitionService {
     return normalized.startsWith(`${root}/`);
   }
 
-  public readStatusFromFrontmatter(file: TFile): string | undefined {
+  private readStatusFromFrontmatter(file: TFile): string | undefined {
     const fileCache = this.plugin.app.metadataCache.getFileCache(file);
     const statusRaw = fileCache?.frontmatter?.status;
     return typeof statusRaw === 'string' ? statusRaw : undefined;
@@ -107,7 +103,7 @@ export class WidgetDefinitionService {
 
   /**
    * Reads frontmatter validation status for edited Widget.md paths (no validation trigger).
-   * May be stale if the vault modify handler has not run yet.
+   * May be stale if the metadata cache handler has not run yet.
    */
   public readEditedDefinitionStatusFromFrontmatter(filePaths: string[]): string | undefined {
     const validStatus = this.buildStatusMessage(true);
@@ -139,7 +135,7 @@ export class WidgetDefinitionService {
     return messages.join('\n');
   }
 
-  public validateContent(params: {
+  private validateContent(params: {
     content: string;
     file: TFile;
   }): WidgetDefinitionValidationResult {
@@ -147,7 +143,7 @@ export class WidgetDefinitionService {
     return this.validateCollectedBlocks({ collected, file: params.file });
   }
 
-  public async validateAndUpdateFrontmatter(
+  private async validateAndUpdateFrontmatter(
     file: TFile
   ): Promise<WidgetDefinitionValidationResult> {
     const content = await this.plugin.app.vault.read(file);

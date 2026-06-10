@@ -115,6 +115,17 @@ function createValidatorPlugin(content: string): jest.Mocked<StewardPlugin> {
   } as jest.Mocked<StewardPlugin>;
 }
 
+function bindPrivateMethods(service: WidgetDefinitionService) {
+  return {
+    validateContent: service['validateContent'].bind(
+      service
+    ) as WidgetDefinitionService['validateContent'],
+    validateAndUpdateFrontmatter: service['validateAndUpdateFrontmatter'].bind(
+      service
+    ) as WidgetDefinitionService['validateAndUpdateFrontmatter'],
+  };
+}
+
 describe('WidgetDefinitionService', () => {
   const file = { path: 'Steward/Widgets/Tic-Tac-Toe-abc/Widget.md' } as TFile;
 
@@ -126,8 +137,8 @@ describe('WidgetDefinitionService', () => {
   it('accepts a complete valid Widget.md definition', () => {
     const content = buildValidWidgetMd();
     const plugin = createValidatorPlugin(content);
-    const service = WidgetDefinitionService.getInstance(plugin);
-    const result = service.validateContent({ content, file });
+    const { validateContent } = bindPrivateMethods(WidgetDefinitionService.getInstance(plugin));
+    const result = validateContent({ content, file });
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
   });
@@ -135,8 +146,8 @@ describe('WidgetDefinitionService', () => {
   it('requires a manifest block', () => {
     const content = '```yaml\nname: actions\nactions: {}\n```';
     const plugin = createValidatorPlugin(content);
-    const service = WidgetDefinitionService.getInstance(plugin);
-    const result = service.validateContent({ content, file });
+    const { validateContent } = bindPrivateMethods(WidgetDefinitionService.getInstance(plugin));
+    const result = validateContent({ content, file });
     expect(result.valid).toBe(false);
     expect(result.errors.some(error => error.includes('manifest'))).toBe(true);
   });
@@ -158,8 +169,8 @@ describe('WidgetDefinitionService', () => {
       '```',
     ].join('\n');
     const plugin = createValidatorPlugin(content);
-    const service = WidgetDefinitionService.getInstance(plugin);
-    const result = service.validateContent({ content, file });
+    const { validateContent } = bindPrivateMethods(WidgetDefinitionService.getInstance(plugin));
+    const result = validateContent({ content, file });
     expect(result.valid).toBe(false);
     expect(result.errors.some(error => error.includes('actors: required'))).toBe(true);
     expect(result.errors.some(error => error.includes('actions: required'))).toBe(true);
@@ -176,8 +187,10 @@ describe('WidgetDefinitionService', () => {
     });
     plugin.app.fileManager.processFrontMatter = processFrontMatter;
 
-    const service = WidgetDefinitionService.getInstance(plugin);
-    const result = await service.validateAndUpdateFrontmatter(file);
+    const { validateAndUpdateFrontmatter } = bindPrivateMethods(
+      WidgetDefinitionService.getInstance(plugin)
+    );
+    const result = await validateAndUpdateFrontmatter(file);
 
     expect(result.valid).toBe(true);
     expect(processFrontMatter).toHaveBeenCalled();
